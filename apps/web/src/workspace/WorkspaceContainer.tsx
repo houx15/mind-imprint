@@ -350,6 +350,11 @@ export function WorkspaceContainer({
   // ReferencePanel's 材料 fragments call it — the fold of the old floating
   // 材料 box, hoisted one level so the two SplitPane siblings share one path.
   const draftInsertRef = useRef<((t: string) => void) | null>(null);
+  // Sibling bridge for S1 · click a 批注 → scroll+highlight the matching text in
+  // the active writing surface (essay DraftPane or proposal ProsePane, whichever
+  // is mounted registers it). Hoisted like draftInsertRef so ReferencePanel (left
+  // SplitPane) reaches the draft (right SplitPane).
+  const draftScrollRef = useRef<((a: { quote?: string; locator?: string }) => void) | null>(null);
   // Whether the writing draft (DraftPane, 正文 tab) is mounted + has registered
   // its inserter — gates the ReferencePanel 材料「插入」action so it is never a
   // dead no-op on the 大纲/片段 tabs (P3 review).
@@ -380,9 +385,14 @@ export function WorkspaceContainer({
     setTookOver(true);
     setRecapLanding(false);
     // §5 · a manual switch INTO the reading room asks to confirm first; any other
-    // manual switch clears the gate.
-    setReadingConfirmNeeded(r === "reading");
-  }, []);
+    // manual switch clears the gate. But the confirm-start nudge is only for a
+    // LIVE project — once the essay has reached 回顾/retrospective (or the project
+    // is finalized), reopening the reading room must land straight on the
+    // already-built rabbit hole, never a "开始探索?" prompt (bug: it re-showed on
+    // every re-entry of a done project and read as an empty/broken room).
+    const alive = !studioState || studioState.stage !== "retrospective";
+    setReadingConfirmNeeded(r === "reading" && alive);
+  }, [studioState]);
 
   // 「继续印记」(P4, spec §6): while the student has manually taken over the
   // switcher, this re-asserts 印记's own view — re-fetch the current status
@@ -1222,6 +1232,7 @@ export function WorkspaceContainer({
                 onStudioStateChanged={continueYinji}
                 confirmStart={readingConfirmNeeded}
                 onConfirmStart={() => setReadingConfirmNeeded(false)}
+                aiSide={aiSide}
               />
             )}
             {room === "writing" && (
@@ -1243,6 +1254,7 @@ export function WorkspaceContainer({
                     canInsert={insertReady}
                     annotationsVersion={annotationsVersion}
                     onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
+                    onJumpToAnchor={(a) => draftScrollRef.current?.(a)}
                   />
                 }
                 right={(() => {
@@ -1276,6 +1288,7 @@ export function WorkspaceContainer({
                       onSwitchDoc={setDocOverride}
                       writingFinished={docFinished}
                       draftInsertRef={draftInsertRef}
+                      draftScrollRef={draftScrollRef}
                       onInsertReady={setInsertReady}
                       refreshWorkspace={refreshWorkspace}
                       recap={historyRecap ?? summary}

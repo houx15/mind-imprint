@@ -111,6 +111,7 @@ export function WritingBlock({
   onSwitchDoc,
   writingFinished,
   draftInsertRef,
+  draftScrollRef,
   onInsertReady,
   refreshWorkspace,
   recap,
@@ -143,6 +144,11 @@ export function WritingBlock({
    * of the old floating 材料 box). Hoisted to WorkspaceContainer. Optional — an
    * isolated unit render falls back to a local ref. */
   draftInsertRef?: { current: ((t: string) => void) | null };
+  /** S1 · shared scroll-to-anchor ref: the active writing surface (essay
+   * DraftPane / proposal ProsePane) registers a fn that finds a 批注's quote or
+   * 第N段 locator in the draft and scrolls+selects it. Clicked from the sibling
+   * ReferencePanel's 批注. Hoisted to WorkspaceContainer. */
+  draftScrollRef?: { current: ((a: { quote?: string; locator?: string }) => void) | null };
   /** Notified when DraftPane registers (正文 mounted) / unregisters its inserter,
    * so the container can gate the ReferencePanel 「插入」 action (P3 review). */
   onInsertReady?: (ready: boolean) => void;
@@ -274,6 +280,9 @@ export function WritingBlock({
   // local ref when the prop is absent (isolated unit tests).
   const localDraftInsertRef = useRef<((t: string) => void) | null>(null);
   const insertTarget = draftInsertRef ?? localDraftInsertRef;
+  // S1 · same pattern for the scroll-to-anchor bridge (批注 click → jump).
+  const localDraftScrollRef = useRef<((a: { quote?: string; locator?: string }) => void) | null>(null);
+  const scrollTarget = draftScrollRef ?? localDraftScrollRef;
   const snip = useSnippets(projectId);
   // #6 · the outline headings the student has explicitly imported as snippet
   // board sections (see importedSectionsMemo above) — lifted here so both the
@@ -336,20 +345,23 @@ export function WritingBlock({
         </div>
       )}
 
-      {/* slice 4b · the guided statement walk (ready gate + per-claim cards),
-          above the 大纲/片段/正文 tabs, when the essay is in the statement stage. */}
-      {!isProposal && essayStage === "statement" && !locked && (
-        <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} onStageAdvanced={onStudioStateChanged} />
-      )}
-
-      {/* slice 4c · the guided submission walk (引言→结论→成文→润色) when the essay is
-          in the submission stage. 成文/润色 defer to the 正文 tab. */}
-      {!isProposal && essayStage === "submission" && !locked && (
-        <EssaySubmissionPane
-          projectId={projectId}
-          onGoToDraft={() => setTab("draft")}
-          onRequestFinish={() => void openFinish()}
-        />
+      {/* slice 4b/4c · the guided statement/submission walk, above the tabs.
+          On the 正文 tab the student is writing the full draft, so the guide is
+          height-capped + scrollable (it must not eat the writing box — it used to
+          leave the 正文 textarea only ~20% tall). On the 大纲/片段 tabs the guide
+          IS the work, so it renders at natural height. */}
+      {!isProposal && (essayStage === "statement" || essayStage === "submission") && !locked && (
+        <div className={tab === "draft" ? "max-h-[32vh] shrink-0 overflow-y-auto" : "shrink-0"}>
+          {essayStage === "statement" ? (
+            <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} onStageAdvanced={onStudioStateChanged} />
+          ) : (
+            <EssaySubmissionPane
+              projectId={projectId}
+              onGoToDraft={() => setTab("draft")}
+              onRequestFinish={() => void openFinish()}
+            />
+          )}
+        </div>
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
@@ -366,6 +378,7 @@ export function WritingBlock({
             locked={locked}
             onFocusPart={setFocusPart}
             registerInsert={(fn) => { insertTarget.current = fn; onInsertReady?.(!!fn); }}
+            registerScroll={(fn) => { scrollTarget.current = fn; }}
             pendingReview={pendingReview}
             onPendingReviewHandled={() => setPendingReview(null)}
           />
@@ -513,6 +526,16 @@ export type SnippetsHandle = {
   update: (id: string, text: string) => void;
   remove: (id: string) => void;
   setSection: (id: string, section: string | null) => void;
+  // Write `text` to the (single) snippet under `section`, resolving against the
+  // LIVE snapshot (ref.current) — creates the row if absent, updates it if
+  // present. Unlike add/update-by-id this never depends on a caller-held id ref
+  // that can go stale across step transitions, so a guided part's text always
+  // lands in ITS OWN section slot (fixes the proposal-guide wrong-slot bug where
+  // one part's draft overwrote a neighbour's under a fast edit→advance race).
+  upsertSection: (section: string, text: string) => void;
+  // A synchronous read of the live rows (ref.current), for assembling the full
+  // doc immediately after an upsert (the `snippets` state lags a render).
+  all: () => Snip[];
 };
 export function useSnippets(projectId: string): SnippetsHandle {
   const [snippets, setSnippets] = useState<Snip[]>([]);
@@ -576,6 +599,13 @@ export function useSnippets(projectId: string): SnippetsHandle {
     update: (id, text) => commit(ref.current.map((s) => (s.id === id ? { ...s, text } : s))),
     remove: (id) => commit(ref.current.filter((s) => s.id !== id)),
     setSection: (id, section) => commit(ref.current.map((s) => (s.id === id ? { ...s, section } : s))),
+    upsertSection: (section, text) => {
+      const rows = ref.current;
+      const i = rows.findIndex((s) => s.section === section);
+      if (i >= 0) commit(rows.map((s, j) => (j === i ? { ...s, text } : s)));
+      else commit([...rows, { id: tempId(), text, section }]);
+    },
+    all: () => ref.current,
   };
 }
 
@@ -1232,6 +1262,7 @@ function DraftPane({
   locked,
   onFocusPart,
   registerInsert,
+  registerScroll,
   pendingReview,
   onPendingReviewHandled,
 }: {
@@ -1240,6 +1271,9 @@ function DraftPane({
   locked: boolean;
   onFocusPart: (part: string) => void;
   registerInsert: (fn: ((t: string) => void) | null) => void;
+  // S1 · register a scroll-to-anchor fn (批注 click → find quote/第N段 in the
+  // draft, scroll+select it). Null on unmount.
+  registerScroll?: (fn: ((a: { quote?: string; locator?: string }) => void) | null) => void;
   // #8-second · a voice-scoped 体检 requested from the persistent rail shelf
   // (a tab-sibling of this pane) — queued here rather than called directly so
   // it's never lost to the mount race when the request also switches the tab
@@ -1538,6 +1572,55 @@ function DraftPane({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // S1 · scroll+select the text a 批注 points at. Anchor = the sentence `quote`
+  // (found by indexOf) or a "第N段" `locator` (the Nth blank-line block). Reads
+  // the live textarea (draftRef) so it's robust to edits; approximate if the
+  // draft was edited after the 批注 was written. No-op in 分节 mode / when the
+  // anchor isn't found (nothing to jump to).
+  function scrollToAnchor(a: { quote?: string; locator?: string }) {
+    setMode("write");
+    setPane("edit");
+    requestAnimationFrame(() => {
+      const ta = draftRef.current;
+      if (!ta) return;
+      const src = ta.value;
+      let start = -1;
+      let end = -1;
+      const q = a.quote?.trim();
+      if (q) {
+        const i = src.indexOf(q);
+        if (i >= 0) { start = i; end = i + q.length; }
+      }
+      if (start < 0 && a.locator) {
+        const n = parseInt(a.locator.replace(/[^0-9]/g, ""), 10);
+        if (n >= 1) {
+          const blocks: Array<[number, number]> = [];
+          const re = /\n{2,}/g;
+          let last = 0;
+          let m: RegExpExecArray | null;
+          while ((m = re.exec(src)) !== null) { blocks.push([last, m.index]); last = m.index + m[0].length; }
+          blocks.push([last, src.length]);
+          const b = blocks[n - 1];
+          if (b) { start = b[0]; end = b[1]; }
+        }
+      }
+      if (start < 0) return;
+      ta.focus();
+      ta.setSelectionRange(start, end);
+      // Textareas have no "scroll selection into view", so approximate from the
+      // fraction of text before the anchor and center it a third down the box.
+      const frac = start / Math.max(1, src.length);
+      ta.scrollTop = Math.max(0, frac * ta.scrollHeight - ta.clientHeight / 3);
+    });
+  }
+  const scrollRefFn = useRef(scrollToAnchor);
+  scrollRefFn.current = scrollToAnchor;
+  useEffect(() => {
+    registerScroll?.((a) => scrollRefFn.current(a));
+    return () => registerScroll?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Q2 · once a 整稿体检 result (or an in-flight/errored attempt) exists, lay
   // the draft out left/review right instead of stacking the panel below the
   // textarea — the student can read the advice next to her own words. Widen
@@ -1546,7 +1629,7 @@ function DraftPane({
   const showReview = mode === "write" && !!(reviewError || reviewing || review);
 
   return (
-    <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-8 py-6">
+    <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-8 py-3">
       <div
         ref={paneRef}
         className={`relative mx-auto flex min-h-0 w-full flex-1 flex-col ${showReview ? "max-w-6xl" : "max-w-2xl"}`}

@@ -387,11 +387,9 @@ export function ProposalGuidePane({
   // free mode + export + finish (which all read the buffer) stay consistent.
   const stepKey = step?.key ?? "";
   const [partText, setPartText] = useState("");
-  const partIdRef = useRef<string | null>(null);
   const assembleTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     const existing = snip.snippets.find((s) => s.section === partSectionKey(stepKey));
-    partIdRef.current = existing?.id ?? null;
     setPartText(existing?.text ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey]);
@@ -399,7 +397,10 @@ export function ProposalGuidePane({
   function assembleToBuffer() {
     if (!step) return;
     const textByKey: Record<string, string> = {};
-    for (const s of snip.snippets) {
+    // Read the LIVE snapshot (snip.all()) — right after an upsertSection the
+    // `snippets` state still lags a render, so assembling off it would drop the
+    // part just written (and mis-key the buffer).
+    for (const s of snip.all()) {
       if (s.section && s.section.startsWith("prop:")) textByKey[s.section.slice(5)] = s.text;
     }
     void putBuffer(projectId, assembleGuidedDoc(step.steps, textByKey), "proposal").catch(() => {});
@@ -407,8 +408,10 @@ export function ProposalGuidePane({
 
   function onPartChange(v: string) {
     setPartText(v);
-    if (partIdRef.current) snip.update(partIdRef.current, v);
-    else partIdRef.current = snip.add(v, partSectionKey(stepKey));
+    // Write by SECTION (prop:<current stepKey>) against the live snapshot — never
+    // via a mutable id ref, which could still point at the PREVIOUS part after a
+    // fast advance and clobber its slot (root cause of the wrong-slot bug).
+    snip.upsertSection(partSectionKey(stepKey), v);
     if (assembleTimer.current) clearTimeout(assembleTimer.current);
     assembleTimer.current = setTimeout(assembleToBuffer, 1000);
   }
@@ -426,7 +429,14 @@ export function ProposalGuidePane({
     // (ProsePane), so DON'T re-assemble from the per-part snippets (that would
     // clobber their polish) and DON'T advance (it's the last step; finish is the
     // separate 完成提案 button).
-    if (!isPolish) assembleToBuffer();
+    if (!isPolish) {
+      // Flush THIS part's live textarea value to its own section slot before we
+      // assemble + advance — the 1s debounce may not have fired yet, and doing it
+      // by section (not a stale id ref) guarantees the current draft lands in the
+      // current part, never a neighbour's slot.
+      snip.upsertSection(partSectionKey(stepKey), partText);
+      assembleToBuffer();
+    }
     try {
       // The flagship reviewer produces 批注 (view-only, left panel — 铁律①).
       await reviewProposalPart(projectId, step.key);

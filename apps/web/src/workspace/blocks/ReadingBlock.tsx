@@ -83,6 +83,7 @@ export function ReadingBlock({
   onStudioStateChanged,
   confirmStart,
   onConfirmStart,
+  aiSide,
 }: {
   projectId: string;
   title: string;
@@ -91,6 +92,9 @@ export function ReadingBlock({
   // guide begins directly (no gate).
   confirmStart?: boolean;
   onConfirmStart?: () => void;
+  // Which edge the 印记 chat panel sits on — forwarded to ExplorationView so the
+  // reading room's aux controls dock on the OPPOSITE edge (no overlap).
+  aiSide?: "left" | "right";
   // slice 4a · the essay stage; the 证据地图 research panel shows only while
   // "research". onStudioStateChanged re-applies 印记's state after the advance to
   // statement (opens the writing room).
@@ -413,26 +417,15 @@ export function ReadingBlock({
   // empty content, reached via the toggle like any other view.
   const topic = title?.trim();
 
-  // §5 · manual entry → confirm you want to start exploring before the room opens.
-  if (confirmStart) {
-    return (
-      <div className="flex h-full items-center justify-center bg-mk-paper px-6">
-        <div className="max-w-md text-center">
-          <h2 className="font-sans text-[20px] font-bold text-mk-ink">开始一段文献探索？</h2>
-          <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
-            在阅读室里，你可以顺着研究问题去检索、阅读、给材料做证据笔记，慢慢搭起你的证据地图。准备好了就开始吧。
-          </p>
-          <button
-            type="button"
-            onClick={onConfirmStart}
-            className="mt-5 rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600"
-          >
-            开始探索
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // §5 · the "开始探索?" confirm used to be a FULL-SCREEN mask over the whole
+  // reading room — but on a project that already has a rabbit hole it read as an
+  // empty/broken room every time you re-entered (the graph was there, just
+  // hidden behind the mask). Now the room content always renders; the nudge is a
+  // small, dismissible card docked at the TOP of the 印记 sidebar (below), shown
+  // only when the room is genuinely empty. The container already limits
+  // `confirmStart` to LIVE projects (never 回顾/finalized).
+  const readingEmpty = refs.length === 0 && explorationSignal === 0;
+  const showStartNudge = confirmStart && readingEmpty;
 
   return (
     <div className="relative flex h-full flex-col">
@@ -507,6 +500,7 @@ export function ReadingBlock({
             <ExplorationView
               projectId={projectId}
               references={refs}
+              aiSide={aiSide}
               // GVf · no dedicated research-question field is reachable here —
               // the project title (already threaded in as `title`/`topic`) is
               // the driving-question seed's fallback source.
@@ -540,9 +534,36 @@ export function ReadingBlock({
       </div>
 
       {/* COACH — portaled into the constant AiPanel (Task 3, P2a), same
-          contract as plan/writing/reflection. Reading has no room-specific
-          chrome to add, so it reuses the shared `StudioCoachChat` body as-is. */}
-      {slot && createPortal(<StudioCoachChat />, slot)}
+          contract as plan/writing/reflection. Reading normally reuses the shared
+          `StudioCoachChat` body as-is; when the room is a fresh, live one it
+          docks a small "开始探索" nudge ABOVE the chat (in the sidebar — never a
+          full-screen mask). The chat below keeps its own stick-to-bottom. */}
+      {slot &&
+        createPortal(
+          showStartNudge ? (
+            <div className="flex h-full flex-col">
+              <div className="shrink-0 border-b border-mk-border bg-mk-surface p-4">
+                <h3 className="text-[15px] font-bold text-mk-ink">开始一段文献探索</h3>
+                <p className="mt-1.5 text-[13px] leading-relaxed text-mk-muted">
+                  顺着你的研究问题去检索、阅读、给材料做证据笔记，慢慢搭起你的证据地图。准备好了就开始吧。
+                </p>
+                <button
+                  type="button"
+                  onClick={onConfirmStart}
+                  className="mt-3 w-full rounded-mk-md bg-mk-accent px-4 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600"
+                >
+                  开始探索
+                </button>
+              </div>
+              <div className="min-h-0 flex-1">
+                <StudioCoachChat />
+              </div>
+            </div>
+          ) : (
+            <StudioCoachChat />
+          ),
+          slot,
+        )}
 
       {modal}
     </div>

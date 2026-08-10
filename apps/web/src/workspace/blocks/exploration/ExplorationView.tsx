@@ -93,6 +93,11 @@ export type ExplorationViewProps = {
   // manual reload. Starts at 0; the mount effect above already fetches once,
   // so only a BUMP (not the initial render) should trigger another fetch.
   refreshNonce?: number;
+  // Which edge the 印记 chat panel sits on (container-level). The reading room's
+  // aux controls dock on the OPPOSITE edge so they never crowd/overlap the chat
+  // — and so the graph stays the centered focal element (user request). Defaults
+  // to "left" (the historical chat side) → controls on the right.
+  aiSide?: "left" | "right";
 };
 
 export function ExplorationView({
@@ -102,6 +107,7 @@ export function ExplorationView({
   onLibraryChanged,
   coach,
   refreshNonce,
+  aiSide = "left",
 }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
@@ -518,83 +524,86 @@ export function ExplorationView({
     );
   }
 
-  /* ---------- MAP (Level-1) · the overview graph of root questions + sidebar (always 'ai') ---------- */
+  /* ---------- MAP (Level-1) · the overview graph of root questions ---------- */
+  // The aux controls (印记's search-direction guidance, 还需要探索的 notes,
+  // 找找问题之间的关系) used to sit STACKED ABOVE the graph, pushing it down and
+  // burying it under buttons. They now live in a fixed-width sidebar docked on the
+  // edge OPPOSITE the 印记 chat — so the graph is the centered focal element, and
+  // the controls never crowd/overlap the chat. When a root node is selected the
+  // same column shows that node's metadata (the existing `sidebar`).
+  const auxOnLeft = aiSide === "right";
+  const controlsColumn = (
+    <aside
+      className={
+        "mk-scroll flex w-[300px] flex-none flex-col gap-2 overflow-y-auto bg-mk-surface p-4 border-mk-border " +
+        (auxOnLeft ? "border-r" : "border-l")
+      }
+    >
+      {/* slice 5 (§113/§115/§116) · 印记's search-direction guidance + the
+          student's 还需要探索的 notes (「去探索」 runs a note as a search). */}
+      <SearchGuidanceBox projectId={projectId} onSearch={keywordSearch} />
+      {/* §5 follow-up · once materials are collected, ask 印记 to review them. */}
+      {references.length > 0 && <ExplorationReviewBox projectId={projectId} />}
+      <NeedsResourcesBox projectId={projectId} onExplore={(note) => { if (note) keywordSearch(note); }} />
+      {actionError && <p className="text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
+      {/* B4b · 印记 proposes relationships between the questions. Only meaningful
+          with ≥2 root questions (an edge needs two ends). */}
+      {roots.length >= 2 && (
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={proposeRelations}
+            disabled={proposing}
+            className="rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
+          >
+            让印记找找问题之间的关系
+          </button>
+          {/* Task 7 · the question-relation proposer is a HIDDEN subagent: a
+              status line while it runs, never a chat. */}
+          {proposing && <SubagentHint text="subagent 正在梳理问题关系…" />}
+          {proposeNote && <span className="text-[12px] text-mk-faint">{proposeNote}</span>}
+        </div>
+      )}
+    </aside>
+  );
+  // No node selected → show the controls; a selected node → its metadata panel.
+  const auxColumn = sidebarState === "ai" ? controlsColumn : sidebar;
+
   return (
     <div className="relative flex h-full min-h-0 bg-mk-paper">
+      {auxOnLeft && auxColumn}
       <div className="relative flex min-h-0 flex-1 flex-col">
-      {/* Controls stay a fixed header; the map below fills the remaining height
-          (so it grows with the viewport / full-screen mode instead of sitting in
-          a short fixed box). */}
-      <div className="flex-none px-6 pt-5 pb-3">
-        {/* slice 5 (§113/§115/§116) · the reading room's two aux boxes: 印记's
-            search-direction guidance, and the student's 还需要探索的 notes (here a
-            「去探索」 runs the note as a search). */}
-        <div className="mb-3 flex flex-col gap-2">
-          <SearchGuidanceBox projectId={projectId} onSearch={keywordSearch} />
-          {/* §5 follow-up · once materials are collected, ask 印记 to review them. */}
-          {references.length > 0 && <ExplorationReviewBox projectId={projectId} />}
-          <NeedsResourcesBox projectId={projectId} onExplore={(note) => { if (note) keywordSearch(note); }} />
-        </div>
-        {/* Task 8 (P2b) · the manual root-question input + 从笔记新建问题 picker
-            are gone — 印记 now proposes questions in the chat (a confirm chip,
-            Task 7), and confirming lands the lead here via the refresh nonce
-            below. The map's own title (兔子洞地图 + its ? explainer) lives
-            inside WarrenMap, so no separate section heading here. */}
-        {actionError && <p className="text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
-
-        {/* B4b · let 印记 propose relationships between the questions. Lives in the
-            fixed header so the map body below is pure canvas. Only meaningful with
-            ≥2 root questions (an edge needs two ends). */}
-        {roots.length >= 2 && (
-          <div className="mt-2.5 flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={proposeRelations}
-              disabled={proposing}
-              className="rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
-            >
-              让印记找找问题之间的关系
-            </button>
-            {/* Task 7 · the question-relation proposer is a HIDDEN subagent: a
-                status line while it runs, never a chat. */}
-            {proposing && <SubagentHint text="subagent 正在梳理问题关系…" />}
-            {proposeNote && <span className="text-[12px] text-mk-faint">{proposeNote}</span>}
-          </div>
-        )}
-      </div>
-
-      {/* Map body — fills the remaining height so the graph grows with the room
-          (and with full-screen mode), instead of sitting in a short fixed box. */}
-      <div className="min-h-0 flex-1 px-6 pb-5">
-        {roots.length === 0 ? (
-          // Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
-          // (no imperative to type one herself; 铁律①: she still confirms).
-          // Centered illustration + ≥14px copy (design system §16).
-          <div className="flex h-full items-center justify-center">
-            <EmptyState
-              illustration="warren"
-              title="这里还是空的"
-              body="聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
+        {/* Map body — the whole column is the graph now (no header above it), so
+            it's the centered focal element and grows with the viewport. */}
+        <div className="min-h-0 flex-1 px-6 py-4">
+          {roots.length === 0 ? (
+            // Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
+            // (no imperative to type one herself; 铁律①: she still confirms).
+            <div className="flex h-full items-center justify-center">
+              <EmptyState
+                illustration="warren"
+                title="这里还是空的"
+                body="聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
+              />
+            </div>
+          ) : (
+            <WarrenMap
+              projectId={projectId}
+              roots={roots}
+              countByRoot={countByRoot}
+              edges={view.edges}
+              onZoom={zoomInto}
+              busyEdgeIds={busyEdgeIds}
+              onConfirmEdge={confirmEdge}
+              onDismissEdge={dismissEdge}
+              onRelabelEdge={relabelEdge}
+              onCreateEdge={createRelation}
+              onDeleteLead={removeRoot}
             />
-          </div>
-        ) : (
-          <WarrenMap
-            projectId={projectId}
-            roots={roots}
-            countByRoot={countByRoot}
-            edges={view.edges}
-            onZoom={zoomInto}
-            busyEdgeIds={busyEdgeIds}
-            onConfirmEdge={confirmEdge}
-            onDismissEdge={dismissEdge}
-            onRelabelEdge={relabelEdge}
-            onCreateEdge={createRelation}
-            onDeleteLead={removeRoot}
-          />
-        )}
+          )}
+        </div>
       </div>
-      </div>
-      {sidebar}
+      {!auxOnLeft && auxColumn}
     </div>
   );
 }

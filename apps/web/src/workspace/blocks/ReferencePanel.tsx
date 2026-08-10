@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type KeyboardEvent } from "react";
 import type { Annotation, DraftAnnotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage } from "@mind-imprint/contracts";
 import { EmptyState } from "@/ui/Illustration";
 import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
@@ -57,6 +57,7 @@ export function ReferencePanel({
   canInsert,
   annotationsVersion,
   onOpenReading,
+  onJumpToAnchor,
 }: {
   projectId: string;
   reference: ReferenceRef[];
@@ -64,6 +65,9 @@ export function ReferencePanel({
   proposal: Proposal;
   /** slice 5 · jump to the reading room from the 还需要探索的 box (§101). */
   onOpenReading?: (note?: string) => void;
+  /** Click a 批注 → scroll+highlight the matching text in the draft. `quote`
+   * (sentence level) or `locator` ("第N段", paragraph level) is the anchor. */
+  onJumpToAnchor?: (a: { quote?: string; locator?: string }) => void;
   /** P3 · insert a fragment into the draft at the caret (the fold of the old
    * floating 材料 box). Wired to the shared draftInsertRef in WorkspaceContainer. */
   onInsert?: (text: string) => void;
@@ -202,7 +206,7 @@ export function ReferencePanel({
                   )}
                   {cur === "anno" && (
                     <>
-                      <ProposalAnnotationGroup items={proposalAnnos} />
+                      <ProposalAnnotationGroup items={proposalAnnos} onJump={onJumpToAnchor} />
                       {annotationItems.length > 0 && <AnnotationGroup items={annotationItems} />}
                     </>
                   )}
@@ -329,10 +333,32 @@ const NATURE_DOT: Record<string, string> = {
 // overall summary (green good / blue-red enhance); paragraph = a blue/red
 // comment with a locator, no underline; sentence = the quoted sentence colored
 // + underlined, with the comment. It never touches the editable draft.
-export function ProposalAnnotationGroup({ items }: { items: DraftAnnotation[] }) {
+export function ProposalAnnotationGroup({
+  items,
+  onJump,
+}: {
+  items: DraftAnnotation[];
+  onJump?: (a: { quote?: string; locator?: string }) => void;
+}) {
   const paper = items.filter((a) => a.level === "paper");
   const paragraph = items.filter((a) => a.level === "paragraph");
   const sentence = items.filter((a) => a.level === "sentence");
+  // A paragraph/sentence 批注 is clickable when it carries an anchor 印记 can
+  // find in the draft (a quote or a 第N段 locator) AND a jump handler is wired.
+  const jumpProps = (a: DraftAnnotation) =>
+    onJump && (a.quote || a.locator)
+      ? {
+          role: "button" as const,
+          tabIndex: 0,
+          onClick: () => onJump({ quote: a.quote || undefined, locator: a.locator || undefined }),
+          onKeyDown: (e: KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onJump({ quote: a.quote || undefined, locator: a.locator || undefined }); }
+          },
+          title: "跳到正文里对应的位置",
+        }
+      : {};
+  const jumpCx = (a: DraftAnnotation) =>
+    onJump && (a.quote || a.locator) ? " cursor-pointer transition-colors hover:border-mk-accent hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent" : "";
   return (
     <div className="flex flex-col gap-3">
       <p className="text-[14px] font-semibold text-mk-ink">AI批注</p>
@@ -354,7 +380,7 @@ export function ProposalAnnotationGroup({ items }: { items: DraftAnnotation[] })
             </div>
           )}
           {paragraph.map((a) => (
-            <div key={a.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+            <div key={a.id} className={`rounded-mk-sm border border-mk-border bg-mk-paper p-2.5${jumpCx(a)}`} {...jumpProps(a)}>
               <p className="flex items-center gap-1.5 text-[12px] font-bold text-mk-faint">
                 <span className={`h-1.5 w-1.5 rounded-full ${NATURE_DOT[a.nature] ?? "bg-mk-faint"}`} />
                 段落{a.locator ? ` · ${a.locator}` : ""}
@@ -363,7 +389,7 @@ export function ProposalAnnotationGroup({ items }: { items: DraftAnnotation[] })
             </div>
           ))}
           {sentence.map((a) => (
-            <div key={a.id} className="rounded-mk-sm border border-mk-border bg-mk-paper p-2.5">
+            <div key={a.id} className={`rounded-mk-sm border border-mk-border bg-mk-paper p-2.5${jumpCx(a)}`} {...jumpProps(a)}>
               {a.quote && (
                 <p className={`text-[14px] leading-relaxed underline ${NATURE_TEXT[a.nature] ?? "text-mk-ink"}`}>
                   「{a.quote}」{a.locator ? <span className="text-[12px] text-mk-faint no-underline"> · {a.locator}</span> : null}

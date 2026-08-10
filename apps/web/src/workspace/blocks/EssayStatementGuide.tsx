@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ProposalGuideStep, SubQuestion, ClaimRevisionVerdict } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { useEssayStatement } from "./useEssayStatement";
@@ -241,23 +241,20 @@ export function EssayStatementPane({
   const stepKey = step?.key ?? "";
   // The current step's snippet (section = the step key). Bound to the card.
   const [text, setText] = useState("");
-  const snippetIdRef = useRef<string | null>(null);
 
-  // Re-seed the local text + snippet id when the step changes.
+  // Re-seed the local text when the step changes.
   useEffect(() => {
     const existing = snip.snippets.find((s) => s.section === stepKey);
-    snippetIdRef.current = existing?.id ?? null;
     setText(existing?.text ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey]);
 
   function onChange(v: string) {
     setText(v);
-    if (snippetIdRef.current) {
-      snip.update(snippetIdRef.current, v);
-    } else {
-      snippetIdRef.current = snip.add(v, stepKey); // add once, then update
-    }
+    // Write by SECTION against the live snapshot — never a mutable id ref that
+    // can still point at the previous claim after a fast advance (same wrong-slot
+    // race the proposal guide had).
+    snip.upsertSection(stepKey, v);
   }
 
   function onStillStuck() {
@@ -269,6 +266,8 @@ export function EssayStatementPane({
     if (!step) return;
     const wasLast = step.index >= step.total - 1;
     setReviewing(true);
+    // Flush the live value to this step's section before review + advance.
+    snip.upsertSection(stepKey, text);
     try {
       await reviewEssayPart(projectId, step.key);
       onAnnotationsChanged?.();

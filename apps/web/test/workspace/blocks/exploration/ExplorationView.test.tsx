@@ -413,13 +413,15 @@ describe("ExplorationView", () => {
 
   // ---- GVd · ONE unified sidebar: 'ai' (coach) ⇄ 'node' ⇄ 'results' ----
 
-  it("the sidebar DEFAULTS to the coach ('ai') at Level-1, and stays on it at Level-2 until a node is clicked", async () => {
+  it("at Level-1 (map) the aux column shows the exploration CONTROLS (检索方向 / 还需要探索的); the coach lives in the constant 印记 rail. Level-2 still docks the coach until a node is clicked", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     renderView(nextPid(), [NASA_REF]);
 
-    // Level-1 (map): the coach IS the right sidebar
-    expect(await screen.findByTestId("coach-slot")).toBeInTheDocument();
+    // Level-1 (map): the aux column is now the exploration controls — the graph
+    // is the centered focal element, controls dock beside it (opposite the chat).
+    expect(await screen.findByText("检索方向")).toBeInTheDocument();
+    expect(screen.getByText("还需要探索的")).toBeInTheDocument();
 
     // Level-2 (inside a question): still the coach — nothing is auto-selected
     await zoomInto(user, ROOT_LEAD.text);
@@ -428,16 +430,19 @@ describe("ExplorationView", () => {
     expect(screen.queryByText(NASA_REF.title)).toBeNull();
   });
 
-  it("with no coach slot (it now lives in the constant 印记 rail), the 'ai' default sidebar collapses to nothing — no dead empty column — and clicking a node still opens it", async () => {
+  it("Level-1 (map) docks the exploration CONTROLS as the aux column (coach lives in the constant rail); Level-2 with nothing selected collapses; clicking a node still opens it", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     const { container } = render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
 
-    // Level-1 (map): no coach passed → no empty bordered aside column
+    // Level-1 (map): the controls column is the aux sidebar (an <aside>), beside
+    // the centered graph — no coach needed here.
     await screen.findByText(ROOT_LEAD.text);
-    expect(container.querySelector("aside")).toBeNull();
+    expect(container.querySelector("aside")).not.toBeNull();
+    expect(screen.getByText("检索方向")).toBeInTheDocument();
 
-    // Level-2 (inside a question), still nothing selected: still collapsed
+    // Level-2 (inside a question), still nothing selected: no controls, no coach
+    // passed → collapsed (controls are a map-level aid).
     await zoomInto(user, ROOT_LEAD.text);
     expect(container.querySelector("aside")).toBeNull();
 

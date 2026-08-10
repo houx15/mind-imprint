@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import type { ProposalGuideStep } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { useEssaySubmission } from "./useEssaySubmission";
@@ -153,22 +153,18 @@ export function EssaySubmissionPane({
   const step = track.step;
   const stepKey = step?.key ?? "";
   const [text, setText] = useState("");
-  const snippetIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     const existing = snip.snippets.find((s) => s.section === stepKey);
-    snippetIdRef.current = existing?.id ?? null;
     setText(existing?.text ?? "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepKey]);
 
   function onChange(v: string) {
     setText(v);
-    if (snippetIdRef.current) {
-      snip.update(snippetIdRef.current, v);
-    } else {
-      snippetIdRef.current = snip.add(v, stepKey);
-    }
+    // Write by SECTION against the live snapshot (never a stale id ref) so 引言/
+    // 结论 land in their own slots even under a fast edit→advance.
+    snip.upsertSection(stepKey, v);
   }
 
   function onStillStuck() {
@@ -178,9 +174,10 @@ export function EssaySubmissionPane({
 
   // 我写好了 (引言/结论) → the whole-draft review isn't for a single part here; a
   // part review reuses the essay 批注 path via the statement review endpoint's
-  // essay doc. For submission we keep it light: mark done → advance.
+  // essay doc. For submission we keep it light: flush this part → advance.
   function onDone() {
     if (!step) return;
+    snip.upsertSection(stepKey, text);
     void track.next();
   }
 
@@ -191,7 +188,7 @@ export function EssaySubmissionPane({
     setComposing(true);
     try {
       const textBySection: Record<string, string> = {};
-      for (const s of snip.snippets) {
+      for (const s of snip.all()) {
         if (s.section) textBySection[s.section] = s.text;
       }
       // claim order = the outline order of the sub-questions.
