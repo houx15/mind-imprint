@@ -68,8 +68,6 @@ export function PlanBlock({
   refreshWorkspace,
   recap,
   onStudioStateChanged,
-  recapLanding,
-  onContinueWorking,
 }: {
   projectId: string;
   title: string;
@@ -86,10 +84,6 @@ export function PlanBlock({
   /** slice 3a · re-apply 印记's studio state (e.g. after 反例 waive triggers
    * plan-gen + advance) so the room follows the machine to 管理. */
   onStudioStateChanged?: () => void | Promise<void>;
-  /** §3 situation b · the student just re-opened the project and landed here for
-   * a recap; show a banner + 继续工作 button back to the current status. */
-  recapLanding?: boolean;
-  onContinueWorking?: () => void;
 }) {
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
@@ -206,8 +200,6 @@ export function PlanBlock({
       title={title}
       qualification={qualification}
       createdAt={createdAt}
-      recapLanding={recapLanding}
-      onContinueWorking={onContinueWorking}
     />
   );
 }
@@ -460,10 +452,8 @@ function WorkingPhase(props: {
   qualification: string;
   seedBoard?: PlanItem[];
   createdAt?: string;
-  recapLanding?: boolean;
-  onContinueWorking?: () => void;
 }) {
-  const { projectId, title, qualification, seedBoard, createdAt, recapLanding, onContinueWorking } = props;
+  const { projectId, title, qualification, seedBoard, createdAt } = props;
   // The room→panel contract (same as FormingPhase/ReadingBlock/WritingBlock/
   // ReviewBlock, Task 4, spec §17): 管理 previously portaled nothing into the
   // shared AiPanel slot, so it showed an empty 印记 panel — this is the SAME
@@ -575,16 +565,8 @@ function WorkingPhase(props: {
           <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
         </div>
 
-        {/* §3 situation b · recap banner on return — glance at the plan, then
-            继续工作 jumps back to wherever you were (the current status room). */}
-        {recapLanding && (
-          <div className="mb-4 flex items-center gap-3 rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-5 py-3">
-            <p className="min-w-0 flex-1 text-[14px] leading-relaxed text-mk-ink">
-              欢迎回来。先扫一眼计划、回顾一下进度——准备好了就继续上次的工作。
-            </p>
-            <button type="button" onClick={onContinueWorking} className="flex-none rounded-mk-md bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600">继续工作</button>
-          </div>
-        )}
+        {/* §3 gap G4 · the recap "继续工作" continue button now lives in the AI
+            chat (StudioTurnChips), not a pane banner. */}
 
         {/* Toolbar: title + view toggle + export */}
         <div className="mb-4 flex items-center justify-between">

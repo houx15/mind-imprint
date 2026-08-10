@@ -149,11 +149,24 @@ export function StudioTurnChips() {
     dismissQuestion,
     pendingNextStep,
     advanceToNextStep,
+    recapContinue,
+    onRecapContinue,
     sending,
   } = useStudioChat();
   if (sending) return null;
   return (
     <>
+      {/* §3 gap G4 · the recap "继续工作" continue button, in the chat. */}
+      {recapContinue && onRecapContinue && (
+        <button
+          type="button"
+          onClick={onRecapContinue}
+          className="flex w-full items-center justify-between gap-2 rounded-mk-lg border border-mk-accent bg-mk-accent px-3.5 py-2.5 text-[14px] font-bold text-white transition hover:opacity-90"
+        >
+          <span>先扫一眼计划，准备好就继续工作</span>
+          <Icon icon={ArrowRight} size={16} />
+        </button>
+      )}
       {pendingNote && <NoteConfirmChip note={pendingNote} onConfirm={confirmNote} onDismiss={dismissNote} />}
       {/* After confirm, the actionable chip becomes a quiet 记下了 acknowledgment
           (not a disappearance). Only when no fresh offer is pending. */}

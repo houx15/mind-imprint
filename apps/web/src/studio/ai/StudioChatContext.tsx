@@ -90,6 +90,11 @@ export type StudioChatValue = {
   // Tapping advanceToNextStep advances the status server-side (coachAdvance).
   pendingNextStep: NextStep | null;
   advanceToNextStep: () => void;
+  // §3 gap G4 · a returning student's recap "继续工作" lives IN the chat (not a
+  // pane banner). True while the recap landing is active; tapping re-asserts
+  // 印记's current-status room.
+  recapContinue?: boolean;
+  onRecapContinue?: () => void;
   // Advance the studio status forward to a specific FlowStatus (coachAdvance),
   // applying the new phase's greeting + directive + plan/projection refresh.
   // Used by the writing room's 完成 button (proposal→"essay", essay→"review");

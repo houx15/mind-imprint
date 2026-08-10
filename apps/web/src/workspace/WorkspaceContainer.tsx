@@ -1013,6 +1013,8 @@ export function WorkspaceContainer({
     dismissQuestion,
     pendingNextStep,
     advanceToNextStep,
+    recapContinue: recapLanding,
+    onRecapContinue: () => void continueYinji(),
     advanceStatusTo,
     historyHasMore,
     loadEarlier,
@@ -1129,8 +1131,6 @@ export function WorkspaceContainer({
                 refreshWorkspace={refreshWorkspace}
                 recap={historyRecap ?? summary}
                 onStudioStateChanged={continueYinji}
-                recapLanding={recapLanding && room === "plan"}
-                onContinueWorking={() => void continueYinji()}
               />
             )}
             {room === "reading" && (
@@ -1226,7 +1226,10 @@ export function WorkspaceContainer({
         onClose={() => setOpenCardId(null)}
         onCommitted={(objective) => {
           void refreshWorkspace();
-          setStudioMessages((c) => [...c, { role: "ai", text: `（提问卡）我们一起把研究问题定下来了：${objective}` }]);
+          // §2 gap G1 · the 提问卡 is done → 印记 CONTINUES the thread with a real
+          // coach turn (durable in history + it guides the next step), instead of
+          // a client-only static line that vanished on reload.
+          void sendStudioTurn(`我用提问卡把研究问题想清楚了：${objective}`);
         }}
       />
     )}
