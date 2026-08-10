@@ -14,7 +14,7 @@ import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { withRecap } from "@/studio/ai/RecapHint";
 import { Composer } from "@/studio/ai/Composer";
 import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
-import { Segmented } from "@/ui";
+import { Segmented, ReviewingHint } from "@/ui";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
@@ -1844,7 +1844,7 @@ function DraftReviewPanel({
       </div>
       <div className="min-h-0 flex-1 overflow-y-auto">
         {reviewing ? (
-          <p className="text-[14px] text-mk-faint">印记正在逐段体检你的论证与结构……</p>
+          <ReviewingHint />
         ) : error ? (
           <p className="text-[14px] font-semibold text-mk-danger">{error}</p>
         ) : review ? (

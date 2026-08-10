@@ -1,4 +1,5 @@
 import { useEffect, useRef } from "react";
+import { ReviewingHint } from "@/ui";
 
 // GuidedWritingCard — slice 4b · the ONE shared, configurable guided-writing card
 // (§4/§6). Both the proposal parts (3a, retrofit) and the essay claims (4b) use
@@ -108,6 +109,7 @@ export function GuidedWritingCard({
         </button>
         {footer}
       </div>
+      {reviewing && <div className="mt-2"><ReviewingHint /></div>}
     </div>
   );
 }

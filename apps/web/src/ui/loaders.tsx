@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Pebble } from "@/ui/Pebble";
 
 /**
@@ -167,5 +168,38 @@ export function RabbitHoleLoader({ caption = "正在钻兔子洞…" }: RabbitHo
       </div>
       <div className="mk-pebble-hole-caption">{caption}</div>
     </div>
+  );
+}
+
+// Reviewing loader (doc · model-routing §): the flagship reviewer (整稿体检 / 批注 /
+// 证据饱和 / 框架把关 / 计划生成) is a reasoning model and takes a while, so instead
+// of a dead "loading…" we cycle interesting, honest lines about what it's doing.
+export const REVIEWING_LINES = [
+  "印记正在检查写作细节……",
+  "印记正在思考论证完整性……",
+  "印记正在核对证据与主张……",
+  "印记正在比对前后段的逻辑……",
+  "印记正在读你写的这一段……",
+];
+
+/** Cycle through `lines` on an interval — the "interesting loading" the doc asks for. */
+export function useRotatingCaption(lines: string[], intervalMs = 2200): string {
+  const [i, setI] = useState(0);
+  useEffect(() => {
+    if (lines.length <= 1) return;
+    const t = setInterval(() => setI((x) => (x + 1) % lines.length), intervalMs);
+    return () => clearInterval(t);
+  }, [lines, intervalMs]);
+  return lines[i % lines.length] ?? lines[0] ?? "";
+}
+
+/** Inline spinner + a rotating reviewer line. Use wherever a reviewer call runs. */
+export function ReviewingHint({ lines = REVIEWING_LINES, className = "" }: { lines?: string[]; className?: string }) {
+  const caption = useRotatingCaption(lines);
+  return (
+    <span className={cx("inline-flex items-center gap-2 text-[14px] text-mk-muted", className)} role="status" aria-live="polite">
+      <PebbleInlineSpinner size={16} />
+      {caption}
+    </span>
   );
 }
