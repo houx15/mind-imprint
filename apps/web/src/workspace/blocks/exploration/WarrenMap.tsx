@@ -48,6 +48,19 @@ import {
 const EDGE_SOLID = "var(--mk-ink)"; // confirmed relation
 const EDGE_DASHED = "#C9BCAD"; // proposed / unconfirmed — spec §18 literal
 
+// The 未归类 system node's fixed id — a sentinel, never a real ExplorationLead
+// id, so it never collides with a question node and can be cheaply guarded
+// against everywhere (click routing, drag persistence).
+export const UNFILED_NODE_ID = "__unfiled__";
+
+// Pure click router, unit-tested without rendering React Flow (jsdom can't
+// render the canvas): the sentinel opens the unfiled panel, any real root
+// zooms in as before.
+export function routeNodeClick(nodeId: string, onZoom: (id: string) => void, onOpenUnfiled: () => void): void {
+  if (nodeId === UNFILED_NODE_ID) onOpenUnfiled();
+  else onZoom(nodeId);
+}
+
 // ---------- data threaded onto each React Flow node / edge ----------
 
 type WarrenNodeData = {
@@ -136,6 +149,23 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
         {text}
       </span>
       <span className="mt-1 text-[12px] font-bold text-mk-muted">文献 {paperCount} 篇</span>
+    </div>
+  );
+}
+
+// Neutral system node for references that hang under no question yet. Not a
+// real ExplorationLead — no theme, no delete, no drag-connect handles; a
+// click routes to `onOpenUnfiled` (see routeNodeClick), never `onZoom`.
+function UnfiledNodeView({ data }: NodeProps) {
+  const d = data as unknown as { count: number };
+  return (
+    <div
+      className="flex flex-col justify-center overflow-hidden border border-dashed border-mk-border bg-mk-paper py-3 pl-5 pr-4"
+      style={{ width: 208, height: 104, borderRadius: "var(--mk-radius-md)", boxShadow: "var(--mk-shadow-xs)", cursor: "pointer" }}
+    >
+      <span className="text-[14px] font-bold text-mk-muted">未归类</span>
+      <span className="mt-1 text-[12px] font-bold text-mk-faint">还没挂到问题下 · {d.count} 篇</span>
+      <span className="mt-1 text-[11px] text-mk-faint">点开，把它们挂到问题下</span>
     </div>
   );
 }
@@ -251,7 +281,7 @@ function QuestionEdgeView({ id, sourceX, sourceY, targetX, targetY, sourcePositi
 }
 
 // Stable references (React Flow requires nodeTypes/edgeTypes not be re-created).
-const nodeTypes = { warren: WarrenNodeView };
+const nodeTypes = { warren: WarrenNodeView, unfiled: UnfiledNodeView };
 const edgeTypes = { question: QuestionEdgeView };
 
 export type WarrenMapProps = {
@@ -269,6 +299,10 @@ export type WarrenMapProps = {
   // Student-drawn relation (drag one question onto another) + deleting a question.
   onCreateEdge: (fromLeadId: string, toLeadId: string, label: QuestionEdgeLabel) => void;
   onDeleteLead: (leadId: string) => void;
+  // The 未归类 system node: how many references hang under no question (read or
+  // unread), and what to do when the student opens it. count 0 → node hidden.
+  unfiledCount: number;
+  onOpenUnfiled: () => void;
 };
 
 type RFNode = Node<WarrenNodeData>;
@@ -300,6 +334,8 @@ function WarrenMapInner({
   onRelabelEdge,
   onCreateEdge,
   onDeleteLead,
+  unfiledCount,
+  onOpenUnfiled,
 }: WarrenMapProps) {
   const [helpOpen, setHelpOpen] = useState(false);
   // Which question's × was pressed → confirm-delete modal (铁律②: an explicit
@@ -333,7 +369,7 @@ function WarrenMapInner({
   useEffect(() => {
     setRfNodes((prev) => {
       const prevById = new Map(prev.map((n) => [n.id, n]));
-      return nodeModels.map((m) => {
+      const rootNodes = nodeModels.map((m) => {
         const existing = prevById.get(m.id);
         return {
           id: m.id,
@@ -343,8 +379,19 @@ function WarrenMapInner({
           draggable: true,
         } as RFNode;
       });
+      if (unfiledCount > 0) {
+        const existing = prevById.get(UNFILED_NODE_ID);
+        rootNodes.push({
+          id: UNFILED_NODE_ID,
+          type: "unfiled",
+          position: existing?.position ?? { x: 0, y: 320 },
+          data: { count: unfiledCount },
+          draggable: false,
+        } as unknown as RFNode);
+      }
+      return rootNodes;
     });
-  }, [nodeModels, requestDelete]);
+  }, [nodeModels, requestDelete, unfiledCount]);
 
   const onNodesChange = useCallback((changes: NodeChange<RFNode>[]) => {
     setRfNodes((nds) => applyNodeChanges(changes, nds) as RFNode[]);
@@ -353,6 +400,7 @@ function WarrenMapInner({
   // Persist a node's resting position after a drag (best-effort localStorage).
   const onNodeDragStop = useCallback(
     (_evt: unknown, node: RFNode) => {
+      if (node.id === UNFILED_NODE_ID) return;
       try {
         const cur = readSavedPositions(projectId);
         cur[node.id] = { x: Math.round(node.position.x), y: Math.round(node.position.y) };
@@ -437,7 +485,7 @@ function WarrenMapInner({
           edgeTypes={edgeTypes}
           onNodesChange={onNodesChange}
           onNodeDragStop={onNodeDragStop}
-          onNodeClick={(_evt, node) => onZoom(node.id)}
+          onNodeClick={(_evt, node) => routeNodeClick(node.id, onZoom, onOpenUnfiled)}
           onConnect={onConnect}
           fitView
           fitViewOptions={{ padding: 0.25 }}

@@ -19,6 +19,7 @@ import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
 import { ResearchPanel } from "./exploration/ResearchPanel";
+import { PlacementModal } from "./exploration/PlacementModal";
 import { getExploration } from "../../api/exploration";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
@@ -134,6 +135,7 @@ export function ReadingBlock({
   const [selId, setSelId] = useState<string>("");
   const [checked, setChecked] = useState<Set<string>>(new Set());
   const [adding, setAdding] = useState(false);
+  const [placeFor, setPlaceFor] = useState<string | null>(null);
   const [railOpen, setRailOpen] = useState(true);
   // 列表 ⇄ 探索图谱 (Task 9): 列表 is today's Zotero-shaped table, unchanged;
   // 探索图谱 is the S3 rabbit-hole branch view over the same references.
@@ -306,6 +308,7 @@ export function ReadingBlock({
       });
       setRefs((xs) => [created, ...xs]);
       setSelId(created.id);
+      setPlaceFor(created.id); // 加来源即归位 — ask 印记 + let the student place it
     } catch {
       /* leave the modal's job to the reload path */
       reload();
@@ -566,6 +569,15 @@ export function ReadingBlock({
         )}
 
       {modal}
+
+      {placeFor && (
+        <PlacementModal
+          projectId={projectId}
+          referenceId={placeFor}
+          onClose={() => setPlaceFor(null)}
+          onAttached={() => reload()}
+        />
+      )}
     </div>
   );
 }

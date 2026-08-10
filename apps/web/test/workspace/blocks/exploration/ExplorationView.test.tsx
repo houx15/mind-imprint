@@ -3,7 +3,7 @@ import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { DigCandidate, ExplorationLead, QuestionEdge, Reference } from "@mind-imprint/contracts";
 import { MACARONS } from "@/ui/tokens";
-import { ExplorationView } from "@/workspace/blocks/exploration/ExplorationView";
+import { ExplorationView, unfiledReferences } from "@/workspace/blocks/exploration/ExplorationView";
 
 // GVa · the Level-1 map is now a React Flow graph. React Flow can't render in
 // jsdom (needs ResizeObserver + a measured container), so we mock @xyflow/react
@@ -79,6 +79,7 @@ vi.mock("@/api/exploration", () => ({
   createEdge: vi.fn(),
   patchEdge: vi.fn(),
   deleteEdge: vi.fn(),
+  attachReference: vi.fn(),
 }));
 // The 进入阅读室 path (a paper node's ⋯ menu) goes through workspace.enterReading;
 // mocked so the component's import resolves and never hits the network in tests.
@@ -855,5 +856,25 @@ describe("ExplorationView", () => {
       expect(mockPasteContent).toHaveBeenCalledWith(expect.any(String), NASA_REF.id, "这是粘贴进来的正文段落。"),
     );
     await waitFor(() => expect(onEnterReading).toHaveBeenCalledWith(materialSource, NASA_REF.id, "", undefined, undefined, undefined));
+  });
+});
+
+// Task 8 (P2b) · 未归类 = references with no NON-PRUNED connected lead, minus
+// archived. Pure logic, asserted directly (the render path is exercised via the
+// exploration view's zoom-into-unfiled panel elsewhere).
+describe("unfiledReferences", () => {
+  const refs = [
+    { id: "r1", title: "A", archived: false },
+    { id: "r2", title: "B", archived: false },
+    { id: "r3", title: "C", archived: true }, // archived → excluded
+  ] as any[];
+  const leads = [
+    { id: "l1", connectedReferenceId: "r1", status: "connected", parentLeadId: "q1" },
+    { id: "l2", connectedReferenceId: "r2", status: "pruned", parentLeadId: "q1" }, // pruned → r2 still unfiled
+  ] as any[];
+
+  it("returns refs with no non-pruned connected lead, excluding archived", () => {
+    const out = unfiledReferences(refs, leads).map((r) => r.id);
+    expect(out).toEqual(["r2"]); // r1 attached, r2 only pruned-attached, r3 archived
   });
 });
