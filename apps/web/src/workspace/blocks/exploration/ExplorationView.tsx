@@ -30,6 +30,7 @@ import { countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
 import { SearchGuidanceBox } from "./SearchGuidanceBox";
+import { ExplorationReviewBox } from "./ExplorationReviewBox";
 import { NeedsResourcesBox } from "../NeedsResourcesBox";
 
 // B4a · which zoom the student last left this project on. Persisted module-side
@@ -530,6 +531,8 @@ export function ExplorationView({
             「去探索」 runs the note as a search). */}
         <div className="mb-3 flex flex-col gap-2">
           <SearchGuidanceBox projectId={projectId} onSearch={keywordSearch} />
+          {/* §5 follow-up · once materials are collected, ask 印记 to review them. */}
+          {references.length > 0 && <ExplorationReviewBox projectId={projectId} />}
           <NeedsResourcesBox projectId={projectId} onExplore={(note) => { if (note) keywordSearch(note); }} />
         </div>
         {/* Task 8 (P2b) · the manual root-question input + 从笔记新建问题 picker

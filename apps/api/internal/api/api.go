@@ -151,6 +151,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/projects/{id}/resource-needs", protected(a.getResourceNeeds))
 	mux.Handle("PUT /api/v1/projects/{id}/resource-needs", protected(a.putResourceNeeds))
 	mux.Handle("POST /api/v1/projects/{id}/search-guidance", protected(a.postSearchGuidance))
+	mux.Handle("POST /api/v1/projects/{id}/exploration/review", protected(a.postExplorationReview))
 	mux.Handle("GET /api/v1/projects/{id}/card-tags", protected(a.getCardTags))
 	mux.Handle("PUT /api/v1/projects/{id}/card-tags", protected(a.putCardTag))
 	mux.Handle("POST /api/v1/projects/{id}/materials", protected(a.ingestMaterial))
