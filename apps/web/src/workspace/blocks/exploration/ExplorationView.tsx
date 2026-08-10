@@ -117,6 +117,7 @@ export function ExplorationView({
   projectId,
   references,
   onEnterReading,
+  onCreateReference,
   onLibraryChanged,
   coach,
   refreshNonce,
@@ -272,7 +273,69 @@ export function ExplorationView({
   // three OpenAlex modes (相似 / 它引用的 / 引用它的). Adopting lands the paper
   // under this node (papers-never-roots).
   const digFromNode = (mode: DigMode) => selectedId && runDig({ leadId: selectedId, mode });
-  const keywordSearch = (keyword: string) => runDig({ keyword, mode: "similar" });
+
+  // A keyword search launched from the CONTROLS column (印记's 检索方向 box, the
+  // 还需要探索的 notes) — where NO node is selected, so runDig would no-op. The
+  // results land in a controls-level tray; 采纳 there creates a reference into
+  // 未归类 (no parent question yet), which the student then places (fixes the
+  // "clicked 搜索, nothing happens" dead-click).
+  const [searchKeyword, setSearchKeyword] = useState("");
+  const [searchTray, setSearchTray] = useState<DigCandidate[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [searchError, setSearchError] = useState(false);
+  const [savingRef, setSavingRef] = useState<Set<string>>(new Set());
+
+  async function runControlsSearch(keyword: string) {
+    const kw = keyword.trim();
+    if (!kw || searching) return;
+    setSearchKeyword(kw);
+    setSearchTray([]);
+    setSearching(true);
+    setSearchError(false);
+    try {
+      const res = await digExploration(projectId, { keyword: kw, mode: "similar" });
+      setSearchTray(res.candidates);
+    } catch {
+      setSearchError(true);
+    } finally {
+      setSearching(false);
+    }
+  }
+  // 采纳 a controls-search result into 未归类: create the reference (bib via the
+  // candidate's DOI/url; server DOI-resolves), then it shows in the 未归类 node
+  // ready to be placed under a question. No lead is created here (铁律①: the
+  // student decides where it belongs via the placement picker).
+  async function saveSearchResult(c: DigCandidate) {
+    if (!onCreateReference) return;
+    const key = candidateKey(c);
+    if (savingRef.has(key)) return;
+    setSavingRef((s) => new Set(s).add(key));
+    setActionError(false);
+    try {
+      const url = c.url || (c.doi ? "https://doi.org/" + c.doi : undefined);
+      await onCreateReference({ title: c.title, url });
+      setSearchTray((t) => t.filter((x) => candidateKey(x) !== key));
+      await refresh();
+      onLibraryChanged?.();
+    } catch {
+      setActionError(true);
+    } finally {
+      setSavingRef((s) => {
+        const n = new Set(s);
+        n.delete(key);
+        return n;
+      });
+    }
+  }
+  function discardSearchResult(c: DigCandidate) {
+    const key = candidateKey(c);
+    setSearchTray((t) => t.filter((x) => candidateKey(x) !== key));
+  }
+
+  // A keyword search: with a node selected it digs into that node's sidebar tray
+  // (adopt → under the node); with none selected (the controls column) it runs
+  // the controls search above instead of silently no-op'ing.
+  const keywordSearch = (keyword: string) => (selectedId ? runDig({ keyword, mode: "similar" }) : void runControlsSearch(keyword));
 
   // GVb · adopt a candidate UNDER the dug node (parentLeadId = digFromId) so the
   // paper is never a root; then refetch + drop it from the sidebar list. Explicit
@@ -548,8 +611,51 @@ export function ExplorationView({
       {/* slice 5 (§113/§115/§116) · 印记's search-direction guidance + the
           student's 还需要探索的 notes (「去探索」 runs a note as a search). */}
       <SearchGuidanceBox projectId={projectId} onSearch={keywordSearch} />
-      {/* §5 follow-up · once materials are collected, ask 印记 to review them. */}
-      {references.length > 0 && <ExplorationReviewBox projectId={projectId} />}
+      {/* Results of a controls-level keyword search (印记 检索方向 / 还需要探索的).
+          采纳 lands a paper in 未归类 for the student to place. */}
+      {(searching || searchError || searchTray.length > 0) && (
+        <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+          <p className="mb-2 text-[12px] font-bold text-mk-faint">「{searchKeyword}」的检索结果</p>
+          {searching && <p className="text-[12px] text-mk-muted">印记正在检索…</p>}
+          {searchError && !searching && <p className="text-[12px] font-semibold text-mk-accent">这次没搜到，换个关键词再试。</p>}
+          {!searching && !searchError && searchTray.length === 0 && (
+            <p className="text-[12px] text-mk-faint">没有结果，换个关键词试试。</p>
+          )}
+          <ul className="flex flex-col gap-2">
+            {searchTray.map((c) => {
+              const key = candidateKey(c);
+              return (
+                <li key={key} className="rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2">
+                  <p className="text-[13px] font-semibold leading-snug text-mk-ink">{c.title}</p>
+                  {(c.journal || c.year) && (
+                    <p className="mt-0.5 text-[11px] text-mk-faint">{[c.journal, c.year].filter(Boolean).join(" · ")}</p>
+                  )}
+                  <div className="mt-1.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void saveSearchResult(c)}
+                      disabled={savingRef.has(key)}
+                      className="rounded-mk bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
+                    >
+                      {savingRef.has(key) ? "收下中…" : "收进未归类"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => discardSearchResult(c)}
+                      className="rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-faint hover:text-mk-accent"
+                    >
+                      忽略
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      {/* §5 follow-up · once ≥2 sources are collected, ask 印记 to review them
+          (below that it has too little to compare — final-review/user note). */}
+      {references.length >= 2 && <ExplorationReviewBox projectId={projectId} />}
       <NeedsResourcesBox projectId={projectId} onExplore={(note) => { if (note) keywordSearch(note); }} />
       {actionError && <p className="text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
       {/* B4b · 印记 proposes relationships between the questions. Only meaningful

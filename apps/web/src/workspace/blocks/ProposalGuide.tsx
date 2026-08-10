@@ -416,6 +416,17 @@ export function ProposalGuidePane({
     assembleTimer.current = setTimeout(assembleToBuffer, 1000);
   }
 
+  // Edit a FINISHED part in place from the folded re-read board (finished ≠
+  // locked). Writes by section against the live snapshot; if the edited part is
+  // also the one open in the active card, keep its textarea in sync so the two
+  // views never diverge. Same debounced assemble as onPartChange.
+  function editFilledPart(key: string, text: string) {
+    snip.upsertSection(partSectionKey(key), text);
+    if (key === stepKey) setPartText(text);
+    if (assembleTimer.current) clearTimeout(assembleTimer.current);
+    assembleTimer.current = setTimeout(assembleToBuffer, 1000);
+  }
+
   function onStillStuck() {
     if (!step) return;
     void sendStudioTurn(`我在写「${step.title}」这部分，还是有点卡，能带我想想吗？`);
@@ -480,7 +491,7 @@ export function ProposalGuidePane({
           which already shows the whole assembled 成稿 below. */}
       {!locked && isGuided && step?.key !== "polish" && filledParts.length > 0 && (
         <div className="mt-3 flex-none px-1">
-          <FilledCardsFold cards={filledParts} />
+          <FilledCardsFold cards={filledParts} onEdit={editFilledPart} />
         </div>
       )}
       {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
