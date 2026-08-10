@@ -413,24 +413,24 @@ describe("ExplorationView", () => {
 
   // ---- GVd · ONE unified sidebar: 'ai' (coach) ⇄ 'node' ⇄ 'results' ----
 
-  it("at Level-1 (map) the aux column shows the exploration CONTROLS (检索方向 / 还需要探索的); the coach lives in the constant 印记 rail. Level-2 still docks the coach until a node is clicked", async () => {
+  it("both levels dock the exploration CONTROLS (检索方向 / 还需要探索的) beside the centered graph; the coach lives in the constant 印记 rail", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     renderView(nextPid(), [NASA_REF]);
 
-    // Level-1 (map): the aux column is now the exploration controls — the graph
-    // is the centered focal element, controls dock beside it (opposite the chat).
+    // Level-1 (map): the aux column is the exploration controls — the graph is
+    // the centered focal element, controls dock beside it (opposite the chat).
     expect(await screen.findByText("检索方向")).toBeInTheDocument();
     expect(screen.getByText("还需要探索的")).toBeInTheDocument();
 
-    // Level-2 (inside a question): still the coach — nothing is auto-selected
+    // Level-2 (inside a question): the SAME controls stay docked (nothing selected)
     await zoomInto(user, ROOT_LEAD.text);
-    expect(screen.getByTestId("coach-slot")).toBeInTheDocument();
+    expect(screen.getByText("检索方向")).toBeInTheDocument();
     // no node metadata shown yet
     expect(screen.queryByText(NASA_REF.title)).toBeNull();
   });
 
-  it("Level-1 (map) docks the exploration CONTROLS as the aux column (coach lives in the constant rail); Level-2 with nothing selected collapses; clicking a node still opens it", async () => {
+  it("both levels dock the exploration CONTROLS as a two-page aux column (controls ⇄ node details); it never disappears", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     const { container } = render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
@@ -441,22 +441,24 @@ describe("ExplorationView", () => {
     expect(container.querySelector("aside")).not.toBeNull();
     expect(screen.getByText("检索方向")).toBeInTheDocument();
 
-    // Level-2 (inside a question), still nothing selected: no controls, no coach
-    // passed → collapsed (controls are a map-level aid).
+    // Level-2 (inside a question), still nothing selected: the SAME controls stay
+    // docked (the sidebar must NOT disappear when you drill into a hole).
     await zoomInto(user, ROOT_LEAD.text);
-    expect(container.querySelector("aside")).toBeNull();
+    expect(container.querySelector("aside")).not.toBeNull();
+    expect(screen.getByText("检索方向")).toBeInTheDocument();
 
-    // clicking a node still opens the 'node' sidebar normally
+    // clicking a node swaps the SAME column to the node's details
     await clickNode(user, CHILD_PAPER.text);
     expect(await screen.findByText(NASA_REF.title)).toBeInTheDocument();
     expect(container.querySelector("aside")).not.toBeNull();
 
-    // ← 印记 back to the (still coach-less) default collapses again, no crash
+    // ← 印记 goes back to the controls page (the two-page sidebar), never nothing
     await user.click(screen.getByRole("button", { name: "← 印记" }));
-    await waitFor(() => expect(container.querySelector("aside")).toBeNull());
+    await waitFor(() => expect(screen.queryByText(NASA_REF.title)).toBeNull());
+    expect(screen.getByText("检索方向")).toBeInTheDocument();
   });
 
-  it("clicking a paper node → 'node' shows its title, abstract, reading-status + the three find-actions; ← 印记 returns to the coach", async () => {
+  it("clicking a paper node → 'node' shows its title, abstract, reading-status + the three find-actions; ← 印记 returns to the controls", async () => {
     mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     const user = userEvent.setup();
     const { container } = renderView(nextPid(), [NASA_REF]);
@@ -489,12 +491,12 @@ describe("ExplorationView", () => {
     expect(screen.getByRole("button", { name: "找相似文献" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "找它引用的文献" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "找引用它的文献" })).toBeInTheDocument();
-    // the coach is hidden while a node is selected
-    expect(screen.queryByTestId("coach-slot")).toBeNull();
+    // the controls page is hidden while a node is selected (details shown instead)
+    expect(screen.queryByText("检索方向")).toBeNull();
 
-    // ← 印记 returns to the coach
+    // ← 印记 returns to the controls page (the two-page aux sidebar)
     await user.click(screen.getByRole("button", { name: "← 印记" }));
-    expect(await screen.findByTestId("coach-slot")).toBeInTheDocument();
+    expect(await screen.findByText("检索方向")).toBeInTheDocument();
     expect(screen.queryByText(NASA_REF.title)).toBeNull();
   });
 
@@ -648,7 +650,7 @@ describe("ExplorationView", () => {
     expect(mockAdoptCandidate).not.toHaveBeenCalled();
   });
 
-  it("'results' offers a ← 印记 back to the coach and a ← 返回 back to the node", async () => {
+  it("'results' offers a ← 印记 back to the controls and a ← 返回 back to the node", async () => {
     const user = userEvent.setup();
     renderView(nextPid(), [NASA_REF]);
     await zoomInto(user, ROOT_LEAD.text);
@@ -662,11 +664,11 @@ describe("ExplorationView", () => {
     expect(await screen.findByRole("button", { name: "找相似文献" })).toBeInTheDocument();
     expect(screen.queryByText(CANDIDATE.title)).toBeNull();
 
-    // dig again, then ← 印记 returns all the way to the coach
+    // dig again, then ← 印记 returns all the way to the controls page
     await user.click(screen.getByRole("button", { name: "找相似文献" }));
     await screen.findByText(CANDIDATE.title);
     await user.click(screen.getByRole("button", { name: "← 印记" }));
-    expect(await screen.findByTestId("coach-slot")).toBeInTheDocument();
+    expect(await screen.findByText("检索方向")).toBeInTheDocument();
   });
 
   it("× on a node inside a question opens a confirm modal; confirming calls deleteLead (no 剪枝)", async () => {

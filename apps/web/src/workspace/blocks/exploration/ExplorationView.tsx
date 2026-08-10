@@ -480,57 +480,13 @@ export function ExplorationView({
     />
   );
 
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <RabbitHoleLoader caption="加载探索图谱中…" />
-      </div>
-    );
-  }
-
-  if (inHole) {
-    /* ---------- HOLE (Level-2) · one question's mindmap + right sidebar ---------- */
-    return (
-      <div className="relative flex h-full min-h-0 bg-mk-paper">
-        <div className="flex min-h-0 flex-1 flex-col">
-          <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-4 py-2.5">
-            <button
-              type="button"
-              onClick={backToMap}
-              className="flex-none rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
-            >
-              ← 返回兔子洞地图
-            </button>
-            <h2 className="min-w-0 truncate font-sans text-[14px] font-bold text-mk-ink">{focusRoot!.text}</h2>
-          </div>
-          {actionError && (
-            <p className="flex-none border-b border-mk-border bg-mk-surface px-4 py-2 text-[12px] font-semibold text-mk-accent">
-              刚才那步没接上，再试一次？
-            </p>
-          )}
-          <div className="min-h-0 flex-1">
-            <QuestionMindmap
-              projectId={projectId}
-              root={focusRoot!}
-              leads={view.leads}
-              selectedId={selectedId}
-              onSelect={selectNode}
-              onDeleteLead={removeNode}
-            />
-          </div>
-        </div>
-        {sidebar}
-      </div>
-    );
-  }
-
-  /* ---------- MAP (Level-1) · the overview graph of root questions ---------- */
-  // The aux controls (印记's search-direction guidance, 还需要探索的 notes,
-  // 找找问题之间的关系) used to sit STACKED ABOVE the graph, pushing it down and
-  // burying it under buttons. They now live in a fixed-width sidebar docked on the
-  // edge OPPOSITE the 印记 chat — so the graph is the centered focal element, and
-  // the controls never crowd/overlap the chat. When a root node is selected the
-  // same column shows that node's metadata (the existing `sidebar`).
+  // The exploration CONTROLS (印记's search-direction guidance, 理一理材料, 还需要
+  // 探索的 notes, 找关系) — a fixed-width sidebar docked OPPOSITE the 印记 chat so
+  // the graph stays the centered focal element and the controls never overlap the
+  // chat. Shown at BOTH levels (map + a question's hole) whenever no node is
+  // selected; when a node IS selected the SAME column swaps to its detail panel
+  // (`sidebar`), which has its own ← back to these controls. So the sidebar never
+  // disappears — it's a two-page column: controls ⇄ node details.
   const auxOnLeft = aiSide === "right";
   const controlsColumn = (
     <aside
@@ -566,9 +522,55 @@ export function ExplorationView({
       )}
     </aside>
   );
-  // No node selected → show the controls; a selected node → its metadata panel.
+  // No node selected → the controls; a selected node → its detail panel.
   const auxColumn = sidebarState === "ai" ? controlsColumn : sidebar;
 
+  if (loading) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <RabbitHoleLoader caption="加载探索图谱中…" />
+      </div>
+    );
+  }
+
+  if (inHole) {
+    /* ---------- HOLE (Level-2) · one question's mindmap + the SAME two-page aux
+       sidebar as the map (controls ⇄ node details), docked opposite the chat ---------- */
+    const holeMain = (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-4 py-2.5">
+          <button
+            type="button"
+            onClick={backToMap}
+            className="flex-none rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
+          >
+            ← 返回兔子洞地图
+          </button>
+          <h2 className="min-w-0 truncate font-sans text-[14px] font-bold text-mk-ink">{focusRoot!.text}</h2>
+        </div>
+        <div className="min-h-0 flex-1">
+          <QuestionMindmap
+            projectId={projectId}
+            root={focusRoot!}
+            leads={view.leads}
+            selectedId={selectedId}
+            onSelect={selectNode}
+            onDeleteLead={removeNode}
+          />
+        </div>
+      </div>
+    );
+    return (
+      <div className="relative flex h-full min-h-0 bg-mk-paper">
+        {auxOnLeft && auxColumn}
+        {holeMain}
+        {!auxOnLeft && auxColumn}
+      </div>
+    );
+  }
+
+  /* ---------- MAP (Level-1) · the overview graph of root questions + the SAME
+     two-page aux sidebar (controls ⇄ node details), docked opposite the chat ---------- */
   return (
     <div className="relative flex h-full min-h-0 bg-mk-paper">
       {auxOnLeft && auxColumn}
