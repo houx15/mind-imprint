@@ -115,6 +115,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/exploration/dig", protected(a.digExploration))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/adopt", protected(a.adoptExploration))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/attach", protected(a.attachExploration))
+	mux.Handle("POST /api/v1/projects/{id}/exploration/suggest-placement", protected(a.postSuggestPlacement))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/edges", protected(a.createQuestionEdge))
 	mux.Handle("PATCH /api/v1/projects/{id}/exploration/edges/{eid}", protected(a.patchQuestionEdge))
 	mux.Handle("DELETE /api/v1/projects/{id}/exploration/edges/{eid}", protected(a.deleteQuestionEdge))
