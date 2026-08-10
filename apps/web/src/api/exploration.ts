@@ -1,6 +1,6 @@
 import { z } from "zod";
 import type { LeadStatus, Reference, QuestionEdgeLabel, QuestionEdgeStatus } from "@mind-imprint/contracts";
-import { ExplorationView, ExplorationLead, ExplorationGuide, DigResult, DigCandidate, QuestionEdge } from "@mind-imprint/contracts";
+import { ExplorationView, ExplorationLead, ExplorationGuide, DigResult, DigCandidate, QuestionEdge, PlacementSuggestion } from "@mind-imprint/contracts";
 import { apiFetch } from "./client";
 
 // S3 rabbit-hole exploration: thin API client mirroring reading.ts's
@@ -121,4 +121,30 @@ export async function proposeEdges(projectId: string): Promise<QuestionEdge[]> {
     method: "POST",
   });
   return ProposeEdgesResponse.parse(raw).edges;
+}
+
+// Attach an EXISTING reference under a question lead → a connected paper node
+// (the self-added-source twin of adoptCandidate). Server mirrors adopt but
+// creates no reference. Response mirrors adopt: { lead, reference }.
+export async function attachReference(
+  projectId: string,
+  referenceId: string,
+  parentLeadId: string,
+): Promise<{ lead: ExplorationLead; reference: Reference }> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/attach`, {
+    method: "POST",
+    body: JSON.stringify({ referenceId, parentLeadId }),
+  });
+  const r = raw as { lead: unknown; reference: Reference };
+  return { lead: ExplorationLead.parse(r.lead), reference: r.reference };
+}
+
+// 印记 suggests the best-fit question to hang a reference under (or null → 未归类).
+// Advisory (铁律②): the student taps to confirm via attachReference.
+export async function suggestPlacement(projectId: string, referenceId: string): Promise<PlacementSuggestion> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/suggest-placement`, {
+    method: "POST",
+    body: JSON.stringify({ referenceId }),
+  });
+  return PlacementSuggestion.parse(raw);
 }
