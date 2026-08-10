@@ -70,6 +70,10 @@ describe("ProposalGuide", () => {
         {...h}
       />,
     );
+    // §4 gap G7 · it opens on the THINK phase (discuss first); the input boxes
+    // appear only after "我想好了".
+    expect(screen.queryByPlaceholderText("写一个子问题……")).toBeNull();
+    fireEvent.click(screen.getByText("我想好了，一条条写下来"));
     const confirm = screen.getByText("确认子问题") as HTMLButtonElement;
     expect(confirm.disabled).toBe(true); // no sub-questions yet
     const inputs = screen.getAllByPlaceholderText("写一个子问题……");

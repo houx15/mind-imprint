@@ -142,6 +142,7 @@ export function ProposalGuide({
         onOpenReading={onOpenReading}
         onNext={onNext}
         onPrev={onPrev}
+        onDiscuss={onStillStuck}
       />
     );
   }
@@ -193,16 +194,22 @@ function SubQuestionEditor({
   onOpenReading,
   onNext,
   onPrev,
+  onDiscuss,
 }: {
   step: ProposalGuideStep;
   onSave: (list: SubQuestion[]) => void;
   onOpenReading: (note?: string) => void;
   onNext: () => void;
   onPrev: () => void;
+  // §4 gap G7 · brainstorm the sub-questions WITH 印记 in the chat first.
+  onDiscuss?: () => void;
 }) {
   const [rows, setRows] = useState<SubQuestion[]>(() =>
     step.subQuestions.length ? step.subQuestions : [{ id: "", text: "" }, { id: "", text: "" }],
   );
+  // §4 gap G7 · think/discuss FIRST, then write the questions one-by-one — don't
+  // dump 4 empty boxes up front. Skip straight to filling if they already have some.
+  const [filling, setFilling] = useState(step.subQuestions.length > 0);
   const nonEmpty = useMemo(() => rows.filter((r) => r.text.trim() !== ""), [rows]);
   const canConfirm = nonEmpty.length >= 2;
 
@@ -227,6 +234,20 @@ function SubQuestionEditor({
           </div>
         )}
 
+        {/* §4 gap G7 · THINK phase — brainstorm with 印记 first, then start filling. */}
+        {!filling ? (
+          <div className="mt-4 flex flex-col gap-3">
+            <p className="text-[13.5px] leading-relaxed text-mk-muted">先别急着填空——这是提案最关键的一步。可以先和印记聊聊：你的核心问题可以从哪几个角度拆开？它们怎么串成一条能一起回答核心问题的链？想清楚了再一条条写下来。</p>
+            <div className="flex flex-wrap items-center gap-3">
+              {onDiscuss && (
+                <button type="button" onClick={onDiscuss} className="rounded-mk-md border border-mk-accent bg-mk-accent-50 px-4 py-1.5 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-100">先和印记聊聊子问题</button>
+              )}
+              <button type="button" onClick={() => setFilling(true)} className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">我想好了，一条条写下来</button>
+              <button type="button" onClick={() => onOpenReading("我还没想清楚子问题，想先读点文献。")} className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-ink hover:border-mk-accent">先去做文献探索</button>
+            </div>
+          </div>
+        ) : (
+        <>
         <div className="mt-4 flex flex-col gap-2">
           {rows.map((r, i) => (
             <div key={i} className="flex items-center gap-2">
@@ -285,6 +306,8 @@ function SubQuestionEditor({
             ← 上一步
           </button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );
