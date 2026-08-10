@@ -2,6 +2,7 @@ import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { ChevronUp, Check, ArrowRight } from "lucide-react";
 import type { NoteProposal, ProposalSection, QuestionProposal } from "@mind-imprint/contracts";
 import { Icon } from "@/ui/Icon";
+import { ReviewingHint, PLAN_GEN_LINES } from "@/ui";
 import { ChatLog, type ChatMessage } from "./ChatLog";
 import { ChatMarkdown } from "./ChatMarkdown";
 import { Composer } from "./Composer";
@@ -152,8 +153,19 @@ export function StudioTurnChips() {
     recapContinue,
     onRecapContinue,
     chatAction,
+    generatingPlan,
     sending,
   } = useStudioChat();
+  // §gap G2 · while the funnel generates the plan, show an interesting rotating
+  // loader (not a bare spinner). This runs during a note-confirm (not a coach
+  // turn), so `sending` is false here.
+  if (generatingPlan) {
+    return (
+      <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-3">
+        <ReviewingHint lines={PLAN_GEN_LINES} />
+      </div>
+    );
+  }
   if (sending) return null;
   return (
     <>

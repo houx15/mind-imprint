@@ -109,6 +109,9 @@ export type StudioChatValue = {
   // intro / plan walkthrough). Producers set it; StudioTurnChips renders it.
   chatAction?: ChatAction | null;
   setChatAction?: (a: ChatAction | null) => void;
+  // §gap G2 · true while the funnel generates the research plan — drives an
+  // interesting rotating loader in the chat.
+  generatingPlan?: boolean;
   // Advance the studio status forward to a specific FlowStatus (coachAdvance),
   // applying the new phase's greeting + directive + plan/projection refresh.
   // Used by the writing room's 完成 button (proposal→"essay", essay→"review");

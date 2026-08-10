@@ -182,6 +182,15 @@ export const REVIEWING_LINES = [
   "印记正在读你写的这一段……",
 ];
 
+// §gap G2 · plan-generation is a reasoning-model call (takes a while) — show these
+// while the funnel builds the research plan from the framework.
+export const PLAN_GEN_LINES = [
+  "印记正在读你的研究框架……",
+  "印记正在把研究拆成一周周的任务……",
+  "印记正在安排阅读、写作与复盘的顺序……",
+  "印记正在生成你的研究计划……",
+];
+
 /** Cycle through `lines` on an interval — the "interesting loading" the doc asks for. */
 export function useRotatingCaption(lines: string[], intervalMs = 2200): string {
   const [i, setI] = useState(0);

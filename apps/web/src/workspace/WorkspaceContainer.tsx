@@ -128,6 +128,9 @@ export function WorkspaceContainer({
   // appears DURING this session (situation a). Set true on load if a plan already
   // exists (returning student = situation b, no intro).
   const planIntroShownRef = useRef(false);
+  // §gap G2 · true while confirming the 4th dim triggers the funnel's plan
+  // generation (a reasoning-model call) — drives an interesting rotating loader.
+  const [generatingPlan, setGeneratingPlan] = useState(false);
   // First-run guard for the room-change plan refetch (declared here so the load
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
@@ -609,6 +612,14 @@ export function WorkspaceContainer({
       const existing = (w.proposal[section] ?? "").trim();
       const value = existing ? `${existing}\n${note.value}` : note.value;
       const merged: Proposal = { ...w.proposal, [section]: value };
+      // §gap G2 · if this confirm fills the 4th required dim, the funnel will
+      // generate the plan inside putProposal — show the plan-gen loader.
+      const willGenPlan =
+        !planIntroShownRef.current &&
+        (["objective", "reason", "activities", "resources"] as (keyof Proposal)[]).every(
+          (k) => (merged[k] ?? "").trim() !== "",
+        );
+      if (willGenPlan) setGeneratingPlan(true);
       await putProposal(pid, merged);
       if (activeProjectIdRef.current === pid) {
         await refreshWorkspace();
@@ -630,6 +641,8 @@ export function WorkspaceContainer({
       // next turn surfaced while this write was in flight).
       setConfirmedNote((cur) => (cur === note ? null : cur));
       setPendingNote((cur) => cur ?? note);
+    } finally {
+      setGeneratingPlan(false); // §gap G2
     }
   }, [pendingNote, refreshWorkspace]);
 
@@ -1064,6 +1077,7 @@ export function WorkspaceContainer({
     onRecapContinue: () => void continueYinji(),
     chatAction,
     setChatAction,
+    generatingPlan,
     advanceStatusTo,
     historyHasMore,
     loadEarlier,
