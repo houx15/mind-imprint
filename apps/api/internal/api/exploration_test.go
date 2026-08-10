@@ -1513,3 +1513,84 @@ func TestAttachExploration_RejectsPaperParent(t *testing.T) {
 		t.Fatalf("attach B under paper lead = %d, want 400: %s", rec.Code, rec.Body)
 	}
 }
+
+// TestAttachExploration_ForeignIds_400 — attach must close IDOR on BOTH ids: a
+// referenceId or a parentLeadId from another project is rejected with 400
+// (final-review #7 — parity with suggest-placement's foreign-reference test).
+func TestAttachExploration_ForeignIds_400(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	other := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+	otherBase := "/api/v1/projects/" + other
+
+	// A local question + a local reference.
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"本项目的问题"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create local lead = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var localQ struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &localQ); err != nil {
+		t.Fatalf("decode local lead: %v — %s", err, rec.Body)
+	}
+	localQid := localQ.Lead.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references", `{"title":"本项目来源"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create local reference = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var localRef struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &localRef); err != nil {
+		t.Fatalf("decode local reference: %v — %s", err, rec.Body)
+	}
+	localRefID := localRef.Reference.ID
+
+	// A question + a reference in the OTHER project.
+	rec = doJSON(t, h, cookie, "POST", otherBase+"/exploration/leads", `{"text":"别处的问题"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create foreign lead = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var foreignQ struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &foreignQ); err != nil {
+		t.Fatalf("decode foreign lead: %v — %s", err, rec.Body)
+	}
+	foreignQid := foreignQ.Lead.ID
+
+	rec = doJSON(t, h, cookie, "POST", otherBase+"/references", `{"title":"别处来源"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create foreign reference = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var foreignRef struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &foreignRef); err != nil {
+		t.Fatalf("decode foreign reference: %v — %s", err, rec.Body)
+	}
+	foreignRefID := foreignRef.Reference.ID
+
+	// Foreign referenceId (local parent) → 400.
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/attach",
+		`{"referenceId":"`+foreignRefID+`","parentLeadId":"`+localQid+`"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("attach foreign reference = %d, want 400: %s", rec.Code, rec.Body)
+	}
+
+	// Foreign parentLeadId (local reference) → 400.
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/attach",
+		`{"referenceId":"`+localRefID+`","parentLeadId":"`+foreignQid+`"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("attach under foreign parent = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}

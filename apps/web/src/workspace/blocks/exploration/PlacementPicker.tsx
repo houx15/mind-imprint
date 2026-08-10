@@ -12,12 +12,17 @@ export function PlacementPicker({
   reason,
   busy,
   onPick,
+  // The 「先放进未归类」 escape only makes sense at add-time. Inside the 未归类
+  // panel the source is ALREADY unfiled, so that button is a no-op there —
+  // hide it (final-review #4).
+  showUnfiledOption = true,
 }: {
   questions: PlacementQuestion[];
   suggestedLeadId: string | null;
   reason: string;
   busy?: boolean;
   onPick: (leadId: string | null) => void;
+  showUnfiledOption?: boolean;
 }) {
   // Group: roots in order, each followed by its sub-questions.
   const roots = questions.filter((q) => q.parentId == null);
@@ -46,7 +51,9 @@ export function PlacementPicker({
 
   return (
     <div className="flex flex-col gap-2">
-      {suggestedLeadId && reason && (
+      {reason && (
+        // Show 印记's reason whenever there IS one — including the null-case
+        // ("都不太贴…"), which is paid-for output worth surfacing (final-review #6).
         <p className="rounded-mk bg-mk-accent-50 px-3 py-2 text-[12.5px] leading-relaxed text-mk-muted">
           印记：<span>{reason}</span>
         </p>
@@ -62,14 +69,16 @@ export function PlacementPicker({
           </div>
         ))}
       </div>
-      <button
-        type="button"
-        disabled={busy}
-        onClick={() => onPick(null)}
-        className="mt-1 rounded-mk border border-dashed border-mk-border px-3 py-2 text-[13px] font-semibold text-mk-muted hover:border-mk-accent hover:text-mk-accent disabled:opacity-50"
-      >
-        先放进未归类
-      </button>
+      {showUnfiledOption && (
+        <button
+          type="button"
+          disabled={busy}
+          onClick={() => onPick(null)}
+          className="mt-1 rounded-mk border border-dashed border-mk-border px-3 py-2 text-[13px] font-semibold text-mk-muted hover:border-mk-accent hover:text-mk-accent disabled:opacity-50"
+        >
+          先放进未归类
+        </button>
+      )}
     </div>
   );
 }

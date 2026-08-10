@@ -4,8 +4,8 @@ import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 
 // PlacementModal — 加来源即归位. After a reference is created, ask 印记 for the
 // best-fit question (pre-highlighted) and let the student place it (or 未归类).
-// If the project has no questions yet, there's nothing to place under → the
-// caller shouldn't even open this; but if opened, it shows the 未归类 escape.
+// If the project has no questions yet, there's nothing to place under → this
+// self-closes without showing anything (the source stays in 未归类).
 export function PlacementModal({
   projectId,
   referenceId,
@@ -29,11 +29,17 @@ export function PlacementModal({
       try {
         const view = await getExploration(projectId);
         if (cancelled) return;
-        setQuestions(
-          view.leads
-            .filter((l) => l.status !== "pruned" && l.connectedReferenceId == null)
-            .map((l) => ({ id: l.id, text: l.text, parentId: l.parentLeadId })),
-        );
+        const qs = view.leads
+          .filter((l) => l.status !== "pruned" && l.connectedReferenceId == null)
+          .map((l) => ({ id: l.id, text: l.text, parentId: l.parentLeadId }));
+        // No questions yet (the common early-exploration state): there's nothing
+        // to place under, so don't force an empty modal or spend a suggest call —
+        // just close; the source stays in 未归类 (final-review #1).
+        if (qs.length === 0) {
+          onClose();
+          return;
+        }
+        setQuestions(qs);
         // Suggestion is best-effort — a failure just means no pre-highlight.
         try {
           const s = await suggestPlacement(projectId, referenceId);

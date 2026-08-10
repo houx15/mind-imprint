@@ -27,7 +27,7 @@ import {
 import { ExplorationSidebar, candidateKey, type DigMode, type PaperInList } from "./ExplorationSidebar";
 import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
-import { WarrenMap, UNFILED_NODE_ID } from "./WarrenMap";
+import { WarrenMap } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
@@ -440,6 +440,13 @@ export function ExplorationView({
   // 未归类 · references with no non-pruned connected lead, and the open
   // questions they can be attached under (roots + their sub-questions).
   const unfiled = useMemo(() => unfiledReferences(references, view.leads), [references, view.leads]);
+  // Never strand the student on an empty 未归类 panel — whether they just filed
+  // the last source, or re-entered the room with a persisted "unfiled" zoom.
+  // Fall back to the map (final-review #5).
+  useEffect(() => {
+    if (zoom.mode === "unfiled" && unfiled.length === 0) backToMap();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [zoom.mode, unfiled.length]);
   const placementQuestions = useMemo<PlacementQuestion[]>(
     () =>
       view.leads
@@ -619,6 +626,7 @@ export function ExplorationView({
                         suggestedLeadId={null}
                         reason=""
                         busy={attaching === ref.id}
+                        showUnfiledOption={false}
                         onPick={(leadId) => leadId && void attach(ref.id, leadId)}
                       />
                     </div>

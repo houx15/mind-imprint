@@ -54,6 +54,12 @@ func TestSuggestPlacement_NoQuestions_ReturnsNullNoSpend(t *testing.T) {
 	if body.Reason != "" {
 		t.Fatalf("reason = %q, want empty when there are no questions", body.Reason)
 	}
+	// The no-questions guard must short-circuit BEFORE any model call — assert
+	// the ledger, not just the response, so dropping the `len(questions) > 0`
+	// guard or the meterCall would actually fail a test (final-review #2).
+	if n := countLLMCallsByPurpose(t, pool, pid, "suggest_placement"); n != 0 {
+		t.Fatalf("suggest_placement llm_call rows = %d, want 0 (no questions → no spend)", n)
+	}
 }
 
 // TestSuggestPlacement_ForeignReference_400 — a referenceId that's real but
