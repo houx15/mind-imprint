@@ -30,14 +30,18 @@ export function SearchGuidanceBox({
 
   return (
     <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">检索方向</span>
-        <p className="min-w-0 flex-1 truncate text-[13px] text-mk-muted">不知道搜什么？让印记根据你的问题给几个方向。</p>
+      {/* Stack vertically so the copy is never truncated in the narrow reading
+          sidebar (label + full description, then a full-width button). */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start gap-2">
+          <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">检索方向</span>
+          <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-mk-muted">不知道搜什么？让印记根据你的问题给几个方向。</p>
+        </div>
         <button
           type="button"
           onClick={() => void propose()}
           disabled={loading}
-          className="flex-none rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
+          className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
         >
           {loading ? "印记在想…" : suggestions ? "换一批" : "让印记建议检索方向"}
         </button>
@@ -48,7 +52,7 @@ export function SearchGuidanceBox({
           {suggestions.map((s, i) => (
             <li key={i} className="flex items-start gap-2 rounded-mk border border-mk-border bg-mk-paper px-2.5 py-1.5">
               <div className="min-w-0 flex-1">
-                <p className="truncate text-[13.5px] font-semibold text-mk-ink">{s.keyword}</p>
+                <p className="text-[13.5px] font-semibold text-mk-ink">{s.keyword}</p>
                 {s.why && <p className="mt-0.5 text-[12px] leading-relaxed text-mk-muted">{s.why}</p>}
               </div>
               <button

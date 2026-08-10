@@ -23,14 +23,17 @@ export function ExplorationReviewBox({ projectId }: { projectId: string }) {
 
   return (
     <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">理一理材料</span>
-        <p className="min-w-0 flex-1 truncate text-[13px] text-mk-muted">搜集了一些材料后，让印记帮你看看哪些更相关、更重要。</p>
+      {/* Stack vertically so the copy isn't truncated in the narrow sidebar. */}
+      <div className="flex flex-col gap-2">
+        <div className="flex items-start gap-2">
+          <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">理一理材料</span>
+          <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-mk-muted">搜集了一些材料后，让印记帮你看看哪些更相关、更重要。</p>
+        </div>
         <button
           type="button"
           onClick={() => void run()}
           disabled={loading}
-          className="flex-none rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
+          className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
         >
           {review ? "再理一次" : "让印记帮我理一理"}
         </button>

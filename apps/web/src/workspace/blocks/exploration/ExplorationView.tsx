@@ -535,7 +535,7 @@ export function ExplorationView({
   const controlsColumn = (
     <aside
       className={
-        "mk-scroll flex w-[300px] flex-none flex-col gap-2 overflow-y-auto bg-mk-surface p-4 border-mk-border " +
+        "mk-scroll flex w-[320px] flex-none flex-col gap-2.5 overflow-y-auto bg-mk-surface p-4 border-mk-border " +
         (auxOnLeft ? "border-r" : "border-l")
       }
     >
