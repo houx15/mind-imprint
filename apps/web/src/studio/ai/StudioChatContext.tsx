@@ -36,6 +36,16 @@ export type StudioChatMsg = {
   hint?: string;
 };
 
+// A scripted 印记 chat message with action buttons (§ gaps G3/G5/G6): the
+// deterministic in-chat interactions the doc wants — proposal mode-choice, the
+// outline intro's 开始写作, the plan-introduction walkthrough — as a message +
+// selectable buttons in the chat, not a pane gate. `id` dedupes/replaces.
+export type ChatAction = {
+  id: string;
+  text: string;
+  actions: { label: string; run: () => void; primary?: boolean }[];
+};
+
 export type StudioChatValue = {
   messages: StudioChatMsg[];
   setMessages: Dispatch<SetStateAction<StudioChatMsg[]>>;
@@ -95,6 +105,10 @@ export type StudioChatValue = {
   // 印记's current-status room.
   recapContinue?: boolean;
   onRecapContinue?: () => void;
+  // §gaps G3/G5/G6 · the current scripted in-chat action (mode-choice / outline
+  // intro / plan walkthrough). Producers set it; StudioTurnChips renders it.
+  chatAction?: ChatAction | null;
+  setChatAction?: (a: ChatAction | null) => void;
   // Advance the studio status forward to a specific FlowStatus (coachAdvance),
   // applying the new phase's greeting + directive + plan/projection refresh.
   // Used by the writing room's 完成 button (proposal→"essay", essay→"review");

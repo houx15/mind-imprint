@@ -20,7 +20,7 @@ import { createLead } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
-import { StudioChatContext, type StudioChatMsg, type StudioChatValue } from "../studio/ai/StudioChatContext";
+import { StudioChatContext, type StudioChatMsg, type StudioChatValue, type ChatAction } from "../studio/ai/StudioChatContext";
 import { StudioCoachChat } from "../studio/ai/StudioCoachChat";
 import { StudioCardSheet } from "../studio/StudioCardSheet";
 import { QuestionCardModal } from "../studio/QuestionCardModal";
@@ -124,6 +124,10 @@ export function WorkspaceContainer({
   // The project plan's items → the PlanSpine "你在这一步" indicator (spec §3).
   // Empty until a plan is generated; refreshed alongside the workspace.
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
+  // §3 gap G3 · the plan-intro walkthrough fires ONCE, only when the plan first
+  // appears DURING this session (situation a). Set true on load if a plan already
+  // exists (returning student = situation b, no intro).
+  const planIntroShownRef = useRef(false);
   // First-run guard for the room-change plan refetch (declared here so the load
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
@@ -141,6 +145,9 @@ export function WorkspaceContainer({
   // plan for a recap; this flag drives the recap banner + 继续工作 button there.
   // Cleared the moment 印记 morphs the room or the student navigates.
   const [recapLanding, setRecapLanding] = useState(false);
+  // §gaps G3/G5/G6 · the current scripted in-chat action (mode-choice / outline
+  // intro / plan walkthrough). Cleared on project switch.
+  const [chatAction, setChatAction] = useState<ChatAction | null>(null);
   // §5 · true when the reading room was opened MANUALLY (via the switcher) and
   // the student hasn't yet confirmed starting an exploration; a guide-entry
   // (onOpenReading) opens directly with this false.
@@ -432,8 +439,11 @@ export function WorkspaceContainer({
         // (no per-phase SSE) — surface a one-line SubagentHint after 印记's
         // narrate so the student sees SOMETHING happened, without a second chat
         // exchange. Order: narrate first, then any hint lines.
-        if (reply.planGenerated) {
+        if (reply.planGenerated && !planIntroShownRef.current) {
           setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "subagent 已整理研究计划" }]);
+          // §3 gap G3 (situation a) · introduce the plan one-by-one in the chat.
+          planIntroShownRef.current = true;
+          showPlanIntro(0);
         }
         if (reply.compacted) {
           setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "已整理较早的对话" }]);
@@ -521,6 +531,25 @@ export function WorkspaceContainer({
     }
   }, [applyStudioState, refreshWorkspace]);
 
+  // §3 gap G3 · situation a · after the plan generates, 印记 introduces it
+  // one-by-one IN THE CHAT (甘特图 → 看板 → 活动日志) with 下一步 buttons; the last
+  // step advances to writing the proposal. A scripted client-side walkthrough.
+  const showPlanIntro = useCallback((idx: number) => {
+    const PLAN_INTRO = [
+      "我根据你的框架整理了一份研究计划。先看这里默认的「甘特图」——它把整个研究按周排成一条时间线，你能一眼看到每件事大概在第几天做。",
+      "再点上面的「看板」——任务分成 待办 / 进行中 / 完成 三列，你可以拖动卡片，随时更新自己的进度。",
+      "最后是「活动日志」——它记录你一路上做了什么，大多会自动记下，你也可以自己补一笔。这份计划就是你接下来的地图。",
+    ];
+    const last = idx >= PLAN_INTRO.length - 1;
+    setChatAction({
+      id: `plan-intro-${idx}`,
+      text: PLAN_INTRO[idx]!,
+      actions: last
+        ? [{ label: "开始写研究提案", primary: true, run: () => { setChatAction(null); void advanceStatusTo("proposal"); } }]
+        : [{ label: "下一步 →", primary: true, run: () => showPlanIntro(idx + 1) }],
+    });
+  }, [advanceStatusTo]);
+
   // Act on the one-tap nextStep (铁律②: her tap advances) — a thin wrapper over
   // advanceStatusTo that manages the chip (clear before, restore on failure).
   const advanceToNextStep = useCallback(async (): Promise<void> => {
@@ -581,7 +610,19 @@ export function WorkspaceContainer({
       const value = existing ? `${existing}\n${note.value}` : note.value;
       const merged: Proposal = { ...w.proposal, [section]: value };
       await putProposal(pid, merged);
-      if (activeProjectIdRef.current === pid) await refreshWorkspace();
+      if (activeProjectIdRef.current === pid) {
+        await refreshWorkspace();
+        // §3 gap G3 · confirming the 4th dim can auto-generate the plan server-side
+        // (the funnel). If the plan just appeared this session, introduce it.
+        if (!planIntroShownRef.current) {
+          const items = await getPlan(pid).catch(() => [] as PlanItem[]);
+          if (items.length > 0 && activeProjectIdRef.current === pid) {
+            planIntroShownRef.current = true;
+            setPlanItems(items);
+            showPlanIntro(0);
+          }
+        }
+      }
     } catch {
       // The write failed — roll back the acknowledgment and restore the
       // actionable chip so her tap isn't silently lost and she can retry, UNLESS
@@ -663,6 +704,7 @@ export function WorkspaceContainer({
     let cancelled = false;
     setWorkspace(null);
     setPlanItems([]);
+    planIntroShownRef.current = false;
     setError(null);
     setSummary(null);
     // Reset the AI status back to "not yet loaded" so the shell shows the
@@ -683,6 +725,7 @@ export function WorkspaceContainer({
     // resumes at its own 印记 status.
     setTookOver(false);
     setStudioMessages([]);
+    setChatAction(null);
     // Reset the pagination cursor/recap too — else a project switch could show
     // the PREVIOUS project's "载入更早" affordance or digest recap for a beat
     // before this project's first page resolves.
@@ -711,7 +754,11 @@ export function WorkspaceContainer({
     setStarting(false);
     getPlan(projectId)
       .then((items) => {
-        if (!cancelled) setPlanItems(items);
+        if (cancelled) return;
+        setPlanItems(items);
+        // A plan already exists on open → returning student (situation b): don't
+        // replay the plan-introduction walkthrough.
+        if (items.length > 0) planIntroShownRef.current = true;
       })
       .catch(() => {
         /* no plan yet (or fetch failed) → the spine simply doesn't render */
@@ -1015,6 +1062,8 @@ export function WorkspaceContainer({
     advanceToNextStep,
     recapContinue: recapLanding,
     onRecapContinue: () => void continueYinji(),
+    chatAction,
+    setChatAction,
     advanceStatusTo,
     historyHasMore,
     loadEarlier,

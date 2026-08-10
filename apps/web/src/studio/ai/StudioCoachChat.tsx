@@ -151,11 +151,33 @@ export function StudioTurnChips() {
     advanceToNextStep,
     recapContinue,
     onRecapContinue,
+    chatAction,
     sending,
   } = useStudioChat();
   if (sending) return null;
   return (
     <>
+      {/* §gaps G3/G5/G6 · a scripted 印记 message + selectable action buttons
+          (mode-choice / outline intro / plan walkthrough) — in the chat. */}
+      {chatAction && (
+        <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-3">
+          <p className="whitespace-pre-wrap text-[14px] leading-relaxed text-mk-ink">{chatAction.text}</p>
+          <div className="mt-2.5 flex flex-wrap gap-2">
+            {chatAction.actions.map((a, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={a.run}
+                className={a.primary
+                  ? "rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600"
+                  : "rounded-mk-md border border-mk-border px-3.5 py-1.5 text-[14px] font-bold text-mk-ink hover:border-mk-accent"}
+              >
+                {a.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
       {/* §3 gap G4 · the recap "继续工作" continue button, in the chat. */}
       {recapContinue && onRecapContinue && (
         <button

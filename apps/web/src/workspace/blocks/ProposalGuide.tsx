@@ -75,64 +75,12 @@ export function ProposalGuide({
 }) {
   if (!step) return null;
 
-  // 1 · mode not chosen → the choice gate.
-  if (step.mode === "") {
-    return (
-      <div className="border-b border-mk-border bg-mk-paper px-8 py-5">
-        <div className="mx-auto max-w-[70ch]">
-          <h3 className="font-sans text-[16px] font-bold text-mk-ink">要怎么写这份提案？</h3>
-          <p className="mt-1 text-[14px] text-mk-muted">
-            {bufferNonEmpty
-              ? "你已经写了一些——可以自己接着写，也可以让印记带你逐部分打磨。"
-              : "你可以自己写，也可以让印记一步步带你写。"}
-          </p>
-          <div className="mt-4 flex gap-3">
-            <button
-              type="button"
-              onClick={() => onChooseMode("free")}
-              className={`rounded-mk-md border px-4 py-2 text-[14px] font-bold ${bufferNonEmpty ? "border-mk-accent bg-mk-accent-50 text-mk-accent" : "border-mk-border text-mk-ink hover:border-mk-accent"}`}
-            >
-              我自己写
-            </button>
-            <button
-              type="button"
-              onClick={() => onChooseMode("guided")}
-              className={`rounded-mk-md border px-4 py-2 text-[14px] font-bold ${bufferNonEmpty ? "border-mk-border text-mk-ink hover:border-mk-accent" : "border-mk-accent bg-mk-accent-50 text-mk-accent"}`}
-            >
-              一步步带我写
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // 2 · free mode → no scaffold (the ProsePane is the whole surface).
-  if (step.mode === "free") return null;
-
-  // 3 · guided, not started → the outline intro.
-  if (!step.started) {
-    return (
-      <div className="border-b border-mk-border bg-mk-paper px-8 py-5">
-        <div className="mx-auto max-w-[70ch]">
-          <h3 className="font-sans text-[16px] font-bold text-mk-ink">一份扎实的提案，大概长这样</h3>
-          <ol className="mt-3 flex list-decimal flex-col gap-1 pl-5 text-[14px] text-mk-ink">
-            {OUTLINE_PARTS.map((p) => (
-              <li key={p}>{p}</li>
-            ))}
-          </ol>
-          <p className="mt-3 text-[13px] text-mk-muted">研究计划会拆成你自己的 2–4 个子问题，一个一个来。</p>
-          <button
-            type="button"
-            onClick={onStart}
-            className="mt-4 rounded-mk-md bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600"
-          >
-            开始写作
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // §gaps G5/G6 · the mode-choice and the outline intro now render as scripted
+  // actions IN THE CHAT (StudioTurnChips), driven by ProposalGuidePane's effect —
+  // not as pane gates. So the pane shows nothing for those two sub-states.
+  if (step.mode === "") return null;
+  if (step.mode === "free") return null; // free mode → the ProsePane is the whole surface.
+  if (!step.started) return null; // guided, not started → the chat's outline intro drives 开始写作.
 
   // 4a · guided, started, the sub-question define step.
   if (step.kind === "subq-define") {
@@ -356,7 +304,7 @@ export function ProposalGuidePane({
   onAnnotationsChanged?: () => void;
 }) {
   const track = useProposalTrack(projectId);
-  const { sendStudioTurn } = useStudioChat();
+  const { sendStudioTurn, setChatAction } = useStudioChat();
   const snip = useSnippets(projectId);
   const { tags, setTag } = useCardTags(projectId);
   const [reviewing, setReviewing] = useState(false);
@@ -381,6 +329,38 @@ export function ProposalGuidePane({
       .catch(() => { /* leave false */ });
     return () => { cancelled = true; };
   }, [projectId]);
+
+  // §gaps G5/G6 · drive the mode-choice + outline-intro as scripted actions IN
+  // THE CHAT (not pane gates): set them while in those sub-states, clear once the
+  // student has chosen a mode + started (or in free mode).
+  const stepMode = track.step?.mode;
+  const stepStarted = track.step?.started;
+  useEffect(() => {
+    if (!setChatAction) return;
+    if (stepMode === "") {
+      setChatAction({
+        id: "proposal-mode",
+        text: bufferNonEmpty
+          ? "接下来写研究提案。你已经写了一些——可以自己接着写，也可以让我一步步带你逐部分打磨。"
+          : "接下来我们写研究提案。你可以自己写，也可以让我一步步带你写。",
+        actions: [
+          { label: "我自己写", run: () => void track.chooseMode("free") },
+          { label: "一步步带我写", primary: true, run: () => void track.chooseMode("guided") },
+        ],
+      });
+    } else if (stepMode === "guided" && !stepStarted) {
+      setChatAction({
+        id: "proposal-outline",
+        text: `一份扎实的提案大概长这样：\n${OUTLINE_PARTS.map((p, i) => `${i + 1}. ${p}`).join("\n")}\n\n研究计划会拆成你自己的 2–4 个子问题，一个一个来。准备好了就开始吧。`,
+        actions: [{ label: "开始写作", primary: true, run: () => void track.start() }],
+      });
+    } else {
+      setChatAction(null);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepMode, stepStarted, bufferNonEmpty]);
+  // Clear the chat action when leaving the proposal room.
+  useEffect(() => () => setChatAction?.(null), [setChatAction]);
 
   const step = track.step;
   const isGuided = step?.mode === "guided" && step.started;

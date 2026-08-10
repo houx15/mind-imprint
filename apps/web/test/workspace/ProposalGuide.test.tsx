@@ -34,19 +34,12 @@ function handlers() {
 }
 
 describe("ProposalGuide", () => {
-  it("mode='' renders the choice gate; picking guided calls onChooseMode", () => {
+  it("§gaps G5/G6 · the pane renders NOTHING for mode-choice / outline-intro (they moved to the chat)", () => {
     const h = handlers();
-    render(<ProposalGuide step={step({ mode: "", started: false, card: null })} bufferNonEmpty={false} reviewing={false} {...h} />);
-    fireEvent.click(screen.getByText("一步步带我写"));
-    expect(h.onChooseMode).toHaveBeenCalledWith("guided");
-  });
-
-  it("guided+not-started renders the outline intro + 开始写作", () => {
-    const h = handlers();
-    render(<ProposalGuide step={step({ started: false, card: null })} bufferNonEmpty={false} reviewing={false} {...h} />);
-    expect(screen.getByText(/一份扎实的提案/)).toBeTruthy();
-    fireEvent.click(screen.getByText("开始写作"));
-    expect(h.onStart).toHaveBeenCalled();
+    const { container: c1 } = render(<ProposalGuide step={step({ mode: "", started: false, card: null })} bufferNonEmpty={false} reviewing={false} {...h} />);
+    expect(c1.textContent).toBe("");
+    const { container: c2 } = render(<ProposalGuide step={step({ started: false, card: null })} bufferNonEmpty={false} reviewing={false} {...h} />);
+    expect(c2.textContent).toBe("");
   });
 
   it("guided guide card: 我依然有问题 and 我写好了 fire", () => {
