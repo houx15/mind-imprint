@@ -71,6 +71,9 @@ func ProposalFixedParts() []Step {
 		{Key: "method", Title: "研究方法", Kind: KindFixed},
 		{Key: "feasibility", Title: "可行性 / 限制 / 伦理", Kind: KindFixed},
 		{Key: "expected", Title: "预期结果", Kind: KindFixed},
+		// §4 gap G9 · the final assembly/polish step: read the whole proposal in
+		// order, polish it, get a whole-proposal 批注, then 完成提案.
+		{Key: "polish", Title: "通读与润色", Kind: KindFixed},
 	}
 }
 

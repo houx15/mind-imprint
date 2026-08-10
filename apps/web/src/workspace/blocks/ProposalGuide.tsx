@@ -5,6 +5,7 @@ import { reviewProposalPart } from "../../api/proposalTrack";
 import { getDraft } from "../api/workspace";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
 import { ProsePane } from "./ProsePane";
+import { ReviewingHint } from "@/ui";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
 import { useCardTags } from "./useCardTags";
@@ -144,6 +145,33 @@ export function ProposalGuide({
         onPrev={onPrev}
         onDiscuss={onStillStuck}
       />
+    );
+  }
+
+  // §4 gap G9 · the final 通读与润色 step: read the whole assembled proposal (in
+  // the ProsePane below), polish it, get a whole-proposal 批注, then 完成提案.
+  if (step.key === "polish") {
+    return (
+      <div className="border-b border-mk-border bg-mk-paper px-8 py-4">
+        <div className="mx-auto max-w-[70ch]">
+          {overview && overview.length > 0 && (
+            <div className="mb-3">
+              <PartsOverview parts={overview} tags={tags ?? {}} currentKey={step.key} onJump={(k) => onJumpPart?.(k)} />
+            </div>
+          )}
+          <div className="mb-2 flex items-center gap-2">
+            <span className="rounded-full bg-mk-accent px-2 py-0.5 text-[12px] font-bold text-white">第 {step.index + 1} / {step.total} 步</span>
+            <h3 className="font-sans text-[15px] font-bold text-mk-ink">通读与润色</h3>
+            <button type="button" onClick={onPrev} className="ml-auto rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">← 上一步</button>
+          </div>
+          <p className="text-[14px] leading-relaxed text-mk-ink">把下面整份提案通读一遍——看看各部分的顺序、衔接是否顺畅，润色语言。让印记像老师一样通篇看一遍，你据此修改；满意后点右上角「完成提案」。</p>
+          <div className="mt-3">
+            {reviewing ? <ReviewingHint /> : (
+              <button type="button" onClick={onDone} className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">让印记通篇看一遍</button>
+            )}
+          </div>
+        </div>
+      </div>
     );
   }
 
@@ -395,8 +423,13 @@ export function ProposalGuidePane({
 
   async function onDone() {
     if (!step) return;
+    const isPolish = step.key === "polish";
     setReviewing(true);
-    assembleToBuffer(); // make sure the buffer reflects this part before the review reads it
+    // §4 gap G9 · on the 通读与润色 step the student edits the WHOLE buffer directly
+    // (ProsePane), so DON'T re-assemble from the per-part snippets (that would
+    // clobber their polish) and DON'T advance (it's the last step; finish is the
+    // separate 完成提案 button).
+    if (!isPolish) assembleToBuffer();
     try {
       // The flagship reviewer produces 批注 (view-only, left panel — 铁律①).
       await reviewProposalPart(projectId, step.key);
@@ -405,7 +438,7 @@ export function ProposalGuidePane({
       /* best-effort; still advance */
     } finally {
       setReviewing(false);
-      void track.next();
+      if (!isPolish) void track.next();
     }
   }
 
@@ -436,8 +469,9 @@ export function ProposalGuidePane({
         />
       )}
       {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
-          per-part in the cards above (§4). */}
-      {!isGuided && (
+          per-part in the cards above (§4). §4 gap G9 · the final 通读与润色 step
+          also shows the whole assembled proposal here to read + polish. */}
+      {(!isGuided || step?.key === "polish") && (
         <div className="min-h-0 flex-1">
           <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         </div>

@@ -77,7 +77,7 @@ func TestProposalTrack_FreshUnchosen(t *testing.T) {
 	if got.Mode != "" || got.Started {
 		t.Fatalf("fresh track should be unchosen: %+v", got)
 	}
-	if got.Total != 9 || got.Key != "understanding" {
+	if got.Total != 10 || got.Key != "understanding" {
 		t.Fatalf("fresh derived list wrong: %+v", got)
 	}
 	if got.Card != nil {
@@ -115,8 +115,8 @@ func TestProposalTrack_SubQuestionsExpandTrack(t *testing.T) {
 
 	got := trackReq(t, h, cookie, "POST", "/proposal-track/subquestions",
 		`{"subQuestions":[{"text":"q1"},{"text":"q2"},{"text":"q3"}]}`)
-	if got.Total != 12 || len(got.SubQuestions) != 3 {
-		t.Fatalf("3 sub-questions should give total 12: %+v", got)
+	if got.Total != 13 || len(got.SubQuestions) != 3 {
+		t.Fatalf("3 sub-questions should give total 13: %+v", got)
 	}
 	if got.SubQuestions[0].ID == "" {
 		t.Fatal("server must mint sub-question ids")
