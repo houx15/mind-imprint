@@ -267,6 +267,7 @@ export function EssayStatementPane({
 
   async function onDone() {
     if (!step) return;
+    const wasLast = step.index >= step.total - 1;
     setReviewing(true);
     try {
       await reviewEssayPart(projectId, step.key);
@@ -275,6 +276,10 @@ export function EssayStatementPane({
       /* best-effort */
     } finally {
       setReviewing(false);
+      // §guided-writing · after 我写好了 (review), GUIDE the student to the next
+      // step (user: "after student writing, we guide him to the next step"). The
+      // last step stays put so its 完成正文陈述 gate shows.
+      if (!wasLast) void track.next();
     }
   }
 
