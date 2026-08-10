@@ -15,6 +15,7 @@ import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/ap
 import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
 import {
   adoptCandidate,
+  attachReference,
   createEdge,
   deleteEdge,
   deleteLead,
@@ -24,8 +25,9 @@ import {
   proposeEdges,
 } from "../../../api/exploration";
 import { ExplorationSidebar, candidateKey, type DigMode, type PaperInList } from "./ExplorationSidebar";
+import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
-import { WarrenMap } from "./WarrenMap";
+import { WarrenMap, UNFILED_NODE_ID } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
@@ -38,8 +40,19 @@ import { NeedsResourcesBox } from "../NeedsResourcesBox";
 // question she was inside. "map" = the Level-1 overview graph of root questions
 // (WarrenMap); "hole" = one question's subtree (GVb's React Flow mindmap +
 // right sidebar), scoped to focusRootId.
-type ZoomState = { mode: "map" | "hole"; focusRootId: string | null };
+type ZoomState = { mode: "map" | "hole" | "unfiled"; focusRootId: string | null };
 const zoomMemo = new Map<string, ZoomState>();
+
+// 未归类 = references with no NON-PRUNED connected lead (read or unread — the
+// whole point is faithfulness), excluding archived ones. Computed client-side;
+// the server's danglingSourceIds (read-but-unfollowed) is a different, sharper set.
+export function unfiledReferences(references: Reference[], leads: ExplorationLead[]): Reference[] {
+  const attached = new Set<string>();
+  for (const l of leads) {
+    if (l.status !== "pruned" && l.connectedReferenceId) attached.add(l.connectedReferenceId);
+  }
+  return references.filter((r) => !(r.archived ?? false) && !attached.has(r.id));
+}
 
 // GVb · "钻进一个洞" (Level-2): the focused question as a React Flow MINDMAP
 // (QuestionMindmap) + a right sidebar (NodeSidebar). Clicking a node selects it;
@@ -294,6 +307,25 @@ export function ExplorationView({
     setTray((t) => t.filter((x) => candidateKey(x) !== key));
   }
 
+  // 未归类 panel · attach an EXISTING reference to a question lead (the
+  // self-added-source twin of adopt — no new reference is created, just a new
+  // connected lead under parentLeadId). Explicit student action only (铁律①).
+  const [attaching, setAttaching] = useState<string | null>(null); // referenceId in flight
+  async function attach(referenceId: string, parentLeadId: string) {
+    if (attaching) return;
+    setAttaching(referenceId);
+    setActionError(false);
+    try {
+      await attachReference(projectId, referenceId, parentLeadId);
+      await refresh();
+      onLibraryChanged?.();
+    } catch {
+      setActionError(true);
+    } finally {
+      setAttaching(null);
+    }
+  }
+
   // B4b · ask 印记 to propose labeled edges between root questions, then refetch
   // so the new (dashed, status:"proposed") edges appear. A zero-result run gets a
   // gentle inline note rather than an error. 印记 proposes; the student confirms.
@@ -404,6 +436,17 @@ export function ExplorationView({
   }
 
   const roots = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
+
+  // 未归类 · references with no non-pruned connected lead, and the open
+  // questions they can be attached under (roots + their sub-questions).
+  const unfiled = useMemo(() => unfiledReferences(references, view.leads), [references, view.leads]);
+  const placementQuestions = useMemo<PlacementQuestion[]>(
+    () =>
+      view.leads
+        .filter((l) => l.status !== "pruned" && l.connectedReferenceId == null)
+        .map((l) => ({ id: l.id, text: l.text, parentId: l.parentLeadId })),
+    [view.leads],
+  );
 
   // GVa map data. countByRoot = "文献 x 篇" — descendant PAPERS (adopted leads
   // carrying a connectedReferenceId) under each root, not raw descendant count.
@@ -533,6 +576,69 @@ export function ExplorationView({
     );
   }
 
+  if (zoom.mode === "unfiled") {
+    /* ---------- 未归类 panel · sources with no attached question yet, each with
+       进入阅读室 + a PlacementPicker to挂 it under a question ---------- */
+    const unfiledMain = (
+      <div className="flex min-h-0 flex-1 flex-col">
+        <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-4 py-2.5">
+          <button
+            type="button"
+            onClick={backToMap}
+            className="flex-none rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
+          >
+            ← 返回兔子洞地图
+          </button>
+          <h2 className="min-w-0 truncate font-sans text-[14px] font-bold text-mk-ink">未归类的来源 · {unfiled.length} 篇</h2>
+        </div>
+        <div className="mk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          {unfiled.length === 0 ? (
+            <div className="flex h-full items-center justify-center">
+              <EmptyState illustration="warren" title="都归好位了" body="每一篇来源都挂到了某个问题下——干净。" />
+            </div>
+          ) : (
+            <ul className="flex flex-col gap-3">
+              {unfiled.map((ref) => (
+                <li key={ref.id} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+                  <p className="text-[14px] font-bold text-mk-ink">{ref.title || "未命名来源"}</p>
+                  <div className="mt-2 flex flex-col gap-2">
+                    {onEnterReading && (
+                      <button
+                        type="button"
+                        onClick={() => void enterSource(ref)}
+                        disabled={enteringRefId === ref.id}
+                        className="self-start rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
+                      >
+                        {enteringRefId === ref.id ? "打开中…" : "进入阅读室"}
+                      </button>
+                    )}
+                    <div className="rounded-mk border border-mk-border bg-mk-paper p-2.5">
+                      <p className="mb-2 text-[12px] font-bold text-mk-faint">挂到问题下</p>
+                      <PlacementPicker
+                        questions={placementQuestions}
+                        suggestedLeadId={null}
+                        reason=""
+                        busy={attaching === ref.id}
+                        onPick={(leadId) => leadId && void attach(ref.id, leadId)}
+                      />
+                    </div>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </div>
+    );
+    return (
+      <div className="relative flex h-full min-h-0 bg-mk-paper">
+        {auxOnLeft && auxColumn}
+        {unfiledMain}
+        {!auxOnLeft && auxColumn}
+      </div>
+    );
+  }
+
   if (inHole) {
     /* ---------- HOLE (Level-2) · one question's mindmap + the SAME two-page aux
        sidebar as the map (controls ⇄ node details), docked opposite the chat ---------- */
@@ -595,6 +701,8 @@ export function ExplorationView({
               countByRoot={countByRoot}
               edges={view.edges}
               onZoom={zoomInto}
+              unfiledCount={unfiled.length}
+              onOpenUnfiled={() => goZoom({ mode: "unfiled", focusRootId: null })}
               busyEdgeIds={busyEdgeIds}
               onConfirmEdge={confirmEdge}
               onDismissEdge={dismissEdge}
