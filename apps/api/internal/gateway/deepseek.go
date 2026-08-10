@@ -81,15 +81,17 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
-	// Reasoning stays ON for all tiers. Even with the mechanical transitions moved
-	// server-side (reconcileStudioFunnel handling stage + plan), disabling v4
-	// "thinking" on the chaperone still failed the coach's ONE remaining semantic
-	// job — propose_note: across every prompt design a reasoning-off coach either
-	// barely proposed notes (1/6) or misclassified their section (resources→
-	// activities) and skipped dimensions (no reason/resources), leaving the
-	// student's proposal board wrong. Note-proposing + section routing needs
-	// reasoning and can't move to Go. So thinking stays on; the real
-	// perceived-latency lever is SSE-streaming the coach narrate.
+	// Model-routing (2026-08-10, product owner's decision): reasoning stays ON only
+	// for the FLAGSHIP reviewer seam (EvalResolver: framework review / plan-gen /
+	// 整稿体检 / 证据地图饱和 / 评估). The coach + guide side (chaperone tier — coach,
+	// guides, compaction, classify, search-guidance) runs deepseek-v4-pro with
+	// request-level thinking DISABLED: faster + cheaper. An earlier reasoning-off
+	// attempt regressed the coach's propose_note (misrouted sections), but that was
+	// on the mega-orchestrator; the status-router shrank each turn to a tiny prompt,
+	// and v4-pro (not flash) is the base here — verified live after this change.
+	if r.Tier == "chaperone" {
+		body["thinking"] = map[string]any{"type": "disabled"}
+	}
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}

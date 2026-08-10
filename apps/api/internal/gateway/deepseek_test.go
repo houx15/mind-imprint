@@ -100,18 +100,21 @@ func drain(t *testing.T, p Provider, r Resolved) {
 	}
 }
 
-func TestDeepSeekNeverDisablesThinking(t *testing.T) {
-	// Regression guard: we do NOT send {"thinking":{"type":"disabled"}} for any
-	// tier. Disabling it (2-3× faster) broke the coach's note-proposing + section
-	// routing even with the mechanical funnel moved server-side, so reasoning
-	// stays on everywhere. See deepseek.go.
+func TestDeepSeekThinkingByTier(t *testing.T) {
+	// Model-routing (2026-08-10): the chaperone tier (coach/guide side) DISABLES
+	// thinking (v4-pro, reasoning off); the flagship reviewer tier keeps it on.
 	srv, body := captureBody(t)
 	defer srv.Close()
 	p := NewDeepSeekProvider(srv.Client())
-	for _, tier := range []string{"chaperone", "flagship", ""} {
+
+	drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "chaperone"})
+	if !strings.Contains(*body, `"thinking"`) {
+		t.Fatalf("chaperone tier must disable thinking, got: %s", *body)
+	}
+	for _, tier := range []string{"flagship", ""} {
 		drain(t, p, Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: tier})
 		if strings.Contains(*body, `"thinking"`) {
-			t.Fatalf("tier %q must NOT set thinking, got: %s", tier, *body)
+			t.Fatalf("tier %q must keep thinking (reasoning on), got: %s", tier, *body)
 		}
 	}
 }

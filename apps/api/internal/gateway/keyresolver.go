@@ -71,9 +71,13 @@ func NewFastChaperoneResolver(cfg config.Config) KeyResolver {
 			return Resolved{
 				Provider: "deepseek",
 				BaseURL:  "https://api.deepseek.com/v1",
-				Model:    "deepseek-v4-flash",
-				APIKey:   cfg.DeepSeekKey,
-				Tier:     "chaperone",
+				// Per the product owner's model-routing decision (2026-08-10): the
+				// coach/guide side runs deepseek-v4-pro with request-level thinking
+				// DISABLED (see buildBody's tier gate) — chosen over v4-flash. Only
+				// the reviewer seam (EvalResolver, flagship) keeps reasoning on.
+				Model:  "deepseek-v4-pro",
+				APIKey: cfg.DeepSeekKey,
+				Tier:   "chaperone",
 			}, nil
 		case cfg.AnthropicKey != "":
 			return Resolved{
