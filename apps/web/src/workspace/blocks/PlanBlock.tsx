@@ -267,10 +267,12 @@ function FormingPhase(props: {
       setWaiving(false);
     }
   }
-  // The coverage counter still uses the four REQUIRED dims only (spec §5):
-  // 反例/张力 is optional and never counts toward it.
+  // §framework · all FIVE parts count toward the tracker (目标/缘由/活动与时间/
+  // 资源/反例). The 5th (反例) is skippable — plan-gen still only requires the four,
+  // so `requiredCovered` drives readiness/waive while `covered` drives the /5 view.
   const requiredDims = PROPOSAL_DIMS.filter((d) => d.required);
-  const covered = requiredDims.filter((d) => proposal[d.key].trim().length > 0).length;
+  const requiredCovered = requiredDims.filter((d) => proposal[d.key].trim().length > 0).length;
+  const covered = PROPOSAL_DIMS.filter((d) => proposal[d.key].trim().length > 0).length;
   // The room→panel contract (Task 4, spec §17): this room's WORK — the 开题
   // proposal panel + its actions — renders directly below, in <main>; its
   // COACH (the chat conversation) is portaled into the constant AiPanel via
@@ -313,7 +315,7 @@ function FormingPhase(props: {
               <Icon name="spark" size={16} />
               <span className="text-[14px] font-bold tracking-wide">开题 · 想清楚这几件事</span>
             </div>
-            <span className="text-[12px] font-bold text-mk-faint">{covered}/4 已聊到</span>
+            <span className="text-[12px] font-bold text-mk-faint">{covered}/5 已聊到</span>
           </div>
           <p className="mb-4 text-[12px] text-mk-faint">不用写正式开题报告——把这几件事聊清楚就行。</p>
           <div className="flex min-h-0 flex-1 flex-col gap-3.5 overflow-y-auto">
@@ -321,17 +323,17 @@ function FormingPhase(props: {
               <DimField key={d.key} label={d.label} hint={d.hint} filled={proposal[d.key].trim().length > 0} value={proposal[d.key]} onChange={(v) => setDim(d.key, v)} />
             ))}
           </div>
-          {/* slice 3a (Finding 2) · once the four dims are in but 反例 is still
-              empty, the framework prompts for a counterexample — but a student
-              who can't think of one may skip and generate the plan (铁律②). */}
-          {covered === 4 && proposal.counterpoints.trim() === "" && (
+          {/* §framework · 反例 is the skippable 5th part: once the four required
+              dims are in but 反例 is still empty, a student who can't think of one
+              may skip it and generate the plan (铁律②). */}
+          {requiredCovered === 4 && proposal.counterpoints.trim() === "" && (
             <button
               type="button"
               disabled={waiving}
               onClick={() => void onWaiveCounterpoints()}
               className="mt-3 self-start text-[13px] font-semibold text-mk-faint underline decoration-dotted hover:text-mk-accent disabled:opacity-50"
             >
-              {waiving ? "生成中……" : "暂时想不到反例，先生成计划"}
+              {waiving ? "生成中……" : "想不到反例？跳过这一步，先生成计划"}
             </button>
           )}
         </div>
@@ -375,22 +377,50 @@ function FormingPhase(props: {
   );
 }
 
+// DimField — §framework · the note defaults to a READ-ONLY view showing all the
+// content 印记 filled in; the student double-clicks (or taps 编辑) to edit, and
+// leaving the box (blur) returns to the view. This keeps the framework page a
+// calm "here's what we agreed" surface rather than a wall of edit boxes.
 function DimField({ label, hint, value, filled, onChange }: { label: string; hint: string; value: string; filled: boolean; onChange: (v: string) => void }) {
+  const [editing, setEditing] = useState(false);
+  const taRef = useRef<HTMLTextAreaElement | null>(null);
+  useEffect(() => {
+    if (editing && taRef.current) {
+      taRef.current.focus();
+      const n = taRef.current.value.length;
+      taRef.current.setSelectionRange(n, n);
+    }
+  }, [editing]);
   return (
-    <label className="block">
+    <div className="block">
       <span className="mb-1 flex items-center gap-1.5">
         <span className={`h-1.5 w-1.5 rounded-full ${filled ? "bg-mk-success" : "border border-mk-faint"}`} />
         <span className="text-[12px] font-bold text-mk-ink">{label}</span>
         <span className="text-[12px] font-normal text-mk-faint">· {hint}</span>
+        {!editing && (
+          <button type="button" onClick={() => setEditing(true)} className="ml-auto text-[12px] font-semibold text-mk-faint hover:text-mk-accent">编辑</button>
+        )}
       </span>
-      <textarea
-        value={value}
-        placeholder="跟印记聊几句，这里会慢慢填上"
-        onChange={(e) => onChange(e.target.value)}
-        rows={2}
-        className="w-full resize-none rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-faint focus:border-mk-accent"
-      />
-    </label>
+      {editing ? (
+        <textarea
+          ref={taRef}
+          value={value}
+          placeholder="跟印记聊几句，这里会慢慢填上"
+          onChange={(e) => onChange(e.target.value)}
+          onBlur={() => setEditing(false)}
+          rows={3}
+          className="w-full resize-none rounded-mk-md border border-mk-accent bg-mk-surface px-3 py-2 text-[14px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-faint"
+        />
+      ) : (
+        <div
+          onDoubleClick={() => setEditing(true)}
+          title="双击编辑"
+          className="w-full cursor-text whitespace-pre-line rounded-mk-md border border-mk-border bg-mk-paper px-3 py-2 text-[14px] leading-relaxed"
+        >
+          {value.trim() ? <span className="text-mk-ink">{value}</span> : <span className="text-mk-faint">跟印记聊几句，这里会慢慢填上</span>}
+        </div>
+      )}
+    </div>
   );
 }
 

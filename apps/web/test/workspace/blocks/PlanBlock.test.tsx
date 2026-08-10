@@ -166,8 +166,12 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     expect(screen.queryByRole("button", { name: /让印记看看我的开题/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /导出开题报告/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /生成项目计划/ })).toBeNull();
-    // DimFields still work — this is chrome removal, not a forming-room gutting.
-    expect(screen.getByRole("textbox", { name: /^目标/ })).toBeInTheDocument();
+    // DimFields still work — now view-by-default (5 dims, each with an 编辑
+    // affordance); clicking 编辑 reveals the edit box.
+    const editBtns = screen.getAllByRole("button", { name: "编辑" });
+    expect(editBtns).toHaveLength(5);
+    await userEvent.click(editBtns[0]!);
+    expect(screen.getByPlaceholderText("跟印记聊几句，这里会慢慢填上")).toBeInTheDocument();
   });
 
   it("Round 3: retitled eyebrow/h1/subtitle read as research-framing, and the old Tier-1 chrome stays gone", async () => {
