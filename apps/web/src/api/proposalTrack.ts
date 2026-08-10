@@ -40,6 +40,15 @@ export async function advanceProposalStep(projectId: string, dir: "next" | "prev
   return ProposalGuideStep.parse(raw);
 }
 
+// §4 gap G10 · jump to an absolute step index (the parts overview).
+export async function jumpProposalStep(projectId: string, to: number): Promise<ProposalGuideStep> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/proposal-track/advance`, {
+    method: "POST",
+    body: JSON.stringify({ to }),
+  });
+  return ProposalGuideStep.parse(raw);
+}
+
 // The "我写好了" review of the current part (slice 3b): the flagship reviewer
 // returns layered colored 批注 rendered view-only in the left panel. `stepKey`
 // optional — defaults to the current step server-side.

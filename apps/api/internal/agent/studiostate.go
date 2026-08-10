@@ -105,6 +105,10 @@ type StudioState struct {
 	// notes of things to look up, shared by the proposal writing page + reading
 	// room. jsonb, no migration.
 	ResourceNeeds []ResourceNeed `json:"resourceNeeds,omitempty"`
+	// CardTags (§4 gap G8) — the student's per-guided-part status, keyed by the
+	// step key (proposal: understanding/…; essay: claim:<id>/synthesis/…). Values:
+	// "green" (写好了) | "yellow" (待完善). jsonb, no migration.
+	CardTags map[string]string `json:"cardTags,omitempty"`
 }
 
 // ResourceNeed is one entry in the needs-resources box (slice 5).

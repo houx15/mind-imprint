@@ -23,6 +23,8 @@ export function GuidedWritingCard({
   cardOffer,
   onOfferCard,
   footer,
+  tag,
+  onTag,
 }: {
   title?: string;
   guidance: string;
@@ -39,6 +41,9 @@ export function GuidedWritingCard({
   cardOffer?: { id: string; label: string }[];
   onOfferCard?: (cardId: string) => void;
   footer?: React.ReactNode;
+  // §4 gap G8 · this part's status tag (green=写好了 / yellow=待完善) + setter.
+  tag?: string;
+  onTag?: (status: "green" | "yellow" | "") => void;
 }) {
   const taRef = useRef<HTMLTextAreaElement | null>(null);
 
@@ -55,7 +60,17 @@ export function GuidedWritingCard({
 
   return (
     <div className="rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-5 py-4">
-      {title && <h3 className="font-sans text-[15px] font-bold text-mk-ink">{title}</h3>}
+      <div className="flex items-start gap-2">
+        {title && <h3 className="min-w-0 flex-1 font-sans text-[15px] font-bold text-mk-ink">{title}</h3>}
+        {/* §4 gap G8 · tag this part 写好了(绿) / 待完善(黄) — a self-status the
+            student sets; the parts overview reads it. */}
+        {onTag && (
+          <div className="flex flex-none items-center gap-1">
+            <button type="button" title="标记：写好了" onClick={() => onTag(tag === "green" ? "" : "green")} className={`rounded-mk border px-1.5 py-0.5 text-[11px] font-bold ${tag === "green" ? "border-mk-success bg-mk-success-bg text-mk-success" : "border-mk-border text-mk-faint hover:text-mk-success"}`}>● 写好了</button>
+            <button type="button" title="标记：待完善" onClick={() => onTag(tag === "yellow" ? "" : "yellow")} className={`rounded-mk border px-1.5 py-0.5 text-[11px] font-bold ${tag === "yellow" ? "border-mk-warning bg-mk-warning-bg text-mk-warning" : "border-mk-border text-mk-faint hover:text-mk-warning"}`}>● 待完善</button>
+          </div>
+        )}
+      </div>
       <p className="mt-1 whitespace-pre-wrap text-[14.5px] leading-relaxed text-mk-ink">{guidance}</p>
       {example && (
         <div className="mt-2.5 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2">

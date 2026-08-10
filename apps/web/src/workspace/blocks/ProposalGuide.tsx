@@ -6,6 +6,8 @@ import { getDraft } from "../api/workspace";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
 import { ProsePane } from "./ProsePane";
 import { GuidedWritingCard } from "./GuidedWritingCard";
+import { PartsOverview, type OverviewPart } from "./PartsOverview";
+import { useCardTags } from "./useCardTags";
 import { useSnippets } from "./WritingBlock";
 import { assembleGuidedDoc, partSectionKey } from "./docSections";
 import { putBuffer } from "../../api/writing";
@@ -45,6 +47,10 @@ export function ProposalGuide({
   onOpenReading,
   partValue,
   onPartChange,
+  overview,
+  tags,
+  onSetTag,
+  onJumpPart,
 }: {
   step: ProposalGuideStep | null;
   bufferNonEmpty: boolean;
@@ -60,6 +66,11 @@ export function ProposalGuide({
   // slice 4b retrofit · the current part's text (its own auto-growing textarea).
   partValue?: string;
   onPartChange?: (v: string) => void;
+  // §4 gaps G8/G10 · the parts overview + per-part status tags.
+  overview?: OverviewPart[];
+  tags?: Record<string, string>;
+  onSetTag?: (key: string, status: "green" | "yellow" | "") => void;
+  onJumpPart?: (key: string) => void;
 }) {
   if (!step) return null;
 
@@ -139,8 +150,14 @@ export function ProposalGuide({
   // GuidedWritingCard: guidance + the part's OWN auto-growing textarea (§4's
   // per-part "snippet writing frame") + 我依然有问题/我写好了 + nav.
   return (
-    <div className="border-b border-mk-border bg-mk-accent-50 px-8 py-4">
+    <div className="border-b border-mk-border bg-mk-paper px-8 py-4">
       <div className="mx-auto max-w-[70ch]">
+        {/* §4 gap G10 · the consolidated parts overview (all parts + status), click to jump. */}
+        {overview && overview.length > 0 && (
+          <div className="mb-3">
+            <PartsOverview parts={overview} tags={tags ?? {}} currentKey={step.key} onJump={(k) => onJumpPart?.(k)} />
+          </div>
+        )}
         <div className="mb-2 flex items-center gap-2">
           <span className="rounded-full bg-mk-accent px-2 py-0.5 text-[12px] font-bold text-white">第 {step.index + 1} / {step.total} 步</span>
           <div className="ml-auto flex items-center gap-2">
@@ -158,6 +175,8 @@ export function ProposalGuide({
           onDone={onDone}
           reviewing={reviewing}
           placeholder="在这里写这一部分……"
+          tag={tags?.[step.key]}
+          onTag={onSetTag ? (s) => onSetTag(step.key, s) : undefined}
         />
         {step.card?.refHint && <p className="mt-2 text-[13px] text-mk-muted">💡 {step.card.refHint}</p>}
       </div>
@@ -288,8 +307,21 @@ export function ProposalGuidePane({
   const track = useProposalTrack(projectId);
   const { sendStudioTurn } = useStudioChat();
   const snip = useSnippets(projectId);
+  const { tags, setTag } = useCardTags(projectId);
   const [reviewing, setReviewing] = useState(false);
   const [bufferNonEmpty, setBufferNonEmpty] = useState(false);
+
+  // §4 gap G10 · the parts overview: every writable step (kind subq/fixed, i.e.
+  // not the mode gate / define step) with whether it has text yet.
+  const overview: OverviewPart[] = useMemo(() => {
+    const s = track.step;
+    if (!s) return [];
+    const has = new Set(snip.snippets.filter((x) => x.section?.startsWith("prop:") && x.text.trim() !== "").map((x) => x.section!.slice(5)));
+    return (s.steps ?? [])
+      .filter((st) => st.kind !== "subq-define")
+      .map((st) => ({ key: st.key, title: st.title, hasText: has.has(st.key) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.step, snip.snippets]);
 
   useEffect(() => {
     let cancelled = false;
@@ -371,6 +403,13 @@ export function ProposalGuidePane({
           onOpenReading={onOpenReading}
           partValue={partText}
           onPartChange={onPartChange}
+          overview={overview}
+          tags={tags}
+          onSetTag={setTag}
+          onJumpPart={(k) => {
+            const idx = (step?.steps ?? []).findIndex((s) => s.key === k);
+            if (idx >= 0) void track.jump(idx);
+          }}
         />
       )}
       {/* Free mode writes the whole proposal in the ProsePane; guided mode writes

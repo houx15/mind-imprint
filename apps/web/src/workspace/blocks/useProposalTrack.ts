@@ -6,6 +6,7 @@ import {
   startProposalGuide,
   setSubQuestions,
   advanceProposalStep,
+  jumpProposalStep,
 } from "../../api/proposalTrack";
 
 // useProposalTrack — slice 3a · owns the proposal guide-step track for one
@@ -57,6 +58,7 @@ export function useProposalTrack(projectId: string, deps: ProposalTrackDeps = re
   );
   const next = useCallback(async () => setStep(await deps.advance(projectId, "next")), [deps, projectId]);
   const prev = useCallback(async () => setStep(await deps.advance(projectId, "prev")), [deps, projectId]);
+  const jump = useCallback(async (to: number) => setStep(await jumpProposalStep(projectId, to)), [projectId]);
 
-  return { step, loading, chooseMode, start, saveSubQuestions, next, prev, reload };
+  return { step, loading, chooseMode, start, saveSubQuestions, next, prev, jump, reload };
 }

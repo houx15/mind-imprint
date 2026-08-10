@@ -327,6 +327,7 @@ func (a *API) advanceProposalStep(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Dir string `json:"dir"`
+		To  *int   `json:"to"` // §4 gap G10 · absolute jump to a step (parts overview)
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
@@ -337,14 +338,18 @@ func (a *API) advanceProposalStep(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	switch body.Dir {
-	case "next":
-		state.ProposalTrack.StepIndex++
-	case "prev":
-		state.ProposalTrack.StepIndex--
-	default:
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "dir 必须是 next 或 prev", nil))
-		return
+	if body.To != nil {
+		state.ProposalTrack.StepIndex = *body.To // clamped in finishTrackWrite
+	} else {
+		switch body.Dir {
+		case "next":
+			state.ProposalTrack.StepIndex++
+		case "prev":
+			state.ProposalTrack.StepIndex--
+		default:
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "dir 必须是 next 或 prev", nil))
+			return
+		}
 	}
 	a.finishTrackWrite(w, r, projectID, state)
 }
