@@ -824,6 +824,97 @@ func (a *API) adoptExploration(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+// attachExploration hangs an EXISTING reference under a question lead — the
+// self-added-source twin of adoptExploration (which mints a fresh reference
+// from a dig candidate). It creates ONLY a connected lead (origin "manual" —
+// the student's own placement), never a reference. The parent must be a
+// QUESTION lead (connected_reference_id NULL): a source can't hang under
+// another source (keeps the question→paper two layers clean; papers-never-roots
+// holds because parentLeadId is always set). Idempotent: re-attaching the same
+// (reference, parent) pair returns the existing non-pruned lead.
+func (a *API) attachExploration(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		ReferenceID  string `json:"referenceId"`
+		ParentLeadID string `json:"parentLeadId"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	refUUID, perr := uuid.Parse(strings.TrimSpace(body.ReferenceID))
+	if perr != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "referenceId 不是有效的 id", nil))
+		return
+	}
+	ref, err := a.d.Queries.GetReferenceForProject(r.Context(), sqlc.GetReferenceForProjectParams{ID: refUUID, ProjectID: projectID})
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "referenceId 不是这个项目里的来源", nil))
+		return
+	}
+	pid, perr := uuid.Parse(strings.TrimSpace(body.ParentLeadID))
+	if perr != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "parentLeadId 不是有效的 id", nil))
+		return
+	}
+	parentLead, err := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: pid, ProjectID: projectID})
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "parentLeadId 不是这个项目里的线索", nil))
+		return
+	}
+	if parentLead.ConnectedReferenceID.Valid {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "只能把来源挂到「问题」下，不能挂到另一篇文献下", nil))
+		return
+	}
+	parent := pgtype.UUID{Bytes: pid, Valid: true}
+
+	existing, err := a.d.Queries.ListExplorationLeads(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// Idempotency: a non-pruned lead already connecting this (ref, parent)?
+	for _, l := range existing {
+		if l.Status == "pruned" {
+			continue
+		}
+		if l.ParentLeadID == parent && l.ConnectedReferenceID.Valid && uuid.UUID(l.ConnectedReferenceID.Bytes) == refUUID {
+			httpx.WriteJSON(w, http.StatusCreated, map[string]any{
+				"lead":      toExplorationLeadDTO(l),
+				"reference": toReferenceDTO(ref, nil),
+			})
+			return
+		}
+	}
+	var position int32
+	for _, l := range existing {
+		if l.ParentLeadID == parent {
+			position++
+		}
+	}
+
+	lead, err := a.d.Queries.CreateExplorationLead(r.Context(), sqlc.CreateExplorationLeadParams{
+		ProjectID:            projectID,
+		Text:                 ref.Title,
+		Status:               "connected",
+		Origin:               "manual",
+		ConnectedReferenceID: pgtype.UUID{Bytes: ref.ID, Valid: true},
+		Position:             position,
+		ParentLeadID:         parent,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{
+		"lead":      toExplorationLeadDTO(lead),
+		"reference": toReferenceDTO(ref, nil),
+	})
+}
+
 // -- B2 · question_edge lifecycle (POST/PATCH/DELETE) -----------------------
 //
 // create/relabel/confirm/dismiss for the labeled edges between top-level

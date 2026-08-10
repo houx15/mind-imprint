@@ -1349,3 +1349,167 @@ func TestProposeEdges_NoProviderNoSpend(t *testing.T) {
 		t.Fatalf("want 0 edge_propose llm_call with no provider configured, got %d", n)
 	}
 }
+
+// TestAttachExploration_AttachesReferenceUnderQuestion is Task 1: the
+// self-added-source twin of adoptExploration — hangs an EXISTING reference
+// under a question lead (no new reference minted), origin "manual", and is
+// idempotent on re-attaching the same (reference, parent) pair.
+func TestAttachExploration_AttachesReferenceUnderQuestion(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	// A question (root) lead + a bare reference (no lead yet).
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"主问题"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var qWrap struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &qWrap); err != nil {
+		t.Fatalf("decode lead: %v — %s", err, rec.Body)
+	}
+	qid := qWrap.Lead.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references", `{"title":"Green spaces and mortality"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var refWrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode reference: %v — %s", err, rec.Body)
+	}
+	refID := refWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/attach",
+		`{"referenceId":"`+refID+`","parentLeadId":"`+qid+`"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("attach = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var attached struct {
+		Lead      explorationLeadView `json:"lead"`
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &attached); err != nil {
+		t.Fatalf("decode attach response: %v — %s", err, rec.Body)
+	}
+	if attached.Lead.ConnectedReferenceID == nil || *attached.Lead.ConnectedReferenceID != refID {
+		t.Fatalf("connectedReferenceId = %v, want %q", attached.Lead.ConnectedReferenceID, refID)
+	}
+	if attached.Lead.ParentLeadID == nil || *attached.Lead.ParentLeadID != qid {
+		t.Fatalf("parentLeadId = %v, want %q", attached.Lead.ParentLeadID, qid)
+	}
+	if attached.Lead.Origin != "manual" {
+		t.Fatalf("origin = %q, want manual", attached.Lead.Origin)
+	}
+	if attached.Reference.ID != refID {
+		t.Fatalf("reference.id = %q, want %q", attached.Reference.ID, refID)
+	}
+	firstLead := attached.Lead.ID
+
+	// Idempotent: attaching the same pair again returns the SAME lead, no dup.
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/attach",
+		`{"referenceId":"`+refID+`","parentLeadId":"`+qid+`"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("second attach = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var second struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &second); err != nil {
+		t.Fatalf("decode second attach response: %v — %s", err, rec.Body)
+	}
+	if second.Lead.ID != firstLead {
+		t.Fatalf("second attach minted a new lead %q, want %q", second.Lead.ID, firstLead)
+	}
+
+	rec = doJSON(t, h, cookie, "GET", base+"/exploration", "")
+	var view explorationViewBody
+	if err := json.Unmarshal(rec.Body.Bytes(), &view); err != nil {
+		t.Fatalf("decode view: %v — %s", err, rec.Body)
+	}
+	if len(view.Leads) != 2 {
+		t.Fatalf("want 2 leads (question + attached source), got %d: %+v", len(view.Leads), view.Leads)
+	}
+}
+
+// TestAttachExploration_RejectsPaperParent pins that a source can only hang
+// under a QUESTION lead — a paper lead (connected_reference_id set) can't
+// parent another source, keeping the question→paper two layers clean.
+func TestAttachExploration_RejectsPaperParent(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := libraryTestHandler(pool)
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	rec := doJSON(t, h, cookie, "POST", base+"/exploration/leads", `{"text":"主问题"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create lead = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var qWrap struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &qWrap); err != nil {
+		t.Fatalf("decode lead: %v — %s", err, rec.Body)
+	}
+	qid := qWrap.Lead.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references", `{"title":"A"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference A = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var refAWrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refAWrap); err != nil {
+		t.Fatalf("decode reference A: %v — %s", err, rec.Body)
+	}
+	refA := refAWrap.Reference.ID
+
+	rec = doJSON(t, h, cookie, "POST", base+"/references", `{"title":"B"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference B = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var refBWrap struct {
+		Reference struct {
+			ID string `json:"id"`
+		} `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refBWrap); err != nil {
+		t.Fatalf("decode reference B: %v — %s", err, rec.Body)
+	}
+	refB := refBWrap.Reference.ID
+
+	// Attach A under the question → makes a PAPER lead.
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/attach",
+		`{"referenceId":"`+refA+`","parentLeadId":"`+qid+`"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("attach A = %d, want 201: %s", rec.Code, rec.Body)
+	}
+	var paperWrap struct {
+		Lead explorationLeadView `json:"lead"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &paperWrap); err != nil {
+		t.Fatalf("decode paper lead: %v — %s", err, rec.Body)
+	}
+	paperLead := paperWrap.Lead.ID
+
+	// Attaching B under a PAPER lead must 400 (papers can't parent sources).
+	rec = doJSON(t, h, cookie, "POST", base+"/exploration/attach",
+		`{"referenceId":"`+refB+`","parentLeadId":"`+paperLead+`"}`)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("attach B under paper lead = %d, want 400: %s", rec.Code, rec.Body)
+	}
+}
