@@ -81,3 +81,11 @@ export type DigCandidate = z.infer<typeof DigCandidate>;
 
 export const DigResult = z.object({ candidates: z.array(DigCandidate) });
 export type DigResult = z.infer<typeof DigResult>;
+
+// 印记 for one reference suggests the best-fit question to hang it under, or
+// null (→ 未归类). Advisory only (铁律②): the student taps to confirm the placement.
+export const PlacementSuggestion = z.object({
+  leadId: z.string().nullable(),
+  reason: z.string(),
+});
+export type PlacementSuggestion = z.infer<typeof PlacementSuggestion>;

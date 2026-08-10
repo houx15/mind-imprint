@@ -9,6 +9,7 @@ import {
   QuestionEdge,
   QuestionEdgeLabel,
   QuestionEdgeStatus,
+  PlacementSuggestion,
 } from "../src/exploration";
 
 const lead = {
@@ -178,5 +179,17 @@ describe("GuideDirection / ExplorationGuide", () => {
   it("parses a guide with an empty directions array", () => {
     const parsed = ExplorationGuide.parse({ directions: [] });
     expect(parsed.directions).toEqual([]);
+  });
+});
+
+describe("PlacementSuggestion", () => {
+  it("accepts a chosen leadId", () => {
+    expect(PlacementSuggestion.parse({ leadId: "abc", reason: "贴主问题" })).toEqual({ leadId: "abc", reason: "贴主问题" });
+  });
+  it("accepts null (未归类)", () => {
+    expect(PlacementSuggestion.parse({ leadId: null, reason: "" })).toEqual({ leadId: null, reason: "" });
+  });
+  it("rejects a missing reason", () => {
+    expect(() => PlacementSuggestion.parse({ leadId: null })).toThrow();
   });
 });
