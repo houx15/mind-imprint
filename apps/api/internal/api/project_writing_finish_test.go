@@ -78,11 +78,30 @@ func TestFinishWriting_SetsMilestoneAndIdempotent(t *testing.T) {
 		t.Fatalf("projection after finish-writing = %s, want writingFinished:true", recProj.Body)
 	}
 
+	// 过程即数据: finishing writing appends exactly one 活动日志 milestone (the
+	// default doc is essay). It must fire on the first (real) finish...
+	countLog := func() int {
+		var n int
+		if err := pool.QueryRow(context.Background(),
+			`SELECT count(*) FROM activity_log_entry WHERE project_id=$1 AND text=$2`,
+			mustUUID(seedProjectID), "完成论文正文、锁定初稿").Scan(&n); err != nil {
+			t.Fatalf("count finish auto-log: %v", err)
+		}
+		return n
+	}
+	if got := countLog(); got != 1 {
+		t.Fatalf("finish-writing auto-log count = %d, want 1", got)
+	}
+
 	// Idempotent: a second call is a no-op 200.
 	rec2 := httptest.NewRecorder()
 	h.ServeHTTP(rec2, withCookie(httptest.NewRequest("POST", base+"/finish-writing", strings.NewReader("")), cookie))
 	if rec2.Code != http.StatusOK || !strings.Contains(rec2.Body.String(), `"writingFinished":true`) {
 		t.Fatalf("second finish-writing = %d body=%s, want 200 writingFinished:true", rec2.Code, rec2.Body)
+	}
+	// ...and NOT a second time (the idempotent early-return skips the log).
+	if got := countLog(); got != 1 {
+		t.Fatalf("finish-writing auto-log count after idempotent call = %d, want 1 (no double-log)", got)
 	}
 }
 

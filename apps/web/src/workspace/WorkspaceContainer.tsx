@@ -53,6 +53,7 @@ import { PlanSpine } from "./blocks/PlanSpine";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { activeDocForStage } from "./activeDoc";
+import type { WritingDocKind } from "../api/writing";
 import { ReferencePanel } from "./blocks/ReferencePanel";
 import { ReviewBlock } from "./blocks/ReviewBlock";
 import type { BlockKey } from "./blocks/mockData";
@@ -131,6 +132,10 @@ export function WorkspaceContainer({
   // §gap G2 · true while confirming the 4th dim triggers the funnel's plan
   // generation (a reasoning-model call) — drives an interesting rotating loader.
   const [generatingPlan, setGeneratingPlan] = useState(false);
+  // #83 · the 写作 room defaults to the doc the stage wants (activeDocForStage),
+  // but once the essay has begun the student may switch back to VIEW the finished
+  // proposal. null = follow the stage; else this doc wins (if still an option).
+  const [docOverride, setDocOverride] = useState<WritingDocKind | null>(null);
   // First-run guard for the room-change plan refetch (declared here so the load
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
@@ -553,6 +558,21 @@ export function WorkspaceContainer({
     });
   }, [advanceStatusTo]);
 
+  // Finding C · the server funnel can auto-generate the plan on ANY proposal
+  // write — a 记进 note-confirm OR a direct dim edit (e.g. filling 反例 in the
+  // panel). Whichever path triggered it, introduce the plan walkthrough exactly
+  // once. Shared by confirmNote and PlanBlock's edit-save so the edit path gets
+  // the same loader + intro as note-confirm, not a silent plan.
+  const surfaceGeneratedPlan = useCallback(async (pid: string) => {
+    if (planIntroShownRef.current) return;
+    const items = await getPlan(pid).catch(() => [] as PlanItem[]);
+    if (items.length > 0 && activeProjectIdRef.current === pid) {
+      planIntroShownRef.current = true;
+      setPlanItems(items);
+      showPlanIntro(0);
+    }
+  }, [showPlanIntro]);
+
   // Act on the one-tap nextStep (铁律②: her tap advances) — a thin wrapper over
   // advanceStatusTo that manages the chip (clear before, restore on failure).
   const advanceToNextStep = useCallback(async (): Promise<void> => {
@@ -625,14 +645,7 @@ export function WorkspaceContainer({
         await refreshWorkspace();
         // §3 gap G3 · confirming the 4th dim can auto-generate the plan server-side
         // (the funnel). If the plan just appeared this session, introduce it.
-        if (!planIntroShownRef.current) {
-          const items = await getPlan(pid).catch(() => [] as PlanItem[]);
-          if (items.length > 0 && activeProjectIdRef.current === pid) {
-            planIntroShownRef.current = true;
-            setPlanItems(items);
-            showPlanIntro(0);
-          }
-        }
+        await surfaceGeneratedPlan(pid);
       }
     } catch {
       // The write failed — roll back the acknowledgment and restore the
@@ -1194,6 +1207,8 @@ export function WorkspaceContainer({
                 refreshWorkspace={refreshWorkspace}
                 recap={historyRecap ?? summary}
                 onStudioStateChanged={continueYinji}
+                onGeneratingPlan={setGeneratingPlan}
+                onPlanMaybeGenerated={surfaceGeneratedPlan}
               />
             )}
             {room === "reading" && (
@@ -1234,7 +1249,17 @@ export function WorkspaceContainer({
                   // Phase B · the active writing document follows the status. The
                   // proposal (写研究提案) and essay (写正文) are distinct docs; each
                   // locks on its OWN 完成写作 milestone (writingFinish[doc]).
-                  const writeDoc = activeDocForStage(studioState?.stage ?? "body_writing");
+                  const stageForDoc = studioState?.stage ?? "body_writing";
+                  const stageDoc = activeDocForStage(stageForDoc);
+                  // Both docs are viewable once the essay has begun (body_writing /
+                  // review): the proposal is finished and worth looking back at.
+                  // Before that, only the stage's own doc.
+                  const docOptions: WritingDocKind[] =
+                    stageForDoc === "body_writing" || stageForDoc === "retrospective"
+                      ? ["proposal", "essay"]
+                      : [stageDoc];
+                  const writeDoc: WritingDocKind =
+                    docOverride && docOptions.includes(docOverride) ? docOverride : stageDoc;
                   const docFinished =
                     writeDoc === "proposal"
                       ? (workspace.writingFinish?.proposal ?? false)
@@ -1247,6 +1272,8 @@ export function WorkspaceContainer({
                       proposal={workspace.proposal}
                       status={workspace.status}
                       doc={writeDoc}
+                      docOptions={docOptions}
+                      onSwitchDoc={setDocOverride}
                       writingFinished={docFinished}
                       draftInsertRef={draftInsertRef}
                       onInsertReady={setInsertReady}

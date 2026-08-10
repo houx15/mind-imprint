@@ -98,6 +98,8 @@ func (f fakeFetcher) ReferencedWorks(ctx context.Context, doi string, limit int)
 	return f.works
 }
 
+func (f fakeFetcher) ResolveDOI(ctx context.Context, doi string) *materialize.DOIMeta { return nil }
+
 func (f fakeFetcher) CitingWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
 	if f.lastQuery != nil {
 		*f.lastQuery = doi

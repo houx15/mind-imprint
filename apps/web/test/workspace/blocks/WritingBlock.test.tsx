@@ -274,8 +274,9 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
 
   it("summons a writing card from the deck into a modal (WC · card-hang, #3)", async () => {
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
-    // #8 · the writing-card shelf is open by default in the always-present rail
-    // — still on the default 大纲 panel, whose deck is question-card/perspective-matrix/argument-map.
+    // all-statuses.md §6 · the essay writing deck (片段/正文) is PEE写作卡 + 论证地图卡
+    // (论证解剖). The 大纲 panel has no cards, so switch to 片段 first.
+    await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     const argumentMap = await screen.findByRole("button", { name: /论证地图卡/ });
     await userEvent.click(argumentMap);
     // StudioCardSheet mounts in the centered modal (its 工具卡 label + the card name)
@@ -418,23 +419,23 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   it("finishing a writing card reflects to the coach first, then offers 收进片段 as a full paragraph (item C)", async () => {
     vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "ci1", reply: "这个主张已经很清楚了。" });
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
-    // toulmin lives in the 片段/正文 decks, not 大纲 (the default panel) — switch first.
+    // PEE 写作卡 lives in the 片段/正文 decks, not 大纲 (the default panel) — switch first.
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
-    const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
-    await userEvent.click(toulmin);
-    const claimField = await screen.findByLabelText("你要论证的核心判断，用一句话说清。");
-    await userEvent.type(claimField, "中国的可持续贡献是实质性的");
+    const pee = await screen.findByRole("button", { name: /PEE 写作卡/ });
+    await userEvent.click(pee);
+    const pointField = await screen.findByLabelText("这段的要点（Point）是一句什么话？");
+    await userEvent.type(pointField, "中国的可持续贡献是实质性的");
     await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
 
     await waitFor(() =>
-      expect(reflectProjectCard).toHaveBeenCalledWith("p1", "toulmin", expect.any(Object), expect.any(Array), "writing"),
+      expect(reflectProjectCard).toHaveBeenCalledWith("p1", "pee", expect.any(Object), expect.any(Array), "writing"),
     );
     // the coach's reply shows in the thread, and the compiled student turn too
     expect(await screen.findByText(/这个主张已经很清楚了/)).toBeInTheDocument();
-    expect(screen.getByText(/我刚填完《论证构建卡/)).toBeInTheDocument();
+    expect(screen.getByText(/我刚填完《PEE 写作卡/)).toBeInTheDocument();
 
     // 收进片段 is an explicit offer — not auto-added
-    expect(screen.getByText(/要不要把《论证构建卡/)).toBeInTheDocument();
+    expect(screen.getByText(/要不要把《PEE 写作卡/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole("button", { name: "收进片段" }));
     expect(await screen.findByText(/收进了「片段」/)).toBeInTheDocument();
 
@@ -450,8 +451,8 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     vi.mocked(reflectProjectCard).mockResolvedValueOnce({ cardInstanceId: "", reply: "" });
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
-    const toulmin = await screen.findByRole("button", { name: /论证构建卡/ });
-    await userEvent.click(toulmin);
+    const pee = await screen.findByRole("button", { name: /PEE 写作卡/ });
+    await userEvent.click(pee);
     await userEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
     await waitFor(() => expect(reflectProjectCard).toHaveBeenCalled());
     expect(screen.queryByRole("button", { name: "收进片段" })).toBeNull();
@@ -463,31 +464,32 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   // shows under 正文 — checking prose only makes sense once there's prose.
   it("the persistent tool shelf swaps card groups per panel; 正文·检查 only shows under 正文 (item A)", async () => {
     renderWithAiSlot(<WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" writingFinished={false} refreshWorkspace={() => {}} />);
-    // still on the default 大纲 tab — its deck, no examiner voices
-    expect(await screen.findByRole("button", { name: /提问卡/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /视角对照矩阵/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /论证地图卡/ })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /论证构建卡/ })).toBeNull(); // toulmin isn't in the 大纲 deck
+    // all-statuses.md §6 · the essay writing deck is PEE写作卡 + 论证地图卡, offered
+    // only while writing claims (片段/正文). The 大纲 panel is structure work → no
+    // cards and no examiner voices; the shelf doesn't render at all.
+    await screen.findByRole("button", { name: "思维导图" }); // 大纲 mounted
+    expect(screen.queryByRole("button", { name: /PEE 写作卡/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /论证地图卡/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /提问卡/ })).toBeNull();
     expect(screen.queryByText(/正文·检查/)).toBeNull();
     expect(screen.queryByRole("button", { name: "评审团" })).toBeNull();
     // the old hidden-behind-＋ shelf is gone — nothing toggles it anymore
     expect(screen.queryByTitle("写作卡")).toBeNull();
 
-    // 片段 — its own deck, still no examiner voices
+    // 片段 — the claim-writing deck (PEE + 论证地图), still no examiner voices
     await userEvent.click(screen.getAllByRole("button", { name: "片段" })[0]!);
     expect(await screen.findByRole("button", { name: /PEE 写作卡/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /事实\/观点\/价值判断卡/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /让步段/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /论证地图卡/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /论证构建卡/ })).toBeNull(); // toulmin dropped from the deck
+    expect(screen.queryByRole("button", { name: /让步段/ })).toBeNull();
     expect(screen.queryByRole("button", { name: /提问卡/ })).toBeNull(); // not in the 片段 deck
     expect(screen.queryByText(/正文·检查/)).toBeNull();
 
-    // 正文 — its deck (overlaps 片段's, minus 事实/观点/价值判断) + 正文·检查 appears
+    // 正文 — same claim deck + 正文·检查 appears
     await userEvent.click(screen.getByRole("button", { name: "正文" }));
     expect(await screen.findByRole("button", { name: /PEE 写作卡/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /让步段/ })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /论证构建卡/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /论证地图卡/ })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /论证构建卡/ })).toBeNull();
     expect(screen.getByText(/正文·检查/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "评审团" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "质疑者" })).toBeInTheDocument();

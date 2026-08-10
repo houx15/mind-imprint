@@ -422,6 +422,13 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("order_review: append event", "err", err)
 		}
 
+		// 过程即数据: a whole-draft 整稿体检 is a real process event. Log it so the
+		// 活动日志 reflects it. Guarded by persisted>0 + the idempotent-replay
+		// early-return above → fires once per fresh review, never on replay.
+		if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "印记体检了整稿"); err != nil {
+			slog.Warn("order_review: append auto-log failed", "err", err)
+		}
+
 		// whole_draft_review above is draft_polish's only human gate item —
 		// gate state must be re-derived here too (spec §3.2: advanceGates at
 		// the end of every write that can change gate state), matching the

@@ -8,6 +8,7 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -388,10 +389,39 @@ func (a *API) createReference(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "collectionId 不是有效的 id", nil))
 		return
 	}
+
+	// Finding D · when the student pastes a DOI (bare, or a doi.org URL) into the
+	// 链接/DOI field, resolve it to real bibliographic metadata via Crossref so the
+	// library shows the paper's title/author/year — not the raw DOI string. The
+	// client can't do this (no external calls / CORS); the platform resolves it
+	// server-side. Best-effort with a short budget: any failure just stores what
+	// the student typed, unchanged. Never overwrites a title the student typed
+	// (only fills a blank one, or one that is just the DOI/url echoed back).
+	title, classification := body.Title, body.Classification
+	var doiMeta *materialize.DOIMeta
+	if a.d.Fetcher != nil {
+		if doi, ok := materialize.DetectDOI(body.URL); ok {
+			dctx, cancel := context.WithTimeout(r.Context(), 6*time.Second)
+			doiMeta = a.d.Fetcher.ResolveDOI(dctx, doi)
+			cancel()
+			if doiMeta != nil && strings.TrimSpace(doiMeta.Title) != "" {
+				echoed := strings.TrimSpace(title) == "" ||
+					strings.TrimSpace(title) == strings.TrimSpace(body.URL) ||
+					strings.TrimSpace(title) == doi
+				if echoed {
+					title = doiMeta.Title
+				}
+				if strings.TrimSpace(classification) == "" || classification == "网页" {
+					classification = "期刊论文"
+				}
+			}
+		}
+	}
+
 	row, err := a.d.Queries.CreateReference(r.Context(), sqlc.CreateReferenceParams{
 		ProjectID:      projectID,
-		Title:          body.Title,
-		Classification: body.Classification,
+		Title:          title,
+		Classification: classification,
 		Author:         body.Author,
 		Credentials:    body.Credentials,
 		Year:           body.Year,
@@ -407,6 +437,26 @@ func (a *API) createReference(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	// Fill author/year/journal/abstract from the resolved DOI metadata (only
+	// where the student left them blank — patchReferenceMeta never overwrites).
+	if doiMeta != nil {
+		a.patchReferenceMeta(r.Context(), projectID, row, doiMeta)
+		if refreshed, rerr := a.d.Queries.GetReference(r.Context(), sqlc.GetReferenceParams{ID: row.ID, ProjectID: projectID}); rerr == nil {
+			row = refreshed
+		}
+	}
+	// 过程即数据: adding a source is a real research milestone — log it so the
+	// 活动日志 reflects the whole journey, not just framework/plan events. Use the
+	// title if present, else the raw url/DOI (best-effort; never fails the write).
+	label := strings.TrimSpace(row.Title)
+	if label == "" {
+		label = strings.TrimSpace(row.Url)
+	}
+	if label != "" {
+		if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, "添加来源《"+truncateRunes(label, 30)+"》"); err != nil {
+			slog.Warn("create-reference: append auto-log failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		}
 	}
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"reference": toReferenceDTO(row, nil)})
 }

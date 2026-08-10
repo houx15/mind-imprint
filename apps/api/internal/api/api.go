@@ -27,6 +27,11 @@ type Fetcher interface {
 	// contract: nil on any failure, never an error.
 	ReferencedWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta
 	CitingWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta
+	// ResolveDOI turns a DOI into bibliographic metadata (title/author/year/
+	// journal/abstract) via Crossref, without fetching full text. Backs the
+	// add-source path so pasting a DOI populates the reference. Best-effort:
+	// nil on any failure.
+	ResolveDOI(ctx context.Context, doi string) *materialize.DOIMeta
 }
 
 // Deps are everything the handlers need, wired once at startup.

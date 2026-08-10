@@ -52,6 +52,34 @@ func cleanDOI(s string) string {
 	return strings.TrimRight(strings.TrimSpace(s), ".,;)")
 }
 
+// DetectDOI pulls a DOI out of a raw student-typed string — a bare DOI
+// ("10.1126/science.aap9559"), a doi.org URL, or any URL/text containing one.
+// Returns ("", false) when there's nothing DOI-shaped. Exported so the
+// add-source path (createReference) can resolve metadata when a student pastes
+// a DOI into the 链接/DOI field.
+func DetectDOI(raw string) (string, bool) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", false
+	}
+	if u, err := url.Parse(raw); err == nil {
+		if doi, ok := extractDOI(u); ok {
+			return doi, true
+		}
+	}
+	if m := doiPattern.FindString(raw); m != "" {
+		return cleanDOI(m), true
+	}
+	return "", false
+}
+
+// ResolveDOI is resolveDOI, exported so callers outside this package can turn a
+// DOI into bibliographic metadata (title/author/year/journal/abstract) without
+// fetching full text. Best-effort: nil on any failure.
+func (f *HTTPFetcher) ResolveDOI(ctx context.Context, doi string) *DOIMeta {
+	return f.resolveDOI(ctx, doi)
+}
+
 // DOIMeta is the bibliographic metadata Crossref returns for a DOI (#4). Any
 // field may be empty. Surfaced to the student even when full text can't be
 // fetched: fill the annotated bib from Author/Year/Journal, read the Abstract,

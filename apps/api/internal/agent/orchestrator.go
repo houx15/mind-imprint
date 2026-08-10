@@ -424,8 +424,13 @@ func ClaimsNoteRecording(narrate string) bool {
 }
 
 const noteExtractPrompt = `印记（一个陪学生做研究的 agent）刚才对学生说，要把学生说的话记成一条「提案要点」候选，但没有真正给出结构化的记录。请你根据【学生的话】和【印记的话】，判断这条要点属于哪一维，并用学生原话的语言提炼一句简洁的候选内容。
-维度码（section）只能取其一：objective（研究问题本身/核心变量怎么测量）、reason（为什么研究这个/动机/个人经历）、activities（打算怎么做/步骤/方法/时间安排）、resources（能用或需要的数据/文献/工具/渠道）、counterpoints（可能的反例/混淆因素/张力）。
-只输出一个 JSON：{"section":"<维度码或空字符串>","value":"<候选内容>"}。判断不出维度就把 section 设为空字符串。value 用学生原话的语言，别替他扩写或下结论。不要输出别的文字。`
+维度码（section）只能取其一：objective（研究问题本身/核心变量怎么测量）、reason（为什么研究这个/动机/个人经历）、activities（打算怎么做/步骤/方法/时间安排）、resources（能用或需要的数据/文献/工具/渠道）、counterpoints（可能的反例/混淆因素/张力/会挑战我立场的情形）。
+
+严格判断规则：
+1) 若学生明确在说一个「反例 / 会削弱或推翻我立场的情形 / 张力 / 反方观点」，即使他顺带提到了某些文献、法条或来源，也归 counterpoints——不要因为出现了文献/来源字样就归 resources。counterpoints 的核心是「可能反驳我论点的东西」，resources 的核心是「我手上有或还需要的材料」。
+2) 若学生这句话只是一句流程 / 操作指令，没有研究实质内容（例如「帮我生成计划」「可以进入下一步了吗」「我准备好了」「继续」「换个话题」「这样就行」之类），不要提炼任何要点——把 section 设为空字符串。
+
+只输出一个 JSON：{"section":"<维度码或空字符串>","value":"<候选内容>"}。判断不出维度、或这是一句流程指令，就把 section 设为空字符串。value 用学生原话的语言，别替他扩写或下结论。不要输出别的文字。`
 
 // ExtractProposalNote is the server-side backstop for the note contract: given
 // the student's message and 印记's narration (which claimed a recording), it

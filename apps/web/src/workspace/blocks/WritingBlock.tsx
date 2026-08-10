@@ -107,6 +107,8 @@ export function WritingBlock({
   proposal,
   status,
   doc = "essay",
+  docOptions,
+  onSwitchDoc,
   writingFinished,
   draftInsertRef,
   onInsertReady,
@@ -126,6 +128,12 @@ export function WritingBlock({
   // proposal renders a plain prose surface (ProsePane); the essay keeps
   // 大纲/片段/正文. Buffer/snapshots/finish are keyed on it end-to-end.
   doc?: WritingDocKind;
+  // #83 · the documents the student may switch between here (proposal ⇆ 正文).
+  // The container auto-selects `doc` for the current stage; when both are
+  // offered a small toggle lets her look back at the finished proposal while
+  // writing the essay. undefined / single-entry → no toggle.
+  docOptions?: WritingDocKind[];
+  onSwitchDoc?: (doc: WritingDocKind) => void;
   // #20 · the 完成写作 milestone for THIS document (Phase B: the active doc's
   // finish state) — the surface is read-only once true. Separate from status
   // (evaluating/done terminally lock too).
@@ -286,7 +294,28 @@ export function WritingBlock({
     <div className="flex h-full flex-col">
       {/* goal strip */}
       <div className="flex items-center gap-3 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-        <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{isProposal ? "提案" : "论点"}</span>
+        {/* #83 · proposal ⇆ 正文 switch — only when both are available (the essay
+            has begun). Auto-selected to the current doc; lets the student look
+            back at the finished proposal without leaving the room. */}
+        {docOptions && docOptions.length > 1 ? (
+          <div className="flex flex-none items-center gap-0.5 rounded-mk-full border border-mk-border bg-mk-paper p-0.5">
+            {docOptions.map((d) => (
+              <button
+                key={d}
+                type="button"
+                onClick={() => onSwitchDoc?.(d)}
+                className={
+                  "rounded-mk-full px-2.5 py-0.5 text-[12px] font-bold transition-colors " +
+                  (doc === d ? "bg-mk-accent text-white" : "text-mk-muted hover:text-mk-accent")
+                }
+              >
+                {d === "proposal" ? "提案" : "正文"}
+              </button>
+            ))}
+          </div>
+        ) : (
+          <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{isProposal ? "提案" : "论点"}</span>
+        )}
         <p className="min-w-0 flex-1 truncate text-[14px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
         {!archived &&
           (writingFinished ? (
@@ -967,6 +996,19 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
           onChange={(v) => setView(v as "list" | "map")}
         />
       </div>
+
+      {/* #84 · a paper needs a sub-structure. When the outline has no branch yet
+          (only the main question, or blank), guide the student to decide the
+          angles / sub-questions she'll answer the main question from — those
+          become the body paragraphs. Sub-questions from the proposal seed this
+          automatically; this banner is the fallback when there were none. */}
+      {!nodes.some((n) => n.depth >= 1 && n.text.trim() !== "") && (
+        <div className="mx-8 mb-3 rounded-mk-md border border-mk-accent bg-mk-accent-50 px-4 py-3">
+          <p className="text-[13.5px] leading-relaxed text-mk-ink">
+            <strong>先想清楚这篇论文的结构。</strong>你打算从哪几个角度、用哪几个子问题来回答你的主问题？把每个角度写成主问题下的一条分支（回车加一条、Tab 缩进为子级）——这些角度就会长成你论文的主体段落。想不清楚，就问问右边的印记。
+          </p>
+        </div>
+      )}
 
       {view === "list" ? (
         <div className="min-h-0 flex-1 overflow-y-auto px-8 pb-7">
@@ -1910,10 +1952,14 @@ const RAIL_GREETING: ChatMsg = {
 // All still submit through the same reflectProjectCard(..., "writing") path —
 // only the OFFERED set changes, not the plumbing (all persist through
 // /cards/persist's writing-deck allowlist).
+// all-statuses.md §4/§6 · card subsets per doc/panel. Proposal = no cards (its
+// forced panel is "outline", kept empty). Essay = 写作卡 only while writing
+// claims: PEE写作卡 (pee) + 论证解剖/论证地图 (argument-map). The outline panel is
+// structure work, not argument writing → no cards.
 const PANEL_DECK: Record<"outline" | "snippets" | "draft", string[]> = {
-  outline: ["question-card", "perspective-matrix", "argument-map"],
-  snippets: ["pee", "fact-opinion-value", "concession", "toulmin"],
-  draft: ["pee", "concession", "toulmin", "argument-map"],
+  outline: [],
+  snippets: ["pee", "argument-map"],
+  draft: ["pee", "argument-map"],
 };
 const PANEL_LABEL: Record<"outline" | "snippets" | "draft", string> = {
   outline: "大纲",
@@ -2138,22 +2184,31 @@ function CoachRail({
                 pinned via 问印记 — just 这段). Triggering a card/voice is
                 automatic UI; OPENING the card sheet or SEEING the check result
                 still needs her tap/click (铁律 · 不操纵). */}
-            {!locked && (
+            {/* all-statuses.md §4/§6 · the writing card shelf appears ONLY where the
+                doc calls for writing cards: the proposal has NO summonable cards
+                (activePanel is forced to "outline", whose deck is empty), and the
+                essay offers cards only while writing claims (片段/正文). An empty
+                deck + non-draft panel renders nothing (no empty shelf). */}
+            {!locked && (PANEL_DECK[activePanel].length > 0 || activePanel === "draft") && (
               <div className="flex-none rounded-mk-md border border-mk-border bg-mk-paper p-2.5">
-                <p className="mb-1.5 text-[12px] font-bold text-mk-faint">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
-                    <button
-                      key={id}
-                      type="button"
-                      onClick={() => openProposedCard(id)}
-                      title={CARD_REGISTRY[id]!.purpose}
-                      className="rounded-mk-sm border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-accent hover:text-mk-accent"
-                    >
-                      {CARD_REGISTRY[id]!.name}
-                    </button>
-                  ))}
-                </div>
+                {PANEL_DECK[activePanel].length > 0 && (
+                  <>
+                    <p className="mb-1.5 text-[12px] font-bold text-mk-faint">{PANEL_LABEL[activePanel]} · 挑一张写作卡，想清楚这一段的论证——你填，印记不替你写</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {PANEL_DECK[activePanel].map((id) => CARD_REGISTRY[id] && (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => openProposedCard(id)}
+                          title={CARD_REGISTRY[id]!.purpose}
+                          className="rounded-mk-sm border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-semibold text-mk-ink hover:border-mk-accent hover:text-mk-accent"
+                        >
+                          {CARD_REGISTRY[id]!.name}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
                 {/* 正文·检查 (the four examiner voices) only makes sense once there's
                     prose to check — scoped to the 正文 panel, unlike the card shelf
                     above which spans all three. Peach (not mk-accent) so this

@@ -8,6 +8,7 @@ import { ProsePane } from "./ProsePane";
 import { ReviewingHint } from "@/ui";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
+import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { useCardTags } from "./useCardTags";
 import { useSnippets } from "./WritingBlock";
 import { assembleGuidedDoc, partSectionKey } from "./docSections";
@@ -109,10 +110,10 @@ export function ProposalGuide({
           )}
           <div className="mb-2 flex items-center gap-2">
             <span className="rounded-full bg-mk-accent px-2 py-0.5 text-[12px] font-bold text-white">第 {step.index + 1} / {step.total} 步</span>
-            <h3 className="font-sans text-[15px] font-bold text-mk-ink">通读与润色</h3>
+            <h3 className="font-sans text-[15px] font-bold text-mk-ink">写成稿 · 通读与润色</h3>
             <button type="button" onClick={onPrev} className="ml-auto rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">← 上一步</button>
           </div>
-          <p className="text-[14px] leading-relaxed text-mk-ink">把下面整份提案通读一遍——看看各部分的顺序、衔接是否顺畅，润色语言。让印记像老师一样通篇看一遍，你据此修改；满意后点右上角「完成提案」。</p>
+          <p className="text-[14px] leading-relaxed text-mk-ink">下面是把你各部分连起来的<strong>提案成稿</strong>——这才是要交出去的东西，不是一张张卡片。通读一遍，把各部分理顺、衔接补上、语言润色，让它读起来是一篇完整的提案。让印记像老师一样通篇看一遍，你据此修改；满意后点右上角「完成提案」。</p>
           <div className="mt-3">
             {reviewing ? <ReviewingHint /> : (
               <button type="button" onClick={onDone} className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">让印记通篇看一遍</button>
@@ -322,6 +323,22 @@ export function ProposalGuidePane({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.step, snip.snippets]);
 
+  // #82 · the finished proposal parts as folded, re-readable cards (title-only,
+  // expand to read the student's own words). This is "where my finished cards
+  // live" for the proposal — the 片段 equivalent of the essay's snippet board.
+  const filledParts: FilledCard[] = useMemo(() => {
+    const s = track.step;
+    if (!s) return [];
+    const textByKey = new Map(
+      snip.snippets.filter((x) => x.section?.startsWith("prop:")).map((x) => [x.section!.slice(5), x.text.trim()]),
+    );
+    return (s.steps ?? [])
+      .filter((st) => st.kind !== "subq-define")
+      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "" }))
+      .filter((p) => p.text !== "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.step, snip.snippets]);
+
   useEffect(() => {
     let cancelled = false;
     void getDraft(projectId, "proposal")
@@ -447,6 +464,14 @@ export function ProposalGuidePane({
             if (idx >= 0) void track.jump(idx);
           }}
         />
+      )}
+      {/* #82 · finished parts, folded — the student can re-read every card she's
+          written without leaving the current step. Hidden on the 通读与润色 step,
+          which already shows the whole assembled 成稿 below. */}
+      {!locked && isGuided && step?.key !== "polish" && filledParts.length > 0 && (
+        <div className="mt-3 flex-none px-1">
+          <FilledCardsFold cards={filledParts} />
+        </div>
       )}
       {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
           per-part in the cards above (§4). §4 gap G9 · the final 通读与润色 step

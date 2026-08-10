@@ -284,6 +284,48 @@ func TestReference_ReadingStatusDefaultAndPatch(t *testing.T) {
 	}
 }
 
+// Finding D · pasting a DOI into 链接/DOI resolves it to real bibliographic
+// metadata (title/author/year/journal) via Crossref, so the library shows the
+// paper — not the raw DOI string echoed as the title.
+func TestCreateReference_DOIMaterializesMetadata(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID, Fetcher: metaSuccessFetcher{}}).Handler()
+	cookie := signInSeed(t, pool)
+	pid := createProjectForTest(t, h, cookie)
+	base := "/api/v1/projects/" + pid
+
+	// What the client sends for a bare-DOI add: title echoes the DOI, class=网页.
+	rec := doJSON(t, h, cookie, "POST", base+"/references",
+		`{"title":"10.1126/science.aap9559","url":"10.1126/science.aap9559","classification":"网页"}`)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("create reference = %d: %s", rec.Code, rec.Body)
+	}
+	var refWrap struct {
+		Reference referenceView `json:"reference"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &refWrap); err != nil {
+		t.Fatalf("decode: %v — %s", err, rec.Body)
+	}
+	r := refWrap.Reference
+	if r.Title != "解析出的论文标题" {
+		t.Fatalf("title = %q, want the resolved DOI title (not the raw DOI)", r.Title)
+	}
+	if r.Author != "E F; G H" || r.Year != "2019" || r.Journal != "自然可持续" {
+		t.Fatalf("meta not filled from DOI: author=%q year=%q journal=%q", r.Author, r.Year, r.Journal)
+	}
+	if r.Classification == "网页" {
+		t.Fatalf("classification stayed 网页; want 期刊论文 after DOI resolve")
+	}
+
+	// A student-typed real title is NEVER overwritten by the resolver.
+	rec = doJSON(t, h, cookie, "POST", base+"/references",
+		`{"title":"My own title","url":"10.1126/science.aap9559"}`)
+	_ = json.Unmarshal(rec.Body.Bytes(), &refWrap)
+	if refWrap.Reference.Title != "My own title" {
+		t.Fatalf("student title overwritten = %q, want 'My own title'", refWrap.Reference.Title)
+	}
+}
+
 func TestGetLibraryReturnsBoth(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := libraryTestHandler(pool)
@@ -562,6 +604,8 @@ func (errFetcher) CitingWorks(ctx context.Context, doi string, limit int) []mate
 	return nil
 }
 
+func (errFetcher) ResolveDOI(ctx context.Context, doi string) *materialize.DOIMeta { return nil }
+
 // TestEnterReadingFetchFailed422 — a reference with a URL that can't be fetched
 // returns 422 with a standard {error:{code:"fetch_failed",message}} envelope so
 // the reading-room client can offer its paste-body fallback (BE1).
@@ -838,6 +882,8 @@ func (metaFetcher) CitingWorks(ctx context.Context, doi string, limit int) []mat
 	return nil
 }
 
+func (metaFetcher) ResolveDOI(ctx context.Context, doi string) *materialize.DOIMeta { return nil }
+
 // #4 · opening a DOI whose full text can't be fetched fills the reference's empty
 // author/year from Crossref metadata, and the 422 carries it for the paste box.
 func TestEnterReading_DOIMetaFillsBib(t *testing.T) {
@@ -899,6 +945,13 @@ func (metaSuccessFetcher) ReferencedWorks(ctx context.Context, doi string, limit
 
 func (metaSuccessFetcher) CitingWorks(ctx context.Context, doi string, limit int) []materialize.WorkMeta {
 	return nil
+}
+
+func (metaSuccessFetcher) ResolveDOI(ctx context.Context, doi string) *materialize.DOIMeta {
+	// Same author/year/journal/abstract this stub returns from FetchReadable, so
+	// whether the create-time DOI resolve or the enter-reading fetch fills them,
+	// the end state is identical. Title is what create-time resolution adds.
+	return &materialize.DOIMeta{Title: "解析出的论文标题", Author: "E F; G H", Year: "2019", Journal: "自然可持续", Abstract: "这是持久化的摘要。"}
 }
 
 // #4 · opening a DOI whose full text DOES fetch still persists the recovered

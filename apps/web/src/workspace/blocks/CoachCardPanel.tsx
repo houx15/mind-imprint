@@ -34,7 +34,10 @@ const MACARON_CHIP: Record<MacaronName, string> = {
 // resource-finding card (rabbit-hole, elsewhere). The writing room has its own
 // deck in WritingBlock. The server mirrors every summonable id in
 // card_persist.go's persistable allowlist.
-export const FORMING_DECK = ["question-card", "perspective-matrix", "search-plan"];
+// all-statuses.md §2 · the framework page offers only 提问卡 (activate the
+// student's own reading of the prompt before AI extends). 视角对照/检索方向 belong
+// to later phases (reading/exploration), not framing.
+export const FORMING_DECK = ["question-card"];
 export const READING_DECK = ["fact-opinion-value", "perspective-matrix"];
 // The three general thinking cards the cross-phase proposer may offer
 // (card_persist.go coachProposableCards) — kept as the default when no

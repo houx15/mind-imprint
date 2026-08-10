@@ -57,6 +57,11 @@ const TAG_BAR: Record<PlanTag, string> = {
 // session — viewable as a Kanban, a Gantt or an activity log, and exportable.
 //
 // Everything here is API-backed (slice 2): proposal edits are debounced to
+// The four dims plan-gen requires (反例 is the skippable 5th). Filling all four
+// AND 反例 makes the server's frameworkReadyForPlan true → the funnel generates
+// the plan on that write (Finding C).
+const REQUIRED_DIM_KEYS = PROPOSAL_DIMS.filter((d) => d.required).map((d) => d.key);
+
 // PUT /proposal; the board is CRUD against /plan; the chat calls /coach.
 export function PlanBlock({
   projectId,
@@ -68,6 +73,8 @@ export function PlanBlock({
   refreshWorkspace,
   recap,
   onStudioStateChanged,
+  onGeneratingPlan,
+  onPlanMaybeGenerated,
 }: {
   projectId: string;
   title: string;
@@ -84,6 +91,13 @@ export function PlanBlock({
   /** slice 3a · re-apply 印记's studio state (e.g. after 反例 waive triggers
    * plan-gen + advance) so the room follows the machine to 管理. */
   onStudioStateChanged?: () => void | Promise<void>;
+  /** Finding C · toggle the container's plan-gen loader while a proposal write
+   * that will fill the framework (→ the funnel auto-generates the plan) is in
+   * flight, so the edit path gets the same feedback as a note-confirm. */
+  onGeneratingPlan?: (on: boolean) => void;
+  /** Finding C · after a proposal write, ask the container to introduce the plan
+   * if the funnel just generated it (once). Mirrors confirmNote's surfacing. */
+  onPlanMaybeGenerated?: (projectId: string) => void | Promise<void>;
 }) {
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
@@ -102,10 +116,25 @@ export function PlanBlock({
   // Debounced persistence of proposal edits (~600ms after the last keystroke).
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   function persistProposal(next: Proposal) {
+    // Finding C · a write that leaves all four required dims filled AND 反例
+    // non-empty means the server funnel will auto-generate the plan on this
+    // very save (frameworkReadyForPlan). Show the loader + introduce the plan
+    // afterwards — the same feedback the note-confirm path gets — so filling 反例
+    // by hand doesn't produce a plan out of nowhere with no explanation.
+    const willGenPlan =
+      REQUIRED_DIM_KEYS.every((k) => next[k].trim() !== "") &&
+      next.counterpoints.trim() !== "";
+    if (willGenPlan) onGeneratingPlan?.(true);
     putProposal(projectId, next)
-      .then(() => refreshWorkspace())
+      .then(async () => {
+        refreshWorkspace();
+        if (willGenPlan) await onPlanMaybeGenerated?.(projectId);
+      })
       .catch(() => {
         /* keep the local edit; a later save or reload reconciles */
+      })
+      .finally(() => {
+        if (willGenPlan) onGeneratingPlan?.(false);
       });
   }
   function setDim(key: keyof Proposal, v: string) {

@@ -9,6 +9,7 @@ package api
 
 import (
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 
@@ -60,6 +61,16 @@ func (a *API) finishWriting(w http.ResponseWriter, r *http.Request) {
 	if err := a.d.Queries.SetWritingFinish(r.Context(), sqlc.SetWritingFinishParams{ProjectID: projectID, DocKind: doc}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	// 过程即数据: locking a draft is a headline milestone. Log it (per document)
+	// so the 活动日志 records 完成提案 / 完成正文, not only framework/plan events.
+	// The idempotent early-return above means this fires exactly once per doc.
+	milestone := "完成研究提案初稿"
+	if doc == "essay" {
+		milestone = "完成论文正文、锁定初稿"
+	}
+	if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, milestone); err != nil {
+		slog.Warn("finish-writing: append auto-log failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"writingFinished": true})
 }
