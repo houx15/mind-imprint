@@ -7,13 +7,15 @@ package agent
 // 反方观点 is a DEDICATED step (user) so it isn't skipped. Everything here is
 // pure; guide-card generation lives in proposal_guide.go (doc-aware).
 
-// EssayStatementFixedTail are the fixed steps after the per-claim steps.
+// EssayStatementFixedTail are the fixed steps after the per-claim steps, in the
+// doc's order (§137-140): 比较/综合 → 结论 → 论证结构 → 面对反方观点 (LAST — the
+// student addresses the strongest counterarguments after the argument is built).
 func essayStatementTail() []Step {
 	return []Step{
 		{Key: "synthesis", Title: "比较 / 综合", Kind: KindFixed},
-		{Key: "challenges", Title: "面对反方观点", Kind: KindFixed},
 		{Key: "conclusion", Title: "结论", Kind: KindFixed},
 		{Key: "structure", Title: "论证结构", Kind: KindFixed},
+		{Key: "challenges", Title: "面对反方观点", Kind: KindFixed},
 	}
 }
 

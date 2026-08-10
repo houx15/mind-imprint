@@ -4,12 +4,12 @@ import "testing"
 
 func TestDeriveStatementSteps_NoSubQuestions(t *testing.T) {
 	steps := DeriveStatementSteps(nil)
-	// outline + synthesis + challenges + conclusion + structure = 5
+	// outline + synthesis + conclusion + structure + challenges = 5 (反方观点 LAST).
 	if len(steps) != 5 {
 		t.Fatalf("want 5 steps, got %d: %+v", len(steps), steps)
 	}
-	if steps[0].Key != "outline" || steps[4].Key != "structure" {
-		t.Fatalf("order wrong: %+v", steps)
+	if steps[0].Key != "outline" || steps[4].Key != "challenges" {
+		t.Fatalf("order wrong (反方观点 must be last): %+v", steps)
 	}
 	// 反方观点 is a dedicated step.
 	found := false
