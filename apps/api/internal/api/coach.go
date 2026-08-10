@@ -183,20 +183,26 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// mutates studio_state / the reply.
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
-	// Note backstop: the reasoning model sometimes narrates "我把这条记进提案了"
-	// yet omits the propose_note tool (a contract violation confirmed live —
-	// 3/3 framing turns, panel stayed empty while 印记 claimed a recording). When
-	// the narration claims a recording but no note fired, recover it with ONE
-	// focused extraction so the panel never contradicts 印记.
-	// Only meaningful in framework (the only status with propose_note). Gating it
-	// there avoids a stray recovery filling a proposal dim during essay writing.
-	if status == agent.FlowFramework && effects.Note == nil && agent.ClaimsNoteRecording(narrate) {
-		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, fastResolved, userInput, narrate); ok {
+	// Note extraction (2026-08-10): the conversational coach runs REASONING-OFF
+	// (v4-pro, thinking disabled — the product owner's routing decision), and a
+	// reasoning-off coach does not reliably emit propose_note (or even claim a
+	// recording in its narrate). So note-proposing moves to a DEDICATED
+	// reasoning-ON extraction: in the framework status, whenever the coach didn't
+	// itself propose a note and the student said something substantive, run ONE
+	// focused reasoning-on `ExtractProposalNote` to recover the note. Reasoning
+	// stays exactly where the judgment is; the chat stays fast. Only in framework
+	// (the sole status with propose_note) so it never fills a dim during writing.
+	if status == agent.FlowFramework && effects.Note == nil && len(strings.TrimSpace(userInput)) >= 12 {
+		noteResolved := fastResolved
+		if er, ok := a.resolveEval(r.Context()); ok {
+			noteResolved = er // flagship → reasoning ON for the extraction
+		}
+		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, noteResolved, userInput, narrate); ok {
 			effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
 			if nusage.InputTokens > 0 || nusage.OutputTokens > 0 {
 				if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 					ProjectID: projectID, Surface: "studio", Purpose: "coach_note_recover",
-					Resolved: fastResolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
+					Resolved: noteResolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
 				}); rerr != nil {
 					slog.Warn("coach: record note-recover llm call failed", "err", rerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 				}
