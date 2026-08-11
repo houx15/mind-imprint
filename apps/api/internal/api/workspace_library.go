@@ -446,6 +446,17 @@ func (a *API) createReference(w http.ResponseWriter, r *http.Request) {
 			row = refreshed
 		}
 	}
+	// Mechanism-2 mutation event: source_added — the "when + phase + motivation
+	// each material was added" signal. `provenance` defaults to "manual": this
+	// create body carries no provenance/source hint today (a frontend hint like
+	// "chat_link"/"dig" can be wired into the request body later without
+	// changing this call site).
+	a.emitMutation(r.Context(), projectID, "source_added", map[string]any{
+		"referenceId":    row.ID.String(),
+		"title":          row.Title,
+		"classification": row.Classification,
+		"provenance":     "manual",
+	})
 	// 过程即数据: adding a source is a real research milestone — log it so the
 	// 活动日志 reflects the whole journey, not just framework/plan events. Use the
 	// title if present, else the raw url/DOI (best-effort; never fails the write).
@@ -591,6 +602,30 @@ func (a *API) patchReference(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// Mechanism-2 mutation event: source_reclassified — only when decision or
+	// classification actually changed (an untouched-field patch, e.g. author,
+	// must not emit). Compares against `cur`, read before the mutation.
+	if body.Classification != nil && cur.Classification != row.Classification {
+		a.emitMutation(r.Context(), projectID, "source_reclassified", map[string]any{
+			"referenceId": rid.String(), "field": "classification",
+			"before": cur.Classification, "after": row.Classification,
+		})
+	}
+	if body.Decision != nil {
+		before, after := "", ""
+		if cur.Decision != nil {
+			before = *cur.Decision
+		}
+		if row.Decision != nil {
+			after = *row.Decision
+		}
+		if before != after {
+			a.emitMutation(r.Context(), projectID, "source_reclassified", map[string]any{
+				"referenceId": rid.String(), "field": "decision",
+				"before": cur.Decision, "after": row.Decision,
+			})
+		}
+	}
 	// Notes re-project from the reference's (possibly unchanged) material.
 	var notes []readingNoteDTO
 	if row.MaterialID.Valid {
@@ -609,9 +644,21 @@ func (a *API) deleteReference(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
+	// Read the title BEFORE deleting so the source_dropped payload can carry
+	// it (best-effort: an unfound reference just skips the emit below, since
+	// DeleteReference itself is a no-op DELETE that never errors on 0 rows).
+	title, found := "", false
+	if cur, cerr := a.d.Queries.GetReference(r.Context(), sqlc.GetReferenceParams{ID: rid, ProjectID: projectID}); cerr == nil {
+		title, found = cur.Title, true
+	}
 	if err := a.d.Queries.DeleteReference(r.Context(), sqlc.DeleteReferenceParams{ID: rid, ProjectID: projectID}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	if found {
+		a.emitMutation(r.Context(), projectID, "source_dropped", map[string]any{
+			"referenceId": rid.String(), "title": title,
+		})
 	}
 	w.WriteHeader(http.StatusNoContent)
 }

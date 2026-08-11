@@ -177,6 +177,10 @@ func (a *API) patchReferenceEvidence(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "nature 必须是 support / challenge / 空", nil))
 		return
 	}
+	// Read the pre-mutation evidence bundle so a real change can be detected
+	// and captured in the mutation event's before/after (best-effort: a read
+	// failure here just means source_reclassified won't fire for this call).
+	before, berr := a.d.Queries.GetReference(r.Context(), sqlc.GetReferenceParams{ID: rid, ProjectID: projectID})
 	row, err := a.d.Queries.SetReferenceEvidence(r.Context(), sqlc.SetReferenceEvidenceParams{
 		ID: rid, ProjectID: projectID, EvidenceNature: body.Nature,
 		EvidenceArgument: body.Argument, EvidenceFinding: body.Finding, EvidencePlacement: body.Placement,
@@ -184,6 +188,20 @@ func (a *API) patchReferenceEvidence(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
+	}
+	if berr == nil && (before.EvidenceNature != row.EvidenceNature || before.EvidenceArgument != row.EvidenceArgument ||
+		before.EvidenceFinding != row.EvidenceFinding || before.EvidencePlacement != row.EvidencePlacement) {
+		a.emitMutation(r.Context(), projectID, "source_reclassified", map[string]any{
+			"referenceId": rid.String(), "field": "evidence",
+			"before": map[string]any{
+				"nature": before.EvidenceNature, "argument": before.EvidenceArgument,
+				"finding": before.EvidenceFinding, "placement": before.EvidencePlacement,
+			},
+			"after": map[string]any{
+				"nature": row.EvidenceNature, "argument": row.EvidenceArgument,
+				"finding": row.EvidenceFinding, "placement": row.EvidencePlacement,
+			},
+		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, toReferenceDTO(row, nil))
 }
@@ -205,10 +223,21 @@ func (a *API) patchReferenceTriage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "triage 必须是 red / yellow / 空", nil))
 		return
 	}
+	// Read the old triage BEFORE SetReferenceTriage so the mutation event's
+	// before/after is accurate (best-effort: a read failure just skips the
+	// emit — SetReferenceTriage itself still runs and the response is
+	// unaffected).
+	before, berr := a.d.Queries.GetReference(r.Context(), sqlc.GetReferenceParams{ID: rid, ProjectID: projectID})
 	row, err := a.d.Queries.SetReferenceTriage(r.Context(), sqlc.SetReferenceTriageParams{ID: rid, ProjectID: projectID, Triage: body.Triage})
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
+	}
+	if berr == nil && before.Triage != row.Triage {
+		a.emitMutation(r.Context(), projectID, "source_reclassified", map[string]any{
+			"referenceId": rid.String(), "field": "triage",
+			"before": before.Triage, "after": row.Triage,
+		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, toReferenceDTO(row, nil))
 }
@@ -227,10 +256,23 @@ func (a *API) archiveReference(w http.ResponseWriter, r *http.Request) {
 	if body.Archived != nil {
 		archived = *body.Archived
 	}
+	// Read the title BEFORE archiving so the source_dropped payload is
+	// populated (best-effort: a read failure just leaves the title blank).
+	title := ""
+	if cur, cerr := a.d.Queries.GetReference(r.Context(), sqlc.GetReferenceParams{ID: rid, ProjectID: projectID}); cerr == nil {
+		title = cur.Title
+	}
 	row, err := a.d.Queries.SetReferenceArchived(r.Context(), sqlc.SetReferenceArchivedParams{ID: rid, ProjectID: projectID, Archived: archived})
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
+	}
+	// Only the archive direction is a "drop" — restoring (archived=false)
+	// isn't the source_dropped event this task defines.
+	if archived {
+		a.emitMutation(r.Context(), projectID, "source_dropped", map[string]any{
+			"referenceId": rid.String(), "title": title,
+		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, toReferenceDTO(row, nil))
 }
