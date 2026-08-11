@@ -1,6 +1,6 @@
 import { createContext, useContext } from "react";
 import type { Dispatch, MutableRefObject, SetStateAction } from "react";
-import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal, NextStep } from "@mind-imprint/contracts";
+import type { CardTurnRef, NoteProposal, CardProposalWire, QuestionProposal, NextStep, LinkOffer } from "@mind-imprint/contracts";
 
 /**
  * StudioChatContext (coach-persistence hoist).
@@ -96,6 +96,15 @@ export type StudioChatValue = {
   pendingQuestion: QuestionProposal | null;
   confirmQuestion: () => void;
   dismissQuestion: () => void;
+  // A phase-agnostic link bridge (铁律②: proposed, never auto-applied). When the
+  // student drops a new URL in ANY phase, 印记 offers to read it. `readLinkOffer`
+  // registers the reference and opens the reading room; `addLinkOffer` just files
+  // it in the library; `dismissLinkOffer` declines. Cleared at the next turn and
+  // on project switch, like the other offers.
+  pendingLinkOffer: LinkOffer | null;
+  readLinkOffer: () => void;
+  addLinkOffer: () => void;
+  dismissLinkOffer: () => void;
   // The deterministic flow router's one-tap next-step (立项 done → 写提案 …).
   // Tapping advanceToNextStep advances the status server-side (coachAdvance).
   pendingNextStep: NextStep | null;

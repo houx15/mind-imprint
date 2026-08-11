@@ -106,6 +106,13 @@ export const ReviewVerdict = z.object({
 });
 export type ReviewVerdict = z.infer<typeof ReviewVerdict>;
 
+// LinkOffer — a phase-agnostic "you dropped a link, want to read it?" chip. The
+// server attaches it when the student's turn carries a new URL not already in the
+// library; the student's tap (加入文献库 / 一起读这篇) is what promotes it (克制:
+// triggering is automatic, opening is confirmed).
+export const LinkOffer = z.object({ url: z.string() });
+export type LinkOffer = z.infer<typeof LinkOffer>;
+
 export const OrchestratorReply = z.object({
   narrate: z.string(),
   directive: StudioState,
@@ -117,6 +124,7 @@ export const OrchestratorReply = z.object({
   compacted: z.boolean(),
   nextStep: NextStep.nullable().optional(),
   reviewVerdict: ReviewVerdict.nullable().optional(),
+  linkOffer: LinkOffer.nullable().optional(),
 });
 export type OrchestratorReply = z.infer<typeof OrchestratorReply>;
 

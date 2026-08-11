@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CardProposalWire,
+  LinkOffer,
   MaterialSource,
   NextStep,
   NoteProposal,
@@ -45,6 +46,7 @@ import {
   putProposal,
   reflectProjectCard,
   dismissProposal,
+  createReference,
   type ReferenceBib,
 } from "./api/workspace";
 import { roomForResume } from "./studioResume";
@@ -327,6 +329,10 @@ export function WorkspaceContainer({
   // `pendingNote` exactly, but confirming creates an exploration lead instead of
   // writing a proposal section.
   const [pendingQuestion, setPendingQuestion] = useState<QuestionProposal | null>(null);
+  // Phase-agnostic link bridge · when the student drops a new URL in ANY phase,
+  // 印记 offers to read it. Mirrors `pendingNote` (cleared at the next turn + on
+  // project switch); the tap registers the reference and opens the reading room.
+  const [pendingLinkOffer, setPendingLinkOffer] = useState<LinkOffer | null>(null);
   // The deterministic flow router's one-tap next-step offer (立项 done → 写提案,
   // etc.). Tapping it advances the status server-side (coachAdvance) — the ONLY
   // forward transition now the coach has no set_status/open_tool.
@@ -448,6 +454,7 @@ export function WorkspaceContainer({
       setPendingCard(null);
       setPendingQuestion(null);
       setPendingNextStep(null);
+      setPendingLinkOffer(null);
       try {
         const reply = await coach(pid, userInput);
         if (!isActive()) return false;
@@ -483,6 +490,7 @@ export function WorkspaceContainer({
         setPendingCard(reply.card);
         setPendingQuestion(reply.question);
         setPendingNextStep(reply.nextStep ?? null);
+        setPendingLinkOffer(reply.linkOffer ?? null);
         return true;
       } catch {
         if (isActive()) {
@@ -689,6 +697,45 @@ export function WorkspaceContainer({
 
   const dismissQuestion = useCallback(() => setPendingQuestion(null), []);
 
+  // Phase-agnostic link bridge · the student dropped a URL; her tap registers it
+  // as a reference (best-effort — a failed create still clears the chip, she can
+  // paste again). Read opens the reading room so she can 一起读; add just files it
+  // in the library. 铁律②: 印记 offered, she chose.
+  const registerLinkOffer = useCallback(
+    async (pid: string, url: string) => {
+      try {
+        await createReference(pid, { url, title: url });
+        if (activeProjectIdRef.current === pid) {
+          setExplorationRefreshNonce((n) => n + 1);
+          void refreshWorkspace();
+        }
+      } catch {
+        /* best-effort — the chip is already cleared */
+      }
+    },
+    [refreshWorkspace],
+  );
+
+  const readLinkOffer = useCallback(() => {
+    const pid = activeProjectIdRef.current;
+    const offer = pendingLinkOffer;
+    if (!pid || !offer) return;
+    setPendingLinkOffer(null);
+    void registerLinkOffer(pid, offer.url);
+    setRoom("reading");
+    setReadingConfirmNeeded(false);
+  }, [pendingLinkOffer, registerLinkOffer]);
+
+  const addLinkOffer = useCallback(() => {
+    const pid = activeProjectIdRef.current;
+    const offer = pendingLinkOffer;
+    if (!pid || !offer) return;
+    setPendingLinkOffer(null);
+    void registerLinkOffer(pid, offer.url);
+  }, [pendingLinkOffer, registerLinkOffer]);
+
+  const dismissLinkOffer = useCallback(() => setPendingLinkOffer(null), []);
+
   // Opening a proposed card is the student's explicit choice (铁律). The sheet
   // (rendered at the container root) then records a coach turn on submit.
   const openCard = useCallback((cardId: string) => {
@@ -779,6 +826,7 @@ export function WorkspaceContainer({
     setPendingCard(null);
     setPendingQuestion(null);
     setPendingNextStep(null);
+    setPendingLinkOffer(null);
     setOpenCardId(null);
     // Reset the room-effect's first-run guard for this new project, so its
     // getPlan fetch is skipped once here (this effect already fetches) rather
@@ -1094,6 +1142,10 @@ export function WorkspaceContainer({
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,
+    pendingLinkOffer,
+    readLinkOffer,
+    addLinkOffer,
+    dismissLinkOffer,
     pendingNextStep,
     advanceToNextStep,
     recapContinue: recapLanding,

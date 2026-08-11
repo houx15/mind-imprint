@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { useState } from "react";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue } from "@/studio/ai/StudioChatContext";
 
@@ -95,6 +95,10 @@ function Harness({ projectId = "p1" }: { projectId?: string }) {
         pendingQuestion: null,
         confirmQuestion: () => {},
         dismissQuestion: () => {},
+        pendingLinkOffer: null,
+        readLinkOffer: () => {},
+        addLinkOffer: () => {},
+        dismissLinkOffer: () => {},
         pendingNextStep: null,
         advanceToNextStep: () => {},
         advanceStatusTo: async () => {},
@@ -170,6 +174,10 @@ describe("StudioCoachChat · history pagination (Task 5)", () => {
           pendingQuestion: null,
           confirmQuestion: () => {},
           dismissQuestion: () => {},
+        pendingLinkOffer: null,
+        readLinkOffer: () => {},
+        addLinkOffer: () => {},
+        dismissLinkOffer: () => {},
           pendingNextStep: null,
           advanceToNextStep: () => {},
           advanceStatusTo: async () => {},
@@ -250,6 +258,10 @@ describe("toChatMessages · hint mapping (Task 7)", () => {
           pendingQuestion: null,
           confirmQuestion: () => {},
           dismissQuestion: () => {},
+        pendingLinkOffer: null,
+        readLinkOffer: () => {},
+        addLinkOffer: () => {},
+        dismissLinkOffer: () => {},
           pendingNextStep: null,
           advanceToNextStep: () => {},
           advanceStatusTo: async () => {},
@@ -294,6 +306,10 @@ describe("StudioTurnChips · note confirm → 已记进 acknowledgment", () => {
       pendingQuestion: null,
       confirmQuestion: () => {},
       dismissQuestion: () => {},
+      pendingLinkOffer: null,
+      readLinkOffer: () => {},
+      addLinkOffer: () => {},
+      dismissLinkOffer: () => {},
       pendingNextStep: null,
       advanceToNextStep: () => {},
       advanceStatusTo: async () => {},
@@ -343,5 +359,35 @@ describe("StudioTurnChips · note confirm → 已记进 acknowledgment", () => {
     );
     expect(screen.getByRole("button", { name: /记进「缘由」/ })).toBeInTheDocument();
     expect(screen.queryByText(/已记进/)).toBeNull();
+  });
+
+  it("offers to read / file a dropped link, and fires the right action", () => {
+    const onRead = vi.fn();
+    const onAdd = vi.fn();
+    render(
+      <StudioChatContext.Provider
+        value={chipsValue({
+          pendingLinkOffer: { url: "https://nature.com/articles/x" },
+          readLinkOffer: onRead,
+          addLinkOffer: onAdd,
+        })}
+      >
+        <StudioTurnChips />
+      </StudioChatContext.Provider>,
+    );
+    expect(screen.getByText("https://nature.com/articles/x")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "一起读这篇" }));
+    expect(onRead).toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "加入文献库" }));
+    expect(onAdd).toHaveBeenCalled();
+  });
+
+  it("shows no link chip when there is no dropped link", () => {
+    render(
+      <StudioChatContext.Provider value={chipsValue({ pendingLinkOffer: null })}>
+        <StudioTurnChips />
+      </StudioChatContext.Provider>,
+    );
+    expect(screen.queryByRole("button", { name: "一起读这篇" })).toBeNull();
   });
 });

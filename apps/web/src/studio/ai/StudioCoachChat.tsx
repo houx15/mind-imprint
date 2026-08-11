@@ -148,6 +148,10 @@ export function StudioTurnChips() {
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,
+    pendingLinkOffer,
+    readLinkOffer,
+    addLinkOffer,
+    dismissLinkOffer,
     pendingNextStep,
     advanceToNextStep,
     recapContinue,
@@ -210,6 +214,9 @@ export function StudioTurnChips() {
       )}
       {pendingQuestion && (
         <QuestionConfirmChip question={pendingQuestion} onConfirm={confirmQuestion} onDismiss={dismissQuestion} />
+      )}
+      {pendingLinkOffer && (
+        <LinkOfferChip url={pendingLinkOffer.url} onRead={readLinkOffer} onAdd={addLinkOffer} onDismiss={dismissLinkOffer} />
       )}
       {pendingNextStep && <NextStepChip label={pendingNextStep.label} onAdvance={advanceToNextStep} />}
     </>
@@ -300,6 +307,40 @@ function QuestionConfirmChip({
       <div className="mt-2.5 flex items-center gap-2">
         <button type="button" onClick={onConfirm} className="rounded-full bg-mk-accent px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
           加入探索图谱
+        </button>
+        <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint hover:text-mk-muted">
+          跳过
+        </button>
+      </div>
+    </div>
+  );
+}
+
+// Phase-agnostic link bridge · the 克制 chip for a dropped URL: 印记 offers to
+// read it (一起读 → opens the reading room) or just file it (加入文献库), in ANY
+// phase — the student's tap is what promotes an inert pasted link (打开由学生确认).
+// SOLID border token only (never `border-mk-<token>/<NN>` — renders transparent).
+function LinkOfferChip({
+  url,
+  onRead,
+  onAdd,
+  onDismiss,
+}: {
+  url: string;
+  onRead: () => void;
+  onAdd: () => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div className="rounded-mk-lg border border-mk-accent bg-mk-accent-50 px-3.5 py-3 text-[14px] text-mk-ink">
+      <p className="font-semibold leading-snug text-mk-accent-700">看起来你贴了一篇资料，一起读读看？</p>
+      <p className="mt-1 break-all text-[13px] leading-relaxed text-mk-muted">{url}</p>
+      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+        <button type="button" onClick={onRead} className="rounded-full bg-mk-accent px-3.5 py-1.5 text-[12px] font-bold text-white transition hover:opacity-90">
+          一起读这篇
+        </button>
+        <button type="button" onClick={onAdd} className="rounded-full border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-ink transition hover:border-mk-accent">
+          加入文献库
         </button>
         <button type="button" onClick={onDismiss} className="rounded-full px-2.5 py-1.5 text-[12px] font-semibold text-mk-faint hover:text-mk-muted">
           跳过

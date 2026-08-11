@@ -279,6 +279,12 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// never disturbs the reply — only its Compacted flag reflects the outcome.
 	reply.Compacted = a.maybeCompactBackstop(r.Context(), projectID)
 
+	// Phase-agnostic link bridge: if the student dropped a new URL in this turn,
+	// offer to read it — in ANY phase (topic / proposal / writing / retro), not
+	// just the reading room. Free (string scan + one library read), best-effort:
+	// a nil offer never changes the reply.
+	reply.LinkOffer = a.detectLinkOffer(r.Context(), projectID, userInput)
+
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
 
@@ -1173,6 +1179,10 @@ type orchestratorReplyDTO struct {
 	Compacted       bool                 `json:"compacted"`
 	NextStep        *nextStepDTO         `json:"nextStep"`
 	ReviewVerdict   *reviewVerdictDTO    `json:"reviewVerdict"`
+	// LinkOffer — a phase-agnostic "you dropped a link, want to read it?" chip
+	// when the student's turn carries a new URL not yet in the library. nil when
+	// there's no new link (omitted-as-null on the wire).
+	LinkOffer *linkOfferDTO `json:"linkOffer"`
 }
 
 // noteProposalDTO mirrors the contract's NoteProposal {section, value}.
