@@ -462,6 +462,17 @@ type Reference struct {
 	Archived            bool               `json:"archived"`
 }
 
+type RevisionCheckpoint struct {
+	ID           uuid.UUID   `json:"id"`
+	ProjectID    uuid.UUID   `json:"project_id"`
+	ArtifactType string      `json:"artifact_type"`
+	Trigger      string      `json:"trigger"`
+	Content      []byte      `json:"content"`
+	ContentHash  string      `json:"content_hash"`
+	FeedbackRef  pgtype.UUID `json:"feedback_ref"`
+	CreatedAt    time.Time   `json:"created_at"`
+}
+
 type School struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
