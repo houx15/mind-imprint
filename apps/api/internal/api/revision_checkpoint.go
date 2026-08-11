@@ -16,11 +16,13 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"log/slog"
+	"net/http"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -122,6 +124,35 @@ func (a *API) recordCheckpoints(ctx context.Context, projectID uuid.UUID, trigge
 	for _, at := range artifactTypes {
 		a.recordCheckpoint(ctx, projectID, at, trigger, feedbackRef)
 	}
+}
+
+// -- GET /revision-checkpoints ----------------------------------------------
+
+// listRevisionCheckpoints returns every revision checkpoint recorded for the
+// project (both mechanisms funnel through the same revision_checkpoint table
+// via recordCheckpoint), ordered by createdAt — read-only, no model call.
+func (a *API) listRevisionCheckpoints(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	rows, err := a.d.Queries.ListRevisionCheckpoints(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out := make([]map[string]any, 0, len(rows))
+	for _, c := range rows {
+		var fr any
+		if c.FeedbackRef.Valid {
+			fr = uuid.UUID(c.FeedbackRef.Bytes).String()
+		}
+		out = append(out, map[string]any{
+			"id": c.ID.String(), "artifactType": c.ArtifactType, "trigger": c.Trigger,
+			"contentHash": c.ContentHash, "feedbackRef": fr, "createdAt": c.CreatedAt,
+		})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"checkpoints": out})
 }
 
 // -- Task 5: Mechanism-2 mutation events (exploration graph) ---------------

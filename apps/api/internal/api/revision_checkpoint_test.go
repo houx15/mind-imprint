@@ -12,6 +12,8 @@ package api
 
 import (
 	"context"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -23,6 +25,7 @@ import (
 	"github.com/testcontainers/testcontainers-go/wait"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/auth"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -133,5 +136,50 @@ func TestRecordCheckpoint_DraftStoresSnapshotRefNotBody(t *testing.T) {
 	}
 	if !strings.Contains(string(rows[0].Content), snap.ID.String()) {
 		t.Fatalf("draft checkpoint missing snapshotId ref: %s", rows[0].Content)
+	}
+}
+
+// TestGetRevisionCheckpoints_ReturnsOrdered — Task 7: the read-only GET
+// endpoint projects recorded checkpoints as JSON. Self-contained HTTP-level
+// auth setup (mirrors maintest_test.go's signInAs) because this file lives in
+// package api (unexported recordCheckpoint access), not the external
+// api_test package where that helper is defined.
+func TestGetRevisionCheckpoints_ReturnsOrdered(t *testing.T) {
+	pool := newCheckpointTestPool(t)
+	d := sqlc.New(pool)
+	projectID := uuid.MustParse(seedProjectID101)
+
+	// seed a proposal so there is content to snapshot (mirrors
+	// TestRecordCheckpoint_ProposalWritesRowWithHash above)
+	if _, err := d.UpsertProjectProposal(context.Background(), sqlc.UpsertProjectProposalParams{
+		ProjectID: projectID, Objective: "bounded yes", Reason: "r", Activities: "a", Resources: "s",
+	}); err != nil {
+		t.Fatalf("seed proposal: %v", err)
+	}
+
+	a := New(Deps{Queries: d, Pool: pool})
+	a.recordCheckpoint(context.Background(), projectID, checkpointProposal, triggerFinish, nil)
+
+	raw, hash, err := auth.NewToken()
+	if err != nil {
+		t.Fatalf("token: %v", err)
+	}
+	if _, err := d.CreateSession(context.Background(), sqlc.CreateSessionParams{
+		UserID: SeedUserID, TokenHash: hash, ExpiresAt: time.Now().Add(time.Hour),
+	}); err != nil {
+		t.Fatalf("create session: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+projectID.String()+"/revision-checkpoints", nil)
+	req.AddCookie(&http.Cookie{Name: "mk_session", Value: raw})
+	rec := httptest.NewRecorder()
+	a.Handler().ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET revision-checkpoints = %d, want 200: %s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	if !strings.Contains(body, `"artifactType":"proposal"`) {
+		t.Fatalf("missing checkpoint in response: %s", body)
 	}
 }
