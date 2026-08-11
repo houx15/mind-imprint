@@ -12,6 +12,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -136,6 +137,70 @@ func TestRecordCheckpoint_DraftStoresSnapshotRefNotBody(t *testing.T) {
 	}
 	if !strings.Contains(string(rows[0].Content), snap.ID.String()) {
 		t.Fatalf("draft checkpoint missing snapshotId ref: %s", rows[0].Content)
+	}
+}
+
+// TestRecordCheckpoint_ClaimNoSubQuestionsSkipsRow — final-review fix: a
+// project with no proposal track (so essaySubQuestions returns a nil slice)
+// must write NO checkpoint row rather than a `content: null` one, which the
+// ClaimCheckpointContent Zod contract (z.array(...)) would reject.
+func TestRecordCheckpoint_ClaimNoSubQuestionsSkipsRow(t *testing.T) {
+	pool := newCheckpointTestPool(t)
+	d := sqlc.New(pool)
+	projectID := uuid.MustParse(seedProjectID101)
+	// seed project 101's studio_state carries no proposalTrack, so
+	// essaySubQuestions(state) returns nil here — nothing further to seed.
+
+	a := New(Deps{Queries: d, Pool: pool})
+	a.recordCheckpoint(context.Background(), projectID, checkpointClaim, triggerFinish, nil)
+
+	rows, err := d.ListRevisionCheckpoints(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("want 0 checkpoints when there are no sub-questions, got %d: %+v", len(rows), rows)
+	}
+}
+
+// TestRecordCheckpoint_ClaimWithSubQuestionsWritesArray — the flip side: once
+// the proposal track has sub-questions, the claim checkpoint writes a proper
+// non-null JSON array.
+func TestRecordCheckpoint_ClaimWithSubQuestionsWritesArray(t *testing.T) {
+	pool := newCheckpointTestPool(t)
+	d := sqlc.New(pool)
+	projectID := uuid.MustParse(seedProjectID101)
+
+	state := agent.DefaultStudioState()
+	state.ProposalTrack = &agent.WritingTrack{
+		SubQuestions: []agent.SubQuestion{{ID: "sq1", Text: "does X cause Y?"}},
+	}
+	raw, err := json.Marshal(state)
+	if err != nil {
+		t.Fatalf("marshal state: %v", err)
+	}
+	if err := d.SetStudioState(context.Background(), sqlc.SetStudioStateParams{ID: projectID, StudioState: raw}); err != nil {
+		t.Fatalf("seed studio_state: %v", err)
+	}
+
+	a := New(Deps{Queries: d, Pool: pool})
+	a.recordCheckpoint(context.Background(), projectID, checkpointClaim, triggerFinish, nil)
+
+	rows, err := d.ListRevisionCheckpoints(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 checkpoint, got %d", len(rows))
+	}
+	if strings.TrimSpace(string(rows[0].Content)) == "null" {
+		t.Fatal("claim checkpoint content is null")
+	}
+	if !strings.HasPrefix(strings.TrimSpace(string(rows[0].Content)), "[") {
+		t.Fatalf("claim checkpoint content is not a JSON array: %s", rows[0].Content)
+	}
+	if !strings.Contains(string(rows[0].Content), "does X cause Y?") {
+		t.Fatalf("claim checkpoint missing sub-question text: %s", rows[0].Content)
 	}
 }
 

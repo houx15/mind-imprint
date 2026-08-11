@@ -69,7 +69,15 @@ func (a *API) checkpointContent(ctx context.Context, projectID uuid.UUID, artifa
 		if err != nil {
 			return nil, err
 		}
-		return json.Marshal(a.essaySubQuestions(state))
+		subQuestions := a.essaySubQuestions(state)
+		if len(subQuestions) == 0 {
+			// Nothing to snapshot (e.g. no proposal track yet) -> skip
+			// silently, mirroring the draft case above. Marshaling a nil/
+			// empty slice would otherwise produce JSON `null`, which the
+			// ClaimCheckpointContent Zod contract (z.array(...)) rejects.
+			return nil, nil
+		}
+		return json.Marshal(subQuestions)
 	case checkpointDraft:
 		// Never duplicate body text: reference the immutable snapshot by id.
 		snap, err := a.d.Queries.GetLatestSnapshot(ctx, sqlc.GetLatestSnapshotParams{
