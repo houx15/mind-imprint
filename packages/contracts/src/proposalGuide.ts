@@ -30,7 +30,11 @@ export type StepKind = z.infer<typeof StepKind>;
 // until guided AND started (and is generated lazily for the current step).
 // StepRef — one entry in the ordered step list (slice 4b: lets the guided
 // surface assemble the per-part text back into the document in order).
-export const StepRef = z.object({ key: z.string(), title: z.string(), kind: StepKind });
+// `card` is the step's cached guide card, present only for steps that have been
+// visited (generated). It lets the finished-cards fold re-show each finished
+// part's original guidance + example so re-reading/re-editing reads like the
+// writing surface, not a bare text slab.
+export const StepRef = z.object({ key: z.string(), title: z.string(), kind: StepKind, card: GuideCard.optional() });
 export type StepRef = z.infer<typeof StepRef>;
 
 export const ProposalGuideStep = z.object({

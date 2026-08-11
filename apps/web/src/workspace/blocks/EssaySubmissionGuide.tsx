@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ProposalGuideStep } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
+import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { useEssaySubmission } from "./useEssaySubmission";
 import { useSnippets } from "./WritingBlock";
 import { getEssayStatement } from "../../api/essayStatement";
@@ -167,6 +168,25 @@ export function EssaySubmissionPane({
     snip.upsertSection(stepKey, v);
   }
 
+  // Finished submission parts (引言/结论), folded + re-readable with their
+  // original guidance — same fold as the statement stage. compose/polish carry
+  // no per-part text, so they never appear.
+  const filledParts: FilledCard[] = useMemo(() => {
+    const s = track.step;
+    if (!s) return [];
+    const textByKey = new Map(snip.snippets.map((x) => [x.section ?? "", x.text.trim()] as const));
+    return (s.steps ?? [])
+      .filter((st) => st.key !== s.key)
+      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
+      .filter((p) => p.text !== "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.step, snip.snippets]);
+
+  function editFilledPart(key: string, value: string) {
+    snip.upsertSection(key, value);
+    if (key === stepKey) setText(value);
+  }
+
   function onStillStuck() {
     if (!step) return;
     void sendStudioTurn(`我在写论文的「${step.title}」，还是有点卡，能带我想想吗？`);
@@ -226,19 +246,28 @@ export function EssaySubmissionPane({
   }
 
   return (
-    <EssaySubmissionView
-      step={step}
-      value={text}
-      onChange={onChange}
-      onStart={() => void track.start()}
-      onStillStuck={onStillStuck}
-      onDone={onDone}
-      onNext={() => void track.next()}
-      onPrev={() => void track.prev()}
-      onCompose={() => void onCompose()}
-      onGoToDraft={onGoToDraft}
-      onRequestFinish={onRequestFinish}
-      composing={composing}
-    />
+    <>
+      <EssaySubmissionView
+        step={step}
+        value={text}
+        onChange={onChange}
+        onStart={() => void track.start()}
+        onStillStuck={onStillStuck}
+        onDone={onDone}
+        onNext={() => void track.next()}
+        onPrev={() => void track.prev()}
+        onCompose={() => void onCompose()}
+        onGoToDraft={onGoToDraft}
+        onRequestFinish={onRequestFinish}
+        composing={composing}
+      />
+      {step?.started && filledParts.length > 0 && (
+        <div className="border-b border-mk-border bg-mk-paper px-8 pb-4">
+          <div className="mx-auto max-w-[70ch]">
+            <FilledCardsFold cards={filledParts} onEdit={editFilledPart} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

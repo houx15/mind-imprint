@@ -30,4 +30,24 @@ describe("FilledCardsFold", () => {
     const { container } = render(<FilledCardsFold cards={[]} onEdit={() => {}} />);
     expect(container.firstChild).toBeNull();
   });
+
+  it("re-shows the original guidance + example when a finished part carries its guide card", () => {
+    const onEdit = vi.fn();
+    const withGuide = [
+      { key: "p1", title: "研究背景", text: "我原来写的背景", guidance: "写清楚这项研究的背景", example: "An English example" },
+    ];
+    render(<FilledCardsFold cards={withGuide} onEdit={onEdit} />);
+    fireEvent.click(screen.getByRole("button", { name: /研究背景/ }));
+    // The expanded view is the guided-writing surface: guidance + example + the
+    // student's own text, editable — not a bare slab.
+    expect(screen.getByText("写清楚这项研究的背景")).toBeInTheDocument();
+    expect(screen.getByText("An English example")).toBeInTheDocument();
+    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(ta.value).toBe("我原来写的背景");
+    fireEvent.change(ta, { target: { value: "改过的背景" } });
+    expect(onEdit).toHaveBeenCalledWith("p1", "改过的背景");
+    // A finished part is re-read/re-edit only — no 我写好了 / 我依然有问题 here.
+    expect(screen.queryByText("我写好了")).toBeNull();
+    expect(screen.queryByText("我依然有问题")).toBeNull();
+  });
 });

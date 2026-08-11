@@ -48,6 +48,20 @@ describe("GuidedWritingCard", () => {
     expect(onOfferCard).toHaveBeenCalledWith("pee");
   });
 
+  it("renders in finished/re-edit mode (no action buttons) when onDone/onStillStuck are omitted", () => {
+    const onChange = vi.fn();
+    render(<GuidedWritingCard guidance="写这条论点" example="An English example" value="我的原文" onChange={onChange} />);
+    // Guidance + example + editable text still render…
+    expect(screen.getByText("写这条论点")).toBeTruthy();
+    expect(screen.getByText("An English example")).toBeTruthy();
+    const ta = screen.getByDisplayValue("我的原文");
+    fireEvent.change(ta, { target: { value: "改过的原文" } });
+    expect(onChange).toHaveBeenCalledWith("改过的原文");
+    // …but the finish/stuck actions do not.
+    expect(screen.queryByText("我写好了")).toBeNull();
+    expect(screen.queryByText("我依然有问题")).toBeNull();
+  });
+
   it("auto-grows the textarea (no fixed row cap; overflow hidden)", () => {
     render(<GuidedWritingCard guidance="g" value="x" onChange={vi.fn()} onStillStuck={vi.fn()} onDone={vi.fn()} />);
     const ta = screen.getByPlaceholderText("在这里写……") as HTMLTextAreaElement;

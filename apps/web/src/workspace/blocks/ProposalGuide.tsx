@@ -334,7 +334,7 @@ export function ProposalGuidePane({
     );
     return (s.steps ?? [])
       .filter((st) => st.kind !== "subq-define")
-      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "" }))
+      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
       .filter((p) => p.text !== "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.step, snip.snippets]);

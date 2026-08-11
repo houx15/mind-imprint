@@ -66,7 +66,7 @@ func (a *API) buildEssayStatementStep(ctx context.Context, projectID uuid.UUID, 
 	dto := proposalGuideStepDTO{
 		Key: cur.Key, Title: cur.Title, Kind: string(cur.Kind),
 		Index: idx, Total: total, Mode: "guided", Started: et.Started, SubQuestions: subs,
-		Steps: toStepRefs(steps),
+		Steps: toStepRefs(steps, et.StepGuides),
 	}
 
 	if et.Started {

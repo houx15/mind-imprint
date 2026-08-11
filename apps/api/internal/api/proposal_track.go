@@ -28,11 +28,15 @@ type guideCardDTO struct {
 }
 
 // stepRefDTO is one entry in the ordered step list (for client-side per-part
-// assembly of the guided writing — slice 4b retrofit).
+// assembly of the guided writing — slice 4b retrofit). Card is the step's cached
+// guide card, when one has been generated (i.e. the step was visited): it lets
+// the finished-cards fold re-show each finished part's original guidance +
+// example, so a re-read/re-edit reads like the writing surface, not a bare slab.
 type stepRefDTO struct {
-	Key   string `json:"key"`
-	Title string `json:"title"`
-	Kind  string `json:"kind"`
+	Key   string        `json:"key"`
+	Title string        `json:"title"`
+	Kind  string        `json:"kind"`
+	Card  *guideCardDTO `json:"card,omitempty"`
 }
 
 type proposalGuideStepDTO struct {
@@ -50,10 +54,20 @@ type proposalGuideStepDTO struct {
 	Steps []stepRefDTO `json:"steps"`
 }
 
-func toStepRefs(steps []agent.Step) []stepRefDTO {
+// toStepRefs projects the ordered step list to the wire, attaching each step's
+// cached guide card (from StepGuides) when present so finished parts can re-show
+// their guidance. A nil/absent cache entry leaves Card nil (omitted on the wire).
+func toStepRefs(steps []agent.Step, guides map[string]string) []stepRefDTO {
 	out := make([]stepRefDTO, 0, len(steps))
 	for _, s := range steps {
-		out = append(out, stepRefDTO{Key: s.Key, Title: s.Title, Kind: string(s.Kind)})
+		ref := stepRefDTO{Key: s.Key, Title: s.Title, Kind: string(s.Kind)}
+		if cached := guides[s.Key]; cached != "" {
+			var c guideCardDTO
+			if json.Unmarshal([]byte(cached), &c) == nil {
+				ref.Card = &c
+			}
+		}
+		out = append(out, ref)
 	}
 	return out
 }
@@ -140,7 +154,7 @@ func (a *API) buildProposalGuideStep(ctx context.Context, projectID uuid.UUID, s
 	dto := proposalGuideStepDTO{
 		Key: cur.Key, Title: cur.Title, Kind: string(cur.Kind),
 		Index: idx, Total: total, Mode: string(track.Mode), Started: track.Started,
-		SubQuestions: subs, Steps: toStepRefs(steps),
+		SubQuestions: subs, Steps: toStepRefs(steps, track.StepGuides),
 	}
 
 	if track.Mode == agent.ModeGuided && track.Started {

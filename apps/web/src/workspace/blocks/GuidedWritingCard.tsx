@@ -31,8 +31,11 @@ export function GuidedWritingCard({
   example?: string | null;
   value: string;
   onChange: (v: string) => void;
-  onStillStuck: () => void;
-  onDone: () => void;
+  // Optional so the same card can render in a "finished / re-edit" mode: guidance
+  // + the auto-growing textarea, but no 我依然有问题 / 我写好了 (a finished part is
+  // already reviewed — it's just being re-read/edited). Absent both → no action row.
+  onStillStuck?: () => void;
+  onDone?: () => void;
   doneLabel?: string;
   reviewing?: boolean;
   locked?: boolean;
@@ -106,24 +109,30 @@ export function GuidedWritingCard({
         </div>
       )}
 
-      <div className="mt-3 flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          onClick={onStillStuck}
-          className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-ink hover:border-mk-accent"
-        >
-          我依然有问题
-        </button>
-        <button
-          type="button"
-          disabled={reviewing}
-          onClick={onDone}
-          className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
-        >
-          {reviewing ? "印记在看……" : doneLabel}
-        </button>
-        {footer}
-      </div>
+      {(onStillStuck || onDone || footer) && (
+        <div className="mt-3 flex flex-wrap items-center gap-3">
+          {onStillStuck && (
+            <button
+              type="button"
+              onClick={onStillStuck}
+              className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-ink hover:border-mk-accent"
+            >
+              我依然有问题
+            </button>
+          )}
+          {onDone && (
+            <button
+              type="button"
+              disabled={reviewing}
+              onClick={onDone}
+              className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
+            >
+              {reviewing ? "印记在看……" : doneLabel}
+            </button>
+          )}
+          {footer}
+        </div>
+      )}
       {reviewing && <div className="mt-2"><ReviewingHint /></div>}
     </div>
   );

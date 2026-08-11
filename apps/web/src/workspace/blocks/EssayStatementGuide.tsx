@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ProposalGuideStep, SubQuestion, ClaimRevisionVerdict } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
+import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { useEssayStatement } from "./useEssayStatement";
 import { useSnippets } from "./WritingBlock";
 import { reviewEssayPart, reviseClaim } from "../../api/essayStatement";
@@ -257,6 +258,28 @@ export function EssayStatementPane({
     snip.upsertSection(stepKey, v);
   }
 
+  // The finished parts (every written step except the one being written now),
+  // folded + re-readable with their original guidance. This is the essay's
+  // equivalent of the proposal's #82 fold — without it, a finished claim
+  // vanished the moment the walk advanced.
+  const filledParts: FilledCard[] = useMemo(() => {
+    const s = track.step;
+    if (!s) return [];
+    const textByKey = new Map(snip.snippets.map((x) => [x.section ?? "", x.text.trim()] as const));
+    return (s.steps ?? [])
+      .filter((st) => st.key !== s.key)
+      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
+      .filter((p) => p.text !== "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [track.step, snip.snippets]);
+
+  // Edit a finished part in place from the fold (finished ≠ locked). Keep the
+  // active textarea in sync if the edited part is also the current step.
+  function editFilledPart(key: string, value: string) {
+    snip.upsertSection(key, value);
+    if (key === stepKey) setText(value);
+  }
+
   function onStillStuck() {
     if (!step) return;
     void sendStudioTurn(`我在写「${step.title}」这部分，还是有点卡，能带我想想吗？`);
@@ -292,20 +315,29 @@ export function EssayStatementPane({
   }
 
   return (
-    <EssayStatementView
-      step={step}
-      value={text}
-      onChange={onChange}
-      onStart={() => void track.start()}
-      onStillStuck={onStillStuck}
-      onDone={() => void onDone()}
-      onNext={() => void track.next()}
-      onPrev={() => void track.prev()}
-      onOfferCard={(cardId) => openCard(cardId)}
-      onReviseClaim={(sqId, newText, confirm) => reviseClaim(projectId, sqId, newText, confirm)}
-      onClaimApplied={() => void track.reload()}
-      onFinishStatement={() => void onFinishStatement()}
-      reviewing={reviewing}
-    />
+    <>
+      <EssayStatementView
+        step={step}
+        value={text}
+        onChange={onChange}
+        onStart={() => void track.start()}
+        onStillStuck={onStillStuck}
+        onDone={() => void onDone()}
+        onNext={() => void track.next()}
+        onPrev={() => void track.prev()}
+        onOfferCard={(cardId) => openCard(cardId)}
+        onReviseClaim={(sqId, newText, confirm) => reviseClaim(projectId, sqId, newText, confirm)}
+        onClaimApplied={() => void track.reload()}
+        onFinishStatement={() => void onFinishStatement()}
+        reviewing={reviewing}
+      />
+      {step?.started && filledParts.length > 0 && (
+        <div className="border-b border-mk-border bg-mk-paper px-8 pb-4">
+          <div className="mx-auto max-w-[70ch]">
+            <FilledCardsFold cards={filledParts} onEdit={editFilledPart} />
+          </div>
+        </div>
+      )}
+    </>
   );
 }

@@ -1,18 +1,29 @@
 import { useEffect, useRef, useState } from "react";
+import { GuidedWritingCard } from "./GuidedWritingCard";
 
 // FilledCardsFold — #82 · the one place to re-read every finished guidance card.
-// Each written part/claim is a title-only row, folded by default; clicking it
-// expands to show the student's own words. Shared by the proposal (its parts)
-// and the essay (its claims). Empty parts are not passed in, so the list is
-// exactly "what I've written so far".
+// Each written part/claim is a title-only row, folded by default (so a card
+// AUTO-FOLDS the moment it's finished and the walk moves on); clicking it expands
+// to show the student's own words. Shared by the proposal (its parts) and the
+// essay (its claims). Empty parts are not passed in, so the list is exactly
+// "what I've written so far".
 //
 // A finished part is FINISHED, not LOCKED — when `onEdit` is provided the
-// expanded view is the same warm, auto-growing writing surface the guided card
-// uses, so the student can still fix their own words in place (铁律①: still the
-// student's text — 印记 never wrote it, and doesn't now). Without `onEdit` it
-// falls back to a read-only paragraph.
+// expanded view is the SAME guided-writing card the student wrote in: its
+// original guidance + example + the warm, auto-growing textarea, so re-reading
+// and re-editing look no different from the first pass (铁律①: still the
+// student's text — 印记 never wrote it, and doesn't now). A part with no cached
+// guidance falls back to a bare editable textarea; without `onEdit`, read-only.
 
-export type FilledCard = { key: string; title: string; text: string };
+export type FilledCard = {
+  key: string;
+  title: string;
+  text: string;
+  // The part's original guidance + example (from its cached guide card), so the
+  // expanded re-edit view is the same surface as when it was first written.
+  guidance?: string;
+  example?: string | null;
+};
 
 // One expanded part: an auto-growing textarea styled like GuidedWritingCard's,
 // so a finished card reads and edits like the writing surface, not a flat
@@ -81,7 +92,22 @@ export function FilledCardsFold({
               </button>
               {isOpen &&
                 (onEdit ? (
-                  <EditablePart text={c.text} onEdit={(t) => onEdit(c.key, t)} />
+                  c.guidance ? (
+                    // Re-edit on the SAME guided-writing surface: original
+                    // guidance + example + textarea, no finish buttons (already
+                    // reviewed). Reads exactly like the first pass.
+                    <div className="border-t border-mk-border p-2">
+                      <GuidedWritingCard
+                        guidance={c.guidance}
+                        example={c.example}
+                        value={c.text}
+                        onChange={(t) => onEdit(c.key, t)}
+                        placeholder="在这里接着改这一部分……"
+                      />
+                    </div>
+                  ) : (
+                    <EditablePart text={c.text} onEdit={(t) => onEdit(c.key, t)} />
+                  )
                 ) : (
                   <p className="whitespace-pre-wrap border-t border-mk-border px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink">
                     {c.text}
