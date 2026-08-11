@@ -272,6 +272,9 @@ func (a *API) createExplorationLead(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.emitMutation(r.Context(), projectID, "lead_added", map[string]any{
+		"leadId": row.ID.String(), "text": row.Text, "origin": row.Origin,
+	})
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"lead": toExplorationLeadDTO(row)})
 }
 
@@ -372,7 +375,8 @@ func (a *API) deleteExplorationLead(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
-	if _, err := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: lid, ProjectID: projectID}); err != nil {
+	prev, err := a.d.Queries.GetExplorationLeadForProject(r.Context(), sqlc.GetExplorationLeadForProjectParams{ID: lid, ProjectID: projectID})
+	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
@@ -380,6 +384,9 @@ func (a *API) deleteExplorationLead(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.emitMutation(r.Context(), projectID, "lead_removed", map[string]any{
+		"leadId": lid.String(), "text": prev.Text,
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 
@@ -688,6 +695,10 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	}
 
 	works := a.d.Fetcher.SearchWorks(r.Context(), searchQuery, 8)
+	// dig_performed records the search attempt itself — the "what keyword led
+	// to this exploration" motivation — regardless of how many candidates come
+	// back, so an empty-result search still lands as a real signal.
+	a.emitMutation(r.Context(), projectID, "dig_performed", map[string]any{"keyword": query})
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(works)})
 }
 
@@ -818,6 +829,10 @@ func (a *API) adoptExploration(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	a.emitMutation(r.Context(), projectID, "lead_adopted", map[string]any{
+		"leadId": lead.ID.String(), "parentLeadId": pgUUIDToStringPtr(lead.ParentLeadID), "source": ref.Title,
+	})
+
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{
 		"lead":      toExplorationLeadDTO(lead),
 		"reference": toReferenceDTO(ref, nil),
@@ -909,6 +924,9 @@ func (a *API) attachExploration(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.emitMutation(r.Context(), projectID, "source_attached", map[string]any{
+		"referenceId": ref.ID.String(), "parentLeadId": pid.String(),
+	})
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{
 		"lead":      toExplorationLeadDTO(lead),
 		"reference": toReferenceDTO(ref, nil),
@@ -994,6 +1012,9 @@ func (a *API) createQuestionEdge(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.emitMutation(r.Context(), projectID, "edge_added", map[string]any{
+		"from": fromID.String(), "to": toID.String(), "origin": "manual",
+	})
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"edge": toQuestionEdgeDTO(row)})
 }
 
@@ -1084,7 +1105,8 @@ func (a *API) deleteQuestionEdge(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
-	if _, err := a.getQuestionEdgeForProject(r.Context(), projectID, eid); err != nil {
+	prev, err := a.getQuestionEdgeForProject(r.Context(), projectID, eid)
+	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return
 	}
@@ -1092,6 +1114,9 @@ func (a *API) deleteQuestionEdge(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.emitMutation(r.Context(), projectID, "edge_removed", map[string]any{
+		"from": prev.FromLeadID.String(), "to": prev.ToLeadID.String(),
+	})
 	w.WriteHeader(http.StatusNoContent)
 }
 

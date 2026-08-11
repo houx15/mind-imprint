@@ -123,3 +123,45 @@ func (a *API) recordCheckpoints(ctx context.Context, projectID uuid.UUID, trigge
 		a.recordCheckpoint(ctx, projectID, at, trigger, feedbackRef)
 	}
 }
+
+// -- Task 5: Mechanism-2 mutation events (exploration graph) ---------------
+//
+// recordCheckpoint (above) is the "checkpoints for writing text" half of the
+// two-mechanism revision-recording design. This half covers mutations to the
+// exploration graph (leads/edges/dig) — discrete events rather than periodic
+// snapshots, since there's no meaningful "content" to hash for "a lead was
+// deleted". Both halves share the same event table via AppendEvent.
+
+// currentStage reads the project's studio stage best-effort — "" on any
+// error, never blocking the caller. Reuses loadEssayState's own
+// GetStudioState-then-unmarshal (essay_statement.go), which itself never
+// errors except on a corrupt stored JSON blob (a missing row just falls back
+// to agent.DefaultStudioState()).
+func (a *API) currentStage(ctx context.Context, projectID uuid.UUID) string {
+	state, err := a.loadEssayState(ctx, projectID)
+	if err != nil {
+		return ""
+	}
+	return string(state.Stage)
+}
+
+// emitMutation appends a Mechanism-2 event for an exploration-graph mutation
+// (lead/edge/dig). Every payload is auto-stamped with `stage` (unless the
+// caller already set one) — the "at what phase was this node/source added"
+// material-provenance signal. Best-effort + additive, mirroring
+// recordCheckpoint's own AppendEvent call: an emit failure only logs, it
+// must never fail or change the caller's response.
+func (a *API) emitMutation(ctx context.Context, projectID uuid.UUID, eventType string, payload map[string]any) {
+	if payload == nil {
+		payload = map[string]any{}
+	}
+	if _, ok := payload["stage"]; !ok {
+		payload["stage"] = a.currentStage(ctx, projectID)
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	if err := store.AppendEvent(ctx, agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: eventType, Payload: mustJSON(payload),
+	}); err != nil {
+		slog.Warn("revision: emit mutation event failed", "type", eventType, "err", err)
+	}
+}
