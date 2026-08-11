@@ -438,9 +438,12 @@ VOICE_TTS_VOICE=
 
 权威产品规格与架构 north-star 都在 `docs/`：
 
+- **`docs/2026-08-11-developer-handover.md`** — **开发者上手 / 交接文档（英文）**：技术要求 · 代码结构 · 设计铁律 · 全量文档地图。新同学从这里开始。
 - **`docs/思维印记_Demo_PRD.md`** — 产品 / 不变骨架（产品理念冲突时以 PRD 为准）。
 - **`docs/superpowers/specs/2026-06-24-backend-platform-architecture-design.md`** — 后端平台架构 north-star（涉及后端 / DB / API / 鉴权 / 组织 / 评估以架构文档为准）。
-- **`docs/architecture/`** — `database-schema` · `api-design` · `go-backend-best-practices`。
+- **`docs/architecture/`** — `database-schema` · `api-design` · `go-backend-best-practices` · `chat-history-storage`。
+- **`docs/2026-08-09-all-statuses.md`** — 写作全流程各状态行为的**单一真相源**（写 plan 前必对照）。
+- **评估 / 教师端交接（英文）** — `docs/2026-08-11-evaluation-data-storage-guide.md`（学生全流程数据落库地图）· `docs/2026-08-11-evaluation-and-teacher-code-map.md`（评估与教师端代码地图）。
 - **`docs/deploy/`** — 部署运行手册：`README` · `api` · `web` · `tls`。
 - **`docs/工具包库/`** — 工具卡方法论全库。
 - **`docs/design/`** — 设计稿（`.dc.html` 对 UI 具有约束力）。
