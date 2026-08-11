@@ -12,7 +12,9 @@ It is shaped like an agent tool (Cowork / Codex style) but wraps two capabilitie
 
 ---
 
-## 2. Design principles you must not break
+## 2. Product laws & engineering constraints (must not break)
+
+> These are *product* laws, not UI design — for the visual/design architecture (design system, components, styles) see §5.
 
 These are the product's spine — **the AGENTS.md calls them 铁律 (iron laws); violating them is self-destruction.**
 
@@ -40,10 +42,20 @@ These are the product's spine — **the AGENTS.md calls them 铁律 (iron laws);
 
 ## 3. Technical requirements & running it
 
-**Prerequisites:** Go ≥ 1.26 · Node ≥ 20 · pnpm ≥ 8 · a PostgreSQL instance · one LLM API key (DeepSeek or Anthropic) · Docker (for testcontainers-based Go integration tests).
+**Prerequisites — exact versions, pinned to match the Docker build (do not loosen to "≥ x"):**
+
+| Tool | Version | Pinned by |
+|---|---|---|
+| Go | **1.26** | `apps/api/go.mod` + `golang:1.26` build image |
+| Node | **22** | `apps/web/Dockerfile` → `node:22-bookworm-slim` (+ `deploy/pull-base-images.sh`) |
+| pnpm | **10.29.3** | root `package.json` `packageManager` field + `pnpm-lock.yaml` + web image `corepack prepare pnpm@10.29.3` |
+| PostgreSQL | **16** | `deploy/docker-compose.prod.yml` → `postgres:16-alpine` |
+
+Plus: one LLM API key (DeepSeek or Anthropic) · Docker (for testcontainers-based Go integration tests). pnpm is activated via corepack — do **not** install it manually.
 
 ```bash
-pnpm install                                   # frontend + contracts deps
+corepack enable                                # auto-activates pnpm 10.29.3 from the packageManager field
+pnpm install --frozen-lockfile                 # frontend + contracts deps (matches CI/Docker)
 cp apps/api/.env.example apps/api/.env.local   # fill DATABASE_URL, CORS_ORIGINS, DEEPSEEK_API_KEY / ANTHROPIC_API_KEY
 cd apps/api && make migrate-up && cd ../..     # tables + seed (school + class + Phoebe + wu.teacher + admin)
 cd apps/api && make run                        # backend gateway → http://localhost:8080
@@ -116,7 +128,58 @@ mind-imprint/
 
 ---
 
-## 5. Documentation map
+## 5. Design architecture (design system · components · styles)
+
+The UI is a **token-driven design system** — every color, radius, shadow, and type step is a CSS variable, and Tailwind classes map to those variables. The look is "Toddle warm-editorial + Apple narrative": warm paper neutrals, a single swappable accent, macaron category colors, restraint over decoration.
+
+### 5.1 Design tokens (the single source for styling)
+- **Definitions:** `apps/web/src/index.css` declares every `--mk-*` variable on `:root` (neutrals, accent 50→800, macarons, semantic, radius, shadow, motion). `apps/web/src/ui/tokens.ts` holds the same values as TS constants for JS-side use (e.g. inline SVG fills). `apps/web/tailwind.config.ts` maps `mk-*` Tailwind classes to those vars.
+- **Neutrals:** warm paper — `--mk-paper #FBF8F4`, `--mk-surface #FFFFFF`, `--mk-border #EFE7DD`, ink `#33302E`, plus muted/secondary/faint.
+- **Radius / shadow / motion:** `--mk-radius-{xs..full}`, `--mk-shadow-{xs..lg}` (warm-tinted), `--mk-ease cubic-bezier(.2,0,0,1)` with fast/base/slow durations.
+- **Typography scale:** `mk-display / mk-h1 / mk-h2 / mk-h3 / mk-body-lg / mk-body / mk-small / mk-caption / mk-label` (font sizes in `tailwind.config.ts`). System font stack (PingFang SC / -apple-system).
+
+> ⚠️ **Token gotcha (bit us repeatedly):** `bg-mk-<token>/<opacity>` renders **transparent** — the `mk-*` colors are CSS vars holding hex, and Tailwind's opacity modifier can't compose them into a valid rgb. Use a **solid** token, or `bg-black/NN` for translucency. Also `@keyframes` are global — prefix custom ones (`mk-pebble-*`, `mk-think-*`, `mk-shim`).
+
+### 5.2 Accent "随人" (per-user accent) — `apps/web/src/ui/accent.tsx`
+The accent color follows the user. **8 presets**, each a full 50→800 scale keyed to a fixed base at 500 (hard-coded literals, no runtime color math):
+`vermilion 朱砂红 #EA5140` (default) · `clay 陶土红` · `tangerine 蜜柑橙` · `bamboo 竹青绿` · `teal 松石青` · `indigo 靛蓝` · `violet 紫棠` · `rose 玫紫`.
+- `AccentProvider` seeds from the server-known user accent (`MeUser` color / `users.card_theme`) → falls back to localStorage → `vermilion`. `applyAccent(el, id)` writes `--mk-accent-*` onto `documentElement`; `setAccent` persists locally + fire-and-forget to the server. Everything themed through `mk-accent*` re-colors instantly.
+
+### 5.3 Category & status colors
+- **Macarons (7)** — `peach / butter / matcha / lake / mist / taro / berry`, each a `{base, bg, fg}` triple (`tokens.ts` / `--mk-<name>{,-bg,-fg}`). Used for categorical coding (card categories, tags), **not** as the accent.
+- **Semantic (4)** — `success / warning / danger / info`, each `{base, bg}`. Semantic color is separate from the accent — don't reuse one for the other.
+
+### 5.4 Iconography & illustration
+- **Icons:** [`lucide-react`](https://lucide.dev/) via the `apps/web/src/ui/Icon.tsx` wrapper (note: `apps/web/src/workspace/Icon.tsx` is a workspace-local variant — **its `Icon` takes no `className`**, a known gotcha). No emoji as UI chrome.
+- **Illustrations:** hand-picked [unDraw](https://undraw.co/) SVGs in `apps/web/src/assets/illustrations/` for empty states (never leave an empty panel blank).
+
+### 5.5 AI presence & card visual states (the interaction signature)
+- **豆豆 Pebble** (`apps/web/src/ui/Pebble.tsx`) — the AI avatar, an accent-colored pebble with **four+ animated states**: `idle · thinking · generating · processing · done`. Geometry and keyframes are copied verbatim from `docs/design/design-system-mockups/pebble-states.html` — **do not re-derive**; it never hardcodes a color (always the accent).
+- **Card three visual states** — every thinking-tool card renders in one of three states, the product's core interaction rhythm: `建议工具卡` (student confirms opening) → `现在轮到你想` (active, collecting events) → `已完成 · 已钉到过程树` (serialized to the standard envelope). This is schema-driven — the renderer is `apps/web/src/cards/` + field components in `apps/web/src/primitives/`; a new card is JSON only (§2 hard constraints).
+
+### 5.6 Component architecture (where UI lives)
+The web `src` is organized by responsibility, not by technical layer:
+| Dir | Responsibility |
+|---|---|
+| `ui/` | The design-system primitives — `tokens`, `accent`, `Icon`, `Pebble`, form controls, loaders. Start here for any shared visual element. |
+| `primitives/` | Schema-driven **field** components (text / textarea / single_choice / rating / repeatable_group / link_check …) + the envelope reducer. |
+| `cards/` | The schema-driven **card renderer** (three visual states) that composes primitives from a card's JSON. |
+| `workspace/` | The Studio's four rooms; `workspace/blocks/` is the component library for them, `workspace/blocks/exploration/` the React-Flow rabbit-hole map. |
+| `studio/` | Shared studio pieces — chat, process tree, card sheet, reading room, evaluation reveal, the 豆豆 `Bean`. |
+| `console/` | The teacher/admin console views. |
+| `shell/` | App shell — role routing, auth, home, growth report, settings (where `AccentProvider` is mounted). |
+| `dev/` | Dev-only harnesses — **`DesignSystemGallery.tsx`**, reachable at `?ds`, is the living catalog of tokens/components. Not mounted in the product shell. |
+
+**Styling conventions:** style through Tailwind `mk-*` classes (→ tokens), never raw hex in components; reach for `tokens.ts` constants only when JS needs a value (e.g. an inline SVG fill). Keep decoration restrained — the design language is quiet by intent (law #2). The writing room deliberately does **not** ship a rich formatting/document editor (§2 writing-room stance).
+
+### 5.7 Design source of truth
+- **`docs/design/思维印记_工作区.dc.html`** — the design handoff; **the `.dc.html` is binding for UI**. When code and this file disagree on layout/spacing/visual, the `.dc.html` wins (or return to the user).
+- **`docs/design/design-system-mockups/`** — reference mockups (e.g. `pebble-states.html`) whose values are copied verbatim into code.
+- **`docs/design/teacher end/`** — teacher-console design references.
+
+---
+
+## 6. Documentation map
 
 > Convention: new docs are English-named, date-prefixed `YYYY-MM-DD-<kebab>.md`. Chinese-named docs predate that convention. Many dated `docs/2026-07-*` and `*-tracker.md` files are historical build logs — useful for archaeology, not current truth.
 
@@ -169,7 +232,7 @@ mind-imprint/
 
 ---
 
-## 6. Contributing checklist
+## 7. Contributing checklist
 
 1. Before changing anything, read `AGENTS.md`'s hard constraints and the four iron laws (§2 above).
 2. Card spec's single source of truth is the `packages/contracts` registry — derive, don't duplicate.

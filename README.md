@@ -202,11 +202,14 @@ mind-imprint/
 
 ## 🚀 快速开始
 
-**前置：** [Go](https://go.dev/dl/) ≥ 1.26、[Node](https://nodejs.org/) ≥ 20、[pnpm](https://pnpm.io/installation) **10.29.3**、一个可用的 **PostgreSQL** 实例，以及一个 LLM API Key（DeepSeek 或 Anthropic）。测试用到 [testcontainers](https://testcontainers.com/) 需要 Docker。
+**前置（版本与 Docker 构建对齐，请勿放宽为「≥ 某版本」）：** [Go](https://go.dev/dl/) **1.26**（`apps/api/go.mod` + `golang:1.26` 构建镜像）、[Node](https://nodejs.org/) **22**（生产镜像 `node:22-bookworm-slim`）、[pnpm](https://pnpm.io/installation) **10.29.3**（由根 `package.json` 的 `packageManager` 字段精确钉住，与 `pnpm-lock.yaml` 及 web 镜像里的 `corepack prepare pnpm@10.29.3` 一致）、一个可用的 **PostgreSQL 16** 实例，以及一个 LLM API Key（DeepSeek 或 Anthropic）。测试用到 [testcontainers](https://testcontainers.com/) 需要 Docker。
 
 ```bash
-# 1. 安装前端 / 契约依赖
-pnpm install
+# 0. 启用 corepack —— 读 packageManager 字段自动启用 pnpm 10.29.3（无需手动装 pnpm）
+corepack enable
+
+# 1. 安装前端 / 契约依赖（--frozen-lockfile 与 CI/Docker 一致）
+pnpm install --frozen-lockfile
 
 # 2. 配置后端（拷贝模板 → 填写；该文件已被 gitignore）
 cp apps/api/.env.example apps/api/.env.local
@@ -400,7 +403,7 @@ VOICE_TTS_VOICE=
 | 评估 | 旗舰双轴模型按需触发（`GET` 读免费 / `POST` 写才花钱），首生成后复用 |
 | 测试 | Vitest + Testing Library（前端）· Go test + testcontainers（后端集成）· 真实 live E2E 套件 |
 | 部署 | Docker Compose（db + api + web）+ 宿主机 nginx + certbot HTTPS · Aliyun ECS |
-| 工具链 | pnpm workspace · `tsc --noEmit` 类型门禁 · goose migrations · sqlc 代码生成 |
+| 工具链 | **pnpm 10.29.3**（corepack 钉住）workspace · **Node 22** · `tsc --noEmit` 类型门禁 · goose migrations · sqlc 代码生成 |
 
 ---
 
