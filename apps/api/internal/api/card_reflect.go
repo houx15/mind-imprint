@@ -98,6 +98,12 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Revision recording (Mechanism 1): completing a thinking-card is the
+	// student asking 印记 for feedback on the writing-room artifacts it bears
+	// on — record checkpoints. Best-effort, additive: never changes this
+	// handler's response.
+	a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointClaim)
+
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
 	// Load the current studio_state's stage so this card turn's persisted rows

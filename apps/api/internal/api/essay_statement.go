@@ -329,5 +329,11 @@ func (a *API) reviewEssayStatement(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	out := a.runDraftAnnotationReview(r.Context(), projectID, string(agent.DocEssay), focus)
+
+	// Revision recording (Mechanism 1): reviewing an essay statement step is
+	// the student asking 印记 for feedback on their claim + outline — record
+	// checkpoints. Best-effort, additive: never changes this handler's response.
+	a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointClaim, checkpointOutline)
+
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 }

@@ -248,6 +248,18 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("coach: append coach_turn event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
+	// Revision recording (Mechanism 1): a coach turn scoped to the 提案回顾 or
+	// 写作 room is the student asking 印记 for feedback on that room's
+	// artifacts — record checkpoints. Best-effort, additive: never changes
+	// this handler's response. feedback_ref stays nil (the evaluator pairs
+	// checkpoints to the coach's reply by trigger + timestamp).
+	switch strings.TrimSpace(body.Scope) {
+	case "proposal_review":
+		a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerAskFeedback, nil)
+	case "writing":
+		a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointDraft, checkpointOutline)
+	}
+
 	// A turn is activity — the roster's 最近活跃 depends on it. Best-effort.
 	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
 		slog.Warn("coach: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))

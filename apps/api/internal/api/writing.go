@@ -422,6 +422,11 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("order_review: append event", "err", err)
 		}
 
+		// Revision recording (Mechanism 1): ordering a whole-draft review is the
+		// student asking 印记 for feedback on the draft — record a checkpoint.
+		// Best-effort, additive: never changes this handler's response.
+		a.recordCheckpoint(r.Context(), projectID, checkpointDraft, triggerAskFeedback, nil)
+
 		// 过程即数据: a whole-draft 整稿体检 is a real process event. Log it so the
 		// 活动日志 reflects it. Guarded by persisted>0 + the idempotent-replay
 		// early-return above → fires once per fresh review, never on replay.
