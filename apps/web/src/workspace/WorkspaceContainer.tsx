@@ -704,7 +704,9 @@ export function WorkspaceContainer({
   const registerLinkOffer = useCallback(
     async (pid: string, url: string) => {
       try {
-        await createReference(pid, { url, title: url });
+        // Match the manual 链接/DOI add path: a cleaned, truncated title (not the
+        // raw URL) + the 网页 classification, so the library/graph entry reads well.
+        await createReference(pid, { url, title: url.replace(/^https?:\/\//, "").slice(0, 32), classification: "网页" });
         if (activeProjectIdRef.current === pid) {
           setExplorationRefreshNonce((n) => n + 1);
           void refreshWorkspace();

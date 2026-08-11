@@ -96,7 +96,7 @@ export function FilledCardsFold({
                     // Re-edit on the SAME guided-writing surface: original
                     // guidance + example + textarea, no finish buttons (already
                     // reviewed). Reads exactly like the first pass.
-                    <div className="border-t border-mk-border p-2">
+                    <div className="px-2 pb-2 pt-1">
                       <GuidedWritingCard
                         guidance={c.guidance}
                         example={c.example}
