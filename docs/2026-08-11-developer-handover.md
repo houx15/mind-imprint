@@ -181,54 +181,29 @@ The web `src` is organized by responsibility, not by technical layer:
 
 ## 6. Documentation map
 
-> Convention: new docs are English-named, date-prefixed `YYYY-MM-DD-<kebab>.md`. Chinese-named docs predate that convention. Many dated `docs/2026-07-*` and `*-tracker.md` files are historical build logs — useful for archaeology, not current truth.
+> **Deliberately short.** This lists only docs **verified current as of 2026-08-11**. The repo holds many older specs, trackers, and an `docs/architecture/` set — but those are frozen at the June backend refactor, before the current schema, exploration graph, dual-axis evaluation, and status machine. They are **history, not truth**; don't onboard from them. When they disagree with the docs below or with the code, the docs below and the code win.
 
-### Start here / cross-cutting
+### The two you most need (this handover's focus)
 | Doc | What it is |
 |---|---|
-| **`README.md`** (root) | Fullest product + architecture overview (Chinese). Read after this handover. |
-| **`AGENTS.md`** (root) | Hard-constraint summary for AI collaborators + the iron laws. `CLAUDE.md`/`GEMINI.md` only import it. **Shared memory is written here only.** |
-| **This doc** | English onboarding / handover orientation. |
+| [Evaluation data-storage guide](./2026-08-11-evaluation-data-storage-guide.md) | Where a student's whole journey lands — table by table, column by column, tied to the code that reads/writes it. Grounded in the live prod schema. For building process-evaluation logic. |
+| [Evaluation & teacher-end code map](./2026-08-11-evaluation-and-teacher-code-map.md) | Where the evaluation code and the teacher/admin code live — every endpoint, agent, sqlc query, migration, contract, and view. Plus build-completeness and a quick-start reading order for each takeover. |
 
-### Product & principles (authoritative)
-| Doc | Authority |
-|---|---|
-| **`docs/思维印记_Demo_PRD.md`** | Product / invariant skeleton. **On product-philosophy conflicts, the PRD wins.** |
-| **`docs/工具包库/`** | Full thinking-tool-card methodology library. |
-| **`docs/design/`** | Design handoffs — the `.dc.html` files are **binding** for UI. |
-
-### Architecture & backend (authoritative)
-| Doc | Authority |
-|---|---|
-| **`docs/superpowers/specs/2026-06-24-backend-platform-architecture-design.md`** | Backend platform **north-star**. On anything backend / DB / API / auth / org / async-eval, **the architecture docs win** over the PRD's older "thin Node backend / SQLite" text. |
-| **`docs/architecture/database-schema.md`** | DB schema reference. |
-| **`docs/architecture/api-design.md`** | API design reference. |
-| **`docs/architecture/go-backend-best-practices.md`** | Go backend conventions. |
-| **`docs/architecture/chat-history-storage.md`** | Chat/thread storage design. |
-
-### Behavior spec (single source of truth for the writing flow)
-| Doc | Authority |
-|---|---|
-| **`docs/2026-08-09-all-statuses.md`** | **The behavior truth source** for the writing flow — every status's page/cards/AI-role/transition. **Check every plan against it before building.** |
-| **`docs/2026-08-10-user-walk-and-model-routing-report.md`** | Model-tier routing (flash coaching vs flagship review) + a full user-walk report. |
-
-### Evaluation & teacher-end (the current handover focus)
+### Living / cross-cutting (kept current by active use)
 | Doc | What it is |
 |---|---|
-| **`docs/2026-08-11-evaluation-data-storage-guide.md`** | Where a student's whole journey lands — table by table, column by column, tied to the code that reads/writes it. For building process-evaluation logic. |
-| **`docs/2026-08-11-evaluation-and-teacher-code-map.md`** | Where the evaluation code and the teacher/admin code live — every endpoint, agent, sqlc query, migration, contract, and view. Plus build-completeness and a quick-start reading order for each takeover. |
+| [README.md](../README.md) | Fullest product + architecture overview (Chinese). Read after this handover. |
+| [AGENTS.md](../AGENTS.md) | Hard-constraint summary for AI collaborators + the iron laws. `CLAUDE.md`/`GEMINI.md` only import it. **Shared memory is written here only.** |
+
+### Behavior spec — single source of truth for the writing flow
+| Doc | Authority |
+|---|---|
+| [all-statuses](./2026-08-09-all-statuses.md) | Every writing status's page / cards / AI-role / transition. **AGENTS.md mandates checking every implementation plan against it before building** (on conflict, it wins). |
 
 ### Deploy & ops
 | Doc | What it is |
 |---|---|
-| **`docs/deploy/README.md`** (+ `api` / `web` / `tls`) | Production runbooks (Docker Compose + host nginx + certbot on Aliyun ECS). |
-| **`docs/2026-07-27-oss-storage-developer-guide.md`** | Aliyun OSS + CDN presigned upload/read developer guide. |
-
-### Backlog / traceability
-| Doc | What it is |
-|---|---|
-| **`docs/遗留项追踪_Carryforward.md`** | Item-by-item carry-forward tracker (ensures nothing gets dropped end-to-end). |
-| **`docs/superpowers/specs/`** + **`plans/`** | Finalized design specs and their bite-sized implementation plans (the build history). |
+| [Deployment runbooks](./deploy/README.md) (+ `api` / `web` / `tls` alongside it) | Production runbooks — Docker Compose + host nginx + certbot on Aliyun ECS. |
 
 ---
 
