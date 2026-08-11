@@ -74,7 +74,10 @@ func (a *API) checkpointContent(ctx context.Context, projectID uuid.UUID, artifa
 			// Nothing to snapshot (e.g. no proposal track yet) -> skip
 			// silently, mirroring the draft case above. Marshaling a nil/
 			// empty slice would otherwise produce JSON `null`, which the
-			// ClaimCheckpointContent Zod contract (z.array(...)) rejects.
+			// ClaimCheckpointContent Zod contract (z.array(...)) rejects. In the
+			// real flow the essay-statement stage always has claims by the time
+			// this trigger fires, so the skip only guards the degenerate
+			// claim-less project (a meaningless empty row we don't want).
 			return nil, nil
 		}
 		return json.Marshal(subQuestions)

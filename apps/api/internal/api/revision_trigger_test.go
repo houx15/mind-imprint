@@ -175,6 +175,10 @@ func TestReviewEssayStatement_RecordsClaimAndOutlineCheckpoints(t *testing.T) {
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := seedProjectID
+	// Realistic state at an essay-statement review: the student already has
+	// claims (sub-questions) — the claim checkpoint only snapshots real claims
+	// (a claim-less project skips it, by design), so seed them here.
+	seedStatementProject(t, sqlc.New(pool))
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/essay-statement/review",
@@ -212,6 +216,9 @@ func TestPostReflectProjectCard_RecordsSnippetsAndClaimCheckpoints(t *testing.T)
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := seedProjectID
+	// Realistic state: the student has claims by the time they reflect a card in
+	// the writing room, so the claim checkpoint has real content to snapshot.
+	seedStatementProject(t, sqlc.New(pool))
 
 	body := `{"card_id":"fact-opinion-value","field_values":{"claim":"这是一个陈述"},"event_trace":[],"surface":"writing"}`
 	rr := httptest.NewRecorder()
