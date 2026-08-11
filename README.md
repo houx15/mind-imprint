@@ -195,7 +195,7 @@ mind-imprint/
 ├── apps/site/                    # 思维印记营销站（Astro 静态站 · zh/en 双语）
 ├── apps/peraspera/              # Per Aspera 母品牌营销站（独立 Astro app · 部署 Vercel）
 ├── deploy/                       # 生产编排：docker-compose + nginx 站点 + 镜像助手（无密钥）
-└── docs/                         # 权威产品规格 + 架构 north-star + 部署运行手册
+└── docs/                         # 产品规格 + 开发者交接（含评估/教师端）+ 部署运行手册
 ```
 
 ---
@@ -424,7 +424,7 @@ VOICE_TTS_VOICE=
 - ✅ **34 张卡全部可交互，0 stub。**
 - ✅ **生产部署上线** — Docker Compose + 宿主机 nginx + certbot HTTPS。
 - 🔭 **下一步：** 计费 / 权益方案设计（填 `HasEntitlement` 接缝）；评估异步化（river worker）为规模化预留。
-- 🔭 非阻塞增强（登记于 `docs/遗留项追踪_Carryforward.md`）：评估语义扩展、a11y / 整洁项。
+- 🔭 非阻塞增强：评估语义扩展、a11y / 整洁项。
 
 ### 明确不做（范围决定，非遗漏）
 
@@ -439,19 +439,16 @@ VOICE_TTS_VOICE=
 
 ## 📚 文档
 
-权威产品规格与架构 north-star 都在 `docs/`：
+下面只列**当前仍准**的文档。早期的架构 spec（`docs/superpowers/specs/2026-06-24-…` 后端 north-star、`docs/architecture/*`）与旧的遗留追踪已随多轮重构过时，不再索引——**以代码与下列文档为准**。
 
-- **`docs/2026-08-11-developer-handover.md`** — **开发者上手 / 交接文档（英文）**：技术要求 · 代码结构 · 设计铁律 · 全量文档地图。新同学从这里开始。
-- **`docs/思维印记_Demo_PRD.md`** — 产品 / 不变骨架（产品理念冲突时以 PRD 为准）。
-- **`docs/superpowers/specs/2026-06-24-backend-platform-architecture-design.md`** — 后端平台架构 north-star（涉及后端 / DB / API / 鉴权 / 组织 / 评估以架构文档为准）。
-- **`docs/architecture/`** — `database-schema` · `api-design` · `go-backend-best-practices` · `chat-history-storage`。
-- **`docs/2026-08-09-all-statuses.md`** — 写作全流程各状态行为的**单一真相源**（写 plan 前必对照）。
-- **评估 / 教师端交接（英文）** — `docs/2026-08-11-evaluation-data-storage-guide.md`（学生全流程数据落库地图）· `docs/2026-08-11-evaluation-and-teacher-code-map.md`（评估与教师端代码地图）。
-- **`docs/deploy/`** — 部署运行手册：`README` · `api` · `web` · `tls`。
-- **`docs/工具包库/`** — 工具卡方法论全库。
-- **`docs/design/`** — 设计稿（`.dc.html` 对 UI 具有约束力）。
-- **`docs/遗留项追踪_Carryforward.md`** — 逐项遗留追踪，保证端到端不丢。
-- **`AGENTS.md`** — 给 AI 协作者（Claude Code / Codex / Gemini）的硬约束摘要。
+- [开发者上手 / 交接（英文）](docs/2026-08-11-developer-handover.md) — 技术要求 · 代码结构 · 设计架构 · 精简文档地图。**新同学从这里开始。**
+- **评估 / 教师端交接（英文）** — [数据落库指南](docs/2026-08-11-evaluation-data-storage-guide.md)（学生全流程数据落在哪张表、对应哪段代码）· [评估与教师端代码地图](docs/2026-08-11-evaluation-and-teacher-code-map.md)（端点 / agent / sqlc / migration / 视图）。
+- [`docs/思维印记_Demo_PRD.md`](docs/思维印记_Demo_PRD.md) — 产品 / 不变骨架（产品理念冲突时以 PRD 为准）。
+- [`docs/2026-08-09-all-statuses.md`](docs/2026-08-09-all-statuses.md) — 写作全流程各状态行为：**理解产品流程**的最佳读物，也是写实施 plan 时对照的行为真相源（非上手必读）。
+- [`docs/deploy/`](docs/deploy/README.md) — 部署运行手册：`README` · `api` · `web` · `tls`。
+- [`docs/工具包库/`](docs/工具包库/) — 工具卡方法论全库。
+- [`docs/design/`](docs/design/) — 设计稿（`.dc.html` 对 UI 具有约束力）。
+- [`AGENTS.md`](AGENTS.md) — 给 AI 协作者（Claude Code / Codex / Gemini）的硬约束摘要（**共享记忆只写这里**）。
 
 ---
 

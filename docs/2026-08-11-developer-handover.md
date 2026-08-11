@@ -195,10 +195,10 @@ The web `src` is organized by responsibility, not by technical layer:
 | [README.md](../README.md) | Fullest product + architecture overview (Chinese). Read after this handover. |
 | [AGENTS.md](../AGENTS.md) | Hard-constraint summary for AI collaborators + the iron laws. `CLAUDE.md`/`GEMINI.md` only import it. **Shared memory is written here only.** |
 
-### Behavior spec — single source of truth for the writing flow
-| Doc | Authority |
+### To understand the product / writing flow (not required to start coding)
+| Doc | What it is |
 |---|---|
-| [all-statuses](./2026-08-09-all-statuses.md) | Every writing status's page / cards / AI-role / transition. **AGENTS.md mandates checking every implementation plan against it before building** (on conflict, it wins). |
+| [all-statuses](./2026-08-09-all-statuses.md) | The clearest read of how the writing flow behaves — every status's page / cards / AI-role / transition. Not needed for a first patch, but the reference for understanding the product flow, and the truth source AGENTS.md has you check implementation plans against (on conflict, it wins). |
 
 ### Deploy & ops
 | Doc | What it is |
