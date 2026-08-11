@@ -202,7 +202,7 @@ mind-imprint/
 
 ## 🚀 快速开始
 
-**前置：** [Go](https://go.dev/dl/) ≥ 1.26、[Node](https://nodejs.org/) ≥ 20、[pnpm](https://pnpm.io/installation) ≥ 8、一个可用的 **PostgreSQL** 实例，以及一个 LLM API Key（DeepSeek 或 Anthropic）。测试用到 [testcontainers](https://testcontainers.com/) 需要 Docker。
+**前置：** [Go](https://go.dev/dl/) ≥ 1.26、[Node](https://nodejs.org/) ≥ 20、[pnpm](https://pnpm.io/installation) **10.29.3**、一个可用的 **PostgreSQL** 实例，以及一个 LLM API Key（DeepSeek 或 Anthropic）。测试用到 [testcontainers](https://testcontainers.com/) 需要 Docker。
 
 ```bash
 # 1. 安装前端 / 契约依赖
