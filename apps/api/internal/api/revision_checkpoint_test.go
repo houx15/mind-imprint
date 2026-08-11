@@ -1,0 +1,137 @@
+package api
+
+// revision_checkpoint_test.go — TDD for recordCheckpoint (Task 2 of the
+// revision-recording plan). Lives in package `api` (not api_test) because
+// recordCheckpoint and the API{d:...} internals it needs are unexported —
+// mirrors the internal-test convention used by projectcoach_nextstep_test.go
+// / coach_cardref_test.go, but (uniquely among internal-package tests here)
+// needs a real Postgres, so it carries its own testcontainers bootstrap
+// (duplicated from maintest_test.go's newAPITestPool, which lives in the
+// separate api_test package and isn't importable from here — same reason
+// maintest_test.go gives for duplicating it from internal/store/sqlc_test.go).
+
+import (
+	"context"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/testcontainers/testcontainers-go"
+	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
+	"github.com/testcontainers/testcontainers-go/wait"
+
+	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/store"
+	"mindimprint/api/internal/store/sqlc"
+)
+
+// seedProjectID101 is the seeded demo project (migration 0018), owned by the
+// seeded student — mirrors api_test's seedProjectID constant, redeclared here
+// because internal-package tests can't import the external api_test package.
+const seedProjectID101 = "00000000-0000-0000-0000-000000000101"
+
+// newCheckpointTestPool spins up a throwaway Postgres, runs all migrations
+// (incl. seed), and returns the pool. Container/pool torn down via t.Cleanup.
+func newCheckpointTestPool(t *testing.T) *pgxpool.Pool {
+	t.Helper()
+	if testing.Short() {
+		t.Skip("skipping testcontainers integration in -short mode")
+	}
+	ctx := context.Background()
+	pg, err := tcpostgres.Run(ctx, "postgres:16-alpine",
+		tcpostgres.WithDatabase("mindimprint"),
+		tcpostgres.WithUsername("test"),
+		tcpostgres.WithPassword("test"),
+		testcontainers.WithWaitStrategy(
+			wait.ForLog("database system is ready to accept connections").
+				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
+	)
+	if err != nil {
+		t.Fatalf("start postgres: %v", err)
+	}
+	t.Cleanup(func() { _ = pg.Terminate(context.Background()) })
+
+	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		t.Fatalf("dsn: %v", err)
+	}
+	pool, err := store.NewPool(ctx, dsn)
+	if err != nil {
+		t.Fatalf("pool: %v", err)
+	}
+	t.Cleanup(pool.Close)
+	if err := store.RunMigrations(ctx, pool); err != nil {
+		t.Fatalf("migrate: %v", err)
+	}
+	return pool
+}
+
+func TestRecordCheckpoint_ProposalWritesRowWithHash(t *testing.T) {
+	pool := newCheckpointTestPool(t)
+	d := sqlc.New(pool)
+	projectID := uuid.MustParse(seedProjectID101)
+
+	// seed a proposal so there is content to snapshot
+	if _, err := d.UpsertProjectProposal(context.Background(), sqlc.UpsertProjectProposalParams{
+		ProjectID: projectID, Objective: "bounded yes", Reason: "r", Activities: "a", Resources: "s",
+	}); err != nil {
+		t.Fatalf("seed proposal: %v", err)
+	}
+
+	a := New(Deps{Queries: d, Pool: pool})
+	a.recordCheckpoint(context.Background(), projectID, checkpointProposal, triggerFinish, nil)
+
+	rows, err := d.ListRevisionCheckpoints(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1 checkpoint, got %d", len(rows))
+	}
+	if rows[0].ContentHash == "" {
+		t.Fatal("content_hash empty")
+	}
+	if !strings.Contains(string(rows[0].Content), "bounded yes") {
+		t.Fatalf("content missing objective: %s", rows[0].Content)
+	}
+}
+
+func TestRecordCheckpoint_DraftStoresSnapshotRefNotBody(t *testing.T) {
+	pool := newCheckpointTestPool(t)
+	d := sqlc.New(pool)
+	projectID := uuid.MustParse(seedProjectID101)
+
+	// commit a draft (essay) snapshot with a long body
+	seq, err := d.NextSnapshotSeq(context.Background(), sqlc.NextSnapshotSeqParams{
+		ProjectID: projectID, DocKind: string(agent.DocEssay),
+	})
+	if err != nil {
+		t.Fatalf("next seq: %v", err)
+	}
+	snap, err := d.InsertDraftSnapshot(context.Background(), sqlc.InsertDraftSnapshotParams{
+		ProjectID: projectID, DocKind: string(agent.DocEssay), Seq: seq, Content: strings.Repeat("body ", 200),
+		SpanIndex: []byte("[]"),
+	})
+	if err != nil {
+		t.Fatalf("insert snapshot: %v", err)
+	}
+
+	a := New(Deps{Queries: d, Pool: pool})
+	a.recordCheckpoint(context.Background(), projectID, checkpointDraft, triggerFinish, nil)
+
+	rows, err := d.ListRevisionCheckpoints(context.Background(), projectID)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 1 {
+		t.Fatalf("want 1, got %d", len(rows))
+	}
+	if strings.Contains(string(rows[0].Content), "body body") {
+		t.Fatal("draft checkpoint duplicated body text")
+	}
+	if !strings.Contains(string(rows[0].Content), snap.ID.String()) {
+		t.Fatalf("draft checkpoint missing snapshotId ref: %s", rows[0].Content)
+	}
+}
