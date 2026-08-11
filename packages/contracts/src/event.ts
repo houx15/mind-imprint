@@ -1,9 +1,14 @@
 import { z } from "zod";
+import { REVISION_EVENT_TYPES } from "./revisionCheckpoint";
 
 export const Surface = z.enum(["studio", "course", "chat"]);
 export type Surface = z.infer<typeof Surface>;
 
-// Event types registry for the event stream
+// Event types registry for the event stream. NOTE: this array predates the
+// real backend event strings and is stale relative to them in places — see
+// REVISION_EVENT_TYPES (revisionCheckpoint.ts) for the revision-recording
+// feature's own 11 event types (checkpoint marker + exploration/source
+// mutation events), appended below additively rather than reconciled here.
 export const EVENT_TYPES = [
   "prompt_sent",
   "card_clicked",
@@ -16,6 +21,7 @@ export const EVENT_TYPES = [
   "rescue_triggered",
   "stance_change_logged",
   "chat_message",
+  ...REVISION_EVENT_TYPES,
 ] as const;
 
 // Discriminated union of all event variants

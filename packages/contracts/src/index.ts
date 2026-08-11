@@ -45,3 +45,4 @@ export * from "./proposalAnnotation";
 export * from "./essayTrack";
 export * from "./resourceNeed";
 export * from "./searchGuidance";
+export * from "./revisionCheckpoint";
