@@ -268,12 +268,16 @@ func TestOrderReview_RecordsDraftCheckpoint(t *testing.T) {
     if !hasCheckpoint(rows, "draft", "ask_feedback") { t.Fatal("order-review did not record a draft ask_feedback checkpoint") }
 }
 
+// Drives the REAL frontend call shape: NO `scope` in the body; the writing room is
+// identified by the server-side StudioStage. Set the project's stage to body_writing,
+// then send a plain coach turn.
 func TestWritingCoachTurn_RecordsSnippetsCheckpoint(t *testing.T) {
     h, d, cookie, projectID := setupSeededProject(t)
+    setStudioStage(t, d, projectID, agent.StageBodyWriting) // helper: persist studio_state with Stage=body_writing
     postJSON(t, h, cookie, "/api/v1/projects/"+projectID.String()+"/coach",
-        `{"scope":"writing","user_input":"帮我看这段论点够不够有力，别改写"}`)
+        `{"user_input":"帮我看这段论点够不够有力，别改写"}`)
     rows, _ := d.Queries.ListRevisionCheckpoints(context.Background(), projectID)
-    if !hasCheckpoint(rows, "snippets", "ask_feedback") { t.Fatal("writing coach turn did not record snippets checkpoint") }
+    if !hasCheckpoint(rows, "snippets", "ask_feedback") { t.Fatal("writing-stage coach turn (no scope) did not record snippets checkpoint") }
 }
 ```
 (`hasCheckpoint(rows, artifact, trigger)` is a 3-line helper in the test file.)
@@ -294,16 +298,16 @@ In `postReflectProjectCard` (`card_reflect.go`, after `persistProjectCardEnvelop
 ```go
 a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointClaim)
 ```
-In `postCoach` (`coach.go`, in the main studio path after the reply is persisted, ~l.249), branch on the client `scope`:
+In `postCoach` (`coach.go`, in the main studio path after the reply is persisted, ~l.249), branch on the **server-side `state.Stage`** — NOT the client `scope`. Studio coach turns omit `scope` (it is reserved for the isolated sub-agent coaches `find_sources`/`reflection`), so a `scope`-based branch is dead in production. `state` (the loaded `agent.StudioState`) is already in scope here:
 ```go
-switch strings.TrimSpace(body.Scope) {
-case "proposal_review":
-    a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerAskFeedback, nil)
-case "writing":
+switch state.Stage {
+case agent.StageBodyWriting:
     a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointDraft, checkpointOutline)
+case agent.StageProposalWriting, agent.StageProposalReview:
+    a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerAskFeedback, nil)
 }
 ```
-(Place this AFTER the existing `AppendEvent(... "coach_turn" ...)`; `feedback_ref` stays nil — evaluator pairs by trigger+timestamp.)
+(Place this AFTER the existing `AppendEvent(... "coach_turn" ...)`; `feedback_ref` stays nil — evaluator pairs by trigger+timestamp. `StudioStage` constants are in `apps/api/internal/agent/studiostate.go:10-16`.)
 
 - [ ] **Step 4: Run the test** — same command — Expected: PASS. Also run the whole file's neighbours to prove no regression: `go test ./internal/api/ -run 'TestOrderReview|TestCoach'`.
 
@@ -366,11 +370,22 @@ a.recordCheckpoints(r.Context(), projectID, triggerAdvance, nil, checkpointDraft
 - Modify: `apps/api/internal/api/exploration.go` — `createExplorationLead` (207-286), `deleteExplorationLead` (365-397), `createQuestionEdge` (942-1003), `deleteQuestionEdge` (1077-1118), `adoptExploration` (708-835), `attachExploration` (835-942)
 - Test: `apps/api/internal/api/revision_exploration_events_test.go`
 
-**Interfaces:** Consumes `agent.NewSqlcAgentStore(...).AppendEvent` + `mustJSON`. Produces event types: `lead_added`, `lead_removed`, `edge_added`, `edge_removed`, `lead_adopted`, `source_attached`.
+**Interfaces:** Consumes `agent.NewSqlcAgentStore(...).AppendEvent` + `mustJSON`. Produces event types: `lead_added`, `lead_removed`, `edge_added`, `edge_removed`, `lead_adopted`, `source_attached`, **`dig_performed`**.
 
-- [ ] **Step 1: Add a small emit helper to `revision_checkpoint.go`**
+**Enrichment — material provenance (added per product feedback).** Every mutation event carries `stage` (the current `StudioStage`, so we know *at what phase* a node/source was added — 立项 vs 提案 vs 阅读). And the exploration dig endpoint emits a `dig_performed` event carrying the search `keyword` — the "what keyword led to this exploration" motivation. `stage` is read best-effort via a `currentStage` helper (empty string on error — never blocks the mutation).
+
+- [ ] **Step 1: Add emit + stage helpers to `revision_checkpoint.go`**
 ```go
+// currentStage reads the project's studio stage best-effort ("" on any error).
+func (a *API) currentStage(ctx context.Context, projectID uuid.UUID) string {
+    state, err := a.loadStudioState(ctx, projectID) // use the repo's real studio-state loader
+    if err != nil { return "" }
+    return string(state.Stage)
+}
+
 func (a *API) emitMutation(ctx context.Context, projectID uuid.UUID, eventType string, payload map[string]any) {
+    if payload == nil { payload = map[string]any{} }
+    if _, ok := payload["stage"]; !ok { payload["stage"] = a.currentStage(ctx, projectID) }
     store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
     if err := store.AppendEvent(ctx, agent.EventRow{ProjectID: projectID, Surface: "studio",
         Type: eventType, Payload: mustJSON(payload)}); err != nil {
@@ -378,6 +393,7 @@ func (a *API) emitMutation(ctx context.Context, projectID uuid.UUID, eventType s
     }
 }
 ```
+(The implementer must confirm the real studio-state loader name/signature — e.g. `a.loadStudioState` or the helper `loadEssayState` sibling uses — and adapt. `StudioState.Stage` is `agent.StudioStage`, `studiostate.go`.)
 
 - [ ] **Step 2: Write the failing test** (count events by type via the event read path)
 ```go
@@ -407,6 +423,9 @@ a.emitMutation(r.Context(), projectID, "lead_removed", map[string]any{"leadId": 
 `deleteQuestionEdge`: `"edge_removed"` with `{"from","to"}` (read the edge before deleting for from/to).
 `adoptExploration`: `"lead_adopted"` with `{"leadId","parentLeadId","source": title}`.
 `attachExploration`: `"source_attached"` with `{"referenceId","parentLeadId"}`.
+`digExploration` (`POST /exploration/dig`, `exploration.go`, the dig handler): `"dig_performed"` with `{"keyword": <the searched keyword from the request body>}` — the `stage` is auto-added by `emitMutation`. Emit after the dig runs (regardless of how many candidates return), so an empty-result search is still recorded as a real search attempt.
+
+**Files (updated):** also Modify `apps/api/internal/api/exploration.go` `digExploration` handler. Add a test asserting a `dig_performed` event with the keyword is emitted on `POST /exploration/dig`.
 
 - [ ] **Step 5: Run the test** — Expected: PASS. Regression: `go test ./internal/api/ -run TestExploration`.
 
@@ -439,7 +458,7 @@ func TestSource_EmitsAddDropReclassify(t *testing.T) {
 - [ ] **Step 2: Run to verify it fails** — `go test ./internal/api/ -run TestSource_EmitsAddDropReclassify` — Expected: FAIL.
 
 - [ ] **Step 3: Emit at each handler**
-`createReference` (after insert): `"source_added"` `{"referenceId","title","classification"}`.
+`createReference` (after insert): `"source_added"` `{"referenceId","title","classification","provenance": <hint>}` — `provenance` is the create request's provenance hint if the body carries one (e.g. a `provenance`/`source` field the frontend may send: `"chat_link"`, `"dig"`), else `"manual"`. `stage` is auto-added by `emitMutation` (records the phase the source was added in). This is the "when + phase + motivation each material was added" signal.
 `deleteReference` + `archiveReference` (after, with pre-read title): `"source_dropped"` `{"referenceId","title"}`.
 `patchReferenceTriage` (after, with old value read before `SetReferenceTriage`): `"source_reclassified"` `{"referenceId","field":"triage","before":prev,"after":body.Triage}`.
 `patchReferenceEvidence`: `"source_reclassified"` `{"referenceId","field":"evidence", ...}`.
