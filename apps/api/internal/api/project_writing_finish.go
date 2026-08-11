@@ -72,6 +72,13 @@ func (a *API) finishWriting(w http.ResponseWriter, r *http.Request) {
 	if err := a.appendAutoLog(r.Context(), a.d.Queries, projectID, milestone); err != nil {
 		slog.Warn("finish-writing: append auto-log failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
+	// Mechanism-1 finish trigger (best-effort, additive): snapshot the
+	// artifacts this document's finish locks in.
+	if doc == "proposal" {
+		a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerFinish, nil)
+	} else { // essay (default)
+		a.recordCheckpoints(r.Context(), projectID, triggerFinish, nil, checkpointDraft, checkpointOutline, checkpointSnippets)
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"writingFinished": true})
 }
 

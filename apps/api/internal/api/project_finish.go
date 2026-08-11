@@ -97,6 +97,10 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// Mechanism-1 finish trigger (best-effort, additive): snapshot every
+	// writing/proposal artifact at the moment the project locks for evaluation.
+	a.recordCheckpoints(r.Context(), projectID, triggerFinish, nil,
+		checkpointDraft, checkpointOutline, checkpointSnippets, checkpointProposal, checkpointClaim)
 	go a.runProjectReport(u, projectID)
 
 	httpx.WriteJSON(w, http.StatusAccepted, map[string]string{"status": "evaluating"})

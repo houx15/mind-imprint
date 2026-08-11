@@ -1136,6 +1136,9 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
 		slog.Warn("coach advance: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
+	// Mechanism-1 advance trigger (best-effort, additive): snapshot the
+	// writing-room artifacts as they stand once the advance has landed.
+	a.recordCheckpoints(r.Context(), projectID, triggerAdvance, nil, checkpointDraft, checkpointOutline, checkpointSnippets)
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
 

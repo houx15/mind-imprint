@@ -21,6 +21,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -229,5 +230,49 @@ func TestPostReflectProjectCard_RecordsSnippetsAndClaimCheckpoints(t *testing.T)
 	}
 	if !hasCheckpoint(rows, "claim", "ask_feedback") {
 		t.Fatalf("card reflect did not record claim checkpoint; rows=%+v", rows)
+	}
+}
+
+// TestFinishEssay_RecordsWritingCheckpoints — Task 4: finishing the essay
+// (POST /finish-writing, doc defaults to essay) must record draft + outline +
+// snippets "finish" checkpoints, alongside the existing 完成写作 milestone.
+// A committed snapshot is seeded first so the draft artifact has content to
+// snapshot (checkpointDraft references the latest committed snapshot, not the
+// silent edit buffer).
+func TestFinishEssay_RecordsWritingCheckpoints(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, Provider: fakeProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	cookie := signInSeed(t, pool)
+	base := "/api/v1/projects/" + seedProjectID
+
+	// Commit an essay snapshot (checkpointDraft reads the latest committed
+	// snapshot, not the silent edit buffer).
+	recCommit := httptest.NewRecorder()
+	h.ServeHTTP(recCommit, withCookie(httptest.NewRequest("POST", base+"/snapshots",
+		strings.NewReader(`{"content":"中国的可再生能源投资规模已连续五年全球第一。"}`)), cookie))
+	if recCommit.Code != http.StatusCreated {
+		t.Fatalf("commit snapshot = %d, want 201; body=%s", recCommit.Code, recCommit.Body)
+	}
+
+	// The finish-writing guard reads the edit buffer server-side, so it must
+	// also carry real content.
+	if r := doJSON(t, h, cookie, "PUT", base+"/buffer", `{"content":"中国的可再生能源投资规模已连续五年全球第一。"}`); r.Code != http.StatusNoContent {
+		t.Fatalf("PUT buffer = %d: %s", r.Code, r.Body)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", base+"/finish-writing?doc=essay", strings.NewReader("")), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("finish-writing = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	rows, err := sqlc.New(pool).ListRevisionCheckpoints(context.Background(), mustUUID(seedProjectID))
+	if err != nil {
+		t.Fatalf("ListRevisionCheckpoints: %v", err)
+	}
+	for _, art := range []string{"draft", "outline", "snippets"} {
+		if !hasCheckpoint(rows, art, "finish") {
+			t.Fatalf("finish-essay missing %s checkpoint; rows=%+v", art, rows)
+		}
 	}
 }
