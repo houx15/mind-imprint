@@ -248,16 +248,25 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("coach: append coach_turn event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
-	// Revision recording (Mechanism 1): a coach turn scoped to the 提案回顾 or
-	// 写作 room is the student asking 印记 for feedback on that room's
+	// Revision recording (Mechanism 1): a coach turn landing in the 写作 or
+	// 提案 room is the student asking 印记 for feedback on that room's
 	// artifacts — record checkpoints. Best-effort, additive: never changes
 	// this handler's response. feedback_ref stays nil (the evaluator pairs
 	// checkpoints to the coach's reply by trigger + timestamp).
-	switch strings.TrimSpace(body.Scope) {
-	case "proposal_review":
-		a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerAskFeedback, nil)
-	case "writing":
+	//
+	// Branches on the SERVER-SIDE studio_state stage, not the client's
+	// `scope` field: the studio frontend never sends `scope` on ordinary
+	// coach turns (it's reserved for the two isolated sub-agent coaches,
+	// find_sources/reflection — see isSubagentCoachScope above, which
+	// already dispatched and returned before this point for those). The
+	// room a turn actually landed in is `state.Stage`, already reassigned
+	// above by applyOrchestratorTools + advanceStudioFlow to its final,
+	// post-turn value.
+	switch state.Stage {
+	case agent.StageBodyWriting:
 		a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointDraft, checkpointOutline)
+	case agent.StageProposalWriting, agent.StageProposalReview:
+		a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerAskFeedback, nil)
 	}
 
 	// A turn is activity — the roster's 最近活跃 depends on it. Best-effort.

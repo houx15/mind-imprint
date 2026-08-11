@@ -19,6 +19,7 @@ import (
 	"strings"
 	"testing"
 
+	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
@@ -85,27 +86,28 @@ func TestOrderReview_RecordsDraftCheckpoint(t *testing.T) {
 	}
 }
 
-// TestWritingCoachTurn_RecordsSnippetsCheckpoint — a coach turn on
-// scope=writing must record snippets/draft/outline ask_feedback checkpoints
-// (the writing-room artifacts the student is asking 印记 about), alongside
-// the existing coach_turn event + reply persistence.
+// TestWritingCoachTurn_RecordsSnippetsCheckpoint — an ordinary coach turn
+// landing in the 写作 room (server-side studio_state.Stage=body_writing)
+// must record snippets/draft/outline ask_feedback checkpoints (the
+// writing-room artifacts the student is asking 印记 about), alongside the
+// existing coach_turn event + reply persistence. Deliberately sends NO
+// `scope` in the request body — that's the real shape the studio frontend
+// sends (`scope` is reserved for the two isolated sub-agent coaches,
+// find_sources/reflection); the trigger must fire off the server-side stage,
+// not a client-supplied scope the real UI never sends.
 func TestWritingCoachTurn_RecordsSnippetsCheckpoint(t *testing.T) {
-	prov := gateway.NewStubProvider([]gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `这段论点还需要一个反例来接住。`},
-		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 5}},
-		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
-	})
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: prov, ChatResolver: fakeResolver(), FastChatResolver: fakeResolver(),
+		Provider: fakeProvider(), ChatResolver: fakeResolver(), FastChatResolver: fakeResolver(),
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := seedProjectID
+	setStudioStage(t, pool, projectID, agent.StageBodyWriting)
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/coach",
-		strings.NewReader(`{"scope":"writing","user_input":"帮我看这段论点够不够有力，别改写"}`)), cookie))
+		strings.NewReader(`{"user_input":"帮我看这段论点够不够有力，别改写"}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d, want 200; body=%s", rr.Code, rr.Body)
 	}
@@ -119,21 +121,19 @@ func TestWritingCoachTurn_RecordsSnippetsCheckpoint(t *testing.T) {
 	}
 }
 
-// TestProposalReviewCoachTurn_RecordsProposalCheckpoint — a coach turn on
-// scope=proposal_review must record a "proposal"/"ask_feedback" checkpoint.
+// TestProposalReviewCoachTurn_RecordsProposalCheckpoint — an ordinary coach
+// turn landing in the 提案 room (server-side studio_state.Stage=
+// proposal_review) must record a "proposal"/"ask_feedback" checkpoint. Same
+// no-`scope` real-shape request as the writing test above.
 func TestProposalReviewCoachTurn_RecordsProposalCheckpoint(t *testing.T) {
-	prov := gateway.NewStubProvider([]gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `你的目标句还可以再收窄一点。`},
-		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 5}},
-		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
-	})
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
-		Provider: prov, ChatResolver: fakeResolver(), FastChatResolver: fakeResolver(),
+		Provider: fakeProvider(), ChatResolver: fakeResolver(), FastChatResolver: fakeResolver(),
 	}).Handler()
 	cookie := signInSeed(t, pool)
 	projectID := seedProjectID
+	setStudioStage(t, pool, projectID, agent.StageProposalReview)
 
 	// Seed a proposal so checkpointProposal has content to snapshot.
 	if _, err := sqlc.New(pool).UpsertProjectProposal(context.Background(), sqlc.UpsertProjectProposalParams{
@@ -144,7 +144,7 @@ func TestProposalReviewCoachTurn_RecordsProposalCheckpoint(t *testing.T) {
 
 	rr := httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/coach",
-		strings.NewReader(`{"scope":"proposal_review","user_input":"看看我的提案够不够站得住"}`)), cookie))
+		strings.NewReader(`{"user_input":"看看我的提案够不够站得住"}`)), cookie))
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d, want 200; body=%s", rr.Code, rr.Body)
 	}
