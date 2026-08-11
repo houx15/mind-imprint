@@ -11,11 +11,8 @@
 FROM node:22-bookworm-slim AS build
 WORKDIR /repo
 # Pin the exact pnpm that generated pnpm-lock.yaml. The committed root
-# package.json has no `packageManager` field, so a bare `corepack enable` would
-# fall back to corepack's default pnpm — a different version that reads
-# onlyBuiltDependencies from package.json instead of pnpm-workspace.yaml, and
-# then errors on esbuild's build script. Pinning keeps lockfile + config behavior
-# consistent.
+# Keep the image explicit even though the root package.json also declares
+# `packageManager`, so the lockfile + build config behavior is deterministic.
 RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 
 # Workspace manifests first for layer caching. Every workspace package.json must
