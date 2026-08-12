@@ -4,7 +4,6 @@ import { useProposalTrack } from "./useProposalTrack";
 import { reviewProposalPart } from "../../api/proposalTrack";
 import { getDraft } from "../api/workspace";
 import { useStudioChat } from "@/studio/ai/StudioChatContext";
-import { ProsePane } from "./ProsePane";
 import { ReviewingHint } from "@/ui";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
@@ -496,14 +495,6 @@ export function ProposalGuidePane({
       {!locked && isGuided && step?.key !== "polish" && filledParts.length > 0 && (
         <div className="mt-3 flex-none px-1">
           <FilledCardsFold cards={filledParts} onEdit={editFilledPart} />
-        </div>
-      )}
-      {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
-          per-part in the cards above (§4). §4 gap G9 · the final 通读与润色 step
-          also shows the whole assembled proposal here to read + polish. */}
-      {(!isGuided || step?.key === "polish") && (
-        <div className="min-h-0 flex-1">
-          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         </div>
       )}
     </div>

@@ -26,6 +26,7 @@ import { partSectionKey } from "./docSections";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
+import { ProsePane } from "./ProsePane";
 import { EssayStatementPane } from "./EssayStatementGuide";
 import { EssaySubmissionPane } from "./EssaySubmissionGuide";
 import { getProposalAnnotations, reviewProposalAnnotations } from "../../api/proposalAnnotations";
@@ -209,7 +210,7 @@ export function WritingBlock({
   // Phase B · finishing a document advances the studio status deterministically
   // (proposal → essay; essay → review). One student tap (the 完成 button IS the
   // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
-  const { advanceStatusTo } = useStudioChat();
+  const { advanceStatusTo, sendStudioTurn } = useStudioChat();
   const isProposal = doc === "proposal";
   // archived = the terminal finalize path has begun (can't reopen writing then).
   const archived = status === "evaluating" || status === "done";
@@ -342,24 +343,24 @@ export function WritingBlock({
           ))}
       </div>
 
-      {/* tabs — the essay's 大纲/片段/正文. The proposal is a plain prose doc
-          (ProsePane), so it shows no tabs. */}
-      {!isProposal && (
-        <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
-          <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
-          <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
-          <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
-        </div>
-      )}
+      {/* tabs — 大纲/片段/正文, for BOTH the proposal and the essay. The proposal's
+          正文 is its assembled prose (ProsePane); the essay's is the full draft. */}
+      <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
+        <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
+        <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
+        <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
+      </div>
 
-      {/* slice 4b/4c · the guided statement/submission walk, above the tabs.
-          On the 正文 tab the student is writing the full draft, so the guide is
-          height-capped + scrollable (it must not eat the writing box — it used to
-          leave the 正文 textarea only ~20% tall). On the 大纲/片段 tabs the guide
-          IS the work, so it renders at natural height. */}
-      {!isProposal && (essayStage === "statement" || essayStage === "submission") && !locked && (
+      {/* the guided walk, above the tabs' content (gated !locked). Proposal → its
+          guided proposal walk; essay → the statement/submission walk. On the 正文
+          tab the student is writing the full draft, so the guide is height-capped
+          + scrollable (it must not eat the writing box); on 大纲/片段 it renders at
+          natural height. */}
+      {!locked && (isProposal || essayStage === "statement" || essayStage === "submission") && (
         <div className={tab === "draft" ? "max-h-[32vh] shrink-0 overflow-y-auto" : "shrink-0"}>
-          {essayStage === "statement" ? (
+          {isProposal ? (
+            <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+          ) : essayStage === "statement" ? (
             <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} onStageAdvanced={onStudioStateChanged} />
           ) : (
             <EssaySubmissionPane
@@ -372,12 +373,12 @@ export function WritingBlock({
       )}
 
       <div className="relative flex min-h-0 flex-1 flex-col">
-        {isProposal ? (
-          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
-        ) : tab === "outline" ? (
+        {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
           <SnippetsPane snip={snip} projectId={projectId} locked={locked} importedSections={importedSections} />
+        ) : isProposal ? (
+          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         ) : (
           <DraftPane
             projectId={projectId}
