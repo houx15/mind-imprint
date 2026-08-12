@@ -1330,6 +1330,15 @@ export function WorkspaceContainer({
                     writeDoc === "proposal"
                       ? (workspace.writingFinish?.proposal ?? false)
                       : (workspace.writingFinish?.essay ?? workspace.writingFinished ?? false);
+                  // "Finalized" = the whole project has entered 回顾/review or beyond
+                  // (the point past which finished work is read-only). Distinct from a
+                  // doc's own 完成 (finishing the proposal to move to the essay is
+                  // reversible and must NOT freeze its cards — the student can still
+                  // edit them until the project itself is in review).
+                  const finalized =
+                    studioState?.stage === "retrospective" ||
+                    workspace.status === "evaluating" ||
+                    workspace.status === "done";
                   return (
                     <WritingBlock
                       key={`${projectId}:${writeDoc}`}
@@ -1341,6 +1350,7 @@ export function WorkspaceContainer({
                       docOptions={docOptions}
                       onSwitchDoc={setDocOverride}
                       writingFinished={docFinished}
+                      finalized={finalized}
                       draftInsertRef={draftInsertRef}
                       draftScrollRef={draftScrollRef}
                       onInsertReady={setInsertReady}

@@ -118,6 +118,7 @@ export function WritingBlock({
   docOptions,
   onSwitchDoc,
   writingFinished,
+  finalized = false,
   draftInsertRef,
   draftScrollRef,
   onInsertReady,
@@ -147,6 +148,11 @@ export function WritingBlock({
   // finish state) — the surface is read-only once true. Separate from status
   // (evaluating/done terminally lock too).
   writingFinished: boolean;
+  // Project-level finalize: true once the project has entered 回顾/review or beyond
+  // (evaluating/done). The finished guided cards are re-editable until THIS is
+  // true — a doc's own reversible 完成 (writingFinished) never freezes them, so a
+  // finished proposal's parts stay editable while the essay is being written.
+  finalized?: boolean;
   /** Shared insert-at-caret ref (P3): DraftPane registers its inserter here on
    * mount; the sibling left ReferencePanel's 材料 fragments call it (the fold
    * of the old floating 材料 box). Hoisted to WorkspaceContainer. Optional — an
@@ -376,7 +382,7 @@ export function WritingBlock({
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} projectId={projectId} locked={locked} importedSections={importedSections} />
+          <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
         ) : isProposal ? (
           <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         ) : (
@@ -725,8 +731,11 @@ function SnippetsPane({ snip, projectId, locked = false, importedSections }: { s
     setDropLabel(null);
   }
 
-  // Edit a finished part in place (finished ≠ locked): write by SECTION against
-  // the live snapshot. Suppressed when the project is locked (read-only).
+  // Edit a finished part in place (finished ≠ frozen): write by SECTION against
+  // the live snapshot. Suppressed ONLY once the project is finalized (in 回顾 /
+  // evaluating / done — the `locked` flag here carries that project-level state,
+  // NOT a doc's reversible 完成), so a finished proposal's cards stay editable
+  // while the essay is still being written.
   const editFilledPart = locked ? undefined : (key: string, text: string) => snip.upsertSection(key, text);
 
   return (
