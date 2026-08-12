@@ -394,18 +394,17 @@ export function WritingBlock({
         ) : tab === "snippets" ? (
           isProposal ? (
             // 片段 · the proposal's writing surface — where ALL its cards live
-            // (writing a part = writing a snippet). The current part's writing
-            // card sits on top (gated !locked), the finished parts + collected
-            // snippets below. 正文 stays the assembled paper only.
-            <div className="flex min-h-0 flex-1 flex-col">
+            // (writing a part = writing a snippet). The current part's writing card
+            // on top (gated !locked), the finished parts + collected snippets
+            // below. ONE scroll for the whole thing (card + snippets scroll
+            // together, not two boxes). 正文 stays the assembled paper only.
+            <div className="min-h-0 flex-1 overflow-y-auto">
               {!locked && (
-                <div className="max-h-[55vh] shrink-0 overflow-y-auto border-b border-mk-border">
+                <div className="border-b border-mk-border">
                   <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
                 </div>
               )}
-              <div className="min-h-0 flex-1">
-                <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
-              </div>
+              <SnippetsPane snip={snip} projectId={projectId} locked={finalized} embedded importedSections={importedSections} />
             </div>
           ) : (
             <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
@@ -667,7 +666,7 @@ const dedupe = (xs: string[]) => Array.from(new Set(xs));
 // rather than disappearing. Filing is via drag (a ⠿ handle onto a section
 // header) or the 归到 <select>. The draft itself stays a plain textarea — this
 // is organizing thinking material, not a structured document editor (铁律②).
-function SnippetsPane({ snip, projectId, locked = false, importedSections }: { snip: SnippetsHandle; projectId: string; locked?: boolean; importedSections: string[] }) {
+function SnippetsPane({ snip, projectId, locked = false, embedded = false, importedSections }: { snip: SnippetsHandle; projectId: string; locked?: boolean; embedded?: boolean; importedSections: string[] }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropLabel, setDropLabel] = useState<string | null>(null);
@@ -769,7 +768,7 @@ function SnippetsPane({ snip, projectId, locked = false, importedSections }: { s
     : (key: string, text: string) => { snip.upsertSection(key, text); scheduleCardRevision(projectId); };
 
   return (
-    <div className="min-h-0 overflow-y-auto px-8 py-6">
+    <div className={embedded ? "px-8 py-6" : "min-h-0 overflow-y-auto px-8 py-6"}>
       <div className="mx-auto max-w-2xl">
         <div className="mb-4">
           <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
