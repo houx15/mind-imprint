@@ -8,6 +8,7 @@ import { ReviewingHint } from "@/ui";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
+import { ProsePane } from "./ProsePane";
 import { guidedSectionLabel } from "./sectionLabels";
 import { scheduleCardRevision } from "../../api/revision";
 import { useCardTags } from "./useCardTags";
@@ -497,6 +498,15 @@ export function ProposalGuidePane({
       {!locked && isGuided && step?.key !== "polish" && filledParts.length > 0 && (
         <div className="mt-3 flex-none px-1">
           <FilledCardsFold cards={filledParts} onEdit={editFilledPart} />
+        </div>
+      )}
+      {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
+          per-part in the cards above (§4). The final 通读与润色 step — and a FINISHED
+          proposal (locked) — show the whole assembled proposal here to read /
+          polish / re-read (this pane is the proposal's 正文 tab). */}
+      {(!isGuided || step?.key === "polish" || locked) && (
+        <div className="min-h-0 flex-1">
+          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         </div>
       )}
     </div>

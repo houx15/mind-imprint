@@ -27,7 +27,6 @@ import { scheduleCardRevision } from "../../api/revision";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
-import { ProsePane } from "./ProsePane";
 import { EssayStatementPane } from "./EssayStatementGuide";
 import { EssaySubmissionPane } from "./EssaySubmissionGuide";
 import { getProposalAnnotations, reviewProposalAnnotations } from "../../api/proposalAnnotations";
@@ -183,7 +182,10 @@ export function WritingBlock({
    * advance so `essayStage` flips and the statement pane unmounts. */
   onStudioStateChanged?: () => void;
 }) {
-  const [tab, setTab] = useState<"outline" | "snippets" | "draft">("outline");
+  // The proposal opens on 正文 (its guided walk / assembled prose — the main
+  // activity); the essay opens on 大纲. Doc-scoped because WritingBlock remounts
+  // per doc (key includes the doc), so this re-picks when the student toggles.
+  const [tab, setTab] = useState<"outline" | "snippets" | "draft">(doc === "proposal" ? "draft" : "outline");
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);
@@ -217,7 +219,7 @@ export function WritingBlock({
   // Phase B · finishing a document advances the studio status deterministically
   // (proposal → essay; essay → review). One student tap (the 完成 button IS the
   // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
-  const { advanceStatusTo, sendStudioTurn } = useStudioChat();
+  const { advanceStatusTo } = useStudioChat();
   const isProposal = doc === "proposal";
   // archived = the terminal finalize path has begun (can't reopen writing then).
   const archived = status === "evaluating" || status === "done";
@@ -358,16 +360,14 @@ export function WritingBlock({
         <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
       </div>
 
-      {/* the guided walk, above the tabs' content (gated !locked). Proposal → its
-          guided proposal walk; essay → the statement/submission walk. On the 正文
-          tab the student is writing the full draft, so the guide is height-capped
-          + scrollable (it must not eat the writing box); on 大纲/片段 it renders at
-          natural height. */}
-      {!locked && (isProposal || essayStage === "statement" || essayStage === "submission") && (
+      {/* The ESSAY's guided statement/submission walk sits above the tabs' content
+          (gated !locked): height-capped + scrollable on the 正文 tab (it must not
+          eat the draft box), natural height on 大纲/片段. The PROPOSAL's guided walk
+          is NOT a banner — for the proposal the walk IS the writing (not a guide
+          alongside a separate draft), so it lives in the 正文 tab itself (below). */}
+      {!isProposal && !locked && (essayStage === "statement" || essayStage === "submission") && (
         <div className={tab === "draft" ? "max-h-[32vh] shrink-0 overflow-y-auto" : "shrink-0"}>
-          {isProposal ? (
-            <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
-          ) : essayStage === "statement" ? (
+          {essayStage === "statement" ? (
             <EssayStatementPane projectId={projectId} onAnnotationsChanged={onAnnotationsChanged} onStageAdvanced={onStudioStateChanged} />
           ) : (
             <EssaySubmissionPane
@@ -385,7 +385,10 @@ export function WritingBlock({
         ) : tab === "snippets" ? (
           <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
         ) : isProposal ? (
-          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
+          // 正文 tab · the proposal's writing surface: the guided walk while it's
+          // in progress (its polish step + a finished proposal show the assembled
+          // prose), so 大纲/片段 stay clean single-purpose views.
+          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
         ) : (
           <DraftPane
             projectId={projectId}
