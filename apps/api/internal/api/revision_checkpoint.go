@@ -36,6 +36,11 @@ const (
 	triggerAskFeedback = "ask_feedback"
 	triggerFinish      = "finish"
 	triggerAdvance     = "advance"
+	// triggerRevise marks a snapshot taken because the student went back and
+	// EDITED an already-finished card (after AI comment / after 我写好了), not one
+	// tied to an ask-feedback/finish/advance moment — the "I changed my mind and
+	// reworked this part" half of the editing history.
+	triggerRevise = "revise"
 )
 
 // checkpointContent reads the current state of one artifact as canonical JSON.
@@ -135,6 +140,64 @@ func (a *API) recordCheckpoints(ctx context.Context, projectID uuid.UUID, trigge
 	for _, at := range artifactTypes {
 		a.recordCheckpoint(ctx, projectID, at, trigger, feedbackRef)
 	}
+}
+
+// recordCardRevision snapshots the snippets artifact under the `revise` trigger
+// when a FINISHED card is edited. Unlike the ask-feedback/finish/advance
+// triggers (which fire at known moments), a card revision can repeat as the
+// student keeps tweaking, so this dedups by content hash: if the current
+// snippets state is identical to the latest snippets checkpoint, nothing is
+// recorded. Best-effort — never fails the caller.
+func (a *API) recordCardRevision(ctx context.Context, projectID uuid.UUID) {
+	content, err := a.checkpointContent(ctx, projectID, checkpointSnippets)
+	if err != nil {
+		slog.Warn("revision: read snippets for card revision failed", "err", err)
+		return
+	}
+	if content == nil {
+		return
+	}
+	sum := sha256.Sum256(content)
+	newHash := hex.EncodeToString(sum[:])
+	// Dedup vs the most recent snippets checkpoint (rows are ordered created_at
+	// ASC, so the last matching artifact_type is the newest). Skip an unchanged
+	// snapshot so idle debounce fires don't pile up identical rows.
+	if rows, lerr := a.d.Queries.ListRevisionCheckpoints(ctx, projectID); lerr == nil {
+		last := ""
+		for _, c := range rows {
+			if c.ArtifactType == checkpointSnippets {
+				last = c.ContentHash
+			}
+		}
+		if last == newHash {
+			return
+		}
+	}
+	if _, err := a.d.Queries.InsertRevisionCheckpoint(ctx, sqlc.InsertRevisionCheckpointParams{
+		ProjectID: projectID, ArtifactType: checkpointSnippets, Trigger: triggerRevise,
+		Content: content, ContentHash: newHash, FeedbackRef: pgtype.UUID{Valid: false},
+	}); err != nil {
+		slog.Warn("revision: insert card-revision checkpoint failed", "err", err)
+		return
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	if err := store.AppendEvent(ctx, agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: "revision_checkpoint",
+		Payload: mustJSON(map[string]any{"artifactType": checkpointSnippets, "trigger": triggerRevise}),
+	}); err != nil {
+		slog.Warn("revision: append card-revision event failed", "err", err)
+	}
+}
+
+// POST /projects/{id}/revision/card-edit — the student edited a finished card;
+// record the revision (best-effort, deduped). Returns 204 regardless.
+func (a *API) postCardRevision(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	a.recordCardRevision(r.Context(), projectID)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 // -- GET /revision-checkpoints ----------------------------------------------

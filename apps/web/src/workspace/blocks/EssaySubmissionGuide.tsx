@@ -3,6 +3,7 @@ import type { ProposalGuideStep } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { guidedSectionLabel } from "./sectionLabels";
+import { scheduleCardRevision } from "../../api/revision";
 import { useEssaySubmission } from "./useEssaySubmission";
 import { useSnippets } from "./WritingBlock";
 import { getEssayStatement } from "../../api/essayStatement";
@@ -186,6 +187,7 @@ export function EssaySubmissionPane({
   function editFilledPart(key: string, value: string) {
     snip.upsertSection(key, value);
     if (key === stepKey) setText(value);
+    scheduleCardRevision(projectId); // a finished-card edit is revision history
   }
 
   function onStillStuck() {

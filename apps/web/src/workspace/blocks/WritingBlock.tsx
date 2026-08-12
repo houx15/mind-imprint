@@ -23,6 +23,7 @@ import type { SubQuestion } from "@mind-imprint/contracts";
 import { guidedSectionLabel, isGuidedSection } from "./sectionLabels";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { partSectionKey } from "./docSections";
+import { scheduleCardRevision } from "../../api/revision";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
@@ -736,7 +737,9 @@ function SnippetsPane({ snip, projectId, locked = false, importedSections }: { s
   // evaluating / done — the `locked` flag here carries that project-level state,
   // NOT a doc's reversible 完成), so a finished proposal's cards stay editable
   // while the essay is still being written.
-  const editFilledPart = locked ? undefined : (key: string, text: string) => snip.upsertSection(key, text);
+  const editFilledPart = locked
+    ? undefined
+    : (key: string, text: string) => { snip.upsertSection(key, text); scheduleCardRevision(projectId); };
 
   return (
     <div className="min-h-0 overflow-y-auto px-8 py-6">

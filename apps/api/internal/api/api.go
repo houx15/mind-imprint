@@ -109,6 +109,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/references/{rid}/finalize-reading", protected(a.postFinalizeReading))
 	mux.Handle("GET /api/v1/projects/{id}/exploration", protected(a.getExploration))
 	mux.Handle("GET /api/v1/projects/{id}/revision-checkpoints", protected(a.listRevisionCheckpoints))
+	mux.Handle("POST /api/v1/projects/{id}/revision/card-edit", protected(a.postCardRevision))
 	mux.Handle("POST /api/v1/projects/{id}/exploration/leads", protected(a.createExplorationLead))
 	mux.Handle("PATCH /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.patchExplorationLead))
 	mux.Handle("DELETE /api/v1/projects/{id}/exploration/leads/{lid}", protected(a.deleteExplorationLead))

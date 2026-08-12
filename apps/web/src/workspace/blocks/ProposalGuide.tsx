@@ -9,6 +9,7 @@ import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { guidedSectionLabel } from "./sectionLabels";
+import { scheduleCardRevision } from "../../api/revision";
 import { useCardTags } from "./useCardTags";
 import { useSnippets } from "./WritingBlock";
 import { assembleGuidedDoc, partSectionKey } from "./docSections";
@@ -426,6 +427,7 @@ export function ProposalGuidePane({
   function editFilledPart(key: string, text: string) {
     snip.upsertSection(partSectionKey(key), text);
     if (key === stepKey) setPartText(text);
+    scheduleCardRevision(projectId); // a finished-card edit is revision history
     if (assembleTimer.current) clearTimeout(assembleTimer.current);
     assembleTimer.current = setTimeout(assembleToBuffer, 1000);
   }
