@@ -74,7 +74,10 @@ export function GuidedWritingCard({
           </div>
         )}
       </div>
-      <p className="mt-1 whitespace-pre-wrap text-[14.5px] leading-relaxed text-mk-ink">{guidance}</p>
+      {/* An old project may have no cached guidance for a finished part; the card
+          still reads as the warm writing surface (title + textarea), just without
+          the guidance line — never a bare white slab. */}
+      {guidance.trim() !== "" && <p className="mt-1 whitespace-pre-wrap text-[14.5px] leading-relaxed text-mk-ink">{guidance}</p>}
       {example && (
         <div className="mt-2.5 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2">
           <p className="text-[12px] font-bold text-mk-muted">范例（英文，供参考）</p>

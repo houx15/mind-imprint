@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ProposalGuideStep, SubQuestion, ClaimRevisionVerdict } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
+import { guidedSectionLabel } from "./sectionLabels";
 import { useEssayStatement } from "./useEssayStatement";
 import { useSnippets } from "./WritingBlock";
 import { reviewEssayPart, reviseClaim } from "../../api/essayStatement";
@@ -268,7 +269,9 @@ export function EssayStatementPane({
     const textByKey = new Map(snip.snippets.map((x) => [x.section ?? "", x.text.trim()] as const));
     return (s.steps ?? [])
       .filter((st) => st.key !== s.key)
-      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
+      // A claim's fold header carries its sub-question text (「论点 2：…」), so a
+      // finished part names itself instead of a bare 「论点 2」.
+      .map((st) => ({ key: st.key, title: guidedSectionLabel(st.key, s.subQuestions) ?? st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
       .filter((p) => p.text !== "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.step, snip.snippets]);

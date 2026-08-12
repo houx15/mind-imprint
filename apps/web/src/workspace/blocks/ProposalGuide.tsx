@@ -9,6 +9,7 @@ import { ReviewingHint } from "@/ui";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
+import { guidedSectionLabel } from "./sectionLabels";
 import { useCardTags } from "./useCardTags";
 import { useSnippets } from "./WritingBlock";
 import { assembleGuidedDoc, partSectionKey } from "./docSections";
@@ -334,7 +335,10 @@ export function ProposalGuidePane({
     );
     return (s.steps ?? [])
       .filter((st) => st.kind !== "subq-define")
-      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
+      // Proposal step keys are bare ("thesis", "subq:<id>"); the snippet section
+      // is prop:<key>, which is what the label map keys off — so a sub-question
+      // card's fold header reads 「子问题 2：…」, not a bare 「子问题 2」.
+      .map((st) => ({ key: st.key, title: guidedSectionLabel(partSectionKey(st.key), s.subQuestions) ?? st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
       .filter((p) => p.text !== "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.step, snip.snippets]);

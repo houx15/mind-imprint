@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useState } from "react";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 
 // FilledCardsFold — #82 · the one place to re-read every finished guidance card.
@@ -24,34 +24,6 @@ export type FilledCard = {
   guidance?: string;
   example?: string | null;
 };
-
-// One expanded part: an auto-growing textarea styled like GuidedWritingCard's,
-// so a finished card reads and edits like the writing surface, not a flat
-// read-only slab.
-function EditablePart({ text, onEdit }: { text: string; onEdit: (text: string) => void }) {
-  const taRef = useRef<HTMLTextAreaElement | null>(null);
-  function grow() {
-    const ta = taRef.current;
-    if (!ta) return;
-    ta.style.height = "auto";
-    ta.style.height = `${ta.scrollHeight}px`;
-  }
-  useEffect(() => {
-    grow();
-  }, [text]);
-  return (
-    <div className="border-t border-mk-border px-3 py-2">
-      <textarea
-        ref={taRef}
-        value={text}
-        onChange={(e) => { onEdit(e.target.value); grow(); }}
-        onInput={grow}
-        rows={2}
-        className="block w-full resize-none overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent"
-      />
-    </div>
-  );
-}
 
 export function FilledCardsFold({
   cards,
@@ -92,22 +64,20 @@ export function FilledCardsFold({
               </button>
               {isOpen &&
                 (onEdit ? (
-                  c.guidance ? (
-                    // Re-edit on the SAME guided-writing surface: original
-                    // guidance + example + textarea, no finish buttons (already
-                    // reviewed). Reads exactly like the first pass.
-                    <div className="px-2 pb-2 pt-1">
-                      <GuidedWritingCard
-                        guidance={c.guidance}
-                        example={c.example}
-                        value={c.text}
-                        onChange={(t) => onEdit(c.key, t)}
-                        placeholder="在这里接着改这一部分……"
-                      />
-                    </div>
-                  ) : (
-                    <EditablePart text={c.text} onEdit={(t) => onEdit(c.key, t)} />
-                  )
+                  // Re-edit on the SAME guided-writing surface: original guidance
+                  // (when the project cached it) + example + textarea, no finish
+                  // buttons (already reviewed). An old project with no cached
+                  // guidance still renders the warm card (title's in the fold row
+                  // above + this textarea), never a bare white slab.
+                  <div className="px-2 pb-2 pt-1">
+                    <GuidedWritingCard
+                      guidance={c.guidance ?? ""}
+                      example={c.example}
+                      value={c.text}
+                      onChange={(t) => onEdit(c.key, t)}
+                      placeholder="在这里接着改这一部分……"
+                    />
+                  </div>
                 ) : (
                   <p className="whitespace-pre-wrap border-t border-mk-border px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink">
                     {c.text}

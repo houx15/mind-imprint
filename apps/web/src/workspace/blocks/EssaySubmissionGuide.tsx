@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { ProposalGuideStep } from "@mind-imprint/contracts";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
+import { guidedSectionLabel } from "./sectionLabels";
 import { useEssaySubmission } from "./useEssaySubmission";
 import { useSnippets } from "./WritingBlock";
 import { getEssayStatement } from "../../api/essayStatement";
@@ -177,7 +178,7 @@ export function EssaySubmissionPane({
     const textByKey = new Map(snip.snippets.map((x) => [x.section ?? "", x.text.trim()] as const));
     return (s.steps ?? [])
       .filter((st) => st.key !== s.key)
-      .map((st) => ({ key: st.key, title: st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
+      .map((st) => ({ key: st.key, title: guidedSectionLabel(st.key, s.subQuestions) ?? st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
       .filter((p) => p.text !== "");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.step, snip.snippets]);

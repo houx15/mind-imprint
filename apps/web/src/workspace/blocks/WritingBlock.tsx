@@ -16,6 +16,9 @@ import { Composer } from "@/studio/ai/Composer";
 import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented, ReviewingHint } from "@/ui";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
+import { getProposalTrack } from "../../api/proposalTrack";
+import type { SubQuestion } from "@mind-imprint/contracts";
+import { guidedSectionLabel, isGuidedSection } from "./sectionLabels";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
@@ -370,7 +373,7 @@ export function WritingBlock({
         ) : tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} importedSections={importedSections} />
+          <SnippetsPane snip={snip} projectId={projectId} importedSections={importedSections} />
         ) : (
           <DraftPane
             projectId={projectId}
@@ -625,16 +628,47 @@ const dedupe = (xs: string[]) => Array.from(new Set(xs));
 // rather than disappearing. Filing is via drag (a ⠿ handle onto a section
 // header) or the 归到 <select>. The draft itself stays a plain textarea — this
 // is organizing thinking material, not a structured document editor (铁律②).
-function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; importedSections: string[] }) {
+function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHandle; projectId: string; importedSections: string[] }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropLabel, setDropLabel] = useState<string | null>(null);
+  // Sub-questions resolve a claim/subq section's machine id to the student's own
+  // question text, so a guided part reads 「论点 2：…」 not `claim:<uuid>`. Loaded
+  // once; a guided section with no match still degrades to a clean 「论点 / 子问题」.
+  const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    getProposalTrack(projectId)
+      .then((t) => { if (!cancelled) setSubQuestions(t.subQuestions ?? []); })
+      .catch(() => { /* labels degrade to the ordinal-less form */ });
+    return () => { cancelled = true; };
+  }, [projectId]);
+
+  // A section's human name: guided-writing parts (prop:*/claim:*/sub:*/…) get
+  // their friendly part name; a real student label is its own text.
+  const labelFor = (section: string) => guidedSectionLabel(section, subQuestions) ?? section;
+
+  // Guided-writing parts are FINISHED work — fold them by default (user: "for
+  // space saving"), so the board opens as a tidy list of part names, not a wall
+  // of full paragraphs. Seed each guided section collapsed the first time it
+  // appears; never re-collapse one the student has since opened.
+  const seededCollapse = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    const fresh = snip.snippets
+      .map((s) => s.section)
+      .filter((sec): sec is string => isGuidedSection(sec) && !seededCollapse.current.has(sec!));
+    if (fresh.length === 0) return;
+    fresh.forEach((l) => seededCollapse.current.add(l));
+    setCollapsed((c) => { const n = new Set(c); fresh.forEach((l) => n.add(l)); return n; });
+  }, [snip.snippets]);
 
   const knownLabels = useMemo(() => dedupe(importedSections), [importedSections]);
 
-  // Build ordered groups: imported outline headings, then any orphaned
-  // section label still present on a snippet (renamed/deleted heading, or a
-  // stale 线索 label from before this change — never vanish), then 未归类 last.
+  // Build ordered groups: imported outline headings, then guided-writing parts
+  // (the per-part snippets the guided cards store — shown with their part name,
+  // never a raw section key), then any orphaned student label still present on a
+  // snippet (renamed/deleted heading, or a stale 线索 label — never vanish), then
+  // 未归类 last.
   const { groups, unfiled } = useMemo(() => {
     const bySection = new Map<string, Snip[]>();
     const un: Snip[] = [];
@@ -642,11 +676,15 @@ function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; import
       if (s.section == null) un.push(s);
       else { const arr = bySection.get(s.section) ?? []; arr.push(s); bySection.set(s.section, arr); }
     }
-    const ordered: { label: string; kind: "outline" | "orphan"; snips: Snip[] }[] = [];
-    for (const l of importedSections) ordered.push({ label: l, kind: "outline", snips: bySection.get(l) ?? [] });
-    for (const [label, snips] of bySection) if (!knownLabels.includes(label)) ordered.push({ label, kind: "orphan", snips });
+    const ordered: { label: string; displayLabel: string; kind: "outline" | "guided" | "orphan"; snips: Snip[] }[] = [];
+    for (const l of importedSections) ordered.push({ label: l, displayLabel: l, kind: "outline", snips: bySection.get(l) ?? [] });
+    for (const [label, snips] of bySection) {
+      if (knownLabels.includes(label)) continue;
+      const guided = guidedSectionLabel(label, subQuestions);
+      ordered.push({ label, displayLabel: guided ?? label, kind: guided ? "guided" : "orphan", snips });
+    }
     return { groups: ordered, unfiled: un };
-  }, [snip.snippets, importedSections, knownLabels]);
+  }, [snip.snippets, importedSections, knownLabels, subQuestions]);
 
   function dropOnto(label: string | null) {
     if (dragId) snip.setSection(dragId, label);
@@ -666,11 +704,13 @@ function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; import
             <SnippetSection
               key={`${g.kind}:${g.label}`}
               label={g.label}
+              displayLabel={g.displayLabel}
               kind={g.kind}
               snips={g.snips}
               collapsed={collapsed.has(g.label)}
               isDropTarget={dropLabel === g.label}
               sectionOptions={knownLabels}
+              labelFor={labelFor}
               onToggle={() => setCollapsed((c) => { const n = new Set(c); n.has(g.label) ? n.delete(g.label) : n.add(g.label); return n; })}
               onAdd={() => snip.add("", g.label)}
               onDragOverHead={() => setDropLabel(g.label)}
@@ -682,11 +722,13 @@ function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; import
           {/* 未归类 — also the drop target for un-filing */}
           <SnippetSection
             label="未归类"
+            displayLabel="未归类"
             kind="unfiled"
             snips={unfiled}
             collapsed={collapsed.has(UNFILED)}
             isDropTarget={dropLabel === UNFILED}
             sectionOptions={knownLabels}
+            labelFor={labelFor}
             onToggle={() => setCollapsed((c) => { const n = new Set(c); n.has(UNFILED) ? n.delete(UNFILED) : n.add(UNFILED); return n; })}
             onAdd={() => snip.add("", null)}
             onDragOverHead={() => setDropLabel(UNFILED)}
@@ -701,14 +743,20 @@ function SnippetsPane({ snip, importedSections }: { snip: SnippetsHandle; import
 }
 
 function SnippetSection({
-  label, kind, snips, collapsed, isDropTarget, sectionOptions, onToggle, onAdd, onDragOverHead, onDropHead, snip, onDragStart,
+  label, displayLabel, kind, snips, collapsed, isDropTarget, sectionOptions, labelFor, onToggle, onAdd, onDragOverHead, onDropHead, snip, onDragStart,
 }: {
   label: string;
-  kind: "outline" | "orphan" | "unfiled";
+  // The header text: for a guided-writing part this is the friendly part name
+  // (「论点 2：…」/「引言」), never the raw section key. Filing still uses `label`.
+  displayLabel: string;
+  kind: "outline" | "guided" | "orphan" | "unfiled";
   snips: Snip[];
   collapsed: boolean;
   isDropTarget: boolean;
   sectionOptions: string[];
+  // Friendly name for any section value (used in the 归到 dropdown so a guided
+  // part's kept option reads as its part name, not `claim:<uuid>`).
+  labelFor: (section: string) => string;
   onToggle: () => void;
   // Returns the newly-created snippet's id so the caller can focus it into
   // edit mode immediately (a student-initiated "+加片段" isn't the
@@ -719,7 +767,7 @@ function SnippetSection({
   snip: SnippetsHandle;
   onDragStart: (id: string | null) => void;
 }) {
-  const tag = kind === "outline" ? "章节" : kind === "orphan" ? "旧标签" : "";
+  const tag = kind === "outline" ? "章节" : kind === "guided" ? "写作部分" : kind === "orphan" ? "旧标签" : "";
   const tone = kind === "orphan" ? "text-mk-faint" : "text-mk-accent";
   // #9 · a snippet defaults to a READ view; double-click enters edit mode (a
   // taller textarea + a ✓ to leave it). Local to this section instance — a
@@ -742,7 +790,7 @@ function SnippetSection({
         <button type="button" onClick={onToggle} className="flex min-w-0 flex-1 items-center gap-1.5 text-left">
           <span className={`text-mk-faint transition ${collapsed ? "" : "rotate-90"}`}>▸</span>
           {tag && <span className={`flex-none rounded-full bg-mk-surface px-1.5 py-0.5 text-[12px] font-bold ${tone}`}>{tag}</span>}
-          <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-mk-ink">{label}</span>
+          <span className="min-w-0 flex-1 truncate text-[14px] font-bold text-mk-ink">{displayLabel}</span>
           <span className="flex-none text-[12px] font-semibold text-mk-faint">{snips.length}</span>
         </button>
       </div>
@@ -806,8 +854,9 @@ function SnippetSection({
                     className="max-w-[10rem] rounded border border-mk-border bg-mk-surface px-1.5 py-0.5 text-[12px] text-mk-ink outline-none focus:border-mk-accent"
                   >
                     <option value={UNFILED}>未归类</option>
-                    {/* keep a stale/orphan section selectable so its value shows */}
-                    {s.section && !sectionOptions.includes(s.section) && <option value={s.section}>{s.section}</option>}
+                    {/* keep a stale/orphan/guided section selectable so its value
+                        shows — labelled by its friendly part name, never a raw key */}
+                    {s.section && !sectionOptions.includes(s.section) && <option value={s.section}>{labelFor(s.section)}</option>}
                     {sectionOptions.map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
                 </label>
