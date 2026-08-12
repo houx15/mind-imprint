@@ -17,8 +17,12 @@ import { StudioTurnChips } from "@/studio/ai/StudioCoachChat";
 import { Segmented, ReviewingHint } from "@/ui";
 import { getOutline, putOutline, getSnippets, putSnippets, getDraft, reflectProjectCard } from "../api/workspace";
 import { getProposalTrack } from "../../api/proposalTrack";
+import { getEssayStatement } from "../../api/essayStatement";
+import { getEssaySubmission } from "../../api/essaySubmission";
 import type { SubQuestion } from "@mind-imprint/contracts";
 import { guidedSectionLabel, isGuidedSection } from "./sectionLabels";
+import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
+import { partSectionKey } from "./docSections";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
@@ -373,7 +377,7 @@ export function WritingBlock({
         ) : tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} projectId={projectId} importedSections={importedSections} />
+          <SnippetsPane snip={snip} projectId={projectId} locked={locked} importedSections={importedSections} />
         ) : (
           <DraftPane
             projectId={projectId}
@@ -628,19 +632,44 @@ const dedupe = (xs: string[]) => Array.from(new Set(xs));
 // rather than disappearing. Filing is via drag (a ⠿ handle onto a section
 // header) or the 归到 <select>. The draft itself stays a plain textarea — this
 // is organizing thinking material, not a structured document editor (铁律②).
-function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHandle; projectId: string; importedSections: string[] }) {
+function SnippetsPane({ snip, projectId, locked = false, importedSections }: { snip: SnippetsHandle; projectId: string; locked?: boolean; importedSections: string[] }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropLabel, setDropLabel] = useState<string | null>(null);
-  // Sub-questions resolve a claim/subq section's machine id to the student's own
-  // question text, so a guided part reads 「论点 2：…」 not `claim:<uuid>`. Loaded
-  // once; a guided section with no match still degrades to a clean 「论点 / 子问题」.
+  // The guided tracks give two things per step: the sub-question text (so a
+  // claim/subq section reads 「论点 2：…」 not `claim:<uuid>`) AND the step's saved
+  // guide card (the guidance + reference the student wrote against). We load all
+  // three tracks once and fold them into a section→guide map + a reading order.
   const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  const [guideBySection, setGuideBySection] = useState<Map<string, { prompt: string; example?: string | null }>>(new Map());
+  const [orderBySection, setOrderBySection] = useState<Map<string, number>>(new Map());
   useEffect(() => {
     let cancelled = false;
-    getProposalTrack(projectId)
-      .then((t) => { if (!cancelled) setSubQuestions(t.subQuestions ?? []); })
-      .catch(() => { /* labels degrade to the ordinal-less form */ });
+    (async () => {
+      const guide = new Map<string, { prompt: string; example?: string | null }>();
+      const order = new Map<string, number>();
+      let i = 0;
+      const add = (section: string, card?: { prompt: string; example?: string } | null) => {
+        if (!order.has(section)) order.set(section, i++);
+        if (card && card.prompt) guide.set(section, { prompt: card.prompt, example: card.example ?? null });
+      };
+      // proposal parts key as prop:<stepkey>; essay statement/submission use the
+      // bare step key. Each track's step list carries the SAVED guide in `card`.
+      try {
+        const prop = await getProposalTrack(projectId);
+        if (!cancelled) setSubQuestions(prop.subQuestions ?? []);
+        for (const st of prop.steps ?? []) add(partSectionKey(st.key), st.card);
+      } catch { /* proposal track absent → labels/guides degrade gracefully */ }
+      try {
+        const es = await getEssayStatement(projectId);
+        for (const st of es.steps ?? []) add(st.key, st.card);
+      } catch { /* not yet at essay → skip */ }
+      try {
+        const sub = await getEssaySubmission(projectId);
+        for (const st of sub.steps ?? []) add(st.key, st.card);
+      } catch { /* not yet at submission → skip */ }
+      if (!cancelled) { setGuideBySection(guide); setOrderBySection(order); }
+    })();
     return () => { cancelled = true; };
   }, [projectId]);
 
@@ -648,49 +677,56 @@ function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHan
   // their friendly part name; a real student label is its own text.
   const labelFor = (section: string) => guidedSectionLabel(section, subQuestions) ?? section;
 
-  // Guided-writing parts are FINISHED work — fold them by default (user: "for
-  // space saving"), so the board opens as a tidy list of part names, not a wall
-  // of full paragraphs. Seed each guided section collapsed the first time it
-  // appears; never re-collapse one the student has since opened.
-  const seededCollapse = useRef<Set<string>>(new Set());
-  useEffect(() => {
-    const fresh = snip.snippets
-      .map((s) => s.section)
-      .filter((sec): sec is string => isGuidedSection(sec) && !seededCollapse.current.has(sec!));
-    if (fresh.length === 0) return;
-    fresh.forEach((l) => seededCollapse.current.add(l));
-    setCollapsed((c) => { const n = new Set(c); fresh.forEach((l) => n.add(l)); return n; });
-  }, [snip.snippets]);
-
   const knownLabels = useMemo(() => dedupe(importedSections), [importedSections]);
 
-  // Build ordered groups: imported outline headings, then guided-writing parts
-  // (the per-part snippets the guided cards store — shown with their part name,
-  // never a raw section key), then any orphaned student label still present on a
-  // snippet (renamed/deleted heading, or a stale 线索 label — never vanish), then
-  // 未归类 last.
+  // The FINISHED guided parts, as re-readable cards: part name → saved guidance
+  // + reference + the student's own writing. Ordered by the document's step
+  // order. Read-only once the project is finished (no onEdit below). This is the
+  // "finished-cards list" — one snippet per guided section.
+  const guidedCards: FilledCard[] = useMemo(() => {
+    const seen = new Set<string>();
+    const cards: FilledCard[] = [];
+    for (const s of snip.snippets) {
+      if (s.section == null || !isGuidedSection(s.section) || seen.has(s.section)) continue;
+      seen.add(s.section);
+      const g = guideBySection.get(s.section);
+      cards.push({ key: s.section, title: labelFor(s.section), text: s.text, guidance: g?.prompt, example: g?.example ?? null });
+    }
+    cards.sort((a, b) => (orderBySection.get(a.key) ?? 1e9) - (orderBySection.get(b.key) ?? 1e9));
+    return cards;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snip.snippets, guideBySection, orderBySection, subQuestions]);
+
+  // Free (student-made) groups only — guided parts are rendered above as the
+  // finished-cards fold, not as orphan sections. Imported outline headings, then
+  // any orphaned student label still present on a snippet (renamed/deleted
+  // heading, or a stale 线索 label — never vanish), then 未归类 last.
   const { groups, unfiled } = useMemo(() => {
     const bySection = new Map<string, Snip[]>();
     const un: Snip[] = [];
     for (const s of snip.snippets) {
       if (s.section == null) un.push(s);
+      else if (isGuidedSection(s.section)) continue; // rendered as a finished card
       else { const arr = bySection.get(s.section) ?? []; arr.push(s); bySection.set(s.section, arr); }
     }
-    const ordered: { label: string; displayLabel: string; kind: "outline" | "guided" | "orphan"; snips: Snip[] }[] = [];
+    const ordered: { label: string; displayLabel: string; kind: "outline" | "orphan"; snips: Snip[] }[] = [];
     for (const l of importedSections) ordered.push({ label: l, displayLabel: l, kind: "outline", snips: bySection.get(l) ?? [] });
     for (const [label, snips] of bySection) {
       if (knownLabels.includes(label)) continue;
-      const guided = guidedSectionLabel(label, subQuestions);
-      ordered.push({ label, displayLabel: guided ?? label, kind: guided ? "guided" : "orphan", snips });
+      ordered.push({ label, displayLabel: label, kind: "orphan", snips });
     }
     return { groups: ordered, unfiled: un };
-  }, [snip.snippets, importedSections, knownLabels, subQuestions]);
+  }, [snip.snippets, importedSections, knownLabels]);
 
   function dropOnto(label: string | null) {
     if (dragId) snip.setSection(dragId, label);
     setDragId(null);
     setDropLabel(null);
   }
+
+  // Edit a finished part in place (finished ≠ locked): write by SECTION against
+  // the live snapshot. Suppressed when the project is locked (read-only).
+  const editFilledPart = locked ? undefined : (key: string, text: string) => snip.upsertSection(key, text);
 
   return (
     <div className="min-h-0 overflow-y-auto px-8 py-6">
@@ -699,6 +735,14 @@ function SnippetsPane({ snip, projectId, importedSections }: { snip: SnippetsHan
           <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
           <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
         </div>
+        {/* 写作部分 — the finished guided parts, each re-readable as its own card
+            (part name → guidance + reference + your writing). Read-only once the
+            project is finished. */}
+        {guidedCards.length > 0 && (
+          <div className="mb-4">
+            <FilledCardsFold cards={guidedCards} heading="写作部分" onEdit={editFilledPart} />
+          </div>
+        )}
         <div className="flex flex-col gap-4">
           {groups.map((g) => (
             <SnippetSection

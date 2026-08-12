@@ -62,27 +62,24 @@ export function FilledCardsFold({
                 <span className={"flex-none text-[11px] text-mk-faint transition-transform " + (isOpen ? "rotate-90" : "")}>▸</span>
                 <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-mk-ink">{c.title}</span>
               </button>
-              {isOpen &&
-                (onEdit ? (
-                  // Re-edit on the SAME guided-writing surface: original guidance
-                  // (when the project cached it) + example + textarea, no finish
-                  // buttons (already reviewed). An old project with no cached
-                  // guidance still renders the warm card (title's in the fold row
-                  // above + this textarea), never a bare white slab.
-                  <div className="px-2 pb-2 pt-1">
-                    <GuidedWritingCard
-                      guidance={c.guidance ?? ""}
-                      example={c.example}
-                      value={c.text}
-                      onChange={(t) => onEdit(c.key, t)}
-                      placeholder="在这里接着改这一部分……"
-                    />
-                  </div>
-                ) : (
-                  <p className="whitespace-pre-wrap border-t border-mk-border px-3 py-2 text-[13.5px] leading-relaxed text-mk-ink">
-                    {c.text}
-                  </p>
-                ))}
+              {isOpen && (
+                // Expand on the SAME guided-writing surface the student wrote in:
+                // original guidance + example + their text. `onEdit` → editable
+                // (re-reading/editing reads no different from the first pass, 铁律①
+                // still their own text). No `onEdit` (finished/locked project) →
+                // the SAME card but read-only, so the guidance is still visible —
+                // never a bare text slab that drops the guidance.
+                <div className="px-2 pb-2 pt-1">
+                  <GuidedWritingCard
+                    guidance={c.guidance ?? ""}
+                    example={c.example}
+                    value={c.text}
+                    onChange={(t) => onEdit?.(c.key, t)}
+                    locked={!onEdit}
+                    placeholder={onEdit ? "在这里接着改这一部分……" : "（还没写这一部分）"}
+                  />
+                </div>
+              )}
             </div>
           );
         })}

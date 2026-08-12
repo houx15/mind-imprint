@@ -8,12 +8,19 @@ const cards = [
 ];
 
 describe("FilledCardsFold", () => {
-  it("renders read-only text when onEdit is absent", () => {
-    render(<FilledCardsFold cards={cards} />);
+  it("shows the finished part read-only (guidance surface, no editing) when onEdit is absent", () => {
+    const withGuide = [
+      { key: "p1", title: "研究背景", text: "我原来写的背景", guidance: "写清楚这项研究的背景", example: "An English example" },
+    ];
+    render(<FilledCardsFold cards={withGuide} />);
     fireEvent.click(screen.getByRole("button", { name: /研究背景/ }));
-    // Expanded content is a paragraph, not an editable field.
-    expect(screen.getByText("我原来写的背景")).toBeInTheDocument();
-    expect(screen.queryByRole("textbox")).toBeNull();
+    // Read-only (finished project) still shows the guidance + reference + the
+    // student's own text — the textarea is present but read-only, not editable.
+    expect(screen.getByText("写清楚这项研究的背景")).toBeInTheDocument();
+    expect(screen.getByText("An English example")).toBeInTheDocument();
+    const ta = screen.getByRole("textbox") as HTMLTextAreaElement;
+    expect(ta.value).toBe("我原来写的背景");
+    expect(ta.readOnly).toBe(true);
   });
 
   it("lets the student edit a finished part in place when onEdit is provided", () => {
