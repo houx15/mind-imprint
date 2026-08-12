@@ -183,10 +183,10 @@ export function WritingBlock({
    * advance so `essayStage` flips and the statement pane unmounts. */
   onStudioStateChanged?: () => void;
 }) {
-  // The proposal opens on 正文 (its guided walk / assembled prose — the main
-  // activity); the essay opens on 大纲. Doc-scoped because WritingBlock remounts
+  // The proposal opens on 片段 — where its cards live and where the current part
+  // is written; the essay opens on 大纲. Doc-scoped because WritingBlock remounts
   // per doc (key includes the doc), so this re-picks when the student toggles.
-  const [tab, setTab] = useState<"outline" | "snippets" | "draft">(doc === "proposal" ? "draft" : "outline");
+  const [tab, setTab] = useState<"outline" | "snippets" | "draft">(doc === "proposal" ? "snippets" : "outline");
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);
@@ -377,24 +377,30 @@ export function WritingBlock({
         </div>
       )}
 
-      {/* The PROPOSAL's guided walk (the current part's writing card) shows ONLY on
-          the 正文 tab, height-capped + scrollable above the assembled prose — so
-          it's a compact writing guide, not a wall that buries the tab content. The
-          finished parts live in 片段; 大纲/正文 stay clean single-purpose views. */}
-      {isProposal && !locked && tab === "draft" && (
-        <div className="max-h-[40vh] shrink-0 overflow-y-auto border-b border-mk-border">
-          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
-        </div>
-      )}
-
       <div className="relative flex min-h-0 flex-1 flex-col">
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
-          <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
+          isProposal ? (
+            // 片段 · the proposal's writing surface — where ALL its cards live
+            // (writing a part = writing a snippet). The current part's writing
+            // card sits on top (gated !locked), the finished parts + collected
+            // snippets below. 正文 stays the assembled paper only.
+            <div className="flex min-h-0 flex-1 flex-col">
+              {!locked && (
+                <div className="max-h-[55vh] shrink-0 overflow-y-auto border-b border-mk-border">
+                  <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+                </div>
+              )}
+              <div className="min-h-0 flex-1">
+                <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
+              </div>
+            </div>
+          ) : (
+            <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
+          )
         ) : isProposal ? (
-          // 正文 tab · the proposal's assembled prose (the paper). The guided walk
-          // sits above as a capped banner while writing; here is the prose itself.
+          // 正文 · the proposal's assembled paper (prose) only.
           <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         ) : (
           <DraftPane
