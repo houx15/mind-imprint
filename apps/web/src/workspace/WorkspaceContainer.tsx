@@ -138,6 +138,9 @@ export function WorkspaceContainer({
   // but once the essay has begun the student may switch back to VIEW the finished
   // proposal. null = follow the stage; else this doc wins (if still an option).
   const [docOverride, setDocOverride] = useState<WritingDocKind | null>(null);
+  // The writing room's active tab (大纲/片段/正文), reported up by WritingBlock so
+  // the left reference panel can surface the student's 片段 only while on 正文.
+  const [writingTab, setWritingTab] = useState<"outline" | "snippets" | "draft">("outline");
   // First-run guard for the room-change plan refetch (declared here so the load
   // effect can reset it on project change). See the room-change effect below.
   const didMountRoom = useRef(false);
@@ -1307,6 +1310,7 @@ export function WorkspaceContainer({
                     onInsert={(t) => draftInsertRef.current?.(t)}
                     canInsert={insertReady}
                     annotationsVersion={annotationsVersion}
+                    showSnippets={writingTab === "draft"}
                     onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                     onJumpToAnchor={(a) => draftScrollRef.current?.(a)}
                   />
@@ -1360,6 +1364,7 @@ export function WorkspaceContainer({
                       onAnnotationsChanged={() => setAnnotationsVersion((v) => v + 1)}
                       essayStage={studioState?.essayTrack?.stage}
                       onStudioStateChanged={continueYinji}
+                      onActiveTabChange={setWritingTab}
                     />
                   );
                 })()}

@@ -129,6 +129,7 @@ export function WritingBlock({
   onAnnotationsChanged,
   essayStage,
   onStudioStateChanged,
+  onActiveTabChange,
 }: {
   projectId: string;
   title: string;
@@ -182,11 +183,21 @@ export function WritingBlock({
   /** slice 4b-2 · re-assert 印记's studio state after the statement→submission
    * advance so `essayStage` flips and the statement pane unmounts. */
   onStudioStateChanged?: () => void;
+  /** Reports the active writing tab (大纲/片段/正文) up so the container can, e.g.,
+   * surface the student's 片段 in the left panel only while they're on 正文. */
+  onActiveTabChange?: (tab: "outline" | "snippets" | "draft") => void;
 }) {
   // The proposal opens on 片段 — where its cards live and where the current part
   // is written; the essay opens on 大纲. Doc-scoped because WritingBlock remounts
   // per doc (key includes the doc), so this re-picks when the student toggles.
   const [tab, setTab] = useState<"outline" | "snippets" | "draft">(doc === "proposal" ? "snippets" : "outline");
+  // Report the active tab up (the left panel surfaces 片段 only on 正文). Reset to
+  // a neutral tab on unmount so a stale "draft" never lingers after leaving.
+  useEffect(() => {
+    onActiveTabChange?.(tab);
+    return () => onActiveTabChange?.("outline");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab]);
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);

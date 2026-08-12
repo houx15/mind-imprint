@@ -1,7 +1,9 @@
 import { useEffect, useState, type KeyboardEvent } from "react";
-import type { Annotation, DraftAnnotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage } from "@mind-imprint/contracts";
+import type { Annotation, DraftAnnotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage, SubQuestion } from "@mind-imprint/contracts";
 import { EmptyState } from "@/ui/Illustration";
 import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
+import { getProposalTrack } from "../../api/proposalTrack";
+import { guidedSectionLabel } from "./sectionLabels";
 import { getProposalAnnotations } from "../../api/proposalAnnotations";
 import { resolveReferences, type ResolvedRef } from "./referenceResolve";
 import { NeedsResourcesBox } from "./NeedsResourcesBox";
@@ -56,6 +58,7 @@ export function ReferencePanel({
   onInsert,
   canInsert,
   annotationsVersion,
+  showSnippets,
   onOpenReading,
   onJumpToAnchor,
 }: {
@@ -77,6 +80,10 @@ export function ReferencePanel({
   /** slice 3b · bumped by the container after a 批注 review so the proposal
    * 批注 group re-fetches. */
   annotationsVersion?: number;
+  /** Surface the student's own 片段 (written parts) as a tab here — on ONLY while
+   * they're on the 正文 tab, where seeing the parts is useful for assembling the
+   * paper (user: "only when I write 正文 I need that"). */
+  showSnippets?: boolean;
 }) {
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
@@ -120,6 +127,18 @@ export function ReferencePanel({
     };
   }, [projectId]);
 
+  // Sub-questions give a claim/subq snippet its friendly part name (「论点 2：…」)
+  // in the 片段 tab. Fetched only when the 片段 tab is in play.
+  const [subQuestions, setSubQuestions] = useState<SubQuestion[]>([]);
+  useEffect(() => {
+    if (!showSnippets) return;
+    let cancelled = false;
+    getProposalTrack(projectId)
+      .then((t) => { if (!cancelled) setSubQuestions(t.subQuestions ?? []); })
+      .catch(() => { /* labels degrade gracefully */ });
+    return () => { cancelled = true; };
+  }, [projectId, showSnippets]);
+
   const loading = lib == null || snippets == null || annotations == null;
   const resolved = loading ? [] : resolveReferences(reference, lib, snippets, annotations);
   const materials = resolved.filter((r): r is MaterialRef => r.kind === "material" && !r.missing);
@@ -134,9 +153,23 @@ export function ReferencePanel({
   const collectedLib = loading ? [] : (lib ?? []).filter((r) => !curatedIds.has(r.id));
   const collectedSnips = loading ? [] : (snippets ?? []).filter((s) => !curatedNoteIds.has(s.id));
   const hasCollected = !loading && (collectedLib.length > 0 || collectedSnips.length > 0);
+  // The student's own written parts, labelled by their part name — shown as the
+  // 片段 tab while writing 正文. Empty parts are skipped.
+  const writtenParts = !loading
+    ? (snippets ?? [])
+        .filter((s) => s.text.trim() !== "")
+        .map((s) => ({ id: s.id, label: guidedSectionLabel(s.section, subQuestions) ?? (s.section ?? "片段"), text: s.text.trim() }))
+    : [];
+  const showSnippetsTab = !!showSnippets && writtenParts.length > 0;
+  // When the student switches to 正文 (showSnippets turns on), jump the panel to
+  // the 片段 tab once — then they can freely click other tabs.
+  useEffect(() => {
+    if (showSnippets) setActiveTab("snippets");
+  }, [showSnippets]);
   const isEmpty =
     !loading &&
     !showProposal &&
+    !showSnippetsTab &&
     materials.length === 0 &&
     notes.length === 0 &&
     annotationItems.length === 0 &&
@@ -172,6 +205,8 @@ export function ReferencePanel({
             // panel (which shows the illustration above, not tabs).
             const hasAnno = true;
             const tabs = [
+              // 片段 leads while writing 正文 — the parts are what you assemble.
+              showSnippetsTab && { key: "snippets", label: "片段" },
               showProposal && { key: "proposal", label: "提案要点" },
               hasNotes && { key: "notes", label: "阅读笔记" },
               hasAnno && { key: "anno", label: "AI批注" },
@@ -194,6 +229,7 @@ export function ReferencePanel({
                   </div>
                 )}
                 <div className="flex flex-col gap-5">
+                  {cur === "snippets" && showSnippetsTab && <SnippetsRefGroup parts={writtenParts} />}
                   {cur === "proposal" && showProposal && <ProposalGroup proposal={proposal} />}
                   {cur === "notes" && (
                     <>
@@ -216,6 +252,22 @@ export function ReferencePanel({
           })()
         )}
       </div>
+    </div>
+  );
+}
+
+// SnippetsRefGroup — the student's own written parts, read-only, for reference
+// while they assemble the paper on the 正文 tab. Each is its friendly part name +
+// the text (印记 never wrote it, and this view never edits it — 铁律).
+function SnippetsRefGroup({ parts }: { parts: { id: string; label: string; text: string }[] }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {parts.map((p) => (
+        <div key={p.id}>
+          <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">{p.label}</p>
+          <p className="mt-1 whitespace-pre-line text-[14px] leading-relaxed text-mk-ink">{p.text}</p>
+        </div>
+      ))}
     </div>
   );
 }
