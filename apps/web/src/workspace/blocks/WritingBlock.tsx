@@ -394,15 +394,19 @@ export function WritingBlock({
         ) : tab === "snippets" ? (
           isProposal ? (
             // 片段 · the proposal's writing surface — where ALL its cards live
-            // (writing a part = writing a snippet). The current part's writing card
-            // on top (gated !locked), the finished parts + collected snippets
-            // below. ONE scroll for the whole thing (card + snippets scroll
-            // together, not two boxes). 正文 stays the assembled paper only.
+            // (writing a part = writing a snippet). ONE header, then the current
+            // part's writing card (gated !locked), then the finished parts +
+            // collected snippets — all in a single scroll, no divider between them.
+            // 正文 stays the assembled paper only.
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {!locked && (
-                <div className="border-b border-mk-border">
-                  <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+              <div className="px-8 pt-6 pb-2">
+                <div className="mx-auto max-w-2xl">
+                  <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
+                  <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
                 </div>
+              </div>
+              {!locked && (
+                <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
               )}
               <SnippetsPane snip={snip} projectId={projectId} locked={finalized} embedded importedSections={importedSections} />
             </div>
@@ -768,12 +772,16 @@ function SnippetsPane({ snip, projectId, locked = false, embedded = false, impor
     : (key: string, text: string) => { snip.upsertSection(key, text); scheduleCardRevision(projectId); };
 
   return (
-    <div className={embedded ? "px-8 py-6" : "min-h-0 overflow-y-auto px-8 py-6"}>
+    <div className={embedded ? "px-8 pb-6" : "min-h-0 overflow-y-auto px-8 py-6"}>
       <div className="mx-auto max-w-2xl">
-        <div className="mb-4">
-          <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
-          <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
-        </div>
+        {/* Header lives on the tab itself when embedded (the proposal's 片段 tab
+            shows ONE header above the writing card + these cards). */}
+        {!embedded && (
+          <div className="mb-4">
+            <h2 className="font-sans text-[18px] font-bold text-mk-ink">片段</h2>
+            <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
+          </div>
+        )}
         {/* 写作部分 — the finished guided parts, each re-readable as its own card
             (part name → guidance + reference + your writing). Read-only once the
             project is finished. */}
