@@ -27,7 +27,7 @@ import { StudioCardSheet } from "../studio/StudioCardSheet";
 import { QuestionCardModal } from "../studio/QuestionCardModal";
 import { compileCardForCoach } from "../studio/compileCard";
 import { Icon as UiIcon, ArrowLeft } from "@/ui/Icon";
-import { Badge, Tooltip } from "@/ui/feedback";
+import { Badge } from "@/ui/feedback";
 import { SplitPane } from "@/ui/SplitPane";
 import { Icon } from "./Icon";
 import { RoomSwitcher } from "./RoomSwitcher";
@@ -349,6 +349,9 @@ export function WorkspaceContainer({
   // slice 3b · bumped after a 批注 review so the left ReferencePanel re-fetches
   // the proposal's layered colored 批注.
   const [annotationsVersion, setAnnotationsVersion] = useState(0);
+  // Bug 7 · bumped when a coach turn added a keyword to the 还需要探索的 box
+  // (reply.resourceNeedAdded) so NeedsResourcesBox re-fetches and shows it.
+  const [needsVersion, setNeedsVersion] = useState(0);
   // Live opened-project id for the rooms' cross-project append guard (see
   // StudioChatContext). Kept current every render so a late turn closure never
   // reads a stale value.
@@ -476,6 +479,8 @@ export function WorkspaceContainer({
         if (reply.compacted) {
           setStudioMessages((c) => [...c, { role: "ai", text: "", hint: "已整理较早的对话" }]);
         }
+        // Bug 7 · 印记 added a keyword to the 还需要探索的 box this turn — refetch it.
+        if (reply.resourceNeedAdded) setNeedsVersion((v) => v + 1);
         // Slice 2 · the framework-readiness reviewer's read (surfaced once, the
         // turn after the plan auto-generated). Rendered as a 印记 bubble — real
         // coaching, not a subagent hint.
@@ -1310,6 +1315,7 @@ export function WorkspaceContainer({
                     onInsert={(t) => draftInsertRef.current?.(t)}
                     canInsert={insertReady}
                     annotationsVersion={annotationsVersion}
+                    needsVersion={needsVersion}
                     showSnippets={writingTab === "draft"}
                     onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                     onJumpToAnchor={(a) => draftScrollRef.current?.(a)}
@@ -1434,13 +1440,18 @@ function TopBar({
   workspace: WorkspaceProjection | null;
   onBack: () => void;
 }) {
-  // Task 8: the title is frequently truncated by the top bar's fixed width,
-  // and the project title is content the student needs to actually read —
-  // not just a hint. Hover/focus reveals it via `Tooltip` (+ a native
-  // `title` attr baseline for a no-JS fallback); a tap/click toggles full
-  // wrap in place so touch users (no hover) can reach it too.
+  // Bug 4: the header prompt is content the student needs to read, not a hint.
+  // Once the research question (目标) is confirmed it REPLACES the raw essay
+  // prompt here — the question is what the project is now about. A tap/click
+  // wraps the full text IN PLACE (bounded by the header's own width, so it can
+  // never exceed the viewport the way an unbounded hover bubble did); the
+  // native `title` attr is a no-overflow hover fallback. No custom Tooltip:
+  // its `whitespace-nowrap`, unbounded bubble ran off-screen for long prompts.
   const [titleExpanded, setTitleExpanded] = useState(false);
-  const title = workspace?.title || "未命名项目";
+  const essayPrompt = workspace?.title || "未命名项目";
+  const researchQuestion = workspace?.proposal?.objective?.trim() || "";
+  const showingQuestion = researchQuestion !== "";
+  const headline = showingQuestion ? researchQuestion : essayPrompt;
   return (
     <header className={cx("flex shrink-0 items-center gap-4 border-b border-mk-border bg-mk-paper px-6 py-3")}>
       <button
@@ -1456,27 +1467,31 @@ function TopBar({
         主页
       </button>
       <div className="flex min-w-0 flex-1 items-center gap-2">
-        <Tooltip label={title} className="min-w-0">
-          <h1
-            role="button"
-            tabIndex={0}
-            aria-label="展开完整标题"
-            title={title}
-            onClick={() => setTitleExpanded((v) => !v)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.preventDefault();
-                setTitleExpanded((v) => !v);
-              }
-            }}
-            className={cx(
-              "cursor-pointer text-mk-h2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent",
-              titleExpanded ? "whitespace-normal break-words" : "truncate",
-            )}
-          >
-            {title}
-          </h1>
-        </Tooltip>
+        {showingQuestion && (
+          <span className="shrink-0 rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-mk-small font-semibold text-mk-accent">
+            研究问题
+          </span>
+        )}
+        <h1
+          role="button"
+          tabIndex={0}
+          aria-label={titleExpanded ? "收起完整标题" : "展开完整标题"}
+          aria-expanded={titleExpanded}
+          title={showingQuestion ? `研究问题：${headline}\n\n题目：${essayPrompt}` : headline}
+          onClick={() => setTitleExpanded((v) => !v)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault();
+              setTitleExpanded((v) => !v);
+            }
+          }}
+          className={cx(
+            "min-w-0 cursor-pointer text-mk-h2 focus-visible:outline-none focus-visible:ring-[3px] focus-visible:ring-mk-accent",
+            titleExpanded ? "whitespace-normal break-words" : "truncate",
+          )}
+        >
+          {headline}
+        </h1>
         <Badge tone="progress" className="shrink-0">
           {workspace?.qualification || "项目"}
         </Badge>

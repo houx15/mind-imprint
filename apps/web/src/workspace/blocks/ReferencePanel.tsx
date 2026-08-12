@@ -58,6 +58,7 @@ export function ReferencePanel({
   onInsert,
   canInsert,
   annotationsVersion,
+  needsVersion,
   showSnippets,
   onOpenReading,
   onJumpToAnchor,
@@ -80,6 +81,9 @@ export function ReferencePanel({
   /** slice 3b · bumped by the container after a 批注 review so the proposal
    * 批注 group re-fetches. */
   annotationsVersion?: number;
+  /** Bug 7 · bumped when the coach added a keyword to the 还需要探索的 box
+   * (note_resource_need) so NeedsResourcesBox re-fetches. */
+  needsVersion?: number;
   /** Surface the student's own 片段 (written parts) as a tab here — on ONLY while
    * they're on the 正文 tab, where seeing the parts is useful for assembling the
    * paper (user: "only when I write 正文 I need that"). */
@@ -181,7 +185,7 @@ export function ReferencePanel({
       <div className="mk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {/* slice 5 · the 还需要探索的 box is always available while writing (§101). */}
         <div className="mb-4">
-          <NeedsResourcesBox projectId={projectId} onExplore={onOpenReading} />
+          <NeedsResourcesBox projectId={projectId} onExplore={onOpenReading} reloadKey={needsVersion} />
         </div>
         {loading ? (
           <p className="text-mk-body text-mk-faint">加载中…</p>

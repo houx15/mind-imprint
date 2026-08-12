@@ -224,6 +224,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	reply.Card = effects.Card
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
+	reply.ResourceNeedAdded = effects.ResourceNeedAdded
 	reply.NextStep = next
 	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 
@@ -451,6 +452,9 @@ type orchestratorToolEffects struct {
 	ReviewRequested     bool
 	PlanGenerated       bool
 	FinishPartRequested bool
+	// ResourceNeedAdded — the coach's note_resource_need tool appended a keyword
+	// to the 还需要探索的 box this turn; the client refetches the box so it shows.
+	ResourceNeedAdded bool
 }
 
 // applyOrchestratorTools applies one orchestrator turn's emitted tool calls,
@@ -498,10 +502,10 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 					slog.Info("coach: dropped summon_card not valid for status",
 						"card", args.CardID, "status", status, "request_id", httpx.RequestIDFromContext(ctx))
 				} else if args.CardID == "question-card" && !a.questionCardAISummonable(ctx, projectID) {
-					// Trigger-authority gate (all-statuses.md §2 D): the 提问卡 is
-					// student-manual only while the 目标 is empty — the AI may not
-					// propose it there.
-					slog.Info("coach: dropped question-card summon (目标 empty → student-manual only)",
+					// Trigger-authority gate (all-statuses.md §2): the 提问卡 is a
+					// start-of-framework aid — once the research question is formed
+					// (目标 non-empty) it is no longer available, in chat or manually.
+					slog.Info("coach: dropped question-card summon (目标 formed → card retired)",
 						"request_id", httpx.RequestIDFromContext(ctx))
 				} else if a.cardEligibleForSummon(ctx, projectID, args.CardID) {
 					effects.Card = &cardProposalWireDTO{CardID: args.CardID, Reason: args.Reason, NudgeText: args.NudgeText}
@@ -547,6 +551,31 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 			// (advanceStudioFlow) turns it into the one-tap nextStep to the next
 			// status. Per-doc finish persistence is Phase B.
 			effects.FinishPartRequested = true
+		case "update_plan":
+			// 印记 manages the project plan on the student's behalf: mark a task
+			// done/doing/todo, add/edit/remove one. A deterministic system action
+			// on a system artifact (NOT the student's body text — 铁律 scope), so
+			// it applies directly; the client refetches the plan every turn.
+			if args, aerr := agent.UpdatePlanArgs(tc); aerr == nil {
+				if logMsg, ok := a.applyPlanUpdate(ctx, projectID, args); ok && logMsg != "" {
+					if lerr := a.appendAutoLog(ctx, a.d.Queries, projectID, logMsg); lerr != nil {
+						slog.Warn("update_plan: append auto-log failed", "err", lerr, "request_id", httpx.RequestIDFromContext(ctx))
+					}
+				}
+			}
+		case "note_resource_need":
+			// 印记 drops a keyword/lead into the 还需要探索的 box (§113). Low-stakes,
+			// reversible (the student can delete it) — applied directly, deduped.
+			if args, aerr := agent.NoteResourceNeedArgs(tc); aerr == nil {
+				text := strings.TrimSpace(args.Text)
+				if why := strings.TrimSpace(args.Why); why != "" {
+					text = text + "（" + why + "）"
+				}
+				if text != "" && !resourceNeedExists(state.ResourceNeeds, args.Text) {
+					state.ResourceNeeds = append(state.ResourceNeeds, agent.ResourceNeed{ID: uuid.NewString(), Text: text})
+					effects.ResourceNeedAdded = true
+				}
+			}
 		}
 	}
 	return state, effects
@@ -578,11 +607,13 @@ func stageOrder(s agent.StudioStage) int {
 // trusting the coach model to drive it via set_status/generate_plan. A fast
 // (reasoning-off) chaperone reliably proposes notes + narrates but is erratic at
 // those structured, MECHANICAL decisions — which don't need an LLM at all. This:
-//   (1) auto-generates the plan the moment all four required proposal dims are
-//       filled and none exists yet (same gate regeneratePlan enforces), and
-//   (2) advances stage + open room to at least the canonical minimum for the
-//       concrete state (started → proposal_forming; plan exists → plan_generation),
-//       never downgrading a project already further along (writing/review/回顾).
+//
+//	(1) auto-generates the plan the moment all four required proposal dims are
+//	    filled and none exists yet (same gate regeneratePlan enforces), and
+//	(2) advances stage + open room to at least the canonical minimum for the
+//	    concrete state (started → proposal_forming; plan exists → plan_generation),
+//	    never downgrading a project already further along (writing/review/回顾).
+//
 // The model may still ADVANCE beyond the minimum (into writing etc.) via
 // set_status — this only stops it sitting too early or skipping the plan.
 // Returns the reconciled state and whether it generated the plan this call.
@@ -974,6 +1005,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	reply.Card = effects.Card
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
+	reply.ResourceNeedAdded = effects.ResourceNeedAdded
 	reply.NextStep = next
 	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 
@@ -1134,6 +1166,7 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 	reply.Card = effects.Card
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
+	reply.ResourceNeedAdded = effects.ResourceNeedAdded
 	reply.NextStep = next
 	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 	reply.Narrate = narrate
@@ -1185,8 +1218,11 @@ type orchestratorReplyDTO struct {
 	ReviewRequested bool                 `json:"reviewRequested"`
 	PlanGenerated   bool                 `json:"planGenerated"`
 	Compacted       bool                 `json:"compacted"`
-	NextStep        *nextStepDTO         `json:"nextStep"`
-	ReviewVerdict   *reviewVerdictDTO    `json:"reviewVerdict"`
+	// ResourceNeedAdded — the coach added a keyword to the 还需要探索的 box this
+	// turn (note_resource_need); the client refetches the box. Optional on the wire.
+	ResourceNeedAdded bool              `json:"resourceNeedAdded,omitempty"`
+	NextStep          *nextStepDTO      `json:"nextStep"`
+	ReviewVerdict     *reviewVerdictDTO `json:"reviewVerdict"`
 	// LinkOffer — a phase-agnostic "you dropped a link, want to read it?" chip
 	// when the student's turn carries a new URL not yet in the library. nil when
 	// there's no new link (omitted-as-null on the wire).

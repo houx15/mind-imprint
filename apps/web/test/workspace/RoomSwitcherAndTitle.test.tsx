@@ -146,4 +146,27 @@ describe("WorkspaceContainer TopBar title", () => {
     await userEvent.click(titleEl);
     expect(titleEl.className).toContain("truncate");
   });
+
+  it("swaps the header to the confirmed research question (目标) once it is filled", async () => {
+    const RQ = "在多大程度上，城市树冠覆盖能降低高温相关死亡率？——以北美城市为例";
+    getWorkspace.mockImplementation(async (id: string) => ({
+      id,
+      title: LONG_TITLE,
+      qualification: "拓展论文 EE",
+      status: "working" as const,
+      proposal: { objective: RQ, reason: "", activities: "", resources: "", counterpoints: "" },
+      createdAt: "2026-08-01T00:00:00Z",
+      writingFinished: false,
+    }));
+    render(<WorkspaceContainer />);
+    await userEvent.click(screen.getByText("open p1"));
+
+    const titleEl = await screen.findByRole("button", { name: "展开完整标题" });
+    // The research question replaces the raw essay prompt as the headline.
+    expect(titleEl).toHaveTextContent(RQ);
+    expect(titleEl).not.toHaveTextContent(LONG_TITLE);
+    // A 研究问题 chip signals the swap; the essay prompt survives in the title attr.
+    expect(screen.getByText("研究问题")).toBeInTheDocument();
+    expect(titleEl.getAttribute("title")).toContain(LONG_TITLE);
+  });
 });

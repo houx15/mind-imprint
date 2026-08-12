@@ -71,7 +71,8 @@ export function QuestionCardModal({
     if (!obj || committing) return;
     setCommitting(true);
     try {
-      await deps.commit(projectId, obj);
+      // Send the whole conversation — it is the 提问卡's detailed content (§2).
+      await deps.commit(projectId, obj, messages);
       onCommitted(obj);
       onClose();
     } catch {

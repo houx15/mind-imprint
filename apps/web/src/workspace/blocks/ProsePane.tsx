@@ -23,7 +23,9 @@ export function ProsePane({
   doc?: WritingDocKind;
   locked?: boolean;
   placeholder?: string;
-  // slice 3b · select-to-send: pins the selected text into the coach thread.
+  // Bug 5b · select-to-quote: hands the selected text UP to be staged as an
+  // editable/cancelable quote above the shared composer (not sent immediately),
+  // so the student can add their own words or cancel before asking 印记.
   onSendToCoach?: (text: string) => void;
 }) {
   const [text, setText] = useState("");

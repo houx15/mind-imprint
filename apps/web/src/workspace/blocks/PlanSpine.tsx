@@ -29,6 +29,14 @@ export function derivePlanStages(items: PlanItem[]): { stages: string[]; current
     if (it.stage && !stages.includes(it.stage)) stages.push(it.stage);
   }
   if (stages.length === 0) return { stages, currentIndex: 0 };
+  // Order stages by where they actually sit on the timeline — each stage's
+  // earliest task start — so the spine reads 阶段一 › 阶段二 › 阶段三 by schedule
+  // and never echoes the server's lexical `stage` string order (阶段一/三/二).
+  // Mirrors the Gantt's own guard (PlanBlock GanttView). Ties keep first
+  // appearance (Array.sort is stable).
+  const stageStart = (s: string) =>
+    Math.min(...items.filter((it) => it.stage === s).map((it) => it.start));
+  stages.sort((a, b) => stageStart(a) - stageStart(b));
   // First stage with any unfinished item; else the last (all done).
   let currentIndex = stages.length - 1;
   for (let i = 0; i < stages.length; i++) {

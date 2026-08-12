@@ -74,6 +74,7 @@ var knownOrchestratorTools = map[string]bool{
 	"set_status": true, "open_tool": true, "curate_reference": true,
 	"propose_note": true, "summon_card": true, "request_review": true,
 	"generate_plan": true, "propose_question": true,
+	"update_plan": true, "note_resource_need": true,
 }
 
 // ParseOrchestratorOutput parses the model output, dropping unknown tools and
@@ -181,6 +182,28 @@ func validToolArgs(tc OrchestratorToolCall) bool {
 	case "propose_question":
 		a, err := ProposeQuestionArgs(tc)
 		return err == nil && a.Text != ""
+	case "update_plan":
+		a, err := UpdatePlanArgs(tc)
+		if err != nil || !validPlanOp(a.Op) {
+			return false
+		}
+		if a.Op == "add" {
+			return strings.TrimSpace(a.Title) != ""
+		}
+		// Every other op targets an existing item — by id or title match.
+		return strings.TrimSpace(a.ID) != "" || strings.TrimSpace(a.Match) != ""
+	case "note_resource_need":
+		a, err := NoteResourceNeedArgs(tc)
+		return err == nil && strings.TrimSpace(a.Text) != ""
+	}
+	return false
+}
+
+// validPlanOp reports whether op is one the update_plan tool supports.
+func validPlanOp(op string) bool {
+	switch op {
+	case "complete", "start", "reopen", "add", "edit", "remove":
+		return true
 	}
 	return false
 }
@@ -257,6 +280,19 @@ type SummonCardToolArgsT struct {
 type ProposeQuestionArgsT struct {
 	Text string `json:"text"`
 }
+type UpdatePlanArgsT struct {
+	Op    string `json:"op"`    // complete|start|reopen|add|edit|remove
+	ID    string `json:"id"`    // target plan item id (from the projection)
+	Match string `json:"match"` // …or a title fragment to find it by
+	Title string `json:"title"` // add/edit: the task title
+	Stage string `json:"stage"` // add/edit: 阶段一 · … label
+	Tag   string `json:"tag"`   // add/edit: read|write|review
+	Days  int32  `json:"days"`  // add/edit: duration in days
+}
+type NoteResourceNeedArgsT struct {
+	Text string `json:"text"` // the keyword / thing to explore
+	Why  string `json:"why"`  // optional one-line reason
+}
 
 func SetStatusArgs(tc OrchestratorToolCall) (SetStatusArgsT, error) {
 	var a SetStatusArgsT
@@ -307,6 +343,17 @@ func SummonCardToolArgs(tc OrchestratorToolCall) (SummonCardToolArgsT, error) {
 }
 func ProposeQuestionArgs(tc OrchestratorToolCall) (ProposeQuestionArgsT, error) {
 	var a ProposeQuestionArgsT
+	err := json.Unmarshal(tc.Args, &a)
+	return a, err
+}
+func UpdatePlanArgs(tc OrchestratorToolCall) (UpdatePlanArgsT, error) {
+	var a UpdatePlanArgsT
+	err := json.Unmarshal(tc.Args, &a)
+	a.Op = strings.TrimSpace(strings.ToLower(a.Op))
+	return a, err
+}
+func NoteResourceNeedArgs(tc OrchestratorToolCall) (NoteResourceNeedArgsT, error) {
+	var a NoteResourceNeedArgsT
 	err := json.Unmarshal(tc.Args, &a)
 	return a, err
 }

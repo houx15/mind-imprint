@@ -138,6 +138,126 @@ func toPlanItemDTO(row sqlc.PlanItem) planItemDTO {
 var validPlanTags = map[string]bool{"read": true, "write": true, "review": true}
 var validPlanColumns = map[string]bool{"todo": true, "doing": true, "done": true}
 
+// planItemToUpdateParams copies an existing row into an UpdatePlanItemParams so
+// callers can override just the fields they change (mirrors patchPlanItem's
+// read-modify-write).
+func planItemToUpdateParams(projectID uuid.UUID, it sqlc.PlanItem) sqlc.UpdatePlanItemParams {
+	return sqlc.UpdatePlanItemParams{
+		ID: it.ID, ProjectID: projectID, Title: it.Title, Tag: it.Tag, Col: it.Col,
+		Stage: it.Stage, RefMaterialID: it.RefMaterialID, StartDay: it.StartDay,
+		Days: it.Days, Position: it.Position,
+	}
+}
+
+// findPlanItem resolves an update_plan target: by exact id first (scoped to the
+// project), else the first item whose title contains `match` (case-insensitive).
+func (a *API) findPlanItem(ctx context.Context, projectID uuid.UUID, id, match string) (sqlc.PlanItem, bool) {
+	if id = strings.TrimSpace(id); id != "" {
+		if iid, err := uuid.Parse(id); err == nil {
+			if row, err := a.d.Queries.GetPlanItem(ctx, sqlc.GetPlanItemParams{ID: iid, ProjectID: projectID}); err == nil {
+				return row, true
+			}
+		}
+	}
+	if match = strings.TrimSpace(match); match != "" {
+		if rows, err := a.d.Queries.ListPlanItems(ctx, projectID); err == nil {
+			lm := strings.ToLower(match)
+			for _, r := range rows {
+				if strings.Contains(strings.ToLower(r.Title), lm) {
+					return r, true
+				}
+			}
+		}
+	}
+	return sqlc.PlanItem{}, false
+}
+
+// applyPlanUpdate executes one update_plan op (see agent.UpdatePlanArgsT) and
+// returns an auto-log line + ok. A missing target or a failed write is a silent
+// no-op (ok=false) — the coach's narration lands regardless, like generate_plan.
+func (a *API) applyPlanUpdate(ctx context.Context, projectID uuid.UUID, args agent.UpdatePlanArgsT) (string, bool) {
+	if args.Op == "add" {
+		title := strings.TrimSpace(args.Title)
+		if title == "" {
+			return "", false
+		}
+		tag := args.Tag
+		if !validPlanTags[tag] {
+			tag = "write"
+		}
+		stage := strings.TrimSpace(args.Stage)
+		if stage == "" {
+			stage = "阶段一 · 研究"
+		}
+		days := args.Days
+		if days < 1 {
+			days = 3
+		}
+		if _, err := a.d.Queries.CreatePlanItem(ctx, sqlc.CreatePlanItemParams{
+			ProjectID: projectID, Title: title, Tag: tag, Col: "todo", Stage: stage,
+			StartDay: 0, Days: days, Position: 0,
+		}); err != nil {
+			return "", false
+		}
+		return "印记新增计划任务：" + title, true
+	}
+
+	item, ok := a.findPlanItem(ctx, projectID, args.ID, args.Match)
+	if !ok {
+		return "", false
+	}
+	switch args.Op {
+	case "complete", "start", "reopen":
+		col := map[string]string{"complete": "done", "start": "doing", "reopen": "todo"}[args.Op]
+		next := planItemToUpdateParams(projectID, item)
+		next.Col = col
+		if _, err := a.d.Queries.UpdatePlanItem(ctx, next); err != nil {
+			return "", false
+		}
+		verb := map[string]string{"done": "完成", "doing": "进行中", "todo": "待办"}[col]
+		return "印记把「" + item.Title + "」标为" + verb, true
+	case "edit":
+		next := planItemToUpdateParams(projectID, item)
+		if t := strings.TrimSpace(args.Title); t != "" {
+			next.Title = t
+		}
+		if s := strings.TrimSpace(args.Stage); s != "" {
+			next.Stage = s
+		}
+		if validPlanTags[args.Tag] {
+			next.Tag = args.Tag
+		}
+		if args.Days >= 1 {
+			next.Days = args.Days
+		}
+		if _, err := a.d.Queries.UpdatePlanItem(ctx, next); err != nil {
+			return "", false
+		}
+		return "印记调整了计划任务：" + next.Title, true
+	case "remove":
+		if err := a.d.Queries.DeletePlanItem(ctx, sqlc.DeletePlanItemParams{ID: item.ID, ProjectID: projectID}); err != nil {
+			return "", false
+		}
+		return "印记移除了计划任务：" + item.Title, true
+	}
+	return "", false
+}
+
+// resourceNeedExists reports whether a keyword is already in the box (case-
+// insensitive substring), so note_resource_need never adds a duplicate.
+func resourceNeedExists(needs []agent.ResourceNeed, text string) bool {
+	t := strings.ToLower(strings.TrimSpace(text))
+	if t == "" {
+		return false
+	}
+	for _, n := range needs {
+		if strings.Contains(strings.ToLower(n.Text), t) {
+			return true
+		}
+	}
+	return false
+}
+
 // listPlan returns the project's plan items ordered (stage, position, start).
 func (a *API) listPlan(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)

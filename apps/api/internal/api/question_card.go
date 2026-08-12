@@ -21,7 +21,8 @@ import (
 // card-used event lands in the process tree.
 
 // questionCardAISummonable reports whether the coach may PROPOSE the 提问卡 for
-// this project — false while proposal.objective is empty (student-manual only).
+// this project — true ONLY while proposal.objective is empty (a start-of-
+// framework aid). Once the research question is formed the card is gone.
 func (a *API) questionCardAISummonable(ctx context.Context, projectID uuid.UUID) bool {
 	objectiveEmpty := true
 	if prop, err := a.d.Queries.GetProjectProposal(ctx, projectID); err == nil {
@@ -99,6 +100,13 @@ func (a *API) postQuestionCardCommit(w http.ResponseWriter, r *http.Request) {
 	}
 	var body struct {
 		Objective string `json:"objective"`
+		// The modal's whole conversation — the design (§2) treats the chat
+		// history AS the detailed content of the 提问卡, so we persist it in the
+		// process tree alongside the formed research question (过程即数据).
+		Messages []struct {
+			Role string `json:"role"`
+			Text string `json:"text"`
+		} `json:"messages"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
@@ -108,6 +116,13 @@ func (a *API) postQuestionCardCommit(w http.ResponseWriter, r *http.Request) {
 	if objective == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "研究问题不能为空", nil))
 		return
+	}
+	transcript := make([]map[string]string, 0, len(body.Messages))
+	for _, m := range body.Messages {
+		if strings.TrimSpace(m.Text) == "" {
+			continue
+		}
+		transcript = append(transcript, map[string]string{"role": m.Role, "text": m.Text})
 	}
 
 	// Preserve the other dims; only the objective is filled by the card (§2).
@@ -124,12 +139,12 @@ func (a *API) postQuestionCardCommit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Record the card usage so it lands in the process tree (a card-used marker;
-	// 3a keeps this lightweight — a full card_instance envelope can follow).
+	// Record the card usage so it lands in the process tree (a card-used marker).
+	// The chat history is the card's detailed content (§2) — stored as transcript.
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.AppendEvent(r.Context(), agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "card_completed",
-		Payload: mustJSON(map[string]any{"cardId": "question-card", "objective": objective}),
+		Payload: mustJSON(map[string]any{"cardId": "question-card", "objective": objective, "transcript": transcript}),
 	}); err != nil {
 		slog.Warn("question card: append card_completed event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}

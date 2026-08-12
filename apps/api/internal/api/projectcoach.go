@@ -328,6 +328,20 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 				}
 			}
 			fmt.Fprintf(&b, "计划：已生成 %d 项（待办 %d · 进行 %d · 完成 %d）——不要再提议「生成计划」，计划已经有了。\n", len(plan), todo, doing, done)
+			// List the items with their real [id] so update_plan can target one
+			// (mark done / edit / remove). Ids belong in tool args only, never in
+			// narrate. Compact — title + stage + current column.
+			b.WriteString("计划项（[id] 传给 update_plan 标记完成/修改，别在给学生的话里出现 id）：\n")
+			for _, p := range plan {
+				col := "待办"
+				switch p.Col {
+				case "doing":
+					col = "进行中"
+				case "done":
+					col = "已完成"
+				}
+				fmt.Fprintf(&b, "- [%s] %s · %s（%s）\n", p.ID.String(), strings.TrimSpace(p.Stage), strings.TrimSpace(p.Title), col)
+			}
 			if step, ok := nextPlanStep(plan); ok {
 				fmt.Fprintf(&b, "按计划下一步是：%s（属于「%s」，在「%s」房间做）。像 agent 一样带学生走：先在 narrate 里说清这一步、问他要不要现在开始，得到肯定后再 open_tool 打开「%s」并用 set_status 推进阶段；他若想先做别的就顺着他。别替他做，也别一次抛多步。\n",
 					step.title, step.stageLabel, step.roomLabel, step.tool)

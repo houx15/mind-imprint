@@ -39,7 +39,7 @@ type StatusDef struct {
 var knownStatusTools = map[string]bool{
 	"propose_note": true, "summon_card": true, "open_reading": true,
 	"finish_part": true, "request_review": true, "propose_question": true,
-	"curate_reference": true,
+	"curate_reference": true, "update_plan": true, "note_resource_need": true,
 }
 
 // IsKnownStatusTool reports whether name is a tool a status may list.
@@ -51,13 +51,15 @@ const studioIdentity = `你是「印记」，陪学生把研究项目做完的 a
 // Tool-contract lines reused across status prompts (kept identical to the old
 // mega-prompt's wording where they overlap, so behavior transfers).
 const (
-	toolProposeNote = `- propose_note: {"section":分区,"value":内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区用英文码之一，按内容严格归类：objective=研究问题本身/核心变量怎么测量；reason=为什么研究这个/动机/个人经历；activities=打算怎么做/步骤/方法/时间安排（「先读文献再做问卷最后写作、大概三周」是 activities，不是 objective）；resources=能用或需要的数据/文献/工具/渠道；counterpoints=可能的反例/混淆因素/张力。凡是你在 narrate 里说「我把这点记下了/记进提案了」，本轮就必须真的放出对应的 propose_note，别只说不做。`
+	toolProposeNote   = `- propose_note: {"section":分区,"value":内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区用英文码之一，按内容严格归类：objective=研究问题本身/核心变量怎么测量；reason=为什么研究这个/动机/个人经历；activities=打算怎么做/步骤/方法/时间安排（「先读文献再做问卷最后写作、大概三周」是 activities，不是 objective）；resources=能用或需要的数据/文献/工具/渠道；counterpoints=可能的反例/混淆因素/张力。凡是你在 narrate 里说「我把这点记下了/记进提案了」，本轮就必须真的放出对应的 propose_note，别只说不做。`
 	toolSummonCard    = `- summon_card: {"card_id":...,"reason":...,"nudge_text":...} —— 在对的时刻把一张思维工具卡塞回给学生自己填（你不替他填）。`
 	toolOpenReading   = `- open_reading: {"reason":...} —— 学生要读某个来源/需要查资料时，打开阅读室。`
 	toolFinishPart    = `- finish_part: {} —— 学生说这一部分写完了、想收尾时。`
 	toolRequestReview = `- request_review: {} —— 学生写完、该做整稿体检时。`
 	toolProposeQ      = `- propose_question: {"text":问题} —— 向学生提议一个值得追的研究问题（学生确认后才采纳；一次一个）。`
 	toolCurateRef     = `- curate_reference: {"items":[{"kind":"material|note|annotation","id":...,"label":...}]} —— 把学生此刻要用的来源/片段/批注摆到左侧；id 必须用投影里出现过的真实 [id]，绝不编造。`
+	toolUpdatePlan    = `- update_plan: {"op":"complete|start|reopen|add|edit|remove","id":计划项id,"match":标题关键词,"title":新标题,"stage":"阶段一 · …","tag":"read|write|review","days":天数} —— 帮学生管理项目计划：他说某件事做完了，就 op=complete 把对应任务标成完成（用投影「计划项」里的 [id]，认不准就用 match 传标题关键词）；op=start 标为进行中；要加/改/删任务用 add/edit/remove。这是确定性的系统动作、不是替他写正文，他在对话里让你改计划你就直接改；较大的重排先在 narrate 里跟他确认。`
+	toolNoteNeed      = `- note_resource_need: {"text":关键词或要查的东西,"why":一句话原因} —— 写作/讨论中你想到一个值得去查、去探索的关键词或资料，就把它记进「还需要探索的」清单，学生之后能一键去检索。一次记一个，别一次塞一堆。`
 )
 
 func mkPrompt(goal string, tools ...string) string {
@@ -82,24 +84,24 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 		},
 		FlowFramework: {
 			Goal:         "把研究计划的五件事聊清楚：目标、缘由、活动与时间、资源、可能的反例/张力。四项核心齐了、也谈过反例后系统会自动生成计划。",
-			SystemPrompt: mkPrompt("把研究计划的五件事聊清楚——目标、缘由、活动与时间、资源，以及可能的反例/张力（这条也要问到，别跳过——想想什么证据或情形可能挑战当前的想法）。针对学生刚说的那一维给一条具体反馈，再往还没谈到的一维带一步，一次只带一个。四项核心都有内容、且谈过反例之后，系统会自动生成计划；你不用提议生成，只需继续把内容聊扎实。", toolProposeNote, toolSummonCard),
-			Tools:        []string{"propose_note", "summon_card"},
+			SystemPrompt: mkPrompt("把研究计划的五件事聊清楚——目标、缘由、活动与时间、资源，以及可能的反例/张力（这条也要问到，别跳过——想想什么证据或情形可能挑战当前的想法）。针对学生刚说的那一维给一条具体反馈，再往还没谈到的一维带一步，一次只带一个。四项核心都有内容、且谈过反例之后，系统会自动生成计划；你不用提议生成，只需继续把内容聊扎实。计划一旦生成，你可以帮他管理（update_plan）、也可以把想查的关键词记进探索清单（note_resource_need）。", toolProposeNote, toolSummonCard, toolUpdatePlan, toolNoteNeed),
+			Tools:        []string{"propose_note", "summon_card", "update_plan", "note_resource_need"},
 			Cards:        []string{"question-card"},
 			Surface:      ToolForming,
 			Doc:          DocNone,
 		},
 		FlowProposal: {
 			Goal:         "陪学生把研究提案写成一段紧凑的文字（研究问题 + 文献范围 + 执行计划）。他自己写，你只陪想、查论证、点反例。",
-			SystemPrompt: mkPrompt("学生在写研究提案文档（研究问题+文献范围+执行计划，约一页）。他自己写正文，你绝不代写——只陪他想清楚、检查论证与结构、一次一问。他想读资料就 open_reading；写完想收尾就 finish_part；要整稿体检就 request_review。", toolOpenReading, toolCurateRef, toolRequestReview, toolFinishPart, toolSummonCard),
-			Tools:        []string{"open_reading", "curate_reference", "request_review", "finish_part", "summon_card"},
+			SystemPrompt: mkPrompt("学生在写研究提案文档（研究问题+文献范围+执行计划，约一页）。他自己写正文，你绝不代写——只陪他想清楚、检查论证与结构、一次一问。他想读资料就 open_reading；写完想收尾就 finish_part；要整稿体检就 request_review。他说计划里某步做完了、或想调整计划，就用 update_plan；想到值得查的关键词就 note_resource_need。", toolOpenReading, toolCurateRef, toolRequestReview, toolFinishPart, toolSummonCard, toolUpdatePlan, toolNoteNeed),
+			Tools:        []string{"open_reading", "curate_reference", "request_review", "finish_part", "summon_card", "update_plan", "note_resource_need"},
 			Cards:        nil, // doc §4: 提案无卡组；仍可召唤横切按需卡
 			Surface:      ToolWriting,
 			Doc:          DocProposal,
 		},
 		FlowEssay: {
 			Goal:         "陪学生写正文（大纲 → 片段 → 正文）。他自己写，你只陪想、查论证、撞反例、点结构。",
-			SystemPrompt: mkPrompt("学生在写论文正文（大纲/片段/正文）。他自己写正文，你绝不代写——陪他把论证一根根立起来、撞反例、检查结构，一次一问。缺资料就 open_reading；写完想收尾就 finish_part；要整稿体检就 request_review。", toolOpenReading, toolCurateRef, toolRequestReview, toolFinishPart, toolSummonCard),
-			Tools:        []string{"open_reading", "curate_reference", "request_review", "finish_part", "summon_card"},
+			SystemPrompt: mkPrompt("学生在写论文正文（大纲/片段/正文）。他自己写正文，你绝不代写——陪他把论证一根根立起来、撞反例、检查结构，一次一问。缺资料就 open_reading；写完想收尾就 finish_part；要整稿体检就 request_review。他说计划里某步做完了、或想调整计划，就用 update_plan；想到值得查的关键词就 note_resource_need。", toolOpenReading, toolCurateRef, toolRequestReview, toolFinishPart, toolSummonCard, toolUpdatePlan, toolNoteNeed),
+			Tools:        []string{"open_reading", "curate_reference", "request_review", "finish_part", "summon_card", "update_plan", "note_resource_need"},
 			Cards:        []string{"pee", "toulmin", "argument-map"},
 			Surface:      ToolWriting,
 			Doc:          DocEssay,
@@ -126,11 +128,12 @@ var CrossCuttingCardIDs = []string{
 }
 
 // QuestionCardAISummonable reports whether the coach (AI) may PROPOSE the 提问卡
-// (all-statuses.md §2 decision D): when the 目标 is empty it is student-manual
-// only (AI must not propose it); once the 目标 is filled (but perhaps vague) the
-// AI may propose it. This is the deterministic empty↔non-empty split; the
-// "vague" judgment stays with the fast coach.
-func QuestionCardAISummonable(objectiveEmpty bool) bool { return !objectiveEmpty }
+// (all-statuses.md §2): the card is a START-OF-FRAMEWORK aid, available ONLY
+// while the 目标 is empty (the student hasn't yet figured out what to research).
+// Once a research question is formed (目标 non-empty) the card is no longer
+// available — not manually (the button hides) and not in the AI chat (this
+// returns false). The deterministic empty→available / filled→gone split.
+func QuestionCardAISummonable(objectiveEmpty bool) bool { return objectiveEmpty }
 
 // IsSummonable reports whether the coach may summon cardID in the given status:
 // the status's own deck ∪ the cross-cutting pool. Reading-deck / reading-toolkit

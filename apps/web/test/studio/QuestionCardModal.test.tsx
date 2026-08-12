@@ -27,7 +27,13 @@ describe("QuestionCardModal", () => {
     const confirmBtn = await screen.findByText("就用这个");
     fireEvent.click(confirmBtn);
 
-    await waitFor(() => expect(commit).toHaveBeenCalledWith("p1", "在 X 条件下 Y 是否影响 Z"));
+    // The whole modal conversation rides along on commit (§2 — chat history is
+    // the 提问卡's content), so the third arg is the messages array.
+    await waitFor(() =>
+      expect(commit).toHaveBeenCalledWith("p1", "在 X 条件下 Y 是否影响 Z", expect.any(Array)),
+    );
+    const committedMessages = (commit.mock.calls[0] as unknown[])[2] as Array<{ role: string; text: string }>;
+    expect(committedMessages).toContainEqual({ role: "student", text: "我觉得……" });
     expect(onCommitted).toHaveBeenCalledWith("在 X 条件下 Y 是否影响 Z");
     expect(onClose).toHaveBeenCalled();
   });

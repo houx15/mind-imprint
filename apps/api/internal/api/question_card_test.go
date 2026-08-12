@@ -67,8 +67,9 @@ func TestQuestionCardCommit_FillsObjective(t *testing.T) {
 	}
 }
 
-// TestQuestionCard_SummonGatedByObjective — the coach may NOT summon the 提问卡
-// while 目标 is empty (student-manual only, §2 D); once 目标 is filled it may.
+// TestQuestionCard_SummonGatedByObjective — the 提问卡 is a start-of-framework
+// aid (§2): the coach MAY summon it while 目标 is empty; once the research
+// question is formed (目标 non-empty) the card is retired and summons are dropped.
 func TestQuestionCard_SummonGatedByObjective(t *testing.T) {
 	summon := `{"narrate":"要不要用提问卡帮你想想？","tools":[{"name":"summon_card","args":{"card_id":"question-card","reason":"目标太泛","nudge_text":"一起收窄"}}]}`
 	h, cookie, pool := orchestratorHandler(t, summon)
@@ -96,18 +97,18 @@ func TestQuestionCard_SummonGatedByObjective(t *testing.T) {
 		return &resp
 	}
 
-	// objective empty → summon dropped (student-manual only).
-	if got := call(); got.Card != nil {
-		t.Fatalf("with 目标 empty the coach must NOT summon question-card, got %+v", got.Card)
+	// objective empty → the coach may offer the card (start-of-framework aid).
+	if got := call(); got.Card == nil || got.Card.CardID != "question-card" {
+		t.Fatalf("with 目标 empty the coach should offer question-card, got %+v", got.Card)
 	}
 
-	// fill objective → the coach may now propose it.
+	// fill objective → the research question is formed → the card is retired.
 	if _, err := sqlc.New(pool).UpsertProjectProposal(context.Background(), sqlc.UpsertProjectProposalParams{
-		ProjectID: mustUUID(seedProjectID), Objective: "一个太泛的目标", Reason: "", Activities: "", Resources: "", Counterpoints: "",
+		ProjectID: mustUUID(seedProjectID), Objective: "一个已经形成的研究问题", Reason: "", Activities: "", Resources: "", Counterpoints: "",
 	}); err != nil {
 		t.Fatalf("seed objective: %v", err)
 	}
-	if got := call(); got.Card == nil || got.Card.CardID != "question-card" {
-		t.Fatalf("with 目标 filled the coach should offer question-card, got %+v", got.Card)
+	if got := call(); got.Card != nil {
+		t.Fatalf("with 目标 formed the coach must NOT summon question-card, got %+v", got.Card)
 	}
 }

@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/gateway"
@@ -41,9 +42,13 @@ type planGenItem struct {
 	Days  int32  `json:"days"`
 }
 
-const planGenSystem = `你是「印记」。学生刚把研究项目的「大框架」四件事讨论清楚（目标/缘由/活动与时间/资源）——这只是研究方向的框架，还不是正式提案。请据此拟一份可执行的完整项目计划，覆盖一个研究项目从提案到成稿的真实节奏：先写一份完整的研究提案，再读文献并溯源、找论点并收集支撑证据、搭提纲并构建论证结构、写正文，最后整稿体检与复盘。5 到 9 个任务，落在大约 21 天的时间线上。
+const planGenSystem = `你是「印记」。学生刚把研究项目的「大框架」讨论清楚（目标/缘由/活动与时间/资源/可能的反例）——这是研究方向的框架，还不是正式提案。请据此拟一份可执行的完整项目计划。
+
+【最重要】以学生自己在「活动与时间」里、以及【开题讨论】里描述的步骤、顺序和节奏为主干：如果他讲清了打算怎么做、先做什么后做什么、大概花多久，就严格按他的设计把它落成一条条任务，尊重他的安排和用词，绝不要用通用模板盖过他确认过的设计。只有当他确实没提到某个研究项目必要的环节（写研究提案、溯源关键文献、找论点并收集证据、搭提纲与论证结构、写正文、整稿体检与复盘）时，才用一个研究项目从提案到成稿的通用节奏把缺的补齐。任务的措辞要贴合他这个具体课题，而不是泛泛而谈。
+时间线落在大约学生说的时间跨度上（他没说就按约 21 天）；5 到 9 个任务。
+
 只输出一个 JSON 数组，每个元素形如 {"title":"...","tag":"read|write|review","stage":"...","start":<第几天,整数>,"days":<持续天数,整数>}。
-要求：必须包含一个「写研究提案」类任务（tag=write，尽量排在最前）；title 用中文、具体可动手；tag 只能是 read/write/review 三者之一，且三类都要有；stage 用「阶段一 · 提案」「阶段二 · 研究」「阶段三 · 写作」这样的中文分段；start 从 0 起、按时间递增，days ≥ 1。不要输出数组以外的任何文字、解释或代码块标记。`
+要求：必须包含一个「写研究提案」类任务（tag=write，尽量排在最前）；title 用中文、具体可动手、贴合这个课题；tag 只能是 read/write/review 三者之一，且三类都要有；stage 用「阶段一 · 提案」「阶段二 · 研究」「阶段三 · 写作」这样的中文分段；start 从 0 起、按时间递增，days ≥ 1。不要输出数组以外的任何文字、解释或代码块标记。`
 
 // postPlanGenerate reads the proposal, refuses an empty kick-off (422
 // proposal_empty), then one-shot-generates + persists the plan. Spend endpoint:
@@ -175,9 +180,23 @@ func (a *API) generatePlanItems(ctx context.Context, projectID uuid.UUID, prop s
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
 	var b strings.Builder
-	fmt.Fprintf(&b, "目标：%s\n缘由：%s\n活动与时间：%s\n资源：%s\n",
+	// The essay prompt/title anchors the plan to THIS course's task.
+	if p, perr := a.d.Queries.GetProject(ctx, projectID); perr == nil && strings.TrimSpace(p.Title) != "" {
+		fmt.Fprintf(&b, "题目：%s\n\n", strings.TrimSpace(p.Title))
+	}
+	// All FIVE confirmed framework dims — including 可能的反例, which the plan must
+	// leave room to test, and which was previously dropped from this prompt.
+	fmt.Fprintf(&b, "【框架要点（学生确认过的）】\n目标：%s\n缘由：%s\n活动与时间：%s\n资源：%s\n可能的反例：%s\n",
 		strings.TrimSpace(prop.Objective), strings.TrimSpace(prop.Reason),
-		strings.TrimSpace(prop.Activities), strings.TrimSpace(prop.Resources))
+		strings.TrimSpace(prop.Activities), strings.TrimSpace(prop.Resources),
+		strings.TrimSpace(prop.Counterpoints))
+	// The detailed shaping dialogue: the student often describes their plan in
+	// far more detail than the compressed 活动与时间 one-liner captures. Feed the
+	// (bounded) discussion so the plan follows the design they actually talked
+	// through, not just the distilled note.
+	if disc := a.frameworkDiscussion(ctx, projectID); disc != "" {
+		fmt.Fprintf(&b, "\n【开题讨论（学生和印记怎么聊这个计划的，节选）】\n%s\n", disc)
+	}
 
 	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
@@ -207,6 +226,49 @@ func (a *API) generatePlanItems(ctx context.Context, projectID uuid.UUID, prop s
 		return defaultPlanItems()
 	}
 	return items
+}
+
+// frameworkDiscussion returns a bounded transcript of the student↔印记 shaping
+// dialogue (the active coach thread right before plan generation) so the plan-
+// gen prompt can follow the design the student actually talked through, not
+// just the distilled 活动与时间 note. Chronological, capped to the most recent
+// turns and a rune budget; "" when there's nothing to show.
+func (a *API) frameworkDiscussion(ctx context.Context, projectID uuid.UUID) string {
+	rows, err := a.d.Queries.ListActiveChatMessagesByProject(ctx, pgtype.UUID{Bytes: projectID, Valid: true})
+	if err != nil || len(rows) == 0 {
+		return ""
+	}
+	const maxTurns = 24
+	if len(rows) > maxTurns {
+		rows = rows[len(rows)-maxTurns:]
+	}
+	var b strings.Builder
+	const maxRunes = 4500
+	used := 0
+	for _, m := range rows {
+		content := strings.TrimSpace(m.Content)
+		if content == "" {
+			continue
+		}
+		who := "学生"
+		switch m.Role {
+		case "assistant":
+			who = "印记"
+		case "user":
+			who = "学生"
+		default:
+			continue // skip system/tool rows
+		}
+		line := who + "：" + content
+		rc := len([]rune(line))
+		if used+rc > maxRunes {
+			break
+		}
+		b.WriteString(line)
+		b.WriteByte('\n')
+		used += rc
+	}
+	return strings.TrimSpace(b.String())
 }
 
 // parsePlanItems defensively decodes the model's JSON array: strip code fences,

@@ -16,10 +16,14 @@ let localSeq = 0;
 export function NeedsResourcesBox({
   projectId,
   onExplore,
+  reloadKey,
 }: {
   projectId: string;
   // Jump to the reading room to explore. Optional `note` carries the item text.
   onExplore?: (note?: string) => void;
+  // Bug 7 · bumped by the container when the coach added a keyword via
+  // note_resource_need, so the box re-fetches to show it.
+  reloadKey?: number;
 }) {
   const [needs, setNeeds] = useState<ResourceNeed[]>([]);
   const [draft, setDraft] = useState("");
@@ -42,7 +46,7 @@ export function NeedsResourcesBox({
       cancelled = true;
       if (saveTimer.current) clearTimeout(saveTimer.current);
     };
-  }, [projectId]);
+  }, [projectId, reloadKey]);
 
   function commit(next: ResourceNeed[]) {
     ref.current = next;
