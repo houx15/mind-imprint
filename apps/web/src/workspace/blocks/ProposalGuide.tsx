@@ -7,10 +7,6 @@ import { useStudioChat } from "@/studio/ai/StudioChatContext";
 import { ReviewingHint } from "@/ui";
 import { GuidedWritingCard } from "./GuidedWritingCard";
 import { PartsOverview, type OverviewPart } from "./PartsOverview";
-import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
-import { ProsePane } from "./ProsePane";
-import { guidedSectionLabel } from "./sectionLabels";
-import { scheduleCardRevision } from "../../api/revision";
 import { useCardTags } from "./useCardTags";
 import { useSnippets } from "./WritingBlock";
 import { assembleGuidedDoc, partSectionKey } from "./docSections";
@@ -325,25 +321,6 @@ export function ProposalGuidePane({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [track.step, snip.snippets]);
 
-  // #82 · the finished proposal parts as folded, re-readable cards (title-only,
-  // expand to read the student's own words). This is "where my finished cards
-  // live" for the proposal — the 片段 equivalent of the essay's snippet board.
-  const filledParts: FilledCard[] = useMemo(() => {
-    const s = track.step;
-    if (!s) return [];
-    const textByKey = new Map(
-      snip.snippets.filter((x) => x.section?.startsWith("prop:")).map((x) => [x.section!.slice(5), x.text.trim()]),
-    );
-    return (s.steps ?? [])
-      .filter((st) => st.kind !== "subq-define")
-      // Proposal step keys are bare ("thesis", "subq:<id>"); the snippet section
-      // is prop:<key>, which is what the label map keys off — so a sub-question
-      // card's fold header reads 「子问题 2：…」, not a bare 「子问题 2」.
-      .map((st) => ({ key: st.key, title: guidedSectionLabel(partSectionKey(st.key), s.subQuestions) ?? st.title, text: textByKey.get(st.key) ?? "", guidance: st.card?.prompt, example: st.card?.example }))
-      .filter((p) => p.text !== "");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [track.step, snip.snippets]);
-
   useEffect(() => {
     let cancelled = false;
     void getDraft(projectId, "proposal")
@@ -385,7 +362,6 @@ export function ProposalGuidePane({
   useEffect(() => () => setChatAction?.(null), [setChatAction]);
 
   const step = track.step;
-  const isGuided = step?.mode === "guided" && step.started;
 
   // slice 4b retrofit · the current part's text is a snippet (section
   // "prop:<key>"); the ordered parts are assembled into the proposal buffer so
@@ -417,18 +393,6 @@ export function ProposalGuidePane({
     // via a mutable id ref, which could still point at the PREVIOUS part after a
     // fast advance and clobber its slot (root cause of the wrong-slot bug).
     snip.upsertSection(partSectionKey(stepKey), v);
-    if (assembleTimer.current) clearTimeout(assembleTimer.current);
-    assembleTimer.current = setTimeout(assembleToBuffer, 1000);
-  }
-
-  // Edit a FINISHED part in place from the folded re-read board (finished ≠
-  // locked). Writes by section against the live snapshot; if the edited part is
-  // also the one open in the active card, keep its textarea in sync so the two
-  // views never diverge. Same debounced assemble as onPartChange.
-  function editFilledPart(key: string, text: string) {
-    snip.upsertSection(partSectionKey(key), text);
-    if (key === stepKey) setPartText(text);
-    scheduleCardRevision(projectId); // a finished-card edit is revision history
     if (assembleTimer.current) clearTimeout(assembleTimer.current);
     assembleTimer.current = setTimeout(assembleToBuffer, 1000);
   }
@@ -491,23 +455,6 @@ export function ProposalGuidePane({
             if (idx >= 0) void track.jump(idx);
           }}
         />
-      )}
-      {/* #82 · finished parts, folded — the student can re-read every card she's
-          written without leaving the current step. Hidden on the 通读与润色 step,
-          which already shows the whole assembled 成稿 below. */}
-      {!locked && isGuided && step?.key !== "polish" && filledParts.length > 0 && (
-        <div className="mt-3 flex-none px-1">
-          <FilledCardsFold cards={filledParts} onEdit={editFilledPart} />
-        </div>
-      )}
-      {/* Free mode writes the whole proposal in the ProsePane; guided mode writes
-          per-part in the cards above (§4). The final 通读与润色 step — and a FINISHED
-          proposal (locked) — show the whole assembled proposal here to read /
-          polish / re-read (this pane is the proposal's 正文 tab). */}
-      {(!isGuided || step?.key === "polish" || locked) && (
-        <div className="min-h-0 flex-1">
-          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
-        </div>
       )}
     </div>
   );

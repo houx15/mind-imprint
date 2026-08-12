@@ -27,6 +27,7 @@ import { scheduleCardRevision } from "../../api/revision";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
+import { ProsePane } from "./ProsePane";
 import { EssayStatementPane } from "./EssayStatementGuide";
 import { EssaySubmissionPane } from "./EssaySubmissionGuide";
 import { getProposalAnnotations, reviewProposalAnnotations } from "../../api/proposalAnnotations";
@@ -219,7 +220,7 @@ export function WritingBlock({
   // Phase B · finishing a document advances the studio status deterministically
   // (proposal → essay; essay → review). One student tap (the 完成 button IS the
   // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
-  const { advanceStatusTo } = useStudioChat();
+  const { advanceStatusTo, sendStudioTurn } = useStudioChat();
   const isProposal = doc === "proposal";
   // archived = the terminal finalize path has begun (can't reopen writing then).
   const archived = status === "evaluating" || status === "done";
@@ -360,11 +361,8 @@ export function WritingBlock({
         <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
       </div>
 
-      {/* The ESSAY's guided statement/submission walk sits above the tabs' content
-          (gated !locked): height-capped + scrollable on the 正文 tab (it must not
-          eat the draft box), natural height on 大纲/片段. The PROPOSAL's guided walk
-          is NOT a banner — for the proposal the walk IS the writing (not a guide
-          alongside a separate draft), so it lives in the 正文 tab itself (below). */}
+      {/* The ESSAY's guided statement/submission walk sits above the tabs on ALL
+          tabs (gated !locked): height-capped on the 正文 tab, natural on 大纲/片段. */}
       {!isProposal && !locked && (essayStage === "statement" || essayStage === "submission") && (
         <div className={tab === "draft" ? "max-h-[32vh] shrink-0 overflow-y-auto" : "shrink-0"}>
           {essayStage === "statement" ? (
@@ -379,16 +377,25 @@ export function WritingBlock({
         </div>
       )}
 
+      {/* The PROPOSAL's guided walk (the current part's writing card) shows ONLY on
+          the 正文 tab, height-capped + scrollable above the assembled prose — so
+          it's a compact writing guide, not a wall that buries the tab content. The
+          finished parts live in 片段; 大纲/正文 stay clean single-purpose views. */}
+      {isProposal && !locked && tab === "draft" && (
+        <div className="max-h-[40vh] shrink-0 overflow-y-auto border-b border-mk-border">
+          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+        </div>
+      )}
+
       <div className="relative flex min-h-0 flex-1 flex-col">
         {tab === "outline" ? (
           <OutlinePane projectId={projectId} title={title} />
         ) : tab === "snippets" ? (
           <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
         ) : isProposal ? (
-          // 正文 tab · the proposal's writing surface: the guided walk while it's
-          // in progress (its polish step + a finished proposal show the assembled
-          // prose), so 大纲/片段 stay clean single-purpose views.
-          <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+          // 正文 tab · the proposal's assembled prose (the paper). The guided walk
+          // sits above as a capped banner while writing; here is the prose itself.
+          <ProsePane projectId={projectId} doc="proposal" locked={locked} onSendToCoach={(t) => void sendStudioTurn(t)} />
         ) : (
           <DraftPane
             projectId={projectId}
