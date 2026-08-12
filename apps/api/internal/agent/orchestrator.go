@@ -4,10 +4,25 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"regexp"
 	"strings"
 
 	"mindimprint/api/internal/gateway"
 )
+
+// narrateIDLeak matches a workspace id (UUID) that the model sometimes copies
+// from the projection ("…你的暂定论点片段[<uuid>]…") straight into user-facing
+// narrate. Ids belong in tool-call args, never in prose shown to the student.
+// Any surrounding brackets and one leading space are eaten so "片段[<uuid>]，"
+// collapses cleanly to "片段，".
+var narrateIDLeak = regexp.MustCompile(`[ \t]*\[?[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}\]?[ \t]*`)
+
+// SanitizeNarrate strips leaked workspace ids from a narrate string before it
+// reaches the student (defence-in-depth alongside the prompt rule that forbids
+// ids in narrate). Idempotent; leaves id-free narrate untouched.
+func SanitizeNarrate(s string) string {
+	return narrateIDLeak.ReplaceAllString(s, "")
+}
 
 // orchestratorSystemPrompt is the ONE posture for 印记-as-orchestrator. It
 // replaces the five scattered decision producers. 印记 runs the project like a
@@ -32,7 +47,7 @@ narrate 全程用中文写（哪怕学生用英文跟你说、哪怕他的成品
 - generate_plan: {} —— 四项必填提案要点都齐了、该把计划落出来时，由你生成项目计划（不再有按钮）。计划一旦生成（投影里会显示「计划：已生成 N 项」），就绝不再提议或重复生成，改为带学生走计划里的下一步。要重排已有计划前，先在 narrate 里征得学生同意。
 - propose_question: {"text": 问题} —— 在阅读/探索时，向学生提议一个值得追的研究问题（学生确认后才加入探索图谱；一次一个）。
 
-原则：一次只问一个问题（narrate 里不要连问）；只有当四项必填提案要点(objective/reason/activities/resources)都有内容后，才 set_status 到 plan_generation 或更后；proposal_forming 阶段用 open_tool 打开 forming(提案)，生成计划后打开 plan(管理)；不确定就少配工具、多陪聊。curate_reference 只能引用投影里出现过的 [id]，服务端会丢弃编造的 id；写提案阶段侧重提案要点相关来源，写正文阶段侧重当下在用的来源/片段，不强求提案要点齐全。叙述规则：每当你配置了工作台（开了房间 / 摆了参考 / 生成了计划），narrate 里先用一句话说清「我给你配了什么」，再问下一步唯一的一个问题——像「写作面板给你开好了，左边把你读过的材料都列出来了。先跟我说说你打算怎么开头？」。一次只问一个，不连问，不替学生定论。只输出那个 JSON，不要多余文字。`
+原则：一次只问一个问题（narrate 里不要连问）；只有当四项必填提案要点(objective/reason/activities/resources)都有内容后，才 set_status 到 plan_generation 或更后；proposal_forming 阶段用 open_tool 打开 forming(提案)，生成计划后打开 plan(管理)；不确定就少配工具、多陪聊。curate_reference 只能引用投影里出现过的 [id]，服务端会丢弃编造的 id；写提案阶段侧重提案要点相关来源，写正文阶段侧重当下在用的来源/片段，不强求提案要点齐全。【铁则】投影里的 [id]/UUID 只能进工具参数，narrate（给学生看的话）里绝不出现任何 id 或方括号编号——指代片段/材料就用自然语言（如「你左边那条暂定论点」），不要写 [xxxxxxxx-…]。叙述规则：每当你配置了工作台（开了房间 / 摆了参考 / 生成了计划），narrate 里先用一句话说清「我给你配了什么」，再问下一步唯一的一个问题——像「写作面板给你开好了，左边把你读过的材料都列出来了。先跟我说说你打算怎么开头？」。一次只问一个，不连问，不替学生定论。只输出那个 JSON，不要多余文字。`
 
 // OrchestratorToolCall is one raw tool call the model emitted; Args stays raw
 // until a typed accessor validates it.

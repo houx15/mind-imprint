@@ -177,6 +177,10 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		}
 		narrate = coachFallbackReply
 	}
+	// Strip any workspace id the model copied into prose (belongs in tool args,
+	// never shown to the student). Done here so the persisted thread copy AND the
+	// reply are both clean.
+	narrate = agent.SanitizeNarrate(narrate)
 
 	// Apply the emitted tools in order onto the loaded state — shared with
 	// postCoachStart so the two paths can never drift on how a tool call
@@ -378,6 +382,7 @@ func (a *API) postCoachSubagentTurn(w http.ResponseWriter, r *http.Request, reso
 		}
 		narrate = coachFallbackReply
 	}
+	narrate = agent.SanitizeNarrate(narrate)
 
 	// Persist the assistant narration to the same sub-agent surface. Best-effort.
 	if err := store.AppendProjectCoachMessage(ctx, projectID, "assistant", narrate, scope, stage); err != nil {
@@ -817,6 +822,7 @@ func (a *API) postCoachOpening(w http.ResponseWriter, r *http.Request) {
 		}
 		narrate = openingFallback
 	}
+	narrate = agent.SanitizeNarrate(narrate)
 
 	// Force the landing directive: chat-only, not started — the student has
 	// not confirmed she's ready yet (postCoachStart is the explicit gate).
@@ -936,6 +942,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 		}
 		narrate = coachFallbackReply
 	}
+	narrate = agent.SanitizeNarrate(narrate)
 
 	// Apply the emitted tools — state.Started is untouched by every case in
 	// applyOrchestratorTools, so it survives exactly as set above; open_tool
@@ -1115,6 +1122,7 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 	if cerr != nil || narrate == "" {
 		narrate = coachFallbackReply
 	}
+	narrate = agent.SanitizeNarrate(narrate)
 	var effects orchestratorToolEffects
 	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
 	state, next, autoPlan := a.advanceStudioFlow(r.Context(), projectID, state, effects)
@@ -1385,10 +1393,14 @@ func (a *API) getCoachHistory(w http.ResponseWriter, r *http.Request) {
 	for i := len(rows) - 1; i >= 0; i-- {
 		m := rows[i]
 		role := "student"
+		text := m.Content
 		if m.Role == "assistant" {
 			role = "ai"
+			// Clean already-persisted id leaks on read (older messages predate the
+			// write-side sanitizer); the student's own text is never touched.
+			text = agent.SanitizeNarrate(text)
 		}
-		msgs = append(msgs, coachHistoryMsg{Role: role, Text: m.Content, Card: cardRefFromAttachments(m.Attachments)})
+		msgs = append(msgs, coachHistoryMsg{Role: role, Text: text, Card: cardRefFromAttachments(m.Attachments)})
 	}
 
 	var recap *string
