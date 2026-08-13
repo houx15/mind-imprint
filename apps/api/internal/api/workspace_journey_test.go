@@ -25,6 +25,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -255,37 +256,52 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 	}
 	waitProjectStatus(t, pool, pid, "finished")
 
-	rec = doJSON(t, hCore, cookie, "GET", base+"/assessment", "")
+	// Finish now generates and stores the NEW EvaluationReport (evaluation_report
+	// table) as its terminal artifact — the OLD dual-axis /assessment endpoint
+	// reads the retired evaluations table and correctly returns null post-finish.
+	rec = doJSON(t, hCore, cookie, "GET", base+"/evaluation-report", "")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET assessment = %d: %s", rec.Code, rec.Body)
+		t.Fatalf("GET evaluation-report = %d: %s", rec.Code, rec.Body)
 	}
 	if strings.TrimSpace(rec.Body.String()) == "null" {
-		t.Fatalf("assessment is null after finish; want a report")
+		t.Fatalf("evaluation-report is null after finish; want a report")
 	}
-	var report struct {
-		GeneratedAt string `json:"generatedAt"`
+	var report evalreport.Report
+	if err := json.Unmarshal(rec.Body.Bytes(), &report); err != nil {
+		t.Fatalf("decode evaluation report: %v — body=%s", err, rec.Body)
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &report)
+	if report.ProjectID != pid {
+		t.Fatalf("evaluation-report.projectId = %q, want %q", report.ProjectID, pid)
+	}
+	if len(report.Depth) != 6 {
+		t.Fatalf("evaluation-report.depth len = %d, want 6", len(report.Depth))
+	}
+	if len(report.Materials) == 0 {
+		t.Fatalf("evaluation-report.materials is empty: %s", rec.Body)
+	}
 	if report.GeneratedAt == "" {
-		t.Fatalf("assessment report missing generatedAt: %s", rec.Body)
+		t.Fatalf("evaluation-report missing generatedAt: %s", rec.Body)
 	}
 
-	rec = doJSON(t, hCore, cookie, "GET", "/api/v1/growth/history", "")
-	var history struct {
+	// growth/history reads the OLD dual-axis `evaluations` table, which finish
+	// no longer writes for the project surface (superseded by evaluation_report)
+	// — so the finished project's new terminal artifact is discoverable via the
+	// evaluation-reports timeline instead.
+	rec = doJSON(t, hCore, cookie, "GET", "/api/v1/evaluation-reports", "")
+	var reportsList struct {
 		Entries []struct {
-			Surface string `json:"surface"`
-			ScopeID string `json:"scopeId"`
+			ProjectID string `json:"projectId"`
 		} `json:"entries"`
 	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &history)
+	_ = json.Unmarshal(rec.Body.Bytes(), &reportsList)
 	var inHistory bool
-	for _, e := range history.Entries {
-		if e.Surface == "project" && e.ScopeID == pid {
+	for _, e := range reportsList.Entries {
+		if e.ProjectID == pid {
 			inHistory = true
 		}
 	}
 	if !inHistory {
-		t.Fatalf("growth/history missing the finished project %s: %+v", pid, history.Entries)
+		t.Fatalf("evaluation-reports timeline missing the finished project %s: %+v", pid, reportsList.Entries)
 	}
 
 	// -- 8. Mirror composes then first-open-wins (no second spend) -----------
