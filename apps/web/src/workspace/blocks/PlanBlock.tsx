@@ -728,9 +728,12 @@ function GanttView({ board, anchor, timelineDays, onReschedule, onResize, onAddT
   // #14: today's day-index from the anchor drives the today-line. When it
   // falls outside [0, timelineDays) no column matches, so nothing highlights.
   const todayIdx = dayIndexFromAnchor(anchor, new Date());
-  // Keep each day column readable (~40px) so a long plan scrolls horizontally
-  // instead of squeezing 8 weeks into one screen.
-  const minWidth = Math.max(820, timelineDays * 40);
+  // Keep each day column readable: a hard 40px-per-day FLOOR via `minmax(40px,
+  // 1fr)` on the day grids makes the timeline intrinsically wide, so a long plan
+  // scrolls horizontally (the `overflow-auto` container) instead of squeezing
+  // months into one screen. The wrapper minWidth matches (240px 任务 label +
+  // 40px×days), floored so a tiny plan still fills a reasonable width.
+  const minWidth = Math.max(820, 240 + timelineDays * 40);
   // Render every stage present on the board (a generated plan may use stage
   // names beyond the two canonical ones), ordered by where the stage actually
   // sits on the timeline — its earliest task start — so 阶段二 never renders
@@ -748,7 +751,7 @@ function GanttView({ board, anchor, timelineDays, onReschedule, onResize, onAddT
             任务
             <span className="text-[12px] font-medium text-mk-faint/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
           </div>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${timelineDays}, 1fr)` }}>
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${timelineDays}, minmax(40px, 1fr))` }}>
             {days.map((d) => {
               const date = addDays(anchor, d);
               const dow = date.getDay();
@@ -784,7 +787,7 @@ function GanttView({ board, anchor, timelineDays, onReschedule, onResize, onAddT
                     </button>
                   </div>
                   <div data-track className="relative h-11">
-                    <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${timelineDays}, 1fr)` }}>
+                    <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${timelineDays}, minmax(40px, 1fr))` }}>
                       {days.map((d) => {
                         const dow = addDays(anchor, d).getDay();
                         const isWeekend = dow === 0 || dow === 6;

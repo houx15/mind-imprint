@@ -1035,12 +1035,29 @@ export function ExplorationView({
           {roots.length === 0 ? (
             // Task 8 (P2b) · neutral — 印记 proposes questions in the chat now
             // (no imperative to type one herself; 铁律①: she still confirms).
-            <div className="flex h-full items-center justify-center">
+            // When there are NO question lines yet but the student already has
+            // sources (added by hand / from search), don't strand them: the map
+            // is empty of questions, but a 未归类 entry must still be reachable
+            // here (WarrenMap — which owns that entry — isn't rendered at 0 roots).
+            <div className="flex h-full flex-col items-center justify-center gap-4">
               <EmptyState
                 illustration="warren"
-                title="这里还是空的"
-                body="聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
+                title={unfiled.length > 0 ? "还没有问题线，先把来源理一理" : "这里还是空的"}
+                body={
+                  unfiled.length > 0
+                    ? "印记会在合适的时候把问题提出来，你确认后就会长成一张图。你已经收了一些来源——先看看它们，挂到对应的问题下。"
+                    : "聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
+                }
               />
+              {unfiled.length > 0 && (
+                <button
+                  type="button"
+                  onClick={() => goZoom({ mode: "unfiled", focusRootId: null })}
+                  className="rounded-mk-md border border-mk-accent bg-mk-accent-50 px-4 py-2 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-100"
+                >
+                  查看 {unfiled.length} 篇未归类的来源 →
+                </button>
+              )}
             </div>
           ) : (
             <WarrenMap

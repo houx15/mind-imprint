@@ -782,6 +782,13 @@ function FolderGlyph() {
 
 /* ---------- center · reference table ---------- */
 
+// The library table's columns. The 标题 column has a hard 280px FLOOR (minmax)
+// so it never gets crushed to half a word — when the panel is too narrow to
+// fit that + the other columns, the body scrolls horizontally (overflow-auto)
+// instead of squeezing the title. Inline style (not a Tailwind arbitrary class)
+// so the minmax() comma is never mangled by the comma-as-separator convention.
+const LIB_GRID_COLS = "32px minmax(280px,1fr) 140px 64px 88px";
+
 function RefTable(props: {
   rows: Reference[];
   selId: string;
@@ -830,7 +837,7 @@ function RefTable(props: {
       <div className="min-h-0 flex-1 overflow-auto">
         <div className="min-w-[640px]">
           {/* column header — sticky so it stays put while the list scrolls */}
-          <div className="sticky top-0 z-10 grid grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border bg-mk-surface px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-mk-faint">
+          <div className="sticky top-0 z-10 grid items-center gap-2 border-b border-mk-border bg-mk-surface px-5 py-2 text-[12px] font-bold uppercase tracking-wider text-mk-faint" style={{ gridTemplateColumns: LIB_GRID_COLS }}>
             <span />
             <span>标题</span>
             <span>来源 · 日期</span>
@@ -904,7 +911,8 @@ function Row({ r, active, checked, onSelect, onCheck, onSetPhase, onSetStatus }:
     <div
       draggable
       onDragStart={(e) => { e.dataTransfer.setData("text/ref", r.id); e.dataTransfer.effectAllowed = "move"; }}
-      className={`grid cursor-grab grid-cols-[32px,1fr,140px,64px,88px] items-center gap-2 border-b border-mk-border px-5 py-2.5 transition active:cursor-grabbing ${active ? "bg-mk-accent-50" : "hover:bg-mk-paper"}`}
+      className={`grid cursor-grab items-center gap-2 border-b border-mk-border px-5 py-2.5 transition active:cursor-grabbing ${active ? "bg-mk-accent-50" : "hover:bg-mk-paper"}`}
+      style={{ gridTemplateColumns: LIB_GRID_COLS }}
     >
       <button type="button" onClick={onCheck} className={`flex h-4 w-4 items-center justify-center rounded border ${checked ? "border-mk-accent bg-mk-accent text-white" : "border-mk-input-border bg-mk-surface"}`}>
         {checked && <span className="text-[12px] leading-none">✓</span>}
