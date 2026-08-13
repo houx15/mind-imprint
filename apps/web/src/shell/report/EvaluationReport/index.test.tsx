@@ -37,7 +37,8 @@ describe("EvaluationReportView", () => {
   });
 
   it("shows a deep value in the header section (AI turns counter)", () => {
-    expect(screen.getByText(/612 次 AI 对话轮次/)).toBeInTheDocument();
+    expect(screen.getByText("612")).toBeInTheDocument();
+    expect(screen.getByText("AI 对话轮次")).toBeInTheDocument();
   });
 
   it("shows a deep value in the abstract section", () => {
