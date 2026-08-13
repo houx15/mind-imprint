@@ -98,6 +98,16 @@ case "$MODE" in
   full) deploy_api; deploy_web ;;
 esac
 
+# Reclaim disk from the build we just superseded: `compose build` retags
+# mindimprint-{api,web}:latest onto the NEW image, leaving the previous build's
+# layers DANGLING (untagged). Prune only those + old build cache — this keeps the
+# 40G host from filling across many deploys. NEVER `image prune -a`: on this
+# China host it would also drop the tagged base images (golang / nginx /
+# gcr.io-distroless) that can't be re-pulled directly, breaking the next build.
+step "prune superseded (dangling) images + old build cache"
+docker image prune -f || true
+docker builder prune -f --keep-storage 5GB || true
+
 step "container status (check CREATED age reflects this deploy)"
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}'
 echo
