@@ -78,10 +78,16 @@ func (a *API) postGenerateEvaluationReport(w http.ResponseWriter, r *http.Reques
 	if !ok {
 		return
 	}
-	if _, err := a.d.Queries.GetLatestEvaluationReport(r.Context(), projectID); err == nil {
+	_, err := a.d.Queries.GetLatestEvaluationReport(r.Context(), projectID)
+	if err == nil {
 		a.getEvaluationReport(w, r) // already exists — return it, no spend
 		return
 	}
+	if !errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	// no row yet → generate
 	if err := a.generateAndStoreEvaluationReport(r.Context(), projectID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
