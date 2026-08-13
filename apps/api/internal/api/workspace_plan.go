@@ -119,6 +119,10 @@ type planItemDTO struct {
 	Start         int32   `json:"start"`
 	Days          int32   `json:"days"`
 	Position      int32   `json:"position"`
+	// CreatedAt anchors the Gantt timeline to when the plan was actually made:
+	// regeneratePlan recreates every item wholesale, so the earliest item's
+	// created_at IS the plan's start date (= "today" when freshly generated).
+	CreatedAt string `json:"createdAt"`
 }
 
 func toPlanItemDTO(row sqlc.PlanItem) planItemDTO {
@@ -132,6 +136,7 @@ func toPlanItemDTO(row sqlc.PlanItem) planItemDTO {
 		Start:         row.StartDay,
 		Days:          row.Days,
 		Position:      row.Position,
+		CreatedAt:     row.CreatedAt.UTC().Format(time.RFC3339),
 	}
 }
 

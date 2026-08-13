@@ -18,5 +18,8 @@ export const PlanItem = z.object({
   start: z.number().int(),
   days: z.number().int(),
   position: z.number().int(),
+  // RFC3339 timestamp the item was created — the earliest item's value anchors
+  // the Gantt to when the plan was generated. Optional so older mocks parse.
+  createdAt: z.string().optional(),
 });
 export type PlanItem = z.infer<typeof PlanItem>;

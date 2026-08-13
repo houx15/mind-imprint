@@ -15,7 +15,6 @@ import {
   PROPOSAL_DIMS,
   TAG_LABEL,
   COLUMN_LABEL,
-  TIMELINE_DAYS,
   STAGES,
   STAGE_1,
 } from "./mockData";
@@ -496,9 +495,6 @@ function WorkingPhase(props: {
   // continuous thread every other room shows (StudioCoachChat reads the
   // hoisted store via `useStudioChat`), not a second conversation.
   const slot = useStudioAiSlot();
-  // #14: anchor the plan timeline to real calendar dates. Fall back to today
-  // when the project has no creation timestamp (older mocks).
-  const anchor = useMemo(() => (createdAt ? new Date(createdAt) : new Date()), [createdAt]);
   // §3 · the management page opens on the 甘特图 by default (the whole-plan recap
   // view), then the student can switch to 看板 / 活动日志.
   const [view, setView] = useState<PlanView>("gantt");
@@ -509,6 +505,28 @@ function WorkingPhase(props: {
   const [loadingPlan, setLoadingPlan] = useState(!seedBoard);
   // The card the student is viewing/editing in the detail popover.
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // #14: anchor the plan timeline to real calendar dates — specifically to WHEN
+  // THE PLAN WAS GENERATED, not when the project was created. regeneratePlan
+  // recreates every item wholesale, so the earliest item's createdAt is the
+  // plan's start date (= today for a freshly-generated plan). Falls back to the
+  // project's own creation timestamp, then today (older mocks / empty board).
+  const anchor = useMemo(() => {
+    const stamps = board.map((b) => b.createdAt).filter((s): s is string => !!s);
+    if (stamps.length) {
+      const d = new Date(stamps.reduce((a, b) => (a < b ? a : b)));
+      if (!Number.isNaN(d.getTime())) return d;
+    }
+    return createdAt ? new Date(createdAt) : new Date();
+  }, [board, createdAt]);
+  // The Gantt spans the WHOLE plan (through its last task's end) plus a little
+  // padding, and always far enough to show the today-line — never a fixed
+  // one-screen window that clips a multi-week plan.
+  const timelineDays = useMemo(() => {
+    const maxEnd = board.reduce((m, i) => Math.max(m, i.start + Math.max(1, i.days)), 0);
+    const todayIdx = dayIndexFromAnchor(anchor, new Date());
+    return Math.max(maxEnd + 2, todayIdx + 2, 21);
+  }, [board, anchor]);
 
   useEffect(() => {
     let cancelled = false;
@@ -552,7 +570,7 @@ function WorkingPhase(props: {
   function addTaskGantt() {
     const lastStage = board.length ? board[board.length - 1]!.stage : STAGE_1;
     const maxEnd = board.reduce((m, i) => Math.max(m, i.start + i.days), 0);
-    const start = clamp(maxEnd, 0, TIMELINE_DAYS - 2);
+    const start = Math.max(0, maxEnd);
     createPlanItem(projectId, { title: "新任务", tag: "write", column: "todo", stage: lastStage, start, days: 2 })
       .then(() => reconcile())
       .catch(() => {});
@@ -597,7 +615,7 @@ function WorkingPhase(props: {
     }
   }
   function exportPlan() {
-    void runExport(() => exportTimescale(board, { title }, TIMELINE_DAYS));
+    void runExport(() => exportTimescale(board, { title }, timelineDays));
   }
   function exportLog() {
     void runExport(() => exportActivityLog(log ?? [], { title }));
@@ -606,10 +624,11 @@ function WorkingPhase(props: {
   return (
     <>
       <div className="relative flex h-full flex-col px-10 py-8">
-        {/* Slim goal header */}
-        <div className="mb-6 flex items-center gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
-          <span className="rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">{qualification}</span>
-          <h1 className="font-sans text-[18px] font-bold text-mk-ink">{title}</h1>
+        {/* Slim goal header — the title wraps to use the full width instead of
+            being clipped mid-word by the flex row (min-w-0 lets it shrink+wrap). */}
+        <div className="mb-6 flex items-start gap-3 rounded-mk-lg border border-mk-border bg-mk-surface px-5 py-3.5 shadow-mk-xs">
+          <span className="mt-0.5 flex-none rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">{qualification}</span>
+          <h1 className="min-w-0 flex-1 font-sans text-[18px] font-bold leading-snug text-mk-ink break-words">{title}</h1>
         </div>
 
         {/* §3 gap G4 · the recap "继续工作" continue button now lives in the AI
@@ -638,13 +657,14 @@ function WorkingPhase(props: {
         </div>
 
         {view === "kanban" && <KanbanView board={board} loading={loadingPlan} anchor={anchor} onMove={(id, column) => patchItem(id, { column })} onAddTask={addTask} onEditItem={(i) => setEditingId(i.id)} />}
-        {view === "gantt" && <GanttView board={board} anchor={anchor} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} />}
+        {view === "gantt" && <GanttView board={board} anchor={anchor} timelineDays={timelineDays} onReschedule={(id, start) => patchItem(id, { start })} onResize={(id, days) => patchItem(id, { days })} onAddTask={addTaskGantt} onEditItem={(i) => setEditingId(i.id)} />}
         {view === "log" && <ActivityLogView log={log} onAdd={addLogEntry} />}
 
         {editing && (
           <PlanItemEditor
             item={editing}
             stageOptions={stageOptions}
+            maxDays={timelineDays}
             onPatch={(patch) => patchItem(editing.id, patch)}
             onDelete={() => { removeItem(editing.id); setEditingId(null); }}
             onClose={() => setEditingId(null)}
@@ -727,11 +747,14 @@ function PlanCard({ item, anchor, dragging, onEdit, onDragStart, onDragEnd }: { 
 
 /* ----- Gantt (drag to move, resize handle to change duration), by stage ----- */
 
-function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditItem }: { board: PlanItem[]; anchor: Date; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void }) {
-  const days = Array.from({ length: TIMELINE_DAYS }, (_, i) => i);
+function GanttView({ board, anchor, timelineDays, onReschedule, onResize, onAddTask, onEditItem }: { board: PlanItem[]; anchor: Date; timelineDays: number; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void; onAddTask: () => void; onEditItem: (i: PlanItem) => void }) {
+  const days = Array.from({ length: timelineDays }, (_, i) => i);
   // #14: today's day-index from the anchor drives the today-line. When it
-  // falls outside [0, TIMELINE_DAYS) no column matches, so nothing highlights.
+  // falls outside [0, timelineDays) no column matches, so nothing highlights.
   const todayIdx = dayIndexFromAnchor(anchor, new Date());
+  // Keep each day column readable (~40px) so a long plan scrolls horizontally
+  // instead of squeezing 8 weeks into one screen.
+  const minWidth = Math.max(820, timelineDays * 40);
   // Render every stage present on the board (a generated plan may use stage
   // names beyond the two canonical ones), ordered by where the stage actually
   // sits on the timeline — its earliest task start — so 阶段二 never renders
@@ -742,14 +765,14 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
   stages.sort((a, b) => stageStart(a) - stageStart(b));
   return (
     <div className="min-h-0 flex-1 overflow-auto rounded-mk-lg border border-mk-border bg-mk-surface">
-      <div className="min-w-[820px]">
+      <div style={{ minWidth }}>
         {/* Day header */}
         <div className="sticky top-0 z-10 grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-surface">
           <div className="flex flex-col justify-center px-4 py-1.5 text-[12px] font-bold text-mk-faint">
             任务
             <span className="text-[12px] font-medium text-mk-faint/80">{fmtMD(anchor)} 起 · 今天已在时间线上标出</span>
           </div>
-          <div className="grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
+          <div className="grid" style={{ gridTemplateColumns: `repeat(${timelineDays}, 1fr)` }}>
             {days.map((d) => {
               const date = addDays(anchor, d);
               const dow = date.getDay();
@@ -785,7 +808,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
                     </button>
                   </div>
                   <div data-track className="relative h-11">
-                    <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${TIMELINE_DAYS}, 1fr)` }}>
+                    <div className="absolute inset-0 grid" style={{ gridTemplateColumns: `repeat(${timelineDays}, 1fr)` }}>
                       {days.map((d) => {
                         const dow = addDays(anchor, d).getDay();
                         const isWeekend = dow === 0 || dow === 6;
@@ -798,7 +821,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
                         );
                       })}
                     </div>
-                    <GanttBar item={item} onReschedule={onReschedule} onResize={onResize} />
+                    <GanttBar item={item} timelineDays={timelineDays} onReschedule={onReschedule} onResize={onResize} />
                   </div>
                 </div>
               ))}
@@ -815,7 +838,7 @@ function GanttView({ board, anchor, onReschedule, onResize, onAddTask, onEditIte
   );
 }
 
-function GanttBar({ item, onReschedule, onResize }: { item: PlanItem; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void }) {
+function GanttBar({ item, timelineDays, onReschedule, onResize }: { item: PlanItem; timelineDays: number; onReschedule: (id: string, start: number) => void; onResize: (id: string, days: number) => void }) {
   const drag = useRef<{ mode: "move" | "resize"; startX: number; orig: number; trackW: number; moved: boolean } | null>(null);
 
   function begin(mode: "move" | "resize", e: React.PointerEvent) {
@@ -829,11 +852,11 @@ function GanttBar({ item, onReschedule, onResize }: { item: PlanItem; onReschedu
   function onPointerMove(e: PointerEvent) {
     const d = drag.current;
     if (!d) return;
-    const dayW = d.trackW / TIMELINE_DAYS;
+    const dayW = d.trackW / timelineDays;
     const delta = Math.round((e.clientX - d.startX) / dayW);
     if (delta !== 0) d.moved = true;
-    if (d.mode === "move") onReschedule(item.id, clamp(d.orig + delta, 0, TIMELINE_DAYS - item.days));
-    else onResize(item.id, clamp(d.orig + delta, 1, TIMELINE_DAYS - item.start));
+    if (d.mode === "move") onReschedule(item.id, clamp(d.orig + delta, 0, timelineDays - item.days));
+    else onResize(item.id, clamp(d.orig + delta, 1, timelineDays - item.start));
   }
   function onPointerUp() {
     drag.current = null;
@@ -847,7 +870,7 @@ function GanttBar({ item, onReschedule, onResize }: { item: PlanItem; onReschedu
       onPointerDown={(e) => begin("move", e)}
       title={`${item.title} · 第${item.start + 1}–${item.start + item.days}天`}
       className={`absolute top-1/2 flex h-6 -translate-y-1/2 cursor-grab items-center rounded-md ${TAG_BAR[item.tag]} ${dim} select-none active:cursor-grabbing`}
-      style={{ left: `calc(${(item.start / TIMELINE_DAYS) * 100}% + 3px)`, width: `calc(${(item.days / TIMELINE_DAYS) * 100}% - 6px)` }}
+      style={{ left: `calc(${(item.start / timelineDays) * 100}% + 3px)`, width: `calc(${(item.days / timelineDays) * 100}% - 6px)` }}
     >
       <span className="pointer-events-none flex-1 truncate px-2 text-[12px] font-bold leading-6 text-white">
         {item.column === "done" ? "✓ " : ""}{item.days}天
@@ -954,9 +977,12 @@ function groupByDate(rows: LogEntry[]): { date: string; entries: LogEntry[] }[] 
 // Clicking a card body (kanban) or a row label (gantt) opens this. The student
 // can retitle, retag, restage, move column, and reschedule/resize — one PATCH
 // on 保存 — or delete the task outright.
-function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
+function PlanItemEditor({ item, stageOptions, maxDays, onPatch, onDelete, onClose }: {
   item: PlanItem;
   stageOptions: string[];
+  /** The plan's current timeline length — bounds the start/days inputs so a
+   * multi-week plan isn't clamped to a fixed 18-day window. */
+  maxDays: number;
   onPatch: (patch: PlanItemPatch) => void;
   onDelete: () => void;
   onClose: () => void;
@@ -967,10 +993,13 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
   const [column, setColumn] = useState<PlanColumn>(item.column);
   const [start, setStart] = useState(item.start);
   const [days, setDays] = useState(item.days);
+  // Generous headroom above the current timeline so an edit can EXTEND the plan
+  // (the Gantt recomputes its span to fit); never clamps to a fixed 18-day window.
+  const cap = maxDays + 60;
 
   function save() {
-    const s = clamp(Math.round(start), 0, TIMELINE_DAYS - 1);
-    const d = clamp(Math.round(days), 1, TIMELINE_DAYS - s);
+    const s = clamp(Math.round(start), 0, cap);
+    const d = clamp(Math.round(days), 1, cap - s);
     onPatch({ title: title.trim() || item.title, tag, stage, column, start: s, days: d });
     onClose();
   }
@@ -1018,11 +1047,11 @@ function PlanItemEditor({ item, stageOptions, onPatch, onDelete, onClose }: {
           <div className="grid grid-cols-2 gap-3">
             <label className="block">
               <span className="mb-1 block text-[12px] font-bold text-mk-faint">开始（第几天）</span>
-              <input type="number" min={1} max={TIMELINE_DAYS} value={start + 1} onChange={(e) => setStart((Number(e.target.value) || 1) - 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
+              <input type="number" min={1} max={cap} value={start + 1} onChange={(e) => setStart((Number(e.target.value) || 1) - 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
             </label>
             <label className="block">
               <span className="mb-1 block text-[12px] font-bold text-mk-faint">持续（天）</span>
-              <input type="number" min={1} max={TIMELINE_DAYS} value={days} onChange={(e) => setDays(Number(e.target.value) || 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
+              <input type="number" min={1} max={cap} value={days} onChange={(e) => setDays(Number(e.target.value) || 1)} className="w-full rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2 text-[14px] text-mk-ink outline-none focus:border-mk-accent" />
             </label>
           </div>
         </div>
