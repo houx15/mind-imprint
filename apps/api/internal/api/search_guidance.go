@@ -1,8 +1,10 @@
 package api
 
 import (
+	"encoding/json"
 	"log/slog"
 	"net/http"
+	"strings"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
@@ -26,7 +28,14 @@ func (a *API) postSearchGuidance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	in := agent.SearchGuidanceInput{}
+	// Optional body: the question layer the student is currently inside, so the
+	// directions bias toward it (item 3.1). Absent/empty ⇒ whole-topic guidance.
+	var body struct {
+		FocusQuestion string `json:"focusQuestion"`
+	}
+	_ = json.NewDecoder(r.Body).Decode(&body)
+
+	in := agent.SearchGuidanceInput{FocusQuestion: strings.TrimSpace(body.FocusQuestion)}
 	if p, perr := a.d.Queries.GetProject(r.Context(), projectID); perr == nil {
 		in.Title = p.Title
 	}

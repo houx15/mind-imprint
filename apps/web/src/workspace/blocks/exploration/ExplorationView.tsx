@@ -9,6 +9,7 @@ import type {
   MaterialSource,
   PhaseTag,
   Reference,
+  SearchSuggestion,
 } from "@mind-imprint/contracts";
 import { enterReading, pasteContent, NoReadableContentError, type SourceMeta } from "../../api/workspace";
 import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/api/evidenceMap";
@@ -31,9 +32,10 @@ import { WarrenMap } from "./WarrenMap";
 import { countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
-import { SearchGuidanceBox } from "./SearchGuidanceBox";
 import { ExplorationReviewBox } from "./ExplorationReviewBox";
 import { NeedsResourcesBox } from "../NeedsResourcesBox";
+import { SearchCardModal } from "./SearchCardModal";
+import { proposeSearchGuidance } from "../../../api/searchGuidance";
 
 // B4a · which zoom the student last left this project on. Persisted module-side
 // (like ReadingBlock's viewModeMemo) so re-entering the room restores map ⇄ the
@@ -285,6 +287,16 @@ export function ExplorationView({
   const [searchError, setSearchError] = useState(false);
   const [savingRef, setSavingRef] = useState<Set<string>>(new Set());
 
+  // Wave 2 · the controls-column search is a 4-page drill-down: 检索方向 (印记's
+  // suggested directions) → 检索结果 list → 论文 detail → add. Only the map/hole
+  // controls page (nothing selected) uses this; the node-dig sidebar is separate.
+  // 铁律①: the student taps to search, taps to add — nothing auto-fetches.
+  const [searchStage, setSearchStage] = useState<"idle" | "directions" | "list" | "detail">("idle");
+  const [directions, setDirections] = useState<SearchSuggestion[] | null>(null);
+  const [proposingDir, setProposingDir] = useState(false);
+  const [searchDetail, setSearchDetail] = useState<DigCandidate | null>(null);
+  const [showSearchCard, setShowSearchCard] = useState(false);
+
   async function runControlsSearch(keyword: string) {
     const kw = keyword.trim();
     if (!kw || searching) return;
@@ -330,6 +342,63 @@ export function ExplorationView({
   function discardSearchResult(c: DigCandidate) {
     const key = candidateKey(c);
     setSearchTray((t) => t.filter((x) => candidateKey(x) !== key));
+  }
+
+  // Wave 2 handlers · 检索方向 → 检索结果 → 论文 → add. proposeDirections biases the
+  // AI toward the question layer the student is currently inside (item 3.1).
+  async function proposeDirections() {
+    if (proposingDir) return;
+    setProposingDir(true);
+    setActionError(false);
+    try {
+      setDirections(await proposeSearchGuidance(projectId, inHole && focusRoot ? focusRoot.text : undefined));
+    } catch {
+      setDirections([]);
+    } finally {
+      setSearchStage("directions");
+      setProposingDir(false);
+    }
+  }
+  function openDirection(keyword: string) {
+    setSearchStage("list");
+    void runControlsSearch(keyword);
+  }
+  function openDetail(c: DigCandidate) {
+    setSearchDetail(c);
+    setSearchStage("detail");
+  }
+  // Add the paper being viewed: inside a question → adopt UNDER that root
+  // (papers-never-roots); on the top-level map (no "second layer") → into 未归类
+  // via saveSearchResult. After adding, drop it from the list and go back.
+  async function addFromDetail(c: DigCandidate) {
+    const key = candidateKey(c);
+    if (savingRef.has(key)) return;
+    if (inHole && focusRoot) {
+      setSavingRef((s) => new Set(s).add(key));
+      setActionError(false);
+      try {
+        await adoptCandidate(projectId, c, { parentLeadId: focusRoot.id });
+        setSearchTray((t) => t.filter((x) => candidateKey(x) !== key));
+        await refresh();
+        onLibraryChanged?.();
+        setSearchDetail(null);
+        setSearchStage("list");
+      } catch {
+        setActionError(true);
+      } finally {
+        setSavingRef((s) => {
+          const n = new Set(s);
+          n.delete(key);
+          return n;
+        });
+      }
+    } else {
+      // saveSearchResult owns its own busy guard + tray removal + refresh; it
+      // only drops the row on success, so a failed add leaves it for a retry.
+      await saveSearchResult(c);
+      setSearchDetail(null);
+      setSearchStage("list");
+    }
   }
 
   // A keyword search: with a node selected it digs into that node's sidebar tray
@@ -608,74 +677,239 @@ export function ExplorationView({
         (auxOnLeft ? "border-r" : "border-l")
       }
     >
-      {/* slice 5 (§113/§115/§116) · 印记's search-direction guidance + the
-          student's 还需要探索的 notes (「去探索」 runs a note as a search). */}
-      <SearchGuidanceBox projectId={projectId} onSearch={keywordSearch} />
-      {/* Results of a controls-level keyword search (印记 检索方向 / 还需要探索的).
-          采纳 lands a paper in 未归类 for the student to place. */}
-      {(searching || searchError || searchTray.length > 0) && (
-        <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
-          <p className="mb-2 text-[12px] font-bold text-mk-faint">「{searchKeyword}」的检索结果</p>
-          {searching && <p className="text-[12px] text-mk-muted">印记正在检索…</p>}
-          {searchError && !searching && <p className="text-[12px] font-semibold text-mk-accent">这次没搜到，换个关键词再试。</p>}
-          {!searching && !searchError && searchTray.length === 0 && (
-            <p className="text-[12px] text-mk-faint">没有结果，换个关键词试试。</p>
+      {/* Wave 2 · the search area is a 4-page drill-down. The OTHER controls
+          (整理评审 / 还需要探索的 / 找关系) live only on the idle page. */}
+      {searchStage === "idle" && (
+        <>
+          {/* 检索方向 propose box — styled like the old SearchGuidanceBox shell,
+              plus the 检索卡 teaching entry. */}
+          <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+            <div className="flex flex-col gap-2">
+              <div className="flex items-start gap-2">
+                <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">检索方向</span>
+                <p className="min-w-0 flex-1 text-[13px] leading-relaxed text-mk-muted">不知道搜什么？让印记根据你的问题给几个方向。</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void proposeDirections()}
+                disabled={proposingDir}
+                className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
+              >
+                {proposingDir ? "印记在想…" : "让印记建议检索方向"}
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowSearchCard(true)}
+                className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
+              >
+                如何检索资料？检索卡
+              </button>
+            </div>
+          </div>
+          {/* §5 follow-up · once ≥2 sources are collected, ask 印记 to review them
+              (below that it has too little to compare — final-review/user note). */}
+          {references.length >= 2 && <ExplorationReviewBox projectId={projectId} />}
+          <NeedsResourcesBox
+            projectId={projectId}
+            onExplore={(note) => {
+              if (note) {
+                setSearchStage("list");
+                void runControlsSearch(note);
+              }
+            }}
+          />
+          {actionError && <p className="text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
+          {/* B4b · 印记 proposes relationships between the questions. Only meaningful
+              with ≥2 root questions (an edge needs two ends). */}
+          {roots.length >= 2 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                onClick={proposeRelations}
+                disabled={proposing}
+                className="rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
+              >
+                让印记找找问题之间的关系
+              </button>
+              {/* Task 7 · the question-relation proposer is a HIDDEN subagent: a
+                  status line while it runs, never a chat. */}
+              {proposing && <SubagentHint text="subagent 正在梳理问题关系…" />}
+              {proposeNote && <span className="text-[12px] text-mk-faint">{proposeNote}</span>}
+            </div>
           )}
-          <ul className="flex flex-col gap-2">
-            {searchTray.map((c) => {
-              const key = candidateKey(c);
-              return (
-                <li key={key} className="rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2">
-                  <p className="text-[13px] font-semibold leading-snug text-mk-ink">{c.title}</p>
-                  {(c.journal || c.year) && (
-                    <p className="mt-0.5 text-[11px] text-mk-faint">{[c.journal, c.year].filter(Boolean).join(" · ")}</p>
-                  )}
-                  <div className="mt-1.5 flex gap-2">
+        </>
+      )}
+
+      {searchStage === "directions" && (
+        <>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSearchStage("idle")}
+              className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
+            >
+              ← 返回
+            </button>
+            <button
+              type="button"
+              onClick={() => setShowSearchCard(true)}
+              className="ml-auto rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
+            >
+              检索卡
+            </button>
+          </div>
+          <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+            <div className="flex items-center gap-2">
+              <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">检索方向</span>
+              <button
+                type="button"
+                onClick={() => void proposeDirections()}
+                disabled={proposingDir}
+                className="ml-auto rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
+              >
+                {proposingDir ? "印记在想…" : "换一批"}
+              </button>
+            </div>
+            {directions && directions.length > 0 && (
+              <ul className="mt-2.5 flex flex-col gap-1.5">
+                {directions.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2 rounded-mk border border-mk-border bg-mk-paper px-2.5 py-1.5">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-[13.5px] font-semibold text-mk-ink">{s.keyword}</p>
+                      {s.why && <p className="mt-0.5 text-[12px] leading-relaxed text-mk-muted">{s.why}</p>}
+                    </div>
                     <button
                       type="button"
-                      onClick={() => void saveSearchResult(c)}
-                      disabled={savingRef.has(key)}
-                      className="rounded-mk bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
+                      onClick={() => openDirection(s.keyword)}
+                      className="flex-none rounded-mk bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600"
                     >
-                      {savingRef.has(key) ? "收下中…" : "收进未归类"}
+                      搜索
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => discardSearchResult(c)}
-                      className="rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-faint hover:text-mk-accent"
-                    >
-                      忽略
-                    </button>
-                  </div>
-                </li>
-              );
-            })}
-          </ul>
-        </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {directions && directions.length === 0 && !proposingDir && (
+              <p className="mt-2 text-[12px] text-mk-faint">这次没给出方向，先确认你已经写下研究问题，再试一次。</p>
+            )}
+          </div>
+        </>
       )}
-      {/* §5 follow-up · once ≥2 sources are collected, ask 印记 to review them
-          (below that it has too little to compare — final-review/user note). */}
-      {references.length >= 2 && <ExplorationReviewBox projectId={projectId} />}
-      <NeedsResourcesBox projectId={projectId} onExplore={(note) => { if (note) keywordSearch(note); }} />
-      {actionError && <p className="text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
-      {/* B4b · 印记 proposes relationships between the questions. Only meaningful
-          with ≥2 root questions (an edge needs two ends). */}
-      {roots.length >= 2 && (
-        <div className="flex flex-wrap items-center gap-2">
-          <button
-            type="button"
-            onClick={proposeRelations}
-            disabled={proposing}
-            className="rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
-          >
-            让印记找找问题之间的关系
-          </button>
-          {/* Task 7 · the question-relation proposer is a HIDDEN subagent: a
-              status line while it runs, never a chat. */}
-          {proposing && <SubagentHint text="subagent 正在梳理问题关系…" />}
-          {proposeNote && <span className="text-[12px] text-mk-faint">{proposeNote}</span>}
-        </div>
+
+      {searchStage === "list" && (
+        <>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setSearchStage("directions")}
+              className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
+            >
+              ← 返回
+            </button>
+          </div>
+          {searching ? (
+            <div className="flex flex-1 items-center justify-center py-6">
+              <RabbitHoleLoader caption="subagent 正在检索来源……" />
+            </div>
+          ) : searchError ? (
+            <p className="text-[12px] font-semibold text-mk-accent">这次没搜到，换个关键词再试。</p>
+          ) : (
+            <>
+              <p className="text-[12px] font-bold text-mk-faint">「{searchKeyword}」的检索结果</p>
+              {searchTray.length === 0 ? (
+                <p className="text-[12px] text-mk-faint">没有结果，换个关键词试试。</p>
+              ) : (
+                <ul className="flex flex-col gap-2">
+                  {searchTray.map((c) => {
+                    const key = candidateKey(c);
+                    const meta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
+                    return (
+                      <li key={key}>
+                        <button
+                          type="button"
+                          onClick={() => openDetail(c)}
+                          className="w-full cursor-pointer rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2 text-left hover:border-mk-accent hover:bg-mk-accent-50"
+                        >
+                          <p className="text-[13px] font-semibold leading-snug text-mk-ink">{c.title}</p>
+                          {meta && <p className="mt-0.5 text-[11px] text-mk-faint">{meta}</p>}
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </>
+          )}
+        </>
       )}
+
+      {searchStage === "detail" && searchDetail && (
+        <>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setSearchDetail(null);
+                setSearchStage("list");
+              }}
+              className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
+            >
+              ← 返回
+            </button>
+          </div>
+          {(() => {
+            const c = searchDetail;
+            const key = candidateKey(c);
+            const busy = savingRef.has(key);
+            const meta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
+            const link = c.url || (c.doi ? "https://doi.org/" + c.doi : "");
+            return (
+              <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+                <h3 className="text-[15px] font-bold leading-snug text-mk-ink">{c.title}</h3>
+                {meta && <p className="mt-1 text-[12px] text-mk-faint">{meta}</p>}
+                {c.abstract?.trim() ? (
+                  <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-line text-[12px] leading-relaxed text-mk-muted">{c.abstract}</p>
+                ) : (
+                  <p className="mt-2 text-[12px] text-mk-faint">这篇还没有摘要。</p>
+                )}
+                {link && (
+                  <a
+                    href={link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-2 inline-block text-[12px] font-bold text-mk-accent hover:underline"
+                  >
+                    查看原文 ↗
+                  </a>
+                )}
+                <div className="mt-3 flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void addFromDetail(c)}
+                    disabled={busy}
+                    className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+                  >
+                    {busy ? "采纳中…" : inHole ? "采纳到当前问题" : "收进未归类"}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      discardSearchResult(c);
+                      setSearchDetail(null);
+                      setSearchStage("list");
+                    }}
+                    className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-accent"
+                  >
+                    丢弃
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+        </>
+      )}
+
+      {showSearchCard && <SearchCardModal onClose={() => setShowSearchCard(false)} />}
     </aside>
   );
   // No node selected → the controls; a selected node → its detail panel.

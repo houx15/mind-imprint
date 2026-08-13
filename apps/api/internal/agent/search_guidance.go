@@ -25,6 +25,12 @@ type SearchGuidanceInput struct {
 	Question     string
 	SubQuestions []SubQuestion
 	Needs        []string // the 还需要探索的 notes
+	// FocusQuestion is the specific line the student is exploring right now — the
+	// text of the question layer they're currently inside (a root question's hole,
+	// or a selected sub-question). When set, the directions bias toward THIS layer
+	// instead of covering the whole topic (item 3.1: directions tied to where the
+	// student is).
+	FocusQuestion string
 }
 
 const searchGuidanceSystem = `你是一位擅长文献检索的 IB 研究导师。学生在探索文献，请给出 2–3 个【检索方向】——每个是一个可以直接搜的关键词/词组，加一句话说明为什么这个方向值得搜（它能帮学生解决哪个子问题/补哪块证据）。
@@ -36,6 +42,7 @@ const searchGuidanceSystem = `你是一位擅长文献检索的 IB 研究导师�
 - 2–3 条，聚焦、互不重复，贴着学生的研究问题和子问题。
 - keyword 是能直接放进检索框的词，不是一句话。
 - why 具体，指向某个子问题或某块缺的证据（尤其优先覆盖学生"还需要探索的"清单）。
+- 若给出了"学生此刻正在探索这一层"，请把方向优先贴着这一层（这个具体的问题分支）来给，而不是泛泛覆盖整个题目。
 - 只回 JSON，不要任何解释或代码块外的文字。`
 
 const maxSearchGuidanceAttempts = 2
@@ -55,6 +62,9 @@ func ProposeSearchKeywords(ctx context.Context, prov gateway.Provider, resolved 
 		for i, sq := range in.SubQuestions {
 			fmt.Fprintf(&b, "  %d. %s\n", i+1, strings.TrimSpace(sq.Text))
 		}
+	}
+	if s := strings.TrimSpace(in.FocusQuestion); s != "" {
+		fmt.Fprintf(&b, "学生此刻正在探索这一层：%s\n", s)
 	}
 	if len(in.Needs) > 0 {
 		b.WriteString("学生还需要探索的：\n")
