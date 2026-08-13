@@ -74,3 +74,14 @@ export function guidedSectionLabel(
 export function isGuidedSection(section: string | null | undefined): boolean {
   return guidedSectionLabel(section, []) !== null;
 }
+
+// sectionDoc — which document a guided section belongs to: proposal parts are
+// `prop:*` prefixed; every other guided key (claim:/sub:/synthesis/…) is the
+// essay's. Returns null for free / non-guided sections — those belong to neither
+// document and are shown on BOTH 片段 boards (cross-doc scratch).
+export function sectionDoc(section: string | null | undefined): "proposal" | "essay" | null {
+  if (!section) return null;
+  if (section.startsWith("prop:")) return "proposal";
+  if (isGuidedSection(section)) return "essay";
+  return null;
+}

@@ -109,6 +109,12 @@ type StudioState struct {
 	// step key (proposal: understanding/…; essay: claim:<id>/synthesis/…). Values:
 	// "green" (写好了) | "yellow" (待完善). jsonb, no migration.
 	CardTags map[string]string `json:"cardTags,omitempty"`
+	// ProposalOutline — the 提案's own 大纲, kept SEPARATE from the essay outline
+	// (which lives in the outline_node table and feeds review/assessment/digest).
+	// The proposal outline is doc-scoped scratch, so it rides studio_state (jsonb,
+	// no migration) rather than sharing the essay's outline rows. GET/PUT
+	// /outline?doc=proposal read & write this; ?doc=essay (default) uses the table.
+	ProposalOutline []ProposalOutlineNode `json:"proposalOutline,omitempty"`
 }
 
 // ResourceNeed is one entry in the needs-resources box (slice 5).
@@ -116,6 +122,13 @@ type ResourceNeed struct {
 	ID   string `json:"id"`
 	Text string `json:"text"`
 	Done bool   `json:"done"`
+}
+
+// ProposalOutlineNode is one bullet in the 提案's 大纲 (text + indent depth);
+// order is the slice order. Mirrors an outline_node minus the DB id/position.
+type ProposalOutlineNode struct {
+	Text  string `json:"text"`
+	Depth int32  `json:"depth"`
 }
 
 // EssayStage is the essay's position in §6's three stages.

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { guidedSectionLabel, isGuidedSection } from "@/workspace/blocks/sectionLabels";
+import { guidedSectionLabel, isGuidedSection, sectionDoc } from "@/workspace/blocks/sectionLabels";
 
 const SUBQS = [
   { id: "076139ab", text: "What is the physical mechanism by which canopy lowers heat exposure?" },
@@ -55,5 +55,20 @@ describe("guidedSectionLabel", () => {
     expect(isGuidedSection("sub:conclusion")).toBe(true);
     expect(isGuidedSection("阅读笔记")).toBe(false);
     expect(isGuidedSection(null)).toBe(false);
+  });
+
+  it("sectionDoc routes proposal parts (prop:*) vs essay parts, free → neither", () => {
+    // proposal
+    expect(sectionDoc("prop:understanding")).toBe("proposal");
+    expect(sectionDoc("prop:subq:076139ab")).toBe("proposal");
+    expect(sectionDoc("prop:challenges")).toBe("proposal");
+    // essay (bare statement keys + claim:/sub:)
+    expect(sectionDoc("claim:076139ab")).toBe("essay");
+    expect(sectionDoc("sub:intro")).toBe("essay");
+    expect(sectionDoc("synthesis")).toBe("essay");
+    expect(sectionDoc("challenges")).toBe("essay");
+    // free / unfiled → neither (shown on both boards)
+    expect(sectionDoc("阅读笔记")).toBeNull();
+    expect(sectionDoc(null)).toBeNull();
   });
 });

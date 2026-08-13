@@ -171,6 +171,64 @@ func TestPutOutline_RoundTripsWithNestedDepths(t *testing.T) {
 	}
 }
 
+// TestOutline_ProposalAndEssaySeparate — the 提案 (?doc=proposal) and 正文
+// (default/essay) keep INDEPENDENT outlines: writing one never changes the other.
+func TestOutline_ProposalAndEssaySeparate(t *testing.T) {
+	h, cookie := writeTestHandler(t)
+	pid := materialsTestProjectID
+	base := "/api/v1/projects/" + pid + "/outline"
+
+	putDoc := func(path, body string) []outlineNodeWire {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", path, strings.NewReader(body)), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("PUT %s = %d — %s", path, rec.Code, rec.Body)
+		}
+		var resp struct {
+			Nodes []outlineNodeWire `json:"nodes"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode %s: %v", path, err)
+		}
+		return resp.Nodes
+	}
+	getDoc := func(path string) []outlineNodeWire {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", path, nil), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s = %d — %s", path, rec.Code, rec.Body)
+		}
+		var resp struct {
+			Nodes []outlineNodeWire `json:"nodes"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode %s: %v", path, err)
+		}
+		return resp.Nodes
+	}
+
+	// Write the ESSAY outline (default), then the PROPOSAL outline (?doc=proposal).
+	putDoc(base, `{"nodes":[{"text":"正文·引言","depth":0},{"text":"正文·论点一","depth":1}]}`)
+	putDoc(base+"?doc=proposal", `{"nodes":[{"text":"提案·研究问题","depth":0}]}`)
+
+	essay := getDoc(base)
+	prop := getDoc(base + "?doc=proposal")
+	if len(essay) != 2 || essay[0].Text != "正文·引言" {
+		t.Fatalf("essay outline changed by proposal write: %+v", essay)
+	}
+	if len(prop) != 1 || prop[0].Text != "提案·研究问题" {
+		t.Fatalf("proposal outline wrong: %+v", prop)
+	}
+	// Rewriting the proposal outline must NOT touch the essay outline.
+	putDoc(base+"?doc=proposal", `{"nodes":[{"text":"提案·改了","depth":0},{"text":"提案·又一条","depth":0}]}`)
+	if essayAfter := getDoc(base); len(essayAfter) != 2 || essayAfter[0].Text != "正文·引言" {
+		t.Fatalf("essay outline disturbed by 2nd proposal write: %+v", essayAfter)
+	}
+	if propAfter := getDoc(base + "?doc=proposal"); len(propAfter) != 2 {
+		t.Fatalf("proposal outline not replaced: %+v", propAfter)
+	}
+}
+
 // TestPutOutline_ReplaceSemanticsShrinks — a second PUT with fewer nodes
 // replaces the WHOLE set (delete-then-insert), so the outline shrinks; stale
 // rows from the first PUT do not linger.

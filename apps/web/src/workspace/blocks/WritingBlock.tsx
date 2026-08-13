@@ -20,7 +20,7 @@ import { getProposalTrack } from "../../api/proposalTrack";
 import { getEssayStatement } from "../../api/essayStatement";
 import { getEssaySubmission } from "../../api/essaySubmission";
 import type { SubQuestion } from "@mind-imprint/contracts";
-import { guidedSectionLabel, isGuidedSection } from "./sectionLabels";
+import { guidedSectionLabel, isGuidedSection, sectionDoc } from "./sectionLabels";
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { partSectionKey } from "./docSections";
 import { scheduleCardRevision } from "../../api/revision";
@@ -407,7 +407,7 @@ export function WritingBlock({
 
       <div className="relative flex min-h-0 flex-1 flex-col">
         {tab === "outline" ? (
-          <OutlinePane projectId={projectId} title={title} />
+          <OutlinePane projectId={projectId} title={title} doc={isProposal ? "proposal" : "essay"} />
         ) : tab === "snippets" ? (
           isProposal ? (
             // 片段 · the proposal's writing surface — where ALL its cards live
@@ -425,10 +425,10 @@ export function WritingBlock({
               {!locked && (
                 <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
               )}
-              <SnippetsPane snip={snip} projectId={projectId} locked={finalized} embedded importedSections={importedSections} />
+              <SnippetsPane snip={snip} projectId={projectId} doc="proposal" locked={finalized} embedded importedSections={importedSections} />
             </div>
           ) : (
-            <SnippetsPane snip={snip} projectId={projectId} locked={finalized} importedSections={importedSections} />
+            <SnippetsPane snip={snip} projectId={projectId} doc="essay" locked={finalized} importedSections={importedSections} />
           )
         ) : isProposal ? (
           // 正文 · the proposal's assembled paper (prose) only, plus a whole-paper
@@ -710,7 +710,7 @@ const dedupe = (xs: string[]) => Array.from(new Set(xs));
 // rather than disappearing. Filing is via drag (a ⠿ handle onto a section
 // header) or the 归到 <select>. The draft itself stays a plain textarea — this
 // is organizing thinking material, not a structured document editor (铁律②).
-function SnippetsPane({ snip, projectId, locked = false, embedded = false, importedSections }: { snip: SnippetsHandle; projectId: string; locked?: boolean; embedded?: boolean; importedSections: string[] }) {
+function SnippetsPane({ snip, projectId, doc, locked = false, embedded = false, importedSections }: { snip: SnippetsHandle; projectId: string; doc: "proposal" | "essay"; locked?: boolean; embedded?: boolean; importedSections: string[] }) {
   const [collapsed, setCollapsed] = useState<Set<string>>(new Set());
   const [dragId, setDragId] = useState<string | null>(null);
   const [dropLabel, setDropLabel] = useState<string | null>(null);
@@ -766,6 +766,9 @@ function SnippetsPane({ snip, projectId, locked = false, embedded = false, impor
     const cards: FilledCard[] = [];
     for (const s of snip.snippets) {
       if (s.section == null || !isGuidedSection(s.section) || seen.has(s.section)) continue;
+      // Only THIS document's guided parts — 提案 parts (prop:*) and 正文 parts
+      // (claim:/sub:/…) no longer merge onto one board.
+      if (sectionDoc(s.section) !== doc) continue;
       seen.add(s.section);
       const g = guideBySection.get(s.section);
       cards.push({ key: s.section, title: labelFor(s.section), text: s.text, guidance: g?.prompt, example: g?.example ?? null });
@@ -773,7 +776,7 @@ function SnippetsPane({ snip, projectId, locked = false, embedded = false, impor
     cards.sort((a, b) => (orderBySection.get(a.key) ?? 1e9) - (orderBySection.get(b.key) ?? 1e9));
     return cards;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [snip.snippets, guideBySection, orderBySection, subQuestions]);
+  }, [snip.snippets, guideBySection, orderBySection, subQuestions, doc]);
 
   // Free (student-made) groups only — guided parts are rendered above as the
   // finished-cards fold, not as orphan sections. Imported outline headings, then
@@ -1023,7 +1026,7 @@ function Tab({ active, onClick, icon, children }: { active: boolean; onClick: ()
 
 /* ---------- 提纲 · outline ---------- */
 
-function OutlinePane({ projectId, title }: { projectId: string; title: string }) {
+function OutlinePane({ projectId, title, doc }: { projectId: string; title: string; doc: "proposal" | "essay" }) {
   const [nodes, setNodes] = useState<Row[]>([]);
   const [view, setView] = useState<"list" | "map">("list");
   // nodesRef mirrors the latest committed rows so the debounced save (and the
@@ -1049,7 +1052,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
   // local; the next debounce retries.
   async function save(rows: Row[]) {
     try {
-      await putOutline(projectId, rows.map((r) => ({ id: r.id, text: r.text, depth: r.depth })));
+      await putOutline(projectId, rows.map((r) => ({ id: r.id, text: r.text, depth: r.depth })), doc);
     } catch {
       /* keep local; the next debounced save retries */
     }
@@ -1074,7 +1077,7 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
     let cancelled = false;
     (async () => {
       try {
-        const loaded = await getOutline(projectId);
+        const loaded = await getOutline(projectId, doc);
         if (cancelled) return;
         const rows: Row[] = loaded.length
           ? loaded.map((n) => ({ id: n.id, text: n.text, depth: n.depth }))
@@ -1091,7 +1094,8 @@ function OutlinePane({ projectId, title }: { projectId: string; title: string })
     return () => {
       cancelled = true;
     };
-  }, [projectId]);
+    // Reload when the document changes — 提案 and 正文 have separate outlines.
+  }, [projectId, doc]);
 
   // Flush a pending save on unmount so a last edit inside the debounce window
   // isn't lost when the student leaves the room.

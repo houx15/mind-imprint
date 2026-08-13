@@ -392,9 +392,15 @@ export async function deleteReference(id: string, rid: string): Promise<void> {
 // sends the flat {text,depth} array in order and the server re-assigns
 // position/ids, so the client re-reads the fresh nodes it returns.
 
+// Which document's outline — the 提案 (proposal) and 正文 (essay) keep SEPARATE
+// outlines. Defaults to essay (the table-backed one review/assessment read).
+export type OutlineDoc = "proposal" | "essay";
+const outlinePath = (id: string, doc?: OutlineDoc) =>
+  `/api/v1/projects/${id}/outline${doc === "proposal" ? "?doc=proposal" : ""}`;
+
 // GET /outline — the outline bullets, ordered by position.
-export async function getOutline(id: string): Promise<OutlineNode[]> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/outline`);
+export async function getOutline(id: string, doc?: OutlineDoc): Promise<OutlineNode[]> {
+  const raw = await apiFetch<unknown>(outlinePath(id, doc));
   return z.array(OutlineNode).parse((raw as { nodes: unknown }).nodes);
 }
 
@@ -404,8 +410,8 @@ export type OutlineNodeInput = { id?: string; text: string; depth: number };
 
 // PUT /outline — replace the whole set; returns the fresh nodes (with ids +
 // position assigned by the server).
-export async function putOutline(id: string, nodes: OutlineNodeInput[]): Promise<OutlineNode[]> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/outline`, {
+export async function putOutline(id: string, nodes: OutlineNodeInput[], doc?: OutlineDoc): Promise<OutlineNode[]> {
+  const raw = await apiFetch<unknown>(outlinePath(id, doc), {
     method: "PUT",
     body: JSON.stringify({ nodes }),
   });

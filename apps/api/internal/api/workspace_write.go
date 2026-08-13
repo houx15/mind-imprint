@@ -2,12 +2,14 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -37,10 +39,32 @@ func toOutlineNodeDTO(row sqlc.OutlineNode) outlineNodeDTO {
 	}
 }
 
-// listOutline returns the project's outline nodes ordered by position.
+// proposalOutlineDTOs projects the studio_state-held 提案 outline onto the same
+// wire shape as the essay's table-backed outline (synthesized ids/positions —
+// the client uses ids only as local React keys and re-reads on every save).
+func proposalOutlineDTOs(nodes []agent.ProposalOutlineNode) []outlineNodeDTO {
+	out := make([]outlineNodeDTO, 0, len(nodes))
+	for i, n := range nodes {
+		out = append(out, outlineNodeDTO{ID: fmt.Sprintf("po-%d", i), Text: n.Text, Depth: n.Depth, Position: int32(i)})
+	}
+	return out
+}
+
+// listOutline returns the project's outline nodes ordered by position. The 提案
+// (?doc=proposal) has its OWN outline in studio_state, kept separate from the
+// essay outline (the table, which review/assessment/digest read).
 func (a *API) listOutline(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
+		return
+	}
+	if docKindParam(r) == string(agent.DocProposal) {
+		state, err := a.loadStudioStateForNeeds(r.Context(), projectID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"nodes": proposalOutlineDTOs(state.ProposalOutline)})
 		return
 	}
 	rows, err := a.d.Queries.ListOutlineNodes(r.Context(), projectID)
@@ -73,6 +97,26 @@ func (a *API) putOutline(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
+		return
+	}
+
+	// 提案 outline → studio_state (kept separate from the essay outline table).
+	if docKindParam(r) == string(agent.DocProposal) {
+		state, err := a.loadStudioStateForNeeds(r.Context(), projectID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		nodes := make([]agent.ProposalOutlineNode, 0, len(body.Nodes))
+		for _, n := range body.Nodes {
+			nodes = append(nodes, agent.ProposalOutlineNode{Text: n.Text, Depth: clampDepth(n.Depth)})
+		}
+		state.ProposalOutline = nodes
+		if serr := a.saveTrackState(r.Context(), projectID, state); serr != nil {
+			httpx.WriteError(w, r, serr)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"nodes": proposalOutlineDTOs(nodes)})
 		return
 	}
 
