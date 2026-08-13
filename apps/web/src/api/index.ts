@@ -1,4 +1,4 @@
-import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
+import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, DualAxisReport, EvaluationReport, ProjectStatus, ChatThread, ChatMessage, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, setAccent, type MeUser } from "./auth";
 import type { AccentId } from "../ui/accent";
 import {
@@ -23,7 +23,7 @@ import { getAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
 import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 import {
-  getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
+  getClassRosterReport, getStudentDetail, getStudentReport, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
   getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
   type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard,
 } from "./teacher";
@@ -114,6 +114,7 @@ export interface ApiClient {
   getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
   getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
   getStudentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<TeacherReport>;
+  getStudentEvaluationReport(classId: string, userId: string, projectId: string): Promise<EvaluationReport | null>;
   getClassWeeklyReport(classId: string): Promise<WeeklyReport>;
   generateClassWeeklyProse(classId: string): Promise<WeeklyReport>;
   getParentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<ParentReport>;
@@ -143,7 +144,7 @@ export const api: ApiClient = {
   getGrowthHistory,
   getAbilityModel,
   getGrowthCards, getCardsCatalog, setCardTheme,
-  getClassRosterReport, getStudentDetail, getStudentReport, getClassWeeklyReport, generateClassWeeklyProse,
+  getClassRosterReport, getStudentDetail, getStudentReport, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
   getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
   uploadUserImage, resolveUrl,
 };

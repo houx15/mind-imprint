@@ -82,6 +82,7 @@ function client(overrideWeekly?: WeeklyReport) {
     getClassRosterReport: vi.fn(async () => []),
     getStudentDetail: vi.fn(),
     getStudentReport: vi.fn(async () => minimalTeacherReport),
+    getStudentEvaluationReport: vi.fn(async () => null),
     getClassWeeklyReport: vi.fn(async () => overrideWeekly ?? weeklyReport()),
     generateClassWeeklyProse: vi.fn(),
   };

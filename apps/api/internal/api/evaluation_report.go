@@ -40,6 +40,51 @@ func (a *API) getEvaluationReport(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, rep)
 }
 
+// getStudentEvaluationReport handles GET
+// /api/v1/classes/{id}/students/{userId}/evaluation-report/{projectId}: the
+// teacher's read of the SAME EvaluationReport the student sees for one of
+// their projects. Read-no-call, like getEvaluationReport — never generates;
+// returns JSON null when the report hasn't been generated yet. Guarded by
+// authTeacherStudent (class ownership + this-class student membership) plus
+// an explicit project-ownership check, so a correct projectId belonging to a
+// DIFFERENT student (or a different class entirely) still 404s — same
+// IDOR-safe not-found idiom as loadOwnedProject and getStudentReport.
+func (a *API) getStudentEvaluationReport(w http.ResponseWriter, r *http.Request) {
+	_, userID, ok := a.authTeacherStudent(w, r)
+	if !ok {
+		return
+	}
+	projectID, err := uuid.Parse(r.PathValue("projectId"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	p, err := a.d.Queries.GetProject(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
+		return
+	}
+	if p.UserID != userID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	row, err := a.d.Queries.GetLatestEvaluationReport(r.Context(), projectID)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			httpx.WriteJSON(w, http.StatusOK, nil)
+			return
+		}
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rep, verr := evalreport.Validate(row.Report)
+	if verr != nil {
+		httpx.WriteError(w, r, verr)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, rep)
+}
+
 // listEvaluationReports: the student's report timeline — newest report per
 // project they own that has one. No model call.
 func (a *API) listEvaluationReports(w http.ResponseWriter, r *http.Request) {

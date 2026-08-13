@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import { EvaluationReport } from "@mind-imprint/contracts";
 import type { DualAxisReport, ParentReport, ParentStageReport } from "@mind-imprint/contracts";
 
 export interface RosterReportEntry {
@@ -55,6 +56,19 @@ export async function getStudentReport(
   scopeId: string,
 ): Promise<TeacherReport> {
   return apiFetch<TeacherReport>(`/api/v1/classes/${classId}/students/${userId}/reports/${surface}/${scopeId}`);
+}
+
+// Task 13: the teacher's read of the SAME EvaluationReport the student sees
+// for one of their projects — read-no-call, mirrors ../api/evaluationReport's
+// getEvaluationReport (null-passthrough, parsed via the shared contract).
+export async function getStudentEvaluationReport(
+  classId: string,
+  userId: string,
+  projectId: string,
+): Promise<EvaluationReport | null> {
+  const raw = await apiFetch<unknown>(`/api/v1/classes/${classId}/students/${userId}/evaluation-report/${projectId}`);
+  if (raw == null) return null;
+  return EvaluationReport.parse(raw);
 }
 
 export interface WeeklyCard {
