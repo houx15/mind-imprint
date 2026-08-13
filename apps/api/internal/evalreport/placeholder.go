@@ -212,7 +212,7 @@ func Placeholder(projectID, reportID, studentID, studentName, title, ptype, gene
 			Suggestion: "记录为 research log 而非正文证据；情绪化材料不能替代证据，off-topic 主动退出并保留记录。"},
 		{Type: "ai-ghostwrite", Behaviour: "存在「帮我总结视频 / 能不能作为论据」等自然请求，接近让 AI 代劳阅读与判断。", Ref: &Ref{ID: "message:t148"},
 			Suggestion: "她持续要求 AI 检查而非代写，并明确 AI not used for；最终反思与正文自写证据依赖对话记录可查。"},
-		{Type: "unverified-media-weight", Behaviour: "The Economist 视频一度未记录观看时间点与人物，存在让视频单独承重的风险。", Ref: &Ref{ID: "message:t147"},
+		{Type: "missing-source", Behaviour: "The Economist 视频一度未记录观看时间点与人物，存在让视频单独承重的风险。", Ref: &Ref{ID: "message:t147"},
 			Suggestion: "视频作媒介与个案叙事，不当科学证明或中国归因；保留时间点、场景与自己的笔记。"},
 	}
 
