@@ -3,7 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { TeacherReportView } from "@/console/TeacherReportView";
 import type { TeacherReport } from "@/api";
-import { api } from "@/api";
+import { api, ApiError } from "@/api";
 import { DualAxisReport as DualAxisReportSchema } from "@mind-imprint/contracts";
 import type { DualAxisReport as DualAxisReportT, EvaluationReport } from "@mind-imprint/contracts";
 import { MOCK_EVALUATION_REPORT } from "@/shell/report/EvaluationReport/__fixtures__/mock";
@@ -92,6 +92,32 @@ describe("TeacherReportView", () => {
 
     expect(client.getStudentReport).toHaveBeenCalledWith("c1", "u1", "project", "p1");
     expect(client.getStudentEvaluationReport).toHaveBeenCalledWith("c1", "u1", "p1");
+  });
+
+  it("fix-wave: when the retired getStudentReport 404s/errors but getStudentEvaluationReport succeeds, the new report still renders with no error banner", async () => {
+    const client = {
+      getStudentReport: vi.fn(async () => {
+        throw new ApiError("not_found", "not found", 404);
+      }),
+      getStudentEvaluationReport: vi.fn(async () => MOCK_EVALUATION_REPORT),
+    };
+    render(
+      <TeacherReportView client={client} classId="c1" userId="u1" surface="project" scopeId="p1" onBack={() => {}} />,
+    );
+
+    const evalBody = await screen.findByTestId("evaluation-report");
+    expect(within(evalBody).getByText(MOCK_EVALUATION_REPORT.basics.title)).toBeInTheDocument();
+
+    // No error banner from the retired fetch's failure — it degrades silently.
+    expect(screen.queryByText("加载失败")).toBeNull();
+    expect(screen.queryByText("重试")).toBeNull();
+
+    // Old-shape auxiliary surfaces (证据地图, live 导出家长版 PDF) omit
+    // themselves gracefully rather than crashing on the missing `data`.
+    expect(screen.queryByTestId("evidence-map-slot")).toBeNull();
+    expect(screen.queryByText("证据地图")).toBeNull();
+    const exportBtn = await screen.findByText("导出家长版 PDF");
+    expect(exportBtn.closest("[title]")).toHaveAttribute("title", "家长版报告即将上线");
   });
 
   it("project surface with no generated report yet: shows an empty-state placeholder instead of crashing", async () => {

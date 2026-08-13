@@ -12,18 +12,27 @@ import { ParentReport } from "./ParentReport";
 // new pipeline is project-scoped only (evaluation_report rows key off
 // project_id — there is no chat/course equivalent yet), so the main body
 // only renders for surface === "project"; other surfaces keep the identity
-// chrome + 证据地图 but show a placeholder where the dual-axis body used to
-// be, rather than resurrecting the retired rendering.
+// chrome but show a placeholder where the dual-axis body used to be, rather
+// than resurrecting the retired rendering.
 //
-// Kept auxiliary surfaces (still fed by the ORIGINAL `getStudentReport` fetch,
-// which stays alive alongside the new one — two fetches is fine):
-//   - 证据地图 (`EvidenceMap`) — a pure projection of the old DualAxisReport
-//     shape, unrelated to the removed hand-rolled JSX; still compiles as-is.
-//   - `ParentReport` — its own fetch (via `../api`'s `api` export), untouched.
-//   - the identity/context header (title, chips, D/A badges) — still sourced
-//     from `context`/`report` top-level fields, not the removed dimension body.
-// Gated (commented out, not deleted): none needed — nothing here imports the
-// retired dual-axis type in a way that broke once the D/A section left.
+// Fix-wave (2026-08-14 review): the finish flow no longer writes the old
+// `evaluation` row (it writes `evaluation_report`), so the OLD
+// `getStudentReport` fetch now 404s for every project finished under this
+// pipeline. The two fetches (`getStudentReport` for the retired shape,
+// `getStudentEvaluationReport` for the new one) are therefore fully
+// DECOUPLED — the new report body renders whenever `getStudentEvaluationReport`
+// resolves, independent of whether `getStudentReport` succeeds. The
+// old-report-dependent auxiliary surfaces degrade gracefully instead of
+// gating the whole view:
+//   - 证据地图 (`EvidenceMap`) — a pure projection of the old
+//     TeacherReport shape; rendered ONLY when `data` (the old fetch) is
+//     present, omitted (no error banner) when it 404s/errors.
+//   - `ParentReport` / 导出家长版 PDF — same: only offered as a live action
+//     when `data` is present; otherwise degrades to the same inert
+//     "coming soon" placeholder non-project surfaces already show.
+//   - the identity/context header (title, chips) — prefers `data.context`
+//     when present, falls back to `evalReport.basics` so the header still
+//     reads correctly even when the old fetch has nothing to offer.
 
 type Client = Pick<ApiClient, "getStudentReport" | "getStudentEvaluationReport">;
 
@@ -92,26 +101,34 @@ export function TeacherReportView({
   }
   useEffect(loadEval, [client, classId, userId, surface, scopeId]);
 
-  if (error) {
-    return (
-      <div style={{ flex: 1, padding: 40 }}>
-        <button onClick={onBack} style={{ background: "transparent", border: "none", color: "#8A92A3", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 }}>← 全部学生</button>
-        <div style={{ marginTop: 20, color: "#C76B6B", fontSize: 14, fontWeight: 600 }}>{error} · <span onClick={load} style={{ cursor: "pointer", textDecoration: "underline" }}>重试</span></div>
-      </div>
-    );
-  }
-  if (!data) {
+  // The old fetch is "settled" once it either resolved or errored; the eval
+  // fetch is "settled" once `loadEval` marks it loaded, OR trivially settled
+  // for non-project surfaces (which never fetch it — nothing to wait for).
+  const dataSettled = data !== null || error !== null;
+  const evalSettled = surface !== "project" || evalLoaded;
+  if (!dataSettled && !evalSettled) {
+    // Nothing to show at all yet — both fetches are still in flight.
     return <div style={{ flex: 1 }} />;
   }
 
-  const { report, context } = data;
-
-  const title = context.title ?? context.projectTitle ?? `${SURFACE_LABEL[surface] ?? surface}报告`;
-  const chips = [
-    SURFACE_LABEL[surface] ?? surface,
-    report.officialProjection ? report.officialProjection.standard.name : null,
-    report.generatedAt ? report.generatedAt.slice(0, 10) : null,
-  ].filter((c): c is string => !!c);
+  // `data` (the retired `getStudentReport` shape) may be null here — either
+  // still loading or 404'd/errored. Everything below must tolerate that: the
+  // new EvaluationReport body never depends on it, and the auxiliary
+  // old-shape surfaces (证据地图/ParentReport) simply omit themselves.
+  const title =
+    data?.context.title ?? data?.context.projectTitle ?? evalReport?.basics.title ?? `${SURFACE_LABEL[surface] ?? surface}报告`;
+  const chips = (
+    data
+      ? [
+          SURFACE_LABEL[surface] ?? surface,
+          data.report.officialProjection ? data.report.officialProjection.standard.name : null,
+          data.report.generatedAt ? data.report.generatedAt.slice(0, 10) : null,
+        ]
+      : [SURFACE_LABEL[surface] ?? surface, evalReport?.basics.type ?? null, evalReport?.generatedAt ? evalReport.generatedAt.slice(0, 10) : null]
+  ).filter((c): c is string => !!c);
+  // 导出家长版 PDF is an old-shape auxiliary surface — only offer it as a
+  // live action when the old fetch actually has a project to key off.
+  const canExportParent = surface === "project" && !!data;
 
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto", position: "relative" }}>
@@ -135,7 +152,7 @@ export function TeacherReportView({
               ))}
             </div>
           </div>
-          {surface === "project" ? (
+          {canExportParent ? (
             <button
               onClick={() => setParentReportOpen(true)}
               style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid #DCE0EA", color: "#2A3B7A", fontSize: 13, fontWeight: 700, padding: "10px 16px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit" }}
@@ -185,16 +202,21 @@ export function TeacherReportView({
 
       {/* 证据地图 — auxiliary surface, still fed by the original getStudentReport
           fetch (a pure client-side projection of `report`/`context`,
-          unaffected by the removal of the hand-rolled dual-axis body). */}
-      <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 30px 72px" }}>
-        <h2 style={H2_STYLE}>证据地图</h2>
-        <div style={CAPTION_STYLE}>点击节点，看 RQ、官方投影、双轴、AI 互动如何串起这个项目的证据。</div>
-        <div data-testid="evidence-map-slot">
-          <EvidenceMap report={report} context={context} studentName={studentName} />
+          unaffected by the removal of the hand-rolled dual-axis body). Old
+          fetch is optional now, so this whole section degrades gracefully —
+          omitted (no error banner) rather than rendered — when `data` never
+          arrives. */}
+      {data && (
+        <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 30px 72px" }}>
+          <h2 style={H2_STYLE}>证据地图</h2>
+          <div style={CAPTION_STYLE}>点击节点，看 RQ、官方投影、双轴、AI 互动如何串起这个项目的证据。</div>
+          <div data-testid="evidence-map-slot">
+            <EvidenceMap report={data.report} context={data.context} studentName={studentName} />
+          </div>
         </div>
-      </div>
+      )}
 
-      {parentReportOpen && surface === "project" && (
+      {parentReportOpen && canExportParent && (
         <ParentReport
           classId={classId}
           studentId={userId}
