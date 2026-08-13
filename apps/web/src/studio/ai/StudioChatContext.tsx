@@ -89,6 +89,12 @@ export type StudioChatValue = {
   // submit); or decline it (records the decline so 印记 stops offering it).
   openCard: (cardId: string) => void;
   dismissCard: (cardId: string) => void;
+  // The 提问卡 is a chatbox affordance (no longer an AI-summonable card): while
+  // the research question isn't formed yet (proposal.objective empty), a "还没
+  // 头绪？" button sits above the Composer and opens the QuestionCardModal via
+  // openCard("question-card"). Flips false the moment 目标 is filled (the card
+  // retires) — the same deterministic gate the backend uses.
+  questionCardAvailable: boolean;
   // Task 7 (P2b) · 印记's per-turn `propose_question` OFFER (铁律②: proposed,
   // never auto-applied). Confirming turns it into an exploration lead
   // (`createLead`); cleared at the start of the next turn and on project switch,

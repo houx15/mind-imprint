@@ -7,6 +7,21 @@ import { apiFetch } from "./client";
 
 export type QuestionCardMsg = { role: "student" | "ai"; text: string };
 
+// The saved in-progress conversation (§2): reopening the modal continues where
+// the student left off instead of restarting. Empty messages ⇒ a fresh card.
+export type QuestionCardState = { messages: QuestionCardMsg[]; done: boolean; objective: string };
+
+export async function getQuestionCardState(projectId: string): Promise<QuestionCardState> {
+  const raw = await apiFetch<Partial<QuestionCardState>>(`/api/v1/projects/${projectId}/cards/question-card`, {
+    method: "GET",
+  });
+  return {
+    messages: Array.isArray(raw?.messages) ? (raw!.messages as QuestionCardMsg[]) : [],
+    done: raw?.done === true,
+    objective: typeof raw?.objective === "string" ? raw.objective : "",
+  };
+}
+
 export async function questionCardTurn(projectId: string, messages: QuestionCardMsg[]): Promise<QuestionCardTurnReply> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/cards/question-card/turn`, {
     method: "POST",

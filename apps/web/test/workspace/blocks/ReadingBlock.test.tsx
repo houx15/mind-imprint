@@ -106,6 +106,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         dismissNote: () => {},
         openCard: () => {},
         dismissCard: () => {},
+        questionCardAvailable: false,
         pendingQuestion: null,
         confirmQuestion: () => {},
         dismissQuestion: () => {},

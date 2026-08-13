@@ -1154,6 +1154,10 @@ export function WorkspaceContainer({
     dismissNote,
     openCard,
     dismissCard,
+    // 提问卡 chatbox affordance: available only while the research question
+    // isn't formed yet (proposal.objective empty) — retires the moment 目标 is
+    // filled, mirroring the backend gate.
+    questionCardAvailable: (workspace?.proposal?.objective?.trim() ?? "") === "",
     pendingQuestion,
     confirmQuestion,
     dismissQuestion,

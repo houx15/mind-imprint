@@ -137,6 +137,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/proposal-track/subquestions", protected(a.setProposalSubQuestions))
 	mux.Handle("POST /api/v1/projects/{id}/proposal-track/advance", protected(a.advanceProposalStep))
 	mux.Handle("POST /api/v1/projects/{id}/proposal-track/review", protected(a.reviewProposalPart))
+	mux.Handle("GET /api/v1/projects/{id}/cards/question-card", protected(a.getQuestionCardState))
 	mux.Handle("POST /api/v1/projects/{id}/cards/question-card/turn", protected(a.postQuestionCardTurn))
 	mux.Handle("POST /api/v1/projects/{id}/cards/question-card/commit", protected(a.postQuestionCardCommit))
 	mux.Handle("POST /api/v1/projects/{id}/framework/waive-counterpoints", protected(a.waiveCounterpoints))

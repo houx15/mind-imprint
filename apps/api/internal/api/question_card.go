@@ -83,6 +83,11 @@ func (a *API) postQuestionCardTurn(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	// Persist the running transcript so reopening the modal in this project
+	// CONTINUES the chat (§2). Saved = the client's history + this AI reply.
+	a.saveQuestionCardProgress(r.Context(), projectID, body.Messages, reply)
+
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
 
@@ -90,6 +95,60 @@ type questionCardReplyDTO struct {
 	Narrate            string  `json:"narrate"`
 	SuggestedObjective *string `json:"suggestedObjective"`
 	Done               bool    `json:"done"`
+}
+
+// saveQuestionCardProgress writes the in-progress transcript to studio_state so a
+// later reopen restores it. `prior` is the client's history (roles student/ai)
+// before this reply; we append the AI reply. Best-effort — a save failure never
+// fails the turn (the client still has the live conversation).
+func (a *API) saveQuestionCardProgress(ctx context.Context, projectID uuid.UUID, prior []struct {
+	Role string `json:"role"`
+	Text string `json:"text"`
+}, reply questionCardReplyDTO) {
+	state, err := a.loadStudioStateForNeeds(ctx, projectID)
+	if err != nil {
+		return
+	}
+	msgs := make([]agent.QuestionCardMsg, 0, len(prior)+1)
+	for _, m := range prior {
+		role := "student"
+		if m.Role == "ai" || m.Role == "assistant" {
+			role = "ai"
+		}
+		msgs = append(msgs, agent.QuestionCardMsg{Role: role, Text: m.Text})
+	}
+	msgs = append(msgs, agent.QuestionCardMsg{Role: "ai", Text: reply.Narrate})
+	prog := &agent.QuestionCardProgress{Messages: msgs, Done: reply.Done}
+	if reply.SuggestedObjective != nil {
+		prog.Objective = *reply.SuggestedObjective
+	}
+	state.QuestionCard = prog
+	_ = a.saveTrackState(ctx, projectID, state)
+}
+
+// GET /projects/{id}/cards/question-card — the saved in-progress transcript, so
+// the modal continues the conversation on reopen (empty ⇒ a fresh card).
+func (a *API) getQuestionCardState(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	state, err := a.loadStudioStateForNeeds(r.Context(), projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	msgs := []agent.QuestionCardMsg{}
+	done := false
+	objective := ""
+	if p := state.QuestionCard; p != nil {
+		if p.Messages != nil {
+			msgs = p.Messages
+		}
+		done = p.Done
+		objective = p.Objective
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": msgs, "done": done, "objective": objective})
 }
 
 // POST /projects/{id}/cards/question-card/commit {objective}
@@ -147,6 +206,13 @@ func (a *API) postQuestionCardCommit(w http.ResponseWriter, r *http.Request) {
 		Payload: mustJSON(map[string]any{"cardId": "question-card", "objective": objective, "transcript": transcript}),
 	}); err != nil {
 		slog.Warn("question card: append card_completed event failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+
+	// The research question is formed → the card retires. Clear the in-progress
+	// transcript so it doesn't resurface if the modal is somehow reopened.
+	if state, serr := a.loadStudioStateForNeeds(r.Context(), projectID); serr == nil && state.QuestionCard != nil {
+		state.QuestionCard = nil
+		_ = a.saveTrackState(r.Context(), projectID, state)
 	}
 
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"objective": objective})

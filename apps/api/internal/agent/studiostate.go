@@ -115,6 +115,27 @@ type StudioState struct {
 	// no migration) rather than sharing the essay's outline rows. GET/PUT
 	// /outline?doc=proposal read & write this; ?doc=essay (default) uses the table.
 	ProposalOutline []ProposalOutlineNode `json:"proposalOutline,omitempty"`
+	// QuestionCard persists the in-progress 提问卡 conversation so reopening the
+	// modal in the SAME project continues the chat instead of restarting (§2).
+	// Each turn saves the running transcript here; commit clears it (the research
+	// question is formed → the card retires). jsonb, no migration.
+	QuestionCard *QuestionCardProgress `json:"questionCard,omitempty"`
+}
+
+// QuestionCardProgress is the saved 提问卡 sub-agent conversation (the chat IS
+// the card's content, §2): the transcript plus, once the sub-agent has proposed
+// a question, its done flag + suggested objective (so a reopen restores the
+// confirm step, not just the messages).
+type QuestionCardProgress struct {
+	Messages  []QuestionCardMsg `json:"messages,omitempty"`
+	Done      bool              `json:"done,omitempty"`
+	Objective string            `json:"objective,omitempty"`
+}
+
+// QuestionCardMsg is one line of the 提问卡 conversation. Role ∈ student|ai.
+type QuestionCardMsg struct {
+	Role string `json:"role"`
+	Text string `json:"text"`
 }
 
 // ResourceNeed is one entry in the needs-resources box (slice 5).

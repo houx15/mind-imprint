@@ -50,7 +50,7 @@ func TestStatusRegistry_Integrity(t *testing.T) {
 func TestStatusRegistry_FinalizedDecks(t *testing.T) {
 	reg := StatusRegistry()
 	want := map[FlowStatus][]string{
-		FlowFramework: {"question-card"},
+		FlowFramework: nil, // 提问卡 moved to a chatbox button — no longer an AI-summonable deck card
 		FlowProposal:  nil,
 		FlowEssay:     {"pee", "toulmin", "argument-map"},
 		FlowReview:    nil,
@@ -92,11 +92,13 @@ func TestIsSummonable(t *testing.T) {
 		t.Error("concession (cross-cutting) should be summonable in essay")
 	}
 	// status-deck cards summon in their status.
-	if !IsSummonable("question-card", FlowFramework) {
-		t.Error("question-card should be summonable in framework")
-	}
 	if !IsSummonable("toulmin", FlowEssay) {
 		t.Error("toulmin should be summonable in essay")
+	}
+	// question-card is NOT a coach-summonable card anymore — it's a chatbox
+	// button that opens the modal directly (student-opened, not AI-proposed).
+	if IsSummonable("question-card", FlowFramework) {
+		t.Error("question-card must NOT be summonable — it's a chatbox button now")
 	}
 	// reading-toolkit cards are NOT summonable via writing-flow statuses.
 	if IsSummonable("cda", FlowEssay) {
@@ -117,6 +119,7 @@ func TestPlacementTagsMatchBindingLists(t *testing.T) {
 		}
 	}
 	expected["learning-report"] = "status" // function producer on the review surface (not in a deck)
+	expected["question-card"] = "status"   // 提问卡: framework-phase card opened by a chatbox button (not an AI-summonable deck card)
 	for _, id := range ReadingDeckIDs {
 		expected[id] = "reading"
 	}

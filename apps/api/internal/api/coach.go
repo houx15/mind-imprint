@@ -503,14 +503,10 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 			if args, aerr := agent.SummonCardToolArgs(tc); aerr == nil {
 				status := agent.StatusForStage(state.Stage)
 				if !agent.IsSummonable(args.CardID, status) {
+					// (question-card is intentionally NOT summonable — it's a
+					// chatbox button that opens the modal directly, §2.)
 					slog.Info("coach: dropped summon_card not valid for status",
 						"card", args.CardID, "status", status, "request_id", httpx.RequestIDFromContext(ctx))
-				} else if args.CardID == "question-card" && !a.questionCardAISummonable(ctx, projectID) {
-					// Trigger-authority gate (all-statuses.md §2): the 提问卡 is a
-					// start-of-framework aid — once the research question is formed
-					// (目标 non-empty) it is no longer available, in chat or manually.
-					slog.Info("coach: dropped question-card summon (目标 formed → card retired)",
-						"request_id", httpx.RequestIDFromContext(ctx))
 				} else if a.cardEligibleForSummon(ctx, projectID, args.CardID) {
 					effects.Card = &cardProposalWireDTO{CardID: args.CardID, Reason: args.Reason, NudgeText: args.NudgeText}
 					if eerr := store.AppendEvent(ctx, agent.EventRow{

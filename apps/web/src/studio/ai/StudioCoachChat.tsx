@@ -38,6 +38,8 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
     started,
     startJourney,
     starting,
+    openCard,
+    questionCardAvailable,
   } = useStudioChat();
   const [draft, setDraft] = useState("");
   // An empty thread renders no fake AI line — a brand-new project simply
@@ -101,14 +103,28 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
         <StudioTurnChips />
       </div>
       {started ? (
-        <Composer
-          value={draft}
-          onChange={setDraft}
-          onSend={onSend}
-          state={sending ? "replying" : undefined}
-          placeholder="和印记说说你的项目……（Shift+Enter 换行）"
-          className="flex-none"
-        />
+        <div className="flex flex-none flex-col gap-2">
+          {/* 提问卡 lives here now (not an AI-summoned card): while the research
+              question isn't formed yet, this opens the guided decomposition
+              modal. Retires the moment 目标 is filled. */}
+          {questionCardAvailable && (
+            <button
+              type="button"
+              onClick={() => openCard("question-card")}
+              className="flex items-center gap-2 self-start rounded-mk-md border border-mk-accent bg-mk-accent-50 px-3.5 py-2 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent-100"
+            >
+              <GlyphIcon name="spark" size={15} /> 还没头绪？用提问卡帮你想想
+            </button>
+          )}
+          <Composer
+            value={draft}
+            onChange={setDraft}
+            onSend={onSend}
+            state={sending ? "replying" : undefined}
+            placeholder="和印记说说你的项目……（Shift+Enter 换行）"
+            className="flex-none"
+          />
+        </div>
       ) : (
         // Task 6 (start gate): before the student taps 开始, there is no
         // composer at all — 印记's opening turn ends 准备好开始了吗 and this

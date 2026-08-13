@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal, CardTurnRef } from "@mind-imprint/contracts";
+import type { LogEntry, PlanColumn, PlanItem, PlanTag, Proposal } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { useStudioChat, type StudioChatMsg } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
@@ -28,7 +28,6 @@ import {
   addLog,
   type PlanItemPatch,
 } from "../api/workspace";
-import { CoachCardPanel, FORMING_DECK } from "./CoachCardPanel";
 import { CardTurnChip } from "./CardTurnChip";
 import { exportTimescale, exportActivityLog } from "../export";
 
@@ -204,24 +203,6 @@ export function PlanBlock({
         projectId={projectId}
         refreshWorkspace={refreshWorkspace}
         onStudioStateChanged={onStudioStateChanged}
-        onCardReflected={(studentText, reply, card) => {
-          if (!isActiveProject()) return; // student switched projects mid-reflect
-          setMessages((c) => [
-            ...c,
-            // A card turn renders as a content-first chip (card set), falling
-            // back to raw compiled text only if the server didn't echo a card.
-            ...(card
-              ? [{ role: "student" as const, text: studentText, card }]
-              : studentText
-                ? [{ role: "student" as const, text: studentText }]
-                : []),
-            ...(reply
-              ? [{ role: "ai" as const, text: reply }]
-              : card || studentText
-                ? []
-                : [{ role: "ai" as const, text: "这张卡还没填内容，先留着，想清楚了再来。" }]),
-          ]);
-        }}
       />
     );
   }
@@ -274,11 +255,10 @@ function FormingPhase(props: {
   projectId: string;
   refreshWorkspace?: () => void;
   onStudioStateChanged?: () => void | Promise<void>;
-  onCardReflected: (studentText: string, reply: string, card?: CardTurnRef) => void;
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
-    projectId, onCardReflected, refreshWorkspace, onStudioStateChanged,
+    projectId, refreshWorkspace, onStudioStateChanged,
   } = props;
   const [waiving, setWaiving] = useState(false);
   async function onWaiveCounterpoints() {
@@ -305,9 +285,10 @@ function FormingPhase(props: {
   // component renders outside a studio shell (e.g. some tests) — in either
   // case the coach content simply doesn't render, never crashes.
   const slot = useStudioAiSlot();
-  // slice 3a · the 提问卡 manual-open affordance. Shown ONLY while 目标 is empty —
-  // that's the student-manual regime (all-statuses.md §2 D); once 目标 is filled
-  // the coach proposes it instead. Routes through openCard → QuestionCardModal.
+  // 提问卡 is now a chatbox affordance (no self-summon shelf): while the research
+  // question isn't formed yet (目标 empty), a "还没头绪？" button sits above this
+  // room's Composer and opens the adaptive QuestionCardModal. Retires the moment
+  // 目标 is filled — the same gate the chat-first StudioCoachChat button uses.
   const { openCard } = useStudioChat();
   const objectiveEmpty = proposal.objective.trim() === "";
   // The 提案 framing is now the live agent's job (delivered by `coach/start`'s
@@ -323,16 +304,6 @@ function FormingPhase(props: {
           <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">先搭好研究的大框架</h1>
           <p className="mt-1.5 text-[14px] text-mk-muted">把这几件事聊清楚，计划会据此长出来。</p>
         </header>
-
-        {objectiveEmpty && (
-          <button
-            type="button"
-            onClick={() => openCard("question-card")}
-            className="flex items-center gap-2 self-start rounded-mk-md border border-mk-accent bg-mk-accent-50 px-3.5 py-2 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-100"
-          >
-            <Icon name="spark" size={15} /> 还没头绪？用提问卡帮你想想
-          </button>
-        )}
 
         <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
           <div className="mb-1 flex items-center justify-between">
@@ -378,14 +349,19 @@ function FormingPhase(props: {
               {/* 印记's per-turn note/card OFFERS come from the ONE container store
                   (StudioTurnChips) — the same chips render in chat-first and 写作. */}
               <StudioTurnChips />
-              {/* The self-summon 工具卡 shelf: the student picks a forming card
-                  herself (separate from 印记's proposal above). No AI proposal is
-                  threaded here anymore — that path is StudioTurnChips → the shared
-                  card sheet. */}
-              {!sending && (
-                <CoachCardPanel projectId={projectId} proposal={null} onProposalConsumed={() => {}} onReflected={onCardReflected} surface="forming" deck={FORMING_DECK} />
-              )}
             </div>
+
+            {/* 提问卡 entry — replaces the old self-summon 工具卡 shelf. While the
+                research question isn't formed yet, opens the adaptive modal. */}
+            {objectiveEmpty && (
+              <button
+                type="button"
+                onClick={() => openCard("question-card")}
+                className="flex flex-none items-center gap-2 self-start rounded-mk-md border border-mk-accent bg-mk-accent-50 px-3.5 py-2 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent-100"
+              >
+                <Icon name="spark" size={15} /> 还没头绪？用提问卡帮你想想
+              </button>
+            )}
 
             <Composer
               value={draft}

@@ -24,7 +24,7 @@ describe("QuestionCardModal", () => {
     fireEvent.change(screen.getByPlaceholderText("用你自己的话说……"), { target: { value: "我觉得……" } });
     fireEvent.click(screen.getByText("发送"));
 
-    const confirmBtn = await screen.findByText("就用这个");
+    const confirmBtn = await screen.findByText("确认为研究问题");
     fireEvent.click(confirmBtn);
 
     // The whole modal conversation rides along on commit (§2 — chat history is
@@ -36,5 +36,28 @@ describe("QuestionCardModal", () => {
     expect(committedMessages).toContainEqual({ role: "student", text: "我觉得……" });
     expect(onCommitted).toHaveBeenCalledWith("在 X 条件下 Y 是否影响 Z");
     expect(onClose).toHaveBeenCalled();
+  });
+
+  it("continues a saved conversation on reopen instead of restarting", async () => {
+    const load = vi.fn(async () => ({
+      messages: [
+        { role: "ai" as const, text: "你对这个题目的第一直觉是什么？" },
+        { role: "student" as const, text: "我关心城市里的树" },
+        { role: "ai" as const, text: "很好，树的什么方面最吸引你？" },
+      ],
+      done: false,
+      objective: "",
+    }));
+    const turn = vi.fn();
+    const commit = vi.fn(async () => ({ objective: "x" }));
+    const deps: QuestionCardDeps = { turn, commit, load };
+
+    render(<QuestionCardModal projectId="p1" onClose={() => {}} onCommitted={() => {}} deps={deps} />);
+
+    // The saved transcript is shown — the last student + AI lines both render.
+    expect(await screen.findByText("我关心城市里的树")).toBeTruthy();
+    expect(screen.getByText("很好，树的什么方面最吸引你？")).toBeTruthy();
+    // No fresh opening turn is kicked off — the conversation continues.
+    expect(turn).not.toHaveBeenCalled();
   });
 });

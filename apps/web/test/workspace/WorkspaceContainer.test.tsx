@@ -591,7 +591,7 @@ describe("WorkspaceContainer", () => {
   // student's turn and 印记's reply) is still present after every switch —
   // via the mocked PlanBlock/WritingBlock above, which read the identical
   // `useStudioChat()` store the real rooms portal their coach from.
-  it("keeps the SAME coach thread content when switching 管理 ↔ 写作 ↔ 提案 (one hoisted thread, no reload)", async () => {
+  it("keeps the SAME coach thread content when switching 管理 ↔ 写作 ↔ 立题 (one hoisted thread, no reload)", async () => {
     getStudioState.mockImplementation(async () => fakeStudioState("chat"));
     coach.mockResolvedValue(fakeReply("我们先理一下你的目标。", "chat"));
     render(<WorkspaceContainer initialProjectId="pswitch" />);
@@ -615,8 +615,8 @@ describe("WorkspaceContainer", () => {
     expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
     expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();
 
-    // → 提案 (back to PlanBlock, forming phase) — still the same content.
-    await userEvent.click(screen.getByRole("button", { name: "提案" }));
+    // → 立题 (back to PlanBlock, forming phase) — still the same content.
+    await userEvent.click(screen.getByRole("button", { name: "立题" }));
     expect(await screen.findByTestId("plan-block")).toBeInTheDocument();
     expect(screen.getByText("我想聊聊研究目标")).toBeInTheDocument();
     expect(screen.getByText("我们先理一下你的目标。")).toBeInTheDocument();

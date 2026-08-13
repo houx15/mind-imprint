@@ -67,10 +67,11 @@ func TestQuestionCardCommit_FillsObjective(t *testing.T) {
 	}
 }
 
-// TestQuestionCard_SummonGatedByObjective — the 提问卡 is a start-of-framework
-// aid (§2): the coach MAY summon it while 目标 is empty; once the research
-// question is formed (目标 non-empty) the card is retired and summons are dropped.
-func TestQuestionCard_SummonGatedByObjective(t *testing.T) {
+// TestQuestionCard_NeverSummonedByCoach — the 提问卡 is no longer an
+// AI-summonable card: it's a chatbox button that opens the modal directly
+// (§2). Even a coach turn that emits summon_card{question-card} must be
+// dropped — whether or not 目标 is empty.
+func TestQuestionCard_NeverSummonedByCoach(t *testing.T) {
 	summon := `{"narrate":"要不要用提问卡帮你想想？","tools":[{"name":"summon_card","args":{"card_id":"question-card","reason":"目标太泛","nudge_text":"一起收窄"}}]}`
 	h, cookie, pool := orchestratorHandler(t, summon)
 	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming) // framework — question-card is in its deck
@@ -97,18 +98,19 @@ func TestQuestionCard_SummonGatedByObjective(t *testing.T) {
 		return &resp
 	}
 
-	// objective empty → the coach may offer the card (start-of-framework aid).
-	if got := call(); got.Card == nil || got.Card.CardID != "question-card" {
-		t.Fatalf("with 目标 empty the coach should offer question-card, got %+v", got.Card)
+	// objective empty → the coach still must NOT summon question-card (it's a
+	// button now, not a summonable card).
+	if got := call(); got.Card != nil {
+		t.Fatalf("coach must never summon question-card (it's a chatbox button), got %+v", got.Card)
 	}
 
-	// fill objective → the research question is formed → the card is retired.
+	// fill objective → still no summon.
 	if _, err := sqlc.New(pool).UpsertProjectProposal(context.Background(), sqlc.UpsertProjectProposalParams{
 		ProjectID: mustUUID(seedProjectID), Objective: "一个已经形成的研究问题", Reason: "", Activities: "", Resources: "", Counterpoints: "",
 	}); err != nil {
 		t.Fatalf("seed objective: %v", err)
 	}
 	if got := call(); got.Card != nil {
-		t.Fatalf("with 目标 formed the coach must NOT summon question-card, got %+v", got.Card)
+		t.Fatalf("coach must never summon question-card, got %+v", got.Card)
 	}
 }

@@ -78,7 +78,7 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "学生还没定研究问题——陪他把一个模糊的兴趣收成一句清晰、可研究的问题。",
 			SystemPrompt: mkPrompt("学生还没定研究问题——陪他把一个模糊的兴趣收成一句清晰、可研究的问题。别替他定题。", toolProposeQ),
 			Tools:        []string{"propose_question"},
-			Cards:        []string{"question-card"},
+			Cards:        nil, // 提问卡 is now a chatbox button (student-opened modal), not an AI-summonable card
 			Surface:      ToolChat,
 			Doc:          DocNone,
 		},
@@ -86,7 +86,7 @@ func StatusRegistry() map[FlowStatus]StatusDef {
 			Goal:         "把研究计划的五件事聊清楚：目标、缘由、活动与时间、资源、可能的反例/张力。四项核心齐了、也谈过反例后系统会自动生成计划。",
 			SystemPrompt: mkPrompt("把研究计划的五件事聊清楚——目标、缘由、活动与时间、资源，以及可能的反例/张力（这条也要问到，别跳过——想想什么证据或情形可能挑战当前的想法）。针对学生刚说的那一维给一条具体反馈，再往还没谈到的一维带一步，一次只带一个。四项核心都有内容、且谈过反例之后，系统会自动生成计划；你不用提议生成，只需继续把内容聊扎实。计划一旦生成，你可以帮他管理（update_plan）、也可以把想查的关键词记进探索清单（note_resource_need）。", toolProposeNote, toolSummonCard, toolUpdatePlan, toolNoteNeed),
 			Tools:        []string{"propose_note", "summon_card", "update_plan", "note_resource_need"},
-			Cards:        []string{"question-card"},
+			Cards:        nil, // 提问卡 is now a chatbox button (student-opened modal), not an AI-summonable card
 			Surface:      ToolForming,
 			Doc:          DocNone,
 		},

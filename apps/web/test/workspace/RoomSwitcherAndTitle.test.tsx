@@ -35,7 +35,7 @@ describe("RoomSwitcher", () => {
     expect(active.className).toContain("text-mk-ink");
     expect(active.className).toContain("bg-mk-surface");
 
-    const inactive = screen.getByRole("button", { name: "提案" });
+    const inactive = screen.getByRole("button", { name: "立题" });
     expect(inactive).toHaveAttribute("aria-pressed", "false");
     // `text-mk-secondary` is a solid token (renders); any `mk-*/NN` opacity
     // modifier on a CSS-variable color silently emits no rule (documented

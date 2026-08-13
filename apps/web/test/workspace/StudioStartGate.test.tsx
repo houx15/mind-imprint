@@ -95,7 +95,7 @@ function startedState() {
   };
 }
 
-const BLOCK_LABELS = ["提案", "管理", "阅读", "写作", "回顾"];
+const BLOCK_LABELS = ["立题", "管理", "阅读", "写作", "回顾"];
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -156,7 +156,7 @@ describe("Studio start gate (Task 6)", () => {
     expect(coachStart).toHaveBeenCalledWith("pnew");
     // The switcher/tabs now render — the container re-rendered on the
     // directive's started:true + openTool:"forming".
-    expect(await screen.findByRole("button", { name: "提案" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "立题" })).toBeInTheDocument();
     for (const label of BLOCK_LABELS) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
@@ -213,7 +213,7 @@ describe("Studio start gate (Task 6)", () => {
     render(<WorkspaceContainer initialProjectId="pexisting" />);
 
     // Tabs render right away.
-    expect(await screen.findByRole("button", { name: "提案" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "立题" })).toBeInTheDocument();
     for (const label of BLOCK_LABELS) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }

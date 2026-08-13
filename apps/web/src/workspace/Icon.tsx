@@ -102,7 +102,7 @@ export function Icon({ name, size = 18 }: { name: string; size?: number }) {
 // (PlanBlock): 提案 is the forming coach chat, 管理 is the persisted board
 // (still internally headed "项目管理" inside PlanBlock's board view).
 export const BLOCK_META: { key: BlockKey; label: string; sub: string }[] = [
-  { key: "forming", label: "提案", sub: "Proposal" },
+  { key: "forming", label: "立题", sub: "Proposal" },
   { key: "plan", label: "管理", sub: "Plan" },
   { key: "reading", label: "阅读", sub: "Read" },
   { key: "writing", label: "写作", sub: "Write" },

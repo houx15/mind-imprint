@@ -80,6 +80,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         dismissNote: () => {},
         openCard: () => {},
         dismissCard: () => {},
+        questionCardAvailable: false,
         pendingQuestion: null,
         confirmQuestion: () => {},
         dismissQuestion: () => {},
@@ -132,14 +133,14 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
   // Task 6 (start gate): the hardcoded 提案 intro is GONE — the framing now
   // comes from the live agent's `coach/start` narrate (seeded into the store
   // BEFORE this room ever mounts), not a local scripted fallback. An empty
-  // thread renders empty; the summon shelf still shows unconditionally.
-  it("renders NO scripted intro — an empty thread stays empty, and the summon shelf still shows", async () => {
+  // thread renders empty; the 提问卡 entry shows while 目标 is empty.
+  it("renders NO scripted intro — an empty thread stays empty, and the 提问卡 entry shows while 目标 empty", async () => {
     renderWithAiSlot(
       <PlanBlock projectId="p1" title="T" qualification="拓展论文 EE" proposal={EMPTY_PROPOSAL} phase="forming" refreshWorkspace={() => {}} />,
     );
 
-    // The summon shelf (CoachCardPanel, FORMING_DECK) is always visible.
-    expect(await screen.findByRole("button", { name: "提问卡" })).toBeInTheDocument();
+    // The 提问卡 entry (replaces the old self-summon shelf) shows while 目标 empty.
+    expect(await screen.findByRole("button", { name: /还没头绪/ })).toBeInTheDocument();
     // The old hardcoded intro never renders.
     expect(screen.queryByText(/先想清楚四件事/)).toBeNull();
   });
