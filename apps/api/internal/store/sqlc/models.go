@@ -206,6 +206,14 @@ type Evaluation struct {
 	ThreadID         pgtype.UUID        `json:"thread_id"`
 }
 
+type EvaluationReport struct {
+	ID        uuid.UUID `json:"id"`
+	ProjectID uuid.UUID `json:"project_id"`
+	Version   int32     `json:"version"`
+	Report    []byte    `json:"report"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type Event struct {
 	ID        uuid.UUID   `json:"id"`
 	ProjectID pgtype.UUID `json:"project_id"`
