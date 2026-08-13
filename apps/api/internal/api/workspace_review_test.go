@@ -19,6 +19,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -253,8 +254,9 @@ func TestMirror_FailedComposeNotPersisted(t *testing.T) {
 
 // TestFinishGate_ReflectionDoneThenAssessment — the rewired finish gate: finish
 // is blocked (422 reflection_not_done) until the reflection is marked done via
-// PUT /reflection-doc, after which finish succeeds, an evaluation row is
-// persisted, and GET /assessment returns the generated report.
+// PUT /reflection-doc, after which finish succeeds, an evaluation_report row is
+// persisted (Task 6: the finish worker now generates the new EvaluationReport,
+// not the old dual-axis evaluation), and GET /evaluation-report returns it.
 func TestFinishGate_ReflectionDoneThenAssessment(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
@@ -292,25 +294,22 @@ func TestFinishGate_ReflectionDoneThenAssessment(t *testing.T) {
 		t.Fatalf("finish (reflection done) = %d, want 202; body=%s", recOK.Code, recOK.Body)
 	}
 	waitProjectStatus(t, pool, pid, "finished")
-	if n := countProjectEvaluations(t, pool, pid); n != 1 {
-		t.Fatalf("evaluation rows after finish = %d, want 1", n)
+	if n := countEvaluationReports(t, pool, pid); n != 1 {
+		t.Fatalf("evaluation_report rows after finish = %d, want 1", n)
 	}
 
-	// GET /assessment now returns the generated report.
-	recAssess := httptest.NewRecorder()
-	h.ServeHTTP(recAssess, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+pid+"/assessment", nil), cookie))
-	if recAssess.Code != http.StatusOK {
-		t.Fatalf("GET assessment = %d, want 200; body=%s", recAssess.Code, recAssess.Body)
+	// GET /evaluation-report now returns the generated report.
+	recRep := httptest.NewRecorder()
+	h.ServeHTTP(recRep, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+pid+"/evaluation-report", nil), cookie))
+	if recRep.Code != http.StatusOK {
+		t.Fatalf("GET evaluation-report = %d, want 200; body=%s", recRep.Code, recRep.Body)
 	}
-	var dto struct {
-		Narrative   string `json:"narrative"`
-		GeneratedAt string `json:"generatedAt"`
+	var rep evalreport.Report
+	if err := json.Unmarshal(recRep.Body.Bytes(), &rep); err != nil {
+		t.Fatalf("decode evaluation report: %v — %s", err, recRep.Body)
 	}
-	if err := json.Unmarshal(recAssess.Body.Bytes(), &dto); err != nil {
-		t.Fatalf("decode assessment: %v — %s", err, recAssess.Body)
-	}
-	if dto.Narrative == "" || dto.GeneratedAt == "" {
-		t.Fatalf("assessment dto = %+v, want narrative + generatedAt", dto)
+	if rep.ProjectID != pid || rep.GeneratedAt == "" {
+		t.Fatalf("evaluation report = %+v, want projectId=%s + non-empty generatedAt", rep, pid)
 	}
 }
 

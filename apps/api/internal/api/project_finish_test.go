@@ -2,10 +2,15 @@ package api_test
 
 // project_finish_test.go — A3 Task 4: POST /api/v1/projects/{id}/finish, the
 // project's one-time terminal. Order: ownership -> entitlement -> one-time
-// guard (already finished -> 409) -> gate guard (draft_polish.whole_draft_review
-// must be "solid", server-enforced) -> generate the flagship report -> on
-// reject 422 assessment_rejected AND the project stays 'active' (retryable)
-// -> on success, mark 'finished' + append project_finished, return the DTO.
+// guard (already finished/evaluating -> 409) -> gate guards (writing finished,
+// reflection done, both server-enforced) -> claim 'evaluating' + 202 response
+// -> a detached goroutine generates the report and, on success, marks
+// 'finished' + appends project_finished; on any error it reverts to 'active'
+// (retryable). As of Task 6 (evaluation-report-pipeline), the goroutine's
+// artifact is the new EvaluationReport (generateAndStoreEvaluationReport,
+// currently evalreport.Placeholder) — the old dual-axis evaluation + mirror
+// pipeline (generateProjectReport/composeAndStoreProjectMirror) is no longer
+// called from finish (still used by other surfaces, e.g. the parent report).
 
 import (
 	"context"
@@ -20,6 +25,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -96,6 +102,20 @@ func countProjectEvaluations(t *testing.T, pool *pgxpool.Pool, projectID string)
 	return n
 }
 
+// countEvaluationReports counts evaluation_report rows scoped to projectID —
+// the finish worker now writes the new EvaluationReport artifact (via
+// generateAndStoreEvaluationReport) instead of the old dual-axis evaluation +
+// mirror; a successful finish writes exactly one.
+func countEvaluationReports(t *testing.T, pool *pgxpool.Pool, projectID string) int {
+	t.Helper()
+	var n int
+	if err := pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM evaluation_report WHERE project_id = $1`, projectID).Scan(&n); err != nil {
+		t.Fatalf("count evaluation_report rows: %v", err)
+	}
+	return n
+}
+
 // TestFinishProject_ReflectionNotDone — the gate is enforced server-side:
 // without a done=true reflection, finish 422s with reflection_not_done, the
 // project stays 'active', and no evaluation row is written.
@@ -131,11 +151,14 @@ func TestFinishProject_ReflectionNotDone(t *testing.T) {
 	}
 }
 
-// TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport — the happy
-// path: gate solid, provider returns a valid report -> 200 with the
-// DualAxis ReportDTO; project.status becomes 'finished'; exactly one flagship
-// evaluation persisted; a project_finished event exists.
-func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.T) {
+// TestFinishProject_SuccessMarksFinishedAndPersistsEvaluationReport — the
+// happy path: gate solid -> 202 evaluating -> the detached goroutine calls
+// generateAndStoreEvaluationReport (Task 6); project.status becomes
+// 'finished'; exactly one evaluation_report row persisted; GET
+// /evaluation-report returns it; a project_finished event exists. (Task 6
+// retired the old dual-axis evaluation + mirror from the finish path — the
+// finish artifact is now the new EvaluationReport.)
+func TestFinishProject_SuccessMarksFinishedAndPersistsEvaluationReport(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
@@ -164,42 +187,24 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 	// Drive the goroutine to completion.
 	waitProjectStatus(t, pool, projectID, "finished")
 
-	// The report DTO now comes from GET /assessment (the read path).
-	recAssess := httptest.NewRecorder()
-	h.ServeHTTP(recAssess, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/assessment", nil), cookie))
-	if recAssess.Code != http.StatusOK {
-		t.Fatalf("GET assessment = %d, want 200; body=%s", recAssess.Code, recAssess.Body)
+	// The finish artifact now comes from GET /evaluation-report (the read path).
+	recRep := httptest.NewRecorder()
+	h.ServeHTTP(recRep, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+projectID+"/evaluation-report", nil), cookie))
+	if recRep.Code != http.StatusOK {
+		t.Fatalf("GET evaluation-report = %d, want 200; body=%s", recRep.Code, recRep.Body)
 	}
-	var dto struct {
-		DepthAxis []struct {
-			Code  string `json:"code"`
-			Level string `json:"level"`
-		} `json:"depthAxis"`
-		OfficialProjection *struct {
-			Readiness struct {
-				Score int `json:"score"`
-			} `json:"readiness"`
-		} `json:"officialProjection"`
-		Narrative   string `json:"narrative"`
-		GeneratedAt string `json:"generatedAt"`
+	var rep evalreport.Report
+	if err := json.Unmarshal(recRep.Body.Bytes(), &rep); err != nil {
+		t.Fatalf("decode evaluation report: %v — body=%s", err, recRep.Body)
 	}
-	if err := json.Unmarshal(recAssess.Body.Bytes(), &dto); err != nil {
-		t.Fatalf("decode assessment DTO: %v — body=%s", err, recAssess.Body)
+	if rep.ProjectID != projectID {
+		t.Fatalf("report.ProjectID = %q, want %q", rep.ProjectID, projectID)
 	}
-	if dto.Narrative == "" || dto.GeneratedAt == "" {
-		t.Fatalf("dto = %+v, want narrative + generatedAt", dto)
+	if rep.GeneratedAt == "" {
+		t.Fatalf("report = %+v, want non-empty generatedAt", rep)
 	}
-	if len(dto.DepthAxis) != 6 {
-		t.Fatalf("depthAxis len = %d, want 6 (D1-D6 always present)", len(dto.DepthAxis))
-	}
-	// The project surface is the one ProjectProjection=true surface — the
-	// finish DTO must carry the officialProjection superset (chat/course never
-	// do, see chat_assessment_test.go/course_assessment_test.go).
-	if dto.OfficialProjection == nil {
-		t.Fatalf("officialProjection missing on the project finish DTO, want it present (ProjectProjection=true)")
-	}
-	if dto.OfficialProjection.Readiness.Score != 72 {
-		t.Fatalf("officialProjection.readiness.score = %d, want 72 (fixture value, clamped-through)", dto.OfficialProjection.Readiness.Score)
+	if len(rep.Depth) != 6 {
+		t.Fatalf("report.Depth len = %d, want 6 (D1-D6 always present)", len(rep.Depth))
 	}
 
 	assertProjectStatus(t, pool, projectID, "finished")
@@ -211,15 +216,8 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsFlagshipReport(t *testing.
 		t.Fatalf("projection status after finish = %s, want done", recProj.Body)
 	}
 
-	row, err := sqlc.New(pool).GetLatestProjectEvaluation(context.Background(), pgUUID(mustUUID(projectID)))
-	if err != nil {
-		t.Fatalf("GetLatestProjectEvaluation: %v", err)
-	}
-	if row.Tier != "flagship" {
-		t.Fatalf("persisted evaluation tier = %q, want flagship (评估走旗舰模型绝不降级)", row.Tier)
-	}
-	if n := countProjectEvaluations(t, pool, projectID); n != 1 {
-		t.Fatalf("project evaluation rows = %d, want exactly 1", n)
+	if n := countEvaluationReports(t, pool, projectID); n != 1 {
+		t.Fatalf("evaluation_report rows = %d, want exactly 1", n)
 	}
 
 	events, err := sqlc.New(pool).ListEventsByProject(context.Background(), pgUUID(mustUUID(projectID)))
@@ -276,42 +274,19 @@ func TestFinishProject_AlreadyFinished(t *testing.T) {
 	if err := json.Unmarshal(rec2.Body.Bytes(), &perr); err != nil || perr.Error.Code != "already_finished" {
 		t.Fatalf("second finish code = %+v (err=%v), want already_finished; body=%s", perr, err, rec2.Body)
 	}
-	if n := countProjectEvaluations(t, pool, projectID); n != 1 {
-		t.Fatalf("project evaluation rows after 2nd finish = %d, want still 1 (no regeneration)", n)
+	if n := countEvaluationReports(t, pool, projectID); n != 1 {
+		t.Fatalf("evaluation_report rows after 2nd finish = %d, want still 1 (no regeneration)", n)
 	}
 }
 
-// TestFinishProject_RejectedAssessmentKeepsProjectActive — gate solid but the
-// provider's output fails enforcement (banned_phrasing's "你应该这样写" rule,
-// same fixture chat_assessment_test.go uses to force the reject path): 422
-// assessment_rejected, the project stays 'active' (retryable), and an
-// llm_call cost row was still recorded (a rejected call still cost money).
-func TestFinishProject_RejectedAssessmentKeepsProjectActive(t *testing.T) {
-	pool := newAPITestPool(t)
-	h := New(Deps{
-		Queries: sqlc.New(pool), Pool: pool,
-		Provider:     assessStubProvider(`{"depthAxis":[{"code":"D1","level":"L2","evidence":"你应该这样写：先摆结论"}],"narrative":"n"}`),
-		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
-	}).Handler()
-	cookie := signInSeed(t, pool)
-	projectID := materialsTestProjectID
-
-	markReflectionDone(t, pool, projectID)
-	markWritingFinished(t, pool, projectID)
-
-	rec := httptest.NewRecorder()
-	req := withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+projectID+"/finish", strings.NewReader("")), cookie)
-	h.ServeHTTP(rec, req)
-	// Async: 202 up front; the goroutine rejects the report and reverts status.
-	if rec.Code != http.StatusAccepted {
-		t.Fatalf("finish (rejected) = %d, want 202; body=%s", rec.Code, rec.Body)
-	}
-	// The reject path rolls status back to 'active' (retryable).
-	waitProjectStatus(t, pool, projectID, "active")
-	if n := countProjectEvaluations(t, pool, projectID); n != 0 {
-		t.Fatalf("project evaluation rows after rejection = %d, want 0 (nothing persisted)", n)
-	}
-	if n := countLLMCalls(t, pool, projectID); n != 1 {
-		t.Fatalf("llm_call rows after rejection = %d, want 1 — a rejected call still cost money", n)
-	}
-}
+// NOTE (Task 6): TestFinishProject_RejectedAssessmentKeepsProjectActive was
+// removed here. It exercised the old dual-axis generateProjectReport reject
+// path (a provider output failing enforcement, e.g. banned_phrasing). The
+// finish worker no longer calls that pipeline — it calls
+// generateAndStoreEvaluationReport (evalreport.Placeholder), which has no
+// reject path (a deterministic fixture, no model call to reject). The
+// rollback-to-active-on-error branch in runProjectReport is still preserved
+// in code (see project_finish.go) but is currently unreachable from this
+// test file without a fault-injection seam into Queries/InsertEvaluationReport,
+// which does not exist today. A later task adding real report generation
+// (with an actual reject/error path) should add a replacement test here.

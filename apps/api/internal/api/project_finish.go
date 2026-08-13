@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -109,31 +110,19 @@ func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {
 // runProjectReport is the detached finish worker. It runs on a fresh
 // context.Background() (the request context is already gone) carrying the user
 // (WithUser) so cost rows record. On a successful report it marks the project
-// 'finished', appends project_finished, and best-effort composes the mirror over
-// the now-complete process record. On any failure — including a rejected
-// assessment — it rolls status back to 'active' so the terminal stays retryable.
+// 'finished' and appends project_finished. On any failure it rolls status back
+// to 'active' so the terminal stays retryable.
 func (a *API) runProjectReport(u User, projectID uuid.UUID) {
 	ctx := WithUser(context.Background(), u)
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
-	dto, gerr := a.generateProjectReport(ctx, projectID)
-	if gerr != nil {
-		if errors.Is(gerr, errAssessmentRejected) {
-			slog.Warn("finish worker: assessment rejected — reverting to active", "project", projectID)
-		} else {
-			slog.Error("finish worker: report generation failed — reverting to active", "err", gerr, "project", projectID)
-		}
+	if gerr := a.generateAndStoreEvaluationReport(ctx, projectID); gerr != nil {
+		slog.Error("finish worker: evaluation report generation failed — reverting to active", "err", gerr, "project", projectID)
 		if aerr := a.d.Queries.SetProjectActive(ctx, projectID); aerr != nil {
 			slog.Error("finish worker: revert to active failed", "err", aerr, "project", projectID)
 		}
 		return
 	}
-
-	// Best-effort real post-completion mirror (persist only on success; BE4).
-	// Composed BEFORE flipping to 'finished' so that status='finished' is a clean
-	// "report + mirror both done" signal — no window where a client polling on
-	// finished races an in-flight mirror.
-	a.composeAndStoreProjectMirror(ctx, projectID)
 
 	if err := a.d.Queries.SetProjectFinished(ctx, projectID); err != nil {
 		slog.Error("finish worker: mark finished failed", "err", err, "project", projectID)
@@ -141,7 +130,7 @@ func (a *API) runProjectReport(u User, projectID uuid.UUID) {
 	}
 	if err := store.AppendEvent(ctx, agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "project_finished",
-		Payload: mustJSON(map[string]any{"generatedAt": dto.GeneratedAt}),
+		Payload: mustJSON(map[string]any{"generatedAt": time.Now().UTC().Format(time.RFC3339)}),
 	}); err != nil {
 		slog.Warn("finish worker: append project_finished event", "err", err)
 	}
