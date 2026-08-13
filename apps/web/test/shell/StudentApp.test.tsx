@@ -19,12 +19,8 @@ vi.mock("@/workspace/WorkspaceContainer", () => ({
   WorkspaceContainer: () => <div data-testid="studio-container" />,
 }));
 
-vi.mock("@/shell/growth/GrowthReport", () => ({
-  GrowthReport: () => <div data-testid="growth-report" />,
-}));
-
-vi.mock("@/shell/growth/ToolkitCards", () => ({
-  ToolkitCards: () => <div data-testid="gallery-cards" />,
+vi.mock("@/shell/assessment/AssessmentView", () => ({
+  AssessmentView: () => <div data-testid="assessment-view" />,
 }));
 
 function makeSession() {
@@ -55,22 +51,16 @@ describe("StudentApp", () => {
     expect(screen.getByTestId("studio-container")).toBeTruthy();
   });
 
-  it("switches to 图鉴 and renders the tool-card catalog", async () => {
+  it("switches to 评估 and renders the assessment view", async () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
-    await userEvent.click(screen.getByText("图鉴"));
-    expect(screen.getByTestId("gallery-cards")).toBeTruthy();
+    await userEvent.click(screen.getByText("评估"));
+    expect(screen.getByTestId("assessment-view")).toBeTruthy();
   });
 
-  it("switches to 我 and defaults to 成长报告", async () => {
+  it("switches to 我 and renders 设置 directly (成长报告 moved under 评估, Task 12)", async () => {
     render(<StudentApp session={fakeSession} onLogout={() => {}} />);
     await userEvent.click(screen.getByText("P"));
-    expect(screen.getByTestId("growth-report")).toBeTruthy();
-  });
-
-  it("switches to 设置 within the 我 hub via the segmented control", async () => {
-    render(<StudentApp session={fakeSession} onLogout={() => {}} />);
-    await userEvent.click(screen.getByText("P"));
-    await userEvent.click(screen.getByText("设置"));
-    expect(screen.queryByTestId("growth-report")).toBeNull();
+    expect(screen.getByRole("heading", { name: "设置" })).toBeTruthy();
+    expect(screen.queryByTestId("assessment-view")).toBeNull();
   });
 });

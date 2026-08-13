@@ -1,14 +1,17 @@
 import type { ReactNode } from "react";
-import { Home, FolderKanban, Sparkles } from "lucide-react";
+import { Home, FolderKanban, ClipboardList } from "lucide-react";
 import { Icon } from "@/ui/Icon";
 import { Pebble } from "@/ui/Pebble";
 import type { MeUser } from "@/api";
 
 /**
  * Nav — 64px vertical icon rail (design-system rebuild, shell Task 4).
- * Replaces `LeftRail`. Four entries top-to-bottom: 首页 / 项目 / 图鉴 / 我
+ * Replaces `LeftRail`. Four entries top-to-bottom: 首页 / 项目 / 评估 / 我
  * (the last renders the user's initial in an accent circle instead of a
- * Lucide icon). A small brand `Pebble` sits above the entries.
+ * Lucide icon). A small brand `Pebble` sits above the entries. The 评估 key
+ * stays `"gallery"` (Task 12 renamed the label + icon only, to minimize
+ * churn) — it now hosts a `成长报告`/`图鉴` `Segmented` (`AssessmentView`)
+ * rather than the tool-card catalog alone.
  */
 
 export type NavTab = "home" | "projects" | "gallery" | "me";
@@ -56,9 +59,9 @@ export function Nav({
     },
     {
       key: "gallery",
-      label: "图鉴",
+      label: "评估",
       render: (active) => (
-        <Icon icon={Sparkles} size={22} className={active ? "text-mk-accent-600" : "text-mk-muted"} />
+        <Icon icon={ClipboardList} size={22} className={active ? "text-mk-accent-600" : "text-mk-muted"} />
       ),
     },
     {

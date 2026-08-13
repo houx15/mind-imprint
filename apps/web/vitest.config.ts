@@ -18,11 +18,12 @@ export default defineConfig({
     setupFiles: ["./src/test/setup.ts"],
     include: [
       "test/**/*.test.{ts,tsx}",
-      // EvaluationReport (2026-08-13 pipeline) intentionally colocates its
-      // tests next to the components instead of the repo's usual test/
-      // mirror tree — see task briefs under
+      // EvaluationReport + AssessmentView (2026-08-13 pipeline) intentionally
+      // colocate their tests next to the components instead of the repo's
+      // usual test/ mirror tree — see task briefs under
       // .superpowers/sdd/2026-08-13-evaluation-report-pipeline/.
       "src/shell/report/EvaluationReport/**/*.test.{ts,tsx}",
+      "src/shell/assessment/**/*.test.{ts,tsx}",
     ],
   },
 });
