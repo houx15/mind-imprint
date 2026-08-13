@@ -75,6 +75,7 @@ export function PlanBlock({
   onStudioStateChanged,
   onGeneratingPlan,
   onPlanMaybeGenerated,
+  planRefreshSignal,
 }: {
   projectId: string;
   title: string;
@@ -98,6 +99,9 @@ export function PlanBlock({
   /** Finding C · after a proposal write, ask the container to introduce the plan
    * if the funnel just generated it (once). Mirrors confirmNote's surfacing. */
   onPlanMaybeGenerated?: (projectId: string) => void | Promise<void>;
+  /** Bug 2 follow-up · a monotonically-bumped signal from the container when a
+   * coach turn mutated the plan (update_plan); the 管理 board re-fetches on it. */
+  planRefreshSignal?: number;
 }) {
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
@@ -229,6 +233,7 @@ export function PlanBlock({
       title={title}
       qualification={qualification}
       createdAt={createdAt}
+      refreshSignal={planRefreshSignal}
     />
   );
 }
@@ -481,8 +486,10 @@ function WorkingPhase(props: {
   qualification: string;
   seedBoard?: PlanItem[];
   createdAt?: string;
+  /** Bug 2 follow-up · bumped when a coach turn mutated the plan — re-fetch. */
+  refreshSignal?: number;
 }) {
-  const { projectId, title, qualification, seedBoard, createdAt } = props;
+  const { projectId, title, qualification, seedBoard, createdAt, refreshSignal } = props;
   // The room→panel contract (same as FormingPhase/ReadingBlock/WritingBlock/
   // ReviewBlock, Task 4, spec §17): 管理 previously portaled nothing into the
   // shared AiPanel slot, so it showed an empty 印记 panel — this is the SAME
@@ -512,6 +519,17 @@ function WorkingPhase(props: {
       .finally(() => { if (!cancelled) setLoadingPlan(false); });
     return () => { cancelled = true; };
   }, [projectId]);
+
+  // Bug 2 follow-up · when a coach turn changed the plan (update_plan), the
+  // container bumps refreshSignal — re-fetch the board so the change (e.g. a task
+  // marked done) shows without leaving/re-entering the room. Skips the initial
+  // mount (the effect above already loaded it).
+  const firstSignal = useRef(true);
+  useEffect(() => {
+    if (firstSignal.current) { firstSignal.current = false; return; }
+    getPlan(projectId).then(setBoard).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshSignal]);
 
   function reconcile() {
     getPlan(projectId).then(setBoard).catch(() => {});

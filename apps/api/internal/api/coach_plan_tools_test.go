@@ -43,6 +43,15 @@ func TestPostCoach_UpdatePlanCompletesItem(t *testing.T) {
 	if rr.Code != http.StatusOK {
 		t.Fatalf("coach = %d — %s", rr.Code, rr.Body)
 	}
+	var resp struct {
+		PlanChanged bool `json:"planChanged"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if !resp.PlanChanged {
+		t.Fatalf("expected planChanged=true so the board refetches — %s", rr.Body)
+	}
 
 	items, err := q.ListPlanItems(context.Background(), mustUUID(seedProjectID))
 	if err != nil {

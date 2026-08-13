@@ -125,6 +125,9 @@ export const OrchestratorReply = z.object({
   // The coach added a keyword to the 还需要探索的 box this turn (note_resource_need);
   // the client refetches the box so it shows. Optional (older replies omit it).
   resourceNeedAdded: z.boolean().optional(),
+  // The coach mutated the plan this turn (update_plan); the client refetches the
+  // plan board so the change shows. Optional (older replies omit it).
+  planChanged: z.boolean().optional(),
   nextStep: NextStep.nullable().optional(),
   reviewVerdict: ReviewVerdict.nullable().optional(),
   linkOffer: LinkOffer.nullable().optional(),

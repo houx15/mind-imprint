@@ -225,6 +225,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
 	reply.ResourceNeedAdded = effects.ResourceNeedAdded
+	reply.PlanChanged = effects.PlanChanged
 	reply.NextStep = next
 	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 
@@ -455,6 +456,9 @@ type orchestratorToolEffects struct {
 	// ResourceNeedAdded — the coach's note_resource_need tool appended a keyword
 	// to the 还需要探索的 box this turn; the client refetches the box so it shows.
 	ResourceNeedAdded bool
+	// PlanChanged — the coach's update_plan tool mutated the plan this turn; the
+	// client refetches the plan board so the change shows without a remount.
+	PlanChanged bool
 }
 
 // applyOrchestratorTools applies one orchestrator turn's emitted tool calls,
@@ -557,9 +561,12 @@ func (a *API) applyOrchestratorTools(ctx context.Context, projectID uuid.UUID, d
 			// on a system artifact (NOT the student's body text — 铁律 scope), so
 			// it applies directly; the client refetches the plan every turn.
 			if args, aerr := agent.UpdatePlanArgs(tc); aerr == nil {
-				if logMsg, ok := a.applyPlanUpdate(ctx, projectID, args); ok && logMsg != "" {
-					if lerr := a.appendAutoLog(ctx, a.d.Queries, projectID, logMsg); lerr != nil {
-						slog.Warn("update_plan: append auto-log failed", "err", lerr, "request_id", httpx.RequestIDFromContext(ctx))
+				if logMsg, ok := a.applyPlanUpdate(ctx, projectID, args); ok {
+					effects.PlanChanged = true
+					if logMsg != "" {
+						if lerr := a.appendAutoLog(ctx, a.d.Queries, projectID, logMsg); lerr != nil {
+							slog.Warn("update_plan: append auto-log failed", "err", lerr, "request_id", httpx.RequestIDFromContext(ctx))
+						}
 					}
 				}
 			}
@@ -1006,6 +1013,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
 	reply.ResourceNeedAdded = effects.ResourceNeedAdded
+	reply.PlanChanged = effects.PlanChanged
 	reply.NextStep = next
 	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 
@@ -1167,6 +1175,7 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 	reply.ReviewRequested = effects.ReviewRequested
 	reply.PlanGenerated = effects.PlanGenerated
 	reply.ResourceNeedAdded = effects.ResourceNeedAdded
+	reply.PlanChanged = effects.PlanChanged
 	reply.NextStep = next
 	reply.ReviewVerdict = takePendingFrameworkVerdict(&state)
 	reply.Narrate = narrate
@@ -1220,9 +1229,12 @@ type orchestratorReplyDTO struct {
 	Compacted       bool                 `json:"compacted"`
 	// ResourceNeedAdded — the coach added a keyword to the 还需要探索的 box this
 	// turn (note_resource_need); the client refetches the box. Optional on the wire.
-	ResourceNeedAdded bool              `json:"resourceNeedAdded,omitempty"`
-	NextStep          *nextStepDTO      `json:"nextStep"`
-	ReviewVerdict     *reviewVerdictDTO `json:"reviewVerdict"`
+	ResourceNeedAdded bool `json:"resourceNeedAdded,omitempty"`
+	// PlanChanged — the coach mutated the plan this turn (update_plan); the client
+	// refetches the plan board. Optional on the wire.
+	PlanChanged   bool              `json:"planChanged,omitempty"`
+	NextStep      *nextStepDTO      `json:"nextStep"`
+	ReviewVerdict *reviewVerdictDTO `json:"reviewVerdict"`
 	// LinkOffer — a phase-agnostic "you dropped a link, want to read it?" chip
 	// when the student's turn carries a new URL not yet in the library. nil when
 	// there's no new link (omitted-as-null on the wire).

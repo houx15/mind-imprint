@@ -51,7 +51,6 @@ import {
 } from "./api/workspace";
 import { roomForResume } from "./studioResume";
 import { PlanBlock } from "./blocks/PlanBlock";
-import { PlanSpine } from "./blocks/PlanSpine";
 import { ReadingBlock } from "./blocks/ReadingBlock";
 import { WritingBlock } from "./blocks/WritingBlock";
 import { activeDocForStage } from "./activeDoc";
@@ -124,8 +123,9 @@ export function WorkspaceContainer({
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
-  // The project plan's items → the PlanSpine "你在这一步" indicator (spec §3).
-  // Empty until a plan is generated; refreshed alongside the workspace.
+  // The project plan's items — used to drive the in-chat plan walkthrough
+  // (showPlanIntro). Empty until a plan is generated; refreshed alongside the
+  // workspace and after any plan-mutating coach turn.
   const [planItems, setPlanItems] = useState<PlanItem[]>([]);
   // §3 gap G3 · the plan-intro walkthrough fires ONCE, only when the plan first
   // appears DURING this session (situation a). Set true on load if a plan already
@@ -352,6 +352,9 @@ export function WorkspaceContainer({
   // Bug 7 · bumped when a coach turn added a keyword to the 还需要探索的 box
   // (reply.resourceNeedAdded) so NeedsResourcesBox re-fetches and shows it.
   const [needsVersion, setNeedsVersion] = useState(0);
+  // Bug 2 follow-up · bumped when a coach turn mutated the plan (reply.planChanged)
+  // so the 管理 board (PlanBlock) re-fetches and the change shows immediately.
+  const [planVersion, setPlanVersion] = useState(0);
   // Live opened-project id for the rooms' cross-project append guard (see
   // StudioChatContext). Kept current every render so a late turn closure never
   // reads a stale value.
@@ -481,14 +484,16 @@ export function WorkspaceContainer({
         }
         // Bug 7 · 印记 added a keyword to the 还需要探索的 box this turn — refetch it.
         if (reply.resourceNeedAdded) setNeedsVersion((v) => v + 1);
+        // Bug 2 follow-up · 印记 changed the plan this turn — refresh the board.
+        if (reply.planChanged) setPlanVersion((v) => v + 1);
         // Slice 2 · the framework-readiness reviewer's read (surfaced once, the
         // turn after the plan auto-generated). Rendered as a 印记 bubble — real
         // coaching, not a subagent hint.
         appendFrameworkVerdict(reply.reviewVerdict, setStudioMessages);
         // 印记 auto-configures the view (spec: auto-configure, always overridable).
         applyStudioState(reply.directive);
-        // Best-effort refresh: a `generate_plan` (or any plan-mutating) tool call
-        // this turn needs to show on the PlanSpine without waiting for a remount.
+        // Best-effort refresh: keep the container's planItems (the in-chat plan
+        // walkthrough source) current after a plan-mutating tool call.
         getPlan(pid)
           .then((items) => {
             if (isActive()) setPlanItems(items);
@@ -1197,10 +1202,6 @@ export function WorkspaceContainer({
             value={chatOnly ? "" : room}
             onChange={(v) => handleManualRoom(v as BlockKey)}
           />
-          {/* The plan spine (spec §3): a read-only "你在这一步" indicator, shown
-              once a plan exists. 印记 drives navigation; the switcher is the
-              manual override — no next-step nudge chrome here (印记 cues it). */}
-          <PlanSpine items={planItems} />
           {/* 「继续印记」(P4, spec §6): shown only while the student has
               manually taken over the switcher — returns the view to 印记's
               own status step. Trailing end of the row so it reads as "back
@@ -1281,6 +1282,7 @@ export function WorkspaceContainer({
                 onStudioStateChanged={continueYinji}
                 onGeneratingPlan={setGeneratingPlan}
                 onPlanMaybeGenerated={surfaceGeneratedPlan}
+                planRefreshSignal={planVersion}
               />
             )}
             {room === "reading" && (
