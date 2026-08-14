@@ -94,16 +94,17 @@ prior-window usage (the handler already loads both windows).
 3. `stuck_no_output` — active this window (has turns) but produced **0 ready
    reports** this window (engaged in dialogue, nothing completed).
 
-**值得表扬 (praise)**:
+**值得表扬 (praise)** — praise celebrates finished thinking, never usage intensity
+(铁律②: 不操纵):
 1. `first_report` — produced their first-ever ready report this window.
 2. `produced_report` — completed ≥1 ready report this window.
-3. `strong_engagement` — AI turns at the top of the class this window **and** ≥2
-   active projects.
 
-Exact thresholds (what counts as "top of the class" / minimum turns) are tuned in
-the plan against the seeded class so cards fire on real data, not lorem. Selection
-caps and dedup mirror the current implementation (a student appears on at most one
-card; watch takes precedence over praise).
+Deliberately **no** usage/turn-count praise card: a report-less-but-active student
+is surfaced by `stuck_no_output` (watch, "有对话没产出") as a nudge-to-finish, not
+praised for time-on-app. (An earlier draft had a `strong_engagement` "使用最活跃"
+praise rule; it was cut — it rewarded raw usage against 铁律②, and was anyway
+unreachable behind `stuck_no_output`.) Selection caps and dedup: a student appears
+on at most one card; watch takes precedence over praise.
 
 ### Prose (LLM, wording-only)
 Rework `agent.ComposeWeekly` + its facts/prompt so the model writes **only**:
