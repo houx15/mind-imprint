@@ -6,6 +6,7 @@ import type { TeacherReport } from "@/api";
 import { api, ApiError } from "@/api";
 import { DualAxisReport as DualAxisReportSchema } from "@mind-imprint/contracts";
 import type { DualAxisReport as DualAxisReportT, EvaluationReport } from "@mind-imprint/contracts";
+import type { EvalReportEnvelope } from "@/api";
 import { MOCK_EVALUATION_REPORT } from "@/shell/report/EvaluationReport/__fixtures__/mock";
 
 // Task 13: the teacher end now renders the SAME EvaluationReport the student
@@ -56,10 +57,16 @@ beforeAll(() => {
   DualAxisReportSchema.parse(projectReport);
 });
 
+// Task 5 (frontend envelope, 2026-08-14): the client now returns the
+// three-state envelope; this file's mocks wrap the plain `EvaluationReport`
+// fixture as `{status:"ready", report}` (or `null` for "no report yet") to
+// match, without changing what this view is exercised for.
 function makeClient(report: TeacherReport, evalReport: EvaluationReport | null = MOCK_EVALUATION_REPORT) {
   return {
     getStudentReport: vi.fn(async () => report),
-    getStudentEvaluationReport: vi.fn(async () => evalReport),
+    getStudentEvaluationReport: vi.fn(async (): Promise<EvalReportEnvelope | null> =>
+      evalReport ? { status: "ready" as const, report: evalReport } : null,
+    ),
   };
 }
 
@@ -99,7 +106,7 @@ describe("TeacherReportView", () => {
       getStudentReport: vi.fn(async () => {
         throw new ApiError("not_found", "not found", 404);
       }),
-      getStudentEvaluationReport: vi.fn(async () => MOCK_EVALUATION_REPORT),
+      getStudentEvaluationReport: vi.fn(async (): Promise<EvalReportEnvelope | null> => ({ status: "ready", report: MOCK_EVALUATION_REPORT })),
     };
     render(
       <TeacherReportView client={client} classId="c1" userId="u1" surface="project" scopeId="p1" onBack={() => {}} />,

@@ -1,17 +1,26 @@
 import { useEffect, useState } from "react";
 import type { EvaluationReport } from "@mind-imprint/contracts";
-import { getEvaluationReport, generateEvaluationReport } from "@/api/evaluationReport";
+import { getEvaluationReport, generateEvaluationReport, type EvalReportEnvelope } from "@/api/evaluationReport";
 import { EvaluationReportView } from "@/shell/report/EvaluationReport";
 import { ArrowLeft, Button, EmptyState, Icon, PebbleInlineSpinner, useRotatingCaption } from "@/ui";
 
 /**
- * EvaluationReportPage — the report container (Task 12). Wraps
- * `EvaluationReportView` in a tabbar-chrome top bar (back + a disabled
- * "导出 PDF" placeholder) and owns the fetch-or-generate lifecycle:
- * `getEvaluationReport` first, and only if that comes back `null`
- * (no report exists yet) does it call `generateEvaluationReport` —
- * first-open-wins, matching the pattern other AI-generated surfaces in the
- * shell use (e.g. `GrowthReport`'s history fetch).
+ * EvaluationReportPage — the report container (Task 12, reworked Task 5 for
+ * the three-state envelope). Wraps `EvaluationReportView` in a tabbar-chrome
+ * top bar (back + a disabled "导出 PDF" placeholder) and owns the
+ * fetch/generate/poll lifecycle against the backend envelope
+ * (`null` | `{status:"generating"}` | `{status:"failed"}` |
+ * `{status:"ready",report}`):
+ *
+ *   GET → if `null` (no row yet), POST generate once (claim) → branch:
+ *     - `ready`     → render the report.
+ *     - `generating` → spinner + rotating caption, poll GET every 3s until
+ *       `ready`/`failed` (interval cleared on unmount or on a fresh attempt).
+ *     - `failed` (or any fetch throwing) → EmptyState + 重试, which re-runs
+ *       the whole lifecycle from GET.
+ *
+ * This "stops racing the async generator" — it never assumes a null read
+ * means "nothing exists forever"; it just isn't ready yet.
  */
 
 const GENERATING_LINES = [
@@ -20,8 +29,11 @@ const GENERATING_LINES = [
   "印记正在生成你的思维印记报告……",
 ];
 
+const POLL_INTERVAL_MS = 3000;
+
 type LoadState =
   | { status: "loading" }
+  | { status: "generating" }
   | { status: "error" }
   | { status: "ready"; report: EvaluationReport };
 
@@ -33,26 +45,69 @@ export function EvaluationReportPage({
   onBack: () => void;
 }) {
   const [state, setState] = useState<LoadState>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
   const caption = useRotatingCaption(GENERATING_LINES);
 
   useEffect(() => {
     let cancelled = false;
+    let pollTimer: ReturnType<typeof setInterval> | undefined;
     setState({ status: "loading" });
+
+    function stopPolling() {
+      if (pollTimer !== undefined) {
+        clearInterval(pollTimer);
+        pollTimer = undefined;
+      }
+    }
+
+    function applyEnvelope(envelope: EvalReportEnvelope | null): boolean {
+      // Returns true once the envelope has reached a terminal state
+      // (ready/failed) — callers use this to stop polling.
+      if (cancelled) return true;
+      if (envelope === null || envelope.status === "failed") {
+        setState({ status: "error" });
+        return true;
+      }
+      if (envelope.status === "ready") {
+        setState({ status: "ready", report: envelope.report });
+        return true;
+      }
+      setState({ status: "generating" });
+      return false;
+    }
+
+    function startPolling() {
+      pollTimer = setInterval(() => {
+        void (async () => {
+          try {
+            const envelope = await getEvaluationReport(projectId);
+            if (cancelled) return;
+            if (applyEnvelope(envelope)) stopPolling();
+          } catch {
+            // Transient poll error — keep polling rather than flashing an
+            // error state on a single failed tick.
+          }
+        })();
+      }, POLL_INTERVAL_MS);
+    }
+
     void (async () => {
       try {
-        let report = await getEvaluationReport(projectId);
-        if (!report) report = await generateEvaluationReport(projectId);
+        let envelope = await getEvaluationReport(projectId);
+        if (envelope === null) envelope = await generateEvaluationReport(projectId);
         if (cancelled) return;
-        if (!report) setState({ status: "error" });
-        else setState({ status: "ready", report });
+        const settled = applyEnvelope(envelope);
+        if (!settled) startPolling();
       } catch {
         if (!cancelled) setState({ status: "error" });
       }
     })();
+
     return () => {
       cancelled = true;
+      stopPolling();
     };
-  }, [projectId]);
+  }, [projectId, attempt]);
 
   return (
     <div className="flex h-full w-full min-h-0 flex-col overflow-hidden bg-mk-paper">
@@ -71,11 +126,11 @@ export function EvaluationReportPage({
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">
-        {state.status === "loading" && (
+        {(state.status === "loading" || state.status === "generating") && (
           <div className="flex h-full flex-col items-center justify-center gap-3">
             <PebbleInlineSpinner size={28} />
             <p role="status" aria-live="polite" className="text-mk-body text-mk-muted">
-              {caption}
+              {state.status === "generating" ? caption : "正在加载……"}
             </p>
           </div>
         )}
@@ -86,6 +141,7 @@ export function EvaluationReportPage({
               illustration="completed"
               title="报告暂时无法生成"
               body="这个项目的过程评估报告还没准备好，请稍后重试。"
+              action={{ label: "重试", onClick: () => setAttempt((n) => n + 1) }}
             />
           </div>
         )}

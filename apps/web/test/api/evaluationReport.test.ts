@@ -53,9 +53,9 @@ const mockReportDto = {
 
 describe("evaluationReport API client", () => {
   describe("getEvaluationReport", () => {
-    it("GETs /api/v1/projects/{id}/evaluation-report and parses the DTO", async () => {
+    it("GETs /api/v1/projects/{id}/evaluation-report and parses a ready envelope's report", async () => {
       const spy = vi.fn(async () => new Response(
-        JSON.stringify(mockReportDto),
+        JSON.stringify({ status: "ready", report: mockReportDto }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ));
       vi.stubGlobal("fetch", spy);
@@ -65,10 +65,10 @@ describe("evaluationReport API client", () => {
       const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toContain("/api/v1/projects/proj-1/evaluation-report");
       expect(init?.method ?? "GET").toBe("GET");
-      expect(result).toEqual(mockReportDto);
+      expect(result).toEqual({ status: "ready", report: mockReportDto });
     });
 
-    it("returns null when the server responds with a bare JSON null (no report yet)", async () => {
+    it("returns null when the server responds with a bare JSON null (no row yet)", async () => {
       const spy = vi.fn(async () => new Response(
         "null",
         { status: 200, headers: { "Content-Type": "application/json" } },
@@ -80,9 +80,33 @@ describe("evaluationReport API client", () => {
       expect(result).toBeNull();
     });
 
-    it("throws on a malformed DTO (schema drift)", async () => {
+    it("passes through {status:\"generating\"}", async () => {
       const spy = vi.fn(async () => new Response(
-        JSON.stringify({ ...mockReportDto, version: 2 }),
+        JSON.stringify({ status: "generating" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ));
+      vi.stubGlobal("fetch", spy);
+
+      const result = await getEvaluationReport("proj-1");
+
+      expect(result).toEqual({ status: "generating" });
+    });
+
+    it("passes through {status:\"failed\"}", async () => {
+      const spy = vi.fn(async () => new Response(
+        JSON.stringify({ status: "failed" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ));
+      vi.stubGlobal("fetch", spy);
+
+      const result = await getEvaluationReport("proj-1");
+
+      expect(result).toEqual({ status: "failed" });
+    });
+
+    it("throws on a malformed DTO inside a ready envelope (schema drift)", async () => {
+      const spy = vi.fn(async () => new Response(
+        JSON.stringify({ status: "ready", report: { ...mockReportDto, version: 2 } }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ));
       vi.stubGlobal("fetch", spy);
@@ -92,9 +116,9 @@ describe("evaluationReport API client", () => {
   });
 
   describe("generateEvaluationReport", () => {
-    it("POSTs to /api/v1/projects/{id}/evaluation-report/generate and parses the DTO", async () => {
+    it("POSTs to /api/v1/projects/{id}/evaluation-report/generate and parses a ready envelope's report", async () => {
       const spy = vi.fn(async () => new Response(
-        JSON.stringify(mockReportDto),
+        JSON.stringify({ status: "ready", report: mockReportDto }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       ));
       vi.stubGlobal("fetch", spy);
@@ -104,7 +128,19 @@ describe("evaluationReport API client", () => {
       const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
       expect(url).toContain("/api/v1/projects/proj-1/evaluation-report/generate");
       expect(init?.method).toBe("POST");
-      expect(result).toEqual(mockReportDto);
+      expect(result).toEqual({ status: "ready", report: mockReportDto });
+    });
+
+    it("returns {status:\"generating\"} for a real (non-instant) generator", async () => {
+      const spy = vi.fn(async () => new Response(
+        JSON.stringify({ status: "generating" }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      ));
+      vi.stubGlobal("fetch", spy);
+
+      const result = await generateEvaluationReport("proj-1");
+
+      expect(result).toEqual({ status: "generating" });
     });
 
     it("returns null when the server responds with a bare JSON null", async () => {

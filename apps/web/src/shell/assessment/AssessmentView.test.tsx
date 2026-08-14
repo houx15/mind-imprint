@@ -67,7 +67,7 @@ describe("AssessmentView", () => {
 
   it("clicking a timeline row opens the report page (fixture title visible)", async () => {
     vi.mocked(listEvaluationReports).mockResolvedValue([ENTRY]);
-    vi.mocked(getEvaluationReport).mockResolvedValue(MOCK_EVALUATION_REPORT);
+    vi.mocked(getEvaluationReport).mockResolvedValue({ status: "ready", report: MOCK_EVALUATION_REPORT });
     render(<AssessmentView />);
     await waitFor(() => expect(screen.getByText(ENTRY.title)).toBeInTheDocument());
     await userEvent.click(screen.getByText(ENTRY.title));
@@ -77,7 +77,7 @@ describe("AssessmentView", () => {
 
   it("deep-links directly into a report page when initialProjectId is set", async () => {
     vi.mocked(listEvaluationReports).mockResolvedValue([ENTRY]);
-    vi.mocked(getEvaluationReport).mockResolvedValue(MOCK_EVALUATION_REPORT);
+    vi.mocked(getEvaluationReport).mockResolvedValue({ status: "ready", report: MOCK_EVALUATION_REPORT });
     render(<AssessmentView initialProjectId={ENTRY.projectId} />);
     await waitFor(() => expect(screen.getByTestId("evaluation-report")).toBeInTheDocument());
     // listEvaluationReports still isn't needed to reach the deep-linked page.
@@ -87,7 +87,7 @@ describe("AssessmentView", () => {
   it("falls back to generateEvaluationReport when no report exists yet (first-open-wins)", async () => {
     vi.mocked(listEvaluationReports).mockResolvedValue([ENTRY]);
     vi.mocked(getEvaluationReport).mockResolvedValue(null);
-    vi.mocked(generateEvaluationReport).mockResolvedValue(MOCK_EVALUATION_REPORT);
+    vi.mocked(generateEvaluationReport).mockResolvedValue({ status: "ready", report: MOCK_EVALUATION_REPORT });
     render(<AssessmentView />);
     await waitFor(() => expect(screen.getByText(ENTRY.title)).toBeInTheDocument());
     await userEvent.click(screen.getByText(ENTRY.title));

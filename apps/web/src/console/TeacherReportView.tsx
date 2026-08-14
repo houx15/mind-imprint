@@ -84,9 +84,16 @@ export function TeacherReportView({
     let cancelled = false;
     client
       .getStudentEvaluationReport(classId, userId, scopeId)
-      .then((r) => {
+      .then((envelope) => {
         if (cancelled) return;
-        setEvalReport(r);
+        // Task 5 (frontend envelope, 2026-08-14): the client now returns the
+        // three-state envelope (`generating`/`failed`/`ready`); this view
+        // predates that contract and doesn't yet render those states
+        // distinctly (that's a follow-up task's job — see EvaluationReportPage
+        // for the reference polling implementation). Minimal adaptation only:
+        // unwrap `ready` to the report, otherwise treat as "no report yet",
+        // preserving today's behavior unchanged.
+        setEvalReport(envelope && envelope.status === "ready" ? envelope.report : null);
         setEvalLoaded(true);
       })
       .catch(() => {

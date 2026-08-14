@@ -1,4 +1,4 @@
-import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, DualAxisReport, EvaluationReport, ProjectStatus, ChatThread, ChatMessage, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
+import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, setAccent, type MeUser } from "./auth";
 import type { AccentId } from "../ui/accent";
 import {
@@ -25,11 +25,11 @@ import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 import {
   getClassRosterReport, getStudentDetail, getStudentReport, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
   getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
-  type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard,
+  type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard, type EvalReportEnvelope,
 } from "./teacher";
 import { readTurn, summonCard, evaluateCardSelection, getOpenCard, putReadingBrief, getTakeawayDraft, postFinalizeReading } from "./reading";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport, WeeklyReport, WeeklyCard };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport, WeeklyReport, WeeklyCard, EvalReportEnvelope };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -114,7 +114,7 @@ export interface ApiClient {
   getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
   getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
   getStudentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<TeacherReport>;
-  getStudentEvaluationReport(classId: string, userId: string, projectId: string): Promise<EvaluationReport | null>;
+  getStudentEvaluationReport(classId: string, userId: string, projectId: string): Promise<EvalReportEnvelope | null>;
   getClassWeeklyReport(classId: string): Promise<WeeklyReport>;
   generateClassWeeklyProse(classId: string): Promise<WeeklyReport>;
   getParentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<ParentReport>;
