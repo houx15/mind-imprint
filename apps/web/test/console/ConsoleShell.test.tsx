@@ -3,8 +3,9 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ConsoleShell } from "@/console/ConsoleShell";
 import { createSession } from "@/shell/session";
-import type { ClassDetail, ClassSummary, MeUser, TeacherReport } from "@/api";
+import type { ClassDetail, ClassSummary, MeUser } from "@/api";
 import type { WeeklyReport } from "@/api/teacher";
+import { MOCK_EVALUATION_REPORT } from "@/shell/report/EvaluationReport/__fixtures__/mock";
 
 const mem = () => { let s = "{}"; return { getItem: () => s, setItem: (_: string, v: string) => { s = v; } }; };
 const TEACHER: MeUser = { id: "u1", email: "t@d", display_name: "Teacher", role: "teacher", avatar_color: "#2A3B7A", school: { id: "s1", name: "Demo" }, classes: [] };
@@ -48,22 +49,6 @@ function weeklyReport(over: Partial<WeeklyReport> = {}): WeeklyReport {
   };
 }
 
-// Minimal but shape-accurate TeacherReport fixture (empty arrays are valid
-// per the DualAxisReport zod schema — no min-length constraint on any axis).
-const minimalTeacherReport: TeacherReport = {
-  report: {
-    depthAxis: [],
-    autonomyAxis: [],
-    promptLens: { stats: [], lenses: [], note: "" },
-    interactionEvidence: [],
-    narrative: "",
-    guidance: { nextSteps: [] },
-    axiom: "",
-    generatedAt: "2026-07-24T00:00:00Z",
-  },
-  context: {},
-};
-
 function client(overrideWeekly?: WeeklyReport) {
   return {
     listClasses: vi.fn(async () => [summary]),
@@ -81,8 +66,7 @@ function client(overrideWeekly?: WeeklyReport) {
     removeTeacher: vi.fn(),
     getClassRosterReport: vi.fn(async () => []),
     getStudentDetail: vi.fn(),
-    getStudentReport: vi.fn(async () => minimalTeacherReport),
-    getStudentEvaluationReport: vi.fn(async () => null),
+    getStudentEvaluationReport: vi.fn(async () => ({ status: "ready" as const, report: MOCK_EVALUATION_REPORT })),
     getClassWeeklyReport: vi.fn(async () => overrideWeekly ?? weeklyReport()),
     generateClassWeeklyProse: vi.fn(),
   };
@@ -150,11 +134,10 @@ describe("ConsoleShell", () => {
     await userEvent.click(await screen.findByText("11A"));
     await userEvent.click(await screen.findByText("看能力报告"));
 
-    // TeacherReportView's content: context.title/projectTitle are absent in
-    // the minimal fixture, so the title falls back to `${studentName} ·
-    // ${surfaceLabel}报告`, and the breadcrumb also renders — both prove
-    // navigation actually landed on the report, not a dead click.
-    expect(await screen.findByText("周子墨 · 项目报告")).toBeInTheDocument();
+    // TeacherReportView's content: the H1 combines studentName with the
+    // fetched EvaluationReport's own title, and the breadcrumb also renders —
+    // both prove navigation actually landed on the report, not a dead click.
+    expect(await screen.findByText(`周子墨 · ${MOCK_EVALUATION_REPORT.basics.title}`)).toBeInTheDocument();
     expect(screen.getByText("能力报告 · 教师视图")).toBeInTheDocument();
   });
 

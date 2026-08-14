@@ -2,8 +2,6 @@ import { useEffect, useState } from "react";
 import type { ApiClient, StudentDetail, StudentRecord } from "../api";
 import { ApiError } from "../api";
 import { badgeColor } from "./badgeColor";
-import { ParentReport } from "./ParentReport";
-import { ParentStageReport } from "./ParentStageReport";
 
 type Client = Pick<ApiClient, "getStudentDetail">;
 
@@ -38,8 +36,6 @@ export function StudentDetailView({
   const [detail, setDetail] = useState<StudentDetail | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<RecordTab>("all");
-  const [parentReportOpen, setParentReportOpen] = useState(false);
-  const [stageReportOpen, setStageReportOpen] = useState(false);
 
   function load() {
     setError(null);
@@ -116,8 +112,8 @@ export function StudentDetailView({
             ))}
           </div>
 
-          <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
-            {primaryReport && (
+          {primaryReport && (
+            <div style={{ marginTop: 20, display: "flex", gap: 10, flexWrap: "wrap" }}>
               <button
                 onClick={() => onOpenReport(primaryReport.surface, primaryReport.scopeId, student.displayName)}
                 style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#2A3B7A", color: "#fff", fontSize: 13.5, fontWeight: 700, padding: "11px 18px", borderRadius: 11, border: "none", cursor: "pointer", fontFamily: "inherit" }}
@@ -125,24 +121,8 @@ export function StudentDetailView({
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M12 20V10M18 20V4M6 20v-4" /></svg>
                 查看完整能力报告
               </button>
-            )}
-            {primaryReport && (
-              <button
-                onClick={() => setParentReportOpen(true)}
-                style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid #DCE0EA", color: "#2A3B7A", fontSize: 13.5, fontWeight: 700, padding: "11px 18px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit" }}
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-                导出家长版·项目报告
-              </button>
-            )}
-            <button
-              onClick={() => setStageReportOpen(true)}
-              style={{ display: "inline-flex", alignItems: "center", gap: 7, background: "#fff", border: "1px solid #DCE0EA", color: "#2A3B7A", fontSize: 13.5, fontWeight: 700, padding: "11px 18px", borderRadius: 11, cursor: "pointer", fontFamily: "inherit" }}
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" /></svg>
-              导出家长版·阶段报告
-            </button>
-          </div>
+            </div>
+          )}
         </div>
 
         <div style={{ marginTop: 26, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
@@ -200,24 +180,6 @@ export function StudentDetailView({
           })}
         </div>
       </div>
-      {parentReportOpen && primaryReport && (
-        <ParentReport
-          classId={classId}
-          studentId={student.id}
-          surface="project"
-          scopeId={primaryReport.scopeId}
-          studentName={student.displayName}
-          onClose={() => setParentReportOpen(false)}
-        />
-      )}
-      {stageReportOpen && (
-        <ParentStageReport
-          classId={classId}
-          studentId={student.id}
-          studentName={student.displayName}
-          onClose={() => setStageReportOpen(false)}
-        />
-      )}
     </div>
   );
 }

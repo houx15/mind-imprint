@@ -3,7 +3,7 @@ import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudentDetailView } from "@/console/StudentDetailView";
 import type { StudentDetail } from "@/api";
-import { ApiError, api } from "@/api";
+import { ApiError } from "@/api";
 
 const detail = (over: Partial<StudentDetail> = {}): StudentDetail => ({
   student: { id: "u1", displayName: "Phoebe", avatarColor: "#3E7CA8", dBadge: "L3–L4", aBadge: "4.2", unrated: false },
@@ -65,30 +65,6 @@ describe("StudentDetailView", () => {
     await screen.findByText("关于气候变化的讨论");
     // Only 2 records have hasReport:true (project + course) out of 3
     expect(screen.getAllByText("查看报告")).toHaveLength(2);
-  });
-
-  it("clicking 导出家长版·阶段报告 opens the ParentStageReport overlay for the student", async () => {
-    const getParentStageReport = vi.spyOn(api, "getParentStageReport").mockResolvedValue({
-      cover: { name: "Phoebe", subject: "", klass: "", typeLabel: "阶段报告", dateStr: "", warmLine: "" },
-      stats: [], stageGrowth: "", stageHighlight: "", stageForward: "", advice: [], prose: null,
-    });
-    render(<StudentDetailView client={makeClient()} classId="c1" userId="u1" onBack={() => {}} onOpenReport={() => {}} />);
-    await userEvent.click(await screen.findByText("导出家长版·阶段报告"));
-    expect(getParentStageReport).toHaveBeenCalledWith("c1", "u1");
-    expect(await screen.findByText("下载 PDF")).toBeInTheDocument();
-    getParentStageReport.mockRestore();
-  });
-
-  it("clicking 导出家长版·项目报告 opens the ParentReport overlay for the primary project report", async () => {
-    const getParentReport = vi.spyOn(api, "getParentReport").mockResolvedValue({
-      cover: { name: "Phoebe", subject: "", klass: "", typeLabel: "项目报告", dateStr: "", warmLine: "" },
-      glance: "", dOverview: "", aOverview: "", dRows: [], aRows: [], opportunity: "", advice: [], prose: null,
-    });
-    render(<StudentDetailView client={makeClient()} classId="c1" userId="u1" onBack={() => {}} onOpenReport={() => {}} />);
-    await userEvent.click(await screen.findByText("导出家长版·项目报告"));
-    expect(getParentReport).toHaveBeenCalledWith("c1", "u1", "project", "p1");
-    expect(await screen.findByText("下载 PDF")).toBeInTheDocument();
-    getParentReport.mockRestore();
   });
 
   it("shows the primary 查看完整能力报告 button when a project report is available, wired to onOpenReport", async () => {

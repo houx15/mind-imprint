@@ -16,7 +16,7 @@ export type ConsoleClient = Pick<
   | "listClasses" | "createClass" | "getClass" | "renameClass" | "regenerateJoinCode" | "removeEnrollment"
   | "getOverview" | "listTeacherInvites" | "createTeacherInvite" | "adminImport"
   | "listTeachers" | "assignTeacher" | "removeTeacher"
-  | "getClassRosterReport" | "getStudentDetail" | "getStudentReport" | "getStudentEvaluationReport"
+  | "getClassRosterReport" | "getStudentDetail" | "getStudentEvaluationReport"
   | "getClassWeeklyReport" | "generateClassWeeklyProse"
 >;
 
