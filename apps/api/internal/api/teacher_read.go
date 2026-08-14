@@ -18,26 +18,29 @@ import (
 	"mindimprint/api/internal/teacher"
 )
 
-// RosterReportEntry is one student row in the teacher's 全部学生 view: usage
-// facts + derived D/A badges. Badges are display summaries (RL-5), recomputed
-// from the latest project report on every read.
-type RosterReportEntry struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
-	AvatarColor string `json:"avatarColor"`
-	DBadge      string `json:"dBadge"`
-	ABadge      string `json:"aBadge"`
-	ActiveDays  int32  `json:"activeDays"`
-	Turns       int32  `json:"turns"`
-	HasReport   bool   `json:"hasReport"`
-	Unrated     bool   `json:"unrated"`
+// RosterEntry is one student row in View B (实时 roster): current-state activity
+// counts, all no-LLM. No axis, no badges.
+type RosterEntry struct {
+	ID              string `json:"id"`
+	DisplayName     string `json:"displayName"`
+	AvatarColor     string `json:"avatarColor"`
+	ActiveProjects  int32  `json:"activeProjects"`
+	ReportCount     int32  `json:"reportCount"`
+	CoursesFinished int32  `json:"coursesFinished"`
 }
 
-// getClassRosterReport handles GET /api/v1/classes/{id}/roster-report: the
-// teacher's per-student usage + D/A badge view. assertTeacherOwnsClass is the
-// only guard needed here — ListClassRosterReport itself JOINs enrollments with
-// role_in_class='student', so it can never return non-student or foreign-class
-// rows.
+// ClassLiveHeader is View B's light live class-level snapshot.
+type ClassLiveHeader struct {
+	ClassSize      int32 `json:"classSize"`
+	ActiveStudents int32 `json:"activeStudents"`
+	ActiveProjects int32 `json:"activeProjects"`
+	Turns          int32 `json:"turns"`
+	Reports        int32 `json:"reports"`
+}
+
+// getClassRosterReport handles GET /api/v1/classes/{id}/roster-report: View B's
+// live roster + header. assertTeacherOwnsClass is the only guard needed since
+// every query JOINs enrollments with role_in_class='student'.
 func (a *API) getClassRosterReport(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -48,31 +51,34 @@ func (a *API) getClassRosterReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	ctx := r.Context()
+	rows, err := a.d.Queries.ListClassRosterCounts(ctx, id)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	start, end := teacher.WeekWindow(time.Now())
-	rows, err := a.d.Queries.ListClassRosterReport(r.Context(), sqlc.ListClassRosterReportParams{
+	hdr, err := a.d.Queries.GetClassLiveHeader(ctx, sqlc.GetClassLiveHeaderParams{
 		ClassID: id, WeekStart: start, WeekEnd: end,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	out := make([]RosterReportEntry, 0, len(rows))
+	out := make([]RosterEntry, 0, len(rows))
 	for _, row := range rows {
-		hr, _ := row.HasReport.(bool)
-		e := RosterReportEntry{
+		out = append(out, RosterEntry{
 			ID: row.ID.String(), DisplayName: row.DisplayName, AvatarColor: row.AvatarColor,
-			ActiveDays: row.ActiveDays, Turns: row.Turns, HasReport: hr,
-			DBadge: "—", ABadge: "—", Unrated: true,
-		}
-		if len(row.LatestProjectScores) > 0 {
-			var rep agent.Report
-			if json.Unmarshal(row.LatestProjectScores, &rep) == nil {
-				e.DBadge, e.ABadge, e.Unrated = teacher.DBadge(rep), teacher.ABadge(rep), false
-			}
-		}
-		out = append(out, e)
+			ActiveProjects: row.ActiveProjects, ReportCount: row.ReportCount, CoursesFinished: row.CoursesFinished,
+		})
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"roster": out})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"roster": out,
+		"header": ClassLiveHeader{
+			ClassSize: hdr.ClassSize, ActiveStudents: hdr.ActiveStudents,
+			ActiveProjects: hdr.ActiveProjects, Turns: hdr.Turns, Reports: hdr.Reports,
+		},
+	})
 }
 
 // StudentHeadDTO is the per-student header card on the teacher's student-detail
@@ -315,4 +321,3 @@ func rqFromNode(body []byte, fallback string) string {
 	}
 	return fallback
 }
-

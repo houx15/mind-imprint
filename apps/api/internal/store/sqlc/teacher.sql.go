@@ -13,6 +13,54 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getClassLiveHeader = `-- name: GetClassLiveHeader :one
+WITH members AS (
+  SELECT u.id FROM enrollments e JOIN users u ON u.id = e.user_id
+  WHERE e.class_id = $3 AND e.role_in_class = 'student'
+)
+SELECT
+  (SELECT count(*) FROM members)::int AS class_size,
+  (SELECT count(DISTINCT ev.user_id) FROM event ev JOIN members m ON m.id = ev.user_id
+     WHERE ev.created_at >= $1 AND ev.created_at < $2)::int AS active_students,
+  (SELECT count(*) FROM event ev JOIN members m ON m.id = ev.user_id
+     WHERE ev.created_at >= $1 AND ev.created_at < $2
+       AND ev.type IN ('prompt_sent','course_message'))::int AS turns,
+  (SELECT count(*) FROM project p JOIN members m ON m.id = p.user_id
+     WHERE p.status = 'active')::int AS active_projects,
+  (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
+     JOIN members m ON m.id = p.user_id
+     WHERE er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2)::int AS reports
+`
+
+type GetClassLiveHeaderParams struct {
+	WeekStart time.Time `json:"week_start"`
+	WeekEnd   time.Time `json:"week_end"`
+	ClassID   uuid.UUID `json:"class_id"`
+}
+
+type GetClassLiveHeaderRow struct {
+	ClassSize      int32 `json:"class_size"`
+	ActiveStudents int32 `json:"active_students"`
+	Turns          int32 `json:"turns"`
+	ActiveProjects int32 `json:"active_projects"`
+	Reports        int32 `json:"reports"`
+}
+
+// Live class-level snapshot for View B's header. active_students/turns/reports
+// are windowed (the current in-progress week); active_projects is current state.
+func (q *Queries) GetClassLiveHeader(ctx context.Context, arg GetClassLiveHeaderParams) (GetClassLiveHeaderRow, error) {
+	row := q.db.QueryRow(ctx, getClassLiveHeader, arg.WeekStart, arg.WeekEnd, arg.ClassID)
+	var i GetClassLiveHeaderRow
+	err := row.Scan(
+		&i.ClassSize,
+		&i.ActiveStudents,
+		&i.Turns,
+		&i.ActiveProjects,
+		&i.Reports,
+	)
+	return i, err
+}
+
 const getLatestReportScoresForStudent = `-- name: GetLatestReportScoresForStudent :one
 SELECT se.scores
 FROM student_evaluation se
@@ -22,9 +70,9 @@ LIMIT 1
 `
 
 // Latest report scores for one student across ALL scopes (project/course/chat),
-// for D/A head-badge derivation on the student-detail page. Mirrors the lateral
-// inside ListClassRosterReport so the roster badge and the head badge can never
-// disagree.
+// for D/A head-badge derivation on the student-detail page. (The roster view
+// no longer derives a D/A badge — see ListClassRosterCounts — but the
+// student-detail head still does, until Task 4.)
 func (q *Queries) GetLatestReportScoresForStudent(ctx context.Context, userID uuid.UUID) ([]byte, error) {
 	row := q.db.QueryRow(ctx, getLatestReportScoresForStudent, userID)
 	var scores []byte
@@ -107,74 +155,61 @@ func (q *Queries) GetStudentWeekStats(ctx context.Context, arg GetStudentWeekSta
 	return i, err
 }
 
-const listClassRosterReport = `-- name: ListClassRosterReport :many
+const listClassRosterCounts = `-- name: ListClassRosterCounts :many
 
 SELECT
   u.id, u.display_name, u.avatar_color,
-  ev.scores AS latest_project_scores,
-  COALESCE(act.active_days, 0)::int AS active_days,
-  COALESCE(act.turns, 0)::int       AS turns,
-  (ev.scores IS NOT NULL)           AS has_report
+  COALESCE(ap.n, 0)::int AS active_projects,
+  COALESCE(rc.n, 0)::int AS report_count,
+  COALESCE(cf.n, 0)::int AS courses_finished
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 LEFT JOIN LATERAL (
-  SELECT se.scores
-  FROM student_evaluation se
-  WHERE se.user_id = u.id
-  ORDER BY se.created_at DESC
-  LIMIT 1
-) ev ON true
+  SELECT count(*) AS n FROM project p WHERE p.user_id = u.id AND p.status = 'active'
+) ap ON true
 LEFT JOIN LATERAL (
-  SELECT
-    COUNT(DISTINCT (ev4.created_at AT TIME ZONE 'UTC')::date) AS active_days,
-    COUNT(*) FILTER (WHERE ev4.type IN ('prompt_sent','course_message')) AS turns
-  FROM event ev4
-  WHERE ev4.user_id = u.id
-    AND ev4.created_at >= $1 AND ev4.created_at < $2
-) act ON true
-WHERE e.class_id = $3 AND e.role_in_class = 'student'
+  SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
+  WHERE p.user_id = u.id AND er.status = 'ready'
+) rc ON true
+LEFT JOIN LATERAL (
+  SELECT count(*) AS n FROM course_progress cp WHERE cp.user_id = u.id AND cp.completed_at IS NOT NULL
+) cf ON true
+WHERE e.class_id = $1 AND e.role_in_class = 'student'
 ORDER BY u.display_name
 `
 
-type ListClassRosterReportParams struct {
-	WeekStart time.Time `json:"week_start"`
-	WeekEnd   time.Time `json:"week_end"`
-	ClassID   uuid.UUID `json:"class_id"`
-}
-
-type ListClassRosterReportRow struct {
-	ID                  uuid.UUID   `json:"id"`
-	DisplayName         string      `json:"display_name"`
-	AvatarColor         string      `json:"avatar_color"`
-	LatestProjectScores []byte      `json:"latest_project_scores"`
-	ActiveDays          int32       `json:"active_days"`
-	Turns               int32       `json:"turns"`
-	HasReport           interface{} `json:"has_report"`
+type ListClassRosterCountsRow struct {
+	ID              uuid.UUID `json:"id"`
+	DisplayName     string    `json:"display_name"`
+	AvatarColor     string    `json:"avatar_color"`
+	ActiveProjects  int32     `json:"active_projects"`
+	ReportCount     int32     `json:"report_count"`
+	CoursesFinished int32     `json:"courses_finished"`
 }
 
 // Teacher read-path (Spec D1). Every query is class-scoped: it JOINs enrollments
 // with role_in_class='student' so a teacher can only read members of the class
 // the handler already authorised via assertTeacherOwnsClass. No writes.
-// One row per student: latest report scores across all scopes (for D/A badge
-// derivation, NULL when unrated) + this-week activity. Mirrors GetClassRoster's
-// enrollment scoping (org.sql).
-func (q *Queries) ListClassRosterReport(ctx context.Context, arg ListClassRosterReportParams) ([]ListClassRosterReportRow, error) {
-	rows, err := q.db.Query(ctx, listClassRosterReport, arg.WeekStart, arg.WeekEnd, arg.ClassID)
+// One row per student: current-state activity counts, all no-LLM. active
+// projects = status='active'; report count = ready evaluation_report on the
+// student's projects; courses finished = course_progress.completed_at set.
+// Class-scoped like every teacher query (enrollments + role_in_class='student').
+func (q *Queries) ListClassRosterCounts(ctx context.Context, classID uuid.UUID) ([]ListClassRosterCountsRow, error) {
+	rows, err := q.db.Query(ctx, listClassRosterCounts, classID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListClassRosterReportRow
+	var items []ListClassRosterCountsRow
 	for rows.Next() {
-		var i ListClassRosterReportRow
+		var i ListClassRosterCountsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.DisplayName,
 			&i.AvatarColor,
-			&i.LatestProjectScores,
-			&i.ActiveDays,
-			&i.Turns,
-			&i.HasReport,
+			&i.ActiveProjects,
+			&i.ReportCount,
+			&i.CoursesFinished,
 		); err != nil {
 			return nil, err
 		}

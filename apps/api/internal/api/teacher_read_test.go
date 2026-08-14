@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgtype"
 
@@ -14,70 +15,81 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// rosterReportEntryForTest mirrors RosterReportEntry's JSON shape for decoding
-// in these tests.
-type rosterReportEntryForTest struct {
-	ID          string `json:"id"`
-	DisplayName string `json:"displayName"`
-	AvatarColor string `json:"avatarColor"`
-	DBadge      string `json:"dBadge"`
-	ABadge      string `json:"aBadge"`
-	ActiveDays  int32  `json:"activeDays"`
-	Turns       int32  `json:"turns"`
-	HasReport   bool   `json:"hasReport"`
-	Unrated     bool   `json:"unrated"`
+// rosterEntryForTest mirrors RosterEntry's JSON shape for decoding in these
+// tests.
+type rosterEntryForTest struct {
+	ID              string `json:"id"`
+	DisplayName     string `json:"displayName"`
+	AvatarColor     string `json:"avatarColor"`
+	ActiveProjects  int32  `json:"activeProjects"`
+	ReportCount     int32  `json:"reportCount"`
+	CoursesFinished int32  `json:"coursesFinished"`
 }
 
-// TestRosterReportHappyPath — a teacher of the class sees one rated student
-// (dBadge derived from her latest project report) and one unrated student
-// ("—", unrated=true).
+// classLiveHeaderForTest mirrors ClassLiveHeader's JSON shape.
+type classLiveHeaderForTest struct {
+	ClassSize      int32 `json:"classSize"`
+	ActiveStudents int32 `json:"activeStudents"`
+	ActiveProjects int32 `json:"activeProjects"`
+	Turns          int32 `json:"turns"`
+	Reports        int32 `json:"reports"`
+}
+
+// TestRosterReportHappyPath — a teacher of the class sees one student with an
+// active project, a ready evaluation_report, and a finished course: all three
+// activity counts come back 1, and the class-level header reflects the same
+// class of one.
 func TestRosterReportHappyPath(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()
 	q := mustNewQueries(pool)
+	ctx := context.Background()
 
 	teacher := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "rr-teacher@demo.local"))
 	classID := createClassViaAPI(t, h, teacher, "Roster Report Class")
 
-	// Rated student: seed a project + a project evaluation.
-	ratedID := createStudent(t, pool, SeedSchoolID, "rr-rated@demo.local")
-	enrollStudent(t, pool, ratedID, classID)
-	proj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
-		UserID:        ratedID,
+	studentID := createStudent(t, pool, SeedSchoolID, "rr-student@demo.local")
+	enrollStudent(t, pool, studentID, classID)
+
+	// Active project (status defaults to 'active' on CreateProject).
+	proj, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID:        studentID,
 		Qualification: "0457",
-		Title:         "rated student's project",
+		Title:         "student's active project",
 		Deadline:      pgtype.Timestamptz{},
 		BoardCfgVer:   1,
 	})
 	if err != nil {
 		t.Fatalf("create project: %v", err)
 	}
-	report := agent.Report{
-		DepthAxis: []agent.DepthDim{
-			{Code: "D1", Level: "L2"},
-			{Code: "D2", Level: "L4"},
-		},
-		AutonomyAxis: []agent.AutonomySignal{
-			{Code: "A1", Level: 4, Opportunity: "given_taken"},
-		},
+
+	// Ready evaluation_report on that project.
+	if _, err := q.ClaimEvaluationReportGeneration(ctx, proj.ID); err != nil {
+		t.Fatalf("claim evaluation report: %v", err)
 	}
-	scores, err := json.Marshal(report)
-	if err != nil {
-		t.Fatalf("marshal report: %v", err)
-	}
-	if _, err := q.InsertProjectEvaluation(context.Background(), sqlc.InsertProjectEvaluationParams{
-		ProjectID: pgtype.UUID{Bytes: proj.ID, Valid: true},
-		Scores:    scores,
-		Narrative: "n",
-		Model:     "test-model",
-		Tier:      "flagship",
+	if err := q.CompleteEvaluationReport(ctx, sqlc.CompleteEvaluationReportParams{
+		ProjectID: proj.ID,
+		Report:    []byte(`{"version":1}`),
 	}); err != nil {
-		t.Fatalf("insert evaluation: %v", err)
+		t.Fatalf("complete evaluation report: %v", err)
 	}
 
-	// Unrated student: enrolled, no project/evaluation at all.
-	unratedID := createStudent(t, pool, SeedSchoolID, "rr-unrated@demo.local")
-	enrollStudent(t, pool, unratedID, classID)
+	// A course row + a finished course_progress row for the student.
+	course, err := q.UpsertCourse(ctx, sqlc.UpsertCourseParams{
+		Slug: "rr-test-course", Branch: "A", Title: "roster test course",
+		Blurb: "", TimeLabel: "5 分钟", CardIds: []string{}, StepCount: 1,
+		Structure: []byte(`{}`), RenderCache: []byte(`{}`), AudioManifest: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("upsert course: %v", err)
+	}
+	if _, err := q.UpsertCourseProgress(ctx, sqlc.UpsertCourseProgressParams{
+		UserID: studentID, CourseID: course.ID,
+		CurrentOrdinal: 1, CompletedOrdinals: []int32{0},
+		CompletedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}); err != nil {
+		t.Fatalf("upsert course progress: %v", err)
+	}
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/classes/"+classID+"/roster-report", nil), teacher))
@@ -85,48 +97,40 @@ func TestRosterReportHappyPath(t *testing.T) {
 		t.Fatalf("roster-report got %d body=%s", rec.Code, rec.Body)
 	}
 	var resp struct {
-		Roster []rosterReportEntryForTest `json:"roster"`
+		Roster []rosterEntryForTest   `json:"roster"`
+		Header classLiveHeaderForTest `json:"header"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v — body=%s", err, rec.Body)
 	}
-	if len(resp.Roster) != 2 {
-		t.Fatalf("want 2 roster entries, got %d: %+v", len(resp.Roster), resp.Roster)
+	if len(resp.Roster) != 1 {
+		t.Fatalf("want 1 roster entry, got %d: %+v", len(resp.Roster), resp.Roster)
+	}
+	entry := resp.Roster[0]
+	if entry.ID != studentID.String() {
+		t.Fatalf("roster entry id = %q, want %q", entry.ID, studentID.String())
+	}
+	if entry.DisplayName == "" || entry.AvatarColor == "" {
+		t.Fatalf("roster entry missing display fields: %+v", entry)
+	}
+	if entry.ActiveProjects != 1 {
+		t.Fatalf("activeProjects = %d, want 1: %+v", entry.ActiveProjects, entry)
+	}
+	if entry.ReportCount != 1 {
+		t.Fatalf("reportCount = %d, want 1: %+v", entry.ReportCount, entry)
+	}
+	if entry.CoursesFinished != 1 {
+		t.Fatalf("coursesFinished = %d, want 1: %+v", entry.CoursesFinished, entry)
 	}
 
-	var rated, unrated *rosterReportEntryForTest
-	for i := range resp.Roster {
-		switch resp.Roster[i].ID {
-		case ratedID.String():
-			rated = &resp.Roster[i]
-		case unratedID.String():
-			unrated = &resp.Roster[i]
-		}
+	if resp.Header.ClassSize != 1 {
+		t.Fatalf("header.classSize = %d, want 1: %+v", resp.Header.ClassSize, resp.Header)
 	}
-	if rated == nil || unrated == nil {
-		t.Fatalf("missing expected students in roster: %+v", resp.Roster)
+	if resp.Header.ActiveProjects != 1 {
+		t.Fatalf("header.activeProjects = %d, want 1: %+v", resp.Header.ActiveProjects, resp.Header)
 	}
-	if rated.Unrated {
-		t.Fatalf("rated student should have unrated=false: %+v", rated)
-	}
-	if rated.DBadge != "L2–L4" {
-		t.Fatalf("rated student dBadge = %q, want L2–L4: %+v", rated.DBadge, rated)
-	}
-	if !rated.HasReport {
-		t.Fatalf("rated student hasReport should be true: %+v", rated)
-	}
-	if rated.DisplayName == "" || rated.AvatarColor == "" {
-		t.Fatalf("rated student missing display fields: %+v", rated)
-	}
-
-	if !unrated.Unrated {
-		t.Fatalf("unrated student should have unrated=true: %+v", unrated)
-	}
-	if unrated.DBadge != "—" || unrated.ABadge != "—" {
-		t.Fatalf("unrated student badges should be em-dash: %+v", unrated)
-	}
-	if unrated.HasReport {
-		t.Fatalf("unrated student hasReport should be false: %+v", unrated)
+	if resp.Header.Reports != 1 {
+		t.Fatalf("header.reports = %d, want 1: %+v", resp.Header.Reports, resp.Header)
 	}
 }
 
