@@ -95,6 +95,65 @@ describe("EvaluationReportPage", () => {
     expect(getMock).toHaveBeenCalledTimes(3);
   });
 
+  it("out-of-order regression: never has more than one GET in flight, so a stale slow response can't land after a later one and regress the UI back to generating", async () => {
+    vi.useFakeTimers();
+
+    // Manually-controlled promises (instead of mockResolvedValueOnce) so we
+    // can hold a poll response open indefinitely and prove nothing else
+    // fires while it's outstanding.
+    const resolvers: ((v: unknown) => void)[] = [];
+    getMock.mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolvers.push(resolve);
+        }),
+    );
+
+    await act(async () => {
+      render(<EvaluationReportPage projectId="p1" onBack={vi.fn()} />);
+    });
+    expect(getMock).toHaveBeenCalledTimes(1);
+
+    // Resolve the initial GET as "generating" — schedules the next poll 3s
+    // out, but must not fire it early.
+    await act(async () => {
+      resolvers[0]!({ status: "generating" });
+    });
+    expect(getMock).toHaveBeenCalledTimes(1);
+
+    // The scheduled poll fires (2nd GET) — leave it UNRESOLVED.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    expect(getMock).toHaveBeenCalledTimes(2);
+
+    // Advance well past another whole poll interval while the 2nd request
+    // is still pending. With the old `setInterval` implementation this
+    // would fire an overlapping 3rd request before the 2nd settled — the
+    // fix (self-rescheduling `setTimeout`) must not: the next poll is only
+    // scheduled once the current one settles, so there must be no 3rd call.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    expect(getMock).toHaveBeenCalledTimes(2);
+
+    // The (slow) 2nd request finally settles as the terminal "ready" state.
+    await act(async () => {
+      resolvers[1]!({ status: "ready", report: MOCK_EVALUATION_REPORT });
+    });
+    expect(screen.getByTestId("evaluation-report")).toBeInTheDocument();
+
+    // Further timer advances must not resurrect polling or regress the UI
+    // back to "generating" — this is the exact bug the fix closes: a stale
+    // response landing after the terminal one used to be able to do this.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10000);
+    });
+    expect(getMock).toHaveBeenCalledTimes(2);
+    expect(screen.getByTestId("evaluation-report")).toBeInTheDocument();
+    expect(screen.queryByText("印记正在梳理这个项目的过程记录……")).toBeNull();
+  });
+
   it("failed: shows the empty state with a 重试 action that re-runs the fetch", async () => {
     getMock.mockResolvedValueOnce({ status: "failed" });
 

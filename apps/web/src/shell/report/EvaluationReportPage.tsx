@@ -50,12 +50,20 @@ export function EvaluationReportPage({
 
   useEffect(() => {
     let cancelled = false;
-    let pollTimer: ReturnType<typeof setInterval> | undefined;
+    // Self-rescheduling `setTimeout`, not `setInterval`: the next poll is
+    // only queued AFTER the current GET settles, so there is never more
+    // than one in-flight request. A bare `setInterval` can fire a new tick
+    // while a prior (slow) one is still in flight; if that stale response
+    // lands after a later tick already resolved ready/failed and stopped
+    // the timer, applying it would regress the UI back to "generating"
+    // with nothing left scheduled — stranding the user on the spinner.
+    // This structure makes that ordering impossible by construction.
+    let pollTimer: ReturnType<typeof setTimeout> | undefined;
     setState({ status: "loading" });
 
     function stopPolling() {
       if (pollTimer !== undefined) {
-        clearInterval(pollTimer);
+        clearTimeout(pollTimer);
         pollTimer = undefined;
       }
     }
@@ -76,16 +84,18 @@ export function EvaluationReportPage({
       return false;
     }
 
-    function startPolling() {
-      pollTimer = setInterval(() => {
+    function schedulePoll() {
+      pollTimer = setTimeout(() => {
         void (async () => {
           try {
             const envelope = await getEvaluationReport(projectId);
             if (cancelled) return;
-            if (applyEnvelope(envelope)) stopPolling();
+            const settled = applyEnvelope(envelope);
+            if (!settled) schedulePoll();
           } catch {
             // Transient poll error — keep polling rather than flashing an
             // error state on a single failed tick.
+            if (!cancelled) schedulePoll();
           }
         })();
       }, POLL_INTERVAL_MS);
@@ -97,7 +107,7 @@ export function EvaluationReportPage({
         if (envelope === null) envelope = await generateEvaluationReport(projectId);
         if (cancelled) return;
         const settled = applyEnvelope(envelope);
-        if (!settled) startPolling();
+        if (!settled) schedulePoll();
       } catch {
         if (!cancelled) setState({ status: "error" });
       }

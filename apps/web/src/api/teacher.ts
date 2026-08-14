@@ -1,21 +1,8 @@
 import { apiFetch } from "./client";
-import { EvaluationReport } from "@mind-imprint/contracts";
 import type { DualAxisReport, ParentReport, ParentStageReport } from "@mind-imprint/contracts";
-import type { EvalReportEnvelope } from "./evaluationReport";
+import { parseEnvelope, type EvalReportEnvelope } from "./evaluationReport";
 
 export type { EvalReportEnvelope } from "./evaluationReport";
-
-// Mirrors `parseEnvelope` in ./evaluationReport — same three-state envelope
-// contract (`null` | generating | failed | ready), read here for the
-// teacher's view of a student's project report.
-function parseEnvelope(raw: unknown): EvalReportEnvelope | null {
-  if (raw == null) return null;
-  const o = raw as { status?: string; report?: unknown };
-  if (o.status === "ready") return { status: "ready", report: EvaluationReport.parse(o.report) };
-  if (o.status === "generating") return { status: "generating" };
-  if (o.status === "failed") return { status: "failed" };
-  return null;
-}
 
 export interface RosterReportEntry {
   id: string;

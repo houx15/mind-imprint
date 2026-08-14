@@ -17,7 +17,10 @@ export type EvalReportEnvelope =
   | { status: "failed" }
   | { status: "ready"; report: EvaluationReport };
 
-function parseEnvelope(raw: unknown): EvalReportEnvelope | null {
+// Exported so other read paths hitting the same envelope contract (e.g. the
+// teacher's per-student read in `./teacher.ts`) can reuse this instead of
+// re-implementing it — one parser, no drift risk.
+export function parseEnvelope(raw: unknown): EvalReportEnvelope | null {
   if (raw == null) return null;
   const o = raw as { status?: string; report?: unknown };
   if (o.status === "ready") return { status: "ready", report: EvaluationReport.parse(o.report) };
