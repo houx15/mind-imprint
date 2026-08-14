@@ -15,3 +15,14 @@ describe("EvaluationReportPrint — front matter", () => {
     expect(screen.getByText(String(R.basics.counters.aiTurns))).toBeInTheDocument();
   });
 });
+
+describe("EvaluationReportPrint — timeline & materials", () => {
+  it("renders section intros and material rows", () => {
+    render(<EvaluationReportPrint report={R} />);
+    expect(screen.getByText("过程时间线")).toBeInTheDocument();
+    expect(screen.getByText("材料清单")).toBeInTheDocument();
+    if (R.materials[0]) {
+      expect(screen.getByText(new RegExp(R.materials[0].source))).toBeInTheDocument();
+    }
+  });
+});
