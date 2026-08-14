@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { ClassWeeklyView } from "@/console/ClassWeeklyView";
 import type { WeeklyReport } from "@/api/teacher";
@@ -6,8 +6,8 @@ import type { WeeklyReport } from "@/api/teacher";
 function report(over: Partial<WeeklyReport> = {}): WeeklyReport {
   return {
     weekLabel: "第 30 周（7.20–7.26）",
-    weekStart: "2026-07-20T00:00:00Z",
-    weekEnd: "2026-07-27T00:00:00Z",
+    weekStart: "2026-07-20T00:00:00.000Z",
+    weekEnd: "2026-07-27T00:00:00.000Z",
     asOf: "2026-07-24T07:30:00Z",
     className: "IBDP 一年级 · 研究组",
     classSize: 9,
@@ -24,13 +24,9 @@ function report(over: Partial<WeeklyReport> = {}): WeeklyReport {
       evidence: "A 轴 0.5/5。提示词多为「帮我写一段」。",
       lead: "", action: "", hasReport: true, reportSurface: "project", reportScopeId: "p1",
     }],
-    depth: { buckets: [
-      { code: "L1", label: "起步 L1", count: 2 }, { code: "L2", label: "发展 L2", count: 3 },
-      { code: "L3", label: "熟练 L3", count: 2 }, { code: "L4", label: "优秀 L4", count: 1 },
-    ], ratedCount: 8, note: "" },
-    autonomy: { mean: "2.6", delta: "+0.4", deltaDir: "up", ratedCount: 8, note: "" },
     comment: null,
     proseReady: false,
+    isLatestWeek: true,
     ...over,
   };
 }
@@ -80,44 +76,22 @@ describe("ClassWeeklyView", () => {
     expect(await screen.findByText("本周没有需要特别关注的学生")).toBeInTheDocument();
   });
 
-  it("renders the unrated distribution empty state", async () => {
-    // The server ALWAYS sends all four buckets — an unrated class sends them
-    // with count 0, never an empty array. Mocking [] here would test a shape
-    // the backend cannot produce.
+  it("colors the delta pill by server deltaDir, not a fixed color", async () => {
     const client = {
-      getClassWeeklyReport: vi.fn().mockResolvedValue(report({
-        depth: { buckets: [
-          { code: "L1", label: "起步 L1", count: 0 }, { code: "L2", label: "发展 L2", count: 0 },
-          { code: "L3", label: "熟练 L3", count: 0 }, { code: "L4", label: "优秀 L4", count: 0 },
-        ], ratedCount: 0, note: "" },
-        autonomy: { mean: "—", delta: "—", deltaDir: "flat", ratedCount: 0, note: "" },
-        proseReady: true, comment: "c",
-      })),
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({ proseReady: true, comment: "c" })),
       generateClassWeeklyProse: vi.fn(),
     };
     render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
-    expect(await screen.findByText("暂无可计入的证据")).toBeInTheDocument();
+    // "turns" stat has deltaDir "down" in the fixture — down-style tokens, not the up-style green.
+    const pill = await screen.findByText("-72");
+    expect(pill).toHaveStyle({ color: "var(--mk-danger)", background: "var(--mk-danger-bg)" });
   });
 
-  it("colors the A-axis delta pill by server deltaDir, never green when the class declines", async () => {
-    const client = {
-      getClassWeeklyReport: vi.fn().mockResolvedValue(report({
-        autonomy: { mean: "2.1", delta: "-0.4", deltaDir: "down", ratedCount: 8, note: "" },
-        proseReady: true, comment: "c",
-      })),
-      generateClassWeeklyProse: vi.fn(),
-    };
-    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
-    const pill = await screen.findByText("-0.4");
-    // Down-style (red), not the fixed green the design's own prototype hardcodes.
-    expect(pill).toHaveStyle({ color: "#C4574D", background: "#F7E6E4" });
-  });
-
-  it("colors a praise card's avatar and tag chip with the design's fixed green, ignoring avatarColor", async () => {
+  it("colors a praise card's avatar and tag chip with the fixed praise tokens, ignoring avatarColor", async () => {
     const client = {
       getClassWeeklyReport: vi.fn().mockResolvedValue(report({
         praise: [{
-          userId: "u2", displayName: "林知远", avatarColor: "#3E7CA8", // a non-green server color
+          userId: "u2", displayName: "林知远", avatarColor: "#3E7CA8", // a non-matcha server color
           tagCode: "depth_up", tagLabel: "深度升档", kind: "praise",
           evidence: "L2 → L3。", lead: "", action: "", hasReport: true, reportSurface: "project", reportScopeId: "p2",
         }],
@@ -128,8 +102,8 @@ describe("ClassWeeklyView", () => {
     };
     render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
     const tag = await screen.findByText("深度升档");
-    // Fixed design green (dc.html:134-135), NOT the server's avatarColor (#3E7CA8).
-    expect(tag).toHaveStyle({ color: "#3E8A6E", background: "#E4F0EA" });
+    // Fixed matcha tokens, NOT the server's avatarColor (#3E7CA8).
+    expect(tag).toHaveStyle({ color: "var(--mk-matcha-fg)", background: "var(--mk-matcha-bg)" });
   });
 
   it("renders a distinct error with a retry when the fetch fails", async () => {
@@ -139,5 +113,58 @@ describe("ClassWeeklyView", () => {
     };
     render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
     expect(await screen.findByText("重试")).toBeInTheDocument();
+  });
+
+  it("navigates to the previous week and re-fetches with the shifted weekStart", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({ proseReady: true, comment: "c" })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    await screen.findByText("本周活跃学生");
+
+    fireEvent.click(screen.getByLabelText("上一周"));
+
+    await waitFor(() => expect(client.getClassWeeklyReport).toHaveBeenCalledTimes(2));
+    expect(client.getClassWeeklyReport).toHaveBeenLastCalledWith("c1", "2026-07-13T00:00:00.000Z");
+  });
+
+  it("disables the next-week button once the server says this is the latest week", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({ proseReady: true, comment: "c", isLatestWeek: true })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    await screen.findByText("本周活跃学生");
+    expect(screen.getByLabelText("下一周")).toBeDisabled();
+  });
+
+  it("enables the next-week button and shifts forward when not the latest week", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({ proseReady: true, comment: "c", isLatestWeek: false })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    await screen.findByText("本周活跃学生");
+    const next = screen.getByLabelText("下一周");
+    expect(next).not.toBeDisabled();
+
+    fireEvent.click(next);
+
+    await waitFor(() => expect(client.getClassWeeklyReport).toHaveBeenCalledTimes(2));
+    expect(client.getClassWeeklyReport).toHaveBeenLastCalledWith("c1", "2026-07-27T00:00:00.000Z");
+  });
+
+  it("generates prose again for a different week after navigating", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({ isLatestWeek: false })),
+      generateClassWeeklyProse: vi.fn().mockResolvedValue(report({ proseReady: true, comment: "c", isLatestWeek: false })),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    await waitFor(() => expect(client.generateClassWeeklyProse).toHaveBeenCalledTimes(1));
+
+    fireEvent.click(screen.getByLabelText("下一周"));
+
+    await waitFor(() => expect(client.generateClassWeeklyProse).toHaveBeenCalledTimes(2));
   });
 });
