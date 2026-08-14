@@ -1,5 +1,4 @@
 import { apiFetch } from "./client";
-import type { DualAxisReport, ParentReport, ParentStageReport } from "@mind-imprint/contracts";
 import { parseEnvelope, type EvalReportEnvelope } from "./evaluationReport";
 
 export type { EvalReportEnvelope } from "./evaluationReport";
@@ -31,17 +30,6 @@ export interface StudentDetail {
   records: StudentRecord[];
 }
 
-export interface TeacherReport {
-  report: DualAxisReport;
-  context: {
-    projectTitle?: string;
-    researchQuestion?: string;
-    title?: string;
-    dBadge?: string;
-    aBadge?: string;
-  };
-}
-
 export async function getClassRosterReport(classId: string): Promise<RosterReportEntry[]> {
   const r = await apiFetch<{ roster: RosterReportEntry[] }>(`/api/v1/classes/${classId}/roster-report`);
   return r.roster;
@@ -49,15 +37,6 @@ export async function getClassRosterReport(classId: string): Promise<RosterRepor
 
 export async function getStudentDetail(classId: string, userId: string): Promise<StudentDetail> {
   return apiFetch<StudentDetail>(`/api/v1/classes/${classId}/students/${userId}`);
-}
-
-export async function getStudentReport(
-  classId: string,
-  userId: string,
-  surface: string,
-  scopeId: string,
-): Promise<TeacherReport> {
-  return apiFetch<TeacherReport>(`/api/v1/classes/${classId}/students/${userId}/reports/${surface}/${scopeId}`);
 }
 
 // Task 13: the teacher's read of the SAME EvaluationReport the student sees
@@ -109,49 +88,4 @@ export async function getClassWeeklyReport(classId: string): Promise<WeeklyRepor
 
 export async function generateClassWeeklyProse(classId: string): Promise<WeeklyReport> {
   return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report/prose`, { method: "POST" });
-}
-
-export async function getParentReport(
-  classId: string,
-  userId: string,
-  surface: string,
-  scopeId: string,
-): Promise<ParentReport> {
-  return apiFetch<ParentReport>(`/api/v1/classes/${classId}/students/${userId}/parent-report/${surface}/${scopeId}`);
-}
-
-export async function generateParentReportProse(
-  classId: string,
-  userId: string,
-  surface: string,
-  scopeId: string,
-): Promise<ParentReport> {
-  return apiFetch<ParentReport>(
-    `/api/v1/classes/${classId}/students/${userId}/parent-report/${surface}/${scopeId}/prose`,
-    { method: "POST" },
-  );
-}
-
-// GET is cost-free (renders live usage stats, merges any stored prose).
-export async function getParentStageReport(
-  classId: string,
-  userId: string,
-  weekStart = "current",
-): Promise<ParentStageReport> {
-  return apiFetch<ParentStageReport>(
-    `/api/v1/classes/${classId}/students/${userId}/parent-stage-report/${weekStart}`,
-  );
-}
-
-// POST is the only stage-report endpoint that spends (flagship compose,
-// first-open-wins; a rejected composition never walls — see ParentStageReport.tsx).
-export async function generateParentStageProse(
-  classId: string,
-  userId: string,
-  weekStart = "current",
-): Promise<ParentStageReport> {
-  return apiFetch<ParentStageReport>(
-    `/api/v1/classes/${classId}/students/${userId}/parent-stage-report/${weekStart}/prose`,
-    { method: "POST" },
-  );
 }

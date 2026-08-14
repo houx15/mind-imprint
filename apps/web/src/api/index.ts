@@ -1,4 +1,4 @@
-import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, DualAxisReport, ProjectStatus, ChatThread, ChatMessage, GrowthHistoryEntry, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, ParentReport, ParentStageReport, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
+import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, ProjectStatus, ChatThread, ChatMessage, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, setAccent, type MeUser } from "./auth";
 import type { AccentId } from "../ui/accent";
 import {
@@ -11,7 +11,6 @@ import {
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk, type CourseAskEvent } from "./courses";
 import { listProjects, finishProject, createProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
-import { getGrowthHistory } from "./growth";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards, getCardsCatalog, setCardTheme } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
@@ -19,17 +18,14 @@ import { addMaterial, logSourceOpen, prepareSourceAnnotation, type AddMaterialBo
 import { uploadUserImage, resolveUrl } from "./oss";
 import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, signDeclaration, type CommitSnapshotResult, type ReviewVoice } from "./writing";
 import { postDisposition, type StudioTurnEvent } from "./studioTurn";
-import { getAssessment } from "./assessment";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
-import { getChatAssessment, generateChatAssessment } from "./chatAssessment";
 import {
-  getClassRosterReport, getStudentDetail, getStudentReport, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
-  getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
-  type RosterReportEntry, type StudentRecord, type StudentDetail, type TeacherReport, type WeeklyReport, type WeeklyCard, type EvalReportEnvelope,
+  getClassRosterReport, getStudentDetail, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
+  type RosterReportEntry, type StudentRecord, type StudentDetail, type WeeklyReport, type WeeklyCard, type EvalReportEnvelope,
 } from "./teacher";
 import { readTurn, summonCard, evaluateCardSelection, getOpenCard, putReadingBrief, getTakeawayDraft, postFinalizeReading } from "./reading";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterReportEntry, StudentRecord, StudentDetail, TeacherReport, WeeklyReport, WeeklyCard, EvalReportEnvelope };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterReportEntry, StudentRecord, StudentDetail, WeeklyReport, WeeklyCard, EvalReportEnvelope };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -97,30 +93,21 @@ export interface ApiClient {
   attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
   // N3f Task 9: signs the S6 AI 使用申报单 — no request body, no stream.
   signDeclaration(projectId: string): Promise<void>;
-  getAssessment(projectId: string): Promise<DualAxisReport | null>;
   listThreads(): Promise<ChatThread[]>;
   createThread(title?: string): Promise<ChatThread>;
   getMessages(threadId: string): Promise<ChatMessage[]>;
   submitChatCard(threadId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
   skipChatCard(threadId: string, cardInstanceId: string): Promise<void>;
   chatTurn(threadId: string, userInput: string): AsyncGenerator<ChatTurnEvent>;
-  getChatAssessment(threadId: string): Promise<DualAxisReport | null>;
-  generateChatAssessment(threadId: string): Promise<DualAxisReport>;
-  getGrowthHistory(): Promise<GrowthHistoryEntry[]>;
   getAbilityModel(): Promise<AbilityModel>;
   getGrowthCards(): Promise<CollectedCard[]>;
   getCardsCatalog(theme?: CoverTheme): Promise<{ cards: CardCatalogEntry[]; theme: CoverTheme }>;
   setCardTheme(theme: CoverTheme): Promise<CoverTheme>;
   getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
   getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
-  getStudentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<TeacherReport>;
   getStudentEvaluationReport(classId: string, userId: string, projectId: string): Promise<EvalReportEnvelope | null>;
   getClassWeeklyReport(classId: string): Promise<WeeklyReport>;
   generateClassWeeklyProse(classId: string): Promise<WeeklyReport>;
-  getParentReport(classId: string, userId: string, surface: string, scopeId: string): Promise<ParentReport>;
-  generateParentReportProse(classId: string, userId: string, surface: string, scopeId: string): Promise<ParentReport>;
-  getParentStageReport(classId: string, userId: string, weekStart?: string): Promise<ParentStageReport>;
-  generateParentStageProse(classId: string, userId: string, weekStart?: string): Promise<ParentStageReport>;
   // OSS storage: upload a user image (returns its object key), resolve a key to
   // a short-lived signed GET URL.
   uploadUserImage(file: File): Promise<string>;
@@ -138,13 +125,9 @@ export const api: ApiClient = {
   readTurn, summonCard, evaluateCardSelection, getOpenCard,
   putReadingBrief, getTakeawayDraft, postFinalizeReading,
   putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate, signDeclaration,
-  getAssessment,
   listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
-  getChatAssessment, generateChatAssessment,
-  getGrowthHistory,
   getAbilityModel,
   getGrowthCards, getCardsCatalog, setCardTheme,
-  getClassRosterReport, getStudentDetail, getStudentReport, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
-  getParentReport, generateParentReportProse, getParentStageReport, generateParentStageProse,
+  getClassRosterReport, getStudentDetail, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
   uploadUserImage, resolveUrl,
 };
