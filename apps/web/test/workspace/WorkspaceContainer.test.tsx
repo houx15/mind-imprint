@@ -478,33 +478,66 @@ describe("WorkspaceContainer", () => {
     );
   });
 
-  // Task 9b · when the target section ALREADY has content, confirming appends
-  // with a newline join (never clobbers her own words) — the other branch of
-  // confirmNote's read-modify-write merge.
-  it("confirming a note appends with a newline when the section already has content", async () => {
+  // Task 9b · for a MULTI-POINT section (reason/activities/resources) that ALREADY
+  // has content, confirming appends with a newline join (never clobbers her own
+  // words) — one branch of confirmNote's read-modify-write merge.
+  it("confirming a note appends with a newline for a multi-point section with content", async () => {
     getStudioState.mockImplementation(async () => fakeStudioState("chat"));
-    // This project's objective is already written — the merge must preserve it.
+    // This project's reason is already written — the merge must preserve it.
     getWorkspace.mockImplementation(async (id: string) => ({
       ...fakeWorkspace(id),
-      proposal: { objective: "先前写好的目标。", reason: "", activities: "", resources: "" },
+      proposal: { objective: "", reason: "先前写好的动机。", activities: "", resources: "" },
     }));
     coach.mockResolvedValue(
-      fakeReply("记下来吧。", "chat", { note: { section: "objective", value: "再补一句想法" } }),
+      fakeReply("记下来吧。", "chat", { note: { section: "reason", value: "再补一句想法" } }),
     );
     render(<WorkspaceContainer initialProjectId="pm" />);
 
     const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
-    await userEvent.type(composer, "帮我补充目标");
+    await userEvent.type(composer, "帮我补充动机");
     await userEvent.click(screen.getByRole("button", { name: "发送" }));
 
-    const confirm = await screen.findByRole("button", { name: "记进「目标」" });
+    const confirm = await screen.findByRole("button", { name: "记进「缘由」" });
     await userEvent.click(confirm);
 
     // Existing content + "\n" + the note's value — not a clobber.
     await waitFor(() =>
       expect(putProposal).toHaveBeenCalledWith(
         "pm",
-        expect.objectContaining({ objective: "先前写好的目标。\n再补一句想法" }),
+        expect.objectContaining({ reason: "先前写好的动机。\n再补一句想法" }),
+      ),
+    );
+  });
+
+  // The research question (objective) is a SINGLE evolving statement the coach
+  // refines turn by turn (and it drives the 研究问题 header + graph node), so
+  // confirming a 目标 note REPLACES rather than appends — the latest refined RQ
+  // wins, never a pile of rough drafts.
+  it("confirming a 目标 note REPLACES the objective (latest RQ wins, no accumulation)", async () => {
+    getStudioState.mockImplementation(async () => fakeStudioState("chat"));
+    getWorkspace.mockImplementation(async (id: string) => ({
+      ...fakeWorkspace(id),
+      proposal: { objective: "先前那版粗糙的目标。", reason: "", activities: "", resources: "" },
+    }));
+    coach.mockResolvedValue(
+      fakeReply("记下来吧。", "chat", {
+        note: { section: "objective", value: "打磨后的完整研究问题。" },
+      }),
+    );
+    render(<WorkspaceContainer initialProjectId="pm2" />);
+
+    const composer = await screen.findByPlaceholderText(/和印记说说你的项目/);
+    await userEvent.type(composer, "把目标改成这句");
+    await userEvent.click(screen.getByRole("button", { name: "发送" }));
+
+    const confirm = await screen.findByRole("button", { name: "记进「目标」" });
+    await userEvent.click(confirm);
+
+    // Replaced — the old rough objective is gone, only the refined RQ remains.
+    await waitFor(() =>
+      expect(putProposal).toHaveBeenCalledWith(
+        "pm2",
+        expect.objectContaining({ objective: "打磨后的完整研究问题。" }),
       ),
     );
   });

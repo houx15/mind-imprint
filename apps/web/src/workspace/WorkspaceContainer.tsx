@@ -646,9 +646,15 @@ export function WorkspaceContainer({
   }, [historyCursor, loadingEarlier]);
 
   // Confirm a proposed note into the proposal board (铁律②: her tap writes it).
-  // Read-modify-write: re-read the current proposal, append the note's value to
-  // its section (newline-join when the section already has content, so a tap
-  // never clobbers her own words), persist, then refresh the board.
+  // Read-modify-write: re-read the current proposal, merge the note's value into
+  // its section, persist, then refresh the board.
+  //
+  // `objective` is the single research question — the coach REFINES it turn by
+  // turn (each 记进「目标」 supersedes the last, ending in the full RQ), and it also
+  // drives the 研究问题 header + exploration-graph node. So the latest note REPLACES
+  // it; newline-appending would pile the rough drafts on top of the final RQ. The
+  // other sections (reason/activities/resources/counterpoints) are genuinely
+  // multi-point, so a tap newline-joins there and never clobbers her own words.
   const confirmNote = useCallback(async () => {
     const pid = activeProjectIdRef.current;
     const note = pendingNote;
@@ -661,7 +667,8 @@ export function WorkspaceContainer({
       const w = await getWorkspace(pid);
       const section = note.section as keyof Proposal;
       const existing = (w.proposal[section] ?? "").trim();
-      const value = existing ? `${existing}\n${note.value}` : note.value;
+      const value =
+        section === "objective" || !existing ? note.value : `${existing}\n${note.value}`;
       const merged: Proposal = { ...w.proposal, [section]: value };
       // §gap G2 · if this confirm fills the 4th required dim, the funnel will
       // generate the plan inside putProposal — show the plan-gen loader.

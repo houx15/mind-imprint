@@ -43,7 +43,14 @@ func buildAIUseRecord(events []sqlc.Event, llmCalls []sqlc.LlmCall) aiUseRecord 
 			rec.CardsAccepted++
 		case "coach_proposal_skipped", "card_skipped":
 			rec.CardsDismissed++
-		case "source_opened":
+		case "source_added":
+			// Sources the student brought into her library (search → 收进, or a
+			// manual add) — the primary act of engaging a source. Counting only
+			// `source_opened` (进入阅读室, sentence-reading) undercounted every
+			// student who added + appraised a source (credibility / 采用 / note /
+			// 读完) without opening the逐句 reader → the recap read "查阅 0 个来源"
+			// despite real research work. `source_added` fires once per source, so
+			// this is a clean distinct-source count.
 			rec.SourcesOpened++
 		}
 	}

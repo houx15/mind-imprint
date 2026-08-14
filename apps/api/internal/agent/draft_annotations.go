@@ -80,7 +80,13 @@ func ReviewDraftAnnotations(ctx context.Context, prov gateway.Provider, resolved
 			{Role: gateway.RoleSystem, Content: draftAnnotationSystemFor(annotationDocNoun(in.Doc))},
 			{Role: gateway.RoleUser, Content: b.String()},
 		},
-		MaxTokens: 3500,
+		// 16000 = the whole-draft-review budget (see gateway/deepseek.go): this IS a
+		// whole-draft review on the flagship reasoning model, whose reasoning_content
+		// eats the completion budget before the JSON answer is emitted. The old 3500
+		// cap pinned completion_tokens at the limit on nearly every call → "no JSON
+		// object in reply" → the reviewer silently returned an empty set (铁律-safe
+		// degrade), so 批注 almost never appeared. Must match the large-output default.
+		MaxTokens: 16000,
 	}
 
 	var lastUsage gateway.ChatUsage

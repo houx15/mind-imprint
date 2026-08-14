@@ -49,7 +49,7 @@ func ComposeAIUseSeed(ctx context.Context, prov gateway.Provider, r gateway.Reso
 	var b strings.Builder
 	fmt.Fprintf(&b, "对话轮数：%d\n", rec.CoachTurns)
 	fmt.Fprintf(&b, "AI 提议的工具卡：%d（你打开 %d、跳过 %d）\n", rec.CardsProposed, rec.CardsAccepted, rec.CardsDismissed)
-	fmt.Fprintf(&b, "你打开的来源：%d\n", rec.SourcesOpened)
+	fmt.Fprintf(&b, "你查阅的来源：%d\n", rec.SourcesOpened)
 	if len(rec.LLMCallsByPurpose) > 0 {
 		b.WriteString("AI 调用（按用途）：")
 		for purpose, n := range rec.LLMCallsByPurpose {

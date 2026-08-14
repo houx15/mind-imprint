@@ -13,8 +13,9 @@ func TestBuildAIUseRecord_CountsAndAbsences(t *testing.T) {
 			{Type: "card_logged"},        // coach/writing persist — the path CRITICAL missed
 			{Type: "rabbit_hole_logged"}, // 兔子洞 card
 			{Type: "coach_proposal_skipped"},
-			{Type: "source_opened"},
-			{Type: "gate_checked"}, // ignored
+			{Type: "source_added"},  // a source brought into the library (counted)
+			{Type: "source_opened"}, // reader open — NOT double-counted
+			{Type: "gate_checked"},  // ignored
 		},
 		[]sqlc.LlmCall{{Purpose: "coach"}, {Purpose: "coach"}, {Purpose: "classify"}},
 	)
