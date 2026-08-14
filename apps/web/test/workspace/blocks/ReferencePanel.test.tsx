@@ -163,7 +163,9 @@ describe("ReferencePanel", () => {
     expect(await screen.findByText("你的材料")).toBeInTheDocument();
     expect(await screen.findByText(REF.title)).toBeInTheDocument();
     fireEvent.click((await screen.findAllByRole("button", { name: "插入" }))[0]!);
-    expect(onInsert).toHaveBeenCalledWith("关注可再生能源投资规模。");
+    // G3 · a library-source fragment carries its owning reference id so the
+    // insert can record the source→section citation link.
+    expect(onInsert).toHaveBeenCalledWith("关注可再生能源投资规模。", REF.id);
   });
 
   it("hides the 「插入」 action when the draft isn't open (canInsert=false)", async () => {
