@@ -20,8 +20,8 @@ import (
 // reflection-done gate), it flips status to 'evaluating', returns 202 {status:
 // "evaluating"} immediately, and a DETACHED goroutine (context.Background(), NOT
 // the request context) generates the flagship report. On success it marks the
-// project 'finished' + appends project_finished + best-effort composes the
-// mirror; on failure/reject it rolls status back to 'active' (retryable).
+// project 'finished' + appends project_finished; on failure/reject it rolls
+// status back to 'active' (retryable).
 // finished ⟺ has a terminal report. One report only (DEC-A3.5): a second finish
 // while 'finished' or 'evaluating' is refused with 409.
 func (a *API) finishProject(w http.ResponseWriter, r *http.Request) {

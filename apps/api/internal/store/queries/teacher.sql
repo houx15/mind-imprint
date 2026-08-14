@@ -46,8 +46,8 @@ WHERE ev.user_id = @user_id
 
 -- name: ListStudentReportsForTeacher :many
 -- Every report one class member owns, across both remaining scopes,
--- newest-first, one row per scope. Teacher variant of ListGrowthHistory: same
--- shape, but the owner filter is replaced by "this user AND a student member
+-- newest-first, one row per scope. A teacher-scoped read of the student's
+-- stored evaluations, filtered by "this user AND a student member
 -- of this class". The course-session arm is retired along with course_session
 -- itself (migration 0050, course v2, no back-compat).
 SELECT surface, scope_id, label, sublabel, created_at

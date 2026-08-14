@@ -122,8 +122,9 @@ func (a *API) listEvaluationReports(w http.ResponseWriter, r *http.Request) {
 
 // postGenerateEvaluationReport: claims-and-generates if no row exists yet
 // (safe under the atomic ON CONFLICT claim — can never double-fire even under
-// concurrent callers); if a report is already generating/ready/failed, the
-// claim is a no-op and this just re-reads and returns the current envelope.
+// concurrent callers). A 'generating' (fresh) or 'ready' row is left as-is; a
+// 'failed' or stale-'generating' row IS re-claimed and regenerated (the 重试
+// path). Either way this then re-reads and returns the current envelope.
 func (a *API) postGenerateEvaluationReport(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {

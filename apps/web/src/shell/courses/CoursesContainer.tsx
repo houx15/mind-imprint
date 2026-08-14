@@ -30,9 +30,9 @@ function CourseCompletionPlaceholder({ onBackToCourses, onGoPortal }: { onBackTo
 export function CoursesContainer({ onGoPortal, initialCourseId }: { onGoPortal?: () => void; initialCourseId?: string | null }) {
   // Deep-link: opening a course from anywhere (home's course cards, the
   // gallery's "去学这张卡的课程" link) lands in the PLAYER so the student can
-  // actually learn it (the player resumes at their saved step). The report is
-  // reached by finishing the course or from the growth history. Read once at
-  // mount — this component is remounted on every tab switch into 课程.
+  // actually learn it (the player resumes at their saved step). Finishing the
+  // course lands on the completion view (currently an "即将上线" placeholder).
+  // Read once at mount — this component is remounted on every tab switch into 课程.
   const [view, setView] = useState<View>(initialCourseId ? { name: "player", courseId: initialCourseId } : { name: "grid" });
 
   if (view.name === "player") {
