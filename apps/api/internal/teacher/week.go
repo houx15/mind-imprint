@@ -47,3 +47,47 @@ func WeekLabel(weekStart time.Time) string {
 	return fmt.Sprintf("第 %d 周（%d.%d–%d.%d）", week,
 		int(weekStart.Month()), weekStart.Day(), int(end.Month()), end.Day()) // U+2013 en-dash
 }
+
+// LastCompletedWeekStart is the Monday of the most recent FULLY-elapsed week:
+// the current week's Monday minus seven days. This is View A's default window.
+func LastCompletedWeekStart(now time.Time) time.Time {
+	start, _ := WeekWindow(now)
+	return start.AddDate(0, 0, -7)
+}
+
+// CompletedWeekWindows returns the full [Mon,next-Mon) window for a completed
+// week and the full prior week used for deltas. Unlike PrevWindow (week-to-date
+// vs same-elapsed-offset, for the live in-progress week), a completed week is
+// compared full-week vs full-week — the week is over, so there is no "elapsed
+// offset" to match.
+func CompletedWeekWindows(weekStart time.Time) (start, end, prevStart, prevEnd time.Time) {
+	weekStart = weekStart.UTC()
+	start = weekStart
+	end = weekStart.AddDate(0, 0, 7)
+	prevStart = weekStart.AddDate(0, 0, -7)
+	prevEnd = weekStart
+	return
+}
+
+// ValidateCompletedWeekStart rejects a requested week that is not a UTC Monday
+// midnight, or that is the current/future week (only completed weeks are
+// viewable). now bounds the future edge.
+func ValidateCompletedWeekStart(weekStart, now time.Time) error {
+	weekStart = weekStart.UTC()
+	y, m, d := weekStart.Date()
+	if weekStart.Hour() != 0 || weekStart.Minute() != 0 || weekStart.Second() != 0 || weekStart.Nanosecond() != 0 ||
+		!weekStart.Equal(time.Date(y, m, d, 0, 0, 0, 0, time.UTC)) || weekStart.Weekday() != time.Monday {
+		return fmt.Errorf("teacher: weekStart must be a UTC Monday midnight")
+	}
+	curStart, _ := WeekWindow(now)
+	if !weekStart.Before(curStart) {
+		return fmt.Errorf("teacher: weekStart must be a completed week")
+	}
+	return nil
+}
+
+// IsLatestCompletedWeek reports whether weekStart is the most recent completed
+// week (so the UI disables "next").
+func IsLatestCompletedWeek(weekStart, now time.Time) bool {
+	return weekStart.UTC().Equal(LastCompletedWeekStart(now))
+}
