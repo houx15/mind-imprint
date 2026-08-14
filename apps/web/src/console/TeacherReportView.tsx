@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ApiClient } from "../api";
 import type { EvaluationReport } from "@mind-imprint/contracts";
 import { EvaluationReportView } from "../shell/report/EvaluationReport";
+import { ReportPrintButton } from "@/shell/report/print/ReportPrintButton";
 import { ArrowLeft, Button, Card, EmptyState, Icon, Loader2 } from "@/ui";
 
 // Task 6 (2026-08-14 retirement pass): the teacher end renders ONLY the new
@@ -156,6 +157,7 @@ export function TeacherReportView({
               ))}
             </div>
           </div>
+          {state.status === "ready" ? <ReportPrintButton report={state.report} /> : null}
         </div>
       </div>
 

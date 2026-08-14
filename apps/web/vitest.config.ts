@@ -23,6 +23,7 @@ export default defineConfig({
       // usual test/ mirror tree — see task briefs under
       // .superpowers/sdd/2026-08-13-evaluation-report-pipeline/.
       "src/shell/report/EvaluationReport/**/*.test.{ts,tsx}",
+      "src/shell/report/print/**/*.test.{ts,tsx}",
       "src/shell/assessment/**/*.test.{ts,tsx}",
     ],
   },

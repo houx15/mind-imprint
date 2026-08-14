@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { EvaluationReport } from "@mind-imprint/contracts";
 import { getEvaluationReport, generateEvaluationReport, type EvalReportEnvelope } from "@/api/evaluationReport";
 import { EvaluationReportView } from "@/shell/report/EvaluationReport";
+import { ReportPrintButton } from "@/shell/report/print/ReportPrintButton";
 import { ArrowLeft, Button, EmptyState, Icon, PebbleInlineSpinner, useRotatingCaption } from "@/ui";
 
 /**
@@ -130,9 +131,13 @@ export function EvaluationReportPage({
           <Icon icon={ArrowLeft} size={16} />
           返回
         </button>
-        <Button variant="secondary" size="sm" disabled title="即将上线">
-          导出 PDF
-        </Button>
+        {state.status === "ready" ? (
+          <ReportPrintButton report={state.report} />
+        ) : (
+          <Button variant="secondary" size="sm" disabled title="报告就绪后可导出">
+            导出 PDF
+          </Button>
+        )}
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto">

@@ -1,0 +1,30 @@
+/* Screen: the print document is never visible in the app. */
+@media screen {
+  .report-print-root { display: none; }
+}
+
+/* Print: hide the live app, show only the print document. */
+@media print {
+  body > *:not(.report-print-root) { display: none !important; }
+  .report-print-root { display: block; }
+  .report-print-root,
+  .report-print-root * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-section { break-inside: avoid; }
+  .print-page-break { break-before: page; }
+  .print-avoid-break { break-inside: avoid; }
+}
+
+/* Document base (applies in both modes; only shown during print). */
+.report-print-root {
+  background: #ffffff;
+  color: var(--mk-ink);
+  font-family: inherit;
+}
+.report-print-root .print-page {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 32px 40px;
+}
