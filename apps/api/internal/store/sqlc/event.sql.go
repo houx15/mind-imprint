@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -56,6 +57,38 @@ func (q *Queries) AppendEvent(ctx context.Context, arg AppendEventParams) (Event
 		&i.CourseID,
 	)
 	return i, err
+}
+
+const countEventsByType = `-- name: CountEventsByType :one
+SELECT COUNT(*) FROM event
+WHERE project_id = $1 AND type = $2
+`
+
+type CountEventsByTypeParams struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	Type      string      `json:"type"`
+}
+
+// G1 · used to emit a project's framework-finished milestone at most once.
+func (q *Queries) CountEventsByType(ctx context.Context, arg CountEventsByTypeParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEventsByType, arg.ProjectID, arg.Type)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const getFrameworkFinishedAt = `-- name: GetFrameworkFinishedAt :one
+SELECT MIN(created_at)::timestamptz FROM event
+WHERE project_id = $1 AND type = 'milestone:framework_finished'
+`
+
+// G1 · the 立题完成 milestone timestamp for the report generator (NULL when the
+// project never generated a plan). MIN so a re-generation never moves it.
+func (q *Queries) GetFrameworkFinishedAt(ctx context.Context, projectID pgtype.UUID) (time.Time, error) {
+	row := q.db.QueryRow(ctx, getFrameworkFinishedAt, projectID)
+	var column_1 time.Time
+	err := row.Scan(&column_1)
+	return column_1, err
 }
 
 const listEventsByCourse = `-- name: ListEventsByCourse :many

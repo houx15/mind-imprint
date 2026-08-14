@@ -71,6 +71,14 @@ type ChatThread struct {
 	CreatedAt       time.Time   `json:"created_at"`
 }
 
+type Citation struct {
+	ID          uuid.UUID `json:"id"`
+	ProjectID   uuid.UUID `json:"project_id"`
+	ReferenceID uuid.UUID `json:"reference_id"`
+	Section     string    `json:"section"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type Class struct {
 	ID        uuid.UUID   `json:"id"`
 	SchoolID  uuid.UUID   `json:"school_id"`

@@ -30,3 +30,8 @@ ORDER BY created_at, id;
 -- name: DeleteAnnotationsByType :exec
 DELETE FROM intervention
 WHERE project_id = $1 AND type = $2;
+
+-- name: CountAnnotationsByProject :one
+-- G2 · counters.aiCommentCount = every AI writing 批注 (proposal + essay).
+SELECT COUNT(*) FROM intervention
+WHERE project_id = $1 AND type IN ('proposal_annotation', 'essay_annotation');

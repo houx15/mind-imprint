@@ -24,3 +24,14 @@ ORDER BY created_at, id;
 SELECT * FROM event
 WHERE course_id = $1
 ORDER BY created_at, id;
+
+-- name: CountEventsByType :one
+-- G1 · used to emit a project's framework-finished milestone at most once.
+SELECT COUNT(*) FROM event
+WHERE project_id = $1 AND type = $2;
+
+-- name: GetFrameworkFinishedAt :one
+-- G1 · the 立题完成 milestone timestamp for the report generator (NULL when the
+-- project never generated a plan). MIN so a re-generation never moves it.
+SELECT MIN(created_at)::timestamptz FROM event
+WHERE project_id = $1 AND type = 'milestone:framework_finished';

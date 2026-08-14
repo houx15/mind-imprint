@@ -12,6 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countAnnotationsByProject = `-- name: CountAnnotationsByProject :one
+SELECT COUNT(*) FROM intervention
+WHERE project_id = $1 AND type IN ('proposal_annotation', 'essay_annotation')
+`
+
+// G2 · counters.aiCommentCount = every AI writing 批注 (proposal + essay).
+func (q *Queries) CountAnnotationsByProject(ctx context.Context, projectID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAnnotationsByProject, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAnnotationsByType = `-- name: DeleteAnnotationsByType :exec
 DELETE FROM intervention
 WHERE project_id = $1 AND type = $2
