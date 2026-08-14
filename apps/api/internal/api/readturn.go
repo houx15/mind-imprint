@@ -225,6 +225,28 @@ func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
 		focusedSpans = append(focusedSpans, agent.FocusSpan{BlockID: s.BlockID, Quote: s.Quote})
 	}
 
+	// G4 · durably record the reading-room subagent's STUDENT-facing input (her
+	// typed prompt + what she highlighted while reading THIS source) — the one
+	// of the three student-facing subagents whose input wasn't persisted
+	// anywhere (card fills live in card_instances, review targets in the edit
+	// buffer). One append-only event per turn that carries input, so the
+	// (future) generator can surface a reading promptLens entry. Best-effort:
+	// never fails the turn, and skipped when there's nothing to record.
+	if strings.TrimSpace(body.StudentText) != "" || len(focusedSpans) > 0 {
+		if payload, merr := json.Marshal(map[string]any{
+			"material_id":  mid.String(),
+			"student_text": strings.TrimSpace(body.StudentText),
+			"spans":        focusedSpans,
+		}); merr == nil {
+			if eerr := store.AppendEvent(r.Context(), agent.EventRow{
+				ProjectID: projectID, Surface: "studio", Type: "reading_focus", Payload: payload,
+			}); eerr != nil {
+				slog.Warn("read turn: append reading_focus event failed",
+					"err", eerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+			}
+		}
+	}
+
 	// The router can't answer grounded in the article without seeing it — a
 	// simple one-line-per-block join of THIS material's own blocks (already
 	// loaded above for ResolveExampleAnchor).
