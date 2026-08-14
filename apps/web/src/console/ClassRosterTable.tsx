@@ -1,20 +1,8 @@
-import type { RosterReportEntry } from "../api";
-import { badgeColor } from "./badgeColor";
+import type { RosterEntry } from "../api";
+import { Button } from "@/ui";
 
-const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "#8A92A3", padding: "10px 12px", borderBottom: "1px solid #EAECF2" };
-const TD: React.CSSProperties = { fontSize: 13.5, color: "#1C2333", padding: "12px", borderBottom: "1px solid #F2F3F7" };
-
-function Badge({ text }: { text: string }) {
-  const { fg, bg } = badgeColor(text);
-  return (
-    <span style={{ display: "inline-flex", minWidth: 34, justifyContent: "center", background: bg, color: fg, fontSize: 12, fontWeight: 800, padding: "3px 9px", borderRadius: 8 }}>
-      {text}
-    </span>
-  );
-}
-
-const backBtn: React.CSSProperties = { background: "transparent", border: "none", color: "#8A92A3", fontSize: 14, fontWeight: 600, cursor: "pointer", fontFamily: "inherit", padding: 0 };
-const dangerBtn: React.CSSProperties = { background: "#C76B6B", border: "none", color: "#fff", fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", padding: "5px 11px", borderRadius: 9 };
+const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--mk-muted)", padding: "10px 12px", borderBottom: "1px solid var(--mk-border)" };
+const TD: React.CSSProperties = { fontSize: 13.5, color: "var(--mk-ink)", padding: "12px", borderBottom: "1px solid var(--mk-border)" };
 
 export function ClassRosterTable({
   roster,
@@ -24,7 +12,7 @@ export function ClassRosterTable({
   setConfirmRemove,
   busy,
 }: {
-  roster: RosterReportEntry[];
+  roster: RosterEntry[];
   onOpenStudent: (userId: string) => void;
   onRemove: (studentId: string) => void | Promise<void>;
   confirmRemove: string | null;
@@ -32,15 +20,13 @@ export function ClassRosterTable({
   busy: boolean;
 }) {
   return (
-    <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 26, background: "#fff", border: "1px solid #EAECF2", borderRadius: 12, overflow: "hidden" }}>
+    <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 26, background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: "var(--mk-radius-lg)", overflow: "hidden" }}>
       <thead>
         <tr>
           <th style={TH}>学生</th>
-          <th style={TH}>本周活跃</th>
-          <th style={TH}>对话轮次</th>
-          <th style={TH}>D 轴</th>
-          <th style={TH}>A 轴</th>
+          <th style={TH}>进行中项目</th>
           <th style={TH}>能力报告</th>
+          <th style={TH}>完成课程</th>
           <th style={TH} aria-label="操作" />
         </tr>
       </thead>
@@ -54,8 +40,8 @@ export function ClassRosterTable({
                     width: 32,
                     height: 32,
                     borderRadius: "50%",
-                    background: badgeColor(s.dBadge).bg,
-                    color: s.avatarColor,
+                    background: s.avatarColor,
+                    color: "var(--mk-surface)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -69,25 +55,21 @@ export function ClassRosterTable({
                 <span style={{ fontWeight: 700 }}>{s.displayName}</span>
               </div>
             </td>
-            <td style={TD}>{s.activeDays} 天</td>
-            <td style={TD}>{s.turns}</td>
-            <td style={TD}><Badge text={s.dBadge} /></td>
-            <td style={TD}><Badge text={s.aBadge} /></td>
-            <td style={{ ...TD, fontWeight: 700, color: s.hasReport ? "#3E8A6E" : "#8A92A3" }}>
-              {s.hasReport ? "✓ 已生成" : "—"}
-            </td>
+            <td style={TD}>{s.activeProjects}</td>
+            <td style={TD}>{s.reportCount}</td>
+            <td style={TD}>{s.coursesFinished}</td>
             <td style={{ ...TD, textAlign: "right" }} onClick={(e) => e.stopPropagation()}>
               {confirmRemove === s.id ? (
-                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "#C76B6B", fontWeight: 600 }}>
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 8, fontSize: 12.5, color: "var(--mk-danger)", fontWeight: 600 }}>
                   将 {s.displayName} 移出班级？仅解除关联，不删除其账号或作品。
-                  <button onClick={() => void onRemove(s.id)} disabled={busy} style={dangerBtn}>确认移除</button>
-                  <button onClick={() => setConfirmRemove(null)} style={backBtn}>取消</button>
+                  <Button variant="danger" size="sm" onClick={() => void onRemove(s.id)} disabled={busy}>确认移除</Button>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmRemove(null)}>取消</Button>
                 </span>
               ) : (
                 <button
                   aria-label={`移除 ${s.displayName}`}
                   onClick={() => setConfirmRemove(s.id)}
-                  style={{ background: "transparent", border: "none", color: "#B7BECC", fontSize: 16, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}
+                  style={{ background: "transparent", border: "none", color: "var(--mk-faint)", fontSize: 16, cursor: "pointer", fontFamily: "inherit", lineHeight: 1 }}
                 >
                   ✕
                 </button>

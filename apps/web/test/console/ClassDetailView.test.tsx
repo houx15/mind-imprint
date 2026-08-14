@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ClassDetailView } from "@/console/ClassDetailView";
-import type { ClassDetail, RosterReportEntry } from "@/api";
+import type { ClassDetail, ClassRoster } from "@/api";
 import type { WeeklyReport } from "@/api/teacher";
 import { ApiError } from "@/api";
 
@@ -16,15 +16,17 @@ const detail = (over: Partial<ClassDetail> = {}): ClassDetail => ({
   ...over,
 });
 
-const rosterReport = (): RosterReportEntry[] => [
-  { id: "u1", displayName: "Phoebe", avatarColor: "#3E7CA8", dBadge: "L3–L4", aBadge: "4.2", activeDays: 5, turns: 42, hasReport: true, unrated: false },
-  { id: "u2", displayName: "Mia", avatarColor: "#9198A8", dBadge: "—", aBadge: "—", activeDays: 0, turns: 0, hasReport: false, unrated: true },
-];
+const classRoster = (): ClassRoster => ({
+  roster: [
+    { id: "u1", displayName: "Phoebe", avatarColor: "#3E7CA8", activeProjects: 2, reportCount: 1, coursesFinished: 3 },
+    { id: "u2", displayName: "Mia", avatarColor: "#9198A8", activeProjects: 0, reportCount: 0, coursesFinished: 0 },
+  ],
+  header: { classSize: 2, activeStudents: 1, activeProjects: 2, turns: 42, reports: 1 },
+});
 
 // Minimal but shape-accurate WeeklyReport fixture (proseReady:true so
 // ClassWeeklyView, mounted by default behind the 周报 tab, never calls
-// generateClassWeeklyProse in these roster/mutation-focused tests; all four
-// depth buckets present since the server never sends fewer).
+// generateClassWeeklyProse in these roster/mutation-focused tests).
 const weeklyReport = (): WeeklyReport => ({
   weekLabel: "第 30 周（7.20–7.26）",
   weekStart: "2026-07-20T00:00:00Z",
@@ -40,22 +42,12 @@ const weeklyReport = (): WeeklyReport => ({
   ],
   praise: [],
   watch: [],
-  depth: {
-    buckets: [
-      { code: "L1", label: "起步 L1", count: 0 },
-      { code: "L2", label: "发展 L2", count: 0 },
-      { code: "L3", label: "熟练 L3", count: 0 },
-      { code: "L4", label: "优秀 L4", count: 0 },
-    ],
-    ratedCount: 0,
-    note: "",
-  },
-  autonomy: { mean: "—", delta: "—", deltaDir: "flat", ratedCount: 0, note: "" },
+  isLatestWeek: true,
   comment: "本周点评",
   proseReady: true,
 });
 
-function makeClient(d: ClassDetail, roster: RosterReportEntry[] = rosterReport()) {
+function makeClient(d: ClassDetail, roster: ClassRoster = classRoster()) {
   return {
     getClass: vi.fn(async () => d),
     getClassRosterReport: vi.fn(async () => roster),
@@ -77,14 +69,14 @@ describe("ClassDetailView sub-tabs", () => {
     const client = makeClient(detail());
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
     expect(await screen.findByText(/班级周报/)).toBeInTheDocument();
-    expect(screen.queryByText("对话轮次")).not.toBeInTheDocument();
+    expect(screen.queryByText("进行中项目")).not.toBeInTheDocument();
     await userEvent.click(screen.getByText("全部学生"));
     expect(await screen.findByText("对话轮次")).toBeInTheDocument();
   });
 });
 
 describe("ClassDetailView roster", () => {
-  it("renders the class name, join code, and roster rows with D/A signals", async () => {
+  it("renders the class name, join code, live header, and roster rows with activity counts", async () => {
     const client = makeClient(detail());
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
     expect(await screen.findByText("11 年级 A")).toBeInTheDocument();
@@ -92,37 +84,14 @@ describe("ClassDetailView roster", () => {
     await userEvent.click(screen.getByText("全部学生"));
     expect(await screen.findByText("Phoebe")).toBeInTheDocument();
     expect(screen.getByText("Mia")).toBeInTheDocument();
-    // 本周活跃 / 对话轮次
-    expect(screen.getByText("5 天")).toBeInTheDocument();
-    expect(screen.getByText("42")).toBeInTheDocument();
-    // D/A badges
-    expect(screen.getByText("L3–L4")).toBeInTheDocument();
-    expect(screen.getByText("4.2")).toBeInTheDocument();
-    expect(screen.getAllByText("—").length).toBeGreaterThanOrEqual(2); // unrated D + A badges
-    // 能力报告 status
-    expect(screen.getByText("✓ 已生成")).toBeInTheDocument();
-  });
-
-  it("colors a D badge range like L3–L4 green (design's fixed-order L4-before-L3 match)", async () => {
-    const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
-    await userEvent.click(await screen.findByText("全部学生"));
-    const badge = await screen.findByText("L3–L4");
-    expect(badge).toHaveStyle({ color: "#3E8A6E", background: "#E4F0EA" });
-  });
-
-  it("colors an unrated D badge grey", async () => {
-    const client = makeClient(detail());
-    render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
-    await userEvent.click(await screen.findByText("全部学生"));
-    // Mia's row: dBadge "—" and aBadge "—" both render as "—"; grab all and check the grey style applies.
-    await screen.findByText("Mia");
-    const dashes = screen.getAllByText("—");
-    for (const el of dashes) {
-      if (el.tagName === "SPAN") {
-        expect(el).toHaveStyle({ color: "#8A92A3", background: "#EEF0F4" });
-      }
-    }
+    // live header strip
+    expect(screen.getByText("活跃学生")).toBeInTheDocument();
+    expect(screen.getByText("1 / 2")).toBeInTheDocument();
+    // roster activity counts (Phoebe's row)
+    const row = screen.getByText("Phoebe").closest("tr")!;
+    expect(row).toHaveTextContent("2"); // activeProjects
+    expect(row).toHaveTextContent("1"); // reportCount
+    expect(row).toHaveTextContent("3"); // coursesFinished
   });
 
   it("shows the enriched column headers", async () => {
@@ -130,11 +99,10 @@ describe("ClassDetailView roster", () => {
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
     await userEvent.click(await screen.findByText("全部学生"));
     expect(await screen.findByText("学生")).toBeInTheDocument();
-    expect(screen.getByText("本周活跃")).toBeInTheDocument();
-    expect(screen.getByText("对话轮次")).toBeInTheDocument();
-    expect(screen.getByText("D 轴")).toBeInTheDocument();
-    expect(screen.getByText("A 轴")).toBeInTheDocument();
-    expect(screen.getByText("能力报告")).toBeInTheDocument();
+    // "进行中项目" and "能力报告" also appear in the live-header strip above the table.
+    expect(screen.getAllByText("进行中项目").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText("能力报告").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("完成课程")).toBeInTheDocument();
   });
 
   it("roster rows are clickable and open the student detail view", async () => {
@@ -157,7 +125,7 @@ describe("ClassDetailView roster", () => {
   });
 
   it("renders an empty-roster note with the join code", async () => {
-    const client = makeClient(detail({ roster: [] }), []);
+    const client = makeClient(detail({ roster: [] }), { roster: [], header: { classSize: 0, activeStudents: 0, activeProjects: 0, turns: 0, reports: 0 } });
     render(<ClassDetailView client={client} classId="c1" onBack={() => {}} onOpenStudent={() => {}} onOpenReport={noop} />);
     await userEvent.click(await screen.findByText("全部学生"));
     expect(await screen.findByText(/还没有学生加入/)).toBeInTheDocument();
@@ -176,7 +144,7 @@ describe("ClassDetailView roster", () => {
     expect(screen.queryByText("学生")).not.toBeInTheDocument();
     expect(screen.queryByText("Phoebe")).not.toBeInTheDocument();
 
-    client.getClassRosterReport = vi.fn().mockResolvedValue(rosterReport());
+    client.getClassRosterReport = vi.fn().mockResolvedValue(classRoster());
     await userEvent.click(screen.getByText("重试"));
     expect(await screen.findByText("Phoebe")).toBeInTheDocument();
   });
