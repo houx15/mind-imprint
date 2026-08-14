@@ -10,8 +10,18 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countFinishedCoursesForStudent = `-- name: CountFinishedCoursesForStudent :one
+SELECT count(*)::int FROM course_progress WHERE user_id = $1 AND completed_at IS NOT NULL
+`
+
+func (q *Queries) CountFinishedCoursesForStudent(ctx context.Context, userID uuid.UUID) (int32, error) {
+	row := q.db.QueryRow(ctx, countFinishedCoursesForStudent, userID)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
 
 const getClassLiveHeader = `-- name: GetClassLiveHeader :one
 WITH members AS (
@@ -61,25 +71,6 @@ func (q *Queries) GetClassLiveHeader(ctx context.Context, arg GetClassLiveHeader
 	return i, err
 }
 
-const getLatestReportScoresForStudent = `-- name: GetLatestReportScoresForStudent :one
-SELECT se.scores
-FROM student_evaluation se
-WHERE se.user_id = $1
-ORDER BY se.created_at DESC
-LIMIT 1
-`
-
-// Latest report scores for one student across ALL scopes (project/course/chat),
-// for D/A head-badge derivation on the student-detail page. (The roster view
-// no longer derives a D/A badge — see ListClassRosterCounts — but the
-// student-detail head still does, until Task 4.)
-func (q *Queries) GetLatestReportScoresForStudent(ctx context.Context, userID uuid.UUID) ([]byte, error) {
-	row := q.db.QueryRow(ctx, getLatestReportScoresForStudent, userID)
-	var scores []byte
-	err := row.Scan(&scores)
-	return scores, err
-}
-
 const getStudentUsageForTeacher = `-- name: GetStudentUsageForTeacher :one
 SELECT
   COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days,
@@ -115,9 +106,9 @@ const getStudentWeekStats = `-- name: GetStudentWeekStats :one
 SELECT
   COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date)::int AS active_days,
   COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message'))::int AS turns,
-  (SELECT count(*) FROM student_evaluation se
-     WHERE se.user_id = $1
-       AND se.created_at >= $2 AND se.created_at < $3)::int AS reports,
+  (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
+     WHERE p.user_id = $1 AND er.status = 'ready'
+       AND er.created_at >= $2 AND er.created_at < $3)::int AS reports,
   COUNT(DISTINCT (ev.course_id, ev.payload->>'ordinal'))
     FILTER (WHERE ev.type = 'step_viewed')::int AS course_steps
 FROM event ev
@@ -140,9 +131,10 @@ type GetStudentWeekStatsRow struct {
 
 // One student's four stage-card counts for a half-open window. Same口径 as
 // GetClassWeekStats: active days bucketed via AT TIME ZONE 'UTC'; turns =
-// prompt_sent + course_message; reports = student_evaluation rows; course_steps
-// = DISTINCT (course, ordinal) step_viewed. Tenancy is the handler's
-// (authTeacherStudent has proven this student is in the teacher's class).
+// prompt_sent + course_message; reports = ready evaluation_report rows on
+// this student's projects; course_steps = DISTINCT (course, ordinal)
+// step_viewed. Tenancy is the handler's (authTeacherStudent has proven this
+// student is in the teacher's class).
 func (q *Queries) GetStudentWeekStats(ctx context.Context, arg GetStudentWeekStatsParams) (GetStudentWeekStatsRow, error) {
 	row := q.db.QueryRow(ctx, getStudentWeekStats, arg.UserID, arg.WeekStart, arg.WeekEnd)
 	var i GetStudentWeekStatsRow
@@ -223,7 +215,7 @@ func (q *Queries) ListClassRosterCounts(ctx context.Context, classID uuid.UUID) 
 
 const listStudentProjectsForTeacher = `-- name: ListStudentProjectsForTeacher :many
 SELECT p.id, p.title, p.last_active_at,
-       EXISTS (SELECT 1 FROM evaluations ev WHERE ev.project_id = p.id) AS has_report
+       EXISTS (SELECT 1 FROM evaluation_report er WHERE er.project_id = p.id AND er.status = 'ready') AS has_report
 FROM project p
 WHERE p.user_id = $1
 ORDER BY p.last_active_at DESC NULLS LAST
@@ -236,8 +228,8 @@ type ListStudentProjectsForTeacherRow struct {
 	HasReport    bool      `json:"has_report"`
 }
 
-// All of a student's projects (title/date + whether a report exists), so
-// in-progress projects without a report still appear in the records list.
+// All of a student's projects (title/date + whether a ready report exists),
+// so in-progress projects without a report still appear in the records list.
 func (q *Queries) ListStudentProjectsForTeacher(ctx context.Context, userID uuid.UUID) ([]ListStudentProjectsForTeacherRow, error) {
 	rows, err := q.db.Query(ctx, listStudentProjectsForTeacher, userID)
 	if err != nil {
@@ -252,64 +244,6 @@ func (q *Queries) ListStudentProjectsForTeacher(ctx context.Context, userID uuid
 			&i.Title,
 			&i.LastActiveAt,
 			&i.HasReport,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listStudentReportsForTeacher = `-- name: ListStudentReportsForTeacher :many
-SELECT surface, scope_id, label, sublabel, created_at
-FROM (
-  (SELECT DISTINCT ON (e.project_id)
-     'project'::text AS surface, e.project_id AS scope_id,
-     p.title AS label, NULL::text AS sublabel, e.created_at AS created_at
-   FROM evaluations e JOIN project p ON p.id = e.project_id
-   WHERE e.project_id IS NOT NULL AND p.user_id = $1
-   ORDER BY e.project_id, e.created_at DESC)
-  UNION ALL
-  (SELECT DISTINCT ON (e.thread_id)
-     'chat'::text, e.thread_id, t.title, NULL::text, e.created_at
-   FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
-   WHERE e.thread_id IS NOT NULL AND t.user_id = $1
-   ORDER BY e.thread_id, e.created_at DESC)
-) rows
-ORDER BY created_at DESC
-`
-
-type ListStudentReportsForTeacherRow struct {
-	Surface   string      `json:"surface"`
-	ScopeID   pgtype.UUID `json:"scope_id"`
-	Label     string      `json:"label"`
-	Sublabel  *string     `json:"sublabel"`
-	CreatedAt time.Time   `json:"created_at"`
-}
-
-// Every report one class member owns, across both remaining scopes,
-// newest-first, one row per scope. A teacher-scoped read of the student's
-// stored evaluations, filtered by "this user AND a student member
-// of this class". The course-session arm is retired along with course_session
-// itself (migration 0050, course v2, no back-compat).
-func (q *Queries) ListStudentReportsForTeacher(ctx context.Context, userID uuid.UUID) ([]ListStudentReportsForTeacherRow, error) {
-	rows, err := q.db.Query(ctx, listStudentReportsForTeacher, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListStudentReportsForTeacherRow
-	for rows.Next() {
-		var i ListStudentReportsForTeacherRow
-		if err := rows.Scan(
-			&i.Surface,
-			&i.ScopeID,
-			&i.Label,
-			&i.Sublabel,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

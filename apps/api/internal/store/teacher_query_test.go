@@ -2,18 +2,12 @@ package store
 
 import (
 	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"strings"
 	"testing"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -22,10 +16,11 @@ import (
 // B) and asserts every remaining teacher.sql query is properly class-scoped:
 // class B's student never leaks into class A's roster/report reads. (The old
 // per-student-report queries this test used to also exercise —
-// GetStudentProjectEvaluationForTeacher and its thread sibling — were retired
-// 2026-08-14 along with the deleted getStudentReport handler they exclusively
-// served; see TestTeacherReadPathSeedData for coverage of the rich report
-// shape via the KEPT GetLatestReportScoresForStudent.)
+// GetStudentProjectEvaluationForTeacher and its thread sibling, and later
+// ListStudentReportsForTeacher/GetLatestReportScoresForStudent — were retired
+// 2026-08-14 along with the whole D/A-axis teacher read-path; the axis-era
+// `evaluations` table is no longer written or read by any query this test
+// exercises.)
 func TestTeacherReadPathQueries(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -78,41 +73,13 @@ func TestTeacherReadPathQueries(t *testing.T) {
 	mustExec(t, ctx, pool, `INSERT INTO enrollments (user_id, class_id, role_in_class) VALUES ($1, $2, 'student')`, studentA, classA)
 	mustExec(t, ctx, pool, `INSERT INTO enrollments (user_id, class_id, role_in_class) VALUES ($1, $2, 'student')`, studentB, classB)
 
-	// --- Student A: one project + one evaluations row ---------------------------
-	reportJSON, err := json.Marshal(agent.Report{
-		DepthAxis: []agent.DepthDim{
-			{Code: "D1", Name: "任务理解与问题表述", Level: "L3", Evidence: "e1"},
-			{Code: "D2", Name: "信息检索与来源评估", Level: "L2", Evidence: "e2"},
-			{Code: "D3", Name: "论证构建", Level: "L3", Evidence: "e3"},
-			{Code: "D4", Name: "视角与让步", Level: "L2", Evidence: "e4"},
-			{Code: "D5", Name: "证据整合", Level: "L3", Evidence: "e5"},
-			{Code: "D6", Name: "元认知与反思", Level: "L2", Evidence: "e6"},
-		},
-		AutonomyAxis: []agent.AutonomySignal{
-			{Code: "A1", Name: "a1", Level: 3, Opportunity: "given_taken", Evidence: "e"},
-			{Code: "A2", Name: "a2", Level: 2, Opportunity: "given_taken", Evidence: "e"},
-			{Code: "A3", Name: "a3", Level: 4, Opportunity: "given_not_taken", Evidence: "e"},
-			{Code: "A4", Name: "a4", Level: 1, Opportunity: "not_supplied", Evidence: "e"},
-			{Code: "A5", Name: "a5", Level: 3, Opportunity: "given_taken", Evidence: "e"},
-			{Code: "A6", Name: "a6", Level: 2, Opportunity: "given_taken", Evidence: "e"},
-		},
-		Narrative: "student A narrative",
-		Axiom:     "两轴永不合成总分；单次会话为事件级证据，不构成人级档位判定",
-	})
-	if err != nil {
-		t.Fatalf("marshal report fixture: %v", err)
-	}
-
+	// --- Student A: one project -------------------------------------------------
 	var projectID uuid.UUID
 	if err := pool.QueryRow(ctx, `
 		INSERT INTO project (user_id, title) VALUES ($1, '学生A的项目') RETURNING id`,
 		studentA).Scan(&projectID); err != nil {
 		t.Fatalf("seed project: %v", err)
 	}
-	mustExec(t, ctx, pool, `
-		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status)
-		VALUES ($1, $2, 'proj narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
-		projectID, reportJSON)
 
 	// --- Week window + events ---------------------------------------------------
 	weekStart := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
@@ -136,10 +103,8 @@ func TestTeacherReadPathQueries(t *testing.T) {
 	wantTurns := int32(3)
 
 	// Student A also gets a ready evaluation_report on her project, so
-	// ListClassRosterCounts' report_count lateral has something to count (the
-	// `evaluations` row seeded above feeds the OLD dual-axis pipeline —
-	// GetLatestReportScoresForStudent/ListStudentReportsForTeacher below — but
-	// the roster's report_count now reads the NEW evaluation_report table).
+	// ListClassRosterCounts' report_count lateral (and ListStudentProjectsForTeacher's
+	// has_report EXISTS) have something to count.
 	if _, err := q.ClaimEvaluationReportGeneration(ctx, projectID); err != nil {
 		t.Fatalf("claim evaluation report: %v", err)
 	}
@@ -182,19 +147,9 @@ func TestTeacherReadPathQueries(t *testing.T) {
 		t.Errorf("usage = %+v, want active_days=%d turns=%d", usage, wantActiveDays, wantTurns)
 	}
 
-	// --- ListStudentReportsForTeacher: the project row appears ------------------
-	reports, err := q.ListStudentReportsForTeacher(ctx, studentA)
-	if err != nil {
-		t.Fatalf("ListStudentReportsForTeacher: %v", err)
-	}
-	if len(reports) != 1 {
-		t.Fatalf("got %d student reports, want 1 (project only)", len(reports))
-	}
-	if reports[0].Surface != "project" || reports[0].Label != "学生A的项目" {
-		t.Errorf("report row = %+v, want project/学生A的项目", reports[0])
-	}
-
 	// --- ListStudentProjectsForTeacher: the project appears, has_report=true ---
+	// (has_report now reads the ready evaluation_report row claimed/completed
+	// above, not the retired `evaluations` table.)
 	projects, err := q.ListStudentProjectsForTeacher(ctx, studentA)
 	if err != nil {
 		t.Fatalf("ListStudentProjectsForTeacher: %v", err)
@@ -203,34 +158,31 @@ func TestTeacherReadPathQueries(t *testing.T) {
 		t.Fatalf("projects = %+v, want one row with has_report=true", projects)
 	}
 
-	// --- GetLatestReportScoresForStudent: student A has a score row, student B (no project) does not ---
-	latestScores, err := q.GetLatestReportScoresForStudent(ctx, studentA)
+	// studentB never touched a project — ListStudentProjectsForTeacher must
+	// come back empty (also proves the query is scoped to user_id, not leaked
+	// across students).
+	studentBProjects, err := q.ListStudentProjectsForTeacher(ctx, studentB)
 	if err != nil {
-		t.Fatalf("GetLatestReportScoresForStudent(A): %v", err)
+		t.Fatalf("ListStudentProjectsForTeacher(B): %v", err)
 	}
-	var latestReport agent.Report
-	if err := json.Unmarshal(latestScores, &latestReport); err != nil {
-		t.Fatalf("unmarshal GetLatestReportScoresForStudent scores: %v", err)
-	}
-	if len(latestReport.DepthAxis) != 6 {
-		t.Errorf("GetLatestReportScoresForStudent depth axis = %d, want 6", len(latestReport.DepthAxis))
-	}
-	if _, err := q.GetLatestReportScoresForStudent(ctx, studentB); !errors.Is(err, pgx.ErrNoRows) {
-		t.Fatalf("GetLatestReportScoresForStudent(B) err = %v, want pgx.ErrNoRows", err)
+	if len(studentBProjects) != 0 {
+		t.Fatalf("studentB projects = %+v, want none", studentBProjects)
 	}
 }
 
 // TestTeacherReadPathSeedData asserts migration 0029's demo data (吴老师's
 // IBDP 一年级 · 研究组, 9 students) is shaped the way the teacher read-path
-// endpoints need: exactly 9 roster rows via ListClassRosterCounts (the old
-// has_report=4 assertion this test used to make is retired — it read the
-// OLD `evaluations` pipeline migrations 0029/0034 seed into, but
+// endpoints need: exactly 9 roster rows via ListClassRosterCounts. (The old
+// has_report=4 assertion this test used to make is retired — it read the OLD
+// `evaluations` pipeline migrations 0029/0034 seed into, but
 // ListClassRosterCounts' report_count now reads the NEW evaluation_report
 // table, which this seed data never populates, so every seeded student's
 // report_count is legitimately 0; TestRosterReportHappyPath in
 // internal/api/teacher_read_test.go covers report_count=1 with a freshly
-// seeded evaluation_report row instead), and 林知远's project evaluation
-// unmarshals to a full agent.Report (6 depth dims, non-nil officialProjection).
+// seeded evaluation_report row instead. The 林知远 rich-report-shape
+// assertion this test used to also make, via the now-retired
+// GetLatestReportScoresForStudent, has no replacement — the teacher path no
+// longer reads per-student report score shapes at all.)
 func TestTeacherReadPathSeedData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -240,7 +192,6 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 	q := sqlc.New(pool)
 
 	seededClass := uuid.MustParse("00000000-0000-0000-0000-000000000902")
-	lin := uuid.MustParse("00000000-0000-0000-0000-000000000911")
 
 	roster, err := q.ListClassRosterCounts(ctx, seededClass)
 	if err != nil {
@@ -248,34 +199,6 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 	}
 	if len(roster) != 9 {
 		t.Fatalf("seeded roster has %d rows, want 9", len(roster))
-	}
-
-	// GetStudentProjectEvaluationForTeacher (the old per-project teacher read)
-	// was retired 2026-08-14 along with getStudentReport; the KEPT
-	// GetLatestReportScoresForStudent (same student_evaluation view the
-	// roster's D/A badge reads) covers the same rich-report-shape assertion.
-	gotScores, err := q.GetLatestReportScoresForStudent(ctx, lin)
-	if err != nil {
-		t.Fatalf("GetLatestReportScoresForStudent(林知远): %v", err)
-	}
-	var rep agent.Report
-	if err := json.Unmarshal(gotScores, &rep); err != nil {
-		t.Fatalf("unmarshal 林知远's report: %v", err)
-	}
-	if len(rep.DepthAxis) != 6 {
-		t.Errorf("林知远's depthAxis = %d, want 6", len(rep.DepthAxis))
-	}
-	if len(rep.AutonomyAxis) != 6 {
-		t.Errorf("林知远's autonomyAxis = %d, want 6", len(rep.AutonomyAxis))
-	}
-	if len(rep.PromptLens.Lenses) != 6 {
-		t.Errorf("林知远's promptLens.lenses = %d, want 6", len(rep.PromptLens.Lenses))
-	}
-	if rep.OfficialProjection == nil {
-		t.Fatal("林知远's officialProjection is nil, want the seeded ap-research projection")
-	}
-	if rep.OfficialProjection.Readiness.Score != 82 {
-		t.Errorf("林知远's readiness score = %d, want 82 (round(81.9))", rep.OfficialProjection.Readiness.Score)
 	}
 }
 
@@ -370,84 +293,4 @@ func insertEvent(t *testing.T, ctx context.Context, pool *pgxpool.Pool, userID, 
 	mustExec(t, ctx, pool, `
 		INSERT INTO event (user_id, project_id, surface, type, created_at) VALUES ($1, $2, $3, $4, $5)`,
 		userID, projectID, surface, typ, createdAt)
-}
-
-// TestGetLatestReportScoresPrefersNewestAcrossSurfaces guards D2's
-// student_evaluation view: GetLatestReportScoresForStudent (renamed from
-// GetLatestProjectScoresForStudent) must return the newest report across ALL
-// three scopes, not project scope only — a chat-only report must not be
-// invisible to the D/A head badge.
-func TestGetLatestReportScoresPrefersNewestAcrossSurfaces(t *testing.T) {
-	if testing.Short() {
-		t.Skip("skipping testcontainers integration in -short mode")
-	}
-	pool := newTestPool(t)
-	q := sqlc.New(pool)
-	ctx := context.Background()
-
-	student := createStudentRow(t, pool) // helper below, no class/enrollment needed — the query is a bare user_id lookup
-	insertProjectEvaluation(t, pool, student, `{"narrative":"older project"}`, time.Now().Add(-48*time.Hour))
-	insertThreadEvaluation(t, pool, student, `{"narrative":"newest chat"}`, time.Now().Add(-1*time.Hour))
-
-	got, err := q.GetLatestReportScoresForStudent(ctx, student)
-	if err != nil {
-		t.Fatalf("GetLatestReportScoresForStudent: %v", err)
-	}
-	if !strings.Contains(string(got), "newest chat") {
-		t.Fatalf("scores = %s; want the chat evaluation — a chat-only report must not be invisible", got)
-	}
-}
-
-// createStudentRow seeds a minimal school + student user. GetLatestReportScoresForStudent
-// is a bare user_id lookup (not class-scoped), so no class/enrollment row is needed.
-func createStudentRow(t *testing.T, pool *pgxpool.Pool) uuid.UUID {
-	t.Helper()
-	ctx := context.Background()
-	var schoolID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO schools (name) VALUES ('D2 Cross-Surface Test School') RETURNING id`).
-		Scan(&schoolID); err != nil {
-		t.Fatalf("seed school: %v", err)
-	}
-	var studentID uuid.UUID
-	email := fmt.Sprintf("d2-student-%s@example.com", uuid.NewString())
-	if err := pool.QueryRow(ctx, `
-		INSERT INTO users (email, password_hash, role, school_id, display_name, avatar_color)
-		VALUES ($1, 'x', 'student', $2, 'D2 Student', '#666666')
-		RETURNING id`, email, schoolID).Scan(&studentID); err != nil {
-		t.Fatalf("seed student: %v", err)
-	}
-	return studentID
-}
-
-// insertProjectEvaluation seeds a project owned by student and one project-scoped
-// evaluations row, with an explicit created_at so cross-surface ordering is
-// deterministic in tests.
-func insertProjectEvaluation(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, scoresJSON string, createdAt time.Time) {
-	t.Helper()
-	ctx := context.Background()
-	var projectID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO project (user_id, title) VALUES ($1, 'cross-surface project') RETURNING id`,
-		student).Scan(&projectID); err != nil {
-		t.Fatalf("seed project: %v", err)
-	}
-	mustExec(t, ctx, pool, `
-		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status, created_at)
-		VALUES ($1, $2, 'project narrative', 'deepseek-v4-pro', 'flagship', 'done', $3)`,
-		projectID, scoresJSON, createdAt)
-}
-
-// insertThreadEvaluation seeds a chat thread owned by student and one
-// thread-scoped evaluations row, mirroring insertProjectEvaluation's shape.
-func insertThreadEvaluation(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, scoresJSON string, createdAt time.Time) {
-	t.Helper()
-	ctx := context.Background()
-	var threadID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO chat_thread (user_id, title) VALUES ($1, 'cross-surface thread') RETURNING id`,
-		student).Scan(&threadID); err != nil {
-		t.Fatalf("seed thread: %v", err)
-	}
-	mustExec(t, ctx, pool, `
-		INSERT INTO evaluations (thread_id, scores, narrative, model, tier, status, created_at)
-		VALUES ($1, $2, 'thread narrative', 'deepseek-v4-pro', 'flagship', 'done', $3)`,
-		threadID, scoresJSON, createdAt)
 }

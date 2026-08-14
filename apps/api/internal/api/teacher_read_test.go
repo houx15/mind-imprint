@@ -10,7 +10,6 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
-	"mindimprint/api/internal/agent"
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -159,9 +158,6 @@ type studentDetailForTest struct {
 		ID          string `json:"id"`
 		DisplayName string `json:"displayName"`
 		AvatarColor string `json:"avatarColor"`
-		DBadge      string `json:"dBadge"`
-		ABadge      string `json:"aBadge"`
-		Unrated     bool   `json:"unrated"`
 	} `json:"student"`
 	Usage struct {
 		ActiveDays  int64 `json:"activeDays"`
@@ -180,8 +176,9 @@ type studentDetailForTest struct {
 }
 
 // TestStudentDetailHappyPath — a teacher opens a member student's detail page:
-// one project has a report (hasReport:true, feeds the head D/A badges), a
-// second project has none (hasReport:false, "进行中").
+// one project has a ready evaluation_report (hasReport:true, "能力报告已生成"),
+// a second project has none (hasReport:false, "进行中"), and a finished course
+// feeds courseCount.
 func TestStudentDetailHappyPath(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()
@@ -200,19 +197,13 @@ func TestStudentDetailHappyPath(t *testing.T) {
 	if err != nil {
 		t.Fatalf("create reported project: %v", err)
 	}
-	report := agent.Report{
-		DepthAxis:    []agent.DepthDim{{Code: "D1", Level: "L3"}},
-		AutonomyAxis: []agent.AutonomySignal{{Code: "A1", Level: 3, Opportunity: "given_taken"}},
+	if _, err := q.ClaimEvaluationReportGeneration(context.Background(), reportedProj.ID); err != nil {
+		t.Fatalf("claim evaluation report: %v", err)
 	}
-	scores, err := json.Marshal(report)
-	if err != nil {
-		t.Fatalf("marshal report: %v", err)
-	}
-	if _, err := q.InsertProjectEvaluation(context.Background(), sqlc.InsertProjectEvaluationParams{
-		ProjectID: pgtype.UUID{Bytes: reportedProj.ID, Valid: true},
-		Scores:    scores, Narrative: "n", Model: "test-model", Tier: "flagship",
+	if err := q.CompleteEvaluationReport(context.Background(), sqlc.CompleteEvaluationReportParams{
+		ProjectID: reportedProj.ID, Report: []byte(`{"version":1}`),
 	}); err != nil {
-		t.Fatalf("insert evaluation: %v", err)
+		t.Fatalf("complete evaluation report: %v", err)
 	}
 
 	unreportedProj, err := q.CreateProject(context.Background(), sqlc.CreateProjectParams{
@@ -221,6 +212,22 @@ func TestStudentDetailHappyPath(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("create unreported project: %v", err)
+	}
+
+	course, err := q.UpsertCourse(context.Background(), sqlc.UpsertCourseParams{
+		Slug: "sd-test-course", Branch: "A", Title: "student detail test course",
+		Blurb: "", TimeLabel: "5 分钟", CardIds: []string{}, StepCount: 1,
+		Structure: []byte(`{}`), RenderCache: []byte(`{}`), AudioManifest: []byte(`{}`),
+	})
+	if err != nil {
+		t.Fatalf("upsert course: %v", err)
+	}
+	if _, err := q.UpsertCourseProgress(context.Background(), sqlc.UpsertCourseProgressParams{
+		UserID: studentID, CourseID: course.ID,
+		CurrentOrdinal: 1, CompletedOrdinals: []int32{0},
+		CompletedAt: pgtype.Timestamptz{Time: time.Now(), Valid: true},
+	}); err != nil {
+		t.Fatalf("upsert course progress: %v", err)
 	}
 
 	rec := httptest.NewRecorder()
@@ -236,20 +243,14 @@ func TestStudentDetailHappyPath(t *testing.T) {
 	if resp.Student.ID != studentID.String() {
 		t.Fatalf("student.id = %q, want %q", resp.Student.ID, studentID.String())
 	}
-	if resp.Student.Unrated {
-		t.Fatalf("student should be rated (has a project report): %+v", resp.Student)
-	}
-	if resp.Student.DBadge != "L3" {
-		t.Fatalf("dBadge = %q, want L3: %+v", resp.Student.DBadge, resp.Student)
-	}
 	if resp.Student.DisplayName == "" || resp.Student.AvatarColor == "" {
 		t.Fatalf("student missing display fields: %+v", resp.Student)
 	}
 	if resp.Usage.ReportCount != 1 {
 		t.Fatalf("reportCount = %d, want 1: %+v", resp.Usage.ReportCount, resp.Usage)
 	}
-	if resp.Usage.CourseCount != 0 {
-		t.Fatalf("courseCount = %d, want 0: %+v", resp.Usage.CourseCount, resp.Usage)
+	if resp.Usage.CourseCount != 1 {
+		t.Fatalf("courseCount = %d, want 1: %+v", resp.Usage.CourseCount, resp.Usage)
 	}
 	if len(resp.Records) != 2 {
 		t.Fatalf("want 2 records, got %d: %+v", len(resp.Records), resp.Records)
