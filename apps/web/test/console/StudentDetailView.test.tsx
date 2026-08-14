@@ -6,7 +6,7 @@ import type { StudentDetail } from "@/api";
 import { ApiError } from "@/api";
 
 const detail = (over: Partial<StudentDetail> = {}): StudentDetail => ({
-  student: { id: "u1", displayName: "Phoebe", avatarColor: "#3E7CA8", dBadge: "L3–L4", aBadge: "4.2", unrated: false },
+  student: { id: "u1", displayName: "Phoebe", avatarColor: "#3E7CA8" },
   usage: { activeDays: 5, turns: 42, reportCount: 2, courseCount: 3 },
   // Real wire shape: the server emits time.RFC3339 (e.g. "2026-07-20T14:22:31+08:00"),
   // never a bare date — a fixture of just "2026-07-20" would hide a
@@ -24,16 +24,17 @@ function makeClient(d: StudentDetail = detail()) {
 }
 
 describe("StudentDetailView", () => {
-  it("renders the header name, D/A badges, and four usage cards", async () => {
+  it("renders the header name, avatar initial, and four usage cards — no D/A badges", async () => {
     const client = makeClient();
     render(<StudentDetailView client={client} classId="c1" userId="u1" onBack={() => {}} onOpenReport={() => {}} />);
     expect(await screen.findByText("Phoebe")).toBeInTheDocument();
-    expect(screen.getByText("L3–L4")).toBeInTheDocument();
-    expect(screen.getByText("4.2")).toBeInTheDocument();
+    expect(screen.getByText("P")).toBeInTheDocument(); // avatar initial
     expect(screen.getByText("5")).toBeInTheDocument(); // activeDays
     expect(screen.getByText("42")).toBeInTheDocument(); // turns
     expect(screen.getByText("2")).toBeInTheDocument(); // reportCount
     expect(screen.getByText("3")).toBeInTheDocument(); // courseCount
+    expect(screen.queryByText("D 轴")).not.toBeInTheDocument();
+    expect(screen.queryByText("A 轴")).not.toBeInTheDocument();
     expect(client.getStudentDetail).toHaveBeenCalledWith("c1", "u1");
   });
 
@@ -43,7 +44,7 @@ describe("StudentDetailView", () => {
     expect(screen.getByText("关于气候变化的讨论")).toBeInTheDocument();
     expect(screen.getByText("信息素养入门")).toBeInTheDocument();
 
-    await userEvent.click(screen.getByRole("tab", { name: "项目" }));
+    await userEvent.click(screen.getByRole("button", { name: "项目" }));
     expect(screen.getByText("中国是否让地球变得更可持续？")).toBeInTheDocument();
     expect(screen.queryByText("关于气候变化的讨论")).not.toBeInTheDocument();
     expect(screen.queryByText("信息素养入门")).not.toBeInTheDocument();
