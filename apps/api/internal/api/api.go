@@ -73,8 +73,6 @@ func (a *API) Handler() http.Handler {
 	// Protected routes (require a session).
 	protected := func(h http.HandlerFunc) http.Handler { return RequireUser(h) }
 	mux.Handle("GET /api/v1/auth/me", protected(a.me))
-	mux.Handle("GET /api/v1/growth/history", protected(a.getGrowthHistory))
-	mux.Handle("GET /api/v1/growth/ability", protected(a.getAbilityModel))
 	mux.Handle("GET /api/v1/growth/cards", protected(a.getGrowthCards))
 	mux.Handle("GET /api/v1/cards/catalog", protected(a.getCardsCatalog))
 	mux.Handle("GET /api/v1/project-covers", protected(a.getProjectCovers))
@@ -186,11 +184,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/declaration/sign", protected(a.signDeclaration))
 	mux.Handle("GET /api/v1/projects/{id}/reflection-doc", protected(a.getReflection))
 	mux.Handle("PUT /api/v1/projects/{id}/reflection-doc", protected(a.putReflection))
-	mux.Handle("GET /api/v1/projects/{id}/mirror", protected(a.getMirror))
-	mux.Handle("POST /api/v1/projects/{id}/mirror", protected(a.postMirror))
 	mux.Handle("GET /api/v1/projects/{id}/summary", protected(a.getProjectSummary))
 	mux.Handle("POST /api/v1/projects/{id}/summary", protected(a.postProjectSummary))
-	mux.Handle("GET /api/v1/projects/{id}/assessment", protected(a.getAssessment))
 	mux.Handle("GET /api/v1/projects/{id}/evaluation-report", protected(a.getEvaluationReport))
 	mux.Handle("POST /api/v1/projects/{id}/evaluation-report/generate", protected(a.postGenerateEvaluationReport))
 	mux.Handle("GET /api/v1/evaluation-reports", protected(a.listEvaluationReports))
@@ -228,8 +223,6 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/chat/threads/{id}/turn", protected(a.postChatTurn))
 	mux.Handle("POST /api/v1/chat/threads/{id}/cards/{cid}/submit", protected(a.submitChatCard))
 	mux.Handle("POST /api/v1/chat/threads/{id}/cards/{cid}/skip", protected(a.skipChatCard))
-	mux.Handle("GET /api/v1/chat/threads/{id}/assessment", protected(a.getChatAssessment))
-	mux.Handle("POST /api/v1/chat/threads/{id}/assessment", protected(a.generateChatAssessment))
 
 	// Admin-only routes (require a session + admin role).
 	adminOnly := func(h http.HandlerFunc) http.Handler {
@@ -254,14 +247,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/classes/{id}/enrollments/{userId}", teacherOrAdmin(a.removeEnrollment))
 	mux.Handle("GET /api/v1/classes/{id}/roster-report", teacherOrAdmin(a.getClassRosterReport))
 	mux.Handle("GET /api/v1/classes/{id}/students/{userId}", teacherOrAdmin(a.getStudentDetail))
-	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/reports/{surface}/{scopeId}", teacherOrAdmin(a.getStudentReport))
 	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/evaluation-report/{projectId}", teacherOrAdmin(a.getStudentEvaluationReport))
 	mux.Handle("GET /api/v1/classes/{id}/weekly-report", teacherOrAdmin(a.getClassWeeklyReport))
 	mux.Handle("POST /api/v1/classes/{id}/weekly-report/prose", teacherOrAdmin(a.postClassWeeklyProse))
-	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/parent-report/{surface}/{scopeId}", teacherOrAdmin(a.getParentReport))
-	mux.Handle("POST /api/v1/classes/{id}/students/{userId}/parent-report/{surface}/{scopeId}/prose", teacherOrAdmin(a.postParentReportProse))
-	mux.Handle("GET /api/v1/classes/{id}/students/{userId}/parent-stage-report/{weekStart}", teacherOrAdmin(a.getParentStageReport))
-	mux.Handle("POST /api/v1/classes/{id}/students/{userId}/parent-stage-report/{weekStart}/prose", teacherOrAdmin(a.postParentStageProse))
 
 	return SessionAuth(a.d.Queries)(mux)
 }

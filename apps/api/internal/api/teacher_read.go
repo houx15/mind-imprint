@@ -286,6 +286,15 @@ type TeacherReportDTO struct {
 	Context ReportContext    `json:"context"`
 }
 
+// uuidText renders a pgtype.UUID as its canonical string form; no existing
+// helper does this generically in the api package (grepped for "uuidText"
+// and pgtype.UUID+".String()" — every call site converts uuid.UUID->pgtype.UUID,
+// never the reverse), so this is the one direction-of-conversion this
+// package needed added.
+func uuidText(id pgtype.UUID) string {
+	return uuid.UUID(id.Bytes).String()
+}
+
 // rqFromNode extracts the research question from a research_question graph
 // node's body ({"text": "..."}, minted at project creation — project_create.go).
 // Tries "text" then "question" for forward compatibility; an empty/absent
@@ -307,77 +316,3 @@ func rqFromNode(body []byte, fallback string) string {
 	return fallback
 }
 
-// getStudentReport handles GET
-// /api/v1/classes/{id}/students/{userId}/reports/{surface}/{scopeId}: the
-// deep-report data source for one scope (project/course/chat). Guarded by
-// authTeacherStudent (class ownership + this-class student membership); the
-// eval queries additionally re-check that the scope is owned by that exact
-// student, so a correct surface+scopeId belonging to a DIFFERENT student
-// still 404s. Per-surface query errors are written directly via
-// httpx.WriteError, which already maps pgx.ErrNoRows to 404 — missing
-// scope/ownership is hidden as not-found, same as authTeacherStudent.
-func (a *API) getStudentReport(w http.ResponseWriter, r *http.Request) {
-	_, userID, ok := a.authTeacherStudent(w, r)
-	if !ok {
-		return
-	}
-	surface := r.PathValue("surface")
-	scopeID, err := uuid.Parse(r.PathValue("scopeId"))
-	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return
-	}
-	pgScopeID := pgtype.UUID{Bytes: scopeID, Valid: true}
-
-	var scores []byte
-	var createdAt time.Time
-	var ctx ReportContext
-
-	switch surface {
-	case "project":
-		row, e := a.d.Queries.GetStudentProjectEvaluationForTeacher(r.Context(), sqlc.GetStudentProjectEvaluationForTeacherParams{
-			ScopeID: pgScopeID, UserID: userID,
-		})
-		if e != nil {
-			httpx.WriteError(w, r, e)
-			return
-		}
-		scores, createdAt = row.Scores, row.CreatedAt
-		ctx.ProjectTitle = row.ProjectTitle
-		ctx.Title = row.ProjectTitle
-		ctx.ResearchQuestion = rqFromNode(row.RqBody, row.ProjectTitle)
-	// "course" has no case here: migration 0050 (course v2) dropped
-	// course_session — the rubric-evaluation report this surface used to read
-	// (GetStudentSessionEvaluationForTeacher, removed by Task 3 with "no v2
-	// replacement in scope") has no successor. Course v2's own report
-	// (getCourseReport, course.go) is a quiz-tally + completed-step-titles
-	// summary, not an agent.Report — a different shape this teacher endpoint
-	// doesn't (yet) know how to render. Falls through to default → 404, same
-	// as any other unrecognized surface.
-	case "chat":
-		row, e := a.d.Queries.GetStudentThreadEvaluationForTeacher(r.Context(), sqlc.GetStudentThreadEvaluationForTeacherParams{
-			ScopeID: pgScopeID, UserID: userID,
-		})
-		if e != nil {
-			httpx.WriteError(w, r, e)
-			return
-		}
-		scores, createdAt = row.Scores, row.CreatedAt
-		ctx.Title = row.ThreadTitle
-	default:
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return
-	}
-
-	var rep agent.Report
-	if err := json.Unmarshal(scores, &rep); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	ctx.DBadge = teacher.DBadge(rep)
-	ctx.ABadge = teacher.ABadge(rep)
-	httpx.WriteJSON(w, http.StatusOK, TeacherReportDTO{
-		Report:  studio.ToReportDTO(rep, createdAt),
-		Context: ctx,
-	})
-}

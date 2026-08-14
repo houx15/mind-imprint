@@ -10,7 +10,7 @@ package api_test
 //
 //	projection → proposal → coach(forming) → plan(+patch)+log →
 //	references+enter-reading+library → outline+draft →
-//	reflection-doc(done) → finish → assessment → growth/history → mirror(once)
+//	reflection-doc(done) → finish → evaluation-report → evaluation-reports timeline
 
 import (
 	"context"
@@ -302,41 +302,6 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 	}
 	if !inHistory {
 		t.Fatalf("evaluation-reports timeline missing the finished project %s: %+v", pid, reportsList.Entries)
-	}
-
-	// -- 8. Mirror composes then first-open-wins (no second spend) -----------
-	// Finish's own goroutine already best-effort-attempted a mirror (BE5) with
-	// the assessment provider, which isn't valid mirror JSON — so it spent but
-	// stored nothing. This step composes the real mirror with a mirror provider;
-	// we assert first-open-wins as a DELTA (the second POST adds no new call)
-	// rather than an absolute count, since the finish attempt confounds it.
-	hMirror := New(Deps{
-		Queries: sqlc.New(pool), Pool: pool,
-		Provider: assessStubProvider(mirrorReply), ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(),
-		SpecByID: cards.ByID,
-	}).Handler()
-	rec = doJSON(t, hMirror, cookie, "POST", base+"/mirror", "")
-	if rec.Code != http.StatusOK {
-		t.Fatalf("POST mirror = %d: %s", rec.Code, rec.Body)
-	}
-	var mirror struct {
-		Sections []struct {
-			Title string `json:"title"`
-			Body  string `json:"body"`
-		} `json:"sections"`
-		CarryForwards []string `json:"carryForwards"`
-	}
-	_ = json.Unmarshal(rec.Body.Bytes(), &mirror)
-	if len(mirror.Sections) == 0 || len(mirror.CarryForwards) == 0 {
-		t.Fatalf("mirror missing sections/carryForwards: %s", rec.Body)
-	}
-	afterFirst := countLLMCallsByPurpose(t, pool, pid, "mirror")
-	// Second POST is a no-spend read of the stored row (first-open-wins).
-	if r := doJSON(t, hMirror, cookie, "POST", base+"/mirror", ""); r.Code != http.StatusOK {
-		t.Fatalf("second POST mirror = %d: %s", r.Code, r.Body)
-	}
-	if n := countLLMCallsByPurpose(t, pool, pid, "mirror"); n != afterFirst {
-		t.Fatalf("mirror llm_call rows after second POST = %d, want still %d (first-open-wins)", n, afterFirst)
 	}
 }
 

@@ -9,8 +9,7 @@ package api_test
 // (retryable). As of Task 6 (evaluation-report-pipeline), the goroutine's
 // artifact is the new EvaluationReport (generateAndStoreEvaluationReport,
 // currently evalreport.Placeholder) — the old dual-axis evaluation + mirror
-// pipeline (generateProjectReport/composeAndStoreProjectMirror) is no longer
-// called from finish (still used by other surfaces, e.g. the parent report).
+// pipeline has been retired entirely (2026-08-14).
 
 import (
 	"context"
@@ -280,7 +279,7 @@ func TestFinishProject_AlreadyFinished(t *testing.T) {
 }
 
 // NOTE (Task 6): TestFinishProject_RejectedAssessmentKeepsProjectActive was
-// removed here. It exercised the old dual-axis generateProjectReport reject
+// removed here. It exercised the old dual-axis assessment-generation reject
 // path (a provider output failing enforcement, e.g. banned_phrasing). The
 // finish worker no longer calls that pipeline — it calls
 // generateAndStoreEvaluationReport (evalreport.Placeholder), which has no

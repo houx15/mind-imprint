@@ -19,8 +19,7 @@ type collectedCardDTO struct {
 }
 
 // getGrowthCards returns every tool card the caller has completed, across
-// project/course/chat, deduped with a usage summary. No model call, ever
-// (mirrors getAbilityModel).
+// project/course/chat, deduped with a usage summary. No model call, ever.
 func (a *API) getGrowthCards(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	rows, err := a.d.Queries.ListCollectedCardsByUser(r.Context(), u.ID)

@@ -17,7 +17,7 @@ import (
 
 // getEvaluationReport: read-no-call. Returns the latest stored report or JSON
 // null when none has been generated yet — a normal "not yet evaluated" state,
-// never a 404, matching getAssessment's own idiom (assessment.go).
+// never a 404.
 func (a *API) getEvaluationReport(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -48,7 +48,7 @@ func (a *API) getEvaluationReport(w http.ResponseWriter, r *http.Request) {
 // authTeacherStudent (class ownership + this-class student membership) plus
 // an explicit project-ownership check, so a correct projectId belonging to a
 // DIFFERENT student (or a different class entirely) still 404s — same
-// IDOR-safe not-found idiom as loadOwnedProject and getStudentReport.
+// IDOR-safe not-found idiom as loadOwnedProject.
 func (a *API) getStudentEvaluationReport(w http.ResponseWriter, r *http.Request) {
 	_, userID, ok := a.authTeacherStudent(w, r)
 	if !ok {
