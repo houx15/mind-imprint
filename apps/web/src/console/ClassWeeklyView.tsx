@@ -177,7 +177,7 @@ export function ClassWeeklyView({ client, classId, onOpenStudent, onOpenReport }
         <div>
           <div style={{ fontSize: 26, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: ".01em" }}>班级周报 · {data.weekLabel}</div>
           <div style={{ fontSize: 13, color: "var(--mk-muted)", marginTop: 6, lineHeight: 1.6 }}>
-            作业布置与提交在学校自己的平台完成。这里只看学生在思维印记上的使用强度，和他们思考维度的变化。
+            作业布置与提交在学校自己的平台完成。这里只看学生这一周在思维印记上的使用情况，以及值得表扬或需要多留意的同学。
           </div>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 6, flex: "none" }}>
