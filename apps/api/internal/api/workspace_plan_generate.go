@@ -158,10 +158,32 @@ func (a *API) regeneratePlan(ctx context.Context, projectID uuid.UUID) ([]planIt
 		slog.Warn("plan generate: append auto-log failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(ctx))
 	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	// G1 · record the 立题完成 (framework-finished) milestone the FIRST time a
+	// plan is generated — that IS the moment 立题 finishes (gaps doc decision).
+	// Emitted at most once per project: regenerating the plan (聊聊计划 → 重新生成)
+	// replaces the board but must not move the milestone. Best-effort — never
+	// fails plan generation.
+	if n, cerr := a.d.Queries.CountEventsByType(ctx, sqlc.CountEventsByTypeParams{
+		ProjectID: pgtype.UUID{Bytes: projectID, Valid: true},
+		Type:      "milestone:framework_finished",
+	}); cerr != nil {
+		slog.Warn("plan generate: count framework milestone failed",
+			"err", cerr, "request_id", httpx.RequestIDFromContext(ctx))
+	} else if n == 0 {
+		if eerr := store.AppendEvent(ctx, agent.EventRow{
+			ProjectID: projectID, Surface: "studio",
+			Type: "milestone:framework_finished", Payload: []byte("{}"),
+		}); eerr != nil {
+			slog.Warn("plan generate: emit framework milestone failed",
+				"err", eerr, "request_id", httpx.RequestIDFromContext(ctx))
+		}
+	}
+
 	// S1 · lever 1 (compaction): the plan has solidified — fold the shaping
 	// dialogue (which reuses the forming/proposal_review scopes) out of the
 	// coach's active window. Idempotent (only non-folded rows), best-effort.
-	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	if err := store.FoldCoachSurfaces(ctx, projectID, solidifyFoldSurfaces); err != nil {
 		slog.Warn("plan generate: fold shaping turns failed",
 			"err", err, "request_id", httpx.RequestIDFromContext(ctx))

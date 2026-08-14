@@ -141,6 +141,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/framework/waive-counterpoints", protected(a.waiveCounterpoints))
 	mux.Handle("GET /api/v1/projects/{id}/proposal-annotations", protected(a.getProposalAnnotations))
 	mux.Handle("POST /api/v1/projects/{id}/proposal-annotations/review", protected(a.reviewProposalAnnotations))
+	mux.Handle("POST /api/v1/projects/{id}/annotations/open", protected(a.postAnnotationOpen))
+	mux.Handle("POST /api/v1/projects/{id}/citations", protected(a.postCitation))
 	mux.Handle("GET /api/v1/projects/{id}/evidence-map", protected(a.getEvidenceMap))
 	mux.Handle("PATCH /api/v1/projects/{id}/references/{rid}/evidence", protected(a.patchReferenceEvidence))
 	mux.Handle("PATCH /api/v1/projects/{id}/references/{rid}/triage", protected(a.patchReferenceTriage))

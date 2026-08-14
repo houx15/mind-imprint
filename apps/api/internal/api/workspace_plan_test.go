@@ -225,6 +225,16 @@ func TestPlanGenerate_ReplacesExistingPlan(t *testing.T) {
 	if len(listed.Items) != 5 {
 		t.Fatalf("plan list after two generates = %d, want 5 (replaced, not stacked)", len(listed.Items))
 	}
+
+	// G1 · the 立题完成 milestone fires the FIRST time and is NOT re-emitted on
+	// regeneration — exactly one event after generating twice.
+	var milestones int
+	_ = pool.QueryRow(context.Background(),
+		`SELECT count(*) FROM event WHERE project_id=$1 AND type='milestone:framework_finished'`,
+		seedProjectID).Scan(&milestones)
+	if milestones != 1 {
+		t.Fatalf("framework-finished milestone events after two generates = %d, want 1", milestones)
+	}
 }
 
 func TestPlanItem_CRUDLifecycle(t *testing.T) {

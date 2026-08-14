@@ -122,3 +122,38 @@ func (a *API) reviewProposalAnnotations(w http.ResponseWriter, r *http.Request) 
 	out := a.runDraftAnnotationReview(r.Context(), projectID, annotationDocParam(r), "")
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 }
+
+// postAnnotationOpen (G2) records that the student OPENED / clicked a specific
+// AI writing 批注 — the "did she engage with AI feedback" signal for the
+// (deferred) report generator (D5 · 反馈处理与修订). The annotations themselves
+// are already durably stored (intervention rows); this appends one append-only
+// `annotation_opened` event per open, keyed by the annotation id. An event
+// (not an `opened_at` column) so it survives ReplaceAnnotations wiping+reinserting
+// the set on each re-review. Best-effort recording — 204 regardless.
+func (a *API) postAnnotationOpen(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var body struct {
+		AnnotationID string `json:"annotationId"`
+		Doc          string `json:"doc"`
+	}
+	if err := decodeJSON(r, &body); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if body.AnnotationID == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_request", "annotationId 不能为空", nil))
+		return
+	}
+	payload, _ := json.Marshal(map[string]any{"annotation_id": body.AnnotationID, "doc": body.Doc})
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	if err := store.AppendEvent(r.Context(), agent.EventRow{
+		ProjectID: projectID, Surface: "studio", Type: "annotation_opened", Payload: payload,
+	}); err != nil {
+		slog.Warn("annotation open: append event failed",
+			"err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
