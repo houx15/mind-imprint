@@ -13,8 +13,8 @@ const STATS: { key: keyof Overview["counts"]; label: string }[] = [
   { key: "active_student", label: "活跃学生" },
 ];
 
-const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "#8A92A3", padding: "10px 12px", borderBottom: "1px solid #EAECF2" };
-const TD: React.CSSProperties = { fontSize: 13.5, color: "#1C2333", padding: "12px", borderBottom: "1px solid #F2F3F7" };
+const TH: React.CSSProperties = { textAlign: "left", fontSize: 12, fontWeight: 700, color: "var(--mk-muted)", padding: "10px 12px", borderBottom: "1px solid var(--mk-border)" };
+const TD: React.CSSProperties = { fontSize: 13.5, color: "var(--mk-ink)", padding: "12px", borderBottom: "1px solid var(--mk-border)" };
 
 export function OverviewView({ client }: { client: Client }) {
   const [data, setData] = useState<Overview | null>(null);
@@ -31,25 +31,25 @@ export function OverviewView({ client }: { client: Client }) {
   return (
     <div style={{ flex: 1, minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 980, margin: "0 auto", padding: "44px 40px 60px" }}>
-        <div style={{ fontSize: 26, fontWeight: 800, color: "#1C2333", letterSpacing: "-.01em" }}>概览</div>
+        <div style={{ fontSize: 26, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: "-.01em" }}>概览</div>
         {error && (
-          <div style={{ marginTop: 14, color: "#C76B6B", fontSize: 13.5, fontWeight: 600 }}>{error} · <span onClick={load} style={{ cursor: "pointer", textDecoration: "underline" }}>重试</span></div>
+          <div style={{ marginTop: 14, color: "var(--mk-danger)", fontSize: 13.5, fontWeight: 600 }}>{error} · <span onClick={load} style={{ cursor: "pointer", textDecoration: "underline" }}>重试</span></div>
         )}
         {data && (
           <>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 16, marginTop: 24 }}>
               {STATS.map(({ key, label }) => (
-                <div key={key} style={{ background: "#fff", border: "1px solid #EAECF2", borderRadius: 16, padding: "20px 22px", boxShadow: "0 1px 3px rgba(20,30,60,.04)" }}>
-                  <div style={{ fontSize: 13, color: "#8A92A3", fontWeight: 600 }}>{label}</div>
-                  <div style={{ fontSize: 28, fontWeight: 800, color: "#1C2333", marginTop: 6 }}>{data.counts[key]}</div>
+                <div key={key} style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: "var(--mk-radius-lg)", padding: "20px 22px", boxShadow: "var(--mk-shadow-sm)" }}>
+                  <div style={{ fontSize: 13, color: "var(--mk-muted)", fontWeight: 600 }}>{label}</div>
+                  <div style={{ fontSize: 28, fontWeight: 800, color: "var(--mk-ink)", marginTop: 6 }}>{data.counts[key]}</div>
                 </div>
               ))}
             </div>
-            <div style={{ fontSize: 15, fontWeight: 700, color: "#1C2333", margin: "34px 0 14px" }}>用量（按档位）</div>
+            <div style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)", margin: "34px 0 14px" }}>用量（按档位）</div>
             {data.usage_by_tier.length === 0 ? (
-              <div style={{ color: "#8A92A3", fontSize: 14 }}>暂无用量。</div>
+              <div style={{ color: "var(--mk-muted)", fontSize: 14 }}>暂无用量。</div>
             ) : (
-              <table style={{ width: "100%", borderCollapse: "collapse", background: "#fff", border: "1px solid #EAECF2", borderRadius: 12, overflow: "hidden" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: "var(--mk-radius-md)", overflow: "hidden" }}>
                 <thead>
                   <tr>
                     <th style={TH}>档位</th>

@@ -14,8 +14,9 @@ const summary: ClassSummary = { id: "c1", name: "11A", join_code: "AB-CD", schoo
 const detail: ClassDetail = { class: summary, roster: [], teachers: [] };
 
 // Minimal but shape-accurate WeeklyReport fixture: proseReady:true so
-// ClassWeeklyView never calls generateClassWeeklyProse in these tests, and
-// all four depth buckets are present (the server never sends fewer).
+// ClassWeeklyView never calls generateClassWeeklyProse in these tests.
+// WeeklyReport no longer carries depth/autonomy buckets (retired); it now
+// carries isLatestWeek so the ►/next-week nav can disable at the boundary.
 function weeklyReport(over: Partial<WeeklyReport> = {}): WeeklyReport {
   return {
     weekLabel: "第 30 周（7.20–7.26）",
@@ -32,19 +33,9 @@ function weeklyReport(over: Partial<WeeklyReport> = {}): WeeklyReport {
     ],
     praise: [],
     watch: [],
-    depth: {
-      buckets: [
-        { code: "L1", label: "起步 L1", count: 0 },
-        { code: "L2", label: "发展 L2", count: 0 },
-        { code: "L3", label: "熟练 L3", count: 0 },
-        { code: "L4", label: "优秀 L4", count: 0 },
-      ],
-      ratedCount: 0,
-      note: "",
-    },
-    autonomy: { mean: "—", delta: "—", deltaDir: "flat", ratedCount: 0, note: "" },
     comment: "本周点评",
     proseReady: true,
+    isLatestWeek: true,
     ...over,
   };
 }
@@ -64,7 +55,7 @@ function client(overrideWeekly?: WeeklyReport) {
     listTeachers: vi.fn(async () => []),
     assignTeacher: vi.fn(),
     removeTeacher: vi.fn(),
-    getClassRosterReport: vi.fn(async () => []),
+    getClassRosterReport: vi.fn(async () => ({ roster: [], header: { classSize: 0, activeStudents: 0, activeProjects: 0, turns: 0, reports: 0 } })),
     getStudentDetail: vi.fn(),
     getStudentEvaluationReport: vi.fn(async () => ({ status: "ready" as const, report: MOCK_EVALUATION_REPORT })),
     getClassWeeklyReport: vi.fn(async () => overrideWeekly ?? weeklyReport()),

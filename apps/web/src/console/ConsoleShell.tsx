@@ -37,7 +37,7 @@ export function ConsoleShell({
   const [openReport, setOpenReport] = useState<{ surface: string; scopeId: string; studentName: string } | null>(null);
 
   return (
-    <div style={{ display: "flex", height: "100%", width: "100%", background: "#F3F4F8", overflow: "hidden" }}>
+    <div style={{ display: "flex", height: "100%", width: "100%", background: "var(--mk-paper)", overflow: "hidden" }}>
       <ConsoleRail role={role} tab={tab} onTab={(t) => { setTab(t); if (t === "classes") { setOpenClassId(null); setOpenStudentId(null); setOpenReport(null); } }} />
       <div style={{ flex: 1, overflow: "hidden", position: "relative", display: "flex" }}>
         {tab === "overview" && <OverviewView client={client} />}
