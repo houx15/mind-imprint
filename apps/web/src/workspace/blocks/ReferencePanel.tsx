@@ -4,7 +4,7 @@ import { EmptyState } from "@/ui/Illustration";
 import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
 import { getProposalTrack } from "../../api/proposalTrack";
 import { guidedSectionLabel } from "./sectionLabels";
-import { getProposalAnnotations } from "../../api/proposalAnnotations";
+import { getProposalAnnotations, recordAnnotationOpen } from "../../api/proposalAnnotations";
 import { resolveReferences, type ResolvedRef } from "./referenceResolve";
 import { NeedsResourcesBox } from "./NeedsResourcesBox";
 
@@ -74,7 +74,7 @@ export function ReferencePanel({
   onJumpToAnchor?: (a: { quote?: string; locator?: string }) => void;
   /** P3 · insert a fragment into the draft at the caret (the fold of the old
    * floating 材料 box). Wired to the shared draftInsertRef in WorkspaceContainer. */
-  onInsert?: (text: string) => void;
+  onInsert?: (text: string, referenceId?: string) => void;
   /** Whether the draft is currently open (正文 tab) — the 「插入」 action only
    * shows when true, so it's never a dead no-op on 大纲/片段 (P3 review). */
   canInsert?: boolean;
@@ -246,7 +246,11 @@ export function ReferencePanel({
                   )}
                   {cur === "anno" && (
                     <>
-                      <ProposalAnnotationGroup items={proposalAnnos} onJump={onJumpToAnchor} />
+                      <ProposalAnnotationGroup
+                        items={proposalAnnos}
+                        onJump={onJumpToAnchor}
+                        onOpen={(id) => void recordAnnotationOpen(projectId, id, annotationDoc).catch(() => {})}
+                      />
                       {annotationItems.length > 0 && <AnnotationGroup items={annotationItems} />}
                     </>
                   )}
@@ -392,23 +396,31 @@ const NATURE_DOT: Record<string, string> = {
 export function ProposalAnnotationGroup({
   items,
   onJump,
+  onOpen,
 }: {
   items: DraftAnnotation[];
   onJump?: (a: { quote?: string; locator?: string }) => void;
+  // G2 · fired with the annotation id when the student clicks a 批注 — records
+  // that she engaged with this piece of AI feedback (rides the jump).
+  onOpen?: (annotationId: string) => void;
 }) {
   const paper = items.filter((a) => a.level === "paper");
   const paragraph = items.filter((a) => a.level === "paragraph");
   const sentence = items.filter((a) => a.level === "sentence");
   // A paragraph/sentence 批注 is clickable when it carries an anchor 印记 can
   // find in the draft (a quote or a 第N段 locator) AND a jump handler is wired.
+  const open = (a: DraftAnnotation) => {
+    onOpen?.(a.id);
+    onJump?.({ quote: a.quote || undefined, locator: a.locator || undefined });
+  };
   const jumpProps = (a: DraftAnnotation) =>
     onJump && (a.quote || a.locator)
       ? {
           role: "button" as const,
           tabIndex: 0,
-          onClick: () => onJump({ quote: a.quote || undefined, locator: a.locator || undefined }),
+          onClick: () => open(a),
           onKeyDown: (e: KeyboardEvent) => {
-            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); onJump({ quote: a.quote || undefined, locator: a.locator || undefined }); }
+            if (e.key === "Enter" || e.key === " ") { e.preventDefault(); open(a); }
           },
           title: "跳到正文里对应的位置",
         }
@@ -487,7 +499,7 @@ function CollectedSection({
 }: {
   lib: Reference[];
   snippets: Snippet[];
-  onInsert?: (text: string) => void;
+  onInsert?: (text: string, referenceId?: string) => void;
   canInsert?: boolean;
 }) {
   return (
@@ -507,7 +519,7 @@ function CollectedSection({
                       {onInsert && canInsert && (
                         <button
                           type="button"
-                          onClick={() => onInsert(f)}
+                          onClick={() => onInsert(f, ref.id)}
                           title="插入到正文光标处"
                           className="mt-0.5 flex-none rounded-mk-sm border border-mk-border px-2 py-0.5 text-[14px] font-semibold text-mk-muted transition hover:text-mk-accent"
                         >

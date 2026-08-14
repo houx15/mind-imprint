@@ -364,7 +364,7 @@ export function WorkspaceContainer({
   // room's DraftPane registers its inserter here on mount; the (sibling) left
   // ReferencePanel's 材料 fragments call it — the fold of the old floating
   // 材料 box, hoisted one level so the two SplitPane siblings share one path.
-  const draftInsertRef = useRef<((t: string) => void) | null>(null);
+  const draftInsertRef = useRef<((t: string, referenceId?: string) => void) | null>(null);
   // Sibling bridge for S1 · click a 批注 → scroll+highlight the matching text in
   // the active writing surface (essay DraftPane or proposal ProsePane, whichever
   // is mounted registers it). Hoisted like draftInsertRef so ReferencePanel (left
@@ -1325,7 +1325,7 @@ export function WorkspaceContainer({
                     reference={studioState?.reference ?? []}
                     stage={studioState?.stage ?? "body_writing"}
                     proposal={workspace.proposal}
-                    onInsert={(t) => draftInsertRef.current?.(t)}
+                    onInsert={(t, referenceId) => draftInsertRef.current?.(t, referenceId)}
                     canInsert={insertReady}
                     annotationsVersion={annotationsVersion}
                     needsVersion={needsVersion}

@@ -24,6 +24,7 @@ import { guidedSectionLabel, isGuidedSection, sectionDoc } from "./sectionLabels
 import { FilledCardsFold, type FilledCard } from "./FilledCardsFold";
 import { partSectionKey } from "./docSections";
 import { scheduleCardRevision } from "../../api/revision";
+import { recordCitation } from "../../api/citations";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { ProposalGuidePane } from "./ProposalGuide";
@@ -159,7 +160,7 @@ export function WritingBlock({
    * mount; the sibling left ReferencePanel's 材料 fragments call it (the fold
    * of the old floating 材料 box). Hoisted to WorkspaceContainer. Optional — an
    * isolated unit render falls back to a local ref. */
-  draftInsertRef?: { current: ((t: string) => void) | null };
+  draftInsertRef?: { current: ((t: string, referenceId?: string) => void) | null };
   /** S1 · shared scroll-to-anchor ref: the active writing surface (essay
    * DraftPane / proposal ProsePane) registers a fn that finds a 批注's quote or
    * 第N段 locator in the draft and scrolls+selects it. Clicked from the sibling
@@ -324,7 +325,7 @@ export function WritingBlock({
   // `draftInsertRef` (a prop, hoisted to WorkspaceContainer) on mount; the left
   // ReferencePanel's 材料 fragments call it when 正文 is active. Falls back to a
   // local ref when the prop is absent (isolated unit tests).
-  const localDraftInsertRef = useRef<((t: string) => void) | null>(null);
+  const localDraftInsertRef = useRef<((t: string, referenceId?: string) => void) | null>(null);
   const insertTarget = draftInsertRef ?? localDraftInsertRef;
   // S1 · same pattern for the scroll-to-anchor bridge (批注 click → jump).
   const localDraftScrollRef = useRef<((a: { quote?: string; locator?: string }) => void) | null>(null);
@@ -1454,7 +1455,7 @@ function DraftPane({
   title: string;
   locked: boolean;
   onFocusPart: (part: string) => void;
-  registerInsert: (fn: ((t: string) => void) | null) => void;
+  registerInsert: (fn: ((t: string, referenceId?: string) => void) | null) => void;
   // S1 · register a scroll-to-anchor fn (批注 click → find quote/第N段 in the
   // draft, scroll+select it). Null on unmount.
   registerScroll?: (fn: ((a: { quote?: string; locator?: string }) => void) | null) => void;
@@ -1472,7 +1473,7 @@ function DraftPane({
   const [layout, setLayout] = useState<"free" | "sections">("free");
   // When 分节 is active, the sections editor registers its own insert here so
   // the materials sidebar drops a fragment into the focused section.
-  const sectionInsertRef = useRef<((t: string) => void) | null>(null);
+  const sectionInsertRef = useRef<((t: string, referenceId?: string) => void) | null>(null);
   const [text, setText] = useState("");
   const [uploadNote, setUploadNote] = useState<string | null>(null);
   // #7 · a floating "问印记" chip that appears next to a text selection. selPop
@@ -1714,16 +1715,18 @@ function DraftPane({
   // #9 · insert a fragment (from the materials sidebar) into the draft at the
   // caret — 印记 never authors, the STUDENT places her own material. Reads the
   // live text/caret from refs; separates with blank lines; no-op when locked.
-  function insertAtCaret(t: string) {
+  function insertAtCaret(t: string, referenceId?: string) {
     if (locked) return;
     const frag = t.trim();
     if (!frag) return;
     setMode("write");
     setPane("edit");
     // #5 · in 分节 mode the sections editor owns placement (into the focused
-    // section); the free textarea path below only runs in 自由 mode.
+    // section); the free textarea path below only runs in 自由 mode. G3 · the
+    // referenceId (when the fragment came from a library source) rides along so
+    // the sections editor can record the source→section citation link.
     if (layout === "sections" && sectionInsertRef.current) {
-      sectionInsertRef.current(frag);
+      sectionInsertRef.current(frag, referenceId);
       return;
     }
     const cur = textRef.current;
@@ -1748,10 +1751,10 @@ function DraftPane({
   // Register the inserter once; a ref holds the latest closure so the stable
   // registered fn always sees current state. Unregister on unmount so the
   // sidebar's insert no-ops when the draft tab isn't mounted.
-  const insertRef = useRef<(t: string) => void>(() => {});
+  const insertRef = useRef<(t: string, referenceId?: string) => void>(() => {});
   insertRef.current = insertAtCaret;
   useEffect(() => {
-    registerInsert((t) => insertRef.current(t));
+    registerInsert((t, referenceId) => insertRef.current(t, referenceId));
     return () => registerInsert(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -2019,7 +2022,7 @@ function SectionedDraft({
   text: string;
   onChange: (next: string) => void;
   locked: boolean;
-  registerInsert: (fn: ((t: string) => void) | null) => void;
+  registerInsert: (fn: ((t: string, referenceId?: string) => void) | null) => void;
 }) {
   const [sections, setSections] = useState<DraftSection[]>(() => parseSections(text));
   const [outlineHeads, setOutlineHeads] = useState<string[]>([]);
@@ -2046,20 +2049,32 @@ function SectionedDraft({
   const generate = () => { const gen = sectionsFromOutline(outlineHeads, sectionsRef.current); if (gen.length) commit([...sectionsRef.current, ...gen]); };
 
   // Insert a fragment (materials sidebar) into the focused section's body — else
-  // the last section, else a new intro when there are none yet.
-  function insert(t: string) {
+  // the last section, else a new intro when there are none yet. G3 · when the
+  // fragment came from a library source (referenceId set), record the
+  // source→section citation link, keyed by the target section's heading (the
+  // faithful "where in the essay" available here; the freeform sections carry
+  // headings, not machine claim keys). Best-effort — never blocks the insert.
+  function insert(t: string, referenceId?: string) {
     if (locked) return;
     const frag = t.trim();
     if (!frag) return;
     const cur = sectionsRef.current;
     const target = (focusId && cur.some((s) => s.id === focusId) ? focusId : cur[cur.length - 1]?.id) ?? null;
-    if (!target) { commit([{ ...newSection(0), body: frag }]); return; }
+    if (!target) {
+      commit([{ ...newSection(0), body: frag }]);
+      if (referenceId) void recordCitation(projectId, referenceId, "正文").catch(() => {});
+      return;
+    }
+    if (referenceId) {
+      const heading = cur.find((s) => s.id === target)?.heading.trim();
+      void recordCitation(projectId, referenceId, heading || "正文").catch(() => {});
+    }
     commit(cur.map((s) => (s.id === target ? { ...s, body: s.body ? `${s.body}\n\n${frag}` : frag } : s)));
   }
   const insertRef = useRef(insert);
   insertRef.current = insert;
   useEffect(() => {
-    registerInsert((t) => insertRef.current(t));
+    registerInsert((t, referenceId) => insertRef.current(t, referenceId));
     return () => registerInsert(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);

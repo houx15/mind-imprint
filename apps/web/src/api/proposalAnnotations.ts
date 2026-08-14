@@ -19,3 +19,13 @@ export async function reviewProposalAnnotations(projectId: string): Promise<Draf
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/proposal-annotations/review`, { method: "POST" });
   return AnnotationsResp.parse(raw).annotations;
 }
+
+// G2 · record that the student OPENED / clicked a specific 批注 — the "did she
+// engage with AI feedback" signal (D5 · 反馈处理与修订). Fire-and-forget; a failed
+// record never disrupts the jump-to-anchor it rides alongside.
+export async function recordAnnotationOpen(projectId: string, annotationId: string, doc: "proposal" | "essay" = "proposal"): Promise<void> {
+  await apiFetch<void>(`/api/v1/projects/${projectId}/annotations/open`, {
+    method: "POST",
+    body: JSON.stringify({ annotationId, doc }),
+  });
+}
