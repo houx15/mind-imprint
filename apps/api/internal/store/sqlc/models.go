@@ -212,6 +212,7 @@ type EvaluationReport struct {
 	Version   int32     `json:"version"`
 	Report    []byte    `json:"report"`
 	CreatedAt time.Time `json:"created_at"`
+	Status    string    `json:"status"`
 }
 
 type Event struct {

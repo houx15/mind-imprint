@@ -25,7 +25,6 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
-	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -266,10 +265,7 @@ func TestWorkspaceJourney_Mainline(t *testing.T) {
 	if strings.TrimSpace(rec.Body.String()) == "null" {
 		t.Fatalf("evaluation-report is null after finish; want a report")
 	}
-	var report evalreport.Report
-	if err := json.Unmarshal(rec.Body.Bytes(), &report); err != nil {
-		t.Fatalf("decode evaluation report: %v — body=%s", err, rec.Body)
-	}
+	report := decodeReadyEnvelope(t, rec.Body.Bytes())
 	if report.ProjectID != pid {
 		t.Fatalf("evaluation-report.projectId = %q, want %q", report.ProjectID, pid)
 	}

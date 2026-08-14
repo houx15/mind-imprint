@@ -12,40 +12,53 @@ import (
 	"github.com/google/uuid"
 )
 
-const getLatestEvaluationReport = `-- name: GetLatestEvaluationReport :one
-SELECT id, project_id, version, report, created_at FROM evaluation_report
-WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT 1
+const claimEvaluationReportGeneration = `-- name: ClaimEvaluationReportGeneration :one
+INSERT INTO evaluation_report (project_id, version, status, report)
+VALUES ($1, 1, 'generating', NULL)
+ON CONFLICT (project_id) DO UPDATE
+  SET status = 'generating', report = NULL, created_at = now()
+  WHERE evaluation_report.status = 'failed'
+     OR (evaluation_report.status = 'generating'
+         AND evaluation_report.created_at < now() - interval '30 minutes')
+RETURNING id
 `
 
-func (q *Queries) GetLatestEvaluationReport(ctx context.Context, projectID uuid.UUID) (EvaluationReport, error) {
-	row := q.db.QueryRow(ctx, getLatestEvaluationReport, projectID)
-	var i EvaluationReport
-	err := row.Scan(
-		&i.ID,
-		&i.ProjectID,
-		&i.Version,
-		&i.Report,
-		&i.CreatedAt,
-	)
-	return i, err
+func (q *Queries) ClaimEvaluationReportGeneration(ctx context.Context, projectID uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, claimEvaluationReportGeneration, projectID)
+	var id uuid.UUID
+	err := row.Scan(&id)
+	return id, err
 }
 
-const insertEvaluationReport = `-- name: InsertEvaluationReport :one
-INSERT INTO evaluation_report (project_id, version, report)
-VALUES ($1, $2, $3)
-RETURNING id, project_id, version, report, created_at
+const completeEvaluationReport = `-- name: CompleteEvaluationReport :exec
+UPDATE evaluation_report SET report = $1, status = 'ready' WHERE project_id = $2
 `
 
-type InsertEvaluationReportParams struct {
-	ProjectID uuid.UUID `json:"project_id"`
-	Version   int32     `json:"version"`
+type CompleteEvaluationReportParams struct {
 	Report    []byte    `json:"report"`
+	ProjectID uuid.UUID `json:"project_id"`
 }
 
-func (q *Queries) InsertEvaluationReport(ctx context.Context, arg InsertEvaluationReportParams) (EvaluationReport, error) {
-	row := q.db.QueryRow(ctx, insertEvaluationReport, arg.ProjectID, arg.Version, arg.Report)
+func (q *Queries) CompleteEvaluationReport(ctx context.Context, arg CompleteEvaluationReportParams) error {
+	_, err := q.db.Exec(ctx, completeEvaluationReport, arg.Report, arg.ProjectID)
+	return err
+}
+
+const failEvaluationReport = `-- name: FailEvaluationReport :exec
+UPDATE evaluation_report SET status = 'failed' WHERE project_id = $1 AND status = 'generating'
+`
+
+func (q *Queries) FailEvaluationReport(ctx context.Context, projectID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, failEvaluationReport, projectID)
+	return err
+}
+
+const getEvaluationReport = `-- name: GetEvaluationReport :one
+SELECT id, project_id, version, report, created_at, status FROM evaluation_report WHERE project_id = $1
+`
+
+func (q *Queries) GetEvaluationReport(ctx context.Context, projectID uuid.UUID) (EvaluationReport, error) {
+	row := q.db.QueryRow(ctx, getEvaluationReport, projectID)
 	var i EvaluationReport
 	err := row.Scan(
 		&i.ID,
@@ -53,18 +66,17 @@ func (q *Queries) InsertEvaluationReport(ctx context.Context, arg InsertEvaluati
 		&i.Version,
 		&i.Report,
 		&i.CreatedAt,
+		&i.Status,
 	)
 	return i, err
 }
 
 const listEvaluationReports = `-- name: ListEvaluationReports :many
-SELECT DISTINCT ON (er.project_id)
-  er.project_id, er.created_at,
-  p.title, p.qualification
+SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
-WHERE p.user_id = $1
-ORDER BY er.project_id, er.created_at DESC
+WHERE p.user_id = $1 AND er.status = 'ready'
+ORDER BY er.created_at DESC
 `
 
 type ListEvaluationReportsRow struct {
@@ -74,7 +86,7 @@ type ListEvaluationReportsRow struct {
 	Qualification string    `json:"qualification"`
 }
 
-// Timeline for one student: newest report per finished project they own.
+// Timeline for one student: only fully-generated reports.
 func (q *Queries) ListEvaluationReports(ctx context.Context, userID uuid.UUID) ([]ListEvaluationReportsRow, error) {
 	rows, err := q.db.Query(ctx, listEvaluationReports, userID)
 	if err != nil {

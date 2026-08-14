@@ -17,7 +17,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	. "mindimprint/api/internal/api"
-	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -57,10 +56,7 @@ func TestEvaluationReport_GenerateThenRead(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("GET evaluation-report (after generate) = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
-	var rep evalreport.Report
-	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
-		t.Fatalf("decode evaluation report: %v — body=%s", err, rec.Body)
-	}
+	rep := decodeReadyEnvelope(t, rec.Body.Bytes())
 	if len(rep.Depth) != 6 {
 		t.Fatalf("report.Depth len = %d, want 6", len(rep.Depth))
 	}
@@ -78,10 +74,7 @@ func TestEvaluationReport_GenerateThenRead(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("second POST evaluation-report/generate = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
-	var rep2 evalreport.Report
-	if err := json.Unmarshal(rec.Body.Bytes(), &rep2); err != nil {
-		t.Fatalf("decode second evaluation report: %v — body=%s", err, rec.Body)
-	}
+	rep2 := decodeReadyEnvelope(t, rec.Body.Bytes())
 	if rep2.ReportID != rep.ReportID {
 		t.Fatalf("second generate produced a different report (reportId %q vs %q) — want first-open-wins", rep2.ReportID, rep.ReportID)
 	}
@@ -171,10 +164,7 @@ func TestEvaluationReport_TeacherReadsStudentReport(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("teacher GET evaluation-report = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
-	var rep evalreport.Report
-	if err := json.Unmarshal(rec.Body.Bytes(), &rep); err != nil {
-		t.Fatalf("decode teacher evaluation report: %v — body=%s", err, rec.Body)
-	}
+	rep := decodeReadyEnvelope(t, rec.Body.Bytes())
 	if rep.ProjectID != proj.ID.String() {
 		t.Fatalf("report.ProjectID = %q, want %q", rep.ProjectID, proj.ID.String())
 	}

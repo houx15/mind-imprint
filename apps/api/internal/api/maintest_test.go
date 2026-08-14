@@ -23,6 +23,7 @@ import (
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/auth"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
@@ -201,6 +202,27 @@ func countAllLLMCalls(t *testing.T, pool *pgxpool.Pool) int {
 		t.Fatalf("count all llm_call rows: %v", err)
 	}
 	return n
+}
+
+// decodeReadyEnvelope decodes a GET/POST evaluation-report response body,
+// asserting it is the "ready" envelope ({"status":"ready","report":{…}}) and
+// returning the unwrapped evalreport.Report — the shared shape most
+// evaluation-report tests care about (Task 4, retire-old-evaluation-pipeline:
+// the read endpoints moved from returning the report directly to this
+// three-state envelope).
+func decodeReadyEnvelope(t *testing.T, body []byte) evalreport.Report {
+	t.Helper()
+	var envelope struct {
+		Status string            `json:"status"`
+		Report evalreport.Report `json:"report"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		t.Fatalf("decode evaluation-report envelope: %v — body=%s", err, body)
+	}
+	if envelope.Status != "ready" {
+		t.Fatalf("evaluation-report envelope status = %q, want ready; body=%s", envelope.Status, body)
+	}
+	return envelope.Report
 }
 
 // withCookie attaches c to req and returns it (for inline request building).

@@ -1,20 +1,26 @@
--- name: InsertEvaluationReport :one
-INSERT INTO evaluation_report (project_id, version, report)
-VALUES (@project_id, @version, @report)
-RETURNING *;
+-- name: ClaimEvaluationReportGeneration :one
+INSERT INTO evaluation_report (project_id, version, status, report)
+VALUES (@project_id, 1, 'generating', NULL)
+ON CONFLICT (project_id) DO UPDATE
+  SET status = 'generating', report = NULL, created_at = now()
+  WHERE evaluation_report.status = 'failed'
+     OR (evaluation_report.status = 'generating'
+         AND evaluation_report.created_at < now() - interval '30 minutes')
+RETURNING id;
 
--- name: GetLatestEvaluationReport :one
-SELECT * FROM evaluation_report
-WHERE project_id = @project_id
-ORDER BY created_at DESC
-LIMIT 1;
+-- name: CompleteEvaluationReport :exec
+UPDATE evaluation_report SET report = @report, status = 'ready' WHERE project_id = @project_id;
+
+-- name: FailEvaluationReport :exec
+UPDATE evaluation_report SET status = 'failed' WHERE project_id = @project_id AND status = 'generating';
+
+-- name: GetEvaluationReport :one
+SELECT * FROM evaluation_report WHERE project_id = @project_id;
 
 -- name: ListEvaluationReports :many
--- Timeline for one student: newest report per finished project they own.
-SELECT DISTINCT ON (er.project_id)
-  er.project_id, er.created_at,
-  p.title, p.qualification
+-- Timeline for one student: only fully-generated reports.
+SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
-WHERE p.user_id = @user_id
-ORDER BY er.project_id, er.created_at DESC;
+WHERE p.user_id = @user_id AND er.status = 'ready'
+ORDER BY er.created_at DESC;

@@ -24,7 +24,6 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
-	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -192,10 +191,7 @@ func TestFinishProject_SuccessMarksFinishedAndPersistsEvaluationReport(t *testin
 	if recRep.Code != http.StatusOK {
 		t.Fatalf("GET evaluation-report = %d, want 200; body=%s", recRep.Code, recRep.Body)
 	}
-	var rep evalreport.Report
-	if err := json.Unmarshal(recRep.Body.Bytes(), &rep); err != nil {
-		t.Fatalf("decode evaluation report: %v — body=%s", err, recRep.Body)
-	}
+	rep := decodeReadyEnvelope(t, recRep.Body.Bytes())
 	if rep.ProjectID != projectID {
 		t.Fatalf("report.ProjectID = %q, want %q", rep.ProjectID, projectID)
 	}
