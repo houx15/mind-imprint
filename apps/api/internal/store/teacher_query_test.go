@@ -135,12 +135,24 @@ func TestTeacherReadPathQueries(t *testing.T) {
 	wantActiveDays := int32(3)
 	wantTurns := int32(3)
 
-	// --- ListClassRosterReport: only student A in class A, never student B -----
-	roster, err := q.ListClassRosterReport(ctx, sqlc.ListClassRosterReportParams{
-		ClassID: classA, WeekStart: weekStart, WeekEnd: weekEnd,
-	})
+	// Student A also gets a ready evaluation_report on her project, so
+	// ListClassRosterCounts' report_count lateral has something to count (the
+	// `evaluations` row seeded above feeds the OLD dual-axis pipeline —
+	// GetLatestReportScoresForStudent/ListStudentReportsForTeacher below — but
+	// the roster's report_count now reads the NEW evaluation_report table).
+	if _, err := q.ClaimEvaluationReportGeneration(ctx, projectID); err != nil {
+		t.Fatalf("claim evaluation report: %v", err)
+	}
+	if err := q.CompleteEvaluationReport(ctx, sqlc.CompleteEvaluationReportParams{
+		ProjectID: projectID, Report: []byte(`{"version":1}`),
+	}); err != nil {
+		t.Fatalf("complete evaluation report: %v", err)
+	}
+
+	// --- ListClassRosterCounts: only student A in class A, never student B -----
+	roster, err := q.ListClassRosterCounts(ctx, classA)
 	if err != nil {
-		t.Fatalf("ListClassRosterReport: %v", err)
+		t.Fatalf("ListClassRosterCounts: %v", err)
 	}
 	if len(roster) != 1 {
 		t.Fatalf("roster has %d rows, want 1 (student A only, student B in a different class excluded)", len(roster))
@@ -149,18 +161,14 @@ func TestTeacherReadPathQueries(t *testing.T) {
 	if row.ID != studentA {
 		t.Fatalf("roster row id = %v, want student A", row.ID)
 	}
-	if row.ActiveDays != wantActiveDays {
-		t.Errorf("active_days = %d, want %d", row.ActiveDays, wantActiveDays)
+	if row.ActiveProjects != 1 {
+		t.Errorf("active_projects = %d, want 1", row.ActiveProjects)
 	}
-	if row.Turns != wantTurns {
-		t.Errorf("turns = %d, want %d", row.Turns, wantTurns)
+	if row.ReportCount != 1 {
+		t.Errorf("report_count = %d, want 1", row.ReportCount)
 	}
-	hasReport, ok := row.HasReport.(bool)
-	if !ok || !hasReport {
-		t.Errorf("has_report = %#v, want true", row.HasReport)
-	}
-	if row.LatestProjectScores == nil {
-		t.Error("latest_project_scores is nil, want the seeded report bytes")
+	if row.CoursesFinished != 0 {
+		t.Errorf("courses_finished = %d, want 0 (none seeded)", row.CoursesFinished)
 	}
 
 	// --- GetStudentUsageForTeacher matches the roster's own count ---------------
@@ -213,12 +221,16 @@ func TestTeacherReadPathQueries(t *testing.T) {
 }
 
 // TestTeacherReadPathSeedData asserts migration 0029's demo data (吴老师's
-// IBDP 一年级 · 研究组, 9 students, 3 with CASE-derived evaluations) is shaped
-// the way the teacher read-path endpoints need: exactly 9 roster rows with
-// exactly 4 has_report=true (林/沈/周 from 0029, plus 吴桐 whom 0034 gives a
-// second, later report so 深度升档 has a baseline), and 林知远's project
-// evaluation unmarshals to a full agent.Report (6 depth dims, non-nil
-// officialProjection).
+// IBDP 一年级 · 研究组, 9 students) is shaped the way the teacher read-path
+// endpoints need: exactly 9 roster rows via ListClassRosterCounts (the old
+// has_report=4 assertion this test used to make is retired — it read the
+// OLD `evaluations` pipeline migrations 0029/0034 seed into, but
+// ListClassRosterCounts' report_count now reads the NEW evaluation_report
+// table, which this seed data never populates, so every seeded student's
+// report_count is legitimately 0; TestRosterReportHappyPath in
+// internal/api/teacher_read_test.go covers report_count=1 with a freshly
+// seeded evaluation_report row instead), and 林知远's project evaluation
+// unmarshals to a full agent.Report (6 depth dims, non-nil officialProjection).
 func TestTeacherReadPathSeedData(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -230,30 +242,12 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 	seededClass := uuid.MustParse("00000000-0000-0000-0000-000000000902")
 	lin := uuid.MustParse("00000000-0000-0000-0000-000000000911")
 
-	// A window wide enough to be unaffected by where "now" falls relative to
-	// the ISO week boundary (has_report/latest_project_scores don't depend on
-	// the window at all; active_days/turns do, but this test doesn't assert
-	// on those — only on report presence/shape).
-	wideStart := time.Now().AddDate(0, -1, 0)
-	wideEnd := time.Now().AddDate(0, 1, 0)
-
-	roster, err := q.ListClassRosterReport(ctx, sqlc.ListClassRosterReportParams{
-		ClassID: seededClass, WeekStart: wideStart, WeekEnd: wideEnd,
-	})
+	roster, err := q.ListClassRosterCounts(ctx, seededClass)
 	if err != nil {
-		t.Fatalf("ListClassRosterReport(seeded class): %v", err)
+		t.Fatalf("ListClassRosterCounts(seeded class): %v", err)
 	}
 	if len(roster) != 9 {
 		t.Fatalf("seeded roster has %d rows, want 9", len(roster))
-	}
-	haveReport := 0
-	for _, row := range roster {
-		if hr, _ := row.HasReport.(bool); hr {
-			haveReport++
-		}
-	}
-	if haveReport != 4 {
-		t.Fatalf("seeded roster has %d has_report=true rows, want 4 (林/沈/周 from 0029, 吴桐 from 0034)", haveReport)
 	}
 
 	// GetStudentProjectEvaluationForTeacher (the old per-project teacher read)
@@ -288,13 +282,18 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 // TestActiveDaysPinnedToUTCAcrossSessionTimeZone guards FIX 2 of the
 // whole-branch review: teacher.sql's active-days bucketing must be pinned to
 // UTC via `AT TIME ZONE 'UTC'`, not the DB session's TimeZone GUC. It seeds
-// one event per hour across the entire UTC week window and runs both
-// active-days queries (GetStudentUsageForTeacher, ListClassRosterReport) over
-// a connection whose session TimeZone is forced to Asia/Shanghai (UTC+8) —
-// under the pre-fix `(created_at)::date` cast, that offset shifts the
-// early-morning UTC hours into the FOLLOWING local calendar day, so a 7×24h
-// UTC window reads as 8 distinct active days. The fix must hold at exactly 7
-// regardless of the session's timezone.
+// one event per hour across the entire UTC week window and runs
+// GetStudentUsageForTeacher (student-detail head's active-days query — the
+// roster's own active_days/turns fields were retired along with
+// ListClassRosterReport, see ListClassRosterCounts; the roster's replacement
+// windowed count, GetClassLiveHeader's active_students, does a plain
+// timestamptz range comparison with no `::date` cast, so it has no
+// session-timezone exposure to guard here) over a connection whose session
+// TimeZone is forced to Asia/Shanghai (UTC+8) — under the pre-fix
+// `(created_at)::date` cast, that offset shifts the early-morning UTC hours
+// into the FOLLOWING local calendar day, so a 7×24h UTC window reads as 8
+// distinct active days. The fix must hold at exactly 7 regardless of the
+// session's timezone.
 func TestActiveDaysPinnedToUTCAcrossSessionTimeZone(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -356,19 +355,6 @@ func TestActiveDaysPinnedToUTCAcrossSessionTimeZone(t *testing.T) {
 	}
 	if usage.ActiveDays != 7 {
 		t.Fatalf("GetStudentUsageForTeacher active_days = %d under an Asia/Shanghai session, want 7 (UTC-pinned)", usage.ActiveDays)
-	}
-
-	roster, err := q.ListClassRosterReport(ctx, sqlc.ListClassRosterReportParams{
-		ClassID: classID, WeekStart: weekStart, WeekEnd: weekEnd,
-	})
-	if err != nil {
-		t.Fatalf("ListClassRosterReport: %v", err)
-	}
-	if len(roster) != 1 {
-		t.Fatalf("roster has %d rows, want 1", len(roster))
-	}
-	if roster[0].ActiveDays != 7 {
-		t.Fatalf("ListClassRosterReport active_days = %d under an Asia/Shanghai session, want 7 (UTC-pinned)", roster[0].ActiveDays)
 	}
 }
 
