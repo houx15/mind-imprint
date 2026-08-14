@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Mirror, Proposal, ProjectStatus } from "@mind-imprint/contracts";
+import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
@@ -12,8 +12,6 @@ import { reflectionPrompts } from "./mockData";
 import {
   getReflection,
   putReflection,
-  getMirror,
-  postMirror,
   getAIUseDraft,
   postAIUse,
   coach,
@@ -67,9 +65,6 @@ export function ReviewBlock({
   const [done, setDone] = useState(false);
   const [markingDone, setMarkingDone] = useState(false);
   const [markDoneError, setMarkDoneError] = useState<string | null>(null);
-  // #21 · the mirror is READY (composed + on screen) — gates 定稿并评估 so the AI
-  // reflects only after the student did, and she sees it before finalizing.
-  const [mirrorReady, setMirrorReady] = useState(false);
   const [finishing, setFinishing] = useState(false);
   const [finishError, setFinishError] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -128,8 +123,8 @@ export function ReviewBlock({
   }
 
   // #21 · step (a) 「我写完了我的反思」: persist answers with done=true. This does
-  // NOT finish the project — it unlocks the mirror (the AI reflects only after
-  // the student did). MirrorPane composes once canCompose flips true.
+  // NOT finish the project — it just marks her reflection done so 定稿并开始评估
+  // unlocks (the AI reflects second, as the evaluation report on finalize).
   async function finishReflection() {
     if (markingDone || done) return;
     setMarkingDone(true);
@@ -151,8 +146,8 @@ export function ReviewBlock({
   // it kicks off the flagship process assessment in the background and returns
   // status "evaluating" immediately; we open a modal that sends the student back
   // to 全部项目 (where the report shows up later as "评估中" → "已完成"). Enabled
-  // only after the mirror is on screen. A 422 means a server gate still isn't
-  // satisfied (writing not finished / reflection not done) — surface it inline.
+  // once the student marked her reflection done. A 422 means a server gate still
+  // isn't satisfied (writing not finished / reflection not done) — surface it inline.
   async function finalizeAndEvaluate() {
     if (finishing) return;
     setFinishing(true);
@@ -274,10 +269,10 @@ export function ReviewBlock({
                       <span className="text-[14px] text-mk-faint">写完后，印记才会照着你的全过程给你一面镜子——然后你再定稿评估。</span>
                     )}
                   </>
-                ) : !mirrorReady ? (
-                  <span className="text-[14px] font-semibold text-mk-accent">印记正在照镜子……看看右侧的思维印记，然后就可以定稿评估。</span>
                 ) : (
-                  // #21 · step (b): the mirror is on screen → finalize & assess.
+                  // #21 · step (b): reflection done → finalize & assess. The AI's
+                  // "mirror" is now the evaluation report itself, generated on
+                  // finalize (the old inline /mirror pane was retired).
                   <>
                     <button
                       type="button"
@@ -305,21 +300,16 @@ export function ReviewBlock({
           AiPanel (Task 4), on the shared `ChatLog`/`Composer` (Task 5's
           pattern). While she's editing, the panel is the ACTIVE coach
           (「印记陪你把回顾写完」+ the reflection card shelf + 问印记 chat), so
-          help is visible the whole time. Once she marks her OWN reflection
-          done (#21 mutual-reflection order — unchanged), the panel becomes
-          the mirror ("你的思维印记"), which composes only then. Before 完成写作
-          unlocks the room, the mirror's own locked placeholder shows instead
-          (nothing to coach yet). */}
+          help is visible the whole time. Once she marks her OWN reflection done
+          (#21 mutual-reflection order — unchanged), the panel shows a calm
+          hand-off note: the AI's "mirror" is now the evaluation report, composed
+          on 定稿并评估 (the old inline /mirror pane was retired). */}
       {slot &&
         createPortal(
           writingFinished && !done && !archived ? (
             <ReviewCoachThread projectId={projectId} locked={done} />
           ) : (
-            <MirrorPane
-              projectId={projectId}
-              canCompose={writingFinished && (done || archived)}
-              onReady={setMirrorReady}
-            />
+            <MirrorHandoffPane locked={!writingFinished} />
           ),
           slot,
         )}
@@ -598,56 +588,14 @@ function ReviewCoachThread({ projectId, locked }: { projectId: string; locked: b
   );
 }
 
-/* ---------- AI panel · the "你的思维印记" mirror ---------- */
+/* ---------- AI panel · 回顾 hand-off note ----------
+   The old inline "你的思维印记" mirror was retired with the dual-axis pipeline.
+   The AI's reflection is now the full evaluation report, composed on 定稿并评估
+   and read on the report page — so after the student finishes her own reflection
+   this panel is just a calm hand-off note, not a live compose. `locked` = writing
+   isn't finished yet (nothing to reflect on). */
 
-function MirrorPane({
-  projectId,
-  canCompose,
-  onReady,
-}: {
-  projectId: string;
-  // #21 · the mirror composes ONLY after the student finished her own reflection.
-  // While false, the pane shows a "the mirror comes after you reflect" note and
-  // never fetches/composes — the AI reflects second, not first.
-  canCompose: boolean;
-  onReady: (ready: boolean) => void;
-}) {
-  const [mirror, setMirror] = useState<Mirror | null>(null);
-  const [composing, setComposing] = useState(false);
-
-  // Once canCompose flips true (the student marked her reflection done), GET the
-  // stored mirror; if none exists yet, POST once to compose it (first-open-wins
-  // on the server). onReady(true) once a mirror is on screen — that gates the
-  // 定稿并评估 step so she reflects first and sees the mirror before finalizing.
-  useEffect(() => {
-    if (!canCompose) {
-      setMirror(null);
-      setComposing(false);
-      onReady(false);
-      return;
-    }
-    let cancelled = false;
-    setComposing(true);
-    (async () => {
-      try {
-        let m = await getMirror(projectId);
-        if (m == null) m = await postMirror(projectId);
-        if (!cancelled) {
-          setMirror(m);
-          onReady(m != null);
-        }
-      } catch {
-        /* leave the empty state; a reopen retries */
-      } finally {
-        if (!cancelled) setComposing(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projectId, canCompose]);
-
+function MirrorHandoffPane({ locked }: { locked: boolean }) {
   return (
     <div className="flex h-full flex-col gap-3 p-4">
       <header className="flex-none">
@@ -659,38 +607,14 @@ function MirrorPane({
       </header>
 
       <div className="min-h-0 flex-1 overflow-y-auto pr-1">
-        {!canCompose ? (
-          <p className="text-[14px] leading-relaxed text-mk-faint">先写下你自己的反思，点「我写完了我的反思」，印记才会照着你的全过程给你一面镜子——你先说，AI 后照。</p>
-        ) : composing && !mirror ? (
-          <p className="text-[14px] leading-relaxed text-mk-faint">印记正在回看你的全过程，整理这份思维印记……</p>
-        ) : !mirror ? (
+        {locked ? (
           <p className="text-[14px] leading-relaxed text-mk-faint">
-            这份印记还没能整理出来——稍后重新打开回顾再看看。
+            先写下你自己的反思，点「我写完了我的反思」——你先说，AI 后照。
           </p>
         ) : (
-          <>
-            <div className="flex flex-col gap-4">
-              {mirror.sections.map((s, i) => (
-                <div key={i} className="border-l-2 border-mk-accent/30 pl-3">
-                  <p className="text-[12px] font-bold text-mk-accent">{s.title}</p>
-                  <p className="mt-1 text-[14px] leading-relaxed text-mk-ink">{s.body}</p>
-                </div>
-              ))}
-            </div>
-
-            {mirror.carryForwards.length > 0 && (
-              <div className="mt-6 rounded-mk-lg border border-mk-butter/40 bg-mk-butter-bg p-4">
-                <p className="mb-2 flex items-center gap-1.5 text-[12px] font-bold text-mk-butter-fg">
-                  <Icon name="arrow" size={14} /> 带走这两点
-                </p>
-                <ul className="flex flex-col gap-2">
-                  {mirror.carryForwards.map((c, i) => (
-                    <li key={i} className="text-[14px] leading-relaxed text-mk-ink">· {c}</li>
-                  ))}
-                </ul>
-              </div>
-            )}
-          </>
+          <p className="text-[14px] leading-relaxed text-mk-faint">
+            你写完了自己的反思。点「定稿并开始评估」后，印记会照着你的全过程整理出一份过程评估报告——那就是你的思维印记，可在「全部项目 / 评估」里打开查看。
+          </p>
         )}
       </div>
     </div>

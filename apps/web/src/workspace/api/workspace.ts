@@ -13,7 +13,6 @@ import {
   Snippet,
   Annotation,
   ReflectionDoc,
-  Mirror,
   AIUseDraft as AIUseDraftSchema,
   AIUseStatement as AIUseStatementSchema,
   CardReflectReply,
@@ -496,20 +495,9 @@ export async function putReflection(
   return ReflectionDoc.parse(raw);
 }
 
-// GET /mirror — the stored mirror, or null when it hasn't been composed yet.
-// Never triggers an LLM call (that's POST /mirror's job, first-open-wins).
-export async function getMirror(id: string): Promise<Mirror | null> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/mirror`);
-  if (raw === null) return null;
-  return Mirror.parse(raw);
-}
-
-// POST /mirror — first-open-wins: returns the stored mirror if present (no
-// spend), else composes once (flagship) + stores. The one spend endpoint here.
-export async function postMirror(id: string): Promise<Mirror> {
-  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/mirror`, { method: "POST" });
-  return Mirror.parse(raw);
-}
+// NOTE: the old GET/POST /mirror endpoints (the "你的思维印记" inline mirror) were
+// retired with the dual-axis evaluation pipeline. The AI's reflection is now the
+// full evaluation report, composed on 定稿并开始评估 and read on the report page.
 
 // POST /references/{rid}/enter-reading — ensure a readable material (fetch from
 // url on first entry) and return its full MaterialSource DTO. 422 → the typed
