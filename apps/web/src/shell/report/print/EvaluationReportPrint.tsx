@@ -1,6 +1,7 @@
 import type { EvaluationReport } from "@mind-imprint/contracts";
 import { AboutReport, Cover } from "./parts";
 import { MaterialsSection, SummarySection, TimelineSection } from "./sections";
+import { DepthSection } from "./axis";
 
 export function EvaluationReportPrint({ report }: { report: EvaluationReport }) {
   return (
@@ -10,6 +11,7 @@ export function EvaluationReportPrint({ report }: { report: EvaluationReport }) 
       <SummarySection report={report} />
       <TimelineSection events={report.events} />
       <MaterialsSection materials={report.materials} />
+      <DepthSection dims={report.depth} />
     </div>
   );
 }
