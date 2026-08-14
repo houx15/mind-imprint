@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DUALAXIS_MODEL, DepthDims } from "@mind-imprint/contracts";
 import { MOCK_EVALUATION_REPORT as R } from "../EvaluationReport/__fixtures__/mock";
 import { EvaluationReportPrint } from "./EvaluationReportPrint";
-import { DEPTH_RAMP } from "../EvaluationReport/tokens";
+import { AUTONOMY_RAMP, DEPTH_RAMP } from "../EvaluationReport/tokens";
 
 afterEach(cleanup);
 
@@ -51,5 +51,17 @@ describe("EvaluationReportPrint — 认知深度 D", () => {
     for (const rung of ["L1", "L2", "L3", "L4"] as const) {
       expect(screen.getByText(model.anchors[rung])).toBeInTheDocument();
     }
+  });
+});
+
+describe("EvaluationReportPrint — 智识自主 A", () => {
+  it("shows the band scale as reference, marks no cell, prints no band number", () => {
+    const { container } = render(<EvaluationReportPrint report={R} />);
+    expect(screen.getByText("智识自主 A · 是否自己驱动认知")).toBeInTheDocument();
+    const a0 = R.autonomy[0]!;
+    const chip = container.querySelector(`[data-color-chip="${a0.id}"]`) as HTMLElement | null;
+    expect(chip).not.toBeNull();
+    expect(chip!.style.background).toContain(hexToRgb(AUTONOMY_RAMP[a0.band]!));
+    expect(container.querySelector("[data-current], [data-current-band]")).toBeNull();
   });
 });
