@@ -65,3 +65,25 @@ describe("EvaluationReportPrint — 智识自主 A", () => {
     expect(container.querySelector("[data-current], [data-current-band]")).toBeNull();
   });
 });
+
+describe("EvaluationReportPrint — lens, tools, risks", () => {
+  it("renders lens + tool sections", () => {
+    render(<EvaluationReportPrint report={R} />);
+    expect(screen.getByText("提问透镜")).toBeInTheDocument();
+    expect(screen.getByText("工具卡与子代理")).toBeInTheDocument();
+  });
+
+  it("shows the positive statement when risks are empty", () => {
+    render(<EvaluationReportPrint report={{ ...R, risks: [] }} />);
+    expect(screen.getByText("本次评估未发现需要提示的风险行为。")).toBeInTheDocument();
+  });
+
+  it("shows a risk table when risks are present", () => {
+    const withRisk = {
+      ...R,
+      risks: [{ type: "missing-source" as const, behaviour: "引用了未溯源的网页", suggestion: "补一手出处" }],
+    };
+    render(<EvaluationReportPrint report={withRisk} />);
+    expect(screen.getByText("引用了未溯源的网页")).toBeInTheDocument();
+  });
+});

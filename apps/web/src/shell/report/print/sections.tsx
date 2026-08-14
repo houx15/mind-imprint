@@ -1,4 +1,5 @@
-import type { EvaluationReport, EventEntry, MaterialEntry } from "@mind-imprint/contracts";
+import type { EvaluationReport, EventEntry, MaterialEntry, PromptLens, RiskEntry, ToolUsageEntry } from "@mind-imprint/contracts";
+import { DUALAXIS_MODEL } from "@mind-imprint/contracts";
 import { PrintSection, PrintTable } from "./parts";
 
 export function SummarySection({ report }: { report: EvaluationReport }) {
@@ -66,6 +67,66 @@ export function MaterialsSection({ materials }: { materials: MaterialEntry[] }) 
           m.cannotSupport || "—",
         ])}
       />
+    </PrintSection>
+  );
+}
+
+const RISK_LABEL: Record<RiskEntry["type"], string> = {
+  "ai-ghostwrite": "AI 代写", "missing-source": "缺来源", "argument-logic": "论证逻辑",
+  "data-scope": "数据范围", "rabbit-hole-offtopic": "跑题兔子洞",
+};
+
+export function PromptLensSection({ promptLens }: { promptLens: PromptLens }) {
+  const lensList = DUALAXIS_MODEL.lenses.map((l) => l.name).join("、");
+  return (
+    <PrintSection
+      n="07"
+      title="提问透镜"
+      intro={`${DUALAXIS_MODEL.lensNote}它只读 AI 互动痕迹（如${lensList}），是给两轴补过程证据的旁证，不是第三根评分轴。`}
+    >
+      {promptLens.summary ? (
+        <p style={{ fontSize: 12.5, color: "var(--mk-ink)", lineHeight: 1.7, margin: "0 0 12px" }}>{promptLens.summary}</p>
+      ) : null}
+      <PrintTable
+        head={["阶段", "提问", "观察", "关联维度", "注意"]}
+        rows={promptLens.prompts.map((p) => [
+          p.stage, p.quote, p.observation, p.relatedDomains.join("、") || "—", p.attention ? "⚠" : "",
+        ])}
+      />
+    </PrintSection>
+  );
+}
+
+export function ToolUsageSection({ toolUsage }: { toolUsage: ToolUsageEntry[] }) {
+  return (
+    <PrintSection
+      n="08"
+      title="工具卡与子代理"
+      intro="思维工具卡是把「思考」在对的时刻塞回给学生的交互卡片——触发是自动的，但打开由学生自己确认（我们不强迫、不操纵）。下表记录这个项目里被真正用到的工具卡与其用途。"
+    >
+      <PrintTable
+        head={["工具", "阶段", "用途", "摘要"]}
+        rows={toolUsage.map((t) => [t.name, t.stage, t.purpose, t.summary])}
+      />
+    </PrintSection>
+  );
+}
+
+export function RisksSection({ risks }: { risks: RiskEntry[] }) {
+  return (
+    <PrintSection
+      n="09"
+      title="风险提示"
+      intro="风险提示是过程中值得和学生聊一聊的信号，不是定论，也不影响任何评级。"
+    >
+      {risks.length === 0 ? (
+        <p style={{ fontSize: 12.5, color: "var(--mk-secondary)", margin: 0 }}>本次评估未发现需要提示的风险行为。</p>
+      ) : (
+        <PrintTable
+          head={["类型", "行为", "建议"]}
+          rows={risks.map((r) => [RISK_LABEL[r.type] ?? r.type, r.behaviour, r.suggestion])}
+        />
+      )}
     </PrintSection>
   );
 }

@@ -107,10 +107,11 @@ export const PromptItem = z.object({
 }).strict();
 export type PromptItem = z.infer<typeof PromptItem>;
 
-const PromptLens = z.object({
+export const PromptLens = z.object({
   summary: z.string(),
   prompts: z.array(PromptItem),
 }).strict();
+export type PromptLens = z.infer<typeof PromptLens>;
 
 export const ToolUsageEntry = z.object({
   toolId: z.string(),

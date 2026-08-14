@@ -1,6 +1,6 @@
 import type { EvaluationReport } from "@mind-imprint/contracts";
 import { AboutReport, Cover } from "./parts";
-import { MaterialsSection, SummarySection, TimelineSection } from "./sections";
+import { MaterialsSection, PromptLensSection, RisksSection, SummarySection, TimelineSection, ToolUsageSection } from "./sections";
 import { AutonomySection, DepthSection } from "./axis";
 
 export function EvaluationReportPrint({ report }: { report: EvaluationReport }) {
@@ -13,6 +13,9 @@ export function EvaluationReportPrint({ report }: { report: EvaluationReport }) 
       <MaterialsSection materials={report.materials} />
       <DepthSection dims={report.depth} />
       <AutonomySection dims={report.autonomy} />
+      <PromptLensSection promptLens={report.promptLens} />
+      <ToolUsageSection toolUsage={report.toolUsage} />
+      <RisksSection risks={report.risks} />
     </div>
   );
 }
