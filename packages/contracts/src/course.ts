@@ -94,16 +94,6 @@ export const CourseProgress = z.object({
   updated_at: z.string(),
 });
 
-export const CourseReport = z.object({
-  title: z.string(),
-  goal: z.string(),
-  teaching_thread: z.string(),
-  completedStepTitles: z.array(z.string()),
-  cardIds: z.array(z.string()),
-  secondsSpent: z.number().int(),
-  quiz: z.object({ total: z.number().int(), correct: z.number().int() }),
-});
-
 export type CourseAsset = z.infer<typeof CourseAsset>;
 export type Interaction = z.infer<typeof Interaction>;
 export type RenderSegment = z.infer<typeof RenderSegment>;
@@ -113,4 +103,3 @@ export type CourseStructure = z.infer<typeof CourseStructure>;
 export type CourseSummary = z.infer<typeof CourseSummary>;
 export type CoursePlayerPayload = z.infer<typeof CoursePlayerPayload>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
-export type CourseReport = z.infer<typeof CourseReport>;

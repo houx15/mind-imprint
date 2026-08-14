@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { CourseSummary, CoursePlayerPayload, CourseReport as CourseReportT } from "@mind-imprint/contracts";
+import type { CourseSummary, CoursePlayerPayload } from "@mind-imprint/contracts";
 
 vi.mock("@/api", async (orig) => {
   const real = await orig<typeof import("@/api")>();
@@ -14,7 +14,6 @@ vi.mock("@/api", async (orig) => {
       saveCourseProgress: vi.fn(),
       answerCourseQuiz: vi.fn(),
       courseAsk: vi.fn(),
-      getCourseReport: vi.fn(),
       getCardsCatalog: vi.fn(),
     },
   };
@@ -44,16 +43,6 @@ const payload: CoursePlayerPayload = {
   audioKeys: {},
 };
 
-const report: CourseReportT = {
-  title: "一条网络信息，该不该信",
-  goal: "学会先追问信息的来源",
-  teaching_thread: "从接受说法转向追问来源。",
-  completedStepTitles: ["开场"],
-  cardIds: ["concession"],
-  secondsSpent: 120,
-  quiz: { total: 1, correct: 1 },
-};
-
 async function* gen(events: unknown[]) {
   for (const e of events) yield e;
 }
@@ -67,7 +56,6 @@ describe("CoursesContainer", () => {
     (api.saveCourseProgress as any).mockResolvedValue({ course_slug: "co1", current_ordinal: 0, completed_ordinals: [0], started_at: null, completed_at: null, updated_at: "" });
     (api.answerCourseQuiz as any).mockResolvedValue(undefined);
     (api.courseAsk as any).mockImplementation(() => gen([]));
-    (api.getCourseReport as any).mockResolvedValue(report);
     (api.getCardsCatalog as any).mockResolvedValue({ cards: [], theme: "light" });
   });
 
@@ -79,13 +67,12 @@ describe("CoursesContainer", () => {
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // grid header
   });
 
-  it("shows the course report after finishing the last (only) step", async () => {
+  it("shows the course-completion placeholder after finishing the last (only) step, with a back-to-courses affordance", async () => {
     render(<CoursesContainer />);
     fireEvent.click(await screen.findByText("开始学习"));
     await screen.findByText("开场正文。");
     fireEvent.click(screen.getByLabelText("完成课程"));
-    expect(await screen.findByText("学习报告 · 课程完成")).toBeInTheDocument();
-    expect(await screen.findByText("学会先追问信息的来源")).toBeInTheDocument();
+    expect(await screen.findByText("课程完成报告即将上线")).toBeInTheDocument();
     fireEvent.click(screen.getByText("返回课程"));
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // back to grid
   });

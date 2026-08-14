@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk } from "@/api/courses";
+import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, courseAsk } from "@/api/courses";
 
 afterEach(() => { vi.restoreAllMocks(); });
 
@@ -93,23 +93,6 @@ describe("answerCourseQuiz", () => {
     expect(url).toContain("/api/v1/courses/sustainability/quiz-answer");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual(body);
-  });
-});
-
-describe("getCourseReport", () => {
-  it("GETs the report endpoint and unwraps it", async () => {
-    const report = { title: "可持续", goal: "…", teaching_thread: "…", completedStepTitles: ["step1"], cardIds: ["craap"], secondsSpent: 120, quiz: { total: 2, correct: 1 } };
-    const spy = vi.fn(async () => new Response(
-      JSON.stringify({ report }),
-      { status: 200, headers: { "Content-Type": "application/json" } },
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    const result = await getCourseReport("sustainability");
-
-    const [url] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain("/api/v1/courses/sustainability/report");
-    expect(result).toEqual(report);
   });
 });
 

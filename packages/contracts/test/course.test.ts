@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RenderCache, Interaction, CoursePlayerPayload, CourseSummary, CourseReport } from "../src/course";
+import { RenderCache, Interaction, CoursePlayerPayload, CourseSummary } from "../src/course";
 
 describe("course v2 contracts", () => {
   it("parses an ordering interaction", () => {
@@ -24,9 +24,8 @@ describe("course v2 contracts", () => {
   it("rejects an unknown interaction type", () => {
     expect(() => Interaction.parse({ id: "x", type: "essay", prompt: "", options: [], correct_answer: [], explanation: "", remediation_questions: [] })).toThrow();
   });
-  it("summary + payload + report shapes", () => {
+  it("summary shape", () => {
     CourseSummary.parse({ slug: "a-mid", branch: "A", title: "t", blurb: "b", time_label: "20 分钟", card_ids: ["craap"], step_count: 4 });
-    CourseReport.parse({ title: "t", goal: "g", teaching_thread: "th", completedStepTitles: ["s1"], cardIds: ["craap"], secondsSpent: 600, quiz: { total: 4, correct: 3 } });
   });
 
   const basePayload = {
