@@ -4,12 +4,13 @@
 
 **Goal:** Rebuild the teacher console to run entirely on cheap no-LLM activity metrics (removing all D/A axis dependence on the now-unwritten `evaluations`), split the class page into a narrated last-completed-week report (View A) and a live DB-only roster (View B), and re-skin every console file onto the app's `mk-*` tokens + `@/ui` primitives.
 
-**Architecture:** Backend first (queries → rule layer → composer → handlers → retirement), each compiler-gated; then frontend contracts, then the two-view UI + full token re-skin. The weekly narrative keeps its existing generate-once-per-(class,week) lifecycle (lazy on first open, cached forever) — only the *facts* change from axis to activity, and the *window* shifts from the in-progress week to the last completed week.
+**Architecture:** Backend first (window helpers → roster → weekly → student-detail/retirement), each keeping `go build ./...` green; then frontend contracts, then the two-view UI + full token re-skin. The weekly narrative keeps its existing generate-once-per-(class,week) lifecycle (lazy on first open, cached forever) — only the *facts* change from axis to activity, and the *window* shifts from the in-progress week to the last completed week.
 
 **Tech Stack:** Go (`net/http` + `pgx` + `sqlc` + `goose`), React + Vite + TS + Tailwind (`mk-*` tokens, `@/ui`). Spec: `docs/superpowers/specs/2026-08-14-teacher-end-activity-migration-design.md`.
 
 ## Global Constraints
 
+- **Every commit compiles.** `go build ./...` must stay green after each backend task and `npm run build` after each frontend task (except Task 5, the contract flip, which intentionally leaves `src/console/*` failing until Tasks 6–9 — that one file's failures are expected and scoped to console).
 - **Activity metrics only in the teacher path.** No `agent.Report`, no `teacher.DBadge/ABadge`, no `student_evaluation`/`evaluations` reads anywhere the teacher console touches. Every number comes from `event` / `project` / `evaluation_report` / `course_progress`.
 - **KEEP (shared — do not touch):** `internal/agent/report_types.go` (`agent.Report` — still used by `studio.ReportDTO`), `internal/studio/report_dto.go`, `internal/rubric/`, `packages/contracts/src/dualaxis.json`. The `evaluations` / `student_evaluation` / `llm_usage` tables stay **physically intact** as a frozen cost ledger — the teacher path just stops reading them. No migration drops them.
 - **Definitions (schema-verified):** active project = `project.status = 'active'`; course finished = `course_progress.completed_at IS NOT NULL`; report count = `evaluation_report.status = 'ready'` joined to the student's `project`.
@@ -23,26 +24,24 @@
 ## File Structure
 
 **Backend (`apps/api`):**
-- `internal/teacher/week.go` — MODIFY: add completed-week window + validation helpers.
-- `internal/store/queries/teacher.sql` — MODIFY: replace `ListClassRosterReport` with count-based `ListClassRosterCounts`; add `GetClassLiveHeader`; repoint `ListStudentProjectsForTeacher`; delete `GetLatestReportScoresForStudent`, `ListStudentReportsForTeacher`.
-- `internal/store/queries/teacher_weekly.sql` — MODIFY: repoint `GetClassWeekStats` reports arm; replace `ListClassStudentWindowUsage` with `ListClassStudentWeekActivity`; delete `ListClassRecentReports`.
-- `internal/teacher/weekly.go` — REWRITE: activity-metric rule layer; delete axis code.
-- `internal/teacher/badges.go` — DELETE.
-- `internal/agent/compose_weekly.go` — MODIFY: facts/prompt/prose/validation drop axis.
-- `internal/api/teacher_weekly.go` — MODIFY: completed-week window + `weekStart` param; DTO drops depth/autonomy.
-- `internal/api/teacher_read.go` — MODIFY: roster handler → counts + live header; student-detail head drops badges; records repointed; remove dead `ReportContext`/`TeacherReportDTO` if unreferenced.
-- `internal/store/migrations/0067_truncate_weekly_prose_cache.sql` — CREATE.
+- `internal/teacher/week.go` — MODIFY (Task 1): add completed-week window + validation helpers.
+- `internal/store/queries/teacher.sql` — MODIFY: replace `ListClassRosterReport` with `ListClassRosterCounts`; add `GetClassLiveHeader` (Task 2); repoint `ListStudentProjectsForTeacher`, add `CountFinishedCoursesForStudent`, delete `GetLatestReportScoresForStudent`/`ListStudentReportsForTeacher` (Task 4).
+- `internal/store/queries/teacher_weekly.sql` — MODIFY (Task 3): repoint `GetClassWeekStats` reports arm; replace `ListClassStudentWindowUsage` with `ListClassStudentWeekActivity`; delete `ListClassRecentReports`.
+- `internal/teacher/weekly.go` — REWRITE (Task 3): activity-metric rule layer.
+- `internal/agent/compose_weekly.go` — MODIFY (Task 3): facts/prompt/prose/validation drop axis.
+- `internal/api/teacher_weekly.go` — MODIFY (Task 3): completed-week window + `weekStart` param; DTO drops depth/autonomy.
+- `internal/store/migrations/0067_truncate_weekly_prose_cache.sql` — CREATE (Task 3).
+- `internal/teacher/badges.go` — DELETE (Task 4, once its last caller is gone).
+- `internal/api/teacher_read.go` — MODIFY: roster handler → counts + live header (Task 2); student-detail head drops badges, records repointed, remove dead `ReportContext`/`TeacherReportDTO` (Task 4).
 - Test files in `internal/teacher/`, `internal/agent/`, `internal/api/` — MODIFY to new shapes.
 
 **Frontend (`apps/web`):**
-- `src/api/teacher.ts` — MODIFY: new `RosterEntry`, `ClassLiveHeader`, `WeeklyReport` (no axis), `weekStart` param, `StudentDetail` (no badges).
-- `src/console/ClassWeeklyView.tsx` — MODIFY: remove 班级思维维度; week nav; reskin.
-- `src/console/ClassRosterTable.tsx` — MODIFY: new columns; reskin.
-- `src/console/ClassDetailView.tsx` — MODIFY: live header + tab labels; reskin.
-- `src/console/StudentDetailView.tsx` — MODIFY: drop D/A head badges; reskin.
-- `src/console/TeacherReportView.tsx` — MODIFY: `generating` polling; reskin chrome.
-- `src/console/ConsoleShell.tsx`, `ConsoleRail.tsx`, `ClassesView.tsx` — MODIFY: reskin.
-- `src/console/badgeColor.ts` — DELETE.
+- `src/api/teacher.ts` — MODIFY (Task 5): new `RosterEntry`, `ClassLiveHeader`, `WeeklyReport` (no axis), `weekStart` param, `StudentDetail` (no badges).
+- `src/console/ClassWeeklyView.tsx` — MODIFY (Task 6): remove 班级思维维度; week nav; reskin.
+- `src/console/ClassRosterTable.tsx`, `ClassDetailView.tsx` — MODIFY (Task 7): new columns + live header; reskin.
+- `src/console/StudentDetailView.tsx`, `TeacherReportView.tsx` — MODIFY (Task 8): drop D/A head badges; polling; reskin.
+- `src/console/ConsoleShell.tsx`, `ConsoleRail.tsx`, `ClassesView.tsx` — MODIFY (Task 9): reskin.
+- `src/console/badgeColor.ts` — DELETE (Task 7).
 
 ---
 
@@ -162,7 +161,7 @@ func IsLatestCompletedWeek(weekStart, now time.Time) bool {
 }
 ```
 
-- [ ] **Step 4: Run** `go test ./internal/teacher/ -timeout 300s` → PASS (existing `week` tests + new). Existing `weekly.go` still compiles here (badges/rules not yet touched).
+- [ ] **Step 4: Run** `go test ./internal/teacher/ -timeout 300s` → PASS.
 
 - [ ] **Step 5: Commit** `git add apps/api/internal/teacher/week.go apps/api/internal/teacher/week_test.go && git commit -m "feat(teacher): completed-week window helpers for View A"`
 
@@ -177,6 +176,7 @@ func IsLatestCompletedWeek(weekStart, now time.Time) bool {
 
 **Interfaces:**
 - Produces: `GET /api/v1/classes/{id}/roster-report` now returns `{ "roster": RosterEntry[], "header": ClassLiveHeader }`. `RosterEntry = { id, displayName, avatarColor, activeProjects, reportCount, coursesFinished }`. `ClassLiveHeader = { classSize, activeStudents, activeProjects, turns, reports }`.
+- Keeps `badges.go`, `agent.Report`, `student_evaluation` reads that OTHER handlers (student-detail, weekly) still use — this task only migrates the roster handler.
 
 - [ ] **Step 1: Replace the roster query** in `teacher.sql` — delete `ListClassRosterReport` and add:
 
@@ -296,32 +296,50 @@ func (a *API) getClassRosterReport(w http.ResponseWriter, r *http.Request) {
 }
 ```
 
-Note: this removes the last use of `agent` + `teacher.DBadge/ABadge` in the roster handler. `encoding/json` may still be used elsewhere in the file (student-detail) — leave imports for Task 5 to finalize. If the build complains about an unused `agent` import *after this task alone*, keep it until Task 5 (student-detail still imports `agent`); do not delete `agent` usage that Task 5 owns.
+Do NOT remove the `agent` / `encoding/json` imports — student-detail (same file) still uses them until Task 4. `go build ./...` must stay green.
 
 - [ ] **Step 4: Update tests** — in `teacher_read_test.go`, find roster-report assertions (grep `dBadge`, `roster-report`, `RosterReportEntry`) and rewrite to assert the new `roster[].activeProjects/reportCount/coursesFinished` + `header`. Seed a student with an active project, a ready `evaluation_report`, and a completed `course_progress`; assert counts = 1/1/1.
 
-- [ ] **Step 5: Run** `cd apps/api && go build ./... && go test ./internal/api/ -run Roster -timeout 900s` (FOREGROUND) → PASS.
+- [ ] **Step 5: Run** `cd apps/api && make sqlc && go build ./... && go test ./internal/api/ -run Roster -timeout 900s` (FOREGROUND) → build green + PASS.
 
 - [ ] **Step 6: Commit** explicit paths (`teacher.sql`, regenerated `sqlc/`, `teacher_read.go`, test) — `git commit -m "feat(teacher): roster + live header on activity counts (no axis)"`
 
 ---
 
-## Task 3: Weekly rule layer + facts + composer (activity metrics)
+## Task 3: Weekly report on activity metrics (rules + composer + queries + handler + migration)
+
+This is one coherent unit — the rule/composer signatures and their query+handler consumers must land together to keep `go build ./...` green. `badges.go` is NOT touched here (student-detail still calls it; Task 4 deletes it).
 
 **Files:**
 - Rewrite: `apps/api/internal/teacher/weekly.go`
-- Delete: `apps/api/internal/teacher/badges.go`
-- Modify: `apps/api/internal/agent/compose_weekly.go`
-- Test: `apps/api/internal/teacher/weekly_test.go`, `apps/api/internal/agent/compose_weekly_test.go` (update)
+- Modify: `apps/api/internal/agent/compose_weekly.go`, `apps/api/internal/store/queries/teacher_weekly.sql`, `apps/api/internal/api/teacher_weekly.go`
+- Create: `apps/api/internal/store/migrations/0067_truncate_weekly_prose_cache.sql`
+- Regenerate: sqlc
+- Test: `apps/api/internal/teacher/weekly_test.go`, `apps/api/internal/agent/compose_weekly_test.go`, `apps/api/internal/api/teacher_weekly_test.go` (update)
 
 **Interfaces:**
 - Produces (teacher): `StudentWeek{ UserID, DisplayName, AvatarColor string; ActiveDays, Turns, PrevActiveDays, ReportsThisWeek, PriorReports int; LatestReportProjectID string }`; `Card{ UserID, DisplayName, AvatarColor, TagCode, TagLabel, Kind, Evidence string; HasReport bool; ReportScopeID string }`; `Weekly{ Praise, Watch []Card }`; `Detect([]StudentWeek) Weekly`; `Stats(cur, prev ClassWeekCounts, classSize int) []Stat` (unchanged signature); `BuildWeeklyFacts(className string, classSize int, weekLabel string, w Weekly) agent.WeeklyFacts`.
 - Produces (agent): `WeeklyFacts{ ClassName string; ClassSize int; WeekLabel string; Cards []WeeklyFactCard }`; `WeeklyProse{ Comment string; Cards []WeeklyCardProse }`; `ComposeWeekly` signature unchanged.
-- Consumed by Task 4 (`loadWeekly` maps query rows → `StudentWeek`; `weeklyDTO` reads `Weekly`).
+- Produces (api): `GET /classes/{id}/weekly-report?weekStart=<RFC3339>` (default = last completed week). DTO `WeeklyReportDTO` drops `Depth`/`Autonomy`, adds `IsLatestWeek bool`.
 
-- [ ] **Step 1: Delete** `badges.go`: `git rm apps/api/internal/teacher/badges.go`.
+- [ ] **Step 1: Migration** `0067_truncate_weekly_prose_cache.sql`:
 
-- [ ] **Step 2: Rewrite** `internal/teacher/weekly.go` entirely:
+```sql
+-- +goose Up
+-- class_weekly_prose is a regenerable cache (every number is live; only wording
+-- is stored). The fact shape changed from axis to activity metrics AND the window
+-- moved to the last completed week, so any pre-existing row narrates the old
+-- world. Truncate so no stale axis-worded prose is ever served; it regenerates
+-- lazily on next open. depth_note / autonomy_note columns are LEFT in place
+-- (harmless, written as '') to avoid a query-shape change on the prose table.
+TRUNCATE class_weekly_prose;
+
+-- +goose Down
+-- No-op: a cache truncation cannot be un-done, and does not need to be.
+SELECT 1;
+```
+
+- [ ] **Step 2: Rewrite** `internal/teacher/weekly.go` entirely (this removes every axis helper; `badges.go` keeps `DLevels/AMean/DBadge/ABadge/depthRank` for student-detail — new `weekly.go` references none of them, so both compile side by side):
 
 ```go
 package teacher
@@ -338,7 +356,7 @@ import (
 // project id of their latest ready report (for the "看能力报告" link). No axis,
 // no agent.Report — the teacher path no longer reads the retired evaluations.
 type StudentWeek struct {
-	UserID, DisplayName, AvatarColor string
+	UserID, DisplayName, AvatarColor  string
 	ActiveDays, Turns, PrevActiveDays int
 	ReportsThisWeek, PriorReports     int
 	LatestReportProjectID             string // "" when the student has no ready report
@@ -369,7 +387,6 @@ const strongEngagementFloor = 10
 // so the class turn stats are computed first.
 func Detect(students []StudentWeek) Weekly {
 	var w Weekly
-	// classMeanTurns and topTurns gate strong_engagement (class-relative).
 	sum, n, topTurns := 0, 0, 0
 	for _, s := range students {
 		sum += s.Turns
@@ -488,8 +505,8 @@ func BuildWeeklyFacts(className string, classSize int, weekLabel string, w Weekl
 - [ ] **Step 3: Update the composer** `internal/agent/compose_weekly.go`:
   - `WeeklyFacts`: drop `DepthBuckets`, `RatedCount`, `AutonomyMean`, `AutonomyDelta`, `BucketChanges`. Keep `ClassName`, `ClassSize`, `WeekLabel`, `Cards`. Delete the `WeeklyBucketChange` type.
   - `WeeklyProse`: drop `DepthNote`, `AutonomyNote`. Keep `Comment`, `Cards`.
-  - `weeklySystemPrompt`: keep rules 1–5 but change the JSON schema in rule 5 to `{"comment":"","cards":[{"userId":"","lead":"","action":""}]}` and rule 3's card description (unchanged — lead/action). Keep rule 2 (说人话, no D/A codes) — still valuable.
-  - `WeeklyFactsPrompt`: emit only the class header + `需要写措辞的卡片:` list. Remove the depth-distribution / bucket-change / autonomy-mean lines:
+  - `weeklySystemPrompt`: keep rules 1–4 (说人话/no D-A codes stays); change rule 5's JSON schema to `{"comment":"","cards":[{"userId":"","lead":"","action":""}]}`.
+  - `WeeklyFactsPrompt`: emit only the class header + the cards list — remove the depth-distribution / bucket-change / autonomy-mean lines:
 
 ```go
 func WeeklyFactsPrompt(f WeeklyFacts) string {
@@ -506,46 +523,9 @@ func WeeklyFactsPrompt(f WeeklyFacts) string {
 	return b.String()
 }
 ```
-  - `validateWeeklyProse`: drop the `DepthNote`/`AutonomyNote` length checks; the `texts` slice for the bare-code scan becomes `[]string{p.Comment}` plus each card's `Lead`/`Action`. Keep the per-card presence/uniqueness/length/bare-code checks and the `weeklyCommentMax` check. Delete `weeklyNoteMax`.
+  - `validateWeeklyProse`: drop the `DepthNote`/`AutonomyNote` length checks; the bare-code scan's `texts` slice becomes `[]string{p.Comment}` plus each card's `Lead`/`Action`. Keep the per-card presence/uniqueness/length/bare-code checks and the `weeklyCommentMax` check. Delete the now-unused `weeklyNoteMax` const.
 
-- [ ] **Step 4: Rewrite the rule/composer tests** — `weekly_test.go`: delete axis/bucket/autonomy tests; add table tests for each rule (never_used, dropped_off, stuck_no_output, first_report, produced_report, strong_engagement) and for the watch-before-praise precedence + at-most-one-card invariant. `compose_weekly_test.go`: update the `WeeklyFacts` fixtures to the new shape; assert `WeeklyFactsPrompt` carries the cards and does NOT carry depth/autonomy strings; keep the bare-code-rejection and missing-card-rejection tests.
-
-- [ ] **Step 5: Run** `cd apps/api && go build ./internal/teacher/ ./internal/agent/ && go test ./internal/teacher/ ./internal/agent/ -timeout 300s`. (Package `internal/api` will NOT build yet — Task 4 owns those callers. That is expected; do not "fix" api here.)
-
-- [ ] **Step 6: Commit** `git add apps/api/internal/teacher/weekly.go apps/api/internal/agent/compose_weekly.go apps/api/internal/teacher/weekly_test.go apps/api/internal/agent/compose_weekly_test.go && git rm apps/api/internal/teacher/badges.go && git commit -m "feat(teacher): activity-metric weekly rules + composer; drop axis badges"`
-
----
-
-## Task 4: Weekly queries + handler + DTO + prose-cache migration
-
-**Files:**
-- Modify: `apps/api/internal/store/queries/teacher_weekly.sql`, `apps/api/internal/api/teacher_weekly.go`
-- Create: `apps/api/internal/store/migrations/0067_truncate_weekly_prose_cache.sql`
-- Regenerate: sqlc
-- Test: `apps/api/internal/api/teacher_weekly_test.go` (update)
-
-**Interfaces:**
-- Consumes Task 3's `teacher.StudentWeek`/`Weekly`/`BuildWeeklyFacts`/`agent.WeeklyFacts`/`WeeklyProse`.
-- Produces: `GET /classes/{id}/weekly-report?weekStart=<RFC3339>` (default = last completed week). DTO `WeeklyReportDTO` drops `Depth`/`Autonomy`, adds `IsLatestWeek bool`. Focus cards drop `ReportSurface` from the model side — set `ReportSurface:"project"` in the DTO so the frontend link stays project-scoped.
-
-- [ ] **Step 1: Migration** `0067_truncate_weekly_prose_cache.sql`:
-
-```sql
--- +goose Up
--- class_weekly_prose is a regenerable cache (every number is live; only wording
--- is stored). The fact shape changed from axis to activity metrics AND the window
--- moved to the last completed week, so any pre-existing row narrates the old
--- world. Truncate so no stale axis-worded prose is ever served; it regenerates
--- lazily on next open. depth_note / autonomy_note columns are LEFT in place
--- (harmless, written as '') to avoid a query-shape change on the prose table.
-TRUNCATE class_weekly_prose;
-
--- +goose Down
--- No-op: a cache truncation cannot be un-done, and does not need to be.
-SELECT 1;
-```
-
-- [ ] **Step 2: Repoint the weekly queries** in `teacher_weekly.sql`:
+- [ ] **Step 4: Repoint the weekly queries** in `teacher_weekly.sql`:
   - `GetClassWeekStats`: change the `reports` subquery from `student_evaluation` to ready `evaluation_report` in the window:
 
 ```sql
@@ -597,12 +577,12 @@ LEFT JOIN LATERAL (
 WHERE e.class_id = @class_id AND e.role_in_class = 'student'
 ORDER BY u.display_name;
 ```
-  Note: `latest_report_project_id` is nullable (LEFT JOIN) → sqlc maps to `pgtype.UUID`.
+  `latest_report_project_id` is nullable (LEFT JOIN) → sqlc maps it to `pgtype.UUID`.
 
-- [ ] **Step 3: Regenerate sqlc** — `cd apps/api && make sqlc`.
+- [ ] **Step 5: Regenerate sqlc** — `cd apps/api && make sqlc`.
 
-- [ ] **Step 4: Rewrite `loadWeekly` + `weeklyDTO` + handler** in `teacher_weekly.go`:
-  - `WeeklyReportDTO`: delete `Depth WeeklyDepthDTO` and `Autonomy WeeklyAutonomyDTO` fields; delete the `WeeklyBucketDTO`/`WeeklyDepthDTO`/`WeeklyAutonomyDTO` types. Add `IsLatestWeek bool json:"isLatestWeek"`. `WeeklyCardDTO`: keep as-is (its `ReportSurface`/`ReportScopeID` stay; set surface `"project"` in `conv`).
+- [ ] **Step 6: Rewrite `loadWeekly` + `weeklyDTO` + handlers** in `teacher_weekly.go`:
+  - `WeeklyReportDTO`: delete the `Depth WeeklyDepthDTO` and `Autonomy WeeklyAutonomyDTO` fields; delete the `WeeklyBucketDTO`/`WeeklyDepthDTO`/`WeeklyAutonomyDTO` types. Add `IsLatestWeek bool` (`json:"isLatestWeek"`). `WeeklyCardDTO` keeps its `ReportSurface`/`ReportScopeID` fields.
   - `loadWeekly(ctx, cls, weekStart, now)` — take the completed `weekStart`:
 
 ```go
@@ -647,8 +627,8 @@ func (a *API) loadWeekly(ctx context.Context, cls sqlc.Class, weekStart, now tim
 	}, nil
 }
 ```
-  - `weeklyDTO(d, prose)`: build header from `teacher.CompletedWeekWindows(d.WeekStart)`; `WeekLabel(d.WeekStart)`; `AsOf` = `end`; set `IsLatestWeek = teacher.IsLatestCompletedWeek(d.WeekStart, d.Now)`. Delete all `Depth`/`Autonomy` assembly. In `conv`, set `ReportSurface: "project"`, `ReportScopeID: c.ReportScopeID`. Read `prose.Comment` only (ignore depth/autonomy columns).
-  - Both handlers: parse `weekStart` and validate. Add a helper:
+  - `weeklyDTO(d, prose)`: build the header from `teacher.CompletedWeekWindows(d.WeekStart)`; `WeekLabel(d.WeekStart)`; `AsOf` = `end.Format(time.RFC3339)`; `IsLatestWeek = teacher.IsLatestCompletedWeek(d.WeekStart, d.Now)`. Delete all `Depth`/`Autonomy` assembly. In the card `conv`, set `ReportSurface: "project"`, `ReportScopeID: c.ReportScopeID`. Read `prose.Comment` only (leave `prose.DepthNote`/`AutonomyNote` unread).
+  - Add the weekStart resolver + wire both handlers:
 
 ```go
 func (a *API) resolveWeekStart(r *http.Request, now time.Time) (time.Time, error) {
@@ -666,26 +646,27 @@ func (a *API) resolveWeekStart(r *http.Request, now time.Time) (time.Time, error
 	return ws.UTC(), nil
 }
 ```
-  (Confirm the exact `httpx.ErrBadRequest` constructor name by grepping `httpx`; use whatever the package exposes for 400.)
-  - `getClassWeeklyReport` / `postClassWeeklyProse`: after `assertTeacherOwnsClass`, `ws, err := a.resolveWeekStart(r, now)`; pass `ws` into `loadWeekly`. The prose `weekParam` already derives from `data.WeekStart` (now the completed week's Monday) — unchanged. `InsertClassWeeklyProse`: pass `DepthNote: "", AutonomyNote: ""` (columns kept). The `!hasRow && len(facts.Cards) == 0` empty-guard: drop the `data.Weekly.Depth.RatedCount == 0` clause (no depth now) → guard on `len(facts.Cards) == 0` alone.
+  Confirm the exact 400 constructor by grepping `internal/httpx` (use whatever it exposes, e.g. `ErrBadRequest`/`ErrInvalid`). In `getClassWeeklyReport` and `postClassWeeklyProse`: after `assertTeacherOwnsClass`, call `now := time.Now(); ws, err := a.resolveWeekStart(r, now)` (on error `httpx.WriteError`), then `a.loadWeekly(ctx, cls, ws, now)`. The prose `weekParam` already derives from `data.WeekStart` — unchanged. `InsertClassWeeklyProse`: pass `DepthNote: "", AutonomyNote: ""`. Drop the `data.Weekly.Depth.RatedCount == 0` clause from the empty-guard → guard on `len(facts.Cards) == 0` alone.
 
-- [ ] **Step 5: Update tests** `teacher_weekly_test.go`: seed reports/events in a *completed* week; assert stats.reports counts `evaluation_report`; assert focus cards fire on the activity rules; assert DTO has no `depth`/`autonomy` and carries `isLatestWeek`; assert `?weekStart=<current-week-monday>` → 400.
+- [ ] **Step 7: Update tests** — `weekly_test.go`: delete axis/bucket/autonomy tests; table-test each rule (never_used, dropped_off, stuck_no_output, first_report, produced_report, strong_engagement) + the watch-before-praise precedence + at-most-one-card invariant. `compose_weekly_test.go`: update `WeeklyFacts` fixtures to the new shape; assert `WeeklyFactsPrompt` carries the cards and does NOT carry depth/autonomy strings; keep the bare-code-rejection + missing-card tests. `teacher_weekly_test.go`: seed reports/events in a *completed* week; assert `stats.reports` counts `evaluation_report`; assert focus cards fire on activity rules; assert the DTO has no `depth`/`autonomy` and carries `isLatestWeek`; assert `?weekStart=<current-week-monday>` → 400.
 
-- [ ] **Step 6: Run** `cd apps/api && make sqlc && go build ./... && go test ./internal/api/ -run Weekly -timeout 900s` (FOREGROUND) → PASS. `internal/api` now builds fully again.
+- [ ] **Step 8: Run** `cd apps/api && make sqlc && go build ./... && go test ./internal/teacher/ ./internal/agent/ ./internal/api/ -timeout 1200s` (FOREGROUND) → build green, all green. (`badges.go` + student-detail still compile — untouched here.)
 
-- [ ] **Step 7: Commit** explicit paths.
+- [ ] **Step 9: Commit** explicit paths — `git commit -m "feat(teacher): weekly report on activity metrics (rules+composer+queries+handler)"`
 
 ---
 
-## Task 5: Student-detail repoint + head-badge removal + dead-code retirement
+## Task 4: Student-detail repoint + axis dead-code retirement
 
 **Files:**
 - Modify: `apps/api/internal/store/queries/teacher.sql`, `apps/api/internal/api/teacher_read.go`
+- Delete: `apps/api/internal/teacher/badges.go`
 - Regenerate: sqlc
 - Test: `apps/api/internal/api/teacher_read_test.go`
 
 **Interfaces:**
 - Produces: `StudentHeadDTO{ id, displayName, avatarColor }` (no badges/unrated). `records` come from projects only (project surface), `hasReport` from `evaluation_report`. `usage.reportCount` = lifetime ready reports; `usage.courseCount` = finished courses.
+- After this task: `grep -rn "teacher.DBadge\|teacher.ABadge\|agent.Report\|student_evaluation" apps/api/internal/api apps/api/internal/teacher` returns ZERO hits.
 
 - [ ] **Step 1: Repoint / delete queries** in `teacher.sql`:
   - `ListStudentProjectsForTeacher`: change `has_report` to `evaluation_report`:
@@ -698,21 +679,21 @@ FROM project p
 WHERE p.user_id = @user_id
 ORDER BY p.last_active_at DESC NULLS LAST;
 ```
-  - Add a lifetime finished-course count (mirror `FinishedCourseIDsByUser` but as a scalar):
+  - Add a scalar finished-course count:
 
 ```sql
 -- name: CountFinishedCoursesForStudent :one
 SELECT count(*)::int FROM course_progress WHERE user_id = @user_id AND completed_at IS NOT NULL;
 ```
-  - Delete `ListStudentReportsForTeacher` and `GetLatestReportScoresForStudent` (both read the retired `evaluations`/`student_evaluation`). If `GetStudentWeekStats` (reads `student_evaluation` for a `reports` count) is still referenced, repoint its reports sub-select to `evaluation_report` the same way; if it is unreferenced after this task, delete it. Grep to decide: `grep -rn "GetStudentWeekStats\|ListStudentReportsForTeacher\|GetLatestReportScoresForStudent\|ListClassRecentReports\|ListClassStudentWindowUsage\|ListClassRosterReport" apps/api` must return **zero** non-generated hits when done.
+  - Delete `ListStudentReportsForTeacher` and `GetLatestReportScoresForStudent`. If `GetStudentWeekStats` (reads `student_evaluation` for a reports count) is still referenced by a handler, repoint its reports sub-select to ready `evaluation_report`; if unreferenced, delete it. Final grep gate: `grep -rn "GetLatestReportScoresForStudent\|ListStudentReportsForTeacher\|ListClassRecentReports\|ListClassStudentWindowUsage\|ListClassRosterReport" apps/api` returns zero non-generated hits.
 
 - [ ] **Step 2: Regenerate sqlc**.
 
 - [ ] **Step 3: Rewrite `getStudentDetail`** in `teacher_read.go`:
   - `StudentHeadDTO`: drop `DBadge`, `ABadge`, `Unrated`.
   - Remove the `GetLatestReportScoresForStudent` block and the `ListStudentReportsForTeacher` block.
-  - Records: iterate `ListStudentProjectsForTeacher` only — every project is a row; `Status` = `"能力报告已生成"` if `has_report` else `"进行中"`; `HasReport` from the column; `Date` = `last_active_at`. `reportCount` = count of `has_report` projects. `courseCount` = `CountFinishedCoursesForStudent`.
-  - Keep `GetStudentUsageForTeacher` (this-week active days/turns) — it does not read evaluations.
+  - Records: iterate `ListStudentProjectsForTeacher` only — every project is a row; `Status` = `"能力报告已生成"` if `has_report` else `"进行中"`; `HasReport` from the column; `Date` = `last_active_at` (match the column's Go type — `.Time` if pgtype.Timestamptz). `reportCount` = count of `has_report` projects. `courseCount` = `CountFinishedCoursesForStudent`.
+  - Keep `GetStudentUsageForTeacher` (this-week active days/turns) — it reads `event`, not evaluations.
 
 ```go
 	head := StudentHeadDTO{ID: userID.String(), DisplayName: user.DisplayName, AvatarColor: user.AvatarColor}
@@ -740,28 +721,28 @@ SELECT count(*)::int FROM course_progress WHERE user_id = @user_id AND completed
 		"records": records,
 	})
 ```
-  Confirm `p.LastActiveAt` type — if it is `pgtype.Timestamptz`, format `p.LastActiveAt.Time`; if `time.Time`, format directly (match the pre-existing code's handling).
 
-- [ ] **Step 4: Remove now-dead deep-report seam.** Grep the frontend for the teacher deep-report endpoint that returns `TeacherReportDTO`/`ReportContext` (`grep -rn "reportContext\|projectTitle\|TeacherReportDTO" apps/web/src`). The current `TeacherReportView` uses `getStudentEvaluationReport` (new report), so the old per-scope `TeacherReportDTO` endpoint + `ReportContext` (which call `teacher.DBadge/ABadge`) are dead. Delete the handler, its route in `api.go`, `TeacherReportDTO`, and `ReportContext` — BUT only after confirming zero frontend callers. `studio.ReportDTO` stays (course still uses it). If a frontend caller exists, STOP and surface it (the design assumed none).
+- [ ] **Step 4: Remove the now-dead deep-report seam.** The current `TeacherReportView` uses `getStudentEvaluationReport` (new report), so the old per-scope `TeacherReportDTO` endpoint + `ReportContext` (which call `teacher.DBadge/ABadge`) are dead. Confirm zero frontend callers: `grep -rn "reportContext\|projectTitle\|TeacherReportDTO\|/report\b" apps/web/src/console`. If none, delete the handler, its route in `api.go`, `TeacherReportDTO`, and `ReportContext` from `teacher_read.go`. `studio.ReportDTO` STAYS (course uses it). If a frontend caller DOES exist, STOP and surface it (the design assumed none).
 
-- [ ] **Step 5: Finalize imports** — remove the now-unused `agent`, `sort`, and `encoding/json` imports from `teacher_read.go` if the compiler flags them (json/sort were only used by the deleted report-merge). Run `cd apps/api && go build ./...` → green. `grep -rn "teacher.DBadge\|teacher.ABadge\|agent.Report" apps/api/internal/api apps/api/internal/teacher` → zero hits.
+- [ ] **Step 5: Delete `badges.go`** — `git rm apps/api/internal/teacher/badges.go` (its last callers, student-detail + ReportContext, are gone). Remove the now-unused `agent`, `sort`, `encoding/json` imports from `teacher_read.go` if the compiler flags them.
 
-- [ ] **Step 6: Update tests** `teacher_read_test.go`: student-detail assertions drop `dBadge`/`aBadge`; assert `records` come from projects with `hasReport` driven by `evaluation_report`; assert `usage.reportCount`/`courseCount`.
+- [ ] **Step 6: Build + grep gate** `cd apps/api && go build ./... && go vet ./...` → green. `grep -rn "teacher.DBadge\|teacher.ABadge\|agent.Report" apps/api/internal/api apps/api/internal/teacher` → zero hits.
 
-- [ ] **Step 7: Full suite** `cd apps/api && go build ./... && go vet ./... && go test ./... -timeout 1800s` (FOREGROUND) → all green.
+- [ ] **Step 7: Update tests** `teacher_read_test.go`: student-detail assertions drop `dBadge`/`aBadge`; assert `records` come from projects with `hasReport` driven by `evaluation_report`; assert `usage.reportCount`/`courseCount`.
 
-- [ ] **Step 8: Commit** explicit paths — `git commit -m "refactor(teacher): student-detail on evaluation_report; retire axis dead code"`
+- [ ] **Step 8: Full suite** `cd apps/api && go test ./... -timeout 1800s` (FOREGROUND) → all green.
+
+- [ ] **Step 9: Commit** explicit paths — `git commit -m "refactor(teacher): student-detail on evaluation_report; retire axis badges + dead queries"`
 
 ---
 
-## Task 6: Frontend contracts (`api/teacher.ts`)
+## Task 5: Frontend contracts (`api/teacher.ts`)
 
 **Files:**
-- Modify: `apps/web/src/api/teacher.ts` (+ `src/api/index.ts` if it re-exports the removed names)
-- Test: none (types); `npm run build` gates it.
+- Modify: `apps/web/src/api/teacher.ts` (+ `src/api/index.ts` if it re-exports removed names)
+- Gate: `npm run build` (tsc)
 
-**Interfaces:**
-- Produces the TS types the UI tasks consume.
+**Interfaces:** Produces the TS types Tasks 6–9 consume.
 
 - [ ] **Step 1: Replace the types + client calls**:
 
@@ -832,15 +813,15 @@ export async function generateClassWeeklyProse(classId: string, weekStart?: stri
   return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report/prose${qs}`, { method: "POST" });
 }
 ```
-  Keep `getStudentDetail` and `getStudentEvaluationReport` as-is (return-type of `getStudentDetail` is the trimmed `StudentDetail`). Remove `RosterReportEntry` and the old `getClassRosterReport` return-array shape. Update `ApiClient` type/`src/api/index.ts` re-exports if they reference removed names.
+  Keep `getStudentDetail` (return type is the trimmed `StudentDetail`) and `getStudentEvaluationReport`. Remove `RosterReportEntry`. Update `ApiClient`/`src/api/index.ts` re-exports if they name removed symbols.
 
-- [ ] **Step 2: Typecheck** `cd apps/web && npm run build` — EXPECT failures in the console components (they still read `.dBadge`, `.depth`, array roster). That is expected; Tasks 7–10 fix them. Confirm the failures are ONLY in `src/console/*` and are the renamed-field errors, then commit the contract.
+- [ ] **Step 2: Typecheck** `cd apps/web && npm run build` — EXPECT failures ONLY in `src/console/*` (they still read `.dBadge`, `.depth`, array roster). Confirm the failures are only there + are the renamed-field errors, then commit the contract; Tasks 6–9 fix the components.
 
 - [ ] **Step 3: Commit** `git add apps/web/src/api/teacher.ts apps/web/src/api/index.ts && git commit -m "feat(teacher-web): activity-metric contracts (roster counts, live header, no axis)"`
 
 ---
 
-## Frontend re-skin vocabulary (Tasks 7–10)
+## Frontend re-skin vocabulary (Tasks 6–9)
 
 Every console file replaces its hardcoded cool-blue-grey hex with `mk-*` CSS variables and its per-file consts with `@/ui` primitives. Use `var(--mk-*)` in inline styles (the console has no Tailwind classes to convert). **Mapping (apply everywhere):**
 
@@ -864,54 +845,55 @@ Every console file replaces its hardcoded cool-blue-grey hex with `mk-*` CSS var
 
 ---
 
-## Task 7: View A — ClassWeeklyView reskin + axis removal + week nav
+## Task 6: View A — ClassWeeklyView reskin + axis removal + week nav
 
 **Files:** Modify `apps/web/src/console/ClassWeeklyView.tsx`.
 
-- [ ] **Step 1: Remove the 班级思维维度 section** entirely (the whole trailing block rendering `data.depth` / `data.autonomy`, and the `dTotal` const and `badgeColor` import). The `DeltaPill` stays (used by the stat cards).
-- [ ] **Step 2: Week navigation.** Lift `weekStart` into state (default `undefined` → server picks last completed). Thread it through `getClassWeeklyReport(classId, weekStart)` and `generateClassWeeklyProse(classId, weekStart)`. Render a header row with ◄ / ► (`ChevronLeft`/`ChevronRight` from `@/ui`): ◄ sets `weekStart = data.weekStart − 7d` (compute from `data.weekStart` ISO string); ► sets `+7d`, **disabled when `data.isLatestWeek`**. Reset the `asked` ref keyed by `${classId}:${weekStart}` so each week can generate its own prose once. Update the title to use `data.weekLabel` (already the completed week).
-- [ ] **Step 3: Reskin** every hardcoded hex per the mapping table; wrap the 点评 block, stat cards, and focus cards in `<Card>`; keep the deterministic evidence + lead/action layout. The card's "看能力报告" still calls `onOpenReport(card.reportSurface!, card.reportScopeId!, …)` (surface is `"project"`).
-- [ ] **Step 4:** `cd apps/web && npm run build` → this file clean. Visually verify at the teacher weekly view (seed class): numbers render, focus cards fire, no axis section, ◄/► navigate and ► disables on the latest week.
+- [ ] **Step 1: Remove the 班级思维维度 section** entirely (the whole trailing block rendering `data.depth` / `data.autonomy`, the `dTotal` const, and the `badgeColor` import). `DeltaPill` stays (used by the stat cards).
+- [ ] **Step 2: Week navigation.** Lift `weekStart` into state (default `undefined` → server picks last completed). Thread it through `getClassWeeklyReport(classId, weekStart)` and `generateClassWeeklyProse(classId, weekStart)`. Render a header row with ◄ / ► (`ChevronLeft`/`ChevronRight` from `@/ui`): ◄ sets `weekStart = data.weekStart − 7d`; ► sets `+7d`, **disabled when `data.isLatestWeek`** (compute the ±7d from the `data.weekStart` ISO string). Key the `asked` ref by `${classId}:${weekStart ?? "latest"}` so each week generates its own prose once. Title uses `data.weekLabel`.
+- [ ] **Step 3: Reskin** every hardcoded hex per the mapping table; wrap the 点评 block, stat cards, and focus cards in `<Card>`; keep the deterministic evidence + lead/action layout. "看能力报告" still calls `onOpenReport(card.reportSurface!, card.reportScopeId!, …)` (surface `"project"`).
+- [ ] **Step 4:** `cd apps/web && npm run build` → this file clean. Visually verify (seed class): numbers render, focus cards fire, no axis section, ◄/► navigate + ► disables on the latest week.
 - [ ] **Step 5: Commit.**
 
 ---
 
-## Task 8: View B — roster columns + live header + reskin
+## Task 7: View B — roster columns + live header + reskin
 
-**Files:** Modify `apps/web/src/console/ClassRosterTable.tsx`, `apps/web/src/console/ClassDetailView.tsx`; delete `apps/web/src/console/badgeColor.ts`.
+**Files:** Modify `apps/web/src/console/ClassRosterTable.tsx`, `ClassDetailView.tsx`; delete `apps/web/src/console/badgeColor.ts`.
 
-- [ ] **Step 1: `ClassRosterTable`** — new columns: 学生 · 进行中项目 · 能力报告 · 完成课程 · (remove). Row fields `s.activeProjects` / `s.reportCount` / `s.coursesFinished`. Avatar tint → `s.avatarColor` (drop `badgeColor`). Delete the `Badge` component and the D/A columns. Reskin via the mapping; the remove-confirm inline uses `<Button variant="danger">` / `variant="ghost"`. Prop type `roster: RosterEntry[]`.
-- [ ] **Step 2: `ClassDetailView`** — the roster tab now consumes `ClassRoster` (`{roster, header}`): fetch once, render a light live-header strip above the table (活跃学生 / 进行中项目 / 对话轮次 / 能力报告 from `header`), then `<ClassRosterTable roster={header ? roster : []} …/>`. Update the tab label to `实时` (or keep `全部学生`); reskin the sub-tab chips + back button to `@/ui` `Button`. Confirm the roster fetch call site uses the new `getClassRosterReport` returning `{roster,header}`.
+- [ ] **Step 1: `ClassRosterTable`** — new columns: 学生 · 进行中项目 · 能力报告 · 完成课程 · (remove). Row fields `s.activeProjects` / `s.reportCount` / `s.coursesFinished`. Avatar tint → `s.avatarColor` (drop `badgeColor`). Delete the `Badge` component + the D/A columns. Reskin per the mapping; the remove-confirm uses `<Button variant="danger">` / `variant="ghost">`. Prop type `roster: RosterEntry[]`.
+- [ ] **Step 2: `ClassDetailView`** — the roster tab consumes `ClassRoster` (`{roster, header}`): fetch once, render a light live-header strip above the table (活跃学生 / 进行中项目 / 对话轮次 / 能力报告 from `header`), then `<ClassRosterTable roster={roster} …/>`. Tab label → `实时` (or keep `全部学生`). Reskin the sub-tab chips + back button to `@/ui` `Button`. Confirm the fetch site uses the new `getClassRosterReport` returning `{roster,header}`.
 - [ ] **Step 3: Delete** `badgeColor.ts` (`git rm`); confirm `grep -rn badgeColor apps/web/src` is empty.
 - [ ] **Step 4:** `npm run build` clean; visually verify roster shows the three counts + live header, remove-student still works.
 - [ ] **Step 5: Commit.**
 
 ---
 
-## Task 9: Student detail + teacher report view
+## Task 8: Student detail + teacher report view
 
-**Files:** Modify `apps/web/src/console/StudentDetailView.tsx`, `apps/web/src/console/TeacherReportView.tsx`.
+**Files:** Modify `apps/web/src/console/StudentDetailView.tsx`, `TeacherReportView.tsx`.
 
-- [ ] **Step 1: `StudentDetailView`** — remove the D/A head-badge boxes (`dColors`/`aColors`, the two badge boxes, the `badgeColor` import); avatar tint → `student.avatarColor`. Keep the 4-stat grid (活跃天数 / 对话轮次 / 能力报告 / 完成课程) reading `usage`. Reskin per the mapping (Card wrappers, Button, tokens). The records list + 全部/课程/对话/项目 filter stays; every record is now `surface:"project"`.
+- [ ] **Step 1: `StudentDetailView`** — remove the D/A head-badge boxes (`dColors`/`aColors`, the two badge boxes, the `badgeColor` import); avatar tint → `student.avatarColor`. Keep the 4-stat grid (活跃天数 / 对话轮次 / 能力报告 / 完成课程) reading `usage`. Reskin per the mapping (Card wrappers, Button, tokens). The records list + 全部/课程/对话/项目 filter stays; every record is `surface:"project"`.
 - [ ] **Step 2: `TeacherReportView`** — add polling on the `generating` state to match `EvaluationReportPage` (self-rescheduling `setTimeout`, one GET in flight, stop on `ready`/`failed`); reskin the bespoke breadcrumb/header chrome to tokens + `@/ui`. Body stays the shared `EvaluationReportView`.
-- [ ] **Step 3:** `npm run build` clean; visually verify student detail (no badges) and open a student's report (renders; generating→ready polling works with a freshly-finished project).
+- [ ] **Step 3:** `npm run build` clean; visually verify student detail (no badges) + open a student's report (renders; generating→ready polling works on a freshly-finished project).
 - [ ] **Step 4: Commit.**
 
 ---
 
-## Task 10: Console chrome reskin
+## Task 9: Console chrome reskin
 
 **Files:** Modify `apps/web/src/console/ConsoleShell.tsx`, `ConsoleRail.tsx`, `ClassesView.tsx`, and any remaining chrome in `ClassDetailView.tsx`.
 
-- [ ] **Step 1:** Reskin `ConsoleRail` (nav rail: hand-inlined SVGs → `@/ui` `Icon`; colors → tokens; active state → `--mk-accent`), `ConsoleShell` (page background `--mk-paper`, layout), and `ClassesView` (class card grid → `<Card>`; create-class form → `@/ui` `forms` + `Button`; 我的班级/全校班级 toggle → `Button`). Apply the mapping table throughout; remove any remaining local button/chip consts.
-- [ ] **Step 2:** `cd apps/web && npm run build && npm test` → green. Full visual pass across the whole console (class list → weekly → roster → student detail → report): one warm macaron design system, no cool-blue-grey remnants (`grep -rnE "#2A3B7A|#1C2333|#8A92A3|#EAECF2|#C76B6B" apps/web/src/console` → empty).
+- [ ] **Step 1:** Reskin `ConsoleRail` (nav rail: hand-inlined SVGs → `@/ui` `Icon`; colors → tokens; active state → `--mk-accent`), `ConsoleShell` (page bg `--mk-paper`, layout), `ClassesView` (class card grid → `<Card>`; create-class form → `@/ui` `forms` + `Button`; 我的班级/全校班级 toggle → `Button`). Apply the mapping throughout; remove any remaining local button/chip consts.
+- [ ] **Step 2:** `cd apps/web && npm run build && npm test` → green. Full visual pass (class list → weekly → roster → student detail → report): one warm macaron system, no cool-blue-grey remnants (`grep -rnE "#2A3B7A|#1C2333|#8A92A3|#EAECF2|#C76B6B" apps/web/src/console` → empty).
 - [ ] **Step 3: Commit.**
 
 ---
 
 ## Self-review notes (checked against spec)
 
-- **Spec coverage:** View A (Tasks 4,7), View B (Tasks 2,8), activity-metric focus rules (Task 3), definitions locked to schema (Tasks 2,4,5), retirement compiler-gated (Tasks 3,5), reskin (Tasks 7–10), no cron/daily (nothing scheduled). ✓
-- **KEEP invariants:** no task touches `agent/report_types.go`, `studio/report_dto.go`, `rubric/`, or drops `evaluations`/`llm_usage`. Task 5 explicitly stops STOP-and-surfaces if a frontend caller of the dead deep-report seam exists. ✓
-- **Type consistency:** `StudentWeek`/`Card`/`Weekly` (Task 3) ↔ `loadWeekly` mapping (Task 4); `RosterEntry`/`ClassLiveHeader` (Task 2 Go ↔ Task 6 TS); `WeeklyReport` drops `depth`/`autonomy` and adds `isLatestWeek` in both Go DTO (Task 4) and TS (Task 6). ✓
-- **Deviation from spec (noted):** `strong_engagement` drops the "≥2 active projects" clause (avoids anachronistic current-state count inside a historical week); it is now class-top turns above a floor — a plan-level tuning the spec permitted ("thresholds tuned in the plan").
+- **Spec coverage:** View A (Tasks 3,6), View B (Tasks 2,7), activity-metric focus rules (Task 3), definitions locked to schema (Tasks 2,3,4), retirement compiler-gated (Task 4), reskin (Tasks 6–9), no cron/daily. ✓
+- **Build-green invariant:** Tasks 1–4 each keep `go build ./...` green (badges.go survives until its last caller is removed in Task 4; the weekly rule/composer/handler land together in Task 3). Task 5 intentionally leaves `src/console/*` failing (contract flip) until Tasks 6–9. ✓
+- **KEEP invariants:** no task touches `agent/report_types.go`, `studio/report_dto.go`, `rubric/`, or drops `evaluations`/`llm_usage`. Task 4 STOP-and-surfaces if a frontend caller of the dead deep-report seam exists. ✓
+- **Type consistency:** `StudentWeek`/`Card`/`Weekly` ↔ `loadWeekly` mapping (Task 3); `RosterEntry`/`ClassLiveHeader` (Task 2 Go ↔ Task 5 TS); `WeeklyReport` drops `depth`/`autonomy` + adds `isLatestWeek` in both Go DTO (Task 3) and TS (Task 5). ✓
+- **Deviation from spec (noted):** `strong_engagement` drops the "≥2 active projects" clause (avoids an anachronistic current-state count inside a historical week); it is class-top turns above a floor — a plan-level tuning the spec permitted.
