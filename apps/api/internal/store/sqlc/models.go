@@ -345,14 +345,6 @@ type OutlineNode struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
-type ParentReportProse struct {
-	StudentUserID uuid.UUID `json:"student_user_id"`
-	Surface       string    `json:"surface"`
-	ScopeID       string    `json:"scope_id"`
-	Prose         []byte    `json:"prose"`
-	CreatedAt     time.Time `json:"created_at"`
-}
-
 type PlanItem struct {
 	ID            uuid.UUID   `json:"id"`
 	ProjectID     uuid.UUID   `json:"project_id"`
@@ -387,15 +379,6 @@ type ProjectAiUse struct {
 	UsedFor    string    `json:"used_for"`
 	NotUsedFor string    `json:"not_used_for"`
 	UpdatedAt  time.Time `json:"updated_at"`
-}
-
-type ProjectMirrorProse struct {
-	ProjectID     uuid.UUID `json:"project_id"`
-	Sections      []byte    `json:"sections"`
-	CarryForwards []byte    `json:"carry_forwards"`
-	Model         string    `json:"model"`
-	Tier          string    `json:"tier"`
-	CreatedAt     time.Time `json:"created_at"`
 }
 
 type ProjectProposal struct {

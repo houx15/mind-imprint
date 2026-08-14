@@ -1,6 +1,15 @@
 -- Project-scoped assessment persistence (Slice 10). evaluations.project_id
 -- exists since migration 0016; migration 0021 makes task_id optional and
 -- adds the scope CHECK so a row can be project-only.
+--
+-- The old dual-axis generation/read pipeline (session/thread scopes, growth
+-- history, cross-user evaluation listing) was retired 2026-08-14
+-- (retire-old-evaluation-pipeline). InsertProjectEvaluation itself has no
+-- production caller anymore either — the finish path now writes the new
+-- EvaluationReport (see evaluation_report.sql) — but it is kept here because
+-- the teacher roster/detail read-path tests (internal/api/teacher_read_test.go)
+-- still use it to seed `evaluations` rows for the KEPT student_evaluation
+-- view/queries.
 
 -- name: InsertProjectEvaluation :one
 INSERT INTO evaluations (project_id, scores, narrative, model, tier,
@@ -8,99 +17,3 @@ INSERT INTO evaluations (project_id, scores, narrative, model, tier,
 VALUES (@project_id, @scores, @narrative, @model, @tier,
   @prompt_tokens, @completion_tokens, @cost_estimate, 'done')
 RETURNING *;
-
--- name: GetLatestProjectEvaluation :one
-SELECT * FROM evaluations
-WHERE project_id = @project_id
-ORDER BY created_at DESC
-LIMIT 1;
-
--- Course session scope (A1, retained column): course v2 (migration 0050)
--- retires the course_session table itself, but evaluations.session_id stays
--- as a plain (now-orphaned) column — nothing currently writes it, but the
--- pair is left in place as the session-scoped sibling of the project/thread
--- pair above in case a future session-shaped scope reuses it.
-
--- name: InsertSessionEvaluation :one
-INSERT INTO evaluations (session_id, scores, narrative, model, tier,
-  prompt_tokens, completion_tokens, cost_estimate, status)
-VALUES (@session_id, @scores, @narrative, @model, @tier,
-  @prompt_tokens, @completion_tokens, @cost_estimate, 'done')
-RETURNING *;
-
--- name: GetLatestSessionEvaluation :one
-SELECT * FROM evaluations
-WHERE session_id = @session_id
-ORDER BY created_at DESC
-LIMIT 1;
-
--- Chat thread scope (A2): mirrors the session-scoped pair above. A chat
--- thread's report is one evaluations row scoped by thread_id alone.
-
--- name: InsertThreadEvaluation :one
-INSERT INTO evaluations (thread_id, scores, narrative, model, tier,
-  prompt_tokens, completion_tokens, cost_estimate, status)
-VALUES (@thread_id, @scores, @narrative, @model, @tier,
-  @prompt_tokens, @completion_tokens, @cost_estimate, 'done')
-RETURNING *;
-
--- name: GetLatestThreadEvaluation :one
-SELECT * FROM evaluations
-WHERE thread_id = @thread_id
-ORDER BY created_at DESC
-LIMIT 1;
-
--- A3 growth history: every report the caller owns, across both remaining
--- scopes, newest-first, one row per scope (reports are one-time; DISTINCT ON
--- is defensive — if two ever share a scope, the latest wins). Owner-filtered
--- through each scope's own join, so the returned ids are guaranteed owned and
--- the embedded report needs no second per-row auth. Labels: project.title /
--- chat_thread.title. The course-session arm is retired along with
--- course_session itself (migration 0050, course v2, no back-compat).
-
--- name: ListGrowthHistory :many
-SELECT surface, scope_id, label, sublabel, created_at, scores, narrative
-FROM (
-  (SELECT DISTINCT ON (e.project_id)
-     'project'::text AS surface, e.project_id AS scope_id,
-     p.title AS label, NULL::text AS sublabel,
-     e.created_at AS created_at, e.scores AS scores, e.narrative AS narrative
-   FROM evaluations e JOIN project p ON p.id = e.project_id
-   WHERE e.project_id IS NOT NULL AND p.user_id = @user_id
-   ORDER BY e.project_id, e.created_at DESC)
-  UNION ALL
-  (SELECT DISTINCT ON (e.thread_id)
-     'chat'::text, e.thread_id,
-     t.title, NULL::text,
-     e.created_at, e.scores, e.narrative
-   FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
-   WHERE e.thread_id IS NOT NULL AND t.user_id = @user_id
-   ORDER BY e.thread_id, e.created_at DESC)
-) rows
-ORDER BY created_at DESC;
-
--- C ability model: the latest evaluation per scope the caller owns across both
--- remaining scopes, oldest-first, for cross-session aggregation. One report per
--- session is the product invariant (terminal reports are one-time; chat opt-in
--- is UI-gated to one), but the generate endpoints INSERT with no upsert guard,
--- so the invariant is client-side-only. DISTINCT ON makes this query defend it
--- itself: identical to a raw UNION ALL when no scope has a duplicate, and if one
--- ever does, the latest row wins — so evidenceCount / recency weight /
--- totalSessions never inflate. Mirrors ListGrowthHistory's latest-per-scope
--- shape (it projects surface/label too; this projects only scores/created_at).
-
--- name: ListEvaluationsByUser :many
-SELECT scores, created_at FROM (
-  (SELECT DISTINCT ON (e.project_id)
-     e.scores AS scores, e.created_at AS created_at
-   FROM evaluations e JOIN project p ON p.id = e.project_id
-   WHERE e.project_id IS NOT NULL AND p.user_id = @user_id
-   ORDER BY e.project_id, e.created_at DESC)
-  UNION ALL
-  (SELECT DISTINCT ON (e.thread_id)
-     e.scores, e.created_at
-   FROM evaluations e JOIN chat_thread t ON t.id = e.thread_id
-   WHERE e.thread_id IS NOT NULL AND t.user_id = @user_id
-   ORDER BY e.thread_id, e.created_at DESC)
-) rows
-ORDER BY created_at ASC;

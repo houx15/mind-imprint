@@ -32,71 +32,6 @@ func (q *Queries) GetLatestReportScoresForStudent(ctx context.Context, userID uu
 	return scores, err
 }
 
-const getStudentProjectEvaluationForTeacher = `-- name: GetStudentProjectEvaluationForTeacher :one
-SELECT e.scores, e.created_at, p.title AS project_title,
-       (SELECT gn.body FROM graph_node gn
-          WHERE gn.project_id = p.id AND gn.type = 'research_question'
-          ORDER BY gn.created_at, gn.id LIMIT 1) AS rq_body
-FROM evaluations e
-JOIN project p ON p.id = e.project_id
-WHERE e.project_id = $1 AND p.user_id = $2
-ORDER BY e.created_at DESC
-LIMIT 1
-`
-
-type GetStudentProjectEvaluationForTeacherParams struct {
-	ScopeID pgtype.UUID `json:"scope_id"`
-	UserID  uuid.UUID   `json:"user_id"`
-}
-
-type GetStudentProjectEvaluationForTeacherRow struct {
-	Scores       []byte    `json:"scores"`
-	CreatedAt    time.Time `json:"created_at"`
-	ProjectTitle string    `json:"project_title"`
-	RqBody       []byte    `json:"rq_body"`
-}
-
-// Read one project report + its RQ context, guarded by student ownership.
-// researchQuestion: prefer the plan node's research_question, else project.title.
-func (q *Queries) GetStudentProjectEvaluationForTeacher(ctx context.Context, arg GetStudentProjectEvaluationForTeacherParams) (GetStudentProjectEvaluationForTeacherRow, error) {
-	row := q.db.QueryRow(ctx, getStudentProjectEvaluationForTeacher, arg.ScopeID, arg.UserID)
-	var i GetStudentProjectEvaluationForTeacherRow
-	err := row.Scan(
-		&i.Scores,
-		&i.CreatedAt,
-		&i.ProjectTitle,
-		&i.RqBody,
-	)
-	return i, err
-}
-
-const getStudentThreadEvaluationForTeacher = `-- name: GetStudentThreadEvaluationForTeacher :one
-SELECT e.scores, e.created_at, t.title AS thread_title
-FROM evaluations e
-JOIN chat_thread t ON t.id = e.thread_id
-WHERE e.thread_id = $1 AND t.user_id = $2
-ORDER BY e.created_at DESC
-LIMIT 1
-`
-
-type GetStudentThreadEvaluationForTeacherParams struct {
-	ScopeID pgtype.UUID `json:"scope_id"`
-	UserID  uuid.UUID   `json:"user_id"`
-}
-
-type GetStudentThreadEvaluationForTeacherRow struct {
-	Scores      []byte    `json:"scores"`
-	CreatedAt   time.Time `json:"created_at"`
-	ThreadTitle string    `json:"thread_title"`
-}
-
-func (q *Queries) GetStudentThreadEvaluationForTeacher(ctx context.Context, arg GetStudentThreadEvaluationForTeacherParams) (GetStudentThreadEvaluationForTeacherRow, error) {
-	row := q.db.QueryRow(ctx, getStudentThreadEvaluationForTeacher, arg.ScopeID, arg.UserID)
-	var i GetStudentThreadEvaluationForTeacherRow
-	err := row.Scan(&i.Scores, &i.CreatedAt, &i.ThreadTitle)
-	return i, err
-}
-
 const getStudentUsageForTeacher = `-- name: GetStudentUsageForTeacher :one
 SELECT
   COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days,
@@ -241,42 +176,6 @@ func (q *Queries) ListClassRosterReport(ctx context.Context, arg ListClassRoster
 			&i.Turns,
 			&i.HasReport,
 		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listStudentEvaluationsForTeacher = `-- name: ListStudentEvaluationsForTeacher :many
-SELECT se.scores, se.created_at
-FROM student_evaluation se
-WHERE se.user_id = $1
-ORDER BY se.created_at
-`
-
-type ListStudentEvaluationsForTeacherRow struct {
-	Scores    []byte    `json:"scores"`
-	CreatedAt time.Time `json:"created_at"`
-}
-
-// Every report scores payload one class member owns, across all scopes, oldest
-// first (ability.Aggregate re-sorts defensively anyway). Teacher variant of
-// ListEvaluationsByUser: owner filter replaced by the handler's class-membership
-// proof. Feeds the cross-session 能力素养 merge behind the stage growth prose.
-func (q *Queries) ListStudentEvaluationsForTeacher(ctx context.Context, userID uuid.UUID) ([]ListStudentEvaluationsForTeacherRow, error) {
-	rows, err := q.db.Query(ctx, listStudentEvaluationsForTeacher, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListStudentEvaluationsForTeacherRow
-	for rows.Next() {
-		var i ListStudentEvaluationsForTeacherRow
-		if err := rows.Scan(&i.Scores, &i.CreatedAt); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

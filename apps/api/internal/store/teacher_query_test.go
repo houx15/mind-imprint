@@ -19,10 +19,13 @@ import (
 
 // TestTeacherReadPathQueries seeds a school with two classes (a teacher owns
 // class A; student A is enrolled in class A, student B in a DIFFERENT class
-// B) and asserts every teacher.sql query is properly class-scoped: class B's
-// student never leaks into class A's roster/report reads, and the
-// project-evaluation read is guarded by student ownership the same way
-// GetLatestProjectEvaluation's owner-filtered siblings are.
+// B) and asserts every remaining teacher.sql query is properly class-scoped:
+// class B's student never leaks into class A's roster/report reads. (The old
+// per-student-report queries this test used to also exercise —
+// GetStudentProjectEvaluationForTeacher and its thread sibling — were retired
+// 2026-08-14 along with the deleted getStudentReport handler they exclusively
+// served; see TestTeacherReadPathSeedData for coverage of the rich report
+// shape via the KEPT GetLatestReportScoresForStudent.)
 func TestTeacherReadPathQueries(t *testing.T) {
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
@@ -110,13 +113,6 @@ func TestTeacherReadPathQueries(t *testing.T) {
 		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status)
 		VALUES ($1, $2, 'proj narrative', 'deepseek-v4-pro', 'flagship', 'done')`,
 		projectID, reportJSON)
-
-	// A research_question node so GetStudentProjectEvaluationForTeacher's rq_body
-	// subquery has something to find (mirrors project_create.go's shape).
-	rqBody, _ := json.Marshal(map[string]any{"text": "中国是否让地球变得更可持续？"})
-	mustExec(t, ctx, pool, `
-		INSERT INTO graph_node (project_id, type, body, author) VALUES ($1, 'research_question', $2, 'student')`,
-		projectID, rqBody)
 
 	// --- Week window + events ---------------------------------------------------
 	weekStart := time.Date(2026, 1, 5, 0, 0, 0, 0, time.UTC)
@@ -214,41 +210,6 @@ func TestTeacherReadPathQueries(t *testing.T) {
 	if _, err := q.GetLatestReportScoresForStudent(ctx, studentB); !errors.Is(err, pgx.ErrNoRows) {
 		t.Fatalf("GetLatestReportScoresForStudent(B) err = %v, want pgx.ErrNoRows", err)
 	}
-
-	// --- GetStudentProjectEvaluationForTeacher: ownership guard -----------------
-	got, err := q.GetStudentProjectEvaluationForTeacher(ctx, sqlc.GetStudentProjectEvaluationForTeacherParams{
-		ScopeID: pgUUID(projectID), UserID: studentA,
-	})
-	if err != nil {
-		t.Fatalf("GetStudentProjectEvaluationForTeacher(A): %v", err)
-	}
-	if got.ProjectTitle != "学生A的项目" {
-		t.Errorf("project_title = %q, want 学生A的项目", got.ProjectTitle)
-	}
-	var gotReport agent.Report
-	if err := json.Unmarshal(got.Scores, &gotReport); err != nil {
-		t.Fatalf("unmarshal scores: %v", err)
-	}
-	if len(gotReport.DepthAxis) != 6 || len(gotReport.AutonomyAxis) != 6 {
-		t.Errorf("report axes = %d depth / %d autonomy, want 6/6", len(gotReport.DepthAxis), len(gotReport.AutonomyAxis))
-	}
-	var rq struct {
-		Text string `json:"text"`
-	}
-	if err := json.Unmarshal(got.RqBody, &rq); err != nil {
-		t.Fatalf("unmarshal rq_body: %v", err)
-	}
-	if rq.Text != "中国是否让地球变得更可持续？" {
-		t.Errorf("rq_body text = %q, want the seeded research question", rq.Text)
-	}
-
-	// Ownership guard: student B is not this project's owner.
-	_, err = q.GetStudentProjectEvaluationForTeacher(ctx, sqlc.GetStudentProjectEvaluationForTeacherParams{
-		ScopeID: pgUUID(projectID), UserID: studentB,
-	})
-	if !errors.Is(err, pgx.ErrNoRows) {
-		t.Fatalf("GetStudentProjectEvaluationForTeacher(B) err = %v, want pgx.ErrNoRows", err)
-	}
 }
 
 // TestTeacherReadPathSeedData asserts migration 0029's demo data (吴老师's
@@ -268,7 +229,6 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 
 	seededClass := uuid.MustParse("00000000-0000-0000-0000-000000000902")
 	lin := uuid.MustParse("00000000-0000-0000-0000-000000000911")
-	linProject := uuid.MustParse("00000000-0000-0000-0000-000000000951")
 
 	// A window wide enough to be unaffected by where "now" falls relative to
 	// the ISO week boundary (has_report/latest_project_scores don't depend on
@@ -296,14 +256,16 @@ func TestTeacherReadPathSeedData(t *testing.T) {
 		t.Fatalf("seeded roster has %d has_report=true rows, want 4 (林/沈/周 from 0029, 吴桐 from 0034)", haveReport)
 	}
 
-	got, err := q.GetStudentProjectEvaluationForTeacher(ctx, sqlc.GetStudentProjectEvaluationForTeacherParams{
-		ScopeID: pgUUID(linProject), UserID: lin,
-	})
+	// GetStudentProjectEvaluationForTeacher (the old per-project teacher read)
+	// was retired 2026-08-14 along with getStudentReport; the KEPT
+	// GetLatestReportScoresForStudent (same student_evaluation view the
+	// roster's D/A badge reads) covers the same rich-report-shape assertion.
+	gotScores, err := q.GetLatestReportScoresForStudent(ctx, lin)
 	if err != nil {
-		t.Fatalf("GetStudentProjectEvaluationForTeacher(林知远): %v", err)
+		t.Fatalf("GetLatestReportScoresForStudent(林知远): %v", err)
 	}
 	var rep agent.Report
-	if err := json.Unmarshal(got.Scores, &rep); err != nil {
+	if err := json.Unmarshal(gotScores, &rep); err != nil {
 		t.Fatalf("unmarshal 林知远's report: %v", err)
 	}
 	if len(rep.DepthAxis) != 6 {

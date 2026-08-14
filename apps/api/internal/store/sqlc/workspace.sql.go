@@ -646,26 +646,6 @@ func (q *Queries) GetProjectAIUse(ctx context.Context, projectID uuid.UUID) (Pro
 	return i, err
 }
 
-const getProjectMirror = `-- name: GetProjectMirror :one
-
-SELECT project_id, sections, carry_forwards, model, tier, created_at FROM project_mirror_prose WHERE project_id = $1
-`
-
-// Review · the 你的思维印记 mirror prose (first-open-wins). -------------------
-func (q *Queries) GetProjectMirror(ctx context.Context, projectID uuid.UUID) (ProjectMirrorProse, error) {
-	row := q.db.QueryRow(ctx, getProjectMirror, projectID)
-	var i ProjectMirrorProse
-	err := row.Scan(
-		&i.ProjectID,
-		&i.Sections,
-		&i.CarryForwards,
-		&i.Model,
-		&i.Tier,
-		&i.CreatedAt,
-	)
-	return i, err
-}
-
 const getProjectProposal = `-- name: GetProjectProposal :one
 SELECT project_id, objective, reason, activities, resources, updated_at, counterpoints FROM project_proposal WHERE project_id = $1
 `
@@ -706,7 +686,7 @@ const getProjectSummaryProse = `-- name: GetProjectSummaryProse :one
 SELECT project_id, prose, model, tier, created_at FROM project_summary_prose WHERE project_id = $1
 `
 
-// S1 · summary-on-return prose (first-open-wins, same pattern as the mirror). --
+// S1 · summary-on-return prose (first-open-wins, same pattern as the old mirror). --
 func (q *Queries) GetProjectSummaryProse(ctx context.Context, projectID uuid.UUID) (ProjectSummaryProse, error) {
 	row := q.db.QueryRow(ctx, getProjectSummaryProse, projectID)
 	var i ProjectSummaryProse
@@ -822,33 +802,6 @@ func (q *Queries) GetReferenceForProject(ctx context.Context, arg GetReferenceFo
 		&i.Archived,
 	)
 	return i, err
-}
-
-const insertProjectMirror = `-- name: InsertProjectMirror :exec
-INSERT INTO project_mirror_prose (project_id, sections, carry_forwards, model, tier)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (project_id) DO NOTHING
-`
-
-type InsertProjectMirrorParams struct {
-	ProjectID     uuid.UUID `json:"project_id"`
-	Sections      []byte    `json:"sections"`
-	CarryForwards []byte    `json:"carry_forwards"`
-	Model         string    `json:"model"`
-	Tier          string    `json:"tier"`
-}
-
-// First-open-wins: the first composer to insert a row wins; a concurrent loser's
-// INSERT is a no-op (ON CONFLICT DO NOTHING) and it re-reads the winner's row.
-func (q *Queries) InsertProjectMirror(ctx context.Context, arg InsertProjectMirrorParams) error {
-	_, err := q.db.Exec(ctx, insertProjectMirror,
-		arg.ProjectID,
-		arg.Sections,
-		arg.CarryForwards,
-		arg.Model,
-		arg.Tier,
-	)
-	return err
 }
 
 const insertProjectSummaryProse = `-- name: InsertProjectSummaryProse :exec

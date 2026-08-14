@@ -87,27 +87,6 @@ WHERE se.user_id = @user_id
 ORDER BY se.created_at DESC
 LIMIT 1;
 
--- name: GetStudentProjectEvaluationForTeacher :one
--- Read one project report + its RQ context, guarded by student ownership.
--- researchQuestion: prefer the plan node's research_question, else project.title.
-SELECT e.scores, e.created_at, p.title AS project_title,
-       (SELECT gn.body FROM graph_node gn
-          WHERE gn.project_id = p.id AND gn.type = 'research_question'
-          ORDER BY gn.created_at, gn.id LIMIT 1) AS rq_body
-FROM evaluations e
-JOIN project p ON p.id = e.project_id
-WHERE e.project_id = @scope_id AND p.user_id = @user_id
-ORDER BY e.created_at DESC
-LIMIT 1;
-
--- name: GetStudentThreadEvaluationForTeacher :one
-SELECT e.scores, e.created_at, t.title AS thread_title
-FROM evaluations e
-JOIN chat_thread t ON t.id = e.thread_id
-WHERE e.thread_id = @scope_id AND t.user_id = @user_id
-ORDER BY e.created_at DESC
-LIMIT 1;
-
 -- name: GetStudentWeekStats :one
 -- One student's four stage-card counts for a half-open window. Same口径 as
 -- GetClassWeekStats: active days bucketed via AT TIME ZONE 'UTC'; turns =
@@ -126,12 +105,3 @@ FROM event ev
 WHERE ev.user_id = @user_id
   AND ev.created_at >= @week_start AND ev.created_at < @week_end;
 
--- name: ListStudentEvaluationsForTeacher :many
--- Every report scores payload one class member owns, across all scopes, oldest
--- first (ability.Aggregate re-sorts defensively anyway). Teacher variant of
--- ListEvaluationsByUser: owner filter replaced by the handler's class-membership
--- proof. Feeds the cross-session 能力素养 merge behind the stage growth prose.
-SELECT se.scores, se.created_at
-FROM student_evaluation se
-WHERE se.user_id = @user_id
-ORDER BY se.created_at;

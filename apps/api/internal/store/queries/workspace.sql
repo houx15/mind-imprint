@@ -258,19 +258,7 @@ ON CONFLICT (project_id) DO UPDATE SET
     updated_at = now()
 RETURNING *;
 
--- Review · the 你的思维印记 mirror prose (first-open-wins). -------------------
-
--- name: GetProjectMirror :one
-SELECT * FROM project_mirror_prose WHERE project_id = $1;
-
--- name: InsertProjectMirror :exec
--- First-open-wins: the first composer to insert a row wins; a concurrent loser's
--- INSERT is a no-op (ON CONFLICT DO NOTHING) and it re-reads the winner's row.
-INSERT INTO project_mirror_prose (project_id, sections, carry_forwards, model, tier)
-VALUES ($1, $2, $3, $4, $5)
-ON CONFLICT (project_id) DO NOTHING;
-
--- S1 · summary-on-return prose (first-open-wins, same pattern as the mirror). --
+-- S1 · summary-on-return prose (first-open-wins, same pattern as the old mirror). --
 
 -- name: GetProjectSummaryProse :one
 SELECT * FROM project_summary_prose WHERE project_id = $1;

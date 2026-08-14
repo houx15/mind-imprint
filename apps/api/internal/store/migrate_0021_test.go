@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/store/sqlc"
@@ -55,8 +56,8 @@ func TestMigration0021ProjectScopedEvaluations(t *testing.T) {
 		t.Fatalf("first.Status = %q, want done", first.Status)
 	}
 
-	// A second, later row for the same project so GetLatestProjectEvaluation
-	// has something to distinguish by created_at.
+	// A second, later row for the same project so a query ordered by
+	// created_at DESC has something to distinguish.
 	time.Sleep(10 * time.Millisecond)
 	second, err := q.InsertProjectEvaluation(ctx, sqlc.InsertProjectEvaluationParams{
 		ProjectID: projectID,
@@ -69,16 +70,25 @@ func TestMigration0021ProjectScopedEvaluations(t *testing.T) {
 		t.Fatalf("InsertProjectEvaluation (second): %v", err)
 	}
 
-	// 2. GetLatestProjectEvaluation returns the most recent row for the project.
-	latest, err := q.GetLatestProjectEvaluation(ctx, projectID)
-	if err != nil {
-		t.Fatalf("GetLatestProjectEvaluation: %v", err)
+	// 2. The most recent row for the project is the second insert. The old
+	// GetLatestProjectEvaluation sqlc query was retired 2026-08-14
+	// (retire-old-evaluation-pipeline, Task 3) along with the rest of the old
+	// dual-axis read path; the CHECK constraint this test actually exercises
+	// doesn't depend on that query, so a plain ordered SELECT stands in.
+	var latestID uuid.UUID
+	var latestNarrative string
+	if err := pool.QueryRow(ctx, `
+		SELECT id, narrative FROM evaluations
+		WHERE project_id = $1
+		ORDER BY created_at DESC
+		LIMIT 1`, project.ID).Scan(&latestID, &latestNarrative); err != nil {
+		t.Fatalf("read latest evaluation row: %v", err)
 	}
-	if latest.ID != second.ID {
-		t.Fatalf("GetLatestProjectEvaluation = %s, want latest %s (first was %s)", latest.ID, second.ID, first.ID)
+	if latestID != second.ID {
+		t.Fatalf("latest evaluation id = %s, want latest %s (first was %s)", latestID, second.ID, first.ID)
 	}
-	if latest.Narrative != "second pass narrative" {
-		t.Fatalf("latest.Narrative = %q, want %q", latest.Narrative, "second pass narrative")
+	if latestNarrative != "second pass narrative" {
+		t.Fatalf("latest.Narrative = %q, want %q", latestNarrative, "second pass narrative")
 	}
 
 	// 3. A legacy task-scoped insert still satisfies the CHECK (back-compat):
