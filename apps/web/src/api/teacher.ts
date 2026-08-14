@@ -3,16 +3,26 @@ import { parseEnvelope, type EvalReportEnvelope } from "./evaluationReport";
 
 export type { EvalReportEnvelope } from "./evaluationReport";
 
-export interface RosterReportEntry {
+export interface RosterEntry {
   id: string;
   displayName: string;
   avatarColor: string;
-  dBadge: string;
-  aBadge: string;
-  activeDays: number;
+  activeProjects: number;
+  reportCount: number;
+  coursesFinished: number;
+}
+
+export interface ClassLiveHeader {
+  classSize: number;
+  activeStudents: number;
+  activeProjects: number;
   turns: number;
-  hasReport: boolean;
-  unrated: boolean;
+  reports: number;
+}
+
+export interface ClassRoster {
+  roster: RosterEntry[];
+  header: ClassLiveHeader;
 }
 
 export interface StudentRecord {
@@ -25,14 +35,13 @@ export interface StudentRecord {
 }
 
 export interface StudentDetail {
-  student: { id: string; displayName: string; avatarColor: string; dBadge: string; aBadge: string; unrated: boolean };
+  student: { id: string; displayName: string; avatarColor: string };
   usage: { activeDays: number; turns: number; reportCount: number; courseCount: number };
   records: StudentRecord[];
 }
 
-export async function getClassRosterReport(classId: string): Promise<RosterReportEntry[]> {
-  const r = await apiFetch<{ roster: RosterReportEntry[] }>(`/api/v1/classes/${classId}/roster-report`);
-  return r.roster;
+export async function getClassRosterReport(classId: string): Promise<ClassRoster> {
+  return apiFetch<ClassRoster>(`/api/v1/classes/${classId}/roster-report`);
 }
 
 export async function getStudentDetail(classId: string, userId: string): Promise<StudentDetail> {
@@ -76,16 +85,17 @@ export interface WeeklyReport {
   stats: { key: string; label: string; value: number; unit: string; foot: string; delta: string; deltaDir: "up" | "down" | "flat" }[];
   praise: WeeklyCard[];
   watch: WeeklyCard[];
-  depth: { buckets: { code: string; label: string; count: number }[]; ratedCount: number; note: string };
-  autonomy: { mean: string; delta: string; deltaDir: "up" | "down" | "flat"; ratedCount: number; note: string };
   comment: string | null;
   proseReady: boolean;
+  isLatestWeek: boolean;
 }
 
-export async function getClassWeeklyReport(classId: string): Promise<WeeklyReport> {
-  return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report`);
+export async function getClassWeeklyReport(classId: string, weekStart?: string): Promise<WeeklyReport> {
+  const qs = weekStart ? `?weekStart=${encodeURIComponent(weekStart)}` : "";
+  return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report${qs}`);
 }
 
-export async function generateClassWeeklyProse(classId: string): Promise<WeeklyReport> {
-  return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report/prose`, { method: "POST" });
+export async function generateClassWeeklyProse(classId: string, weekStart?: string): Promise<WeeklyReport> {
+  const qs = weekStart ? `?weekStart=${encodeURIComponent(weekStart)}` : "";
+  return apiFetch<WeeklyReport>(`/api/v1/classes/${classId}/weekly-report/prose${qs}`, { method: "POST" });
 }

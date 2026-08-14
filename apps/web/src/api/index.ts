@@ -21,11 +21,11 @@ import { postDisposition, type StudioTurnEvent } from "./studioTurn";
 import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
 import {
   getClassRosterReport, getStudentDetail, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
-  type RosterReportEntry, type StudentRecord, type StudentDetail, type WeeklyReport, type WeeklyCard, type EvalReportEnvelope,
+  type RosterEntry, type ClassLiveHeader, type ClassRoster, type StudentRecord, type StudentDetail, type WeeklyReport, type WeeklyCard, type EvalReportEnvelope,
 } from "./teacher";
 import { readTurn, summonCard, evaluateCardSelection, getOpenCard, putReadingBrief, getTakeawayDraft, postFinalizeReading } from "./reading";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterReportEntry, StudentRecord, StudentDetail, WeeklyReport, WeeklyCard, EvalReportEnvelope };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterEntry, ClassLiveHeader, ClassRoster, StudentRecord, StudentDetail, WeeklyReport, WeeklyCard, EvalReportEnvelope };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -102,11 +102,11 @@ export interface ApiClient {
   getGrowthCards(): Promise<CollectedCard[]>;
   getCardsCatalog(theme?: CoverTheme): Promise<{ cards: CardCatalogEntry[]; theme: CoverTheme }>;
   setCardTheme(theme: CoverTheme): Promise<CoverTheme>;
-  getClassRosterReport(classId: string): Promise<RosterReportEntry[]>;
+  getClassRosterReport(classId: string): Promise<ClassRoster>;
   getStudentDetail(classId: string, userId: string): Promise<StudentDetail>;
   getStudentEvaluationReport(classId: string, userId: string, projectId: string): Promise<EvalReportEnvelope | null>;
-  getClassWeeklyReport(classId: string): Promise<WeeklyReport>;
-  generateClassWeeklyProse(classId: string): Promise<WeeklyReport>;
+  getClassWeeklyReport(classId: string, weekStart?: string): Promise<WeeklyReport>;
+  generateClassWeeklyProse(classId: string, weekStart?: string): Promise<WeeklyReport>;
   // OSS storage: upload a user image (returns its object key), resolve a key to
   // a short-lived signed GET URL.
   uploadUserImage(file: File): Promise<string>;
