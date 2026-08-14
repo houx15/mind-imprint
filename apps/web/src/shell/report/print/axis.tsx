@@ -1,56 +1,79 @@
 import type { AutonomyDimResult, DepthDimResult } from "@mind-imprint/contracts";
-import { AutonomySignals, DepthDims, DUALAXIS_MODEL } from "@mind-imprint/contracts";
-import { AUTONOMY_RAMP, DEPTH_RAMP } from "../EvaluationReport/tokens";
+import { AutonomySignals, DepthDims } from "@mind-imprint/contracts";
+import { autonomyTier, depthTier, type AxisTier } from "../EvaluationReport/tokens";
 import { EvidenceList, PrintSection } from "./parts";
 
-const RUNGS = ["L1", "L2", "L3", "L4"] as const;
-
-function DepthDimBlock({ d }: { d: DepthDimResult }) {
-  const model = DepthDims().find((x) => x.id === d.id);
-  const anchors = model?.anchors;
-  // Position by COLOR ONLY — never print d.level, never mark a "current" rung.
-  const chip = DEPTH_RAMP[d.level - 1] ?? DEPTH_RAMP[DEPTH_RAMP.length - 1];
+// One dimension block for the print doc: name + colored verdict pill, then three
+// labeled parts — 这一维看的是 (definition) · 你的表现 (behaviour + evidence) · 建议.
+// Position is shown by SEMANTIC COLOR + a plain word only — never a level digit,
+// never an L1–L4 ladder or 0–5 band strip.
+function DimBlock({
+  code,
+  name,
+  means,
+  tier,
+  summary,
+  evidence,
+  suggestion,
+  reflectionRule,
+}: {
+  code: string;
+  name: string;
+  means: string;
+  tier: AxisTier;
+  summary: string;
+  evidence: DepthDimResult["evidence"];
+  suggestion: string;
+  reflectionRule?: string;
+}) {
   return (
     <div className="print-avoid-break" style={{ marginBottom: 20, borderTop: "1px solid var(--mk-border)", paddingTop: 14 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
+        <span data-color-chip={code} aria-hidden style={{ width: 6, alignSelf: "stretch", minHeight: 18, borderRadius: 3, background: tier.bar, flexShrink: 0 }} />
+        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--mk-secondary)" }}>{code}</span>
+        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)" }}>{name}</span>
         <span
-          data-color-chip={d.id}
-          aria-hidden
-          style={{ width: 16, height: 16, borderRadius: 4, background: chip, flexShrink: 0 }}
-        />
-        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--mk-secondary)" }}>{d.id}</span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)" }}>{model?.name ?? d.id}</span>
+          style={{ marginLeft: "auto", fontSize: 11.5, fontWeight: 700, background: tier.bg, color: tier.fg, borderRadius: 999, padding: "2px 10px" }}
+        >
+          {tier.word}
+        </span>
       </div>
-      {model?.means ? (
-        <div style={{ marginTop: 3, fontSize: 11.5, color: "var(--mk-muted)" }}>{model.means}</div>
+
+      {means ? (
+        <p style={{ marginTop: 6, fontSize: 11.5, color: "var(--mk-muted)", lineHeight: 1.6 }}>
+          <b style={{ color: "var(--mk-secondary)" }}>这一维看的是 · </b>{means}
+        </p>
+      ) : null}
+      {reflectionRule ? (
+        <div style={{ marginTop: 4, fontSize: 11, color: "var(--mk-muted)", fontStyle: "italic" }}>{reflectionRule}</div>
       ) : null}
 
-      {anchors ? (
-        <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 6 }}>
-          {RUNGS.map((r, i) => (
-            <div key={r} style={{ display: "flex", gap: 8, alignItems: "flex-start" }}>
-              <span
-                aria-hidden
-                style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: DEPTH_RAMP[i], flexShrink: 0 }}
-              />
-              <span style={{ fontSize: 11, fontWeight: 700, color: "var(--mk-secondary)", width: 22, flexShrink: 0 }}>{r}</span>
-              <span style={{ fontSize: 11.5, color: "var(--mk-secondary)", lineHeight: 1.55 }}>{anchors[r]}</span>
-            </div>
-          ))}
-        </div>
-      ) : null}
-      {d.id === "D6" && model?.reflectionRule ? (
-        <div style={{ marginTop: 8, fontSize: 11, color: "var(--mk-muted)", fontStyle: "italic" }}>{model.reflectionRule}</div>
-      ) : null}
+      <div style={{ marginTop: 10, fontSize: 11.5, fontWeight: 700, color: "var(--mk-secondary)" }}>你的表现</div>
+      <p style={{ marginTop: 3, fontSize: 12.5, color: "var(--mk-ink)", lineHeight: 1.7 }}>{summary}</p>
+      <EvidenceList evidence={evidence} />
 
-      <p style={{ marginTop: 12, fontSize: 12.5, color: "var(--mk-ink)", lineHeight: 1.7 }}>{d.summary}</p>
-      <EvidenceList evidence={d.evidence} />
-      {d.suggestion ? (
+      {suggestion ? (
         <div style={{ marginTop: 12, background: "var(--mk-butter-bg)", borderRadius: 6, padding: "9px 11px", fontSize: 12, color: "var(--mk-ink)" }}>
-          <b style={{ color: "var(--mk-butter-fg)" }}>建议：</b>{d.suggestion}
+          <b style={{ color: "var(--mk-butter-fg)" }}>建议 · </b>{suggestion}
         </div>
       ) : null}
     </div>
+  );
+}
+
+function DepthDimBlock({ d }: { d: DepthDimResult }) {
+  const model = DepthDims().find((x) => x.id === d.id);
+  return (
+    <DimBlock
+      code={d.id}
+      name={model?.name ?? d.id}
+      means={model?.means ?? ""}
+      tier={depthTier(d.level)}
+      summary={d.summary}
+      evidence={d.evidence}
+      suggestion={d.suggestion}
+      reflectionRule={d.id === "D6" ? model?.reflectionRule : undefined}
+    />
   );
 }
 
@@ -60,59 +83,25 @@ export function DepthSection({ dims }: { dims: DepthDimResult[] }) {
       n="05"
       title="认知深度 D · 想得有多深"
       breakBefore
-      intro="认知深度看学生把思考推进到多深。每个维度给出 L1→L4 四级参照锚点——由浅到深的定性描述，不是 1–4 打分，也不与其它轴合成总分。学生所处的位置只用颜色深浅示意，本版本不标注具体档位。"
+      intro="认知深度看学生把思考推进到多深。每个维度分三块读：这一维看的是（定义）、你的表现（做了什么，配原话证据）、建议（下一步）。所处位置只用颜色示意——橙/黄提示需加强，浅绿/深绿表示做得好——不打分、不排名、不与其它轴合成总分。"
     >
       {dims.map((d) => <DepthDimBlock key={d.id} d={d} />)}
     </PrintSection>
   );
 }
 
-function BandStrip() {
-  // Color-coded 0–5 scale as reference; NO cell is marked as the student's.
-  return (
-    <div aria-hidden style={{ display: "flex", borderRadius: 4, overflow: "hidden", width: 132 }}>
-      {AUTONOMY_RAMP.map((color, i) => (
-        <span key={i} style={{ height: 10, width: 22, background: color }} />
-      ))}
-    </div>
-  );
-}
-
 function AutonomyDimBlock({ d }: { d: AutonomyDimResult }) {
   const model = AutonomySignals().find((x) => x.id === d.id);
-  const chip = AUTONOMY_RAMP[d.band] ?? AUTONOMY_RAMP[AUTONOMY_RAMP.length - 1];
   return (
-    <div className="print-avoid-break" style={{ marginBottom: 20, borderTop: "1px solid var(--mk-border)", paddingTop: 14 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 9 }}>
-        <span
-          data-color-chip={d.id}
-          aria-hidden
-          style={{ width: 16, height: 16, borderRadius: 4, background: chip, flexShrink: 0 }}
-        />
-        <span style={{ fontSize: 12, fontWeight: 800, color: "var(--mk-secondary)" }}>{d.id}</span>
-        <span style={{ fontSize: 15, fontWeight: 700, color: "var(--mk-ink)" }}>{model?.name ?? d.id}</span>
-      </div>
-      {model?.means ? (
-        <div style={{ marginTop: 3, fontSize: 11.5, color: "var(--mk-muted)" }}>{model.means}</div>
-      ) : null}
-      <div style={{ marginTop: 10, display: "flex", alignItems: "center", gap: 10 }}>
-        <BandStrip />
-        <span style={{ fontSize: 11, color: "var(--mk-muted)" }}>档 0 → 5（低 → 高）</span>
-      </div>
-      {model?.event ? (
-        <div style={{ marginTop: 6, fontSize: 11.5, color: "var(--mk-secondary)", lineHeight: 1.55 }}>
-          什么算一次可计事件：{model.event}
-        </div>
-      ) : null}
-
-      <p style={{ marginTop: 12, fontSize: 12.5, color: "var(--mk-ink)", lineHeight: 1.7 }}>{d.summary}</p>
-      <EvidenceList evidence={d.evidence} />
-      {d.suggestion ? (
-        <div style={{ marginTop: 12, background: "var(--mk-butter-bg)", borderRadius: 6, padding: "9px 11px", fontSize: 12, color: "var(--mk-ink)" }}>
-          <b style={{ color: "var(--mk-butter-fg)" }}>建议：</b>{d.suggestion}
-        </div>
-      ) : null}
-    </div>
+    <DimBlock
+      code={d.id}
+      name={model?.name ?? d.id}
+      means={model?.means ?? ""}
+      tier={autonomyTier(d.band)}
+      summary={d.summary}
+      evidence={d.evidence}
+      suggestion={d.suggestion}
+    />
   );
 }
 
@@ -122,7 +111,7 @@ export function AutonomySection({ dims }: { dims: AutonomyDimResult[] }) {
       n="06"
       title="智识自主 A · 是否自己驱动认知"
       breakBefore
-      intro={`智识自主看学生是否自己驱动认知。${DUALAXIS_MODEL.autonomyBand} ${DUALAXIS_MODEL.opportunityRule} 学生所处的档位只用颜色深浅示意，本版本不标注具体档数。`}
+      intro="智识自主看学生是否自己驱动认知——方向、发起、边界、检验、署名、求真这几件事上，是她带着走还是被 AI 带着走。读法与上一节相同：定义 / 你的表现 / 建议。位置只用颜色示意（橙/黄=偏依赖，绿=较自主），不打分。"
     >
       {dims.map((d) => <AutonomyDimBlock key={d.id} d={d} />)}
     </PrintSection>

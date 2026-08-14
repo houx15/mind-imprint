@@ -2,14 +2,49 @@ import type { RiskEntry } from "@mind-imprint/contracts";
 import { MACARONS } from "@/ui";
 
 /**
- * EvaluationReport shared design tokens (Task 8).
+ * EvaluationReport shared design tokens.
  *
- * D/A axis level is shown by COLOR ONLY (never a digit) — see the mockup's
- * `.axis-legend`/`.lvbar`. Ramps are index-addressed: `DEPTH_RAMP[level-1]`
- * for `level` 1..4, `AUTONOMY_RAMP[band]` for `band` 0..5.
+ * D/A position is shown by SEMANTIC COLOR ONLY — never a level digit, never an
+ * L1–L4 ladder or a 0–5 band strip. The scale is a plain warn→good signal:
+ * orange/yellow = needs attention, light/deep green = good. Depth `level` 1..4
+ * and autonomy `band` 0..5 each fold into one of four tiers via the helpers
+ * below, which return the bar/pill colors plus a plain-language verdict word
+ * (never "L2" / "band 3").
  */
-export const DEPTH_RAMP = ["#CDE7E1", "#8FCEC1", "#4FB0A0", "#177368"] as const;
-export const AUTONOMY_RAMP = ["#EFEAF6", "#DACFEC", "#C3B0E1", "#A98FD3", "#8A6AC0", "#5B4A80"] as const;
+export interface AxisTier {
+  /** Left accent bar / dot color. */
+  bar: string;
+  /** Verdict-pill tinted background. */
+  bg: string;
+  /** Verdict-pill / on-tint text color. */
+  fg: string;
+  /** Plain-language verdict word (e.g. 需加深 / 良好) — NOT a level number. */
+  word: string;
+}
+
+// Four warn→good color tiers, shared by both axes. Orange → yellow = warn;
+// light green → deep green = good. Chosen for AA-legible fg-on-bg pills.
+const TIER_COLORS = [
+  { bar: "#E07A3F", bg: "#FBE6DA", fg: "#AE531B" }, // 0 · orange — needs attention
+  { bar: "#D19A1E", bg: "#F8EFD3", fg: "#856110" }, // 1 · yellow — developing
+  { bar: "#6FAE57", bg: "#E7F1DF", fg: "#477433" }, // 2 · light green — good
+  { bar: "#2E8B57", bg: "#DCEEE4", fg: "#1E6A40" }, // 3 · deep green — strong
+] as const;
+
+const DEPTH_WORDS = ["需加深", "发展中", "良好", "扎实"] as const;
+const AUTONOMY_WORDS = ["偏依赖", "渐自主", "较自主", "高自主"] as const;
+
+/** Depth level 1..4 → tier (1→orange … 4→deep green). Clamped. */
+export function depthTier(level: number): AxisTier {
+  const i = Math.min(3, Math.max(0, level - 1));
+  return { ...TIER_COLORS[i]!, word: DEPTH_WORDS[i]! };
+}
+
+/** Autonomy band 0..5 → tier (0–1 warn, 2 developing, 3 good, 4–5 strong). */
+export function autonomyTier(band: number): AxisTier {
+  const i = band <= 1 ? 0 : band === 2 ? 1 : band === 3 ? 2 : 3;
+  return { ...TIER_COLORS[i]!, word: AUTONOMY_WORDS[i]! };
+}
 
 export type EventKindName = "chat" | "reading" | "graph" | "writing" | "review" | "milestone";
 

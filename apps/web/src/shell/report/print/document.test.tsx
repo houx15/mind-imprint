@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import { DUALAXIS_MODEL, DepthDims } from "@mind-imprint/contracts";
 import { MOCK_EVALUATION_REPORT as R } from "../EvaluationReport/__fixtures__/mock";
 import { EvaluationReportPrint } from "./EvaluationReportPrint";
-import { AUTONOMY_RAMP, DEPTH_RAMP } from "../EvaluationReport/tokens";
+import { autonomyTier, depthTier } from "../EvaluationReport/tokens";
 
 afterEach(cleanup);
 
@@ -36,32 +36,37 @@ describe("EvaluationReportPrint — timeline & materials", () => {
 });
 
 describe("EvaluationReportPrint — 认知深度 D", () => {
-  it("shows all four L1–L4 anchors as reference, marks no current rung, prints no level number", () => {
+  it("shows position by semantic color + word only — no level number, no L1–L4 ladder", () => {
     const { container } = render(<EvaluationReportPrint report={R} />);
     expect(screen.getByText("认知深度 D · 想得有多深")).toBeInTheDocument();
     // No "you-are-here" marker exists anywhere by construction.
     expect(container.querySelector("[data-current], [data-current-rung]")).toBeNull();
     const d0 = R.depth[0]!;
-    // Color chip carries the position, using the ramp for the (never-printed) level.
+    const tier = depthTier(d0.level);
+    // The accent bar carries the position via the SEMANTIC tier color.
     const chip = container.querySelector(`[data-color-chip="${d0.id}"]`) as HTMLElement | null;
     expect(chip).not.toBeNull();
-    expect(chip!.style.background).toContain(hexToRgb(DEPTH_RAMP[d0.level - 1]!));
-    // All four rubric anchors for D1 render.
+    expect(chip!.style.background).toContain(hexToRgb(tier.bar));
+    // The plain verdict word is shown; the L1–L4 anchor ladder is NOT (hidden).
+    expect(screen.getAllByText(tier.word).length).toBeGreaterThan(0);
     const model = DepthDims().find((x) => x.id === d0.id)!;
-    for (const rung of ["L1", "L2", "L3", "L4"] as const) {
-      expect(screen.getByText(model.anchors[rung])).toBeInTheDocument();
-    }
+    expect(screen.queryByText(model.anchors.L1)).toBeNull();
+    expect(screen.queryByText(model.anchors.L4)).toBeNull();
+    // The static definition (means) IS shown.
+    expect(screen.getByText(new RegExp(model.means.slice(0, 8)))).toBeInTheDocument();
   });
 });
 
 describe("EvaluationReportPrint — 智识自主 A", () => {
-  it("shows the band scale as reference, marks no cell, prints no band number", () => {
+  it("shows position by semantic color + word only — no band number, no 0–5 strip", () => {
     const { container } = render(<EvaluationReportPrint report={R} />);
     expect(screen.getByText("智识自主 A · 是否自己驱动认知")).toBeInTheDocument();
     const a0 = R.autonomy[0]!;
+    const tier = autonomyTier(a0.band);
     const chip = container.querySelector(`[data-color-chip="${a0.id}"]`) as HTMLElement | null;
     expect(chip).not.toBeNull();
-    expect(chip!.style.background).toContain(hexToRgb(AUTONOMY_RAMP[a0.band]!));
+    expect(chip!.style.background).toContain(hexToRgb(tier.bar));
+    expect(screen.getAllByText(tier.word).length).toBeGreaterThan(0);
     expect(container.querySelector("[data-current], [data-current-band]")).toBeNull();
   });
 });

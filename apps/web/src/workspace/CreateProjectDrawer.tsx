@@ -28,10 +28,20 @@ const WRITING_LANGS: { value: "en" | "zh" | "bilingual"; label: string }[] = [
 const MACARON_NAMES = Object.keys(MACARONS) as MacaronName[];
 
 // Derive a readable project title from the first line of the assignment
-// prompt — the refined research question is sharpened later, in forming.
+// prompt — the refined research question is sharpened later, in forming. Cut on
+// a word/sentence boundary (never mid-word) so the stored title never reads like
+// "...Please don't write t"; append an ellipsis only when actually truncated.
 function titleFromPrompt(prompt: string): string {
   const firstLine = prompt.split("\n").map((s) => s.trim()).find((s) => s.length > 0) ?? "";
-  return [...firstLine].slice(0, 60).join("");
+  const chars = [...firstLine];
+  if (chars.length <= 80) return firstLine;
+  const head = chars.slice(0, 80).join("");
+  // Prefer ending at the last sentence break within the window, else the last
+  // space; fall back to the hard window only if neither exists (e.g. CJK run).
+  const sentence = Math.max(head.lastIndexOf("."), head.lastIndexOf("。"), head.lastIndexOf("?"), head.lastIndexOf("？"));
+  if (sentence >= 40) return head.slice(0, sentence + 1);
+  const space = head.lastIndexOf(" ");
+  return (space >= 40 ? head.slice(0, space) : head.trimEnd()) + "…";
 }
 
 export interface CreateProjectDrawerProps {

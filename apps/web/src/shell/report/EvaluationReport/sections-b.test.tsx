@@ -23,18 +23,19 @@ describe("AxisPanel (depth)", () => {
     expect(screen.getByText(`边界：${boundaryEvidence.boundary}`)).toBeInTheDocument();
   });
 
-  it("never renders the level as a standalone digit badge, only as the color bar", () => {
+  it("shows position by a semantic color bar + plain verdict word, never a level digit", () => {
     const { container } = render(<AxisPanel axis="depth" dims={MOCK_EVALUATION_REPORT.depth} />);
 
-    // D1's level = 3 -> DEPTH_RAMP[2]. No element should render the bare
-    // digit "3" as its own text node (the level is color-only).
-    const bareDigits = screen.queryAllByText("3", { exact: true });
-    expect(bareDigits).toHaveLength(0);
+    // The level is NEVER a bare digit text node — position is color + word only.
+    expect(screen.queryAllByText("3", { exact: true })).toHaveLength(0);
 
-    // The color IS present, carried by the bar element instead of a digit.
+    // The semantic color bar carries the position.
     const bar = container.querySelector('[data-dim-bar="D1"]') as HTMLElement | null;
     expect(bar).not.toBeNull();
     expect(bar!.style.background).toBeTruthy();
+
+    // D1 level 3 → the "良好" verdict word (not "L3"/"3").
+    expect(container.querySelector('[data-dim-verdict="D1"]')?.textContent).toBe("良好");
   });
 });
 
