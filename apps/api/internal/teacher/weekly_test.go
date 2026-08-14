@@ -4,38 +4,12 @@ import (
 	"strings"
 	"testing"
 
-	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/teacher"
 )
 
-func rep(depth []agent.DepthDim, auto []agent.AutonomySignal) *agent.Report {
-	return &agent.Report{DepthAxis: depth, AutonomyAxis: auto}
-}
-
-func autos(levels ...int) []agent.AutonomySignal {
-	codes := []string{"A1", "A2", "A3", "A4", "A5", "A6"}
-	out := make([]agent.AutonomySignal, 0, len(levels))
-	for i, l := range levels {
-		out = append(out, agent.AutonomySignal{
-			Code: codes[i], Level: l, Opportunity: "given_taken",
-			Evidence: "自主证据 " + codes[i],
-		})
-	}
-	return out
-}
-
-func depths(levels ...string) []agent.DepthDim {
-	codes := []string{"D1", "D2", "D3", "D4", "D5", "D6"}
-	out := make([]agent.DepthDim, 0, len(levels))
-	for i, l := range levels {
-		out = append(out, agent.DepthDim{Code: codes[i], Level: l, Evidence: "深度证据 " + codes[i]})
-	}
-	return out
-}
-
 func TestNeverUsedFiresOnZeroActiveDays(t *testing.T) {
 	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "罗一", ActiveDays: 0, PrevActiveDays: 0,
+		UserID: "u1", DisplayName: "罗一", ActiveDays: 0, PrevActiveDays: 3,
 	}})
 	if len(w.Watch) != 1 || w.Watch[0].TagCode != "never_used" {
 		t.Fatalf("watch = %+v; want one never_used card", w.Watch)
@@ -43,280 +17,178 @@ func TestNeverUsedFiresOnZeroActiveDays(t *testing.T) {
 	if w.Watch[0].TagLabel != "本周未使用" {
 		t.Fatalf("label = %q; want 本周未使用", w.Watch[0].TagLabel)
 	}
+	if !strings.Contains(w.Watch[0].Evidence, "3 天") {
+		t.Fatalf("evidence = %q; want last week's active-day count stated", w.Watch[0].Evidence)
+	}
 }
 
-func TestDroppedOffNeedsATwoDayFallAndNoNewReport(t *testing.T) {
-	fires := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "陈屿", ActiveDays: 2, PrevActiveDays: 5, ReportsThisWeek: 0,
+func TestDroppedOffNeedsATwoDayFall(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "陈屿", ActiveDays: 1, PrevActiveDays: 5,
 	}})
-	if len(fires.Watch) != 1 || fires.Watch[0].TagCode != "dropped_off" {
-		t.Fatalf("watch = %+v; want dropped_off", fires.Watch)
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "dropped_off" {
+		t.Fatalf("watch = %+v; want dropped_off", w.Watch)
 	}
-	if !strings.Contains(fires.Watch[0].Evidence, "5 天") || !strings.Contains(fires.Watch[0].Evidence, "2 天") {
-		t.Fatalf("evidence = %q; want both week counts stated", fires.Watch[0].Evidence)
+	if !strings.Contains(w.Watch[0].Evidence, "5 天") || !strings.Contains(w.Watch[0].Evidence, "1 天") {
+		t.Fatalf("evidence = %q; want both week counts stated", w.Watch[0].Evidence)
 	}
+
 	quiet := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "陈屿", ActiveDays: 4, PrevActiveDays: 5, ReportsThisWeek: 0,
+		UserID: "u1", DisplayName: "陈屿", ActiveDays: 4, PrevActiveDays: 5,
 	}})
 	if len(quiet.Watch) != 0 {
 		t.Fatalf("watch = %+v; a one-day dip must not fire", quiet.Watch)
-	}
-	reported := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "陈屿", ActiveDays: 2, PrevActiveDays: 5, ReportsThisWeek: 1,
-	}})
-	if len(reported.Watch) != 0 {
-		t.Fatalf("watch = %+v; a student who produced a report this week is not offline", reported.Watch)
 	}
 }
 
 func TestDroppedOffFiresExactlyAtTheTwoDayThreshold(t *testing.T) {
 	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "陈屿", ActiveDays: 3, PrevActiveDays: 5, ReportsThisWeek: 0,
+		UserID: "u1", DisplayName: "陈屿", ActiveDays: 3, PrevActiveDays: 5,
 	}})
 	if len(w.Watch) != 1 || w.Watch[0].TagCode != "dropped_off" {
 		t.Fatalf("watch = %+v; a fall of exactly 2 (5→3) must fire dropped_off", w.Watch)
 	}
 }
 
-func TestOutsourcedJudgmentQuotesTheLowestSuppliedSignal(t *testing.T) {
-	r := rep(depths("L1", "L2"), autos(0, 1, 1, 1, 1, 1)) // mean 0.833
+func TestStuckNoOutputFiresOnTurnsWithoutAReport(t *testing.T) {
 	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "周子墨", ActiveDays: 3, PrevActiveDays: 3, Latest: r,
+		UserID: "u1", DisplayName: "周子墨", ActiveDays: 4, PrevActiveDays: 4, Turns: 12, ReportsThisWeek: 0,
 	}})
-	if len(w.Watch) != 1 || w.Watch[0].TagCode != "outsourced_judgment" {
-		t.Fatalf("watch = %+v; want outsourced_judgment", w.Watch)
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "stuck_no_output" {
+		t.Fatalf("watch = %+v; want stuck_no_output", w.Watch)
 	}
-	if !strings.Contains(w.Watch[0].Evidence, "自主证据 A1") {
-		t.Fatalf("evidence = %q; want the lowest supplied signal's own evidence, verbatim", w.Watch[0].Evidence)
+	if !strings.Contains(w.Watch[0].Evidence, "12") {
+		t.Fatalf("evidence = %q; want the turn count stated", w.Watch[0].Evidence)
+	}
+
+	reported := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "周子墨", ActiveDays: 4, PrevActiveDays: 4, Turns: 12, ReportsThisWeek: 1,
+	}})
+	if len(reported.Watch) != 0 {
+		t.Fatalf("watch = %+v; a student who produced a report this week is not stuck", reported.Watch)
+	}
+
+	silent := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "周子墨", ActiveDays: 4, PrevActiveDays: 4, Turns: 0, ReportsThisWeek: 0,
+	}})
+	if len(silent.Watch) != 0 {
+		t.Fatalf("watch = %+v; zero turns is not 有对话没产出", silent.Watch)
 	}
 }
 
-func TestOutsourcedJudgmentSkipsNotSuppliedWhenQuoting(t *testing.T) {
-	auto := autos(0, 1, 1, 1, 1, 1) // A1 would be the numeric lowest — but it's not_supplied
-	auto[0] = agent.AutonomySignal{
-		Code: "A1", Level: 0, Opportunity: "not_supplied",
-		Evidence: "未获机会证据 A1（不应出现）",
-	}
-	r := rep(depths("L3"), auto) // supplied signals (A2-A6) mean 1.0
+func TestWatchPrecedesPraiseWhenBothCouldApply(t *testing.T) {
+	// dropped_off (watch) fires; this student also produced a report this
+	// week, which would otherwise earn a praise card — watch must win.
 	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "周子墨", ActiveDays: 3, PrevActiveDays: 3, Latest: r,
-	}})
-	if len(w.Watch) != 1 || w.Watch[0].TagCode != "outsourced_judgment" {
-		t.Fatalf("watch = %+v; want outsourced_judgment", w.Watch)
-	}
-	if !strings.Contains(w.Watch[0].Evidence, "自主证据 A2") {
-		t.Fatalf("evidence = %q; want the lowest SUPPLIED signal's evidence (A2), verbatim", w.Watch[0].Evidence)
-	}
-	if strings.Contains(w.Watch[0].Evidence, "未获机会证据 A1") {
-		t.Fatalf("evidence = %q; must never quote a not_supplied signal's evidence", w.Watch[0].Evidence)
-	}
-}
-
-func TestNoBoundariesIgnoresNotSuppliedA3(t *testing.T) {
-	supplied := autos(4, 4, 4, 4, 4, 4)
-	supplied[2] = agent.AutonomySignal{Code: "A3", Level: 0, Opportunity: "given_not_taken", Evidence: "没有一条边界句"}
-	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "许清", ActiveDays: 4, PrevActiveDays: 4, Latest: rep(depths("L2"), supplied),
-	}})
-	if len(w.Watch) != 1 || w.Watch[0].TagCode != "no_boundaries" {
-		t.Fatalf("watch = %+v; want no_boundaries", w.Watch)
-	}
-
-	debt := autos(4, 4, 4, 4, 4, 4)
-	debt[2] = agent.AutonomySignal{Code: "A3", Level: 0, Opportunity: "not_supplied", Evidence: ""}
-	quiet := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "许清", ActiveDays: 4, PrevActiveDays: 4, Latest: rep(depths("L2"), debt),
-	}})
-	if len(quiet.Watch) != 0 {
-		t.Fatalf("watch = %+v; a not_supplied A3 is platform debt, never a student failing", quiet.Watch)
-	}
-}
-
-func TestWatchBeatsPraise(t *testing.T) {
-	prev := rep(depths("L1", "L1"), autos(0, 0, 0, 0, 0, 0))
-	latest := rep(depths("L1", "L1"), autos(1, 1, 1, 1, 1, 1)) // A mean 0→1: +1.0, but still ≤1.0
-	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "周子墨", ActiveDays: 3, PrevActiveDays: 3, Latest: latest, Previous: prev,
+		UserID: "u1", DisplayName: "周子墨", ActiveDays: 1, PrevActiveDays: 5,
+		ReportsThisWeek: 1, PriorReports: 1,
 	}})
 	if len(w.Praise) != 0 {
-		t.Fatalf("praise = %+v; a student still outsourcing judgment must not be filed as praise", w.Praise)
+		t.Fatalf("praise = %+v; a student who also dropped off must not be filed as praise", w.Praise)
 	}
-	if len(w.Watch) != 1 || w.Watch[0].TagCode != "outsourced_judgment" {
-		t.Fatalf("watch = %+v; want outsourced_judgment", w.Watch)
-	}
-}
-
-// stuckAtStart neutral baseline: avoids every earlier-priority watch rule so
-// the report actually reaches the stuck_at_start check. ActiveDays ==
-// PrevActiveDays (never_used / dropped_off), autonomy mean 2.0 > 1.0
-// (outsourced_judgment), and a non-zero A3 (no_boundaries).
-func stuckAtStartWeek(depth []agent.DepthDim) teacher.StudentWeek {
-	return teacher.StudentWeek{
-		UserID: "u1", DisplayName: "白露", ActiveDays: 5, PrevActiveDays: 5,
-		Latest: rep(depth, autos(2, 2, 2, 2, 2, 2)),
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "dropped_off" {
+		t.Fatalf("watch = %+v; want dropped_off", w.Watch)
 	}
 }
 
-func TestStuckAtStartFiresWhenHalfRatedDimsAreL1(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L2"))})
-	if len(w.Watch) != 1 || w.Watch[0].TagCode != "stuck_at_start" {
-		t.Fatalf("watch = %+v; want stuck_at_start (1 of 2 rated dims at L1, none above L2)", w.Watch)
-	}
-	if w.Watch[0].TagLabel != "停在起步档" {
-		t.Fatalf("label = %q; want 停在起步档", w.Watch[0].TagLabel)
-	}
-	if w.Watch[0].Evidence != "深度证据 D1" {
-		t.Fatalf("evidence = %q; want the lowest-ranked depth dim's own evidence, verbatim", w.Watch[0].Evidence)
-	}
-}
-
-func TestStuckAtStartDoesNotFireBelowHalfL1(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L2", "L2"))})
-	if len(w.Watch) != 0 {
-		t.Fatalf("watch = %+v; only 1 of 3 rated dims at L1 must not fire stuck_at_start", w.Watch)
-	}
-}
-
-func TestStuckAtStartDoesNotFireWithADimAboveL2(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L3"))})
-	if len(w.Watch) != 0 {
-		t.Fatalf("watch = %+v; a dim above L2 must not fire stuck_at_start even though half are L1", w.Watch)
-	}
-}
-
-func TestStuckAtStartFiresOnOddRatedCount(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("L1", "L1", "L2"))})
-	if len(w.Watch) != 1 || w.Watch[0].TagCode != "stuck_at_start" {
-		t.Fatalf("watch = %+v; want stuck_at_start (2 of 3 rated dims at L1, none above L2)", w.Watch)
-	}
-}
-
-func TestStuckAtStartDoesNotFireWithZeroRatedDims(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{stuckAtStartWeek(depths("NA", "NA"))})
-	if len(w.Watch) != 0 || len(w.Praise) != 0 {
-		t.Fatalf("cards = %+v/%+v; a report with no rated depth dims must produce no card", w.Watch, w.Praise)
-	}
-}
-
-func TestDepthUpFiresOnAHigherMaxLevel(t *testing.T) {
+func TestFirstReportFiresWhenPriorReportsIsZero(t *testing.T) {
 	w := teacher.Detect([]teacher.StudentWeek{{
 		UserID: "u1", DisplayName: "吴桐", ActiveDays: 5, PrevActiveDays: 5,
-		Previous: rep(depths("L2", "L2"), autos(3, 3, 3, 3, 3, 3)),
-		Latest:   rep(depths("L2", "L3"), autos(3, 3, 3, 3, 3, 3)),
+		ReportsThisWeek: 1, PriorReports: 0,
 	}})
-	if len(w.Praise) != 1 || w.Praise[0].TagCode != "depth_up" {
-		t.Fatalf("praise = %+v; want depth_up", w.Praise)
+	if len(w.Praise) != 1 || w.Praise[0].TagCode != "first_report" {
+		t.Fatalf("praise = %+v; want first_report", w.Praise)
+	}
+	if w.Praise[0].TagLabel != "第一份报告" {
+		t.Fatalf("label = %q; want 第一份报告", w.Praise[0].TagLabel)
 	}
 	if w.Praise[0].Kind != "praise" {
 		t.Fatalf("kind = %q; want praise", w.Praise[0].Kind)
 	}
 }
 
-func TestUnratedStudentEarnsNoJudgmentTag(t *testing.T) {
+func TestProducedReportFiresWhenPriorReportsIsNonZero(t *testing.T) {
 	w := teacher.Detect([]teacher.StudentWeek{{
-		UserID: "u1", DisplayName: "新同学", ActiveDays: 4, PrevActiveDays: 4, Latest: nil,
+		UserID: "u1", DisplayName: "吴桐", ActiveDays: 5, PrevActiveDays: 5,
+		ReportsThisWeek: 2, PriorReports: 1,
+	}})
+	if len(w.Praise) != 1 || w.Praise[0].TagCode != "produced_report" {
+		t.Fatalf("praise = %+v; want produced_report", w.Praise)
+	}
+	if !strings.Contains(w.Praise[0].Evidence, "2") {
+		t.Fatalf("evidence = %q; want the report count stated", w.Praise[0].Evidence)
+	}
+}
+
+// TestStrongEngagementIsUnreachableBehindStuckNoOutput pins a finding, not a
+// desired behaviour: as written, strong_engagement can never fire.
+// praiseCard's strong_engagement branch is only reached when
+// s.ReportsThisWeek == 0 (its own first branch already returns for
+// ReportsThisWeek > 0) AND watchCard returned false for that student. But
+// watchCard's stuck_no_output rule is `s.Turns > 0 && s.ReportsThisWeek ==
+// 0` — the exact same precondition strong_engagement needs (Turns >=
+// strongEngagementFloor > 0, ReportsThisWeek == 0) — so watchCard always
+// wins first. This test documents the current (dead-code) behaviour with the
+// most favourable possible class shape; it is not an endorsement of the rule
+// as shipped. Flagged in the task report for the spec author to confirm.
+func TestStrongEngagementIsUnreachableBehindStuckNoOutput(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{
+		{UserID: "a", DisplayName: "顶流", ActiveDays: 5, PrevActiveDays: 5, Turns: 50},
+		{UserID: "b", DisplayName: "乙", ActiveDays: 5, PrevActiveDays: 5, Turns: 1},
+	})
+	if len(w.Praise) != 0 {
+		t.Fatalf("praise = %+v; strong_engagement is currently unreachable — see comment above", w.Praise)
+	}
+	if len(w.Watch) != 2 || w.Watch[0].TagCode != "stuck_no_output" {
+		t.Fatalf("watch = %+v; want the class-top student's card to be stuck_no_output, not strong_engagement", w.Watch)
+	}
+}
+
+func TestAtMostOneCardPerStudent(t *testing.T) {
+	// A student satisfying multiple rules (never_used AND — hypothetically —
+	// any praise condition) must appear in exactly one of Watch/Praise, never
+	// both, and never twice within one.
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "罗一", ActiveDays: 0, PrevActiveDays: 5,
+		ReportsThisWeek: 1, PriorReports: 0, Turns: 50,
+	}})
+	total := len(w.Watch) + len(w.Praise)
+	if total != 1 {
+		t.Fatalf("total cards = %d; a student must carry at most one card", total)
+	}
+	if len(w.Watch) != 1 || w.Watch[0].TagCode != "never_used" {
+		t.Fatalf("watch = %+v; want never_used to win over any praise condition", w.Watch)
+	}
+}
+
+func TestUnflaggedStudentEarnsNoCard(t *testing.T) {
+	// Turns must be 0: any nonzero Turns with ReportsThisWeek==0 fires
+	// stuck_no_output (see TestStrongEngagementIsUnreachableBehindStuckNoOutput).
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "普通同学", ActiveDays: 4, PrevActiveDays: 4, Turns: 0, ReportsThisWeek: 0,
 	}})
 	if len(w.Watch) != 0 || len(w.Praise) != 0 {
-		t.Fatalf("cards = %+v/%+v; no report means no judgment", w.Watch, w.Praise)
+		t.Fatalf("cards = %+v/%+v; an unremarkable week earns no card", w.Watch, w.Praise)
 	}
 }
 
-func TestDepthDistributionBucketsOnTheBadgeUpperBound(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{
-		{UserID: "a", DisplayName: "林知远", ActiveDays: 6, PrevActiveDays: 6, Latest: rep(depths("L3", "L4"), autos(4, 4, 4, 4, 4, 4))},
-		{UserID: "b", DisplayName: "苏晚", ActiveDays: 5, PrevActiveDays: 5, Latest: rep(depths("L3", "L3"), autos(3, 3, 3, 3, 3, 3))},
-		{UserID: "c", DisplayName: "新同学", ActiveDays: 1, PrevActiveDays: 1, Latest: nil},
-	})
-	if w.Depth.RatedCount != 2 {
-		t.Fatalf("ratedCount = %d; want 2 — an unrated student is counted nowhere", w.Depth.RatedCount)
+func TestCardCarriesReportLinkFields(t *testing.T) {
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "吴桐", ActiveDays: 5, PrevActiveDays: 5,
+		ReportsThisWeek: 1, PriorReports: 1, LatestReportProjectID: "proj-123",
+	}})
+	if len(w.Praise) != 1 {
+		t.Fatalf("praise = %+v; want one card", w.Praise)
 	}
-	byCode := map[string]int{}
-	for _, b := range w.Depth.Buckets {
-		byCode[b.Code] = b.Count
+	if !w.Praise[0].HasReport || w.Praise[0].ReportScopeID != "proj-123" {
+		t.Fatalf("card = %+v; want HasReport=true and ReportScopeID=proj-123", w.Praise[0])
 	}
-	if byCode["L4"] != 1 || byCode["L3"] != 1 {
-		t.Fatalf("buckets = %+v; L3–L4 buckets on its upper bound (L4)", w.Depth.Buckets)
-	}
-	if len(w.Depth.Buckets) != 4 {
-		t.Fatalf("buckets = %d; want all four rendered, including empty ones", len(w.Depth.Buckets))
-	}
-}
 
-func TestAutonomyMeanAndDelta(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{
-		{UserID: "a", DisplayName: "甲", ActiveDays: 5, PrevActiveDays: 5,
-			Previous: rep(depths("L3"), autos(2, 2, 2, 2, 2, 2)),
-			Latest:   rep(depths("L3"), autos(3, 3, 3, 3, 3, 3))},
-		{UserID: "b", DisplayName: "乙", ActiveDays: 5, PrevActiveDays: 5,
-			Latest: rep(depths("L3"), autos(2, 2, 2, 2, 2, 2))},
-	})
-	if w.Autonomy.Mean != "2.5" {
-		t.Fatalf("mean = %q; want 2.5 (3.0 and 2.0)", w.Autonomy.Mean)
-	}
-	if w.Autonomy.Delta != "+1.0" {
-		t.Fatalf("delta = %q; want +1.0 (only 甲 has a baseline)", w.Autonomy.Delta)
-	}
-	if w.Autonomy.DeltaDir != "up" {
-		t.Fatalf("dir = %q; want up when the class's mean autonomy rose", w.Autonomy.DeltaDir)
-	}
-}
-
-func TestAutonomyDeltaIsEmDashWithoutABaseline(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{
-		{UserID: "a", DisplayName: "甲", ActiveDays: 5, PrevActiveDays: 5, Latest: rep(depths("L3"), autos(3, 3, 3, 3, 3, 3))},
-	})
-	if w.Autonomy.Delta != "—" {
-		t.Fatalf("delta = %q; want the em-dash U+2014 when no student has a second report", w.Autonomy.Delta)
-	}
-	if w.Autonomy.DeltaDir != "flat" {
-		t.Fatalf("dir = %q; want flat when nobody has a baseline — there is no direction to claim", w.Autonomy.DeltaDir)
-	}
-}
-
-func TestAutonomyDeltaDirDownWhenTheClassMeanFalls(t *testing.T) {
-	w := teacher.Detect([]teacher.StudentWeek{
-		{UserID: "a", DisplayName: "甲", ActiveDays: 5, PrevActiveDays: 5,
-			Previous: rep(depths("L3"), autos(3, 3, 3, 3, 3, 3)),
-			Latest:   rep(depths("L3"), autos(2, 2, 2, 2, 2, 2))},
-	})
-	if w.Autonomy.Delta != "-1.0" {
-		t.Fatalf("delta = %q; want -1.0", w.Autonomy.Delta)
-	}
-	if w.Autonomy.DeltaDir != "down" {
-		t.Fatalf("dir = %q; want down when the class's mean autonomy fell — the pill must never lie green", w.Autonomy.DeltaDir)
-	}
-}
-
-// TestAutonomyDeltaDirAgreesWithTheRoundedRenderedNumber pins the exact bug
-// this fix closes: a raw per-student mean change of ~0.028 is a genuine,
-// positive rise, but %+.1f renders it as "+0.0" — DeltaDir must read that
-// same rendered string and say flat, never up, so the pill and the number
-// can never disagree.
-func TestAutonomyDeltaDirAgreesWithTheRoundedRenderedNumber(t *testing.T) {
-	same := autos(2, 2, 2, 2, 2, 2)
-	noChange := func(id, name string) teacher.StudentWeek {
-		return teacher.StudentWeek{
-			UserID: id, DisplayName: name, ActiveDays: 5, PrevActiveDays: 5,
-			Previous: rep(depths("L3"), same), Latest: rep(depths("L3"), same),
-		}
-	}
-	students := []teacher.StudentWeek{
-		noChange("s1", "学生一"), noChange("s2", "学生二"), noChange("s3", "学生三"),
-		noChange("s4", "学生四"), noChange("s5", "学生五"),
-		{
-			UserID: "bump", DisplayName: "微升", ActiveDays: 5, PrevActiveDays: 5,
-			Previous: rep(depths("L3"), autos(2, 2, 2, 2, 2, 2)),
-			Latest:   rep(depths("L3"), autos(3, 2, 2, 2, 2, 2)), // +1/6 for this student alone
-		},
-	}
-	w := teacher.Detect(students)
-	// deltaSum = 1/6 over deltaN = 6 students → raw avg ≈ 0.0278, a genuine
-	// rise — but %+.1f renders "+0.0".
-	if w.Autonomy.Delta != "+0.0" {
-		t.Fatalf("delta = %q; want +0.0 (raw ~0.028 rounds down to the tenth)", w.Autonomy.Delta)
-	}
-	if w.Autonomy.DeltaDir != "flat" {
-		t.Fatalf("dir = %q; want flat — a +0.0-rendering change must never carry an up-arrow", w.Autonomy.DeltaDir)
+	noReport := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u2", DisplayName: "新同学", ActiveDays: 0, PrevActiveDays: 0,
+	}})
+	if noReport.Watch[0].HasReport || noReport.Watch[0].ReportScopeID != "" {
+		t.Fatalf("card = %+v; want HasReport=false and no scope id", noReport.Watch[0])
 	}
 }
 

@@ -12,10 +12,8 @@ import (
 func facts() agent.WeeklyFacts {
 	return agent.WeeklyFacts{
 		ClassName: "IBDP 一年级 · 研究组", ClassSize: 9, WeekLabel: "第 30 周（7.20–7.26）",
-		DepthBuckets: map[string]int{"起步 L1": 2, "发展 L2": 3, "熟练 L3": 2, "优秀 L4": 1},
-		RatedCount:   8, AutonomyMean: "2.6", AutonomyDelta: "+0.4",
 		Cards: []agent.WeeklyFactCard{
-			{UserID: "u1", Name: "周子墨", Kind: "watch", TagCode: "outsourced_judgment", TagLabel: "判断在外包", Evidence: "A 轴 0.5/5。提示词多为「帮我写一段」。"},
+			{UserID: "u1", Name: "周子墨", Kind: "watch", TagCode: "stuck_no_output", TagLabel: "有对话没产出", Evidence: "本周 12 轮对话，但没有完成能力报告。"},
 		},
 	}
 }
@@ -32,7 +30,7 @@ func composeStub(reply string) gateway.Provider {
 }
 
 func TestComposeWeeklyReturnsProse(t *testing.T) {
-	reply := `{"comment":"这周整体在往会自己想挪。","depthNote":"熟练档多了一人。","autonomyNote":"自主均分小幅上行。","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":"线下问一句这些数据凭什么说明影响。"}]}`
+	reply := `{"comment":"这周整体在往会自己想挪。","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":"线下问一句这些数据凭什么说明影响。"}]}`
 	got, usage, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub", Model: "m", Tier: "flagship"}, facts())
 	if err != nil {
 		t.Fatalf("ComposeWeekly: %v", err)
@@ -46,7 +44,7 @@ func TestComposeWeeklyReturnsProse(t *testing.T) {
 }
 
 func TestComposeWeeklyRejectsUnknownUser(t *testing.T) {
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"ghost","lead":"l","action":"x"}]}`
+	reply := `{"comment":"c","cards":[{"userId":"ghost","lead":"l","action":"x"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — the model must not invent a student")
@@ -54,7 +52,7 @@ func TestComposeWeeklyRejectsUnknownUser(t *testing.T) {
 }
 
 func TestComposeWeeklyRejectsMissingCard(t *testing.T) {
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[]}`
+	reply := `{"comment":"c","cards":[]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — every fact-sheet card needs wording")
@@ -68,7 +66,7 @@ func TestComposeWeeklyRejectsMissingCard(t *testing.T) {
 // an explicit non-empty check this reply would pass validation and render a
 // blank card on the teacher's screen.
 func TestComposeWeeklyRejectsBlankCardWording(t *testing.T) {
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"","action":""}]}`
+	reply := `{"comment":"c","cards":[{"userId":"u1","lead":"","action":""}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — a card with a userId but no wording is a card left without wording")
@@ -81,7 +79,7 @@ func TestComposeWeeklyRejectsBlankCardWording(t *testing.T) {
 // blank line on the teacher's screen, so both fields must be checked
 // independently rather than just "cards[i] == zero value".
 func TestComposeWeeklyRejectsHalfBlankCardLead(t *testing.T) {
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"","action":"线下问一句这些数据凭什么说明影响。"}]}`
+	reply := `{"comment":"c","cards":[{"userId":"u1","lead":"","action":"线下问一句这些数据凭什么说明影响。"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — an empty lead is a half-blank card")
@@ -89,7 +87,7 @@ func TestComposeWeeklyRejectsHalfBlankCardLead(t *testing.T) {
 }
 
 func TestComposeWeeklyRejectsHalfBlankCardAction(t *testing.T) {
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":""}]}`
+	reply := `{"comment":"c","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":""}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — an empty action is a half-blank card")
@@ -97,7 +95,7 @@ func TestComposeWeeklyRejectsHalfBlankCardAction(t *testing.T) {
 }
 
 func TestComposeWeeklyRejectsBareInternalCode(t *testing.T) {
-	reply := `{"comment":"这个班的 D3 普遍偏弱。","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
+	reply := `{"comment":"这个班的 D3 普遍偏弱。","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — 说人话: prose names the behaviour, not the code")
@@ -108,7 +106,7 @@ func TestComposeWeeklyRejectsBareInternalCode(t *testing.T) {
 // reviewer reproduced: bareCode's original character class was uppercase
 // only, so a lowercase "d3" sailed through untouched.
 func TestComposeWeeklyRejectsLowercaseBareCode(t *testing.T) {
-	reply := `{"comment":"这个班的d3普遍偏弱。","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
+	reply := `{"comment":"这个班的d3普遍偏弱。","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — lowercase must not evade the bare-code check")
@@ -119,7 +117,7 @@ func TestComposeWeeklyRejectsLowercaseBareCode(t *testing.T) {
 // between the letter and the digit ("D 3") didn't match the original
 // no-whitespace pattern.
 func TestComposeWeeklyRejectsSpacedBareCode(t *testing.T) {
-	reply := `{"comment":"这个班的D 3普遍偏弱。","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
+	reply := `{"comment":"这个班的D 3普遍偏弱。","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection — a space between the letter and the digit must not evade the bare-code check")
@@ -131,7 +129,7 @@ func TestComposeWeeklyRejectsSpacedBareCode(t *testing.T) {
 // all must still pass. Guards against a fix that's blunt enough to reject
 // everything.
 func TestComposeWeeklyAllowsProseWithoutBareCode(t *testing.T) {
-	reply := `{"comment":"这周整体表现平稳，没有需要特别关注的地方。","depthNote":"分布没有明显变化。","autonomyNote":"自主均分持平。","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":"线下问一句这些数据凭什么说明影响。"}]}`
+	reply := `{"comment":"这周整体表现平稳，没有需要特别关注的地方。","cards":[{"userId":"u1","lead":"连续让 AI 直接给结论","action":"线下问一句这些数据凭什么说明影响。"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err != nil {
 		t.Fatalf("ComposeWeekly: %v — legitimate prose with no bare code must pass", err)
@@ -141,7 +139,7 @@ func TestComposeWeeklyAllowsProseWithoutBareCode(t *testing.T) {
 func TestComposeWeeklyRejectsDuplicateUser(t *testing.T) {
 	f := facts()
 	f.Cards = append(f.Cards, agent.WeeklyFactCard{UserID: "u2", Name: "李想", Kind: "praise", TagCode: "grounded_claim", TagLabel: "论证扎实", Evidence: "D2 达到 L4。"})
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"},{"userId":"u1","lead":"l2","action":"x2"}]}`
+	reply := `{"comment":"c","cards":[{"userId":"u1","lead":"l","action":"x"},{"userId":"u1","lead":"l2","action":"x2"}]}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, f)
 	if err == nil {
 		t.Fatal("want rejection — a repeated student is not the same as covering every card")
@@ -149,7 +147,7 @@ func TestComposeWeeklyRejectsDuplicateUser(t *testing.T) {
 }
 
 func TestComposeWeeklyRejectsOverlongComment(t *testing.T) {
-	reply := `{"comment":"` + strings.Repeat("很", 400) + `","depthNote":"d","autonomyNote":"a","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
+	reply := `{"comment":"` + strings.Repeat("很", 400) + `","cards":[{"userId":"u1","lead":"l","action":"x"}]}`
 	reply += `}`
 	_, _, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
@@ -165,7 +163,7 @@ func TestComposeWeeklyRejectsNonJSON(t *testing.T) {
 }
 
 func TestComposeWeeklyReturnsUsageOnRejection(t *testing.T) {
-	reply := `{"comment":"c","depthNote":"d","autonomyNote":"a","cards":[]}`
+	reply := `{"comment":"c","cards":[]}`
 	_, usage, err := agent.ComposeWeekly(context.Background(), composeStub(reply), gateway.Resolved{Provider: "stub"}, facts())
 	if err == nil {
 		t.Fatal("want rejection")
@@ -177,7 +175,7 @@ func TestComposeWeeklyReturnsUsageOnRejection(t *testing.T) {
 
 func TestWeeklyFactsPromptCarriesEvidenceVerbatim(t *testing.T) {
 	p := agent.WeeklyFactsPrompt(facts())
-	if !strings.Contains(p, "A 轴 0.5/5。提示词多为「帮我写一段」。") {
+	if !strings.Contains(p, "本周 12 轮对话，但没有完成能力报告。") {
 		t.Fatalf("prompt omits the card's verbatim evidence:\n%s", p)
 	}
 	if strings.Contains(p, "对话轮次") {

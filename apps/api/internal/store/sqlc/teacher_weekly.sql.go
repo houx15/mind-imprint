@@ -50,8 +50,9 @@ SELECT
      FROM event ev JOIN members m ON m.id = ev.user_id
      WHERE ev.created_at >= $1 AND ev.created_at < $2
        AND ev.type = 'step_viewed')::int AS course_steps,
-  (SELECT count(*) FROM student_evaluation se JOIN members m ON m.id = se.user_id
-     WHERE se.created_at >= $1 AND se.created_at < $2)::int AS reports
+  (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
+     JOIN members m ON m.id = p.user_id
+     WHERE er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2)::int AS reports
 `
 
 type GetClassWeekStatsParams struct {
@@ -150,68 +151,21 @@ func (q *Queries) InsertClassWeeklyProse(ctx context.Context, arg InsertClassWee
 	return err
 }
 
-const listClassRecentReports = `-- name: ListClassRecentReports :many
-SELECT se.user_id, se.scores, se.created_at, se.surface, se.scope_id, se.rn::int AS rn
-FROM enrollments e
-JOIN LATERAL (
-  SELECT s.user_id, s.scores, s.created_at, s.surface, s.scope_id,
-         row_number() OVER (ORDER BY s.created_at DESC) AS rn
-  FROM student_evaluation s
-  WHERE s.user_id = e.user_id
-  ORDER BY s.created_at DESC
-  LIMIT 2
-) se ON true
-WHERE e.class_id = $1 AND e.role_in_class = 'student'
-ORDER BY se.user_id, se.rn
-`
-
-type ListClassRecentReportsRow struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Scores    []byte    `json:"scores"`
-	CreatedAt time.Time `json:"created_at"`
-	Surface   string    `json:"surface"`
-	ScopeID   uuid.UUID `json:"scope_id"`
-	Rn        int32     `json:"rn"`
-}
-
-// Each student's two newest reports across all scopes: rn=1 is 最新, rn=2 is
-// 上一次 (the baseline for 深度升档 / 更愿意自己想 / the A-axis delta). Students
-// with no report contribute no rows — 敢于空白, not a zero.
-func (q *Queries) ListClassRecentReports(ctx context.Context, classID uuid.UUID) ([]ListClassRecentReportsRow, error) {
-	rows, err := q.db.Query(ctx, listClassRecentReports, classID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListClassRecentReportsRow
-	for rows.Next() {
-		var i ListClassRecentReportsRow
-		if err := rows.Scan(
-			&i.UserID,
-			&i.Scores,
-			&i.CreatedAt,
-			&i.Surface,
-			&i.ScopeID,
-			&i.Rn,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listClassStudentWindowUsage = `-- name: ListClassStudentWindowUsage :many
+const listClassStudentWeekActivity = `-- name: ListClassStudentWeekActivity :many
+WITH latest_reports AS (
+  SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id
+  FROM evaluation_report er JOIN project p ON p.id = er.project_id
+  WHERE er.status = 'ready'
+  ORDER BY p.user_id, er.created_at DESC
+)
 SELECT
   u.id AS user_id, u.display_name, u.avatar_color,
   COALESCE(cur.active_days, 0)::int AS active_days,
   COALESCE(cur.turns, 0)::int       AS turns,
   COALESCE(prv.active_days, 0)::int AS prev_active_days,
-  COALESCE(prv.turns, 0)::int       AS prev_turns,
-  COALESCE(rep.n, 0)::int           AS reports_this_week
+  COALESCE(rep.n, 0)::int           AS reports_this_week,
+  COALESCE(prior.n, 0)::int         AS prior_reports,
+  lr.project_id                     AS latest_report_project_id
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 LEFT JOIN LATERAL (
@@ -221,20 +175,24 @@ LEFT JOIN LATERAL (
   WHERE ev.user_id = u.id AND ev.created_at >= $1 AND ev.created_at < $2
 ) cur ON true
 LEFT JOIN LATERAL (
-  SELECT COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days,
-         COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message')) AS turns
+  SELECT COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date) AS active_days
   FROM event ev
   WHERE ev.user_id = u.id AND ev.created_at >= $3 AND ev.created_at < $4
 ) prv ON true
 LEFT JOIN LATERAL (
-  SELECT count(*) AS n FROM student_evaluation se
-  WHERE se.user_id = u.id AND se.created_at >= $1 AND se.created_at < $2
+  SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
+  WHERE p.user_id = u.id AND er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2
 ) rep ON true
+LEFT JOIN LATERAL (
+  SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
+  WHERE p.user_id = u.id AND er.status = 'ready' AND er.created_at < $1
+) prior ON true
+LEFT JOIN latest_reports lr ON lr.user_id = u.id
 WHERE e.class_id = $5 AND e.role_in_class = 'student'
 ORDER BY u.display_name
 `
 
-type ListClassStudentWindowUsageParams struct {
+type ListClassStudentWeekActivityParams struct {
 	WeekStart time.Time `json:"week_start"`
 	WeekEnd   time.Time `json:"week_end"`
 	PrevStart time.Time `json:"prev_start"`
@@ -242,22 +200,32 @@ type ListClassStudentWindowUsageParams struct {
 	ClassID   uuid.UUID `json:"class_id"`
 }
 
-type ListClassStudentWindowUsageRow struct {
-	UserID          uuid.UUID `json:"user_id"`
-	DisplayName     string    `json:"display_name"`
-	AvatarColor     string    `json:"avatar_color"`
-	ActiveDays      int32     `json:"active_days"`
-	Turns           int32     `json:"turns"`
-	PrevActiveDays  int32     `json:"prev_active_days"`
-	PrevTurns       int32     `json:"prev_turns"`
-	ReportsThisWeek int32     `json:"reports_this_week"`
+type ListClassStudentWeekActivityRow struct {
+	UserID                uuid.UUID   `json:"user_id"`
+	DisplayName           string      `json:"display_name"`
+	AvatarColor           string      `json:"avatar_color"`
+	ActiveDays            int32       `json:"active_days"`
+	Turns                 int32       `json:"turns"`
+	PrevActiveDays        int32       `json:"prev_active_days"`
+	ReportsThisWeek       int32       `json:"reports_this_week"`
+	PriorReports          int32       `json:"prior_reports"`
+	LatestReportProjectID pgtype.UUID `json:"latest_report_project_id"`
 }
 
-// Per-student usage for THIS window and the same elapsed offset LAST week, plus
-// how many reports landed this week. Bucketed via `AT TIME ZONE 'UTC'` for the
-// same reason teacher.sql is: a 7×24h window must never span 8 UTC dates.
-func (q *Queries) ListClassStudentWindowUsage(ctx context.Context, arg ListClassStudentWindowUsageParams) ([]ListClassStudentWindowUsageRow, error) {
-	rows, err := q.db.Query(ctx, listClassStudentWindowUsage,
+// Per-student activity for a COMPLETED week + the full prior week, plus report
+// counts (this week / before this week) and the latest ready report's project id
+// for the card link. All no-LLM; no student_evaluation.
+//
+// latest_report_project_id is joined via a plain (non-LATERAL) LEFT JOIN to a
+// CTE, not a LATERAL "ON true" subselect or a scalar subquery in the SELECT
+// list: sqlc's nullability inference does not propagate "this join might not
+// match" through those two shapes (it kept typing the column as the
+// underlying NOT NULL evaluation_report.project_id, which pgx then fails to
+// scan when a student has no ready report). A CTE joined by an ordinary
+// LEFT JOIN ... ON condition is the shape sqlc reliably marks nullable
+// (-> pgtype.UUID).
+func (q *Queries) ListClassStudentWeekActivity(ctx context.Context, arg ListClassStudentWeekActivityParams) ([]ListClassStudentWeekActivityRow, error) {
+	rows, err := q.db.Query(ctx, listClassStudentWeekActivity,
 		arg.WeekStart,
 		arg.WeekEnd,
 		arg.PrevStart,
@@ -268,9 +236,9 @@ func (q *Queries) ListClassStudentWindowUsage(ctx context.Context, arg ListClass
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListClassStudentWindowUsageRow
+	var items []ListClassStudentWeekActivityRow
 	for rows.Next() {
-		var i ListClassStudentWindowUsageRow
+		var i ListClassStudentWeekActivityRow
 		if err := rows.Scan(
 			&i.UserID,
 			&i.DisplayName,
@@ -278,8 +246,9 @@ func (q *Queries) ListClassStudentWindowUsage(ctx context.Context, arg ListClass
 			&i.ActiveDays,
 			&i.Turns,
 			&i.PrevActiveDays,
-			&i.PrevTurns,
 			&i.ReportsThisWeek,
+			&i.PriorReports,
+			&i.LatestReportProjectID,
 		); err != nil {
 			return nil, err
 		}

@@ -11,9 +11,12 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/gateway"
+	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/teacher"
 )
 
 func TestWeeklyReportRejectsForeignTeacher(t *testing.T) {
@@ -91,7 +94,7 @@ func weeklyProseReplyFor(userIDs ...string) string {
 	for _, id := range userIDs {
 		cards = append(cards, fmt.Sprintf(`{"userId":%q,"lead":"连续让 AI 直接给结论","action":"线下问一句这些数据凭什么说明影响。"}`, id))
 	}
-	return fmt.Sprintf(`{"comment":"这周整体在往会自己想挪。","depthNote":"熟练档多了一人。","autonomyNote":"自主均分小幅上行。","cards":[%s]}`,
+	return fmt.Sprintf(`{"comment":"这周整体在往会自己想挪。","cards":[%s]}`,
 		strings.Join(cards, ","))
 }
 
@@ -387,10 +390,18 @@ func TestWeeklyProseMakesNoCallForAnEmptyClass(t *testing.T) {
 // firing logic already has deterministic unit coverage in
 // internal/teacher/weekly_test.go; this test's job is the seed, not the rule.
 func TestWeeklyReportForSeededClass(t *testing.T) {
-	// Skipped (2026-08-13): the weekly-report feature is being (re)developed
-	// starting next week — this test will be revisited then. Parked until that
-	// work begins so it doesn't gate unrelated changes in the meantime.
-	t.Skip("weekly-report under development next week — re-enable when that work begins")
+	// Skipped (2026-08-13, still skipped 2026-08-14 by the activity-metrics
+	// migration): the body below asserted PrevWindow's same-elapsed-offset
+	// reachability arithmetic against migration 0034's seed, tied to the OLD
+	// default window (the current in-progress week). Task 3 (activity
+	// metrics + completed-week default) replaced the default window with
+	// teacher.CompletedWeekWindows — the last COMPLETED week, full week vs
+	// full week, with no "elapsed offset" left to reach — and the card rules
+	// now read StudentWeek activity/report fields, not agent.Report axes.
+	// Re-deriving a seed-accurate assertion for the new window against
+	// 0034's fixed timestamps is real work, deliberately left to the next
+	// weekly-report seed-data pass rather than bundled into this migration.
+	t.Skip("weekly-report seed-data assertions pending a fresh pass under the activity-metrics window")
 	pool := newAPITestPool(t)
 	h := New(DepsForTest(pool)).Handler()
 	wu := signInAs(t, pool, uuid.MustParse("00000000-0000-0000-0000-000000000910"))
@@ -419,34 +430,6 @@ func TestWeeklyReportForSeededClass(t *testing.T) {
 	if !byTag["never_used"] {
 		t.Fatalf("seeded class produced no never_used card; tags = %v", byTag)
 	}
-
-	weekStart, err := time.Parse(time.RFC3339, dto.WeekStart)
-	if err != nil {
-		t.Fatalf("parse weekStart %q: %v", dto.WeekStart, err)
-	}
-	asOf, err := time.Parse(time.RFC3339, dto.AsOf)
-	if err != nil {
-		t.Fatalf("parse asOf %q: %v", dto.AsOf, err)
-	}
-	elapsed := asOf.Sub(weekStart)
-	// The threshold matches 0034's own arithmetic: PrevActiveDays only picks
-	// up the 3rd of 陈屿's five Mon–Fri 00:05 UTC events (Wednesday's) once
-	// PrevWindow's upper bound — prevStart + elapsed — passes that event's
-	// timestamp, i.e. once elapsed strictly exceeds 2 days + 5 minutes.
-	reachable := elapsed > 2*24*time.Hour+5*time.Minute
-	if reachable {
-		if !byTag["dropped_off"] {
-			t.Fatalf("elapsed %s past week start (reachable regime) but no dropped_off card; tags = %v", elapsed, byTag)
-		}
-	} else {
-		if byTag["dropped_off"] {
-			t.Fatalf("elapsed %s past week start (unreachable regime — before Wed 00:05 UTC) but dropped_off card present; tags = %v", elapsed, byTag)
-		}
-	}
-
-	if dto.Depth.RatedCount == 0 {
-		t.Fatal("ratedCount = 0; the seeded class has evaluations")
-	}
 }
 
 func TestWeeklyProseRejectsStudent(t *testing.T) {
@@ -460,5 +443,158 @@ func TestWeeklyProseRejectsStudent(t *testing.T) {
 	h.ServeHTTP(rec, req)
 	if rec.Code != http.StatusForbidden {
 		t.Fatalf("status = %d; want 403", rec.Code)
+	}
+}
+
+// seedEventsForTest inserts n events of eventType at createdAt for user, one
+// per fresh project (event's event_scope_ck needs >=1 of
+// project_id/session_id/thread_id/course_id non-null).
+func seedEventsForTest(t *testing.T, pool *pgxpool.Pool, q *sqlc.Queries, user uuid.UUID, eventType string, createdAt time.Time, n int) {
+	t.Helper()
+	ctx := context.Background()
+	proj, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: user, Qualification: "0457", Title: "weekly activity test project", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("seed project for events: %v", err)
+	}
+	for i := 0; i < n; i++ {
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO event (user_id, project_id, surface, type, created_at) VALUES ($1, $2, 'studio', $3, $4)`,
+			user, proj.ID, eventType, createdAt); err != nil {
+			t.Fatalf("insert event: %v", err)
+		}
+	}
+}
+
+// TestWeeklyReportOnActivityMetricsForACompletedWeek is the end-to-end guard
+// for Task 3: the default window is the last COMPLETED week, stats.reports
+// counts ready evaluation_report rows (not the retired student_evaluation
+// view), the watch/praise cards fire from StudentWeek activity, and the wire
+// shape genuinely drops depth/autonomy (checked at the raw-JSON level, not
+// just against the Go struct, since a struct field rename can't catch a
+// wire-shape regression the struct itself no longer has fields for).
+func TestWeeklyReportOnActivityMetricsForACompletedWeek(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	q := mustNewQueries(pool)
+	ctx := context.Background()
+
+	owner := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "wk-activity@demo.local"))
+	classID := createClassViaAPI(t, h, owner, "周报活动班")
+
+	studentA := createStudent(t, pool, SeedSchoolID, "wk-activity-a@demo.local") // turns, no report
+	studentB := createStudent(t, pool, SeedSchoolID, "wk-activity-b@demo.local") // first report
+	enrollStudent(t, pool, studentA, classID)
+	enrollStudent(t, pool, studentB, classID)
+
+	now := time.Now()
+	weekStart := teacher.LastCompletedWeekStart(now)
+	within := weekStart.Add(2 * time.Hour)
+
+	// Student A: 12 turns inside the completed week, no report → stuck_no_output.
+	seedEventsForTest(t, pool, q, studentA, "prompt_sent", within, 12)
+
+	// Student B: some activity (so ActiveDays > 0 and never_used doesn't
+	// preempt) plus one ready evaluation_report inside the completed week →
+	// first_report praise card, and stats.reports must count it.
+	seedEventsForTest(t, pool, q, studentB, "prompt_sent", within, 1)
+	projB, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: studentB, Qualification: "0457", Title: "学生B的项目", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("create project: %v", err)
+	}
+	if _, err := q.ClaimEvaluationReportGeneration(ctx, projB.ID); err != nil {
+		t.Fatalf("claim evaluation report: %v", err)
+	}
+	if err := q.CompleteEvaluationReport(ctx, sqlc.CompleteEvaluationReportParams{
+		ProjectID: projB.ID, Report: []byte(`{"version":1}`),
+	}); err != nil {
+		t.Fatalf("complete evaluation report: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE evaluation_report SET created_at = $1 WHERE project_id = $2`,
+		within, projB.ID); err != nil {
+		t.Fatalf("backdate evaluation_report: %v", err)
+	}
+
+	req := withCookie(httptest.NewRequest(http.MethodGet, "/api/v1/classes/"+classID+"/weekly-report", nil), owner)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s", rec.Code, rec.Body.String())
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(rec.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("decode raw: %v", err)
+	}
+	if _, ok := raw["depth"]; ok {
+		t.Fatal(`response carries "depth" on the wire — the retired axis field must be gone`)
+	}
+	if _, ok := raw["autonomy"]; ok {
+		t.Fatal(`response carries "autonomy" on the wire — the retired axis field must be gone`)
+	}
+
+	var got WeeklyReportDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if !got.IsLatestWeek {
+		t.Fatal("isLatestWeek = false; the default (no weekStart param) is the last completed week")
+	}
+	if got.WeekStart != weekStart.Format(time.RFC3339) {
+		t.Fatalf("weekStart = %q; want %q (the last completed week)", got.WeekStart, weekStart.Format(time.RFC3339))
+	}
+
+	var stuckCard, firstReportCard *WeeklyCardDTO
+	for i := range got.Watch {
+		if got.Watch[i].UserID == studentA.String() {
+			stuckCard = &got.Watch[i]
+		}
+	}
+	for i := range got.Praise {
+		if got.Praise[i].UserID == studentB.String() {
+			firstReportCard = &got.Praise[i]
+		}
+	}
+	if stuckCard == nil || stuckCard.TagCode != "stuck_no_output" {
+		t.Fatalf("watch = %+v; want student A's stuck_no_output card", got.Watch)
+	}
+	if firstReportCard == nil || firstReportCard.TagCode != "first_report" {
+		t.Fatalf("praise = %+v; want student B's first_report card", got.Praise)
+	}
+	if firstReportCard.ReportSurface != "project" || firstReportCard.ReportScopeID != projB.ID.String() {
+		t.Fatalf("card = %+v; want reportSurface=project and reportScopeId=%s", firstReportCard, projB.ID)
+	}
+
+	var reportsStat *WeeklyStatDTO
+	for i := range got.Stats {
+		if got.Stats[i].Key == "reports" {
+			reportsStat = &got.Stats[i]
+		}
+	}
+	if reportsStat == nil || reportsStat.Value != 1 {
+		t.Fatalf("reports stat = %+v; want value=1 (the one in-window ready evaluation_report)", reportsStat)
+	}
+}
+
+// TestWeeklyReportRejectsTheCurrentInProgressWeek guards
+// ValidateCompletedWeekStart's wiring into resolveWeekStart: the current
+// week's own Monday is never a completed week, so it must 400, not silently
+// serve a live in-progress window.
+func TestWeeklyReportRejectsTheCurrentInProgressWeek(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	owner := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "wk-currentweek@demo.local"))
+	classID := createClassViaAPI(t, h, owner, "周报班")
+
+	curMonday, _ := teacher.WeekWindow(time.Now())
+	req := withCookie(httptest.NewRequest(http.MethodGet,
+		"/api/v1/classes/"+classID+"/weekly-report?weekStart="+curMonday.Format(time.RFC3339), nil), owner)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d; want 400 — the current in-progress week is never viewable", rec.Code)
 	}
 }

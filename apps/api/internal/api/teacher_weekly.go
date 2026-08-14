@@ -47,42 +47,21 @@ type WeeklyStatDTO struct {
 	DeltaDir string `json:"deltaDir"`
 }
 
-type WeeklyBucketDTO struct {
-	Code  string `json:"code"`
-	Label string `json:"label"`
-	Count int    `json:"count"`
-}
-
-type WeeklyDepthDTO struct {
-	Buckets    []WeeklyBucketDTO `json:"buckets"`
-	RatedCount int               `json:"ratedCount"`
-	Note       string            `json:"note"`
-}
-
-type WeeklyAutonomyDTO struct {
-	Mean       string `json:"mean"`
-	Delta      string `json:"delta"`
-	DeltaDir   string `json:"deltaDir"`
-	RatedCount int    `json:"ratedCount"`
-	Note       string `json:"note"`
-}
-
 // WeeklyReportDTO is the whole screen. Every number in it was computed on this
-// read; only comment/notes/lead/action come from storage.
+// read; only comment/lead/action come from storage.
 type WeeklyReportDTO struct {
-	WeekLabel  string            `json:"weekLabel"`
-	WeekStart  string            `json:"weekStart"`
-	WeekEnd    string            `json:"weekEnd"`
-	AsOf       string            `json:"asOf"`
-	ClassName  string            `json:"className"`
-	ClassSize  int               `json:"classSize"`
-	Stats      []WeeklyStatDTO   `json:"stats"`
-	Praise     []WeeklyCardDTO   `json:"praise"`
-	Watch      []WeeklyCardDTO   `json:"watch"`
-	Depth      WeeklyDepthDTO    `json:"depth"`
-	Autonomy   WeeklyAutonomyDTO `json:"autonomy"`
-	Comment    *string           `json:"comment"`
-	ProseReady bool              `json:"proseReady"`
+	WeekLabel    string          `json:"weekLabel"`
+	WeekStart    string          `json:"weekStart"`
+	WeekEnd      string          `json:"weekEnd"`
+	AsOf         string          `json:"asOf"`
+	ClassName    string          `json:"className"`
+	ClassSize    int             `json:"classSize"`
+	Stats        []WeeklyStatDTO `json:"stats"`
+	Praise       []WeeklyCardDTO `json:"praise"`
+	Watch        []WeeklyCardDTO `json:"watch"`
+	Comment      *string         `json:"comment"`
+	ProseReady   bool            `json:"proseReady"`
+	IsLatestWeek bool            `json:"isLatestWeek"`
 }
 
 // weeklyData is everything both handlers need: the live computation plus the
@@ -96,80 +75,37 @@ type weeklyData struct {
 	ClassSize int
 }
 
-// loadWeekly runs the whole deterministic layer for one class. No model call.
-func (a *API) loadWeekly(ctx context.Context, cls sqlc.Class, now time.Time) (weeklyData, error) {
-	start, end := teacher.WeekWindow(now)
-	prevStart, prevEnd := teacher.PrevWindow(now)
+// loadWeekly runs the whole deterministic layer for one class over a
+// completed week. No model call.
+func (a *API) loadWeekly(ctx context.Context, cls sqlc.Class, weekStart, now time.Time) (weeklyData, error) {
+	start, end, prevStart, prevEnd := teacher.CompletedWeekWindows(weekStart)
 
-	cur, err := a.d.Queries.GetClassWeekStats(ctx, sqlc.GetClassWeekStatsParams{
-		ClassID: cls.ID, WeekStart: start, WeekEnd: end,
-	})
+	cur, err := a.d.Queries.GetClassWeekStats(ctx, sqlc.GetClassWeekStatsParams{ClassID: cls.ID, WeekStart: start, WeekEnd: end})
 	if err != nil {
 		return weeklyData{}, err
 	}
-	prev, err := a.d.Queries.GetClassWeekStats(ctx, sqlc.GetClassWeekStatsParams{
-		ClassID: cls.ID, WeekStart: prevStart, WeekEnd: prevEnd,
-	})
+	prev, err := a.d.Queries.GetClassWeekStats(ctx, sqlc.GetClassWeekStatsParams{ClassID: cls.ID, WeekStart: prevStart, WeekEnd: prevEnd})
 	if err != nil {
 		return weeklyData{}, err
 	}
-	usage, err := a.d.Queries.ListClassStudentWindowUsage(ctx, sqlc.ListClassStudentWindowUsageParams{
+	act, err := a.d.Queries.ListClassStudentWeekActivity(ctx, sqlc.ListClassStudentWeekActivityParams{
 		ClassID: cls.ID, WeekStart: start, WeekEnd: end, PrevStart: prevStart, PrevEnd: prevEnd,
 	})
 	if err != nil {
 		return weeklyData{}, err
 	}
-	recent, err := a.d.Queries.ListClassRecentReports(ctx, cls.ID)
-	if err != nil {
-		return weeklyData{}, err
-	}
-
-	type pair struct {
-		latest, previous *agent.Report
-		surface, scopeID string
-	}
-	byUser := map[string]*pair{}
-	for _, row := range recent {
-		var rep agent.Report
-		if json.Unmarshal(row.Scores, &rep) != nil {
-			continue // a corrupt payload is no evidence — skip, never guess
-		}
-		// NOTE: ListClassRecentReportsRow.UserID/ScopeID are plain
-		// google/uuid.UUID (not pgtype.UUID) — sqlc generated them that way
-		// because the source columns are non-nullable uuid columns selected
-		// directly, not through a LEFT JOIN. uuidText (used elsewhere in this
-		// package) takes a pgtype.UUID, so it does not apply here; .String()
-		// is the direct equivalent.
-		key := row.UserID.String()
-		p := byUser[key]
-		if p == nil {
-			p = &pair{}
-			byUser[key] = p
-		}
-		if row.Rn == 1 {
-			r := rep
-			p.latest, p.surface, p.scopeID = &r, row.Surface, row.ScopeID.String()
-		} else {
-			r := rep
-			p.previous = &r
-		}
-	}
-
-	students := make([]teacher.StudentWeek, 0, len(usage))
-	for _, u := range usage {
+	students := make([]teacher.StudentWeek, 0, len(act))
+	for _, u := range act {
 		s := teacher.StudentWeek{
 			UserID: u.UserID.String(), DisplayName: u.DisplayName, AvatarColor: u.AvatarColor,
-			ActiveDays: int(u.ActiveDays), Turns: int(u.Turns),
-			PrevActiveDays: int(u.PrevActiveDays), PrevTurns: int(u.PrevTurns),
-			ReportsThisWeek: int(u.ReportsThisWeek),
+			ActiveDays: int(u.ActiveDays), Turns: int(u.Turns), PrevActiveDays: int(u.PrevActiveDays),
+			ReportsThisWeek: int(u.ReportsThisWeek), PriorReports: int(u.PriorReports),
 		}
-		if p := byUser[u.UserID.String()]; p != nil {
-			s.Latest, s.Previous = p.latest, p.previous
-			s.LatestSurface, s.LatestScopeID = p.surface, p.scopeID
+		if u.LatestReportProjectID.Valid {
+			s.LatestReportProjectID = uuid.UUID(u.LatestReportProjectID.Bytes).String()
 		}
 		students = append(students, s)
 	}
-
 	return weeklyData{
 		Class: cls, WeekStart: start, Now: now,
 		Weekly: teacher.Detect(students),
@@ -184,26 +120,19 @@ func (a *API) loadWeekly(ctx context.Context, cls sqlc.Class, now time.Time) (we
 
 // weeklyDTO renders the loaded data, merging in whatever prose exists.
 func weeklyDTO(d weeklyData, prose *sqlc.GetClassWeeklyProseRow) WeeklyReportDTO {
-	start, end := teacher.WeekWindow(d.Now)
+	start, end, _, _ := teacher.CompletedWeekWindows(d.WeekStart)
 	dto := WeeklyReportDTO{
-		WeekLabel: teacher.WeekLabel(start),
+		WeekLabel: teacher.WeekLabel(d.WeekStart),
 		WeekStart: start.Format(time.RFC3339), WeekEnd: end.Format(time.RFC3339),
-		AsOf:      d.Now.UTC().Format(time.RFC3339),
+		AsOf:      end.Format(time.RFC3339),
 		ClassName: d.Class.Name, ClassSize: d.ClassSize,
+		IsLatestWeek: teacher.IsLatestCompletedWeek(d.WeekStart, d.Now),
 	}
 	for _, s := range d.Stats {
 		dto.Stats = append(dto.Stats, WeeklyStatDTO{
 			Key: s.Key, Label: s.Label, Value: s.Value, Unit: s.Unit, Foot: s.Foot,
 			Delta: s.Delta, DeltaDir: s.DeltaDir,
 		})
-	}
-	for _, b := range d.Weekly.Depth.Buckets {
-		dto.Depth.Buckets = append(dto.Depth.Buckets, WeeklyBucketDTO{Code: b.Code, Label: b.Label, Count: b.Count})
-	}
-	dto.Depth.RatedCount = d.Weekly.Depth.RatedCount
-	dto.Autonomy = WeeklyAutonomyDTO{
-		Mean: d.Weekly.Autonomy.Mean, Delta: d.Weekly.Autonomy.Delta, DeltaDir: d.Weekly.Autonomy.DeltaDir,
-		RatedCount: d.Weekly.Autonomy.RatedCount,
 	}
 
 	wording := map[string]agent.WeeklyCardProse{}
@@ -216,8 +145,6 @@ func weeklyDTO(d weeklyData, prose *sqlc.GetClassWeeklyProseRow) WeeklyReportDTO
 		}
 		c := prose.Comment
 		dto.Comment = &c
-		dto.Depth.Note = prose.DepthNote
-		dto.Autonomy.Note = prose.AutonomyNote
 		dto.ProseReady = true
 	}
 	conv := func(cards []teacher.Card) []WeeklyCardDTO {
@@ -228,13 +155,31 @@ func weeklyDTO(d weeklyData, prose *sqlc.GetClassWeeklyProseRow) WeeklyReportDTO
 				UserID: c.UserID, DisplayName: c.DisplayName, AvatarColor: c.AvatarColor,
 				TagCode: c.TagCode, TagLabel: c.TagLabel, Kind: c.Kind, Evidence: c.Evidence,
 				Lead: w.Lead, Action: w.Action,
-				HasReport: c.HasReport, ReportSurface: c.ReportSurface, ReportScopeID: c.ReportScopeID,
+				HasReport: c.HasReport, ReportSurface: "project", ReportScopeID: c.ReportScopeID,
 			})
 		}
 		return out
 	}
 	dto.Praise, dto.Watch = conv(d.Weekly.Praise), conv(d.Weekly.Watch)
 	return dto
+}
+
+// resolveWeekStart reads ?weekStart=<RFC3339> and validates it names a
+// completed week's UTC Monday midnight; the default (no param) is the last
+// completed week.
+func (a *API) resolveWeekStart(r *http.Request, now time.Time) (time.Time, error) {
+	q := r.URL.Query().Get("weekStart")
+	if q == "" {
+		return teacher.LastCompletedWeekStart(now), nil
+	}
+	ws, err := time.Parse(time.RFC3339, q)
+	if err != nil {
+		return time.Time{}, httpx.ErrBadRequest("validation_failed", "weekStart 格式不正确", nil)
+	}
+	if err := teacher.ValidateCompletedWeekStart(ws, now); err != nil {
+		return time.Time{}, httpx.ErrBadRequest("validation_failed", "只能查看已结束的周", nil)
+	}
+	return ws.UTC(), nil
 }
 
 // getClassWeeklyReport handles GET /api/v1/classes/{id}/weekly-report. Every
@@ -252,7 +197,12 @@ func (a *API) getClassWeeklyReport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	now := time.Now()
-	data, err := a.loadWeekly(r.Context(), cls, now)
+	ws, err := a.resolveWeekStart(r, now)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	data, err := a.loadWeekly(r.Context(), cls, ws, now)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -288,7 +238,12 @@ func (a *API) postClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	}
 	ctx := r.Context()
 	now := time.Now()
-	data, err := a.loadWeekly(ctx, cls, now)
+	ws, err := a.resolveWeekStart(r, now)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	data, err := a.loadWeekly(ctx, cls, ws, now)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -310,9 +265,9 @@ func (a *API) postClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 
 	facts := teacher.BuildWeeklyFacts(cls.Name, data.ClassSize, teacher.WeekLabel(data.WeekStart), data.Weekly)
 
-	// Nothing to say about: no cards and nobody rated. Spending a flagship call
-	// to be told so is waste.
-	if !hasRow && len(facts.Cards) == 0 && data.Weekly.Depth.RatedCount == 0 {
+	// Nothing to say about: no cards fired. Spending a flagship call to be told
+	// so is waste.
+	if !hasRow && len(facts.Cards) == 0 {
 		httpx.WriteJSON(w, http.StatusOK, weeklyDTO(data, nil))
 		return
 	}
@@ -359,7 +314,7 @@ func (a *API) postClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 	}
 	if ierr := a.d.Queries.InsertClassWeeklyProse(ctx, sqlc.InsertClassWeeklyProseParams{
 		ClassID: id, WeekStart: weekParam,
-		Comment: prose.Comment, DepthNote: prose.DepthNote, AutonomyNote: prose.AutonomyNote,
+		Comment: prose.Comment, DepthNote: "", AutonomyNote: "",
 		Cards: cards,
 	}); ierr != nil {
 		httpx.WriteError(w, r, ierr)

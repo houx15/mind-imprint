@@ -18,23 +18,10 @@ import (
 // (not in internal/teacher) because teacher imports agent, and the reverse
 // would be an import cycle.
 type WeeklyFacts struct {
-	ClassName     string               `json:"className"`
-	ClassSize     int                  `json:"classSize"`
-	WeekLabel     string               `json:"weekLabel"`
-	DepthBuckets  map[string]int       `json:"depthBuckets"`
-	RatedCount    int                  `json:"ratedCount"`
-	AutonomyMean  string               `json:"autonomyMean"`
-	AutonomyDelta string               `json:"autonomyDelta"`
-	BucketChanges []WeeklyBucketChange `json:"bucketChanges"`
-	Cards         []WeeklyFactCard     `json:"cards"`
-}
-
-// WeeklyBucketChange is one student's depth-bucket move this week (e.g.
-// L2 → L3), used to narrate the class distribution's movement.
-type WeeklyBucketChange struct {
-	Name string `json:"name"`
-	From string `json:"from"`
-	To   string `json:"to"`
+	ClassName string           `json:"className"`
+	ClassSize int              `json:"classSize"`
+	WeekLabel string           `json:"weekLabel"`
+	Cards     []WeeklyFactCard `json:"cards"`
 }
 
 // WeeklyFactCard is one 值得表扬 / 需要建议 card as the rule layer produced it:
@@ -52,10 +39,8 @@ type WeeklyFactCard struct {
 // wording. It cannot add, drop, reorder, or reclassify a card — the rule
 // layer (Task 6, internal/teacher/weekly.go) already decided all of that.
 type WeeklyProse struct {
-	Comment      string            `json:"comment"`
-	DepthNote    string            `json:"depthNote"`
-	AutonomyNote string            `json:"autonomyNote"`
-	Cards        []WeeklyCardProse `json:"cards"`
+	Comment string            `json:"comment"`
+	Cards   []WeeklyCardProse `json:"cards"`
 }
 
 // WeeklyCardProse is the wording for one WeeklyFactCard, keyed back to it by
@@ -72,7 +57,6 @@ type WeeklyCardProse struct {
 // utf8.RuneCountInString convention in card_lifecycle.go / card_completion.go.
 const (
 	weeklyCommentMax = 300
-	weeklyNoteMax    = 200
 	weeklyLeadMax    = 120
 	weeklyActionMax  = 200
 )
@@ -100,7 +84,7 @@ func weeklySystemPrompt() string {
 		"2. 说人话。不要出现 D1–D6 / A1–A6 这类内部代码。",
 		"3. 每张卡写两句：lead 用一句话说清发生了什么；action 写教师线下可以怎么开口（需要建议）或怎么鼓励（值得表扬）。",
 		"4. 具体沟通在线下进行，不要建议教师在平台上给学生发消息或打分。",
-		"5. 只输出 JSON：{\"comment\":\"\",\"depthNote\":\"\",\"autonomyNote\":\"\",\"cards\":[{\"userId\":\"\",\"lead\":\"\",\"action\":\"\"}]}",
+		"5. 只输出 JSON：{\"comment\":\"\",\"cards\":[{\"userId\":\"\",\"lead\":\"\",\"action\":\"\"}]}",
 	}, "\n")
 }
 
@@ -112,16 +96,6 @@ func weeklySystemPrompt() string {
 func WeeklyFactsPrompt(f WeeklyFacts) string {
 	var b strings.Builder
 	fmt.Fprintf(&b, "班级：%s（%d 名学生）\n周次：%s\n", f.ClassName, f.ClassSize, f.WeekLabel)
-	fmt.Fprintf(&b, "已评估学生：%d 名\n", f.RatedCount)
-	b.WriteString("认知深度分布：")
-	for _, label := range []string{"起步 L1", "发展 L2", "熟练 L3", "优秀 L4"} {
-		fmt.Fprintf(&b, "%s %d 人；", label, f.DepthBuckets[label])
-	}
-	b.WriteString("\n")
-	for _, c := range f.BucketChanges {
-		fmt.Fprintf(&b, "档位变化：%s 由 %s 升到 %s\n", c.Name, c.From, c.To)
-	}
-	fmt.Fprintf(&b, "智识自主均分：%s / 5，较上一次报告 %s\n", f.AutonomyMean, f.AutonomyDelta)
 	b.WriteString("需要写措辞的卡片：\n")
 	for _, c := range f.Cards {
 		kind := "需要建议"
@@ -189,12 +163,10 @@ func validateWeeklyProse(p WeeklyProse, f WeeklyFacts) error {
 			return fmt.Errorf("agent: weekly prose is missing card %q", id)
 		}
 	}
-	if utf8.RuneCountInString(p.Comment) > weeklyCommentMax ||
-		utf8.RuneCountInString(p.DepthNote) > weeklyNoteMax ||
-		utf8.RuneCountInString(p.AutonomyNote) > weeklyNoteMax {
+	if utf8.RuneCountInString(p.Comment) > weeklyCommentMax {
 		return fmt.Errorf("agent: weekly prose exceeds its length cap")
 	}
-	texts := []string{p.Comment, p.DepthNote, p.AutonomyNote}
+	texts := []string{p.Comment}
 	for _, c := range p.Cards {
 		texts = append(texts, c.Lead, c.Action)
 	}

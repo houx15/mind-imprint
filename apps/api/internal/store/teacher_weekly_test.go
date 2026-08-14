@@ -151,7 +151,7 @@ func enrollStudentRow(t *testing.T, pool *pgxpool.Pool, student, classID uuid.UU
 // insertEventAt seeds one event row at an explicit timestamp, scoped to a
 // fresh project so it satisfies event's event_scope_ck (>=1 of
 // project_id/session_id/thread_id/course_id non-null). Surface is fixed to
-// 'studio' — GetClassWeekStats and ListClassStudentWindowUsage filter on
+// 'studio' — GetClassWeekStats and ListClassStudentWeekActivity filter on
 // `type`, never `surface`, so the scope choice has no bearing on their counts.
 func insertEventAt(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, eventType string, createdAt time.Time) {
 	t.Helper()
@@ -168,49 +168,33 @@ func insertEventAt(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, eventTyp
 	}
 }
 
-// insertProjectEvaluation seeds a project owned by student and one
-// project-scoped evaluations row, with an explicit created_at so
-// cross-report ordering is deterministic in tests. Local duplicate of
-// teacher_query_test.go's unexported helper of the same name (see
-// createStudentRow above for why).
-func insertProjectEvaluation(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, scoresJSON string, createdAt time.Time) {
+// insertReadyEvaluationReport seeds a fresh project owned by student and one
+// 'ready' evaluation_report row on it, with an explicit created_at so
+// this-week/prior ordering is deterministic in tests. evaluation_report has a
+// UNIQUE(project_id) constraint, so each report needs its own project — this
+// mirrors production, where "how many reports this week" really means "how
+// many projects finished this week".
+func insertReadyEvaluationReport(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, createdAt time.Time) uuid.UUID {
 	t.Helper()
 	ctx := context.Background()
 	var projectID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO project (user_id, title) VALUES ($1, 'weekly report test project') RETURNING id`,
+	if err := pool.QueryRow(ctx, `INSERT INTO project (user_id, title) VALUES ($1, 'D2 weekly activity test project') RETURNING id`,
 		student).Scan(&projectID); err != nil {
 		t.Fatalf("seed project: %v", err)
 	}
 	if _, err := pool.Exec(ctx, `
-		INSERT INTO evaluations (project_id, scores, narrative, model, tier, status, created_at)
-		VALUES ($1, $2, 'project narrative', 'deepseek-v4-pro', 'flagship', 'done', $3)`,
-		projectID, scoresJSON, createdAt); err != nil {
-		t.Fatalf("insert project evaluation: %v", err)
+		INSERT INTO evaluation_report (project_id, status, created_at) VALUES ($1, 'ready', $2)`,
+		projectID, createdAt); err != nil {
+		t.Fatalf("insert evaluation_report: %v", err)
 	}
-}
-
-// insertThreadEvaluation seeds a chat thread owned by student and one
-// thread-scoped evaluations row, mirroring insertProjectEvaluation's shape.
-// Local duplicate for the same unexported-helper reason.
-func insertThreadEvaluation(t *testing.T, pool *pgxpool.Pool, student uuid.UUID, scoresJSON string, createdAt time.Time) {
-	t.Helper()
-	ctx := context.Background()
-	var threadID uuid.UUID
-	if err := pool.QueryRow(ctx, `INSERT INTO chat_thread (user_id, title) VALUES ($1, 'weekly report test thread') RETURNING id`,
-		student).Scan(&threadID); err != nil {
-		t.Fatalf("seed thread: %v", err)
-	}
-	if _, err := pool.Exec(ctx, `
-		INSERT INTO evaluations (thread_id, scores, narrative, model, tier, status, created_at)
-		VALUES ($1, $2, 'thread narrative', 'deepseek-v4-pro', 'flagship', 'done', $3)`,
-		threadID, scoresJSON, createdAt); err != nil {
-		t.Fatalf("insert thread evaluation: %v", err)
-	}
+	return projectID
 }
 
 // TestGetClassWeekStatsCountsOnlyTheWindow guards the half-open window bound
-// on GetClassWeekStats and the D1-verbatim 对话轮次 口径 (prompt_sent +
-// course_message only — card_surfaced is real activity but not a "turn").
+// on GetClassWeekStats, the D1-verbatim 对话轮次 口径 (prompt_sent +
+// course_message only — card_surfaced is real activity but not a "turn"),
+// and the reports count now reading ready evaluation_report rows (not the
+// retired student_evaluation view).
 func TestGetClassWeekStatsCountsOnlyTheWindow(t *testing.T) {
 	pool := newStoreTestPool(t)
 	q := sqlc.New(pool)
@@ -226,6 +210,8 @@ func TestGetClassWeekStatsCountsOnlyTheWindow(t *testing.T) {
 	insertEventAt(t, pool, student, "course_message", week.Add(30*time.Hour)) // in
 	insertEventAt(t, pool, student, "card_surfaced", week.Add(3*time.Hour))   // in, not a turn
 	insertEventAt(t, pool, student, "prompt_sent", week.Add(-1*time.Hour))    // before the window
+	insertReadyEvaluationReport(t, pool, student, week.Add(4*time.Hour))      // in
+	insertReadyEvaluationReport(t, pool, student, week.Add(-2*time.Hour))     // before the window
 
 	got, err := q.GetClassWeekStats(ctx, sqlc.GetClassWeekStatsParams{
 		ClassID: classID, WeekStart: week, WeekEnd: end,
@@ -242,35 +228,72 @@ func TestGetClassWeekStatsCountsOnlyTheWindow(t *testing.T) {
 	if got.ClassSize != 1 {
 		t.Fatalf("classSize = %d; want 1", got.ClassSize)
 	}
+	if got.Reports != 1 {
+		t.Fatalf("reports = %d; want 1 (only the in-window ready evaluation_report)", got.Reports)
+	}
 }
 
-// TestListClassRecentReportsReturnsTwoNewestPerStudent guards the rn window
-// function: exactly two rows per student (newest at rn=1, previous at rn=2),
-// regardless of how many reports actually exist or which surface produced
-// them — student_evaluation already unions project/thread/session scopes.
-func TestListClassRecentReportsReturnsTwoNewestPerStudent(t *testing.T) {
+// TestListClassStudentWeekActivityReportCounts guards
+// ListClassStudentWeekActivity's report bookkeeping: reports_this_week and
+// prior_reports are counted from ready evaluation_report rows split at
+// week_start, and latest_report_project_id names the newest one. It also
+// exercises the case that motivated restructuring the query away from a
+// LATERAL "ON true" join (see the query's own comment): a student with NO
+// ready report must scan latest_report_project_id as a NULL pgtype.UUID, not
+// error the whole row out.
+func TestListClassStudentWeekActivityReportCounts(t *testing.T) {
 	pool := newStoreTestPool(t)
 	q := sqlc.New(pool)
 	ctx := context.Background()
 
 	classID := createClassRow(t, pool)
-	student := createStudentRow(t, pool)
-	enrollStudentRow(t, pool, student, classID)
-	insertProjectEvaluation(t, pool, student, `{"narrative":"oldest"}`, time.Now().Add(-72*time.Hour))
-	insertProjectEvaluation(t, pool, student, `{"narrative":"middle"}`, time.Now().Add(-48*time.Hour))
-	insertThreadEvaluation(t, pool, student, `{"narrative":"newest"}`, time.Now().Add(-1*time.Hour))
+	reported := createStudentRow(t, pool)
+	enrollStudentRow(t, pool, reported, classID)
+	quiet := createStudentRow(t, pool)
+	enrollStudentRow(t, pool, quiet, classID)
 
-	rows, err := q.ListClassRecentReports(ctx, classID)
+	week := time.Date(2026, 7, 20, 0, 0, 0, 0, time.UTC)
+	end := week.AddDate(0, 0, 7)
+	prevStart := week.AddDate(0, 0, -7)
+	prevEnd := week
+
+	insertReadyEvaluationReport(t, pool, reported, week.Add(-48*time.Hour))         // prior week
+	latest := insertReadyEvaluationReport(t, pool, reported, week.Add(2*time.Hour)) // this week — the latest
+
+	act, err := q.ListClassStudentWeekActivity(ctx, sqlc.ListClassStudentWeekActivityParams{
+		ClassID: classID, WeekStart: week, WeekEnd: end, PrevStart: prevStart, PrevEnd: prevEnd,
+	})
 	if err != nil {
-		t.Fatalf("ListClassRecentReports: %v", err)
+		t.Fatalf("ListClassStudentWeekActivity: %v", err)
 	}
-	if len(rows) != 2 {
-		t.Fatalf("rows = %d; want exactly 2 (newest + previous)", len(rows))
+	if len(act) != 2 {
+		t.Fatalf("rows = %d; want 2 (both enrolled students)", len(act))
 	}
-	if !strings.Contains(string(rows[0].Scores), "newest") || rows[0].Rn != 1 {
-		t.Fatalf("row 0 = %s rn=%d; want the newest at rn=1", rows[0].Scores, rows[0].Rn)
+
+	byUser := map[uuid.UUID]sqlc.ListClassStudentWeekActivityRow{}
+	for _, row := range act {
+		byUser[row.UserID] = row
 	}
-	if !strings.Contains(string(rows[1].Scores), "middle") {
-		t.Fatalf("row 1 = %s; want the previous report", rows[1].Scores)
+
+	r := byUser[reported]
+	if r.ReportsThisWeek != 1 {
+		t.Fatalf("reported.ReportsThisWeek = %d; want 1", r.ReportsThisWeek)
+	}
+	if r.PriorReports != 1 {
+		t.Fatalf("reported.PriorReports = %d; want 1", r.PriorReports)
+	}
+	if !r.LatestReportProjectID.Valid {
+		t.Fatal("reported.LatestReportProjectID.Valid = false; want the newest ready report's project id")
+	}
+	if got := uuid.UUID(r.LatestReportProjectID.Bytes); got != latest {
+		t.Fatalf("reported.LatestReportProjectID = %v; want the newest report's project %v", got, latest)
+	}
+
+	q2 := byUser[quiet]
+	if q2.ReportsThisWeek != 0 || q2.PriorReports != 0 {
+		t.Fatalf("quiet student's report counts = %+v; want both 0", q2)
+	}
+	if q2.LatestReportProjectID.Valid {
+		t.Fatalf("quiet.LatestReportProjectID.Valid = true; a student with no ready report must scan as NULL, not error or fabricate an id")
 	}
 }
