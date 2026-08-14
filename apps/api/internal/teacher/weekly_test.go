@@ -120,27 +120,23 @@ func TestProducedReportFiresWhenPriorReportsIsNonZero(t *testing.T) {
 	}
 }
 
-// TestStrongEngagementIsUnreachableBehindStuckNoOutput pins a finding, not a
-// desired behaviour: as written, strong_engagement can never fire.
-// praiseCard's strong_engagement branch is only reached when
-// s.ReportsThisWeek == 0 (its own first branch already returns for
-// ReportsThisWeek > 0) AND watchCard returned false for that student. But
-// watchCard's stuck_no_output rule is `s.Turns > 0 && s.ReportsThisWeek ==
-// 0` — the exact same precondition strong_engagement needs (Turns >=
-// strongEngagementFloor > 0, ReportsThisWeek == 0) — so watchCard always
-// wins first. This test documents the current (dead-code) behaviour with the
-// most favourable possible class shape; it is not an endorsement of the rule
-// as shipped. Flagged in the task report for the spec author to confirm.
-func TestStrongEngagementIsUnreachableBehindStuckNoOutput(t *testing.T) {
+// TestTurnCountAloneNeverEarnsPraise guards 铁律②（不操纵）: raw AI-usage /
+// turn-count intensity must never be a praise signal on its own, even for a
+// class-leading, high-volume student with no report. Praise is
+// finished-thinking only (first_report / produced_report). This replaces the
+// removed strong_engagement rule, which rewarded turn count and was also
+// unreachable dead code (stuck_no_output's `Turns > 0 && ReportsThisWeek ==
+// 0` is a strict superset of what strong_engagement needed).
+func TestTurnCountAloneNeverEarnsPraise(t *testing.T) {
 	w := teacher.Detect([]teacher.StudentWeek{
 		{UserID: "a", DisplayName: "顶流", ActiveDays: 5, PrevActiveDays: 5, Turns: 50},
 		{UserID: "b", DisplayName: "乙", ActiveDays: 5, PrevActiveDays: 5, Turns: 1},
 	})
 	if len(w.Praise) != 0 {
-		t.Fatalf("praise = %+v; strong_engagement is currently unreachable — see comment above", w.Praise)
+		t.Fatalf("praise = %+v; turn count alone must never earn praise", w.Praise)
 	}
 	if len(w.Watch) != 2 || w.Watch[0].TagCode != "stuck_no_output" {
-		t.Fatalf("watch = %+v; want the class-top student's card to be stuck_no_output, not strong_engagement", w.Watch)
+		t.Fatalf("watch = %+v; want both students' cards to be stuck_no_output", w.Watch)
 	}
 }
 
@@ -163,7 +159,7 @@ func TestAtMostOneCardPerStudent(t *testing.T) {
 
 func TestUnflaggedStudentEarnsNoCard(t *testing.T) {
 	// Turns must be 0: any nonzero Turns with ReportsThisWeek==0 fires
-	// stuck_no_output (see TestStrongEngagementIsUnreachableBehindStuckNoOutput).
+	// stuck_no_output (see TestTurnCountAloneNeverEarnsPraise).
 	w := teacher.Detect([]teacher.StudentWeek{{
 		UserID: "u1", DisplayName: "普通同学", ActiveDays: 4, PrevActiveDays: 4, Turns: 0, ReportsThisWeek: 0,
 	}})

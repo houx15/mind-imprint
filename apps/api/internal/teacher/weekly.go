@@ -33,32 +33,15 @@ type Weekly struct {
 	Praise, Watch []Card
 }
 
-// strongEngagementFloor is the minimum turns a report-less student needs before
-// "使用最活跃" can fire, so a near-empty class does not crown a 3-turn student.
-const strongEngagementFloor = 10
-
 // Detect is the whole judgment layer: activity rules decide who appears, with
 // which tag and which numeric evidence. A student carries at most one card;
-// watch precedes praise. strong_engagement additionally needs to be class-top,
-// so the class turn stats are computed first.
+// watch precedes praise.
 func Detect(students []StudentWeek) Weekly {
 	var w Weekly
-	sum, n, topTurns := 0, 0, 0
-	for _, s := range students {
-		sum += s.Turns
-		n++
-		if s.Turns > topTurns {
-			topTurns = s.Turns
-		}
-	}
-	mean := 0.0
-	if n > 0 {
-		mean = float64(sum) / float64(n)
-	}
 	for _, s := range students {
 		if c, ok := watchCard(s); ok {
 			w.Watch = append(w.Watch, c)
-		} else if c, ok := praiseCard(s, mean, topTurns); ok {
+		} else if c, ok := praiseCard(s); ok {
 			w.Praise = append(w.Praise, c)
 		}
 	}
@@ -90,8 +73,10 @@ func watchCard(s StudentWeek) (Card, bool) {
 	return Card{}, false
 }
 
-// praiseCard: milestone first, then output, then class-top engagement.
-func praiseCard(s StudentWeek, classMeanTurns float64, topTurns int) (Card, bool) {
+// praiseCard: milestone first, then output. Praise is finished-thinking only
+// (完成了能力报告) — never raw AI-usage or turn-count intensity, which would
+// reward engagement for its own sake and violate 铁律②（不操纵）.
+func praiseCard(s StudentWeek) (Card, bool) {
 	if s.ReportsThisWeek > 0 {
 		if s.PriorReports == 0 {
 			return mkCard(s, "praise", "first_report", "第一份报告",
@@ -99,10 +84,6 @@ func praiseCard(s StudentWeek, classMeanTurns float64, topTurns int) (Card, bool
 		}
 		return mkCard(s, "praise", "produced_report", "有产出",
 			fmt.Sprintf("本周完成 %d 份能力报告。", s.ReportsThisWeek)), true
-	}
-	if s.Turns >= strongEngagementFloor && s.Turns == topTurns && float64(s.Turns) >= classMeanTurns*1.5 {
-		return mkCard(s, "praise", "strong_engagement", "使用最活跃",
-			fmt.Sprintf("本周 %d 轮对话，是班里使用最活跃的。", s.Turns)), true
 	}
 	return Card{}, false
 }

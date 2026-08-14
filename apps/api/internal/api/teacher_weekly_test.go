@@ -598,3 +598,40 @@ func TestWeeklyReportRejectsTheCurrentInProgressWeek(t *testing.T) {
 		t.Fatalf("status = %d; want 400 — the current in-progress week is never viewable", rec.Code)
 	}
 }
+
+// TestWeeklyReportNavigatesToAnEarlierCompletedWeek exercises the real
+// handler's weekStart navigation: a valid PAST completed Monday (well before
+// the last completed week, not just one week back) must 200 and resolve the
+// window to exactly that week, with isLatestWeek=false — the accept path of
+// ValidateCompletedWeekStart and the false branch of IsLatestCompletedWeek,
+// both only reachable through resolveWeekStart wired into the real handler.
+func TestWeeklyReportNavigatesToAnEarlierCompletedWeek(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(DepsForTest(pool)).Handler()
+	owner := signInAs(t, pool, createTeacher(t, pool, SeedSchoolID, "wk-navback@demo.local"))
+	classID := createClassViaAPI(t, h, owner, "周报班")
+
+	now := time.Now()
+	// Two full weeks before the LAST completed week — unambiguously "two or
+	// more weeks before the current week", and distinct from the default.
+	pastWeek := teacher.LastCompletedWeekStart(now).AddDate(0, 0, -14)
+
+	req := withCookie(httptest.NewRequest(http.MethodGet,
+		"/api/v1/classes/"+classID+"/weekly-report?weekStart="+pastWeek.Format(time.RFC3339), nil), owner)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, body %s; a valid past completed week must 200", rec.Code, rec.Body.String())
+	}
+
+	var got WeeklyReportDTO
+	if err := json.Unmarshal(rec.Body.Bytes(), &got); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if got.IsLatestWeek {
+		t.Fatal("isLatestWeek = true; navigating to an earlier completed week must not read as the latest")
+	}
+	if got.WeekStart != pastWeek.Format(time.RFC3339) {
+		t.Fatalf("weekStart = %q; want %q (the requested past week)", got.WeekStart, pastWeek.Format(time.RFC3339))
+	}
+}
