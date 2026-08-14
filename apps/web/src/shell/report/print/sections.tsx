@@ -1,5 +1,6 @@
 import type { EvaluationReport, EventEntry, MaterialEntry, PromptLens, RiskEntry, ToolUsageEntry } from "@mind-imprint/contracts";
 import { DUALAXIS_MODEL } from "@mind-imprint/contracts";
+import { EVENT_KIND, RISK_LABEL } from "../EvaluationReport/tokens";
 import { PrintSection, PrintTable } from "./parts";
 
 export function SummarySection({ report }: { report: EvaluationReport }) {
@@ -34,16 +35,12 @@ export function SummarySection({ report }: { report: EvaluationReport }) {
   );
 }
 
-const EVENT_KIND_LABEL: Record<EventEntry["kind"], string> = {
-  chat: "对话", reading: "阅读", graph: "探索", writing: "写作", review: "回顾", milestone: "里程碑",
-};
-
 export function TimelineSection({ events }: { events: EventEntry[] }) {
   return (
     <PrintSection n="03" title="过程时间线" intro="下表由平台的事件轨迹自动生成，按时间顺序还原学生这个项目的关键动作。">
       <PrintTable
         head={["时间", "阶段", "摘要", "AI 轮次"]}
-        rows={events.map((e) => [e.ts.slice(0, 10), EVENT_KIND_LABEL[e.kind] ?? e.kind, e.summary, e.aiTurns])}
+        rows={events.map((e) => [e.ts.slice(0, 10), EVENT_KIND[e.kind]?.label ?? e.kind, e.summary, e.aiTurns])}
       />
     </PrintSection>
   );
@@ -70,11 +67,6 @@ export function MaterialsSection({ materials }: { materials: MaterialEntry[] }) 
     </PrintSection>
   );
 }
-
-const RISK_LABEL: Record<RiskEntry["type"], string> = {
-  "ai-ghostwrite": "AI 代写", "missing-source": "缺来源", "argument-logic": "论证逻辑",
-  "data-scope": "数据范围", "rabbit-hole-offtopic": "跑题兔子洞",
-};
 
 export function PromptLensSection({ promptLens }: { promptLens: PromptLens }) {
   const lensList = DUALAXIS_MODEL.lenses.map((l) => l.name).join("、");

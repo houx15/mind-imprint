@@ -101,7 +101,7 @@ export function EvidenceList({ evidence }: { evidence: EvidenceItem[] }) {
 export function AboutReport({ report }: { report: import("@mind-imprint/contracts").EvaluationReport }) {
   void report;
   return (
-    <PrintSection n="—" title="关于这份报告">
+    <PrintSection n="01" title="关于这份报告">
       <p style={{ fontSize: 13, color: "var(--mk-ink)", lineHeight: 1.7, margin: "0 0 12px" }}>
         {DUALAXIS_MODEL.axiom}
       </p>
