@@ -445,6 +445,60 @@ func (s *sqlcAgentStore) CourseReport(ctx context.Context, userID uuid.UUID, slu
 	}, nil
 }
 
+// GetCourseDefinition returns one course's stored CourseDefinition 2.0 document
+// (raw jsonb) by slug. A legacy course with no 2.0 definition returns a nil
+// []byte (SQL NULL), NOT an error; an unknown slug returns pgx.ErrNoRows. The
+// caller (Course Runtime Slice 8's definition endpoint) treats both as 404 —
+// that course routes to the legacy player.
+func (s *sqlcAgentStore) GetCourseDefinition(ctx context.Context, slug string) ([]byte, error) {
+	return s.q.GetCourseDefinition(ctx, slug)
+}
+
+// SetCourseDefinition attaches (or replaces) one course's CourseDefinition 2.0
+// document. Separate from UpsertCourse so the legacy content path stays
+// untouched — only the golden 2.0 seed writes this column.
+func (s *sqlcAgentStore) SetCourseDefinition(ctx context.Context, slug string, def []byte) error {
+	return s.q.SetCourseDefinition(ctx, sqlc.SetCourseDefinitionParams{Slug: slug, CourseDefinition: def})
+}
+
+// GetCourseSession reads one student's CourseSession snapshot (§16) for one
+// course by slug. found=false (no row yet) is not an error — the caller's
+// get-or-create then mints a fresh session. Owner scoping is by userID, so a
+// student never reads another's session.
+func (s *sqlcAgentStore) GetCourseSession(ctx context.Context, userID uuid.UUID, slug string) (session []byte, status string, found bool, err error) {
+	row, err := s.q.GetCourseSessionBySlug(ctx, sqlc.GetCourseSessionBySlugParams{UserID: userID, Slug: slug})
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, "", false, nil
+		}
+		return nil, "", false, err
+	}
+	return row.Session, row.Status, true, nil
+}
+
+// CreateCourseSession inserts a fresh CourseSession snapshot for (userID,
+// courseID) and returns the stored blob. Called only when GetCourseSession found
+// none (get-or-create).
+func (s *sqlcAgentStore) CreateCourseSession(ctx context.Context, userID, courseID uuid.UUID, session []byte, status string) ([]byte, error) {
+	row, err := s.q.CreateCourseSession(ctx, sqlc.CreateCourseSessionParams{
+		UserID: userID, CourseID: courseID, Session: session, Status: status,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return row.Session, nil
+}
+
+// SaveCourseSession snapshot-writes the whole CourseSession blob for (userID,
+// courseID). Owner-scoped by userID — a student can only overwrite their own
+// session. A no-op (no matching row) is not an error: the runtime always
+// creates before it saves.
+func (s *sqlcAgentStore) SaveCourseSession(ctx context.Context, userID, courseID uuid.UUID, session []byte, status string) error {
+	return s.q.SaveCourseSession(ctx, sqlc.SaveCourseSessionParams{
+		UserID: userID, CourseID: courseID, Session: session, Status: status,
+	})
+}
+
 // unionOrdinal returns xs ∪ {v}, sorted ascending — a no-op copy when v is
 // already present, so repeated saves of the same step never grow the slice.
 func unionOrdinal(xs []int32, v int32) []int32 {
