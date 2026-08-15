@@ -30,8 +30,10 @@ func TestSeedCourses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SeedCourses: %v", err)
 	}
-	if n != 2 {
-		t.Fatalf("SeedCourses returned %d, want 2", n)
+	// 3 = a-mid + b-mid (legacy render_cache) + the golden CourseDefinition 2.0
+	// course seeded for the runtime player (Course Runtime Slice 8).
+	if n != 3 {
+		t.Fatalf("SeedCourses returned %d, want 3", n)
 	}
 
 	q := sqlc.New(pool)
@@ -40,8 +42,8 @@ func TestSeedCourses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListCourses: %v", err)
 	}
-	if len(courses) != 2 {
-		t.Fatalf("ListCourses len = %d, want 2", len(courses))
+	if len(courses) != 3 {
+		t.Fatalf("ListCourses len = %d, want 3", len(courses))
 	}
 
 	bySlug := map[string]agent.CourseSummaryRow{}
@@ -106,15 +108,15 @@ func TestSeedCourses(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SeedCourses (second call): %v", err)
 	}
-	if n2 != 2 {
-		t.Fatalf("SeedCourses (second call) returned %d, want 2", n2)
+	if n2 != 3 {
+		t.Fatalf("SeedCourses (second call) returned %d, want 3", n2)
 	}
 	coursesAgain, err := agentStore.ListCourses(ctx)
 	if err != nil {
 		t.Fatalf("ListCourses (second call): %v", err)
 	}
-	if len(coursesAgain) != 2 {
-		t.Fatalf("ListCourses (second call) len = %d, want 2 (upsert should not duplicate)", len(coursesAgain))
+	if len(coursesAgain) != 3 {
+		t.Fatalf("ListCourses (second call) len = %d, want 3 (upsert should not duplicate)", len(coursesAgain))
 	}
 }
 
@@ -172,8 +174,10 @@ func TestSeedCoursesGeneratesAudioManifest(t *testing.T) {
 	if err != nil {
 		t.Fatalf("SeedCourses: %v", err)
 	}
-	if n != 2 {
-		t.Fatalf("SeedCourses returned %d, want 2", n)
+	// 3 = a-mid + b-mid (legacy render_cache) + the golden CourseDefinition 2.0
+	// course seeded for the runtime player (Course Runtime Slice 8).
+	if n != 3 {
+		t.Fatalf("SeedCourses returned %d, want 3", n)
 	}
 	if synth.calls == 0 {
 		t.Fatalf("stub synth was never called; SeedCourses did not invoke GenerateCourseAudio")
