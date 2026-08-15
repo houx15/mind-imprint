@@ -9,3 +9,4 @@ export * from "./course";
 export * from "./session";
 export * from "./validate/types";
 export * from "./validate/referential";
+export * from "./validate/workflow";
