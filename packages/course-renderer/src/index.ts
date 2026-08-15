@@ -15,3 +15,9 @@ export { FocusProvider, FocusTarget, useCurrentFocus, isBlockFocused, focusedIte
 export type { FocusTargetProps } from "./focus/FocusManager";
 export { SlicePlayer } from "./slice/SlicePlayer";
 export type { SlicePlayerProps, Scheduler } from "./slice/SlicePlayer";
+export { OpeningScene, OPENING_START_LABEL } from "./scenes/OpeningScene";
+export type { OpeningSceneProps } from "./scenes/OpeningScene";
+export { ClosingScene } from "./scenes/ClosingScene";
+export type { ClosingSceneProps } from "./scenes/ClosingScene";
+export { CoursePlayer } from "./course/CoursePlayer";
+export type { CoursePlayerProps } from "./course/CoursePlayer";
