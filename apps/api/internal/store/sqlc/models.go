@@ -119,19 +119,20 @@ type ConversationDigest struct {
 }
 
 type Course struct {
-	ID            uuid.UUID `json:"id"`
-	Branch        string    `json:"branch"`
-	Title         string    `json:"title"`
-	Blurb         string    `json:"blurb"`
-	TimeLabel     string    `json:"time_label"`
-	CreatedAt     time.Time `json:"created_at"`
-	Slug          string    `json:"slug"`
-	CardIds       []string  `json:"card_ids"`
-	Structure     []byte    `json:"structure"`
-	RenderCache   []byte    `json:"render_cache"`
-	StepCount     int32     `json:"step_count"`
-	UpdatedAt     time.Time `json:"updated_at"`
-	AudioManifest []byte    `json:"audio_manifest"`
+	ID               uuid.UUID `json:"id"`
+	Branch           string    `json:"branch"`
+	Title            string    `json:"title"`
+	Blurb            string    `json:"blurb"`
+	TimeLabel        string    `json:"time_label"`
+	CreatedAt        time.Time `json:"created_at"`
+	Slug             string    `json:"slug"`
+	CardIds          []string  `json:"card_ids"`
+	Structure        []byte    `json:"structure"`
+	RenderCache      []byte    `json:"render_cache"`
+	StepCount        int32     `json:"step_count"`
+	UpdatedAt        time.Time `json:"updated_at"`
+	AudioManifest    []byte    `json:"audio_manifest"`
+	CourseDefinition []byte    `json:"course_definition"`
 }
 
 type CourseProgress struct {
@@ -144,6 +145,16 @@ type CourseProgress struct {
 	StartedAt         pgtype.Timestamptz `json:"started_at"`
 	CompletedAt       pgtype.Timestamptz `json:"completed_at"`
 	ActiveSeconds     int32              `json:"active_seconds"`
+}
+
+type CourseSession struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	CourseID  uuid.UUID `json:"course_id"`
+	Session   []byte    `json:"session"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Disposition struct {

@@ -55,6 +55,20 @@ ON CONFLICT (user_id, course_id) DO UPDATE SET
   updated_at = now()
 RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at, active_seconds;
 
+-- name: GetCourseDefinition :one
+-- Course Runtime Slice 8: the stored CourseDefinition 2.0 document for one
+-- course, addressed by slug. NULL (a legacy course with no 2.0 definition) is
+-- returned as a nil []byte — the handler treats both "unknown slug" (no row) and
+-- "no definition" (NULL) as 404, routing that course to the legacy player.
+SELECT course_definition FROM course WHERE slug = $1;
+
+-- name: SetCourseDefinition :exec
+-- Course Runtime Slice 8: attach (or replace) one course's CourseDefinition 2.0
+-- document. Kept separate from UpsertCourse so the legacy content path (structure
+-- /render_cache seed + admin publish) is untouched — only the golden 2.0 seed
+-- writes this column.
+UPDATE course SET course_definition = $2, updated_at = now() WHERE slug = $1;
+
 -- name: FinishedCourseIDsByUser :many
 -- Task 5 addition: cards_catalog.go's proficiency computation ("which
 -- courses has this student finished") needs this and it was dropped by

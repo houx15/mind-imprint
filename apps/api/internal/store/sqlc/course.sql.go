@@ -83,6 +83,21 @@ func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBy
 	return i, err
 }
 
+const getCourseDefinition = `-- name: GetCourseDefinition :one
+SELECT course_definition FROM course WHERE slug = $1
+`
+
+// Course Runtime Slice 8: the stored CourseDefinition 2.0 document for one
+// course, addressed by slug. NULL (a legacy course with no 2.0 definition) is
+// returned as a nil []byte — the handler treats both "unknown slug" (no row) and
+// "no definition" (NULL) as 404, routing that course to the legacy player.
+func (q *Queries) GetCourseDefinition(ctx context.Context, slug string) ([]byte, error) {
+	row := q.db.QueryRow(ctx, getCourseDefinition, slug)
+	var course_definition []byte
+	err := row.Scan(&course_definition)
+	return course_definition, err
+}
+
 const getCourseProgressByCourseID = `-- name: GetCourseProgressByCourseID :one
 SELECT course_id, current_ordinal, completed_ordinals, started_at, completed_at, updated_at, active_seconds
 FROM course_progress
@@ -207,6 +222,24 @@ func (q *Queries) ListCourseRows(ctx context.Context) ([]ListCourseRowsRow, erro
 		return nil, err
 	}
 	return items, nil
+}
+
+const setCourseDefinition = `-- name: SetCourseDefinition :exec
+UPDATE course SET course_definition = $2, updated_at = now() WHERE slug = $1
+`
+
+type SetCourseDefinitionParams struct {
+	Slug             string `json:"slug"`
+	CourseDefinition []byte `json:"course_definition"`
+}
+
+// Course Runtime Slice 8: attach (or replace) one course's CourseDefinition 2.0
+// document. Kept separate from UpsertCourse so the legacy content path (structure
+// /render_cache seed + admin publish) is untouched — only the golden 2.0 seed
+// writes this column.
+func (q *Queries) SetCourseDefinition(ctx context.Context, arg SetCourseDefinitionParams) error {
+	_, err := q.db.Exec(ctx, setCourseDefinition, arg.Slug, arg.CourseDefinition)
+	return err
 }
 
 const upsertCourse = `-- name: UpsertCourse :one
