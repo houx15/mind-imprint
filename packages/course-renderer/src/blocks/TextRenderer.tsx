@@ -1,7 +1,6 @@
 import Markdown from "react-markdown";
 import remarkGfm from "remark-gfm";
-import type { TextBlock } from "@mind-imprint/course-contract";
-import type { BlockRenderer } from "./types";
+import type { BlockRenderer, TextBlock } from "./types";
 
 /**
  * §9.1 / §17.7 — renders a text block's restricted Markdown.

@@ -27,3 +27,12 @@ export interface BlockRendererProps<TBlock extends BlockDefinition = BlockDefini
 }
 
 export type BlockRenderer<TBlock extends BlockDefinition = BlockDefinition> = ComponentType<BlockRendererProps<TBlock>>;
+
+/**
+ * The contract exports each block's Zod schema as a value only (`BlockDefinition`
+ * is the sole exported union type). These narrow the union by discriminant so
+ * renderers and their tests can name a concrete block shape.
+ */
+export type TextBlock = Extract<BlockDefinition, { type: "text" }>;
+export type ImagesBlock = Extract<BlockDefinition, { type: "images" }>;
+export type ImageItem = ImagesBlock["items"][number];

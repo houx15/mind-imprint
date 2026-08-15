@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import { TextRenderer } from "../src/blocks/TextRenderer";
-import type { TextBlock } from "@mind-imprint/course-contract";
+import type { TextBlock } from "../src/blocks/types";
 import type { AssetResolver, SliceEmitter } from "@mind-imprint/course-runtime";
 
 const assetResolver: AssetResolver = { resolve: (p) => `/resolved/${p}` };

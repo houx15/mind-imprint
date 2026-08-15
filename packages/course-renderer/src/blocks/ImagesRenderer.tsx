@@ -1,8 +1,5 @@
 import { useState } from "react";
-import type { ImagesBlock } from "@mind-imprint/course-contract";
-import type { BlockRenderer, BlockRendererProps } from "./types";
-
-type ImageItem = ImagesBlock["items"][number];
+import type { BlockRenderer, BlockRendererProps, ImageItem, ImagesBlock } from "./types";
 
 function Figure({
   item,

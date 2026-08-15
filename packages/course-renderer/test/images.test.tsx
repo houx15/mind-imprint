@@ -1,7 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ImagesRenderer } from "../src/blocks/ImagesRenderer";
-import type { ImagesBlock } from "@mind-imprint/course-contract";
+import type { ImagesBlock } from "../src/blocks/types";
 import type { AssetResolver, SliceEmitter } from "@mind-imprint/course-runtime";
 
 const assetResolver: AssetResolver = { resolve: (p) => `/resolved/${p}` };
