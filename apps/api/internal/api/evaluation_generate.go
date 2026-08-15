@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,10 +42,11 @@ type reportCallStat struct {
 // reportGenStats is the per-generation benchmark payload (per-call usage +
 // timing + the ref-drop rate). The prod path discards it.
 type reportGenStats struct {
-	Calls      []reportCallStat `json:"calls"`
-	RefsTotal  int              `json:"refsTotal"`
-	RefsDropped int             `json:"refsDropped"`
-	Candidates int              `json:"candidates"`
+	Calls       []reportCallStat `json:"calls"`
+	RefsTotal   int              `json:"refsTotal"`
+	RefsDropped int              `json:"refsDropped"`
+	Candidates  int              `json:"candidates"`
+	mu          *sync.Mutex      // guards concurrent Calls appends (pointer → safe to copy on return; unexported → not marshaled)
 }
 
 const trajectoryRuneBudget = 9000
@@ -57,6 +59,7 @@ const maxRenderedCandidates = 140
 // LLM-call failures degrade sections and are recorded in stats.
 func (a *API) runReportGeneration(ctx context.Context, projectID uuid.UUID, reportID, studentName string) (evalreport.Report, reportGenStats, error) {
 	var stats reportGenStats
+	stats.mu = &sync.Mutex{}
 	q := a.d.Queries
 	pg := pgtype.UUID{Bytes: projectID, Valid: true}
 
@@ -121,9 +124,14 @@ func (a *API) runReportGeneration(ctx context.Context, projectID uuid.UUID, repo
 	var risks []evalreport.RiskEntry
 	var abstract evalreport.Abstract
 	if ok && a.d.Provider != nil {
-		promptLens = a.timedPromptLens(ctx, projectID, resolved, genCtx, &stats)
-		risks = a.timedRisks(ctx, projectID, resolved, genCtx, &stats)
-		rubricRes = a.timedRubric(ctx, projectID, resolved, genCtx, &stats)
+		// A (promptLens), B (risks), C (rubric) are context-independent — run them
+		// concurrently. D (abstract) synthesises C's axis results, so it waits.
+		var wg sync.WaitGroup
+		wg.Add(3)
+		go func() { defer wg.Done(); promptLens = a.timedPromptLens(ctx, projectID, resolved, genCtx, &stats) }()
+		go func() { defer wg.Done(); risks = a.timedRisks(ctx, projectID, resolved, genCtx, &stats) }()
+		go func() { defer wg.Done(); rubricRes = a.timedRubric(ctx, projectID, resolved, genCtx, &stats) }()
+		wg.Wait()
 		abstract = a.timedAbstract(ctx, projectID, resolved, genCtx, rubricRes, &stats)
 	} else {
 		stats.Calls = append(stats.Calls, reportCallStat{Name: "resolver", OK: false, Err: "no eval resolver / provider"})
@@ -195,7 +203,9 @@ func (a *API) recordReportCall(ctx context.Context, pid uuid.UUID, r gateway.Res
 	if err != nil {
 		st.Err = err.Error()
 	}
+	s.mu.Lock()
 	s.Calls = append(s.Calls, st)
+	s.mu.Unlock()
 }
 
 // --- deterministic FACT assembly ---
@@ -385,6 +395,12 @@ func buildTrajectoryDigest(prop sqlc.ProjectProposal, plans []sqlc.PlanItem, ref
 	b.WriteString("〔立题框架〕\n")
 	fmt.Fprintf(&b, "目标：%s\n缘由：%s\n活动与时间：%s\n资源：%s\n可能的反例：%s\n\n",
 		prop.Objective, prop.Reason, prop.Activities, prop.Resources, prop.Counterpoints)
+	// The student's own reflection is D6's only valid evidence and usually sits
+	// at the END of the draft — surface it up-front so it survives the digest's
+	// tail truncation (the draft excerpt below is capped and could bury it).
+	if refl := extractReflection(body); refl != "" {
+		fmt.Fprintf(&b, "〔学生自写反思〕\n%s\n\n", evalreport.Label(refl, 900))
+	}
 	if len(plans) > 0 {
 		b.WriteString("〔计划阶段〕")
 		for _, p := range plans {
@@ -461,6 +477,23 @@ func buildRiskSignalsDigest(body string, refs []sqlc.Reference, citations []sqlc
 	}
 	fmt.Fprintf(&b, "\n〔正文引用了 %d 处来源；探索线索 %d 条〕\n", len(citations), len(leads))
 	return evalreport.Label(b.String(), 5000)
+}
+
+// extractReflection returns the student's self-written reflection section from
+// the body (the D6 signal), found by a 反思 / Reflection heading. Returns "" when
+// there is no such section — D6 then stays NA rather than penalised.
+func extractReflection(body string) string {
+	markers := []string{"## 反思", "# 反思", "反思\n", "## Reflection", "# Reflection", "Reflection\n"}
+	lower := body
+	for _, m := range markers {
+		if i := strings.Index(lower, m); i >= 0 {
+			tail := strings.TrimSpace(body[i+len(m):])
+			if tail != "" {
+				return tail
+			}
+		}
+	}
+	return ""
 }
 
 func countAssistantTurns(msgs []sqlc.ChatMessage) int {

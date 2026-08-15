@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strconv"
@@ -154,12 +155,16 @@ func TestReportGenerationBenchmark(t *testing.T) {
 			res.Result = snapshotReport(rep)
 		}
 		results = append(results, res)
-		t.Logf("[%d/%d] %s (L%d) — %dms in=%d out=%d cand=%d dropped=%d/%d depth=%v autonomy=%v risks=%d",
+		// log.Printf flushes to stdout live (t.Logf buffers until test end); and
+		// persist after EVERY persona so a kill mid-run keeps partial results.
+		log.Printf("[%d/%d] %s (L%d) — %dms in=%d out=%d cand=%d dropped=%d/%d depth=%v autonomy=%v risks=%d",
 			i+1, len(personas), p.Name, p.Level, res.TotalMillis, res.TotalIn, res.TotalOut,
 			res.Candidates, res.RefsDropped, res.RefsTotal, res.Result.DepthLevels, res.Result.AutonomyBand, res.Result.NRisks)
+		writeBenchmarkOutput(t, results)
 	}
 
 	writeBenchmarkOutput(t, results)
+	log.Printf("BENCHMARK DONE: %d personas", len(results))
 }
 
 func writeBenchmarkOutput(t *testing.T, results []personaResult) {
