@@ -95,13 +95,12 @@ func (a *API) runReportGeneration(ctx context.Context, projectID uuid.UUID, repo
 	candidates := renderCandidates(idx)
 
 	genCtx := agent.ReportGenContext{
-		Title:         title,
-		Qualification: p.Qualification,
-		Candidates:    candidates,
-		Trajectory:    buildTrajectoryDigest(proposal, plans, refs, cards, events, body),
-		Prompts:       buildPromptsDigest(msgs, events),
-		RiskSignals:   buildRiskSignalsDigest(body, refs, citations, leads),
-		Counters:      "",
+		Title:       title,
+		Candidates:  candidates,
+		Trajectory:  buildTrajectoryDigest(proposal, plans, refs, cards, events, body),
+		Prompts:     buildPromptsDigest(msgs, events),
+		RiskSignals: buildRiskSignalsDigest(body, refs, citations, leads),
+		Counters:    "",
 	}
 
 	// FACT half — deterministic.
@@ -142,18 +141,20 @@ func (a *API) runReportGeneration(ctx context.Context, projectID uuid.UUID, repo
 		ReportID:  reportID,
 		ProjectID: projectID.String(),
 		Basics: evalreport.Basics{
-			Title: title, Type: p.Qualification,
+			// Type (project qualification) is intentionally left empty until
+			// multi-type support lands — it is not shown anywhere in the report.
+			Title:      title,
 			StartDate:  p.CreatedAt.UTC().Format(time.RFC3339),
 			Milestones: milestones, Counters: counters,
 		},
-		Abstract:   abstract,
-		Events:     a.assembleTimeline(events),
-		Materials:  assembleMaterials(refs, citations, leads),
-		Depth:      fillDepth(rubricRes.Depth),
-		Autonomy:   fillAutonomy(rubricRes.Autonomy),
-		PromptLens: promptLens,
-		ToolUsage:  assembleToolUsage(cards),
-		Risks:      risks,
+		Abstract:    abstract,
+		Events:      a.assembleTimeline(events),
+		Materials:   assembleMaterials(refs, citations, leads),
+		Depth:       fillDepth(rubricRes.Depth),
+		Autonomy:    fillAutonomy(rubricRes.Autonomy),
+		PromptLens:  promptLens,
+		ToolUsage:   assembleToolUsage(cards),
+		Risks:       risks,
 		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
 	}
 	rep.Student.ID = p.UserID.String()

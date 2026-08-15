@@ -244,3 +244,32 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		WritingFinish:   finish,
 	})
 }
+
+// renameProject lets a student change their own project's title. Ownership is
+// enforced by loadOwnedProject (hidden as 404); only the title is mutable here.
+func (a *API) renameProject(w http.ResponseWriter, r *http.Request) {
+	id, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Title string `json:"title"`
+	}
+	if err := decodeJSON(r, &req); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_title", "项目名称不能为空。", nil))
+		return
+	}
+	if len([]rune(title)) > 200 {
+		title = string([]rune(title)[:200])
+	}
+	if err := a.d.Queries.SetProjectTitle(r.Context(), sqlc.SetProjectTitleParams{ID: id, Title: title}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"title": title})
+}

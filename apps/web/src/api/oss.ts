@@ -40,6 +40,32 @@ export async function uploadUserImage(file: File): Promise<string> {
   return signed.objectKey;
 }
 
+// uploadUserDoc uploads a reading document (PDF/DOCX) to OSS via a server-signed
+// PUT URL (scope user_doc) and returns its object key. The server then downloads
+// and extracts it (ingestReferenceFile). The File's MIME type must be in the
+// user_doc allowlist (pdf / docx) or the server rejects it with 400.
+export async function uploadUserDoc(file: File): Promise<string> {
+  const signed = await apiFetch<UploadURLResponse>("/api/v1/oss/upload-url", {
+    method: "POST",
+    body: JSON.stringify({
+      scope: "user_doc",
+      contentType: file.type,
+      size: file.size,
+      filename: file.name,
+    }),
+  });
+
+  const put = await fetch(signed.putUrl, {
+    method: "PUT",
+    headers: { "Content-Type": signed.requiredContentType },
+    body: file,
+  });
+  if (!put.ok) {
+    throw new ApiError("oss_put_failed", `上传失败（HTTP ${put.status}）`, put.status);
+  }
+  return signed.objectKey;
+}
+
 // resolveUrl turns an object key into a short-lived signed GET URL (served via
 // CDN) usable as an <img src> or download link. It expires in ~5 minutes, so
 // resolve on demand right before use rather than caching the URL.

@@ -71,7 +71,11 @@ func QuestionCardTurn(ctx context.Context, prov gateway.Provider, resolved gatew
 		}
 		msgs = append(msgs, gateway.ChatMessage{Role: role, Content: h.Content})
 	}
-	req := gateway.ChatRequest{Messages: msgs, MaxTokens: 1500}
+	// A generous cap (matching the provider default): deepseek-v4-pro can spend
+	// budget on hidden reasoning even under the chaperone tier's thinking:disabled,
+	// and a 1500 cap was observed truncating the JSON to empty content → every turn
+	// failed to parse → the caller leaked its canned fallback opener verbatim.
+	req := gateway.ChatRequest{Messages: msgs, MaxTokens: 16000}
 
 	var lastUsage gateway.ChatUsage
 	var lastErr error

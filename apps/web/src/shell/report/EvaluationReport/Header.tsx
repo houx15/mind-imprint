@@ -1,5 +1,5 @@
 import type { EvaluationReport } from "@mind-imprint/contracts";
-import { BookOpen, FileText, MessageCircle, MessageSquare, PenLine, RotateCcw, type LucideIcon } from "lucide-react";
+import { BookOpen, MessageCircle, MessageSquare, PenLine, RotateCcw, type LucideIcon } from "lucide-react";
 import { Card, Icon, MACARONS, type MacaronName } from "@/ui";
 
 export interface HeaderProps {
@@ -35,8 +35,9 @@ function formatMonthDay(ts: string): string {
 
 /**
  * Report header — ports `.rpt-head`/`.steps`/`.counters` from
- * `docs/reference/2026-08-13-eval-report-mockup.html`: title, type chip +
- * date range, 5-step milestone stepper (done = non-null timestamp), and 5
+ * `docs/reference/2026-08-13-eval-report-mockup.html`: title + date range
+ * (project type omitted until multi-type support lands), 5-step milestone
+ * stepper (done = non-null timestamp), and 5
  * macaron-tinted counter tiles.
  */
 export function Header({ basics, title }: HeaderProps) {
@@ -44,10 +45,6 @@ export function Header({ basics, title }: HeaderProps) {
     <Card className="p-7" data-testid="header-section">
       <div className="text-mk-h1 text-mk-ink">{title}</div>
       <div className="mt-3 flex flex-wrap items-center gap-2.5 text-mk-small text-mk-muted">
-        <span className="inline-flex items-center gap-1.5 rounded-mk-full bg-mk-mist-bg px-2.5 py-1 font-semibold text-mk-mist-fg">
-          <Icon icon={FileText} size={13} />
-          {basics.type}
-        </span>
         <span className="inline-flex items-center gap-1.5 rounded-mk-full bg-mk-matcha-bg px-2.5 py-1 font-semibold text-mk-matcha-fg">
           <span aria-hidden className="h-1.5 w-1.5 rounded-mk-full bg-current" />
           {basics.startDate.slice(0, 10)} → {basics.endDate ? basics.endDate.slice(5, 10) : "进行中"}

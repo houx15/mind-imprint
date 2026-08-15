@@ -301,12 +301,20 @@ export function ReadingRoom({
           hasExample: loop.exampleBlockId !== "",
         };
 
-  // A graceful-degrade summon has no example block to hang under — fall back to
-  // the first paragraph so the "pick your own sentence" card is always visible.
-  // Normal cards always carry a real exampleBlockId, so this only affects the
-  // no-example case (and hands off to studentBlockId the moment she picks).
+  // A graceful-degrade summon has no example block to hang under — and a resumed
+  // card's example block_id may be stale (the extraction re-segmented, so that id
+  // no longer exists among the rendered blocks). Either way, fall back to the
+  // first paragraph so the card is ALWAYS visible: an invisible card whose status
+  // is non-idle locks the composer AND jams the project-wide one-active mutex,
+  // with no way for the student to skip or complete it. Hands off to
+  // studentBlockId the moment she picks (always a live, rendered block).
+  const resolvedBlockId = card
+    ? anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status)
+    : null;
   const cardBlockId = card
-    ? anchorBlockId(card.exampleBlockId, card.studentBlockId, card.status) || (source.blocks[0]?.id ?? null)
+    ? resolvedBlockId && source.blocks.some((b) => b.id === resolvedBlockId)
+      ? resolvedBlockId
+      : source.blocks[0]?.id ?? null
     : null;
 
   function locateBlock(blockId: string) {

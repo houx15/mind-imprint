@@ -51,6 +51,12 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 	if title == "" {
 		title = "未命名论文"
 	}
+	// Bound extreme lengths defensively (mirrors renameProject's clamp). We do
+	// NOT lossily truncate for display — cards line-clamp + tooltip, the report
+	// titles by the full research question — this only caps pathological rows.
+	if len([]rune(title)) > 200 {
+		title = string([]rune(title)[:200])
+	}
 
 	// projectType (#1) is a DISPLAY label chosen from the creation selector; it
 	// is stored in project.qualification (which is display-only everywhere — the

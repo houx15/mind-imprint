@@ -58,6 +58,15 @@ export async function createProject(body: {
   return CreateProjectResult.parse(raw);
 }
 
+// Rename a project (the student renaming their own workspace). Returns the
+// trimmed/clamped title the server stored.
+export async function renameProject(id: string, title: string): Promise<{ title: string }> {
+  return apiFetch<{ title: string }>(`/api/v1/projects/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
 // Task 3: the create-drawer's cover picker — every pre-uploaded photo cover
 // ("img:<n>") with a signed CDN URL. Resilient like listProjects: trust the
 // shape, fall back to an empty list rather than throw on a missing field.

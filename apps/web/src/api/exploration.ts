@@ -65,7 +65,7 @@ export async function digDeeper(projectId: string, opts?: { leadId?: string; tho
 // search) | "citation" (works this paper cites) | "cited" (works that cite it).
 export async function digExploration(
   projectId: string,
-  opts: { leadId?: string; keyword?: string; mode?: "similar" | "citation" | "cited" },
+  opts: { leadId?: string; keyword?: string; mode?: "similar" | "citation" | "cited"; doi?: string },
 ): Promise<DigResult> {
   const raw = await apiFetch<unknown>(`/api/v1/projects/${projectId}/exploration/dig`, { method: "POST", body: JSON.stringify(opts) });
   return DigResult.parse(raw);

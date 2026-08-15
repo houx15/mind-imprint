@@ -10,11 +10,13 @@ import {
   patchReference,
   enterReading,
   pasteContent,
+  ingestReferenceFile,
   NoReadableContentError,
   type ReferencePatch,
   type SourceMeta,
   type ReferenceBib,
 } from "../api/workspace";
+import { uploadUserDoc } from "@/api/oss";
 import { exportAnnotatedBib as buildAnnotatedBib } from "../export";
 import { putReadingBrief } from "../../api/reading";
 import { ExplorationView } from "./exploration/ExplorationView";
@@ -338,6 +340,26 @@ export function ReadingBlock({
     }
   }
 
+  // Upload-source path: create the reference, upload the file to OSS, ask the
+  // server to extract its text into material blocks, then open the Reading Room.
+  // Throws on failure (no text layer, unsupported internals) so the modal can
+  // show the error and point the student at the 粘贴正文 fallback — the reference
+  // still exists, so opening it later offers the same paste box.
+  async function addUploadedSource(src: { file: File; collectionId: string | null }) {
+    const created = await createReference(projectId, {
+      title: src.file.name || undefined,
+      classification: "上传文档",
+      collectionId: src.collectionId,
+    });
+    setRefs((xs) => [created, ...xs]);
+    setSelId(created.id);
+    const key = await uploadUserDoc(src.file);
+    await ingestReferenceFile(projectId, created.id, key);
+    const { source } = await enterReading(projectId, created.id);
+    setReadingSource(source, created.id);
+    setAdding(false);
+  }
+
   // Item A #2 (exploration graph) · register a brand-new untracked source
   // without leaving 探索图谱 — reuses the SAME createReference call + updates
   // the SAME refs state the 列表 add-source modal does, so the library never
@@ -405,6 +427,7 @@ export function ReadingBlock({
       onClose={() => setAdding(false)}
       onSubmit={addSource}
       onPaste={addPastedSource}
+      onUpload={addUploadedSource}
     />
   );
 
@@ -1319,24 +1342,36 @@ function TagEditor({ tags, allTags, onAdd, onRemove }: { tags: string[]; allTags
 // Add a source: paste a link / DOI (印记 fills in the metadata) or upload a
 // file — and drop it into a collection. No auto-fetching of the source's
 // *content*; this only registers the reference.
-function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onPaste }: { collections: Collection[]; defaultCollection: string; onClose: () => void; onSubmit: (s: { title: string; url: string; classification: string; collectionId: string | null }) => void; onPaste: (s: { title: string; text: string; collectionId: string | null }) => void }) {
+function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onPaste, onUpload }: { collections: Collection[]; defaultCollection: string; onClose: () => void; onSubmit: (s: { title: string; url: string; classification: string; collectionId: string | null }) => void; onPaste: (s: { title: string; text: string; collectionId: string | null }) => void; onUpload: (s: { file: File; collectionId: string | null }) => Promise<void> }) {
   const [tab, setTab] = useState<"link" | "paste" | "upload" | "manual">("link");
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
   const [pasteBody, setPasteBody] = useState("");
-  const [fileName, setFileName] = useState("");
+  const [file, setFile] = useState<File | null>(null);
   const [coll, setColl] = useState(defaultCollection);
   const [pasting, setPasting] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
   const fileInput = useRef<HTMLInputElement>(null);
 
-  function submit() {
+  async function submit() {
     const collectionId = coll || null;
     if (tab === "paste") {
       if (!pasteBody.trim() || pasting) return;
       setPasting(true);
       onPaste({ title: title.trim() || "粘贴正文", text: pasteBody.trim(), collectionId });
     } else if (tab === "upload") {
-      onSubmit({ title: fileName || "上传文档", url: "", classification: "上传文档", collectionId });
+      if (!file || uploading) return;
+      setUploading(true);
+      setUploadError(null);
+      try {
+        await onUpload({ file, collectionId });
+      } catch (e) {
+        setUploadError(
+          e instanceof Error && e.message ? e.message : "上传或解析失败——可以改用「粘贴正文」把内容贴进来。",
+        );
+        setUploading(false);
+      }
     } else if (tab === "manual") {
       onSubmit({ title: title || "新来源", url: "", classification: "", collectionId });
     } else {
@@ -1375,12 +1410,22 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onP
         )}
         {tab === "upload" && (
           <div>
-            <input ref={fileInput} type="file" className="hidden" onChange={(e) => setFileName(e.target.files?.[0]?.name ?? "")} />
-            <button type="button" onClick={() => fileInput.current?.click()} className="flex w-full flex-col items-center gap-1.5 rounded-mk border border-dashed border-mk-input-border bg-mk-surface px-4 py-8 text-center hover:border-mk-accent">
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+              className="hidden"
+              onChange={(e) => {
+                setFile(e.target.files?.[0] ?? null);
+                setUploadError(null);
+              }}
+            />
+            <button type="button" disabled={uploading} onClick={() => fileInput.current?.click()} className="flex w-full flex-col items-center gap-1.5 rounded-mk border border-dashed border-mk-input-border bg-mk-surface px-4 py-8 text-center hover:border-mk-accent disabled:opacity-60">
               <span className="text-mk-accent"><Icon name="reading" size={22} /></span>
-              <span className="text-[14px] font-bold text-mk-ink">{fileName || "把 PDF / 文档拖到这里"}</span>
-              <span className="text-[12px] text-mk-faint">{fileName ? "点击重新选择" : "或点击选择文件"}</span>
+              <span className="text-[14px] font-bold text-mk-ink">{file?.name || "把 PDF / Word 文档拖到这里"}</span>
+              <span className="text-[12px] text-mk-faint">{uploading ? "上传并解析中……" : file ? "点击重新选择" : "支持 PDF、Word（.docx）"}</span>
             </button>
+            {uploadError && <p className="mt-2 text-[12px] font-semibold text-mk-danger">{uploadError}</p>}
           </div>
         )}
         {tab === "manual" && (
@@ -1397,7 +1442,14 @@ function AddSourceModal({ collections, defaultCollection, onClose, onSubmit, onP
 
         <div className="mt-5 flex justify-end gap-2">
           <button type="button" onClick={onClose} className="rounded-mk border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent">取消</button>
-          <button type="button" onClick={submit} disabled={tab === "paste" && (pasting || !pasteBody.trim())} className="rounded-mk bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">{tab === "paste" ? (pasting ? "打开中…" : "开始共读") : "添加"}</button>
+          <button
+            type="button"
+            onClick={() => void submit()}
+            disabled={(tab === "paste" && (pasting || !pasteBody.trim())) || (tab === "upload" && (uploading || !file))}
+            className="rounded-mk bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+          >
+            {tab === "paste" ? (pasting ? "打开中…" : "开始共读") : tab === "upload" ? (uploading ? "解析中…" : "上传并共读") : "添加"}
+          </button>
         </div>
       </div>
     </div>

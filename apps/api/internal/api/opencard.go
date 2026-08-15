@@ -38,7 +38,9 @@ var emptyOpenCardResp = openCardResp{Anchors: json.RawMessage("[]")}
 // proposed/active and whose persisted anchors carry this material's id).
 // Because the mutex it mirrors is project-wide (readturn.go's `openCard`
 // bool), at most one such instance can ever exist across the whole project,
-// so the first match is returned.
+// so the first match is returned. As a recovery fallback it also surfaces an
+// anchor-less open card (a stranded graceful-degrade summon) so the mutex can
+// never jam the room invisibly.
 func (a *API) getOpenReadingCard(w http.ResponseWriter, r *http.Request) {
 	projectID, ok := a.loadOwnedProject(w, r)
 	if !ok {
@@ -73,6 +75,15 @@ func (a *API) getOpenReadingCard(w http.ResponseWriter, r *http.Request) {
 	}
 
 	matID := mid.String()
+	// An open card with NO anchors is a stranded graceful-degrade summon
+	// (summoncard.go's no-example branch mints `proposed` with `[]` anchors):
+	// it can't be scoped to a material, yet because the one-active mutex is
+	// project-wide it still blocks every new lens. Such a card is invisible to
+	// the on-material scan below, so without surfacing it the room shows nothing
+	// while every summon is jammed — the exact deadlock this endpoint prevents.
+	// Prefer an on-material anchored card; fall back to the anchor-less one so it
+	// renders (at the first block, client-side) and can be completed or skipped.
+	var fallback *openCardResp
 	for _, ci := range g.CardInstances {
 		if ci.Status != "proposed" && ci.Status != "active" {
 			continue
@@ -85,6 +96,14 @@ func (a *API) getOpenReadingCard(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 		if !onMaterial {
+			if len(ci.Anchors) == 0 && fallback == nil {
+				fallback = &openCardResp{
+					CardInstanceID: ci.ID,
+					CardID:         ci.CardID,
+					Status:         ci.Status,
+					Anchors:        json.RawMessage("[]"),
+				}
+			}
 			continue
 		}
 		anchorsJSON, merr := json.Marshal(ci.Anchors)
@@ -100,5 +119,9 @@ func (a *API) getOpenReadingCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if fallback != nil {
+		httpx.WriteJSON(w, http.StatusOK, *fallback)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, emptyOpenCardResp)
 }

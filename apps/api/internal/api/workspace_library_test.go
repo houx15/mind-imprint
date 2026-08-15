@@ -530,11 +530,16 @@ func TestEnterReadingNoContent422(t *testing.T) {
 	if rec.Code != http.StatusUnprocessableEntity {
 		t.Fatalf("enter-reading no-content = %d, want 422: %s", rec.Code, rec.Body)
 	}
+	// Standard {error:{code,message,details}} envelope (so the reading-room client
+	// parses status===422 → no_readable_content and shows its paste-body box).
 	var body struct {
-		Error string `json:"error"`
+		Error struct {
+			Code    string `json:"code"`
+			Message string `json:"message"`
+		} `json:"error"`
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || !strings.Contains(body.Error, "还没有可读内容") {
-		t.Fatalf("422 body = %s, want the gentle inline message", rec.Body)
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil || body.Error.Code != "no_readable_content" || !strings.Contains(body.Error.Message, "还没有可读内容") {
+		t.Fatalf("422 body = %s, want the standard no_readable_content envelope", rec.Body)
 	}
 }
 

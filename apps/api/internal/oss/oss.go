@@ -10,6 +10,7 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"strings"
 	"time"
 
@@ -82,6 +83,21 @@ func (s *Service) PutObject(ctx context.Context, key, contentType string, data [
 		return fmt.Errorf("oss: put object %q: %w", key, err)
 	}
 	return nil
+}
+
+// GetObject downloads an object's bytes from the OSS origin bucket. Used
+// server-side to read an uploaded document (PDF/DOCX) for text extraction.
+func (s *Service) GetObject(ctx context.Context, key string) ([]byte, error) {
+	rc, err := s.origin.GetObject(key)
+	if err != nil {
+		return nil, fmt.Errorf("oss: get object %q: %w", key, err)
+	}
+	defer func() { _ = rc.Close() }()
+	data, rerr := io.ReadAll(rc)
+	if rerr != nil {
+		return nil, fmt.Errorf("oss: read object %q: %w", key, rerr)
+	}
+	return data, nil
 }
 
 // putObjectOptions builds the alioss.Option slice for PutObject, omitting the

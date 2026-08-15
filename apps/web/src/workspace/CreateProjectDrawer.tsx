@@ -27,21 +27,14 @@ const WRITING_LANGS: { value: "en" | "zh" | "bilingual"; label: string }[] = [
 // project ids to elsewhere (Directory/HomePage cards, Task 4).
 const MACARON_NAMES = Object.keys(MACARONS) as MacaronName[];
 
-// Derive a readable project title from the first line of the assignment
-// prompt — the refined research question is sharpened later, in forming. Cut on
-// a word/sentence boundary (never mid-word) so the stored title never reads like
-// "...Please don't write t"; append an ellipsis only when actually truncated.
+// Derive a project title from the FIRST LINE of the assignment prompt — the
+// refined research question is sharpened later, in forming. We store the full
+// line (no lossy "…" truncation): cards line-clamp it for display and carry a
+// hover tooltip, and the report titles by the full research question / this
+// full title — so a title never reads cut-off. The server bounds extreme
+// lengths defensively. Title is editable afterwards (PATCH /projects/{id}).
 function titleFromPrompt(prompt: string): string {
-  const firstLine = prompt.split("\n").map((s) => s.trim()).find((s) => s.length > 0) ?? "";
-  const chars = [...firstLine];
-  if (chars.length <= 80) return firstLine;
-  const head = chars.slice(0, 80).join("");
-  // Prefer ending at the last sentence break within the window, else the last
-  // space; fall back to the hard window only if neither exists (e.g. CJK run).
-  const sentence = Math.max(head.lastIndexOf("."), head.lastIndexOf("。"), head.lastIndexOf("?"), head.lastIndexOf("？"));
-  if (sentence >= 40) return head.slice(0, sentence + 1);
-  const space = head.lastIndexOf(" ");
-  return (space >= 40 ? head.slice(0, space) : head.trimEnd()) + "…";
+  return prompt.split("\n").map((s) => s.trim()).find((s) => s.length > 0) ?? "";
 }
 
 export interface CreateProjectDrawerProps {

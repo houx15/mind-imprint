@@ -46,6 +46,16 @@ func scrapeBlocks(root *html.Node) string {
 			if skipTags[n.Data] {
 				inSkip = true
 			}
+			// A <table> is neither a skip tag nor a block tag, so the walker used
+			// to descend into it and emit nothing (its rows live in <tr>/<td>,
+			// which are not blockTags) — silently dropping data tables like a
+			// paper's "Table 1". Render it to text here and stop descending (#4).
+			if !inSkip && n.Data == "table" {
+				if t := tableToText(n); t != "" {
+					paras = append(paras, t)
+				}
+				return
+			}
 			if !inSkip && blockTags[n.Data] {
 				if t := textContent(n); t != "" {
 					paras = append(paras, t)
@@ -59,6 +69,52 @@ func scrapeBlocks(root *html.Node) string {
 	}
 	walk(root, false)
 	return strings.Join(paras, "\n\n")
+}
+
+// tableToText renders a <table> subtree as readable plain text so its rows
+// survive the scrape. The <caption> (a table's own title) becomes a lead line;
+// each <tr>'s <td>/<th> cells are joined with " | " on their own line. Rows
+// with no cell text are dropped; an empty table yields "". The whole table is
+// returned as ONE block (rows separated by "\n", not the "\n\n" Segment splits
+// on) so it stays cohesive in the reading room rather than fragmenting.
+func tableToText(table *html.Node) string {
+	var caption string
+	var lines []string
+	var walk func(n *html.Node)
+	walk = func(n *html.Node) {
+		if n.Type == html.ElementNode {
+			switch n.Data {
+			case "caption":
+				if t := textContent(n); t != "" && caption == "" {
+					caption = t
+				}
+				return
+			case "tr":
+				var cells []string
+				for c := n.FirstChild; c != nil; c = c.NextSibling {
+					if c.Type == html.ElementNode && (c.Data == "td" || c.Data == "th") {
+						cells = append(cells, textContent(c))
+					}
+				}
+				if joined := strings.Trim(strings.Join(cells, " | "), " |"); joined != "" {
+					lines = append(lines, strings.Join(cells, " | "))
+				}
+				return
+			}
+		}
+		for c := n.FirstChild; c != nil; c = c.NextSibling {
+			walk(c)
+		}
+	}
+	walk(table)
+	switch {
+	case len(lines) == 0:
+		return caption
+	case caption != "":
+		return caption + "\n" + strings.Join(lines, "\n")
+	default:
+		return strings.Join(lines, "\n")
+	}
 }
 
 // findTitle returns the first <title>'s text.

@@ -26,6 +26,7 @@ import {
   proposeEdges,
 } from "../../../api/exploration";
 import { ExplorationSidebar, candidateKey, type DigMode, type PaperInList } from "./ExplorationSidebar";
+import { PaperDetail, candidateToPaperView } from "./PaperDetail";
 import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
@@ -48,6 +49,16 @@ const zoomMemo = new Map<string, ZoomState>();
 // 未归类 = references with no NON-PRUNED connected lead (read or unread — the
 // whole point is faithfulness), excluding archived ones. Computed client-side;
 // the server's danglingSourceIds (read-but-unfollowed) is a different, sharper set.
+// paperToken normalizes a url or DOI into a comparable token (scheme + doi.org
+// prefix stripped), so a candidate's DOI matches a reference stored as a
+// doi.org URL — used to tell "已在图谱" from "待加入".
+export function paperToken(urlOrDoi: string | undefined): string {
+  let s = (urlOrDoi ?? "").trim().toLowerCase();
+  if (!s) return "";
+  s = s.replace(/^https?:\/\//, "").replace(/^www\./, "").replace(/^(dx\.)?doi\.org\//, "");
+  return s.replace(/\/+$/, "");
+}
+
 export function unfiledReferences(references: Reference[], leads: ExplorationLead[]): Reference[] {
   const attached = new Set<string>();
   for (const l of leads) {
@@ -367,6 +378,27 @@ export function ExplorationView({
     setSearchDetail(c);
     setSearchStage("detail");
   }
+  // Search MORE papers from the paper being viewed (相似/引用/被引) — feeds back
+  // into the results list → single-paper loop. "similar" searches off the title;
+  // citation/cited off the candidate's own DOI (backend #1 accepts a doi param),
+  // so this works for a candidate that isn't on the map yet.
+  async function digFromCandidate(c: DigCandidate, mode: DigMode) {
+    if (searching) return;
+    setSearchDetail(null);
+    setSearchKeyword(c.title);
+    setSearchTray([]);
+    setSearchStage("list");
+    setSearching(true);
+    setSearchError(false);
+    try {
+      const res = await digExploration(projectId, mode === "similar" ? { keyword: c.title, mode } : { doi: c.doi, mode });
+      setSearchTray(res.candidates);
+    } catch {
+      setSearchError(true);
+    } finally {
+      setSearching(false);
+    }
+  }
   // Add the paper being viewed: inside a question → adopt UNDER that root
   // (papers-never-roots); on the top-level map (no "second layer") → into 未归类
   // via saveSearchResult. After adding, drop it from the list and go back.
@@ -572,6 +604,21 @@ export function ExplorationView({
   // 未归类 · references with no non-pruned connected lead, and the open
   // questions they can be attached under (roots + their sub-questions).
   const unfiled = useMemo(() => unfiledReferences(references, view.leads), [references, view.leads]);
+  // Tokens of every reference already in the library — a search candidate whose
+  // DOI/url matches one is "已在图谱" (待加入 otherwise).
+  const addedTokens = useMemo(() => {
+    const s = new Set<string>();
+    for (const r of references) {
+      const t = paperToken(r.url);
+      if (t) s.add(t);
+    }
+    return s;
+  }, [references]);
+  const candidateAdded = (c: DigCandidate) => {
+    const byDoi = paperToken(c.doi);
+    const byUrl = paperToken(c.url);
+    return (byDoi !== "" && addedTokens.has(byDoi)) || (byUrl !== "" && addedTokens.has(byUrl));
+  };
   // Never strand the student on an empty 未归类 panel — whether they just filed
   // the last source, or re-entered the room with a persisted "unfiled" zoom.
   // Fall back to the map (final-review #5).
@@ -861,49 +908,30 @@ export function ExplorationView({
             const c = searchDetail;
             const key = candidateKey(c);
             const busy = savingRef.has(key);
-            const meta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
-            const link = c.url || (c.doi ? "https://doi.org/" + c.doi : "");
+            const added = candidateAdded(c);
             return (
-              <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
-                <h3 className="text-[15px] font-bold leading-snug text-mk-ink">{c.title}</h3>
-                {meta && <p className="mt-1 text-[12px] text-mk-faint">{meta}</p>}
-                {c.abstract?.trim() ? (
-                  <p className="mt-2 max-h-48 overflow-y-auto whitespace-pre-line text-[12px] leading-relaxed text-mk-muted">{c.abstract}</p>
-                ) : (
-                  <p className="mt-2 text-[12px] text-mk-faint">这篇还没有摘要。</p>
-                )}
-                {link && (
-                  <a
-                    href={link}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-2 inline-block text-[12px] font-bold text-mk-accent hover:underline"
-                  >
-                    查看原文 ↗
-                  </a>
-                )}
-                <div className="mt-3 flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => void addFromDetail(c)}
-                    disabled={busy}
-                    className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
-                  >
-                    {busy ? "采纳中…" : inHole ? "采纳到当前问题" : "收进未归类"}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      discardSearchResult(c);
-                      setSearchDetail(null);
-                      setSearchStage("list");
-                    }}
-                    className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-accent"
-                  >
-                    丢弃
-                  </button>
-                </div>
-              </div>
+              <PaperDetail
+                paper={candidateToPaperView(c, added)}
+                primaryAction={
+                  added
+                    ? undefined
+                    : { label: inHole ? "采纳到当前问题" : "收进未归类", onClick: () => void addFromDetail(c), busy }
+                }
+                secondaryAction={
+                  added
+                    ? undefined
+                    : {
+                        label: "丢弃",
+                        onClick: () => {
+                          discardSearchResult(c);
+                          setSearchDetail(null);
+                          setSearchStage("list");
+                        },
+                      }
+                }
+                onFind={(mode) => void digFromCandidate(c, mode)}
+                finding={searching}
+              />
             );
           })()}
         </>

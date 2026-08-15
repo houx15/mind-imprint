@@ -10,6 +10,7 @@ vi.mock("@/api", async (orig) => {
       ...real.api,
       listProjects: vi.fn(),
       createProject: vi.fn(),
+      renameProject: vi.fn(),
     },
   };
 });
@@ -93,14 +94,39 @@ describe("Directory", () => {
     render(<Directory onOpen={vi.fn()} onViewReport={onViewReport} />);
     await screen.findByText(projects[1]!.title);
 
-    // Only the done project (p2) gets the overflow menu.
+    // Every card now carries the overflow menu (重命名 is always available); only
+    // the done project (p2, the second trigger) also offers 查看评估报告.
     const menuTriggers = screen.getAllByRole("button", { name: "更多操作" });
-    expect(menuTriggers).toHaveLength(1);
+    expect(menuTriggers).toHaveLength(2);
 
-    await userEvent.click(menuTriggers[0]!);
+    await userEvent.click(menuTriggers[1]!);
     await userEvent.click(await screen.findByText("查看评估报告"));
 
     expect(onViewReport).toHaveBeenCalledWith("p2");
+  });
+
+  it("renames a project via the overflow menu → inline input → Enter", async () => {
+    (api.listProjects as any).mockResolvedValue(projects);
+    (api.renameProject as any).mockResolvedValue({ title: "新名字" });
+    const onOpen = vi.fn();
+
+    render(<Directory onOpen={onOpen} onViewReport={vi.fn()} />);
+    await screen.findByText(projects[0]!.title);
+
+    // p1 is the first card's menu; open it and pick 重命名.
+    const menuTriggers = screen.getAllByRole("button", { name: "更多操作" });
+    await userEvent.click(menuTriggers[0]!);
+    await userEvent.click(await screen.findByText("重命名"));
+
+    const input = screen.getByLabelText("项目名称") as HTMLInputElement;
+    await userEvent.clear(input);
+    await userEvent.type(input, "新名字");
+    await userEvent.keyboard("{Enter}");
+
+    expect(api.renameProject).toHaveBeenCalledWith("p1", "新名字");
+    // Renaming never opens the project (the card click is suppressed while editing).
+    expect(onOpen).not.toHaveBeenCalled();
+    expect(await screen.findByText("新名字")).toBeInTheDocument();
   });
 
   it("Enter on the focused ⋯ trigger opens the menu, not the project (keyboard bubbling guard)", async () => {
@@ -110,7 +136,9 @@ describe("Directory", () => {
     render(<Directory onOpen={onOpen} onViewReport={vi.fn()} />);
     await screen.findByText(projects[1]!.title);
 
-    const menuTrigger = screen.getByRole("button", { name: "更多操作" });
+    // The done project (p2) is the second trigger; its menu has 查看评估报告.
+    const menuTriggers = screen.getAllByRole("button", { name: "更多操作" });
+    const menuTrigger = menuTriggers[1]!;
     menuTrigger.focus();
     await userEvent.keyboard("{Enter}");
 

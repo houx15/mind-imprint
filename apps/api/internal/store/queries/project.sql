@@ -32,6 +32,10 @@ UPDATE project SET status = 'active', last_active_at = now() WHERE id = $1;
 -- (Phase B, writing_finish.sql); project.writing_finished_at is dropped in
 -- migration 0061.
 
+-- name: SetProjectTitle :exec
+-- Student renames their own project (ownership is enforced in the handler).
+UPDATE project SET title = $2, last_active_at = now() WHERE id = $1;
+
 -- name: GetStudioState :one
 SELECT studio_state FROM project WHERE id = $1;
 

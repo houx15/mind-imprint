@@ -63,28 +63,69 @@ function ProjectCard({
   project,
   onOpen,
   onViewReport,
+  onRename,
 }: {
   project: ProjectListItem;
   onOpen: () => void;
   onViewReport?: (id: string) => void;
+  onRename: (id: string, title: string) => Promise<void>;
 }) {
-  // The only action that exists today on a project card is the done-status
-  // "查看评估报告" deep-link — no rename/archive/delete backend exists yet,
-  // so the overflow menu simply doesn't render for any other status rather
-  // than offering actions that would silently do nothing.
-  const showMenu = project.status === "done" && Boolean(onViewReport);
+  // 重命名 is always available; 查看评估报告 only once the report exists (done).
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(project.title || "");
+  const [saving, setSaving] = useState(false);
+  const inputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (editing) {
+      inputRef.current?.focus();
+      inputRef.current?.select();
+    }
+  }, [editing]);
+
+  function startRename() {
+    setDraft(project.title || "");
+    setEditing(true);
+  }
+
+  async function commitRename() {
+    const next = draft.trim();
+    if (saving) return;
+    if (next === "" || next === (project.title || "")) {
+      setEditing(false);
+      return;
+    }
+    setSaving(true);
+    try {
+      await onRename(project.id, next);
+      setEditing(false);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  const menuItems = [
+    { key: "rename", label: "重命名", onSelect: startRename },
+    ...(project.status === "done" && onViewReport
+      ? [{ key: "report", label: "查看评估报告", onSelect: () => onViewReport(project.id) }]
+      : []),
+  ];
+
   return (
     <div
       role="button"
       tabIndex={0}
-      onClick={onOpen}
+      onClick={() => {
+        if (editing) return;
+        onOpen();
+      }}
       onKeyDown={(e) => {
         // Only act when the card itself is the focused/keydown target, not a
-        // descendant (the ⋯ menu's own trigger button, an <input> inside a
-        // future field, etc.) — otherwise Enter/Space on the menu trigger
-        // both bubbles up into "open the project" AND has its own native
-        // button activation suppressed by this handler's preventDefault.
+        // descendant (the ⋯ menu's own trigger button, the rename <input>) —
+        // otherwise Enter/Space on those both bubbles up into "open the
+        // project" AND has its own native activation suppressed here.
         if (e.target !== e.currentTarget) return;
+        if (editing) return;
         if (e.key === "Enter" || e.key === " ") {
           e.preventDefault();
           onOpen();
@@ -100,31 +141,46 @@ function ProjectCard({
           </Badge>
         </div>
 
-        {showMenu && (
-          <div
-            className="absolute right-2 top-2 opacity-0 transition-opacity duration-[120ms] ease-mk group-hover:opacity-100 group-focus-within:opacity-100"
+        <div
+          className="absolute right-2 top-2 opacity-0 transition-opacity duration-[120ms] ease-mk group-hover:opacity-100 group-focus-within:opacity-100"
+          onClick={(e) => e.stopPropagation()}
+          onKeyDown={(e) => e.stopPropagation()}
+        >
+          <Menu
+            trigger={<IconButton icon={MoreHorizontal} label="更多操作" size="sm" variant="secondary" />}
+            items={menuItems}
+          />
+        </div>
+
+        {editing ? (
+          <input
+            ref={inputRef}
+            value={draft}
+            disabled={saving}
+            onChange={(e) => setDraft(e.target.value)}
             onClick={(e) => e.stopPropagation()}
-            onKeyDown={(e) => e.stopPropagation()}
+            onKeyDown={(e) => {
+              e.stopPropagation();
+              if (e.key === "Enter") {
+                e.preventDefault();
+                void commitRename();
+              } else if (e.key === "Escape") {
+                e.preventDefault();
+                setEditing(false);
+              }
+            }}
+            onBlur={() => void commitRename()}
+            className="flex-1 rounded-mk-sm border border-mk-accent-200 bg-mk-surface px-2 py-1 text-mk-h3 text-mk-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+            aria-label="项目名称"
+          />
+        ) : (
+          <div
+            title={project.title || "未命名项目"}
+            className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink"
           >
-            <Menu
-              trigger={<IconButton icon={MoreHorizontal} label="更多操作" size="sm" variant="secondary" />}
-              items={[
-                {
-                  key: "report",
-                  label: "查看评估报告",
-                  onSelect: () => onViewReport?.(project.id),
-                },
-              ]}
-            />
+            {project.title || "未命名项目"}
           </div>
         )}
-
-        <div
-          title={project.title || "未命名项目"}
-          className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink"
-        >
-          {project.title || "未命名项目"}
-        </div>
         <div className="truncate text-mk-small text-mk-muted">
           {project.qualLabel || "项目"}
           {project.activeStation ? ` · ${project.activeStation}` : ""}
@@ -206,6 +262,11 @@ export function Directory({
     onOpen(id);
   }
 
+  async function handleRename(id: string, title: string) {
+    const { title: saved } = await api.renameProject(id, title);
+    setProjects((prev) => prev.map((p) => (p.id === id ? { ...p, title: saved } : p)));
+  }
+
   return (
     <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-8 py-10 font-sans text-mk-ink">
       <header className="mb-6">
@@ -234,7 +295,7 @@ export function Directory({
           <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
             <NewProjectTile onClick={() => setDrawerOpen(true)} />
             {projects.map((p) => (
-              <ProjectCard key={p.id} project={p} onOpen={() => onOpen(p.id)} onViewReport={onViewReport} />
+              <ProjectCard key={p.id} project={p} onOpen={() => onOpen(p.id)} onViewReport={onViewReport} onRename={handleRename} />
             ))}
           </div>
         )}

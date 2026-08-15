@@ -70,7 +70,18 @@ var ossScopes = map[string]ossScope{
 		maxBytes:     10 << 20, // 10 MB
 		prefix:       func(uid string) string { return "users/" + uid + "/images/" },
 	},
+	// user_doc carries an uploaded reading document (PDF / DOCX) that the server
+	// then downloads and extracts to material blocks (ingest_file.go).
+	"user_doc": {
+		gate:         gateSelf,
+		allowedTypes: typeSet("application/pdf", docxContentType),
+		maxBytes:     30 << 20, // 30 MB
+		prefix:       func(uid string) string { return "users/" + uid + "/docs/" },
+	},
 }
+
+// docxContentType is the Office Open XML wordprocessing MIME type.
+const docxContentType = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 
 // ossKnownPrefixes gates resolve-url to keys under our own scopes.
 var ossKnownPrefixes = []string{"web/", "courses/", "users/"}
@@ -82,6 +93,7 @@ var extByContentType = map[string]string{
 	"image/webp":      ".webp",
 	"image/svg+xml":   ".svg",
 	"application/pdf": ".pdf",
+	docxContentType:   ".docx",
 	"video/mp4":       ".mp4",
 	"video/webm":      ".webm",
 	"video/quicktime": ".mov",
@@ -165,7 +177,9 @@ func (a *API) ossAdminUploadURL(w http.ResponseWriter, r *http.Request) {
 	a.writeUploadURL(w, r, sc, "", req)
 }
 
-// ossUserUploadURL signs a presigned PUT URL for a logged-in user's own image.
+// ossUserUploadURL signs a presigned PUT URL for a logged-in user's own object.
+// The scope defaults to "user_image" (back-compat: the image uploader sends no
+// scope); "user_doc" is also accepted. Only gateSelf scopes are permitted here.
 func (a *API) ossUserUploadURL(w http.ResponseWriter, r *http.Request) {
 	if a.d.OSS == nil {
 		httpx.WriteError(w, r, httpx.ErrOSSUnavailable())
@@ -182,7 +196,16 @@ func (a *API) ossUserUploadURL(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	a.writeUploadURL(w, r, ossScopes["user_image"], u.ID.String(), req)
+	scopeName := req.Scope
+	if scopeName == "" {
+		scopeName = "user_image"
+	}
+	sc, ok := ossScopes[scopeName]
+	if !ok || sc.gate != gateSelf {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("unknown_scope", "未知的上传类型。", nil))
+		return
+	}
+	a.writeUploadURL(w, r, sc, u.ID.String(), req)
 }
 
 // writeUploadURL validates the request against the scope and writes a signed

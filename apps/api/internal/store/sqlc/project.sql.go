@@ -77,13 +77,9 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 }
 
 const getStudioState = `-- name: GetStudioState :one
-
 SELECT studio_state FROM project WHERE id = $1
 `
 
-// The 完成写作 milestone moved to the per-document writing_finish table
-// (Phase B, writing_finish.sql); project.writing_finished_at is dropped in
-// migration 0061.
 func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, error) {
 	row := q.db.QueryRow(ctx, getStudioState, id)
 	var studio_state []byte
@@ -158,6 +154,25 @@ UPDATE project SET status = 'finished', last_active_at = now() WHERE id = $1
 // A3 terminal: the first and only writer of project.status='finished'.
 func (q *Queries) SetProjectFinished(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setProjectFinished, id)
+	return err
+}
+
+const setProjectTitle = `-- name: SetProjectTitle :exec
+
+UPDATE project SET title = $2, last_active_at = now() WHERE id = $1
+`
+
+type SetProjectTitleParams struct {
+	ID    uuid.UUID `json:"id"`
+	Title string    `json:"title"`
+}
+
+// The 完成写作 milestone moved to the per-document writing_finish table
+// (Phase B, writing_finish.sql); project.writing_finished_at is dropped in
+// migration 0061.
+// Student renames their own project (ownership is enforced in the handler).
+func (q *Queries) SetProjectTitle(ctx context.Context, arg SetProjectTitleParams) error {
+	_, err := q.db.Exec(ctx, setProjectTitle, arg.ID, arg.Title)
 	return err
 }
 

@@ -549,3 +549,15 @@ export async function pasteContent(id: string, rid: string, text: string, title?
   });
   return MaterialSource.parse(raw);
 }
+
+// POST /references/{rid}/ingest-file — the student uploaded a PDF/DOCX to OSS
+// (uploadUserDoc); the server downloads it, extracts the text, and links a
+// material to the reference so 进入阅读室 opens it. A 422 (extract_failed /
+// empty_body) means the file had no readable text layer — the caller should
+// fall back to the paste-body box, same as a fetch failure.
+export async function ingestReferenceFile(id: string, rid: string, objectKey: string): Promise<{ materialId: string; title: string }> {
+  return apiFetch<{ materialId: string; title: string }>(`/api/v1/projects/${id}/references/${rid}/ingest-file`, {
+    method: "POST",
+    body: JSON.stringify({ objectKey }),
+  });
+}

@@ -18,7 +18,6 @@ export function Cover({ report }: { report: EvaluationReport }) {
         {report.student.name}
       </div>
       <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "8px 20px", fontSize: 13, color: "var(--mk-secondary)", margin: 0 }}>
-        <dt style={{ color: "var(--mk-muted)" }}>项目类型</dt><dd style={{ margin: 0 }}>{b.type}</dd>
         <dt style={{ color: "var(--mk-muted)" }}>起止日期</dt><dd style={{ margin: 0 }}>{range}</dd>
         <dt style={{ color: "var(--mk-muted)" }}>生成日期</dt><dd style={{ margin: 0 }}>{report.generatedAt.slice(0, 10)}</dd>
       </dl>

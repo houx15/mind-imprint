@@ -135,27 +135,27 @@ func toReferenceDTO(row sqlc.Reference, notes []readingNoteDTO) referenceDTO {
 		}
 	}
 	return referenceDTO{
-		ID:             row.ID.String(),
-		Title:          row.Title,
-		Classification: row.Classification,
-		Author:         row.Author,
-		Credentials:    row.Credentials,
-		Year:           row.Year,
-		URL:            row.Url,
-		Tags:           jsonbToStrings(row.Tags),
-		CollectionID:   pgUUIDToStringPtr(row.CollectionID),
-		Credibility:    row.Credibility,
-		Evaluation:     row.Evaluation,
-		ReadingNote:    row.ReadingNote,
-		Decision:       row.Decision,
-		Pending:        row.Pending,
-		SearchHints:    jsonbToStrings(row.SearchHints),
-		MaterialID:     pgUUIDToStringPtr(row.MaterialID),
-		Notes:          notes,
-		PhaseTag:       row.PhaseTag,
-		ReadingReason:  row.ReadingReason,
-		ReadingFocus:   row.ReadingFocus,
-		Takeaway:       takeaway,
+		ID:                row.ID.String(),
+		Title:             row.Title,
+		Classification:    row.Classification,
+		Author:            row.Author,
+		Credentials:       row.Credentials,
+		Year:              row.Year,
+		URL:               row.Url,
+		Tags:              jsonbToStrings(row.Tags),
+		CollectionID:      pgUUIDToStringPtr(row.CollectionID),
+		Credibility:       row.Credibility,
+		Evaluation:        row.Evaluation,
+		ReadingNote:       row.ReadingNote,
+		Decision:          row.Decision,
+		Pending:           row.Pending,
+		SearchHints:       jsonbToStrings(row.SearchHints),
+		MaterialID:        pgUUIDToStringPtr(row.MaterialID),
+		Notes:             notes,
+		PhaseTag:          row.PhaseTag,
+		ReadingReason:     row.ReadingReason,
+		ReadingFocus:      row.ReadingFocus,
+		Takeaway:          takeaway,
 		Abstract:          row.Abstract,
 		Journal:           row.Journal,
 		ReadingStatus:     row.ReadingStatus,
@@ -699,9 +699,14 @@ func (a *API) enterReading(w http.ResponseWriter, r *http.Request) {
 		}
 		materialID = mid
 	default:
-		// No linked material and no URL to fetch: there is nothing to read.
-		httpx.WriteJSON(w, http.StatusUnprocessableEntity, map[string]string{
-			"error": "这条来源还没有可读内容——先补一个链接或粘贴正文",
+		// No linked material and no URL to fetch: there is nothing to read. Use
+		// the standard {error:{code,message,details}} envelope with 422 so the
+		// reading-room client's NoReadableContentError path (status===422) reliably
+		// shows its inline paste-body fallback (a bare {"error":...} map did not).
+		httpx.WriteError(w, r, &httpx.APIError{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "no_readable_content",
+			Message: "这条来源还没有可读内容——先补一个链接或粘贴正文。",
 		})
 		return
 	}

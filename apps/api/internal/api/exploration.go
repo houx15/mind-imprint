@@ -560,6 +560,26 @@ func toDigCandidateDTOs(works []materialize.WorkMeta) []digCandidateDTO {
 // extractDOI for the citation/cited dig modes, returning "" (never an error)
 // at any missing/unparseable step — best-effort, mirroring every other
 // OpenAlex-adjacent helper in this file.
+// normalizeDigDOI accepts either a bare DOI ("10.1038/…") or a DOI URL
+// ("https://doi.org/10.1038/…") and returns the bare DOI, or "" if it isn't one.
+func normalizeDigDOI(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	if u, err := url.Parse(s); err == nil {
+		if doi, ok := materialize.ExtractDOI(u); ok {
+			return doi
+		}
+	}
+	s = strings.TrimSpace(strings.TrimPrefix(s, "doi:"))
+	s = strings.TrimSpace(strings.TrimPrefix(s, "DOI:"))
+	if strings.HasPrefix(s, "10.") {
+		return s
+	}
+	return ""
+}
+
 func (a *API) digResolvePaperDOI(ctx context.Context, projectID uuid.UUID, leadID *string) string {
 	if leadID == nil || strings.TrimSpace(*leadID) == "" {
 		return ""
@@ -623,6 +643,10 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 		LeadID  *string `json:"leadId"`
 		Keyword *string `json:"keyword"`
 		Mode    *string `json:"mode"` // GVe · "similar" (default) | "citation" | "cited"
+		// #1 · a search-result candidate not yet on the map has no lead. When the
+		// student asks for its citation/cited works from the single-paper view,
+		// the client passes the candidate's own DOI directly.
+		Doi *string `json:"doi"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -642,7 +666,15 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	// rather than a 4xx — dig is best-effort throughout (铁律①: it only ever
 	// surfaces a tray, never forces a resolution path on the student).
 	if mode == "citation" || mode == "cited" {
-		doi := a.digResolvePaperDOI(r.Context(), projectID, body.LeadID)
+		// Prefer an explicit candidate DOI (un-added single-paper view); else
+		// resolve it off the lead's connected reference (a node already on the map).
+		doi := ""
+		if body.Doi != nil {
+			doi = normalizeDigDOI(*body.Doi)
+		}
+		if doi == "" {
+			doi = a.digResolvePaperDOI(r.Context(), projectID, body.LeadID)
+		}
 		if doi == "" {
 			httpx.WriteJSON(w, http.StatusOK, map[string]any{"candidates": toDigCandidateDTOs(nil)})
 			return

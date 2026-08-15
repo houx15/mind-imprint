@@ -32,8 +32,7 @@ const reportGenMaxTokens = 16000
 // api layer builds these deterministically from recorded data; this package
 // only prompts + parses.
 type ReportGenContext struct {
-	Title         string // the research question / project title
-	Qualification string // e.g. 拓展论文 EE
+	Title string // the research question / project title
 	// Candidates is the evidence-candidate list, one "[id] kind: label" line
 	// each. Every cited evidence/ref id MUST be one of these ids.
 	Candidates string
@@ -122,7 +121,7 @@ type RubricResult struct {
 func GenerateRubric(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in ReportGenContext) (RubricResult, gateway.ChatUsage, error) {
 	system := rubricSystemPrompt()
 	var b strings.Builder
-	fmt.Fprintf(&b, "题目：%s（%s）\n\n", in.Title, in.Qualification)
+	fmt.Fprintf(&b, "题目：%s\n\n", in.Title)
 	fmt.Fprintf(&b, "【可引用的证据（evidence.id 只能取下面方括号里的 id，取不到就留空字符串）】\n%s\n\n", in.Candidates)
 	fmt.Fprintf(&b, "【学生的全过程记录】\n%s\n", in.Trajectory)
 	obj, usage, err := collectReport(ctx, prov, resolved, system, b.String())
@@ -184,12 +183,12 @@ func rubricSystemPrompt() string {
 type promptLensReply struct {
 	Summary string `json:"summary"`
 	Prompts []struct {
-		Stage          string   `json:"stage"`
-		Quote          string   `json:"quote"`
+		Stage          string                     `json:"stage"`
+		Quote          string                     `json:"quote"`
 		Ref            struct{ ID, Label string } `json:"ref"`
-		Observation    string   `json:"observation"`
-		RelatedDomains []string `json:"relatedDomains"`
-		Attention      bool     `json:"attention"`
+		Observation    string                     `json:"observation"`
+		RelatedDomains []string                   `json:"relatedDomains"`
+		Attention      bool                       `json:"attention"`
 	} `json:"prompts"`
 }
 
@@ -223,10 +222,10 @@ func GeneratePromptLens(ctx context.Context, prov gateway.Provider, resolved gat
 
 type risksReply struct {
 	Risks []struct {
-		Type      string `json:"type"`
-		Behaviour string `json:"behaviour"`
-		Ref       struct{ ID, Label string } `json:"ref"`
-		Suggestion string `json:"suggestion"`
+		Type       string                     `json:"type"`
+		Behaviour  string                     `json:"behaviour"`
+		Ref        struct{ ID, Label string } `json:"ref"`
+		Suggestion string                     `json:"suggestion"`
 	} `json:"risks"`
 }
 
@@ -292,7 +291,7 @@ func GenerateAbstract(ctx context.Context, prov gateway.Provider, resolved gatew
 	for _, a := range axes.Autonomy {
 		fmt.Fprintf(&ax, "%s 带%d：%s\n", a.ID, a.Band, a.Summary)
 	}
-	user := fmt.Sprintf("题目：%s（%s）\n\n【客观计数】%s\n\n【两轴判定结果】\n%s\n\n【全过程记录】\n%s\n", in.Title, in.Qualification, in.Counters, ax.String(), in.Trajectory)
+	user := fmt.Sprintf("题目：%s\n\n【客观计数】%s\n\n【两轴判定结果】\n%s\n\n【全过程记录】\n%s\n", in.Title, in.Counters, ax.String(), in.Trajectory)
 	obj, usage, err := collectReport(ctx, prov, resolved, system, user)
 	if err != nil {
 		return evalreport.Abstract{}, usage, err

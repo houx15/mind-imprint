@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import type { DigCandidate, ExplorationLead, LeadOrigin, Reference } from "@mind-imprint/contracts";
 import { RabbitHoleLoader } from "@/ui";
+import { PaperDetail, referenceToPaperView } from "./PaperDetail";
 
 // GVd · ONE stateful right sidebar for the 探索 view — the ONLY right panel here
 // (the separately-docked 印记·找资料 coach is gone; it now IS this sidebar's
@@ -22,12 +23,6 @@ export type DigMode = "similar" | "citation" | "cited";
 // A question node's descendant paper, projected for the 论文列表 (clickable →
 // selects that paper node).
 export type PaperInList = { id: string; title: string };
-
-const READING_STATUS_LABEL: Record<string, string> = {
-  to_read: "待读",
-  reading: "在读",
-  done: "读完",
-};
 
 // 来源 in human-friendly words — where this question came from (铁律④: provenance
 // is data, shown plainly, never jargon).
@@ -347,127 +342,57 @@ function PaperMeta({
     // Reset the draft whenever a different paper is selected or the prompt clears.
     setPasteText("");
   }, [node.id, Boolean(pastePrompt)]);
-  const title = reference?.title ?? node.text;
-  const authors = reference?.author?.trim() || "";
-  const year = reference?.year?.trim() || "";
-  const journal = reference?.journal?.trim() || "";
-  const statusLabel = reference ? READING_STATUS_LABEL[reference.readingStatus] : undefined;
-  const link = reference?.url?.trim() || "";
-  const abstract = reference?.abstract?.trim() || "";
+
+  // One shared layout with the search-result single-paper view (PaperDetail):
+  // an added node is always "已在图谱". A node with no joined reference (rare)
+  // still renders from its own text.
+  const paper = reference
+    ? referenceToPaperView(reference)
+    : { title: node.text, authors: "", year: "", journal: "", abstract: "", link: "", doi: "", added: true };
 
   return (
     <div className="flex-none border-b border-mk-border px-4 py-3">
-      <div className="flex items-center gap-2">
-        <span className="rounded-full bg-mk-success-bg px-2 py-0.5 text-[12px] font-bold text-mk-success">论文</span>
-        {statusLabel && (
-          <span className="rounded-full bg-mk-paper px-2 py-0.5 text-[12px] font-bold text-mk-faint">{statusLabel}</span>
+      <PaperDetail
+        paper={paper}
+        flush
+        primaryAction={
+          onEnterReading && !pastePrompt
+            ? { label: entering ? "打开中…" : "进入阅读室", onClick: onEnterReading, busy: entering }
+            : undefined
+        }
+      >
+        {/* Slice 4a · the 证据笔记 (evidence note) lives here in the sidebar —
+            never on the graph. Present when the research-stage setters are wired. */}
+        {reference && onSetEvidence && onSetTriage && onArchive && (
+          <div className="mt-3 border-t border-mk-border pt-3">
+            <EvidenceNote reference={reference} onSetEvidence={onSetEvidence} onSetTriage={onSetTriage} onArchive={onArchive} />
+          </div>
         )}
-      </div>
-      <h3 className="mt-2 text-[14.5px] font-bold leading-snug text-mk-ink">{title}</h3>
 
-      {/* Labeled metadata — each field on its own row with a clear label, not one
-          run-on line of grey text. Empty fields still show their label + 「—」so
-          the structure reads clearly. */}
-      <dl className="mt-3 space-y-1.5 text-[12px]">
-        <MetaRow label="作者" value={authors} />
-        <MetaRow label="年份" value={year} />
-        <MetaRow label="期刊" value={journal} />
-        <div className="flex gap-2">
-          <dt className="w-9 flex-none font-bold text-mk-faint">链接</dt>
-          <dd className="min-w-0 flex-1">
-            {link ? (
-              <a
-                href={link}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="break-all font-semibold text-mk-accent underline-offset-2 hover:underline"
-              >
-                {link}
-              </a>
-            ) : (
-              <span className="text-mk-faint">—</span>
-            )}
-          </dd>
-        </div>
-      </dl>
-
-      {/* 摘要 — labeled block, always present so its absence is explicit. */}
-      <div className="mt-3">
-        <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">摘要</p>
-        {abstract ? (
-          <p className="mt-1 max-h-56 overflow-y-auto whitespace-pre-line text-[12px] leading-relaxed text-mk-muted">
-            {abstract}
-          </p>
-        ) : (
-          <p className="mt-1 text-[12px] text-mk-faint">这篇还没有摘要。</p>
+        {/* 422 fallback: the full text couldn't be fetched, so instead of a dead
+            click we ask her to paste the body → pasteContent → straight into the
+            reading room. Mirrors the Library preview's paste path. */}
+        {pastePrompt && onPaste && (
+          <div className="mt-3 rounded-mk border border-mk-accent-200 bg-mk-accent-50 p-2.5">
+            <p className="text-[12px] font-semibold leading-relaxed text-mk-ink">{pastePrompt.msg}</p>
+            <textarea
+              value={pasteText}
+              onChange={(e) => setPasteText(e.target.value)}
+              rows={5}
+              placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……"
+              className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-2 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+            />
+            <button
+              type="button"
+              onClick={() => onPaste(pasteText.trim())}
+              disabled={pasteBusy || !pasteText.trim()}
+              className="mt-2 w-full rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+            >
+              {pasteBusy ? "开始中…" : "开始共读"}
+            </button>
+          </div>
         )}
-      </div>
-
-      <div className="mt-3 flex flex-wrap items-center gap-2">
-        {link && (
-          <a
-            href={link}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50"
-          >
-            打开原文
-          </a>
-        )}
-        {onEnterReading && !pastePrompt && (
-          <button
-            type="button"
-            onClick={onEnterReading}
-            disabled={entering}
-            className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
-          >
-            {entering ? "打开中…" : "进入阅读室"}
-          </button>
-        )}
-      </div>
-
-      {/* Slice 4a · the 证据笔记 (evidence note) lives here in the sidebar — never
-          on the graph. Present when the research-stage setters are wired. */}
-      {reference && onSetEvidence && onSetTriage && onArchive && (
-        <div className="mt-3 border-t border-mk-border pt-3">
-          <EvidenceNote reference={reference} onSetEvidence={onSetEvidence} onSetTriage={onSetTriage} onArchive={onArchive} />
-        </div>
-      )}
-
-      {/* 422 fallback: the full text couldn't be fetched, so instead of a dead
-          click we ask her to paste the body → pasteContent → straight into the
-          reading room. Mirrors the Library preview's paste path. */}
-      {pastePrompt && onPaste && (
-        <div className="mt-3 rounded-mk border border-mk-accent-200 bg-mk-accent-50 p-2.5">
-          <p className="text-[12px] font-semibold leading-relaxed text-mk-ink">{pastePrompt.msg}</p>
-          <textarea
-            value={pasteText}
-            onChange={(e) => setPasteText(e.target.value)}
-            rows={5}
-            placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……"
-            className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-2 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
-          />
-          <button
-            type="button"
-            onClick={() => onPaste(pasteText.trim())}
-            disabled={pasteBusy || !pasteText.trim()}
-            className="mt-2 w-full rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
-          >
-            {pasteBusy ? "开始中…" : "开始共读"}
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// A single labeled metadata row (作者/年份/期刊). Empty → 「—」so the label stays
-// visible and the panel reads as a clear structure, not a grey run-on line.
-function MetaRow({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="flex gap-2">
-      <dt className="w-9 flex-none font-bold text-mk-faint">{label}</dt>
-      <dd className={`min-w-0 flex-1 ${value ? "text-mk-ink" : "text-mk-faint"}`}>{value || "—"}</dd>
+      </PaperDetail>
     </div>
   );
 }

@@ -10,7 +10,7 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, courseAsk, type CourseAskEvent } from "./courses";
-import { listProjects, finishProject, createProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
+import { listProjects, finishProject, createProject, renameProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards, getCardsCatalog, setCardTheme } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
@@ -57,6 +57,7 @@ export interface ApiClient {
   listProjects(): Promise<ProjectListItem[]>;
   finishProject(id: string): Promise<{ status: ProjectStatus }>;
   createProject(body: { title?: string; prompt: string; projectType?: string; writingLanguage?: "en" | "zh" | "bilingual"; cover?: string }): Promise<{ id: string }>;
+  renameProject(id: string, title: string): Promise<{ title: string }>;
   // Task 3: cover picker options for the create-project drawer.
   getProjectCovers(): Promise<{ key: string; url: string }[]>;
   submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void>;
@@ -118,7 +119,7 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, courseAsk,
-  listProjects, finishProject, createProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
+  listProjects, finishProject, createProject, renameProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
   readTurn, summonCard, evaluateCardSelection, getOpenCard,
