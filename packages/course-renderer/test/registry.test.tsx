@@ -12,13 +12,13 @@ describe("block registry", () => {
     expect(typeof R).toBe("function");
   });
 
-  it("maps not-yet-built types to the NotImplementedRenderer placeholder", () => {
-    expect(getBlockRenderer("pdf")).toBe(NotImplementedRenderer);
+  it("maps the still-unbuilt interactiveHtml type to the NotImplementedRenderer placeholder", () => {
     expect(getBlockRenderer("interactiveHtml")).toBe(NotImplementedRenderer);
   });
 
-  it("maps video to a real renderer (not the placeholder)", () => {
+  it("maps video and pdf to real renderers (not the placeholder)", () => {
     expect(getBlockRenderer("video")).not.toBe(NotImplementedRenderer);
+    expect(getBlockRenderer("pdf")).not.toBe(NotImplementedRenderer);
   });
 
   it("throws for an unregistered block type (fail before playback)", () => {

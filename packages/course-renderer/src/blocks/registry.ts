@@ -6,6 +6,7 @@ import { ImagesRenderer } from "./ImagesRenderer";
 import { FillBlankRenderer } from "./assessment/FillBlankRenderer";
 import { SingleChoiceRenderer } from "./assessment/SingleChoiceRenderer";
 import { VideoRenderer } from "./media/VideoRenderer";
+import { PdfRenderer } from "./media/PdfRenderer";
 
 /**
  * §17.6 — the single source of truth mapping a `BlockType` to its renderer.
@@ -15,7 +16,7 @@ import { VideoRenderer } from "./media/VideoRenderer";
 export const blockRenderers: Record<BlockType, BlockRenderer<any>> = {
   text: TextRenderer,
   images: ImagesRenderer,
-  pdf: NotImplementedRenderer,
+  pdf: PdfRenderer,
   video: VideoRenderer,
   interactiveHtml: NotImplementedRenderer,
   fillBlank: FillBlankRenderer,
