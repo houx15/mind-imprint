@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import type { BlockRenderer, VideoBlock } from "../types";
 import { useVideoEngine } from "../../media/videoEngine";
 import { useMediaHandleRegistry } from "../../media/mediaRegistry";
+import { VideoInteractionController } from "./VideoInteractionController";
 
 /**
  * §9.4 / §17.10 — the accessible video player. Renders a `<video>` (poster +
@@ -71,6 +72,12 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
     });
   }, [engine, block.id, maybeComplete]);
 
+  // The cue timeline reports when all required cues have completed (gated rule).
+  const onRequiredCuesComplete = useCallback(() => {
+    requiredCuesCompleteRef.current = true;
+    maybeComplete();
+  }, [maybeComplete]);
+
   return (
     <div
       data-block-id={block.id}
@@ -98,6 +105,15 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
           暂停
         </button>
       </div>
+      {block.interaction ? (
+        <VideoInteractionController
+          block={block}
+          engine={engine}
+          assetResolver={assetResolver}
+          emit={emit}
+          onRequiredCuesComplete={onRequiredCuesComplete}
+        />
+      ) : null}
     </div>
   );
 };
