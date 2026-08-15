@@ -1,0 +1,60 @@
+/**
+ * §17.11 / §20 — the versioned `postMessage` protocol for `interactiveHtml`
+ * blocks. This module is PURE: no DOM, no iframe, no window access, so every
+ * acceptance/rejection path is unit-testable independent of the renderer.
+ *
+ * The sandboxed frame speaks exactly one message shape:
+ *
+ *   { protocol: "mind-course-interaction"; version: "1.0";
+ *     sessionToken: string; type: "ready"|"progress"|"completed"|"error";
+ *     payload?: unknown }
+ *
+ * A message is ACCEPTED only if the protocol name matches, the version equals
+ * the block's `expectedVersion`, the session token equals the per-mount minted
+ * token, and the `type` is one of the four known types. Anything else is
+ * rejected with a typed reason and NEVER becomes a runtime Event.
+ */
+
+export const PROTOCOL_NAME = "mind-course-interaction" as const;
+export const PROTOCOL_VERSION = "1.0" as const;
+
+/** The four message types the frame may send. */
+export const FRAME_MESSAGE_TYPES = ["ready", "progress", "completed", "error"] as const;
+export type FrameMessageType = (typeof FRAME_MESSAGE_TYPES)[number];
+
+export interface ParseContext {
+  /** The per-mount token minted by the renderer; the frame must echo it back. */
+  sessionToken: string;
+  /** The block's declared `protocolVersion` (currently always `"1.0"`). */
+  expectedVersion: string;
+}
+
+/** Ordered so the caller can classify a rejection for diagnostics. */
+export type RejectionReason = "shape" | "version" | "token" | "type";
+
+export type ParseResult =
+  | { ok: true; type: FrameMessageType; payload: unknown }
+  | { ok: false; reason: RejectionReason };
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
+function isKnownType(value: unknown): value is FrameMessageType {
+  return typeof value === "string" && (FRAME_MESSAGE_TYPES as readonly string[]).includes(value);
+}
+
+/**
+ * Validates a raw `postMessage` payload against the protocol. `shape` covers a
+ * non-object or a wrong/absent protocol name (the message is not even ours);
+ * the remaining reasons are checked in a fixed order (version → token → type)
+ * so the outcome is deterministic.
+ */
+export function parseFrameMessage(raw: unknown, ctx: ParseContext): ParseResult {
+  if (!isRecord(raw)) return { ok: false, reason: "shape" };
+  if (raw.protocol !== PROTOCOL_NAME) return { ok: false, reason: "shape" };
+  if (raw.version !== ctx.expectedVersion) return { ok: false, reason: "version" };
+  if (raw.sessionToken !== ctx.sessionToken) return { ok: false, reason: "token" };
+  if (!isKnownType(raw.type)) return { ok: false, reason: "type" };
+  return { ok: true, type: raw.type, payload: raw.payload };
+}
