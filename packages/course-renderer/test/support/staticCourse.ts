@@ -98,6 +98,96 @@ export const sliceTwo: SliceDefinition = {
   navigation: { previous: "allowed", manualNext: "after-completion", autoNext: true, revisit: "restore-completed-state" },
 };
 
+/**
+ * §15 golden assessment slice: a graded single-choice question drives workflow
+ * branching. `wait-for-answer` fans out to three targets —
+ *   answer.correct → summarize, answer.incorrect → remediate → back,
+ *   answer.attemptsExhausted → summarize — proving the renderer's Events actually
+ * steer WorkflowRuntime through SlicePlayer. Not added to the document above so
+ * it can't disturb the CoursePlayer navigation test; the branching test mounts
+ * it directly. Block ids are `as-`-prefixed to stay course-wide unique.
+ */
+export const assessmentSlice: SliceDefinition = {
+  id: "assessment-slice",
+  title: "观察并作答",
+  objectiveIds: ["obj-one"],
+  estimatedSeconds: 120,
+  blocks: [
+    { id: "as-lead", type: "text", content: "先观察两个论断如何定义各自的证据。" },
+    {
+      id: "as-question",
+      type: "singleChoice",
+      prompt: "两个结论能直接比较吗？",
+      options: [
+        { id: "yes", label: "能" },
+        { id: "not-yet", label: "还不能" },
+      ],
+      assessment: {
+        mode: "graded",
+        correctOptionId: "not-yet",
+        correctFeedback: "正确，需要先核实边界与方法。",
+        incorrectFeedback: "结论相反并不能证明可直接比较。",
+      },
+      completion: { rule: "submit-correct-or-exhausted", maxAttempts: 2 },
+    },
+  ],
+  layout: { preset: "full", slots: [{ id: "main", blockIds: ["as-lead", "as-question"] }] },
+  narrations: [
+    { id: "as-intro", text: "现在判断两个结论能否直接比较。", audio: "audio/as-intro.mp3" },
+    { id: "as-remediation", text: "再看看对象、时间范围与方法。", audio: "audio/as-remediation.mp3" },
+    { id: "as-summary", text: "比较结论前，先确认证据确实可比。", audio: "audio/as-summary.mp3" },
+  ],
+  workflow: {
+    version: "1.0",
+    initialStepId: "introduce-question",
+    initialState: {
+      visibleBlockIds: ["as-lead", "as-question"],
+      enabledBlockIds: [],
+    },
+    steps: [
+      {
+        id: "introduce-question",
+        enterActions: [
+          { type: "focus", target: { blockId: "as-question" } },
+          { type: "playNarration", narrationId: "as-intro" },
+        ],
+        transitions: [{ on: { type: "narration.ended", sourceId: "as-intro" }, to: "wait-for-answer" }],
+      },
+      {
+        id: "wait-for-answer",
+        enterActions: [{ type: "enable", targetId: "as-question" }],
+        transitions: [
+          { on: { type: "answer.correct", sourceId: "as-question" }, to: "summarize" },
+          { on: { type: "answer.incorrect", sourceId: "as-question" }, to: "remediate" },
+          { on: { type: "answer.attemptsExhausted", sourceId: "as-question" }, to: "summarize" },
+        ],
+      },
+      {
+        id: "remediate",
+        enterActions: [
+          { type: "disable", targetId: "as-question" },
+          { type: "focus", target: { blockId: "as-lead" } },
+          { type: "playNarration", narrationId: "as-remediation" },
+        ],
+        transitions: [{ on: { type: "narration.ended", sourceId: "as-remediation" }, to: "wait-for-answer" }],
+      },
+      {
+        id: "summarize",
+        enterActions: [{ type: "clearFocus" }, { type: "playNarration", narrationId: "as-summary" }],
+        transitions: [{ on: { type: "narration.ended", sourceId: "as-summary" }, to: "next" }],
+      },
+      {
+        id: "next",
+        enterActions: [{ type: "completeSlice" }, { type: "navigate", target: "nextSlice" }],
+        transitions: [],
+      },
+    ],
+  },
+  navigation: { previous: "allowed", manualNext: "after-completion", autoNext: true, revisit: "restore-completed-state" },
+};
+
+export const ASSESSMENT_PART_ID = "part-one";
+
 export const staticCourseDocument: CourseDefinitionDocument = {
   schemaVersion: "2.0",
   course: {
