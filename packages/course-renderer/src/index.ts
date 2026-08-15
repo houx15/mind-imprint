@@ -7,3 +7,7 @@ export { TextRenderer } from "./blocks/TextRenderer";
 export { ImagesRenderer } from "./blocks/ImagesRenderer";
 export { LayoutRenderer } from "./layout/LayoutRenderer";
 export type { LayoutRendererProps, BlockId } from "./layout/LayoutRenderer";
+export { AudioEngineProvider, HtmlAudioEngine, useAudioEngine } from "./narration/audioEngine";
+export type { AudioEngine } from "./narration/audioEngine";
+export { NarrationController, NarrationPlayer } from "./narration/NarrationPlayer";
+export type { NarrationPlayerProps, ActiveNarration } from "./narration/NarrationPlayer";
