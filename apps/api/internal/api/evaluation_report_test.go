@@ -57,11 +57,16 @@ func TestEvaluationReport_GenerateThenRead(t *testing.T) {
 		t.Fatalf("GET evaluation-report (after generate) = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	rep := decodeReadyEnvelope(t, rec.Body.Bytes())
+	// Real generation (no provider in this harness → the FACT half + conservative
+	// rubric floors) still guarantees the full 6+6 dual axis and a valid envelope.
 	if len(rep.Depth) != 6 {
 		t.Fatalf("report.Depth len = %d, want 6", len(rep.Depth))
 	}
-	if len(rep.Materials) < 6 {
-		t.Fatalf("report.Materials len = %d, want >= 6", len(rep.Materials))
+	if len(rep.Autonomy) != 6 {
+		t.Fatalf("report.Autonomy len = %d, want 6", len(rep.Autonomy))
+	}
+	if rep.Version != 1 || rep.ReportID == "" || rep.Student.ID == "" {
+		t.Fatalf("report envelope invalid: version=%d reportId=%q studentId=%q", rep.Version, rep.ReportID, rep.Student.ID)
 	}
 	if rep.ProjectID != projectID {
 		t.Fatalf("report.ProjectID = %q, want %q", rep.ProjectID, projectID)

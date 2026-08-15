@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -165,25 +164,20 @@ func (a *API) generateAndStoreEvaluationReport(ctx context.Context, projectID uu
 		return err
 	}
 
-	// Report title = the research question (proposal objective) when the student
-	// has one — that is what identifies the project, and it reads cleanly. Fall
-	// back to project.Title (the creation-time prompt first line) otherwise.
-	title := strings.TrimSpace(p.Title)
-	if prop, perr := a.d.Queries.GetProjectProposal(ctx, projectID); perr == nil {
-		if obj := strings.TrimSpace(prop.Objective); obj != "" {
-			title = obj
-		}
+	// Student display name for the report header (blank on lookup failure).
+	studentName := ""
+	if u, uerr := a.d.Queries.GetUserByID(ctx, p.UserID); uerr == nil {
+		studentName = u.DisplayName
 	}
 
-	rep := evalreport.Placeholder(
-		projectID.String(),
-		uuid.NewString(),
-		p.UserID.String(),
-		"", // student name — placeholder era leaves it blank; filled from users table later
-		title,
-		p.Qualification,
-		time.Now().UTC().Format(time.RFC3339),
-	)
+	// Real generation: deterministic FACT half + four flagship LLM calls
+	// (see evaluation_generate.go). Best-effort — a data-gather error fails the
+	// row (re-claimable); LLM-call failures degrade sections, never the report.
+	rep, _, gerr := a.runReportGeneration(ctx, projectID, uuid.NewString(), studentName)
+	if gerr != nil {
+		a.d.Queries.FailEvaluationReport(ctx, projectID)
+		return gerr
+	}
 	raw, err := json.Marshal(rep)
 	if err != nil {
 		a.d.Queries.FailEvaluationReport(ctx, projectID)

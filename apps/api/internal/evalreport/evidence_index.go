@@ -18,7 +18,10 @@ package evalreport
 // a database. The api layer builds the []Candidate from sqlc rows and calls
 // NewEvidenceIndex; see api/evidence_index.go.
 
-import "unicode/utf8"
+import (
+	"sort"
+	"unicode/utf8"
+)
 
 // Kind values for a Candidate — which record stream an id came from.
 const (
@@ -70,6 +73,17 @@ func (ix EvidenceIndex) Get(id string) (Candidate, bool) {
 
 // Len is the number of indexed candidates.
 func (ix EvidenceIndex) Len() int { return len(ix.byID) }
+
+// Candidates returns all indexed candidates, sorted by id for a stable render
+// order (the generation prompt lists these as the only citable ids).
+func (ix EvidenceIndex) Candidates() []Candidate {
+	out := make([]Candidate, 0, len(ix.byID))
+	for _, c := range ix.byID {
+		out = append(out, c)
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].ID < out[j].ID })
+	return out
+}
 
 // DropStats is ValidateRefs's quality signal: how many non-empty ref ids were
 // examined and how many of those were blanked as unknown.
