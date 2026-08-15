@@ -12,13 +12,10 @@ describe("block registry", () => {
     expect(typeof R).toBe("function");
   });
 
-  it("maps the still-unbuilt interactiveHtml type to the NotImplementedRenderer placeholder", () => {
-    expect(getBlockRenderer("interactiveHtml")).toBe(NotImplementedRenderer);
-  });
-
-  it("maps video and pdf to real renderers (not the placeholder)", () => {
-    expect(getBlockRenderer("video")).not.toBe(NotImplementedRenderer);
-    expect(getBlockRenderer("pdf")).not.toBe(NotImplementedRenderer);
+  it("maps every block type to a real renderer — zero NotImplemented entries remain", () => {
+    for (const type of ["text", "images", "pdf", "video", "interactiveHtml", "fillBlank", "singleChoice"]) {
+      expect(getBlockRenderer(type)).not.toBe(NotImplementedRenderer);
+    }
   });
 
   it("throws for an unregistered block type (fail before playback)", () => {
@@ -32,7 +29,7 @@ describe("block registry", () => {
   });
 
   it("NotImplementedRenderer renders a labelled data-block-type box", () => {
-    const R = getBlockRenderer("interactiveHtml");
+    const R = NotImplementedRenderer;
     const { container } = render(
       <R
         block={{ id: "h1", type: "interactiveHtml", source: "assets/h.html", protocolVersion: "1.0", aspectRatio: "4:3" } as any}

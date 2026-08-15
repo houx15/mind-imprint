@@ -40,3 +40,4 @@ export type FillBlankBlock = Extract<BlockDefinition, { type: "fillBlank" }>;
 export type SingleChoiceBlock = Extract<BlockDefinition, { type: "singleChoice" }>;
 export type VideoBlock = Extract<BlockDefinition, { type: "video" }>;
 export type PdfBlock = Extract<BlockDefinition, { type: "pdf" }>;
+export type InteractiveHtmlBlock = Extract<BlockDefinition, { type: "interactiveHtml" }>;
