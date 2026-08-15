@@ -13,9 +13,12 @@ describe("block registry", () => {
   });
 
   it("maps not-yet-built types to the NotImplementedRenderer placeholder", () => {
-    expect(getBlockRenderer("video")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("pdf")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("interactiveHtml")).toBe(NotImplementedRenderer);
+  });
+
+  it("maps video to a real renderer (not the placeholder)", () => {
+    expect(getBlockRenderer("video")).not.toBe(NotImplementedRenderer);
   });
 
   it("throws for an unregistered block type (fail before playback)", () => {
@@ -29,10 +32,10 @@ describe("block registry", () => {
   });
 
   it("NotImplementedRenderer renders a labelled data-block-type box", () => {
-    const R = getBlockRenderer("video");
+    const R = getBlockRenderer("interactiveHtml");
     const { container } = render(
       <R
-        block={{ id: "v1", type: "video", source: "assets/v.mp4" } as any}
+        block={{ id: "h1", type: "interactiveHtml", source: "assets/h.html", protocolVersion: "1.0", aspectRatio: "4:3" } as any}
         assetResolver={assetResolver}
         state={{ visible: true, enabled: true, completed: false }}
         visible
@@ -42,6 +45,6 @@ describe("block registry", () => {
     );
     const box = container.querySelector('[data-not-implemented="true"]');
     expect(box).not.toBeNull();
-    expect(box).toHaveAttribute("data-block-type", "video");
+    expect(box).toHaveAttribute("data-block-type", "interactiveHtml");
   });
 });

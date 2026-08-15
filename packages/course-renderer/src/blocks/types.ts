@@ -38,3 +38,5 @@ export type ImagesBlock = Extract<BlockDefinition, { type: "images" }>;
 export type ImageItem = ImagesBlock["items"][number];
 export type FillBlankBlock = Extract<BlockDefinition, { type: "fillBlank" }>;
 export type SingleChoiceBlock = Extract<BlockDefinition, { type: "singleChoice" }>;
+export type VideoBlock = Extract<BlockDefinition, { type: "video" }>;
+export type PdfBlock = Extract<BlockDefinition, { type: "pdf" }>;
