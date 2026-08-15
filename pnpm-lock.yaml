@@ -55,6 +55,9 @@ importers:
       '@mind-imprint/course-contract':
         specifier: workspace:*
         version: link:../../packages/course-contract
+      '@mind-imprint/course-renderer':
+        specifier: workspace:*
+        version: link:../../packages/course-renderer
       '@mind-imprint/course-runtime':
         specifier: workspace:*
         version: link:../../packages/course-runtime
