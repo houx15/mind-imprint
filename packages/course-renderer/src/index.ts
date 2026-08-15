@@ -11,3 +11,5 @@ export { AudioEngineProvider, HtmlAudioEngine, useAudioEngine } from "./narratio
 export type { AudioEngine } from "./narration/audioEngine";
 export { NarrationController, NarrationPlayer } from "./narration/NarrationPlayer";
 export type { NarrationPlayerProps, ActiveNarration } from "./narration/NarrationPlayer";
+export { FocusProvider, FocusTarget, useCurrentFocus, isBlockFocused, focusedItemIdFor } from "./focus/FocusManager";
+export type { FocusTargetProps } from "./focus/FocusManager";
