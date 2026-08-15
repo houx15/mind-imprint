@@ -13,3 +13,5 @@ export { NarrationController, NarrationPlayer } from "./narration/NarrationPlaye
 export type { NarrationPlayerProps, ActiveNarration } from "./narration/NarrationPlayer";
 export { FocusProvider, FocusTarget, useCurrentFocus, isBlockFocused, focusedItemIdFor } from "./focus/FocusManager";
 export type { FocusTargetProps } from "./focus/FocusManager";
+export { SlicePlayer } from "./slice/SlicePlayer";
+export type { SlicePlayerProps, Scheduler } from "./slice/SlicePlayer";
