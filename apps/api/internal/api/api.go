@@ -210,7 +210,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/courses/{slug}/progress", protected(a.getCourseProgress))
 	mux.Handle("PUT /api/v1/courses/{slug}/progress", protected(a.putCourseProgress))
 	mux.Handle("POST /api/v1/courses/{slug}/quiz-answer", protected(a.postCourseQuizAnswer))
-	mux.Handle("POST /api/v1/courses/{slug}/ask", protected(a.postCourseAsk)) // Task 6
+	mux.Handle("POST /api/v1/courses/{slug}/ask", protected(a.postCourseAsk))     // Task 6
+	mux.Handle("POST /api/v1/courses/{slug}/scene", protected(a.sceneForCourse)) // Course Runtime Slice 7
 	mux.Handle("GET /api/v1/courses/{slug}/report", protected(a.getCourseReport))
 	mux.Handle("POST /api/v1/admin/courses", http.HandlerFunc(a.postAdminUploadCourse)) // Task 7 (admin-key gate inside)
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
