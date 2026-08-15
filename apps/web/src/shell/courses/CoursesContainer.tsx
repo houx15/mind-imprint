@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CoursesView } from "./CoursesView";
 import { CoursePlayer } from "./CoursePlayer";
+import { RuntimeCoursePlayer } from "./RuntimeCoursePlayer";
+import { getCourseDefinition } from "@/api/courseDefinition";
 import { EmptyState, Button } from "@/ui";
 
 type View = { name: "grid" } | { name: "player"; courseId: string } | { name: "report"; courseId: string };
@@ -27,7 +29,43 @@ function CourseCompletionPlaceholder({ onBackToCourses, onGoPortal }: { onBackTo
   );
 }
 
-export function CoursesContainer({ onGoPortal, initialCourseId }: { onGoPortal?: () => void; initialCourseId?: string | null }) {
+// PlayerRouter decides PER COURSE which player to mount: a course that HAS a
+// 2.0 definition plays through the new runtime (RuntimeCoursePlayer); a course
+// with none (the definition endpoint 404s — legacy render_cache content) falls
+// back to the existing linear CoursePlayer. Any non-404 error also falls back to
+// legacy rather than dead-ending the student. The slug is the course id used
+// everywhere in the course tab (getCourse is slug-keyed).
+function PlayerRouter({ slug, studentId, onExit, onFinish }: { slug: string; studentId?: string; onExit: () => void; onFinish: () => void }) {
+  const [kind, setKind] = useState<"loading" | "runtime" | "legacy">("loading");
+  useEffect(() => {
+    let cancelled = false;
+    setKind("loading");
+    getCourseDefinition(slug)
+      .then(() => {
+        if (!cancelled) setKind("runtime");
+      })
+      .catch(() => {
+        if (!cancelled) setKind("legacy");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [slug]);
+
+  if (kind === "loading") {
+    return (
+      <div aria-busy="true" style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--mk-paper)", color: "var(--mk-faint)", fontSize: 14 }}>
+        正在加载课程…
+      </div>
+    );
+  }
+  if (kind === "runtime") {
+    return <RuntimeCoursePlayer slug={slug} studentId={studentId} onExit={onExit} onFinish={onFinish} />;
+  }
+  return <CoursePlayer courseId={slug} onExit={onExit} onFinish={onFinish} />;
+}
+
+export function CoursesContainer({ onGoPortal, initialCourseId, studentId }: { onGoPortal?: () => void; initialCourseId?: string | null; studentId?: string }) {
   // Deep-link: opening a course from anywhere (home's course cards, the
   // gallery's "去学这张卡的课程" link) lands in the PLAYER so the student can
   // actually learn it (the player resumes at their saved step). Finishing the
@@ -37,8 +75,9 @@ export function CoursesContainer({ onGoPortal, initialCourseId }: { onGoPortal?:
 
   if (view.name === "player") {
     return (
-      <CoursePlayer
-        courseId={view.courseId}
+      <PlayerRouter
+        slug={view.courseId}
+        studentId={studentId}
         onExit={() => setView({ name: "grid" })}
         onFinish={() => setView({ name: "report", courseId: view.courseId })}
       />

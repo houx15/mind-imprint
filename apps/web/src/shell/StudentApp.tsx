@@ -90,7 +90,7 @@ export function StudentApp({
 
   let body;
   if (courseFocus) {
-    body = <CoursesContainer initialCourseId={courseFocus} onGoPortal={() => setCourseFocus(null)} />;
+    body = <CoursesContainer initialCourseId={courseFocus} studentId={user?.id} onGoPortal={() => setCourseFocus(null)} />;
   } else if (tab === "home") {
     body = (
       <HomePage
