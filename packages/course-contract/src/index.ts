@@ -6,3 +6,4 @@ export * from "./narration";
 export * from "./navigation";
 export * from "./workflow";
 export * from "./course";
+export * from "./session";
