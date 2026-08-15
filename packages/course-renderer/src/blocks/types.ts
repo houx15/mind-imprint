@@ -36,3 +36,5 @@ export type BlockRenderer<TBlock extends BlockDefinition = BlockDefinition> = Co
 export type TextBlock = Extract<BlockDefinition, { type: "text" }>;
 export type ImagesBlock = Extract<BlockDefinition, { type: "images" }>;
 export type ImageItem = ImagesBlock["items"][number];
+export type FillBlankBlock = Extract<BlockDefinition, { type: "fillBlank" }>;
+export type SingleChoiceBlock = Extract<BlockDefinition, { type: "singleChoice" }>;

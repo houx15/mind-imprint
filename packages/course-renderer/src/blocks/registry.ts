@@ -3,6 +3,7 @@ import type { BlockRenderer } from "./types";
 import { NotImplementedRenderer } from "./NotImplementedRenderer";
 import { TextRenderer } from "./TextRenderer";
 import { ImagesRenderer } from "./ImagesRenderer";
+import { FillBlankRenderer } from "./assessment/FillBlankRenderer";
 
 /**
  * §17.6 — the single source of truth mapping a `BlockType` to its renderer.
@@ -15,7 +16,7 @@ export const blockRenderers: Record<BlockType, BlockRenderer<any>> = {
   pdf: NotImplementedRenderer,
   video: NotImplementedRenderer,
   interactiveHtml: NotImplementedRenderer,
-  fillBlank: NotImplementedRenderer,
+  fillBlank: FillBlankRenderer,
   singleChoice: NotImplementedRenderer,
 };
 

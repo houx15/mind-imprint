@@ -16,7 +16,6 @@ describe("block registry", () => {
     expect(getBlockRenderer("singleChoice")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("video")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("pdf")).toBe(NotImplementedRenderer);
-    expect(getBlockRenderer("fillBlank")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("interactiveHtml")).toBe(NotImplementedRenderer);
   });
 
