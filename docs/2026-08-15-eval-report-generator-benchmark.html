@@ -1,0 +1,269 @@
+<title>评估报告生成算法 · 基准报告</title>
+<style>
+  :root {
+    --bg: #FBF9F5; --surface: #FFFFFF; --surface-2: #F5F1E9;
+    --ink: #1E1B17; --muted: #6B6459; --faint: #9A9284; --border: #E8E1D5;
+    --accent: #EA5140; --accent-soft: #FBE7E3;
+    /* semantic tiers — the SAME warn→good palette the real evaluation report uses */
+    --t1-bar: #E07A3F; --t1-bg: #FBE6DA; --t1-fg: #AE531B;   /* 需加强 */
+    --t2-bar: #D19A1E; --t2-bg: #F8EFD3; --t2-fg: #856110;   /* 发展中 */
+    --t3-bar: #6FAE57; --t3-bg: #E7F1DF; --t3-fg: #477433;   /* 良好 */
+    --t4-bar: #2E8B57; --t4-bg: #DCEEE4; --t4-fg: #1E6A40;   /* 扎实 */
+    --ok: #2E8B57; --warn: #D19A1E; --bad: #C4462F;
+    --shadow: 0 1px 2px rgba(30,27,23,.04), 0 6px 20px rgba(30,27,23,.05);
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: ui-sans-serif, -apple-system, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    --serif: "Iowan Old Style", "Songti SC", Georgia, "Times New Roman", serif;
+  }
+  :root:not([data-theme="light"]) { }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #16140F; --surface: #1F1C15; --surface-2: #262218;
+      --ink: #F1EBDF; --muted: #A79E8C; --faint: #776F5F; --border: #332F22;
+      --accent: #F26C5B; --accent-soft: #3A231E;
+      --t1-bg: #3A2418; --t1-fg: #E9A574; --t2-bg: #352D16; --t2-fg: #E6C267;
+      --t3-bg: #223020; --t3-fg: #9BCB85; --t4-bg: #17321F; --t4-fg: #7FCFA0;
+      --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #16140F; --surface: #1F1C15; --surface-2: #262218;
+    --ink: #F1EBDF; --muted: #A79E8C; --faint: #776F5F; --border: #332F22;
+    --accent: #F26C5B; --accent-soft: #3A231E;
+    --t1-bg: #3A2418; --t1-fg: #E9A574; --t2-bg: #352D16; --t2-fg: #E6C267;
+    --t3-bg: #223020; --t3-fg: #9BCB85; --t4-bg: #17321F; --t4-fg: #7FCFA0;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font-family: var(--sans);
+    line-height: 1.6; -webkit-font-smoothing: antialiased; }
+  .wrap { max-width: 1120px; margin: 0 auto; padding: 0 24px 96px; }
+  a { color: var(--accent); }
+  h1,h2,h3 { line-height: 1.2; text-wrap: balance; }
+  .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+
+  /* hero */
+  header { padding: 72px 0 40px; border-bottom: 1px solid var(--border); }
+  .eyebrow { font-size: 12px; letter-spacing: .16em; text-transform: uppercase;
+    color: var(--accent); font-weight: 700; }
+  h1 { font-family: var(--serif); font-size: clamp(30px, 5vw, 46px); font-weight: 600;
+    margin: 14px 0 10px; letter-spacing: -.01em; }
+  .lede { font-size: 18px; color: var(--muted); max-width: 62ch; margin: 0; }
+  .meta { margin-top: 20px; font-size: 13px; color: var(--faint); }
+  .meta .num { color: var(--muted); }
+
+  /* headline stats */
+  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin: 32px 0 8px; }
+  .stat { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 18px 18px 16px; box-shadow: var(--shadow); }
+  .stat .k { font-size: 12px; color: var(--muted); font-weight: 600; }
+  .stat .v { font-family: var(--mono); font-size: 28px; font-weight: 600; margin-top: 6px; letter-spacing: -.02em; }
+  .stat .u { font-size: 13px; color: var(--faint); }
+
+  section { margin-top: 52px; }
+  h2 { font-family: var(--serif); font-size: 24px; font-weight: 600; margin: 0 0 6px;
+    display: flex; align-items: baseline; gap: 12px; }
+  h2 .idx { font-family: var(--mono); font-size: 14px; color: var(--accent); font-weight: 700; }
+  .sub { color: var(--muted); margin: 0 0 22px; max-width: 70ch; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px;
+    padding: 22px 24px; box-shadow: var(--shadow); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+
+  /* pipeline calls */
+  .calls { display: grid; grid-template-columns: repeat(2, 1fr); gap: 14px; }
+  .call { border: 1px solid var(--border); border-radius: 12px; padding: 16px 18px; background: var(--surface); }
+  .call h4 { margin: 0 0 4px; font-size: 15px; display: flex; align-items: center; gap: 8px; }
+  .tag { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px;
+    background: var(--surface-2); color: var(--muted); letter-spacing: .04em; }
+  .tag.lean { background: var(--t3-bg); color: var(--t3-fg); }
+  .tag.full { background: var(--accent-soft); color: var(--accent); }
+  .call p { margin: 6px 0 0; font-size: 13.5px; color: var(--muted); }
+  .call .cost { margin-top: 10px; font-family: var(--mono); font-size: 12.5px; color: var(--ink); }
+
+  /* tables */
+  .scroll { overflow-x: auto; border: 1px solid var(--border); border-radius: 14px; box-shadow: var(--shadow); }
+  table { border-collapse: collapse; width: 100%; font-size: 13.5px; background: var(--surface); }
+  th, td { padding: 10px 12px; text-align: left; white-space: nowrap; border-bottom: 1px solid var(--border); }
+  thead th { background: var(--surface-2); font-size: 11.5px; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--muted); position: sticky; top: 0; }
+  tbody tr:last-child td { border-bottom: none; }
+  td.n, th.n { text-align: right; font-family: var(--mono); font-variant-numeric: tabular-nums; }
+  .persona { font-weight: 600; }
+  .lvl { font-family: var(--mono); font-size: 11px; font-weight: 700; padding: 1px 7px; border-radius: 6px; }
+  .lvl.L1 { background: var(--t1-bg); color: var(--t1-fg); }
+  .lvl.L2 { background: var(--t2-bg); color: var(--t2-fg); }
+  .lvl.L3 { background: var(--t4-bg); color: var(--t4-fg); }
+  .topic { color: var(--faint); font-size: 12px; max-width: 200px; overflow: hidden; text-overflow: ellipsis; }
+
+  /* tier strip (6 cells) */
+  .strip { display: inline-flex; gap: 3px; }
+  .cell { width: 15px; height: 15px; border-radius: 4px; font-family: var(--mono); font-size: 9px;
+    display: grid; place-items: center; font-weight: 700; }
+  .avg { font-family: var(--mono); font-weight: 600; margin-left: 8px; }
+  .fail { color: var(--bad); font-weight: 700; }
+
+  ul.clean { list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+  ul.clean li { padding-left: 22px; position: relative; color: var(--muted); }
+  ul.clean li::before { content: ""; position: absolute; left: 4px; top: 10px; width: 7px; height: 7px;
+    border-radius: 50%; background: var(--accent); }
+  ul.clean li.good::before { background: var(--ok); }
+  ul.clean li.warn::before { background: var(--warn); }
+  ul.clean li b { color: var(--ink); font-weight: 600; }
+
+  blockquote { margin: 0; padding: 14px 18px; border-left: 3px solid var(--t3-bar);
+    background: var(--surface-2); border-radius: 0 10px 10px 0; font-size: 14px; color: var(--ink); }
+  blockquote cite { display: block; margin-top: 8px; font-style: normal; font-size: 12px; color: var(--faint); }
+
+  .legend { display: flex; flex-wrap: wrap; gap: 14px; margin: 4px 0 18px; font-size: 12.5px; color: var(--muted); }
+  .legend span { display: inline-flex; align-items: center; gap: 6px; }
+  .sw { width: 13px; height: 13px; border-radius: 4px; display: inline-block; }
+  .foot { margin-top: 56px; padding-top: 20px; border-top: 1px solid var(--border); font-size: 13px; color: var(--faint); }
+
+  @media (max-width: 720px) {
+    .stats { grid-template-columns: 1fr 1fr; } .calls, .grid2 { grid-template-columns: 1fr; }
+  }
+</style>
+
+<div class="wrap">
+<header>
+  <div class="eyebrow">思维印记 · 过程评估</div>
+  <h1>评估报告生成算法 · 基准</h1>
+  <p class="lede">一个「确定性事实装配 + 四路上下文分区旗舰调用」的报告生成器，在 10 个由弱到强的 persona 上真机运行 <span class="num">deepseek-v4-pro</span>，记录逐调用的 token、时延与判定结果。</p>
+  <div class="meta">2026-08-15 · 真实模型（旗舰，reasoning on，绝不降级）· 每份报告 4 次 LLM 调用 · 事实半部零调用 · commit <span class="num">8f7cdc48</span></div>
+</header>
+
+<div class="stats">
+  <div class="stat"><div class="k">Persona</div><div class="v">10</div><div class="u">弱→强 三档</div></div>
+  <div class="stat"><div class="k">平均 token / 报告</div><div class="v">13.7k<span class="u"> in</span></div><div class="u"><span class="num">24.2k</span> out</div></div>
+  <div class="stat"><div class="k">平均时延 / 报告</div><div class="v">3.9<span class="u"> min</span></div><div class="u">并行后；rubric 为长杆</div></div>
+  <div class="stat"><div class="k">成本 / 报告</div><div class="v">$0.027</div><div class="u">10 份合计 ≈ <span class="num">$0.27</span></div></div>
+</div>
+
+<section>
+  <h2><span class="idx">01</span> 算法设计</h2>
+  <p class="sub">报告分两半：<b>事实半部</b>完全确定性、零模型调用；<b>判定与文字半部</b>按「每条判定需要的数据上下文」把旗舰调用分区——只需一个切片的判定用精简调用，依赖全过程的判定共享一次全量调用，避免把大 digest 重复喂进去。所有调用都被限制只能引用证据候选表里的真实 id，落库前由 <span class="num">ValidateRefs</span> 丢掉幻觉 id。</p>
+  <div class="grid2" style="margin-bottom:16px">
+    <div class="card">
+      <h3 style="margin:0 0 8px;font-size:15px">事实半部 · 确定性（无 LLM）</h3>
+      <p style="margin:0;color:var(--muted);font-size:13.5px">计数（AI 轮次 / 材料 / <span class="num">CountWords</span> / 批注数 / 修订）、里程碑（立题完成 / 提案 / 写作 / 完成）、时间线、材料清单（<span class="num">usedIn</span> = 引用→章节，退化到探索线索）、工具卡使用。</p>
+    </div>
+    <div class="card">
+      <h3 style="margin:0 0 8px;font-size:15px">判定半部 · 四路旗舰调用</h3>
+      <p style="margin:0;color:var(--muted);font-size:13.5px">A/B/C 三路互不依赖，<b>并发</b>执行；D 综述依赖 C 的两轴结果，随后串行。每路都以证据候选表接地。</p>
+    </div>
+  </div>
+  <div class="calls">
+    <div class="call"><h4>A · 提问透镜 <span class="tag lean">精简上下文</span></h4><p>只看学生对 AI 的提问本身，判断她把 AI 当搜索引擎/代写还是思考对手。</p><p class="cost">≈ 3.2k in · 4.2k out · 57s · <b style="color:var(--ok)">10/10</b></p></div>
+    <div class="call"><h4>B · 风险 <span class="tag lean">精简上下文</span></h4><p>只看风险信号切片（正文/来源/溯源/跑题），标记代写、未溯源、逻辑跳跃等。</p><p class="cost">≈ 3.4k in · 4.2k out · 63s · <b style="color:var(--ok)">10/10</b></p></div>
+    <div class="call"><h4>C · 两轴档位 <span class="tag full">全量上下文</span></h4><p>认知深度 D1–D6（L1–L4）+ 智识自主 A1–A6（0–5 带），逐维判定 + 证据。<b>长杆</b>。</p><p class="cost">≈ 5.2k in · <b>13.1k out</b> · 186s · <b style="color:var(--ok)">10/10</b></p></div>
+    <div class="call"><h4>D · 综述画像 <span class="tag full">全量 + C 结果</span></h4><p>综合两轴结果写一段克制、诚实、对学生说话的画像 + 下一步。</p><p class="cost">≈ 2.0k in · 2.8k out · 46s · <b style="color:var(--warn)">9/10</b></p></div>
+  </div>
+</section>
+
+<section>
+  <h2><span class="idx">02</span> 逐 persona 结果</h2>
+  <p class="sub">生成器清晰地把弱→强区分开：L1 两位（陈默、刘一）深度均值 <span class="num">1.7</span>、自主均值近 <span class="num">0.2</span>；最强的 L3 何萱 深度 <span class="num">3.5</span>、自主 <span class="num">4.2</span>。token 与候选数随记录丰富度线性增长（L1 陈默 in=9.2k/cand=34 ↔ L3 张宁 in=17.8k/cand=77）。</p>
+  <div class="legend">
+    <span><i class="sw" style="background:var(--t1-bar)"></i>需加强 · D:L1 / A:带0–1</span>
+    <span><i class="sw" style="background:var(--t2-bar)"></i>发展中 · D:L2 / A:带2</span>
+    <span><i class="sw" style="background:var(--t3-bar)"></i>良好 · D:L3 / A:带3</span>
+    <span><i class="sw" style="background:var(--t4-bar)"></i>扎实 · D:L4 / A:带4–5</span>
+  </div>
+  <div class="scroll">
+    <table id="ptable">
+      <thead><tr>
+        <th>Persona</th><th>档</th><th>课题</th>
+        <th class="n">时延</th><th class="n">in</th><th class="n">out</th><th class="n">候选</th><th class="n">丢弃</th>
+        <th>认知深度 D1–D6</th><th>智识自主 A1–A6</th><th class="n">风险</th><th class="n">字数</th>
+      </tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+  <p style="font-size:12.5px;color:var(--faint);margin-top:12px">「丢弃」= <span class="num">ValidateRefs</span> 丢掉的幻觉证据 id / 总引用数。数据越稀疏，模型越容易编 id：L1 陈默 <span class="num">15/35</span> 被拦下——正是这道防线的价值。</p>
+</section>
+
+<section>
+  <h2><span class="idx">03</span> 逐调用用量</h2>
+  <p class="sub">rubric（两轴 12 维 + 证据）是 token 与时延的绝对长杆：占输出 token 的 <b>~54%</b>、时延的 <b>~48%</b>。三路精简调用便宜且稳定；abstract 出现 1 次解析失败（下节）。</p>
+  <div class="scroll">
+    <table>
+      <thead><tr><th>调用</th><th>上下文</th><th class="n">平均 in</th><th class="n">平均 out</th><th class="n">平均时延</th><th class="n">成功</th></tr></thead>
+      <tbody>
+        <tr><td class="persona">A · 提问透镜</td><td><span class="tag lean">精简</span></td><td class="n">3,172</td><td class="n">4,156</td><td class="n">57s</td><td class="n" style="color:var(--ok)">10/10</td></tr>
+        <tr><td class="persona">B · 风险</td><td><span class="tag lean">精简</span></td><td class="n">3,404</td><td class="n">4,214</td><td class="n">63s</td><td class="n" style="color:var(--ok)">10/10</td></tr>
+        <tr><td class="persona">C · 两轴档位</td><td><span class="tag full">全量</span></td><td class="n">5,166</td><td class="n" style="color:var(--accent)">13,056</td><td class="n" style="color:var(--accent)">186s</td><td class="n" style="color:var(--ok)">10/10</td></tr>
+        <tr><td class="persona">D · 综述</td><td><span class="tag full">全量+C</span></td><td class="n">1,969</td><td class="n">2,793</td><td class="n">46s</td><td class="n" style="color:var(--warn)">9/10</td></tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<section>
+  <h2><span class="idx">04</span> 结果质量</h2>
+  <p class="sub">综述文字克制、诚实、不吹捧——严格贴合铁律①（AI 克制）。它对弱 persona 直说骨架空、对强 persona 也指出材料/正文未落地。以下为真实生成节选：</p>
+  <div class="grid2">
+    <blockquote>你搭起了一个论文该有的骨架：收窄问题、评估来源、使用论证结构、保留让步与限制。但骨架里还缺具体内容：问题没有真正收窄，来源与正文反复使用同一……<cite>— 陈默（L1，深度 1.7 / 自主 0.3）</cite></blockquote>
+    <blockquote>你在思维层面表现出较强的边界意识：多次把相关与因果区分开，主动用让步段和有限结论收窄问题，也在反思中署名自己的判断。但材料记录和正文写作仍停……<cite>— 何萱（L3，深度 3.5 / 自主 4.2）</cite></blockquote>
+  </div>
+  <p style="font-size:13px;color:var(--muted);margin-top:16px"><b>注 · 基准数据是合成的。</b>10 个 persona 的正文由模板化段落生成，因此综述里反复出现「更像研究动作的排演/框架，还没填入具体内容」——这是生成器<b>忠实地</b>读出了种子数据的模板性，不是缺陷。真实学生数据上判定会更饱满。</p>
+</section>
+
+<section>
+  <h2><span class="idx">05</span> 发现与下一步</h2>
+  <ul class="clean">
+    <li class="good"><b>判别力成立。</b>深度/自主均值随 persona 强度单调上升（L1≈1.7/0.2 → L3 顶格 3.5/4.2），弱项（未溯源、模板化正文）被如实标记。</li>
+    <li class="good"><b>id 接地有效。</b>ValidateRefs 在稀疏数据上拦下大量幻觉引用（L1 陈默 15/35），保证报告里的深链不指向空。</li>
+    <li class="good"><b>D6 反思截断已修复。</b>反思段原被正文摘录截断 → 智能前置「学生自写反思」块，冒烟中反思型 persona 的 D6 由 1 → 3。</li>
+    <li class="warn"><b>abstract 偶发解析失败（9/10）。</b>赵敏 的综述调用未产出可解析 JSON（26s 快速失败），报告优雅降级为空综述、其余完整。下一步：给 D 加一次重试 / 提高 MaxTokens 余量。</li>
+    <li class="warn"><b>rubric 是成本与时延长杆</b>（54% 输出 token / 48% 时延）。若需再降时延，可把 C 再拆成 depth / autonomy 两路并发——以更多调用换更短墙钟。</li>
+    <li><b>成本可忽略</b>：$0.027/报告。异步生成（P4 river worker）下完全可接受。</li>
+    <li><b>下一步</b>：部署生成器（替换 Placeholder，已就绪）→ 在真实 persona 项目上复跑校准判定 → abstract 重试 → 可选 rubric 再分区。</li>
+  </ul>
+</section>
+
+<div class="foot">
+  思维印记 · 过程评估生成器基准 · 2026-08-15 · 生成器 commit <span class="num">8f7cdc48</span> · 数据 <span class="num">10 personas × deepseek-v4-pro</span>
+</div>
+</div>
+
+<script>
+  const ROWS = [
+    {name:"林安",level:3,topic:"中国可再生能源投资是否让全球更可持续？",sec:305,tin:17224,tout:27540,cand:75,drop:"6/50",depth:[2,2,3,3,3,3],auto:[1,1,3,5,3,4],risks:4,words:1949},
+    {name:"周晓",level:2,topic:"社交媒体使用与青少年注意力的关系",sec:300,tin:13911,tout:24336,cand:59,drop:"3/49",depth:[3,2,3,3,2,4],auto:[1,3,3,5,2,1],risks:3,words:1177},
+    {name:"陈默",level:1,topic:"能否只在理解语境的范围内理解事物？",sec:234,tin:9215,tout:24109,cand:34,drop:"15/35",depth:[2,2,2,2,1,1],auto:[1,0,0,0,1,0],risks:3,words:653},
+    {name:"李泽",level:3,topic:"本地河流氮污染的季节性变化",sec:182,tin:16298,tout:22501,cand:69,drop:"3/44",depth:[2,2,3,3,4,4],auto:[1,0,3,4,3,3],risks:3,words:1787},
+    {name:"王予",level:2,topic:"AI 生成内容对独立音乐人收入的影响",sec:249,tin:12338,tout:24006,cand:50,drop:"3/45",depth:[2,2,3,3,1,1],auto:[1,3,3,3,1,0],risks:4,words:991},
+    {name:"张宁",level:3,topic:"碳定价在欧盟制造业中的实际减排效应",sec:248,tin:17763,tout:22481,cand:77,drop:"4/44",depth:[2,2,3,3,4,3],auto:[2,3,4,4,4,4],risks:2,words:2099},
+    {name:"刘一",level:1,topic:"数学知识是发现的还是发明的？",sec:197,tin:8285,tout:21750,cand:30,drop:"3/28",depth:[2,2,2,2,1,1],auto:[0,0,0,0,1,0],risks:3,words:529},
+    {name:"赵敏",level:2,topic:"不同 pH 对酶活性的影响",sec:235,tin:13765,tout:23400,cand:57,drop:"3/42",depth:[2,2,3,3,2,3],auto:[1,4,3,5,3,2],risks:3,words:1157,abFail:true},
+    {name:"孙可",level:2,topic:"校园食物浪费的行为干预设计",sec:179,tin:11754,tout:25355,cand:48,drop:"3/42",depth:[2,2,2,2,1,1],auto:[1,2,2,4,1,1],risks:3,words:871},
+    {name:"何萱",level:3,topic:"气候叙事框架如何影响青年环保行为意向",sec:188,tin:16579,tout:26737,cand:71,drop:"3/55",depth:[4,3,4,3,3,4],auto:[4,4,4,5,4,4],risks:3,words:1947},
+  ];
+  const depthTier = l => l<=1?1:l===2?2:l===3?3:4;         // L1-4
+  const autoTier  = b => b<=1?1:b===2?2:b===3?3:4;          // band 0-5
+  function strip(vals, tierFn, labelFn){
+    return '<span class="strip">'+vals.map(v=>{
+      const t=tierFn(v);
+      return `<span class="cell" style="background:var(--t${t}-bg);color:var(--t${t}-fg)">${labelFn(v)}</span>`;
+    }).join('')+'</span>';
+  }
+  const avg = a => (a.reduce((x,y)=>x+y,0)/a.length).toFixed(1);
+  const tb = document.querySelector('#ptable tbody');
+  tb.innerHTML = ROWS.map(r=>`
+    <tr>
+      <td class="persona">${r.name}</td>
+      <td><span class="lvl L${r.level}">L${r.level}</span></td>
+      <td class="topic" title="${r.topic}">${r.topic}</td>
+      <td class="n">${r.sec}s</td>
+      <td class="n">${r.tin.toLocaleString()}</td>
+      <td class="n">${r.tout.toLocaleString()}</td>
+      <td class="n">${r.cand}</td>
+      <td class="n">${r.drop}</td>
+      <td>${strip(r.depth, depthTier, v=>'L'+v)}<span class="avg">${avg(r.depth)}</span></td>
+      <td>${strip(r.auto, autoTier, v=>v)}<span class="avg">${avg(r.auto)}</span>${r.abFail?' <span class="fail" title="abstract 调用解析失败">⚠综述失败</span>':''}</td>
+      <td class="n">${r.risks}</td>
+      <td class="n">${r.words.toLocaleString()}</td>
+    </tr>`).join('');
+</script>
