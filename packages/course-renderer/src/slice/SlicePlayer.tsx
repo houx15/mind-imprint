@@ -24,6 +24,7 @@ import { getBlockRenderer } from "../blocks/registry";
 import { FocusProvider, FocusTarget, focusedItemIdFor } from "../focus/FocusManager";
 import { NarrationController, NarrationPlayer } from "../narration/NarrationPlayer";
 import { useAudioEngine } from "../narration/audioEngine";
+import { MediaHandleRegistry, MediaHandleRegistryProvider } from "../media/mediaRegistry";
 
 /** Injectable timer surface so tests can fire timers deterministically. */
 export interface Scheduler {
@@ -51,6 +52,8 @@ export interface SlicePlayerProps {
   /** Restore persisted block/slice state (revisit). */
   restoreState?: SliceSessionState;
   scheduler?: Scheduler;
+  /** Media-handle registry for play/pause/reset effects; created internally when omitted. */
+  mediaRegistry?: MediaHandleRegistry;
 }
 
 /** CourseRuntimeEvent → the standardized fields a workflow transition matches (§12.4). */
@@ -85,8 +88,15 @@ export function SlicePlayer({
   restoreStepId,
   restoreState,
   scheduler = defaultScheduler,
+  mediaRegistry,
 }: SlicePlayerProps) {
   const engine = useAudioEngine();
+
+  // The SlicePlayer owns one media-handle registry (§17.10): media renderers
+  // register their imperative handle on mount; the effect interpreter drives them.
+  const mediaRegistryRef = useRef<MediaHandleRegistry | null>(mediaRegistry ?? null);
+  if (mediaRegistryRef.current === null) mediaRegistryRef.current = new MediaHandleRegistry();
+  const registry = mediaRegistryRef.current;
 
   const blockById = useMemo(() => new Map<string, BlockDefinition>(slice.blocks.map((b) => [b.id, b])), [slice]);
   const narrationById = useMemo(
@@ -122,8 +132,12 @@ export function SlicePlayer({
         case "hide":
         case "enable":
         case "disable":
-        case "resetBlock":
           next = applyEffect(next, effect);
+          break;
+        case "resetBlock":
+          // Clears persisted progress AND rewinds the live media element.
+          next = applyEffect(next, effect);
+          registry.get(effect.targetId)?.reset();
           break;
         case "completeSlice":
           next = applyEffect(next, effect);
@@ -166,8 +180,10 @@ export function SlicePlayer({
           break;
         }
         case "playBlock":
+          registry.get(effect.targetId)?.play();
+          break;
         case "pauseBlock":
-          // Media imperative handles arrive in Slice 5; no-op for static blocks.
+          registry.get(effect.targetId)?.pause();
           break;
       }
     }
@@ -210,8 +226,9 @@ export function SlicePlayer({
   const state = stateRef.current;
 
   return (
-    <FocusProvider value={focus}>
-      <div className="course-slice" data-slice-id={slice.id}>
+    <MediaHandleRegistryProvider value={registry}>
+      <FocusProvider value={focus}>
+        <div className="course-slice" data-slice-id={slice.id}>
         <LayoutRenderer
           layout={slice.layout}
           renderSlot={(_slotId, blockIds) =>
@@ -236,8 +253,9 @@ export function SlicePlayer({
             })
           }
         />
-        <NarrationPlayer controller={controller} emit={emitRef.current ?? (() => {})} />
-      </div>
-    </FocusProvider>
+          <NarrationPlayer controller={controller} emit={emitRef.current ?? (() => {})} />
+        </div>
+      </FocusProvider>
+    </MediaHandleRegistryProvider>
   );
 }
