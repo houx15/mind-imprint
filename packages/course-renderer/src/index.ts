@@ -6,6 +6,7 @@ export { NotImplementedRenderer } from "./blocks/NotImplementedRenderer";
 export { TextRenderer } from "./blocks/TextRenderer";
 export { ImagesRenderer } from "./blocks/ImagesRenderer";
 export { FillBlankRenderer } from "./blocks/assessment/FillBlankRenderer";
+export { SingleChoiceRenderer } from "./blocks/assessment/SingleChoiceRenderer";
 export { evaluateSubmission } from "./blocks/assessment/completion";
 export type { CompletionRule, SubmissionInput, SubmissionOutcome, SubmissionEvent } from "./blocks/assessment/completion";
 export { LayoutRenderer } from "./layout/LayoutRenderer";

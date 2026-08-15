@@ -13,7 +13,6 @@ describe("block registry", () => {
   });
 
   it("maps not-yet-built types to the NotImplementedRenderer placeholder", () => {
-    expect(getBlockRenderer("singleChoice")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("video")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("pdf")).toBe(NotImplementedRenderer);
     expect(getBlockRenderer("interactiveHtml")).toBe(NotImplementedRenderer);
@@ -30,10 +29,10 @@ describe("block registry", () => {
   });
 
   it("NotImplementedRenderer renders a labelled data-block-type box", () => {
-    const R = getBlockRenderer("singleChoice");
+    const R = getBlockRenderer("video");
     const { container } = render(
       <R
-        block={{ id: "q1", type: "singleChoice", prompt: "x", options: [], assessment: { mode: "survey" }, completion: { rule: "submit-any" } } as any}
+        block={{ id: "v1", type: "video", source: "assets/v.mp4" } as any}
         assetResolver={assetResolver}
         state={{ visible: true, enabled: true, completed: false }}
         visible
@@ -43,6 +42,6 @@ describe("block registry", () => {
     );
     const box = container.querySelector('[data-not-implemented="true"]');
     expect(box).not.toBeNull();
-    expect(box).toHaveAttribute("data-block-type", "singleChoice");
+    expect(box).toHaveAttribute("data-block-type", "video");
   });
 });
