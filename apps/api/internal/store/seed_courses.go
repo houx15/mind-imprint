@@ -76,6 +76,75 @@ type courseSeedStructure struct {
 	Steps []json.RawMessage `json:"steps"`
 }
 
+// goldenCourseFile is the embedded golden CourseDefinition 2.0 course (Course
+// Runtime Slice 8) — the coverage course copied from the contract test fixture.
+// Seeded as ONE course row whose course_definition is the whole document, so the
+// student platform has a real 2.0 course to route through the new runtime player
+// before the (out-of-scope) generator emits 2.0 courses. Its media assets are
+// placeholder paths (no real OSS files) — accepted for this plumbing slice.
+const goldenCourseFile = "coverage-course.json"
+
+// goldenCourseDoc is the narrow border slice of the golden 2.0 document: the
+// schemaVersion (must be "2.0") and the course.id/title/estimatedMinutes used
+// for the catalog row + slug. The whole document is stored verbatim.
+type goldenCourseDoc struct {
+	SchemaVersion string `json:"schemaVersion"`
+	Course        struct {
+		ID               string `json:"id"`
+		Title            string `json:"title"`
+		EstimatedMinutes int    `json:"estimatedMinutes"`
+	} `json:"course"`
+}
+
+// seedGoldenCourse upserts the golden 2.0 course as one course row (bare catalog
+// fields + empty legacy structure/render_cache) and attaches its CourseDefinition
+// 2.0 document. Border-validated (schemaVersion=="2.0", non-empty course.id)
+// before writing so a malformed fixture fails the deploy loudly, not silently.
+// Slug = the definition's course.id (stable, matches the document).
+// goldenCourseStore is the narrow store surface seedGoldenCourse needs; the
+// unexported *sqlcAgentStore returned by agent.NewSqlcAgentStore satisfies it
+// (its concrete type can't be named from this package, so we take an interface).
+type goldenCourseStore interface {
+	UpsertCourse(ctx context.Context, in agent.UpsertCourseInput) error
+	SetCourseDefinition(ctx context.Context, slug string, def []byte) error
+}
+
+func seedGoldenCourse(ctx context.Context, agentStore goldenCourseStore) error {
+	raw, err := courses.FS.ReadFile(goldenCourseFile)
+	if err != nil {
+		return fmt.Errorf("seed golden course: read %s: %w", goldenCourseFile, err)
+	}
+	var doc goldenCourseDoc
+	if err := json.Unmarshal(raw, &doc); err != nil {
+		return fmt.Errorf("seed golden course: parse: %w", err)
+	}
+	if doc.SchemaVersion != "2.0" {
+		return fmt.Errorf("seed golden course: schemaVersion = %q, want 2.0", doc.SchemaVersion)
+	}
+	if doc.Course.ID == "" || doc.Course.Title == "" {
+		return fmt.Errorf("seed golden course: document has no course.id/title")
+	}
+	slug := doc.Course.ID
+	timeLabel := fmt.Sprintf("约 %d 分钟", doc.Course.EstimatedMinutes)
+	if err := agentStore.UpsertCourse(ctx, agent.UpsertCourseInput{
+		Slug:        slug,
+		Branch:      "Runtime",
+		Title:       doc.Course.Title,
+		Blurb:       "运行时 2.0 示例课程：判断两个论断能否直接比较。",
+		TimeLabel:   timeLabel,
+		CardIDs:     []string{},
+		Structure:   []byte("{}"),
+		RenderCache: []byte("{}"),
+		StepCount:   0,
+	}); err != nil {
+		return fmt.Errorf("seed golden course: upsert: %w", err)
+	}
+	if err := agentStore.SetCourseDefinition(ctx, slug, raw); err != nil {
+		return fmt.Errorf("seed golden course: set definition: %w", err)
+	}
+	return nil
+}
+
 // SeedCourses upserts every entry in courseSeeds from its embedded JSON
 // (courses.FS) into the course table, verifying every card_id resolves in
 // the cards registry first (fails loudly, before touching the database, if
@@ -143,5 +212,12 @@ func SeedCourses(ctx context.Context, pool *pgxpool.Pool, synth agent.CourseAudi
 		}
 	}
 
-	return len(courseSeeds), nil
+	// Course Runtime Slice 8: also seed the golden CourseDefinition 2.0 course so
+	// the student platform has one 2.0 course to route through the new runtime
+	// player (legacy render_cache courses above keep the old player).
+	if err := seedGoldenCourse(ctx, agentStore); err != nil {
+		return 0, err
+	}
+
+	return len(courseSeeds) + 1, nil
 }
