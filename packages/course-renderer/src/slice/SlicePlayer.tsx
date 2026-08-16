@@ -26,6 +26,7 @@ import { FocusProvider, FocusTarget, focusedItemIdFor } from "../focus/FocusMana
 import { NarrationController, NarrationPlayer } from "../narration/NarrationPlayer";
 import { useAudioEngine } from "../narration/audioEngine";
 import { MediaHandleRegistry, MediaHandleRegistryProvider } from "../media/mediaRegistry";
+import { CourseNav } from "../course/CourseNav";
 
 /** Injectable timer surface so tests can fire timers deterministically. */
 export interface Scheduler {
@@ -48,6 +49,18 @@ export interface SlicePlayerProps {
   bus: RuntimeEventBus;
   onSliceComplete: () => void;
   onNavigateNext: () => void;
+  /**
+   * §Slice4 / P1-05 — navigates to the previous (already-reached) Slice.
+   * Omitted (not merely disabled) when there is no previous Slice — the
+   * `previous:"allowed"` control is unavailable before the first Slice.
+   */
+  onNavigatePrevious?: () => void;
+  /**
+   * Reports the live SliceSessionState after every fold (mount, event, replay)
+   * so the host (CoursePlayer) can cache it for revisit/previous — a pure
+   * notification, never a place to derive navigation policy from.
+   */
+  onStateChange?: (state: SliceSessionState) => void;
   /** Restore a workflow position (revisit). */
   restoreStepId?: string;
   /** Restore persisted block/slice state (revisit). */
@@ -86,6 +99,8 @@ export function SlicePlayer({
   bus,
   onSliceComplete,
   onNavigateNext,
+  onNavigatePrevious,
+  onStateChange,
   restoreStepId,
   restoreState,
   scheduler = defaultScheduler,
@@ -205,8 +220,18 @@ export function SlicePlayer({
     stateRef.current = next;
     forceRender();
     void adapters.sessionAdapter.saveSliceState(sessionId, slice.id, next);
+    onStateChange?.(next);
     if (completed) onSliceComplete();
-    if (navigated) onNavigateNext();
+    if (navigated) {
+      onNavigateNext();
+    } else if (completed && slice.navigation.autoNext) {
+      // §Slice4 / P1-05 — `completeSlice` without a paired workflow `navigate`
+      // must still advance: `autoNext:true` means the renderer itself performs
+      // the advance the moment completion is reached (never stuck waiting on a
+      // workflow that has nothing more to say). `autoNext:false` leaves it to
+      // the manual "下一步" control instead.
+      onNavigateNext();
+    }
   };
 
   // Mount: activate the slice, bind the emitter, start the runtime, subscribe.
@@ -231,10 +256,23 @@ export function SlicePlayer({
         occurredAt: event.occurredAt,
       });
       stateRef.current = folded;
-      applyEffectsRef.current(runtime.send(toWorkflowInput(event)), event.occurredAt);
+      // Reads `runtimeRef.current` (not the `runtime` local) so a later Replay
+      // — which swaps in a fresh WorkflowRuntime — is what subsequent bus
+      // events actually drive.
+      applyEffectsRef.current(runtimeRef.current!.send(toWorkflowInput(event)), event.occurredAt);
     });
 
-    applyEffectsRef.current(runtime.start());
+    // §revisit (restore-completed-state) — landing on an already-COMPLETED
+    // Slice (Previous, or a mid-course reload that parks on one) must show it
+    // completed, not re-fire its terminal step's effects: entering `restoreStepId`
+    // normally would replay `completeSlice`/`navigate` (and any narration) as if
+    // the student had just finished it again. Only a non-completed restore (or a
+    // fresh mount) actually applies `start()`'s effects.
+    if (restoreState?.status !== "completed") {
+      applyEffectsRef.current(runtime.start());
+    } else {
+      runtime.start();
+    }
 
     const pending = timers.current;
     return () => {
@@ -248,6 +286,24 @@ export function SlicePlayer({
   }, []);
 
   const state = stateRef.current;
+  const completed = state.status === "completed";
+  const currentStep = slice.workflow.steps.find((s) => s.id === (state.currentWorkflowStepId ?? slice.workflow.initialStepId));
+  // The `student.continue` producer (P1-05) only shows while something is
+  // actually waiting on it — never a dangling control with no effect.
+  const showContinue = currentStep?.transitions.some((t) => t.on.type === "student.continue") ?? false;
+
+  const handleContinue = () => {
+    emitRef.current?.("course-nav", "student.continue");
+  };
+
+  /** §revisit replay — explicitly re-runs the workflow from `initialStepId`, discarding the completed run's state. */
+  const handleReplay = () => {
+    const fresh = new WorkflowRuntime(slice.workflow);
+    runtimeRef.current = fresh;
+    stateRef.current = initSliceState(slice);
+    setFocus(slice.workflow.initialState?.focusedTarget ?? null);
+    applyEffectsRef.current(fresh.start());
+  };
 
   return (
     <MediaHandleRegistryProvider value={registry}>
@@ -278,6 +334,15 @@ export function SlicePlayer({
           }
         />
           <NarrationPlayer controller={controller} emit={emitRef.current ?? (() => {})} />
+          <CourseNav
+            navigation={slice.navigation}
+            completed={completed}
+            onPrevious={onNavigatePrevious}
+            onNext={onNavigateNext}
+            showContinue={showContinue}
+            onContinue={handleContinue}
+            onReplay={handleReplay}
+          />
         </div>
       </FocusProvider>
     </MediaHandleRegistryProvider>

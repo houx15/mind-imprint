@@ -338,6 +338,52 @@ describe("CoursePlayer end-to-end", () => {
     expect(setStatusCalls).toEqual([]);
   });
 
+  it("上一步 returns to an already-completed Slice restored (no re-fired navigate/narration), offers replay, and 下一步 returns forward (§Slice4 / P1-05)", async () => {
+    const { adapters } = buildAdapters();
+    const engine = new FakeAudioEngine();
+
+    render(
+      <AudioEngineProvider value={engine}>
+        <CoursePlayer document={staticCourseDocument} adapters={adapters} studentId="student-1" idFactory={makeIdFactory("ev")} clock={clock} />
+      </AudioEngineProvider>,
+    );
+
+    await screen.findByText("一起开始吧");
+    await userEvent.click(screen.getByRole("button", { name: "一起开始吧" }));
+
+    // 上一步 is unavailable on the very first Slice.
+    expect(screen.getByRole("button", { name: "上一步" })).toBeDisabled();
+
+    // Finish slice-one through the real P1-05 producer (not the raw bus) —
+    // narration.ended → reveal, then the 继续 control → done (completeSlice + navigate).
+    act(() => engine.fireEnded());
+    await userEvent.click(screen.getByRole("button", { name: "继续" }));
+    expect(document.querySelector('[data-block-id="s2-text"]')).not.toBeNull();
+    const playsBeforePrevious = engine.calls.filter((c) => c.op === "play").length;
+
+    // 上一步 returns to slice-one, showing it completed — not frozen, and
+    // crucially NOT re-firing its "done" step's completeSlice+navigate (which
+    // would otherwise immediately bounce straight back to slice-two).
+    await userEvent.click(screen.getByRole("button", { name: "上一步" }));
+    expect(document.querySelector('[data-block-id="s2-text"]')).toBeNull();
+    expect(document.querySelector('[data-block-id="s1-reveal-text"]')).not.toHaveAttribute("hidden");
+    expect(engine.calls.filter((c) => c.op === "play").length).toBe(playsBeforePrevious);
+    expect(screen.getByRole("button", { name: "上一步" })).toBeDisabled();
+
+    // The explicit replay path re-runs slice-one from initial: reveal hides
+    // again and its narration genuinely plays again.
+    await userEvent.click(screen.getByRole("button", { name: "重新开始本节" }));
+    expect(document.querySelector('[data-block-id="s1-reveal-text"]')).toHaveAttribute("hidden");
+    expect(engine.calls.filter((c) => c.op === "play").length).toBeGreaterThan(playsBeforePrevious);
+
+    // Finishing the replayed run (its own explicit `navigate`) lands back on
+    // slice-two, same as the very first pass — Previous/replay didn't corrupt
+    // the forward walk.
+    act(() => engine.fireEnded());
+    await userEvent.click(screen.getByRole("button", { name: "继续" }));
+    expect(document.querySelector('[data-block-id="s2-text"]')).not.toBeNull();
+  });
+
   it("renders the error surface for a structurally-invalid document and never mounts a slice", () => {
     const { adapters } = buildAdapters();
     render(

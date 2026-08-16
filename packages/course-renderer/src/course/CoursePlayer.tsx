@@ -104,11 +104,14 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
   const course = validation.ok ? validation.course : null;
   const entries = useMemo(() => (course ? flattenSlices(course) : []), [course]);
 
-  // A one-shot resume instruction for the FIRST SlicePlayer mount after init,
-  // set only when a validated existing session had `status:"in-progress"` and
-  // a `current` Slice we can still locate in this course. Consumed by index
-  // match in render — subsequent forward navigation always starts a slice fresh.
-  const resumeRef = useRef<{ index: number; stepId?: string; state?: SliceSessionState } | null>(null);
+  // §Slice4 / P1-05 — the live cache of every Slice's own persisted state,
+  // keyed by Slice id: seeded once from the (possibly-restored) session's
+  // `sliceStates` at init, then kept current by each mounted SlicePlayer's
+  // `onStateChange`. Drives BOTH kinds of "already reached" mounts — the
+  // original mid-course reload resume AND any later Previous/Next revisit —
+  // through the SAME lookup, so a Slice is shown restored (completed Slices
+  // never re-fire their terminal effects) no matter which path got there.
+  const sliceStatesRef = useRef<Record<string, SliceSessionState>>({});
 
   // Init once: restore (validated) or create the session, build the bus,
   // resolve Opening/Closing without a redundant generator call when the
@@ -159,6 +162,10 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       }
 
       activeSessionId.current = session.id;
+      // §Slice4 — seed the revisit/previous cache from whatever this session
+      // already has recorded, so a Slice reached before THIS mount (a prior
+      // page load) is just as "already reached" as one visited this session.
+      sliceStatesRef.current = { ...session.sliceStates };
       const newBus = new RuntimeEventBus({ courseId: course.id, sessionId: session.id, idFactory, clock });
       setBus(newBus);
       onBusReady?.(newBus);
@@ -188,13 +195,6 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
           ? entries.findIndex((e) => e.partId === restored!.current!.partId && e.slice.id === restored!.current!.sliceId)
           : -1;
         if (resumeIndex >= 0) {
-          const current = restored!.current!;
-          const sliceState = restored!.sliceStates[current.sliceId];
-          resumeRef.current = {
-            index: resumeIndex,
-            stepId: sliceState?.currentWorkflowStepId ?? current.workflowStepId,
-            state: sliceState,
-          };
           // The loading guard below requires a non-null `opening`, even though
           // the Opening scene itself is never shown on this path.
           setOpening(restored!.opening ?? placeholderScene());
@@ -342,6 +342,17 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
     setCurrentIndex(next);
   };
 
+  // §Slice4 / P1-05 — "上一步": always the immediately-preceding Slice, which
+  // by construction of the linear walk is always already reached. Passed to
+  // SlicePlayer's `onNavigatePrevious` only when `currentIndex > 0` below —
+  // omitted entirely (not merely disabled) before the first Slice.
+  const handleNavigatePrevious = () => {
+    const prev = indexRef.current - 1;
+    if (prev < 0) return;
+    indexRef.current = prev;
+    setCurrentIndex(prev);
+  };
+
   if (phase === "error" || !course) {
     return <ErrorSurface issues={validation.ok ? [] : validation.issues} />;
   }
@@ -378,9 +389,10 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
   }
 
   const entry = entries[currentIndex]!;
-  // The resume instruction only applies to the exact Slice it was computed
-  // for — once navigation moves past it, later Slices always start fresh.
-  const resume = resumeRef.current?.index === currentIndex ? resumeRef.current : null;
+  // §Slice4 / P1-05 — a Slice this index has already reached (this session's
+  // resume, or an earlier visit via Previous/Next) restores from the cache;
+  // a never-before-reached Slice gets no restoreState and starts fresh.
+  const cachedState = sliceStatesRef.current[entry.slice.id];
   return (
     <div className="course-player" data-phase="playing">
       <SlicePlayer
@@ -392,8 +404,12 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         bus={bus}
         onSliceComplete={() => {}}
         onNavigateNext={handleNavigateNext}
-        restoreStepId={resume?.stepId}
-        restoreState={resume?.state}
+        onNavigatePrevious={currentIndex > 0 ? handleNavigatePrevious : undefined}
+        onStateChange={(next) => {
+          sliceStatesRef.current = { ...sliceStatesRef.current, [entry.slice.id]: next };
+        }}
+        restoreStepId={cachedState?.currentWorkflowStepId}
+        restoreState={cachedState}
       />
     </div>
   );

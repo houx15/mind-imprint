@@ -31,3 +31,5 @@ export { ClosingScene } from "./scenes/ClosingScene";
 export type { ClosingSceneProps } from "./scenes/ClosingScene";
 export { CoursePlayer } from "./course/CoursePlayer";
 export type { CoursePlayerProps } from "./course/CoursePlayer";
+export { CourseNav } from "./course/CourseNav";
+export type { CourseNavProps } from "./course/CourseNav";
