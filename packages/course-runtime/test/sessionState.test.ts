@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import type { BlockSessionState, SliceDefinition, SliceSessionState } from "@mind-imprint/course-contract";
-import { initSliceState, applyEffect, applyEvent } from "../src/sessionState";
+import { initSliceState, applyEffect, applyEvent, setCurrentWorkflowStep } from "../src/sessionState";
 import { sampleSlice } from "./support";
 
 /** Non-optional block-state accessor (the record is `V | undefined` under noUncheckedIndexedAccess). */
@@ -84,7 +84,7 @@ describe("applyEffect", () => {
 
   it("resetBlock clears completion/attempts/answer", () => {
     let s = base();
-    s = applyEvent(s, { type: "answer.submitted", sourceId: "q", payload: { answer: "x" } });
+    s = applyEvent(s, { type: "answer.submitted", sourceId: "q", payload: { value: "x" } });
     s = applyEvent(s, { type: "answer.correct", sourceId: "q", payload: null });
     expect(blk(s, "q").completed).toBe(true);
     const reset = applyEffect(s, { type: "resetBlock", targetId: "q" });
@@ -96,6 +96,24 @@ describe("applyEffect", () => {
   it("completeSlice moves slice status to completed", () => {
     const s = applyEffect(base(), { type: "completeSlice" });
     expect(s.status).toBe("completed");
+  });
+
+  it("completeSlice stamps completedAt and freezes elapsedSeconds when occurredAt is given", () => {
+    let s = base();
+    s = applyEvent(s, { type: "answer.submitted", sourceId: "q", payload: { value: "x" }, occurredAt: "2026-08-16T00:00:00.000Z" });
+    expect(s.startedAt).toBe("2026-08-16T00:00:00.000Z");
+    expect(s.status).toBe("in-progress");
+
+    s = applyEffect(s, { type: "completeSlice" }, "2026-08-16T00:00:10.000Z");
+    expect(s.status).toBe("completed");
+    expect(s.completedAt).toBe("2026-08-16T00:00:10.000Z");
+    expect(s.elapsedSeconds).toBe(10);
+  });
+
+  it("completeSlice without occurredAt leaves completedAt/elapsedSeconds untouched", () => {
+    const s = applyEffect(base(), { type: "completeSlice" });
+    expect(s.completedAt).toBeUndefined();
+    expect(s.elapsedSeconds).toBe(0);
   });
 
   it("transient effects (focus/narration/timer/play) leave persisted state unchanged", () => {
@@ -120,15 +138,26 @@ describe("applyEffect", () => {
 describe("applyEvent", () => {
   const base = () => initSliceState(threeBlockSlice(undefined));
 
-  it("answer.submitted increments attempts and stores the answer", () => {
+  it("answer.submitted increments attempts and stores payload.value (P2-02 fix)", () => {
     const s0 = base();
-    const s1 = applyEvent(s0, { type: "answer.submitted", sourceId: "q", payload: { answer: "y" } });
+    const s1 = applyEvent(s0, { type: "answer.submitted", sourceId: "q", payload: { value: "y" } });
     expect(blk(s1, "q").attempts).toBe(1);
     expect(blk(s1, "q").answer).toBe("y");
     expect(blk(s0, "q").attempts).toBe(0); // immutability
 
-    const s2 = applyEvent(s1, { type: "answer.submitted", sourceId: "q", payload: { answer: "x" } });
+    const s2 = applyEvent(s1, { type: "answer.submitted", sourceId: "q", payload: { value: "x" } });
     expect(blk(s2, "q").attempts).toBe(2);
+    expect(blk(s2, "q").answer).toBe("x");
+  });
+
+  it("regression: the old buggy payload.answer field is no longer read", () => {
+    // Emitters send `{ value }` (SingleChoiceRenderer/FillBlankRenderer); a
+    // payload shaped like the pre-fix assumption `{ answer }` must NOT populate
+    // `answer` — this is exactly the P2-02 bug (real submissions silently
+    // stored `undefined`).
+    const s = applyEvent(base(), { type: "answer.submitted", sourceId: "q", payload: { answer: "y" } });
+    expect(blk(s, "q").answer).toBeUndefined();
+    expect(blk(s, "q").attempts).toBe(1); // attempts still increments even with a malformed payload
   });
 
   it("answer.correct / block.completed mark the source block completed", () => {
@@ -143,8 +172,83 @@ describe("applyEvent", () => {
     expect(blk(s, "a").mediaPositionSeconds).toBe(12.5);
   });
 
+  it("interaction.completed / video.interaction.completed populate interactionResult", () => {
+    const s = applyEvent(base(), {
+      type: "interaction.completed",
+      sourceId: "a",
+      payload: { interactionId: "cue-1", result: { correct: true, value: "b" } },
+    });
+    expect(blk(s, "a").interactionResult).toEqual({ "cue-1": { correct: true, value: "b" } });
+  });
+
+  it("interaction.completed / video.interaction.completed merge by interactionId instead of clobbering", () => {
+    let s = base();
+    s = applyEvent(s, {
+      type: "video.interaction.completed",
+      sourceId: "a",
+      payload: { interactionId: "cue-1", result: { correct: true } },
+    });
+    s = applyEvent(s, {
+      type: "video.interaction.completed",
+      sourceId: "a",
+      payload: { interactionId: "cue-2", result: { correct: false } },
+    });
+    expect(blk(s, "a").interactionResult).toEqual({
+      "cue-1": { correct: true },
+      "cue-2": { correct: false },
+    });
+  });
+
   it("ignores events whose source is not a block (e.g. narration.ended)", () => {
     const s0 = base();
     expect(applyEvent(s0, { type: "narration.ended", sourceId: "introduce-video", payload: null })).toEqual(s0);
+  });
+
+  it("stamps slice timing from occurredAt: first event → in-progress + startedAt, later events recompute elapsedSeconds", () => {
+    let s = base();
+    expect(s.status).toBe("not-started");
+
+    s = applyEvent(s, { type: "block.completed", sourceId: "a", payload: null, occurredAt: "2026-08-16T00:00:00.000Z" });
+    expect(s.status).toBe("in-progress");
+    expect(s.startedAt).toBe("2026-08-16T00:00:00.000Z");
+    expect(s.elapsedSeconds).toBe(0);
+
+    s = applyEvent(s, { type: "video.paused", sourceId: "b", payload: null, occurredAt: "2026-08-16T00:00:05.000Z" });
+    expect(s.startedAt).toBe("2026-08-16T00:00:00.000Z"); // startedAt doesn't move
+    expect(s.elapsedSeconds).toBe(5);
+  });
+
+  it("events with no occurredAt leave slice timing untouched", () => {
+    const s0 = base();
+    const s1 = applyEvent(s0, { type: "block.completed", sourceId: "a", payload: null });
+    expect(s1.status).toBe("not-started");
+    expect(s1.startedAt).toBeUndefined();
+  });
+
+  it("touches slice timing even for events whose source is not a block", () => {
+    const s = applyEvent(base(), {
+      type: "narration.ended",
+      sourceId: "introduce-video",
+      payload: null,
+      occurredAt: "2026-08-16T00:00:00.000Z",
+    });
+    expect(s.status).toBe("in-progress");
+    expect(s.startedAt).toBe("2026-08-16T00:00:00.000Z");
+  });
+});
+
+describe("setCurrentWorkflowStep", () => {
+  it("records the current workflow step id", () => {
+    const s0 = initSliceState(threeBlockSlice(undefined));
+    expect(s0.currentWorkflowStepId).toBeUndefined();
+    const s1 = setCurrentWorkflowStep(s0, "wait-for-answer");
+    expect(s1.currentWorkflowStepId).toBe("wait-for-answer");
+    expect(s0.currentWorkflowStepId).toBeUndefined(); // immutability
+  });
+
+  it("is a no-op (same reference) when the step id is unchanged", () => {
+    const s0 = setCurrentWorkflowStep(initSliceState(threeBlockSlice(undefined)), "wait-for-answer");
+    const s1 = setCurrentWorkflowStep(s0, "wait-for-answer");
+    expect(s1).toBe(s0);
   });
 });
