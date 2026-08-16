@@ -62,4 +62,40 @@ describe("ImagesRenderer", () => {
     expect(focused).toHaveLength(1);
     expect(focused[0]).toHaveAttribute("data-item-id", "item-2");
   });
+
+  // P1-11: unlike video/iframe, swapping an image's src on a signed-URL
+  // refresh is cheap/harmless (no playback or interaction state to lose) —
+  // it's fine, and expected, for it to stay live across a re-render.
+  it("picks up a renewed URL on re-render (P1-11 — harmless for images)", () => {
+    let current = "/resolved/img/1.png";
+    const resolver = { resolve: () => current };
+    const oneItem: ImagesBlock = {
+      id: "pics",
+      type: "images",
+      presentation: "single",
+      items: [{ id: "item-1", source: "img/1.png", alt: "alt 1" }],
+    };
+    // A FRESH element each call (not a cached, reused JSX reference) — see
+    // the equivalent note in video.test.tsx/htmlInteraction.test.tsx: a real
+    // parent state update always produces new props objects for its
+    // subtree, so reusing one element across `rerender()` would let React
+    // bail via prop-identity and never actually re-invoke this component.
+    const buildUi = () => (
+      <ImagesRenderer
+        block={oneItem}
+        assetResolver={resolver}
+        state={{ visible: true, enabled: true, completed: false }}
+        visible
+        enabled
+        emit={() => {}}
+      />
+    );
+    const { container, rerender } = render(buildUi());
+    expect(container.querySelector("img")).toHaveAttribute("src", "/resolved/img/1.png");
+
+    current = "/resolved/img/1-renewed.png";
+    rerender(buildUi());
+
+    expect(container.querySelector("img")).toHaveAttribute("src", "/resolved/img/1-renewed.png");
+  });
 });

@@ -54,9 +54,15 @@ export function RuntimeCoursePlayer({
 }) {
   const [document, setDocument] = useState<unknown | null>(null);
   const [error, setError] = useState<string | null>(null);
-  // Bumped on asset-url refresh so consumers (e.g. adapters.assetResolver
-  // callers inside the renderer) re-resolve; the map itself lives in the ref
-  // below so refreshing it never rebuilds `adapters`.
+  // Bumped on asset-url refresh so consumers that resolve INLINE during
+  // render (images, and the PDF viewer — both cheap/harmless to update, see
+  // PdfRenderer/ImagesRenderer) pick up the renewed map on their next paint.
+  // P1-11: this is deliberately NOT a "reload every active media element"
+  // signal any more — VideoRenderer and HtmlInteractionRenderer capture their
+  // `src` once at mount and only ever re-resolve it themselves, at a safe
+  // moment (a pause / a load error), so this re-render is a no-op for them
+  // even though it still fires. The map itself lives in the ref below so
+  // refreshing it never rebuilds `adapters`.
   const [, setRefreshTick] = useState(0);
 
   // Keep onFinish fresh without rebuilding the adapters (which own the live

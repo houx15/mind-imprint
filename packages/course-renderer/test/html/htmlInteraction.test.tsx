@@ -1,4 +1,4 @@
-import { render } from "@testing-library/react";
+import { act, render } from "@testing-library/react";
 import type { BlockSessionState } from "@mind-imprint/course-contract";
 import type { SliceEmitter } from "@mind-imprint/course-runtime";
 import {
@@ -99,6 +99,68 @@ describe("HtmlInteractionRenderer (component)", () => {
     );
     const wrapper = container.querySelector('[data-block-type="interactiveHtml"]');
     expect(wrapper!.getAttribute("aria-disabled")).toBe("true");
+  });
+
+  // P1-11: a signed-URL refresh re-renders the whole course tree. Reloading
+  // an ACTIVE interactive-HTML iframe on an unrelated background refresh
+  // destroys the interaction's internal state (it lives inside the
+  // sandboxed document, which a `src` change tears down).
+  describe("URL-refresh safety (P1-11)", () => {
+    it("does NOT reload the iframe on a background re-render — src stays stable", () => {
+      const { emit } = recorder();
+      let current = "/resolved/v1.html";
+      const resolver = { resolve: () => current };
+      // A FRESH element each call (not a cached, reused JSX reference) — a
+      // real parent state update always produces new props objects for its
+      // subtree, so reusing one element across `rerender()` would let React
+      // bail via prop-identity and never actually re-invoke this component,
+      // masking the exact bug P1-11 fixes.
+      const buildUi = () => (
+        <HtmlInteractionRenderer
+          block={block}
+          assetResolver={resolver}
+          state={baseState}
+          visible
+          enabled
+          emit={emit}
+          tokenFactory={() => "fixed-tok"}
+        />
+      );
+      const { container, rerender } = render(buildUi());
+      const iframe = container.querySelector("iframe")!;
+      expect(iframe).toHaveAttribute("src", "/resolved/v1.html");
+
+      current = "/resolved/v2-renewed.html";
+      rerender(buildUi()); // simulate RuntimeCoursePlayer's refresh-triggered re-render
+
+      expect(iframe).toHaveAttribute("src", "/resolved/v1.html"); // stable — no reload
+    });
+
+    it("re-resolves the src on an explicit load error (recovering an expired URL)", () => {
+      const { emit } = recorder();
+      let current = "/resolved/v1.html";
+      const resolver = { resolve: () => current };
+      const { container } = render(
+        <HtmlInteractionRenderer
+          block={block}
+          assetResolver={resolver}
+          state={baseState}
+          visible
+          enabled
+          emit={emit}
+          tokenFactory={() => "fixed-tok"}
+        />,
+      );
+      const iframe = container.querySelector("iframe")!;
+      expect(iframe).toHaveAttribute("src", "/resolved/v1.html");
+
+      current = "/resolved/v2-renewed.html";
+      act(() => {
+        iframe.dispatchEvent(new Event("error"));
+      });
+
+      expect(iframe).toHaveAttribute("src", "/resolved/v2-renewed.html");
+    });
   });
 });
 

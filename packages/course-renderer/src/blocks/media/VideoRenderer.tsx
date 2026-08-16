@@ -40,6 +40,44 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
   const emitRef = useRef(emit);
   emitRef.current = emit;
 
+  // P1-11 — the video `src` is captured ONCE (the lazy `useState` initializer
+  // runs only at mount) instead of being recomputed inline from
+  // `assetResolver.resolve()` on every render. A signed-URL refresh
+  // (RuntimeCoursePlayer re-signing before `expiresAt`) re-renders the whole
+  // tree; if `src` were derived inline, an ACTIVE/playing video would reload
+  // — resetting `currentTime` and dropping cue state — purely because an
+  // unrelated background refresh happened elsewhere in the course. The src
+  // only ever changes via `reresolveSrc`, called at a safe moment (a load
+  // error, or a pause) and ONLY when the resolver actually returns something
+  // different (i.e. a real refresh happened) — never a no-op swap.
+  const [videoSrc, setVideoSrc] = useState(() => assetResolver.resolve(block.source));
+  const videoSrcRef = useRef(videoSrc);
+  videoSrcRef.current = videoSrc;
+  // Position (+ whether to resume playback) to restore once a re-resolve swap lands.
+  const pendingRestoreRef = useRef<{ time: number; resumePlay: boolean } | null>(null);
+  const isPlayingRef = useRef(false);
+
+  const reresolveSrc = useCallback(
+    (resumePlay: boolean) => {
+      const fresh = assetResolver.resolve(block.source);
+      if (fresh === videoSrcRef.current) return; // resolver unchanged — no-op, no reload
+      pendingRestoreRef.current = { time: engine.currentTime(), resumePlay };
+      setVideoSrc(fresh);
+    },
+    [assetResolver, block.source, engine],
+  );
+
+  // After a re-resolve swaps `src`, restore the playback position (and resume
+  // playback if it was mid-play when the swap happened).
+  useEffect(() => {
+    const pending = pendingRestoreRef.current;
+    if (!pending) return;
+    pendingRestoreRef.current = null;
+    engine.seek(pending.time);
+    if (pending.resumePlay) engine.play();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [videoSrc]);
+
   const gated = block.completion?.rule === "video-ended-and-interactions-completed";
   const videoEndedRef = useRef(false);
   const requiredCuesCompleteRef = useRef(!gated);
@@ -85,16 +123,29 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
   // Native play/pause → the single source of `video.started`/`video.paused`.
   useEffect(() => {
     return engine.onPlay(() => {
+      isPlayingRef.current = true;
       emitRef.current(block.id, "video.started");
     });
   }, [engine, block.id]);
 
   useEffect(() => {
     return engine.onPause(() => {
+      isPlayingRef.current = false;
       const payload: VideoPositionPayload = { positionSeconds: engine.currentTime() };
       emitRef.current(block.id, "video.paused", payload);
+      // P1-11: a pause is a SAFE moment to lazily pick up a renewed signed
+      // URL — nothing is visibly playing, so a src swap (guarded as a no-op
+      // when the resolver hasn't actually changed) can't interrupt playback.
+      reresolveSrc(false);
     });
-  }, [engine, block.id]);
+  }, [engine, block.id, reresolveSrc]);
+
+  // P1-11: a native load failure (e.g. the current URL 403'd after expiring)
+  // is the other safe/necessary moment to re-resolve — recover by picking up
+  // a renewed URL and resuming playback if it was mid-play when it failed.
+  const handleMediaError = useCallback(() => {
+    reresolveSrc(isPlayingRef.current);
+  }, [reresolveSrc]);
 
   // Surface a play() rejection (e.g. autoplay policy) as a recoverable state
   // instead of leaving a gated workflow silently waiting for `video.started`.
@@ -134,8 +185,9 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
         className="course-video__player"
         controls={enabled}
         tabIndex={enabled ? undefined : -1}
-        src={assetResolver.resolve(block.source)}
+        src={videoSrc}
         poster={block.poster ? assetResolver.resolve(block.poster) : undefined}
+        onError={handleMediaError}
       >
         {block.captions ? (
           <track kind="captions" src={assetResolver.resolve(block.captions)} default />

@@ -170,4 +170,98 @@ describe("VideoRenderer", () => {
     act(() => engine.fireEnded());
     expect(events.filter((e) => e.type === "block.completed")).toHaveLength(2);
   });
+
+  // P1-11: a signed-URL refresh (RuntimeCoursePlayer re-signing before
+  // expiresAt) re-renders the whole course tree. An ACTIVE/playing video must
+  // NOT reload — that would reset currentTime and drop cue state — just
+  // because an unrelated background refresh happened.
+  describe("URL-refresh safety (P1-11)", () => {
+    function renderRefreshable(block: VideoBlock) {
+      let current = "v1.mp4";
+      const resolver = { resolve: () => current };
+      const events: Recorded[] = [];
+      const emit: SliceEmitter = (sourceId, type, payload) => events.push({ sourceId, type: String(type), payload });
+      const engine = new FakeVideoEngine();
+      const registry = new MediaHandleRegistry();
+      // A FRESH element (not a cached, reused JSX reference) each call — a
+      // parent state update (RuntimeCoursePlayer's `setRefreshTick`) always
+      // produces new element/prop objects for its subtree on a real
+      // re-render, so reusing one cached element across `rerender()` calls
+      // would let React bail out at this fiber via prop-identity and never
+      // actually re-invoke VideoRenderer — masking the exact bug P1-11 fixes.
+      const buildUi = () => (
+        <MediaHandleRegistryProvider value={registry}>
+          <VideoEngineProvider value={engine.factory}>
+            <VideoRenderer block={block} assetResolver={resolver} state={baseState} visible enabled emit={emit} />
+          </VideoEngineProvider>
+        </MediaHandleRegistryProvider>
+      );
+      const utils = render(buildUi());
+      return {
+        ...utils,
+        events,
+        engine,
+        registry,
+        setResolved: (next: string) => {
+          current = next;
+        },
+        rerenderSame: () => utils.rerender(buildUi()),
+      };
+    }
+
+    it("does NOT change the video element's src on a background re-render while nothing changed", () => {
+      const { container, setResolved, rerenderSame } = renderRefreshable(endedRuleBlock);
+      const video = container.querySelector("video")!;
+      expect(video).toHaveAttribute("src", "v1.mp4");
+
+      // Simulate a URL refresh landing (the resolver would now return
+      // something different) followed by RuntimeCoursePlayer's global
+      // re-render tick — but nothing has told the video it's safe to swap.
+      setResolved("v2-renewed.mp4");
+      rerenderSame();
+
+      expect(video).toHaveAttribute("src", "v1.mp4"); // stable — no reload
+    });
+
+    it("on a load error, re-resolves the src, restores currentTime, and resumes playback if it was mid-play", () => {
+      const { container, engine, registry, setResolved } = renderRefreshable(endedRuleBlock);
+      const video = container.querySelector("video")!;
+
+      act(() => registry.get("case-video")!.play());
+      engine.advanceTo(42);
+      setResolved("v2-renewed.mp4");
+
+      act(() => {
+        video.dispatchEvent(new Event("error"));
+      });
+
+      expect(video).toHaveAttribute("src", "v2-renewed.mp4");
+      expect(engine.calls).toContain("seek:42");
+      // resumed: a second play() call beyond the original registry-driven one
+      expect(engine.calls.filter((c) => c === "play")).toHaveLength(2);
+    });
+
+    it("on pause, lazily picks up a renewed URL without forcing playback to resume", () => {
+      const { container, engine, registry, setResolved } = renderRefreshable(endedRuleBlock);
+      const video = container.querySelector("video")!;
+
+      act(() => registry.get("case-video")!.play());
+      engine.advanceTo(17);
+      setResolved("v2-renewed.mp4");
+      act(() => registry.get("case-video")!.pause());
+
+      expect(video).toHaveAttribute("src", "v2-renewed.mp4");
+      expect(engine.calls).toContain("seek:17");
+      expect(engine.calls.filter((c) => c === "play")).toHaveLength(1); // no resume
+    });
+
+    it("an error/pause with no actual URL change is a no-op — no extra seek/reload", () => {
+      const { container, engine, registry } = renderRefreshable(endedRuleBlock);
+      const video = container.querySelector("video")!;
+
+      act(() => registry.get("case-video")!.pause());
+      expect(video).toHaveAttribute("src", "v1.mp4");
+      expect(engine.calls.some((c) => c.startsWith("seek:"))).toBe(false);
+    });
+  });
 });

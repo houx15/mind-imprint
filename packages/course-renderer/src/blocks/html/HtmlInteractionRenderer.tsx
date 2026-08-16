@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { BlockRendererProps, InteractiveHtmlBlock } from "../types";
 import type { SliceEmitter } from "@mind-imprint/course-runtime";
 import { PROTOCOL_NAME, PROTOCOL_VERSION, parseFrameMessage } from "./protocol";
@@ -97,6 +97,18 @@ export const HtmlInteractionRenderer = ({
   if (sessionTokenRef.current === undefined) sessionTokenRef.current = tokenFactory();
   const sessionToken = sessionTokenRef.current;
 
+  // P1-11 — the iframe `src` is captured ONCE at mount, not recomputed inline
+  // from `assetResolver.resolve()` on every render. A signed-URL refresh
+  // re-renders the whole tree; reloading an ACTIVE interactive-HTML frame on
+  // an unrelated background refresh would destroy the interaction's internal
+  // JS state (its own DOM/variables live inside the sandboxed document, which
+  // a `src` change tears down and reloads from scratch). The src only
+  // changes on an explicit load error (below) — and even then only if the
+  // resolver actually returns something different.
+  const [frameSrc, setFrameSrc] = useState(() => assetResolver.resolve(block.source));
+  const frameSrcRef = useRef(frameSrc);
+  frameSrcRef.current = frameSrc;
+
   // Latest emit/onRejected for the mount-stable handler.
   const emitRef = useRef(emit);
   emitRef.current = emit;
@@ -120,6 +132,22 @@ export const HtmlInteractionRenderer = ({
     window.addEventListener("message", listener);
     return () => window.removeEventListener("message", listener);
   }, [handleMessage]);
+
+  // P1-11 — an explicit load error is the ONE case that re-resolves the src
+  // (recovering from an expired URL is worth the reload; an unrelated
+  // background refresh is not). React does not wire a delegated `onError`
+  // for `<iframe>` — only `onLoad` (confirmed in PdfRenderer, Slice 6 Task 1)
+  // — so the native `error` event is bound directly on the element.
+  useEffect(() => {
+    const el = iframeRef.current;
+    if (!el) return;
+    const handleError = () => {
+      const fresh = assetResolver.resolve(block.source);
+      if (fresh !== frameSrcRef.current) setFrameSrc(fresh);
+    };
+    el.addEventListener("error", handleError);
+    return () => el.removeEventListener("error", handleError);
+  }, [assetResolver, block.source]);
 
   const handleLoad = () => {
     const win = iframeRef.current?.contentWindow;
@@ -148,7 +176,7 @@ export const HtmlInteractionRenderer = ({
         // and no network affordances. Interactivity gating under enabled=false is
         // advisory only: the sandbox already isolates the frame.
         sandbox="allow-scripts"
-        src={assetResolver.resolve(block.source)}
+        src={frameSrc}
         onLoad={handleLoad}
         style={{ width: "100%", height: "100%", border: "0" }}
       />
