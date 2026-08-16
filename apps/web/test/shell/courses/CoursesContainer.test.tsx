@@ -23,7 +23,7 @@ import { api } from "@/api";
 import { CoursesContainer } from "@/shell/courses/CoursesContainer";
 
 const summary: CourseSummary = {
-  slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["concession"], step_count: 1,
+  slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["concession"], step_count: 1, coverUrl: "",
 };
 
 const payload: CoursePlayerPayload = {

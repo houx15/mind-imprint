@@ -31,7 +31,7 @@ func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]courseSummaryDTO, 0, len(rows))
 	for _, c := range rows {
-		out = append(out, toCourseSummaryDTO(c))
+		out = append(out, a.toCourseSummaryDTO(c))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"courses": out})
 }

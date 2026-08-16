@@ -73,6 +73,10 @@ export const CourseSummary = z.object({
   time_label: z.string(),
   card_ids: z.array(z.string()),
   step_count: z.number().int(),
+  // Short-lived signed URL for the course's catalog cover image (resolved
+  // server-side via resolveCoverURL); absent/"" when the course has no "img:"
+  // cover or OSS is off — mirrors cardCatalog.ts's own coverUrl field.
+  coverUrl: z.string().optional().default(""),
 });
 
 export const CoursePlayerPayload = z.object({

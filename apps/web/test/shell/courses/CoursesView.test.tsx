@@ -27,4 +27,16 @@ describe("CoursesView", () => {
     render(<CoursesView />);
     expect(await screen.findByText("课程正在准备中，很快上线。")).toBeInTheDocument();
   });
+  it("renders the cover image when coverUrl is present", async () => {
+    (api.listCourses as any).mockResolvedValue([{ ...course, coverUrl: "https://mind-oss.example.com/web/cover.webp?sig=abc" }]);
+    render(<CoursesView />);
+    const img = await screen.findByRole("img");
+    expect(img).toHaveAttribute("src", "https://mind-oss.example.com/web/cover.webp?sig=abc");
+  });
+  it("falls back to the gradient face (no <img>) when coverUrl is absent", async () => {
+    (api.listCourses as any).mockResolvedValue([course]);
+    render(<CoursesView />);
+    await screen.findByText("一条网络信息，该不该信");
+    expect(screen.queryByRole("img")).not.toBeInTheDocument();
+  });
 });

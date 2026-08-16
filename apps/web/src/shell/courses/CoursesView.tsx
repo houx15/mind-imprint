@@ -15,11 +15,15 @@ function CourseCard({ course, pct, onOpen }: { course: CourseSummary; pct: numbe
   };
   return (
     <div onClick={onOpen} style={{ display: "flex", flexDirection: "column", background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 18, overflow: "hidden", boxShadow: "var(--mk-shadow-xs)", cursor: "pointer" }}>
-      <div style={{ position: "relative", height: 120, ...coverGradientStyle(course.slug), display: "flex", alignItems: "center", justifyContent: "center" }}>
+      <div style={{ position: "relative", height: 120, ...(course.coverUrl ? {} : coverGradientStyle(course.slug)), display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+        {course.coverUrl ? (
+          <img src={course.coverUrl} alt={course.title} loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
+        ) : (
+          <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--mk-surface)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--mk-shadow-md)" }}>
+            <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--mk-accent-500)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={STAR} /></svg>
+          </div>
+        )}
         <span style={{ position: "absolute", top: 14, left: 16, fontSize: 11, fontWeight: 700, color: "var(--mk-ink)", background: "rgba(255,255,255,.85)", padding: "4px 10px", borderRadius: 999 }}>{course.branch}</span>
-        <div style={{ width: 56, height: 56, borderRadius: 16, background: "var(--mk-surface)", display: "flex", alignItems: "center", justifyContent: "center", boxShadow: "var(--mk-shadow-md)" }}>
-          <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="var(--mk-accent-500)" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round"><path d={STAR} /></svg>
-        </div>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "18px 22px 20px" }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: "var(--mk-ink)", lineHeight: 1.4 }}>{course.title}</div>

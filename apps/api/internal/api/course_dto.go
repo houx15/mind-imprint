@@ -25,9 +25,15 @@ type courseSummaryDTO struct {
 	TimeLabel string   `json:"time_label"`
 	CardIDs   []string `json:"card_ids"`
 	StepCount int      `json:"step_count"`
+	CoverURL  string   `json:"coverUrl"`
 }
 
-func toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
+// toCourseSummaryDTO is an *API method (not a free function) solely so it can
+// reach a.resolveCoverURL — the same project-cover resolver projects.go uses
+// for CoverURL, signing the row's raw Cover value ("img:<n>") into a
+// short-lived GET URL. An empty/unresolvable cover resolves to "" (no cover),
+// mirroring resolveCoverURL's own contract.
+func (a *API) toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 	cardIDs := r.CardIDs
 	if cardIDs == nil {
 		cardIDs = []string{}
@@ -35,6 +41,7 @@ func toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 	return courseSummaryDTO{
 		Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 		TimeLabel: r.TimeLabel, CardIDs: cardIDs, StepCount: r.StepCount,
+		CoverURL: a.resolveCoverURL(r.Cover),
 	}
 }
 

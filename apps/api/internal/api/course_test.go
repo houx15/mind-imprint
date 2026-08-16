@@ -25,6 +25,57 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
+// TestCourseCatalogCoverURL — Task 6: a course with an "img:" cover surfaces
+// a non-empty coverUrl in the /courses list DTO (resolved via the same
+// a.resolveCoverURL project-cover resolver projects.go uses); a course with
+// no cover surfaces coverUrl:"". OSS must be wired (Deps{OSS: testOSS(t)})
+// for the "img:" case to resolve — mirrors TestProjectsList_CoverSurfacesInList's
+// note that resolveCoverURL needs a live OSS client, not the nil-OSS guard.
+func TestCourseCatalogCoverURL(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedAMidCourse(t, pool)
+	seedCourseWithDefinition(t, pool, "no-cover-course", testCourseDefinitionJSON)
+
+	q := sqlc.New(pool)
+	if err := q.SetCourseStatusAndCover(context.Background(), sqlc.SetCourseStatusAndCoverParams{
+		Slug: "a-mid", Status: "published", Cover: "img:3",
+	}); err != nil {
+		t.Fatalf("set a-mid cover: %v", err)
+	}
+
+	h := New(Deps{Queries: q, Pool: pool, OSS: testOSS(t)}).Handler()
+	cookie := signInSeed(t, pool)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("list: %d %s", rec.Code, rec.Body)
+	}
+	var listResp struct {
+		Courses []struct {
+			Slug     string `json:"slug"`
+			CoverURL string `json:"coverUrl"`
+		} `json:"courses"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &listResp); err != nil {
+		t.Fatalf("list decode: %v", err)
+	}
+	byslug := map[string]string{}
+	for _, c := range listResp.Courses {
+		byslug[c.Slug] = c.CoverURL
+	}
+	if byslug["a-mid"] == "" {
+		t.Fatalf("a-mid coverUrl empty, want a signed URL: %+v", listResp.Courses)
+	}
+	got, ok := byslug["no-cover-course"]
+	if !ok {
+		t.Fatalf("no-cover-course missing from list: %+v", listResp.Courses)
+	}
+	if got != "" {
+		t.Fatalf("no-cover-course coverUrl = %q, want empty (no cover set)", got)
+	}
+}
+
 // courseAskRejectedProvider returns a reply that trips enforcement's
 // banned-phrasing "rewritten-sentence-zh" rule ("你应该这样写：…" — the same
 // literal chat_assessment_test.go/project_finish_test.go/writing_test.go
