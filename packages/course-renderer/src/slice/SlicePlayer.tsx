@@ -70,6 +70,26 @@ export interface SlicePlayerProps {
   mediaRegistry?: MediaHandleRegistry;
 }
 
+/**
+ * §Slice5 / P2-06 — a meaningful accessible name for a focused block's
+ * wrapper, derived from the block's own authored content — NEVER the raw
+ * internal block id. Only some block types carry a natural short label
+ * (a question's `prompt`, a PDF's `title`); everything else is omitted so
+ * the accessible name falls back to the block's own rendered text content
+ * instead of an announced machine id (see `FocusTarget`'s `label` prop).
+ */
+function blockAccessibleLabel(block: BlockDefinition): string | undefined {
+  switch (block.type) {
+    case "pdf":
+      return block.title;
+    case "singleChoice":
+    case "fillBlank":
+      return block.prompt;
+    default:
+      return undefined;
+  }
+}
+
 /** CourseRuntimeEvent → the standardized fields a workflow transition matches (§12.4). */
 function toWorkflowInput(event: CourseRuntimeEvent): WorkflowInputEvent {
   const payload = event.payload && typeof event.payload === "object" ? (event.payload as Record<string, unknown>) : undefined;
@@ -319,7 +339,13 @@ export function SlicePlayer({
               const Renderer = getBlockRenderer(block.type);
               const blockState = state.blockStates[id]!;
               return (
-                <FocusTarget key={id} blockId={id} className="course-slot-block">
+                <FocusTarget
+                  key={id}
+                  blockId={id}
+                  className="course-slot-block"
+                  visible={blockState.visible}
+                  label={blockAccessibleLabel(block)}
+                >
                   <Renderer
                     block={block}
                     assetResolver={adapters.assetResolver}

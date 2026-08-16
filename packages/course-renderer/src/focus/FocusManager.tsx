@@ -34,6 +34,23 @@ export interface FocusTargetProps {
   /** When given, this wrapper represents an item inside the block, not the block. */
   itemId?: string;
   className?: string;
+  /**
+   * §Slice5 / P2-06 — a meaningful accessible name for this wrapper, derived
+   * by the caller from the block's own authored content/title (e.g. a
+   * question's `prompt`, a PDF's `title`) — NEVER a raw internal id. Applied
+   * only while this target is the focused one; omitted (not a machine-id
+   * fallback) when the caller has nothing meaningful to offer, letting the
+   * accessible name fall back to the wrapped content's own text.
+   */
+  label?: string;
+  /**
+   * The block's own layout visibility flag (§10). Defaults to `true` for
+   * callers that don't track it (e.g. standalone item-level wrappers). A
+   * hidden block's wrapper is marked `aria-hidden` — the actual box
+   * reservation (no reflow on reveal) is the course stylesheet's job
+   * (`.course-block[hidden]` — see `styles/course.css`).
+   */
+  visible?: boolean;
   children: ReactNode;
 }
 
@@ -44,45 +61,21 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
- * §17 / §P2-06 — the visible + assistive-tech emphasis for a `.course-focus-ring`
- * match: an outline plus enough offset to read clearly against any block content.
- * Minimal and inline for now; Slice 5 folds this into the course stylesheet proper.
- */
-const FOCUS_RING_CSS = `
-.course-focus-ring {
-  outline: 3px solid #2f6feb;
-  outline-offset: 3px;
-  border-radius: 4px;
-}
-`;
-
-let focusRingStyleInjected = false;
-
-/**
- * Injects `.course-focus-ring` once per document (idempotent — safe to call from
- * every `SlicePlayer` mount without piling up duplicate `<style>` tags).
- */
-function ensureFocusRingStyle(): void {
-  if (focusRingStyleInjected || typeof document === "undefined") return;
-  const style = document.createElement("style");
-  style.setAttribute("data-course-focus-ring", "");
-  style.textContent = FOCUS_RING_CSS;
-  document.head.appendChild(style);
-  focusRingStyleInjected = true;
-}
-
-/**
  * Wraps a block (or an item within it) and, when the current focus matches:
- * sets `data-focused="true"` + the `.course-focus-ring` class, moves real DOM
- * (keyboard/assistive-tech) focus onto the wrapper (§P2-06 — focus was
- * previously visual metadata only), and scrolls it into view. The wrapper
- * carries `tabIndex={-1}` so it's a valid programmatic focus target even when
- * the block it wraps has no natively focusable element, and an `aria-label`
- * so a screen reader has something to announce on the focus move. Losing focus
- * (the match no longer holds — e.g. a `clearFocus` effect) blurs the wrapper
- * if it still holds DOM focus, so emphasis doesn't linger past its target.
+ * sets `data-focused="true"` + the `.course-focus-ring` class (§P2-06 —
+ * defined in the course stylesheet, `styles/course.css`, not injected here),
+ * moves real DOM (keyboard/assistive-tech) focus onto the wrapper, and
+ * scrolls it into view. ONLY the actively-focused wrapper carries
+ * `tabIndex={-1}` (a valid programmatic focus target even when the block it
+ * wraps has no natively focusable element) and, when the caller supplied a
+ * meaningful `label`, an `aria-label` — every other wrapper is plain DOM with
+ * no programmatic focusability and no announced name (§Slice5 review nit:
+ * Slice 4 previously put `tabIndex={-1}` + a machine-id `aria-label` on
+ * EVERY block wrapper). Losing focus (the match no longer holds — e.g. a
+ * `clearFocus` effect) blurs the wrapper if it still holds DOM focus, so
+ * emphasis doesn't linger past its target.
  */
-export function FocusTarget({ blockId, itemId, className, children }: FocusTargetProps) {
+export function FocusTarget({ blockId, itemId, className, label, visible = true, children }: FocusTargetProps) {
   const focus = useCurrentFocus();
   const focused =
     itemId === undefined
@@ -91,18 +84,22 @@ export function FocusTarget({ blockId, itemId, className, children }: FocusTarge
 
   const ref = useRef<HTMLDivElement | null>(null);
 
-  useEffect(() => {
-    ensureFocusRingStyle();
-  }, []);
-
+  // `tabIndex` is managed IMPERATIVELY (not a declarative JSX prop) so the
+  // ordering is exact: on losing focus, `blur()` is called WHILE the element
+  // is still `tabindex="-1"` (a focus target with no other native
+  // focusability must still carry it to be blur-able at all), and only THEN
+  // is the attribute removed — so a non-focused wrapper is left with no
+  // programmatic focusability at all, never a dangling `tabindex="-1"`.
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     if (focused) {
+      el.setAttribute("tabindex", "-1");
       el.focus({ preventScroll: true });
       el.scrollIntoView({ block: "nearest", behavior: prefersReducedMotion() ? "auto" : "smooth" });
-    } else if (document.activeElement === el) {
-      el.blur();
+    } else {
+      if (document.activeElement === el) el.blur();
+      el.removeAttribute("tabindex");
     }
   }, [focused]);
 
@@ -112,8 +109,8 @@ export function FocusTarget({ blockId, itemId, className, children }: FocusTarge
       data-focus-block={blockId}
       data-focus-item={itemId}
       data-focused={focused ? "true" : undefined}
-      tabIndex={-1}
-      aria-label={itemId ? `${blockId}-${itemId}` : blockId}
+      aria-hidden={visible ? undefined : "true"}
+      aria-label={focused && label ? label : undefined}
       className={[className, focused ? "course-focus-ring" : null].filter(Boolean).join(" ") || undefined}
     >
       {children}

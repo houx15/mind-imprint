@@ -398,6 +398,21 @@ describe("CoursePlayer end-to-end", () => {
     expect(screen.getByRole("alert")).toHaveAttribute("data-course-error", "true");
     expect(document.querySelector(".course-slice")).toBeNull();
     expect(screen.queryByText("一起开始吧")).toBeNull();
+    // §Slice5 / P1-06 (D6) — even the diagnostic error surface renders inside
+    // the one-screen shell, not a bare page-scrolling fragment.
+    expect(document.querySelector('[data-course-shell="true"]')).not.toBeNull();
+  });
+
+  it("wraps every phase in the one-screen course-shell (§Slice5 / P1-06, D6)", async () => {
+    const { adapters } = buildAdapters();
+    render(<CoursePlayer document={staticCourseDocument} adapters={adapters} studentId="student-1" idFactory={makeIdFactory("ev")} clock={clock} />);
+
+    await screen.findByText("一起开始吧");
+    const shell = document.querySelector('[data-course-shell="true"]');
+    expect(shell).not.toBeNull();
+    expect(shell).toHaveClass("course-shell");
+    // The Opening scene renders INSIDE the shell, not as a sibling of it.
+    expect(shell!.textContent).toContain("一起开始吧");
   });
 });
 

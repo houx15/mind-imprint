@@ -15,7 +15,7 @@ describe("LayoutRenderer", () => {
     expect(slots[0]).toHaveAttribute("data-slot", "main");
   });
 
-  it("split-horizontal 2:1 → left/right regions with 2fr 1fr columns", () => {
+  it("split-horizontal 2:1 → left/right regions with shrinkable minmax(0, …) columns (§Slice5 / P1-06)", () => {
     const layout: LayoutDefinition = {
       preset: "split-horizontal",
       ratio: "2:1",
@@ -26,12 +26,12 @@ describe("LayoutRenderer", () => {
     };
     const { container } = render(<LayoutRenderer layout={layout} renderSlot={renderSlot} />);
     const frame = container.querySelector("[data-preset]") as HTMLElement;
-    expect(frame.style.gridTemplateColumns).toBe("2fr 1fr");
+    expect(frame.style.gridTemplateColumns).toBe("minmax(0, 2fr) minmax(0, 1fr)");
     const ids = [...container.querySelectorAll("[data-slot]")].map((n) => n.getAttribute("data-slot"));
     expect(ids).toEqual(["left", "right"]);
   });
 
-  it("split-vertical 1:2 → top/bottom rows with 1fr 2fr rows", () => {
+  it("split-vertical 1:2 → top/bottom regions with shrinkable minmax(0, …) rows (§Slice5 / P1-06)", () => {
     const layout: LayoutDefinition = {
       preset: "split-vertical",
       ratio: "1:2",
@@ -42,12 +42,12 @@ describe("LayoutRenderer", () => {
     };
     const { container } = render(<LayoutRenderer layout={layout} renderSlot={renderSlot} />);
     const frame = container.querySelector("[data-preset]") as HTMLElement;
-    expect(frame.style.gridTemplateRows).toBe("1fr 2fr");
+    expect(frame.style.gridTemplateRows).toBe("minmax(0, 1fr) minmax(0, 2fr)");
     const ids = [...container.querySelectorAll("[data-slot]")].map((n) => n.getAttribute("data-slot"));
     expect(ids).toEqual(["top", "bottom"]);
   });
 
-  it("grid with 3 cells → cell-1..3 each appearing once", () => {
+  it("grid with 3 cells → cell-1..3 each appearing once, with shrinkable minmax(0, …) tracks (§Slice5 / P1-06)", () => {
     const layout: LayoutDefinition = {
       preset: "grid",
       slots: [
@@ -60,7 +60,15 @@ describe("LayoutRenderer", () => {
     const ids = [...container.querySelectorAll("[data-slot]")].map((n) => n.getAttribute("data-slot"));
     expect(ids).toEqual(["cell-1", "cell-2", "cell-3"]);
     const frame = container.querySelector("[data-preset]") as HTMLElement;
-    expect(frame.style.gridTemplateColumns).toBe("repeat(2, 1fr)");
+    expect(frame.style.gridTemplateColumns).toBe("repeat(2, minmax(0, 1fr))");
+    expect(frame.style.gridAutoRows).toBe("minmax(0, 1fr)");
+  });
+
+  it("every slot is a contained overflow container, never the page (§Slice5 / P1-06)", () => {
+    const layout: LayoutDefinition = { preset: "full", slots: [{ id: "main", blockIds: ["a"] }] };
+    const { container } = render(<LayoutRenderer layout={layout} renderSlot={renderSlot} />);
+    const slot = container.querySelector('[data-slot="main"]') as HTMLElement;
+    expect(slot).toHaveClass("course-layout__slot");
   });
 
   it("passes each slot's blockIds to renderSlot", () => {

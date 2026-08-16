@@ -10,16 +10,22 @@ export interface LayoutRendererProps {
   renderSlot: (slotId: string, blockIds: BlockId[]) => ReactNode;
 }
 
-/** `2:1` → `2fr 1fr` etc. Split ratios only ever have two tracks. */
+/**
+ * `2:1` → `minmax(0, 2fr) minmax(0, 1fr)` etc. Split ratios only ever have two
+ * tracks. §Slice5 / P1-06 — every track is wrapped in `minmax(0, …)` (not a
+ * bare `Nfr`) so a track can actually shrink below its content's intrinsic
+ * size; a bare `fr` track floors at its content size and blows out the
+ * one-screen Slice contract the moment a slot's content is tall/wide.
+ */
 function ratioTracks(ratio: SplitRatio | undefined): string {
   switch (ratio) {
     case "2:1":
-      return "2fr 1fr";
+      return "minmax(0, 2fr) minmax(0, 1fr)";
     case "1:2":
-      return "1fr 2fr";
+      return "minmax(0, 1fr) minmax(0, 2fr)";
     case "1:1":
     default:
-      return "1fr 1fr";
+      return "minmax(0, 1fr) minmax(0, 1fr)";
   }
 }
 
@@ -33,23 +39,31 @@ function ratioTracks(ratio: SplitRatio | undefined): string {
  * - `grid` → a 2-column grid of `cell-1..N`.
  *
  * Every slot in the layout is rendered exactly once, in authored order. Hidden
- * blocks inside a slot keep their box (they render but `hidden`), so revealing a
- * block never reflows its siblings.
+ * blocks inside a slot keep their box (the course stylesheet overrides
+ * `[hidden]` to `visibility: hidden` rather than `display: none` — see
+ * `styles/course.css`), so revealing a block never reflows its siblings.
+ *
+ * Slot gaps, per-slot `overflow: auto`, and media containment are the course
+ * stylesheet's job (`.course-layout` / `.course-layout__slot` — §Slice5 /
+ * P1-06); this component owns only the grid tracks, which vary per preset/
+ * ratio and so stay inline.
  */
 export function LayoutRenderer({ layout, renderSlot }: LayoutRendererProps) {
   const style: CSSProperties = { display: "grid" };
   switch (layout.preset) {
     case "full":
-      style.gridTemplateColumns = "1fr";
+      style.gridTemplateColumns = "minmax(0, 1fr)";
       break;
     case "split-horizontal":
       style.gridTemplateColumns = ratioTracks(layout.ratio);
       break;
     case "split-vertical":
       style.gridTemplateRows = ratioTracks(layout.ratio);
+      style.gridTemplateColumns = "minmax(0, 1fr)";
       break;
     case "grid":
-      style.gridTemplateColumns = "repeat(2, 1fr)";
+      style.gridTemplateColumns = "repeat(2, minmax(0, 1fr))";
+      style.gridAutoRows = "minmax(0, 1fr)";
       break;
   }
 

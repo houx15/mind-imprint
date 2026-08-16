@@ -132,4 +132,19 @@ describe("assessment-driven workflow branching (SlicePlayer)", () => {
     const { container } = await mountSlice();
     expect(radiogroup(container)).toBeInTheDocument();
   });
+
+  // §Slice5 / P2-06 — `introduce-question`'s enterActions focus `as-question`.
+  // Only that wrapper becomes a programmatic focus target, and its accessible
+  // name is derived from the question's own `prompt` — never a raw block id.
+  it("focuses as-question with a meaningful accessible name from its prompt; as-lead (not focused) carries neither", async () => {
+    const { container } = await mountSlice();
+
+    const focused = container.querySelector('[data-focus-block="as-question"]');
+    expect(focused).toHaveAttribute("tabindex", "-1");
+    expect(focused).toHaveAttribute("aria-label", "两个结论能直接比较吗？");
+
+    const notFocused = container.querySelector('[data-focus-block="as-lead"]');
+    expect(notFocused).not.toHaveAttribute("tabindex");
+    expect(notFocused).not.toHaveAttribute("aria-label");
+  });
 });

@@ -1,0 +1,174 @@
+/*
+ * @mind-imprint/course-renderer — renderer-owned stylesheet (Slice 5:
+ * course-runtime-hardening / "one Slice = one screen"). Fixes review P1-06 +
+ * folds the Slice-4 focus-ring nit (P2-06).
+ *
+ * Self-contained: no external CSS/CDN. Uses the host's --mk-* design tokens
+ * (apps/web/src/index.css) when they're already defined on the page; every
+ * course-* custom property below carries a literal fallback matching the
+ * host's current values, so the package renders correctly even mounted
+ * standalone (no host stylesheet loaded). The host currently ships one fixed
+ * palette (no dark-mode variant) — these fallbacks track that; if the host
+ * ever adds a dark override for --mk-*, this stylesheet follows it for free
+ * because every course-* token is a var() reference, never a literal reuse.
+ *
+ * D6 (product decision): one Slice = one desktop screen (>=1280x720 /
+ * >=1440x900). The shell (.course-shell) never page-scrolls; overflow is a
+ * per-slot opt-in only (.course-layout__slot) — content scrolls WITHIN a
+ * slot, never the page. True visual verification at the viewport matrix is
+ * Slice 10's browser job; this stylesheet ships the composition + the
+ * structural guarantees a jsdom test can see (classes, inline grid tracks,
+ * this source text).
+ */
+
+.course-shell {
+  --course-bg: var(--mk-paper, #fbf8f4);
+  --course-surface: var(--mk-surface, #ffffff);
+  --course-border: var(--mk-border, #efe7dd);
+  --course-ink: var(--mk-ink, #33302e);
+  --course-muted: var(--mk-muted, #8a827a);
+  --course-accent: var(--mk-accent, #ea5140);
+  --course-focus-ring-color: var(--mk-info, #4c7ab0);
+  --course-radius: var(--mk-radius-md, 10px);
+  --course-gap: 16px;
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  /* one Slice = one screen: the shell itself is NEVER the page-scroll
+     container. A slot opts into its own overflow (.course-layout__slot). */
+  overflow: hidden;
+  background: var(--course-bg);
+  color: var(--course-ink);
+  box-sizing: border-box;
+}
+
+.course-shell *,
+.course-shell *::before,
+.course-shell *::after {
+  box-sizing: border-box;
+}
+
+/* ---------- course-level phases ---------- */
+
+.course-loading,
+.course-error {
+  flex: 1 1 auto;
+  min-height: 0;
+  /* a diagnostic/loading surface may legitimately need its own scroll —
+     still contained to this region, never the shell/page. */
+  overflow: auto;
+}
+
+.course-player {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+}
+
+/* ---------- Slice: header/narration allocation (auto) + layout region (fills the rest) ---------- */
+
+.course-slice {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  gap: 12px;
+  padding: 16px;
+}
+
+/* The layout region is the only flexible member — it absorbs all remaining
+   height so a Slice is one screen, not a page that grows with content. */
+.course-slice > .course-layout {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+
+.course-narration,
+.course-nav {
+  flex: 0 0 auto;
+}
+
+/* ---------- Layout presets (P1-06): slot gaps + contained slot overflow ---------- */
+
+.course-layout {
+  gap: var(--course-gap);
+  min-height: 0;
+  min-width: 0;
+}
+
+.course-layout__slot {
+  min-height: 0;
+  min-width: 0;
+  /* a slot's own content scrolls WITHIN the slot — never the page/shell. */
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* ---------- Media containment: video/pdf/image stay inside their slot ---------- */
+
+.course-block--video .course-video__player {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.course-images__item img {
+  display: block;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+}
+
+.course-pdf__viewport {
+  width: 100%;
+  height: 100%;
+  min-height: 240px;
+  max-width: 100%;
+  overflow: auto;
+}
+
+.course-block--video,
+.course-block--pdf,
+.course-block--images {
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+}
+
+/* ---------- Hidden-block stability (P1-06) ----------
+ * Every block renderer marks its own root `hidden` + `aria-hidden` when its
+ * layout flag is false (§10). The UA default style for `[hidden]` is
+ * `display: none`, which removes the box entirely — revealing the block
+ * later then reflows every sibling stacked in the same slot. This rule
+ * (higher specificity than the UA `[hidden]` rule: one class + one
+ * attribute) keeps the box — so siblings never move — while the block stays
+ * invisible, non-interactive, and — via the `hidden` attribute + `aria-hidden`
+ * the renderer already sets — out of the accessibility tree.
+ */
+.course-block[hidden] {
+  display: block;
+  visibility: hidden;
+  pointer-events: none;
+}
+
+/* ---------- Focus ring (§P2-06) ----------
+ * Previously injected at runtime by FocusManager's own <style> tag (Slice 4);
+ * now shipped from the renderer's own stylesheet like everything else.
+ */
+.course-focus-ring {
+  outline: 3px solid var(--course-focus-ring-color, #2f6feb);
+  outline-offset: 3px;
+  border-radius: var(--course-radius, 10px);
+}

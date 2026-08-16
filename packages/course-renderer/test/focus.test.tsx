@@ -94,10 +94,51 @@ describe("FocusManager — real accessible focus (§P2-06)", () => {
     expect(scrollSpy).toHaveBeenCalledWith({ block: "nearest", behavior: "auto" });
   });
 
-  it("the target has an accessible name for assistive tech", () => {
+  // §Slice5 review nit (P2-06 fold) — Slice 4 put `tabIndex={-1}` + a
+  // machine-id `aria-label` on EVERY block wrapper. Only the actively-focused
+  // wrapper gets programmatic focusability, and its accessible name comes
+  // from a caller-supplied meaningful `label` (block content/title) — never
+  // a raw internal id, and omitted entirely when the caller has none.
+  it("omits aria-label when no meaningful label is given — never announces the raw internal id", () => {
     const { container } = renderTree({ blockId: "img", itemId: "x" });
     const target = container.querySelector('[data-focus-item="x"]');
-    expect(target).toHaveAttribute("aria-label", "img-x");
+    expect(target).not.toHaveAttribute("aria-label");
+  });
+
+  it("uses a caller-supplied meaningful label as the accessible name when the target is focused", () => {
+    const { container } = render(
+      <FocusProvider value={{ blockId: "a" }}>
+        <FocusTarget blockId="a" label="两个结论能直接比较吗？">
+          block a
+        </FocusTarget>
+      </FocusProvider>,
+    );
+    const target = container.querySelector('[data-focus-block="a"]');
+    expect(target).toHaveAttribute("aria-label", "两个结论能直接比较吗？");
+  });
+
+  it("only the focused wrapper is a programmatic focus target — non-focused wrappers carry no tabIndex", () => {
+    const { container } = renderTree({ blockId: "a" });
+    const focusedEl = container.querySelector('[data-focus-block="a"]');
+    expect(focusedEl).toHaveAttribute("tabindex", "-1");
+    const others = [...container.querySelectorAll("[data-focus-block]")].filter((el) => el !== focusedEl);
+    expect(others.length).toBeGreaterThan(0);
+    for (const el of others) {
+      expect(el).not.toHaveAttribute("tabindex");
+      expect(el).not.toHaveAttribute("aria-label");
+    }
+  });
+
+  it("a not-visible target is aria-hidden (its box reservation is the stylesheet's job — §Slice5 / P1-06)", () => {
+    const { container } = render(
+      <FocusProvider value={null}>
+        <FocusTarget blockId="a" visible={false}>
+          block a
+        </FocusTarget>
+      </FocusProvider>,
+    );
+    const target = container.querySelector('[data-focus-block="a"]');
+    expect(target).toHaveAttribute("aria-hidden", "true");
   });
 
   it("clearFocus (focus -> null) blurs the previously-focused target and drops the ring", () => {

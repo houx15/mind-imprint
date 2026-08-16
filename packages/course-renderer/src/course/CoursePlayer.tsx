@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import type { ReactNode } from "react";
 import {
   validateCourseDefinition,
   CourseSession,
@@ -20,6 +21,10 @@ import { SlicePlayer } from "../slice/SlicePlayer";
 import { OpeningScene } from "../scenes/OpeningScene";
 import { ClosingScene } from "../scenes/ClosingScene";
 import { buildClosingSessionEvidence } from "./sessionEvidence";
+// §Slice5 / P1-06 — the renderer-owned stylesheet. Side-effect import: since
+// CoursePlayer is the package's actual runtime mount root, every consumer
+// (direct import or via the package's `index.ts` re-export) pulls this in.
+import "../styles/course.css";
 
 export interface CoursePlayerProps {
   document: unknown;
@@ -353,16 +358,19 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
     setCurrentIndex(prev);
   };
 
+  // §Slice5 / P1-06 (D6) — every phase renders inside ONE shell that fills
+  // its viewport region and never page-scrolls (`.course-shell`, defined in
+  // `styles/course.css`). Computed as a local `content` var rather than
+  // returning early per-phase so exactly one shell wraps whichever phase is
+  // active — the phase branching itself is unchanged.
+  let content: ReactNode;
+
   if (phase === "error" || !course) {
-    return <ErrorSurface issues={validation.ok ? [] : validation.issues} />;
-  }
-
-  if (phase === "loading" || !opening || !bus) {
-    return <div className="course-loading" aria-busy="true" />;
-  }
-
-  if (phase === "opening") {
-    return (
+    content = <ErrorSurface issues={validation.ok ? [] : validation.issues} />;
+  } else if (phase === "loading" || !opening || !bus) {
+    content = <div className="course-loading" aria-busy="true" />;
+  } else if (phase === "opening") {
+    content = (
       <OpeningScene
         scene={opening}
         title={course.title}
@@ -373,10 +381,8 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         onStart={handleStart}
       />
     );
-  }
-
-  if (phase === "closing" && closing) {
-    return (
+  } else if (phase === "closing" && closing) {
+    content = (
       <ClosingScene
         scene={closing}
         summary={course.closing.preparedSummary}
@@ -386,31 +392,37 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         onComplete={handleCompleteClosing}
       />
     );
+  } else {
+    const entry = entries[currentIndex]!;
+    // §Slice4 / P1-05 — a Slice this index has already reached (this session's
+    // resume, or an earlier visit via Previous/Next) restores from the cache;
+    // a never-before-reached Slice gets no restoreState and starts fresh.
+    const cachedState = sliceStatesRef.current[entry.slice.id];
+    content = (
+      <div className="course-player" data-phase="playing">
+        <SlicePlayer
+          key={entry.slice.id}
+          slice={entry.slice}
+          partId={entry.partId}
+          sessionId={activeSessionId.current!}
+          adapters={adapters}
+          bus={bus}
+          onSliceComplete={() => {}}
+          onNavigateNext={handleNavigateNext}
+          onNavigatePrevious={currentIndex > 0 ? handleNavigatePrevious : undefined}
+          onStateChange={(next) => {
+            sliceStatesRef.current = { ...sliceStatesRef.current, [entry.slice.id]: next };
+          }}
+          restoreStepId={cachedState?.currentWorkflowStepId}
+          restoreState={cachedState}
+        />
+      </div>
+    );
   }
 
-  const entry = entries[currentIndex]!;
-  // §Slice4 / P1-05 — a Slice this index has already reached (this session's
-  // resume, or an earlier visit via Previous/Next) restores from the cache;
-  // a never-before-reached Slice gets no restoreState and starts fresh.
-  const cachedState = sliceStatesRef.current[entry.slice.id];
   return (
-    <div className="course-player" data-phase="playing">
-      <SlicePlayer
-        key={entry.slice.id}
-        slice={entry.slice}
-        partId={entry.partId}
-        sessionId={activeSessionId.current!}
-        adapters={adapters}
-        bus={bus}
-        onSliceComplete={() => {}}
-        onNavigateNext={handleNavigateNext}
-        onNavigatePrevious={currentIndex > 0 ? handleNavigatePrevious : undefined}
-        onStateChange={(next) => {
-          sliceStatesRef.current = { ...sliceStatesRef.current, [entry.slice.id]: next };
-        }}
-        restoreStepId={cachedState?.currentWorkflowStepId}
-        restoreState={cachedState}
-      />
+    <div className="course-shell" data-course-shell="true">
+      {content}
     </div>
   );
 }

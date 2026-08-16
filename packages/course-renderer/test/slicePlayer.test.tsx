@@ -154,4 +154,45 @@ describe("SlicePlayer", () => {
     act(() => strayEmit("s1-continue", "student.continue"));
     expect(onSliceComplete).not.toHaveBeenCalled();
   });
+
+  // §Slice5 / P1-06 — a hidden block's slot wrapper stays in the DOM (never
+  // removed), so revealing it later never reflows its siblings. Actual box
+  // reservation is the course stylesheet's job (`.course-block[hidden]`);
+  // here we prove the structural half: nothing is unmounted, and the wrapper
+  // is aria-hidden while the block is not visible.
+  it("a hidden block's slot wrapper is reserved (present, not removed) and aria-hidden", async () => {
+    const { session, adapters, bus } = await setup();
+    const engine = new FakeAudioEngine();
+
+    let container!: HTMLElement;
+    await act(async () => {
+      const r = render(
+        <AudioEngineProvider value={engine}>
+          <SlicePlayer
+            slice={sliceOne}
+            partId={STATIC_PART_ID}
+            sessionId={session.id}
+            adapters={adapters}
+            bus={bus}
+            onSliceComplete={vi.fn()}
+            onNavigateNext={vi.fn()}
+          />
+        </AudioEngineProvider>,
+      );
+      container = r.container;
+    });
+
+    const wrapper = container.querySelector('[data-focus-block="s1-reveal-text"]');
+    expect(wrapper).not.toBeNull();
+    expect(wrapper).toHaveAttribute("aria-hidden", "true");
+    expect(wrapper!.querySelector('[data-block-id="s1-reveal-text"]')).toHaveAttribute("hidden");
+
+    // narration.ended reveals it — the SAME wrapper node reflects the change,
+    // never a removed-then-remounted one (jsdom's `hidden`-toggling is what
+    // caused the reflow this reservation prevents).
+    act(() => engine.fireEnded());
+    expect(container.querySelector('[data-focus-block="s1-reveal-text"]')).toBe(wrapper);
+    expect(wrapper).not.toHaveAttribute("aria-hidden");
+    expect(wrapper!.querySelector('[data-block-id="s1-reveal-text"]')).not.toHaveAttribute("hidden");
+  });
 });
