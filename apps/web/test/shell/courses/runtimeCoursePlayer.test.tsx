@@ -52,6 +52,18 @@ vi.mock("@/api/courseDefinition", () => ({
 }));
 const getDefMock = vi.mocked(getCourseDefinition);
 
+// Asset-url signing: mocked so tests can assert the collect→fetch→resolve
+// wiring without a real course-contract document or a network call.
+const fetchCourseAssetUrls = vi.fn();
+vi.mock("@/api/courseAssetUrls", () => ({
+  fetchCourseAssetUrls: (...a: unknown[]) => fetchCourseAssetUrls(...a),
+}));
+
+const collectAssetPaths = vi.fn();
+vi.mock("@mind-imprint/course-contract", () => ({
+  collectAssetPaths: (...a: unknown[]) => collectAssetPaths(...a),
+}));
+
 import { RuntimeCoursePlayer } from "@/shell/courses/RuntimeCoursePlayer";
 import { CoursesContainer } from "@/shell/courses/CoursesContainer";
 
@@ -65,6 +77,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   lastPlayerProps = null;
   baseSetStatus.mockResolvedValue(undefined);
+  collectAssetPaths.mockReturnValue([]);
+  fetchCourseAssetUrls.mockResolvedValue({ assetUrls: {}, expiresAt: "2999-01-01T00:00:00Z" });
 });
 
 describe("RuntimeCoursePlayer", () => {
@@ -97,6 +111,35 @@ describe("RuntimeCoursePlayer", () => {
     fireEvent.click(screen.getByText("drive-to-completed"));
     await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
     expect(baseSetStatus).toHaveBeenCalledWith("sid", "completed");
+  });
+
+  it("loads the definition, collects paths, fetches asset urls, and resolves via the map", async () => {
+    getDefMock.mockResolvedValue(golden);
+    collectAssetPaths.mockReturnValue(["assets/a.png"]);
+    fetchCourseAssetUrls.mockResolvedValue({
+      assetUrls: { "assets/a.png": "https://cdn/a?auth_key=x" },
+      expiresAt: "2999-01-01T00:00:00Z",
+    });
+
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
+
+    await screen.findByTestId("runtime-player");
+    expect(collectAssetPaths).toHaveBeenCalledWith(golden);
+    expect(fetchCourseAssetUrls).toHaveBeenCalledWith(SLUG, ["assets/a.png"]);
+    expect(lastPlayerProps.adapters.assetResolver.resolve("assets/a.png")).toBe("https://cdn/a?auth_key=x");
+  });
+
+  it("skips the asset-urls fetch when the course references no assets", async () => {
+    getDefMock.mockResolvedValue(golden);
+    collectAssetPaths.mockReturnValue([]);
+
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
+
+    await screen.findByTestId("runtime-player");
+    expect(collectAssetPaths).toHaveBeenCalledWith(golden);
+    expect(fetchCourseAssetUrls).not.toHaveBeenCalled();
+    // Unresolved (unmapped) paths pass through unchanged.
+    expect(lastPlayerProps.adapters.assetResolver.resolve("assets/a.png")).toBe("assets/a.png");
   });
 });
 

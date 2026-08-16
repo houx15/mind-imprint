@@ -148,13 +148,14 @@ curl -sS -X POST "$API/api/v1/oss/resolve-url" \
 
 ## Keys
 
-There are **two different secrets**, both server-side only, **never committed to
-git**:
+There are **three different secrets**, all server-side only, **never committed
+to git**:
 
 | secret | what it is | where it lives |
 |---|---|---|
 | `OSS_ACCESS_KEY_ID` / `OSS_ACCESS_KEY_SECRET` | the Aliyun OSS AccessKey — signs every presigned URL | `apps/api/.env.local` (dev), `deploy/.env.prod` (server), `.deploy-local/env.prod` (local backup) |
 | `OSS_ADMIN_KEY` | static bearer token authorizing admin uploads from scripts | same files |
+| `OSS_CDN_AUTH_KEY` | Aliyun CDN "Type A" URL-signing secret — signs course asset CDN URLs (`GET /courses/{slug}/asset-urls`) so the bucket can be **private-read** with no anonymous OSS-origin access | same files |
 
 - **Dev:** values are in `apps/api/.env.local` (git-ignored). Ask the maintainer
   if you need them.
@@ -162,15 +163,25 @@ git**:
   into the api container by `deploy/docker-compose.prod.yml`.
 - If any `OSS_*` access var is unset, the `/oss/*` routes return `503`
   (`oss_disabled`) — the platform still boots. If `OSS_ADMIN_KEY` is empty, the
-  admin upload route specifically returns `503`.
+  admin upload route specifically returns `503`. If `OSS_CDN_AUTH_KEY` is
+  empty, course asset URLs are handed back unsigned — this is only safe while
+  the bucket still allows anonymous CDN-origin read; **set the bucket to
+  private-read only once this key is configured**, or asset requests will
+  fail closed.
+- `OSS_CDN_AUTH_WINDOW` (default `7200` seconds) is the signed URL's validity
+  window. The web host (`RuntimeCoursePlayer`) re-signs before this expires,
+  so raising it only affects how stale a cached/shared link can get, not
+  correctness.
 - **Rotating a key:** update the value in `deploy/.env.prod` (and
   `.deploy-local/env.prod` + `apps/api/.env.local`), then
   `docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml up -d --build api`.
   Rotating `OSS_ADMIN_KEY` invalidates all scripts using the old value.
+  Rotating `OSS_CDN_AUTH_KEY` invalidates all already-signed, unexpired asset
+  URLs still in flight in the browser (they refresh within `OSS_CDN_AUTH_WINDOW`).
 
 Full config var list: `OSS_ENDPOINT`, `OSS_BUCKET`, `OSS_CDN_DOMAIN`,
-`OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`, `OSS_ADMIN_KEY` (see
-`apps/api/.env.example`).
+`OSS_ACCESS_KEY_ID`, `OSS_ACCESS_KEY_SECRET`, `OSS_ADMIN_KEY`,
+`OSS_CDN_AUTH_KEY`, `OSS_CDN_AUTH_WINDOW` (see `apps/api/.env.example`).
 
 ---
 

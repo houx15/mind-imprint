@@ -2,7 +2,10 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { CoursePlayer } from "@mind-imprint/course-renderer";
 import type { CourseRuntimeAdapters, SessionAdapter } from "@mind-imprint/course-runtime";
+import { collectAssetPaths } from "@mind-imprint/course-contract";
+import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
 import { getCourseDefinition } from "@/api/courseDefinition";
+import { fetchCourseAssetUrls } from "@/api/courseAssetUrls";
 import { ApiError } from "@/api/client";
 import { makeCdnAssetResolver } from "@/course/assetResolver";
 import { makeApiSessionAdapter } from "@/course/apiSessionAdapter";
@@ -35,16 +38,25 @@ export function RuntimeCoursePlayer({
 }) {
   const [document, setDocument] = useState<unknown | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Bumped on asset-url refresh so consumers (e.g. adapters.assetResolver
+  // callers inside the renderer) re-resolve; the map itself lives in the ref
+  // below so refreshing it never rebuilds `adapters`.
+  const [, setRefreshTick] = useState(0);
 
   // Keep onFinish fresh without rebuilding the adapters (which own the live
   // session state) on every render.
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
 
+  // Signed CDN asset-URL map, read live by the resolver via a ref getter so a
+  // refresh (re-signing before `expiresAt`) never rebuilds `adapters` below.
+  const assetUrlsRef = useRef<Record<string, string>>({});
+
   // Built once per slug: the sessionAdapter holds the authoritative session
   // client-side, so it must survive re-renders. setStatus is wrapped so the
   // terminal `completed` transition surfaces as onFinish (the renderer has no
-  // completion callback of its own).
+  // completion callback of its own). The assetResolver reads assetUrlsRef
+  // live, so refreshing the signed map never rebuilds this object.
   const adapters = useMemo<CourseRuntimeAdapters>(() => {
     const base = makeApiSessionAdapter(slug);
     const sessionAdapter: SessionAdapter = {
@@ -55,7 +67,7 @@ export function RuntimeCoursePlayer({
       },
     };
     return {
-      assetResolver: makeCdnAssetResolver({ slug }),
+      assetResolver: makeCdnAssetResolver(() => assetUrlsRef.current),
       sessionAdapter,
       openingGenerator: makeApiSceneGenerator(slug),
       closingGenerator: makeApiSceneGenerator(slug),
@@ -64,19 +76,50 @@ export function RuntimeCoursePlayer({
 
   useEffect(() => {
     let cancelled = false;
+    let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     setDocument(null);
     setError(null);
-    getCourseDefinition(slug)
-      .then((doc) => {
-        if (!cancelled) setDocument(doc);
-      })
-      .catch((e) => {
+    assetUrlsRef.current = {};
+
+    const scheduleRefresh = (assetSlug: string, paths: string[], expiresAt: string) => {
+      const lead = new Date(expiresAt).getTime() - Date.now() - 5 * 60_000; // 5 min early
+      const delay = Math.max(lead, 60_000);
+      refreshTimer = setTimeout(() => {
+        void (async () => {
+          try {
+            const next = await fetchCourseAssetUrls(assetSlug, paths);
+            if (cancelled) return;
+            assetUrlsRef.current = next.assetUrls;
+            setRefreshTick((t) => t + 1); // re-render so renderers re-resolve
+            scheduleRefresh(assetSlug, paths, next.expiresAt);
+          } catch {
+            /* transient; the next asset load falls back to the (now-stale) map */
+          }
+        })();
+      }, delay);
+    };
+
+    (async () => {
+      try {
+        const doc = (await getCourseDefinition(slug)) as CourseDefinitionDocument;
         if (cancelled) return;
-        const msg = e instanceof ApiError ? e.message : "课程定义加载失败";
-        setError(msg);
-      });
+        const paths = collectAssetPaths(doc);
+        if (paths.length > 0) {
+          const signed = await fetchCourseAssetUrls(slug, paths);
+          if (cancelled) return;
+          assetUrlsRef.current = signed.assetUrls;
+          scheduleRefresh(slug, paths, signed.expiresAt);
+        }
+        setDocument(doc);
+      } catch (e) {
+        if (cancelled) return;
+        setError(e instanceof ApiError ? e.message : "课程定义加载失败");
+      }
+    })();
+
     return () => {
       cancelled = true;
+      if (refreshTimer) clearTimeout(refreshTimer);
     };
   }, [slug]);
 
