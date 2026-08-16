@@ -69,9 +69,9 @@ func (a *API) postCourseAssetUploadURL(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// courseAssetUploadKey mirrors courseAssetKey (course_asset_urls.go) — the
-// same slug+relativePath maps to the same object key on both the write
-// (upload) and read (asset-urls) sides.
+// courseAssetUploadKey delegates to courseAssetKey (course_asset_urls.go) so the
+// write (upload) and read (asset-urls) sides derive the SAME object key from one
+// formula — they must agree by construction, not by two literals kept in sync.
 func courseAssetUploadKey(slug, relativePath string) string {
-	return "courses/" + slug + "/" + relativePath
+	return courseAssetKey(slug, relativePath)
 }
