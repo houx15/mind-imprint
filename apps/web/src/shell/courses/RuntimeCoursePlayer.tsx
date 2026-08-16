@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
 import { CoursePlayer } from "@mind-imprint/course-renderer";
-import type { CourseRuntimeAdapters, SessionAdapter } from "@mind-imprint/course-runtime";
+import type { CourseRuntimeAdapters } from "@mind-imprint/course-runtime";
 import { collectAssetPaths } from "@mind-imprint/course-contract";
 import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
 import { getCourseDefinition } from "@/api/courseDefinition";
@@ -15,15 +15,30 @@ import { makeApiSceneGenerator } from "@/course/apiSceneGenerator";
 // (Course Runtime 2.0) for a course that HAS a stored 2.0 definition. This is
 // the HOST BOUNDARY: real time and ids enter here (idFactory/clock), keeping the
 // runtime packages pure. It builds the three production adapters + the Slice 7
-// scene generators, fetches the definition, and plays it. Completion (the
-// session reaching `completed`) fires onFinish. A course WITHOUT a 2.0
-// definition never reaches here — CoursesContainer routes it to the legacy
-// player (see CoursesContainer).
+// scene generators, fetches the definition, and plays it. Completion fires
+// onFinish ONLY via CoursePlayer's own `onComplete` callback (P1-03) — the
+// learner dismissing the Closing scene, not the session status flip, which
+// the player can reach well before the learner has actually seen/heard
+// Closing. A course WITHOUT a 2.0 definition never reaches here —
+// CoursesContainer routes it to the legacy player (see CoursesContainer).
 
 // The runtime never dictates identity; the server mints the real studentId from
 // the authed user on create. This value is advisory, so a placeholder is safe
 // when the app has no user id handy.
 const PLACEHOLDER_STUDENT_ID = "current-student";
+
+// P2-05 — resolves the Opening's allowed history signals (the course's own
+// "recent-course-topics" / "prior-objective-performance") at this
+// authenticated host boundary. There is no dedicated Course Runtime 2.0
+// history-signals endpoint yet, so this intentionally returns no values today
+// rather than mining an unrelated endpoint (e.g. the legacy course catalog)
+// into a signal it doesn't actually represent — a fabricated value would be
+// worse than none. This IS the typed extension point CoursePlayer calls: once
+// a real signals endpoint exists, resolve it here and CoursePlayer itself
+// stays signal-source-agnostic.
+function resolveOpeningSignals(_allowedSignals: string[]): Record<string, unknown> {
+  return {};
+}
 
 export function RuntimeCoursePlayer({
   slug,
@@ -59,20 +74,14 @@ export function RuntimeCoursePlayer({
   const assetUrlsRef = useRef<Record<string, string>>({});
 
   // Built once per slug: the sessionAdapter holds the authoritative session
-  // client-side, so it must survive re-renders. setStatus is wrapped so the
-  // terminal `completed` transition surfaces as onFinish (the renderer has no
-  // completion callback of its own). The assetResolver reads assetUrlsRef
-  // live, so refreshing the signed map never rebuilds this object.
+  // client-side, so it must survive re-renders. Persists status normally,
+  // unwrapped (P1-03) — completion is surfaced ONLY via CoursePlayer's own
+  // `onComplete` prop below, never inferred from a `setStatus("completed")`
+  // write. The assetResolver reads assetUrlsRef live, so refreshing the
+  // signed map never rebuilds this object.
   const adapters = useMemo<CourseRuntimeAdapters>(() => {
-    const base = makeApiSessionAdapter(slug);
-    flushRef.current = () => base.flush();
-    const sessionAdapter: SessionAdapter = {
-      ...base,
-      async setStatus(sessionId, status) {
-        await base.setStatus(sessionId, status);
-        if (status === "completed") onFinishRef.current();
-      },
-    };
+    const sessionAdapter = makeApiSessionAdapter(slug);
+    flushRef.current = () => sessionAdapter.flush();
     return {
       assetResolver: makeCdnAssetResolver(() => assetUrlsRef.current),
       sessionAdapter,
@@ -187,6 +196,8 @@ export function RuntimeCoursePlayer({
             studentId={studentId ?? PLACEHOLDER_STUDENT_ID}
             idFactory={() => crypto.randomUUID()}
             clock={() => new Date().toISOString()}
+            onComplete={() => onFinishRef.current()}
+            signalResolver={resolveOpeningSignals}
           />
         ) : (
           <div aria-busy="true" style={{ padding: 40, color: "var(--mk-faint)", fontSize: 14 }}>

@@ -19,6 +19,7 @@ import {
 import { SlicePlayer } from "../slice/SlicePlayer";
 import { OpeningScene } from "../scenes/OpeningScene";
 import { ClosingScene } from "../scenes/ClosingScene";
+import { buildClosingSessionEvidence } from "./sessionEvidence";
 
 export interface CoursePlayerProps {
   document: unknown;
@@ -40,6 +41,17 @@ export interface CoursePlayerProps {
    * and only THIS callback means "the host may now navigate away."
    */
   onComplete?: () => void;
+  /**
+   * P2-05 — host-supplied resolver for the Opening's allowed history signals
+   * (the course's own `OpeningSignal` enum: "recent-course-topics" |
+   * "prior-objective-performance"). Called once, at init, ONLY when the
+   * Opening permits at least one signal — with exactly that allowed list, so
+   * the resolver never has to re-derive permission. The renderer never
+   * invents values itself: omit the prop (or a key in its return value) when
+   * the host has nothing honest to offer for a signal; `signalValues` then
+   * simply omits that key, same as if personalization were disabled.
+   */
+  signalResolver?: (allowedSignals: string[]) => Record<string, unknown> | Promise<Record<string, unknown>>;
 }
 
 type Phase = "loading" | "error" | "opening" | "playing" | "closing";
@@ -78,7 +90,7 @@ function ErrorSurface({ issues }: { issues: ValidationIssue[] }) {
  * scene generators (fallback path is exercised in this slice). Structurally
  * invalid documents render a diagnostic surface and never mount a SlicePlayer.
  */
-export function CoursePlayer({ document, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete }: CoursePlayerProps) {
+export function CoursePlayer({ document, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete, signalResolver }: CoursePlayerProps) {
   const validation = useMemo(() => validateCourseDefinition(document), [document]);
 
   const [phase, setPhase] = useState<Phase>(validation.ok ? "loading" : "error");
@@ -213,14 +225,21 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         return;
       }
 
+      // P2-05 — resolve real signal values only when the Opening actually
+      // permits at least one, and only via the host's own resolver; with no
+      // resolver wired (or nothing permitted), signalValues stays empty
+      // rather than fabricated.
+      const openingAllowedSignals = course.opening.personalization.enabled ? course.opening.personalization.allowedSignals : [];
+      const signalValues = openingAllowedSignals.length > 0 && signalResolver ? await signalResolver(openingAllowedSignals) : {};
+
       const input: OpeningSceneInput = {
         which: "opening",
         title: course.title,
         estimatedMinutes: course.estimatedMinutes,
         objectives: course.objectives.map((o) => o.text),
         learningPreview: course.opening.learningPreview,
-        allowedSignals: course.opening.personalization.enabled ? course.opening.personalization.allowedSignals : [],
-        signalValues: {},
+        allowedSignals: openingAllowedSignals,
+        signalValues,
         fallback: {
           text: course.opening.fallback.text,
           audioUrl: course.opening.fallback.audio ? adapters.assetResolver.resolve(course.opening.fallback.audio) : undefined,
@@ -272,13 +291,27 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
     if (!course) return;
     const sid = activeSessionId.current;
     if (sid) await adapters.sessionAdapter.setStatus(sid, "closing");
+
+    // P2-05 — derive real evidence from the session's OWN recorded state
+    // (never host-supplied, never fabricated): re-load the just-updated
+    // session (the last slice's completion already persisted synchronously
+    // via saveSliceState) and pull only the facts the course's own
+    // allowedSignals permit.
+    const closingAllowedSignals = course.closing.personalization.enabled ? course.closing.personalization.allowedSignals : [];
+    let sessionEvidence: Record<string, unknown> = {};
+    if (sid && closingAllowedSignals.length > 0) {
+      const latest = await adapters.sessionAdapter.load(sid);
+      const parsed = latest ? CourseSession.safeParse(latest) : null;
+      if (parsed?.success) sessionEvidence = buildClosingSessionEvidence(parsed.data, closingAllowedSignals);
+    }
+
     const input: ClosingSceneInput = {
       which: "closing",
       preparedSummary: course.closing.preparedSummary,
       takeaways: course.closing.takeaways,
       transferApplications: course.closing.transferApplications,
-      allowedSignals: course.closing.personalization.enabled ? course.closing.personalization.allowedSignals : [],
-      sessionEvidence: {},
+      allowedSignals: closingAllowedSignals,
+      sessionEvidence,
       fallback: {
         text: course.closing.fallback.text,
         audioUrl: course.closing.fallback.audio ? adapters.assetResolver.resolve(course.closing.fallback.audio) : undefined,

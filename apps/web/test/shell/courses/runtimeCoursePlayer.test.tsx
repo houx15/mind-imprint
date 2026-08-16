@@ -6,9 +6,12 @@ import { getCourseDefinition } from "@/api/courseDefinition";
 
 // The runtime renderer is stubbed: we test RuntimeCoursePlayer's WIRING (fetch
 // the definition, build the four adapters, inject idFactory/clock, surface
-// completion as onFinish), not the renderer's internals (covered in the
-// course-renderer package). The stub captures the props it was mounted with and
-// exposes a button that drives the session to `completed`.
+// completion as onFinish via CoursePlayer's own `onComplete` callback —
+// P1-03), not the renderer's internals (covered in the course-renderer
+// package). The stub captures the props it was mounted with and exposes two
+// buttons: one that flips the session to `completed` directly (proving that
+// alone must NOT fire onFinish anymore), and one that fires `onComplete`
+// (the only thing that should).
 let lastPlayerProps: any = null;
 vi.mock("@mind-imprint/course-renderer", () => ({
   CoursePlayer: (props: any) => {
@@ -18,6 +21,9 @@ vi.mock("@mind-imprint/course-renderer", () => ({
         <span>Opening</span>
         <button type="button" onClick={() => void props.adapters.sessionAdapter.setStatus("sid", "completed")}>
           drive-to-completed
+        </button>
+        <button type="button" onClick={() => props.onComplete?.()}>
+          dismiss-closing
         </button>
       </div>
     );
@@ -88,7 +94,7 @@ beforeEach(() => {
 });
 
 describe("RuntimeCoursePlayer", () => {
-  it("fetches the definition, mounts the runtime player with the four adapters + injected idFactory/clock, and surfaces completion as onFinish", async () => {
+  it("fetches the definition, mounts the runtime player with the four adapters + injected idFactory/clock, and wires onComplete/signalResolver", async () => {
     getDefMock.mockResolvedValue(golden);
     const onFinish = vi.fn();
     const onExit = vi.fn();
@@ -112,11 +118,36 @@ describe("RuntimeCoursePlayer", () => {
     expect(typeof lastPlayerProps.clock()).toBe("string");
     expect(new Date(lastPlayerProps.clock()).toString()).not.toBe("Invalid Date");
 
-    // Completion: driving the session to `completed` fires onFinish (the
-    // renderer has no completion callback of its own).
+    // P2-05: a typed signal-resolution seam is wired, not a fabricated value.
+    expect(typeof lastPlayerProps.signalResolver).toBe("function");
+    expect(lastPlayerProps.signalResolver(["recent-course-topics"])).toEqual({});
+  });
+
+  // P1-03: the ONLY authoritative completion signal is CoursePlayer's own
+  // `onComplete` (the learner dismissing the Closing) — not the session
+  // reaching `completed`, which the player can reach before Closing is even
+  // shown.
+  it("does NOT fire onFinish just because the session status flips to completed", async () => {
+    getDefMock.mockResolvedValue(golden);
+    const onFinish = vi.fn();
+
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={onFinish} />);
+    await screen.findByTestId("runtime-player");
+
     fireEvent.click(screen.getByText("drive-to-completed"));
+    await waitFor(() => expect(baseSetStatus).toHaveBeenCalledWith("sid", "completed"));
+    expect(onFinish).not.toHaveBeenCalled();
+  });
+
+  it("fires onFinish when CoursePlayer's onComplete fires (learner dismisses the Closing)", async () => {
+    getDefMock.mockResolvedValue(golden);
+    const onFinish = vi.fn();
+
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={onFinish} />);
+    await screen.findByTestId("runtime-player");
+
+    fireEvent.click(screen.getByText("dismiss-closing"));
     await waitFor(() => expect(onFinish).toHaveBeenCalledTimes(1));
-    expect(baseSetStatus).toHaveBeenCalledWith("sid", "completed");
   });
 
   it("loads the definition, collects paths, fetches asset urls, and resolves via the map", async () => {

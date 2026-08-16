@@ -354,3 +354,162 @@ describe("CoursePlayer end-to-end", () => {
     expect(screen.queryByText("一起开始吧")).toBeNull();
   });
 });
+
+// P2-05 — the Opening/Closing personalization inputs must be REAL, never `{}`
+// placeholders: signalValues comes only from the host's own signalResolver
+// (never fabricated by the renderer), and sessionEvidence comes only from the
+// actual validated CourseSession's recorded state, both scoped to exactly the
+// course's own `allowedSignals`.
+describe("CoursePlayer personalization inputs (P2-05)", () => {
+  it("passes the host signalResolver's result as the Opening's signalValues, called with exactly the course's allowedSignals", async () => {
+    const personalizedOpeningDocument = {
+      ...staticCourseDocument,
+      course: {
+        ...staticCourseDocument.course,
+        opening: {
+          ...staticCourseDocument.course.opening,
+          personalization: { enabled: true, allowedSignals: ["recent-course-topics"] },
+        },
+      },
+    };
+    const { adapters } = buildAdapters();
+    const capturedOpeningInputs: SceneGenerationInput[] = [];
+    adapters.openingGenerator = {
+      generate: async (input) => {
+        capturedOpeningInputs.push(input);
+        return { text: input.fallback.text, generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true };
+      },
+    };
+    const signalResolver = vi.fn((_allowed: string[]) => ({ "recent-course-topics": "上次学了论证结构" }));
+
+    render(
+      <CoursePlayer
+        document={personalizedOpeningDocument}
+        adapters={adapters}
+        studentId="student-1"
+        idFactory={makeIdFactory("ev")}
+        clock={clock}
+        signalResolver={signalResolver}
+      />,
+    );
+
+    await waitFor(() => expect(capturedOpeningInputs.length).toBe(1));
+    expect(signalResolver).toHaveBeenCalledWith(["recent-course-topics"]);
+    const input = capturedOpeningInputs[0]!;
+    expect(input.which).toBe("opening");
+    if (input.which === "opening") {
+      expect(input.signalValues).toEqual({ "recent-course-topics": "上次学了论证结构" });
+    }
+  });
+
+  it("never calls the resolver, and signalValues stays empty, when the Opening's personalization is disabled", async () => {
+    const { adapters } = buildAdapters();
+    const capturedOpeningInputs: SceneGenerationInput[] = [];
+    adapters.openingGenerator = {
+      generate: async (input) => {
+        capturedOpeningInputs.push(input);
+        return { text: input.fallback.text, generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true };
+      },
+    };
+    const signalResolver = vi.fn(() => ({ "recent-course-topics": "should never be reached" }));
+
+    render(
+      <CoursePlayer
+        document={staticCourseDocument} // opening.personalization.enabled === false
+        adapters={adapters}
+        studentId="student-1"
+        idFactory={makeIdFactory("ev")}
+        clock={clock}
+        signalResolver={signalResolver}
+      />,
+    );
+
+    await waitFor(() => expect(capturedOpeningInputs.length).toBe(1));
+    expect(signalResolver).not.toHaveBeenCalled();
+    const input = capturedOpeningInputs[0]!;
+    if (input.which === "opening") expect(input.signalValues).toEqual({});
+  });
+
+  it("derives the Closing's sessionEvidence from the session's own recorded answers/attempts/time-on-slice, omitting a permitted signal with no recorded data", async () => {
+    const personalizedClosingDocument = {
+      ...staticCourseDocument,
+      course: {
+        ...staticCourseDocument.course,
+        closing: {
+          ...staticCourseDocument.course.closing,
+          personalization: {
+            enabled: true,
+            // "interaction-results" is permitted but nothing was ever recorded
+            // for it below — it must be OMITTED from the evidence, not sent as
+            // an empty placeholder.
+            allowedSignals: ["answers", "attempts", "time-on-slice", "interaction-results"],
+          },
+        },
+      },
+    };
+
+    const seed: CourseSession = {
+      id: "server-session-evidence",
+      courseId: "static-demo-course",
+      courseSchemaVersion: "2.0",
+      studentId: "student-1",
+      status: "in-progress",
+      current: { partId: "part-one", sliceId: "slice-two", workflowStepId: "intro" },
+      opening: { text: "欢迎回来", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      sliceStates: {
+        "slice-one": {
+          status: "completed",
+          currentWorkflowStepId: "done",
+          startedAt: clock(),
+          completedAt: clock(),
+          elapsedSeconds: 12,
+          blockStates: {
+            "s1-intro-text": { visible: true, enabled: true, completed: true },
+            "s1-reveal-text": { visible: true, enabled: true, completed: true, answer: "已读", attempts: 1 },
+            "s1-continue": { visible: true, enabled: true, completed: true },
+          },
+        },
+      },
+      events: [],
+    };
+    const { adapters } = buildSeededAdapters(seed);
+    const capturedClosingInputs: SceneGenerationInput[] = [];
+    adapters.closingGenerator = {
+      generate: async (input) => {
+        capturedClosingInputs.push(input);
+        return { text: input.fallback.text, generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true };
+      },
+    };
+    const engine = new FakeAudioEngine();
+
+    render(
+      <AudioEngineProvider value={engine}>
+        <CoursePlayer
+          document={personalizedClosingDocument}
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev")}
+          clock={clock}
+        />
+      </AudioEngineProvider>,
+    );
+
+    // Resumes straight into slice-two (per the seeded `current`) — finish it
+    // (its only transition is narration.ended) to reach Closing.
+    await waitFor(() => {
+      expect(document.querySelector('[data-block-id="s2-text"]')).not.toBeNull();
+    });
+    act(() => engine.fireEnded());
+
+    await waitFor(() => expect(capturedClosingInputs.length).toBe(1));
+    const input = capturedClosingInputs[0]!;
+    expect(input.which).toBe("closing");
+    if (input.which === "closing") {
+      expect(input.sessionEvidence).toEqual({
+        answers: { "slice-one": { "s1-reveal-text": "已读" } },
+        attempts: { "slice-one": { "s1-reveal-text": 1 } },
+        "time-on-slice": { "slice-one": 12 },
+      });
+    }
+  });
+});
