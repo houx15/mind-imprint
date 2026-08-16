@@ -47,7 +47,9 @@ export class HtmlAudioEngine implements AudioEngine {
     audio.currentTime = 0;
     // Surface the play() promise so callers (narration/scene audio) can
     // detect and react to autoplay-policy rejection instead of hanging.
-    return audio.play();
+    // Guard `play` being absent (non-browser env with no injected engine) so it
+    // never throws synchronously past the callers' `.catch`.
+    return audio.play?.() ?? Promise.resolve();
   }
 
   pause(): void {
