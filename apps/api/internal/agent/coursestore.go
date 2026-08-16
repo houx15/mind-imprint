@@ -481,6 +481,14 @@ func (s *sqlcAgentStore) SetCourseDefinition(ctx context.Context, slug string, d
 	return s.q.SetCourseDefinition(ctx, sqlc.SetCourseDefinitionParams{Slug: slug, CourseDefinition: def})
 }
 
+// SetCourseStatusAndCover flips a course's publish status (and sets its
+// cover) in one write — the ship endpoint's (Task 5) sole use: the ONE
+// preview -> published transition, done atomically with the cover so a
+// course is never left published-with-no-cover mid-request.
+func (s *sqlcAgentStore) SetCourseStatusAndCover(ctx context.Context, slug, status, cover string) error {
+	return s.q.SetCourseStatusAndCover(ctx, sqlc.SetCourseStatusAndCoverParams{Slug: slug, Status: status, Cover: cover})
+}
+
 // UpsertCourseDefinitionInput is UpsertCourseDefinition's argument — the
 // course authoring & publish lifecycle's Task 3 create/modify path.
 // Definition travels as []byte (the whole { schemaVersion, course } document,
