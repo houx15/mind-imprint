@@ -83,7 +83,7 @@ func (a *API) resolveCoverURL(cover string) string {
 	if !ok {
 		return ""
 	}
-	url, err := a.d.OSS.SignDownload(key, ossDownloadTTL)
+	url, err := a.d.OSS.SignDownload(key)
 	if err != nil {
 		return ""
 	}

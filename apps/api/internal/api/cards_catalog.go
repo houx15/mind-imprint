@@ -131,7 +131,7 @@ func (a *API) getCardsCatalog(w http.ResponseWriter, r *http.Request) {
 		if key, ok := cards.CoverKey(s.AssetID, theme); ok {
 			hasAsset = true
 			if a.d.OSS != nil {
-				if url, err := a.d.OSS.SignDownload(key, ossDownloadTTL); err == nil {
+				if url, err := a.d.OSS.SignDownload(key); err == nil {
 					coverURL = url
 				}
 			}

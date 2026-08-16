@@ -59,7 +59,7 @@ func TestLiveRoundTrip(t *testing.T) {
 	t.Logf("upload leg OK: PUT %d for %s", putRes.StatusCode, key)
 
 	// --- download leg: presigned GET via the CDN domain ---
-	getURL, err := svc.SignDownload(key, 5*time.Minute)
+	getURL, err := svc.SignDownload(key)
 	if err != nil {
 		t.Fatalf("SignDownload: %v", err)
 	}

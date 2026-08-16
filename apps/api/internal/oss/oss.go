@@ -9,6 +9,8 @@ package oss
 import (
 	"bytes"
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"fmt"
 	"io"
 	"strings"
@@ -21,8 +23,11 @@ import (
 
 // Service signs presigned upload (PUT) and download (GET) URLs.
 type Service struct {
-	origin *alioss.Bucket // client bound to the OSS origin endpoint (PUT)
-	cdn    *alioss.Bucket // client bound to the CDN domain, UseCname (GET)
+	origin        *alioss.Bucket // client bound to the OSS origin endpoint (PUT)
+	cdn           *alioss.Bucket // client bound to the CDN domain, UseCname (GET)
+	cdnDomain     string         // custom CDN host, no scheme (e.g. mind-oss.uni-robot.cn)
+	cdnAuthKey    string         // URL鉴权 Type A 主KEY; "" ⇒ presigned fallback
+	cdnAuthWindow time.Duration  // mirror of console 验证时长
 }
 
 // New returns a Service, or nil (not an error) when OSS is unconfigured — file
@@ -58,7 +63,14 @@ func New(cfg config.Config) (*Service, error) {
 		return nil, fmt.Errorf("oss: cdn bucket: %w", err)
 	}
 
-	return &Service{origin: originBucket, cdn: cdnBucket}, nil
+	window := time.Duration(cfg.OSSCDNAuthWindow) * time.Second
+	return &Service{
+		origin:        originBucket,
+		cdn:           cdnBucket,
+		cdnDomain:     cfg.OSSCDNDomain,
+		cdnAuthKey:    cfg.OSSCDNAuthKey,
+		cdnAuthWindow: window,
+	}, nil
 }
 
 // SignUpload returns a presigned PUT URL (OSS origin host) that requires the
@@ -68,9 +80,48 @@ func (s *Service) SignUpload(objectKey, contentType string, ttl time.Duration) (
 	return s.origin.SignURL(objectKey, alioss.HTTPPut, int64(ttl.Seconds()), alioss.ContentType(contentType))
 }
 
-// SignDownload returns a presigned GET URL on the CDN domain.
-func (s *Service) SignDownload(objectKey string, ttl time.Duration) (string, error) {
-	return s.cdn.SignURL(objectKey, alioss.HTTPGet, int64(ttl.Seconds()))
+// presignFallbackTTL bounds the OSS presigned GET used before URL鉴权 is
+// configured (cdnAuthKey == ""). Generous enough for large audio/video reads.
+const presignFallbackTTL = 15 * time.Minute
+
+// NewSigner builds a Service that only signs URL鉴权 download links (no OSS
+// origin/CDN clients). Used by tests and any caller that needs signing without
+// network access; SignUpload/PutObject/GetObject/Exists must not be called on it.
+func NewSigner(cdnDomain, cdnAuthKey string, window time.Duration) *Service {
+	return &Service{cdnDomain: cdnDomain, cdnAuthKey: cdnAuthKey, cdnAuthWindow: window}
+}
+
+// signTypeA builds an Aliyun CDN URL鉴权 Type A link. Pure (ts is injected) so it
+// is deterministic and unit-testable. objectKey is assumed path-safe ASCII
+// (uuid/kebab/sanitized-ext by construction); the md5 is computed over the
+// decoded URI, matching what the edge recomputes.
+func signTypeA(cdnDomain, privateKey, objectKey string, ts int64) string {
+	uri := "/" + objectKey
+	const rand, uid = "0", "0"
+	sum := md5.Sum([]byte(fmt.Sprintf("%s-%d-%s-%s-%s", uri, ts, rand, uid, privateKey)))
+	authKey := fmt.Sprintf("%d-%s-%s-%s", ts, rand, uid, hex.EncodeToString(sum[:]))
+	return fmt.Sprintf("%s%s?auth_key=%s", withScheme(cdnDomain), uri, authKey)
+}
+
+// SignDownload returns a cacheable CDN read URL. With a URL鉴权 主KEY configured it
+// emits a Type A auth_key link (auth_key is excluded from the CDN cache key, so
+// reads cache). Without one it falls back to the legacy OSS presigned GET, so
+// this code can ship before the console is cut over to URL鉴权.
+func (s *Service) SignDownload(objectKey string) (string, error) {
+	if s.cdnAuthKey != "" {
+		return signTypeA(s.cdnDomain, s.cdnAuthKey, objectKey, time.Now().Unix()), nil
+	}
+	return s.cdn.SignURL(objectKey, alioss.HTTPGet, int64(presignFallbackTTL.Seconds()))
+}
+
+// DownloadWindow is how long a SignDownload URL stays valid: the URL鉴权 window
+// when configured, else the presigned fallback TTL. Callers use it to report
+// expiresAt and schedule refresh.
+func (s *Service) DownloadWindow() time.Duration {
+	if s.cdnAuthKey != "" && s.cdnAuthWindow > 0 {
+		return s.cdnAuthWindow
+	}
+	return presignFallbackTTL
 }
 
 // PutObject uploads data to the OSS origin under objectKey. It is used by

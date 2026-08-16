@@ -13,11 +13,11 @@ import (
 	"mindimprint/api/internal/httpx"
 )
 
-// OSS URL time-to-live: uploads get a longer window (the client may pick a file
-// then upload), reads a short one (resolved on demand right before use).
+// ossUploadTTL bounds the signed upload URL (the client may pick a file then
+// upload). Downloads no longer use a fixed TTL — see oss.Service.SignDownload
+// / DownloadWindow.
 const (
-	ossUploadTTL   = 10 * time.Minute
-	ossDownloadTTL = 5 * time.Minute
+	ossUploadTTL = 10 * time.Minute
 	// ossPresignBodyLimit caps the presign JSON request body. The body is a
 	// handful of short fields (scope/contentType/size/filename); this guards
 	// the endpoint against oversized bodies — it does NOT bound the eventual
@@ -264,14 +264,14 @@ func (a *API) ossResolveURL(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_key", "无效的对象路径。", nil))
 		return
 	}
-	url, err := a.d.OSS.SignDownload(req.ObjectKey, ossDownloadTTL)
+	url, err := a.d.OSS.SignDownload(req.ObjectKey)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, ossResolveResp{
 		URL:       url,
-		ExpiresAt: time.Now().Add(ossDownloadTTL).UTC().Format(time.RFC3339),
+		ExpiresAt: time.Now().Add(a.d.OSS.DownloadWindow()).UTC().Format(time.RFC3339),
 	})
 }
 

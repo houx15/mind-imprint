@@ -47,6 +47,13 @@ type Config struct {
 	// (course/asset management from backend scripts). Empty disables those
 	// routes (503) so no request can authenticate against a blank key.
 	OSSAdminKey string `env:"OSS_ADMIN_KEY"`
+	// OSSCDNAuthKey is the Aliyun CDN URL鉴权 Type A 主KEY. When set, download
+	// URLs are signed as CDN URL鉴权 links (cacheable, auth_key excluded from the
+	// cache key) instead of OSS presigned URLs. Empty ⇒ presigned fallback.
+	OSSCDNAuthKey string `env:"OSS_CDN_AUTH_KEY"`
+	// OSSCDNAuthWindow is the URL鉴权 validity window in seconds; it must mirror
+	// the console 验证时长. Used to report expiresAt / schedule client refresh.
+	OSSCDNAuthWindow int `env:"OSS_CDN_AUTH_WINDOW" envDefault:"7200"`
 }
 
 // Load reads .env.local if present (ignored if absent), then parses the

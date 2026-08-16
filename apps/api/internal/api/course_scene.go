@@ -23,10 +23,6 @@ import (
 	"mindimprint/api/internal/httpx"
 )
 
-// sceneAudioTTL bounds the signed narration URL. Generous (scenes play once at
-// the top/bottom of a session) but not unbounded.
-const sceneAudioTTL = 6 * time.Hour
-
 // sceneFacts mirrors the teacher-approved facts the frontend derives from a
 // CourseDefinition's Opening/Closing config. Only the fields relevant to the
 // requested slot are populated.
@@ -194,7 +190,7 @@ func (a *API) synthesizeSceneAudio(r *http.Request, slug, which, text string) st
 		}
 	}
 
-	url, err := a.d.OSS.SignDownload(key, sceneAudioTTL)
+	url, err := a.d.OSS.SignDownload(key)
 	if err != nil {
 		slog.Warn("scene: sign download failed, serving text-only", "err", err, "slug", slug,
 			"request_id", httpx.RequestIDFromContext(r.Context()))
