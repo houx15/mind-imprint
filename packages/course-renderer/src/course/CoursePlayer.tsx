@@ -106,49 +106,88 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
     });
 
     void (async () => {
-      const loaded = sessionId ? await adapters.sessionAdapter.load(sessionId) : null;
-      // Validate at the boundary (§16): a malformed/incompatible stored session
-      // must degrade to a fresh start, never crash the player.
-      const parsed = loaded ? CourseSession.safeParse(loaded) : null;
-      const restored = parsed?.success ? parsed.data : null;
-
-      const session = restored ?? (await adapters.sessionAdapter.create({ courseId: course.id, studentId }));
+      // The authoritative session: `load(sessionId)` when the host passed one,
+      // else the get-or-create `create()` call — which is ALSO authoritative
+      // (the server returns the persisted, possibly in-progress/closing/
+      // completed session for this student+course, not merely a blank one).
+      // Resume must key off THIS session's own state, never off whether a
+      // `sessionId` prop happened to be passed in.
+      const fetched = sessionId
+        ? await adapters.sessionAdapter.load(sessionId)
+        : await adapters.sessionAdapter.create({ courseId: course.id, studentId });
       if (cancelled) return;
+
+      // Validate at the boundary (§16): a malformed/incompatible session must
+      // degrade to a fresh start, never crash the player.
+      const parsedFetched = fetched ? CourseSession.safeParse(fetched) : null;
+      let restored = parsedFetched?.success ? parsedFetched.data : null;
+
+      let session: CourseSession;
+      if (restored) {
+        session = restored;
+      } else {
+        // `load()` missed (or returned something unparsable) — get-or-create a
+        // known-good session directly. (If `fetched` already came from
+        // `create()` and still failed to parse, this repeats the call; the
+        // get-or-create operation is idempotent server-side.)
+        const created = await adapters.sessionAdapter.create({ courseId: course.id, studentId });
+        if (cancelled) return;
+        const parsedCreated = CourseSession.safeParse(created);
+        restored = parsedCreated.success ? parsedCreated.data : null;
+        session = restored ?? created;
+      }
 
       activeSessionId.current = session.id;
       const newBus = new RuntimeEventBus({ courseId: course.id, sessionId: session.id, idFactory, clock });
       setBus(newBus);
       onBusReady?.(newBus);
 
-      // Resume mid-course: a validated session that was actively playing and
-      // whose current Slice still exists in this course definition — skip
-      // Opening entirely and land straight back on that Slice.
-      const resumeIndex =
-        restored && restored.status === "in-progress" && restored.current
-          ? entries.findIndex((e) => e.partId === restored.current!.partId && e.slice.id === restored.current!.sliceId)
-          : -1;
-      if (resumeIndex >= 0) {
-        const current = restored!.current!;
-        const sliceState = restored!.sliceStates[current.sliceId];
-        resumeRef.current = {
-          index: resumeIndex,
-          stepId: sliceState?.currentWorkflowStepId ?? current.workflowStepId,
-          state: sliceState,
-        };
-        // The loading guard below requires a non-null `opening`, even though
-        // the Opening scene itself is never shown on this path.
-        setOpening(restored!.opening ?? placeholderScene());
-        indexRef.current = resumeIndex;
-        setCurrentIndex(resumeIndex);
-        setPhase("playing");
-        return;
-      }
+      // A session that carries real progress resumes from ITS OWN state —
+      // never let the "fresh session" path below overwrite the server's
+      // status back to "opening" once the student is already further along.
+      const progressStatuses = new Set<CourseSession["status"]>(["in-progress", "closing", "completed"]);
+      const hasProgress = restored != null && (progressStatuses.has(restored.status) || restored.current != null);
 
-      // Resume into a completed session's Closing, restored (not regenerated).
-      if (restored && restored.status === "completed" && restored.closing) {
-        setOpening(restored.opening ?? placeholderScene());
-        setClosing(restored.closing);
-        setPhase("closing");
+      if (hasProgress) {
+        // Completed with a saved Closing — restore straight to Closing,
+        // never regenerate or reset to Opening/index 0.
+        if (restored!.status === "completed" && restored!.closing) {
+          setOpening(restored!.opening ?? placeholderScene());
+          setClosing(restored!.closing);
+          setPhase("closing");
+          return;
+        }
+
+        // Resume mid-course: land back on the exact Slice + workflow step
+        // (+ block state) the student left off at, skipping Opening entirely.
+        const resumeIndex = restored!.current
+          ? entries.findIndex((e) => e.partId === restored!.current!.partId && e.slice.id === restored!.current!.sliceId)
+          : -1;
+        if (resumeIndex >= 0) {
+          const current = restored!.current!;
+          const sliceState = restored!.sliceStates[current.sliceId];
+          resumeRef.current = {
+            index: resumeIndex,
+            stepId: sliceState?.currentWorkflowStepId ?? current.workflowStepId,
+            state: sliceState,
+          };
+          // The loading guard below requires a non-null `opening`, even though
+          // the Opening scene itself is never shown on this path.
+          setOpening(restored!.opening ?? placeholderScene());
+          indexRef.current = resumeIndex;
+          setCurrentIndex(resumeIndex);
+          setPhase("playing");
+          return;
+        }
+
+        // Progress exists but the exact Slice couldn't be located (e.g. course
+        // content changed since the session started, or Closing hasn't been
+        // saved yet) — still never regress the session's own status back to
+        // "opening"; restart the walk at index 0 without touching status.
+        setOpening(restored!.opening ?? placeholderScene());
+        indexRef.current = 0;
+        setCurrentIndex(0);
+        setPhase("playing");
         return;
       }
 
