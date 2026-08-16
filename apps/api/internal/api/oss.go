@@ -60,8 +60,8 @@ var ossScopes = map[string]ossScope{
 	},
 	"course_material": {
 		gate:         gateAdminKey,
-		allowedTypes: typeSet("image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm", "video/quicktime"),
-		maxBytes:     500 << 20, // 500 MB (carries course video)
+		allowedTypes: typeSet("image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm", "video/quicktime", "text/html"),
+		maxBytes:     500 << 20, // 500 MB (carries course video + interactiveHtml)
 		prefix:       func(string) string { return "courses/" },
 	},
 	"user_image": {
@@ -97,6 +97,7 @@ var extByContentType = map[string]string{
 	"video/mp4":       ".mp4",
 	"video/webm":      ".webm",
 	"video/quicktime": ".mov",
+	"text/html":       ".html",
 }
 
 var safeExtRe = regexp.MustCompile(`^\.[a-z0-9]{1,8}$`)

@@ -83,7 +83,9 @@ ON CONFLICT (slug) DO UPDATE SET
 RETURNING slug, status;
 
 -- name: SetCourseStatusAndCover :exec
-UPDATE course SET status = $2, cover = $3, updated_at = now() WHERE slug = $1;
+-- Empty cover ($3='') preserves the existing cover (NULLIF→NULL→COALESCE) so a
+-- re-ship without a cover arg never blanks an already-set cover.
+UPDATE course SET status = $2, cover = COALESCE(NULLIF($3, ''), cover), updated_at = now() WHERE slug = $1;
 
 -- name: SetCourseDefinition :exec
 -- Course Runtime Slice 8: attach (or replace) one course's CourseDefinition 2.0

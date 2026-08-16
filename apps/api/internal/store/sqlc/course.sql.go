@@ -271,7 +271,9 @@ func (q *Queries) SetCourseDefinition(ctx context.Context, arg SetCourseDefiniti
 }
 
 const setCourseStatusAndCover = `-- name: SetCourseStatusAndCover :exec
-UPDATE course SET status = $2, cover = $3, updated_at = now() WHERE slug = $1
+-- Empty cover ($3='') preserves the existing cover (NULLIF→NULL→COALESCE) so a
+-- re-ship without a cover arg never blanks an already-set cover.
+UPDATE course SET status = $2, cover = COALESCE(NULLIF($3, ''), cover), updated_at = now() WHERE slug = $1
 `
 
 type SetCourseStatusAndCoverParams struct {
