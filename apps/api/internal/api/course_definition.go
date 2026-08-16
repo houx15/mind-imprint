@@ -23,7 +23,7 @@ import (
 func (a *API) getCourseDefinition(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	def, err := store.GetCourseDefinition(r.Context(), slug)
+	def, _, err := store.GetCourseDefinition(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteError(w, r, httpx.ErrNotFound("课程不存在"))

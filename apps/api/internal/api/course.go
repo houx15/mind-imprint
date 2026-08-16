@@ -24,7 +24,9 @@ import (
 
 func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	rows, err := store.ListCourses(r.Context())
+	// TODO(Task 2): pass isAdmin instead of hardcoding false — students must
+	// never see 'preview' courses in the catalog; admins will.
+	rows, err := store.ListCourses(r.Context(), false)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

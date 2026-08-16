@@ -38,7 +38,7 @@ func TestSeedCourses(t *testing.T) {
 
 	q := sqlc.New(pool)
 	agentStore := agent.NewSqlcAgentStore(q, pool)
-	courses, err := agentStore.ListCourses(ctx)
+	courses, err := agentStore.ListCourses(ctx, false)
 	if err != nil {
 		t.Fatalf("ListCourses: %v", err)
 	}
@@ -111,7 +111,7 @@ func TestSeedCourses(t *testing.T) {
 	if n2 != 3 {
 		t.Fatalf("SeedCourses (second call) returned %d, want 3", n2)
 	}
-	coursesAgain, err := agentStore.ListCourses(ctx)
+	coursesAgain, err := agentStore.ListCourses(ctx, false)
 	if err != nil {
 		t.Fatalf("ListCourses (second call): %v", err)
 	}

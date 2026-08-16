@@ -46,6 +46,8 @@ type CourseSummaryRow struct {
 	TimeLabel string
 	CardIDs   []string
 	StepCount int
+	Status    string
+	Cover     string
 }
 
 // CoursePlayerPayload is what the player needs to render one course:
@@ -63,6 +65,8 @@ type CoursePlayerPayload struct {
 	Structure     json.RawMessage
 	RenderCache   json.RawMessage
 	AudioManifest map[string]string
+	Status        string
+	Cover         string
 }
 
 // UpsertCourseInput is UpsertCourse's argument — StepCount is caller-supplied
@@ -123,8 +127,8 @@ type CourseReportData struct {
 // ListCourses returns the catalog: every course's summary row, branch/title
 // ordered (the underlying query's ORDER BY — a stable, human-legible
 // listing, not insertion order).
-func (s *sqlcAgentStore) ListCourses(ctx context.Context) ([]CourseSummaryRow, error) {
-	rows, err := s.q.ListCourseRows(ctx)
+func (s *sqlcAgentStore) ListCourses(ctx context.Context, includePreview bool) ([]CourseSummaryRow, error) {
+	rows, err := s.q.ListCourseRows(ctx, includePreview)
 	if err != nil {
 		return nil, err
 	}
@@ -133,6 +137,7 @@ func (s *sqlcAgentStore) ListCourses(ctx context.Context) ([]CourseSummaryRow, e
 		out = append(out, CourseSummaryRow{
 			Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 			TimeLabel: r.TimeLabel, CardIDs: r.CardIds, StepCount: int(r.StepCount),
+			Status: r.Status, Cover: r.Cover,
 		})
 	}
 	return out, nil
@@ -159,6 +164,8 @@ func (s *sqlcAgentStore) GetCoursePayload(ctx context.Context, slug string) (Cou
 		Structure:     json.RawMessage(row.Structure),
 		RenderCache:   json.RawMessage(row.RenderCache),
 		AudioManifest: audioManifest,
+		Status:        row.Status,
+		Cover:         row.Cover,
 	}
 	return payload, row.ID, nil
 }
@@ -446,12 +453,25 @@ func (s *sqlcAgentStore) CourseReport(ctx context.Context, userID uuid.UUID, slu
 }
 
 // GetCourseDefinition returns one course's stored CourseDefinition 2.0 document
-// (raw jsonb) by slug. A legacy course with no 2.0 definition returns a nil
-// []byte (SQL NULL), NOT an error; an unknown slug returns pgx.ErrNoRows. The
-// caller (Course Runtime Slice 8's definition endpoint) treats both as 404 —
-// that course routes to the legacy player.
-func (s *sqlcAgentStore) GetCourseDefinition(ctx context.Context, slug string) ([]byte, error) {
-	return s.q.GetCourseDefinition(ctx, slug)
+// (raw jsonb) by slug, alongside the course's publish status. A legacy course
+// with no 2.0 definition returns a nil []byte (SQL NULL), NOT an error; an
+// unknown slug returns pgx.ErrNoRows. The caller (Course Runtime Slice 8's
+// definition endpoint) treats both as 404 — that course routes to the legacy
+// player.
+func (s *sqlcAgentStore) GetCourseDefinition(ctx context.Context, slug string) ([]byte, string, error) {
+	row, err := s.q.GetCourseDefinition(ctx, slug)
+	if err != nil {
+		return nil, "", err
+	}
+	return row.CourseDefinition, row.Status, nil
+}
+
+// CourseStatus returns one course's publish status ('preview'/'published') by
+// slug, without loading the full player payload — for endpoints that only
+// need to gate visibility (e.g. definition/session lookups), not render the
+// course itself.
+func (s *sqlcAgentStore) CourseStatus(ctx context.Context, slug string) (string, error) {
+	return s.q.GetCourseStatusBySlug(ctx, slug)
 }
 
 // SetCourseDefinition attaches (or replaces) one course's CourseDefinition 2.0

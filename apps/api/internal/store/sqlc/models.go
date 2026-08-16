@@ -133,6 +133,8 @@ type Course struct {
 	UpdatedAt        time.Time `json:"updated_at"`
 	AudioManifest    []byte    `json:"audio_manifest"`
 	CourseDefinition []byte    `json:"course_definition"`
+	Status           string    `json:"status"`
+	Cover            string    `json:"cover"`
 }
 
 type CourseProgress struct {

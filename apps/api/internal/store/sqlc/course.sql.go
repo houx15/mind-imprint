@@ -46,7 +46,7 @@ func (q *Queries) FinishedCourseIDsByUser(ctx context.Context, userID uuid.UUID)
 }
 
 const getCourseBySlug = `-- name: GetCourseBySlug :one
-SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest
+SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest, status, cover
 FROM course WHERE slug = $1
 `
 
@@ -62,6 +62,8 @@ type GetCourseBySlugRow struct {
 	Structure     []byte    `json:"structure"`
 	RenderCache   []byte    `json:"render_cache"`
 	AudioManifest []byte    `json:"audio_manifest"`
+	Status        string    `json:"status"`
+	Cover         string    `json:"cover"`
 }
 
 func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBySlugRow, error) {
@@ -79,23 +81,30 @@ func (q *Queries) GetCourseBySlug(ctx context.Context, slug string) (GetCourseBy
 		&i.Structure,
 		&i.RenderCache,
 		&i.AudioManifest,
+		&i.Status,
+		&i.Cover,
 	)
 	return i, err
 }
 
 const getCourseDefinition = `-- name: GetCourseDefinition :one
-SELECT course_definition FROM course WHERE slug = $1
+SELECT course_definition, status FROM course WHERE slug = $1
 `
+
+type GetCourseDefinitionRow struct {
+	CourseDefinition []byte `json:"course_definition"`
+	Status           string `json:"status"`
+}
 
 // Course Runtime Slice 8: the stored CourseDefinition 2.0 document for one
 // course, addressed by slug. NULL (a legacy course with no 2.0 definition) is
 // returned as a nil []byte — the handler treats both "unknown slug" (no row) and
 // "no definition" (NULL) as 404, routing that course to the legacy player.
-func (q *Queries) GetCourseDefinition(ctx context.Context, slug string) ([]byte, error) {
+func (q *Queries) GetCourseDefinition(ctx context.Context, slug string) (GetCourseDefinitionRow, error) {
 	row := q.db.QueryRow(ctx, getCourseDefinition, slug)
-	var course_definition []byte
-	err := row.Scan(&course_definition)
-	return course_definition, err
+	var i GetCourseDefinitionRow
+	err := row.Scan(&i.CourseDefinition, &i.Status)
+	return i, err
 }
 
 const getCourseProgressByCourseID = `-- name: GetCourseProgressByCourseID :one
@@ -174,10 +183,23 @@ func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProg
 	return i, err
 }
 
+const getCourseStatusBySlug = `-- name: GetCourseStatusBySlug :one
+SELECT status FROM course WHERE slug = $1
+`
+
+func (q *Queries) GetCourseStatusBySlug(ctx context.Context, slug string) (string, error) {
+	row := q.db.QueryRow(ctx, getCourseStatusBySlug, slug)
+	var status string
+	err := row.Scan(&status)
+	return status, err
+}
+
 const listCourseRows = `-- name: ListCourseRows :many
 
-SELECT slug, branch, title, blurb, time_label, card_ids, step_count
-FROM course ORDER BY branch, title
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover
+FROM course
+WHERE status = 'published' OR $1::bool
+ORDER BY branch, title
 `
 
 type ListCourseRowsRow struct {
@@ -188,6 +210,8 @@ type ListCourseRowsRow struct {
 	TimeLabel string   `json:"time_label"`
 	CardIds   []string `json:"card_ids"`
 	StepCount int32    `json:"step_count"`
+	Status    string   `json:"status"`
+	Cover     string   `json:"cover"`
 }
 
 // Course v2 (migration 0050): the phase-gated runtime (course_session/
@@ -196,8 +220,10 @@ type ListCourseRowsRow struct {
 // (+ attached tool card ids), addressed by a stable slug; course.id stays a
 // uuid so the pre-existing event.course_id FK (0031) survives. course_progress
 // stays the page-position unit, now with started_at/completed_at bookkeeping.
-func (q *Queries) ListCourseRows(ctx context.Context) ([]ListCourseRowsRow, error) {
-	rows, err := q.db.Query(ctx, listCourseRows)
+// Preview courses are visible only when include_preview is true (the caller is
+// an admin). Students (false) see 'published' only.
+func (q *Queries) ListCourseRows(ctx context.Context, includePreview bool) ([]ListCourseRowsRow, error) {
+	rows, err := q.db.Query(ctx, listCourseRows, includePreview)
 	if err != nil {
 		return nil, err
 	}
@@ -213,6 +239,8 @@ func (q *Queries) ListCourseRows(ctx context.Context) ([]ListCourseRowsRow, erro
 			&i.TimeLabel,
 			&i.CardIds,
 			&i.StepCount,
+			&i.Status,
+			&i.Cover,
 		); err != nil {
 			return nil, err
 		}
@@ -239,6 +267,21 @@ type SetCourseDefinitionParams struct {
 // writes this column.
 func (q *Queries) SetCourseDefinition(ctx context.Context, arg SetCourseDefinitionParams) error {
 	_, err := q.db.Exec(ctx, setCourseDefinition, arg.Slug, arg.CourseDefinition)
+	return err
+}
+
+const setCourseStatusAndCover = `-- name: SetCourseStatusAndCover :exec
+UPDATE course SET status = $2, cover = $3, updated_at = now() WHERE slug = $1
+`
+
+type SetCourseStatusAndCoverParams struct {
+	Slug   string `json:"slug"`
+	Status string `json:"status"`
+	Cover  string `json:"cover"`
+}
+
+func (q *Queries) SetCourseStatusAndCover(ctx context.Context, arg SetCourseStatusAndCoverParams) error {
+	_, err := q.db.Exec(ctx, setCourseStatusAndCover, arg.Slug, arg.Status, arg.Cover)
 	return err
 }
 
@@ -286,6 +329,50 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 	)
 	var i UpsertCourseRow
 	err := row.Scan(&i.ID, &i.Slug)
+	return i, err
+}
+
+const upsertCourseDefinition = `-- name: UpsertCourseDefinition :one
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, status, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,'preview', now())
+ON CONFLICT (slug) DO UPDATE SET
+  branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
+  time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
+  course_definition = EXCLUDED.course_definition, updated_at = now()
+RETURNING slug, status
+`
+
+type UpsertCourseDefinitionParams struct {
+	Slug             string   `json:"slug"`
+	Branch           string   `json:"branch"`
+	Title            string   `json:"title"`
+	Blurb            string   `json:"blurb"`
+	TimeLabel        string   `json:"time_label"`
+	CardIds          []string `json:"card_ids"`
+	CourseDefinition []byte   `json:"course_definition"`
+}
+
+type UpsertCourseDefinitionRow struct {
+	Slug   string `json:"slug"`
+	Status string `json:"status"`
+}
+
+// Course authoring: create/modify a 2.0 course. status is set to 'preview' ONLY
+// on insert (EXCLUDED is not applied on conflict), so re-posting a definition
+// never (un)publishes an existing course. structure/render_cache are the empty
+// object for 2.0 courses (they use course_definition, not the legacy blobs).
+func (q *Queries) UpsertCourseDefinition(ctx context.Context, arg UpsertCourseDefinitionParams) (UpsertCourseDefinitionRow, error) {
+	row := q.db.QueryRow(ctx, upsertCourseDefinition,
+		arg.Slug,
+		arg.Branch,
+		arg.Title,
+		arg.Blurb,
+		arg.TimeLabel,
+		arg.CardIds,
+		arg.CourseDefinition,
+	)
+	var i UpsertCourseDefinitionRow
+	err := row.Scan(&i.Slug, &i.Status)
 	return i, err
 }
 

@@ -70,7 +70,7 @@ func TestCourseStoreV2(t *testing.T) {
 		t.Fatalf("UpsertCourse: %v", err)
 	}
 
-	sums, err := st.ListCourses(ctx)
+	sums, err := st.ListCourses(ctx, false)
 	if err != nil {
 		t.Fatalf("ListCourses: %v", err)
 	}

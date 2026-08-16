@@ -6,11 +6,15 @@
 -- stays the page-position unit, now with started_at/completed_at bookkeeping.
 
 -- name: ListCourseRows :many
-SELECT slug, branch, title, blurb, time_label, card_ids, step_count
-FROM course ORDER BY branch, title;
+-- Preview courses are visible only when include_preview is true (the caller is
+-- an admin). Students (false) see 'published' only.
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover
+FROM course
+WHERE status = 'published' OR sqlc.arg(include_preview)::bool
+ORDER BY branch, title;
 
 -- name: GetCourseBySlug :one
-SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest
+SELECT id, slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest, status, cover
 FROM course WHERE slug = $1;
 
 -- name: UpsertCourse :one
@@ -60,7 +64,26 @@ RETURNING course_id, current_ordinal, completed_ordinals, started_at, completed_
 -- course, addressed by slug. NULL (a legacy course with no 2.0 definition) is
 -- returned as a nil []byte — the handler treats both "unknown slug" (no row) and
 -- "no definition" (NULL) as 404, routing that course to the legacy player.
-SELECT course_definition FROM course WHERE slug = $1;
+SELECT course_definition, status FROM course WHERE slug = $1;
+
+-- name: GetCourseStatusBySlug :one
+SELECT status FROM course WHERE slug = $1;
+
+-- name: UpsertCourseDefinition :one
+-- Course authoring: create/modify a 2.0 course. status is set to 'preview' ONLY
+-- on insert (EXCLUDED is not applied on conflict), so re-posting a definition
+-- never (un)publishes an existing course. structure/render_cache are the empty
+-- object for 2.0 courses (they use course_definition, not the legacy blobs).
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, status, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,'preview', now())
+ON CONFLICT (slug) DO UPDATE SET
+  branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
+  time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
+  course_definition = EXCLUDED.course_definition, updated_at = now()
+RETURNING slug, status;
+
+-- name: SetCourseStatusAndCover :exec
+UPDATE course SET status = $2, cover = $3, updated_at = now() WHERE slug = $1;
 
 -- name: SetCourseDefinition :exec
 -- Course Runtime Slice 8: attach (or replace) one course's CourseDefinition 2.0

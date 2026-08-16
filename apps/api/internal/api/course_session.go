@@ -66,7 +66,7 @@ func (a *API) postCourseSession(w http.ResponseWriter, r *http.Request) {
 	// No session yet — mint one. The 2.0 definition's course.id is the session's
 	// courseId (a course-id primitive, not the DB uuid). A course without a 2.0
 	// definition has no runtime session (404).
-	def, err := store.GetCourseDefinition(r.Context(), slug)
+	def, _, err := store.GetCourseDefinition(r.Context(), slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
 			httpx.WriteError(w, r, httpx.ErrNotFound("课程不存在"))
