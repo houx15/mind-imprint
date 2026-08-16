@@ -102,7 +102,7 @@ The slug→prefix convention is **`courses/<slug>/<relativePath>`**. (The out-of
 
 ### Frontend: collect paths (`packages/course-contract`)
 
-New exported pure function `collectAssetPaths(document: CourseDefinitionDocument): string[]` — walks the document and returns the **deduped** set of relative asset paths it references: image `source`, video `source`/`poster`/`captions`, pdf `source`, and narration `audio`. It mirrors the field coverage of the referential validator (`src/validate/referential.ts`); factor the shared walk if it reduces duplication, otherwise a focused collector is fine. Absolute (`http(s)://`) and `data:` references are **excluded** (they need no signing).
+New exported pure function `collectAssetPaths(document: CourseDefinitionDocument): string[]` — walks the document and returns the **deduped** set of relative asset paths it references. It must cover **every** field typed `relativeAssetPathSchema` in the contract (so a new asset field can't silently drop): image item `source`, pdf `source`, video `source`/`poster`/`captions`/`interaction.source`, `interactiveHtml.source`, narration `audio`, and `opening.fallback.audio`/`closing.fallback.audio`. This is a dedicated walk (the referential validator does not touch assets). Absolute (`http(s)://`) and `data:` references are **excluded** (they need no signing).
 
 ### Frontend: the resolver becomes a lookup (`apps/web/src/course/assetResolver.ts`)
 
