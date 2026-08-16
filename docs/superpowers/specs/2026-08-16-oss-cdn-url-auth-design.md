@@ -145,12 +145,7 @@ Ordering matters — enabling URL鉴权 in the console immediately 403s any URL 
 
 **Key rotation:** the 备KEY lets you rotate without downtime — Aliyun validates against both 主KEY and 备KEY. To rotate: set the new secret as 备KEY in the console, wait for propagation, move it to 主KEY in the console and `OSS_CDN_AUTH_KEY`, redeploy.
 
-The two keys for this cutover (generated for this slice; server holds only the primary):
-
-```
-主KEY (primary → OSS_CDN_AUTH_KEY): REDACTED-BURNED-KEY
-备KEY (backup, console only):        REDACTED-BURNED-KEY
-```
+The 主KEY/备KEY for the cutover are **secrets and are delivered out-of-band (chat), never committed to git** — this doc must not contain their values. The server holds only the 主KEY (env `OSS_CDN_AUTH_KEY`); the 备KEY lives only in the CDN console. (An earlier draft of this doc committed a key pair; that pair is **burned** — do not use it — and was replaced with freshly generated keys delivered separately.)
 
 ## Out of scope
 
