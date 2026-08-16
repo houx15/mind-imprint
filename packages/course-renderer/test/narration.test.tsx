@@ -47,6 +47,70 @@ describe("NarrationController + NarrationPlayer", () => {
     expect(events).toEqual([{ sourceId: "two" }]);
   });
 
+  it("pause(id) is a no-op for a stale/other narration id, and acts when the id matches (P2-04 target semantics)", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const emit: SliceEmitter = () => {};
+
+    controller.play(narration("one"), "/one.mp3", emit);
+    engine.calls.length = 0; // ignore the initial play() call
+
+    controller.pause("stale-id");
+    expect(engine.calls).toEqual([]);
+
+    controller.pause("one");
+    expect(engine.calls).toEqual([{ op: "pause" }]);
+  });
+
+  it("stop(id) is a no-op for a stale/other narration id, and acts when the id matches (P2-04 target semantics)", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const emit: SliceEmitter = () => {};
+
+    controller.play(narration("one"), "/one.mp3", emit);
+    engine.calls.length = 0; // ignore the initial play() call
+
+    controller.stop("stale-id");
+    expect(engine.calls).toEqual([]);
+    expect(controller.getSnapshot()?.id).toBe("one"); // still active — never stopped
+
+    controller.stop("one");
+    expect(engine.calls.every((c) => c.op === "stop")).toBe(true); // acted (detach() also stops the engine)
+    expect(controller.getSnapshot()).toBeNull();
+  });
+
+  it("pause()/stop() with no id (manual transport controls) always act on whichever track is active", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const emit: SliceEmitter = () => {};
+
+    controller.play(narration("one"), "/one.mp3", emit);
+    engine.calls.length = 0;
+
+    controller.pause();
+    expect(engine.calls).toEqual([{ op: "pause" }]);
+
+    controller.stop();
+    expect(engine.calls.slice(-1)).toEqual([{ op: "stop" }]);
+  });
+
+  it("surfaces a rejected play() as a blocked status instead of hanging, without throwing", async () => {
+    const engine = new FakeAudioEngine();
+    engine.rejectNextPlay = new Error("autoplay blocked");
+    const controller = new NarrationController(engine);
+    const emit: SliceEmitter = () => {};
+
+    controller.play(narration("one"), "/one.mp3", emit);
+    expect(controller.getSnapshot()?.status).toBe("playing");
+
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(controller.getSnapshot()?.status).toBe("blocked");
+
+    // retryBlocked() (the fallback control) can recover it.
+    controller.retryBlocked();
+    expect(controller.getSnapshot()?.status).toBe("playing");
+  });
+
   it("renders the active narration transcript", () => {
     const engine = new FakeAudioEngine();
     const controller = new NarrationController(engine);

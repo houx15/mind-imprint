@@ -165,10 +165,12 @@ export function SlicePlayer({
           break;
         }
         case "pauseNarration":
-          controller.pause();
+          // §P2-04 target semantics: only act if this IS the active track —
+          // a stale/other narration id must never pause the current one.
+          controller.pause(effect.narrationId);
           break;
         case "stopNarration":
-          controller.stop();
+          controller.stop(effect.narrationId);
           break;
         case "startTimer": {
           const handle = scheduler.setTimeout(

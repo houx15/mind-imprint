@@ -31,6 +31,15 @@ export interface CoursePlayerProps {
   clock: Clock;
   /** Fires once the event bus is built. Test/host seam for observing the bus. */
   onBusReady?: (bus: RuntimeEventBus) => void;
+  /**
+   * Fires once the learner dismisses the Closing scene (§6.2 / P1-03) — the
+   * ONLY authoritative completion signal for the host. The session already
+   * transitions `in-progress -> closing -> completed` on its own; do NOT
+   * infer UI completion by wrapping `setStatus("completed")` — the Closing
+   * scene is rendered and playable for as long as the learner stays on it,
+   * and only THIS callback means "the host may now navigate away."
+   */
+  onComplete?: () => void;
 }
 
 type Phase = "loading" | "error" | "opening" | "playing" | "closing";
@@ -69,7 +78,7 @@ function ErrorSurface({ issues }: { issues: ValidationIssue[] }) {
  * scene generators (fallback path is exercised in this slice). Structurally
  * invalid documents render a diagnostic surface and never mount a SlicePlayer.
  */
-export function CoursePlayer({ document, adapters, studentId, sessionId, idFactory, clock, onBusReady }: CoursePlayerProps) {
+export function CoursePlayer({ document, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete }: CoursePlayerProps) {
   const validation = useMemo(() => validateCourseDefinition(document), [document]);
 
   const [phase, setPhase] = useState<Phase>(validation.ok ? "loading" : "error");
@@ -149,9 +158,12 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       const hasProgress = restored != null && (progressStatuses.has(restored.status) || restored.current != null);
 
       if (hasProgress) {
-        // Completed with a saved Closing — restore straight to Closing,
-        // never regenerate or reset to Opening/index 0.
-        if (restored!.status === "completed" && restored!.closing) {
+        // Completed, OR closing-but-not-yet-dismissed (the learner reloaded
+        // before clicking "完成课程"), with a saved Closing — restore
+        // straight to Closing, never regenerate or reset to Opening/index 0,
+        // and never touch status (a "closing" session stays "closing" until
+        // the learner's own dismissal completes it — see handleCompleteClosing).
+        if ((restored!.status === "completed" || restored!.status === "closing") && restored!.closing) {
           setOpening(restored!.opening ?? placeholderScene());
           setClosing(restored!.closing);
           setPhase("closing");
@@ -250,9 +262,16 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
     setPhase("playing");
   };
 
+  // §P1-03 — Closing is an explicit lifecycle phase, not a side-effect of
+  // completion: the session moves to "closing" and the scene renders/plays
+  // BEFORE any "completed" write, so the learner is guaranteed to see (and
+  // hear) it — the production host's onFinish-on-completion wrapper can no
+  // longer unmount the player out from under it. "completed" is only set
+  // once the learner dismisses via handleCompleteClosing.
   const runClosing = async () => {
     if (!course) return;
     const sid = activeSessionId.current;
+    if (sid) await adapters.sessionAdapter.setStatus(sid, "closing");
     const input: ClosingSceneInput = {
       which: "closing",
       preparedSummary: course.closing.preparedSummary,
@@ -266,12 +285,18 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       },
     };
     const result = await adapters.closingGenerator.generate(input);
-    if (sid) {
-      await adapters.sessionAdapter.saveScene(sid, "closing", result);
-      await adapters.sessionAdapter.setStatus(sid, "completed");
-    }
+    if (sid) await adapters.sessionAdapter.saveScene(sid, "closing", result);
     setClosing(result);
     setPhase("closing");
+  };
+
+  // The Closing completion policy (§P1-03): the learner's explicit "完成课程"
+  // dismissal — nothing else marks the session completed or tells the host
+  // it may navigate away.
+  const handleCompleteClosing = async () => {
+    const sid = activeSessionId.current;
+    if (sid) await adapters.sessionAdapter.setStatus(sid, "completed");
+    onComplete?.();
   };
 
   const handleNavigateNext = () => {
@@ -300,6 +325,7 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         estimatedMinutes={course.estimatedMinutes}
         objectives={course.objectives.map((o) => o.text)}
         learningPreview={course.opening.learningPreview}
+        assetResolver={adapters.assetResolver}
         onStart={handleStart}
       />
     );
@@ -312,6 +338,8 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         summary={course.closing.preparedSummary}
         takeaways={course.closing.takeaways}
         transferApplications={course.closing.transferApplications}
+        assetResolver={adapters.assetResolver}
+        onComplete={handleCompleteClosing}
       />
     );
   }

@@ -7,7 +7,14 @@ import { createContext, useContext } from "react";
  * a new track.
  */
 export interface AudioEngine {
-  play(url: string): void;
+  /**
+   * Starts playback. Returns a Promise that resolves once playback actually
+   * started and REJECTS when the browser blocks it (autoplay policy, no user
+   * gesture yet, decode/network failure, ...). Callers must handle rejection
+   * explicitly — a workflow gated on `narration.ended` must never hang
+   * waiting on a play() that never started.
+   */
+  play(url: string): Promise<void>;
   pause(): void;
   stop(): void;
   /** Registers an `ended` listener; returns an unsubscribe fn. */
@@ -34,12 +41,13 @@ export class HtmlAudioEngine implements AudioEngine {
     return this.audio;
   }
 
-  play(url: string): void {
+  play(url: string): Promise<void> {
     const audio = this.ensure();
     if (audio.src !== url) audio.src = url;
     audio.currentTime = 0;
-    // Ignore the play() promise: autoplay policy rejection is not fatal here.
-    void audio.play?.();
+    // Surface the play() promise so callers (narration/scene audio) can
+    // detect and react to autoplay-policy rejection instead of hanging.
+    return audio.play();
   }
 
   pause(): void {

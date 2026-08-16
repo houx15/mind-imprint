@@ -8,6 +8,13 @@ export interface ActiveNarration {
   id: string;
   text: string;
   audioUrl: string;
+  /**
+   * `"blocked"` when the engine's `play()` rejected (autoplay policy / no
+   * user gesture yet) — `narration.ended` will never fire until the learner
+   * retries via {@link NarrationController.retryBlocked}. Never hangs the
+   * workflow silently: the transcript and controls stay visible either way.
+   */
+  status: "playing" | "blocked";
 }
 
 /**
@@ -33,19 +40,31 @@ export class NarrationController {
   /** Starts a narration track, stopping any current one first (single-track). */
   play(narration: NarrationDefinition, audioUrl: string, emit: SliceEmitter): void {
     if (this.active) this.detach();
-    this.active = { id: narration.id, text: narration.text, audioUrl };
+    this.active = { id: narration.id, text: narration.text, audioUrl, status: "playing" };
     this.unsubEnded = this.engine.onEnded(() => {
       emit(narration.id, "narration.ended");
     });
-    this.engine.play(audioUrl);
+    // A rejected play() (autoplay blocked) surfaces as `status: "blocked"`
+    // instead of hanging silently — `narration.ended` genuinely won't fire
+    // until the learner retries via `retryBlocked()` (P2-04 fail-safe).
+    this.engine.play(audioUrl).catch(() => {
+      if (this.active?.id === narration.id) {
+        this.active = { ...this.active, status: "blocked" };
+        this.notify();
+      }
+    });
     this.notify();
   }
 
-  pause(): void {
+  /** Pauses the active track — only when `narrationId` is unset or matches it (§P2-04 target semantics: never act on a stale/other track). */
+  pause(narrationId?: string): void {
+    if (narrationId !== undefined && this.active?.id !== narrationId) return;
     this.engine.pause();
   }
 
-  stop(): void {
+  /** Stops the active track — only when `narrationId` is unset or matches it (§P2-04 target semantics: never act on a stale/other track). */
+  stop(narrationId?: string): void {
+    if (narrationId !== undefined && this.active?.id !== narrationId) return;
     this.engine.stop();
     this.detach();
     this.active = null;
@@ -55,6 +74,20 @@ export class NarrationController {
   /** Replays the active track from the start (§11 replay control). */
   replay(emit: SliceEmitter): void {
     if (this.active) this.play({ id: this.active.id, text: this.active.text, audio: "" }, this.active.audioUrl, emit);
+  }
+
+  /** Retries a `"blocked"` track from a real user gesture (the fallback "播放" control). */
+  retryBlocked(): void {
+    if (!this.active || this.active.status !== "blocked") return;
+    const { id, audioUrl } = this.active;
+    this.engine.play(audioUrl).catch(() => {
+      if (this.active?.id === id) {
+        this.active = { ...this.active, status: "blocked" };
+        this.notify();
+      }
+    });
+    this.active = { ...this.active, status: "playing" };
+    this.notify();
   }
 
   private detach(): void {
@@ -94,7 +127,12 @@ export function NarrationPlayer({ controller, emit }: NarrationPlayerProps) {
   const active = useSyncExternalStore(controller.subscribe, controller.getSnapshot);
   if (!active) return null;
   return (
-    <section className="course-narration" data-narration-id={active.id} aria-label="讲解">
+    <section className="course-narration" data-narration-id={active.id} data-narration-status={active.status} aria-label="讲解">
+      {active.status === "blocked" ? (
+        <button type="button" className="course-narration__play-fallback" data-narration-control="retry" onClick={() => controller.retryBlocked()}>
+          播放
+        </button>
+      ) : null}
       <div className="course-narration__controls">
         <button type="button" data-narration-control="replay" onClick={() => controller.replay(emit)}>
           重播

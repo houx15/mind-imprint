@@ -91,10 +91,11 @@ function buildSeededAdapters(seed: CourseSession) {
 }
 
 describe("CoursePlayer end-to-end", () => {
-  it("plays Opening → Slices → Closing driven by the workflow, persisting the session", async () => {
+  it("plays Opening → Slices → Closing driven by the workflow; Closing is visible and the session stays 'closing' until the learner dismisses it, only then firing onComplete (P1-03)", async () => {
     const { sessionAdapter, adapters } = buildAdapters();
     const engine = new FakeAudioEngine();
     let bus: RuntimeEventBus | null = null;
+    const onComplete = vi.fn();
 
     render(
       <AudioEngineProvider value={engine}>
@@ -107,6 +108,7 @@ describe("CoursePlayer end-to-end", () => {
           onBusReady={(b) => {
             bus = b;
           }}
+          onComplete={onComplete}
         />
       </AudioEngineProvider>,
     );
@@ -130,18 +132,67 @@ describe("CoursePlayer end-to-end", () => {
     // slice two: narration.ended → navigate past the last slice → Closing.
     act(() => engine.fireEnded());
 
-    // Closing renders the prepared summary + takeaways.
+    // Closing renders the prepared summary + takeaways — the learner ACTUALLY
+    // sees it (this is the P1-03 fix: it must render before status flips to
+    // "completed", not after).
     await screen.findByText("你走完了两个片段，理解了演示流程。");
     expect(screen.getByText("片段按顺序推进")).toBeInTheDocument();
     expect(screen.getByText("讲解结束触发揭示")).toBeInTheDocument();
 
-    // Session ends completed.
-    const sessions = await Promise.all(
-      // there is exactly one session; find it by loading the only created id.
-      [await sessionAdapter.load("session-1")],
+    // Still "closing", not "completed" — and onComplete has NOT fired — while
+    // the Closing scene is up and the learner hasn't dismissed it yet.
+    const midSession = await sessionAdapter.load("session-1");
+    expect(midSession!.status).toBe("closing");
+    expect(midSession!.closing?.fallbackUsed).toBe(true);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    // The learner dismisses via the explicit completion control — only THEN
+    // does the session become "completed" and onComplete fire.
+    await userEvent.click(screen.getByRole("button", { name: "完成课程" }));
+    expect(onComplete).toHaveBeenCalledTimes(1);
+
+    const finalSession = await sessionAdapter.load("session-1");
+    expect(finalSession!.status).toBe("completed");
+  });
+
+  it("resumes a 'closing' (not-yet-dismissed) session returned by get-or-create: renders Closing directly without regenerating, and dismissing it still completes + fires onComplete", async () => {
+    const seed: CourseSession = {
+      id: "server-session-closing",
+      courseId: "static-demo-course",
+      courseSchemaVersion: "2.0",
+      studentId: "student-1",
+      status: "closing",
+      opening: { text: "欢迎回来", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      closing: { text: "已保存的收尾", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      sliceStates: {},
+      events: [],
+    };
+    const { adapters, setStatusCalls } = buildSeededAdapters(seed);
+    const engine = new FakeAudioEngine();
+    const onComplete = vi.fn();
+
+    render(
+      <AudioEngineProvider value={engine}>
+        <CoursePlayer
+          document={staticCourseDocument}
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev")}
+          clock={clock}
+          onComplete={onComplete}
+        />
+      </AudioEngineProvider>,
     );
-    expect(sessions[0]!.status).toBe("completed");
-    expect(sessions[0]!.closing?.fallbackUsed).toBe(true);
+
+    // Restored straight to the saved Closing narration — never regenerated,
+    // never touched status on the way in.
+    await screen.findByText("已保存的收尾");
+    expect(setStatusCalls).toEqual([]);
+    expect(onComplete).not.toHaveBeenCalled();
+
+    await userEvent.click(screen.getByRole("button", { name: "完成课程" }));
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(setStatusCalls).toEqual(["completed"]);
   });
 
   it("resumes an existing mid-Slice session: lands on the same Slice + workflow step + block state, not Opening/index 0", async () => {

@@ -8,9 +8,21 @@ import type { AudioEngine } from "../../src/narration/audioEngine";
 export class FakeAudioEngine implements AudioEngine {
   readonly calls: Array<{ op: "play" | "pause" | "stop"; url?: string }> = [];
   private readonly endedListeners = new Set<() => void>();
+  /**
+   * When set, the NEXT `play()` call rejects with this error instead of
+   * resolving (simulates a browser blocking autoplay). Consumed once, so a
+   * retried `play()` (the fallback control) can succeed.
+   */
+  rejectNextPlay: Error | null = null;
 
-  play(url: string): void {
+  play(url: string): Promise<void> {
     this.calls.push({ op: "play", url });
+    if (this.rejectNextPlay) {
+      const error = this.rejectNextPlay;
+      this.rejectNextPlay = null;
+      return Promise.reject(error);
+    }
+    return Promise.resolve();
   }
 
   pause(): void {
