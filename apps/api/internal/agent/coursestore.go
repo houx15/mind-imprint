@@ -481,6 +481,43 @@ func (s *sqlcAgentStore) SetCourseDefinition(ctx context.Context, slug string, d
 	return s.q.SetCourseDefinition(ctx, sqlc.SetCourseDefinitionParams{Slug: slug, CourseDefinition: def})
 }
 
+// UpsertCourseDefinitionInput is UpsertCourseDefinition's argument — the
+// course authoring & publish lifecycle's Task 3 create/modify path.
+// Definition travels as []byte (the whole { schemaVersion, course } document,
+// stored verbatim as jsonb); structure/render_cache stay the query's own
+// empty-object default for 2.0 courses, which use Definition instead.
+type UpsertCourseDefinitionInput struct {
+	Slug       string
+	Branch     string
+	Title      string
+	Blurb      string
+	TimeLabel  string
+	CardIDs    []string
+	Definition []byte
+}
+
+// UpsertCourseDefinition creates or modifies one 2.0 course's definition,
+// keyed by slug, and returns the row's resulting status ('preview' on a
+// fresh insert; unchanged on a re-PUT of an existing course — see the
+// UpsertCourseDefinition query's ON CONFLICT contract in
+// internal/store/queries/course.sql).
+func (s *sqlcAgentStore) UpsertCourseDefinition(ctx context.Context, in UpsertCourseDefinitionInput) (string, error) {
+	cardIDs := in.CardIDs
+	if cardIDs == nil {
+		cardIDs = []string{}
+	}
+	row, err := s.q.UpsertCourseDefinition(ctx, sqlc.UpsertCourseDefinitionParams{
+		Slug: in.Slug, Branch: in.Branch, Title: in.Title, Blurb: in.Blurb,
+		TimeLabel:        in.TimeLabel,
+		CardIds:          cardIDs,
+		CourseDefinition: in.Definition,
+	})
+	if err != nil {
+		return "", err
+	}
+	return row.Status, nil
+}
+
 // GetCourseSession reads one student's CourseSession snapshot (§16) for one
 // course by slug. found=false (no row yet) is not an error — the caller's
 // get-or-create then mints a fresh session. Owner scoping is by userID, so a
