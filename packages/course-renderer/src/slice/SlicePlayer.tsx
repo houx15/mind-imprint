@@ -262,16 +262,17 @@ export function SlicePlayer({
       applyEffectsRef.current(runtimeRef.current!.send(toWorkflowInput(event)), event.occurredAt);
     });
 
-    // §revisit (restore-completed-state) — landing on an already-COMPLETED
-    // Slice (Previous, or a mid-course reload that parks on one) must show it
-    // completed, not re-fire its terminal step's effects: entering `restoreStepId`
-    // normally would replay `completeSlice`/`navigate` (and any narration) as if
-    // the student had just finished it again. Only a non-completed restore (or a
-    // fresh mount) actually applies `start()`'s effects.
-    if (restoreState?.status !== "completed") {
-      applyEffectsRef.current(runtime.start());
-    } else {
-      runtime.start();
+    // §revisit (restore-completed-state) — landing on an already-TERMINAL step
+    // (Previous/reload onto a finished Slice, OR a `navigate`-only terminal that
+    // never set status "completed") must NOT re-fire that step's
+    // `completeSlice`/`navigate`/narration effects — that would re-complete or
+    // bounce the student straight forward again. Gate on the runtime's terminal
+    // check (covers BOTH completeSlice and navigate terminals), not on the
+    // persisted status: `start()` still runs to install the restored step, but
+    // its effects apply only when the restored step is not itself terminal.
+    const startEffects = runtime.start();
+    if (!runtime.isTerminal) {
+      applyEffectsRef.current(startEffects);
     }
 
     const pending = timers.current;
