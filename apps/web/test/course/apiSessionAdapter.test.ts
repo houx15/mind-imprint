@@ -115,4 +115,59 @@ describe("makeApiSessionAdapter", () => {
     const [, saved] = saveMock.mock.calls[0]!;
     expect(saved.status).toBe("completed");
   });
+
+  it("setCurrent() updates the held session's `current` and schedules a snapshot", async () => {
+    const adapter = makeApiSessionAdapter(SLUG, { debounceMs: 400 });
+    const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });
+    await adapter.setCurrent(created.id, { partId: "part-1", sliceId: "slice-observe-and-answer", workflowStepId: "step-1" });
+    await adapter.flush();
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    const [, saved] = saveMock.mock.calls[0]!;
+    expect(saved.current).toEqual({ partId: "part-1", sliceId: "slice-observe-and-answer", workflowStepId: "step-1" });
+  });
+
+  // P2-07: a rejection must not be mistaken for a successful save — the
+  // snapshot stays dirty and a later flush re-sends the SAME data.
+  it("a rejected save keeps the snapshot dirty; a subsequent flush re-sends it", async () => {
+    const adapter = makeApiSessionAdapter(SLUG);
+    const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });
+    await adapter.appendEvent(created.id, event);
+
+    saveMock.mockRejectedValueOnce(new Error("network down"));
+    await expect(adapter.flush()).rejects.toThrow("network down");
+    expect(adapter.getSaveStatus()).toBe("error");
+    expect(saveMock).toHaveBeenCalledTimes(1);
+
+    // A second flush re-sends the still-dirty snapshot — nothing was dropped.
+    await adapter.flush();
+    expect(saveMock).toHaveBeenCalledTimes(2);
+    const [, secondSave] = saveMock.mock.calls[1]!;
+    expect(secondSave.events).toHaveLength(1);
+    expect(secondSave.events[0]!.id).toBe("ev-1");
+    expect(adapter.getSaveStatus()).toBe("saved");
+  });
+
+  it("the debounced auto-save path does not throw an unhandled rejection on failure", async () => {
+    vi.useFakeTimers();
+    try {
+      saveMock.mockRejectedValueOnce(new Error("boom"));
+      const adapter = makeApiSessionAdapter(SLUG, { debounceMs: 50 });
+      const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });
+      await adapter.appendEvent(created.id, event);
+
+      // Advancing past the debounce window fires the auto-save; it rejects,
+      // but must be caught internally (no bare `void flush()`).
+      await vi.advanceTimersByTimeAsync(50);
+      expect(saveMock).toHaveBeenCalledTimes(1);
+      expect(adapter.getSaveStatus()).toBe("error");
+
+      // The retry (bounded backoff) is armed and eventually re-sends.
+      saveMock.mockResolvedValueOnce(undefined);
+      await vi.advanceTimersByTimeAsync(1_000);
+      expect(saveMock.mock.calls.length).toBeGreaterThanOrEqual(2);
+      expect(adapter.getSaveStatus()).toBe("saved");
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

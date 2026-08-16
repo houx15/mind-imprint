@@ -17,19 +17,33 @@ import { createCourseSession, saveCourseSession } from "@/api/courseDefinition";
 // create POST (there is no per-id GET; get-or-create returns the resumed session
 // when one exists). A terminal `completed` status flushes immediately.
 //
+// P2-07 durability: a rejected save must NEVER look like a successful one.
+// `pending` is only cleared once `save()` resolves; a rejection keeps the
+// dirty snapshot and arms a bounded-backoff retry. `mutationSeq` guards the
+// (rarer) case of a mutation arriving while a save is in flight — that
+// mutation re-dirties independently rather than being silently swept up by
+// the in-flight save's success.
+//
 // Determinism: no Date.now / Math.random / id minting here — session identity
 // and timestamps come from the server. The one real timer (the debounce) is the
 // host boundary, exactly where side effects are permitted.
 
-/** Extends the runtime's SessionAdapter with a manual snapshot flush. */
+/** Persistence status a host UI can surface (e.g. "保存中…" / "保存失败，重试中"). */
+export type SaveStatus = "idle" | "saving" | "saved" | "error";
+
+/** Extends the runtime's SessionAdapter with a manual snapshot flush + status. */
 export interface ApiSessionAdapter extends SessionAdapter {
   /** Immediately persist any pending snapshot (e.g. on unmount / page hide). */
   flush(): Promise<void>;
+  /** Current persistence status of the held session. */
+  getSaveStatus(): SaveStatus;
 }
 
 export interface ApiSessionAdapterOptions {
   /** Debounce window before a coalesced snapshot PUT. Default 400ms. */
   debounceMs?: number;
+  /** Cap for the retry backoff (ms). Default 10s. */
+  maxRetryMs?: number;
   /** Injectable client seams (tests pass fakes; prod uses the real client). */
   createSession?: (slug: string) => Promise<CourseSession>;
   saveSession?: (slug: string, session: CourseSession) => Promise<void>;
@@ -37,29 +51,77 @@ export interface ApiSessionAdapterOptions {
 
 export function makeApiSessionAdapter(slug: string, opts: ApiSessionAdapterOptions = {}): ApiSessionAdapter {
   const debounceMs = opts.debounceMs ?? 400;
+  const maxRetryMs = opts.maxRetryMs ?? 10_000;
   const create = opts.createSession ?? createCourseSession;
   const save = opts.saveSession ?? saveCourseSession;
 
   let current: CourseSession | null = null;
   let timer: ReturnType<typeof setTimeout> | null = null;
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
   let pending = false;
+  let mutationSeq = 0;
+  let retryDelayMs = debounceMs;
+  let saveStatus: SaveStatus = "idle";
+  let inFlight: Promise<void> | null = null;
 
-  async function flush(): Promise<void> {
+  function scheduleRetry(): void {
+    if (retryTimer) clearTimeout(retryTimer);
+    retryTimer = setTimeout(() => {
+      retryTimer = null;
+      // Unattended retry: doFlush() already records saveStatus and re-arms
+      // the next retry on failure, so there's nothing further to do here —
+      // just avoid an unhandled rejection.
+      void flush().catch(() => {});
+    }, retryDelayMs);
+    retryDelayMs = Math.min(retryDelayMs * 2, maxRetryMs);
+  }
+
+  async function doFlush(): Promise<void> {
     if (timer) {
       clearTimeout(timer);
       timer = null;
     }
+    if (retryTimer) {
+      clearTimeout(retryTimer);
+      retryTimer = null;
+    }
     if (!pending || !current) return;
-    pending = false;
-    await save(slug, current);
+    const seqAtStart = mutationSeq;
+    saveStatus = "saving";
+    try {
+      await save(slug, current);
+      // Only clear the dirty flag if nothing mutated the session while this
+      // save was in flight — a concurrent mutation re-dirties on its own.
+      if (mutationSeq === seqAtStart) pending = false;
+      saveStatus = "saved";
+      retryDelayMs = debounceMs;
+    } catch (err) {
+      saveStatus = "error";
+      scheduleRetry();
+      throw err;
+    }
+  }
+
+  /** De-duped: overlapping callers (e.g. pagehide + unmount) share one save. */
+  function flush(): Promise<void> {
+    if (!inFlight) {
+      inFlight = doFlush().finally(() => {
+        inFlight = null;
+      });
+    }
+    return inFlight;
   }
 
   function scheduleSnapshot(): void {
     pending = true;
+    mutationSeq += 1;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => {
       timer = null;
-      void flush();
+      // Debounced auto-save: handle the rejection here instead of a bare
+      // `void flush()` (P2-07) — doFlush() already records saveStatus="error"
+      // and arms a retry, so this just prevents an unhandled rejection.
+      void flush().catch(() => {});
     }, debounceMs);
   }
 
@@ -110,6 +172,13 @@ export function makeApiSessionAdapter(slug: string, opts: ApiSessionAdapterOptio
       if (status === "completed") await flush();
     },
 
+    async setCurrent(sessionId: string, next: CourseSession["current"]): Promise<void> {
+      const session = requireLoaded(sessionId);
+      session.current = next;
+      scheduleSnapshot();
+    },
+
     flush,
+    getSaveStatus: () => saveStatus,
   };
 }

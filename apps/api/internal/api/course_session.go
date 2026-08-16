@@ -116,6 +116,45 @@ func (a *API) postCourseSession(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"session": json.RawMessage(stored)})
 }
 
+// courseSessionStatuses mirrors CourseSession.status's enum in
+// @mind-imprint/course-contract (packages/course-contract/src/session.ts).
+var courseSessionStatuses = map[string]bool{
+	"created":     true,
+	"opening":     true,
+	"in-progress": true,
+	"closing":     true,
+	"completed":   true,
+}
+
+// validateCourseSessionSnapshot performs BORDER validation only (review
+// P2-07): the body must be a well-formed JSON *object* carrying every
+// required top-level CourseSession field, with `status` one of the known
+// enum values. It returns the validated status so the caller doesn't need to
+// re-parse it. Deep contract validation (nested event/slice-state shapes,
+// id formats, etc.) stays client-side — that's packages/course-contract's
+// job (Zod, `.strict()`) — this is just enough to keep a non-object or
+// structurally-garbage body from ever reaching storage.
+func validateCourseSessionSnapshot(raw json.RawMessage) (status string, err error) {
+	var probe map[string]json.RawMessage
+	if uerr := json.Unmarshal(raw, &probe); uerr != nil || probe == nil {
+		return "", httpx.ErrBadRequest("validation_failed", "session 必须是一个 JSON 对象", nil)
+	}
+	required := []string{"id", "courseId", "courseSchemaVersion", "studentId", "status", "sliceStates", "events"}
+	var missing []string
+	for _, field := range required {
+		if _, ok := probe[field]; !ok {
+			missing = append(missing, field)
+		}
+	}
+	if len(missing) > 0 {
+		return "", httpx.ErrBadRequest("validation_failed", "session 缺少必需字段", missing)
+	}
+	if uerr := json.Unmarshal(probe["status"], &status); uerr != nil || !courseSessionStatuses[status] {
+		return "", httpx.ErrBadRequest("validation_failed", "session.status 不是已知状态", nil)
+	}
+	return status, nil
+}
+
 // putCourseSession snapshot-writes the whole CourseSession blob. Owner-scoped:
 // the WHERE user_id keeps a student from overwriting anyone else's session.
 func (a *API) putCourseSession(w http.ResponseWriter, r *http.Request) {
@@ -132,17 +171,18 @@ func (a *API) putCourseSession(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "session 不能为空", nil))
 		return
 	}
+	status, verr := validateCourseSessionSnapshot(body.Session)
+	if verr != nil {
+		httpx.WriteError(w, r, verr)
+		return
+	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	_, courseID, err := store.GetCoursePayload(r.Context(), slug)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	var meta struct {
-		Status string `json:"status"`
-	}
-	_ = json.Unmarshal(body.Session, &meta)
-	if err := store.SaveCourseSession(r.Context(), user.ID, courseID, body.Session, meta.Status); err != nil {
+	if err := store.SaveCourseSession(r.Context(), user.ID, courseID, body.Session, status); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

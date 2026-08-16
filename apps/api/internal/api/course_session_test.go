@@ -95,6 +95,84 @@ func TestCourseSessionOwnerScoped(t *testing.T) {
 	}
 }
 
+// TestCourseSessionPutValidatesSnapshot — P2-07: the PUT border-validates the
+// incoming snapshot instead of best-effort status extraction. A non-object
+// body and a body missing/garbling `status` both 400; a well-formed snapshot
+// (even with a status the server has never seen written before) still saves.
+func TestCourseSessionPutValidatesSnapshot(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedCourseWithDefinition(t, pool, "def-course", testCourseDefinitionJSON)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+
+	// A valid session to start from (some tests mutate a copy of this).
+	created := postSession(t, h, cookie, "def-course")
+
+	putSession := func(t *testing.T, payload string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", "/api/v1/courses/def-course/session", bytes.NewReader([]byte(payload))), cookie))
+		return rec
+	}
+
+	t.Run("non-object session body rejected with 400", func(t *testing.T) {
+		rec := putSession(t, `{"session": [1,2,3]}`)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("array session: want 400, got %d %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("session missing required top-level fields rejected with 400", func(t *testing.T) {
+		rec := putSession(t, `{"session": {"id": "x", "status": "created"}}`)
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("incomplete session: want 400, got %d %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("session with an unknown status value rejected with 400", func(t *testing.T) {
+		mutated := map[string]any{}
+		for k, v := range created {
+			mutated[k] = v
+		}
+		mutated["status"] = "not-a-real-status"
+		body, _ := json.Marshal(map[string]any{"session": mutated})
+		rec := putSession(t, string(body))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("unknown status: want 400, got %d %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("session with status as the wrong JSON type rejected with 400", func(t *testing.T) {
+		mutated := map[string]any{}
+		for k, v := range created {
+			mutated[k] = v
+		}
+		mutated["status"] = 42
+		body, _ := json.Marshal(map[string]any{"session": mutated})
+		rec := putSession(t, string(body))
+		if rec.Code != http.StatusBadRequest {
+			t.Fatalf("numeric status: want 400, got %d %s", rec.Code, rec.Body)
+		}
+	})
+
+	t.Run("a well-formed snapshot is accepted and persisted", func(t *testing.T) {
+		mutated := map[string]any{}
+		for k, v := range created {
+			mutated[k] = v
+		}
+		mutated["status"] = "closing"
+		body, _ := json.Marshal(map[string]any{"session": mutated})
+		rec := putSession(t, string(body))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("valid session: want 200, got %d %s", rec.Code, rec.Body)
+		}
+		resumed := postSession(t, h, cookie, "def-course")
+		if resumed["status"] != "closing" {
+			t.Fatalf("resumed session status = %v, want closing (the accepted snapshot)", resumed["status"])
+		}
+	})
+}
+
 // seedSchoolID returns the seeded student's school id (for placing a second
 // student in the same school without hardcoding the seed uuid).
 func seedSchoolID(t *testing.T, pool *pgxpool.Pool) uuid.UUID {

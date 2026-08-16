@@ -27,6 +27,9 @@ vi.mock("@mind-imprint/course-renderer", () => ({
 // Session adapter stubbed to a recording fake so RuntimeCoursePlayer's setStatus
 // WRAPPER (the onFinish-on-completed seam) is what's under test.
 const baseSetStatus = vi.fn().mockResolvedValue(undefined);
+// P2-07 lifecycle-flush wiring is what's under test in several specs below —
+// this fake must resolve like the real adapter's flush() would.
+const baseFlush = vi.fn().mockResolvedValue(undefined);
 vi.mock("@/course/apiSessionAdapter", () => ({
   makeApiSessionAdapter: vi.fn(() => ({
     load: vi.fn(),
@@ -35,7 +38,9 @@ vi.mock("@/course/apiSessionAdapter", () => ({
     saveSliceState: vi.fn(),
     saveScene: vi.fn(),
     setStatus: baseSetStatus,
-    flush: vi.fn(),
+    setCurrent: vi.fn().mockResolvedValue(undefined),
+    flush: baseFlush,
+    getSaveStatus: vi.fn(() => "idle"),
   })),
 }));
 
@@ -77,6 +82,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   lastPlayerProps = null;
   baseSetStatus.mockResolvedValue(undefined);
+  baseFlush.mockResolvedValue(undefined);
   collectAssetPaths.mockReturnValue([]);
   fetchCourseAssetUrls.mockResolvedValue({ assetUrls: {}, expiresAt: "2999-01-01T00:00:00Z" });
 });
@@ -171,6 +177,58 @@ describe("RuntimeCoursePlayer", () => {
     expect(fetchCourseAssetUrls).not.toHaveBeenCalled();
     // Unresolved (unmapped) paths pass through unchanged.
     expect(lastPlayerProps.adapters.assetResolver.resolve("assets/a.png")).toBe("assets/a.png");
+  });
+
+  // P2-07: the session adapter's `flush` must survive being wired into the
+  // renderer's adapters object and fire on the lifecycle exits a student
+  // actually takes — not just a clean unmount.
+  it("flushes the session adapter on pagehide", async () => {
+    getDefMock.mockResolvedValue(golden);
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByTestId("runtime-player");
+
+    expect(baseFlush).not.toHaveBeenCalled();
+    await act(async () => {
+      window.dispatchEvent(new Event("pagehide"));
+    });
+    expect(baseFlush).toHaveBeenCalledTimes(1);
+  });
+
+  it("flushes the session adapter when the tab is backgrounded (visibilitychange → hidden)", async () => {
+    getDefMock.mockResolvedValue(golden);
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByTestId("runtime-player");
+
+    const visibilitySpy = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    try {
+      await act(async () => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+      expect(baseFlush).toHaveBeenCalledTimes(1);
+    } finally {
+      visibilitySpy.mockRestore();
+    }
+  });
+
+  it("does NOT flush on visibilitychange while still visible", async () => {
+    getDefMock.mockResolvedValue(golden);
+    render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByTestId("runtime-player");
+
+    await act(async () => {
+      document.dispatchEvent(new Event("visibilitychange"));
+    });
+    expect(baseFlush).not.toHaveBeenCalled();
+  });
+
+  it("flushes the session adapter on unmount", async () => {
+    getDefMock.mockResolvedValue(golden);
+    const { unmount } = render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByTestId("runtime-player");
+
+    expect(baseFlush).not.toHaveBeenCalled();
+    unmount();
+    expect(baseFlush).toHaveBeenCalledTimes(1);
   });
 });
 

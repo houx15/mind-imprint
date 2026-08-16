@@ -48,6 +48,12 @@ export function RuntimeCoursePlayer({
   const onFinishRef = useRef(onFinish);
   onFinishRef.current = onFinish;
 
+  // The sessionAdapter field on `adapters` is typed to the runtime's narrower
+  // SessionAdapter (no `flush`) — this ref keeps the concrete adapter's flush
+  // reachable for the lifecycle-exit handling below (P2-07). Reassigned inside
+  // the `adapters` useMemo, which always runs before this ref is read.
+  const flushRef = useRef<() => Promise<void>>(() => Promise.resolve());
+
   // Signed CDN asset-URL map, read live by the resolver via a ref getter so a
   // refresh (re-signing before `expiresAt`) never rebuilds `adapters` below.
   const assetUrlsRef = useRef<Record<string, string>>({});
@@ -59,6 +65,7 @@ export function RuntimeCoursePlayer({
   // live, so refreshing the signed map never rebuilds this object.
   const adapters = useMemo<CourseRuntimeAdapters>(() => {
     const base = makeApiSessionAdapter(slug);
+    flushRef.current = () => base.flush();
     const sessionAdapter: SessionAdapter = {
       ...base,
       async setStatus(sessionId, status) {
@@ -73,6 +80,31 @@ export function RuntimeCoursePlayer({
       closingGenerator: makeApiSceneGenerator(slug),
     };
   }, [slug]);
+
+  // P2-07: flush the session adapter's pending snapshot on every lifecycle
+  // exit a student might take instead of a clean unmount — backgrounding the
+  // tab (`visibilitychange` → hidden), closing/navigating away (`pagehide`),
+  // and this component's own unmount. `window.document` (not the bare
+  // `document` identifier) because the `document` local state var above
+  // shadows the global DOM `document` within this component's scope.
+  useEffect(() => {
+    const flushNow = () => {
+      void flushRef.current().catch(() => {
+        // Best-effort on an exit path — the adapter's own retry/backoff
+        // keeps trying; there's no UI left to report to here.
+      });
+    };
+    const handleVisibility = () => {
+      if (window.document.visibilityState === "hidden") flushNow();
+    };
+    window.addEventListener("pagehide", flushNow);
+    window.document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      window.removeEventListener("pagehide", flushNow);
+      window.document.removeEventListener("visibilitychange", handleVisibility);
+      flushNow();
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
