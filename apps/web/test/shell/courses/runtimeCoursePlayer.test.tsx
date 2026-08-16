@@ -14,6 +14,9 @@ import { getCourseDefinition } from "@/api/courseDefinition";
 // (the only thing that should).
 let lastPlayerProps: any = null;
 vi.mock("@mind-imprint/course-renderer", () => ({
+  // Passthrough so RuntimeCoursePlayer's <InteractionLoaderProvider> (Slice 3)
+  // wrapper renders its children in these host-wiring tests.
+  InteractionLoaderProvider: ({ children }: { children: any }) => children,
   CoursePlayer: (props: any) => {
     lastPlayerProps = props;
     return (

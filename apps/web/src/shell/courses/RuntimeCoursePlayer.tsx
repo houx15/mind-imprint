@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { CoursePlayer } from "@mind-imprint/course-renderer";
+import { CoursePlayer, InteractionLoaderProvider } from "@mind-imprint/course-renderer";
 import type { CourseRuntimeAdapters } from "@mind-imprint/course-runtime";
 import { collectAssetPaths } from "@mind-imprint/course-contract";
 import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
@@ -8,6 +8,7 @@ import { getCourseDefinition } from "@/api/courseDefinition";
 import { fetchCourseAssetUrls } from "@/api/courseAssetUrls";
 import { ApiError } from "@/api/client";
 import { makeCdnAssetResolver } from "@/course/assetResolver";
+import { makeInteractionLoader } from "@/course/interactionLoader";
 import { makeApiSessionAdapter } from "@/course/apiSessionAdapter";
 import { makeApiSceneGenerator } from "@/course/apiSceneGenerator";
 
@@ -72,6 +73,11 @@ export function RuntimeCoursePlayer({
   // Signed CDN asset-URL map, read live by the resolver via a ref getter so a
   // refresh (re-signing before `expiresAt`) never rebuilds `adapters` below.
   const assetUrlsRef = useRef<Record<string, string>>({});
+
+  // The production video-interaction loader (Slice 3, P1-01): fetches + parses a
+  // Video Block's interaction JSON on demand, reusing the live signed asset-url
+  // map (so a refreshed URL is used on a retry). Built once; caches by source.
+  const interactionLoader = useMemo(() => makeInteractionLoader(() => assetUrlsRef.current), []);
 
   // Built once per slug: the sessionAdapter holds the authoritative session
   // client-side, so it must survive re-renders. Persists status normally,
@@ -190,15 +196,17 @@ export function RuntimeCoursePlayer({
         {error ? (
           <div style={{ padding: 40, color: "var(--mk-secondary)", fontSize: 14 }}>{error}</div>
         ) : document ? (
-          <CoursePlayer
-            document={document}
-            adapters={adapters}
-            studentId={studentId ?? PLACEHOLDER_STUDENT_ID}
-            idFactory={() => crypto.randomUUID()}
-            clock={() => new Date().toISOString()}
-            onComplete={() => onFinishRef.current()}
-            signalResolver={resolveOpeningSignals}
-          />
+          <InteractionLoaderProvider value={interactionLoader}>
+            <CoursePlayer
+              document={document}
+              adapters={adapters}
+              studentId={studentId ?? PLACEHOLDER_STUDENT_ID}
+              idFactory={() => crypto.randomUUID()}
+              clock={() => new Date().toISOString()}
+              onComplete={() => onFinishRef.current()}
+              signalResolver={resolveOpeningSignals}
+            />
+          </InteractionLoaderProvider>
         ) : (
           <div aria-busy="true" style={{ padding: 40, color: "var(--mk-faint)", fontSize: 14 }}>
             正在加载课程…
