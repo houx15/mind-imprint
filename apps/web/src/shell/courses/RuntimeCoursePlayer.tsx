@@ -195,7 +195,7 @@ export function RuntimeCoursePlayer({
       {/* P1-06: the course region does NOT page-scroll — the renderer's
           `.course-shell` owns the one-Slice/one-screen layout and constrains
           overflow to intentional per-slot viewers. */}
-      <div style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
+      <div data-testid="course-region" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
         {error ? (
           <div style={{ padding: 40, color: "var(--mk-secondary)", fontSize: 14 }}>{error}</div>
         ) : document ? (

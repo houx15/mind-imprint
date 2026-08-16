@@ -200,6 +200,16 @@ describe("RuntimeCoursePlayer", () => {
     }
   });
 
+  it("does not page-scroll the course region (P1-06 one-screen; renderer shell owns overflow)", async () => {
+    getDefMock.mockResolvedValue(golden);
+    collectAssetPaths.mockReturnValue([]);
+    render(<RuntimeCoursePlayer slug={SLUG} onExit={vi.fn()} onFinish={vi.fn()} />);
+    await screen.findByTestId("runtime-player");
+    const region = screen.getByTestId("course-region");
+    expect(region.style.overflow).toBe("hidden");
+    expect(region.style.overflowY).not.toBe("auto");
+  });
+
   it("skips the asset-urls fetch when the course references no assets", async () => {
     getDefMock.mockResolvedValue(golden);
     collectAssetPaths.mockReturnValue([]);
