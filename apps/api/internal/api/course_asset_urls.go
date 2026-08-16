@@ -31,11 +31,18 @@ type courseAssetURLsResp struct {
 }
 
 // validRelativeAssetPath mirrors the shape of packages/course-contract's
-// relativeAssetPathSchema: non-empty, no leading slash, no ".." segment, no
-// scheme. It is a border check, not a schema port.
+// relativeAssetPathSchema: non-empty, no leading slash, no backslash, no ".."
+// PATH SEGMENT (not substring — a schema-valid authored filename like
+// "assets/case..v2.mp4" must still pass), no scheme. It is a border check,
+// not a schema port.
 func validRelativeAssetPath(p string) bool {
-	if p == "" || strings.HasPrefix(p, "/") || strings.Contains(p, "..") {
+	if p == "" || strings.HasPrefix(p, "/") || strings.Contains(p, "\\") {
 		return false
+	}
+	for _, seg := range strings.Split(p, "/") {
+		if seg == ".." {
+			return false
+		}
 	}
 	lower := strings.ToLower(p)
 	return !strings.HasPrefix(lower, "http://") &&
