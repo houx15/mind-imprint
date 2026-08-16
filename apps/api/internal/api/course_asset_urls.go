@@ -62,6 +62,9 @@ func (a *API) postCourseAssetURLs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slug := r.PathValue("slug")
+	if !a.requireVisibleCourse(w, r, slug) {
+		return
+	}
 	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_slug", "无效的课程标识。", nil))
 		return

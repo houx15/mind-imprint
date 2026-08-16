@@ -88,3 +88,9 @@ func (a *API) BuildSpineProjectionForTest(ctx context.Context, projectID uuid.UU
 func ComputeDanglingSourceIdsForTest(refs []sqlc.Reference, leads []sqlc.ExplorationLead) []string {
 	return computeDanglingSourceIds(refs, leads)
 }
+
+// IsAdminForTest exposes the unexported isAdmin (course_visibility.go) to the
+// external api_test package for a pure table test.
+func IsAdminForTest(ctx context.Context) bool {
+	return isAdmin(ctx)
+}

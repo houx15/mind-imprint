@@ -45,6 +45,9 @@ type courseSessionInit struct {
 func (a *API) postCourseSession(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
 	slug := r.PathValue("slug")
+	if !a.requireVisibleCourse(w, r, slug) {
+		return
+	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
 	// Resolve the course uuid (404 on an unknown slug).

@@ -22,6 +22,9 @@ import (
 
 func (a *API) getCourseDefinition(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
+	if !a.requireVisibleCourse(w, r, slug) {
+		return
+	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	def, _, err := store.GetCourseDefinition(r.Context(), slug)
 	if err != nil {

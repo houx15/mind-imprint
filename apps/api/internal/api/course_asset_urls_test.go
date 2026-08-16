@@ -37,10 +37,17 @@ func TestCourseAssetKey(t *testing.T) {
 	}
 }
 
+// newAssetURLsRequest builds a request carrying an admin user in context —
+// these tests exercise pure signing/validation logic with no DB wired
+// (Deps{OSS: ...} only), and requireVisibleCourse's isAdmin(ctx) short-circuit
+// (course_visibility.go) is what lets it skip the CourseStatus DB lookup here.
+// The non-admin (DB-backed) path of the gate is covered end-to-end by
+// course_visibility_test.go.
 func newAssetURLsRequest(t *testing.T, slug, body string) *http.Request {
 	t.Helper()
 	r := httptest.NewRequest(http.MethodPost, "/api/v1/courses/"+slug+"/asset-urls", strings.NewReader(body))
 	r.SetPathValue("slug", slug)
+	r = r.WithContext(WithUser(r.Context(), User{Role: "admin"}))
 	return r
 }
 

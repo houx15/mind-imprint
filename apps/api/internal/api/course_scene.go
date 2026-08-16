@@ -64,6 +64,9 @@ type sceneResultDTO struct {
 // sceneForCourse handles POST /api/v1/courses/{slug}/scene.
 func (a *API) sceneForCourse(w http.ResponseWriter, r *http.Request) {
 	slug := r.PathValue("slug")
+	if !a.requireVisibleCourse(w, r, slug) {
+		return
+	}
 	u, _ := UserFromContext(r.Context())
 
 	// Entitlement gate — a scene generation spends tokens, so it sits behind the
