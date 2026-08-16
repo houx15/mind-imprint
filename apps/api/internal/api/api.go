@@ -217,8 +217,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/courses/{slug}/session", protected(a.putCourseSession))        // Course Runtime Slice 8
 	mux.Handle("POST /api/v1/courses/{slug}/asset-urls", protected(a.postCourseAssetURLs)) // OSS CDN URL鉴权
 	mux.Handle("GET /api/v1/courses/{slug}/report", protected(a.getCourseReport))
-	mux.Handle("POST /api/v1/admin/courses", http.HandlerFunc(a.postAdminUploadCourse))                // Task 7 (admin-key gate inside)
-	mux.Handle("PUT /api/v1/admin/courses/{slug}/definition", http.HandlerFunc(a.putCourseDefinition)) // course generator create/modify
+	mux.Handle("POST /api/v1/admin/courses", http.HandlerFunc(a.postAdminUploadCourse))                            // Task 7 (admin-key gate inside)
+	mux.Handle("PUT /api/v1/admin/courses/{slug}/definition", http.HandlerFunc(a.putCourseDefinition))             // course generator create/modify
+	mux.Handle("POST /api/v1/admin/courses/{slug}/asset-upload-url", http.HandlerFunc(a.postCourseAssetUploadURL)) // course generator media upload
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
 	mux.Handle("GET /api/v1/voice/asr", protected(a.getVoiceASR))
 	// OSS storage. Admin upload + resolve are gated by the OSS_ADMIN_KEY bearer
