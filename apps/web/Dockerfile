@@ -20,6 +20,9 @@ RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 # only installs the web project's dependency closure (skips site/peraspera).
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/contracts/package.json packages/contracts/package.json
+COPY packages/course-contract/package.json packages/course-contract/package.json
+COPY packages/course-runtime/package.json packages/course-runtime/package.json
+COPY packages/course-renderer/package.json packages/course-renderer/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/site/package.json apps/site/package.json
 COPY apps/peraspera/package.json apps/peraspera/package.json
@@ -28,6 +31,9 @@ RUN pnpm install --frozen-lockfile --filter web...
 # Sources needed to build the SPA.
 COPY tsconfig.base.json ./
 COPY packages/contracts packages/contracts
+COPY packages/course-contract packages/course-contract
+COPY packages/course-runtime packages/course-runtime
+COPY packages/course-renderer packages/course-renderer
 COPY apps/web apps/web
 
 # The public origin of the Go API, baked into the bundle at build time. The API
