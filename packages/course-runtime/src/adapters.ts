@@ -38,6 +38,8 @@ export interface SessionAdapter {
   saveSliceState(sessionId: string, sliceId: string, state: SliceSessionState): Promise<void>;
   saveScene(sessionId: string, which: SceneSlot, result: RuntimeSceneResult): Promise<void>;
   setStatus(sessionId: string, status: CourseSession["status"]): Promise<void>;
+  /** §16 resume — records which part/slice/workflow-step is currently active, so a later restore knows where to jump back to. */
+  setCurrent(sessionId: string, current: CourseSession["current"]): Promise<void>;
 }
 
 /**
@@ -140,6 +142,10 @@ export class InMemorySessionAdapter implements SessionAdapter {
 
   async setStatus(sessionId: string, status: CourseSession["status"]): Promise<void> {
     this.require(sessionId).status = status;
+  }
+
+  async setCurrent(sessionId: string, current: CourseSession["current"]): Promise<void> {
+    this.require(sessionId).current = current ? clone(current) : undefined;
   }
 
   private require(sessionId: string): CourseSession {

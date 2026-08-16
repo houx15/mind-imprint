@@ -61,18 +61,21 @@ describe("VideoRenderer", () => {
     expect(typeNames(events)).toContain("video.started");
   });
 
-  it("handle pause drives the engine and emits video.paused", () => {
+  it("handle pause drives the engine and emits video.paused with the current position", () => {
     const { engine, registry, events } = renderVideo(endedRuleBlock);
+    engine.advanceTo(37);
     act(() => registry.get("case-video")!.pause());
     expect(engine.calls).toContain("pause");
     expect(typeNames(events)).toContain("video.paused");
+    expect(events.find((e) => e.type === "video.paused")).toMatchObject({ payload: { positionSeconds: 37 } });
   });
 
-  it("engine ended with completion video-ended emits video.ended then block.completed", () => {
+  it("engine ended with completion video-ended emits video.ended (with position) then block.completed", () => {
     const { engine, events } = renderVideo(endedRuleBlock);
+    engine.advanceTo(90);
     act(() => engine.fireEnded());
     expect(typeNames(events)).toEqual(["video.ended", "block.completed"]);
-    expect(events[0]).toMatchObject({ sourceId: "case-video" });
+    expect(events[0]).toMatchObject({ sourceId: "case-video", payload: { positionSeconds: 90 } });
   });
 
   it("with no completion rule, ended emits video.ended but NOT block.completed", () => {

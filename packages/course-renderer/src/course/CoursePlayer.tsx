@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
   validateCourseDefinition,
+  CourseSession,
   type CourseDefinition,
   type RuntimeSceneResult,
   type SliceDefinition,
+  type SliceSessionState,
   type ValidationIssue,
 } from "@mind-imprint/course-contract";
 import {
@@ -81,18 +83,36 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
   const course = validation.ok ? validation.course : null;
   const entries = useMemo(() => (course ? flattenSlices(course) : []), [course]);
 
-  // Init once: create/restore the session, build the bus, generate the opening.
+  // A one-shot resume instruction for the FIRST SlicePlayer mount after init,
+  // set only when a validated existing session had `status:"in-progress"` and
+  // a `current` Slice we can still locate in this course. Consumed by index
+  // match in render — subsequent forward navigation always starts a slice fresh.
+  const resumeRef = useRef<{ index: number; stepId?: string; state?: SliceSessionState } | null>(null);
+
+  // Init once: restore (validated) or create the session, build the bus,
+  // resolve Opening/Closing without a redundant generator call when the
+  // session already carries them, and land on the right phase/position.
   const initRan = useRef(false);
   useEffect(() => {
     if (!course || initRan.current) return;
     initRan.current = true;
     let cancelled = false;
 
+    const placeholderScene = (): RuntimeSceneResult => ({
+      text: "",
+      generatedAt: clock(),
+      usedSignalTypes: [],
+      fallbackUsed: true,
+    });
+
     void (async () => {
-      const session = sessionId
-        ? (await adapters.sessionAdapter.load(sessionId)) ??
-          (await adapters.sessionAdapter.create({ courseId: course.id, studentId }))
-        : await adapters.sessionAdapter.create({ courseId: course.id, studentId });
+      const loaded = sessionId ? await adapters.sessionAdapter.load(sessionId) : null;
+      // Validate at the boundary (§16): a malformed/incompatible stored session
+      // must degrade to a fresh start, never crash the player.
+      const parsed = loaded ? CourseSession.safeParse(loaded) : null;
+      const restored = parsed?.success ? parsed.data : null;
+
+      const session = restored ?? (await adapters.sessionAdapter.create({ courseId: course.id, studentId }));
       if (cancelled) return;
 
       activeSessionId.current = session.id;
@@ -100,7 +120,47 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       setBus(newBus);
       onBusReady?.(newBus);
 
+      // Resume mid-course: a validated session that was actively playing and
+      // whose current Slice still exists in this course definition — skip
+      // Opening entirely and land straight back on that Slice.
+      const resumeIndex =
+        restored && restored.status === "in-progress" && restored.current
+          ? entries.findIndex((e) => e.partId === restored.current!.partId && e.slice.id === restored.current!.sliceId)
+          : -1;
+      if (resumeIndex >= 0) {
+        const current = restored!.current!;
+        const sliceState = restored!.sliceStates[current.sliceId];
+        resumeRef.current = {
+          index: resumeIndex,
+          stepId: sliceState?.currentWorkflowStepId ?? current.workflowStepId,
+          state: sliceState,
+        };
+        // The loading guard below requires a non-null `opening`, even though
+        // the Opening scene itself is never shown on this path.
+        setOpening(restored!.opening ?? placeholderScene());
+        indexRef.current = resumeIndex;
+        setCurrentIndex(resumeIndex);
+        setPhase("playing");
+        return;
+      }
+
+      // Resume into a completed session's Closing, restored (not regenerated).
+      if (restored && restored.status === "completed" && restored.closing) {
+        setOpening(restored.opening ?? placeholderScene());
+        setClosing(restored.closing);
+        setPhase("closing");
+        return;
+      }
+
       await adapters.sessionAdapter.setStatus(session.id, "opening");
+
+      // A session that already has a saved Opening (e.g. reloaded before
+      // clicking start) restores it instead of paying for regeneration.
+      if (restored?.opening) {
+        setOpening(restored.opening);
+        setPhase("opening");
+        return;
+      }
 
       const input: OpeningSceneInput = {
         which: "opening",
@@ -127,6 +187,21 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // §16 resume — record which Slice is active whenever it changes, so a later
+  // reload's `current` lookup (above) has somewhere to land.
+  useEffect(() => {
+    if (phase !== "playing") return;
+    const sid = activeSessionId.current;
+    const entry = entries[currentIndex];
+    if (!sid || !entry) return;
+    void adapters.sessionAdapter.setCurrent(sid, {
+      partId: entry.partId,
+      sliceId: entry.slice.id,
+      workflowStepId: entry.slice.workflow.initialStepId,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, currentIndex]);
 
   const handleStart = () => {
     const sid = activeSessionId.current;
@@ -203,6 +278,9 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
   }
 
   const entry = entries[currentIndex]!;
+  // The resume instruction only applies to the exact Slice it was computed
+  // for — once navigation moves past it, later Slices always start fresh.
+  const resume = resumeRef.current?.index === currentIndex ? resumeRef.current : null;
   return (
     <div className="course-player" data-phase="playing">
       <SlicePlayer
@@ -214,6 +292,8 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
         bus={bus}
         onSliceComplete={() => {}}
         onNavigateNext={handleNavigateNext}
+        restoreStepId={resume?.stepId}
+        restoreState={resume?.state}
       />
     </div>
   );

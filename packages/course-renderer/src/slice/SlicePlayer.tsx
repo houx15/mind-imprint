@@ -12,6 +12,7 @@ import {
   applyEffect,
   applyEvent,
   initSliceState,
+  setCurrentWorkflowStep,
   type CourseRuntimeAdapters,
   type RuntimeEventBus,
   type SliceEmitter,
@@ -116,11 +117,17 @@ export function SlicePlayer({
 
   const timers = useRef(new Map<string, unknown>());
   const emitRef = useRef<SliceEmitter | null>(null);
+  // The active WorkflowRuntime, so the effect interpreter can stamp the resume
+  // position (`currentWorkflowStepId`) after every start()/send() without
+  // re-subscribing. Set once in the mount effect, before it's first read.
+  const runtimeRef = useRef<WorkflowRuntime | null>(null);
 
   // The effect interpreter. Stable via ref so the mount effect and bus handler
-  // share one implementation without re-subscribing.
-  const applyEffectsRef = useRef<(effects: WorkflowEffect[]) => void>(() => {});
-  applyEffectsRef.current = (effects: WorkflowEffect[]) => {
+  // share one implementation without re-subscribing. `occurredAt`, when passed,
+  // is the triggering event's envelope timestamp (NEVER a fresh clock read) —
+  // threaded into `completeSlice` so `completedAt`/`elapsedSeconds` freeze correctly.
+  const applyEffectsRef = useRef<(effects: WorkflowEffect[], occurredAt?: string) => void>(() => {});
+  applyEffectsRef.current = (effects: WorkflowEffect[], occurredAt?: string) => {
     const emit = emitRef.current!;
     let next = stateRef.current;
     let completed = false;
@@ -140,7 +147,7 @@ export function SlicePlayer({
           registry.get(effect.targetId)?.reset();
           break;
         case "completeSlice":
-          next = applyEffect(next, effect);
+          next = applyEffect(next, effect, occurredAt);
           completed = true;
           break;
         case "navigate":
@@ -188,6 +195,11 @@ export function SlicePlayer({
       }
     }
 
+    // Stamp the resume position (§16) from the runtime's current step — a no-op
+    // (identity-guarded by setCurrentWorkflowStep) when send() didn't transition.
+    const runtime = runtimeRef.current;
+    if (runtime) next = setCurrentWorkflowStep(next, runtime.currentStepId);
+
     stateRef.current = next;
     forceRender();
     void adapters.sessionAdapter.saveSliceState(sessionId, slice.id, next);
@@ -202,12 +214,22 @@ export function SlicePlayer({
     emitRef.current = emit;
 
     const runtime = new WorkflowRuntime(slice.workflow, restoreStepId ? { restoreStepId } : undefined);
+    runtimeRef.current = runtime;
 
     const unsubscribe = bus.subscribe((event: CourseRuntimeEvent) => {
-      // Fold the raw event onto persisted state, then advance the workflow.
-      const folded = applyEvent(stateRef.current, { type: String(event.type), sourceId: event.sourceId, payload: event.payload });
+      // Persist every accepted event (the bus already dropped anything not for
+      // this active slice before delivering it here).
+      void adapters.sessionAdapter.appendEvent(sessionId, event);
+      // Fold the raw event onto persisted state (occurredAt stamps slice timing
+      // from the event envelope — never a fresh clock read), then advance the workflow.
+      const folded = applyEvent(stateRef.current, {
+        type: String(event.type),
+        sourceId: event.sourceId,
+        payload: event.payload,
+        occurredAt: event.occurredAt,
+      });
       stateRef.current = folded;
-      applyEffectsRef.current(runtime.send(toWorkflowInput(event)));
+      applyEffectsRef.current(runtime.send(toWorkflowInput(event)), event.occurredAt);
     });
 
     applyEffectsRef.current(runtime.start());

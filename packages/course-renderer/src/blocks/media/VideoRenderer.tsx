@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
+import type { VideoPositionPayload } from "@mind-imprint/course-runtime";
 import type { BlockRenderer, VideoBlock } from "../types";
 import { useVideoEngine } from "../../media/videoEngine";
 import { useMediaHandleRegistry } from "../../media/mediaRegistry";
@@ -48,7 +49,8 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
 
   const pause = useCallback(() => {
     engine.pause();
-    emitRef.current(block.id, "video.paused");
+    const payload: VideoPositionPayload = { positionSeconds: engine.currentTime() };
+    emitRef.current(block.id, "video.paused", payload);
   }, [engine, block.id]);
 
   const reset = useCallback(() => {
@@ -67,7 +69,8 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
   useEffect(() => {
     return engine.onEnded(() => {
       videoEndedRef.current = true;
-      emitRef.current(block.id, "video.ended");
+      const payload: VideoPositionPayload = { positionSeconds: engine.currentTime() };
+      emitRef.current(block.id, "video.ended", payload);
       maybeComplete();
     });
   }, [engine, block.id, maybeComplete]);

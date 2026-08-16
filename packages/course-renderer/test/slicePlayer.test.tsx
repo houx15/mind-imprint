@@ -87,6 +87,46 @@ describe("SlicePlayer", () => {
     expect(sliceState.blockStates["s1-continue"]!.enabled).toBe(true);
   });
 
+  it("persists every accepted event via sessionAdapter.appendEvent, with the typed payload and provenance", async () => {
+    const { sessionAdapter, session, adapters, bus } = await setup();
+    const appendEventSpy = vi.spyOn(sessionAdapter, "appendEvent");
+    const engine = new FakeAudioEngine();
+
+    await act(async () => {
+      render(
+        <AudioEngineProvider value={engine}>
+          <SlicePlayer
+            slice={sliceOne}
+            partId={STATIC_PART_ID}
+            sessionId={session.id}
+            adapters={adapters}
+            bus={bus}
+            onSliceComplete={vi.fn()}
+            onNavigateNext={vi.fn()}
+          />
+        </AudioEngineProvider>,
+      );
+    });
+
+    act(() => engine.fireEnded()); // narration.ended → reveal
+    const emit = bus.bindSlice(STATIC_PART_ID, sliceOne.id);
+    act(() => emit("s1-continue", "student.continue"));
+
+    // narration.ended (from the audio engine's mount-once subscription) and
+    // student.continue both flow through the bus subscriber and get persisted.
+    const persistedTypes = appendEventSpy.mock.calls.map(([, event]) => event.type);
+    expect(persistedTypes).toContain("narration.ended");
+    expect(persistedTypes).toContain("student.continue");
+
+    const continueCall = appendEventSpy.mock.calls.find(([, event]) => event.type === "student.continue")!;
+    expect(continueCall[0]).toBe(session.id);
+    expect(continueCall[1]).toMatchObject({ sourceId: "s1-continue", type: "student.continue", sliceId: sliceOne.id });
+
+    // Actually landed in the persisted session, not just called.
+    const persisted = await sessionAdapter.load(session.id);
+    expect(persisted!.events.map((e) => e.type)).toEqual(expect.arrayContaining(["narration.ended", "student.continue"]));
+  });
+
   it("ignores events for a non-active slice (bus scoping)", async () => {
     const { adapters, bus, session } = await setup();
     const engine = new FakeAudioEngine();
