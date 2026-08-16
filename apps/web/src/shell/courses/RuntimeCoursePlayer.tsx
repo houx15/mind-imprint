@@ -81,9 +81,13 @@ export function RuntimeCoursePlayer({
     setError(null);
     assetUrlsRef.current = {};
 
-    const scheduleRefresh = (assetSlug: string, paths: string[], expiresAt: string) => {
-      const lead = new Date(expiresAt).getTime() - Date.now() - 5 * 60_000; // 5 min early
-      const delay = Math.max(lead, 60_000);
+    const REFRESH_LEAD_MS = 5 * 60_000; // re-sign 5 min before the window lapses
+    const REFRESH_RETRY_MS = 60_000; // after a transient failure, retry this soon
+    // Schedule the next re-sign `delayMs` from now. Both the success and the
+    // failure branch re-arm the timer, so a single transient refresh failure
+    // retries instead of giving up — otherwise every asset would 403 for the
+    // rest of a session that outlives the URL鉴权 window.
+    const armRefresh = (assetSlug: string, paths: string[], delayMs: number) => {
       refreshTimer = setTimeout(() => {
         void (async () => {
           try {
@@ -91,12 +95,14 @@ export function RuntimeCoursePlayer({
             if (cancelled) return;
             assetUrlsRef.current = next.assetUrls;
             setRefreshTick((t) => t + 1); // re-render so renderers re-resolve
-            scheduleRefresh(assetSlug, paths, next.expiresAt);
+            const lead = new Date(next.expiresAt).getTime() - Date.now() - REFRESH_LEAD_MS;
+            armRefresh(assetSlug, paths, Math.max(lead, REFRESH_RETRY_MS));
           } catch {
-            /* transient; the next asset load falls back to the (now-stale) map */
+            if (cancelled) return;
+            armRefresh(assetSlug, paths, REFRESH_RETRY_MS); // keep the stale map, retry soon
           }
         })();
-      }, delay);
+      }, delayMs);
     };
 
     (async () => {
@@ -108,7 +114,8 @@ export function RuntimeCoursePlayer({
           const signed = await fetchCourseAssetUrls(slug, paths);
           if (cancelled) return;
           assetUrlsRef.current = signed.assetUrls;
-          scheduleRefresh(slug, paths, signed.expiresAt);
+          const lead = new Date(signed.expiresAt).getTime() - Date.now() - REFRESH_LEAD_MS;
+          armRefresh(slug, paths, Math.max(lead, REFRESH_RETRY_MS));
         }
         setDocument(doc);
       } catch (e) {

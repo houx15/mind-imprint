@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 
 import { ApiError } from "@/api/client";
 import { getCourseDefinition } from "@/api/courseDefinition";
@@ -127,6 +127,37 @@ describe("RuntimeCoursePlayer", () => {
     expect(collectAssetPaths).toHaveBeenCalledWith(golden);
     expect(fetchCourseAssetUrls).toHaveBeenCalledWith(SLUG, ["assets/a.png"]);
     expect(lastPlayerProps.adapters.assetResolver.resolve("assets/a.png")).toBe("https://cdn/a?auth_key=x");
+  });
+
+  it("retries the asset-url refresh after a transient failure instead of giving up", async () => {
+    vi.useFakeTimers();
+    try {
+      getDefMock.mockResolvedValue(golden);
+      collectAssetPaths.mockReturnValue(["assets/a.png"]);
+      // Initial sign uses a near expiry so the refresh arms at the 60s floor;
+      // the first refresh FAILS; the fix must re-arm so a later retry succeeds.
+      const soon = new Date(Date.now() + 60_000).toISOString();
+      fetchCourseAssetUrls
+        .mockResolvedValueOnce({ assetUrls: { "assets/a.png": "u1" }, expiresAt: soon })
+        .mockRejectedValueOnce(new Error("transient"))
+        .mockResolvedValueOnce({ assetUrls: { "assets/a.png": "u2" }, expiresAt: "2999-01-01T00:00:00Z" });
+
+      render(<RuntimeCoursePlayer slug={SLUG} studentId="s" onExit={vi.fn()} onFinish={vi.fn()} />);
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(1); }); // flush initial load
+      expect(fetchCourseAssetUrls).toHaveBeenCalledTimes(1);
+
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); }); // first refresh → fails
+      const afterFailure = fetchCourseAssetUrls.mock.calls.length;
+      expect(afterFailure).toBeGreaterThanOrEqual(2); // the refresh fired (and rejected)
+
+      // The point: a failed refresh must NOT give up. Advancing again drives at
+      // least one more refresh — without the retry, the count would stay put.
+      await act(async () => { await vi.advanceTimersByTimeAsync(60_000); });
+      expect(fetchCourseAssetUrls.mock.calls.length).toBeGreaterThan(afterFailure);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("skips the asset-urls fetch when the course references no assets", async () => {
