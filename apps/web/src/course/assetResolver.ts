@@ -1,44 +1,30 @@
 import type { AssetResolver } from "@mind-imprint/course-runtime";
-import { API_BASE } from "@/api/client";
 
-// assetResolver.ts — the production AssetResolver (Course Runtime §4, Slice 8).
-// The runtime resolves authored relative asset paths (`assets/videos/case.mp4`,
-// audio/captions/posters, …) into loadable URLs SYNCHRONOUSLY — the interface is
-// `resolve(relativePath) => string`, so it cannot await a per-object signed OSS
-// URL (that seam, api/oss.ts resolveUrl, is async). Instead a course's assets
-// live under one slug-scoped OSS/CDN prefix and we join the relative path onto
-// it. Already-absolute (`http(s):`) and inline (`data:`) references pass through
-// untouched so authored fixtures that hard-code a CDN URL still work.
+// assetResolver.ts — the production AssetResolver (Course Runtime §4). Course
+// assets are served as CDN URL鉴权 links minted server-side (POST
+// /courses/{slug}/asset-urls) and handed to the client as a { relativePath → url }
+// map. The runtime resolves paths SYNCHRONOUSLY, so resolution is a pure map
+// lookup: no awaiting, no per-object signing here. Absolute (http(s)://) and
+// inline (data:) references pass through untouched.
 
-const DEFAULT_PREFIX = "/oss/course-assets";
-
-export interface CdnAssetResolverConfig {
-  /** The course this resolver serves; scopes the asset base by slug. */
-  slug: string;
-  /**
-   * Base URL/prefix the course's assets live under. Defaults to a slug-scoped
-   * path under the API origin. Pass an explicit CDN base to point elsewhere.
-   */
-  baseUrl?: string;
-}
-
-/** Joins `base` and `rel` with exactly one slash between them. */
-function joinUrl(base: string, rel: string): string {
-  return `${base.replace(/\/+$/, "")}/${rel.replace(/^\/+/, "")}`;
+/** Pure lookup: mapped URL on a hit, the path unchanged on a miss/pass-through. */
+export function resolveAssetPath(assetUrls: Record<string, string>, relativePath: string): string {
+  if (/^https?:\/\//i.test(relativePath) || relativePath.startsWith("data:")) {
+    return relativePath;
+  }
+  return assetUrls[relativePath] ?? relativePath;
 }
 
 /**
- * makeCdnAssetResolver returns a synchronous AssetResolver that resolves a
- * course's relative asset paths against a slug-scoped base URL.
+ * makeCdnAssetResolver returns a synchronous AssetResolver backed by a live map.
+ * The getter is read on every resolve() so the host can refresh the signed URLs
+ * (before the URL鉴权 window lapses) without rebuilding the resolver or the
+ * adapters that own the session.
  */
-export function makeCdnAssetResolver(config: CdnAssetResolverConfig): AssetResolver {
-  const base = config.baseUrl ?? `${API_BASE}${DEFAULT_PREFIX}/${config.slug}`;
+export function makeCdnAssetResolver(getAssetUrls: () => Record<string, string>): AssetResolver {
   return {
     resolve(relativePath: string): string {
-      if (/^https?:\/\//i.test(relativePath) || relativePath.startsWith("data:")) {
-        return relativePath;
-      }
-      return joinUrl(base, relativePath);
+      return resolveAssetPath(getAssetUrls(), relativePath);
     },
   };
 }
