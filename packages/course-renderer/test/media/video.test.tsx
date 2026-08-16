@@ -1,4 +1,5 @@
-import { act, render } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import type { BlockSessionState } from "@mind-imprint/course-contract";
 import type { SliceEmitter } from "@mind-imprint/course-runtime";
 import { VideoRenderer } from "../../src/blocks/media/VideoRenderer";
@@ -17,7 +18,7 @@ interface Recorded {
 
 const baseState: BlockSessionState = { visible: true, enabled: true, completed: false };
 
-function renderVideo(block: VideoBlock) {
+function renderVideo(block: VideoBlock, enabled = true) {
   const events: Recorded[] = [];
   const emit: SliceEmitter = (sourceId, type, payload) => events.push({ sourceId, type: String(type), payload });
   const engine = new FakeVideoEngine();
@@ -26,7 +27,7 @@ function renderVideo(block: VideoBlock) {
   const utils = render(
     <MediaHandleRegistryProvider value={registry}>
       <VideoEngineProvider value={engine.factory}>
-        <VideoRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} />
+        <VideoRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled={enabled} emit={emit} />
       </VideoEngineProvider>
     </MediaHandleRegistryProvider>,
   );
@@ -101,5 +102,72 @@ describe("VideoRenderer", () => {
     act(() => engine.fireEnded());
     act(() => engine.fireEnded());
     expect(events.filter((e) => e.type === "block.completed")).toHaveLength(1);
+  });
+
+  it("honors the enabled prop: hides native controls, disables the custom buttons, and ignores play/pause", () => {
+    const { container, engine, registry } = renderVideo(endedRuleBlock, false);
+    const video = container.querySelector("video")!;
+    expect(video).not.toHaveAttribute("controls");
+    expect(screen.getByRole("button", { name: "播放" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "暂停" })).toBeDisabled();
+
+    // Even the workflow's imperative handle is a no-op while disabled.
+    act(() => registry.get("case-video")!.play());
+    expect(engine.calls).not.toContain("play");
+  });
+
+  it("folds the native <video> play/pause events (not only the custom buttons) into the event stream (P2-03)", () => {
+    const events: Recorded[] = [];
+    const emit: SliceEmitter = (sourceId, type, payload) => events.push({ sourceId, type: String(type), payload });
+    const registry = new MediaHandleRegistry();
+    // No VideoEngineProvider: this exercises the real HtmlVideoEngine bound to
+    // the actual <video> element, so a DOM "play"/"pause" event — however it
+    // originated (native controls included) — is what drives the emitted
+    // events, not the custom button handlers themselves.
+    const { container } = render(
+      <MediaHandleRegistryProvider value={registry}>
+        <VideoRenderer block={endedRuleBlock} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} />
+      </MediaHandleRegistryProvider>,
+    );
+    const video = container.querySelector("video")!;
+
+    act(() => {
+      video.dispatchEvent(new Event("play"));
+    });
+    expect(typeNames(events)).toContain("video.started");
+
+    act(() => {
+      video.currentTime = 12;
+      video.dispatchEvent(new Event("pause"));
+    });
+    const paused = events.find((e) => e.type === "video.paused");
+    expect(paused).toMatchObject({ payload: { positionSeconds: 12 } });
+  });
+
+  it("surfaces a play() rejection with a learner-recoverable retry affordance (P2-03)", async () => {
+    const user = userEvent.setup();
+    const { engine } = renderVideo(endedRuleBlock);
+    await user.click(screen.getByRole("button", { name: "播放" }));
+    act(() => engine.firePlayError(new Error("NotAllowedError")));
+
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("播放未能开始");
+    expect(engine.calls.filter((c) => c === "play")).toHaveLength(1);
+
+    await user.click(screen.getByRole("button", { name: "重试播放" }));
+    expect(engine.calls.filter((c) => c === "play")).toHaveLength(2);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("reset re-enables gating: clears the completed flag so a subsequent ended can re-complete", () => {
+    const { engine, events, registry } = renderVideo(endedRuleBlock);
+    act(() => engine.fireEnded());
+    expect(events.filter((e) => e.type === "block.completed")).toHaveLength(1);
+
+    act(() => registry.get("case-video")!.reset());
+    expect(engine.calls).toContain("reset");
+
+    act(() => engine.fireEnded());
+    expect(events.filter((e) => e.type === "block.completed")).toHaveLength(2);
   });
 });

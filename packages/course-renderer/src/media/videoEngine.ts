@@ -19,6 +19,22 @@ export interface VideoEngine {
   onTimeUpdate(cb: (seconds: number) => void): () => void;
   /** Registers an `ended` listener; returns an unsubscribe fn. */
   onEnded(cb: () => void): () => void;
+  /**
+   * P2-03 — the SOURCE OF TRUTH for "playback started", fired whenever the
+   * underlying media actually starts playing: a workflow `playBlock` effect, a
+   * renderer button, AND the native `<video controls>` UI all route through
+   * the same DOM `play` event, so this is the one place that unifies them
+   * instead of only the renderer's own button handler observing itself.
+   */
+  onPlay(cb: () => void): () => void;
+  /** The `onPlay` counterpart for "playback paused" (native controls included). */
+  onPause(cb: () => void): () => void;
+  /**
+   * P2-03 — reports an autoplay-policy (or other) rejection of a `play()`
+   * call, so the caller can surface a learner-recoverable affordance instead
+   * of silently leaving the workflow waiting.
+   */
+  onPlayError(cb: (error: unknown) => void): () => void;
 }
 
 /**
@@ -27,11 +43,20 @@ export interface VideoEngine {
  * flows through this seam. The getter defers element access until after mount.
  */
 export class HtmlVideoEngine implements VideoEngine {
+  private readonly playErrorListeners = new Set<(error: unknown) => void>();
+
   constructor(private readonly getEl: () => HTMLVideoElement | null) {}
 
   play(): void {
-    // Ignore the play() promise: autoplay-policy rejection is not fatal here.
-    void this.getEl()?.play?.();
+    // `HTMLMediaElement.play()` returns a Promise that rejects on
+    // autoplay-policy denial (or other playback failure) — not fatal to the
+    // call itself, but MUST be surfaced (P2-03) rather than silently ignored.
+    const result = this.getEl()?.play?.();
+    if (result && typeof result.catch === "function") {
+      result.catch((error: unknown) => {
+        for (const cb of this.playErrorListeners) cb(error);
+      });
+    }
   }
 
   pause(): void {
@@ -68,6 +93,25 @@ export class HtmlVideoEngine implements VideoEngine {
     if (!el) return () => {};
     el.addEventListener("ended", cb);
     return () => el.removeEventListener("ended", cb);
+  }
+
+  onPlay(cb: () => void): () => void {
+    const el = this.getEl();
+    if (!el) return () => {};
+    el.addEventListener("play", cb);
+    return () => el.removeEventListener("play", cb);
+  }
+
+  onPause(cb: () => void): () => void {
+    const el = this.getEl();
+    if (!el) return () => {};
+    el.addEventListener("pause", cb);
+    return () => el.removeEventListener("pause", cb);
+  }
+
+  onPlayError(cb: (error: unknown) => void): () => void {
+    this.playErrorListeners.add(cb);
+    return () => this.playErrorListeners.delete(cb);
   }
 }
 
