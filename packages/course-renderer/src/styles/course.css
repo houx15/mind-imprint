@@ -131,12 +131,55 @@
   object-fit: contain;
 }
 
+/* The PDF block is a flex column (header + viewport) that stretches to fill
+ * its slot, so the browser-native viewer gets real, non-zero height instead
+ * of collapsing to its content (P1-07). */
+.course-block--pdf {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  gap: 8px;
+}
+
+.course-pdf__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex: 0 0 auto;
+}
+
 .course-pdf__viewport {
+  position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 240px;
+  flex: 1 1 auto;
+  min-height: 480px;
   max-width: 100%;
   overflow: auto;
+  border: 1px solid var(--course-border, #efe7dd);
+  border-radius: var(--course-radius, 10px);
+  background: var(--course-surface, #ffffff);
+}
+
+.course-pdf__frame {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.course-pdf__loading,
+.course-pdf__error {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  text-align: center;
+  padding: 16px;
+  color: var(--course-muted, #8a827a);
 }
 
 .course-block--video,
