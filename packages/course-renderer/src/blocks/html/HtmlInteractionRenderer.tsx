@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { BlockRendererProps, InteractiveHtmlBlock } from "../types";
-import type { SliceEmitter } from "@mind-imprint/course-runtime";
+import type { InteractionCompletedPayload, SliceEmitter } from "@mind-imprint/course-runtime";
 import { PROTOCOL_NAME, PROTOCOL_VERSION, parseFrameMessage } from "./protocol";
 
 /**
@@ -37,9 +37,21 @@ interface HtmlMessageHandlerDeps {
  * jsdom cannot freely set `MessageEvent.source`, so we test this directly.
  *
  * Every predicate must pass or the message is DROPPED: `source` Window, then
- * protocol/version/token/type via {@link parseFrameMessage}. A valid message
- * becomes `interaction.<type>`; a valid `completed` (when the block's rule is
- * `interaction-complete`) additionally emits `block.completed`, exactly once.
+ * protocol/version/token/type/payload via {@link parseFrameMessage} — a
+ * `completed` message with no learning evidence is rejected there (reason
+ * `"payload"`) and never reaches this handler's completion path at all.
+ *
+ * A valid `ready`/`progress`/`error` becomes `interaction.<type>` verbatim. A
+ * valid `completed` is handled specially (P1-08): it is re-shaped into the
+ * typed `InteractionCompletedPayload` the Slice-1 `sessionState` reducer
+ * expects — `{ interactionId, result: { correct, value } }` — with
+ * `interactionId` ALWAYS the block id (host-stamped, never the frame's own
+ * `resultId`, matching the video-cue identity convention) — and emitted as
+ * `interaction.completed`; only then, and only when the block's completion
+ * rule is `interaction-complete`, does it additionally emit `block.completed`.
+ * A duplicate `completed` (this mount already completed once) is dropped
+ * entirely — no re-validation, no re-emit of either event — making
+ * completion idempotent per mount.
  */
 export function createHtmlMessageHandler(deps: HtmlMessageHandlerDeps): (data: unknown, source: unknown) => void {
   let completed = false;
@@ -56,13 +68,23 @@ export function createHtmlMessageHandler(deps: HtmlMessageHandlerDeps): (data: u
       deps.onRejected(result.reason);
       return;
     }
-    deps.emit(deps.block.id, `interaction.${result.type}`, result.payload);
-    if (result.type === "completed" && deps.block.completion?.rule === "interaction-complete") {
-      if (completed) return;
+
+    if (result.type === "completed") {
+      if (completed) return; // idempotent: a resent/duplicate completed message is silently dropped
       completed = true;
-      deps.emit(deps.block.id, "block.completed");
-      deps.onCompleted?.();
+      const payload: InteractionCompletedPayload = {
+        interactionId: deps.block.id,
+        result: { correct: result.payload.correct, value: result.payload.value },
+      };
+      deps.emit(deps.block.id, "interaction.completed", payload);
+      if (deps.block.completion?.rule === "interaction-complete") {
+        deps.emit(deps.block.id, "block.completed");
+        deps.onCompleted?.();
+      }
+      return;
     }
+
+    deps.emit(deps.block.id, `interaction.${result.type}`, result.payload);
   };
 }
 

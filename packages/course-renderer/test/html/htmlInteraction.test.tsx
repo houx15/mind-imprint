@@ -1,6 +1,6 @@
 import { act, render } from "@testing-library/react";
 import type { BlockSessionState } from "@mind-imprint/course-contract";
-import type { SliceEmitter } from "@mind-imprint/course-runtime";
+import { applyEvent, initSliceState, type SliceEmitter } from "@mind-imprint/course-runtime";
 import {
   HtmlInteractionRenderer,
   createHtmlMessageHandler,
@@ -172,30 +172,39 @@ describe("createHtmlMessageHandler (message boundary)", () => {
     expect(rejected).toEqual([]);
   });
 
-  it("emits interaction.completed then block.completed for a valid completed message", () => {
+  it("emits a typed interaction.completed then block.completed for a valid completed message (P1-08)", () => {
     const { handler, events } = makeHandler();
-    handler(frameMsg({ type: "completed", payload: { score: 3 } }), frameWindow);
+    handler(frameMsg({ type: "completed", payload: { correct: true, value: 3 } }), frameWindow);
     expect(events.map((e) => e.type)).toEqual(["interaction.completed", "block.completed"]);
-    expect(events[0]?.payload).toEqual({ score: 3 });
+    // interactionId is HOST-stamped (the block id), never trusted from the frame.
+    expect(events[0]?.payload).toEqual({ interactionId: "h1", result: { correct: true, value: 3 } });
   });
 
-  it("emits block.completed only once even if completed arrives twice", () => {
+  it("rejects a completed message with no learning evidence: no interaction.completed, no block.completed (P1-08)", () => {
+    const { handler, events, rejected } = makeHandler();
+    handler(frameMsg({ type: "completed", payload: {} }), frameWindow);
+    expect(events).toEqual([]);
+    expect(rejected).toEqual(["payload"]);
+  });
+
+  it("is idempotent: a duplicate completed message does not double-complete or double-emit (P1-08)", () => {
     const { handler, events } = makeHandler();
-    handler(frameMsg({ type: "completed" }), frameWindow);
-    handler(frameMsg({ type: "completed" }), frameWindow);
+    handler(frameMsg({ type: "completed", payload: { correct: true } }), frameWindow);
+    handler(frameMsg({ type: "completed", payload: { correct: true, value: "different-retry" } }), frameWindow);
     expect(events.filter((e) => e.type === "block.completed")).toHaveLength(1);
+    expect(events.filter((e) => e.type === "interaction.completed")).toHaveLength(1);
   });
 
-  it("does NOT emit block.completed when completion rule is absent", () => {
+  it("does NOT emit block.completed when completion rule is absent, but still emits interaction.completed", () => {
     const noRule: InteractiveHtmlBlock = { ...block, completion: undefined };
     const { handler, events } = makeHandler({ block: noRule });
-    handler(frameMsg({ type: "completed" }), frameWindow);
+    handler(frameMsg({ type: "completed", payload: { value: "done" } }), frameWindow);
     expect(events.map((e) => e.type)).toEqual(["interaction.completed"]);
   });
 
   it("drops a wrong-token message: no emit, onRejected('token')", () => {
     const { handler, events, rejected } = makeHandler();
-    handler(frameMsg({ type: "completed", sessionToken: "stale" }), frameWindow);
+    handler(frameMsg({ type: "completed", payload: { correct: true }, sessionToken: "stale" }), frameWindow);
     expect(events).toEqual([]);
     expect(rejected).toEqual(["token"]);
   });
@@ -203,7 +212,7 @@ describe("createHtmlMessageHandler (message boundary)", () => {
   it("drops a message whose source is not the iframe window: no emit", () => {
     const { handler, events, rejected } = makeHandler();
     const otherWindow = {} as unknown as Window;
-    handler(frameMsg({ type: "completed" }), otherWindow);
+    handler(frameMsg({ type: "completed", payload: { correct: true } }), otherWindow);
     expect(events).toEqual([]);
     expect(rejected).toEqual(["source"]);
   });
@@ -211,7 +220,33 @@ describe("createHtmlMessageHandler (message boundary)", () => {
   it("calls onCompleted after a valid completion", () => {
     let done = false;
     const { handler } = makeHandler({ onCompleted: () => (done = true) });
-    handler(frameMsg({ type: "completed" }), frameWindow);
+    handler(frameMsg({ type: "completed", payload: { correct: true } }), frameWindow);
     expect(done).toBe(true);
+  });
+
+  it("emits interaction.progress and interaction.error for valid progress/error payloads", () => {
+    const { handler, events, rejected } = makeHandler();
+    handler(frameMsg({ type: "progress", payload: { step: 2 } }), frameWindow);
+    handler(frameMsg({ type: "error", payload: { message: "sandboxed script threw" } }), frameWindow);
+    expect(events).toEqual([
+      { sourceId: "h1", type: "interaction.progress", payload: { step: 2 } },
+      { sourceId: "h1", type: "interaction.error", payload: { message: "sandboxed script threw" } },
+    ]);
+    expect(rejected).toEqual([]);
+  });
+
+  it("round-trips a valid completion into course-runtime's interactionResult via applyEvent (P1-08)", () => {
+    const { handler, events } = makeHandler();
+    handler(frameMsg({ type: "completed", payload: { correct: true, value: 42 } }), frameWindow);
+
+    const slice = { id: "s1", title: "s", blocks: [block], workflow: { initialState: undefined, steps: [] } } as unknown as Parameters<
+      typeof initSliceState
+    >[0];
+    let sliceState = initSliceState(slice);
+    for (const e of events) {
+      sliceState = applyEvent(sliceState, { type: e.type, sourceId: e.sourceId, payload: e.payload });
+    }
+    expect(sliceState.blockStates["h1"]?.completed).toBe(true);
+    expect(sliceState.blockStates["h1"]?.interactionResult).toEqual({ h1: { correct: true, value: 42 } });
   });
 });

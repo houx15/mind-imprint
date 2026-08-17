@@ -1,3 +1,5 @@
+import { HTML_MESSAGE_PAYLOAD_SCHEMAS, type HtmlMessagePayloadMap, type HtmlMessageType } from "@mind-imprint/course-contract";
+
 /**
  * §17.11 / §20 — the versioned `postMessage` protocol for `interactiveHtml`
  * blocks. This module is PURE: no DOM, no iframe, no window access, so every
@@ -11,15 +13,18 @@
  *
  * A message is ACCEPTED only if the protocol name matches, the version equals
  * the block's `expectedVersion`, the session token equals the per-mount minted
- * token, and the `type` is one of the four known types. Anything else is
- * rejected with a typed reason and NEVER becomes a runtime Event.
+ * token, the `type` is one of the four known types, AND (P1-08) the `payload`
+ * validates against that type's schema from `course-contract`'s
+ * `HTML_MESSAGE_PAYLOAD_SCHEMAS` — e.g. a `completed` message with no
+ * learning evidence fails here with reason `"payload"`. Anything rejected
+ * NEVER becomes a runtime Event.
  */
 
 export const PROTOCOL_NAME = "mind-course-interaction" as const;
 export const PROTOCOL_VERSION = "1.0" as const;
 
-/** The four message types the frame may send. */
-export const FRAME_MESSAGE_TYPES = ["ready", "progress", "completed", "error"] as const;
+/** The four message types the frame may send — kept in sync with course-contract's `HtmlMessageType`. */
+export const FRAME_MESSAGE_TYPES = ["ready", "progress", "completed", "error"] as const satisfies readonly HtmlMessageType[];
 export type FrameMessageType = (typeof FRAME_MESSAGE_TYPES)[number];
 
 export interface ParseContext {
@@ -29,11 +34,12 @@ export interface ParseContext {
   expectedVersion: string;
 }
 
-/** Ordered so the caller can classify a rejection for diagnostics. */
-export type RejectionReason = "shape" | "version" | "token" | "type";
+/** Ordered so the caller can classify a rejection for diagnostics. `"payload"` is the P1-08 addition: envelope was fine, the payload itself didn't validate. */
+export type RejectionReason = "shape" | "version" | "token" | "type" | "payload";
 
+/** A discriminated union: `result.type` narrows `result.payload` to that type's validated shape. */
 export type ParseResult =
-  | { ok: true; type: FrameMessageType; payload: unknown }
+  | { [K in FrameMessageType]: { ok: true; type: K; payload: HtmlMessagePayloadMap[K] } }[FrameMessageType]
   | { ok: false; reason: RejectionReason };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -47,8 +53,8 @@ function isKnownType(value: unknown): value is FrameMessageType {
 /**
  * Validates a raw `postMessage` payload against the protocol. `shape` covers a
  * non-object or a wrong/absent protocol name (the message is not even ours);
- * the remaining reasons are checked in a fixed order (version → token → type)
- * so the outcome is deterministic.
+ * the remaining reasons are checked in a fixed order (version → token → type
+ * → payload) so the outcome is deterministic.
  */
 export function parseFrameMessage(raw: unknown, ctx: ParseContext): ParseResult {
   if (!isRecord(raw)) return { ok: false, reason: "shape" };
@@ -56,5 +62,12 @@ export function parseFrameMessage(raw: unknown, ctx: ParseContext): ParseResult 
   if (raw.version !== ctx.expectedVersion) return { ok: false, reason: "version" };
   if (raw.sessionToken !== ctx.sessionToken) return { ok: false, reason: "token" };
   if (!isKnownType(raw.type)) return { ok: false, reason: "type" };
-  return { ok: true, type: raw.type, payload: raw.payload };
+  const schema = HTML_MESSAGE_PAYLOAD_SCHEMAS[raw.type];
+  const parsed = schema.safeParse(raw.payload);
+  if (!parsed.success) return { ok: false, reason: "payload" };
+  // Cast is safe: `raw.type` was just narrowed to `FrameMessageType` above, and
+  // `schema` was looked up BY that same `raw.type`, so `parsed.data`'s runtime
+  // shape matches `HtmlMessagePayloadMap[raw.type]` — TS just can't correlate
+  // the two through a dynamic object-index lookup.
+  return { ok: true, type: raw.type, payload: parsed.data } as ParseResult;
 }

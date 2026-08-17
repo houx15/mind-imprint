@@ -8,10 +8,18 @@ function msg(overrides: Record<string, unknown> = {}) {
     version: PROTOCOL_VERSION,
     sessionToken: "tok-123",
     type: "completed",
-    payload: { score: 1 },
+    payload: { correct: true, value: 1 },
     ...overrides,
   };
 }
+
+/** A valid payload per type, so type-sweeping tests don't accidentally exercise the "payload" rejection. */
+const VALID_PAYLOAD_FOR: Record<string, unknown> = {
+  ready: { step: 0 },
+  progress: { step: 1 },
+  completed: { correct: true, value: 1 },
+  error: { message: "boom" },
+};
 
 describe("parseFrameMessage", () => {
   it("exposes the frozen protocol identity", () => {
@@ -21,12 +29,12 @@ describe("parseFrameMessage", () => {
 
   it("accepts a well-formed completed message with the right token/version", () => {
     const r = parseFrameMessage(msg(), ctx);
-    expect(r).toEqual({ ok: true, type: "completed", payload: { score: 1 } });
+    expect(r).toEqual({ ok: true, type: "completed", payload: { correct: true, value: 1 } });
   });
 
-  it("accepts each known type (ready/progress/completed/error)", () => {
+  it("accepts each known type (ready/progress/completed/error) with a type-appropriate payload", () => {
     for (const type of ["ready", "progress", "completed", "error"]) {
-      const r = parseFrameMessage(msg({ type }), ctx);
+      const r = parseFrameMessage(msg({ type, payload: VALID_PAYLOAD_FOR[type] }), ctx);
       expect(r.ok).toBe(true);
       if (r.ok) expect(r.type).toBe(type);
     }
@@ -55,8 +63,41 @@ describe("parseFrameMessage", () => {
     expect(parseFrameMessage(msg({ protocol: "other-app" }), ctx)).toEqual({ ok: false, reason: "shape" });
   });
 
-  it("carries payload through as unknown (may be absent)", () => {
+  it("carries a type-appropriate payload through validated (may be absent for ready)", () => {
     const r = parseFrameMessage(msg({ type: "ready", payload: undefined }), ctx);
     expect(r).toEqual({ ok: true, type: "ready", payload: undefined });
+  });
+
+  describe("payload validation (P1-08)", () => {
+    it("rejects a 'completed' message with no learning evidence, reason 'payload'", () => {
+      expect(parseFrameMessage(msg({ payload: {} }), ctx)).toEqual({ ok: false, reason: "payload" });
+    });
+
+    it("rejects a 'completed' message with an unknown extra field (strict), reason 'payload'", () => {
+      expect(parseFrameMessage(msg({ payload: { correct: true, score: 5 } }), ctx)).toEqual({ ok: false, reason: "payload" });
+    });
+
+    it("accepts a 'completed' message with only 'value' evidence (no 'correct')", () => {
+      const r = parseFrameMessage(msg({ payload: { value: { answers: ["a", "b"] } } }), ctx);
+      expect(r).toEqual({ ok: true, type: "completed", payload: { value: { answers: ["a", "b"] } } });
+    });
+
+    it("accepts a 'completed' message carrying the frame's own resultId alongside evidence", () => {
+      const r = parseFrameMessage(msg({ payload: { resultId: "attempt-1", correct: false, value: "x" } }), ctx);
+      expect(r).toEqual({ ok: true, type: "completed", payload: { resultId: "attempt-1", correct: false, value: "x" } });
+    });
+
+    it("rejects an 'error' message missing the required 'message' field, reason 'payload'", () => {
+      expect(parseFrameMessage(msg({ type: "error", payload: { code: "x" } }), ctx)).toEqual({ ok: false, reason: "payload" });
+    });
+
+    it("accepts a 'ready'/'progress' message with an empty or arbitrary informational payload", () => {
+      expect(parseFrameMessage(msg({ type: "ready", payload: {} }), ctx)).toEqual({ ok: true, type: "ready", payload: {} });
+      expect(parseFrameMessage(msg({ type: "progress", payload: { step: 2, total: 5 } }), ctx)).toEqual({
+        ok: true,
+        type: "progress",
+        payload: { step: 2, total: 5 },
+      });
+    });
   });
 });
