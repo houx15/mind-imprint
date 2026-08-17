@@ -50,6 +50,26 @@ func (a *API) postCourseShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Slice 9 Task 1 — pre-publish asset gate (course_ship_assets.go): border-
+	// walk every interactiveHtml block's source, confirm it exists in OSS and
+	// is self-contained (no external network dependencies). ANY blocking
+	// issue refuses the publish. Guarded the same way the audio step below
+	// guards a.d.OSS == nil, so unconfigured-OSS environments (including the
+	// existing Part-1 CourseShip tests, which run with no OSS configured)
+	// keep shipping exactly as before — this stage adds a new blocking
+	// reason, it never changes behavior when OSS isn't wired up.
+	if a.d.OSS != nil {
+		if issues := validateShipAssets(r.Context(), a.d.OSS, slug, def); len(issues) > 0 {
+			httpx.WriteError(w, r, &httpx.APIError{
+				Status:  http.StatusUnprocessableEntity,
+				Code:    "asset_validation_failed",
+				Message: "课程存在未通过资产自洽性校验的交互内容，无法发布。",
+				Details: map[string]any{"issues": issues},
+			})
+			return
+		}
+	}
+
 	// Nil-guard voice/OSS the same way postAdminUploadCourse (course_admin.go)
 	// does: a nil *oss.Service assigned straight into the agent.CourseAudioStore
 	// interface parameter would NOT compare equal to nil inside
