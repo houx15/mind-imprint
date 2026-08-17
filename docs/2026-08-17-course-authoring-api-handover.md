@@ -1,7 +1,7 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at commit:** `0f144dfef6a4417d7e41b003cefece0f6a7590e5` (`main`, short `0f144dfe`) — this is the exact revision live on production.
+**Pinned at tag:** `course-authoring-v1.0.0` (annotated tag on `main`, commit `28aec496`) — the stable, named snapshot of the course packages + authoring API to build against. This is the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
 > **Read this first — honesty note.** Your request (items 3 and 4) asks us to *confirm* several guarantees: optimistic concurrency, idempotent publishing, SHA-256 dedup, and upload support for all six media types. **Some of these do not exist in the current backend.** Rather than confirm them falsely, this document states plainly what exists today, what does not, and — for each gap — the workaround or the backend change you should request. The gaps are collected in §7 ("Gap register") so your planning can account for them up front.
@@ -12,7 +12,7 @@
 
 ### 1.1 The three shared packages
 
-All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git commit is the version*. Pin to `0f144dfe` (or, better, ask us to cut a git tag you can reference — see "How to consume the pin" below).
+All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.0.0`** (see "How to consume the pin" below).
 
 | Package | Name | Version | Runtime deps | Purpose |
 |---|---|---|---|---|
@@ -20,11 +20,13 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 | `packages/course-runtime` | `@mind-imprint/course-runtime` | `0.0.0` | `@mind-imprint/course-contract` (workspace) | Headless (no React) deterministic session state machine + host-injection adapter contracts + `InMemorySessionAdapter`. |
 | `packages/course-renderer` | `@mind-imprint/course-renderer` | `0.0.0` | contract + runtime (workspace), `react-markdown@^10.1.0`, `remark-gfm@^4.0.1`; peer `react@^18.3.0`, `react-dom@^18.3.0` | The **real student React renderer** (`CoursePlayer`) you will preview against. Chrome-agnostic. |
 
-**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Two options:
-- **Git submodule / subtree / vendored copy** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at commit `0f144dfe`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
-- **Ask us for a git tag** (e.g. `course-authoring-handover-2026-08-17`) pointing at `0f144dfe` so you have a stable, named reference instead of a raw SHA. We can create it on request.
+**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.0.0`** (on `main`, commit `28aec496`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
+- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.0.0`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
+- **Vendored copy** of the same three package directories at that tag.
 
-Version constants are exported so you can assert at runtime: `COURSE_CONTRACT_VERSION`, `COURSE_RUNTIME_VERSION`, `COURSE_RENDERER_VERSION` (all `"0.0.0"` today).
+When we evolve the contract we will cut a new tag (`course-authoring-v1.1.0`, etc.) and note the delta here, so your generator upgrades deliberately rather than tracking `main`.
+
+Version constants are exported so you can assert at runtime: `COURSE_CONTRACT_VERSION`, `COURSE_RUNTIME_VERSION`, `COURSE_RENDERER_VERSION` (all `"0.0.0"` in-package today — the git tag is the authoritative version until we bump these).
 
 ### 1.2 Reference preview host
 
