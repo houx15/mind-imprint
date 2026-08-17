@@ -299,4 +299,15 @@ describe("CoursesContainer per-course routing", () => {
     expect(legacy).toHaveTextContent(`legacy:${SLUG}`);
     expect(screen.queryByTestId("runtime-player")).toBeNull();
   });
+
+  it("shows a retryable error (NOT the legacy player) on a non-404 error (P2-10)", async () => {
+    // Auth/network/server/malformed errors must NOT be masked by mounting an
+    // unrelated legacy player — that hides the real failure.
+    getDefMock.mockRejectedValue(new ApiError("server_error", "boom", 500));
+    render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    await screen.findByRole("alert");
+    expect(screen.getByText("课程加载失败，请重试。")).toBeInTheDocument();
+    expect(screen.queryByTestId("legacy-player")).toBeNull();
+    expect(screen.queryByTestId("runtime-player")).toBeNull();
+  });
 });

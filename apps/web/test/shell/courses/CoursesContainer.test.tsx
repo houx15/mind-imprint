@@ -1,6 +1,15 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { CourseSummary, CoursePlayerPayload } from "@mind-imprint/contracts";
+import { ApiError } from "@/api/client";
+
+// These tests exercise the LEGACY player flow, so the 2.0 definition endpoint
+// must 404 (the authoritative "no 2.0 definition → legacy course" signal that
+// PlayerRouter routes on). Without this, getCourseDefinition would hit a real
+// fetch that rejects non-404 → PlayerRouter's P2-10 error state, not legacy.
+vi.mock("@/api/courseDefinition", () => ({
+  getCourseDefinition: vi.fn().mockRejectedValue(new ApiError("not_found", "no 2.0 definition", 404)),
+}));
 
 vi.mock("@/api", async (orig) => {
   const real = await orig<typeof import("@/api")>();
