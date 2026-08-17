@@ -21,7 +21,12 @@
  * this source text).
  */
 
-.course-shell {
+/* The cue dialog (InteractionModal) is portaled to document.body, OUTSIDE
+   .course-shell, so the design tokens + box-sizing reset must be defined on
+   the overlay root too or every var(--course-*) inside the modal resolves to
+   nothing (no card, no button chrome). Same token values, one shared rule. */
+.course-shell,
+.course-video__cue-overlay {
   --course-bg: var(--mk-paper, #fbf8f4);
   --course-surface: var(--mk-surface, #ffffff);
   --course-border: var(--mk-border, #efe7dd);
@@ -49,7 +54,11 @@
   --course-ease: var(--mk-ease, cubic-bezier(0.2, 0, 0, 1));
   --course-fast: var(--mk-fast, 120ms);
   --course-gap: 16px;
+  box-sizing: border-box;
+}
 
+/* Structural — shell only (the portaled overlay gets its own positioning). */
+.course-shell {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -61,12 +70,14 @@
   overflow: hidden;
   background: var(--course-bg);
   color: var(--course-ink);
-  box-sizing: border-box;
 }
 
 .course-shell *,
 .course-shell *::before,
-.course-shell *::after {
+.course-shell *::after,
+.course-video__cue-overlay *,
+.course-video__cue-overlay *::before,
+.course-video__cue-overlay *::after {
   box-sizing: border-box;
 }
 
@@ -699,24 +710,32 @@
   padding: 10px 14px;
   color: var(--course-muted);
 }
-/* Video-cue modal (D1): dim backdrop + centered card over the paused video. */
-.course-video__cue-overlay,
-.course-video__cue-backdrop {
-  position: absolute;
+/* Video-cue modal (D1): portaled to <body> — a fixed full-viewport overlay
+   that centers a card over a dim backdrop. */
+.course-video__cue-overlay {
+  position: fixed;
   inset: 0;
+  z-index: 1000;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 24px;
+  color: var(--course-ink);
+}
+.course-video__cue-backdrop {
+  position: absolute;
+  inset: 0;
   background: rgba(28, 20, 18, 0.55);
-  z-index: 5;
 }
 .course-video__cue-modal {
+  position: relative;
+  z-index: 1;
   width: 100%;
   max-width: 460px;
-  max-height: 100%;
+  max-height: calc(100vh - 48px);
   overflow: auto;
   background: var(--course-surface);
+  border: 1px solid var(--course-border);
   border-radius: var(--course-radius-lg);
   box-shadow: var(--course-shadow-lg);
   padding: 24px 26px;
@@ -724,14 +743,11 @@
   flex-direction: column;
   gap: 12px;
 }
-.course-video__cue-prompt {
-  margin: 0;
-  font-size: 15.5px;
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--course-ink);
+.course-video__cue-modal .course-single-choice__submit,
+.course-video__cue-modal .course-fill-blank__submit {
+  align-self: flex-start;
 }
-.course-video__cue-modal .course-single-choice__submit {
+.course-video__cue-skip {
   align-self: flex-start;
 }
 

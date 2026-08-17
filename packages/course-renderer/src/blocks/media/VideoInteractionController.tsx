@@ -291,7 +291,9 @@ export function VideoInteractionController({
 
   return (
     <InteractionModal ariaLabel={activeCue.prompt} onSkip={activeCue.required ? undefined : () => skipCue(activeCue)}>
-      <p className="course-video__cue-prompt">{activeCue.prompt}</p>
+      {/* The cue prompt is rendered by the inner assessment renderer
+          (renderCueActivity passes cue.prompt as the block prompt); a second
+          <p> here would duplicate it inside the dialog. */}
       {renderCueActivity(activeCue, assetResolver, cueEmit)}
     </InteractionModal>
   );
