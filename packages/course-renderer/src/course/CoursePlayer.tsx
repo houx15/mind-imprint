@@ -67,9 +67,24 @@ export interface CoursePlayerProps {
    * simply omits that key, same as if personalization were disabled.
    */
   signalResolver?: (allowedSignals: string[]) => Record<string, unknown> | Promise<Record<string, unknown>>;
+  /**
+   * Fires whenever the phase or current Slice changes, so a host chrome (e.g. a
+   * progress bar) can reflect where the learner is without owning the runtime's
+   * navigation. `sliceIndex` is 0-based into the flattened Slice list;
+   * `sliceCount` is its length. The renderer stays chrome-agnostic — it only
+   * reports; the host decides how (or whether) to show progress.
+   */
+  onProgress?: (progress: CourseProgress) => void;
 }
 
 type Phase = "loading" | "error" | "opening" | "playing" | "closing";
+
+/** Host progress signal emitted by {@link CoursePlayer} via `onProgress`. */
+export interface CourseProgress {
+  phase: Phase;
+  sliceIndex: number;
+  sliceCount: number;
+}
 
 interface SliceEntry {
   partId: string;
@@ -105,7 +120,7 @@ function ErrorSurface({ issues }: { issues: ValidationIssue[] }) {
  * scene generators (fallback path is exercised in this slice). Structurally
  * invalid documents render a diagnostic surface and never mount a SlicePlayer.
  */
-export function CoursePlayer({ document, definitionHash, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete, signalResolver }: CoursePlayerProps) {
+export function CoursePlayer({ document, definitionHash, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete, onProgress, signalResolver }: CoursePlayerProps) {
   const validation = useMemo(() => validateCourseDefinition(document), [document]);
 
   const [phase, setPhase] = useState<Phase>(validation.ok ? "loading" : "error");
@@ -121,6 +136,14 @@ export function CoursePlayer({ document, definitionHash, adapters, studentId, se
 
   const course = validation.ok ? validation.course : null;
   const entries = useMemo(() => (course ? flattenSlices(course) : []), [course]);
+
+  // Report progress to the host (chrome-agnostic): fire on every phase / slice
+  // change. Ref'd so a host passing a fresh callback each render never loops.
+  const onProgressRef = useRef(onProgress);
+  onProgressRef.current = onProgress;
+  useEffect(() => {
+    onProgressRef.current?.({ phase, sliceIndex: currentIndex, sliceCount: entries.length });
+  }, [phase, currentIndex, entries.length]);
 
   // §Slice4 / P1-05 — the live cache of every Slice's own persisted state,
   // keyed by Slice id: seeded once from the (possibly-restored) session's

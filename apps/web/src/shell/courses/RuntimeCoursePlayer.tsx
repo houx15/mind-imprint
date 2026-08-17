@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft } from "lucide-react";
-import { CoursePlayer, InteractionLoaderProvider } from "@mind-imprint/course-renderer";
+import { CoursePlayer, InteractionLoaderProvider, type CourseProgress } from "@mind-imprint/course-renderer";
 import type { CourseRuntimeAdapters } from "@mind-imprint/course-runtime";
 import { collectAssetPaths } from "@mind-imprint/course-contract";
 import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
+import { api } from "@/api";
+import { AskPanel, type AskMessage } from "./AskPanel";
 import { getCourseDefinition } from "@/api/courseDefinition";
 import { fetchCourseAssetUrls } from "@/api/courseAssetUrls";
 import { ApiError } from "@/api/client";
@@ -69,6 +71,42 @@ export function RuntimeCoursePlayer({
   // even though it still fires. The map itself lives in the ref below so
   // refreshing it never rebuilds `adapters`.
   const [, setRefreshTick] = useState(0);
+
+  // Course chrome (restored for the 2.0 runtime, reusing the existing pieces):
+  // a top progress bar driven by the renderer's onProgress signal, and the AI
+  // ask bar (AskPanel + api.courseAsk) — the same helper the legacy player
+  // gives students. The renderer stays chrome-agnostic; the host owns these.
+  const [progress, setProgress] = useState<CourseProgress | null>(null);
+  const [askExpanded, setAskExpanded] = useState(true);
+  const [askMessages, setAskMessages] = useState<AskMessage[]>([]);
+  const [askPending, setAskPending] = useState(false);
+  const askSeqRef = useRef(0);
+  const nextAskId = (role: string) => `${role}-${(askSeqRef.current += 1)}`;
+
+  // Ask the course coach about the current lesson — streams via api.courseAsk
+  // (SSE), passing the current Slice index as the ordinal for context.
+  async function handleAsk(text: string) {
+    setAskMessages((prev) => [...prev, { id: nextAskId("student"), role: "student", text }]);
+    setAskPending(true);
+    const assistantId = nextAskId("assistant");
+    let started = false;
+    const put = (body: string) => {
+      if (!started) {
+        started = true;
+        setAskMessages((prev) => [...prev, { id: assistantId, role: "assistant", text: body }]);
+      } else {
+        setAskMessages((prev) => prev.map((m) => (m.id === assistantId ? { ...m, text: body } : m)));
+      }
+    };
+    try {
+      for await (const event of api.courseAsk(slug, text, progress?.sliceIndex ?? 0)) {
+        if (event.type === "reply") put(event.body);
+        else if (event.type === "error") put(event.message || "出错了，请重试");
+      }
+    } finally {
+      setAskPending(false);
+    }
+  }
 
   // Keep onFinish fresh without rebuilding the adapters (which own the live
   // session state) on every render.
@@ -191,45 +229,90 @@ export function RuntimeCoursePlayer({
     };
   }, [slug]);
 
+  // Derived course title (AskPanel context) + progress-bar model.
+  const courseTitle =
+    (document && typeof document === "object" && "course" in document
+      ? (document as CourseDefinitionDocument).course?.title
+      : undefined) || slug;
+  const sliceCount = progress?.sliceCount ?? 0;
+  const sliceIndex = progress?.sliceIndex ?? 0;
+  const pct =
+    progress?.phase === "closing"
+      ? 100
+      : progress?.phase === "playing" && sliceCount > 0
+        ? Math.round(((sliceIndex + 1) / sliceCount) * 100)
+        : 0;
+  const progressLabel =
+    progress?.phase === "closing"
+      ? "即将完成"
+      : progress?.phase === "opening"
+        ? "开始"
+        : sliceCount > 0
+          ? `第 ${sliceIndex + 1} / ${sliceCount} 步`
+          : "";
+
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", width: "100%", background: "var(--mk-paper)" }}>
       <div style={{ flex: "none", background: "var(--mk-surface)", borderBottom: "1px solid var(--mk-border)" }}>
-        <div style={{ height: 50, display: "flex", alignItems: "center", padding: "0 20px", gap: 8 }}>
+        <div style={{ height: 50, display: "flex", alignItems: "center", padding: "0 20px", gap: 16 }}>
           <button
             type="button"
             onClick={onExit}
-            style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--mk-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "6px 10px", borderRadius: 8, background: "transparent", border: "none", fontFamily: "inherit" }}
+            style={{ display: "inline-flex", alignItems: "center", gap: 6, color: "var(--mk-secondary)", fontSize: 13, fontWeight: 600, cursor: "pointer", padding: "6px 10px", borderRadius: 8, background: "transparent", border: "none", fontFamily: "inherit", flex: "none" }}
           >
             <ArrowLeft size={15} strokeWidth={2.2} />
             返回课程
           </button>
+          {/* Top progress bar — driven by the renderer's onProgress signal. */}
+          {progress && (sliceCount > 0 || progress.phase === "closing") ? (
+            <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 12, maxWidth: 560 }}>
+              <div style={{ flex: 1, height: 6, borderRadius: 999, background: "var(--mk-accent-100)", overflow: "hidden" }}>
+                <div style={{ height: "100%", width: `${pct}%`, background: "var(--mk-accent-500)", borderRadius: 999, transition: "width .3s var(--mk-ease)" }} />
+              </div>
+              <span style={{ fontSize: 12, fontWeight: 600, color: "var(--mk-muted)", whiteSpace: "nowrap" }}>{progressLabel}</span>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      {/* P1-06: the course region does NOT page-scroll — the renderer's
-          `.course-shell` owns the one-Slice/one-screen layout and constrains
-          overflow to intentional per-slot viewers. */}
-      <div data-testid="course-region" style={{ flex: 1, minHeight: 0, overflow: "hidden" }}>
-        {error ? (
-          <div style={{ padding: 40, color: "var(--mk-secondary)", fontSize: 14 }}>{error}</div>
-        ) : document ? (
-          <InteractionLoaderProvider value={interactionLoader}>
-            <CoursePlayer
-              document={document}
-              definitionHash={definitionHash ?? undefined}
-              adapters={adapters}
-              studentId={studentId ?? PLACEHOLDER_STUDENT_ID}
-              idFactory={() => crypto.randomUUID()}
-              clock={() => new Date().toISOString()}
-              onComplete={() => onFinishRef.current()}
-              signalResolver={resolveOpeningSignals}
-            />
-          </InteractionLoaderProvider>
-        ) : (
-          <div aria-busy="true" style={{ padding: 40, color: "var(--mk-faint)", fontSize: 14 }}>
-            正在加载课程…
-          </div>
-        )}
+      {/* body: the 2.0 renderer + the AI ask bar, side by side (same chrome the
+          legacy player gives students). The course region does NOT page-scroll
+          — the renderer's `.course-shell` owns the one-Slice/one-screen layout. */}
+      <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+        <div data-testid="course-region" style={{ flex: 1, minWidth: 0, overflow: "hidden" }}>
+          {error ? (
+            <div style={{ padding: 40, color: "var(--mk-secondary)", fontSize: 14 }}>{error}</div>
+          ) : document ? (
+            <InteractionLoaderProvider value={interactionLoader}>
+              <CoursePlayer
+                document={document}
+                definitionHash={definitionHash ?? undefined}
+                adapters={adapters}
+                studentId={studentId ?? PLACEHOLDER_STUDENT_ID}
+                idFactory={() => crypto.randomUUID()}
+                clock={() => new Date().toISOString()}
+                onComplete={() => onFinishRef.current()}
+                onProgress={setProgress}
+                signalResolver={resolveOpeningSignals}
+              />
+            </InteractionLoaderProvider>
+          ) : (
+            <div aria-busy="true" style={{ padding: 40, color: "var(--mk-faint)", fontSize: 14 }}>
+              正在加载课程…
+            </div>
+          )}
+        </div>
+
+        <AskPanel
+          expanded={askExpanded}
+          onToggle={() => setAskExpanded((e) => !e)}
+          branchColor="#EA5140"
+          context={courseTitle}
+          chips={[]}
+          messages={askMessages}
+          pending={askPending}
+          onSend={(text) => void handleAsk(text)}
+        />
       </div>
     </div>
   );
