@@ -60,8 +60,8 @@ var ossScopes = map[string]ossScope{
 	},
 	"course_material": {
 		gate:         gateAdminKey,
-		allowedTypes: typeSet("image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm", "video/quicktime", "text/html"),
-		maxBytes:     500 << 20, // 500 MB (carries course video + interactiveHtml)
+		allowedTypes: typeSet("image/png", "image/jpeg", "image/webp", "application/pdf", "video/mp4", "video/webm", "video/quicktime", "text/html", "application/json", "text/vtt"),
+		maxBytes:     500 << 20, // 500 MB (carries course video + interactiveHtml; JSON = video-interaction docs, VTT = captions)
 		prefix:       func(string) string { return "courses/" },
 	},
 	"user_image": {
@@ -88,16 +88,18 @@ var ossKnownPrefixes = []string{"web/", "courses/", "users/"}
 
 // extByContentType maps an allowed content type to a canonical file extension.
 var extByContentType = map[string]string{
-	"image/png":       ".png",
-	"image/jpeg":      ".jpg",
-	"image/webp":      ".webp",
-	"image/svg+xml":   ".svg",
-	"application/pdf": ".pdf",
-	docxContentType:   ".docx",
-	"video/mp4":       ".mp4",
-	"video/webm":      ".webm",
-	"video/quicktime": ".mov",
-	"text/html":       ".html",
+	"image/png":        ".png",
+	"image/jpeg":       ".jpg",
+	"image/webp":       ".webp",
+	"image/svg+xml":    ".svg",
+	"application/pdf":  ".pdf",
+	docxContentType:    ".docx",
+	"video/mp4":        ".mp4",
+	"video/webm":       ".webm",
+	"video/quicktime":  ".mov",
+	"text/html":        ".html",
+	"application/json": ".json",
+	"text/vtt":         ".vtt",
 }
 
 var safeExtRe = regexp.MustCompile(`^\.[a-z0-9]{1,8}$`)

@@ -87,6 +87,36 @@ func TestPostCourseAssetUploadURL_Signs(t *testing.T) {
 	}
 }
 
+// TestPostCourseAssetUploadURL_InteractionTypes covers the two course-authoring
+// media types added to the course_material allowlist: the video-interaction
+// JSON document (application/json) and WebVTT captions (text/vtt). Both must
+// now sign successfully rather than 400 unsupported_type.
+func TestPostCourseAssetUploadURL_InteractionTypes(t *testing.T) {
+	a := &API{d: Deps{OSS: testUploadOSS(t), OSSAdminKey: testUploadAdminKey}}
+	cases := []struct{ rel, ct string }{
+		{"interactions/video/case-video.json", "application/json"},
+		{"assets/captions/case.en.vtt", "text/vtt"},
+	}
+	for _, c := range cases {
+		body := `{"relativePath":"` + c.rel + `","contentType":"` + c.ct + `","size":1000}`
+		w := httptest.NewRecorder()
+		a.postCourseAssetUploadURL(w, newAssetUploadRequest(t, "compare-claims", body, testUploadAdminKey))
+		if w.Code != http.StatusOK {
+			t.Fatalf("%s: want 200 got %d %s", c.ct, w.Code, w.Body.String())
+		}
+		var resp struct{ ObjectKey, RequiredContentType string }
+		if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("%s: decode: %v", c.ct, err)
+		}
+		if resp.ObjectKey != "courses/compare-claims/"+c.rel {
+			t.Fatalf("%s: objectKey = %q", c.ct, resp.ObjectKey)
+		}
+		if resp.RequiredContentType != c.ct {
+			t.Fatalf("requiredContentType = %q, want %q", resp.RequiredContentType, c.ct)
+		}
+	}
+}
+
 func TestPostCourseAssetUploadURL_NeedsAdminKey(t *testing.T) {
 	a := &API{d: Deps{OSS: testUploadOSS(t), OSSAdminKey: testUploadAdminKey}}
 	body := `{"relativePath":"assets/a.png","contentType":"image/png","size":1000}`
