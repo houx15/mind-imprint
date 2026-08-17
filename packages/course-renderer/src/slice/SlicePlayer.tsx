@@ -25,6 +25,7 @@ import { getBlockRenderer } from "../blocks/registry";
 import { FocusProvider, FocusTarget, focusedItemIdFor } from "../focus/FocusManager";
 import { NarrationController, NarrationPlayer } from "../narration/NarrationPlayer";
 import { useAudioEngine } from "../narration/audioEngine";
+import { useAudioArbiter } from "../media/audioArbiter";
 import { MediaHandleRegistry, MediaHandleRegistryProvider } from "../media/mediaRegistry";
 import { CourseNav } from "../course/CourseNav";
 
@@ -127,6 +128,10 @@ export function SlicePlayer({
   mediaRegistry,
 }: SlicePlayerProps) {
   const engine = useAudioEngine();
+  // P1-09/D3: the same arbiter instance VideoRenderer/HtmlInteractionRenderer
+  // resolve via this hook, so narration/video/HTML-music arbitration is
+  // consistent within one mounted course (or one injected test Provider).
+  const arbiter = useAudioArbiter();
 
   // The SlicePlayer owns one media-handle registry (§17.10): media renderers
   // register their imperative handle on mount; the effect interpreter drives them.
@@ -147,7 +152,7 @@ export function SlicePlayer({
   const [focus, setFocus] = useState<TargetRef | null>(slice.workflow.initialState?.focusedTarget ?? null);
 
   const controllerRef = useRef<NarrationController | null>(null);
-  if (controllerRef.current === null) controllerRef.current = new NarrationController(engine);
+  if (controllerRef.current === null) controllerRef.current = new NarrationController(engine, arbiter);
   const controller = controllerRef.current;
 
   const timers = useRef(new Map<string, unknown>());

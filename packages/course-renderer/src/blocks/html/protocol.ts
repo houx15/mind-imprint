@@ -71,3 +71,36 @@ export function parseFrameMessage(raw: unknown, ctx: ParseContext): ParseResult 
   // the two through a dynamic object-index lookup.
   return { ok: true, type: raw.type, payload: parsed.data } as ParseResult;
 }
+
+/**
+ * P1-09 / D3 — the host→frame half of the protocol: a small, versioned
+ * lifecycle the renderer posts to the iframe on runtime transitions (block
+ * shown/hidden, enabled/disabled, slice left). Authored HTML MAY listen for
+ * these to pause/resume its own audio and stop responding to input, but the
+ * host never depends on that cooperation for `enabled=false` enforcement —
+ * that's done host-side (pointer-events/overlay). Same protocol name/version
+ * identity as the frame→host handshake, so a frame can validate host
+ * messages the same way the host validates frame messages.
+ */
+export const HOST_MESSAGE_TYPES = [
+  "activate",
+  "deactivate",
+  "enable",
+  "disable",
+  "pauseMedia",
+  "resumeMedia",
+  "stopMedia",
+] as const;
+export type HostMessageType = (typeof HOST_MESSAGE_TYPES)[number];
+
+export interface HostMessage {
+  protocol: typeof PROTOCOL_NAME;
+  version: typeof PROTOCOL_VERSION;
+  sessionToken: string;
+  type: HostMessageType;
+}
+
+/** Builds one host→frame lifecycle message. */
+export function buildHostMessage(type: HostMessageType, sessionToken: string): HostMessage {
+  return { protocol: PROTOCOL_NAME, version: PROTOCOL_VERSION, sessionToken, type };
+}

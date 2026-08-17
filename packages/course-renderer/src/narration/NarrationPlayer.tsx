@@ -2,6 +2,7 @@ import { useSyncExternalStore } from "react";
 import type { NarrationDefinition } from "@mind-imprint/course-contract";
 import type { SliceEmitter } from "@mind-imprint/course-runtime";
 import type { AudioEngine } from "./audioEngine";
+import { type AudioArbiter, getDefaultAudioArbiter } from "../media/audioArbiter";
 
 /** The narration currently mounted in the player (post asset-resolution). */
 export interface ActiveNarration {
@@ -24,23 +25,37 @@ export interface ActiveNarration {
  * reports the track finished. Framework-agnostic: exposes a `subscribe`/
  * `getSnapshot` pair so {@link NarrationPlayer} can render via
  * `useSyncExternalStore`.
+ *
+ * P1-09/D3: narration is the HIGHEST priority in the cross-block
+ * {@link AudioArbiter} — starting a track registers it there so any
+ * currently-playing video or interactive-HTML music is paused.
  */
 export class NarrationController {
   private readonly engine: AudioEngine;
+  private readonly arbiter: AudioArbiter;
   private readonly listeners = new Set<() => void>();
   private active: ActiveNarration | null = null;
   private unsubEnded: (() => void) | null = null;
 
-  constructor(engine: AudioEngine) {
+  constructor(engine: AudioEngine, arbiter: AudioArbiter = getDefaultAudioArbiter()) {
     this.engine = engine;
+    this.arbiter = arbiter;
     this.subscribe = this.subscribe.bind(this);
     this.getSnapshot = this.getSnapshot.bind(this);
   }
 
   /** Starts a narration track, stopping any current one first (single-track). */
   play(narration: NarrationDefinition, audioUrl: string, emit: SliceEmitter): void {
-    if (this.active) this.detach();
+    if (this.active) {
+      // Release the OUTGOING track's arbiter registration before detaching —
+      // otherwise switching tracks without an explicit stop() (the normal
+      // single-track path) would leave one stale entry per track in the
+      // arbiter's map for the life of the session.
+      this.arbiter.notifyStopped("narration", this.active.id);
+      this.detach();
+    }
     this.active = { id: narration.id, text: narration.text, audioUrl, status: "playing" };
+    this.arbiter.notifyPlaying("narration", narration.id, () => this.engine.pause());
     this.unsubEnded = this.engine.onEnded(() => {
       emit(narration.id, "narration.ended");
     });
@@ -65,8 +80,10 @@ export class NarrationController {
   /** Stops the active track — only when `narrationId` is unset or matches it (§P2-04 target semantics: never act on a stale/other track). */
   stop(narrationId?: string): void {
     if (narrationId !== undefined && this.active?.id !== narrationId) return;
+    const id = this.active?.id;
     this.engine.stop();
     this.detach();
+    if (id !== undefined) this.arbiter.notifyStopped("narration", id);
     this.active = null;
     this.notify();
   }

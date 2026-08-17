@@ -1,6 +1,7 @@
 import { act, render, screen } from "@testing-library/react";
 import { NarrationController, NarrationPlayer } from "../src/narration/NarrationPlayer";
 import { FakeAudioEngine } from "./support/fakeAudioEngine";
+import { AudioArbiter } from "../src/media/audioArbiter";
 import type { NarrationDefinition } from "@mind-imprint/course-contract";
 import type { SliceEmitter } from "@mind-imprint/course-runtime";
 
@@ -109,6 +110,41 @@ describe("NarrationController + NarrationPlayer", () => {
     // retryBlocked() (the fallback control) can recover it.
     controller.retryBlocked();
     expect(controller.getSnapshot()?.status).toBe("playing");
+  });
+
+  // P1-09/D3: narration is priority 1 (highest) in the cross-block
+  // single-audible-source arbiter — starting a track must preempt any
+  // currently-registered video/HTML-music source.
+  describe("audio arbiter (P1-09/D3)", () => {
+    it("play() registers as the arbiter's 'narration' source and pauses lower-priority sources", () => {
+      const engine = new FakeAudioEngine();
+      const arbiter = new AudioArbiter();
+      const controller = new NarrationController(engine, arbiter);
+      const emit: SliceEmitter = () => {};
+      let videoPaused = false;
+      arbiter.notifyPlaying("video", "v1", () => (videoPaused = true));
+
+      controller.play(narration("intro"), "/resolved/audio/intro.mp3", emit);
+
+      expect(videoPaused).toBe(true);
+    });
+
+    it("a lower-priority source starting later is immediately paused too", () => {
+      const engine = new FakeAudioEngine();
+      const arbiter = new AudioArbiter();
+      const controller = new NarrationController(engine, arbiter);
+      const emit: SliceEmitter = () => {};
+
+      controller.play(narration("intro"), "/resolved/audio/intro.mp3", emit);
+      let htmlMusicPaused = false;
+      arbiter.notifyPlaying("htmlMusic", "h1", () => (htmlMusicPaused = true));
+
+      // htmlMusic is lower priority than the already-registered narration —
+      // its own notifyPlaying call does not touch narration, but a fresh
+      // narration.notifyPlaying (e.g. a subsequent play()) would pause it.
+      controller.play(narration("two"), "/resolved/audio/two.mp3", emit);
+      expect(htmlMusicPaused).toBe(true);
+    });
   });
 
   it("renders the active narration transcript", () => {

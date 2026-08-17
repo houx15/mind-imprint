@@ -6,6 +6,7 @@ import { VideoRenderer } from "../../src/blocks/media/VideoRenderer";
 import type { VideoBlock } from "../../src/blocks/types";
 import { VideoEngineProvider } from "../../src/media/videoEngine";
 import { MediaHandleRegistry, MediaHandleRegistryProvider } from "../../src/media/mediaRegistry";
+import { AudioArbiter, AudioArbiterProvider } from "../../src/media/audioArbiter";
 import { FakeVideoEngine } from "../support/fakeVideoEngine";
 
 const assetResolver = { resolve: (p: string) => `/resolved/${p}` };
@@ -262,6 +263,61 @@ describe("VideoRenderer", () => {
       act(() => registry.get("case-video")!.pause());
       expect(video).toHaveAttribute("src", "v1.mp4");
       expect(engine.calls.some((c) => c.startsWith("seek:"))).toBe(false);
+    });
+  });
+
+  // P1-09/D3: video is priority 2 in the cross-block single-audible-source
+  // arbiter — below narration, above interactive-HTML music.
+  describe("audio arbiter (P1-09/D3)", () => {
+    function renderWithArbiter(block: VideoBlock, arbiter: AudioArbiter) {
+      const events: Recorded[] = [];
+      const emit: SliceEmitter = (sourceId, type, payload) => events.push({ sourceId, type: String(type), payload });
+      const engine = new FakeVideoEngine();
+      const registry = new MediaHandleRegistry();
+      const utils = render(
+        <AudioArbiterProvider value={arbiter}>
+          <MediaHandleRegistryProvider value={registry}>
+            <VideoEngineProvider value={engine.factory}>
+              <VideoRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} />
+            </VideoEngineProvider>
+          </MediaHandleRegistryProvider>
+        </AudioArbiterProvider>,
+      );
+      return { ...utils, events, engine, registry };
+    }
+
+    it("registers as the arbiter's 'video' source on play; a higher-priority (narration) start pauses it", () => {
+      const arbiter = new AudioArbiter();
+      const { registry, engine } = renderWithArbiter(endedRuleBlock, arbiter);
+
+      act(() => registry.get("case-video")!.play());
+      expect(engine.calls).toContain("play");
+
+      act(() => arbiter.notifyPlaying("narration", "n1", () => {}));
+      expect(engine.calls).toContain("pause");
+    });
+
+    it("a lower-priority (htmlMusic) start does NOT pause an already-playing video", () => {
+      const arbiter = new AudioArbiter();
+      const { registry, engine } = renderWithArbiter(endedRuleBlock, arbiter);
+
+      act(() => registry.get("case-video")!.play());
+      engine.calls.length = 0;
+
+      act(() => arbiter.notifyPlaying("htmlMusic", "h1", () => {}));
+      expect(engine.calls).not.toContain("pause");
+    });
+
+    it("unregisters on its own pause/ended — a later narration start does not double-pause", () => {
+      const arbiter = new AudioArbiter();
+      const { registry, engine } = renderWithArbiter(endedRuleBlock, arbiter);
+
+      act(() => registry.get("case-video")!.play());
+      act(() => registry.get("case-video")!.pause());
+      engine.calls.length = 0;
+
+      act(() => arbiter.notifyPlaying("narration", "n1", () => {}));
+      expect(engine.calls).not.toContain("pause"); // already paused itself — no stray extra pause call
     });
   });
 });

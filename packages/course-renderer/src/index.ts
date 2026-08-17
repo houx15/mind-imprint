@@ -19,6 +19,8 @@ export { LayoutRenderer } from "./layout/LayoutRenderer";
 export type { LayoutRendererProps, BlockId } from "./layout/LayoutRenderer";
 export { AudioEngineProvider, HtmlAudioEngine, useAudioEngine } from "./narration/audioEngine";
 export type { AudioEngine } from "./narration/audioEngine";
+export { AudioArbiter, AudioArbiterProvider, useAudioArbiter, getDefaultAudioArbiter } from "./media/audioArbiter";
+export type { AudioSourceKind } from "./media/audioArbiter";
 export { NarrationController, NarrationPlayer } from "./narration/NarrationPlayer";
 export type { NarrationPlayerProps, ActiveNarration } from "./narration/NarrationPlayer";
 export { FocusProvider, FocusTarget, useCurrentFocus, isBlockFocused, focusedItemIdFor } from "./focus/FocusManager";

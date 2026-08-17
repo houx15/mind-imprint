@@ -3,6 +3,7 @@ import type { VideoPositionPayload } from "@mind-imprint/course-runtime";
 import type { BlockRenderer, VideoBlock } from "../types";
 import { useVideoEngine } from "../../media/videoEngine";
 import { useMediaHandleRegistry } from "../../media/mediaRegistry";
+import { useAudioArbiter } from "../../media/audioArbiter";
 import { VideoInteractionController } from "./VideoInteractionController";
 
 /**
@@ -35,6 +36,10 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
   const getEl = useCallback(() => videoRef.current, []);
   const engine = useVideoEngine(getEl);
   const registry = useMediaHandleRegistry();
+  // P1-09/D3: video is priority 2 (below narration, above HTML music) in the
+  // cross-block audio arbiter — starting playback pauses lower-priority
+  // interactive-HTML music; a higher-priority narration start pauses this.
+  const arbiter = useAudioArbiter();
 
   // Latest emit for the mount-once ended subscription.
   const emitRef = useRef(emit);
@@ -124,13 +129,15 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
   useEffect(() => {
     return engine.onPlay(() => {
       isPlayingRef.current = true;
+      arbiter.notifyPlaying("video", block.id, () => engine.pause());
       emitRef.current(block.id, "video.started");
     });
-  }, [engine, block.id]);
+  }, [engine, block.id, arbiter]);
 
   useEffect(() => {
     return engine.onPause(() => {
       isPlayingRef.current = false;
+      arbiter.notifyStopped("video", block.id);
       const payload: VideoPositionPayload = { positionSeconds: engine.currentTime() };
       emitRef.current(block.id, "video.paused", payload);
       // P1-11: a pause is a SAFE moment to lazily pick up a renewed signed
@@ -138,7 +145,7 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
       // when the resolver hasn't actually changed) can't interrupt playback.
       reresolveSrc(false);
     });
-  }, [engine, block.id, reresolveSrc]);
+  }, [engine, block.id, reresolveSrc, arbiter]);
 
   // P1-11: a native load failure (e.g. the current URL 403'd after expiring)
   // is the other safe/necessary moment to re-resolve — recover by picking up
@@ -159,11 +166,12 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
   useEffect(() => {
     return engine.onEnded(() => {
       videoEndedRef.current = true;
+      arbiter.notifyStopped("video", block.id);
       const payload: VideoPositionPayload = { positionSeconds: engine.currentTime() };
       emitRef.current(block.id, "video.ended", payload);
       maybeComplete();
     });
-  }, [engine, block.id, maybeComplete]);
+  }, [engine, block.id, maybeComplete, arbiter]);
 
   // The cue timeline reports when all required cues have completed (gated rule).
   const onRequiredCuesComplete = useCallback(() => {

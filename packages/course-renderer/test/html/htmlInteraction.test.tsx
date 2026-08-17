@@ -1,4 +1,4 @@
-import { act, render } from "@testing-library/react";
+import { act, fireEvent, render } from "@testing-library/react";
 import type { BlockSessionState } from "@mind-imprint/course-contract";
 import { applyEvent, initSliceState, type SliceEmitter } from "@mind-imprint/course-runtime";
 import {
@@ -7,6 +7,7 @@ import {
 } from "../../src/blocks/html/HtmlInteractionRenderer";
 import { PROTOCOL_NAME, PROTOCOL_VERSION } from "../../src/blocks/html/protocol";
 import type { InteractiveHtmlBlock } from "../../src/blocks/types";
+import { AudioArbiter, AudioArbiterProvider } from "../../src/media/audioArbiter";
 
 const assetResolver = { resolve: (p: string) => `/resolved/${p}` };
 const baseState: BlockSessionState = { visible: true, enabled: true, completed: false };
@@ -18,6 +19,13 @@ const block: InteractiveHtmlBlock = {
   protocolVersion: "1.0",
   aspectRatio: "4:3",
   completion: { rule: "interaction-complete" },
+};
+
+/** Same block, declaring the P1-09 audio capability. */
+const audioBlock: InteractiveHtmlBlock = {
+  ...block,
+  id: "h-audio",
+  capabilities: { audio: true },
 };
 
 interface Recorded {
@@ -224,6 +232,22 @@ describe("createHtmlMessageHandler (message boundary)", () => {
     expect(done).toBe(true);
   });
 
+  it("calls onAutoplayBlocked for an error message carrying code 'autoplay-blocked' (P1-09), and still emits interaction.error", () => {
+    let blocked = false;
+    const { handler, events } = makeHandler({ onAutoplayBlocked: () => (blocked = true) });
+    handler(frameMsg({ type: "error", payload: { message: "autoplay rejected", code: "autoplay-blocked" } }), frameWindow);
+    expect(blocked).toBe(true);
+    expect(events).toEqual([{ sourceId: "h1", type: "interaction.error", payload: { message: "autoplay rejected", code: "autoplay-blocked" } }]);
+  });
+
+  it("does NOT call onAutoplayBlocked for an error message with a different/no code", () => {
+    let blocked = false;
+    const { handler } = makeHandler({ onAutoplayBlocked: () => (blocked = true) });
+    handler(frameMsg({ type: "error", payload: { message: "sandboxed script threw" } }), frameWindow);
+    handler(frameMsg({ type: "error", payload: { message: "boom", code: "other" } }), frameWindow);
+    expect(blocked).toBe(false);
+  });
+
   it("emits interaction.progress and interaction.error for valid progress/error payloads", () => {
     const { handler, events, rejected } = makeHandler();
     handler(frameMsg({ type: "progress", payload: { step: 2 } }), frameWindow);
@@ -248,5 +272,211 @@ describe("createHtmlMessageHandler (message boundary)", () => {
     }
     expect(sliceState.blockStates["h1"]?.completed).toBe(true);
     expect(sliceState.blockStates["h1"]?.interactionResult).toEqual({ h1: { correct: true, value: 42 } });
+  });
+});
+
+/**
+ * P1-09 / D3 — host→frame lifecycle, autoplay gating/fallback, true
+ * `enabled=false`, and the cross-block audio arbiter. jsdom DOES honor an
+ * explicit `source` passed to the `MessageEvent` constructor (verified
+ * against this jsdom version), so these tests dispatch real `window`
+ * "message" events sourced from the rendered iframe's own `contentWindow` —
+ * unlike a REAL cross-frame `postMessage`, which jsdom does not deliver
+ * end-to-end for a `src`-less test iframe (that's the "cannot freely set"
+ * limitation `createHtmlMessageHandler`'s own unit tests route around).
+ */
+describe("HtmlInteractionRenderer — host→frame lifecycle + audio (P1-09/D3)", () => {
+  /** Extracts the `type` of every host→frame lifecycle message posted (skips the untyped session handshake). */
+  function hostMessageTypes(spy: { mock: { calls: unknown[][] } }): string[] {
+    return spy.mock.calls
+      .map(([msg]) => msg as Record<string, unknown>)
+      .filter((msg) => msg.protocol === PROTOCOL_NAME && typeof msg.type === "string")
+      .map((msg) => msg.type as string);
+  }
+
+  it('grants allow="autoplay" only when the block declares capabilities.audio', () => {
+    const { container: withoutAudio } = render(
+      <HtmlInteractionRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled emit={() => {}} tokenFactory={() => "t1"} />,
+    );
+    expect(withoutAudio.querySelector("iframe")!.getAttribute("allow")).toBeNull();
+
+    const { container: withAudio } = render(
+      <HtmlInteractionRenderer block={audioBlock} assetResolver={assetResolver} state={baseState} visible enabled emit={() => {}} tokenFactory={() => "t2"} />,
+    );
+    expect(withAudio.querySelector("iframe")!.getAttribute("allow")).toBe("autoplay");
+  });
+
+  it("posts activate+enable to the frame once loaded, then deactivate+pauseMedia when the block is hidden", () => {
+    const emit: SliceEmitter = () => {};
+    const buildUi = (visible: boolean, enabled: boolean) => (
+      <HtmlInteractionRenderer block={block} assetResolver={assetResolver} state={baseState} visible={visible} enabled={enabled} emit={emit} tokenFactory={() => "fixed-tok"} />
+    );
+    const { container, rerender } = render(buildUi(true, true));
+    const iframe = container.querySelector("iframe")!;
+    const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+
+    act(() => fireEvent.load(iframe));
+    expect(hostMessageTypes(spy)).toEqual(["activate", "enable"]);
+
+    spy.mockClear();
+    rerender(buildUi(false, true));
+    expect(hostMessageTypes(spy)).toEqual(["deactivate", "pauseMedia"]);
+  });
+
+  it("enabled=false truly blocks interaction (pointer-events:none + capturing overlay + no tab focus) and posts disable+pauseMedia; re-enabling clears it and posts enable", () => {
+    const emit: SliceEmitter = () => {};
+    const buildUi = (enabled: boolean) => (
+      <HtmlInteractionRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled={enabled} emit={emit} tokenFactory={() => "fixed-tok"} />
+    );
+    const { container, rerender } = render(buildUi(true));
+    const iframe = container.querySelector("iframe")!;
+    const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+    act(() => fireEvent.load(iframe));
+
+    // Baseline: enabled — no overlay, pointer events reach the frame.
+    expect(container.querySelector('[data-testid="html-disabled-overlay"]')).toBeNull();
+    expect(iframe.style.pointerEvents).toBe("auto");
+    expect(iframe.getAttribute("tabindex")).toBeNull();
+
+    spy.mockClear();
+    rerender(buildUi(false));
+    expect(iframe.style.pointerEvents).toBe("none");
+    expect(iframe.getAttribute("tabindex")).toBe("-1");
+    expect(container.querySelector('[data-testid="html-disabled-overlay"]')).not.toBeNull();
+    expect(hostMessageTypes(spy)).toEqual(["disable", "pauseMedia"]);
+
+    spy.mockClear();
+    rerender(buildUi(true));
+    expect(iframe.style.pointerEvents).toBe("auto");
+    expect(container.querySelector('[data-testid="html-disabled-overlay"]')).toBeNull();
+    expect(hostMessageTypes(spy)).toEqual(["enable"]);
+  });
+
+  it("unmounting (leaving the slice) posts stopMedia", () => {
+    const emit: SliceEmitter = () => {};
+    const { container, unmount } = render(
+      <HtmlInteractionRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} tokenFactory={() => "fixed-tok"} />,
+    );
+    const iframe = container.querySelector("iframe")!;
+    const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+    act(() => fireEvent.load(iframe));
+    spy.mockClear();
+
+    unmount();
+    expect(hostMessageTypes(spy)).toEqual(["stopMedia"]);
+  });
+
+  describe("autoplay-blocked fallback", () => {
+    function dispatchAutoplayBlocked(iframe: HTMLIFrameElement, sessionToken = "fixed-tok") {
+      window.dispatchEvent(
+        new MessageEvent("message", {
+          data: {
+            protocol: PROTOCOL_NAME,
+            version: PROTOCOL_VERSION,
+            sessionToken,
+            type: "error",
+            payload: { message: "autoplay rejected", code: "autoplay-blocked" },
+          },
+          source: iframe.contentWindow as unknown as Window,
+        }),
+      );
+    }
+
+    it("shows a one-click 开始音频 fallback when the frame reports autoplay-blocked, and the gesture posts resumeMedia — never deadlocks (P1-09)", () => {
+      const emit: SliceEmitter = () => {};
+      const { container } = render(
+        <HtmlInteractionRenderer block={audioBlock} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} tokenFactory={() => "fixed-tok"} />,
+      );
+      const iframe = container.querySelector("iframe")!;
+      const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+      act(() => fireEvent.load(iframe));
+
+      expect(container.querySelector(".course-interactive-html__audio-fallback")).toBeNull();
+
+      act(() => dispatchAutoplayBlocked(iframe));
+
+      const fallback = container.querySelector(".course-interactive-html__audio-fallback");
+      expect(fallback).not.toBeNull();
+      expect(fallback!.textContent).toBe("开始音频");
+
+      spy.mockClear();
+      act(() => fireEvent.click(fallback!));
+
+      expect(hostMessageTypes(spy)).toEqual(["resumeMedia"]);
+      expect(container.querySelector(".course-interactive-html__audio-fallback")).toBeNull();
+    });
+
+    it("never shows the audio fallback for a block that did not declare capabilities.audio", () => {
+      const emit: SliceEmitter = () => {};
+      const { container } = render(
+        <HtmlInteractionRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} tokenFactory={() => "fixed-tok"} />,
+      );
+      const iframe = container.querySelector("iframe")!;
+      act(() => fireEvent.load(iframe));
+
+      act(() => dispatchAutoplayBlocked(iframe));
+
+      expect(container.querySelector(".course-interactive-html__audio-fallback")).toBeNull();
+    });
+  });
+
+  describe("single-audible-source arbiter", () => {
+    it("registers an active audio-capable block as the arbiter's htmlMusic source; a higher-priority start pauses it via pauseMedia", () => {
+      const arbiter = new AudioArbiter();
+      const emit: SliceEmitter = () => {};
+      const { container } = render(
+        <AudioArbiterProvider value={arbiter}>
+          <HtmlInteractionRenderer block={audioBlock} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} tokenFactory={() => "fixed-tok"} />
+        </AudioArbiterProvider>,
+      );
+      const iframe = container.querySelector("iframe")!;
+      const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+      act(() => fireEvent.load(iframe));
+      spy.mockClear();
+
+      act(() => {
+        arbiter.notifyPlaying("narration", "n1", () => {});
+      });
+
+      expect(hostMessageTypes(spy)).toEqual(["pauseMedia"]);
+    });
+
+    it("unregisters once hidden — a later higher-priority start does not post a stray pauseMedia", () => {
+      const arbiter = new AudioArbiter();
+      const emit: SliceEmitter = () => {};
+      const buildUi = (visible: boolean) => (
+        <AudioArbiterProvider value={arbiter}>
+          <HtmlInteractionRenderer block={audioBlock} assetResolver={assetResolver} state={baseState} visible={visible} enabled emit={emit} tokenFactory={() => "fixed-tok"} />
+        </AudioArbiterProvider>
+      );
+      const { container, rerender } = render(buildUi(true));
+      const iframe = container.querySelector("iframe")!;
+      const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+      act(() => fireEvent.load(iframe));
+
+      rerender(buildUi(false));
+      spy.mockClear();
+      act(() => arbiter.notifyPlaying("narration", "n1", () => {}));
+
+      expect(hostMessageTypes(spy)).toEqual([]);
+    });
+
+    it("a non-audio-capable block never registers with the arbiter (no pauseMedia posted)", () => {
+      const arbiter = new AudioArbiter();
+      const emit: SliceEmitter = () => {};
+      const { container } = render(
+        <AudioArbiterProvider value={arbiter}>
+          <HtmlInteractionRenderer block={block} assetResolver={assetResolver} state={baseState} visible enabled emit={emit} tokenFactory={() => "fixed-tok"} />
+        </AudioArbiterProvider>,
+      );
+      const iframe = container.querySelector("iframe")!;
+      const spy = vi.spyOn(iframe.contentWindow!, "postMessage");
+      act(() => fireEvent.load(iframe));
+      spy.mockClear();
+
+      act(() => arbiter.notifyPlaying("video", "v1", () => {}));
+
+      expect(hostMessageTypes(spy)).toEqual([]);
+    });
   });
 });
