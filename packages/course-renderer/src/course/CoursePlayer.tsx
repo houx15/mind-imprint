@@ -189,7 +189,18 @@ export function CoursePlayer({ document, definitionHash, adapters, studentId, se
       // back-compat contract); stamp the current hash either way so this
       // session's NEXT resume compares against what it's actually built on.
       const stale = definitionHash != null && isCourseSessionStale(session, definitionHash);
-      if (stale) setRevisionNotice(true);
+      if (stale) {
+        setRevisionNotice(true);
+        // Durability: clear the session's PERSISTED `current`/`sliceStates`,
+        // not just the renderer's in-memory cache below — otherwise once
+        // setDefinitionHash (next) makes the hash match, the NEXT resume
+        // would see the still-persisted stale state and silently restore
+        // exactly what this reset meant to discard. Awaited (unlike the
+        // fire-and-forget setDefinitionHash below) so the reset is committed
+        // before this session is treated as fresh for the rest of init.
+        await adapters.sessionAdapter.resetProgress(session.id);
+        if (cancelled) return;
+      }
       if (definitionHash && session.courseDefinitionHash !== definitionHash) {
         void adapters.sessionAdapter.setDefinitionHash(session.id, definitionHash);
       }

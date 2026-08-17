@@ -129,6 +129,32 @@ describe("makeApiSessionAdapter", () => {
     expect(saved.courseDefinitionHash).toBe("def-hash-abc");
   });
 
+  // D5 / P2-08 durability regression: CoursePlayer's stale-hash reset must
+  // reach the SERVER, not just the renderer's in-memory cache — otherwise a
+  // later resume, once the stamped hash matches, resurrects the discarded
+  // slice/step. resetProgress() must actually clear the held session's
+  // `current`/`sliceStates` so the next PUT carries the cleared state.
+  it("resetProgress() clears the held session's `current` and `sliceStates`, and the PUT reflects it", async () => {
+    createMock.mockResolvedValueOnce({
+      ...serverSession(),
+      status: "in-progress",
+      current: { partId: "part-1", sliceId: "slice-observe-and-answer", workflowStepId: "step-1" },
+      sliceStates: { "slice-observe-and-answer": sliceState },
+    });
+    const adapter = makeApiSessionAdapter(SLUG, { debounceMs: 400 });
+    const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });
+    expect(created.current).not.toBeUndefined();
+    expect(created.sliceStates).not.toEqual({});
+
+    await adapter.resetProgress(created.id);
+    await adapter.flush();
+
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    const [, saved] = saveMock.mock.calls[0]!;
+    expect(saved.current).toBeUndefined();
+    expect(saved.sliceStates).toEqual({});
+  });
+
   it("setCurrent() updates the held session's `current` and schedules a snapshot", async () => {
     const adapter = makeApiSessionAdapter(SLUG, { debounceMs: 400 });
     const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });

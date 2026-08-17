@@ -48,6 +48,16 @@ export interface SessionAdapter {
    * brand-new session (no hash yet) and again after a stale-hash reset.
    */
   setDefinitionHash(sessionId: string, hash: string): Promise<void>;
+  /**
+   * D5 / P2-08 durability — clears a session's PERSISTED progress (`current`
+   * and `sliceStates`) so a stale-hash reset survives a reload. Without this,
+   * a reset only ever touched the renderer's in-memory cache
+   * (`sliceStatesRef`); the next `load()` would see the still-persisted
+   * `current`/`sliceStates` and, once `setDefinitionHash` had already made
+   * the hash match, silently resurrect the discarded progress. CoursePlayer
+   * calls this in the same stale-reset branch that stamps the new hash.
+   */
+  resetProgress(sessionId: string): Promise<void>;
 }
 
 /**
@@ -158,6 +168,12 @@ export class InMemorySessionAdapter implements SessionAdapter {
 
   async setDefinitionHash(sessionId: string, hash: string): Promise<void> {
     this.require(sessionId).courseDefinitionHash = hash;
+  }
+
+  async resetProgress(sessionId: string): Promise<void> {
+    const session = this.require(sessionId);
+    session.current = undefined;
+    session.sliceStates = {};
   }
 
   private require(sessionId: string): CourseSession {

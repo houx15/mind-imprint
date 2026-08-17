@@ -184,6 +184,18 @@ export function makeApiSessionAdapter(slug: string, opts: ApiSessionAdapterOptio
       scheduleSnapshot();
     },
 
+    async resetProgress(sessionId: string): Promise<void> {
+      // D5 / P2-08 durability — clears the HELD session's persisted progress
+      // so the debounced PUT actually reaches the server with `current`
+      // unset and `sliceStates` empty, not just the renderer's in-memory
+      // cache. Without this, a stale-hash reset only ever looked durable:
+      // the next load() would see the still-persisted stale state.
+      const session = requireLoaded(sessionId);
+      session.current = undefined;
+      session.sliceStates = {};
+      scheduleSnapshot();
+    },
+
     flush,
     getSaveStatus: () => saveStatus,
   };

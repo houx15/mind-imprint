@@ -82,6 +82,10 @@ function buildSeededAdapters(seed: CourseSession) {
     async setDefinitionHash(_sessionId, hash) {
       session.courseDefinitionHash = hash;
     },
+    async resetProgress(_sessionId) {
+      session.current = undefined;
+      session.sliceStates = {};
+    },
   };
 
   const adapters: CourseRuntimeAdapters = {
@@ -470,6 +474,80 @@ describe("CoursePlayer definition-revision policy (D5 / P2-08)", () => {
 
     // The new hash is stamped onto the session so its NEXT resume compares clean.
     await waitFor(() => expect(getSession().courseDefinitionHash).toBe("new-hash"));
+  });
+
+  // Durability regression: a stale-hash reset that only cleared the
+  // renderer's in-memory `sliceStatesRef` (never the adapter's PERSISTED
+  // `current`/`sliceStates`) looked fixed on the SAME mount but silently
+  // resurrected the discarded progress on the NEXT one — the freshly
+  // stamped hash would then match, so the resume guard `restored.current
+  // != null` would fire again and jump straight back to the stale (possibly
+  // now-removed) slice/step. This test re-mounts against the same held
+  // session to prove the persisted progress was actually cleared, not just
+  // the in-memory cache.
+  it("a stale-hash reset is durable across a reload: the persisted current/sliceStates are cleared, so a SECOND mount (now with a matching hash) does not resurrect the discarded slice", async () => {
+    const seed: CourseSession = {
+      id: "server-session-stale-reload",
+      courseId: "static-demo-course",
+      courseSchemaVersion: "2.0",
+      studentId: "student-1",
+      status: "in-progress",
+      current: { partId: "part-one", sliceId: "slice-two", workflowStepId: "intro" },
+      opening: { text: "旧版开场白", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      sliceStates: {
+        "slice-two": { status: "in-progress", currentWorkflowStepId: "intro", startedAt: clock(), elapsedSeconds: 5, blockStates: {} },
+      },
+      events: [],
+      courseDefinitionHash: "old-hash",
+    };
+    const { adapters, getSession } = buildSeededAdapters(seed);
+
+    // First mount: hash mismatches ("old-hash" vs "new-hash") — resets.
+    const engine1 = new FakeAudioEngine();
+    const first = render(
+      <AudioEngineProvider value={engine1}>
+        <CoursePlayer
+          document={staticCourseDocument}
+          definitionHash="new-hash"
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev1")}
+          clock={clock}
+        />
+      </AudioEngineProvider>,
+    );
+    await screen.findByText("一起开始吧");
+    await waitFor(() => expect(getSession().courseDefinitionHash).toBe("new-hash"));
+
+    // The PERSISTED session — not just the renderer's local cache — must be
+    // cleared: this is the held "server" copy the seeded adapter returns to
+    // every subsequent load()/create().
+    expect(getSession().current).toBeUndefined();
+    expect(getSession().sliceStates).toEqual({});
+    first.unmount();
+
+    // Second mount ("reload"): the session's hash now matches the current
+    // definition's hash, so it is no longer stale — the resume guard would
+    // fire on any leftover `current`. It must find none.
+    const engine2 = new FakeAudioEngine();
+    render(
+      <AudioEngineProvider value={engine2}>
+        <CoursePlayer
+          document={staticCourseDocument}
+          definitionHash="new-hash"
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev2")}
+          clock={clock}
+        />
+      </AudioEngineProvider>,
+    );
+
+    // Fresh Opening again — never resumed straight into slice-two's "intro"
+    // step, and no revision notice this time (hash matches, not stale).
+    await screen.findByText("一起开始吧");
+    expect(document.querySelector('[data-block-id="s2-text"]')).toBeNull();
+    expect(screen.queryByTestId("course-revision-notice")).toBeNull();
   });
 
   it("resumes normally (no reset, no notice) when the session's recorded hash matches the current definition's hash", async () => {

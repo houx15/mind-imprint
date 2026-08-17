@@ -63,6 +63,31 @@ describe("InMemorySessionAdapter", () => {
     expect(await adapter.load("nope")).toBeNull();
   });
 
+  // D5 / P2-08 durability — CoursePlayer's stale-hash reset must clear the
+  // PERSISTED progress, not merely the renderer's in-memory cache, or a
+  // later resume (once the stamped hash matches) resurrects it.
+  it("resetProgress() clears `current` and `sliceStates` but leaves status/hash/events untouched", async () => {
+    const adapter = new InMemorySessionAdapter({
+      idFactory: fixedIds("sess"),
+      clock: () => "2026-08-16T00:00:00.000Z",
+    });
+    const created = await adapter.create({ courseId: "demo-course", studentId: "student-a" });
+    await adapter.setStatus(created.id, "in-progress");
+    await adapter.setCurrent(created.id, { partId: "part-1", sliceId: "slice-1", workflowStepId: "step-1" });
+    await adapter.saveSliceState(created.id, "slice-1", { status: "in-progress", elapsedSeconds: 3, blockStates: {} });
+    await adapter.setDefinitionHash(created.id, "old-hash");
+
+    await adapter.resetProgress(created.id);
+
+    const loaded = await adapter.load(created.id);
+    expect(loaded!.current).toBeUndefined();
+    expect(loaded!.sliceStates).toEqual({});
+    // Untouched by resetProgress — CoursePlayer stamps the new hash and
+    // status separately.
+    expect(loaded!.status).toBe("in-progress");
+    expect(loaded!.courseDefinitionHash).toBe("old-hash");
+  });
+
   it("returns isolated copies so callers cannot mutate stored state", async () => {
     const adapter = new InMemorySessionAdapter({
       idFactory: fixedIds("sess"),
