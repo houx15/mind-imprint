@@ -151,14 +151,22 @@ export function NarrationPlayer({ controller, emit }: NarrationPlayerProps) {
         </button>
       ) : null}
       <div className="course-narration__controls">
-        <button type="button" data-narration-control="replay" onClick={() => controller.replay(emit)}>
-          重播
+        <button type="button" className="course-narration__control" data-narration-control="replay" aria-label="重播" title="重播" onClick={() => controller.replay(emit)}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+            <path d="M3 2v6h6" />
+            <path d="M3.51 15a9 9 0 1 0 2.13-9.36L3 8" />
+          </svg>
         </button>
-        <button type="button" data-narration-control="pause" onClick={() => controller.pause()}>
-          暂停
+        <button type="button" className="course-narration__control" data-narration-control="pause" aria-label="暂停" title="暂停" onClick={() => controller.pause()}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+            <rect x="6" y="5" width="4" height="14" rx="1" />
+            <rect x="14" y="5" width="4" height="14" rx="1" />
+          </svg>
         </button>
-        <button type="button" data-narration-control="stop" onClick={() => controller.stop()}>
-          停止
+        <button type="button" className="course-narration__control" data-narration-control="stop" aria-label="停止" title="停止" onClick={() => controller.stop()}>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
+            <rect x="6" y="6" width="12" height="12" rx="1.5" />
+          </svg>
         </button>
       </div>
       <p className="course-narration__transcript" data-narration-transcript>

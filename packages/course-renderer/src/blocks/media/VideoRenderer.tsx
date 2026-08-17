@@ -201,14 +201,11 @@ export const VideoRenderer: BlockRenderer<VideoBlock> = ({ block, assetResolver,
           <track kind="captions" src={assetResolver.resolve(block.captions)} default />
         ) : null}
       </video>
-      <div className="course-video__controls">
-        <button type="button" className="course-video__play" disabled={!enabled} onClick={play}>
-          播放
-        </button>
-        <button type="button" className="course-video__pause" disabled={!enabled} onClick={pause}>
-          暂停
-        </button>
-      </div>
+      {/* No custom play/pause buttons: the native <video controls> already
+          provides the familiar player transport (play/volume/fullscreen).
+          Workflow-driven play/pause still reaches the element via the media
+          handle registered above; the only extra affordance is the recoverable
+          autoplay-retry below. */}
       {playError ? (
         <p className="course-video__play-error" role="alert">
           播放未能开始，可能是浏览器阻止了自动播放。

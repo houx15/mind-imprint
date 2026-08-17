@@ -513,6 +513,24 @@
   align-items: center;
   gap: 6px;
 }
+.course-narration__control {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-sm);
+  background: var(--course-surface);
+  color: var(--course-secondary);
+  cursor: pointer;
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease);
+}
+.course-narration__control:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
 
 /* ---------- Slice navigation footer ---------- */
 .course-nav {

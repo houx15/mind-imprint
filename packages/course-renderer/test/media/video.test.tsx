@@ -105,12 +105,10 @@ describe("VideoRenderer", () => {
     expect(events.filter((e) => e.type === "block.completed")).toHaveLength(1);
   });
 
-  it("honors the enabled prop: hides native controls, disables the custom buttons, and ignores play/pause", () => {
+  it("honors the enabled prop: hides the native controls and ignores play/pause", () => {
     const { container, engine, registry } = renderVideo(endedRuleBlock, false);
     const video = container.querySelector("video")!;
     expect(video).not.toHaveAttribute("controls");
-    expect(screen.getByRole("button", { name: "播放" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: "暂停" })).toBeDisabled();
 
     // Even the workflow's imperative handle is a no-op while disabled.
     act(() => registry.get("case-video")!.play());
@@ -147,8 +145,10 @@ describe("VideoRenderer", () => {
 
   it("surfaces a play() rejection with a learner-recoverable retry affordance (P2-03)", async () => {
     const user = userEvent.setup();
-    const { engine } = renderVideo(endedRuleBlock);
-    await user.click(screen.getByRole("button", { name: "播放" }));
+    const { engine, registry } = renderVideo(endedRuleBlock);
+    // Playback is driven by the native player / workflow handle now (no custom
+    // buttons) — trigger it via the media handle, then reject it.
+    act(() => registry.get("case-video")!.play());
     act(() => engine.firePlayError(new Error("NotAllowedError")));
 
     const alert = screen.getByRole("alert");
