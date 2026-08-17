@@ -39,29 +39,34 @@ export function ClosingScene({ scene, summary, takeaways, transferApplications, 
 
   return (
     <section className="course-closing" aria-label="课程收尾" data-fallback={scene.fallbackUsed ? "true" : undefined}>
-      <p className="course-closing__narration">{scene.text}</p>
-      {audio.status === "blocked" ? (
-        <button type="button" className="course-closing__play-audio" data-audio-fallback="true" onClick={audio.start}>
-          播放
-        </button>
-      ) : null}
-      <h2 className="course-closing__summary-heading">小结</h2>
-      <p className="course-closing__summary">{summary}</p>
-      <h3 className="course-closing__takeaways-heading">要点</h3>
-      <ul className="course-closing__takeaways">
-        {takeaways.map((item, i) => (
-          <li key={i}>{item}</li>
-        ))}
-      </ul>
-      <h3 className="course-closing__transfer-heading">迁移应用</h3>
-      <ul className="course-closing__transfer">
-        {transferApplications.map((item, i) => (
-          <li key={i}>{item}</li>
-        ))}
-      </ul>
-      <button type="button" className="course-closing__complete" onClick={onComplete}>
-        {CLOSING_COMPLETE_LABEL}
-      </button>
+      <div className="course-closing__panel">
+        <p className="course-closing__eyebrow">课程收尾</p>
+        <p className="course-closing__narration">{scene.text}</p>
+        {audio.status === "blocked" ? (
+          <button type="button" className="course-closing__play-audio" data-audio-fallback="true" onClick={audio.start}>
+            播放
+          </button>
+        ) : null}
+        <h2 className="course-closing__summary-heading">小结</h2>
+        <p className="course-closing__summary">{summary}</p>
+        <h3 className="course-closing__takeaways-heading">要点</h3>
+        <ul className="course-closing__takeaways">
+          {takeaways.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+        <h3 className="course-closing__transfer-heading">迁移应用</h3>
+        <ul className="course-closing__transfer">
+          {transferApplications.map((item, i) => (
+            <li key={i}>{item}</li>
+          ))}
+        </ul>
+        <div className="course-closing__actions">
+          <button type="button" className="course-closing__complete" onClick={onComplete}>
+            {CLOSING_COMPLETE_LABEL}
+          </button>
+        </div>
+      </div>
     </section>
   );
 }

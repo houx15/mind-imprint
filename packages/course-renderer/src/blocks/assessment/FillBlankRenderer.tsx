@@ -28,6 +28,9 @@ export const FillBlankRenderer: BlockRenderer<FillBlankBlock> = ({ block, state,
   const [value, setValue] = useState("");
   const [locked, setLocked] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // Correctness of the shown feedback, surfaced as `data-correct` so the
+  // stylesheet can tint it success/danger; null = ungraded (reflection).
+  const [feedbackCorrect, setFeedbackCorrect] = useState<boolean | null>(null);
 
   // Local 1-based attempt counter, seeded ONCE from persisted state so a
   // remediated (disable → re-enable) question continues its attempt count.
@@ -44,6 +47,7 @@ export const FillBlankRenderer: BlockRenderer<FillBlankBlock> = ({ block, state,
       // No runtime grading — capture and complete (submit-any).
       setLocked(true);
       setFeedback("已记录你的思考。");
+      setFeedbackCorrect(null);
       emit(block.id, "block.completed", {});
       return;
     }
@@ -57,6 +61,7 @@ export const FillBlankRenderer: BlockRenderer<FillBlankBlock> = ({ block, state,
     if (outcome.completed) emit(block.id, "block.completed", {});
     if (outcome.locked) setLocked(true);
     setFeedback(correct ? block.assessment.correctFeedback ?? null : block.assessment.incorrectFeedback ?? null);
+    setFeedbackCorrect(correct);
   };
 
   return (
@@ -83,7 +88,12 @@ export const FillBlankRenderer: BlockRenderer<FillBlankBlock> = ({ block, state,
         提交
       </button>
       {feedback ? (
-        <p className="course-fill-blank__feedback" role="status" data-fill-blank-feedback>
+        <p
+          className="course-fill-blank__feedback"
+          role="status"
+          data-fill-blank-feedback
+          data-correct={feedbackCorrect === null ? undefined : feedbackCorrect ? "true" : "false"}
+        >
           {feedback}
         </p>
       ) : null}

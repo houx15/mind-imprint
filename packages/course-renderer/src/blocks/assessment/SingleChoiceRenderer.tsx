@@ -18,6 +18,9 @@ export const SingleChoiceRenderer: BlockRenderer<SingleChoiceBlock> = ({ block, 
   const [selected, setSelected] = useState<string | null>(null);
   const [locked, setLocked] = useState(false);
   const [feedback, setFeedback] = useState<string | null>(null);
+  // Correctness of the shown feedback, surfaced as `data-correct` so the
+  // stylesheet can tint it success/danger; null = ungraded (survey), neutral.
+  const [feedbackCorrect, setFeedbackCorrect] = useState<boolean | null>(null);
 
   // Local 1-based attempt counter, seeded ONCE from persisted state so a
   // remediated (disable → re-enable) question continues its attempt count.
@@ -35,6 +38,7 @@ export const SingleChoiceRenderer: BlockRenderer<SingleChoiceBlock> = ({ block, 
       // No correctness — capture and complete (submit-any).
       setLocked(true);
       setFeedback("已记录你的选择。");
+      setFeedbackCorrect(null);
       emit(block.id, "block.completed", {});
       return;
     }
@@ -48,6 +52,7 @@ export const SingleChoiceRenderer: BlockRenderer<SingleChoiceBlock> = ({ block, 
     if (outcome.completed) emit(block.id, "block.completed", {});
     if (outcome.locked) setLocked(true);
     setFeedback(correct ? block.assessment.correctFeedback ?? null : block.assessment.incorrectFeedback ?? null);
+    setFeedbackCorrect(correct);
   };
 
   return (
@@ -86,7 +91,12 @@ export const SingleChoiceRenderer: BlockRenderer<SingleChoiceBlock> = ({ block, 
         提交
       </button>
       {feedback ? (
-        <p className="course-single-choice__feedback" role="status" data-single-choice-feedback>
+        <p
+          className="course-single-choice__feedback"
+          role="status"
+          data-single-choice-feedback
+          data-correct={feedbackCorrect === null ? undefined : feedbackCorrect ? "true" : "false"}
+        >
           {feedback}
         </p>
       ) : null}

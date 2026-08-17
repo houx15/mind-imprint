@@ -33,34 +33,39 @@ export function OpeningScene({ scene, title, estimatedMinutes, objectives, learn
 
   return (
     <section className="course-opening" aria-label="课程开场" data-fallback={scene.fallbackUsed ? "true" : undefined}>
-      <h1 className="course-opening__title">{title}</h1>
-      <p className="course-opening__greeting">{scene.text}</p>
-      <p className="course-opening__estimate">预计 {estimatedMinutes} 分钟</p>
-      {learningPreview.length > 0 ? (
-        <ul className="course-opening__preview">
-          {learningPreview.map((item, i) => (
-            <li key={i}>{item}</li>
-          ))}
-        </ul>
-      ) : null}
-      {objectives.length > 0 ? (
-        <>
-          <h2 className="course-opening__objectives-heading">学习目标</h2>
-          <ul className="course-opening__objectives" aria-label="学习目标">
-            {objectives.map((item, i) => (
+      <div className="course-opening__panel">
+        <p className="course-opening__eyebrow">开始学习</p>
+        <h1 className="course-opening__title">{title}</h1>
+        <p className="course-opening__greeting">{scene.text}</p>
+        <p className="course-opening__estimate">预计 {estimatedMinutes} 分钟</p>
+        {learningPreview.length > 0 ? (
+          <ul className="course-opening__preview">
+            {learningPreview.map((item, i) => (
               <li key={i}>{item}</li>
             ))}
           </ul>
-        </>
-      ) : null}
-      {audio.status === "blocked" ? (
-        <button type="button" className="course-opening__play-audio" data-audio-fallback="true" onClick={audio.start}>
-          播放
-        </button>
-      ) : null}
-      <button type="button" className="course-opening__start" onClick={onStart}>
-        {OPENING_START_LABEL}
-      </button>
+        ) : null}
+        {objectives.length > 0 ? (
+          <>
+            <h2 className="course-opening__objectives-heading">学习目标</h2>
+            <ul className="course-opening__objectives" aria-label="学习目标">
+              {objectives.map((item, i) => (
+                <li key={i}>{item}</li>
+              ))}
+            </ul>
+          </>
+        ) : null}
+        <div className="course-opening__actions">
+          {audio.status === "blocked" ? (
+            <button type="button" className="course-opening__play-audio" data-audio-fallback="true" onClick={audio.start}>
+              播放
+            </button>
+          ) : null}
+          <button type="button" className="course-opening__start" onClick={onStart}>
+            {OPENING_START_LABEL}
+          </button>
+        </div>
+      </div>
     </section>
   );
 }
