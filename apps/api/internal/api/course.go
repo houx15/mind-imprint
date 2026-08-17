@@ -161,6 +161,20 @@ func (a *API) getCourseReport(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
 	slug := r.PathValue("slug")
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	// A CourseDefinition-2.0 course has an empty legacy `structure`/`render_cache`
+	// and tracks progress in course_session, not course_progress — so compute its
+	// report from the definition + session. found=false means "legacy course",
+	// which falls through to the legacy path below unchanged.
+	if rep20, ok, err := store.CourseReport20(r.Context(), user.ID, slug); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	} else if ok {
+		header := courseStructureHeader{Title: rep20.Title, CourseGoal: rep20.Goal}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": toCourseReportDTO(header, rep20.Data)})
+		return
+	}
+
 	rep, err := store.CourseReport(r.Context(), user.ID, slug)
 	if err != nil {
 		httpx.WriteError(w, r, err)

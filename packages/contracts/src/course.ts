@@ -98,6 +98,20 @@ export const CourseProgress = z.object({
   updated_at: z.string(),
 });
 
+// CourseReport is the finished-course summary (GET /courses/{slug}/report):
+// simple stats + the tool cards the course teaches. Populated for BOTH the
+// legacy course model and the CourseDefinition-2.0 runtime (the server computes
+// the 2.0 stats from the course_session + definition; cards from course.card_ids).
+export const CourseReport = z.object({
+  title: z.string(),
+  goal: z.string(),
+  teaching_thread: z.string(),
+  completedStepTitles: z.array(z.string()),
+  cardIds: z.array(z.string()),
+  secondsSpent: z.number().int(),
+  quiz: z.object({ total: z.number().int(), correct: z.number().int() }),
+});
+
 export type CourseAsset = z.infer<typeof CourseAsset>;
 export type Interaction = z.infer<typeof Interaction>;
 export type RenderSegment = z.infer<typeof RenderSegment>;
@@ -107,3 +121,4 @@ export type CourseStructure = z.infer<typeof CourseStructure>;
 export type CourseSummary = z.infer<typeof CourseSummary>;
 export type CoursePlayerPayload = z.infer<typeof CoursePlayerPayload>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
+export type CourseReport = z.infer<typeof CourseReport>;

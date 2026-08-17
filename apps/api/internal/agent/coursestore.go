@@ -452,6 +452,143 @@ func (s *sqlcAgentStore) CourseReport(ctx context.Context, userID uuid.UUID, slu
 	}, nil
 }
 
+// ---- Course Runtime 2.0 report (computed from the definition + session) ----
+
+// courseDefForReport is the narrow slice of a CourseDefinition 2.0 document the
+// report reads: the course title/objectives (header) and, per Slice, id+title
+// (to name the completed steps in definition order).
+type courseDefForReport struct {
+	SchemaVersion string `json:"schemaVersion"`
+	Course        struct {
+		Title      string `json:"title"`
+		Objectives []struct {
+			Text string `json:"text"`
+		} `json:"objectives"`
+		Parts []struct {
+			Slices []struct {
+				ID    string `json:"id"`
+				Title string `json:"title"`
+			} `json:"slices"`
+		} `json:"parts"`
+	} `json:"course"`
+}
+
+// courseSessionForReport is the narrow slice of a persisted CourseSession the
+// report reads: per-Slice completion + elapsed time, and the flat event log
+// (for the quiz tally). Mirrors @mind-imprint/course-contract's CourseSession.
+type courseSessionForReport struct {
+	SliceStates map[string]struct {
+		Status         string  `json:"status"`
+		ElapsedSeconds float64 `json:"elapsedSeconds"`
+	} `json:"sliceStates"`
+	Events []struct {
+		SourceID string `json:"sourceId"`
+		Type     string `json:"type"`
+	} `json:"events"`
+}
+
+// CourseReport20Result carries the 2.0 report: the header fields (title/goal —
+// sourced from the definition, since a 2.0 course's legacy `structure` is empty)
+// plus the same CourseReportData the legacy path returns.
+type CourseReport20Result struct {
+	Title string
+	Goal  string
+	Data  CourseReportData
+}
+
+// CourseReport20 computes the finished-course report for a CourseDefinition-2.0
+// course from its definition + the student's course_session. Returns found=false
+// (not an error) when the course has no 2.0 definition — the caller falls back to
+// the legacy CourseReport path. Stats: completed Slice titles (definition order),
+// total active time (sum of per-Slice elapsedSeconds), and a quiz tally from the
+// session's answer events (dedup by sourceId, last attempt wins — same rule as
+// the legacy path). Cards come from course.card_ids (the course↔cards relation).
+func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, slug string) (CourseReport20Result, bool, error) {
+	def, _, err := s.GetCourseDefinition(ctx, slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseReport20Result{}, false, nil
+		}
+		return CourseReport20Result{}, false, err
+	}
+	if len(def) == 0 {
+		return CourseReport20Result{}, false, nil // legacy course (no 2.0 definition)
+	}
+	var d courseDefForReport
+	if err := json.Unmarshal(def, &d); err != nil {
+		return CourseReport20Result{}, false, fmt.Errorf("course report 2.0: parse definition: %w", err)
+	}
+	if d.SchemaVersion != "2.0" {
+		return CourseReport20Result{}, false, nil
+	}
+
+	course, err := s.q.GetCourseBySlug(ctx, slug)
+	if err != nil {
+		return CourseReport20Result{}, false, err
+	}
+
+	var sess courseSessionForReport
+	sessBytes, _, found, err := s.GetCourseSession(ctx, userID, slug)
+	if err != nil {
+		return CourseReport20Result{}, false, err
+	}
+	if found && len(sessBytes) > 0 {
+		if err := json.Unmarshal(sessBytes, &sess); err != nil {
+			return CourseReport20Result{}, false, fmt.Errorf("course report 2.0: parse session: %w", err)
+		}
+	}
+
+	// Completed Slice titles (definition order) + total active time.
+	titles := []string{}
+	elapsed := 0.0
+	for _, part := range d.Course.Parts {
+		for _, sl := range part.Slices {
+			st, ok := sess.SliceStates[sl.ID]
+			if !ok {
+				continue
+			}
+			elapsed += st.ElapsedSeconds
+			if st.Status == "completed" {
+				titles = append(titles, sl.Title)
+			}
+		}
+	}
+
+	// Quiz tally from the answer events (standalone graded assessments): dedup
+	// by sourceId (the block id), last attempt wins.
+	lastAttempt := map[string]bool{}
+	for _, ev := range sess.Events {
+		switch ev.Type {
+		case "answer.correct":
+			lastAttempt[ev.SourceID] = true
+		case "answer.incorrect", "answer.attemptsExhausted":
+			lastAttempt[ev.SourceID] = false
+		}
+	}
+	correct := 0
+	for _, ok := range lastAttempt {
+		if ok {
+			correct++
+		}
+	}
+
+	goal := ""
+	if len(d.Course.Objectives) > 0 {
+		goal = d.Course.Objectives[0].Text
+	}
+
+	return CourseReport20Result{
+		Title: d.Course.Title,
+		Goal:  goal,
+		Data: CourseReportData{
+			CompletedStepTitles: titles,
+			CardIDs:             course.CardIds,
+			SecondsSpent:        int(elapsed + 0.5),
+			Quiz:                CourseQuizTally{Total: len(lastAttempt), Correct: correct},
+		},
+	}, true, nil
+}
+
 // GetCourseDefinition returns one course's stored CourseDefinition 2.0 document
 // (raw jsonb) by slug, alongside the course's publish status. A legacy course
 // with no 2.0 definition returns a nil []byte (SQL NULL), NOT an error; an

@@ -1,4 +1,4 @@
-import type { CourseSummary, CoursePlayerPayload, CourseProgress } from "@mind-imprint/contracts";
+import type { CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport } from "@mind-imprint/contracts";
 import { API_BASE, apiFetch } from "./client";
 import { parseSSE } from "./sse";
 
@@ -27,6 +27,10 @@ export async function saveCourseProgress(
 }
 export async function answerCourseQuiz(slug: string, body: { stepId: string; interactionId: string; selected: string[]; correct: boolean }): Promise<void> {
   await apiFetch<void>(`/api/v1/courses/${slug}/quiz-answer`, { method: "POST", body: JSON.stringify(body) });
+}
+export async function getCourseReport(slug: string): Promise<CourseReport> {
+  const r = await apiFetch<{ report: CourseReport }>(`/api/v1/courses/${slug}/report`);
+  return r.report;
 }
 // courseAsk mirrors chatTurn (see chat.ts): raw fetch with an SSE Accept
 // header, then translate the wire frames (`text`/`error`/`done`) into the

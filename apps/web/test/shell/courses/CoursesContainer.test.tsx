@@ -23,6 +23,7 @@ vi.mock("@/api", async (orig) => {
       saveCourseProgress: vi.fn(),
       answerCourseQuiz: vi.fn(),
       courseAsk: vi.fn(),
+      getCourseReport: vi.fn(),
       getCardsCatalog: vi.fn(),
     },
   };
@@ -65,6 +66,15 @@ describe("CoursesContainer", () => {
     (api.saveCourseProgress as any).mockResolvedValue({ course_slug: "co1", current_ordinal: 0, completed_ordinals: [0], started_at: null, completed_at: null, updated_at: "" });
     (api.answerCourseQuiz as any).mockResolvedValue(undefined);
     (api.courseAsk as any).mockImplementation(() => gen([]));
+    (api.getCourseReport as any).mockResolvedValue({
+      title: "一条网络信息，该不该信",
+      goal: "学会溯源",
+      teaching_thread: "",
+      completedStepTitles: ["第一步"],
+      cardIds: [],
+      secondsSpent: 90,
+      quiz: { total: 0, correct: 0 },
+    });
     (api.getCardsCatalog as any).mockResolvedValue({ cards: [], theme: "light" });
   });
 
@@ -76,12 +86,12 @@ describe("CoursesContainer", () => {
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // grid header
   });
 
-  it("shows the course-completion placeholder after finishing the last (only) step, with a back-to-courses affordance", async () => {
+  it("shows the course report after finishing the last (only) step, with a back-to-courses affordance", async () => {
     render(<CoursesContainer />);
     fireEvent.click(await screen.findByText("开始学习"));
     await screen.findByText("开场正文。");
     fireEvent.click(screen.getByLabelText("完成课程"));
-    expect(await screen.findByText("课程完成报告即将上线")).toBeInTheDocument();
+    expect(await screen.findByText("学习报告 · 课程完成")).toBeInTheDocument(); // the report hero
     fireEvent.click(screen.getByText("返回课程"));
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // back to grid
   });

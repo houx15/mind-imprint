@@ -1,4 +1,4 @@
-import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, Anchor, MaterialSource, ProjectStatus, ChatThread, ChatMessage, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
+import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, Anchor, MaterialSource, ProjectStatus, ChatThread, ChatMessage, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, setAccent, type MeUser } from "./auth";
 import type { AccentId } from "../ui/accent";
 import {
@@ -9,7 +9,7 @@ import {
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
-import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, courseAsk, type CourseAskEvent } from "./courses";
+import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk, type CourseAskEvent } from "./courses";
 import { listProjects, finishProject, createProject, renameProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
 import { getAbilityModel } from "./ability";
 import { getGrowthCards, getCardsCatalog, setCardTheme } from "./cards";
@@ -54,6 +54,7 @@ export interface ApiClient {
   saveCourseProgress(slug: string, input: { current_ordinal: number; completed_ordinal?: number; active_seconds_delta?: number }): Promise<CourseProgress>;
   answerCourseQuiz(slug: string, body: { stepId: string; interactionId: string; selected: string[]; correct: boolean }): Promise<void>;
   courseAsk(slug: string, input: string, ordinal: number): AsyncGenerator<CourseAskEvent>;
+  getCourseReport(slug: string): Promise<CourseReport>;
   listProjects(): Promise<ProjectListItem[]>;
   finishProject(id: string): Promise<{ status: ProjectStatus }>;
   createProject(body: { title?: string; prompt: string; projectType?: string; writingLanguage?: "en" | "zh" | "bilingual"; cover?: string }): Promise<{ id: string }>;
@@ -118,7 +119,7 @@ export const api: ApiClient = {
   signup, verifyEmail, signin, signout, getMe, setAccent,
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
-  listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, courseAsk,
+  listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, courseAsk,
   listProjects, finishProject, createProject, renameProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
