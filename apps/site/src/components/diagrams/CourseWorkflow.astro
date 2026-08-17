@@ -1,0 +1,102 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// Faithful to packages/course-contract + course-runtime: an authored 2.0
+// document passes one validation gate, then every slice runs a deterministic,
+// replayable workflow the player interprets.
+---
+
+<svg
+  class="diagram"
+  viewBox="0 0 980 690"
+  role="img"
+  aria-label={t(lang, "课程的工作流智能体架构图", "The workflow-agent architecture behind a course")}
+>
+  <defs>
+    <marker id="cw-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+    </marker>
+    <marker id="cw-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+    </marker>
+  </defs>
+
+  <!-- ── authoring pipeline ─────────────────────────────────────────── -->
+  <path class="edge draw" style="--len:70" d="M292 72 H336" marker-end="url(#cw-ar)" />
+  <path class="edge draw" style="--len:70; --d:150" d="M612 72 H656" marker-end="url(#cw-ar)" />
+
+  <rect class="box box-a" x="20" y="24" width="270" height="96" rx="17" />
+  <text class="dm" x="42" y="50">AUTHORING AGENT</text>
+  <text class="dt" x="42" y="76">{t(lang, "课程生成智能体", "Course-authoring agent")}</text>
+  <text class="ds" x="42" y="98">{t(lang, "产出一份 CourseDefinition 2.0", "emits one CourseDefinition 2.0 doc")}</text>
+
+  <rect class="box box-p" x="336" y="24" width="276" height="96" rx="17" />
+  <text class="dm" x="358" y="50">THE ONE GATE</text>
+  <text class="dt" x="358" y="76">validateCourseDefinition</text>
+  <text class="ds" x="358" y="98">{t(lang, "结构 → 引用 → 状态机图，三关全过才算数", "structure → references → graph. all three, or nothing")}</text>
+
+  <rect class="box box-g" x="656" y="24" width="304" height="96" rx="17" />
+  <text class="dm" x="678" y="50">RUNTIME</text>
+  <text class="dt" x="678" y="76">CoursePlayer</text>
+  <text class="ds" x="678" y="98">{t(lang, "过关的文档一定播得出来 —— 这就是契约", "if it passes, it plays. that is the contract")}</text>
+
+  <!-- ── the slice state machine ────────────────────────────────────── -->
+  <rect class="box box-n" x="20" y="176" width="940" height="372" rx="20" />
+  <text class="dm" x="42" y="204">ONE SLICE · {t(lang, "每个切片自带一台确定性状态机（可重放）", "each slice carries a deterministic, replayable state machine")}</text>
+
+  <path class="edge edge-hot draw" style="--len:110; --d:400" d="M292 322 H370" marker-end="url(#cw-ar-a)" />
+  <path class="edge edge-hot draw" style="--len:110; --d:520" d="M608 322 H686" marker-end="url(#cw-ar-a)" />
+  <!-- retry self-loop -->
+  <path class="edge edge-d draw" style="--len:240; --d:620" d="M436 404 C436 452 566 452 566 404" marker-end="url(#cw-ar)" />
+  <text class="dm" x="501" y="476" text-anchor="middle">answer.incorrect → {t(lang, "重试 / 递提示", "retry / hint")}</text>
+
+  <text class="dm" x="335" y="230" text-anchor="middle" style="fill:#b1613f">video.ended</text>
+  <text class="dm" x="651" y="230" text-anchor="middle" style="fill:#b1613f">answer.correct</text>
+
+  <circle class="flow" r="4" style="offset-path:path('M292 322 H370'); --d:700" />
+  <circle class="flow" r="4" style="offset-path:path('M608 322 H686'); --d:1600" />
+
+  <rect class="box box-p" x="62" y="240" width="230" height="164" rx="15" />
+  <text class="dm" x="84" y="266">STEP</text>
+  <text class="dt" x="84" y="292">intro</text>
+  <text class="dm" x="84" y="318" style="text-transform:none">enterActions</text>
+  <text class="ds" x="84" y="342">show(b-video)</text>
+  <text class="ds" x="84" y="362">playNarration(n1)</text>
+  <text class="ds" x="84" y="382">focus(b-video)</text>
+
+  <rect class="box box-p" x="378" y="240" width="230" height="164" rx="15" />
+  <text class="dm" x="400" y="266">STEP</text>
+  <text class="dt" x="400" y="292">ask</text>
+  <text class="dm" x="400" y="318" style="text-transform:none">enterActions</text>
+  <text class="ds" x="400" y="342">show(b-question)</text>
+  <text class="ds" x="400" y="362">enable(b-question)</text>
+  <text class="ds" x="400" y="382">{t(lang, "轮到学生做判断", "the student's turn to judge")}</text>
+
+  <rect class="box box-g" x="694" y="240" width="230" height="164" rx="15" />
+  <text class="dm" x="716" y="266">STEP</text>
+  <text class="dt" x="716" y="292">done</text>
+  <text class="dm" x="716" y="318" style="text-transform:none">enterActions</text>
+  <text class="ds" x="716" y="342">completeSlice()</text>
+  <text class="ds" x="716" y="362">{t(lang, "本切片的行为写入过程记录", "the slice's behaviour is recorded")}</text>
+
+  <!-- ── vocabulary strip ───────────────────────────────────────────── -->
+  <rect class="box" x="62" y="494" width="392" height="48" rx="12" />
+  <text class="dm" x="82" y="513">16 ACTIONS</text>
+  <text class="ds" x="82" y="531">show · hide · focus · playNarration · startTimer · completeSlice …</text>
+
+  <rect class="box" x="532" y="494" width="392" height="48" rx="12" />
+  <text class="dm" x="552" y="513">EVENTS</text>
+  <text class="ds" x="552" y="531">video · narration · answer · block.completed · timer …</text>
+
+  <!-- ── what stays outside the document ────────────────────────────── -->
+  <rect class="box box-a" x="20" y="588" width="460" height="86" rx="17" />
+  <text class="dm" x="42" y="614">RUNTIME SCENE · {t(lang, "播放时才生成", "generated at play time")}</text>
+  <text class="dt" x="42" y="640">{t(lang, "开场与收尾，按这个学生现场写", "The opening and closing are written for this student")}</text>
+  <text class="ds" x="42" y="660">{t(lang, "文档里只放一份兜底文案，个性化不进课程数据", "the document only carries a fallback; personalisation never bakes in")}</text>
+
+  <rect class="box box-n" x="500" y="588" width="460" height="86" rx="17" />
+  <text class="dm" x="522" y="614">COURSE SESSION · {t(lang, "平台持有", "owned by the platform")}</text>
+  <text class="dt" x="522" y="640">{t(lang, "进度与作答状态和课程分开存", "Progress lives apart from the course itself")}</text>
+  <text class="ds" x="522" y="660">{t(lang, "课程文档保持确定、无时间、可移植", "so the document stays deterministic, time-free, portable")}</text>
+</svg>

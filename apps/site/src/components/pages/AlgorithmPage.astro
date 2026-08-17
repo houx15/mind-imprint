@@ -1,0 +1,404 @@
+---
+import Icon from "../Icon.astro";
+import CtaBand from "../sections/CtaBand.astro";
+import Pager from "../sections/Pager.astro";
+import RestraintLadder from "../diagrams/RestraintLadder.astro";
+import CourseWorkflow from "../diagrams/CourseWorkflow.astro";
+import AgentTopology from "../diagrams/AgentTopology.astro";
+import ContextStack from "../diagrams/ContextStack.astro";
+import EvalPipeline from "../diagrams/EvalPipeline.astro";
+import { getLang, t } from "../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+/* 三层解耦 — the decoupling that makes cards a tool-use loop */
+const decoupled: [string, string, string, string, string, string][] = [
+  ["决策层", "Decision", "服务端", "server-side", "用不用卡、用哪一张。系统 prompt、克制阶梯、回灌与轮次循环，全部在服务端。", "Whether to use a card and which one. The system prompt, the restraint ladder, the refeed and the turn loop all live on the server."],
+  ["单函数接线", "One function", "summon_card", "summon_card", "决策层与运行时之间只有一个函数：summon_card(card_id, reason, nudge_text)。", "Exactly one function connects decision to runtime: summon_card(card_id, reason, nudge_text)."],
+  ["卡运行时", "Card runtime", "客户端", "client-side", "schema 驱动渲染、三视觉态、事件采集，产出一个标准信封。", "Schema-driven rendering, three visual states, event capture — and one standard envelope out."],
+  ["回灌与沉淀", "Refeed", "过程树 + 评估", "tree + assessment", "信封回灌陪练，同时长成过程树，成为 rubric 评估的地基。", "The envelope feeds back to the coach, grows the process tree, and becomes the floor the rubric stands on."],
+];
+
+/* the three context levers */
+const levers: [string, string, string, string, string, string][] = [
+  ["01", "压缩", "Compact", "把定形的对话折进脊柱。不是「把聊天总结成一坨」，而是持续地把对话转成持久结构。", "Fold solidified dialogue into the spine. Not “summarise the chat into a blob” — continuously convert conversation into durable structure.", ""],
+  ["02", "隔离", "Isolate", "当一个任务必须吞下很大的东西、只需吐回很小的东西时，才切给子代理。文章正文从不进主线程。", "Spin off a sub-agent only when a task must swallow something big and return something small. An article body never enters the main thread.", "a"],
+  ["03", "重开", "Reset", "硬重置。自然边界是「新项目 = 新会话」，以及回顾之后——评估蒸馏出一条记忆增量，下一件事从头开始。", "The hard reset. The natural boundary is a new project, and the point just after review — where the assessment distils one memory delta and the next thing starts fresh.", "g"],
+];
+
+/* engineering invariants */
+const invariants: [string, string, string, string][] = [
+  ["客户端绝不直连模型", "The client never talks to a model", "所有 LLM 调用走后端网关，记录档位、token 与成本；API key 只在服务端。", "Every call goes through the backend gateway, which records tier, tokens and cost. API keys exist only on the server."],
+  ["新增一张卡 = 新增一份 JSON", "A new card is a new JSON file", "不改渲染器代码。这是 schema 驱动是否成立的验证标准——用现有字段原语拼，除非真需要全新交互。", "No renderer changes. That's the test of whether schema-driven actually holds — compose from existing field primitives unless a genuinely new interaction is required."],
+  ["卡 spec 单一真相源", "One source of truth for card specs", "决策层的目录从 registry 派生，不手写第二份，避免触发条件漂移。前端构建期 import，后端 embed 同一批文件。", "The decision layer's catalogue derives from the registry — never a hand-written second copy, so trigger conditions can't drift. The frontend imports it; the backend embeds the same files."],
+  ["标准信封结构不随意改", "The envelope structure stays put", "它是过程树、使用计数与评估的共同地基。后端按边界校验存储，内层深结构的真相归共享契约。", "It's the shared floor under the process tree, the usage counts and the assessment. The backend validates the envelope's boundary; the shared contract owns the inner shape."],
+  ["课程文档确定、无时间、可移植", "Course documents are deterministic and time-free", "没有 URL、没有时间戳、没有随机 id。真实的时间、id 与网络只在宿主边界进入。", "No URLs, no timestamps, no baked-in random ids. Real time, ids and network enter only at the host boundary."],
+];
+---
+
+<!-- ═════════════════════════════════════════════════ HERO ════════ -->
+<section class="pagehero">
+  <div class="wash">
+    <i class="w1" style="width:540px;height:540px;background:var(--primary-tint);top:-250px;left:-140px"></i>
+    <i class="w2" style="width:460px;height:460px;background:var(--green-tint);top:-180px;right:-120px"></i>
+  </div>
+  <div class="grid-bg"></div>
+  <div class="pagehero-inner">
+    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "算法", "Algorithm")}</div>
+    <h1 class="page-title">
+      <span class="rv-line" style="--i:0"><span>{t(lang, "所有人都在比 AI 多聪明。", "Everyone is racing to make the AI smarter.")}</span></span>
+      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "我们反着设计。", "We designed it the other way.")}</span></span>
+    </h1>
+    <p class="lead rv" style="--i:2">
+      {t(
+        lang,
+        "AI 越聪明，学生越被动。一个无所不知、回答完美的助手，培养出来的不是批判性思考者，是 AI 的依赖者。所以产品的核心不是模型的能力，而是让学生主动调动思维的脚手架——以及承载它的那套架构。",
+        "The smarter the AI, the more passive the student. An assistant that knows everything and answers perfectly doesn't grow critical thinkers; it grows dependents. So the core of this product isn't model capability — it's the scaffolding that makes a student reach for their own thinking, and the architecture that carries it.",
+      )}
+    </p>
+    <div class="chips rv" style="--i:3; margin-top:32px">
+      <a class="chip mono" href="#loop">summon_card</a>
+      <a class="chip mono" href="#course">course-runtime</a>
+      <a class="chip mono" href="#writing">project-spine</a>
+      <a class="chip mono" href="#evaluation">evidence-index</a>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ THE CORE LOOP ════ -->
+<section class="section" id="loop">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "核心心智模型", "The core mental model")}</div>
+      <h2 class="sec-title">
+        {t(lang, "工具卡 = tool-use 循环里，由人来执行的工具", "A thinking card is a tool in a tool-use loop — whose executor is a human")}
+      </h2>
+      <p class="lead">
+        {t(
+          lang,
+          "这是整个架构的一句话总结。模型照常发起一次工具调用，只是这一次，执行工具的不是代码，是学生。它填完的东西，按标准信封回到模型手里。",
+          "That single line is the whole architecture. The model issues a tool call exactly as it would any other. It's just that this time the executor isn't code — it's the student. What she fills in comes back to the model as a standard envelope.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:48px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">restraint-ladder · summon_card · card-runtime</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><RestraintLadder /></div>
+        <div class="legend">
+          <span><i class="p"></i>{t(lang, "服务端决策", "server-side decision")}</span>
+          <span><i class="a"></i>{t(lang, "学生执行", "executed by the student")}</span>
+          <span><i class="g"></i>{t(lang, "测量信号", "measurement signal")}</span>
+          <span><i></i>{t(lang, "落库结构", "stored structure")}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="sec-head rv" style="margin-top:80px">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "三层解耦", "Three decoupled layers")}</div>
+      <h2 class="sub-title" style="margin-top:14px">
+        {t(lang, "决策、接线、运行时、沉淀——四段之间只有窄接口", "Decision, wiring, runtime, sediment — and only narrow seams between them")}
+      </h2>
+    </div>
+
+    <div class="ribbon four rv-pop" style="margin-top:32px">
+      {decoupled.map(([zh, en, wz, we, pz, pe], i) => (
+        <div class="rstep">
+          <div class="s">{String(i + 1).padStart(2, "0")} · {t(lang, wz, we)}</div>
+          <h4>{t(lang, zh, en)}</h4>
+          <p>{t(lang, pz, pe)}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ COURSE · WORKFLOW ════ -->
+<section class="section band-paper" id="course">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "一 · 课程里的智能体", "One · the agent inside a course")}</div>
+      <h2 class="sec-title">{t(lang, "生成是智能体的事，播放是状态机的事", "Generation is the agent's job. Playback is the state machine's.")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "课程生成智能体只需要产出一份能过校验的文档；过了那道门，渲染器一定播得出来。把不确定的部分（生成）和必须确定的部分（播放）彻底分开——这是这套课程运行时唯一重要的设计决定。",
+          "The authoring agent only has to emit a document that passes validation. Past that gate, the renderer will play it. Separating the uncertain part (generation) from the part that must be certain (playback) is the one design decision that matters here.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:48px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">course-contract · course-runtime · course-renderer</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><CourseWorkflow /></div>
+        <div class="legend">
+          <span><i class="a"></i>{t(lang, "智能体产出", "agent output")}</span>
+          <span><i class="p"></i>{t(lang, "校验与状态", "validation & state")}</span>
+          <span><i class="g"></i>{t(lang, "完成与运行时", "completion & runtime")}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:48px">
+      <div class="card rv" style="--i:0">
+        <div class="cardic"><Icon name="shield" /></div>
+        <h3>{t(lang, "一道门，三层校验", "One gate, three layers")}</h3>
+        <p>{t(lang, "结构（schema）→ 引用（每个 id 都解析得到、每个块恰好落在一个槽位）→ 状态机图（起始步与每条转移都指向真实的步）。三关全过才算数。", "Structure (schema) → references (every id resolves, every block sits in exactly one slot) → graph (the initial step and every transition resolve to a real step). All three, or nothing.")}</p>
+      </div>
+      <div class="card rv" style="--i:1">
+        <div class="cardic"><Icon name="loop" /></div>
+        <h3>{t(lang, "纯的、可重放的解释器", "A pure, replayable interpreter")}</h3>
+        <p>{t(lang, "转移在执行进入动作之前就先武装好，解释器本身没有副作用，整段过程可以从事件日志重放——这就是「过程即数据」在课程侧的实现。", "Transitions are armed before enter-actions run, the interpreter is side-effect free, and the whole session replays from its event log. That's “process is data”, implemented.")}</p>
+      </div>
+      <div class="card rv" style="--i:2">
+        <div class="cardic a"><Icon name="spark" /></div>
+        <h3>{t(lang, "个性化只在播放时发生", "Personalisation happens only at play time")}</h3>
+        <p>{t(lang, "开场与收尾由一个运行时场景生成器按这个学生现场写；课程文档里只放一份兜底文案，所以它始终保持确定、无时间、可移植。", "A runtime scene generator writes the opening and closing for this student. The document carries only a fallback — so it stays deterministic, time-free and portable.")}</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ WRITING · TOPOLOGY ═══════ -->
+<section class="section" id="writing">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "二 · 写作项目空间", "Two · the writing project space")}</div>
+      <h2 class="sec-title">{t(lang, "不是每个房间一个智能体。是一个智能体，走过所有房间。", "Not one agent per room. One agent, walking every room.")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "立题、计划、阅读、写作、回顾是「工作面」——同一个智能体当前正在做的事，从来不是另一段对话。换房间只是把镜头移过去，它带着整段线程一起走。",
+          "Framing, planning, reading, writing and review are surfaces — the thing the one agent is currently working on, never a separate conversation. Changing rooms moves the camera; it carries the whole thread along.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:48px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">one continuous session · context-isolated sub-agents · the project spine</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><AgentTopology /></div>
+        <div class="legend">
+          <span><i class="p"></i>{t(lang, "主智能体与技能", "main agent & in-thread skills")}</span>
+          <span><i class="a"></i>{t(lang, "阅读子代理（隔离）", "reading sub-agent (isolated)")}</span>
+          <span><i class="g"></i>{t(lang, "评估子代理（旗舰）", "assessment sub-agent (flagship)")}</span>
+          <span><i></i>{t(lang, "项目脊柱", "the project spine")}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="callout yes rv" style="margin-top:40px">
+      <div class="cl"><Icon name="chip" />{t(lang, "隔离测试", "The isolation test")}</div>
+      <h3>{t(lang, "只有当一个任务必须吞下很大的东西、又只需吐回很小的东西时，才切子代理", "Spin off a sub-agent only when a task must swallow something big and return something small")}</h3>
+      <p>
+        {t(
+          lang,
+          "否则它就是一个「在主线程里思考」的技能——用一段聚焦的提示词，在它已经握着的脊柱上工作。隔离不是越多越好；隔离要买到东西才做。",
+          "Otherwise it's an in-thread skill: the agent thinking with a focused prompt over the spine it already holds. Isolation isn't a virtue in itself. You isolate when isolation buys something.",
+        )}
+      </p>
+    </div>
+
+    <div class="grid-2 rv" style="margin-top:24px">
+      <div class="card">
+        <div class="cardic a"><Icon name="book" /></div>
+        <h3>{t(lang, "阅读子代理 · 简报进，要点出", "Reading sub-agent · brief in, takeaways out")}</h3>
+        <p>{t(lang, "进去的是项目范围、为什么读这一篇、提案快照；隔离处理的是全文与阅读牌组；回来的是五个字段：发现、可信度判断、关键引句、新线索、对提案的影响。文章正文和阅读对话，从未进过主线程。", "In: the project scope, why this source, a proposal snapshot. Isolated on: the full text and the reading deck. Out: five fields — findings, credibility, key quotes, new leads, impact on the proposal. The article body and the reading dialogue never touched the main thread.")}</p>
+      </div>
+      <div class="card">
+        <div class="cardic g"><Icon name="gauge" /></div>
+        <h3>{t(lang, "评估子代理 · 旗舰档，永不降级", "Assessment sub-agent · flagship, never downgraded")}</h3>
+        <p>{t(lang, "陪练可以走中档模型，可以降级；评估不行。它吞下整段过程——脊柱、折叠后的历史、每张卡的结果——吐回双轴读数与一段叙述。成本上它是最贵的一次调用，也是唯一不允许省的一次。", "The coach can run mid-tier and can be downgraded. The assessment cannot. It swallows the whole process — spine, folded history, every card outcome — and returns the two-axis reading plus prose. It's the most expensive call we make, and the only one we never economise on.")}</p>
+      </div>
+    </div>
+
+    <div class="sec-head rv" style="margin-top:80px">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "上下文工程", "Context engineering")}</div>
+      <h2 class="sub-title" style="margin-top:14px">
+        {t(lang, "这是一个很长的项目。架构存在的理由，是让一条连贯的对话仍然负担得起。", "This is a long project. The architecture exists so that one coherent conversation stays affordable.")}
+      </h2>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:32px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">memory → spine → rolling window · projected per turn</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><ContextStack /></div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:32px">
+      {levers.map(([n, zh, en, pz, pe, tone], i) => (
+        <div class="card rv" style={`--i:${i}`}>
+          <span class="cardnum">LEVER {n}</span>
+          <div class={`cardic ${tone}`}>
+            <Icon name={i === 0 ? "layers" : i === 1 ? "chip" : "loop"} />
+          </div>
+          <h3>{t(lang, zh, en)}</h3>
+          <p>{t(lang, pz, pe)}</p>
+        </div>
+      ))}
+    </div>
+
+    <p class="small rv" style="margin-top:26px; max-width:840px">
+      {t(
+        lang,
+        "折叠是事件驱动的：提案定稿、阅读子代理返回、计划生成、一张卡完成——一旦定形就折进脊柱，那些原始轮次随即离开窗口。只有当窗口仍然超预算时，才把最早的对话折成摘要。不按时间折——时间是错误的轴。",
+        "Folding is event-driven: a proposal finalised, a reading sub-agent returning, a plan generated, a card completed. The moment something solidifies it folds into the spine and those raw turns leave the window. Only if the window still exceeds budget do the oldest turns become a digest. Never on a timer — time is the wrong axis.",
+      )}
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════ EVALUATION · PIPELINE ════ -->
+<section class="section band-cool" id="evaluation">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "三 · 过程评估", "Three · process evaluation")}</div>
+      <h2 class="sec-title">{t(lang, "一半是数出来的，一半是被证据拴住的", "Half of it is counted. The other half is tethered to evidence.")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "报告生成分成两个半区。事实半区永远不需要模型：轮次、材料数、字数、批注、修订、里程碑、时间线，全部从记录里直接算。模型半区只做判断，而且只能引用一个预先建好的候选证据集里的东西——指不到的引用，生成完直接丢弃。",
+          "Report generation splits in two. The fact half never needs a model: turns, materials, words, comments, revisions, milestones and timeline all compute straight from the record. The model half only makes judgments — and may only cite from a pre-built index of candidates. Citations that don't resolve are dropped after generation.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:48px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">assembleFacts · 4 flagship calls · ValidateRefs</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><EvalPipeline /></div>
+        <div class="legend">
+          <span><i class="p"></i>{t(lang, "确定性事实", "deterministic facts")}</span>
+          <span><i class="a"></i>{t(lang, "证据候选集", "evidence candidates")}</span>
+          <span><i class="g"></i>{t(lang, "旗舰模型调用", "flagship model calls")}</span>
+          <span><i></i>{t(lang, "组装与校验", "assembly & validation")}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="grid-3" style="margin-top:48px">
+      <div class="card rv" style="--i:0">
+        <div class="cardic"><Icon name="bolt" /></div>
+        <h3>{t(lang, "三路并发，一路等待", "Three run together, one waits")}</h3>
+        <p>{t(lang, "提示词观测、风险行为、双轴判层互不依赖，同时发出；只有叙述那一路要等判层的结果，因为它要把双轴写成一段人话。", "Prompt lens, risk signals and the two-axis rubric are independent and fire together. Only the narrative waits — it has to turn the axis result into readable prose.")}</p>
+      </div>
+      <div class="card rv" style="--i:1">
+        <div class="cardic a"><Icon name="link" /></div>
+        <h3>{t(lang, "引用必须回指得到", "A citation has to land")}</h3>
+        <p>{t(lang, "模型能引用的东西被限定在一个索引里：某一条消息、某一次事件、某一张卡、某一个来源。生成之后逐条回指校验，指不到的整条丢弃，并记录丢弃率。", "What the model may cite is bounded by an index: a message, an event, a card, a source. Afterwards every citation is re-checked; unresolvable ones are dropped whole, and the drop rate is recorded.")}</p>
+      </div>
+      <div class="card rv" style="--i:2">
+        <div class="cardic g"><Icon name="shield" /></div>
+        <h3>{t(lang, "坏掉一路，不会坏掉整份", "One call failing doesn't fail the report")}</h3>
+        <p>{t(lang, "某一路调用失败或缺席，只让那一节退化成空或保守下限，而不是让整份报告生成不出来。事实半区在任何情况下都还在。", "A failed or absent call degrades that section to empty or a conservative floor rather than sinking the whole report. The fact half survives regardless.")}</p>
+      </div>
+    </div>
+
+    <div class="tablewrap rv" style="margin-top:48px">
+      <table class="dt">
+        <thead>
+          <tr>
+            <th style="width:190px">{t(lang, "调用", "Call")}</th>
+            <th>{t(lang, "档位与理由", "Tier, and why")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="k">{t(lang, "陪练对话", "The coach")}</td>
+            <td>{t(lang, "中档模型，允许降级。一次只问一个问题，本来就不需要长篇输出——降级不影响教学质量。", "Mid-tier, downgradable. It asks one question at a time and never needs long output, so a downgrade costs no teaching quality.")}</td>
+          </tr>
+          <tr>
+            <td class="k">{t(lang, "阅读子代理", "Reading sub-agent")}</td>
+            <td>{t(lang, "隔离处理长文本，返回结构化要点；上下文大，输出小。", "Isolated over long text, returns structured takeaways. Big context in, small payload out.")}</td>
+          </tr>
+          <tr>
+            <td class="k">{t(lang, "评估四路", "The four evaluation calls")}</td>
+            <td>{t(lang, "旗舰档，永不降级。这是唯一会被学生、家长、教师反复读的输出，也是唯一可能影响到人的判断。", "Flagship, never downgraded. It's the one output students, parents and teachers read repeatedly — and the one that could affect a person.")}</td>
+          </tr>
+          <tr>
+            <td class="k">{t(lang, "每一次真实调用", "Every real call")}</td>
+            <td>{t(lang, "都记一行：档位、输入输出 token、成本。组织层的成本汇总由此而来——用了多少，一目了然。", "Logs a row: tier, input and output tokens, cost. Organisation-level cost rollups come from exactly this — what was spent is never a mystery.")}</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════════ INVARIANTS ════ -->
+<section class="section">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "工程不变式", "Engineering invariants")}</div>
+      <h2 class="sec-title">{t(lang, "这几条不可违反", "These are not negotiable")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "架构的纪律和教学的纪律是同一件事：把最容易在赶工时被牺牲掉的东西，先写成不能改的约束。",
+          "Architectural discipline and pedagogical discipline are the same thing: take whatever gets sacrificed first under deadline pressure, and write it down as a constraint that can't be moved.",
+        )}
+      </p>
+    </div>
+
+    <div class="vows rv" style="margin-top:44px">
+      {invariants.map(([zh, en, pz, pe]) => (
+        <div class="vow">
+          <div class="vn"></div>
+          <div>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, pz, pe)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<CtaBand
+  heading={t(lang, "架构说得再清楚，也不如自己走一遍。", "No diagram beats walking it yourself.")}
+  body={t(
+    lang,
+    "Demo 里跑的就是上面这几张图：工具卡从哪一刻被递出来、子代理什么时候接手、报告最后怎么被证据拴住。",
+    "The demo runs exactly what's diagrammed above: when a card gets handed over, when a sub-agent takes the load, and how the report ends up tethered to evidence.",
+  )}
+/>
+
+<Pager
+  links={[
+    {
+      href: "/product",
+      kicker: ["回到", "Back to"],
+      title: ["产品 · 学生的一段旅程", "Product · a student's journey"],
+      body: ["工具卡、课程、写作项目与评估的完整设计", "The full design of cards, courses, writing and assessment"],
+    },
+    {
+      href: "/about",
+      kicker: ["关于", "About"],
+      title: ["我们是谁，以及我们的纪律", "Who we are, and the discipline we hold"],
+      body: ["团队、四条红线与六项承诺", "The team, four red lines and six commitments"],
+    },
+  ]}
+/>

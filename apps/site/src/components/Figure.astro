@@ -1,0 +1,52 @@
+---
+import Icon from "./Icon.astro";
+
+/**
+ * An image slot that is deliberately EMPTY until the real asset arrives.
+ *
+ * Drop the file into `apps/site/public/media/` and pass `src` — the frame
+ * turns into the picture, everything else (ratio, caption, spacing) stays put.
+ * Until then it renders a labelled placeholder so the page composes correctly
+ * and it is obvious which asset belongs where.
+ */
+interface Props {
+  /** Stable slug for the asset, e.g. "course-player-cue". Shown in the empty state. */
+  name: string;
+  /** What the picture should show — a brief for whoever prepares it. */
+  desc?: string;
+  /** Aspect ratio class suffix: "16-9" | "4-3" | "3-2" | "1-1" | "21-9". */
+  ratio?: "16-9" | "4-3" | "3-2" | "1-1" | "21-9";
+  /** Caption rendered under the frame (visible in both states). */
+  caption?: string;
+  /** Real asset path, e.g. "/media/course-player.png". Omit while pending. */
+  src?: string;
+  alt?: string;
+  /** Extra classes on the frame (e.g. "rv-pop"). */
+  class?: string;
+}
+
+const {
+  name,
+  desc,
+  ratio = "16-9",
+  caption,
+  src,
+  alt,
+  class: extra = "",
+} = Astro.props;
+---
+
+<figure class={`figure-block ${extra}`}>
+  <div class={`figure ratio-${ratio}`} data-asset={name}>
+    {src ? (
+      <img src={src} alt={alt ?? caption ?? name} loading="lazy" decoding="async" />
+    ) : (
+      <div class="fslot">
+        <div class="ficon"><Icon name="image" /></div>
+        <div class="fname">{name}</div>
+        {desc && <div class="fdesc">{desc}</div>}
+      </div>
+    )}
+  </div>
+  {caption && <figcaption class="figcaption">{caption}</figcaption>}
+</figure>

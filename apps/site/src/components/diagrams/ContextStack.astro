@@ -1,0 +1,48 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// The context stack: memory → spine → rolling window, projected (not dumped)
+// into every turn. See §4 of the multi-agent architecture design.
+---
+
+<svg
+  class="diagram"
+  viewBox="0 0 980 336"
+  role="img"
+  aria-label={t(lang, "上下文三层与每轮投影示意图", "The three durability tiers and the per-turn projection")}
+>
+  <defs>
+    <marker id="cs-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+    </marker>
+  </defs>
+
+  <text class="dm" x="20" y="26">{t(lang, "三层持久度 · 越往下越易变", "THREE DURABILITY TIERS · the lower, the more volatile")}</text>
+
+  <rect class="box box-g" x="20" y="40" width="600" height="76" rx="15" />
+  <text class="dm" x="44" y="66">MEMORY · {t(lang, "跨项目", "across projects")}</text>
+  <text class="dt" x="44" y="92">{t(lang, "这个学生是谁：反复出现的思考习惯与成长", "Who this student is — recurring habits, growth over time")}</text>
+  <text class="ds" x="44" y="110">{t(lang, "只存模式与过程，从不存她的文档", "patterns and process only — never a store of her documents")}</text>
+
+  <rect class="box box-p" x="20" y="130" width="600" height="76" rx="15" />
+  <text class="dm" x="44" y="156">SPINE · {t(lang, "本项目", "this project")}</text>
+  <text class="dt" x="44" y="182">{t(lang, "提案 · 计划 · 文献表 · 大纲 · 活动 · 对话摘要", "proposal · plan · reading list · outline · activity · digest")}</text>
+  <text class="ds" x="44" y="200">{t(lang, "对话一旦定形，就折进这里；原始轮次离开窗口", "once dialogue solidifies it folds in here, and leaves the window")}</text>
+
+  <rect class="box box-a" x="20" y="220" width="600" height="76" rx="15" />
+  <text class="dm" x="44" y="246">ROLLING WINDOW · {t(lang, "在飞的", "in flight")}</text>
+  <text class="dt" x="44" y="272">{t(lang, "最近几轮原始对话", "the last few raw turns")}</text>
+  <text class="ds" x="44" y="290">{t(lang, "更早的已经不在这里了 —— 但一句也没丢", "older ones are gone from here — and nothing is lost")}</text>
+
+  <path class="edge draw" style="--len:120" d="M624 78 C672 78 660 160 700 166" marker-end="url(#cs-ar)" />
+  <path class="edge draw" style="--len:100; --d:120" d="M624 168 H700" marker-end="url(#cs-ar)" />
+  <path class="edge draw" style="--len:120; --d:240" d="M624 258 C672 258 660 176 700 170" marker-end="url(#cs-ar)" />
+
+  <rect class="box box-n" x="700" y="98" width="260" height="140" rx="17" />
+  <text class="dm" x="722" y="126">{t(lang, "每轮的上下文", "EACH TURN'S CONTEXT")}</text>
+  <text class="dt" x="722" y="152">{t(lang, "是投影出来的", "is projected")}</text>
+  <text class="ds" x="722" y="176">{t(lang, "不是把三层倒进去，而是每轮", "not dumped — each turn assembles a")}</text>
+  <text class="ds" x="722" y="194">{t(lang, "现搭一份紧凑视图，细节按需再取。", "compact view; detail is fetched on demand.")}</text>
+  <text class="dm" x="722" y="220" style="fill:#2a3b7a">{t(lang, "所以陪练永远不会失忆", "so the coach never feels amnesiac")}</text>
+</svg>

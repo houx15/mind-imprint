@@ -1,0 +1,28 @@
+---
+import Icon from "../Icon.astro";
+import { getLang, t, localePath } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+/** Two "read next" links at the foot of a page. */
+interface Props {
+  links: { href: string; kicker: [string, string]; title: [string, string]; body: [string, string] }[];
+}
+const { links } = Astro.props;
+---
+
+<section class="section tight">
+  <div class="container">
+    <div class="pager">
+      {links.map((l, i) => (
+        <a class="pagelink rv" style={`--i:${i}`} href={localePath(lang, l.href)}>
+          <div>
+            <div class="k">{t(lang, l.kicker[0], l.kicker[1])}</div>
+            <h4>{t(lang, l.title[0], l.title[1])}</h4>
+            <p>{t(lang, l.body[0], l.body[1])}</p>
+          </div>
+          <span class="go"><Icon name="arrow" /></span>
+        </a>
+      ))}
+    </div>
+  </div>
+</section>

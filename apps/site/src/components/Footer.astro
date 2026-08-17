@@ -4,36 +4,55 @@ import { getLang, t, localePath } from "../i18n/utils";
 import { loginUrl, demoUrl } from "../config";
 
 const lang = getLang(Astro.currentLocale);
-const year = 2026;
+const year = new Date().getFullYear();
 ---
+
 <footer class="site-foot">
   <div class="foot-grid">
     <div class="foot-brand">
       <a class="brand" href={localePath(lang, "/")}>
         <span class="mk"><Icon name="mark" /></span>{t(lang, "思维印记", "Mind Imprint")}
       </a>
-      <p>{t(lang,
-        "一个把「思考过程」本身变成产品的 AI 学习平台。我们只陪学生思考，不碰他的作业文档。",
-        "An AI learning platform that turns the thinking process itself into the product. We stay with the thinking — never the student's document."
-      )}</p>
+      <p>
+        {t(
+          lang,
+          "一套探究过程证据与判断力评估系统。AI 时代稀缺的是判断——我们把判断发生的过程，第一次变成可看见、可追溯、可干预的证据。",
+          "An inquiry-process evidence and judgment assessment system. In the age of AI the scarce skill is judgment — we turn the process where judgment happens into evidence you can see, trace and act on.",
+        )}
+      </p>
     </div>
-    <div class="foot-cols">
-      <div class="foot-col">
-        <h5>{t(lang, "产品", "Product")}</h5>
-        <a href={localePath(lang, "/")}>{t(lang, "首页", "Home")}</a>
-        <a href={localePath(lang, "/evaluation")}>{t(lang, "评估模型", "Evaluation")}</a>
-        <a href={localePath(lang, "/about")}>{t(lang, "关于", "About")}</a>
-      </div>
-      <div class="foot-col">
-        <h5>{t(lang, "开始", "Get started")}</h5>
-        <a href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
-        <a href={loginUrl}>{t(lang, "登录", "Log in")}</a>
-        <a href={localePath(lang, "/about")}>{t(lang, "为学校接入", "For schools")}</a>
-      </div>
+
+    <div class="foot-col">
+      <h5>{t(lang, "了解", "Explore")}</h5>
+      <a href={localePath(lang, "/product")}>{t(lang, "产品 · 学生的一段旅程", "Product · a student's journey")}</a>
+      <a href={localePath(lang, "/algorithm")}>{t(lang, "算法 · 多智能体设计", "Algorithm · multi-agent design")}</a>
+      <a href={localePath(lang, "/about")}>{t(lang, "关于我们", "About us")}</a>
+    </div>
+
+    <div class="foot-col">
+      <h5>{t(lang, "产品面", "Surfaces")}</h5>
+      <a href={localePath(lang, "/product") + "#courses"}>{t(lang, "课程与工具卡", "Courses & thinking cards")}</a>
+      <a href={localePath(lang, "/product") + "#writing"}>{t(lang, "写作项目空间", "Writing project space")}</a>
+      <a href={localePath(lang, "/product") + "#evaluation"}>{t(lang, "过程评估", "Process evaluation")}</a>
+      <a href={localePath(lang, "/product") + "#teacher"}>{t(lang, "教师端", "Teacher console")}</a>
+    </div>
+
+    <div class="foot-col">
+      <h5>{t(lang, "开始", "Get started")}</h5>
+      <a href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
+      <a href={loginUrl}>{t(lang, "登录", "Log in")}</a>
+      <a href={localePath(lang, "/about") + "#schools"}>{t(lang, "为学校接入", "For schools")}</a>
     </div>
   </div>
+
   <div class="foot-bottom">
-    <span>© {year} {t(lang, "思维印记 · Mind Imprint", "Mind Imprint · 思维印记")}</span>
-    <span>{t(lang, "为国际课程学生打造 · 克制、不操纵", "Built for IB students · restrained, never manipulative")}</span>
+    <span>© {year} {t(lang, "思维印记 Mind Imprint", "Mind Imprint")}</span>
+    <span>
+      {t(
+        lang,
+        "双轴分开测量 · 永不合成总分 · 不押题 · 不保分",
+        "Two axes measured apart · never merged into one score · no predictions",
+      )}
+    </span>
   </div>
 </footer>

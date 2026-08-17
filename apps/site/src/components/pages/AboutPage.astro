@@ -1,112 +1,282 @@
 ---
 import Icon from "../Icon.astro";
 import CtaBand from "../sections/CtaBand.astro";
+import Pager from "../sections/Pager.astro";
 import { getLang, t } from "../../i18n/utils";
 import { demoUrl } from "../../config";
+
 const lang = getLang(Astro.currentLocale);
 
-const pedagogy = [
-  {
-    tag: "IB · SOLO · TOK",
-    icon: "book",
-    zh: ["扎根于国际课程的教学法", "工具卡与评估都建立在成熟的教育框架之上——ATL 技能、TOK 认知框架、SOLO 分类学，说的是老师本来就在课堂上教的语言。"],
-    en: ["Rooted in IB pedagogy", "The cards and the evaluation aren't invented from scratch — they build on ATL skills, the TOK framework and the SOLO taxonomy, speaking the language teachers already use."],
-  },
-  {
-    tag: "SIFT · CRAAP",
-    icon: "shield",
-    zh: ["信息素养作为底座", "在一个 AI 会自信地编造的时代，横向阅读、溯源核查、判断信源等级，是每个学生都该有的基本功。"],
-    en: ["Information literacy at the base", "In an age where AI confidently fabricates, lateral reading, source-tracing and credibility judgment are basic skills every student needs."],
-  },
-  {
-    tag: "Argument · Metacognition",
-    icon: "scale",
-    zh: ["论证与元认知", "让步段、论证拆解、反身性追问——教学生看清自己是怎么被说服的，又是怎么说服别人的。"],
-    en: ["Argument & metacognition", "Concession, argument analysis, reflexive questioning — teaching students not just to reach a conclusion, but to see how they're persuaded and how they persuade."],
-  },
+/**
+ * TEAM — fill these in.
+ *   name / role / bio are placeholders; portraits drop into
+ *   apps/site/public/media/team-*.jpg and get wired via `photo`.
+ * Everything else on this page is real copy.
+ */
+const team: {
+  slug: string;
+  role: [string, string];
+  name?: [string, string];
+  bio?: [string, string];
+  photo?: string;
+}[] = [
+  { slug: "team-founder", role: ["创始人", "Founder"] },
+  { slug: "team-pedagogy", role: ["教学法负责人", "Head of pedagogy"] },
+  { slug: "team-curriculum", role: ["课程设计", "Curriculum design"] },
+  { slug: "team-assessment", role: ["评估研究", "Assessment research"] },
+  { slug: "team-engineering", role: ["产品与工程", "Product & engineering"] },
+  { slug: "team-schools", role: ["学校合作", "School partnerships"] },
+];
+
+/* the four red lines — AGENTS.md 铁律, in the whitepaper's voice */
+const redlines: [string, string, string, string][] = [
+  ["AI 克制，绝不替学生定论", "The AI holds back, and never concludes for her", "AI 可以解释概念、生成检索词、扮演反方、指出草稿断裂；但不能替她确定研究方向，不能替她完成核心判断，不能生成可直接提交的正文。助产士替产妇分娩，是职业的自我取消。", "It may explain a concept, generate search terms, play the opposition, flag a broken draft. It may not set her direction, make her core judgment, or produce submittable prose. A midwife who gives birth for the mother has abolished the profession."],
+  ["不操纵", "No manipulation", "这个产品教学生「不被俘获」。所以它不能用老虎机式的机制留人——没有连胜、排行榜、徽章、上瘾式推送；也不用弹窗强迫：工具卡触发是自动的，但打开由学生确认。", "This product teaches students not to be captured. So it cannot use slot-machine mechanics to hold them — no streaks, leaderboards, badges or engagement pushes — and no coercive modals: a card may be triggered automatically, but opening it is always her call."],
+  ["一次只问一个", "One question at a time", "陪练对话短、不啰嗦。这既降低 token，也保护学生的思考节奏——把三个问题一起抛过去，等于让她一个都答不好。", "The coach is short and doesn't ramble. That saves tokens, and it protects her thinking rhythm — throw three questions at once and she'll answer none of them well."],
+  ["过程即数据", "Process is data", "学生跳过工具卡、让 AI 直接答，也被记录。摩擦被转化成信号，而不是被消灭——一个只测量、不干预的系统，测得越准，也只是更准确地记录学生如何变得被动。", "Skipping a card, or asking the AI to just answer, is recorded too. Friction becomes signal instead of being eliminated. A system that only measures and never intervenes just documents, with increasing accuracy, how a student became passive."],
+];
+
+/* the six commitments — whitepaper §measurement ethics */
+const vows: [string, string, string, string][] = [
+  ["目的限定与禁用声明", "Purpose limitation, and a list of what we won't do", "观测的唯一目的是教学引导与成长反馈。双轴数据永不用于入学筛选、学生排名、纪律惩戒或教师绩效考核；不出售，不用于任何形式的商业画像。这份禁用清单写进合同与系统权限，而非仅写进隐私政策。", "The only purpose of observation is teaching and growth feedback. The axis data is never used for admissions, ranking, discipline or staff appraisal — never sold, never turned into a commercial profile. That list lives in the contract and in system permissions, not only in a privacy policy."],
+  ["数据最小化与假名化", "Minimisation and pseudonymisation", "只采集与测量点对应的交互事件；与测量无关的内容不进入分析。分析层身份假名化，行为明细滚动保留十二个月，到期只留聚合后的轨迹读数。家长与学生可行使删除权。", "We collect only the interaction events that correspond to a measurement point; anything unrelated never enters analysis. Identity is pseudonymised in the analysis layer, behavioural detail rolls off after twelve months leaving only aggregate trajectory, and families can exercise deletion."],
+  ["分层可见性", "Tiered visibility", "不同的人看到不同的颗粒度。学生看自己的成长报告与对话明细；家长看周期叙事与就绪度；教师看判定与可点开的证据；学校管理者只看班级层聚合。内部工作用的文学化命名，永不出现在任何用户界面。", "Different people see different granularity. The student sees her own growth report and conversation detail; parents see the cycle narrative and readiness; teachers see judgments with openable evidence; admins see class-level aggregates only. Our internal shorthand never appears in any interface."],
+  ["知情与退出", "Informed consent, and a real exit", "「采集先于同意」不发生：家长知情同意先于任何测量。退出是真实的选项——家庭可以只使用训练功能而不进入测量，退出不影响课程使用，也不被区别对待。", "Collection never precedes consent: informed parental consent comes before any measurement. Opting out is real — a family can use the training and stay out of the measurement, with no loss of course access and no different treatment."],
+  ["高利害判定非自动化，且可争议", "High-stakes calls aren't automated, and can be contested", "任何可能影响学生重大利益的判断，不由算法自动作出。教师可一键改判，改判数据回流用于纠错；学生与家长对任何结果享有异议通道，人工复核在四十八小时内响应。「证据不足」这个显示态本身就是一项伦理设计。", "No judgment that could materially affect a student is made automatically. Teachers can overturn in one click, and those overturns flow back as correction data. Students and families have a channel to object, with human review inside forty-eight hours. The “insufficient evidence” state is itself an ethical design decision."],
+  ["对发展中的人的特殊义务", "A special duty toward people who are still forming", "被观测的是尚在发展中的孩子。所以一切表述使用「本周期观察到」的情境化语言，不做特质断言——标签有自我实现的力量。并且测量对学生透明：让孩子知道「什么值得被看」，本身就是元认知教育的一部分。", "The people being observed are children still forming. So everything is phrased as “observed this cycle”, never as a trait claim — labels have a way of coming true. And the measurement is transparent to the student: letting a child know what is worth looking at is itself part of metacognitive education."],
+];
+
+const rollout: [string, string, string, string][] = [
+  ["学校建班", "The school creates a class", "老师或管理员建立班级，拿到一个班级邀请码。", "A teacher or admin creates a class and receives a join code."],
+  ["学生凭码注册", "Students join with the code", "账号自动归属对应的学校与班级。每个账号都必属于某个学校与班级——不存在「无组织账号」，也没有面向公众的自助注册。", "Accounts bind to the right school and class. Every account belongs to a school and a class — there are no orphan accounts and no public self-serve signup."],
+  ["带着真实任务开练", "They bring real work", "EE、TOK、IA、课题研究、科创项目——形态不重要，思考的过程会被一路记下来。", "EE, TOK, IA, a research project, a science-fair entry — the form doesn't matter. The thinking gets recorded either way."],
 ];
 ---
 
+<!-- ═════════════════════════════════════════════════ HERO ════════ -->
 <section class="pagehero">
-  <div class="wash"><i class="w1"></i><i class="w2"></i><i class="w3"></i></div>
-  <div class="hero-inner">
-    <div class="eyebrow"><span class="pip"></span>{t(lang, "关于思维印记", "About Mind Imprint")}</div>
-    <h1>{t(lang, "在 AI 时代，比起更快，我们更在意学生「怎么想」。", "In the age of AI, we care more about how students think than how fast they go.")}</h1>
-    <p class="lead">{t(lang, "当 AI 能一键给出答案，真正稀缺的能力变成了判断、追问与深度思考——这正是思维印记想守护的东西。", "When AI can answer in one click, the scarce skills become judgment, questioning and deep thought — and that is what Mind Imprint protects.")}</p>
+  <div class="wash">
+    <i class="w1" style="width:520px;height:520px;background:var(--accent-tint);top:-240px;left:-120px"></i>
+    <i class="w2" style="width:440px;height:440px;background:var(--primary-tint);top:-160px;right:-100px"></i>
+  </div>
+  <div class="pagehero-inner">
+    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "关于我们", "About us")}</div>
+    <h1 class="page-title">
+      <span class="rv-line" style="--i:0"><span>{t(lang, "一份论证判断力的产品，", "A product that argues about judgment")}</span></span>
+      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "必须自己先经得起判断。", "had better survive being judged.")}</span></span>
+    </h1>
+    <p class="lead rv" style="--i:2">
+      {t(
+        lang,
+        "我们对这份文档与这个产品的纪律，就是我们要教给孩子的东西——不被俘获，先从不自欺开始。",
+        "The discipline we hold over this document and this product is the thing we're trying to teach: not being captured starts with not fooling yourself.",
+      )}
+    </p>
   </div>
 </section>
 
-<!-- belief -->
+<!-- ═══════════════════════════════════════════════ BELIEF ═══════ -->
 <section class="section tight">
-  <div class="container">
-    <div class="belief reveal">
-      <p>{t(lang, "我们相信：善用 AI，是这一代学生最重要的素养之一——而它是可以被教、被看见、被评估的。", "We believe using AI well is one of the most important literacies of this generation — and that it can be taught, made visible, and evaluated.")}</p>
-      <p>{t(lang, "所以，比起帮学生更快交作业，我们做的是一个陪练——它会在关键的时刻，把问题交回给学生自己想，并把这一整段思考完整地记录、评估下来。", "So rather than help students finish faster, we built a thinking partner — one that gives the question back to the student at the key moment, and records and evaluates that whole stretch of thinking.")}</p>
+  <div class="container narrow">
+    <div class="pull rv">
+      {t(
+        lang,
+        "《大学》讲致知在格物：要形成自己的判断，先得亲自去究事物之理。两千五百年后，IB 的 TOK 把「对知识本身发问」设成考试内容。措辞相隔两千五百年，指的是同一件事。",
+        "The Great Learning holds that knowledge comes from investigating things: to form your own judgment you must go and examine the thing yourself. Twenty-five centuries later, IB's TOK makes “questioning knowledge itself” an examinable subject. Different words, the same thing.",
+      )}
     </div>
+    <p class="body rv" style="margin-top:36px">
+      {t(
+        lang,
+        "这个目标很老，老到不同文明都独立写下过它；而在这两千五百年里，它一直只能靠师徒之间的言传身教传递，从来没有过读数。写下目的地的人很多，交出证据的人没有。",
+        "The goal is old — old enough that separate civilisations wrote it down independently. And for those twenty-five centuries it could only pass from teacher to student by example. There was never a reading. Plenty of people have written down the destination. Nobody has produced the evidence.",
+      )}
+    </p>
+    <p class="body rv" style="margin-top:18px">
+      {t(
+        lang,
+        "我们做的，是把它第一次变成高频、可追溯、可干预的过程性证据。这不是一条反方向的鱼——恰恰相反，我们站在所有指挥棒转向之后，共同指向的那个空位上。",
+        "What we do is turn it, for the first time, into process evidence that is frequent, traceable and actionable. This isn't swimming against the current. It's standing in the gap that every one of those systems, having turned, now points at.",
+      )}
+    </p>
   </div>
 </section>
 
-<!-- pedagogy -->
-<section class="section" style="background:var(--bg)">
+<!-- ═════════════════════════════════════════════════ TEAM ══════ -->
+<section class="section band-paper" id="team">
   <div class="container">
-    <div class="center">
-      <div class="sec-label reveal">{t(lang, "我们的底气", "What it's built on")}</div>
-      <h2 class="sec-title reveal">{t(lang, "背后是一套成熟的教学法", "Backed by an established pedagogy")}</h2>
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "团队", "The team")}</div>
+      <h2 class="sec-title">{t(lang, "教学法的人和写代码的人，坐在同一张桌子上", "The pedagogy people and the engineers share one table")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "这套系统的每一个设计决定——什么时候递卡、什么时候闭嘴、报告里哪句话可以说——都同时是教学问题和工程问题。",
+          "Every design decision here — when to hand over a card, when to shut up, which sentence a report is allowed to contain — is a teaching question and an engineering question at the same time.",
+        )}
+      </p>
     </div>
-    <div class="peda">
-      {pedagogy.map((p) => (
-        <div class="pedacard reveal">
-          <div class="tagname">{p.tag}</div>
-          <h4>{lang === "zh" ? p.zh[0] : p.en[0]}</h4>
-          <p>{lang === "zh" ? p.zh[1] : p.en[1]}</p>
+
+    <div class="team" style="margin-top:52px">
+      {team.map((m, i) => (
+        <div class="member rv" style={`--i:${i % 3}`}>
+          <div class="portrait">
+            {m.photo ? (
+              <img src={m.photo} alt={m.name ? t(lang, m.name[0], m.name[1]) : t(lang, m.role[0], m.role[1])} loading="lazy" />
+            ) : (
+              <div class="figure" style="height:100%; border-radius:0">
+                <div class="fslot">
+                  <div class="ficon"><Icon name="users" /></div>
+                  <div class="fname">{m.slug}</div>
+                  <div class="fdesc">{t(lang, "人像 · 4:5", "portrait · 4:5")}</div>
+                </div>
+              </div>
+            )}
+          </div>
+          <div class="mname">{m.name ? t(lang, m.name[0], m.name[1]) : t(lang, "姓名待补", "Name to come")}</div>
+          <div class="mrole">{t(lang, m.role[0], m.role[1])}</div>
+          <p class="mbio">
+            {m.bio
+              ? t(lang, m.bio[0], m.bio[1])
+              : t(lang, "一段两三句的介绍，说清这个人带来的是什么判断力。", "Two or three sentences on the judgment this person brings.")}
+          </p>
         </div>
       ))}
     </div>
   </div>
 </section>
 
-<!-- our layer -->
-<section class="section">
+<!-- ══════════════════════════════════════════════ RED LINES ════ -->
+<section class="section" id="discipline">
   <div class="container">
-    <div class="center">
-      <div class="sec-label reveal">{t(lang, "我们做什么，不做什么", "What we do, and don't")}</div>
-      <h2 class="sec-title reveal">{t(lang, "我们只陪思考，不碰作业", "We stay with the thinking, not the homework")}</h2>
-      <p class="sec-sub reveal">{t(lang, "学生的作文活在他自己的世界里——Google Doc、本子、随手粘进来。那份文档我们不碰，我们只在意他思考的轨迹。", "The student's essay lives in their own world — a Google Doc, a notebook, pasted in. We don't touch that document; we only care about the trail of their thinking.")}</p>
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "四条红线", "Four red lines")}</div>
+      <h2 class="sec-title">{t(lang, "拦住 AI 越界替孩子思考", "Holding the AI back from thinking for a child")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "红线不是功能限制，是这门手艺的操守。违反其中任何一条，这个产品就没有存在的必要了。",
+          "These aren't feature limits. They're the ethics of the craft. Break any one of them and there's no reason for this product to exist.",
+        )}
+      </p>
     </div>
-    <div class="why" style="margin-top:44px">
-      <div class="whycard no reveal">
-        <div class="wl"><Icon name="help" />{t(lang, "我们不做", "What we don't do")}</div>
-        <h3>{t(lang, "一个文档编辑器", "A document editor")}</h3>
-        <p>{t(lang, "不排版、不提交、不代写。右侧的过程树只是一份只读的记录，帮学生回看自己思考的轨迹。", "No formatting, no submission, no ghost-writing. The process tree on the right is just a read-only record that lets students look back on how they thought.")}</p>
-      </div>
-      <div class="whycard yes reveal">
-        <div class="wl"><Icon name="route" />{t(lang, "我们专注", "What we focus on")}</div>
-        <h3>{t(lang, "思考真正发生的地方", "Where the thinking actually happens")}</h3>
-        <p>{t(lang, "学生带着真实任务进来，在和 AI 的协作里被一步步引导，把思考做扎实——连犹豫和跳过都被留下来，成为看见成长的线索。", "Students bring real tasks and get guided, step by step, into solid thinking with AI — even the hesitations and skips are kept, as a way to see growth.")}</p>
-      </div>
+
+    <div class="grid-2" style="margin-top:48px">
+      {redlines.map(([zh, en, pz, pe], i) => (
+        <div class="card rv" style={`--i:${i % 2}`}>
+          <span class="cardnum">{t(lang, "红线", "RED LINE")} 0{i + 1}</span>
+          <div class="cardic a"><Icon name="slash" /></div>
+          <h3>{t(lang, zh, en)}</h3>
+          <p>{t(lang, pz, pe)}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="callout yes rv" style="margin-top:32px">
+      <div class="cl"><Icon name="help" />{t(lang, "边界的边界", "Where the red lines stop")}</div>
+      <h3>{t(lang, "「不替学生做」只针对她的正文与核心判断", "“Never for the student” means her prose and her core judgments")}</h3>
+      <p>
+        {t(
+          lang,
+          "它不适用于确定性的系统步骤：生成一份计划、从她已经陈述的研究问题派生一份大纲——这些是系统该自动做的事，不需要为了「防操纵」再加一道确认门槛。把铁律扩大化，只会让产品变得难用，而不会让它更有原则。",
+          "It does not apply to deterministic system steps: generating a plan, deriving an outline from a research question she has already stated. Those are things the system should just do. Stretching the rule to cover them makes the product harder to use without making it more principled.",
+        )}
+      </p>
     </div>
   </div>
 </section>
 
-<!-- for schools -->
-<section class="section" style="background:var(--bg)">
+<!-- ══════════════════════════════════════ SIX COMMITMENTS ═════ -->
+<section class="section band-cool">
   <div class="container">
-    <div class="schools reveal">
-      <div>
-        <h3>{t(lang, "为学校接入", "For schools")}</h3>
-        <p>{t(lang, "思维印记以班级为单位接入。每个账号都属于一所学校、一个班级——没有「无组织账号」，也没有面向公众的自助注册。", "Mind Imprint rolls out class by class. Every account belongs to a school and a class — there are no orphan accounts and no public self-serve signup.")}</p>
-        <p>{t(lang, "想为你的学校或班级试用？点「体验 Demo」先走一遍完整流程，我们再聊接入。", "Want to try it for your school or class? Walk the full flow via the demo first, then let's talk about rolling it out.")}</p>
-        <div class="cta-row" style="justify-content:flex-start;margin-top:22px">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "六项承诺", "Six commitments")}</div>
+      <h2 class="sec-title">{t(lang, "拦住我们自己越界使用孩子的思考", "Holding ourselves back from misusing a child's thinking")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "一份论证「如何持续观测学生思维过程」的产品，必须同时回答另一个问题：凭什么观测，观测到哪里为止。正当性不是默认存在的，它必须被设计出来。",
+          "A product that argues for continuously observing how a student thinks has to answer a second question: on what authority, and up to where. Legitimacy isn't a default. It has to be designed.",
+        )}
+      </p>
+    </div>
+
+    <div class="vows rv" style="margin-top:44px">
+      {vows.map(([zh, en, pz, pe]) => (
+        <div class="vow">
+          <div class="vn"></div>
+          <div>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, pz, pe)}</p>
+          </div>
+        </div>
+      ))}
+    </div>
+
+    <div class="pull rv" style="margin-top:52px; max-width:900px">
+      {t(
+        lang,
+        "我们对学生数据的纪律，是我们对学生思维的纪律的镜像：四条红线防止 AI 越界替孩子思考，这六项承诺防止平台越界使用孩子的思考。",
+        "The discipline we hold over a student's data mirrors the discipline we hold over their thinking: four red lines stop the AI from thinking for the child, and these six stop the platform from misusing what the child thought.",
+      )}
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════════ FOR SCHOOLS ════ -->
+<section class="section" id="schools">
+  <div class="container">
+    <div class="grid-2" style="gap:64px; align-items:start">
+      <div class="rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "为学校接入", "For schools")}</div>
+        <h2 class="sec-title" style="margin-top:18px">{t(lang, "以班级为单位接入", "We roll out class by class")}</h2>
+        <p class="lead" style="margin-top:22px">
+          {t(
+            lang,
+            "想为你的学校或班级试用？先自己走一遍完整流程——从一条没标出处的推文，走到一份双轴报告——再聊接入。",
+            "Want to try it for your school or class? Walk the whole flow yourself first — from an unsourced post to a two-axis report — and then let's talk about rolling it out.",
+          )}
+        </p>
+        <div class="cta-row" style="margin-top:28px">
           <a class="btn btn-lg btn-primary" href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
         </div>
+        <p class="small" style="margin-top:20px">
+          {t(
+            lang,
+            "结构归属（学校 / 班级）与付费权益是两回事：账号归属是系统不变式，权益另算。",
+            "Structural membership (school / class) and paid entitlement are separate things: membership is a system invariant; entitlement is handled apart from it.",
+          )}
+        </p>
       </div>
-      <div class="flow">
-        <div class="flowstep"><span class="fn">1</span><div><b>{t(lang, "学校建班", "School creates a class")}</b><span>{t(lang, "老师或管理员建立班级，拿到一个班级邀请码。", "A teacher or admin creates a class and gets a join code.")}</span></div></div>
-        <div class="flowstep"><span class="fn">2</span><div><b>{t(lang, "学生凭码注册", "Students join by code")}</b><span>{t(lang, "学生用邀请码注册，账号自动归属对应的学校与班级。", "Students register with the code; accounts are bound to the right school and class.")}</span></div></div>
-        <div class="flowstep"><span class="fn">3</span><div><b>{t(lang, "带着真实任务开练", "They bring real tasks")}</b><span>{t(lang, "学生把 EE、TOK、IA 等真实任务带进来，思考全程被记录、被评估。", "Students bring real EE / TOK / IA tasks; the whole process is recorded and evaluated.")}</span></div></div>
+
+      <div class="rail rv" data-sequence data-step="200">
+        {rollout.map(([zh, en, pz, pe], i) => (
+          <div class="rail-node" data-seq-item>
+            <div class="k">{t(lang, "第", "Step")} {i + 1} {t(lang, "步", "")}</div>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, pz, pe)}</p>
+          </div>
+        ))}
       </div>
     </div>
   </div>
 </section>
 
 <CtaBand />
+
+<Pager
+  links={[
+    {
+      href: "/product",
+      kicker: ["了解产品", "The product"],
+      title: ["学生的一段旅程", "A student's journey"],
+      body: ["工具卡、课程、写作项目与评估的完整设计", "Cards, courses, writing projects and assessment in full"],
+    },
+    {
+      href: "/algorithm",
+      kicker: ["技术", "Under the hood"],
+      title: ["多智能体设计", "Multi-agent design"],
+      body: ["课程、写作与评估三处的智能体架构图", "The agent architectures behind all three"],
+    },
+  ]}
+/>

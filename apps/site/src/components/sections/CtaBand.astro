@@ -1,16 +1,34 @@
 ---
 import { getLang, t } from "../../i18n/utils";
-import { demoUrl, loginUrl } from "../../config";
+import { demoUrl } from "../../config";
+import { localePath } from "../../i18n/utils";
 const lang = getLang(Astro.currentLocale);
+
+interface Props {
+  heading?: string;
+  body?: string;
+}
+const { heading, body } = Astro.props;
 ---
-<section class="section tight">
+
+<section class="section">
   <div class="container">
-    <div class="ctaband reveal">
-      <h2>{t(lang, "亲眼看看，AI 怎么把问题交回给学生自己想", "See how the AI gives the question back to the student")}</h2>
-      <p>{t(lang, "无需注册，以示例学生 Phoebe 的身份走一遍完整流程——收到工具卡、被一步步引导，最后拿到属于自己的思维印记。", "No sign-up. Walk the whole flow as our sample student Phoebe — receive a card, get guided step by step, and end with a mind imprint of your own.")}</p>
-      <div class="cta-row">
+    <div class="ctaband rv-pop">
+      <div class="eyebrow on-ink" style="margin-bottom:20px"><span class="pip"></span>{t(lang, "开始一次真实探究", "Start a real inquiry")}</div>
+      <h2>{heading ?? t(lang, "先自己走一遍，再决定它值不值得进你的课堂。", "Walk it yourself first. Then decide whether it belongs in your classroom.")}</h2>
+      <p>
+        {body ??
+          t(
+            lang,
+            "Demo 里是一份真实素材：一条没有出处的推文，一路溯源到 NASA 与 Nature Sustainability。你会看到工具卡在什么时刻被递出来，也会看到最后的报告怎么写。",
+            "The demo runs on real material: an unsourced post, traced all the way back to NASA and Nature Sustainability. You'll see when a card gets handed over — and what the final report says.",
+          )}
+      </p>
+      <div class="cta-row center">
         <a class="btn btn-lg btn-light" href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
-        <a class="btn btn-lg btn-clear" href={loginUrl}>{t(lang, "登录", "Log in")}</a>
+        <a class="btn btn-lg btn-clear" href={localePath(lang, "/about") + "#schools"}>
+          {t(lang, "为学校接入", "For schools")}
+        </a>
       </div>
     </div>
   </div>

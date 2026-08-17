@@ -1,0 +1,21 @@
+---
+import Base from "../layouts/Base.astro";
+import AlgorithmPage from "../components/pages/AlgorithmPage.astro";
+import { getLang, t } from "../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+
+<Base
+  title={t(
+    lang,
+    "算法 · 多智能体设计 | 思维印记",
+    "Algorithm · multi-agent design | Mind Imprint",
+  )}
+  description={t(
+    lang,
+    "工具卡是 tool-use 循环里由人来执行的工具。课程的工作流状态机、写作空间的一条连续会话与上下文隔离子代理、评估的确定性半区与三路并发旗舰调用——全部的架构图。",
+    "A thinking card is a tool in a tool-use loop whose executor is a human. The course workflow state machine, the writing space's single continuous session and context-isolated sub-agents, and the evaluation pipeline's deterministic half plus three concurrent flagship calls — diagrammed.",
+  )}
+>
+  <AlgorithmPage />
+</Base>

@@ -4,11 +4,13 @@ import AboutPage from "../components/pages/AboutPage.astro";
 import { getLang, t } from "../i18n/utils";
 const lang = getLang(Astro.currentLocale);
 ---
+
 <Base
-  title={t(lang, "关于 · 思维印记", "About · Mind Imprint")}
-  description={t(lang,
-    "在 AI 时代，善用 AI 是可教、可见、可评估的素养。思维印记扎根于 IB 教学法、信息素养与论证训练，只陪学生思考，不碰他的作业文档。",
-    "Using AI well is a teachable, visible, assessable literacy. Mind Imprint is rooted in IB pedagogy, information literacy and argument training — it stays with the thinking, never the student's document."
+  title={t(lang, "关于我们 | 思维印记", "About us | Mind Imprint")}
+  description={t(
+    lang,
+    "团队、四条红线与六项承诺：红线拦住 AI 越界替孩子思考，承诺拦住平台越界使用孩子的思考。以及学校如何以班级为单位接入。",
+    "The team, four red lines and six commitments: the red lines stop the AI thinking for a child, the commitments stop the platform misusing what the child thought. Plus how schools roll out class by class.",
   )}
 >
   <AboutPage />

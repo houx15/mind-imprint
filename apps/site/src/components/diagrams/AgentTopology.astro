@@ -1,0 +1,102 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// Faithful to docs/2026-07-29-multi-agent-architecture-design.md:
+// one continuous main agent, in-thread skills, two context-isolated
+// sub-agents, and the durable project spine everything reads/writes.
+const skills = ["summon_card", "plan-gen", "outline", "rabbit-hole"];
+const spine: [string, string][] = [
+  ["metadata", "元数据"],
+  ["proposal", "提案"],
+  ["plan", "计划"],
+  ["reading-list", "文献表"],
+  ["outline", "大纲"],
+  ["activity", "活动日志"],
+  ["digest", "对话摘要"],
+];
+---
+
+<svg
+  class="diagram"
+  viewBox="0 0 980 578"
+  role="img"
+  aria-label={t(lang, "写作项目空间的智能体拓扑图", "Agent topology of the writing project space")}
+>
+  <defs>
+    <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+    </marker>
+    <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+    </marker>
+  </defs>
+
+  <!-- ── edges (drawn first, so boxes sit on top) ───────────────────── -->
+  <path class="edge draw" style="--len:120" d="M158 286 C184 286 190 244 210 244" marker-end="url(#ar)" marker-start="url(#ar)" />
+  <path class="edge edge-hot draw" style="--len:80; --d:400" d="M682 118 H734" marker-end="url(#ar-a)" />
+  <path class="edge edge-hot draw" style="--len:80; --d:500" d="M682 262 H734" marker-end="url(#ar-a)" />
+  <path class="edge edge-d draw" style="--len:300; --d:700" d="M846 178 C846 300 906 306 906 386" marker-end="url(#ar)" />
+  <path class="edge edge-d draw" style="--len:200; --d:800" d="M846 324 C846 356 878 358 878 386" marker-end="url(#ar)" />
+  <path class="edge draw" style="--len:120; --d:250" d="M296 292 V386" marker-end="url(#ar)" />
+  <path class="edge draw" style="--len:120; --d:300" d="M420 386 V292" marker-end="url(#ar)" />
+
+  <!-- edge labels -->
+  <text class="dm" x="306" y="344">{t(lang, "写入 write", "write")}</text>
+  <text class="dm" x="430" y="344">{t(lang, "投影 projection", "projection")}</text>
+  <text class="dm" x="700" y="106">spawn</text>
+  <text class="dm" x="700" y="250">spawn</text>
+  <text class="dm" x="748" y="368">{t(lang, "写回要点 takeaways", "takeaways written back")}</text>
+
+  <!-- flow packets riding the spawn edges -->
+  <circle class="flow" r="3.5" style="offset-path:path('M682 118 H734'); --d:900" />
+  <circle class="flow" r="3.5" style="offset-path:path('M682 262 H734'); --d:1400" />
+
+  <!-- ── student ────────────────────────────────────────────────────── -->
+  <rect class="box box-n" x="24" y="252" width="134" height="68" rx="15" />
+  <text class="dt" x="91" y="282" text-anchor="middle">{t(lang, "学生", "Student")}</text>
+  <text class="ds" x="91" y="301" text-anchor="middle">{t(lang, "任意工作面", "any surface")}</text>
+
+  <!-- ── main agent ─────────────────────────────────────────────────── -->
+  <rect class="box box-p" x="210" y="52" width="472" height="240" rx="20" />
+  <circle cx="234" cy="80" r="4" fill="#2a3b7a" />
+  <circle class="pulse" cx="234" cy="80" r="9" fill="#2a3b7a" opacity="0.25" />
+  <text class="dm" x="258" y="84">MAIN AGENT · {t(lang, "一条连续会话", "one continuous session")}</text>
+  <text class="dt" x="234" y="116" style="font-size:19px">{t(lang, "印记", "Imprint")}</text>
+  <text class="ds" x="234" y="146">{t(lang, "系统 prompt（克制阶梯）", "system prompt (the restraint ladder)")}</text>
+  <text class="ds" x="234" y="167">{t(lang, "脊柱投影 + 滚动对话窗口", "spine projection + rolling chat window")}</text>
+  <text class="ds" x="234" y="188">{t(lang, "当前工作面及其卡 / 透镜牌组", "active surface + its card / lens deck")}</text>
+  <text class="dm" x="234" y="222">IN-THREAD SKILLS</text>
+  {skills.map((s, i) => (
+    <g>
+      <rect class="box" x={234 + i * 110} y="234" width="102" height="30" rx="8" />
+      <text class="dm" x={285 + i * 110} y="253" text-anchor="middle" style="text-transform:none; letter-spacing:0.02em">{s}</text>
+    </g>
+  ))}
+
+  <!-- ── sub-agents ─────────────────────────────────────────────────── -->
+  <rect class="box box-a" x="734" y="60" width="222" height="118" rx="17" />
+  <text class="dm" x="754" y="86">SUB-AGENT · {t(lang, "上下文隔离", "isolated")}</text>
+  <text class="dt" x="754" y="112">{t(lang, "阅读子代理", "Reading agent")}</text>
+  <text class="ds" x="754" y="133">{t(lang, "吞下全文，只吐要点", "swallows the full text,")}</text>
+  <text class="ds" x="754" y="151">{t(lang, "正文永不进主线程", "returns only takeaways")}</text>
+
+  <rect class="box box-g" x="734" y="206" width="222" height="118" rx="17" />
+  <text class="dm" x="754" y="232">SUB-AGENT · {t(lang, "旗舰档，永不降级", "flagship, never downgraded")}</text>
+  <text class="dt" x="754" y="258">{t(lang, "评估子代理", "Assessment agent")}</text>
+  <text class="ds" x="754" y="279">{t(lang, "读全过程，产出双轴", "reads the whole process,")}</text>
+  <text class="ds" x="754" y="297">{t(lang, "读数与印记叙述", "emits the two-axis reading")}</text>
+
+  <!-- ── the spine ──────────────────────────────────────────────────── -->
+  <rect class="box box-n" x="210" y="386" width="746" height="150" rx="20" />
+  <text class="dm" x="234" y="416">THE PROJECT SPINE · {t(lang, "项目脊柱", "durable project state")}</text>
+  <text class="dt" x="234" y="444">{t(lang, "每个工作面都读写的同一份持久状态", "The one durable state every surface reads and writes")}</text>
+  {spine.map((s, i) => (
+    <g>
+      <rect class="box" x={234 + (i % 4) * 176} y={462 + Math.floor(i / 4) * 38} width="164" height="30" rx="8" />
+      <text class="dm" x={316 + (i % 4) * 176} y={481 + Math.floor(i / 4) * 38} text-anchor="middle" style="text-transform:none; letter-spacing:0.02em">
+        {lang === "zh" ? s[1] : s[0]}
+      </text>
+    </g>
+  ))}
+</svg>

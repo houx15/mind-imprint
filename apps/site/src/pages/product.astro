@@ -1,0 +1,21 @@
+---
+import Base from "../layouts/Base.astro";
+import ProductPage from "../components/pages/ProductPage.astro";
+import { getLang, t } from "../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+
+<Base
+  title={t(
+    lang,
+    "产品 · 沿着一个学生的旅程 | 思维印记",
+    "Product · one student's journey | Mind Imprint",
+  )}
+  description={t(
+    lang,
+    "六站探究主线、34 张思维工具卡与 9 个学科透镜、阅读与写作工作室、双轴过程评估，以及终于看得见过程的教师端。",
+    "A six-station inquiry spine, 34 thinking cards and 9 disciplinary lenses, the reading and writing studios, two-axis process evaluation, and a teacher console that can finally see the process.",
+  )}
+>
+  <ProductPage />
+</Base>

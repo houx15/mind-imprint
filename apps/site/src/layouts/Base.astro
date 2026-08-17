@@ -19,6 +19,7 @@ const site = Astro.site?.toString().replace(/\/$/, "") ?? "";
 const zhHref = site + localePath("zh", key);
 const enHref = site + localePath("en", key);
 ---
+
 <!doctype html>
 <html lang={lang === "zh" ? "zh-CN" : "en"}>
   <head>
@@ -31,7 +32,7 @@ const enHref = site + localePath("en", key);
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Noto+Sans+SC:wght@400;500;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap"
       rel="stylesheet"
     />
     <link rel="alternate" hreflang="zh" href={zhHref} />
@@ -51,34 +52,137 @@ const enHref = site + localePath("en", key);
     <Footer />
 
     <script>
-      // Cinematic reveal-on-scroll
-      const io = new IntersectionObserver(
+      // ---------------------------------------------------------------------
+      // Scroll engine. Everything here is progressive enhancement: without JS
+      // the page renders fully visible (reveal styles are scoped to html.js).
+      // ---------------------------------------------------------------------
+      const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      // 1. Reveals — one observer for every entrance variant.
+      const revealables = document.querySelectorAll<HTMLElement>(
+        ".rv, .rv-line, .rv-pop",
+      );
+      const revealIO = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => {
-            if (e.isIntersecting) {
-              e.target.classList.add("in");
-              io.unobserve(e.target);
-            }
+            if (!e.isIntersecting) return;
+            e.target.classList.add("in");
+            revealIO.unobserve(e.target);
           });
         },
-        { threshold: 0.14 },
+        { threshold: 0.12, rootMargin: "0px 0px -6% 0px" },
       );
-      document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+      revealables.forEach((el) => revealIO.observe(el));
 
-      // Tabbed demo windows (no-op when a page has none)
-      document.querySelectorAll("[data-tabs]").forEach((group) => {
-        const tabs = group.querySelectorAll<HTMLElement>("[data-tab]");
-        const panels = group.querySelectorAll<HTMLElement>("[data-panel]");
-        tabs.forEach((tab) => {
-          tab.addEventListener("click", () => {
-            const n = tab.getAttribute("data-tab");
-            tabs.forEach((x) => x.classList.toggle("on", x === tab));
-            panels.forEach((p) =>
-              p.classList.toggle("on", p.getAttribute("data-panel") === n),
-            );
+      // 2. Sequenced groups — children light up one after another.
+      //    <div data-sequence data-step="140"> with .cn / .rail-node children.
+      const seqIO = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (!e.isIntersecting) return;
+            const group = e.target as HTMLElement;
+            const gap = Number(group.dataset.step || 150);
+            const kids = group.querySelectorAll<HTMLElement>("[data-seq-item]");
+            kids.forEach((kid, i) => {
+              window.setTimeout(() => kid.classList.add("on"), reduced ? 0 : i * gap);
+            });
+            seqIO.unobserve(group);
           });
-        });
+        },
+        { threshold: 0.3 },
+      );
+      document
+        .querySelectorAll<HTMLElement>("[data-sequence]")
+        .forEach((el) => seqIO.observe(el));
+
+      // 3. Scrub sections — the pinned-visual / stepped-copy pattern.
+      //    The active step index is mirrored onto the .scrub container as
+      //    data-active, which the sticky visual styles off.
+      document.querySelectorAll<HTMLElement>(".scrub").forEach((scrub) => {
+        const steps = Array.from(
+          scrub.querySelectorAll<HTMLElement>(".scrub-step"),
+        );
+        if (!steps.length) return;
+        const setActive = (idx: number) => {
+          if (scrub.dataset.active === String(idx)) return;
+          scrub.dataset.active = String(idx);
+          steps.forEach((s, i) => s.classList.toggle("on", i === idx));
+        };
+        setActive(0);
+        const stepIO = new IntersectionObserver(
+          (entries) => {
+            // Pick the entry with the most presence in the middle band.
+            let bestIndex = -1;
+            let bestRatio = -1;
+            entries.forEach((e) => {
+              if (!e.isIntersecting) return;
+              const i = steps.indexOf(e.target as HTMLElement);
+              if (i < 0) return;
+              if (e.intersectionRatio > bestRatio) {
+                bestRatio = e.intersectionRatio;
+                bestIndex = i;
+              }
+            });
+            if (bestIndex >= 0) setActive(bestIndex);
+          },
+          { rootMargin: "-42% 0px -42% 0px", threshold: [0, 0.5, 1] },
+        );
+        steps.forEach((s) => stepIO.observe(s));
       });
+
+      // 4. Nav gets a hairline once the page has scrolled.
+      const nav = document.querySelector<HTMLElement>("nav.site-nav");
+      if (nav) {
+        const onScroll = () => nav.classList.toggle("stuck", window.scrollY > 12);
+        onScroll();
+        window.addEventListener("scroll", onScroll, { passive: true });
+      }
+
+      // 5. Mobile menu.
+      const toggle = document.querySelector<HTMLElement>("[data-navtoggle]");
+      const menu = document.querySelector<HTMLElement>("[data-mobilemenu]");
+      if (toggle && menu) {
+        toggle.addEventListener("click", () => {
+          const open = menu.classList.toggle("open");
+          toggle.setAttribute("aria-expanded", String(open));
+        });
+        menu.querySelectorAll("a").forEach((a) =>
+          a.addEventListener("click", () => {
+            menu.classList.remove("open");
+            toggle.setAttribute("aria-expanded", "false");
+          }),
+        );
+      }
+
+      // 6. Count-up numbers on [data-count].
+      const countIO = new IntersectionObserver(
+        (entries) => {
+          entries.forEach((e) => {
+            if (!e.isIntersecting) return;
+            const el = e.target as HTMLElement;
+            const target = Number(el.dataset.count || 0);
+            countIO.unobserve(el);
+            if (reduced) {
+              el.textContent = String(target);
+              return;
+            }
+            const dur = 1100;
+            const t0 = performance.now();
+            const tick = (now: number) => {
+              const p = Math.min(1, (now - t0) / dur);
+              // easeOutExpo
+              const eased = p === 1 ? 1 : 1 - Math.pow(2, -10 * p);
+              el.textContent = String(Math.round(target * eased));
+              if (p < 1) requestAnimationFrame(tick);
+            };
+            requestAnimationFrame(tick);
+          });
+        },
+        { threshold: 0.6 },
+      );
+      document
+        .querySelectorAll<HTMLElement>("[data-count]")
+        .forEach((el) => countIO.observe(el));
     </script>
   </body>
 </html>

@@ -1,0 +1,78 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// The core mental model: a tool card is a tool in a tool-use loop whose
+// executor is a human. Decision (server) → summon_card → card runtime →
+// standard envelope → refed to the coach → grows the process tree.
+---
+
+<svg
+  class="diagram"
+  viewBox="0 0 980 474"
+  role="img"
+  aria-label={t(lang, "克制阶梯与工具卡回路示意图", "The restraint ladder and the tool-card loop")}
+>
+  <defs>
+    <marker id="rl-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+    </marker>
+    <marker id="rl-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+    </marker>
+  </defs>
+
+  <path class="edge draw" style="--len:70" d="M222 178 H266" marker-end="url(#rl-ar)" />
+  <path class="edge edge-hot draw" style="--len:80; --d:300" d="M572 176 H616" marker-end="url(#rl-ar-a)" />
+  <path class="edge draw" style="--len:180; --d:600" d="M700 262 C700 330 610 332 548 366" marker-end="url(#rl-ar)" />
+  <path class="edge edge-hot draw" style="--len:80; --d:800" d="M420 366 V304" marker-end="url(#rl-ar-a)" />
+  <text class="dm" x="430" y="340" style="fill:#b1613f">{t(lang, "回灌 refeed", "refeed")}</text>
+
+  <circle class="flow" r="4" style="offset-path:path('M572 176 H616'); --d:900" />
+
+  <!-- student turn -->
+  <rect class="box box-n" x="20" y="118" width="202" height="120" rx="16" />
+  <text class="dm" x="42" y="146">{t(lang, "学生这一轮", "the student's turn")}</text>
+  <text class="ds" x="42" y="174">{t(lang, "「这个公众号说地球", "“This post says the Earth")}</text>
+  <text class="ds" x="42" y="193">{t(lang, "变绿 40% 靠中国」", "is 40% greener thanks to China”")}</text>
+  <text class="dm" x="42" y="220" style="text-transform:none">{t(lang, "—— 没标出处", "— with no source")}</text>
+
+  <!-- the restraint ladder -->
+  <rect class="box box-p" x="266" y="34" width="306" height="270" rx="18" />
+  <text class="dm" x="288" y="62">{t(lang, "克制阶梯 · 服务端决策", "THE RESTRAINT LADDER · server-side")}</text>
+  <text class="ds" x="288" y="86">{t(lang, "先问：这一刻该不该把思考还回去？", "First: should the thinking go back to the student?")}</text>
+
+  <rect class="box" x="288" y="102" width="262" height="52" rx="11" />
+  <text class="dm" x="306" y="124">01 · RESPOND</text>
+  <text class="ds" x="306" y="143">{t(lang, "直接回应就够了", "answering is enough")}</text>
+
+  <rect class="box" x="288" y="162" width="262" height="52" rx="11" />
+  <text class="dm" x="306" y="184">02 · HINT</text>
+  <text class="ds" x="306" y="203">{t(lang, "只递一句提示，一次只问一个", "one nudge. one question at a time")}</text>
+
+  <rect class="box box-a" x="288" y="222" width="262" height="62" rx="11" />
+  <text class="dm" x="306" y="244" style="fill:#b1613f">03 · SUMMON_CARD</text>
+  <text class="ds" x="306" y="263" style="font-family:var(--mono); font-size:10px">summon_card("sift", reason, nudge)</text>
+  <text class="dm" x="306" y="278" style="text-transform:none">{t(lang, "触发自动 · 打开由学生确认", "auto-triggered · the student opens it")}</text>
+
+  <!-- card runtime -->
+  <rect class="box box-a" x="616" y="96" width="344" height="166" rx="18" />
+  <text class="dm" x="638" y="124">CARD RUNTIME · {t(lang, "由人执行的工具", "the tool a human executes")}</text>
+  <text class="dt" x="638" y="150">{t(lang, "SIFT · 横向核查卡", "SIFT · lateral reading")}</text>
+  <text class="ds" x="638" y="174">{t(lang, "schema 驱动渲染，新增一张卡 = 新增一份配置", "schema-driven: a new card is a new JSON, not new code")}</text>
+  <text class="ds" x="638" y="194">{t(lang, "学生自己填：谁说的 · 原文在哪 · 差在哪", "the student fills it in: who said it, where's the original")}</text>
+  <text class="ds" x="638" y="214">{t(lang, "作答与犹豫、跳过，一并采集", "answers, hesitations and skips are all captured")}</text>
+  <text class="dm" x="638" y="240" style="fill:#b1613f">{t(lang, "AI 不替她填，一个字也不", "the AI fills in nothing. not one field")}</text>
+
+  <!-- envelope → process tree -->
+  <rect class="box box-p" x="266" y="366" width="282" height="88" rx="16" />
+  <text class="dm" x="288" y="394">{t(lang, "标准信封 · 过程树", "STANDARD ENVELOPE · process tree")}</text>
+  <text class="dt" x="288" y="420">{t(lang, "长成一条可追溯的证据链", "grows one traceable evidence chain")}</text>
+  <text class="ds" x="288" y="440">{t(lang, "同一份结构，同时喂给陪练和评估", "one structure feeds both the coach and the assessment")}</text>
+
+  <!-- provenance marker -->
+  <rect class="box box-g" x="596" y="366" width="364" height="88" rx="16" />
+  <text class="dm" x="618" y="394">{t(lang, "发起方标记 · 这一点之差就是证据", "PROVENANCE · the whole signal is in who started it")}</text>
+  <text class="ds" x="618" y="420">{t(lang, "系统递给她的 —— 记「引导」", "the system offered it — logged as prompted")}</text>
+  <text class="ds" x="618" y="440">{t(lang, "没人提醒、她自己召唤的 —— 记「自发」", "nobody asked and she summoned it — logged as self-initiated")}</text>
+</svg>

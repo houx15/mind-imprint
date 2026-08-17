@@ -2,7 +2,7 @@
 import { defineConfig } from "astro/config";
 
 // 思维印记 marketing site — static, bilingual (zh default, en under /en/).
-// zh lives at /, /evaluation, /about; en mirrors under /en/*.
+// zh lives at /, /product, /algorithm, /about; en mirrors under /en/*.
 export default defineConfig({
   site: "https://mindimprint.example",
   i18n: {
@@ -11,5 +11,10 @@ export default defineConfig({
     routing: {
       prefixDefaultLocale: false,
     },
+  },
+  // The old single evaluation page folded into /product#evaluation.
+  redirects: {
+    "/evaluation": "/product",
+    "/en/evaluation": "/en/product",
   },
 });

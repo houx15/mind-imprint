@@ -1,0 +1,115 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// Faithful to apps/api/internal/api/evaluation_generate.go — the deterministic
+// FACT half, the evidence index, three concurrent flagship calls, the abstract
+// that waits on the rubric, and the ValidateRefs gate.
+const inputs: [string, string][] = [
+  ["messages", "对话"],
+  ["events", "行为事件"],
+  ["card_instances", "工具卡"],
+  ["references", "来源"],
+  ["citations", "引用"],
+  ["checkpoints", "修订快照"],
+  ["plan_items", "计划"],
+];
+---
+
+<svg
+  class="diagram"
+  viewBox="0 0 980 700"
+  role="img"
+  aria-label={t(lang, "过程评估报告的生成流水线", "The process-evaluation report generation pipeline")}
+>
+  <defs>
+    <marker id="ev-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+    </marker>
+  </defs>
+
+  <!-- ── edges ──────────────────────────────────────────────────────── -->
+  <path class="edge draw" style="--len:60" d="M230 108 V150" marker-end="url(#ev-ar)" />
+  <path class="edge draw" style="--len:60; --d:120" d="M740 108 V150" marker-end="url(#ev-ar)" />
+
+  <!-- FACT half runs down the left channel straight into assembly -->
+  <path class="edge edge-d draw" style="--len:400; --d:300" d="M90 276 V618" marker-end="url(#ev-ar)" />
+
+  <!-- evidence index fans into the three concurrent calls, over a shared bus -->
+  <path class="edge draw" style="--len:30; --d:380" d="M740 276 V300" />
+  <path class="edge draw" style="--len:540; --d:420" d="M280 300 H810" />
+  <path class="edge draw" style="--len:30; --d:520" d="M280 300 V322" marker-end="url(#ev-ar)" />
+  <path class="edge draw" style="--len:30; --d:540" d="M545 300 V322" marker-end="url(#ev-ar)" />
+  <path class="edge draw" style="--len:30; --d:560" d="M810 300 V322" marker-end="url(#ev-ar)" />
+  <!-- and down the right channel to the ref gate -->
+  <path class="edge edge-d draw" style="--len:460; --d:560" d="M940 276 C956 292 946 300 946 596 C946 610 930 618 900 618" marker-end="url(#ev-ar)" />
+
+  <path class="edge edge-hot draw" style="--len:60; --d:700" d="M810 430 V476" marker-end="url(#ev-ar)" />
+  <path class="edge draw" style="--len:200; --d:760" d="M280 430 V618" marker-end="url(#ev-ar)" />
+  <path class="edge draw" style="--len:200; --d:800" d="M545 430 V618" marker-end="url(#ev-ar)" />
+  <path class="edge draw" style="--len:60; --d:840" d="M810 572 V618" marker-end="url(#ev-ar)" />
+
+  <!-- ── R1 · recorded data ─────────────────────────────────────────── -->
+  <rect class="box box-n" x="20" y="20" width="940" height="88" rx="18" />
+  <text class="dm" x="42" y="46">RECORDED DATA · {t(lang, "学生一路留下的过程数据", "everything the student left behind")}</text>
+  {inputs.map((s, i) => (
+    <g>
+      <rect class="box" x={42 + i * 130} y="60" width="120" height="30" rx="8" />
+      <text class="dm" x={102 + i * 130} y="79" text-anchor="middle" style="text-transform:none; letter-spacing:0.02em">
+        {lang === "zh" ? s[1] : s[0]}
+      </text>
+    </g>
+  ))}
+
+  <!-- ── R2 · the two halves ────────────────────────────────────────── -->
+  <rect class="box box-p" x="20" y="150" width="420" height="126" rx="18" />
+  <text class="dm" x="42" y="176">FACT HALF · {t(lang, "确定性半区", "deterministic")}</text>
+  <text class="dt" x="42" y="202">{t(lang, "数出来的事实，不是模型说的", "Facts that are counted, not claimed")}</text>
+  <text class="ds" x="42" y="224">{t(lang, "AI 轮次 · 材料数 · 正文字数 · 批注 · 修订次数", "turns · materials · words · comments · revisions")}</text>
+  <text class="ds" x="42" y="243">{t(lang, "里程碑 · 时间线 · 材料表 · 工具卡使用", "milestones · timeline · material list · card usage")}</text>
+  <text class="dm" x="42" y="264" style="fill:#2a3b7a">{t(lang, "永远不需要模型", "never needs the model")}</text>
+
+  <rect class="box box-a" x="520" y="150" width="440" height="126" rx="18" />
+  <text class="dm" x="542" y="176">EVIDENCE INDEX · {t(lang, "候选证据集", "citable candidates")}</text>
+  <text class="dt" x="542" y="202">{t(lang, "模型唯一被允许引用的东西", "The only things the model may cite")}</text>
+  <text class="ds" x="542" y="224">{t(lang, "每条判断都必须指回一个真实存在的 id：", "Every judgment must point back to a real id:")}</text>
+  <text class="ds" x="542" y="243">{t(lang, "某一条消息、某一次事件、某一张卡、某一个来源。", "a message, an event, a card, a source.")}</text>
+  <text class="dm" x="542" y="264" style="fill:#b1613f">{t(lang, "指不到的，事后一律丢弃", "unresolvable refs are dropped later")}</text>
+
+  <!-- ── R3 · three concurrent flagship calls ───────────────────────── -->
+  <text class="dm" x="160" y="292">3 CONCURRENT FLAGSHIP CALLS · {t(lang, "三路并发（互不依赖）· 评估档永不降级", "independent · the evaluation tier is never downgraded")}</text>
+  <rect class="box box-g" x="160" y="324" width="240" height="106" rx="16" />
+  <text class="dm" x="180" y="350">CALL A</text>
+  <text class="dt" x="180" y="376">{t(lang, "提示词观测", "Prompt lens")}</text>
+  <text class="ds" x="180" y="398">{t(lang, "学生怎么用 AI：要成品，", "How the student asked: for output,")}</text>
+  <text class="ds" x="180" y="415">{t(lang, "还是要反方、要检验", "or for a counter-argument")}</text>
+
+  <rect class="box box-g" x="425" y="324" width="240" height="106" rx="16" />
+  <text class="dm" x="445" y="350">CALL B</text>
+  <text class="dt" x="445" y="376">{t(lang, "风险行为", "Risk signals")}</text>
+  <text class="ds" x="445" y="398">{t(lang, "AI 代劳 · 缺少信源 · 论证", "ghost-writing · missing sources ·")}</text>
+  <text class="ds" x="445" y="415">{t(lang, "断裂 · 口径漂移 · 跑题", "broken warrants · drift · tangents")}</text>
+
+  <rect class="box box-g" x="690" y="324" width="240" height="106" rx="16" />
+  <text class="dm" x="710" y="350">CALL C</text>
+  <text class="dt" x="710" y="376">{t(lang, "双轴判层", "Two-axis rubric")}</text>
+  <text class="ds" x="710" y="398">{t(lang, "认知深度 D1–D6", "Cognitive depth D1–D6")}</text>
+  <text class="ds" x="710" y="415">{t(lang, "智识自主 A1–A6", "Intellectual autonomy A1–A6")}</text>
+
+  <!-- ── R4 · the abstract waits on C ───────────────────────────────── -->
+  <rect class="box box-g" x="690" y="476" width="240" height="96" rx="16" />
+  <text class="dm" x="710" y="502">CALL D · {t(lang, "等 C", "waits for C")}</text>
+  <text class="dt" x="710" y="528">{t(lang, "叙述与建议", "Narrative & advice")}</text>
+  <text class="ds" x="710" y="550">{t(lang, "把双轴结果写成一段人话", "turns the axis result into plain prose")}</text>
+
+  <!-- ── R5 · assembly → gate → report ──────────────────────────────── -->
+  <rect class="box box-n" x="20" y="618" width="940" height="66" rx="18" />
+  <text class="dt" x="60" y="646">{t(lang, "报告组装", "Assemble")}</text>
+  <text class="ds" x="60" y="665">{t(lang, "事实半区 + 模型半区", "facts + judgments")}</text>
+  <path class="edge" d="M232 650 H288" marker-end="url(#ev-ar)" />
+  <text class="dt" x="312" y="646">ValidateRefs</text>
+  <text class="ds" x="312" y="665">{t(lang, "逐条回指校验，丢弃指不到证据的引用", "every citation re-checked; unresolvable ones dropped")}</text>
+  <path class="edge edge-hot" d="M700 650 H756" marker-end="url(#ev-ar)" />
+  <text class="dt" x="780" y="646" style="fill:#2a3b7a">{t(lang, "你的思维印记", "Your Mind Imprint")}</text>
+  <text class="ds" x="780" y="665">{t(lang, "一份可争议、可改判的报告", "reviewable, and a teacher can overturn it")}</text>
+</svg>
