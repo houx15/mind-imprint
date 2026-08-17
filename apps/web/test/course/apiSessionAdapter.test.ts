@@ -116,6 +116,19 @@ describe("makeApiSessionAdapter", () => {
     expect(saved.status).toBe("completed");
   });
 
+  // D5 / P2-08: CoursePlayer calls this to stamp the content-hash it just
+  // detected (new session, or after a stale-hash reset) — the PUT must carry
+  // it just like every other single-field setter.
+  it("setDefinitionHash() updates the held session's `courseDefinitionHash` and schedules a snapshot", async () => {
+    const adapter = makeApiSessionAdapter(SLUG, { debounceMs: 400 });
+    const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });
+    await adapter.setDefinitionHash(created.id, "def-hash-abc");
+    await adapter.flush();
+    expect(saveMock).toHaveBeenCalledTimes(1);
+    const [, saved] = saveMock.mock.calls[0]!;
+    expect(saved.courseDefinitionHash).toBe("def-hash-abc");
+  });
+
   it("setCurrent() updates the held session's `current` and schedules a snapshot", async () => {
     const adapter = makeApiSessionAdapter(SLUG, { debounceMs: 400 });
     const created = await adapter.create({ courseId: "evidence-comparability", studentId: "student-1" });

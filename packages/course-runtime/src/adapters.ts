@@ -40,6 +40,14 @@ export interface SessionAdapter {
   setStatus(sessionId: string, status: CourseSession["status"]): Promise<void>;
   /** §16 resume — records which part/slice/workflow-step is currently active, so a later restore knows where to jump back to. */
   setCurrent(sessionId: string, current: CourseSession["current"]): Promise<void>;
+  /**
+   * D5 / P2-08 — records which CourseDefinition content-hash this session's
+   * current state was built/reset against, so a LATER resume can detect a
+   * course edited out from under it (@mind-imprint/course-contract's
+   * `isCourseSessionStale`). CoursePlayer calls this once per init: on a
+   * brand-new session (no hash yet) and again after a stale-hash reset.
+   */
+  setDefinitionHash(sessionId: string, hash: string): Promise<void>;
 }
 
 /**
@@ -146,6 +154,10 @@ export class InMemorySessionAdapter implements SessionAdapter {
 
   async setCurrent(sessionId: string, current: CourseSession["current"]): Promise<void> {
     this.require(sessionId).current = current ? clone(current) : undefined;
+  }
+
+  async setDefinitionHash(sessionId: string, hash: string): Promise<void> {
+    this.require(sessionId).courseDefinitionHash = hash;
   }
 
   private require(sessionId: string): CourseSession {

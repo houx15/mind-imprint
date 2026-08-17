@@ -54,6 +54,11 @@ export function RuntimeCoursePlayer({
 }) {
   const [document, setDocument] = useState<unknown | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // P2-08/D5 — the current definition's content hash, threaded through to
+  // CoursePlayer's `definitionHash` prop so it can detect a resumed session
+  // whose OWN recorded hash disagrees (the course was edited since) and reset
+  // rather than restore stale slice/step/block state.
+  const [definitionHash, setDefinitionHash] = useState<string | null>(null);
   // Bumped on asset-url refresh so consumers that resolve INLINE during
   // render (images, and the PDF viewer — both cheap/harmless to update, see
   // PdfRenderer/ImagesRenderer) pick up the renewed map on their next paint.
@@ -132,6 +137,7 @@ export function RuntimeCoursePlayer({
     let refreshTimer: ReturnType<typeof setTimeout> | undefined;
     setDocument(null);
     setError(null);
+    setDefinitionHash(null);
     assetUrlsRef.current = {};
 
     const REFRESH_LEAD_MS = 5 * 60_000; // re-sign 5 min before the window lapses
@@ -160,7 +166,8 @@ export function RuntimeCoursePlayer({
 
     (async () => {
       try {
-        const doc = (await getCourseDefinition(slug)) as CourseDefinitionDocument;
+        const { definition, hash } = await getCourseDefinition(slug);
+        const doc = definition as CourseDefinitionDocument;
         if (cancelled) return;
         const paths = collectAssetPaths(doc);
         if (paths.length > 0) {
@@ -170,6 +177,7 @@ export function RuntimeCoursePlayer({
           const lead = new Date(signed.expiresAt).getTime() - Date.now() - REFRESH_LEAD_MS;
           armRefresh(slug, paths, Math.max(lead, REFRESH_RETRY_MS));
         }
+        setDefinitionHash(hash);
         setDocument(doc);
       } catch (e) {
         if (cancelled) return;
@@ -208,6 +216,7 @@ export function RuntimeCoursePlayer({
           <InteractionLoaderProvider value={interactionLoader}>
             <CoursePlayer
               document={document}
+              definitionHash={definitionHash ?? undefined}
               adapters={adapters}
               studentId={studentId ?? PLACEHOLDER_STUDENT_ID}
               idFactory={() => crypto.randomUUID()}

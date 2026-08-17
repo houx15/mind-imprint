@@ -12,4 +12,5 @@ export * from "./course";
 export * from "./session";
 export * from "./validate/referential";
 export * from "./validate/workflow";
+export * from "./validate/quality";
 export * from "./validate";

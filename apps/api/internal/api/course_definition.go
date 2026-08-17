@@ -2,14 +2,26 @@ package api
 
 // course_definition.go — Course Runtime Slice 8: serve the stored
 // CourseDefinition 2.0 document. GET /api/v1/courses/{slug}/definition returns
-// { definition: <CourseDefinitionDocument> } (the raw stored jsonb, passed
-// through untouched) for a course that has a 2.0 definition; 404 for a legacy
-// course with none (or an unknown slug) — the frontend routes that course to the
-// legacy player. The document is border-validated (schemaVersion == "2.0")
-// before serving; a malformed blob is 422, never shipped to the runtime player
-// (whose own full structural validation is the deep source of truth).
+// { definition: <CourseDefinitionDocument>, hash: <sha256 hex> } (the raw
+// stored jsonb, passed through untouched, plus a content hash of those exact
+// bytes) for a course that has a 2.0 definition; 404 for a legacy course with
+// none (or an unknown slug) — the frontend routes that course to the legacy
+// player. The document is border-validated (schemaVersion == "2.0") before
+// serving; a malformed blob is 422, never shipped to the runtime player (whose
+// own full structural validation is the deep source of truth).
+//
+// `hash` is P2-08/D5's definition-revision signal: a stable sha256 of the
+// stored bytes, deterministic per byte-identical row (same course_definition
+// blob → same hash, always — see course_definition_test.go). The frontend
+// carries it through to the runtime player, which compares it against a
+// resumed CourseSession's own recorded `courseDefinitionHash`
+// (@mind-imprint/course-contract's `isCourseSessionStale`) to detect a course
+// edited out from under an in-flight session and reset rather than restore
+// stale slice/step/block state that may reference removed ids.
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -55,5 +67,9 @@ func (a *API) getCourseDefinition(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"definition": json.RawMessage(def)})
+	sum := sha256.Sum256(def)
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"definition": json.RawMessage(def),
+		"hash":       hex.EncodeToString(sum[:]),
+	})
 }

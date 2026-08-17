@@ -79,6 +79,9 @@ function buildSeededAdapters(seed: CourseSession) {
     async setCurrent(_sessionId, current) {
       session.current = current ? structuredClone(current) : undefined;
     },
+    async setDefinitionHash(_sessionId, hash) {
+      session.courseDefinitionHash = hash;
+    },
   };
 
   const adapters: CourseRuntimeAdapters = {
@@ -413,6 +416,157 @@ describe("CoursePlayer end-to-end", () => {
     expect(shell).toHaveClass("course-shell");
     // The Opening scene renders INSIDE the shell, not as a sibling of it.
     expect(shell!.textContent).toContain("一起开始吧");
+  });
+});
+
+// D5 / P2-08 — a session's own recorded `courseDefinitionHash` vs. the host's
+// `definitionHash` prop (the CURRENT definition's content hash): a
+// disagreement means the course was edited since this session was built, so
+// its slice/step/block state may reference removed ids and must never be
+// restored; a match (or an absent recorded hash — back-compat for sessions
+// persisted before this field existed) resumes exactly as before.
+describe("CoursePlayer definition-revision policy (D5 / P2-08)", () => {
+  it("resets a session whose recorded hash disagrees with the current definition's hash: discards its progress, stamps the new hash, and shows a dismissible notice", async () => {
+    const seed: CourseSession = {
+      id: "server-session-stale",
+      courseId: "static-demo-course",
+      courseSchemaVersion: "2.0",
+      studentId: "student-1",
+      status: "in-progress",
+      current: { partId: "part-one", sliceId: "slice-two", workflowStepId: "intro" },
+      opening: { text: "旧版开场白", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      sliceStates: {
+        "slice-two": { status: "in-progress", currentWorkflowStepId: "intro", startedAt: clock(), elapsedSeconds: 5, blockStates: {} },
+      },
+      events: [],
+      courseDefinitionHash: "old-hash",
+    };
+    const { adapters, getSession } = buildSeededAdapters(seed);
+    const engine = new FakeAudioEngine();
+
+    render(
+      <AudioEngineProvider value={engine}>
+        <CoursePlayer
+          document={staticCourseDocument}
+          definitionHash="new-hash"
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev")}
+          clock={clock}
+        />
+      </AudioEngineProvider>,
+    );
+
+    // Fresh Opening — never resumed straight to the stale `current` (slice-two).
+    await screen.findByText("一起开始吧");
+    expect(screen.queryByText("旧版开场白")).toBeNull();
+    expect(document.querySelector('[data-block-id="s2-text"]')).toBeNull();
+
+    // The notice is visible and dismissible.
+    const notice = screen.getByTestId("course-revision-notice");
+    expect(notice).toHaveTextContent("课程已更新，进度已重置");
+    await userEvent.click(screen.getByRole("button", { name: "知道了" }));
+    expect(screen.queryByTestId("course-revision-notice")).toBeNull();
+
+    // The new hash is stamped onto the session so its NEXT resume compares clean.
+    await waitFor(() => expect(getSession().courseDefinitionHash).toBe("new-hash"));
+  });
+
+  it("resumes normally (no reset, no notice) when the session's recorded hash matches the current definition's hash", async () => {
+    const seed: CourseSession = {
+      id: "server-session-match",
+      courseId: "static-demo-course",
+      courseSchemaVersion: "2.0",
+      studentId: "student-1",
+      status: "in-progress",
+      current: { partId: "part-one", sliceId: "slice-one", workflowStepId: "reveal" },
+      opening: { text: "欢迎回来", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      sliceStates: {
+        "slice-one": {
+          status: "in-progress",
+          currentWorkflowStepId: "reveal",
+          startedAt: clock(),
+          elapsedSeconds: 12,
+          blockStates: {
+            "s1-intro-text": { visible: true, enabled: true, completed: false },
+            "s1-reveal-text": { visible: true, enabled: true, completed: false },
+            "s1-continue": { visible: true, enabled: true, completed: false },
+          },
+        },
+      },
+      events: [],
+      courseDefinitionHash: "same-hash",
+    };
+    const { adapters } = buildSeededAdapters(seed);
+    const engine = new FakeAudioEngine();
+
+    render(
+      <AudioEngineProvider value={engine}>
+        <CoursePlayer
+          document={staticCourseDocument}
+          definitionHash="same-hash"
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev")}
+          clock={clock}
+        />
+      </AudioEngineProvider>,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-block-id="s1-reveal-text"]')).not.toHaveAttribute("hidden");
+    });
+    expect(screen.queryByText("一起开始吧")).toBeNull();
+    expect(screen.queryByTestId("course-revision-notice")).toBeNull();
+  });
+
+  it("treats a session with NO recorded hash as compatible (back-compat) even when the host supplies a definitionHash: resumes normally, no notice, and stamps the hash going forward", async () => {
+    const seed: CourseSession = {
+      id: "server-session-no-hash",
+      courseId: "static-demo-course",
+      courseSchemaVersion: "2.0",
+      studentId: "student-1",
+      status: "in-progress",
+      current: { partId: "part-one", sliceId: "slice-one", workflowStepId: "reveal" },
+      opening: { text: "欢迎回来", generatedAt: clock(), usedSignalTypes: [], fallbackUsed: true },
+      sliceStates: {
+        "slice-one": {
+          status: "in-progress",
+          currentWorkflowStepId: "reveal",
+          startedAt: clock(),
+          elapsedSeconds: 12,
+          blockStates: {
+            "s1-intro-text": { visible: true, enabled: true, completed: false },
+            "s1-reveal-text": { visible: true, enabled: true, completed: false },
+            "s1-continue": { visible: true, enabled: true, completed: false },
+          },
+        },
+      },
+      events: [],
+      // No courseDefinitionHash — a session persisted before this field existed.
+    };
+    const { adapters, getSession } = buildSeededAdapters(seed);
+    const engine = new FakeAudioEngine();
+
+    render(
+      <AudioEngineProvider value={engine}>
+        <CoursePlayer
+          document={staticCourseDocument}
+          definitionHash="new-hash"
+          adapters={adapters}
+          studentId="student-1"
+          idFactory={makeIdFactory("ev")}
+          clock={clock}
+        />
+      </AudioEngineProvider>,
+    );
+
+    await waitFor(() => {
+      expect(document.querySelector('[data-block-id="s1-reveal-text"]')).not.toHaveAttribute("hidden");
+    });
+    expect(screen.queryByText("一起开始吧")).toBeNull();
+    expect(screen.queryByTestId("course-revision-notice")).toBeNull();
+    await waitFor(() => expect(getSession().courseDefinitionHash).toBe("new-hash"));
   });
 });
 

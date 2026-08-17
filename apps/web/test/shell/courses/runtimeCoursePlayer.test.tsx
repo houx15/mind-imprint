@@ -86,6 +86,10 @@ const golden = {
   schemaVersion: "2.0",
   course: { id: "evidence-comparability", title: "Can These Two Claims Be Compared?" },
 };
+// P2-08/D5 — getCourseDefinition now resolves { definition, hash }; every
+// test below mocks it with this fixed hash unless it's specifically about the
+// hash wiring itself.
+const GOLDEN_HASH = "def-hash-1";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -98,7 +102,7 @@ beforeEach(() => {
 
 describe("RuntimeCoursePlayer", () => {
   it("fetches the definition, mounts the runtime player with the four adapters + injected idFactory/clock, and wires onComplete/signalResolver", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     const onFinish = vi.fn();
     const onExit = vi.fn();
 
@@ -111,6 +115,10 @@ describe("RuntimeCoursePlayer", () => {
 
     // Wiring: the fetched document + the four adapters + host boundary factories.
     expect(lastPlayerProps.document).toEqual(golden);
+    // P2-08/D5: the definition's content hash is threaded through unwrapped
+    // (never nested inside `document`) so CoursePlayer can compare it against
+    // a resumed session's own recorded hash.
+    expect(lastPlayerProps.definitionHash).toBe(GOLDEN_HASH);
     expect(lastPlayerProps.studentId).toBe("student-42");
     expect(typeof lastPlayerProps.idFactory).toBe("function");
     expect(typeof lastPlayerProps.clock).toBe("function");
@@ -131,7 +139,7 @@ describe("RuntimeCoursePlayer", () => {
   // reaching `completed`, which the player can reach before Closing is even
   // shown.
   it("does NOT fire onFinish just because the session status flips to completed", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     const onFinish = vi.fn();
 
     render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={onFinish} />);
@@ -143,7 +151,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("fires onFinish when CoursePlayer's onComplete fires (learner dismisses the Closing)", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     const onFinish = vi.fn();
 
     render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={onFinish} />);
@@ -154,7 +162,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("loads the definition, collects paths, fetches asset urls, and resolves via the map", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     collectAssetPaths.mockReturnValue(["assets/a.png"]);
     fetchCourseAssetUrls.mockResolvedValue({
       assetUrls: { "assets/a.png": "https://cdn/a?auth_key=x" },
@@ -172,7 +180,7 @@ describe("RuntimeCoursePlayer", () => {
   it("retries the asset-url refresh after a transient failure instead of giving up", async () => {
     vi.useFakeTimers();
     try {
-      getDefMock.mockResolvedValue(golden);
+      getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
       collectAssetPaths.mockReturnValue(["assets/a.png"]);
       // Initial sign uses a near expiry so the refresh arms at the 60s floor;
       // the first refresh FAILS; the fix must re-arm so a later retry succeeds.
@@ -201,7 +209,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("does not page-scroll the course region (P1-06 one-screen; renderer shell owns overflow)", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     collectAssetPaths.mockReturnValue([]);
     render(<RuntimeCoursePlayer slug={SLUG} onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByTestId("runtime-player");
@@ -211,7 +219,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("skips the asset-urls fetch when the course references no assets", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     collectAssetPaths.mockReturnValue([]);
 
     render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
@@ -227,7 +235,7 @@ describe("RuntimeCoursePlayer", () => {
   // renderer's adapters object and fire on the lifecycle exits a student
   // actually takes — not just a clean unmount.
   it("flushes the session adapter on pagehide", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByTestId("runtime-player");
 
@@ -239,7 +247,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("flushes the session adapter when the tab is backgrounded (visibilitychange → hidden)", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByTestId("runtime-player");
 
@@ -255,7 +263,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("does NOT flush on visibilitychange while still visible", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByTestId("runtime-player");
 
@@ -266,7 +274,7 @@ describe("RuntimeCoursePlayer", () => {
   });
 
   it("flushes the session adapter on unmount", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     const { unmount } = render(<RuntimeCoursePlayer slug={SLUG} studentId="student-42" onExit={vi.fn()} onFinish={vi.fn()} />);
     await screen.findByTestId("runtime-player");
 
@@ -278,7 +286,7 @@ describe("RuntimeCoursePlayer", () => {
 
 describe("CoursesContainer per-course routing", () => {
   it("mounts the runtime player for a course WITH a 2.0 definition", async () => {
-    getDefMock.mockResolvedValue(golden);
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
     await screen.findByTestId("runtime-player");
     expect(screen.queryByTestId("legacy-player")).toBeNull();

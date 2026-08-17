@@ -3,6 +3,7 @@ import type { ReactNode } from "react";
 import {
   validateCourseDefinition,
   CourseSession,
+  isCourseSessionStale,
   type CourseDefinition,
   type RuntimeSceneResult,
   type SliceDefinition,
@@ -28,6 +29,15 @@ import "../styles/course.css";
 
 export interface CoursePlayerProps {
   document: unknown;
+  /**
+   * D5 / P2-08 — the CURRENT definition's content hash (the host's GET
+   * /courses/{slug}/definition response's `hash`), used to detect a resumed
+   * session built against a definition that has since been edited. Omitted
+   * (e.g. a host with no revision-hash endpoint, or most tests) simply
+   * disables the check — every session resumes exactly as it did before this
+   * field existed, matching `isCourseSessionStale`'s back-compat contract.
+   */
+  definitionHash?: string;
   adapters: CourseRuntimeAdapters;
   studentId: string;
   /** Restore an existing session instead of creating one. */
@@ -95,13 +105,16 @@ function ErrorSurface({ issues }: { issues: ValidationIssue[] }) {
  * scene generators (fallback path is exercised in this slice). Structurally
  * invalid documents render a diagnostic surface and never mount a SlicePlayer.
  */
-export function CoursePlayer({ document, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete, signalResolver }: CoursePlayerProps) {
+export function CoursePlayer({ document, definitionHash, adapters, studentId, sessionId, idFactory, clock, onBusReady, onComplete, signalResolver }: CoursePlayerProps) {
   const validation = useMemo(() => validateCourseDefinition(document), [document]);
 
   const [phase, setPhase] = useState<Phase>(validation.ok ? "loading" : "error");
   const [opening, setOpening] = useState<RuntimeSceneResult | null>(null);
   const [closing, setClosing] = useState<RuntimeSceneResult | null>(null);
   const [currentIndex, setCurrentIndex] = useState(0);
+  // D5 / P2-08 — set once, at init, when a resumed session's own recorded
+  // hash disagreed with `definitionHash` and its progress was discarded.
+  const [revisionNotice, setRevisionNotice] = useState(false);
   const indexRef = useRef(0);
   const [bus, setBus] = useState<RuntimeEventBus | null>(null);
   const activeSessionId = useRef<string | null>(null);
@@ -167,10 +180,26 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       }
 
       activeSessionId.current = session.id;
+
+      // D5 / P2-08 — content-hash revision policy: a session whose OWN
+      // recorded hash actively disagrees with the current definition's hash
+      // may reference slice/step/block ids the definition no longer has —
+      // never restore its progress. A session with no recorded hash yet
+      // (pre-existing, or brand new) is never stale (isCourseSessionStale's
+      // back-compat contract); stamp the current hash either way so this
+      // session's NEXT resume compares against what it's actually built on.
+      const stale = definitionHash != null && isCourseSessionStale(session, definitionHash);
+      if (stale) setRevisionNotice(true);
+      if (definitionHash && session.courseDefinitionHash !== definitionHash) {
+        void adapters.sessionAdapter.setDefinitionHash(session.id, definitionHash);
+      }
+
       // §Slice4 — seed the revisit/previous cache from whatever this session
       // already has recorded, so a Slice reached before THIS mount (a prior
       // page load) is just as "already reached" as one visited this session.
-      sliceStatesRef.current = { ...session.sliceStates };
+      // A stale session's cache is discarded outright (D5) — it may key
+      // blocks the current definition no longer has.
+      sliceStatesRef.current = stale ? {} : { ...session.sliceStates };
       const newBus = new RuntimeEventBus({ courseId: course.id, sessionId: session.id, idFactory, clock });
       setBus(newBus);
       onBusReady?.(newBus);
@@ -178,8 +207,10 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       // A session that carries real progress resumes from ITS OWN state —
       // never let the "fresh session" path below overwrite the server's
       // status back to "opening" once the student is already further along.
+      // A stale session is treated as having NO progress regardless of its
+      // recorded status/current (D5 — never restore stale state).
       const progressStatuses = new Set<CourseSession["status"]>(["in-progress", "closing", "completed"]);
-      const hasProgress = restored != null && (progressStatuses.has(restored.status) || restored.current != null);
+      const hasProgress = !stale && restored != null && (progressStatuses.has(restored.status) || restored.current != null);
 
       if (hasProgress) {
         // Completed, OR closing-but-not-yet-dismissed (the learner reloaded
@@ -223,8 +254,10 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
       await adapters.sessionAdapter.setStatus(session.id, "opening");
 
       // A session that already has a saved Opening (e.g. reloaded before
-      // clicking start) restores it instead of paying for regeneration.
-      if (restored?.opening) {
+      // clicking start) restores it instead of paying for regeneration. A
+      // stale session's saved Opening is discarded too (D5) — it was
+      // generated against the old definition's objectives/preview copy.
+      if (!stale && restored?.opening) {
         setOpening(restored.opening);
         setPhase("opening");
         return;
@@ -422,6 +455,17 @@ export function CoursePlayer({ document, adapters, studentId, sessionId, idFacto
 
   return (
     <div className="course-shell" data-course-shell="true">
+      {/* D5 / P2-08 — brief, visible, dismissible notice: the resumed session's
+          progress was reset because the course definition changed since it
+          was built (see the `stale` branch in the init effect above). */}
+      {revisionNotice && (
+        <div className="course-revision-notice" role="status" data-testid="course-revision-notice">
+          <span>课程已更新，进度已重置</span>
+          <button type="button" onClick={() => setRevisionNotice(false)}>
+            知道了
+          </button>
+        </div>
+      )}
       {content}
     </div>
   );

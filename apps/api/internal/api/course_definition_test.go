@@ -6,6 +6,8 @@ package api_test
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/hex"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -57,6 +59,7 @@ func TestCourseDefinitionServed(t *testing.T) {
 				ID string `json:"id"`
 			} `json:"course"`
 		} `json:"definition"`
+		Hash string `json:"hash"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
 		t.Fatalf("decode: %v — body %s", err, rec.Body)
@@ -66,6 +69,68 @@ func TestCourseDefinitionServed(t *testing.T) {
 	}
 	if resp.Definition.Course.ID != "test-runtime-course" {
 		t.Fatalf("course.id = %q, want test-runtime-course", resp.Definition.Course.ID)
+	}
+	// P2-08/D5: hash is a real sha256 hex digest of the STORED bytes — fetch
+	// them the same way the handler does (Postgres's jsonb round-trip
+	// reformats whitespace, so this must compare against the actual stored
+	// bytes, not the literal Go string used to seed them).
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	storedDef, _, err := store.GetCourseDefinition(context.Background(), "def-course")
+	if err != nil {
+		t.Fatalf("GetCourseDefinition: %v", err)
+	}
+	wantSum := sha256.Sum256(storedDef)
+	wantHash := hex.EncodeToString(wantSum[:])
+	if resp.Hash != wantHash {
+		t.Fatalf("hash = %q, want sha256(stored bytes) = %q", resp.Hash, wantHash)
+	}
+	if len(resp.Hash) != 64 {
+		t.Fatalf("hash %q is not a sha256 hex digest (want 64 hex chars, got %d)", resp.Hash, len(resp.Hash))
+	}
+}
+
+// TestCourseDefinitionHashStable — the same stored bytes always hash the same
+// (repeat GETs, and two DIFFERENT courses seeded with byte-identical
+// definitions), and a definition with different content hashes differently —
+// the whole point of the P2-08/D5 revision signal.
+func TestCourseDefinitionHashStable(t *testing.T) {
+	pool := newAPITestPool(t)
+	seedCourseWithDefinition(t, pool, "def-course-a", testCourseDefinitionJSON)
+	seedCourseWithDefinition(t, pool, "def-course-b", testCourseDefinitionJSON)
+	otherJSON := `{"schemaVersion":"2.0","course":{"id":"test-runtime-course","title":"Test Course v2","language":"en","estimatedMinutes":5,"objectives":[],"parts":[]}}`
+	seedCourseWithDefinition(t, pool, "def-course-c", otherJSON)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool}).Handler()
+	cookie := signInSeed(t, pool)
+
+	fetchHash := func(slug string) string {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/courses/"+slug+"/definition", nil), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("definition %s: want 200, got %d %s", slug, rec.Code, rec.Body)
+		}
+		var resp struct {
+			Hash string `json:"hash"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+			t.Fatalf("decode %s: %v — body %s", slug, err, rec.Body)
+		}
+		return resp.Hash
+	}
+
+	hashA1 := fetchHash("def-course-a")
+	hashA2 := fetchHash("def-course-a") // repeat GET: same bytes, same hash.
+	hashB := fetchHash("def-course-b")  // different course, byte-identical definition: same hash.
+	hashC := fetchHash("def-course-c")  // different content: different hash.
+
+	if hashA1 != hashA2 {
+		t.Fatalf("hash not stable across repeat GETs: %q vs %q", hashA1, hashA2)
+	}
+	if hashA1 != hashB {
+		t.Fatalf("byte-identical definitions hashed differently: %q vs %q", hashA1, hashB)
+	}
+	if hashA1 == hashC {
+		t.Fatalf("differing definitions hashed the same: %q", hashA1)
 	}
 }
 

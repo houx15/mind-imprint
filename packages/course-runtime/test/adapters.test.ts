@@ -48,6 +48,8 @@ describe("InMemorySessionAdapter", () => {
       fallbackUsed: true,
     };
     await adapter.saveScene(created.id, "opening", scene);
+    // D5 / P2-08 — the content-hash setter mirrors setStatus/setCurrent.
+    await adapter.setDefinitionHash(created.id, "def-hash-1");
 
     const loaded = await adapter.load(created.id);
     expect(loaded).not.toBeNull();
@@ -56,6 +58,7 @@ describe("InMemorySessionAdapter", () => {
     expect(loaded!.status).toBe("in-progress");
     expect(loaded!.sliceStates["slice-1"]?.status).toBe("in-progress");
     expect(loaded!.opening).toEqual(scene);
+    expect(loaded!.courseDefinitionHash).toBe("def-hash-1");
 
     expect(await adapter.load("nope")).toBeNull();
   });

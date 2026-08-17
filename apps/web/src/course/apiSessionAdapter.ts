@@ -178,6 +178,12 @@ export function makeApiSessionAdapter(slug: string, opts: ApiSessionAdapterOptio
       scheduleSnapshot();
     },
 
+    async setDefinitionHash(sessionId: string, hash: string): Promise<void> {
+      const session = requireLoaded(sessionId);
+      session.courseDefinitionHash = hash;
+      scheduleSnapshot();
+    },
+
     flush,
     getSaveStatus: () => saveStatus,
   };
