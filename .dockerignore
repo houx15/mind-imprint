@@ -19,3 +19,8 @@ docs
 **/*.log
 **/.DS_Store
 *.png
+
+# ...but the marketing site's own public/ assets MUST reach the build context,
+# or every image on the published site silently 404s. Keep this last: later
+# rules win, so this re-includes what `*.png` above would have dropped.
+!apps/site/public/**

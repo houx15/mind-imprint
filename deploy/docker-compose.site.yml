@@ -1,0 +1,36 @@
+# Marketing site stack — 思维印记 · mind.uni-robot.cn
+#
+# DELIBERATELY SEPARATE from deploy/docker-compose.prod.yml. Different compose
+# project name, different checkout on the server (~/mind-imprint-site), its own
+# port and its own vhost. Nothing here can reach the API, the database or the
+# SPA, so shipping a copy change on the marketing site carries no risk to the
+# student platform — and vice versa.
+#
+# Run from the site checkout's repo root:
+#   docker compose -f deploy/docker-compose.site.yml up -d --build
+#
+# Topology:
+#   host nginx (TLS, certbot)
+#     ├── mind-api.uni-robot.cn  → 127.0.0.1:8090  → api container   (product)
+#     ├── mind-web.uni-robot.cn  → 127.0.0.1:8091  → web container   (product)
+#     └── mind.uni-robot.cn      → 127.0.0.1:8092  → site container  (THIS FILE)
+#
+# There are no secrets in this stack and none are needed: the site is static
+# HTML that links out to the app. So, unlike the product stack, this compose
+# file takes no --env-file.
+name: mindimprint-site
+
+services:
+  site:
+    build:
+      context: ..
+      dockerfile: apps/site/Dockerfile
+      args:
+        # Where the site's "体验 Demo" / "登录" CTAs point.
+        PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://mind-web.uni-robot.cn}
+        # The site's own origin, for canonical + hreflang alternates.
+        SITE_URL: ${SITE_URL:-https://mind.uni-robot.cn}
+    image: mindimprint-site:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8092:80"

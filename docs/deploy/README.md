@@ -11,6 +11,10 @@
 |---|---|---|
 | `mind-api.uni-robot.cn` | Go API（`apps/api`） | 唯一持有密钥、访问数据库与模型的单元 |
 | `mind-web.uni-robot.cn` | 单个 SPA（`apps/web`） | 学生/教师/管理员共用一份构建产物 |
+| `mind.uni-robot.cn` | 营销站（`apps/site`） | **独立部署**，与上面两个互不影响，见 `docs/deploy/site.md` |
+
+营销站是**另一套栈**：独立 checkout（`~/mind-imprint-site`）、独立 compose project
+（`mindimprint-site`）、独立端口（8092）、无密钥。本文档余下部分只讲学生平台。
 
 `mind-stu / mind-teacher / mind-admin` 暂不需要（一份 bundle 已覆盖全部角色）。如果将来要按角色分域，
 可把它们 CNAME/反代到同一个 web 容器即可，无需改代码。
