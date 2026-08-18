@@ -28,6 +28,23 @@ deploy/upload-site-assets.sh
 CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`），不要覆盖同名文件后
 干等缓存过期。
 
+## 什么放这里，什么放 `public/`
+
+- **放这里（走 OSS/CDN）：** 图片、视频、PDF —— 内容素材，体积大、会换、和代码无关。
+- **放 `apps/site/public/`：** 界面本身的一部分 —— 图标、装饰用的 SVG。首屏
+  不能等一次网络往返，所以它们跟着站点一起发布。
+  例：`public/media/explorer-v1.svg`（首屏那条船）被构建期内联进页面。
+
+## 已上线的 key
+
+| key | 内容 |
+|---|---|
+| `home/hero-bg-v3.webp` | 首屏背景（当前使用）。深蓝绿色的水流 |
+| `home/hero-bg-v4.webp` | 首屏背景备选。换用改 `HeroImmersive.astro` 里的 `assetUrl()` |
+
+> 首屏背景是**叠加**的：底下那层水是纯 CSS 画的，图片只是盖在上面。CDN 没通、
+> 图片没到，首屏依然是完整的，不会开天窗。
+
 ## 当前待补的图
 
 页面里已经排好版、等素材的槽位（`<Figure name="...">` 里的名字）：

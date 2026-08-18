@@ -1,5 +1,7 @@
 ---
 import "../styles/global.css";
+// Loaded after global.css so the immersive hero wins on the cascade.
+import "../styles/hero-immersive.css";
 import IconSprite from "../components/IconSprite.astro";
 import Nav from "../components/Nav.astro";
 import Footer from "../components/Footer.astro";
@@ -8,8 +10,13 @@ import { getLang, localePath } from "../i18n/utils";
 interface Props {
   title: string;
   description: string;
+  /**
+   * Full-screen opening: the page owns the top of the viewport, so the nav
+   * starts hidden and floats in once the reader has passed the hero.
+   */
+  immersive?: boolean;
 }
-const { title, description } = Astro.props;
+const { title, description, immersive = false } = Astro.props;
 const lang = getLang(Astro.currentLocale);
 
 // hreflang alternates for the same page in both languages
@@ -43,7 +50,7 @@ const enHref = site + localePath("en", key);
     <meta property="og:type" content="website" />
     <meta name="twitter:card" content="summary_large_image" />
   </head>
-  <body>
+  <body class={immersive ? "immersive" : undefined}>
     <IconSprite />
     <Nav />
     <main>
@@ -133,6 +140,8 @@ const enHref = site + localePath("en", key);
       // 4. Nav gets a hairline once the page has scrolled.
       const nav = document.querySelector<HTMLElement>("nav.site-nav");
       if (nav) {
+        // Visibility on immersive pages belongs to the hero script; this only
+        // ever owns the hairline.
         const onScroll = () => nav.classList.toggle("stuck", window.scrollY > 12);
         onScroll();
         window.addEventListener("scroll", onScroll, { passive: true });

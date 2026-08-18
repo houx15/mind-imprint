@@ -1,0 +1,54 @@
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="0 0 320 210"
+  role="img"
+  aria-labelledby="explorer-title explorer-description"
+>
+  <title id="explorer-title">Mind Imprint learner and exploration vessel</title>
+  <desc id="explorer-description">
+    A solid white learner standing in a solid white abstract exploration boat.
+  </desc>
+
+  <g id="boat" fill="#FFFFFF">
+    <path
+      id="boat-hull"
+      d="M48 113 C83 129 121 138 163 140 C204 138 242 129 276 111 C263 143 220 164 163 167 C107 164 65 144 48 113 Z"
+    />
+    <path
+      id="boat-rim"
+      fill-rule="evenodd"
+      d="M48 113 C88 89 129 81 165 82 C207 82 245 94 276 111 C241 128 203 136 163 137 C122 136 83 128 48 113 Z
+         M72 112 C103 98 135 93 165 94 C198 94 228 101 252 111 C224 121 194 126 162 126 C131 125 101 121 72 112 Z"
+    />
+    <ellipse id="navigation-core" cx="163" cy="113" rx="13" ry="4.5" />
+  </g>
+
+  <g id="learner" fill="#FFFFFF">
+    <g id="learner-head">
+      <circle cx="163" cy="42" r="8" />
+    </g>
+
+    <g id="learner-body">
+      <path d="M157 52 C160 50 166 50 169 53 C172 64 171 78 168 92 L158 92 C155 78 154 64 157 52 Z" />
+    </g>
+
+    <g id="learner-left-arm">
+      <path d="M158 57 C155 58 153 60 151 63 L141 78 C140 80 141 82 143 83 C145 84 147 82 148 80 L160 65 Z" />
+    </g>
+    <g id="learner-right-arm">
+      <path d="M168 57 C171 58 173 60 175 63 L185 76 C187 78 186 80 184 82 C182 83 180 82 179 80 L167 65 Z" />
+    </g>
+
+    <g id="learner-left-leg">
+      <path d="M158 90 H163 L160 112 L153 121 C151 123 148 122 148 120 C148 119 149 117 150 116 L155 109 Z" />
+    </g>
+    <g id="learner-right-leg">
+      <path d="M163 90 H168 L171 109 L177 116 C179 118 179 120 177 121 C175 123 173 122 171 120 L165 113 Z" />
+    </g>
+  </g>
+
+  <g id="interaction-anchors" fill="none" stroke="none" aria-hidden="true">
+    <circle id="boat-motion-anchor" cx="163" cy="126" r="3" />
+    <circle id="learner-motion-anchor" cx="163" cy="104" r="3" />
+  </g>
+</svg>

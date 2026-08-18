@@ -1,0 +1,92 @@
+---
+import explorerSvg from "../../../public/media/explorer-v1.svg?raw";
+import Icon from "../Icon.astro";
+import { getLang, t } from "../../i18n/utils";
+import { assetUrl } from "../../config";
+
+const lang = getLang(Astro.currentLocale);
+
+/**
+ * The explorer is interface, not media, so it ships with the site rather than
+ * living in object storage — the hero must never wait on a network round trip
+ * for its subject. It is inlined (not an <img>) so the boat and the learner can
+ * be driven separately: the hull leans into the turn while the learner rides it.
+ */
+const explorer = explorerSvg
+  .replace(/<\?xml[^>]*\?>\s*/, "")
+  .replace("<svg", '<svg class="ex-svg"');
+
+/**
+ * The photograph is media, so it comes from the asset CDN. It is deliberately
+ * additive: the water underneath is painted in CSS, so the hero is complete
+ * and on-brand before this loads — and stays complete if it never does.
+ */
+const photo = assetUrl("home/hero-bg-v3.webp");
+---
+
+<section class="hero-imm" data-hero-water>
+  <!-- 1. painted water — always present, never a network dependency -->
+  <div class="hi-paint" aria-hidden="true"></div>
+
+  <!-- 2. the photograph, faded in once decoded -->
+  <img
+    class="hi-photo"
+    src={photo}
+    alt=""
+    aria-hidden="true"
+    fetchpriority="high"
+    decoding="async"
+    data-hero-photo
+  />
+
+  <!-- 3. light on a moving surface: ripples follow the pointer, a tap sends
+          the explorer. Pointer events are handled on the section, not here. -->
+  <canvas class="hi-water" data-hero-canvas aria-hidden="true"></canvas>
+
+  <!-- 4. the explorer, entering slowly from the left -->
+  <div class="hi-boat" data-hero-boat set:html={explorer} />
+
+  <!-- 5. a scrim that guarantees the copy's contrast whatever the image does -->
+  <div class="hi-scrim" aria-hidden="true"></div>
+
+  <!-- 6. copy — always the topmost layer, never disturbed by the water -->
+  <div class="hi-copy">
+    <div class="hi-brand rv" style="--i:0">
+      <span class="hi-mark"><Icon name="mark" /></span>
+      {t(lang, "思维印记", "Mind Imprint")}
+    </div>
+
+    <!-- Two deliberate lines: left to wrap on its own, both languages break in
+         the wrong place, and the stagger reads better than a single block. -->
+    <h1 class="hi-title">
+      <span class="rv-line" style="--i:1">
+        <span>{t(lang, "AI 原生学习者的", "Built for")}</span>
+      </span>
+      <span class="rv-line" style="--i:2">
+        <span>{t(lang, "专属学习空间", "AI-Native Learners.")}</span>
+      </span>
+    </h1>
+
+    <p class="hi-lead rv" style="--i:3">
+      {t(
+        lang,
+        "以 AI 支持批判思考与持续探索，让每一次探索留下成长的印记。",
+        "AI-powered systems for learning, evaluation, critical thinking, and unending exploration.",
+      )}
+    </p>
+
+    <div class="hi-act rv" style="--i:4">
+      <button class="hi-cta" type="button" data-hero-next>
+        {t(lang, "开始探索", "Start exploring")}
+        <span class="hi-caret"><Icon name="arrow" /></span>
+      </button>
+    </div>
+  </div>
+
+  <!-- 7. dissolve into the paper the rest of the page is written on -->
+  <div class="hi-fade" aria-hidden="true"></div>
+</section>
+
+<script>
+  import "../../scripts/hero-water";
+</script>

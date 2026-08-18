@@ -1,5 +1,6 @@
 ---
 import Icon from "../Icon.astro";
+import HeroImmersive from "../sections/HeroImmersive.astro";
 import CtaBand from "../sections/CtaBand.astro";
 import Pager from "../sections/Pager.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
@@ -7,16 +8,6 @@ import { demoUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 const L = (p: string) => localePath(lang, p);
-
-/** The six links of the evidence chain — the site's signature motif. */
-const chain: [string, string][] = [
-  ["提出问题", "Question"],
-  ["查找资料", "Search"],
-  ["判断信源", "Source"],
-  ["使用证据", "Evidence"],
-  ["修订论证", "Revision"],
-  ["划清边界", "Boundary"],
-];
 
 /** Screen two: what a student's day with AI actually looks like now. */
 const scenes: [string, string, string, string, string][] = [
@@ -142,67 +133,7 @@ const stats: [string, number, string, string, string][] = [
 ];
 ---
 
-<!-- ════════════════════════════════════════════════ HERO ═══════════ -->
-<section class="hero">
-  <div class="wash"><i class="w1"></i><i class="w2"></i><i class="w3"></i></div>
-  <div class="grid-bg"></div>
-
-  <div class="hero-inner">
-    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "AI 探究学习空间 · 全过程可评估", "An AI inquiry workspace · assessed end to end")}</div>
-
-    <h1 class="display">
-      {lang === "zh" ? (
-        <Fragment>
-          <span class="rv-line" style="--i:0"><span>和 AI 一起学，</span></span>
-          <span class="rv-line" style="--i:1"><span class="soft">判断自己下。</span></span>
-        </Fragment>
-      ) : (
-        <Fragment>
-          <span class="rv-line" style="--i:0"><span>Learn with the AI.</span></span>
-          <span class="rv-line" style="--i:1"><span class="soft">Own the judgment.</span></span>
-        </Fragment>
-      )}
-    </h1>
-
-    <p class="lead rv" style="--i:3">
-      {t(
-        lang,
-        "思维印记是给中学生的 AI 学习空间。他带着真实的课题进来，AI 全程陪他查资料、追问、改稿，但从不替他写正文，也不替他下结论。他做过的每一次判断都留下痕迹，最后长成一份看得见他怎么想的报告。",
-        "Mind Imprint is an AI workspace where secondary students do real coursework. The AI searches, questions and reviews alongside them the whole way — and never writes their prose or settles the answer for them. Every judgment they make leaves a trace, and the traces grow into a report you can read their thinking in.",
-      )}
-    </p>
-
-    <div class="cta-row center rv" style="--i:4">
-      <a class="btn btn-lg btn-primary" href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
-      <a class="btn btn-lg btn-outline" href={L("/product")}>
-        {t(lang, "看学生怎么用", "See how a student uses it")}<Icon name="arrow" class="arrow" />
-      </a>
-    </div>
-    <p class="reassure rv" style="--i:5">
-      {t(
-        lang,
-        "以班级为单位接入 · 全过程留痕 · 不打总分 · 不做排名",
-        "Rolled out class by class · every step recorded · no composite score · no ranking",
-      )}
-    </p>
-  </div>
-
-  <div class="hero-foot rv" style="--i:6">
-    <div class="chainbar" data-sequence data-step="130">
-      {chain.map(([zh, en], i) => (
-        <div class="cn" data-seq-item>
-          <div class="i">{String(i + 1).padStart(2, "0")}</div>
-          <div class="t">{t(lang, zh, en)}</div>
-        </div>
-      ))}
-    </div>
-  </div>
-
-  <div class="scrollcue" aria-hidden="true">
-    <span class="bar"></span>
-    {t(lang, "向下", "Scroll")}
-  </div>
-</section>
+<HeroImmersive />
 
 <!-- ═══════════════════════════════════ WHERE STUDENTS ARE NOW ════ -->
 <section class="section">
