@@ -1,7 +1,7 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at tag:** `course-authoring-v1.0.0` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
+**Pinned at tag:** `course-authoring-v1.1.0` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
 > **Read this first — honesty note.** Your request (items 3 and 4) asks us to *confirm* several guarantees: optimistic concurrency, idempotent publishing, SHA-256 dedup, and upload support for all six media types. **Some of these do not exist in the current backend.** Rather than confirm them falsely, this document states plainly what exists today, what does not, and — for each gap — the workaround or the backend change you should request. The gaps are collected in §7 ("Gap register") so your planning can account for them up front.
@@ -12,7 +12,7 @@
 
 ### 1.1 The three shared packages
 
-All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.0.0`** (see "How to consume the pin" below).
+All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.1.0`** (see "How to consume the pin" below).
 
 | Package | Name | Version | Runtime deps | Purpose |
 |---|---|---|---|---|
@@ -20,11 +20,13 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 | `packages/course-runtime` | `@mind-imprint/course-runtime` | `0.0.0` | `@mind-imprint/course-contract` (workspace) | Headless (no React) deterministic session state machine + host-injection adapter contracts + `InMemorySessionAdapter`. |
 | `packages/course-renderer` | `@mind-imprint/course-renderer` | `0.0.0` | contract + runtime (workspace), `react-markdown@^10.1.0`, `remark-gfm@^4.0.1`; peer `react@^18.3.0`, `react-dom@^18.3.0` | The **real student React renderer** (`CoursePlayer`) you will preview against. Chrome-agnostic. |
 
-**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.0.0`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
-- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.0.0`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
+**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.1.0`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
+- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.1.0`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
 - **Vendored copy** of the same three package directories at that tag.
 
-When we evolve the contract we will cut a new tag (`course-authoring-v1.1.0`, etc.) and note the delta here, so your generator upgrades deliberately rather than tracking `main`.
+When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog:**
+- **`course-authoring-v1.1.0`** — renderer-only slot-layout fix in `course.css` (no contract or API change): text now renders as a centred reading card, and PDF/video/images fill their slot instead of collapsing to a flat band. Purely visual; any `CourseDefinition` valid under v1.0.0 is unchanged. See §6.2 for how the presets now behave. (Next tag would be `course-authoring-v1.2.0`.)
+- **`course-authoring-v1.0.0`** — initial named snapshot (packages + authoring API incl. G2/G7).
 
 Version constants are exported so you can assert at runtime: `COURSE_CONTRACT_VERSION`, `COURSE_RUNTIME_VERSION`, `COURSE_RENDERER_VERSION` (all `"0.0.0"` in-package today — the git tag is the authoritative version until we bump these).
 
@@ -289,6 +291,19 @@ The adapters above make the renderer *run*; the three things below make it *look
    That alone gives the correct look via the built-in fallbacks (default coral accent). To match a specific student palette (accent 随人 — the 7 macaron accents), also define the host `--mk-*` tokens on your root (`--mk-accent`, `--mk-accent-500`, `--mk-paper`, `--mk-ink`, …); the full set lives in `apps/web/src/index.css`. This is polish, not correctness — the layout is right without it.
 
 With those three in place you get a pixel-accurate preview through the exact renderer students use, entirely offline. Skip them and the renderer still *works* — it just won't *look* right, which is the "style is bad" symptom to check first.
+
+### 6.2 Choosing a layout preset (each slot is one desktop screen)
+
+A slice is **one desktop screen** (≥1280×720) that never page-scrolls; a slot only scrolls internally when its content genuinely overflows. As of `course-renderer` **34645768** the renderer situates blocks well on its own — text is a centred reading card, media fills its slot — but the layout you pick still decides whether a slice reads clearly. Match the preset to the content, and size ratios by which slot carries the *bulk*:
+
+| Preset | Slots | Use it for | Watch out for |
+|--------|-------|-----------|---------------|
+| `full` | `main` | One focused thing — a single reading card, one video, one PDF, one assessment. The default when a slice makes a single move. | Don't stack many blocks in `main`; that's what the split/grid presets are for. |
+| `split-horizontal` | `left`, `right` (+ `ratio`) | Read-and-reference side by side: a passage beside its source, a prompt beside an image, main text beside a short checklist. Put the bulk on the `2fr` side (`2:1` / `1:2`). | A tall block in the `1fr` side scrolls internally — keep the narrow side short. |
+| `split-vertical` | `top`, `bottom` (+ `ratio`) | Stacked flow: a prompt above the source it's about, media above a caption/task. | **Avoid a PDF or video in the small `1fr` side** — it'll be short. Give media the `2fr` side, or use `full`. |
+| `grid` | `cell-1..N` (2 columns) | 3–4 short parallel items — a set of cards, several small figures, compare-and-contrast tiles. | Not for a block you want *big*: a PDF in a grid cell is only ~half a screen tall. One long text card will overflow its cell and scroll. |
+
+Rules of thumb: **one dominant block → `full`**; **two blocks in a clear relationship → a split (bulk on the `2fr` side)**; **several small equals → `grid`**; **a block you want large (PDF/video) never goes in a `1fr` split side or a grid cell.** A short text block centres itself in whatever slot holds it, so empty space around a small card is intentional, not a bug. See §6 for the offline preview — render your slice in it before authoring to confirm the fit.
 
 ---
 
