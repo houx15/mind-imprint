@@ -2,10 +2,10 @@
 import { getLang, t } from "../../i18n/utils";
 const lang = getLang(Astro.currentLocale);
 
-// The whole system in one picture: a student action falls down the five
-// layers, and process evidence rises back up the other side. Every band is
-// something that actually exists in the codebase — the mono id on the right
-// is the package, function or table that implements it.
+// The five key algorithms, in the order a student meets them: a course that
+// paces itself like a teacher, an agent trained to hold back, several agents
+// sharing one project, support that changes with the stage, and an assessment
+// that reads the whole thing back.
 const bands: {
   y: number;
   cls: string;
@@ -16,57 +16,57 @@ const bands: {
 }[] = [
   {
     y: 52,
-    cls: "box-a",
-    n: "L1 · RESTRAINT",
-    id: "summon_card()",
-    name: ["克制层", "The restraint layer"],
+    cls: "box-p",
+    n: "01",
+    id: "course-workflow",
+    name: ["拟人化的课程工作流", "Human-like course workflow"],
     desc: [
-      "先决定这一刻该不该回答。答、提示、或者把一张工具卡递回去。",
-      "Decides whether to answer at all: answer, nudge, or hand a thinking card back.",
+      "课程像老师那样推进：放材料、等她看完、追问、递一张卡、等她答完，再往下走。",
+      "A course paces itself the way a teacher does: show the material, wait, ask, hand over a card, wait for the answer, move on.",
     ],
   },
   {
     y: 142,
-    cls: "box",
-    n: "L2 · CARD RUNTIME",
-    id: "packages/contracts/cards",
-    name: ["工具卡运行时", "The card runtime"],
+    cls: "box-a",
+    n: "02",
+    id: "restraint-ladder",
+    name: ["教育增强的 AI 智能体", "Education-enhanced AI agent"],
     desc: [
-      "卡由 schema 驱动渲染，学生填，产出一个标准信封。新增一张卡只是新增一份 JSON。",
-      "Schema-driven cards the student fills in, emitting one standard envelope. A new card is a new JSON file.",
+      "一次只问一个。该答的答，该提示的提示，该把思考还回去的时候，递出一张工具卡。",
+      "One question at a time. It answers when answering helps, nudges when a nudge is enough, and hands a thinking card back when the thinking belongs to her.",
     ],
   },
   {
     y: 232,
     cls: "box-p",
-    n: "L3 · ORCHESTRATION",
-    id: "project spine · course FSM",
-    name: ["编排层", "The orchestration layer"],
+    n: "03",
+    id: "project-spine",
+    name: ["多智能体协作", "Multi-agent assistance"],
     desc: [
-      "写作侧是一条连续会话加隔离子代理；课程侧是一台确定性状态机。",
-      "One continuous session plus isolated sub-agents on the writing side; a deterministic state machine on the course side.",
+      "一个智能体走过所有工作面，记忆不断线；需要吞下长文本时，才切给一个隔离的子代理。",
+      "One agent walks every surface with an unbroken memory; work that must swallow a long text goes to an isolated sub-agent.",
     ],
   },
   {
     y: 322,
-    cls: "box",
-    n: "L4 · RECORD",
-    id: "event · checkpoint · citation",
-    name: ["记录层", "The record layer"],
+    cls: "box-a",
+    n: "04",
+    id: "stage-router",
+    name: ["分阶段的 AI 支持", "Staged AI support"],
     desc: [
-      "每一个动作落成结构化事件：过程树、检查点快照、修订、引用表。",
-      "Every action lands as a structured event: process tree, checkpoint snapshots, revisions, citations.",
+      "立题、阅读、写作、修订、回顾——每个阶段 AI 能做什么、不能做什么，都不一样。",
+      "Framing, reading, writing, revising, review — what the AI may and may not do is different at every stage.",
     ],
   },
   {
     y: 412,
     cls: "box-g",
-    n: "L5 · EVALUATION",
-    id: "assembleFacts · ValidateRefs",
-    name: ["评估层", "The evaluation layer"],
+    n: "05",
+    id: "evidence-index",
+    name: ["过程评估", "Process evaluation"],
     desc: [
-      "事实半区不用模型；判断半区只能引用证据索引，指不到的整条丢弃。",
-      "The fact half needs no model. The judgment half may only cite the evidence index; anything that doesn't resolve is dropped.",
+      "事实从记录里直接算出来，判断必须引用得到一条真实存在的证据。",
+      "The facts compute straight from the record, and every judgment has to cite a fragment that actually exists.",
     ],
   },
 ];
@@ -76,7 +76,7 @@ const bands: {
   class="diagram"
   viewBox="0 0 980 570"
   role="img"
-  aria-label={t(lang, "思维印记五层系统架构图", "The five layers of the Mind Imprint system")}
+  aria-label={t(lang, "思维印记五个关键算法示意图", "The five key algorithms behind Mind Imprint")}
 >
   <defs>
     <marker id="ss-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
@@ -87,13 +87,13 @@ const bands: {
     </marker>
   </defs>
 
-  <!-- the student's action falls down the left -->
-  <text class="dm" x="66" y="38" text-anchor="middle">{t(lang, "学生的动作", "her move")}</text>
+  <!-- the student's work moves down the left -->
+  <text class="dm" x="66" y="38" text-anchor="middle">{t(lang, "她在学的东西", "her work")}</text>
   <path class="edge edge-hot draw" style="--len:500" d="M66 50 V536" marker-end="url(#ss-ar-a)" />
   <circle class="flow" r="4" style="offset-path:path('M66 50 V536'); --d:400" />
 
-  <!-- process evidence rises back up the right -->
-  <text class="dm" x="906" y="38" text-anchor="middle">{t(lang, "过程证据", "evidence")}</text>
+  <!-- what she leaves behind rises back up the right -->
+  <text class="dm" x="906" y="38" text-anchor="middle">{t(lang, "留下的证据", "what she leaves")}</text>
   <path class="edge draw" style="--len:500; --d:500" d="M906 536 V50" marker-end="url(#ss-ar)" />
   <circle class="flow" r="4" style="offset-path:path('M906 536 V50'); --d:1400; fill:#4c9a82" />
 
@@ -110,14 +110,14 @@ const bands: {
     </Fragment>
   ))}
 
-  <!-- the gateway everything sits on -->
+  <!-- what holds all five together -->
   <rect class="box box-n" x="110" y="504" width="700" height="46" rx="14" />
-  <text class="dm" x="134" y="524">{t(lang, "模型网关 · 唯一持有密钥的地方", "MODEL GATEWAY · the only place a key exists")}</text>
+  <text class="dm" x="134" y="524">{t(lang, "贯穿五者的一条线", "THE THREAD THROUGH ALL FIVE")}</text>
   <text class="ds" x="134" y="541">
     {t(
       lang,
-      "档位路由：陪练可降级，评估旗舰永不降级 · 每次调用记一行 token 与成本",
-      "Tiered routing: the coach may downgrade, the assessment never does · every call logs its tokens and cost",
+      "思维工具卡：一次由学生执行的工具调用 —— 它既是教学动作，也是被记录下来的那条证据",
+      "The thinking card: a tool call whose executor is the student — at once the teaching move and the evidence of it",
     )}
   </text>
 </svg>
