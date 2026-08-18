@@ -519,6 +519,100 @@ nav.site-nav.stuck {
   color: var(--primary);
   background: var(--primary-tint);
 }
+
+/* --- product dropdown ----------------------------------------------------
+   The product page is one page with three surfaces; the nav opens onto them
+   directly. Hover and keyboard focus open it alike, and it is pure CSS so it
+   works before (and without) any script. */
+.navitem {
+  position: relative;
+}
+.navitem > a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+.ncaret {
+  width: 12px;
+  height: 12px;
+  stroke-width: 2.2;
+  transform: rotate(90deg);
+  opacity: 0.5;
+  transition: transform 0.25s var(--ease), opacity 0.25s var(--ease);
+}
+.navitem:hover .ncaret,
+.navitem:focus-within .ncaret {
+  opacity: 0.9;
+}
+.navmenu {
+  position: absolute;
+  top: 100%;
+  left: -8px;
+  /* the gap is padding, not margin, so the pointer never falls out mid-travel */
+  padding-top: 10px;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-6px);
+  transition:
+    opacity 0.22s var(--ease),
+    transform 0.28s var(--ease-out),
+    visibility 0s linear 0.22s;
+}
+.navitem:hover .navmenu,
+.navitem:focus-within .navmenu {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+  transition-delay: 0s;
+}
+.navmenu-in {
+  min-width: 310px;
+  padding: 8px;
+  border-radius: 16px;
+  background: #fff;
+  border: 1px solid var(--line);
+  box-shadow:
+    0 1px 2px rgba(20, 26, 41, 0.04),
+    0 18px 44px -12px rgba(20, 26, 41, 0.22);
+  display: grid;
+  gap: 2px;
+}
+.navmenu-in a {
+  display: grid;
+  gap: 3px;
+  padding: 11px 13px;
+  border-radius: 11px;
+}
+.navmenu-in a b {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.navmenu-in a span {
+  font-size: 12.5px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.navmenu-in a:hover {
+  background: var(--primary-tint);
+}
+.navmenu-in a:hover b {
+  color: var(--primary);
+}
+
+/* the same three, indented, in the mobile sheet */
+.mm-sub {
+  display: grid;
+  padding: 4px 0 10px 14px;
+  border-bottom: 1px solid var(--line-2);
+}
+.mm-sub a {
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--muted);
+  padding: 9px 0;
+}
+
 .navright {
   display: flex;
   align-items: center;

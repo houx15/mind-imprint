@@ -9,9 +9,9 @@ const lang = getLang(Astro.currentLocale);
 
 /* ── the three surfaces this page is organised by ───────────────────── */
 const tabs: [string, string, string, string, string][] = [
-  ["projects", "项目", "Projects", "学生在哪里做事", "where the work happens"],
-  ["tools", "工具", "Tools", "他手上有什么", "what he has in hand"],
-  ["evaluation", "评估", "Evaluation", "过程被怎么读", "how the process gets read"],
+  ["projects", "项目", "Projects", "AI 全过程支持的探究性写作", "Inquiry writing, supported end to end"],
+  ["courses", "课程", "Courses", "真实情境带练，习得思维工具", "Coached practice in real situations"],
+  ["evaluation", "评估", "Evaluation", "基于 AI 互动全过程的思维印记评估", "Assessment from the full interaction record"],
 ];
 
 /* ── the six-station inquiry spine ──────────────────────────────────── */
@@ -123,8 +123,8 @@ const teacher: [string, string, string, string, string][] = [
   <div class="pagehero-inner">
     <div class="eyebrow rv"><span class="pip"></span>{t(lang, "产品", "Product")}</div>
     <h1 class="page-title">
-      <span class="rv-line" style="--i:0"><span>{t(lang, "跟着一个学生走一遍，", "Follow one student through —")}</span></span>
-      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "看每一步发生了什么。", "and see what happens at each step.")}</span></span>
+      <span class="rv-line" style="--i:0"><span>{t(lang, "学生自己走完一个真实课题，", "The student does the whole inquiry.")}</span></span>
+      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "AI 全程支持，但从不代笔。", "The AI supports every step, and never writes it.")}</span></span>
     </h1>
     <p class="lead rv" style="--i:2">
       {t(
@@ -159,8 +159,8 @@ const teacher: [string, string, string, string, string][] = [
   <section class="section tight">
     <div class="container">
       <div class="sec-head rv">
-        <div class="eyebrow"><span class="pip"></span>{t(lang, "项目 · 学生在哪里做事", "Projects · where the work happens")}</div>
-        <h2 class="sec-title">{t(lang, "从一个问题，走到一件作品", "From a question to a finished piece")}</h2>
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "项目 · AI 全过程支持的探究性写作", "Projects · inquiry writing, supported end to end")}</div>
+        <h2 class="sec-title">{t(lang, "从研究问题到成稿，六个阶段都有支持", "From research question to finished draft — support at all six stages")}</h2>
         <p class="lead">
           {t(
             lang,
@@ -188,12 +188,12 @@ const teacher: [string, string, string, string, string][] = [
     <div class="container">
       <div class="sec-head rv">
         <div class="eyebrow"><span class="pip"></span>{t(lang, "阅读工作室", "The reading studio")}</div>
-        <h2 class="sec-title">{t(lang, "一篇公众号推文是转述者", "A post is a retelling")}</h2>
+        <h2 class="sec-title">{t(lang, "每一条声明，都能追回原始出处", "Every claim can be traced back to where it started")}</h2>
         <p class="lead">
           {t(
             lang,
-            "所以第一步是跳出去查这条声明从哪来。一条没标出处的推文，学生用文中仅有的三个可检索特征，自己追到了 NASA 发布稿，再追到《Nature Sustainability》原论文。",
-            "So the first move is stepping outside to find where the claim came from. With the only three searchable features in an unsourced post, the student found the NASA release herself, then the Nature Sustainability paper behind it.",
+            "推文是转述，原始研究才是证据。一条没标出处的推文，学生用文中仅有的三个可检索特征，自己追到了 NASA 发布稿，再追到《Nature Sustainability》原论文。",
+            "A post is a retelling; the study behind it is the evidence. With the only three searchable features in an unsourced post, the student found the NASA release herself, then the Nature Sustainability paper behind it.",
           )}
         </p>
       </div>
@@ -308,7 +308,7 @@ const teacher: [string, string, string, string, string][] = [
     <div class="container">
       <div class="sec-head rv">
         <div class="eyebrow"><span class="pip"></span>{t(lang, "写作项目空间", "The writing project space")}</div>
-        <h2 class="sec-title">{t(lang, "写作面很朴素，正文由她自己写", "A plain writing surface, and she writes the prose")}</h2>
+        <h2 class="sec-title">{t(lang, "正文由学生自己写，AI 只帮她想清楚", "The student writes the prose. The AI only helps her think it through.")}</h2>
         <p class="lead">
           {t(
             lang,
@@ -364,12 +364,12 @@ const teacher: [string, string, string, string, string][] = [
 </div>
 
 <!-- ═════════════════════════════════════════ PANEL · TOOLS ══════ -->
-<div class="tabpanel" data-panel="tools" hidden>
+<div class="tabpanel" data-panel="courses" hidden>
   <section class="section tight">
     <div class="container">
       <div class="sec-head rv">
-        <div class="eyebrow"><span class="pip"></span>{t(lang, "工具 · 他手上有什么", "Tools · what he has in hand")}</div>
-        <h2 class="sec-title">{t(lang, "一门课就是一条工作流", "A course is a workflow")}</h2>
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "课程 · 真实情境带练，习得思维工具", "Courses · coached practice in real situations")}</div>
+        <h2 class="sec-title">{t(lang, "一门课，把一个思维方法带练到会用", "A course coaches one thinking method until she can use it")}</h2>
         <p class="lead">
           {t(
             lang,
@@ -492,12 +492,12 @@ const teacher: [string, string, string, string, string][] = [
   <section class="section tight">
     <div class="container">
       <div class="sec-head rv">
-        <div class="eyebrow"><span class="pip"></span>{t(lang, "评估 · 过程被怎么读", "Evaluation · how the process gets read")}</div>
-        <h2 class="sec-title">{t(lang, "我们不给判断力打一个总分", "We don't put a single score on judgment")}</h2>
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "评估 · 基于 AI 互动全过程的思维印记评估", "Evaluation · assessment from the full interaction record")}</div>
+        <h2 class="sec-title">{t(lang, "从全过程记录里，读出她是怎么想的", "Read how she thought, straight from the record")}</h2>
         <p class="lead">
           {t(
             lang,
-            "判断力是个总量，很难被一个数字说清；声称能精准打分的产品，多半在夸口。我们只测量并训练它下面两件真的能被观察到的事。",
+            "判断力是个总量，很难被一个数字说清。我们不给它打总分，只测量并训练下面两件真的能被观察到的事。",
             "Judgment is an aggregate, and a single number won't honestly capture it; a product claiming to score it precisely is overselling. We measure and train the two things underneath it that can actually be observed.",
           )}
         </p>
@@ -619,12 +619,12 @@ const teacher: [string, string, string, string, string][] = [
     <div class="container">
       <div class="sec-head rv">
         <div class="eyebrow"><span class="pip"></span>{t(lang, "教师端", "The teacher console")}</div>
-        <h2 class="sec-title">{t(lang, "教师没有退场，只是位置变了", "The teacher hasn't left. The position moved.")}</h2>
+        <h2 class="sec-title">{t(lang, "教师第一次看得见，作业是怎么形成的", "For the first time, teachers can see how the work took shape")}</h2>
         <p class="lead">
           {t(
             lang,
-            "过去，教师看得见作业，却看不见作业是怎么形成的。现在过程可见了——被补全的是教师的视野，讲台还是那个讲台。",
-            "Teachers could always see the work. They could never see how it formed. Now they can — what's been filled in is the teacher's field of view. The job is still the job.",
+            "过去只有结果可看，过程发生在看不见的地方。现在每一步都有记录，教师看到的是一个班真实的学习状态。",
+            "Until now only the result was visible; the process happened out of sight. Now every step is on the record, and a teacher sees how the class is actually working.",
           )}
         </p>
       </div>
@@ -695,8 +695,8 @@ const teacher: [string, string, string, string, string][] = [
   <section class="section">
     <div class="container">
       <div class="sec-head rv">
-        <div class="eyebrow"><span class="pip"></span>{t(lang, "对得上的逐句对", "Where it lines up, line by line")}</div>
-        <h2 class="sec-title">{t(lang, "同一条证据，落在三本账上", "One chain of evidence, projected onto three ledgers")}</h2>
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "对接课程体系", "Mapping to your system")}</div>
+        <h2 class="sec-title">{t(lang, "同一份过程记录，对得上三套官方评分表", "One process record, mapped onto three official rubrics")}</h2>
         <p class="lead">
           {t(
             lang,

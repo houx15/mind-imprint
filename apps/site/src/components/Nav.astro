@@ -9,11 +9,45 @@ const other = switchLocaleUrl(path, lang);
 const key = path.replace(/^\/en(\/|$)/, "/").replace(/\/$/, "") || "/";
 const active = (p: string) => (key === p ? "page" : undefined);
 
-const links: [string, string, string][] = [
-  ["/", "首页", "Home"],
-  ["/product", "产品", "Product"],
-  ["/algorithm", "技术", "Technology"],
-  ["/about", "关于我们", "About"],
+/**
+ * The product page is one page with three surfaces, so the nav opens onto them
+ * directly rather than making people find the tabs after they land.
+ */
+type Sub = { href: string; zh: string; en: string; dzh: string; den: string };
+type Link = { href: string; zh: string; en: string; items?: Sub[] };
+
+const links: Link[] = [
+  { href: "/", zh: "首页", en: "Home" },
+  {
+    href: "/product",
+    zh: "产品",
+    en: "Product",
+    items: [
+      {
+        href: "/product#projects",
+        zh: "项目",
+        en: "Projects",
+        dzh: "AI 全过程支持的探究性写作",
+        den: "Inquiry writing, supported end to end",
+      },
+      {
+        href: "/product#courses",
+        zh: "课程",
+        en: "Courses",
+        dzh: "真实情境带练，习得思维工具",
+        den: "Coached practice in real situations",
+      },
+      {
+        href: "/product#evaluation",
+        zh: "评估",
+        en: "Evaluation",
+        dzh: "基于 AI 互动全过程的思维印记评估",
+        den: "Assessment from the full interaction record",
+      },
+    ],
+  },
+  { href: "/algorithm", zh: "技术", en: "Technology" },
+  { href: "/about", zh: "关于我们", en: "About" },
 ];
 ---
 
@@ -23,9 +57,33 @@ const links: [string, string, string][] = [
   </a>
 
   <div class="navlinks">
-    {links.map(([href, zh, en]) => (
-      <a href={localePath(lang, href)} aria-current={active(href)}>{t(lang, zh, en)}</a>
-    ))}
+    {
+      links.map((l) =>
+        l.items ? (
+          <div class="navitem">
+            <a href={localePath(lang, l.href)} aria-current={active(l.href)}>
+              {t(lang, l.zh, l.en)}
+              <Icon name="arrow" class="ncaret" />
+            </a>
+            {/* Opened by hover and by keyboard focus alike — see :focus-within. */}
+            <div class="navmenu">
+              <div class="navmenu-in">
+                {l.items.map((s) => (
+                  <a href={localePath(lang, s.href)}>
+                    <b>{t(lang, s.zh, s.en)}</b>
+                    <span>{t(lang, s.dzh, s.den)}</span>
+                  </a>
+                ))}
+              </div>
+            </div>
+          </div>
+        ) : (
+          <a href={localePath(lang, l.href)} aria-current={active(l.href)}>
+            {t(lang, l.zh, l.en)}
+          </a>
+        ),
+      )
+    }
   </div>
 
   <div class="navright">
@@ -41,9 +99,20 @@ const links: [string, string, string][] = [
 </nav>
 
 <div class="mobile-menu" data-mobilemenu>
-  {links.map(([href, zh, en]) => (
-    <a href={localePath(lang, href)}>{t(lang, zh, en)}</a>
-  ))}
+  {
+    links.map((l) => (
+      <Fragment>
+        <a href={localePath(lang, l.href)}>{t(lang, l.zh, l.en)}</a>
+        {l.items && (
+          <div class="mm-sub">
+            {l.items.map((s) => (
+              <a href={localePath(lang, s.href)}>{t(lang, s.zh, s.en)}</a>
+            ))}
+          </div>
+        )}
+      </Fragment>
+    ))
+  }
   <a href={other}>{t(lang, "English", "中文")}</a>
   <div class="cta-row">
     <a class="btn btn-lg btn-outline" href={loginUrl}>{t(lang, "登录", "Log in")}</a>
