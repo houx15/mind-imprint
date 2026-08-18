@@ -1,0 +1,123 @@
+---
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+
+// The whole system in one picture: a student action falls down the five
+// layers, and process evidence rises back up the other side. Every band is
+// something that actually exists in the codebase — the mono id on the right
+// is the package, function or table that implements it.
+const bands: {
+  y: number;
+  cls: string;
+  n: string;
+  id: string;
+  name: [string, string];
+  desc: [string, string];
+}[] = [
+  {
+    y: 52,
+    cls: "box-a",
+    n: "L1 · RESTRAINT",
+    id: "summon_card()",
+    name: ["克制层", "The restraint layer"],
+    desc: [
+      "先决定这一刻该不该回答。答、提示、或者把一张工具卡递回去。",
+      "Decides whether to answer at all: answer, nudge, or hand a thinking card back.",
+    ],
+  },
+  {
+    y: 142,
+    cls: "box",
+    n: "L2 · CARD RUNTIME",
+    id: "packages/contracts/cards",
+    name: ["工具卡运行时", "The card runtime"],
+    desc: [
+      "卡由 schema 驱动渲染，学生填，产出一个标准信封。新增一张卡只是新增一份 JSON。",
+      "Schema-driven cards the student fills in, emitting one standard envelope. A new card is a new JSON file.",
+    ],
+  },
+  {
+    y: 232,
+    cls: "box-p",
+    n: "L3 · ORCHESTRATION",
+    id: "project spine · course FSM",
+    name: ["编排层", "The orchestration layer"],
+    desc: [
+      "写作侧是一条连续会话加隔离子代理；课程侧是一台确定性状态机。",
+      "One continuous session plus isolated sub-agents on the writing side; a deterministic state machine on the course side.",
+    ],
+  },
+  {
+    y: 322,
+    cls: "box",
+    n: "L4 · RECORD",
+    id: "event · checkpoint · citation",
+    name: ["记录层", "The record layer"],
+    desc: [
+      "每一个动作落成结构化事件：过程树、检查点快照、修订、引用表。",
+      "Every action lands as a structured event: process tree, checkpoint snapshots, revisions, citations.",
+    ],
+  },
+  {
+    y: 412,
+    cls: "box-g",
+    n: "L5 · EVALUATION",
+    id: "assembleFacts · ValidateRefs",
+    name: ["评估层", "The evaluation layer"],
+    desc: [
+      "事实半区不用模型；判断半区只能引用证据索引，指不到的整条丢弃。",
+      "The fact half needs no model. The judgment half may only cite the evidence index; anything that doesn't resolve is dropped.",
+    ],
+  },
+];
+---
+
+<svg
+  class="diagram"
+  viewBox="0 0 980 570"
+  role="img"
+  aria-label={t(lang, "思维印记五层系统架构图", "The five layers of the Mind Imprint system")}
+>
+  <defs>
+    <marker id="ss-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+    </marker>
+    <marker id="ss-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+    </marker>
+  </defs>
+
+  <!-- the student's action falls down the left -->
+  <text class="dm" x="66" y="38" text-anchor="middle">{t(lang, "学生的动作", "her move")}</text>
+  <path class="edge edge-hot draw" style="--len:500" d="M66 50 V536" marker-end="url(#ss-ar-a)" />
+  <circle class="flow" r="4" style="offset-path:path('M66 50 V536'); --d:400" />
+
+  <!-- process evidence rises back up the right -->
+  <text class="dm" x="906" y="38" text-anchor="middle">{t(lang, "过程证据", "evidence")}</text>
+  <path class="edge draw" style="--len:500; --d:500" d="M906 536 V50" marker-end="url(#ss-ar)" />
+  <circle class="flow" r="4" style="offset-path:path('M906 536 V50'); --d:1400; fill:#4c9a82" />
+
+  {bands.map((b, i) => (
+    <Fragment>
+      <rect class={`box ${b.cls}`} x="110" y={b.y} width="700" height="80" rx="16" />
+      <text class="dm" x="134" y={b.y + 26}>{b.n}</text>
+      <text class="dm" x="786" y={b.y + 26} text-anchor="end" style="font-size:9px; text-transform:none">{b.id}</text>
+      <text class="dt" x="134" y={b.y + 52}>{t(lang, b.name[0], b.name[1])}</text>
+      <text class="ds" x="134" y={b.y + 71}>{t(lang, b.desc[0], b.desc[1])}</text>
+      {i < bands.length - 1 && (
+        <path class="edge edge-d draw" style={`--len:12; --d:${600 + i * 120}`} d={`M460 ${b.y + 80} V${b.y + 90}`} />
+      )}
+    </Fragment>
+  ))}
+
+  <!-- the gateway everything sits on -->
+  <rect class="box box-n" x="110" y="504" width="700" height="46" rx="14" />
+  <text class="dm" x="134" y="524">{t(lang, "模型网关 · 唯一持有密钥的地方", "MODEL GATEWAY · the only place a key exists")}</text>
+  <text class="ds" x="134" y="541">
+    {t(
+      lang,
+      "档位路由：陪练可降级，评估旗舰永不降级 · 每次调用记一行 token 与成本",
+      "Tiered routing: the coach may downgrade, the assessment never does · every call logs its tokens and cost",
+    )}
+  </text>
+</svg>

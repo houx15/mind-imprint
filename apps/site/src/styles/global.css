@@ -2204,3 +2204,189 @@ footer.site-foot {
     gap: 8px 14px;
   }
 }
+
+/* ============================================================================
+   14 tabs — the product page's three sub-surfaces (projects · tools · assess)
+   ========================================================================== */
+
+.tabbar {
+  position: sticky;
+  top: 63px;
+  z-index: 60;
+  background: rgba(255, 255, 255, 0.9);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  border-bottom: 1px solid var(--line);
+}
+.tabbar-inner {
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: 0 var(--gutter);
+  display: flex;
+  gap: 34px;
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.tabbar-inner::-webkit-scrollbar {
+  display: none;
+}
+.tabbtn {
+  appearance: none;
+  background: none;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  cursor: pointer;
+  font: inherit;
+  color: var(--muted);
+  padding: 17px 0 15px;
+  display: grid;
+  gap: 1px;
+  text-align: left;
+  white-space: nowrap;
+  transition: color 0.25s var(--ease), border-color 0.25s var(--ease);
+}
+.tabbtn .tl {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.012em;
+}
+.tabbtn .tsub {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--faint);
+}
+.tabbtn:hover {
+  color: var(--ink);
+}
+.tabbtn[aria-selected="true"] {
+  color: var(--ink);
+  border-bottom-color: var(--primary);
+}
+.tabbtn[aria-selected="true"] .tsub {
+  color: var(--muted);
+}
+
+/* Without JS every panel stays open — the tabs are progressive enhancement. */
+html:not(.js) .tabpanel[hidden] {
+  display: block;
+}
+html:not(.js) .tabbar {
+  display: none;
+}
+.js .tabpanel.enter {
+  animation: tabin 0.55s var(--ease-out) both;
+}
+@keyframes tabin {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* ============================================================================
+   15 layer stack — the algorithm page's "what the system is made of" list
+   ========================================================================== */
+
+.layers {
+  display: grid;
+  gap: 10px;
+}
+.layer {
+  display: grid;
+  grid-template-columns: 154px 1fr;
+  gap: 24px;
+  align-items: start;
+  padding: 22px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: #fff;
+  transition: border-color 0.28s var(--ease), background 0.28s var(--ease),
+    transform 0.28s var(--ease);
+}
+.layer:hover {
+  border-color: var(--primary-line);
+  background: var(--primary-tint);
+  transform: translateX(5px);
+}
+.layer .lz {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--faint);
+  padding-top: 5px;
+}
+.layer h4 {
+  font-size: 17.5px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.layer .lid {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--primary);
+  margin-top: 5px;
+}
+.layer p {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.68;
+  margin-top: 8px;
+  max-width: 76ch;
+}
+
+/* a compact numbered claim, used for "why this is hard" */
+.hards {
+  display: grid;
+  gap: 18px;
+}
+.hard {
+  display: grid;
+  grid-template-columns: 34px 1fr;
+  gap: 20px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line-2);
+}
+.hard:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+.hard .hn {
+  font-family: var(--mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-top: 3px;
+}
+.hard h4 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.hard p {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.7;
+  margin-top: 7px;
+}
+
+@media (max-width: 760px) {
+  .tabbar-inner {
+    gap: 22px;
+  }
+  .tabbtn .tsub {
+    display: none;
+  }
+  .layer {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    padding: 20px;
+  }
+  .layer:hover {
+    transform: none;
+  }
+}

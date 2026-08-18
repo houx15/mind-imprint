@@ -154,7 +154,68 @@ const enHref = site + localePath("en", key);
         );
       }
 
-      // 6. Count-up numbers on [data-count].
+      // 6. Sub-page tabs (the product page's three surfaces).
+      //    Panels are real markup either way: without JS the CSS leaves every
+      //    panel open and hides the bar, so nothing is unreachable.
+      const tabRoot = document.querySelector<HTMLElement>("[data-tabs]");
+      if (tabRoot) {
+        const btns = Array.from(
+          tabRoot.querySelectorAll<HTMLElement>("[data-tab]"),
+        );
+        const panels = Array.from(
+          document.querySelectorAll<HTMLElement>("[data-panel]"),
+        );
+        // Old deep links (and any anchor inside a panel) still land right.
+        const alias: Record<string, string> = {
+          courses: "tools",
+          cards: "tools",
+          lenses: "tools",
+          reading: "projects",
+          writing: "projects",
+          spine: "projects",
+          report: "evaluation",
+          teacher: "evaluation",
+          axes: "evaluation",
+        };
+        const show = (id: string, record: boolean) => {
+          if (!id || !panels.some((p) => p.dataset.panel === id)) return false;
+          btns.forEach((b) =>
+            b.setAttribute("aria-selected", String(b.dataset.tab === id)),
+          );
+          panels.forEach((p) => {
+            const on = p.dataset.panel === id;
+            p.hidden = !on;
+            if (!on) return;
+            p.classList.remove("enter");
+            void p.offsetWidth; // restart the entrance
+            p.classList.add("enter");
+            // These were never intersected while hidden — settle them now.
+            p.querySelectorAll(".rv, .rv-line, .rv-pop").forEach((el) =>
+              el.classList.add("in"),
+            );
+          });
+          if (record) history.replaceState(null, "", "#" + id);
+          return true;
+        };
+        const fromHash = () => {
+          const raw = location.hash.replace(/^#/, "");
+          return alias[raw] ?? raw;
+        };
+
+        btns.forEach((b) =>
+          b.addEventListener("click", () => {
+            show(b.dataset.tab || "", true);
+            const top = tabRoot.offsetTop - 62;
+            if (window.scrollY > top) {
+              window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
+            }
+          }),
+        );
+        if (!show(fromHash(), false)) show(btns[0]?.dataset.tab || "", false);
+        window.addEventListener("hashchange", () => show(fromHash(), false));
+      }
+
+      // 7. Count-up numbers on [data-count].
       const countIO = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => {

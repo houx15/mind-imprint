@@ -10,24 +10,71 @@ const L = (p: string) => localePath(lang, p);
 
 /** The six links of the evidence chain — the site's signature motif. */
 const chain: [string, string][] = [
-  ["问题生成", "Question"],
-  ["信息检索", "Search"],
-  ["信源评估", "Source"],
-  ["证据使用", "Evidence"],
-  ["论证修订", "Revision"],
-  ["协作边界", "Boundary"],
+  ["提出问题", "Question"],
+  ["查找资料", "Search"],
+  ["判断信源", "Source"],
+  ["使用证据", "Evidence"],
+  ["修订论证", "Revision"],
+  ["划清边界", "Boundary"],
 ];
 
-const questions: [string, string, string][] = [
-  ["quote", "这篇作品，是不是这个学生自己想出来的？", "Did this student actually come up with this?"],
-  ["target", "如果是，他到底学会了什么？", "If so, what did they actually learn?"],
-  ["route", "如果不全是，我下一步该教什么？", "If not entirely — what do I teach next?"],
+/** Screen two: what a student's day with AI actually looks like now. */
+const scenes: [string, string, string, string, string][] = [
+  [
+    "quote",
+    "答案来得太快",
+    "The answer arrives too fast",
+    "通顺、完整、看上去很有道理。要不要停下来问一句「这是真的吗」，全凭习惯。",
+    "Fluent, complete, plausible. Whether anyone stops to ask “is this true” comes down to habit.",
+  ],
+  [
+    "target",
+    "知道该怀疑，说不出哪里不对",
+    "Suspicious, but can't say why",
+    "刷到「每天一杯柠檬水可以抗癌」，他知道多半有问题，却不知道从哪查起，也不知道查到什么程度算数。",
+    "“A glass of lemon water a day prevents cancer.” He senses it's off — but not where to start checking, or what would settle it.",
+  ],
+  [
+    "route",
+    "交上去了，说不清哪些是自己想的",
+    "Handed in, and can't say which part was his",
+    "过程散落在几十条聊天记录里。没有人看得清他到底想了什么，包括他自己。",
+    "The process is scattered across dozens of chat messages. Nobody can see what he actually thought — including him.",
+  ],
 ];
 
 const eras: [string, string, string, string, string, string][] = [
   ["信息不足的时代", "When information was scarce", "获取", "Acquire", "找得到材料的人占优势。", "The advantage went to whoever could find the material."],
   ["信息过剩的时代", "When information overflowed", "筛选", "Filter", "找得到不难了，选得对才难。", "Finding got easy. Choosing well did not."],
-  ["答案过剩的时代", "When answers overflow", "判断", "Judge", "一堆彼此竞争、都很像样的现成结论摆在面前——决定信什么、用什么、做什么。", "A pile of competing, plausible-looking conclusions. Deciding what to believe, use and do."],
+  ["答案过剩的时代", "When answers overflow", "判断", "Judge", "一堆彼此竞争、看上去都挺像样的结论摆在面前，得决定信哪一个、用哪一个。", "A pile of competing, plausible-looking conclusions — and a call to make about which to believe and use."],
+];
+
+/** The three abilities this product is built to grow. */
+const abilities: [string, string, string, string, string, string][] = [
+  [
+    "layers",
+    "批判性思维",
+    "Critical thinking",
+    "追到一手来源，读清一条证据能证明到哪一步，接得住反方，也守得住结论的强度。",
+    "Trace a claim to its primary source, read how far a piece of evidence actually reaches, take on the counter-case, and keep the conclusion within its bounds.",
+    "",
+  ],
+  [
+    "compass",
+    "探索能力",
+    "Exploring on his own",
+    "把一个模糊的兴趣收窄成能回答的问题，自己决定往哪里深挖，也知道什么时候该收手。",
+    "Narrow a vague interest into an answerable question, decide where to dig — and know when to stop digging.",
+    "a",
+  ],
+  [
+    "hand",
+    "和 AI 协作的分寸",
+    "A working line with AI",
+    "知道什么可以交给 AI、什么必须自己来；对它的建议说「不」的时候，说得出理由。",
+    "Know what to hand the AI and what to keep. And when refusing its suggestion, be able to say why.",
+    "g",
+  ],
 ];
 
 /** The scrub steps — each has its own screenshot slot. */
@@ -40,10 +87,10 @@ const walk: {
 }[] = [
   {
     k: ["01 · 课程与工具卡", "01 · Course & cards"],
-    h: ["第一次交到她手上的，不是答案，是方法", "What she's handed first is a method, not an answer"],
+    h: ["一门课，交给她一套能带走的方法", "A course hands her a method she can take away"],
     p: [
-      "一门课就是一条工作流：视频、材料、追问、判断，按一台确定性状态机一步步推进。她在真实材料上练 CRAAP、SIFT、良构论证——工具卡到手，不是听说，是用过。",
-      "A course is a workflow: video, material, questioning, judgment — advanced step by step by a deterministic state machine. She practises CRAAP, SIFT and well-crafted argument on real material. The cards arrive by being used, not described.",
+      "一门课就是一条工作流：看材料、被追问、做判断、填一张工具卡，一步步推进。CRAAP、SIFT、良构论证都在真实材料上走过一遍——方法在用过之后才真正到手。",
+      "A course is a workflow: watch the material, get questioned, make a call, fill in a card, move on. CRAAP, SIFT and well-formed argument all get practised on real material — a method only really lands once it has been used.",
     ],
     asset: "home-01-course-player",
     brief: ["课程播放界面：视频 + 旁白 + 一张工具卡被递出来", "Course player: video + narration + a card being handed over"],
@@ -59,10 +106,10 @@ const walk: {
     brief: ["阅读室：原文 + 溯源链 + 探索图谱", "Reading room: source text + provenance chain + exploration map"],
   },
   {
-    k: ["03 · 写作工作室", "03 · Writing studio"],
+    k: ["03 · 写作项目空间", "03 · Writing project space"],
     h: ["论证撞上反例，让步段是她自己写的", "The argument hits a counter-example — she writes the concession"],
     p: [
-      "中国碳排放全球第一。这条反方证据推翻不了她的题目，但会限制她的结论。AI 不会替她写一个字正文——它只会问：你打算接住它，还是绕开它？",
+      "中国碳排放全球第一。这条反方证据推翻不了她的题目，但会限制她的结论。AI 不会替她写一个字正文，它只会问：你打算接住它，还是绕开它？",
       "China is the world's largest emitter. That counter-evidence doesn't sink her thesis, but it does bound her conclusion. The AI writes none of her prose — it only asks: are you going to take this on, or route around it?",
     ],
     asset: "home-03-writing-studio",
@@ -72,8 +119,8 @@ const walk: {
     k: ["04 · 过程评估", "04 · Process evaluation"],
     h: ["连她跳过的那一次，也被记下来了", "Even the time she skipped is on the record"],
     p: [
-      "报告分两半：数出来的事实，和有证据支撑的判断。每一条判断都必须指回一个真实存在的片段——指不到的，直接丢弃。两根轴分开报告，永不合成一个总分。",
-      "The report has two halves: facts that are counted, and judgments that are grounded. Every judgment must point back to a real fragment — the ones that can't are dropped. The two axes are reported apart, and never merged into a single score.",
+      "报告分两半：数出来的事实，和有证据支撑的判断。每一条判断都要指回一个真实存在的片段，指不到的直接丢弃。两根轴分开报告，不合成总分。",
+      "The report has two halves: facts that are counted, and judgments that are grounded. Every judgment must point back to a real fragment — the ones that can't are dropped. The two axes are reported apart, never merged into a single score.",
     ],
     asset: "home-04-evaluation-report",
     brief: ["评估报告：双轴读数 + 证据链接 + 过程叙述", "Evaluation report: the two axes, evidence links, process narrative"],
@@ -81,17 +128,17 @@ const walk: {
 ];
 
 const surfaces: [string, string, string, string, string, string, string][] = [
-  ["cards", "courses", "课程与工具卡", "Courses & thinking cards", "34 张思维工具卡、9 个学科透镜，装在一条六站探究主线上，按需要调用。", "34 thinking cards and 9 disciplinary lenses, mounted on a six-station inquiry spine and summoned on demand.", "a"],
-  ["book", "reading", "阅读工作室", "Reading studio", "跳出页面横向核查，溯源到一手来源；每一条兔子洞都被记下进入与退出的理由。", "Read laterally, trace to the primary source; every rabbit hole records why she entered and why she left.", "g"],
-  ["pen", "writing", "写作项目空间", "Writing project space", "一条连续的对话，一根项目脊柱，几个上下文隔离的子代理。AI 绝不代写正文。", "One continuous conversation, one project spine, a few context-isolated sub-agents. The AI never writes her prose.", ""],
-  ["gauge", "evaluation", "过程评估与教师端", "Evaluation & teacher console", "认知深度与智识自主，分开测量、分开报告；教师看到证据链接，并可一键改判。", "Cognitive depth and intellectual autonomy, measured and reported apart; teachers see the evidence and can overturn any call.", "m"],
+  ["pen", "projects", "写作项目空间", "Writing project space", "带着真实课题进来：立题、找文献、阅读溯源、写作、回顾。一条连续的对话陪着走完，正文他自己写。", "He brings real coursework: framing, sources, reading, writing, review. One continuous conversation walks it with him, and he writes the prose.", ""],
+  ["cards", "tools", "课程与工具卡", "Courses & thinking cards", "34 张思维工具卡、9 个学科透镜。课程负责把方法教会，工具卡负责在需要的那一刻被递到手上。", "34 thinking cards and 9 disciplinary lenses. Courses teach the method; a card puts it in his hands at the moment he needs it.", "a"],
+  ["gauge", "evaluation", "过程评估", "Process evaluation", "认知深度与智识自主分开测量、分开报告。每一条判断都能点开背后那条真实记录。", "Cognitive depth and intellectual autonomy, measured and reported apart. Every judgment opens onto the record behind it.", "g"],
+  ["users", "evaluation", "教师端", "Teacher console", "教师终于看得见过程：叙述版周报、实时名单、可点开的证据，以及一键改判。", "Teachers can finally see the process: a narrated week, a live roster, openable evidence — and a one-click override.", "m"],
 ];
 
 const stats: [string, number, string, string, string][] = [
   ["", 34, "", "张思维工具卡", "thinking cards"],
   ["", 9, "", "个学科透镜", "disciplinary lenses"],
   ["", 6, "", "站探究主线", "inquiry stations"],
-  ["", 12, "", "个可观察的测量点（D6 + A6）", "measurement points (D6 + A6)"],
+  ["", 12, "", "个可观察的测量点", "observable measurement points"],
 ];
 ---
 
@@ -101,19 +148,18 @@ const stats: [string, number, string, string, string][] = [
   <div class="grid-bg"></div>
 
   <div class="hero-inner">
-    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "探究过程证据 · 判断力评估系统", "Inquiry-process evidence · judgment assessment")}</div>
+    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "AI 探究学习空间 · 全过程可评估", "An AI inquiry workspace · assessed end to end")}</div>
 
     <h1 class="display">
       {lang === "zh" ? (
         <Fragment>
-          <span class="rv-line" style="--i:0"><span>作品不再证明人。</span></span>
-          <span class="rv-line" style="--i:1"><span class="soft">过程可以。</span></span>
+          <span class="rv-line" style="--i:0"><span>和 AI 一起学，</span></span>
+          <span class="rv-line" style="--i:1"><span class="soft">判断自己下。</span></span>
         </Fragment>
       ) : (
         <Fragment>
-          <span class="rv-line" style="--i:0"><span>The work no longer</span></span>
-          <span class="rv-line" style="--i:1"><span>proves the person.</span></span>
-          <span class="rv-line" style="--i:2"><span class="soft">The process does.</span></span>
+          <span class="rv-line" style="--i:0"><span>Learn with the AI.</span></span>
+          <span class="rv-line" style="--i:1"><span class="soft">Own the judgment.</span></span>
         </Fragment>
       )}
     </h1>
@@ -121,22 +167,22 @@ const stats: [string, number, string, string, string][] = [
     <p class="lead rv" style="--i:3">
       {t(
         lang,
-        "学生带着真实任务进来，被陪着把探究走扎实。思考在这个过程中自然沉淀成一条可追溯的证据链——从问题生成，到信源评估，到论证修订，直到他为自己的判断署名。",
-        "Students bring real work and get walked through inquiry that holds up. Along the way their thinking settles into a traceable chain of evidence — from framing the question, to judging the source, to revising the argument, until they sign their name to a conclusion.",
+        "思维印记是给中学生的 AI 学习空间。他带着真实的课题进来，AI 全程陪他查资料、追问、改稿，但从不替他写正文，也不替他下结论。他做过的每一次判断都留下痕迹，最后长成一份看得见他怎么想的报告。",
+        "Mind Imprint is an AI workspace where secondary students do real coursework. The AI searches, questions and reviews alongside them the whole way — and never writes their prose or settles the answer for them. Every judgment they make leaves a trace, and the traces grow into a report you can read their thinking in.",
       )}
     </p>
 
     <div class="cta-row center rv" style="--i:4">
       <a class="btn btn-lg btn-primary" href={demoUrl}>{t(lang, "体验 Demo", "Try the demo")}</a>
       <a class="btn btn-lg btn-outline" href={L("/product")}>
-        {t(lang, "看学生的一段旅程", "Follow a student's journey")}<Icon name="arrow" class="arrow" />
+        {t(lang, "看学生怎么用", "See how a student uses it")}<Icon name="arrow" class="arrow" />
       </a>
     </div>
     <p class="reassure rv" style="--i:5">
       {t(
         lang,
-        "以班级为单位接入 · 双轴分开测量 · 不打总分 · 不押题 · 不保分",
-        "Rolled out class by class · two axes measured apart · no composite score · no score guarantees",
+        "以班级为单位接入 · 全过程留痕 · 不打总分 · 不做排名",
+        "Rolled out class by class · every step recorded · no composite score · no ranking",
       )}
     </p>
   </div>
@@ -158,28 +204,29 @@ const stats: [string, number, string, string, string][] = [
   </div>
 </section>
 
-<!-- ══════════════════════════════════ THE THREE QUESTIONS ═════════ -->
+<!-- ═══════════════════════════════════ WHERE STUDENTS ARE NOW ════ -->
 <section class="section">
   <div class="container">
     <div class="sec-head rv">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "为什么是现在", "Why now")}</div>
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "现在的处境", "Where students are now")}</div>
       <h2 class="sec-title">
-        {t(lang, "一位老师收到一份作业。他真正面对的是三个问题。", "A teacher receives a piece of work. Three questions follow.")}
+        {t(lang, "学生已经在用 AI 了，问题是怎么用", "Students already use AI. The question is how.")}
       </h2>
       <p class="lead">
         {t(
           lang,
-          "过去二十年，回答这三个问题只需要看作品。作品是人的可靠指纹：能写出这样一段论证的人，必定经历过得出这段论证的思考。",
-          "For twenty years, answering them meant looking at the work. The work was a reliable fingerprint: whoever could write that argument must have done the thinking that produced it.",
+          "他们不缺工具，缺的是把判断真正做出来的机会。一个问题丢给 AI，三十秒就有一段通顺完整的回答；这段回答对不对、能不能用、有没有更站得住的说法，常常没有下一句追问。",
+          "They don't lack tools. They lack occasions to actually make a judgment. Ask the AI something and thirty seconds later a fluent, complete answer is sitting there — and whether it's right, whether it can be used, whether something better-founded exists, usually goes unasked.",
         )}
       </p>
     </div>
 
     <div class="grid-3" style="margin-top:52px">
-      {questions.map(([icon, zh, en], i) => (
+      {scenes.map(([icon, zh, en, pz, pe], i) => (
         <div class="card hoverable rv" style={`--i:${i}`}>
           <div class="cardic a"><Icon name={icon} /></div>
           <h3>{t(lang, zh, en)}</h3>
+          <p>{t(lang, pz, pe)}</p>
         </div>
       ))}
     </div>
@@ -187,35 +234,10 @@ const stats: [string, number, string, string, string][] = [
     <div class="pull rv" style="margin-top:64px; max-width:900px">
       {t(
         lang,
-        "生成式 AI 不是简单增加了一个学习工具，而是改变了学校判断学生学习质量的证据结构。",
-        "Generative AI didn't just add another learning tool. It changed the structure of evidence schools use to judge learning.",
+        "生成式 AI 改变的，是学校判断一个学生学到了什么的整套证据。",
+        "What generative AI changed is the whole body of evidence a school uses to judge what a student has learned.",
       )}
       <cite>{t(lang, "《思维印记产品白皮书》· 前言", "Mind Imprint white paper · Preface")}</cite>
-    </div>
-
-    <div class="grid-2 rv" style="margin-top:56px">
-      <div class="callout no">
-        <div class="cl"><Icon name="slash" />{t(lang, "校内的断面", "Inside school")}</div>
-        <h3>{t(lang, "这份作业还能不能证明这个学生", "Can this work still stand for this student")}</h3>
-        <p>
-          {t(
-            lang,
-            "一篇好文章背后，现在有概率站着一个不会写的人；一个能跑的项目背后，有概率站着一个说不清它为什么能跑的人。",
-            "Behind a good essay there may now stand someone who can't write. Behind a project that runs, someone who can't say why it runs.",
-          )}
-        </p>
-      </div>
-      <div class="callout no">
-        <div class="cl"><Icon name="slash" />{t(lang, "校外的断面", "Outside school")}</div>
-        <h3>{t(lang, "这条信息我还能不能自己判断", "Can I still judge this claim myself")}</h3>
-        <p>
-          {t(
-            lang,
-            "一个初二学生刷到「每天一杯柠檬水可以抗癌」，转给母亲。母亲说别信。他问：你怎么知道是假的？母亲答不上来。",
-            "An eighth-grader sees “a glass of lemon water a day prevents cancer” and shows his mother. She says don't believe it. He asks: how do you know it's false? She has no answer.",
-          )}
-        </p>
-      </div>
     </div>
   </div>
 </section>
@@ -224,13 +246,13 @@ const stats: [string, number, string, string, string][] = [
 <section class="section band-paper">
   <div class="container">
     <div class="sec-head center rv">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "坐标移动了", "The coordinates moved")}</div>
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "稀缺的东西变了", "What's scarce has changed")}</div>
       <h2 class="sec-title">{t(lang, "从信息过剩，到答案过剩", "From too much information to too many answers")}</h2>
       <p class="lead">
         {t(
           lang,
-          "教育的难题，总是跟时代中最稀缺的认知资源有关。AI 不只是让信息更多，而是让「看起来像答案的东西」无限增加。",
-          "Education's hard problem always tracks whatever cognitive resource is scarcest. AI didn't just add information — it made things that look like answers effectively infinite.",
+          "教育的难题总是跟着当时最稀缺的那种能力走。今天最稀缺的是判断：看上去都挺像样的结论摆了一桌，得决定信哪一个、用哪一个。",
+          "Education's hard problem always tracks whichever ability is scarcest at the time. Today that's judgment: a table full of plausible-looking conclusions, and a call to make about which to believe and which to use.",
         )}
       </p>
     </div>
@@ -248,15 +270,54 @@ const stats: [string, number, string, string, string][] = [
     <p class="body rv" style="margin-top:34px; max-width:760px">
       {t(
         lang,
-        "判断不是抽象口号，而是很具体的动作：判断一个来源能不能用，判断一条证据能证明什么，判断 AI 的建议哪里有问题，判断自己是否需要修改立场。思维印记保存的，正是这些判断发生的过程。",
-        "Judgment isn't a slogan; it's a set of concrete moves. Whether a source can be used. What a piece of evidence actually proves. Where the AI's suggestion breaks. Whether your own position needs to change. What Mind Imprint keeps is the process where those moves happen.",
+        "判断是很具体的动作：这个来源能不能用，这条证据能证明到哪一步，AI 这段建议哪里站不住，自己的立场要不要改。思维印记保存下来的，就是这些动作发生的过程。",
+        "Judgment is a set of concrete moves. Whether a source can be used. How far a piece of evidence reaches. Where the AI's suggestion breaks. Whether your own position needs to move. What Mind Imprint keeps is the process where those moves happen.",
       )}
     </p>
   </div>
 </section>
 
+<!-- ═══════════════════════════════════════ THREE ABILITIES ═══════ -->
+<section class="section">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "我们想练出来的", "What we set out to grow")}</div>
+      <h2 class="sec-title">{t(lang, "三件事，练在他自己的课题上", "Three things, practised on his own coursework")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "这三件事都没法在纸面上学会。它们只在一个够长、够真实、AI 真的帮得上忙也真的可能把人带偏的任务里，才有机会长出来。",
+          "None of the three can be learned on paper. They only grow inside a task long enough and real enough that the AI can genuinely help — and genuinely lead someone astray.",
+        )}
+      </p>
+    </div>
+
+    <div class="grid-3" style="margin-top:52px">
+      {abilities.map(([icon, zh, en, pz, pe, tone], i) => (
+        <div class="card hoverable rv" style={`--i:${i}`}>
+          <div class={`cardic ${tone}`}><Icon name={icon} /></div>
+          <h3>{t(lang, zh, en)}</h3>
+          <p>{t(lang, pz, pe)}</p>
+        </div>
+      ))}
+    </div>
+
+    <div class="callout yes rv" style="margin-top:36px">
+      <div class="cl"><Icon name="shield" />{t(lang, "安全在这里的意思", "What “safe” means here")}</div>
+      <h3>{t(lang, "学生能放心用，学校也能放心让他用", "A student can use it freely, and a school can let them")}</h3>
+      <p>
+        {t(
+          lang,
+          "AI 不代写正文、不替学生定论；产品里没有连胜、排行榜、徽章这类留人的机制；测量数据永不用于筛选、排名或惩戒，家长知情同意先于任何记录。这些写在权限和合同里，不只写在隐私政策里。",
+          "The AI writes no prose and settles nothing. There are no streaks, leaderboards or badges holding anyone here. Measurement is never used for selection, ranking or discipline, and informed parental consent comes before any of it is recorded — written into permissions and contracts, not only into a privacy policy.",
+        )}
+      </p>
+    </div>
+  </div>
+</section>
+
 <!-- ══════════════════════════════════════════ THE WALK (scrub) ════ -->
-<section class="section loose scrub">
+<section class="section loose scrub band-paper">
   <div class="container">
     <div class="sec-head rv" style="margin-bottom:56px">
       <div class="eyebrow"><span class="pip"></span>{t(lang, "一次真实探究", "One real inquiry")}</div>
@@ -306,13 +367,13 @@ const stats: [string, number, string, string, string][] = [
 <section class="section band-cool">
   <div class="container">
     <div class="sec-head rv">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "四个工作面", "Four surfaces")}</div>
-      <h2 class="sec-title">{t(lang, "训练是证据的生成方式，评估是证据的使用方式", "Training is how the evidence gets made. Assessment is how it gets used.")}</h2>
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "四个地方", "Four places")}</div>
+      <h2 class="sec-title">{t(lang, "学生在这四个地方花时间", "The four places a student spends time")}</h2>
       <p class="lead">
         {t(
           lang,
-          "学生不是「被记录」，而是在被帮助着把探究走扎实的过程中自然留痕。",
-          "Students aren't being surveilled. They leave a trail because someone is helping them do the inquiry properly.",
+          "每一个地方都在帮他把探究走扎实，同时留下可以回查的痕迹。留痕是走扎实的副产品，不是另外加上去的监控。",
+          "Each one helps him do the inquiry properly, and leaves a trail that can be checked later. The trail is a by-product of doing it properly, not surveillance bolted on top.",
         )}
       </p>
     </div>
@@ -324,7 +385,7 @@ const stats: [string, number, string, string, string][] = [
           <h3>{t(lang, zh, en)}</h3>
           <p>{t(lang, pz, pe)}</p>
           <span class="tlink" style="margin-top:18px">
-            {t(lang, "了解这一面", "See this surface")}<Icon name="arrow" />
+            {t(lang, "看这一面的设计", "See how it's designed")}<Icon name="arrow" />
           </span>
         </a>
       ))}
@@ -344,15 +405,15 @@ const stats: [string, number, string, string, string][] = [
         <p class="lead" style="margin-top:22px">
           {t(
             lang,
-            "光记录还不够——聊天记录、操作日志、版本历史堆在一起，并不会自动变成评价。读懂过程，需要一把有学理来源的尺。",
+            "光有记录还不够。聊天记录、操作日志、版本历史堆在一起，并不会自动变成评价。读懂一段过程，需要一把有来历的尺。",
             "Recording isn't enough. Chat logs, action logs and version history piled together do not become an assessment. Reading a process takes a ruler with a real lineage.",
           )}
         </p>
         <p class="body" style="margin-top:18px">
           {t(
             lang,
-            "两根轴不是被发明出来的，是从上世纪九十年代以来批判性思维实证研究的共识里折算出来的：技能因子的纵向读数，与倾向因子的行为公分母。",
-            "The two axes weren't invented. They're derived from three decades of critical-thinking research: the vertical reading of the skills factor, and the behavioural common denominator of the dispositions factor.",
+            "这两根轴来自上世纪九十年代以来批判性思维的实证研究：一根读技能到达了哪一层，一根读倾向表现成了什么行为。",
+            "Both axes come out of three decades of empirical work on critical thinking: one reads how far down the skill went, the other reads what the disposition turned into as behaviour.",
           )}
         </p>
         <a class="tlink" style="margin-top:24px" href={L("/product") + "#evaluation"}>
@@ -419,7 +480,7 @@ const stats: [string, number, string, string, string][] = [
         <p class="lead" style="margin-top:22px">
           {t(
             lang,
-            "一份论证判断力的产品，必须自己先经得起判断。对得上的逐句对，对不上的明说。",
+            "一份讲判断力的产品，自己先得经得起判断。对得上的逐句对，对不上的明说。",
             "A product that argues about judgment has to survive being judged. Where it lines up we say so line by line; where it doesn't, we say that too.",
           )}
         </p>
@@ -454,7 +515,7 @@ const stats: [string, number, string, string, string][] = [
           <span class="rn">04</span>
           <div>
             <h4>{t(lang, "证据不够时，就说不够", "When the evidence is thin, we say so")}</h4>
-            <p>{t(lang, "没看到证据，不等于这个学生没有能力——只说明证据还在积累。宁可不说，不硬贴标签。", "No evidence seen is not evidence of no ability — it means evidence is still accumulating. We'd rather say nothing than pin on a label.")}</p>
+            <p>{t(lang, "没看到证据，只说明证据还在积累，并不代表这个学生没有能力。宁可不说，也不硬贴标签。", "No evidence seen only means evidence is still accumulating; it says nothing about the student's ability. We'd rather say nothing than pin on a label.")}</p>
           </div>
         </div>
       </div>
@@ -469,8 +530,8 @@ const stats: [string, number, string, string, string][] = [
     <p class="rv" style="font-size:clamp(22px,2.6vw,34px); line-height:1.42; letter-spacing:-0.02em; font-weight:700; margin-top:24px">
       {t(
         lang,
-        "不是最会使用 AI 的人，而是能够借助 AI、依然保持智识自主，并不断加深认知，最终形成独立、可靠且负责任判断的人。",
-        "Not the person best at using AI — the person who can use AI and still keep their intellectual autonomy, keep going deeper, and arrive at judgments that are independent, sound and owned.",
+        "我们想培养的，是能借助 AI 把事情想得更深、判断依然属于自己的人。",
+        "We're trying to grow people who can think further with AI, and still own the judgment at the end of it.",
       )}
     </p>
     <p class="rv" style="color:rgba(255,255,255,.55); font-size:14px; margin-top:26px">
@@ -486,14 +547,14 @@ const stats: [string, number, string, string, string][] = [
     {
       href: "/product",
       kicker: ["下一页", "Next"],
-      title: ["产品 · 学生的一段旅程", "Product · a student's journey"],
-      body: ["工具卡、课程、写作项目与评估的完整设计", "The full design of cards, courses, writing projects and assessment"],
+      title: ["产品 · 项目、工具、评估", "Product · projects, tools, assessment"],
+      body: ["学生在哪里做事、手上有什么、过程被怎么读", "Where the work happens, what he has in hand, how the process gets read"],
     },
     {
       href: "/algorithm",
       kicker: ["技术", "Under the hood"],
-      title: ["算法 · 多智能体设计", "Algorithm · multi-agent design"],
-      body: ["课程、写作与评估三处的智能体架构图", "The agent architectures behind courses, writing and evaluation"],
+      title: ["技术 · 让 AI 学会什么时候别答", "Technology · teaching an AI when not to answer"],
+      body: ["五层系统：克制、卡运行时、编排、记录、评估", "Five layers: restraint, card runtime, orchestration, record, evaluation"],
     },
   ]}
 />

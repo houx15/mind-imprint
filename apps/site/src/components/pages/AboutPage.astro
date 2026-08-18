@@ -33,7 +33,7 @@ const redlines: [string, string, string, string][] = [
   ["AI 克制，绝不替学生定论", "The AI holds back, and never concludes for her", "AI 可以解释概念、生成检索词、扮演反方、指出草稿断裂；但不能替她确定研究方向，不能替她完成核心判断，不能生成可直接提交的正文。助产士替产妇分娩，是职业的自我取消。", "It may explain a concept, generate search terms, play the opposition, flag a broken draft. It may not set her direction, make her core judgment, or produce submittable prose. A midwife who gives birth for the mother has abolished the profession."],
   ["不操纵", "No manipulation", "这个产品教学生「不被俘获」。所以它不能用老虎机式的机制留人——没有连胜、排行榜、徽章、上瘾式推送；也不用弹窗强迫：工具卡触发是自动的，但打开由学生确认。", "This product teaches students not to be captured. So it cannot use slot-machine mechanics to hold them — no streaks, leaderboards, badges or engagement pushes — and no coercive modals: a card may be triggered automatically, but opening it is always her call."],
   ["一次只问一个", "One question at a time", "陪练对话短、不啰嗦。这既降低 token，也保护学生的思考节奏——把三个问题一起抛过去，等于让她一个都答不好。", "The coach is short and doesn't ramble. That saves tokens, and it protects her thinking rhythm — throw three questions at once and she'll answer none of them well."],
-  ["过程即数据", "Process is data", "学生跳过工具卡、让 AI 直接答，也被记录。摩擦被转化成信号，而不是被消灭——一个只测量、不干预的系统，测得越准，也只是更准确地记录学生如何变得被动。", "Skipping a card, or asking the AI to just answer, is recorded too. Friction becomes signal instead of being eliminated. A system that only measures and never intervenes just documents, with increasing accuracy, how a student became passive."],
+  ["过程即数据", "Process is data", "学生跳过工具卡、让 AI 直接答，也被记录。摩擦被转成信号，不被消灭。一个只测量、不干预的系统，测得越准，也只是更准确地记录学生如何变得被动。", "Skipping a card, or asking the AI to just answer, is recorded too. Friction becomes signal instead of being eliminated. A system that only measures and never intervenes just documents, with increasing accuracy, how a student became passive."],
 ];
 
 /* the six commitments — whitepaper §measurement ethics */
@@ -62,8 +62,8 @@ const rollout: [string, string, string, string][] = [
   <div class="pagehero-inner">
     <div class="eyebrow rv"><span class="pip"></span>{t(lang, "关于我们", "About us")}</div>
     <h1 class="page-title">
-      <span class="rv-line" style="--i:0"><span>{t(lang, "一份论证判断力的产品，", "A product that argues about judgment")}</span></span>
-      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "必须自己先经得起判断。", "had better survive being judged.")}</span></span>
+      <span class="rv-line" style="--i:0"><span>{t(lang, "我们做的是一个讲判断力的产品，", "We build a product about judgment,")}</span></span>
+      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "它自己先得经得起判断。", "so it had better survive being judged.")}</span></span>
     </h1>
     <p class="lead rv" style="--i:2">
       {t(
@@ -95,8 +95,8 @@ const rollout: [string, string, string, string][] = [
     <p class="body rv" style="margin-top:18px">
       {t(
         lang,
-        "我们做的，是把它第一次变成高频、可追溯、可干预的过程性证据。这不是一条反方向的鱼——恰恰相反，我们站在所有指挥棒转向之后，共同指向的那个空位上。",
-        "What we do is turn it, for the first time, into process evidence that is frequent, traceable and actionable. This isn't swimming against the current. It's standing in the gap that every one of those systems, having turned, now points at.",
+        "我们做的，是把它第一次变成高频、可追溯、可干预的过程性证据。所有的指挥棒都在转向，而它们共同指着的那个位置，现在还空着——我们站在那里。",
+        "What we do is turn it, for the first time, into process evidence that is frequent, traceable and actionable. Every one of those systems has been turning, and the place they all now point at is still empty. That's where we stand.",
       )}
     </p>
   </div>
@@ -155,7 +155,7 @@ const rollout: [string, string, string, string][] = [
       <p class="lead">
         {t(
           lang,
-          "红线不是功能限制，是这门手艺的操守。违反其中任何一条，这个产品就没有存在的必要了。",
+          "这四条是这门手艺的操守，不只是几条功能开关。违反其中任何一条，这个产品就没有存在的必要了。",
           "These aren't feature limits. They're the ethics of the craft. Break any one of them and there's no reason for this product to exist.",
         )}
       </p>
@@ -195,7 +195,7 @@ const rollout: [string, string, string, string][] = [
       <p class="lead">
         {t(
           lang,
-          "一份论证「如何持续观测学生思维过程」的产品，必须同时回答另一个问题：凭什么观测，观测到哪里为止。正当性不是默认存在的，它必须被设计出来。",
+          "一个持续观测学生思维过程的产品，必须回答另一个问题：凭什么观测，观测到哪里为止。正当性从来不是默认存在的，它得被设计出来。",
           "A product that argues for continuously observing how a student thinks has to answer a second question: on what authority, and up to where. Legitimacy isn't a default. It has to be designed.",
         )}
       </p>
@@ -269,14 +269,14 @@ const rollout: [string, string, string, string][] = [
     {
       href: "/product",
       kicker: ["了解产品", "The product"],
-      title: ["学生的一段旅程", "A student's journey"],
-      body: ["工具卡、课程、写作项目与评估的完整设计", "Cards, courses, writing projects and assessment in full"],
+      title: ["项目、工具、评估", "Projects, tools, assessment"],
+      body: ["学生在哪里做事、手上有什么、过程被怎么读", "Where the work happens, what she has in hand, how the process gets read"],
     },
     {
       href: "/algorithm",
       kicker: ["技术", "Under the hood"],
-      title: ["多智能体设计", "Multi-agent design"],
-      body: ["课程、写作与评估三处的智能体架构图", "The agent architectures behind all three"],
+      title: ["让 AI 学会什么时候别答", "Teaching an AI when not to answer"],
+      body: ["五层系统：克制、卡运行时、编排、记录、评估", "Five layers: restraint, card runtime, orchestration, record, evaluation"],
     },
   ]}
 />

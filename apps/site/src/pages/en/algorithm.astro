@@ -8,13 +8,13 @@ const lang = getLang(Astro.currentLocale);
 <Base
   title={t(
     lang,
-    "算法 · 多智能体设计 | 思维印记",
-    "Algorithm · multi-agent design | Mind Imprint",
+    "技术 · 让 AI 学会什么时候别答 | 思维印记",
+    "Technology · teaching an AI when not to answer | Mind Imprint",
   )}
   description={t(
     lang,
-    "工具卡是 tool-use 循环里由人来执行的工具。课程的工作流状态机、写作空间的一条连续会话与上下文隔离子代理、评估的确定性半区与三路并发旗舰调用——全部的架构图。",
-    "A thinking card is a tool in a tool-use loop whose executor is a human. The course workflow state machine, the writing space's single continuous session and context-isolated sub-agents, and the evaluation pipeline's deterministic half plus three concurrent flagship calls — diagrammed.",
+    "五层系统：决定 AI 什么时候闭嘴的克制层、schema 驱动的工具卡运行时、写作侧一条连续会话加隔离子代理与课程侧的确定性状态机、把每个动作变成事件的记录层，以及只能引用证据索引的评估层。",
+    "Five layers: a restraint layer that decides when the AI stays quiet, a schema-driven card runtime, one continuous session with isolated sub-agents for writing and a deterministic state machine for courses, a record layer that turns every move into an event, and an evaluation layer bound to an evidence index.",
   )}
 >
   <AlgorithmPage />
