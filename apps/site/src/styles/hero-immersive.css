@@ -101,12 +101,12 @@
   top: 0;
   left: 0;
   z-index: 4;
-  width: clamp(190px, 21vw, 310px);
+  width: clamp(38px, 4.2vw, 62px);
   /* JS owns the transform; this is the pre-JS / no-JS resting place */
   transform: translate3d(14vw, 66svh, 0);
   will-change: transform;
   pointer-events: none;
-  filter: drop-shadow(0 20px 30px rgba(2, 14, 24, 0.6));
+  filter: drop-shadow(0 4px 7px rgba(2, 14, 24, 0.55));
 }
 .hi-boat .ex-svg {
   display: block;
@@ -336,7 +336,7 @@ html[lang="zh-CN"] .hi-title {
     padding-bottom: 24svh;
   }
   .hi-boat {
-    width: clamp(150px, 42vw, 230px);
+    width: clamp(30px, 8.4vw, 46px);
   }
   .hi-scrim {
     background: linear-gradient(

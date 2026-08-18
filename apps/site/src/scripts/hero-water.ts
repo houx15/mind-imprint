@@ -25,7 +25,11 @@ if (hero) {
 
   // --- the second screen, for the one button in the hero -------------------
   hero.querySelector<HTMLElement>("[data-hero-next]")?.addEventListener("click", () => {
-    const next = hero.nextElementSibling as HTMLElement | null;
+    // Astro leaves this component's own <script> inline right after the
+    // section, so the immediate next sibling is not the next screen — walk on
+    // until an actual section turns up.
+    let next = hero.nextElementSibling;
+    while (next && next.tagName !== "SECTION") next = next.nextElementSibling;
     if (!next) return;
     next.scrollIntoView({ behavior: reduced ? "auto" : "smooth", block: "start" });
   });
