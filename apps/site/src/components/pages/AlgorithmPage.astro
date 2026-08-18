@@ -469,8 +469,8 @@ const hards: [string, string, string, string][] = [
       <p class="lead">
         {t(
           lang,
-          "报告分成两半。数得出来的那一半——轮次、材料数、字数、批注、修订、时间线——直接从记录里算，一次模型都不用调。需要判断的那一半交给最好的模型，但它只能引用一个事先建好的证据集里的东西，指不到的判断在生成之后被整条丢弃。",
-          "The report has two halves. Everything countable — turns, materials, words, comments, revisions, the timeline — computes straight from the record without calling a model at all. The half that takes judgment goes to the best model available, but it may only cite from a pre-built set of evidence, and any judgment that doesn't resolve is dropped whole after generation.",
+          "报告分成两半。数得出来的那一半——轮次、材料数、字数、批注、修订、时间线——直接从记录里算，一次模型都不用调。需要判断的那一半交给最好的模型，但它只能引用一个事先建好的证据集里的东西；生成之后每一条引用都被逐条回指校验，指不到真实记录的一律摘除。",
+          "The report has two halves. Everything countable — turns, materials, words, comments, revisions, the timeline — computes straight from the record without calling a model at all. The half that takes judgment goes to the best model available, but it may only cite from a pre-built set of evidence — and after generation every citation is resolved again, with any that doesn't land on a real record stripped out.",
         )}
       </p>
     </div>

@@ -74,7 +74,7 @@ const inputs: [string, string][] = [
   <text class="dt" x="542" y="202">{t(lang, "模型唯一被允许引用的东西", "The only things the model may cite")}</text>
   <text class="ds" x="542" y="224">{t(lang, "每条判断都必须指回一个真实存在的 id：", "Every judgment must point back to a real id:")}</text>
   <text class="ds" x="542" y="243">{t(lang, "某一条消息、某一次事件、某一张卡、某一个来源。", "a message, an event, a card, a source.")}</text>
-  <text class="dm" x="542" y="264" style="fill:var(--accent)">{t(lang, "指不到的，事后一律丢弃", "unresolvable refs are dropped later")}</text>
+  <text class="dm" x="542" y="264" style="fill:var(--accent)">{t(lang, "指不到的引用，事后逐条摘除", "unresolvable citations stripped later")}</text>
 
   <!-- ── R3 · three concurrent flagship calls ───────────────────────── -->
   <text class="dm" x="160" y="292">3 CONCURRENT FLAGSHIP CALLS · {t(lang, "三路并发（互不依赖）· 评估档永不降级", "independent · the evaluation tier is never downgraded")}</text>
@@ -108,7 +108,7 @@ const inputs: [string, string][] = [
   <text class="ds" x="60" y="665">{t(lang, "事实半区 + 模型半区", "facts + judgments")}</text>
   <path class="edge" d="M232 650 H288" marker-end="url(#ev-ar)" />
   <text class="dt" x="312" y="646">ValidateRefs</text>
-  <text class="ds" x="312" y="665">{t(lang, "逐条回指校验，丢弃指不到证据的引用", "every citation re-checked; unresolvable ones dropped")}</text>
+  <text class="ds" x="312" y="665">{t(lang, "逐条回指校验，摘除指不到证据的引用", "every citation re-checked; unresolvable ones stripped")}</text>
   <path class="edge edge-hot" d="M700 650 H756" marker-end="url(#ev-ar)" />
   <text class="dt" x="780" y="646" style="fill:var(--primary)">{t(lang, "你的思维印记", "Your Mind Imprint")}</text>
   <text class="ds" x="780" y="665">{t(lang, "一份可争议、可改判的报告", "reviewable, and a teacher can overturn it")}</text>

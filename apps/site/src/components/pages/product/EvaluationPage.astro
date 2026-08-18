@@ -130,8 +130,8 @@ const reportParts: [string, string, string, string][] = [
         <p class="body" style="margin-top:14px">
           {t(
             lang,
-            "前四部分是数出来的事实，后五部分是有证据支撑的判断。每一条判断都要指回一个真实存在的片段，指不到的在生成之后直接丢弃。",
-            "The first four parts are counted facts. The last five are grounded judgments. Every judgment must point back to a real fragment — the ones that can't are dropped after generation.",
+            "前四部分是数出来的事实，后五部分是有证据支撑的判断。每一条判断都要指回一个真实存在的片段，指不到的引用在生成之后被摘除。",
+            "The first four parts are counted facts. The last five are grounded judgments. Every judgment must point back to a real fragment — a citation that doesn't resolve is stripped after generation.",
           )}
         </p>
       </div>
