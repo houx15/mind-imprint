@@ -186,7 +186,8 @@
 }
 .course-slot-block:has(> .course-block--pdf),
 .course-slot-block:has(> .course-block--video),
-.course-slot-block:has(> .course-block--images) {
+.course-slot-block:has(> .course-block--images),
+.course-slot-block:has(> .course-block--interactive-html) {
   flex: 1 1 auto;
 }
 
@@ -273,10 +274,28 @@
 
 .course-block--video,
 .course-block--pdf,
-.course-block--images {
+.course-block--images,
+.course-block--interactive-html {
   min-height: 0;
   min-width: 0;
   max-width: 100%;
+}
+
+/* Interactive-HTML sizing (P?-fit): the block carries its own aspect ratio
+ * inline (1:1 or 4:3). Without a height bound it sized purely from its width
+ * — a 1:1 block in a wide slot became as TALL as the slot was wide and
+ * overflowed (the "stuck", scroll-to-see interaction). Now it fits its slot
+ * like the other media: fill the height, derive width from the aspect, cap to
+ * the slot width, and center — never stretch, never overflow. `align-self:
+ * center` stops the flex column from stretching it to full width (which would
+ * re-inflate the height through the aspect ratio). */
+.course-block--interactive-html {
+  height: 100%;
+  width: auto;
+  max-width: 100%;
+  max-height: 100%;
+  align-self: center;
+  margin-inline: auto;
 }
 
 /* ---------- Hidden-block stability (P1-06) ----------

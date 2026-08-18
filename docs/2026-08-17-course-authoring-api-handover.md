@@ -1,7 +1,7 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at tag:** `course-authoring-v1.1.1` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
+**Pinned at tag:** `course-authoring-v1.1.2` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
 > **Read this first — honesty note.** Your request (items 3 and 4) asks us to *confirm* several guarantees: optimistic concurrency, idempotent publishing, SHA-256 dedup, and upload support for all six media types. **Some of these do not exist in the current backend.** Rather than confirm them falsely, this document states plainly what exists today, what does not, and — for each gap — the workaround or the backend change you should request. The gaps are collected in §7 ("Gap register") so your planning can account for them up front.
@@ -12,7 +12,7 @@
 
 ### 1.1 The three shared packages
 
-All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.1.1`** (see "How to consume the pin" below).
+All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.1.2`** (see "How to consume the pin" below).
 
 | Package | Name | Version | Runtime deps | Purpose |
 |---|---|---|---|---|
@@ -20,11 +20,12 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 | `packages/course-runtime` | `@mind-imprint/course-runtime` | `0.0.0` | `@mind-imprint/course-contract` (workspace) | Headless (no React) deterministic session state machine + host-injection adapter contracts + `InMemorySessionAdapter`. |
 | `packages/course-renderer` | `@mind-imprint/course-renderer` | `0.0.0` | contract + runtime (workspace), `react-markdown@^10.1.0`, `remark-gfm@^4.0.1`; peer `react@^18.3.0`, `react-dom@^18.3.0` | The **real student React renderer** (`CoursePlayer`) you will preview against. Chrome-agnostic. |
 
-**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.1.1`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
-- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.1.1`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
+**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.1.2`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
+- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.1.2`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
 - **Vendored copy** of the same three package directories at that tag.
 
 When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog** (all renderer-only unless noted; the next contract/API change would be `course-authoring-v1.2.0`):
+- **`course-authoring-v1.1.2`** — interactive-HTML blocks now fit their slot: the block scales to its declared aspect (`1:1`/`4:3`), fills the slot height, and centers, instead of sizing from its width alone and overflowing into a scroll (the "stuck" oversized frame). Completes the media-aspect model — every block type now contains to its slot. Purely visual.
 - **`course-authoring-v1.1.1`** — media now honours its natural aspect: a PDF renders as a centred **portrait page column** (a page is portrait, so it fits a tall slot and is never stretched into a wide short band), matching how video/images already letterbox via `object-fit`. See §6.2's media-aspect notes. Purely visual.
 - **`course-authoring-v1.1.0`** — renderer slot-layout fix in `course.css`: text renders as a centred reading card; media fills its slot instead of collapsing to a flat band. Purely visual; any `CourseDefinition` valid under v1.0.0 is unchanged. See §6.2.
 - **`course-authoring-v1.0.0`** — initial named snapshot (packages + authoring API incl. G2/G7).
