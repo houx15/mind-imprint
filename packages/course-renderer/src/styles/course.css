@@ -168,6 +168,28 @@
   gap: 8px;
 }
 
+/* ---------- Slot-block wrapper: repair the flex-height chain ----------
+ * SlicePlayer wraps every block in a FocusTarget div (`.course-slot-block`)
+ * that sits BETWEEN the flex slot and the block. Left unstyled it is a plain
+ * `display:block` flex-item that collapses to content height — which severs
+ * every "fill the slot" intent below it: a PDF/video's `flex:1 1 auto` and a
+ * media element's `max-height:100%` all resolve against a wrapper that already
+ * shrank to nothing, so content pins to the TOP of the slot and PDFs squash to
+ * a flat band. Making the wrapper a shrinkable flex column re-connects the
+ * chain; only wrappers that HOLD a fill-block grow, so a text intro stacked
+ * above a PDF keeps its natural height while the PDF below fills the rest. */
+.course-slot-block {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.course-slot-block:has(> .course-block--pdf),
+.course-slot-block:has(> .course-block--video),
+.course-slot-block:has(> .course-block--images) {
+  flex: 1 1 auto;
+}
+
 /* ---------- Media containment: video/pdf/image stay inside their slot ---------- */
 
 .course-block--video .course-video__player {
@@ -208,7 +230,11 @@
   position: relative;
   width: 100%;
   flex: 1 1 auto;
-  min-height: 480px;
+  /* The viewport now FILLS its slot via the repaired flex chain (see
+   * .course-slot-block). This floor is only an anti-collapse minimum so the
+   * frame is usable when the slot is unusually short (e.g. a 1fr split) or on
+   * a browser without :has() — it is NOT the target height, flex-grow is. */
+  min-height: 200px;
   max-width: 100%;
   overflow: auto;
   border: 1px solid var(--course-border, #efe7dd);
@@ -544,12 +570,34 @@
   margin-right: auto;
 }
 
-/* ---------- Text / prose block ---------- */
+/* ---------- Text / prose block ----------
+ * A text block is a reading card, not a naked paragraph flush to the slot's
+ * top-left corner. It gets a surface, border, radius, and real padding; the
+ * measure is capped at ~66ch for readability and centered horizontally so it
+ * never sprawls the full 1280px+ of a `full` slot. Vertical centering is the
+ * slot's job (see the text-only-slot rule below) so a short card floats in the
+ * middle of its space instead of clinging to the top. */
 .course-block--text.prose {
-  font-size: 15px;
-  line-height: 1.75;
+  font-size: 16px;
+  line-height: 1.72;
   color: var(--course-ink);
-  max-width: 72ch;
+  max-width: 66ch;
+  margin-inline: auto;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-lg);
+  box-shadow: var(--course-shadow-sm);
+  padding: 26px 30px;
+}
+
+/* A slot whose ONLY content is a text card centers it vertically. `safe`
+ * keeps a card taller than the slot pinned to the top (and scrollable via the
+ * slot's overflow:auto) instead of clipping its first lines. Multi-block slots
+ * (e.g. text intro + PDF) are untouched — they stay top-aligned and stacked. */
+.course-layout__slot:has(> .course-slot-block:only-child > .course-block--text) {
+  justify-content: safe center;
 }
 .course-block--text.prose h1,
 .course-block--text.prose h2,
@@ -571,12 +619,20 @@
 .course-block--text.prose a { color: var(--course-accent); text-underline-offset: 2px; }
 
 /* ---------- Images block ---------- */
+/* The images block fills its (now-growing) slot-block and centers its figures
+ * in the available space rather than pinning them to the top. */
+.course-block--images {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
 .course-images__side-by-side,
 .course-images__single,
 .course-images__gallery {
   display: flex;
   gap: 16px;
-  align-items: flex-start;
+  align-items: center;
+  justify-content: center;
   flex-wrap: wrap;
   min-height: 0;
 }
