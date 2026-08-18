@@ -88,7 +88,7 @@ const honesty: [string, string, string, string, string][] = [
   <div class="container">
     <div class="sec-head rv">
       <h2 class="sec-title">
-        {t(lang, "两根轴不是被发明出来的，是被折算出来的", "The two axes weren't invented. They were converted.")}
+        {t(lang, "两根轴不是我们发明的", "We did not invent the two axes")}
       </h2>
       <p class="lead">
         {t(
@@ -112,7 +112,7 @@ const honesty: [string, string, string, string, string][] = [
     <div class="grid-2" style="margin-top:52px">
       <div class="callout rv">
         <div class="cl"><Icon name="layers" />{t(lang, "认知深度 · Cognitive Depth", "Cognitive depth")}</div>
-        <h3>{t(lang, "技能因子的纵向读数", "The vertical reading on the skill factor")}</h3>
+        <h3>{t(lang, "思考到达了第几层", "How far down the thinking got")}</h3>
         <p>
           {t(
             lang,
@@ -123,7 +123,7 @@ const honesty: [string, string, string, string, string][] = [
       </div>
       <div class="callout yes rv">
         <div class="cl"><Icon name="compass" />{t(lang, "智识自主 · Intellectual Autonomy", "Intellectual autonomy")}</div>
-        <h3>{t(lang, "倾向因子的行为公分母", "The behavioural common denominator of dispositions")}</h3>
+        <h3>{t(lang, "无人要求时，是谁在想", "Who is thinking when nobody asked")}</h3>
         <p>
           {t(
             lang,
@@ -137,8 +137,8 @@ const honesty: [string, string, string, string, string][] = [
     <div class="pull rv" style="margin-top:52px; max-width:960px">
       {t(
         lang,
-        "深度决定判断的质量上限 —— 引擎运转时能加工到多深；自主决定判断的启动与所有权 —— 没人要求时，引擎会不会自己点火。缺深度的自主，产出的是自信的垃圾；缺自主的深度，是一台租给任何提示者的好引擎。",
-        "Depth sets the ceiling on quality — how deep the engine can machine when it runs. Autonomy decides ignition and ownership — whether it starts at all when nobody asks. Autonomy without depth produces confident garbage; depth without autonomy is a good engine rented to whoever prompts it.",
+        "缺深度的自主，产出的是自信的垃圾；缺自主的深度，是一台租给任何提示者的好引擎。两样都要，而这正是它们不能合成一个分的理由。",
+        "Autonomy without depth produces confident garbage. Depth without autonomy is a good engine rented to whoever prompts it. You need both — which is exactly why they cannot be scored as one.",
       )}
     </div>
   </div>
@@ -149,7 +149,7 @@ const honesty: [string, string, string, string, string][] = [
   <div class="container">
     <div class="sec-head rv">
       <div class="eyebrow" style="margin-bottom:16px"><span class="pip"></span>D-AXIS</div>
-      <h2 class="sec-title">{t(lang, "认知深度：思考到达了第几层", "Cognitive depth: how many layers down the thinking got")}</h2>
+      <h2 class="sec-title">{t(lang, "认知深度：四个层级，和中间那个转折点", "Cognitive depth: four levels, and the turn in the middle")}</h2>
       <p class="lead">
         {t(
           lang,
@@ -187,7 +187,7 @@ const honesty: [string, string, string, string, string][] = [
 
     <div class="grid-2" style="margin-top:44px; gap:22px">
       <div class="callout rv">
-        <div class="cl"><Icon name="target" />{t(lang, "判层规则", "How a level is judged")}</div>
+        <div class="cl"><Icon name="target" />{t(lang, "层级怎么判", "How a level is judged")}</div>
         <h3>{t(lang, "层级永远相对任务的开放度而判", "Always relative to how open the task is")}</h3>
         <p>
           {t(
@@ -198,8 +198,8 @@ const honesty: [string, string, string, string, string][] = [
         </p>
       </div>
       <div class="callout rv">
-        <div class="cl"><Icon name="spark" />{t(lang, "机会供给", "Opportunity supply")}</div>
-        <h3>{t(lang, "深层结构需要一个能被看见的舞台", "Deep structure needs a stage it can be seen on")}</h3>
+        <div class="cl"><Icon name="spark" />{t(lang, "题目决定了上限", "The task sets the ceiling")}</div>
+        <h3>{t(lang, "封闭的题目，读不出深的思考", "A closed task cannot show deep thinking")}</h3>
         <p>
           {t(
             lang,
@@ -286,8 +286,8 @@ const honesty: [string, string, string, string, string][] = [
     </div>
 
     <div class="callout rv" style="margin-top:44px">
-      <div class="cl"><Icon name="link" />{t(lang, "同名不同问", "Same word, different question")}</div>
-      <h3>{t(lang, "同一个事件，可以同时为两根轴供证", "One event can feed both axes at once")}</h3>
+      <div class="cl"><Icon name="link" />{t(lang, "两根轴会同时记录", "Both axes record it")}</div>
+      <h3>{t(lang, "同一件事，深度轴和自主轴各记一笔", "One event, written down once by each axis")}</h3>
       <p>
         {t(
           lang,
@@ -304,7 +304,7 @@ const honesty: [string, string, string, string, string][] = [
   <div class="container">
     <div class="grid-2" style="gap:64px; align-items:start">
       <div class="rv">
-        <h2 class="sec-title">{t(lang, "测量的诚实，是设计出来的", "Honest measurement has to be designed in")}</h2>
+        <h2 class="sec-title">{t(lang, "我们明确不做的四件事", "Four things this measurement will not do")}</h2>
         <p class="lead" style="margin-top:22px">
           {t(
             lang,
@@ -340,7 +340,7 @@ const honesty: [string, string, string, string, string][] = [
 <section class="section band-paper">
   <div class="container">
     <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "同一份记录，四种颗粒度", "One record, four grain sizes")}</h2>
+      <h2 class="sec-title">{t(lang, "谁能看到什么", "Who is allowed to see what")}</h2>
       <p class="lead">
         {t(
           lang,
@@ -385,7 +385,7 @@ const honesty: [string, string, string, string, string][] = [
 <section class="section">
   <div class="container">
     <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "这套设计长成的那份报告", "What the design comes out as")}</h2>
+      <h2 class="sec-title">{t(lang, "学生最后拿到的那份报告", "The report a student actually gets")}</h2>
       <p class="lead">
         {t(
           lang,
