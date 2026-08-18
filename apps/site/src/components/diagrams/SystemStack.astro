@@ -80,10 +80,10 @@ const bands: {
 >
   <defs>
     <marker id="ss-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--faint)" />
     </marker>
     <marker id="ss-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--accent)" />
     </marker>
   </defs>
 
@@ -95,7 +95,7 @@ const bands: {
   <!-- what she leaves behind rises back up the right -->
   <text class="dm" x="906" y="38" text-anchor="middle">{t(lang, "留下的证据", "what she leaves")}</text>
   <path class="edge draw" style="--len:500; --d:500" d="M906 536 V50" marker-end="url(#ss-ar)" />
-  <circle class="flow" r="4" style="offset-path:path('M906 536 V50'); --d:1400; fill:#4c9a82" />
+  <circle class="flow" r="4" style="offset-path:path('M906 536 V50'); --d:1400; fill:var(--green)" />
 
   {bands.map((b, i) => (
     <Fragment>

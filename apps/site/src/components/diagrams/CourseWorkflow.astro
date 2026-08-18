@@ -15,10 +15,10 @@ const lang = getLang(Astro.currentLocale);
 >
   <defs>
     <marker id="cw-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--faint)" />
     </marker>
     <marker id="cw-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--accent)" />
     </marker>
   </defs>
 
@@ -51,8 +51,8 @@ const lang = getLang(Astro.currentLocale);
   <path class="edge edge-d draw" style="--len:240; --d:620" d="M436 404 C436 452 566 452 566 404" marker-end="url(#cw-ar)" />
   <text class="dm" x="501" y="476" text-anchor="middle">answer.incorrect → {t(lang, "重试 / 递提示", "retry / hint")}</text>
 
-  <text class="dm" x="335" y="230" text-anchor="middle" style="fill:#b1613f">video.ended</text>
-  <text class="dm" x="651" y="230" text-anchor="middle" style="fill:#b1613f">answer.correct</text>
+  <text class="dm" x="335" y="230" text-anchor="middle" style="fill:var(--accent)">video.ended</text>
+  <text class="dm" x="651" y="230" text-anchor="middle" style="fill:var(--accent)">answer.correct</text>
 
   <circle class="flow" r="4" style="offset-path:path('M292 322 H370'); --d:700" />
   <circle class="flow" r="4" style="offset-path:path('M608 322 H686'); --d:1600" />

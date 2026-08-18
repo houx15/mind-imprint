@@ -14,7 +14,7 @@ const lang = getLang(Astro.currentLocale);
 >
   <defs>
     <marker id="cs-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--faint)" />
     </marker>
   </defs>
 
@@ -44,5 +44,5 @@ const lang = getLang(Astro.currentLocale);
   <text class="dt" x="722" y="152">{t(lang, "是投影出来的", "is projected")}</text>
   <text class="ds" x="722" y="176">{t(lang, "三层从不整体倒进去。每一轮", "the three layers are never dumped in.")}</text>
   <text class="ds" x="722" y="194">{t(lang, "现搭一份紧凑视图，细节按需再取。", "each turn builds a compact view on demand.")}</text>
-  <text class="dm" x="722" y="220" style="fill:#2a3b7a">{t(lang, "所以陪练永远不会失忆", "so the coach never feels amnesiac")}</text>
+  <text class="dm" x="722" y="220" style="fill:var(--primary)">{t(lang, "所以陪练永远不会失忆", "so the coach never feels amnesiac")}</text>
 </svg>

@@ -24,7 +24,7 @@ const inputs: [string, string][] = [
 >
   <defs>
     <marker id="ev-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--faint)" />
     </marker>
   </defs>
 
@@ -67,14 +67,14 @@ const inputs: [string, string][] = [
   <text class="dt" x="42" y="202">{t(lang, "数出来的事实，不是模型说的", "Facts that are counted, not claimed")}</text>
   <text class="ds" x="42" y="224">{t(lang, "AI 轮次 · 材料数 · 正文字数 · 批注 · 修订次数", "turns · materials · words · comments · revisions")}</text>
   <text class="ds" x="42" y="243">{t(lang, "里程碑 · 时间线 · 材料表 · 工具卡使用", "milestones · timeline · material list · card usage")}</text>
-  <text class="dm" x="42" y="264" style="fill:#2a3b7a">{t(lang, "永远不需要模型", "never needs the model")}</text>
+  <text class="dm" x="42" y="264" style="fill:var(--primary)">{t(lang, "永远不需要模型", "never needs the model")}</text>
 
   <rect class="box box-a" x="520" y="150" width="440" height="126" rx="18" />
   <text class="dm" x="542" y="176">EVIDENCE INDEX · {t(lang, "候选证据集", "citable candidates")}</text>
   <text class="dt" x="542" y="202">{t(lang, "模型唯一被允许引用的东西", "The only things the model may cite")}</text>
   <text class="ds" x="542" y="224">{t(lang, "每条判断都必须指回一个真实存在的 id：", "Every judgment must point back to a real id:")}</text>
   <text class="ds" x="542" y="243">{t(lang, "某一条消息、某一次事件、某一张卡、某一个来源。", "a message, an event, a card, a source.")}</text>
-  <text class="dm" x="542" y="264" style="fill:#b1613f">{t(lang, "指不到的，事后一律丢弃", "unresolvable refs are dropped later")}</text>
+  <text class="dm" x="542" y="264" style="fill:var(--accent)">{t(lang, "指不到的，事后一律丢弃", "unresolvable refs are dropped later")}</text>
 
   <!-- ── R3 · three concurrent flagship calls ───────────────────────── -->
   <text class="dm" x="160" y="292">3 CONCURRENT FLAGSHIP CALLS · {t(lang, "三路并发（互不依赖）· 评估档永不降级", "independent · the evaluation tier is never downgraded")}</text>
@@ -110,6 +110,6 @@ const inputs: [string, string][] = [
   <text class="dt" x="312" y="646">ValidateRefs</text>
   <text class="ds" x="312" y="665">{t(lang, "逐条回指校验，丢弃指不到证据的引用", "every citation re-checked; unresolvable ones dropped")}</text>
   <path class="edge edge-hot" d="M700 650 H756" marker-end="url(#ev-ar)" />
-  <text class="dt" x="780" y="646" style="fill:#2a3b7a">{t(lang, "你的思维印记", "Your Mind Imprint")}</text>
+  <text class="dt" x="780" y="646" style="fill:var(--primary)">{t(lang, "你的思维印记", "Your Mind Imprint")}</text>
   <text class="ds" x="780" y="665">{t(lang, "一份可争议、可改判的报告", "reviewable, and a teacher can overturn it")}</text>
 </svg>

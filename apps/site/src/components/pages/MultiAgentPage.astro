@@ -1,0 +1,269 @@
+---
+import Icon from "../Icon.astro";
+import CtaBand from "../sections/CtaBand.astro";
+import Pager from "../sections/Pager.astro";
+import AgentTopology from "../diagrams/AgentTopology.astro";
+import ContextStack from "../diagrams/ContextStack.astro";
+import RestraintLadder from "../diagrams/RestraintLadder.astro";
+import { getLang, t } from "../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+/* Why a sub-agent exists at all: three jobs the main thread must not swallow. */
+const isolated: [string, string, string, string, string, string][] = [
+  [
+    "book",
+    "阅读子代理",
+    "The reading sub-agent",
+    "一篇 PDF 有两万字。它在隔离的上下文里读完，只把要点写回主线程——原文一个字都不进陪练的记忆。学生问「这篇讲了什么」，回来的是结论，不是全文。",
+    "A PDF runs to twenty thousand words. It reads the whole thing in an isolated context and writes only the takeaways back — not one word of the source enters the coach's memory. Ask what the paper says and conclusions come back, not the paper.",
+    "",
+  ],
+  [
+    "gauge",
+    "评估子代理",
+    "The assessment sub-agent",
+    "评估要读的是整段过程：几十轮对话、每一张卡、每一次修订。它在旗舰档模型上跑，永不降级，产出双轴读数与那段叙述，然后同样只把结论写回。",
+    "Assessment has to read the whole process: dozens of turns, every card, every revision. It runs on a flagship model and is never downgraded, produces the two-axis readings and the narrative, and likewise returns conclusions only.",
+    "g",
+  ],
+  [
+    "chat",
+    "主线程",
+    "The main thread",
+    "陪练自己始终轻：系统 prompt、脊柱投影、滚动的对话窗口，加上当前工作面的那副牌。轻，它才跑得快、便宜，也才在第六周还记得第一周。",
+    "The coach itself stays light: system prompt, a projection of the spine, a rolling window of dialogue, and the deck for the surface she's on. Light is what keeps it fast, cheap — and still able to recall week one in week six.",
+    "a",
+  ],
+];
+
+/* 三层解耦 — how a card becomes a tool the student, not the model, executes */
+const decoupled: [string, string, string, string, string, string][] = [
+  ["决定", "Decide", "服务端", "server-side", "这一刻该不该把思考还回去，该还哪一张卡。整条克制阶梯都在服务端，前端改不动。", "Whether the thinking should go back to her this turn, and which card to send. The whole restraint ladder lives server-side, out of the client's reach."],
+  ["递出", "Hand over", "summon_card", "summon_card", "决策与卡之间只有一个函数：summon_card(卡, 理由, 一句提示)。触发是自动的，打开由学生确认。", "One function connects the decision to the card: summon_card(card, reason, nudge). The trigger is automatic; opening it is her call."],
+  ["执行", "Execute", "由学生完成", "by the student", "卡在她手上展开，她自己填。AI 不代填一个字段——这一步的执行者是人。", "The card opens in her hands and she fills it in. The AI completes not one field: the executor of this step is a person."],
+  ["回灌", "Feed back", "过程树 + 评估", "tree + assessment", "她填完的内容回到对话里继续被追问，同时长成过程树，成为评估那一刀的地基。", "What she wrote returns to the conversation to be questioned further, grows the process tree, and becomes the floor the assessment stands on."],
+];
+
+/* stage-by-stage: what the AI may and may not do */
+const stages: [string, string, string, string, string, string][] = [
+  ["立题", "Framing", "把模糊的兴趣问回一个能回答的问题；生成检索词；指出范围过大", "Questions a vague interest back into an answerable one, generates search terms, flags an over-broad scope", "不替她定题", "Never picks the question"],
+  ["文献与阅读", "Sources & reading", "隔离读完长文只带要点回来；在合适的时刻递 SIFT、CRAAP", "Reads long texts in isolation and returns only takeaways; offers SIFT or CRAAP at the right moment", "不替她判断一条来源能不能用", "Never decides whether a source can be used"],
+  ["写作", "Writing", "指出论证断裂、扮演反方、查引用是否支持这句话", "Points at a broken warrant, plays the opposition, checks whether a citation supports the sentence", "不写一个字正文", "Never writes a word of the prose"],
+  ["修订", "Revising", "通读草稿给批注，追问「这里改的是论证，还是只是措辞」", "Reads the draft and comments, asking whether a change moved the argument or only the wording", "不替她改", "Never makes the edit for her"],
+  ["回顾", "Review", "把整段过程读成一份报告，指出下一步", "Reads the whole process into a report and names a next step", "不替她写反思", "Never writes her reflection"],
+];
+---
+
+<!-- ═════════════════════════════════════════════════ HERO ════════ -->
+<section class="pagehero">
+  <div class="wash">
+    <i class="w1" style="width:540px;height:540px;background:var(--primary-tint);top:-250px;left:-140px"></i>
+    <i class="w2" style="width:460px;height:460px;background:var(--accent-tint);top:-180px;right:-120px"></i>
+  </div>
+  <div class="grid-bg"></div>
+  <div class="pagehero-inner">
+    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "技术 · 多智能体教练系统", "Technology · the multi-agent coach")}</div>
+    <h1 class="page-title">
+      <span class="rv-line" style="--i:0"><span>{t(lang, "学生只面对一个「印记」。", "A student talks to one Imprint.")}</span></span>
+      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "重活在它背后发生。", "The heavy work happens behind it.")}</span></span>
+    </h1>
+    <p class="lead rv" style="--i:2">
+      {t(
+        lang,
+        "一个 EE 项目要跑几周，跨立题、文献、阅读、写作、回顾五个工作面。要让陪练在第六周还记得第一周说过什么，光有更大的上下文窗口不够——真正管用的是一套结构：什么进主线程、什么必须隔离出去、什么该沉到脊柱里。",
+        "An EE runs for weeks, across framing, sources, reading, writing and review. Getting a coach to remember week one in week six takes more than a bigger context window — it takes a structure: what enters the main thread, what has to be isolated out of it, and what settles into the spine.",
+      )}
+    </p>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════ ONE CONVERSATION ══════ -->
+<section class="section tight">
+  <div class="container">
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "一条会话走完全程，工作面只是换了镜头", "One conversation, start to finish — a surface is only a change of camera")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "立题、计划、文献、阅读、写作、回顾，看上去是六个房间，背后只有一个智能体。换房间不重置记忆，只是把当前工作面和它对应的那副牌换进上下文。",
+          "Framing, planning, sources, reading, writing, review — six rooms to look at, one agent behind all of them. Changing rooms resets no memory; it swaps in the current surface and the deck that belongs to it.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:44px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">one thread · isolated sub-agents · one spine</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><AgentTopology /></div>
+        <div class="legend">
+          <span><i class="p"></i>{t(lang, "一直在场的陪练", "the coach that stays")}</span>
+          <span><i class="a"></i>{t(lang, "隔离的子代理", "isolated sub-agents")}</span>
+          <span><i class="g"></i>{t(lang, "项目脊柱", "the project spine")}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ════════════════════════════════════════ WHY ISOLATION ══════ -->
+<section class="section band-paper">
+  <div class="container">
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "子代理存在的唯一理由：有些东西不能进主线程", "Sub-agents exist for one reason: some things must not enter the main thread")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "一旦让陪练亲自吞下一整篇论文，两件事同时发生：它开始忘记更早的对话，而那篇论文的原文从此可能被它顺手复述进学生的正文。隔离同时解决了这两件事。",
+          "Let the coach swallow a whole paper and two things happen at once: it starts forgetting earlier conversation, and that source text becomes something it might casually paraphrase into her draft. Isolation answers both.",
+        )}
+      </p>
+    </div>
+
+    <div class="grid-3" style="margin-top:48px">
+      {isolated.map(([icon, zh, en, pz, pe, tone], i) => (
+        <div class="card hoverable rv" style={`--i:${i}`}>
+          <div class={`cardic ${tone}`}><Icon name={icon} /></div>
+          <h3>{t(lang, zh, en)}</h3>
+          <p>{t(lang, pz, pe)}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════ CONTEXT STACK ══════ -->
+<section class="section">
+  <div class="container">
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "三层上下文：越往下越持久，越往上越易变", "Three tiers of context: durable at the bottom, volatile at the top")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "记忆层跨项目，记的是这个学生反复出现的习惯与长期变化——只留模式与过程，从不存她的文档。脊柱层是这个项目的持久状态：提案、计划、文献表、大纲、活动日志。线程层是眼下这段对话，定形之后就折进脊柱。每一轮真正送进模型的，是从这三层投影出来的一份。",
+          "The memory tier spans projects and holds this student's recurring habits and long-run change — patterns and process only, never a store of her documents. The spine tier is this project's durable state: proposal, plan, reading list, outline, activity log. The thread tier is the conversation in hand, folding into the spine once it solidifies. What actually reaches the model each turn is a projection of all three.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:44px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">memory · spine · thread → per-turn projection</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><ContextStack /></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════════ RESTRAINT LADDER ═════ -->
+<section class="section band-cool">
+  <div class="container">
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "每一轮，它先问自己：这一刻该谁来想", "Every turn it asks itself first: whose thinking is this")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "通用助手的本能是把答案给全。这个陪练在开口之前先走一遍克制阶梯：该答的答，该提示的提示；当这一步的思考属于学生时，它不写答案，而是调用 summon_card，把一张具体的方法卡递过去，然后闭嘴等她。",
+          "A general assistant's instinct is to complete the answer. This coach walks a restraint ladder before it speaks: it answers where answering helps and nudges where a nudge is enough. When the thinking belongs to the student, it writes no answer — it calls summon_card, hands over a specific method, and waits.",
+        )}
+      </p>
+    </div>
+
+    <div class="stage rv-pop" style="margin-top:44px">
+      <div class="stage-bar">
+        <span class="dots"><b></b><b></b><b></b></span>
+        <span class="t">decide · summon_card · execute · refeed</span>
+      </div>
+      <div class="stage-body">
+        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
+        <div class="dscroll"><RestraintLadder /></div>
+      </div>
+    </div>
+
+    <div class="rail rv" data-sequence data-step="150" style="margin-top:48px">
+      {decoupled.map(([az, ae, bz, be, pz, pe]) => (
+        <div class="rail-node" data-seq-item>
+          <div class="k">{t(lang, bz, be)}</div>
+          <h4>{t(lang, az, ae)}</h4>
+          <p>{t(lang, pz, pe)}</p>
+        </div>
+      ))}
+    </div>
+  </div>
+</section>
+
+<!-- ═════════════════════════════════════════ STAGE ROUTING ══════ -->
+<section class="section">
+  <div class="container">
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "同一句话，在不同阶段是帮助还是代劳", "The same sentence is help at one stage and ghost-writing at another")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "「我帮你看看」在立题阶段是帮助，在写作阶段就是代劳。所以支持按阶段路由：每个阶段 AI 能做什么、不能做什么，是分别定义、写在系统里的——不靠一遍遍叮嘱维持，也不用老师在旁边盯着。",
+          "“Let me take a look” is help while she's framing a question and ghost-writing once she's drafting. So support is routed by stage: what the AI may and may not do is defined separately for each one and written into the system — not sustained by repeated reminders, and not by a teacher standing over her.",
+        )}
+      </p>
+    </div>
+
+    <div class="tablewrap rv" style="margin-top:40px">
+      <table class="dt">
+        <thead>
+          <tr>
+            <th style="width:150px">{t(lang, "阶段", "Stage")}</th>
+            <th>{t(lang, "它会做的", "What it does")}</th>
+            <th style="width:230px">{t(lang, "永远不做", "What it never does")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {stages.map(([sz, se, dz, de, nz, ne]) => (
+            <tr>
+              <td class="k">{t(lang, sz, se)}</td>
+              <td>{t(lang, dz, de)}</td>
+              <td>{t(lang, nz, ne)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout yes rv" style="margin-top:32px">
+      <div class="cl"><Icon name="target" />{t(lang, "支持的终点是不再需要支持", "The point of support is to stop being needed")}</div>
+      <h3>{t(lang, "一张卡被召唤得越来越少，才算教会了", "A card has worked when it stops being summoned")}</h3>
+      <p>
+        {t(
+          lang,
+          "使用量本身说明不了什么。我们盯的是两条同时发生的曲线：这张卡的召唤次数往下走，同时它封装的那句追问，开始出现在学生自己写的提示词和修订理由里。",
+          "Usage on its own says nothing. We watch two curves moving together: this card's summons trending down, while the question it packaged starts turning up in the student's own prompts and in her reasons for a revision.",
+        )}
+      </p>
+    </div>
+  </div>
+</section>
+
+<CtaBand />
+
+<Pager
+  links={[
+    {
+      href: "/algorithm/evaluation",
+      kicker: ["另一个关键算法", "The other key algorithm"],
+      title: ["评估算法设计", "The assessment design"],
+      body: ["事实由系统算出，判断只能引用证据", "Facts are computed; judgments may only cite evidence"],
+    },
+    {
+      href: "/algorithm",
+      kicker: ["返回", "Back"],
+      title: ["技术总览 · 五层系统", "Technology · the five layers"],
+      body: ["克制、卡运行时、编排、记录、评估", "Restraint, card runtime, orchestration, record, evaluation"],
+    },
+  ]}
+/>

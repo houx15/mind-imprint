@@ -25,10 +25,10 @@ const spine: [string, string][] = [
 >
   <defs>
     <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--faint)" />
     </marker>
     <marker id="ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--accent)" />
     </marker>
   </defs>
 
@@ -59,8 +59,8 @@ const spine: [string, string][] = [
 
   <!-- ── main agent ─────────────────────────────────────────────────── -->
   <rect class="box box-p" x="210" y="52" width="472" height="240" rx="20" />
-  <circle cx="234" cy="80" r="4" fill="#2a3b7a" />
-  <circle class="pulse" cx="234" cy="80" r="9" fill="#2a3b7a" opacity="0.25" />
+  <circle cx="234" cy="80" r="4" style="fill:var(--primary)" />
+  <circle class="pulse" cx="234" cy="80" r="9" style="fill:var(--primary)" opacity="0.25" />
   <text class="dm" x="258" y="84">MAIN AGENT · {t(lang, "一条连续会话", "one continuous session")}</text>
   <text class="dt" x="234" y="116" style="font-size:19px">{t(lang, "印记", "Imprint")}</text>
   <text class="ds" x="234" y="146">{t(lang, "系统 prompt（克制阶梯）", "system prompt (the restraint ladder)")}</text>

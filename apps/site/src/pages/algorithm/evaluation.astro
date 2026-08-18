@@ -1,0 +1,21 @@
+---
+import Base from "../../layouts/Base.astro";
+import EvaluationDesignPage from "../../components/pages/EvaluationDesignPage.astro";
+import { getLang, t } from "../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+
+<Base
+  title={t(
+    lang,
+    "评估算法设计 · 技术 | 思维印记",
+    "The assessment design · Technology | Mind Imprint",
+  )}
+  description={t(
+    lang,
+    "评估报告分成两半：数得出来的事实直接从记录里算，一次模型都不调；需要判断的部分走旗舰模型四路调用，且只能引用事先建好的证据索引。九个板块、认知深度 D1–D6 与智识自主 A1–A6 分开报告，永不合成总分。",
+    "The report has two halves: countable facts compute straight from the record without a model, while judgment runs four flagship calls bound to a pre-built evidence index. Nine sections; cognitive depth D1–D6 and intellectual autonomy A1–A6 reported apart, never merged into a score.",
+  )}
+>
+  <EvaluationDesignPage />
+</Base>

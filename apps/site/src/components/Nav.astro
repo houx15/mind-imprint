@@ -46,7 +46,34 @@ const links: Link[] = [
       },
     ],
   },
-  { href: "/algorithm", zh: "技术", en: "Technology" },
+  {
+    href: "/algorithm",
+    zh: "技术",
+    en: "Technology",
+    items: [
+      {
+        href: "/algorithm",
+        zh: "技术总览",
+        en: "Overview",
+        dzh: "五层系统，从克制到评估",
+        den: "Five layers, from restraint to assessment",
+      },
+      {
+        href: "/algorithm/evaluation",
+        zh: "评估算法设计",
+        en: "The assessment design",
+        dzh: "事实由系统算出，判断只能引用证据",
+        den: "Facts computed, judgments bound to evidence",
+      },
+      {
+        href: "/algorithm/multi-agent",
+        zh: "多智能体教练系统",
+        en: "The multi-agent coach",
+        dzh: "一条会话走完全程，重活交给子代理",
+        den: "One conversation throughout, heavy work isolated",
+      },
+    ],
+  },
   { href: "/about", zh: "关于我们", en: "About" },
 ];
 ---

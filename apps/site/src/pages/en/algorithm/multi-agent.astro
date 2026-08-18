@@ -1,0 +1,21 @@
+---
+import Base from "../../../layouts/Base.astro";
+import MultiAgentPage from "../../../components/pages/MultiAgentPage.astro";
+import { getLang, t } from "../../../i18n/utils";
+const lang = getLang(Astro.currentLocale);
+---
+
+<Base
+  title={t(
+    lang,
+    "多智能体教练系统 · 技术 | 思维印记",
+    "The multi-agent coach · Technology | Mind Imprint",
+  )}
+  description={t(
+    lang,
+    "一条连续会话走完立题、文献、阅读、写作、回顾；长文本与全过程评估交给上下文隔离的子代理，只把结论写回。三层上下文、克制阶梯与 summon_card 三层解耦，以及按阶段路由的 AI 边界。",
+    "One continuous conversation across framing, sources, reading, writing and review; long texts and whole-process assessment go to context-isolated sub-agents that return conclusions only. Three context tiers, the restraint ladder and summon_card, and AI boundaries routed by stage.",
+  )}
+>
+  <MultiAgentPage />
+</Base>

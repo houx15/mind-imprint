@@ -53,6 +53,56 @@ const cards: [string, string][] = [
   ["学习报告", "Learning report"],
 ];
 
+/* ── one real inquiry, walked across all three surfaces ─────────────── */
+const walk: {
+  k: [string, string];
+  h: [string, string];
+  p: [string, string];
+  asset: string;
+  brief: [string, string];
+}[] = [
+  {
+    k: ["01 · 课程与工具卡", "01 · Course & cards"],
+    h: ["一门课，交给她一套能带走的方法", "A course hands her a method she can take away"],
+    p: [
+      "一门课就是一条工作流：看材料、被追问、做判断、填一张工具卡，一步步推进。CRAAP、SIFT、良构论证都在真实材料上走过一遍——方法在用过之后才真正到手。",
+      "A course is a workflow: watch the material, get questioned, make a call, fill in a card, move on. CRAAP, SIFT and well-formed argument all get practised on real material — a method only really lands once it has been used.",
+    ],
+    asset: "home-01-course-player",
+    brief: ["课程播放界面：视频 + 旁白 + 一张工具卡被递出来", "Course player: video + narration + a card being handed over"],
+  },
+  {
+    k: ["02 · 阅读工作室", "02 · Reading studio"],
+    h: ["一条没标出处的推文，她自己追到了 Nature", "An unsourced post — and she traced it to Nature herself"],
+    p: [
+      "推文说「全球变绿 40% 以上来自中国」。她跳出页面横向核查：公众号 → NASA 发布稿 → Nature Sustainability 原论文，然后发现分母被换过——原文的 42% 说的是中国自己那部分变绿里森林工程的占比。",
+      "The post claimed “over 40% of the Earth\u2019s greening comes from China”. She read laterally — post → NASA release → the Nature Sustainability paper — and found the denominator had been swapped. The original 42% was the share of China\u2019s own greening due to forest programmes.",
+    ],
+    asset: "home-02-reading-room",
+    brief: ["阅读室：原文 + 溯源链 + 探索图谱", "Reading room: source text + provenance chain + exploration map"],
+  },
+  {
+    k: ["03 · 写作项目空间", "03 · Writing project space"],
+    h: ["论证撞上反例，让步段是她自己写的", "The argument hits a counter-example — she writes the concession"],
+    p: [
+      "中国碳排放全球第一。这条反方证据推翻不了她的题目，但会限制她的结论。AI 不会替她写一个字正文，它只会问：你打算接住它，还是绕开它？",
+      "China is the world\u2019s largest emitter. That counter-evidence doesn\u2019t sink her thesis, but it does bound her conclusion. The AI writes none of her prose — it only asks: are you going to take this on, or route around it?",
+    ],
+    asset: "home-03-writing-studio",
+    brief: ["写作面：正文编辑区 + 右侧只读过程树", "Writing surface: the draft, with the read-only process tree alongside"],
+  },
+  {
+    k: ["04 · 过程评估", "04 · Process evaluation"],
+    h: ["连她跳过的那一次，也被记下来了", "Even the time she skipped is on the record"],
+    p: [
+      "报告分两半：数出来的事实，和有证据支撑的判断。每一条判断都要指回一个真实存在的片段，指不到的直接丢弃。两根轴分开报告，不合成总分。",
+      "The report has two halves: facts that are counted, and judgments that are grounded. Every judgment must point back to a real fragment — the ones that can\u2019t are dropped. The two axes are reported apart, never merged into a single score.",
+    ],
+    asset: "home-04-evaluation-report",
+    brief: ["评估报告：双轴读数 + 证据链接 + 过程叙述", "Evaluation report: the two axes, evidence links, process narrative"],
+  },
+];
+
 /* ── the nine disciplinary lenses ───────────────────────────────────── */
 const lenses: [string, string, string, string][] = [
   ["逻辑学", "Logic", "证据能否推出结论，是否存在隐藏前提、因果跳跃、过度概括。", "Does the evidence actually yield the conclusion — hidden premises, causal leaps, overreach."],
@@ -729,6 +779,55 @@ const teacher: [string, string, string, string, string][] = [
     </div>
   </section>
 </div>
+
+<!-- ══════════════════════════════ ONE REAL INQUIRY (scrub) ══════ -->
+<!-- Deliberately outside the tab panels: this walk crosses all three
+     surfaces, so it stays on screen whichever tab is open. -->
+<section class="section loose scrub band-paper">
+  <div class="container">
+    <div class="sec-head rv" style="margin-bottom:56px">
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "一次真实探究", "One real inquiry")}</div>
+      <h2 class="sec-title">
+        {t(lang, "「中国有没有让地球变得更可持续？」", "“Has China made the planet more sustainable?”")}
+      </h2>
+      <p class="lead">
+        {t(
+          lang,
+          "一个学生，一篇 800 词的文章，三个工作面走完一轮。下面是她真的走过的路。",
+          "One student, an 800-word essay, one pass across all three surfaces. Below is the route she actually took.",
+        )}
+      </p>
+    </div>
+
+    <div class="scrub-grid">
+      <div class="scrub-steps">
+        {walk.map((s) => (
+          <div class="scrub-step">
+            <div class="k">{t(lang, s.k[0], s.k[1])}</div>
+            <h3>{t(lang, s.h[0], s.h[1])}</h3>
+            <p>{t(lang, s.p[0], s.p[1])}</p>
+          </div>
+        ))}
+      </div>
+
+      <div class="scrub-sticky">
+        <div class="shotstack">
+          {walk.map((s, i) => (
+            <div class="shot" data-shot={i}>
+              <div class="figure ratio-16-9" data-asset={s.asset}>
+                <div class="fslot">
+                  <div class="ficon"><Icon name="image" /></div>
+                  <div class="fname">{s.asset}</div>
+                  <div class="fdesc">{t(lang, s.brief[0], s.brief[1])}</div>
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
 
 <CtaBand />
 

@@ -246,7 +246,7 @@ html[lang="zh-CN"] .hi-title {
 }
 .hi-cta:hover {
   background: #fff;
-  color: var(--ink);
+  color: var(--on-brand);
   border-color: #fff;
   transform: translateY(-2px);
 }
@@ -290,15 +290,18 @@ html[lang="zh-CN"] .hi-title {
   position: absolute;
   inset: auto 0 0 0;
   z-index: 5;
-  height: 20svh;
+  /* Taller and earlier than the light version needed: both ends are dark now,
+     so the eye reads any short ramp as a seam rather than a horizon. */
+  height: 34svh;
   pointer-events: none;
   background: linear-gradient(
     180deg,
     transparent 0%,
-    rgba(250, 249, 246, 0.02) 52%,
-    rgba(250, 249, 246, 0.12) 72%,
-    rgba(250, 249, 246, 0.48) 88%,
-    var(--paper) 100%
+    rgba(11, 18, 32, 0.1) 24%,
+    rgba(11, 18, 32, 0.34) 48%,
+    rgba(11, 18, 32, 0.66) 68%,
+    rgba(11, 18, 32, 0.9) 85%,
+    var(--white) 100%
   );
 }
 

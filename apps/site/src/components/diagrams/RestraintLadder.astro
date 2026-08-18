@@ -15,10 +15,10 @@ const lang = getLang(Astro.currentLocale);
 >
   <defs>
     <marker id="rl-ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#9aa2b2" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--faint)" />
     </marker>
     <marker id="rl-ar-a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
-      <path d="M0 1L9 5L0 9z" fill="#d98263" />
+      <path d="M0 1L9 5L0 9z" style="fill:var(--accent)" />
     </marker>
   </defs>
 
@@ -26,7 +26,7 @@ const lang = getLang(Astro.currentLocale);
   <path class="edge edge-hot draw" style="--len:80; --d:300" d="M572 176 H616" marker-end="url(#rl-ar-a)" />
   <path class="edge draw" style="--len:180; --d:600" d="M700 262 C700 330 610 332 548 366" marker-end="url(#rl-ar)" />
   <path class="edge edge-hot draw" style="--len:80; --d:800" d="M420 366 V304" marker-end="url(#rl-ar-a)" />
-  <text class="dm" x="430" y="340" style="fill:#b1613f">{t(lang, "回灌 refeed", "refeed")}</text>
+  <text class="dm" x="430" y="340" style="fill:var(--accent)">{t(lang, "回灌 refeed", "refeed")}</text>
 
   <circle class="flow" r="4" style="offset-path:path('M572 176 H616'); --d:900" />
 
@@ -51,7 +51,7 @@ const lang = getLang(Astro.currentLocale);
   <text class="ds" x="306" y="203">{t(lang, "只递一句提示，一次只问一个", "one nudge. one question at a time")}</text>
 
   <rect class="box box-a" x="288" y="222" width="262" height="62" rx="11" />
-  <text class="dm" x="306" y="244" style="fill:#b1613f">03 · SUMMON_CARD</text>
+  <text class="dm" x="306" y="244" style="fill:var(--accent)">03 · SUMMON_CARD</text>
   <text class="ds" x="306" y="263" style="font-family:var(--mono); font-size:10px">summon_card("sift", reason, nudge)</text>
   <text class="dm" x="306" y="278" style="text-transform:none">{t(lang, "触发自动 · 打开由学生确认", "auto-triggered · the student opens it")}</text>
 
@@ -62,7 +62,7 @@ const lang = getLang(Astro.currentLocale);
   <text class="ds" x="638" y="174">{t(lang, "schema 驱动渲染，新增一张卡 = 新增一份配置", "schema-driven: a new card is a new JSON, not new code")}</text>
   <text class="ds" x="638" y="194">{t(lang, "学生自己填：谁说的 · 原文在哪 · 差在哪", "the student fills it in: who said it, where's the original")}</text>
   <text class="ds" x="638" y="214">{t(lang, "作答与犹豫、跳过，一并采集", "answers, hesitations and skips are all captured")}</text>
-  <text class="dm" x="638" y="240" style="fill:#b1613f">{t(lang, "AI 不替她填，一个字也不", "the AI fills in nothing. not one field")}</text>
+  <text class="dm" x="638" y="240" style="fill:var(--accent)">{t(lang, "AI 不替她填，一个字也不", "the AI fills in nothing. not one field")}</text>
 
   <!-- envelope → process tree -->
   <rect class="box box-p" x="266" y="366" width="282" height="88" rx="16" />
