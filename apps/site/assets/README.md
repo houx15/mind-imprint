@@ -50,15 +50,15 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 | key | 用在哪 |
 |---|---|
 | `home/hero-bg-v3.webp` | 首屏 |
-| `banner/course-v1.webp` | `/product/courses` |
-| `banner/project-v1.webp` | `/product/projects` |
-| `banner/evaluation-v1.webp` | `/product/evaluation` |
-| `banner/teacher-v1.webp` | `/product/teacher` |
-| `banner/algorithm-v1.webp` | `/algorithm` |
-| `banner/evaluation-design-v1.webp` | `/algorithm/evaluation` |
-| `banner/multi-agent-v1.webp` | `/algorithm/multi-agent`（暂用 hero v4，CSS 里左右镜像） |
-| `banner/about-v1.webp` | `/about` |
+| `banner/*-v1.webp` | 各页横幅（about / algorithm / evaluation-design / multi-agent / course / project / evaluation / teacher / product-overview） |
 | `ability/*-v1.webp` | 首页「四项能力」四张背景插画 |
+| `product/course-runtime-v1.webp` | `/product/courses`，以及总览案例第 1 步 |
+| `product/framing-v1.webp` | `/product/projects` 立题阶段，以及案例第 2 步 |
+| `product/warren-map-v1.webp` | `/product/projects` 兔子洞地图，以及案例第 4 步 |
+| `product/writing-v1.webp` | `/product/projects` 写作面，以及案例第 5 步 |
+| `product/evaluation-report-v1.webp` | `/product/evaluation`，以及案例第 6 步 |
+| `evaluation/report-sample-v1.webp` | `/algorithm/evaluation` 示例报告首页 |
+| `evaluation/report-sample-v1.pdf` | 同页「查看完整报告」按钮（12 页） |
 
 ## 当前待补的图
 
@@ -66,13 +66,10 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 
 | key 建议 | 内容 |
 |---|---|
-| `product/course-runtime.png` | 课程播放界面全景 |
-| `product/reading-provenance.png` | 溯源链 公众号 → NASA → Nature |
-| `product/writing-studio.png` | 写作面全景 |
-| `product/evaluation-report.png` | 报告界面：左侧刻度目录 + 双轴可视化 |
-| `product/teacher-console.png` | 教师端：叙述版周报 + 实时名单 |
-| `evaluation/report-sample.png` | `/algorithm/evaluation` 页尾的完整示例报告 |
-| `team/<name>.jpg` | 团队人像，4:5 |
+| `product/reading-provenance.png` | 阅读室：原文 + 溯源链（公众号 → NASA → Nature）+ 证据地图 |
+| `product/teacher-console.png` | 教师端：实时名单 + 学生摘要 + 可点开的证据链接 |
+| `team/ceo.jpg`、`team/cto.jpg` | 两位联合创始人人像，4:5 竖版 |
+| `banner/multi-agent-v2.webp` | 多智能体页横幅（现暂用 hero v4 左右镜像） |
 
 白皮书 `docs/reference/思维印记白皮书.docx` 里内嵌了 30 张图（CRAAP 模型、SIFT×CRAAP、
 信源金字塔、WEF 图表、地球变绿的几张截图），其中不少可以直接拿来用。

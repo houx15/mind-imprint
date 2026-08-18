@@ -6,6 +6,7 @@ import Pager from "../sections/Pager.astro";
 import PageBanner from "../sections/PageBanner.astro";
 import DualAxis from "../diagrams/DualAxis.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
+import { assetUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 const L = (p: string) => localePath(lang, p);
@@ -398,21 +399,36 @@ const honesty: [string, string, string, string, string][] = [
       </a>
     </div>
 
-    <Figure
-      class="rv-pop"
-      ratio="16-9"
-      name="evaluation-report-sample"
-      desc={t(
-        lang,
-        "一份完整的示例报告（即将放出）：双轴读数、可点开的证据链接、过程叙述",
-        "A complete sample report (coming): the two axis readings, clickable evidence, the process narrative",
-      )}
-      caption={t(
-        lang,
-        "示例报告即将在这里完整放出 —— 用真实走完一次探究的记录生成，不是排版稿。",
-        "A full sample report will be published here — generated from a real completed inquiry, not a mock-up.",
-      )}
-    />
+    <div class="reportsample rv-pop">
+      <div class="rs-page">
+        <img
+          src={assetUrl("evaluation/report-sample-v1.webp")}
+          alt={t(lang, "示例评估报告首页", "First page of the sample assessment report")}
+          loading="lazy"
+          decoding="async"
+        />
+      </div>
+      <div class="rs-note">
+        <h3>{t(lang, "一份完整的示例报告", "A complete sample report")}</h3>
+        <p>
+          {t(
+            lang,
+            "十二页，用一次真实走完的探究生成，不是排版稿。九个板块按顺序展开：基本信息与计数、综述、过程时间线、材料清单、认知深度 D1–D6、智识自主 A1–A6、提问透镜、工具卡与子代理、风险提示。",
+            "Twelve pages, generated from an inquiry someone actually completed — not a mock-up. The nine sections run in order: basics and counts, the overview, the timeline, the materials, cognitive depth D1–D6, intellectual autonomy A1–A6, the prompt lens, cards and sub-agents, and risk notes.",
+          )}
+        </p>
+        <a
+          class="btn btn-primary"
+          style="margin-top:22px"
+          href={assetUrl("evaluation/report-sample-v1.pdf")}
+          target="_blank"
+          rel="noopener"
+        >
+          {t(lang, "查看完整报告（PDF）", "Read the full report (PDF)")}
+          <Icon name="arrow" />
+        </a>
+      </div>
+    </div>
   </div>
 </section>
 

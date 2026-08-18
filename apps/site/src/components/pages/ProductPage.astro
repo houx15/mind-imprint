@@ -4,6 +4,7 @@ import Figure from "../Figure.astro";
 import CtaBand from "../sections/CtaBand.astro";
 import PageBanner from "../sections/PageBanner.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
+import { assetUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 const L = (p: string) => localePath(lang, p);
@@ -167,6 +168,8 @@ const walk: {
   p: [string, string];
   href: string;
   asset: string;
+  /** Media key, when the screenshot exists. Absent = labelled empty slot. */
+  shot?: string;
   brief: [string, string];
 }[] = [
   {
@@ -178,6 +181,7 @@ const walk: {
     ],
     href: "/product/courses",
     asset: "walk-01-course",
+    shot: "product/course-runtime-v1.webp",
     brief: ["课程播放界面：素材 + 旁白 + 递出的工具卡", "The course player: material, narration, and the card being handed over"],
   },
   {
@@ -189,6 +193,7 @@ const walk: {
     ],
     href: "/product/projects",
     asset: "walk-02-proposal",
+    shot: "product/framing-v1.webp",
     brief: ["提案页：左侧要点与批注，右侧写作区", "The proposal page: notes and annotations left, writing surface right"],
   },
   {
@@ -211,6 +216,7 @@ const walk: {
     ],
     href: "/product/projects",
     asset: "walk-04-warren",
+    shot: "product/warren-map-v1.webp",
     brief: ["探索图谱：主线与岔路，含退出标记", "The exploration map: the main line, the detours, and where each was left"],
   },
   {
@@ -222,6 +228,7 @@ const walk: {
     ],
     href: "/product/projects",
     asset: "walk-05-writing",
+    shot: "product/writing-v1.webp",
     brief: ["写作面：正文 + 批注 + 只读过程树", "The writing surface: draft, annotations, and the read-only process tree"],
   },
   {
@@ -233,6 +240,7 @@ const walk: {
     ],
     href: "/product/evaluation",
     asset: "walk-06-report",
+    shot: "product/evaluation-report-v1.webp",
     brief: ["评估报告：双轴读数 + 可点开的证据链接", "The report: the two axis readings and clickable evidence"],
   },
 ];
@@ -300,11 +308,15 @@ const walk: {
           {walk.map((s, i) => (
             <div class="shot" data-shot={i}>
               <div class="figure ratio-16-9" data-asset={s.asset}>
-                <div class="fslot">
-                  <div class="ficon"><Icon name="image" /></div>
-                  <div class="fname">{s.asset}</div>
-                  <div class="fdesc">{t(lang, s.brief[0], s.brief[1])}</div>
-                </div>
+                {s.shot ? (
+                  <img src={assetUrl(s.shot)} alt={t(lang, s.brief[0], s.brief[1])} loading="lazy" decoding="async" />
+                ) : (
+                  <div class="fslot">
+                    <div class="ficon"><Icon name="image" /></div>
+                    <div class="fname">{s.asset}</div>
+                    <div class="fdesc">{t(lang, s.brief[0], s.brief[1])}</div>
+                  </div>
+                )}
               </div>
             </div>
           ))}

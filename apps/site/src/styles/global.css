@@ -1514,11 +1514,21 @@ table.dt td .small {
   align-items: start;
 }
 /* Pinned at the viewport's vertical centre, so the visual and the step of copy
-   that activated it sit on the same line of sight. */
+   that activated it sit on the same line of sight.
+
+   Centred by making the sticky box one viewport tall and centring INSIDE it —
+   not with translateY(-50%). A transform is applied after layout, so it lifts
+   the visual clear out of the grid that is supposed to contain it, and the
+   thing lands on top of the section heading above. */
 .scrub-sticky {
   position: sticky;
-  top: 50%;
-  transform: translateY(-50%);
+  top: 0;
+  height: 100svh;
+  padding-top: 62px; /* clear the nav */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
 }
 .scrub-steps {
   display: grid;
@@ -3308,5 +3318,59 @@ html[lang="zh-CN"] .ability h3 {
   .ability {
     min-height: 210px;
     padding: 26px 24px 24px;
+  }
+}
+
+
+/* ============================================================================
+   21 the sample report — a document page shown as a document
+   ========================================================================== */
+
+/* The report's own pages are portrait, so framing them 16:9 would either crop
+   the section index off the left or shrink the type past reading. It gets a
+   page beside a note instead. */
+.reportsample {
+  display: grid;
+  grid-template-columns: minmax(0, 420px) 1fr;
+  gap: 48px;
+  align-items: center;
+  margin-top: 44px;
+}
+.rs-page {
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  overflow: hidden;
+  background: var(--surface);
+  box-shadow: var(--shadow-lift);
+  /* only the top of page one — the rest is behind the button */
+  max-height: 520px;
+}
+.rs-page img {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.rs-note h3 {
+  font-size: clamp(21px, 2vw, 27px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+html[lang="zh-CN"] .rs-note h3 {
+  letter-spacing: 0;
+}
+.rs-note p {
+  margin-top: 14px;
+  font-size: 15.5px;
+  line-height: 1.72;
+  color: var(--ink-2);
+}
+
+@media (max-width: 880px) {
+  .reportsample {
+    grid-template-columns: 1fr;
+    gap: 28px;
+  }
+  .rs-page {
+    max-height: 380px;
   }
 }
