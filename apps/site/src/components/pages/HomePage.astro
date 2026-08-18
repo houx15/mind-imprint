@@ -164,7 +164,7 @@ const matrix: [string, string, string, string, string, string, string][] = [
   <div class="container">
     <div class="sec-head center rv">
       <h2 class="sec-title">
-        {t(lang, "关键分歧：AI 时代，该怎么让孩子用 AI？", "The fork in the road: how should a student be allowed to use AI?")}
+        {t(lang, "AI 时代，该怎么让孩子用 AI？", "In the age of AI, how should a student be allowed to use it?")}
       </h2>
     </div>
 
@@ -296,15 +296,8 @@ const matrix: [string, string, string, string, string, string, string][] = [
     <div class="algo-head rv">
       <div class="algo-tag mono">{t(lang, "核心设计 01 · 过程评估", "Core design 01 · assessment")}</div>
       <h2 class="sec-title">
-        {t(lang, "判断力不打总分。两根轴，十二个测量点。", "Judgment gets no single score. Two axes, twelve measurement points.")}
+        {t(lang, "两根轴线，十二维度，综合测量「思维印记」", "Two axes, twelve dimensions — the full measure of a thinking imprint")}
       </h2>
-      <p class="lead">
-        {t(
-          lang,
-          "一个产品如果声称能给「判断力」打一个精准分数，那是不诚实的。能被严谨测量的，是它两个有学理支撑、能被行为化观察的前因：思考能到达的深度，和无人要求时思考由谁启动。两者分开测量、分开报告、永不合成一个数字——缺深度的自主是自信的垃圾，缺自主的深度是一台租给任何提示者的好引擎，把它们平均掉，等于把最要紧的那条信息扔了。",
-          "A product claiming to score “judgment” precisely would be lying. What can be measured rigorously are its two antecedents — each with a research lineage, each observable in behaviour: how deep the thinking got, and who started it when nobody asked. They are measured apart, reported apart, and never merged into one number. Autonomy without depth is confident garbage; depth without autonomy is a good engine rented to whoever prompts it. Average them and you throw away the only part that mattered.",
-        )}
-      </p>
       <a class="tlink" style="margin-top:24px" href={L("/algorithm/evaluation")}>
         {t(lang, "了解完整的评估设计", "See the full assessment design")}<Icon name="arrow" />
       </a>
@@ -322,13 +315,20 @@ const matrix: [string, string, string, string, string, string, string][] = [
     <div class="algo-head rv">
       <div class="algo-tag mono">{t(lang, "核心设计 02 · 多智能体教练", "Core design 02 · the coach")}</div>
       <h2 class="sec-title">
-        {t(lang, "多智能体教练：一个陪练走完全程，重活交给隔离的子代理", "The coach: one agent walks the whole project, heavy work goes to isolated sub-agents")}
+        {t(lang, "探究写作教练：多智能体架构支撑项目全流程", "The inquiry writing coach: a multi-agent architecture across the whole project")}
       </h2>
       <p class="lead">
         {t(
           lang,
-          "一个项目要跑几周。主智能体走过立题、阅读、写作、回顾所有工作面，记忆不断线；只有必须吞下长文本的活儿——读一篇论文、评一整段过程——才交给上下文隔离的子代理，回来只带结论。学生始终在跟同一个「印记」说话。",
-          "A project runs for weeks. The main agent walks framing, reading, writing and review with an unbroken memory. Only work that has to swallow a long text — reading a paper, assessing a whole process — goes to a context-isolated sub-agent, which returns conclusions alone. The student is always talking to the same Imprint.",
+          "立题、检索、阅读、写作、复盘，一个课题要跑好几周。学生全程只面对一个教练，它记得住这个项目的每一步；查文献、通读长论文、批注整篇初稿这类重活，由各自专精的智能体分工完成。",
+          "Framing, searching, reading, writing, review — a piece of coursework runs for weeks. The student works with one coach throughout, and it remembers every step of the project; the heavy lifting — literature search, reading a full paper, annotating a whole draft — is divided among specialist agents behind it.",
+        )}
+      </p>
+      <p class="lead" style="margin-top:16px">
+        {t(
+          lang,
+          "教练本身也在被改进。每一届学生留下的过程数据，都会回到教学设计里：哪一步最容易卡住、哪张工具卡真正起了作用、哪句引导反而让学生停止思考——据此调整触发时机与引导策略，下一届拿到的是更懂学生的教练。",
+          "The coach itself keeps improving. The process data each cohort leaves behind feeds back into the teaching design: where students get stuck, which thinking tool actually changed the work, which prompt made them stop thinking. Trigger timing and guidance strategy are tuned from that evidence, so the next cohort meets a coach that understands them better.",
         )}
       </p>
       <a class="tlink" style="margin-top:24px" href={L("/algorithm/multi-agent")}>

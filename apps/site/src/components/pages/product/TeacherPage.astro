@@ -8,12 +8,12 @@ import { getLang, t } from "../../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
 
-/* ── the teacher's four positions ───────────────────────────────────── */
+/* ── what the console actually puts in front of a teacher ───────────── */
 const teacher: [string, string, string, string, string][] = [
-  ["target", "教师设计机会", "The teacher designs the opportunity", "题目够不够开放、材料有没有冲突、反方有没有被放进去——这些由教师决定。", "How open the task is, whether the material conflicts, whether a counter-case is in the room — the teacher decides all of it."],
-  ["eye", "教师判读证据", "The teacher reads the evidence", "系统给的是读数，教师给的是解释。原始对话、来源记录、草稿修改都可点开。", "The system gives a reading; the teacher gives the interpretation. Raw chat, source records and draft changes all open up."],
-  ["flask", "教师开出处方", "The teacher writes the prescription", "同样是「表现不理想」，有的该放手，有的该补方法，有的该换题材。平台指出问题，教师决定怎么教。", "“Underperforming” has many causes. Some need to be let go of, some need method, some need a different subject. The platform locates it; the teacher decides."],
-  ["users", "教师训练担责", "The teacher trains accountability", "解释自己的结论、回答追问、承认限制——这种场合只发生在人和人之间。", "Explaining a conclusion, answering follow-ups, conceding a limit — that only happens between people."],
+  ["users", "班级实时名单", "The live roster", "全班同时在做什么：谁在立题、谁卡在文献、谁已经进入终稿。本周没有动静的学生会被标出来。", "What the whole class is doing right now: who is framing a question, who is stuck in the literature, who is on a final draft. Students with no activity this week are flagged."],
+  ["eye", "学生摘要", "Per-student summary", "单个学生一页看完：本周做了什么、AI 互动多少轮、用过哪几张工具卡、有没有值得留意的行为。", "One page per student: what they did this week, how many AI turns, which thinking cards they used, and anything worth a second look."],
+  ["gauge", "详细评估", "The detailed assessment", "九个板块的完整报告，每一条判断都能点开它引用的那段原始记录——对话、来源、草稿改动，教师可一键改判。", "The full nine-section report. Every judgment opens onto the record it cites — the conversation, the source, the change to the draft — and a teacher can override it in one click."],
+  ["doc", "报告导出", "Export", "过程性评估、家长报告、学期汇总，按班级或按学生一键导出，直接进家长会与教学档案。", "Process assessments, family reports and term summaries export by class or by student, ready for a parents' evening or a teaching file."],
 ];
 ---
 
@@ -22,21 +22,18 @@ const teacher: [string, string, string, string, string][] = [
   tone="m"
   eyebrow={["产品 · 教师端", "Product · the teacher console"]}
   title={[
-    ["教师第一次看得见，", "For the first time, a teacher can see"],
-    ["一份作业是怎么形成的。", "how the work took shape."],
+    ["为教师呈现完整互动数据，", "The full record of every interaction,"],
+    ["让 AI 的使用安全可见。", "so AI use is visible and safe."],
   ]}
   lead={[
-    "让学生的 AI 使用过程可视化、可管理、可回溯，让过程性评估、家长报告一键生成。系统给的是读数，教师给的是解释。",
-    "Makes each student's AI use visible, manageable and reviewable — and generates process assessments and family reports in one click. The system gives a reading; the teacher gives the interpretation.",
+    "班级里每个学生的 AI 使用过程都可视化、可管理、可回溯：学生摘要一眼看完本周状态，详细评估打得开每一条判断背后的原始记录，过程性评估与家长报告一键导出。",
+    "Every student's AI use is visible, manageable and reviewable: a per-student summary gives you the week at a glance, the detailed assessment opens the original record behind any judgment, and process reports and family reports export in one click.",
   ]}
 />
 
 <!-- teacher console -->
   <section class="section band-paper">
     <div class="container">
-            <div class="pull rv" style="margin-top:44px; max-width:860px">
-        {t(lang, "系统给的是读数，教师给的是解释。", "The system gives a reading. The teacher gives the interpretation.")}
-      </div>
 
       <div class="grid-2" style="margin-top:56px">
         {teacher.map(([icon, zh, en, pz, pe], i) => (

@@ -128,20 +128,20 @@ const hards: [string, string, string, string][] = [
   asset="banner/algorithm-v1.webp"
   eyebrow={["技术", "Technology"]}
   title={[
-    ["别人在把 AI 做得更会答。", "Everyone is making AI better at answering."],
-    ["我们在教它什么时候别答。", "We taught ours when not to."],
+    ["我们围绕教育场景，", "We build AI around the classroom —"],
+    ["构建真正具备教学性的 AI。", "AI that can actually teach."],
   ]}
   lead={[
-    "AI 越会答，学生越不用想。所以我们花力气的地方，是五件跟「答得更好」无关的事：让课程像老师一样推进、让智能体学会克制、让多个智能体共用一个项目、让支持随阶段变化并按时退场，以及让最后那份评估里的每一句话都能被核对。",
-    "The better an AI answers, the less a student has to think. So the engineering goes somewhere else: making a course pace itself like a teacher, training an agent to hold back, letting several agents share one project, routing support by stage and withdrawing it on time, and making every sentence of the final assessment checkable.",
+    "通用大模型擅长把答案给得又快又好，而这恰恰是课堂上最不需要的能力。我们的工程投入在另外五件事上：让课程按教学节奏推进、让教练懂得何时不给答案、让多个智能体协作支撑一个长周期课题、让支持随阶段变化并按时退出，以及让最终评估里的每一句话都能追回原始记录。",
+    "A general-purpose model is good at producing answers quickly and well — which is the last thing a classroom needs. Our engineering goes into five other things: pacing a course the way teaching is paced, teaching the coach when to withhold an answer, coordinating several agents across a project that runs for weeks, matching support to the stage and withdrawing it on time, and making every sentence of the final assessment traceable to the record.",
   ]}
 >
   <div class="chips rv" style="--i:3; margin-top:32px">
-    <a class="chip mono" href="#course">course-workflow</a>
-    <a class="chip mono" href="#agent">restraint-ladder</a>
-    <a class="chip mono" href="#multi">project-spine</a>
-    <a class="chip mono" href="#staged">stage-router</a>
-    <a class="chip mono" href="#evaluation">evidence-index</a>
+    <a class="chip" href="#course">{t(lang, "课程推进", "Course pacing")}</a>
+    <a class="chip" href="#agent">{t(lang, "教练克制", "Coach restraint")}</a>
+    <a class="chip" href="#multi">{t(lang, "多智能体协作", "Multi-agent teamwork")}</a>
+    <a class="chip" href="#staged">{t(lang, "分阶段支持", "Stage-matched support")}</a>
+    <a class="chip" href="#evaluation">{t(lang, "证据可追溯", "Traceable evidence")}</a>
   </div>
 </PageBanner>
 
@@ -151,7 +151,7 @@ const hards: [string, string, string, string][] = [
     <div class="sec-head rv">
       <div class="eyebrow"><span class="pip"></span>{t(lang, "五个关键算法", "Five key algorithms")}</div>
       <h2 class="sec-title">
-        {t(lang, "教学法先定下来，算法再去实现它", "The pedagogy is decided first. The algorithms implement it.")}
+        {t(lang, "五个围绕教学主张设计的 AI 算法", "Five AI algorithms, each designed around a teaching claim")}
       </h2>
       <p class="lead">
         {t(

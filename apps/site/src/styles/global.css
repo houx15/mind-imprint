@@ -1859,16 +1859,39 @@ html:not(.js) .shotstack {
 }
 
 /* team */
+/* Two founders, side by side, with the portrait beside the bio rather than
+   above it — a three-up grid made two people look like a gap. */
 .team {
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 26px;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 34px;
+}
+.member {
+  display: grid;
+  grid-template-columns: 168px 1fr;
+  gap: 24px;
+  align-items: start;
+}
+.member .mbio {
+  font-size: 14px;
+  line-height: 1.72;
+  color: var(--muted);
+  margin-top: 12px;
+}
+@media (max-width: 1000px) {
+  .team {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 560px) {
+  .member {
+    grid-template-columns: 1fr;
+  }
 }
 .member .portrait {
   aspect-ratio: 4 / 5;
   border-radius: var(--r-lg);
   overflow: hidden;
-  margin-bottom: 18px;
 }
 .member .mname {
   font-size: 18px;

@@ -8,14 +8,19 @@ import { getLang, t } from "../../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
 
-/* ── the six-station inquiry spine ──────────────────────────────────── */
+/* ── the seven stages a project actually moves through ───────────────
+   Source of truth: docs/2026-08-09-all-statuses.md. The coach's job, the
+   page the student is on, and which cards are available all change per
+   stage — so this list has to match that document, not a generic
+   research spine. */
 const stations: [string, string, string, string, string, string, string][] = [
-  ["S1", "选题与研究问题", "Question", "把兴趣主题收窄为可回答的问题，限定对象、范围与比较关系。", "Narrow an interest into an answerable question — object, scope, comparison.", "问题链", "question chain"],
-  ["S2", "文献搜索与综述", "Sources", "从「找到资料」走向「让来源彼此对话」，并指认研究缺口。", "Move from finding material to making sources argue with each other.", "文献表格", "source table"],
-  ["S3", "研究方法设计", "Method", "比较方法候选，说明为什么这一种方法能回答这个问题。", "Compare candidate methods; say why this one answers this question.", "方法框架", "method frame"],
-  ["S4", "数据分析", "Data", "处理自己收集的证据，记录清洗、分析与不确定性。", "Work her own evidence — cleaning, analysis, and how certain she is.", "数据包", "data pack"],
-  ["S5", "学术写作", "Writing", "搭论证、接反方、写让步段，控制结论的强度。", "Build the argument, take the counter-case, bound the conclusion.", "修订稿", "revisions"],
-  ["S6", "项目管理", "Managing", "贯穿全程：定计划、发现计划失效、调整行动。", "Throughout: plan, notice the plan failing, adjust.", "项目日志", "project log"],
+  ["01", "开始", "Start", "全屏对话。教练介绍这趟探究要走的路，学生点「开始」才真正建项目。", "A full-screen conversation. The coach lays out the route ahead; nothing starts until the student says go.", "项目建立", "project opened"],
+  ["02", "研究框架", "Framing", "目标、缘由、活动与时间、资源、可能的反例，五项逐条谈清。卡住时递出提问卡，把题目拆回学生自己的经验。", "Objective, motivation, activities and timeline, resources, likely counter-cases — five items, settled one at a time. When she stalls, the question card takes the prompt apart and connects it to her own experience.", "研究框架", "research framework"],
+  ["03", "项目管理", "Planning", "系统据框架生成计划：甘特图排期、看板拆任务、活动日志留痕。中途回来先看这一页，用于复位。", "The framework becomes a plan: a Gantt schedule, a kanban of tasks, an activity log. Coming back after a break, this is the page that re-orients her.", "计划与日志", "plan and log"],
+  ["04", "写提案", "Proposal", "九个部分的提案，可以自由写，也可以逐段引导——每段一张卡、一个具体问题、一个可参考的范例。写完拿到分段批注。", "A nine-part proposal, written freely or section by section — each with one card, one specific question and a worked example. It comes back with paragraph-level annotation.", "提案定稿", "proposal locked"],
+  ["05", "阅读与探索", "Reading", "阅读室里做检索与精读：逐篇记来源、论点、证据，标出它服务哪个子问题，长成一张证据地图。教练提检索方向，也提醒哪条线跑偏了。", "Search and close reading in the reading room: source, claim and evidence noted per paper, tagged to the sub-question it serves, growing into an evidence map. The coach suggests directions — and says when a line has drifted.", "证据地图", "evidence map"],
+  ["06", "写论文", "Writing", "先定大纲，再逐个论点写：证据、分析、限度、与其他论点的关系。需要时递上 PEE 与论证解剖卡。最后写引言与结论，AI 批注与修改轮流走，直到她说完成。", "Outline first, then claim by claim: evidence, analysis, limits, and how it connects to the rest. PEE and argument-anatomy cards arrive when needed. Introduction and conclusion last, then annotate-and-revise until she calls it done.", "终稿", "final draft"],
+  ["07", "复盘", "Review", "左边摊开活动日志、研究框架、提案与终稿，右边是她自己的复盘表。她先写，教练再补。复盘完成，评估报告随之生成。", "The activity log, research framework, proposal and final draft on the left; her own review form on the right. She writes first, the coach adds after. Finishing the review is what generates the assessment.", "思维印记报告", "the imprint report"],
 ];
 
 /* ── the transposition-gap table from the greening case ─────────────── */
@@ -43,7 +48,19 @@ const gaps: [string, string, string, string, string, string, string, string][] =
 
 <section class="section">
     <div class="container">
-            <div class="ribbon rv-pop" style="margin-top:44px">
+      <div class="sec-head rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "项目全流程", "The whole project")}</div>
+        <h2 class="sec-title">{t(lang, "七个阶段，教练在每个阶段做的事都不一样", "Seven stages — and the coach does a different job in each")}</h2>
+        <p class="lead">
+          {t(
+            lang,
+            "不是一个通用聊天框陪着走全程。每个阶段有它自己的页面、自己可用的工具卡、自己的完成标准；上一阶段的产出，是下一阶段的输入。",
+            "Not one general-purpose chat box for the whole journey. Each stage has its own page, its own available cards and its own bar for being finished — and what one stage produces is what the next one starts from.",
+          )}
+        </p>
+      </div>
+
+      <div class="ribbon rv-pop" style="margin-top:44px">
         {stations.map(([s, zh, en, pz, pe, oz, oe]) => (
           <div class="rstep">
             <div class="s">{s}</div>
@@ -206,13 +223,13 @@ const gaps: [string, string, string, string, string, string, string, string][] =
       <div class="grid-3" style="margin-top:56px">
         <div class="card rv" style="--i:0">
           <div class="cardic"><Icon name="chat" /></div>
-          <h3>{t(lang, "一条连续的对话", "One continuous conversation")}</h3>
-          <p>{t(lang, "立题、计划、文献、阅读、写作、回顾都是同一个「印记」的不同工作面，背后只有一个智能体。换房间只是把镜头移过去，它带着整段记忆一起走。", "Framing, planning, sources, reading, writing and review are surfaces of the same Imprint, with one agent behind all of them. Changing rooms moves the camera; it carries the whole memory along.")}</p>
+          <h3>{t(lang, "教练记得住整个项目", "The coach remembers the whole project")}</h3>
+          <p>{t(lang, "一个课题跑几周，学生始终在跟同一个教练说话。第六周提起第一周定下的研究问题，它接得上，不需要她重新解释一遍自己在做什么。", "Coursework runs for weeks, and she talks to the same coach throughout. In week six it still knows the question she set in week one — she never has to explain her own project back to it.")}</p>
         </div>
         <div class="card rv" style="--i:1">
           <div class="cardic"><Icon name="db" /></div>
-          <h3>{t(lang, "一根项目脊柱", "One project spine")}</h3>
-          <p>{t(lang, "提案、计划、文献表、大纲、活动日志——每个工作面读写的是同一份持久状态。对话一旦定形就折进脊柱，线程保持轻，一句也没丢。", "Proposal, plan, reading list, outline, activity log — every surface reads and writes one durable state. Solidified dialogue folds into the spine: the thread stays lean and nothing is lost.")}</p>
+          <h3>{t(lang, "所有产出都留在项目里", "Everything she makes stays with the project")}</h3>
+          <p>{t(lang, "研究框架、计划、文献笔记、证据地图、大纲、每一版草稿、活动日志——都存在同一个项目里，随时打得开、改得动，也构成最后那份评估的原始材料。", "Research framework, plan, reading notes, evidence map, outline, every draft, the activity log — all held in one project, all open to revisit and revise, and all of it the raw material the final assessment is built from.")}</p>
         </div>
         <div class="card rv" style="--i:2">
           <div class="cardic"><Icon name="slash" /></div>

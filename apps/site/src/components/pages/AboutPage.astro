@@ -8,12 +8,8 @@ import { demoUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 
-/**
- * TEAM — fill these in.
- *   name / role / bio are placeholders; portraits drop into
- *   apps/site/public/media/team-*.jpg and get wired via `photo`.
- * Everything else on this page is real copy.
- */
+/* The founding team. Portraits drop into apps/site/assets/team/ and get
+   wired through `photo`; everything else here is final copy. */
 const team: {
   slug: string;
   role: [string, string];
@@ -21,12 +17,24 @@ const team: {
   bio?: [string, string];
   photo?: string;
 }[] = [
-  { slug: "team-founder", role: ["创始人", "Founder"] },
-  { slug: "team-pedagogy", role: ["教学法负责人", "Head of pedagogy"] },
-  { slug: "team-curriculum", role: ["课程设计", "Curriculum design"] },
-  { slug: "team-assessment", role: ["评估研究", "Assessment research"] },
-  { slug: "team-engineering", role: ["产品与工程", "Product & engineering"] },
-  { slug: "team-schools", role: ["学校合作", "School partnerships"] },
+  {
+    slug: "team-ceo",
+    role: ["联合创始人 · CEO", "Co-founder & CEO"],
+    name: ["陈玉洁", "Yujie Chen"],
+    bio: [
+      "教育学、心理学与社会学的跨学科背景，在德国、美国、澳大利亚求学与工作。曾任职于联合国训练研究所（UNITAR）纽约，从事媒介与信息素养、可持续发展教育与 AI 课程设计。她长期在不同国家、文化与教育体系之间做课程协作，擅长把复杂议题转化为可学习、可评估、可行动的教育方案——参与过全球媒介与信息素养课程框架、AI 伦理与数字素养培训、ESG 与可持续发展教育项目，并为学校、教师与青年学习者设计跨学科课程。",
+      "An interdisciplinary background in education, psychology and sociology, with study and work across Germany, the United States and Australia. She worked at UNITAR in New York on media and information literacy, education for sustainable development, and AI curriculum design. Years of curriculum collaboration across countries, cultures and education systems have made her expert at turning a complex issue into something that can be learned, assessed and acted on — from global media-literacy frameworks and AI-ethics training to ESG and sustainability programmes, and interdisciplinary courses for schools, teachers and young learners.",
+    ],
+  },
+  {
+    slug: "team-cto",
+    role: ["联合创始人 · CTO", "Co-founder & CTO"],
+    name: ["侯煜欣", "Yuxin Hou"],
+    bio: [
+      "清华大学毕业，工学、教育学、心理学与社会学的跨学科背景，在 AI + 教育领域深耕十余年。曾作为联合创始人与 CTO 打造全国首个自适应 AI 教师，也曾在联合国儿童基金会（UNICEF）参与社会情感学习课程设计。她持续研究的问题只有一个：AI 时代真正的核心竞争力是什么，以及它到底怎么习得。",
+      "A Tsinghua graduate with an interdisciplinary background spanning engineering, education, psychology and sociology, and more than a decade in AI and education. She was co-founder and CTO of China's first adaptive AI teacher, and worked on social-emotional learning curriculum design at UNICEF. One question runs through all of it: what the core competence of the AI era actually is, and how it is actually acquired.",
+    ],
+  },
 ];
 
 /* the four red lines — AGENTS.md 铁律, in the whitepaper's voice */
@@ -59,30 +67,24 @@ const rollout: [string, string, string, string][] = [
   asset="banner/about-v1.webp"
   eyebrow={["关于我们", "About us"]}
   title={[
-    ["我们做的是一个讲判断力的产品，", "We build a product about judgment,"],
-    ["它自己先得经得起判断。", "so it had better survive being judged."],
+    ["为 AI 原生教育而生的", "An AI-native team,"],
+    ["AI 原生团队。", "built for AI-native education."],
   ]}
   lead={[
-    "我们对这份文档与这个产品的纪律，就是我们要教给孩子的东西——不被俘获，先从不自欺开始。",
-    "The discipline we hold over this document and this product is the thing we're trying to teach: not being captured starts with not fooling yourself.",
+    "两位联合创始人，一位来自教育与课程设计，一位来自 AI 工程。跨越教育学、心理学、社会学与工学，我们在同一个问题上花了十几年：AI 时代真正值得培养的能力是什么，以及它怎么被教会、被看见。",
+    "Two co-founders — one from education and curriculum design, one from AI engineering. Across education, psychology, sociology and engineering, we have spent more than a decade on one question: what ability is actually worth building in the age of AI, and how it can be taught and made visible.",
   ]}
 />
 
 <!-- ═══════════════════════════════════════════════ BELIEF ═══════ -->
 <section class="section tight">
   <div class="container narrow">
-    <div class="pull rv">
-      {t(
-        lang,
-        "《大学》讲致知在格物：要形成自己的判断，先得亲自去究事物之理。两千五百年后，IB 的 TOK 把「对知识本身发问」设成考试内容。措辞相隔两千五百年，指的是同一件事。",
-        "The Great Learning holds that knowledge comes from investigating things: to form your own judgment you must go and examine the thing yourself. Twenty-five centuries later, IB's TOK makes “questioning knowledge itself” an examinable subject. Different words, the same thing.",
-      )}
-    </div>
+    <div class="pull rv">{t(lang, "格物致知", "Investigate things; arrive at understanding")}</div>
     <p class="body rv" style="margin-top:36px">
       {t(
         lang,
-        "这个目标很老，老到不同文明都独立写下过它；而在这两千五百年里，它一直只能靠师徒之间的言传身教传递，从来没有过读数。写下目的地的人很多，交出证据的人没有。",
-        "The goal is old — old enough that separate civilisations wrote it down independently. And for those twenty-five centuries it could only pass from teacher to student by example. There was never a reading. Plenty of people have written down the destination. Nobody has produced the evidence.",
+        "《大学》讲「致知在格物」：要形成自己的判断，先得亲自去究事物之理。两千五百年后，IB 的 TOK 把「对知识本身发问」设成考试内容——措辞相隔两千五百年，指的是同一件事。这个目标很老，老到不同文明都独立写下过它；而在这两千五百年里，它一直只能靠师徒之间的言传身教传递，从来没有过读数。",
+        "The Great Learning holds that understanding comes from investigating things: to form your own judgment, you must go and examine the thing yourself. Twenty-five centuries later, IB's TOK makes questioning knowledge itself an examinable subject — different words, the same idea. The goal is old enough that separate civilisations wrote it down independently, and for all those centuries it could pass only from teacher to student by example. There was never a reading.",
       )}
     </p>
     <p class="body rv" style="margin-top:18px">
@@ -100,12 +102,12 @@ const rollout: [string, string, string, string][] = [
   <div class="container">
     <div class="sec-head rv">
       <div class="eyebrow"><span class="pip"></span>{t(lang, "团队", "The team")}</div>
-      <h2 class="sec-title">{t(lang, "教学法的人和写代码的人，坐在同一张桌子上", "The pedagogy people and the engineers share one table")}</h2>
+      <h2 class="sec-title">{t(lang, "两位联合创始人", "The two co-founders")}</h2>
       <p class="lead">
         {t(
           lang,
-          "这套系统的每一个设计决定——什么时候递卡、什么时候闭嘴、报告里哪句话可以说——都同时是教学问题和工程问题。",
-          "Every design decision here — when to hand over a card, when to shut up, which sentence a report is allowed to contain — is a teaching question and an engineering question at the same time.",
+          "一位设计课程与评估，一位构建系统与算法。这套产品里的每个决定——什么时候递出工具卡、什么时候不给答案、报告里哪句话可以写——同时是教学问题和工程问题，所以它们必须在同一张桌子上被决定。",
+          "One designs the curriculum and the assessment; one builds the systems and the algorithms. Every decision in this product — when a thinking card appears, when the coach withholds an answer, what a report is allowed to say — is a teaching question and an engineering question at once, which is why they have to be settled at the same table.",
         )}
       </p>
     </div>
@@ -126,13 +128,15 @@ const rollout: [string, string, string, string][] = [
               </div>
             )}
           </div>
-          <div class="mname">{m.name ? t(lang, m.name[0], m.name[1]) : t(lang, "姓名待补", "Name to come")}</div>
-          <div class="mrole">{t(lang, m.role[0], m.role[1])}</div>
-          <p class="mbio">
-            {m.bio
-              ? t(lang, m.bio[0], m.bio[1])
-              : t(lang, "一段两三句的介绍，说清这个人带来的是什么判断力。", "Two or three sentences on the judgment this person brings.")}
-          </p>
+          <div class="mtext">
+            <div class="mname">{m.name ? t(lang, m.name[0], m.name[1]) : t(lang, "姓名待补", "Name to come")}</div>
+            <div class="mrole">{t(lang, m.role[0], m.role[1])}</div>
+            <p class="mbio">
+              {m.bio
+                ? t(lang, m.bio[0], m.bio[1])
+                : t(lang, "一段两三句的介绍，说清这个人带来的是什么判断力。", "Two or three sentences on the judgment this person brings.")}
+            </p>
+          </div>
         </div>
       ))}
     </div>
@@ -143,13 +147,13 @@ const rollout: [string, string, string, string][] = [
 <section class="section" id="discipline">
   <div class="container">
     <div class="sec-head rv">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "四条红线", "Four red lines")}</div>
-      <h2 class="sec-title">{t(lang, "拦住 AI 越界替孩子思考", "Holding the AI back from thinking for a child")}</h2>
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "我们的愿景", "Our vision")}</div>
+      <h2 class="sec-title">{t(lang, "让每个孩子都能借助 AI 走得更远，而判断依然属于自己", "Every child goes further with AI — and still owns the judgment")}</h2>
       <p class="lead">
         {t(
           lang,
-          "这四条是这门手艺的操守，不只是几条功能开关。违反其中任何一条，这个产品就没有存在的必要了。",
-          "These aren't feature limits. They're the ethics of the craft. Break any one of them and there's no reason for this product to exist.",
+          "我们要建的，是 AI 时代的教育基础设施：一套让学生在真实课题中与 AI 协作、让思考过程被完整记录、让能力成长被严谨评估的系统。学校由此第一次看得见 AI 是怎么被使用的，教师第一次拿到过程证据，学生第一次带走一份属于自己的成长档案。下面四条，是我们在实现它的过程中不会越过的边界。",
+          "We are building the educational infrastructure of the AI era: a system where students work with AI on real coursework, where the thinking is recorded in full, and where growth is assessed rigorously. Schools see how AI is actually being used, teachers get process evidence for the first time, and students leave with a record of their own development. The four lines below are the boundaries we will not cross while building it.",
         )}
       </p>
     </div>

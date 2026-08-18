@@ -2,6 +2,7 @@
 import Icon from "../Icon.astro";
 import Figure from "../Figure.astro";
 import CtaBand from "../sections/CtaBand.astro";
+import PageBanner from "../sections/PageBanner.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
@@ -164,74 +165,91 @@ const walk: {
   k: [string, string];
   h: [string, string];
   p: [string, string];
+  href: string;
   asset: string;
   brief: [string, string];
 }[] = [
   {
-    k: ["01 · 课程与工具卡", "01 · Course & cards"],
-    h: ["一门课，交给她一套能带走的方法", "A course hands her a method she can take away"],
+    k: ["课程与工具卡", "Courses & thinking cards"],
+    h: ["方法先在课上学会", "She learns the method in class first"],
     p: [
-      "一门课就是一条工作流：看材料、被追问、做判断、填一张工具卡，一步步推进。CRAAP、SIFT、良构论证都在真实材料上走过一遍——方法在用过之后才真正到手。",
-      "A course is a workflow: watch the material, get questioned, make a call, fill in a card, move on. CRAAP, SIFT and well-formed argument all get practised on real material — a method only really lands once it has been used.",
+      "《信息过滤神器》用一条真实的气候信息带她走完 CRAAP 与 SIFT。课程结束时，她手上多了两张能带进任何课题的工具卡。",
+      "“The Information Filter” walks her through CRAAP and SIFT on a real piece of climate reporting. She finishes the course holding two cards she can take into any piece of coursework.",
     ],
-    asset: "home-01-course-player",
-    brief: ["课程播放界面：视频 + 旁白 + 一张工具卡被递出来", "Course player: video + narration + a card being handed over"],
+    href: "/product/courses",
+    asset: "walk-01-course",
+    brief: ["课程播放界面：素材 + 旁白 + 递出的工具卡", "The course player: material, narration, and the card being handed over"],
   },
   {
-    k: ["02 · 阅读工作室", "02 · Reading studio"],
-    h: ["一条没标出处的推文，她自己追到了 Nature", "An unsourced post — and she traced it to Nature herself"],
+    k: ["立题与提案", "Framing and the proposal"],
+    h: ["把一个大问题收窄成能回答的问题", "Narrowing a big question into an answerable one"],
     p: [
-      "推文说「全球变绿 40% 以上来自中国」。她跳出页面横向核查：公众号 → NASA 发布稿 → Nature Sustainability 原论文，然后发现分母被换过——原文的 42% 说的是中国自己那部分变绿里森林工程的占比。",
-      "The post claimed “over 40% of the Earth\u2019s greening comes from China”. She read laterally — post → NASA release → the Nature Sustainability paper — and found the denominator had been swapped. The original 42% was the share of China\u2019s own greening due to forest programmes.",
+      "教练逐项追问目标、缘由、活动与时间、资源与可能的反例，形成研究框架；系统据此生成项目计划与甘特图。她写出第一版提案，拿到分段批注。",
+      "The coach works through objective, motivation, activities and timeline, resources and likely counter-cases to build the research framework; the system generates the project plan and Gantt chart from it. She writes a first proposal and gets paragraph-level annotation back.",
     ],
-    asset: "home-02-reading-room",
-    brief: ["阅读室：原文 + 溯源链 + 探索图谱", "Reading room: source text + provenance chain + exploration map"],
+    href: "/product/projects",
+    asset: "walk-02-proposal",
+    brief: ["提案页：左侧要点与批注，右侧写作区", "The proposal page: notes and annotations left, writing surface right"],
   },
   {
-    k: ["03 · 写作项目空间", "03 · Writing project space"],
-    h: ["论证撞上反例，让步段是她自己写的", "The argument hits a counter-example — she writes the concession"],
+    k: ["阅读室 · 溯源", "The reading room"],
+    h: ["一条没有出处的推文，追到 Nature", "An unsourced post, traced back to Nature"],
     p: [
-      "中国碳排放全球第一。这条反方证据推翻不了她的题目，但会限制她的结论。AI 不会替她写一个字正文，它只会问：你打算接住它，还是绕开它？",
-      "China is the world\u2019s largest emitter. That counter-evidence doesn\u2019t sink her thesis, but it does bound her conclusion. The AI writes none of her prose — it only asks: are you going to take this on, or route around it?",
+      "推文说「全球变绿 40% 以上来自中国」。她横向核查：公众号 → NASA 发布稿 → Nature Sustainability 原论文，发现分母被换过——原文的 42% 说的是中国自身变绿里森林工程的占比。每一次来源评估都留在证据地图上。",
+      "The post claimed “over 40% of the Earth's greening comes from China”. She reads laterally — post, then the NASA release, then the Nature Sustainability paper — and finds the denominator was swapped: the original 42% is forest programmes' share of China's own greening. Every source assessment stays on the evidence map.",
     ],
-    asset: "home-03-writing-studio",
-    brief: ["写作面：正文编辑区 + 右侧只读过程树", "Writing surface: the draft, with the read-only process tree alongside"],
+    href: "/product/projects",
+    asset: "walk-03-reading",
+    brief: ["阅读室：原文 + 溯源链 + 证据地图", "The reading room: source text, provenance chain, evidence map"],
   },
   {
-    k: ["04 · 过程评估", "04 · Process evaluation"],
-    h: ["连她跳过的那一次，也被记下来了", "Even the time she skipped is on the record"],
+    k: ["兔子洞日志", "The rabbit-hole log"],
+    h: ["岔路也是过程的一部分", "A detour belongs on the record too"],
     p: [
-      "报告分两半：数出来的事实，和有证据支撑的判断。每一条判断都要指回一个真实存在的片段，指不到的引用会被摘除。两根轴分开报告，不合成总分。",
-      "The report has two halves: facts that are counted, and judgments that are grounded. Every judgment must point back to a real fragment — a citation that doesn\u2019t resolve is stripped out. The two axes are reported apart, never merged into a single score.",
+      "追资金链时她拐进了一条与题目无关的线索。系统不打断，只记录：什么时候进去的、追了多远、为什么退出来。及时退出与主动深挖，同样算自主。",
+      "Chasing a funding trail, she turned down a line that had nothing to do with her question. The system doesn't interrupt — it records when she went in, how far she went, and why she came out. Leaving in good time counts as autonomy just as digging deeper does.",
     ],
-    asset: "home-04-evaluation-report",
-    brief: ["评估报告：双轴读数 + 证据链接 + 过程叙述", "Evaluation report: the two axes, evidence links, process narrative"],
+    href: "/product/projects",
+    asset: "walk-04-warren",
+    brief: ["探索图谱：主线与岔路，含退出标记", "The exploration map: the main line, the detours, and where each was left"],
+  },
+  {
+    k: ["写作教练", "The writing coach"],
+    h: ["正文她自己写，教练只帮她想清楚", "She writes the prose; the coach only helps her think"],
+    p: [
+      "中国碳排放全球第一——这条反方证据不推翻她的题目，但会限制结论的射程。教练不代写一个字，它递上论证卡、给出逐句批注，让她自己写出那段让步。",
+      "China is the world's largest emitter — counter-evidence that doesn't sink her question but does bound her conclusion. The coach writes none of it. It offers an argument card and sentence-level annotation, and she writes the concession herself.",
+    ],
+    href: "/product/projects",
+    asset: "walk-05-writing",
+    brief: ["写作面：正文 + 批注 + 只读过程树", "The writing surface: draft, annotations, and the read-only process tree"],
+  },
+  {
+    k: ["复盘与评估", "Review and assessment"],
+    h: ["全过程数据生成一份思维印记", "The whole record becomes one imprint report"],
+    p: [
+      "成稿之后，她和教练一起回看活动日志、研究框架、提案与终稿，自己先写下复盘。系统随后生成九个板块的评估报告：数出来的事实，加上每一条都能点开原始记录的判断。",
+      "With the paper finished, she and the coach look back over the activity log, the research framework, the proposal and the final draft, and she writes her own review first. The system then generates the nine-section report: counted facts, plus judgments that each open onto the record behind them.",
+    ],
+    href: "/product/evaluation",
+    asset: "walk-06-report",
+    brief: ["评估报告：双轴读数 + 可点开的证据链接", "The report: the two axis readings and clickable evidence"],
   },
 ];
 ---
 
-<!-- ═════════════════════════════════════════════════ HERO ════════ -->
-<section class="pagehero">
-  <div class="wash">
-    <i class="w1" style="width:520px;height:520px;background:var(--primary-tint);top:-240px;left:-120px"></i>
-    <i class="w2" style="width:440px;height:440px;background:var(--accent-tint);top:-160px;right:-100px"></i>
-  </div>
-  <div class="grid-bg"></div>
-  <div class="pagehero-inner">
-    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "产品", "Product")}</div>
-    <h1 class="page-title">
-      <span class="rv-line" style="--i:0"><span>{t(lang, "学生自己走完一个真实课题，", "The student does the whole inquiry.")}</span></span>
-      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "AI 全程支持，但从不代笔。", "The AI supports every step, and never writes it.")}</span></span>
-    </h1>
-    <p class="lead rv" style="--i:2">
-      {t(
-        lang,
-        "课程把方法练成习惯，项目让她做自己的真实课题，评估写下她是怎么想的，教师端让这一切看得见。",
-        "Courses turn method into habit, projects give her real coursework of her own, the assessment writes down how she thought, and the teacher console makes all of it visible.",
-      )}
-    </p>
-  </div>
-</section>
+<PageBanner
+  asset="banner/product-overview-v1.webp"
+  eyebrow={["产品", "Product"]}
+  title={[
+    ["学生自己走完一个真实课题，", "The student does the whole inquiry."],
+    ["AI 全程支持，但从不代笔。", "The AI supports every step, and never writes it."],
+  ]}
+  lead={[
+    "课程把方法练成习惯，项目让她做自己的真实课题，评估写下她是怎么想的，教师端让这一切看得见。",
+    "Courses turn method into habit, projects give her real coursework of her own, the assessment writes down how she thought, and the teacher console makes all of it visible.",
+  ]}
+/>
 
 <!-- ═════════════════════════════════════════ FOUR SURFACES ══════ -->
 <section class="section tight">
@@ -257,17 +275,10 @@ const walk: {
 <section class="section loose scrub band-paper">
   <div class="container">
     <div class="sec-head rv" style="margin-bottom:56px">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "一次真实探究", "One real inquiry")}</div>
+      <div class="eyebrow"><span class="pip"></span>{t(lang, "用户案例", "Case study")}</div>
       <h2 class="sec-title">
         {t(lang, "「中国有没有让地球变得更可持续？」", "“Has China made the planet more sustainable?”")}
       </h2>
-      <p class="lead">
-        {t(
-          lang,
-          "一个学生，一篇 800 词的文章，三个工作面走完一轮。下面是她真的走过的路。",
-          "One student, an 800-word essay, one pass across all three surfaces. Below is the route she actually took.",
-        )}
-      </p>
     </div>
 
     <div class="scrub-grid">
@@ -277,6 +288,9 @@ const walk: {
             <div class="k">{t(lang, s.k[0], s.k[1])}</div>
             <h3>{t(lang, s.h[0], s.h[1])}</h3>
             <p>{t(lang, s.p[0], s.p[1])}</p>
+            <a class="tlink" style="margin-top:16px" href={L(s.href)}>
+              {t(lang, "了解更多", "Learn more")}<Icon name="arrow" />
+            </a>
           </div>
         ))}
       </div>
