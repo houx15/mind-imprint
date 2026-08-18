@@ -1,6 +1,7 @@
 ---
 import Icon from "../Icon.astro";
 import CtaBand from "../sections/CtaBand.astro";
+import PageBanner from "../sections/PageBanner.astro";
 import Pager from "../sections/Pager.astro";
 import { getLang, t } from "../../i18n/utils";
 import { demoUrl } from "../../config";
@@ -54,26 +55,18 @@ const rollout: [string, string, string, string][] = [
 ---
 
 <!-- ═════════════════════════════════════════════════ HERO ════════ -->
-<section class="pagehero">
-  <div class="wash">
-    <i class="w1" style="width:520px;height:520px;background:var(--accent-tint);top:-240px;left:-120px"></i>
-    <i class="w2" style="width:440px;height:440px;background:var(--primary-tint);top:-160px;right:-100px"></i>
-  </div>
-  <div class="pagehero-inner">
-    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "关于我们", "About us")}</div>
-    <h1 class="page-title">
-      <span class="rv-line" style="--i:0"><span>{t(lang, "我们做的是一个讲判断力的产品，", "We build a product about judgment,")}</span></span>
-      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "它自己先得经得起判断。", "so it had better survive being judged.")}</span></span>
-    </h1>
-    <p class="lead rv" style="--i:2">
-      {t(
-        lang,
-        "我们对这份文档与这个产品的纪律，就是我们要教给孩子的东西——不被俘获，先从不自欺开始。",
-        "The discipline we hold over this document and this product is the thing we're trying to teach: not being captured starts with not fooling yourself.",
-      )}
-    </p>
-  </div>
-</section>
+<PageBanner
+  asset="banner/about-v1.webp"
+  eyebrow={["关于我们", "About us"]}
+  title={[
+    ["我们做的是一个讲判断力的产品，", "We build a product about judgment,"],
+    ["它自己先得经得起判断。", "so it had better survive being judged."],
+  ]}
+  lead={[
+    "我们对这份文档与这个产品的纪律，就是我们要教给孩子的东西——不被俘获，先从不自欺开始。",
+    "The discipline we hold over this document and this product is the thing we're trying to teach: not being captured starts with not fooling yourself.",
+  ]}
+/>
 
 <!-- ═══════════════════════════════════════════════ BELIEF ═══════ -->
 <section class="section tight">

@@ -1,0 +1,253 @@
+---
+import Icon from "../../Icon.astro";
+import Figure from "../../Figure.astro";
+import CtaBand from "../../sections/CtaBand.astro";
+import Pager from "../../sections/Pager.astro";
+import PageBanner from "../../sections/PageBanner.astro";
+import { getLang, t } from "../../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+/* ── the six-station inquiry spine ──────────────────────────────────── */
+const stations: [string, string, string, string, string, string, string][] = [
+  ["S1", "选题与研究问题", "Question", "把兴趣主题收窄为可回答的问题，限定对象、范围与比较关系。", "Narrow an interest into an answerable question — object, scope, comparison.", "问题链", "question chain"],
+  ["S2", "文献搜索与综述", "Sources", "从「找到资料」走向「让来源彼此对话」，并指认研究缺口。", "Move from finding material to making sources argue with each other.", "文献表格", "source table"],
+  ["S3", "研究方法设计", "Method", "比较方法候选，说明为什么这一种方法能回答这个问题。", "Compare candidate methods; say why this one answers this question.", "方法框架", "method frame"],
+  ["S4", "数据分析", "Data", "处理自己收集的证据，记录清洗、分析与不确定性。", "Work her own evidence — cleaning, analysis, and how certain she is.", "数据包", "data pack"],
+  ["S5", "学术写作", "Writing", "搭论证、接反方、写让步段，控制结论的强度。", "Build the argument, take the counter-case, bound the conclusion.", "修订稿", "revisions"],
+  ["S6", "项目管理", "Managing", "贯穿全程：定计划、发现计划失效、调整行动。", "Throughout: plan, notice the plan failing, adjust.", "项目日志", "project log"],
+];
+
+/* ── the transposition-gap table from the greening case ─────────────── */
+const gaps: [string, string, string, string, string, string, string, string][] = [
+  ["一、无法核", "1. Uncheckable", "出处流失", "The source vanishes", "明确标注 NASA Ames 发布稿、《Nature Sustainability》论文、作者与机构", "NASA Ames release, the Nature Sustainability paper, authors and institutions", "全篇无出处，文末一行「本图文均来自网络」", "No source at all — just “images and text from the internet”"],
+  ["二、可核出的硬错", "2. A checkable error", "分母被换掉", "The denominator is swapped", "中国占全球叶面积净增长的 25%；原文的 42% 指中国自身变绿中森林工程的占比", "China is 25% of the global net leaf-area gain. The 42% is forest programmes' share of China's own greening", "「全球绿色面积的 40% 以上都来自中国」", "“Over 40% of the world's greening comes from China”"],
+  ["三、核不全", "3. Not fully checkable", "限定流失", "The caveats vanish", "不能抵消热带地区植被丧失；印度增产依赖地下水，可能反转", "It can't offset tropical vegetation loss; India's gains lean on groundwater and may reverse", "两条限定全部缺失", "Both caveats are simply gone"],
+  ["四、核了也读偏", "4. Checkable but misread", "框架变形", "The frame is displaced", "人类活动「也在贡献」；气候与 CO₂ 施肥似乎仍是主导", "Human activity “also contributes”; climate and CO₂ fertilisation still appear dominant", "「真正原因并不是人口过多，而是大量植树」——并列被改写成替换", "“The real cause isn't population but tree planting” — a conjunction rewritten as a substitution"],
+];
+---
+
+<PageBanner
+  asset="banner/project-v1.webp"
+  tone="a"
+  eyebrow={["产品 · 探究性写作空间", "Product · the inquiry writing space"]}
+  title={[
+    ["学生自己走完一个真实课题，", "The student does the whole inquiry."],
+    ["AI 全程支持，但从不代笔。", "The AI supports every step, and never writes it."],
+  ]}
+  lead={[
+    "涵盖项目管理、立题、研究、写作、复盘全生命周期的多智能体写作教练，在真实项目中引导学生探索并独立完成课题。",
+    "A multi-agent writing coach across the whole life cycle — planning, framing, research, writing, review — guiding a student through a real project she finishes herself.",
+  ]}
+/>
+
+<section class="section">
+    <div class="container">
+            <div class="ribbon rv-pop" style="margin-top:44px">
+        {stations.map(([s, zh, en, pz, pe, oz, oe]) => (
+          <div class="rstep">
+            <div class="s">{s}</div>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, pz, pe)}</p>
+            <div class="out">→ {t(lang, oz, oe)}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  </section>
+
+  <!-- reading studio -->
+  <section class="section band-paper">
+    <div class="container">
+      <div class="sec-head rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "阅读工作室", "The reading studio")}</div>
+        <h2 class="sec-title">{t(lang, "每一条声明，都能追回原始出处", "Every claim can be traced back to where it started")}</h2>
+        <p class="lead">
+          {t(
+            lang,
+            "推文是转述，原始研究才是证据。一条没标出处的推文，学生用文中仅有的三个可检索特征，自己追到了 NASA 发布稿，再追到《Nature Sustainability》原论文。",
+            "A post is a retelling; the study behind it is the evidence. With the only three searchable features in an unsourced post, the student found the NASA release herself, then the Nature Sustainability paper behind it.",
+          )}
+        </p>
+      </div>
+
+      <div class="grid-2 rv" style="margin-top:48px; align-items:start">
+        <div class="stack">
+          <div class="card">
+            <div class="cardnum">{t(lang, "横向 · 跳出页面", "LATERAL · step outside the page")}</div>
+            <h4>SIFT</h4>
+            <p>{t(lang, "停下来 · 查来源 · 找更好的报道 · 追到原始语境。解决的是「是不是它说的」。", "Stop · investigate the source · find better coverage · trace to the original context. It settles whether they said it.")}</p>
+          </div>
+          <div class="card">
+            <div class="cardnum">{t(lang, "纵向 · 留在页面里", "VERTICAL · stay on the page")}</div>
+            <h4>CRAAP / CRRAAB</h4>
+            <p>{t(lang, "时效、相关、权威、准确、目的。遇到个人证言时，第五维从「目的」换成「偏见」——权威概念在这里受力变形。", "Currency, relevance, authority, accuracy, purpose. For personal testimony the fifth swaps purpose for bias — the idea of authority bends under load.")}</p>
+          </div>
+          <div class="card">
+            <div class="cardnum">{t(lang, "方法纪律", "METHOD DISCIPLINE")}</div>
+            <h4>{t(lang, "工具要随对象切换", "Switch the tool with the object")}</h4>
+            <p>{t(lang, "把横向工具一路用到底，只会停在「《Nature》发的，可信」。溯源抵达一手论文之后，必须切回纵向，读它说得立不立得住。", "Ride the lateral tool all the way and you stop at “Nature published it, so it's fine”. Once you reach the primary paper you must switch back to vertical and ask whether it holds.")}</p>
+          </div>
+        </div>
+
+        <Figure
+          name="product-reading-provenance"
+          ratio="4-3"
+          desc={t(lang, "阅读室：溯源链 公众号 → NASA → Nature，以及探索图谱", "Reading room: the provenance chain post → NASA → Nature, plus the exploration map")}
+          caption={t(
+            lang,
+            "溯源在做的事，用信源金字塔的语言说，就是沿着梯子往上爬，直到爬不动为止。",
+            "In the language of the source pyramid, tracing provenance means climbing the ladder until you can climb no further.",
+          )}
+        />
+      </div>
+
+      <div class="sec-head rv" style="margin-top:80px">
+        <h2 class="sub-title">{t(lang, "溯源只完成了一半。转述与原文之间，差了什么？", "Tracing is only half of it. What got lost between the retelling and the original?")}</h2>
+        <p class="body" style="margin-top:14px">
+          {t(
+            lang,
+            "落差集中在三件事上：出处、限定，与框架。全盘接受和全盘怀疑都不用读原文，只有想真正弄清楚的人才需要。",
+            "The gap concentrates in three things: the source, the caveats and the frame. Neither swallowing it nor dismissing it requires reading the original. Only wanting to actually know does.",
+          )}
+        </p>
+      </div>
+
+      <div class="tablewrap rv" style="margin-top:32px">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th style="width:170px">{t(lang, "落差类型", "Kind of gap")}</th>
+              <th>{t(lang, "原文说的", "What the original says")}</th>
+              <th>{t(lang, "推文说的", "What the post says")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {gaps.map(([kz, ke, nz, ne, oz, oe, pz, pe]) => (
+              <tr>
+                <td class="k">
+                  {t(lang, kz, ke)}
+                  <div class="small">{t(lang, nz, ne)}</div>
+                </td>
+                <td>{t(lang, oz, oe)}</td>
+                <td>{t(lang, pz, pe)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div class="callout yes rv" style="margin-top:32px">
+        <div class="cl"><Icon name="target" />{t(lang, "本课的能力锚定埋点", "The anchor this course is built around")}</div>
+        <h3>{t(lang, "40% 与 42% 只差两个点，扫过去像是同一个数", "40% and 42% are two points apart — a glance reads them as the same number")}</h3>
+        <p>
+          {t(
+            lang,
+            "但分母被从「中国的变绿」换成了「全球的变绿」，数字照抄，含义翻了一倍。这个错误可核查、不可表演、有迷惑性——说「我会核查数据」谁都会说，抓出这一处才算数。",
+            "But the denominator moved from “China's greening” to “the world's greening”. The number was copied; the meaning doubled. The error is checkable, unfakeable and genuinely deceptive — anyone can say they check data. Catching this is what counts.",
+          )}
+        </p>
+      </div>
+
+      <div class="grid-2 rv" style="margin-top:32px">
+        <div class="card">
+          <div class="cardic g"><Icon name="branch" /></div>
+          <h3>{t(lang, "兔子洞日志", "The rabbit-hole log")}</h3>
+          <p>
+            {t(
+              lang,
+              "一次溯源常常会岔出新的线索。它有真实的触发点，也有探索价值，只是需要边界来管。系统记录触发点、支线问题、与主问题的关系，以及退出的理由。",
+              "Tracing a source opens side branches. They have a real trigger and real value; what they need is a boundary. The system records the trigger, the side question, its relation to the main one, and why she left.",
+            )}
+          </p>
+        </div>
+        <div class="card">
+          <div class="cardic g"><Icon name="check" /></div>
+          <h3>{t(lang, "及时退出，同样是自主的证据", "Leaving in time is also evidence of autonomy")}</h3>
+          <p>
+            {t(
+              lang,
+              "A1 测的是谁在定方向，不看走了多远。照单全收，方向是别人定的；漫无目的地漂移，方向没有人在定，包括她自己。两种都算不上自主。",
+              "A1 measures who sets the direction, not how far you went. Taking it all on board means someone else set it. Drifting means nobody set it — including her. Neither counts as autonomy.",
+            )}
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- writing space -->
+  <section class="section">
+    <div class="container">
+      <div class="sec-head rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "写作项目空间", "The writing project space")}</div>
+        <h2 class="sec-title">{t(lang, "正文由学生自己写，AI 只帮她想清楚", "The student writes the prose. The AI only helps her think it through.")}</h2>
+        <p class="lead">
+          {t(
+            lang,
+            "这里没有排版功能，也没有「一键提交给学校」。我们占的是「思考」这一层——她的作文活在她自己的世界里，那份文档不归我们。",
+            "There's no formatting here, and no “submit to school” button. We occupy the thinking layer — her essay lives in her own world, and that file isn't ours.",
+          )}
+        </p>
+      </div>
+
+      <Figure
+        class="rv-pop"
+        name="product-writing-studio"
+        ratio="16-9"
+        desc={t(lang, "写作面：正文编辑 + Markdown 预览 + 右侧只读过程树 + AI 陪练栏", "Writing surface: draft + preview + read-only process tree + coach rail")}
+        caption={t(
+          lang,
+          "右侧的过程树是只读的记录，帮她回看自己思考的轨迹；成品可以导出带走。",
+          "The process tree on the right is a read-only record of how she got here. The finished piece exports and leaves with her.",
+        )}
+      />
+
+      <div class="grid-3" style="margin-top:56px">
+        <div class="card rv" style="--i:0">
+          <div class="cardic"><Icon name="chat" /></div>
+          <h3>{t(lang, "一条连续的对话", "One continuous conversation")}</h3>
+          <p>{t(lang, "立题、计划、文献、阅读、写作、回顾都是同一个「印记」的不同工作面，背后只有一个智能体。换房间只是把镜头移过去，它带着整段记忆一起走。", "Framing, planning, sources, reading, writing and review are surfaces of the same Imprint, with one agent behind all of them. Changing rooms moves the camera; it carries the whole memory along.")}</p>
+        </div>
+        <div class="card rv" style="--i:1">
+          <div class="cardic"><Icon name="db" /></div>
+          <h3>{t(lang, "一根项目脊柱", "One project spine")}</h3>
+          <p>{t(lang, "提案、计划、文献表、大纲、活动日志——每个工作面读写的是同一份持久状态。对话一旦定形就折进脊柱，线程保持轻，一句也没丢。", "Proposal, plan, reading list, outline, activity log — every surface reads and writes one durable state. Solidified dialogue folds into the spine: the thread stays lean and nothing is lost.")}</p>
+        </div>
+        <div class="card rv" style="--i:2">
+          <div class="cardic"><Icon name="slash" /></div>
+          <h3>{t(lang, "红线只有一条", "There is exactly one red line")}</h3>
+          <p>{t(lang, "AI 可以解释概念、生成检索词、扮演反方、指出草稿断裂；但不能替她确定研究方向，不能替她完成核心判断，不能生成可直接提交的正文。", "The AI may explain a concept, generate search terms, play the opposition, flag a broken draft. It may not set her direction, make her core judgment, or produce submittable prose.")}</p>
+        </div>
+      </div>
+
+      <div class="callout yes rv" style="margin-top:32px">
+        <div class="cl"><Icon name="quote" />{t(lang, "这条边界为什么必须守住", "Why that boundary has to hold")}</div>
+        <h3>{t(lang, "AI 最难防的风险是它顺着人说", "The hardest AI risk to catch is that it agrees with you")}</h3>
+        <p>
+          {t(
+            lang,
+            "学生给出一个站不住的判断，它顺势补上理由；学生流露一点偏好，它调整立场去迎合。识破并顶住这种顺从，是 AI 时代最难、也最要紧的一个动作——而它只在足够长、足够开放、AI 真的有机会顺着学生说下去的任务里才会显形。",
+            "A student offers a claim that doesn't stand, and it supplies the reasons. A student hints at a preference, and it shifts to match. Seeing that and holding against it is the hardest and most important move of this era — and it only shows up in tasks long and open enough for the AI to really have the chance to agree.",
+          )}
+        </p>
+      </div>
+    </div>
+  </section>
+
+<CtaBand />
+
+<Pager links={[
+    {
+      href: "/product/evaluation",
+      kicker: ["下一面", "Next"],
+      title: ["过程性评估报告", "The process assessment"],
+      body: ["九个板块，把这段过程读成一份可核对的报告", "Nine sections that read the process into a checkable report"],
+    },
+    {
+      href: "/product/courses",
+      kicker: ["上一面", "Previous"],
+      title: ["课程与工具卡", "Courses & thinking cards"],
+      body: ["方法从这里来", "Where the method comes from"],
+    },
+  ]} />

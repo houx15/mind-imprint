@@ -1,0 +1,279 @@
+---
+import Icon from "../../Icon.astro";
+import Figure from "../../Figure.astro";
+import CtaBand from "../../sections/CtaBand.astro";
+import Pager from "../../sections/Pager.astro";
+import PageBanner from "../../sections/PageBanner.astro";
+import { getLang, t } from "../../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+/* ── the card library (packages/contracts/cards) ────────────────────── */
+const cards: [string, string][] = [
+  ["CRAAP 信源体检", "CRAAP source check"],
+  ["SIFT 横向核查", "SIFT lateral reading"],
+  ["让步段", "Concession"],
+  ["图尔敏论证", "Toulmin argument"],
+  ["PEE 段落", "PEE paragraph"],
+  ["论证地图", "Argument map"],
+  ["提问卡", "Question card"],
+  ["兔子洞日志", "Rabbit-hole log"],
+  ["元认知复盘", "Metacognition"],
+  ["OPCVL 史料评估", "OPCVL source evaluation"],
+  ["话语分析 CDA", "Discourse analysis"],
+  ["资金链溯源", "Money trail"],
+  ["框定识别", "Spin detector"],
+  ["多模态甄别", "Multimodal decode"],
+  ["数据素养", "Data literacy"],
+  ["事实 / 观点 / 价值", "Fact · opinion · value"],
+  ["立场光谱", "Belief spectrum"],
+  ["视角对照矩阵", "Perspective matrix"],
+  ["认知者视角", "Knower's perspective"],
+  ["AI 边界声明", "AI boundary"],
+  ["AI 使用决策树", "AI decision tree"],
+  ["检索计划", "Search plan"],
+  ["伦理透镜", "Ethics lenses"],
+  ["情感对齐", "Emotional alignment"],
+  ["学习报告", "Learning report"],
+];
+
+/* ── the nine disciplinary lenses ───────────────────────────────────── */
+const lenses: [string, string, string, string][] = [
+  ["逻辑学", "Logic", "证据能否推出结论，是否存在隐藏前提、因果跳跃、过度概括。", "Does the evidence actually yield the conclusion — hidden premises, causal leaps, overreach."],
+  ["科学方法论", "Scientific method", "数据怎样获得，测量、样本、变量与误差能否支持当前结论。", "How the data was obtained; whether measurement, sample and error support the claim."],
+  ["社会学", "Sociology", "权力、资源、制度和社会位置如何影响不同群体。", "How power, resources, institutions and social position land differently on different groups."],
+  ["法学", "Law", "权利、义务、责任、程序与救济渠道是否清楚。", "Whether rights, duties, procedure and remedy are actually spelled out."],
+  ["经济学", "Economics", "规则如何改变选择、激励、成本与资源配置。", "How a rule shifts choices, incentives, costs and allocation."],
+  ["伦理学", "Ethics", "一项主张保护或牺牲了哪些价值：公平、伤害、自主、尊严。", "Which values a claim protects or sacrifices — fairness, harm, autonomy, dignity."],
+  ["历史学", "History", "结论依赖什么时代背景，哪些条件已经变了。", "What period conditions the conclusion rests on, and which have since changed."],
+  ["传播学", "Communication", "标题、措辞、叙述角度和缺席的声音如何影响判断。", "How headline, wording, framing and absent voices steer the reader."],
+  ["系统科学", "Systems", "局部行动如何产生连锁影响、延迟后果与反馈循环。", "How a local action produces knock-on effects, delays and feedback loops."],
+];
+
+/* ── the course catalogue (docs/reference/课程详细介绍) ─────────────────
+   Thirty-three real courses. `tags` drive the filter chips; a course can
+   carry more than one because most of them genuinely do. */
+const courseTags: [string, string, string][] = [
+  ["*", "全部", "All"],
+  ["src", "信息与信源", "Information & sources"],
+  ["data", "证据与数据", "Evidence & data"],
+  ["arg", "论证与写作", "Argument & writing"],
+  ["res", "研究与项目", "Research & projects"],
+  ["ai", "AI 与元认知", "AI & metacognition"],
+];
+const courseList: [number, string, string, string, string, string, string][] = [
+  [1, "把争议放回证据里：立场光谱与视角对照矩阵", "Put the dispute back on the evidence", "争议判断与来源评估", "Disputes and source assessment", "TOK · ESS · 思想政治", "src"],
+  [2, "当 AI 重写历史：历史图像的证据核查", "When AI rewrites history", "AI 时代历史图像核查", "Verifying historical images", "History · TOK · 信息技术", "src ai"],
+  [3, "信息过滤神器：从 CRAAP 到 CRRAAB", "The filter: from CRAAP to CRRAAB", "信息筛选与来源评价", "Filtering and evaluating sources", "EE · EPQ · 综合实践", "src"],
+  [4, "科学否认的五种手法：用 FLICC 拆两段气候视频", "Five moves of science denial: FLICC", "科学传播与否认手法识别", "Science communication and denial tactics", "ESS · Biology NOS · 科学", "src"],
+  [5, "一张图，四次翻案：OPCVL 史料评估", "One image, four reversals: OPCVL", "历史史料评估", "Historical source evaluation", "History P1 · DBQ · 历史", "src"],
+  [6, "事实、观点，还是价值判断？", "Fact, opinion, or value judgment?", "判断类型与论证回应", "Types of claim, and how to answer them", "TOK · IB English", "arg"],
+  [7, "信息交互能力工具包", "The information-handling toolkit", "公共议题信息整合", "Synthesising public-issue information", "Geography · Global Politics · 地理", "src"],
+  [8, "信息素养：从一句权威主张到多源核查写作", "From one authoritative claim to verified writing", "多源核查与证据写作", "Multi-source checking and evidence writing", "Geography · AP Seminar · 语文", "src arg"],
+  [9, "元认知：我怎么知道我没被自己骗？", "Metacognition: how do I know I haven't fooled myself?", "自我推理校准", "Calibrating your own reasoning", "TOK 核心主题", "ai"],
+  [10, "可比性检验：先查四格，再判断", "Comparability check: four boxes before you judge", "证据可比性与冲突判断", "Comparability and conflicting evidence", "Biology IA · AP Statistics · 数学 · 生物", "data"],
+  [11, "哥伦布：英雄还是恶棍？OPCVL 多源综合", "Columbus: hero or villain? OPCVL across sources", "多源史料综合", "Synthesising multiple historical sources", "History P1+IA · 历史", "src"],
+  [12, "SIFT 信息横向调查：从一条微信到一篇有立场的议论文", "SIFT lateral reading: from a post to an argued essay", "学术写作与可持续议题论证", "Academic writing on a sustainability question", "ESS · AP Seminar · 语文", "src arg"],
+  [13, "威尼斯三选一：把一部纪录片写成一份站得住的建议", "Venice, three options: a defensible recommendation", "纪录片材料到建议写作", "From documentary material to a recommendation", "Geography 决策题 · 地理", "arg"],
+  [14, "英文学术写作：从论文结构到引用规范", "Academic writing in English: structure to citation", "英文学术论文写作", "Academic paper writing", "EE · AP Research · 英语", "arg"],
+  [15, "我们能多确定？证据语言的校准", "How sure can we be? Calibrating the language of evidence", "证据确定度校准", "Calibrating certainty", "TOK · Psychology · 语文", "data"],
+  [16, "当数字想骗你：数据三问", "When numbers want to fool you: three questions", "数据与统计素养", "Data and statistical literacy", "Math AI · AP Statistics · 数学", "data"],
+  [17, "数据分析：从研究问题到结果段落", "Data analysis: from question to results paragraph", "数据分析与结果表达", "Analysis and reporting results", "各科 IA · AP Research · 数学", "data res"],
+  [18, "查找信息：从搜索入口到可用资源", "Finding information: from the search box to a usable source", "学术检索与资源路径", "Academic search and source routes", "EE 研究过程 · EPQ · 信息技术", "res src"],
+  [19, "识别企业漂绿：Tesla ESG 证据链", "Spotting greenwashing: the Tesla ESG evidence chain", "ESG 漂绿证据链", "ESG greenwashing evidence chains", "Business Management · 思想政治", "data src"],
+  [20, "生成式 AI 时代的多模态信息甄别与可信判断", "Judging multimodal information in the age of generative AI", "AI 生成多模态信息可信判断", "Credibility of AI-generated media", "Digital Society · TOK · 信息技术", "src ai"],
+  [21, "电竞是不是体育？", "Is esports a sport?", "概念承认与证据射程", "Concept boundaries and evidential reach", "TOK 展览 · IB English", "arg"],
+  [22, "研究方法：从问题到可执行计划", "Research methods: from question to a workable plan", "研究设计与方法计划", "Research design and method planning", "EE/IA 方法 · AP Research · 综合实践", "res"],
+  [23, "影像侦探局：镜头在替谁说话", "The image detective: whose side is the camera on?", "视听语言与证据区分", "Audiovisual language versus evidence", "Film · Lang&Lit P1 · 语文跨媒介", "src"],
+  [24, "删得掉的让步段，不是让步段", "A concession you can delete was never a concession", "反方证据与论点限定", "Counter-evidence and bounding a claim", "Lang A P2 · AP Lang · 语文", "arg"],
+  [25, "逻辑侦探局：从拆案到立案的论证训练", "The logic detective: taking arguments apart and building them", "论证解剖与谬误识别", "Dissecting arguments, spotting fallacies", "TOK · IB English", "arg"],
+  [26, "语言如何塑造思维：五把工具扫描文本框定", "How language shapes thought: five tools for reading framing", "语言框定与文本扫描", "Framing in language, scanned", "TOK 语言主题 · AP Lang · 语文", "arg"],
+  [27, "追踪信息背后的利益链", "Following the money behind a claim", "利益链与资金来源核查", "Interests and funding trails", "Global Politics · 思想政治", "src"],
+  [28, "选题与 Proposal：从宽泛兴趣到可写研究提案", "Topic and proposal: from a broad interest to a writable question", "选题与 Proposal 写作", "Choosing a topic, writing a proposal", "EE 开题 · AP Research · 综合实践", "res"],
+  [29, "项目管理：把长期探究变成一周冲刺", "Project management: a long inquiry as weekly sprints", "长期探究项目管理", "Managing a long inquiry", "EE/CAS · EPQ log · 综合实践", "res"],
+  [30, "问得好，AI 才会答得妙：提示词如何写", "Ask well and the AI answers well: writing prompts", "AI 提问与提示词设计", "Asking AI well: prompt design", "Digital Society · TOK · AP Seminar", "ai"],
+  [31, "你身体里的小队：IFS 内在部分与注意力审计", "The team inside you: IFS parts and an attention audit", "内在部分识别", "Recognising your inner parts", "心理健康教育", "ai"],
+  [32, "向内探索：三个视角与变革免疫地图", "Looking inward: three perspectives and immunity to change", "主客体转换与变革免疫", "Subject-object shift and immunity to change", "心理健康教育", "ai"],
+  [33, "AI 公司的「焚书坑儒」", "Who paid for the AI?", "谁为 AI 付了账：AI 伦理", "Who paid for the AI: AI ethics", "AI 伦理 · Digital Society", "ai"],
+];
+---
+
+<PageBanner
+  asset="banner/course-v1.webp"
+  eyebrow={["产品 · 课程与工具卡", "Product · courses & thinking cards"]}
+  title={[
+    ["一门课，把一个思维方法", "A course coaches one thinking method"],
+    ["带练到会用。", "until she can actually use it."],
+  ]}
+  lead={[
+    "AI 互动课堂，在真实情境中带着学生学会多项思维工具的应用。每一节都是一台确定性状态机：放一段材料，等她看完，递上一张卡，等她填完，再往下走。",
+    "An interactive AI classroom that teaches a set of thinking tools by using them on real material. Every slice is a deterministic state machine: play the material, wait, hand over a card, wait for her answer, move on.",
+  ]}
+/>
+
+<section class="section">
+    <div class="container">
+            <Figure
+        class="rv-pop"
+        name="product-course-runtime"
+        ratio="16-9"
+        desc={t(lang, "课程播放界面全景：左侧素材、右侧旁白与工具卡、底部进度", "The course player: material, narration and card, with progress")}
+        caption={t(
+          lang,
+          "《信息过滤神器》——一门以「可信度」为概念透镜的信息素养课，材料由学生自己的检索带进课堂。",
+          "“The Information Filter” — an information-literacy course under the concept lens of credibility, where the material arrives from the student's own search.",
+        )}
+      />
+
+      <div class="grid-3" style="margin-top:56px">
+        <div class="card rv" style="--i:0">
+          <div class="cardic a"><Icon name="cards" /></div>
+          <h3>{t(lang, "一张卡是一套方法", "A card is a method, packaged")}</h3>
+          <p>
+            {t(
+              lang,
+              "它把一套思维方法拆成看得见的几步。点开一张卡，AI 就从「供答者」退成「接生者」——只提问，不代产。",
+              "It breaks a thinking method into visible steps. Open one and the AI steps back from answer-giver to midwife: it questions, it does not deliver.",
+            )}
+          </p>
+        </div>
+        <div class="card rv" style="--i:1">
+          <div class="cardic a"><Icon name="hand" /></div>
+          <h3>{t(lang, "召唤权在学生手里", "She holds the summons")}</h3>
+          <p>
+            {t(
+              lang,
+              "触发是自动的，打开由她确认。质疑一个 AI 不需要勇气，邀请对手同样不需要——剩下的只有想不想较真。",
+              "The trigger is automatic; opening it is her call. Challenging an AI takes no courage, and neither does inviting one. What's left is whether she wants to get it right.",
+            )}
+          </p>
+        </div>
+        <div class="card rv" style="--i:2">
+          <div class="cardic a"><Icon name="branch" /></div>
+          <h3>{t(lang, "点卡这个动作自带标记", "The tap itself is data")}</h3>
+          <p>
+            {t(
+              lang,
+              "系统在触发场景递卡，记「引导」；无人提示、她自己召唤，记「自发」。A2 与 A4 的证据，就采在这一点之差。",
+              "Offered by the system: logged as prompted. Summoned with nobody asking: logged as self-initiated. The whole A2/A4 signal lives in that one difference.",
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div class="rv" style="margin-top:64px">
+        <div class="eyebrow" style="margin-bottom:18px"><span class="pip"></span>{t(lang, "34 张卡 · 一门课通常只用三到五张", "34 cards · a course usually uses three to five")}</div>
+        <div class="marquee">
+          <div class="marquee-track">
+            {[...cards, ...cards].map(([zh, en], i) => (
+              <div class="tcard">
+                <div class="tn">{String((i % cards.length) + 1).padStart(2, "0")}</div>
+                <div class="tt">{t(lang, zh, en)}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div class="pull rv" style="margin-top:64px; max-width:880px">
+        {t(
+          lang,
+          "一张卡被召唤得越来越少的时候，它才算成功——与此同时，它封装的那句追问，开始出现在学生自己的提示词和修订里。",
+          "A card succeeds when its summons start falling — while the question it packaged starts showing up in the student's own prompts and revisions.",
+        )}
+        <cite>{t(lang, "脚手架的宿命是拆除；卡片的宿命是被吸收为内心的声音。", "Scaffolding is meant to come down. A card is meant to become an inner voice.")}</cite>
+      </div>
+
+      <!-- lenses -->
+      <div class="sec-head rv" style="margin-top:80px">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "学科透镜", "Disciplinary lenses")}</div>
+        <h2 class="sub-title" style="margin-top:14px">
+          {t(lang, "同一段材料，换一个透镜，看见的东西就不同", "Same material, different lens, different thing seen")}
+        </h2>
+        <p class="body" style="margin-top:14px">
+          {t(
+            lang,
+            "透镜只规定你在原文里找什么，答案仍然要自己得出——所以每一次使用都要落回一句具体的话、一处别人可以核对的证据。",
+            "A lens only tells you what to look for in the text; the answer is still yours to reach. So every use has to land on one specific sentence someone else can check.",
+          )}
+        </p>
+      </div>
+
+      <div class="tablewrap rv" style="margin-top:32px">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th style="width:150px">{t(lang, "透镜", "Lens")}</th>
+              <th>{t(lang, "它追问什么", "What it interrogates")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {lenses.map(([zh, en, dz, de]) => (
+              <tr>
+                <td class="k">{t(lang, zh, en)}</td>
+                <td>{t(lang, dz, de)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- the catalogue: every course we actually run -->
+  <section class="section band-paper">
+    <div class="container" data-catalog>
+      <div class="sec-head rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "课程库", "The catalogue")}</div>
+        <h2 class="sec-title">
+          <span data-count="33">33</span>{t(lang, " 门课，每一门都对得上某张官方评分表", " courses, each mapped onto a real mark scheme")}
+        </h2>
+        <p class="lead">
+          {t(
+            lang,
+            "一门课通常只用到三到五张工具卡。选课不按学科分，按学生这学期最缺的那一样能力分。",
+            "A course usually calls on three to five cards. They aren't sorted by subject but by the ability a student is short of this term.",
+          )}
+        </p>
+      </div>
+
+      <div class="catbar rv" style="margin-top:34px">
+        {courseTags.map(([k, zh, en], i) => (
+          <button class="catbtn" type="button" data-tag={k} aria-pressed={i === 0 ? "true" : "false"}>
+            {t(lang, zh, en)}
+          </button>
+        ))}
+        <span class="catcount" data-catcount data-catcount-tpl={t(lang, "{n} 门", "{n} courses")}></span>
+      </div>
+
+      <div class="catgrid rv">
+        {courseList.map(([n, zh, en, fz, fe, sysx, tags]) => (
+          <article class="catcard" data-tags={tags}>
+            <div class="cn">{String(n).padStart(2, "0")}</div>
+            <h4>{t(lang, zh, en)}</h4>
+            <div class="cf">{t(lang, fz, fe)}</div>
+            <div class="cs">
+              {sysx.split(" · ").map((x) => <span>{x}</span>)}
+            </div>
+          </article>
+        ))}
+      </div>
+    </div>
+  </section>
+
+<CtaBand />
+
+<Pager links={[
+    {
+      href: "/product/projects",
+      kicker: ["下一面", "Next"],
+      title: ["探究性写作空间", "The inquiry writing space"],
+      body: ["把课上练会的方法，用在自己的真实课题上", "Take the method you practised into coursework of your own"],
+    },
+    {
+      href: "/product",
+      kicker: ["返回", "Back"],
+      title: ["产品总览", "Product overview"],
+      body: ["四个部分，合起来是一条完整链路", "Four parts, one path end to end"],
+    },
+  ]} />

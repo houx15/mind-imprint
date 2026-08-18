@@ -1,0 +1,220 @@
+---
+import Icon from "../Icon.astro";
+import { getLang, t } from "../../i18n/utils";
+
+/**
+ * The two axes, as the design actually defines them.
+ *
+ * Deliberately NOT a scatter plot. A point on a depth×autonomy plane would say
+ * the two readings combine into one position — which is the exact claim the
+ * measurement design refuses to make. So the picture is two separate rulers
+ * with a dashed seam between them, and nothing crosses.
+ *
+ * Content is the D/A rubric from the white paper: what each point looks at,
+ * and what it looks like when it actually happens.
+ */
+const lang = getLang(Astro.currentLocale);
+
+type Dim = {
+  c: string;
+  n: [string, string];
+  w: [string, string];
+  e: [string, string];
+};
+
+const depth: Dim[] = [
+  {
+    c: "D1",
+    n: ["任务理解与问题表述", "Task & question"],
+    w: [
+      "能不能把研究问题说清楚、限定范围、拆出可回答的子问题。",
+      "Whether the research question gets stated clearly, bounded, and split into answerable sub-questions.",
+    ],
+    e: [
+      "「这个 thesis 太绝对了」——改写为「植被恢复有贡献，但不能直接证明整体可持续」。",
+      "“That thesis is too absolute” — rewritten to “revegetation contributes, but it can't prove overall sustainability on its own.”",
+    ],
+  },
+  {
+    c: "D2",
+    n: ["证据与信源", "Evidence & sources"],
+    w: [
+      "追不追得到一手来源，分不分得清转述与原文，核不核查数据。",
+      "Whether she traces back to the primary source, separates paraphrase from original, and checks the numbers.",
+    ],
+    e: [
+      "「公众号只能当线索，真正引用应该回到 NASA 或 Nature。」",
+      "“The post is only a lead. The actual citation has to go back to NASA or Nature.”",
+    ],
+  },
+  {
+    c: "D3",
+    n: ["论证结构", "Argument structure"],
+    w: [
+      "主张、证据、推理接不接得住；找不找得出缺失的那一步；写不写得出让步段。",
+      "Whether claim, evidence and warrant hold together; whether the missing step gets found; whether a concession gets written.",
+    ],
+    e: [
+      "「缺的是解释——变绿为什么只能支持『部分可持续』。」",
+      "“What's missing is the explanation — why greening can only support *partial* sustainability.”",
+    ],
+  },
+  {
+    c: "D4",
+    n: ["视角与偏见", "Perspective & bias"],
+    w: [
+      "比不比得了多个视角，认不认得出来源背后的立场与利益，接不接得住反方证据。",
+      "Whether perspectives get compared, whether a source's stake is recognised, whether counter-evidence gets taken on.",
+    ],
+    e: [
+      "把反方的排放证据接进让步段；顺手查出那个网站背后的资助链。",
+      "Taking the opposition's emissions evidence into a concession; and tracing who funds that website.",
+    ],
+  },
+  {
+    c: "D5",
+    n: ["反馈处理与修订", "Feedback & revision"],
+    w: [
+      "读不读得懂批评，改的时候说不说得出理由，动的是论证还是只是措辞。",
+      "Whether critique lands, whether the revision comes with a reason, and whether the argument moved or only the wording.",
+    ],
+    e: [
+      "拒绝一条修改建议，理由是：「整段重写会替换掉我的论证路径。」",
+      "Turning a suggestion down, with a reason: “rewriting the paragraph would replace my line of argument.”",
+    ],
+  },
+  {
+    c: "D6",
+    n: ["反思与元认知", "Reflection & metacognition"],
+    w: [
+      "反思停在复盘事实，还是走到审视自己的方法与框架。",
+      "Whether the reflection stops at recounting events, or goes on to interrogate her own method and frame.",
+    ],
+    e: [
+      "「我先找了支持材料，没有主动找反方」——审视的是自己的检索策略。",
+      "“I looked for supporting material first and never went looking for the other side” — the object under review is her own search strategy.",
+    ],
+  },
+];
+
+const autonomy: Dim[] = [
+  {
+    c: "A1",
+    n: ["方向自主", "Direction"],
+    w: ["目标和路线是谁定的：自拟或改写计划、主动往深处钻。", "Who sets the target and the route: writing or rewriting the plan, digging deeper unasked."],
+    e: ["改掉系统提议的计划；抓住一个疑点自己往下追。", "Rewriting the plan the system proposed; catching one doubt and chasing it down."],
+  },
+  {
+    c: "A2",
+    n: ["发起自主", "Initiation"],
+    w: ["无人要求的时候，提问、核查、修订还发不发生。", "Whether questions, checks and revisions still happen when nobody asked for them."],
+    e: ["没人提示，自己跑了一遍信源核查；没人要求，自己回头改了论证。", "Running a source check with no prompt; going back to fix an argument with no request."],
+  },
+  {
+    c: "A3",
+    n: ["边界主权", "Boundary"],
+    w: ["给 AI 划界、拒绝建议并说得出理由、守得住自己的路径。", "Setting limits on the AI, refusing a suggestion with a reason, holding her own route."],
+    e: ["「不要全篇都给我直接写好」——带着理由的拒绝声明。", "“Don't just write the whole thing for me” — a refusal with a stated reason."],
+  },
+  {
+    c: "A4",
+    n: ["对抗与检验", "Challenge & check"],
+    w: ["主动召唤反方、带着证据质疑 AI、顶得住它的迎合。", "Summoning the counter-case, challenging the AI with evidence, holding out against its urge to agree."],
+    e: ["「请扮演反方挑我毛病」——本轴最强的能力锚定信号：顺从陷阱，表演不出来。", "“Play the opposition and pick holes in me.” The strongest anchor on this axis — resisting the sycophancy trap can't be faked."],
+  },
+  {
+    c: "A5",
+    n: ["判断署名", "Ownership"],
+    w: ["判断自己下，反思自己写，结论给得出理由。", "Making the call herself, writing her own reflection, giving reasons for the conclusion."],
+    e: ["校准环节里学生先自己打分，再看系统读数；反思由她自写后核验。", "In calibration she scores herself before seeing the system's reading; the reflection is hers, then checked."],
+  },
+  {
+    c: "A6",
+    n: ["求真优先", "Truth first"],
+    w: ["愿不愿意跟着证据走到对自己不利的地方：接受反证、修正立场。", "Whether she'll follow the evidence somewhere inconvenient — accept it, and move her position."],
+    e: ["承认反方的排放证据成立，然后主动收窄自己结论的射程。", "Conceding that the emissions counter-evidence holds — then narrowing her own conclusion's reach."],
+  },
+];
+
+const id = (d: Dim) => `ax-${d.c.toLowerCase()}`;
+const all = [...depth, ...autonomy];
+---
+
+<div class="axisx" data-axisx>
+  <div class="axisx-rails">
+    <div class="axcol d">
+      <div class="axcol-head">
+        <span class="ai"><Icon name="layers" /></span>
+        <div>
+          <div class="an">{t(lang, "认知深度", "Cognitive depth")}</div>
+          <div class="ak">D-AXIS · D1–D6 · L1–L4</div>
+          <p class="ao">
+            {t(
+              lang,
+              "思考到达了第几层。技能因子的纵向读数——深度决定判断的质量上限。",
+              "How many layers down the thinking got. The vertical reading on the skill factor — depth sets the ceiling on quality.",
+            )}
+          </p>
+        </div>
+      </div>
+      <div class="axchips">
+        {depth.map((d, i) => (
+          <button class={`axchip${i === 0 ? " on" : ""}`} data-k={id(d)} type="button">
+            <span class="c">{d.c}</span>
+            <span class="n">{t(lang, d.n[0], d.n[1])}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+
+    <div class="axseam" aria-hidden="true">
+      <span class="sl"></span>
+      <span class="st">{t(lang, "永不合成", "never merged")}</span>
+      <span class="sl"></span>
+    </div>
+
+    <div class="axcol a">
+      <div class="axcol-head">
+        <span class="ai"><Icon name="compass" /></span>
+        <div>
+          <div class="an">{t(lang, "智识自主", "Intellectual autonomy")}</div>
+          <div class="ak">A-AXIS · A1–A6 · BAND 0–5</div>
+          <p class="ao">
+            {t(
+              lang,
+              "无人要求时，思考由谁启动、判断归谁所有。倾向因子的行为公分母。",
+              "When nobody asked: who started the thinking, and whose judgment it is. The behavioural common denominator of the disposition factor.",
+            )}
+          </p>
+        </div>
+      </div>
+      <div class="axchips">
+        {autonomy.map((d) => (
+          <button class="axchip" data-k={id(d)} type="button">
+            <span class="c">{d.c}</span>
+            <span class="n">{t(lang, d.n[0], d.n[1])}</span>
+          </button>
+        ))}
+      </div>
+    </div>
+  </div>
+
+  <div class="axpanel">
+    {all.map((d, i) => (
+      <article
+        class={`axdet${d.c[0] === "A" ? " a" : ""}${i === 0 ? " on" : ""}`}
+        data-k={id(d)}
+      >
+        <div class="dh">
+          <span class="dc">{d.c}</span>
+          <span class="dn">{t(lang, d.n[0], d.n[1])}</span>
+        </div>
+        <p class="dw">{t(lang, d.w[0], d.w[1])}</p>
+        <div class="dex">
+          <div class="el">{t(lang, "可观察的样子", "what it looks like")}</div>
+          <div class="et">{t(lang, d.e[0], d.e[1])}</div>
+        </div>
+      </article>
+    ))}
+  </div>
+</div>

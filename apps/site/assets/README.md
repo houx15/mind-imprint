@@ -45,21 +45,33 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 > 首屏背景是**叠加**的：底下那层水是纯 CSS 画的，图片只是盖在上面。CDN 没通、
 > 图片没到，首屏依然是完整的，不会开天窗。
 
+## 已经在线的图
+
+| key | 用在哪 |
+|---|---|
+| `home/hero-bg-v3.webp` | 首屏 |
+| `banner/course-v1.webp` | `/product/courses` |
+| `banner/project-v1.webp` | `/product/projects` |
+| `banner/evaluation-v1.webp` | `/product/evaluation` |
+| `banner/teacher-v1.webp` | `/product/teacher` |
+| `banner/algorithm-v1.webp` | `/algorithm` |
+| `banner/evaluation-design-v1.webp` | `/algorithm/evaluation` |
+| `banner/multi-agent-v1.webp` | `/algorithm/multi-agent`（暂用 hero v4，CSS 里左右镜像） |
+| `banner/about-v1.webp` | `/about` |
+| `ability/*-v1.webp` | 首页「四项能力」四张背景插画 |
+
 ## 当前待补的图
 
 页面里已经排好版、等素材的槽位（`<Figure name="...">` 里的名字）：
 
 | key 建议 | 内容 |
 |---|---|
-| `home/01-course-player.png` | 课程播放界面：视频 + 旁白 + 一张工具卡被递出来 |
-| `home/02-reading-room.png` | 阅读室：原文 + 溯源链 + 探索图谱 |
-| `home/03-writing-studio.png` | 写作面：正文编辑区 + 右侧只读过程树 |
-| `home/04-evaluation-report.png` | 评估报告：双轴读数 + 证据链接 |
 | `product/course-runtime.png` | 课程播放界面全景 |
 | `product/reading-provenance.png` | 溯源链 公众号 → NASA → Nature |
 | `product/writing-studio.png` | 写作面全景 |
 | `product/evaluation-report.png` | 报告界面：左侧刻度目录 + 双轴可视化 |
 | `product/teacher-console.png` | 教师端：叙述版周报 + 实时名单 |
+| `evaluation/report-sample.png` | `/algorithm/evaluation` 页尾的完整示例报告 |
 | `team/<name>.jpg` | 团队人像，4:5 |
 
 白皮书 `docs/reference/思维印记白皮书.docx` 里内嵌了 30 张图（CRAAP 模型、SIFT×CRAAP、

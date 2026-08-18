@@ -1,237 +1,351 @@
 ---
 import Icon from "../Icon.astro";
+import Figure from "../Figure.astro";
 import CtaBand from "../sections/CtaBand.astro";
 import Pager from "../sections/Pager.astro";
-import EvalPipeline from "../diagrams/EvalPipeline.astro";
-import { getLang, t } from "../../i18n/utils";
+import PageBanner from "../sections/PageBanner.astro";
+import DualAxis from "../diagrams/DualAxis.astro";
+import { getLang, t, localePath } from "../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
+const L = (p: string) => localePath(lang, p);
 
-/* The four flagship calls. Three run concurrently; the fourth waits for C,
-   because the overview has to know how the axes came out. */
-const calls: [string, string, string, string, string, string][] = [
-  ["A", "提问透镜", "The prompt lens", "只喂学生自己写过的提问。它读的是她怎么用 AI：要成品，还是要反方、要检验。", "Fed only the prompts she wrote herself. It reads how she uses AI: asking for a finished product, or asking for the counter-case and the check."],
-  ["B", "风险行为", "Risk behaviour", "只喂风险信号切片。AI 代劳、缺少信源、论证断裂、口径漂移、跑题——有就写，没有就空着。", "Fed only the risk-signal slice. Work handed to the AI, missing sources, a broken warrant, drifting claims, going off-topic — reported when present, left empty when not."],
-  ["C", "双轴判层", "The two axes", "喂完整过程摘要，产出 12 条判断：认知深度 D1–D6 各判一层，智识自主 A1–A6 各判一档。", "Fed the full trajectory digest, returning twelve judgments: a level for each of D1–D6, a band for each of A1–A6."],
-  ["D", "综述与建议", "Overview & advice", "等 C 跑完才开始——综述要说清这次探究的样子，就得先知道两根轴落在了哪里。", "Starts only once C is done: an overview can't describe the inquiry without knowing where the axes landed."],
+/* How the two axes were arrived at. Not invented — converted, from a consensus
+   that has been standing since the Delphi Report. */
+const derivation: [string, string, string, string, string][] = [
+  [
+    "1990",
+    "德尔菲报告：能力与倾向是两件事",
+    "The Delphi Report: skills and dispositions are two things",
+    "Facione 主持的专家共识明确写下：理想的批判性思考者，兼具思维技能（skills）与思维倾向（dispositions）。此后形成两套并立的经典量表 —— CCTST 测技能，CCTDI 测倾向。两套工具并立这件事本身，就说明它们不能混成一个分。",
+    "The expert consensus Facione convened states it plainly: the ideal critical thinker has both skills and dispositions. Two classic instruments followed — CCTST for skills, CCTDI for dispositions. That they stand side by side is itself the argument for never averaging them.",
+  ],
+  [
+    "GAP",
+    "清单不是量表",
+    "A list is not a scale",
+    "德尔菲交出的是两份清单。六项技能各打一个分、七种倾向各发一份问卷，得到的是十三个碎片。要把共识变成能运行的量规，必须为每一类因子找到它的「可测形态」。",
+    "What Delphi produced were two lists. Score six skills, survey seven dispositions, and you have thirteen fragments. To turn a consensus into a working rubric, each family of factors needs a form in which it can actually be measured.",
+  ],
+  [
+    "D",
+    "技能需要一把共同的刻度",
+    "Skills needed one shared ruler",
+    "同样是「分析」，可以停在给部分命名，也可以进到部件之间的关系，再进到整个框架赖以成立的假设。贯穿全部六项技能、决定其表现高下的，是同一个纵向量：加工所到达的结构层级。技能回答「测哪些动作」，深度回答「动作做到了第几层」。",
+    "“Analysis” can stop at naming the parts, or reach the relations between them, or reach the assumptions the whole frame rests on. Running through all six skills, and deciding how well each is done, is one vertical quantity: the structural level the processing reached. Skills say which moves to measure; depth says how far down the move went.",
+  ],
+  [
+    "A",
+    "倾向需要一个共同的观测面",
+    "Dispositions needed one shared surface",
+    "好奇是自发地提问，求真是自发地核查，开放是自发地修正，自信与成熟判断是敢于为结论署名 —— 逐项拆开，每一项都在描述同一件事：认知活动由谁驱动、判断归谁所有。学界为它保留了一个专名：智识自主。",
+    "Curiosity is asking unprompted; truth-seeking is checking unprompted; open-mindedness is revising unprompted; confidence and maturity are being willing to sign the conclusion. Taken apart, each describes one thing: who drives the cognitive activity, and whose the judgment is. The literature has a name for it — intellectual autonomy.",
+  ],
 ];
 
-/* The nine sections of the report, with what each is made of. */
-const sections: [string, string, string, string, string][] = [
-  ["01", "基本信息", "Basics", "题目、类型、起止时间、里程碑与各项计数。全部数出来。", "Title, type, dates, milestones and every counter. All computed."],
-  ["02", "综述", "Overview", "这次探究到底发生了什么，以及下一步的建议、值得上的课。", "What actually happened in this inquiry, what to do next, which courses would help."],
-  ["03", "过程时间线", "Timeline", "每一个关键节点：时间、类型、当时的 AI 轮次，点得开对应记录。", "Every key moment: when, what kind, how many AI turns — each opening onto the record."],
-  ["04", "材料清单", "Materials", "她找过的每一份材料、什么时候加进来、最后用在了哪里，以及哪些撑不住结论。", "Every material she found, when it arrived, where it ended up — and which ones couldn't carry the claim."],
-  ["05", "认知深度 D", "Cognitive depth", "D1–D6 六个维度，各判一层，每层都要指回证据。", "Six dimensions, D1–D6, each given a level, each pointing back at evidence."],
-  ["06", "智识自主 A", "Intellectual autonomy", "A1–A6 六个维度，各判一档，同样要指回证据。", "Six dimensions, A1–A6, each given a band, each likewise pointing back at evidence."],
-  ["07", "提问透镜", "Prompt lens", "她是怎么向 AI 提问的：挑出几条值得看的提问，连着当时的上下文。", "How she asked: a handful of prompts worth looking at, each with the context it came from."],
-  ["08", "工具卡与子代理", "Cards & sub-agents", "哪几张卡在哪个阶段被递出来、为什么，以及她怎么用的。", "Which cards were handed over at which stage and why — and what she did with them."],
-  ["09", "风险提示", "Risks", "看到了什么值得留意的行为。没看到，就写没看到。", "Behaviour worth a teacher's attention. When there's none, it says there's none."],
+/* The depth ladder. Levels are judged RELATIVE to how open the task is, which
+   is why a closed task cannot reach the top two. */
+const rungs: [string, string, string, string, string, string][] = [
+  ["L1", "单点", "One point", "抓住一个相关点就停下：复述一条事实、给一个标签。", "One relevant point and stop: restating a fact, applying a label.", ],
+  ["L2", "多点", "Several points", "找齐了几个点，但彼此之间没有关系 —— 并列的清单，不是论证。", "Several points gathered, but unrelated to each other: a list, not an argument."],
+  ["L3", "关联", "Related", "点与点之间接起来了：一个概念收编若干具体事实，并解释它们为什么性质不同。", "The points connect: a concept absorbs several specific facts and explains why they differ in kind."],
+  ["L4", "拓展抽象", "Extended abstract", "把框架本身当作分析对象：这套判据在什么条件下失效？谁从这种框定中受益？", "The frame itself becomes the object: under what conditions do these criteria fail, and who benefits from this framing?"],
 ];
 
-const depthDims: [string, string, string, string, string][] = [
-  ["D1", "任务理解与问题表述", "Task & question", "她把一个题目收窄成了什么问题，范围与对象说清了没有。", "What question she narrowed the topic into, and whether its scope and object are clear."],
-  ["D2", "证据与信源", "Evidence & sources", "来源怎么找、怎么验，一条证据能证明到哪一步。", "How sources were found and checked, and how far a piece of evidence actually reaches."],
-  ["D3", "论证结构", "Argument structure", "主张、理据与限定条件之间接不接得住。", "Whether claim, warrant and qualifier hold together."],
-  ["D4", "视角与偏见", "Perspective & bias", "认不认得出自己的立场，接不接得住别的视角。", "Whether she can see her own position, and take on another."],
-  ["D5", "反馈处理与修订", "Feedback & revision", "拿到反馈之后，改的是论证，还是只是措辞。", "After feedback: did the argument move, or only the wording."],
-  ["D6", "反思与元认知", "Reflection", "说不说得出自己是怎么想的、哪一步想错了。", "Whether she can say how the thinking went, and where it went wrong."],
+/* Who sees what. Straight out of the white paper's governance table. */
+const visibility: [string, string, string, string, string, string][] = [
+  ["学生本人", "The student", "自己的成长语言版报告：轨迹、亮点时刻、下一步；以及自己的对话明细。", "Her own report in growth language: trajectory, standout moments, next step — plus her own conversation detail.", "内部路由标签；与他人的任何比较。", "Internal routing labels; any comparison with anyone else."],
+  ["家长", "The family", "周期报告的成长叙事与就绪度。", "The period report's growth narrative and readiness.", "档位代号、象限标签、任何横向排名；对话明细（除非学生授权）。", "Band codes, quadrant labels, any ranking; conversation detail (unless the student grants it)."],
+  ["教师", "The teacher", "判定与证据链接（可点开原始片段），并可一键改判。", "Judgments with evidence links that open the original fragment — and a one-click override.", "与教学无关的内容明细。", "Content detail with no bearing on teaching."],
+  ["学校管理者", "School administration", "班级层的聚合读数。", "Class-level aggregates.", "任何个人对话明细。", "Any individual's conversation detail."],
 ];
 
-const autoDims: [string, string, string, string, string][] = [
-  ["A1", "方向自主", "Direction", "往哪走，是谁决定的。", "Who decided where this goes."],
-  ["A2", "发起自主", "Initiative", "无人要求时，思考由谁启动。", "When nobody asked: who started the thinking."],
-  ["A3", "边界主权", "Boundary", "什么交给 AI、什么留给自己，由她说了算。", "What goes to the AI and what stays hers — and that it's her call."],
-  ["A4", "对抗与检验", "Challenge & check", "对 AI 的说法做过检验，也提得出反对。", "Whether the AI's claims got checked, and pushed back on."],
-  ["A5", "判断署名", "Ownership", "最后这句判断，她认不认是自己的。", "Whether she'll put her name to the judgment at the end."],
-  ["A6", "求真优先", "Truth first", "结论不顺手的时候，选真的还是选省事的。", "When the conclusion is inconvenient: the true one, or the easy one."],
+/* What the measurement refuses to do. */
+const honesty: [string, string, string, string, string][] = [
+  ["01", "永不合成一个总分", "Never one composite score", "两根轴学理上是两个因子，测量上是两种形态，干预上指向相反的处方。加权平均掉，等于把最要紧的那条信息扔了。", "The axes are two factors in theory, two forms in measurement, and opposite prescriptions in practice. Averaging them throws away the one thing that mattered."],
+  ["02", "不给预测分，不押题，不保分", "No predicted grades", "照作品的一侧只说该体系的官方语言，给出的是「离官方描述语还差哪几块证据」的就绪度。", "On the work's side we speak only that system's official language, and report readiness — which pieces of evidence are still missing."],
+  ["03", "单次不判档，轨迹优先于快照", "Trajectory over snapshot", "一切表述使用「本周期观察到」的情境化语言，不做特质断言 —— 标签对发展中的孩子有自我实现的力量。", "Everything is phrased as “observed this period”, never as a trait. Labels have a self-fulfilling force on a person who is still forming."],
+  ["04", "证据不够，就说不够", "Thin evidence says so", "没看到证据，只说明证据还在积累，不代表这个学生没有能力。「证据不足」这个显示态本身就是一项伦理设计。", "No evidence seen means evidence is still accumulating — it says nothing about ability. The “insufficient evidence” state is itself an ethical design decision."],
 ];
 ---
 
-<!-- ═════════════════════════════════════════════════ HERO ════════ -->
-<section class="pagehero">
-  <div class="wash">
-    <i class="w1" style="width:540px;height:540px;background:var(--green-tint);top:-250px;left:-140px"></i>
-    <i class="w2" style="width:460px;height:460px;background:var(--primary-tint);top:-180px;right:-120px"></i>
-  </div>
-  <div class="grid-bg"></div>
-  <div class="pagehero-inner">
-    <div class="eyebrow rv"><span class="pip"></span>{t(lang, "技术 · 评估算法设计", "Technology · the assessment design")}</div>
-    <h1 class="page-title">
-      <span class="rv-line" style="--i:0"><span>{t(lang, "一句评语，必须能被核对。", "A comment has to be checkable.")}</span></span>
-      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, "所以事实由系统算出，判断只能引用证据。", "So facts are computed, and judgments may only cite evidence.")}</span></span>
-    </h1>
-    <p class="lead rv" style="--i:2">
-      {t(
-        lang,
-        "「他的论证有进步」这种话，家长和教师没法核对。难的从来不是记录，是把几周的记录读成一份教师敢用、家长看得懂、学生不觉得冤的报告。下面是这份报告怎么生成的。",
-        "“His argument has improved” is something no parent or teacher can check. The hard part was never the recording — it's reading weeks of record into a report a teacher will stand behind, a family can follow, and a student won't feel wronged by.",
-      )}
-    </p>
-  </div>
-</section>
+<PageBanner
+  asset="banner/evaluation-design-v1.webp"
+  eyebrow={["技术 · 评估设计", "Technology · the assessment design"]}
+  title={[
+    ["判断力，没法压成一个分数。", "Judgment can't be squeezed into a score."],
+    ["但它的两个前因，可以被严谨测量。", "Its two antecedents can be measured rigorously."],
+  ]}
+  lead={[
+    "一个产品如果声称能给「判断力」打一个精准分数，反而是不诚实的 —— 判断由能力、倾向、担责，再加上领域知识与价值立场共同构成。我们不宣称测量这个总量。我们测量并训练它当中有成熟学理支撑、可被行为化观察的两个前因。",
+    "A product claiming to score “judgment” precisely would be the dishonest one — judgment is made of ability, disposition and accountability, on top of domain knowledge and a value position. We don't claim to measure that whole. We measure and train the two antecedents inside it that have a research lineage and can be observed in behaviour.",
+  ]}
+  tone="g"
+/>
 
-<!-- ═══════════════════════════════════════════ TWO HALVES ═══════ -->
-<section class="section tight">
+<!-- ══════════════════════════════════════ WHY TWO AXES ══════════ -->
+<section class="section">
   <div class="container">
     <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "报告分成两半，两半的规矩完全不同", "The report has two halves, under two different rules")}</h2>
-    </div>
-
-    <div class="grid-2" style="margin-top:44px">
-      <div class="callout rv">
-        <div class="cl"><Icon name="chip" />{t(lang, "确定性半区", "The computed half")}</div>
-        <h3>{t(lang, "数出来的事实，不是模型说的", "Facts that are counted, not asserted")}</h3>
-        <p>
-          {t(
-            lang,
-            "AI 轮次、材料数、正文字数、批注数、修订次数、里程碑、时间线、工具卡使用——全部直接从记录里算出来，这一半一次模型都不调。它每次跑出来的结果都一样，也永远不会编。",
-            "AI turns, materials, word count, comments, revisions, milestones, the timeline, card usage — all computed straight from the record. This half never calls a model at all. It returns the same answer every time, and it cannot make anything up.",
-          )}
-        </p>
-      </div>
-      <div class="callout yes rv">
-        <div class="cl"><Icon name="spark" />{t(lang, "模型半区", "The judged half")}</div>
-        <h3>{t(lang, "要判断的部分，交给旗舰模型且永不降级", "Judgment goes to a flagship model, never downgraded")}</h3>
-        <p>
-          {t(
-            lang,
-            "陪练日常对话可以走中档模型，评估这一刀不行。四次调用全部走旗舰档，三路并发；每一条判断都必须引用一个事先建好的证据集里的东西。",
-            "Day-to-day coaching may run on a mid-tier model; this cut may not. All four calls run on the flagship tier, three of them concurrently — and every judgment must cite something from a pre-built evidence set.",
-          )}
-        </p>
-      </div>
-    </div>
-
-    <div class="stage rv-pop" style="margin-top:44px">
-      <div class="stage-bar">
-        <span class="dots"><b></b><b></b><b></b></span>
-        <span class="t">counted facts · evidence index · grounded judgment</span>
-      </div>
-      <div class="stage-body">
-        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
-        <div class="dscroll"><EvalPipeline /></div>
-        <div class="legend">
-          <span><i class="p"></i>{t(lang, "数出来的事实", "counted facts")}</span>
-          <span><i class="a"></i>{t(lang, "可引用的证据", "citable evidence")}</span>
-          <span><i class="g"></i>{t(lang, "模型下的判断", "the model's judgments")}</span>
-          <span><i></i>{t(lang, "组装与核对", "assembly & checking")}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ════════════════════════════════════════════ FOUR CALLS ══════ -->
-<section class="section band-paper">
-  <div class="container">
-    <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "四次调用，各看各的那一部分", "Four calls, each looking at its own slice")}</h2>
+      <h2 class="sec-title">
+        {t(lang, "两根轴不是被发明出来的，是被折算出来的", "The two axes weren't invented. They were converted.")}
+      </h2>
       <p class="lead">
         {t(
           lang,
-          "把整段过程一次性丢给一个模型，它会写得四平八稳，什么也不敢说。所以拆成四路：每一路只喂它该看的材料，判断因此更锋利，也更容易被反驳。",
-          "Hand the whole process to one model and it writes something evenly bland that commits to nothing. So it's split four ways: each call is fed only what it needs, which makes the judgments sharper — and easier to argue with.",
+          "我们没有在学界共识之外另起炉灶，只是把三十多年的共识翻译成了可测量的坐标。",
+          "We didn't start something new alongside the research consensus. We translated three decades of it into coordinates that can be measured.",
         )}
       </p>
     </div>
 
-    <div class="ribbon four rv-pop" style="margin-top:44px">
-      {calls.map(([k, zh, en, pz, pe]) => (
-        <div class="rstep">
-          <div class="s">CALL {k}</div>
+    <div class="rail" data-sequence data-step="150" style="margin-top:46px">
+      {derivation.map(([k, zh, en, pz, pe]) => (
+        <div class="rail-node" data-seq-item>
+          <div class="k">{k}</div>
           <h4>{t(lang, zh, en)}</h4>
           <p>{t(lang, pz, pe)}</p>
         </div>
       ))}
     </div>
 
-    <p class="small rv" style="margin-top:18px">
+    <div class="grid-2" style="margin-top:52px">
+      <div class="callout rv">
+        <div class="cl"><Icon name="layers" />{t(lang, "认知深度 · Cognitive Depth", "Cognitive depth")}</div>
+        <h3>{t(lang, "技能因子的纵向读数", "The vertical reading on the skill factor")}</h3>
+        <p>
+          {t(
+            lang,
+            "它不是技能之外的新构念，而是技能因子的测量形态 —— 把六项技能的表现放到同一把结构性标尺上读数，读出的那个量。",
+            "Not a new construct alongside the skills, but the form in which those skills become measurable: the quantity you read when all six are placed against one structural ruler.",
+          )}
+        </p>
+      </div>
+      <div class="callout yes rv">
+        <div class="cl"><Icon name="compass" />{t(lang, "智识自主 · Intellectual Autonomy", "Intellectual autonomy")}</div>
+        <h3>{t(lang, "倾向因子的行为公分母", "The behavioural common denominator of dispositions")}</h3>
+        <p>
+          {t(
+            lang,
+            "也是唯一能在真实交互过程中被直接观察的那一面 —— 问卷测的是一个人对自己的描述，行为测的是他在无人注视时的选择。",
+            "And the only face of them observable directly inside a real interaction: a questionnaire measures how someone describes himself; behaviour measures what he chooses when nobody is watching.",
+          )}
+        </p>
+      </div>
+    </div>
+
+    <div class="pull rv" style="margin-top:52px; max-width:960px">
       {t(
         lang,
-        "A、B、C 三路并发，D 等 C。任何一路失败只会让对应板块变薄，报告仍然出得来——数出来的那一半始终在。",
-        "A, B and C run concurrently; D waits for C. A failure in any one thins that section only — the report still comes out, because the computed half is always there.",
+        "深度决定判断的质量上限 —— 引擎运转时能加工到多深；自主决定判断的启动与所有权 —— 没人要求时，引擎会不会自己点火。缺深度的自主，产出的是自信的垃圾；缺自主的深度，是一台租给任何提示者的好引擎。",
+        "Depth sets the ceiling on quality — how deep the engine can machine when it runs. Autonomy decides ignition and ownership — whether it starts at all when nobody asks. Autonomy without depth produces confident garbage; depth without autonomy is a good engine rented to whoever prompts it.",
       )}
-    </p>
+    </div>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════════════════ TWO AXES ═════ -->
-<section class="section">
+<!-- ══════════════════════════════════════════ THE D AXIS ════════ -->
+<section class="section band-paper">
   <div class="container">
     <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "两根轴分开测量，分开报告，永不合成总分", "Two axes, measured apart, reported apart, never merged")}</h2>
+      <div class="eyebrow" style="margin-bottom:16px"><span class="pip"></span>D-AXIS</div>
+      <h2 class="sec-title">{t(lang, "认知深度：思考到达了第几层", "Cognitive depth: how many layers down the thinking got")}</h2>
       <p class="lead">
         {t(
           lang,
-          "缺深度的自主，产出的是自信的垃圾；缺自主的深度，是一台租给任何提示者的好引擎。把两者加权成一个数字，等于把这句话里最要紧的信息扔掉。",
-          "Autonomy without depth produces confident garbage. Depth without autonomy is a good engine rented to whoever prompts it. Averaging the two into one number throws away the only part that mattered.",
+          "它不是知识量，也不是答案的对错，而是思考本身的结构。进阶有一个可辨认的转折点 —— 反身性转向：先理解一个观点，再把「理解本身」作为分析对象。不仅问「这个观点是什么」，还继续问：它建立在哪些前提上？忽略了什么？谁从这种框定中受益？我为什么倾向于相信它？",
+          "Not how much is known, nor whether the answer is right, but the structure of the thinking itself. The climb has one recognisable turn — the reflexive turn: first understand a claim, then make the understanding itself the object of analysis. Not only “what is this claim”, but: what does it rest on, what does it leave out, who benefits from this framing, and why am I inclined to believe it?",
         )}
       </p>
     </div>
 
-    <div class="axes rv-pop" style="margin-top:44px">
-      <div class="axis d">
-        <div class="ah">
-          <span class="ai"><Icon name="layers" /></span>
+    <div class="ladder rv" style="margin-top:44px">
+      {rungs.slice(0, 2).map(([lv, zh, en, pz, pe]) => (
+        <div class="rung">
+          <div class="lv">{lv}<small>{t(lang, zh, en)}</small></div>
           <div>
-            <div class="an">{t(lang, "认知深度", "Cognitive depth")}</div>
-            <div class="ak">D-AXIS · D1–D6 · L1–L4</div>
-            <p class="aq">{t(lang, "思考到达了第几层。深度决定判断的质量上限。", "How many layers down the thinking got. Depth sets the ceiling on quality.")}</p>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, pz, pe)}</p>
           </div>
         </div>
-        {depthDims.map(([c, zh, en, pz, pe]) => (
-          <div class="dim">
-            <span class="dc">{c}</span>
-            <div>
-              <div class="dn">{t(lang, zh, en)}</div>
-              <div class="df">{t(lang, pz, pe)}</div>
-            </div>
+      ))}
+      <div class="turn">
+        <span class="tl"></span>
+        <span class="tt">{t(lang, "反身性转向 · the reflexive turn", "the reflexive turn")}</span>
+        <span class="tl"></span>
+      </div>
+      {rungs.slice(2).map(([lv, zh, en, pz, pe]) => (
+        <div class="rung">
+          <div class="lv">{lv}<small>{t(lang, zh, en)}</small></div>
+          <div>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, pz, pe)}</p>
           </div>
-        ))}
+        </div>
+      ))}
+    </div>
+
+    <div class="grid-2" style="margin-top:44px; gap:22px">
+      <div class="callout rv">
+        <div class="cl"><Icon name="target" />{t(lang, "判层规则", "How a level is judged")}</div>
+        <h3>{t(lang, "层级永远相对任务的开放度而判", "Always relative to how open the task is")}</h3>
+        <p>
+          {t(
+            lang,
+            "封闭任务封顶于「多点」—— 一道只有一个正确答案的题，本来就不给关联和反身留位置。所以低读数不一定是学生浅，也可能是任务没给机会。",
+            "A closed task is capped at “several points”: a question with one right answer leaves no room for relating or reflexivity. So a low reading may not mean the student is shallow — it may mean the task never offered the chance.",
+          )}
+        </p>
+      </div>
+      <div class="callout rv">
+        <div class="cl"><Icon name="spark" />{t(lang, "机会供给", "Opportunity supply")}</div>
+        <h3>{t(lang, "深层结构需要一个能被看见的舞台", "Deep structure needs a stage it can be seen on")}</h3>
+        <p>
+          {t(
+            lang,
+            "所以教师那一侧的第一件事不是判读，而是设计机会：题目够不够开放、材料有没有冲突、反方有没有被放进房间里。读数是教师设计的回声。",
+            "Which is why the teacher's first job is not reading the result but designing the opportunity: how open the task is, whether the material conflicts, whether the counter-case is in the room. The reading is an echo of the design.",
+          )}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ THE A AXIS ════════ -->
+<section class="section">
+  <div class="container">
+    <div class="sec-head rv">
+      <div class="eyebrow" style="margin-bottom:16px"><span class="pip"></span>A-AXIS</div>
+      <h2 class="sec-title">{t(lang, "智识自主：为什么课堂量不出它", "Intellectual autonomy: why a classroom can't measure it")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "我们习惯把这些当作自主的证据：敢不敢质疑老师、会不会反驳权威、是否主动发言。但用测量学的语言说，这些信号被构念无关方差严重污染 —— 课堂上观测到的那个值，其实是四样东西的乘积。",
+          "We are used to treating these as evidence of autonomy: challenging the teacher, arguing back at authority, speaking up. In measurement terms those signals are badly contaminated by construct-irrelevant variance — what a classroom observes is really the product of four things.",
+        )}
+      </p>
+    </div>
+
+    <div class="noiseq rv-pop" style="margin-top:44px">
+      <div class="nt want">
+        <b>{t(lang, "智识自主", "autonomy")}</b>
+        <i>{t(lang, "想测的", "the construct")}</i>
+      </div>
+      <span class="op">×</span>
+      <div class="nt"><b>{t(lang, "性格内外向", "extraversion")}</b><i>{t(lang, "噪声", "noise")}</i></div>
+      <span class="op">×</span>
+      <div class="nt"><b>{t(lang, "课堂文化规范", "classroom norms")}</b><i>{t(lang, "噪声", "noise")}</i></div>
+      <span class="op">×</span>
+      <div class="nt"><b>{t(lang, "语言表达自信", "verbal confidence")}</b><i>{t(lang, "噪声", "noise")}</i></div>
+      <span class="op">=</span>
+      <div class="nt"><b>{t(lang, "课堂行为", "classroom behaviour")}</b><i>{t(lang, "看得见的", "what's visible")}</i></div>
+    </div>
+
+    <div class="grid-2" style="margin-top:44px">
+      <div class="rv">
+        <h3 class="sub-title">{t(lang, "在东亚课堂，这一点格外尖锐", "In an East Asian classroom this bites harder")}</h3>
+        <p class="body" style="margin-top:16px">
+          {t(
+            lang,
+            "秩序、尊师与避免公开冲突是默认规范，公开质疑教师因此是一种高成本行为 —— 而高成本行为的缺席，不构成低自主的证据。反过来，爱发言、会反驳，也可能只是外向、表达好、喜欢赢过别人。会说不等于会判断，敢说也不等于有理由。",
+            "Order, deference and avoiding open conflict are the default norms, which makes challenging a teacher publicly an expensive act — and the absence of an expensive act is not evidence of low autonomy. In reverse: a student who talks and argues a lot may simply be extraverted, articulate, or fond of winning. Speaking well is not judging well; speaking up is not having a reason.",
+          )}
+        </p>
+      </div>
+      <div class="rv">
+        <h3 class="sub-title">{t(lang, "AI 交互是一个干净得多的观察场", "An AI conversation is a far cleaner site")}</h3>
+        <p class="body" style="margin-top:16px">
+          {t(
+            lang,
+            "对着 AI 提出质疑不需要勇气，邀请一个对手也不需要 —— 权威压力、课堂文化、公开表达的成本都被卸掉了，剩下的只有想不想较真本身。读数形式因此是行为信号分级（能力锚定 / 频率）加上「自发 / 引导」标记，并且只与学生自己的历史基线比较，从不与同班比较。",
+            "Challenging an AI takes no courage, and neither does inviting an opponent: authority pressure, classroom culture and the cost of speaking publicly all fall away, and what's left is whether she wants to get it right. So the reading is a graded behavioural signal — ability-anchored or frequency-based — carrying a self-initiated / prompted marker, and it is only ever compared with the student's own history, never with her classmates.",
+          )}
+        </p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════════════════════════════ THE TWELVE POINTS ════════ -->
+<section class="section band-cool">
+  <div class="container">
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "十二个测量点", "The twelve measurement points")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "D 轴看六类证据，A 轴看六个信号族。每一个测量点都配一句「它看什么」和一个「可观察的样子」—— 没有可观察的样子，就不是一个能测的东西。",
+          "Six families of evidence on the depth axis, six families of signal on the autonomy axis. Each carries what it looks at and what it looks like when it happens — anything with no observable form is not something we can measure.",
+        )}
+      </p>
+    </div>
+
+    <div class="rv-pop" style="margin-top:44px">
+      <DualAxis />
+    </div>
+
+    <div class="callout rv" style="margin-top:44px">
+      <div class="cl"><Icon name="link" />{t(lang, "同名不同问", "Same word, different question")}</div>
+      <h3>{t(lang, "同一个事件，可以同时为两根轴供证", "One event can feed both axes at once")}</h3>
+      <p>
+        {t(
+          lang,
+          "D2 与 A2 都涉及「核查」，但深度轴问的是核查得好不好，自主轴问的是核查由谁发起 —— 同一动作，两个读数，这是设计而非疏漏。一段让步段也一样：它既是 D3 / D4 的结构证据，也是 A6 的求真信号。",
+          "D2 and A2 both involve checking, but the depth axis asks how well it was done and the autonomy axis asks who started it — one action, two readings, by design rather than by oversight. A concession works the same way: structural evidence for D3 and D4, and a truth-seeking signal for A6.",
+        )}
+      </p>
+    </div>
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════ THE HONESTY ═══════ -->
+<section class="section">
+  <div class="container">
+    <div class="grid-2" style="gap:64px; align-items:start">
+      <div class="rv">
+        <h2 class="sec-title">{t(lang, "测量的诚实，是设计出来的", "Honest measurement has to be designed in")}</h2>
+        <p class="lead" style="margin-top:22px">
+          {t(
+            lang,
+            "一份论证判断力的产品，必须自己先经得起判断。所以有些事我们明确不做，并且把它写进系统权限，而不只是写进隐私政策。",
+            "A product that makes claims about judgment has to survive being judged. So some things we explicitly don't do — and they're written into system permissions, not only into a privacy policy.",
+          )}
+        </p>
+        <p class="body" style="margin-top:18px">
+          {t(
+            lang,
+            "还有一条边界在人那里：任何可能影响学生重大利益的判断，都不由算法自动作出。判层以锚点样本库为准绳、以基准集定期回测；教师可以一键改判，改判数据回流用于纠错；学生与家长对任何评估结果都有异议通道。",
+            "One boundary sits with people: no judgment that could affect a student's material interests is made automatically. Levels are held against an anchor sample library and re-tested on a benchmark set; a teacher can override in one click, and those overrides flow back as corrections. Students and families can contest any result.",
+          )}
+        </p>
       </div>
 
-      <div class="axis a">
-        <div class="ah">
-          <span class="ai"><Icon name="compass" /></span>
-          <div>
-            <div class="an">{t(lang, "智识自主", "Intellectual autonomy")}</div>
-            <div class="ak">A-AXIS · A1–A6 · BAND 0–5</div>
-            <p class="aq">{t(lang, "无人要求时，思考由谁启动、判断归谁所有。", "When nobody asked: who started the thinking, and whose judgment is it.")}</p>
-          </div>
-        </div>
-        {autoDims.map(([c, zh, en, pz, pe]) => (
-          <div class="dim">
-            <span class="dc">{c}</span>
+      <div class="stack rv">
+        {honesty.map(([n, zh, en, pz, pe]) => (
+          <div class="redline">
+            <span class="rn">{n}</span>
             <div>
-              <div class="dn">{t(lang, zh, en)}</div>
-              <div class="df">{t(lang, pz, pe)}</div>
+              <h4>{t(lang, zh, en)}</h4>
+              <p>{t(lang, pz, pe)}</p>
             </div>
           </div>
         ))}
       </div>
     </div>
-
-    <p class="small rv" style="margin-top:20px">
-      {t(
-        lang,
-        "D 轴的分层来自七张国际课程评分表——IGCSE GP、A Level GPR、EPQ、AP Seminar、AP Research、IB TOK、IB EE；剥掉各家术语，它们考的是同一条路。A 轴来自九十年代以来批判性思维「倾向」的实证研究。",
-        "The depth levels come from seven international mark schemes — IGCSE GP, A Level GPR, EPQ, AP Seminar, AP Research, IB TOK, IB EE. Strip the vocabulary and they test one path. The autonomy axis comes from three decades of empirical work on critical-thinking dispositions.",
-      )}
-    </p>
   </div>
 </section>
 
-<!-- ══════════════════════════════════════ NINE SECTIONS ═════════ -->
-<section class="section band-cool">
+<!-- ═══════════════════════════════════════ WHO SEES WHAT ════════ -->
+<section class="section band-paper">
   <div class="container">
     <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "报告的九个板块", "The nine sections of the report")}</h2>
+      <h2 class="sec-title">{t(lang, "同一份记录，四种颗粒度", "One record, four grain sizes")}</h2>
       <p class="lead">
         {t(
           lang,
-          "一份报告 = 一个学生 + 一个项目。九个板块从「发生了什么」一路走到「值得留意什么」，教师、家长、学生看到的是同一份内容的不同投影。",
-          "One report is one student on one project. Nine sections run from what happened to what deserves attention; teachers, families and the student each see a projection of the same thing.",
+          "观测的唯一目的是教学引导与成长反馈：测量为学生的学习服务，不为对学生的筛选服务。双轴数据永不用于入学筛选、学生排名、纪律惩戒或教师绩效考核，也不出售、不用于任何形式的商业画像。",
+          "The only purpose of observing is teaching and growth feedback: the measurement serves the student's learning, never a selection process. Axis data is never used for admissions, ranking, discipline or staff appraisal — and never sold or turned into a commercial profile.",
         )}
       </p>
     </div>
@@ -240,78 +354,65 @@ const autoDims: [string, string, string, string, string][] = [
       <table class="dt">
         <thead>
           <tr>
-            <th style="width:64px">#</th>
-            <th style="width:200px">{t(lang, "板块", "Section")}</th>
-            <th>{t(lang, "里面是什么", "What's in it")}</th>
+            <th style="width:150px">{t(lang, "角色", "Role")}</th>
+            <th>{t(lang, "看到什么", "Sees")}</th>
+            <th>{t(lang, "永远看不到什么", "Never sees")}</th>
           </tr>
         </thead>
         <tbody>
-          {sections.map(([n, zh, en, pz, pe]) => (
+          {visibility.map(([rz, re, sz, se, nz, ne]) => (
             <tr>
-              <td class="k">{n}</td>
-              <td class="k">{t(lang, zh, en)}</td>
-              <td>{t(lang, pz, pe)}</td>
+              <td class="k">{t(lang, rz, re)}</td>
+              <td>{t(lang, sz, se)}</td>
+              <td>{t(lang, nz, ne)}</td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
+
+    <p class="small rv" style="margin-top:18px">
+      {t(
+        lang,
+        "并且，测量对学生本人透明：他知道平台在观测什么、为什么观测。观测不是暗中进行的 —— 让孩子知道「什么值得被看」，本身就是元认知教育的一部分。",
+        "And the measurement is transparent to the student: she knows what is being observed and why. None of it happens covertly — letting a young person know what is worth looking at is itself part of teaching metacognition.",
+      )}
+    </p>
   </div>
 </section>
 
-<!-- ═══════════════════════════════════ EVIDENCE + REDLINES ══════ -->
+<!-- ══════════════════════════════════════ THE REPORT ITSELF ═════ -->
 <section class="section">
   <div class="container">
-    <div class="grid-2" style="gap:64px; align-items:start">
-      <div class="rv">
-        <h2 class="sec-title">{t(lang, "证据索引：模型唯一被允许引用的东西", "The evidence index: the only thing a model may cite")}</h2>
-        <p class="lead" style="margin-top:22px">
-          {t(
-            lang,
-            "生成之前，系统先从记录里建一个索引：某一条消息、某一次事件、某一张卡、某一个来源，每一项都有 id。模型写判断时只能从这个集合里引用。",
-            "Before generation, an index is built from the record: a message, an event, a card, a source — each with an id. When the model writes a judgment, it may cite only from that set.",
-          )}
-        </p>
-        <p class="body" style="margin-top:18px">
-          {t(
-            lang,
-            "生成之后再逐条回指校验一遍：指不到真实记录的引用一律摘除。所以教师在报告里点开的每一个证据链接，打开的都是当时真实发生的那一段——报告里不会出现一个点不开的链接。",
-            "After generation every citation is resolved again, and any that doesn't land on a real record is stripped. So every evidence link a teacher opens in the report opens onto something that actually happened — there are no dead links in it.",
-          )}
-        </p>
-      </div>
-
-      <div class="stack rv">
-        <div class="redline">
-          <span class="rn">01</span>
-          <div>
-            <h4>{t(lang, "永不合成总分", "Never a composite score")}</h4>
-            <p>{t(lang, "两根轴分开报告。不加权、不平均、不折算成一个数字。", "The two axes are reported apart. No weighting, no averaging, no single number.")}</p>
-          </div>
-        </div>
-        <div class="redline">
-          <span class="rn">02</span>
-          <div>
-            <h4>{t(lang, "永不用于筛选与排名", "Never used to select or rank")}</h4>
-            <p>{t(lang, "不用于入学筛选、学生排名、纪律惩戒或教师绩效；不出售，不做商业画像。", "Never for admissions, ranking, discipline or staff appraisal. Never sold, never turned into a commercial profile.")}</p>
-          </div>
-        </div>
-        <div class="redline">
-          <span class="rn">03</span>
-          <div>
-            <h4>{t(lang, "证据不够时，就说不够", "When the evidence is thin, we say so")}</h4>
-            <p>{t(lang, "没看到证据，只说明证据还在积累，并不代表这个学生没有能力。宁可不说，也不硬贴标签。", "No evidence seen only means evidence is still accumulating; it says nothing about the student's ability. We'd rather say nothing than pin on a label.")}</p>
-          </div>
-        </div>
-        <div class="redline">
-          <span class="rn">04</span>
-          <div>
-            <h4>{t(lang, "不给预测分", "No predicted grades")}</h4>
-            <p>{t(lang, "照作品的那一侧只说该体系的官方语言，给出的是「离官方描述语还差哪几块证据」的就绪度。", "On the work's side we speak only that system's official language, and report readiness — which pieces of evidence are still missing.")}</p>
-          </div>
-        </div>
-      </div>
+    <div class="sec-head rv">
+      <h2 class="sec-title">{t(lang, "这套设计长成的那份报告", "What the design comes out as")}</h2>
+      <p class="lead">
+        {t(
+          lang,
+          "一份报告 = 一个学生 + 一个项目，九个板块。数得出来的那一半直接从记录里算；需要判断的那一半交给旗舰模型，而且只能引用一个事先建好的证据集 —— 每一条判断都要指回一段真实发生过的记录。",
+          "One report is one student on one project, in nine sections. The countable half computes straight from the record; the half that takes judgment goes to a flagship model that may only cite a pre-built evidence set — every judgment has to point back at something that actually happened.",
+        )}
+      </p>
+      <a class="tlink" style="margin-top:22px" href={L("/algorithm")}>
+        {t(lang, "看这份报告是怎么算出来的", "See how the report is computed")}<Icon name="arrow" />
+      </a>
     </div>
+
+    <Figure
+      class="rv-pop"
+      ratio="16-9"
+      name="evaluation-report-sample"
+      desc={t(
+        lang,
+        "一份完整的示例报告（即将放出）：双轴读数、可点开的证据链接、过程叙述",
+        "A complete sample report (coming): the two axis readings, clickable evidence, the process narrative",
+      )}
+      caption={t(
+        lang,
+        "示例报告即将在这里完整放出 —— 用真实走完一次探究的记录生成，不是排版稿。",
+        "A full sample report will be published here — generated from a real completed inquiry, not a mock-up.",
+      )}
+    />
   </div>
 </section>
 
@@ -321,7 +422,7 @@ const autoDims: [string, string, string, string, string][] = [
   links={[
     {
       href: "/algorithm/multi-agent",
-      kicker: ["另一个关键算法", "The other key algorithm"],
+      kicker: ["另一半设计", "The other half"],
       title: ["多智能体教练系统", "The multi-agent coach"],
       body: ["一条会话走完全程，重活交给隔离的子代理", "One conversation throughout; heavy work goes to isolated sub-agents"],
     },

@@ -1,0 +1,63 @@
+---
+import { getLang, t } from "../../i18n/utils";
+import { assetUrl } from "../../config";
+
+/**
+ * The banner every sub-page opens on.
+ *
+ * The artwork is built the same way each time: near-black on the left,
+ * luminous on the right. So the type sits left, over the dark half, and a
+ * scrim only has to finish the job the picture already started. On narrow
+ * screens the picture drops behind the whole block and the scrim goes
+ * vertical, because there is no longer a left half to speak of.
+ *
+ * `mirror` flips the artwork horizontally — for the one banner whose bright
+ * half is on the wrong side.
+ */
+interface Props {
+  /** Media key, e.g. "banner/about-v1.webp". */
+  asset: string;
+  eyebrow: [string, string];
+  /** Two lines: the second is set in the softer weight. */
+  title: [[string, string], [string, string]];
+  lead: [string, string];
+  mirror?: boolean;
+  /** Accent for the eyebrow pip: "" | "a" | "g" | "m". */
+  tone?: string;
+}
+
+const {
+  asset,
+  eyebrow,
+  title,
+  lead,
+  mirror = false,
+  tone = "",
+} = Astro.props;
+const lang = getLang(Astro.currentLocale);
+---
+
+<section class={`pbanner ${tone}`}>
+  <div class="pb-media" data-parallax>
+    <img
+      src={assetUrl(asset)}
+      alt=""
+      aria-hidden="true"
+      fetchpriority="high"
+      decoding="async"
+      style={mirror ? "transform:scaleX(-1)" : undefined}
+    />
+  </div>
+  <div class="pb-scrim"></div>
+  <div class="pb-grid"></div>
+
+  <div class="pb-inner">
+    <div class="eyebrow rv"><span class="pip"></span>{t(lang, eyebrow[0], eyebrow[1])}</div>
+    <h1 class="page-title">
+      <span class="rv-line" style="--i:0"><span>{t(lang, title[0][0], title[0][1])}</span></span>
+      <span class="rv-line" style="--i:1"><span class="soft">{t(lang, title[1][0], title[1][1])}</span></span>
+    </h1>
+    <p class="lead rv" style="--i:2">{t(lang, lead[0], lead[1])}</p>
+    <slot />
+  </div>
+</section>

@@ -15,9 +15,10 @@ export default defineConfig({
       prefixDefaultLocale: false,
     },
   },
-  // The old single evaluation page folded into /product#evaluation.
+  // Old routes. /evaluation predates the product split; the tab anchors on
+  // /product became real pages, so the deep links move with them.
   redirects: {
-    "/evaluation": "/product",
-    "/en/evaluation": "/en/product",
+    "/evaluation": "/product/evaluation",
+    "/en/evaluation": "/en/product/evaluation",
   },
 });

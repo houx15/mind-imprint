@@ -10,6 +10,8 @@
      01 tokens · 02 reset · 03 layout · 04 type · 05 buttons · 06 nav
      07 hero · 08 primitives (rail/cards/figure/callout/table)
      09 diagrams · 10 page-specific · 11 footer · 12 motion · 13 responsive
+     16 home · 17 page banners · 18 the two axes
+     19 ladder/equation/catalogue · 20 the four abilities
    ========================================================================== */
 
 /* ---------------------------------------------------------------- 01 tokens */
@@ -2310,88 +2312,6 @@ footer.site-foot {
 }
 
 /* ============================================================================
-   14 tabs — the product page's three sub-surfaces (projects · tools · assess)
-   ========================================================================== */
-
-.tabbar {
-  position: sticky;
-  top: 63px;
-  z-index: 60;
-  background: rgba(8, 13, 23, 0.88);
-  backdrop-filter: saturate(180%) blur(18px);
-  -webkit-backdrop-filter: saturate(180%) blur(18px);
-  border-bottom: 1px solid var(--line);
-}
-.tabbar-inner {
-  max-width: var(--maxw);
-  margin: 0 auto;
-  padding: 0 var(--gutter);
-  display: flex;
-  gap: 34px;
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.tabbar-inner::-webkit-scrollbar {
-  display: none;
-}
-.tabbtn {
-  appearance: none;
-  background: none;
-  border: 0;
-  border-bottom: 2px solid transparent;
-  cursor: pointer;
-  font: inherit;
-  color: var(--muted);
-  padding: 17px 0 15px;
-  display: grid;
-  gap: 1px;
-  text-align: left;
-  white-space: nowrap;
-  transition: color 0.25s var(--ease), border-color 0.25s var(--ease);
-}
-.tabbtn .tl {
-  font-size: 16px;
-  font-weight: 700;
-  letter-spacing: -0.012em;
-}
-.tabbtn .tsub {
-  font-size: 12px;
-  font-weight: 500;
-  color: var(--faint);
-}
-.tabbtn:hover {
-  color: var(--ink);
-}
-.tabbtn[aria-selected="true"] {
-  color: var(--ink);
-  border-bottom-color: var(--primary);
-}
-.tabbtn[aria-selected="true"] .tsub {
-  color: var(--muted);
-}
-
-/* Without JS every panel stays open — the tabs are progressive enhancement. */
-html:not(.js) .tabpanel[hidden] {
-  display: block;
-}
-html:not(.js) .tabbar {
-  display: none;
-}
-.js .tabpanel.enter {
-  animation: tabin 0.55s var(--ease-out) both;
-}
-@keyframes tabin {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: none;
-  }
-}
-
-/* ============================================================================
    15 layer stack — the algorithm page's "what the system is made of" list
    ========================================================================== */
 
@@ -2659,5 +2579,711 @@ html[lang="zh-CN"] .split-side h3 {
   }
   .formula .op {
     font-size: 16px;
+  }
+}
+
+
+/* ============================================================================
+   17 page banners — the artwork every sub-page opens on
+   ========================================================================== */
+
+/* Every banner is built the same way: near-black on the left, luminous on the
+   right. So the type sits left, over the dark half, and the scrim only has to
+   finish what the picture already started. */
+.pbanner {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  align-items: flex-end;
+  min-height: clamp(380px, 52svh, 560px);
+  padding: 150px 0 62px;
+}
+.pb-media {
+  position: absolute;
+  inset: -6% 0 -6% 0; /* headroom for the parallax drift */
+  z-index: -3;
+}
+.pb-media img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 68% 50%;
+}
+/* Two scrims: one across (protects the type), one down (hands the page over
+   to the flat background so the banner has no bottom edge). */
+.pb-scrim {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+  pointer-events: none;
+  background:
+    linear-gradient(
+      100deg,
+      var(--white) 0%,
+      rgba(11, 18, 32, 0.94) 26%,
+      rgba(11, 18, 32, 0.6) 50%,
+      rgba(11, 18, 32, 0.16) 76%,
+      rgba(11, 18, 32, 0) 100%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(11, 18, 32, 0.82) 0%,
+      rgba(11, 18, 32, 0.1) 30%,
+      rgba(11, 18, 32, 0.25) 66%,
+      var(--white) 100%
+    );
+}
+.pb-grid {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image: linear-gradient(var(--line-2) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line-2) 1px, transparent 1px);
+  background-size: 72px 72px;
+  opacity: 0.5;
+  mask-image: linear-gradient(90deg, #000 0%, #000 34%, transparent 72%);
+  -webkit-mask-image: linear-gradient(90deg, #000 0%, #000 34%, transparent 72%);
+}
+.pb-inner {
+  position: relative;
+  width: 100%;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding-inline: var(--gutter);
+}
+.pbanner h1.page-title {
+  margin-top: 20px;
+  max-width: 15em;
+}
+.pbanner .lead {
+  max-width: 620px;
+  margin-top: 22px;
+}
+.pbanner.a .eyebrow .pip {
+  background: var(--primary);
+}
+.pbanner.g .eyebrow .pip {
+  background: var(--green);
+}
+.pbanner.m .eyebrow .pip {
+  background: var(--amber);
+}
+
+@media (max-width: 900px) {
+  .pbanner {
+    min-height: 0;
+    padding: 128px 0 52px;
+  }
+  .pb-media img {
+    object-position: 78% 50%;
+  }
+  /* No left half left to speak of — take the scrim vertical. */
+  .pb-scrim {
+    background: linear-gradient(
+      180deg,
+      rgba(11, 18, 32, 0.86) 0%,
+      rgba(11, 18, 32, 0.7) 42%,
+      rgba(11, 18, 32, 0.9) 76%,
+      var(--white) 100%
+    );
+  }
+  .pb-grid {
+    display: none;
+  }
+}
+
+
+/* ============================================================================
+   18 the two axes — twin rulers that deliberately never meet
+   ========================================================================== */
+
+/* The design refuses to combine depth and autonomy into one number, so the
+   picture refuses to combine them too: two columns, a seam down the middle,
+   and no axis crossing anywhere. A scatter plot would say the opposite. */
+.axisx {
+  position: relative;
+}
+.axisx-rails {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  gap: 0 26px;
+  align-items: start;
+}
+.axcol {
+  min-width: 0;
+}
+.axcol-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--line);
+}
+.axcol-head .ai {
+  display: grid;
+  place-items: center;
+  width: 38px;
+  height: 38px;
+  flex: none;
+  border-radius: 11px;
+  background: var(--primary-tint);
+  border: 1px solid var(--primary-line);
+  color: var(--primary);
+}
+.axcol.a .axcol-head .ai {
+  background: var(--accent-tint);
+  border-color: var(--accent-line);
+  color: var(--accent);
+}
+.axcol-head .an {
+  font-size: 19px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.axcol-head .ak {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.11em;
+  color: var(--primary);
+  margin-top: 4px;
+}
+.axcol.a .axcol-head .ak {
+  color: var(--accent);
+}
+.axcol-head .ao {
+  font-size: 13px;
+  color: var(--muted);
+  margin-top: 8px;
+  line-height: 1.55;
+}
+
+/* the seam: the one thing this picture is really about */
+.axseam {
+  align-self: stretch;
+  display: grid;
+  justify-items: center;
+  gap: 10px;
+  padding-top: 6px;
+}
+.axseam .sl {
+  width: 1px;
+  flex: 1;
+  min-height: 40px;
+  background: repeating-linear-gradient(
+    180deg,
+    var(--line) 0 5px,
+    transparent 5px 11px
+  );
+}
+.axseam .st {
+  writing-mode: vertical-rl;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--faint);
+  white-space: nowrap;
+}
+
+.axchips {
+  display: grid;
+  gap: 7px;
+  margin-top: 16px;
+}
+.axchip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-sm);
+  background: var(--surface);
+  cursor: pointer;
+  transition: border-color 0.28s var(--ease), background 0.28s var(--ease),
+    transform 0.28s var(--ease);
+}
+.axchip:hover {
+  border-color: var(--primary-line);
+  transform: translateX(3px);
+}
+.axcol.a .axchip:hover {
+  border-color: var(--accent-line);
+}
+.axchip .c {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  color: var(--primary);
+  flex: none;
+  width: 24px;
+}
+.axcol.a .axchip .c {
+  color: var(--accent);
+}
+.axchip .n {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--ink-2);
+  line-height: 1.35;
+}
+/* selected state is emitted per-id by the component's own <style> */
+.axchip.on {
+  background: var(--primary-tint);
+  border-color: var(--primary);
+}
+.axcol.a .axchip.on {
+  background: var(--accent-tint);
+  border-color: var(--accent);
+}
+.axchip.on .n {
+  color: var(--ink);
+}
+
+/* the detail panel — every entry rendered, one shown */
+.axpanel {
+  position: relative;
+  margin-top: 26px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-lg);
+  background: var(--paper-2);
+  padding: 30px 32px;
+  display: grid;
+}
+.axdet {
+  grid-area: 1 / 1;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(8px);
+  transition: opacity 0.4s var(--ease-out), transform 0.4s var(--ease-out);
+}
+.axdet.on {
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+.axdet .dh {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.axdet .dc {
+  font-family: var(--mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  padding: 4px 9px;
+  border-radius: 6px;
+  color: var(--on-brand);
+  background: var(--primary);
+}
+.axdet.a .dc {
+  background: var(--accent);
+}
+.axdet .dn {
+  font-size: 20px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+.axdet .dw {
+  margin-top: 16px;
+  font-size: 15.5px;
+  line-height: 1.7;
+  color: var(--ink-2);
+}
+.axdet .dex {
+  margin-top: 18px;
+  padding: 15px 18px;
+  border-left: 2px solid var(--primary);
+  background: var(--surface);
+  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.axdet.a .dex {
+  border-left-color: var(--accent);
+}
+.axdet .dex .el {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.axdet .dex .et {
+  margin-top: 7px;
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--ink);
+}
+
+/* Without JS the chips are dead controls, so they go away and the panel simply
+   lists all twelve. Nothing is lost — each entry carries its own name. */
+html:not(.js) .axchips {
+  display: none;
+}
+html:not(.js) .axpanel {
+  gap: 30px;
+}
+html:not(.js) .axdet {
+  grid-area: auto;
+  opacity: 1;
+  visibility: visible;
+  transform: none;
+}
+
+@media (max-width: 940px) {
+  .axisx-rails {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+  .axseam {
+    display: none;
+  }
+  .axpanel {
+    padding: 24px 22px;
+  }
+}
+
+
+/* ============================================================================
+   19 the depth ladder, the noise equation, the course catalogue
+   ========================================================================== */
+
+/* L1 → L4: four rungs, and the reflexive turn marked where it happens */
+.ladder {
+  display: grid;
+  gap: 10px;
+}
+.rung {
+  position: relative;
+  display: grid;
+  grid-template-columns: 74px 1fr;
+  gap: 20px;
+  align-items: start;
+  padding: 20px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  transition: border-color 0.35s var(--ease), transform 0.35s var(--ease);
+}
+.rung:hover {
+  border-color: var(--primary-line);
+  transform: translateX(4px);
+}
+.rung .lv {
+  font-family: var(--mono);
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--primary);
+  letter-spacing: 0.02em;
+}
+.rung .lv small {
+  display: block;
+  font-size: 10px;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-top: 4px;
+}
+.rung h4 {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+.rung p {
+  margin-top: 8px;
+  font-size: 14.5px;
+  line-height: 1.66;
+  color: var(--muted);
+}
+/* the turn: where understanding becomes the object of analysis */
+.turn {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin: 4px 0;
+  padding: 0 6px;
+}
+.turn .tl {
+  height: 1px;
+  flex: 1;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+}
+.turn .tt {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+  white-space: nowrap;
+}
+
+/* classroom behaviour = autonomy × personality × culture × confidence */
+.noiseq {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: stretch;
+  justify-content: center;
+  gap: 10px;
+  padding: 30px 24px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+}
+.noiseq .nt {
+  display: grid;
+  place-items: center;
+  gap: 6px;
+  padding: 14px 18px;
+  border-radius: var(--r-sm);
+  border: 1px dashed var(--line);
+  min-width: 116px;
+}
+.noiseq .nt.want {
+  border-style: solid;
+  border-color: var(--accent-line);
+  background: var(--accent-tint);
+}
+.noiseq .nt b {
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--muted);
+  text-align: center;
+}
+.noiseq .nt.want b {
+  color: var(--accent);
+}
+.noiseq .nt i {
+  font-family: var(--mono);
+  font-size: 9.5px;
+  font-style: normal;
+  letter-spacing: 0.13em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.noiseq .nt.want i {
+  color: var(--accent);
+}
+.noiseq .op {
+  display: grid;
+  place-items: center;
+  font-family: var(--mono);
+  font-size: 17px;
+  color: var(--faint);
+  padding: 0 2px;
+}
+
+/* the course catalogue: 33 real courses, filtered in place */
+.catbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  align-items: center;
+}
+.catbtn {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  letter-spacing: 0.06em;
+  padding: 8px 15px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--muted);
+  cursor: pointer;
+  transition: color 0.25s var(--ease), border-color 0.25s var(--ease),
+    background 0.25s var(--ease);
+}
+.catbtn:hover {
+  color: var(--ink-2);
+  border-color: var(--primary-line);
+}
+.catbtn[aria-pressed="true"] {
+  color: var(--on-brand);
+  background: var(--primary);
+  border-color: var(--primary);
+}
+.catcount {
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: var(--faint);
+  margin-left: auto;
+}
+.catgrid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 14px;
+  margin-top: 26px;
+}
+.catcard {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 22px 18px;
+  border: 1px solid var(--line);
+  border-radius: var(--r);
+  background: var(--surface);
+  transition: border-color 0.3s var(--ease), transform 0.3s var(--ease),
+    box-shadow 0.3s var(--ease);
+}
+.catcard:hover {
+  border-color: var(--primary-line);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+.catcard[hidden] {
+  display: none;
+}
+.catcard .cn {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.1em;
+  color: var(--faint);
+}
+.catcard h4 {
+  margin-top: 9px;
+  font-size: 15.5px;
+  font-weight: 700;
+  line-height: 1.45;
+  letter-spacing: -0.012em;
+}
+.catcard .cf {
+  margin-top: 10px;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.55;
+}
+.catcard .cs {
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line-2);
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.catcard .cs span {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  padding: 3px 8px;
+  border-radius: 5px;
+  background: var(--paper-2);
+  color: var(--ink-2);
+}
+
+@media (max-width: 1020px) {
+  .catgrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 700px) {
+  .catgrid {
+    grid-template-columns: 1fr;
+  }
+  .rung {
+    grid-template-columns: 56px 1fr;
+    gap: 14px;
+    padding: 17px 18px;
+  }
+  .noiseq {
+    padding: 22px 14px;
+  }
+  .noiseq .nt {
+    min-width: 92px;
+    padding: 11px 12px;
+  }
+}
+
+
+/* ============================================================================
+   20 the four abilities — 2x2 in one screen, each a picture and one claim
+   ========================================================================== */
+
+.abilities {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+/* The artwork is the card's ground, not a panel above it: it is painted on the
+   same near-black, so it can sit behind the type without a frame. A scrim
+   weighted to the foot keeps the copy legible whatever the picture does there. */
+.ability {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  min-height: clamp(230px, 27svh, 290px);
+  padding: 30px 32px 28px;
+  border: 1px solid var(--line);
+  border-radius: var(--r-xl);
+  background: var(--surface);
+  transition: border-color 0.4s var(--ease), transform 0.5s var(--ease),
+    box-shadow 0.5s var(--ease);
+}
+.ability:hover {
+  border-color: var(--primary-line);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-lift);
+}
+.ab-art {
+  position: absolute;
+  inset: 0;
+  z-index: -2;
+}
+.ab-art img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: 50% 42%;
+  opacity: 0.82;
+  transform: scale(1.02);
+  transition: opacity 0.7s var(--ease), transform 1.1s var(--ease-out);
+}
+.ability:hover .ab-art img {
+  opacity: 1;
+  transform: scale(1.06);
+}
+.ability::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(
+    180deg,
+    rgba(11, 18, 32, 0.04) 0%,
+    rgba(11, 18, 32, 0.4) 44%,
+    rgba(11, 18, 32, 0.84) 76%,
+    rgba(11, 18, 32, 0.94) 100%
+  );
+}
+.ability h3 {
+  font-size: clamp(20px, 1.8vw, 25px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+html[lang="zh-CN"] .ability h3 {
+  letter-spacing: 0;
+}
+.ability p {
+  margin-top: 9px;
+  font-size: 14.5px;
+  line-height: 1.62;
+  color: var(--ink-2);
+  max-width: 36ch;
+}
+
+@media (max-width: 820px) {
+  .abilities {
+    grid-template-columns: 1fr;
+  }
+  .ability {
+    min-height: 210px;
+    padding: 26px 24px 24px;
   }
 }

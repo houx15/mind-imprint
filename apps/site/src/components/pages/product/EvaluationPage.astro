@@ -1,0 +1,224 @@
+---
+import Icon from "../../Icon.astro";
+import Figure from "../../Figure.astro";
+import CtaBand from "../../sections/CtaBand.astro";
+import Pager from "../../sections/Pager.astro";
+import PageBanner from "../../sections/PageBanner.astro";
+import { getLang, t } from "../../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+/* ── the two axes ───────────────────────────────────────────────────── */
+const depth: [string, string, string, string, string][] = [
+  ["D1", "任务理解与问题表述", "Framing the question", "能否把研究问题说清、限定范围、拆出可答的子问题", "Stating it clearly, bounding scope, splitting out answerable sub-questions"],
+  ["D2", "证据与信源", "Evidence & sources", "追溯一手来源、区分转述与原文、核查数据", "Tracing to primary sources, separating paraphrase from original, checking numbers"],
+  ["D3", "论证结构", "Argument structure", "主张—证据—推理的完整性、识别缺失的 warrant、构造让步段", "Claim–evidence–warrant integrity, spotting the missing warrant, building the concession"],
+  ["D4", "视角与偏见", "Perspective & bias", "多视角比较、识别来源的立场与利益、处理反方证据", "Comparing perspectives, reading a source's stake, handling counter-evidence"],
+  ["D5", "反馈处理与修订", "Feedback & revision", "理解批评、修订有理由、改的是论证而非只是措辞", "Understanding critique, revising with reasons, changing the argument not just the wording"],
+  ["D6", "反思与元认知", "Reflection & metacognition", "从复盘事实，到审视自己的方法与框架", "From recounting what happened to interrogating her own method and frame"],
+];
+
+const autonomy: [string, string, string, string, string][] = [
+  ["A1", "方向自主", "Direction", "谁在定目标与路线：自拟或修改计划、主动往深处钻", "Who sets the target and route — writing or rewriting the plan, digging deeper unprompted"],
+  ["A2", "发起自主", "Initiation", "无人要求时的提问、核查、修订", "Questions, checks and revisions nobody asked for"],
+  ["A3", "边界主权", "Boundary", "给 AI 设界、拒绝建议并给出理由、守住自己的路径", "Setting limits on the AI, refusing a suggestion with a reason, holding her own route"],
+  ["A4", "对抗与检验", "Challenge", "主动召唤反方、带证据质疑 AI、抵抗迎合陷阱", "Summoning the counter-case, challenging the AI with evidence, resisting its urge to agree"],
+  ["A5", "判断署名", "Signature", "评估判断自己下、反思自写、为结论给理由", "Making the call herself, writing her own reflection, giving reasons for the conclusion"],
+  ["A6", "求真优先", "Truth first", "愿意跟着证据走到对自己不利的地方：接受反证、修正立场", "Willing to follow the evidence somewhere inconvenient — accepting it, moving her position"],
+];
+
+/* ── the report's nine parts ────────────────────────────────────────── */
+const reportParts: [string, string, string, string][] = [
+  ["基础数据", "Basics", "标题、起止、里程碑，以及数出来的计数：AI 轮次、材料数、正文字数、批注、修订。", "Title, dates, milestones, and counted numbers: AI turns, materials, words, comments, revisions."],
+  ["摘要", "Abstract", "一段回顾她这次真正走过的路，加上三句分别说材料、写作与 AI 使用。", "A paragraph on the route she actually took, plus one line each on materials, writing and AI use."],
+  ["事件时间线", "Timeline", "对话、阅读室、图谱、写作、复盘，逐条按时间摊开。", "Chat, reading room, map, writing, retrospective — laid out in order."],
+  ["材料清单", "Materials", "每条来源的加入时间、出处、链接、它在论证里承担了什么。", "Every source: when it arrived, where from, and what job it does in the argument."],
+  ["认知深度 D1–D6", "Depth D1–D6", "每一维给分层、一句判断、若干条可点开的证据、一句建议。", "Per dimension: a level, a verdict, clickable evidence, one suggestion."],
+  ["智识自主 A1–A6", "Autonomy A1–A6", "同样结构；并标记这一次是自发还是被引导。", "Same structure — plus whether each move was self-initiated or prompted."],
+  ["提示词观测", "Prompt lens", "挑出 3–10 条她真实写过的提示词，说明好在哪、可以怎么改。", "3–10 of her actual prompts, with what worked and what to change."],
+  ["工具卡与子代理", "Cards & sub-agents", "哪张卡、在哪一站、为什么被递出来、产出改变了后续什么。", "Which card, at which station, why it was offered, and what changed downstream."],
+  ["风险行为", "Risk signals", "AI 代劳、缺少信源、论证断裂、数据口径、兔子洞跑题——各自附建议。", "Ghost-writing, missing sources, broken warrants, shifting denominators, tangents — each with advice."],
+];
+---
+
+<PageBanner
+  asset="banner/evaluation-v1.webp"
+  tone="g"
+  eyebrow={["产品 · 过程性评估报告", "Product · the process assessment"]}
+  title={[
+    ["从全过程记录里，", "Read how she thought,"],
+    ["读出她是怎么想的。", "straight from the record."],
+  ]}
+  lead={[
+    "基于学生实际项目过程的系统评估报告，覆盖九大板块，包括认知深度与智识自主两大轴线，详细呈现学生认知过程。",
+    "A systematic report built from the student's actual project record — nine sections, including the cognitive-depth and intellectual-autonomy axes, laying out how the thinking went.",
+  ]}
+/>
+
+<section class="section">
+    <div class="container">
+            <div class="axes rv" style="margin-top:48px">
+        <div class="axis d">
+          <div class="ah">
+            <span class="ai"><Icon name="layers" /></span>
+            <div>
+              <div class="an">{t(lang, "认知深度", "Cognitive depth")}</div>
+              <div class="ak">D-AXIS · {t(lang, "技能因子的纵向读数", "the vertical reading of the skills factor")}</div>
+              <p class="aq">{t(lang, "同样是「分析」，可以停在给部分命名，也可以进到部件之间的关系，再进到整个框架赖以成立的假设。", "“Analysis” can stop at naming the parts, or reach the relations between them, or reach the assumptions the whole frame rests on.")}</p>
+            </div>
+          </div>
+          {depth.map(([c, zh, en, dz, de]) => (
+            <div class="dim">
+              <span class="dc">{c}</span>
+              <div>
+                <div class="dn">{t(lang, zh, en)}</div>
+                <div class="df">{t(lang, dz, de)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+
+        <div class="axis a">
+          <div class="ah">
+            <span class="ai"><Icon name="compass" /></span>
+            <div>
+              <div class="an">{t(lang, "智识自主", "Intellectual autonomy")}</div>
+              <div class="ak">A-AXIS · {t(lang, "倾向因子的行为公分母", "the behavioural common denominator of dispositions")}</div>
+              <p class="aq">{t(lang, "六个信号族共用同一个公分母：无人要求时是否启动。读数只与她自己的历史基线比较。", "Six signal families share one denominator: does it start when nobody asked. Readings compare only against her own baseline.")}</p>
+            </div>
+          </div>
+          {autonomy.map(([c, zh, en, dz, de]) => (
+            <div class="dim">
+              <span class="dc">{c}</span>
+              <div>
+                <div class="dn">{t(lang, zh, en)}</div>
+                <div class="df">{t(lang, dz, de)}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div class="grid-2 rv" style="margin-top:32px">
+        <div class="callout">
+          <div class="cl"><Icon name="link" />{t(lang, "同一事件，两轴供证", "One event, evidence for both axes")}</div>
+          <h3>{t(lang, "一段让步段，同时是两种证据", "A concession paragraph is two kinds of evidence at once")}</h3>
+          <p>
+            {t(
+              lang,
+              "深度轴问的是核查得好不好，自主轴问的是谁发起的核查。同一个动作，两个读数——这是设计，不是疏漏。",
+              "The depth axis asks how well the check was done. The autonomy axis asks who started it. One action, two readings — by design, not by oversight.",
+            )}
+          </p>
+        </div>
+        <div class="callout">
+          <div class="cl"><Icon name="eye" />{t(lang, "为什么 AI 交互反而看得更清", "Why the AI setting sees autonomy more clearly")}</div>
+          <h3>{t(lang, "质疑一个 AI 不需要勇气，只需要理由", "Challenging an AI takes no courage — only a reason")}</h3>
+          <p>
+            {t(
+              lang,
+              "课堂行为里混着性格、文化规范与表达自信。AI 环境同时削弱了这三个混淆项——当勇气不再是门槛，剩下的信号就更接近「有没有理由、想不想较真」本身。",
+              "Classroom behaviour is tangled with personality, cultural norms and verbal confidence. The AI setting weakens all three at once — and once courage stops being the barrier, what's left is closer to whether she has a reason and wants to get it right.",
+            )}
+          </p>
+        </div>
+      </div>
+
+      <div class="sec-head rv" style="margin-top:80px">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "报告", "The report")}</div>
+        <h2 class="sub-title" style="margin-top:14px">{t(lang, "「你的思维印记」有九个部分", "“Your Mind Imprint” has nine parts")}</h2>
+        <p class="body" style="margin-top:14px">
+          {t(
+            lang,
+            "前四部分是数出来的事实，后五部分是有证据支撑的判断。每一条判断都要指回一个真实存在的片段，指不到的在生成之后直接丢弃。",
+            "The first four parts are counted facts. The last five are grounded judgments. Every judgment must point back to a real fragment — the ones that can't are dropped after generation.",
+          )}
+        </p>
+      </div>
+
+      <div class="grid-3 rv" style="margin-top:32px">
+        {reportParts.map(([zh, en, dz, de], i) => (
+          <div class="card" style={`--i:${i % 3}`}>
+            <span class="cardnum">{String(i + 1).padStart(2, "0")}</span>
+            <h4>{t(lang, zh, en)}</h4>
+            <p>{t(lang, dz, de)}</p>
+          </div>
+        ))}
+      </div>
+
+      <Figure
+        class="rv-pop"
+        name="product-evaluation-report"
+        ratio="16-9"
+        desc={t(lang, "评估报告界面：左侧刻度目录，右侧双轴可视化与证据链接", "The report: ruler-style contents on the left, axes and evidence on the right")}
+        caption={t(
+          lang,
+          "报告可导出 PDF；教师可点开任何一条判断背后的原始片段，并一键改判。",
+          "The report exports to PDF. A teacher can open the raw fragment behind any judgment — and overturn it in one click.",
+        )}
+      />
+
+      <p class="small rv" style="margin-top:26px; max-width:820px">
+        {t(
+          lang,
+          "关于分层：我们不展示 L1–L4 的等级阶梯，只用语义分层与颜色表达当前读数——单次不判档，轨迹优先于快照，一切表述使用「本周期观察到」的情境化语言，不做特质断言。",
+          "On levels: we don't display an L1–L4 ladder. Readings are shown semantically and by colour. No single session decides a level; trajectory outranks snapshot; and everything is phrased as “observed this cycle”, never as a trait claim.",
+        )}
+      </p>
+    </div>
+  </section>
+
+  <!-- three ledgers -->
+  <section class="section">
+    <div class="container">
+      <div class="sec-head rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "对接课程体系", "Mapping to your system")}</div>
+        <h2 class="sec-title">{t(lang, "同一份过程记录，对得上三套官方评分表", "One process record, mapped onto three official rubrics")}</h2>
+        <p class="lead">
+          {t(
+            lang,
+            "照人的一侧，双轴坐标跨体系恒定；照作品的一侧，只说该体系的官方语言，给出的是「离官方描述语还差哪几块证据」的就绪度。不给预测分，不折算等级，不合成总分。",
+            "On the person's side, the two axes stay constant across systems. On the work's side, we speak only that system's official language and report readiness — which pieces of evidence are still missing. No predicted grades, no conversions, no composite.",
+          )}
+        </p>
+      </div>
+
+      <div class="grid-3" style="margin-top:52px">
+        <div class="card rv" style="--i:0">
+          <div class="cardic"><Icon name="globe" /></div>
+          <h3>{t(lang, "国际课程 · 七门", "International · seven subjects")}</h3>
+          <p>{t(lang, "IGCSE GP、A Level GPR、EPQ、AP Seminar、AP Research、IB TOK、IB EE——凡是不考背诵、专考探究与论证的科目，就是这七个。", "IGCSE GP, A Level GPR, EPQ, AP Seminar, AP Research, IB TOK, IB EE — every course that tests inquiry and argument rather than recall.")}</p>
+          <p class="small" style="margin-top:14px">{t(lang, "七张评分表，剥掉各家术语，考的是同一条路——这就是 D1–D6 的来历。", "Seven mark schemes; strip the vocabulary and they test one path. That's where D1–D6 comes from.")}</p>
+        </div>
+        <div class="card rv" style="--i:1">
+          <div class="cardic"><Icon name="book" /></div>
+          <h3>{t(lang, "新中高考", "China's reformed exams")}</h3>
+          <p>{t(lang, "「无思维不命题」。开卷改革把记忆移出考场，能拉开差距的只剩「会不会想」；翻书翻的是证据，不是答案。", "“No thinking, no question.” Open-book reform moved memory out of the exam hall — what's left to differentiate is thinking. You turn pages for evidence, not for answers.")}</p>
+          <p class="small" style="margin-top:14px">{t(lang, "我们从不押题，却长期押中考法——押的是命题原则背后的那把尺。", "We never predict papers. We do bet on how they're set — on the ruler behind the principles.")}</p>
+        </div>
+        <div class="card rv" style="--i:2">
+          <div class="cardic"><Icon name="compass" /></div>
+          <h3>{t(lang, "生涯规划", "Careers")}</h3>
+          <p>{t(lang, "我们不做职业匹配。选科、选专业本质上都是判断动作——而选科是人生第一个高利害判断，它不该是判断力的第一次练习。", "No career matching. Choosing subjects or a major is a judgment act — and subject choice is the first high-stakes one. It shouldn't be the first time judgment gets practised.")}</p>
+          <p class="small" style="margin-top:14px">{t(lang, "A 轴形成一张「愿」的地图，D 轴形成一张「会」的地图；两张图叠合的地方，才值得展开。", "The A axis maps what she's drawn to; the D axis maps what she's good at. The overlap is where the conversation belongs.")}</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+<CtaBand />
+
+<Pager links={[
+    {
+      href: "/algorithm/evaluation",
+      kicker: ["这套读数从哪来", "Where the reading comes from"],
+      title: ["评估设计", "The assessment design"],
+      body: ["两根轴的学理来历、十二个测量点、四条不做的事", "The lineage of the two axes, twelve measurement points, four things we refuse to do"],
+    },
+    {
+      href: "/product/teacher",
+      kicker: ["下一面", "Next"],
+      title: ["教师端", "The teacher console"],
+      body: ["同一份记录，教师看到的那一层", "The same record, at the grain a teacher needs"],
+    },
+  ]} />

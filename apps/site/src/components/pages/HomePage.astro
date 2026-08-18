@@ -2,9 +2,10 @@
 import Icon from "../Icon.astro";
 import HeroImmersive from "../sections/HeroImmersive.astro";
 import CtaBand from "../sections/CtaBand.astro";
-import EvalPipeline from "../diagrams/EvalPipeline.astro";
+import DualAxis from "../diagrams/DualAxis.astro";
 import AgentTopology from "../diagrams/AgentTopology.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
+import { assetUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 const L = (p: string) => localePath(lang, p);
@@ -54,69 +55,72 @@ const solution: [string, string, string, string, string, string][] = [
     "cards",
     "思维工具",
     "Thinking tools",
-    "在他要下判断的那一刻，把一套具体的方法递到手上：怎么验一条来源、怎么接住反例、怎么看出 AI 这段话在编。用得多了，他知道责任始终在自己这边。",
-    "At the moment a judgment is due, a concrete method arrives in his hands: how to check a source, how to take on a counter-example, how to spot the AI making things up. Used often enough, he learns the responsibility never left him.",
+    "将批判性思维、信源验证、数据分析、AI 伦理等思维模式工具化，在真实情境中带学生一起操练，在实际练习中提升思辨能力。",
+    "Critical thinking, source verification, data analysis and AI ethics — each turned into a tool the student picks up and runs on real material, until the thinking is hers.",
     "",
   ],
   [
     "shield",
     "有边界的 AI 教练",
     "A coach with boundaries",
-    "它会解释、会追问、会扮演反方，但绝不把结论直接交出来。学生练的是主动提问、指挥 AI 干活；下判断那一步，始终留在他手里。",
-    "It explains, it questions, it plays the opposition — and it never hands the conclusion over. What the student practises is asking and directing; the judgment stays with him.",
+    "它会解释、会追问、会扮演反方，唯独不给答案。学生练的是指挥 AI 干活，而不是等 AI 交货。",
+    "It explains, it questions, it plays the opposition — the one thing it never does is answer. The student learns to direct the AI, not to wait for its delivery.",
     "a",
   ],
   [
     "gauge",
     "全过程评估报告",
     "Whole-process assessment",
-    "每一次互动都被记下来，长成一份可追溯、可复盘的报告：他在哪一步停住、跳过了哪张卡、哪一句判断是自己做的。成长因此留下印记。",
-    "Every interaction is recorded and grows into a report that can be traced and replayed: where he stopped, which card he skipped, which judgment was his own. Growth leaves an imprint.",
+    "每一次互动都留下印记，长成一份可追溯、可复盘的报告。学生的思考过程，第一次有了证据。",
+    "Every exchange leaves an imprint and grows into a report that can be traced and replayed. For the first time, how a student thought is on the record.",
     "g",
   ],
 ];
 
-/* Screen 3 — what those three add up to in a student. */
-const abilities: [string, string, string, string, string, string][] = [
-  [
-    "layers",
-    "批判性思维",
-    "Critical thinking",
-    "追到一手来源，读清一条证据能证明到哪一步，接得住反方，也守得住结论的强度。",
-    "Trace a claim to its primary source, read how far a piece of evidence actually reaches, take on the counter-case, and keep the conclusion within its bounds.",
-    "",
-  ],
-  [
-    "compass",
-    "持续探索",
-    "Unending exploration",
-    "把一个模糊的兴趣收窄成能回答的问题，自己决定往哪里深挖，也知道什么时候该收手。",
-    "Narrow a vague interest into an answerable question, decide where to dig — and know when to stop digging.",
-    "a",
-  ],
-  [
-    "hand",
-    "与 AI 协作",
-    "Working with AI",
-    "知道什么可以交给 AI、什么必须自己来；对它的建议说「不」的时候，说得出理由。",
-    "Know what to hand the AI and what to keep. And when refusing its suggestion, be able to say why.",
-    "g",
-  ],
-  [
-    "loop",
-    "元认知",
-    "Metacognition",
-    "回头看得见自己是怎么想的：哪一步走偏、哪一次判断改了主意、下一次该从哪里开始。",
-    "Look back and see how the thinking went: where it drifted, which judgment changed his mind, where to start next time.",
-    "m",
-  ],
+/* Screen 3 — what those three add up to in a student.
+   One line each: this screen is four pictures and four claims, nothing else. */
+const abilities: {
+  asset: string;
+  zh: string;
+  en: string;
+  pz: string;
+  pe: string;
+}[] = [
+  {
+    asset: "ability/critical-thinking-v1.webp",
+    zh: "批判性思维",
+    en: "Critical thinking",
+    pz: "追到一手来源，看清一条证据到底能证明到哪一步。",
+    pe: "Trace a claim to its primary source, and see how far one piece of evidence actually reaches.",
+  },
+  {
+    asset: "ability/exploration-v1.webp",
+    zh: "持续探索",
+    en: "Unending exploration",
+    pz: "把一个模糊的兴趣，收窄成一个能回答的问题，然后往下挖。",
+    pe: "Narrow a vague interest into a question that can be answered — then dig.",
+  },
+  {
+    asset: "ability/ai-collaboration-v1.webp",
+    zh: "与 AI 协作",
+    en: "Working with AI",
+    pz: "知道什么可以交给 AI、什么必须自己来，并且说得出理由。",
+    pe: "Know what may go to the AI and what may not — and be able to say why.",
+  },
+  {
+    asset: "ability/metacognition-v1.webp",
+    zh: "元认知",
+    en: "Metacognition",
+    pz: "看得见自己是怎么想的：哪一步走偏，下一次从哪里开始。",
+    pe: "See how your own thinking went: where it drifted, and where to start next time.",
+  },
 ];
 
 /* Screen 4 — the product matrix, in the order a school meets it. */
 const matrix: [string, string, string, string, string, string, string][] = [
   [
     "cards",
-    "/product#courses",
+    "/product/courses",
     "课程与工具卡",
     "Courses & thinking cards",
     "AI 互动课堂，在真实情境中带着学生学会多项思维工具的应用。",
@@ -125,7 +129,7 @@ const matrix: [string, string, string, string, string, string, string][] = [
   ],
   [
     "pen",
-    "/product#projects",
+    "/product/projects",
     "探究性写作空间",
     "Inquiry writing space",
     "涵盖项目管理、立题、研究、写作、复盘全生命周期的多智能体写作教练，在真实项目中引导学生探索并独立完成课题。",
@@ -134,7 +138,7 @@ const matrix: [string, string, string, string, string, string, string][] = [
   ],
   [
     "gauge",
-    "/product#evaluation",
+    "/product/evaluation",
     "过程性评估报告",
     "Process assessment report",
     "基于学生实际项目过程的系统评估报告，覆盖九大板块，包括认知深度与智识自主两大轴线，详细呈现学生认知过程。",
@@ -143,7 +147,7 @@ const matrix: [string, string, string, string, string, string, string][] = [
   ],
   [
     "users",
-    "/product#evaluation",
+    "/product/teacher",
     "教师端全过程数据监控",
     "Teacher console",
     "让学生的 AI 使用过程可视化、可管理、可回溯，让过程性评估、家长报告一键生成。",
@@ -162,13 +166,6 @@ const matrix: [string, string, string, string, string, string, string][] = [
       <h2 class="sec-title">
         {t(lang, "关键分歧：AI 时代，该怎么让孩子用 AI？", "The fork in the road: how should a student be allowed to use AI?")}
       </h2>
-      <p class="lead">
-        {t(
-          lang,
-          "今天的学校基本只在两个选项之间选，而这两个选项都在付代价。",
-          "Schools today are choosing between two options. Both of them are expensive.",
-        )}
-      </p>
     </div>
 
     <div class="split" style="margin-top:56px">
@@ -190,8 +187,8 @@ const matrix: [string, string, string, string, string, string, string][] = [
     <div class="pull rv" style="margin-top:56px; max-width:900px">
       {t(
         lang,
-        "「能不能用」已经不是那个要紧的问题了。该问的是：怎么用才安全。",
-        "Whether to allow it stopped being the question. What safe use looks like — that is the question.",
+        "AI 影响我们的学习、生活和工作已成既定事实。如何让孩子安全地学会用 AI，才是关键问题。",
+        "AI already runs through how we learn, live and work. The question left is how a child learns to use it safely.",
       )}
     </div>
   </div>
@@ -236,28 +233,29 @@ const matrix: [string, string, string, string, string, string, string][] = [
 </section>
 
 <!-- ═══════════════════════════════ 3 · THE ABILITIES ════════════ -->
-<section class="section">
+<!-- Tightened deliberately: the four are meant to be taken in together, in
+     one screen, so this section gives up the standard vertical air. -->
+<section class="section" style="padding-top:76px; padding-bottom:76px">
   <div class="container">
     <div class="sec-head rv">
       <h2 class="sec-title">
-        {t(lang, "我们建的，是 AI 时代最值钱的四种能力", "We build the four abilities worth most in the age of AI")}
-      </h2>
-      <p class="lead">
         {t(
           lang,
-          "这四件事都没法在纸面上学会。它们只在一个够长、够真实、AI 真的帮得上忙也真的可能把人带偏的任务里，才有机会长出来。",
-          "None of the four can be learned on paper. They only grow inside a task long enough and real enough that the AI can genuinely help — and genuinely lead someone astray.",
+          "我们希望帮助孩子建立 AI 时代最有价值的四项能力",
+          "The four abilities we want to help a child build for the age of AI",
         )}
-      </p>
+      </h2>
     </div>
 
-    <div class="grid-4" style="margin-top:52px">
-      {abilities.map(([icon, zh, en, pz, pe, tone], i) => (
-        <div class="card hoverable rv" style={`--i:${i}`}>
-          <div class={`cardic ${tone}`}><Icon name={icon} /></div>
-          <h3>{t(lang, zh, en)}</h3>
-          <p>{t(lang, pz, pe)}</p>
-        </div>
+    <div class="abilities" style="margin-top:34px">
+      {abilities.map((a, i) => (
+        <article class="ability rv" style={`--i:${i % 2}`}>
+          <div class="ab-art">
+            <img src={assetUrl(a.asset)} alt="" aria-hidden="true" loading="lazy" decoding="async" />
+          </div>
+          <h3>{t(lang, a.zh, a.en)}</h3>
+          <p>{t(lang, a.pz, a.pe)}</p>
+        </article>
       ))}
     </div>
   </div>
@@ -292,50 +290,37 @@ const matrix: [string, string, string, string, string, string, string][] = [
   </div>
 </section>
 
-<!-- ═══════════════════════ 5 · KEY ALGORITHM · EVALUATION ═══════ -->
+<!-- ═══════════════════════════ 5 · THE MEASUREMENT DESIGN ═══════ -->
 <section class="section">
   <div class="container">
     <div class="algo-head rv">
-      <div class="algo-tag mono">{t(lang, "关键算法 01", "Key algorithm 01")}</div>
+      <div class="algo-tag mono">{t(lang, "核心设计 01 · 过程评估", "Core design 01 · assessment")}</div>
       <h2 class="sec-title">
-        {t(lang, "过程评估：事实由系统算出，判断必须引用证据", "Assessment: facts are computed, and every judgment must cite evidence")}
+        {t(lang, "判断力不打总分。两根轴，十二个测量点。", "Judgment gets no single score. Two axes, twelve measurement points.")}
       </h2>
       <p class="lead">
         {t(
           lang,
-          "报告分成两半。数得出来的那一半——轮次、材料数、字数、批注、修订、时间线——直接从记录里算，一次模型都不用调。需要判断的那一半交给旗舰模型，但它只能引用一个事先建好的证据集；生成之后每一条引用都被逐条回指校验，指不到真实记录的一律摘除。",
-          "The report has two halves. Everything countable — turns, materials, words, comments, revisions, the timeline — computes straight from the record without calling a model at all. The half that takes judgment goes to a flagship model, but it may only cite from a pre-built evidence set — and after generation every citation is resolved again, with any that doesn't land on a real record stripped out.",
+          "一个产品如果声称能给「判断力」打一个精准分数，那是不诚实的。能被严谨测量的，是它两个有学理支撑、能被行为化观察的前因：思考能到达的深度，和无人要求时思考由谁启动。两者分开测量、分开报告、永不合成一个数字——缺深度的自主是自信的垃圾，缺自主的深度是一台租给任何提示者的好引擎，把它们平均掉，等于把最要紧的那条信息扔了。",
+          "A product claiming to score “judgment” precisely would be lying. What can be measured rigorously are its two antecedents — each with a research lineage, each observable in behaviour: how deep the thinking got, and who started it when nobody asked. They are measured apart, reported apart, and never merged into one number. Autonomy without depth is confident garbage; depth without autonomy is a good engine rented to whoever prompts it. Average them and you throw away the only part that mattered.",
         )}
       </p>
       <a class="tlink" style="margin-top:24px" href={L("/algorithm/evaluation")}>
-        {t(lang, "了解评估算法设计", "See the assessment design")}<Icon name="arrow" />
+        {t(lang, "了解完整的评估设计", "See the full assessment design")}<Icon name="arrow" />
       </a>
     </div>
 
-    <div class="stage rv-pop" style="margin-top:48px">
-      <div class="stage-bar">
-        <span class="dots"><b></b><b></b><b></b></span>
-        <span class="t">counted facts · evidence index · grounded judgment</span>
-      </div>
-      <div class="stage-body">
-        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
-        <div class="dscroll"><EvalPipeline /></div>
-        <div class="legend">
-          <span><i class="p"></i>{t(lang, "数出来的事实", "counted facts")}</span>
-          <span><i class="a"></i>{t(lang, "可引用的证据", "citable evidence")}</span>
-          <span><i class="g"></i>{t(lang, "模型下的判断", "the model's judgments")}</span>
-          <span><i></i>{t(lang, "组装与核对", "assembly & checking")}</span>
-        </div>
-      </div>
+    <div class="rv-pop" style="margin-top:52px">
+      <DualAxis />
     </div>
   </div>
 </section>
 
-<!-- ═══════════════════ 6 · KEY ALGORITHM · MULTI-AGENT ══════════ -->
+<!-- ═════════════════════════ 6 · THE COACH ARCHITECTURE ════════ -->
 <section class="section band-paper">
   <div class="container">
     <div class="algo-head rv">
-      <div class="algo-tag mono">{t(lang, "关键算法 02", "Key algorithm 02")}</div>
+      <div class="algo-tag mono">{t(lang, "核心设计 02 · 多智能体教练", "Core design 02 · the coach")}</div>
       <h2 class="sec-title">
         {t(lang, "多智能体教练：一个陪练走完全程，重活交给隔离的子代理", "The coach: one agent walks the whole project, heavy work goes to isolated sub-agents")}
       </h2>

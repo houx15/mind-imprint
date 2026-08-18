@@ -58,7 +58,7 @@ if (hero) {
     const ctx = canvas.getContext("2d", { alpha: true });
 
     const CELL = 6; // css px per simulation cell
-    const DAMP = 0.967; // how fast a ripple dies away
+    const DAMP = 0.951; // how fast a ripple dies away — low, so it stays quiet
     let W = 0;
     let H = 0;
     let cur = new Float32Array(0);
@@ -130,13 +130,13 @@ if (hero) {
             d[p] = 232;
             d[p + 1] = 255;
             d[p + 2] = 248;
-            d[p + 3] = Math.min(215, s * 200);
+            d[p + 3] = Math.min(140, s * 130);
           } else if (s < -0.004) {
             const p = i * 4;
             d[p] = 2;
             d[p + 1] = 22;
             d[p + 2] = 42;
-            d[p + 3] = Math.min(130, -s * 95);
+            d[p + 3] = Math.min(84, -s * 62);
           }
         }
       }
@@ -147,8 +147,23 @@ if (hero) {
     // It enters from off-stage left and keeps sailing towards wherever it was
     // last sent. Motion is a slow lerp, never a transition: a boat arrives, it
     // does not snap.
-    const restX = () => heroW * 0.27;
-    const restY = () => heroH * 0.76;
+    // Where it comes to rest: just above the top edge of the headline, a
+    // little way into it — so it reads as setting out from the words
+    // themselves. Measured, not guessed, because the headline's height moves
+    // with the viewport and the language.
+    const title = hero.querySelector<HTMLElement>(".hi-title");
+    const restX = () => {
+      if (!title) return heroW * 0.27;
+      const h = hero.getBoundingClientRect();
+      const r = title.getBoundingClientRect();
+      return r.left - h.left + Math.min(r.width * 0.44, 320);
+    };
+    const restY = () => {
+      if (!title) return heroH * 0.46;
+      const h = hero.getBoundingClientRect();
+      const r = title.getBoundingClientRect();
+      return r.top - h.top - bh * 0.18;
+    };
     let bw = 240;
     let bh = 160;
     const sizeBoat = () => {
@@ -169,7 +184,8 @@ if (hero) {
 
     const clampTarget = () => {
       tx = Math.min(Math.max(tx, heroW * 0.07), heroW * 0.93);
-      ty = Math.min(Math.max(ty, heroH * 0.56), heroH * 0.9);
+      // The upper bound opens up now that it starts near the headline.
+      ty = Math.min(Math.max(ty, heroH * 0.16), heroH * 0.88);
     };
 
     // --- pointer ------------------------------------------------------------
@@ -197,7 +213,7 @@ if (hero) {
       const r = hero.getBoundingClientRect();
       const px = e.clientX - r.left;
       const py = e.clientY - r.top;
-      disturb(px, py, 9, 5);
+      disturb(px, py, 4.5, 4);
       tx = px;
       ty = py;
       clampTarget();
@@ -214,10 +230,10 @@ if (hero) {
         const dist = Math.sqrt(dx * dx + dy * dy);
         const steps = Math.min(6, Math.max(1, Math.round(dist / (CELL * 2))));
         for (let s = 1; s <= steps; s++) {
-          disturb(lastX + (dx * s) / steps, lastY + (dy * s) / steps, 1.05, 3);
+          disturb(lastX + (dx * s) / steps, lastY + (dy * s) / steps, 0.5, 2);
         }
       } else {
-        disturb(px, py, 1.05, 3);
+        disturb(px, py, 0.5, 2);
       }
       lastX = px;
       lastY = py;
@@ -241,7 +257,7 @@ if (hero) {
       cx += vx;
       cy += dy * 0.014;
       const speed = Math.abs(vx);
-      if (speed > 0.12) disturb(cx, cy + bh * 0.06, Math.min(1.6, speed * 0.5), 3);
+      if (speed > 0.16) disturb(cx, cy + bh * 0.06, Math.min(0.75, speed * 0.3), 2);
 
       // Lean into the direction of travel, and ride the swell at rest.
       lean += (vx * 0.42 - lean) * 0.06;
@@ -252,8 +268,11 @@ if (hero) {
         ` rotate(${(lean + roll).toFixed(2)}deg)`;
 
       // A little weather, so the surface is alive before anyone touches it.
-      if (Math.random() < 0.03) {
-        disturb(Math.random() * heroW, heroH * (0.42 + Math.random() * 0.54), 1.5, 4);
+      // Rare and soft on purpose: roughly one swell every four seconds, spread
+      // wide enough to read as the sea breathing rather than something landing
+      // in it. Frequent ripples made the headline hard to hold on to.
+      if (Math.random() < 0.004) {
+        disturb(Math.random() * heroW, heroH * (0.5 + Math.random() * 0.46), 0.7, 6);
       }
 
       step();
@@ -265,9 +284,11 @@ if (hero) {
     // Reveal, then set sail.
     requestAnimationFrame((now) => {
       boat.classList.add("sailing");
-      canvas.classList.add("ready");
       started = now;
       raf = requestAnimationFrame(frame);
+      // The light on the water arrives after the copy has been read once —
+      // it should feel like the surface catching up, not a layer switching on.
+      window.setTimeout(() => canvas.classList.add("ready"), 900);
     });
 
     // --- only run while it is actually on screen -----------------------------
@@ -304,8 +325,8 @@ if (hero) {
       resizeTimer = window.setTimeout(() => {
         measure();
         sizeBoat();
-        tx = Math.min(tx, heroW * 0.93);
-        ty = Math.min(ty, heroH * 0.9);
+        tx = restX();
+        ty = restY();
         clampTarget();
       }, 160);
     };

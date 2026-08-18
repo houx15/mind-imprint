@@ -13,7 +13,9 @@
   position: relative;
   min-height: 100svh;
   display: grid;
-  align-items: center;
+  /* The copy sits at the foot of the screen so the explorer has the whole
+     upper half to sail across — it sets out from the top of the headline. */
+  align-items: end;
   overflow: hidden;
   isolation: isolate;
   /* the deep end of the artwork, so the very first paint is already in key */
@@ -92,7 +94,9 @@
      sense of a surface with depth). */
 }
 .hi-water.ready {
-  opacity: 0.9;
+  /* Held well below full strength: this is light on a surface, not a subject.
+     Anything brighter starts to compete with the headline sitting over it. */
+  opacity: 0.55;
 }
 
 /* 4 — the explorer */
@@ -103,10 +107,28 @@
   z-index: 4;
   width: clamp(38px, 4.2vw, 62px);
   /* JS owns the transform; this is the pre-JS / no-JS resting place */
-  transform: translate3d(14vw, 66svh, 0);
+  transform: translate3d(16vw, 40svh, 0);
   will-change: transform;
   pointer-events: none;
-  filter: drop-shadow(0 4px 7px rgba(2, 14, 24, 0.55));
+  /* Lit from inside: two soft halos in the water's own cyan, over the shadow
+     that keeps it sitting ON the surface rather than floating above it. */
+  filter: drop-shadow(0 3px 6px rgba(2, 14, 24, 0.5))
+    drop-shadow(0 0 10px rgba(150, 235, 255, 0.55))
+    drop-shadow(0 0 26px rgba(90, 205, 255, 0.3));
+  animation: hi-glow 6.2s var(--ease) infinite;
+}
+@keyframes hi-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 3px 6px rgba(2, 14, 24, 0.5))
+      drop-shadow(0 0 9px rgba(150, 235, 255, 0.45))
+      drop-shadow(0 0 22px rgba(90, 205, 255, 0.24));
+  }
+  50% {
+    filter: drop-shadow(0 3px 6px rgba(2, 14, 24, 0.5))
+      drop-shadow(0 0 15px rgba(170, 240, 255, 0.7))
+      drop-shadow(0 0 38px rgba(90, 205, 255, 0.4));
+  }
 }
 .hi-boat .ex-svg {
   display: block;
@@ -134,6 +156,7 @@
 }
 .js .hi-boat.sailing {
   opacity: 1;
+  transition: opacity 1.6s var(--ease-out);
 }
 
 /* 2b — contrast scrim. It sits directly on the photograph and BELOW the water
@@ -163,7 +186,7 @@
   max-width: var(--maxw);
   margin: 0 auto;
   padding-inline: var(--gutter);
-  padding-bottom: 15svh;
+  padding-bottom: 10svh;
   /* the water stays reachable everywhere the copy is not */
   pointer-events: none;
 }
@@ -325,6 +348,7 @@ html[lang="zh-CN"] .hi-title {
 
 @media (prefers-reduced-motion: reduce) {
   .hi-photo,
+  .hi-boat,
   .hi-boat #learner,
   .hi-caret .ic {
     animation: none;

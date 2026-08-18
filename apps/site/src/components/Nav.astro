@@ -10,8 +10,8 @@ const key = path.replace(/^\/en(\/|$)/, "/").replace(/\/$/, "") || "/";
 const active = (p: string) => (key === p ? "page" : undefined);
 
 /**
- * The product page is one page with three surfaces, so the nav opens onto them
- * directly rather than making people find the tabs after they land.
+ * Each product surface is its own page, so the dropdown is a real index of
+ * them — no tab strip to discover after landing.
  */
 type Sub = { href: string; zh: string; en: string; dzh: string; den: string };
 type Link = { href: string; zh: string; en: string; items?: Sub[] };
@@ -24,25 +24,39 @@ const links: Link[] = [
     en: "Product",
     items: [
       {
-        href: "/product#projects",
-        zh: "项目",
-        en: "Projects",
-        dzh: "AI 全过程支持的探究性写作",
-        den: "Inquiry writing, supported end to end",
+        href: "/product",
+        zh: "产品总览",
+        en: "Overview",
+        dzh: "四个部分，合起来是一条完整链路",
+        den: "Four parts, one path end to end",
       },
       {
-        href: "/product#courses",
-        zh: "课程",
-        en: "Courses",
+        href: "/product/courses",
+        zh: "课程与工具卡",
+        en: "Courses & cards",
         dzh: "真实情境带练，习得思维工具",
         den: "Coached practice in real situations",
       },
       {
-        href: "/product#evaluation",
-        zh: "评估",
-        en: "Evaluation",
-        dzh: "基于 AI 互动全过程的思维印记评估",
-        den: "Assessment from the full interaction record",
+        href: "/product/projects",
+        zh: "探究性写作空间",
+        en: "Inquiry writing",
+        dzh: "AI 全过程支持，但从不代笔",
+        den: "Supported end to end, never ghost-written",
+      },
+      {
+        href: "/product/evaluation",
+        zh: "过程性评估报告",
+        en: "Process assessment",
+        dzh: "九大板块，认知深度与智识自主两轴",
+        den: "Nine sections, and the two axes",
+      },
+      {
+        href: "/product/teacher",
+        zh: "教师端",
+        en: "Teacher console",
+        dzh: "全过程数据，可视化、可回溯",
+        den: "The whole process, visible and reviewable",
       },
     ],
   },

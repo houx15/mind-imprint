@@ -163,68 +163,7 @@ const enHref = site + localePath("en", key);
         );
       }
 
-      // 6. Sub-page tabs (the product page's three surfaces).
-      //    Panels are real markup either way: without JS the CSS leaves every
-      //    panel open and hides the bar, so nothing is unreachable.
-      const tabRoot = document.querySelector<HTMLElement>("[data-tabs]");
-      if (tabRoot) {
-        const btns = Array.from(
-          tabRoot.querySelectorAll<HTMLElement>("[data-tab]"),
-        );
-        const panels = Array.from(
-          document.querySelectorAll<HTMLElement>("[data-panel]"),
-        );
-        // Old deep links (and any anchor inside a panel) still land right.
-        const alias: Record<string, string> = {
-          tools: "courses",
-          cards: "courses",
-          lenses: "courses",
-          reading: "projects",
-          writing: "projects",
-          spine: "projects",
-          report: "evaluation",
-          teacher: "evaluation",
-          axes: "evaluation",
-        };
-        const show = (id: string, record: boolean) => {
-          if (!id || !panels.some((p) => p.dataset.panel === id)) return false;
-          btns.forEach((b) =>
-            b.setAttribute("aria-selected", String(b.dataset.tab === id)),
-          );
-          panels.forEach((p) => {
-            const on = p.dataset.panel === id;
-            p.hidden = !on;
-            if (!on) return;
-            p.classList.remove("enter");
-            void p.offsetWidth; // restart the entrance
-            p.classList.add("enter");
-            // These were never intersected while hidden — settle them now.
-            p.querySelectorAll(".rv, .rv-line, .rv-pop").forEach((el) =>
-              el.classList.add("in"),
-            );
-          });
-          if (record) history.replaceState(null, "", "#" + id);
-          return true;
-        };
-        const fromHash = () => {
-          const raw = location.hash.replace(/^#/, "");
-          return alias[raw] ?? raw;
-        };
-
-        btns.forEach((b) =>
-          b.addEventListener("click", () => {
-            show(b.dataset.tab || "", true);
-            const top = tabRoot.offsetTop - 62;
-            if (window.scrollY > top) {
-              window.scrollTo({ top, behavior: reduced ? "auto" : "smooth" });
-            }
-          }),
-        );
-        if (!show(fromHash(), false)) show(btns[0]?.dataset.tab || "", false);
-        window.addEventListener("hashchange", () => show(fromHash(), false));
-      }
-
-      // 7. Count-up numbers on [data-count].
+      // 6. Count-up numbers on [data-count].
       const countIO = new IntersectionObserver(
         (entries) => {
           entries.forEach((e) => {
@@ -253,6 +192,77 @@ const enHref = site + localePath("en", key);
       document
         .querySelectorAll<HTMLElement>("[data-count]")
         .forEach((el) => countIO.observe(el));
+
+      // 7. The two-axis explorer: pick a dimension, read what it looks at.
+      //    Without JS the chips never render (CSS hides them) and the panel
+      //    simply lists all twelve, so nothing here is load-bearing.
+      document.querySelectorAll<HTMLElement>("[data-axisx]").forEach((root) => {
+        const chips = Array.from(root.querySelectorAll<HTMLElement>(".axchip"));
+        const dets = Array.from(root.querySelectorAll<HTMLElement>(".axdet"));
+        const pick = (key: string) => {
+          chips.forEach((c) => c.classList.toggle("on", c.dataset.k === key));
+          dets.forEach((d) => d.classList.toggle("on", d.dataset.k === key));
+        };
+        chips.forEach((c) => {
+          const go = () => pick(c.dataset.k || "");
+          c.addEventListener("click", go);
+          // Hovering reads the same as clicking; on touch only the click fires.
+          c.addEventListener("mouseenter", go);
+        });
+      });
+
+      // 8. Banner parallax — the artwork drifts slower than the page.
+      //    .pb-media is inset beyond the frame, so this never exposes an edge.
+      if (!reduced) {
+        const layers = Array.from(
+          document.querySelectorAll<HTMLElement>("[data-parallax]"),
+        );
+        if (layers.length) {
+          let ticking = false;
+          const place = () => {
+            ticking = false;
+            layers.forEach((l) => {
+              const r = l.getBoundingClientRect();
+              if (r.bottom < 0 || r.top > window.innerHeight) return;
+              // 0 at the top of its travel, 1 once it has fully passed.
+              const p = -r.top / (r.height + window.innerHeight);
+              l.style.transform = `translate3d(0, ${(p * 64).toFixed(2)}px, 0)`;
+            });
+          };
+          const onMove = () => {
+            if (ticking) return;
+            ticking = true;
+            requestAnimationFrame(place);
+          };
+          place();
+          window.addEventListener("scroll", onMove, { passive: true });
+          window.addEventListener("resize", onMove, { passive: true });
+        }
+      }
+
+      // 9. Course catalogue filter. Cards carry their own tags, so filtering
+      //     is a hidden flag — no re-render, no layout thrash.
+      document.querySelectorAll<HTMLElement>("[data-catalog]").forEach((root) => {
+        const btns = Array.from(root.querySelectorAll<HTMLElement>(".catbtn"));
+        const cards = Array.from(root.querySelectorAll<HTMLElement>(".catcard"));
+        const count = root.querySelector<HTMLElement>("[data-catcount]");
+        const apply = (tag: string) => {
+          let shown = 0;
+          cards.forEach((c) => {
+            const on = tag === "*" || (c.dataset.tags || "").split(" ").includes(tag);
+            c.hidden = !on;
+            if (on) shown++;
+          });
+          btns.forEach((b) =>
+            b.setAttribute("aria-pressed", String(b.dataset.tag === tag)),
+          );
+          if (count) count.textContent = (count.dataset.catcountTpl || "{n}").replace("{n}", String(shown));
+        };
+        btns.forEach((b) =>
+          b.addEventListener("click", () => apply(b.dataset.tag || "*")),
+        );
+        apply("*");
+      });
     </script>
   </body>
 </html>

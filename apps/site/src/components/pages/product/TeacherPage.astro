@@ -1,0 +1,114 @@
+---
+import Icon from "../../Icon.astro";
+import Figure from "../../Figure.astro";
+import CtaBand from "../../sections/CtaBand.astro";
+import Pager from "../../sections/Pager.astro";
+import PageBanner from "../../sections/PageBanner.astro";
+import { getLang, t } from "../../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+/* ── the teacher's four positions ───────────────────────────────────── */
+const teacher: [string, string, string, string, string][] = [
+  ["target", "教师设计机会", "The teacher designs the opportunity", "题目够不够开放、材料有没有冲突、反方有没有被放进去——这些由教师决定。", "How open the task is, whether the material conflicts, whether a counter-case is in the room — the teacher decides all of it."],
+  ["eye", "教师判读证据", "The teacher reads the evidence", "系统给的是读数，教师给的是解释。原始对话、来源记录、草稿修改都可点开。", "The system gives a reading; the teacher gives the interpretation. Raw chat, source records and draft changes all open up."],
+  ["flask", "教师开出处方", "The teacher writes the prescription", "同样是「表现不理想」，有的该放手，有的该补方法，有的该换题材。平台指出问题，教师决定怎么教。", "“Underperforming” has many causes. Some need to be let go of, some need method, some need a different subject. The platform locates it; the teacher decides."],
+  ["users", "教师训练担责", "The teacher trains accountability", "解释自己的结论、回答追问、承认限制——这种场合只发生在人和人之间。", "Explaining a conclusion, answering follow-ups, conceding a limit — that only happens between people."],
+];
+---
+
+<PageBanner
+  asset="banner/teacher-v1.webp"
+  tone="m"
+  eyebrow={["产品 · 教师端", "Product · the teacher console"]}
+  title={[
+    ["教师第一次看得见，", "For the first time, a teacher can see"],
+    ["一份作业是怎么形成的。", "how the work took shape."],
+  ]}
+  lead={[
+    "让学生的 AI 使用过程可视化、可管理、可回溯，让过程性评估、家长报告一键生成。系统给的是读数，教师给的是解释。",
+    "Makes each student's AI use visible, manageable and reviewable — and generates process assessments and family reports in one click. The system gives a reading; the teacher gives the interpretation.",
+  ]}
+/>
+
+<!-- teacher console -->
+  <section class="section band-paper">
+    <div class="container">
+            <div class="pull rv" style="margin-top:44px; max-width:860px">
+        {t(lang, "系统给的是读数，教师给的是解释。", "The system gives a reading. The teacher gives the interpretation.")}
+      </div>
+
+      <div class="grid-2" style="margin-top:56px">
+        {teacher.map(([icon, zh, en, pz, pe], i) => (
+          <div class="card rv" style={`--i:${i % 2}`}>
+            <div class="cardic m"><Icon name={icon} /></div>
+            <h3>{t(lang, zh, en)}</h3>
+            <p>{t(lang, pz, pe)}</p>
+          </div>
+        ))}
+      </div>
+
+      <Figure
+        class="rv-pop"
+        name="product-teacher-console"
+        ratio="16-9"
+        desc={t(lang, "教师端：叙述版周报 + 实时班级名单 + 可点开的证据链接", "Teacher console: narrated week, live roster, clickable evidence")}
+        caption={t(
+          lang,
+          "教师端看的是活跃度与过程证据。学生不会被按双轴排名——分层可见性写进权限，不只写进隐私政策。",
+          "The console shows activity and process evidence. Students are never ranked by axis; tiered visibility is written into permissions, not just into a privacy policy.",
+        )}
+      />
+
+      <div class="tablewrap rv" style="margin-top:48px">
+        <table class="dt">
+          <thead>
+            <tr>
+              <th style="width:150px">{t(lang, "角色", "Role")}</th>
+              <th>{t(lang, "看到什么", "Sees")}</th>
+              <th>{t(lang, "永远看不到什么", "Never sees")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td class="k">{t(lang, "学生本人", "The student")}</td>
+              <td>{t(lang, "自己的成长语言版报告：轨迹、亮点时刻、下一步；自己的对话明细", "Her own growth report — trajectory, highlights, next step — and her own conversation detail")}</td>
+              <td>{t(lang, "内部路由标签；与他人的任何比较", "Internal routing labels; any comparison against others")}</td>
+            </tr>
+            <tr>
+              <td class="k">{t(lang, "家长", "Parents")}</td>
+              <td>{t(lang, "周期报告的成长叙事与就绪度", "The cycle's growth narrative and readiness")}</td>
+              <td>{t(lang, "档位代号、象限标签、任何横向排名；对话明细（除非学生授权）", "Tier codes, quadrant labels, any ranking; conversation detail unless she authorises it")}</td>
+            </tr>
+            <tr>
+              <td class="k">{t(lang, "教师", "Teachers")}</td>
+              <td>{t(lang, "判定与证据链接（可点开原始片段），并可一键改判", "Judgments with evidence links to the raw fragment — and a one-click override")}</td>
+              <td>{t(lang, "与教学无关的内容明细", "Content detail unrelated to teaching")}</td>
+            </tr>
+            <tr>
+              <td class="k">{t(lang, "学校管理者", "School admins")}</td>
+              <td>{t(lang, "班级层聚合读数", "Class-level aggregates")}</td>
+              <td>{t(lang, "任何个人对话明细", "Any individual's conversation detail")}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+<CtaBand />
+
+<Pager links={[
+    {
+      href: "/product/evaluation",
+      kicker: ["上一面", "Previous"],
+      title: ["过程性评估报告", "The process assessment"],
+      body: ["教师端读的就是这份报告的底层记录", "The console reads the record this report is built from"],
+    },
+    {
+      href: "/product",
+      kicker: ["返回", "Back"],
+      title: ["产品总览", "Product overview"],
+      body: ["四个部分，合起来是一条完整链路", "Four parts, one path end to end"],
+    },
+  ]} />
