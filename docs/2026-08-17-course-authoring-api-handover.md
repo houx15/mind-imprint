@@ -261,7 +261,34 @@ The four adapters (`CourseRuntimeAdapters = { assetResolver, sessionAdapter, ope
 
 **If the course has video-interaction blocks:** also wrap the tree in `<InteractionLoaderProvider value={loader}>`, where `loader` reads your local video-interaction JSON (the same document `validateVideoInteraction` checks) and returns it. Everything else in the production host (`RuntimeCoursePlayer.tsx`) — the top progress bar, the `AskPanel` SSE coach, pagehide/visibility flush, signed-URL fetches — is host chrome you omit.
 
-This gives teachers a pixel-accurate preview through the exact renderer students use, entirely offline.
+### 6.1 Styling & sizing — REQUIRED (this is what makes it look right)
+
+The adapters above make the renderer *run*; the three things below make it *look* like the student experience. Mount `CoursePlayer` without them and the layout collapses to serif, unspaced, full-bleed — structurally correct but visually broken. There is **no separate stylesheet to ship**: the renderer is self-styling, but only if you satisfy these.
+
+1. **CSS delivery — you need a CSS-aware bundler.** `CoursePlayer.tsx` imports its own stylesheet as a side-effect (`import "../styles/course.css"`). If you build the preview with **Vite** (same as the student app) it lands automatically — nothing to do. If your host renders the renderer in an environment that does *not* process `.css` imports (SSR without a CSS pipeline, a bare test renderer, importing `src/index.ts` through a non-bundling loader), you get **zero styling**. In that case import it explicitly once at your app root:
+   ```ts
+   import "@mind-imprint/course-renderer/src/styles/course.css";
+   ```
+   `course.css` is fully self-contained (no CDN, no external CSS) and every `--course-*` token carries a literal fallback, so it renders correctly with **nothing else loaded** — no Tailwind, no host stylesheet.
+
+2. **Give the mount an explicit height.** `.course-shell` is `width:100%; height:100%` and **never page-scrolls** (D6: one slice = one desktop screen). A `height:100%` element needs an ancestor chain that resolves to a real pixel height, or it collapses to zero. Reproduce the host's chain — a viewport-height root → flex column → a `{flex:1; minHeight:0}` slot that holds the player:
+   ```tsx
+   <div style={{ height: "100vh", display: "flex", flexDirection: "column" }}>
+     {/* optional: your own toolbar/back button here */}
+     <div style={{ flex: 1, minHeight: 0, display: "flex" }}>
+       <CoursePlayer {...props} />
+     </div>
+   </div>
+   ```
+   The renderer targets desktop (**≥1280×720 / ≥1440×900**); preview in a window at least that big. `minHeight:0` is not optional — without it the flex child refuses to shrink and inner slots overflow.
+
+3. **Set a base sans-serif font (and, to match exactly, the `--mk-*` palette).** `course.css` inherits `font-family` from the host and defines none itself; with no host base font, text falls back to the browser default serif. Put a sans-serif stack on your root:
+   ```css
+   :root { font-family: ui-sans-serif, system-ui, "PingFang SC", "Microsoft YaHei", sans-serif; }
+   ```
+   That alone gives the correct look via the built-in fallbacks (default coral accent). To match a specific student palette (accent 随人 — the 7 macaron accents), also define the host `--mk-*` tokens on your root (`--mk-accent`, `--mk-accent-500`, `--mk-paper`, `--mk-ink`, …); the full set lives in `apps/web/src/index.css`. This is polish, not correctness — the layout is right without it.
+
+With those three in place you get a pixel-accurate preview through the exact renderer students use, entirely offline. Skip them and the renderer still *works* — it just won't *look* right, which is the "style is bad" symptom to check first.
 
 ---
 
