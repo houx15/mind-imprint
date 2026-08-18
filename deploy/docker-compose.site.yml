@@ -18,6 +18,12 @@
 # There are no secrets in this stack and none are needed: the site is static
 # HTML that links out to the app. So, unlike the product stack, this compose
 # file takes no --env-file.
+#
+# That includes object storage. Site media lives in its own Aliyun bucket
+# (separate from the student platform's) which is private, but its CDN is
+# authorised to read it — so the browser fetches a plain URL and the container
+# holds no key. The Aliyun credentials exist only in the upload script's
+# gitignored env (see docs/deploy/site.md); they must never be added here.
 name: mindimprint-site
 
 services:
@@ -30,6 +36,8 @@ services:
         PUBLIC_APP_URL: ${PUBLIC_APP_URL:-https://mind-web.uni-robot.cn}
         # The site's own origin, for canonical + hreflang alternates.
         SITE_URL: ${SITE_URL:-https://mind.uni-robot.cn}
+        # The site's media CDN. A public URL, not a credential — see below.
+        PUBLIC_ASSET_BASE_URL: ${PUBLIC_ASSET_BASE_URL:-https://mind-assets.uni-robot.cn}
     image: mindimprint-site:latest
     restart: unless-stopped
     ports:

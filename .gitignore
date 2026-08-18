@@ -154,3 +154,10 @@ docs/reference/
 /docs/2026-07-06-spec.md
 /docs/2026-07-29-interaction-mock.csv
 /docs/EVALUATION-*.html
+
+# Marketing-site media. Object storage (the mind-open bucket, served via
+# mind-assets.uni-robot.cn) is the store of record — see docs/deploy/site.md.
+# Keeping the originals out of git stops large binaries bloating the history;
+# `deploy/upload-site-assets.sh` syncs this directory up.
+apps/site/assets/*
+!apps/site/assets/README.md

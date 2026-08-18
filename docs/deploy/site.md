@@ -107,6 +107,71 @@ URL 下，搜索引擎会当成重复内容。所以这里是 `try_files $uri $u
 这会连带把营销站 `public/` 里的截图一起排除掉，线上全部 404。已在文件末尾加
 `!apps/site/public/**` 重新放行（后写的规则优先）。加图片时如果线上不显示，先查这里。
 
+## 素材（对象存储）
+
+营销站的图片/视频放在**自己的**桶里，与学生端完全分开：
+
+| | 学生端 | 营销站 |
+|---|---|---|
+| bucket | `mind-imprint` | **`mind-open`** |
+| 对外域名 | `mind-oss.uni-robot.cn` | **`mind-assets.uni-robot.cn`** |
+| 密钥位置 | `deploy/.env.prod`（服务端，Go API 用） | `.deploy-local/site-oss.env`（**只在本机**） |
+| 上传方式 | API 的 `/oss/*` 管理端点 | `deploy/upload-site-assets.sh` |
+
+**营销站容器不持有任何密钥，也不需要。** 桶是私有的，但由 CDN 授权回源读取，
+访问者拿到的就是一个普通 URL。签名密钥只有「上传」这一步需要，而上传发生在开发机上——
+静态站本来也守不住秘密。
+
+### 放一张图上线
+
+```bash
+# 1) 放进 apps/site/assets/（此目录不进 git，OSS 才是存放地）
+#    目录结构 1:1 映射成 key：apps/site/assets/home/x.png -> home/x.png
+# 2) 上传
+deploy/upload-site-assets.sh
+# 3) 页面里引用
+#    <Figure asset="home/x.png" name="…" caption="…" />
+# 4) 正常发版
+./.deploy-local/deploy-site.sh
+```
+
+首次使用先建凭据文件（git 忽略）：
+
+```bash
+cp deploy/site-oss.env.example .deploy-local/site-oss.env   # 填入真实 AK/SK
+deploy/upload-site-assets.sh --check                        # 端到端自检
+```
+
+`--check` 会上传一个探针对象再经 CDN 读回来，能一次性证明「桶可写 + CDN 可读私有桶」。
+
+### ⚠️ 当前状态：CDN 还没配好
+
+`mind-assets.uni-robot.cn` **目前直接指向 OSS 自定义域名，不是 CDN**，实测：
+
+```
+dig  mind-assets.uni-robot.cn  →  mind-open.cn-beijing.taihangpkx.cn  (OSS 自定义域名 CNAME)
+TLS  证书 CN = cn-beijing.oss.aliyuncs.com   → 与该域名不匹配，HTTPS 直接失败
+GET  http://mind-assets.uni-robot.cn/<key>   → 403 AccessDenied (bucket acl)
+GET  https://mind-open.oss-cn-beijing.aliyuncs.com/<key> 未签名 → 同样 403
+```
+
+写入是通的（上传脚本已验证成功），**读不通**：私有桶前面还没有被授权的 CDN。
+
+按本项目的一贯做法——**素材一律走 CDN，从不直连 OSS**——需要在控制台把这个域名
+从「OSS 自定义域名」改成「CDN 加速域名」：
+
+1. 阿里云 CDN 新建加速域名 `mind-assets.uni-robot.cn`，源站类型选 **OSS 域名**，
+   填 `mind-open.oss-cn-beijing.aliyuncs.com`
+2. 打开**私有 Bucket 回源**授权（让 CDN 拿到读这个私有桶的权限）
+3. 在 CDN 里为该域名签发/上传 HTTPS 证书（当前证书是 OSS 自己的，域名对不上）
+4. **URL 鉴权保持关闭**。学生端的课程素材用 URL 鉴权是对的（那些内容要控访问），
+   但营销站是公开的、且是静态页，浏览器侧无法在请求时签名——这里开了就全挂。
+5. DNS 的 CNAME 从当前的 `mind-open.cn-beijing.taihangpkx.cn`（OSS 自定义域名）
+   改成 CDN 分配的那个
+
+配好之后跑 `deploy/upload-site-assets.sh --check`，通过即可开始挂图。
+在此之前，页面里的 `<Figure>` 全是占位符、没有任何一处引用 CDN，所以线上不受影响。
+
 ## 构建期变量
 
 静态站，两个都在构建时打进 HTML：
@@ -115,6 +180,10 @@ URL 下，搜索引擎会当成重复内容。所以这里是 `try_files $uri $u
 |---|---|---|
 | `PUBLIC_APP_URL` | `https://mind-web.uni-robot.cn` | 「体验 Demo」「登录」指向的学生平台 |
 | `SITE_URL` | `https://mind.uni-robot.cn` | canonical 与 hreflang 的绝对地址 |
+| `PUBLIC_ASSET_BASE_URL` | `https://mind-assets.uni-robot.cn` | 素材 CDN；留空则回落到本地 `public/media/` |
+
+三个都是**公开值**，不是密钥。AK/SK 只存在于 `.deploy-local/site-oss.env`，
+既不进镜像也不进服务器。
 
 改了域名就在 `deploy/docker-compose.site.yml` 的 `args` 里改，或用环境变量覆盖。
 

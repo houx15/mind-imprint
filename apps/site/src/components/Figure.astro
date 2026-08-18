@@ -1,25 +1,31 @@
 ---
 import Icon from "./Icon.astro";
+import { assetUrl } from "../config";
 
 /**
  * An image slot that is deliberately EMPTY until the real asset arrives.
  *
- * Drop the file into `apps/site/public/media/` and pass `src` — the frame
- * turns into the picture, everything else (ratio, caption, spacing) stays put.
- * Until then it renders a labelled placeholder so the page composes correctly
- * and it is obvious which asset belongs where.
+ * Two ways to fill it:
+ *   asset="home/course-player.png"   → resolved through the site's CDN
+ *                                      (or public/media/ in local dev)
+ *   src="/media/whatever.png"        → a literal path, escape hatch
+ *
+ * Until one is given it renders a labelled placeholder, so the page composes
+ * correctly and it is obvious which asset belongs where.
  */
 interface Props {
   /** Stable slug for the asset, e.g. "course-player-cue". Shown in the empty state. */
   name: string;
+  /** Media key served from the site's asset CDN, e.g. "home/course-player.png". */
+  asset?: string;
+  /** Literal URL/path, when the file is not in object storage. */
+  src?: string;
   /** What the picture should show — a brief for whoever prepares it. */
   desc?: string;
   /** Aspect ratio class suffix: "16-9" | "4-3" | "3-2" | "1-1" | "21-9". */
   ratio?: "16-9" | "4-3" | "3-2" | "1-1" | "21-9";
   /** Caption rendered under the frame (visible in both states). */
   caption?: string;
-  /** Real asset path, e.g. "/media/course-player.png". Omit while pending. */
-  src?: string;
   alt?: string;
   /** Extra classes on the frame (e.g. "rv-pop"). */
   class?: string;
@@ -27,19 +33,27 @@ interface Props {
 
 const {
   name,
+  asset,
+  src,
   desc,
   ratio = "16-9",
   caption,
-  src,
   alt,
   class: extra = "",
 } = Astro.props;
+
+const resolved = src ?? (asset ? assetUrl(asset) : undefined);
 ---
 
 <figure class={`figure-block ${extra}`}>
   <div class={`figure ratio-${ratio}`} data-asset={name}>
-    {src ? (
-      <img src={src} alt={alt ?? caption ?? name} loading="lazy" decoding="async" />
+    {resolved ? (
+      <img
+        src={resolved}
+        alt={alt ?? caption ?? name}
+        loading="lazy"
+        decoding="async"
+      />
     ) : (
       <div class="fslot">
         <div class="ficon"><Icon name="image" /></div>

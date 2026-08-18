@@ -38,13 +38,22 @@ RUN pnpm install --frozen-lockfile --filter site...
 COPY tsconfig.base.json ./
 COPY apps/site apps/site
 
-# Where the site's CTAs point (the student platform), and the site's own public
-# origin — used for canonical + hreflang alternates. Both are build-time: this
-# is a static site, so they bake into the HTML.
+# All three are build-time: this is a static site, so they bake into the HTML.
+#   PUBLIC_APP_URL         where the CTAs point (the student platform)
+#   SITE_URL               the site's own origin, for canonical + hreflang
+#   PUBLIC_ASSET_BASE_URL  the site's media CDN
+#
+# NOTE none of these is a secret, and none is ever needed at runtime. The media
+# bucket is private, but its CDN is authorised to read it, so the browser
+# fetches a plain URL. The Aliyun keys live only in the upload script
+# (deploy/upload-site-assets.sh) and must never enter this image — a static site
+# cannot keep a secret, and this one has no reason to hold one.
 ARG PUBLIC_APP_URL=https://mind-web.uni-robot.cn
 ARG SITE_URL=https://mind.uni-robot.cn
+ARG PUBLIC_ASSET_BASE_URL=https://mind-assets.uni-robot.cn
 ENV PUBLIC_APP_URL=$PUBLIC_APP_URL
 ENV SITE_URL=$SITE_URL
+ENV PUBLIC_ASSET_BASE_URL=$PUBLIC_ASSET_BASE_URL
 RUN pnpm --filter site build
 
 # ---- runtime: static nginx serving the rendered site ----
