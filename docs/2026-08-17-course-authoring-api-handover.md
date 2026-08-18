@@ -1,7 +1,7 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at tag:** `course-authoring-v1.1.2` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
+**Pinned at tag:** `course-authoring-v1.2.0` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
 > **Read this first — honesty note.** Your request (items 3 and 4) asks us to *confirm* several guarantees: optimistic concurrency, idempotent publishing, SHA-256 dedup, and upload support for all six media types. **Some of these do not exist in the current backend.** Rather than confirm them falsely, this document states plainly what exists today, what does not, and — for each gap — the workaround or the backend change you should request. The gaps are collected in §7 ("Gap register") so your planning can account for them up front.
@@ -12,7 +12,7 @@
 
 ### 1.1 The three shared packages
 
-All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.1.2`** (see "How to consume the pin" below).
+All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.2.0`** (see "How to consume the pin" below).
 
 | Package | Name | Version | Runtime deps | Purpose |
 |---|---|---|---|---|
@@ -20,11 +20,12 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 | `packages/course-runtime` | `@mind-imprint/course-runtime` | `0.0.0` | `@mind-imprint/course-contract` (workspace) | Headless (no React) deterministic session state machine + host-injection adapter contracts + `InMemorySessionAdapter`. |
 | `packages/course-renderer` | `@mind-imprint/course-renderer` | `0.0.0` | contract + runtime (workspace), `react-markdown@^10.1.0`, `remark-gfm@^4.0.1`; peer `react@^18.3.0`, `react-dom@^18.3.0` | The **real student React renderer** (`CoursePlayer`) you will preview against. Chrome-agnostic. |
 
-**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.1.2`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
-- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.1.2`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
+**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.2.0`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
+- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.2.0`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
 - **Vendored copy** of the same three package directories at that tag.
 
-When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog** (all renderer-only unless noted; the next contract/API change would be `course-authoring-v1.2.0`):
+When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog** (renderer-only unless a ⚠ marks a contract change):
+- **`course-authoring-v1.2.0`** — ⚠ **contract change (additive, backward-compatible).** `SplitRatio` gains four weights: **`3:2`, `2:3`, `3:1`, `1:3`** (now seven total: `1:1`, `3:2`, `2:3`, `2:1`, `1:2`, `3:1`, `1:3`). Lets a split be tuned to its content (a wider side for video, a `1:2` for text-beside-PDF, etc.). Existing definitions are unaffected — the old three values still validate. Your compiler may now emit the new values; nothing forces it to. See §6.2's "Split weights". (The server stores the definition as-is and does not enumerate the ratio, so no backend change was needed.)
 - **`course-authoring-v1.1.2`** — interactive-HTML blocks now fit their slot: the block scales to its declared aspect (`1:1`/`4:3`), fills the slot height, and centers, instead of sizing from its width alone and overflowing into a scroll (the "stuck" oversized frame). Completes the media-aspect model — every block type now contains to its slot. Purely visual.
 - **`course-authoring-v1.1.1`** — media now honours its natural aspect: a PDF renders as a centred **portrait page column** (a page is portrait, so it fits a tall slot and is never stretched into a wide short band), matching how video/images already letterbox via `object-fit`. See §6.2's media-aspect notes. Purely visual.
 - **`course-authoring-v1.1.0`** — renderer slot-layout fix in `course.css`: text renders as a centred reading card; media fills its slot instead of collapsing to a flat band. Purely visual; any `CourseDefinition` valid under v1.0.0 is unchanged. See §6.2.
@@ -68,6 +69,10 @@ CourseDefinition = {
 
 SliceDefinition = { id, title, objectiveIds[], estimatedSeconds (>0),
                     blocks[≥1], layout, narrations[], workflow, navigation }
+
+layout = { preset: full | split-horizontal | split-vertical | grid,
+           ratio?: 1:1 | 3:2 | 2:3 | 2:1 | 1:2 | 3:1 | 1:3,   // required for splits; first weight = left/top
+           slots: [{ id, blockIds[] }] }                       // full→'main'; split→'left'/'right' or 'top'/'bottom'; grid→'cell-1..N'
 ```
 
 Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3`, `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}`.
@@ -301,8 +306,8 @@ A slice is **one desktop screen** (≥1280×720) that never page-scrolls; a slot
 | Preset | Slots | Use it for | Watch out for |
 |--------|-------|-----------|---------------|
 | `full` | `main` | One focused thing — a single reading card, one video, one PDF, one assessment. The default when a slice makes a single move. | Don't stack many blocks in `main`; that's what the split/grid presets are for. |
-| `split-horizontal` | `left`, `right` (+ `ratio`) | Read-and-reference side by side: a passage beside its source, a prompt beside an image, main text beside a short checklist. Put the bulk on the `2fr` side (`2:1` / `1:2`). | A tall block in the `1fr` side scrolls internally — keep the narrow side short. |
-| `split-vertical` | `top`, `bottom` (+ `ratio`) | Stacked flow: a prompt above the source it's about, media above a caption/task. | **Avoid a PDF or video in the small `1fr` side** — it'll be short. Give media the `2fr` side, or use `full`. |
+| `split-horizontal` | `left`, `right` (+ `ratio`) | Read-and-reference side by side: a passage beside its source, a prompt beside an image, main text beside a short checklist. Weight the split toward whichever side carries the bulk. | A tall block in the very-narrow side of a `3:1` scrolls internally — don't over-weight. |
+| `split-vertical` | `top`, `bottom` (+ `ratio`) | Stacked flow: a prompt above the source it's about, media above a caption/task. | **Avoid a PDF or video in the small side** — it'll be short. Give media the larger side, or use `full`. |
 | `grid` | `cell-1..N` (2 columns) | 3–4 short parallel items — a set of cards, several small figures, compare-and-contrast tiles. | Not for a block you want *big*: a PDF in a grid cell is only ~half a screen tall. One long text card will overflow its cell and scroll. |
 
 Rules of thumb: **one dominant block → `full`**; **two blocks in a clear relationship → a split (bulk on the `2fr` side)**; **several small equals → `grid`**; **a block you want large (PDF/video) never goes in a `1fr` split side or a grid cell.** A short text block centres itself in whatever slot holds it, so empty space around a small card is intentional, not a bug.
@@ -311,6 +316,8 @@ Rules of thumb: **one dominant block → `full`**; **two blocks in a clear relat
 - **PDF → wants a TALL slot.** A page is portrait; the viewer renders as a centred portrait page column. Best in a `split-horizontal` side (a full-height column beside your text/questions — the natural "reading + source" split) or, for a source-only slice, `full` (a centred document with side gutters). A wide-and-short slot (grid cell, `1fr` split side) makes the page tiny — avoid.
 - **Video → wants a WIDE slot (16:9 / 4:3).** `full`, or the `2fr` side/`top` of a split. In a narrow slot it letterboxes with big side bars.
 - **Interactive HTML → wants a SQUARE-ish slot.** The block declares `1:1` or `4:3`; give it a slot near that shape (`full`, or a balanced `split`), not a long thin one.
+
+**Split weights (`ratio`).** A split's `ratio` picks how the two tracks divide — seven weights, symmetric: `1:1` (balanced), `3:2` / `2:3` (gentle), `2:1` / `1:2` (weighted), `3:1` / `1:3` (strong). The first number is the `left`/`top` slot, the second is `right`/`bottom`. Tune it to the media: give a video a wider side (`2:1`/`3:1`), give a text-beside-PDF split a `1:2` so the PDF's tall column gets the room, and so on. `3:1` is the most lopsided allowed — the narrow side is a quarter, never a sliver.
 
 See §6 for the offline preview — render your slice in it before authoring to confirm the fit.
 
