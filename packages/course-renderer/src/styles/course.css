@@ -208,14 +208,20 @@
   object-fit: contain;
 }
 
-/* The PDF block is a flex column (header + viewport) that stretches to fill
- * its slot, so the browser-native viewer gets real, non-zero height instead
- * of collapsing to its content (P1-07). */
+/* The PDF block is a flex column (header + viewport) that fills its slot's
+ * height (P1-07). A PDF PAGE is portrait, so the viewport honors a page
+ * aspect and is centered as a document column rather than stretched to the
+ * slot's full width — the same "fit, don't distort" intent that object-fit
+ * gives video/images. In a wide `full` slot this reads as a centered page
+ * with side gutters (a document reader), not a short wide band; in a tall
+ * split column it fills naturally. (A PDF wants a TALL slot — see the layout
+ * guidance; a 1fr split side or grid cell is simply too short for a page.) */
 .course-block--pdf {
   display: flex;
   flex-direction: column;
   flex: 1 1 auto;
   gap: 8px;
+  align-items: center;
 }
 
 .course-pdf__header {
@@ -224,18 +230,20 @@
   justify-content: space-between;
   gap: 12px;
   flex: 0 0 auto;
+  width: 100%;
 }
 
 .course-pdf__viewport {
   position: relative;
-  width: 100%;
   flex: 1 1 auto;
-  /* The viewport now FILLS its slot via the repaired flex chain (see
-   * .course-slot-block). This floor is only an anti-collapse minimum so the
-   * frame is usable when the slot is unusually short (e.g. a 1fr split) or on
-   * a browser without :has() — it is NOT the target height, flex-grow is. */
-  min-height: 200px;
+  height: 100%;
+  /* portrait page: width follows the filled height, capped to the slot */
+  aspect-ratio: 1 / 1.3;
+  width: auto;
   max-width: 100%;
+  /* anti-collapse floor for an unusually short slot / a browser without the
+   * repaired flex chain — NOT the target height, flex-grow is. */
+  min-height: 200px;
   overflow: auto;
   border: 1px solid var(--course-border, #efe7dd);
   border-radius: var(--course-radius, 10px);
