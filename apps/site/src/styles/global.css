@@ -147,6 +147,11 @@ ol {
 .container.narrow {
   max-width: 860px;
 }
+/* Sections whose subject is a product screenshot get more room: dense UI is
+   unreadable at column width. */
+.container.wide {
+  max-width: 1440px;
+}
 .section {
   padding: 128px 0;
   position: relative;
@@ -1108,6 +1113,24 @@ nav.site-nav.stuck {
   height: 100%;
   object-fit: cover;
 }
+/* The dashed border, the inset padding and the hatch all belong to the EMPTY
+   state. Once a real screenshot is in the frame they just crop it and print a
+   placeholder texture over the edges. */
+.figure:has(img) {
+  padding: 0;
+  border-style: solid;
+  background: var(--paper);
+  /* Screenshots come in whatever shape the app was captured at. Forcing them
+     into a fixed ratio means cropping a panel off the edge of a UI, so the
+     frame takes the picture's shape instead. */
+  aspect-ratio: auto;
+}
+.figure:has(img) img {
+  height: auto;
+}
+.figure:has(img)::after {
+  display: none;
+}
 .figcaption {
   font-size: 12.5px;
   color: var(--faint);
@@ -1509,8 +1532,10 @@ table.dt td .small {
 }
 .scrub-grid {
   display: grid;
-  grid-template-columns: 0.85fr 1.15fr;
-  gap: 72px;
+  /* The copy is capped at 46ch regardless, so width there is wasted. Give it
+     a fixed, comfortable measure and hand the remainder to the screenshot. */
+  grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+  gap: 56px;
   align-items: start;
 }
 /* Pinned at the viewport's vertical centre, so the visual and the step of copy
@@ -1572,7 +1597,10 @@ table.dt td .small {
 /* cross-fading screenshot stack, driven by .scrub[data-active] */
 .shotstack {
   position: relative;
-  aspect-ratio: 16 / 9;
+  /* The stack cross-fades absolutely-positioned frames, so it needs one fixed
+     box. 1.87 is the median of the screenshots in it — nothing loses more than
+     a few percent either way. */
+  aspect-ratio: 1.87;
 }
 .shotstack .shot {
   position: absolute;
