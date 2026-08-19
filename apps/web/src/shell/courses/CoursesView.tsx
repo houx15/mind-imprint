@@ -16,7 +16,7 @@ function CourseCard({ course, pct, onOpen, onRestart }: { course: CourseSummary;
   };
   return (
     <div onClick={onOpen} style={{ display: "flex", flexDirection: "column", background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 18, overflow: "hidden", boxShadow: "var(--mk-shadow-xs)", cursor: "pointer" }}>
-      <div style={{ position: "relative", height: 120, ...(course.coverUrl ? {} : coverGradientStyle(course.slug)), display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
+      <div style={{ position: "relative", aspectRatio: "16 / 9", ...(course.coverUrl ? {} : coverGradientStyle(course.slug)), display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {course.coverUrl ? (
           <img src={course.coverUrl} alt={course.title} loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
         ) : (

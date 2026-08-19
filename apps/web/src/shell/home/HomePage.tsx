@@ -120,7 +120,13 @@ function CourseCard({ course, onClick }: { course: CourseSummary; onClick: () =>
       className="cursor-pointer"
     >
       <Card className="flex h-full flex-col gap-3 p-4">
-        <div className="h-[100px] w-full shrink-0 rounded-mk-sm" style={coverGradientStyle(course.slug)} />
+        <div className="-mx-4 -mt-4 aspect-[16/9] w-[calc(100%+2rem)] shrink-0 overflow-hidden rounded-t-mk-sm">
+          {course.coverUrl ? (
+            <img src={course.coverUrl} alt="" loading="lazy" className="h-full w-full object-cover" />
+          ) : (
+            <div className="h-full w-full" style={coverGradientStyle(course.slug)} />
+          )}
+        </div>
         <div className="text-mk-h3 text-mk-ink">{course.title}</div>
         <p className="line-clamp-2 flex-1 text-mk-body text-mk-muted">{course.blurb}</p>
         <div className="flex items-center gap-2">
