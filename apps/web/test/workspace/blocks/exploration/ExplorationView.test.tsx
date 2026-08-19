@@ -840,14 +840,16 @@ describe("ExplorationView", () => {
     await zoomInto(user, ROOT_LEAD.text);
     await clickNode(user, CHILD_PAPER.text);
 
-    // click 进入阅读室 → 422 → the paste box appears (no navigation, no dead click)
+    // click 进入阅读室 → 422 → a "粘贴正文，开始共读" button appears (no dead click)
     await user.click(await screen.findByRole("button", { name: "进入阅读室" }));
-    expect(await screen.findByText("取不到这个链接的正文，可以直接把正文粘进来。")).toBeInTheDocument();
+    const openPaste = await screen.findByRole("button", { name: "粘贴正文，开始共读" });
     // the enter button is replaced by the paste flow while the prompt is open
     expect(screen.queryByRole("button", { name: "进入阅读室" })).toBeNull();
     expect(onEnterReading).not.toHaveBeenCalled();
 
-    // paste the body + 开始共读 → pasteContent(projectId, refId, text) then enter
+    // opening the paste MODAL shows the message + a roomy textarea
+    await user.click(openPaste);
+    expect(await screen.findByText("取不到这个链接的正文，可以直接把正文粘进来。")).toBeInTheDocument();
     const box = screen.getByPlaceholderText(/把文章正文粘到这里/);
     await user.type(box, "这是粘贴进来的正文段落。");
     await user.click(screen.getByRole("button", { name: "开始共读" }));
@@ -855,7 +857,13 @@ describe("ExplorationView", () => {
     await waitFor(() =>
       expect(mockPasteContent).toHaveBeenCalledWith(expect.any(String), NASA_REF.id, "这是粘贴进来的正文段落。"),
     );
-    await waitFor(() => expect(onEnterReading).toHaveBeenCalledWith(materialSource, NASA_REF.id, "", undefined, undefined, undefined));
+    await waitFor(() => expect(onEnterReading).toHaveBeenCalled());
+    const call = onEnterReading.mock.calls[0];
+    expect(call[0]).toBe(materialSource);
+    expect(call[1]).toBe(NASA_REF.id);
+    expect(call[2]).toBe("");
+    // the reference itself is threaded through (9th arg) for the reading room's 证据笔记
+    expect((call[8] as { id?: string } | undefined)?.id).toBe(NASA_REF.id);
   });
 });
 

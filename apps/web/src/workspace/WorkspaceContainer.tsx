@@ -9,12 +9,14 @@ import type {
   PlanItem,
   Proposal,
   QuestionProposal,
+  Reference,
   ReviewVerdict,
   StudioState,
   WidthTier,
   WorkspaceProjection,
 } from "@mind-imprint/contracts";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
+import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/api/evidenceMap";
 import type { Dispatch, SetStateAction } from "react";
 import { api } from "../api";
 import { createLead } from "@/api/exploration";
@@ -260,6 +262,10 @@ export function WorkspaceContainer({
   // #4 · the reference's persisted bib (abstract/journal/author/year/url) shown
   // in the Reading Room header.
   const [readingBib, setReadingBib] = useState<ReferenceBib | null>(null);
+  // The full reference row the reading room needs for its 证据笔记 (moved here
+  // from the warren-map sidebar). Optional — a paste-created source with no
+  // saved evidence still passes its (fresh) reference so the note works.
+  const [readingReference, setReadingReference] = useState<Reference | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -270,6 +276,7 @@ export function WorkspaceContainer({
     readingFocus?: string | null,
     readingNote?: string | null,
     bib?: ReferenceBib,
+    reference?: Reference | null,
   ) {
     setReadingSourceState(m);
     setReadingRefId(referenceId);
@@ -279,6 +286,7 @@ export function WorkspaceContainer({
     setReadingReadingFocus(readingFocus ?? null);
     setReadingReadingNote(readingNote ?? null);
     setReadingBib(bib ?? null);
+    setReadingReference(reference ?? null);
   }
   // EA · carry-forward acknowledgment: when the student 归纳'd a source before
   // leaving, show a brief "you just read X — it's carried forward" note so the
@@ -1083,6 +1091,10 @@ export function WorkspaceContainer({
         readingNote={readingReadingNote}
         bib={readingBib}
         onSaveNote={(note) => patchReference(projectId, readingRefId, { readingNote: note }).then(() => {})}
+        reference={readingReference}
+        onSetEvidence={(ev) => setReferenceEvidence(projectId, readingRefId, ev)}
+        onSetTriage={(triage) => setReferenceTriage(projectId, readingRefId, triage)}
+        onArchive={(archived) => archiveReference(projectId, readingRefId, archived)}
         api={api}
         onBack={closeReadingSource}
       />

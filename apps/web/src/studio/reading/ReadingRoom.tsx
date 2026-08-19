@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { Anchor, AnnotateState, MaterialSource, ReadingBrief, Reference, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
 import { PhaseTag } from "@mind-imprint/contracts";
+import { EvidenceNote } from "@/workspace/blocks/exploration/ExplorationSidebar";
+import type { ReferenceEvidence } from "@/api/evidenceMap";
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
@@ -86,6 +88,15 @@ export type ReadingRoomProps = {
     url?: string;
   } | null;
   onSaveNote?: (note: string) => Promise<void>;
+  // 证据笔记 (evidence note) — moved here from the warren-map sidebar (this is
+  // where the student actually reads the source). The reference row carries the
+  // saved facets; the three setters persist a change and return the updated
+  // Reference (so the note stays consistent). Absent → the note isn't shown
+  // (e.g. a source with no reference row, or a bare component test).
+  reference?: Reference | null;
+  onSetEvidence?: (ev: ReferenceEvidence) => Promise<Reference>;
+  onSetTriage?: (triage: "" | "red" | "yellow") => Promise<Reference>;
+  onArchive?: (archived: boolean) => Promise<Reference>;
   // finalized tells the workspace whether the student 归纳'd this source before
   // leaving, so it can show a carry-forward acknowledgment (EA).
   onBack: (finalized: boolean) => void;
@@ -134,11 +145,27 @@ export function ReadingRoom({
   readingNote,
   bib,
   onSaveNote,
+  reference,
+  onSetEvidence,
+  onSetTriage,
+  onArchive,
   onBack,
   api,
   onOpenLogged,
 }: ReadingRoomProps) {
   const loop = useReadingLoop(projectId, source, api);
+
+  // 证据笔记 state — the live reference (updated from each setter's returned
+  // Reference so triage/nature/archive toggles reflect immediately) + a
+  // collapsible that opens when the student already has evidence recorded.
+  const [evRef, setEvRef] = useState<Reference | null>(reference ?? null);
+  useEffect(() => {
+    setEvRef(reference ?? null);
+  }, [reference]);
+  const hasEvidence = Boolean(
+    evRef && (evRef.evidenceArgument || evRef.evidenceFinding || evRef.evidencePlacement || evRef.evidenceNature || evRef.triage),
+  );
+  const [evidenceOpen, setEvidenceOpen] = useState(hasEvidence);
   const [draft, setDraft] = useState("");
   const [rightView, setRightView] = useState<"article" | "trace">("article");
 
@@ -683,6 +710,38 @@ export function ReadingRoom({
                         <div className="mt-1 h-[14px] font-sans text-[12px] text-mk-muted">
                           {noteSaving ? "保存中…" : noteSavedAt ? "已保存" : "失焦自动保存"}
                         </div>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* 证据笔记 — moved here from the warren-map sidebar. Sits
+                    beside 我的笔记 (both per-source reflective tools); opens
+                    when there's already something recorded. */}
+                {evRef && onSetEvidence && onSetTriage && onArchive && (
+                  <div className="mt-5 border-t border-mk-border pt-[14px]">
+                    <button
+                      type="button"
+                      onClick={() => setEvidenceOpen((o) => !o)}
+                      className="flex cursor-pointer items-center gap-1.5 border-0 bg-transparent p-0 font-sans text-[14px] font-bold text-mk-ink"
+                    >
+                      <span
+                        className="transition-transform duration-150 ease-mk"
+                        style={{ transform: evidenceOpen ? "rotate(90deg)" : "none" }}
+                      >
+                        ▸
+                      </span>
+                      证据笔记{!evidenceOpen && hasEvidence ? " ·  已记" : ""}
+                    </button>
+                    {evidenceOpen && (
+                      <div className="mt-2">
+                        <EvidenceNote
+                          reference={evRef}
+                          hideHeading
+                          onSetEvidence={(ev) => void onSetEvidence(ev).then(setEvRef)}
+                          onSetTriage={(t) => void onSetTriage(t).then(setEvRef)}
+                          onArchive={() => void onArchive(!(evRef.archived ?? false)).then(setEvRef)}
+                        />
                       </div>
                     )}
                   </div>

@@ -127,6 +127,8 @@ export function ReadingBlock({
     // #4: the reference's persisted bib (abstract/journal/author/year/url) so the
     // Reading Room header can show the abstract + metadata + a 打开原文 link.
     bib?: ReferenceBib,
+    // The full reference row → the Reading Room's 证据笔记.
+    reference?: Reference | null,
   ) => void;
 }) {
   const [refs, setRefs] = useState<Reference[]>([]);
@@ -332,7 +334,7 @@ export function ReadingBlock({
       setRefs((xs) => [created, ...xs]);
       setSelId(created.id);
       const source = await pasteContent(projectId, created.id, src.text, src.title || undefined);
-      setReadingSource(source, created.id);
+      setReadingSource(source, created.id, undefined, undefined, undefined, undefined, undefined, undefined, created);
     } catch {
       reload();
     } finally {
@@ -356,7 +358,7 @@ export function ReadingBlock({
     const key = await uploadUserDoc(src.file);
     await ingestReferenceFile(projectId, created.id, key);
     const { source } = await enterReading(projectId, created.id);
-    setReadingSource(source, created.id);
+    setReadingSource(source, created.id, undefined, undefined, undefined, undefined, undefined, undefined, created);
     setAdding(false);
   }
 
@@ -1006,6 +1008,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     readingFocus?: string | null,
     readingNote?: string | null,
     bib?: ReferenceBib,
+    reference?: Reference | null,
   ) => void;
 }) {
   const [entering, setEntering] = useState(false);
@@ -1025,7 +1028,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setEntering(true);
     try {
       const { source, suggestedReason } = await enterReading(projectId, r.id);
-      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote, refBib(r));
+      onEnterReading(source, r.id, suggestedReason, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote, refBib(r), r);
     } catch (e) {
       if (e instanceof NoReadableContentError) {
         // Fetch failed / no content → let the student paste the body in,
@@ -1048,7 +1051,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     setPasteError(null);
     try {
       const source = await pasteContent(projectId, r.id, text);
-      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote, refBib(r));
+      onEnterReading(source, r.id, undefined, r.phaseTag, r.readingReason, r.readingFocus, r.readingNote, refBib(r), r);
     } catch {
       setPasteError("粘贴失败了，再试一次？");
     } finally {

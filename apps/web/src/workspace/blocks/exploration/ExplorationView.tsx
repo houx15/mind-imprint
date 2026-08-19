@@ -11,8 +11,7 @@ import type {
   Reference,
   SearchSuggestion,
 } from "@mind-imprint/contracts";
-import { enterReading, pasteContent, NoReadableContentError, type SourceMeta } from "../../api/workspace";
-import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/api/evidenceMap";
+import { enterReading, pasteContent, NoReadableContentError, type SourceMeta, type ReferenceBib } from "../../api/workspace";
 import type { QuestionEdgeLabel } from "@mind-imprint/contracts";
 import {
   adoptCandidate,
@@ -95,6 +94,9 @@ export type ExplorationViewProps = {
     phaseTag?: PhaseTag | null,
     readingReason?: string | null,
     readingFocus?: string | null,
+    readingNote?: string | null,
+    bib?: ReferenceBib,
+    reference?: Reference | null,
   ) => void;
   // Kept for backward-compatibility with ReadingBlock's call site (A6 removed
   // the surfaces that used these — the ＋添加来源 button, the rabbit-hole card
@@ -567,7 +569,7 @@ export function ExplorationView({
     setPasteFor(null);
     try {
       const { source, suggestedReason } = await enterReading(projectId, ref.id);
-      onEnterReading(source, ref.id, suggestedReason, ref.phaseTag, ref.readingReason, ref.readingFocus);
+      onEnterReading(source, ref.id, suggestedReason, ref.phaseTag, ref.readingReason, ref.readingFocus, ref.readingNote, undefined, ref);
     } catch (e) {
       // 422 = the paper's full text can't be fetched (most paywalled papers).
       // Don't dead-click: open an inline paste box right here so she can drop the
@@ -591,7 +593,7 @@ export function ExplorationView({
     try {
       const source = await pasteContent(projectId, ref.id, text);
       setPasteFor(null);
-      onEnterReading(source, ref.id, "", ref.phaseTag, ref.readingReason, ref.readingFocus);
+      onEnterReading(source, ref.id, "", ref.phaseTag, ref.readingReason, ref.readingFocus, ref.readingNote, undefined, ref);
     } catch {
       setActionError(true);
     } finally {
@@ -703,9 +705,6 @@ export function ExplorationView({
       pastePrompt={pasteFor && selectedRef && pasteFor.refId === selectedRef.id ? { msg: pasteFor.msg, meta: pasteFor.meta } : undefined}
       pasteBusy={pasteBusy}
       onPaste={onEnterReading && selectedRef ? (text: string) => submitPaste(selectedRef, text) : undefined}
-      onSetEvidence={selectedRef ? (ev) => void setReferenceEvidence(projectId, selectedRef.id, ev).then(() => onLibraryChanged?.()) : undefined}
-      onSetTriage={selectedRef ? (tri) => void setReferenceTriage(projectId, selectedRef.id, tri).then(() => onLibraryChanged?.()) : undefined}
-      onArchive={selectedRef ? () => void archiveReference(projectId, selectedRef.id, !(selectedRef.archived ?? false)).then(() => onLibraryChanged?.()) : undefined}
     />
   );
 

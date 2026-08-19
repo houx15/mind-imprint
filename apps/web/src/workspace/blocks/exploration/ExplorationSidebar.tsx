@@ -74,12 +74,6 @@ export type ExplorationSidebarProps = {
   pastePrompt?: { msg: string; meta?: PasteMeta };
   pasteBusy?: boolean;
   onPaste?: (text: string) => void;
-  // Slice 4a · 证据地图: set the selected paper's evidence note / 支持-反驳 nature /
-  // triage / archive. Operate on the currently-selected paper (ExplorationView
-  // knows its id). Absent when the sidebar isn't in the research stage.
-  onSetEvidence?: (ev: { nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }) => void;
-  onSetTriage?: (triage: "" | "red" | "yellow") => void;
-  onArchive?: () => void;
 };
 
 export type PasteMeta = { title?: string; author?: string; year?: string; journal?: string; abstract?: string };
@@ -141,89 +135,99 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
 
   return (
     <aside className={SHELL}>
+      {/* The back bar stays pinned; everything below it scrolls as ONE column —
+          so a tall paper card / find-actions never overflow the fixed-height
+          panel and read as "stuck" (the old bug: flex-none sections clipped
+          because the panel itself never scrolled). */}
       <BackBar label="← 印记" onClick={onBackToAi} />
 
-      {isPaper ? (
-        <PaperMeta
-          reference={reference}
-          node={node}
-          onEnterReading={onEnterReading}
-          entering={entering}
-          pastePrompt={pastePrompt}
-          pasteBusy={pasteBusy}
-          onPaste={onPaste}
-          onSetEvidence={props.onSetEvidence}
-          onSetTriage={props.onSetTriage}
-          onArchive={props.onArchive}
-        />
-      ) : (
-        <QuestionMeta node={node} papers={papers} onSelectPaper={onSelectPaper} />
-      )}
-
-      {/* ---- find-actions ---- */}
-      <div className="flex-none border-b border-mk-border px-4 py-3">
+      <div className="min-h-0 flex-1 overflow-y-auto">
         {isPaper ? (
-          <div className="flex flex-col gap-2">
-            <FindButton disabled={digging} onClick={() => onDig("similar")}>
-              {digging ? "印记在找…" : "找相似文献"}
-            </FindButton>
-            <FindButton disabled={digging} onClick={() => onDig("citation")}>
-              找它引用的文献
-            </FindButton>
-            <FindButton disabled={digging} onClick={() => onDig("cited")}>
-              找引用它的文献
-            </FindButton>
-          </div>
+          <PaperMeta
+            reference={reference}
+            node={node}
+            onEnterReading={onEnterReading}
+            entering={entering}
+            pastePrompt={pastePrompt}
+            pasteBusy={pasteBusy}
+            onPaste={onPaste}
+          />
         ) : (
-          <>
-            <FindButton disabled={digging} onClick={() => onDig("similar")}>
-              {digging ? "印记在找…" : "找相似文献"}
-            </FindButton>
-            <div className="mt-2 flex items-center gap-1.5">
-              <input
-                value={keyword}
-                onChange={(e) => setKeyword(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") submitKeyword();
-                }}
-                placeholder="换个词找…"
-                className="min-w-0 flex-1 rounded-mk border border-mk-border bg-mk-paper px-2.5 py-1.5 text-[12px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
-              />
-              <button
-                type="button"
-                onClick={submitKeyword}
-                disabled={digging || !keyword.trim()}
-                className="flex-none rounded-mk border border-mk-accent/40 bg-mk-surface px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
-              >
-                找
-              </button>
-            </div>
-          </>
+          <QuestionMeta node={node} papers={papers} onSelectPaper={onSelectPaper} />
         )}
-      </div>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3 text-[14px] leading-relaxed text-mk-faint">
-        {isPaper
-          ? "顺着这篇论文找——相似的、它引用的、引用它的。挑有用的采纳，会挂到这条线下面。"
-          : "点上面的「找相似文献」，或换个关键词，印记会顺着这个问题给你几篇论文。"}
+        {/* ---- find-actions ---- */}
+        <div className="border-b border-mk-border px-4 py-3">
+          {isPaper ? (
+            <div className="flex flex-col gap-2">
+              <FindButton disabled={digging} onClick={() => onDig("similar")}>
+                {digging ? "印记在找…" : "找相似文献"}
+              </FindButton>
+              <FindButton disabled={digging} onClick={() => onDig("citation")}>
+                找它引用的文献
+              </FindButton>
+              <FindButton disabled={digging} onClick={() => onDig("cited")}>
+                找引用它的文献
+              </FindButton>
+            </div>
+          ) : (
+            <>
+              <FindButton disabled={digging} onClick={() => onDig("similar")}>
+                {digging ? "印记在找…" : "找相似文献"}
+              </FindButton>
+              <div className="mt-2 flex items-center gap-1.5">
+                <input
+                  value={keyword}
+                  onChange={(e) => setKeyword(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") submitKeyword();
+                  }}
+                  placeholder="换个词找…"
+                  className="min-w-0 flex-1 rounded-mk border border-mk-border bg-mk-paper px-2.5 py-1.5 text-[12px] text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+                />
+                <button
+                  type="button"
+                  onClick={submitKeyword}
+                  disabled={digging || !keyword.trim()}
+                  className="flex-none rounded-mk border border-mk-accent/40 bg-mk-surface px-2.5 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
+                >
+                  找
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+
+        <div className="px-4 py-3 text-[14px] leading-relaxed text-mk-faint">
+          {isPaper
+            ? "顺着这篇论文找——相似的、它引用的、引用它的。挑有用的采纳，会挂到这条线下面。"
+            : "点上面的「找相似文献」，或换个关键词，印记会顺着这个问题给你几篇论文。"}
+        </div>
       </div>
     </aside>
   );
 }
 
-// EvidenceNote — slice 4a · a paper's 证据地图 facets, edited in the sidebar
-// (never on the graph). Nature (支持/反驳) + a structured note (key argument /
-// key evidence / where it can appear) + triage (must-read/to-decide) + archive.
+// EvidenceNote — a paper's 证据笔记 facets: nature (支持/反驳) + a structured
+// note (key argument / key evidence / where it can appear) + triage
+// (must-read/to-decide) + archive. It now lives in the READING ROOM (rendered
+// beside 我的笔记, where the student actually reads the source), not the warren
+// map sidebar. The caller owns the outer container; this renders just the
+// heading + controls.
 export function EvidenceNote({
   reference,
   onSetEvidence,
   onSetTriage,
   onArchive,
+  hideHeading,
 }: {
   reference: Reference;
   onSetEvidence: (ev: { nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }) => void;
   onSetTriage: (triage: "" | "red" | "yellow") => void;
   onArchive: () => void;
+  // The reading room provides its own collapsible "证据笔记" header, so it hides
+  // this component's built-in one to avoid a duplicate title.
+  hideHeading?: boolean;
 }) {
   const [argument, setArgument] = useState(reference.evidenceArgument ?? "");
   const [finding, setFinding] = useState(reference.evidenceFinding ?? "");
@@ -241,8 +245,8 @@ export function EvidenceNote({
   }
 
   return (
-    <div className="flex-none border-b border-mk-border px-4 py-3">
-      <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">证据笔记</p>
+    <div>
+      {!hideHeading && <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">证据笔记</p>}
 
       {/* triage — 必读 / 待定 */}
       <div className="mt-2 flex items-center gap-1.5">
@@ -322,9 +326,6 @@ function PaperMeta({
   pastePrompt,
   pasteBusy,
   onPaste,
-  onSetEvidence,
-  onSetTriage,
-  onArchive,
 }: {
   reference: Reference | null;
   node: ExplorationLead;
@@ -333,14 +334,14 @@ function PaperMeta({
   pastePrompt?: { msg: string; meta?: PasteMeta };
   pasteBusy?: boolean;
   onPaste?: (text: string) => void;
-  onSetEvidence?: (ev: { nature: "" | "support" | "challenge"; argument: string; finding: string; placement: string }) => void;
-  onSetTriage?: (triage: "" | "red" | "yellow") => void;
-  onArchive?: () => void;
 }) {
-  const [pasteText, setPasteText] = useState("");
+  // Pasting the body is an important, deliberate action — so it opens in a
+  // MODAL (a roomy textarea), not a cramped inline box that used to overflow
+  // the sidebar. Closed whenever a different paper is selected or the prompt
+  // clears.
+  const [pasteOpen, setPasteOpen] = useState(false);
   useEffect(() => {
-    // Reset the draft whenever a different paper is selected or the prompt clears.
-    setPasteText("");
+    setPasteOpen(false);
   }, [node.id, Boolean(pastePrompt)]);
 
   // One shared layout with the search-result single-paper view (PaperDetail):
@@ -361,38 +362,81 @@ function PaperMeta({
             : undefined
         }
       >
-        {/* Slice 4a · the 证据笔记 (evidence note) lives here in the sidebar —
-            never on the graph. Present when the research-stage setters are wired. */}
-        {reference && onSetEvidence && onSetTriage && onArchive && (
-          <div className="mt-3 border-t border-mk-border pt-3">
-            <EvidenceNote reference={reference} onSetEvidence={onSetEvidence} onSetTriage={onSetTriage} onArchive={onArchive} />
-          </div>
-        )}
-
-        {/* 422 fallback: the full text couldn't be fetched, so instead of a dead
-            click we ask her to paste the body → pasteContent → straight into the
-            reading room. Mirrors the Library preview's paste path. */}
+        {/* 422 fallback: the full text couldn't be fetched. Instead of a dead
+            click, offer a prominent button that opens the paste MODAL →
+            pasteContent → straight into the reading room. */}
         {pastePrompt && onPaste && (
-          <div className="mt-3 rounded-mk border border-mk-accent-200 bg-mk-accent-50 p-2.5">
-            <p className="text-[12px] font-semibold leading-relaxed text-mk-ink">{pastePrompt.msg}</p>
-            <textarea
-              value={pasteText}
-              onChange={(e) => setPasteText(e.target.value)}
-              rows={5}
-              placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……"
-              className="mt-2 w-full resize-none rounded-mk border border-mk-border bg-mk-surface px-2.5 py-2 text-[12px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
-            />
-            <button
-              type="button"
-              onClick={() => onPaste(pasteText.trim())}
-              disabled={pasteBusy || !pasteText.trim()}
-              className="mt-2 w-full rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
-            >
-              {pasteBusy ? "开始中…" : "开始共读"}
-            </button>
-          </div>
+          <button
+            type="button"
+            onClick={() => setPasteOpen(true)}
+            className="mt-3 w-full rounded-mk border border-mk-accent-200 bg-mk-accent-50 px-3 py-2 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-100"
+          >
+            粘贴正文，开始共读
+          </button>
         )}
       </PaperDetail>
+
+      {pasteOpen && pastePrompt && onPaste && (
+        <PasteReadingModal
+          msg={pastePrompt.msg}
+          busy={pasteBusy}
+          onSubmit={(text) => onPaste(text)}
+          onClose={() => setPasteOpen(false)}
+        />
+      )}
+    </div>
+  );
+}
+
+// PasteReadingModal — the deliberate "paste the article body" action, in a
+// roomy modal (the old inline sidebar box overflowed and read as "stuck").
+// Clicking the backdrop closes it; the card stops propagation.
+function PasteReadingModal({
+  msg,
+  busy,
+  onSubmit,
+  onClose,
+}: {
+  msg: string;
+  busy?: boolean;
+  onSubmit: (text: string) => void;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div
+        onClick={(e) => e.stopPropagation()}
+        className="flex w-full max-w-xl flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-lg"
+      >
+        <h3 className="text-mk-h3 text-mk-ink">粘贴正文，开始共读</h3>
+        <p className="mt-1.5 text-mk-small leading-relaxed text-mk-muted">{msg}</p>
+        <textarea
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          rows={12}
+          autoFocus
+          placeholder="把文章正文粘到这里，直接进阅读室和印记逐句共读……"
+          className="mt-3 w-full resize-y rounded-mk border border-mk-border bg-mk-paper px-3 py-2.5 text-[13px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+        />
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-mk border border-mk-input-border bg-mk-surface px-4 py-2 text-[13px] font-semibold text-mk-secondary hover:bg-mk-paper"
+          >
+            取消
+          </button>
+          <button
+            type="button"
+            onClick={() => onSubmit(text.trim())}
+            disabled={busy || !text.trim()}
+            className="rounded-mk bg-mk-accent px-5 py-2 text-[13px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+          >
+            {busy ? "开始中…" : "开始共读"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
