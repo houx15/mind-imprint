@@ -28,6 +28,9 @@ export default defineConfig({
       // selectHomeCourses (Task 6, 2026-08-19 course-catalog-taxonomy-and-intro)
       // colocates its test next to the helper, same convention as above.
       "src/shell/home/**/*.test.{ts,tsx}",
+      // groupCoursesByCategory (Task 7, 2026-08-19 course-catalog-taxonomy-and-intro)
+      // colocates its test next to the helper, same convention as above.
+      "src/shell/courses/**/*.test.{ts,tsx}",
     ],
   },
 });

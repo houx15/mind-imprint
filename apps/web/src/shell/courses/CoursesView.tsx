@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import type { CourseSummary } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { coverGradientStyle } from "@/ui";
+import { groupCoursesByCategory } from "./groupCoursesByCategory";
 
 const STAR = "M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z";
 
@@ -92,8 +93,17 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
         {courses != null && courses.length === 0 ? (
           <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20, marginTop: 28 }}>
-            {(courses ?? []).map((c) => <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />)}
+          <div style={{ display: "flex", flexDirection: "column", gap: 40, marginTop: 28 }}>
+            {groupCoursesByCategory(courses ?? []).map((group) => (
+              <section key={group.slug}>
+                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 16 }}>{group.label}</div>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20 }}>
+                  {group.courses.map((c) => (
+                    <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />
+                  ))}
+                </div>
+              </section>
+            ))}
           </div>
         )}
       </div>
