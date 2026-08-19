@@ -101,9 +101,11 @@ Handler: `apps/api/internal/api/course_definition_admin.go:54`.
 **Request body:**
 ```jsonc
 {
-  "definition": { "schemaVersion": "2.0", "course": { ... } },  // the whole document, stored verbatim as jsonb
-  "blurb":   "one-line course description",
-  "cardIds": ["data-literacy", "opcvl", "craap"]                // tool cards granted on completion; each must exist in the card registry
+  "definition":   { "schemaVersion": "2.0", "course": { ... } }, // the whole document, stored verbatim as jsonb
+  "blurb":        "one-line course description",
+  "cardIds":      ["data-literacy", "opcvl", "craap"],           // tool cards granted on completion; each must exist in the card registry
+  "category":     "source-check",                                // optional; one of the 7 controlled slugs, or omit/"" to leave unset
+  "introduction": { "hook": "...", "whatYouDo": "...", "takeaways": ["..."], "alignment": { "ib": [...], "otherIntl": [...], "domestic": [...] }, "keywords": ["..."] } // optional; must be a JSON object
 }
 ```
 
@@ -111,7 +113,10 @@ Handler: `apps/api/internal/api/course_definition_admin.go:54`.
 - `definition` must be valid JSON → else **400** `validation_failed`.
 - `course.schemaVersion` must be `"2.0"` → else **422** `invalid_course_definition`.
 - `course.id` and `course.title` non-empty, and **`course.id` must equal `{slug}`** → else **400** `validation_failed`.
-- Every `cardIds` entry must be a known card id → else **400** `validation_failed`.
+- Every `cardIds` entry must be a known card id → else **400** `validation_failed`. (Unchanged — still registry-validated.)
+- `category` is optional. Empty/absent means "leave unset" (`NULL`). A non-empty value must be one of the 7 controlled slugs — `stance-value`, `source-check`, `media-literacy`, `self-knowledge`, `data-literacy`, `research-process`, `argument-writing` (mirrors `COURSE_CATEGORIES` in `packages/contracts`) — else **400** `validation_failed`. There is no 8th free-text category.
+- `introduction` is optional. Empty/absent means "leave unset". When present it is only border-checked to be a JSON **object** (`{"hook":...}` unmarshals; a string/array/number does not) → else **400** `validation_failed`. Its deep shape (`hook`, `whatYouDo`, `takeaways[]`, `alignment{ib[],otherIntl[],domestic[]}`, `keywords[]`) is validated by the generator's own Zod contract, not by this handler.
+- `featured_rank` is **not settable through this endpoint** — it is student-end/product-owned (curation lives elsewhere), not part of the authoring envelope.
 
 **Response 200:** `{ "slug": "<slug>", "status": "<status>" }`. `status` is `"preview"` on a fresh insert; on a re-PUT it is the course's **existing** status (PUT never changes status — see §3.2).
 
