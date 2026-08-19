@@ -78,28 +78,28 @@ export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart:
                 <p style={{ fontSize: 14.5, color: "var(--mk-secondary)", lineHeight: 1.75 }}>{intro.whatYouDo}</p>
               </section>
             )}
-            {intro.takeaways.length > 0 && (
+            {(intro.takeaways?.length ?? 0) > 0 && (
               <section>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 10 }}>带走什么</div>
                 <ul style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 8 }}>
-                  {intro.takeaways.map((t, i) => <li key={i} style={{ fontSize: 14.5, color: "var(--mk-secondary)", lineHeight: 1.7 }}>{t}</li>)}
+                  {(intro.takeaways ?? []).map((t, i) => <li key={i} style={{ fontSize: 14.5, color: "var(--mk-secondary)", lineHeight: 1.7 }}>{t}</li>)}
                 </ul>
               </section>
             )}
-            {(intro.alignment.ib.length + intro.alignment.otherIntl.length + intro.alignment.domestic.length) > 0 && (
+            {((intro.alignment?.ib?.length ?? 0) + (intro.alignment?.otherIntl?.length ?? 0) + (intro.alignment?.domestic?.length ?? 0)) > 0 && (
               <section>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 12 }}>学科对标</div>
                 <div style={{ display: "flex", flexWrap: "wrap", gap: 24 }}>
-                  <AlignmentColumn title="IB" items={intro.alignment.ib} />
-                  <AlignmentColumn title="其他国际" items={intro.alignment.otherIntl} />
-                  <AlignmentColumn title="国内" items={intro.alignment.domestic} />
+                  <AlignmentColumn title="IB" items={intro.alignment?.ib ?? []} />
+                  <AlignmentColumn title="其他国际" items={intro.alignment?.otherIntl ?? []} />
+                  <AlignmentColumn title="国内" items={intro.alignment?.domestic ?? []} />
                 </div>
               </section>
             )}
-            {intro.keywords.length > 0 && (
+            {(intro.keywords?.length ?? 0) > 0 && (
               <section>
                 <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 12 }}>关键词</div>
-                <Chips items={intro.keywords} />
+                <Chips items={intro.keywords ?? []} />
               </section>
             )}
           </div>

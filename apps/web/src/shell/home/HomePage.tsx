@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CourseSummary } from "@mind-imprint/contracts";
 import { api, type MeUser, type ProjectListItem } from "@/api";
 import { selectHomeCourses } from "./selectHomeCourses";
@@ -234,6 +234,7 @@ function CoursesSection({
   }, []);
 
   const loading = courses === null;
+  const homeCourses = useMemo(() => selectHomeCourses(courses ?? [], 6), [courses]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -251,7 +252,7 @@ function CoursesSection({
         <p className="text-mk-body text-mk-muted">课程正在准备中，很快上线。</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {selectHomeCourses(courses ?? [], 6).map((c) => (
+          {homeCourses.map((c) => (
             <CourseCard key={c.slug} course={c} onClick={() => onOpenCourse(c.slug)} />
           ))}
         </div>
