@@ -12,7 +12,7 @@ const ME: MeUser = {
   email: "phoebe@ibschool.edu",
   display_name: "Phoebe Chen",
   role: "student",
-  avatar_color: "vermilion",
+  avatar_color: "vermilion", page_background: "paper",
   school: { id: "s1", name: "启明国际学校" },
   classes: [
     { id: "c1", name: "IB DP1 · A班", role_in_class: "student" },

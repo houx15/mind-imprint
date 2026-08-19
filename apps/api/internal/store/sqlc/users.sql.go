@@ -12,7 +12,7 @@ import (
 )
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme FROM users WHERE id = $1
+SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme, page_background FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -29,6 +29,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.AvatarColor,
 		&i.CreatedAt,
 		&i.CardTheme,
+		&i.PageBackground,
 	)
 	return i, err
 }
@@ -44,6 +45,19 @@ func (q *Queries) GetUserCardTheme(ctx context.Context, userID uuid.UUID) (strin
 	var card_theme string
 	err := row.Scan(&card_theme)
 	return card_theme, err
+}
+
+const getUserPageBackground = `-- name: GetUserPageBackground :one
+SELECT page_background FROM users WHERE id = $1
+`
+
+// The student's chosen page background colorway (see migration 0074). Narrow
+// read, does not touch the full User row.
+func (q *Queries) GetUserPageBackground(ctx context.Context, userID uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, getUserPageBackground, userID)
+	var page_background string
+	err := row.Scan(&page_background)
+	return page_background, err
 }
 
 const setUserAvatarColor = `-- name: SetUserAvatarColor :exec
@@ -76,5 +90,21 @@ type SetUserCardThemeParams struct {
 // the handler validates against cards.ValidTheme before calling.
 func (q *Queries) SetUserCardTheme(ctx context.Context, arg SetUserCardThemeParams) error {
 	_, err := q.db.Exec(ctx, setUserCardTheme, arg.CardTheme, arg.UserID)
+	return err
+}
+
+const setUserPageBackground = `-- name: SetUserPageBackground :exec
+UPDATE users SET page_background = $1 WHERE id = $2
+`
+
+type SetUserPageBackgroundParams struct {
+	PageBackground string    `json:"page_background"`
+	UserID         uuid.UUID `json:"user_id"`
+}
+
+// Set the student's page background. The 6-value CHECK is enforced by the column;
+// the handler validates against the preset allowlist before calling.
+func (q *Queries) SetUserPageBackground(ctx context.Context, arg SetUserPageBackgroundParams) error {
+	_, err := q.db.Exec(ctx, setUserPageBackground, arg.PageBackground, arg.UserID)
 	return err
 }

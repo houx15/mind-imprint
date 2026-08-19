@@ -566,6 +566,7 @@ type User struct {
 	AvatarColor     string             `json:"avatar_color"`
 	CreatedAt       time.Time          `json:"created_at"`
 	CardTheme       string             `json:"card_theme"`
+	PageBackground  string             `json:"page_background"`
 }
 
 type VoiceTtsCache struct {

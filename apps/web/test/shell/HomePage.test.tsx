@@ -15,7 +15,7 @@ const user = {
   email: "phoebe@demo.local",
   display_name: "Phoebe",
   role: "student",
-  avatar_color: "vermilion",
+  avatar_color: "vermilion", page_background: "paper",
   school: { id: "s1", name: "Demo School" },
   classes: [],
 };

@@ -1,5 +1,6 @@
 import { apiFetch } from "./client";
 import type { AccentId } from "../ui/accent";
+import type { BackgroundId } from "../ui/background";
 
 export interface MeUser {
   id: string;
@@ -7,6 +8,7 @@ export interface MeUser {
   display_name: string;
   role: string;
   avatar_color: string;
+  page_background: string;
   school: { id: string; name: string };
   classes: { id: string; name: string; role_in_class: string }[];
 }
@@ -53,5 +55,13 @@ export async function setAccent(accent: AccentId): Promise<void> {
   await apiFetch<Record<string, never>>("/api/v1/users/me/accent", {
     method: "PUT",
     body: JSON.stringify({ accent }),
+  });
+}
+
+// Persist the student's chosen page background colorway. Pure preference write.
+export async function setBackground(background: BackgroundId): Promise<void> {
+  await apiFetch<{ background: string }>("/api/v1/users/me/background", {
+    method: "PUT",
+    body: JSON.stringify({ background }),
   });
 }

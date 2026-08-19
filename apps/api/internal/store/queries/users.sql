@@ -11,6 +11,16 @@ SELECT card_theme FROM users WHERE id = @user_id;
 -- the handler validates against cards.ValidTheme before calling.
 UPDATE users SET card_theme = @card_theme WHERE id = @user_id;
 
+-- name: GetUserPageBackground :one
+-- The student's chosen page background colorway (see migration 0074). Narrow
+-- read, does not touch the full User row.
+SELECT page_background FROM users WHERE id = @user_id;
+
+-- name: SetUserPageBackground :exec
+-- Set the student's page background. The 6-value CHECK is enforced by the column;
+-- the handler validates against the preset allowlist before calling.
+UPDATE users SET page_background = @page_background WHERE id = @user_id;
+
 -- name: SetUserAvatarColor :exec
 -- Persists the student's chosen accent preset id into the existing
 -- avatar_color column. The handler validates against the 8-preset allowlist

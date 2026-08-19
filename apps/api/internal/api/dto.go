@@ -49,13 +49,14 @@ type meClassDTO struct {
 }
 
 type meUserDTO struct {
-	ID          string       `json:"id"`
-	Email       string       `json:"email"`
-	DisplayName string       `json:"display_name"`
-	Role        string       `json:"role"`
-	AvatarColor string       `json:"avatar_color"`
-	School      meSchoolDTO  `json:"school"`
-	Classes     []meClassDTO `json:"classes"`
+	ID             string       `json:"id"`
+	Email          string       `json:"email"`
+	DisplayName    string       `json:"display_name"`
+	Role           string       `json:"role"`
+	AvatarColor    string       `json:"avatar_color"`
+	PageBackground string       `json:"page_background"`
+	School         meSchoolDTO  `json:"school"`
+	Classes        []meClassDTO `json:"classes"`
 }
 
 // buildMeUser assembles the full /me + signin user payload from the principal.
@@ -77,12 +78,13 @@ func (a *API) buildMeUser(ctx context.Context, u User) (meUserDTO, error) {
 		classes = append(classes, meClassDTO{ID: c.ID.String(), Name: c.Name, RoleInClass: c.RoleInClass})
 	}
 	return meUserDTO{
-		ID:          full.ID.String(),
-		Email:       full.Email,
-		DisplayName: full.DisplayName,
-		Role:        full.Role,
-		AvatarColor: full.AvatarColor,
-		School:      meSchoolDTO{ID: school.ID.String(), Name: school.Name},
-		Classes:     classes,
+		ID:             full.ID.String(),
+		Email:          full.Email,
+		DisplayName:    full.DisplayName,
+		Role:           full.Role,
+		AvatarColor:    full.AvatarColor,
+		PageBackground: full.PageBackground,
+		School:         meSchoolDTO{ID: school.ID.String(), Name: school.Name},
+		Classes:        classes,
 	}, nil
 }

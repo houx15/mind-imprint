@@ -3,6 +3,7 @@ import { LogOut } from "lucide-react";
 import type { SessionStore } from "../session";
 import type { MeUser } from "../../api";
 import { useAccent, ACCENT_PRESETS } from "../../ui/accent";
+import { useBackground, BACKGROUND_PRESETS } from "../../ui/background";
 import { Card, Toggle, Pebble, Icon, Check } from "../../ui";
 
 /**
@@ -45,6 +46,7 @@ export function SettingsView({
   user?: MeUser | null;
 }) {
   const { id: accentId, setAccent } = useAccent();
+  const { id: backgroundId, setBackground } = useBackground();
   const [toggles, setToggles] = useState(TOGGLES_DEFAULT);
 
   function flipToggle(index: number) {
@@ -126,6 +128,52 @@ export function SettingsView({
                     style={{ "--mk-accent-500": preset.scale[500] } as CSSProperties}
                   >
                     <Pebble size={40} />
+                    {selected && (
+                      <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-mk-full bg-mk-ink text-white">
+                        <Icon icon={Check} size={11} />
+                      </span>
+                    )}
+                  </span>
+                  <span className="text-mk-small text-mk-muted">{preset.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* === 背景 (page background colorway) === */}
+        <SectionLabel>背景</SectionLabel>
+        <Card className="p-6">
+          <div className="text-mk-h3 text-mk-ink">页面背景</div>
+          <div className="mt-1 text-mk-body text-mk-muted">
+            选一个你看着最舒服的底色——温暖纸感，或者纯白、微蓝、微绿都行。
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-3">
+            {BACKGROUND_PRESETS.map((preset) => {
+              const selected = preset.id === backgroundId;
+              return (
+                <button
+                  key={preset.id}
+                  type="button"
+                  data-testid="background-swatch"
+                  aria-pressed={selected}
+                  aria-label={preset.name}
+                  onClick={() => setBackground(preset.id)}
+                  className={cx(
+                    "flex flex-col items-center gap-1.5 rounded-mk-sm p-2 transition-colors duration-[120ms] ease-mk",
+                    "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
+                    selected ? "bg-mk-accent-50" : "bg-transparent",
+                  )}
+                >
+                  <span className="relative flex h-11 w-11 items-center justify-center">
+                    <span
+                      className={cx(
+                        "h-11 w-11 rounded-mk-full border",
+                        selected ? "border-mk-accent-500" : "border-mk-border",
+                      )}
+                      style={{ background: preset.paper }}
+                    />
                     {selected && (
                       <span className="absolute -bottom-0.5 -right-0.5 flex h-4 w-4 items-center justify-center rounded-mk-full bg-mk-ink text-white">
                         <Icon icon={Check} size={11} />

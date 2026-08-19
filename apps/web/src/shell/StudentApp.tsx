@@ -6,6 +6,7 @@ import { ProjectsTab } from "./ProjectsTab";
 import { CoursesTab } from "./CoursesTab";
 import { SettingsView } from "./settings/SettingsView";
 import { AccentProvider, ACCENT_PRESETS, type AccentId } from "../ui/accent";
+import { BackgroundProvider, BACKGROUND_PRESETS, type BackgroundId } from "../ui/background";
 import { api } from "../api";
 
 // StudentApp — the student platform shell. Four top-level surfaces reachable
@@ -28,6 +29,12 @@ type Tab = NavTab;
  * localStorage → vermilion default. */
 function coerceAccent(value: string | null | undefined): AccentId | undefined {
   return ACCENT_PRESETS.some((p) => p.id === value) ? (value as AccentId) : undefined;
+}
+
+/** Coerce the server's page_background into a known preset id (else undefined,
+ * so BackgroundProvider falls back to localStorage → 'paper'). */
+function coerceBackground(value: string | null | undefined): BackgroundId | undefined {
+  return BACKGROUND_PRESETS.some((p) => p.id === value) ? (value as BackgroundId) : undefined;
 }
 
 export function StudentApp({
@@ -123,10 +130,17 @@ export function StudentApp({
         void api.setAccent(id);
       }}
     >
-      <div className="flex h-full w-full overflow-hidden bg-mk-paper">
-        {showNav && <Nav tab={tab} onTab={setTab} user={user} />}
-        <div className="relative flex-1 overflow-hidden">{body}</div>
-      </div>
+      <BackgroundProvider
+        initialBackground={coerceBackground(user?.page_background)}
+        onPersist={(id) => {
+          void api.setBackground(id);
+        }}
+      >
+        <div className="flex h-full w-full overflow-hidden bg-mk-paper">
+          {showNav && <Nav tab={tab} onTab={setTab} user={user} />}
+          <div className="relative flex-1 overflow-hidden">{body}</div>
+        </div>
+      </BackgroundProvider>
     </AccentProvider>
   );
 }

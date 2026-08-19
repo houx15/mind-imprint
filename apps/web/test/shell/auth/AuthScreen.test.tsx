@@ -5,7 +5,7 @@ import { ApiError } from "@/api";
 
 const ME = {
   id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student",
-  avatar_color: "#7C9CF0", school: { id: "s1", name: "Demo" }, classes: [],
+  avatar_color: "#7C9CF0", page_background: "paper", school: { id: "s1", name: "Demo" }, classes: [],
 };
 
 describe("AuthScreen", () => {
