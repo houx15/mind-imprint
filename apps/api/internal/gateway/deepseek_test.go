@@ -25,7 +25,7 @@ func TestDeepSeekStreamsTextThenToolUse(t *testing.T) {
 		`data: {"choices":[{"delta":{"content":"，核查一下"}}]}`,
 		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"id":"call_1","function":{"name":"summon_card","arguments":"{\"card_id\":\"cr"}}]}}]}`,
 		`data: {"choices":[{"delta":{"tool_calls":[{"index":0,"function":{"arguments":"aap\",\"reason\":\"r\",\"nudge_text\":\"n\"}"}}]}}]}`,
-		`data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":120,"completion_tokens":45}}`,
+		`data: {"choices":[{"delta":{},"finish_reason":"tool_calls"}],"usage":{"prompt_tokens":120,"completion_tokens":45,"completion_tokens_details":{"reasoning_tokens":30}}}`,
 		`data: [DONE]`,
 		``,
 	}, "\n\n")
@@ -67,11 +67,30 @@ func TestDeepSeekStreamsTextThenToolUse(t *testing.T) {
 	if tool.ArgsJSON != `{"card_id":"craap","reason":"r","nudge_text":"n"}` {
 		t.Fatalf("reassembled args = %q", tool.ArgsJSON)
 	}
-	if usage == nil || usage.InputTokens != 120 || usage.OutputTokens != 45 {
+	if usage == nil || usage.InputTokens != 120 || usage.OutputTokens != 45 || usage.ReasoningTokens == nil || *usage.ReasoningTokens != 30 {
 		t.Fatalf("usage = %+v", usage)
 	}
 	if stop != StopToolCall {
 		t.Fatalf("stop = %q", stop)
+	}
+}
+
+func TestDeepSeekMarksMissingDoneAsIncomplete(t *testing.T) {
+	srv := cannedSSE(t, `data: {"choices":[{"delta":{"content":"partial"}}]}`)
+	defer srv.Close()
+	p := NewDeepSeekProvider(srv.Client())
+	ch, err := p.Stream(context.Background(), Resolved{BaseURL: srv.URL, Model: "deepseek-chat", APIKey: "sk"}, ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	incomplete := false
+	for ev := range ch {
+		if ev.Kind == EventDone {
+			incomplete = ev.Incomplete
+		}
+	}
+	if !incomplete {
+		t.Fatal("missing [DONE] was not marked incomplete")
 	}
 }
 
@@ -116,6 +135,45 @@ func TestDeepSeekThinkingByTier(t *testing.T) {
 		if strings.Contains(*body, `"thinking"`) {
 			t.Fatalf("tier %q must keep thinking (reasoning on), got: %s", tier, *body)
 		}
+	}
+}
+
+func TestDeepSeekExplicitlyDisablesThinking(t *testing.T) {
+	srv, body := captureBody(t)
+	defer srv.Close()
+	p := NewDeepSeekProvider(srv.Client())
+	ch, err := p.Stream(context.Background(), Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "flagship"}, ChatRequest{
+		Messages:        []ChatMessage{{Role: RoleUser, Content: "hi"}},
+		DisableThinking: true,
+	})
+	if err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+	for range ch {
+	}
+	if !strings.Contains(*body, `"thinking":{"type":"disabled"}`) {
+		t.Fatalf("explicit setting must disable thinking, got: %s", *body)
+	}
+}
+
+func TestDeepSeekSendsJSONObjectResponseFormatOnlyWhenRequested(t *testing.T) {
+	srv, body := captureBody(t)
+	defer srv.Close()
+	p := NewDeepSeekProvider(srv.Client())
+	r := Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "flagship"}
+
+	drain(t, p, r)
+	if strings.Contains(*body, `"response_format"`) {
+		t.Fatalf("default request unexpectedly set response format: %s", *body)
+	}
+	ch, err := p.Stream(context.Background(), r, ChatRequest{Messages: []ChatMessage{{Role: RoleUser, Content: "json"}}, ResponseFormat: ResponseFormatJSONObject})
+	if err != nil {
+		t.Fatalf("Stream: %v", err)
+	}
+	for range ch {
+	}
+	if !strings.Contains(*body, `"response_format":{"type":"json_object"}`) {
+		t.Fatalf("JSON mode missing: %s", *body)
 	}
 }
 

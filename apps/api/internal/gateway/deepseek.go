@@ -81,6 +81,9 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 			"include_usage": true,
 		},
 	}
+	if req.ResponseFormat == ResponseFormatJSONObject {
+		body["response_format"] = map[string]any{"type": "json_object"}
+	}
 	// Model-routing (2026-08-10, product owner's decision): reasoning stays ON only
 	// for the FLAGSHIP reviewer seam (EvalResolver: framework review / plan-gen /
 	// 整稿体检 / 证据地图饱和 / 评估). The coach + guide side (chaperone tier — coach,
@@ -89,7 +92,7 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 	// attempt regressed the coach's propose_note (misrouted sections), but that was
 	// on the mega-orchestrator; the status-router shrank each turn to a tiny prompt,
 	// and v4-pro (not flash) is the base here — verified live after this change.
-	if r.Tier == "chaperone" {
+	if r.Tier == "chaperone" || req.DisableThinking {
 		body["thinking"] = map[string]any{"type": "disabled"}
 	}
 	if req.Temperature != nil {
@@ -157,8 +160,11 @@ type openaiChunk struct {
 		FinishReason *string `json:"finish_reason"`
 	} `json:"choices"`
 	Usage *struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
+		PromptTokens            int `json:"prompt_tokens"`
+		CompletionTokens        int `json:"completion_tokens"`
+		CompletionTokensDetails *struct {
+			ReasoningTokens *int `json:"reasoning_tokens"`
+		} `json:"completion_tokens_details"`
 	} `json:"usage"`
 }
 
@@ -189,6 +195,7 @@ func (p *DeepSeekProvider) consume(ctx context.Context, body io.Reader, out chan
 	tools := map[int]*acc{}
 	var order []int
 	var stop StopReason
+	completed := false
 
 	emit := func(ev StreamEvent) bool {
 		select {
@@ -206,6 +213,7 @@ func (p *DeepSeekProvider) consume(ctx context.Context, body io.Reader, out chan
 		}
 		data := strings.TrimSpace(strings.TrimPrefix(line, "data:"))
 		if data == "[DONE]" {
+			completed = true
 			break
 		}
 		var chunk openaiChunk
@@ -213,10 +221,15 @@ func (p *DeepSeekProvider) consume(ctx context.Context, body io.Reader, out chan
 			continue
 		}
 		if chunk.Usage != nil {
-			if !emit(StreamEvent{Kind: EventUsage, Usage: &ChatUsage{
+			usage := &ChatUsage{
 				InputTokens:  chunk.Usage.PromptTokens,
 				OutputTokens: chunk.Usage.CompletionTokens,
-			}}) {
+			}
+			if details := chunk.Usage.CompletionTokensDetails; details != nil && details.ReasoningTokens != nil {
+				reasoning := *details.ReasoningTokens
+				usage.ReasoningTokens = &reasoning
+			}
+			if !emit(StreamEvent{Kind: EventUsage, Usage: usage}) {
 				return
 			}
 		}
@@ -249,10 +262,10 @@ func (p *DeepSeekProvider) consume(ctx context.Context, body io.Reader, out chan
 		}
 	}
 
-	// Surface scanner errors (e.g. line exceeding 1 MB buffer) rather than
-	// silently falling through to a fake-success Done.
+	// Preserve the historical terminal semantics for production callers while
+	// exposing incomplete upstream streams as observation-only metadata.
 	if err := sc.Err(); err != nil {
-		emit(StreamEvent{Kind: EventDone, StopReason: StopOther})
+		emit(StreamEvent{Kind: EventDone, StopReason: StopOther, Incomplete: true})
 		return
 	}
 
@@ -266,5 +279,5 @@ func (p *DeepSeekProvider) consume(ctx context.Context, body io.Reader, out chan
 			return
 		}
 	}
-	emit(StreamEvent{Kind: EventDone, StopReason: stop})
+	emit(StreamEvent{Kind: EventDone, StopReason: stop, Incomplete: !completed})
 }

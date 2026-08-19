@@ -7,13 +7,15 @@
   "exports": { ".": "./src/index.ts" },
   "scripts": {
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "generate:evalreport-model-schema": "UPDATE_EVALREPORT_MODEL_SCHEMA=1 vitest run test/evaluationReportModelSchema.test.ts"
   },
   "dependencies": {
     "zod": "^3.23.0"
   },
   "devDependencies": {
     "typescript": "^5.4.0",
-    "vitest": "^1.6.0"
+    "vitest": "^1.6.0",
+    "zod-to-json-schema": "3.25.2"
   }
 }

@@ -97,6 +97,33 @@ func TestAnthropicStreamsTextThenToolUse(t *testing.T) {
 	}
 }
 
+func TestAnthropicMarksMissingMessageStopAsIncomplete(t *testing.T) {
+	srv := cannedSSE(t, "data: {\"type\":\"message_start\",\"message\":{\"usage\":{\"input_tokens\":1}}}\n")
+	defer srv.Close()
+	p := NewAnthropicProvider(srv.Client())
+	ch, err := p.Stream(context.Background(), Resolved{BaseURL: srv.URL, Model: "claude", APIKey: "sk"}, ChatRequest{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	incomplete := false
+	for ev := range ch {
+		if ev.Kind == EventDone {
+			incomplete = ev.Incomplete
+		}
+	}
+	if !incomplete {
+		t.Fatal("missing message_stop was not marked incomplete")
+	}
+}
+
+func TestAnthropicRejectsUnsupportedResponseFormat(t *testing.T) {
+	p := NewAnthropicProvider(nil)
+	_, err := p.Stream(context.Background(), Resolved{Model: "claude", APIKey: "sk"}, ChatRequest{ResponseFormat: ResponseFormatJSONObject})
+	if err == nil || !strings.Contains(err.Error(), "does not support response format") {
+		t.Fatalf("err = %v", err)
+	}
+}
+
 func TestAnthropicSurfacesHTTPErrorWithoutLeaking(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)
