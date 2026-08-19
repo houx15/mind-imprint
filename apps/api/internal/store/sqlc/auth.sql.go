@@ -111,7 +111,7 @@ func (q *Queries) CreateSession(ctx context.Context, arg CreateSessionParams) (S
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (email, password_hash, role, school_id, display_name, avatar_color, email_verified_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme
+RETURNING id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme, page_background
 `
 
 type CreateUserParams struct {
@@ -146,6 +146,7 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.AvatarColor,
 		&i.CreatedAt,
 		&i.CardTheme,
+		&i.PageBackground,
 	)
 	return i, err
 }
@@ -234,7 +235,7 @@ func (q *Queries) GetSessionWithUserByHash(ctx context.Context, tokenHash string
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme FROM users WHERE email = $1
+SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme, page_background FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -251,6 +252,7 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.AvatarColor,
 		&i.CreatedAt,
 		&i.CardTheme,
+		&i.PageBackground,
 	)
 	return i, err
 }
@@ -290,7 +292,7 @@ func (q *Queries) ListClassesForUser(ctx context.Context, userID uuid.UUID) ([]L
 }
 
 const markEmailVerified = `-- name: MarkEmailVerified :one
-UPDATE users SET email_verified_at = now() WHERE id = $1 RETURNING id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme
+UPDATE users SET email_verified_at = now() WHERE id = $1 RETURNING id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme, page_background
 `
 
 func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, error) {
@@ -307,6 +309,7 @@ func (q *Queries) MarkEmailVerified(ctx context.Context, id uuid.UUID) (User, er
 		&i.AvatarColor,
 		&i.CreatedAt,
 		&i.CardTheme,
+		&i.PageBackground,
 	)
 	return i, err
 }
