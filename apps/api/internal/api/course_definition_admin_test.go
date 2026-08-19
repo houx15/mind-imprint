@@ -240,7 +240,13 @@ func TestCourseDefinitionAdminRejectsUnknownCategory(t *testing.T) {
 }
 
 // TestCourseDefinitionAdminAcceptsCategoryAndIntroduction asserts a valid
-// category (one of the 7 slugs) + a JSON-object introduction are accepted.
+// category (one of the 7 slugs) + a JSON-object introduction are accepted
+// AND actually threaded through to storage — not just a 200 that would pass
+// even if the handler silently dropped both fields. Round-trips through
+// agent.NewSqlcAgentStore.ListCourses (includePreview=true — a freshly
+// upserted course is 'preview'), mirroring
+// TestCourseDefinitionAdminRePutPreservesPublishedStatus's store-access
+// pattern.
 func TestCourseDefinitionAdminAcceptsCategoryAndIntroduction(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, OSSAdminKey: testAdminKey}).Handler()
@@ -249,5 +255,60 @@ func TestCourseDefinitionAdminAcceptsCategoryAndIntroduction(t *testing.T) {
 	rec := putDefinition(h, "cat-ok", body)
 	if rec.Code != http.StatusOK {
 		t.Fatalf("status = %d, want 200, body %s", rec.Code, rec.Body)
+	}
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	rows, err := store.ListCourses(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ListCourses: %v", err)
+	}
+	var found *agent.CourseSummaryRow
+	for i := range rows {
+		if rows[i].Slug == "cat-ok" {
+			found = &rows[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("course cat-ok not found in ListCourses(includePreview=true)")
+	}
+	if found.Category == nil || *found.Category != "source-check" {
+		t.Fatalf("stored Category = %v, want source-check", found.Category)
+	}
+	if len(found.Introduction) == 0 {
+		t.Fatalf("stored Introduction is empty, want the round-tripped JSON object")
+	}
+}
+
+// TestCourseDefinitionAdminIntroductionNullTreatedAsUnset asserts a literal
+// JSON `null` for introduction is treated the same as absent — leaving it
+// unset (nil) — rather than being stored as the literal null value.
+func TestCourseDefinitionAdminIntroductionNullTreatedAsUnset(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, OSSAdminKey: testAdminKey}).Handler()
+
+	body := putCourseDefinitionBodyWithCategory(courseDefinitionDoc("cat-null-intro"), []string{"craap"}, "b", "source-check", `null`)
+	rec := putDefinition(h, "cat-null-intro", body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want 200, body %s", rec.Code, rec.Body)
+	}
+
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+	rows, err := store.ListCourses(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ListCourses: %v", err)
+	}
+	var found *agent.CourseSummaryRow
+	for i := range rows {
+		if rows[i].Slug == "cat-null-intro" {
+			found = &rows[i]
+			break
+		}
+	}
+	if found == nil {
+		t.Fatalf("course cat-null-intro not found in ListCourses(includePreview=true)")
+	}
+	if len(found.Introduction) != 0 {
+		t.Fatalf("stored Introduction = %s, want unset (nil) for a JSON null input", found.Introduction)
 	}
 }

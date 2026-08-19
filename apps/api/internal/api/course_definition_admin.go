@@ -121,6 +121,8 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 
 	// Introduction: border-validate only that it is a JSON object (the deep
 	// shape is the generator's Zod contract, per the border-validation rule).
+	// JSON null unmarshals into a nil map without erroring — treat that as
+	// "leave unset" too, not as a stored literal null.
 	var introBytes []byte
 	if len(body.Introduction) > 0 {
 		var probe map[string]json.RawMessage
@@ -128,7 +130,9 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "introduction 必须是一个对象", nil))
 			return
 		}
-		introBytes = body.Introduction
+		if probe != nil {
+			introBytes = body.Introduction
+		}
 	}
 
 	timeLabel := ""
