@@ -90,6 +90,7 @@ export function StudentApp({
         onOpenCourse={openCourse}
         onCreateProject={openCreateFromHome}
         onGoProjects={() => setTab("projects")}
+        onGoCourses={() => setTab("courses")}
       />
     );
   } else if (tab === "projects") {

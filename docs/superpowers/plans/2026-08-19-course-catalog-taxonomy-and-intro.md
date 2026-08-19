@@ -1061,12 +1061,12 @@ git commit -m "feat(courses): course detail page rendering the structured introd
 
 **Files:**
 - Modify: `docs/2026-08-17-course-authoring-api-handover.md` (version pin refs + changelog + new request fields — completes the partial edit Task 5 made to the endpoint section)
-- Modify: `docs/architecture/database-schema.md` (document the `course` catalog columns incl. the three new ones)
+- Modify: `docs/2026-08-15-student-course-runtime-data-and-renderer-design.md` (record the new catalog fields as an as-built delta + bump its pin reference)
 - Git: annotated tag `course-authoring-v1.3.0` on `main` (created at finish, after merge)
 
 **Interfaces:**
 - Consumes: the shipped behavior of Tasks 1–8 (columns, validation, contract fields).
-- Produces: the named contract snapshot colleagues pin to, and the canonical schema record for the new columns.
+- Produces: the named contract snapshot colleagues pin to, and the two course data-structure docs updated to describe the new fields.
 
 This is a docs-and-release task with no automated test; verify by reading. Do the doc edits on the feature branch (Steps 1–2); the git tag (Step 4) is a release action the controller runs on `main` after the branch merges.
 
@@ -1080,22 +1080,23 @@ In `docs/2026-08-17-course-authoring-api-handover.md`:
 - **`course-authoring-v1.3.0`** — ⚠ **contract + API change (additive, backward-compatible).** Two new OPTIONAL fields on `PUT /admin/courses/{slug}/definition`: **`category`** (one of the 7 controlled slugs — `stance-value`, `source-check`, `media-literacy`, `self-knowledge`, `data-literacy`, `research-process`, `argument-writing`; an unknown slug → 400; omit to leave unset) and **`introduction`** (a structured intro object: `hook`, `whatYouDo`, `takeaways[]`, `alignment{ib[],otherIntl[],domestic[]}`, `keywords[]` — must be a JSON object; deep shape is the generator's own contract). `card_ids` stays registry-validated. **`featured_rank` is NOT settable via this API** — home-page curation is product/student-end owned. `CourseSummary` (the `GET /api/v1/courses` list) gains `category` (slug|null), `introduction` (object|null), `featuredRank` (int|null). Existing definitions and older clients are unaffected.
 ```
 
-- [ ] **Step 2: Document the `course` catalog columns in `database-schema.md`**
+- [ ] **Step 2: Record the new catalog fields in the course runtime data/renderer design doc**
 
-The `course` table (course v2, migration 0050 + later) is not yet in this doc. Under `## Core domain`, add a `### `course`` section at the same level and format as the neighbouring tables (a `| column | type | notes |` table). Source the exact columns/types by reading the migrations: the 0050 course-table create, `0070_course_definition.sql` (`course_definition jsonb`), `0072_course_status_cover.sql` (`status`, `cover`), and `0075_course_catalog_metadata.sql` (the three new ones). At minimum the three new columns must appear, described as:
+Update `docs/2026-08-15-student-course-runtime-data-and-renderer-design.md` — the course data-model + renderer design doc. Two edits:
 
-```markdown
-| `category` | text null | one of the 7 controlled category slugs (validated app-side against `packages/contracts` COURSE_CATEGORIES, not a DB CHECK); null = uncategorized |
-| `introduction` | jsonb null | schema-driven course intro (`hook`/`whatYouDo`/`takeaways[]`/`alignment`/`keywords`); border-validated app-side; null → detail page falls back to `blurb` |
-| `featured_rank` | int null | home-page curation order (lower = earlier); null = not featured → random fill. Product/student-end owned; never written by the authoring API |
-```
+1. **Bump its pin reference.** Near the top (the "Status / as-built source of truth" note around line 5) it names the pin as `course-authoring-v1.0.0`. Update that reference to `course-authoring-v1.3.0` so the doc points at the current snapshot. Do NOT rewrite the doc's historical design prose — only the pin reference that names the current tag.
 
-Include the rest of the `course` columns (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, audio_manifest, course_definition, status, cover) transcribed from the migrations so the section is complete, not a fragment.
+2. **Add an as-built delta note for the catalog fields.** This doc's data model (§3 Three Data Layers) describes the CourseDefinition runtime document; the new fields are *catalog-row* metadata that sits on the `course` row alongside the definition, surfaced on `CourseSummary` (the `GET /api/v1/courses` list). Add a short subsection (follow the doc's existing "as-built delta" convention — see §17.1) stating: the course catalog row now carries three fields beyond the runtime definition —
+   - `category` — one of the 7 controlled category slugs (`packages/contracts` `COURSE_CATEGORIES`); null = uncategorized.
+   - `introduction` — the schema-driven course intro object (`hook` / `whatYouDo` / `takeaways[]` / `alignment{ib,otherIntl,domestic}` / `keywords`), rendered on the course detail page; null → falls back to `blurb`.
+   - `featured_rank` — home-page curation order (lower = earlier; null = random fill); product/student-end owned, never written by the authoring API.
+
+   — and point to `docs/superpowers/specs/2026-08-19-course-catalog-taxonomy-and-intro-design.md` (design authority) and the handover doc's `v1.3.0` entry (API/contract) for detail. Keep it concise; this doc's binding truth for the definition contract is still the TS packages.
 
 - [ ] **Step 3: Commit the doc edits**
 
 ```bash
-git add docs/2026-08-17-course-authoring-api-handover.md docs/architecture/database-schema.md
+git add docs/2026-08-17-course-authoring-api-handover.md docs/2026-08-15-student-course-runtime-data-and-renderer-design.md
 git commit -m "docs(course): bump pin to v1.3.0; document category/introduction/featured_rank"
 ```
 

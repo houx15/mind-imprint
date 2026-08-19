@@ -57,6 +57,7 @@ describe("HomePage card title safety net", () => {
         onOpenCourse={vi.fn()}
         onCreateProject={vi.fn()}
         onGoProjects={vi.fn()}
+        onGoCourses={vi.fn()}
       />,
     );
 

@@ -2,7 +2,7 @@
 
 Date: 2026-08-15
 
-Status: **Implemented and shipped** (updated 2026-08-17). This was the original conceptual design; it has since been built and is live in production. The **as-built source of truth** is the TypeScript packages `packages/course-contract`, `packages/course-runtime`, and `packages/course-renderer`, pinned at git tag **`course-authoring-v1.0.0`** — if any detail here and the code disagree, the code (Zod contract) wins. For how the teacher-side generator builds against these packages, plus the authoring/publish API, see **`docs/2026-08-17-course-authoring-api-handover.md`**. The data-model sections below remain an accurate description of the shipped contract; the only as-built delta is the host/app layout noted in §17.1.
+Status: **Implemented and shipped** (updated 2026-08-17). This was the original conceptual design; it has since been built and is live in production. The **as-built source of truth** is the TypeScript packages `packages/course-contract`, `packages/course-runtime`, and `packages/course-renderer`, pinned at git tag **`course-authoring-v1.3.0`** — if any detail here and the code disagree, the code (Zod contract) wins. For how the teacher-side generator builds against these packages, plus the authoring/publish API, see **`docs/2026-08-17-course-authoring-api-handover.md`**. The data-model sections below remain an accurate description of the shipped contract; the as-built deltas are the host/app layout noted in §17.1 and the catalog-row fields noted in §3.4.
 
 ## 1. Purpose
 
@@ -94,6 +94,16 @@ CourseDefinition
       v
 CourseSession
 ```
+
+### 3.4 As-built delta: catalog-row fields (2026-08-19)
+
+The `course` row carries three fields beyond the runtime CourseDefinition — catalog metadata, not part of the definition document, surfaced on `CourseSummary` (the `GET /api/v1/courses` list):
+
+- **`category`** — one of the 7 controlled category slugs (`COURSE_CATEGORIES` in `packages/contracts`); `null` = uncategorized.
+- **`introduction`** — the schema-driven course intro object (`hook` / `whatYouDo` / `takeaways[]` / `alignment{ib,otherIntl,domestic}` / `keywords`), rendered on the course detail page; `null` falls back to `blurb`.
+- **`featured_rank`** — home-page curation order (lower = earlier; `null` = random fill); product/student-end owned, never written by the authoring API.
+
+Design authority: `docs/superpowers/specs/2026-08-19-course-catalog-taxonomy-and-intro-design.md`. API/contract detail: the `course-authoring-v1.3.0` entry in `docs/2026-08-17-course-authoring-api-handover.md`. This doc's binding truth for the CourseDefinition contract itself remains the TS packages.
 
 ## 4. Course Package
 

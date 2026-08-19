@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CourseSummary } from "@mind-imprint/contracts";
 import { api, type MeUser, type ProjectListItem } from "@/api";
+import { selectHomeCourses } from "./selectHomeCourses";
 import {
   Icon,
   Plus,
@@ -204,7 +205,13 @@ function ProjectsSection({
   );
 }
 
-function CoursesSection({ onOpenCourse }: { onOpenCourse: (slug: string) => void }) {
+function CoursesSection({
+  onOpenCourse,
+  onGoCourses,
+}: {
+  onOpenCourse: (slug: string) => void;
+  onGoCourses: () => void;
+}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [failed, setFailed] = useState(false);
 
@@ -227,6 +234,7 @@ function CoursesSection({ onOpenCourse }: { onOpenCourse: (slug: string) => void
   }, []);
 
   const loading = courses === null;
+  const homeCourses = useMemo(() => selectHomeCourses(courses ?? [], 6), [courses]);
 
   return (
     <section className="flex flex-col gap-4">
@@ -234,7 +242,7 @@ function CoursesSection({ onOpenCourse }: { onOpenCourse: (slug: string) => void
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {Array.from({ length: 3 }, (_, i) => (
+          {Array.from({ length: 6 }, (_, i) => (
             <SkeletonCard key={i} />
           ))}
         </div>
@@ -244,10 +252,19 @@ function CoursesSection({ onOpenCourse }: { onOpenCourse: (slug: string) => void
         <p className="text-mk-body text-mk-muted">课程正在准备中，很快上线。</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {(courses ?? []).map((c) => (
+          {homeCourses.map((c) => (
             <CourseCard key={c.slug} course={c} onClick={() => onOpenCourse(c.slug)} />
           ))}
         </div>
+      )}
+      {!loading && !failed && (courses ?? []).length > 0 && (
+        <button
+          type="button"
+          onClick={onGoCourses}
+          className="self-start text-mk-body font-semibold text-mk-accent-600 hover:underline"
+        >
+          查看更多课程 →
+        </button>
       )}
     </section>
   );
@@ -263,9 +280,18 @@ export interface HomePageProps {
   onCreateProject: () => void;
   /** Go to the 项目 tab. */
   onGoProjects: () => void;
+  /** Go to the 课程 tab (home "查看更多课程"). */
+  onGoCourses: () => void;
 }
 
-export function HomePage({ user, onOpenProject, onOpenCourse, onCreateProject, onGoProjects }: HomePageProps) {
+export function HomePage({
+  user,
+  onOpenProject,
+  onOpenCourse,
+  onCreateProject,
+  onGoProjects,
+  onGoCourses,
+}: HomePageProps) {
   return (
     <div className="h-full w-full overflow-y-auto bg-mk-paper">
       <div className="mx-auto flex max-w-[1200px] flex-col gap-10 px-10 py-10">
@@ -278,7 +304,7 @@ export function HomePage({ user, onOpenProject, onOpenCourse, onCreateProject, o
         </header>
 
         <ProjectsSection onOpenProject={onOpenProject} onCreateProject={onCreateProject} onGoProjects={onGoProjects} />
-        <CoursesSection onOpenCourse={onOpenCourse} />
+        <CoursesSection onOpenCourse={onOpenCourse} onGoCourses={onGoCourses} />
       </div>
     </div>
   );

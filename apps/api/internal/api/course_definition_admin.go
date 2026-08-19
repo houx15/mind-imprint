@@ -25,13 +25,24 @@ import (
 	"mindimprint/api/internal/httpx"
 )
 
+// validCourseCategories mirrors COURSE_CATEGORIES in packages/contracts —
+// the closed 7-slug vocabulary. Kept as a Go set for border validation; the
+// contract remains the source of truth for the labels.
+var validCourseCategories = map[string]bool{
+	"stance-value": true, "source-check": true, "media-literacy": true,
+	"self-knowledge": true, "data-literacy": true, "research-process": true,
+	"argument-writing": true,
+}
+
 // putCourseDefinitionReq is the upload envelope: Definition travels as
 // json.RawMessage (stored verbatim), Blurb/CardIDs are the catalog-card
 // fields the definition document itself doesn't carry.
 type putCourseDefinitionReq struct {
-	Definition json.RawMessage `json:"definition"` // the whole { schemaVersion, course } document
-	Blurb      string          `json:"blurb"`
-	CardIDs    []string        `json:"cardIds"`
+	Definition   json.RawMessage `json:"definition"` // the whole { schemaVersion, course } document
+	Blurb        string          `json:"blurb"`
+	CardIDs      []string        `json:"cardIds"`
+	Category     string          `json:"category"`     // one of the 7 slugs, or "" to leave unset
+	Introduction json.RawMessage `json:"introduction"` // schema-driven intro object, or absent
 }
 
 // putCourseDefinitionDoc is the border slice of `definition` this handler
@@ -97,6 +108,33 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 		cardIDs = []string{}
 	}
 
+	// Category: empty means "leave unset" (NULL); a non-empty value must be one
+	// of the 7 controlled slugs — never a free-text 8th (spec Global Constraints).
+	var categoryPtr *string
+	if body.Category != "" {
+		if !validCourseCategories[body.Category] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "未知的课程分类: "+body.Category, nil))
+			return
+		}
+		categoryPtr = &body.Category
+	}
+
+	// Introduction: border-validate only that it is a JSON object (the deep
+	// shape is the generator's Zod contract, per the border-validation rule).
+	// JSON null unmarshals into a nil map without erroring — treat that as
+	// "leave unset" too, not as a stored literal null.
+	var introBytes []byte
+	if len(body.Introduction) > 0 {
+		var probe map[string]json.RawMessage
+		if err := json.Unmarshal(body.Introduction, &probe); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "introduction 必须是一个对象", nil))
+			return
+		}
+		if probe != nil {
+			introBytes = body.Introduction
+		}
+	}
+
 	timeLabel := ""
 	if doc.Course.EstimatedMinutes > 0 {
 		timeLabel = fmt.Sprintf("约 %d 分钟", doc.Course.EstimatedMinutes)
@@ -104,13 +142,15 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	status, err := store.UpsertCourseDefinition(r.Context(), agent.UpsertCourseDefinitionInput{
-		Slug:       slug,
-		Branch:     "Runtime",
-		Title:      doc.Course.Title,
-		Blurb:      body.Blurb,
-		TimeLabel:  timeLabel,
-		CardIDs:    cardIDs,
-		Definition: body.Definition,
+		Slug:         slug,
+		Branch:       "Runtime",
+		Title:        doc.Course.Title,
+		Blurb:        body.Blurb,
+		TimeLabel:    timeLabel,
+		CardIDs:      cardIDs,
+		Definition:   body.Definition,
+		Category:     categoryPtr,
+		Introduction: introBytes,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

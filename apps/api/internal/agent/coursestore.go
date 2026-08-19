@@ -48,6 +48,10 @@ type CourseSummaryRow struct {
 	StepCount int
 	Status    string
 	Cover     string
+
+	Category     *string
+	Introduction []byte
+	FeaturedRank *int32
 }
 
 // CoursePlayerPayload is what the player needs to render one course:
@@ -138,6 +142,7 @@ func (s *sqlcAgentStore) ListCourses(ctx context.Context, includePreview bool) (
 			Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 			TimeLabel: r.TimeLabel, CardIDs: r.CardIds, StepCount: int(r.StepCount),
 			Status: r.Status, Cover: r.Cover,
+			Category: r.Category, Introduction: r.Introduction, FeaturedRank: r.FeaturedRank,
 		})
 	}
 	return out, nil
@@ -639,6 +644,9 @@ type UpsertCourseDefinitionInput struct {
 	TimeLabel  string
 	CardIDs    []string
 	Definition []byte
+
+	Category     *string
+	Introduction []byte
 }
 
 // UpsertCourseDefinition creates or modifies one 2.0 course's definition,
@@ -656,6 +664,8 @@ func (s *sqlcAgentStore) UpsertCourseDefinition(ctx context.Context, in UpsertCo
 		TimeLabel:        in.TimeLabel,
 		CardIds:          cardIDs,
 		CourseDefinition: in.Definition,
+		Category:         in.Category,
+		Introduction:     in.Introduction,
 	})
 	if err != nil {
 		return "", err
