@@ -52,8 +52,12 @@ const Abstract = z.object({
   writingSentence: z.string(),
   aiSentence: z.string(),
   suggestionParagraph: z.string(),
-  suggestionSentences: z.array(z.string()),
-  recommendedCourses: z.array(RecommendedCourse),
+  // Both list fields tolerate a null/absent value (coerced to []) so one empty
+  // optional field never makes EvaluationReport.parse throw and blanks the whole
+  // report — a report with no recommended courses is still a valid report. The
+  // Go generator also emits [] now (reportgen.go), so this is belt-and-braces.
+  suggestionSentences: z.array(z.string()).nullish().transform((v) => v ?? []),
+  recommendedCourses: z.array(RecommendedCourse).nullish().transform((v) => v ?? []),
 }).strict();
 
 export const EventKind = z.enum(["chat", "reading", "graph", "writing", "review", "milestone"]);

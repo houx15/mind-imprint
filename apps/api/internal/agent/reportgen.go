@@ -305,8 +305,18 @@ func GenerateAbstract(ctx context.Context, prov gateway.Provider, resolved gatew
 		WritingSentence: parsed.WritingSentence, AISentence: parsed.AISentence,
 		SuggestionParagraph: parsed.SuggestionParagraph, SuggestionSentences: parsed.SuggestionSentences,
 	}
+	// Both slices MUST marshal as [] (never null) — the frontend Zod contract
+	// (EvaluationReport, abstract.recommendedCourses / suggestionSentences)
+	// requires arrays, and a nil Go slice becomes JSON `null`, which makes
+	// EvaluationReport.parse throw and the whole report fail to render. The LLM
+	// legitimately returns an empty recommendedCourses ("没有把握就留空数组"), so
+	// initialize non-nil rather than relying on it always having ≥1 item.
+	out.RecommendedCourses = make([]evalreport.RecommendedCourse, 0, len(parsed.RecommendedCourses))
 	for _, c := range parsed.RecommendedCourses {
 		out.RecommendedCourses = append(out.RecommendedCourses, evalreport.RecommendedCourse{CourseID: c.CourseID, Reason: c.Reason})
+	}
+	if out.SuggestionSentences == nil {
+		out.SuggestionSentences = []string{}
 	}
 	return out, usage, nil
 }
