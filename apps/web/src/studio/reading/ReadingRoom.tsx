@@ -7,9 +7,11 @@ import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
 import { READING_DECK_IDS } from "./readingDeck";
+import type { DigCandidate } from "@mind-imprint/contracts";
 import { LensLibrary } from "./LensLibrary";
 import { ReadingOutcomes } from "./ReadingOutcomes";
 import { FinalizeReadingPanel } from "./FinalizeReadingPanel";
+import { TraceSourcePanel } from "./TraceSourcePanel";
 import { useReadingLoop, type ReadingLoopApi } from "./readingLoop";
 import "./ReadingRoom.css";
 
@@ -97,6 +99,14 @@ export type ReadingRoomProps = {
   onSetEvidence?: (ev: ReferenceEvidence) => Promise<Reference>;
   onSetTriage?: (triage: "" | "red" | "yellow") => Promise<Reference>;
   onArchive?: (archived: boolean) => Promise<Reference>;
+  // 追来源 (trace-to-source) — reuses exploration's dig/adopt, threaded from the
+  // workspace. When all three are present, the 追来源 action opens a panel that
+  // walks upstream from this paper (its citations, or a claim search) and lets
+  // her adopt an upstream source into her library to read next. Absent → the
+  // action isn't shown (e.g. a bare component render).
+  onTraceCitation?: (doi: string) => Promise<DigCandidate[]>;
+  onTraceSearch?: (keyword: string) => Promise<DigCandidate[]>;
+  onAdoptSource?: (candidate: DigCandidate) => Promise<void>;
   // finalized tells the workspace whether the student 归纳'd this source before
   // leaving, so it can show a carry-forward acknowledgment (EA).
   onBack: (finalized: boolean) => void;
@@ -149,6 +159,9 @@ export function ReadingRoom({
   onSetEvidence,
   onSetTriage,
   onArchive,
+  onTraceCitation,
+  onTraceSearch,
+  onAdoptSource,
   onBack,
   api,
   onOpenLogged,
@@ -262,17 +275,47 @@ export function ReadingRoom({
       setFinalizeSaving(false);
     }
   }
+  // 追来源 (trace-to-source) panel — only wired when the workspace supplied the
+  // dig/adopt callbacks.
+  const traceEnabled = Boolean(onTraceCitation && onTraceSearch && onAdoptSource);
+  const [traceOpen, setTraceOpen] = useState(false);
+
   // 透镜库 (LensLibrary) — the student browses the reading deck and summons
   // a CHOSEN card onto the article herself, rather than only ever waiting
   // for the AI to propose one.
   const [libraryOpen, setLibraryOpen] = useState(false);
-  // 引用原文 (focus context) — block ids the student has clicked to reference
-  // in her next coach turn. Only meaningful while idle (a card in flight
-  // repurposes the article for evidence-picking, not referencing).
-  const [refs, setRefs] = useState<string[]>([]);
+  // 引用原文 (focus context) — the passages the student has referenced for her
+  // next coach turn. Two ways in: click a whole paragraph, or drag-select a
+  // phrase/sentence. Each entry is a visible, individually-cancelable quote
+  // chip. Only meaningful while idle (a card in flight repurposes the article
+  // for evidence-picking, not referencing). A whole-paragraph entry keys off its
+  // block id so a second click toggles it off and the paragraph gets the accent
+  // border; a drag-selection keys off a counter so identical text can't collide.
+  type QuotedRef = { key: string; blockId: string; quote: string };
+  const [quoted, setQuoted] = useState<QuotedRef[]>([]);
+  const selSeq = useRef(0);
+  const refs = useMemo(() => quoted.filter((q) => q.key.startsWith("blk:")).map((q) => q.blockId), [quoted]);
 
   function toggleRef(blockId: string) {
-    setRefs((prev) => (prev.includes(blockId) ? prev.filter((id) => id !== blockId) : [...prev, blockId]));
+    const key = `blk:${blockId}`;
+    setQuoted((prev) =>
+      prev.some((q) => q.key === key)
+        ? prev.filter((q) => q.key !== key)
+        : [...prev, { key, blockId, quote: source.blocks.find((b) => b.id === blockId)?.text ?? "" }],
+    );
+  }
+
+  function addSelection(blockId: string, quote: string) {
+    setQuoted((prev) => {
+      // Skip an exact-duplicate quote (double drag on the same phrase).
+      if (prev.some((q) => q.quote === quote)) return prev;
+      selSeq.current += 1;
+      return [...prev, { key: `sel:${selSeq.current}`, blockId, quote }];
+    });
+  }
+
+  function removeQuoted(key: string) {
+    setQuoted((prev) => prev.filter((q) => q.key !== key));
   }
 
   const chatLogRef = useRef<HTMLDivElement | null>(null);
@@ -372,8 +415,8 @@ export function ReadingRoom({
     const t = text.trim();
     if (!t) return;
     setDraft("");
-    const focusedSpans = refs.map((id) => ({ block_id: id, quote: source.blocks.find((b) => b.id === id)?.text ?? "" }));
-    setRefs([]);
+    const focusedSpans = quoted.map((q) => ({ block_id: q.blockId, quote: q.quote }));
+    setQuoted([]);
     void loop.sendTurn(t, focusedSpans);
   }
 
@@ -482,7 +525,21 @@ export function ReadingRoom({
                         </button>
                       </div>
                     ) : (
-                      <div className="mk-msg__bubble">{m.body}</div>
+                      <>
+                        <div className="mk-msg__bubble">{m.body}</div>
+                        {m.kind === "text" && m.offerCardId && (
+                          // A 克制 hint that named a helpful lens — one tap opens
+                          // it (she confirms; the AI never forces it, 铁律②).
+                          <button
+                            type="button"
+                            className="mk-reading-room__offer"
+                            onClick={() => m.offerCardId && void loop.summonCard(m.offerCardId)}
+                            disabled={busyOrCarded}
+                          >
+                            用「{m.offerCardName ?? "这副透镜"}」看看 →
+                          </button>
+                        )}
+                      </>
                     )}
                   </div>
                 </div>
@@ -504,13 +561,27 @@ export function ReadingRoom({
           </div>
 
           <div className="mk-reading-room__composer-wrap">
-            {refs.length > 0 && (
+            {quoted.length > 0 && (
               <div className="mk-reading-room__focus-context">
-                <span>
-                  正在引用 <strong>{refs.length}</strong> 处原文
-                </span>
-                <button type="button" onClick={() => setRefs([])}>
-                  清除
+                <div className="mk-reading-room__quote-chips">
+                  {quoted.map((q) => (
+                    <span key={q.key} className="mk-reading-room__quote-chip" title={q.quote}>
+                      <span className="mk-reading-room__quote-chip-text">
+                        “{q.quote.length > 60 ? `${q.quote.slice(0, 60)}…` : q.quote}”
+                      </span>
+                      <button
+                        type="button"
+                        className="mk-reading-room__quote-chip-x"
+                        aria-label="取消引用这一处"
+                        onClick={() => removeQuoted(q.key)}
+                      >
+                        ✕
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                <button type="button" className="mk-reading-room__quote-clear" onClick={() => setQuoted([])}>
+                  全部清除
                 </button>
               </div>
             )}
@@ -602,10 +673,20 @@ export function ReadingRoom({
                 ? "点击 1 句话作答"
                 : loop.status === "proposed"
                   ? "先看示范，再开始选句"
-                  : refs.length > 0
-                    ? `已引用 ${refs.length} 处 · 再点可取消`
-                    : "点击句子可引用原文"}
+                  : quoted.length > 0
+                    ? `已引用 ${quoted.length} 处 · 可在下方逐条取消`
+                    : "点段落引用整段，或划选一句引用原文"}
             </span>
+            {traceEnabled && (
+              <button
+                type="button"
+                className="mk-reading-room__trace-btn"
+                onClick={() => setTraceOpen(true)}
+                title="顺着可疑的数据往上游找原始出处"
+              >
+                追来源
+              </button>
+            )}
             <button type="button" className="mk-reading-room__finalize-btn" onClick={() => void openFinalize()}>
               完成这篇
             </button>
@@ -661,6 +742,7 @@ export function ReadingRoom({
                   selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
                   onCreateSpan={loop.pickSentence}
                   onReferenceBlock={loop.status === "idle" ? toggleRef : undefined}
+                  onReferenceSelection={loop.status === "idle" ? addSelection : undefined}
                   referencedBlockIds={refs}
                   renderAfterBlock={(blockId) => {
                     if (!card || cardBlockId !== blockId) return null;
@@ -763,6 +845,17 @@ export function ReadingRoom({
             void loop.summonCard(id);
           }}
           onClose={() => setLibraryOpen(false)}
+        />
+      )}
+
+      {traceOpen && traceEnabled && (
+        <TraceSourcePanel
+          seedQuote={quoted[quoted.length - 1]?.quote ?? ""}
+          sourceUrl={bib?.url ?? reference?.url ?? ""}
+          onTraceCitation={onTraceCitation!}
+          onTraceSearch={onTraceSearch!}
+          onAdoptSource={onAdoptSource!}
+          onClose={() => setTraceOpen(false)}
         />
       )}
 

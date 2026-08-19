@@ -19,7 +19,7 @@ import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/api/evidenceMap";
 import type { Dispatch, SetStateAction } from "react";
 import { api } from "../api";
-import { createLead } from "@/api/exploration";
+import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
@@ -1095,6 +1095,9 @@ export function WorkspaceContainer({
         onSetEvidence={(ev) => setReferenceEvidence(projectId, readingRefId, ev)}
         onSetTriage={(triage) => setReferenceTriage(projectId, readingRefId, triage)}
         onArchive={(archived) => archiveReference(projectId, readingRefId, archived)}
+        onTraceCitation={(doi) => digExploration(projectId, { mode: "citation", doi }).then((r) => r.candidates)}
+        onTraceSearch={(keyword) => digExploration(projectId, { mode: "similar", keyword }).then((r) => r.candidates)}
+        onAdoptSource={(candidate) => adoptCandidate(projectId, candidate).then(() => {})}
         api={api}
         onBack={closeReadingSource}
       />

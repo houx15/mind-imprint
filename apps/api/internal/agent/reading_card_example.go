@@ -47,40 +47,51 @@ func ProposeCardExample(ctx context.Context, p gateway.Provider, resolver gatewa
 		// truncated example anchor makes the card summon degrade/fail.
 		MaxTokens: 3000,
 	}
-	res, err := gateway.Collect(ctx, p, resolved, req)
-	if err != nil {
-		return Anchor{}, gateway.Resolved{}, gateway.ChatUsage{}, false
-	}
-	// A real call succeeded — it cost money regardless of what parsing does
-	// next, so resolved/usage are attached from here on.
-	var reply cardExampleReply
-	if perr := json.Unmarshal([]byte(stripFences(res.Text)), &reply); perr != nil {
-		return Anchor{}, resolved, res.Usage, false
-	}
-	var text string
-	found := false
-	for _, b := range blocks {
-		if b.ID == reply.BlockID {
-			text, found = b.Text, true
-			break
+	// Up to 2 attempts, mirroring RouteReading: the flagship is a reasoning model
+	// that intermittently returns a truncated/unparseable reply or a
+	// non-verbatim quote on a real article (~1 in 4 summons in a live sweep),
+	// which lands the student on a no-example card. One retry cuts that tail;
+	// usage accumulates across attempts so 档位+token+成本 stays accurate. The
+	// resolved/usage are attached from the first real call on, since it cost
+	// money regardless of what parsing does next.
+	var total gateway.ChatUsage
+	for attempt := 0; attempt < 2; attempt++ {
+		res, cerr := gateway.Collect(ctx, p, resolved, req)
+		if cerr != nil {
+			return Anchor{}, resolved, total, false // network error: don't hammer the API
 		}
+		total.InputTokens += res.Usage.InputTokens
+		total.OutputTokens += res.Usage.OutputTokens
+		var reply cardExampleReply
+		if perr := json.Unmarshal([]byte(stripFences(res.Text)), &reply); perr != nil {
+			continue // truncated/garbage — retry once, then degrade
+		}
+		var text string
+		found := false
+		for _, b := range blocks {
+			if b.ID == reply.BlockID {
+				text, found = b.Text, true
+				break
+			}
+		}
+		if !found {
+			continue
+		}
+		start, end := computeOffsets(text, reply.Quote)
+		if end <= start { // (0,0) means "not a substring" — retry, then reject.
+			continue
+		}
+		why := reply.Why
+		if why == "" {
+			why = "先看这处示范，再换你在文章里找一句自己的证据。"
+		}
+		return Anchor{
+			ID: "ex0", MaterialID: materialID, BlockID: reply.BlockID,
+			Start: start, End: end, Quote: reply.Quote,
+			Dimension: spec.ID, Author: "ai", Question: why,
+		}, resolved, total, true
 	}
-	if !found {
-		return Anchor{}, resolved, res.Usage, false
-	}
-	start, end := computeOffsets(text, reply.Quote)
-	if end <= start { // (0,0) means "not a substring" — reject.
-		return Anchor{}, resolved, res.Usage, false
-	}
-	why := reply.Why
-	if why == "" {
-		why = "先看这处示范，再换你在文章里找一句自己的证据。"
-	}
-	return Anchor{
-		ID: "ex0", MaterialID: materialID, BlockID: reply.BlockID,
-		Start: start, End: end, Quote: reply.Quote,
-		Dimension: spec.ID, Author: "ai", Question: why,
-	}, resolved, res.Usage, true
+	return Anchor{}, resolved, total, false
 }
 
 func buildCardExamplePrompt(spec cards.Spec) string {
