@@ -228,3 +228,45 @@ func TestCourseStoreV2_LogCourseEventDedupesLastAttemptWins(t *testing.T) {
 		t.Fatalf("Quiz.Correct = %d, want 1 (dedup by interactionId, last attempt wins)", rep.Quiz.Correct)
 	}
 }
+
+// TestUpsertCourseDefinitionPersistsCatalogMetadata proves the new catalog
+// taxonomy columns (category/introduction, migration in Task 1) round-trip
+// through UpsertCourseDefinition → ListCourses.
+func TestUpsertCourseDefinitionPersistsCatalogMetadata(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires postgres")
+	}
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+	ctx := context.Background()
+
+	cat := "source-check"
+	intro := []byte(`{"hook":"h","takeaways":["a","b"]}`)
+	if _, err := store.UpsertCourseDefinition(ctx, agent.UpsertCourseDefinitionInput{
+		Slug: "cat-meta", Branch: "Runtime", Title: "T", Blurb: "b",
+		CardIDs: []string{"craap"}, Definition: []byte(`{"schemaVersion":"2.0","course":{"id":"cat-meta","title":"T"}}`),
+		Category: &cat, Introduction: intro,
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	rows, err := store.ListCourses(ctx, true)
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	var got *agent.CourseSummaryRow
+	for i := range rows {
+		if rows[i].Slug == "cat-meta" {
+			got = &rows[i]
+		}
+	}
+	if got == nil {
+		t.Fatal("course not listed")
+	}
+	if got.Category == nil || *got.Category != "source-check" {
+		t.Fatalf("category = %v, want source-check", got.Category)
+	}
+	if len(got.Introduction) == 0 {
+		t.Fatal("introduction not persisted")
+	}
+}

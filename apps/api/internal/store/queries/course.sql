@@ -8,7 +8,8 @@
 -- name: ListCourseRows :many
 -- Preview courses are visible only when include_preview is true (the caller is
 -- an admin). Students (false) see 'published' only.
-SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover,
+       category, introduction, featured_rank
 FROM course
 WHERE status = 'published' OR sqlc.arg(include_preview)::bool
 ORDER BY branch, title;
@@ -74,12 +75,13 @@ SELECT status FROM course WHERE slug = $1;
 -- on insert (EXCLUDED is not applied on conflict), so re-posting a definition
 -- never (un)publishes an existing course. structure/render_cache are the empty
 -- object for 2.0 courses (they use course_definition, not the legacy blobs).
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, status, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,'preview', now())
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, status, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,$8,$9,'preview', now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
-  course_definition = EXCLUDED.course_definition, updated_at = now()
+  course_definition = EXCLUDED.course_definition,
+  category = EXCLUDED.category, introduction = EXCLUDED.introduction, updated_at = now()
 RETURNING slug, status;
 
 -- name: SetCourseStatusAndCover :exec

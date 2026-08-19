@@ -135,6 +135,9 @@ type Course struct {
 	CourseDefinition []byte    `json:"course_definition"`
 	Status           string    `json:"status"`
 	Cover            string    `json:"cover"`
+	Category         *string   `json:"category"`
+	Introduction     []byte    `json:"introduction"`
+	FeaturedRank     *int32    `json:"featured_rank"`
 }
 
 type CourseProgress struct {

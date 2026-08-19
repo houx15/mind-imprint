@@ -264,22 +264,26 @@ func (q *Queries) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]Li
 
 const listCourseRows = `-- name: ListCourseRows :many
 
-SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover,
+       category, introduction, featured_rank
 FROM course
 WHERE status = 'published' OR $1::bool
 ORDER BY branch, title
 `
 
 type ListCourseRowsRow struct {
-	Slug      string   `json:"slug"`
-	Branch    string   `json:"branch"`
-	Title     string   `json:"title"`
-	Blurb     string   `json:"blurb"`
-	TimeLabel string   `json:"time_label"`
-	CardIds   []string `json:"card_ids"`
-	StepCount int32    `json:"step_count"`
-	Status    string   `json:"status"`
-	Cover     string   `json:"cover"`
+	Slug         string   `json:"slug"`
+	Branch       string   `json:"branch"`
+	Title        string   `json:"title"`
+	Blurb        string   `json:"blurb"`
+	TimeLabel    string   `json:"time_label"`
+	CardIds      []string `json:"card_ids"`
+	StepCount    int32    `json:"step_count"`
+	Status       string   `json:"status"`
+	Cover        string   `json:"cover"`
+	Category     *string  `json:"category"`
+	Introduction []byte   `json:"introduction"`
+	FeaturedRank *int32   `json:"featured_rank"`
 }
 
 // Course v2 (migration 0050): the phase-gated runtime (course_session/
@@ -309,6 +313,9 @@ func (q *Queries) ListCourseRows(ctx context.Context, includePreview bool) ([]Li
 			&i.StepCount,
 			&i.Status,
 			&i.Cover,
+			&i.Category,
+			&i.Introduction,
+			&i.FeaturedRank,
 		); err != nil {
 			return nil, err
 		}
@@ -403,12 +410,13 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 }
 
 const upsertCourseDefinition = `-- name: UpsertCourseDefinition :one
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, status, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,'preview', now())
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, status, updated_at)
+VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,$8,$9,'preview', now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
-  course_definition = EXCLUDED.course_definition, updated_at = now()
+  course_definition = EXCLUDED.course_definition,
+  category = EXCLUDED.category, introduction = EXCLUDED.introduction, updated_at = now()
 RETURNING slug, status
 `
 
@@ -420,6 +428,8 @@ type UpsertCourseDefinitionParams struct {
 	TimeLabel        string   `json:"time_label"`
 	CardIds          []string `json:"card_ids"`
 	CourseDefinition []byte   `json:"course_definition"`
+	Category         *string  `json:"category"`
+	Introduction     []byte   `json:"introduction"`
 }
 
 type UpsertCourseDefinitionRow struct {
@@ -440,6 +450,8 @@ func (q *Queries) UpsertCourseDefinition(ctx context.Context, arg UpsertCourseDe
 		arg.TimeLabel,
 		arg.CardIds,
 		arg.CourseDefinition,
+		arg.Category,
+		arg.Introduction,
 	)
 	var i UpsertCourseDefinitionRow
 	err := row.Scan(&i.Slug, &i.Status)
