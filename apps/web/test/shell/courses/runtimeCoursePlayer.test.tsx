@@ -66,6 +66,23 @@ vi.mock("@/api/courseDefinition", () => ({
 }));
 const getDefMock = vi.mocked(getCourseDefinition);
 
+// CoursesContainer now lands a deep-link (initialCourseId) on the DETAIL page
+// first — CourseDetail calls api.listCourses()/getCourseProgress() itself
+// (there's no single-course summary endpoint) — so the "CoursesContainer
+// per-course routing" tests below need this mocked to get past detail and
+// reach the player via its CTA.
+vi.mock("@/api", async (orig) => {
+  const real = await orig<typeof import("@/api")>();
+  return {
+    ...real,
+    api: {
+      ...real.api,
+      listCourses: vi.fn(),
+      getCourseProgress: vi.fn(),
+    },
+  };
+});
+
 // Asset-url signing: mocked so tests can assert the collect→fetch→resolve
 // wiring without a real course-contract document or a network call.
 const fetchCourseAssetUrls = vi.fn();
@@ -78,6 +95,8 @@ vi.mock("@mind-imprint/course-contract", () => ({
   collectAssetPaths: (...a: unknown[]) => collectAssetPaths(...a),
 }));
 
+import type { CourseSummary } from "@mind-imprint/contracts";
+import { api } from "@/api";
 import { RuntimeCoursePlayer } from "@/shell/courses/RuntimeCoursePlayer";
 import { CoursesContainer } from "@/shell/courses/CoursesContainer";
 
@@ -85,6 +104,11 @@ const SLUG = "evidence-comparability";
 const golden = {
   schemaVersion: "2.0",
   course: { id: "evidence-comparability", title: "Can These Two Claims Be Compared?" },
+};
+const catalogSummary: CourseSummary = {
+  slug: SLUG, branch: "批判性思维", title: "Can These Two Claims Be Compared?", blurb: "从两条说法出发…",
+  time_label: "约 30 分钟", card_ids: [], step_count: 1, coverUrl: "",
+  category: null, introduction: null, featuredRank: null,
 };
 // P2-08/D5 — getCourseDefinition now resolves { definition, hash }; every
 // test below mocks it with this fixed hash unless it's specifically about the
@@ -98,6 +122,8 @@ beforeEach(() => {
   baseFlush.mockResolvedValue(undefined);
   collectAssetPaths.mockReturnValue([]);
   fetchCourseAssetUrls.mockResolvedValue({ assetUrls: {}, expiresAt: "2999-01-01T00:00:00Z" });
+  (api.listCourses as any).mockResolvedValue([catalogSummary]);
+  (api.getCourseProgress as any).mockRejectedValue(new Error("no progress yet"));
 });
 
 describe("RuntimeCoursePlayer", () => {
@@ -285,9 +311,18 @@ describe("RuntimeCoursePlayer", () => {
 });
 
 describe("CoursesContainer per-course routing", () => {
+  // A deep-link (initialCourseId) now lands on the DETAIL page first (the
+  // universal course landing) rather than the player directly; its CTA is
+  // what enters the player. This helper gets each test past that landing.
+  async function enterPlayerFromDetail() {
+    const cta = await screen.findByText("开始学习");
+    fireEvent.click(cta);
+  }
+
   it("mounts the runtime player for a course WITH a 2.0 definition", async () => {
     getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
     render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    await enterPlayerFromDetail();
     await screen.findByTestId("runtime-player");
     expect(screen.queryByTestId("legacy-player")).toBeNull();
   });
@@ -295,6 +330,7 @@ describe("CoursesContainer per-course routing", () => {
   it("falls back to the legacy player when the definition 404s (no 2.0 definition)", async () => {
     getDefMock.mockRejectedValue(new ApiError("not_found", "该课程没有 2.0 定义", 404));
     render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    await enterPlayerFromDetail();
     const legacy = await screen.findByTestId("legacy-player");
     expect(legacy).toHaveTextContent(`legacy:${SLUG}`);
     expect(screen.queryByTestId("runtime-player")).toBeNull();
@@ -305,9 +341,20 @@ describe("CoursesContainer per-course routing", () => {
     // unrelated legacy player — that hides the real failure.
     getDefMock.mockRejectedValue(new ApiError("server_error", "boom", 500));
     render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    await enterPlayerFromDetail();
     await screen.findByRole("alert");
     expect(screen.getByText("课程加载失败，请重试。")).toBeInTheDocument();
     expect(screen.queryByTestId("legacy-player")).toBeNull();
     expect(screen.queryByTestId("runtime-player")).toBeNull();
+  });
+
+  it("lands a deep-link on the detail page first, not the player, until its CTA is clicked", async () => {
+    getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
+    render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    await screen.findByText("从两条说法出发…"); // detail's blurb fallback (introduction is null)
+    expect(screen.queryByTestId("runtime-player")).toBeNull();
+    expect(screen.queryByTestId("legacy-player")).toBeNull();
+    fireEvent.click(screen.getByText("开始学习")); // detail CTA -> player
+    await screen.findByTestId("runtime-player");
   });
 });
