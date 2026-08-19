@@ -88,7 +88,7 @@ function ToolCardDetail({ cardId, info }: { cardId: string; info?: CardCatalogEn
 // prop is named courseId to stay compatible with CoursesContainer's existing
 // call site (Task 11 keeps that wiring, only the internal data model
 // changes).
-export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void }) {
+export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
   const [report, setReport] = useState<CourseReportT | null>(null);
   const [error, setError] = useState(false);
   const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
@@ -177,10 +177,16 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal }: { course
           </div>
         )}
 
-        {/* actions — a plain 重新开始 is gone (no more sessions to restart in
-            the linear self-paced player, Task 10); just back + onward. */}
+        {/* actions — 返回课程 · 重新学一遍 (wipes progress and restarts from the
+            top) · 去写作工作室 (the onward CTA). */}
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 22 }}>
           <button type="button" onClick={onBackToCourses} style={{ flex: "none", background: "var(--mk-surface)", border: "1px solid var(--mk-input-border)", color: "var(--mk-secondary)", fontSize: 14, fontWeight: 700, padding: "13px 20px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>返回课程</button>
+          {onRestart && (
+            <button type="button" onClick={onRestart} style={{ flex: "none", display: "inline-flex", alignItems: "center", gap: 6, background: "var(--mk-surface)", border: "1px solid var(--mk-input-border)", color: "var(--mk-secondary)", fontSize: 14, fontWeight: 700, padding: "13px 18px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+              重新学一遍
+            </button>
+          )}
           <button type="button" onClick={onGoPortal} style={{ flex: 1, display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--mk-success)", color: "var(--mk-surface)", border: "none", fontSize: 14.5, fontWeight: 700, padding: 13, borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}>
             去写作工作室，用起来
             <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--mk-surface)" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>

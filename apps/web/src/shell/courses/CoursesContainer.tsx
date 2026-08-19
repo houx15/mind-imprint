@@ -5,6 +5,7 @@ import { RuntimeCoursePlayer } from "./RuntimeCoursePlayer";
 import { getCourseDefinition } from "@/api/courseDefinition";
 import { ApiError } from "@/api/client";
 import { Button } from "@/ui";
+import { api } from "@/api";
 import { CourseReport } from "./CourseReport";
 
 type View = { name: "grid" } | { name: "player"; courseId: string } | { name: "report"; courseId: string };
@@ -64,13 +65,40 @@ function PlayerRouter({ slug, studentId, onExit, onFinish }: { slug: string; stu
   return <CoursePlayer courseId={slug} onExit={onExit} onFinish={onFinish} />;
 }
 
-export function CoursesContainer({ onGoPortal, initialCourseId, studentId }: { onGoPortal?: () => void; initialCourseId?: string | null; studentId?: string }) {
+export function CoursesContainer({ onGoPortal, initialCourseId, onCourseConsumed, studentId, onImmersiveChange }: { onGoPortal?: () => void; initialCourseId?: string | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void }) {
   // Deep-link: opening a course from anywhere (home's course cards, the
-  // gallery's "去学这张卡的课程" link) lands in the PLAYER so the student can
-  // actually learn it (the player resumes at their saved step). Finishing the
-  // course lands on the completion view (currently an "即将上线" placeholder).
-  // Read once at mount — this component is remounted on every tab switch into 课程.
+  // 图鉴's "去学这张卡的课程" link, the 学习记录 list) lands in the PLAYER so the
+  // student can actually learn it (the player resumes at their saved step).
+  // Finishing the course lands on the completion report. Read once at mount.
   const [view, setView] = useState<View>(initialCourseId ? { name: "player", courseId: initialCourseId } : { name: "grid" });
+
+  // Consume the one-shot deep-link so re-entering 课程 later shows the grid, not
+  // this same course again. `view` already captured the initial id above, so
+  // clearing the parent's signal now never closes the just-opened course.
+  useEffect(() => {
+    if (initialCourseId) onCourseConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Tell the host (CoursesTab) when a course is open (player/report) so it can
+  // go immersive — hide the 课程/学习记录/图鉴 segmented + the platform nav rail,
+  // mirroring the 项目 tab's in-studio behavior. The grid is NOT immersive, so
+  // "back from a course" returns to the courses page with its chrome.
+  useEffect(() => {
+    onImmersiveChange?.(view.name !== "grid");
+  }, [view.name, onImmersiveChange]);
+
+  // Restart: wipe server-side progress (both storage models), then re-enter the
+  // player fresh. Best-effort on the wipe — even if it fails we re-mount the
+  // player, which resumes rather than hard-fails.
+  const restartAndPlay = async (slug: string) => {
+    try {
+      await api.restartCourse(slug);
+    } catch {
+      /* fall through — re-entering the player is still the right next step */
+    }
+    setView({ name: "player", courseId: slug });
+  };
 
   if (view.name === "player") {
     return (
@@ -87,9 +115,15 @@ export function CoursesContainer({ onGoPortal, initialCourseId, studentId }: { o
       <CourseReport
         courseId={view.courseId}
         onBackToCourses={() => setView({ name: "grid" })}
+        onRestart={() => void restartAndPlay(view.courseId)}
         onGoPortal={() => (onGoPortal ? onGoPortal() : setView({ name: "grid" }))}
       />
     );
   }
-  return <CoursesView onOpenCourse={(id) => setView({ name: "player", courseId: id })} />;
+  return (
+    <CoursesView
+      onOpenCourse={(id) => setView({ name: "player", courseId: id })}
+      onRestartCourse={(id) => void restartAndPlay(id)}
+    />
+  );
 }

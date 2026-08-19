@@ -52,7 +52,6 @@ describe("HomePage", () => {
         onOpenCourse={onOpenCourse}
         onCreateProject={onCreateProject}
         onGoProjects={onGoProjects}
-        onGoGallery={noop}
       />,
     );
 
@@ -82,7 +81,7 @@ describe("HomePage", () => {
     (api.listCourses as any).mockResolvedValue(courses);
 
     const { container } = render(
-      <HomePage user={user} onOpenProject={noop} onOpenCourse={noop} onCreateProject={noop} onGoProjects={noop} onGoGallery={noop} />,
+      <HomePage user={user} onOpenProject={noop} onOpenCourse={noop} onCreateProject={noop} onGoProjects={noop} />,
     );
 
     await screen.findByText(withCover[0]!.title);
@@ -108,7 +107,6 @@ describe("HomePage", () => {
         onOpenCourse={noop}
         onCreateProject={onCreateProject}
         onGoProjects={noop}
-        onGoGallery={noop}
       />,
     );
 

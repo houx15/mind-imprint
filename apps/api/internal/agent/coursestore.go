@@ -701,6 +701,49 @@ func (s *sqlcAgentStore) SaveCourseSession(ctx context.Context, userID, courseID
 	})
 }
 
+// DeleteCourseSession + DeleteCourseProgress power course RESTART: a finished
+// course (or one mid-flight) is wiped back to the start. Both are idempotent
+// no-ops when the student never touched the course in that storage model, so a
+// restart safely removes both regardless of which player the course uses (2.0
+// runtime → course_session; legacy → course_progress). Course events
+// (course_event) are intentionally NOT deleted — those are 铁律④ evidence.
+func (s *sqlcAgentStore) DeleteCourseSession(ctx context.Context, userID, courseID uuid.UUID) error {
+	return s.q.DeleteCourseSession(ctx, sqlc.DeleteCourseSessionParams{UserID: userID, CourseID: courseID})
+}
+
+func (s *sqlcAgentStore) DeleteCourseProgress(ctx context.Context, userID, courseID uuid.UUID) error {
+	return s.q.DeleteCourseProgress(ctx, sqlc.DeleteCourseProgressParams{UserID: userID, CourseID: courseID})
+}
+
+// CourseHistoryItem is one touched course in a student's learning history:
+// the slug, a coarse status (the runtime session status verbatim, or
+// 'completed'/'in-progress' for a legacy course), the count of completed steps
+// (legacy only — 0 for runtime), and the last-activity time. The caller
+// enriches title/cover from the course list.
+type CourseHistoryItem struct {
+	Slug           string
+	Status         string
+	CompletedCount int
+	UpdatedAt      time.Time
+}
+
+// ListCourseHistory returns the courses this student has engaged with across
+// BOTH storage models (runtime session + legacy progress), newest activity
+// first.
+func (s *sqlcAgentStore) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]CourseHistoryItem, error) {
+	rows, err := s.q.ListCourseHistory(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	items := make([]CourseHistoryItem, 0, len(rows))
+	for _, r := range rows {
+		items = append(items, CourseHistoryItem{
+			Slug: r.Slug, Status: r.Status, CompletedCount: int(r.CompletedCount), UpdatedAt: r.UpdatedAt,
+		})
+	}
+	return items, nil
+}
+
 // unionOrdinal returns xs ∪ {v}, sorted ascending — a no-op copy when v is
 // already present, so repeated saves of the same step never grow the slice.
 func unionOrdinal(xs []int32, v int32) []int32 {

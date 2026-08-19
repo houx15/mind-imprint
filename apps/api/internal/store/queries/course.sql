@@ -85,7 +85,7 @@ RETURNING slug, status;
 -- name: SetCourseStatusAndCover :exec
 -- Empty cover ($3='') preserves the existing cover (NULLIF→NULL→COALESCE) so a
 -- re-ship without a cover arg never blanks an already-set cover.
-UPDATE course SET status = $2, cover = COALESCE(NULLIF($3, ''), cover), updated_at = now() WHERE slug = $1;
+UPDATE course SET status = sqlc.arg(status), cover = COALESCE(NULLIF(sqlc.arg(cover)::text, ''), cover), updated_at = now() WHERE slug = sqlc.arg(slug);
 
 -- name: SetCourseDefinition :exec
 -- Course Runtime Slice 8: attach (or replace) one course's CourseDefinition 2.0
@@ -93,6 +93,30 @@ UPDATE course SET status = $2, cover = COALESCE(NULLIF($3, ''), cover), updated_
 -- /render_cache seed + admin publish) is untouched — only the golden 2.0 seed
 -- writes this column.
 UPDATE course SET course_definition = $2, updated_at = now() WHERE slug = $1;
+
+-- name: DeleteCourseProgress :exec
+-- Restart (legacy player): drop the resume position + completed steps so the
+-- next visit starts at ordinal 0 with nothing marked done. Idempotent.
+DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2;
+
+-- name: ListCourseHistory :many
+-- Courses this student has TOUCHED, newest activity first, across BOTH runtime
+-- (course_session) and legacy (course_progress) storage. `status` is the
+-- runtime session status verbatim (created/opening/in-progress/closing/
+-- completed), or 'completed'/'in-progress' for a legacy course. The caller
+-- enriches title/cover from the course list, so this query stays cover-signing
+-- free. completed_count is meaningful for legacy courses only (0 for runtime).
+SELECT c.slug AS slug, cs.status AS status, 0::int AS completed_count, cs.updated_at AS updated_at
+FROM course_session cs JOIN course c ON c.id = cs.course_id
+WHERE cs.user_id = $1
+UNION ALL
+SELECT c.slug AS slug,
+       CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
+       COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
+       cp.updated_at AS updated_at
+FROM course_progress cp JOIN course c ON c.id = cp.course_id
+WHERE cp.user_id = $1
+ORDER BY updated_at DESC;
 
 -- name: FinishedCourseIDsByUser :many
 -- Task 5 addition: cards_catalog.go's proficiency computation ("which

@@ -3,19 +3,19 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { Nav } from "@/shell/Nav";
 
 describe("Nav", () => {
-  it("renders the four entries in order: 首页 / 项目 / 评估 / 我", () => {
+  it("renders the four entries in order: 首页 / 项目 / 课程 / 我", () => {
     render(<Nav tab="home" onTab={() => {}} user={{ display_name: "Phoebe" }} />);
     const tabs = screen.getAllByRole("tab");
     expect(tabs).toHaveLength(4);
-    expect(tabs.map((t) => t.textContent)).toEqual(["首页", "项目", "评估", "P我"]);
+    expect(tabs.map((t) => t.textContent)).toEqual(["首页", "项目", "课程", "P我"]);
   });
 
   it("marks the active tab with aria-selected + the accent tile class", () => {
-    render(<Nav tab="gallery" onTab={() => {}} user={{ display_name: "Phoebe" }} />);
+    render(<Nav tab="courses" onTab={() => {}} user={{ display_name: "Phoebe" }} />);
     const tabs = screen.getAllByRole("tab");
-    const assessment = tabs.find((t) => t.textContent?.includes("评估"))!;
-    expect(assessment.getAttribute("aria-selected")).toBe("true");
-    expect(assessment.className).toContain("bg-mk-accent-50");
+    const courses = tabs.find((t) => t.textContent?.includes("课程"))!;
+    expect(courses.getAttribute("aria-selected")).toBe("true");
+    expect(courses.className).toContain("bg-mk-accent-50");
 
     const home = tabs.find((t) => t.textContent?.includes("首页"))!;
     expect(home.getAttribute("aria-selected")).toBe("false");
@@ -27,8 +27,8 @@ describe("Nav", () => {
     render(<Nav tab="home" onTab={onTab} user={{ display_name: "Phoebe" }} />);
     fireEvent.click(screen.getByText("项目"));
     expect(onTab).toHaveBeenCalledWith("projects");
-    fireEvent.click(screen.getByText("评估"));
-    expect(onTab).toHaveBeenCalledWith("gallery");
+    fireEvent.click(screen.getByText("课程"));
+    expect(onTab).toHaveBeenCalledWith("courses");
     fireEvent.click(screen.getByText("P"));
     expect(onTab).toHaveBeenCalledWith("me");
   });

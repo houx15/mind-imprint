@@ -32,6 +32,30 @@ export async function getCourseReport(slug: string): Promise<CourseReport> {
   const r = await apiFetch<{ report: CourseReport }>(`/api/v1/courses/${slug}/report`);
   return r.report;
 }
+
+// restartCourse wipes the student's progress for one course (both the 2.0
+// runtime session and the legacy progress row) so it starts over from the
+// beginning. Idempotent server-side; course events are kept (铁律④).
+export async function restartCourse(slug: string): Promise<void> {
+  await apiFetch<{ ok: true }>(`/api/v1/courses/${slug}/restart`, { method: "POST" });
+}
+
+/** One touched course in the student's learning history. status is the raw
+ * runtime session status (created/opening/in-progress/closing/completed) or
+ * 'completed'/'in-progress' for a legacy course; completedCount is legacy-only. */
+export interface CourseHistoryItem {
+  slug: string;
+  status: string;
+  completedCount: number;
+  updatedAt: string;
+}
+
+// getCourseHistory lists the courses the student has engaged with, newest
+// activity first. Title/cover are enriched client-side from listCourses().
+export async function getCourseHistory(): Promise<CourseHistoryItem[]> {
+  const r = await apiFetch<{ items: CourseHistoryItem[] }>(`/api/v1/courses/history`);
+  return r.items;
+}
 // courseAsk mirrors chatTurn (see chat.ts): raw fetch with an SSE Accept
 // header, then translate the wire frames (`text`/`error`/`done`) into the
 // client's public shape. Wire `text` frames carry `data.delta`; we

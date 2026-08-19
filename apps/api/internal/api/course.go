@@ -64,6 +64,60 @@ func (a *API) getCourseProgress(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": toCourseProgressDTO(slug, row)})
 }
 
+// postCourseRestart wipes the student's progress for one course so it starts
+// over from the beginning — removing BOTH the 2.0 runtime session and the
+// legacy progress row (each idempotent; only one usually exists). Course events
+// (铁律④ evidence) are kept. After this the next session get-or-create /
+// progress read returns a fresh start. Owner-scoped: only the authed user's own
+// rows are touched.
+func (a *API) postCourseRestart(w http.ResponseWriter, r *http.Request) {
+	user, _ := UserFromContext(r.Context())
+	slug := r.PathValue("slug")
+	if !a.requireVisibleCourse(w, r, slug) {
+		return
+	}
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	_, courseID, err := store.GetCoursePayload(r.Context(), slug)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := store.DeleteCourseSession(r.Context(), user.ID, courseID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := store.DeleteCourseProgress(r.Context(), user.ID, courseID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+}
+
+// getCourseHistory returns the courses the authed student has engaged with —
+// across both the 2.0 runtime (course_session) and legacy (course_progress)
+// storage — newest activity first. Title/cover are intentionally left out (the
+// frontend enriches from the course list) so this endpoint stays cover-signing
+// free. status is the raw runtime session status or 'completed'/'in-progress'.
+func (a *API) getCourseHistory(w http.ResponseWriter, r *http.Request) {
+	user, _ := UserFromContext(r.Context())
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+	items, err := store.ListCourseHistory(r.Context(), user.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	out := make([]map[string]any, 0, len(items))
+	for _, it := range items {
+		out = append(out, map[string]any{
+			"slug":           it.Slug,
+			"status":         it.Status,
+			"completedCount": it.CompletedCount,
+			"updatedAt":      it.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
+		})
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": out})
+}
+
 // putCourseProgress writes the resume position (current_ordinal), optionally
 // marks ONE step complete (completed_ordinal — the step the student just
 // finished per the per-step gate), and accumulates active-focus time

@@ -5,7 +5,7 @@ import { coverGradientStyle } from "@/ui";
 
 const STAR = "M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z";
 
-function CourseCard({ course, pct, onOpen }: { course: CourseSummary; pct: number | null; onOpen: () => void }) {
+function CourseCard({ course, pct, onOpen, onRestart }: { course: CourseSummary; pct: number | null; onOpen: () => void; onRestart?: () => void }) {
   const done = pct != null && pct >= 100;
   const tone = pct == null ? "未开始" : done ? "已学完" : "进行中";
   const cta = pct == null ? "开始学习" : done ? "回顾" : "继续";
@@ -45,17 +45,25 @@ function CourseCard({ course, pct, onOpen }: { course: CourseSummary; pct: numbe
         )}
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10, marginTop: "auto", paddingTop: 16 }}>
           <span style={toneStyle}>{tone}</span>
-          <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--mk-accent-500)", color: "var(--mk-surface)", border: "none", padding: "9px 15px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
-            {cta}
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
-          </button>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            {done && onRestart && (
+              <button type="button" title="重新学一遍" onClick={(e) => { e.stopPropagation(); onRestart(); }} style={{ display: "inline-flex", alignItems: "center", gap: 5, background: "var(--mk-surface)", color: "var(--mk-secondary)", border: "1px solid var(--mk-input-border)", padding: "8px 12px", borderRadius: 10, fontSize: 12.5, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5" /></svg>
+                重新学
+              </button>
+            )}
+            <button type="button" onClick={(e) => { e.stopPropagation(); onOpen(); }} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: "var(--mk-accent-500)", color: "var(--mk-surface)", border: "none", padding: "9px 15px", borderRadius: 10, fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+              {cta}
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>
   );
 }
 
-export function CoursesView({ onOpenCourse }: { onOpenCourse?: (id: string) => void } = {}) {
+export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: (id: string) => void; onRestartCourse?: (id: string) => void } = {}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [pctById, setPctById] = useState<Record<string, number | null>>({});
 
@@ -85,7 +93,7 @@ export function CoursesView({ onOpenCourse }: { onOpenCourse?: (id: string) => v
           <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20, marginTop: 28 }}>
-            {(courses ?? []).map((c) => <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} />)}
+            {(courses ?? []).map((c) => <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />)}
           </div>
         )}
       </div>

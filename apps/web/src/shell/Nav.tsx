@@ -1,20 +1,21 @@
 import type { ReactNode } from "react";
-import { Home, FolderKanban, ClipboardList } from "lucide-react";
+import { Home, FolderKanban, GraduationCap } from "lucide-react";
 import { Icon } from "@/ui/Icon";
 import { Pebble } from "@/ui/Pebble";
 import type { MeUser } from "@/api";
 
 /**
- * Nav — 64px vertical icon rail (design-system rebuild, shell Task 4).
- * Replaces `LeftRail`. Four entries top-to-bottom: 首页 / 项目 / 评估 / 我
- * (the last renders the user's initial in an accent circle instead of a
- * Lucide icon). A small brand `Pebble` sits above the entries. The 评估 key
- * stays `"gallery"` (Task 12 renamed the label + icon only, to minimize
- * churn) — it now hosts a `成长报告`/`图鉴` `Segmented` (`AssessmentView`)
- * rather than the tool-card catalog alone.
+ * Nav — 64px vertical icon rail. Four entries top-to-bottom: 首页 / 项目 /
+ * 课程 / 我 (the last renders the user's initial in an accent circle instead
+ * of a Lucide icon). A small brand `Pebble` sits above the entries.
+ *
+ * 项目 hosts the project directory/studio AND the 评估报告 timeline (a
+ * Segmented inside the tab). 课程 hosts the course list, 学习记录, and 图鉴.
+ * The old top-level 评估 tab is gone — its 成长报告 moved under 项目 and its
+ * 图鉴 moved under 课程.
  */
 
-export type NavTab = "home" | "projects" | "gallery" | "me";
+export type NavTab = "home" | "projects" | "courses" | "me";
 
 function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
@@ -58,10 +59,10 @@ export function Nav({
       ),
     },
     {
-      key: "gallery",
-      label: "评估",
+      key: "courses",
+      label: "课程",
       render: (active) => (
-        <Icon icon={ClipboardList} size={22} className={active ? "text-mk-accent-600" : "text-mk-muted"} />
+        <Icon icon={GraduationCap} size={22} className={active ? "text-mk-accent-600" : "text-mk-muted"} />
       ),
     },
     {

@@ -263,8 +263,6 @@ export interface HomePageProps {
   onCreateProject: () => void;
   /** Go to the 项目 tab. */
   onGoProjects: () => void;
-  /** Go to the 图鉴 tab. */
-  onGoGallery: () => void;
 }
 
 export function HomePage({ user, onOpenProject, onOpenCourse, onCreateProject, onGoProjects }: HomePageProps) {

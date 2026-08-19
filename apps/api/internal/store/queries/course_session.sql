@@ -17,3 +17,9 @@ RETURNING id, session, status;
 -- name: SaveCourseSession :exec
 UPDATE course_session SET session = $3, status = $4, updated_at = now()
 WHERE user_id = $1 AND course_id = $2;
+
+-- name: DeleteCourseSession :exec
+-- Restart: drop the runtime session so the next get-or-create mints a fresh
+-- 'created' session (a completed course starts over from Opening). Idempotent —
+-- a no-op when the student never had a session for this course.
+DELETE FROM course_session WHERE user_id = $1 AND course_id = $2;

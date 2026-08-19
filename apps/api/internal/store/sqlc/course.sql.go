@@ -13,6 +13,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const deleteCourseProgress = `-- name: DeleteCourseProgress :exec
+DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2
+`
+
+type DeleteCourseProgressParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+}
+
+// Restart (legacy player): drop the resume position + completed steps so the
+// next visit starts at ordinal 0 with nothing marked done. Idempotent.
+func (q *Queries) DeleteCourseProgress(ctx context.Context, arg DeleteCourseProgressParams) error {
+	_, err := q.db.Exec(ctx, deleteCourseProgress, arg.UserID, arg.CourseID)
+	return err
+}
+
 const finishedCourseIDsByUser = `-- name: FinishedCourseIDsByUser :many
 SELECT DISTINCT course_id FROM course_progress
 WHERE user_id = $1 AND completed_at IS NOT NULL
@@ -194,6 +210,58 @@ func (q *Queries) GetCourseStatusBySlug(ctx context.Context, slug string) (strin
 	return status, err
 }
 
+const listCourseHistory = `-- name: ListCourseHistory :many
+SELECT c.slug AS slug, cs.status AS status, 0::int AS completed_count, cs.updated_at AS updated_at
+FROM course_session cs JOIN course c ON c.id = cs.course_id
+WHERE cs.user_id = $1
+UNION ALL
+SELECT c.slug AS slug,
+       CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
+       COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
+       cp.updated_at AS updated_at
+FROM course_progress cp JOIN course c ON c.id = cp.course_id
+WHERE cp.user_id = $1
+ORDER BY updated_at DESC
+`
+
+type ListCourseHistoryRow struct {
+	Slug           string    `json:"slug"`
+	Status         string    `json:"status"`
+	CompletedCount int32     `json:"completed_count"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
+// Courses this student has TOUCHED, newest activity first, across BOTH runtime
+// (course_session) and legacy (course_progress) storage. `status` is the
+// runtime session status verbatim (created/opening/in-progress/closing/
+// completed), or 'completed'/'in-progress' for a legacy course. The caller
+// enriches title/cover from the course list, so this query stays cover-signing
+// free. completed_count is meaningful for legacy courses only (0 for runtime).
+func (q *Queries) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]ListCourseHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listCourseHistory, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCourseHistoryRow
+	for rows.Next() {
+		var i ListCourseHistoryRow
+		if err := rows.Scan(
+			&i.Slug,
+			&i.Status,
+			&i.CompletedCount,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCourseRows = `-- name: ListCourseRows :many
 
 SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover
@@ -271,19 +339,19 @@ func (q *Queries) SetCourseDefinition(ctx context.Context, arg SetCourseDefiniti
 }
 
 const setCourseStatusAndCover = `-- name: SetCourseStatusAndCover :exec
--- Empty cover ($3='') preserves the existing cover (NULLIF→NULL→COALESCE) so a
--- re-ship without a cover arg never blanks an already-set cover.
-UPDATE course SET status = $2, cover = COALESCE(NULLIF($3, ''), cover), updated_at = now() WHERE slug = $1
+UPDATE course SET status = $1, cover = COALESCE(NULLIF($2::text, ''), cover), updated_at = now() WHERE slug = $3
 `
 
 type SetCourseStatusAndCoverParams struct {
-	Slug   string `json:"slug"`
 	Status string `json:"status"`
 	Cover  string `json:"cover"`
+	Slug   string `json:"slug"`
 }
 
+// Empty cover ($3=”) preserves the existing cover (NULLIF→NULL→COALESCE) so a
+// re-ship without a cover arg never blanks an already-set cover.
 func (q *Queries) SetCourseStatusAndCover(ctx context.Context, arg SetCourseStatusAndCoverParams) error {
-	_, err := q.db.Exec(ctx, setCourseStatusAndCover, arg.Slug, arg.Status, arg.Cover)
+	_, err := q.db.Exec(ctx, setCourseStatusAndCover, arg.Status, arg.Cover, arg.Slug)
 	return err
 }
 

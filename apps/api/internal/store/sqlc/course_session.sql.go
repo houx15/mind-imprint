@@ -42,6 +42,23 @@ func (q *Queries) CreateCourseSession(ctx context.Context, arg CreateCourseSessi
 	return i, err
 }
 
+const deleteCourseSession = `-- name: DeleteCourseSession :exec
+DELETE FROM course_session WHERE user_id = $1 AND course_id = $2
+`
+
+type DeleteCourseSessionParams struct {
+	UserID   uuid.UUID `json:"user_id"`
+	CourseID uuid.UUID `json:"course_id"`
+}
+
+// Restart: drop the runtime session so the next get-or-create mints a fresh
+// 'created' session (a completed course starts over from Opening). Idempotent —
+// a no-op when the student never had a session for this course.
+func (q *Queries) DeleteCourseSession(ctx context.Context, arg DeleteCourseSessionParams) error {
+	_, err := q.db.Exec(ctx, deleteCourseSession, arg.UserID, arg.CourseID)
+	return err
+}
+
 const getCourseSessionBySlug = `-- name: GetCourseSessionBySlug :one
 
 SELECT cs.id, cs.session, cs.status
