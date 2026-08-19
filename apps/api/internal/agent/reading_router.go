@@ -81,6 +81,12 @@ func RouteReading(ctx context.Context, p gateway.Provider, resolver gateway.KeyR
 		// the generic "which sentence?" default (live bug-hunt 2026-07-30). The
 		// visible output is tiny; the headroom is for the reasoning that precedes it.
 		MaxTokens: 3000,
+		// "low" reasoning, not full: a live A/B on the real router prompt showed
+		// full thinking costs ~19–49s/turn while thinking-OFF breaks the router
+		// (empty replies, stops offering cards). "low" roughly halves latency
+		// (~8–24s) yet keeps a valid decision + non-empty reply + card offers —
+		// the middle gear. Evaluation still runs full flagship reasoning elsewhere.
+		ReasoningEffort: "low",
 	}
 	// Up to 2 attempts. The flagship is a REASONING model that intermittently
 	// returns an empty or unparseable reply on a real article + lens catalog
