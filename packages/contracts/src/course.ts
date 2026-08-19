@@ -1,5 +1,46 @@
 import { z } from "zod";
 
+// The 7 course categories — a closed, no-emoji vocabulary stored as
+// {slug, label} pairs so a stored slug is decoupled from its display label
+// (renaming a label never migrates data). The generator may SUGGEST a slug but
+// must never mint an 8th; the API rejects any slug outside this set.
+export const COURSE_CATEGORIES = [
+  { slug: "stance-value",     label: "立场与价值" },
+  { slug: "source-check",     label: "信源核查" },
+  { slug: "media-literacy",   label: "媒介与信息素养" },
+  { slug: "self-knowledge",   label: "自我认知" },
+  { slug: "data-literacy",    label: "数据素养" },
+  { slug: "research-process", label: "研究流程" },
+  { slug: "argument-writing", label: "论证写作" },
+] as const;
+
+export const CourseCategory = z.enum([
+  "stance-value", "source-check", "media-literacy",
+  "self-knowledge", "data-literacy", "research-process", "argument-writing",
+]);
+export type CourseCategory = z.infer<typeof CourseCategory>;
+
+// 学科对标 — curriculum alignment, three tracks (IB / other international /
+// domestic). Each an independent list of short labels.
+export const CourseAlignment = z.object({
+  ib: z.array(z.string()).default([]),
+  otherIntl: z.array(z.string()).default([]),
+  domestic: z.array(z.string()).default([]),
+});
+export type CourseAlignment = z.infer<typeof CourseAlignment>;
+
+// The schema-driven course introduction (rendered deterministically on the
+// detail page; filled by the generator). Mirrors docs/2026-08-19-courses.md's
+// per-course structure: 导语 / 学生做什么 / 带走什么 / 学科对标 / 关键词.
+export const CourseIntroduction = z.object({
+  hook: z.string().default(""),
+  whatYouDo: z.string().default(""),
+  takeaways: z.array(z.string()).default([]),
+  alignment: CourseAlignment.default({ ib: [], otherIntl: [], domestic: [] }),
+  keywords: z.array(z.string()).default([]),
+});
+export type CourseIntroduction = z.infer<typeof CourseIntroduction>;
+
 export const CourseAssetType = z.enum(["image", "link", "text"]);
 export const CourseAsset = z.object({
   id: z.string(),
@@ -77,6 +118,9 @@ export const CourseSummary = z.object({
   // server-side via resolveCoverURL); absent/"" when the course has no "img:"
   // cover or OSS is off — mirrors cardCatalog.ts's own coverUrl field.
   coverUrl: z.string().optional().default(""),
+  category: CourseCategory.nullable().default(null),
+  introduction: CourseIntroduction.nullable().default(null),
+  featuredRank: z.number().int().nullable().default(null),
 });
 
 export const CoursePlayerPayload = z.object({

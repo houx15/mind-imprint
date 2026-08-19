@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { RenderCache, Interaction, CoursePlayerPayload, CourseSummary } from "../src/course";
+import { RenderCache, Interaction, CoursePlayerPayload, CourseSummary, CourseCategory, COURSE_CATEGORIES, CourseIntroduction } from "../src/course";
 
 describe("course v2 contracts", () => {
   it("parses an ordering interaction", () => {
@@ -45,5 +45,42 @@ describe("course v2 contracts", () => {
   it("defaults audioKeys to {} when omitted", () => {
     const p = CoursePlayerPayload.parse(basePayload);
     expect(p.audioKeys).toEqual({});
+  });
+});
+
+describe("course catalog metadata", () => {
+  it("has exactly the 7 no-emoji categories in declared order", () => {
+    expect(COURSE_CATEGORIES.map((c) => c.slug)).toEqual([
+      "stance-value", "source-check", "media-literacy",
+      "self-knowledge", "data-literacy", "research-process", "argument-writing",
+    ]);
+    for (const c of COURSE_CATEGORIES) {
+      expect(c.label).not.toMatch(/\p{Emoji_Presentation}/u);
+    }
+  });
+
+  it("rejects a category outside the 7", () => {
+    expect(CourseCategory.safeParse("misc").success).toBe(false);
+    expect(CourseCategory.safeParse("source-check").success).toBe(true);
+  });
+
+  it("defaults the three new summary fields to null when absent", () => {
+    const s = CourseSummary.parse({
+      slug: "x", branch: "A", title: "T", blurb: "b", time_label: "10m",
+      card_ids: [], step_count: 3,
+    });
+    expect(s.category).toBeNull();
+    expect(s.introduction).toBeNull();
+    expect(s.featuredRank).toBeNull();
+  });
+
+  it("parses a full introduction with alignment + takeaways", () => {
+    const intro = CourseIntroduction.parse({
+      hook: "h", whatYouDo: "w", takeaways: ["t1"],
+      alignment: { ib: ["TOK"], otherIntl: ["AP"], domestic: ["语文"] },
+      keywords: ["k"],
+    });
+    expect(intro.takeaways).toEqual(["t1"]);
+    expect(intro.alignment.ib).toEqual(["TOK"]);
   });
 });
