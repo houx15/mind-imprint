@@ -26,6 +26,10 @@ type courseSummaryDTO struct {
 	CardIDs   []string `json:"card_ids"`
 	StepCount int      `json:"step_count"`
 	CoverURL  string   `json:"coverUrl"`
+
+	Category     *string         `json:"category"`
+	Introduction json.RawMessage `json:"introduction"`
+	FeaturedRank *int32          `json:"featuredRank"`
 }
 
 // toCourseSummaryDTO is an *API method (not a free function) solely so it can
@@ -41,7 +45,10 @@ func (a *API) toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 	return courseSummaryDTO{
 		Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 		TimeLabel: r.TimeLabel, CardIDs: cardIDs, StepCount: r.StepCount,
-		CoverURL: a.resolveCoverURL(r.Cover),
+		CoverURL:     a.resolveCoverURL(r.Cover),
+		Category:     r.Category,
+		Introduction: json.RawMessage(r.Introduction),
+		FeaturedRank: r.FeaturedRank,
 	}
 }
 
