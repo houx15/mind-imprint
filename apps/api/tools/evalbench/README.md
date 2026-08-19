@@ -31,19 +31,29 @@ ANTHROPIC_API_KEY=...
 
 ## 配置实验
 
-默认配置是 [config.json](config.json)。其中已包含当前本地的 persona2 case、gold Markdown、模型 profile，以及两个同模型 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、DeepSeek JSON mode、完整 Zod 派生 JSON Schema 和完整结构示例。可直接运行，或按需要修改。若要保留多套实验配置，可另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
+默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应 Gold Markdown、模型 profile，以及两个同模型 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、DeepSeek JSON mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
 
 ```json
 {
   "schemaVersion": 2,
   "name": "baseline-2026-08",
-  "successfulRuns": 3,
-  "maxAttempts": 5,
+  "successfulRuns": 2,
+  "maxAttempts": 3,
   "cases": [
     {
       "id": "persona2-deepdiver",
       "projectData": "cases/persona2-deepdiver.json",
       "goldReport": "cases/persona2-deepdiver-gold.md"
+    },
+    {
+      "id": "persona4-confirmbias",
+      "projectData": "cases/persona4-confirmbias.json",
+      "goldReport": "cases/persona4-confirmbias-gold.md"
+    },
+    {
+      "id": "persona5-ghostwrite",
+      "projectData": "cases/persona5-ghostwrite.json",
+      "goldReport": "cases/persona5-ghostwrite-gold.md"
     }
   ],
   "models": {
