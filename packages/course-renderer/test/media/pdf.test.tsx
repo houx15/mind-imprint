@@ -97,6 +97,30 @@ describe("PdfRenderer", () => {
     expect(typeNames(events)).not.toContain("block.completed");
   });
 
+  it("放大阅读 opens a modal reading the same document; Esc closes it", async () => {
+    const user = userEvent.setup();
+    renderPdf();
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /放大阅读/ }));
+    const dialog = screen.getByRole("dialog");
+    const modalFrame = dialog.querySelector<HTMLIFrameElement>("iframe.course-pdf-modal__frame");
+    expect(modalFrame).toHaveAttribute("src", "/resolved/assets/pdfs/source-paper.pdf#page=3");
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("clicking the PDF modal backdrop closes it", async () => {
+    const user = userEvent.setup();
+    renderPdf();
+    await user.click(screen.getByRole("button", { name: /放大阅读/ }));
+    const backdrop = document.querySelector(".course-pdf-modal__backdrop");
+    expect(backdrop).toBeTruthy();
+    await user.click(backdrop as Element);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
   it("no bespoke page-nav controls remain (the browser viewer owns paging/zoom)", () => {
     const { container } = renderPdf();
     expect(screen.queryByRole("button", { name: "上一页" })).toBeNull();

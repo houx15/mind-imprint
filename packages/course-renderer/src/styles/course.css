@@ -27,7 +27,8 @@
    nothing (no card, no button chrome). Same token values, one shared rule. */
 .course-shell,
 .course-video__cue-overlay,
-.course-lightbox {
+.course-lightbox,
+.course-pdf-modal {
   --course-bg: var(--mk-paper, #fbf8f4);
   --course-surface: var(--mk-surface, #ffffff);
   --course-border: var(--mk-border, #efe7dd);
@@ -81,7 +82,10 @@
 .course-video__cue-overlay *::after,
 .course-lightbox *,
 .course-lightbox *::before,
-.course-lightbox *::after {
+.course-lightbox *::after,
+.course-pdf-modal *,
+.course-pdf-modal *::before,
+.course-pdf-modal *::after {
   box-sizing: border-box;
 }
 
@@ -113,13 +117,52 @@
 
 /* ---------- course-level phases ---------- */
 
-.course-loading,
 .course-error {
   flex: 1 1 auto;
   min-height: 0;
   /* a diagnostic/loading surface may legitimately need its own scroll —
      still contained to this region, never the shell/page. */
   overflow: auto;
+}
+
+/* Loading surface — a VISIBLE spinner + label centered in the region, not an
+ * empty white box (the previous `.course-loading` had no content, so a fresh
+ * course entry / a slow scene generation showed several seconds of blank
+ * white). Shown on first entry (session create + Opening generation) and while
+ * the closing summary generates. */
+.course-loading {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  overflow: auto;
+  color: var(--course-muted);
+}
+.course-loading__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--course-accent-soft);
+  border-top-color: var(--course-accent);
+  animation: course-spin 0.8s linear infinite;
+}
+.course-loading__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--course-secondary);
+}
+@keyframes course-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .course-loading__spinner {
+    animation-duration: 2s;
+  }
 }
 
 .course-player {
@@ -245,6 +288,49 @@
   gap: 12px;
   flex: 0 0 auto;
   width: 100%;
+}
+.course-pdf__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.course-pdf__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--course-ink);
+}
+.course-pdf__expand {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius);
+  background: var(--course-surface);
+  color: var(--course-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease);
+}
+.course-pdf__expand:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
+.course-pdf__download {
+  font-size: 13px;
+  color: var(--course-accent);
+  text-underline-offset: 2px;
+  white-space: nowrap;
 }
 
 .course-pdf__viewport {
@@ -998,4 +1084,89 @@
 .course-lightbox__close:focus-visible {
   outline: 3px solid var(--course-focus-ring-color);
   outline-offset: 2px;
+}
+
+/* ---------- PDF read-in-popup modal ----------
+ * A course PDF slot is often short (a split side, a grid cell); the "放大阅读"
+ * control opens the same document in a large near-fullscreen modal so a page is
+ * actually readable. Portaled to <body> like the other overlays; Escape / the ✕
+ * / a backdrop click close it. */
+.course-pdf-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+.course-pdf-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 20, 18, 0.72);
+  cursor: zoom-out;
+}
+.course-pdf-modal__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(1000px, 100%);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: var(--course-surface);
+  border-radius: var(--course-radius-lg);
+  box-shadow: var(--course-shadow-lg);
+  overflow: hidden;
+}
+.course-pdf-modal__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--course-border);
+}
+.course-pdf-modal__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--course-ink);
+}
+.course-pdf-modal__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-full);
+  background: var(--course-surface);
+  color: var(--course-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease);
+}
+.course-pdf-modal__close:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
+.course-pdf-modal__close:focus-visible {
+  outline: 3px solid var(--course-focus-ring-color);
+  outline-offset: 2px;
+}
+.course-pdf-modal__frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: var(--course-surface);
 }

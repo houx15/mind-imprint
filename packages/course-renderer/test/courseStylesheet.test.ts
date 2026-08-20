@@ -36,6 +36,17 @@ describe("course stylesheet (styles/course.css)", () => {
     expect(courseCssText).toMatch(/\.course-lightbox__img\s*\{[^}]*object-fit:\s*contain/);
   });
 
+  it("the loading surface shows a real spinner, not an empty white box", () => {
+    expect(courseCssText).toMatch(/\.course-loading\s*\{[^}]*justify-content:\s*center/);
+    expect(courseCssText).toMatch(/\.course-loading__spinner\s*\{[^}]*animation:\s*course-spin/);
+    expect(courseCssText).toMatch(/@keyframes\s+course-spin/);
+  });
+
+  it("ships the read-in-popup PDF modal — dismissable backdrop + slot-filling frame", () => {
+    expect(courseCssText).toMatch(/\.course-pdf-modal\s*\{[^}]*position:\s*fixed/);
+    expect(courseCssText).toMatch(/\.course-pdf-modal__frame\s*\{[^}]*flex:\s*1/);
+  });
+
   it("media (video/image/pdf) is contained to its slot — max-width/height:100% + object-fit", () => {
     expect(courseCssText).toMatch(/\.course-video__player\s*\{[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);
     expect(courseCssText).toMatch(/\.course-images__item img\s*\{[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);

@@ -117,11 +117,28 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart 
     return () => { cancelled = true; };
   }, [courseId]);
 
-  if (error) return <div style={{ padding: 40, color: "var(--mk-danger)" }}>学习报告暂时没能生成，稍后再看看。</div>;
-  if (!report) return <div style={{ padding: 40, color: "var(--mk-muted)" }}>正在整理你的学习报告…</div>;
+  // NOTE: this component's parent (CoursesTab's content wrapper) is a plain
+  // block, not a flex container — so `flex:1` here is inert and the content
+  // would overflow and be clipped (the "report not scrollable" bug). Use
+  // `height:100%` (the wrapper has a definite height) so `overflowY:auto`
+  // actually scrolls, exactly like RuntimeCoursePlayer's root does.
+  if (error)
+    return (
+      <div style={{ height: "100%", minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 40, color: "var(--mk-danger)", background: "var(--mk-paper)" }}>
+        学习报告暂时没能生成，稍后再看看。
+      </div>
+    );
+  if (!report)
+    return (
+      <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 40, color: "var(--mk-muted)", background: "var(--mk-paper)" }}>
+        <span className="course-report__spinner" aria-hidden="true" style={{ width: 34, height: 34, borderRadius: "50%", border: "3px solid var(--mk-accent-100)", borderTopColor: "var(--mk-accent-500)", animation: "mk-course-report-spin .8s linear infinite" }} />
+        正在整理你的学习报告…
+        <style>{"@keyframes mk-course-report-spin{to{transform:rotate(360deg)}}"}</style>
+      </div>
+    );
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }}>
+    <div style={{ height: "100%", minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }}>
       <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 40px 56px" }}>
         {/* hero */}
         <div style={{ background: "linear-gradient(135deg,var(--mk-accent-500) 0%,var(--mk-accent-600) 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(234,81,64,.20)" }}>
