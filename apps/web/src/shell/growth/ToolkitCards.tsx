@@ -74,6 +74,41 @@ function Stars({ n, onDark = false }: { n: number; onDark?: boolean }) {
 
 type Detail = CardCatalogEntry;
 
+// Status segmented control (所有卡片 / 已练习过).
+function SegButton({ active, onClick, children }: { active: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        "rounded-mk-full px-3.5 py-1.5 text-mk-small font-bold transition-colors duration-[120ms] ease-mk",
+        active ? "bg-mk-accent-500 text-white" : "text-mk-muted hover:text-mk-secondary",
+      )}
+    >
+      {children}
+    </button>
+  );
+}
+
+// Category tag chip (with the group's dot).
+function TagChip({ active, onClick, dot, children }: { active: boolean; onClick: () => void; dot?: string; children: React.ReactNode }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={cx(
+        "inline-flex items-center gap-1.5 rounded-mk-full border px-3 py-1.5 text-mk-small font-semibold transition-colors duration-[120ms] ease-mk",
+        active ? "border-mk-accent-500 bg-mk-accent-50 text-mk-accent-600" : "border-mk-border bg-mk-surface text-mk-secondary hover:border-mk-accent-300",
+      )}
+    >
+      {dot && <span className={cx("h-[7px] w-[7px] shrink-0 rounded-mk-full", dot)} />}
+      {children}
+    </button>
+  );
+}
+
 function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
   const [hover, setHover] = useState(false);
   const [imgFailed, setImgFailed] = useState(false);
@@ -100,15 +135,19 @@ function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
           loading="lazy"
           onError={() => setImgFailed(true)}
           className={cx(
+            // Un-encountered cards keep the colorway (so the 封面配色 switch is
+            // visible everywhere) but read as "not yet earned" — softly dimmed
+            // and lightly desaturated, never fully grey, so a mostly-unpracticed
+            // gallery still recolors when the theme changes.
             "absolute inset-0 h-full w-full object-cover transition-[filter] duration-200",
-            encountered ? "grayscale-0" : "grayscale opacity-[.62] contrast-[.92]",
+            encountered ? "grayscale-0" : "opacity-[.6] grayscale-[.35] contrast-[.95]",
           )}
         />
       ) : (
         <div
           className={cx(
             "absolute inset-0 flex items-center justify-center p-3.5",
-            !encountered && "grayscale opacity-[.62]",
+            !encountered && "opacity-[.6] grayscale-[.35]",
           )}
           style={coverGradientStyle(c.cardId)}
         >
@@ -263,18 +302,21 @@ function CardDetailModal({ c, courses, onClose, onOpenCourse }: { c: Detail; cou
   return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
-      <div role="dialog" aria-modal="true" aria-label={c.name} className="relative z-10 flex max-h-[88vh] w-full max-w-[820px] overflow-hidden rounded-mk-lg bg-mk-surface shadow-mk-lg">
-        {/* left — cover art (hidden on the narrowest screens to keep the text readable) */}
-        <div className="relative hidden w-[38%] shrink-0 bg-mk-paper sm:block">
+      {/* Fixed height (not max-height) so switching tabs never resizes the modal;
+          each tab's body scrolls inside the constant frame. */}
+      <div role="dialog" aria-modal="true" aria-label={c.name} className="relative z-10 flex h-[min(620px,88vh)] w-full max-w-[820px] overflow-hidden rounded-mk-lg bg-mk-surface shadow-mk-lg">
+        {/* left — cover art shown WHOLE (object-contain): the covers carry text,
+            so cropping would cut it off. Letterboxed on paper. */}
+        <div className="hidden w-[40%] shrink-0 items-center justify-center bg-mk-paper p-4 sm:flex">
           {showImg ? (
             <img
               src={c.coverUrl}
               alt={c.name}
               onError={() => setImgFailed(true)}
-              className={cx("absolute inset-0 h-full w-full object-cover", !c.encountered && "opacity-90 grayscale")}
+              className={cx("max-h-full max-w-full rounded-mk-sm object-contain shadow-mk-sm", !c.encountered && "opacity-90")}
             />
           ) : (
-            <div className="absolute inset-0 flex items-center justify-center p-5" style={coverGradientStyle(c.cardId)}>
+            <div className="flex h-full w-full items-center justify-center rounded-mk-sm p-5" style={coverGradientStyle(c.cardId)}>
               <span className="text-center text-mk-h3 font-bold leading-snug text-white drop-shadow-sm">{c.name}</span>
             </div>
           )}
@@ -358,6 +400,10 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
   const [error, setError] = useState<string | null>(null);
   const [themeNotice, setThemeNotice] = useState<string | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  // Top filters: status (所有卡片 / 已练习过) and category tag ("all" or a
+  // category key). Both are pure UI, applied on top of the fetched catalog.
+  const [statusFilter, setStatusFilter] = useState<"all" | "practiced">("all");
+  const [tagFilter, setTagFilter] = useState<string>("all");
   // Monotonic token so an out-of-order theme re-fetch (double-click) can't land
   // a stale theme's covers over a newer selection.
   const themeReq = useRef(0);
@@ -403,7 +449,8 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
     }
   }
 
-  const groups = useMemo(() => {
+  // All non-empty category groups (drives the tag chips + their counts).
+  const allGroups = useMemo(() => {
     if (!cards) return [];
     return [...CATEGORY_ORDER, OTHER].map(({ key, dot }) => ({
       key, dot,
@@ -413,14 +460,23 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
     })).filter((g) => g.cards.length > 0);
   }, [cards]);
 
+  // Groups actually shown: narrowed by the selected tag, then by the status
+  // filter (已练习过 keeps only encountered cards), dropping any emptied group.
+  const visibleGroups = useMemo(() => {
+    return allGroups
+      .filter((g) => tagFilter === "all" || g.key === tagFilter)
+      .map((g) => ({ ...g, cards: statusFilter === "practiced" ? g.cards.filter((c) => c.encountered) : g.cards }))
+      .filter((g) => g.cards.length > 0);
+  }, [allGroups, tagFilter, statusFilter]);
+
   if (error) return <div className="p-6 text-mk-body text-mk-danger">{error}</div>;
   if (cards === undefined) {
     return (
       <div className="p-6">
         <Skeleton h={16} w={280} className="mb-4" />
-        <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
-          {Array.from({ length: 10 }, (_, i) => (
-            <Skeleton key={i} h={180} radius="md" />
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(158px,1fr))] gap-4">
+          {Array.from({ length: 8 }, (_, i) => (
+            <Skeleton key={i} h={237} radius="md" />
           ))}
         </div>
       </div>
@@ -429,12 +485,15 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
 
   const learnt = cards.filter((c) => c.encountered).length;
   const selectedCard = selected ? cards.find((c) => c.cardId === selected) : undefined;
+  // Count shown on a chip reflects the current status filter (so it matches what
+  // you'd actually see if you tapped it).
+  const countIn = (cs: CardCatalogEntry[]) => (statusFilter === "practiced" ? cs.filter((c) => c.encountered).length : cs.length);
 
   return (
     <div className="mk-scroll h-full overflow-y-auto p-6">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div className="text-mk-body leading-relaxed text-mk-secondary">
-          全部 {cards.length} 张思维工具卡 · 你已遇到 <b className="text-mk-ink">{learnt}</b> 张。彩色是练过的，灰色是还没遇到的。
+          全部 {cards.length} 张思维工具卡 · 你已遇到 <b className="text-mk-ink">{learnt}</b> 张。练过的更鲜亮，还没遇到的会淡一些。
         </div>
         <div className="flex items-center gap-2">
           {themeNotice && <span className="text-mk-small font-semibold text-mk-danger">{themeNotice}</span>}
@@ -457,20 +516,43 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
         </div>
       </div>
 
-      {groups.map((g) => (
-        <div key={g.key} className="mb-6">
-          <div className="mb-3 flex items-center gap-2">
-            <span className={cx("h-[9px] w-[9px] shrink-0 rounded-mk-full", g.dot)} />
-            <span className="text-mk-h3 text-mk-ink">{g.key}</span>
-            <span className="text-mk-small font-semibold text-mk-muted">
-              {g.cards.filter((c) => c.encountered).length}/{g.cards.length}
-            </span>
-          </div>
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(120px,1fr))] gap-3">
-            {g.cards.map((c) => <CardTile key={c.cardId} c={c} onOpen={() => setSelected(c.cardId)} />)}
-          </div>
+      {/* filters: status (所有卡片 / 已练习过) + category tags */}
+      <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2.5">
+        <div className="inline-flex shrink-0 rounded-mk-full border border-mk-border p-0.5">
+          <SegButton active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>所有卡片 {cards.length}</SegButton>
+          <SegButton active={statusFilter === "practiced"} onClick={() => setStatusFilter("practiced")}>已练习过 {learnt}</SegButton>
         </div>
-      ))}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <TagChip active={tagFilter === "all"} onClick={() => setTagFilter("all")}>全部</TagChip>
+          {allGroups.map((g) => (
+            <TagChip key={g.key} active={tagFilter === g.key} dot={g.dot} onClick={() => setTagFilter(g.key)}>
+              {g.key}
+              <span className="text-mk-small font-bold opacity-60">{countIn(g.cards)}</span>
+            </TagChip>
+          ))}
+        </div>
+      </div>
+
+      {visibleGroups.length === 0 ? (
+        <div className="rounded-mk-md border border-dashed border-mk-border bg-mk-paper px-4 py-10 text-center text-mk-body text-mk-muted">
+          {statusFilter === "practiced" ? "这里还没有你练习过的卡片——去课程里遇到第一张吧。" : "没有匹配的卡片。"}
+        </div>
+      ) : (
+        visibleGroups.map((g) => (
+          <div key={g.key} className="mb-8">
+            <div className="mb-3 flex items-center gap-2">
+              <span className={cx("h-[9px] w-[9px] shrink-0 rounded-mk-full", g.dot)} />
+              <span className="text-mk-h3 text-mk-ink">{g.key}</span>
+              <span className="text-mk-small font-semibold text-mk-muted">
+                {g.cards.filter((c) => c.encountered).length}/{g.cards.length}
+              </span>
+            </div>
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(158px,1fr))] gap-4">
+              {g.cards.map((c) => <CardTile key={c.cardId} c={c} onOpen={() => setSelected(c.cardId)} />)}
+            </div>
+          </div>
+        ))
+      )}
 
       {selectedCard && <CardDetailModal c={selectedCard} courses={courses} onClose={() => setSelected(null)} onOpenCourse={onOpenCourse} />}
     </div>
