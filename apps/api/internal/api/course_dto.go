@@ -45,7 +45,7 @@ func (a *API) toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 	return courseSummaryDTO{
 		Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 		TimeLabel: r.TimeLabel, CardIDs: cardIDs, StepCount: r.StepCount,
-		CoverURL:     a.resolveCoverURL(r.Cover),
+		CoverURL:     a.resolveCourseCoverURL(r.Slug, r.Cover),
 		Category:     r.Category,
 		Introduction: json.RawMessage(r.Introduction),
 		FeaturedRank: r.FeaturedRank,
