@@ -73,11 +73,28 @@ describe("PdfRenderer", () => {
     expect(fallback).toHaveAttribute("target", "_blank");
   });
 
-  it("always offers an explicit open-in-new-tab/download link in the header", () => {
+  it("always offers an explicit open-in-new-tab link in the header", () => {
     const { container } = renderPdf();
     const link = container.querySelector("a.course-pdf__download")!;
     expect(link).toHaveAttribute("href", "/resolved/assets/pdfs/source-paper.pdf");
     expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("the open link forces a NEW tab and carries no `download` attr — a cross-origin URL must never hijack the current tab (no URL routing → 'back' would leave the course)", () => {
+    const { container } = renderPdf();
+    for (const sel of ["a.course-pdf__download"]) {
+      const link = container.querySelector(sel)!;
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).not.toHaveAttribute("download");
+      expect(link.getAttribute("rel")).toContain("noopener");
+    }
+    // error-state fallback link too
+    const iframe = container.querySelector("iframe.course-pdf__frame")!;
+    fireEvent.error(iframe);
+    const fallback = container.querySelector("a.course-pdf__fallback")!;
+    expect(fallback).toHaveAttribute("target", "_blank");
+    expect(fallback).not.toHaveAttribute("download");
+    expect(fallback.getAttribute("rel")).toContain("noopener");
   });
 
   it("clicking download emits pdf.downloaded", async () => {
