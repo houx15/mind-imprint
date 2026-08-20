@@ -5,7 +5,7 @@ import remarkGfm from "remark-gfm";
 import remarkCjkFriendly from "remark-cjk-friendly";
 import type { Components } from "react-markdown";
 import { Star, X, ArrowRight } from "lucide-react";
-import { CARD_REGISTRY, type CardCatalogEntry, type CourseSummary } from "@mind-imprint/contracts";
+import { CARD_REGISTRY, type CardCatalogEntry, type CourseSummary, type TeachingStep, type TeachingMnemonic } from "@mind-imprint/contracts";
 import { Icon, Badge, coverGradientStyle } from "@/ui";
 
 // The wide two-column tool-card detail modal, shared by the 图鉴 gallery and the
@@ -89,6 +89,68 @@ function CardMd({ text }: { text: string }) {
   );
 }
 
+// —— teaching blocks: the student-facing "how to use this card" render, driven
+// by the card's optional `teaching` field. Purpose-built for a student meeting
+// the method for the first time, replacing the old why/how/when dump. ——
+
+// One plain lead sentence: what this card is for you.
+function Tagline({ text }: { text: string }) {
+  return <p className="text-[15.5px] font-semibold leading-relaxed text-mk-ink">{text}</p>;
+}
+
+// 口诀 / acronym, as an accent-tinted callout — the memorable hook.
+function MnemonicCallout({ m }: { m: TeachingMnemonic }) {
+  return (
+    <div className="rounded-mk-md border border-mk-accent-200 bg-mk-accent-50 px-4 py-3">
+      <div className="text-mk-label text-mk-accent-600">口诀 · 记住它</div>
+      <div className="mt-1 text-[15px] font-extrabold tracking-wide text-mk-ink">{m.phrase}</div>
+      {m.gloss && <div className="mt-1 text-mk-small leading-relaxed text-mk-secondary">{m.gloss}</div>}
+    </div>
+  );
+}
+
+// Lightweight "diagram": short phrases as arrow-connected chips.
+function FlowChips({ steps }: { steps: string[] }) {
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-2">
+      {steps.map((s, i) => (
+        <span key={i} className="flex items-center gap-1.5">
+          <span className="rounded-mk-full border border-mk-border bg-mk-paper px-2.5 py-1 text-mk-small font-semibold text-mk-secondary">{s}</span>
+          {i < steps.length - 1 && <Icon icon={ArrowRight} size={13} className="shrink-0 text-mk-faint" />}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+// The how-to as a numbered list — the UI supplies the number, so titles are
+// plain imperative phrases (no ①/1. prefix authored in).
+function StepsList({ steps }: { steps: TeachingStep[] }) {
+  return (
+    <ol className="flex flex-col gap-3">
+      {steps.map((s, i) => (
+        <li key={i} className="flex gap-3">
+          <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full bg-mk-accent-500 text-[11px] font-bold text-white">{i + 1}</span>
+          <div className="min-w-0">
+            <div className="text-mk-body font-bold text-mk-ink">{s.title}</div>
+            <div className="mt-0.5 text-mk-small leading-relaxed text-mk-secondary">{s.detail}</div>
+          </div>
+        </li>
+      ))}
+    </ol>
+  );
+}
+
+// The single most common mistake, as a warning callout.
+function WatchOut({ text }: { text: string }) {
+  return (
+    <div className="rounded-mk-md border-l-[3px] border-mk-warning bg-mk-warning-bg px-4 py-3">
+      <div className="text-mk-label text-mk-warning">最容易错</div>
+      <div className="mt-1 text-mk-small leading-relaxed text-mk-secondary">{text}</div>
+    </div>
+  );
+}
+
 // The courses that teach a card, as tap-through rows — the "去学它" surface the
 // student asked for. Empty → renders nothing (caller decides the empty copy).
 function RelatedCourses({ label, courses, onOpenCourse }: { label: string; courses: CourseSummary[]; onOpenCourse?: (slug: string) => void }) {
@@ -152,6 +214,7 @@ export function CardDetailModal({ c, courses, onClose, onOpenCourse }: { c: Deta
   const [tab, setTab] = useState<"intro" | "history">("intro");
   const [imgFailed, setImgFailed] = useState(false);
   const spec = CARD_REGISTRY[c.cardId];
+  const teaching = spec?.teaching;
   const methodology = spec?.steps?.[0]?.methodology;
   const example = c.example || methodology?.example || methodology?.how || "";
   const relatedCourses = useMemo(() => courses.filter((co) => co.card_ids.includes(c.cardId)), [courses, c.cardId]);
@@ -212,18 +275,42 @@ export function CardDetailModal({ c, courses, onClose, onOpenCourse }: { c: Deta
           <div className="mk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-5">
             {tab === "intro" ? (
               <div className="flex flex-col gap-5">
-                <Field label="这张卡帮你做什么"><CardMd text={c.purpose} /></Field>
-                {c.stages.length > 0 && (
-                  <div>
-                    <SectionLabel>适用阶段</SectionLabel>
-                    <div className="flex flex-wrap gap-1.5">{c.stages.map((s) => <Badge key={s} tone="done">{s}</Badge>)}</div>
-                  </div>
+                {teaching ? (
+                  <>
+                    <Tagline text={teaching.tagline} />
+                    {teaching.mnemonic && <MnemonicCallout m={teaching.mnemonic} />}
+                    {teaching.flow && teaching.flow.length > 0 && (
+                      <Field label="整体流程"><FlowChips steps={teaching.flow} /></Field>
+                    )}
+                    {teaching.steps && teaching.steps.length > 0 && (
+                      <Field label="怎么用"><StepsList steps={teaching.steps} /></Field>
+                    )}
+                    {c.stages.length > 0 && (
+                      <div>
+                        <SectionLabel>适用阶段</SectionLabel>
+                        <div className="flex flex-wrap gap-1.5">{c.stages.map((s) => <Badge key={s} tone="done">{s}</Badge>)}</div>
+                      </div>
+                    )}
+                    {teaching.watchOut && <WatchOut text={teaching.watchOut} />}
+                    {(teaching.example || example) && <Field label="一个例子"><CardMd text={teaching.example || example} /></Field>}
+                    <RelatedCourses label="在这些课程里学它" courses={relatedCourses} onOpenCourse={onOpenCourse} />
+                  </>
+                ) : (
+                  <>
+                    <Field label="这张卡帮你做什么"><CardMd text={c.purpose} /></Field>
+                    {c.stages.length > 0 && (
+                      <div>
+                        <SectionLabel>适用阶段</SectionLabel>
+                        <div className="flex flex-wrap gap-1.5">{c.stages.map((s) => <Badge key={s} tone="done">{s}</Badge>)}</div>
+                      </div>
+                    )}
+                    {methodology?.why && <Field label="为什么用"><CardMd text={methodology.why} /></Field>}
+                    {methodology?.how && <Field label="怎么用"><CardMd text={methodology.how} /></Field>}
+                    {methodology?.when && <Field label="什么时候用"><CardMd text={methodology.when} /></Field>}
+                    {example && <Field label="一个例子"><CardMd text={example} /></Field>}
+                    <RelatedCourses label="在这些课程里学它" courses={relatedCourses} onOpenCourse={onOpenCourse} />
+                  </>
                 )}
-                {methodology?.why && <Field label="为什么用"><CardMd text={methodology.why} /></Field>}
-                {methodology?.how && <Field label="怎么用"><CardMd text={methodology.how} /></Field>}
-                {methodology?.when && <Field label="什么时候用"><CardMd text={methodology.when} /></Field>}
-                {example && <Field label="一个例子"><CardMd text={example} /></Field>}
-                <RelatedCourses label="在这些课程里学它" courses={relatedCourses} onOpenCourse={onOpenCourse} />
               </div>
             ) : c.encountered ? (
               <div className="flex flex-col gap-5">
@@ -236,7 +323,7 @@ export function CardDetailModal({ c, courses, onClose, onOpenCourse }: { c: Deta
                   你已经练过这张卡 <b className="text-mk-ink">{c.uses}</b> 次
                   {c.lastUsed && <>，最近一次在 <b className="text-mk-ink">{c.lastUsed.slice(0, 10)}</b></>}。
                 </div>
-                {methodology?.why && <Field label="你练的思路"><CardMd text={methodology.why} /></Field>}
+                {(teaching?.tagline || methodology?.why) && <Field label="你练的思路"><CardMd text={teaching?.tagline || methodology!.why} /></Field>}
                 <RelatedCourses label="再练一次" courses={relatedCourses} onOpenCourse={onOpenCourse} />
               </div>
             ) : (
