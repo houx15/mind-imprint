@@ -46,15 +46,34 @@ type putCourseDefinitionReq struct {
 }
 
 // putCourseDefinitionDoc is the border slice of `definition` this handler
-// validates. The document's full shape (objectives/parts/interactions/…) is
-// the generator's concern, never this handler's.
+// validates. The document's full shape (objectives/interactions/…) is the
+// generator's concern, never this handler's — but `parts[].slices[]` is parsed
+// (shallow, just to COUNT) because a slice is a course "step": the count feeds
+// the catalog's `step_count` (the "N 步" label + progress math). See
+// courseStepCount below.
 type putCourseDefinitionDoc struct {
 	SchemaVersion string `json:"schemaVersion"`
 	Course        struct {
 		ID               string `json:"id"`
 		Title            string `json:"title"`
 		EstimatedMinutes int    `json:"estimatedMinutes"`
+		Parts            []struct {
+			Slices []json.RawMessage `json:"slices"`
+		} `json:"parts"`
 	} `json:"course"`
+}
+
+// courseStepCount is the authored step count of a 2.0 course: the total number
+// of slices across every part. One slice = one "step" (the runtime's own
+// progress bar reads `第 X / Y 步` off the same slice sequence), so this is the
+// denominator the catalog surfaces divide by and the label they render. Empty
+// parts contribute 0; a course with no parts is 0 steps.
+func courseStepCount(doc putCourseDefinitionDoc) int {
+	n := 0
+	for _, part := range doc.Course.Parts {
+		n += len(part.Slices)
+	}
+	return n
 }
 
 // putCourseDefinition lets the course generator push a CourseDefinition 2.0
@@ -149,6 +168,7 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 		TimeLabel:    timeLabel,
 		CardIDs:      cardIDs,
 		Definition:   body.Definition,
+		StepCount:    courseStepCount(doc),
 		Category:     categoryPtr,
 		Introduction: introBytes,
 	})
@@ -156,5 +176,5 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": status})
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"slug": slug, "status": status, "step_count": courseStepCount(doc)})
 }

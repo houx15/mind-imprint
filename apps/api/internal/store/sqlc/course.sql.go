@@ -411,10 +411,11 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 
 const upsertCourseDefinition = `-- name: UpsertCourseDefinition :one
 INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, status, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,$8,$9,'preview', now())
+VALUES ($1, $2, $3, $4, $5, $6, $7, '{}','{}', $8, $9, $10,'preview', now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
+  step_count = EXCLUDED.step_count,
   course_definition = EXCLUDED.course_definition,
   category = EXCLUDED.category, introduction = EXCLUDED.introduction, updated_at = now()
 RETURNING slug, status
@@ -427,6 +428,7 @@ type UpsertCourseDefinitionParams struct {
 	Blurb            string   `json:"blurb"`
 	TimeLabel        string   `json:"time_label"`
 	CardIds          []string `json:"card_ids"`
+	StepCount        int32    `json:"step_count"`
 	CourseDefinition []byte   `json:"course_definition"`
 	Category         *string  `json:"category"`
 	Introduction     []byte   `json:"introduction"`
@@ -449,6 +451,7 @@ func (q *Queries) UpsertCourseDefinition(ctx context.Context, arg UpsertCourseDe
 		arg.Blurb,
 		arg.TimeLabel,
 		arg.CardIds,
+		arg.StepCount,
 		arg.CourseDefinition,
 		arg.Category,
 		arg.Introduction,

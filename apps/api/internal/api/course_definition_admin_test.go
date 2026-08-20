@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -311,4 +312,77 @@ func TestCourseDefinitionAdminIntroductionNullTreatedAsUnset(t *testing.T) {
 	if len(found.Introduction) != 0 {
 		t.Fatalf("stored Introduction = %s, want unset (nil) for a JSON null input", found.Introduction)
 	}
+}
+
+// courseDefinitionDocWithSlices builds a border-valid 2.0 doc whose parts carry
+// the given per-part slice counts (each slice a minimal {id} stub). Used to
+// prove the catalog step_count = total slices across parts.
+func courseDefinitionDocWithSlices(id string, perPart ...int) string {
+	parts := make([]string, 0, len(perPart))
+	sliceN := 0
+	for _, count := range perPart {
+		slices := make([]string, 0, count)
+		for i := 0; i < count; i++ {
+			sliceN++
+			slices = append(slices, `{"id":"s`+strconv.Itoa(sliceN)+`","title":"S","blocks":[],"layout":{"preset":"full","slots":[{"id":"main","blockIds":[]}]},"workflow":{"steps":[]},"navigation":{}}`)
+		}
+		parts = append(parts, `{"id":"p`+strconv.Itoa(len(parts)+1)+`","title":"P","slices":[`+strings.Join(slices, ",")+`]}`)
+	}
+	return `{"schemaVersion":"2.0","course":{"id":"` + id + `","title":"Generated Course","language":"en","estimatedMinutes":7,"objectives":[],"parts":[` + strings.Join(parts, ",") + `]}}`
+}
+
+// TestCourseDefinitionAdminStepCountFromSlices proves the fix: publishing a 2.0
+// definition sets step_count = total slices across parts (not the old hardcoded
+// 0), the PUT response echoes it, the catalog row carries it, and a re-PUT with
+// a different slice count UPDATES the stored value (ON CONFLICT ... step_count).
+func TestCourseDefinitionAdminStepCountFromSlices(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, OSSAdminKey: testAdminKey}).Handler()
+	store := agent.NewSqlcAgentStore(sqlc.New(pool), pool)
+
+	// 2 parts, 2 + 1 slices → 3 steps.
+	body := putCourseDefinitionBody(courseDefinitionDocWithSlices("stepc", 2, 1), []string{}, "steps")
+	rec := putDefinition(h, "stepc", body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("put: want 200 got %d %s", rec.Code, rec.Body)
+	}
+	var resp struct {
+		StepCount int `json:"step_count"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if resp.StepCount != 3 {
+		t.Fatalf("PUT response step_count = %d, want 3", resp.StepCount)
+	}
+
+	rows, err := store.ListCourses(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ListCourses: %v", err)
+	}
+	if sc := stepCountOf(rows, "stepc"); sc != 3 {
+		t.Fatalf("catalog step_count = %d, want 3", sc)
+	}
+
+	// Re-PUT with 5 slices (3 + 2) → the stored count must UPDATE, not stick at 3.
+	body2 := putCourseDefinitionBody(courseDefinitionDocWithSlices("stepc", 3, 2), []string{}, "steps")
+	if rec2 := putDefinition(h, "stepc", body2); rec2.Code != http.StatusOK {
+		t.Fatalf("re-put: want 200 got %d %s", rec2.Code, rec2.Body)
+	}
+	rows2, err := store.ListCourses(context.Background(), true)
+	if err != nil {
+		t.Fatalf("ListCourses 2: %v", err)
+	}
+	if sc := stepCountOf(rows2, "stepc"); sc != 5 {
+		t.Fatalf("catalog step_count after re-put = %d, want 5 (ON CONFLICT must update)", sc)
+	}
+}
+
+func stepCountOf(rows []agent.CourseSummaryRow, slug string) int {
+	for _, r := range rows {
+		if r.Slug == slug {
+			return r.StepCount
+		}
+	}
+	return -1
 }

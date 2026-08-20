@@ -644,6 +644,11 @@ type UpsertCourseDefinitionInput struct {
 	TimeLabel  string
 	CardIDs    []string
 	Definition []byte
+	// StepCount is the authored slice count (one slice = one step). Stored on
+	// the course row's step_count so the catalog's "N 步" label and progress
+	// math work for 2.0 courses; the runtime's own in-course progress is
+	// session-derived and does not read this.
+	StepCount int
 
 	Category     *string
 	Introduction []byte
@@ -663,6 +668,7 @@ func (s *sqlcAgentStore) UpsertCourseDefinition(ctx context.Context, in UpsertCo
 		Slug: in.Slug, Branch: in.Branch, Title: in.Title, Blurb: in.Blurb,
 		TimeLabel:        in.TimeLabel,
 		CardIds:          cardIDs,
+		StepCount:        int32(in.StepCount),
 		CourseDefinition: in.Definition,
 		Category:         in.Category,
 		Introduction:     in.Introduction,
