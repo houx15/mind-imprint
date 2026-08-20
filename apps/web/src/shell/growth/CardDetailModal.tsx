@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import remarkCjkFriendly from "remark-cjk-friendly";
 import type { Components } from "react-markdown";
 import { Star, X, ArrowRight } from "lucide-react";
 import { CARD_REGISTRY, type CardCatalogEntry, type CourseSummary } from "@mind-imprint/contracts";
@@ -83,7 +84,7 @@ const CARD_MD: Components = {
 function CardMd({ text }: { text: string }) {
   return (
     <div style={{ marginBottom: -8, fontSize: 14, color: "var(--mk-secondary)" }}>
-      <ReactMarkdown remarkPlugins={[remarkGfm]} components={CARD_MD}>{text}</ReactMarkdown>
+      <ReactMarkdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} components={CARD_MD}>{text}</ReactMarkdown>
     </div>
   );
 }
