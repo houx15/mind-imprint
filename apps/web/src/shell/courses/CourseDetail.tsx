@@ -2,16 +2,18 @@ import { useEffect, useState } from "react";
 import type { CourseSummary, CardCatalogEntry } from "@mind-imprint/contracts";
 import { api } from "@/api";
 import { Button } from "@/ui";
+import { CardDetailModal } from "@/shell/growth/CardDetailModal";
 
 // One mapped tool card in the course summary: cover art (falls back to a text
 // face) + 中文名 + purpose. Rendering one per course.card_ids means a course
-// with several cards shows all of them, not just a count.
-function CourseCardChip({ id, info }: { id: string; info?: CardCatalogEntry }) {
+// with several cards shows all of them, not just a count. Clicking it opens the
+// same card detail modal the 图鉴 gallery uses.
+function CourseCardChip({ id, info, onOpen }: { id: string; info?: CardCatalogEntry; onOpen: () => void }) {
   const [failed, setFailed] = useState(false);
   const name = info?.name ?? id;
   const showImg = Boolean(info?.coverUrl) && !failed;
   return (
-    <div style={{ display: "flex", gap: 12, border: "1px solid var(--mk-border)", borderRadius: 12, padding: 10, background: "var(--mk-surface)" }}>
+    <button type="button" onClick={onOpen} title={name} style={{ display: "flex", gap: 12, border: "1px solid var(--mk-border)", borderRadius: 12, padding: 10, background: "var(--mk-surface)", textAlign: "left", cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
       <div style={{ flex: "none", width: 52, height: 70, borderRadius: 8, overflow: "hidden", border: "1px solid var(--mk-border)", background: "linear-gradient(150deg,var(--mk-accent-500),var(--mk-accent-600))", display: "flex", alignItems: "center", justifyContent: "center" }}>
         {showImg ? (
           <img src={info!.coverUrl} alt={name} onError={() => setFailed(true)} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
@@ -25,7 +27,7 @@ function CourseCardChip({ id, info }: { id: string; info?: CardCatalogEntry }) {
           <div style={{ fontSize: 12, color: "var(--mk-muted)", lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{info.purpose}</div>
         )}
       </div>
-    </div>
+    </button>
   );
 }
 
@@ -52,15 +54,18 @@ function AlignmentColumn({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart: () => void; onBack: () => void }) {
+export function CourseDetail({ slug, onStart, onBack, onOpenCourse }: { slug: string; onStart: () => void; onBack: () => void; onOpenCourse?: (slug: string) => void }) {
   const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined); // undefined=loading, null=not found
   const [pct, setPct] = useState<number | null>(null);
   const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
+  const [courses, setCourses] = useState<CourseSummary[]>([]); // full list, for the card modal's related courses
+  const [selectedCardId, setSelectedCardId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     void api.listCourses().then((cs) => {
       if (cancelled) return;
+      setCourses(cs);
       const found = cs.find((c) => c.slug === slug) ?? null;
       setCourse(found);
       if (found && found.step_count > 0) {
@@ -151,7 +156,7 @@ export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart:
           <section style={{ marginTop: 34 }}>
             <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 14 }}>这门课会用到的思维工具卡</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
-              {course.card_ids.map((id) => <CourseCardChip key={id} id={id} info={cardInfo[id]} />)}
+              {course.card_ids.map((id) => <CourseCardChip key={id} id={id} info={cardInfo[id]} onOpen={() => setSelectedCardId(id)} />)}
             </div>
           </section>
         )}
@@ -163,6 +168,15 @@ export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart:
           </button>
         </div>
       </div>
+
+      {selectedCardId && cardInfo[selectedCardId] && (
+        <CardDetailModal
+          c={cardInfo[selectedCardId]!}
+          courses={courses}
+          onClose={() => setSelectedCardId(null)}
+          onOpenCourse={onOpenCourse ? (s) => { setSelectedCardId(null); onOpenCourse(s); } : undefined}
+        />
+      )}
     </div>
   );
 }

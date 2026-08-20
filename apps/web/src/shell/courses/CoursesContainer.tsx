@@ -110,6 +110,7 @@ export function CoursesContainer({ onGoPortal, initialCourseId, onCourseConsumed
         slug={view.courseId}
         onStart={() => setView({ name: "player", courseId: view.courseId })}
         onBack={() => setView({ name: "grid" })}
+        onOpenCourse={(id) => setView({ name: "detail", courseId: id })}
       />
     );
   }
