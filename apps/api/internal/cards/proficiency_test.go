@@ -73,23 +73,29 @@ func TestComputeProficiency_BreadthRewardsTransfer(t *testing.T) {
 }
 
 func TestCoverKey(t *testing.T) {
-	// craap -> T01 exists in the manifest for every theme.
+	// Every theme resolves to that theme's variant, keyed by card id.
+	wantVariant := map[string]string{
+		"light":       "web/cards/v2/craap-1.webp",
+		"cyber-slate": "web/cards/v2/craap-2.webp",
+		"cyber-sage":  "web/cards/v2/craap-3.webp",
+		"cyber-warm":  "web/cards/v2/craap-4.webp",
+	}
 	for _, th := range Themes {
-		key, ok := CoverKey("T01", th)
-		if !ok || key == "" {
-			t.Fatalf("T01/%s should resolve to a key, got %q %v", th, key, ok)
+		key, ok := CoverKey("craap", th)
+		if !ok || key != wantVariant[th] {
+			t.Fatalf("craap/%s = %q %v, want %q", th, key, ok, wantVariant[th])
 		}
 	}
-	// Unknown theme falls back to default (still resolves).
-	if _, ok := CoverKey("T01", "not-a-theme"); !ok {
-		t.Fatalf("unknown theme should fall back to default and resolve")
+	// Unknown theme falls back to the default (white) variant, still resolves.
+	if key, ok := CoverKey("craap", "not-a-theme"); !ok || key != "web/cards/v2/craap-1.webp" {
+		t.Fatalf("unknown theme should fall back to white variant, got %q %v", key, ok)
 	}
-	// No asset id -> no cover.
+	// No card id -> no cover.
 	if _, ok := CoverKey("", "light"); ok {
-		t.Fatalf("empty asset id must not resolve")
+		t.Fatalf("empty card id must not resolve")
 	}
-	// A T-number with no cover art -> no cover.
-	if _, ok := CoverKey("T99", "light"); ok {
-		t.Fatalf("unknown asset id must not resolve")
+	// A coverless card (toulmin) -> no cover, renders a text face.
+	if _, ok := CoverKey("toulmin", "light"); ok {
+		t.Fatalf("toulmin has no v2 cover and must not resolve")
 	}
 }

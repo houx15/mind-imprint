@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { CourseSummary } from "@mind-imprint/contracts";
 import { api } from "../../api";
 import { coverGradientStyle } from "@/ui";
@@ -64,9 +64,33 @@ function CourseCard({ course, pct, onOpen, onRestart }: { course: CourseSummary;
   );
 }
 
+function FilterChip({ label, count, active, onClick }: { label: string; count: number; active: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 6, padding: "7px 14px", borderRadius: 999,
+        fontSize: 13, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", transition: "background .12s,border-color .12s,color .12s",
+        ...(active
+          ? { background: "var(--mk-accent-500)", color: "var(--mk-surface)", border: "1px solid var(--mk-accent-500)" }
+          : { background: "var(--mk-surface)", color: "var(--mk-secondary)", border: "1px solid var(--mk-border)" }),
+      }}
+    >
+      {label}
+      <span style={{ fontSize: 11.5, fontWeight: 700, opacity: active ? 0.85 : 0.55 }}>{count}</span>
+    </button>
+  );
+}
+
 export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: (id: string) => void; onRestartCourse?: (id: string) => void } = {}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [pctById, setPctById] = useState<Record<string, number | null>>({});
+  // Category filter: "all" shows every group stacked; a category slug narrows to
+  // just that group's courses. A pure UI filter — no server round-trip, 铁律②:
+  // categories are the only axis, no popularity/recency sort.
+  const [filter, setFilter] = useState<string>("all");
 
   useEffect(() => {
     let cancelled = false;
@@ -84,6 +108,16 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
     return () => { cancelled = true; };
   }, []);
 
+  const groups = useMemo(() => groupCoursesByCategory(courses ?? []), [courses]);
+  // If the active filter names a group that no longer exists (courses changed),
+  // fall back to showing everything rather than a blank page.
+  const activeGroups = filter === "all" ? groups : groups.filter((g) => g.slug === filter);
+  // Fall back to the full grouped view if the active filter names a group that no
+  // longer exists (e.g. the course list changed under it) — never a blank page,
+  // and show headings in that fallback just like "全部".
+  const showAllView = filter === "all" || activeGroups.length === 0;
+  const shownGroups = showAllView ? groups : activeGroups;
+
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
       <div style={{ maxWidth: 1000, margin: "0 auto", padding: "44px 40px 60px" }}>
@@ -93,18 +127,28 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
         {courses != null && courses.length === 0 ? (
           <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: 40, marginTop: 28 }}>
-            {groupCoursesByCategory(courses ?? []).map((group) => (
-              <section key={group.slug}>
-                <div style={{ fontSize: 18, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 16 }}>{group.label}</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20 }}>
-                  {group.courses.map((c) => (
-                    <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />
-                  ))}
-                </div>
-              </section>
-            ))}
-          </div>
+          <>
+            {groups.length > 0 && (
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 26 }}>
+                <FilterChip label="全部" count={courses?.length ?? 0} active={filter === "all"} onClick={() => setFilter("all")} />
+                {groups.map((g) => (
+                  <FilterChip key={g.slug} label={g.label} count={g.courses.length} active={filter === g.slug} onClick={() => setFilter(g.slug)} />
+                ))}
+              </div>
+            )}
+            <div style={{ display: "flex", flexDirection: "column", gap: 40, marginTop: 28 }}>
+              {shownGroups.map((group) => (
+                <section key={group.slug}>
+                  {showAllView && <div style={{ fontSize: 18, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 16 }}>{group.label}</div>}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20 }}>
+                    {group.courses.map((c) => (
+                      <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />
+                    ))}
+                  </div>
+                </section>
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>

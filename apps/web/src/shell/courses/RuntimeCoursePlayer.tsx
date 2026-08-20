@@ -5,6 +5,7 @@ import type { CourseRuntimeAdapters } from "@mind-imprint/course-runtime";
 import { collectAssetPaths } from "@mind-imprint/course-contract";
 import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
 import { api } from "@/api";
+import { useAccentHex } from "@/ui";
 import { AskPanel, type AskMessage } from "./AskPanel";
 import { getCourseDefinition } from "@/api/courseDefinition";
 import { fetchCourseAssetUrls } from "@/api/courseAssetUrls";
@@ -54,6 +55,9 @@ export function RuntimeCoursePlayer({
   onExit: () => void;
   onFinish: () => void;
 }) {
+  // The AskPanel bean follows the student's chosen accent (Bean needs a concrete
+  // hex, so this resolves the accent's 500 rather than passing a CSS var).
+  const accentHex = useAccentHex();
   const [document, setDocument] = useState<unknown | null>(null);
   const [error, setError] = useState<string | null>(null);
   // P2-08/D5 — the current definition's content hash, threaded through to
@@ -306,7 +310,7 @@ export function RuntimeCoursePlayer({
         <AskPanel
           expanded={askExpanded}
           onToggle={() => setAskExpanded((e) => !e)}
-          branchColor="#EA5140"
+          branchColor={accentHex}
           context={courseTitle}
           chips={[]}
           messages={askMessages}

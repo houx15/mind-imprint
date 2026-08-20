@@ -250,3 +250,14 @@ export function AccentProvider({ children, initialAccent, onPersist }: AccentPro
 }
 
 export const useAccent = (): AccentContextValue => useContext(AccentContext);
+
+/**
+ * The current accent's concrete 500 hex (e.g. "#EA5140"). For the rare JS
+ * context that needs a real color value rather than `var(--mk-accent-500)` —
+ * e.g. Bean, whose luminance-contrast math must parse the hex. Prefer the CSS
+ * var everywhere else so the accent stays token-driven.
+ */
+export function useAccentHex(): string {
+  const { id } = useAccent();
+  return (ACCENT_PRESETS.find((p) => p.id === id) ?? ACCENT_PRESETS[0]).scale[500];
+}

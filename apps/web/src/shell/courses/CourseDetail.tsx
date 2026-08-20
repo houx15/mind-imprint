@@ -1,7 +1,33 @@
 import { useEffect, useState } from "react";
-import type { CourseSummary } from "@mind-imprint/contracts";
+import type { CourseSummary, CardCatalogEntry } from "@mind-imprint/contracts";
 import { api } from "@/api";
 import { Button } from "@/ui";
+
+// One mapped tool card in the course summary: cover art (falls back to a text
+// face) + 中文名 + purpose. Rendering one per course.card_ids means a course
+// with several cards shows all of them, not just a count.
+function CourseCardChip({ id, info }: { id: string; info?: CardCatalogEntry }) {
+  const [failed, setFailed] = useState(false);
+  const name = info?.name ?? id;
+  const showImg = Boolean(info?.coverUrl) && !failed;
+  return (
+    <div style={{ display: "flex", gap: 12, border: "1px solid var(--mk-border)", borderRadius: 12, padding: 10, background: "var(--mk-surface)" }}>
+      <div style={{ flex: "none", width: 52, height: 70, borderRadius: 8, overflow: "hidden", border: "1px solid var(--mk-border)", background: "linear-gradient(150deg,var(--mk-accent-500),var(--mk-accent-600))", display: "flex", alignItems: "center", justifyContent: "center" }}>
+        {showImg ? (
+          <img src={info!.coverUrl} alt={name} onError={() => setFailed(true)} style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+        ) : (
+          <span style={{ padding: "0 4px", textAlign: "center", fontSize: 9.5, fontWeight: 700, color: "rgba(255,255,255,.8)", lineHeight: 1.3 }}>{info?.nameEn || name}</span>
+        )}
+      </div>
+      <div style={{ minWidth: 0, flex: 1 }}>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: "var(--mk-ink)", lineHeight: 1.35 }}>{name}</div>
+        {info?.purpose && (
+          <div style={{ fontSize: 12, color: "var(--mk-muted)", lineHeight: 1.5, marginTop: 4, display: "-webkit-box", WebkitLineClamp: 2, WebkitBoxOrient: "vertical", overflow: "hidden" }}>{info.purpose}</div>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function Chips({ items }: { items: string[] }) {
   if (items.length === 0) return null;
@@ -29,6 +55,7 @@ function AlignmentColumn({ title, items }: { title: string; items: string[] }) {
 export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart: () => void; onBack: () => void }) {
   const [course, setCourse] = useState<CourseSummary | null | undefined>(undefined); // undefined=loading, null=not found
   const [pct, setPct] = useState<number | null>(null);
+  const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
 
   useEffect(() => {
     let cancelled = false;
@@ -46,6 +73,19 @@ export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart:
     }).catch(() => { if (!cancelled) setCourse(null); });
     return () => { cancelled = true; };
   }, [slug]);
+
+  // Card details for the mapped tool cards — best-effort; the page still renders
+  // (id-fallback names, gradient faces) if the catalog fetch fails.
+  useEffect(() => {
+    let cancelled = false;
+    void api.getCardsCatalog().then((cat) => {
+      if (cancelled) return;
+      const m: Record<string, CardCatalogEntry> = {};
+      for (const c of cat.cards as CardCatalogEntry[]) m[c.cardId] = c;
+      setCardInfo(m);
+    }).catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   if (course === undefined) {
     return <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--mk-faint)", fontSize: 14 }}>正在加载课程…</div>;
@@ -105,6 +145,15 @@ export function CourseDetail({ slug, onStart, onBack }: { slug: string; onStart:
           </div>
         ) : (
           <p style={{ fontSize: 15, color: "var(--mk-secondary)", lineHeight: 1.75, marginTop: 24 }}>{course.blurb}</p>
+        )}
+
+        {course.card_ids.length > 0 && (
+          <section style={{ marginTop: 34 }}>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 14 }}>这门课会用到的思维工具卡</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(240px,1fr))", gap: 12 }}>
+              {course.card_ids.map((id) => <CourseCardChip key={id} id={id} info={cardInfo[id]} />)}
+            </div>
+          </section>
         )}
 
         <div style={{ marginTop: 40 }}>

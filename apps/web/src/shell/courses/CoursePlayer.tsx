@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { CourseAsset, CoursePlayerPayload } from "@mind-imprint/contracts";
 import { api } from "../../api";
+import { useAccentHex } from "@/ui";
 import { SegmentTimeline, buildTimeline, pieceIdFor } from "./SegmentTimeline";
 import { AskPanel, type AskMessage } from "./AskPanel";
 
@@ -19,6 +20,7 @@ function nextAskId(prefix: string) {
 // every quiz on the page before advancing (any answer — never gated on
 // correctness). Within a step, revealing is still free (tap anywhere).
 export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string; onExit: () => void; onFinish: () => void }) {
+  const accentHex = useAccentHex();
   const [payload, setPayload] = useState<CoursePlayerPayload | null>(null);
   const [ordinal, setOrdinal] = useState(0);
   const [completed, setCompleted] = useState<number[]>([]);
@@ -609,7 +611,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
         <AskPanel
           expanded={askExpanded}
           onToggle={() => setAskExpanded((e) => !e)}
-          branchColor="#EA5140"
+          branchColor={accentHex}
           context={payload.title}
           chips={[]}
           messages={askMessages}
