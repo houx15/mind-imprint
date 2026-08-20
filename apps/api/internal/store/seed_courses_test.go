@@ -102,6 +102,17 @@ func TestSeedCourses(t *testing.T) {
 		t.Fatalf("b-mid.StepCount = %d, want > 0", bMid.StepCount)
 	}
 
+	// The golden 2.0 course's step_count must be its slice count, NOT 0 — the
+	// seed loader re-upserts this row on every boot, so a hardcoded 0 here would
+	// re-introduce the "0 步" catalog bug even after a backfill migration.
+	golden, ok := bySlug["evidence-comparability"]
+	if !ok {
+		t.Fatalf("golden course evidence-comparability not seeded; got slugs %v", bySlug)
+	}
+	if golden.StepCount <= 0 {
+		t.Fatalf("evidence-comparability.StepCount = %d, want > 0 (one slice = one step)", golden.StepCount)
+	}
+
 	// Idempotent: calling SeedCourses again does not error and does not
 	// duplicate rows (upsert-by-slug).
 	n2, err := store.SeedCourses(ctx, pool, nil, nil)
