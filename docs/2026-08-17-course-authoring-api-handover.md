@@ -1,7 +1,7 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at tag:** `course-authoring-v1.5.1` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
+**Pinned at tag:** `course-authoring-v1.5.2` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
 > **Read this first — honesty note.** Your request (items 3 and 4) asks us to *confirm* several guarantees: optimistic concurrency, idempotent publishing, SHA-256 dedup, and upload support for all six media types. **Some of these do not exist in the current backend.** Rather than confirm them falsely, this document states plainly what exists today, what does not, and — for each gap — the workaround or the backend change you should request. The gaps are collected in §7 ("Gap register") so your planning can account for them up front.
@@ -12,7 +12,7 @@
 
 ### 1.1 The three shared packages
 
-All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.5.1`** (see "How to consume the pin" below).
+All three are **workspace packages with version `0.0.0`** — they are not independently semver-published. The *git tag is the version*: pin to **`course-authoring-v1.5.2`** (see "How to consume the pin" below).
 
 | Package | Name | Version | Runtime deps | Purpose |
 |---|---|---|---|---|
@@ -20,11 +20,12 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 | `packages/course-runtime` | `@mind-imprint/course-runtime` | `0.0.0` | `@mind-imprint/course-contract` (workspace) | Headless (no React) deterministic session state machine + host-injection adapter contracts + `InMemorySessionAdapter`. |
 | `packages/course-renderer` | `@mind-imprint/course-renderer` | `0.0.0` | contract + runtime (workspace), `react-markdown@^10.1.0`, `remark-gfm@^4.0.1`; peer `react@^18.3.0`, `react-dom@^18.3.0` | The **real student React renderer** (`CoursePlayer`) you will preview against. Chrome-agnostic. |
 
-**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.5.1`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
-- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.5.1`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
+**How to consume the pin.** These packages are `workspace:*` and are not published to any registry. Pin to the **annotated git tag `course-authoring-v1.5.2`** (on `main`) rather than a moving branch or a raw SHA — it is the named contract snapshot. Two ways to vendor:
+- **Git submodule / subtree / sparse checkout** of `packages/course-contract`, `packages/course-runtime`, `packages/course-renderer` at tag `course-authoring-v1.5.2`. They are self-contained (only external deps are `zod`, `react-markdown`, `remark-gfm`, `react`).
 - **Vendored copy** of the same three package directories at that tag.
 
 When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog** (renderer-only unless a ⚠ marks a contract change):
+- **`course-authoring-v1.5.2`** — renderer bugfix (no contract change). PDF "open" links now reliably open a **new tab** and no longer carry a `download` attribute. A cross-origin signed CDN URL made the browser ignore `download` and drop `target="_blank"`, navigating the **current** tab to the PDF; with no URL routing, a "back" click then left the course for the homepage. The header link + the error-state fallback are now `target="_blank" rel="noopener noreferrer"` (no `download`), so the course tab stays intact; the browser's own viewer in the new tab still offers download.
 - **`course-authoring-v1.5.1`** — renderer-visual only (no contract change; every `CourseDefinition` valid under v1.4.0 is unchanged, and **layout flexibility is untouched** — the full preset + ratio set, including `split-vertical`, stays exactly as before). This snapshot bundles all of the 2026-08-20 course-end polish:
   - **Every slot centers its content vertically** — a short reading card, a single figure, or the two stacked blocks of a split column float in the middle of their region instead of clinging to the top (media that fills its slot is unaffected).
   - **Images are click-to-enlarge** — clicking any course figure opens a lightbox where the image can be **zoomed with the scroll wheel** and **dragged to pan**; Escape, the ✕, or a backdrop click closes it. Any `images` block gets this for free.
