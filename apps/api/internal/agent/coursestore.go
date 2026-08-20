@@ -203,7 +203,39 @@ func (s *sqlcAgentStore) UpsertCourse(ctx context.Context, in UpsertCourseInput)
 // yet (first-time visitor) is not an error: it returns a zero progress row
 // still carrying the resolved CourseID, mirroring the pre-v2 handler's own
 // zero-progress default (internal/api/course.go's getCourseProgress).
+//
+// A 2.0 (runtime) course keeps its progress in course_session, not
+// course_progress, so its completion is derived from the session's completed
+// slice states (GetCourseSessionProgressBySlug) and takes precedence when a
+// session exists — that is what lets the catalog ring reflect a 2.0 course's
+// real progress. CompletedOrdinals is synthesized as the prefix [0..n) of the
+// completed-slice count: the catalog consumers use only its length, and a course
+// is completed slice-by-slice in order, so a prefix is a faithful record.
 func (s *sqlcAgentStore) GetProgress(ctx context.Context, userID uuid.UUID, slug string) (CourseProgressRow, error) {
+	if sp, serr := s.q.GetCourseSessionProgressBySlug(ctx, sqlc.GetCourseSessionProgressBySlugParams{UserID: userID, Slug: slug}); serr == nil {
+		n := int(sp.CompletedSlices)
+		if n < 0 {
+			n = 0
+		}
+		ords := make([]int, n)
+		for i := range ords {
+			ords[i] = i
+		}
+		var completedAt *time.Time
+		if sp.Status == "completed" {
+			t := sp.UpdatedAt
+			completedAt = &t
+		}
+		return CourseProgressRow{
+			CourseID:          sp.CourseID,
+			CompletedOrdinals: ords,
+			CompletedAt:       completedAt,
+			UpdatedAt:         sp.UpdatedAt,
+		}, nil
+	} else if !errors.Is(serr, pgx.ErrNoRows) {
+		return CourseProgressRow{}, serr
+	}
+
 	row, err := s.q.GetCourseProgressBySlug(ctx, sqlc.GetCourseProgressBySlugParams{UserID: userID, Slug: slug})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {

@@ -10,6 +10,7 @@ import (
 	"context"
 	"encoding/json"
 	"reflect"
+	"strconv"
 	"testing"
 
 	"github.com/google/uuid"
@@ -268,5 +269,99 @@ func TestUpsertCourseDefinitionPersistsCatalogMetadata(t *testing.T) {
 	}
 	if len(got.Introduction) == 0 {
 		t.Fatal("introduction not persisted")
+	}
+}
+
+// TestGetProgressDerivesFromSession proves a 2.0 course's catalog progress comes
+// from course_session.sliceStates (not course_progress, which it never writes):
+// the completed-slice count drives CompletedOrdinals' length, and a finished
+// session clamps to step_count so the ring reads 100%.
+func TestGetProgressDerivesFromSession(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires postgres")
+	}
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+	ctx := context.Background()
+
+	// A 2.0 course with 4 authored steps.
+	if _, err := store.UpsertCourseDefinition(ctx, agent.UpsertCourseDefinitionInput{
+		Slug: "sess-prog", Branch: "Runtime", Title: "T", Blurb: "b",
+		CardIDs:    []string{},
+		Definition: []byte(`{"schemaVersion":"2.0","course":{"id":"sess-prog","title":"T"}}`),
+		StepCount:  4,
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	_, courseID, err := store.GetCoursePayload(ctx, "sess-prog")
+	if err != nil {
+		t.Fatalf("GetCoursePayload: %v", err)
+	}
+	userID := seededStudentID
+
+	// Session with 2 of 4 slices completed → progress length 2.
+	session := func(status string, completedSlices int) []byte {
+		states := ""
+		for i := 0; i < completedSlices; i++ {
+			if i > 0 {
+				states += ","
+			}
+			states += `"s` + strconv.Itoa(i) + `":{"status":"completed"}`
+		}
+		return []byte(`{"id":"x","courseId":"sess-prog","courseSchemaVersion":"2.0","studentId":"u",` +
+			`"status":"` + status + `","sliceStates":{` + states + `},"events":[]}`)
+	}
+	// Insert the session row first (SaveCourseSession is UPDATE-only; production
+	// get-or-creates before any snapshot save).
+	if _, err := store.CreateCourseSession(ctx, userID, courseID, session("in-progress", 2), "in-progress"); err != nil {
+		t.Fatalf("CreateCourseSession: %v", err)
+	}
+	p, err := store.GetProgress(ctx, userID, "sess-prog")
+	if err != nil {
+		t.Fatalf("GetProgress: %v", err)
+	}
+	if len(p.CompletedOrdinals) != 2 {
+		t.Fatalf("in-progress: CompletedOrdinals len = %d, want 2", len(p.CompletedOrdinals))
+	}
+	if p.CompletedAt != nil {
+		t.Fatalf("in-progress: CompletedAt should be nil, got %v", p.CompletedAt)
+	}
+
+	// A finished session clamps to step_count (4) and sets CompletedAt, even
+	// though only 3 slice states are marked (the closing flip can outrun the
+	// last slice's own state).
+	if err := store.SaveCourseSession(ctx, userID, courseID, session("completed", 3), "completed"); err != nil {
+		t.Fatalf("SaveCourseSession (completed): %v", err)
+	}
+	p2, err := store.GetProgress(ctx, userID, "sess-prog")
+	if err != nil {
+		t.Fatalf("GetProgress (completed): %v", err)
+	}
+	if len(p2.CompletedOrdinals) != 4 {
+		t.Fatalf("completed: CompletedOrdinals len = %d, want 4 (clamped to step_count)", len(p2.CompletedOrdinals))
+	}
+	if p2.CompletedAt == nil {
+		t.Fatalf("completed: CompletedAt should be set")
+	}
+
+	// Learning history reflects the same completed-slice count for the runtime
+	// course (was hardcoded 0 for runtime before this change). The session is
+	// now "completed" → clamps to step_count 4.
+	hist, err := store.ListCourseHistory(ctx, userID)
+	if err != nil {
+		t.Fatalf("ListCourseHistory: %v", err)
+	}
+	var found bool
+	for _, h := range hist {
+		if h.Slug == "sess-prog" {
+			found = true
+			if h.CompletedCount != 4 {
+				t.Fatalf("history CompletedCount = %d, want 4", h.CompletedCount)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("sess-prog not in learning history")
 	}
 }

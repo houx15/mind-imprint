@@ -42,7 +42,10 @@ export async function restartCourse(slug: string): Promise<void> {
 
 /** One touched course in the student's learning history. status is the raw
  * runtime session status (created/opening/in-progress/closing/completed) or
- * 'completed'/'in-progress' for a legacy course; completedCount is legacy-only. */
+ * 'completed'/'in-progress' for a legacy course. completedCount is the number of
+ * completed steps for BOTH storages — a runtime course counts its completed
+ * slices from the session (clamped to step_count when finished), a legacy course
+ * counts its completed ordinals. */
 export interface CourseHistoryItem {
   slug: string;
   status: string;

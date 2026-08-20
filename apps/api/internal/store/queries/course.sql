@@ -33,6 +33,25 @@ SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.com
 FROM course_progress p JOIN course c ON c.id = p.course_id
 WHERE p.user_id = $1 AND c.slug = $2;
 
+-- name: GetCourseSessionProgressBySlug :one
+-- Catalog progress for a 2.0 (runtime) course: its progress lives in
+-- course_session (sliceStates: sliceId -> { status }), NOT course_progress, so
+-- the catalog's completion ring has to read it from here. Returns the count of
+-- completed slices — clamped so a finished session reads exactly step_count
+-- (100%) even if the last slice's state lagged the closing-scene flip, and never
+-- exceeds step_count. `sliceStates` is a contract-guaranteed object; the
+-- jsonb_typeof guard keeps a malformed/legacy blob from erroring the count.
+SELECT c.id AS course_id,
+       cs.status AS status,
+       cs.updated_at AS updated_at,
+       CASE WHEN cs.status = 'completed' THEN c.step_count
+            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+            ELSE 0 END AS completed_slices
+FROM course_session cs JOIN course c ON c.id = cs.course_id
+WHERE cs.user_id = $1 AND c.slug = $2;
+
 -- name: GetCourseProgressByCourseID :one
 -- Task 4 addition: SaveProgress's union-completed-ordinals step is keyed by
 -- courseUUID (not slug) — it already holds the course row's id from
@@ -108,8 +127,18 @@ DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2;
 -- runtime session status verbatim (created/opening/in-progress/closing/
 -- completed), or 'completed'/'in-progress' for a legacy course. The caller
 -- enriches title/cover from the course list, so this query stays cover-signing
--- free. completed_count is meaningful for legacy courses only (0 for runtime).
-SELECT c.slug AS slug, cs.status AS status, 0::int AS completed_count, cs.updated_at AS updated_at
+-- free. completed_count is the completed-step count for BOTH storages: a runtime
+-- course counts its completed slices from course_session.sliceStates (clamped to
+-- step_count; a finished session reads full step_count), a legacy course reads
+-- course_progress.completed_ordinals — so the history list shows a live ring for
+-- 2.0 courses too, not a stuck 0.
+SELECT c.slug AS slug, cs.status AS status,
+       CASE WHEN cs.status = 'completed' THEN c.step_count
+            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+            ELSE 0 END AS completed_count,
+       cs.updated_at AS updated_at
 FROM course_session cs JOIN course c ON c.id = cs.course_id
 WHERE cs.user_id = $1
 UNION ALL

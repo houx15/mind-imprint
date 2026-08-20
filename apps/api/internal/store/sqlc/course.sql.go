@@ -199,6 +199,50 @@ func (q *Queries) GetCourseProgressBySlug(ctx context.Context, arg GetCourseProg
 	return i, err
 }
 
+const getCourseSessionProgressBySlug = `-- name: GetCourseSessionProgressBySlug :one
+SELECT c.id AS course_id,
+       cs.status AS status,
+       cs.updated_at AS updated_at,
+       CASE WHEN cs.status = 'completed' THEN c.step_count
+            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+            ELSE 0 END AS completed_slices
+FROM course_session cs JOIN course c ON c.id = cs.course_id
+WHERE cs.user_id = $1 AND c.slug = $2
+`
+
+type GetCourseSessionProgressBySlugParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Slug   string    `json:"slug"`
+}
+
+type GetCourseSessionProgressBySlugRow struct {
+	CourseID        uuid.UUID `json:"course_id"`
+	Status          string    `json:"status"`
+	UpdatedAt       time.Time `json:"updated_at"`
+	CompletedSlices int32     `json:"completed_slices"`
+}
+
+// Catalog progress for a 2.0 (runtime) course: its progress lives in
+// course_session (sliceStates: sliceId -> { status }), NOT course_progress, so
+// the catalog's completion ring has to read it from here. Returns the count of
+// completed slices — clamped so a finished session reads exactly step_count
+// (100%) even if the last slice's state lagged the closing-scene flip, and never
+// exceeds step_count. `sliceStates` is a contract-guaranteed object; the
+// jsonb_typeof guard keeps a malformed/legacy blob from erroring the count.
+func (q *Queries) GetCourseSessionProgressBySlug(ctx context.Context, arg GetCourseSessionProgressBySlugParams) (GetCourseSessionProgressBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getCourseSessionProgressBySlug, arg.UserID, arg.Slug)
+	var i GetCourseSessionProgressBySlugRow
+	err := row.Scan(
+		&i.CourseID,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.CompletedSlices,
+	)
+	return i, err
+}
+
 const getCourseStatusBySlug = `-- name: GetCourseStatusBySlug :one
 SELECT status FROM course WHERE slug = $1
 `
@@ -211,7 +255,13 @@ func (q *Queries) GetCourseStatusBySlug(ctx context.Context, slug string) (strin
 }
 
 const listCourseHistory = `-- name: ListCourseHistory :many
-SELECT c.slug AS slug, cs.status AS status, 0::int AS completed_count, cs.updated_at AS updated_at
+SELECT c.slug AS slug, cs.status AS status,
+       CASE WHEN cs.status = 'completed' THEN c.step_count
+            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+            ELSE 0 END AS completed_count,
+       cs.updated_at AS updated_at
 FROM course_session cs JOIN course c ON c.id = cs.course_id
 WHERE cs.user_id = $1
 UNION ALL
@@ -236,7 +286,11 @@ type ListCourseHistoryRow struct {
 // runtime session status verbatim (created/opening/in-progress/closing/
 // completed), or 'completed'/'in-progress' for a legacy course. The caller
 // enriches title/cover from the course list, so this query stays cover-signing
-// free. completed_count is meaningful for legacy courses only (0 for runtime).
+// free. completed_count is the completed-step count for BOTH storages: a runtime
+// course counts its completed slices from course_session.sliceStates (clamped to
+// step_count; a finished session reads full step_count), a legacy course reads
+// course_progress.completed_ordinals — so the history list shows a live ring for
+// 2.0 courses too, not a stuck 0.
 func (q *Queries) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]ListCourseHistoryRow, error) {
 	rows, err := q.db.Query(ctx, listCourseHistory, userID)
 	if err != nil {
