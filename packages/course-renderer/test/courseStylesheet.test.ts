@@ -26,6 +26,16 @@ describe("course stylesheet (styles/course.css)", () => {
     expect(courseCssText).toMatch(/\.course-layout__slot\s*\{[^}]*overflow:\s*auto/);
   });
 
+  it("every slot centers its content vertically (safe center) — short cards float in the middle, not pinned to the top", () => {
+    expect(courseCssText).toMatch(/\.course-layout__slot\s*\{[^}]*justify-content:\s*safe\s+center/);
+  });
+
+  it("ships the click-to-enlarge image lightbox — dismissable backdrop + contained enlarged image", () => {
+    expect(courseCssText).toMatch(/\.course-lightbox\s*\{[^}]*position:\s*fixed/);
+    expect(courseCssText).toMatch(/\.course-lightbox__backdrop\s*\{[^}]*cursor:\s*zoom-out/);
+    expect(courseCssText).toMatch(/\.course-lightbox__img\s*\{[^}]*object-fit:\s*contain/);
+  });
+
   it("media (video/image/pdf) is contained to its slot — max-width/height:100% + object-fit", () => {
     expect(courseCssText).toMatch(/\.course-video__player\s*\{[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);
     expect(courseCssText).toMatch(/\.course-images__item img\s*\{[^}]*max-width:\s*100%[^}]*object-fit:\s*contain/);
