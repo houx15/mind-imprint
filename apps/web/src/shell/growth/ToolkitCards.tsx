@@ -126,8 +126,14 @@ function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
           carries the card's title in the artwork itself, so a text label under it
           just repeats what the student already reads. The name is still on the
           tile for non-visual paths — img alt, the button title tooltip, the hover
-          overlay — and the text-face fallback below prints it in the middle. */}
-      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-mk-ink/[.82] to-mk-ink/0 px-2.5 pb-2.5 pt-4">
+          overlay — and the text-face fallback above prints it in the middle.
+          The band is height-anchored (20% of the tile, floored for tiny tiles)
+          rather than sized by its contents: every v3 cover ends in a saturated
+          full-width slogan strip, and a scrim that only wraps the star row lets
+          that strip bleed through behind the stars. Holding the height keeps the
+          scrim over the strip, which is what kept the stars legible back when the
+          name row was padding this band out. */}
+      <div className="absolute inset-x-0 bottom-0 flex h-[20%] min-h-[2.75rem] flex-col justify-end bg-gradient-to-t from-mk-ink/[.82] to-mk-ink/0 px-2.5 pb-2.5">
         {encountered ? (
           <Stars n={c.stars} onDark />
         ) : (
