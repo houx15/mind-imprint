@@ -21,8 +21,16 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-ENV_FILE="$ROOT/.deploy-local/env.prod"
 API="${MIND_API:-https://mind-api.uni-robot.cn}"
+
+# .deploy-local is gitignored, so it exists only in the MAIN checkout — running
+# this from a git worktree must still find it. `--git-common-dir` resolves to
+# the main checkout's .git from anywhere in the repo.
+ENV_FILE="${MIND_ENV_FILE:-$ROOT/.deploy-local/env.prod}"
+if [[ ! -f "$ENV_FILE" ]]; then
+  common_git="$(git -C "$ROOT" rev-parse --path-format=absolute --git-common-dir 2>/dev/null || true)"
+  [[ -n "$common_git" ]] && ENV_FILE="$(dirname "$common_git")/.deploy-local/env.prod"
+fi
 
 # The 2026-08-22 batch: two mid-migration duplicates (a-mid/b-mid), a
 # single-slice fixture (evidence-comparability), an end-to-end cover test
