@@ -23,72 +23,110 @@ const CATALOG = {
   ],
 };
 
+// Related courses are derived from listCourses() by card_ids (NOT from the
+// catalog entry's courseId), and the jump hands back the course SLUG.
+const COURSES = [
+  { slug: "co-craap", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句话出发",
+    time_label: "约 40 分钟", card_ids: ["craap"], step_count: 3 },
+];
+
+function mockCatalog() {
+  vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+  vi.spyOn(api, "listCourses").mockResolvedValue(COURSES as never);
+}
+
 describe("ToolkitCards gallery", () => {
   it("shows all cards with unlocked count, category groups, and 4 theme swatches", async () => {
-    vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+    mockCatalog();
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
     expect(screen.getByText(/已遇到/)).toBeTruthy();
-    // category headers for the three represented categories
-    expect(screen.getByText("知识工具")).toBeTruthy();
-    expect(screen.getByText("信息素养")).toBeTruthy();
-    expect(screen.getByText("论证结构")).toBeTruthy();
-    // 4 colorway swatches (by their aria-labels)
-    for (const label of ["浅色", "青绿", "石板", "暖调"]) {
+    // Each represented category appears twice: once as a filter chip, once as
+    // the section header above that group's tiles.
+    for (const cat of ["知识工具", "信息素养", "论证结构"]) {
+      expect(screen.getAllByText(cat).length).toBeGreaterThanOrEqual(2);
+    }
+    // 4 colorway swatches (by their aria-labels; cyber-warm surfaces as 湖蓝)
+    for (const label of ["浅色", "青绿", "石板", "湖蓝"]) {
       expect(screen.getByLabelText(label)).toBeTruthy();
     }
   });
 
-  it("distinguishes encountered (colored, star rating shown) from not-yet-encountered (greyscale, no stars)", async () => {
-    vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+  it("distinguishes encountered (full colour, star rating shown) from not-yet-encountered (dimmed, no stars)", async () => {
+    mockCatalog();
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
 
     const encountered = screen.getByTitle("让步段 · 以退为进");
     const notEncountered = screen.getByTitle("论证构建卡（图尔敏）");
 
-    expect(encountered.querySelector(".grayscale")).toBeNull();
+    // Encountered covers render at full colour; un-encountered ones keep the
+    // colorway but are softly dimmed + desaturated, never fully grey.
+    expect(encountered.querySelector("img")!.className).toContain("grayscale-0");
     expect(within(encountered).getByLabelText("熟练度 4 星")).toBeInTheDocument();
 
-    expect(notEncountered.querySelector(".grayscale")).not.toBeNull();
+    expect(notEncountered.innerHTML).toContain("grayscale-[.35]");
     expect(within(notEncountered).getByText("还没遇到")).toBeInTheDocument();
     expect(within(notEncountered).queryByLabelText(/熟练度/)).toBeNull();
   });
 
-  it("opens a detail modal with methodology + usage record for an encountered card", async () => {
-    vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+  it("does not print the card name under the cover — the artwork already carries it", async () => {
+    mockCatalog();
+    render(<ToolkitCards />);
+    await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
+
+    // A card WITH cover art: the name shows exactly once inside the tile — in
+    // the hover overlay. The old bottom name band would make this 2.
+    const withArt = screen.getByTitle("让步段 · 以退为进");
+    expect(within(withArt).getAllByText("让步段 · 以退为进")).toHaveLength(1);
+    // ...but it is still reachable non-visually.
+    expect(withArt.querySelector("img")!.getAttribute("alt")).toBe("让步段 · 以退为进");
+    expect(withArt.getAttribute("title")).toBe("让步段 · 以退为进");
+
+    // A card with NO cover art falls back to a text face, which prints the name
+    // in the middle — so that tile still shows it (face + hover overlay).
+    const noArt = screen.getByTitle("论证构建卡（图尔敏）");
+    expect(within(noArt).getAllByText("论证构建卡（图尔敏）")).toHaveLength(2);
+  });
+
+  it("opens a two-tab detail modal whose 我的练习历史 tab holds the usage record", async () => {
+    mockCatalog();
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
     fireEvent.click(screen.getByTitle("让步段 · 以退为进"));
-    // modal detail sections
-    expect(await screen.findByText("这张卡帮你做什么")).toBeInTheDocument();
-    expect(screen.getByText("为什么用")).toBeInTheDocument();
-    // encountered → usage record present
-    expect(screen.getByText("你的使用记录")).toBeInTheDocument();
+
+    // 介绍 tab is the default; the practice history sits behind its own tab.
+    expect(await screen.findByText("介绍")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("我的练习历史"));
+    expect(screen.getByText("练习次数")).toBeInTheDocument();
+    expect(screen.getByText("熟练度（星）")).toBeInTheDocument();
   });
 
-  it("does not show a usage record for a card the student hasn't encountered", async () => {
-    vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+  it("shows an empty-state instead of a usage record for a card the student hasn't encountered", async () => {
+    mockCatalog();
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
     fireEvent.click(screen.getByTitle("论证构建卡（图尔敏）"));
-    expect(await screen.findByText("这张卡帮你做什么")).toBeInTheDocument();
-    expect(screen.queryByText("你的使用记录")).toBeNull();
+    expect(await screen.findByText("我的练习历史")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("我的练习历史"));
+    expect(screen.getByText("你还没在项目里练过这张卡")).toBeInTheDocument();
+    expect(screen.queryByText("练习次数")).toBeNull();
   });
 
-  it("offers a jump-to-course link that calls onOpenCourse with the card's courseId", async () => {
-    vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+  it("offers a jump-to-course link that calls onOpenCourse with the course slug", async () => {
+    mockCatalog();
     const onOpenCourse = vi.fn();
     render(<ToolkitCards onOpenCourse={onOpenCourse} />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
     fireEvent.click(screen.getByTitle("信源辨识卡 CRAAP / CRRAAB"));
-    const btn = await screen.findByText(/去学这张卡的课程/);
+    const btn = await screen.findByText("一条网络信息，该不该信");
     fireEvent.click(btn);
-    expect(onOpenCourse).toHaveBeenCalledWith("00000000-0000-0000-0000-0000000000c1");
+    expect(onOpenCourse).toHaveBeenCalledWith("co-craap");
   });
 
   it("persists a new theme and re-fetches covers when a swatch is picked", async () => {
     const getCat = vi.spyOn(api, "getCardsCatalog").mockResolvedValue(CATALOG as never);
+    vi.spyOn(api, "listCourses").mockResolvedValue(COURSES as never);
     const setTheme = vi.spyOn(api, "setCardTheme").mockResolvedValue("cyber-sage" as never);
     render(<ToolkitCards />);
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());

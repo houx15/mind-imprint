@@ -122,14 +122,17 @@ function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
         </div>
       )}
 
-      {/* bottom gradient + stars/name band */}
+      {/* Bottom gradient + stars band. No name here on purpose: the v3 cover art
+          carries the card's title in the artwork itself, so a text label under it
+          just repeats what the student already reads. The name is still on the
+          tile for non-visual paths — img alt, the button title tooltip, the hover
+          overlay — and the text-face fallback below prints it in the middle. */}
       <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-mk-ink/[.82] to-mk-ink/0 px-2.5 pb-2.5 pt-4">
         {encountered ? (
           <Stars n={c.stars} onDark />
         ) : (
           <span className="text-mk-small font-bold text-white/80">还没遇到</span>
         )}
-        <div className="mt-0.5 truncate text-mk-small font-bold text-white">{c.name}</div>
       </div>
 
       {/* hover translucent description */}
