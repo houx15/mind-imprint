@@ -2,11 +2,15 @@ package cards
 
 import "fmt"
 
-// Card cover art (v2). Every card except toulmin has a cover in four colorway
+// Card cover art (v3). Every registered card has a cover in four colorway
 // variants, uploaded to the student OSS bucket under a DETERMINISTIC key by
 // deploy/upload-card-covers.sh:
 //
-//	web/cards/v2/<cardId>-<n>.webp     n = 1 white · 2 black · 3 green · 4 blue
+//	web/cards/v3/<cardId>-<n>.webp     n = 1 white · 2 black · 3 green · 4 blue
+//
+// v3 supersedes v2 under a NEW prefix rather than overwriting it: covers are
+// served with a 24h Cache-Control, so reusing the old keys would leave students
+// on stale art for a day. The old v2 objects stay in place as a rollback.
 //
 // So a cover key is a pure function of (cardId, theme) — no manifest, no uuid
 // indirection. The object keys are non-secret; the catalog endpoint resolves
@@ -14,7 +18,7 @@ import "fmt"
 
 // Themes is the closed set of cover colorways a student may choose. "light" is
 // the default (matches users.card_theme default). The keys are historical;
-// cyber-warm now points at the blue variant (the v2 art has no warm colorway),
+// cyber-warm now points at the blue variant (the art has no warm colorway),
 // surfaced to students as 湖蓝 — kept under the old key so no DB/enum migration
 // is needed.
 var Themes = []string{"light", "cyber-sage", "cyber-slate", "cyber-warm"}
@@ -31,10 +35,11 @@ var themeVariant = map[string]int{
 	"cyber-warm":  4,
 }
 
-// coverless is the set of registered cards that have NO v2 cover art (they
-// render a text face instead). Only toulmin, deliberately (it is never summoned
-// in the live writing flow, so no art was produced for it).
-var coverless = map[string]bool{"toulmin": true}
+// coverless is the set of registered cards that have NO cover art (they render
+// a text face instead). Empty since v3 — toulmin was the last holdout and its
+// art shipped with that batch. Kept as a seam for any future card whose art
+// lands after the card itself.
+var coverless = map[string]bool{}
 
 // ValidTheme reports whether theme is one of the known colorways.
 func ValidTheme(theme string) bool {
@@ -58,5 +63,5 @@ func CoverKey(cardID, theme string) (string, bool) {
 	if !ok {
 		n = themeVariant[DefaultTheme]
 	}
-	return fmt.Sprintf("web/cards/v2/%s-%d.webp", cardID, n), true
+	return fmt.Sprintf("web/cards/v3/%s-%d.webp", cardID, n), true
 }

@@ -75,10 +75,10 @@ func TestComputeProficiency_BreadthRewardsTransfer(t *testing.T) {
 func TestCoverKey(t *testing.T) {
 	// Every theme resolves to that theme's variant, keyed by card id.
 	wantVariant := map[string]string{
-		"light":       "web/cards/v2/craap-1.webp",
-		"cyber-slate": "web/cards/v2/craap-2.webp",
-		"cyber-sage":  "web/cards/v2/craap-3.webp",
-		"cyber-warm":  "web/cards/v2/craap-4.webp",
+		"light":       "web/cards/v3/craap-1.webp",
+		"cyber-slate": "web/cards/v3/craap-2.webp",
+		"cyber-sage":  "web/cards/v3/craap-3.webp",
+		"cyber-warm":  "web/cards/v3/craap-4.webp",
 	}
 	for _, th := range Themes {
 		key, ok := CoverKey("craap", th)
@@ -87,15 +87,21 @@ func TestCoverKey(t *testing.T) {
 		}
 	}
 	// Unknown theme falls back to the default (white) variant, still resolves.
-	if key, ok := CoverKey("craap", "not-a-theme"); !ok || key != "web/cards/v2/craap-1.webp" {
+	if key, ok := CoverKey("craap", "not-a-theme"); !ok || key != "web/cards/v3/craap-1.webp" {
 		t.Fatalf("unknown theme should fall back to white variant, got %q %v", key, ok)
 	}
 	// No card id -> no cover.
 	if _, ok := CoverKey("", "light"); ok {
 		t.Fatalf("empty card id must not resolve")
 	}
-	// A coverless card (toulmin) -> no cover, renders a text face.
-	if _, ok := CoverKey("toulmin", "light"); ok {
-		t.Fatalf("toulmin has no v2 cover and must not resolve")
+	// toulmin got its art in v3 — every registered card now resolves a cover.
+	if key, ok := CoverKey("toulmin", "light"); !ok || key != "web/cards/v3/toulmin-1.webp" {
+		t.Fatalf("toulmin should resolve its v3 cover, got %q %v", key, ok)
+	}
+	// The coverless seam still short-circuits when a card is listed in it.
+	coverless["not-yet-drawn"] = true
+	defer delete(coverless, "not-yet-drawn")
+	if _, ok := CoverKey("not-yet-drawn", "light"); ok {
+		t.Fatalf("a coverless card must not resolve")
 	}
 }

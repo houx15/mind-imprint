@@ -1,11 +1,16 @@
 #!/usr/bin/env bash
-# Upload the v2 tool-card cover art to the STUDENT platform OSS bucket.
+# Upload the v3 tool-card cover art to the STUDENT platform OSS bucket.
 #
-# Source art lives at docs/reference/card_webp_v2/<中文名>-<n>.webp, four colorway
+# Source art lives at docs/reference/card_webp_v3/<中文名>-<n>.webp, four colorway
 # variants per card (1 white / 2 black / 3 green / 4 blue). This script renames
 # each to its stable card id and PUTs it to a DETERMINISTIC object key:
 #
-#     docs/reference/card_webp_v2/信源辨识-1.webp  ->  web/cards/v2/craap-1.webp
+#     docs/reference/card_webp_v3/信源辨识-1.webp  ->  web/cards/v3/craap-1.webp
+#
+# v3 goes to a NEW prefix instead of overwriting v2: covers carry a 24h
+# Cache-Control, so reusing the keys would serve stale art for a day. Flip
+# cards.CoverKey to the new prefix (already done) and the old objects remain as
+# a one-line rollback.
 #
 # The backend resolves covers by that key at request time (cards.CoverKey), so no
 # manifest is needed — the key is a pure function of (cardId, theme). The student
@@ -18,15 +23,15 @@
 # OSS_* key pair the API uses in production.
 #
 # Usage:
-#   deploy/upload-card-covers.sh            # upload all 33 cards × 4 variants
+#   deploy/upload-card-covers.sh            # upload all 34 cards × 4 variants
 #   deploy/upload-card-covers.sh --dry-run  # list what would be uploaded, no PUT
 set -uo pipefail
 
 HERE="$(cd "$(dirname "$0")" && pwd)"
 ROOT="$(cd "$HERE/.." && pwd)"
 ENV_FILE="${CARD_OSS_ENV:-$ROOT/.deploy-local/env.prod}"
-SRC_DIR="${CARD_ART_DIR:-$ROOT/docs/reference/card_webp_v2}"
-KEY_PREFIX="web/cards/v2"
+SRC_DIR="${CARD_ART_DIR:-$ROOT/docs/reference/card_webp_v3}"
+KEY_PREFIX="web/cards/v3"
 
 fail() { echo "UPLOAD FAILED: $*" >&2; exit 1; }
 
@@ -52,8 +57,8 @@ case "$HOST" in
   *) HOST="$OSS_BUCKET.$HOST" ;;
 esac
 
-# 中文名 -> card id. One line per card (33; toulmin has no v2 art and is skipped
-# deliberately). Order is irrelevant. Keep in sync with the card registry
+# 中文名 -> card id. One line per card (34 — v3 adds 图尔敏/toulmin, the one card
+# v2 lacked). Order is irrelevant. Keep in sync with the card registry
 # (packages/contracts/cards/*.json) and cards.CoverKey's coverless set.
 MAP="
 AI使用决策树=ai-decision-tree
@@ -68,6 +73,7 @@ PEE=pee
 元认知=metacognition
 兔子洞=rabbit-hole
 历史学=lens-history
+图尔敏=toulmin
 多模态解构=multimodal-decode
 学习报告=learning-report
 情感对齐=emotional-alignment
@@ -118,7 +124,7 @@ put_object() {
   return 1
 }
 
-echo "=== upload v2 card covers -> oss://$OSS_BUCKET/$KEY_PREFIX/ ==="
+echo "=== upload v3 card covers -> oss://$OSS_BUCKET/$KEY_PREFIX/ ==="
 count=0; failed=0; missing=0
 while IFS='=' read -r zh id; do
   [ -z "$zh" ] && continue
@@ -143,7 +149,7 @@ done <<< "$MAP"
 rm -f "$ROOT/.oss_put_body"
 echo
 echo "processed $count · failed $failed · missing $missing"
-[ "$missing" -eq 0 ] || fail "$missing source file(s) not found — check the 中文->id map against docs/reference/card_webp_v2/"
+[ "$missing" -eq 0 ] || fail "$missing source file(s) not found — check the 中文->id map against docs/reference/card_webp_v3/"
 [ "$failed" -eq 0 ]  || fail "$failed object(s) failed to upload"
 [ "$DRY_RUN" = "1" ] && { echo "DRY RUN — nothing uploaded"; exit 0; }
 echo "CARD COVER UPLOAD OK — $count objects"
