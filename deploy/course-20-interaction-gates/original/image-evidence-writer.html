@@ -1,0 +1,103 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>图片证据三联单</title>
+  <style>
+    * { box-sizing: border-box; }
+    html, body { margin: 0; min-height: 100%; font-size: 16px; overflow-x: hidden; }
+    body { background: #eef3f7; color: #172333; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif; display: grid; place-items: center; padding: 10px; }
+    button, textarea { font: inherit; font-size: 16px; }
+    .canvas { width: min(100vw - 20px, 760px); aspect-ratio: 4 / 3; max-height: calc(100vh - 20px); background: #fff; border: 1px solid #ccd7e2; border-radius: 12px; box-shadow: 0 12px 30px rgba(25,42,64,.14); display: grid; grid-template-rows: auto 1fr auto; overflow: hidden; }
+    header { padding: 15px 18px 11px; border-bottom: 1px solid #dbe3eb; }
+    h1 { margin: 0 0 6px; font-size: 21px; }
+    p { margin: 0; color: #4d5d70; line-height: 1.45; }
+    .form { min-height: 0; overflow: auto; padding: 12px 18px; display: grid; gap: 10px; }
+    label { display: grid; gap: 5px; font-weight: 700; }
+    label .auxiliary { font-weight: 400; color: #617185; font-size: 14px; }
+    textarea { width: 100%; min-height: 62px; resize: vertical; border: 1px solid #b9c7d5; border-radius: 8px; padding: 9px 10px; line-height: 1.45; color: #172333; }
+    textarea:focus { outline: 3px solid rgba(31,91,137,.16); border-color: #1f5b89; }
+    footer { padding: 10px 18px; border-top: 1px solid #dbe3eb; display: flex; justify-content: space-between; gap: 12px; align-items: center; }
+    #feedback { color: #536477; line-height: 1.35; }
+    button { border: 1px solid #1f5b89; border-radius: 8px; background: #1f5b89; color: #fff; padding: 9px 16px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+    button:disabled { background: #e5ebf1; border-color: #cbd5df; color: #8592a0; cursor: not-allowed; }
+    @media (max-width: 620px) { .canvas { aspect-ratio: auto; max-height: none; } }
+  </style>
+</head>
+<body>
+  <main class="canvas" role="application" aria-label="图片证据三联单">
+    <header>
+      <h1>图片证据三联单</h1>
+      <p>三项都完成才能提交。每个框支持换行；内部线索写“看到了什么”，外部动作写“到哪里、查什么”。</p>
+    </header>
+    <section class="form">
+      <label>内部视觉线索 1 <span class="auxiliary">例如：手指数量、牙齿形状、皮肤纹理、背景文字或局部光影。</span><textarea id="internal1" maxlength="120" placeholder="写出具体位置与异常，不要只写“图片很假”。"></textarea></label>
+      <label>内部视觉线索 2 <span class="auxiliary">必须与第一条不同，并指出另一个可观察细节。</span><textarea id="internal2" maxlength="120" placeholder="可按 Enter 换行补充说明。"></textarea></label>
+      <label>外部核查动作 <span class="auxiliary">例如：查 EXIF 字段、反向搜图、找原新闻或核对原始发布者。</span><textarea id="external" maxlength="140" placeholder="写清使用什么入口或工具，以及准备核对什么。"></textarea></label>
+    </section>
+    <footer><div id="feedback">还需完成两条不同的内部线索和一条外部核查动作。</div><button id="complete" disabled>完成任务</button></footer>
+  </main>
+  <script>
+    const PROTOCOL = 'mind-course-interaction';
+    const VERSION = '1.0';
+    let sessionToken = null;
+    const pending = [];
+    let completionSent = false;
+    const startedAt = Date.now();
+    const fields = ['internal1', 'internal2', 'external'].map((id) => document.getElementById(id));
+    const feedback = document.getElementById('feedback');
+    const complete = document.getElementById('complete');
+    const externalCues = /EXIF|元数据|反向搜图|Google\s*Images|原新闻|原始发布|发布者|来源|检测工具|原站|发布时间|拍摄时间|地点|GPS/i;
+
+    function post(type, payload) { window.parent.postMessage({ protocol: PROTOCOL, version: VERSION, sessionToken, type, payload }, '*'); }
+    function send(type, payload) { if (!sessionToken) pending.push({ type, payload }); else post(type, payload); }
+    window.addEventListener('message', (event) => {
+      const message = event.data;
+      if (!message || message.protocol !== PROTOCOL || message.version !== VERSION || !message.sessionToken) return;
+      const changed = sessionToken !== message.sessionToken;
+      sessionToken = message.sessionToken;
+      if (!changed) return;
+      post('ready', {});
+      while (pending.length) { const item = pending.shift(); post(item.type, item.payload); }
+    });
+
+    function meaningful(text, min = 8) {
+      const compact = text.replace(/\s/g, '');
+      return compact.length >= min && !/(.)\1{4,}/.test(compact) && new Set(compact).size >= 5;
+    }
+    function state() {
+      const [internal1, internal2, external] = fields.map((field) => field.value.trim());
+      const different = internal1.replace(/\s/g, '') !== internal2.replace(/\s/g, '');
+      return { internal1, internal2, external, different };
+    }
+    function issues(current) {
+      const result = [];
+      if (!meaningful(current.internal1)) result.push('内部线索 1 需写具体细节');
+      if (!meaningful(current.internal2)) result.push('内部线索 2 需写具体细节');
+      if (meaningful(current.internal1) && meaningful(current.internal2) && !current.different) result.push('两条内部线索不能相同');
+      if (!meaningful(current.external, 10)) result.push('外部动作需写完整');
+      else if (!externalCues.test(current.external)) result.push('外部动作需写明工具、原站或来源入口');
+      return result;
+    }
+    function render() {
+      const currentIssues = issues(state());
+      complete.disabled = completionSent || currentIssues.length > 0;
+      feedback.textContent = currentIssues.length ? currentIssues.join('；') : '三项证据已完整，可以提交。';
+    }
+    fields.forEach((field) => field.addEventListener('input', render));
+    complete.addEventListener('click', () => {
+      const current = state();
+      if (completionSent || issues(current).length) return;
+      completionSent = true;
+      send('completed', {
+        resultId: `image-evidence-${startedAt}`,
+        value: { ...current, durationSeconds: Math.max(1, Math.round((Date.now() - startedAt) / 1000)) }
+      });
+      feedback.textContent = '已提交两条内部线索和一条外部核查动作。';
+      render();
+    });
+    render();
+  </script>
+</body>
+</html>

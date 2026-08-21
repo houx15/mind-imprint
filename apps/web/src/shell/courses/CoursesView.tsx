@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
 import type { CourseSummary } from "@mind-imprint/contracts";
-import { api } from "../../api";
+import { api } from "@/api";
 import { coverGradientStyle } from "@/ui";
 import { groupCoursesByCategory } from "./groupCoursesByCategory";
+import { ALL_CATEGORIES, selectCourseList, type CourseSort } from "./selectCourseList";
 
 const STAR = "M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z";
 
@@ -15,7 +16,7 @@ function CourseCard({ course, pct, onOpen, onRestart }: { course: CourseSummary;
     ...(done ? { color: "var(--mk-success)", background: "var(--mk-success-bg)" } : pct != null ? { color: "var(--mk-accent-500)", background: "var(--mk-accent-50)" } : { color: "var(--mk-muted)", background: "var(--mk-paper)" }),
   };
   return (
-    <div onClick={onOpen} style={{ display: "flex", flexDirection: "column", background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 18, overflow: "hidden", boxShadow: "var(--mk-shadow-xs)", cursor: "pointer" }}>
+    <div data-course-card={course.slug} onClick={onOpen} style={{ display: "flex", flexDirection: "column", background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 18, overflow: "hidden", boxShadow: "var(--mk-shadow-xs)", cursor: "pointer" }}>
       <div style={{ position: "relative", aspectRatio: "16 / 9", ...(course.coverUrl ? {} : coverGradientStyle(course.slug)), display: "flex", alignItems: "center", justifyContent: "center", overflow: "hidden" }}>
         {course.coverUrl ? (
           <img src={course.coverUrl} alt={course.title} loading="lazy" style={{ position: "absolute", inset: 0, width: "100%", height: "100%", objectFit: "cover" }} />
@@ -84,13 +85,76 @@ function FilterChip({ label, count, active, onClick }: { label: string; count: n
   );
 }
 
+/** Search by course NAME. Filters as you type — no submit, nothing to wait for. */
+function SearchField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  return (
+    <div style={{ position: "relative", flex: "1 1 260px", maxWidth: 340 }}>
+      <svg
+        width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--mk-faint)" strokeWidth="2.2" strokeLinecap="round"
+        style={{ position: "absolute", left: 12, top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}
+      >
+        <circle cx="11" cy="11" r="7" />
+        <path d="M20 20l-3.6-3.6" />
+      </svg>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="搜索课程名称"
+        aria-label="搜索课程名称"
+        style={{
+          width: "100%", padding: "8px 12px 8px 33px", borderRadius: 999, fontFamily: "inherit", fontSize: 13,
+          color: "var(--mk-ink)", background: "var(--mk-surface)", border: "1px solid var(--mk-input-border)", outline: "none",
+        }}
+      />
+    </div>
+  );
+}
+
+const SORT_OPTIONS: { value: CourseSort; label: string }[] = [
+  { value: "recent", label: "最近学习" },
+  { value: "name", label: "按名称" },
+];
+
+/** Two-way order toggle. 最近学习 is the default — you land on what you were mid-way through. */
+function SortToggle({ sort, onChange }: { sort: CourseSort; onChange: (s: CourseSort) => void }) {
+  return (
+    <div role="group" aria-label="课程排序" style={{ display: "inline-flex", padding: 3, gap: 3, borderRadius: 999, background: "var(--mk-paper)", border: "1px solid var(--mk-border)" }}>
+      {SORT_OPTIONS.map((o) => (
+        <button
+          key={o.value}
+          type="button"
+          onClick={() => onChange(o.value)}
+          aria-pressed={sort === o.value}
+          style={{
+            padding: "5px 12px", borderRadius: 999, border: "none", cursor: "pointer", fontFamily: "inherit",
+            fontSize: 12.5, fontWeight: 700, transition: "background .12s,color .12s",
+            ...(sort === o.value
+              ? { background: "var(--mk-surface)", color: "var(--mk-ink)", boxShadow: "var(--mk-shadow-xs)" }
+              : { background: "transparent", color: "var(--mk-muted)" }),
+          }}
+        >
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
 export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: (id: string) => void; onRestartCourse?: (id: string) => void } = {}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
   const [pctById, setPctById] = useState<Record<string, number | null>>({});
-  // Category filter: "all" shows every group stacked; a category slug narrows to
-  // just that group's courses. A pure UI filter — no server round-trip, 铁律②:
-  // categories are the only axis, no popularity/recency sort.
-  const [filter, setFilter] = useState<string>("all");
+  // slug → ISO timestamp of the student's last activity, from the same history
+  // endpoint 学习记录 uses. Drives the default "最近学习" order; an empty map (no
+  // history yet, or the call failed) simply leaves the catalog order alone.
+  const [lastLearnedBySlug, setLastLearnedBySlug] = useState<Record<string, string>>({});
+  // Category filter: "all" is every course; a category slug narrows to that
+  // category. A pure UI filter — no server round-trip. 铁律②: the only orders on
+  // offer are the student's own recency and plain name — never popularity, never
+  // a ranking of students against each other.
+  const [filter, setFilter] = useState<string>(ALL_CATEGORIES);
+  const [sort, setSort] = useState<CourseSort>("recent");
+  const [query, setQuery] = useState("");
 
   useEffect(() => {
     let cancelled = false;
@@ -105,18 +169,24 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
         }).catch(() => {});
       });
     }).catch(() => { if (!cancelled) setCourses([]); });
+    // Recency is a nice-to-have on top of the catalog: if it fails the list
+    // still renders, just in catalog order.
+    void api.getCourseHistory().then((items) => {
+      if (cancelled) return;
+      setLastLearnedBySlug(Object.fromEntries(items.map((i) => [i.slug, i.updatedAt])));
+    }).catch(() => {});
     return () => { cancelled = true; };
   }, []);
 
+  // Groups feed the chips only (label + count) — the list itself is flat.
   const groups = useMemo(() => groupCoursesByCategory(courses ?? []), [courses]);
-  // If the active filter names a group that no longer exists (courses changed),
-  // fall back to showing everything rather than a blank page.
-  const activeGroups = filter === "all" ? groups : groups.filter((g) => g.slug === filter);
-  // Fall back to the full grouped view if the active filter names a group that no
-  // longer exists (e.g. the course list changed under it) — never a blank page,
-  // and show headings in that fallback just like "全部".
-  const showAllView = filter === "all" || activeGroups.length === 0;
-  const shownGroups = showAllView ? groups : activeGroups;
+  // If the active chip names a category that no longer exists (the catalog
+  // changed under it), fall back to 全部 rather than a blank page.
+  const activeFilter = filter === ALL_CATEGORIES || groups.some((g) => g.slug === filter) ? filter : ALL_CATEGORIES;
+  const shown = useMemo(
+    () => selectCourseList({ courses: courses ?? [], category: activeFilter, query, sort, lastLearnedBySlug }),
+    [courses, activeFilter, query, sort, lastLearnedBySlug],
+  );
 
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
@@ -128,26 +198,32 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
           <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
           <>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 26, flexWrap: "wrap" }}>
+              <SearchField value={query} onChange={setQuery} />
+              <div style={{ display: "flex", alignItems: "center", gap: 8, marginLeft: "auto" }}>
+                <span style={{ fontSize: 12.5, color: "var(--mk-muted)", fontWeight: 600 }}>排序</span>
+                <SortToggle sort={sort} onChange={setSort} />
+              </div>
+            </div>
             {groups.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 26 }}>
-                <FilterChip label="全部" count={courses?.length ?? 0} active={filter === "all"} onClick={() => setFilter("all")} />
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 14 }}>
+                <FilterChip label="全部" count={courses?.length ?? 0} active={activeFilter === ALL_CATEGORIES} onClick={() => setFilter(ALL_CATEGORIES)} />
                 {groups.map((g) => (
-                  <FilterChip key={g.slug} label={g.label} count={g.courses.length} active={filter === g.slug} onClick={() => setFilter(g.slug)} />
+                  <FilterChip key={g.slug} label={g.label} count={g.courses.length} active={activeFilter === g.slug} onClick={() => setFilter(g.slug)} />
                 ))}
               </div>
             )}
-            <div style={{ display: "flex", flexDirection: "column", gap: 40, marginTop: 28 }}>
-              {shownGroups.map((group) => (
-                <section key={group.slug}>
-                  {showAllView && <div style={{ fontSize: 18, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 16 }}>{group.label}</div>}
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20 }}>
-                    {group.courses.map((c) => (
-                      <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+            {shown.length === 0 ? (
+              <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>
+                没有名字里含「{query.trim()}」的课程{activeFilter === ALL_CATEGORIES ? "" : "（当前分类下）"}。
+              </div>
+            ) : (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 20, marginTop: 24 }}>
+                {shown.map((c) => (
+                  <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />
+                ))}
+              </div>
+            )}
           </>
         )}
       </div>
