@@ -132,8 +132,15 @@ function CardTile({ c, onOpen }: { c: CardCatalogEntry; onOpen: () => void }) {
           full-width slogan strip, and a scrim that only wraps the star row lets
           that strip bleed through behind the stars. Holding the height keeps the
           scrim over the strip, which is what kept the stars legible back when the
-          name row was padding this band out. */}
-      <div className="absolute inset-x-0 bottom-0 flex h-[20%] min-h-[2.75rem] flex-col justify-end bg-gradient-to-t from-mk-ink/[.82] to-mk-ink/0 px-2.5 pb-2.5">
+          name row was padding this band out.
+          The gradient is an inline style, not `bg-gradient-to-t from-mk-ink/…`:
+          the mk-* tokens are plain CSS variables, so Tailwind's alpha syntax on
+          them compiles to nothing and the scrim silently rendered as
+          `background-image: none`. Same trap as `bg-mk-<token>/<opacity>`. */}
+      <div
+        className="absolute inset-x-0 bottom-0 flex h-[20%] min-h-[2.75rem] flex-col justify-end px-2.5 pb-2.5"
+        style={{ background: "linear-gradient(to top, rgba(0,0,0,.80) 0%, rgba(0,0,0,.45) 55%, rgba(0,0,0,0) 100%)" }}
+      >
         {encountered ? (
           <Stars n={c.stars} onDark />
         ) : (

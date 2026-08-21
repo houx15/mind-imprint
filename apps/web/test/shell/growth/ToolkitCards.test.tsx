@@ -89,6 +89,21 @@ describe("ToolkitCards gallery", () => {
     expect(within(noArt).getAllByText("论证构建卡（图尔敏）")).toHaveLength(2);
   });
 
+  it("paints a real scrim behind the status row so it stays legible over the cover art", async () => {
+    mockCatalog();
+    render(<ToolkitCards />);
+    await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
+
+    // Every v3 cover ends in a saturated slogan strip, so the stars need a
+    // scrim. It has to be an inline gradient — Tailwind's alpha syntax on the
+    // mk-* CSS variables (from-mk-ink/[.82]) compiles to nothing and used to
+    // leave this band with background-image: none.
+    const tile = screen.getByTitle("让步段 · 以退为进");
+    const band = tile.querySelector<HTMLElement>("div.absolute.inset-x-0.bottom-0")!;
+    expect(band.style.background).toContain("linear-gradient");
+    expect(band.className).toContain("h-[20%]");
+  });
+
   it("opens a two-tab detail modal whose 我的练习历史 tab holds the usage record", async () => {
     mockCatalog();
     render(<ToolkitCards />);
