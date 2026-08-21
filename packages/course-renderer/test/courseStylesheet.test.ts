@@ -30,6 +30,10 @@ describe("course stylesheet (styles/course.css)", () => {
     expect(courseCssText).toMatch(/\.course-layout__slot\s*\{[^}]*justify-content:\s*safe\s+center/);
   });
 
+  it("lets an images block fill its growing wrapper so its figures can center vertically", () => {
+    expect(courseCssText).toMatch(/\.course-block--images\s*\{[^}]*flex:\s*1\s+1\s+auto/);
+  });
+
   it("ships the click-to-enlarge image lightbox — dismissable backdrop + contained enlarged image", () => {
     expect(courseCssText).toMatch(/\.course-lightbox\s*\{[^}]*position:\s*fixed/);
     expect(courseCssText).toMatch(/\.course-lightbox__backdrop\s*\{[^}]*cursor:\s*zoom-out/);
