@@ -3,7 +3,7 @@ import { groupCoursesByCategory } from "./groupCoursesByCategory";
 import type { CourseSummary } from "@mind-imprint/contracts";
 
 function c(slug: string, category: CourseSummary["category"]): CourseSummary {
-  return { slug, branch: "A", title: slug, blurb: "", time_label: "", card_ids: [], step_count: 1, coverUrl: "", category, introduction: null, featuredRank: null };
+  return { slug, branch: "A", title: slug, blurb: "", time_label: "", card_ids: [], step_count: 1, coverUrl: "", category, introduction: null, featuredRank: null , progress: null};
 }
 
 describe("groupCoursesByCategory", () => {

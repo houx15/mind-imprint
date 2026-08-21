@@ -52,6 +52,42 @@ SELECT c.id AS course_id,
 FROM course_session cs JOIN course c ON c.id = cs.course_id
 WHERE cs.user_id = $1 AND c.slug = $2;
 
+-- name: ListCourseProgressForUser :many
+-- Every course this student has TOUCHED, one row per course — the catalog's
+-- progress in ONE query instead of the frontend fanning out a per-course
+-- /progress request (an N+1 over the whole catalog on every visit to 课程).
+--
+-- Preference matters: a course that has BOTH a 2.0 runtime session and a legacy
+-- course_progress row must report the SESSION, exactly as the single-course
+-- GetProgress does — hence the NOT EXISTS on the legacy leg rather than
+-- ListCourseHistory's plain UNION ALL (that one is allowed to emit both because
+-- it is a chronological activity feed, not a per-course state).
+--
+-- completed_count mirrors GetCourseSessionProgressBySlug's own clamp: a finished
+-- session reads exactly step_count, and a malformed/legacy sliceStates blob
+-- counts 0 rather than erroring. status is normalized here to the two values the
+-- catalog actually renders ('completed' / 'in-progress'), never the runtime's
+-- five-state session status.
+SELECT c.slug AS slug,
+       CASE WHEN cs.status = 'completed' THEN 'completed' ELSE 'in-progress' END AS status,
+       CASE WHEN cs.status = 'completed' THEN c.step_count
+            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+            ELSE 0 END AS completed_count,
+       cs.updated_at AS updated_at
+FROM course_session cs JOIN course c ON c.id = cs.course_id
+WHERE cs.user_id = sqlc.arg(user_id)
+UNION ALL
+SELECT c.slug AS slug,
+       CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
+       COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
+       cp.updated_at AS updated_at
+FROM course_progress cp JOIN course c ON c.id = cp.course_id
+WHERE cp.user_id = sqlc.arg(user_id)
+  AND NOT EXISTS (SELECT 1 FROM course_session cs2
+                  WHERE cs2.user_id = cp.user_id AND cs2.course_id = cp.course_id);
+
 -- name: GetCourseProgressByCourseID :one
 -- Task 4 addition: SaveProgress's union-completed-ordinals step is keyed by
 -- courseUUID (not slug) — it already holds the course row's id from

@@ -108,7 +108,7 @@ const golden = {
 const catalogSummary: CourseSummary = {
   slug: SLUG, branch: "批判性思维", title: "Can These Two Claims Be Compared?", blurb: "从两条说法出发…",
   time_label: "约 30 分钟", card_ids: [], step_count: 1, coverUrl: "",
-  category: null, introduction: null, featuredRank: null,
+  category: null, introduction: null, featuredRank: null, progress: null
 };
 // P2-08/D5 — getCourseDefinition now resolves { definition, hash }; every
 // test below mocks it with this fixed hash unless it's specifically about the

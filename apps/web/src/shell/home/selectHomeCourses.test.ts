@@ -3,7 +3,7 @@ import { selectHomeCourses } from "./selectHomeCourses";
 import type { CourseSummary } from "@mind-imprint/contracts";
 
 function c(slug: string, featuredRank: number | null): CourseSummary {
-  return { slug, branch: "A", title: slug, blurb: "", time_label: "", card_ids: [], step_count: 1, coverUrl: "", category: null, introduction: null, featuredRank };
+  return { slug, branch: "A", title: slug, blurb: "", time_label: "", card_ids: [], step_count: 1, coverUrl: "", category: null, introduction: null, featuredRank, progress: null };
 }
 
 describe("selectHomeCourses", () => {

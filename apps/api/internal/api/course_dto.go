@@ -17,6 +17,17 @@ import (
 	"mindimprint/api/internal/agent"
 )
 
+// courseCatalogProgressDTO is the student's own state on one catalog card:
+// enough to draw the ring and the 进行中/已学完 pill, and to order the list by
+// what they last worked on. Deliberately NOT courseProgressDTO — the catalog
+// has no use for the resume ordinal or the completed-ordinal array, and sending
+// them per course would put the whole player payload in a list response.
+type courseCatalogProgressDTO struct {
+	Status         string `json:"status"` // "in-progress" | "completed"
+	CompletedSteps int    `json:"completedSteps"`
+	UpdatedAt      string `json:"updatedAt"`
+}
+
 type courseSummaryDTO struct {
 	Slug      string   `json:"slug"`
 	Branch    string   `json:"branch"`
@@ -30,6 +41,10 @@ type courseSummaryDTO struct {
 	Category     *string         `json:"category"`
 	Introduction json.RawMessage `json:"introduction"`
 	FeaturedRank *int32          `json:"featuredRank"`
+
+	// null for a course this student has never opened — the catalog reads that
+	// absence as 未开始, which a zero-valued object could not express.
+	Progress *courseCatalogProgressDTO `json:"progress"`
 }
 
 // toCourseSummaryDTO is an *API method (not a free function) solely so it can
@@ -50,6 +65,21 @@ func (a *API) toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 		Introduction: json.RawMessage(r.Introduction),
 		FeaturedRank: r.FeaturedRank,
 	}
+}
+
+// withCatalogProgress attaches the student's own state to a summary DTO. A slug
+// missing from the map is untouched, and its Progress stays nil.
+func withCatalogProgress(dto courseSummaryDTO, progress map[string]agent.CourseCatalogProgress) courseSummaryDTO {
+	p, ok := progress[dto.Slug]
+	if !ok {
+		return dto
+	}
+	dto.Progress = &courseCatalogProgressDTO{
+		Status:         p.Status,
+		CompletedSteps: p.CompletedSteps,
+		UpdatedAt:      p.UpdatedAt.Format(tsLayout),
+	}
+	return dto
 }
 
 // coursePayloadDTO is CoursePlayerPayload (contract): structure/renderCache

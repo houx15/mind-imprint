@@ -148,6 +148,39 @@ func (s *sqlcAgentStore) ListCourses(ctx context.Context, includePreview bool) (
 	return out, nil
 }
 
+// CourseCatalogProgress is one student's state on one course, as the CATALOG
+// needs it — a completed-step count and when they last worked on it, not the
+// full CourseProgressRow the player resumes from. Status is already normalized
+// to "completed" / "in-progress" by the query.
+type CourseCatalogProgress struct {
+	Status         string
+	CompletedSteps int
+	UpdatedAt      time.Time
+}
+
+// ListProgressForUser returns the student's progress on every course they have
+// TOUCHED, keyed by slug — the catalog's whole progress picture in one round
+// trip. Untouched courses are simply absent from the map (never a zero entry),
+// which is what lets the caller distinguish 未开始 from 0%.
+//
+// This is the batch form of GetProgress and shares its storage preference: a
+// course with both a 2.0 session and a legacy progress row reports the session.
+func (s *sqlcAgentStore) ListProgressForUser(ctx context.Context, userID uuid.UUID) (map[string]CourseCatalogProgress, error) {
+	rows, err := s.q.ListCourseProgressForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]CourseCatalogProgress, len(rows))
+	for _, r := range rows {
+		n := int(r.CompletedCount)
+		if n < 0 {
+			n = 0
+		}
+		out[r.Slug] = CourseCatalogProgress{Status: r.Status, CompletedSteps: n, UpdatedAt: r.UpdatedAt}
+	}
+	return out, nil
+}
+
 // GetCoursePayload loads one course by its external slug, returning both the
 // player payload and the internal uuid — callers need the uuid for every
 // subsequent progress/event call (course_progress and event.course_id are

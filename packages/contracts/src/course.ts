@@ -106,6 +106,14 @@ export const CourseStructure = z.object({
   asset_library: z.array(CourseAsset).default([]),
 }).passthrough();
 
+/** One student's state on one catalog card — the ring and the pill, nothing more. */
+export const CourseCatalogProgress = z.object({
+  status: z.enum(["in-progress", "completed"]),
+  completedSteps: z.number().int().nonnegative(),
+  /** ISO-8601; the 最近学习 ordering reads this. */
+  updatedAt: z.string(),
+});
+
 export const CourseSummary = z.object({
   slug: z.string(),
   branch: z.string(),
@@ -121,6 +129,12 @@ export const CourseSummary = z.object({
   category: CourseCategory.nullable().default(null),
   introduction: CourseIntroduction.nullable().default(null),
   featuredRank: z.number().int().nullable().default(null),
+  // The AUTHED student's own state on this course, resolved server-side so the
+  // catalog is one round trip (it used to fan out a /progress request per card).
+  // null = never opened, which is what the card reads as 未开始 — a zero-valued
+  // object could not say that. `status` is already normalized to the two values
+  // the catalog renders, never the runtime session's five-state status.
+  progress: CourseCatalogProgress.nullable().default(null),
 });
 
 export const CoursePlayerPayload = z.object({
@@ -162,6 +176,7 @@ export type RenderSegment = z.infer<typeof RenderSegment>;
 export type RenderStepContent = z.infer<typeof RenderStepContent>;
 export type RenderCache = z.infer<typeof RenderCache>;
 export type CourseStructure = z.infer<typeof CourseStructure>;
+export type CourseCatalogProgress = z.infer<typeof CourseCatalogProgress>;
 export type CourseSummary = z.infer<typeof CourseSummary>;
 export type CoursePlayerPayload = z.infer<typeof CoursePlayerPayload>;
 export type CourseProgress = z.infer<typeof CourseProgress>;

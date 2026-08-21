@@ -22,6 +22,16 @@ import (
 	"mindimprint/api/internal/httpx"
 )
 
+// listCourses returns the catalog WITH each card's own progress for the authed
+// student (`progress`, null when untouched). The progress used to be the
+// client's job — the 课程 list fired one GET /courses/{slug}/progress per card,
+// an N+1 that grew with the catalog and raced its own renders. It is one extra
+// indexed query here (ListProgressForUser), so the list is a single round trip.
+//
+// Progress is per-student, so it is attached only when there IS an authed
+// student in context; the admin listing (listCoursesAdmin) reuses
+// toCourseSummaryDTO without it, and an admin browsing the catalog sees their
+// own progress like anyone else.
 func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	rows, err := store.ListCourses(r.Context(), isAdmin(r.Context()))
@@ -29,9 +39,17 @@ func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	var progress map[string]agent.CourseCatalogProgress
+	if user, ok := UserFromContext(r.Context()); ok {
+		progress, err = store.ListProgressForUser(r.Context(), user.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
 	out := make([]courseSummaryDTO, 0, len(rows))
 	for _, c := range rows {
-		out = append(out, a.toCourseSummaryDTO(c))
+		out = append(out, withCatalogProgress(a.toCourseSummaryDTO(c), progress))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"courses": out})
 }

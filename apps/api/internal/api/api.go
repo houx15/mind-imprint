@@ -226,6 +226,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/admin/courses/{slug}/definition", http.HandlerFunc(a.getCourseDefinitionAdmin))        // course generator draft readback
 	mux.Handle("POST /api/v1/admin/courses/{slug}/asset-upload-url", http.HandlerFunc(a.postCourseAssetUploadURL)) // course generator media upload
 	mux.Handle("POST /api/v1/admin/courses/{slug}/ship", http.HandlerFunc(a.postCourseShip))                       // publish a preview course
+	mux.Handle("POST /api/v1/admin/courses/{slug}/unpublish", http.HandlerFunc(a.postCourseUnpublish))            // 下线: published -> preview (never a delete)
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
 	mux.Handle("GET /api/v1/voice/asr", protected(a.getVoiceASR))
 	// OSS storage. Admin upload + resolve are gated by the OSS_ADMIN_KEY bearer

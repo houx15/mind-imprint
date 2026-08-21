@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"regexp"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
@@ -58,9 +59,58 @@ type putCourseDefinitionDoc struct {
 		Title            string `json:"title"`
 		EstimatedMinutes int    `json:"estimatedMinutes"`
 		Parts            []struct {
-			Slices []json.RawMessage `json:"slices"`
+			Slices []struct {
+				// Blocks is walked ONLY for the richText security check below;
+				// every other authored block field is ignored here.
+				Blocks []struct {
+					ID   string `json:"id"`
+					Type string `json:"type"`
+					HTML string `json:"html"`
+				} `json:"blocks"`
+			} `json:"slices"`
 		} `json:"parts"`
 	} `json:"course"`
+}
+
+// richTextForbidden are the constructs a `richText` block's inline HTML may
+// never contain. The renderer already isolates that HTML in an iframe with no
+// `allow-scripts` and no `allow-same-origin`, so this is NOT the security
+// boundary — it is the server refusing to STORE authored markup whose only
+// purpose would be to execute, so a future renderer change (or a preview host
+// that mounts the HTML some other way) can never turn stored content into a
+// live script in a student's session. Mirrors RICH_TEXT_FORBIDDEN in
+// packages/course-contract/src/blocks.ts; the contract is the authority on the
+// full rule set (this side deliberately checks only the executable subset).
+var richTextForbidden = []struct {
+	re   *regexp.Regexp
+	what string
+}{
+	{regexp.MustCompile(`(?i)<\s*script\b`), "<script>"},
+	{regexp.MustCompile(`(?i)<\s*(iframe|object|embed)\b`), "<iframe>/<object>/<embed>"},
+	{regexp.MustCompile(`(?i)<[a-z][^>]*\son[a-z]+\s*=`), "内联事件处理器 (onclick=…)"},
+	{regexp.MustCompile(`(?i)javascript\s*:`), "javascript: URL"},
+}
+
+// validateRichTextBlocks border-walks the definition for richText blocks and
+// rejects any whose inline HTML carries an executable construct. Returns the
+// first offending (blockID, construct) — one clear error beats a list the
+// generator has to page through.
+func validateRichTextBlocks(doc putCourseDefinitionDoc) (blockID, construct string, ok bool) {
+	for _, part := range doc.Course.Parts {
+		for _, slice := range part.Slices {
+			for _, block := range slice.Blocks {
+				if block.Type != "richText" || block.HTML == "" {
+					continue
+				}
+				for _, f := range richTextForbidden {
+					if f.re.MatchString(block.HTML) {
+						return block.ID, f.what, false
+					}
+				}
+			}
+		}
+	}
+	return "", "", true
 }
 
 // courseStepCount is the authored step count of a 2.0 course: the total number
@@ -114,6 +164,17 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 	}
 	if doc.Course.ID != slug {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "course.id 必须与 slug 一致", nil))
+		return
+	}
+	// Security border (see richTextForbidden): never STORE authored HTML whose
+	// only purpose is to execute, even though the renderer's sandbox already
+	// makes it inert.
+	if blockID, construct, ok := validateRichTextBlocks(doc); !ok {
+		httpx.WriteError(w, r, &httpx.APIError{
+			Status:  http.StatusUnprocessableEntity,
+			Code:    "invalid_course_definition",
+			Message: "richText 块 '" + blockID + "' 的 html 含有 " + construct + "，静态图文卡片不执行任何代码。",
+		})
 		return
 	}
 	for _, id := range body.CardIDs {

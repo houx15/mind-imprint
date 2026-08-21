@@ -47,6 +47,14 @@ describe("course stylesheet (styles/course.css)", () => {
     );
   });
 
+  it("a richText card fills its slot and scrolls INSIDE itself — the one block allowed to overflow, without the shell ever page-scrolling", () => {
+    expect(courseCssText).toMatch(
+      /\.course-slot-block:has\(> \.course-block--pdf\),[\s\S]*?course-block--rich-text\)[\s\S]*?\{[^}]*flex:\s*1\s+1\s+auto/,
+    );
+    expect(courseCssText).toMatch(/\.course-block--rich-text\s*\{[^}]*overflow:\s*hidden/);
+    expect(courseCssText).toMatch(/\.course-rich-text__frame\s*\{[^}]*flex:\s*1\s+1\s+auto/);
+  });
+
   it("a wrapper holding a hidden block collapses, so a not-yet-revealed block never holds the slot's space open", () => {
     expect(courseCssText).toMatch(
       /\.course-slot-block:has\(> \.course-block\[hidden\]\)\s*\{[^}]*display:\s*none/,

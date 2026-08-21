@@ -143,11 +143,6 @@ function SortToggle({ sort, onChange }: { sort: CourseSort; onChange: (s: Course
 
 export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: (id: string) => void; onRestartCourse?: (id: string) => void } = {}) {
   const [courses, setCourses] = useState<CourseSummary[] | null>(null);
-  const [pctById, setPctById] = useState<Record<string, number | null>>({});
-  // slug → ISO timestamp of the student's last activity, from the same history
-  // endpoint 学习记录 uses. Drives the default "最近学习" order; an empty map (no
-  // history yet, or the call failed) simply leaves the catalog order alone.
-  const [lastLearnedBySlug, setLastLearnedBySlug] = useState<Record<string, string>>({});
   // Category filter: "all" is every course; a category slug narrows to that
   // category. A pure UI filter — no server round-trip. 铁律②: the only orders on
   // offer are the student's own recency and plain name — never popularity, never
@@ -156,27 +151,41 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
   const [sort, setSort] = useState<CourseSort>("recent");
   const [query, setQuery] = useState("");
 
+  // ONE request. `listCourses` carries each card's own `progress` (server-side,
+  // per student) — this used to fire a /progress call per course plus a separate
+  // /history call for the recency order, an N+1 that grew with the catalog and
+  // let cards pop in one ring at a time.
   useEffect(() => {
     let cancelled = false;
-    void api.listCourses().then((cs) => {
-      if (cancelled) return;
-      setCourses(cs);
-      cs.forEach((c) => {
-        void Promise.resolve(api.getCourseProgress(c.slug)).then((p) => {
-          if (cancelled || c.step_count === 0 || !p) return;
-          const pct = Math.round((p.completed_ordinals.length / c.step_count) * 100);
-          setPctById((m) => ({ ...m, [c.slug]: p.completed_ordinals.length > 0 ? pct : null }));
-        }).catch(() => {});
-      });
-    }).catch(() => { if (!cancelled) setCourses([]); });
-    // Recency is a nice-to-have on top of the catalog: if it fails the list
-    // still renders, just in catalog order.
-    void api.getCourseHistory().then((items) => {
-      if (cancelled) return;
-      setLastLearnedBySlug(Object.fromEntries(items.map((i) => [i.slug, i.updatedAt])));
-    }).catch(() => {});
+    void api.listCourses()
+      .then((cs) => { if (!cancelled) setCourses(cs); })
+      .catch(() => { if (!cancelled) setCourses([]); });
     return () => { cancelled = true; };
   }, []);
+
+  // Completion percentage per course, derived from the same response. A course
+  // with no authored steps has no denominator, so it shows no ring rather than a
+  // divide-by-zero; `completed` short-circuits to 100 so a finished course reads
+  // 已学完 even if its step bookkeeping lags.
+  const pctById = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    for (const c of courses ?? []) {
+      const p = c.progress;
+      if (!p) continue;
+      if (p.status === "completed") { out[c.slug] = 100; continue; }
+      if (c.step_count <= 0 || p.completedSteps <= 0) continue;
+      out[c.slug] = Math.min(100, Math.round((p.completedSteps / c.step_count) * 100));
+    }
+    return out;
+  }, [courses]);
+
+  const lastLearnedBySlug = useMemo(() => {
+    const out: Record<string, string> = {};
+    for (const c of courses ?? []) {
+      if (c.progress) out[c.slug] = c.progress.updatedAt;
+    }
+    return out;
+  }, [courses]);
 
   // Groups feed the chips only (label + count) — the list itself is flat.
   const groups = useMemo(() => groupCoursesByCategory(courses ?? []), [courses]);

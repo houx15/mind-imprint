@@ -14,7 +14,7 @@ function c(slug: string, title: string, category: CourseSummary["category"] = "s
     coverUrl: "",
     category,
     introduction: null,
-    featuredRank: null,
+    featuredRank: null, progress: null
   };
 }
 

@@ -4,6 +4,8 @@
 **Pinned at tag:** `course-authoring-v1.5.3` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
+> **Update 2026-08-22 — new block type `richText`.** A scrollable card of authored, static HTML+CSS carried **inline** in the definition (no OSS upload, no asset path) — the answer to "Markdown can't express the structure I need". Authoring guide: **§6.3**; contract summary: §1.4; the PUT-time rejection rules: §2.1. Lands next deploy; nothing else below changed.
+
 > **Read this first — honesty note.** Your request (items 3 and 4) asks us to *confirm* several guarantees: optimistic concurrency, idempotent publishing, SHA-256 dedup, and upload support for all six media types. **Some of these do not exist in the current backend.** Rather than confirm them falsely, this document states plainly what exists today, what does not, and — for each gap — the workaround or the backend change you should request. The gaps are collected in §7 ("Gap register") so your planning can account for them up front.
 
 ---
@@ -85,7 +87,7 @@ layout = { preset: full | split-horizontal | split-vertical | grid,
            slots: [{ id, blockIds[] }] }                       // full→'main'; split→'left'/'right' or 'top'/'bottom'; grid→'cell-1..N'
 ```
 
-Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3`, `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}`.
+Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, **`richText`** (`html` string, optional `title`; static HTML+CSS carried inline — §6.3), `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3`, `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}`.
 
 `VideoInteractionDocument` (`packages/course-contract/src/videoInteraction.ts`): `{ schemaVersion:"1.1", video:{ blockId, source, durationSeconds, cues[] } }`; each cue `{ id, atSeconds≥0, pauseVideo, required, prompt, activity }`, activity reusing the same singleChoice/fillBlank assessment sub-schemas.
 
@@ -124,6 +126,7 @@ Handler: `apps/api/internal/api/course_definition_admin.go:54`.
 - `course.schemaVersion` must be `"2.0"` → else **422** `invalid_course_definition`.
 - `course.id` and `course.title` non-empty, and **`course.id` must equal `{slug}`** → else **400** `validation_failed`.
 - Every `cardIds` entry must be a known card id → else **400** `validation_failed`. (Unchanged — still registry-validated.)
+- **(2026-08-22)** Every `richText` block's `html` is scanned for executable constructs — `<script>`, `<iframe>/<object>/<embed>`, an inline `on…=` handler, or a `javascript:` URL → else **422** `invalid_course_definition`, naming the offending block id. The renderer already renders that HTML in a sandbox with no `allow-scripts`, so this is the server refusing to *store* markup whose only purpose is to execute, not the security boundary itself. See §6.3.
 - `category` is optional. Empty/absent means "leave unset" (`NULL`). A non-empty value must be one of the 7 controlled slugs — `stance-value`, `source-check`, `media-literacy`, `self-knowledge`, `data-literacy`, `research-process`, `argument-writing` (mirrors `COURSE_CATEGORIES` in `packages/contracts`) — else **400** `validation_failed`. There is no 8th free-text category.
 - `introduction` is optional. Empty/absent means "leave unset". When present it is only border-checked to be a JSON **object** (`{"hook":...}` unmarshals; a string/array/number does not) → else **400** `validation_failed`. Its deep shape (`hook`, `whatYouDo`, `takeaways[]`, `alignment{ib[],otherIntl[],domestic[]}`, `keywords[]`) is validated by the generator's own Zod contract, not by this handler.
 - `featured_rank` is **not settable through this endpoint** — it is student-end/product-owned (curation lives elsewhere), not part of the authoring envelope.
@@ -341,6 +344,53 @@ Note that a slot **stacks its `blockIds` vertically** (12px gap) and centers the
 
 See §6 for the offline preview — render your slice in it before authoring to confirm the fit.
 
+### 6.3 The `richText` block — authored HTML+CSS in a scrollable card (added 2026-08-22)
+
+**Why it exists.** `text` renders restricted Markdown. Markdown tops out well before real editorial structure: a coloured callout, a two-up comparison grid, a table with a tinted header, a tagged definition list, a pull-quote. Those are exactly what turns a dense explanation into something a student can *see* the shape of. `richText` gives you the whole of HTML+CSS for that, with no upload step.
+
+**Authoring shape** — the HTML travels **inline** in the definition:
+
+```jsonc
+{
+  "id": "source-types-card",
+  "type": "richText",
+  "title": "来源类型对照",          // optional; the frame's accessible name (screen readers)
+  "html": "<style>.callout{background:var(--course-accent-weak);border-left:3px solid var(--course-accent);padding:12px 14px;border-radius:0 8px 8px 0}</style><h2>三种“来源”</h2><div class=\"callout\">先问一句：我看到的，是谁第一次说出来的？</div><table>…</table>"
+}
+```
+
+No `source`, no `collectAssetPaths` entry, no upload-URL round trip. One field.
+
+**How it renders.** A card that **fills its slot** and **scrolls inside itself** — the one block allowed to be taller than its slot, because that is the point. The slice itself still never page-scrolls (D6 holds: the overflow belongs to the card, not the shell). The card owns its chrome (surface, border, radius, shadow); your HTML sits inside it on a transparent background.
+
+**It is not `interactiveHtml`.** Reach for the right one:
+
+| | `richText` | `interactiveHtml` |
+|-|-|-|
+| transport | inline `html` string | uploaded OSS asset (`source`) |
+| scripts | **none, ever** | yes, sandboxed with `allow-scripts` |
+| protocol | none | `postMessage` handshake + `completed` |
+| can complete a Slice | **no** (display-only, like `text`/`images`) | yes |
+| use it for | explanation, structure, reference | anything the student *does* |
+
+If the student must act, it is `interactiveHtml` or an assessment block. `richText` carries no `completion` rule and the contract rejects one.
+
+**Isolation — what you get and what it costs.** The card is rendered into a sandboxed iframe via `srcdoc`, with **no** `allow-scripts` and **no** `allow-same-origin`. Two consequences worth internalising:
+
+- ✅ **Your `<style>` is yours.** It cannot leak into the app (or into another card). Write plain element selectors — `h2 { … }`, `table { … }` — without fear of collisions. This is the reason for the iframe: injecting authored CSS into the app document would let one course restyle the whole product.
+- ❌ **Nothing loads from off-page.** `srcdoc` has no base URL and the frame is CSP-restricted, so a remote image, a webfont, an external stylesheet, a relative course asset path — none of them resolve. `validateCourseDefinition` emits a **warning** when it spots an off-page URL in your html. Put images in an `images` block, or inline a small one as a `data:` URI.
+- ❌ **No scripts, no forms, no iframes.** Rejected at authoring time by the contract *and* at PUT by the server (§2.1). The browser also blocks execution independently — the console message is literally `Blocked script execution in 'about:srcdoc' … 'allow-scripts' permission is not set`.
+
+**Base styles you inherit** (all overridable — your `<style>` comes after them): the course's sans-serif stack, 15px/1.72 body type, heading scale and margins, list/table/blockquote/code defaults, and these CSS variables resolved from the **live student palette**, so accent 随人 holds inside the card too:
+
+`--course-ink`, `--course-secondary`, `--course-muted`, `--course-surface`, `--course-border`, `--course-accent`, `--course-accent-weak`, `--course-radius`.
+
+Use them instead of hard-coded hexes and your card follows whichever accent the student picked.
+
+**Limits.** `html` is capped at **64 KB** (`RICH_TEXT_MAX_CHARS`). If a card is longer than that, it is longer than one screen of reading — split it across slices.
+
+**Slot shape.** A reading card wants a **tall** slot: a `split-horizontal` side (the classic "card beside the figure/question"), or `full` for a single reference screen. It behaves well in a narrow column — it just scrolls sooner.
+
 ---
 
 ## 7. Gap register — what to request from us before/during build
@@ -366,7 +416,7 @@ Net: backend changes made are **G2 (done)** and **G7 (done)**. G1/G3/G4/G5/G6 ar
 1. **Compile** local materials → `CourseDefinition` document (`{ schemaVersion:"2.0", course:{...} }`), `course.id === slug`.
 2. **Validate** locally: `validateCourseDefinition(doc)` + `validateVideoInteraction(...)` per video. Fail on any non-`warn` issue.
 3. **Preview** with the real renderer via the offline host recipe (§6).
-4. **Plan uploads:** `collectAssetPaths(doc)` → for each asset `POST .../asset-upload-url` → `PUT` bytes to the presigned URL with the required content-type. (Mind G1/G2.)
+4. **Plan uploads:** `collectAssetPaths(doc)` → for each asset `POST .../asset-upload-url` → `PUT` bytes to the presigned URL with the required content-type. (Mind G1/G2.) `richText` blocks contribute nothing here — their HTML rides inside the definition (§6.3).
 5. **Save draft:** `PUT .../definition` with `{ definition, blurb, cardIds }` → course lands/stays `preview`. (No concurrency guard — G3.)
 6. **Read back** (bearer, headless): `GET /admin/courses/{slug}/definition` → `{ definition, hash, status }` (§2.6); or discover all your courses via `GET /admin/courses`.
 7. **Publish:** `POST .../ship` with `{ cover }` → asset gate + TTS + `status:published`. (Re-ship re-TTSes — G5.)
