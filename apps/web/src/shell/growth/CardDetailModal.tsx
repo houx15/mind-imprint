@@ -89,13 +89,24 @@ function CardMd({ text }: { text: string }) {
   );
 }
 
+// Same markdown, but for the `teaching` blocks below, which each own their own
+// typography (size / weight / colour) and sit inside an element that already
+// supplies the line box. Dropping the <p> wrapper keeps those styles and avoids
+// nesting a block inside a <p>. Their copy is authored as a single inline
+// paragraph — **bold** for the key phrase — so no list/quote handling is needed
+// here; anything block-level would still render, just unwrapped.
+const CARD_MD_INLINE: Components = { ...CARD_MD, p: ({ children }) => <>{children}</> };
+function CardMdInline({ text }: { text: string }) {
+  return <ReactMarkdown remarkPlugins={[remarkGfm, remarkCjkFriendly]} components={CARD_MD_INLINE}>{text}</ReactMarkdown>;
+}
+
 // —— teaching blocks: the student-facing "how to use this card" render, driven
 // by the card's optional `teaching` field. Purpose-built for a student meeting
 // the method for the first time, replacing the old why/how/when dump. ——
 
 // One plain lead sentence: what this card is for you.
 function Tagline({ text }: { text: string }) {
-  return <p className="text-[15.5px] font-semibold leading-relaxed text-mk-ink">{text}</p>;
+  return <p className="text-[15.5px] font-semibold leading-relaxed text-mk-ink"><CardMdInline text={text} /></p>;
 }
 
 // 口诀 / acronym, as an accent-tinted callout — the memorable hook.
@@ -104,7 +115,7 @@ function MnemonicCallout({ m }: { m: TeachingMnemonic }) {
     <div className="rounded-mk-md border border-mk-accent-200 bg-mk-accent-50 px-4 py-3">
       <div className="text-mk-label text-mk-accent-600">口诀 · 记住它</div>
       <div className="mt-1 text-[15px] font-extrabold tracking-wide text-mk-ink">{m.phrase}</div>
-      {m.gloss && <div className="mt-1 text-mk-small leading-relaxed text-mk-secondary">{m.gloss}</div>}
+      {m.gloss && <div className="mt-1 text-mk-small leading-relaxed text-mk-secondary"><CardMdInline text={m.gloss} /></div>}
     </div>
   );
 }
@@ -132,8 +143,8 @@ function StepsList({ steps }: { steps: TeachingStep[] }) {
         <li key={i} className="flex gap-3">
           <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full bg-mk-accent-500 text-[11px] font-bold text-white">{i + 1}</span>
           <div className="min-w-0">
-            <div className="text-mk-body font-bold text-mk-ink">{s.title}</div>
-            <div className="mt-0.5 text-mk-small leading-relaxed text-mk-secondary">{s.detail}</div>
+            <div className="text-mk-body font-bold text-mk-ink"><CardMdInline text={s.title} /></div>
+            <div className="mt-0.5 text-mk-small leading-relaxed text-mk-secondary"><CardMdInline text={s.detail} /></div>
           </div>
         </li>
       ))}
@@ -146,7 +157,7 @@ function WatchOut({ text }: { text: string }) {
   return (
     <div className="rounded-mk-md border-l-[3px] border-mk-warning bg-mk-warning-bg px-4 py-3">
       <div className="text-mk-label text-mk-warning">最容易错</div>
-      <div className="mt-1 text-mk-small leading-relaxed text-mk-secondary">{text}</div>
+      <div className="mt-1 text-mk-small leading-relaxed text-mk-secondary"><CardMdInline text={text} /></div>
     </div>
   );
 }
