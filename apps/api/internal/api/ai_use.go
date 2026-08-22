@@ -87,15 +87,28 @@ func aiUseRecordLine(r aiUseRecord) string {
 // is an interaction record to reflect on, one metered mid-tier seed. An empty
 // record spends nothing; a failed seed returns the record with an empty draft.
 func (a *API) getAIUseDraft(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
 		return
 	}
+	projectID := row.ID
 	rec := a.buildProjectAIUseRecord(r.Context(), projectID)
 
 	usedFor, notUsedFor := "", ""
 	if saved, err := a.d.Queries.GetProjectAIUse(r.Context(), projectID); err == nil {
 		usedFor, notUsedFor = saved.UsedFor, saved.NotUsedFor
+	}
+
+	if row.IsDemo {
+		// Demo project (guided-tour P2, world-readable): never call the LLM —
+		// return the saved project_ai_use statement if one exists, else an
+		// empty draft, the same shape this handler returns below when there's
+		// nothing to seed.
+		httpx.WriteJSON(w, http.StatusOK, aiUseDraftDTO{
+			Record: toAIUseRecordDTO(rec),
+			Draft:  aiUseStatementDTO{UsedFor: usedFor, NotUsedFor: notUsedFor},
+		})
+		return
 	}
 
 	// Seed ONLY when nothing is saved yet AND there is a record to seed from.

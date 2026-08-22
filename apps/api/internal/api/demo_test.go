@@ -173,6 +173,87 @@ func TestDemoTokenFixtures(t *testing.T) {
 	}
 }
 
+// TestDemoTakeawayAndAIUseDraftNeverCallLLM verifies the fix for the two GET
+// token-spending endpoints that slipped past loadOwnedProject's non-GET-only
+// write-guard: getTakeawayDraft (references/{rid}/takeaway-draft) and
+// getAIUseDraft (ai-use-draft). Both must now resolve the SEEDED demo project
+// (…0200, migration 0082) via loadOwnedProjectRow and short-circuit on
+// row.IsDemo BEFORE ever touching a.d.Provider. Driven as a NON-owner (proving
+// world-readability) against a real *API built with newTestAPI — which wires
+// NO provider (Deps.Provider stays nil) — so any accidental compose call would
+// nil-pointer-panic rather than silently succeed; a clean 200 is direct proof
+// no model call happened.
+func TestDemoTakeawayAndAIUseDraftNeverCallLLM(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+	ctx := t.Context()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-drafts-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	var beforeLLM int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM llm_call`).Scan(&beforeLLM); err != nil {
+		t.Fatalf("count llm_call before: %v", err)
+	}
+
+	base := "/api/v1/projects/" + demoProjectID
+
+	// (a) GET .../ai-use-draft as a non-owner → 200, a valid draft envelope.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/ai-use-draft", nil), otherCookie))
+	if rr.Code != 200 {
+		t.Fatalf("demo GET /ai-use-draft: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var aiUse struct {
+		Record map[string]any `json:"record"`
+		Draft  struct {
+			UsedFor    string `json:"usedFor"`
+			NotUsedFor string `json:"notUsedFor"`
+		} `json:"draft"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &aiUse); err != nil {
+		t.Fatalf("decode ai-use-draft: %v — body=%s", err, rr.Body.String())
+	}
+	if aiUse.Record == nil {
+		t.Fatalf("demo ai-use-draft: want a record object, got none — %s", rr.Body.String())
+	}
+
+	// (b) GET .../references/{rid}/takeaway-draft, for a demo reference the
+	// seed gave material content (…0260, linked to material …0271 with a
+	// confirmed CRAAP card instance) → 200, a valid (possibly empty) draft.
+	rid := "00000000-0000-0000-0000-000000000260"
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/references/"+rid+"/takeaway-draft", nil), otherCookie))
+	if rr.Code != 200 {
+		t.Fatalf("demo GET /references/%s/takeaway-draft: want 200, got %d — %s", rid, rr.Code, rr.Body.String())
+	}
+	var takeaway struct {
+		Record                  map[string]any `json:"record"`
+		SuggestedNewLeads       []string       `json:"suggestedNewLeads"`
+		SuggestedProposalImpact string         `json:"suggestedProposalImpact"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &takeaway); err != nil {
+		t.Fatalf("decode takeaway-draft: %v — body=%s", err, rr.Body.String())
+	}
+	if takeaway.Record == nil {
+		t.Fatalf("demo takeaway-draft: want a record object, got none — %s", rr.Body.String())
+	}
+	if takeaway.SuggestedNewLeads == nil {
+		t.Fatalf("demo takeaway-draft: want suggestedNewLeads as [] (never null), got null — %s", rr.Body.String())
+	}
+
+	// Neither call spent anything: no llm_call rows written, proving the demo
+	// never reached the compose/provider block (a.d.Provider is nil on this
+	// test API — an unguarded call here would have panicked, not just spent).
+	var afterLLM int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM llm_call`).Scan(&afterLLM); err != nil {
+		t.Fatalf("count llm_call after: %v", err)
+	}
+	if afterLLM != beforeLLM {
+		t.Fatalf("demo draft endpoints wrote llm_call rows: before=%d after=%d", beforeLLM, afterLLM)
+	}
+}
+
 // assertDemoReadonly asserts rr is a 403 carrying error.code = "demo_readonly".
 func assertDemoReadonly(t *testing.T, rr *httptest.ResponseRecorder, label string) {
 	t.Helper()

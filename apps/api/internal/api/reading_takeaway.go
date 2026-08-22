@@ -152,18 +152,11 @@ func nonNilKeyQuotes(qs []agent.KeyQuote) []agent.KeyQuote {
 // llm_call row — metering must only ever reflect a call that actually
 // happened.
 func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
 		return
 	}
-	u, _ := UserFromContext(r.Context())
-	if entitled, err := HasEntitlement(r.Context(), u); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	} else if !entitled {
-		httpx.WriteError(w, r, httpx.ErrNotEntitled())
-		return
-	}
+	projectID := row.ID
 	rid, err := uuid.Parse(r.PathValue("rid"))
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
@@ -176,6 +169,28 @@ func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
 	}
 	materialID := uuid.UUID(ref.MaterialID.Bytes)
 	record := a.readingOutcomesByMaterial(r, projectID, materialID)
+
+	if row.IsDemo {
+		// Demo project (guided-tour P2, world-readable): never call the LLM —
+		// return the deterministically-assembled record (readingOutcomesByMaterial
+		// does no network call) with empty suggestions, the same shape this
+		// handler returns below when there's nothing to compose.
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"record":                  toTakeawayRecordDTO(record),
+			"suggestedNewLeads":       nonNilStrings(nil),
+			"suggestedProposalImpact": "",
+		})
+		return
+	}
+
+	u, _ := UserFromContext(r.Context())
+	if entitled, err := HasEntitlement(r.Context(), u); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	} else if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
 
 	in := agent.ReadingTakeawayInput{Brief: a.readingBriefFor(r.Context(), projectID, materialID), Record: record}
 	var leads []string
