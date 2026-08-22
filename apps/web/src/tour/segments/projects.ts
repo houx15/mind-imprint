@@ -206,9 +206,8 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-library-1",
-        anchor: '[data-tour="library-table"]',
-        placement: "top",
-        text: "这张表按资料列出你读过的每一篇，点开任意一行能回到当时的笔记和标注——写作时要引用什么，来这里翻就对了。",
+        placement: "center",
+        text: "阅读区还有一个「文献库」视图，把你读过的每一篇资料列成一张表，点开任意一行能回到当时的笔记和标注——写作时要引用什么，去那里翻就对了。",
         advance: "next",
       },
     ],
