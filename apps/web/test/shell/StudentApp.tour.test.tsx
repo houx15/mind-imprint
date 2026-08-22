@@ -42,4 +42,16 @@ describe("StudentApp onboarding", () => {
     expect(putOnboarding).toHaveBeenCalled();
     expect(screen.queryByText(/欢迎来到思维印记/)).not.toBeInTheDocument();
   });
+
+  it("picking 课程 starts the tour on the courses group", () => {
+    render(<StudentApp session={makeSession(null)} onLogout={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "课程" }));
+    expect(screen.getByText("先聊聊课程")).toBeInTheDocument();
+  });
+
+  it("picking 项目 starts the tour on the projects group", () => {
+    render(<StudentApp session={makeSession(null)} onLogout={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "项目" }));
+    expect(screen.getByText("再聊聊项目")).toBeInTheDocument();
+  });
 });

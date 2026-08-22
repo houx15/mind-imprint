@@ -13,7 +13,7 @@ import { TourProvider, useTour } from "@/tour/TourProvider";
 import { TourRunner } from "@/tour/TourRunner";
 import { WelcomeModal } from "@/tour/WelcomeModal";
 import { FeedbackModal } from "@/tour/FeedbackModal";
-import { fullJourney } from "@/tour/journey";
+import { fullJourney, journeyStarting } from "@/tour/journey";
 import type { TourNavContext, StudioRoom } from "@/tour/types";
 import { DEMO_PROJECT_ID } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
@@ -239,10 +239,11 @@ export function StudentApp({
 }
 
 // StudentAppInner — the shell body rendered inside TourProvider so it can call
-// useTour(). It owns the tour triggers: the Nav footer's 重新开始引导, the
-// welcome modal's 课程/项目 picks (both play `fullJourney` from the start —
-// segments are sequential-only, so there are no per-segment entry points), and
-// the example-report overlay the tour deep-links into.
+// useTour(). It owns the tour triggers: the Nav footer's 重新开始引导 (always
+// courses-first, via `fullJourney`), the welcome modal's 课程/项目 pick (via
+// `journeyStarting(start)`, which reorders the two groups and always ends
+// with the settings/accent finale), and the example-report overlay the tour
+// deep-links into.
 function StudentAppInner({
   tab,
   onTab,
@@ -291,11 +292,9 @@ function StudentAppInner({
       <WelcomeModal
         open={welcomeOpen}
         displayName={user?.display_name ?? ""}
-        onPick={(_start) => {
-          // P1: fullJourney = courses group only, so the courses/projects order
-          // has no effect yet — the param is kept for P3 when the groups swap.
+        onPick={(start) => {
           setWelcomeOpen(false);
-          tour.play(fullJourney);
+          tour.play(journeyStarting(start));
         }}
         onDismiss={() => {
           setWelcomeOpen(false);
