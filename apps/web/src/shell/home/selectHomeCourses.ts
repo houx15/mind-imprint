@@ -1,29 +1,18 @@
 import type { CourseSummary } from "@mind-imprint/contracts";
 
-// selectHomeCourses picks the up-to-`limit` courses the home page shows.
-// Featured courses (featuredRank != null) come first, ascending by rank; the
-// remaining slots are filled from the rest in random order. When NOTHING is
-// featured (the pre-curation state), this degrades to "random `limit`" — so
-// "random for now, curated later" is one code path, flipped by data alone.
-// `rng` is injectable for deterministic tests; defaults to Math.random.
-export function selectHomeCourses(
-  courses: CourseSummary[],
-  limit: number,
-  rng: () => number = Math.random,
-): CourseSummary[] {
-  const shuffle = (xs: CourseSummary[]): CourseSummary[] => {
-    const a = [...xs];
-    for (let i = a.length - 1; i > 0; i--) {
-      const j = Math.floor(rng() * (i + 1));
-      const tmp = a[i]!;
-      a[i] = a[j]!;
-      a[j] = tmp;
-    }
-    return a;
-  };
-  const ranked = courses
-    .filter((c) => c.featuredRank != null)
-    .sort((x, y) => (x.featuredRank as number) - (y.featuredRank as number));
-  const rest = shuffle(courses.filter((c) => c.featuredRank == null));
-  return [...ranked, ...rest].slice(0, limit);
+// selectHomeCourses picks the up-to-`limit` courses the 首页 最近课程 strip shows:
+// the courses the student most recently learned come first, newest-first by
+// their own `progress.updatedAt`; any remaining slots — or the whole strip when
+// nothing has been learned yet — are filled from the rest of the catalog in its
+// given order. Deterministic (no shuffle) so the cards don't jump between
+// renders, and 铁律②-safe: the only order is the student's own recency, never a
+// popularity ranking.
+export function selectHomeCourses(courses: CourseSummary[], limit: number): CourseSummary[] {
+  const learned = courses
+    .filter((c) => c.progress != null)
+    // RFC3339 timestamps sort correctly lexicographically; y-vs-x = descending.
+    .sort((x, y) => y.progress!.updatedAt.localeCompare(x.progress!.updatedAt));
+  const learnedSlugs = new Set(learned.map((c) => c.slug));
+  const rest = courses.filter((c) => !learnedSlugs.has(c.slug));
+  return [...learned, ...rest].slice(0, limit);
 }

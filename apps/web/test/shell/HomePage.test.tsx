@@ -73,9 +73,13 @@ describe("HomePage", () => {
     await userEvent.click(courseCard);
     expect(onOpenCourse).toHaveBeenCalledWith("co1");
 
-    const viewAll = screen.getByText("查看全部 →");
-    await userEvent.click(viewAll);
+    // Both 最近项目 and 最近课程 carry a 查看全部 → link, in that DOM order.
+    const viewAll = screen.getAllByText("查看全部 →");
+    expect(viewAll).toHaveLength(2);
+    await userEvent.click(viewAll[0]!); // 最近项目
     expect(onGoProjects).toHaveBeenCalledTimes(1);
+    await userEvent.click(viewAll[1]!); // 最近课程
+    expect(onGoCourses).toHaveBeenCalledTimes(1);
   });
 
   it("renders a recent project's img: cover as a full-bleed <img> flush to the tile edges", async () => {

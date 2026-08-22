@@ -3,7 +3,7 @@ import { coverGradientStyle } from "@/ui";
 
 /**
  * CourseCard — the single course catalog card, shared by the 课程 list
- * (CoursesView) and the 首页 推荐课程 grid (HomePage). One rich look everywhere:
+ * (CoursesView) and the 首页 最近课程 grid (HomePage). One rich look everywhere:
  * a 16:9 cover with the branch pill, title + blurb, three coloured meta chips
  * (任务/工具/时长), an optional progress bar, and a status pill + CTA.
  *

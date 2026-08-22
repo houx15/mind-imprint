@@ -11,7 +11,7 @@ import { Button, SkeletonCard, EmptyState, Illustration } from "@/ui";
  *
  * Three sections inside a centered ~1200px container on the warm paper bg:
  * a greeting header, a horizontal "最近项目" snapshot (first tile always
- * "新建"), and a "推荐课程" grid. Both card kinds are the SHARED catalog cards
+ * "新建"), and a "最近课程" grid. Both card kinds are the SHARED catalog cards
  * (`@/catalog/ProjectCard`, `@/catalog/CourseCard`) — the exact same components
  * the 项目 / 课程 list pages render, so the home snapshot never drifts from the
  * full lists. Each data section fetches independently so a failure in one (soft
@@ -148,7 +148,14 @@ function CoursesSection({
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-mk-h2 text-mk-ink">好的写作，建立在阅读之上哦 · 推荐课程</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-mk-h2 text-mk-ink">最近课程</h2>
+        {!loading && !failed && (courses ?? []).length > 0 && (
+          <Button variant="link" onClick={onGoCourses}>
+            查看全部 →
+          </Button>
+        )}
+      </div>
 
       {loading ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
@@ -157,7 +164,7 @@ function CoursesSection({
           ))}
         </div>
       ) : failed ? (
-        <p className="text-mk-body text-mk-muted">推荐课程暂时加载不出来，刷新一下再试试。</p>
+        <p className="text-mk-body text-mk-muted">最近课程暂时加载不出来，刷新一下再试试。</p>
       ) : (courses ?? []).length === 0 ? (
         <p className="text-mk-body text-mk-muted">课程正在准备中，很快上线。</p>
       ) : (
@@ -166,15 +173,6 @@ function CoursesSection({
             <CourseCard key={c.slug} course={c} pct={coursePct(c)} onOpen={() => onOpenCourse(c.slug)} />
           ))}
         </div>
-      )}
-      {!loading && !failed && (courses ?? []).length > 0 && (
-        <button
-          type="button"
-          onClick={onGoCourses}
-          className="self-start text-mk-body font-semibold text-mk-accent-600 hover:underline"
-        >
-          查看更多课程 →
-        </button>
       )}
     </section>
   );
@@ -190,7 +188,7 @@ export interface HomePageProps {
   onCreateProject: () => void;
   /** Go to the 项目 tab. */
   onGoProjects: () => void;
-  /** Go to the 课程 tab (home "查看更多课程"). */
+  /** Go to the 课程 tab (home 最近课程's "查看全部"). */
   onGoCourses: () => void;
   /** Open a finished project's 评估报告 (project card's ⋯ menu → deep-links into
    * the 项目 tab's 评估报告 sub). */
