@@ -1,18 +1,19 @@
 import { test, expect } from "@playwright/test";
-import { login, openRail, PHOEBE } from "./helpers";
+import { login, PHOEBE } from "./helpers";
 
-// J-studio — the writing project's back half → the flagship 你的思维印记.
+// J-studio — a writing project's back half → the flagship 你的思维印记.
 //
-// The seeded Phoebe project sits at S4 写作 (the seed already walked S0→S3 — the
-// acceptance mainline). The studio UI enforces station-locking: 回看/finish is
-// not reachable from S4 without walking each station's gates through the UI (a
-// separate, large UI-journey effort). So this journey drives the lifecycle's
-// back half over the REAL API (Playwright's request context shares the browser
-// session cookie set by the UI login — still real HTTP → API → DB → live
-// flagship model), and then UI-verifies the outcome in 成长报告. This proves the
-// flagship 过程评估 (你的思维印记) generates end-to-end on the project path — the
-// gate that Findings D + E were blocking. Idempotent: re-running (retry) sees the
-// project already assessed and just re-verifies.
+// The seeded Phoebe project (0018, status 'active') is driven through the
+// lifecycle's back half over the REAL API (Playwright's request context shares
+// the browser session cookie set by the UI login — still real HTTP → API → DB →
+// live flagship model), then the outcome is UI-verified under 项目 → 评估报告.
+// This proves the flagship 过程评估 (你的思维印记) generates end-to-end on the
+// project path. Idempotent: a re-run (retry) sees the report already ready and
+// just re-verifies.
+//
+// The report is read via GET /projects/{id}/evaluation-report — the three-state
+// envelope (null | {status:"generating"|"failed"} | {status:"ready",report}) —
+// NOT the retired /assessment path the stale spec polled.
 const API = "http://localhost:8080/api/v1";
 const DRAFT = [
   "中国是否让地球更可持续，必须分两面看。本文论点：中国在可再生能源上的贡献是实质性的，但碳排放总量仍是严重的反例，所以答案是部分是、部分否。",
@@ -21,8 +22,10 @@ const DRAFT = [
   "结论：把中国简单判为可持续或不可持续都是过度简化。更准确的判断是：它在特定维度上做出全球领先的贡献，同时在排放总量上仍是最大的挑战来源；评估净效应要同时看这两条证据线。",
 ].join("\n\n");
 
-test("J-studio: project lifecycle → commit → 整稿体检 → finish → 你的思维印记", async ({ page }) => {
-  test.setTimeout(240_000);
+test("J-studio: project lifecycle → 整稿体检 → finish → 你的思维印记", async ({ page }) => {
+  // Generous: the back half runs a live SSE review then an ASYNC flagship report
+  // (4 flagship calls) that can take a few minutes under load, plus the poll.
+  test.setTimeout(420_000);
 
   // 1. UI login (Phoebe) — sets the session cookie the API request context reuses.
   await login(page, PHOEBE.email, PHOEBE.password);
@@ -33,10 +36,21 @@ test("J-studio: project lifecycle → commit → 整稿体检 → finish → 你
   const projectId: string = rows[0].id;
   expect(projectId).toBeTruthy();
 
-  // 3. Drive the back half over the real API (idempotent: skip if already assessed).
-  const existing = await page.request.get(`${API}/projects/${projectId}/assessment`);
-  const already = existing.ok() && (await existing.text()).includes("depthAxis");
-  if (!already) {
+  // Reads the three-state evaluation-report envelope; returns the parsed body.
+  const readReport = async () => {
+    const res = await page.request.get(`${API}/projects/${projectId}/evaluation-report`);
+    if (!res.ok()) return null;
+    return (await res.json()) as { status?: string; report?: { depth?: unknown; autonomy?: unknown } } | null;
+  };
+
+  // 3. Drive the back half over the real API. Idempotent + retry-safe: skip the
+  //    whole drive if the report is already ready, AND skip re-finalizing if a
+  //    prior attempt (or a Playwright retry) already kicked off generation — the
+  //    report envelope reads "generating" then, and re-POSTing finish would 409.
+  const existing = await readReport();
+  const alreadyReady = existing?.status === "ready";
+  const alreadyGenerating = existing?.status === "generating";
+  if (!alreadyReady && !alreadyGenerating) {
     // commit a draft snapshot
     const snap = await page.request.post(`${API}/projects/${projectId}/snapshots`, { data: { content: DRAFT } });
     expect(snap.ok()).toBeTruthy();
@@ -65,52 +79,48 @@ test("J-studio: project lifecycle → commit → 整稿体检 → finish → 你
     });
     expect(refl.ok()).toBeTruthy();
 
-    // finish → kicks off the flagship 你的思维印记 report ASYNC. Since the
-    // workspace redesign (9e928b0) finish returns 202 {status:"evaluating"} and
-    // a DETACHED goroutine generates the report — so poll GET /assessment until
-    // the flagship report lands (this also exercises S5's AI-use feed into the
-    // assessor). (Previously this test asserted a synchronous 200 + inline
-    // report, stale since the async refactor.)
-    const finish = await page.request.post(`${API}/projects/${projectId}/finish`, { timeout: 150_000 });
-    expect(finish.status()).toBe(202);
+    // 完成写作 gate: finish refuses (422 writing_not_finished) unless the ESSAY
+    // doc is locked, and finish-writing itself refuses (422 draft_empty) unless
+    // the essay's edit buffer carries real content. So fill the buffer, then
+    // finish writing, before finalizing.
+    const buf = await page.request.put(`${API}/projects/${projectId}/buffer?doc=essay`, { data: { content: DRAFT } });
+    expect(buf.ok()).toBeTruthy(); // 204
+    const fw = await page.request.post(`${API}/projects/${projectId}/finish-writing?doc=essay`);
+    expect(fw.ok()).toBeTruthy(); // 200
 
-    let report: string | null = null;
-    for (let i = 0; i < 45; i++) {
-      const a = await page.request.get(`${API}/projects/${projectId}/assessment`);
-      if (a.ok()) {
-        const body = await a.text();
-        if (body && body.includes("depthAxis")) {
-          report = body;
-          break;
-        }
-      }
-      await page.waitForTimeout(3000);
-    }
-    expect(report, "flagship report generated async within timeout").not.toBeNull();
-    // RL-5 / shape: a real dual-axis report, not an empty stub.
-    expect(report).toContain("depthAxis");
-    expect(report).toContain("narrative");
+    // finish → kicks off the flagship 你的思维印记 report ASYNC and a detached
+    // goroutine generates it. 202 {status:"evaluating"} on a fresh finalize; 409
+    // if it was already finalizing (a prior attempt / retry) — both are fine, we
+    // poll the report either way.
+    const finish = await page.request.post(`${API}/projects/${projectId}/finish`, { timeout: 150_000 });
+    expect([202, 409]).toContain(finish.status());
   }
 
-  // 4. UI: 成长报告 — all three tabs now carry real data.
-  await openRail(page, "成长报告");
+  // Poll the three-state envelope until the async flagship report reads "ready"
+  // (skipped only if it was already ready). ~280s window — the live flagship
+  // report can take a few minutes under load.
+  if (!alreadyReady) {
+    let ready = false;
+    for (let i = 0; i < 70; i++) {
+      const body = await readReport();
+      if (body?.status === "ready") {
+        ready = true;
+        // A real report envelope, not an empty stub.
+        expect(Array.isArray(body.report?.depth)).toBeTruthy();
+        expect(Array.isArray(body.report?.autonomy)).toBeTruthy();
+        break;
+      }
+      if (body?.status === "failed") throw new Error("evaluation report generation failed");
+      await page.waitForTimeout(4000);
+    }
+    expect(ready, "flagship report generated async within timeout").toBeTruthy();
+  }
 
-  // 学习记录: the finished project's evaluation shows up (empty state gone).
-  await page.getByRole("button", { name: "学习记录" }).click();
+  // 4. UI: the report surfaces under 项目 → 评估报告 (ReportsView, after the nav
+  //    restructure — the retired 成长报告 tab is gone). The empty state is gone
+  //    and the report is openable.
+  await page.getByRole("tab", { name: "项目" }).click();
+  await page.getByRole("button", { name: "评估报告" }).click();
+  await expect(page.getByRole("heading", { name: "你的思维印记" })).toBeVisible({ timeout: 15_000 });
   await expect(page.getByText("还没有报告")).toHaveCount(0, { timeout: 15_000 });
-
-  // 工具卡: Phoebe's seeded completed cards (concession + steelman) are collected —
-  // this tab is populated independent of the finish, and was never asserted.
-  // concession now sits under the 论证写作 category (the gallery re-taxonomy).
-  await page.getByRole("button", { name: "工具卡" }).click();
-  await expect(page.getByText("还没有收集到工具卡")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByText("论证写作").first()).toBeVisible();
-
-  // 能力素养: after ONE finished project totalSessions=1, so the tab leaves its
-  // empty state — but every depth dim still needs ≥2 sessions to show a level,
-  // so it renders "证据不足 · 需更多任务". Encoding this precondition explicitly:
-  // a single finish populates the picture's frame, not its levels.
-  await page.getByRole("button", { name: "能力素养" }).click();
-  await expect(page.getByText("还没有足够的数据")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByText("证据不足 · 需更多任务").first()).toBeVisible();
 });
