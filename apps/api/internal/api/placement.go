@@ -18,8 +18,13 @@ import (
 // { leadId: null, reason: "" }, 200. Advisory (铁律②): the student confirms via
 // the attach endpoint.
 func (a *API) postSuggestPlacement(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedPlacement())
 		return
 	}
 	var body struct {

@@ -115,8 +115,13 @@ func (a *API) getProposalAnnotations(w http.ResponseWriter, r *http.Request) {
 
 // POST /projects/{id}/proposal-annotations/review[?doc=essay] — the whole-draft "AI check".
 func (a *API) reviewProposalAnnotations(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedAnnotationReview())
 		return
 	}
 	out := a.runDraftAnnotationReview(r.Context(), projectID, annotationDocParam(r), "")

@@ -9,6 +9,7 @@ package api
 // submit/skip are thin JSON endpoints (no refeed, no graph_effects — Chat's
 // keystone card moment is a one-shot CRAAP offer, not the Studio card loop).
 import (
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -58,26 +59,64 @@ func (a *API) createChatThread(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusCreated, toChatThreadDTO(th))
 }
 
-// loadOwnedThread resolves {id} and 404s (not 403) unless it belongs to the
-// caller — same ownership-hidden-as-not-found convention as
-// projects.go's loadOwnedProject, over chat_thread instead of project.
-func (a *API) loadOwnedThread(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+// loadOwnedThreadRow resolves {id} to its chat_thread row, 404-hidden (not 403)
+// unless it belongs to the caller — same ownership-hidden-as-not-found
+// convention as projects.go's loadOwnedProjectRow, over chat_thread instead of
+// project. It applies NO demo write-guard: the caller decides (postChatTurn
+// short-circuits a demo-seeded thread to a canned reply; loadOwnedThread wraps
+// this and 403s the JSON write handlers).
+func (a *API) loadOwnedThreadRow(w http.ResponseWriter, r *http.Request) (sqlc.ChatThread, bool) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return uuid.UUID{}, false
+		return sqlc.ChatThread{}, false
 	}
 	u, _ := UserFromContext(r.Context())
 	th, err := a.d.Queries.GetThread(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
-		return uuid.UUID{}, false
+		return sqlc.ChatThread{}, false
 	}
 	if th.UserID != u.ID {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return sqlc.ChatThread{}, false
+	}
+	return th, true
+}
+
+// loadOwnedThread resolves {id} and 404s (not 403) unless it belongs to the
+// caller — same ownership-hidden-as-not-found convention as
+// projects.go's loadOwnedProject, over chat_thread instead of project. Demo
+// guard (guided-tour P2): a thread seeded from a demo project is read-only, so
+// every non-GET here (submitChatCard/skipChatCard via loadOwnedThreadCard) is
+// rejected with 403 demo_readonly. postChatTurn deliberately does NOT go
+// through this helper for demo threads — it resolves the row itself and returns
+// a canned reply instead of 403.
+func (a *API) loadOwnedThread(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	th, ok := a.loadOwnedThreadRow(w, r)
+	if !ok {
 		return uuid.UUID{}, false
 	}
-	return id, true
+	if r.Method != http.MethodGet && a.threadSeededFromDemo(r.Context(), th) {
+		httpx.WriteError(w, r, httpx.ErrDemoReadonly())
+		return uuid.UUID{}, false
+	}
+	return th.ID, true
+}
+
+// threadSeededFromDemo reports whether a thread was seeded from a demo project
+// (chat_thread.seeded_project_id points at a project flagged is_demo). A
+// project-free (standalone) thread never is. Best-effort — a lookup error reads
+// as "not a demo" so a transient failure never spuriously locks a real thread.
+func (a *API) threadSeededFromDemo(ctx context.Context, th sqlc.ChatThread) bool {
+	if !th.SeededProjectID.Valid {
+		return false
+	}
+	demo, err := a.isDemoProject(ctx, uuid.UUID(th.SeededProjectID.Bytes))
+	if err != nil {
+		return false
+	}
+	return demo
 }
 
 // loadOwnedThreadCard scopes {cid} to the owned {id} thread (404-no-leak) —
@@ -133,8 +172,16 @@ func (a *API) getChatMessages(w http.ResponseWriter, r *http.Request) {
 // project→thread substitution and RunChatStep replacing RunAgentStep (no
 // refeed, no graph_effects — the Chat policy is coach-alone, planner off).
 func (a *API) postChatTurn(w http.ResponseWriter, r *http.Request) {
-	threadID, ok := a.loadOwnedThread(w, r)
+	th, ok := a.loadOwnedThreadRow(w, r)
 	if !ok {
+		return
+	}
+	threadID := th.ID
+	// A thread seeded from a demo project never drives the model — emit a
+	// canned SSE reply (no provider, no persistence) so the read-only demo chat
+	// still streams a well-formed turn.
+	if a.threadSeededFromDemo(r.Context(), th) {
+		a.streamDemoTurn(w, r, demoChatReply)
 		return
 	}
 	u, _ := UserFromContext(r.Context())

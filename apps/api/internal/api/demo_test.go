@@ -94,6 +94,85 @@ func TestDemoProjectReadOnly(t *testing.T) {
 	}
 }
 
+// TestDemoTokenFixtures verifies the guided-tour P2 Task 2 seam: every
+// token-consuming endpoint short-circuits to a canned fixture for a demo
+// project — 200, no live model call (works with a nil Provider — newTestAPI
+// wires none), and NO persistence. A NON-owner drives it, which also proves the
+// world-readable token access loadOwnedProjectRow grants (Task 1).
+func TestDemoTokenFixtures(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+	q := sqlc.New(pool)
+	ctx := t.Context()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-fixtures-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	// Demo project owned by SeedUserID (someone OTHER than the caller).
+	demo, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: SeedUserID, Qualification: "IB", Title: "演示项目", BoardCfgVer: 1,
+	})
+	if err != nil {
+		t.Fatalf("create demo project: %v", err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE project SET is_demo = true WHERE id = $1`, demo.ID); err != nil {
+		t.Fatalf("flag is_demo: %v", err)
+	}
+
+	countAll := func(table string) int {
+		t.Helper()
+		var n int
+		if err := pool.QueryRow(ctx, `SELECT count(*) FROM `+table).Scan(&n); err != nil {
+			t.Fatalf("count %s: %v", table, err)
+		}
+		return n
+	}
+	beforeMsgs := countAll("chat_message")
+	beforeLLM := countAll("llm_call")
+
+	// (a) POST /coach → 200 with the canned reply (non-owner, nil provider).
+	coachBody, _ := json.Marshal(map[string]string{"user_input": "演示项目里我随便问一句"})
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+demo.ID.String()+"/coach", bytes.NewReader(coachBody)), otherCookie))
+	if rr.Code != 200 {
+		t.Fatalf("demo POST /coach: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var coach struct {
+		Narrate string `json:"narrate"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &coach); err != nil {
+		t.Fatalf("decode coach reply: %v", err)
+	}
+	if coach.Narrate == "" {
+		t.Fatalf("demo POST /coach: want a canned narrate, got empty — %s", rr.Body.String())
+	}
+
+	// (b) POST /exploration/dig → 200 with a (canned, empty) candidates array.
+	digBody, _ := json.Marshal(map[string]string{"keyword": "sustainability"})
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+demo.ID.String()+"/exploration/dig", bytes.NewReader(digBody)), otherCookie))
+	if rr.Code != 200 {
+		t.Fatalf("demo POST /exploration/dig: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var dig struct {
+		Candidates []any `json:"candidates"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &dig); err != nil {
+		t.Fatalf("decode dig reply: %v", err)
+	}
+	if dig.Candidates == nil {
+		t.Fatalf("demo POST /exploration/dig: want a candidates array (even if empty), got null — %s", rr.Body.String())
+	}
+
+	// The demo path spent nothing and wrote nothing: no chat_message, no llm_call.
+	if got := countAll("chat_message"); got != beforeMsgs {
+		t.Fatalf("demo endpoints wrote chat_message rows: before=%d after=%d", beforeMsgs, got)
+	}
+	if got := countAll("llm_call"); got != beforeLLM {
+		t.Fatalf("demo endpoints wrote llm_call rows: before=%d after=%d", beforeLLM, got)
+	}
+}
+
 // assertDemoReadonly asserts rr is a 403 carrying error.code = "demo_readonly".
 func assertDemoReadonly(t *testing.T, rr *httptest.ResponseRecorder, label string) {
 	t.Helper()

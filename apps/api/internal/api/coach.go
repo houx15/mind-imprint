@@ -50,8 +50,13 @@ const coachHistoryWindow = 12
 // postCoach runs one continuous, spine-aware coach turn. Spend endpoint: gates
 // on HasEntitlement, meters via RecordLLMCall before any bail.
 func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedCoachReply())
 		return
 	}
 	u, _ := UserFromContext(r.Context())
@@ -782,8 +787,13 @@ func nextStepFor(status agent.FlowStatus, planExists, finishPart bool) *nextStep
 // ANY turn (a page reload, a resumed session), this returns 200 with an EMPTY
 // narrate and the current directive — no new turn, no spend.
 func (a *API) postCoachOpening(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedCoachReply())
 		return
 	}
 	u, _ := UserFromContext(r.Context())
@@ -884,8 +894,13 @@ func (a *API) postCoachOpening(w http.ResponseWriter, r *http.Request) {
 // the button press. Idempotent: once state.Started is already true, returns
 // the current directive with no spend and no new turn.
 func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedCoachReply())
 		return
 	}
 	u, _ := UserFromContext(r.Context())
@@ -1047,8 +1062,13 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 // 印记 greets the phase and guides the first move. This is the ONLY way the
 // status advances forward — the coach no longer has set_status/open_tool.
 func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedCoachReply())
 		return
 	}
 	u, _ := UserFromContext(r.Context())

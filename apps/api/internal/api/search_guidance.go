@@ -18,8 +18,13 @@ import (
 
 // POST /projects/{id}/search-guidance → { suggestions: [{keyword, why}] }
 func (a *API) postSearchGuidance(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedSearchGuidance())
 		return
 	}
 	state, err := a.loadStudioStateForNeeds(r.Context(), projectID)
