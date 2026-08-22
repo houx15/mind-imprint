@@ -12,6 +12,7 @@ import { api, type MeUser } from "../api";
 import { TourProvider, useTour } from "@/tour/TourProvider";
 import { TourRunner } from "@/tour/TourRunner";
 import { WelcomeModal } from "@/tour/WelcomeModal";
+import { FeedbackModal } from "@/tour/FeedbackModal";
 import { fullJourney } from "@/tour/journey";
 import type { TourNavContext } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
@@ -247,6 +248,7 @@ function StudentAppInner({
   setShowExampleReport: (show: boolean) => void;
 }) {
   const tour = useTour();
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
 
   return (
     <>
@@ -257,15 +259,14 @@ function StudentAppInner({
             onTab={onTab}
             user={user}
             onRestartTour={() => tour.play(fullJourney)}
-            onFeedback={() => {
-              /* Task 10 wires the real feedback modal; no-op stub for now. */
-            }}
+            onFeedback={() => setFeedbackOpen(true)}
             onLogout={onLogout}
           />
         )}
         <div className="relative flex-1 overflow-hidden">{body}</div>
       </div>
       <TourRunner />
+      <FeedbackModal open={feedbackOpen} onClose={() => setFeedbackOpen(false)} />
       <WelcomeModal
         open={welcomeOpen}
         displayName={user?.display_name ?? ""}

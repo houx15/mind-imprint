@@ -71,3 +71,12 @@ export async function setBackground(background: BackgroundId): Promise<void> {
 export async function putOnboarding(): Promise<void> {
   await apiFetch<{ ok: boolean }>("/api/v1/users/me/onboarding", { method: "PUT" });
 }
+
+// Save free-text feedback from the nav rail's 反馈 button. Fire-and-forget from
+// the caller's perspective — the id isn't surfaced to the student.
+export async function submitFeedback(text: string): Promise<void> {
+  await apiFetch<{ id: string }>("/api/v1/feedback", {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+}

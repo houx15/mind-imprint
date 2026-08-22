@@ -267,6 +267,13 @@ type ExplorationLead struct {
 	ParentLeadID         pgtype.UUID `json:"parent_lead_id"`
 }
 
+type Feedback struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Text      string    `json:"text"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type GraphEdge struct {
 	ID        uuid.UUID `json:"id"`
 	ProjectID uuid.UUID `json:"project_id"`
