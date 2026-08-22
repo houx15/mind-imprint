@@ -1,4 +1,4 @@
-import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, CourseAnswerReport, Anchor, MaterialSource, ProjectStatus, ChatThread, ChatMessage, AbilityModel, CollectedCard, CardCatalogEntry, CoverTheme, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
+import type { TraceEvent, CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, CourseAnswerReport, Anchor, MaterialSource, ProjectStatus, CardCatalogEntry, CoverTheme, SelectionEval, ReadingBrief, TakeawayDraft, Reference } from "@mind-imprint/contracts";
 import { signup, verifyEmail, signin, signout, getMe, setAccent, setBackground, type MeUser } from "./auth";
 import type { AccentId } from "../ui/accent";
 import type { BackgroundId } from "../ui/background";
@@ -11,22 +11,20 @@ import {
   type Overview, type TeacherInvite, type ImportRow, type ImportResult,
 } from "./admin";
 import { listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, getCourseAnswerReport, restartCourse, getCourseHistory, courseAsk, type CourseAskEvent, type CourseHistoryItem } from "./courses";
-import { listProjects, finishProject, createProject, renameProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation, type ProjectListItem } from "./projects";
-import { getAbilityModel } from "./ability";
-import { getGrowthCards, getCardsCatalog, setCardTheme } from "./cards";
+import { listProjects, finishProject, createProject, renameProject, getProjectCovers, type ProjectListItem } from "./projects";
+import { getCardsCatalog, setCardTheme } from "./cards";
 import { activateProjectCard, submitProjectCard, skipProjectCard } from "./projectCards";
 import { addMaterial, logSourceOpen, prepareSourceAnnotation, type AddMaterialBody } from "./materials";
 import { uploadUserImage, resolveUrl } from "./oss";
-import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate, signDeclaration, type CommitSnapshotResult, type ReviewVoice } from "./writing";
-import { postDisposition, type StudioTurnEvent } from "./studioTurn";
-import { listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn, type ChatTurnEvent } from "./chat";
+import { putBuffer, commitSnapshot, orderReview, type CommitSnapshotResult, type ReviewVoice } from "./writing";
+import { type StudioTurnEvent } from "./studioTurn";
 import {
   getClassRosterReport, getStudentDetail, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
   type RosterEntry, type ClassLiveHeader, type ClassRoster, type StudentRecord, type StudentDetail, type WeeklyReport, type WeeklyCard, type EvalReportEnvelope,
 } from "./teacher";
 import { readTurn, summonCard, evaluateCardSelection, getOpenCard, putReadingBrief, getTakeawayDraft, postFinalizeReading } from "./reading";
 
-export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, ChatTurnEvent, CourseAskEvent, RosterEntry, ClassLiveHeader, ClassRoster, StudentRecord, StudentDetail, WeeklyReport, WeeklyCard, EvalReportEnvelope };
+export type { MeUser, ClassSummary, RosterStudent, ClassDetail, Teacher, Overview, TeacherInvite, ImportRow, ImportResult, ProjectListItem, StudioTurnEvent, AddMaterialBody, CommitSnapshotResult, ReviewVoice, CourseAskEvent, RosterEntry, ClassLiveHeader, ClassRoster, StudentRecord, StudentDetail, WeeklyReport, WeeklyCard, EvalReportEnvelope };
 export { ApiError } from "./client";
 
 export interface ApiClient {
@@ -66,13 +64,6 @@ export interface ApiClient {
   renameProject(id: string, title: string): Promise<{ title: string }>;
   // Task 3: cover picker options for the create-project drawer.
   getProjectCovers(): Promise<{ key: string; url: string }[]>;
-  submitOnboarding(projectId: string, body: { restate: string; weakPicks: number[] }): Promise<void>;
-  submitSelfScore(projectId: string, body: { scores: { code: string; band: number }[] }): Promise<void>;
-  submitReflection(projectId: string, body: { text: string }): Promise<void>;
-  submitFraming(projectId: string, body: { terms: { term: string; definition: string }[]; answers: string[]; searchPlan: string[] }): Promise<void>;
-  submitPerspectives(projectId: string, body: { perspectives: { text: string; level: string }[] }): Promise<void>;
-  // N6-E Task 6: re-opens a `waived` station.
-  reopenStation(projectId: string, code: string): Promise<void>;
   activateProjectCard(projectId: string, cid: string): Promise<void>;
   submitProjectCard(projectId: string, cid: string, input: { field_values: Record<string, unknown>; event_trace: TraceEvent[]; anchors: Anchor[] }): AsyncGenerator<StudioTurnEvent>;
   skipProjectCard(projectId: string, cid: string, input: { event_trace: TraceEvent[] }): Promise<void>;
@@ -91,22 +82,6 @@ export interface ApiClient {
   putBuffer(projectId: string, content: string): Promise<void>;
   commitSnapshot(projectId: string, content: string): Promise<CommitSnapshotResult>;
   orderReview(projectId: string, snapshotId: string, voice: ReviewVoice): AsyncGenerator<StudioTurnEvent>;
-  // N3f Task 7: S3/S4 station spot-check (信源体检 / 论证体检) — `contractId`
-  // is `evaluate_sources` | `build_argument`, the only two contracts with a
-  // spot-check defined.
-  orderSpotCheck(projectId: string, contractId: string): Promise<void>;
-  postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void>;
-  attestGate(projectId: string, contractId: string, item: string, confirmed: boolean): Promise<void>;
-  // N3f Task 9: signs the S6 AI 使用申报单 — no request body, no stream.
-  signDeclaration(projectId: string): Promise<void>;
-  listThreads(): Promise<ChatThread[]>;
-  createThread(title?: string): Promise<ChatThread>;
-  getMessages(threadId: string): Promise<ChatMessage[]>;
-  submitChatCard(threadId: string, cardInstanceId: string, payload: { field_values: unknown; event_trace: unknown; anchors: unknown }): Promise<void>;
-  skipChatCard(threadId: string, cardInstanceId: string): Promise<void>;
-  chatTurn(threadId: string, userInput: string): AsyncGenerator<ChatTurnEvent>;
-  getAbilityModel(): Promise<AbilityModel>;
-  getGrowthCards(): Promise<CollectedCard[]>;
   getCardsCatalog(theme?: CoverTheme): Promise<{ cards: CardCatalogEntry[]; theme: CoverTheme }>;
   setCardTheme(theme: CoverTheme): Promise<CoverTheme>;
   getClassRosterReport(classId: string): Promise<ClassRoster>;
@@ -125,15 +100,13 @@ export const api: ApiClient = {
   listClasses, createClass, getClass, renameClass, regenerateJoinCode, removeEnrollment,
   getOverview, listTeacherInvites, createTeacherInvite, adminImport, listTeachers, assignTeacher, removeTeacher,
   listCourses, getCourse, getCourseProgress, saveCourseProgress, answerCourseQuiz, getCourseReport, getCourseAnswerReport, restartCourse, getCourseHistory, courseAsk,
-  listProjects, finishProject, createProject, renameProject, getProjectCovers, submitOnboarding, submitSelfScore, submitReflection, submitFraming, submitPerspectives, reopenStation,
+  listProjects, finishProject, createProject, renameProject, getProjectCovers,
   activateProjectCard, submitProjectCard, skipProjectCard,
   addMaterial, logSourceOpen, prepareSourceAnnotation,
   readTurn, summonCard, evaluateCardSelection, getOpenCard,
   putReadingBrief, getTakeawayDraft, postFinalizeReading,
-  putBuffer, commitSnapshot, orderReview, orderSpotCheck, postDisposition, attestGate, signDeclaration,
-  listThreads, createThread, getMessages, submitChatCard, skipChatCard, chatTurn,
-  getAbilityModel,
-  getGrowthCards, getCardsCatalog, setCardTheme,
+  putBuffer, commitSnapshot, orderReview,
+  getCardsCatalog, setCardTheme,
   getClassRosterReport, getStudentDetail, getStudentEvaluationReport, getClassWeeklyReport, generateClassWeeklyProse,
   uploadUserImage, resolveUrl,
 };
