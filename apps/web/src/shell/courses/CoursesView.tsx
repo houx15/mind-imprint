@@ -199,10 +199,10 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
 
   return (
     <div style={{ height: "100%", minHeight: 0, overflowY: "auto" }}>
-      <div style={{ maxWidth: 1320, margin: "0 auto", padding: "44px 40px 60px" }}>
-        <div style={{ fontSize: 13, color: "var(--mk-muted)", fontWeight: 600 }}>课程</div>
-        <div style={{ fontSize: 28, fontWeight: 800, color: "var(--mk-ink)", marginTop: 6, letterSpacing: "-0.01em" }}>系统地学会一种思考方式</div>
-        <div style={{ fontSize: 14, color: "var(--mk-secondary)", marginTop: 8, lineHeight: 1.6, maxWidth: 560 }}>每一门课都是一段 AI 带着你走的学习旅程——有讲解，也有你亲自上手的挑战。学完，去写作工作室把它用在你自己的问题上。</div>
+      <div style={{ padding: "44px 40px 60px" }}>
+        <div style={{ fontSize: 28, fontWeight: 800, color: "var(--mk-ink)", letterSpacing: "-0.01em" }}>
+          <span style={{ color: "var(--mk-muted)" }}>课程：</span>系统地学会一种思考方式
+        </div>
         {courses != null && courses.length === 0 ? (
           <div style={{ fontSize: 14, color: "var(--mk-muted)", marginTop: 28 }}>课程正在准备中，很快上线。</div>
         ) : (
