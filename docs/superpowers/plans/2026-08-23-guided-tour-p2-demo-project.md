@@ -15,7 +15,7 @@
 - **No live LLM for the demo** — demo-mode endpoints return canned fixtures; the evaluation report is a seeded row (`status='ready'`), never generated.
 - **Demo is read-only** — every write to a demo project is rejected/no-op'd; the shared demo can never be mutated by any viewer.
 - **Content-quality bar (hard):** real research question (China → world sustainability), full-length proposal + essay (real paragraphs, not stubs), a real literature list, substantive warren map + reflections, a proper evaluation report. No toy/lorem text.
-- **Fixed UUIDs** in the `…01xx` block for a stable, reversible seed; `ON CONFLICT DO NOTHING/UPDATE` idempotency (mirror `0018`/`0020`).
+- **Demo project id = NEW dedicated `00000000-0000-0000-0000-000000000200`** (owner Phoebe `…003`), inserted + flagged `is_demo=true` in `0082`. Do NOT reuse `…0101` — it is the shared WRITE fixture for ~10 existing test files and must stay writable. Use fixed UUIDs in the `…02xx` block for all demo rows; `ON CONFLICT DO NOTHING/UPDATE` idempotency (mirror `0018`/`0020`).
 - **Finished-project gating (ALL required):** `project.status='finished'`; a `writing_finish` row `doc_kind='essay'` with non-empty essay `edit_buffer`; `project_reflection.done=true`; an `evaluation_report` row `status='ready'` with a **schema-valid** `report` jsonb.
 - **evaluation_report.report** must satisfy the `.strict()` Zod `EvaluationReport` (`packages/contracts/src/evaluationReport.ts:140-156`); the Go mirror is `apps/api/internal/evalreport/report.go`; server `evalreport.Validate` checks only the envelope, but the **frontend Zod is strict** — every field must be present and correctly shaped.
 - **sqlc**: `cd apps/api && make sqlc` (CGO_ENABLED=0, pinned v1.27.0); nullable timestamptz → `pgtype.Timestamptz`.
@@ -65,8 +65,10 @@
 ```sql
 -- +goose Up
 ALTER TABLE project ADD COLUMN is_demo boolean NOT NULL DEFAULT false;
--- Flag the canonical demo project (seeded content lands in 0082).
-UPDATE project SET is_demo = true WHERE id = '00000000-0000-0000-0000-000000000101';
+-- NOTE: do NOT flag project ...0101 here — it is the shared WRITE fixture for ~10
+-- existing test files (studioturn_test, projectcards_test, disposition_test, etc.),
+-- which would break under the read-only guard. The demo project is a NEW dedicated
+-- id (00000000-0000-0000-0000-000000000200), inserted + flagged is_demo in 0082.
 
 -- +goose Down
 ALTER TABLE project DROP COLUMN is_demo;
@@ -110,16 +112,20 @@ func TestDemoProjectReadOnly(t *testing.T) {
 Run: `cd apps/api && go test ./internal/api/ -run TestDemoProjectReadOnly -timeout 900s`
 Expected: FAIL (no guard yet; write returns 200/other).
 
-- [ ] **Step 6: Add the write-guard in `loadOwnedProject`**
+- [ ] **Step 6: Add the demo guard in `loadOwnedProject` (world-readable, write-blocked)**
 
-In `apps/api/internal/api/projects.go` (~line 162), after the ownership check (`p` is already loaded at ~line 169):
+In `apps/api/internal/api/projects.go` (~line 162), `p` is already loaded (`GetProject`, ~line 169). A demo project must be **readable by ANY authenticated user** (the tour walks it as a non-owner) but **writable by NO ONE**. So handle `is_demo` BEFORE the ownership check:
 ```go
-	if p.IsDemo && r.Method != http.MethodGet {
-		httpx.WriteError(w, r, httpx.ErrDemoReadonly())
-		return uuid.Nil, false
+	if p.IsDemo {
+		if r.Method != http.MethodGet {
+			httpx.WriteError(w, r, httpx.ErrDemoReadonly())
+			return uuid.UUID{}, false
+		}
+		return id, true // demo projects are world-readable to authenticated users
 	}
+	// ...existing ownership check (p.UserID != u.ID → 404) stays for non-demo projects...
 ```
-(This covers all ~140 project-scoped mutating handlers that funnel through here.) Do NOT change the ownership logic or the `(uuid.UUID, bool)` signature.
+(This covers all ~140 project-scoped handlers; mutations to a demo get 403, reads succeed for everyone.) Keep the `(uuid.UUID, bool)` signature. Also add a sibling **`loadOwnedProjectRow(w, r) (sqlc.Project, bool)`** that returns the full row with the SAME demo/ownership semantics EXCEPT it does NOT auto-403 non-GET (token endpoints call this, then short-circuit to canned fixtures themselves) — i.e. for `is_demo` it returns the row+ok for any user/any method; for non-demo it enforces ownership. `loadOwnedProject` may delegate to it. Match the existing `uuid.UUID{}` zero-value style used by the sibling early returns.
 
 - [ ] **Step 7: Expose `isDemo` on the projection**
 
@@ -160,9 +166,9 @@ Short-circuit every token-consuming endpoint to a canned fixture when the projec
 
 - [ ] **Step 1: Add the demo helpers**
 
-Create `apps/api/internal/api/demo.go`:
-- `loadOwnedProjectRow(w, r) (sqlc.Project, bool)` — same body as `loadOwnedProject` but returns the full row (refactor `loadOwnedProject` to delegate, or duplicate minimally). This lets token handlers see `IsDemo` without a second query.
+`loadOwnedProjectRow(w, r) (sqlc.Project, bool)` is ALREADY provided by Task 1 (world-readable demo, no write-guard). This task adds to `apps/api/internal/api/demo.go`:
 - `isDemoProject(ctx, id)` — `GetProject` → `.IsDemo` (for handlers that only have the id).
+- Token handlers switch from `loadOwnedProject` to `loadOwnedProjectRow` (so the write-guard's 403 doesn't pre-empt their POST) and then short-circuit to canned fixtures when the row `IsDemo`.
 - Canned builders returning the SAME response shapes the real handlers emit but with fixed, on-topic content (e.g. a short 印记 coach reply; an empty/curated exploration dig result; a benign annotation review with 0 findings). Keep them minimal and clearly demo-flavored.
 
 - [ ] **Step 2: Write the failing token-fixture test**
@@ -205,7 +211,7 @@ git commit -m "feat(demo): canned fixtures for token endpoints + chat guard (no 
 
 ## Task 3: Seed migration — core + 立题/管理 + 阅读
 
-Author the finished demo project's data for the first three rooms in `0082_seed_demo_project_finished.sql`. Reuse the existing `…0101` project + `…003` Phoebe owner + `…100` tasks anchor from `0018`; layer four-room rows on top (or use a fresh project id — the implementer decides, but keep it consistent across Tasks 3-5 and flagged `is_demo=true`). Content on the China-sustainability topic; substantive (quality bar).
+Author the finished demo project's data for the first three rooms in `0082_seed_demo_project_finished.sql`. **INSERT a NEW dedicated demo project `00000000-0000-0000-0000-000000000200`** owned by Phoebe `…003`, with `is_demo=true` and `status` set later to `finished` (Task 4). Do NOT reuse `…0101` (shared write fixture). All demo rows use fixed UUIDs in the `…02xx` block; materials are project-scoped (`project_id=…0200`, no tasks anchor needed — `material_scope_ck` allows project_id alone). Content on the China-sustainability topic; substantive (quality bar).
 
 **Files:**
 - Create: `apps/api/internal/store/migrations/0082_seed_demo_project_finished.sql`
