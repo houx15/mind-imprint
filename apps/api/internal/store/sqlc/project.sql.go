@@ -86,7 +86,7 @@ func (q *Queries) CountLLMCallsByUserProject(ctx context.Context, userID uuid.UU
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover
+RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo
 `
 
 type CreateProjectParams struct {
@@ -120,12 +120,13 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.LastActiveAt,
 		&i.StudioState,
 		&i.Cover,
+		&i.IsDemo,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover FROM project WHERE id = $1
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project WHERE id = $1
 `
 
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
@@ -143,6 +144,7 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.LastActiveAt,
 		&i.StudioState,
 		&i.Cover,
+		&i.IsDemo,
 	)
 	return i, err
 }
@@ -159,7 +161,7 @@ func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, err
 }
 
 const listProjectsByUser = `-- name: ListProjectsByUser :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover FROM project
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC
 `
@@ -185,6 +187,7 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 			&i.LastActiveAt,
 			&i.StudioState,
 			&i.Cover,
+			&i.IsDemo,
 		); err != nil {
 			return nil, err
 		}

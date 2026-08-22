@@ -175,6 +175,13 @@ func (a *API) loadOwnedProject(w http.ResponseWriter, r *http.Request) (uuid.UUI
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return uuid.UUID{}, false
 	}
+	// Demo projects are shared, read-only content (guided-tour P2): any
+	// non-GET request against one is rejected here, before it reaches ~140
+	// mutating handlers that all funnel through this chokepoint.
+	if p.IsDemo && r.Method != http.MethodGet {
+		httpx.WriteError(w, r, httpx.ErrDemoReadonly())
+		return uuid.Nil, false
+	}
 	return id, true
 }
 
@@ -208,6 +215,9 @@ type workspaceProjection struct {
 	// the entry for its ACTIVE doc to lock that document read-only, so the
 	// proposal and the essay lock independently.
 	WritingFinish writingFinishState `json:"writingFinish"`
+	// IsDemo (guided-tour P2) — true for the shared, read-only demo project.
+	// The SPA uses this to hide/disable write affordances during the tour.
+	IsDemo bool `json:"isDemo"`
 }
 
 // writingFinishState mirrors the writing_finish table for the two documents.
@@ -272,6 +282,7 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       p.CreatedAt.Format(time.RFC3339),
 		WritingFinished: finish.Essay,
 		WritingFinish:   finish,
+		IsDemo:          p.IsDemo,
 	})
 }
 

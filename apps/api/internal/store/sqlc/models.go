@@ -405,6 +405,7 @@ type Project struct {
 	LastActiveAt  time.Time          `json:"last_active_at"`
 	StudioState   []byte             `json:"studio_state"`
 	Cover         *string            `json:"cover"`
+	IsDemo        bool               `json:"is_demo"`
 }
 
 type ProjectAiUse struct {

@@ -68,6 +68,11 @@ func ErrNotEntitled() *APIError {
 	return &APIError{Status: http.StatusForbidden, Code: "not_entitled", Message: "当前没有可用额度"}
 }
 
+// ErrDemoReadonly — 403 for a write attempt against a read-only demo project.
+func ErrDemoReadonly() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "demo_readonly", Message: "演示项目为只读，无法修改。"}
+}
+
 func ErrNotFound(msg string) *APIError {
 	return &APIError{Status: http.StatusNotFound, Code: "not_found", Message: msg}
 }
