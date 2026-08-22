@@ -67,10 +67,9 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "forming-2",
-        anchor: '[data-tour="forming-question-card"]',
-        placement: "right",
+        placement: "center",
         title: "AI 不会替你定论",
-        text: "如果你的问题还太大或太模糊，AI 会用**提问卡**追问你，而不是直接帮你定一个题目——定题这件事，得是你自己的。",
+        text: "没头绪时，可以点开**提问卡**，让印记用一串问题帮你把题目想清楚——而不是直接帮你定一个题目，定题这件事，得是你自己的。",
         advance: "next",
       },
       {
@@ -150,17 +149,15 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-warren-4",
-        anchor: '[data-tour="explore-keyword"]',
-        placement: "bottom",
+        placement: "center",
         title: "AI 帮你想关键词",
-        text: "卡壳的时候，AI 能基于你的问题给出搜索关键词建议。**提示**：如果你的任务本身是分析某段文本（比如一篇给定的文章），有时需要把正文贴给 AI，因为它拿不到你本地或链接背后的全文。",
+        text: "在阅读区，选中一个问题节点，印记会帮你想检索关键词；有时还需要你把正文粘进来，因为 AI 拿不到全文。",
         advance: "next",
       },
       {
         id: "reading-warren-5",
-        anchor: '[data-tour="paper-enter-reading"]',
-        placement: "top",
-        text: "找到一篇有用的资料后，点这里就能进入**精读**——真正逐句消化它、和它对话的地方。",
+        placement: "center",
+        text: "点开一篇文献，就能「进入阅读室」深读它——真正逐句消化它、和它对话的地方。",
         advance: "next",
       },
     ],
@@ -236,9 +233,8 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-2",
-        anchor: '[data-tour="writing-aicard"]',
-        placement: "left",
-        text: "写片段时，AI 陪练卡会跟着当前内容给出提示——比如指出论证跳跃、缺证据的地方，一次只提一个问题，不打断你的思路。",
+        placement: "center",
+        text: "写作时，印记会用思维卡在关键处陪你想——比如帮你检查论证、补反例，一次只提一个问题，不打断你的思路。",
         advance: "next",
       },
       {
