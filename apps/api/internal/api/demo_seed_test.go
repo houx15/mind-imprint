@@ -124,6 +124,78 @@ func TestDemoSeed(t *testing.T) {
 		demoProjectID); n < 1 {
 		t.Error("no studio-surface chat_message for demo project")
 	}
+
+	// ── 写作 / 回顾 / finished (Task 4) ──────────────────────────────────────
+
+	// Finished: the project has been flipped to status='finished'.
+	if status != "finished" {
+		t.Errorf("demo project status = %s, want finished", status)
+	}
+
+	// 写作: ≥4 outline nodes (depth/position tree).
+	if n := countDemoRows(t, pool, `SELECT count(*) FROM outline_node WHERE project_id = $1`, demoProjectID); n < 4 {
+		t.Errorf("outline_node count = %d, want ≥4", n)
+	}
+
+	// 写作: ≥3 snippets, at least one carrying a section.
+	if n := countDemoRows(t, pool, `SELECT count(*) FROM snippet WHERE project_id = $1`, demoProjectID); n < 3 {
+		t.Errorf("snippet count = %d, want ≥3", n)
+	}
+	if n := countDemoRows(t, pool,
+		`SELECT count(*) FROM snippet WHERE project_id = $1 AND section IS NOT NULL`, demoProjectID); n < 1 {
+		t.Error("no snippet carries a section for demo project")
+	}
+
+	// 写作: the essay edit_buffer is non-empty full prose that includes a
+	// 反思 / Reflection heading (the report's D6 detection scans for this).
+	var essay string
+	if err := pool.QueryRow(ctx,
+		`SELECT content FROM edit_buffer WHERE project_id = $1 AND doc_kind = 'essay'`, demoProjectID,
+	).Scan(&essay); err != nil {
+		t.Fatalf("essay edit_buffer row: %v", err)
+	}
+	if len([]rune(strings.TrimSpace(essay))) < 200 {
+		t.Errorf("essay edit_buffer too short (%d runes) — want a full-length essay", len([]rune(essay)))
+	}
+	if !strings.Contains(essay, "## 反思") && !strings.Contains(essay, "## Reflection") {
+		t.Error("essay edit_buffer missing a 反思/Reflection heading (D6 detection depends on it)")
+	}
+
+	// 写作: an essay draft snapshot (seq 1) exists.
+	if n := countDemoRows(t, pool,
+		`SELECT count(*) FROM draft_snapshot WHERE project_id = $1 AND doc_kind = 'essay'`, demoProjectID); n < 1 {
+		t.Error("no essay draft_snapshot for demo project")
+	}
+
+	// 写作: the essay 完成写作 milestone row exists (REQUIRED for finished).
+	if n := countDemoRows(t, pool,
+		`SELECT count(*) FROM writing_finish WHERE project_id = $1 AND doc_kind = 'essay'`, demoProjectID); n < 1 {
+		t.Error("no writing_finish (doc_kind='essay') for demo project")
+	}
+
+	// 回顾: reflection done=true with exactly 5 answers.
+	var reflectionDone bool
+	var answerCount int
+	if err := pool.QueryRow(ctx,
+		`SELECT done, jsonb_array_length(answers) FROM project_reflection WHERE project_id = $1`, demoProjectID,
+	).Scan(&reflectionDone, &answerCount); err != nil {
+		t.Fatalf("project_reflection row: %v", err)
+	}
+	if !reflectionDone {
+		t.Error("project_reflection.done = false, want true")
+	}
+	if answerCount != 5 {
+		t.Errorf("project_reflection answers count = %d, want 5", answerCount)
+	}
+
+	// (回顾 mirror-prose was retired in migration 0065; the evaluation report,
+	// seeded in Task 5, is the review room's narrative now — nothing to assert.)
+
+	// 过程: the project_finished event exists.
+	if n := countDemoRows(t, pool,
+		`SELECT count(*) FROM event WHERE project_id = $1 AND type = 'project_finished'`, demoProjectID); n < 1 {
+		t.Error("project_finished event missing")
+	}
 }
 
 // TestDemoSeedReadEndpoints verifies rooms 立题/管理/阅读 render non-empty through
@@ -155,7 +227,8 @@ func TestDemoSeedReadEndpoints(t *testing.T) {
 			t.Fatalf("GET %s (non-owner) = %d, want 200; body=%s", base, rec.Code, rec.Body)
 		}
 		var proj struct {
-			IsDemo   bool `json:"isDemo"`
+			IsDemo   bool   `json:"isDemo"`
+			Status   string `json:"status"`
 			Proposal struct {
 				Objective  string `json:"objective"`
 				Reason     string `json:"reason"`
@@ -168,6 +241,10 @@ func TestDemoSeedReadEndpoints(t *testing.T) {
 		}
 		if !proj.IsDemo {
 			t.Error("workspace projection isDemo = false, want true")
+		}
+		// Task 4: finished project → workspace display status "done".
+		if proj.Status != "done" {
+			t.Errorf("workspace projection status = %q, want \"done\" (finished)", proj.Status)
 		}
 		for _, d := range []struct{ name, val string }{
 			{"objective", proj.Proposal.Objective}, {"reason", proj.Proposal.Reason},

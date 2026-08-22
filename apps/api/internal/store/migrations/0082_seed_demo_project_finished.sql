@@ -209,7 +209,109 @@ INSERT INTO chat_message (id, thread_id, role, content, surface) VALUES
    '这是个值得追一追的说法。在下结论前，先问一个问题：那篇文章的「变绿」数据，最初是从哪来的？我们能不能一起追回它的原始来源，看看原文到底说了什么？', 'studio')
 ON CONFLICT (id) DO NOTHING;
 
+-- ════════════════════════════════════════════════════════════════════════════
+-- Task 4: 写作 (writing) + 回顾 (review) rooms, then flip the project to FINISHED.
+-- All new rows use fixed UUIDs in the …02d0–…02f2 range; …0235 is the finished
+-- event. Content stays on the China-sustainability question; full-length essay,
+-- real reflection answers — no lorem (AGENTS.md quality bar).
+-- ════════════════════════════════════════════════════════════════════════════
+
+-- ── 写作: outline (depth/position tree — thesis → three evidence lines → 让步 → 结论) ─
+INSERT INTO outline_node (id, project_id, text, depth, position) VALUES
+  ('00000000-0000-0000-0000-0000000002d0', '00000000-0000-0000-0000-000000000200',
+   '引论：从「NASA 卫星显示中国让地球变绿」的说法出发，区分「趋势变好」与「问题已解决」', 0, 0),
+  ('00000000-0000-0000-0000-0000000002d1', '00000000-0000-0000-0000-000000000200',
+   '论证一：卫星数据证明中国是全球变绿的最大贡献者（Chen et al. 2019）', 0, 1),
+  ('00000000-0000-0000-0000-0000000002d2', '00000000-0000-0000-0000-000000000200',
+   '机制：变绿主因是农业集约化(≈32%)与人工造林(≈42%)，而非森林自然恢复', 1, 2),
+  ('00000000-0000-0000-0000-0000000002d3', '00000000-0000-0000-0000-000000000200',
+   '论证二：清洁能源投资连续多年全球第一（IEA 2023）', 0, 3),
+  ('00000000-0000-0000-0000-0000000002d4', '00000000-0000-0000-0000-000000000200',
+   '让步段：中国仍是全球最大碳排放国，且煤电与新能源并行扩张（Global Carbon Project / GEM）', 0, 4),
+  ('00000000-0000-0000-0000-0000000002d5', '00000000-0000-0000-0000-000000000200',
+   '结论：带限定条件的判断——决心真实、趋势向好，但「更可持续」尚是进行时而非完成时', 0, 5)
+ON CONFLICT (id) DO NOTHING;
+
+-- ── 写作: snippets (collected fragments; two carry a section anchor) ──────────
+INSERT INTO snippet (id, project_id, text, section, position) VALUES
+  ('00000000-0000-0000-0000-0000000002e0', '00000000-0000-0000-0000-000000000200',
+   '「全球绿叶面积净增 5%，中国、印度合计贡献超三分之一」——Chen et al. (2019), Nature Sustainability。这是全篇的锚点数据。',
+   '论证一', 0),
+  ('00000000-0000-0000-0000-0000000002e1', '00000000-0000-0000-0000-000000000200',
+   '关键限定：论文本身没有说「变绿=更可持续」，变绿主因是农业集约化与人工造林——不能把机制偷换成结论。',
+   '论证一', 1),
+  ('00000000-0000-0000-0000-0000000002e2', '00000000-0000-0000-0000-000000000200',
+   '反例备忘：中国自 2006 年起为全球最大年度 CO₂ 排放国，2022 年约占全球 31%；煤电与新能源同时扩张——必须用让步段正面处理，不能回避。',
+   NULL, 2)
+ON CONFLICT (id) DO NOTHING;
+
+-- ── 写作: the essay (正文, doc_kind='essay') — full-length prose incl. ## 反思 ──
+--   The report's D6 (metacognition) detection scans the essay for a 反思/Reflection
+--   heading, so it is REQUIRED here. The draft snapshot mirrors the same content.
+INSERT INTO edit_buffer (id, project_id, doc_kind, content) VALUES
+  ('00000000-0000-0000-0000-0000000002f0', '00000000-0000-0000-0000-000000000200', 'essay',
+E'# 中国在多大程度上让世界变得更具环境可持续性？\n\n' ||
+'一篇在社交媒体上广泛流传的文章宣称：「NASA 卫星显示，中国让地球变绿了。」这句话很有冲击力——一个曾经与雾霾、燃煤电厂划等号的国家，如今似乎成了地球生态的拯救者。但正是这种过于圆满的反转叙事让我警惕。本文的判断是：中国的环境行动确实呈现出真实且持续增强的决心，其治理趋势正在向好；然而「趋势变好」并不等于「问题已解决」。把这两件事分开，是回答这道题的关键。\n\n' ||
+'## 论证一：中国是全球变绿的最大贡献者\n\n' ||
+'我首先把那篇自媒体文章横向溯源，追回到它真正的一手来源——Chen 等人 2019 年发表于《Nature Sustainability》的论文。该研究基于 NASA MODIS 卫星 2000 至 2017 年的数据，发现全球绿叶面积净增约 5%，而仅占全球陆地面积约 9% 的中国与印度，合计贡献了全球净增量的三分之一以上。这是一手、经同行评审、可复核的数据，构成本文最坚实的证据锚点。\n\n' ||
+'但同一篇论文也给了我一个至关重要的限定：中国的变绿主要来自农业集约化（约 32%）与大规模人工造林（约 42%），而非森林生态的自然恢复。更重要的是，论文作者从未声称「变绿」等同于「环境更可持续」。那篇自媒体文章正是在这里把机制偷换成了结论。溯源这一步，让我把「地球变绿」这条证据的边界看清楚了。\n\n' ||
+'## 论证二：清洁能源投资的规模\n\n' ||
+'为了不让结论只依赖单一证据线，我又找了第二条独立的证据。国际能源署（IEA）《World Energy Investment 2023》显示，中国连续多年是全球最大的清洁能源投资国，2023 年其清洁能源投资约占全球的三成。这为「治理决心真实」提供了独立于卫星数据的支撑：一个国家愿意把如此规模的资本投入可再生能源，很难说这只是叙事包装。\n\n' ||
+'## 反思与让步：最大的碳排放国\n\n' ||
+'然而，如果我就此收尾，就会犯下我最初警惕的那个错误——被有利的叙事俘获。我主动去撞反例：根据 Global Carbon Project 的核算，中国自 2006 年起就是全球最大的年度二氧化碳排放国，2022 年约占全球排放的 31%。与此同时，Global Energy Monitor 的监测显示，2022 年中国在扩张可再生能源的同时，也新核准了大量燃煤电厂。投资额巨大不等于存量问题已经解决；新能源与煤电并行扩张，恰恰说明这是一场「正在进行的结构转型」，而不是一个「已经完成的胜利」。这条让步不是对结论的削弱，而是给它装上必要的限定条件。\n\n' ||
+'## 结论\n\n' ||
+'综合三条证据线，我给出一个带限定条件的判断：中国在「让世界更可持续」这件事上，展现了真实、可测量且持续增强的努力——它是全球变绿的最大贡献者，也是最大的清洁能源投资者。但它同时仍是全球最大的碳排放国，其转型仍在进行中。因此更准确的说法是：中国正在使世界变得更可持续，但这是一个进行时，而非完成时。「变绿」是真的，「已经可持续」还不是。\n\n' ||
+'## 反思\n\n' ||
+'这道题最大的收获不在结论，而在方法。如果我停在那篇自媒体文章，我会得到一个漂亮却经不起追问的答案。真正让判断站得住的，是三个动作：把「变绿」这个说法追回它的一手论文、给主张配上第二条独立证据、以及主动去撞那个对我不利的反例（最大碳排放国）并用让步段处理它。我意识到，「不被叙事俘获」不是一种态度，而是一套可以练习的操作——溯源、交叉验证、主动证伪。下一次遇到同样「太过圆满」的说法时，我会更快地问出那句：这个数据最初是从哪来的？')
+ON CONFLICT (project_id, doc_kind) DO NOTHING;
+
+-- ── 写作: an immutable draft snapshot of the essay (seq 1) ────────────────────
+INSERT INTO draft_snapshot (id, project_id, doc_kind, seq, content, span_index) VALUES
+  ('00000000-0000-0000-0000-0000000002f1', '00000000-0000-0000-0000-000000000200', 'essay', 1,
+   (SELECT content FROM edit_buffer
+      WHERE project_id = '00000000-0000-0000-0000-000000000200' AND doc_kind = 'essay'),
+   '[]'::jsonb)
+ON CONFLICT (project_id, doc_kind, seq) DO NOTHING;
+
+-- ── 写作: the 完成写作 milestone for the essay (REQUIRED for a finished project) ─
+INSERT INTO writing_finish (id, project_id, doc_kind, finished_at) VALUES
+  ('00000000-0000-0000-0000-0000000002f2', '00000000-0000-0000-0000-000000000200', 'essay',
+   now() - interval '1 day')
+ON CONFLICT (project_id, doc_kind) DO NOTHING;
+
+-- ── 回顾: the five reflection answers (substantive, done=true) ────────────────
+INSERT INTO project_reflection (project_id, answers, done) VALUES
+  ('00000000-0000-0000-0000-000000000200',
+   '[
+     "最初我几乎相信了「中国让地球变绿」这个说法，因为它太符合一个动人的反转故事。转折点是我用 CRAAP 把那篇自媒体文章追回 Chen et al. (2019) 的原论文，发现论文根本没说「变绿=更可持续」——那一刻我意识到自己差点被叙事俘获。",
+     "我最满意的一步是主动去撞反例：明知中国是全球最大碳排放国，我没有回避，而是把它写进让步段，用它给结论装上限定条件。这让我的判断从「站队」变成了「有边界的论证」。",
+     "最难的是区分「趋势变好」和「问题已解决」这两件事。数据既支持前者（变绿、投资第一）又提醒后者尚未成立（排放第一、煤电扩张），我花了很久才想清楚该用「进行时而非完成时」来同时容纳这两组事实。",
+     "如果重来，我会更早地为核心主张找第二条独立证据线。一开始我过度依赖卫星数据这一条，直到搭论证图时才补上 IEA 的投资数据——单一证据让我的论证一度很脆弱。",
+     "带得走的能力是「溯源—交叉验证—主动证伪」这套动作。以后再遇到「太过圆满」的说法，我会先问它的一手来源在哪，而不是先问它是否符合我的直觉。这比这道题的结论本身更重要。"
+   ]'::jsonb, true)
+ON CONFLICT (project_id) DO NOTHING;
+
+-- NOTE: the old project_mirror_prose table was RETIRED in migration 0065 (the
+-- evaluation report, seeded in Task 5, replaced the mirror-prose narrative). The
+-- 回顾 room's persisted state is now project_reflection (above) + the report.
+
+-- ── Flip to FINISHED + the process-tree finished event ───────────────────────
+UPDATE project SET status = 'finished' WHERE id = '00000000-0000-0000-0000-000000000200';
+
+INSERT INTO event (id, project_id, user_id, surface, type, payload, created_at) VALUES
+  ('00000000-0000-0000-0000-000000000235', '00000000-0000-0000-0000-000000000200', '00000000-0000-0000-0000-000000000003',
+   'studio', 'project_finished', '{}'::jsonb, now() - interval '1 day')
+ON CONFLICT (id) DO NOTHING;
+
 -- +goose Down
+-- Task 4 rows first (FK-safe; the finished event goes with the …0230-block delete below).
+UPDATE project SET status = 'active' WHERE id = '00000000-0000-0000-0000-000000000200';
+DELETE FROM project_reflection   WHERE project_id = '00000000-0000-0000-0000-000000000200';
+DELETE FROM writing_finish       WHERE project_id = '00000000-0000-0000-0000-000000000200';
+DELETE FROM draft_snapshot       WHERE project_id = '00000000-0000-0000-0000-000000000200';
+DELETE FROM edit_buffer          WHERE project_id = '00000000-0000-0000-0000-000000000200';
+DELETE FROM snippet              WHERE project_id = '00000000-0000-0000-0000-000000000200';
+DELETE FROM outline_node         WHERE project_id = '00000000-0000-0000-0000-000000000200';
 DELETE FROM chat_message      WHERE thread_id = '00000000-0000-0000-0000-0000000002c0';
 DELETE FROM chat_thread       WHERE id = '00000000-0000-0000-0000-0000000002c0';
 DELETE FROM citation          WHERE project_id = '00000000-0000-0000-0000-000000000200';
