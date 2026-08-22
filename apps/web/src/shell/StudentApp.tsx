@@ -120,23 +120,34 @@ export function StudentApp({
       setShowExampleReport(true);
       return;
     }
+    // Any real-course navigation leaves the example-report overlay behind.
+    setShowExampleReport(false);
     setPendingCourseId(slug);
     setTab("courses");
   }
 
   // Setters the guided tour uses to drive the shell before each step renders.
+  // The example-report overlay is opaque and full-bleed, so every tour nav that
+  // moves off the report segment (setTab / setCoursesSub) must dismiss it — the
+  // report segment's own steps carry no onEnter, so this never closes it early.
   const tourNav: TourNavContext = {
-    setTab,
+    setTab: (t) => {
+      setShowExampleReport(false);
+      setTab(t);
+    },
     openCourse,
     setCoursesSub: (s) => {
+      setShowExampleReport(false);
       setTab("courses");
       setPendingCoursesSub(s);
     },
   };
 
   // Stamp onboarding so the welcome modal never fires again. Called on tour
-  // completion (TourProvider.onComplete) and on 稍后再说 / dismiss.
+  // completion (TourProvider.onComplete) and on 稍后再说 / dismiss. Also clears
+  // any lingering example-report overlay so 结束 leaves nothing behind.
   function completeOnboarding() {
+    setShowExampleReport(false);
     void api.putOnboarding();
   }
 

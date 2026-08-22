@@ -50,16 +50,14 @@ export const coursesSegments: TourSegment[] = [
     steps: [
       {
         id: "courses-player-0",
-        anchor: '[data-testid="course-region"]',
         placement: "center",
-        text: "课程是一屏一屏推进的：印记会先讲解，再请你回答小问题。想清楚了再往下走——**不用赶**。",
+        text: "进入一门课后，内容会一屏一屏推进：印记先讲解，再请你回答小问题。想清楚了再往下走——**不用赶**。",
         advance: "next",
       },
       {
         id: "courses-player-1",
-        anchor: '[data-testid="ask-bubble"]',
-        placement: "left",
-        text: "学的过程中有疑问，随时在这里问我，我就在你身边。",
+        placement: "center",
+        text: "在课程里遇到疑问，随时用页面上的提问框问我，我就在你身边。",
         advance: "next",
       },
     ],

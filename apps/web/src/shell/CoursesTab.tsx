@@ -57,12 +57,17 @@ export function CoursesTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // One-shot: consume the tour's requested sub-tab (sub state already seeded
-  // from it above).
+  // React to the tour's requested sub-tab. Seeded once in useState above (avoids
+  // a first-paint flash), but CoursesTab stays mounted across tab switches, so
+  // later setCoursesSub calls must re-derive `sub` here rather than relying on
+  // the mount initializer.
   useEffect(() => {
-    if (pendingSub) onPendingSubConsumed?.();
+    if (pendingSub) {
+      setSub(pendingSub);
+      onPendingSubConsumed?.();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [pendingSub]);
 
   const immersive = inCourse && sub === "courses";
   useEffect(() => {
