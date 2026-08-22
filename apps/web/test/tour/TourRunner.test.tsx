@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { TourProvider, useTour } from "@/tour/TourProvider";
 import { TourRunner } from "@/tour/TourRunner";
 import type { TourNavContext, TourSegment } from "@/tour/types";
@@ -61,6 +61,35 @@ describe("TourRunner", () => {
     expect(screen.queryByRole("button", { name: "下一步" })).not.toBeInTheDocument(); // action steps have no 下一步
     fireEvent.click(target);
     expect(screen.getByText("完成")).toBeInTheDocument();
+    document.body.removeChild(target);
+  });
+
+  it("clears the spotlight immediately when advancing from an anchored step to a centered step", async () => {
+    const target = document.createElement("div");
+    target.id = "anchor-target";
+    // jsdom doesn't implement scrollIntoView; the runner calls it once the anchor resolves.
+    target.scrollIntoView = vi.fn();
+    document.body.appendChild(target);
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "锚定说明", advance: "next", anchor: "#anchor-target", placement: "bottom" },
+      { id: "s1", text: "居中说明", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByText("锚定说明")).toBeInTheDocument();
+    // Wait for the anchor to resolve so the spotlight cutout is actually showing
+    // before we advance — otherwise the test wouldn't exercise the stale-hole path.
+    await waitFor(() => {
+      const overlay = screen.getByRole("dialog").firstElementChild as HTMLElement;
+      expect(overlay.style.boxShadow).not.toBe("");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    // Advancing to the centered step must clear the old spotlight cutout right
+    // away — no lingering "hole" over the previous anchor while the (moot, this
+    // step has no anchor) resolution would otherwise still be pending.
+    const overlay = screen.getByRole("dialog").firstElementChild as HTMLElement;
+    expect(overlay.style.boxShadow).toBe("");
+    expect(screen.getByText("居中说明")).toBeInTheDocument();
     document.body.removeChild(target);
   });
 });

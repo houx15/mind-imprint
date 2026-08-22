@@ -13,8 +13,12 @@ export function TourRunner() {
 
   // Resolve + spotlight the anchor whenever the step changes.
   useEffect(() => {
-    if (!t.running || !t.step) { setRect(null); return; }
-    if (!t.step.anchor || t.step.placement === "center") { setRect(null); return; }
+    // Clear the previous step's spotlight immediately on every step change, so a
+    // stale cutout never lingers over an old anchor while the next one resolves
+    // (up to a ~2s poll) or while the next step turns out to be centered/anchor-less.
+    setRect(null);
+    if (!t.running || !t.step) return;
+    if (!t.step.anchor || t.step.placement === "center") return;
     let cancelled = false;
     void resolveAnchor(t.step.anchor).then((el) => {
       if (cancelled) return;
