@@ -158,31 +158,50 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 
 // loadOwnedProject parses {id} and confirms the request user owns it. On any
 // failure it writes a 404 envelope and returns ok=false — ownership is hidden
-// as not-found, never 403, so project existence doesn't leak.
+// as not-found, never 403, so project existence doesn't leak. Demo projects
+// (guided-tour P2) are the one exception: they are world-readable to any
+// authenticated user (a later tour walks a non-owner through one) but reject
+// every non-GET request with 403 demo_readonly, enforced here so every one of
+// the ~140 mutating handlers that funnel through this chokepoint is covered.
 func (a *API) loadOwnedProject(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	p, ok := a.loadOwnedProjectRow(w, r)
+	if !ok {
+		return uuid.UUID{}, false
+	}
+	if p.IsDemo && r.Method != http.MethodGet {
+		httpx.WriteError(w, r, httpx.ErrDemoReadonly())
+		return uuid.UUID{}, false
+	}
+	return p.ID, true
+}
+
+// loadOwnedProjectRow is loadOwnedProject's row-returning sibling: same
+// existence/ownership/demo-visibility semantics, but it does NOT apply the
+// non-GET demo_readonly 403 itself — it returns the row so a caller can
+// decide (e.g. a future canned-fixture short-circuit for demo POSTs instead
+// of a flat 403). loadOwnedProject is a thin wrapper around this for the
+// common case.
+func (a *API) loadOwnedProjectRow(w http.ResponseWriter, r *http.Request) (sqlc.Project, bool) {
 	u, _ := UserFromContext(r.Context())
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return uuid.UUID{}, false
+		return sqlc.Project{}, false
 	}
 	p, err := a.d.Queries.GetProject(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
-		return uuid.UUID{}, false
+		return sqlc.Project{}, false
+	}
+	if p.IsDemo {
+		// World-readable to any authenticated user, regardless of ownership.
+		return p, true
 	}
 	if p.UserID != u.ID {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return uuid.UUID{}, false
+		return sqlc.Project{}, false
 	}
-	// Demo projects are shared, read-only content (guided-tour P2): any
-	// non-GET request against one is rejected here, before it reaches ~140
-	// mutating handlers that all funnel through this chokepoint.
-	if p.IsDemo && r.Method != http.MethodGet {
-		httpx.WriteError(w, r, httpx.ErrDemoReadonly())
-		return uuid.Nil, false
-	}
-	return id, true
+	return p, true
 }
 
 // workspaceProposal is the four required kick-off dimensions plus the optional

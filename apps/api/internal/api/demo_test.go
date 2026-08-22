@@ -10,19 +10,24 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// TestDemoProjectReadOnly verifies the loadOwnedProject write-guard: a project
-// flagged is_demo is readable (GET) but rejects any mutation (403
-// demo_readonly), while an ordinary project owned by the same user still
-// accepts the same write. SeedUserID (…003) is NOT the seeded demo owner
-// (…0101 belongs to Phoebe/…003 too in some fixtures, but we don't rely on
-// that) — instead we mint both projects directly so ownership is unambiguous.
+// TestDemoProjectReadOnly verifies the loadOwnedProject demo semantics
+// (guided-tour P2): a project flagged is_demo is world-readable to ANY
+// authenticated user — not just its owner, since a later tour walks a
+// non-owner through it — but rejects every mutation with 403 demo_readonly,
+// for the owner and non-owners alike. A non-demo project keeps the ordinary
+// ownership rule: hidden as 404 to everyone but its owner, writable by its
+// owner.
 func TestDemoProjectReadOnly(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := newTestAPI(pool).Handler()
-	cookie := signInSeed(t, pool)
 	q := sqlc.New(pool)
 	ctx := t.Context()
 
+	ownerCookie := signInSeed(t, pool)
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-readonly-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	// A normal project owned by SeedUserID.
 	normal, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
 		UserID: SeedUserID, Qualification: "IB", Title: "普通项目", BoardCfgVer: 1,
 	})
@@ -30,6 +35,9 @@ func TestDemoProjectReadOnly(t *testing.T) {
 		t.Fatalf("create normal project: %v", err)
 	}
 
+	// The demo project — owned by SeedUserID, flagged is_demo. Ownership
+	// still needs to resolve to *some* user row (the schema requires it), but
+	// is_demo makes it world-readable regardless of who's asking.
 	demo, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
 		UserID: SeedUserID, Qualification: "IB", Title: "演示项目", BoardCfgVer: 1,
 	})
@@ -40,28 +48,57 @@ func TestDemoProjectReadOnly(t *testing.T) {
 		t.Fatalf("flag is_demo: %v", err)
 	}
 
-	// GET the demo workspace → 200, isDemo: true.
+	renameBody, _ := json.Marshal(map[string]string{"title": "改名"})
+
+	// (a) A NON-owner GET on the demo → 200, isDemo:true (world-readable).
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+demo.ID.String(), nil), cookie))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+demo.ID.String(), nil), otherCookie))
 	if rr.Code != 200 {
-		t.Fatalf("GET demo: want 200, got %d — %s", rr.Code, rr.Body.String())
+		t.Fatalf("non-owner GET demo: want 200, got %d — %s", rr.Code, rr.Body.String())
 	}
 	var proj struct {
 		IsDemo bool `json:"isDemo"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &proj); err != nil {
-		t.Fatalf("decode GET demo: %v", err)
+		t.Fatalf("decode non-owner GET demo: %v", err)
 	}
 	if !proj.IsDemo {
-		t.Fatalf("GET demo workspace: want isDemo=true, got body=%s", rr.Body.String())
+		t.Fatalf("non-owner GET demo: want isDemo=true, got body=%s", rr.Body.String())
 	}
 
-	// PATCH (rename) the demo project → 403 demo_readonly.
-	renameBody, _ := json.Marshal(map[string]string{"title": "改名"})
+	// (b) A non-owner WRITE on the demo → 403 demo_readonly.
 	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", "/api/v1/projects/"+demo.ID.String(), bytes.NewReader(renameBody)), cookie))
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", "/api/v1/projects/"+demo.ID.String(), bytes.NewReader(renameBody)), otherCookie))
+	assertDemoReadonly(t, rr, "non-owner PATCH demo")
+
+	// (c) The OWNER's own write on the demo → 403 too (demo is read-only for
+	// everyone, ownership doesn't grant a bypass).
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", "/api/v1/projects/"+demo.ID.String(), bytes.NewReader(renameBody)), ownerCookie))
+	assertDemoReadonly(t, rr, "owner PATCH demo")
+
+	// (d) A NON-demo project owned by someone else → 404 on GET (ownership
+	// still enforced for non-demo projects).
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+normal.ID.String(), nil), otherCookie))
+	if rr.Code != 404 {
+		t.Fatalf("non-owner GET normal: want 404, got %d — %s", rr.Code, rr.Body.String())
+	}
+
+	// The owner's write on the normal project still succeeds (guard is
+	// scoped to is_demo, not a blanket lock).
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", "/api/v1/projects/"+normal.ID.String(), bytes.NewReader(renameBody)), ownerCookie))
+	if rr.Code != 200 {
+		t.Fatalf("owner PATCH normal: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+}
+
+// assertDemoReadonly asserts rr is a 403 carrying error.code = "demo_readonly".
+func assertDemoReadonly(t *testing.T, rr *httptest.ResponseRecorder, label string) {
+	t.Helper()
 	if rr.Code != 403 {
-		t.Fatalf("PATCH demo: want 403, got %d — %s", rr.Code, rr.Body.String())
+		t.Fatalf("%s: want 403, got %d — %s", label, rr.Code, rr.Body.String())
 	}
 	var errBody struct {
 		Error struct {
@@ -69,16 +106,9 @@ func TestDemoProjectReadOnly(t *testing.T) {
 		} `json:"error"`
 	}
 	if err := json.Unmarshal(rr.Body.Bytes(), &errBody); err != nil {
-		t.Fatalf("decode PATCH demo error: %v", err)
+		t.Fatalf("%s: decode error body: %v", label, err)
 	}
 	if errBody.Error.Code != "demo_readonly" {
-		t.Fatalf("PATCH demo: want code=demo_readonly, got %q — %s", errBody.Error.Code, rr.Body.String())
-	}
-
-	// Same write on the normal project → 200 (guard is scoped to is_demo).
-	rr = httptest.NewRecorder()
-	h.ServeHTTP(rr, withCookie(httptest.NewRequest("PATCH", "/api/v1/projects/"+normal.ID.String(), bytes.NewReader(renameBody)), cookie))
-	if rr.Code != 200 {
-		t.Fatalf("PATCH normal: want 200, got %d — %s", rr.Code, rr.Body.String())
+		t.Fatalf("%s: want code=demo_readonly, got %q — %s", label, errBody.Error.Code, rr.Body.String())
 	}
 }
