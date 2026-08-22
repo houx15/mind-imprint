@@ -30,6 +30,15 @@ type projectListItem struct {
 	// (title · 开始于 <date> · status). Sorting stays by last_active_at (the query),
 	// this is just the displayed calendar anchor.
 	CreatedAt string `json:"createdAt"`
+	// LastActiveAt (RFC3339) — the project's most-recent-activity timestamp; also
+	// the list's sort key. Surfaced on the card as the 最近 chip.
+	LastActiveAt string `json:"lastActiveAt"`
+	// AICalls / ActivityLog — per-project totals shown as card chips. Both come
+	// from ONE grouped query each over the caller's whole list (never per-project
+	// reads): AICalls = rows in llm_call (真实 AI 调用), ActivityLog = rows in
+	// activity_log_entry.
+	AICalls     int `json:"aiCalls"`
+	ActivityLog int `json:"activityLog"`
 }
 
 // anyProposalDim reports whether any of the four kick-off dimensions carries
@@ -109,17 +118,39 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+
+	// Per-project card counts, each in ONE grouped query over the caller's whole
+	// list (best-effort — a count error just leaves that chip at 0, never fails
+	// the list). Keyed by project id string so pgtype.UUID (llm_call) and
+	// uuid.UUID (activity_log) fold into the same lookup.
+	aiCalls := map[string]int{}
+	if crows, err := a.d.Queries.CountLLMCallsByUserProject(r.Context(), u.ID); err == nil {
+		for _, c := range crows {
+			aiCalls[uuid.UUID(c.ProjectID.Bytes).String()] = int(c.N)
+		}
+	}
+	activityLog := map[string]int{}
+	if crows, err := a.d.Queries.CountActivityLogByUserProject(r.Context(), u.ID); err == nil {
+		for _, c := range crows {
+			activityLog[c.ProjectID.String()] = int(c.N)
+		}
+	}
+
 	out := make([]projectListItem, 0, len(rows))
 	for _, p := range rows {
 		cover := derefOr(p.Cover, "")
+		id := p.ID.String()
 		out = append(out, projectListItem{
-			ID:        p.ID.String(),
-			Title:     p.Title,
-			QualLabel: p.Qualification,
-			Status:    a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
-			Cover:     cover,
-			CoverURL:  a.resolveCoverURL(cover),
-			CreatedAt: p.CreatedAt.Format(time.RFC3339),
+			ID:           id,
+			Title:        p.Title,
+			QualLabel:    p.Qualification,
+			Status:       a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
+			Cover:        cover,
+			CoverURL:     a.resolveCoverURL(cover),
+			CreatedAt:    p.CreatedAt.Format(time.RFC3339),
+			LastActiveAt: p.LastActiveAt.Format(time.RFC3339),
+			AICalls:      aiCalls[id],
+			ActivityLog:  activityLog[id],
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})

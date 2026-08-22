@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { CalendarDays, Clock, Sparkles, Activity, type LucideIcon } from "lucide-react";
 import type { ProjectStatus } from "@mind-imprint/contracts";
 import type { ProjectListItem } from "@/api/projects";
 import {
@@ -11,6 +12,8 @@ import {
   Plus,
   MoreHorizontal,
   ProjectCover,
+  MACARONS,
+  type MacaronName,
 } from "@/ui";
 
 /**
@@ -30,9 +33,29 @@ export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-/** RFC3339 → YYYY-MM-DD (the project's start date shown on its card). */
-function formatDate(iso: string): string {
-  return iso.slice(0, 10);
+/** RFC3339 → MM-DD, the compact date shown inside the card's meta chips. Falls
+ * back to the raw slice for anything that isn't a well-formed ISO string. */
+function formatMonthDay(iso: string): string {
+  return iso.length >= 10 ? iso.slice(5, 10) : iso;
+}
+
+/**
+ * MetaChip — one label-style fact on the project card (start / last-active date,
+ * AI-call count, activity count). Mirrors CourseCard's meta tags: a soft macaron
+ * tint with its paired legible text, icon in `currentColor`. Colors come from the
+ * concrete MACARONS hex pairs (never Tailwind `mk-*` alpha, which emits no CSS).
+ */
+function MetaChip({ tone, icon, children }: { tone: MacaronName; icon: LucideIcon; children: React.ReactNode }) {
+  const m = MACARONS[tone];
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-mk-full px-2 py-0.5 text-mk-small font-semibold tabular-nums"
+      style={{ background: m.bg, color: m.fg }}
+    >
+      <Icon icon={icon} size={12} />
+      {children}
+    </span>
+  );
 }
 
 // The status badge shown on each project card. The lifecycle is derived
@@ -201,9 +224,16 @@ export function ProjectCard({
         <div className="truncate text-mk-small text-mk-muted">
           {project.qualLabel || "项目"}
         </div>
-        {project.createdAt && (
-          <div className="text-mk-small text-mk-faint">开始于 {formatDate(project.createdAt)}</div>
-        )}
+        <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+          {project.createdAt && (
+            <MetaChip tone="lake" icon={CalendarDays}>开始 {formatMonthDay(project.createdAt)}</MetaChip>
+          )}
+          {project.lastActiveAt && (
+            <MetaChip tone="mist" icon={Clock}>最近 {formatMonthDay(project.lastActiveAt)}</MetaChip>
+          )}
+          <MetaChip tone="peach" icon={Sparkles}>AI {project.aiCalls ?? 0}</MetaChip>
+          <MetaChip tone="matcha" icon={Activity}>活动 {project.activityLog ?? 0}</MetaChip>
+        </div>
       </Card>
     </div>
   );

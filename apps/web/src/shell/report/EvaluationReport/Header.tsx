@@ -33,6 +33,25 @@ function formatMonthDay(ts: string): string {
   return ts.slice(5, 10);
 }
 
+/** Whole-day span between two ISO timestamps (end defaults to now for an
+ * in-progress project), floored, min 1 — the "历时 N 天" data-summary fact. */
+function durationDays(startIso: string, endIso: string | null): number {
+  const start = new Date(startIso).getTime();
+  const end = endIso ? new Date(endIso).getTime() : Date.now();
+  if (Number.isNaN(start) || Number.isNaN(end)) return 1;
+  return Math.max(1, Math.floor((end - start) / 86400000));
+}
+
+/** One fact in the header's data summary: a muted label over an ink value. */
+function SummaryFact({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-baseline gap-1.5 rounded-mk-full bg-mk-paper px-3 py-1">
+      <span className="text-mk-small text-mk-muted">{label}</span>
+      <span className="text-mk-small font-semibold tabular-nums text-mk-ink">{value}</span>
+    </span>
+  );
+}
+
 /**
  * Report header — ports `.rpt-head`/`.steps`/`.counters` from
  * `docs/reference/2026-08-13-eval-report-mockup.html`: title + date range
@@ -44,11 +63,10 @@ export function Header({ basics, title }: HeaderProps) {
   return (
     <Card className="p-7" data-testid="header-section">
       <div className="text-mk-h1 text-mk-ink">{title}</div>
-      <div className="mt-3 flex flex-wrap items-center gap-2.5 text-mk-small text-mk-muted">
-        <span className="inline-flex items-center gap-1.5 rounded-mk-full bg-mk-matcha-bg px-2.5 py-1 font-semibold text-mk-matcha-fg">
-          <span aria-hidden className="h-1.5 w-1.5 rounded-mk-full bg-current" />
-          {basics.startDate.slice(0, 10)} → {basics.endDate ? basics.endDate.slice(5, 10) : "进行中"}
-        </span>
+      <div className="mt-3 flex flex-wrap items-center gap-2">
+        <SummaryFact label="开始" value={basics.startDate.slice(0, 10)} />
+        <SummaryFact label="完成" value={basics.endDate ? basics.endDate.slice(0, 10) : "进行中"} />
+        <SummaryFact label="历时" value={`${durationDays(basics.startDate, basics.endDate)} 天`} />
       </div>
 
       <div className="mt-6 flex border-t border-dashed border-mk-input-border pt-6">

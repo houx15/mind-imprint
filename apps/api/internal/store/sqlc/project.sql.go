@@ -12,6 +12,77 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countActivityLogByUserProject = `-- name: CountActivityLogByUserProject :many
+SELECT a.project_id, COUNT(*)::int AS n
+FROM activity_log_entry a
+JOIN project p ON p.id = a.project_id
+WHERE p.user_id = $1
+GROUP BY a.project_id
+`
+
+type CountActivityLogByUserProjectRow struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	N         int32     `json:"n"`
+}
+
+// Per-project activity-log totals for the caller's whole project list, in ONE
+// grouped pass. activity_log_entry has no user_id, so join project to scope to
+// the caller; activity_log_entry is indexed on project_id.
+func (q *Queries) CountActivityLogByUserProject(ctx context.Context, userID uuid.UUID) ([]CountActivityLogByUserProjectRow, error) {
+	rows, err := q.db.Query(ctx, countActivityLogByUserProject, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountActivityLogByUserProjectRow
+	for rows.Next() {
+		var i CountActivityLogByUserProjectRow
+		if err := rows.Scan(&i.ProjectID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countLLMCallsByUserProject = `-- name: CountLLMCallsByUserProject :many
+SELECT project_id, COUNT(*)::int AS n
+FROM llm_call
+WHERE user_id = $1 AND project_id IS NOT NULL
+GROUP BY project_id
+`
+
+type CountLLMCallsByUserProjectRow struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	N         int32       `json:"n"`
+}
+
+// Per-project AI-call totals for the caller's whole project list, in ONE grouped
+// pass (not N per-project reads). llm_call carries user_id + project_id directly
+// (project_id NULL for course/chat calls, excluded here); indexed on both.
+func (q *Queries) CountLLMCallsByUserProject(ctx context.Context, userID uuid.UUID) ([]CountLLMCallsByUserProjectRow, error) {
+	rows, err := q.db.Query(ctx, countLLMCallsByUserProject, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountLLMCallsByUserProjectRow
+	for rows.Next() {
+		var i CountLLMCallsByUserProjectRow
+		if err := rows.Scan(&i.ProjectID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
 VALUES ($1, $2, $3, $4, $5, $6)

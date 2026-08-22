@@ -12,6 +12,12 @@ export type ProjectListItem = {
   coverUrl: string;
   /** RFC3339 start date — shown on the project list (title · 开始于 <date> · status). */
   createdAt: string;
+  /** RFC3339 last-activity date — the 最近 chip and the list's sort key. */
+  lastActiveAt: string;
+  /** Real AI calls made for this project (llm_call rows) — the AI chip. */
+  aiCalls: number;
+  /** Activity-log entries for this project — the 活动 chip. */
+  activityLog: number;
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {
