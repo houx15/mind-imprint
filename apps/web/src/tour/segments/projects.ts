@@ -272,26 +272,33 @@ export const projectsSegments: TourSegment[] = [
     steps: [
       {
         id: "evaluation-report-0",
+        // Open the shared demo project's 过程评估报告 (world-readable, fetched by
+        // id → a non-owner tour user sees it). Kept center while the report
+        // loads; the next steps anchor its sections once they're rendered.
+        onEnter: (nav) => nav.openDemoReport(),
         placement: "center",
         title: "你的思维印记",
-        text: "项目完成后，AI 会基于整个过程——你在立题、阅读、写作里留下的每一步——生成一份**过程评估报告**，而不是只看最终交上来的稿子。",
+        text: "项目完成后，AI 会基于整个过程——你在立题、阅读、写作里留下的每一步——生成一份**过程评估报告**，而不是只看最终交上来的稿子。我这就带你看一份真实的示例报告。",
         advance: "next",
       },
       {
         id: "evaluation-report-1",
-        placement: "center",
-        text: "报告里会有项目基本信息、一段整体综述，帮你先建立一个整体印象。",
+        anchor: "#s1",
+        placement: "right",
+        text: "报告开头是**项目基本信息**和一段整体**综述**，帮你先建立一个整体印象。",
         advance: "next",
       },
       {
         id: "evaluation-report-2",
-        placement: "center",
+        anchor: "#s5",
+        placement: "right",
         text: "再往下会拆到**深度**和**自主性**两个维度——你的思考钻得多深、你在多大程度上是自己推进的，而不是被 AI 牵着走。",
         advance: "next",
       },
       {
         id: "evaluation-report-3",
-        placement: "center",
+        anchor: "#s9",
+        placement: "top",
         text: "报告末尾还会点出这次项目里的风险点或薄弱环节，供你下一次做得更好。这份报告就是「你的思维印记」——记录的是你怎么想的，不只是你写了什么。",
         advance: "next",
       },

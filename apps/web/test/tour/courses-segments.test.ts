@@ -24,6 +24,7 @@ describe("courses segments", () => {
       setCoursesSub: vi.fn(),
       openDemoProject: vi.fn(),
       setStudioRoom: vi.fn(),
+      openDemoReport: vi.fn(),
     };
     coursesJourney[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("courses");

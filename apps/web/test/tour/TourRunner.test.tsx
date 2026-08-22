@@ -10,6 +10,7 @@ const nav: TourNavContext = {
   setCoursesSub: vi.fn(),
   openDemoProject: vi.fn(),
   setStudioRoom: vi.fn(),
+  openDemoReport: vi.fn(),
 };
 
 function Harness({ seg }: { seg: TourSegment }) {

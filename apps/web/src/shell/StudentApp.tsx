@@ -148,6 +148,7 @@ export function StudentApp({
     },
     openDemoProject: () => openProjectFromHome(DEMO_PROJECT_ID),
     setStudioRoom: (room) => setPendingRoom(room),
+    openDemoReport: () => openReportFromHome(DEMO_PROJECT_ID),
   };
 
   // Stamp onboarding so the welcome modal never fires again. Called on tour

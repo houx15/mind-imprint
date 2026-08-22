@@ -26,6 +26,7 @@ describe("projects segments", () => {
       setCoursesSub: vi.fn(),
       openDemoProject: vi.fn(),
       setStudioRoom: vi.fn(),
+      openDemoReport: vi.fn(),
     };
     projectsSegments[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("projects");
@@ -42,6 +43,7 @@ describe("projects segments", () => {
           setCoursesSub: vi.fn(),
           openDemoProject: vi.fn(() => calls.push("openDemoProject")),
           setStudioRoom: vi.fn(() => calls.push("setStudioRoom")),
+          openDemoReport: vi.fn(),
         };
         s.onEnter(nav);
         expect(calls.includes("openDemoProject") && calls.includes("setStudioRoom")).toBe(false);

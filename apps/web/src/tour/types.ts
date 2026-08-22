@@ -18,6 +18,10 @@ export interface TourNavContext {
   openDemoProject: () => void;
   /** P3: switch the open project's studio to this room. */
   setStudioRoom: (room: StudioRoom) => void;
+  /** P3: open the shared demo project's 过程评估报告 (评估报告 sub, focused on
+   *  the demo). The report is world-readable and fetched by id, so a non-owner
+   *  (the tour user) sees it. */
+  openDemoReport: () => void;
 }
 
 export interface TourStep {

@@ -64,6 +64,23 @@ export function ProjectsTab({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // A `pendingReportId` that arrives AFTER mount (the guided tour's
+  // evaluation-report step deep-links the demo report while ProjectsTab is
+  // already open in the studio — the mount-time `landOnReport` ref can't catch
+  // it). Ref-guarded so it fires once per new id (mirrors WorkspaceContainer's
+  // `initialProjectId`/`pendingRoom` one-shot pattern), and initialised to the
+  // mount value so the same id isn't re-handled here after the mount path.
+  const lastReport = useRef<string | null>(landOnReport.current);
+  useEffect(() => {
+    if (pendingReportId && pendingReportId !== lastReport.current) {
+      lastReport.current = pendingReportId;
+      setInProject(false);
+      setSub("reports");
+      setReportFocus(pendingReportId);
+      onPendingReportConsumed?.();
+    }
+  }, [pendingReportId, onPendingReportConsumed]);
+
   useEffect(() => {
     onImmersiveChange(inProject);
   }, [inProject, onImmersiveChange]);
