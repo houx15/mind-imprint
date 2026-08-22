@@ -32,5 +32,8 @@ test("J-settings: settings surface renders and the accent picker responds", asyn
   await swatches.nth(1).click();
 
   // 退出登录 is present (logout path itself is covered by helpers.logout elsewhere).
-  await expect(page.getByText("退出登录")).toBeVisible();
+  // .last(): the nav footer now ALSO carries a "退出登录" button (tour feature
+  // ship), rendered before the settings panel in the DOM — scope to the
+  // settings surface's own button, not the nav's.
+  await expect(page.getByRole("button", { name: "退出登录", exact: true }).last()).toBeVisible();
 });

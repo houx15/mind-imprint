@@ -23,13 +23,16 @@ export async function dismissWelcomeModal(page: Page): Promise<void> {
 // password type + the first text input in the login card (see selector ref).
 export async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto("/");
-  const loginBtn = page.getByRole("button", { name: "登录" }).first();
+  // exact: true — Playwright's default name match is substring, and the
+  // student shell's nav footer now carries a persistent "退出登录" (logout)
+  // button that CONTAINS "登录", so a loose match never reaches count 0.
+  const loginBtn = page.getByRole("button", { name: "登录", exact: true }).first();
   await expect(loginBtn).toBeVisible();
   await page.locator('input:not([type="password"])').first().fill(email);
   await page.locator('input[type="password"]').first().fill(password);
   await loginBtn.click();
   // Login resolves when the login submit button is gone (app rendered).
-  await expect(page.getByRole("button", { name: "登录" })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "登录", exact: true })).toHaveCount(0, { timeout: 30_000 });
   await dismissWelcomeModal(page);
 }
 
