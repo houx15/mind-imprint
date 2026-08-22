@@ -197,7 +197,7 @@ function AnswerDrawer({ courseId, attemptId, onClose }: { courseId: string; atte
 // longer have a numeric/string `id` — the slug is the sole identifier). The
 // prop is named courseId to stay compatible with CoursesContainer's existing
 // call site.
-export function CourseReport({ courseId, attemptId, onBackToCourses, onGoPortal, onRestart }: { courseId: string; attemptId?: string; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
+export function CourseReport({ courseId, attemptId, exampleReport, onBackToCourses, onGoPortal, onRestart }: { courseId: string; attemptId?: string; exampleReport?: CourseReportT; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
   const [report, setReport] = useState<CourseReportT | null>(null);
   const [error, setError] = useState(false);
   const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
@@ -208,6 +208,9 @@ export function CourseReport({ courseId, attemptId, onBackToCourses, onGoPortal,
   const [answersOpen, setAnswersOpen] = useState(false);
 
   useEffect(() => {
+    // Example mode (tour): the report is a frozen fixture, never a live
+    // attempt — skip every fetch (report, cards catalog, course summary).
+    if (exampleReport) { setReport(exampleReport); setError(false); return; }
     let cancelled = false;
     void (async () => {
       try {
@@ -236,7 +239,7 @@ export function CourseReport({ courseId, attemptId, onBackToCourses, onGoPortal,
       } catch { /* no course summary → no cover / 关于这门课 block */ }
     })();
     return () => { cancelled = true; };
-  }, [courseId, attemptId]);
+  }, [courseId, attemptId, exampleReport]);
 
   // NOTE: this component's parent (CoursesTab's content wrapper) is a plain
   // block, not a flex container — so `flex:1` here is inert and the content
@@ -334,14 +337,18 @@ export function CourseReport({ courseId, attemptId, onBackToCourses, onGoPortal,
                 <span style={{ fontSize: 18, fontWeight: 700, color: "var(--mk-muted)" }}>/ {report.quiz.total}</span>
                 <span style={{ fontSize: 13, color: "var(--mk-muted)", marginLeft: 2 }}>题答对</span>
               </div>
-              <button
-                type="button"
-                onClick={() => setAnswersOpen(true)}
-                style={{ marginTop: 16, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--mk-paper)", border: "1px solid var(--mk-input-border)", color: "var(--mk-secondary)", fontSize: 13.5, fontWeight: 700, padding: "11px 14px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}
-              >
-                查看我的答案（逐题）
-                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-              </button>
+              {/* Example mode (tour) has no real attempt to read answers from —
+                  hide the trigger rather than open a drawer that would fetch. */}
+              {!exampleReport && (
+                <button
+                  type="button"
+                  onClick={() => { if (!exampleReport) setAnswersOpen(true); }}
+                  style={{ marginTop: 16, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--mk-paper)", border: "1px solid var(--mk-input-border)", color: "var(--mk-secondary)", fontSize: 13.5, fontWeight: 700, padding: "11px 14px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  查看我的答案（逐题）
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                </button>
+              )}
             </div>
 
             {/* 学到的工具卡 — no empty state: the design has none, and an empty
@@ -375,7 +382,7 @@ export function CourseReport({ courseId, attemptId, onBackToCourses, onGoPortal,
         </div>
       </div>
 
-      {answersOpen && <AnswerDrawer courseId={courseId} attemptId={attemptId} onClose={() => setAnswersOpen(false)} />}
+      {!exampleReport && answersOpen && <AnswerDrawer courseId={courseId} attemptId={attemptId} onClose={() => setAnswersOpen(false)} />}
     </div>
   );
 }
