@@ -30,6 +30,7 @@ export function TourRunner() {
     if (!t.running || !t.step || t.step.advance !== "action" || !t.step.actionEvent) return;
     const { selector, type } = t.step.actionEvent;
     let cleanup = () => {};
+    let cancelled = false;
     const attach = (el: HTMLElement) => {
       const handler = () => t.next();
       el.addEventListener(type, handler, { once: true });
@@ -37,10 +38,12 @@ export function TourRunner() {
     };
     // Attach synchronously when the target is already mounted (common case) so no
     // microtask tick is needed before the listener is live; otherwise poll for it.
+    // The `cancelled` guard prevents a late resolve from attaching (and leaking) a
+    // listener after this effect has already torn down (e.g. the step changed).
     const immediate = document.querySelector<HTMLElement>(selector);
     if (immediate) attach(immediate);
-    else void resolveAnchor(selector).then((el) => { if (el) attach(el); });
-    return () => cleanup();
+    else void resolveAnchor(selector).then((el) => { if (!cancelled && el) attach(el); });
+    return () => { cancelled = true; cleanup(); };
   }, [t.running, t.step, t]);
 
   // Keyboard: Esc ends; Enter/→ advances a "next" step.
