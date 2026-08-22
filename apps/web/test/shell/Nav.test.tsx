@@ -38,4 +38,16 @@ describe("Nav", () => {
     render(<Nav tab="home" onTab={() => {}} user={null} />);
     expect(screen.getByText("?")).toBeTruthy();
   });
+
+  it("renders the footer controls and fires their callbacks", () => {
+    const onRestartTour = vi.fn(); const onFeedback = vi.fn(); const onLogout = vi.fn();
+    render(<Nav tab="home" onTab={() => {}} user={{ display_name: "Phoebe" }}
+      onRestartTour={onRestartTour} onFeedback={onFeedback} onLogout={onLogout} />);
+    fireEvent.click(screen.getByText("重新开始引导"));
+    expect(onRestartTour).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("反馈"));
+    expect(onFeedback).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("退出登录"));
+    expect(onLogout).toHaveBeenCalled();
+  });
 });

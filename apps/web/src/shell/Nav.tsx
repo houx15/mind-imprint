@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Home, FolderKanban, GraduationCap } from "lucide-react";
+import { Home, FolderKanban, GraduationCap, Compass, MessageSquare, LogOut } from "lucide-react";
 import { Icon } from "@/ui/Icon";
 import { Pebble } from "@/ui/Pebble";
 import type { MeUser } from "@/api";
@@ -43,10 +43,16 @@ export function Nav({
   tab,
   onTab,
   user,
+  onRestartTour,
+  onFeedback,
+  onLogout,
 }: {
   tab: NavTab;
   onTab: (t: NavTab) => void;
   user?: Pick<MeUser, "display_name"> | null;
+  onRestartTour?: () => void;
+  onFeedback?: () => void;
+  onLogout?: () => void;
 }) {
   const initial = initialOf(user?.display_name);
 
@@ -134,7 +140,25 @@ export function Nav({
             </button>
           );
         })}
+
+        <div className="mt-auto flex flex-col gap-1 pt-2">
+          <NavFooterButton dataTour="nav-restart-tour" icon={<Compass className="h-[18px] w-[18px] text-white/80" />} label="重新开始引导" onClick={onRestartTour} labelCls={labelCls} />
+          <NavFooterButton dataTour="nav-feedback" icon={<MessageSquare className="h-[18px] w-[18px] text-white/80" />} label="反馈" onClick={onFeedback} labelCls={labelCls} />
+          <NavFooterButton icon={<LogOut className="h-[18px] w-[18px] text-white/80" />} label="退出登录" onClick={onLogout} labelCls={labelCls} />
+        </div>
       </nav>
     </div>
+  );
+}
+
+function NavFooterButton({ icon, label, onClick, labelCls, dataTour }: {
+  icon: ReactNode; label: string; onClick?: () => void; labelCls: string; dataTour?: string;
+}) {
+  return (
+    <button type="button" data-tour={dataTour} onClick={onClick}
+      className="flex items-center gap-3 rounded-mk-md px-1.5 py-2 transition-colors duration-[120ms] ease-mk hover:bg-white/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/60">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center">{icon}</span>
+      <span className={cx(labelCls, "text-white/80")}>{label}</span>
+    </button>
   );
 }
