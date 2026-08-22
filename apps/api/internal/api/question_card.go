@@ -64,24 +64,36 @@ func (a *API) postQuestionCardTurn(w http.ResponseWriter, r *http.Request) {
 		objective = prop.Objective
 	}
 
-	// Fallback reply keeps the modal alive if the model call degrades.
-	reply := questionCardReplyDTO{Narrate: "我们先从你自己的直觉开始——用你自己的话说说，你对这个题目的理解是？", SuggestedObjective: nil, Done: false}
-	if a.d.Provider != nil {
-		if resolved, rok := a.resolveFast(r.Context()); rok {
-			out, usage, err := agent.QuestionCardTurn(r.Context(), a.d.Provider, resolved, agent.QuestionCardInput{
-				Title: title, Objective: objective, History: history,
-			})
-			a.meterCall(r.Context(), projectID, resolved, "question_card", usage)
-			if err == nil {
-				reply.Narrate = out.Narrate
-				reply.Done = out.Done
-				if s := strings.TrimSpace(out.SuggestedObjective); s != "" {
-					reply.SuggestedObjective = &s
-				}
-			} else {
-				slog.Warn("question card: turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
-			}
-		}
+	// AI-dialogue endpoints surface real failures instead of fabricating a
+	// plausible-looking reply. A canned narrate returned as HTTP 200 disguises
+	// the error as normal conversation — the student answers a dead turn and the
+	// same sentence loops forever. If the model can't be reached or its reply
+	// can't be understood, return a 502 (logged with the real reason) so the
+	// client shows an honest error + retry, and no fake AI turn is persisted.
+	if a.d.Provider == nil {
+		slog.Warn("question card: no provider configured", "request_id", httpx.RequestIDFromContext(r.Context()))
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("provider_unavailable"))
+		return
+	}
+	resolved, rok := a.resolveFast(r.Context())
+	if !rok {
+		slog.Warn("question card: no fast resolver", "request_id", httpx.RequestIDFromContext(r.Context()))
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+		return
+	}
+	out, usage, err := agent.QuestionCardTurn(r.Context(), a.d.Provider, resolved, agent.QuestionCardInput{
+		Title: title, Objective: objective, History: history,
+	})
+	a.meterCall(r.Context(), projectID, resolved, "question_card", usage)
+	if err != nil {
+		slog.Warn("question card: turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed(err.Error()))
+		return
+	}
+
+	reply := questionCardReplyDTO{Narrate: out.Narrate, Done: out.Done}
+	if s := strings.TrimSpace(out.SuggestedObjective); s != "" {
+		reply.SuggestedObjective = &s
 	}
 
 	// Persist the running transcript so reopening the modal in this project

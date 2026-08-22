@@ -38,6 +38,26 @@ describe("QuestionCardModal", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  it("surfaces an honest error (no fabricated coach reply) and retries", async () => {
+    const turn = vi
+      .fn()
+      .mockRejectedValueOnce(new Error("502")) // opening turn fails
+      .mockResolvedValueOnce({ narrate: "用你自己的话说说你对题目的理解？", suggestedObjective: null, done: false });
+    const deps: QuestionCardDeps = { turn, commit: vi.fn() };
+
+    render(<QuestionCardModal projectId="p1" onClose={() => {}} onCommitted={() => {}} deps={deps} />);
+
+    // The failure shows an honest error + retry — NOT a fabricated coach sentence.
+    expect(await screen.findByText("AI 暂时没接上。")).toBeTruthy();
+    expect(screen.queryByText(/没接上，我们再试一次/)).toBeNull();
+    expect(screen.queryByText(/从你自己的直觉开始/)).toBeNull();
+
+    // Retry recovers with the real reply.
+    fireEvent.click(screen.getByText("重试"));
+    expect(await screen.findByText("用你自己的话说说你对题目的理解？")).toBeTruthy();
+    expect(screen.queryByText("AI 暂时没接上。")).toBeNull();
+  });
+
   it("continues a saved conversation on reopen instead of restarting", async () => {
     const load = vi.fn(async () => ({
       messages: [

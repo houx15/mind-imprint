@@ -2,6 +2,7 @@ package agent
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -54,5 +55,50 @@ func TestQuestionCardTurn_ParsesFenced(t *testing.T) {
 	}
 	if out.Narrate == "" || out.Done {
 		t.Fatalf("out = %+v", out)
+	}
+}
+
+// TestQuestionCardTurn_AssistantHistoryRefedAsJSON guards the root cause of the
+// "canned fallback repeats forever" bug: prior assistant turns are stored as
+// PLAIN narrate prose, and feeding them back verbatim taught deepseek-v4-pro to
+// abandon the JSON contract and answer in prose too → every turn from #2 on
+// failed to parse → the caller leaked its canned opener. The fix rewraps each
+// assistant turn as its JSON envelope so the model stays in-contract.
+func TestQuestionCardTurn_AssistantHistoryRefedAsJSON(t *testing.T) {
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"narrate":"继续问一个问题？","suggestedObjective":"","done":false}`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 30, OutputTokens: 12}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	if _, _, err := QuestionCardTurn(context.Background(), prov, gateway.Resolved{Provider: "stub"}, QuestionCardInput{
+		Title: "中国是否让地球更可持续",
+		History: []ChatTurn{
+			{Role: "user", Content: "我不太确定这个题目要研究什么"},
+			{Role: "assistant", Content: "没关系，我们慢慢来。用你自己的话说说你的理解？"},
+			{Role: "user", Content: "中国算好还是不好呢"},
+		},
+	}); err != nil {
+		t.Fatalf("QuestionCardTurn err = %v", err)
+	}
+	var assistant *gateway.ChatMessage
+	for i := range prov.LastRequest.Messages {
+		if prov.LastRequest.Messages[i].Role == gateway.RoleAssistant {
+			assistant = &prov.LastRequest.Messages[i]
+			break
+		}
+	}
+	if assistant == nil {
+		t.Fatal("expected an assistant message in the replayed history")
+	}
+	// The assistant turn must be re-fed as a JSON object carrying its narrate,
+	// NOT the bare prose — that is what keeps the model emitting JSON.
+	var env struct {
+		Narrate string `json:"narrate"`
+	}
+	if err := json.Unmarshal([]byte(assistant.Content), &env); err != nil {
+		t.Fatalf("assistant history not JSON-wrapped: %q (%v)", assistant.Content, err)
+	}
+	if !strings.Contains(env.Narrate, "慢慢来") {
+		t.Fatalf("JSON envelope lost the narrate: %q", assistant.Content)
 	}
 }

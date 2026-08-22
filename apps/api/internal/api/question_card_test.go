@@ -40,6 +40,41 @@ func TestQuestionCardTurn_Endpoint(t *testing.T) {
 	}
 }
 
+// TestQuestionCardTurn_SurfacesRealError — when the model reply can't be parsed
+// (envelope drift, truncation, etc.), the endpoint must return a real error, NOT
+// a fabricated 200 reply. A disguised canned sentence loops forever because the
+// student can't tell the turn is dead. The client gets a 502 + machine reason.
+func TestQuestionCardTurn_SurfacesRealError(t *testing.T) {
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "这个方向挺具体的，那按你的理解……"}, // prose, no JSON
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 10, OutputTokens: 5}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	h, cookie, _ := proposalTrackHandler(t, prov)
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+seedProjectID+"/cards/question-card/turn",
+		strings.NewReader(`{"messages":[{"role":"student","text":"帮我想想这题"}]}`)), cookie))
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("unparseable reply should surface as 502, got %d — %s", rr.Code, rr.Body)
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if body.Error.Code != "ai_dialogue_failed" {
+		t.Fatalf("want ai_dialogue_failed, got %q — %s", body.Error.Code, rr.Body)
+	}
+	// The response must NOT smuggle a fabricated coach sentence.
+	if strings.Contains(rr.Body.String(), "从你自己的直觉开始") {
+		t.Fatalf("must not fabricate the canned opener: %s", rr.Body)
+	}
+}
+
 func TestQuestionCardCommit_FillsObjective(t *testing.T) {
 	h, cookie, pool := proposalTrackHandler(t, guideCardProvider())
 

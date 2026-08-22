@@ -36,6 +36,11 @@ export function QuestionCardModal({
   const [done, setDone] = useState(false);
   const [objectiveDraft, setObjectiveDraft] = useState<string | null>(null);
   const [committing, setCommitting] = useState(false);
+  // An honest error state — we never fabricate a coach sentence to paper over a
+  // failed turn (that disguises the error as normal dialogue). `retryHistory`
+  // holds the exact turn to re-send.
+  const [error, setError] = useState<string | null>(null);
+  const [retryHistory, setRetryHistory] = useState<QuestionCardMsg[] | null>(null);
   const kickedOff = useRef(false);
 
   // Open once: continue a saved conversation if one exists (§2), else start
@@ -68,6 +73,8 @@ export function QuestionCardModal({
 
   async function runTurn(history: QuestionCardMsg[]) {
     setSending(true);
+    setError(null);
+    setRetryHistory(null);
     try {
       const reply = await deps.turn(projectId, history);
       setMessages([...history, { role: "ai", text: reply.narrate }]);
@@ -76,7 +83,11 @@ export function QuestionCardModal({
         setObjectiveDraft(reply.suggestedObjective);
       }
     } catch {
-      setMessages([...history, { role: "ai", text: "刚才没接上，我们再试一次——用你自己的话说说你对题目的理解？" }]);
+      // Keep the student's own turn on screen, surface an honest error, and offer
+      // a retry — do NOT inject a fabricated AI reply.
+      setMessages(history);
+      setError("AI 暂时没接上。");
+      setRetryHistory(history);
     } finally {
       setSending(false);
     }
@@ -149,6 +160,20 @@ export function QuestionCardModal({
             </div>
           ))}
           {sending && <p className="self-start text-[13px] text-mk-muted">印记在想……</p>}
+          {error && !sending && (
+            <div className="self-start flex items-center gap-2 rounded-mk-md border border-mk-danger bg-mk-danger-bg px-3 py-2 text-[13px] text-mk-danger">
+              <span>{error}</span>
+              {retryHistory && (
+                <button
+                  type="button"
+                  onClick={() => void runTurn(retryHistory)}
+                  className="rounded-mk-sm border border-mk-danger px-2 py-0.5 text-[12px] font-bold hover:bg-mk-danger hover:text-white"
+                >
+                  重试
+                </button>
+              )}
+            </div>
+          )}
         </div>
 
         {done && objectiveDraft !== null ? (
