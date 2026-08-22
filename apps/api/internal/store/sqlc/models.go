@@ -571,6 +571,7 @@ type User struct {
 	CreatedAt       time.Time          `json:"created_at"`
 	CardTheme       string             `json:"card_theme"`
 	PageBackground  string             `json:"page_background"`
+	OnboardedAt     pgtype.Timestamptz `json:"onboarded_at"`
 }
 
 type VoiceTtsCache struct {

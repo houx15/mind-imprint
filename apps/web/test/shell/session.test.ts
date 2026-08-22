@@ -35,7 +35,7 @@ describe("createSession", () => {
   });
   it("setUser/getUser round-trips a MeUser and notifies subscribers", () => {
     const s = createSession({ storage: makeMemoryStorage() });
-    const me = { id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student", avatar_color: "#7C9CF0", page_background: "paper", school: { id: "s1", name: "Demo" }, classes: [] };
+    const me = { id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student", avatar_color: "#7C9CF0", page_background: "paper", onboarded_at: null, school: { id: "s1", name: "Demo" }, classes: [] };
     let n = 0;
     s.subscribe(() => { n++; });
     s.setUser(me);

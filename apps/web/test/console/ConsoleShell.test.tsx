@@ -8,7 +8,7 @@ import type { WeeklyReport } from "@/api/teacher";
 import { MOCK_EVALUATION_REPORT } from "@/shell/report/EvaluationReport/__fixtures__/mock";
 
 const mem = () => { let s = "{}"; return { getItem: () => s, setItem: (_: string, v: string) => { s = v; } }; };
-const TEACHER: MeUser = { id: "u1", email: "t@d", display_name: "Teacher", role: "teacher", avatar_color: "#2A3B7A", page_background: "paper", school: { id: "s1", name: "Demo" }, classes: [] };
+const TEACHER: MeUser = { id: "u1", email: "t@d", display_name: "Teacher", role: "teacher", avatar_color: "#2A3B7A", page_background: "paper", onboarded_at: null, school: { id: "s1", name: "Demo" }, classes: [] };
 
 const summary: ClassSummary = { id: "c1", name: "11A", join_code: "AB-CD", school_id: "s1", created_at: "2026-06-20T00:00:00Z" };
 const detail: ClassDetail = { class: summary, roster: [], teachers: [] };

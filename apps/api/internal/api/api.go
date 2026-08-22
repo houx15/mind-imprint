@@ -79,6 +79,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/cards/theme", protected(a.putCardTheme))
 	mux.Handle("PUT /api/v1/users/me/accent", protected(a.putUserAccent))
 	mux.Handle("PUT /api/v1/users/me/background", protected(a.putUserBackground)) // page background colorway
+	mux.Handle("PUT /api/v1/users/me/onboarding", protected(a.putUserOnboarding)) // guided-tour first-run flag
 	mux.Handle("GET /api/v1/projects", protected(a.listProjects))
 	mux.Handle("POST /api/v1/projects", protected(a.createProject))
 	mux.Handle("POST /api/v1/projects/{id}/onboarding", protected(a.submitOnboarding))

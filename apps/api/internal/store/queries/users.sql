@@ -26,3 +26,8 @@ UPDATE users SET page_background = @page_background WHERE id = @user_id;
 -- avatar_color column. The handler validates against the 8-preset allowlist
 -- before calling; no CHECK constraint on this column.
 UPDATE users SET avatar_color = @avatar_color WHERE id = @user_id;
+
+-- name: SetUserOnboardedAt :exec
+-- Stamps the moment the student completed/dismissed onboarding. Idempotent enough for
+-- our use (re-running just refreshes the timestamp).
+UPDATE users SET onboarded_at = now() WHERE id = @user_id;
