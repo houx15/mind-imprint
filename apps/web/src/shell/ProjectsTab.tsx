@@ -64,8 +64,9 @@ export function ProjectsTab({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-mk-paper">
       {!inProject && (
-        <div className="flex shrink-0 items-center justify-center border-b border-mk-border bg-mk-surface p-3">
+        <div className="flex shrink-0 items-center justify-center px-4 pb-1.5 pt-4">
           <Segmented
+            variant="island"
             value={sub}
             onChange={(v) => setSub(v === "reports" ? "reports" : "projects")}
             options={[
