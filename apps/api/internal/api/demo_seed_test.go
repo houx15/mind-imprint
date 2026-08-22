@@ -3,13 +3,22 @@ package api_test
 // demo_seed_test.go — asserts migration 0082 seeds the guided-tour demo
 // project (00000000-0000-0000-0000-000000000200) with substantive content for
 // rooms 立题 / 管理 / 阅读. Tasks 4-5 extend this test (写作/回顾 + eval report).
-// Direct pool queries against the migrated testcontainer DB.
+// TestDemoSeed checks the seed at the DB level; TestDemoSeedReadEndpoints
+// checks the same content renders through the real HTTP read endpoints the
+// guided tour will hit, signed in as a NON-owner (proving world-readability).
 
 import (
 	"context"
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 const demoProjectID = "00000000-0000-0000-0000-000000000200"
@@ -114,6 +123,113 @@ func TestDemoSeed(t *testing.T) {
 		  WHERE t.seeded_project_id = $1 AND m.surface = 'studio'`,
 		demoProjectID); n < 1 {
 		t.Error("no studio-surface chat_message for demo project")
+	}
+}
+
+// TestDemoSeedReadEndpoints verifies rooms 立题/管理/阅读 render non-empty through
+// the actual read endpoints the guided tour hits — decoding real HTTP JSON, not
+// re-querying the DB. Signed in as SeedAdminID (…005), a NON-owner: a 200 here
+// simultaneously proves the demo project is world-readable to any authenticated
+// user regardless of ownership (loadOwnedProjectRow's is_demo bypass).
+func TestDemoSeedReadEndpoints(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, CookieSecure: false}).Handler()
+
+	nonOwner := signInAdmin(t, pool) // SeedAdminID …005 ≠ Phoebe …003
+	if SeedAdminID.String() == demoOwnerID {
+		t.Fatalf("test precondition: signed-in user must NOT be the demo owner")
+	}
+
+	get := func(path string) *httptest.ResponseRecorder {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest(http.MethodGet, path, nil), nonOwner))
+		return rec
+	}
+	base := "/api/v1/projects/" + demoProjectID
+
+	// 立题: GET /projects/{id} → workspace projection, isDemo + 4-dim proposal.
+	{
+		rec := get(base)
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s (non-owner) = %d, want 200; body=%s", base, rec.Code, rec.Body)
+		}
+		var proj struct {
+			IsDemo   bool `json:"isDemo"`
+			Proposal struct {
+				Objective  string `json:"objective"`
+				Reason     string `json:"reason"`
+				Activities string `json:"activities"`
+				Resources  string `json:"resources"`
+			} `json:"proposal"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &proj); err != nil {
+			t.Fatalf("decode workspace projection: %v — body=%s", err, rec.Body)
+		}
+		if !proj.IsDemo {
+			t.Error("workspace projection isDemo = false, want true")
+		}
+		for _, d := range []struct{ name, val string }{
+			{"objective", proj.Proposal.Objective}, {"reason", proj.Proposal.Reason},
+			{"activities", proj.Proposal.Activities}, {"resources", proj.Proposal.Resources},
+		} {
+			if strings.TrimSpace(d.val) == "" {
+				t.Errorf("workspace proposal.%s is empty over HTTP", d.name)
+			}
+		}
+	}
+
+	// 管理: GET /projects/{id}/plan → non-empty plan items.
+	{
+		rec := get(base + "/plan")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s/plan = %d, want 200; body=%s", base, rec.Code, rec.Body)
+		}
+		var plan struct {
+			Items []json.RawMessage `json:"items"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil {
+			t.Fatalf("decode plan: %v — body=%s", err, rec.Body)
+		}
+		if len(plan.Items) == 0 {
+			t.Error("GET /plan returned no items over HTTP")
+		}
+	}
+
+	// 阅读: GET /projects/{id}/library → ≥4 references, and at least one linking
+	// to a seeded material (materialId set) carrying non-empty reading content.
+	// (Raw material blocks are not exposed via any GET — they feed the coach
+	// turn — so the library reference's material link + content is the
+	// HTTP-observable proxy for "the reading room has real material to render".)
+	{
+		rec := get(base + "/library")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s/library = %d, want 200; body=%s", base, rec.Code, rec.Body)
+		}
+		var lib struct {
+			References []struct {
+				MaterialID  *string `json:"materialId"`
+				Abstract    string  `json:"abstract"`
+				ReadingNote string  `json:"readingNote"`
+			} `json:"references"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &lib); err != nil {
+			t.Fatalf("decode library: %v — body=%s", err, rec.Body)
+		}
+		if len(lib.References) < 4 {
+			t.Errorf("GET /library returned %d references over HTTP, want ≥4", len(lib.References))
+		}
+		materialLinked := false
+		for _, ref := range lib.References {
+			if ref.MaterialID != nil && *ref.MaterialID != "" &&
+				(strings.TrimSpace(ref.Abstract) != "" || strings.TrimSpace(ref.ReadingNote) != "") {
+				materialLinked = true
+				break
+			}
+		}
+		if !materialLinked {
+			t.Error("GET /library: no reference links to a material with non-empty content")
+		}
 	}
 }
 
