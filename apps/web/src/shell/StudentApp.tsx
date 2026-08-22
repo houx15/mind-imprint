@@ -52,6 +52,10 @@ export function StudentApp({
   // ProjectsTab / WorkspaceContainer consume it right after acting on it.
   const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
   const [pendingCreate, setPendingCreate] = useState(false);
+  // Open-from-home deep-link into the 项目 tab's 评估报告 sub: a finished
+  // project's report (home project card's ⋯ menu → 查看评估报告). One-shot,
+  // consumed by ProjectsTab on entry.
+  const [pendingReportId, setPendingReportId] = useState<string | null>(null);
   // Open-from-anywhere deep-link into the 课程 tab: a course to play (home
   // course cards, a 图鉴 card's "去学这张卡的课程"). One-shot, consumed by
   // CoursesTab on entry.
@@ -66,7 +70,15 @@ export function StudentApp({
 
   function openProjectFromHome(id: string) {
     setPendingCreate(false);
+    setPendingReportId(null);
     setPendingProjectId(id);
+    setTab("projects");
+  }
+
+  function openReportFromHome(id: string) {
+    setPendingCreate(false);
+    setPendingProjectId(null);
+    setPendingReportId(id);
     setTab("projects");
   }
 
@@ -91,6 +103,7 @@ export function StudentApp({
         onCreateProject={openCreateFromHome}
         onGoProjects={() => setTab("projects")}
         onGoCourses={() => setTab("courses")}
+        onViewReport={openReportFromHome}
       />
     );
   } else if (tab === "projects") {
@@ -100,6 +113,8 @@ export function StudentApp({
         onPendingProjectConsumed={() => setPendingProjectId(null)}
         autoOpenCreate={pendingCreate}
         onAutoOpenCreateConsumed={() => setPendingCreate(false)}
+        pendingReportId={pendingReportId}
+        onPendingReportConsumed={() => setPendingReportId(null)}
         onImmersiveChange={setProjectsImmersive}
       />
     );

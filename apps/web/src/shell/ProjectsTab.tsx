@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Segmented } from "@/ui";
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 import { ReportsView } from "@/shell/report/ReportsView";
@@ -25,6 +25,10 @@ export interface ProjectsTabProps {
   /** One-shot: open the create drawer on entry (home's 新建 tiles). */
   autoOpenCreate: boolean;
   onAutoOpenCreateConsumed: () => void;
+  /** One-shot: open this finished project's 评估报告 on entry (home project
+   * card's ⋯ menu → 查看评估报告). */
+  pendingReportId?: string | null;
+  onPendingReportConsumed?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
 }
@@ -34,13 +38,24 @@ export function ProjectsTab({
   onPendingProjectConsumed,
   autoOpenCreate,
   onAutoOpenCreateConsumed,
+  pendingReportId,
+  onPendingReportConsumed,
   onImmersiveChange,
 }: ProjectsTabProps) {
-  const [sub, setSub] = useState<Sub>("projects");
+  // A home 查看评估报告 deep-link lands on the 评估报告 sub, focused on that
+  // project. Captured at mount (ProjectsTab remounts on each tab entry) so the
+  // one-shot is consumed once — re-entering 项目 later shows 我的项目.
+  const landOnReport = useRef(pendingReportId ?? null);
+  const [sub, setSub] = useState<Sub>(landOnReport.current ? "reports" : "projects");
   const [inProject, setInProject] = useState(false);
   // Deep-link a specific report after finishing (consumed once so backing out
   // of the report lands on the list, not the same report again).
-  const [reportFocus, setReportFocus] = useState<string | null>(null);
+  const [reportFocus, setReportFocus] = useState<string | null>(landOnReport.current);
+
+  useEffect(() => {
+    if (landOnReport.current) onPendingReportConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     onImmersiveChange(inProject);
