@@ -296,7 +296,7 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
       </div>
 
       {/* filters: status (所有卡片 / 已练习过) + category tags */}
-      <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2.5">
+      <div className="mb-6 flex flex-wrap items-center gap-x-3 gap-y-2.5" data-tour="tujian-filters">
         <div className="inline-flex shrink-0 rounded-mk-full border border-mk-border p-0.5">
           <SegButton active={statusFilter === "all"} onClick={() => setStatusFilter("all")}>所有卡片 {cards.length}</SegButton>
           <SegButton active={statusFilter === "practiced"} onClick={() => setStatusFilter("practiced")}>已练习过 {learnt}</SegButton>
@@ -326,7 +326,7 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
                 {g.cards.filter((c) => c.encountered).length}/{g.cards.length}
               </span>
             </div>
-            <div className="grid grid-cols-[repeat(auto-fill,minmax(158px,1fr))] gap-4">
+            <div className="grid grid-cols-[repeat(auto-fill,minmax(158px,1fr))] gap-4" data-tour="tujian-grid">
               {g.cards.map((c) => <CardTile key={c.cardId} c={c} onOpen={() => setSelected(c.cardId)} />)}
             </div>
           </div>

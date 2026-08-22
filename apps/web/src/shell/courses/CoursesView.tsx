@@ -152,7 +152,7 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
               </div>
             </div>
             {groups.length > 0 && (
-              <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 14 }}>
+              <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginTop: 14 }} data-tour="courses-categories">
                 <FilterChip label="全部" count={courses?.length ?? 0} active={activeFilter === ALL_CATEGORIES} onClick={() => setFilter(ALL_CATEGORIES)} />
                 {groups.map((g) => (
                   <FilterChip key={g.slug} label={g.label} count={g.courses.length} active={activeFilter === g.slug} onClick={() => setFilter(g.slug)} />
@@ -164,7 +164,7 @@ export function CoursesView({ onOpenCourse, onRestartCourse }: { onOpenCourse?: 
                 没有名字里含「{query.trim()}」的课程{activeFilter === ALL_CATEGORIES ? "" : "（当前分类下）"}。
               </div>
             ) : (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 20, marginTop: 24 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 20, marginTop: 24 }} data-tour="courses-grid">
                 {shown.map((c) => (
                   <CourseCard key={c.slug} course={c} pct={pctById[c.slug] ?? null} onOpen={() => onOpenCourse?.(c.slug)} onRestart={onRestartCourse ? () => onRestartCourse(c.slug) : undefined} />
                 ))}

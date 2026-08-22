@@ -133,6 +133,10 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
     );
   }
   if (view.name === "player") {
+    // Guided tour anchors: RuntimeCoursePlayer's root carries
+    // `data-testid="course-region"`, and the runtime renders `.course-nav__next`
+    // + `[data-testid="ask-bubble"]` — the tour targets these selectors
+    // directly, so don't remove/rename them.
     return (
       <PlayerRouter
         slug={view.courseId}

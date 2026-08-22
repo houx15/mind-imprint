@@ -84,9 +84,9 @@ function ToolCardDetail({ cardId, info }: { cardId: string; info?: CardCatalogEn
   );
 }
 
-function SectionCard({ title, hint, children }: { title: string; hint?: string; children: React.ReactNode }) {
+function SectionCard({ title, hint, children, dataTour }: { title: string; hint?: string; children: React.ReactNode; dataTour?: string }) {
   return (
-    <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px" }}>
+    <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px" }} data-tour={dataTour}>
       <div style={{ fontSize: 15, fontWeight: 800, color: "var(--mk-ink)", marginBottom: hint ? 4 : 14 }}>{title}</div>
       {hint && <div style={{ fontSize: 12.5, color: "var(--mk-muted)", marginBottom: 16 }}>{hint}</div>}
       {children}
@@ -264,7 +264,7 @@ export function CourseReport({ courseId, attemptId, exampleReport, onBackToCours
   const hasIntro = Boolean(intro && (intro.hook || intro.whatYouDo || (intro.keywords?.length ?? 0) > 0));
 
   return (
-    <div style={{ height: "100%", minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }}>
+    <div style={{ height: "100%", minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }} data-tour="course-report">
       <div style={{ maxWidth: 1360, margin: "0 auto", padding: "34px 40px 56px" }}>
         {/* hero */}
         <div style={{ background: "linear-gradient(135deg,var(--mk-accent-500) 0%,var(--mk-accent-600) 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(234,81,64,.20)" }}>
@@ -323,14 +323,14 @@ export function CourseReport({ courseId, attemptId, exampleReport, onBackToCours
 
           {/* RIGHT */}
           <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }} data-tour="course-report-stats">
               <Stat value={formatSpent(report.secondsSpent)} label="用时" />
               <Stat value={`${report.completedStepTitles.length}`} label="阶段完成" />
             </div>
 
             {/* 小测 & 我的答案 — the clickable card that opens the per-question
                 answer drawer (the recorded data, read back on demand). */}
-            <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px" }}>
+            <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px" }} data-tour="course-report-quiz">
               <div style={{ fontSize: 15, fontWeight: 800, color: "var(--mk-ink)" }}>小测表现</div>
               <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 12 }}>
                 <span style={{ fontSize: 34, fontWeight: 800, color: "var(--mk-peach)", lineHeight: 1 }}>{report.quiz.correct}</span>
@@ -354,7 +354,7 @@ export function CourseReport({ courseId, attemptId, exampleReport, onBackToCours
             {/* 学到的工具卡 — no empty state: the design has none, and an empty
                 block would wrongly imply nothing was learned. */}
             {report.cardIds.length > 0 && (
-              <SectionCard title="学到的工具卡" hint="这门课带你上手的思维工具——记住它们能在什么时候帮到你。">
+              <SectionCard title="学到的工具卡" hint="这门课带你上手的思维工具——记住它们能在什么时候帮到你。" dataTour="course-report-cards">
                 <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
                   {report.cardIds.map((cardId, i) => (
                     <ToolCardDetail key={`${cardId}-${i}`} cardId={cardId} info={cardInfo[cardId]} />

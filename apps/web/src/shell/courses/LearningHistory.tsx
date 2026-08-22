@@ -196,15 +196,17 @@ export function LearningHistory({ onOpen }: { onOpen: (target: CourseOpenTarget)
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <Card className="mt-6 p-6">
-            <EmptyState
-              illustration="emptyProjects"
-              title="还没有学习记录"
-              body="去课程里挑一门开始学，学习进度会记录在这里。"
-            />
-          </Card>
+          <div data-tour="courses-history">
+            <Card className="mt-6 p-6">
+              <EmptyState
+                illustration="emptyProjects"
+                title="还没有学习记录"
+                body="去课程里挑一门开始学，学习进度会记录在这里。"
+              />
+            </Card>
+          </div>
         ) : (
-          <div className="mt-6 flex flex-col gap-7">
+          <div className="mt-6 flex flex-col gap-7" data-tour="courses-history">
             {grouped.map((g) => (
               <section key={g.bucket}>
                 <div className="mb-2.5 text-mk-label font-bold uppercase tracking-wide text-mk-muted">{g.bucket}</div>

@@ -278,7 +278,7 @@ export function CardDetailModal({ c, courses, onClose, onOpenCourse }: { c: Deta
             </button>
           </div>
 
-          <div className="flex gap-1 border-b border-mk-border px-4">
+          <div className="flex gap-1 border-b border-mk-border px-4" data-tour="card-detail-tabs">
             <TabButton active={tab === "intro"} onClick={() => setTab("intro")}>介绍</TabButton>
             <TabButton active={tab === "history"} onClick={() => setTab("history")}>我的练习历史</TabButton>
           </div>

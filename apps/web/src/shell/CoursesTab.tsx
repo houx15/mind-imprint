@@ -28,6 +28,9 @@ export interface CoursesTabProps {
   onGoPortal: () => void;
   /** True while a course is being played → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
+  /** One-shot: open this sub-tab on entry (guided tour). */
+  pendingSub?: Sub | null;
+  onPendingSubConsumed?: () => void;
 }
 
 export function CoursesTab({
@@ -36,8 +39,10 @@ export function CoursesTab({
   studentId,
   onGoPortal,
   onImmersiveChange,
+  pendingSub,
+  onPendingSubConsumed,
 }: CoursesTabProps) {
-  const [sub, setSub] = useState<Sub>("courses");
+  const [sub, setSub] = useState<Sub>(pendingSub ?? "courses");
   const [inCourse, setInCourse] = useState(false);
   // The target to open in CoursesContainer — seeded from the host deep-link
   // (always a browse landing), or set when 学习记录 / 图鉴 requests a course.
@@ -49,6 +54,13 @@ export function CoursesTab({
   // Clear the host's one-shot deep-link on mount (openTarget already captured it).
   useEffect(() => {
     if (pendingCourseId) onPendingCourseConsumed();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // One-shot: consume the tour's requested sub-tab (sub state already seeded
+  // from it above).
+  useEffect(() => {
+    if (pendingSub) onPendingSubConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -71,7 +83,7 @@ export function CoursesTab({
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-mk-paper">
       {!immersive && (
-        <div className="flex shrink-0 items-center justify-center px-4 pb-1.5 pt-4">
+        <div className="flex shrink-0 items-center justify-center px-4 pb-1.5 pt-4" data-tour="courses-subswitcher">
           <Segmented
             variant="island"
             value={sub}
