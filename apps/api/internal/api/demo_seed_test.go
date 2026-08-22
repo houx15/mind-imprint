@@ -308,6 +308,51 @@ func TestDemoSeedReadEndpoints(t *testing.T) {
 			t.Error("GET /library: no reference links to a material with non-empty content")
 		}
 	}
+
+	// 回顾: GET /projects/{id}/evaluation-report → status "ready" + a non-empty
+	// report (Task 5). This is the report the guided tour walks section by
+	// section; a 200 here as a NON-owner also re-proves world-readability.
+	{
+		rec := get(base + "/evaluation-report")
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET %s/evaluation-report (non-owner) = %d, want 200; body=%s", base, rec.Code, rec.Body)
+		}
+		var env struct {
+			Status string          `json:"status"`
+			Report json.RawMessage `json:"report"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &env); err != nil {
+			t.Fatalf("decode evaluation-report envelope: %v — body=%s", err, rec.Body)
+		}
+		if env.Status != "ready" {
+			t.Errorf("evaluation-report status = %q, want \"ready\"", env.Status)
+		}
+		if len(env.Report) == 0 || string(env.Report) == "null" {
+			t.Error("evaluation-report ready envelope carries no report")
+		}
+		// The report parses into the canonical shape with the demo project id
+		// and Phoebe as the student — proving it is the seeded, coherent report.
+		var rep struct {
+			ProjectID string `json:"projectId"`
+			Student   struct {
+				Name string `json:"name"`
+			} `json:"student"`
+			Depth    []json.RawMessage `json:"depth"`
+			Autonomy []json.RawMessage `json:"autonomy"`
+		}
+		if err := json.Unmarshal(env.Report, &rep); err != nil {
+			t.Fatalf("decode evaluation report body: %v", err)
+		}
+		if rep.ProjectID != demoProjectID {
+			t.Errorf("report projectId = %q, want %q", rep.ProjectID, demoProjectID)
+		}
+		if rep.Student.Name == "" {
+			t.Error("report student.name is empty")
+		}
+		if len(rep.Depth) != 6 || len(rep.Autonomy) != 6 {
+			t.Errorf("report depth/autonomy = %d/%d dims, want 6/6", len(rep.Depth), len(rep.Autonomy))
+		}
+	}
 }
 
 func countDemoRows(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) int {
