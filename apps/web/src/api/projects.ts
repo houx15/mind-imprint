@@ -11,6 +11,8 @@ export type ProjectListItem = {
   cover: string;
   /** Signed CDN URL for an "img:" cover; "" for "grad:"/unset covers. */
   coverUrl: string;
+  /** RFC3339 start date — shown on the project list (title · 开始于 <date> · status). */
+  createdAt: string;
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {

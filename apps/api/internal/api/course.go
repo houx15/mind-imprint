@@ -299,6 +299,34 @@ func (a *API) getCourseReport(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": toCourseReportDTO(header, rep)})
 }
 
+// getCourseAnswerReport returns the per-attempt answer detail — the student's
+// actual recorded answers + per-slice time, read back from the stored
+// course_session blob + the course definition (2.0 courses only; a legacy
+// course returns an empty `slices` array). Lazy-loaded when the student opens
+// the 小测/我的答案 drawer, so the main report fetch stays lean.
+//
+// ?attempt=<course_session id> selects a specific past run (the learning
+// history's "看那一次的报告"); absent = the current (latest) attempt. Owner/course
+// scoping + a 404 for an unknown attempt live in CourseAnswerReport20.
+func (a *API) getCourseAnswerReport(w http.ResponseWriter, r *http.Request) {
+	user, _ := UserFromContext(r.Context())
+	slug := r.PathValue("slug")
+	attemptID := r.URL.Query().Get("attempt")
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	rep, ok, err := store.CourseAnswerReport20(r.Context(), user.ID, slug, attemptID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !ok {
+		// Legacy course (no 2.0 definition) — no per-block answer detail exists.
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": courseAnswerReportDTO{Slices: []courseAnswerSliceDTO{}}})
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": toCourseAnswerReportDTO(rep)})
+}
+
 // courseAskStructure is the narrow slice of `course.structure` postCourseAsk
 // reads: the course's title/goal (for the prompt header) and, per step, only
 // the title — a fallback for stepTitle when render_cache's own content.title

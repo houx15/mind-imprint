@@ -22,6 +22,11 @@ function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
+/** RFC3339 → YYYY-MM-DD (the project's start date shown on its card). */
+function formatDate(iso: string): string {
+  return iso.slice(0, 10);
+}
+
 // The status badge shown on each project card. The lifecycle is derived
 // server-side (forming → working → evaluating → done); labels mirror
 // shell/home/HomePage.tsx's STATUS_LABEL/STATUS_TONE so the wording and tint
@@ -185,6 +190,9 @@ function ProjectCard({
           {project.qualLabel || "项目"}
           {project.activeStation ? ` · ${project.activeStation}` : ""}
         </div>
+        {project.createdAt && (
+          <div className="text-mk-small text-mk-faint">开始于 {formatDate(project.createdAt)}</div>
+        )}
       </Card>
     </div>
   );
@@ -268,18 +276,16 @@ export function Directory({
   }
 
   return (
-    <div className="mx-auto flex h-full w-full max-w-5xl flex-col px-8 py-10 font-sans text-mk-ink">
-      <header className="mb-6">
-        <p className="text-mk-small font-semibold uppercase tracking-[0.18em] text-mk-faint">你的项目</p>
-        <h1 className="mt-1 text-mk-h1 text-mk-ink">全部项目</h1>
-        <p className="mt-1.5 text-mk-body text-mk-muted">选一个继续，或开一个新项目——带着你真实的任务进来。</p>
+    <div className="flex h-full w-full flex-col px-10 pb-14 pt-11 font-sans text-mk-ink">
+      <header className="mb-6 text-[28px] font-extrabold tracking-[-0.01em] text-mk-ink">
+        <span className="text-mk-muted">项目：</span>探究性写作空间
       </header>
 
       {error && <div className="mb-4 rounded-mk-sm border border-mk-danger bg-mk-danger-bg px-4 py-2.5 text-mk-small font-semibold text-mk-danger">{error}</div>}
 
       <div className="min-h-0 flex-1 overflow-y-auto">
         {loading ? (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
             {Array.from({ length: 4 }, (_, i) => (
               <SkeletonCard key={i} />
             ))}
@@ -292,7 +298,7 @@ export function Directory({
             action={{ label: "新建项目", onClick: () => setDrawerOpen(true) }}
           />
         ) : (
-          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-4">
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
             <NewProjectTile onClick={() => setDrawerOpen(true)} />
             {projects.map((p) => (
               <ProjectCard key={p.id} project={p} onOpen={() => onOpen(p.id)} onViewReport={onViewReport} onRename={handleRename} />

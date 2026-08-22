@@ -99,16 +99,11 @@ export function WorkspaceContainer({
   autoOpenCreate,
   onAutoOpenCreateConsumed,
   onInProjectChange,
-  onExitToHome,
 }: {
   onFinished?: (projectId?: string) => void;
   /** Fired when a project opens (true) or closes (false) — the shell uses
    * this to hide its platform nav for the immersive studio (spec §17). */
   onInProjectChange?: (inProject: boolean) => void;
-  /** The studio top bar's 「← 主页」capsule — exits the immersive studio all
-   * the way back to the home page (spec §17). Falls back to the internal
-   * directory return when not supplied. */
-  onExitToHome?: () => void;
   /** Open this project on mount (or whenever it changes to a new id) — the
    * "open from home" deep-link (Task 6). Undefined/null leaves the
    * directory showing, same as before this prop existed. */
@@ -1206,7 +1201,7 @@ export function WorkspaceContainer({
   return (
     <StudioChatContext.Provider value={chatValue}>
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
-      <TopBar workspace={workspace} onBack={onExitToHome ?? backToAll} />
+      <TopBar workspace={workspace} onBack={backToAll} />
       <div className="flex min-h-0 flex-1">
         {aiSide === "left" && showAiPanel && aiPanel}
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1458,9 +1453,11 @@ export function WorkspaceContainer({
   );
 }
 
-// The top bar (spec §17): a small 「← 主页」capsule back to the Directory and
-// the project's title + qualification. The stage switcher no longer lives here
-// — it moved into the interactive area's top-left (spec §2), beside the chat.
+// The top bar (spec §17): a small 「← 返回」capsule back to the project list
+// (the Directory) and the project's title + qualification. The stage switcher no
+// longer lives here — it moved into the interactive area's top-left (spec §2),
+// beside the chat. Back returns to the student's OWN project list (not the
+// platform home): "返回" is one level up, and the nav rail reappears there.
 function TopBar({
   workspace,
   onBack,
@@ -1492,7 +1489,7 @@ function TopBar({
         )}
       >
         <UiIcon icon={ArrowLeft} size={14} />
-        主页
+        返回
       </button>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {showingQuestion && (

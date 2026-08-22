@@ -25,8 +25,6 @@ export interface ProjectsTabProps {
   /** One-shot: open the create drawer on entry (home's 新建 tiles). */
   autoOpenCreate: boolean;
   onAutoOpenCreateConsumed: () => void;
-  /** Studio top-bar "← 主页" — bubbles up so the host switches to 首页. */
-  onExitToHome: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
 }
@@ -36,7 +34,6 @@ export function ProjectsTab({
   onPendingProjectConsumed,
   autoOpenCreate,
   onAutoOpenCreateConsumed,
-  onExitToHome,
   onImmersiveChange,
 }: ProjectsTabProps) {
   const [sub, setSub] = useState<Sub>("projects");
@@ -76,7 +73,6 @@ export function ProjectsTab({
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}
-            onExitToHome={onExitToHome}
           />
         ) : (
           <ReportsView initialProjectId={reportFocus} onFocusConsumed={() => setReportFocus(null)} />

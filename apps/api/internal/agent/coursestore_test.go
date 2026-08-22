@@ -495,3 +495,84 @@ func TestCourseAttemptLog(t *testing.T) {
 		t.Fatalf("CourseReport20 with an unknown attempt id: want error, got nil")
 	}
 }
+
+// TestCourseAnswerReport20 proves the per-attempt answer detail reads the
+// student's recorded final answers + per-slice time back out of the stored
+// session blob + the definition: a graded singleChoice maps the stored option id
+// to its label and grades it against correctOptionId; a graded fillBlank grades
+// its stored text (case-insensitive) against acceptedAnswers; a non-assessment
+// block is omitted; and a Slice with no assessment blocks drops out entirely.
+func TestCourseAnswerReport20(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires postgres")
+	}
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+	ctx := context.Background()
+	userID := seededStudentID
+
+	// A 2.0 course: one graded singleChoice + one graded fillBlank + a text block
+	// in slice s0, plus a second slice s1 with only a text block (must drop out).
+	def := []byte(`{"schemaVersion":"2.0","course":{"id":"ans","title":"T","parts":[{"slices":[` +
+		`{"id":"s0","title":"Slice Zero","blocks":[` +
+		`{"id":"q1","type":"singleChoice","prompt":"选哪个来源？","options":[{"id":"a","label":"看作者"},{"id":"b","label":"看标题"}],"assessment":{"mode":"graded","correctOptionId":"a"}},` +
+		`{"id":"q2","type":"fillBlank","prompt":"横向溯源叫什么？","assessment":{"mode":"graded","acceptedAnswers":["lateral reading"]}},` +
+		`{"id":"t1","type":"text","content":"hi"}` +
+		`]},` +
+		`{"id":"s1","title":"Slice One","blocks":[{"id":"t2","type":"text","content":"bye"}]}` +
+		`]}]}}`)
+	if _, err := store.UpsertCourseDefinition(ctx, agent.UpsertCourseDefinitionInput{
+		Slug: "ans", Branch: "Runtime", Title: "T", Blurb: "b",
+		CardIDs: []string{}, Definition: def, StepCount: 2,
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	_, courseID, err := store.GetCoursePayload(ctx, "ans")
+	if err != nil {
+		t.Fatalf("GetCoursePayload: %v", err)
+	}
+
+	// The session: q1 answered "a" (correct, 1 attempt); q2 answered "Lateral Reading"
+	// (correct via case-insensitive match, 2 attempts); slice s0 spent 42s.
+	sess := []byte(`{"id":"x","courseId":"ans","courseSchemaVersion":"2.0","studentId":"u","status":"completed",` +
+		`"sliceStates":{"s0":{"status":"completed","elapsedSeconds":42,"blockStates":{` +
+		`"q1":{"completed":true,"attempts":1,"answer":"a"},` +
+		`"q2":{"completed":true,"attempts":2,"answer":"Lateral Reading"}` +
+		`}}},"events":[]}`)
+	if _, err := store.CreateCourseSession(ctx, userID, courseID, sess, "completed"); err != nil {
+		t.Fatalf("CreateCourseSession: %v", err)
+	}
+
+	rep, ok, err := store.CourseAnswerReport20(ctx, userID, "ans", "")
+	if err != nil || !ok {
+		t.Fatalf("CourseAnswerReport20: ok=%v err=%v", ok, err)
+	}
+	if len(rep.Slices) != 1 {
+		t.Fatalf("slices = %d, want 1 (s1 has no assessment blocks and must drop out)", len(rep.Slices))
+	}
+	s0 := rep.Slices[0]
+	if s0.Title != "Slice Zero" || s0.TimeSpentSeconds != 42 {
+		t.Fatalf("slice = %q / %ds, want Slice Zero / 42s", s0.Title, s0.TimeSpentSeconds)
+	}
+	if len(s0.Items) != 2 {
+		t.Fatalf("items = %d, want 2 (text block omitted)", len(s0.Items))
+	}
+	q1 := s0.Items[0]
+	if q1.Prompt != "选哪个来源？" || q1.YourAnswer != "看作者" || !q1.Answered || q1.Correct == nil || !*q1.Correct || q1.Attempts != 1 {
+		t.Fatalf("q1 = %+v, want prompt/label=看作者/correct=true/attempts=1", q1)
+	}
+	q2 := s0.Items[1]
+	if q2.YourAnswer != "Lateral Reading" || q2.Correct == nil || !*q2.Correct || q2.Attempts != 2 {
+		t.Fatalf("q2 = %+v, want answer=Lateral Reading/correct=true (case-insensitive)/attempts=2", q2)
+	}
+
+	// Legacy course (no 2.0 definition) → found=false, empty report (never an error).
+	if _, ok, err := store.CourseAnswerReport20(ctx, userID, "does-not-exist", ""); err == nil && ok {
+		t.Fatalf("unknown slug: want ok=false")
+	}
+	// A malformed attempt id is a 404, never a fall-through to the latest attempt.
+	if _, _, err := store.CourseAnswerReport20(ctx, userID, "ans", "not-a-uuid"); err == nil {
+		t.Fatalf("CourseAnswerReport20 with a malformed attempt id: want error, got nil")
+	}
+}

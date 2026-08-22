@@ -100,10 +100,6 @@ export function StudentApp({
         onPendingProjectConsumed={() => setPendingProjectId(null)}
         autoOpenCreate={pendingCreate}
         onAutoOpenCreateConsumed={() => setPendingCreate(false)}
-        onExitToHome={() => {
-          setProjectsImmersive(false);
-          setTab("home");
-        }}
         onImmersiveChange={setProjectsImmersive}
       />
     );

@@ -205,3 +205,44 @@ func toCourseReportDTO(h courseStructureHeader, rep agent.CourseReportData) cour
 		Quiz: courseQuizDTO{Total: rep.Quiz.Total, Correct: rep.Quiz.Correct},
 	}
 }
+
+// courseAnswerItemDTO / courseAnswerSliceDTO / courseAnswerReportDTO mirror the
+// @mind-imprint/contracts CourseAnswerReport DTO. `correct` is *bool so an
+// ungraded item marshals to JSON null (the contract's nullable), not false.
+type courseAnswerItemDTO struct {
+	BlockID    string `json:"blockId"`
+	Type       string `json:"type"`
+	Prompt     string `json:"prompt"`
+	Answered   bool   `json:"answered"`
+	YourAnswer string `json:"yourAnswer"`
+	Correct    *bool  `json:"correct"`
+	Attempts   int    `json:"attempts"`
+}
+
+type courseAnswerSliceDTO struct {
+	SliceID          string                `json:"sliceId"`
+	Title            string                `json:"title"`
+	TimeSpentSeconds int                   `json:"timeSpentSeconds"`
+	Items            []courseAnswerItemDTO `json:"items"`
+}
+
+type courseAnswerReportDTO struct {
+	Slices []courseAnswerSliceDTO `json:"slices"`
+}
+
+func toCourseAnswerReportDTO(rep agent.CourseAnswerReportData) courseAnswerReportDTO {
+	slices := make([]courseAnswerSliceDTO, 0, len(rep.Slices))
+	for _, sl := range rep.Slices {
+		items := make([]courseAnswerItemDTO, 0, len(sl.Items))
+		for _, it := range sl.Items {
+			items = append(items, courseAnswerItemDTO{
+				BlockID: it.BlockID, Type: it.Type, Prompt: it.Prompt,
+				Answered: it.Answered, YourAnswer: it.YourAnswer, Correct: it.Correct, Attempts: it.Attempts,
+			})
+		}
+		slices = append(slices, courseAnswerSliceDTO{
+			SliceID: sl.SliceID, Title: sl.Title, TimeSpentSeconds: sl.TimeSpentSeconds, Items: items,
+		})
+	}
+	return courseAnswerReportDTO{Slices: slices}
+}

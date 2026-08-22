@@ -1,4 +1,4 @@
-import type { CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport } from "@mind-imprint/contracts";
+import type { CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, CourseAnswerReport } from "@mind-imprint/contracts";
 import { API_BASE, apiFetch } from "./client";
 import { parseSSE } from "./sse";
 
@@ -35,6 +35,16 @@ export async function answerCourseQuiz(slug: string, body: { stepId: string; int
 export async function getCourseReport(slug: string, attemptId?: string): Promise<CourseReport> {
   const qs = attemptId ? `?attempt=${encodeURIComponent(attemptId)}` : "";
   const r = await apiFetch<{ report: CourseReport }>(`/api/v1/courses/${slug}/report${qs}`);
+  return r.report;
+}
+
+// getCourseAnswerReport fetches the per-attempt answer detail (the student's
+// recorded answers + per-slice time), lazy-loaded when the 小测/我的答案 drawer
+// opens. attemptId selects a past run, exactly like getCourseReport; omit it for
+// the current attempt. A legacy course returns an empty `slices` array.
+export async function getCourseAnswerReport(slug: string, attemptId?: string): Promise<CourseAnswerReport> {
+  const qs = attemptId ? `?attempt=${encodeURIComponent(attemptId)}` : "";
+  const r = await apiFetch<{ report: CourseAnswerReport }>(`/api/v1/courses/${slug}/report/answers${qs}`);
   return r.report;
 }
 

@@ -170,6 +170,42 @@ export const CourseReport = z.object({
   quiz: z.object({ total: z.number().int(), correct: z.number().int() }),
 });
 
+// CourseAnswerReport is the per-attempt answer detail (GET
+// /courses/{slug}/report/answers?attempt=<id>): the student's actual recorded
+// answers + time, read back from the stored course_session blob + the course
+// definition. Kept SEPARATE from CourseReport (lazy-loaded when the student
+// opens the 小测/我的答案 drawer) so the main report fetch stays lean. 2.0
+// courses only; a legacy course returns an empty `slices` array.
+//
+// One `CourseAnswerItem` per recorded interactive block:
+//   - singleChoice / fillBlank → the real question (prompt) + the student's
+//     answer (option label / typed text), graded correctness, attempts;
+//   - interactiveHtml / video   → the completion evidence the frame reported
+//     (a summarized value), correctness when the frame graded it.
+// `correct` is null for ungraded blocks (survey / reflection / no grade). An
+// unanswered assessment block is still listed with `answered:false` so a report
+// shows what was left blank, not a silent gap.
+export const CourseAnswerItem = z.object({
+  blockId: z.string(),
+  type: z.string(),
+  prompt: z.string(),
+  answered: z.boolean(),
+  yourAnswer: z.string(),
+  correct: z.boolean().nullable(),
+  attempts: z.number().int(),
+});
+
+export const CourseAnswerSlice = z.object({
+  sliceId: z.string(),
+  title: z.string(),
+  timeSpentSeconds: z.number().int(),
+  items: z.array(CourseAnswerItem),
+});
+
+export const CourseAnswerReport = z.object({
+  slices: z.array(CourseAnswerSlice),
+});
+
 export type CourseAsset = z.infer<typeof CourseAsset>;
 export type Interaction = z.infer<typeof Interaction>;
 export type RenderSegment = z.infer<typeof RenderSegment>;
@@ -181,3 +217,6 @@ export type CourseSummary = z.infer<typeof CourseSummary>;
 export type CoursePlayerPayload = z.infer<typeof CoursePlayerPayload>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
 export type CourseReport = z.infer<typeof CourseReport>;
+export type CourseAnswerItem = z.infer<typeof CourseAnswerItem>;
+export type CourseAnswerSlice = z.infer<typeof CourseAnswerSlice>;
+export type CourseAnswerReport = z.infer<typeof CourseAnswerReport>;

@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -678,6 +679,225 @@ func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, s
 			Quiz:                CourseQuizTally{Total: len(lastAttempt), Correct: correct},
 		},
 	}, true, nil
+}
+
+// ---- Course Runtime 2.0 answer detail (per-attempt recorded answers + time) ----
+
+// courseAnswerDef is the wider definition slice CourseAnswerReport20 reads: per
+// Slice, each block's id/type/prompt plus the assessment shape needed to grade
+// the student's stored answer and render option labels. (courseDefForReport,
+// used by the summary report, only needs slice id+title — this is the deeper
+// read the answer detail requires.)
+type courseAnswerDef struct {
+	SchemaVersion string `json:"schemaVersion"`
+	Course        struct {
+		Parts []struct {
+			Slices []struct {
+				ID     string `json:"id"`
+				Title  string `json:"title"`
+				Blocks []struct {
+					ID      string `json:"id"`
+					Type    string `json:"type"`
+					Prompt  string `json:"prompt"`
+					Options []struct {
+						ID    string `json:"id"`
+						Label string `json:"label"`
+					} `json:"options"`
+					Assessment struct {
+						Mode            string   `json:"mode"`
+						CorrectOptionID string   `json:"correctOptionId"`
+						AcceptedAnswers []string `json:"acceptedAnswers"`
+						CaseSensitive   bool     `json:"caseSensitive"`
+					} `json:"assessment"`
+				} `json:"blocks"`
+			} `json:"slices"`
+		} `json:"parts"`
+	} `json:"course"`
+}
+
+// courseAnswerSession is the session slice the answer detail reads: per Slice,
+// elapsed time + each block's recorded final answer and attempt count.
+type courseAnswerSession struct {
+	SliceStates map[string]struct {
+		ElapsedSeconds float64 `json:"elapsedSeconds"`
+		BlockStates    map[string]struct {
+			Attempts int             `json:"attempts"`
+			Answer   json.RawMessage `json:"answer"`
+		} `json:"blockStates"`
+	} `json:"sliceStates"`
+}
+
+// CourseAnswerItem / CourseAnswerSlice / CourseAnswerReportData mirror the
+// @mind-imprint/contracts CourseAnswerReport DTO — one item per recorded
+// assessment block (singleChoice / fillBlank), with the student's FINAL answer,
+// graded correctness (nil for ungraded), and attempt count.
+type CourseAnswerItem struct {
+	BlockID    string
+	Type       string
+	Prompt     string
+	Answered   bool
+	YourAnswer string
+	Correct    *bool
+	Attempts   int
+}
+
+type CourseAnswerSlice struct {
+	SliceID          string
+	Title            string
+	TimeSpentSeconds int
+	Items            []CourseAnswerItem
+}
+
+type CourseAnswerReportData struct {
+	Slices []CourseAnswerSlice
+}
+
+// courseSessionBytesForAttempt resolves WHICH run's session blob to read: a
+// specific past attempt (owner+course-scoped; malformed/foreign id →
+// pgx.ErrNoRows → 404 at the handler) or, when attemptID is "", the current
+// (latest) attempt. Shared by the answer detail; mirrors CourseReport20's own
+// inline resolution exactly.
+func (s *sqlcAgentStore) courseSessionBytesForAttempt(ctx context.Context, userID uuid.UUID, slug, attemptID string) ([]byte, error) {
+	if attemptID != "" {
+		id, perr := uuid.Parse(attemptID)
+		if perr != nil {
+			return nil, pgx.ErrNoRows // malformed id → 404, never a fall-through to the latest
+		}
+		row, gerr := s.q.GetCourseSessionForReport(ctx, sqlc.GetCourseSessionForReportParams{ID: id, UserID: userID, Slug: slug})
+		if gerr != nil {
+			return nil, gerr
+		}
+		return row.Session, nil
+	}
+	b, _, found, gerr := s.GetCourseSession(ctx, userID, slug)
+	if gerr != nil {
+		return nil, gerr
+	}
+	if !found {
+		return nil, nil
+	}
+	return b, nil
+}
+
+// CourseAnswerReport20 computes the per-attempt answer detail for a
+// CourseDefinition-2.0 course: for each Slice that has assessment blocks, the
+// student's recorded final answer to each singleChoice/fillBlank question, its
+// graded correctness, attempt count, and the Slice's time spent. Returns
+// found=false (not an error) for a legacy course (the caller returns an empty
+// report). attemptID selects the run ("" = latest); an unknown/foreign attempt
+// surfaces as pgx.ErrNoRows → 404. Non-assessment blocks (text/media/interactive
+// HTML) are intentionally omitted here — their raw evidence stays recorded in
+// the session blob for the future analytics export, but the answer drawer shows
+// only the genuine questions.
+func (s *sqlcAgentStore) CourseAnswerReport20(ctx context.Context, userID uuid.UUID, slug, attemptID string) (CourseAnswerReportData, bool, error) {
+	def, _, err := s.GetCourseDefinition(ctx, slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseAnswerReportData{}, false, nil
+		}
+		return CourseAnswerReportData{}, false, err
+	}
+	if len(def) == 0 {
+		return CourseAnswerReportData{}, false, nil // legacy course (no 2.0 definition)
+	}
+	var d courseAnswerDef
+	if err := json.Unmarshal(def, &d); err != nil {
+		return CourseAnswerReportData{}, false, fmt.Errorf("course answer report: parse definition: %w", err)
+	}
+	if d.SchemaVersion != "2.0" {
+		return CourseAnswerReportData{}, false, nil
+	}
+
+	sessBytes, err := s.courseSessionBytesForAttempt(ctx, userID, slug, attemptID)
+	if err != nil {
+		return CourseAnswerReportData{}, false, err
+	}
+	var sess courseAnswerSession
+	if len(sessBytes) > 0 {
+		if err := json.Unmarshal(sessBytes, &sess); err != nil {
+			return CourseAnswerReportData{}, false, fmt.Errorf("course answer report: parse session: %w", err)
+		}
+	}
+
+	out := CourseAnswerReportData{Slices: []CourseAnswerSlice{}}
+	for _, part := range d.Course.Parts {
+		for _, sl := range part.Slices {
+			ss := sess.SliceStates[sl.ID]
+			items := []CourseAnswerItem{}
+			for _, b := range sl.Blocks {
+				bs := ss.BlockStates[b.ID]
+				ans := jsonString(bs.Answer)
+				answered := ans != ""
+				switch b.Type {
+				case "singleChoice":
+					label := ans
+					for _, o := range b.Options {
+						if o.ID == ans {
+							label = o.Label
+							break
+						}
+					}
+					var correct *bool
+					if b.Assessment.Mode == "graded" && answered {
+						c := ans == b.Assessment.CorrectOptionID
+						correct = &c
+					}
+					display := ""
+					if answered {
+						display = label
+					}
+					items = append(items, CourseAnswerItem{
+						BlockID: b.ID, Type: b.Type, Prompt: b.Prompt,
+						Answered: answered, YourAnswer: display, Correct: correct, Attempts: bs.Attempts,
+					})
+				case "fillBlank":
+					var correct *bool
+					if b.Assessment.Mode == "graded" && answered {
+						c := false
+						for _, acc := range b.Assessment.AcceptedAnswers {
+							if b.Assessment.CaseSensitive {
+								if ans == acc {
+									c = true
+									break
+								}
+							} else if strings.EqualFold(strings.TrimSpace(ans), strings.TrimSpace(acc)) {
+								c = true
+								break
+							}
+						}
+						correct = &c
+					}
+					items = append(items, CourseAnswerItem{
+						BlockID: b.ID, Type: b.Type, Prompt: b.Prompt,
+						Answered: answered, YourAnswer: ans, Correct: correct, Attempts: bs.Attempts,
+					})
+				default:
+					// Non-assessment blocks carry no question to show here.
+					continue
+				}
+			}
+			if len(items) == 0 {
+				continue // a Slice with no assessment blocks adds nothing to the answer detail
+			}
+			out.Slices = append(out.Slices, CourseAnswerSlice{
+				SliceID: sl.ID, Title: sl.Title, TimeSpentSeconds: int(ss.ElapsedSeconds + 0.5), Items: items,
+			})
+		}
+	}
+	return out, true, nil
+}
+
+// jsonString decodes a JSON value expected to be a string, returning "" for
+// null / absent / non-string (a survey answer or an unanswered block).
+func jsonString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return ""
+	}
+	return s
 }
 
 // GetCourseDefinition returns one course's stored CourseDefinition 2.0 document

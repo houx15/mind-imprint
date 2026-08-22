@@ -5,7 +5,7 @@ import { createPortal } from "react-dom";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
 
 /**
- * Studio shell (Task 4, spec §17): the top bar (主页 capsule + room switcher)
+ * Studio shell (Task 4, spec §17): the top bar (返回 capsule + room switcher)
  * + the constant, flippable, collapsible `AiPanel` that replaced the old
  * left `Rail`. `WorkspaceContainer.test.tsx` covers the pre-existing
  * open/deep-link seams (fully mocking every room) — this file is
@@ -98,10 +98,10 @@ describe("Studio shell (top bar + constant AiPanel)", () => {
     getWorkspace.mockImplementation(async (id: string) => fakeWorkspace(id));
   });
 
-  it("renders the top bar (主页 capsule + 4-room switcher) and a constant AiPanel once a project opens", async () => {
+  it("renders the top bar (返回 capsule + 4-room switcher) and a constant AiPanel once a project opens", async () => {
     await openProject();
 
-    expect(screen.getByRole("button", { name: /主页/ })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /返回/ })).toBeInTheDocument();
     for (const label of ["立题", "管理", "阅读", "写作", "回顾"]) {
       expect(screen.getByRole("button", { name: label })).toBeInTheDocument();
     }
@@ -159,10 +159,10 @@ describe("Studio shell (top bar + constant AiPanel)", () => {
     expect(screen.getByRole("button", { name: "展开 AI 面板" })).toBeInTheDocument();
   });
 
-  it("the 主页 capsule returns to the Directory", async () => {
+  it("the 返回 capsule returns to the Directory (the project list)", async () => {
     await openProject();
 
-    await userEvent.click(screen.getByRole("button", { name: /主页/ }));
+    await userEvent.click(screen.getByRole("button", { name: /返回/ }));
 
     expect(await screen.findByTestId("directory")).toBeInTheDocument();
     expect(screen.queryByTestId("plan-block")).not.toBeInTheDocument();

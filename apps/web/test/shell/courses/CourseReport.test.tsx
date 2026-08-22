@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
-import type { CourseReport as CourseReportT, CardCatalogEntry } from "@mind-imprint/contracts";
+import type { CourseReport as CourseReportT, CardCatalogEntry, CourseAnswerReport } from "@mind-imprint/contracts";
 
 vi.mock("@/api", async (orig) => {
   const real = await orig<typeof import("@/api")>();
@@ -10,6 +10,8 @@ vi.mock("@/api", async (orig) => {
       ...real.api,
       getCourseReport: vi.fn(),
       getCardsCatalog: vi.fn(),
+      getCourseAnswerReport: vi.fn(),
+      listCourses: vi.fn(),
     },
   };
 });
@@ -48,10 +50,26 @@ const catalogCard: CardCatalogEntry = {
 };
 
 describe("CourseReport", () => {
+  const answers: CourseAnswerReport = {
+    slices: [
+      {
+        sliceId: "s1",
+        title: "教横向溯源",
+        timeSpentSeconds: 95,
+        items: [
+          { blockId: "q1", type: "singleChoice", prompt: "这条信息该不该信？", answered: true, yourAnswer: "先看来源", correct: true, attempts: 1 },
+          { blockId: "q2", type: "fillBlank", prompt: "作者的立场是？", answered: false, yourAnswer: "", correct: null, attempts: 0 },
+        ],
+      },
+    ],
+  };
+
   beforeEach(() => {
     vi.clearAllMocks();
     (api.getCourseReport as any).mockResolvedValue(report);
     (api.getCardsCatalog as any).mockResolvedValue({ cards: [catalogCard], theme: "light" });
+    (api.getCourseAnswerReport as any).mockResolvedValue(answers);
+    (api.listCourses as any).mockResolvedValue([]);
   });
 
   it("renders the hero, learned goal/thread/steps, card chip, time, and quiz score", async () => {
@@ -81,8 +99,26 @@ describe("CourseReport", () => {
     // 用时
     expect(screen.getByText("3 分 5 秒")).toBeInTheDocument();
 
-    // 小测表现
-    expect(screen.getByText("3 / 4")).toBeInTheDocument();
+    // 小测表现 — now a big correct/total + a per-question 我的答案 drawer trigger
+    expect(screen.getByText("小测表现")).toBeInTheDocument();
+    expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("/ 4")).toBeInTheDocument();
+    expect(screen.getByText("查看我的答案（逐题）")).toBeInTheDocument();
+  });
+
+  it("opens the 我的答案 drawer with per-question detail on demand", async () => {
+    render(<CourseReport courseId="co1" onBackToCourses={vi.fn()} onGoPortal={vi.fn()} />);
+    await screen.findByText("一条网络信息，该不该信");
+    // The answer report is lazy — not fetched until the drawer opens.
+    expect(api.getCourseAnswerReport as any).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByText("查看我的答案（逐题）"));
+    expect(await screen.findByText("这条信息该不该信？")).toBeInTheDocument();
+    expect(screen.getByText("先看来源")).toBeInTheDocument();
+    expect(screen.getByText("正确")).toBeInTheDocument();
+    // An unanswered graded item is still listed, marked 未作答 (badge + answer line).
+    expect(screen.getByText("作者的立场是？")).toBeInTheDocument();
+    expect(screen.getAllByText("未作答").length).toBeGreaterThan(0);
+    expect(api.getCourseAnswerReport as any).toHaveBeenCalledWith("co1", undefined);
   });
 
   it("falls back to the raw card id when the catalog fetch fails, without blocking the report", async () => {

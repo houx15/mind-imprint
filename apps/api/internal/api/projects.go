@@ -29,6 +29,10 @@ type projectListItem struct {
 	// (gradients render client-side from the name, see resolveCoverURL).
 	Cover    string `json:"cover"`
 	CoverURL string `json:"coverUrl"`
+	// CreatedAt (RFC3339) — the project's start date, shown on the project list
+	// (title · 开始于 <date> · status). Sorting stays by last_active_at (the query),
+	// this is just the displayed calendar anchor.
+	CreatedAt string `json:"createdAt"`
 }
 
 // anyProposalDim reports whether any of the four kick-off dimensions carries
@@ -121,6 +125,7 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 			Status:        a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
 			Cover:         cover,
 			CoverURL:      a.resolveCoverURL(cover),
+			CreatedAt:     p.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})
