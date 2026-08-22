@@ -457,7 +457,7 @@ export function ReadingBlock({
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex items-center justify-start border-b border-mk-border bg-mk-surface px-4 py-1.5">
+      <div data-tour="reading-viewtoggle" className="flex items-center justify-start border-b border-mk-border bg-mk-surface px-4 py-1.5">
         <ViewModeToggle mode={viewMode} onChange={chooseViewMode} signal={explorationSignal} />
       </div>
 
@@ -831,7 +831,7 @@ function RefTable(props: {
   const { rows, selId, onSelect, checked, onCheck, onClearChecks, onExportBib, collName, activeTag, onAdd, onSetPhase, onSetStatus } = props;
   const nChecked = checked.size;
   return (
-    <div className="flex min-h-0 flex-col bg-mk-surface">
+    <div data-tour="library-table" className="flex min-h-0 flex-col bg-mk-surface">
       {/* toolbar */}
       <header className="flex items-center justify-between border-b border-mk-border px-5 py-3">
         <div className="flex items-baseline gap-2">

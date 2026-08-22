@@ -181,7 +181,7 @@ export function ReferencePanel({
     !hasCollected;
 
   return (
-    <div className="flex h-full min-h-0 flex-col border-r border-mk-border bg-mk-surface">
+    <div data-tour="writing-refpanel" className="flex h-full min-h-0 flex-col border-r border-mk-border bg-mk-surface">
       <div className="mk-scroll min-h-0 flex-1 overflow-y-auto px-4 py-3">
         {/* slice 5 · the 还需要探索的 box is always available while writing (§101). */}
         <div className="mb-4">

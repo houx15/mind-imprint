@@ -91,6 +91,7 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
     <div
       data-theme={theme.key}
       data-selected={selected ? "true" : "false"}
+      data-tour="warren-question"
       className="group relative flex flex-col justify-center overflow-hidden border border-mk-border bg-mk-surface py-3 pl-5 pr-3"
       style={{
         width: 208,
@@ -160,6 +161,7 @@ function UnfiledNodeView({ data }: NodeProps) {
   const d = data as unknown as { count: number };
   return (
     <div
+      data-tour="warren-unfiled"
       className="flex flex-col justify-center overflow-hidden border border-dashed border-mk-border bg-mk-paper py-3 pl-5 pr-4"
       style={{ width: 208, height: 104, borderRadius: "var(--mk-radius-md)", boxShadow: "var(--mk-shadow-xs)", cursor: "pointer" }}
     >

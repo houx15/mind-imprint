@@ -491,7 +491,7 @@ export function ReadingRoom({
             <p>围绕原文对话；需要时，我会把一副短时透镜放进文章。</p>
           </div>
 
-          <div className="mk-reading-room__chat-log" ref={chatLogRef} aria-live="polite">
+          <div className="mk-reading-room__chat-log" ref={chatLogRef} aria-live="polite" data-tour="rr-chat">
             {loop.messages.map((m) =>
               m.role === "student" ? (
                 <div key={m.id} className="mk-msg mk-msg--student">
@@ -636,6 +636,7 @@ export function ReadingRoom({
               <button
                 type="button"
                 className="mk-reading-room__library-btn"
+                data-tour="rr-deck"
                 onClick={() => setLibraryOpen(true)}
                 disabled={busyOrCarded}
               >
@@ -687,13 +688,13 @@ export function ReadingRoom({
                 追来源
               </button>
             )}
-            <button type="button" className="mk-reading-room__finalize-btn" onClick={() => void openFinalize()}>
+            <button type="button" className="mk-reading-room__finalize-btn" data-tour="rr-finish" onClick={() => void openFinalize()}>
               完成这篇
             </button>
           </div>
 
           {rightView === "article" ? (
-            <article className="mk-reading-room__article" ref={articleRef}>
+            <article className="mk-reading-room__article" ref={articleRef} data-tour="rr-article">
               <div className="mk-reading-room__article-inner">
                 <header className="mk-reading-room__article-header">
                   <div className="mk-reading-room__article-type">课堂阅读材料</div>
@@ -765,7 +766,7 @@ export function ReadingRoom({
                   // A personal-note surface (never fed to evaluation) — taro-tinted
                   // to read as her own reflective space, distinct from the room's
                   // primary accent chrome (composer/CTAs) and from the article body.
-                  <div className="mt-5 border-t border-mk-taro-bg pt-[14px]">
+                  <div className="mt-5 border-t border-mk-taro-bg pt-[14px]" data-tour="rr-notes">
                     <button
                       type="button"
                       onClick={() => setNoteOpen((o) => !o)}

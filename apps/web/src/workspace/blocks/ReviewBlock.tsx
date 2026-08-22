@@ -201,7 +201,7 @@ export function ReviewBlock({
             </div>
           )}
 
-          <div className="flex flex-col gap-6">
+          <div data-tour="reflection-prompts" className="flex flex-col gap-6">
             {reflectionPrompts.map((p, i) => (
               <div key={i}>
                 <div className="flex items-center gap-2">

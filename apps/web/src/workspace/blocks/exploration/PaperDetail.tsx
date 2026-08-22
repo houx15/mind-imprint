@@ -125,7 +125,7 @@ export function PaperDetail({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div data-tour="paper-enter-reading" className="mt-3 flex flex-wrap items-center gap-2">
         {paper.link && (
           <a href={paper.link} target="_blank" rel="noopener noreferrer" className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50">
             打开原文

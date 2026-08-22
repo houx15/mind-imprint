@@ -357,7 +357,7 @@ export function WritingBlock({
             has begun). Auto-selected to the current doc; lets the student look
             back at the finished proposal without leaving the room. */}
         {docOptions && docOptions.length > 1 ? (
-          <div className="flex flex-none items-center gap-0.5 rounded-mk-full border border-mk-border bg-mk-paper p-0.5">
+          <div data-tour="writing-docswitch" className="flex flex-none items-center gap-0.5 rounded-mk-full border border-mk-border bg-mk-paper p-0.5">
             {docOptions.map((d) => (
               <button
                 key={d}
@@ -401,7 +401,7 @@ export function WritingBlock({
 
       {/* tabs — 大纲/片段/正文, for BOTH the proposal and the essay. The proposal's
           正文 is its assembled prose (ProsePane); the essay's is the full draft. */}
-      <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
+      <div data-tour="writing-tabs" className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
         <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
         <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
         <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
@@ -441,7 +441,9 @@ export function WritingBlock({
                 </div>
               </div>
               {!locked && (
-                <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+                <div data-tour="writing-aicard">
+                  <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+                </div>
               )}
               <SnippetsPane snip={snip} projectId={projectId} doc="proposal" locked={finalized} embedded importedSections={importedSections} />
             </div>
