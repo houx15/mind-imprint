@@ -3,7 +3,13 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import { TourProvider, useTour } from "@/tour/TourProvider";
 import type { TourNavContext, TourSegment } from "@/tour/types";
 
-const nav: TourNavContext = { setTab: vi.fn(), openCourse: vi.fn(), setCoursesSub: vi.fn() };
+const nav: TourNavContext = {
+  setTab: vi.fn(),
+  openCourse: vi.fn(),
+  setCoursesSub: vi.fn(),
+  openDemoProject: vi.fn(),
+  setStudioRoom: vi.fn(),
+};
 
 const seg = (id: string, n: number): TourSegment => ({
   id, name: id,

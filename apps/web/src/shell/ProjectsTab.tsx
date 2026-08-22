@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Segmented } from "@/ui";
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 import { ReportsView } from "@/shell/report/ReportsView";
+import type { StudioRoom } from "@/tour/types";
 
 /**
  * ProjectsTab — the 项目 top-level surface after the nav restructure. A
@@ -29,6 +30,10 @@ export interface ProjectsTabProps {
    * card's ⋯ menu → 查看评估报告). */
   pendingReportId?: string | null;
   onPendingReportConsumed?: () => void;
+  /** One-shot: drive the open project's studio to this room (the guided
+   * tour's studio deep-link, P3 Task 1). */
+  pendingRoom?: StudioRoom | null;
+  onPendingRoomConsumed?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
 }
@@ -40,6 +45,8 @@ export function ProjectsTab({
   onAutoOpenCreateConsumed,
   pendingReportId,
   onPendingReportConsumed,
+  pendingRoom,
+  onPendingRoomConsumed,
   onImmersiveChange,
 }: ProjectsTabProps) {
   // A home 查看评估报告 deep-link lands on the 评估报告 sub, focused on that
@@ -86,6 +93,8 @@ export function ProjectsTab({
             }}
             initialProjectId={pendingProjectId}
             onInitialProjectIdConsumed={onPendingProjectConsumed}
+            pendingRoom={pendingRoom}
+            onPendingRoomConsumed={onPendingRoomConsumed}
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}

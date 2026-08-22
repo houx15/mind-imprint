@@ -99,6 +99,8 @@ export function WorkspaceContainer({
   autoOpenCreate,
   onAutoOpenCreateConsumed,
   onInProjectChange,
+  pendingRoom,
+  onPendingRoomConsumed,
 }: {
   onFinished?: (projectId?: string) => void;
   /** Fired when a project opens (true) or closes (false) — the shell uses
@@ -117,6 +119,14 @@ export function WorkspaceContainer({
    * "新建" → 项目 tab deep-link, Task 6). Only read on Directory's mount. */
   autoOpenCreate?: boolean;
   onAutoOpenCreateConsumed?: () => void;
+  /** Drive the manual room switcher to this room (the guided tour's studio
+   * deep-link, P3 Task 1) — mirrors `initialProjectId`: a one-shot signal
+   * acted on whenever it changes to a new, truthy value. */
+  pendingRoom?: BlockKey | null;
+  /** Fired once right after `pendingRoom` has been acted on, so the caller
+   * can clear its pending-room state (else a stale-but-unchanged prop would
+   * look "already handled"). */
+  onPendingRoomConsumed?: () => void;
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
@@ -1057,6 +1067,20 @@ export function WorkspaceContainer({
     }
   }, [initialProjectId, onInitialProjectIdConsumed]);
 
+  // `pendingRoom` deep-link (P3 Task 1, guided tour): whenever it changes to a
+  // new, truthy value, drive the manual switcher into that room — mirrors the
+  // `initialProjectId` effect above, including the ref-guarded "only on
+  // change" firing (a `lastPendingRoom` ref, not state, so re-consuming the
+  // same room after the caller clears it never re-fires).
+  const lastPendingRoom = useRef<BlockKey | null>(null);
+  useEffect(() => {
+    if (pendingRoom && pendingRoom !== lastPendingRoom.current) {
+      lastPendingRoom.current = pendingRoom;
+      handleManualRoom(pendingRoom);
+      onPendingRoomConsumed?.();
+    }
+  }, [pendingRoom, onPendingRoomConsumed, handleManualRoom]);
+
   // No project open — the all-projects directory (its own create form carries
   // the empty affordance). `autoOpenCreate` (home's "新建" deep-link) is only
   // relevant here, one level in from the four-room shell.
@@ -1140,7 +1164,7 @@ export function WorkspaceContainer({
       onToggleCollapse={toggleAiCollapsed}
       widthClass={aiPanelWidthClass}
     >
-      <div ref={aiSlotRef} className="h-full" />
+      <div ref={aiSlotRef} data-tour="coach-rail" className="h-full" />
     </AiPanel>
   );
   // Task 3 (P2a): reading used to be the one exception — it owned its own
@@ -1226,7 +1250,7 @@ export function WorkspaceContainer({
             highlighted). The whole row (switcher + plan spine + 继续印记)
             only exists once the journey has actually started. */}
         {started && (
-        <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
+        <div data-tour="room-bar" className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
           <RoomSwitcher
             // While chat-only (印记 keeps the chat primary), `room` is the stale
             // interim default — highlighting it would falsely mark a segment the

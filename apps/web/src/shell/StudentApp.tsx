@@ -14,7 +14,8 @@ import { TourRunner } from "@/tour/TourRunner";
 import { WelcomeModal } from "@/tour/WelcomeModal";
 import { FeedbackModal } from "@/tour/FeedbackModal";
 import { fullJourney } from "@/tour/journey";
-import type { TourNavContext } from "@/tour/types";
+import type { TourNavContext, StudioRoom } from "@/tour/types";
+import { DEMO_PROJECT_ID } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
 
 // StudentApp — the student platform shell. Four top-level surfaces reachable
@@ -78,6 +79,10 @@ export function StudentApp({
   // One-shot deep-link into the 课程 tab's sub-tab, driven by the guided tour
   // (TourNavContext.setCoursesSub). Consumed by CoursesTab on entry.
   const [pendingCoursesSub, setPendingCoursesSub] = useState<CoursesSub | null>(null);
+  // One-shot deep-link to drive the open project's studio to a specific room,
+  // driven by the guided tour (TourNavContext.setStudioRoom, P3 Task 1).
+  // Consumed by ProjectsTab/WorkspaceContainer on entry.
+  const [pendingRoom, setPendingRoom] = useState<StudioRoom | null>(null);
 
   // Welcome modal: opens on first login (never-onboarded user). The tour's
   // example-report overlay renders above the body when the tour deep-links into
@@ -141,6 +146,8 @@ export function StudentApp({
       setTab("courses");
       setPendingCoursesSub(s);
     },
+    openDemoProject: () => openProjectFromHome(DEMO_PROJECT_ID),
+    setStudioRoom: (room) => setPendingRoom(room),
   };
 
   // Stamp onboarding so the welcome modal never fires again. Called on tour
@@ -173,6 +180,8 @@ export function StudentApp({
         onAutoOpenCreateConsumed={() => setPendingCreate(false)}
         pendingReportId={pendingReportId}
         onPendingReportConsumed={() => setPendingReportId(null)}
+        pendingRoom={pendingRoom}
+        onPendingRoomConsumed={() => setPendingRoom(null)}
         onImmersiveChange={setProjectsImmersive}
       />
     );

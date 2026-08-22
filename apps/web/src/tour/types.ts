@@ -1,6 +1,12 @@
 export type TourPlacement = "top" | "bottom" | "left" | "right" | "center";
 export type NavTabKey = "home" | "projects" | "courses" | "me";
 export type CoursesSub = "courses" | "history" | "gallery";
+/** The five studio rooms (mirrors `BlockKey` in workspace/blocks/mockData —
+ *  kept as a separate tour-facing type so `tour/` doesn't import `workspace/`). */
+export type StudioRoom = "forming" | "plan" | "reading" | "writing" | "reflection";
+/** The shared, world-readable demo project the projects tour opens into the
+ *  studio (read-only — the backend 403s all writes for it). */
+export const DEMO_PROJECT_ID = "00000000-0000-0000-0000-000000000200";
 
 /** Setters the tour uses to drive the app. Assembled in StudentApp (§Task 9).
  *  P1 only needs the courses-side setters; P3 extends this. */
@@ -8,6 +14,10 @@ export interface TourNavContext {
   setTab: (t: NavTabKey) => void;
   openCourse: (slug: string) => void;
   setCoursesSub: (s: CoursesSub) => void;
+  /** P3: open the shared demo project into the studio. */
+  openDemoProject: () => void;
+  /** P3: switch the open project's studio to this room. */
+  setStudioRoom: (room: StudioRoom) => void;
 }
 
 export interface TourStep {

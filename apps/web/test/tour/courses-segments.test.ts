@@ -18,7 +18,13 @@ describe("courses segments", () => {
   });
 
   it("the first segment's first step navigates to the courses tab (standalone-safe)", () => {
-    const nav: TourNavContext = { setTab: vi.fn(), openCourse: vi.fn(), setCoursesSub: vi.fn() };
+    const nav: TourNavContext = {
+      setTab: vi.fn(),
+      openCourse: vi.fn(),
+      setCoursesSub: vi.fn(),
+      openDemoProject: vi.fn(),
+      setStudioRoom: vi.fn(),
+    };
     coursesJourney[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("courses");
   });

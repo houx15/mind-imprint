@@ -4,7 +4,13 @@ import { TourProvider, useTour } from "@/tour/TourProvider";
 import { TourRunner } from "@/tour/TourRunner";
 import type { TourNavContext, TourSegment } from "@/tour/types";
 
-const nav: TourNavContext = { setTab: vi.fn(), openCourse: vi.fn(), setCoursesSub: vi.fn() };
+const nav: TourNavContext = {
+  setTab: vi.fn(),
+  openCourse: vi.fn(),
+  setCoursesSub: vi.fn(),
+  openDemoProject: vi.fn(),
+  setStudioRoom: vi.fn(),
+};
 
 function Harness({ seg }: { seg: TourSegment }) {
   const t = useTour();
