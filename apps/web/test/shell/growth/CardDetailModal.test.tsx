@@ -10,7 +10,7 @@ const CARD_ID = "knower-perspective";
 const spec = CARD_REGISTRY[CARD_ID]!;
 
 const ENTRY = {
-  cardId: CARD_ID, name: spec.name, nameEn: "Knower Perspective", category: "反身性与元认知",
+  cardId: CARD_ID, name: spec.name, nameEn: "Knower Perspective", category: "自我认知",
   purpose: "看清你自己的位置", stages: ["反思"], example: "", hasAsset: true,
   coverUrl: "", courseId: "",
   encountered: true, score: 70, stars: 4, uses: 3, surfaces: ["project"], lastUsed: "2026-08-01T00:00:00Z",

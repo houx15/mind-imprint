@@ -12,18 +12,15 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
-	"mindimprint/api/internal/studio"
 )
 
 // projectListItem is the summary shape returned by GET /projects.
 type projectListItem struct {
-	ID            string `json:"id"`
-	Title         string `json:"title"`
-	QualLabel     string `json:"qualLabel"`
-	ActiveStation string `json:"activeStation"`
-	Status        string `json:"status"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	QualLabel string `json:"qualLabel"`
+	Status    string `json:"status"`
 	// Cover is the raw stored value ("img:<n>" / "grad:<name>" / "" when
 	// unset); CoverURL is its signed CDN URL for "img:" covers, "" otherwise
 	// (gradients render client-side from the name, see resolveCoverURL).
@@ -97,7 +94,14 @@ func (a *API) deriveDisplayStatus(ctx context.Context, projectID uuid.UUID, stat
 }
 
 // listProjects returns the caller's projects with enough state to render the
-// projects list (title, qualification, active station).
+// projects list (title, qualification, status, cover, start date).
+//
+// This handler used to run a full studio projection (studio.Load + studio.Project,
+// ~14 DB queries EACH) per project just to read one field — the active station
+// code. That was an N+1 that grew with the catalog and made the list slow; the
+// station code was also the unreadable "S1" leaking into the card. Both are gone:
+// the list now needs only the row itself plus deriveDisplayStatus's two cheap
+// reads per project.
 func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	rows, err := a.d.Queries.ListProjectsByUser(r.Context(), u.ID)
@@ -105,27 +109,17 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	sk, _ := skills.ByID("writing-project")
 	out := make([]projectListItem, 0, len(rows))
 	for _, p := range rows {
-		d, err := studio.Load(r.Context(), a.d.Queries, p.ID)
-		if err != nil {
-			continue
-		}
-		proj, err := studio.Project(sk, a.d.SpecByID, d)
-		if err != nil {
-			continue
-		}
 		cover := derefOr(p.Cover, "")
 		out = append(out, projectListItem{
-			ID:            p.ID.String(),
-			Title:         p.Title,
-			QualLabel:     p.Qualification,
-			ActiveStation: proj.ActiveStation,
-			Status:        a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
-			Cover:         cover,
-			CoverURL:      a.resolveCoverURL(cover),
-			CreatedAt:     p.CreatedAt.Format(time.RFC3339),
+			ID:        p.ID.String(),
+			Title:     p.Title,
+			QualLabel: p.Qualification,
+			Status:    a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
+			Cover:     cover,
+			CoverURL:  a.resolveCoverURL(cover),
+			CreatedAt: p.CreatedAt.Format(time.RFC3339),
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})

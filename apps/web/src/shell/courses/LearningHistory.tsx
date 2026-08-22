@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { GraduationCap, CheckCircle2, FileText, PlayCircle } from "lucide-react";
-import type { CourseSummary } from "@mind-imprint/contracts";
+import { COURSE_CATEGORIES, type CourseSummary } from "@mind-imprint/contracts";
 import type { CourseHistoryItem } from "@/api/courses";
 import type { CourseOpenTarget } from "@/shell/courses/CoursesContainer";
 import { api } from "@/api";
@@ -17,10 +17,20 @@ import { Card, EmptyState, Icon, SkeletonRow, coverGradientStyle } from "@/ui";
 
 type Row = CourseHistoryItem & {
   title: string;
-  branch: string;
+  // The course's category LABEL (e.g. 信源核查), resolved from its slug. Replaces
+  // the old `branch` free-text ("Runtime"-style values) which meant nothing to a
+  // student. Empty when the course carries no category.
+  category: string;
   coverUrl?: string;
   stepCount: number;
 };
+
+// slug → display label for the 7-category vocabulary; empty string for a course
+// with no category so the row simply omits the chip rather than showing a slug.
+const CATEGORY_LABEL = new Map<string, string>(COURSE_CATEGORIES.map((c) => [c.slug, c.label]));
+function categoryLabel(slug: string | null | undefined): string {
+  return slug ? CATEGORY_LABEL.get(slug) ?? "" : "";
+}
 
 function isCompleted(status: string): boolean {
   return status === "completed";
@@ -85,8 +95,12 @@ function HistoryRow({ row, onOpen }: { row: Row; onOpen: () => void }) {
           )}
         </div>
         <div className="mt-1 flex items-center gap-2 text-mk-small text-mk-muted">
-          <span className="truncate">{row.branch}</span>
-          <span aria-hidden>·</span>
+          {row.category && (
+            <>
+              <span className="truncate font-semibold text-mk-secondary">{row.category}</span>
+              <span aria-hidden>·</span>
+            </>
+          )}
           <span>{done ? "学完于 " : "最近学习 "}{formatDate(rowDate(row))}</span>
         </div>
         {pct != null && !done && (
@@ -121,7 +135,7 @@ export function LearningHistory({ onOpen }: { onOpen: (target: CourseOpenTarget)
           .map((h): Row | null => {
             const c = bySlug.get(h.slug);
             if (!c) return null; // course unpublished/hidden — skip
-            return { ...h, title: c.title, branch: c.branch, coverUrl: c.coverUrl, stepCount: c.step_count };
+            return { ...h, title: c.title, category: categoryLabel(c.category), coverUrl: c.coverUrl, stepCount: c.step_count };
           })
           .filter((r): r is Row => r !== null);
         setRows(merged);

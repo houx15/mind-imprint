@@ -8,15 +8,15 @@ afterEach(() => { vi.restoreAllMocks(); });
 const CATALOG = {
   theme: "light" as const,
   cards: [
-    { cardId: "concession", name: "让步段 · 以退为进", nameEn: "Concession", category: "知识工具",
+    { cardId: "concession", name: "让步段 · 以退为进", nameEn: "Concession", category: "论证写作",
       purpose: "让步段的用法", stages: ["写作"], example: "", hasAsset: true,
       coverUrl: "https://cdn/concession.webp", courseId: "",
       encountered: true, score: 68, stars: 4, uses: 2, surfaces: ["project"], lastUsed: "2026-07-18T00:00:00Z" },
-    { cardId: "craap", name: "信源辨识卡 CRAAP / CRRAAB", nameEn: "Source Evaluation", category: "信息素养",
+    { cardId: "craap", name: "信源辨识卡 CRAAP / CRRAAB", nameEn: "Source Evaluation", category: "信源核查",
       purpose: "对单一来源做纵向体检", stages: ["阅读"], example: "", hasAsset: true,
       coverUrl: "https://cdn/craap.webp", courseId: "00000000-0000-0000-0000-0000000000c1",
       encountered: true, score: 45, stars: 3, uses: 1, surfaces: ["project", "course"], lastUsed: "2026-07-23T00:00:00Z" },
-    { cardId: "toulmin", name: "论证构建卡（图尔敏）", nameEn: "Toulmin", category: "论证结构",
+    { cardId: "toulmin", name: "论证构建卡（图尔敏）", nameEn: "Toulmin", category: "论证写作",
       purpose: "把论证拆成部件", stages: [], example: "", hasAsset: false,
       coverUrl: "", courseId: "",
       encountered: false, score: 0, stars: 0, uses: 0, surfaces: [], lastUsed: "" },
@@ -42,8 +42,9 @@ describe("ToolkitCards gallery", () => {
     await waitFor(() => expect(screen.getByText(/全部 3 张/)).toBeTruthy());
     expect(screen.getByText(/已遇到/)).toBeTruthy();
     // Each represented category appears twice: once as a filter chip, once as
-    // the section header above that group's tiles.
-    for (const cat of ["知识工具", "信息素养", "论证结构"]) {
+    // the section header above that group's tiles. (concession + toulmin both sit
+    // in 论证写作, so that one group holds two cards; craap is in 信源核查.)
+    for (const cat of ["论证写作", "信源核查"]) {
       expect(screen.getAllByText(cat).length).toBeGreaterThanOrEqual(2);
     }
     // 4 colorway swatches (by their aria-labels; cyber-warm surfaces as 湖蓝)

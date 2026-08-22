@@ -5,7 +5,6 @@ export type ProjectListItem = {
   id: string;
   title: string;
   qualLabel: string;
-  activeStation: string;
   status: ProjectStatus;
   /** Raw stored cover value ("img:<n>" / "grad:<name>" / ""). */
   cover: string;

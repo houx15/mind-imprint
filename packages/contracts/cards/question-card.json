@@ -3,7 +3,7 @@
   "placement": "status",
   "interaction": "sub-agent",
   "asset_id": "T35",
-  "category": "探究启动",
+  "category": "研究流程",
   "name": "提问卡",
   "name_en": "Question Card",
   "purpose": "在探究的最起点，先激活学生自己的经验、直觉和疑问，再让 AI 帮他延伸，而不是一上来就把题目交给 AI",

@@ -99,11 +99,12 @@ test("J-studio: project lifecycle → commit → 整稿体检 → finish → 你
   await page.getByRole("button", { name: "学习记录" }).click();
   await expect(page.getByText("还没有报告")).toHaveCount(0, { timeout: 15_000 });
 
-  // 工具卡: Phoebe's two seeded completed cards (both 知识工具) are collected —
+  // 工具卡: Phoebe's seeded completed cards (concession + steelman) are collected —
   // this tab is populated independent of the finish, and was never asserted.
+  // concession now sits under the 论证写作 category (the gallery re-taxonomy).
   await page.getByRole("button", { name: "工具卡" }).click();
   await expect(page.getByText("还没有收集到工具卡")).toHaveCount(0, { timeout: 15_000 });
-  await expect(page.getByText("知识工具").first()).toBeVisible();
+  await expect(page.getByText("论证写作").first()).toBeVisible();
 
   // 能力素养: after ONE finished project totalSessions=1, so the tab leaves its
   // empty state — but every depth dim still needs ≥2 sessions to show a level,

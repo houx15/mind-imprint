@@ -9,17 +9,23 @@ function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
-// Fixed display order of the card categories (roughly the course-library arc),
-// each cycling through the 7 macaron tokens for its group dot. Any category
-// not listed falls into a final 其他 group (rendered with the neutral token).
+// Fixed display order of the card categories, each cycling through the 7 macaron
+// tokens for its group dot. Any category not listed falls into a final 其他 group
+// (rendered with the neutral token).
 const MACARON_ORDER: MacaronName[] = ["peach", "butter", "matcha", "lake", "mist", "taro", "berry"];
 const MACARON_DOT: Record<MacaronName, string> = {
   peach: "bg-mk-peach", butter: "bg-mk-butter", matcha: "bg-mk-matcha",
   lake: "bg-mk-lake", mist: "bg-mk-mist", taro: "bg-mk-taro", berry: "bg-mk-berry",
 };
+// The card gallery's OWN category vocabulary. Deliberately independent of the
+// course category enum (COURSE_CATEGORIES) — cards and courses are separate
+// categorization systems — but chosen to reuse the SAME label set so the two read
+// consistently, plus 学科透镜 (the disciplinary-lens deck, which has no course
+// counterpart and is coupled to each lens card's reading_lens block). A card's
+// `category` string (from its spec JSON) must match one of these exactly.
 const CATEGORY_KEYS = [
-  "探究启动", "信息素养", "溯源与多视角", "知识工具", "论证结构",
-  "AOK", "AI伦理", "反身性与元认知", "成长与沉淀", "学科透镜",
+  "立场与价值", "信源核查", "媒介与信息素养", "自我认知",
+  "数据素养", "研究流程", "论证写作", "学科透镜",
 ];
 const CATEGORY_ORDER: { key: string; dot: string }[] = CATEGORY_KEYS.map((key, i) => ({
   key,

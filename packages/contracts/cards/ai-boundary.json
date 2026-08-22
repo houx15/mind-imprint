@@ -1,7 +1,7 @@
 {
   "id": "ai-boundary",
   "placement": "cross-cutting",
-  "category": "AI伦理",
+  "category": "信源核查",
   "name": "AI 边界与幻觉核查卡",
   "name_en": "AI Boundary & Hallucination Check",
   "purpose": "AI 会「一本正经地编」。这张卡把 AI 的边界和可能的幻觉，变成学生练查证和判断的最佳时刻",

@@ -1,7 +1,7 @@
 {
   "id": "toulmin",
   "placement": "status",
-  "category": "论证结构",
+  "category": "论证写作",
   "name": "论证构建卡（图尔敏）",
   "name_en": "Toulmin Argument Builder",
   "purpose": "把论点搭成能立住的结构：主张、理据、证据、反方与让步，一步步写成句子",

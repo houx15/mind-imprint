@@ -2,7 +2,7 @@
   "id": "pee",
   "placement": "status",
   "asset_id": "T10",
-  "category": "知识工具",
+  "category": "论证写作",
   "name": "PEE 写作卡",
   "name_en": "PEE Paragraph (Point-Evidence-Explanation)",
   "purpose": "把一段论证写成 Point（要点）→ Evidence（论据）→ Explanation（解释）的结构，让学生自己搭骨架，而不是让 AI 代写",

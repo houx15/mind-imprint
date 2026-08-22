@@ -188,7 +188,6 @@ function ProjectCard({
         )}
         <div className="truncate text-mk-small text-mk-muted">
           {project.qualLabel || "项目"}
-          {project.activeStation ? ` · ${project.activeStation}` : ""}
         </div>
         {project.createdAt && (
           <div className="text-mk-small text-mk-faint">开始于 {formatDate(project.createdAt)}</div>

@@ -7,6 +7,27 @@ import { ALL_CATEGORIES, selectCourseList, type CourseSort } from "./selectCours
 
 const STAR = "M12 3l2.4 5 5.6.7-4 3.9 1 5.4L12 15.4 6.9 18l1-5.4-4-3.9L9.6 8z";
 
+/**
+ * One metadata fact on a course card, styled as a soft coloured tag rather than
+ * a run of grey text — so 任务/工具/时长 read as three scannable chips. Uses the
+ * macaron `-bg`/`-fg` token pairs (theme-defined) so the tint and its text stay
+ * legible together; the icon inherits the `-fg` colour via `currentColor`.
+ */
+function MetaTag({ tone, icon, children }: { tone: "lake" | "taro" | "peach"; icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: "inline-flex", alignItems: "center", gap: 5, padding: "4px 9px", borderRadius: 999,
+        fontSize: 12, fontWeight: 700, lineHeight: 1,
+        background: `var(--mk-${tone}-bg)`, color: `var(--mk-${tone}-fg)`,
+      }}
+    >
+      {icon}
+      {children}
+    </span>
+  );
+}
+
 function CourseCard({ course, pct, onOpen, onRestart }: { course: CourseSummary; pct: number | null; onOpen: () => void; onRestart?: () => void }) {
   const done = pct != null && pct >= 100;
   const tone = pct == null ? "未开始" : done ? "已学完" : "进行中";
@@ -30,12 +51,16 @@ function CourseCard({ course, pct, onOpen, onRestart }: { course: CourseSummary;
       <div style={{ flex: 1, display: "flex", flexDirection: "column", padding: "18px 22px 20px" }}>
         <div style={{ fontSize: 18, fontWeight: 800, color: "var(--mk-ink)", lineHeight: 1.4 }}>{course.title}</div>
         <div style={{ fontSize: 13, color: "var(--mk-secondary)", lineHeight: 1.66, marginTop: 8 }}>{course.blurb}</div>
-        <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 14, fontSize: 12, color: "var(--mk-muted)", fontWeight: 600 }}>
-          <span>{course.step_count} 个任务 · {course.card_ids.length} 个工具</span>
-          <span style={{ display: "inline-flex", alignItems: "center", gap: 5 }}>
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="var(--mk-muted)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
-            {course.time_label}
-          </span>
+        <div style={{ display: "flex", alignItems: "center", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
+          <MetaTag tone="lake" icon={
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></svg>
+          }>{course.step_count} 个任务</MetaTag>
+          <MetaTag tone="taro" icon={
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 2 2 7l10 5 10-5-10-5z" /><path d="m2 17 10 5 10-5" /><path d="m2 12 10 5 10-5" /></svg>
+          }>{course.card_ids.length} 个工具</MetaTag>
+          <MetaTag tone="peach" icon={
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="9" /><path d="M12 7v5l3 2" /></svg>
+          }>{course.time_label}</MetaTag>
         </div>
         {pct != null && (
           <div style={{ display: "flex", alignItems: "center", gap: 10, marginTop: 14 }}>
