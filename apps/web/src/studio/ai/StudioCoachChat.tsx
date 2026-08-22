@@ -40,6 +40,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
     starting,
     openCard,
     questionCardAvailable,
+    isDemo,
   } = useStudioChat();
   const [draft, setDraft] = useState("");
   // An empty thread renders no fake AI line — a brand-new project simply
@@ -129,6 +130,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
             onSend={onSend}
             state={sending ? "replying" : undefined}
             placeholder="和印记说说你的项目……（Shift+Enter 换行）"
+            disabled={isDemo}
             className="flex-none"
           />
         </div>

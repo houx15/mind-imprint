@@ -232,7 +232,10 @@ export function WritingBlock({
   // Phase B · finishing a document advances the studio status deterministically
   // (proposal → essay; essay → review). One student tap (the 完成 button IS the
   // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
-  const { advanceStatusTo, sendStudioTurn } = useStudioChat();
+  // Task 6 (P2, demo project): the shared, read-only demo. The backend 403s
+  // the write regardless — this just keeps the primary 完成 button from
+  // inviting a tap that would only bounce off a 403.
+  const { advanceStatusTo, sendStudioTurn, isDemo } = useStudioChat();
   const isProposal = doc === "proposal";
   // archived = the terminal finalize path has begun (can't reopen writing then).
   const archived = status === "evaluating" || status === "done";
@@ -378,7 +381,21 @@ export function WritingBlock({
             // #20 · reversible — 重新打开 unlocks this document again (铁律②).
             <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title={isProposal ? "重新编辑提案" : "重新打开写作，继续修改初稿"}>{isProposal ? "重新编辑提案" : "重新打开写作"}</button>
           ) : (
-            <button type="button" onClick={() => void openFinish()} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title={isProposal ? "提案写好了？点这里定稿，进入写正文" : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"}>{isProposal ? "完成提案" : "完成写作"}</button>
+            <button
+              type="button"
+              onClick={() => void openFinish()}
+              disabled={isDemo}
+              className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+              title={
+                isDemo
+                  ? "演示项目为只读，无法完成"
+                  : isProposal
+                    ? "提案写好了？点这里定稿，进入写正文"
+                    : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"
+              }
+            >
+              {isProposal ? "完成提案" : "完成写作"}
+            </button>
           ))}
       </div>
 

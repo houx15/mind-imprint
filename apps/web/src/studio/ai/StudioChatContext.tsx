@@ -153,6 +153,11 @@ export type StudioChatValue = {
   // Busy flag around `startJourney`'s round-trip — drives the button's
   // pending/disabled state.
   starting: boolean;
+  // Task 6 (P2, demo project): true for the shared, read-only demo project
+  // (`WorkspaceProjection.isDemo`). The backend 403s all writes regardless —
+  // this only disables the composer so the demo reads honestly as read-only
+  // instead of silently failing on send.
+  isDemo?: boolean;
 };
 
 export const StudioChatContext = createContext<StudioChatValue | null>(null);

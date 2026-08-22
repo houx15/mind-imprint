@@ -1196,12 +1196,24 @@ export function WorkspaceContainer({
     started,
     startJourney,
     starting,
+    // Task 6 (P2, demo project): the shared, read-only demo project. The
+    // backend 403s all writes regardless — this only disables the composer
+    // so the demo reads honestly as read-only.
+    isDemo: workspace?.isDemo ?? false,
   };
 
   return (
     <StudioChatContext.Provider value={chatValue}>
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
       <TopBar workspace={workspace} onBack={backToAll} />
+      {/* Task 6 (P2, demo project): a small, honest read-only banner for the
+          shared demo project. The backend is the real safety net (403s all
+          writes for isDemo) — this is just legibility, not enforcement. */}
+      {workspace?.isDemo && (
+        <div className="shrink-0 border-b border-mk-border bg-mk-accent-50 px-6 py-2 text-mk-small font-medium text-mk-accent">
+          演示项目 · 只读 — 这是一个示例项目，带你了解项目工作台
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
         {aiSide === "left" && showAiPanel && aiPanel}
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
