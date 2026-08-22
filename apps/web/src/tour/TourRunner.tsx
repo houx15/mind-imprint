@@ -1,15 +1,26 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pebble } from "@/ui";
 import { Markdown } from "@/cards/Markdown";
 import { useTour } from "./TourProvider";
 import { resolveAnchor } from "./anchors";
+import { clampToViewport } from "./viewport";
 
 const PAD = 8; // spotlight padding around the anchor
+const VIEWPORT_MARGIN = 8; // breathing room the popover keeps from every viewport edge
+
+// The clamped position is tagged with the (rect, placement) it was computed
+// for. When either changes we fall back to the unclamped `positionNear`
+// guess for that one render — until the layout effect below measures the
+// freshly-positioned popover and replaces it with a clamped one — instead of
+// showing a stale clamp computed for the previous anchor.
+type ClampState = { rect: DOMRect; placement: string; top: number; left: number };
 
 export function TourRunner() {
   const t = useTour();
   const [rect, setRect] = useState<DOMRect | null>(null);
+  const popRef = useRef<HTMLDivElement | null>(null);
+  const [clampState, setClampState] = useState<ClampState | null>(null);
 
   // Resolve + spotlight the anchor whenever the step changes.
   useEffect(() => {
@@ -50,6 +61,25 @@ export function TourRunner() {
     return () => { cancelled = true; cleanup(); };
   }, [t.running, t.step, t]);
 
+  // After the popover renders (unclamped) near its anchor, measure its actual
+  // box and clamp it fully inside the viewport. Runs synchronously before
+  // paint, so there's no flash of an off-screen popover — the layout effect
+  // corrects position in the same commit the browser paints.
+  const placement = t.step?.placement ?? "bottom";
+  useLayoutEffect(() => {
+    if (!rect) return;
+    const el = popRef.current;
+    if (!el) return;
+    const box = el.getBoundingClientRect();
+    const { top, left } = clampToViewport(
+      { top: box.top, left: box.left },
+      { w: box.width, h: box.height },
+      { vw: window.innerWidth, vh: window.innerHeight },
+      VIEWPORT_MARGIN,
+    );
+    setClampState({ rect, placement, top, left });
+  }, [rect, placement]);
+
   // Keyboard: Esc ends; Enter/→ advances a "next" step.
   useEffect(() => {
     if (!t.running) return;
@@ -83,14 +113,21 @@ export function TourRunner() {
             : { background: "rgba(15,23,42,0.55)" }
         }
       />
-      {/* 印记 popover. Centered when no anchor; otherwise near the anchor. */}
+      {/* 印记 popover. Centered when no anchor; otherwise near the anchor, clamped
+          inside the viewport so its controls (下一步/结束/跳过本节) never land
+          off-screen when the anchor sits near an edge. Tall content scrolls
+          internally rather than overflowing the viewport. */}
       <div
-        className="fixed max-w-[360px] rounded-mk-md bg-mk-surface p-4 shadow-mk-lg ring-1 ring-mk-border"
-        style={
-          centered
+        ref={popRef}
+        className="fixed max-w-[360px] overflow-y-auto rounded-mk-md bg-mk-surface p-4 shadow-mk-lg ring-1 ring-mk-border"
+        style={{
+          maxHeight: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`,
+          ...(centered
             ? { top: "50%", left: "50%", transform: "translate(-50%,-50%)" }
-            : positionNear(rect!, t.step.placement)
-        }
+            : clampState && clampState.rect === rect && clampState.placement === placement
+              ? { top: clampState.top, left: clampState.left }
+              : positionNear(rect!, t.step.placement)),
+        }}
       >
         <div className="mb-2 flex items-center gap-2">
           <Pebble size={22} />
