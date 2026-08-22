@@ -150,6 +150,16 @@ export function SlicePlayer({
   const stateRef = useRef<SliceSessionState>(restoreState ?? initSliceState(slice));
   const [, forceRender] = useReducer((n: number) => n + 1, 0);
   const [focus, setFocus] = useState<TargetRef | null>(slice.workflow.initialState?.focusedTarget ?? null);
+  // §revisit replay — bumped by "重新开始本节" so every block wrapper's React key
+  // changes and the block renderers REMOUNT. Block renderers own local UI state
+  // the workflow can't reach — an assessment's `locked`/`selected`/`feedback`,
+  // a video's ended/cue flags — and `handleReplay` only resets the workflow +
+  // persisted slice state, NOT that component-internal state. Without a remount
+  // an already-answered question stays `locked` (its inputs disabled) after a
+  // replay, so the student can neither re-answer nor re-complete → 下一步 never
+  // re-enables. Keying on the epoch throws those instances away and rebuilds
+  // them fresh from the reset slice state.
+  const [replayEpoch, setReplayEpoch] = useState(0);
 
   const controllerRef = useRef<NarrationController | null>(null);
   if (controllerRef.current === null) controllerRef.current = new NarrationController(engine, arbiter);
@@ -328,6 +338,10 @@ export function SlicePlayer({
     runtimeRef.current = fresh;
     stateRef.current = initSliceState(slice);
     setFocus(slice.workflow.initialState?.focusedTarget ?? null);
+    // Remount every block renderer so its component-internal state (an
+    // assessment's locked/selected/feedback, a video's cue/ended flags) is
+    // discarded — the reset above only clears workflow + persisted state.
+    setReplayEpoch((n) => n + 1);
     applyEffectsRef.current(fresh.start());
   };
 
@@ -345,7 +359,7 @@ export function SlicePlayer({
               const blockState = state.blockStates[id]!;
               return (
                 <FocusTarget
-                  key={id}
+                  key={`${id}#${replayEpoch}`}
                   blockId={id}
                   className="course-slot-block"
                   visible={blockState.visible}

@@ -239,6 +239,21 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* Natural-height blocks (a question, a text intro) must NOT shrink below
+   * their own content. A slot is a flex column; a flex item defaults to
+   * `flex-shrink: 1`, so when a slot's stacked blocks are together taller than
+   * its box — e.g. a `grid` cell that is only 1fr (half the region) holding a
+   * single-choice ABOVE a fill-blank — the flex algorithm compressed each
+   * wrapper below its content height. Because the wrapper doesn't clip
+   * (`overflow: visible`), the content then bled OUT of its shrunken box and
+   * visually OVERLAPPED the block beneath it, while the slot's `overflow: auto`
+   * never engaged (the children had shrunk to nearly fit). `flex-shrink: 0`
+   * keeps each wrapper at its content height, so an over-full slot scrolls
+   * (its own `overflow: auto`) instead of overlapping. Fill-blocks that DO need
+   * to shrink/grow to the slot (pdf/video/interactive-html/rich-text, and an
+   * images block alone in its slot) restore `flex: 1 1 auto` below — those
+   * `:has()` rules are more specific, so they win. */
+  flex-shrink: 0;
 }
 .course-slot-block:has(> .course-block--pdf),
 .course-slot-block:has(> .course-block--video),
@@ -869,14 +884,61 @@
   color: var(--course-muted);
   text-align: center;
 }
-.course-images__gallery { flex-direction: column; align-items: stretch; }
-.course-images__nav {
+.course-images__gallery { flex-direction: column; align-items: center; gap: 10px; }
+/* The image + its two overlay arrows. `relative` anchors the arrows; the figure
+ * still sizes/centers exactly as a single image would. */
+.course-images__gallery-stage {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+/* The figure inside the stage keeps a little side room so an arrow never sits
+ * on top of the image's own edge content. */
+.course-images__gallery-stage .course-images__item {
+  flex: 0 1 auto;
+  max-width: calc(100% - 96px);
+}
+.course-images__nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-full);
+  background: var(--course-surface);
+  color: var(--course-ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--course-shadow-sm);
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease),
+    background var(--course-fast) var(--course-ease);
+}
+.course-images__nav-arrow--prev { left: 4px; }
+.course-images__nav-arrow--next { right: 4px; }
+.course-images__nav-arrow > span { transform: translateY(-1px); }
+.course-images__nav-arrow:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
+.course-images__nav-arrow:focus-visible {
+  outline: 3px solid var(--course-focus-ring-color);
+  outline-offset: 2px;
+}
+.course-images__gallery-position {
   font-size: 13px;
   color: var(--course-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Single-choice assessment ---------- */
@@ -966,10 +1028,46 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Anchors the absolutely-positioned loading overlay below. */
+  position: relative;
 }
 .course-video__player {
   border-radius: var(--course-radius);
   background: #000;
+}
+/* Buffering/loading overlay: a centered spinner over the (often black/blank)
+ * video while it loads, so the player never reads as a dead, unclickable box.
+ * `pointer-events: none` so it NEVER blocks the native <video controls>
+ * underneath — it's feedback, not a shield. */
+.course-video__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  border-radius: var(--course-radius);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+}
+.course-video__loading-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: course-spin 0.8s linear infinite;
+}
+.course-video__loading-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+@media (prefers-reduced-motion: reduce) {
+  .course-video__loading-spinner {
+    animation-duration: 2s;
+  }
 }
 .course-video__controls {
   display: flex;
