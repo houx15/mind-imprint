@@ -365,3 +365,133 @@ func TestGetProgressDerivesFromSession(t *testing.T) {
 		t.Fatalf("sess-prog not in learning history")
 	}
 }
+
+// TestCourseAttemptLog proves the 0077 attempt-log model: relearning a finished
+// 2.0 course KEEPS the finished attempt (with a frozen completion date and its own
+// report, fetched by attempt id) and mints a NEW current attempt beside it, while
+// the catalog ring and resume always read the latest attempt.
+func TestCourseAttemptLog(t *testing.T) {
+	if testing.Short() {
+		t.Skip("requires postgres")
+	}
+	pool := newTurnTestPool(t)
+	q := sqlc.New(pool)
+	store := agent.NewSqlcAgentStore(q, pool)
+	ctx := context.Background()
+	userID := seededStudentID
+
+	// A 2.0 course with two named slices, so a report carries real titles.
+	def := []byte(`{"schemaVersion":"2.0","course":{"id":"attempt-log","title":"T",` +
+		`"objectives":[{"text":"the goal"}],"parts":[{"slices":[` +
+		`{"id":"s0","title":"Slice Zero"},{"id":"s1","title":"Slice One"}]}]}}`)
+	if _, err := store.UpsertCourseDefinition(ctx, agent.UpsertCourseDefinitionInput{
+		Slug: "attempt-log", Branch: "Runtime", Title: "T", Blurb: "b",
+		CardIDs: []string{}, Definition: def, StepCount: 2,
+	}); err != nil {
+		t.Fatalf("upsert: %v", err)
+	}
+	_, courseID, err := store.GetCoursePayload(ctx, "attempt-log")
+	if err != nil {
+		t.Fatalf("GetCoursePayload: %v", err)
+	}
+
+	// Attempt #1: create, then finish it (both slices completed, 15s spent).
+	if _, err := store.CreateCourseSession(ctx, userID, courseID,
+		[]byte(`{"id":"a1","courseId":"attempt-log","courseSchemaVersion":"2.0","studentId":"u","status":"in-progress","sliceStates":{},"events":[]}`),
+		"in-progress"); err != nil {
+		t.Fatalf("CreateCourseSession #1: %v", err)
+	}
+	finished := []byte(`{"id":"a1","courseId":"attempt-log","courseSchemaVersion":"2.0","studentId":"u","status":"completed",` +
+		`"sliceStates":{"s0":{"status":"completed","elapsedSeconds":10},"s1":{"status":"completed","elapsedSeconds":5}},"events":[]}`)
+	if err := store.SaveCourseSession(ctx, userID, courseID, finished, "completed"); err != nil {
+		t.Fatalf("SaveCourseSession completed: %v", err)
+	}
+
+	// History now has one finished attempt with a FROZEN completion date.
+	hist1, err := store.ListCourseHistory(ctx, userID)
+	if err != nil {
+		t.Fatalf("ListCourseHistory #1: %v", err)
+	}
+	var attempt1ID string
+	var seen int
+	for _, h := range hist1 {
+		if h.Slug != "attempt-log" {
+			continue
+		}
+		seen++
+		attempt1ID = h.AttemptID
+		if h.Status != "completed" || h.CompletedAt == nil {
+			t.Fatalf("attempt #1: want completed with a completion date, got status=%q completedAt=%v", h.Status, h.CompletedAt)
+		}
+	}
+	if seen != 1 {
+		t.Fatalf("history after finish: want 1 attempt-log row, got %d", seen)
+	}
+	if attempt1ID == "" {
+		t.Fatalf("attempt #1 has no attempt id")
+	}
+
+	// The finished run's report is reachable by its attempt id: both titles, 15s.
+	rep1, ok, err := store.CourseReport20(ctx, userID, "attempt-log", attempt1ID)
+	if err != nil || !ok {
+		t.Fatalf("CourseReport20(attempt1): ok=%v err=%v", ok, err)
+	}
+	if len(rep1.Data.CompletedStepTitles) != 2 || rep1.Data.SecondsSpent != 15 {
+		t.Fatalf("attempt #1 report: titles=%v seconds=%d, want 2 titles / 15s", rep1.Data.CompletedStepTitles, rep1.Data.SecondsSpent)
+	}
+
+	// RELEARN: an already-completed current attempt is kept (delete is a no-op),
+	// then a fresh 'created' attempt is minted — exactly what postCourseRestart does.
+	if err := store.DeleteIncompleteLatestCourseSession(ctx, userID, courseID); err != nil {
+		t.Fatalf("DeleteIncompleteLatest (completed → no-op): %v", err)
+	}
+	if _, err := store.CreateCourseSession(ctx, userID, courseID,
+		[]byte(`{"id":"a2","courseId":"attempt-log","courseSchemaVersion":"2.0","studentId":"u","status":"created","sliceStates":{},"events":[]}`),
+		"created"); err != nil {
+		t.Fatalf("CreateCourseSession #2 (relearn): %v", err)
+	}
+
+	// Resume reads the LATEST attempt — the fresh one, not the finished #1.
+	if _, status, found, gerr := store.GetCourseSession(ctx, userID, "attempt-log"); gerr != nil || !found || status != "created" {
+		t.Fatalf("GetCourseSession after relearn: status=%q found=%v err=%v, want the fresh 'created' attempt", status, found, gerr)
+	}
+
+	// History now shows BOTH attempts; the catalog ring shows only ONE (latest).
+	hist2, err := store.ListCourseHistory(ctx, userID)
+	if err != nil {
+		t.Fatalf("ListCourseHistory #2: %v", err)
+	}
+	var completedRows, inProgressRows int
+	for _, h := range hist2 {
+		if h.Slug != "attempt-log" {
+			continue
+		}
+		if h.CompletedAt != nil {
+			completedRows++
+		} else {
+			inProgressRows++
+		}
+	}
+	if completedRows != 1 || inProgressRows != 1 {
+		t.Fatalf("history after relearn: want 1 completed + 1 in-progress attempt-log row, got %d + %d", completedRows, inProgressRows)
+	}
+	prog, err := store.ListProgressForUser(ctx, userID)
+	if err != nil {
+		t.Fatalf("ListProgressForUser: %v", err)
+	}
+	if p, ok := prog["attempt-log"]; !ok {
+		t.Fatalf("catalog progress missing attempt-log")
+	} else if p.Status != "in-progress" {
+		t.Fatalf("catalog ring should reflect the CURRENT attempt (in-progress), got %q", p.Status)
+	}
+
+	// A finished attempt #1's frozen report still resolves after the relearn — the
+	// new attempt did not clobber it.
+	if _, ok, err := store.CourseReport20(ctx, userID, "attempt-log", attempt1ID); err != nil || !ok {
+		t.Fatalf("attempt #1 report after relearn: ok=%v err=%v", ok, err)
+	}
+	// An unknown attempt id is a 404 (pgx.ErrNoRows), never a fall-through to latest.
+	if _, _, err := store.CourseReport20(ctx, userID, "attempt-log", uuid.NewString()); err == nil {
+		t.Fatalf("CourseReport20 with an unknown attempt id: want error, got nil")
+	}
+}

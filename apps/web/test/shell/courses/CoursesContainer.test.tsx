@@ -91,7 +91,7 @@ describe("CoursesContainer", () => {
   });
 
   it("opens straight on the detail page for a deep-link (initialCourseId), same landing as a grid click", async () => {
-    render(<CoursesContainer initialCourseId="co1" />);
+    render(<CoursesContainer initialOpen={{ slug: "co1", mode: "detail" }} />);
     await screen.findByText("从一句…出发"); // detail's blurb fallback renders
     expect(screen.queryByText("开场正文。")).toBeNull(); // NOT the player
     expect(screen.queryByText("系统地学会一种思考方式")).toBeNull(); // NOT the grid

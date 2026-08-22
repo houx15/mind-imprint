@@ -321,7 +321,7 @@ describe("CoursesContainer per-course routing", () => {
 
   it("mounts the runtime player for a course WITH a 2.0 definition", async () => {
     getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
-    render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    render(<CoursesContainer initialOpen={{ slug: SLUG, mode: "detail" }} studentId="student-42" />);
     await enterPlayerFromDetail();
     await screen.findByTestId("runtime-player");
     expect(screen.queryByTestId("legacy-player")).toBeNull();
@@ -329,7 +329,7 @@ describe("CoursesContainer per-course routing", () => {
 
   it("falls back to the legacy player when the definition 404s (no 2.0 definition)", async () => {
     getDefMock.mockRejectedValue(new ApiError("not_found", "该课程没有 2.0 定义", 404));
-    render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    render(<CoursesContainer initialOpen={{ slug: SLUG, mode: "detail" }} studentId="student-42" />);
     await enterPlayerFromDetail();
     const legacy = await screen.findByTestId("legacy-player");
     expect(legacy).toHaveTextContent(`legacy:${SLUG}`);
@@ -340,7 +340,7 @@ describe("CoursesContainer per-course routing", () => {
     // Auth/network/server/malformed errors must NOT be masked by mounting an
     // unrelated legacy player — that hides the real failure.
     getDefMock.mockRejectedValue(new ApiError("server_error", "boom", 500));
-    render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    render(<CoursesContainer initialOpen={{ slug: SLUG, mode: "detail" }} studentId="student-42" />);
     await enterPlayerFromDetail();
     await screen.findByRole("alert");
     expect(screen.getByText("课程加载失败，请重试。")).toBeInTheDocument();
@@ -350,7 +350,7 @@ describe("CoursesContainer per-course routing", () => {
 
   it("lands a deep-link on the detail page first, not the player, until its CTA is clicked", async () => {
     getDefMock.mockResolvedValue({ definition: golden, hash: GOLDEN_HASH });
-    render(<CoursesContainer initialCourseId={SLUG} studentId="student-42" />);
+    render(<CoursesContainer initialOpen={{ slug: SLUG, mode: "detail" }} studentId="student-42" />);
     await screen.findByText("从两条说法出发…"); // detail's blurb fallback (introduction is null)
     expect(screen.queryByTestId("runtime-player")).toBeNull();
     expect(screen.queryByTestId("legacy-player")).toBeNull();

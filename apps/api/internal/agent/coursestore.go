@@ -573,7 +573,12 @@ type CourseReport20Result struct {
 // total active time (sum of per-Slice elapsedSeconds), and a quiz tally from the
 // session's answer events (dedup by sourceId, last attempt wins — same rule as
 // the legacy path). Cards come from course.card_ids (the course↔cards relation).
-func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, slug string) (CourseReport20Result, bool, error) {
+// attemptID selects WHICH run's report to compute: "" is the current (latest)
+// attempt — the live behavior; a specific course_session id is a past finished
+// attempt (the learning history's "看那一次的报告"), owner- and course-scoped. A
+// malformed or foreign attempt id resolves to pgx.ErrNoRows → 404 at the handler,
+// NOT a silent fall-through to the empty/latest report.
+func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, slug, attemptID string) (CourseReport20Result, bool, error) {
 	def, _, err := s.GetCourseDefinition(ctx, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -598,11 +603,27 @@ func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, s
 	}
 
 	var sess courseSessionForReport
-	sessBytes, _, found, err := s.GetCourseSession(ctx, userID, slug)
-	if err != nil {
-		return CourseReport20Result{}, false, err
+	var sessBytes []byte
+	if attemptID != "" {
+		id, perr := uuid.Parse(attemptID)
+		if perr != nil {
+			return CourseReport20Result{}, false, pgx.ErrNoRows // malformed id → 404, never the latest report
+		}
+		row, gerr := s.q.GetCourseSessionForReport(ctx, sqlc.GetCourseSessionForReportParams{ID: id, UserID: userID, Slug: slug})
+		if gerr != nil {
+			return CourseReport20Result{}, false, gerr // ErrNoRows (unknown/foreign attempt) → 404
+		}
+		sessBytes = row.Session
+	} else {
+		b, _, found, gerr := s.GetCourseSession(ctx, userID, slug)
+		if gerr != nil {
+			return CourseReport20Result{}, false, gerr
+		}
+		if found {
+			sessBytes = b
+		}
 	}
-	if found && len(sessBytes) > 0 {
+	if len(sessBytes) > 0 {
 		if err := json.Unmarshal(sessBytes, &sess); err != nil {
 			return CourseReport20Result{}, false, fmt.Errorf("course report 2.0: parse session: %w", err)
 		}
@@ -796,21 +817,34 @@ func (s *sqlcAgentStore) DeleteCourseProgress(ctx context.Context, userID, cours
 	return s.q.DeleteCourseProgress(ctx, sqlc.DeleteCourseProgressParams{UserID: userID, CourseID: courseID})
 }
 
-// CourseHistoryItem is one touched course in a student's learning history:
-// the slug, a coarse status (the runtime session status verbatim, or
-// 'completed'/'in-progress' for a legacy course), the count of completed steps
-// (legacy only — 0 for runtime), and the last-activity time. The caller
-// enriches title/cover from the course list.
+// DeleteIncompleteLatestCourseSession powers the 2.0 RELEARN path: before minting
+// a fresh attempt, drop the current (newest) attempt IF it never finished, so
+// abandoned partial attempts don't pile up in the history. A completed current
+// attempt is kept (it becomes a permanent finished record). Idempotent.
+func (s *sqlcAgentStore) DeleteIncompleteLatestCourseSession(ctx context.Context, userID, courseID uuid.UUID) error {
+	return s.q.DeleteIncompleteLatestCourseSession(ctx, sqlc.DeleteIncompleteLatestCourseSessionParams{UserID: userID, CourseID: courseID})
+}
+
+// CourseHistoryItem is one ATTEMPT in a student's learning history (since 0077 a
+// course can be relearned, so a course may have several rows): the attempt id (the
+// course_session id — the report of that specific run is fetched by it; "" for a
+// legacy course), the slug, a coarse status (the runtime session status verbatim,
+// or 'completed'/'in-progress' for a legacy course), the count of completed steps,
+// the last-activity time, and the FROZEN completion time (nil while in progress).
+// The caller enriches title/cover from the course list.
 type CourseHistoryItem struct {
+	AttemptID      string
 	Slug           string
 	Status         string
 	CompletedCount int
 	UpdatedAt      time.Time
+	CompletedAt    *time.Time
 }
 
-// ListCourseHistory returns the courses this student has engaged with across
-// BOTH storage models (runtime session + legacy progress), newest activity
-// first.
+// ListCourseHistory returns the attempts this student has made across BOTH storage
+// models (runtime session + legacy progress) — one row per attempt, newest first
+// (a finished attempt sorted by its frozen completion time, an in-progress one by
+// last activity).
 func (s *sqlcAgentStore) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]CourseHistoryItem, error) {
 	rows, err := s.q.ListCourseHistory(ctx, userID)
 	if err != nil {
@@ -818,8 +852,14 @@ func (s *sqlcAgentStore) ListCourseHistory(ctx context.Context, userID uuid.UUID
 	}
 	items := make([]CourseHistoryItem, 0, len(rows))
 	for _, r := range rows {
+		var completedAt *time.Time
+		if r.CompletedAt.Valid {
+			t := r.CompletedAt.Time
+			completedAt = &t
+		}
 		items = append(items, CourseHistoryItem{
-			Slug: r.Slug, Status: r.Status, CompletedCount: int(r.CompletedCount), UpdatedAt: r.UpdatedAt,
+			AttemptID: r.AttemptID, Slug: r.Slug, Status: r.Status,
+			CompletedCount: int(r.CompletedCount), UpdatedAt: r.UpdatedAt, CompletedAt: completedAt,
 		})
 	}
 	return items, nil

@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Segmented } from "@/ui";
-import { CoursesContainer } from "@/shell/courses/CoursesContainer";
+import { CoursesContainer, type CourseOpenTarget } from "@/shell/courses/CoursesContainer";
 import { LearningHistory } from "@/shell/courses/LearningHistory";
 import { ToolkitCards } from "@/shell/growth/ToolkitCards";
 
@@ -39,11 +39,14 @@ export function CoursesTab({
 }: CoursesTabProps) {
   const [sub, setSub] = useState<Sub>("courses");
   const [inCourse, setInCourse] = useState(false);
-  // The course to open in CoursesContainer — seeded from the host deep-link,
-  // or set when 学习记录 / 图鉴 requests a course. Consumed once.
-  const [openId, setOpenId] = useState<string | null>(pendingCourseId ?? null);
+  // The target to open in CoursesContainer — seeded from the host deep-link
+  // (always a browse landing), or set when 学习记录 / 图鉴 requests a course.
+  // Consumed once.
+  const [openTarget, setOpenTarget] = useState<CourseOpenTarget | null>(
+    pendingCourseId ? { slug: pendingCourseId, mode: "detail" } : null,
+  );
 
-  // Clear the host's one-shot deep-link on mount (openId already captured it).
+  // Clear the host's one-shot deep-link on mount (openTarget already captured it).
   useEffect(() => {
     if (pendingCourseId) onPendingCourseConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -54,8 +57,14 @@ export function CoursesTab({
     onImmersiveChange(immersive);
   }, [immersive, onImmersiveChange]);
 
+  // 图鉴 / home deep-links open the browse landing (detail).
   const requestOpen = (slug: string) => {
-    setOpenId(slug);
+    setOpenTarget({ slug, mode: "detail" });
+    setSub("courses");
+  };
+  // 学习记录 opens straight to the intent: 继续 (player) or 查看报告 (report).
+  const requestOpenTarget = (t: CourseOpenTarget) => {
+    setOpenTarget(t);
     setSub("courses");
   };
 
@@ -77,14 +86,14 @@ export function CoursesTab({
       <div className="min-h-0 flex-1 overflow-hidden">
         {sub === "courses" ? (
           <CoursesContainer
-            initialCourseId={openId}
-            onCourseConsumed={() => setOpenId(null)}
+            initialOpen={openTarget}
+            onCourseConsumed={() => setOpenTarget(null)}
             studentId={studentId}
             onGoPortal={onGoPortal}
             onImmersiveChange={setInCourse}
           />
         ) : sub === "history" ? (
-          <LearningHistory onOpenCourse={requestOpen} />
+          <LearningHistory onOpen={requestOpenTarget} />
         ) : (
           <ToolkitCards onOpenCourse={requestOpen} />
         )}

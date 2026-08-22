@@ -88,7 +88,7 @@ function ToolCardDetail({ cardId, info }: { cardId: string; info?: CardCatalogEn
 // prop is named courseId to stay compatible with CoursesContainer's existing
 // call site (Task 11 keeps that wiring, only the internal data model
 // changes).
-export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
+export function CourseReport({ courseId, attemptId, onBackToCourses, onGoPortal, onRestart }: { courseId: string; attemptId?: string; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
   const [report, setReport] = useState<CourseReportT | null>(null);
   const [error, setError] = useState(false);
   const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
@@ -97,7 +97,7 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart 
     let cancelled = false;
     void (async () => {
       try {
-        const r = await api.getCourseReport(courseId);
+        const r = await api.getCourseReport(courseId, attemptId);
         if (cancelled) return;
         setReport(r);
       } catch {
@@ -115,7 +115,7 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart 
       } catch { /* cards fall back to id-only name, no cover/purpose */ }
     })();
     return () => { cancelled = true; };
-  }, [courseId]);
+  }, [courseId, attemptId]);
 
   // NOTE: this component's parent (CoursesTab's content wrapper) is a plain
   // block, not a flex container — so `flex:1` here is inert and the content

@@ -153,13 +153,14 @@ type CourseProgress struct {
 }
 
 type CourseSession struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"user_id"`
-	CourseID  uuid.UUID `json:"course_id"`
-	Session   []byte    `json:"session"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	CourseID    uuid.UUID          `json:"course_id"`
+	Session     []byte             `json:"session"`
+	Status      string             `json:"status"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
 type Disposition struct {

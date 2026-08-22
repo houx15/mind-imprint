@@ -39,6 +39,41 @@ type courseSessionInit struct {
 	Events              []json.RawMessage          `json:"events"`
 }
 
+// buildInitialCourseSession mints the initial 'created' CourseSession blob for a
+// student from the stored 2.0 definition (its course.id becomes the session's
+// courseId). Shared by first-entry get-or-create (postCourseSession) and relearn
+// (postCourseRestart mints a brand-new attempt). Returns an error when the
+// definition is empty or has no course.id — the caller maps it to 422.
+// sliceStates/events are initialized non-nil so they marshal as {}/[] (never
+// null), which the client Zod schema requires.
+func buildInitialCourseSession(def []byte, userID uuid.UUID) (raw []byte, status string, err error) {
+	if len(def) == 0 {
+		return nil, "", errors.New("course has no 2.0 definition")
+	}
+	var docHead struct {
+		Course struct {
+			ID string `json:"id"`
+		} `json:"course"`
+	}
+	if uerr := json.Unmarshal(def, &docHead); uerr != nil || docHead.Course.ID == "" {
+		return nil, "", errors.New("invalid course definition")
+	}
+	initial := courseSessionInit{
+		ID:                  uuid.NewString(),
+		CourseID:            docHead.Course.ID,
+		CourseSchemaVersion: "2.0",
+		StudentID:           userID.String(),
+		Status:              "created",
+		SliceStates:         map[string]json.RawMessage{},
+		Events:              []json.RawMessage{},
+	}
+	b, merr := json.Marshal(initial)
+	if merr != nil {
+		return nil, "", merr
+	}
+	return b, initial.Status, nil
+}
+
 // postCourseSession get-or-creates the authed student's CourseSession for one
 // course. An existing session is returned as-is (resume); otherwise a fresh
 // "created" session is minted from the stored 2.0 definition.
@@ -82,33 +117,14 @@ func (a *API) postCourseSession(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrNotFound("该课程没有 2.0 定义"))
 		return
 	}
-	var docHead struct {
-		Course struct {
-			ID string `json:"id"`
-		} `json:"course"`
-	}
-	if err := json.Unmarshal(def, &docHead); err != nil || docHead.Course.ID == "" {
+	raw, status, berr := buildInitialCourseSession(def, user.ID)
+	if berr != nil {
 		httpx.WriteError(w, r, &httpx.APIError{
 			Status: http.StatusUnprocessableEntity, Code: "invalid_course_definition", Message: "课程定义格式无效",
 		})
 		return
 	}
-
-	initial := courseSessionInit{
-		ID:                  uuid.NewString(),
-		CourseID:            docHead.Course.ID,
-		CourseSchemaVersion: "2.0",
-		StudentID:           user.ID.String(),
-		Status:              "created",
-		SliceStates:         map[string]json.RawMessage{},
-		Events:              []json.RawMessage{},
-	}
-	raw, err := json.Marshal(initial)
-	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrInternal())
-		return
-	}
-	stored, err := store.CreateCourseSession(r.Context(), user.ID, courseID, raw, initial.Status)
+	stored, err := store.CreateCourseSession(r.Context(), user.ID, courseID, raw, status)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

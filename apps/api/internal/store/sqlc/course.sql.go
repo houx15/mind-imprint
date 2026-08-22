@@ -210,6 +210,8 @@ SELECT c.id AS course_id,
             ELSE 0 END AS completed_slices
 FROM course_session cs JOIN course c ON c.id = cs.course_id
 WHERE cs.user_id = $1 AND c.slug = $2
+ORDER BY cs.created_at DESC
+LIMIT 1
 `
 
 type GetCourseSessionProgressBySlugParams struct {
@@ -255,30 +257,37 @@ func (q *Queries) GetCourseStatusBySlug(ctx context.Context, slug string) (strin
 }
 
 const listCourseHistory = `-- name: ListCourseHistory :many
-SELECT c.slug AS slug, cs.status AS status,
-       CASE WHEN cs.status = 'completed' THEN c.step_count
-            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
-              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
-                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
-            ELSE 0 END AS completed_count,
-       cs.updated_at AS updated_at
-FROM course_session cs JOIN course c ON c.id = cs.course_id
-WHERE cs.user_id = $1
-UNION ALL
-SELECT c.slug AS slug,
-       CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
-       COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
-       cp.updated_at AS updated_at
-FROM course_progress cp JOIN course c ON c.id = cp.course_id
-WHERE cp.user_id = $1
-ORDER BY updated_at DESC
+SELECT attempt_id, slug, status, completed_count, updated_at, completed_at
+FROM (
+  SELECT cs.id::text AS attempt_id, c.slug AS slug, cs.status AS status,
+         CASE WHEN cs.status = 'completed' THEN c.step_count
+              WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+                THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                            WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+              ELSE 0 END AS completed_count,
+         cs.updated_at AS updated_at,
+         cs.completed_at AS completed_at
+  FROM course_session cs JOIN course c ON c.id = cs.course_id
+  WHERE cs.user_id = $1
+  UNION ALL
+  SELECT ''::text AS attempt_id, c.slug AS slug,
+         CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
+         COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
+         cp.updated_at AS updated_at,
+         cp.completed_at AS completed_at
+  FROM course_progress cp JOIN course c ON c.id = cp.course_id
+  WHERE cp.user_id = $1
+) h
+ORDER BY COALESCE(h.completed_at, h.updated_at) DESC
 `
 
 type ListCourseHistoryRow struct {
-	Slug           string    `json:"slug"`
-	Status         string    `json:"status"`
-	CompletedCount int32     `json:"completed_count"`
-	UpdatedAt      time.Time `json:"updated_at"`
+	AttemptID      string             `json:"attempt_id"`
+	Slug           string             `json:"slug"`
+	Status         string             `json:"status"`
+	CompletedCount int32              `json:"completed_count"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	CompletedAt    pgtype.Timestamptz `json:"completed_at"`
 }
 
 // Courses this student has TOUCHED, newest activity first, across BOTH runtime
@@ -291,6 +300,15 @@ type ListCourseHistoryRow struct {
 // step_count; a finished session reads full step_count), a legacy course reads
 // course_progress.completed_ordinals — so the history list shows a live ring for
 // 2.0 courses too, not a stuck 0.
+// Since 0077 this is a per-ATTEMPT feed: one row per course_session row, so a
+// relearned course shows each finished run as its own record. attempt_id is the
+// session id (a 2.0 attempt's report is fetched by it); ” for a legacy course.
+// completed_at is the FROZEN completion date (NULL while in progress). Ordered by
+// COALESCE(completed_at, updated_at) DESC — a finished attempt sorts by its fixed
+// completion time, an in-progress one by last activity.
+// The UNION is wrapped so ORDER BY can use an EXPRESSION over the columns (a
+// post-set-operation ORDER BY may only reference output column names/positions,
+// not COALESCE(...) directly — SQLSTATE 0A000 otherwise).
 func (q *Queries) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]ListCourseHistoryRow, error) {
 	rows, err := q.db.Query(ctx, listCourseHistory, userID)
 	if err != nil {
@@ -301,10 +319,12 @@ func (q *Queries) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]Li
 	for rows.Next() {
 		var i ListCourseHistoryRow
 		if err := rows.Scan(
+			&i.AttemptID,
 			&i.Slug,
 			&i.Status,
 			&i.CompletedCount,
 			&i.UpdatedAt,
+			&i.CompletedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -317,16 +337,20 @@ func (q *Queries) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]Li
 }
 
 const listCourseProgressForUser = `-- name: ListCourseProgressForUser :many
-SELECT c.slug AS slug,
-       CASE WHEN cs.status = 'completed' THEN 'completed' ELSE 'in-progress' END AS status,
-       CASE WHEN cs.status = 'completed' THEN c.step_count
-            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
-              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
-                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
-            ELSE 0 END AS completed_count,
-       cs.updated_at AS updated_at
-FROM course_session cs JOIN course c ON c.id = cs.course_id
-WHERE cs.user_id = $1
+SELECT slug, status, completed_count, updated_at FROM (
+  SELECT DISTINCT ON (c.slug)
+         c.slug AS slug,
+         CASE WHEN cs.status = 'completed' THEN 'completed' ELSE 'in-progress' END AS status,
+         CASE WHEN cs.status = 'completed' THEN c.step_count
+              WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+                THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                            WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+              ELSE 0 END AS completed_count,
+         cs.updated_at AS updated_at
+  FROM course_session cs JOIN course c ON c.id = cs.course_id
+  WHERE cs.user_id = $1
+  ORDER BY c.slug, cs.created_at DESC
+) latest_session
 UNION ALL
 SELECT c.slug AS slug,
        CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
@@ -360,6 +384,10 @@ type ListCourseProgressForUserRow struct {
 // counts 0 rather than erroring. status is normalized here to the two values the
 // catalog actually renders ('completed' / 'in-progress'), never the runtime's
 // five-state session status.
+// Since 0077 a course can hold several attempts; the catalog ring reflects the
+// CURRENT (newest) attempt, so the session leg is DISTINCT ON (slug) newest-first
+// — one row per course, not one per attempt (ListCourseHistory is the per-attempt
+// feed).
 func (q *Queries) ListCourseProgressForUser(ctx context.Context, userID uuid.UUID) ([]ListCourseProgressForUserRow, error) {
 	rows, err := q.db.Query(ctx, listCourseProgressForUser, userID)
 	if err != nil {
