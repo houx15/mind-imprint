@@ -4,6 +4,28 @@ import { coursesSegments } from "@/tour/segments/courses";
 import { fullJourney } from "@/tour/journey";
 import type { TourNavContext } from "@/tour/types";
 
+/** A fully-stubbed TourNavContext; pass a mutator to override specific setters
+ *  with instrumented spies (P7 Task 9). */
+function makeNav(mutate?: (n: TourNavContext) => void): TourNavContext {
+  const nav: TourNavContext = {
+    setTab: vi.fn(),
+    openCourse: vi.fn(),
+    setCoursesSub: vi.fn(),
+    openDemoProject: vi.fn(),
+    setStudioRoom: vi.fn(),
+    openDemoReport: vi.fn(),
+    setReadingView: vi.fn(),
+    openDemoReadingRoom: vi.fn(),
+    setWritingView: vi.fn(),
+    selectRefPanelTab: vi.fn(),
+    setPlanView: vi.fn(),
+    openSearchCard: vi.fn(),
+    markDemoNodeRead: vi.fn(),
+  };
+  mutate?.(nav);
+  return nav;
+}
+
 describe("projects segments", () => {
   it("are well-formed: unique step ids, non-empty text, valid advance", () => {
     const ids = new Set<string>();
@@ -165,15 +187,85 @@ describe("projects segments", () => {
     for (const s of seg.steps) expect(s.placement).not.toBe("center");
   });
 
-  // P6 Task 7 · reading-warren ends with a REAL action step (drill into a
-  // question node) whose actionEvent targets a real anchor selector.
-  it("reading-warren-4 is an action step clicking the real warren-question anchor", () => {
+  // P7 Task 9 · the exploration walk's single reachable ACTION step is the
+  // drill-into-a-question gesture (reading-warren-6): clicking a real
+  // warren-question root card zooms into its Level-2 layer. Every other
+  // exploration beat is a "next" step (spotlight or narrated) — an action gated
+  // on the selection-only find controls would dead-end the tour.
+  it("reading-warren has exactly one action step, the real warren-question drill-in", () => {
     const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
-    const step = seg.steps.find((s) => s.id === "reading-warren-4")!;
-    expect(step.advance).toBe("action");
+    const actions = seg.steps.filter((s) => s.advance === "action");
+    expect(actions.length).toBe(1);
+    const step = actions[0]!;
+    expect(step.id).toBe("reading-warren-6");
     expect(step.actionEvent).toEqual({ selector: '[data-tour="warren-question"]', type: "click" });
     expect(step.anchor).toBe('[data-tour="warren-question"]');
     expect(step.placement).not.toBe("center");
+  });
+
+  // P7 Task 9 · the exploration walk spotlights the real search/needs controls
+  // and opens the static 检索卡 modal (openSearchCard) — all reachable read-only.
+  it("reading-warren spotlights search-card-trigger + needs-resources and opens 检索卡", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
+    const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
+    expect(byId("reading-warren-4").anchor).toBe('[data-tour="search-card-trigger"]');
+    expect(byId("reading-warren-5").anchor).toBe('[data-tour="needs-resources"]');
+
+    const cardStep = byId("reading-warren-9");
+    expect(cardStep.anchor).toBe('[data-tour="search-card"]');
+    expect(cardStep.placement).not.toBe("center");
+    const calls: string[] = [];
+    cardStep.onEnter?.(makeNav((n) => (n.openSearchCard = vi.fn(() => calls.push("openSearchCard")))));
+    expect(calls).toContain("openSearchCard");
+  });
+
+  // P7 Task 9 · 管理 walk drives the plan room to 甘特图 then 活动日志 via setPlanView.
+  it("plan-manage lands on the gantt then the activity-log view via setPlanView", () => {
+    const seg = projectsSegments.find((s) => s.id === "plan-manage")!;
+    const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
+    expect(byId("plan-manage-3").anchor).toBe('[data-tour="manage-activity-log"]');
+
+    const gantt: unknown[] = [];
+    byId("plan-manage-2").onEnter?.(makeNav((n) => (n.setPlanView = vi.fn((v) => gantt.push(v)))));
+    expect(gantt).toContain("gantt");
+
+    const log: unknown[] = [];
+    byId("plan-manage-3").onEnter?.(makeNav((n) => (n.setPlanView = vi.fn((v) => log.push(v)))));
+    expect(log).toContain("log");
+  });
+
+  // P7 Task 9 · after 精读, the walk returns to the graph and client-badges the
+  // just-read node (markDemoNodeRead) so its 已读 badge is a real spotlight,
+  // then points at the top view-toggle.
+  it("reading-nodedone badges the read node then spotlights the view toggle", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-nodedone")!;
+    const steps = seg.steps;
+    expect(steps[0]!.anchor).toBe('[data-tour="warren-node-read"]');
+    expect(steps[1]!.anchor).toBe('[data-tour="reading-viewtoggle"]');
+    for (const s of steps) expect(s.placement).not.toBe("center");
+
+    const calls: Array<[string, unknown]> = [];
+    steps[0]!.onEnter?.(
+      makeNav((n) => {
+        n.setReadingView = vi.fn((v) => calls.push(["setReadingView", v]));
+        n.markDemoNodeRead = vi.fn((id) => calls.push(["markDemoNodeRead", id]));
+      }),
+    );
+    expect(calls).toContainEqual(["setReadingView", "graph"]);
+    expect(calls).toContainEqual(["markDemoNodeRead", "00000000-0000-0000-0000-000000000290"]);
+  });
+
+  // P7 Task 9 · the 文献库 walk spotlights the real list controls (all render
+  // read-only: add button, default-selected preview panel, enter-reading).
+  it("reading-library spotlights add / preview / enter-reading, none centered", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-library")!;
+    const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
+    expect(byId("reading-library-2").anchor).toBe('[data-tour="library-add"]');
+    expect(byId("reading-library-3").anchor).toBe('[data-tour="library-preview"]');
+    expect(byId("reading-library-4").anchor).toBe('[data-tour="library-enter-reading"]');
+    for (const id of ["reading-library-2", "reading-library-3", "reading-library-4"]) {
+      expect(byId(id).placement).not.toBe("center");
+    }
   });
 
   // P6 Task 7 · the deeper writing walk spotlights the real 片段引导 / 批注 /
