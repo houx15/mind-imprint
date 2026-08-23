@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	. "mindimprint/api/internal/api"
@@ -373,6 +374,45 @@ func TestGetStudioStateDemoProjectIsRetrospective(t *testing.T) {
 	}
 	if st.Stage != "retrospective" {
 		t.Fatalf("demo studio-state.stage: want %q, got %q — %s", "retrospective", st.Stage, rr.Body.String())
+	}
+}
+
+// TestGetDraftDemoEssayHasRealNewlines verifies migration 0085: the seeded
+// demo essay's edit_buffer content (…02f0, 0082) must contain REAL newline
+// characters between paragraphs, not the literal 4-character sequence \n\n.
+// 0082's `||` concatenation had only its first segment as an E'...' escape
+// string and every following segment as a plain '...' literal, so under
+// standard_conforming_strings the \n\n inside those plain segments was stored
+// as literal backslash-n-backslash-n rather than a real line break — the demo
+// essay rendered with visible "\n\n" in the writing room and reading views
+// (this is demo-seed-only; real finished projects store real typed newlines).
+// Driven as a non-owner GET (demo is world-readable, per TestDemoProjectReadOnly).
+func TestGetDraftDemoEssayHasRealNewlines(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-draft-newlines-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects/"+demoProjectID+"/draft", nil), otherCookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("demo GET /draft: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var draft struct {
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &draft); err != nil {
+		t.Fatalf("decode draft: %v — body=%s", err, rr.Body.String())
+	}
+	if draft.Content == "" {
+		t.Fatalf("demo draft: want non-empty essay content, got empty")
+	}
+	if !strings.Contains(draft.Content, "\n") {
+		t.Fatalf("demo draft: want a real newline between paragraphs, got none — body=%s", draft.Content)
+	}
+	if strings.Contains(draft.Content, `\n`) {
+		t.Fatalf("demo draft: want NO literal backslash-n substring, but content still contains it — body=%s", draft.Content)
 	}
 }
 
