@@ -152,19 +152,34 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-warren-4",
-        // No anchor: `explore-keyword` only renders inside a SELECTED question
-        // node's find-actions (ExplorationSidebar.tsx NodePanel) — the demo
-        // graph starts with nothing selected, so it can't resolve here without
-        // simulating a click. Centered per the brief's fallback ruling.
-        placement: "center",
-        title: "AI 帮你想关键词",
-        text: "在阅读区，选中一个问题节点，印记会帮你想检索关键词；有时还需要你把正文粘进来，因为 AI 拿不到全文。",
-        advance: "next",
+        // REAL, reachable action: the map's root question cards carry
+        // `warren-question`; clicking one zooms into that question (Level-2,
+        // read-only — no server write). This is the best-effort real spotlight
+        // of the "find sources" gesture the search flow starts from.
+        anchor: '[data-tour="warren-question"]',
+        placement: "bottom",
+        text: "点开一条问题线索，钻进去——印记会顺着这个问题，帮你补充相关来源。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="warren-question"]', type: "click" },
       },
       {
         id: "reading-warren-5",
+        // Fallback (centered) for the search + 采纳/丢弃 flow. The live find
+        // controls (`explore-keyword`/`explore-find`) + candidate panel
+        // (`explore-suggestions`) only render after a node is SELECTED inside
+        // the Level-2 mindmap, which the tour nav can't drive (no selection
+        // setter; Level-2 nodes carry no `warren-*` anchor). So we narrate the
+        // step honestly instead of dead-ending an action on an unreachable
+        // anchor. The candidate cards show 标题 / 作者·年份·期刊 / 摘要.
         placement: "center",
-        text: "点开一篇文献，就能「进入阅读室」深读它——真正逐句消化它、和它对话的地方。",
+        title: "印记建议，你来决定",
+        text: "钻进去后，用关键词或「找相似文献」让印记补充来源。它给出的每条候选都带着**标题、作者·年份·期刊、摘要**——采纳还是丢弃，由你说了算，印记只负责建议。",
+        advance: "next",
+      },
+      {
+        id: "reading-warren-6",
+        placement: "center",
+        text: "把一条来源采纳进来后，点「进入阅读室」就能逐句深读它——那是下一站。",
         advance: "next",
       },
     ],
@@ -173,21 +188,46 @@ export const projectsSegments: TourSegment[] = [
     id: "reading-room",
     name: "精读一篇资料",
     steps: [
-      // Fallback path: real 精读 immersive open isn't available this slice
-      // (openDemoReadingRoom() just calls setReadingView("list")). Tightened
-      // from 4 centered steps to 2, explicitly framed as "already read" so it
-      // doesn't imply we're standing inside a live 精读 view.
+      // Real-scene 精读: `openDemoReadingRoom()` (P6, Task 5) opens the REAL
+      // immersive Reading Room on the demo's Nature paper as a read-only replay
+      // (seeded transcript + demoMode; every write path disabled). All five
+      // rr-* anchors render in demoMode (onSaveNote is still passed, so
+      // rr-notes mounts; its textarea is merely disabled).
       {
         id: "reading-room-0",
-        placement: "center",
-        title: "精读一篇资料时",
-        text: "在示例项目里，这篇资料已经读完、收进了图书馆。精读一篇资料时，正文在中间，你可以像聊天一样在旁边跟 AI 讨论它——划句即问、召唤思维卡、随手记笔记。",
+        onEnter: (nav) => nav.openDemoReadingRoom(),
+        anchor: '[data-tour="rr-article"]',
+        placement: "left",
+        title: "精读室",
+        text: "这就是精读室——示例里，印记正陪 Phoebe 读那篇 Nature 论文。正文在这里，你可以逐句读、随时停下来追问。",
         advance: "next",
       },
       {
         id: "reading-room-1",
-        placement: "center",
-        text: "读完点「完成精读」，它就带着你的笔记收进文献库。",
+        anchor: '[data-tour="rr-chat"]',
+        placement: "right",
+        text: "一边读一边问印记：划一句、点一段，就能就这里和它讨论。示例里能看到用 CRAAP 透镜逐条盘问来源的真实对话。",
+        advance: "next",
+      },
+      {
+        id: "reading-room-2",
+        anchor: '[data-tour="rr-deck"]',
+        placement: "right",
+        text: "卡住时，从「透镜库」召一张思维卡，用一套现成的方法拆解这篇来源——比如溯源、辨可信度。",
+        advance: "next",
+      },
+      {
+        id: "reading-room-3",
+        anchor: '[data-tour="rr-notes"]',
+        placement: "left",
+        text: "「我的笔记」是你自己的空间——随手记下想法、疑问、要引用的点。它只属于你，不会喂给评估。",
+        advance: "next",
+      },
+      {
+        id: "reading-room-4",
+        anchor: '[data-tour="rr-finish"]',
+        placement: "bottom",
+        text: "读完点「完成这篇」，它就带着你的笔记和判断收进文献库，写作时随手可取。",
         advance: "next",
       },
     ],
@@ -235,8 +275,13 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-2",
-        placement: "center",
-        text: "写作时，印记会用思维卡在关键处陪你想——比如帮你检查论证、补反例，一次只提一个问题，不打断你的思路。",
+        // 铁律①: describe the card as SCAFFOLDING her own thinking — never as
+        // writing body text. (In the finished demo the essay is locked, so this
+        // 片段 guide may not render and the step degrades to a centered bubble;
+        // the copy reads correctly either way.)
+        anchor: '[data-tour="writing-aicard"]',
+        placement: "right",
+        text: "在「片段」里，印记把每个论证部分拆成一个个可填的引导框，帮你想清楚每一段要论证什么。**正文始终是你自己写的**——它只陪你想，绝不替你落笔。",
         advance: "next",
       },
       {
@@ -244,6 +289,26 @@ export const projectsSegments: TourSegment[] = [
         anchor: '[data-tour="writing-refpanel"]',
         placement: "right",
         text: "左边这栏是**引用面板**，把你在阅读房间留下的笔记和批注直接摆在手边，写到哪引到哪，不用来回切换窗口找资料。",
+        advance: "next",
+      },
+      {
+        id: "writing-4",
+        // Real seeded 批注 (migration 0083). Lives in the panel's「AI批注」tab —
+        // not the default tab, so in the demo it may sit behind a tab click and
+        // the step degrades to centered; the copy stands on its own.
+        anchor: '[data-tour="writing-annotations"]',
+        placement: "right",
+        text: "印记通读你的初稿后，会在这里留下分层批注：**绿色**是亮点、**蓝色**是建议、**红色**是要处理的问题。点一条，就跳到正文里对应的那句话。",
+        advance: "next",
+      },
+      {
+        id: "writing-5",
+        // The 完成写作 lock. In the finished demo this button is replaced by
+        // 「重新打开写作」, so the anchor may not resolve and the step degrades to
+        // a centered bubble — the copy still describes the real lock behavior.
+        anchor: '[data-tour="writing-finish"]',
+        placement: "bottom",
+        text: "写完初稿，点「完成写作」会**锁定初稿、解锁回顾**——别担心，之后仍可「重新打开写作」继续改。",
         advance: "next",
       },
     ],
@@ -264,6 +329,18 @@ export const projectsSegments: TourSegment[] = [
         anchor: '[data-tour="reflection-prompts"]',
         placement: "top",
         text: "回顾几个复盘问题，帮你把这个项目里学到的东西沉淀下来，而不是写完就忘。回答完、确认收尾后，项目就进入「完成」状态。",
+        advance: "next",
+      },
+      {
+        id: "reflection-2",
+        // The point of no return. In the finished demo this button is replaced
+        // by the archived-state label, so the anchor may not resolve and the
+        // step degrades to a centered bubble — the copy still carries the real
+        // warning (the student's answer to "after you finish, can I still
+        // change my writing?").
+        anchor: '[data-tour="review-finalize"]',
+        placement: "top",
+        text: "全部回顾写完、确认无误后，点「定稿并开始评估」。**注意：定稿后，正文和回顾都会锁定、无法再修改**，印记会据此生成过程评估——所以一定是真的改完了，再定稿。",
         advance: "next",
       },
     ],
