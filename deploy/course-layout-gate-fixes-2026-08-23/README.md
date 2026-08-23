@@ -1,8 +1,8 @@
 # 2026-08-23（第二批）· 课程「卡住 / 显示不全」批量排查
 
-九条用户报告，全部复现并定位。和上一批一样，**先判断每个问题来自课程数据还是运行时机制**再决定改哪一边。
-这一批**九个全部是课程数据问题**——运行时没有新 bug，昨天那两个运行时修复已经在线上生效
-（线上 CSS 已含 `align-self:stretch`，已核对）。
+十条用户报告，全部复现并定位。和上一批一样，**先判断每个问题来自课程数据还是运行时机制**再决定改哪一边。
+其中九个是**课程数据问题**——运行时没有新 bug，昨天那两个运行时修复已经在线上生效
+（线上 CSS 已含 `align-self:stretch`，已核对）。第十个（course-17）需要一个**新的作者层能力**，见第三节。
 
 | # | 课程 | 位置 | 症状 | 根因 | 处理 |
 |---|---|---|---|---|---|
@@ -15,8 +15,9 @@
 | 7 | course-23 影像侦探局 | slice 17 | 拖到最后、答了题仍过不去 | 80 分钟影片，必须真的触发 `ended` + 两个必答 cue | 定义 T6 |
 | 8 | course-04 FLICC | slice 18 | 「提交」点不动 | 自由填空 `submit-correct`：答对才算完成 | 定义 T2 |
 | 9 | course-30 提示词 | slice 6 | 下一步永远灰的 | **答题顺序陷阱**（已线上复现） | 定义 T3 |
+| 10 | course-17 数据分析 | slice 9 / 10（及另外五屏） | PPT 大图太小 | 图和题挤同一屏 | 新能力 `presentation:"modal"` + 拆屏 |
 
-course-17（数据分析）slice 9/10 的改版请求见最后一节，**未包含在本批**。
+course-17（数据分析）的改版是第 10 项，见第三节——它需要一个新的运行时能力，已一并做掉。
 
 ---
 
@@ -123,6 +124,11 @@ slot 形状和这个比例不一样时，交互就把自己装进信箱框：**7
 
 ## 发布
 
+> ⚠️ **顺序有硬约束。** `course-17` 的新定义带 `presentation: "modal"`，而 block schema 是 `.strict()`，
+> `CoursePlayer` 在挂载前会跑 `validateCourseDefinition`——**当前线上的前端不认识这个字段，会直接把整门课判为
+> 无效并渲染错误页**。所以 **course-17 必须等前端发版之后再 PUT**。
+> 其余 12 门课的门禁改动只用到既有字段，线上这版前端就能吃，先后无所谓。
+
 ```bash
 # 1. 资产（沿用原 object key：不动 definition、不改 hash、不重置进度）
 python3 deploy/course-layout-gate-fixes-2026-08-23/upload_assets.py --apply
@@ -137,8 +143,14 @@ python3 deploy/course-gate-fixes-2026-08-23/cdn_refresh.py \
   https://mind-oss.uni-robot.cn/courses/course-24/interactions/html/ \
   https://mind-oss.uni-robot.cn/courses/follow-the-money-fossil-fuel/interactions/html/
 
-# 3. 定义（⚠️ 会重置这 12 门课的进行中会话）
+# 3. 定义 · 门禁（⚠️ 会重置这 12 门课的进行中会话）
 python3 deploy/course-layout-gate-fixes-2026-08-23/fix_gates.py --apply
+
+# 4. 前端发版 —— 必须在第 5 步之前
+bash .deploy-local/deploy.sh web
+
+# 5. 定义 · course-17 改版（依赖第 4 步；同样会重置 course-17 的会话）
+python3 deploy/course-layout-gate-fixes-2026-08-23/fix_course17.py --apply
 ```
 
 回滚：
@@ -164,15 +176,31 @@ python3 deploy/course-layout-gate-fixes-2026-08-23/patch_layout.py --revert   # 
 
 ---
 
-## 未包含：course-17（数据分析）slice 9 / 10 改版
+## 三、course-17：把 PPT 大图还给屏幕
 
-现状：slice 9 和 slice 10 都是一个 `grid` 布局里竖着堆三块——
-richText 卡片、**两张** PPT 尺寸大图（`slide-14/15`、`slide-16/17`）、一道三选一。
+课 17 有 20 张幻灯片尺寸的大图，其中**七屏**把图和题放在同一个屏幕上。
+`split-horizontal` 里图只剩半栏，`grid` 里（slot 是竖着堆的）四块各占四分之一——
+图根本读不清。这和第一节那个交互自锁画框是同一个毛病，只不过这次是**布局**在干这件事。
 
-用户要求：拆成三屏——第一屏一张图，第二屏另一张图，第三屏左 richText 右选项；
-并且因为图是 PPT 尺寸，选项应当**以模态弹出**。
+于是给运行时加了一个作者层能力（契约 + 渲染器 + CSS + 测试，见 `course-authoring-v1.7.0`）：
 
-阻塞点：**运行时目前没有「把某个 block 渲染成模态」这个作者层能力。**
-`InteractionModal` / `PdfModal` / 图片 lightbox 都存在，但都是渲染器内部行为，
-`BlockDefinition` 上没有 `presentation: "modal"` 之类的字段。所以这一项需要
-**契约 + 渲染器 + CSS + 测试**的改动，不是纯数据改动——已单独提出，等确认范围后再做。
+**`presentation: "inline" | "modal"`**（`singleChoice` / `fillBlank`，可选，默认 `inline`）
+
+`modal` 把题目放进覆盖在整屏之上的对话框，图因此拿到**整个 slot**。
+槽里只留一行启动器（`回答这道题` / `已完成 · 再看一次`），所以题目既不会看不见、也不会变成死路——
+学生可以用**关闭**收起对话框去看图，想看题再点开。
+工作流侧完全不变：事件、完成规则、落库 payload 与 `inline` 完全一致。
+
+> 一个坑：`presentation` 在 `images` 上早就存在，含义是**图片项的排布**
+> （`single` / `side-by-side` / `gallery`）；在测评 block 上才是这里的 inline/modal。
+> 两者永远不会出现在同一个 block 上。
+
+`fix_course17.py` 做两件事：
+
+- **五屏（#4 #7 #11 #12 #13）**：一图一题，布局改成 `full`（图占满），题标 `presentation: "modal"`。
+- **两屏（#9 #10）**：richText + **两张**大图 + 一道题挤在一个 `grid` 里 → 各拆成三屏：
+  一张图、另一张图、然后左 richText 右选项（`split-horizontal 1:1`）。
+  两张图那两屏是**进入即完成**的纯阅读页，下一步立刻可用。
+
+课程从 13 屏变成 17 屏（`step_count` 由 PUT 自动重算）。
+**这一项依赖前端发版**——见上面「发布」里的顺序约束。
