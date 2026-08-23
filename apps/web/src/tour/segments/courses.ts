@@ -26,7 +26,7 @@ export const coursesSegments: TourSegment[] = [
         onEnter: (nav) => { nav.setTab("courses"); nav.setCoursesSub("courses"); },
         anchor: '[data-tour="courses-categories"]',
         placement: "bottom",
-        text: "课程按主题分成了几类，你可以用这些标签快速筛选，找到当下最想练的那一类。",
+        text: "课程按主题分了几类——有的练**溯源与信息甄别**，有的练**论证与思辨结构**，有的练**研究方法**。用这些标签快速筛到你当下最想练的一类。",
         advance: "next",
       },
     ],
@@ -121,7 +121,7 @@ export const coursesSegments: TourSegment[] = [
         onEnter: (nav) => { nav.setTab("courses"); nav.setCoursesSub("gallery"); },
         anchor: '[data-tour="tujian-grid"]',
         placement: "center",
-        text: "这是你的**思维工具卡图鉴**。每张卡是一种思考方法，练过就会被点亮、攒起星星。",
+        text: "这是你的**思维工具卡图鉴**。每张卡是一种**可复用的思考方法**——比如 CRAAP 用来给资料做溯源体检、让步段用来处理反例。练过一次，卡就会被点亮、攒起星星。",
         advance: "next",
       },
       {

@@ -113,4 +113,32 @@ describe("projects segments", () => {
     expect(seg.steps.length).toBeLessThanOrEqual(2);
     for (const s of seg.steps) expect(s.placement).toBe("center");
   });
+
+  // P5 Task 6 · the evaluation-report segment spotlights all 9 real report
+  // sections in order, none of them centered (a `center` step never
+  // resolves its anchor — see TourRunner.tsx).
+  it("evaluation-report anchors #s1..#s9 in order, none centered", () => {
+    const seg = projectsSegments.find((s) => s.id === "evaluation-report")!;
+    const anchored = seg.steps.filter((s) => s.anchor);
+    expect(anchored.map((s) => s.anchor)).toEqual([
+      "#s1", "#s2", "#s3", "#s4", "#s5", "#s6", "#s7", "#s8", "#s9",
+    ]);
+    for (const s of anchored) expect(s.placement).not.toBe("center");
+  });
+
+  it("evaluation-report intro step has no anchor and stays centered", () => {
+    const seg = projectsSegments.find((s) => s.id === "evaluation-report")!;
+    const intro = seg.steps[0]!;
+    expect(intro.anchor).toBeUndefined();
+    expect(intro.placement).toBe("center");
+  });
+
+  // P5 Task 6 · 立题's 提问卡 step now shows the real static mock instead of
+  // a plain centered bubble; the mock owns its own header, so no Modal title.
+  it("forming-2 uses the question-card demoModal with no Modal title", () => {
+    const seg = projectsSegments.find((s) => s.id === "forming")!;
+    const step = seg.steps.find((s) => s.id === "forming-2")!;
+    expect(step.demoModal?.kind).toBe("question-card");
+    expect(step.demoModal?.title).toBeUndefined();
+  });
 });
