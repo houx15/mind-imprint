@@ -1344,3 +1344,68 @@
   border: 0;
   background: var(--course-surface);
 }
+
+/* ---------- §9.8: assessment blocks presented as a modal ----------
+ * A block authored `presentation: "modal"` answers in a dialog over the slice
+ * instead of taking slot height from the figure it belongs to. What stays in
+ * the slot is a compact launcher, so the question is never invisible and never
+ * a dead end: the student dismisses the dialog to study the figure and reopens
+ * it from here. The host collapses to nothing while the block is hidden, so a
+ * not-yet-revealed modal block costs the figure no space at all. */
+.course-block--modal-host {
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-height: 0;
+}
+
+.course-modal-host__launcher {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--course-accent-soft);
+  border-left: 3px solid var(--course-accent);
+  border-radius: var(--course-radius);
+  background: var(--course-accent-weak);
+  color: var(--course-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-modal-host__launcher:hover:not(:disabled) {
+  background: var(--course-surface);
+}
+
+.course-modal-host__launcher:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.course-modal-host__launcher[data-completed="true"] {
+  border-color: var(--course-border);
+  border-left-color: var(--course-faint);
+  background: var(--course-surface);
+}
+
+.course-modal-host__prompt {
+  min-width: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--course-secondary);
+}
+
+.course-modal-host__cta {
+  flex: 0 0 auto;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--course-accent);
+  white-space: nowrap;
+}
+
+.course-modal-host__launcher[data-completed="true"] .course-modal-host__cta {
+  color: var(--course-muted);
+}

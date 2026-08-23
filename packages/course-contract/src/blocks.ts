@@ -42,6 +42,25 @@ const submitCorrectOrExhausted = z
 export const SingleChoiceCompletionRule = z.discriminatedUnion("rule", [submitAny, submitCorrect, submitCorrectOrExhausted]);
 export const FillBlankCompletionRule = z.discriminatedUnion("rule", [submitAny, submitCorrect, submitCorrectOrExhausted]);
 
+/**
+ * §9.8 — how an assessment block occupies its slot.
+ *
+ * `inline` (the default, and what every existing block gets by omitting the
+ * field) renders the question in the slot alongside its siblings.
+ *
+ * `modal` renders it in a dialog over the slice instead. It exists for slides
+ * whose FIGURE needs the whole slot — a PPT-sized diagram is unreadable once a
+ * question is competing with it for vertical space, and shrinking the figure to
+ * make room is exactly the self-letterboxing that made these slides unusable in
+ * the first place. With `modal` the figure gets the full slot and the question
+ * arrives on top of it, the same shape the video cue modal already uses.
+ *
+ * It is a PRESENTATION choice only: the block's events, completion rule and
+ * recorded payload are identical either way, so a Workflow gating on it does
+ * not change.
+ */
+export const BlockPresentation = z.enum(["inline", "modal"]);
+
 // ---- block members ----
 export const TextBlock = z.object({ id: blockIdSchema, type: z.literal("text"), content: z.string() }).strict();
 
@@ -186,6 +205,7 @@ export const FillBlankBlock = z
     placeholder: z.string().optional(),
     assessment: FillBlankAssessment,
     completion: FillBlankCompletionRule,
+    presentation: BlockPresentation.optional(),
   })
   .strict();
 
@@ -197,6 +217,7 @@ export const SingleChoiceBlock = z
     options: z.array(ChoiceOption).min(2),
     assessment: SingleChoiceAssessment,
     completion: SingleChoiceCompletionRule,
+    presentation: BlockPresentation.optional(),
   })
   .strict();
 

@@ -1,8 +1,14 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at tag:** `course-authoring-v1.5.3` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
+**Pinned at tag:** `course-authoring-v1.7.0` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
+
+> **Update 2026-08-23 — `presentation: "modal"`, `aspectRatio: "fill"`, and the sizing/gate rules.**
+> Two additive contract fields (**§6.4**, **§6.2**) plus the two authoring rules that account for almost
+> every "the interaction is blank / won't scroll" and "下一步 is stuck" report we have seen:
+> **§6.5** (an interaction must never re-impose its own frame — 35 of 79 published interactions did) and
+> **§6.6** (never make *getting it right* the condition for moving on). Pin `course-authoring-v1.7.0`.
 
 > **Update 2026-08-22 — new block type `richText`.** A scrollable card of authored, static HTML+CSS carried **inline** in the definition (no OSS upload, no asset path) — the answer to "Markdown can't express the structure I need". Authoring guide: **§6.3**; contract summary: §1.4; the PUT-time rejection rules: §2.1. Lands next deploy; nothing else below changed.
 
@@ -27,6 +33,13 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 - **Vendored copy** of the same three package directories at that tag.
 
 When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog** (renderer-only unless a ⚠ marks a contract change):
+- **`course-authoring-v1.7.0`** — ⚠ **contract change (additive, backward-compatible).** Two new optional fields, plus the renderer fixes that make slot sizing honest.
+  - **`presentation` on `singleChoice` / `fillBlank`** — `"inline"` (default, i.e. omit it and nothing changes) or `"modal"`, which answers the question in a dialog over the slice so a slide-sized figure keeps the whole slot. Authoring guide: **§6.4**. Presentation only: events, completion rule and payload are identical, so a Workflow gating on `block.completed` needs no change.
+  - **`aspectRatio: "fill"` on `interactiveHtml`** — a new enum member meaning "no preferred shape". More importantly, **`aspectRatio` is no longer a host clamp at all**: whatever you declare, the host now hands the frame the entire slot and the sandboxed document scrolls itself. It used to size the block off the ratio, which cropped wide interactions in wide slots — often cutting off the interaction's own 完成 footer, which on an `after-completion` slice is a dead end. See **§6.2** / **§6.5**.
+  - **Read-only slices complete on entry.** A slice whose *initial* workflow step is itself terminal (the pure-reading page: `enterActions: [{type:"completeSlice"}]`) previously had that one completion swallowed, so `status` never became `completed` and 下一步 stayed grey forever. 49 authored slices were affected. This is the pattern **§6.6** now recommends for reading pages.
+  - No existing definition changes meaning; every document valid under v1.6.0 is valid here.
+- **`course-authoring-v1.6.0`** — ⚠ **contract change (additive).** New block type **`richText`**: a scrollable card of authored, STATIC HTML+CSS carried INLINE in the definition (no OSS asset, no upload round trip), for editorial structure Markdown can't express. Display-only — no `completion` rule, never completes a slice, contributes nothing to `collectAssetPaths`. Authoring guide: **§6.3**; PUT-time rejection rules: §2.1.
+- **`course-authoring-v1.5.4`** — renderer fix (no contract change). `.course-block--images` gets `flex: 1 1 auto`, completing the slot → wrapper → block height chain so short image groups center vertically instead of pinning to the top of their slot. After pinning, remove any temporary `.preview-stage .course-block--images { flex: 1 1 auto }` host override.
 - **`course-authoring-v1.5.3`** — renderer behavior (no contract change). **Empty slots now collapse.** A slot with zero authored blocks (e.g. a `split-horizontal 3:1` whose `right` slot has no `blockIds`) previously still reserved its grid track, stranding all content in a partial column beside a blank one — it read as "shoved to one side, not centered." The renderer now drops empty slots and sizes the grid to the slots that carry blocks, so a split-with-one-empty-half fills the whole region and centers. Every `CourseDefinition` still validates unchanged and all presets/ratios stay valid; only the *rendering* of a lopsided layout changes. **Note for generators:** an empty slot is no longer a spacer — if you want a partial-width column, that is not expressible via an empty split half (and the cleaner authoring for single-column content is `preset: full`). This does not narrow the contract; it makes the renderer degrade gracefully when a generator emits an empty half.
 - **`course-authoring-v1.5.2`** — renderer bugfix (no contract change). PDF "open" links now reliably open a **new tab** and no longer carry a `download` attribute. A cross-origin signed CDN URL made the browser ignore `download` and drop `target="_blank"`, navigating the **current** tab to the PDF; with no URL routing, a "back" click then left the course for the homepage. The header link + the error-state fallback are now `target="_blank" rel="noopener noreferrer"` (no `download`), so the course tab stays intact; the browser's own viewer in the new tab still offers download.
 - **`course-authoring-v1.5.1`** — renderer-visual only (no contract change; every `CourseDefinition` valid under v1.4.0 is unchanged, and **layout flexibility is untouched** — the full preset + ratio set, including `split-vertical`, stays exactly as before). This snapshot bundles all of the 2026-08-20 course-end polish:
@@ -87,7 +100,7 @@ layout = { preset: full | split-horizontal | split-vertical | grid,
            slots: [{ id, blockIds[] }] }                       // full→'main'; split→'left'/'right' or 'top'/'bottom'; grid→'cell-1..N'
 ```
 
-Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, **`richText`** (`html` string, optional `title`; static HTML+CSS carried inline — §6.3), `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3`, `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}`.
+Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, **`richText`** (`html` string, optional `title`; static HTML+CSS carried inline — §6.3), `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3|fill` — a HINT, not a clamp (§6.2), `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`); both assessment blocks take an optional `presentation: "inline"|"modal"` (§6.4). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}` — **do not author `submit-correct`**, it never completes until the answer is right (§6.6).
 
 `VideoInteractionDocument` (`packages/course-contract/src/videoInteraction.ts`): `{ schemaVersion:"1.1", video:{ blockId, source, durationSeconds, cues[] } }`; each cue `{ id, atSeconds≥0, pauseVideo, required, prompt, activity }`, activity reusing the same singleChoice/fillBlank assessment sub-schemas.
 
@@ -337,7 +350,7 @@ Note that a slot **stacks its `blockIds` vertically** (12px gap) and centers the
 **Media honours its natural aspect — match the slot shape to it.** Each media block fits to its own aspect (like `object-fit: contain`), it is never stretched, so the slot you give it should be the right *shape*, not just non-zero:
 - **PDF → wants a TALL slot.** A page is portrait; the viewer renders as a centred portrait page column. Best in a `split-horizontal` side (a full-height column beside your text/questions — the natural "reading + source" split) or, for a source-only slice, `full` (a centred document with side gutters). A wide-and-short slot (grid cell, `1fr` split side) makes the page tiny — prefer a tall slot, but note (v1.5.1) every PDF also carries a **放大阅读** control that opens it in a large popup, so a PDF in a smaller slot is still readable on demand.
 - **Video → wants a WIDE slot (16:9 / 4:3).** `full`, or the `2fr` side/`top` of a split. In a narrow slot it letterboxes with big side bars.
-- **Interactive HTML → wants a SQUARE-ish slot.** The block declares `1:1` or `4:3`; give it a slot near that shape (`full`, or a balanced `split`), not a long thin one.
+- **Interactive HTML → gets the WHOLE slot (changed 2026-08-23).** `aspectRatio` is an **authoring hint about the shape the interaction was designed for — it is no longer a host clamp**, and `fill` was added to the enum for "no preferred shape". Whatever you declare, the host hands the frame the entire slot (full width, full height) and the sandboxed document scrolls itself when its content is taller. Give it a slot near its natural shape if you can, but a mismatch no longer crops it. **The interaction itself must not re-impose a frame** — see §6.5, which is the single biggest source of "the interaction is blank / cut off / won't scroll".
 - **Images → click-to-enlarge is free (v1.5.0).** Every figure is clickable: it opens a lightbox where the learner can scroll-zoom and drag-pan the full image, so a detailed figure (a chart, a document scan) doesn't need an oversized slot — size the slot for the reading flow and let the learner enlarge on demand.
 
 **Split weights (`ratio`).** A split's `ratio` picks how the two tracks divide — seven weights, symmetric: `1:1` (balanced), `3:2` / `2:3` (gentle), `2:1` / `1:2` (weighted), `3:1` / `1:3` (strong). The first number is the `left`/`top` slot, the second is `right`/`bottom`. Tune it to the media: give a video a wider side (`2:1`/`3:1`), give a text-beside-PDF split a `1:2` so the PDF's tall column gets the room, and so on. `3:1` is the most lopsided allowed — the narrow side is a quarter, never a sliver.
@@ -390,6 +403,123 @@ Use them instead of hard-coded hexes and your card follows whichever accent the 
 **Limits.** `html` is capped at **64 KB** (`RICH_TEXT_MAX_CHARS`). If a card is longer than that, it is longer than one screen of reading — split it across slices.
 
 **Slot shape.** A reading card wants a **tall** slot: a `split-horizontal` side (the classic "card beside the figure/question"), or `full` for a single reference screen. It behaves well in a narrow column — it just scrolls sooner.
+
+### 6.4 `presentation: "modal"` — a question that doesn't steal the figure's screen (added 2026-08-23)
+
+**Why it exists.** A slide-sized figure needs the whole slot to be readable. Put a question on the same
+screen and the two fight for vertical space: in a `split-horizontal` the figure gets half a column, and in
+a `grid` a four-block slice gives each block a quarter. Shrinking the figure to make room is exactly the
+failure this batch was fixing.
+
+Any **`singleChoice` / `fillBlank`** block may declare:
+
+```jsonc
+{
+  "id": "chart-choice",
+  "type": "singleChoice",
+  "prompt": "这张图适合回答哪一类问题？",
+  "options": [ /* … */ ],
+  "assessment": { "mode": "graded", "correctOptionId": "compare" },
+  "completion": { "rule": "submit-any" },
+  "presentation": "modal"          // "inline" (default) | "modal"
+}
+```
+
+**What the student gets.** The figure takes the whole slot. The question opens by itself in a dialog over
+the slice the moment the Workflow enables it, and closes by itself once it completes, handing the screen
+back to the figure. What stays in the slot is a one-line launcher (`回答这道题` / `已完成 · 再看一次`), so
+the question is never invisible and never a dead end: the student can dismiss the dialog with **关闭** to
+study the figure and reopen it as often as they like.
+
+**It is presentation only.** Events, completion rule and recorded payload are identical to `inline`, so a
+Workflow gating on `block.completed` needs no change. One caveat: reopening a **completed** question
+remounts it read-only (so it can never emit a second `block.completed` and push the Workflow past where
+you authored it) — the reopened dialog therefore shows the question, not the feedback text.
+
+**Use it when** a slice pairs one PPT-sized figure with one question. **Don't** use it for a question that
+stands on its own (nothing to look at underneath — `inline` is clearer), and don't put two modal blocks on
+one slice.
+
+> ⚠️ `presentation` means different things on different block types. On **`images`** it selects the item
+> layout (`single` / `side-by-side` / `gallery`). On an **assessment** block it is this inline-vs-modal
+> axis. They never appear on the same block.
+
+### 6.5 Never let an interaction re-impose its own frame (added 2026-08-23)
+
+This one rule accounted for **35 of 79 published interactions** carrying content the student could not
+reach. The host already gives an `interactiveHtml` block the whole slot and lets the document scroll; an
+interaction that *also* sizes itself fights that and loses. Two shapes, both real:
+
+**① Scaling a fixed design box from a corner while an ancestor centres it.**
+
+```css
+/* ✗ DO NOT */
+body   { display:flex; align-items:center; justify-content:center; overflow-x:hidden }
+#stage { width:1024px; height:768px; transform-origin:top left }
+```
+```js
+stage.style.transform = "scale(" + Math.min(innerWidth/1024, innerHeight/768) + ")";
+document.body.style.width  = 1024*s + "px";
+document.body.style.height =  768*s + "px";
+```
+
+Flex centres the box **before** the transform, then the transform shrinks it away from that centre — so
+for any scale below 1 the content is dragged off the top-left, and because the body is sized to the
+*scaled* footprint there is nothing left to scroll back to. Measured on one real slide: 12px lost at
+1440×900, 132px at 1280×720, and effectively the entire interaction at a 400px-tall frame.
+
+If you must scale a fixed design, centre the **post-transform** footprint:
+
+```css
+/* ✓ DO */
+html   { height:100%; display:flex; align-items:center; justify-content:center }
+body   { display:block; position:relative; flex:0 0 auto }   /* size set by fit() */
+#stage { position:absolute; top:0; left:0; transform-origin:top left }
+```
+
+**② Pinning an `aspect-ratio` on a wrapper that also clips.**
+
+```css
+/* ✗ DO NOT */
+.canvas { width:min(100%,1024px); aspect-ratio:4/3; overflow:hidden }
+```
+
+In a slot whose shape differs from that ratio the interaction letterboxes itself — measured **386px of an
+available 750px** in a split right-hand slot — and anything past the ratio box is clipped with no way to
+scroll to it. When the ratio box comes out *taller* than the frame, centring pushes its top off-screen and
+`overflow:hidden` makes that unreachable too.
+
+```css
+/* ✓ DO */
+.canvas { width:100%; height:100%; overflow:auto }   /* fill the slot; scroll if taller */
+```
+
+**The rule:** size to `100%` of what you are given, scroll when content is taller, and let `aspectRatio`
+(including the new `fill`) be the only thing that expresses a shape preference. Check your interaction at
+**1280×720 and 1200×520**, not just at your own window size — every one of these failures is invisible at
+1440×900.
+
+### 6.6 Gates: never make "getting it right" the condition for moving on (added 2026-08-23)
+
+A slice with `manualNext: "after-completion"` enables 下一步 only when the Workflow reaches
+`completeSlice`. Five authored patterns can make that unreachable. All five were found in published
+courses; the first three trap the student **permanently**.
+
+| ✗ Pattern | What happens | ✓ Instead |
+|---|---|---|
+| `completion.rule: "submit-correct"` | Unlimited attempts and **no completion until the answer is right**. On a free-text `fillBlank` that is effectively unwinnable. | `submit-any`, or `submit-correct-or-exhausted` with `maxAttempts`. Correctness still grades, still gives feedback, still lands in the payload. |
+| A transition on **`answer.correct`** | Anyone who answers wrong is stranded: the block locks or exhausts, `answer.correct` never comes, and the slice has no other exit. | Transition on **`block.completed`**. Use `answer.correct` only for an *extra* branch that also has a `block.completed` path. |
+| Sequential `block.completed` over blocks that are **all enabled at once** (`wait-A → wait-B → finish`) | Students don't answer in your order. Answering B first **locks** B before the Workflow ever waits on it, so B's event can never fire again. | Either reveal them one at a time (`enable` B only in the step that waits for it), or author the order-independent graph (a state per completed-set). |
+| A slice whose only exit is **`narration.ended`**, with the interaction `enabledBlockIds: []` | The interaction is on screen but dead for the whole ~45s narration. Students click it, nothing happens, they leave. | Enable it from the start and gate on the interaction. Narration still plays — it just isn't the gate. |
+| A reading page gated `narration.ended → timer.elapsed(30–80s)` | A hidden countdown with 下一步 greyed out and nothing on screen explaining why. Reads as broken. | Author it as a pure-reading slice: one step whose `enterActions` are `completeSlice`. 下一步 is live at once and the student reads for as long as they like. |
+
+Two more, same spirit: **don't gate on a passive reference block** (an unmarked 完成 button students have
+no reason to press), and **make guidance text derive from the SAME condition the button gates on** —
+telling a student a requirement is met while the button is grey is worse than saying nothing.
+
+For video, `video-ended-and-interactions-completed` requires the real `ended` event **and** every required
+cue. Seeking past a cue leaves it unfired, so on a long film the slice becomes unreachable — if a video
+must be watched, give the slice a visible `student.continue` exit as well.
 
 ---
 
