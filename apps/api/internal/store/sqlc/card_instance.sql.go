@@ -15,7 +15,7 @@ import (
 const countCompletedCardUsesByUser = `-- name: CountCompletedCardUsesByUser :one
 SELECT count(*)::int FROM (
   SELECT ci.id FROM card_instances ci JOIN project p ON p.id = ci.project_id
-  WHERE ci.project_id IS NOT NULL AND ci.status = 'completed'
+  WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND NOT p.is_demo
     AND p.user_id = $1 AND ci.card_id = $2
 ) rows
 `
@@ -43,6 +43,13 @@ type CountCompletedCardUsesByUserParams struct {
 // ungated surface here would make the ladder's premise false, so this query
 // counts project-scope completions only — see the spec's own §3 for the full
 // reasoning. A skip is a decline and does not count either way.
+//
+// AND NOT p.is_demo: the hand-authored demo project (…0200, P7) seeds a
+// status='completed' CRAAP card_instance purely to derive reading-room
+// anchors (projectMaterials/anchorsByMaterial, which counts it regardless —
+// it filters only 'skipped', not by is_demo) — it is a showcase fixture, not
+// practice the seed user actually did. Left uncounted here it would inflate
+// her real guidance-fade/proficiency by one completion she never performed.
 func (q *Queries) CountCompletedCardUsesByUser(ctx context.Context, arg CountCompletedCardUsesByUserParams) (int32, error) {
 	row := q.db.QueryRow(ctx, countCompletedCardUsesByUser, arg.UserID, arg.CardID)
 	var column_1 int32
@@ -399,7 +406,7 @@ func (q *Queries) ListCollectedCardsByUser(ctx context.Context, userID uuid.UUID
 const listProjectCardCompletionsByUser = `-- name: ListProjectCardCompletionsByUser :many
 SELECT ci.card_id AS card_id, count(*)::int AS completions
 FROM card_instances ci JOIN project p ON p.id = ci.project_id
-WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND p.user_id = $1
+WHERE ci.project_id IS NOT NULL AND ci.status = 'completed' AND NOT p.is_demo AND p.user_id = $1
 GROUP BY ci.card_id
 `
 
@@ -414,6 +421,9 @@ type ListProjectCardCompletionsByUserRow struct {
 // CompleteCard), unlike the chat scope which writes completed
 // unconditionally. Mirrors CountCompletedCardUsesByUser's scoping but grouped
 // over every card at once, for the 工具卡图鉴 proficiency computation.
+// AND NOT p.is_demo: same demo-fixture exclusion as CountCompletedCardUsesByUser
+// above — a showcase card_instance on the hand-authored demo project must not
+// count toward the 图鉴's genuine-practice signal either.
 func (q *Queries) ListProjectCardCompletionsByUser(ctx context.Context, userID uuid.UUID) ([]ListProjectCardCompletionsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listProjectCardCompletionsByUser, userID)
 	if err != nil {
