@@ -15,6 +15,8 @@ const nav: TourNavContext = {
   openDemoReadingRoom: vi.fn(),
   setWritingView: vi.fn(),
   selectRefPanelTab: vi.fn(),
+  setPlanView: vi.fn(),
+  openSearchCard: vi.fn(),
 };
 
 function Harness({ seg }: { seg: TourSegment }) {

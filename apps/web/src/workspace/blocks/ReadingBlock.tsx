@@ -89,6 +89,8 @@ export function ReadingBlock({
   aiSide,
   forceView,
   onForceViewConsumed,
+  forceOpenSearchCard,
+  onForceOpenSearchCardConsumed,
 }: {
   projectId: string;
   title: string;
@@ -106,6 +108,12 @@ export function ReadingBlock({
   // next mount and clobber the student's manual toggle (the "view snaps back"
   // bug). Mirrors `onPendingRoomConsumed`, one layer lower (application is here).
   onForceViewConsumed?: () => void;
+  // P7 · the guided tour's `openSearchCard` deep-link — forwarded straight
+  // through to ExplorationView (this room owns no state of its own for it; the
+  // modal + its ref-guarded one-shot both live in ExplorationView). A bumped
+  // nonce, not a value, since "open the modal" carries no payload.
+  forceOpenSearchCard?: number | null;
+  onForceOpenSearchCardConsumed?: () => void;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -568,6 +576,8 @@ export function ReadingBlock({
               // the driving-question seed's fallback source.
               projectTitle={title}
               refreshNonce={refreshNonce}
+              forceOpenSearchCard={forceOpenSearchCard}
+              onForceOpenSearchCardConsumed={onForceOpenSearchCardConsumed}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // 采纳 in 探索 creates a new library reference — reload so its bib

@@ -271,6 +271,69 @@ describe("PlanBlock · working phase (plan board) is unaffected by the coach res
   // §3 gap G4 · the recap "继续工作" continue moved OUT of the plan pane INTO the
   // AI chat (StudioTurnChips recapContinue chip) — no pane banner here anymore.
 
+  // P7 · guided-tour deep-link: `forceView` forces the board's 看板/甘特图/活动日志
+  // toggle deterministically (mirrors WritingBlock's `forceTab`/ReferencePanel's
+  // `forceTab` one-shot pattern) so a tour step can land on 活动日志 without ever
+  // re-fighting the student's own later Segmented click.
+  it("forceView='log' switches to 活动日志 once, ref-guarded (P7 guided-tour deep-link)", async () => {
+    mockGetPlan.mockResolvedValue([
+      { id: "i1", title: "读：找反例", tag: "read", column: "todo", stage: "阶段一", refMaterialId: null, start: 0, days: 2, position: 0 },
+    ]);
+    const onConsumed = vi.fn();
+    const slot = document.createElement("div");
+    document.body.appendChild(slot);
+
+    const { rerender } = render(
+      <ChatProvider>
+        <StudioAiSlotContext.Provider value={slot}>
+          <PlanBlock
+            projectId="p1"
+            title="中国是否让地球更可持续？"
+            qualification="拓展论文 EE"
+            proposal={FILLED_PROPOSAL}
+            createdAt="2026-08-01T00:00:00Z"
+            phase="working"
+            refreshWorkspace={() => {}}
+            forceView="log"
+            onForceViewConsumed={onConsumed}
+          />
+        </StudioAiSlotContext.Provider>
+      </ChatProvider>,
+    );
+
+    // Defaults to 甘特图, but `forceView` jumps straight to 活动日志ーboth the
+    // empty-state copy and its tour anchor show up.
+    expect(await screen.findByText("还没有记录")).toBeInTheDocument();
+    expect(document.querySelector('[data-tour="manage-activity-log"]')).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+
+    // The student manually switches to 看板.
+    await userEvent.click(screen.getByRole("button", { name: "看板" }));
+    expect(await screen.findByText("读：找反例")).toBeInTheDocument();
+
+    // A rerender with the SAME forceView must not snap back to 活动日志 (ref
+    // guard applies each distinct value at most once) or re-fire the callback.
+    rerender(
+      <ChatProvider>
+        <StudioAiSlotContext.Provider value={slot}>
+          <PlanBlock
+            projectId="p1"
+            title="中国是否让地球更可持续？"
+            qualification="拓展论文 EE"
+            proposal={FILLED_PROPOSAL}
+            createdAt="2026-08-01T00:00:00Z"
+            phase="working"
+            refreshWorkspace={() => {}}
+            forceView="log"
+            onForceViewConsumed={onConsumed}
+          />
+        </StudioAiSlotContext.Provider>
+      </ChatProvider>,
+    );
+    expect(await screen.findByText("读：找反例")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+  });
+
   // Round 3, Part 3: 管理 used to portal NOTHING into the shared AiPanel slot
   // (a blank 印记 panel) — it now portals the SAME `StudioCoachChat` every
   // other room shows (mirrors ReadingBlock's `useStudioAiSlot`+`createPortal`

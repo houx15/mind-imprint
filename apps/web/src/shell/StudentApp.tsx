@@ -14,7 +14,7 @@ import { TourRunner } from "@/tour/TourRunner";
 import { WelcomeModal } from "@/tour/WelcomeModal";
 import { FeedbackModal } from "@/tour/FeedbackModal";
 import { fullJourney, journeyStarting } from "@/tour/journey";
-import type { TourNavContext, StudioRoom, TourWritingView, TourRefPanelTab } from "@/tour/types";
+import type { TourNavContext, StudioRoom, TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
 import { DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID, DEMO_READING_REFERENCE_ID } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
 import { getMaterialSource } from "@/workspace/api/workspace";
@@ -99,6 +99,16 @@ export function StudentApp({
   // (TourNavContext.selectRefPanelTab, P7). Consumed by ProjectsTab/
   // WorkspaceContainer on entry.
   const [pendingRefPanelTab, setPendingRefPanelTab] = useState<TourRefPanelTab | null>(null);
+  // One-shot deep-link to force the open project's 管理 room to a specific
+  // view (看板/甘特图/活动日志), driven by the guided tour
+  // (TourNavContext.setPlanView, P7). Consumed by ProjectsTab/
+  // WorkspaceContainer on entry.
+  const [pendingPlanView, setPendingPlanView] = useState<TourPlanView | null>(null);
+  // One-shot signal (a bumped nonce — the action carries no payload) to open
+  // the 检索卡 teaching modal in the open project's exploration graph, driven by
+  // the guided tour (TourNavContext.openSearchCard, P7). Consumed by
+  // ProjectsTab/WorkspaceContainer on entry.
+  const [pendingOpenSearchCard, setPendingOpenSearchCard] = useState<number | null>(null);
   // One-shot deep-link to open an already-fetched demo `MaterialSource` into
   // the real immersive 精读 reading room, driven by the guided tour
   // (TourNavContext.openDemoReadingRoom, P6 Task 5). Consumed by
@@ -188,6 +198,13 @@ export function StudentApp({
     // P7: select a tab on the open writing room's left ReferencePanel — used
     // to explicitly switch to AI批注 now that the demo defaults to 阅读笔记.
     selectRefPanelTab: (tab) => setPendingRefPanelTab(tab),
+    // P7: force the open project's 管理 room to a view — used to land on
+    // 活动日志.
+    setPlanView: (view) => setPendingPlanView(view),
+    // P7: open the 检索卡 modal in the open project's exploration graph. Void
+    // action → bump a nonce so a repeat call (same step re-entered) still
+    // fires the one-shot downstream.
+    openSearchCard: () => setPendingOpenSearchCard((n) => (n ?? 0) + 1),
     // P6 (Task 5): switch the open project's studio to the reading room, then
     // fetch the demo's seeded material (read-only GET, no enter-reading side
     // effects) and open it into the real, immersive 精读 room via
@@ -241,6 +258,10 @@ export function StudentApp({
         onPendingWritingViewConsumed={() => setPendingWritingView(null)}
         pendingRefPanelTab={pendingRefPanelTab}
         onPendingRefPanelTabConsumed={() => setPendingRefPanelTab(null)}
+        pendingPlanView={pendingPlanView}
+        onPendingPlanViewConsumed={() => setPendingPlanView(null)}
+        pendingOpenSearchCard={pendingOpenSearchCard}
+        onPendingOpenSearchCardConsumed={() => setPendingOpenSearchCard(null)}
         pendingDemoReading={pendingDemoReading}
         onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
         onImmersiveChange={setProjectsImmersive}

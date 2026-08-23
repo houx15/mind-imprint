@@ -14,6 +14,8 @@ const nav: TourNavContext = {
   openDemoReadingRoom: vi.fn(),
   setWritingView: vi.fn(),
   selectRefPanelTab: vi.fn(),
+  setPlanView: vi.fn(),
+  openSearchCard: vi.fn(),
 };
 
 const seg = (id: string, n: number): TourSegment => ({

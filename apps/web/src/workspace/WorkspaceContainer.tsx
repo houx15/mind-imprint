@@ -23,7 +23,7 @@ import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import type { ChatMessage } from "../studio/reading/readingLoop";
 import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
-import type { TourWritingView, TourRefPanelTab } from "@/tour/types";
+import type { TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue, type ChatAction } from "../studio/ai/StudioChatContext";
@@ -110,6 +110,10 @@ export function WorkspaceContainer({
   onPendingWritingViewConsumed,
   pendingRefPanelTab,
   onPendingRefPanelTabConsumed,
+  pendingPlanView,
+  onPendingPlanViewConsumed,
+  pendingOpenSearchCard,
+  onPendingOpenSearchCardConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onRequestDemoTour,
@@ -167,6 +171,26 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingRefPanelTab` has been captured (mirrors
    * `onPendingRoomConsumed`). */
   onPendingRefPanelTabConsumed?: () => void;
+  /** Drive the OPEN project's 管理 room (PlanBlock) to a specific view
+   * (看板/甘特图/活动日志) — the guided tour's P7 `setPlanView` deep-link. Mirrors
+   * `pendingRoom`: a one-shot captured into local state and handed to
+   * PlanBlock as `forceView` (its own ref-guarded one-shot applies it once and
+   * never fights the student's later Segmented clicks). Assumes the 管理 room
+   * is already open. */
+  pendingPlanView?: TourPlanView | null;
+  /** Fired once right after `pendingPlanView` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingPlanViewConsumed?: () => void;
+  /** Open the 检索卡 teaching modal in the OPEN project's exploration graph —
+   * the guided tour's P7 `openSearchCard` deep-link. A bumped nonce (the
+   * action carries no payload), captured into local state and handed through
+   * ReadingBlock to ExplorationView as `forceOpenSearchCard` (its own
+   * ref-guarded one-shot opens the modal once). Assumes the reading room is
+   * already open on the 探索图谱 view. */
+  pendingOpenSearchCard?: number | null;
+  /** Fired once right after `pendingOpenSearchCard` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingOpenSearchCardConsumed?: () => void;
   /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
    * StudentApp) already fetched the demo material's `MaterialSource` (GET
    * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
@@ -350,6 +374,15 @@ export function WorkspaceContainer({
   // as `forceTab` (its own ref guard applies it once and never fights the
   // student's later tab clicks).
   const [refPanelForceTab, setRefPanelForceTab] = useState<TourRefPanelTab | null>(null);
+  // `pendingPlanView` deep-link (P7): captured and handed to PlanBlock as
+  // `forceView` (its own ref guard applies it once and never fights the
+  // student's later Segmented clicks).
+  const [planForceView, setPlanForceView] = useState<TourPlanView | null>(null);
+  // `pendingOpenSearchCard` deep-link (P7): captured and handed through
+  // ReadingBlock to ExplorationView as `forceOpenSearchCard` (its own ref
+  // guard opens the modal once and never fights the student's later
+  // open/close).
+  const [searchCardForceNonce, setSearchCardForceNonce] = useState<number | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -1235,6 +1268,34 @@ export function WorkspaceContainer({
     }
   }, [pendingRefPanelTab, onPendingRefPanelTabConsumed]);
 
+  // `pendingPlanView` deep-link (P7 — guided tour): capture each new value
+  // into `planForceView` (handed to PlanBlock as `forceView`) and clear the
+  // parent's one-shot — same ref-guarded "only on change" firing as
+  // `pendingRefPanelTab` above. PlanBlock's OWN ref guard then applies it once
+  // and never overrides a later manual Segmented click.
+  const lastPlanView = useRef<TourPlanView | null>(null);
+  useEffect(() => {
+    if (pendingPlanView && pendingPlanView !== lastPlanView.current) {
+      lastPlanView.current = pendingPlanView;
+      setPlanForceView(pendingPlanView);
+      onPendingPlanViewConsumed?.();
+    }
+  }, [pendingPlanView, onPendingPlanViewConsumed]);
+
+  // `pendingOpenSearchCard` deep-link (P7 — guided tour): capture each new
+  // nonce into `searchCardForceNonce` (handed through ReadingBlock to
+  // ExplorationView as `forceOpenSearchCard`) and clear the parent's one-shot.
+  // ExplorationView's OWN ref guard then opens the modal once and never
+  // overrides a later manual open/close.
+  const lastOpenSearchCard = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingOpenSearchCard && pendingOpenSearchCard !== lastOpenSearchCard.current) {
+      lastOpenSearchCard.current = pendingOpenSearchCard;
+      setSearchCardForceNonce(pendingOpenSearchCard);
+      onPendingOpenSearchCardConsumed?.();
+    }
+  }, [pendingOpenSearchCard, onPendingOpenSearchCardConsumed]);
+
   // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
   // already-fetched demo `MaterialSource` into the real immersive
   // `ReadingRoom`, seeded with the canned read-only transcript. Same
@@ -1521,6 +1582,8 @@ export function WorkspaceContainer({
                 onGeneratingPlan={setGeneratingPlan}
                 onPlanMaybeGenerated={surfaceGeneratedPlan}
                 planRefreshSignal={planVersion}
+                forceView={planForceView}
+                onForceViewConsumed={() => setPlanForceView(null)}
               />
             )}
             {room === "reading" && (
@@ -1537,6 +1600,8 @@ export function WorkspaceContainer({
                 aiSide={aiSide}
                 forceView={readingForceView}
                 onForceViewConsumed={() => setReadingForceView(null)}
+                forceOpenSearchCard={searchCardForceNonce}
+                onForceOpenSearchCardConsumed={() => setSearchCardForceNonce(null)}
               />
             )}
             {room === "writing" && (

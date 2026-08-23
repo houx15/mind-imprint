@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Segmented } from "@/ui";
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 import { ReportsView } from "@/shell/report/ReportsView";
-import type { StudioRoom, TourWritingView, TourRefPanelTab } from "@/tour/types";
+import type { StudioRoom, TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
 import type { MaterialSource } from "@mind-imprint/contracts";
 
 /**
@@ -49,6 +49,16 @@ export interface ProjectsTabProps {
    *  WorkspaceContainer. */
   pendingRefPanelTab?: TourRefPanelTab | null;
   onPendingRefPanelTabConsumed?: () => void;
+  /** One-shot: drive the open project's 管理 room to a specific view
+   * (看板/甘特图/活动日志, the guided tour's P7 deep-link). Threaded straight to
+   * WorkspaceContainer. */
+  pendingPlanView?: TourPlanView | null;
+  onPendingPlanViewConsumed?: () => void;
+  /** One-shot (bumped nonce): open the 检索卡 teaching modal in the open
+   * project's exploration graph (the guided tour's P7 deep-link). Threaded
+   * straight to WorkspaceContainer. */
+  pendingOpenSearchCard?: number | null;
+  onPendingOpenSearchCardConsumed?: () => void;
   /** One-shot: open this already-fetched demo `MaterialSource` into the real
    * immersive Reading Room as a read-only replay (the guided tour's P6
    * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
@@ -77,6 +87,10 @@ export function ProjectsTab({
   onPendingWritingViewConsumed,
   pendingRefPanelTab,
   onPendingRefPanelTabConsumed,
+  pendingPlanView,
+  onPendingPlanViewConsumed,
+  pendingOpenSearchCard,
+  onPendingOpenSearchCardConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onImmersiveChange,
@@ -151,6 +165,10 @@ export function ProjectsTab({
             onPendingWritingViewConsumed={onPendingWritingViewConsumed}
             pendingRefPanelTab={pendingRefPanelTab}
             onPendingRefPanelTabConsumed={onPendingRefPanelTabConsumed}
+            pendingPlanView={pendingPlanView}
+            onPendingPlanViewConsumed={onPendingPlanViewConsumed}
+            pendingOpenSearchCard={pendingOpenSearchCard}
+            onPendingOpenSearchCardConsumed={onPendingOpenSearchCardConsumed}
             pendingDemoReading={pendingDemoReading}
             onPendingDemoReadingConsumed={onPendingDemoReadingConsumed}
             autoOpenCreate={autoOpenCreate}

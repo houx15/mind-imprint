@@ -31,6 +31,8 @@ describe("projects segments", () => {
       openDemoReadingRoom: vi.fn(),
       setWritingView: vi.fn(),
       selectRefPanelTab: vi.fn(),
+      setPlanView: vi.fn(),
+      openSearchCard: vi.fn(),
     };
     projectsSegments[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("projects");
@@ -52,6 +54,8 @@ describe("projects segments", () => {
       openDemoReadingRoom: vi.fn(),
       setWritingView: vi.fn(),
       selectRefPanelTab: vi.fn(),
+      setPlanView: vi.fn(),
+      openSearchCard: vi.fn(),
         };
         s.onEnter(nav);
         expect(calls.includes("openDemoProject") && calls.includes("setStudioRoom")).toBe(false);
@@ -88,6 +92,8 @@ describe("projects segments", () => {
       openDemoReadingRoom: vi.fn(),
       setWritingView: vi.fn(),
       selectRefPanelTab: vi.fn(),
+      setPlanView: vi.fn(),
+      openSearchCard: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -110,6 +116,8 @@ describe("projects segments", () => {
       openDemoReadingRoom: vi.fn(),
       setWritingView: vi.fn(),
       selectRefPanelTab: vi.fn(),
+      setPlanView: vi.fn(),
+      openSearchCard: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -135,6 +143,8 @@ describe("projects segments", () => {
       openDemoReadingRoom: vi.fn(() => calls.push("openDemoReadingRoom")),
       setWritingView: vi.fn(),
       selectRefPanelTab: vi.fn(),
+      setPlanView: vi.fn(),
+      openSearchCard: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContain("openDemoReadingRoom");
@@ -195,6 +205,8 @@ describe("projects segments", () => {
       openDemoReadingRoom: vi.fn(),
       setWritingView: vi.fn((v) => calls.push(["setWritingView", v])),
       selectRefPanelTab: vi.fn(),
+      setPlanView: vi.fn(),
+      openSearchCard: vi.fn(),
     });
 
     byId("writing-2").onEnter?.(makeNav());

@@ -6,7 +6,7 @@ import type { ReactNode } from "react";
 // searches or reads for the student (铁律①). Plain, warm copy; three sections.
 export function SearchCardModal({ onClose }: { onClose: () => void }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+    <div data-tour="search-card" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div
         className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-mk-lg bg-mk-surface shadow-mk-lg"
         onClick={(e) => e.stopPropagation()}

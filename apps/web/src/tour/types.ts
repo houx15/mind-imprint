@@ -63,6 +63,20 @@ export interface TourNavContext {
    *  once, never fights the student's later tab clicks). Assumes the writing
    *  room is already open (drive there first with `setStudioRoom("writing")`). */
   selectRefPanelTab: (tab: TourRefPanelTab) => void;
+  /** P7: force the OPEN project's 管理 (PlanBlock) room to a specific view
+   *  (看板/甘特图/活动日志) — used to land on 活动日志. Sets `pendingPlanView` in
+   *  WorkspaceContainer, threaded to PlanBlock/WorkingPhase as a ref-guarded
+   *  one-shot `forceView` (applies once, never fights the student's later
+   *  Segmented clicks). Assumes the 管理 room is already open (drive there
+   *  first with `setStudioRoom("plan")`). */
+  setPlanView: (view: TourPlanView) => void;
+  /** P7: open the 检索卡 teaching modal in the exploration graph's controls
+   *  column. Sets `pendingOpenSearchCard` (a bumped nonce — the action carries
+   *  no payload) in WorkspaceContainer, threaded through ReadingBlock to
+   *  ExplorationView as a ref-guarded one-shot that opens `SearchCardModal`
+   *  once. Assumes the reading room is already open on the 探索图谱 view (drive
+   *  there first with `setStudioRoom("reading")` + `setReadingView("graph")`). */
+  openSearchCard: () => void;
 }
 
 /** A one-shot writing-room deep-link target (P6, Task 9): which document and
@@ -75,6 +89,11 @@ export interface TourWritingView {
 /** The left `ReferencePanel`'s tab keys (P7) — mirrors the `tabs` list built
  *  in `ReferencePanel.tsx` (§93). `selectRefPanelTab` targets one of these. */
 export type TourRefPanelTab = "notes" | "anno" | "snippets" | "proposal";
+
+/** The 管理 room's (PlanBlock/WorkingPhase) view-toggle keys (P7) — mirrors the
+ *  local `PlanView` type in `PlanBlock.tsx`. `setPlanView` targets one of
+ *  these. */
+export type TourPlanView = "kanban" | "gantt" | "log";
 
 export interface TourStep {
   id: string;

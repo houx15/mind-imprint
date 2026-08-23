@@ -126,6 +126,15 @@ export type ExplorationViewProps = {
   // — and so the graph stays the centered focal element (user request). Defaults
   // to "left" (the historical chat side) → controls on the right.
   aiSide?: "left" | "right";
+  /** P7 · the guided tour's `openSearchCard` deep-link — a bumped nonce
+   * (forwarded from WorkspaceContainer/ReadingBlock) that opens the 检索卡
+   * teaching modal once per new value. Ref-guarded (mirrors ReadingBlock's own
+   * `forceView`): applied at most once per distinct value, never re-fights the
+   * student's own later open/close of the modal. */
+  forceOpenSearchCard?: number | null;
+  /** Fired once right after `forceOpenSearchCard` has been applied, so the
+   * caller can retract it (mirrors every other force* one-shot). */
+  onForceOpenSearchCardConsumed?: () => void;
 };
 
 export function ExplorationView({
@@ -137,6 +146,8 @@ export function ExplorationView({
   coach,
   refreshNonce,
   aiSide = "left",
+  forceOpenSearchCard,
+  onForceOpenSearchCardConsumed,
 }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
@@ -309,6 +320,22 @@ export function ExplorationView({
   const [proposingDir, setProposingDir] = useState(false);
   const [searchDetail, setSearchDetail] = useState<DigCandidate | null>(null);
   const [showSearchCard, setShowSearchCard] = useState(false);
+
+  // P7 · guided-tour deep-link: apply `forceOpenSearchCard` once (ref-guarded,
+  // mirrors ReadingBlock's `forceView`) so a tour step can open 检索卡
+  // deterministically without ever re-fighting the student's own later
+  // open/close. This component remounts fresh whenever the reading room
+  // toggles 列表⇄探索图谱 (ReadingBlock only renders it in "graph"), so the ref
+  // guard is per-mount — the retraction below (via the consumed callback,
+  // which nulls the nonce upstream) is what stops a later remount from
+  // re-opening the modal off a stale truthy prop.
+  const lastOpenSearchCard = useRef<number | null>(null);
+  useEffect(() => {
+    if (!forceOpenSearchCard || lastOpenSearchCard.current === forceOpenSearchCard) return;
+    lastOpenSearchCard.current = forceOpenSearchCard;
+    setShowSearchCard(true);
+    onForceOpenSearchCardConsumed?.();
+  }, [forceOpenSearchCard, onForceOpenSearchCardConsumed]);
 
   async function runControlsSearch(keyword: string) {
     const kw = keyword.trim();
@@ -757,6 +784,7 @@ export function ExplorationView({
               </button>
               <button
                 type="button"
+                data-tour="search-card-trigger"
                 onClick={() => setShowSearchCard(true)}
                 className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
               >

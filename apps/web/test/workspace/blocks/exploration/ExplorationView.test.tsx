@@ -865,6 +865,53 @@ describe("ExplorationView", () => {
     // the reference itself is threaded through (9th arg) for the reading room's 证据笔记
     expect((call[8] as { id?: string } | undefined)?.id).toBe(NASA_REF.id);
   });
+
+  // ---- P7 · 检索卡 open (guided-tour deep-link) ----
+
+  it("the 检索卡 trigger button opens SearchCardModal manually, both carrying their tour anchors", async () => {
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    const trigger = await screen.findByRole("button", { name: "如何检索资料？检索卡" });
+    expect(trigger).toHaveAttribute("data-tour", "search-card-trigger");
+    expect(screen.queryByText("怎么找资料、怎么判断可不可靠")).toBeNull();
+
+    await user.click(trigger);
+    expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
+    expect(document.querySelector('[data-tour="search-card"]')).toBeInTheDocument();
+  });
+
+  it("forceOpenSearchCard opens SearchCardModal once, ref-guarded (P7 guided-tour deep-link)", async () => {
+    const onConsumed = vi.fn();
+    const projectId = nextPid();
+    const { rerender } = render(
+      <ExplorationView projectId={projectId} references={[]} forceOpenSearchCard={1} onForceOpenSearchCardConsumed={onConsumed} />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+
+    expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+
+    // The student closes it manually.
+    await userEvent.click(screen.getByText("✕"));
+    expect(screen.queryByText("怎么找资料、怎么判断可不可靠")).toBeNull();
+
+    // A rerender with the SAME nonce must not reopen it or re-fire the callback
+    // (ref guard applies each distinct value at most once).
+    rerender(
+      <ExplorationView projectId={projectId} references={[]} forceOpenSearchCard={1} onForceOpenSearchCardConsumed={onConsumed} />,
+    );
+    await waitFor(() => expect(screen.queryByText("怎么找资料、怎么判断可不可靠")).toBeNull());
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+
+    // A genuine bump (a new nonce) opens it again.
+    rerender(
+      <ExplorationView projectId={projectId} references={[]} forceOpenSearchCard={2} onForceOpenSearchCardConsumed={onConsumed} />,
+    );
+    expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(2);
+  });
 });
 
 // Task 8 (P2b) · 未归类 = references with no NON-PRUNED connected lead, minus
