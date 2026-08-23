@@ -494,20 +494,41 @@ export function WritingBlock({
           // 批注 review affordance (bug 5a): 印记 reads the full proposal and
           // leaves colored 批注 in the left 材料·AI批注 panel — never rewrites it.
           <div className="flex min-h-0 flex-1 flex-col">
-            {!locked && (
-              <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
-                <button
-                  type="button"
-                  onClick={() => void runProposalReview()}
-                  disabled={runningCheck}
-                  className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
-                  title="让印记通读整篇提案，在左侧「材料 · AI批注」里逐段给批注"
-                >
-                  {runningCheck ? "印记正在通读…" : "让印记通读并批注"}
-                </button>
-                <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
-              </div>
-            )}
+            {/* Task 5 (P7 demo slice): a finished/demo proposal hides this trigger
+                (locked), so the guided tour can't show HOW 批注 gets triggered.
+                For isDemo we ALSO render a DISABLED copy (mirrors the 完成写作
+                disabled pattern above) with its own tour anchor — no onClick, so
+                the click can never even reach runProposalReview (no POST, no
+                403). Non-demo behavior is unchanged: the real button stays
+                gated `!locked` exactly as before. */}
+            {(!locked || isDemo) &&
+              (isDemo ? (
+                <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
+                  <button
+                    type="button"
+                    data-tour="writing-review-trigger"
+                    disabled
+                    className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+                    title="演示项目为只读，无法运行批注"
+                  >
+                    让印记通读并批注
+                  </button>
+                  <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
+                </div>
+              ) : (
+                <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
+                  <button
+                    type="button"
+                    onClick={() => void runProposalReview()}
+                    disabled={runningCheck}
+                    className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+                    title="让印记通读整篇提案，在左侧「材料 · AI批注」里逐段给批注"
+                  >
+                    {runningCheck ? "印记正在通读…" : "让印记通读并批注"}
+                  </button>
+                  <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
+                </div>
+              ))}
             <div className="min-h-0 flex-1">
               {/* Bug 5b · select-to-quote stages the selection as CoachRail's
                   focusPart pill (editable/cancelable), same as the essay draft —

@@ -685,6 +685,20 @@ describe("WritingBlock · read-only demo (P6 Task 9)", () => {
     expect(screen.queryByRole("button", { name: "重新打开写作" })).toBeNull();
   });
 
+  it("renders a DISABLED 让印记通读并批注 button with the review-trigger anchor (Task 5, P7)", async () => {
+    renderDemoWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" doc="proposal" writingFinished={true} finalized refreshWorkspace={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    const btn = await screen.findByRole("button", { name: "让印记通读并批注" });
+    expect(btn).toHaveAttribute("data-tour", "writing-review-trigger");
+    expect(btn).toBeDisabled();
+    expect(btn).toHaveAttribute("title", "演示项目为只读，无法运行批注");
+    // no onClick wired — a click can never reach the review API (no POST, no 403).
+    await userEvent.click(btn);
+    expect(vi.mocked(reviewProposalAnnotations)).not.toHaveBeenCalled();
+  });
+
   it("forceTab drives the active writing tab once (guided-tour deep-link)", async () => {
     // essay opens on 大纲 by default; forceTab="snippets" flips it to 片段 once.
     const onConsumed = vi.fn();
@@ -720,5 +734,30 @@ describe("WritingBlock · finish-proposal comment-first (slice 3b)", () => {
     const skip = await screen.findByRole("button", { name: "跳过，直接完成" });
     await userEvent.click(skip);
     await waitFor(() => expect(mockFinishWriting).toHaveBeenCalledWith("p1", "proposal"));
+  });
+});
+
+// Task 5 (P7) · the review-trigger's non-demo path stays exactly as before: a
+// real (non-disabled, no tour anchor) button, gated `!locked`, that calls the
+// review API.
+describe("WritingBlock · 让印记通读并批注 non-demo behavior unchanged (Task 5, P7)", () => {
+  it("shows the real button when unlocked and it runs the review on click", async () => {
+    renderWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" doc="proposal" writingFinished={false} refreshWorkspace={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    const btn = await screen.findByRole("button", { name: "让印记通读并批注" });
+    expect(btn).not.toBeDisabled();
+    expect(btn).not.toHaveAttribute("data-tour");
+    await userEvent.click(btn);
+    await waitFor(() => expect(vi.mocked(reviewProposalAnnotations)).toHaveBeenCalledWith("p1"));
+  });
+
+  it("hides the button once the proposal is locked (writingFinished)", async () => {
+    renderWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="working" doc="proposal" writingFinished={true} refreshWorkspace={() => {}} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: "正文" }));
+    await waitFor(() => expect(screen.queryByRole("button", { name: "让印记通读并批注" })).toBeNull());
   });
 });
