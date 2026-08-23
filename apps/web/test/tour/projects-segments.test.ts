@@ -268,49 +268,74 @@ describe("projects segments", () => {
     }
   });
 
-  // P6 Task 7 · the deeper writing walk spotlights the real 片段引导 / 批注 /
-  // 完成写作 anchors (铁律① copy: AI never writes the body text).
-  it("writing spotlights the deeper aicard/annotations/finish anchors", () => {
+  // P7 Task 10 · the rebuilt writing walk spotlights the real docswitch / 大纲 /
+  // refpanel / 片段引导 / 批注 / review-trigger / needs-resources / 完成写作
+  // anchors (铁律①② copy: AI never writes the body text).
+  it("writing spotlights the deeper docswitch/outline/aicard/annotations/finish anchors", () => {
     const seg = projectsSegments.find((s) => s.id === "writing")!;
     const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
-    expect(byId("writing-2").anchor).toBe('[data-tour="writing-aicard"]');
-    expect(byId("writing-4").anchor).toBe('[data-tour="writing-annotations"]');
-    expect(byId("writing-5").anchor).toBe('[data-tour="writing-finish"]');
-    // 铁律①: never claim the AI writes the essay.
-    expect(byId("writing-2").text).toContain("正文");
-    expect(byId("writing-2").text).toMatch(/自己写|不替|不.*代写|绝不替/);
-    // real-scene: the anchored writing steps are non-center spotlights.
-    for (const id of ["writing-2", "writing-4", "writing-5"]) expect(byId(id).placement).not.toBe("center");
+    expect(byId("writing-1").anchor).toBe('[data-tour="writing-docswitch"]');
+    expect(byId("writing-2").anchor).toBe('[data-tour="writing-outline"]');
+    expect(byId("writing-3").anchor).toBe('[data-tour="writing-refpanel"]');
+    expect(byId("writing-4").anchor).toBe('[data-tour="writing-aicard"]');
+    expect(byId("writing-5").anchor).toBe('[data-tour="writing-annotations"]');
+    expect(byId("writing-6").anchor).toBe('[data-tour="writing-review-trigger"]');
+    expect(byId("writing-7").anchor).toBe('[data-tour="writing-refpanel"]');
+    expect(byId("writing-8").anchor).toBe('[data-tour="needs-resources"]');
+    expect(byId("writing-9").anchor).toBe('[data-tour="writing-finish"]');
+    // 铁律①: the 片段引导 step never claims the AI writes the essay.
+    expect(byId("writing-4").text).toContain("正文");
+    expect(byId("writing-4").text).toMatch(/自己写|不替|不.*代写|绝不替/);
+    // real-scene: every anchored writing step is a non-center spotlight.
+    for (const id of ["writing-1", "writing-2", "writing-3", "writing-4", "writing-5", "writing-6", "writing-7", "writing-8", "writing-9"]) {
+      expect(byId(id).placement).not.toBe("center");
+    }
   });
 
-  // P6 Task 9 · the deeper writing walk drives the writing room to the exact
-  // doc + tab where each anchor renders (setWritingView deep-link) — the tour
-  // couldn't reach `writing-aicard` (proposal 片段) without it.
-  it("writing-2 lands on the PROPOSAL 片段 tab, writing-5 on the 正文 doc, via setWritingView", () => {
+  // P7 Task 10 · the writing walk drives the writing room to the exact doc + tab
+  // where each anchor renders (setWritingView deep-link) — the tour couldn't
+  // reach `writing-aicard` (proposal 片段) or `writing-review-trigger`
+  // (proposal 正文) without it.
+  it("writing steps deep-link the right doc+tab via setWritingView", () => {
     const seg = projectsSegments.find((s) => s.id === "writing")!;
     const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
 
-    const calls: Array<[string, unknown]> = [];
-    const makeNav = (): TourNavContext => ({
-      setTab: vi.fn(),
-      openCourse: vi.fn(),
-      setCoursesSub: vi.fn(),
-      openDemoProject: vi.fn(),
-      setStudioRoom: vi.fn(),
-      openDemoReport: vi.fn(),
-      setReadingView: vi.fn(),
-      openDemoReadingRoom: vi.fn(),
-      setWritingView: vi.fn((v) => calls.push(["setWritingView", v])),
-      selectRefPanelTab: vi.fn(),
-      setPlanView: vi.fn(),
-      openSearchCard: vi.fn(),
-      markDemoNodeRead: vi.fn(),
-    });
+    const capture = (id: string) => {
+      const calls: Array<[string, unknown]> = [];
+      byId(id).onEnter?.(
+        makeNav((n) => {
+          n.setWritingView = vi.fn((v) => calls.push(["setWritingView", v]));
+          n.selectRefPanelTab = vi.fn((t) => calls.push(["selectRefPanelTab", t]));
+        }),
+      );
+      return calls;
+    };
 
-    byId("writing-2").onEnter?.(makeNav());
-    byId("writing-5").onEnter?.(makeNav());
-    expect(calls).toContainEqual(["setWritingView", { doc: "proposal", tab: "snippets" }]);
-    expect(calls).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
+    expect(capture("writing-2")).toContainEqual(["setWritingView", { doc: "essay", tab: "outline" }]);
+    expect(capture("writing-4")).toContainEqual(["setWritingView", { doc: "proposal", tab: "snippets" }]);
+    expect(capture("writing-6")).toContainEqual(["setWritingView", { doc: "proposal", tab: "draft" }]);
+    expect(capture("writing-7")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
+    expect(capture("writing-9")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
+  });
+
+  // P7 Task 10 · 🚨 the 批注-tab constraint (T6): `selectRefPanelTab("anno")`
+  // must fire while the writing room is NOT on the 正文/draft tab, otherwise the
+  // showSnippets→snippets override clobbers it. writing-5 selects 批注 and must
+  // NOT itself drive the room to the draft tab (it stays on the proposal 片段
+  // tab left by writing-4).
+  it("writing-5 selects the 批注 tab and does NOT switch to the 正文/draft tab", () => {
+    const seg = projectsSegments.find((s) => s.id === "writing")!;
+    const step = seg.steps.find((s) => s.id === "writing-5")!;
+    const calls: Array<[string, unknown]> = [];
+    step.onEnter?.(
+      makeNav((n) => {
+        n.selectRefPanelTab = vi.fn((t) => calls.push(["selectRefPanelTab", t]));
+        n.setWritingView = vi.fn((v) => calls.push(["setWritingView", v]));
+      }),
+    );
+    expect(calls).toContainEqual(["selectRefPanelTab", "anno"]);
+    // never moves to the draft tab in the same step.
+    expect(calls.some(([k, v]) => k === "setWritingView" && (v as { tab: string }).tab === "draft")).toBe(false);
   });
 
   // P6 Task 7 · the reflection walk warns about the point-of-no-return lock.
@@ -345,11 +370,33 @@ describe("projects segments", () => {
   // resolves its anchor — see TourRunner.tsx).
   it("evaluation-report anchors #s1..#s9 in order, none centered", () => {
     const seg = projectsSegments.find((s) => s.id === "evaluation-report")!;
-    const anchored = seg.steps.filter((s) => s.anchor);
-    expect(anchored.map((s) => s.anchor)).toEqual([
+    const sections = seg.steps.filter((s) => s.anchor?.startsWith("#s"));
+    expect(sections.map((s) => s.anchor)).toEqual([
       "#s1", "#s2", "#s3", "#s4", "#s5", "#s6", "#s7", "#s8", "#s9",
     ]);
-    for (const s of anchored) expect(s.placement).not.toBe("center");
+    for (const s of sections) expect(s.placement).not.toBe("center");
+  });
+
+  // P7 Task 10 · ㉕ after the whole-section #s5 (D) / #s6 (A) steps, the walk
+  // spotlights 1–2 representative dimension cards per axis via the real
+  // `axis-dim-{code}` anchors (T8) — the D dims sit right after #s5, the A dims
+  // right after #s6, none centered.
+  it("evaluation-report spotlights representative axis dimensions after #s5/#s6", () => {
+    const seg = projectsSegments.find((s) => s.id === "evaluation-report")!;
+    const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
+    expect(byId("eval-dim-D2").anchor).toBe('[data-tour="axis-dim-D2"]');
+    expect(byId("eval-dim-D6").anchor).toBe('[data-tour="axis-dim-D6"]');
+    expect(byId("eval-dim-A4").anchor).toBe('[data-tour="axis-dim-A4"]');
+    expect(byId("eval-dim-A5").anchor).toBe('[data-tour="axis-dim-A5"]');
+    for (const id of ["eval-dim-D2", "eval-dim-D6", "eval-dim-A4", "eval-dim-A5"]) {
+      expect(byId(id).placement).not.toBe("center");
+    }
+    // D dims come after #s5 and before #s6; A dims after #s6.
+    const idx = (id: string) => seg.steps.findIndex((s) => s.id === id);
+    expect(idx("evaluation-report-5")).toBeLessThan(idx("eval-dim-D2"));
+    expect(idx("eval-dim-D6")).toBeLessThan(idx("evaluation-report-6"));
+    expect(idx("evaluation-report-6")).toBeLessThan(idx("eval-dim-A4"));
+    expect(idx("eval-dim-A4")).toBeLessThan(idx("eval-dim-A5"));
   });
 
   it("evaluation-report intro step has no anchor and stays centered", () => {

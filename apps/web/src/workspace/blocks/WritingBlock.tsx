@@ -1275,7 +1275,7 @@ function OutlinePane({ projectId, title, doc }: { projectId: string; title: stri
   }, [nodes]);
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div data-tour="writing-outline" className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-8 pt-6 pb-3">
         <div>
           <h2 className="font-sans text-[19px] font-bold text-mk-ink">提纲</h2>

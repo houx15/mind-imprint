@@ -390,48 +390,106 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-1",
-        anchor: '[data-tour="writing-tabs"]',
+        // ⑯ 提案/正文 两种模式 (P7 Task 10) — REAL spotlight of the doc-mode
+        // toggle (`writing-docswitch`, WritingBlock.tsx:380). The demo seeds BOTH
+        // a proposal and an essay, so the switch renders. Land on the essay 大纲
+        // so ⑯→⑰ flow without a jarring jump.
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "outline" }),
+        anchor: '[data-tour="writing-docswitch"]',
         placement: "bottom",
-        text: "写作分**大纲、片段、正文**三个层次——先搭骨架，再攒素材片段，最后合成完整正文，不用一上来就憋大段文字。",
+        text: "写作房间有**两种模式**：先在「**提案**」里把研究方案想清楚，再切到「**正文**」正式写论文。点这里就能在两者之间来回切换。",
         advance: "next",
       },
       {
         id: "writing-2",
-        // Real-scene (P6, Task 9): the 片段引导/写作卡 lives ONLY in the PROPOSAL
-        // doc's 片段 tab. Drive there so `writing-aicard` actually renders — the
-        // demo unlocks this card read-only (locked || isDemo), so it shows even
-        // though the demo project is finished.
-        // 铁律①: describe the card as SCAFFOLDING her own thinking — never as
-        // writing body text.
-        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "snippets" }),
-        anchor: '[data-tour="writing-aicard"]',
+        // ⑰ 大纲 building-blocks / subquestions (P7 Task 10) — REAL spotlight of
+        // the seeded outline (`writing-outline`, added on OutlinePane's root).
+        // The essay 大纲 carries the thesis→subquestion branches (each becomes a
+        // body paragraph). This is a deterministic system-derived structure, not
+        // AI writing body text (铁律 scope is prose only) — copy is safe.
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "outline" }),
+        anchor: '[data-tour="writing-outline"]',
         placement: "right",
-        text: "在「片段」里，印记把每个论证部分拆成一个个可填的引导框，帮你想清楚每一段要论证什么。**正文始终是你自己写的**——它只陪你想，绝不替你落笔。",
+        text: "「大纲」把你的**主问题拆成一条条可回答的子问题**——每条子问题就长成一段主体论证。先搭好这张骨架，正文才有顺着走的线。",
         advance: "next",
       },
       {
         id: "writing-3",
+        // ⑱ sidebar default = 阅读笔记 (P7 Task 10) — the demo's ReferencePanel
+        // now DEFAULTS to the 阅读笔记 tab (T6), so this is a real spotlight of
+        // the panel with your notes already摊开; no forceTab needed.
         anchor: '[data-tour="writing-refpanel"]',
         placement: "right",
-        text: "左边这栏是**引用面板**，把你在阅读房间留下的笔记和批注直接摆在手边，写到哪引到哪，不用来回切换窗口找资料。",
+        text: "左边这栏默认摊开你的**阅读笔记**——写到哪、要引哪一篇，随手就能翻到，不用来回切窗口找资料。",
         advance: "next",
       },
       {
         id: "writing-4",
-        // Real-scene (P6, Task 9): the seeded 批注 (migration 0083) live in the
-        // panel's「AI批注」tab. For the demo the ReferencePanel defaults to that
-        // tab, so the real 批注 render without a click — a genuine spotlight.
-        anchor: '[data-tour="writing-annotations"]',
+        // ⑲ 片段 real guiding box (P7 Task 10) — the 片段引导/写作卡 lives ONLY in
+        // the PROPOSAL doc's 片段 tab. Drive there so `writing-aicard` renders as
+        // a FILLED read-only guide (T5 `ProposalGuideReadOnly`).
+        // 铁律①: the card SCAFFOLDS her thinking — it never writes body text.
+        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "snippets" }),
+        anchor: '[data-tour="writing-aicard"]',
         placement: "right",
-        text: "印记通读你的初稿后，会在这里留下分层批注：**绿色**是亮点、**蓝色**是建议、**红色**是要处理的问题。点一条，就跳到正文里对应的那句话。",
+        text: "在「片段」里，印记把每个论证部分拆成一个个**可填的引导框**，帮你想清楚每段要论证什么。**正文始终是你自己写的**——它只陪你想，绝不替你落笔。",
         advance: "next",
       },
       {
         id: "writing-5",
-        // Real-scene (P6, Task 9): switch back to the 正文 doc so the button reads
-        // 「完成写作」(the essay's lock, matching the copy). For the demo it always
-        // renders (disabled, read-only), so `writing-finish` resolves and this is
-        // a real spotlight of the real lock.
+        // ⑳ AI批注 (P7 Task 10, relabeled from the old 引用面板 mislabel) — select
+        // the 批注 tab so the real seeded 批注 (migration 0083) render.
+        // 🚨 CONSTRAINT (T6): `selectRefPanelTab("anno")` is OVERRIDDEN by the
+        // showSnippets→snippets effect if the writing room is on the 正文/draft
+        // tab. writing-4 left us on the PROPOSAL 片段 tab (showSnippets off), so
+        // this switch STICKS — we deliberately spotlight 批注 BEFORE moving to
+        // 正文 in the next step.
+        onEnter: (nav) => nav.selectRefPanelTab("anno"),
+        anchor: '[data-tour="writing-annotations"]',
+        placement: "right",
+        text: "切到「**AI批注**」——印记通读你的初稿后留下的分层批注：**绿色**是亮点、**蓝色**是建议、**红色**是要处理的问题。点一条，就跳到正文里对应的那句话。",
+        advance: "next",
+      },
+      {
+        id: "writing-6",
+        // ㉑ how to trigger 批注 + move to 正文 (P7 Task 10) — REAL spotlight of the
+        // DISABLED read-only「让印记通读并批注」button (T5 `writing-review-trigger`,
+        // renders on the proposal 正文/prose tab for the demo). This is the FIRST
+        // step onto the draft tab — the 批注 spotlight above already happened, so
+        // the showSnippets override can't clobber it retroactively.
+        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "draft" }),
+        anchor: '[data-tour="writing-review-trigger"]',
+        placement: "bottom",
+        text: "写好一稿，点「**让印记通读并批注**」，它就会从头读一遍、逐段给批注——就是你刚看到的那些。看完提案，我们切到正文继续写。",
+        advance: "next",
+      },
+      {
+        id: "writing-7",
+        // ㉓ 正文 left sidebar (P7 Task 10) — on the essay 正文, the panel's
+        // 片段/阅读笔记/AI批注 tabs are all at hand while you write. Spotlight the
+        // whole `writing-refpanel` (its root anchor is stable regardless of which
+        // tab is active — showSnippets flips it to 片段 here, which is fine).
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
+        anchor: '[data-tour="writing-refpanel"]',
+        placement: "right",
+        text: "正式写正文时，左边这栏还在：**片段、阅读笔记、AI批注**三个页签都摆在手边，边写边取，不打断思路。",
+        advance: "next",
+      },
+      {
+        id: "writing-8",
+        // ㉔ to-explore box (P7 Task 10) — REAL spotlight of the 还需要探索的 box at
+        // the top of the writing ReferencePanel (`needs-resources`, always shown
+        // while writing). Seeded rows render for the demo.
+        anchor: '[data-tour="needs-resources"]',
+        placement: "right",
+        text: "写着写着发现还缺点什么？记进**「还需要探索」**里——它是你给自己留的找料清单，回头去补，不怕当场卡住。",
+        advance: "next",
+      },
+      {
+        id: "writing-9",
+        // 完成写作 (P6, Task 9 → kept) — the essay 正文's lock. For the demo it
+        // always renders DISABLED (read-only), so `writing-finish` resolves and
+        // this is a real spotlight of the real lock.
         onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
         anchor: '[data-tour="writing-finish"]',
         placement: "bottom",
@@ -522,10 +580,41 @@ export const projectsSegments: TourSegment[] = [
         advance: "next",
       },
       {
+        id: "eval-dim-D2",
+        // ㉕ per-dimension spotlight (P7 Task 10) — each维度卡 carries the real
+        // `axis-dim-{code}` anchor (T8). Point at 1–2 representative dims per
+        // axis (not all 12) using each dim's own「这一维看的是」(means) copy.
+        anchor: '[data-tour="axis-dim-D2"]',
+        placement: "right",
+        text: "点开一张维度卡，它先告诉你「**这一维看的是**」什么。比如 **D2 证据与信源**：你会不会找资料、判断它可不可信、说清每份资料能支持什么。",
+        advance: "next",
+      },
+      {
+        id: "eval-dim-D6",
+        anchor: '[data-tour="axis-dim-D6"]',
+        placement: "right",
+        text: "再比如 **D6 反思与元认知**：你能不能回头审视自己的思路，说清自己的判断是怎么来的——每一维都配着你的行为证据和下一步建议。",
+        advance: "next",
+      },
+      {
         id: "evaluation-report-6",
         anchor: "#s6",
         placement: "right",
         text: "**智识自主 A**——你在多大程度上是自己在推进思考，而不是被 AI 牵着走。同样六个维度、带证据。",
+        advance: "next",
+      },
+      {
+        id: "eval-dim-A4",
+        anchor: '[data-tour="axis-dim-A4"]',
+        placement: "right",
+        text: "自主轴也一样细。**A4 对抗与检验**看的是：你会不会主动请人挑刺、找自己论证里的问题，而不是只等着被表扬。",
+        advance: "next",
+      },
+      {
+        id: "eval-dim-A5",
+        anchor: '[data-tour="axis-dim-A5"]',
+        placement: "right",
+        text: "**A5 判断署名**看的是：你愿不愿意为自己的结论负责，说清「这是我的判断」——而不是把判断权交给 AI。",
         advance: "next",
       },
       {
