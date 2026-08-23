@@ -59,6 +59,13 @@ export interface ProjectsTabProps {
    * straight to WorkspaceContainer. */
   pendingOpenSearchCard?: number | null;
   onPendingOpenSearchCardConsumed?: () => void;
+  /** One-shot: demo-badge this root-lead id as 已读 (the guided tour's P7
+   * Task 4b `markDemoNodeRead` deep-link, fired when the tour returns from
+   * the read-only demo reading room). Threaded straight to
+   * WorkspaceContainer, which ACCUMULATES it (unlike the other one-shots
+   * above) into `demoReadRootIds`. */
+  pendingMarkNodeRead?: string | null;
+  onPendingMarkNodeReadConsumed?: () => void;
   /** One-shot: open this already-fetched demo `MaterialSource` into the real
    * immersive Reading Room as a read-only replay (the guided tour's P6
    * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
@@ -91,6 +98,8 @@ export function ProjectsTab({
   onPendingPlanViewConsumed,
   pendingOpenSearchCard,
   onPendingOpenSearchCardConsumed,
+  pendingMarkNodeRead,
+  onPendingMarkNodeReadConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onImmersiveChange,
@@ -169,6 +178,8 @@ export function ProjectsTab({
             onPendingPlanViewConsumed={onPendingPlanViewConsumed}
             pendingOpenSearchCard={pendingOpenSearchCard}
             onPendingOpenSearchCardConsumed={onPendingOpenSearchCardConsumed}
+            pendingMarkNodeRead={pendingMarkNodeRead}
+            onPendingMarkNodeReadConsumed={onPendingMarkNodeReadConsumed}
             pendingDemoReading={pendingDemoReading}
             onPendingDemoReadingConsumed={onPendingDemoReadingConsumed}
             autoOpenCreate={autoOpenCreate}

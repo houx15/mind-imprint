@@ -16,6 +16,7 @@ const nav: TourNavContext = {
   selectRefPanelTab: vi.fn(),
   setPlanView: vi.fn(),
   openSearchCard: vi.fn(),
+  markDemoNodeRead: vi.fn(),
 };
 
 const seg = (id: string, n: number): TourSegment => ({

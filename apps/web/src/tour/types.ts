@@ -77,6 +77,19 @@ export interface TourNavContext {
    *  once. Assumes the reading room is already open on the 探索图谱 view (drive
    *  there first with `setStudioRoom("reading")` + `setReadingView("graph")`). */
   openSearchCard: () => void;
+  /** P7 (Task 4b): demo-badge one warren-map root as 已读, client-side only —
+   * called when the tour returns from the read-only demo reading room
+   * (`openDemoReadingRoom`). The demo project's tour-read reference
+   * (`DEMO_READING_REFERENCE_ID`) is seeded a non-'done' status (migration
+   * 0088) specifically so its containing roots start un-badged and this call
+   * can show a real un-badged → badged transition — the demo project itself
+   * is write-blocked (403), so there is no real write to badge it. Sets
+   * `pendingMarkNodeRead` in WorkspaceContainer, which ACCUMULATES it into a
+   * `demoReadRootIds` set (unlike every other one-shot above, never
+   * retracted — a root once marked stays marked for the rest of the
+   * session) and merges it into `readByRoot` before handing that to
+   * WarrenMap. Assumes the reading room is already open on the 探索图谱 view. */
+  markDemoNodeRead: (rootLeadId: string) => void;
 }
 
 /** A one-shot writing-room deep-link target (P6, Task 9): which document and

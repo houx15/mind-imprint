@@ -33,6 +33,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
     };
     projectsSegments[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("projects");
@@ -56,6 +57,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
         };
         s.onEnter(nav);
         expect(calls.includes("openDemoProject") && calls.includes("setStudioRoom")).toBe(false);
@@ -94,6 +96,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -118,6 +121,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -145,6 +149,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContain("openDemoReadingRoom");
@@ -207,6 +212,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
     });
 
     byId("writing-2").onEnter?.(makeNav());

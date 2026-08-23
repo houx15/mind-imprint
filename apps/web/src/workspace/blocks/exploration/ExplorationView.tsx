@@ -29,7 +29,7 @@ import { PaperDetail, candidateToPaperView } from "./PaperDetail";
 import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
-import { anyReferenceDoneByRoot, countPapersByRoot } from "./warrenLayout";
+import { anyReferenceDoneByRoot, countPapersByRoot, mergeReadByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
 import { ExplorationReviewBox } from "./ExplorationReviewBox";
@@ -135,6 +135,15 @@ export type ExplorationViewProps = {
   /** Fired once right after `forceOpenSearchCard` has been applied, so the
    * caller can retract it (mirrors every other force* one-shot). */
   onForceOpenSearchCardConsumed?: () => void;
+  /** P7 Task 4b · the guided tour's demo-only "just read" root-id override
+   * (`TourNavContext.markDemoNodeRead`, accumulated in WorkspaceContainer as
+   * `demoReadRootIds`) — merged into the data-derived `readByRoot` (below)
+   * via `mergeReadByRoot` before it reaches `WarrenMap`. The demo project's
+   * tour-read reference starts NOT 'done' (migration 0088) so this is what
+   * lets the map SHOW the un-badged → badged transition without a real write
+   * (the demo project is write-blocked). Absent/empty on every real project
+   * → `readByRoot` is byte-for-byte unaffected. */
+  demoReadRootIds?: Set<string>;
 };
 
 export function ExplorationView({
@@ -148,6 +157,7 @@ export function ExplorationView({
   aiSide = "left",
   forceOpenSearchCard,
   onForceOpenSearchCardConsumed,
+  demoReadRootIds,
 }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
   const [loading, setLoading] = useState(true);
@@ -674,9 +684,11 @@ export function ExplorationView({
     for (const r of references) m.set(r.id, r.readingStatus);
     return m;
   }, [references]);
+  // P7 Task 4b: unions in the guided tour's demo-only "just read" override —
+  // a no-op union on every real project (demoReadRootIds absent/empty).
   const readByRoot = useMemo(
-    () => anyReferenceDoneByRoot(view.leads, referenceStatusById),
-    [view.leads, referenceStatusById],
+    () => mergeReadByRoot(anyReferenceDoneByRoot(view.leads, referenceStatusById), demoReadRootIds),
+    [view.leads, referenceStatusById, demoReadRootIds],
   );
 
   // The root the student is currently zoomed into (hole mode). If it vanished

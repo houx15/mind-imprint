@@ -912,6 +912,33 @@ describe("ExplorationView", () => {
     expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
     expect(onConsumed).toHaveBeenCalledTimes(2);
   });
+
+  // ---- P7 Task 4b · demoReadRootIds merges into the 已读 badge (guided tour) ----
+
+  it("demoReadRootIds badges a root as 已读 even though its data readByRoot is false", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const { container } = render(
+      // No reference is readingStatus:"done" — NASA_REF defaults to "to_read" —
+      // so the data-derived readByRoot for ROOT_LEAD is false on its own.
+      <ExplorationView projectId={nextPid()} references={[NASA_REF]} demoReadRootIds={new Set([ROOT_LEAD.id])} />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+
+    const card = container.querySelector('[data-tour="warren-question"]');
+    expect(card).not.toBeNull();
+    const badge = card!.querySelector('[data-tour="warren-node-read"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe("已读✓");
+  });
+
+  it("an empty demoReadRootIds is a no-op — no badge (normal-graph regression guard)", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const { container } = render(
+      <ExplorationView projectId={nextPid()} references={[NASA_REF]} demoReadRootIds={new Set()} />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+    expect(container.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
 });
 
 // Task 8 (P2b) · 未归类 = references with no NON-PRUNED connected lead, minus

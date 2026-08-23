@@ -109,6 +109,12 @@ export function StudentApp({
   // the guided tour (TourNavContext.openSearchCard, P7). Consumed by
   // ProjectsTab/WorkspaceContainer on entry.
   const [pendingOpenSearchCard, setPendingOpenSearchCard] = useState<number | null>(null);
+  // One-shot demo-badge-as-已读 root-lead id, driven by the guided tour
+  // (TourNavContext.markDemoNodeRead, P7 Task 4b) when it returns from the
+  // read-only demo reading room. Consumed by ProjectsTab/WorkspaceContainer,
+  // which ACCUMULATES it (unlike every sibling `pending*` above) rather than
+  // replacing prior state.
+  const [pendingMarkNodeRead, setPendingMarkNodeRead] = useState<string | null>(null);
   // One-shot deep-link to open an already-fetched demo `MaterialSource` into
   // the real immersive 精读 reading room, driven by the guided tour
   // (TourNavContext.openDemoReadingRoom, P6 Task 5). Consumed by
@@ -205,6 +211,11 @@ export function StudentApp({
     // action → bump a nonce so a repeat call (same step re-entered) still
     // fires the one-shot downstream.
     openSearchCard: () => setPendingOpenSearchCard((n) => (n ?? 0) + 1),
+    // P7 Task 4b: demo-badge a warren-map root as 已读 — fired when the tour
+    // returns from the read-only demo reading room. Client-only override
+    // (the demo project is write-blocked); accumulated downstream, never
+    // retracted.
+    markDemoNodeRead: (rootLeadId) => setPendingMarkNodeRead(rootLeadId),
     // P6 (Task 5): switch the open project's studio to the reading room, then
     // fetch the demo's seeded material (read-only GET, no enter-reading side
     // effects) and open it into the real, immersive 精读 room via
@@ -262,6 +273,8 @@ export function StudentApp({
         onPendingPlanViewConsumed={() => setPendingPlanView(null)}
         pendingOpenSearchCard={pendingOpenSearchCard}
         onPendingOpenSearchCardConsumed={() => setPendingOpenSearchCard(null)}
+        pendingMarkNodeRead={pendingMarkNodeRead}
+        onPendingMarkNodeReadConsumed={() => setPendingMarkNodeRead(null)}
         pendingDemoReading={pendingDemoReading}
         onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
         onImmersiveChange={setProjectsImmersive}

@@ -10,6 +10,7 @@ import {
   countPapersByRoot,
   dagreMindmapLayout,
   depthTint,
+  mergeReadByRoot,
   mixToward,
   NODE_THEMES,
   radialLayout,
@@ -142,6 +143,24 @@ describe("warrenLayout · buildWarrenNodes", () => {
     const n2 = nodes.find((n) => n.id === "r2")!;
     expect(n2.position).toBeDefined();
     expect(n2.paperCount).toBe(0);
+  });
+});
+
+describe("warrenLayout · mergeReadByRoot (P7 Task 4b — guided-tour demo override)", () => {
+  it("unions the demo override into the data-derived set", () => {
+    const base = new Set(["r-data-done"]);
+    const merged = mergeReadByRoot(base, new Set(["r-tour-read"]));
+    expect(merged.has("r-data-done")).toBe(true);
+    expect(merged.has("r-tour-read")).toBe(true);
+    // Never mutates the caller's base set.
+    expect(base.has("r-tour-read")).toBe(false);
+  });
+
+  it("an empty or absent override is a no-op — returns base unchanged (normal-graph regression guard)", () => {
+    const base = new Set(["r-data-done"]);
+    expect(mergeReadByRoot(base, new Set())).toBe(base);
+    expect(mergeReadByRoot(base, null)).toBe(base);
+    expect(mergeReadByRoot(base, undefined)).toBe(base);
   });
 });
 

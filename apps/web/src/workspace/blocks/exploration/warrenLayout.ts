@@ -174,6 +174,23 @@ export function anyReferenceDoneByRoot(
   return out;
 }
 
+// P7 Task 4b · merges the guided tour's client-only "just marked read" demo
+// override into a data-derived `readByRoot` set (from anyReferenceDoneByRoot
+// above). The demo project's tour-read reference starts NOT 'done' (migration
+// 0088) so the map can actually SHOW the un-badged → badged transition; since
+// the demo project is write-blocked (0081), there is no real write to badge
+// it after the tour "reads" it — this override is the client-side stand-in.
+// A union, never a replacement: real data always still wins, and an
+// empty/undefined override is a no-op (returns `base` as-is, so every
+// non-demo graph — which never passes an override — is byte-for-byte
+// unaffected).
+export function mergeReadByRoot(base: Set<string>, override?: Set<string> | null): Set<string> {
+  if (!override || override.size === 0) return base;
+  const out = new Set(base);
+  for (const id of override) out.add(id);
+  return out;
+}
+
 export type WarrenEdge = {
   id: string;
   source: string;

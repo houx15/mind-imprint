@@ -49,6 +49,7 @@ describe("courses segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      markDemoNodeRead: vi.fn(),
     };
     coursesJourney[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("courses");

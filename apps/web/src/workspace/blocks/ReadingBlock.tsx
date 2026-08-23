@@ -91,6 +91,7 @@ export function ReadingBlock({
   onForceViewConsumed,
   forceOpenSearchCard,
   onForceOpenSearchCardConsumed,
+  demoReadRootIds,
 }: {
   projectId: string;
   title: string;
@@ -114,6 +115,12 @@ export function ReadingBlock({
   // nonce, not a value, since "open the modal" carries no payload.
   forceOpenSearchCard?: number | null;
   onForceOpenSearchCardConsumed?: () => void;
+  // P7 Task 4b · the guided tour's demo-only "just read" root-id override
+  // (WorkspaceContainer's `demoReadRootIds`) — forwarded straight through to
+  // ExplorationView, which merges it into `readByRoot` before handing that to
+  // WarrenMap. This room owns no state of its own for it (same shape as
+  // `forceOpenSearchCard` above).
+  demoReadRootIds?: Set<string>;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -578,6 +585,7 @@ export function ReadingBlock({
               refreshNonce={refreshNonce}
               forceOpenSearchCard={forceOpenSearchCard}
               onForceOpenSearchCardConsumed={onForceOpenSearchCardConsumed}
+              demoReadRootIds={demoReadRootIds}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // 采纳 in 探索 creates a new library reference — reload so its bib

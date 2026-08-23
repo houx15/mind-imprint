@@ -355,6 +355,64 @@ func TestDemoSeedReadEndpoints(t *testing.T) {
 	}
 }
 
+// TestDemoReadingReferenceStartsUnread verifies migration 0088: the tour's
+// reading-room target reference (…0260, Chen et al. 2019 — DEMO_READING_
+// REFERENCE_ID on the web side) reads back NOT 'done', both at the DB level
+// and through the real GET /library HTTP endpoint. This is what makes the
+// warren-map "已读" badge on its containing roots (…0290/…0291) start
+// un-lit, so the guided tour's client-side markDemoNodeRead override (Task
+// 9) has a real un-badged → badged transition to show.
+func TestDemoReadingReferenceStartsUnread(t *testing.T) {
+	const demoReadingReferenceID = "00000000-0000-0000-0000-000000000260"
+
+	pool := newAPITestPool(t)
+	ctx := context.Background()
+
+	var status string
+	if err := pool.QueryRow(ctx,
+		`SELECT reading_status FROM reference WHERE id = $1 AND project_id = $2`,
+		demoReadingReferenceID, demoProjectID,
+	).Scan(&status); err != nil {
+		t.Fatalf("reference row: %v", err)
+	}
+	if status == "done" || status == "" {
+		t.Fatalf("reference %s reading_status = %q, want a non-done, non-empty status (e.g. \"reading\")",
+			demoReadingReferenceID, status)
+	}
+
+	// Re-check over the real HTTP read endpoint the frontend actually calls,
+	// signed in as a non-owner (proving world-readability holds for this row
+	// too, same as TestDemoSeedReadEndpoints).
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, CookieSecure: false}).Handler()
+	nonOwner := signInAdmin(t, pool)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest(http.MethodGet, "/api/v1/projects/"+demoProjectID+"/library", nil), nonOwner))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /library = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var lib struct {
+		References []struct {
+			ID            string `json:"id"`
+			ReadingStatus string `json:"readingStatus"`
+		} `json:"references"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &lib); err != nil {
+		t.Fatalf("decode library: %v — body=%s", err, rec.Body)
+	}
+	found := false
+	for _, ref := range lib.References {
+		if ref.ID == demoReadingReferenceID {
+			found = true
+			if ref.ReadingStatus == "done" || ref.ReadingStatus == "" {
+				t.Errorf("library reference %s readingStatus = %q, want non-done, non-empty", ref.ID, ref.ReadingStatus)
+			}
+		}
+	}
+	if !found {
+		t.Fatalf("reference %s not present in GET /library response", demoReadingReferenceID)
+	}
+}
+
 func countDemoRows(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) int {
 	t.Helper()
 	var n int

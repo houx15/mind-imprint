@@ -114,6 +114,8 @@ export function WorkspaceContainer({
   onPendingPlanViewConsumed,
   pendingOpenSearchCard,
   onPendingOpenSearchCardConsumed,
+  pendingMarkNodeRead,
+  onPendingMarkNodeReadConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onRequestDemoTour,
@@ -191,6 +193,20 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingOpenSearchCard` has been captured (mirrors
    * `onPendingRoomConsumed`). */
   onPendingOpenSearchCardConsumed?: () => void;
+  /** P7 Task 4b · a root-lead id to demo-badge as 已读 — the guided tour's
+   * `TourNavContext.markDemoNodeRead` deep-link, fired when the tour returns
+   * from the read-only demo reading room. Unlike every other `pending*` prop
+   * above, the captured value is never retracted to null after consumption:
+   * it ACCUMULATES into `demoReadRootIds` state (a root once marked stays
+   * marked for the rest of the session), then forwarded through ReadingBlock
+   * to ExplorationView, which merges it into `readByRoot` before handing that
+   * to WarrenMap. Mirrors `pendingRoom`'s "new, distinct value ⇒ act" one-shot
+   * firing (a ref-guarded effect below), just with an additive rather than
+   * replacing local-state update. */
+  pendingMarkNodeRead?: string | null;
+  /** Fired once right after `pendingMarkNodeRead` has been captured into
+   * `demoReadRootIds` (mirrors `onPendingRoomConsumed`). */
+  onPendingMarkNodeReadConsumed?: () => void;
   /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
    * StudentApp) already fetched the demo material's `MaterialSource` (GET
    * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
@@ -383,6 +399,12 @@ export function WorkspaceContainer({
   // guard opens the modal once and never fights the student's later
   // open/close).
   const [searchCardForceNonce, setSearchCardForceNonce] = useState<number | null>(null);
+  // P7 Task 4b: root-lead ids the guided tour has demo-badged 已读 this
+  // session (via `pendingMarkNodeRead`, accumulated below) — forwarded
+  // through ReadingBlock to ExplorationView, which merges it into
+  // `readByRoot`. Empty on every real project (the tour never calls
+  // `markDemoNodeRead` outside the demo project).
+  const [demoReadRootIds, setDemoReadRootIds] = useState<Set<string>>(new Set());
 
   function openReadingSource(
     m: MaterialSource,
@@ -1296,6 +1318,28 @@ export function WorkspaceContainer({
     }
   }, [pendingOpenSearchCard, onPendingOpenSearchCardConsumed]);
 
+  // `pendingMarkNodeRead` deep-link (P7 Task 4b — guided tour): capture each
+  // new, distinct root-lead id into `demoReadRootIds` — ADDITIVELY (a Set
+  // union, unlike every sibling effect above which REPLACES its local force*
+  // state) — and clear the parent's one-shot. There is no downstream "applied
+  // once" ref guard to hand this off to (ExplorationView's merge is a plain,
+  // idempotent useMemo, not a one-shot effect), so the guard here is the only
+  // one: without it, an unrelated re-render that leaves `pendingMarkNodeRead`
+  // unchanged must never re-fire `onPendingMarkNodeReadConsumed`.
+  const lastMarkNodeRead = useRef<string | null>(null);
+  useEffect(() => {
+    if (pendingMarkNodeRead && pendingMarkNodeRead !== lastMarkNodeRead.current) {
+      lastMarkNodeRead.current = pendingMarkNodeRead;
+      setDemoReadRootIds((prev) => {
+        if (prev.has(pendingMarkNodeRead)) return prev;
+        const next = new Set(prev);
+        next.add(pendingMarkNodeRead);
+        return next;
+      });
+      onPendingMarkNodeReadConsumed?.();
+    }
+  }, [pendingMarkNodeRead, onPendingMarkNodeReadConsumed]);
+
   // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
   // already-fetched demo `MaterialSource` into the real immersive
   // `ReadingRoom`, seeded with the canned read-only transcript. Same
@@ -1602,6 +1646,7 @@ export function WorkspaceContainer({
                 onForceViewConsumed={() => setReadingForceView(null)}
                 forceOpenSearchCard={searchCardForceNonce}
                 onForceOpenSearchCardConsumed={() => setSearchCardForceNonce(null)}
+                demoReadRootIds={demoReadRootIds}
               />
             )}
             {room === "writing" && (
