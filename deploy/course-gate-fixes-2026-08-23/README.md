@@ -129,14 +129,31 @@ bash deploy/course-gate-fixes-2026-08-23/upload.sh --rollback # 回滚（course-
 ```
 
 course-33 / course-05 / course-20 **沿用原 object key**，所以 CourseDefinition 不动、definition hash 不变、
-学生进度不会被重置。上传后需要在阿里云 CDN 控制台「刷新预热 → 目录刷新」刷这三个目录，
-否则学生仍会拿到缓存的旧副本：
+学生进度不会被重置。
+
+> ⚠️ **上传本身不会让学生看到新版本，必须刷 CDN。**
+> `mind-oss.uni-robot.cn` 实测 `X-Swift-CacheTime: 2592000`（**30 天**）。
+> 2026-08-23 上传后立刻回查，边缘仍是 `X-Cache: HIT`、`Content-Length: 14506`（旧版；新版 15636）。
+> 也就是说：**不刷新，改动最长一个月都到不了学生手里。**
 
 ```
 https://mind-oss.uni-robot.cn/courses/course-33/interactions/html/
 https://mind-oss.uni-robot.cn/courses/course-05/interactions/html/
 https://mind-oss.uni-robot.cn/courses/course-20/interactions/html/
 ```
+
+`cdn_refresh.py` 封装了 CDN `RefreshObjectCaches`（签名已验证可用），但
+**`OSS_ACCESS_KEY_ID` 对应的 RAM 用户没有 CDN 权限**，实测返回：
+
+```
+Forbidden.RAM — User not authorized to operate on the specified resource
+```
+
+所以目前只能走控制台「CDN → 刷新预热 → 目录刷新」。
+若之后给这个 RAM 用户加上 `AliyunCDNFullAccess`（或仅 `cdn:RefreshObjectCaches`），
+`upload.sh` 之后直接 `python3 deploy/course-gate-fixes-2026-08-23/cdn_refresh.py` 即可自动刷新。
+
+course-10 改的是 definition（走 API，不经 CDN），**不需要刷新**。
 
 **course-10 是例外**：它改的是 definition 本身，**hash 会变，course-10 的进行中会话会被重置**。
 `--rollback` 不会自动回滚它——需要手动把原 workflow 再 PUT 回去
