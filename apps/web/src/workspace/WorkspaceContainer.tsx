@@ -999,12 +999,14 @@ export function WorkspaceContainer({
         if (cancelled) return;
         setWorkspace(w);
         // Compose-on-first-open (server is first-open-wins → no repeat spend),
-        // but only for an in-progress project.
+        // but only for an in-progress project — and NEVER for the read-only demo:
+        // /summary POST is a write, which the backend 403s for isDemo projects, so
+        // firing it just logs a spurious console 403 (the guard working, not a bug).
         const p = w.proposal;
         const inProgress = [p.objective, p.reason, p.activities, p.resources].some(
           (s) => s.trim().length > 0,
         );
-        if (inProgress) {
+        if (inProgress && !w.isDemo) {
           postProjectSummary(projectId)
             .then((prose) => {
               if (!cancelled && prose.trim()) setSummary(prose);
