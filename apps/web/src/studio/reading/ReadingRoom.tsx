@@ -253,6 +253,9 @@ export function ReadingRoom({
   }
 
   async function openFinalize() {
+    // demoMode (Task 4 follow-up): never open the finalize panel or fire the
+    // live getTakeawayDraft GET on the read-only demo replay.
+    if (demoMode) return;
     setFinalizeOpen(true);
     setFinalizeDone(false);
     setFinalizeLoading(true);
@@ -472,12 +475,17 @@ export function ReadingRoom({
                 }}
                 placeholder="说说你读这篇是为了什么……"
                 aria-label="你读这篇是为了"
+                disabled={demoMode}
               />
             ) : (
               <button
                 type="button"
                 className="mk-reading-room__brief-reason"
-                onClick={() => setBriefEditingReason(true)}
+                onClick={() => {
+                  if (demoMode) return;
+                  setBriefEditingReason(true);
+                }}
+                disabled={demoMode}
               >
                 你读这篇是为了：
                 {briefReason ? (
@@ -496,6 +504,7 @@ export function ReadingRoom({
                 saveBrief({ phase: v });
               }}
               aria-label="这篇材料用在哪个阶段"
+              disabled={demoMode}
             >
               <option value="">这篇用在哪个阶段…</option>
               {PhaseTag.options.map((p) => (
@@ -718,7 +727,14 @@ export function ReadingRoom({
                 追来源
               </button>
             )}
-            <button type="button" className="mk-reading-room__finalize-btn" data-tour="rr-finish" onClick={() => void openFinalize()}>
+            <button
+              type="button"
+              className="mk-reading-room__finalize-btn"
+              data-tour="rr-finish"
+              onClick={() => void openFinalize()}
+              disabled={demoMode}
+              title={demoMode ? "演示项目为只读，无法完成归纳" : undefined}
+            >
               完成这篇
             </button>
           </div>
@@ -819,6 +835,7 @@ export function ReadingRoom({
                           placeholder="随手记下你自己的想法、疑问、要引用的点——只属于你，不喂给评估。"
                           rows={4}
                           className="box-border w-full resize-y rounded-mk-sm border border-mk-taro-bg bg-mk-surface px-3 py-[10px] font-sans text-[14px] leading-[1.7] text-mk-ink outline-none"
+                          disabled={demoMode}
                         />
                         <div className="mt-1 h-[14px] font-sans text-[12px] text-mk-muted">
                           {noteSaving ? "保存中…" : noteSavedAt ? "已保存" : "失焦自动保存"}

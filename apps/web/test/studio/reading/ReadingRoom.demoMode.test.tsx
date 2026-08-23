@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
 import type { MaterialSource } from "@mind-imprint/contracts";
 import { ReadingRoom } from "@/studio/reading/ReadingRoom";
 import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
@@ -81,6 +81,29 @@ describe("ReadingRoom — demo replay (guided tour P6, Task 4)", () => {
     // The starter prompts and 透镜库 (which drive summonCard) are disabled too.
     expect(screen.getByRole("button", { name: "这条来源可信吗？" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /透镜库/ })).toBeDisabled();
+  });
+
+  it("disables the 完成这篇 finalize button and the 我的笔记 textarea", () => {
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        onBack={() => {}}
+        api={NOOP_API}
+        initialMessages={demoReadingTranscript}
+        onSaveNote={async () => {
+          throw new Error("onSaveNote must not fire in demoMode");
+        }}
+        demoMode
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: "完成这篇" })).toBeDisabled();
+
+    // 我的笔记 is collapsed by default — open it, then check the textarea.
+    fireEvent.click(screen.getByRole("button", { name: /我的笔记/ }));
+    expect(screen.getByPlaceholderText(/随手记下你自己的想法/)).toBeDisabled();
   });
 
   it("falls back to the live GREETING when initialMessages is omitted (non-demo default unchanged)", () => {
