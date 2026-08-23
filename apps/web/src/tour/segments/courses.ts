@@ -41,7 +41,11 @@ export const coursesSegments: TourSegment[] = [
         placement: "top",
         text: "点开任意一门课的卡片，就能看到它的介绍并开始学习。挑一门你感兴趣的试试吧。",
         advance: "action",
-        actionEvent: { selector: '[data-tour="courses-grid"] button', type: "click" },
+        // Target the whole card (its wrapping `[data-course-card]` div carries
+        // the onClick), not the inner CTA button — so a click anywhere on the
+        // card the copy points at advances the tour, matching what actually
+        // navigates to the detail page.
+        actionEvent: { selector: '[data-tour="courses-grid"] [data-course-card]', type: "click" },
       },
       {
         id: "courses-enter-1",
@@ -66,8 +70,8 @@ export const coursesSegments: TourSegment[] = [
         // course-region is the one real anchor guaranteed present the moment
         // this step shows.
         anchor: '[data-testid="course-region"]',
-        placement: "top",
-        text: "进入一门课后，内容会一屏一屏推进：印记先讲解，再请你回答小问题。想清楚了，点这里往下走——**不用赶**。",
+        placement: "bottom",
+        text: "这就是课程播放器：内容会一屏一屏推进，印记先讲解，再请你回答小问题。跟着往下走就好——**不用赶**。",
         advance: "next",
       },
       {
