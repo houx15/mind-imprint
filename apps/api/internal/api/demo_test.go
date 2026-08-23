@@ -345,6 +345,37 @@ func TestGetMaterialSourceDemoReadOnly(t *testing.T) {
 	}
 }
 
+// TestGetStudioStateDemoProjectIsRetrospective verifies migration 0084: the
+// seeded demo project (…0200, status 'finished' since 0082 Task 4) must
+// report studio_state.stage = "retrospective", not the stale
+// 'topic_discussion' left over from 0082's initial INSERT. The wrong stage
+// made the frontend compute docOptions=["essay"] and broke the guided tour's
+// PROPOSAL 片段 card. Driven as a non-owner GET (demo is world-readable).
+func TestGetStudioStateDemoProjectIsRetrospective(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-studio-state-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	base := "/api/v1/projects/" + demoProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/studio-state", nil), otherCookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("demo GET /studio-state: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var st struct {
+		Stage string `json:"stage"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &st); err != nil {
+		t.Fatalf("decode studio-state: %v — body=%s", err, rr.Body.String())
+	}
+	if st.Stage != "retrospective" {
+		t.Fatalf("demo studio-state.stage: want %q, got %q — %s", "retrospective", st.Stage, rr.Body.String())
+	}
+}
+
 // assertDemoReadonly asserts rr is a 403 carrying error.code = "demo_readonly".
 func assertDemoReadonly(t *testing.T, rr *httptest.ResponseRecorder, label string) {
 	t.Helper()
