@@ -113,4 +113,23 @@ describe("TourRunner", () => {
     expect(screen.getByText("居中说明")).toBeInTheDocument();
     document.body.removeChild(target);
   });
+
+  it("renders the demoModal mock plus 印记's text and a 下一步 control, with no spotlight blocker", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "这是提问卡", advance: "next", demoModal: { kind: "question-card", title: "提问卡演示" } },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    // The mock is shown (its distinctive pill + methodology step).
+    expect(screen.getByText("提问卡")).toBeInTheDocument();
+    expect(screen.getByText("拆解")).toBeInTheDocument();
+    // The 印记 explanation and 下一步 control still render as the modal footer.
+    expect(screen.getByText("这是提问卡")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一步" })).toBeInTheDocument();
+    // No spotlight click-blocker for a demoModal step (it's a real Modal, not the spotlight apparatus).
+    expect(screen.queryByTestId("tour-blocker")).not.toBeInTheDocument();
+    // 下一步 still advances/ends the tour normally.
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.queryByText("这是提问卡")).not.toBeInTheDocument();
+  });
 });

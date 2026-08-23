@@ -1,10 +1,12 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pebble, Button } from "@/ui";
+import { Pebble, Button, Modal } from "@/ui";
 import { Markdown } from "@/cards/Markdown";
 import { useTour } from "./TourProvider";
 import { resolveAnchor } from "./anchors";
 import { clampToViewport } from "./viewport";
+import { demoMockFor } from "./mocks";
+import type { TourController, TourStep } from "./types";
 
 const PAD = 8; // spotlight padding around the anchor
 const VIEWPORT_MARGIN = 8; // breathing room the popover keeps from every viewport edge
@@ -29,6 +31,8 @@ export function TourRunner() {
     // (up to a ~2s poll) or while the next step turns out to be centered/anchor-less.
     setRect(null);
     if (!t.running || !t.step) return;
+    // A demoModal step is always centered on the mock — never spotlight an anchor.
+    if (t.step.demoModal) return;
     if (!t.step.anchor || t.step.placement === "center") return;
     let cancelled = false;
     void resolveAnchor(t.step.anchor).then((el) => {
@@ -96,6 +100,31 @@ export function TourRunner() {
   const isAction = t.step.advance === "action";
   const centered = !rect;
 
+  // A demoModal step swaps the whole spotlight+popover apparatus for a real
+  // `@/ui` Modal hosting a static UI mock — the mock IS the focus, so there is
+  // no anchor cutout here. The 印记 explanation + controls reuse the exact
+  // same markup as the normal bubble (BubbleHeader/BubbleControls below),
+  // placed in the Modal's footer per the ruling — one focused surface, not
+  // two overlapping popovers.
+  if (t.step.demoModal) {
+    const { kind, title } = t.step.demoModal;
+    return (
+      <Modal
+        open
+        onClose={t.stop}
+        title={title ?? null}
+        footer={
+          <div className="w-full">
+            <BubbleHeader step={t.step} />
+            <BubbleControls t={t} isAction={isAction} />
+          </div>
+        }
+      >
+        {demoMockFor(kind)}
+      </Modal>
+    );
+  }
+
   return createPortal(
     // Root is click-through (pointer-events:none) so an `action` step's real
     // anchor stays reachable; only the popover (and, on non-action steps, the
@@ -148,32 +177,50 @@ export function TourRunner() {
               : positionNear(rect!, t.step.placement)),
         }}
       >
-        <div className="mb-2 flex items-center gap-2">
-          <span className="mk-pebble-bounce inline-flex">
-            <Pebble size={22} />
-          </span>
-          <span className="text-mk-small font-semibold text-mk-accent-700">印记</span>
-        </div>
-        {t.step.title && <div className="mb-1 text-mk-body font-semibold text-mk-ink">{t.step.title}</div>}
-        <div className="text-mk-body leading-relaxed text-mk-ink"><Markdown text={t.step.text} /></div>
-
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
-          <Button variant="link" size="sm" onClick={t.stop}>结束</Button>
-          <div className="flex items-center gap-2">
-            <Button variant="link" size="sm" onClick={t.skipSegment}>跳过本节</Button>
-            {t.stepIndex > 0 || t.segmentIndex > 0 ? (
-              <Button variant="secondary" size="sm" onClick={t.prev}>上一步</Button>
-            ) : null}
-            {isAction ? (
-              <span className="rounded-mk-full bg-mk-accent-50 px-3 py-1 text-mk-small font-semibold text-mk-accent-700">点亮处可点 →</span>
-            ) : (
-              <Button variant="primary" size="sm" onClick={t.next}>下一步</Button>
-            )}
-          </div>
-        </div>
+        <BubbleHeader step={t.step} />
+        <BubbleControls t={t} isAction={isAction} />
       </div>
     </div>,
     document.body,
+  );
+}
+
+/** 印记 header + title + explanation Markdown — shared verbatim between the
+ *  normal anchored/centered popover and a `demoModal` step's Modal footer, so
+ *  the two surfaces never drift apart. */
+function BubbleHeader({ step }: { step: TourStep }) {
+  return (
+    <>
+      <div className="mb-2 flex items-center gap-2">
+        <span className="mk-pebble-bounce inline-flex">
+          <Pebble size={22} />
+        </span>
+        <span className="text-mk-small font-semibold text-mk-accent-700">印记</span>
+      </div>
+      {step.title && <div className="mb-1 text-mk-body font-semibold text-mk-ink">{step.title}</div>}
+      <div className="text-mk-body leading-relaxed text-mk-ink"><Markdown text={step.text} /></div>
+    </>
+  );
+}
+
+/** 结束/跳过本节/上一步/下一步(-or-action pill) footer controls — shared
+ *  verbatim between the normal popover and a `demoModal` step's Modal footer. */
+function BubbleControls({ t, isAction }: { t: TourController; isAction: boolean }) {
+  return (
+    <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+      <Button variant="link" size="sm" onClick={t.stop}>结束</Button>
+      <div className="flex items-center gap-2">
+        <Button variant="link" size="sm" onClick={t.skipSegment}>跳过本节</Button>
+        {t.stepIndex > 0 || t.segmentIndex > 0 ? (
+          <Button variant="secondary" size="sm" onClick={t.prev}>上一步</Button>
+        ) : null}
+        {isAction ? (
+          <span className="rounded-mk-full bg-mk-accent-50 px-3 py-1 text-mk-small font-semibold text-mk-accent-700">点亮处可点 →</span>
+        ) : (
+          <Button variant="primary" size="sm" onClick={t.next}>下一步</Button>
+        )}
+      </div>
+    </div>
   );
 }
 
