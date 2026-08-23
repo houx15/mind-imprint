@@ -550,6 +550,18 @@ export async function pasteContent(id: string, rid: string, text: string, title?
   return MaterialSource.parse(raw);
 }
 
+// GET /materials/{mid}/source — a read-only sibling of enterReading's
+// projection: the same MaterialSource DTO for a material already known to the
+// project, WITHOUT enterReading's side effects (no auto-log breadcrumb, no
+// fetch-on-demand, no suggestedReason merge). Guided-tour P6 (Task 5) uses
+// this to open the demo project's seeded material into the real, immersive
+// Reading Room for a non-owner — enter-reading itself is a POST keyed off a
+// reference id and 403s for a non-owner on the read-only demo.
+export async function getMaterialSource(id: string, mid: string): Promise<MaterialSource> {
+  const raw = await apiFetch<unknown>(`/api/v1/projects/${id}/materials/${mid}/source`);
+  return MaterialSource.parse(raw);
+}
+
 // POST /references/{rid}/ingest-file — the student uploaded a PDF/DOCX to OSS
 // (uploadUserDoc); the server downloads it, extracts the text, and links a
 // material to the reference so 进入阅读室 opens it. A 422 (extract_failed /

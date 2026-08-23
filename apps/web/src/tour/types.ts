@@ -11,6 +11,13 @@ export type StudioRoom = "forming" | "plan" | "reading" | "writing" | "reflectio
 /** The shared, world-readable demo project the projects tour opens into the
  *  studio (read-only — the backend 403s all writes for it). */
 export const DEMO_PROJECT_ID = "00000000-0000-0000-0000-000000000200";
+/** The demo project's seeded reading material (Chen et al. 2019, Nature
+ *  Sustainability — the CRAAP source-check chain's target) and the reference
+ *  row it hangs off, used by `openDemoReadingRoom` (P6, Task 5) to open the
+ *  real immersive Reading Room in a read-only replay. IDs are pinned by
+ *  migration `0082_seed_demo_project_finished.sql`. */
+export const DEMO_READING_MATERIAL_ID = "00000000-0000-0000-0000-000000000271";
+export const DEMO_READING_REFERENCE_ID = "00000000-0000-0000-0000-000000000260";
 
 /** Setters the tour uses to drive the app. Assembled in StudentApp (§Task 9).
  *  P1 only needs the courses-side setters; P3 extends this. */
@@ -33,10 +40,13 @@ export interface TourNavContext {
    *  later toggling). Assumes the reading room is already open (drive there
    *  first with `setStudioRoom("reading")`). */
   setReadingView: (view: "list" | "graph") => void;
-  /** P5: open a seeded demo material into the 精读 immersive reading room
-   *  (best-effort). See the P5-T4 report for which path shipped — currently a
-   *  safe fallback to `setReadingView("list")` until the immersive open can be
-   *  wired cleanly from outside (Task 5). */
+  /** P6 (Task 5): open the demo's seeded material (Chen et al. 2019) into the
+   *  REAL immersive 精读 Reading Room, as a read-only replay — switches the
+   *  open project's studio to `reading`, fetches its `MaterialSource` (GET
+   *  `/materials/{mid}/source`), and opens `ReadingRoom` with the canned
+   *  `demoReadingTranscript` + `demoMode` (composer/finalize/brief/notes all
+   *  disabled, no writes fire). On a fetch failure, falls back to
+   *  `setReadingView("list")` so the step never dead-ends. */
   openDemoReadingRoom: () => void;
 }
 

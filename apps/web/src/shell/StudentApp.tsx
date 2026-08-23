@@ -15,8 +15,10 @@ import { WelcomeModal } from "@/tour/WelcomeModal";
 import { FeedbackModal } from "@/tour/FeedbackModal";
 import { fullJourney, journeyStarting } from "@/tour/journey";
 import type { TourNavContext, StudioRoom } from "@/tour/types";
-import { DEMO_PROJECT_ID } from "@/tour/types";
+import { DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID, DEMO_READING_REFERENCE_ID } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
+import { getMaterialSource } from "@/workspace/api/workspace";
+import type { MaterialSource } from "@mind-imprint/contracts";
 
 // StudentApp — the student platform shell. Four top-level surfaces reachable
 // from the 64px `Nav` rail:
@@ -87,6 +89,13 @@ export function StudentApp({
   // driven by the guided tour (TourNavContext.setReadingView, P5 Task 4).
   // Consumed by ProjectsTab/WorkspaceContainer on entry.
   const [pendingReadingView, setPendingReadingView] = useState<"list" | "graph" | null>(null);
+  // One-shot deep-link to open an already-fetched demo `MaterialSource` into
+  // the real immersive 精读 reading room, driven by the guided tour
+  // (TourNavContext.openDemoReadingRoom, P6 Task 5). Consumed by
+  // ProjectsTab/WorkspaceContainer once opened.
+  const [pendingDemoReading, setPendingDemoReading] = useState<{ source: MaterialSource; referenceId: string } | null>(
+    null,
+  );
   // Task 9: the demo project's guard modal's 好，带我逛一遍 needs `tour.play(...)`,
   // which only exists inside `TourProvider`'s subtree (`useTour()` in
   // StudentAppInner below) — but `body` (ProjectsTab included) is built here,
@@ -162,14 +171,19 @@ export function StudentApp({
     setStudioRoom: (room) => setPendingRoom(room),
     openDemoReport: () => openReportFromHome(DEMO_PROJECT_ID),
     setReadingView: (view) => setPendingReadingView(view),
-    // TODO(P5-T5): open the demo's first seeded material (…0260) into the 精读
-    // immersive reading room via WorkspaceContainer's setReadingSource path.
-    // Wiring the immersive open cleanly from the shell (it needs a fetched
-    // MaterialSource + the deep reading-room props, all owned inside
-    // WorkspaceContainer) is fragile within Task 4, so per the T4 ruling this
-    // ships the safe fallback — force the 列表 view — and Task 5 decides whether
-    // the 精读 segment goes real-scene or modal-mock based on this hook.
-    openDemoReadingRoom: () => setPendingReadingView("list"),
+    // P6 (Task 5): switch the open project's studio to the reading room, then
+    // fetch the demo's seeded material (read-only GET, no enter-reading side
+    // effects) and open it into the real, immersive 精读 room via
+    // WorkspaceContainer's `pendingDemoReading` path. A fetch failure (offline,
+    // a flaky demo backend, …) falls back to forcing the 列表 view instead of
+    // dead-ending the step — the room switch above already landed somewhere
+    // visible for that fallback to show up in.
+    openDemoReadingRoom: () => {
+      setPendingRoom("reading");
+      void getMaterialSource(DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID)
+        .then((source) => setPendingDemoReading({ source, referenceId: DEMO_READING_REFERENCE_ID }))
+        .catch(() => setPendingReadingView("list"));
+    },
   };
 
   // Stamp onboarding so the welcome modal never fires again. Called on tour
@@ -206,6 +220,8 @@ export function StudentApp({
         onPendingRoomConsumed={() => setPendingRoom(null)}
         pendingReadingView={pendingReadingView}
         onPendingReadingViewConsumed={() => setPendingReadingView(null)}
+        pendingDemoReading={pendingDemoReading}
+        onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
         onImmersiveChange={setProjectsImmersive}
         onRequestDemoTour={() => demoTourRef.current()}
       />

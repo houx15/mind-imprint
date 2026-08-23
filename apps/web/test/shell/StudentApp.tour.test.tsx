@@ -106,10 +106,7 @@ describe("StudentApp · reading-view tour hooks", () => {
     expect(wsProps.pendingReadingView).toBe("graph");
   });
 
-  it("openDemoReadingRoom ships the setReadingView('list') fallback (P5-T4 ruling)", () => {
-    render(<StudentApp session={makeSession("2026-08-01T00:00:00Z")} onLogout={() => {}} />);
-    act(() => navRef.current!.setTab("projects"));
-    act(() => navRef.current!.openDemoReadingRoom());
-    expect(wsProps.pendingReadingView).toBe("list");
-  });
+  // openDemoReadingRoom now opens the REAL immersive Reading Room (P6, Task 5)
+  // instead of the old P5-T4 setReadingView("list") stub — see
+  // StudentApp.demoReading.test.tsx for its success/fallback coverage.
 });

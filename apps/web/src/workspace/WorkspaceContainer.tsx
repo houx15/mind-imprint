@@ -21,6 +21,8 @@ import type { Dispatch, SetStateAction } from "react";
 import { api } from "../api";
 import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
+import type { ChatMessage } from "../studio/reading/readingLoop";
+import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue, type ChatAction } from "../studio/ai/StudioChatContext";
@@ -103,6 +105,8 @@ export function WorkspaceContainer({
   onPendingRoomConsumed,
   pendingReadingView,
   onPendingReadingViewConsumed,
+  pendingDemoReading,
+  onPendingDemoReadingConsumed,
   onRequestDemoTour,
 }: {
   onFinished?: (projectId?: string) => void;
@@ -138,6 +142,17 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingReadingView` has been captured, so the
    * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
   onPendingReadingViewConsumed?: () => void;
+  /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
+   * StudentApp) already fetched the demo material's `MaterialSource` (GET
+   * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
+   * object each successful fetch); this opens it into the real, immersive
+   * `ReadingRoom` with `demoMode` + the canned transcript. Mirrors
+   * `pendingRoom`'s "new object ⇒ act, same reference ⇒ no-op" one-shot
+   * pattern. Absent/null ⇒ never fires (every non-demo project). */
+  pendingDemoReading?: { source: MaterialSource; referenceId: string } | null;
+  /** Fired once right after `pendingDemoReading` has been opened, so the
+   * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
+  onPendingDemoReadingConsumed?: () => void;
   /** Task 9: threaded straight to `Directory` — its demo-guard modal's
    * 好，带我逛一遍 calls this (StudentApp plays `journeyStarting("projects")`).
    * Only reached via a MANUAL card click; the tour's own way into the demo
@@ -287,6 +302,13 @@ export function WorkspaceContainer({
   // from the warren-map sidebar). Optional — a paste-created source with no
   // saved evidence still passes its (fresh) reference so the note works.
   const [readingReference, setReadingReference] = useState<Reference | null>(null);
+  // The guided tour's demo-reading replay flags (P6, Task 5) — set alongside
+  // `readingSource` ONLY for the tour's read-only demo open (see
+  // `pendingDemoReading` below); a normal `openReadingSource` call always
+  // passes `demo` absent, which resets both to their off state so a real
+  // source opened right after a demo one never inherits its read-only replay.
+  const [readingDemoMode, setReadingDemoMode] = useState(false);
+  const [readingDemoMessages, setReadingDemoMessages] = useState<ChatMessage[] | undefined>(undefined);
   // The guided tour's forced reading-room inner view (P5). Captured from the
   // `pendingReadingView` prop by a ref-guarded effect below and handed to
   // ReadingBlock as `forceView`; null leaves the room's own default/memo alone.
@@ -305,6 +327,10 @@ export function WorkspaceContainer({
     readingNote?: string | null,
     bib?: ReferenceBib,
     reference?: Reference | null,
+    // P6 (Task 5): the guided tour's read-only demo open passes this to seed
+    // the coach thread + disable every write path. Every real call (paste,
+    // enter-reading, …) omits it, which resets both flags off.
+    demo?: { demoMode: boolean; initialMessages: ChatMessage[] },
   ) {
     setReadingSourceState(m);
     setReadingRefId(referenceId);
@@ -315,6 +341,8 @@ export function WorkspaceContainer({
     setReadingReadingNote(readingNote ?? null);
     setReadingBib(bib ?? null);
     setReadingReference(reference ?? null);
+    setReadingDemoMode(demo?.demoMode ?? false);
+    setReadingDemoMessages(demo?.initialMessages);
   }
   // EA · carry-forward acknowledgment: when the student 归纳'd a source before
   // leaving, show a brief "you just read X — it's carried forward" note so the
@@ -331,6 +359,8 @@ export function WorkspaceContainer({
     setReadingReadingFocus(null);
     setReadingReadingNote(null);
     setReadingBib(null);
+    setReadingDemoMode(false);
+    setReadingDemoMessages(undefined);
   }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
@@ -1121,6 +1151,30 @@ export function WorkspaceContainer({
     }
   }, [pendingReadingView, onPendingReadingViewConsumed]);
 
+  // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
+  // already-fetched demo `MaterialSource` into the real immersive
+  // `ReadingRoom`, seeded with the canned read-only transcript. Same
+  // ref-guarded "only on a new object" firing as `pendingRoom` above.
+  const lastDemoReading = useRef<{ source: MaterialSource; referenceId: string } | null>(null);
+  useEffect(() => {
+    if (pendingDemoReading && pendingDemoReading !== lastDemoReading.current) {
+      lastDemoReading.current = pendingDemoReading;
+      openReadingSource(
+        pendingDemoReading.source,
+        pendingDemoReading.referenceId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        { demoMode: true, initialMessages: demoReadingTranscript },
+      );
+      onPendingDemoReadingConsumed?.();
+    }
+  }, [pendingDemoReading, onPendingDemoReadingConsumed]);
+
   // No project open — the all-projects directory (its own create form carries
   // the empty affordance). `autoOpenCreate` (home's "新建" deep-link) is only
   // relevant here, one level in from the four-room shell.
@@ -1160,6 +1214,8 @@ export function WorkspaceContainer({
         onAdoptSource={(candidate) => adoptCandidate(projectId, candidate).then(() => {})}
         api={api}
         onBack={closeReadingSource}
+        initialMessages={readingDemoMessages}
+        demoMode={readingDemoMode}
       />
     );
   }

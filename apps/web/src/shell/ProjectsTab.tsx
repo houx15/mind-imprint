@@ -3,6 +3,7 @@ import { Segmented } from "@/ui";
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 import { ReportsView } from "@/shell/report/ReportsView";
 import type { StudioRoom } from "@/tour/types";
+import type { MaterialSource } from "@mind-imprint/contracts";
 
 /**
  * ProjectsTab — the 项目 top-level surface after the nav restructure. A
@@ -38,6 +39,11 @@ export interface ProjectsTabProps {
    * guided tour's P5 deep-link). Threaded straight to WorkspaceContainer. */
   pendingReadingView?: "list" | "graph" | null;
   onPendingReadingViewConsumed?: () => void;
+  /** One-shot: open this already-fetched demo `MaterialSource` into the real
+   * immersive Reading Room as a read-only replay (the guided tour's P6
+   * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
+  pendingDemoReading?: { source: MaterialSource; referenceId: string } | null;
+  onPendingDemoReadingConsumed?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
   /** Task 9: the demo project's guard modal's 好，带我逛一遍 — threaded straight
@@ -57,6 +63,8 @@ export function ProjectsTab({
   onPendingRoomConsumed,
   pendingReadingView,
   onPendingReadingViewConsumed,
+  pendingDemoReading,
+  onPendingDemoReadingConsumed,
   onImmersiveChange,
   onRequestDemoTour,
 }: ProjectsTabProps) {
@@ -125,6 +133,8 @@ export function ProjectsTab({
             onPendingRoomConsumed={onPendingRoomConsumed}
             pendingReadingView={pendingReadingView}
             onPendingReadingViewConsumed={onPendingReadingViewConsumed}
+            pendingDemoReading={pendingDemoReading}
+            onPendingDemoReadingConsumed={onPendingDemoReadingConsumed}
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}
