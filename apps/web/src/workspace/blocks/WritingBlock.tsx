@@ -383,6 +383,7 @@ export function WritingBlock({
           ) : (
             <button
               type="button"
+              data-tour="writing-finish"
               onClick={() => void openFinish()}
               disabled={isDemo}
               className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"

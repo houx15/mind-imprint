@@ -159,7 +159,7 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
         {/* ---- find-actions ---- */}
         <div className="border-b border-mk-border px-4 py-3">
           {isPaper ? (
-            <div className="flex flex-col gap-2">
+            <div data-tour="explore-find" className="flex flex-col gap-2">
               <FindButton disabled={digging} onClick={() => onDig("similar")}>
                 {digging ? "印记在找…" : "找相似文献"}
               </FindButton>

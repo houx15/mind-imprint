@@ -276,6 +276,7 @@ export function ReviewBlock({
                   <>
                     <button
                       type="button"
+                      data-tour="review-finalize"
                       onClick={() => setConfirmFinish(true)}
                       disabled={finishing}
                       className="rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"

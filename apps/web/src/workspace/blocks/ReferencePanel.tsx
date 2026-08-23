@@ -245,14 +245,14 @@ export function ReferencePanel({
                     </>
                   )}
                   {cur === "anno" && (
-                    <>
+                    <div data-tour="writing-annotations" className="flex flex-col gap-5">
                       <ProposalAnnotationGroup
                         items={proposalAnnos}
                         onJump={onJumpToAnchor}
                         onOpen={(id) => void recordAnnotationOpen(projectId, id, annotationDoc).catch(() => {})}
                       />
                       {annotationItems.length > 0 && <AnnotationGroup items={annotationItems} />}
-                    </>
+                    </div>
                   )}
                 </div>
               </div>
