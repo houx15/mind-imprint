@@ -894,7 +894,7 @@ function RefTable(props: {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => onExportBib()} className="rounded-full border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-muted hover:text-mk-accent">导出注释书目</button>
-          <button type="button" onClick={onAdd} className="rounded-full bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加来源</button>
+          <button type="button" data-tour="library-add" onClick={onAdd} className="rounded-full bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加来源</button>
         </div>
       </header>
 
@@ -1114,7 +1114,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
 
   if (r.pending) {
     return (
-      <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
+      <aside data-tour="library-preview" className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
         <span className="w-fit rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">还没找到 · 待补充</span>
         <h1 className="mt-3 font-sans text-[16px] font-bold leading-snug text-mk-ink">{r.title}</h1>
         <p className="mt-2 text-[14px] leading-relaxed text-mk-muted">印记不替你搜，但能帮你搜得更准：</p>
@@ -1140,7 +1140,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     );
   }
   return (
-    <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
+    <aside data-tour="library-preview" className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
       {/* Editable title */}
       <input
         value={r.title}
@@ -1297,7 +1297,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       )}
 
       <div className="mt-5 flex flex-col gap-2">
-        <button type="button" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">
+        <button type="button" data-tour="library-enter-reading" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">
           {entering ? "打开中…" : <>进入阅读室 <Icon name="arrow" size={15} /></>}
         </button>
         {enterNote ? (
