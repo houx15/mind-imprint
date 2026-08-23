@@ -323,16 +323,19 @@ func TestGetMaterialSourceDemoReadOnly(t *testing.T) {
 	if src.ID == "" || src.Title == "" || src.SourceURL == "" || src.Kind == "" || src.Origin == "" {
 		t.Fatalf("demo material source: expected id/title/sourceUrl/kind/origin all populated, got %+v", src)
 	}
-	if len(src.Blocks) == 0 {
-		t.Fatalf("demo material source: want non-empty blocks (real seeded body), got 0 — %s", rr.Body.String())
+	// 0086 (P7 Task 2) replaced the 3-sentence stub with a full-length ~10-
+	// paragraph article and seeded real inline anchors (via a completed CRAAP
+	// card_instances row) so the tour can point at highlighted spans.
+	if len(src.Blocks) < 10 {
+		t.Fatalf("demo material source: want >=10 blocks (full-length article), got %d — %s", len(src.Blocks), rr.Body.String())
 	}
 	for i, b := range src.Blocks {
 		if b.ID == "" || b.Text == "" {
 			t.Fatalf("demo material source: block[%d] missing id/text — %+v", i, b)
 		}
 	}
-	if src.Anchors == nil {
-		t.Fatalf("demo material source: want anchors as [] (never null), got null — %s", rr.Body.String())
+	if len(src.Anchors) == 0 {
+		t.Fatalf("demo material source: want non-empty anchors (real inline highlights), got 0 — %s", rr.Body.String())
 	}
 
 	// (b) A non-GET verb on the exact same path is not routed to a mutation
