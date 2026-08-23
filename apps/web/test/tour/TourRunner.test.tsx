@@ -66,6 +66,25 @@ describe("TourRunner", () => {
     document.body.removeChild(target);
   });
 
+  it("advance:action is delegated — clicking a NON-first match (or a child) advances", () => {
+    // Regression (prod smoke): the listener used to bind only the first match, so
+    // a 'click any card' step advanced only when the first card was clicked.
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "点任意卡片", advance: "action", actionEvent: { selector: ".card", type: "click" }, placement: "center" },
+      { id: "s1", text: "完成", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    const grid = document.createElement("div");
+    grid.innerHTML = `<div class="card" id="c1"></div><div class="card" id="c2"><span id="c2title">标题</span></div>`;
+    document.body.appendChild(grid);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByText("点任意卡片")).toBeInTheDocument();
+    // click a CHILD of the SECOND matching card — old single-element listener missed this
+    fireEvent.click(document.getElementById("c2title")!);
+    expect(screen.getByText("完成")).toBeInTheDocument();
+    document.body.removeChild(grid);
+  });
+
   it("makes the portal root click-through on an action step so the anchor is reachable", () => {
     const seg: TourSegment = { id: "s", name: "s", steps: [
       { id: "s0", text: "点它", advance: "action", actionEvent: { selector: "#target2", type: "click" }, placement: "center" },

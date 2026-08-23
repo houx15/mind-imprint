@@ -44,25 +44,27 @@ export function TourRunner() {
     return () => { cancelled = true; };
   }, [t.running, t.step]);
 
-  // advance:"action" — advance when the user does the thing on the target element.
+  // advance:"action" — advance when the user does the thing on ANY element matching
+  // the selector. Delegated at the document in the CAPTURE phase (not bound to one
+  // resolved node) for three reasons that a single-element listener gets wrong:
+  //   1. "click any card" steps match MANY elements — `document.querySelector`
+  //      would bind only the first, so clicking any other card navigated the app
+  //      without advancing the tour (found in prod smoke).
+  //   2. the target may mount after this effect runs (no poll needed here).
+  //   3. the real click lands on a child (a card's title/image), so we match via
+  //      `closest(selector)`; capture phase fires before the element's own onClick
+  //      (which often navigates away), so the tour advances reliably.
   useEffect(() => {
     if (!t.running || !t.step || t.step.advance !== "action" || !t.step.actionEvent) return;
     const { selector, type } = t.step.actionEvent;
-    let cleanup = () => {};
-    let cancelled = false;
-    const attach = (el: HTMLElement) => {
-      const handler = () => t.next();
-      el.addEventListener(type, handler, { once: true });
-      cleanup = () => el.removeEventListener(type, handler);
+    let done = false;
+    const handler = (e: Event) => {
+      if (done) return;
+      const target = e.target as Element | null;
+      if (target && target.closest(selector)) { done = true; t.next(); }
     };
-    // Attach synchronously when the target is already mounted (common case) so no
-    // microtask tick is needed before the listener is live; otherwise poll for it.
-    // The `cancelled` guard prevents a late resolve from attaching (and leaking) a
-    // listener after this effect has already torn down (e.g. the step changed).
-    const immediate = document.querySelector<HTMLElement>(selector);
-    if (immediate) attach(immediate);
-    else void resolveAnchor(selector).then((el) => { if (!cancelled && el) attach(el); });
-    return () => { cancelled = true; cleanup(); };
+    document.addEventListener(type, handler, true);
+    return () => document.removeEventListener(type, handler, true);
   }, [t.running, t.step, t]);
 
   // After the popover renders (unclamped) near its anchor, measure its actual
