@@ -311,7 +311,10 @@ export const projectsSegments: TourSegment[] = [
         },
         anchor: '[data-tour="warren-node-read"]',
         placement: "bottom",
-        text: "回到探索图谱——刚读完的那篇，让它所在的问题节点亮起了**「已读」**。你的阅读进度，就这样自然地长在图上，不用另外记。",
+        // P7 cross-seam fix: reframed to point at the SPECIFIC node that just
+        // changed, not imply it's the only 已读 node on the map — a research
+        // map naturally has a mix of read and unread questions.
+        text: "回到探索图谱——你刚读的这一篇，它所在的问题节点亮起了**「已读」**。地图上本来就会有读过的、也有还没读的，这颗只是刚刚被点亮的那一个，阅读进度就这样自然地长在图上。",
         advance: "next",
       },
       {

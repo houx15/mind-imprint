@@ -150,7 +150,7 @@ describe("WarrenMap · computeUnfiledSlot", () => {
 });
 
 describe("WarrenMap · 已读 read badge", () => {
-  it("renders the badge + data-tour anchor only on a root with a done contained reference", async () => {
+  it("renders the 已读 badge on a root with a done contained reference (data-driven, no tour anchor)", async () => {
     const roots = [
       lead({ id: "r-done", text: "有已读来源的问题" }),
       lead({ id: "r-unread", text: "没有已读来源的问题" }),
@@ -167,17 +167,71 @@ describe("WarrenMap · 已读 read badge", () => {
     expect(doneCard).toBeTruthy();
     expect(unreadCard).toBeTruthy();
 
-    const doneBadge = doneCard!.querySelector('[data-tour="warren-node-read"]');
-    expect(doneBadge).not.toBeNull();
-    expect(doneBadge!.textContent).toBe("已读✓");
+    // The badge itself still shows on the data-done root...
+    expect(doneCard!.textContent).toContain("已读✓");
+    expect(unreadCard!.textContent).not.toContain("已读✓");
 
-    expect(unreadCard!.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+    // ...but WITHOUT justReadRootIds (no demo override), NO node carries the
+    // tour anchor — a plain data-done badge is not "just read" by the tour.
+    expect(doneCard!.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+    expect(container.querySelector('[data-tour="warren-node-read"]')).toBeNull();
   });
 
   it("shows no badge anywhere when readByRoot is omitted (normal-graph regression guard)", async () => {
     const roots = [lead({ id: "r1", text: "普通问题" })];
     const { container } = render(<WarrenMap {...noopMapProps} roots={roots} />);
     await screen.findByText("普通问题");
+    expect(container.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
+
+  // P7 cross-seam fix: the `warren-node-read` tour anchor must resolve to
+  // EXACTLY the demo override root, never any other badged (data-done) root —
+  // otherwise the tour spotlight is ambiguous when multiple roots are 已读.
+  it("with a demo justReadRootIds override AND other data-done roots, the anchor lands on ONLY the override node", async () => {
+    const roots = [
+      lead({ id: "r-just-read", text: "刚被标记已读的问题" }),
+      lead({ id: "r-data-done-1", text: "数据已读问题一" }),
+      lead({ id: "r-data-done-2", text: "数据已读问题二" }),
+      lead({ id: "r-unread", text: "还没读的问题" }),
+    ];
+    const { container } = render(
+      <WarrenMap
+        {...noopMapProps}
+        roots={roots}
+        readByRoot={new Set(["r-just-read", "r-data-done-1", "r-data-done-2"])}
+        justReadRootIds={new Set(["r-just-read"])}
+      />,
+    );
+    await screen.findByText("刚被标记已读的问题");
+
+    const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-tour="warren-question"]'));
+    const cardFor = (text: string) => cards.find((c) => c.textContent?.includes(text))!;
+
+    // All three data-done-or-override roots still show the 已读 badge...
+    expect(cardFor("刚被标记已读的问题").textContent).toContain("已读✓");
+    expect(cardFor("数据已读问题一").textContent).toContain("已读✓");
+    expect(cardFor("数据已读问题二").textContent).toContain("已读✓");
+    expect(cardFor("还没读的问题").textContent).not.toContain("已读✓");
+
+    // ...but the tour anchor resolves to EXACTLY one element, on the override node.
+    const anchors = container.querySelectorAll('[data-tour="warren-node-read"]');
+    expect(anchors.length).toBe(1);
+    expect(cardFor("刚被标记已读的问题").querySelector('[data-tour="warren-node-read"]')).not.toBeNull();
+    expect(cardFor("数据已读问题一").querySelector('[data-tour="warren-node-read"]')).toBeNull();
+    expect(cardFor("数据已读问题二").querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
+
+  it("an empty justReadRootIds override places no anchor, even with data-done roots present", async () => {
+    const roots = [lead({ id: "r-done", text: "数据已读问题" })];
+    const { container } = render(
+      <WarrenMap
+        {...noopMapProps}
+        roots={roots}
+        readByRoot={new Set(["r-done"])}
+        justReadRootIds={new Set()}
+      />,
+    );
+    await screen.findByText("数据已读问题");
     expect(container.querySelector('[data-tour="warren-node-read"]')).toBeNull();
   });
 });

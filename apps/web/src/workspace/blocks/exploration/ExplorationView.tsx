@@ -142,7 +142,12 @@ export type ExplorationViewProps = {
    * tour-read reference starts NOT 'done' (migration 0088) so this is what
    * lets the map SHOW the un-badged → badged transition without a real write
    * (the demo project is write-blocked). Absent/empty on every real project
-   * → `readByRoot` is byte-for-byte unaffected. */
+   * → `readByRoot` is byte-for-byte unaffected.
+   *
+   * P7 cross-seam fix · ALSO threaded to `WarrenMap` raw (unmerged) as
+   * `justReadRootIds`, so it can tell which root just changed vs. which was
+   * already 已读 from data — and place the `warren-node-read` tour anchor on
+   * exactly that one node instead of on every badged node. */
   demoReadRootIds?: Set<string>;
 };
 
@@ -1144,6 +1149,7 @@ export function ExplorationView({
               roots={roots}
               countByRoot={countByRoot}
               readByRoot={readByRoot}
+              justReadRootIds={demoReadRootIds}
               edges={view.edges}
               onZoom={zoomInto}
               unfiledCount={unfiled.length}

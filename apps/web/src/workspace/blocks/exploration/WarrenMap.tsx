@@ -101,6 +101,10 @@ type WarrenNodeData = {
   // reading (see warrenLayout.anyReferenceDoneByRoot). GENERAL, data-driven:
   // false for every node on a normal graph with no read sources yet.
   hasReadReference: boolean;
+  // P7 cross-seam fix · true only for the guided tour's "just marked read"
+  // node (warrenLayout.WarrenNode.isJustRead) — gates the `warren-node-read`
+  // tour anchor so it lands on exactly one node, not every badged one.
+  isJustRead: boolean;
   onRequestDelete: (id: string) => void;
 };
 
@@ -120,7 +124,7 @@ type QuestionEdgeData = {
 // per-root color is the macaron ordinal theme, never accent).
 function WarrenNodeView({ id, data, selected }: NodeProps) {
   const d = data as unknown as WarrenNodeData;
-  const { text, paperCount, theme, hasReadReference, onRequestDelete } = d;
+  const { text, paperCount, theme, hasReadReference, isJustRead, onRequestDelete } = d;
   return (
     <div
       data-theme={theme.key}
@@ -189,8 +193,12 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
           // 铁律④ (过程即数据) friendly affordance, not a gate: purely informational,
           // never blocks anything. Solid fill (not a Tailwind alpha variant) —
           // mk-* tokens are bare CSS vars, so bg-mk-x/NN emits no color at all.
+          // `data-tour="warren-node-read"` is placed ONLY on the guided tour's
+          // just-read node (isJustRead) — every OTHER badged node (data-done or
+          // a prior demo mark) still shows this same badge, just without the
+          // tour anchor, so the anchor always resolves to exactly one element.
           <span
-            data-tour="warren-node-read"
+            data-tour={isJustRead ? "warren-node-read" : undefined}
             className="inline-flex items-center gap-0.5 rounded-full bg-mk-success px-1.5 py-[1px] text-[10px] font-bold leading-none text-white"
           >
             已读<span aria-hidden>✓</span>
@@ -343,6 +351,15 @@ export type WarrenMapProps = {
   // read" so callers that don't wire it (and every existing test) see no
   // regression.
   readByRoot?: Set<string>;
+  // P7 cross-seam fix · the guided tour's raw "just marked read" override set
+  // (ExplorationView's `demoReadRootIds`, BEFORE it gets unioned into
+  // `readByRoot` above) — distinct input so WarrenMap can tell which badged
+  // root just changed vs. which was already 已读 from seeded/real data. Gates
+  // the `warren-node-read` tour anchor (see WarrenNodeView). Optional +
+  // defaults to "none just-read" so every caller that doesn't wire it (i.e.
+  // every non-demo use, and every existing test) places no anchor anywhere —
+  // matching the badge's own no-regression default.
+  justReadRootIds?: Set<string>;
   edges: QuestionEdge[];
   onZoom: (rootId: string) => void;
   // Edge lifecycle (铁律②: 印记 proposes, student decides).
@@ -381,6 +398,7 @@ function WarrenMapInner({
   roots,
   countByRoot,
   readByRoot,
+  justReadRootIds,
   edges,
   onZoom,
   busyEdgeIds,
@@ -413,8 +431,8 @@ function WarrenMapInner({
   // Node models (positions restored from localStorage where dragged before).
   const saved = useMemo(() => readSavedPositions(projectId), [projectId]);
   const nodeModels = useMemo(
-    () => buildWarrenNodes(roots, countByRoot, saved, readByRoot),
-    [roots, countByRoot, saved, readByRoot],
+    () => buildWarrenNodes(roots, countByRoot, saved, readByRoot, justReadRootIds),
+    [roots, countByRoot, saved, readByRoot, justReadRootIds],
   );
 
   // React Flow node state. Reconciled from the models on every data refresh:
@@ -435,6 +453,7 @@ function WarrenMapInner({
             paperCount: m.paperCount,
             theme: m.theme,
             hasReadReference: m.hasReadReference,
+            isJustRead: m.isJustRead,
             onRequestDelete: requestDelete,
           },
           draggable: true,

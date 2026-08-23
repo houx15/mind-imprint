@@ -939,6 +939,40 @@ describe("ExplorationView", () => {
     await screen.findByText(ROOT_LEAD.text);
     expect(container.querySelector('[data-tour="warren-node-read"]')).toBeNull();
   });
+
+  // P7 cross-seam fix: when a data-done root ALSO exists alongside the demo
+  // override, the `warren-node-read` tour anchor must resolve to ONLY the
+  // override root — never the data-done one — so the tour spotlight is
+  // unambiguous (this is the exact demo-project shape: …0293/…0292 already
+  // badge from seeded data while …0290 is the tour's just-read node).
+  it("demoReadRootIds anchors ONLY the override root, not a separately data-done root", async () => {
+    const doneRef = makeRef({ id: "r-done", readingStatus: "done" });
+    // SECOND_ROOT itself carries the done reference — a root can be born
+    // directly from an adopted paper (see anyReferenceDoneByRoot).
+    const dataDoneRoot: ExplorationLead = { ...SECOND_ROOT, connectedReferenceId: doneRef.id };
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, dataDoneRoot], danglingSourceIds: [], edges: [] });
+    const { container } = render(
+      <ExplorationView
+        projectId={nextPid()}
+        references={[doneRef]}
+        demoReadRootIds={new Set([ROOT_LEAD.id])}
+      />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+
+    const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-tour="warren-question"]'));
+    const overrideCard = cards.find((c) => c.textContent?.includes(ROOT_LEAD.text))!;
+    const dataDoneCard = cards.find((c) => c.textContent?.includes(SECOND_ROOT.text))!;
+
+    // Both roots show the 已读 badge (data OR override — unchanged)...
+    expect(overrideCard.textContent).toContain("已读✓");
+    expect(dataDoneCard.textContent).toContain("已读✓");
+
+    // ...but exactly one `warren-node-read` anchor exists, on the override root.
+    expect(container.querySelectorAll('[data-tour="warren-node-read"]').length).toBe(1);
+    expect(overrideCard.querySelector('[data-tour="warren-node-read"]')).not.toBeNull();
+    expect(dataDoneCard.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
 });
 
 // Task 8 (P2b) · 未归类 = references with no NON-PRUNED connected lead, minus

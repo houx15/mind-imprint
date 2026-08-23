@@ -112,6 +112,15 @@ export type WarrenNode = {
   // connectedReferenceId, or any live descendant lead's) is readingStatus
   // "done" — see anyReferenceDoneByRoot below.
   hasReadReference: boolean;
+  // P7 cross-seam fix · true ONLY when this root is in the guided tour's
+  // "just marked read" override set (WarrenMap's `justReadRootIds`, sourced
+  // from ExplorationView's raw `demoReadRootIds` — NOT the merged
+  // `readByRoot`). Distinct from `hasReadReference`, which also lights up for
+  // roots whose 已读 comes from seeded/real data. Lets the caller place the
+  // `warren-node-read` tour anchor on exactly the one node that just changed,
+  // instead of on every badged node (a research map naturally has a mix of
+  // already-read and unread roots).
+  isJustRead: boolean;
   position: { x: number; y: number };
 };
 
@@ -123,6 +132,7 @@ export function buildWarrenNodes(
   paperCounts: Map<string, number>,
   saved?: Record<string, { x: number; y: number }>,
   readRootIds?: Set<string>,
+  justReadRootIds?: Set<string>,
 ): WarrenNode[] {
   const circle = circlePositions(roots.map((r) => r.id));
   return roots.map((r, i) => ({
@@ -133,6 +143,7 @@ export function buildWarrenNodes(
     theme: themeForOrdinal(i),
     status: r.status,
     hasReadReference: readRootIds?.has(r.id) ?? false,
+    isJustRead: justReadRootIds?.has(r.id) ?? false,
     position: saved?.[r.id] ?? circle.get(r.id) ?? { x: 0, y: 0 },
   }));
 }
