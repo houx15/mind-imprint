@@ -297,16 +297,24 @@ export function SlicePlayer({
       applyEffectsRef.current(runtimeRef.current!.send(toWorkflowInput(event)), event.occurredAt);
     });
 
-    // §revisit (restore-completed-state) — landing on an already-TERMINAL step
-    // (Previous/reload onto a finished Slice, OR a `navigate`-only terminal that
-    // never set status "completed") must NOT re-fire that step's
+    // §revisit (restore-completed-state) — RESTORING onto an already-TERMINAL
+    // step (Previous/reload onto a finished Slice, OR a `navigate`-only terminal
+    // that never set status "completed") must NOT re-fire that step's
     // `completeSlice`/`navigate`/narration effects — that would re-complete or
-    // bounce the student straight forward again. Gate on the runtime's terminal
-    // check (covers BOTH completeSlice and navigate terminals), not on the
-    // persisted status: `start()` still runs to install the restored step, but
-    // its effects apply only when the restored step is not itself terminal.
+    // bounce the student straight forward again. `start()` still runs to install
+    // the restored step; only its effects are withheld.
+    //
+    // The discriminator is RESTORING, not terminality. A slice whose *initial*
+    // step is itself terminal is a legitimately authored pure-reading screen
+    // ("look at this image, read this paragraph" — nothing for the student to
+    // DO, so entering it IS completing it), and the generator emits many of
+    // them. Suppressing on terminality alone swallowed those slices' one and
+    // only `completeSlice`, so `status` never became "completed" and — under
+    // `manualNext: "after-completion"` — 下一步 stayed disabled forever with no
+    // other exit. On a FRESH entry (`restoreStepId` undefined) the start
+    // effects must always apply.
     const startEffects = runtime.start();
-    if (!runtime.isTerminal) {
+    if (restoreStepId === undefined || !runtime.isTerminal) {
       applyEffectsRef.current(startEffects);
     }
 

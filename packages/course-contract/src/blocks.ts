@@ -160,7 +160,15 @@ export const InteractiveHtmlBlock = z
     type: z.literal("interactiveHtml"),
     source: relativeAssetPathSchema,
     protocolVersion: z.literal("1.0"),
-    aspectRatio: z.enum(["1:1", "4:3"]),
+    // An authoring HINT describing the shape the interaction was DESIGNED for,
+    // never a host clamp: the renderer gives every interactive-HTML block the
+    // full slot and lets the frame scroll its own document, whatever this says
+    // (see `.course-block--interactive-html` in course.css). Clamping the frame
+    // to the ratio used to cut wide interactions down to a narrow column and
+    // put their own 完成 button outside the visible box — with
+    // `manualNext: "after-completion"` that trapped the student on the slice.
+    // `fill` is the explicit "no preferred shape, just give me the slot" value.
+    aspectRatio: z.enum(["1:1", "4:3", "fill"]),
     completion: z.object({ rule: z.literal("interaction-complete") }).strict().optional(),
     // Optional, back-compat: an authored HTML interaction opts INTO audio only
     // by declaring this capability (Slice 7 Task 2 gates `allow="autoplay"`

@@ -423,21 +423,29 @@
   max-width: 100%;
 }
 
-/* Interactive-HTML sizing (P?-fit): the block carries its own aspect ratio
- * inline (1:1 or 4:3). Without a height bound it sized purely from its width
- * — a 1:1 block in a wide slot became as TALL as the slot was wide and
- * overflowed (the "stuck", scroll-to-see interaction). Now it fits its slot
- * like the other media: fill the height, derive width from the aspect, cap to
- * the slot width, and center — never stretch, never overflow. `align-self:
- * center` stops the flex column from stretching it to full width (which would
- * re-inflate the height through the aspect ratio). */
+/* Interactive-HTML sizing: the block's `aspectRatio` is an authoring HINT about
+ * the shape the interaction was designed for — it is NOT a host clamp, and the
+ * renderer deliberately no longer emits it as a CSS `aspect-ratio`.
+ *
+ * It used to. The wrapper was sized `height:100%; width:auto` off the ratio, so
+ * the frame was only ever as wide as the ratio allowed: a wide interaction in a
+ * wide slot rendered as a narrow centred column, and anything below the fold of
+ * that shrunken box — typically the interaction's own 完成任务 footer — could be
+ * reached by neither the page (the slot had nothing to scroll: the block already
+ * fit) nor the frame. On a slice with `manualNext: "after-completion"` that is a
+ * dead end: the interaction can't be finished, so the slice never completes and
+ * 下一步 never enables.
+ *
+ * The host now hands the frame the WHOLE slot — full width, full height — for
+ * every ratio value, and the sandboxed document scrolls itself whenever its
+ * content is taller than the box (an iframe scrolls its own document natively;
+ * the slot keeps its own `overflow:auto` for everything else). Scrolling is
+ * available wherever it is needed, and no interaction is cropped. */
 .course-block--interactive-html {
+  width: 100%;
   height: 100%;
-  width: auto;
   max-width: 100%;
-  max-height: 100%;
-  align-self: center;
-  margin-inline: auto;
+  align-self: stretch;
 }
 
 /* ---------- Hidden-block stability (P1-06) ----------
