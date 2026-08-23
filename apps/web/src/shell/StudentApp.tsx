@@ -83,6 +83,10 @@ export function StudentApp({
   // driven by the guided tour (TourNavContext.setStudioRoom, P3 Task 1).
   // Consumed by ProjectsTab/WorkspaceContainer on entry.
   const [pendingRoom, setPendingRoom] = useState<StudioRoom | null>(null);
+  // One-shot deep-link to drive the open reading room's inner 列表/探索图谱 view,
+  // driven by the guided tour (TourNavContext.setReadingView, P5 Task 4).
+  // Consumed by ProjectsTab/WorkspaceContainer on entry.
+  const [pendingReadingView, setPendingReadingView] = useState<"list" | "graph" | null>(null);
 
   // Welcome modal: opens on first login (never-onboarded user). The tour's
   // example-report overlay renders above the body when the tour deep-links into
@@ -149,6 +153,15 @@ export function StudentApp({
     openDemoProject: () => openProjectFromHome(DEMO_PROJECT_ID),
     setStudioRoom: (room) => setPendingRoom(room),
     openDemoReport: () => openReportFromHome(DEMO_PROJECT_ID),
+    setReadingView: (view) => setPendingReadingView(view),
+    // TODO(P5-T5): open the demo's first seeded material (…0260) into the 精读
+    // immersive reading room via WorkspaceContainer's setReadingSource path.
+    // Wiring the immersive open cleanly from the shell (it needs a fetched
+    // MaterialSource + the deep reading-room props, all owned inside
+    // WorkspaceContainer) is fragile within Task 4, so per the T4 ruling this
+    // ships the safe fallback — force the 列表 view — and Task 5 decides whether
+    // the 精读 segment goes real-scene or modal-mock based on this hook.
+    openDemoReadingRoom: () => setPendingReadingView("list"),
   };
 
   // Stamp onboarding so the welcome modal never fires again. Called on tour
@@ -183,6 +196,8 @@ export function StudentApp({
         onPendingReportConsumed={() => setPendingReportId(null)}
         pendingRoom={pendingRoom}
         onPendingRoomConsumed={() => setPendingRoom(null)}
+        pendingReadingView={pendingReadingView}
+        onPendingReadingViewConsumed={() => setPendingReadingView(null)}
         onImmersiveChange={setProjectsImmersive}
       />
     );

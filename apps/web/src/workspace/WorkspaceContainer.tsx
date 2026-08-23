@@ -101,6 +101,8 @@ export function WorkspaceContainer({
   onInProjectChange,
   pendingRoom,
   onPendingRoomConsumed,
+  pendingReadingView,
+  onPendingReadingViewConsumed,
 }: {
   onFinished?: (projectId?: string) => void;
   /** Fired when a project opens (true) or closes (false) — the shell uses
@@ -127,6 +129,14 @@ export function WorkspaceContainer({
    * can clear its pending-room state (else a stale-but-unchanged prop would
    * look "already handled"). */
   onPendingRoomConsumed?: () => void;
+  /** Drive the reading room's inner 列表/探索图谱 view (the guided tour's P5
+   * deep-link) — mirrors `pendingRoom`: a one-shot signal captured into local
+   * state and handed to ReadingBlock as `forceView`, whose own ref guard
+   * applies it once and never fights the student's later toggle. */
+  pendingReadingView?: "list" | "graph" | null;
+  /** Fired once right after `pendingReadingView` has been captured, so the
+   * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
+  onPendingReadingViewConsumed?: () => void;
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
@@ -271,6 +281,10 @@ export function WorkspaceContainer({
   // from the warren-map sidebar). Optional — a paste-created source with no
   // saved evidence still passes its (fresh) reference so the note works.
   const [readingReference, setReadingReference] = useState<Reference | null>(null);
+  // The guided tour's forced reading-room inner view (P5). Captured from the
+  // `pendingReadingView` prop by a ref-guarded effect below and handed to
+  // ReadingBlock as `forceView`; null leaves the room's own default/memo alone.
+  const [readingForceView, setReadingForceView] = useState<"list" | "graph" | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -1081,6 +1095,21 @@ export function WorkspaceContainer({
     }
   }, [pendingRoom, onPendingRoomConsumed, handleManualRoom]);
 
+  // `pendingReadingView` deep-link (P5, guided tour): capture each new value
+  // into `readingForceView` (handed to ReadingBlock as `forceView`) and clear
+  // the parent's one-shot — same ref-guarded "only on change" firing as
+  // `pendingRoom` above, so re-passing the same value after the caller clears
+  // it never re-fires. ReadingBlock's OWN ref guard then applies it once and
+  // never overrides a later manual toggle.
+  const lastReadingView = useRef<"list" | "graph" | null>(null);
+  useEffect(() => {
+    if (pendingReadingView && pendingReadingView !== lastReadingView.current) {
+      lastReadingView.current = pendingReadingView;
+      setReadingForceView(pendingReadingView);
+      onPendingReadingViewConsumed?.();
+    }
+  }, [pendingReadingView, onPendingReadingViewConsumed]);
+
   // No project open — the all-projects directory (its own create form carries
   // the empty affordance). `autoOpenCreate` (home's "新建" deep-link) is only
   // relevant here, one level in from the four-room shell.
@@ -1354,6 +1383,7 @@ export function WorkspaceContainer({
                 confirmStart={readingConfirmNeeded}
                 onConfirmStart={() => setReadingConfirmNeeded(false)}
                 aiSide={aiSide}
+                forceView={readingForceView}
               />
             )}
             {room === "writing" && (

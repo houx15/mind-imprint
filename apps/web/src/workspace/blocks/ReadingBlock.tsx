@@ -87,9 +87,17 @@ export function ReadingBlock({
   confirmStart,
   onConfirmStart,
   aiSide,
+  forceView,
 }: {
   projectId: string;
   title: string;
+  // Guided-tour deep-link (P5): drive the inner 列表/探索图谱 view deterministically
+  // so a tour step lands on a known surface. Threaded from WorkspaceContainer's
+  // `pendingReadingView` (which mirrors `pendingRoom`). Applied via a ref-guarded
+  // effect below: each distinct value is applied at most once, so it overrides
+  // the mount-time "graph" default when the tour asks but NEVER fights the
+  // student's own later toggling (铁律②: surfaces stay under the student's hand).
+  forceView?: "list" | "graph" | null;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -233,6 +241,20 @@ export function ReadingBlock({
       cancelled = true;
     };
   }, [projectId]);
+
+  // Guided-tour deep-link (P5): apply `forceView` into the memo + live state.
+  // Ref-guarded (mirrors WorkspaceContainer's `pendingRoom` one-shot) so each
+  // DISTINCT forced value is applied at most once — it overrides the mount-time
+  // "graph" default when the tour asks, but a later manual toggle is never
+  // re-fought (the effect only re-fires on a genuinely new forceView value).
+  // Runs AFTER the mount effect above so the memo it writes wins the auto-default.
+  const lastForcedView = useRef<"list" | "graph" | null>(null);
+  useEffect(() => {
+    if (!forceView || lastForcedView.current === forceView) return;
+    lastForcedView.current = forceView;
+    viewModeMemo.set(projectId, forceView);
+    setViewModeRaw(forceView);
+  }, [forceView, projectId]);
 
   // Snapshot & clear all pending debounce timers on unmount.
   useEffect(() => {
@@ -617,6 +639,7 @@ export function ViewModeToggle({ mode, onChange, signal }: { mode: "list" | "gra
         <button
           key={m}
           type="button"
+          data-tour={m === "list" ? "reading-view-list" : "reading-view-graph"}
           onClick={() => onChange(m)}
           className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1 transition ${mode === m ? "bg-mk-surface text-mk-accent shadow-sm" : "text-mk-faint hover:text-mk-ink"}`}
         >

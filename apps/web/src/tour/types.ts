@@ -26,6 +26,18 @@ export interface TourNavContext {
    *  the demo). The report is world-readable and fetched by id, so a non-owner
    *  (the tour user) sees it. */
   openDemoReport: () => void;
+  /** P5: switch the OPEN project's reading room to a specific inner view —
+   *  列表 (Zotero-shaped library table) or 探索图谱 (the rabbit-hole graph). Sets
+   *  `pendingReadingView` in WorkspaceContainer, threaded to ReadingBlock's
+   *  `forceView` (a ref-guarded one-shot that never fights the student's own
+   *  later toggling). Assumes the reading room is already open (drive there
+   *  first with `setStudioRoom("reading")`). */
+  setReadingView: (view: "list" | "graph") => void;
+  /** P5: open a seeded demo material into the 精读 immersive reading room
+   *  (best-effort). See the P5-T4 report for which path shipped — currently a
+   *  safe fallback to `setReadingView("list")` until the immersive open can be
+   *  wired cleanly from outside (Task 5). */
+  openDemoReadingRoom: () => void;
 }
 
 export interface TourStep {

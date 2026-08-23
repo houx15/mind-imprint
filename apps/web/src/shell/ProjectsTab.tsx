@@ -34,6 +34,10 @@ export interface ProjectsTabProps {
    * tour's studio deep-link, P3 Task 1). */
   pendingRoom?: StudioRoom | null;
   onPendingRoomConsumed?: () => void;
+  /** One-shot: drive the open reading room's inner 列表/探索图谱 view (the
+   * guided tour's P5 deep-link). Threaded straight to WorkspaceContainer. */
+  pendingReadingView?: "list" | "graph" | null;
+  onPendingReadingViewConsumed?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
 }
@@ -47,6 +51,8 @@ export function ProjectsTab({
   onPendingReportConsumed,
   pendingRoom,
   onPendingRoomConsumed,
+  pendingReadingView,
+  onPendingReadingViewConsumed,
   onImmersiveChange,
 }: ProjectsTabProps) {
   // A home 查看评估报告 deep-link lands on the 评估报告 sub, focused on that
@@ -112,6 +118,8 @@ export function ProjectsTab({
             onInitialProjectIdConsumed={onPendingProjectConsumed}
             pendingRoom={pendingRoom}
             onPendingRoomConsumed={onPendingRoomConsumed}
+            pendingReadingView={pendingReadingView}
+            onPendingReadingViewConsumed={onPendingReadingViewConsumed}
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}
