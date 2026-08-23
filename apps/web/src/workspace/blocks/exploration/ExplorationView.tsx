@@ -29,7 +29,7 @@ import { PaperDetail, candidateToPaperView } from "./PaperDetail";
 import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
-import { countPapersByRoot } from "./warrenLayout";
+import { anyReferenceDoneByRoot, countPapersByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
 import { ExplorationReviewBox } from "./ExplorationReviewBox";
@@ -639,6 +639,18 @@ export function ExplorationView({
   // GVa map data. countByRoot = "文献 x 篇" — descendant PAPERS (adopted leads
   // carrying a connectedReferenceId) under each root, not raw descendant count.
   const countByRoot = useMemo(() => countPapersByRoot(view.leads), [view.leads]);
+  // "已读" badge — roots with ≥1 contained reference (own or descendant's)
+  // whose readingStatus is "done". referenceStatus is a plain id→status
+  // lookup off the same `references` prop the sidebar already joins against.
+  const referenceStatusById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of references) m.set(r.id, r.readingStatus);
+    return m;
+  }, [references]);
+  const readByRoot = useMemo(
+    () => anyReferenceDoneByRoot(view.leads, referenceStatusById),
+    [view.leads, referenceStatusById],
+  );
 
   // The root the student is currently zoomed into (hole mode). If it vanished
   // (deleted elsewhere), fall back to the map rather than a blank subtree.
@@ -1091,6 +1103,7 @@ export function ExplorationView({
               projectId={projectId}
               roots={roots}
               countByRoot={countByRoot}
+              readByRoot={readByRoot}
               edges={view.edges}
               onZoom={zoomInto}
               unfiledCount={unfiled.length}

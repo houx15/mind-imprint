@@ -61,12 +61,46 @@ export function routeNodeClick(nodeId: string, onZoom: (id: string) => void, onO
   else onZoom(nodeId);
 }
 
+// Both the warren question card and the 未归类 card render at this footprint
+// (WarrenNodeView / UnfiledNodeView, `width: 208, height: 104` above).
+const WARREN_NODE_W = 208;
+const WARREN_NODE_H = 104;
+// Clearly larger than a node's height (104px) — the unfiled slot's TOP edge
+// sits this far below the LOWEST root's BOTTOM edge, so it can never overlap
+// a root regardless of root count or spread (circlePositions' ellipse often
+// puts a root right on the +y axis, which is exactly what the old hardcoded
+// {x:0,y:320} collided with).
+const UNFILED_GAP = 150;
+
+// Pure, unit-tested placement for the 未归类 system node: centered under the
+// bounding box of the CURRENT root node positions, a fixed gap below the
+// lowest root. No dependency on root count or the ellipse's radius — it
+// derives purely from where the roots actually ended up (default circle
+// layout OR a student's dragged positions).
+export function computeUnfiledSlot(rootPositions: { x: number; y: number }[]): { x: number; y: number } {
+  if (rootPositions.length === 0) return { x: 0, y: WARREN_NODE_H + UNFILED_GAP };
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let maxBottom = -Infinity;
+  for (const p of rootPositions) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x + WARREN_NODE_W);
+    maxBottom = Math.max(maxBottom, p.y + WARREN_NODE_H);
+  }
+  const centerX = (minX + maxX) / 2 - WARREN_NODE_W / 2;
+  return { x: Math.round(centerX), y: Math.round(maxBottom + UNFILED_GAP) };
+}
+
 // ---------- data threaded onto each React Flow node / edge ----------
 
 type WarrenNodeData = {
   text: string;
   paperCount: number;
   theme: NodeTheme;
+  // "已读" badge — at least one reference contained by this root is done
+  // reading (see warrenLayout.anyReferenceDoneByRoot). GENERAL, data-driven:
+  // false for every node on a normal graph with no read sources yet.
+  hasReadReference: boolean;
   onRequestDelete: (id: string) => void;
 };
 
@@ -86,7 +120,7 @@ type QuestionEdgeData = {
 // per-root color is the macaron ordinal theme, never accent).
 function WarrenNodeView({ id, data, selected }: NodeProps) {
   const d = data as unknown as WarrenNodeData;
-  const { text, paperCount, theme, onRequestDelete } = d;
+  const { text, paperCount, theme, hasReadReference, onRequestDelete } = d;
   return (
     <div
       data-theme={theme.key}
@@ -149,7 +183,20 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
       >
         {text}
       </span>
-      <span className="mt-1 text-[12px] font-bold text-mk-muted">文献 {paperCount} 篇</span>
+      <div className="mt-1 flex items-center gap-1.5">
+        <span className="text-[12px] font-bold text-mk-muted">文献 {paperCount} 篇</span>
+        {hasReadReference && (
+          // 铁律④ (过程即数据) friendly affordance, not a gate: purely informational,
+          // never blocks anything. Solid fill (not a Tailwind alpha variant) —
+          // mk-* tokens are bare CSS vars, so bg-mk-x/NN emits no color at all.
+          <span
+            data-tour="warren-node-read"
+            className="inline-flex items-center gap-0.5 rounded-full bg-mk-success px-1.5 py-[1px] text-[10px] font-bold leading-none text-white"
+          >
+            已读<span aria-hidden>✓</span>
+          </span>
+        )}
+      </div>
     </div>
   );
 }
@@ -291,6 +338,11 @@ export type WarrenMapProps = {
   roots: ExplorationLead[];
   // "文献 x 篇" per root — descendant papers (connectedReferenceId), from warrenLayout.
   countByRoot: Map<string, number>;
+  // "已读" badge per root — root ids with ≥1 contained reference read (done),
+  // from warrenLayout.anyReferenceDoneByRoot. Optional + defaults to "none
+  // read" so callers that don't wire it (and every existing test) see no
+  // regression.
+  readByRoot?: Set<string>;
   edges: QuestionEdge[];
   onZoom: (rootId: string) => void;
   // Edge lifecycle (铁律②: 印记 proposes, student decides).
@@ -328,6 +380,7 @@ function WarrenMapInner({
   projectId,
   roots,
   countByRoot,
+  readByRoot,
   edges,
   onZoom,
   busyEdgeIds,
@@ -360,8 +413,8 @@ function WarrenMapInner({
   // Node models (positions restored from localStorage where dragged before).
   const saved = useMemo(() => readSavedPositions(projectId), [projectId]);
   const nodeModels = useMemo(
-    () => buildWarrenNodes(roots, countByRoot, saved),
-    [roots, countByRoot, saved],
+    () => buildWarrenNodes(roots, countByRoot, saved, readByRoot),
+    [roots, countByRoot, saved, readByRoot],
   );
 
   // React Flow node state. Reconciled from the models on every data refresh:
@@ -377,7 +430,13 @@ function WarrenMapInner({
           id: m.id,
           type: "warren",
           position: existing?.position ?? m.position,
-          data: { text: m.text, paperCount: m.paperCount, theme: m.theme, onRequestDelete: requestDelete },
+          data: {
+            text: m.text,
+            paperCount: m.paperCount,
+            theme: m.theme,
+            hasReadReference: m.hasReadReference,
+            onRequestDelete: requestDelete,
+          },
           draggable: true,
         } as RFNode;
       });
@@ -386,7 +445,7 @@ function WarrenMapInner({
         rootNodes.push({
           id: UNFILED_NODE_ID,
           type: "unfiled",
-          position: existing?.position ?? { x: 0, y: 320 },
+          position: existing?.position ?? computeUnfiledSlot(rootNodes.map((n) => n.position)),
           data: { count: unfiledCount },
           draggable: false,
         } as unknown as RFNode);
