@@ -24,3 +24,13 @@ FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
 WHERE p.user_id = @user_id AND er.status = 'ready'
 ORDER BY er.created_at DESC;
+
+-- name: ListDemoEvaluationReports :many
+-- The demo project's report(s) — shown in EVERY authenticated user's report
+-- timeline, pinned last and marked isDemo (guided-tour P5). Same columns as
+-- ListEvaluationReports so the handler folds both into one entry shape.
+SELECT er.project_id, er.created_at, p.title, p.qualification
+FROM evaluation_report er
+JOIN project p ON p.id = er.project_id
+WHERE p.is_demo = true AND er.status = 'ready'
+ORDER BY er.created_at DESC;

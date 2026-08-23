@@ -39,6 +39,10 @@ type projectListItem struct {
 	// activity_log_entry.
 	AICalls     int `json:"aiCalls"`
 	ActivityLog int `json:"activityLog"`
+	// IsDemo (guided-tour P5) — true for the shared, world-readable demo project,
+	// which is appended to EVERY user's list (pinned last). The SPA uses this to
+	// badge the card and route it to the read-only tour walkthrough.
+	IsDemo bool `json:"isDemo"`
 }
 
 // anyProposalDim reports whether any of the four kick-off dimensions carries
@@ -137,9 +141,11 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 	}
 
 	out := make([]projectListItem, 0, len(rows))
+	owned := make(map[string]int, len(rows)) // project id → index in out (dedup demo)
 	for _, p := range rows {
 		cover := derefOr(p.Cover, "")
 		id := p.ID.String()
+		owned[id] = len(out)
 		out = append(out, projectListItem{
 			ID:           id,
 			Title:        p.Title,
@@ -151,7 +157,37 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 			LastActiveAt: p.LastActiveAt.Format(time.RFC3339),
 			AICalls:      aiCalls[id],
 			ActivityLog:  activityLog[id],
+			IsDemo:       p.IsDemo,
 		})
+	}
+
+	// Append the world-readable demo project(s) at the END for every user. If the
+	// caller already owns it (owner viewing — e.g. Phoebe), just mark the existing
+	// item isDemo instead of duplicating. Best-effort — a demo-fetch error leaves
+	// the list as the caller's own rows, never fails it. Count chips for an
+	// appended (non-owned) demo stay 0 (no per-demo count queries).
+	if demoRows, derr := a.d.Queries.ListDemoProjects(r.Context()); derr == nil {
+		for _, p := range demoRows {
+			id := p.ID.String()
+			if idx, ok := owned[id]; ok {
+				out[idx].IsDemo = true
+				continue
+			}
+			cover := derefOr(p.Cover, "")
+			out = append(out, projectListItem{
+				ID:           id,
+				Title:        p.Title,
+				QualLabel:    p.Qualification,
+				Status:       a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
+				Cover:        cover,
+				CoverURL:     a.resolveCoverURL(cover),
+				CreatedAt:    p.CreatedAt.Format(time.RFC3339),
+				LastActiveAt: p.LastActiveAt.Format(time.RFC3339),
+				AICalls:      aiCalls[id],
+				ActivityLog:  activityLog[id],
+				IsDemo:       true,
+			})
+		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})
 }

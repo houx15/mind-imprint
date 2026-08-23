@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -121,5 +122,94 @@ func TestProjectStatus_FormingToWorking(t *testing.T) {
 	h.ServeHTTP(rr2, withCookie(httptest.NewRequest("GET", base, nil), cookie))
 	if !strings.Contains(rr2.Body.String(), `"status":"working"`) {
 		t.Fatalf("project status after proposal = %s, want working", rr2.Body)
+	}
+}
+
+// TestProjectsList_DemoAppendedForEveryUser — the world-readable demo project
+// (…0200, seeded is_demo by migration 0082, owner Phoebe/SeedUserID) shows up in
+// EVERY user's list, pinned last and marked isDemo (guided-tour P5):
+//   - a NON-owner sees it appended as the LAST entry with isDemo:true, while
+//     their own project stays isDemo:false;
+//   - the OWNER (Phoebe) sees it exactly ONCE (deduped, not duplicated) with
+//     isDemo:true.
+func TestProjectsList_DemoAppendedForEveryUser(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: sqlc.New(pool), Pool: pool, SpecByID: cards.ByID}).Handler()
+	q := sqlc.New(pool)
+	ctx := context.Background()
+
+	type item struct {
+		ID     string `json:"id"`
+		IsDemo bool   `json:"isDemo"`
+	}
+
+	// --- Non-owner: a fresh student with one project of their own. ---
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-list-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+	if _, err := q.CreateProject(ctx, sqlc.CreateProjectParams{
+		UserID: otherID, Qualification: "IB", Title: "非演示项目", BoardCfgVer: 1,
+	}); err != nil {
+		t.Fatalf("create non-owner project: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), otherCookie))
+	if rr.Code != 200 {
+		t.Fatalf("non-owner list: %d — %s", rr.Code, rr.Body.String())
+	}
+	var otherBody struct {
+		Projects []item `json:"projects"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &otherBody); err != nil {
+		t.Fatalf("decode non-owner list: %v — %s", err, rr.Body.String())
+	}
+	if len(otherBody.Projects) < 2 {
+		t.Fatalf("non-owner list want >=2 (own + demo), got %d — %s", len(otherBody.Projects), rr.Body.String())
+	}
+	// Demo is the LAST entry, isDemo:true.
+	last := otherBody.Projects[len(otherBody.Projects)-1]
+	if last.ID != demoProjectID || !last.IsDemo {
+		t.Fatalf("non-owner: last entry = %+v, want demo %s isDemo:true", last, demoProjectID)
+	}
+	// Every non-demo entry has isDemo:false, and the demo appears exactly once.
+	demoCount := 0
+	for _, p := range otherBody.Projects {
+		if p.ID == demoProjectID {
+			demoCount++
+			if !p.IsDemo {
+				t.Fatalf("non-owner: demo entry isDemo=false — %+v", p)
+			}
+		} else if p.IsDemo {
+			t.Fatalf("non-owner: non-demo entry marked isDemo:true — %+v", p)
+		}
+	}
+	if demoCount != 1 {
+		t.Fatalf("non-owner: demo appears %d times, want exactly 1 — %s", demoCount, rr.Body.String())
+	}
+
+	// --- Owner (Phoebe) sees the demo exactly once (deduped), marked isDemo. ---
+	ownerCookie := signInSeed(t, pool)
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), ownerCookie))
+	if rr.Code != 200 {
+		t.Fatalf("owner list: %d — %s", rr.Code, rr.Body.String())
+	}
+	var ownerBody struct {
+		Projects []item `json:"projects"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &ownerBody); err != nil {
+		t.Fatalf("decode owner list: %v — %s", err, rr.Body.String())
+	}
+	ownerDemoCount := 0
+	for _, p := range ownerBody.Projects {
+		if p.ID == demoProjectID {
+			ownerDemoCount++
+			if !p.IsDemo {
+				t.Fatalf("owner: demo entry isDemo=false — %+v", p)
+			}
+		}
+	}
+	if ownerDemoCount != 1 {
+		t.Fatalf("owner: demo appears %d times, want exactly 1 (deduped) — %s", ownerDemoCount, rr.Body.String())
 	}
 }

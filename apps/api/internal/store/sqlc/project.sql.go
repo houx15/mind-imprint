@@ -160,6 +160,48 @@ func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, err
 	return studio_state, err
 }
 
+const listDemoProjects = `-- name: ListDemoProjects :many
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
+WHERE is_demo = true
+ORDER BY last_active_at DESC
+`
+
+// The world-readable demo project(s) — shown in EVERY authenticated user's list,
+// pinned last and marked isDemo (guided-tour P5). Same columns as
+// ListProjectsByUser so the handler folds both into one projectListItem shape.
+func (q *Queries) ListDemoProjects(ctx context.Context) ([]Project, error) {
+	rows, err := q.db.Query(ctx, listDemoProjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Qualification,
+			&i.Title,
+			&i.Deadline,
+			&i.BoardCfgVer,
+			&i.Status,
+			&i.CreatedAt,
+			&i.LastActiveAt,
+			&i.StudioState,
+			&i.Cover,
+			&i.IsDemo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectsByUser = `-- name: ListProjectsByUser :many
 SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
 WHERE user_id = $1

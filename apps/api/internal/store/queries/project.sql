@@ -11,6 +11,14 @@ SELECT * FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC;
 
+-- name: ListDemoProjects :many
+-- The world-readable demo project(s) — shown in EVERY authenticated user's list,
+-- pinned last and marked isDemo (guided-tour P5). Same columns as
+-- ListProjectsByUser so the handler folds both into one projectListItem shape.
+SELECT * FROM project
+WHERE is_demo = true
+ORDER BY last_active_at DESC;
+
 -- name: CountLLMCallsByUserProject :many
 -- Per-project AI-call totals for the caller's whole project list, in ONE grouped
 -- pass (not N per-project reads). llm_call carries user_id + project_id directly
