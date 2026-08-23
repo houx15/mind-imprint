@@ -52,7 +52,9 @@ export const coursesSegments: TourSegment[] = [
         // The card click above lands on the course's browse/detail page, not
         // the live player — this is the real button that actually starts it.
         anchor: '[data-tour="course-detail-start"]',
-        placement: "bottom",
+        // "top": the 开始学习 button sits at the very bottom of a long detail
+        // page, so a bubble below it would clamp back up onto the button.
+        placement: "top",
         text: "看完这页介绍，点这个按钮就能正式进入课程，开始学习。",
         advance: "action",
         actionEvent: { selector: '[data-tour="course-detail-start"]', type: "click" },

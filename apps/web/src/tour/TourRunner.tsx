@@ -72,19 +72,31 @@ export function TourRunner() {
   // paint, so there's no flash of an off-screen popover — the layout effect
   // corrects position in the same commit the browser paints.
   const placement = t.step?.placement ?? "bottom";
+  const isActionStep = t.step?.advance === "action";
   useLayoutEffect(() => {
     if (!rect) return;
     const el = popRef.current;
     if (!el) return;
     const box = el.getBoundingClientRect();
-    const { top, left } = clampToViewport(
-      { top: box.top, left: box.left },
-      { w: box.width, h: box.height },
-      { vw: window.innerWidth, vh: window.innerHeight },
-      VIEWPORT_MARGIN,
-    );
+    const vw = window.innerWidth, vh = window.innerHeight;
+    const dims = { w: box.width, h: box.height };
+    let { top, left } = clampToViewport({ top: box.top, left: box.left }, dims, { vw, vh }, VIEWPORT_MARGIN);
+    // Action steps: the user must be able to CLICK the highlighted target, so the
+    // popover must never sit on top of it (clamping a bottom-placed bubble on a
+    // bottom-of-page anchor pulled it up onto the button, eating the click — found
+    // in prod smoke). If the clamped box overlaps the padded anchor, move it to
+    // whichever side of the anchor has room (prefer above), then re-clamp.
+    if (isActionStep) {
+      const a = { top: rect.top - PAD, left: rect.left - PAD, right: rect.right + PAD, bottom: rect.bottom + PAD };
+      const overlaps = top < a.bottom && top + dims.h > a.top && left < a.right && left + dims.w > a.left;
+      if (overlaps) {
+        const above = a.top - VIEWPORT_MARGIN - dims.h;
+        top = above >= VIEWPORT_MARGIN ? above : a.bottom + VIEWPORT_MARGIN;
+        ({ top, left } = clampToViewport({ top, left }, dims, { vw, vh }, VIEWPORT_MARGIN));
+      }
+    }
     setClampState({ rect, placement, top, left });
-  }, [rect, placement]);
+  }, [rect, placement, isActionStep]);
 
   // Keyboard: Esc ends; Enter/→ advances a "next" step.
   useEffect(() => {
