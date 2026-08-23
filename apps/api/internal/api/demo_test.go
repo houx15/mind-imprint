@@ -419,6 +419,78 @@ func TestGetDraftDemoEssayHasRealNewlines(t *testing.T) {
 	}
 }
 
+// TestDemoWarrenHasSecondLayerAndResourceNeeds verifies migration 0087: the
+// guided tour (P7 Task 9) clicks a root lead on the demo warren map and needs
+// a real 2nd layer to reveal, and the 还需要探索 box needs to be non-empty.
+// Before 0087 every one of the demo's 4 exploration_lead rows (0082:169-182)
+// was a root (parent_lead_id NULL) and studio_state.resourceNeeds was absent.
+// Driven as a non-owner GET (demo is world-readable, TestDemoProjectReadOnly).
+func TestDemoWarrenHasSecondLayerAndResourceNeeds(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-warren-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	base := "/api/v1/projects/" + demoProjectID
+
+	// (a) GET .../exploration -> at least 2 leads whose parentLeadId is the
+	// same existing root ("既然是最大碳排放国，为什么还能说治理有决心？", …0292).
+	rootID := "00000000-0000-0000-0000-000000000292"
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/exploration", nil), otherCookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("demo GET /exploration: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var exp struct {
+		Leads []struct {
+			ID           string  `json:"id"`
+			Text         string  `json:"text"`
+			ParentLeadID *string `json:"parentLeadId"`
+		} `json:"leads"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &exp); err != nil {
+		t.Fatalf("decode exploration: %v — body=%s", err, rr.Body.String())
+	}
+	var children int
+	for _, l := range exp.Leads {
+		if l.ParentLeadID != nil && *l.ParentLeadID == rootID {
+			children++
+			if l.Text == "" {
+				t.Fatalf("demo warren child lead has empty text: %+v", l)
+			}
+		}
+	}
+	if children < 2 {
+		t.Fatalf("demo warren: want >=2 children under root %s, got %d — leads=%+v", rootID, children, exp.Leads)
+	}
+
+	// (b) GET .../resource-needs -> the seeded 还需要探索 rows, non-empty.
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base+"/resource-needs", nil), otherCookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("demo GET /resource-needs: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var needs struct {
+		Needs []struct {
+			ID   string `json:"id"`
+			Text string `json:"text"`
+			Done bool   `json:"done"`
+		} `json:"needs"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &needs); err != nil {
+		t.Fatalf("decode resource-needs: %v — body=%s", err, rr.Body.String())
+	}
+	if len(needs.Needs) < 2 {
+		t.Fatalf("demo resource-needs: want >=2 seeded rows, got %d — %+v", len(needs.Needs), needs.Needs)
+	}
+	for _, n := range needs.Needs {
+		if n.ID == "" || n.Text == "" {
+			t.Fatalf("demo resource-needs: row missing id/text — %+v", n)
+		}
+	}
+}
+
 // assertDemoReadonly asserts rr is a 403 carrying error.code = "demo_readonly".
 func assertDemoReadonly(t *testing.T, rr *httptest.ResponseRecorder, label string) {
 	t.Helper()
