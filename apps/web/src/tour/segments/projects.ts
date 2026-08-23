@@ -121,7 +121,10 @@ export const projectsSegments: TourSegment[] = [
     steps: [
       {
         id: "reading-warren-0",
-        onEnter: (nav) => nav.setStudioRoom("reading"),
+        onEnter: (nav) => {
+          nav.setStudioRoom("reading");
+          nav.setReadingView("graph");
+        },
         placement: "center",
         text: "接下来是**阅读**房间——research 的主战场。先看它的探索视图，帮你围绕研究问题找资料、理线索。",
         advance: "next",
@@ -130,7 +133,7 @@ export const projectsSegments: TourSegment[] = [
         id: "reading-warren-1",
         anchor: '[data-tour="reading-viewtoggle"]',
         placement: "bottom",
-        text: "阅读房间也有几种视图可以切：探索地图、文献库……对应「找资料」和「管理已收集的资料」两个阶段。",
+        text: "阅读房间有两种视图：**图书馆**（管理读过的资料）和**探索**（围绕问题找线索）。现在看到的是探索视图。",
         advance: "next",
       },
       {
@@ -149,6 +152,10 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-warren-4",
+        // No anchor: `explore-keyword` only renders inside a SELECTED question
+        // node's find-actions (ExplorationSidebar.tsx NodePanel) — the demo
+        // graph starts with nothing selected, so it can't resolve here without
+        // simulating a click. Centered per the brief's fallback ruling.
         placement: "center",
         title: "AI 帮你想关键词",
         text: "在阅读区，选中一个问题节点，印记会帮你想检索关键词；有时还需要你把正文粘进来，因为 AI 拿不到全文。",
@@ -166,29 +173,21 @@ export const projectsSegments: TourSegment[] = [
     id: "reading-room",
     name: "精读一篇资料",
     steps: [
+      // Fallback path: real 精读 immersive open isn't available this slice
+      // (openDemoReadingRoom() just calls setReadingView("list")). Tightened
+      // from 4 centered steps to 2, explicitly framed as "already read" so it
+      // doesn't imply we're standing inside a live 精读 view.
       {
         id: "reading-room-0",
         placement: "center",
         title: "精读一篇资料时",
-        text: "进入精读后，正文在中间，你可以像聊天一样在旁边跟 AI 讨论这篇资料——问它「这段在说什么」「这个论点站得住吗」，AI 只帮你理解，不替你下结论。",
+        text: "在示例项目里，这篇资料已经读完、收进了图书馆。精读一篇资料时，正文在中间，你可以像聊天一样在旁边跟 AI 讨论它——划句即问、召唤思维卡、随手记笔记。",
         advance: "next",
       },
       {
         id: "reading-room-1",
         placement: "center",
-        text: "**划句即问**：选中正文里的任意一句话，就能直接就这句话向 AI 提问，不用自己复制粘贴、切上下文。",
-        advance: "next",
-      },
-      {
-        id: "reading-room-2",
-        placement: "center",
-        text: "读到关键信息时，可以召唤合适的**思维工具卡**（比如 CRAAP 溯源体检）来帮你系统地检验这篇资料，或者直接记一条**笔记**留住你的想法。",
-        advance: "next",
-      },
-      {
-        id: "reading-room-3",
-        placement: "center",
-        text: "读完一篇，点“完成精读”，它就会带着你的笔记和标注，正式收进你的**文献库**。",
+        text: "读完点「完成精读」，它就带着你的笔记收进文献库。",
         advance: "next",
       },
     ],
@@ -199,15 +198,19 @@ export const projectsSegments: TourSegment[] = [
     steps: [
       {
         id: "reading-library-0",
-        onEnter: (nav) => nav.setStudioRoom("reading"),
+        onEnter: (nav) => {
+          nav.setStudioRoom("reading");
+          nav.setReadingView("list");
+        },
         placement: "center",
-        text: "所有精读过的资料都会汇总在**文献库**里，方便你回看、检索。",
+        text: "切到**图书馆**视图，看看已经读过、收进来的资料。",
         advance: "next",
       },
       {
         id: "reading-library-1",
-        placement: "center",
-        text: "阅读区还有一个「文献库」视图，把你读过的每一篇资料列成一张表，点开任意一行能回到当时的笔记和标注——写作时要引用什么，去那里翻就对了。",
+        anchor: '[data-tour="library-table"]',
+        placement: "top",
+        text: "每精读完一篇资料，它就会带着你的笔记和评估收进这张表。点开任意一行，能回到当时的笔记和标注——写作要引用时，来这里翻。",
         advance: "next",
       },
     ],

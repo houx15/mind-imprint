@@ -60,4 +60,57 @@ describe("projects segments", () => {
     for (const seg of coursesSegments) expect(journeyIds.has(seg.id)).toBe(true);
     for (const seg of projectsSegments) expect(journeyIds.has(seg.id)).toBe(true);
   });
+
+  // P5 Task 5 · reading segments carry the real demo anchors (warren map +
+  // 文献库 table), not centered-only text.
+  it("reading-warren spotlights the real warren-map anchors in order", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
+    expect(seg.steps[1]!.anchor).toBe('[data-tour="reading-viewtoggle"]');
+    expect(seg.steps[2]!.anchor).toBe('[data-tour="warren-question"]');
+    expect(seg.steps[3]!.anchor).toBe('[data-tour="warren-unfiled"]');
+  });
+
+  it("reading-warren step 0 onEnter drives to the reading room's graph view", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
+    const calls: Array<[string, unknown]> = [];
+    const nav: TourNavContext = {
+      setTab: vi.fn(),
+      openCourse: vi.fn(),
+      setCoursesSub: vi.fn(),
+      openDemoProject: vi.fn(),
+      setStudioRoom: vi.fn((room) => calls.push(["setStudioRoom", room])),
+      openDemoReport: vi.fn(),
+      setReadingView: vi.fn((view) => calls.push(["setReadingView", view])),
+      openDemoReadingRoom: vi.fn(),
+    };
+    seg.steps[0]!.onEnter?.(nav);
+    expect(calls).toContainEqual(["setStudioRoom", "reading"]);
+    expect(calls).toContainEqual(["setReadingView", "graph"]);
+  });
+
+  it("reading-library spotlights the real library-table anchor and switches to list view", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-library")!;
+    expect(seg.steps[1]!.anchor).toBe('[data-tour="library-table"]');
+
+    const calls: Array<[string, unknown]> = [];
+    const nav: TourNavContext = {
+      setTab: vi.fn(),
+      openCourse: vi.fn(),
+      setCoursesSub: vi.fn(),
+      openDemoProject: vi.fn(),
+      setStudioRoom: vi.fn((room) => calls.push(["setStudioRoom", room])),
+      openDemoReport: vi.fn(),
+      setReadingView: vi.fn((view) => calls.push(["setReadingView", view])),
+      openDemoReadingRoom: vi.fn(),
+    };
+    seg.steps[0]!.onEnter?.(nav);
+    expect(calls).toContainEqual(["setStudioRoom", "reading"]);
+    expect(calls).toContainEqual(["setReadingView", "list"]);
+  });
+
+  it("reading-room (精读 fallback) stays to at most 2 centered steps", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-room")!;
+    expect(seg.steps.length).toBeLessThanOrEqual(2);
+    for (const s of seg.steps) expect(s.placement).toBe("center");
+  });
 });
