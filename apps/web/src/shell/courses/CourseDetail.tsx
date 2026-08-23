@@ -162,7 +162,9 @@ export function CourseDetail({ slug, onStart, onBack, onOpenCourse }: { slug: st
         )}
 
         <div style={{ marginTop: 40 }}>
-          <button type="button" onClick={onStart} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--mk-accent-500)", color: "var(--mk-surface)", border: "none", padding: "12px 22px", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
+          {/* Guided tour anchor (§P5 Task 7): the real bridge from this browse
+              page into the live player — `courses-enter-1` targets it. */}
+          <button type="button" data-tour="course-detail-start" onClick={onStart} style={{ display: "inline-flex", alignItems: "center", gap: 8, background: "var(--mk-accent-500)", color: "var(--mk-surface)", border: "none", padding: "12px 22px", borderRadius: 12, fontSize: 15, fontWeight: 700, cursor: "pointer", fontFamily: "inherit" }}>
             {cta}
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
           </button>

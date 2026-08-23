@@ -133,10 +133,12 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
     );
   }
   if (view.name === "player") {
-    // Guided tour anchors: RuntimeCoursePlayer's root carries
-    // `data-testid="course-region"`, and the runtime renders `.course-nav__next`
-    // + `[data-testid="ask-bubble"]` — the tour targets these selectors
-    // directly, so don't remove/rename them.
+    // Guided tour anchors (§P5 Task 7): RuntimeCoursePlayer's root carries
+    // `data-testid="course-region"` (stable across loading/opening/playing —
+    // unlike `.course-nav__next`, which only exists once the Opening scene's
+    // own "开始" has been clicked) and AskPanel's input row carries
+    // `data-tour="courses-ask-box"`. The tour targets these directly, so
+    // don't remove/rename them.
     return (
       <PlayerRouter
         slug={view.courseId}

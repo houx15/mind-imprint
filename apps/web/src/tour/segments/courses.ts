@@ -40,7 +40,18 @@ export const coursesSegments: TourSegment[] = [
         anchor: '[data-tour="courses-grid"]',
         placement: "top",
         text: "点开任意一门课的卡片，就能看到它的介绍并开始学习。挑一门你感兴趣的试试吧。",
-        advance: "next",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="courses-grid"] button', type: "click" },
+      },
+      {
+        id: "courses-enter-1",
+        // The card click above lands on the course's browse/detail page, not
+        // the live player — this is the real button that actually starts it.
+        anchor: '[data-tour="course-detail-start"]',
+        placement: "bottom",
+        text: "看完这页介绍，点这个按钮就能正式进入课程，开始学习。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="course-detail-start"]', type: "click" },
       },
     ],
   },
@@ -50,14 +61,20 @@ export const coursesSegments: TourSegment[] = [
     steps: [
       {
         id: "courses-player-0",
-        placement: "center",
-        text: "进入一门课后，内容会一屏一屏推进：印记先讲解，再请你回答小问题。想清楚了再往下走——**不用赶**。",
+        // `[data-testid="course-region"]` (not `.course-nav__next`): the
+        // course opens on the Opening scene, before the "下一步" nav renders —
+        // course-region is the one real anchor guaranteed present the moment
+        // this step shows.
+        anchor: '[data-testid="course-region"]',
+        placement: "top",
+        text: "进入一门课后，内容会一屏一屏推进：印记先讲解，再请你回答小问题。想清楚了，点这里往下走——**不用赶**。",
         advance: "next",
       },
       {
         id: "courses-player-1",
-        placement: "center",
-        text: "在课程里遇到疑问，随时用页面上的提问框问我，我就在你身边。",
+        anchor: '[data-tour="courses-ask-box"]',
+        placement: "left",
+        text: "在课程里遇到疑问，随时用这个提问框问我，我就在你身边。",
         advance: "next",
       },
     ],

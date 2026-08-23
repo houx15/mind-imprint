@@ -220,7 +220,10 @@ export function AskPanel({
       </div>
 
       <div style={{ flex: "none", padding: "14px 18px 18px", borderTop: "1px solid var(--mk-border)" }}>
-        <div style={{ background: "var(--mk-paper)", border: "1px solid var(--mk-input-border)", borderRadius: 14, padding: "8px 8px 8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
+        {/* Guided tour anchor (§P5 Task 7): the persistent ask box — present from
+            mount regardless of message history, unlike `[data-testid="ask-bubble"]`
+            which only exists once a reply has streamed in. Behavior-neutral. */}
+        <div data-tour="courses-ask-box" style={{ background: "var(--mk-paper)", border: "1px solid var(--mk-input-border)", borderRadius: 14, padding: "8px 8px 8px 14px", display: "flex", alignItems: "center", gap: 10 }}>
           <input
             value={text}
             onChange={(e) => setText(e.target.value)}
