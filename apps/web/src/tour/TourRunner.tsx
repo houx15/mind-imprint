@@ -38,7 +38,12 @@ export function TourRunner() {
     void resolveAnchor(t.step.anchor).then((el) => {
       if (cancelled) return;
       if (!el) { setRect(null); return; }
-      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      // Instant (not smooth) scroll: it settles synchronously, so the very next
+      // getBoundingClientRect reflects the anchor's post-scroll viewport position.
+      // A smooth scroll left the rect stale (captured pre-scroll), which mis-placed
+      // the fixed popover — onto a bottom-of-page action target, eating its click
+      // (prod smoke). Snappier is also fine for a step-by-step tour.
+      el.scrollIntoView({ block: "center" });
       setRect(el.getBoundingClientRect());
     });
     return () => { cancelled = true; };
