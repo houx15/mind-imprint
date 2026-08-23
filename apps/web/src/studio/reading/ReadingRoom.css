@@ -512,6 +512,13 @@
   cursor: not-allowed;
 }
 
+/* demoMode (Task 4): the read-only hint under the disabled composer. */
+.mk-reading-room__demo-hint {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
+}
+
 .mk-reading-room__starter-row {
   display: flex;
   flex-wrap: wrap;

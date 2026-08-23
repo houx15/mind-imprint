@@ -12,7 +12,7 @@ import { LensLibrary } from "./LensLibrary";
 import { ReadingOutcomes } from "./ReadingOutcomes";
 import { FinalizeReadingPanel } from "./FinalizeReadingPanel";
 import { TraceSourcePanel } from "./TraceSourcePanel";
-import { useReadingLoop, type ReadingLoopApi } from "./readingLoop";
+import { useReadingLoop, type ReadingLoopApi, type ChatMessage } from "./readingLoop";
 import "./ReadingRoom.css";
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -118,6 +118,14 @@ export type ReadingRoomProps = {
   // passes its existing `onOpenLogged` callback through here. Optional so a
   // bare render (e.g. a component test with no logging concern) still works.
   onOpenLogged?: (materialId: string, timeSpentS: number) => void;
+  // initialMessages/demoMode (guided-tour P6, Task 4) — a read-only replay of
+  // the REAL reading room for the demo project. initialMessages seeds the
+  // coach thread instead of the live GREETING (falls back to it when absent).
+  // demoMode disables every write path (send/note/brief) so no `read-turn`,
+  // `putReadingBrief`, or note POST can fire; the rest of the room (article,
+  // deck, notes-read, chat log) renders exactly as normal.
+  initialMessages?: ChatMessage[];
+  demoMode?: boolean;
 };
 
 // Starter prompts adapted to OUR reading deck (source-checking + deep
@@ -165,8 +173,10 @@ export function ReadingRoom({
   onBack,
   api,
   onOpenLogged,
+  initialMessages,
+  demoMode = false,
 }: ReadingRoomProps) {
-  const loop = useReadingLoop(projectId, source, api);
+  const loop = useReadingLoop(projectId, source, api, initialMessages);
 
   // 证据笔记 state — the live reference (updated from each setter's returned
   // Reference so triage/nature/archive toggles reflect immediately) + a
@@ -198,6 +208,10 @@ export function ReadingRoom({
   const [briefPhase, setBriefPhase] = useState<PhaseTag | "">(phaseTag ?? "");
 
   function saveBrief(next?: { reason?: string; phase?: PhaseTag | "" }) {
+    // demoMode (Task 4): the demo replay is read-only — never fire the
+    // full-replace putReadingBrief PUT (which 403s on the read-only demo
+    // project anyway, per the room-brief).
+    if (demoMode) return;
     const reason = next?.reason ?? briefReason;
     const phase = next?.phase ?? briefPhase;
     void api.putReadingBrief(projectId, referenceId, {
@@ -226,7 +240,7 @@ export function ReadingRoom({
   const [noteSaving, setNoteSaving] = useState(false);
   const [noteSavedAt, setNoteSavedAt] = useState(0);
   async function saveNote() {
-    if (!onSaveNote) return;
+    if (!onSaveNote || demoMode) return;
     setNoteSaving(true);
     try {
       await onSaveNote(note);
@@ -255,7 +269,7 @@ export function ReadingRoom({
   }
 
   async function confirmFinalize() {
-    if (finalizeSaving) return;
+    if (finalizeSaving || demoMode) return;
     setFinalizeSaving(true);
     try {
       await api.postFinalizeReading(projectId, referenceId, {
@@ -321,7 +335,11 @@ export function ReadingRoom({
   const chatLogRef = useRef<HTMLDivElement | null>(null);
   const articleRef = useRef<HTMLDivElement | null>(null);
 
-  const busyOrCarded = loop.busy || loop.status !== "idle";
+  // demoMode folds into busyOrCarded so every control gated on it (composer,
+  // starters, 透镜库, the 克制-offer tap) is disabled for free — the demo
+  // replay must never fire readTurn/summonCard (both 403 on the read-only
+  // demo project's backend guard).
+  const busyOrCarded = loop.busy || loop.status !== "idle" || demoMode;
 
   // Reinstates the reading-time logging that used to fire from
   // SourceDossier's open/close lifecycle (a Task 8 binding). ReadingRoom is
@@ -412,6 +430,9 @@ export function ReadingRoom({
   }, [source.anchors, source.id, loop.outcomes, loop.exampleAnchor, loop.studentAnchor]);
 
   function send(text: string) {
+    // demoMode (Task 4): the demo replay is read-only — never fire readTurn
+    // (it 403s on the read-only demo project's backend guard anyway).
+    if (demoMode) return;
     const t = text.trim();
     if (!t) return;
     setDraft("");
@@ -602,19 +623,28 @@ export function ReadingRoom({
                     send(draft);
                   }
                 }}
-                placeholder={busyOrCarded ? "先完成文章里的这副透镜…" : "说说你对哪一句有疑问…"}
+                placeholder={
+                  demoMode
+                    ? "演示项目为只读，无法发送"
+                    : busyOrCarded
+                      ? "先完成文章里的这副透镜…"
+                      : "说说你对哪一句有疑问…"
+                }
                 aria-label="输入你的问题"
                 disabled={busyOrCarded}
+                title={demoMode ? "演示项目为只读，无法发送" : undefined}
               />
               <button
                 type="submit"
                 className="mk-reading-room__composer-send"
                 aria-label="发送"
                 disabled={busyOrCarded || !draft.trim()}
+                title={demoMode ? "演示项目为只读，无法发送" : undefined}
               >
                 ↑
               </button>
             </form>
+            {demoMode && <p className="mk-reading-room__demo-hint">演示项目为只读——这段对话是示例，无法继续提问。</p>}
             <div className="mk-reading-room__starter-row">
               {STARTERS.map((prompt) => {
                 // #7: the credibility starter deterministically summons the

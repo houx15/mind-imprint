@@ -141,7 +141,16 @@ function studentSpanToAnchor(source: MaterialSource, span: CreatedSpan, dimensio
   };
 }
 
-export function useReadingLoop(projectId: string, source: MaterialSource, api: ReadingLoopApi): UseReadingLoop {
+export function useReadingLoop(
+  projectId: string,
+  source: MaterialSource,
+  api: ReadingLoopApi,
+  // initialMessages — the guided-tour demo replay (Task 4): seeds the chat
+  // log with a hand-authored transcript instead of the live GREETING, so a
+  // read-only demo room opens already "mid-conversation". Undefined/empty →
+  // unchanged default behavior ([GREETING]).
+  initialMessages?: ChatMessage[],
+): UseReadingLoop {
   const [status, setStatus] = useState<ReadingLoopStatus>("idle");
   const [cardInstanceId, setCardInstanceId] = useState<string | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
@@ -149,7 +158,9 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   const [exampleWhy, setExampleWhy] = useState("");
   const [studentSpan, setStudentSpan] = useState<CreatedSpan | null>(null);
   const [evalResult, setEvalResult] = useState<SelectionEval | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    initialMessages && initialMessages.length > 0 ? initialMessages : [GREETING],
+  );
   const [outcomes, setOutcomes] = useState<ReadingOutcome[]>([]);
   const [busy, setBusy] = useState(false);
 
