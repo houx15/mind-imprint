@@ -1,5 +1,6 @@
-import { useEffect, useState, type KeyboardEvent } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent } from "react";
 import type { Annotation, DraftAnnotation, Proposal, Reference, ReferenceRef, Snippet, StudioStage, SubQuestion } from "@mind-imprint/contracts";
+import type { TourRefPanelTab } from "@/tour/types";
 import { EmptyState } from "@/ui/Illustration";
 import { getAnnotations, getLibrary, getSnippets } from "../api/workspace";
 import { getProposalTrack } from "../../api/proposalTrack";
@@ -63,13 +64,16 @@ export function ReferencePanel({
   onOpenReading,
   onJumpToAnchor,
   isDemo = false,
+  forceTab,
+  onForceTabConsumed,
 }: {
   projectId: string;
   reference: ReferenceRef[];
   stage: StudioStage;
   proposal: Proposal;
-  /** Task 9 (P6 demo): the read-only demo defaults this panel to the 批注 tab so
-   * the seeded AI 批注 render without a click (the tour spotlights them). It's
+  /** Task 9 (P6 demo), updated P7: the read-only demo defaults this panel to
+   * the 阅读笔记 tab (matching a normal writing session's landing tab); a
+   * separate tour step later selects AI批注 explicitly via `forceTab`. It's
    * still a real tab the student can switch away from. */
   isDemo?: boolean;
   /** slice 5 · jump to the reading room from the 还需要探索的 box (§101). */
@@ -93,6 +97,17 @@ export function ReferencePanel({
    * they're on the 正文 tab, where seeing the parts is useful for assembling the
    * paper (user: "only when I write 正文 I need that"). */
   showSnippets?: boolean;
+  /** P7 (guided tour): select a specific tab deterministically — used to
+   *  switch to AI批注 explicitly after the demo's default moved to 阅读笔记.
+   *  Threaded from WorkspaceContainer's `pendingRefPanelTab`. Applied via a
+   *  ref-guarded effect below: each distinct value is applied at most once,
+   *  so it never fights the student's own later tab clicks. */
+  forceTab?: TourRefPanelTab | null;
+  /** Fired right after `forceTab` has been applied, so the owner can retract
+   *  it (set the source state back to null) — mirrors `onForceViewConsumed`
+   *  on ReadingBlock/WritingBlock. Without this a stale-but-truthy `forceTab`
+   *  would re-apply on the next mount and clobber a manual tab click. */
+  onForceTabConsumed?: () => void;
 }) {
   const [lib, setLib] = useState<Reference[] | null>(null);
   const [snippets, setSnippets] = useState<Snippet[] | null>(null);
@@ -103,10 +118,24 @@ export function ReferencePanel({
   const annotationDoc: "proposal" | "essay" = isProposalStage ? "proposal" : "essay";
   const [proposalAnnos, setProposalAnnos] = useState<DraftAnnotation[]>([]);
   // §93 · the left panel is multi-tab; a tab appears only when it has content.
-  // Task 9 (P6 demo): default to the 批注 tab for the demo so the seeded AI 批注
-  // are visible immediately (the tour spotlights `writing-annotations`); the
-  // student can still click any other tab.
-  const [activeTab, setActiveTab] = useState<string>(isDemo ? "anno" : "");
+  // P7: default the demo to the 阅读笔记 tab (not AI批注 — a separate tour step
+  // now selects 批注 explicitly via `forceTab`/`selectRefPanelTab`), so the
+  // demo opens on the same tab a normal writing session would land on. If
+  // 阅读笔记 doesn't exist yet (no curated materials/notes), the `cur` fallback
+  // below (tabs.some(...) ? activeTab : tabs[0]) resolves to the first real
+  // tab instead — same as the non-demo "" default. The student can still
+  // click any other tab.
+  const [activeTab, setActiveTab] = useState<string>(isDemo ? "notes" : "");
+  // P7 (guided tour): apply `forceTab` into `activeTab` once — ref-guarded so
+  // a re-render with the same value never re-fires and a later manual tab
+  // click is never fought.
+  const lastForcedTab = useRef<TourRefPanelTab | null>(null);
+  useEffect(() => {
+    if (!forceTab || lastForcedTab.current === forceTab) return;
+    lastForcedTab.current = forceTab;
+    setActiveTab(forceTab);
+    onForceTabConsumed?.();
+  }, [forceTab, onForceTabConsumed]);
   useEffect(() => {
     let cancelled = false;
     void getProposalAnnotations(projectId, annotationDoc)

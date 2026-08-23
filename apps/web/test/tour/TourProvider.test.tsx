@@ -13,6 +13,7 @@ const nav: TourNavContext = {
   setReadingView: vi.fn(),
   openDemoReadingRoom: vi.fn(),
   setWritingView: vi.fn(),
+  selectRefPanelTab: vi.fn(),
 };
 
 const seg = (id: string, n: number): TourSegment => ({

@@ -56,6 +56,13 @@ export interface TourNavContext {
    *  ref-guarded one-shot). Assumes the writing room is already open (drive
    *  there first with `setStudioRoom("writing")`). */
   setWritingView: (view: TourWritingView) => void;
+  /** P7: select a tab on the OPEN writing room's left `ReferencePanel` — used
+   *  to explicitly switch to AI批注 (`"anno"`) after the demo now defaults to
+   *  阅读笔记 (`"notes"`). Sets `pendingRefPanelTab` in WorkspaceContainer,
+   *  threaded to ReferencePanel as a ref-guarded one-shot `forceTab` (applies
+   *  once, never fights the student's later tab clicks). Assumes the writing
+   *  room is already open (drive there first with `setStudioRoom("writing")`). */
+  selectRefPanelTab: (tab: TourRefPanelTab) => void;
 }
 
 /** A one-shot writing-room deep-link target (P6, Task 9): which document and
@@ -64,6 +71,10 @@ export interface TourWritingView {
   doc: "proposal" | "essay";
   tab: "outline" | "snippets" | "draft";
 }
+
+/** The left `ReferencePanel`'s tab keys (P7) — mirrors the `tabs` list built
+ *  in `ReferencePanel.tsx` (§93). `selectRefPanelTab` targets one of these. */
+export type TourRefPanelTab = "notes" | "anno" | "snippets" | "proposal";
 
 export interface TourStep {
   id: string;

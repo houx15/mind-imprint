@@ -23,7 +23,7 @@ import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import type { ChatMessage } from "../studio/reading/readingLoop";
 import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
-import type { TourWritingView } from "@/tour/types";
+import type { TourWritingView, TourRefPanelTab } from "@/tour/types";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue, type ChatAction } from "../studio/ai/StudioChatContext";
@@ -108,6 +108,8 @@ export function WorkspaceContainer({
   onPendingReadingViewConsumed,
   pendingWritingView,
   onPendingWritingViewConsumed,
+  pendingRefPanelTab,
+  onPendingRefPanelTabConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onRequestDemoTour,
@@ -155,6 +157,16 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingWritingView` has been captured (mirrors
    * `onPendingRoomConsumed`). */
   onPendingWritingViewConsumed?: () => void;
+  /** Drive the writing room's left `ReferencePanel` to a specific tab
+   * (阅读笔记/AI批注/…) — the guided tour's P7 `selectRefPanelTab` deep-link.
+   * Mirrors `pendingRoom`: a one-shot captured into local state and handed to
+   * ReferencePanel as `forceTab` (its own ref guard applies it once and never
+   * fights the student's later tab clicks). Assumes the writing room is
+   * already open. */
+  pendingRefPanelTab?: TourRefPanelTab | null;
+  /** Fired once right after `pendingRefPanelTab` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingRefPanelTabConsumed?: () => void;
   /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
    * StudentApp) already fetched the demo material's `MaterialSource` (GET
    * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
@@ -334,6 +346,10 @@ export function WorkspaceContainer({
   // never fights the student's later tab clicks). The doc half drives
   // `setDocOverride` in the consume effect below.
   const [writingForceTab, setWritingForceTab] = useState<"outline" | "snippets" | "draft" | null>(null);
+  // `pendingRefPanelTab` deep-link (P7): captured and handed to ReferencePanel
+  // as `forceTab` (its own ref guard applies it once and never fights the
+  // student's later tab clicks).
+  const [refPanelForceTab, setRefPanelForceTab] = useState<TourRefPanelTab | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -1205,6 +1221,20 @@ export function WorkspaceContainer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingWritingView, onPendingWritingViewConsumed]);
 
+  // `pendingRefPanelTab` deep-link (P7 — guided tour): capture each new value
+  // into `refPanelForceTab` (handed to ReferencePanel as `forceTab`) and clear
+  // the parent's one-shot — same ref-guarded "only on change" firing as
+  // `pendingReadingView` above. ReferencePanel's OWN ref guard then applies it
+  // once and never overrides a later manual tab click.
+  const lastRefPanelTab = useRef<TourRefPanelTab | null>(null);
+  useEffect(() => {
+    if (pendingRefPanelTab && pendingRefPanelTab !== lastRefPanelTab.current) {
+      lastRefPanelTab.current = pendingRefPanelTab;
+      setRefPanelForceTab(pendingRefPanelTab);
+      onPendingRefPanelTabConsumed?.();
+    }
+  }, [pendingRefPanelTab, onPendingRefPanelTabConsumed]);
+
   // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
   // already-fetched demo `MaterialSource` into the real immersive
   // `ReadingRoom`, seeded with the canned read-only transcript. Same
@@ -1532,6 +1562,8 @@ export function WorkspaceContainer({
                     isDemo={workspace.isDemo ?? false}
                     onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                     onJumpToAnchor={(a) => draftScrollRef.current?.(a)}
+                    forceTab={refPanelForceTab}
+                    onForceTabConsumed={() => setRefPanelForceTab(null)}
                   />
                 }
                 right={(() => {

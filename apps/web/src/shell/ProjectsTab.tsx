@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Segmented } from "@/ui";
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 import { ReportsView } from "@/shell/report/ReportsView";
-import type { StudioRoom, TourWritingView } from "@/tour/types";
+import type { StudioRoom, TourWritingView, TourRefPanelTab } from "@/tour/types";
 import type { MaterialSource } from "@mind-imprint/contracts";
 
 /**
@@ -44,6 +44,11 @@ export interface ProjectsTabProps {
    * WorkspaceContainer. */
   pendingWritingView?: TourWritingView | null;
   onPendingWritingViewConsumed?: () => void;
+  /** One-shot: select a tab on the open writing room's left `ReferencePanel`
+   *  (阅读笔记/AI批注/…, the guided tour's P7 deep-link). Threaded straight to
+   *  WorkspaceContainer. */
+  pendingRefPanelTab?: TourRefPanelTab | null;
+  onPendingRefPanelTabConsumed?: () => void;
   /** One-shot: open this already-fetched demo `MaterialSource` into the real
    * immersive Reading Room as a read-only replay (the guided tour's P6
    * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
@@ -70,6 +75,8 @@ export function ProjectsTab({
   onPendingReadingViewConsumed,
   pendingWritingView,
   onPendingWritingViewConsumed,
+  pendingRefPanelTab,
+  onPendingRefPanelTabConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onImmersiveChange,
@@ -142,6 +149,8 @@ export function ProjectsTab({
             onPendingReadingViewConsumed={onPendingReadingViewConsumed}
             pendingWritingView={pendingWritingView}
             onPendingWritingViewConsumed={onPendingWritingViewConsumed}
+            pendingRefPanelTab={pendingRefPanelTab}
+            onPendingRefPanelTabConsumed={onPendingRefPanelTabConsumed}
             pendingDemoReading={pendingDemoReading}
             onPendingDemoReadingConsumed={onPendingDemoReadingConsumed}
             autoOpenCreate={autoOpenCreate}
