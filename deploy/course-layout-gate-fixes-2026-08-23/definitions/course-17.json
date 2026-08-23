@@ -355,7 +355,7 @@
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
         },
-        "presentation": "modal"
+        "openAs": "modal"
        }
       ],
       "layout": {
@@ -734,7 +734,7 @@
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
         },
-        "presentation": "modal"
+        "openAs": "modal"
        }
       ],
       "layout": {
@@ -937,15 +937,10 @@
      {
       "id": "slice-two-group-figure",
       "title": "两组比较：先看这张图",
-      "objectiveIds": [
-       "objective-select-analysis"
-      ],
-      "estimatedSeconds": 63,
       "blocks": [
        {
         "id": "slice-two-group-figure-image",
         "type": "images",
-        "presentation": "single",
         "items": [
          {
           "id": "slice-two-group-figure-image-item",
@@ -953,11 +948,11 @@
           "source": "assets/images/slide-14-two-group.png",
           "caption": "两组比较：先写差多少，再考虑检验。"
          }
-        ]
+        ],
+        "presentation": "single"
        }
       ],
       "layout": {
-       "preset": "full",
        "slots": [
         {
          "id": "main",
@@ -965,51 +960,51 @@
           "slice-two-group-figure-image"
          ]
         }
-       ]
+       ],
+       "preset": "full"
       },
-      "narrations": [],
       "workflow": {
-       "version": "1.0",
-       "initialStepId": "read",
-       "initialState": {
-        "visibleBlockIds": [
-         "slice-two-group-figure-image"
-        ],
-        "enabledBlockIds": [
-         "slice-two-group-figure-image"
-        ]
-       },
        "steps": [
         {
          "id": "read",
+         "transitions": [],
          "enterActions": [
           {
            "type": "completeSlice"
           }
-         ],
-         "transitions": []
+         ]
         }
-       ]
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-two-group-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-two-group-figure-image"
+        ]
+       },
+       "initialStepId": "read"
       },
+      "narrations": [],
       "navigation": {
        "revisit": "restore-completed-state",
        "autoNext": false,
        "previous": "allowed",
        "manualNext": "after-completion"
-      }
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
      },
      {
       "id": "slice-crosstab-figure",
       "title": "分类比例：再看这张图",
-      "objectiveIds": [
-       "objective-select-analysis"
-      ],
-      "estimatedSeconds": 63,
       "blocks": [
        {
         "id": "slice-crosstab-figure-image",
         "type": "images",
-        "presentation": "single",
         "items": [
          {
           "id": "slice-crosstab-figure-image-item",
@@ -1017,11 +1012,11 @@
           "source": "assets/images/slide-15-crosstab.png",
           "caption": "列联表：先看每格人数和比例。"
          }
-        ]
+        ],
+        "presentation": "single"
        }
       ],
       "layout": {
-       "preset": "full",
        "slots": [
         {
          "id": "main",
@@ -1029,38 +1024,43 @@
           "slice-crosstab-figure-image"
          ]
         }
-       ]
+       ],
+       "preset": "full"
       },
-      "narrations": [],
       "workflow": {
-       "version": "1.0",
-       "initialStepId": "read",
-       "initialState": {
-        "visibleBlockIds": [
-         "slice-crosstab-figure-image"
-        ],
-        "enabledBlockIds": [
-         "slice-crosstab-figure-image"
-        ]
-       },
        "steps": [
         {
          "id": "read",
+         "transitions": [],
          "enterActions": [
           {
            "type": "completeSlice"
           }
-         ],
-         "transitions": []
+         ]
         }
-       ]
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-crosstab-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-crosstab-figure-image"
+        ]
+       },
+       "initialStepId": "read"
       },
+      "narrations": [],
       "navigation": {
        "revisit": "restore-completed-state",
        "autoNext": false,
        "previous": "allowed",
        "manualNext": "after-completion"
-      }
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
      },
      {
       "id": "slice-two-group-crosstab",
@@ -1103,7 +1103,6 @@
        }
       ],
       "layout": {
-       "preset": "split-horizontal",
        "ratio": "1:1",
        "slots": [
         {
@@ -1118,7 +1117,8 @@
           "crosstab-method"
          ]
         }
-       ]
+       ],
+       "preset": "split-horizontal"
       },
       "workflow": {
        "steps": [
@@ -1193,15 +1193,10 @@
      {
       "id": "slice-correlation-figure",
       "title": "相关：先看这张图",
-      "objectiveIds": [
-       "objective-select-analysis"
-      ],
-      "estimatedSeconds": 63,
       "blocks": [
        {
         "id": "slice-correlation-figure-image",
         "type": "images",
-        "presentation": "single",
         "items": [
          {
           "id": "slice-correlation-figure-image-item",
@@ -1209,11 +1204,11 @@
           "source": "assets/images/slide-16-correlation.png",
           "caption": "相关：看两个变量是否一起变化。"
          }
-        ]
+        ],
+        "presentation": "single"
        }
       ],
       "layout": {
-       "preset": "full",
        "slots": [
         {
          "id": "main",
@@ -1221,51 +1216,51 @@
           "slice-correlation-figure-image"
          ]
         }
-       ]
+       ],
+       "preset": "full"
       },
-      "narrations": [],
       "workflow": {
-       "version": "1.0",
-       "initialStepId": "read",
-       "initialState": {
-        "visibleBlockIds": [
-         "slice-correlation-figure-image"
-        ],
-        "enabledBlockIds": [
-         "slice-correlation-figure-image"
-        ]
-       },
        "steps": [
         {
          "id": "read",
+         "transitions": [],
          "enterActions": [
           {
            "type": "completeSlice"
           }
-         ],
-         "transitions": []
+         ]
         }
-       ]
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-correlation-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-correlation-figure-image"
+        ]
+       },
+       "initialStepId": "read"
       },
+      "narrations": [],
       "navigation": {
        "revisit": "restore-completed-state",
        "autoNext": false,
        "previous": "allowed",
        "manualNext": "after-completion"
-      }
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
      },
      {
       "id": "slice-regression-figure",
       "title": "回归：再看这张图",
-      "objectiveIds": [
-       "objective-select-analysis"
-      ],
-      "estimatedSeconds": 63,
       "blocks": [
        {
         "id": "slice-regression-figure-image",
         "type": "images",
-        "presentation": "single",
         "items": [
          {
           "id": "slice-regression-figure-image-item",
@@ -1273,11 +1268,11 @@
           "source": "assets/images/slide-17-regression.png",
           "caption": "回归：在列出的其他条件相近时看关联。"
          }
-        ]
+        ],
+        "presentation": "single"
        }
       ],
       "layout": {
-       "preset": "full",
        "slots": [
         {
          "id": "main",
@@ -1285,38 +1280,43 @@
           "slice-regression-figure-image"
          ]
         }
-       ]
+       ],
+       "preset": "full"
       },
-      "narrations": [],
       "workflow": {
-       "version": "1.0",
-       "initialStepId": "read",
-       "initialState": {
-        "visibleBlockIds": [
-         "slice-regression-figure-image"
-        ],
-        "enabledBlockIds": [
-         "slice-regression-figure-image"
-        ]
-       },
        "steps": [
         {
          "id": "read",
+         "transitions": [],
          "enterActions": [
           {
            "type": "completeSlice"
           }
-         ],
-         "transitions": []
+         ]
         }
-       ]
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-regression-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-regression-figure-image"
+        ]
+       },
+       "initialStepId": "read"
       },
+      "narrations": [],
       "navigation": {
        "revisit": "restore-completed-state",
        "autoNext": false,
        "previous": "allowed",
        "manualNext": "after-completion"
-      }
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
      },
      {
       "id": "slice-correlation-regression",
@@ -1359,7 +1359,6 @@
        }
       ],
       "layout": {
-       "preset": "split-horizontal",
        "ratio": "1:1",
        "slots": [
         {
@@ -1374,7 +1373,8 @@
           "relation-boundary"
          ]
         }
-       ]
+       ],
+       "preset": "split-horizontal"
       },
       "workflow": {
        "steps": [
@@ -1491,7 +1491,7 @@
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
         },
-        "presentation": "modal"
+        "openAs": "modal"
        }
       ],
       "layout": {
@@ -1615,7 +1615,7 @@
          "rule": "submit-any"
         },
         "placeholder": "例如：本研究比较 40 名学生的阅读时长；阅读社组平均高 1.4 小时；本样本存在差异；不能证明社团导致改变。",
-        "presentation": "modal"
+        "openAs": "modal"
        }
       ],
       "layout": {
@@ -1745,7 +1745,7 @@
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
         },
-        "presentation": "modal"
+        "openAs": "modal"
        }
       ],
       "layout": {

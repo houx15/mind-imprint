@@ -1409,3 +1409,27 @@
 .course-modal-host__launcher[data-completed="true"] .course-modal-host__cta {
   color: var(--course-muted);
 }
+
+/* A RESOURCE launcher (a source, a figure, a video, a reference card) reads as
+ * a quiet affordance rather than a question waiting to be answered: it never
+ * auto-opens, so it should not shout for attention the way a live question
+ * does. Same box, calmer palette. */
+.course-block--modal-host[data-modal-kind="resource"] .course-modal-host__launcher {
+  border-color: var(--course-border);
+  border-left-color: var(--course-faint);
+  background: var(--course-surface);
+}
+
+.course-block--modal-host[data-modal-kind="resource"] .course-modal-host__launcher:hover:not(:disabled) {
+  border-left-color: var(--course-accent);
+  background: var(--course-accent-weak);
+}
+
+.course-block--modal-host[data-modal-kind="resource"] .course-modal-host__cta {
+  color: var(--course-secondary);
+}
+
+/* Several launchers stacked in one slot read as a list, not as separate cards. */
+.course-slot-block + .course-slot-block .course-block--modal-host {
+  margin-top: -4px;
+}

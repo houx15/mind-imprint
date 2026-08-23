@@ -354,26 +354,21 @@
         "completion": {
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
-        }
+        },
+        "presentation": "modal"
        }
       ],
       "layout": {
-       "ratio": "1:1",
        "slots": [
         {
-         "id": "left",
+         "id": "main",
          "blockIds": [
-          "sample-boundary-image"
-         ]
-        },
-        {
-         "id": "right",
-         "blockIds": [
+          "sample-boundary-image",
           "sample-boundary"
          ]
         }
        ],
-       "preset": "split-horizontal"
+       "preset": "full"
       },
       "workflow": {
        "steps": [
@@ -738,26 +733,21 @@
         "completion": {
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
-        }
+        },
+        "presentation": "modal"
        }
       ],
       "layout": {
-       "ratio": "1:1",
        "slots": [
         {
-         "id": "left",
+         "id": "main",
          "blockIds": [
-          "chart-choice-image"
-         ]
-        },
-        {
-         "id": "right",
-         "blockIds": [
+          "chart-choice-image",
           "chart-choice"
          ]
         }
        ],
-       "preset": "split-horizontal"
+       "preset": "full"
       },
       "workflow": {
        "steps": [
@@ -945,6 +935,134 @@
       "estimatedSeconds": 130
      },
      {
+      "id": "slice-two-group-figure",
+      "title": "两组比较：先看这张图",
+      "blocks": [
+       {
+        "id": "slice-two-group-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-two-group-figure-image-item",
+          "alt": "比较两组示例：阅读社组平均 7.0 小时，未参加组平均 5.6 小时。",
+          "source": "assets/images/slide-14-two-group.png",
+          "caption": "两组比较：先写差多少，再考虑检验。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-two-group-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-two-group-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-two-group-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-crosstab-figure",
+      "title": "分类比例：再看这张图",
+      "blocks": [
+       {
+        "id": "slice-crosstab-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-crosstab-figure-image-item",
+          "alt": "分类比较示例：参加阅读社与阅读时长是否达到 6 小时的列联表。",
+          "source": "assets/images/slide-15-crosstab.png",
+          "caption": "列联表：先看每格人数和比例。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-crosstab-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-crosstab-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-crosstab-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
       "id": "slice-two-group-crosstab",
       "title": "比较两组与分类比例",
       "blocks": [
@@ -953,25 +1071,6 @@
         "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">比较类问题</p>\n  <h1>两组比较和列联表回答的是不同差别</h1>\n  <section>\n  <table>\n    <thead><tr><th>问题</th><th>适合方法</th><th>先写什么</th><th>边界</th></tr></thead>\n    <tbody>\n      <tr><td>两组平均阅读时长是否不同</td><td>均值比较，可辅助 t 检验</td><td>均值差、各组人数和单位</td><td>显著不等于实际重要</td></tr>\n      <tr><td>两类变量的比例分布是否不同</td><td>列联表，可辅助卡方检验</td><td>每格人数与比例</td><td>小样本要更谨慎</td></tr>\n    </tbody>\n  </table>\n</section>\n<section class=\"callout warn\">\n  <h2>写作提醒</h2>\n  <p>先报告差多少，再报告检验。不要只写“显著”，也不要忽略样本量和比例。</p>\n</section>\n</article>",
         "type": "richText",
         "title": "比较方法对照卡"
-       },
-       {
-        "id": "comparison-method-images",
-        "type": "images",
-        "items": [
-         {
-          "id": "comparison-method-images-left",
-          "alt": "比较两组示例：阅读社组平均 7.0 小时，未参加组平均 5.6 小时。",
-          "source": "assets/images/slide-14-two-group.png",
-          "caption": "两组比较：先写差多少，再考虑检验。"
-         },
-         {
-          "id": "comparison-method-images-right",
-          "alt": "分类比较示例：参加阅读社与阅读时长是否达到 6 小时的列联表。",
-          "source": "assets/images/slide-15-crosstab.png",
-          "caption": "列联表：先看每格人数和比例。"
-         }
-        ],
-        "presentation": "side-by-side"
        },
        {
         "id": "crosstab-method",
@@ -1004,27 +1103,22 @@
        }
       ],
       "layout": {
+       "ratio": "1:1",
        "slots": [
         {
-         "id": "cell-1",
+         "id": "left",
          "blockIds": [
           "two-group-compare"
          ]
         },
         {
-         "id": "cell-2",
-         "blockIds": [
-          "comparison-method-images"
-         ]
-        },
-        {
-         "id": "cell-3",
+         "id": "right",
          "blockIds": [
           "crosstab-method"
          ]
         }
        ],
-       "preset": "grid"
+       "preset": "split-horizontal"
       },
       "workflow": {
        "steps": [
@@ -1072,7 +1166,6 @@
         ],
         "visibleBlockIds": [
          "two-group-compare",
-         "comparison-method-images",
          "crosstab-method"
         ]
        },
@@ -1095,7 +1188,135 @@
       "objectiveIds": [
        "objective-select-analysis"
       ],
-      "estimatedSeconds": 190
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-correlation-figure",
+      "title": "相关：先看这张图",
+      "blocks": [
+       {
+        "id": "slice-correlation-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-correlation-figure-image-item",
+          "alt": "相关分析示例：阅读时长与语文成绩是否一起变化。",
+          "source": "assets/images/slide-16-correlation.png",
+          "caption": "相关：看两个变量是否一起变化。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-correlation-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-correlation-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-correlation-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-regression-figure",
+      "title": "回归：再看这张图",
+      "blocks": [
+       {
+        "id": "slice-regression-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-regression-figure-image-item",
+          "alt": "回归分析示例：在其他条件相近时看阅读时长与语文成绩的关联。",
+          "source": "assets/images/slide-17-regression.png",
+          "caption": "回归：在列出的其他条件相近时看关联。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-regression-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-regression-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-regression-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
      },
      {
       "id": "slice-correlation-regression",
@@ -1106,25 +1327,6 @@
         "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">关系类问题</p>\n  <h1>相关和回归都看关联，但不能自动证明因果</h1>\n  <section>\n  <table>\n    <thead><tr><th>方法</th><th>它在回答什么</th><th>读结果时看什么</th></tr></thead>\n    <tbody>\n      <tr><td>相关分析</td><td>两个连续变量是否一起变化</td><td>散点趋势、相关系数方向与大小、异常点</td></tr>\n      <tr><td>回归分析</td><td>在列出的其他条件相近时看关联</td><td>方向、大小、样本量和不确定性</td></tr>\n    </tbody>\n  </table>\n</section>\n<section class=\"callout warn\">\n  <h2>结论边界</h2>\n  <p>控制部分因素，不等于排除所有原因。相关描述一起变化，不能单独证明谁导致谁。</p>\n</section>\n</article>",
         "type": "richText",
         "title": "关系方法对照卡"
-       },
-       {
-        "id": "relation-method-images",
-        "type": "images",
-        "items": [
-         {
-          "id": "relation-method-images-left",
-          "alt": "相关分析示例：阅读时长与语文成绩是否一起变化。",
-          "source": "assets/images/slide-16-correlation.png",
-          "caption": "相关：看两个变量是否一起变化。"
-         },
-         {
-          "id": "relation-method-images-right",
-          "alt": "回归分析示例：在其他条件相近时看阅读时长与语文成绩的关联。",
-          "source": "assets/images/slide-17-regression.png",
-          "caption": "回归：在列出的其他条件相近时看关联。"
-         }
-        ],
-        "presentation": "side-by-side"
        },
        {
         "id": "relation-boundary",
@@ -1157,27 +1359,22 @@
        }
       ],
       "layout": {
+       "ratio": "1:1",
        "slots": [
         {
-         "id": "cell-1",
+         "id": "left",
          "blockIds": [
           "block-correlation-regression-card"
          ]
         },
         {
-         "id": "cell-2",
-         "blockIds": [
-          "relation-method-images"
-         ]
-        },
-        {
-         "id": "cell-3",
+         "id": "right",
          "blockIds": [
           "relation-boundary"
          ]
         }
        ],
-       "preset": "grid"
+       "preset": "split-horizontal"
       },
       "workflow": {
        "steps": [
@@ -1225,7 +1422,6 @@
         ],
         "visibleBlockIds": [
          "block-correlation-regression-card",
-         "relation-method-images",
          "relation-boundary"
         ]
        },
@@ -1248,7 +1444,7 @@
       "objectiveIds": [
        "objective-select-analysis"
       ],
-      "estimatedSeconds": 190
+      "estimatedSeconds": 63
      },
      {
       "id": "slice-reliability-claim-boundary",
@@ -1294,26 +1490,21 @@
         "completion": {
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
-        }
+        },
+        "presentation": "modal"
        }
       ],
       "layout": {
-       "ratio": "1:1",
        "slots": [
         {
-         "id": "left",
+         "id": "main",
          "blockIds": [
-          "reliability-image"
-         ]
-        },
-        {
-         "id": "right",
-         "blockIds": [
+          "reliability-image",
           "bounded-claim"
          ]
         }
        ],
-       "preset": "split-horizontal"
+       "preset": "full"
       },
       "workflow": {
        "steps": [
@@ -1423,26 +1614,21 @@
         "completion": {
          "rule": "submit-any"
         },
-        "placeholder": "例如：本研究比较 40 名学生的阅读时长；阅读社组平均高 1.4 小时；本样本存在差异；不能证明社团导致改变。"
+        "placeholder": "例如：本研究比较 40 名学生的阅读时长；阅读社组平均高 1.4 小时；本样本存在差异；不能证明社团导致改变。",
+        "presentation": "modal"
        }
       ],
       "layout": {
-       "ratio": "1:1",
        "slots": [
         {
-         "id": "left",
+         "id": "main",
          "blockIds": [
-          "results-template-image"
-         ]
-        },
-        {
-         "id": "right",
-         "blockIds": [
+          "results-template-image",
           "results-sentence"
          ]
         }
        ],
-       "preset": "split-horizontal"
+       "preset": "full"
       },
       "workflow": {
        "steps": [
@@ -1558,26 +1744,21 @@
         "completion": {
          "rule": "submit-correct-or-exhausted",
          "maxAttempts": 2
-        }
+        },
+        "presentation": "modal"
        }
       ],
       "layout": {
-       "ratio": "1:1",
        "slots": [
         {
-         "id": "left",
+         "id": "main",
          "blockIds": [
-          "ai-check-image"
-         ]
-        },
-        {
-         "id": "right",
-         "blockIds": [
+          "ai-check-image",
           "ai-check"
          ]
         }
        ],
-       "preset": "split-horizontal"
+       "preset": "full"
       },
       "workflow": {
        "steps": [

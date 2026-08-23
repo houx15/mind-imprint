@@ -19,7 +19,7 @@ function fallbackGenerator() {
 
 /**
  * A PPT-sized figure that needs the whole slot, with its question authored
- * `presentation: "modal"` so it arrives over the figure instead of shrinking it.
+ * `openAs: "modal"` so it arrives over the figure instead of shrinking it.
  */
 const modalSlice: SliceDefinition = {
   id: "modal-slice",
@@ -43,7 +43,7 @@ const modalSlice: SliceDefinition = {
       ],
       assessment: { mode: "survey" },
       completion: { rule: "submit-any" },
-      presentation: "modal",
+      openAs: "modal",
     },
   ],
   layout: { preset: "full", slots: [{ id: "main", blockIds: ["figure", "question"] }] },
@@ -60,6 +60,42 @@ const modalSlice: SliceDefinition = {
       },
       { id: "done", enterActions: [{ type: "clearFocus" }, { type: "completeSlice" }], transitions: [] },
     ],
+  },
+  navigation: { revisit: "restore-completed-state", autoNext: false, previous: "allowed", manualNext: "after-completion" },
+};
+
+/**
+ * The other half of §9.8: several RESOURCES on one screen. Inline, a grid would
+ * give each of these a quarter of the slice — a PDF page at that size is
+ * unreadable. Behind buttons they open at full size on demand.
+ */
+const resourceSlice: SliceDefinition = {
+  id: "resource-slice",
+  title: "三份材料",
+  objectiveIds: ["obj-one"],
+  estimatedSeconds: 120,
+  blocks: [
+    { id: "brief", type: "text", content: "对照这几份材料再作判断。" },
+    { id: "source-pdf", type: "pdf", title: "Nature 原文", source: "docs/paper.pdf", openAs: "modal" },
+    {
+      id: "chart",
+      type: "images",
+      presentation: "single",
+      items: [{ id: "c1", source: "images/fig3.png", alt: "Fig. 3" }],
+      openAs: "modal",
+      modalLabel: "Fig. 3 的图注",
+    },
+  ],
+  layout: { preset: "full", slots: [{ id: "main", blockIds: ["brief", "source-pdf", "chart"] }] },
+  narrations: [],
+  workflow: {
+    version: "1.0",
+    initialStepId: "read",
+    initialState: {
+      visibleBlockIds: ["brief", "source-pdf", "chart"],
+      enabledBlockIds: ["brief", "source-pdf", "chart"],
+    },
+    steps: [{ id: "read", enterActions: [{ type: "completeSlice" }], transitions: [] }],
   },
   navigation: { revisit: "restore-completed-state", autoNext: false, previous: "allowed", manualNext: "after-completion" },
 };
@@ -98,8 +134,9 @@ async function setup(slice: SliceDefinition) {
 
 const dialog = () => document.querySelector('[role="dialog"]');
 const launcher = (c: HTMLElement) => c.querySelector("[data-modal-launcher]") as HTMLButtonElement;
+const launchers = (c: HTMLElement) => [...c.querySelectorAll("[data-modal-launcher]")] as HTMLButtonElement[];
 
-describe("presentation: modal", () => {
+describe("openAs: modal — a question over its figure", () => {
   it("opens over the slice on entry and keeps the figure's slot free", async () => {
     const { container } = await setup(modalSlice);
 
@@ -145,18 +182,60 @@ describe("presentation: modal", () => {
     expect(onSliceComplete).toHaveBeenCalledTimes(1);
   });
 
-  it("leaves an inline-presented question in its slot", async () => {
-    // NOTE `presentation` is per block TYPE: on `images` it selects the item
-    // layout (single / side-by-side / gallery); on an assessment block it is
-    // this inline-vs-modal axis. Rebuild the question explicitly rather than
-    // mapping over the block union, so neither meaning leaks onto the figure.
+  it("leaves an inline question in its slot", async () => {
+    // Rebuild the question explicitly rather than mapping over the block union
+    // — `images` carries its own unrelated `presentation` (item layout), and a
+    // spread across the union would let TS widen one onto the other.
     const [figure, question] = modalSlice.blocks;
     const inline: SliceDefinition = {
       ...modalSlice,
-      blocks: [figure!, { ...(question as Extract<typeof question, { type: "singleChoice" }>), presentation: "inline" }],
+      blocks: [figure!, { ...(question as Extract<typeof question, { type: "singleChoice" }>), openAs: "inline" }],
     };
     const { container } = await setup(inline);
     expect(dialog()).toBeNull();
     expect(container.querySelector('[data-block-type="singleChoice"]')).not.toBeNull();
+  });
+});
+
+describe("openAs: modal — resources behind a button", () => {
+  it("shows one launcher per resource and opens NONE of them on entry", async () => {
+    const { container } = await setup(resourceSlice);
+
+    expect(launchers(container)).toHaveLength(2);
+    // A reference must not ambush the student the moment the slice loads —
+    // only an assessment auto-opens.
+    expect(dialog()).toBeNull();
+    // Neither resource is taking slot height.
+    expect(container.querySelector('[data-block-type="pdf"]')).toBeNull();
+    expect(container.querySelector('[data-block-type="images"]')).toBeNull();
+    // The inline text block is untouched.
+    expect(container.querySelector('[data-block-type="text"]')).not.toBeNull();
+  });
+
+  it("labels each button from the block, and lets modalLabel override", async () => {
+    const { container } = await setup(resourceSlice);
+    const text = launchers(container).map((b) => b.textContent ?? "");
+    expect(text[0]).toContain("Nature 原文");
+    expect(text[0]).toContain("打开原文");
+    expect(text[1]).toContain("Fig. 3 的图注"); // modalLabel wins over the item's alt
+    expect(text[1]).toContain("查看大图");
+  });
+
+  it("opens the pressed resource, and stays interactive when reopened", async () => {
+    const { container } = await setup(resourceSlice);
+    const pdfLauncher = launchers(container)[0]!;
+
+    fireEvent.click(pdfLauncher);
+    expect(dialog()).not.toBeNull();
+    expect(dialog()!.querySelector('[data-block-type="pdf"]')).not.toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    expect(dialog()).toBeNull();
+
+    // A resource is not one-shot: reopening gives back a live block, unlike a
+    // completed assessment, which comes back read-only.
+    fireEvent.click(pdfLauncher);
+    expect(dialog()!.querySelector('[data-block-type="pdf"]')).not.toBeNull();
+    expect(container.querySelector('[data-modal-kind="resource"]')).not.toBeNull();
   });
 });

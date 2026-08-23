@@ -11,7 +11,7 @@ Two changes:
   MODAL (5 slices: #4 #7 #11 #12 #13)
       One figure + one question in a `split-horizontal`. The layout becomes
       `full` with the figure taking the slot, and the question is authored
-      `presentation: "modal"` (§9.8) so it arrives in a dialog over the figure.
+      `openAs: "modal"` (§9.8) so it arrives in a dialog over the figure.
       The slot keeps only a compact launcher, so the question is still visible
       and re-openable — the student can dismiss it to study the figure.
 
@@ -124,11 +124,12 @@ def to_modal(slice_, log):
     q = question_of(slice_)
     if not fig or not q:
         return
-    q["presentation"] = "modal"
+    q["openAs"] = "modal"
+    q.pop("presentation", None)  # drop the deprecated v1.7.0 spelling if present
     others = [b["id"] for b in slice_["blocks"] if b["id"] not in (fig["id"], q["id"])]
     slice_["layout"] = {"preset": "full",
                         "slots": [{"id": "main", "blockIds": [fig["id"], *others, q["id"]]}]}
-    log.append(f"{slice_['id']}: figure -> full slot; '{q['id']}' -> presentation:modal")
+    log.append(f"{slice_['id']}: figure -> full slot; '{q['id']}' -> openAs:modal")
 
 
 def split(slice_, names, log):
@@ -136,8 +137,12 @@ def split(slice_, names, log):
     fig = block_of(slice_, "images")
     rich = block_of(slice_, "richText") or block_of(slice_, "text")
     q = question_of(slice_)
+    # Idempotent: once the split has run, the tail slice keeps only richText +
+    # question, so there is no figure left to move and nothing more to do.
+    if not fig or not q or not rich:
+        return [slice_]
     items = fig.get("items") or []
-    if not fig or not q or not rich or len(items) < 2:
+    if len(items) < 2:
         return [slice_]
 
     per = max(int((slice_.get("estimatedSeconds") or 180) / 3), 30)
@@ -153,7 +158,8 @@ def split(slice_, names, log):
     init = tail["workflow"].setdefault("initialState", {})
     init["visibleBlockIds"] = [rich["id"], q["id"]]
     init["enabledBlockIds"] = [q["id"]]
-    q.pop("presentation", None)  # no figure here to sit under — inline is right
+    q.pop("openAs", None)  # no figure here to sit under — inline is right
+    q.pop("presentation", None)
 
     log.append(f"{slice_['id']}: split into {[s['id'] for s in figures]} + itself "
                f"(richText | question)")

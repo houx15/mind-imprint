@@ -22,7 +22,7 @@ import {
 } from "@mind-imprint/course-runtime";
 import { LayoutRenderer } from "../layout/LayoutRenderer";
 import { getBlockRenderer } from "../blocks/registry";
-import { ModalBlockHost } from "../blocks/ModalBlockHost";
+import { ModalBlockHost, isAssessmentBlock } from "../blocks/ModalBlockHost";
 import { FocusProvider, FocusTarget, focusedItemIdFor } from "../focus/FocusManager";
 import { NarrationController, NarrationPlayer } from "../narration/NarrationPlayer";
 import { useAudioEngine } from "../narration/audioEngine";
@@ -366,20 +366,31 @@ export function SlicePlayer({
               if (!block) return null;
               const Renderer = getBlockRenderer(block.type);
               const blockState = state.blockStates[id]!;
-              // §9.8 — a block authored `presentation: "modal"` is hosted in a
-              // dialog over the slice instead of taking slot height from the
-              // figure it belongs to. A COMPLETED modal block is handed
-              // `enabled: false`: reopening the dialog remounts the renderer,
-              // which would otherwise have lost its local `locked` flag and
-              // could emit a second `block.completed` (see ModalBlockHost).
-              const asModal = "presentation" in block && block.presentation === "modal";
+              // §9.8 — a block authored `openAs: "modal"` is hosted behind a
+              // launcher button and opens in a dialog over the slice, instead
+              // of taking slot height from whatever the slice is actually
+              // about. A COMPLETED modal ASSESSMENT is handed `enabled: false`:
+              // reopening the dialog remounts the renderer, which would
+              // otherwise have lost its local `locked` flag and could emit a
+              // second `block.completed`. Other block types keep their enabled
+              // flag — replaying a video or re-reading a PDF is not a hazard
+              // (see ModalBlockHost).
+              // `presentation` is the DEPRECATED v1.7.0 spelling, still read so a
+              // definition authored against that tag keeps playing (contract note).
+              const openAs =
+                ("openAs" in block ? block.openAs : undefined) ??
+                ("presentation" in block && (block.presentation === "modal" || block.presentation === "inline")
+                  ? block.presentation
+                  : undefined);
+              const asModal = openAs === "modal";
+              const lockCompleted = asModal && isAssessmentBlock(block);
               const rendered = (
                 <Renderer
                   block={block}
                   assetResolver={adapters.assetResolver}
                   state={blockState}
                   visible={blockState.visible}
-                  enabled={asModal ? blockState.enabled && !blockState.completed : blockState.enabled}
+                  enabled={lockCompleted ? blockState.enabled && !blockState.completed : blockState.enabled}
                   focusedItemId={focusedItemIdFor(focus, id)}
                   emit={emitRef.current ?? (() => {})}
                 />

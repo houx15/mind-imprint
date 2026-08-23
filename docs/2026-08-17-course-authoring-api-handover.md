@@ -1,14 +1,15 @@
 # Course Authoring API — Handover for the Teacher-Side Production Workflow
 
 **Date:** 2026-08-17
-**Pinned at tag:** `course-authoring-v1.7.0` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
+**Pinned at tag:** `course-authoring-v1.8.0` (annotated tag on `main`) — the stable, named snapshot of the course packages + authoring API to build against. It sits on the revision live on production and includes the G2/G7 changes below. (The tag, not a raw SHA or `main`, is what you pin.)
 **Audience:** the team building the teacher-side end-to-end course production tool (local materials → compile to `CourseDefinition` → validate → local preview with the real student renderer → annotate → AI-assisted revision → upload orchestration → submit).
 
-> **Update 2026-08-23 — `presentation: "modal"`, `aspectRatio: "fill"`, and the sizing/gate rules.**
-> Two additive contract fields (**§6.4**, **§6.2**) plus the two authoring rules that account for almost
+> **Update 2026-08-23 — `openAs: "modal"`, `aspectRatio: "fill"`, and the sizing/gate rules.**
+> A block can now be put **behind a button** and opened full-size on demand (**§6.4**) — the answer to
+> "several resources on one screen, each too small to read". Plus the two authoring rules that account for almost
 > every "the interaction is blank / won't scroll" and "下一步 is stuck" report we have seen:
 > **§6.5** (an interaction must never re-impose its own frame — 35 of 79 published interactions did) and
-> **§6.6** (never make *getting it right* the condition for moving on). Pin `course-authoring-v1.7.0`.
+> **§6.6** (never make *getting it right* the condition for moving on). Pin `course-authoring-v1.8.0`.
 
 > **Update 2026-08-22 — new block type `richText`.** A scrollable card of authored, static HTML+CSS carried **inline** in the definition (no OSS upload, no asset path) — the answer to "Markdown can't express the structure I need". Authoring guide: **§6.3**; contract summary: §1.4; the PUT-time rejection rules: §2.1. Lands next deploy; nothing else below changed.
 
@@ -33,8 +34,9 @@ All three are **workspace packages with version `0.0.0`** — they are not indep
 - **Vendored copy** of the same three package directories at that tag.
 
 When we evolve the contract we cut a new tag and note the delta here, so your generator upgrades deliberately rather than tracking `main`. **Changelog** (renderer-only unless a ⚠ marks a contract change):
-- **`course-authoring-v1.7.0`** — ⚠ **contract change (additive, backward-compatible).** Two new optional fields, plus the renderer fixes that make slot sizing honest.
-  - **`presentation` on `singleChoice` / `fillBlank`** — `"inline"` (default, i.e. omit it and nothing changes) or `"modal"`, which answers the question in a dialog over the slice so a slide-sized figure keeps the whole slot. Authoring guide: **§6.4**. Presentation only: events, completion rule and payload are identical, so a Workflow gating on `block.completed` needs no change.
+- **`course-authoring-v1.8.0`** — ⚠ **contract change (additive, backward-compatible).** **`openAs: "inline" | "modal"` on EVERY block type**, plus an optional `modalLabel`. `modal` leaves a compact launcher BUTTON in the slot and opens the block in a dialog over the slice — the answer to "a slice is one desktop screen, and three resources on it means each gets a quarter". A question opens/closes itself around the Workflow and returns read-only; every other block opens only on press and stays live. Presentation only: events, completion rules and payloads are unchanged. Authoring guide: **§6.4**. **This supersedes v1.7.0's `presentation` on assessment blocks** (that spelling is still accepted so a v1.7.0 definition keeps playing, but it could never work on `images`, whose `presentation` already means item layout — author `openAs`).
+- **`course-authoring-v1.7.0`** — ⚠ **contract change (additive, backward-compatible).** Superseded by v1.8.0 for the modal field; the rest stands.
+  - **`presentation` on `singleChoice` / `fillBlank`** — the modal axis, renamed to `openAs` and generalised to every block type in v1.8.0. Still accepted; author `openAs`.
   - **`aspectRatio: "fill"` on `interactiveHtml`** — a new enum member meaning "no preferred shape". More importantly, **`aspectRatio` is no longer a host clamp at all**: whatever you declare, the host now hands the frame the entire slot and the sandboxed document scrolls itself. It used to size the block off the ratio, which cropped wide interactions in wide slots — often cutting off the interaction's own 完成 footer, which on an `after-completion` slice is a dead end. See **§6.2** / **§6.5**.
   - **Read-only slices complete on entry.** A slice whose *initial* workflow step is itself terminal (the pure-reading page: `enterActions: [{type:"completeSlice"}]`) previously had that one completion swallowed, so `status` never became `completed` and 下一步 stayed grey forever. 49 authored slices were affected. This is the pattern **§6.6** now recommends for reading pages.
   - No existing definition changes meaning; every document valid under v1.6.0 is valid here.
@@ -100,7 +102,7 @@ layout = { preset: full | split-horizontal | split-vertical | grid,
            slots: [{ id, blockIds[] }] }                       // full→'main'; split→'left'/'right' or 'top'/'bottom'; grid→'cell-1..N'
 ```
 
-Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, **`richText`** (`html` string, optional `title`; static HTML+CSS carried inline — §6.3), `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3|fill` — a HINT, not a clamp (§6.2), `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`); both assessment blocks take an optional `presentation: "inline"|"modal"` (§6.4). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}` — **do not author `submit-correct`**, it never completes until the answer is right (§6.6).
+Block union (discriminated on `type`, `packages/course-contract/src/blocks.ts`): `text`, **`richText`** (`html` string, optional `title`; static HTML+CSS carried inline — §6.3), `images` (`single|side-by-side|gallery`), `pdf`, `video` (optional `interaction{source}`, `completion.rule ∈ video-ended | video-ended-and-interactions-completed`), `interactiveHtml` (`protocolVersion:"1.0"`, `aspectRatio 1:1|4:3|fill` — a HINT, not a clamp (§6.2), `capabilities.audio?`), `fillBlank` (assessment = `graded` or `reflection`), `singleChoice` (assessment = `graded` or `survey`); **every** block type takes an optional `openAs: "inline"|"modal"` + `modalLabel` (§6.4). Assessment completion rules: `submit-any | submit-correct | submit-correct-or-exhausted{maxAttempts}` — **do not author `submit-correct`**, it never completes until the answer is right (§6.6).
 
 `VideoInteractionDocument` (`packages/course-contract/src/videoInteraction.ts`): `{ schemaVersion:"1.1", video:{ blockId, source, durationSeconds, cues[] } }`; each cue `{ id, atSeconds≥0, pauseVideo, required, prompt, activity }`, activity reusing the same singleChoice/fillBlank assessment sub-schemas.
 
@@ -339,7 +341,7 @@ A slice is **one desktop screen** (≥1280×720) that never page-scrolls; a slot
 | `full` | `main` | One focused thing — a single reading card, one video, one PDF, one assessment. The default when a slice makes a single move. | Don't stack many blocks in `main`; that's what the split/grid presets are for. |
 | `split-horizontal` | `left`, `right` (+ `ratio`) | Read-and-reference side by side: a passage beside its source, a prompt beside an image, main text beside a short checklist. Weight the split toward whichever side carries the bulk. | A tall block in the very-narrow side of a `3:1` scrolls internally — don't over-weight. |
 | `split-vertical` | `top`, `bottom` (+ `ratio`) | Stacked flow: a prompt above the source it's about, media above a caption/task. | **Avoid a PDF or video in the small side** — it'll be short. Give media the larger side, or use `full`. |
-| `grid` | `cell-1..N` (2 columns) | 3–4 short parallel items — a set of cards, several small figures, compare-and-contrast tiles. | Not for a block you want *big*: a PDF in a grid cell is only ~half a screen tall. One long text card will overflow its cell and scroll. |
+| `grid` | `cell-1..N` (2 columns) | 3–4 short parallel items — a set of cards, several small figures, compare-and-contrast tiles. | Not for a block you want *big*: a PDF in a grid cell is only ~half a screen tall. **If you are reaching for `grid` to fit several resources onto one screen, put them behind buttons instead — `openAs: "modal"` (§6.4).** |
 
 Rules of thumb: **one dominant block → `full`**; **two blocks in a clear relationship → a split (bulk on the `2fr` side)**; **several small equals → `grid`**; **a block you want large (PDF/video) never goes in a `1fr` split side or a grid cell.** A short text block centres itself in whatever slot holds it, so empty space around a small card is intentional, not a bug.
 
@@ -404,45 +406,57 @@ Use them instead of hard-coded hexes and your card follows whichever accent the 
 
 **Slot shape.** A reading card wants a **tall** slot: a `split-horizontal` side (the classic "card beside the figure/question"), or `full` for a single reference screen. It behaves well in a narrow column — it just scrolls sooner.
 
-### 6.4 `presentation: "modal"` — a question that doesn't steal the figure's screen (added 2026-08-23)
+### 6.4 `openAs: "modal"` — put a resource (or a question) behind a button (added 2026-08-23)
 
-**Why it exists.** A slide-sized figure needs the whole slot to be readable. Put a question on the same
-screen and the two fight for vertical space: in a `split-horizontal` the figure gets half a column, and in
-a `grid` a four-block slice gives each block a quarter. Shrinking the figure to make room is exactly the
-failure this batch was fixing.
+**Why it exists.** A slice is **one desktop screen**. The moment two or three things share it, a `grid`
+gives each a quarter — and a PDF page, a video, or a slide-sized figure at quarter size is unreadable.
+The old workaround was to shrink the figure to make room, which is the same self-letterboxing that §6.5
+is about. `openAs: "modal"` is the alternative: leave a **button** in the slot and open the thing at full
+size on demand.
 
-Any **`singleChoice` / `fillBlank`** block may declare:
+**Available on every block type.** `text`, `richText`, `images`, `pdf`, `video`, `interactiveHtml`,
+`fillBlank`, `singleChoice`:
 
 ```jsonc
 {
-  "id": "chart-choice",
-  "type": "singleChoice",
-  "prompt": "这张图适合回答哪一类问题？",
-  "options": [ /* … */ ],
-  "assessment": { "mode": "graded", "correctOptionId": "compare" },
-  "completion": { "rule": "submit-any" },
-  "presentation": "modal"          // "inline" (default) | "modal"
+  "id": "source-pdf",
+  "type": "pdf",
+  "title": "Nature 原文",
+  "source": "docs/paper.pdf",
+  "openAs": "modal",              // "inline" (default) | "modal"
+  "modalLabel": "Fig. 3 的图注"    // optional — defaults to the block's own title/prompt/alt
 }
 ```
 
-**What the student gets.** The figure takes the whole slot. The question opens by itself in a dialog over
-the slice the moment the Workflow enables it, and closes by itself once it completes, handing the screen
-back to the figure. What stays in the slot is a one-line launcher (`回答这道题` / `已完成 · 再看一次`), so
-the question is never invisible and never a dead end: the student can dismiss the dialog with **关闭** to
-study the figure and reopen it as often as they like.
+**Two behaviours, by kind — this is the part to get right:**
 
-**It is presentation only.** Events, completion rule and recorded payload are identical to `inline`, so a
-Workflow gating on `block.completed` needs no change. One caveat: reopening a **completed** question
-remounts it read-only (so it can never emit a second `block.completed` and push the Workflow past where
-you authored it) — the reopened dialog therefore shows the question, not the feedback text.
+| | A **question** (`fillBlank` / `singleChoice`) | Everything else (a source, figure, video, card, interaction) |
+|---|---|---|
+| Opens | **By itself**, the first time the Workflow enables it — the student is meant to answer now | **Only when pressed.** A reference must not ambush the student on load |
+| Closes | By itself on completion, handing the screen back | When the student presses 关闭 |
+| Reopened | Comes back **read-only** | Comes back **live** (replaying a video is not a hazard) |
+| Button reads | `回答这道题` → `已完成 · 再看一次` | `打开原文` / `播放视频` / `查看大图` / `展开查看` |
 
-**Use it when** a slice pairs one PPT-sized figure with one question. **Don't** use it for a question that
-stands on its own (nothing to look at underneath — `inline` is clearer), and don't put two modal blocks on
-one slice.
+The read-only-after-completion rule exists for a reason: reopening remounts the renderer, and a remounted
+question would have lost its internal `locked` flag and could emit a **second** `block.completed`, pushing
+the Workflow past where you authored it. Resources have no such hazard, so they stay interactive.
 
-> ⚠️ `presentation` means different things on different block types. On **`images`** it selects the item
-> layout (`single` / `side-by-side` / `gallery`). On an **assessment** block it is this inline-vs-modal
-> axis. They never appear on the same block.
+**It is presentation only.** Events, completion rules and recorded payloads are identical to `inline`, so
+a Workflow gating on `block.completed` (or any other event from that block) needs no change at all.
+
+**Use it when** a slice has one thing it is really about plus supporting material — the figure the question
+is about, the source you're asking them to check, the video they'll refer back to. **Don't** use it for the
+slice's primary content (if the PDF *is* the screen, give it the slot), and don't hide something the
+student must notice in order to know what to do.
+
+> ⚠️ **Not to be confused with `images.presentation`.** `images` carries its own `presentation` field
+> meaning the *item layout* (`single` / `side-by-side` / `gallery`). That is an unrelated axis and the two
+> compose freely — a gallery can be `openAs: "modal"`. This is exactly why the modal axis is called
+> `openAs` and not `presentation`.
+>
+> **Deprecated spelling.** `course-authoring-v1.7.0` briefly called this `presentation` on assessment
+> blocks only. That spelling is still accepted so a definition authored against v1.7.0 keeps playing, but
+> **author `openAs`** — it is the only one that works on `images`, `pdf` and `video`.
 
 ### 6.5 Never let an interaction re-impose its own frame (added 2026-08-23)
 
