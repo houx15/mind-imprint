@@ -284,6 +284,9 @@ export function WorkspaceContainer({
   // The guided tour's forced reading-room inner view (P5). Captured from the
   // `pendingReadingView` prop by a ref-guarded effect below and handed to
   // ReadingBlock as `forceView`; null leaves the room's own default/memo alone.
+  // ReadingBlock calls `onForceViewConsumed` right after applying it, which
+  // resets this back to null — so a later remount (room switch / source-open)
+  // sees no stale force and never overrides the student's manual toggle.
   const [readingForceView, setReadingForceView] = useState<"list" | "graph" | null>(null);
 
   function openReadingSource(
@@ -1384,6 +1387,7 @@ export function WorkspaceContainer({
                 onConfirmStart={() => setReadingConfirmNeeded(false)}
                 aiSide={aiSide}
                 forceView={readingForceView}
+                onForceViewConsumed={() => setReadingForceView(null)}
               />
             )}
             {room === "writing" && (

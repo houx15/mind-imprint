@@ -156,3 +156,50 @@ describe("ReadingBlock · forceView (tour deep-link)", () => {
     expect(libraryTable()).toBeNull();
   });
 });
+
+// RoomHarness models the REAL WorkspaceContainer relationship: it owns the
+// forced-view state, RETRACTS it to null via onForceViewConsumed after
+// ReadingBlock applies it, and can unmount/remount ReadingBlock (as leaving and
+// re-entering the reading room / opening a source does — the per-mount ref guard
+// resets each time). This is the regression guard for the "view snaps back
+// under the user" bug: without the retraction, the stale-but-truthy forceView
+// would re-apply on remount and discard the student's manual toggle.
+function RoomHarness({ mounted }: { mounted: boolean }) {
+  const [forceView, setForceView] = useState<"list" | "graph" | null>("list");
+  return (
+    <ChatProvider>
+      <StudioAiSlotContext.Provider value={slot}>
+        {mounted && (
+          <ReadingBlock
+            projectId="fv-remount"
+            title="T"
+            setReadingSource={() => {}}
+            forceView={forceView}
+            onForceViewConsumed={() => setForceView(null)}
+          />
+        )}
+      </StudioAiSlotContext.Provider>
+    </ChatProvider>
+  );
+}
+
+describe("ReadingBlock · forceView retraction (no snap-back on re-entry)", () => {
+  it("keeps the student's manual toggle after leaving and re-entering the reading room", async () => {
+    const { rerender } = render(<RoomHarness mounted />);
+    // Tour forces 列表; the owner retracts forceView → null right after.
+    await waitFor(() => expect(libraryTable()).toBeInTheDocument());
+
+    // Student manually switches to 探索 (graph) — writes viewModeMemo.
+    await userEvent.click(screen.getByRole("button", { name: "探索" }));
+    expect(await screen.findByText("graph-stub")).toBeInTheDocument();
+
+    // Leave the reading room (unmount) …
+    rerender(<RoomHarness mounted={false} />);
+    expect(libraryTable()).toBeNull();
+    // … then re-enter (fresh mount, per-mount ref guard reset). Because
+    // forceView was retracted to null, the remount must NOT snap back to 列表.
+    rerender(<RoomHarness mounted />);
+    expect(await screen.findByText("graph-stub")).toBeInTheDocument();
+    expect(libraryTable()).toBeNull();
+  });
+});

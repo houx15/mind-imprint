@@ -88,6 +88,7 @@ export function ReadingBlock({
   onConfirmStart,
   aiSide,
   forceView,
+  onForceViewConsumed,
 }: {
   projectId: string;
   title: string;
@@ -98,6 +99,13 @@ export function ReadingBlock({
   // the mount-time "graph" default when the tour asks but NEVER fights the
   // student's own later toggling (铁律②: surfaces stay under the student's hand).
   forceView?: "list" | "graph" | null;
+  // Fired right after `forceView` has been applied, so the owner can RETRACT it
+  // (set the source state back to null). Critical: ReadingBlock unmounts/remounts
+  // on every room switch or source-open, and the ref guard below is per-mount —
+  // without this retraction a stale-but-truthy `forceView` would re-apply on the
+  // next mount and clobber the student's manual toggle (the "view snaps back"
+  // bug). Mirrors `onPendingRoomConsumed`, one layer lower (application is here).
+  onForceViewConsumed?: () => void;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -254,7 +262,11 @@ export function ReadingBlock({
     lastForcedView.current = forceView;
     viewModeMemo.set(projectId, forceView);
     setViewModeRaw(forceView);
-  }, [forceView, projectId]);
+    // Retract immediately so a later remount (room switch / source-open resets
+    // the per-mount ref guard) doesn't see a stale `forceView` and re-apply it
+    // over the student's manual toggle.
+    onForceViewConsumed?.();
+  }, [forceView, projectId, onForceViewConsumed]);
 
   // Snapshot & clear all pending debounce timers on unmount.
   useEffect(() => {
