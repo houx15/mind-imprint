@@ -1646,7 +1646,7 @@ export function WorkspaceContainer({
                 onForceViewConsumed={() => setReadingForceView(null)}
                 forceOpenSearchCard={searchCardForceNonce}
                 onForceOpenSearchCardConsumed={() => setSearchCardForceNonce(null)}
-                demoReadRootIds={demoReadRootIds}
+                demoReadRootIds={workspace?.isDemo ? demoReadRootIds : undefined}
               />
             )}
             {room === "writing" && (
