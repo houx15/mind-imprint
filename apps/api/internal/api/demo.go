@@ -54,8 +54,45 @@ func cannedExplorationGuide() map[string]any {
 	return map[string]any{"directions": toGuideDirectionDTOs(nil)}
 }
 
+// cannedDigCandidates — three real, on-topic sources for the demo research
+// question ("中国是否让地球变得更可持续"), so the read-only 探索 tray has
+// something worth practising 采纳/丢弃 on. Real, checkable sources (NASA-fed
+// Nature Sustainability study, IEA renewables report, Global Carbon Project
+// budget) — never a live OpenAlex call, never model output.
+func cannedDigCandidates() []digCandidateDTO {
+	return []digCandidateDTO{
+		{
+			DOI:      "10.1038/s41893-019-0220-7",
+			Title:    "China and India Lead in Greening of the World Through Land-Use Management",
+			Authors:  "Chen, C., Park, T., Wang, X. et al.",
+			Year:     "2019",
+			Journal:  "Nature Sustainability",
+			Abstract: "基于 NASA MODIS 卫星数据的研究发现，2000–2017 年间地球新增绿化面积中，中国和印度贡献最大；中国的贡献主要来自植树造林工程，其次是集约农业。",
+			URL:      "https://doi.org/10.1038/s41893-019-0220-7",
+		},
+		{
+			DOI:      "",
+			Title:    "Renewables 2023: Analysis and Forecast to 2028",
+			Authors:  "International Energy Agency (IEA)",
+			Year:     "2023",
+			Journal:  "IEA Renewables Market Report",
+			Abstract: "IEA 报告指出，中国 2023 年新增可再生能源装机容量占全球增量的一半以上，光伏和风电新增规模均为世界第一，是全球可再生能源增长最主要的驱动力。",
+			URL:      "https://www.iea.org/reports/renewables-2023",
+		},
+		{
+			DOI:      "10.5194/essd-15-5301-2023",
+			Title:    "Global Carbon Budget 2023",
+			Authors:  "Friedlingstein, P., O'Sullivan, M., Jones, M. W. et al.",
+			Year:     "2023",
+			Journal:  "Earth System Science Data",
+			Abstract: "全球碳计划年度报告显示，中国仍是全球最大的化石燃料二氧化碳排放国，2022 年排放量约占全球总量的三成——是评估「中国是否让地球更可持续」时必须正视的反例数据。",
+			URL:      "https://doi.org/10.5194/essd-15-5301-2023",
+		},
+	}
+}
+
 func cannedDig() map[string]any {
-	return map[string]any{"candidates": toDigCandidateDTOs(nil)}
+	return map[string]any{"candidates": cannedDigCandidates()}
 }
 
 func cannedQuestionEdges() map[string]any {
