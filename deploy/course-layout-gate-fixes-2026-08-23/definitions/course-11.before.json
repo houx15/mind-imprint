@@ -1,0 +1,1585 @@
+{
+ "course": {
+  "id": "course-11",
+  "parts": [
+   {
+    "id": "opening",
+    "title": "问题打开：拆掉假两难",
+    "slices": [
+     {
+      "id": "false-binary",
+      "title": "先别急着选边",
+      "blocks": [
+       {
+        "id": "opening-framing",
+        "type": "text",
+        "content": "这节课的目标不是让你立刻给哥伦布贴上“英雄”或“恶棍”的标签，而是学习怎样在互相冲突的史料之间作判断。你会用 OPCVL 先问：这份史料是谁留下的、为谁而写、说了什么、适合证明什么、又不能证明什么。\n\n课程涉及奴役、殖民暴力与原住民受害经验。阅读时保持严肃、准确，把注意力放在证据和史料视角上。最后你要完成的不是一句口号，而是一段有证据、有保留、能说明视角局限的历史评价。"
+       },
+       {
+        "id": "opening-reaction",
+        "type": "singleChoice",
+        "prompt": "看到“哥伦布：英雄还是恶棍？”这个问题，你现在最接近哪一种第一反应？",
+        "options": [
+         {
+          "id": "opening-side",
+          "label": "先想选一边"
+         },
+         {
+          "id": "opening-unsure",
+          "label": "暂时说不准"
+         },
+         {
+          "id": "opening-evidence",
+          "label": "先看史料怎么来"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "opening-evidence-plan",
+        "type": "fillBlank",
+        "prompt": "如果暂时不选边，请写一句话：你下一步最需要查哪类证据？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能说出至少一种证据方向，例如出处、目的、文本内容、缺席声音或多源对照。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "opening-framing"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "opening-reaction",
+          "opening-evidence-plan"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-opening-reaction",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "opening-reaction"
+           },
+           "to": "wait-opening-evidence-plan"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "opening-reaction"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "opening-reaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-opening-evidence-plan",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "opening-evidence-plan"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "opening-evidence-plan"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "opening-evidence-plan"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "opening-framing",
+         "opening-reaction",
+         "opening-evidence-plan"
+        ],
+        "visibleBlockIds": [
+         "opening-framing",
+         "opening-reaction",
+         "opening-evidence-plan"
+        ]
+       },
+       "initialStepId": "wait-opening-reaction"
+      },
+      "narrations": [
+       {
+        "id": "false-binary-intro",
+        "text": "先把问题从选边改写成史料判断：先说你会查什么证据，再进入 OPCVL。",
+        "audio": "assets/audio/false-binary-intro.mp3",
+        "durationSeconds": 13
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-opcvl"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "obj-opcvl"
+    ]
+   },
+   {
+    "id": "opcv-tool",
+    "title": "工具示范：从出处推价值与局限",
+    "slices": [
+     {
+      "id": "tool-card",
+      "title": "OPCVL 不是五个空格",
+      "blocks": [
+       {
+        "id": "opcv-tool-text",
+        "type": "text",
+        "content": "OPCVL 的五个问题分别是：Origin 出处、Purpose 目的、Content 内容、Value 价值、Limitation 局限。最容易出错的地方，是把 V/L 写成空泛评价。\n\n更成熟的写法是：价值和局限要从出处与目的推出。例如，一份给王室看的航海日志，可能很适合研究作者怎样呈现航行成果、怎样争取支持，却不能直接代表泰诺人的经验和想法。"
+       },
+       {
+        "id": "opcv-vl-check",
+        "type": "singleChoice",
+        "prompt": "下面哪一句最符合 OPCVL 的 V/L 推理？",
+        "options": [
+         {
+          "id": "tool-content-only",
+          "label": "这份史料写了很多内容，所以一定可靠。"
+         },
+         {
+          "id": "tool-origin-purpose",
+          "label": "因为它写给特定读者、带有特定目的，所以适合证明某些问题，也会遮蔽另一些问题。"
+         },
+         {
+          "id": "tool-equal-weight",
+          "label": "只要把两份史料平均一下，就能得到中立结论。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。V/L 要从出处和目的往外推，而不是凭感觉夸或贬。",
+         "correctOptionId": "tool-origin-purpose",
+         "incorrectFeedback": "再看关键词：谁写、为谁写、为了什么，会影响它能证明什么。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "opcv-tool-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "opcv-vl-check"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-opcv-vl-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "opcv-vl-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "opcv-vl-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "opcv-vl-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "opcv-tool-text",
+         "opcv-vl-check"
+        ],
+        "visibleBlockIds": [
+         "opcv-tool-text",
+         "opcv-vl-check"
+        ]
+       },
+       "initialStepId": "wait-opcv-vl-check"
+      },
+      "narrations": [
+       {
+        "id": "tool-card-intro",
+        "text": "OPCVL 的关键是从出处和目的推出价值与局限，而不是给史料贴可靠或不可靠的标签。",
+        "audio": "assets/audio/tool-card-intro.mp3",
+        "durationSeconds": 13
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-opcvl"
+      ],
+      "estimatedSeconds": 170
+     },
+     {
+      "id": "columbus-source",
+      "title": "史料 A：哥伦布日志示范",
+      "blocks": [
+       {
+        "id": "columbus-log-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "columbus-log-image-item-1",
+          "alt": "Fordham Sourcebook 上的哥伦布航海日志页面截图",
+          "source": "assets/images/columbus-journal-fordham.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "columbus-log-framing",
+        "type": "text",
+        "content": "史料 A 是 1492 年哥伦布航海日志的节选，但今天看到的版本经过拉斯·卡萨斯转录或摘要，不是哥伦布亲笔原稿。它面向西班牙王权语境，反复呈现土地、皈依、劳力和控制的可能性。\n\n示范判断：这份材料的价值，不在于它能直接告诉我们泰诺人真实感受，而在于它能显示哥伦布如何向权力中心呈现新世界、原住民和自身功绩。它的局限也来自这里：叙述具有自我辩护和利益争取色彩，且泰诺人的声音没有直接出现。"
+       },
+       {
+        "id": "columbus-value-choice",
+        "type": "singleChoice",
+        "prompt": "这份日志最适合用来证明什么？",
+        "options": [
+         {
+          "id": "columbus-taino-mind",
+          "label": "泰诺人真实、完整地怎样理解哥伦布"
+         },
+         {
+          "id": "columbus-self-presentation",
+          "label": "哥伦布怎样向王权呈现航行成果与原住民"
+         },
+         {
+          "id": "columbus-neutral-record",
+          "label": "1492 年所有相关群体的中立共同记录"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。它最强的证据力在哥伦布的呈现方式、目的和殖民想象。",
+         "correctOptionId": "columbus-self-presentation",
+         "incorrectFeedback": "注意它是谁留下、为谁而写，以及谁没有直接发声。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "columbus-limit-reflection",
+        "type": "fillBlank",
+        "prompt": "用一句话写出这份日志的一个局限，要求包含“因为它的出处或目的……”。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "回答应把局限和出处/目的连接起来，而不是只说“它不可靠”。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "columbus-log-image",
+          "columbus-log-framing"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "columbus-value-choice",
+          "columbus-limit-reflection"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-columbus-value-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "columbus-value-choice"
+           },
+           "to": "wait-columbus-limit-reflection"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "columbus-value-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "columbus-value-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-columbus-limit-reflection",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "columbus-limit-reflection"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "columbus-limit-reflection"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "columbus-limit-reflection"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "columbus-log-image",
+         "columbus-log-framing",
+         "columbus-value-choice",
+         "columbus-limit-reflection"
+        ],
+        "visibleBlockIds": [
+         "columbus-log-image",
+         "columbus-log-framing",
+         "columbus-value-choice",
+         "columbus-limit-reflection"
+        ]
+       },
+       "initialStepId": "wait-columbus-value-choice"
+      },
+      "narrations": [
+       {
+        "id": "columbus-source-intro",
+        "text": "用哥伦布日志练习判断：它强在呈现作者和王权语境，也弱在这个语境。",
+        "audio": "assets/audio/columbus-source-intro.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-opcvl",
+       "obj-evidence-scope"
+      ],
+      "estimatedSeconds": 260
+     },
+     {
+      "id": "arrangement-reading",
+      "title": "并置也是解读",
+      "blocks": [
+       {
+        "id": "quotation-pair",
+        "type": "text",
+        "content": "日志引文常被并置使用：10 月 12 日，哥伦布写泰诺人“应该会是好仆人”，并记下要带走数人献给王室；几天后他又写到如果国王和王后下令，可以把他们带到卡斯蒂利亚，或在本地使他们服从。\n\n这两段话都来自后世整理的日志传统，但它们相隔数日、写于不同地点。把它们摆在同一页，会强调从接触到控制想象之间的连续性。"
+       },
+       {
+        "id": "arrangement-claim",
+        "type": "text",
+        "content": "并置不等于造假，但它不是中立动作。历史写作者选择把哪两句话放在一起，会引导读者看见某条解释线索。因此，诚实的用法不是删掉并置，而是说明材料的日期、语境和编排意图。"
+       },
+       {
+        "id": "arrangement-check",
+        "type": "singleChoice",
+        "prompt": "把哥伦布两段话并置使用时，最诚实的写法是哪一种？",
+        "options": [
+         {
+          "id": "arrangement-ignore-context",
+          "label": "只要两句话都是真的，就不用说明它们来自不同日期和地点。"
+         },
+         {
+          "id": "arrangement-disclose-context",
+          "label": "可以并置，但要说明相隔数日、语境不同，并承认并置本身在引导解释。"
+         },
+         {
+          "id": "arrangement-never-compare",
+          "label": "只要不是同一天写的，就完全不能比较。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。并置可以使用，但要把语境和编排动作说清楚。",
+         "correctOptionId": "arrangement-disclose-context",
+         "incorrectFeedback": "再想一想：问题不只是引文真假，也包括它们被怎样放在一起。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "arrangement-reflection",
+        "type": "fillBlank",
+        "prompt": "用一句话说明：为什么“把哪两句摆在一起”也是一种解释？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "回答应说明材料编排会突出某种关联、连续性或立场，影响读者如何理解证据。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "quotation-pair",
+          "arrangement-claim"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "arrangement-check",
+          "arrangement-reflection"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-arrangement-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "arrangement-check"
+           },
+           "to": "wait-arrangement-reflection"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "arrangement-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "arrangement-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-arrangement-reflection",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "arrangement-reflection"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "arrangement-reflection"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "arrangement-reflection"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "quotation-pair",
+         "arrangement-claim",
+         "arrangement-check",
+         "arrangement-reflection"
+        ],
+        "visibleBlockIds": [
+         "quotation-pair",
+         "arrangement-claim",
+         "arrangement-check",
+         "arrangement-reflection"
+        ]
+       },
+       "initialStepId": "wait-arrangement-check"
+      },
+      "narrations": [
+       {
+        "id": "arrangement-reading-intro",
+        "text": "这一页练习更高一层的史料意识：材料怎么被摆放，也会改变解释方向。",
+        "audio": "assets/audio/arrangement-reading-intro.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-opcvl",
+       "obj-evidence-scope"
+      ],
+      "estimatedSeconds": 210
+     }
+    ],
+    "objectiveIds": [
+     "obj-opcvl",
+     "obj-evidence-scope"
+    ]
+   },
+   {
+    "id": "guided-opcvl",
+    "title": "带练：拉斯·卡萨斯与日志相互校正",
+    "slices": [
+     {
+      "id": "las-casas-contrast",
+      "title": "一次只问一维",
+      "blocks": [
+       {
+        "id": "las-casas-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "las-casas-images-item-1",
+          "alt": "American Yawp Reader 上的拉斯·卡萨斯 1542 年文本页面截图",
+          "source": "assets/images/las-casas-yawp-page.png"
+         },
+         {
+          "id": "las-casas-images-item-2",
+          "alt": "拉斯·卡萨斯文本中关于黄金动机与殖民暴力的高亮摘录截图",
+          "source": "assets/images/las-casas-highlight.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "las-casas-framing",
+        "type": "text",
+        "content": "现在换一份史料：拉斯·卡萨斯是西班牙道明会神父、殖民地亲历者和殖民统治批评者，也常被称为原住民权益倡导者。他的文本强调殖民者的掠夺、暴力与宗教改革诉求。\n\n带练的重点不是把哥伦布日志丢掉，改信另一份史料；而是练习让两份史料互相校正：一份显示哥伦布如何自我呈现，一份显示西班牙内部批评者如何揭露殖民伤害。"
+       },
+       {
+        "id": "las-casas-html",
+        "type": "interactiveHtml",
+        "source": "interactions/html/opcvl-guided-lab.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "las-casas-images",
+          "las-casas-framing"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "las-casas-html"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-las-casas-html",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "las-casas-html"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "las-casas-html"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "las-casas-html"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "las-casas-images",
+         "las-casas-framing",
+         "las-casas-html"
+        ],
+        "visibleBlockIds": [
+         "las-casas-images",
+         "las-casas-framing",
+         "las-casas-html"
+        ]
+       },
+       "initialStepId": "wait-las-casas-html"
+      },
+      "narrations": [
+       {
+        "id": "las-casas-contrast-intro",
+        "text": "现在换到拉斯·卡萨斯材料，用互动一步步判断出处、目的、价值、局限和综合。",
+        "audio": "assets/audio/las-casas-contrast-intro.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-opcvl",
+       "obj-evidence-scope"
+      ],
+      "estimatedSeconds": 340
+     }
+    ],
+    "objectiveIds": [
+     "obj-opcvl",
+     "obj-evidence-scope"
+    ]
+   },
+   {
+    "id": "multi-source",
+    "title": "独立综合：四份史料能支撑什么",
+    "slices": [
+     {
+      "id": "source-set",
+      "title": "从双源对照走向多源综合",
+      "blocks": [
+       {
+        "id": "source-set-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "source-set-images-item-1",
+          "alt": "Santa Fe Capitulations 档案页面截图",
+          "source": "assets/images/santa-fe-archive-page.png"
+         },
+         {
+          "id": "source-set-images-item-2",
+          "alt": "Santa Fe 授权文件英文转录页面截图",
+          "source": "assets/images/santa-fe-avalon-transcript.png"
+         },
+         {
+          "id": "source-set-images-item-3",
+          "alt": "Cuneo 第二次航行相关文本网页顶部截图",
+          "source": "assets/images/cuneo-page-top.png"
+         },
+         {
+          "id": "source-set-images-item-4",
+          "alt": "Cuneo 第二次航行相关文本节选截图",
+          "source": "assets/images/cuneo-excerpt.png"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "source-set-framing",
+        "type": "text",
+        "content": "独立综合时，你至少要让四类证据互相限制：\n\n1. 哥伦布日志：能看见他的自我呈现、宗教语言、劳力与控制想象。\n2. 拉斯·卡萨斯：能看见西班牙内部的批评、改革目的和殖民暴力叙述。\n3. Santa Fe 授权文件：能看见王权、头衔、治理和利益安排。\n4. Cuneo 相关文本：能补充第二次航行中的奴役、掠夺和随行者视角，但文本来源稳定性弱于前几项，使用时要说明。"
+       },
+       {
+        "id": "synthesis-choice",
+        "type": "singleChoice",
+        "prompt": "下面哪一种综合判断最成熟？",
+        "options": [
+         {
+          "id": "synthesis-villain-only",
+          "label": "哥伦布就是恶棍，所以所有材料都证明同一件事。"
+         },
+         {
+          "id": "synthesis-hero-only",
+          "label": "哥伦布发现新大陆，所以负面材料可以忽略。"
+         },
+         {
+          "id": "synthesis-qualified",
+          "label": "不同史料分别显示自我呈现、殖民批评、王权利益和随行者视角；它们共同支持有保留的评价，也提醒泰诺人直接声音缺席。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。成熟判断会说明每份史料各自能支撑什么，也会承认共同局限。",
+         "correctOptionId": "synthesis-qualified",
+         "incorrectFeedback": "这节课要避免只选边。请检查答案有没有区分不同史料的证据力。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "synthesis-writing",
+        "type": "fillBlank",
+        "prompt": "写 2 到 3 句综合评价：至少提到两份史料各自能证明什么，并写出一个共同局限。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "评价应跨两份以上史料，区分证据价值，并说明泰诺人直接声音缺席或西班牙视角占主导。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "source-set-images"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "source-set-framing"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "synthesis-choice"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "synthesis-writing"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-synthesis-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "synthesis-choice"
+           },
+           "to": "wait-synthesis-writing"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "synthesis-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "synthesis-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-synthesis-writing",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "synthesis-writing"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "synthesis-writing"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "synthesis-writing"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "source-set-images",
+         "source-set-framing",
+         "synthesis-choice",
+         "synthesis-writing"
+        ],
+        "visibleBlockIds": [
+         "source-set-images",
+         "source-set-framing",
+         "synthesis-choice",
+         "synthesis-writing"
+        ]
+       },
+       "initialStepId": "wait-synthesis-choice"
+      },
+      "narrations": [
+       {
+        "id": "source-set-intro",
+        "text": "把四类史料一起看：不是平均折中，而是说明每份材料能证明什么、共同限制什么。",
+        "audio": "assets/audio/source-set-intro.mp3",
+        "durationSeconds": 14
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-evidence-scope",
+       "obj-synthesis"
+      ],
+      "estimatedSeconds": 320
+     }
+    ],
+    "objectiveIds": [
+     "obj-evidence-scope",
+     "obj-synthesis"
+    ]
+   },
+   {
+    "id": "archive-memory",
+    "title": "元层反思：谁的声音留下了",
+    "slices": [
+     {
+      "id": "missing-voices-presentism",
+      "title": "档案也有视角",
+      "blocks": [
+       {
+        "id": "missing-voices-text",
+        "type": "text",
+        "content": "到这里，你会发现一个更深的限制：这些材料几乎都来自西班牙或欧洲书写。即使它们互相冲突，也不等于泰诺人的声音已经充分出现。\n\n这不是让我们放弃判断，而是让判断更诚实：能说的要有证据，不能直接证明的要标出来，并继续寻找考古、口述传统、原住民研究和后来的批判性史学。\n\n还要处理另一个边界：不能简单用今天的价值直接替 15 世纪下判决；但这也不等于把暴力和奴役一笔带过。材料中已经有拉斯·卡萨斯这样的当时批评者，也有随行者和制度文件留下的控制、利益与掠夺线索。更稳妥的写法，是同时说明时代差异、当时已有批评，以及我们手中材料的共同缺口。"
+       },
+       {
+        "id": "missing-voices-choice",
+        "type": "singleChoice",
+        "prompt": "如果几份主要材料都来自西班牙或欧洲书写，最合适的处理是？",
+        "options": [
+         {
+          "id": "missing-ignore",
+          "label": "既然没有泰诺人文本，就不用管这个问题。"
+         },
+         {
+          "id": "missing-claim-certainty",
+          "label": "只要欧洲材料数量多，就可以直接给出确定结论。"
+         },
+         {
+          "id": "missing-state-limit",
+          "label": "说明材料的共同视角局限，降低过度确定性，并寻找其他类型证据。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。缺席声音本身就是判断的一部分。",
+         "correctOptionId": "missing-state-limit",
+         "incorrectFeedback": "注意：史料多不等于视角完整。要把共同局限写出来。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "presentism-check",
+        "type": "singleChoice",
+        "prompt": "面对“不能用今天价值审判 15 世纪”这一提醒，最稳妥的处理是？",
+        "options": [
+         {
+          "id": "presentism-excuse",
+          "label": "只要是 15 世纪发生的，就不需要评价暴力和奴役。"
+         },
+         {
+          "id": "presentism-balance",
+          "label": "说明时代差异会限制判断，但也指出当时已有批评材料，不能把暴力与奴役一笔带过。"
+         },
+         {
+          "id": "presentism-modern-only",
+          "label": "只用今天价值判断，不需要回到当时史料。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。好的历史判断既避免简单套用今天标准，也不把材料中的伤害和当时批评消音。",
+         "correctOptionId": "presentism-balance",
+         "incorrectFeedback": "再检查一下：成熟判断要同时处理时代差异、当时批评和材料边界。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "missing-voices-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "missing-voices-choice",
+          "presentism-check"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-missing-voices-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "missing-voices-choice"
+           },
+           "to": "wait-presentism-check"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "missing-voices-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "missing-voices-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-presentism-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "presentism-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "presentism-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "presentism-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "missing-voices-text",
+         "missing-voices-choice",
+         "presentism-check"
+        ],
+        "visibleBlockIds": [
+         "missing-voices-text",
+         "missing-voices-choice",
+         "presentism-check"
+        ]
+       },
+       "initialStepId": "wait-missing-voices-choice"
+      },
+      "narrations": [
+       {
+        "id": "missing-voices-presentism-intro",
+        "text": "多源之后还要问谁没有留下文字记录，以及怎样避免把时代差异变成逃避判断。",
+        "audio": "assets/audio/missing-voices-presentism-intro.mp3",
+        "durationSeconds": 13
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-archive-memory",
+       "obj-synthesis"
+      ],
+      "estimatedSeconds": 260
+     },
+     {
+      "id": "public-memory",
+      "title": "名声如何被重写",
+      "blocks": [
+       {
+        "id": "memory-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "memory-images-item-1",
+          "alt": "Project Gutenberg 上早期现代哥伦布叙事资料页面截图",
+          "source": "assets/images/gutenberg-modern-history.png"
+         },
+         {
+          "id": "memory-images-item-2",
+          "alt": "Smithsonian 关于 Columbus Day 争议的文章页面截图",
+          "source": "assets/images/columbus-day-protest.png"
+         },
+         {
+          "id": "memory-images-item-3",
+          "alt": "Smithsonian 关于哥伦布雕像被推倒事件的文章页面截图",
+          "source": "assets/images/toppled-columbus-statue.png"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "memory-text",
+        "type": "text",
+        "content": "现代文章、纪念日争议和雕像事件，不是 1492 年事实的直接证据。它们属于另一类史料：公共记忆的证据。它们能帮助我们理解，为什么同一个历史人物会在不同时代被塑造成英雄、问题人物或争议符号。\n\n因此，写作时要分清两层：一层是 1492 年及随后殖民过程的证据，另一层是后人如何纪念、反对或重新解释哥伦布。"
+       },
+       {
+        "id": "memory-choice",
+        "type": "singleChoice",
+        "prompt": "Smithsonian 的现代公共记忆材料最能证明什么？",
+        "options": [
+         {
+          "id": "memory-direct-1492",
+          "label": "哥伦布在 1492 年每一天具体做了什么"
+         },
+         {
+          "id": "memory-reputation",
+          "label": "哥伦布形象后来如何被纪念、争论和改写"
+         },
+         {
+          "id": "memory-taino-autograph",
+          "label": "泰诺人留下的亲笔记录内容"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。现代材料的证据力在公共记忆与历史形象变迁。",
+         "correctOptionId": "memory-reputation",
+         "incorrectFeedback": "区分当时事件证据和后世记忆证据，是多源综合的重要动作。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "memory-images",
+          "memory-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "memory-choice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-memory-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "memory-choice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "memory-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "memory-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "memory-images",
+         "memory-text",
+         "memory-choice"
+        ],
+        "visibleBlockIds": [
+         "memory-images",
+         "memory-text",
+         "memory-choice"
+        ]
+       },
+       "initialStepId": "wait-memory-choice"
+      },
+      "narrations": [
+       {
+        "id": "public-memory-intro",
+        "text": "现代纪念日和雕像争议不是 1492 年事实证据，它们证明的是公共记忆怎样重写形象。",
+        "audio": "assets/audio/public-memory-intro.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-archive-memory"
+      ],
+      "estimatedSeconds": 250
+     }
+    ],
+    "objectiveIds": [
+     "obj-archive-memory",
+     "obj-synthesis"
+    ]
+   },
+   {
+    "id": "wrap-up",
+    "title": "课程总结：带着限制作判断",
+    "slices": [
+     {
+      "id": "final-performance",
+      "title": "最终收获与表现任务",
+      "blocks": [
+       {
+        "id": "wrap-up-text",
+        "type": "text",
+        "content": "完成这节课后，你得到的不是“标准立场”，而是一套可迁移的历史判断动作。面对冲突材料时，你能先辨认出处和目的，再判断内容能证明什么；你能把价值与局限写成有根据的推理，而不是一句“可靠/不可靠”；你能把多份史料放在一起，说明它们互相补充、互相限制，也能指出共同缺席的声音。\n\n更重要的是，你会把人物评价从单词标签推进到证据化表述：既不为了平衡而回避伤害，也不把复杂史料压成一句口号。这种能力可以迁移到新的历史人物、纪念争议、材料作文和研究性写作中：先问证据链，再写有边界的判断。"
+       },
+       {
+        "id": "final-performance-response",
+        "type": "fillBlank",
+        "prompt": "最终表现任务：写一段 120 到 180 字的历史评价，回应“哥伦布：英雄还是恶棍？”要求至少使用两份史料，说明一处价值、一处局限，并避免只用一个标签下结论。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "优秀回答应跨两份以上史料，能从出处/目的推出 V/L，并明确说明材料共同视角局限或泰诺声音缺席。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "wrap-up-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "final-performance-response"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-final-performance-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "final-performance-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "final-performance-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "final-performance-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "wrap-up-text",
+         "final-performance-response"
+        ],
+        "visibleBlockIds": [
+         "wrap-up-text",
+         "final-performance-response"
+        ]
+       },
+       "initialStepId": "wait-final-performance-response"
+      },
+      "narrations": [
+       {
+        "id": "final-performance-intro",
+        "text": "最后把证据、价值、局限和缺席声音写进一段有边界的历史评价。",
+        "audio": "assets/audio/final-performance-intro.mp3",
+        "durationSeconds": 11
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-synthesis",
+       "obj-archive-memory"
+      ],
+      "estimatedSeconds": 300
+     }
+    ],
+    "objectiveIds": [
+     "obj-synthesis",
+     "obj-archive-memory"
+    ]
+   }
+  ],
+  "title": "哥伦布：英雄还是恶棍？OPCVL 多源综合",
+  "closing": {
+   "fallback": {
+    "text": "课程从“哥伦布是英雄还是恶棍”这一假两难出发，带学生经历开场反应、OPCVL 工具示范、哥伦布日志分析、拉斯·卡萨斯带练、多源综合、档案缺席与公共记忆反思，最后完成一段有证据、有保留的历史评价。"
+   },
+   "takeaways": [
+    "同一历史人物会被不同来源以不同目的呈现。",
+    "出处和目的决定材料的证据价值，也决定其局限。",
+    "成熟综合要说明各材料能支撑什么，也要说明不能支撑什么。",
+    "缺席声音和后世纪念方式会改变我们提出问题的方式。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "课程从“哥伦布是英雄还是恶棍”这一假两难出发，带学生经历开场反应、OPCVL 工具示范、哥伦布日志分析、拉斯·卡萨斯带练、多源综合、档案缺席与公共记忆反思，最后完成一段有证据、有保留的历史评价。",
+   "transferApplications": [
+    "争议性历史人物评价",
+    "纪念日、雕像和公共空间争议讨论",
+    "材料作文和史料题",
+    "研究性写作中的证据边界说明"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "这节课帮助学生面对争议性历史人物和冲突材料时，不急于贴上“英雄/恶棍”的标签，而是用 OPCVL 分析来源、目的、内容、价值与局限，综合出有证据、有视角意识、也承认材料边界的历史评价。"
+   },
+   "learningPreview": [
+    "历史评价不是先贴标签。",
+    "OPCVL 的价值与局限要从出处和目的推出。",
+    "多源综合不是平均折中，而是说明材料互相补充和限制。",
+    "史料如何被并置、谁的声音缺席，本身也是历史判断的一部分。",
+    "纪念和公共记忆不是中立结论。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-opcvl",
+    "text": "使用 OPCVL 阅读和评估不同来源的历史史料。",
+    "evidenceBlockIds": [
+     "opening-evidence-plan",
+     "opcv-vl-check",
+     "las-casas-html"
+    ]
+   },
+   {
+    "id": "obj-evidence-scope",
+    "text": "说明一份材料适合证明什么、不能证明什么。",
+    "evidenceBlockIds": [
+     "columbus-value-choice",
+     "columbus-limit-reflection",
+     "synthesis-choice"
+    ]
+   },
+   {
+    "id": "obj-synthesis",
+    "text": "综合多份史料，写出有证据、有保留的历史评价。",
+    "evidenceBlockIds": [
+     "synthesis-writing",
+     "final-performance-response"
+    ]
+   },
+   {
+    "id": "obj-archive-memory",
+    "text": "识别档案视角缺席与公共记忆重写对历史判断的影响。",
+    "evidenceBlockIds": [
+     "missing-voices-choice",
+     "presentism-check",
+     "memory-choice"
+    ]
+   }
+  ],
+  "estimatedMinutes": 32
+ },
+ "schemaVersion": "2.0"
+}

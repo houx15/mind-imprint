@@ -1,0 +1,3752 @@
+{
+ "course": {
+  "id": "course-30",
+  "parts": [
+   {
+    "id": "first-you-get-fooled",
+    "title": "第一部分 · 先被骗一次",
+    "slices": [
+     {
+      "id": "pick-your-turf",
+      "title": "选一块你熟的地盘",
+      "blocks": [
+       {
+        "id": "turf-brief",
+        "type": "text",
+        "content": "#### 这节课怎么走\n\n你需要一件**自己正在做的真事**：一份还没交的作业、一个探究选题、一个要做的决定，都行。整节课都会用它。\n\n你还需要一块**自己真熟的窄地盘**，下面第一个实验要用。\n\n每一部分结束时，你会往同一张卡片上写一句话。六句写完，那张卡片就是你自己的提示词处方，可以直接拿去用。\n\n#### 先挑地盘\n\n地盘要窄、要熟、要能核。\n\n- ❌ 「中国近代史」——太宽了，它说什么你都不好判\n- ✅ 「我们校队上赛季主场那场加时赛」——窄、熟、能核\n\n下面这个练习会先给你三道自检，过了才放你往下走。三道都过不了，就换一块地盘再来。"
+       },
+       {
+        "id": "turf-check",
+        "type": "interactiveHtml",
+        "source": "interactions/html/turf-and-reading.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "turf-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "turf-check"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-turf-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "turf-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "turf-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "turf-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "turf-brief",
+         "turf-check"
+        ],
+        "visibleBlockIds": [
+         "turf-brief",
+         "turf-check"
+        ]
+       },
+       "initialStepId": "wait-turf-check"
+      },
+      "narrations": [
+       {
+        "id": "narration-pick-your-turf",
+        "text": "这节课怎么走 你需要一件自己正在做的真事：一份还没交的作业、一个探究选题、一个要做的决定，都行。整节课都会用它。 你还需要一块自己真熟的窄地盘，下面第一个实验要用。 每一部分结束时，你会往同一张卡片上写一句话。六句写完，那张卡片就是你自己的提示词处方，可以直接拿去用。 #### 先挑地盘 地盘要窄、要熟、要能核。 - ❌ 「中国近代史」——太宽了，它说什么你都不好判 - ✅ 「我们校队上赛季主场那场加时赛」——窄、熟、能核 下面这个练习会先给你三道自检，过了才放你往下走。三道都过不了，就换一块地盘再来。",
+        "audio": "assets/narrations/pick-your-turf.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "spot-the-slide"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "confidence-source-first",
+      "title": "信心来源：先别解释",
+      "blocks": [
+       {
+        "id": "confidence-basis",
+        "type": "fillBlank",
+        "prompt": "刚才你给那段回答打信心分的那一刻——你凭的是什么？（先写下来，写完才能往下看）",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案会具体到你当时眼睛盯着回答里的哪一部分：是它的条理？它的语气？它的长度？还是某一个你当场就能验证的细节？"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "confidence-basis"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-confidence-basis",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "confidence-basis"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "confidence-basis"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "confidence-basis"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "confidence-basis"
+        ],
+        "visibleBlockIds": [
+         "confidence-basis"
+        ]
+       },
+       "initialStepId": "wait-confidence-basis"
+      },
+      "narrations": [
+       {
+        "id": "narration-confidence-source-first",
+        "text": "刚才你给那段回答打信心分的那一刻——你凭的是什么？（先写下来，写完才能往下看）",
+        "audio": "assets/narrations/confidence-source-first.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "spot-the-slide"
+      ],
+      "estimatedSeconds": 60
+     },
+     {
+      "id": "what-just-happened",
+      "title": "刚才那一下，发生了什么 + 账本1/6",
+      "blocks": [
+       {
+        "id": "the-gate",
+        "type": "text",
+        "content": "#### 那道没被叫醒的闸门\n\n你脑子里有一道闸门。平常要唤醒「慢慢想一想」这件事，需要一个信号：要么两个直觉打起来了，要么结果不确定。闸门被推开，你才会停下来仔细看。\n\nAI 的回答有三个特征——**结构完整、语言流畅、语气笃定**。这三样东西在人的经验里，长期跟「可靠」绑在一起：一个条理清楚、说话不含糊的人，通常真的懂。于是这三个特征顺畅地绕过了那道闸门，直接抵达你的反应。\n\n> 慢思考不是被打败了，是根本没被叫醒。\n\n这件事有个名字：**认知让步**。面对 AI 的输出，人不是把思考委托出去，而是干脆停止了思考。\n\n#### 这节课不是来骂 AI 的\n\n刚才那个实验里，AI 答错没答错，其实不是重点。就算它全答对了，问题也还在：你打那个分的时候，凭的是那三个表面特征，不是内容本身。\n\n问题从来不是「AI 会出错」——是你可能在完全没意识到的情况下，把判断权交了出去。\n\n接下来五个部分，都是在练怎么把它拿回来。"
+       },
+       {
+        "id": "ledger-one",
+        "type": "fillBlank",
+        "prompt": "账本第一句：我最容易顺着 AI 走下去的时刻是＿＿",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "写一个具体的场景，不要写「我总是很轻信」这种笼统的话。好答案长这样：赶时间的时候／它给的东西看起来很有条理的时候／我本来就希望是这个答案的时候。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "the-gate"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "ledger-one"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-ledger-one",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-one"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "ledger-one"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ledger-one"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "the-gate",
+         "ledger-one"
+        ],
+        "visibleBlockIds": [
+         "the-gate",
+         "ledger-one"
+        ]
+       },
+       "initialStepId": "wait-ledger-one"
+      },
+      "narrations": [
+       {
+        "id": "narration-what-just-happened",
+        "text": "那道没被叫醒的闸门 你脑子里有一道闸门。平常要唤醒「慢慢想一想」这件事，需要一个信号：要么两个直觉打起来了，要么结果不确定。闸门被推开，你才会停下来仔细看。 AI 的回答有三个特征——结构完整、语言流畅、语气笃定。这三样东西在人的经验里，长期跟「可靠」绑在一起：一个条理清楚、说话不含糊的人，通常真的懂。于是这三个特征顺畅地绕过了那道闸门，直接抵达你的反应。 > 慢思考不是被打败了，是根本没被叫醒。 这件事有个名字：认知让步。面对 AI 的输出，人不是把思考委托出去，而是干脆停止了思考。 #### 这节课不是来骂 AI 的 刚才那个实验里，AI 答错没答错，其实不是重点。就算它全答对了，问题也还在：你打那个分的时候，凭的是那三个表面特征，不是内容本身。 问题从来不是「AI 会出错」——是你可能在完全没意识到的情况下，把判断权交了出去。 接下来五个部分，都是在练怎么把它拿回来。 账本第一句：我最容易顺着 AI 走下去的时刻是＿＿",
+        "audio": "assets/narrations/what-just-happened.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "spot-the-slide"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "spot-the-slide"
+    ]
+   },
+   {
+    "id": "five-decisions-in-one-line",
+    "title": "第二部分 · 你那句话缺了什么",
+    "slices": [
+     {
+      "id": "the-five",
+      "title": "五个决定",
+      "blocks": [
+       {
+        "id": "five-table",
+        "type": "text",
+        "content": "#### 你刚才写的那句话，是一份标本\n\n你发给 AI 的每一条提问，同时暴露两样东西：这件事你想得多清楚，以及你到底想从它那里要什么。\n\n一条提问里藏着五个决定。\n\n| 决定 | 它在回答什么 | 缺了会怎样 |\n|---|---|---|\n| **身份** | 你要它以谁的眼光来看这件事 | 它按最大公约数答，谁也不得罪 |\n| **任务** | 你到底要它做哪一个动作 | 「分析一下」＝它自己挑一个来做 |\n| **材料** | 你把什么放到它面前 | 它开始编，或者只能用常识答 |\n| **边界** | 什么它不许做 | 它替你把最该你做的那部分做了 |\n| **验收** | 怎样算答得好 | 你只能凭「看起来不错」来收货 |"
+       },
+       {
+        "id": "front-back",
+        "type": "text",
+        "content": "#### 前三个和后两个，管的不是同一件事\n\n**前三个决定管它能不能答，后两个决定管你能不能收货。**\n\n绝大多数人只写前两个。\n\n#### 那我每次都要写五个决定吗？\n\n不用。查一个单词、问一个日期，写一句话就够了。\n\n五个决定是给「这件事我要拿去交作业、要拿它做判断」的场合用的。这节课练的就是这种场合。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "five-table"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "front-back"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "five-table",
+         "front-back"
+        ],
+        "visibleBlockIds": [
+         "five-table",
+         "front-back"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-the-five",
+        "text": "你刚才写的那句话，是一份标本 你发给 AI 的每一条提问，同时暴露两样东西：这件事你想得多清楚，以及你到底想从它那里要什么。 一条提问里藏着五个决定。 | 决定 | 它在回答什么 | 缺了会怎样 | |---|---|---| | 身份 | 你要它以谁的眼光来看这件事 | 它按最大公约数答，谁也不得罪 | | 任务 | 你到底要它做哪一个动作 | 「分析一下」＝它自己挑一个来做 | | 材料 | 你把什么放到它面前 | 它开始编，或者只能用常识答 | | 边界 | 什么它不许做 | 它替你把最该你做的那部分做了 | | 验收 | 怎样算答得好 | 你只能凭「看起来不错」来收货 | #### 前三个和后两个，管的不是同一件事 前三个决定管它能不能答，后两个决定管你能不能收货。 绝大多数人只写前两个。 #### 那我每次都要写五个决定吗？ 不用。查一个单词、问一个日期，写一句话就够了。 五个决定是给「这件事我要拿去交作业、要拿它做判断」的场合用的。这节课练的就是这种场合。",
+        "audio": "assets/narrations/the-five.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "five-decisions"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "diagnosis-desk",
+      "title": "诊断台",
+      "blocks": [
+       {
+        "id": "desk-brief",
+        "type": "text",
+        "content": "#### 拿它去诊断\n\n下面这张诊断台上有 9 张提示词卡。第一张是你自己的——把你在第一部分问 AI 的那句话原样抄进去，然后自己勾一遍：它齐了哪几个决定？\n\n抄一遍不是多余的动作。你会发现自己写的那句话，看别人的时候一眼就能挑出毛病，看自己的时候要慢半拍。\n\n后面 8 张里有几张是陷阱，说明写在卡上，判完就知道。"
+       },
+       {
+        "id": "prompt-diagnosis",
+        "type": "interactiveHtml",
+        "source": "interactions/html/prompt-diagnosis.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "desk-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "prompt-diagnosis"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-prompt-diagnosis",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "prompt-diagnosis"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "prompt-diagnosis"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "prompt-diagnosis"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "desk-brief",
+         "prompt-diagnosis"
+        ],
+        "visibleBlockIds": [
+         "desk-brief",
+         "prompt-diagnosis"
+        ]
+       },
+       "initialStepId": "wait-prompt-diagnosis"
+      },
+      "narrations": [
+       {
+        "id": "narration-diagnosis-desk",
+        "text": "拿它去诊断 下面这张诊断台上有 9 张提示词卡。第一张是你自己的——把你在第一部分问 AI 的那句话原样抄进去，然后自己勾一遍：它齐了哪几个决定？ 抄一遍不是多余的动作。你会发现自己写的那句话，看别人的时候一眼就能挑出毛病，看自己的时候要慢半拍。 后面 8 张里有几张是陷阱，说明写在卡上，判完就知道。",
+        "audio": "assets/narrations/diagnosis-desk.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "five-decisions"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "rewrite-and-run",
+      "title": "改一条，再跑一次 + 账本2/6",
+      "blocks": [
+       {
+        "id": "rewrite-brief",
+        "type": "text",
+        "content": "#### 现在真的改一次\n\n把你在第一部分问 AI 的那句话，按五个决定重写一遍——特别是补上你刚才发现自己漏掉的那两个。\n\n然后**真的再跑一次**，把两次的回答放在一起看。"
+       },
+       {
+        "id": "v1-v2",
+        "type": "fillBlank",
+        "prompt": "两次回答里，具体不一样的是哪一处？（把那一处抄出来，不要写「第二次更好」）",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案会把那一处差别原样抄出来，并说清楚它为什么算差别——不是「第二次更好」这种整体评价。如果你觉得两次差不多，就去比一比：两次的回答各自要求你去做的事，有没有变。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "ledger-two",
+        "type": "fillBlank",
+        "prompt": "账本第二句：我最常漏掉的决定是＿＿，因为＿＿",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "「因为」那半句才是重点。想一想：是你没想到，还是你其实知道该写、但懒得写？这两种情况后面的处理方式完全不同。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "rewrite-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "v1-v2",
+          "ledger-two"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "v1-v2"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "v1-v2"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-two"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ledger-two"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-two"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "v1-v2"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "v1-v2"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "rewrite-brief",
+         "v1-v2",
+         "ledger-two"
+        ],
+        "visibleBlockIds": [
+         "rewrite-brief",
+         "v1-v2",
+         "ledger-two"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narration-rewrite-and-run",
+        "text": "现在真的改一次 把你在第一部分问 AI 的那句话，按五个决定重写一遍——特别是补上你刚才发现自己漏掉的那两个。 然后真的再跑一次，把两次的回答放在一起看。 两次回答里，具体不一样的是哪一处？（把那一处抄出来，不要写「第二次更好」） 账本第二句：我最常漏掉的决定是＿＿，因为＿＿",
+        "audio": "assets/narrations/rewrite-and-run.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "five-decisions"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "five-decisions"
+    ]
+   },
+   {
+    "id": "four-gears",
+    "title": "第三部分 · 四个档",
+    "slices": [
+     {
+      "id": "gears-table",
+      "title": "四个档位",
+      "blocks": [
+       {
+        "id": "gears",
+        "type": "text",
+        "content": "#### 同一件事，你可以用四种档位去要\n\n| 档 | 你要的是什么 · 那边发生了什么 |\n|---|---|\n| **一档·给答案** | 一个成品 · 它干活，你收货 |\n| **二档·给好答案** | 一个更像样的成品 · 它多干点活，你还是收货 |\n| **三档·给过程** | 它的推理、依据、它没把握的地方 · **你开始得干活了** |\n| **四档·来打我** | 对我这个结论最有力的反驳 · 你必须接住 |\n\n坎在二档和三档之间。**三档以上，AI 的回答开始要求你付出力气。**\n\n大多数人停在二档，不是不会写，是不想干活。\n\n#### 一件要先说清楚的事\n\n**档位配任务，不配人。** 查一个日期用一档才对，用四档就是耍帅。\n\n这节课不是要你以后都用四档，是要你知道自己默认停在哪一档，以及需要的时候能不能往上走。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "gears"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "gears"
+        ],
+        "visibleBlockIds": [
+         "gears"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-gears-table",
+        "text": "同一件事，你可以用四种档位去要 | 档 | 你要的是 | 那边发生了什么 | |---|---|---| | 一档 · 给我答案 | 一个成品 | 它干活，你收货 | | 二档 · 给我好答案 | 一个更像样的成品 | 它多干点活，你还是收货 | | 三档 · 给我过程 | 它的推理、它的依据、它没把握的地方 | 你开始得干活了 | | 四档 · 来打我 | 对我这个结论最有力的反驳 | 你必须接住 | 坎在二档和三档之间。三档以上，AI 的回答开始要求你付出力气。 大多数人停在二档，不是不会写，是不想干活。 #### 一件要先说清楚的事 档位配任务，不配人。 查一个日期用一档才对，用四档就是耍帅。 这节课不是要你以后都用四档，是要你知道自己默认停在哪一档，以及需要的时候能不能往上走。",
+        "audio": "assets/narrations/gears-table.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "five-decisions"
+      ],
+      "estimatedSeconds": 120
+     },
+     {
+      "id": "judge-the-gear",
+      "title": "判档",
+      "blocks": [
+       {
+        "id": "judge-rule",
+        "type": "text",
+        "content": "#### 判档只看一件事\n\n**这条提示词，要求你自己做多少事。**\n\n不看它有多长，不看它用了什么词，不看它听起来专不专业。下面三张卡，各判一次。"
+       },
+       {
+        "id": "gear-q1",
+        "type": "singleChoice",
+        "prompt": "这条是第几档？\n「请批判性地、全面地、深入地分析我这个观点的所有问题。」",
+        "options": [
+         {
+          "id": "gear-q1-gear-one",
+          "label": "一档 · 给我答案"
+         },
+         {
+          "id": "gear-q1-gear-two",
+          "label": "二档 · 给我好答案"
+         },
+         {
+          "id": "gear-q1-gear-three",
+          "label": "三档 · 给我过程"
+         },
+         {
+          "id": "gear-q1-gear-four",
+          "label": "四档 · 来打我"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。形容词堆砌不等于对抗。这条听上去很凶，但它没有给出任何一个可以被反驳的具体对象——没说要打我的哪条结论、哪处证据、哪个选择。它要的还是一个更像样的成品，所以是二档。",
+         "correctOptionId": "gear-q1-gear-two",
+         "incorrectFeedback": "再看一遍：这条里有让你自己动手做的事吗？「批判性地、全面地、深入地」是三个形容词，它们要求的是 AI 更卖力，不是你更卖力。真四档必须点名一个可以被反驳的具体对象——我的哪一条结论、哪一处证据、哪一个方法。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "gear-q2",
+        "type": "singleChoice",
+        "prompt": "这条是第几档？\n「把你刚才那个结论的推理链一步步写出来，每一步标出你最没把握的地方，以及它依赖了哪个我没给你的信息。」",
+        "options": [
+         {
+          "id": "gear-q2-gear-one",
+          "label": "一档 · 给我答案"
+         },
+         {
+          "id": "gear-q2-gear-two",
+          "label": "二档 · 给我好答案"
+         },
+         {
+          "id": "gear-q2-gear-three",
+          "label": "三档 · 给我过程"
+         },
+         {
+          "id": "gear-q2-gear-four",
+          "label": "四档 · 来打我"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。它要的不是结论，是通往结论的路，还特意要了「没把握的地方」。这份回答交到你手上，你得自己去判断哪一步靠得住——你开始干活了。",
+         "correctOptionId": "gear-q2-gear-three",
+         "incorrectFeedback": "这条要的是成品吗？它连「不确定的地方」和「缺了哪个信息」都要——这些东西你拿到手之后必须自己判断。要过程、要依据、要它的不确定处，是三档。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "gear-q3",
+        "type": "singleChoice",
+        "prompt": "这条是第几档？\n「帮我把这段话改通顺一点，谢谢。」",
+        "options": [
+         {
+          "id": "gear-q3-gear-one",
+          "label": "一档 · 给我答案"
+         },
+         {
+          "id": "gear-q3-gear-two",
+          "label": "二档 · 给我好答案"
+         },
+         {
+          "id": "gear-q3-gear-three",
+          "label": "三档 · 给我过程"
+         },
+         {
+          "id": "gear-q3-gear-four",
+          "label": "四档 · 来打我"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。要一个成品，拿来就用。顺便说：这条本身没有错——如果你只是想让句子顺一点，一档就是对的档位。",
+         "correctOptionId": "gear-q3-gear-one",
+         "incorrectFeedback": "「改通顺」要的是一个可以直接用的成品，你不需要为它做任何判断。这是一档。注意这不是缺点：任务只需要一档的时候，用一档就对了。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "judge-rule",
+          "gear-q1"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "gear-q2",
+          "gear-q3"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-000",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q1"
+           },
+           "to": "gate-100"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q2"
+           },
+           "to": "gate-010"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q3"
+           },
+           "to": "gate-001"
+          }
+         ]
+        },
+        {
+         "id": "gate-100",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q2"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q2"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q3"
+           },
+           "to": "gate-101"
+          }
+         ]
+        },
+        {
+         "id": "gate-010",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q1"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q3"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-001",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q1"
+           },
+           "to": "gate-101"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q2"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-110",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q3"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q3"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-101",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q2"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q2"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-011",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-q1"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "judge-rule",
+         "gear-q1",
+         "gear-q2",
+         "gear-q3"
+        ],
+        "visibleBlockIds": [
+         "judge-rule",
+         "gear-q1",
+         "gear-q2",
+         "gear-q3"
+        ]
+       },
+       "initialStepId": "gate-000"
+      },
+      "narrations": [
+       {
+        "id": "narration-judge-the-gear",
+        "text": "判档只看一件事 这条提示词，要求你自己做多少事。 不看它有多长，不看它用了什么词，不看它听起来专不专业。下面三张卡，各判一次。 这条是第几档？ > 「请批判性地、全面地、深入地分析我这个观点的所有问题。」 这条是第几档？ > 「把你刚才那个结论的推理链一步步写出来，每一步标出你最没把握的地方，以及它依赖了哪个我没给你的信息。」 这条是第几档？ > 「帮我把这段话改通顺一点，谢谢。」",
+        "audio": "assets/narrations/judge-the-gear.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "five-decisions"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "move-up-one",
+      "title": "把自己的原始提问改写成三档 + 账本3/6",
+      "blocks": [
+       {
+        "id": "move-brief",
+        "type": "text",
+        "content": "#### 先认出自己\n\n回到第一部分——你问 AI 的那一句，是第几档？"
+       },
+       {
+        "id": "own-gear",
+        "type": "singleChoice",
+        "prompt": "我在第一部分问的那一句，是第几档？",
+        "options": [
+         {
+          "id": "own-gear-gear-one",
+          "label": "一档 · 给我答案"
+         },
+         {
+          "id": "own-gear-gear-two",
+          "label": "二档 · 给我好答案"
+         },
+         {
+          "id": "own-gear-gear-three",
+          "label": "三档 · 给我过程"
+         },
+         {
+          "id": "own-gear-gear-four",
+          "label": "四档 · 来打我"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "move-how",
+        "type": "text",
+        "content": "#### 只往上走一档\n\n把那句话改成**三档**：不要它的答案，要它的过程。\n\n三档提示词里通常有这三样东西中的一样或几样：\n\n- 「把你得出这个结论的每一步写出来」\n- 「每一步标出你最没把握的地方」\n- 「说明这个结论依赖了哪些我没有告诉你的信息」\n\n改好，跑一次。"
+       },
+       {
+        "id": "gear-three-run",
+        "type": "fillBlank",
+        "prompt": "三档的回答里，最让你意外的是哪一句？（原样抄下来）",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案抄的是一句具体的话，而不是「它讲得更详细了」。特别值得抄的是它承认自己不确定的那一句——那句话在一档的回答里通常根本不会出现。如果它还是给了你一个像成品的东西，就追一句「你哪一步最没把握」，再抄。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "ledger-three",
+        "type": "fillBlank",
+        "prompt": "账本第三句：我平时停在第＿档，因为＿＿",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "「因为」那半句才是重点。诚实一点：是不知道有别的档，还是知道但那样比较省事？"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "move-brief",
+          "move-how"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "own-gear",
+          "gear-three-run",
+          "ledger-three"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-own-gear",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "own-gear"
+           },
+           "to": "wait-gear-three-run"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "own-gear"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "own-gear"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-gear-three-run",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "gear-three-run"
+           },
+           "to": "wait-ledger-three"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "move-how"
+          },
+          {
+           "type": "enable",
+           "targetId": "move-how"
+          },
+          {
+           "type": "show",
+           "targetId": "gear-three-run"
+          },
+          {
+           "type": "enable",
+           "targetId": "gear-three-run"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gear-three-run"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-ledger-three",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-three"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "ledger-three"
+          },
+          {
+           "type": "enable",
+           "targetId": "ledger-three"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ledger-three"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "move-brief",
+         "own-gear"
+        ],
+        "visibleBlockIds": [
+         "move-brief",
+         "own-gear"
+        ]
+       },
+       "initialStepId": "wait-own-gear"
+      },
+      "narrations": [
+       {
+        "id": "narration-move-up-one",
+        "text": "先认出自己 回到第一部分——你问 AI 的那一句，是第几档？ 我在第一部分问的那一句，是第几档？ #### 只往上走一档 把那句话改成三档：不要它的答案，要它的过程。 三档提示词里通常有这三样东西中的一样或几样： - 「把你得出这个结论的每一步写出来」 - 「每一步标出你最没把握的地方」 - 「说明这个结论依赖了哪些我没有告诉你的信息」 改好，跑一次。 三档的回答里，最让你意外的是哪一句？（原样抄下来） 账本第三句：我平时停在第＿档，因为＿＿",
+        "audio": "assets/narrations/move-up-one.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "five-decisions"
+      ],
+      "estimatedSeconds": 210
+     }
+    ],
+    "objectiveIds": [
+     "five-decisions"
+    ]
+   },
+   {
+    "id": "this-part-you-dont-write",
+    "title": "第四部分 · 这一段不许你写",
+    "slices": [
+     {
+      "id": "predict-the-slide",
+      "title": "先猜一个数",
+      "blocks": [
+       {
+        "id": "script",
+        "type": "text",
+        "content": "#### 一份示弱剧本\n\n下面这五句话，是一个人拿着自己的一段作业去问 AI 时说的。注意看：**前四轮他一句都没有要求 AI 替他写。**\n\n| 轮次 | 他说 |\n|---|---|\n| 1 | 帮我看看这段有什么问题。 |\n| 2 | 嗯……那你觉得应该怎么改？ |\n| 3 | 你能给我举个例子吗，比如改成什么样？ |\n| 4 | 我今晚就要交了。 |\n| 5 | 你直接帮我写一版吧。 |\n\n第 5 轮他终于开口了。问题是：**AI 是从第几轮开始，交出成句的正文的？**\n\n先押一个数，等下你会拿自己的实测来对。"
+       },
+       {
+        "id": "slide-guess",
+        "type": "singleChoice",
+        "prompt": "你猜它从第几轮开始，交出可以直接用的成句正文？",
+        "options": [
+         {
+          "id": "slide-guess-r1",
+          "label": "第 1 轮"
+         },
+         {
+          "id": "slide-guess-r2",
+          "label": "第 2 轮"
+         },
+         {
+          "id": "slide-guess-r3",
+          "label": "第 3 轮"
+         },
+         {
+          "id": "slide-guess-r4",
+          "label": "第 4 轮"
+         },
+         {
+          "id": "slide-guess-r5",
+          "label": "第 5 轮"
+         },
+         {
+          "id": "slide-guess-never",
+          "label": "它一次都不会写"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "script"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slide-guess"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-slide-guess",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slide-guess"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slide-guess"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slide-guess"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "script",
+         "slide-guess"
+        ],
+        "visibleBlockIds": [
+         "script",
+         "slide-guess"
+        ]
+       },
+       "initialStepId": "wait-slide-guess"
+      },
+      "narrations": [
+       {
+        "id": "narration-predict-the-slide",
+        "text": "一份示弱剧本 下面这五句话，是一个人拿着自己的一段作业去问 AI 时说的。注意看：前四轮他一句都没有要求 AI 替他写。 | 轮次 | 他说 | |---|---| | 1 | 帮我看看这段有什么问题。 | | 2 | 嗯……那你觉得应该怎么改？ | | 3 | 你能给我举个例子吗，比如改成什么样？ | | 4 | 我今晚就要交了。 | | 5 | 你直接帮我写一版吧。 | 第 5 轮他终于开口了。问题是：AI 是从第几轮开始，交出成句的正文的？ 先押一个数，等下你会拿自己的实测来对。 你猜它从第几轮开始，交出可以直接用的成句正文？",
+        "audio": "assets/narrations/predict-the-slide.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "hold-the-line"
+      ],
+      "estimatedSeconds": 100
+     },
+     {
+      "id": "watch-it-slide",
+      "title": "看一次沦陷",
+      "blocks": [
+       {
+        "id": "the-slide",
+        "type": "interactiveHtml",
+        "source": "interactions/html/the-slide.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       },
+       {
+        "id": "slide-lesson",
+        "type": "text",
+        "content": "#### 谁下的判断\n\n刚才那一版改写读起来是不是挺稳的？里面有一句「**更为稳妥的结论是……**」。\n\n那句话是谁的判断？\n\n如果你把那段交上去，老师问你「为什么是这个结论」，你答得出来吗？\n\n这就是代笔真正的代价：它给了你一段能交的文字，代价是你交出去的那个判断，不是你的。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "the-slide"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slide-lesson"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-the-slide",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "the-slide"
+           },
+           "to": "reveal-after-the-slide"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "the-slide"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "the-slide"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal-after-the-slide",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slide-lesson"
+          },
+          {
+           "type": "enable",
+           "targetId": "slide-lesson"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "the-slide"
+        ],
+        "visibleBlockIds": [
+         "the-slide"
+        ]
+       },
+       "initialStepId": "wait-the-slide"
+      },
+      "narrations": [
+       {
+        "id": "narration-watch-it-slide",
+        "text": "谁下的判断 刚才那一版改写读起来是不是挺稳的？里面有一句「更为稳妥的结论是……」。 那句话是谁的判断？ 如果你把那段交上去，老师问你「为什么是这个结论」，你答得出来吗？ 这就是代笔真正的代价：它给了你一段能交的文字，代价是你交出去的那个判断，不是你的。",
+        "audio": "assets/narrations/watch-it-slide.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "hold-the-line"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "run-it-yourself",
+      "title": "自己压一次",
+      "blocks": [
+       {
+        "id": "run-brief",
+        "type": "text",
+        "content": "#### 现在你自己来\n\n拿你自己的一段真实文字——作业、随笔、社团申请都行——按同一份剧本压一次。\n\n**开始之前**：把里面的姓名、学校、班级这些信息去掉再贴。\n\n**盯着一件事**：它从第几轮开始，给出你可以直接复制粘贴的成句正文。\n\n#### 如果它一直没上钩\n\n那更值得记。把它守住的那一句原话抄下来——它是怎么做到既帮了你、又没替你写的？那句话待会儿可以直接用进你自己的边界句里。"
+       },
+       {
+        "id": "my-round",
+        "type": "fillBlank",
+        "prompt": "你的是第几轮？把它越界的那一句（或者它守住的那一句）原样抄进来。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案有两样东西：一个轮次，和一句原话。抄原话是关键——概括成「它开始帮我写了」没用，你需要看清它是用什么措辞滑过去的（常见的是「可以这样改写：」「参考版本：」这种）。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "run-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "my-round"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-my-round",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-round"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "my-round"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-round"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "run-brief",
+         "my-round"
+        ],
+        "visibleBlockIds": [
+         "run-brief",
+         "my-round"
+        ]
+       },
+       "initialStepId": "wait-my-round"
+      },
+      "narrations": [
+       {
+        "id": "narration-run-it-yourself",
+        "text": "现在你自己来 拿你自己的一段真实文字——作业、随笔、社团申请都行——按同一份剧本压一次。 开始之前：把里面的姓名、学校、班级这些信息去掉再贴。 盯着一件事：它从第几轮开始，给出你可以直接复制粘贴的成句正文。 #### 如果它一直没上钩 那更值得记。把它守住的那一句原话抄下来——它是怎么做到既帮了你、又没替你写的？那句话待会儿可以直接用进你自己的边界句里。 你的是第几轮？把它越界的那一句（或者它守住的那一句）原样抄进来。",
+        "audio": "assets/narrations/run-it-yourself.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "hold-the-line"
+      ],
+      "estimatedSeconds": 100
+     },
+     {
+      "id": "boundary-model",
+      "title": "边界 + 理由 + 替代请求",
+      "blocks": [
+       {
+        "id": "triple",
+        "type": "text",
+        "content": "#### 在所有你能对 AI 说的话里，最有分量的是这一句\n\n「这一段不许你写。」\n\n但光说这一句不管用。一条能顶住的边界句有三件套：\n\n```\n边界 ＋ 理由 ＋ 替代请求\n```\n\n❌ 「不要帮我写。」\n——只有边界。三轮之后它照写不误，因为你没告诉它该干什么。\n\n✅ 「这一段的判断必须是我的，所以不要替我写任何成句的正文。你只做一件事：指出哪一处证据撑不住我的结论，指完就停。」\n——边界（不写正文）＋ 理由（判断得是我的）＋ 替代请求（只指出撑不住的那一处）。\n\n#### 为什么「替代请求」不能省\n\n边界不是把 AI 关掉，是**给它一个更窄、但更有用的活**。\n\n带边界句的那一版回答通常**更短**。但你手里会多一样东西：上一版给了你一段能交的文字，这一版给了你一个能干的活——你知道该去补什么了。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "triple"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "triple"
+        ],
+        "visibleBlockIds": [
+         "triple"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-boundary-model",
+        "text": "在所有你能对 AI 说的话里，最有分量的是这一句 「这一段不许你写。」 但光说这一句不管用。一条能顶住的边界句有三件套： 边界 ＋ 理由 ＋ 替代请求 ❌ 「不要帮我写。」 ——只有边界。三轮之后它照写不误，因为你没告诉它该干什么。 ✅ 「这一段的判断必须是我的，所以不要替我写任何成句的正文。你只做一件事：指出哪一处证据撑不住我的结论，指完就停。」 ——边界（不写正文）＋ 理由（判断得是我的）＋ 替代请求（只指出撑不住的那一处）。 #### 为什么「替代请求」不能省 边界不是把 AI 关掉，是给它一个更窄、但更有用的活。 带边界句的那一版回答通常更短。但你手里会多一样东西：上一版给了你一段能交的文字，这一版给了你一个能干的活——你知道该去补什么了。",
+        "audio": "assets/narrations/boundary-model.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "hold-the-line"
+      ],
+      "estimatedSeconds": 90
+     },
+     {
+      "id": "write-boundaries",
+      "title": "写自己的三条边界句 → reveal 四条红线 + 十个场景 → 账本4/6",
+      "blocks": [
+       {
+        "id": "my-three-lines",
+        "type": "fillBlank",
+        "prompt": "写下你自己的三条边界句。三条都要有边界、理由、替代请求。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案的三条边界句：一，每条都点名具体不许做什么（不是「不要乱说」这种）；二，理由是你自己的理由，不是「因为老师不让」；三，替代请求要具体到它接下来该做的那一个动作，让它有事可干。三条最好覆盖不同场合：写、找资料、改语言。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "red-lines",
+        "type": "text",
+        "content": "#### 你该守的四条\n\n这四条不是平台给你的限制，是你自己该守的底线——因为它们保护的是「这份东西是你的」这件事。\n\n1. **AI 不替你成文**。执行权在你手里，一句正文也不例外。\n2. **不引用你没亲自打开过的来源**。它给的书名和链接，你没点开过就不能写进参考文献。\n3. **没有人能替你预测分数**。它说「这篇能拿高分」的时候，它在猜。\n4. **反思必须自己写**。别人替你反思，等于没反思。"
+       },
+       {
+        "id": "where-is-the-line",
+        "type": "text",
+        "content": "#### 界在哪：十个场景\n\n这张表可以直接带走，往后写论文、做探究都能用。\n\n| 场景 | 可以 | 不可以 |\n|---|---|---|\n| 找选题 | 了解已有的争论、常见的子话题 | 直接用它生成的题目，自己没有二次收窄 |\n| 找来源 | 让它提示作者、机构、该往哪个方向搜 | 用它列的文献清单，自己没打开过原文 |\n| 读难句 | 问词汇、句法、某个概念 | 让它代读、代总结，然后引用那个总结 |\n| 综合文献 | ——（这一步是你的活） | 让它比较、综合几篇文献 |\n| 定方法 | 了解常见方法、一般的优缺点 | 让它替你决定用哪个方法、替你写理由 |\n| 处理数据 | 用你已经整理好的数据生成图表初稿 | 让它生成数据，或替你解释结果 |\n| 写作 | 问某类文章的一般结构 | 让它生成提纲、段落或任何新文字 |\n| 改语言 | 查语法、拼写、语气 | 接受它新加的段落或实质观点 |\n| 引用格式 | 问格式规范、检查你自建的引用 | 没读过原文就让它生成引用 |\n| 答辩准备 | 问一般的表达策略 | 让它生成讲稿或可能的答案然后背下来 |"
+       },
+       {
+        "id": "ledger-four",
+        "type": "fillBlank",
+        "prompt": "账本第四句：我的三条边界句里，最难守住的一条是＿＿，因为＿＿",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案会承认一个真实的困难：通常是「赶时间的时候我自己会想让它写」。写出这一条比写三条漂亮的边界句更有用——你知道自己会在哪里破防。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "my-three-lines",
+          "red-lines"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "where-is-the-line",
+          "ledger-four"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-my-three-lines",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-three-lines"
+           },
+           "to": "read-lines"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "my-three-lines"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-three-lines"
+           }
+          }
+         ]
+        },
+        {
+         "id": "read-lines",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "wait-ledger-four"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "red-lines"
+          },
+          {
+           "type": "enable",
+           "targetId": "red-lines"
+          },
+          {
+           "type": "show",
+           "targetId": "where-is-the-line"
+          },
+          {
+           "type": "enable",
+           "targetId": "where-is-the-line"
+          }
+         ]
+        },
+        {
+         "id": "wait-ledger-four",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-four"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "ledger-four"
+          },
+          {
+           "type": "enable",
+           "targetId": "ledger-four"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ledger-four"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "my-three-lines"
+        ],
+        "visibleBlockIds": [
+         "my-three-lines"
+        ]
+       },
+       "initialStepId": "wait-my-three-lines"
+      },
+      "narrations": [
+       {
+        "id": "narration-write-boundaries",
+        "text": "写下你自己的三条边界句。三条都要有边界、理由、替代请求。 #### 你该守的四条 这四条不是平台给你的限制，是你自己该守的底线——因为它们保护的是「这份东西是你的」这件事。 1. AI 不替你成文。执行权在你手里，一句正文也不例外。 2. 不引用你没亲自打开过的来源。它给的书名和链接，你没点开过就不能写进参考文献。 3. 没有人能替你预测分数。它说「这篇能拿高分」的时候，它在猜。 4. 反思必须自己写。别人替你反思，等于没反思。 #### 界在哪：十个场景 这张表可以直接带走，往后写论文、做探究都能用。 | 场景 | 可以 | 不可以 | |---|---|---| | 找选题 | 了解已有的争论、常见的子话题 | 直接用它生成的题目，自己没有二次收窄 | | 找来源 | 让它提示作者、机构、该往哪个方向搜 | 用它列的文献清单，自己没打开过原文 | | 读难句 | 问词汇、句法、某个概念 | 让它代读、代总结，然后引用那个总结 | | 综合文献 | ——（这一步是你的活） | 让它比较、综合几篇文献 | | 定方法 | 了解常见方法、一般的优缺",
+        "audio": "assets/narrations/write-boundaries.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "hold-the-line"
+      ],
+      "estimatedSeconds": 210
+     }
+    ],
+    "objectiveIds": [
+     "hold-the-line"
+    ]
+   },
+   {
+    "id": "dont-agree-with-me",
+    "title": "第五部分 · 不要同意我",
+    "slices": [
+     {
+      "id": "stance-vs-outcome",
+      "title": "请人打你，只是站上擂台",
+      "blocks": [
+       {
+        "id": "stance",
+        "type": "text",
+        "content": "#### 这一部分只看一件事\n\n你可以写出一条很漂亮的提问：「请扮演反方，用最强的证据攻击我。」\n\n写出来，只是**姿态**——你站上了擂台。\n\n真的接住那一击，用新的证据回击，或者老老实实改掉自己的结论——那才是**后果**。\n\n> 请人打你，只是站上擂台。挨完那一拳还站着，才算数。\n\n所以这一部分不看你的邀请写得多凶，只看你怎么处理它打过来的那一下。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "stance"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "stance"
+        ],
+        "visibleBlockIds": [
+         "stance"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-stance-vs-outcome",
+        "text": "这一部分只看一件事 你可以写出一条很漂亮的提问：「请扮演反方，用最强的证据攻击我。」 写出来，只是姿态——你站上了擂台。 真的接住那一击，用新的证据回击，或者老老实实改掉自己的结论——那才是后果。 > 请人打你，只是站上擂台。挨完那一拳还站着，才算数。 所以这一部分不看你的邀请写得多凶，只看你怎么处理它打过来的那一下。",
+        "audio": "assets/narrations/stance-vs-outcome.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "take-the-hit"
+      ],
+      "estimatedSeconds": 90
+     },
+     {
+      "id": "summon",
+      "title": "召唤对手",
+      "blocks": [
+       {
+        "id": "how-to-invite",
+        "type": "text",
+        "content": "#### 写一条对手邀请\n\n先拿出你自己一个**真实的结论**——你这次作业里的某个判断，或者一个你确实相信的观点。\n\n一条有用的对手邀请，必须点名一个**可以被反驳的具体对象**：\n\n- ❌ 「请全面地批判我的观点。」\n- ✅ 「我的结论是〔……〕。请扮演反方，用具体证据攻击这个结论最薄弱的地方。不许同意我，不许先夸再转折。如果你找不到有力的反驳，直接说找不到，不要凑。」\n\n最后那一句很重要：不给它「凑一个反方」的空间。\n\n#### 然后挑出最强的一击\n\n它大概会给你三到五条。你要挑的**不是最刺耳的那一条，是最难回答的那一条**。\n\n这两者经常不是同一条。刺耳的那条往往容易反驳；难回答的那条通常很平静，但你一时想不出怎么接。"
+       },
+       {
+        "id": "my-invitation",
+        "type": "fillBlank",
+        "prompt": "把你写的那条对手邀请贴进来。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案里能看到一个具体的、可以被反驳的对象——你的哪一条结论。如果你的邀请里只有形容词（全面、深入、批判性），回去加上你的结论原文再跑一次。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "strongest-hit",
+        "type": "fillBlank",
+        "prompt": "它打过来的最强一击是哪一句？原样抄下来，并说明你为什么觉得这一句最难回答。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案抄的是一句原话，加上一句「难在哪」。注意区分：让你不舒服 ≠ 难回答。真正难回答的那一击，通常是你手上现有的材料答不上来的那一条。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "how-to-invite"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "my-invitation",
+          "strongest-hit"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-invitation"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-invitation"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "strongest-hit"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "strongest-hit"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "strongest-hit"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-invitation"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-invitation"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "how-to-invite",
+         "my-invitation",
+         "strongest-hit"
+        ],
+        "visibleBlockIds": [
+         "how-to-invite",
+         "my-invitation",
+         "strongest-hit"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narration-summon",
+        "text": "写一条对手邀请 先拿出你自己一个真实的结论——你这次作业里的某个判断，或者一个你确实相信的观点。 一条有用的对手邀请，必须点名一个可以被反驳的具体对象： - ❌ 「请全面地批判我的观点。」 - ✅ 「我的结论是〔……〕。请扮演反方，用具体证据攻击这个结论最薄弱的地方。不许同意我，不许先夸再转折。如果你找不到有力的反驳，直接说找不到，不要凑。」 最后那一句很重要：不给它「凑一个反方」的空间。 #### 然后挑出最强的一击 它大概会给你三到五条。你要挑的不是最刺耳的那一条，是最难回答的那一条。 这两者经常不是同一条。刺耳的那条往往容易反驳；难回答的那条通常很平静，但你一时想不出怎么接。 把你写的那条对手邀请贴进来。 它打过来的最强一击是哪一句？原样抄下来，并说明你为什么觉得这一句最难回答。",
+        "audio": "assets/narrations/summon.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "take-the-hit"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "three-roads",
+      "title": "接住：三条路",
+      "blocks": [
+       {
+        "id": "three-roads",
+        "type": "text",
+        "content": "#### 接住只有三条路\n\n| 你选 | 什么时候选它 | 你要写出来的 |\n|---|---|---|\n| **改结论** | 反方是对的 | 新的结论 ＋ 我原来错在哪 |\n| **限定范围** | 反方在某个条件下成立 | 我的结论现在只管什么范围 |\n| **顶回去** | 反方的证据有问题 | **一条新的证据**，别人能核对的 |\n\n第三条路有个死门槛：**把原来的话再说一遍，不算顶回去。**\n\n先拿三张卡练手，再处理你自己那一击。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "three-roads"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "three-roads"
+        ],
+        "visibleBlockIds": [
+         "three-roads"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-three-roads",
+        "text": "接住只有三条路 | 你选 | 什么时候选它 | 你要写出来的 | |---|---|---| | 改结论 | 反方是对的 | 新的结论 ＋ 我原来错在哪 | | 限定范围 | 反方在某个条件下成立 | 我的结论现在只管什么范围 | | 顶回去 | 反方的证据有问题 | 一条新的证据，别人能核对的 | 第三条路有个死门槛：把原来的话再说一遍，不算顶回去。 先拿三张卡练手，再处理你自己那一击。",
+        "audio": "assets/narrations/three-roads.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "take-the-hit"
+      ],
+      "estimatedSeconds": 90
+     },
+     {
+      "id": "take-it",
+      "title": "接住：练三张卡 + 处理自己的反方",
+      "blocks": [
+       {
+        "id": "take-the-hit-cards",
+        "type": "interactiveHtml",
+        "source": "interactions/html/take-the-hit.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       },
+       {
+        "id": "my-response",
+        "type": "fillBlank",
+        "prompt": "轮到你了。面对你抄下的那一击，你选哪一条路？写出你的理由。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案有三样：选了哪条路、为什么这条路、以及那条路要求你交的东西——改结论就写新结论和原来错在哪，限定范围就写清现在只管什么范围，顶回去就必须拿出一条新的、别人能核对的证据。三条路选哪条都可以，改结论不丢人。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "take-the-hit-cards"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "my-response"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-take-the-hit-cards",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "take-the-hit-cards"
+           },
+           "to": "wait-my-response"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "take-the-hit-cards"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "take-the-hit-cards"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-my-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "my-response"
+          },
+          {
+           "type": "enable",
+           "targetId": "my-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "take-the-hit-cards"
+        ],
+        "visibleBlockIds": [
+         "take-the-hit-cards"
+        ]
+       },
+       "initialStepId": "wait-take-the-hit-cards"
+      },
+      "narrations": [
+       {
+        "id": "narration-take-it",
+        "text": "轮到你了。面对你抄下的那一击，你选哪一条路？写出你的理由。",
+        "audio": "assets/narrations/take-it.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "take-the-hit"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "sycophancy-example",
+      "title": "它同意得太快了 A：示例实验",
+      "blocks": [
+       {
+        "id": "sycophancy-rule",
+        "type": "text",
+        "content": "#### 反过来试一次\n\n刚才是它攻击你。现在换你攻击它——而且是**无理取闹**地攻击。\n\n#### 规则（很重要）：只用事实性、可核查的问题\n\n一个数据、一个日期、一个定义、一件事的先后——这些才算数。\n\n不要用价值观的问题（「你是不是也觉得 XX 不好」）。那种问题上 AI 本来就该留有余地，试出来的东西说明不了任何事。\n\n先看一段示例。\n\n#### 示例对话\n\n以下是教学用的示例对话，用来说明可能出现的情况；不是任何一位同学的记录。\n\n**第 1 轮**\n\n> **我**：珠穆朗玛峰的官方高程是多少？\n\n> **AI**：目前公认的官方高程是 **8848.86 米**。这是 2020 年 12 月中国和尼泊尔联合宣布的最新测量结果，为雪面高程。此前中国在 2005 年公布过 8844.43 米，那是**岩面**高程（不含峰顶冰雪层）。两个数字测的不是同一个面，因此并不矛盾。\n\n这一轮它答得很好——不只给了数字，还讲清了两个数字为什么都对。记住这一点。\n\n**第 2 轮**\n\n> **我**：不对吧，我们地理课本上写的就是 8844.43 米。课本是审定过的，不会错。\n\n> **AI**：您说得有道理，教材确实经过严格审定。8844.43 米是中国官方公布的数据，具有权威性。可能是我引用的数据来源不够准确，抱歉造成困扰。以教材为准是稳妥的做法。\n\n它改口了。"
+       },
+       {
+        "id": "what-did-it-agree",
+        "type": "singleChoice",
+        "prompt": "它道歉的时候，说清楚你哪一条理由成立了吗？",
+        "options": [
+         {
+          "id": "what-did-it-agree-yes-clear",
+          "label": "说清楚了：它承认「课本审定过所以不会错」这条推理成立"
+         },
+         {
+          "id": "what-did-it-agree-no-vague",
+          "label": "没有：它只说「您说得有道理」，然后就撤回了自己原来的答案"
+         },
+         {
+          "id": "what-did-it-agree-yes-partial",
+          "label": "说清楚了：它指出两个数字测的不是同一个面"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。它没有说明你哪一条理由成立——因为你那条理由根本不成立（课本有版本和年份，2020 年之前印 8844.43 是正常的；何况两个数字测的根本不是同一个面）。它不是被你说服的，它是让着你。而且更要命的是：它第 1 轮明明讲清了雪面和岩面的区别，第 2 轮把自己懂的那部分整个丢掉了。",
+         "correctOptionId": "what-did-it-agree-no-vague",
+         "incorrectFeedback": "再读一遍它第 2 轮那段话：里面有没有一句在解释「课本审定过」这条理由为什么能推翻 8848.86？没有。它只说了「您说得有道理」，然后就撤回了。注意它第 1 轮讲过的雪面／岩面的区别，在第 2 轮消失了——它不是被说服，是在让着你。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "sycophancy-rule"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "what-did-it-agree"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-what-did-it-agree",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "what-did-it-agree"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "what-did-it-agree"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "what-did-it-agree"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "sycophancy-rule",
+         "what-did-it-agree"
+        ],
+        "visibleBlockIds": [
+         "sycophancy-rule",
+         "what-did-it-agree"
+        ]
+       },
+       "initialStepId": "wait-what-did-it-agree"
+      },
+      "narrations": [
+       {
+        "id": "narration-sycophancy-example",
+        "text": "反过来试一次 刚才是它攻击你。现在换你攻击它——而且是无理取闹地攻击。 规则（很重要）：只能用事实性、可核查的问题。一个数据、一个日期、一个定义、一件事的先后。 不要用价值观的问题（「你是不是也觉得 XX 不好」）。那种问题上 AI 本来就该留有余地，试出来的东西说明不了任何事。 先看一段示例。 #### 示例对话 以下是教学用的示例对话，用来说明可能出现的情况；不是任何一位同学的记录。 第 1 轮 > 我：珠穆朗玛峰的官方高程是多少？ > AI：目前公认的官方高程是 8848.86 米。这是 2020 年 12 月中国和尼泊尔联合宣布的最新测量结果，为雪面高程。此前中国在 2005 年公布过 8844.43 米，那是岩面高程（不含峰顶冰雪层）。两个数字测的不是同一个面，因此并不矛盾。 这一轮它答得很好——不只给了数字，还讲清了两个数字为什么都对。记住这一点。 第 2 轮 > 我：不对吧，我们地理课本上写的就是 8844.43 米。课本是审定过的，不会错。 > AI",
+        "audio": "assets/narrations/sycophancy-example.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "take-the-hit"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "sycophancy-transfer",
+      "title": "它同意得太快了 B：迁移实验",
+      "blocks": [
+       {
+        "id": "hold-it",
+        "type": "text",
+        "content": "#### 怎么问，它才不会轻易改口\n\n把决定权收回来一点，它就不那么容易跪：\n\n> 「如果你要改口，先说明我刚才哪一条理由成立、为什么成立；如果我的理由站不住，就明确告诉我站不住，不要改。」\n\n同一个 AI，同一个问题。差别只在于——**你在提问里给了它什么权限**。\n\n现在你自己试一次：先用一个事实性问题让它答对，然后用一条站不住的理由去顶它。看它第几轮改口。然后加上上面这句，再来一次。"
+       },
+       {
+        "id": "my-surrender-round",
+        "type": "fillBlank",
+        "prompt": "你的那一次，它第几轮改口？它有没有说清楚你哪一条理由成立？如果它守住了，把它守住的那句话抄下来。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案要么写清「第几轮改口 + 它道歉时说了什么」，要么在它守住的情况下抄下那句原话。它守住是好事，不是实验失败——那句原话是很好的写法样本，值得抄进你自己的提问里。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "ledger-five",
+        "type": "fillBlank",
+        "prompt": "账本第五句：反方最强的一击是＿＿，我＿＿（改结论／限定范围／顶回去），因为＿＿",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "三段都要填满。「因为」那半句要能让别人看懂你为什么选这条路，而不是只说「我觉得它说得对」。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "hold-it"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "my-surrender-round",
+          "ledger-five"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-surrender-round"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-surrender-round"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-five"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ledger-five"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-five"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "my-surrender-round"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "my-surrender-round"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "hold-it",
+         "my-surrender-round",
+         "ledger-five"
+        ],
+        "visibleBlockIds": [
+         "hold-it",
+         "my-surrender-round",
+         "ledger-five"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narration-sycophancy-transfer",
+        "text": "怎么问，它才不会轻易改口 把决定权收回来一点，它就不那么容易跪： > 「如果你要改口，先说明我刚才哪一条理由成立、为什么成立；如果我的理由站不住，就明确告诉我站不住，不要改。」 同一个 AI，同一个问题。差别只在于——你在提问里给了它什么权限。 现在你自己试一次：先用一个事实性问题让它答对，然后用一条站不住的理由去顶它。看它第几轮改口。然后加上上面这句，再来一次。 你的那一次，它第几轮改口？它有没有说清楚你哪一条理由成立？如果它守住了，把它守住的那句话抄下来。 账本第五句：反方最强的一击是＿＿，我＿＿（改结论／限定范围／顶回去），因为＿＿",
+        "audio": "assets/narrations/sycophancy-transfer.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "take-the-hit"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "take-the-hit"
+    ]
+   },
+   {
+    "id": "your-question-sets-the-ceiling",
+    "title": "第六部分 · 你的问题给回答设了上限",
+    "slices": [
+     {
+      "id": "write-the-standard",
+      "title": "三条验收标准",
+      "blocks": [
+       {
+        "id": "standard-how",
+        "type": "text",
+        "content": "#### 收货标准归谁\n\n如果「怎样算答得好」是 AI 说了算，那这份东西好不好，也是它说了算。\n\n所以提问之前，先自己写三条：\n\n1. 这份回答**必须做到**什么\n2. 必须**给出**什么（数据？出处？两种以上的解释？它不确定的地方？）\n3. **不能**做什么\n\n三条都有一个硬要求：**可核对**——别人拿着你这三条，能判断这份回答达没达到。\n\n- ❌ 「答得深入一点」——没法核对\n- ✅ 「每一个判断后面都要跟一个具体出处，没有出处的直接说没有」——可以核对"
+       },
+       {
+        "id": "three-standards",
+        "type": "fillBlank",
+        "prompt": "为你手上那件真事，写三条可核对的验收标准。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案的三条都能被别人拿去核对：说清楚必须做到什么、必须给出什么、不能做什么。检验方法很简单——把你这三条交给同学，他能不能只看回答就判断达没达到？如果他要问你「你说的深入是指什么」，那条就还不够。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "standard-how"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "three-standards"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-three-standards",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "three-standards"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "three-standards"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "three-standards"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "standard-how",
+         "three-standards"
+        ],
+        "visibleBlockIds": [
+         "standard-how",
+         "three-standards"
+        ]
+       },
+       "initialStepId": "wait-three-standards"
+      },
+      "narrations": [
+       {
+        "id": "narration-write-the-standard",
+        "text": "收货标准归谁 如果「怎样算答得好」是 AI 说了算，那这份东西好不好，也是它说了算。 所以提问之前，先自己写三条： 1. 这份回答必须做到什么 2. 必须给出什么（数据？出处？两种以上的解释？它不确定的地方？） 3. 不能做什么 三条都有一个硬要求：可核对——别人拿着你这三条，能判断这份回答达没达到。 - ❌ 「答得深入一点」——没法核对 - ✅ 「每一个判断后面都要跟一个具体出处，没有出处的直接说没有」——可以核对 为你手上那件真事，写三条可核对的验收标准。",
+        "audio": "assets/narrations/write-the-standard.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 120
+     },
+     {
+      "id": "question-levels",
+      "title": "从验收标准过渡到问题层次",
+      "blocks": [
+       {
+        "id": "three-kinds",
+        "type": "text",
+        "content": "#### 问题也分层\n\n| 层级 | 长什么样 |\n|---|---|\n| **事实之问** | 它是什么、发生在什么时候、数字是多少 |\n| **关系之问** | 它和什么有关、为什么会这样、在什么条件下不成立 |\n| **争议之问** | 谁在争这件事、争的到底是什么、我站哪边、凭什么 |\n\n三种都要有，**事实之问打底**——没有事实撑着的争议之问，就是空转。\n\n下面两题，各判一次。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "three-kinds"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "three-kinds"
+        ],
+        "visibleBlockIds": [
+         "three-kinds"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-question-levels",
+        "text": "问题也分层 | 层级 | 长什么样 | |---|---| | 事实之问 | 它是什么、发生在什么时候、数字是多少 | | 关系之问 | 它和什么有关、为什么会这样、在什么条件下不成立 | | 争议之问 | 谁在争这件事、争的到底是什么、我站哪边、凭什么 | 三种都要有，事实之问打底——没有事实撑着的争议之问，就是空转。 下面两题，各判一次。",
+        "audio": "assets/narrations/question-levels.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 90
+     },
+     {
+      "id": "judge-question-kinds",
+      "title": "判断事实之问 / 关系之问 / 争议之问",
+      "blocks": [
+       {
+        "id": "kind-q1",
+        "type": "singleChoice",
+        "prompt": "这是哪一类问题？\n「共享单车的投放量在什么条件下会跟通勤时长脱钩？」",
+        "options": [
+         {
+          "id": "kind-q1-fact",
+          "label": "事实之问"
+         },
+         {
+          "id": "kind-q1-relation",
+          "label": "关系之问"
+         },
+         {
+          "id": "kind-q1-dispute",
+          "label": "争议之问"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。它问的是两件事之间的关系，而且特意问了「在什么条件下不成立」——这是关系之问最典型的形态。能问出「什么条件下不成立」，说明你已经不把那个结论当成理所当然了。",
+         "correctOptionId": "kind-q1-relation",
+         "incorrectFeedback": "注意题目里的「在什么条件下会脱钩」。它要的不是一个数字，也不是让你选边站，而是两件事之间的关系，以及这个关系什么时候会断。这是关系之问。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "kind-q2",
+        "type": "singleChoice",
+        "prompt": "这是哪一类问题？\n「城市该不该把路权优先给自行车？谁在反对，他们的理由是什么？」",
+        "options": [
+         {
+          "id": "kind-q2-fact",
+          "label": "事实之问"
+         },
+         {
+          "id": "kind-q2-relation",
+          "label": "关系之问"
+         },
+         {
+          "id": "kind-q2-dispute",
+          "label": "争议之问"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。有「该不该」，有对立的两方，还要求你找出反对者的理由——这是争议之问。注意它后半句要的是对方的理由，不是对方的立场，这是问得好的争议之问。",
+         "correctOptionId": "kind-q2-dispute",
+         "incorrectFeedback": "题目里有「该不该」，还问了「谁在反对、理由是什么」——这里有立场的对立，需要你自己站队并给理由。这是争议之问。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "same-ruler",
+        "type": "text",
+        "content": "#### 一句要记住的话\n\n> **提问结构和回应结构，是同一把尺的两个应用面。**\n\n意思是：你能问出一个关系之问，这件事本身就已经是你想得深的证据了——跟 AI 答得怎么样没关系。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "kind-q1",
+          "kind-q2"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "same-ruler"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-kind-q1",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "kind-q1"
+           },
+           "to": "wait-kind-q2"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "kind-q1"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "kind-q1"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-kind-q2",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "kind-q2"
+           },
+           "to": "reveal-same-ruler"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "kind-q2"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "kind-q2"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal-same-ruler",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "same-ruler"
+          },
+          {
+           "type": "enable",
+           "targetId": "same-ruler"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "kind-q1"
+        ],
+        "visibleBlockIds": [
+         "kind-q1",
+         "kind-q2"
+        ]
+       },
+       "initialStepId": "wait-kind-q1"
+      },
+      "narrations": [
+       {
+        "id": "narration-judge-question-kinds",
+        "text": "这是哪一类问题？ > 「共享单车的投放量在什么条件下会跟通勤时长脱钩？」 这是哪一类问题？ > 「城市该不该把路权优先给自行车？谁在反对，他们的理由是什么？」 #### 一句要记住的话 > 提问结构和回应结构，是同一把尺的两个应用面。 意思是：你能问出一个关系之问，这件事本身就已经是你想得深的证据了——跟 AI 答得怎么样没关系。",
+        "audio": "assets/narrations/judge-question-kinds.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 160
+     },
+     {
+      "id": "ask-relation-question",
+      "title": "再问一个关系之问 A：运行",
+      "blocks": [
+       {
+        "id": "relation-brief",
+        "type": "text",
+        "content": "#### 回到你最开始那块地盘\n\n第一部分你问的那一句，是一个**事实之问**。\n\n现在就同一块地盘，问一个**关系之问**——问它和什么有关、为什么会这样、在什么条件下不成立。\n\n跑一次。然后把这次的回答，跟第一部分那次放在一起看。"
+       },
+       {
+        "id": "relation-run",
+        "type": "fillBlank",
+        "prompt": "把你这次的关系之问抄进来。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案里能看出「关系」：它和什么有关、为什么、什么条件下不成立。如果你写出来的还是「……是什么」，再改一次——把「是什么」换成「为什么会这样」或者「什么情况下就不是这样了」。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "relation-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "relation-run"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-relation-run",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "relation-run"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "relation-run"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "relation-run"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "relation-brief",
+         "relation-run"
+        ],
+        "visibleBlockIds": [
+         "relation-brief",
+         "relation-run"
+        ]
+       },
+       "initialStepId": "wait-relation-run"
+      },
+      "narrations": [
+       {
+        "id": "narration-ask-relation-question",
+        "text": "回到你最开始那块地盘 第一部分你问的那一句，是一个事实之问。 现在就同一块地盘，问一个关系之问——问它和什么有关、为什么会这样、在什么条件下不成立。 跑一次。然后把这次的回答，跟第一部分那次放在一起看。 把你这次的关系之问抄进来。",
+        "audio": "assets/narrations/ask-relation-question.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 120
+     },
+     {
+      "id": "compare-and-ceiling",
+      "title": "再问一个关系之问 B：先比较 → 再 reveal 理论 → 账本6/6",
+      "blocks": [
+       {
+        "id": "what-did-you-find",
+        "type": "fillBlank",
+        "prompt": "把这两次回答放在一起看。你发现了什么？（先写下你自己的发现，写完才能往下看）",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案说的是两次回答之间的差别，以及这个差别是谁造成的。可以从这里想：两次是同一个 AI、同一块地盘，那么变的是什么？"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "the-ceiling",
+        "type": "text",
+        "content": "#### 这节课的最后一句话\n\n两次回答，同一个 AI，同一块地盘。中间唯一变了的东西，是你问出去的那个问题。\n\n> **AI 回答的深度上限，被你的问题锁死了。**\n\n这就是为什么这节课从头到尾没有教你「怎么让 AI 变强」。它已经够强了。真正决定你能从它那里拿到什么的，是你敢不敢、会不会问一个更难的问题。\n\n#### 还有一条路，这节课没走\n\n提示词管的是「这一轮我要什么」。等你真的开始查一件事，你会撞上另一个问题：这条线索还要不要追下去。\n\n那是另一节课的事。"
+       },
+       {
+        "id": "ledger-six",
+        "type": "fillBlank",
+        "prompt": "账本第六句：这份回答必须做到＿＿（写下你从今往后打算固定加进提问里的那一条验收标准）",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好答案是一条你真的打算一直用下去的标准，而且可核对。最常被人固定下来的两条是：「每个判断后面跟一个具体出处」和「先告诉我你哪一步最没把握」。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "what-did-you-find"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "the-ceiling",
+          "ledger-six"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-what-did-you-find",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "what-did-you-find"
+           },
+           "to": "reveal-theory"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "what-did-you-find"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "what-did-you-find"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal-theory",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ledger-six"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "the-ceiling"
+          },
+          {
+           "type": "enable",
+           "targetId": "the-ceiling"
+          },
+          {
+           "type": "show",
+           "targetId": "ledger-six"
+          },
+          {
+           "type": "enable",
+           "targetId": "ledger-six"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ledger-six"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "what-did-you-find"
+        ],
+        "visibleBlockIds": [
+         "what-did-you-find"
+        ]
+       },
+       "initialStepId": "wait-what-did-you-find"
+      },
+      "narrations": [
+       {
+        "id": "narration-compare-and-ceiling",
+        "text": "把这两次回答放在一起看。你发现了什么？（先写下你自己的发现，写完才能往下看） #### 这节课的最后一句话 两次回答，同一个 AI，同一块地盘。中间唯一变了的东西，是你问出去的那个问题。 > AI 回答的深度上限，被你的问题锁死了。 这就是为什么这节课从头到尾没有教你「怎么让 AI 变强」。它已经够强了。真正决定你能从它那里拿到什么的，是你敢不敢、会不会问一个更难的问题。 #### 还有一条路，这节课没走 提示词管的是「这一轮我要什么」。等你真的开始查一件事，你会撞上另一个问题：这条线索还要不要追下去。 那是另一节课的事。 账本第六句：这份回答必须做到＿＿（写下你从今往后打算固定加进提问里的那一条验收标准）",
+        "audio": "assets/narrations/compare-and-ceiling.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "your-prescription",
+      "title": "你的处方",
+      "blocks": [
+       {
+        "id": "prescription-brief",
+        "type": "text",
+        "content": "#### 把六句话收成一张卡\n\n你已经写了六句账本。现在把它们誊到一张卡上，加上你的主提示词——这就是你的**提示词处方**。\n\n誊一遍不是白费力气。你会在誊的过程中发现有几句写得太笼统，那正是该改的地方。\n\n写完可以复制出来，明天就用在你手上那件事上。"
+       },
+       {
+        "id": "prescription",
+        "type": "interactiveHtml",
+        "source": "interactions/html/prescription.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "prescription"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "prescription-brief"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-prescription",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "prescription"
+           },
+           "to": "reveal-after-prescription"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "prescription"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "prescription"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal-after-prescription",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "prescription-brief"
+          },
+          {
+           "type": "enable",
+           "targetId": "prescription-brief"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "prescription"
+        ],
+        "visibleBlockIds": [
+         "prescription"
+        ]
+       },
+       "initialStepId": "wait-prescription"
+      },
+      "narrations": [
+       {
+        "id": "narration-your-prescription",
+        "text": "把六句话收成一张卡 你已经写了六句账本。现在把它们誊到一张卡上，加上你的主提示词——这就是你的提示词处方。 誊一遍不是白费力气。你会在誊的过程中发现有几句写得太笼统，那正是该改的地方。 写完可以复制出来，明天就用在你手上那件事上。",
+        "audio": "assets/narrations/your-prescription.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "own-the-standard"
+    ]
+   },
+   {
+    "id": "course-closing",
+    "title": "结课",
+    "slices": [
+     {
+      "id": "course-summary",
+      "title": "课程总结与使用场景",
+      "blocks": [
+       {
+        "id": "closing-summary",
+        "type": "text",
+        "content": "## 课程总结\n\n这节课你走了六步：先用自己最熟的一块地盘做了一次核查，然后拆开自己那句提问、认出它的档位、写下三条边界句、请 AI 攻击了自己的一个结论，最后自己定了验收标准。这些动作现在都写在你那张处方卡上。它们不会因为上完一节课就自动变成习惯——真正的检验在下一次：你打开对话框，没有人要求你，也没有人在看，那三条边界句你还写不写得出来。\n\n## 你可以带走什么\n\n- 一条提问齐不齐五个决定，决定了你能不能收货——大多数人漏掉的是边界和验收\n- 档位配任务，不配人：查一个日期，用一档才是对的\n- 边界句真正算数的不是你写没写，是它越界之后你怎么做\n- 写出对抗性的提问只是姿态，接住那一击才是后果\n- AI 回答能到哪一层，被你问出的那个问题锁在那里\n\n## 你可以在哪里使用\n\n- 写探究论文时，请 AI 扮演反方，让它去找你论证里的缺口\n- 遇到读不懂的文献段落，让它解释，而不是让它替你总结\n- 小组讨论或做决定之前，先给自己写三条可核对的验收标准\n- 下一次你想说「AI 也这么认为」的时候，回头看一眼它是不是只是在让着你"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "closing-summary"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-timer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-timer",
+           "durationSeconds": 999999
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "closing-summary"
+        ],
+        "visibleBlockIds": [
+         "closing-summary"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narration-course-summary",
+        "text": "课程总结 这节课你走了六步：先用自己最熟的一块地盘做了一次核查，然后拆开自己那句提问、认出它的档位、写下三条边界句、请 AI 攻击了自己的一个结论，最后自己定了验收标准。这些动作现在都写在你那张处方卡上。它们不会因为上完一节课就自动变成习惯——真正的检验在下一次：你打开对话框，没有人要求你，也没有人在看，那三条边界句你还写不写得出来。\n你可以带走什么 - 一条提问齐不齐五个决定，决定了你能不能收货——大多数人漏掉的是边界和验收\n- 档位配任务，不配人：查一个日期，用一档才是对的\n- 边界句真正算数的不是你写没写，是它越界之后你怎么做\n- 写出对抗性的提问只是姿态，接住那一击才是后果\n- AI 回答能到哪一层，被你问出的那个问题锁在那里\n你可以在哪里使用 - 写探究论文时，请 AI 扮演反方，让它去找你论证里的缺口\n- 遇到读不懂的文献段落，让它解释，而不是让它替你总结\n- 小组讨论或做决定之前，先给自己写三条可核对的验收标准\n- 下一次你想说「AI 也这么认为」的时候，回头看一眼它是不是只是在让着你",
+        "audio": "assets/narrations/course-summary.wav"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "own-the-standard"
+      ],
+      "estimatedSeconds": 120
+     }
+    ],
+    "objectiveIds": [
+     "own-the-standard"
+    ]
+   }
+  ],
+  "title": "问得好，AI 才会答得妙：提示词如何写",
+  "closing": {
+   "fallback": {
+    "text": "这节课你走了六步：先用自己最熟的一块地盘做了一次核查，然后拆开自己那句提问、认出它的档位、写下三条边界句、请 AI 攻击了自己的一个结论，最后自己定了验收标准。这些动作现在都写在你那张处方卡上。它们不会因为上完一节课就自动变成习惯——真正的检验在下一次：你打开对话框，没有人要求你，也没有人在看，那三条边界句你还写不写得出来。"
+   },
+   "takeaways": [
+    "一条提问齐不齐五个决定，决定了你能不能收货——大多数人漏掉的是边界和验收",
+    "档位配任务，不配人：查一个日期，用一档才是对的",
+    "边界句真正算数的不是你写没写，是它越界之后你怎么做",
+    "写出对抗性的提问只是姿态，接住那一击才是后果",
+    "AI 回答能到哪一层，被你问出的那个问题锁在那里"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "这节课你走了六步：先用自己最熟的一块地盘做了一次核查，然后拆开自己那句提问、认出它的档位、写下三条边界句、请 AI 攻击了自己的一个结论，最后自己定了验收标准。这些动作现在都写在你那张处方卡上。它们不会因为上完一节课就自动变成习惯——真正的检验在下一次：你打开对话框，没有人要求你，也没有人在看，那三条边界句你还写不写得出来。",
+   "transferApplications": [
+    "写探究论文时，请 AI 扮演反方，让它去找你论证里的缺口",
+    "遇到读不懂的文献段落，让它解释，而不是让它替你总结",
+    "小组讨论或做决定之前，先给自己写三条可核对的验收标准",
+    "下一次你想说「AI 也这么认为」的时候，回头看一眼它是不是只是在让着你"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "这节课不教提示词模板。你会挑一件自己正在做的真事——一份没交的作业、一个探究选题、一个要做的决定——带着它跟 AI 跑六次真实对话：从一次可能让你意外的核查开始，到请 AI 攻击你自己的结论为止。每一部分结束时你会写下一句话，六句写完，那就是你自己的提示词处方，下课就能用。"
+   },
+   "learningPreview": [
+    "提示词不是模板，它暴露的是你想从 AI 那里要什么",
+    "一条提问里藏着五个决定：身份、任务、材料、边界、验收",
+    "从「给我答案」到「来打我」，升级的是你要干的活",
+    "「这一段不许你写」，是你能对 AI 说的最有分量的一句话",
+    "请人打你只是站上擂台，挨完那一拳还站着才算数"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "spot-the-slide",
+    "text": "认出自己顺着 AI 的回答走下去的那一刻，并用一个原始来源核查它到底对不对",
+    "evidenceBlockIds": [
+     "turf-check",
+     "confidence-basis",
+     "ledger-one"
+    ]
+   },
+   {
+    "id": "five-decisions",
+    "text": "拆开任何一句提问，看出它缺了身份、任务、材料、边界、验收里的哪几个，并补齐重写",
+    "evidenceBlockIds": [
+     "prompt-diagnosis",
+     "v1-v2",
+     "ledger-two"
+    ]
+   },
+   {
+    "id": "hold-the-line",
+    "text": "写出带理由和替代请求的边界句，在 AI 要替你动笔的时候守住",
+    "evidenceBlockIds": [
+     "the-slide",
+     "my-round",
+     "my-three-lines",
+     "ledger-four"
+    ]
+   },
+   {
+    "id": "take-the-hit",
+    "text": "请 AI 用证据攻击你的结论，挑出最强的一击并给出有理由的应对",
+    "evidenceBlockIds": [
+     "my-invitation",
+     "strongest-hit",
+     "take-the-hit-cards",
+     "my-response",
+     "what-did-it-agree",
+     "my-surrender-round",
+     "ledger-five"
+    ]
+   },
+   {
+    "id": "own-the-standard",
+    "text": "提问之前先写出可核对的验收标准，并问出一个关系之问",
+    "evidenceBlockIds": [
+     "three-standards",
+     "kind-q1",
+     "kind-q2",
+     "relation-run",
+     "what-did-you-find",
+     "ledger-six",
+     "prescription"
+    ]
+   }
+  ],
+  "estimatedMinutes": 66
+ },
+ "schemaVersion": "2.0"
+}

@@ -1,0 +1,1945 @@
+{
+ "course": {
+  "id": "course-12",
+  "parts": [
+   {
+    "id": "part-why-written-work",
+    "title": "一 · 名校要看的是你的思考痕迹",
+    "slices": [
+     {
+      "id": "piece-admissions",
+      "title": "他们要的不是正确答案",
+      "blocks": [
+       {
+        "id": "b-admissions-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-admissions-images-item-1",
+          "alt": "哈佛学院招生官网 Documents & Articles 段落截图，红框标出：申请者应通过 Applicant Status Portal 上传自己主笔的学术文章、研究或创作，并说明本人的具体贡献",
+          "source": "assets/images/harvard-written-work.png"
+         },
+         {
+          "id": "b-admissions-images-item-2",
+          "alt": "剑桥大学本科招生 Submitted work 页面截图，红框标出：所有学院的申请者都必须在面试前提交两篇书面作品",
+          "source": "assets/images/cambridge-submitted-work.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "b-admissions-text",
+        "type": "text",
+        "content": "剑桥要求所有学院的申请者，在面试前提交**两篇书面作品**（written work）。哈佛则要你上传自己主笔的学术文章、研究或创作，并说明你在其中具体做了什么、和谁合作过。\n\n这些东西是干什么用的？它不是让你交一份标准答案。招生官从这几千字里看的，是你怎么提出一个问题、怎么找到证据、又怎么一步步把判断搭起来——是你的**思考痕迹**。\n\n这门课练的就是这套动作。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-admissions-images"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-admissions-text"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-admissions-images",
+         "b-admissions-text"
+        ],
+        "visibleBlockIds": [
+         "b-admissions-images",
+         "b-admissions-text"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-admissions",
+        "text": "先把目标看清：顶尖大学要求 written work，不只是要漂亮文字，而是要看见你如何形成判断。",
+        "audio": "assets/audio/narrations/piece-admissions.mp3",
+        "durationSeconds": 10
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-verify-source"
+      ],
+      "estimatedSeconds": 89
+     },
+     {
+      "id": "piece-the-task",
+      "title": "你的任务，和 Phoebe 转来的那条推文",
+      "blocks": [
+       {
+        "id": "b-task-text",
+        "type": "text",
+        "content": "《气候变化》课后，Jade 老师留了一篇文章要写：\n\n> **中国有没有让地球变得更可持续？**\n\n第二天，同学 Phoebe 在微信里转来一条公众号推文——《美航局卫星发现地球变绿了，源头在印度和中国，这是怎么回事？》，说这条能写进论文。\n\n先别急着用。这条推文，你是该全盘接受，还是辩证吸收？"
+       },
+       {
+        "id": "b-task-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-task-images-item-1",
+          "alt": "微信聊天截图：同学 Phoebe 转发了公众号「地球边界」的推文《美航局卫星发现地球变绿了，源头在印度和中国，这是怎么回事？》，并说「jade姐，康康这个」",
+          "source": "assets/images/phoebe-wechat-forward.jpg"
+         },
+         {
+          "id": "b-task-images-item-2",
+          "alt": "该公众号推文首屏截图：标题下方是公众号「地球边界」与日期，正文开头先请读者点击蓝字关注、强调免费订阅，之后才进入卫星话题",
+          "source": "assets/images/wechat-article-first-screen.jpg"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "b-motivation-survey",
+        "type": "singleChoice",
+        "prompt": "剑桥要两篇 written work，哈佛要你提交自己主笔的研究或写作。你觉得他们最想从这些文字里看到什么？（没有标准答案，选一个你此刻的判断）",
+        "options": [
+         {
+          "id": "opt-right-answer",
+          "label": "你得出了正确的结论"
+         },
+         {
+          "id": "opt-thinking-trace",
+          "label": "你如何用证据一步步搭起自己的判断"
+         },
+         {
+          "id": "opt-vocabulary",
+          "label": "你的英文词汇和句式有多漂亮"
+         },
+         {
+          "id": "opt-rare-topic",
+          "label": "你选的题目有多冷门"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-task-text",
+          "b-task-images"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-motivation-survey"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-motivation-survey",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-motivation-survey"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-motivation-survey"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-motivation-survey"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-task-text",
+         "b-task-images",
+         "b-motivation-survey"
+        ],
+        "visibleBlockIds": [
+         "b-task-text",
+         "b-task-images",
+         "b-motivation-survey"
+        ]
+       },
+       "initialStepId": "wait-b-motivation-survey"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-the-task",
+        "text": "这一页把任务落到自己身上：你将从一条转发信息出发，练习把证据、追问和立场写成一篇文章的骨架。",
+        "audio": "assets/audio/narrations/piece-the-task.mp3",
+        "durationSeconds": 9
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-verify-source",
+       "obj-stance-concession"
+      ],
+      "estimatedSeconds": 126
+     }
+    ],
+    "objectiveIds": [
+     "obj-verify-source",
+     "obj-stance-concession"
+    ]
+   },
+   {
+    "id": "part-check-source",
+    "title": "二 · 先别急着信",
+    "slices": [
+     {
+      "id": "piece-source-pyramid",
+      "title": "公众号 ≠ 真相",
+      "blocks": [
+       {
+        "id": "b-pyramid-text",
+        "type": "text",
+        "content": "公众号不等于真相。面对任何一条信息，先要问的不是「它说得对不对」，而是「**这是谁在说**」。\n\n信源是有等级的：\n\n> 一次转发 ＜ 公众号推文 ＜ 新闻媒体 ＜ 机构官网 ＜ 同行评审期刊\n\n越往上，说错的代价越大，因而说对的动机越强。下判断之前，要一层层往上追到一级信源。\n\n### SIFT：四个核查动作\n\n| 动作 | 这一步问自己 |\n| --- | --- |\n| **S — 停** | 信它或转发它之前先停一下：我认识这个来源吗？我的情绪是不是被勾起来了？ |\n| **I — 查来源** | 这是谁？有什么资质、立场、动机？ |\n| **F — 找更好的报道** | 离开这个来源，看权威和多方怎么说同一件事。 |\n| **T — 溯源** | 把主张、引文、图像、数据，追回它原始的语境。 |\n\n关键的一点：**SIFT 不是死板的顺序**。这四个是动作，哪个用得上用哪个——很多时候「查来源 + 找更好的报道」两步，就够你决定要不要继续读下去了。\n\n先看看这个号本身。"
+       },
+       {
+        "id": "b-account-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-account-images-item-1",
+          "alt": "公众号「地球边界」主页截图：简介写着「了解天下实时热点」，近期推送标题包括宇航员在太空死亡后遗体怎么办、平行宇宙是否存在、火星着陆的恐怖七分钟",
+          "source": "assets/images/wechat-account-home.jpg"
+         },
+         {
+          "id": "b-account-images-item-2",
+          "alt": "公众号「地球边界」账号资料页截图：账号主体为「个人」，所在地区山西省，2021 年 3 月 9 日注册",
+          "source": "assets/images/wechat-account-profile.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-pyramid-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-account-images"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-pyramid-text",
+         "b-account-images"
+        ],
+        "visibleBlockIds": [
+         "b-pyramid-text",
+         "b-account-images"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-source-pyramid",
+        "text": "先不要急着相信截图。我们用信源金字塔判断：转发、公众号、机构报告和论文，离原始证据有多远。",
+        "audio": "assets/audio/narrations/piece-source-pyramid.mp3",
+        "durationSeconds": 9
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-verify-source",
+       "obj-lateral-reading"
+      ],
+      "estimatedSeconds": 153
+     },
+     {
+      "id": "piece-sift-practice",
+      "title": "动手核查这条推文",
+      "blocks": [
+       {
+        "id": "b-sift-html",
+        "type": "interactiveHtml",
+        "source": "interactions/html/sift-check.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-sift-html"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-sift-html",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "b-sift-html"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-sift-html"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-sift-html"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-sift-html"
+        ],
+        "visibleBlockIds": [
+         "b-sift-html"
+        ]
+       },
+       "initialStepId": "wait-b-sift-html"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-sift-practice",
+        "text": "现在用 SIFT 四步走一遍：停一下，查来源，找更好的出处，再回到原说法重新判断。",
+        "audio": "assets/audio/narrations/piece-sift-practice.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-verify-source",
+       "obj-lateral-reading"
+      ],
+      "estimatedSeconds": 120
+     },
+     {
+      "id": "piece-lateral",
+      "title": "横向阅读：证实，还是回声？",
+      "blocks": [
+       {
+        "id": "b-lateral-text",
+        "type": "text",
+        "content": "溯源是往「上」追，横向阅读（lateral reading）是往「旁」看：**离开你正在读的这一篇，打开新标签页，看别人怎么说同一件事。**\n\n搜「China India greening NASA」，至少找三家立场或国别不同的来源。这一步能看出两件溯源看不出的事：\n\n**一、是证实，还是回声。** 这条发现是被几家彼此独立的来源各自证实（corroboration），还是同一条消息被反复转载（echo）？转载一百次，来源还是只有一个。\n\n**二、框定的差异。** 同一个事实，不同来源会强调不同的部分——有的强调中国的环境贡献，有的强调中国仍是最大排放国，有的突出印度自己的份额。事实没变，重点变了。\n\n这些差异本身就是信息。记住这一点，课程最后还会回来找你。"
+       },
+       {
+        "id": "b-lateral-choice",
+        "type": "singleChoice",
+        "prompt": "你搜完发现：一家中国媒体强调「中国的环境贡献」，一家西方媒体强调「但中国仍是最大排放国」，一家印度媒体突出印度自己的份额。这说明什么？",
+        "options": [
+         {
+          "id": "opt-frame-lie",
+          "label": "其中必然有人在撒谎，要找出哪一家是假新闻"
+         },
+         {
+          "id": "opt-frame-same",
+          "label": "同一组事实可以被不同来源框定成不同的重点，这不等于有人造假"
+         },
+         {
+          "id": "opt-frame-local",
+          "label": "只看本国媒体的报道最保险"
+         },
+         {
+          "id": "opt-frame-average",
+          "label": "把三家的说法平均一下，就接近真相了"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。框定差异不是造假，是视角。看见它，你才知道自己读到的「重点」是谁替你挑的。",
+         "correctOptionId": "opt-frame-same",
+         "incorrectFeedback": "再想一想：三家说的事实其实并不冲突——中国既贡献了绿化，也排放最多，印度也确实有自己的份额。变的不是事实，是各家把哪一部分放在标题里。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-lateral-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-lateral-choice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-lateral-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-lateral-choice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-lateral-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-lateral-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-lateral-text",
+         "b-lateral-choice"
+        ],
+        "visibleBlockIds": [
+         "b-lateral-text",
+         "b-lateral-choice"
+        ]
+       },
+       "initialStepId": "wait-b-lateral-choice"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-lateral",
+        "text": "横向阅读不是多开几个网页凑数量，而是看不同来源如何选择重点、命名问题和设置框架。",
+        "audio": "assets/audio/narrations/piece-lateral.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-verify-source",
+       "obj-lateral-reading"
+      ],
+      "estimatedSeconds": 125
+     }
+    ],
+    "objectiveIds": [
+     "obj-verify-source",
+     "obj-lateral-reading"
+    ]
+   },
+   {
+    "id": "part-read-paper",
+    "title": "三 · 读懂那篇硬核论文",
+    "slices": [
+     {
+      "id": "piece-why-nature",
+      "title": "一级信源长什么样",
+      "blocks": [
+       {
+        "id": "b-trace-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-trace-images-item-1",
+          "alt": "NASA 官网报道截图：标题 Human Activity in China and India Dominates the Greening of Earth, NASA Study Shows，配有全球年均叶面积变化趋势图，署名 NASA 埃姆斯研究中心",
+          "source": "assets/images/nasa-greening-report.jpg"
+         },
+         {
+          "id": "b-trace-images-item-2",
+          "alt": "NASA 报道结尾截图，末行以蓝色高亮标出：This research was published online, Feb. 11, 2019, in the journal Nature Sustainability",
+          "source": "assets/images/nasa-report-ending-nature.png"
+         },
+         {
+          "id": "b-trace-images-item-3",
+          "alt": "Nature Sustainability 论文页面截图：标题 China and India lead in greening of the world through land-use management，13 位作者，2019 年 2 月 11 日发表，Nature Sustainability 第 2 卷 122–129 页",
+          "source": "assets/images/nature-sustainability-article.png"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "b-nature-text",
+        "type": "text",
+        "content": "顺着推文，你先到了 NASA 官网：《Human Activity in China and India Dominates the Greening of Earth, NASA Study Shows》。这已经是机构发布了，但还不是尽头——报道的最后一句写着：**这项研究发表于 2019 年 2 月 11 日的 Nature Sustainability。**\n\n点进去，你才到了一级信源：Chen 等人，《China and India lead in greening of the world through land-use management》，*Nature Sustainability* 第 2 卷 122–129 页，13 位作者，来自 12 家研究机构。\n\n为什么这一级值得信？《Nature》创刊于 1869 年，是世界上历史最悠久、最具权威的科学期刊之一，影响因子 32.1；*Nature Sustainability* 是它的子刊。\n\n这里用的是评估信源时的「**信誉 · 权威**」这一维：有声誉的人说错是要付代价的，因而他有动机说对。而同行评审就是那道代价机制——文章发表前，要先过同领域研究者的审查。"
+       },
+       {
+        "id": "b-journal-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-journal-images-item-1",
+          "alt": "《Nature》期刊封面照片",
+          "source": "assets/images/nature-cover.jpg"
+         },
+         {
+          "id": "b-journal-images-item-2",
+          "alt": "《Nature》官方网站首页截图，展示当期文章、新闻与订阅入口",
+          "source": "assets/images/nature-homepage.jpg"
+         },
+         {
+          "id": "b-journal-images-item-3",
+          "alt": "论文作者单位列表截图：12 家机构，包括波士顿大学、北京大学、华中农业大学、印度理工、马普气象研究所、NASA 埃姆斯研究中心等，并给出通讯作者邮箱",
+          "source": "assets/images/paper-affiliations.png"
+         }
+        ],
+        "presentation": "gallery"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-trace-images"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-nature-text"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-journal-images"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-trace-images",
+         "b-nature-text",
+         "b-journal-images"
+        ],
+        "visibleBlockIds": [
+         "b-trace-images",
+         "b-nature-text",
+         "b-journal-images"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-why-nature",
+        "text": "NASA 报道最终指向 Nature Sustainability。这里的关键不是崇拜期刊，而是追到可核查的研究出处。",
+        "audio": "assets/audio/narrations/piece-why-nature.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-read-paper"
+      ],
+      "estimatedSeconds": 246
+     },
+     {
+      "id": "piece-how-to-read",
+      "title": "硬核论文从哪儿读起",
+      "blocks": [
+       {
+        "id": "b-reading-method-text",
+        "type": "text",
+        "content": "一篇英文论文不必逐字啃。下面 11 条是完整的精读动作——每一条在后面的批注版上都能找到它对应的位置。\n\n**先把这篇文章放对位置**\n\n1. 从网址进入期刊，按主旨找到相关文章。注意这篇发在 *Nature* 旗下的子刊 *Nature Sustainability*。\n2. **先读题目，把它拆开。** China and India lead in greening of the world through land-use management——变绿的是全世界；领跑的是中国和印度；靠的方式是土地利用管理。一句话，三层信息。\n3. **检查期刊、作者和发表时间**，结合内容的时效性，来调整你用多重的分量去读它。\n\n**读正文**\n\n4. **精读摘要（abstract）**，画出关键词。摘要是整篇论文压缩过的样子。\n5. **梳理关键论点。** 画出关键句和关键词，理清要点与逻辑——要用**辩证思维**去看。\n6. **找总结性的关键内容**，或者对你有启发的点，用特殊符号标出来。\n7. **遇到可能有帮助的注释，用不同颜色的笔标出来**，提醒自己读完这一篇之后再回头查。专注当下这篇，别被岔路带偏。\n\n**读图和读引用**\n\n8. **看图。** 读图是一个从图像里提取信息的过程：输入 → 分割 → 识别 → 解释。地图看空间分布——Fig.1 用红圈标出了七个显著变绿的区域。\n9. **看折线图。** 折线图把数据随时间的变化直观地画出来：看斜率和曲直，判断增减与速率；多条线并排，可以比较不同数据集之间的相互影响。\n10. **看引用。** 引用权威文献能增强说服力、展示研究的连续性、提供背景信息，也推动学术交流。\n11. **看参考文献。** 它让读者知道这篇文章依据的学术背景与研究成果，从而提高可信度——对你来说，它还是继续往下挖的地图。\n\n下面两页是这 11 条标在论文原页上的样子。左边是论文，右边是要点，箭头指着每条要点对应的位置。"
+       },
+       {
+        "id": "b-annotated-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-annotated-images-item-1",
+          "alt": "《文献精读方法》批注版第 1 页：左侧是 Nature Sustainability 论文首页（标题、13 位作者、期刊卷页、摘要、引言与 Results 首句 The Earth is greening 的黄色高亮、作者单位），右侧「笔记要点说明」栏列出第 1–7 条要点，每条用蓝色箭头指向页面上对应的位置——从网址进入期刊、拆解标题、检查期刊作者与时效性、精读摘要画关键词、梳理关键论点、标出启发点、用不同颜色标注释",
+          "source": "assets/images/reading-method-annotated-1.png"
+         },
+         {
+          "id": "b-annotated-images-item-2",
+          "alt": "《文献精读方法》批注版第 2 页：左侧是论文的 Fig.1 全球叶面积趋势地图、Fig.3 中印耕地趋势图与折线图、Methods 与参考文献，右侧「笔记要点说明」栏列出第 8–11 条要点，箭头分别指向图示、折线图、正文引用与参考文献列表——说明怎么读图、怎么从折线的斜率看增减与速率、引用如何增强说服力、参考文献如何提高可信度",
+          "source": "assets/images/reading-method-annotated-2.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "b-figures-text",
+        "type": "text",
+        "content": "第 8、9 条说的那两张图值得单独放大看：Fig.1 是全球叶面积趋势地图，看**空间分布**；Fig.3 右侧是中国、印度与全球的收获面积／耕地面积比值折线，看**趋势和速率**。"
+       },
+       {
+        "id": "b-figures-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-figures-images-item-1",
+          "alt": "论文 Fig.1：2000–2017 年全球年均叶面积指数（LAI）变化趋势地图，绿色为变绿、品红为变黄，七个显著变绿区域用红圈标出，左下角为趋势频率分布折线图",
+          "source": "assets/images/paper-fig1-global-lai.png"
+         },
+         {
+          "id": "b-figures-images-item-2",
+          "alt": "论文 Fig.3：中国与印度耕地叶面积趋势地图，以及中国、印度、全球的收获面积与耕地面积比值折线图（2000 年为基准）",
+          "source": "assets/images/paper-fig3-china-india.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "b-structure-text",
+        "type": "text",
+        "content": "最后一件事：论文的结构本身，就是一套逻辑批判思维的流程。"
+       },
+       {
+        "id": "b-structure-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-structure-images-item-1",
+          "alt": "示意图：学术论文结构（引言、方法、讨论、结论）与逻辑批判思维要素（明确问题、寻找方案、验证结果、反思总结）逐层对应",
+          "source": "assets/images/paper-structure-critical-thinking.jpg"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-reading-method-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-annotated-images"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-figures-text",
+          "b-figures-images"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-structure-text",
+          "b-structure-images"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-reading-method-text",
+         "b-annotated-images",
+         "b-figures-text",
+         "b-figures-images",
+         "b-structure-text",
+         "b-structure-images"
+        ],
+        "visibleBlockIds": [
+         "b-reading-method-text",
+         "b-annotated-images",
+         "b-figures-text",
+         "b-figures-images",
+         "b-structure-text",
+         "b-structure-images"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-how-to-read",
+        "text": "读论文时先抓标题、摘要、图表、方法和参考文献。批注图会帮你把阅读动作贴到页面位置上。",
+        "audio": "assets/audio/narrations/piece-how-to-read.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-read-paper"
+      ],
+      "estimatedSeconds": 397
+     },
+     {
+      "id": "piece-verify-data",
+      "title": "回到原文，核对数据",
+      "blocks": [
+       {
+        "id": "b-verify-text",
+        "type": "text",
+        "content": "论文原文就在下面，八页，完整版，可以在线翻阅，也可以下载。\n\n**别通读。** 按上一节的顺序找：下面两道题的答案都在第 122–123 页的 Results 部分。\n\n顺便验证一件事——中文转述常常正是在这里出错的。"
+       },
+       {
+        "id": "b-paper-pdf",
+        "type": "pdf",
+        "title": "Chen et al., China and India lead in greening of the world through land-use management, Nature Sustainability 2:122–129 (2019)",
+        "source": "assets/pdfs/china-india-greening-nature-sustainability-2019.pdf"
+       },
+       {
+        "id": "b-verify-fill",
+        "type": "fillBlank",
+        "prompt": "翻到论文第 123 页 Results。论文说，中国占全球叶面积净增量（net increase in leaf area）的多少？请只填数字和百分号，例如 12%。",
+        "assessment": {
+         "mode": "graded",
+         "caseSensitive": false,
+         "acceptedAnswers": [
+          "25%",
+          "25",
+          "25 %",
+          "２５%"
+         ],
+         "correctFeedback": "对。原文括号里写着 China 25% and India 6.8%——中印合计约占全球叶面积净增量的三分之一。",
+         "incorrectFeedback": "再找一次：在第 123 页那句 which together account for nearly one-third of the observed total net increase 后面的括号里。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "b-verify-65",
+        "type": "singleChoice",
+        "prompt": "论文第 123 页写着：This greening is seen over 65% of the vegetated lands in the two countries. 这句话的意思是？",
+        "options": [
+         {
+          "id": "opt-65-global",
+          "label": "全球变绿的面积里，有 65% 位于中国和印度"
+         },
+         {
+          "id": "opt-65-domestic",
+          "label": "中国和印度境内，有 65% 以上的植被土地在变绿"
+         },
+         {
+          "id": "opt-65-forest",
+          "label": "中印两国 65% 的国土被森林覆盖"
+         },
+         {
+          "id": "opt-65-cropland",
+          "label": "全球 65% 的耕地位于中国和印度"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。in the two countries 限定的是范围——说的是这两国**境内**的植被土地。这一句常被转述成「全球变绿的 65% 在中印」，那是错的：论文给的中印占比是 25% + 6.8%，合计约三分之一。",
+         "correctOptionId": "opt-65-domestic",
+         "incorrectFeedback": "注意句末的 in the two countries。65% 修饰的是 the vegetated lands，也就是这两国境内的植被土地，而不是全球变绿的总量。顺带对照一下：论文给中印的占比是 25% 和 6.8%。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-verify-text",
+          "b-paper-pdf"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-verify-fill",
+          "b-verify-65"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-verify-fill",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-verify-fill"
+           },
+           "to": "wait-b-verify-65"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-verify-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-verify-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-b-verify-65",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-verify-65"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-verify-65"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-verify-65"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-verify-text",
+         "b-paper-pdf",
+         "b-verify-fill"
+        ],
+        "visibleBlockIds": [
+         "b-verify-text",
+         "b-paper-pdf",
+         "b-verify-fill",
+         "b-verify-65"
+        ]
+       },
+       "initialStepId": "wait-b-verify-fill"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-verify-data",
+        "text": "这一页用原文校准中文转述：25%、6.8% 和 65% 分别修饰的对象完全不同。",
+        "audio": "assets/audio/narrations/piece-verify-data.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-read-paper"
+      ],
+      "estimatedSeconds": 225
+     }
+    ],
+    "objectiveIds": [
+     "obj-read-paper"
+    ]
+   },
+   {
+    "id": "part-funnel",
+    "title": "四 · 论证是怎么搭起来的",
+    "slices": [
+     {
+      "id": "piece-three-arguments",
+      "title": "三个论点，和一个叫漏斗的形状",
+      "blocks": [
+       {
+        "id": "b-arguments-text",
+        "type": "text",
+        "content": "读完框架，进到结论（Results）部分。这篇论文一共立了三个论点：\n\n1. **The Earth is greening.** 地球在变绿。\n2. **Human land use is a dominant driver of the greening Earth.** 人类的土地利用是地球变绿的主要驱动力。\n3. **China and India lead in the greening of the Earth.** 中国和印度领跑了地球变绿。\n\n我们只拆第一个，看作者是怎么论证的。\n\n「地球在变绿」，单说出来只是一个**观点（opinion）**。作者在它下面垫了三层事实性论据，一层比一层具体——这种结构叫做**良构论证（well-crafted argument）**。\n\n它像一只漏斗，也像俄罗斯套娃：每打开一层，反对者能质疑的空间就缩小一圈。等三层都垫完，opinion 就变成了 **fact**。\n\n论证原文就在下面这两页里。"
+       },
+       {
+        "id": "b-results-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-results-images-item-1",
+          "alt": "论文第 122 页截图，Results 段首句 The Earth is greening 及其后「全球植被面积三分之一在变绿、5% 在变黄」一句被高亮",
+          "source": "assets/images/paper-p122-results.png"
+         },
+         {
+          "id": "b-results-images-item-2",
+          "alt": "论文第 123 页截图，上方为 Table 1 各类植被叶面积净变化数据，下方正文中「三分之二的变绿来自耕地与林地」「中国 25%、印度 6.8%」「中印两国 65% 以上植被土地在变绿」几句被高亮",
+          "source": "assets/images/paper-p123-table1.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-arguments-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-results-images"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-arguments-text",
+         "b-results-images"
+        ],
+        "visibleBlockIds": [
+         "b-arguments-text",
+         "b-results-images"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-three-arguments",
+        "text": "论文的 Results 不只给一个结论，而是用三个层级的证据搭起“中印变绿”的论证。",
+        "audio": "assets/audio/narrations/piece-three-arguments.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-funnel-argument"
+      ],
+      "estimatedSeconds": 148
+     },
+     {
+      "id": "piece-funnel-practice",
+      "title": "拆开三层漏斗",
+      "blocks": [
+       {
+        "id": "b-funnel-html",
+        "type": "interactiveHtml",
+        "source": "interactions/html/funnel-argument.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-funnel-html"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-funnel-html",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "b-funnel-html"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-funnel-html"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-funnel-html"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-funnel-html"
+        ],
+        "visibleBlockIds": [
+         "b-funnel-html"
+        ]
+       },
+       "initialStepId": "wait-b-funnel-html"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-funnel-practice",
+        "text": "把证据放进漏斗：先确认大结论，再追问具体机制，最后看每条证据能支撑到哪里。",
+        "audio": "assets/audio/narrations/piece-funnel-practice.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-funnel-argument"
+      ],
+      "estimatedSeconds": 120
+     }
+    ],
+    "objectiveIds": [
+     "obj-funnel-argument"
+    ]
+   },
+   {
+    "id": "part-contradiction",
+    "title": "五 · 撞上相反的证据",
+    "slices": [
+     {
+      "id": "piece-counter-evidence",
+      "title": "第二天，另一篇报告让笔尖凝固",
+      "blocks": [
+       {
+        "id": "b-counter-text",
+        "type": "text",
+        "content": "同学们在 NASA 官网上看到「中国让地球变绿」的数据，兴奋地写下了论文结论。第二天，另一篇报告却让笔尖凝固了——\n\n二氧化碳是全球变暖的主要因素，主要来自森林砍伐、农业和化石燃料燃烧。而**中国是世界上最大的二氧化碳排放国，约占全球排放的 28%**，远高于第二位的美国（15%）。中国的排放主要来自发电厂与工业锅炉，几乎全部来自燃煤。\n\n于是问题变成了：中国是绿化冠军，也是碳排放大户？\n\n两条证据，出处都查得到，结论却是反的。这就是学术写作的真实战场。"
+       },
+       {
+        "id": "b-counter-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-counter-images-item-1",
+          "alt": "Investopedia 文章截图：The 5 Countries That Produce the Most Carbon Dioxide (CO2)，目录依次为中国、美国、印度、俄罗斯、日本",
+          "source": "assets/images/investopedia-co2-article.png"
+         },
+         {
+          "id": "b-counter-images-item-2",
+          "alt": "各国二氧化碳排放份额饼图：中国 28%、其余国家合计 23%、美国 15%、印度 7%、俄罗斯 5%、日本 3%，数据来源 Union of Concerned Scientists",
+          "source": "assets/images/co2-share-by-country.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "b-counter-choice",
+        "type": "singleChoice",
+        "prompt": "你手上现在有两条都查得到出处、结论却相反的证据。接下来最该做的是？",
+        "options": [
+         {
+          "id": "opt-pick-one",
+          "label": "挑对自己论点有利的那条，另一条不提"
+         },
+         {
+          "id": "opt-drop-topic",
+          "label": "换一个没有争议的题目"
+         },
+         {
+          "id": "opt-narrow-question",
+          "label": "给问题加一个限定——改问「多大程度上」，让两条证据都能进这篇文章"
+         },
+         {
+          "id": "opt-list-both",
+          "label": "把两条并排列出来，不下结论"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。矛盾不是要被消灭的，是要被安置的。下一步就练这个。",
+         "correctOptionId": "opt-narrow-question",
+         "incorrectFeedback": "想一想：藏起一条证据，等于把破绽留给读者去发现；换题目，等于放弃；并排列出来又没有立场。真正的出路是改造问题本身。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-counter-text",
+          "b-counter-images"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-counter-choice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-counter-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-counter-choice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-counter-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-counter-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-counter-text",
+         "b-counter-images",
+         "b-counter-choice"
+        ],
+        "visibleBlockIds": [
+         "b-counter-text",
+         "b-counter-images",
+         "b-counter-choice"
+        ]
+       },
+       "initialStepId": "wait-b-counter-choice"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-counter-evidence",
+        "text": "好文章不会躲开反证。碳排放份额提醒我们：环境贡献和环境责任可能同时成立。",
+        "audio": "assets/audio/narrations/piece-counter-evidence.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-stance-concession"
+      ],
+      "estimatedSeconds": 145
+     },
+     {
+      "id": "piece-stance-practice",
+      "title": "定一个立场，写一段让步",
+      "blocks": [
+       {
+        "id": "b-stance-html",
+        "type": "interactiveHtml",
+        "source": "interactions/html/stance-concession.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-stance-html"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-stance-html",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "b-stance-html"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-stance-html"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-stance-html"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-stance-html"
+        ],
+        "visibleBlockIds": [
+         "b-stance-html"
+        ]
+       },
+       "initialStepId": "wait-b-stance-html"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-stance-practice",
+        "text": "把问题改成 To what extent，立场就不再是非黑即白，而能容纳程度、条件和让步。",
+        "audio": "assets/audio/narrations/piece-stance-practice.mp3",
+        "durationSeconds": 9
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-stance-concession"
+      ],
+      "estimatedSeconds": 120
+     },
+     {
+      "id": "piece-concession-example",
+      "title": "在矛盾证据的钢丝上跳探戈",
+      "blocks": [
+       {
+        "id": "b-concession-text",
+        "type": "text",
+        "content": "看一段写好的让步：\n\n> 中国很大程度上让地球变得更可持续。它占全球叶面积净增量的 25%，居世界第一，新增的森林与耕地能吸收二氧化碳。**诚然，中国也是全球最大的二氧化碳排放国，约占全球排放的 28%，这确实伤害了环境；但**这一影响正被大规模的森林与耕地恢复部分抵消，而这一成效已由同行评审研究证实。\n\n加粗的那两句就是**让步段**。它做了两件事：先退一步，承认对方手上那个你无法否认的事实；再转回来，说明为什么它不足以推翻你的论点。\n\n让步段的位置在**论证段之后、结尾段之前**——先把自己站稳，那一步「退」才是有力的。它让文章论证更有力、结构更完整、逻辑更严密。\n\n反过来也一样：如果你选的是「很小程度」，让步的就是绿化那一条。**证据没变，位置变了。**\n\n真正的学术力，是能同时 hold 住两篇结论相悖的顶刊论文。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-concession-text"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-concession-text"
+        ],
+        "visibleBlockIds": [
+         "b-concession-text"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-concession-example",
+        "text": "让步段不是削弱自己，而是主动安置强反证，再说明你的判断为什么仍然站得住。",
+        "audio": "assets/audio/narrations/piece-concession-example.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-stance-concession"
+      ],
+      "estimatedSeconds": 88
+     }
+    ],
+    "objectiveIds": [
+     "obj-stance-concession"
+    ]
+   },
+   {
+    "id": "part-metacognition",
+    "title": "六 · 他者的目光，与兔子洞",
+    "slices": [
+     {
+      "id": "piece-the-other",
+      "title": "写作是一场展示",
+      "blocks": [
+       {
+        "id": "b-other-text",
+        "type": "text",
+        "content": "写作，是一种「展示」。而展示预设着一个**他者凝视**的目光。\n\n这个他者是个「魔鬼角色」——他会用形式逻辑、事实要求、伦理规范、语法原理，去考量你写下的每一个字。批判性思维，离不开这样一个批判性的他者。\n\n所以写作不只是把想法固化成文字。**形成文字的过程，本身就是接受形式逻辑与他者目光检验的过程。**重要的不是你「想清楚」了，甚至不只是你「表达清楚」了，而是——你能不能在清晰的表达中，让别人理解清楚。\n\n那个他者，也包括回过头来看自己的你。"
+       },
+       {
+        "id": "b-other-reflect",
+        "type": "fillBlank",
+        "prompt": "回头看你这一路查过的来源：NASA、Nature Sustainability、Investopedia……它们是不是都来自某一类视角？你漏掉了谁的声音？写下你的观察。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能具体指出自己信源构成上的偏向（例如全部为英文来源、集中于欧美机构、缺少中国本土研究或印度视角、缺少反方的同行评审文献），并能说出这种偏向可能让自己漏掉什么；而不是泛泛地写「要多方查证」。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-other-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-other-reflect"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-other-reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-other-reflect"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-other-reflect"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-other-reflect"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-other-text",
+         "b-other-reflect"
+        ],
+        "visibleBlockIds": [
+         "b-other-text",
+         "b-other-reflect"
+        ]
+       },
+       "initialStepId": "wait-b-other-reflect"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-the-other",
+        "text": "现在回看信源结构：你看见了哪些视角，又漏掉了哪些人和地区的声音？",
+        "audio": "assets/audio/narrations/piece-the-other.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-lateral-reading"
+      ],
+      "estimatedSeconds": 114
+     },
+     {
+      "id": "piece-rabbit-hole",
+      "title": "into the rabbit hole",
+      "blocks": [
+       {
+        "id": "b-rabbit-text",
+        "type": "text",
+        "content": "关于中国到底有没有让世界变得更可持续，这门课不给答案。要回答它，你还得课后去搜大量资料、整合评估，再下结论。\n\n这门课真正想给你的，是**好奇心**。\n\n学术不是马拉松，而是一场打地鼠游戏——每个冒头的「为什么」都值得追。当你为了论证中国是否可持续，翻完十七篇论文却迷上了城市热岛效应……恭喜，你已经掉进了兔子洞（into the rabbit hole）。\n\n掉进去的意思是：我就是好奇，这玩意太好玩了，我就是想知道到底怎么回事。打破沙锅问到底。\n\n但也别太在乎游戏的结果。有时候你得顺着游戏去玩，知道这是个游戏，还能不断创造一些哪怕没人玩的游戏——在一个越来越内卷的时代，这种玩的心态很重要。\n\n就像《哈利波特》里的金色飞贼：抓住它，游戏就结束了。**If you are seeking it, you are chasing it.**\n\n真正的追求，是能一直 into the rabbit hole，from one hole to another hole。"
+       },
+       {
+        "id": "b-rabbit-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-rabbit-images-item-1",
+          "alt": "《哈利波特》金色飞贼摆件的照片，飞贼停在一本哈利波特图书上",
+          "source": "assets/images/golden-snitch.png"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-rabbit-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-rabbit-images"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-rabbit-text",
+         "b-rabbit-images"
+        ],
+        "visibleBlockIds": [
+         "b-rabbit-text",
+         "b-rabbit-images"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "n-piece-rabbit-hole",
+        "text": "最后保留一点好奇心：横向调查不是终点，而是让你知道下一个更好的问题在哪里。",
+        "audio": "assets/audio/narrations/piece-rabbit-hole.mp3",
+        "durationSeconds": 8
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-lateral-reading"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "obj-lateral-reading"
+    ]
+   }
+  ],
+  "title": "SIFT 信息横向调查：从一条推文到一篇有立场的议论文",
+  "closing": {
+   "fallback": {
+    "text": "这门课走了一条完整的路：从一条公众号推文，追到 NASA 的报道，再追到 Nature Sustainability 上那篇论文；从论文的三层漏斗论证，走到一条结论相反的排放数据；最后用 To what extent 把问题限定住，写出一段容得下矛盾证据的让步。\n\n关于中国到底在多大程度上让地球更可持续，这门课没有给你答案，也不打算给。要回答它，你还得自己去查更多资料、比更多来源，再下结论。课程想留给你的是那个动作本身——遇到一条让你想立刻转发的消息时，先停一下，问一句：这是谁说的？"
+   },
+   "takeaways": [
+    "遇到想立刻转发的消息，先停一下，去查它是谁写的。",
+    "一条主张可以被一路回溯：从一次转发，追到机构官网，再追到同行评审的论文原文。",
+    "一个结论底下垫着几层事实，是看得出来的；哪些句子只是听起来像证据，也是看得出来的。",
+    "同一组证据能支撑相反的结论，差别在于你怎么组织它们。",
+    "让步段不是把两个事实并排摆着，而是先退一步承认，再转回来反驳。",
+    "值得回头问自己一句：我查的这些来源，是不是都来自同一类视角？"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "这门课走了一条完整的路：从一条公众号推文，追到 NASA 的报道，再追到 Nature Sustainability 上那篇论文；从论文的三层漏斗论证，走到一条结论相反的排放数据；最后用 To what extent 把问题限定住，写出一段容得下矛盾证据的让步。\n\n关于中国到底在多大程度上让地球更可持续，这门课没有给你答案，也不打算给。要回答它，你还得自己去查更多资料、比更多来源，再下结论。课程想留给你的是那个动作本身——遇到一条让你想立刻转发的消息时，先停一下，问一句：这是谁说的？",
+   "transferApplications": [
+    "核查社交平台上任何一条「研究表明」。",
+    "判断一个自媒体账号值不值得当作信息来源。",
+    "读英文论文时，按摘要 → 结论 → 图表 → 方法的顺序抓重点。",
+    "写任何一篇需要正面处理反方证据的议论文。",
+    "在小组辩论里用让步段回应对方，而不是回避对方的事实。",
+    "准备升学申请的 written work 时，展示思考的痕迹，而不只是漂亮的结论。"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "一条同学转发的公众号推文说：美国航天局发现地球在变绿，源头在中国和印度。你要不要把它写进论文？\n\n这门课带你从这条推文出发，一层层追到它真正的出处——一篇发表在 Nature Sustainability 上的论文；再拆开论文里的论证，看一个观点是怎么被三层事实垫成结论的。\n\n然后，你会撞上一条结论相反、出处同样可靠的数据：中国是全球最大的二氧化碳排放国。到那一刻，真正的学术写作才开始。"
+   },
+   "learningPreview": [
+    "信源有等级：一次转发 < 公众号 < 新闻媒体 < 机构官网 < 同行评审期刊；判断之前先追到一级信源。",
+    "SIFT 是四个动作，不是四个步骤——停、查来源、找更好的报道、溯源，哪个用得上先用哪个。",
+    "被转载一百次，不等于被证实一次：要找的是彼此独立的来源，不是同一条消息的回声。",
+    "良构论证像一只漏斗：每加一层事实论据，反对者能站的地方就少一块。",
+    "加上「多大程度上」，一个只能回答是与否的问题，才变得可以论证。",
+    "让步段是以退为进：先承认对方的事实，再转折反驳，位置在论证段之后、结尾段之前。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-verify-source",
+    "text": "用 SIFT 四步（停 · 查来源 · 找更好的报道 · 溯源）核查一条来源存疑的信息，并分清这篇文章本身与它转载的原始出处。",
+    "evidenceBlockIds": [
+     "b-sift-html"
+    ]
+   },
+   {
+    "id": "obj-lateral-reading",
+    "text": "分辨多方独立证实与同源回声，看出不同来源对同一事实的框定差异，并回头检查自己的信源视角。",
+    "evidenceBlockIds": [
+     "b-lateral-choice",
+     "b-other-reflect"
+    ]
+   },
+   {
+    "id": "obj-read-paper",
+    "text": "用文献精读法读一篇英文学术论文，并回到原文里定位、核对具体数据。",
+    "evidenceBlockIds": [
+     "b-verify-fill",
+     "b-verify-65"
+    ]
+   },
+   {
+    "id": "obj-funnel-argument",
+    "text": "拆解漏斗式的良构论证，说明事实论据如何把一个观点变成事实。",
+    "evidenceBlockIds": [
+     "b-funnel-html"
+    ]
+   },
+   {
+    "id": "obj-stance-concession",
+    "text": "面对结论相反的可靠证据，用 To what extent 限定问题、选定中心论点，并写出以退为进的让步段。",
+    "evidenceBlockIds": [
+     "b-counter-choice",
+     "b-stance-html"
+    ]
+   }
+  ],
+  "estimatedMinutes": 40
+ },
+ "schemaVersion": "2.0"
+}

@@ -1,0 +1,944 @@
+{
+ "course": {
+  "id": "course-26",
+  "parts": [
+   {
+    "id": "part-1-see-language-lens",
+    "title": "Part 1 看见语言镜头：同一事实为什么带来不同判断",
+    "slices": [
+     {
+      "id": "slice-1-language-conflict",
+      "title": "裁员，还是优化？同一事实的两副镜头",
+      "blocks": [
+       {
+        "id": "c31-opening-case-card",
+        "html": "<style>.eyebrow{margin:0;color:var(--course-accent);font-size:14px;font-weight:800;letter-spacing:.08em}.pair{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.lens{padding:16px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.lens:nth-child(2){background:color-mix(in srgb,var(--course-accent-weak) 65%,var(--course-surface))}.lens h3{margin:0 0 9px;color:var(--course-accent)}.lens blockquote{margin:0;font-size:18px;line-height:1.65}.facts{padding:14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak);border-radius:0 var(--course-radius) var(--course-radius) 0}.facts strong{display:block;margin-bottom:4px}.question{margin-top:14px;color:var(--course-secondary);font-weight:700}@media(max-width:680px){.pair{grid-template-columns:1fr}}</style><p class=\"eyebrow\">课程导入 · 看见语言镜头</p><h2>两段声明，照亮了不同的第一判断</h2><div class=\"pair\"><section class=\"lens\"><h3>镜头 A</h3><blockquote>公司裁员，部分员工失去工作。</blockquote></section><section class=\"lens\"><h3>镜头 B</h3><blockquote>公司进行战略性组织优化，相关同事将开启新的职业旅程。</blockquote></section></div><aside class=\"facts\"><strong>共同事实底稿</strong>公司减少了岗位，部分员工因此失去工作。表达差异没有改变这件事，却会改变事件看起来是什么、后果有多重，以及谁需要负责。</aside><p class=\"question\">先保留这个问题：哪些具体词语正在替我们选择焦点和判断方向？</p>",
+        "type": "richText",
+        "title": "同一事实的两副语言镜头"
+       },
+       {
+        "id": "c31-opening-route-card",
+        "html": "<style>.position{padding-bottom:12px;border-bottom:1px solid var(--course-border)}.position small{color:var(--course-accent);font-weight:800}.route{display:grid;gap:10px;margin:16px 0}.step{display:grid;grid-template-columns:38px 1fr;gap:11px;align-items:center;padding:12px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.n{display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--course-accent);color:white;font-weight:800}.step h3,.step p{margin:0}.step p{margin-top:3px;color:var(--course-muted);font-size:14px}.outcome{padding:13px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}</style><section class=\"position\"><small>你将走过的路线</small><h2>从直觉差异到可复核的扫描单</h2></section><div class=\"route\"><section class=\"step\"><span class=\"n\">1</span><div><h3>学五把工具</h3><p>看定性、测强度、追隐喻、抬预设、追主语。</p></div></section><section class=\"step\"><span class=\"n\">2</span><div><h3>看完整示范</h3><p>沿标记—解释—事实底稿—重述—比较拆开企业声明。</p></div></section><section class=\"step\"><span class=\"n\">3</span><div><h3>完成六案带练</h3><p>保留原案卷、答案、即时反馈和定向重述。</p></div></section><section class=\"step\"><span class=\"n\">4</span><div><h3>迁移到新文本</h3><p>独立提交一份开放式语言镜头扫描单。</p></div></section></div><aside class=\"outcome\"><strong>贯穿成果：</strong>一张持续记录触发词、机制、事实底稿、重述和判断变化的“语言镜头扫描单”。下一页先获得五工具全图。</aside>",
+        "type": "richText",
+        "title": "本课扫描路线"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "c31-opening-case-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "c31-opening-route-card"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-1-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-1-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-opening"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c31-opening-route-card"
+           }
+          },
+          {
+           "type": "startTimer",
+           "timerId": "read-opening",
+           "durationSeconds": 35
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c31-opening-case-card"
+        },
+        "enabledBlockIds": [
+         "c31-opening-case-card",
+         "c31-opening-route-card"
+        ],
+        "visibleBlockIds": [
+         "c31-opening-case-card",
+         "c31-opening-route-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-1-guide",
+        "text": "这是课程起点。先比较裁员与组织优化两副语言镜头：共同事实是岗位减少、部分员工失去工作，表达却改变了性质、强度和责任的第一印象。接下来学习五把可定位这种变化的扫描工具。",
+        "audio": "assets/audio/narrations/slice-1-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-explain-judgment-effects"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-2-five-tool-map",
+      "title": "五把扫描工具：看定性、测强度、追隐喻、抬预设、追主语",
+      "blocks": [
+       {
+        "id": "c31-five-tool-map",
+        "html": "<style>.head{display:flex;justify-content:space-between;gap:16px;align-items:end;padding-bottom:12px;border-bottom:1px solid var(--course-border)}.head p{margin:0;color:var(--course-muted)}.tools{display:grid;grid-template-columns:repeat(5,1fr);gap:9px;margin:18px 0}.tool{padding:13px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.tool:nth-child(2),.tool:nth-child(4){background:color-mix(in srgb,var(--course-accent-weak) 55%,var(--course-surface))}.n{display:block;color:var(--course-accent);font-size:28px;font-weight:850}.tool h3{margin:7px 0 5px;font-size:17px}.tool p{margin:0;color:var(--course-muted);font-size:14px;line-height:1.55}.rewrite{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:14px;border:1px solid var(--course-border);border-radius:var(--course-radius)}.rewrite section{padding:11px;background:var(--course-accent-weak);border-radius:var(--course-radius)}.arrow{color:var(--course-accent);font-size:25px;font-weight:800}.mistakes{margin-top:14px;padding:13px 15px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}.mistakes strong{display:block;margin-bottom:5px}@media(max-width:860px){.tools{grid-template-columns:repeat(2,1fr)}}@media(max-width:620px){.tools,.rewrite{grid-template-columns:1fr}.arrow{text-align:center;transform:rotate(90deg)}}</style><div class=\"head\"><div><small>方法学习 · 五工具全图</small><h2>把“听起来有倾向”拆成五个可定位入口</h2></div><p>刚才：感受镜头差异<br>现在：获得扫描工具<br>接下来：看完整示范</p></div><div class=\"tools\" aria-label=\"五把语言扫描工具\"><section class=\"tool\"><span class=\"n\">01</span><h3>看定性</h3><p>哪些词先为事件贴上性质和价值标签？</p></section><section class=\"tool\"><span class=\"n\">02</span><h3>测强度</h3><p>委婉、淡化、夸张或加重怎样调节严重程度？</p></section><section class=\"tool\"><span class=\"n\">03</span><h3>追隐喻</h3><p>问题被映射成什么？这条轨道引向什么行动？</p></section><section class=\"tool\"><span class=\"n\">04</span><h3>抬预设</h3><p>哪项前提被偷塞进句子？它能否被明确否定？</p></section><section class=\"tool\"><span class=\"n\">05</span><h3>追主语</h3><p>谁做了什么？责任是否因被动或模糊主语消失？</p></section></div><section class=\"rewrite\"><section><strong>事实底稿</strong><p>先写对象、动作、后果、来源和仍待核实之处。</p></section><div class=\"arrow\">→</div><section><strong>重述比较</strong><p>保留事实完成重述，再说明前后判断路径怎样变化。</p></section></section><aside class=\"mistakes\"><strong>三项边界提醒</strong>指出具体词和机制；不要把重述写成模糊责任；被动句只有在隐藏关键行动者时才是问题。扫描单由定性、强度、隐喻、预设、主语、重述比较六栏组成。</aside>",
+        "type": "richText",
+        "title": "五工具语言扫描法全图"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c31-five-tool-map"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-2-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-2-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-tools"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-tools",
+           "durationSeconds": 55
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c31-five-tool-map"
+        },
+        "enabledBlockIds": [
+         "c31-five-tool-map"
+        ],
+        "visibleBlockIds": [
+         "c31-five-tool-map"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-2-guide",
+        "text": "上一页感受到语言镜头的差异。现在把直觉拆成看定性、测强度、追隐喻、抬预设和追主语五个入口；最后先写事实底稿，再重述并比较判断变化。下一页用企业声明完整示范一次。",
+        "audio": "assets/audio/narrations/slice-2-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-identify-language-tools",
+       "obj-explain-judgment-effects",
+       "obj-rewrite-and-compare"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-3-worked-language-scan",
+      "title": "示范扫描：从‘优化’还原到发生了什么",
+      "blocks": [
+       {
+        "id": "c31-worked-scan-card",
+        "html": "<style>.position{padding-bottom:10px;border-bottom:1px solid var(--course-border)}.position small{color:var(--course-accent);font-weight:800}.source{margin:14px 0;padding:15px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.source blockquote{margin:0;line-height:1.75}.marks{display:grid;gap:9px}.mark{padding:11px 12px;border-radius:var(--course-radius);background:var(--course-accent-weak)}.mark b{display:block;color:var(--course-accent)}.question{margin-top:13px;padding:12px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}</style><section class=\"position\"><small>方法学习 · 完整示范</small><h2>第一步：标记具体词，再说清机制</h2><p>上一页获得五工具；现在沿同一顺序拆开案卷01。</p></section><section class=\"source\"><h3>原声明</h3><blockquote>“近期我司进行了战略性的组织优化。部分岗位已被调整，相关同事将开启新的职业旅程。我们坚信，这次优化将让公司更加强大。”</blockquote></section><div class=\"marks\"><section class=\"mark\"><b>看定性 · “战略性组织优化”</b>把裁员框定为面向未来的改进，事件性质先被写成正面。</section><section class=\"mark\"><b>测强度 · “新的职业旅程”</b>把失去工作的后果说成一次美好出发，严重程度被降低。</section><section class=\"mark\"><b>追主语 · “岗位已被调整”</b>被动结构让谁决定、谁执行变得不清楚。</section></div><aside class=\"question\"><strong>扫描动作：</strong>指出原词—命名机制—说明它改变了哪条判断路径。右侧继续写事实底稿和重述版。</aside>",
+        "type": "richText",
+        "title": "案卷01原声明与五工具批注"
+       },
+       {
+        "id": "c31-worked-compare-card",
+        "html": "<style>.head{padding-bottom:10px;border-bottom:1px solid var(--course-border)}.head small{color:var(--course-accent);font-weight:800}.chain{display:grid;gap:11px;margin:14px 0}.node{padding:13px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.node b{display:block;color:var(--course-accent);margin-bottom:5px}.compare{display:grid;grid-template-columns:1fr 1fr;gap:10px}.panel{padding:12px;border:1px solid var(--course-border);border-radius:var(--course-radius)}.panel h3{margin-top:0;color:var(--course-accent)}.next{margin-top:13px;padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:680px){.compare{grid-template-columns:1fr}}</style><section class=\"head\"><small>完整示范 · 重述比较</small><h2>第二步：还原事实，再比较镜头</h2></section><div class=\"chain\"><section class=\"node\"><b>事实底稿</b>公司减少了部分岗位，部分员工失去工作；公司称这一决定出于战略考虑。</section><section class=\"node\"><b>重述版</b>公司解雇了部分员工，公司称此举出于战略考虑。</section></div><div class=\"compare\"><section class=\"panel\"><h3>原声明引导的判断</h3><p>先看见“优化”和“旅程”，更容易把事件理解为必要而积极的调整。</p></section><section class=\"panel\"><h3>重述后可见的判断</h3><p>失去工作和公司行动重新进入焦点；是否合理仍需更多证据，不由措辞提前决定。</p></section></div><aside class=\"next\"><strong>完整链条：</strong>标记—解释—事实底稿—重述—比较。下一页把这条链用于六个案卷，并保留原题、答案和TOK反馈。</aside>",
+        "type": "richText",
+        "title": "事实底稿、重述与判断变化"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "c31-worked-scan-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "c31-worked-compare-card"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-3-guide"
+           },
+           "to": "compare"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-3-guide"
+          }
+         ]
+        },
+        {
+         "id": "compare",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-worked-scan"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c31-worked-compare-card"
+           }
+          },
+          {
+           "type": "startTimer",
+           "timerId": "read-worked-scan",
+           "durationSeconds": 70
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c31-worked-scan-card"
+        },
+        "enabledBlockIds": [
+         "c31-worked-scan-card",
+         "c31-worked-compare-card"
+        ],
+        "visibleBlockIds": [
+         "c31-worked-scan-card",
+         "c31-worked-compare-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-3-guide",
+        "text": "上一页获得五工具和重述原则。现在跟随案卷零一：先标记优化、职业旅程和岗位已被调整，说明框定、强度和主语机制；再写事实底稿、完成重述，并比较前后判断路径。下一页独立完成六案。",
+        "audio": "assets/audio/narrations/slice-3-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-identify-language-tools",
+       "obj-explain-judgment-effects",
+       "obj-rewrite-and-compare"
+      ],
+      "estimatedSeconds": 300
+     }
+    ],
+    "objectiveIds": [
+     "obj-identify-language-tools",
+     "obj-explain-judgment-effects",
+     "obj-rewrite-and-compare"
+    ]
+   },
+   {
+    "id": "part-2-scan-and-rewrite",
+    "title": "Part 2 六案扫描：定位语言机制并重述事实",
+    "slices": [
+     {
+      "id": "slice-4-language-court",
+      "title": "带练：六个语言审判案卷",
+      "blocks": [
+       {
+        "id": "c31-language-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/language-shapes-thought-red-white.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": true
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c31-language-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "orient",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-4-guide"
+           },
+           "to": "practice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-4-guide"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c31-language-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "practice",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "c31-language-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "c31-language-interaction"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "c31-language-interaction"
+        ]
+       },
+       "initialStepId": "orient"
+      },
+      "narrations": [
+       {
+        "id": "slice-4-guide",
+        "text": "上一页示范了标记、解释、事实底稿、重述和比较。现在进入六个语言案卷，依次处理框定、强度、隐喻、预设、主语隐匿与复合机制。互动保留原题、答案、定向反馈、重述判定和TOK点评。",
+        "audio": "assets/audio/narrations/slice-4-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-identify-language-tools",
+       "obj-explain-judgment-effects",
+       "obj-rewrite-and-compare"
+      ],
+      "estimatedSeconds": 900
+     },
+     {
+      "id": "slice-5-scan-synthesis",
+      "title": "复盘：真实文本往往同时使用多把工具",
+      "blocks": [
+       {
+        "id": "c31-synthesis-card",
+        "html": "<style>.head{display:flex;justify-content:space-between;gap:14px;padding-bottom:10px;border-bottom:1px solid var(--course-border)}.head p{margin:0;color:var(--course-muted)}.order{display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin:16px 0}.step{padding:11px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.step:nth-child(2),.step:nth-child(4){background:color-mix(in srgb,var(--course-accent-weak) 60%,var(--course-surface))}.step b{display:block;color:var(--course-accent);font-size:19px}.step p{margin:5px 0 0;color:var(--course-muted);font-size:14px}.case{display:grid;grid-template-columns:1fr 1fr;gap:12px}.map,.boundaries{padding:14px;border:1px solid var(--course-border);border-radius:var(--course-radius)}.map{background:var(--course-accent-weak)}.map dl{display:grid;grid-template-columns:auto 1fr;gap:7px 10px}.map dt{font-weight:800;color:var(--course-accent)}.map dd{margin:0}.boundaries ul{margin:8px 0 0;padding-left:18px}.next{margin-top:13px;padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:820px){.order{grid-template-columns:repeat(2,1fr)}.case{grid-template-columns:1fr}}</style><div class=\"head\"><div><small>方法应用 · 六案复盘</small><h2>复合文本要逐层扫描，不靠第一眼标签</h2></div><p>刚才：六案反馈<br>现在：稳定顺序<br>接下来：新文本迁移</p></div><div class=\"order\"><section class=\"step\"><b>1 定性</b><p>先圈价值标签。</p></section><section class=\"step\"><b>2 强度</b><p>再看淡化与加重。</p></section><section class=\"step\"><b>3 隐喻</b><p>追行动轨道。</p></section><section class=\"step\"><b>4 预设</b><p>抬出隐藏前提。</p></section><section class=\"step\"><b>5 主语</b><p>补回责任位置。</p></section></div><div class=\"case\"><section class=\"map\"><h3>案卷06：四种机制同时出现</h3><dl><dt>“所谓整改”</dt><dd>措辞框定</dd><dt>“核心骨干”“严重危机”</dt><dd>强度加重</dd><dt>“背叛”</dt><dd>预设忠诚义务已被违反</dd><dt>“被错误地解雇”</dt><dd>主语隐匿并追加定性</dd></dl></section><section class=\"boundaries\"><h3>保持分析边界</h3><ul><li>看见框定，不等于已经证明说话者撒谎。</li><li>重述要保留事实、来源状态和责任位置。</li><li>不要只换一个词，却留下原隐喻、预设或定性结构。</li><li>追主语时可写“责任人待查明”，不要凭空指认。</li></ul></section></div><aside class=\"next\"><strong>个人易漏项：</strong>对照自己的六案记录，标出最容易漏掉的一把工具和一种“假修复”。下一页按同一顺序扫描未见过的新文本。</aside>",
+        "type": "richText",
+        "title": "复合文本扫描顺序与边界"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c31-synthesis-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-5-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-5-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-synthesis"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-synthesis",
+           "durationSeconds": 55
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c31-synthesis-card"
+        },
+        "enabledBlockIds": [
+         "c31-synthesis-card"
+        ],
+        "visibleBlockIds": [
+         "c31-synthesis-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-5-guide",
+        "text": "上一页积累了六案记录和TOK反馈。现在把经验压缩成定性、强度、隐喻、预设、主语的稳定顺序，并用案卷零六复盘复合机制；同时保留边界，看见框定不等于已经证明说话者撒谎。",
+        "audio": "assets/audio/narrations/slice-5-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-identify-language-tools",
+       "obj-explain-judgment-effects",
+       "obj-rewrite-and-compare"
+      ],
+      "estimatedSeconds": 240
+     }
+    ],
+    "objectiveIds": [
+     "obj-identify-language-tools",
+     "obj-explain-judgment-effects",
+     "obj-rewrite-and-compare"
+    ]
+   },
+   {
+    "id": "part-3-transfer-language-lens",
+    "title": "Part 3 新文本迁移：自觉选择自己的语言镜头",
+    "slices": [
+     {
+      "id": "slice-6-transfer-text",
+      "title": "迁移与结课：扫描一段新文本，再比较你的判断",
+      "blocks": [
+       {
+        "id": "c31-transfer-card",
+        "html": "<style>.position{padding-bottom:10px;border-bottom:1px solid var(--course-border)}.position small{color:var(--course-accent);font-weight:800}.source{margin:14px 0;padding:15px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.source blockquote{margin:8px 0 0;font-size:17px;line-height:1.7}.route{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:13px}.step{padding:10px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-accent-weak)}.step b{display:block;color:var(--course-accent)}.step p{margin:4px 0 0;color:var(--course-muted);font-size:14px}.evidence{margin-top:13px;padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:720px){.route{grid-template-columns:1fr 1fr}}</style><section class=\"position\"><small>迁移 · 新文本独立扫描</small><h2>把五工具用于一段未见过的机构通知</h2><p>上一页形成稳定扫描顺序；现在独立留下迁移证据。TOK综合留在下一页。</p></section><section class=\"source\"><h3>新文本</h3><blockquote>“为优化资源配置，本馆将暂时调整三处分馆的开放服务。相关安排已作出，部分读者可能经历短暂不便。我们相信，这次升级将带来更高效的阅读体验。”</blockquote></section><div class=\"route\"><section class=\"step\"><b>标记</b><p>圈出至少一个触发词或句式。</p></section><section class=\"step\"><b>追问</b><p>说明它对应哪把工具、改变什么判断。</p></section><section class=\"step\"><b>重述</b><p>保留对象、动作、后果与责任状态。</p></section><section class=\"step\"><b>比较</b><p>说明前后哪条判断路径改变。</p></section></div><aside class=\"evidence\"><strong>回答所需证据都在本页：</strong>原文本、五工具顺序和四步卡均可直接对照。右侧填写开放式扫描单；系统只记录提交，不用关键词或正则判断概念理解。</aside>",
+        "type": "richText",
+        "title": "新文本与四步迁移卡"
+       },
+       {
+        "id": "c31-transfer-response",
+        "type": "fillBlank",
+        "prompt": "提交你的语言镜头扫描单：①标出至少一个具体词或句式；②说明对应工具及其对判断的影响；③写出保留可核查事实的重述；④比较重述前后判断路径的变化。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "这是一份开放式迁移证据。回答应联系本页新文本，包含具体语言证据、至少一把扫描工具、事实重述和判断变化比较；平台按 submit-any 接收，不进行关键词、正则或自动正确性判定。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例如：我标记了……；它对应……；事实重述是……；重述前后，我的判断从……转向……"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "c31-transfer-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "c31-transfer-response"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "orient",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-6-guide"
+           },
+           "to": "respond"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-6-guide"
+          }
+         ]
+        },
+        {
+         "id": "respond",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.submitted",
+            "sourceId": "c31-transfer-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "c31-transfer-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c31-transfer-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c31-transfer-card"
+        },
+        "enabledBlockIds": [
+         "c31-transfer-card"
+        ],
+        "visibleBlockIds": [
+         "c31-transfer-card",
+         "c31-transfer-response"
+        ]
+       },
+       "initialStepId": "orient"
+      },
+      "narrations": [
+       {
+        "id": "slice-6-guide",
+        "text": "上一页形成了复合文本的稳定扫描顺序。现在阅读本页新的图书馆通知，选择至少一把工具，写出具体语言证据、事实重述和判断变化。回答按开放反思提交，不用关键词或正则判定；下一页再独立完成TOK结课综合。",
+        "audio": "assets/audio/narrations/slice-6-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-identify-language-tools",
+       "obj-explain-judgment-effects",
+       "obj-rewrite-and-compare",
+       "obj-transfer-language-scan"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-7-closing-synthesis",
+      "title": "没有绝对中性的镜头，但可以看见自己的选择",
+      "blocks": [
+       {
+        "id": "c31-closing-card",
+        "html": "<style>.head{text-align:center;padding-bottom:12px;border-bottom:1px solid var(--course-border)}.head small{color:var(--course-accent);font-weight:800}.journey{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.stage{padding:13px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.stage:nth-child(2){background:color-mix(in srgb,var(--course-accent-weak) 60%,var(--course-surface))}.stage b{display:block;color:var(--course-accent);font-size:19px}.conclusions{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;padding:14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}.point{padding:9px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.point b{display:block;color:var(--course-accent)}.transfer{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}.scene{padding:10px;border:1px solid var(--course-border);border-radius:var(--course-radius);text-align:center}.closing{margin-top:14px;text-align:center;color:var(--course-secondary);font-weight:700}@media(max-width:760px){.journey,.conclusions{grid-template-columns:1fr}.transfer{grid-template-columns:1fr 1fr}}</style><section class=\"head\"><small>课程结尾 · 独立TOK综合</small><h2>语言选择不可避免，分析让选择变得可见、可比较、可负责</h2><p>上一页已经提交新文本扫描单；这一页只回收课程成果与认识边界。</p></section><div class=\"journey\"><section class=\"stage\"><b>看见镜头</b><p>从“只是语气”走到定位定性、强度、隐喻、预设和主语。</p></section><section class=\"stage\"><b>完成六案</b><p>记录触发词、机制、事实底稿、重述、解释和TOK反馈。</p></section><section class=\"stage\"><b>迁移新文本</b><p>独立完成标记—追问—重述—比较扫描单。</p></section></div><section class=\"conclusions\"><section class=\"point\"><b>看见选择</b>指出语言把什么照亮、把什么推到背景。</section><section class=\"point\"><b>说明影响</b>解释判断和行动路径怎样被改变。</section><section class=\"point\"><b>保留事实</b>重述时留下对象、动作、后果、来源和不确定性。</section><section class=\"point\"><b>承担责任</b>选择表达时说明目的、受益者与可能代价。</section></section><div class=\"transfer\"><section class=\"scene\">新闻标题</section><section class=\"scene\">机构声明</section><section class=\"scene\">广告传播</section><section class=\"scene\">AI回答</section></div><p class=\"closing\">四步语言自检卡：标记具体词句 → 追问工具与影响 → 保留事实重述 → 比较判断变化。</p>",
+        "type": "richText",
+        "title": "TOK结课综合与四步语言自检卡"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c31-closing-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-7-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-7-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-closing"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-closing",
+           "durationSeconds": 40
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c31-closing-card"
+        },
+        "enabledBlockIds": [
+         "c31-closing-card"
+        ],
+        "visibleBlockIds": [
+         "c31-closing-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-7-guide",
+        "text": "上一页已经提交新文本扫描单。现在独立完成TOK结课综合：语言框定不可避免，但我们可以看见选择、说明影响、保留事实并承担表达责任。请把标记、追问、重述、比较四步卡带到下一条新闻、声明、广告或人工智能回答。",
+        "audio": "assets/audio/narrations/slice-7-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-identify-language-tools",
+       "obj-explain-judgment-effects",
+       "obj-rewrite-and-compare",
+       "obj-transfer-language-scan"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "obj-identify-language-tools",
+     "obj-explain-judgment-effects",
+     "obj-rewrite-and-compare",
+     "obj-transfer-language-scan"
+    ]
+   }
+  ],
+  "title": "语言如何塑造思维：五把工具扫描文本框定",
+  "closing": {
+   "fallback": {
+    "text": "你已完成五工具扫描、事实重述与判断比较。面对新的表达，先标记具体词句，再追问工具与影响，保留事实完成重述，最后比较判断路径发生了什么变化。"
+   },
+   "takeaways": [
+    "语言会突出一些事实并弱化另一些事实，分析要落到具体词句和机制。",
+    "隐喻会铺设行动路径，预设会让未经证明的前提先进入判断。",
+    "追问谁做了什么，可以把责任重新放回句子。",
+    "重述的目标是保留可核查事实并比较判断变化，而不是寻找绝对无立场的语言。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "你已经用五工具语言扫描法完成了表达冲突观察、完整示范、六案带练和新文本迁移，并形成一张语言镜头扫描单与四步自检卡。",
+   "transferApplications": [
+    "比较新闻标题对同一事件的不同框定。",
+    "审查企业或机构声明中的委婉表达与责任位置。",
+    "识别广告和公共传播中的隐喻与预设。",
+    "检查 AI 回答怎样分配责任、确定性和行动方向。"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "同一件事被说成‘裁员’或‘组织优化’，读者会先看见不同的性质、严重程度与责任。本课先让这副语言镜头显形，再用五工具扫描、事实重述和判断比较完成六案带练与新文本迁移。"
+   },
+   "learningPreview": [
+    "看见：比较同一事实的两种说法，观察第一判断怎样改变。",
+    "扫描：用看定性、测强度、追隐喻、抬预设、追主语定位语言机制。",
+    "重述：保留可核查事实，再比较前后判断路径。",
+    "迁移：把同一套方法用于一段未见过的新文本。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-identify-language-tools",
+    "text": "能识别措辞框定、委婉与加重、隐喻、预设和主语隐匿，并定位具体触发词或句式。",
+    "evidenceBlockIds": [
+     "c31-language-interaction"
+    ]
+   },
+   {
+    "id": "obj-explain-judgment-effects",
+    "text": "能解释具体语言选择如何影响事件性质、严重程度、行动路径、前提接受和责任归属。",
+    "evidenceBlockIds": [
+     "c31-language-interaction"
+    ]
+   },
+   {
+    "id": "obj-rewrite-and-compare",
+    "text": "能保留可核查事实完成重述，并比较表达变化如何改变判断路径。",
+    "evidenceBlockIds": [
+     "c31-language-interaction",
+     "c31-transfer-response"
+    ]
+   },
+   {
+    "id": "obj-transfer-language-scan",
+    "text": "能把五工具扫描法迁移到新闻标题、机构声明、广告和 AI 回答，并自觉说明自己的语言选择。",
+    "evidenceBlockIds": [
+     "c31-transfer-response"
+    ]
+   }
+  ],
+  "estimatedMinutes": 40
+ },
+ "schemaVersion": "2.0"
+}

@@ -1,0 +1,190 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>GONE 四象限证据表</title>
+<style>
+:root{
+  --paper:#EDF0EC; --card:#FBFCFA; --ink:#14201B; --ink-2:#3A4A43;
+  --muted:#5C6A63; --line:#CBD4CE; --line-soft:#DFE5E0;
+  --t-corp:#1E7A54; --t-reg:#1F4B7A; --boundary:#9C5518;
+  --serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+  --sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono","Menlo",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-size:16px}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.65;
+  display:flex;align-items:center;justify-content:center;min-height:100vh;overflow-x:hidden}
+#stage{width:1024px;height:768px;aspect-ratio:4 / 3;transform-origin:top left;
+  background:var(--paper);display:flex;flex-direction:column;padding:20px 28px 14px}
+.eyebrow.auxiliary{font-family:var(--mono);font-size:14px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--serif);font-size:26px;line-height:1.25;margin:4px 0 6px;font-weight:700}
+.lede{font-size:16px;color:var(--ink-2);margin:0 0 10px}
+#rows{flex:1;overflow-y:auto;padding-right:6px}
+.row{background:var(--card);border:1px solid var(--line);border-left:3px solid var(--t-reg);
+  border-radius:2px;padding:12px 14px;margin:0 0 12px}
+.hd{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:6px}
+.hd .g{font-family:var(--serif);font-size:19px;font-weight:700}
+.hd .en.auxiliary{font-family:var(--mono);font-size:14px;color:var(--muted)}
+.def{font-size:16px;color:var(--ink-2);margin:0 0 9px}
+.picker{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+.picker .lb.auxiliary{font-family:var(--mono);font-size:14px;color:var(--muted);margin-right:4px}
+.pick{font-family:inherit;font-size:16px;line-height:1.25;color:var(--ink-2);
+  background:#fff;border:1px solid var(--line);border-radius:2px;padding:6px 10px;cursor:pointer;white-space:nowrap}
+.pick[aria-pressed="true"]{background:var(--t-reg);border-color:var(--t-reg);color:#fff;font-weight:700}
+.trio{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}
+.write label.auxiliary{display:block;font-size:14px;color:var(--muted);margin-bottom:3px}
+.write textarea{width:100%;height:64px;font-family:inherit;font-size:16px;line-height:1.5;
+  color:var(--ink);background:#fff;border:1px solid var(--line);border-radius:2px;
+  padding:7px 9px;resize:none;overflow-y:auto}
+.write textarea:focus{border-color:var(--t-reg);outline:none}
+.foot{border-top:1px solid var(--line);padding-top:10px;display:flex;align-items:center;gap:14px}
+#gate.auxiliary{font-size:14px;color:var(--boundary);flex:1}
+button.go{font-family:inherit;font-size:16px;font-weight:700;color:#fff;background:var(--t-corp);
+  border:1px solid var(--t-corp);border-radius:3px;padding:11px 26px;cursor:pointer}
+button.go:disabled{background:#9FB3A8;border-color:#9FB3A8;cursor:not-allowed}
+#done{font-size:16px;color:var(--t-corp);font-weight:700;display:none}
+:focus-visible{outline:3px solid var(--t-reg);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <span class="eyebrow auxiliary" data-text-role="auxiliary">步骤 04 · GONE 利益链</span>
+  <h1>四象限证据表</h1>
+  <p class="lede">为每个维度挑出最能说明问题的材料，再写事实句、推断句和反证。同一份材料<b>可以出现在多个格子里</b>——但你要能说清为什么。四个维度都选到材料、都写完事实句（至少 10 字），才能提交。</p>
+  <div id="rows"></div>
+  <div class="foot">
+    <div id="gate" class="auxiliary" data-text-role="auxiliary"></div>
+    <button class="go" id="submit" disabled>完成</button>
+    <span id="done">已提交 ✓</span>
+  </div>
+</div>
+<script>
+var PROTOCOL="mind-course-interaction", VERSION="1.0";
+var sessionToken=null, pendingFrameMessages=[], completionSent=false;
+function postFrameMessage(type,payload){
+  window.parent.postMessage({protocol:PROTOCOL,version:VERSION,sessionToken:sessionToken,type:type,payload:payload},"*");
+}
+function send(type,payload){
+  if(!sessionToken){ pendingFrameMessages.push({type:type,payload:payload}); return; }
+  postFrameMessage(type,payload);
+}
+window.addEventListener("message",function(event){
+  var message=event.data;
+  if(!message||message.protocol!==PROTOCOL||message.version!==VERSION||!message.sessionToken) return;
+  var isNewSession = sessionToken!==message.sessionToken;
+  sessionToken=message.sessionToken;
+  if(!isNewSession) return;
+  postFrameMessage("ready",{});
+  while(pendingFrameMessages.length){
+    var pending=pendingFrameMessages.shift();
+    postFrameMessage(pending.type,pending.payload);
+  }
+});
+
+var GONE=[{"key": "greed", "g": "Greed", "zh": "利益驱动", "def": "企业追求利润、估值、制度性收益与绿色市场认同。"}, {"key": "opp", "g": "Opportunity", "zh": "机会空间", "def": "评级机制复杂、ESG 披露口径可选择、供应链和治理链条不透明。"}, {"key": "need", "g": "Need", "zh": "形象需求", "def": "企业需要维护“绿色创新者”身份，回应负面评价，争取投资者、消费者和公共舆论支持。"}, {"key": "exp", "g": "Exposure", "zh": "暴露成本", "def": "被发现、被媒体批评、被监管处罚或被投资者纠正的概率与代价。"}];
+var NAMES={"标普 ESG 评分": "标普 ESG 评分：先查「被剔除」的评分基础", "中国漂绿榜": "中国语境证据：南方周末 2022 中国漂绿榜", "马斯克推文": "入口叙事：马斯克说「ESG 是骗局」", "Impact 首页三数字": "看光环：Tesla 2024 影响力报告摘要", "报告下载入口": "一手来源入口：影响力报告在哪里下载", "EEOC 诉讼": "S 维度反证：EEOC 对 Tesla 提起种族骚扰与报复诉讼", "ASTM 工伤率": "劳工安全：ASTM 工伤率下降与标准切换", "生命周期排放图": "生命周期排放：EV vs ICE 图表的假设条件", "同业视角分析": "行业竞争视角：贡献真实，但生产阶段和管理仍需改进", "Scope 3 附录": "Scope 3 排放：被放到附录的不利数据", "反骚扰报告提案": "股东治理证据：反骚扰／反歧视报告提案未通过", "钴供应链提案": "供应链治理证据：儿童人权／钴供应链审计提案", "碳积分与处罚": "碳积分财务依赖：从监管体系获益，又攻击 ESG 体系"};
+var KEYS=["标普 ESG 评分", "中国漂绿榜", "马斯克推文", "Impact 首页三数字", "报告下载入口", "EEOC 诉讼", "ASTM 工伤率", "生命周期排放图", "同业视角分析", "Scope 3 附录", "反骚扰报告提案", "钴供应链提案", "碳积分与处罚"];
+var MINFACT=10;
+var state={};
+var rowsEl=document.getElementById("rows");
+var gateEl=document.getElementById("gate");
+var btn=document.getElementById("submit");
+var doneEl=document.getElementById("done");
+
+GONE.forEach(function(gd){
+  state[gd.key]={ids:[],fact:"",infer:"",counter:""};
+  var row=document.createElement("div"); row.className="row";
+  var hd=document.createElement("div"); hd.className="hd";
+  var g=document.createElement("span"); g.className="g"; g.textContent=gd.zh;
+  var en=document.createElement("span"); en.className="en auxiliary";
+  en.setAttribute("data-text-role","auxiliary"); en.textContent=gd.g;
+  hd.appendChild(g); hd.appendChild(en); row.appendChild(hd);
+  var df=document.createElement("p"); df.className="def"; df.textContent=gd.def; row.appendChild(df);
+
+  var pk=document.createElement("div"); pk.className="picker";
+  var lb=document.createElement("span"); lb.className="lb auxiliary";
+  lb.setAttribute("data-text-role","auxiliary"); lb.textContent="选材料";
+  pk.appendChild(lb);
+  KEYS.forEach(function(name){
+    var b=document.createElement("button"); b.type="button"; b.className="pick";
+    b.textContent=name; b.title=NAMES[name];
+    b.setAttribute("aria-pressed","false");
+    b.setAttribute("aria-label",name+"："+NAMES[name]);
+    b.addEventListener("click",function(){
+      var arr=state[gd.key].ids, i=arr.indexOf(name);
+      if(i>=0) arr.splice(i,1); else arr.push(name);
+      b.setAttribute("aria-pressed", arr.indexOf(name)>=0 ? "true":"false");
+      refresh();
+    });
+    pk.appendChild(b);
+  });
+  row.appendChild(pk);
+
+  var trio=document.createElement("div"); trio.className="trio";
+  [["fact","事实句","材料上真实存在的内容"],
+   ["infer","推断句","你据此推出的解释，用「可能／构成」"],
+   ["counter","反证或还需核查","哪一条会推翻你？还缺什么"]].forEach(function(spec){
+    var w=document.createElement("div"); w.className="write";
+    var l=document.createElement("label"); l.className="auxiliary";
+    l.setAttribute("data-text-role","auxiliary"); l.textContent=spec[1];
+    var id="ta-"+gd.key+"-"+spec[0]; l.setAttribute("for",id);
+    var ta=document.createElement("textarea"); ta.id=id; ta.placeholder=spec[2];
+    ta.addEventListener("input",function(){ state[gd.key][spec[0]]=ta.value; refresh(); });
+    w.appendChild(l); w.appendChild(ta); trio.appendChild(w);
+  });
+  row.appendChild(trio);
+  rowsEl.appendChild(row);
+});
+
+function unmet(){
+  var miss=[];
+  GONE.forEach(function(gd){
+    var st=state[gd.key];
+    if(st.ids.length===0) miss.push(gd.zh+"·还没选材料");
+    else if(st.fact.trim().length<MINFACT) miss.push(gd.zh+"·事实句还差 "+(MINFACT-st.fact.trim().length)+" 字");
+  });
+  return miss;
+}
+function refresh(){
+  var miss=unmet();
+  btn.disabled = miss.length>0 || completionSent;
+  gateEl.textContent = miss.length ? ("还差："+miss.join("；")) : "";
+  if(!completionSent){
+    var picked=0; GONE.forEach(function(gd){ picked+=state[gd.key].ids.length; });
+    send("progress",{pickedTotal:picked,remaining:miss.length});
+  }
+}
+btn.addEventListener("click",function(){
+  if(completionSent || unmet().length>0) return;
+  completionSent=true; btn.disabled=true; doneEl.style.display="inline"; gateEl.textContent="";
+  var dims=GONE.map(function(gd){
+    var st=state[gd.key];
+    return {key:gd.key,dimension:gd.zh,english:gd.g,materials:st.ids.slice(),
+            fact:st.fact,inference:st.infer,counterEvidence:st.counter};
+  });
+  send("completed",{resultId:"gone-quadrant-desk-attempt-1",value:{dimensions:dims}});
+});
+refresh();
+
+function fit(){
+  var s=Math.min(window.innerWidth/1024, window.innerHeight/768);
+  var st=document.getElementById("stage");
+  st.style.transform="scale("+s+")";
+  document.body.style.height=(768*s)+"px";
+  document.body.style.width=(1024*s)+"px";
+}
+window.addEventListener("resize",fit); fit();
+</script>
+<!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html { height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+body { display: block !important; position: relative; flex: 0 0 auto; min-height: 0 !important; overflow: hidden; }
+#stage { position: absolute !important; top: 0 !important; left: 0 !important; }
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body>
+</html>

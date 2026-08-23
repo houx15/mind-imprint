@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>复述结构检查</title>
+  <style>
+:root{--ink:#17212b;--muted:#526170;--line:#cbd5df;--paper:#f5f7f9;--panel:#fff;--blue:#225e7c;--green:#277052;--amber:#9a6413;--red:#a93631;--focus:#d8edf5}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%;font-size:16px}
+body{display:grid;place-items:center;padding:8px;overflow-x:hidden;background:#eaf0f3;color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}
+button,input,select,textarea{font-size:16px;font-family:inherit}
+button,input,select,textarea{border:1px solid #9facb8;border-radius:6px;background:#fff;color:var(--ink)}
+button{min-height:40px;padding:8px 14px;font-weight:700;cursor:pointer}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff}
+button.secondary{background:#fff;color:var(--blue);border-color:var(--blue)}
+button:disabled,input:disabled,select:disabled,textarea:disabled{opacity:.48;cursor:not-allowed}
+.canvas{width:min(100%,1024px);aspect-ratio:4/3;display:grid;grid-template-rows:auto minmax(0,1fr) auto;overflow:hidden;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 14px 34px rgba(23,33,43,.14)}
+header{padding:14px 18px 11px;border-bottom:1px solid var(--line)}
+h1{margin:0 0 5px;font-size:24px;line-height:1.2;letter-spacing:0}
+h2{margin:0 0 8px;font-size:19px;line-height:1.3;letter-spacing:0}
+h3{margin:0 0 6px;font-size:17px;line-height:1.3;letter-spacing:0}
+p{margin:0;line-height:1.5}
+.sub{color:var(--muted)}
+main{min-height:0;overflow-y:auto;overflow-x:hidden;padding:14px 16px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px;align-items:start}
+.stack{display:grid;gap:10px;align-content:start}
+.card{border:1px solid var(--line);border-radius:7px;background:var(--paper);padding:11px}
+.evidence{background:#eef5f7;border-left:4px solid var(--blue)}
+.feedback{min-height:44px;border:1px solid var(--line);border-radius:6px;background:#fff;padding:9px 11px;color:var(--muted);line-height:1.45}
+.feedback.ok{border-color:#7ab395;color:var(--green);background:#f1f8f4}
+.feedback.bad{border-color:#d49a96;color:var(--red);background:#fff5f4}
+.field{display:grid;gap:5px;color:var(--muted);font-weight:650}
+input,select,textarea{width:100%;padding:8px 9px;line-height:1.4}
+textarea{resize:vertical;min-height:74px}
+.checks{display:grid;grid-template-columns:1fr 1fr;gap:7px}
+.check{display:flex;gap:8px;align-items:flex-start;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fff;color:var(--ink);font-weight:500}
+.check input{width:auto;margin:3px 0 0}
+.visual{width:100%;max-height:200px;object-fit:contain;background:#fff;border:1px solid var(--line);border-radius:6px}
+.portrait{max-height:270px}
+.pill{display:inline-block;padding:3px 8px;border-radius:999px;background:#dcebf1;color:var(--blue);font-weight:700}
+.auxiliary{font-size:14px;color:var(--muted);line-height:1.4}
+.meter{height:7px;background:#dce3e8;border-radius:5px;overflow:hidden}
+.meter>span{display:block;height:100%;width:0;background:var(--green);transition:width .2s ease}
+footer{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:10px 14px;border-top:1px solid var(--line);background:#fff}
+.footer-status{color:var(--muted);line-height:1.35}
+.tabs{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.tabs button[aria-selected="true"]{background:var(--blue);color:#fff;border-color:var(--blue)}
+.panel[hidden]{display:none}
+.option-list{display:grid;gap:7px}
+.option{display:flex;align-items:flex-start;gap:8px;padding:8px;border:1px solid var(--line);border-radius:6px;background:#fff}
+.option input{width:auto;margin:3px 0 0}
+details{border:1px solid var(--line);border-radius:7px;background:#fff;padding:8px 10px}
+summary{font-weight:700;cursor:pointer}
+@media(max-width:720px){.grid2{grid-template-columns:1fr}.canvas{aspect-ratio:4/3}h1{font-size:21px}.checks{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+  <div class="canvas">
+    <header><h1>复述结构检查</h1><p class="sub">保留标准与结论，把反对放在下一句。</p></header>
+    <main>
+<div class="stack">
+  <section class="card evidence"><h2>只复述，不反对</h2><p>句式：你的意思是，因为你看重____，所以你认为____。</p></section>
+  <label class="field">你的复述<textarea id="restatement" placeholder="保留‘学习环境’标准和‘统一收手机’结论"></textarea></label>
+  <label class="field">可能的反对落点<select id="point"><option value="">请选择</option><option value="fact">事实：手机在何种条件下影响学习</option><option value="standard">标准：学校责任应如何定义</option><option value="weight">权重：共同环境与个人自主如何排序</option><option value="reasoning">推理：保护环境是否必然推出统一收纳</option></select></label>
+  <div class="feedback" id="feedback">页面只检查结构，不替你决定应该反对什么。</div>
+</div></main>
+    <footer><div class="footer-status" id="status">等待复述</div><button class="primary" id="complete" data-completion="true" disabled>完成任务</button></footer>
+  </div>
+  <script>
+const PROTOCOL = "mind-course-interaction";
+const VERSION = "1.0";
+let sessionToken = null;
+const pendingFrameMessages = [];
+let completionSent = false;
+let interactionEnabled = true;
+
+function postFrameMessage(type, payload) {
+  window.parent.postMessage({ protocol: PROTOCOL, version: VERSION, sessionToken, type, payload }, "*");
+}
+
+function send(type, payload) {
+  if (!sessionToken) {
+    pendingFrameMessages.push({ type, payload });
+    return;
+  }
+  postFrameMessage(type, payload);
+}
+
+function syncControls() {
+  document.querySelectorAll("button, input, select, textarea").forEach(control => {
+    if (control.dataset.completion === "true") return;
+    control.disabled = !interactionEnabled;
+  });
+  if (typeof syncCompletion === "function") syncCompletion();
+}
+
+window.addEventListener("message", event => {
+  const message = event.data;
+  if (!message || message.protocol !== PROTOCOL || message.version !== VERSION || !message.sessionToken) return;
+  const isNewSession = sessionToken !== message.sessionToken;
+  sessionToken = message.sessionToken;
+  if (isNewSession) {
+    postFrameMessage("ready", {});
+    while (pendingFrameMessages.length) {
+      const pending = pendingFrameMessages.shift();
+      postFrameMessage(pending.type, pending.payload);
+    }
+  }
+  if (["activate", "enable", "resumeMedia"].includes(message.type)) interactionEnabled = true;
+  if (["deactivate", "disable", "pauseMedia", "stopMedia"].includes(message.type)) interactionEnabled = false;
+  syncControls();
+});
+
+
+const restatement=document.getElementById("restatement"),point=document.getElementById("point"),complete=document.getElementById("complete");
+const blocked=["只是","其实","不过","没自制力","不尊重"];
+function state(){return{restatement:restatement.value.trim(),oppositionPoint:point.value};}
+function checks(){const text=state().restatement;return{standard:/学习环境|共同学习/.test(text),conclusion:/统一|收手机|收纳手机/.test(text),neutral:!blocked.some(word=>text.includes(word)),point:Boolean(point.value)};}
+function valid(){return Object.values(checks()).every(Boolean);}
+function syncCompletion(){const result=checks();complete.disabled=!interactionEnabled||completionSent||!valid();const feedback=document.getElementById("feedback");const missing=[];if(!result.standard)missing.push("对方标准");if(!result.conclusion)missing.push("对方结论");if(!result.neutral)missing.push("去掉夹带性压缩词");if(!result.point)missing.push("单独的反对落点");if(missing.length){feedback.textContent=`还需处理：${missing.join("、")}`;feedback.className="feedback";document.getElementById("status").textContent="结构尚未通过";}else{feedback.textContent="复述保留了标准与结论，反对落点也已分开。";feedback.className="feedback ok";document.getElementById("status").textContent="结构通过";}}
+[restatement,point].forEach(control=>control.addEventListener("input",()=>{syncCompletion();send("progress",{value:{checks:checks()}});}));
+complete.addEventListener("click",()=>{if(!valid()||completionSent)return;completionSent=true;send("completed",{resultId:"restatement-lab-v1",value:state()});complete.textContent="已完成";syncCompletion();});
+syncCompletion();
+</script>
+<!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html, body { height: 100%; min-height: 0; }
+body { display: block !important; place-items: stretch !important; overflow: auto; }
+#stage, .canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  overflow: auto !important;
+}
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body>
+</html>

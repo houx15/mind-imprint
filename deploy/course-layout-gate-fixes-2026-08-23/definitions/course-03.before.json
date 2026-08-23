@@ -1,0 +1,4111 @@
+{
+ "course": {
+  "id": "course-03",
+  "parts": [
+   {
+    "id": "part-1-why-filter",
+    "title": "一个视频引出的问题",
+    "slices": [
+     {
+      "id": "piece-first-impression",
+      "title": "一个学生交上来的视频",
+      "blocks": [
+       {
+        "id": "b-scene-intro",
+        "type": "text",
+        "content": "在学习气候变化这个主题的时候，Jade 老师让同学们各自去找视频资料并分享。\n\n一位同学交上来的，是《经济学人》（The Economist）杂志在 YouTube 上发布的纪录片《See what 3°C of global warming looks like》——如果全球升温到三度，世界会变成什么样。"
+       },
+       {
+        "id": "b-scene-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-scene-image-item-1",
+          "alt": "《经济学人》纪录片片头画面：太空视角下的地球，标题为 See what 3°C of global warming looks like",
+          "source": "assets/images/video-title-card.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "b-scene-question",
+        "type": "text",
+        "content": "先不急着看片子。假设这份资料现在摆在你面前，你要决定要不要把它写进自己的作业里。\n\n请凭第一印象作答。 这门课结束的时候，我们会回到这里，看看你的判断变了没有。"
+       },
+       {
+        "id": "b-first-impression",
+        "type": "singleChoice",
+        "prompt": "凭第一印象，你觉得这支视频里的内容可信吗？做判断时，你最看重下面哪一点？",
+        "options": [
+         {
+          "id": "opt-brand",
+          "label": "《经济学人》是知名杂志，所以可信"
+         },
+         {
+          "id": "opt-realpeople",
+          "label": "片子里有真人出镜讲述亲身经历，所以可信"
+         },
+         {
+          "id": "opt-data",
+          "label": "片子引用了具体数据，所以可信"
+         },
+         {
+          "id": "opt-views",
+          "label": "它在 YouTube 上播放量和点赞很高，所以可信"
+         },
+         {
+          "id": "opt-unsure",
+          "label": "说不好——我没有一套判断的办法"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-scene-image"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-scene-intro"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-scene-question"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-first-impression"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-first-impression",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-first-impression"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-first-impression"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-first-impression"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-scene-intro",
+         "b-scene-image",
+         "b-scene-question",
+         "b-first-impression"
+        ],
+        "visibleBlockIds": [
+         "b-scene-intro",
+         "b-scene-image",
+         "b-scene-question",
+         "b-first-impression"
+        ]
+       },
+       "initialStepId": "wait-b-first-impression"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-first-impression",
+        "text": "本页聚焦“一个学生交上来的视频”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-first-impression.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 157
+     },
+     {
+      "id": "piece-youtube-flood",
+      "title": "世界第二大搜索引擎",
+      "blocks": [
+       {
+        "id": "b-youtube-scale",
+        "type": "text",
+        "content": "YouTube 是一个美国的视频网站，从 2005 年注册到今天，在全球已经拥有超过 20 亿的月活跃用户。它是世界第一大视频平台，也是第二大搜索引擎，仅次于它的母公司 Google。\n\n培生集团做过一个关于「技术如何塑造学生的学习习惯」的调查研究。他们比较了美国「00 后」和「80/90 后」受试者首选的学习工具，YouTube 被所有年龄段的美国人同时认定为最受欢迎的工具之一。下图展示的是首选 YouTube 的人数在两代人中的占比。"
+       },
+       {
+        "id": "b-pearson-chart",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-pearson-chart-item-1",
+          "alt": "柱状图：YouTube 作为首选的学习工具，美国「00 后」占比约 59%，美国「80/90 后」占比约 55%",
+          "source": "assets/images/pearson-youtube-chart.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "b-flood",
+        "type": "text",
+        "content": "问题就在这里。\n\n在传播门槛「平民化」的时代，人人都能发布内容，可供检索到的信息纷繁复杂、质量良莠不齐。我们怎么能确认，在 YouTube 上查到的信息就是可用的？\n\n这不是一个可以靠感觉回答的问题，它需要一套办法。"
+       },
+       {
+        "id": "b-own-habit",
+        "type": "fillBlank",
+        "prompt": "在学会任何一套办法之前，先把你现在的做法写下来：\n\n1. 你平时主要从哪里获取信息？（具体一点，比如某个 App、某类账号、某个网站）\n2. 遇到一条你拿不准的信息，你现在是怎么判断它靠不靠谱的？把你的实际动作写出来。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "如实写出至少一个具体的信息来源和一个具体的判断动作即可，不要求「正确」。这段回答会在课程最后被再次调用，用来对照你的判断方式发生了什么变化。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-pearson-chart"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-youtube-scale"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-flood"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-own-habit"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-own-habit",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-own-habit"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-own-habit"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-own-habit"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-youtube-scale",
+         "b-pearson-chart",
+         "b-flood",
+         "b-own-habit"
+        ],
+        "visibleBlockIds": [
+         "b-youtube-scale",
+         "b-pearson-chart",
+         "b-flood",
+         "b-own-habit"
+        ]
+       },
+       "initialStepId": "wait-b-own-habit"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-youtube-flood",
+        "text": "本页聚焦“世界第二大搜索引擎”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-youtube-flood.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 189
+     },
+     {
+      "id": "piece-watch-documentary",
+      "title": "带着任务看完这支纪录片",
+      "blocks": [
+       {
+        "id": "b-watch-task",
+        "type": "text",
+        "content": "接下来请完整看完这支 16 分 23 秒的纪录片。\n\n看之前，先记住三件要找的东西——带着任务看，和随便看完，收获完全不同：\n\n1. 找出三位当地受访者。他们分别来自哪个国家，各自遇到的是什么问题？把他们的名字和身份记下来。\n2. 记下他们说过的原话。哪一句最让你觉得「这是他亲眼看到的」？\n3. 留意片子用了哪些数据。海平面、气温、降雨量、人口——这些数字，片子有没有说它们从哪来？\n\n这三件事，后面每一个环节都会用到。"
+       },
+       {
+        "id": "b-documentary",
+        "type": "video",
+        "source": "assets/videos/three-degrees.mp4",
+        "completion": {
+         "rule": "video-ended"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:2",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-watch-task"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-documentary"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-documentary",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-documentary"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-documentary"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-documentary"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-watch-task",
+         "b-documentary"
+        ],
+        "visibleBlockIds": [
+         "b-watch-task",
+         "b-documentary"
+        ]
+       },
+       "initialStepId": "wait-b-documentary"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-watch-documentary",
+        "text": "本页聚焦“带着任务看完这支纪录片”。观看视频并完成出现的检查任务。",
+        "audio": "assets/audio/narrations/piece-watch-documentary.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 175
+     }
+    ],
+    "objectiveIds": [
+     "craap-crraab-objective-1"
+    ]
+   },
+   {
+    "id": "part-2-craap",
+    "title": "CRAAP：第一套过滤器",
+    "slices": [
+     {
+      "id": "piece-craap-overview",
+      "title": "加州大学图书馆的五个字母",
+      "blocks": [
+       {
+        "id": "b-craap-intro",
+        "type": "text",
+        "content": "面对「怎么知道这条信息能不能用」这个问题，美国加州大学图书馆推荐了一套简单的工具，叫 CRAAP。\n\n它从五个方面来评价一条信息是否有效：时效性（Currency）、相关性（Relevance）、权威性（Authority）、准确性（Accuracy）、目的性（Purpose）。"
+       },
+       {
+        "id": "b-craap-figures",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-craap-figures-item-1",
+          "alt": "CRAAP 信息过滤神器图示：C 时效性、R 相关性、A 权威性、A 准确性、P 目的性五个圆形标识",
+          "source": "assets/images/craap-five.jpg"
+         },
+         {
+          "id": "b-craap-figures-item-2",
+          "alt": "CRAAP 五要素环形图与中英文释义：C 信息产生的时间、R 信息对当下而言的重要性、A 信息的来源、A 信息的准确度、P 信息存在的原因",
+          "source": "assets/images/craap-six-step.jpg"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "b-craap-map",
+        "type": "text",
+        "content": "先记住这张地图，再往下拆。五个字母其实在问五个完全不同的问题：\n\n| 字母 | 中文 | 它到底在问什么 |\n| --- | --- | --- |\n| C Currency | 时效性 | 这条信息是什么时候产生的？ |\n| R Relevance | 相关性 | 这条信息跟我的问题有关系吗？ |\n| A Authority | 权威性 | 这条信息是谁说的？ |\n| A Accuracy | 准确性 | 这条信息有没有证据撑着？ |\n| P Purpose | 目的性 | 这条信息为什么会存在？ |\n\n五个问题里，多数人平时只会下意识地问第三个（谁说的）。剩下四个，是这门课要补上的。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-craap-figures"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-craap-intro",
+          "b-craap-map"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-craap-intro",
+         "b-craap-figures",
+         "b-craap-map"
+        ],
+        "visibleBlockIds": [
+         "b-craap-intro",
+         "b-craap-figures",
+         "b-craap-map"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-craap-overview",
+        "text": "本页聚焦“加州大学图书馆的五个字母”。阅读材料，整理本页的核心判断。",
+        "audio": "assets/audio/narrations/piece-craap-overview.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 157
+     },
+     {
+      "id": "piece-craap-cr",
+      "title": "时效性与相关性：信息本身，以及它跟我的关系",
+      "blocks": [
+       {
+        "id": "b-currency",
+        "type": "text",
+        "content": "#### C 时效性 Currency\n\n引导问题：\n\n- 这些信息是最近的吗？\n- 你能否在页面中找到写／创建／更新的日期？\n- 根据你要了解的主题，这些信息是否足够？\n\n时效性指的是信息产生的时间。可以通过信息产生时间、更新时间来判断。\n\n看到一个信息的时候，首先要看这条信息是什么时候发表的，是不是没有过时，是不是现在比较新的信息。因为看到的信息有很多可能是过时的，所以首先要保证看到的信息没有过时、是比较新的，过时的信息尽量忽略。"
+       },
+       {
+        "id": "b-relevance",
+        "type": "text",
+        "content": "#### R 相关性 Relevance\n\n引导问题：\n\n- 该网站包含哪些信息？\n- 与我要了解的主题有关吗？\n- 内容主要是事实还是观点？信息是全面的还是有偏见的？我可以参考吗？\n- 作者是否提供报价和数据参考？\n- 如果有链接，它们是否起作用？\n\n相关性指的是信息对当下而言的重要性。不相关的信息不能解决当下问题。\n\n看到一条信息就要想：这条信息跟你有什么相关？跟你关注的话题有关还是无关？是写给谁看的，是不是面向你的？是一篇科普文章还是学术文章？它面向的对象不一样，写法可能也不一样，严谨性可能也不一样。概括起来就是：这个信息适合我看吗？"
+       },
+       {
+        "id": "b-cr-check",
+        "type": "singleChoice",
+        "prompt": "你在写一篇关于「全球升温三度会带来什么影响」的报告，找到一篇 2009 年发表的气候预测文章，内容详实、引用规范，主题也完全对口。你首先应该动用 CRAAP 的哪一条？",
+        "options": [
+         {
+          "id": "opt-cr-currency",
+          "label": "时效性——气候模型和观测数据这十几年更新很大，2009 年的预测很可能已被修正"
+         },
+         {
+          "id": "opt-cr-relevance",
+          "label": "相关性——主题完全对口，所以这条已经通过了，不用再看"
+         },
+         {
+          "id": "opt-cr-authority",
+          "label": "权威性——先查作者是谁，别的都不重要"
+         },
+         {
+          "id": "opt-cr-none",
+          "label": "都不用——内容详实、引用规范就够了"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "opt-cr-currency"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "b-cr-check-why",
+        "type": "text",
+        "content": "为什么是时效性？\n\n这道题里，相关性其实已经通过了——主题完全对口。真正的风险在别处：气候模型和观测数据这十几年更新很大，2009 年给出的预测区间很可能已经被新的研究修正。\n\n顺便记住一件事：五条准则不是打分表，而是一个排查顺序。 你要做的不是把五条都写一遍，而是判断这一次，哪一条最可能出问题，然后从那里查起。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-currency"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-relevance"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-cr-check-why"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-cr-check"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-cr-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-cr-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-cr-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-cr-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-currency",
+         "b-relevance",
+         "b-cr-check",
+         "b-cr-check-why"
+        ],
+        "visibleBlockIds": [
+         "b-currency",
+         "b-relevance",
+         "b-cr-check",
+         "b-cr-check-why"
+        ]
+       },
+       "initialStepId": "wait-b-cr-check"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-craap-cr",
+        "text": "本页聚焦“时效性与相关性：信息本身，以及它跟我的关系”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-craap-cr.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "piece-craap-aap",
+      "title": "权威性、准确性与目的性：来源、可靠度与动机",
+      "blocks": [
+       {
+        "id": "b-authority",
+        "type": "text",
+        "content": "#### A 权威性 Authority\n\n引导问题：\n\n- 你可以确定作者／创作者是谁吗？有没有联系他们的方法？\n- 他们的证书是什么（教育、隶属关系、经验等）？\n- 谁是网站的发布者或赞助者？他们有信誉吗？\n\n权威性指的是信息的来源。评估信息的权威性要考察这些资讯的作者／出版者／来源／赞助者都是什么人。如果信息里包含或能看出作者和他的组织关系、作者撰写此内容的资格，就容易加以判断。有些信息还要求附带联系信息，比如出版社或电子邮件。如果是网站，可以看一看「关于我们」中的介绍来做判断。\n\n一个反直觉的例子：在中国特别讲究专著，但是专著可能由于没有经过同行评议，在权威性方面不如一篇经过同行评议的论文。"
+       },
+       {
+        "id": "b-accuracy",
+        "type": "text",
+        "content": "#### A 准确性 Accuracy\n\n引导问题：\n\n- 准确吗？有证据支持吗？\n- 信息是全面的还是有偏见的？\n- 有同行评议吗？\n- 您可以从其他可靠来源验证信息吗？\n- 是否存在拼写、语法或印刷错误？\n\n准确性指的是可靠性、置信度、内容的正确性。可以看看有没有文献——如果有引用文献，就说明这个信息可能会比较准确。从信息的来源是否可靠、观点或结论是否有证据支撑来入手。可靠的信息被检验或引用过的会更多，比如好的论文也会是被引用更多的论文。\n\n我们也可以从其他来源或依靠个人知识对此信息的任何部分进行验证，并且还要注意信息的行文措辞：所使用的语言是否有偏见，或有感情色彩？有什么拼写、语法或其他书写方面的错误吗？"
+       },
+       {
+        "id": "b-purpose",
+        "type": "text",
+        "content": "#### P 目的性 Purpose\n\n引导问题：\n\n- 该网站的目的是什么（说服，向你出售某些东西等）？\n- 网站的域名是什么（.edu、.org、.com 等）？\n- 网站上是否有广告？\n- 它们与所涉及的主题有何关系（例如，有关枪支法规的文章旁边的弹药广告）？\n- 作者是陈述事实还是观点？相信本网站的读者谁能从中受益？\n- 根据写作风格，目标受众是谁？\n\n目的性指的是信息存在的原因。我们要考察发布此信息的目的是什么。\n\n如果是一个广告，当然会倾向于说自己好，忽视对自己不利的内容；如果是观点文章，也很可能会有这种倾向性，因为可能只收集了能够支持自己观点的信息，忽视了对自己不利的信息；但如果是一篇学术文章的话，按学术的标准是两方面都要顾及到的，就比较可信。"
+       },
+       {
+        "id": "b-aap-check",
+        "type": "singleChoice",
+        "prompt": "你在一个网站上看到一篇文章，论证「气候变化被夸大了」。文章写得很专业、也有图表。翻到页面底部，你发现网站的赞助方是一家大型石油公司。这个发现最直接击中的是 CRAAP 的哪一条？",
+        "options": [
+         {
+          "id": "opt-aap-purpose",
+          "label": "目的性——赞助方能从这个结论里获益，这解释了这篇文章为什么会存在"
+         },
+         {
+          "id": "opt-aap-accuracy",
+          "label": "准确性——有赞助方就说明数据一定是伪造的"
+         },
+         {
+          "id": "opt-aap-currency",
+          "label": "时效性——赞助关系跟信息新旧有关"
+         },
+         {
+          "id": "opt-aap-relevance",
+          "label": "相关性——赞助方跟我的研究问题无关，可以忽略"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "opt-aap-purpose"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-authority"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-accuracy"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-purpose"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-aap-check"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-aap-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-aap-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-aap-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-aap-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-authority",
+         "b-accuracy",
+         "b-purpose",
+         "b-aap-check"
+        ],
+        "visibleBlockIds": [
+         "b-authority",
+         "b-accuracy",
+         "b-purpose",
+         "b-aap-check"
+        ]
+       },
+       "initialStepId": "wait-b-aap-check"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-craap-aap",
+        "text": "本页聚焦权威性、准确性与目的性。先理解三条准则，再完成右下角的判断题。",
+        "audio": "assets/audio/narrations/piece-craap-aap.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 260
+     },
+     {
+      "id": "piece-craap-aap-feedback",
+      "title": "为什么是目的性，而不是准确性",
+      "blocks": [
+       {
+        "id": "b-aap-check-why",
+        "type": "text",
+        "content": "为什么是目的性，而不是准确性？\n\n这是一个必须分清的界限。\n\n发现石油公司的赞助关系，并没有证明文章里的任何一个数据是假的。它回答的是另一个问题：这条信息为什么会被生产出来？谁能从这个结论里获益？\n\n接下来你仍然要动用准确性去逐条查它的数据——但你现在知道该带着什么样的警惕去查了。\n\n把「有动机」当成「已造假」，和把「有赞助」当成「无所谓」，是同一个错误的两个方向。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-aap-check-why"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-aap-check-why"
+        ],
+        "visibleBlockIds": [
+         "b-aap-check-why"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-craap-aap-feedback",
+        "text": "本页解释为什么石油公司赞助关系首先击中目的性，而不是直接证明准确性出错。",
+        "audio": "assets/audio/narrations/piece-craap-aap-feedback.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 69
+     },
+     {
+      "id": "piece-quick-judge-economist",
+      "title": "快判：《经济学人》是个什么来源",
+      "blocks": [
+       {
+        "id": "b-quick-intro",
+        "type": "text",
+        "content": "工具拿到手了，先用一次。\n\n我们先在维基百科上搜索《经济学人》这份杂志，然后用 CRAAP 这个过滤器来评估一下。"
+       },
+       {
+        "id": "b-economist-header",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-economist-header-item-1",
+          "alt": "《经济学人》官方网站页眉，红底白字的 The Economist 标识，右侧为菜单、周刊版、搜索入口",
+          "source": "assets/images/economist-header.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "b-economist-wiki",
+        "type": "text",
+        "content": "> 《经济学人》是一份由伦敦经济学人报纸有限公司出版的杂志，创办于 1843 年 9 月，创办人詹姆士·威尔逊。该杂志是一份国际性新闻和商业周刊，提供对全球政治、商业、金融、科学及技术的清晰报道、评论和分析。《经济学人》不同于其它出版物，它的文章都是匿名发表。对《经济学人》来说，集体的声音和特性远比单个记者的个人身份更加重要。每周，《经济学人》都会被全球 200 多个国家超过 400 万的读者阅读，《经济学人》被认可为全球最具影响力的政治商业期刊之一。\n\n这叫「快判」——一分钟之内，对出品方形成一个初步判断。\n\n快判只回答一个问题：这个来源值不值得我继续往下看。它不回答「片子里每一句话该不该信」，那是后面要花大力气做的事。"
+       },
+       {
+        "id": "b-quick-judge",
+        "type": "fillBlank",
+        "prompt": "用 CRAAP 五条里你觉得最能派上用场的一条，对《经济学人》写出你的初步判断。\n\n请写清楚两件事：你用的是哪一条，以及上面那段介绍里的哪一句话支撑了你的判断。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "回答需要明确点出 CRAAP 中的某一条准则，并从维基百科介绍中引用具体依据（如 1843 年创刊、200 多国 400 万读者、匿名发表的集体声音等）。只写结论而没有指出依据的，属于未达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-economist-header"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-quick-intro"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-economist-wiki"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-quick-judge"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-quick-judge",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-quick-judge"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-quick-judge"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-quick-judge"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-quick-intro",
+         "b-economist-header",
+         "b-economist-wiki",
+         "b-quick-judge"
+        ],
+        "visibleBlockIds": [
+         "b-quick-intro",
+         "b-economist-header",
+         "b-economist-wiki",
+         "b-quick-judge"
+        ]
+       },
+       "initialStepId": "wait-b-quick-judge"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-quick-judge-economist",
+        "text": "本页聚焦“快判：《经济学人》是个什么来源”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-quick-judge-economist.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 213
+     },
+     {
+      "id": "piece-source-pyramid",
+      "title": "信源金字塔：八级来源拖拽排序",
+      "blocks": [
+       {
+        "id": "b-pyramid-intro",
+        "type": "text",
+        "content": "在动用五条准则之前，其实还有一个更快的办法，可以先给来源分个等级。\n\n根据汪诘《科学思维要点》（《读库 2001》第 7–10 页），信源的可靠度可以用「信源金字塔」来快速判断：信源等级越高，表示它的可靠程度相对也越高。\n\n下面有八张来源卡片，全部来自这门课里出现过的材料。请把它们拖回自己的等级。八张全部归位后才能提交，提交后你会看到逐级的讲解。"
+       },
+       {
+        "id": "b-pyramid-drag",
+        "type": "interactiveHtml",
+        "source": "interactions/html/source-pyramid.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:2",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-pyramid-intro"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-pyramid-drag"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-pyramid-drag",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "b-pyramid-drag"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-pyramid-drag"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-pyramid-drag"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-pyramid-intro",
+         "b-pyramid-drag"
+        ],
+        "visibleBlockIds": [
+         "b-pyramid-intro",
+         "b-pyramid-drag"
+        ]
+       },
+       "initialStepId": "wait-b-pyramid-drag"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-source-pyramid",
+        "text": "本页聚焦“信源金字塔：八级来源拖拽排序”。阅读提示后完成页面中的互动任务。",
+        "audio": "assets/audio/narrations/piece-source-pyramid.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-1"
+      ],
+      "estimatedSeconds": 164
+     }
+    ],
+    "objectiveIds": [
+     "craap-crraab-objective-1"
+    ]
+   },
+   {
+    "id": "part-3-craap-to-crraab",
+    "title": "从 CRAAP 到 CRRAAB：问题的变形",
+    "slices": [
+     {
+      "id": "piece-five-to-six",
+      "title": "五条为什么变成了六条",
+      "blocks": [
+       {
+        "id": "b-why-six",
+        "type": "text",
+        "content": "CRAAP 不是唯一的一套过滤器。\n\n接下来我们要用的这套叫 CRRAAB，它是 CRAAP 的加强版——保留时效与相关，把「信誉／权威」拆细，并把「偏见」单列为一维。\n\n注意看这张对照表。这门课真正要教的东西，就藏在这张表的变化里：\n\n| CRAAP | CRRAAB | 发生了什么 |\n| --- | --- | --- |\n| C 时效性 | C Currency 时效 | 保留，但追问的角度变了 |\n| R 相关性 | R Relevance 相关 | 保留，但被锁死在一个具体研究问题上 |\n| —— | R Reputation 信誉 | 全新的一维：说错了要付什么代价？ |\n| A 权威性 | A Authority 权威 | 含义被大幅扩张：亲历也算权威 |\n| A 准确性 | A Accuracy 准确 | 从查文本表面，转向查生产过程 |\n| P 目的性 | B Bias 偏见 | 从「为什么存在」变成「谁会因此获益」 |\n\n每一维配一个核心追问：\n\n| 维度 | 核心追问 | 这一维真正难的地方 |\n| --- | --- | --- |\n| C 时效 | 信息够新吗？要看议题发展的速度 | 慢变议题里几年前的也可用；快变议题里几天就过时 |\n| R 相关 | 再真，也得切中我的研究问题 | 时刻回到：我的问题到底是什么？需要多细？ |\n| R 信誉 | 如果说错了，这个人／机构会损失什么？ | 有损失＝有动机说对；匿名博主几乎无代价 |\n| A 权威 | 他凭什么被当回事——专家资历，还是亲历？ | 亲身经历也是权威；且好的专家会引用来源、不让你只信他 |\n| A 准确 | 是否用心、可核查、与已知相符？ | 看同行评审、看是否三角验证、看方法与数据是否透明 |\n| B 偏见 | 谁会因为带偏事实而获益？ | 国别／政治／信仰立场；既得利益；还要留意「没说出来的」 |"
+       },
+       {
+        "id": "b-dimension-sort",
+        "type": "singleChoice",
+        "prompt": "「这个村长如果说错了，他会损失什么？」——这个追问属于 CRRAAB 的哪一维？",
+        "options": [
+         {
+          "id": "opt-dim-reputation",
+          "label": "R 信誉 Reputation"
+         },
+         {
+          "id": "opt-dim-authority",
+          "label": "A 权威 Authority"
+         },
+         {
+          "id": "opt-dim-bias",
+          "label": "B 偏见 Bias"
+         },
+         {
+          "id": "opt-dim-accuracy",
+          "label": "A 准确 Accuracy"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "opt-dim-reputation"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "b-dimension-sort-2",
+        "type": "singleChoice",
+        "prompt": "同一件事，CRAAP 问「这条信息为什么会存在？」，CRRAAB 改成问「谁会因为带偏事实而获益？」。这个改写带来的最大好处是什么？",
+        "options": [
+         {
+          "id": "opt-shift-harder",
+          "label": "把一个可以泛泛回答的问题，变成了一个必须指名道姓的问题——更难糊弄过去"
+         },
+         {
+          "id": "opt-shift-shorter",
+          "label": "问题变短了，学生更容易背下来"
+         },
+         {
+          "id": "opt-shift-nicer",
+          "label": "语气更温和，不会冒犯信息的作者"
+         },
+         {
+          "id": "opt-shift-same",
+          "label": "没有区别，两个问题问的是同一件事"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "opt-shift-harder"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "b-dimension-why",
+        "type": "text",
+        "content": "这两道题合起来，说的是同一件事：改写问题，就是在改变它有多难被糊弄过去。\n\n「他说错了要付什么代价」之所以是新的一维，是因为它问的既不是「他是谁」（权威），也不是「他想要什么」（偏见），而是代价——有代价，才有把事情做对的动机。\n\n「谁会因此获益」之所以比「它为什么存在」更好用，是因为前者逼你指认一个具体的受益方，后者可以用一句「为了传播知识」搪塞过去。\n\n接下来的两个环节，你会把这六个问题分别用在两类完全不同的信源上——先是一家机构，再是三个普通人。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-why-six"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-dimension-why"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-dimension-sort"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-dimension-sort-2"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-dimension-sort",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-dimension-sort"
+           },
+           "to": "wait-b-dimension-sort-2"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-dimension-sort"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-dimension-sort"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-b-dimension-sort-2",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-dimension-sort-2"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-dimension-sort-2"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-dimension-sort-2"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-why-six",
+         "b-dimension-sort",
+         "b-dimension-why"
+        ],
+        "visibleBlockIds": [
+         "b-why-six",
+         "b-dimension-sort",
+         "b-dimension-sort-2",
+         "b-dimension-why"
+        ]
+       },
+       "initialStepId": "wait-b-dimension-sort"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-five-to-six",
+        "text": "本页聚焦“五条为什么变成了六条”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-five-to-six.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 348
+     },
+     {
+      "id": "piece-three-shifts",
+      "title": "三处最关键的变形",
+      "blocks": [
+       {
+        "id": "b-shift-authority",
+        "type": "text",
+        "content": "#### 变形一：Authority 从「看学历」扩张到「看亲历」\n\nCRAAP 的权威性问的是：作者是谁？有什么证书？隶属哪个机构？——这套问法默认了一件事：权威来自资格认证。\n\nCRRAAB 加进了另一种权威：\n\n> 一位海洋科学家应该有大学学位，并隶属于一个有信誉的机构，来证明他有资格谈论海洋生态系统。但是，一位普通的渔民，凭着他对自己渔场的深厚经验，也可以有权威地谈论当地捕鱼条件的变化。\n\n这一处扩张，会直接改变你对那三位受访者的判断。"
+       },
+       {
+        "id": "b-shift-bias",
+        "type": "text",
+        "content": "#### 变形二：Purpose 变成 Bias，追问的对象从文本转向利益\n\nCRAAP 的目的性看的是文本本身：这是广告吗？域名是什么？有没有夹带广告？\n\nCRRAAB 的偏见直接绕到文本背后去问：谁会因为把事实带偏而获益？ 国别、种族、政治立场，宗教与意识形态这类信仰体系，都可能扭曲事实的筛选与解释。偏见可能是无意识而真诚的，但人也可能有动机去「加工」事实，甚至说谎——所以要考虑既得利益。"
+       },
+       {
+        "id": "b-shift-reputation",
+        "type": "text",
+        "content": "#### 变形三：多出来的 Reputation，问的是代价\n\n这一维在 CRAAP 里完全没有。\n\n> 如果这个人或他的机构被发现说错了，他们会损失什么？学者和记者可能失去学生、读者和同行的尊重，甚至被起诉或丢掉工作。机构可能失去客户或资金，并且今后不再被认真对待。这些东西给了人们把事情做对的动机。反过来，鲜为人知的博主或在社交媒体上匿名发帖的人，几乎不会因为发布错误信息而承担后果。\n\n所以这一维的追问非常具体：说错了，代价是什么？"
+       },
+       {
+        "id": "b-transfer",
+        "type": "fillBlank",
+        "prompt": "任选上面三处变形中的一处，回答：\n\n如果用这一处变形去重新看第一部分那支纪录片，你对它的判断会发生什么改变？请具体说出是片子里的哪个人、哪一段内容受到了影响。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "回答需要明确指出所选的变形（权威扩张／目的转偏见／新增信誉），并落到纪录片中的具体人物或具体段落上，而不是停留在对框架的复述。能说出「判断从 A 变成了 B」这一变化过程的，为优。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-shift-authority"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-shift-bias"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-shift-reputation"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-transfer"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-transfer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-transfer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-transfer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-transfer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-shift-authority",
+         "b-shift-bias",
+         "b-shift-reputation",
+         "b-transfer"
+        ],
+        "visibleBlockIds": [
+         "b-shift-authority",
+         "b-shift-bias",
+         "b-shift-reputation",
+         "b-transfer"
+        ]
+       },
+       "initialStepId": "wait-b-transfer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-three-shifts",
+        "text": "本页聚焦“三处最关键的变形”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-three-shifts.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 219
+     }
+    ],
+    "objectiveIds": [
+     "craap-crraab-objective-2"
+    ]
+   },
+   {
+    "id": "part-4-institution",
+    "title": "示范环节：评估出品方《经济学人》",
+    "slices": [
+     {
+      "id": "piece-institution-task",
+      "title": "任务：这家杂志社值得信吗",
+      "blocks": [
+       {
+        "id": "b-container-first",
+        "type": "text",
+        "content": "评估一支纪录片，先评估装着它的那个容器。\n\n出品方的机构标准，决定了这支片子的下限：它有没有能力做事实核查，有没有动机做对，它的立场会不会系统性地影响它选择呈现什么。\n\n所以我们从《经济学人》这家机构开始。"
+       },
+       {
+        "id": "b-wiki-task",
+        "type": "text",
+        "content": "下面这段摘录来自维基百科上关于《经济学人》的条目。请用引导问题去思考图中高亮的 1–7 处。它们会如何影响你对《经济学人》可靠性的评估——把它当作气候变化这类议题的信息与解读来源？\n\n（原文：The extract below is from the Wikipedia article on The Economist. Use the guiding questions to consider the highlighted points 1-7. How might they affect your evaluation of the reliability of The Economist as a source of information and interpretation of an issue such as climate change?）\n\n用 CRRAAB 六维来考虑： Currency, Relevance, Reputation, Authority, Accuracy, Bias"
+       },
+       {
+        "id": "b-wiki-extract",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-wiki-extract-item-1",
+          "alt": "维基百科《经济学人》条目摘录，正文中有七处彩色高亮，左侧栏列出对应的七个引导问题",
+          "source": "assets/images/economist-wikipedia-extract.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "b-wiki-locate",
+        "type": "text",
+        "content": "往下走之前，请先做一件事： 在图中把七处高亮逐一找到，确认每一处高亮对应左侧的哪一个问题。\n\n接下来的三个环节，每一个问题你都要先写出自己的判断，然后才能看到参考答案。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-wiki-extract"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-container-first"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-wiki-task"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-wiki-locate"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-container-first",
+         "b-wiki-task",
+         "b-wiki-extract",
+         "b-wiki-locate"
+        ],
+        "visibleBlockIds": [
+         "b-container-first",
+         "b-wiki-task",
+         "b-wiki-extract",
+         "b-wiki-locate"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-institution-task",
+        "text": "本页聚焦“任务：这家杂志社值得信吗”。阅读材料，整理本页的核心判断。",
+        "audio": "assets/audio/narrations/piece-institution-task.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 217
+     },
+     {
+      "id": "piece-institution-q12",
+      "title": "问题 1–2：地域偏见与规模",
+      "blocks": [
+       {
+        "id": "b-q12-intro",
+        "type": "text",
+        "content": "高亮 1 告诉你：《经济学人》总部在伦敦，核心编辑部在美国，以及欧洲大陆、亚洲和中东的主要城市。\n\n高亮 2 告诉你：2019 年它的全球平均印刷发行量超过 909,476 份，加上数字业务超过 160 万；跨社交媒体平台触达 3500 万受众（2016 年数据）。"
+       },
+       {
+        "id": "b-q1",
+        "type": "fillBlank",
+        "prompt": "问题 1：Is it likely to be regionally biased?（它是否可能带有地域偏见？）\n\n先写下你自己的判断和理由。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能指出「总部在伦敦」这一事实构成偏见风险，同时能考虑到它的全球布局可能起到平衡作用的，为达成。只回答「是」或「否」而不给理由的，为未达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-q2",
+        "type": "fillBlank",
+        "prompt": "问题 2：Is it large enough to need and afford high professional standards?（它的规模是否大到既需要、也负担得起高专业标准？）\n\n先写下你自己的判断和理由。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能把「规模」和「专业标准」之间的因果讲出来（规模大→受关注多→出错代价高→有动机也有资源维持标准）的，为达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-q12-answer",
+        "type": "text",
+        "content": "#### 参考答案\n\n问题 1： It may have an Anglo worldview, but its global presence will help it to take a global view.\n\n> 它可能带有一种盎格鲁式的世界观，但它的全球布局会帮助它采取一个全球视角。\n\n问题 2： Yes – it is big.\n\n> 是的——它体量很大。\n\n---\n\n这里有一个很容易滑过去的陷阱：\n\n「规模大」和「准确」是两回事。大机构有能力也有动机维持高标准——因为它出错的代价更大、被盯着的眼睛更多。但这只是提高了它做对的概率，本身并不构成任何一条具体信息准确的证据。\n\n换句话说：规模是一个关于信誉（Reputation）的判断，不是一个关于准确（Accuracy）的判断。把这两者混为一谈，是评估机构类信源时最常见的错误。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-q12-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-q12-answer"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-q1"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-q2"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-q1",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q1"
+           },
+           "to": "wait-b-q2"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q1"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q1"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-b-q2",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q2"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q2"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q2"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-q12-intro",
+         "b-q1",
+         "b-q12-answer"
+        ],
+        "visibleBlockIds": [
+         "b-q12-intro",
+         "b-q1",
+         "b-q2",
+         "b-q12-answer"
+        ]
+       },
+       "initialStepId": "wait-b-q1"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-institution-q12",
+        "text": "本页聚焦“问题 1–2：地域偏见与规模”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-institution-q12.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 251
+     },
+     {
+      "id": "piece-institution-q34",
+      "title": "问题 3–4：历史记录与「集体声音」",
+      "blocks": [
+       {
+        "id": "b-q34-intro",
+        "type": "text",
+        "content": "高亮 3 告诉你：《经济学人》创办于 1843 年，最初由苏格兰经济学家詹姆士·威尔逊创办，为的是争取废除英国的《谷物法》。\n\n高亮 4 告诉你：它的文章都是匿名发表、不署名的，为的是让整份刊物以一个集体的声音说话。"
+       },
+       {
+        "id": "b-q3",
+        "type": "fillBlank",
+        "prompt": "问题 3：Does it have a track record of success?（它有没有长期成功的记录？）\n\n先写下你自己的判断和理由。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能把「1843 年创办、持续至今」这一事实转化为对可靠性的推断的，为达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-q4",
+        "type": "fillBlank",
+        "prompt": "问题 4：Does the \"collective voice\" affect the reliability?（匿名的「集体声音」会不会影响可靠性？）\n\n这一问没有标准答案，两个方向都能讲得通。请写出你倾向哪一边，以及你的理由。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "关键看学生有没有意识到这是一个双面判断。只说好处或只说坏处而未意识到另一面的，为部分达成；能同时说出「质量控制」与「观点趋同」两个方向的，为优。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-q34-answer",
+        "type": "text",
+        "content": "#### 参考答案\n\n问题 3： It has been going a very long time!\n\n> 它已经办了非常久了！\n\n问题 4： Debatable. It does suggest quality control – the Editor-in-Chief takes responsibility for every article.\n\n> 可以争论。它确实意味着某种质量控制——主编要为每一篇文章负责。\n\n---\n\n这是本环节最不直观的一处判断，值得多花一分钟：\n\n「集体声音」要两面看。\n\n- 一面是：主编为每一篇文章负责，这是质量控制——出了错有人担责、有人有动机把它做对。\n- 另一面是：取消署名，也可能让全刊的观点趋于一致，让不同记者之间本该存在的分歧被抹平。\n\n所以它不能只被当成优点。如果你刚才只写了一面，回头补上另一面——这种「一个特征同时是优点和风险」的判断，是评估里最值钱的能力。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-q34-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-q34-answer"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-q3"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-q4"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-q3",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q3"
+           },
+           "to": "wait-b-q4"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q3"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q3"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-b-q4",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q4"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q4"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q4"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-q34-intro",
+         "b-q3",
+         "b-q34-answer"
+        ],
+        "visibleBlockIds": [
+         "b-q34-intro",
+         "b-q3",
+         "b-q4",
+         "b-q34-answer"
+        ]
+       },
+       "initialStepId": "wait-b-q3"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-institution-q34",
+        "text": "本页聚焦“问题 3–4：历史记录与「集体声音」”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-institution-q34.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 254
+     },
+     {
+      "id": "piece-institution-q567",
+      "title": "问题 5–7：编辑立场、准确声誉与读者",
+      "blocks": [
+       {
+        "id": "b-q567-intro",
+        "type": "text",
+        "content": "高亮 5 告诉你：《经济学人》的编辑立场主要围绕古典自由主义、社会自由主义，尤其是经济自由主义；自创刊以来它支持激进中间路线，倾向自由市场、自由贸易、自由移民和放松管制。\n\n高亮 6 告诉你：尽管有鲜明的编辑立场，它被认为报道偏见很小，并执行严格的事实核查与文字校订。\n\n高亮 7 告诉你：它的读者是高收入、受过良好教育的群体，并声称拥有商界领袖与政策制定者中的影响力读者。"
+       },
+       {
+        "id": "b-q5",
+        "type": "fillBlank",
+        "prompt": "问题 5：How might this editorial stance affect their perspective on climate change?（这样的编辑立场，会如何影响它看待气候变化的角度？）\n\n提示：一份倾向自由市场的刊物，在讨论「怎么解决气候问题」时，可能更偏好哪一类方案？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能从「经济自由主义立场」推导出它在气候方案上的倾向（偏好市场化手段而非强制管制）的，为达成。只回答「会有偏见」而说不出具体方向的，为未达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-q6",
+        "type": "fillBlank",
+        "prompt": "问题 6：Does it have a good reputation for accuracy?（它在准确性上声誉如何？）\n\n先写下你的判断。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "能引用高亮 6 中「严格事实核查与文字校订」作为依据的，为达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-q7",
+        "type": "fillBlank",
+        "prompt": "问题 7：Are its readers likely to notice and care about accuracy, reliability and balance?（它的读者是否可能注意到、并且在意准确性、可靠性与平衡？）\n\n先写下你的判断，并说明这件事为什么会影响这份刊物的质量。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "关键在于能否说出这条因果链：读者专业且挑剔→出错会被抓出来→机构因此有更强的动机维持准确。只回答「是」而未说明机制的，为部分达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-q567-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-q5"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-q6"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-q7"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-q5",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q5"
+           },
+           "to": "wait-b-q6"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q5"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q5"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-b-q6",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q6"
+           },
+           "to": "wait-b-q7"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q6"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q6"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-b-q7",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-q7"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-q7"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-q7"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-q567-intro",
+         "b-q5"
+        ],
+        "visibleBlockIds": [
+         "b-q567-intro",
+         "b-q5",
+         "b-q6",
+         "b-q7"
+        ]
+       },
+       "initialStepId": "wait-b-q5"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-institution-q567",
+        "text": "本页完成问题五到七，分别判断编辑立场、准确声誉与读者约束。",
+        "audio": "assets/audio/narrations/piece-institution-q567.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 220
+     },
+     {
+      "id": "piece-institution-q567-feedback",
+      "title": "问题 5–7：参考答案与分寸",
+      "blocks": [
+       {
+        "id": "b-q567-answer",
+        "type": "text",
+        "content": "#### 参考答案\n\n问题 5： They're likely to favour global cooperation with economic methods such as carbon emissions trading, to achieve collective action without compromising freedom.\n\n> 它们可能倾向于用经济手段（例如碳排放交易）来推动全球合作，在不损害自由的前提下实现集体行动。\n\n问题 6： Yes.\n\n> 是的。\n\n问题 7： Yes.\n\n> 是的。\n\n---\n\n注意问题 5 的分寸：\n\n有编辑立场，不等于造假。经济自由主义的立场会让《经济学人》更倾向于报道和支持碳交易这类市场化方案，而对强制性管制方案着墨更少——这是一种可预期的倾向性，不是欺骗。\n\n你要做的是识别这种倾向，然后在读它的报道时知道该到别处去补哪一块，而不是因为发现了立场就把整个来源丢掉。这是成熟的信息使用者和阴谋论者之间的分界线。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-q567-answer"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-q567-answer"
+        ],
+        "visibleBlockIds": [
+         "b-q567-answer"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-institution-q567-feedback",
+        "text": "本页对问题五到七给出参考答案，并强调编辑立场不等于造假。",
+        "audio": "assets/audio/narrations/piece-institution-q567-feedback.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 90
+     },
+     {
+      "id": "piece-institution-takeaways",
+      "title": "机构类信源：三个必须抓到的点",
+      "blocks": [
+       {
+        "id": "b-institution-summary",
+        "type": "text",
+        "content": "七个问题走完了。把它们压缩成三条，你下次遇到任何一家出版机构都能直接调用：\n\n1. 评估「集体声音」与编辑立场。 匿名、统一口径、鲜明立场——这些特征既可能是质量控制，也可能是观点趋同。永远两面看。\n\n2. 识别视角的来处。 总部在哪、编辑部在哪、读者是谁，会系统性地决定它看得见什么、看不见什么。《经济学人》的盎格鲁视角就是一例。\n\n3. 区分「规模大」与「准确」。 规模决定的是它有没有能力和动机做对（信誉），不是它这一次有没有做对（准确）。这两件事要分开查。\n\n---\n\n现在回头做一次自查：\n\n翻回你刚才写的七段作答。这三条里，哪一条是你完全没有想到的？记住它——因为它就是你在评估机构时的盲区。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-institution-summary"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-institution-summary"
+        ],
+        "visibleBlockIds": [
+         "b-institution-summary"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-institution-takeaways",
+        "text": "本页聚焦“机构类信源：三个必须抓到的点”。阅读材料，整理本页的核心判断。",
+        "audio": "assets/audio/narrations/piece-institution-takeaways.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-2"
+      ],
+      "estimatedSeconds": 80
+     }
+    ],
+    "objectiveIds": [
+     "craap-crraab-objective-2"
+    ]
+   },
+   {
+    "id": "part-5-witnesses",
+    "title": "带练环节：评估三位当地证人",
+    "slices": [
+     {
+      "id": "piece-who-are-they",
+      "title": "三位受访者是谁",
+      "blocks": [
+       {
+        "id": "b-witness-intro",
+        "type": "text",
+        "content": "机构评估完了。现在换一类完全不同的信源：片子里出镜的三位当地人。\n\n他们不是机构，也不是专家，而是身处问题最前线的亲历者证词。"
+       },
+       {
+        "id": "b-witness-photos",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-witness-photos-item-1",
+          "alt": "三位受访者出镜画面：左为孟加拉达卡的气候难民 Minara Begum，中为危地马拉小农 Israel Ramírez Rivera，右为斐济托戈鲁村村长 Barney Dunn",
+          "source": "assets/images/three-interviewees.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "b-witness-group",
+        "type": "text",
+        "content": "> We'll consider these three together for one evaluation since they are the same type of source: testimony from people who represent local perspectives at the sharp end of the issue.\n\n> 我们把这三个人合并成一次评估，因为他们属于同一类信源：来自身处问题最前线、代表当地视角的人的证词。\n\n三个人，三种气候影响：\n\n| 受访者 | 身份 | 他所在的地方正在发生什么 |\n| --- | --- | --- |\n| Minara Begum | 孟加拉达卡的气候难民 | 城市高温与湿球温度 |\n| Israel Ramírez Rivera | 危地马拉小农 | 干旱与作物绝收 |\n| Barney Dunn | 斐济托戈鲁村村长 | 海平面上升与海岸侵蚀 |\n\n为什么先确定类别？ 因为类别决定了你该用哪种方式去追问权威。对机构，你问它的专业标准；对亲历者，你要问的是另一件事——这正是接下来六维评估要处理的。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-witness-photos"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-witness-intro",
+          "b-witness-group"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-witness-intro",
+         "b-witness-photos",
+         "b-witness-group"
+        ],
+        "visibleBlockIds": [
+         "b-witness-intro",
+         "b-witness-photos",
+         "b-witness-group"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-who-are-they",
+        "text": "本页聚焦“三位受访者是谁”。阅读材料，整理本页的核心判断。",
+        "audio": "assets/audio/narrations/piece-who-are-they.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 198
+     },
+     {
+      "id": "piece-country-context",
+      "title": "三个国家正在发生什么",
+      "blocks": [
+       {
+        "id": "b-context-intro",
+        "type": "text",
+        "content": "在听三个人自己怎么说之前，先看一批可以回溯到具体机构的硬数据。\n\n后面评估「准确」这一维的时候，你要用这些数据去跟他们的口述做交叉验证。"
+       },
+       {
+        "id": "b-context-bangladesh",
+        "type": "text",
+        "content": "#### 孟加拉国\n\n气候科学家表示，地势低洼的孟加拉国极易受到气候变化的影响，数百万人面临流离失所的风险——由于海平面上升、河流侵蚀、气旋风暴和咸水入侵，他们成为气候难民。\n\n世界银行在报告中表示，到 2050 年，孟加拉国将有超过 1900 万国内气候难民，几乎是整个南亚地区预计人数的一半。联合国政府间气候变化专门委员会（IPCC）发布的报告《气候变化 2022：影响、适应和脆弱性》指出，未来 20 年，世界将面临多重气候危害，最不具备应对能力的人群和生态系统受到的打击最严重。"
+       },
+       {
+        "id": "b-context-guatemala",
+        "type": "text",
+        "content": "#### 危地马拉\n\n危地马拉太平洋沿岸苏奇特佩克斯省（Suchitepéquez）的 8 个地区近期正在经历干旱，当地玉米种植者表示「玉米已经绝收了」。在部分地区，20% 的农作物能够得到挽救；而有些地区，由于本季降雨量不足以及大多数农民没有灌溉系统，农作物将损失殆尽。\n\n目前，多个社区已经上报了损失情况，据统计，有 1000 多人蒙受了农作物收成的损失。在圣丽塔社区（Santa Rita），农民们损失惨重，于是他们改种芝麻，试图挽回部分投资。在此情况下，农民们要求政府提供粮食援助，并要求农业部核实和量化干旱造成的损失。应农民的要求，国会农业委员会近期访问了太平洋沿岸的一些社区，向农业部通报了他们蒙受的损失。"
+       },
+       {
+        "id": "b-context-fiji",
+        "type": "text",
+        "content": "#### 斐济\n\n近年来，全球气候变化导致海平面不断上升，太平洋岛国斐济的不少村庄都被部分淹没，不仅影响了当地居民的谋生，也让他们面临背井离乡的困境。村长在视频中提到，有时候整片墓地都会被淹没。\n\n斐济有超过 70% 的人生活在距离海岸 5 公里以内。根据联合国粮农组织的统计，斐济农村人口有一半靠捕鱼为生，海水变暖破坏了沿海的生态系统，使他们的收入来源更加不稳定。澳大利亚莫纳什大学的研究发现，西太平洋的海平面一直在上升，比全球平均水平快 2 至 3 倍。未来，越来越多的斐济人可能被迫背井离乡，前往内陆高原或者搬迁海外。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-context-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-context-bangladesh"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-context-guatemala"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-context-fiji"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-context-intro",
+         "b-context-bangladesh",
+         "b-context-guatemala",
+         "b-context-fiji"
+        ],
+        "visibleBlockIds": [
+         "b-context-intro",
+         "b-context-bangladesh",
+         "b-context-guatemala",
+         "b-context-fiji"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-country-context",
+        "text": "本页聚焦“三个国家正在发生什么”。阅读材料，整理本页的核心判断。",
+        "audio": "assets/audio/narrations/piece-country-context.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 266
+     },
+     {
+      "id": "piece-country-context-task",
+      "title": "圈出可回溯到机构的硬数据",
+      "blocks": [
+       {
+        "id": "b-context-task",
+        "type": "text",
+        "content": "读完之后做一件事： 把上面三段里能回溯到具体机构的数据圈出来。\n\n提示：世界银行、IPCC、联合国粮农组织、莫纳什大学、国会农业委员会——至少找出三条带机构出处的说法。这些就是你后面手里的「硬数据」。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "b-context-task"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-context-task"
+        ],
+        "visibleBlockIds": [
+         "b-context-task"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-country-context-task",
+        "text": "本页提醒你把三国背景中能回溯到具体机构的数据圈出来，作为后面交叉验证的硬数据。",
+        "audio": "assets/audio/narrations/piece-country-context-task.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 45
+     },
+     {
+      "id": "piece-transcript",
+      "title": "原始文字稿",
+      "blocks": [
+       {
+        "id": "b-transcript-why",
+        "type": "text",
+        "content": "评估必须建立在原始材料上，而不是别人的转述。\n\n下面是纪录片里三段完整的文字稿。请通读一遍，并把三位受访者各自的原话（引号里的部分）划出来——接下来六个维度的每一维，你都要回到这里来找证据。"
+       },
+       {
+        "id": "b-transcript-1",
+        "type": "text",
+        "content": "#### 干旱走廊：危地马拉的小农\n\nSo far, many developed cities have got off lightly, but some rural parts of the world are suffering disproportionately. Smallholders—small-scale farmers—are particularly vulnerable to climate change, and there are over 600 million around the world. Smallholders with farms under two hectares produce around a third of the global food supply. Central America's \"Dry Corridor\" supports a mix of smallholdings and medium-sized farms. Sandwiched between the Pacific Ocean and the Caribbean Sea, the area is prone to droughts. Israel Ramírez Rivera is a smallholder in Guatemala. Here, climate change is making the dry seasons longer, and more severe. \"This is the biggest ear of maize that this plot could deliver.\" He depends on his crops of corn and beans, but they're getting harder to grow. \"The surrounding mountains used to provide us with native food and now that isn't an option anymore due to climate change and its effects.\" Nearly two-thirds of the smallholders in the Dry Corridor now live in poverty. \"The impact of all of this for us: malnutrition among children – we've lost a few. For my crops especially, the midsummer heat is harder than before. The plant dries up and can't provide us with the necessary food provision.\" Severe droughts in Central America are now four times more likely than they were last century. \"Many families from here have gone to the States; the economic despair and debts have pushed many people from this community to do this journey.\" Migration from Guatemala to the United States has quadrupled since 1990. Not all of this has been due to climate change, but longer droughts would force even more to move. In a 3°C world, annual rainfall in this region could drop by up to 14%. At 3°C, over a quarter of the world's population could endure extreme droughts for at least a month of the year. Northern Africa could see droughts that last for years at a time."
+       },
+       {
+        "id": "b-transcript-2",
+        "type": "text",
+        "content": "#### 海水吞没：斐济托戈鲁村\n\nBut for some, too much water will be the problem. 10% of the world's population lives on a coastline that's less than 10 metres above sea level. For these coastal inhabitants, a 3°C world would spell disaster. By 2100, global sea levels could have climbed by half a metre from 2005 levels. Low-lying cities like Lagos would be especially vulnerable, with up to a third of the population displaced. And in Fiji, rising waters are already upending lives. \"You can see the graveyard there – it's all under water now due to this rising sea level and climate change.\" The village of Togoru in Fiji is being swallowed by the sea. Barney Dunn, the village headman, has seen over half the village disappear. Relatives' houses have been abandoned, and family graves are now under water. \"We have been asked by the government to relocate, but no one wants to relocate because we have our great-great-grandparents down there in the sea. This is the place we've been brought up in – it's not easy to leave.\" Past attempts to build a seawall haven't worked, but Barney sees building a new one as the village's only hope. \"If they do that, maybe we can save whatever is left, but if we don't have the seawall, then it will be keep eroding and time will come maybe in ten, fifteen years, Togoru will be all eroded.\" Rising seas also mean storms cause more floods. And many more countries could suffer. The Philippines and Myanmar are just two countries that will also see an increase in storm surges in a 3°C world."
+       },
+       {
+        "id": "b-transcript-3",
+        "type": "text",
+        "content": "#### 湿球温度：达卡的高温\n\nTo escape, many will move – often to urban areas. Half the world's population already lives in cities – almost a third in slums. For them, a 3°C world could be deadly. Minara has moved to Dhaka to escape the impact of climate change. But life could get even worse for her. \"I'm struggling a lot nowadays. The heat during the day is unbearable. Even late at night it doesn't cool down. The heat is getting more intense every day. I mean, it's going to get much worse — I can barely survive it now, how will I live through it in the future?\" Dhaka is getting hotter: in the last 20 years the average daytime temperature has crept up by nearly half a degree. Days that approach 40°C are now being reported, and high so-called wet-bulb temperatures are on the rise. A wet-bulb temperature is a measure of heat and humidity. Humans cool themselves by sweating, but in these conditions, when relative humidity is near 100%, sweat doesn't evaporate well, so people can't cool down – even if given unlimited shade and water. \"At a high wet-bulb temperature, the body can't lose heat and so it gets hotter and hotter and the body is designed to work at a given temperature, and if it gets too hot inside, you will die.\" The human limit for wet-bulb temperatures is 35°C – around skin temperature. Dhaka will have a much higher chance of reaching dangerous wet-bulb temperatures if global warming reaches 3°C. \"You can't really adapt to that; you have to get out. If the temperature is so high that you can't work – can't do hard manual labour outside for significant parts of the year, then many places will become functionally no longer part of the economy.\" Jacobabad in Pakistan, and Ras al Khaimah, in the United Arab Emirates have already recorded deadly wet-bulb temperatures. More of the tropics and the Persian Gulf as well as parts of Mexico and the south-eastern United States could all get to this threshold by the end of the century."
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-transcript-why"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-transcript-1"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-transcript-2"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-transcript-3"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-transcript-why",
+         "b-transcript-1",
+         "b-transcript-2",
+         "b-transcript-3"
+        ],
+        "visibleBlockIds": [
+         "b-transcript-why",
+         "b-transcript-1",
+         "b-transcript-2",
+         "b-transcript-3"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-transcript",
+        "text": "本页聚焦“原始文字稿”。阅读材料，整理本页的核心判断。",
+        "audio": "assets/audio/narrations/piece-transcript.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 1325
+     },
+     {
+      "id": "piece-crraab-currency",
+      "title": "C 时效 Currency",
+      "blocks": [
+       {
+        "id": "b-c-question",
+        "type": "text",
+        "content": "#### C · Currency 时效\n\n> Is the information up-to-date enough? Think about the speed the situation is developing – in a slow-moving field, a source several years old might be acceptable, but in a rapidly unfolding situation, days or even hours might make a big difference.\n\n> 这些信息够新吗？ 想一想这件事发展的速度——在一个变化缓慢的领域，几年前的来源可能仍然可用；但在一个快速演变的情况里，几天甚至几个小时都可能造成很大差别。"
+       },
+       {
+        "id": "b-c-answer",
+        "type": "fillBlank",
+        "prompt": "先写下你自己的判断：这三位受访者的证词，在时效性上站得住吗？\n\n提示： 别只看「视频是哪年发的」。想一想——他们讲的这类事情，会多快过时？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "关键看学生有没有把判断从「日期是哪一天」转移到「这类内容多久会过时」。只回答「2021 年，有点旧了」而没有考虑议题变化速度的，为部分达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-c-reference",
+        "type": "text",
+        "content": "#### 参考答案\n\n可以选 C（时效性）。视频发布于《经济学人》YouTube 频道，时间是 2021 年 10 月；虽然不算最新，但受访者讲的是气候影响和生活处境，不会在短时间内失效。判断时要看材料日期，也要看这个主题变化速度。\n\n#### 问题的变形\n\nCRAAP 问：这条信息是什么时候写、发布或更新的？对这个主题来说，它还够新吗？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-c-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-c-answer",
+          "b-c-reference"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-c-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-c-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-c-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-c-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "hide",
+           "targetId": "b-c-answer"
+          },
+          {
+           "type": "show",
+           "targetId": "b-c-reference"
+          },
+          {
+           "type": "enable",
+           "targetId": "b-c-reference"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-c-question",
+         "b-c-answer"
+        ],
+        "visibleBlockIds": [
+         "b-c-question",
+         "b-c-answer"
+        ]
+       },
+       "initialStepId": "wait-b-c-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-currency",
+        "text": "本页聚焦“C 时效 Currency”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-crraab-currency.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 327
+     },
+     {
+      "id": "piece-crraab-relevance",
+      "title": "R 相关 Relevance",
+      "blocks": [
+       {
+        "id": "b-r1-question",
+        "type": "text",
+        "content": "#### R · Relevance 相关\n\n> It doesn't matter how true the information is, it has to be relevant to your research question. Keep reminding yourself: what exactly is my question? What level of detail and precision do I need?\n\n> 信息再真，也必须切中你的研究问题。 不断提醒自己：我的问题究竟是什么？我需要多细、多精确的信息？"
+       },
+       {
+        "id": "b-r1-answer",
+        "type": "fillBlank",
+        "prompt": "先写下你自己的判断，请回答两件事：\n\n1. 这支纪录片要回答的研究问题到底是什么？（用一句话写出来）\n2. 三位受访者分别对应这个问题的哪一部分？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "第一问必须写出一个具体的研究问题（如「三度的世界会是什么样」），第二问需把三人分别对应到不同类型的气候后果上。只笼统回答「都跟气候变化有关」的，为未达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-r1-reference",
+        "type": "text",
+        "content": "#### 参考答案\n\n高度相关。研究问题是「三度升温的世界会怎样」，三位受访者分别对应洪水迁移、干旱、海平面上升等后果，能直接帮助我们理解气候变暖在真实地方造成的影响。\n\n#### 问题的变形\n\nCRRAAB 问：这条证词和我的问题有什么关系？它回答的是核心问题，还是只是旁枝信息？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-r1-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-r1-answer",
+          "b-r1-reference"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-r1-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-r1-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-r1-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-r1-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "hide",
+           "targetId": "b-r1-answer"
+          },
+          {
+           "type": "show",
+           "targetId": "b-r1-reference"
+          },
+          {
+           "type": "enable",
+           "targetId": "b-r1-reference"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-r1-question",
+         "b-r1-answer"
+        ],
+        "visibleBlockIds": [
+         "b-r1-question",
+         "b-r1-answer"
+        ]
+       },
+       "initialStepId": "wait-b-r1-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-relevance",
+        "text": "本页聚焦“R 相关 Relevance”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-crraab-relevance.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 337
+     },
+     {
+      "id": "piece-crraab-reputation",
+      "title": "R 信誉 Reputation：CRAAP 里没有的一维",
+      "blocks": [
+       {
+        "id": "b-r2-question",
+        "type": "text",
+        "content": "#### R · Reputation 信誉\n\n注意：这一维在 CRAAP 里完全不存在。\n\n> What does the person or their organisation lose if they are found out to be wrong? Academics and journalists could lose the respect of their students, readers, and colleagues – or even be sued or lose their jobs. Organisations may lose customers or funding, and find they are taken less seriously in the future. These things give people incentives to get things right. On the other hand, little-known bloggers or people who post anonymously on social media are unlikely to face consequences from posting misinformation. So try to use \"reputable\" sources.\n\n> 如果这个人或他的机构被发现说错了，他们会损失什么？ 学者和记者可能失去学生、读者与同行的尊重，甚至被起诉或丢掉工作。机构可能失去客户或资金，并发现自己今后不再被认真对待。这些东西给了人们把事情做对的动机。反过来，鲜为人知的博主、或在社交媒体上匿名发帖的人，几乎不会因为发布错误信息而承担后果。所以，尽量使用「有信誉的」来源。"
+       },
+       {
+        "id": "b-r2-answer",
+        "type": "fillBlank",
+        "prompt": "先写下你自己的判断：这三位受访者，如果说错了或夸大了，他们会损失什么？\n\n提示： 他们不是记者，也不是机构。这一维用在他们身上，答案可能和你的直觉不太一样。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "关键看学生能否意识到「他们几乎没有什么可损失的」，并进一步判断这是否足以否定他们的证词。能同时提出「受访环境本身构成约束」这类反驳的，为优。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-r2-reference",
+        "type": "text",
+        "content": "#### 参考答案\n\n可以基本相信其陈述。受访者可能希望获得更多帮助，但他们是在自己的生活环境中接受采访，记者也能看到周围证据；因此「故意夸大」不是强判断。更关键的是区分：他们能可靠说明自己的经历，但不能单独代表所有地区。\n\n#### 问题的变形\n\nCRRAAB 问：谁可能从这条说法受益？这种利益会不会明显改变他说话方式？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-r2-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-r2-answer",
+          "b-r2-reference"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-r2-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-r2-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-r2-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-r2-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "hide",
+           "targetId": "b-r2-answer"
+          },
+          {
+           "type": "show",
+           "targetId": "b-r2-reference"
+          },
+          {
+           "type": "enable",
+           "targetId": "b-r2-reference"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-r2-question",
+         "b-r2-answer"
+        ],
+        "visibleBlockIds": [
+         "b-r2-question",
+         "b-r2-answer"
+        ]
+       },
+       "initialStepId": "wait-b-r2-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-reputation",
+        "text": "本页聚焦“R 信誉 Reputation：CRAAP 里没有的一维”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-crraab-reputation.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 466
+     },
+     {
+      "id": "piece-crraab-authority",
+      "title": "A 权威 Authority：本课最重要的一条",
+      "blocks": [
+       {
+        "id": "b-a1-question",
+        "type": "text",
+        "content": "#### A · Authority 权威\n\n> If someone is an authority on a subject or has authority to speak on a subject it means they have earned the right to be taken seriously – either by being an expert, or by being a direct observer or participant in the matter. An ocean scientist should have university degrees and affiliation [connection] to a reputable organisation (e.g. a university) to show their qualification to speak about ocean ecosystems. However, a humble fisherman can speak with authority about local changes in fishing conditions from his deep experience of his own fishing grounds. Direct personal experience is hard to share, but ideally, an expert does not ask you to take things on their authority alone. Especially in academic writing, they cite their sources – and this transparent command of the evidence gives them all the more authority!\n\n> 如果一个人在某个主题上是权威、或有资格就某个主题发言，意思是他已经赢得了被认真对待的权利——要么因为他是专家，要么因为他是这件事的直接观察者或亲身参与者。一位海洋科学家应该有大学学位并隶属于一个有信誉的机构（例如一所大学），来证明他有资格谈论海洋生态系统。然而，一位普通的渔民，凭着他对自己渔场的深厚经验，也可以有权威地谈论当地捕鱼条件的变化。直接的个人经验很难传递，但理想情况下，一位专家不会要求你仅凭他的权威就相信他。尤其在学术写作中，他们会引用来源——这种对证据的透明掌握，反而让他们更有权威！"
+       },
+       {
+        "id": "b-a1-answer",
+        "type": "fillBlank",
+        "prompt": "先写下你自己的判断。\n\n这三位受访者看上去都不富裕，也很可能没有受过高等教育。而气候变化是一个复杂的科学议题。\n\n那么，他们有资格谈论气候变化吗？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "这一问是本课的核心。关键看学生能否识别「因为贫穷或教育程度低就否定其发言资格」是一个错误判断，并能说出「他们对自己所处的环境和社区拥有第一手权威」。若学生答「没有资格」，属于未达成，需在参考答案后重新理解。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-a1-reference",
+        "type": "text",
+        "content": "#### 参考答案\n\n选择 A（权威性）。他们未必是气候科学专家，但他们是自己社区和生活环境的一手见证者；谈「身边发生了什么」时有直接经验和权威。真正要警惕的是把个人经历直接当成全球规律。\n\n#### 问题的变形\n\nCRRAAB 问：这个人对哪一部分有发言权？是专家知识、机构身份，还是亲历证词？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-a1-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-a1-answer",
+          "b-a1-reference"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-a1-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-a1-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-a1-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-a1-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "hide",
+           "targetId": "b-a1-answer"
+          },
+          {
+           "type": "show",
+           "targetId": "b-a1-reference"
+          },
+          {
+           "type": "enable",
+           "targetId": "b-a1-reference"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-a1-question",
+         "b-a1-answer"
+        ],
+        "visibleBlockIds": [
+         "b-a1-question",
+         "b-a1-answer"
+        ]
+       },
+       "initialStepId": "wait-b-a1-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-authority",
+        "text": "本页聚焦“A 权威 Authority：本课最重要的一条”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-crraab-authority.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 639
+     },
+     {
+      "id": "piece-crraab-accuracy",
+      "title": "A 准确 Accuracy",
+      "blocks": [
+       {
+        "id": "b-a2-question",
+        "type": "text",
+        "content": "#### A · Accuracy 准确\n\n> Has the source been prepared with care? (Look out for warning signs like language errors or self-contradictions.) Is it clear not confused? Does it fit with things we already know? Is it based on solid research methods? Are the research methods and data transparent, so they can be checked? Have they been checked? – E.g. scientific journals only publish peer-reviewed work. Journalists should \"triangulate\" key facts – i.e. seek more than one independent source to confirm them (though unfortunately, journalists are usually less transparent about their sources than academics are, often making us trust to their professional standards).\n\n> 这个来源是不是用心准备的？（留意语言错误、自相矛盾这类警示信号。）它清晰还是混乱？它跟我们已知的事情吻合吗？它是否基于扎实的研究方法？研究方法和数据是否透明、可供核查？有没有被核查过？——例如，科学期刊只发表经过同行评议的成果。记者应当对关键事实做「三角验证」，即寻找不止一个独立来源来确认（不过遗憾的是，记者在来源透明度上通常不如学者，这常常使我们只能信赖他们的职业标准）。"
+       },
+       {
+        "id": "b-a2-answer",
+        "type": "fillBlank",
+        "prompt": "先做一次交叉验证，再写你的判断。\n\n回到前面那一节里的三国硬数据（世界银行 1900 万气候难民、莫纳什大学「西太平洋海平面上升快 2–3 倍」、联合国粮农组织的斐济渔业数据……），拿它们去对三位受访者的口述。\n\n对得上吗？哪些对得上，哪些对不上？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "关键看学生有没有真正执行交叉验证，指出至少一处口述与硬数据相互印证的地方。同时能提出「我们还得依赖记者选到有代表性的受访者」这一层的，为优。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "b-a2-reference",
+        "type": "text",
+        "content": "#### 参考答案\n\n选择 A（准确性）。三位受访者的说法与海平面上升、气温变化等外部数据方向一致；记者还需要选择有代表性的受访者。短期采访可能有限，但专业新闻机构通常会用长期驻地记者和多方核查来降低错误。\n\n#### 问题的变形\n\nCRRAAB 问：有没有外部数据、同行评议或多来源交叉验证？哪些说法能被核查，哪些只是个人感受？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-a2-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-a2-answer",
+          "b-a2-reference"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-a2-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-a2-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-a2-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-a2-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "hide",
+           "targetId": "b-a2-answer"
+          },
+          {
+           "type": "show",
+           "targetId": "b-a2-reference"
+          },
+          {
+           "type": "enable",
+           "targetId": "b-a2-reference"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-a2-question",
+         "b-a2-answer"
+        ],
+        "visibleBlockIds": [
+         "b-a2-question",
+         "b-a2-answer"
+        ]
+       },
+       "initialStepId": "wait-b-a2-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-accuracy",
+        "text": "本页聚焦“A 准确 Accuracy”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-crraab-accuracy.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 528
+     },
+     {
+      "id": "piece-crraab-bias",
+      "title": "B 偏见 Bias：先写自己的判断",
+      "blocks": [
+       {
+        "id": "b-b-question",
+        "type": "text",
+        "content": "#### B · Bias 偏见\n\n> Can we spot likely biases that may twist the selection and interpretation of facts? Consider national/racial/political/other loyalties, and belief systems such as religions and ideologies. Bias may be unconscious and sincere, but people can also have incentives to \"spin\" facts (especially in politics and marketing) or even to lie (e.g. to influence voters dishonestly before an election) so consider vested interests – would the source gain anything by misleading people?\n\n> 我们能不能识别出那些可能扭曲事实筛选与解释的偏见？ 考虑国别／种族／政治或其他忠诚，以及宗教、意识形态这类信仰体系。偏见可能是无意识而真诚的，但人们也可能有动机去「加工」事实（在政治和营销中尤其如此），甚至说谎（例如在选举前不诚实地影响选民）——所以要考虑既得利益：这个来源会因为误导别人而获得什么吗？"
+       },
+       {
+        "id": "b-b-answer",
+        "type": "fillBlank",
+        "prompt": "先写下你自己找到的偏见。\n\n尽量找出不止一种，并说明它属于哪一类。 三位受访者里，谁可能有什么样的既得利益？他们对因果关系的判断，有没有可能受到自己已有信念的影响？\n\n还有一个更难的问题：这支片子里，什么人没有出现？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "至少识别出一种偏见并说明理由，为达成。能区分「既得利益」与「确认偏误」两类的，为优。能主动注意到「没有任何受访者说自己从变暖中受益」这一选择性偏误的，为最高档。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-b-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-b-answer"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-b-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-b-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-b-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-b-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-b-question",
+         "b-b-answer"
+        ],
+        "visibleBlockIds": [
+         "b-b-question",
+         "b-b-answer"
+        ]
+       },
+       "initialStepId": "wait-b-b-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-bias",
+        "text": "本页先用 Bias 这一维，写下自己对三位受访者偏见风险的判断。",
+        "audio": "assets/audio/narrations/piece-crraab-bias.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 175
+     },
+     {
+      "id": "piece-crraab-bias-feedback",
+      "title": "B 偏见 Bias：参考答案与三种偏见",
+      "blocks": [
+       {
+        "id": "b-b-reference",
+        "type": "text",
+        "content": "#### 参考答案\n\n> There is little reason to suppose that the claims from these interviewees are biased. There is a slight vested interest in that by exaggerating their hardship they may cause people to take pity and offer more support – for example, the village headman from Togoru may be hoping he can strengthen support for building a new sea wall by making the best case for not moving the village – but this does not affect the validity of the overall picture: that people are suffering apparently from the effects of global warming.\n\n> One possible bias for some claims is confirmation bias – when the Guatemalan farmer says \"The surrounding mountains used to provide us with native food and now that isn't an option anymore due to climate change and its effects,\" there is a possibility that he is seeing a long-term trend caused by climate change because he already believes climate change is the cause of his problems, whereas strings of drought years can happen just by bad luck without an underlying trend. Long-term trends can be hard to pick out of the \"noise\" of random events like weather, so ideally we'd want to confirm the farmer's subjective impression with objective weather records and a climate scientist's analysis.\n\n> Another potential bias is selection bias (also called \"cherry-picking\" evidence to support your claim). We have to trust that the journalists have selected interviewees that fairly represent places that fairly represent the global issue. For example, there are no interviewees who report that they would be unaffected or would even benefit from global warming. If there are any such people or places, The Economist doesn't consider them a significant part of the picture. But noticing what is not there is a useful advanced skill – it might motivate us to see if we can find information to fill a possible gap."
+       },
+       {
+        "id": "b-b-three-biases",
+        "type": "text",
+        "content": "#### 把参考答案拆成三种偏见\n\n| 偏见类型 | 出在谁身上 | 具体是什么 |\n| --- | --- | --- |\n| 既得利益 | 斐济村长 Barney Dunn | 他希望争取到一道新海堤。把不搬村的理由讲到最强，对他是有利的 |\n| 确认偏误 | 危地马拉农民 Israel | 他已经相信气候变化是自己困境的原因，于是把连年干旱看成长期趋势——而连续几个旱年也可能只是运气差，背后并没有趋势 |\n| 选择性偏误 | 《经济学人》的编导 | 没有任何一位受访者说自己不受影响、甚至从变暖中受益。如果这样的人和地方存在，这支片子没有把他们当作画面的一部分 |\n\n请特别注意中间那一栏的区别：\n\n村长想要海堤，是既得利益——他有动机把话说得更重。\n\n农民把旱灾归因于气候变化，是确认偏误——他没有任何私利，他是真诚的，但长期趋势很难从天气这种随机事件的「噪声」里被肉眼分辨出来。要确认他的主观印象，理想的做法是去找客观的气象记录和气候科学家的分析。\n\n这两者完全不同，却经常被混为一谈。 一个是关于动机的，一个是关于认知的。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-b-reference"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-b-three-biases"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-b-reference",
+         "b-b-three-biases"
+        ],
+        "visibleBlockIds": [
+         "b-b-reference",
+         "b-b-three-biases"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-bias-feedback",
+        "text": "本页给出 Bias 维度的参考答案，并拆出既得利益、确认偏误和选择性偏误。",
+        "audio": "assets/audio/narrations/piece-crraab-bias-feedback.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 140
+     },
+     {
+      "id": "piece-crraab-bias-comment",
+      "title": "B 偏见 Bias：看见不在场的人",
+      "blocks": [
+       {
+        "id": "b-youtube-comment",
+        "type": "images",
+        "items": [
+         {
+          "id": "b-youtube-comment-item-1",
+          "alt": "一条 YouTube 高赞评论截图，用户 fungussa 批评这部纪录片花太多时间报道偏远社区，认为应当让内容与典型观众更相关，并提到印度和孟加拉国民众对气候危机现实的接受度是全球最高的",
+          "source": "assets/images/youtube-comment.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "b-b-comment",
+        "type": "text",
+        "content": "上面这条是这支视频下方的一条高赞评论（456 个赞，63 条回复）。\n\n这位观众提出：这部纪录片的问题在于花了太多时间报道偏远社区，本应做得跟典型观众更相关——因为拖延者和科学否认者常常认为气候变化只发生在遥远的国家，对自己所在地区的影响还要很久以后才会到来。\n\n这条评论击中的正是选择性偏误。 一个普通观众在评论区里，独立做出了和参考答案同一个方向的判断。\n\n注意到什么「不在场」，是一项高阶技能。 它很难，因为缺席的东西不会主动跳到你眼前——你必须主动去问：这幅画面里，谁被留在了框外？\n\n---\n\n#### 问题的变形\n\nCRAAP 问的是： 这个网站的目的是什么？域名是什么？有没有广告？作者在陈述事实还是观点？\n\nCRRAAB 问的是： 谁会因为把事实带偏而获益？\n\n这是六处变形的终点，也是最锋利的一处。\n\nCRAAP 的目的性还停留在「读这个文本，猜它想干什么」；CRRAAB 的偏见直接绕到文本背后，去找那个具体的受益人。\n\n「它为什么存在？」——「为了传播气候知识。」问完了，什么也没查出来。\n\n「谁会因为带偏事实而获益？」——你不得不一个一个去找：村长要海堤，农民要一个解释，《经济学人》要一个足够有冲击力的故事。三个受益人，三种不同性质的偏见。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-youtube-comment"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-b-comment"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-for-continue",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-youtube-comment",
+         "b-b-comment"
+        ],
+        "visibleBlockIds": [
+         "b-youtube-comment",
+         "b-b-comment"
+        ]
+       },
+       "initialStepId": "wait-for-continue"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-crraab-bias-comment",
+        "text": "本页用视频评论区的观察，进一步说明选择性偏误和不在场的问题。",
+        "audio": "assets/audio/narrations/piece-crraab-bias-comment.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 100
+     },
+     {
+      "id": "piece-final-paragraph",
+      "title": "收尾任务：写一段 100–150 词的来源评估",
+      "blocks": [
+       {
+        "id": "b-final-intro",
+        "type": "text",
+        "content": "六个维度走完了。最后一步，也是最难的一步。\n\n> Finally, select key points to make a paragraph of about 100-150 words evaluating the sources.\n\n> 最后，挑出关键要点，写成一段大约 100–150 词的文字，对这些来源作出评估。\n\n注意「select key points」这三个字。\n\n真正的信息素养，不是把六个格子填满，而是能判断哪几条真正影响结论，把它们组织成一个有取舍的整体评价。一段好的评估，读完之后别人应该知道：这个来源能用来支撑什么，不能用来支撑什么。"
+       },
+       {
+        "id": "b-final-paragraph",
+        "type": "fillBlank",
+        "prompt": "独立写出一段 100–150 词（中英文均可）的来源评估，对象是这三位当地受访者。\n\n写之前先想清楚两件事：\n\n1. 六维里，哪两三条真正决定了你的结论？（不必六条都写）\n2. 你的结论是什么——这份证词可以用来支撑什么，不可以用来支撑什么？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "评分要点：(1) 字数在 100–150 词区间；(2) 有取舍，不是六维的平铺罗列；(3) 至少准确用到「亲历者权威」或三种偏见中的一种；(4) 给出明确结论，并区分这份证词能支撑什么、不能支撑什么。四条中达成三条以上为优；只是把六维复述一遍的，为未达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-final-intro"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-final-paragraph"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-final-paragraph",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-final-paragraph"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-final-paragraph"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-final-paragraph"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-final-intro",
+         "b-final-paragraph"
+        ],
+        "visibleBlockIds": [
+         "b-final-intro",
+         "b-final-paragraph"
+        ]
+       },
+       "initialStepId": "wait-b-final-paragraph"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-final-paragraph",
+        "text": "本页聚焦“收尾任务：写一段 100–150 词的来源评估”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-final-paragraph.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 130
+     }
+    ],
+    "objectiveIds": [
+     "craap-crraab-objective-3"
+    ]
+   },
+   {
+    "id": "part-6-endless",
+    "title": "收尾：评估是没有终点的",
+    "slices": [
+     {
+      "id": "piece-never-done",
+      "title": "通过了检验，也不等于永远可信",
+      "blocks": [
+       {
+        "id": "b-save-it",
+        "type": "text",
+        "content": "这些评估都完成后，你就可以决定，是否把这些信息保存到自己的知识库中，作为自己决策的知识储备。\n\n但是，要补充一句——"
+       },
+       {
+        "id": "b-not-forever",
+        "type": "text",
+        "content": "即使经过了上面五条（或六条）标准的检验，也不代表视频里的每一句话就一定是有效的，一直是有效的。\n\n在我们每一次使用这些信息的时候，还需要再简单运用这些标准对其进行快速检验。\n\n所以，对信息的评估是一个无止境的、终身的、要时时警惕的过程。千万不要以为自己已经掌握了经过验证的信息就一定是对的，一定是非常理性的。\n\n而且，这门课教的两套框架也不是全部。在不同的场合和目的下，你需要灵活运用不同的信息素养方法——如果只把信息素养局限于对学术材料的评估，那就无法应对今天大量非正式信息的判断需求。"
+       },
+       {
+        "id": "b-principle",
+        "type": "text",
+        "content": "#### 把这门课收成一句话\n\n> 来源的权威性、时效性与目的共同决定一条信息能否被采信；传播的广度与情感共鸣掩盖而非证实信息的真伪。\n\n前半句是这门课教你怎么做的，后半句是这门课提醒你别被什么骗了。"
+       },
+       {
+        "id": "b-before-after",
+        "type": "fillBlank",
+        "prompt": "回到起点。\n\n这门课一开始，你写下过两件事：你凭第一印象对这支视频的判断，以及你平时是怎么判断信息靠不靠谱的。\n\n现在请回答：那两个回答，你现在会怎么改？ 具体说出是哪一个环节改变了你的想法。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "关键看学生能否明确指认自己判断方式的变化，并把变化归因到课程中的具体环节（如权威的扩张、三种偏见的区分、金字塔的局限等）。只回答「学到了很多」而说不出具体变化的，为未达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "b-save-it"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "b-not-forever"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "b-principle"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "b-before-after"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-before-after",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-before-after"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-before-after"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-before-after"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-save-it",
+         "b-not-forever",
+         "b-principle",
+         "b-before-after"
+        ],
+        "visibleBlockIds": [
+         "b-save-it",
+         "b-not-forever",
+         "b-principle",
+         "b-before-after"
+        ]
+       },
+       "initialStepId": "wait-b-before-after"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-never-done",
+        "text": "本页聚焦“通过了检验，也不等于永远可信”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-never-done.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 182
+     },
+     {
+      "id": "piece-two-debates",
+      "title": "两个还没有答案的问题",
+      "blocks": [
+       {
+        "id": "b-debate-intro",
+        "type": "text",
+        "content": "最后留两个问题。它们没有标准答案——因为这门课教的两套框架，都还没能回答它们。"
+       },
+       {
+        "id": "b-debate-questions",
+        "type": "text",
+        "content": "#### 辩题一\n\n> 一个观点被广泛转发，是否就更可能为真？\n\n想一想：转发量高说明了什么？它是关于内容的信号，还是关于别的什么东西的信号？你刚才学的六个维度里，有哪一个能用来判断转发量吗？\n\n#### 辩题二\n\n> 当 AI 能批量生成「权威感」内容时，CRAAP 与 CRRAAB 还够用吗？\n\n想一想：这两套框架里的很多线索——引用了文献、行文没有语法错误、署了名、有机构隶属、看起来像一篇同行评议论文——今天是不是都可以被低成本地伪造出来？\n\n如果这些线索都失效了，还剩下什么是可靠的？"
+       },
+       {
+        "id": "b-debate-answer",
+        "type": "fillBlank",
+        "prompt": "任选一题作答。你的回答需要包含三个部分：\n\n1. 你的立场是什么；\n2. 支持你立场的至少两条理由；\n3. 对方最强的反驳是什么，你怎么回应它。\n\n第三点最重要——能说出对方最强的论点，才说明你真的想清楚了。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "评分要点：(1) 立场明确；(2) 至少两条实质理由，且能调用课程中的概念（如信誉的代价机制、亲历者权威、选择性偏误、信源等级的局限等）；(3) 能构造出对方最强的反驳而非稻草人，并作出回应。第三点缺失的，最高只能评为部分达成。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "b-debate-intro",
+          "b-debate-questions"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "b-debate-answer"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-b-debate-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "b-debate-answer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "b-debate-answer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "b-debate-answer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "b-debate-intro",
+         "b-debate-questions",
+         "b-debate-answer"
+        ],
+        "visibleBlockIds": [
+         "b-debate-intro",
+         "b-debate-questions",
+         "b-debate-answer"
+        ]
+       },
+       "initialStepId": "wait-b-debate-answer"
+      },
+      "narrations": [
+       {
+        "id": "narration-piece-two-debates",
+        "text": "本页聚焦“两个还没有答案的问题”。先理解材料，再作答并查看反馈。",
+        "audio": "assets/audio/narrations/piece-two-debates.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "craap-crraab-objective-3"
+      ],
+      "estimatedSeconds": 153
+     }
+    ],
+    "objectiveIds": [
+     "craap-crraab-objective-3"
+    ]
+   }
+  ],
+  "title": "信息过滤神器：从 CRAAP 到 CRRAAB",
+  "closing": {
+   "fallback": {
+    "text": "本课围绕 CRAAP 到 CRRAAB 的信息筛选升级展开。学生会学习不只问“这个信息看起来可靠吗”，还要追问它是否真正切中自己的研究问题，证据是否足够细，来源是否可追，作者权威是否与问题匹配，以及材料的偏见会如何影响使用边界。"
+   },
+   "takeaways": [
+    "信息筛选不是找看起来最正式的材料，而是找最适合研究问题的材料。",
+    "相关性必须具体到问题，而不能凭感觉说“有点关系”。",
+    "权威、准确和偏见都需要被拆成可检查的证据。",
+    "好的筛选会让研究问题更清楚，而不是让材料越堆越多。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "本课围绕 CRAAP 到 CRRAAB 的信息筛选升级展开。学生会学习不只问“这个信息看起来可靠吗”，还要追问它是否真正切中自己的研究问题，证据是否足够细，来源是否可追，作者权威是否与问题匹配，以及材料的偏见会如何影响使用边界。",
+   "transferApplications": [
+    "研究性学习选材",
+    "新闻和报告评估",
+    "AI 推荐来源核查",
+    "论文写作中的资料筛选"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "这节课帮助你从普通信息筛选工具 CRAAP 走向更贴近研究问题的 CRRAAB 判断。"
+   },
+   "learningPreview": [
+    "相关性要回到研究问题",
+    "权威性要看具体领域和证据",
+    "准确性要能追到来源",
+    "偏见不是直接淘汰理由，而是判断使用边界"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "craap-crraab-objective-1",
+    "text": "能够使用 CRAAP/CRRAAB 维度评估信息是否适合自己的研究问题。",
+    "evidenceBlockIds": [
+     "b-first-impression",
+     "b-own-habit",
+     "b-cr-check"
+    ]
+   },
+   {
+    "id": "craap-crraab-objective-2",
+    "text": "能够区分信息看起来相关和真正切中问题之间的差别。",
+    "evidenceBlockIds": [
+     "b-dimension-sort",
+     "b-dimension-sort-2",
+     "b-transfer"
+    ]
+   },
+   {
+    "id": "craap-crraab-objective-3",
+    "text": "能够把可信度、相关性、权威性、准确性和偏见转化为可操作的筛选判断。",
+    "evidenceBlockIds": [
+     "b-c-answer",
+     "b-r1-answer",
+     "b-r2-answer"
+    ]
+   }
+  ],
+  "estimatedMinutes": 148
+ },
+ "schemaVersion": "2.0"
+}

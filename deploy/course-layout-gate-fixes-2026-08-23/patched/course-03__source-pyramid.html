@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>信源金字塔：八级来源排序</title>
+<style>
+html, body { font-size: 16px; }
+button, input, select, textarea { font-size: 16px; }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body {
+    margin: 0; padding: 0; height: 100%;
+    background: #f2f4f8; overflow-x: hidden;
+    font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", system-ui, sans-serif;
+    color: #1c2432;
+  }
+  #stage {
+    width: 100%; max-width: 1000px; margin: 0 auto;
+    aspect-ratio: 4 / 3;
+    display: flex; flex-direction: column;
+    background: #ffffff; overflow: hidden;
+    container-type: size;
+  }
+  header {
+    padding: 1.1cqh 2.2cqw 0.6cqh;
+    border-bottom: 0.25cqh solid #e3e8f0;
+  }
+  h1 { margin: 0; font-size: 20px; letter-spacing: 0.02em; }
+  #hint { margin: 0.5cqh 0 0; font-size: 18px; color: #5b6880; line-height: 1.45; }
+  main { flex: 1; display: flex; gap: 1.4cqw; padding: 1.1cqh 2.2cqw; min-height: 0; }
+  #pyramid { flex: 0 0 60%; display: flex; flex-direction: column; gap: 0.55cqh; min-height: 0; }
+  .tier {
+    flex: 1; display: flex; align-items: stretch;
+    border: 0.22cqh solid #d7deea; border-radius: 0.7cqh;
+    background: #fbfcfe; min-height: 0; overflow: hidden;
+    transition: border-color .15s, background .15s;
+  }
+  .tier.over { border-color: #2f6bd8; background: #eef4ff; }
+  .tier.filled { background: #ffffff; }
+  .tier.right { border-color: #2e9a6b; background: #f0faf5; }
+  .tier.wrong { border-color: #d8563f; background: #fdf2f0; }
+  .tier-label {
+    flex: 0 0 30%; display: flex; flex-direction: column; justify-content: center;
+    padding: 0 0.9cqw; color: #ffffff; min-width: 0;
+  }
+  .tier-label b { font-size: 18px; line-height: 1.15; }
+  .tier-label span { font-size: 16px; opacity: .9; line-height: 1.2; margin-top: 0.2cqh; }
+  .tier-slot {
+    flex: 1; display: flex; align-items: center; padding: 0 0.9cqw;
+    font-size: 18px; color: #93a0b5; min-width: 0;
+  }
+  .tier-slot .placed {
+    width: 100%; padding: 0.7cqh 0.8cqw; border-radius: 0.55cqh;
+    background: #e8eefb; color: #1c2432; font-size: 18px; line-height: 1.25;
+    cursor: pointer; border: 0.18cqh solid #c3d0e8;
+  }
+  #side { flex: 1; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+  #side h2 { margin: 0 0 0.7cqh; font-size: 18px; color: #3c4a60; }
+  #pool { flex: 1; display: flex; flex-direction: column; gap: 0.5cqh; overflow-y: auto; overflow-x: hidden; min-height: 0; }
+  .card {
+    padding: 0.85cqh 0.9cqw; border-radius: 0.6cqh;
+    border: 0.2cqh solid #ccd6e8; background: #f7f9fd;
+    font-size: 18px; line-height: 1.3; cursor: grab; user-select: none;
+  }
+  .card.picked { border-color: #2f6bd8; background: #e5eeff; box-shadow: 0 0 0 0.25cqh rgba(47,107,216,.18); }
+  #notes { flex: 1; overflow-y: auto; overflow-x: hidden; display: none; min-height: 0; }
+  .note { margin-bottom: 0.8cqh; font-size: 18px; line-height: 1.4; }
+  .note b { display: block; font-size: 18px; margin-bottom: 0.15cqh; }
+  .note.ok b { color: #217a53; }
+  .note.no b { color: #b8402b; }
+  footer {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1.4cqw; padding: 0.9cqh 2.2cqw 1.3cqh; border-top: 0.25cqh solid #e3e8f0;
+  }
+  #status { font-size: 18px; color: #5b6880; }
+  button {
+    font-size: 16px; font-size: 18px; padding: 0.9cqh 2.6cqw;
+    border: none; border-radius: 0.6cqh; background: #2f6bd8; color: #fff; cursor: pointer;
+  }
+  button:disabled { background: #c2cbdb; cursor: not-allowed; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <h1>信源金字塔：把八个来源放回它的等级</h1>
+    <p id="hint">等级越高，可靠程度相对越高。点一张卡片再点一个等级即可放入，也可以直接拖动。放错了再点一次卡片就能取回。</p>
+  </header>
+  <main>
+    <div id="pyramid"></div>
+    <div id="side">
+      <h2 id="side-title">待归位的来源</h2>
+      <div id="pool"></div>
+      <div id="notes"></div>
+    </div>
+  </main>
+  <footer>
+    <span id="status">还有 8 张卡片没有归位</span>
+    <button id="submit" disabled>完成</button>
+  </footer>
+</div>
+<script>
+
+    const COURSE_PROTOCOL = "mind-course-interaction";
+    const COURSE_PROTOCOL_VERSION = "1.0";
+    let sessionToken = null;
+    const pendingFrameMessages = [];
+    let completionSent = false;
+    const courseInteractionStartedAt = Date.now();
+
+    function postFrameMessage(type, payload) {
+      window.parent.postMessage({
+        protocol: COURSE_PROTOCOL,
+        version: COURSE_PROTOCOL_VERSION,
+        sessionToken: sessionToken,
+        type: type,
+        payload: payload
+      }, "*");
+    }
+
+    function sendFrameMessage(type, payload) {
+      if (!sessionToken) {
+        pendingFrameMessages.push({ type: type, payload: payload });
+        return;
+      }
+      postFrameMessage(type, payload);
+    }
+
+    window.addEventListener("message", function (event) {
+      const message = event.data || {};
+      if (message.protocol !== COURSE_PROTOCOL || message.version !== COURSE_PROTOCOL_VERSION || !message.sessionToken) return;
+      const isNewSession = sessionToken !== message.sessionToken;
+      sessionToken = message.sessionToken;
+      if (!isNewSession) return;
+      postFrameMessage("ready", {});
+      while (pendingFrameMessages.length) {
+        const pending = pendingFrameMessages.shift();
+        postFrameMessage(pending.type, pending.payload);
+      }
+    });
+
+    function sendCourseCompletion(lessonId, duration, interactions) {
+      if (completionSent) return;
+      completionSent = true;
+      const evidenceItems = interactions || [];
+      const correctValues = evidenceItems
+        .map(function (item) { return item && item.isCorrect; })
+        .filter(function (value) { return typeof value === "boolean"; });
+      const value = {
+        lessonId: lessonId,
+        duration: duration,
+        interactions: evidenceItems
+      };
+      if (correctValues.length) {
+        sendFrameMessage("completed", {
+          resultId: lessonId + "-" + courseInteractionStartedAt,
+          value: value,
+          correct: correctValues.every(function (value) { return value; })
+        });
+      } else {
+        sendFrameMessage("completed", {
+          resultId: lessonId + "-" + courseInteractionStartedAt,
+          value: value
+        });
+      }
+    }
+
+(function () {
+  "use strict";
+
+  var TIERS = [
+    { id: "t1", name: "一级 国际组织", desc: "WHO、IPCC 等书面材料", color: "#12306b",
+      note: "国际组织的书面材料。健康医疗领域的一级信源是世界卫生组织（WHO）；全球气候问题的一级信源是政府间气候变化专门委员会（IPCC）。此外还有名称中含“联合国”或“世界”的各种机构（非山寨）。" },
+    { id: "t2", name: "二级 顶级期刊", desc: "Cell / Nature / Science", color: "#1a4a91",
+      note: "科学界公认的高质量科学期刊，尤其 Cell、Nature、Science，三者并称 CNS。英国自然出版集团还从全世界选出约七八十本高质量期刊，称为自然指数期刊，可在 Nature 官网查到。" },
+    { id: "t3", name: "三级 国家级机构", desc: "NASA、FDA、教科书", color: "#2360b8",
+      note: "国家级机构（非山寨）发表的书面材料和各类教科书。例如中国科学院国家天文台、美国药监局（FDA）、美国航空航天局（NASA）、美国儿科协会等。" },
+    { id: "t4", name: "四级 SCI 期刊", desc: "SCI / SCIE 收录", color: "#2f6bd8",
+      note: "SCI 收录的期刊，也常被称为核心期刊。它有两个版本：SCI 收录约三千五百多种期刊，SCIE（E 表示扩展）收录约八千多种期刊。" },
+    { id: "t5", name: "五级 垂直媒体", desc: "口碑好的专业机构媒体", color: "#4b83e0",
+      note: "具有良好口碑的专业机构垂直类媒体。它们长期只做一个领域，专业判断力通常强于综合性媒体，但不承担学术意义上的同行评议。" },
+    { id: "t6", name: "六级 综合大媒体", desc: "非平台性质的大媒体", color: "#6c9ae8",
+      note: "综合性的大媒体（非平台性质）。《经济学人》这支纪录片就落在这一级——它有专业标准和事实核查，但它是新闻产品，不是研究成果。" },
+    { id: "t7", name: "七级 个人著作", desc: "专家学者的著作、访谈", color: "#5f7ea8",
+      note: "某专家学者的个人著作、访谈等。个人著作往往没有经过同行评议，所以在权威性上不如一篇经过评议的论文——这一点和 CRAAP 里“专著未必比同行评议论文权威”的判断是一致的。" },
+    { id: "t8", name: "八级 个人经验", desc: "经验、轶事、传说", color: "#77879e",
+      note: "个人经验、轶事、传说。注意：金字塔衡量的是“一般情况下的可靠程度”。斐济村长关于自家村庄被海水吞没的口述落在这一级，但下一部分的 Authority 会告诉你——当他谈论自己亲身所处的环境时，这条排序会误导你。" }
+  ];
+
+  var CARDS = [
+    { id: "c-ipcc", text: "IPCC 报告《气候变化 2022：影响、适应和脆弱性》", tier: "t1" },
+    { id: "c-nature", text: "Nature 上发表的海平面上升研究论文", tier: "t2" },
+    { id: "c-nasa", text: "NASA 官网发布的全球气温记录", tier: "t3" },
+    { id: "c-sci", text: "一篇 SCI 收录期刊上的气候模型论文", tier: "t4" },
+    { id: "c-vertical", text: "某气候科学垂直媒体的深度报道", tier: "t5" },
+    { id: "c-economist", text: "《经济学人》的这支纪录片", tier: "t6" },
+    { id: "c-book", text: "汪诘《科学思维要点》里的观点", tier: "t7" },
+    { id: "c-fiji", text: "斐济村长说“墓地都淹了”", tier: "t8" }
+  ];
+
+  var pyramid = document.getElementById("pyramid");
+  var pool = document.getElementById("pool");
+  var notes = document.getElementById("notes");
+  var sideTitle = document.getElementById("side-title");
+  var statusEl = document.getElementById("status");
+  var submitBtn = document.getElementById("submit");
+
+  var placement = {};
+  var picked = null;
+  var submitted = false;
+  var startedAt = Date.now();
+  var touchedAt = {};
+
+  function shuffle(list) {
+    var a = list.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+
+  function cardById(id) {
+    for (var i = 0; i < CARDS.length; i++) { if (CARDS[i].id === id) return CARDS[i]; }
+    return null;
+  }
+
+  TIERS.forEach(function (tier) {
+    var row = document.createElement("div");
+    row.className = "tier";
+    row.dataset.tier = tier.id;
+
+    var label = document.createElement("div");
+    label.className = "tier-label";
+    label.style.background = tier.color;
+    var strong = document.createElement("b");
+    strong.textContent = tier.name;
+    var small = document.createElement("span");
+    small.textContent = tier.desc;
+    label.appendChild(strong);
+    label.appendChild(small);
+
+    var slot = document.createElement("div");
+    slot.className = "tier-slot";
+    slot.textContent = "把来源放到这里";
+
+    row.appendChild(label);
+    row.appendChild(slot);
+
+    row.addEventListener("dragover", function (event) {
+      if (submitted) return;
+      event.preventDefault();
+      row.classList.add("over");
+    });
+    row.addEventListener("dragleave", function () { row.classList.remove("over"); });
+    row.addEventListener("drop", function (event) {
+      if (submitted) return;
+      event.preventDefault();
+      row.classList.remove("over");
+      var id = event.dataTransfer.getData("text/plain");
+      if (id) place(id, tier.id);
+    });
+    row.addEventListener("click", function () {
+      if (submitted || !picked) return;
+      place(picked, tier.id);
+    });
+
+    pyramid.appendChild(row);
+  });
+
+  function place(cardId, tierId) {
+    var occupant = placement[tierId];
+    if (occupant && occupant !== cardId) return;
+    Object.keys(placement).forEach(function (key) {
+      if (placement[key] === cardId) delete placement[key];
+    });
+    placement[tierId] = cardId;
+    touchedAt[cardId] = Date.now();
+    picked = null;
+    render();
+  }
+
+  function unplace(cardId) {
+    Object.keys(placement).forEach(function (key) {
+      if (placement[key] === cardId) delete placement[key];
+    });
+    picked = null;
+    render();
+  }
+
+  var order = shuffle(CARDS).map(function (card) { return card.id; });
+
+  function render() {
+    pool.textContent = "";
+    var placedIds = Object.keys(placement).map(function (key) { return placement[key]; });
+    order.forEach(function (id) {
+      if (placedIds.indexOf(id) !== -1) return;
+      var card = cardById(id);
+      var el = document.createElement("div");
+      el.className = "card" + (picked === id ? " picked" : "");
+      el.textContent = card.text;
+      el.draggable = !submitted;
+      el.addEventListener("dragstart", function (event) {
+        event.dataTransfer.setData("text/plain", id);
+      });
+      el.addEventListener("click", function () {
+        if (submitted) return;
+        picked = picked === id ? null : id;
+        render();
+      });
+      pool.appendChild(el);
+    });
+
+    TIERS.forEach(function (tier) {
+      var row = pyramid.querySelector('[data-tier="' + tier.id + '"]');
+      var slot = row.lastChild;
+      slot.textContent = "";
+      var id = placement[tier.id];
+      row.classList.remove("filled", "right", "wrong");
+      if (!id) {
+        slot.textContent = "把来源放到这里";
+        return;
+      }
+      row.classList.add("filled");
+      var card = cardById(id);
+      var chip = document.createElement("div");
+      chip.className = "placed";
+      chip.textContent = card.text;
+      chip.addEventListener("click", function (event) {
+        event.stopPropagation();
+        if (submitted) return;
+        unplace(id);
+      });
+      slot.appendChild(chip);
+      if (submitted) row.classList.add(card.tier === tier.id ? "right" : "wrong");
+    });
+
+    var left = CARDS.length - placedIds.length;
+    if (!submitted) {
+      statusEl.textContent = left === 0 ? "八张卡片已全部归位，可以提交了" : "还有 " + left + " 张卡片没有归位";
+      submitBtn.disabled = left !== 0;
+    }
+  }
+
+  function reveal() {
+    var correct = 0;
+    notes.textContent = "";
+    TIERS.forEach(function (tier) {
+      var id = placement[tier.id];
+      var card = cardById(id);
+      var ok = card && card.tier === tier.id;
+      if (ok) correct++;
+      var note = document.createElement("div");
+      note.className = "note " + (ok ? "ok" : "no");
+      var head = document.createElement("b");
+      head.textContent = (ok ? "✓ " : "✗ ") + tier.name;
+      var body = document.createElement("span");
+      body.textContent = ok ? tier.note : "这一级应该是「" + correctCardFor(tier.id).text + "」。" + tier.note;
+      note.appendChild(head);
+      note.appendChild(body);
+      notes.appendChild(note);
+    });
+    sideTitle.textContent = "逐级讲解（答对 " + correct + " / 8）";
+    pool.style.display = "none";
+    notes.style.display = "block";
+    statusEl.textContent = "答对 " + correct + " / 8。金字塔给的是一般情况下的可靠度排序，不是永远适用的结论。";
+    submitBtn.disabled = true;
+    submitBtn.textContent = "完成";
+    return correct;
+  }
+
+  function correctCardFor(tierId) {
+    for (var i = 0; i < CARDS.length; i++) { if (CARDS[i].tier === tierId) return CARDS[i]; }
+    return { text: "" };
+  }
+
+  submitBtn.addEventListener("click", function () {
+    if (submitted) return;
+    if (Object.keys(placement).length !== CARDS.length) return;
+    submitted = true;
+    render();
+    reveal();
+
+    var interactions = TIERS.map(function (tier) {
+      var id = placement[tier.id];
+      var card = cardById(id);
+      return {
+        interactionId: "pyramid-" + tier.id,
+        type: "drag",
+        answer: card ? card.id : "",
+        correctAnswer: correctCardFor(tier.id).id,
+        isCorrect: !!card && card.tier === tier.id,
+        duration: Math.round(((touchedAt[card ? card.id : ""] || Date.now()) - startedAt) / 1000)
+      };
+    });
+
+    sendCourseCompletion(
+      "craap-source-pyramid",
+      Math.round((Date.now() - startedAt) / 1000),
+      interactions
+    );
+  });
+
+  render();
+})();
+</script>
+<!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html, body { height: 100%; min-height: 0; }
+body { display: block !important; place-items: stretch !important; overflow: auto; }
+#stage, .canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  overflow: auto !important;
+}
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body>
+</html>

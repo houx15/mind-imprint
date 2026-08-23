@@ -1,0 +1,1816 @@
+{
+ "course": {
+  "id": "course-06",
+  "parts": [
+   {
+    "id": "part-orient",
+    "title": "先判断这句话在做什么",
+    "slices": [
+     {
+      "id": "slice-enter-question",
+      "title": "先别站队：这句话在做什么？",
+      "blocks": [
+       {
+        "id": "hook-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "paper-cover",
+          "alt": "Haltinner 与 Sarathchandra 2021 年论文首页，显示题名、作者、摘要和期刊信息。",
+          "source": "assets/images/paper-cover.png",
+          "caption": "一篇研究如何命名有争议的人群？"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "hook-content",
+        "type": "singleChoice",
+        "prompt": "把某人称为“否认者”，最稳妥的初始判断是什么？",
+        "options": [
+         {
+          "id": "first-fact",
+          "label": "一定只是事实，因为对方确实否认了某件事。"
+         },
+         {
+          "id": "first-mixed",
+          "label": "可能是混合判断，要继续看可查事实、解释框架和评价色彩。"
+         },
+         {
+          "id": "first-value",
+          "label": "一定只是价值判断，因为这个词听起来有贬义。"
+         },
+         {
+          "id": "first-opinion",
+          "label": "一定只是观点，因为不同人会不同意。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "先把它当作可能的混合判断，再拆开事实、观点和价值标准。",
+         "correctOptionId": "first-mixed",
+         "incorrectFeedback": "先别急着归成单一类型：这个词同时可能指向行为、解释和评价。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "hook-image"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "hook-content"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-enter-question"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-enter-question"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "hook-content"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "hook-content"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "hook-content"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "hook-image",
+         "hook-content"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-enter-question",
+        "text": "先不要急着判断谁对谁错。观察论文题名，再想一想，这个称呼究竟在陈述事实、提出解释，还是带着评价。",
+        "audio": "assets/audio/slice-enter-question.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1"
+      ],
+      "estimatedSeconds": 75
+     }
+    ],
+    "objectiveIds": [
+     "fact-opinion-value-objective-1"
+    ]
+   },
+   {
+    "id": "part-types",
+    "title": "建立三类判断工具",
+    "slices": [
+     {
+      "id": "slice-learn-three-tests",
+      "title": "三个检验，三种下一步",
+      "blocks": [
+       {
+        "id": "method-content",
+        "type": "text",
+        "content": "## 分类是为了选择下一步\n\n**事实陈述：能不能查证？** 它回答“是什么”，即使说错了，仍可通过来源、样本、范围和条件核实。下一步是**查证**。\n\n**观点：理由能不能站住？** 它用证据解释数据、组织类别或提出框架。观点可以很强，但仍可能被其他合理解释挑战。下一步是**评估理由与证据**。\n\n**价值判断：按什么标准评价？** 它回答“好不好、该不该、对不对”。下一步不是停止讨论，而是**追问公平、重要、合理或负责的标准**。\n\n> 示例：“这个称呼会让不确定者被误认为极端反科学的人。”它提出一种解释，应先评估理由和证据，而不是只查字典。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "method-content"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-learn-three-tests"
+           },
+           "to": "reflect"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-learn-three-tests"
+          }
+         ]
+        },
+        {
+         "id": "reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "method-content"
+        ],
+        "visibleBlockIds": [
+         "method-content"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-learn-three-tests",
+        "text": "三类判断不是三只抽屉，而是三条行动路线。能查证的去核对范围，需要解释的去评估理由，评价好坏的先说清标准。",
+        "audio": "assets/audio/slice-learn-three-tests.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1"
+      ],
+      "estimatedSeconds": 110
+     },
+     {
+      "id": "slice-classify-and-act",
+      "title": "分类台：判断以后做什么？",
+      "blocks": [
+       {
+        "id": "classifier-content",
+        "type": "interactiveHtml",
+        "source": "interactions/html/fact-opinion-value-classifier.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "1:1",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "classifier-content"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-classify-and-act"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-classify-and-act"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "classifier-content"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "classifier-content"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "classifier-content"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "classifier-content"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-classify-and-act",
+        "text": "现在用六张陈述卡练习。每张卡都要同时判断它在做什么，以及下一步应该查事实、评理由，还是问标准。",
+        "audio": "assets/audio/slice-classify-and-act.mp3",
+        "durationSeconds": 11
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1"
+      ],
+      "estimatedSeconds": 165
+     }
+    ],
+    "objectiveIds": [
+     "fact-opinion-value-objective-1"
+    ]
+   },
+   {
+    "id": "part-evidence",
+    "title": "用论文证据校准",
+    "slices": [
+     {
+      "id": "slice-bound-a-fact",
+      "title": "事实也有边界：百分比说明了谁？",
+      "blocks": [
+       {
+        "id": "scope-pdf",
+        "type": "pdf",
+        "title": "研究论文：样本与四类怀疑者（重点看第 4—5 页）",
+        "source": "assets/pdfs/haltinner-sarathchandra-2021.pdf",
+        "initialPage": 4
+       },
+       {
+        "id": "scope-content",
+        "type": "interactiveHtml",
+        "source": "interactions/html/scope-lab.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "scope-pdf"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "scope-content"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-bound-a-fact"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-bound-a-fact"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "scope-content"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "scope-content"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "scope-content"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "scope-pdf",
+         "scope-content"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-bound-a-fact",
+        "text": "一个百分比首先只属于它的样本。请把图中的数字写成带范围的事实，并明确它不能被外推成什么。",
+        "audio": "assets/audio/slice-bound-a-fact.mp3",
+        "durationSeconds": 10
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1",
+       "fact-opinion-value-objective-2"
+      ],
+      "estimatedSeconds": 170
+     },
+     {
+      "id": "slice-model-an-opinion",
+      "title": "有证据，为什么仍是观点？",
+      "blocks": [
+       {
+        "id": "framework-pdf",
+        "type": "pdf",
+        "title": "研究论文：作者如何提出连续体框架（重点看摘要与开头）",
+        "source": "assets/pdfs/haltinner-sarathchandra-2021.pdf",
+        "initialPage": 1
+       },
+       {
+        "id": "framework-content",
+        "type": "text",
+        "content": "## 示范：数据不自动长成解释\n\n**数据层**：问卷、访谈和筛选问题产生可查的回答与比例。\n\n**解释层**：作者把不同回答组织为四类，并提出“连续体”更能描述差异。\n\n**判断**：这是一项**有证据支持的观点**。它不是随便猜测，但仍需追问：分类是否合理？是否存在另一种同样能解释数据的框架？\n\n**下一步**：评估证据与分类逻辑，而不是因为它有数据就把它当成无需讨论的事实。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "framework-pdf"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "framework-content"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-model-an-opinion"
+           },
+           "to": "reflect"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-model-an-opinion"
+          }
+         ]
+        },
+        {
+         "id": "reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "framework-pdf",
+         "framework-content"
+        ],
+        "visibleBlockIds": [
+         "framework-pdf",
+         "framework-content"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-model-an-opinion",
+        "text": "作者的连续体框架有数据支撑，但数据与解释不是同一层。跟随示范，注意强观点为什么仍然可以被其他解释挑战。",
+        "audio": "assets/audio/slice-model-an-opinion.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1",
+       "fact-opinion-value-objective-2"
+      ],
+      "estimatedSeconds": 110
+     },
+     {
+      "id": "slice-meet-douglas",
+      "title": "Douglas：结论背后的标准",
+      "blocks": [
+       {
+        "id": "douglas-evidence",
+        "type": "images",
+        "items": [
+         {
+          "id": "douglas-original",
+          "alt": "论文中 Douglas 访谈段落的标注页。",
+          "source": "assets/images/douglas-original.png",
+          "caption": "论文第 7 页原文标注"
+         },
+         {
+          "id": "douglas-card",
+          "alt": "Douglas 角色卡，整理事实判断、价值标准、担心和可追问点。",
+          "source": "assets/images/douglas-card.png",
+          "caption": "Douglas 判断卡"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "douglas-model",
+        "type": "text",
+        "content": "## 原文锚点与中文释义\n\n**原文锚点 1**\n“the climate is changing” + “does not believe that humans are causing this fluctuation”\n\n**中文释义**\nDouglas 接受气候正在变化，但不接受主要由人类造成的归因，并强调系统中还有许多非人类因素。\n\n**原文锚点 2**\n“science is used as a ‘weapon’ in political battles”\n\n**明确关切**\n他担心科学在政治争论中被当作武器，研究结论被修辞化地用来误导公众；同时，他以管理者责任和宗教信念支持环境保护。\n\n**推论边界**\n不能推出他不信任所有科学家。原文明确说，他信任个体科学家，只对部分科学组织及政治传播方式保持警惕。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "douglas-evidence"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "douglas-model"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-meet-douglas"
+           },
+           "to": "reflect"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-meet-douglas"
+          }
+         ]
+        },
+        {
+         "id": "reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "douglas-evidence",
+         "douglas-model"
+        ],
+        "visibleBlockIds": [
+         "douglas-evidence",
+         "douglas-model"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-meet-douglas",
+        "text": "先把人物的结论放在一边。沿着标注找出 Douglas 的事实判断、价值标准和担心，看看一段原话能否被拆成不同判断。",
+        "audio": "assets/audio/slice-meet-douglas.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1",
+       "fact-opinion-value-objective-2"
+      ],
+      "estimatedSeconds": 110
+     },
+     {
+      "id": "slice-meet-savannah",
+      "title": "Savannah：相似结论，不同担心",
+      "blocks": [
+       {
+        "id": "savannah-evidence",
+        "type": "images",
+        "items": [
+         {
+          "id": "savannah-original",
+          "alt": "论文中 Savannah 访谈段落的标注页。",
+          "source": "assets/images/savannah-original.png",
+          "caption": "论文第 8 页原文标注"
+         },
+         {
+          "id": "savannah-card",
+          "alt": "Savannah 角色卡，整理事实判断、价值标准、担心和可追问点。",
+          "source": "assets/images/savannah-card.png",
+          "caption": "Savannah 判断卡"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "savannah-model",
+        "type": "text",
+        "content": "## 原文锚点与中文释义\n\n**原文锚点 1**\n“the climate is changing” + “humans can negatively affect the environment”\n\n**中文释义**\nSavannah 接受气候正在变化，也承认人类会损害环境；但她强调自然变化，并认为人类影响的程度仍有许多未知。\n\n**原文锚点 2**\n“animal populations may be lost” + “drama that’s manufactured around the issue”\n\n**明确关切**\n她关心海洋与北极生态、物种消失和极端天气，同时反感围绕气候议题制造的戏剧化表达。\n\n**推论边界**\n不能推出她否认一切人类影响，也不能把她的立场简化成只关心分类是否准确。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "savannah-evidence"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "savannah-model"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-meet-savannah"
+           },
+           "to": "reflect"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-meet-savannah"
+          }
+         ]
+        },
+        {
+         "id": "reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "savannah-evidence",
+         "savannah-model"
+        ],
+        "visibleBlockIds": [
+         "savannah-evidence",
+         "savannah-model"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-meet-savannah",
+        "text": "继续使用同一套三栏框架，但不要把 Douglas 的标准套在 Savannah 身上。预测她更重视什么，再核对原文和角色卡。",
+        "audio": "assets/audio/slice-meet-savannah.mp3",
+        "durationSeconds": 11
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1",
+       "fact-opinion-value-objective-2"
+      ],
+      "estimatedSeconds": 110
+     },
+     {
+      "id": "slice-compare-two-people",
+      "title": "同意，不等于理由相同",
+      "blocks": [
+       {
+        "id": "comparison-source",
+        "type": "images",
+        "items": [
+         {
+          "id": "comparison-douglas",
+          "alt": "论文第 7 页 Douglas 访谈段落的英文原文标注。",
+          "source": "assets/images/douglas-original.png",
+          "caption": "Douglas 原文，点击放大"
+         },
+         {
+          "id": "comparison-savannah",
+          "alt": "论文第 8 页 Savannah 访谈段落的英文原文标注。",
+          "source": "assets/images/savannah-original.png",
+          "caption": "Savannah 原文，点击放大"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "comparison-evidence",
+        "type": "interactiveHtml",
+        "source": "interactions/html/people-compare.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "comparison-source"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "comparison-evidence"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-compare-two-people"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-compare-two-people"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "comparison-evidence"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "comparison-evidence"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "comparison-evidence"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "comparison-source",
+         "comparison-evidence"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-compare-two-people",
+        "text": "把两人的事实判断与价值标准并排放置。你的任务不是给他们贴同一个标签，而是解释相似结论背后的不同理由。",
+        "audio": "assets/audio/slice-compare-two-people.mp3",
+        "durationSeconds": 11
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1",
+       "fact-opinion-value-objective-2"
+      ],
+      "estimatedSeconds": 170
+     }
+    ],
+    "objectiveIds": [
+     "fact-opinion-value-objective-1",
+     "fact-opinion-value-objective-2"
+    ]
+   },
+   {
+    "id": "part-disagreement",
+    "title": "定位真正的分歧",
+    "slices": [
+     {
+      "id": "slice-learn-disagreement-types",
+      "title": "真正争的是什么？",
+      "blocks": [
+       {
+        "id": "disagreement-method",
+        "type": "text",
+        "content": "## 四个分歧落点\n\n**事实之争**：标准相近，但对发生了什么、影响多大不同意。下一步是查研究、数据与适用条件。\n\n**标准之争**：双方拿的评价尺子不同，例如个人自主与共同学习环境。下一步是准确复述对方的标准。\n\n**权重之争**：双方承认多个标准，只是排序不同。下一步是谈条件、边界和折中。\n\n**推理之争**：标准可能相同，事实也大致同意，但从标准到结论的推导不同。下一步是指出哪一步不能成立。\n\n> 先定位落点，才知道该补证据、谈条件，还是复述标准。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "disagreement-method"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-learn-disagreement-types"
+           },
+           "to": "reflect"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-learn-disagreement-types"
+          }
+         ]
+        },
+        {
+         "id": "reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "disagreement-method"
+        ],
+        "visibleBlockIds": [
+         "disagreement-method"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-learn-disagreement-types",
+        "text": "争论看起来都像立场冲突，但真正的落点可能不同。现在建立四格分诊图，把每种分歧和下一步动作连起来。",
+        "audio": "assets/audio/slice-learn-disagreement-types.mp3",
+        "durationSeconds": 11
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-2",
+       "fact-opinion-value-objective-3"
+      ],
+      "estimatedSeconds": 110
+     },
+     {
+      "id": "slice-locate-disagreement",
+      "title": "校园争论分诊",
+      "blocks": [
+       {
+        "id": "disagreement-practice",
+        "type": "interactiveHtml",
+        "source": "interactions/html/disagreement-lab.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "disagreement-practice"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-locate-disagreement"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-locate-disagreement"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "disagreement-practice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "disagreement-practice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "disagreement-practice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "disagreement-practice"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-locate-disagreement",
+        "text": "请为三段校园争论分诊。不要匹配关键词，要判断双方究竟是事实不同、标准不同，还是对多个标准的权重排序不同。",
+        "audio": "assets/audio/slice-locate-disagreement.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-2",
+       "fact-opinion-value-objective-3"
+      ],
+      "estimatedSeconds": 140
+     }
+    ],
+    "objectiveIds": [
+     "fact-opinion-value-objective-2",
+     "fact-opinion-value-objective-3"
+    ]
+   },
+   {
+    "id": "part-response",
+    "title": "复述、反对与迁移",
+    "slices": [
+     {
+      "id": "slice-model-restatement",
+      "title": "复述通过，才有资格反对",
+      "blocks": [
+       {
+        "id": "restatement-model",
+        "type": "text",
+        "content": "## 原立场与失败复述\n\n**原立场**\n学校上课期间应该统一收手机，因为学校最重要的责任是保护共同学习环境。\n\n**失败复述**\n“你的意思是，学生都没有自制力，所以学校只能没收手机。”\n\n**问题**\n它加入了原话没有说的“都没有自制力”，又把“保护共同学习环境”压缩成了“只能没收”。这不是复述，而是在提前反驳。"
+       },
+       {
+        "id": "restatement-model-result",
+        "type": "text",
+        "content": "## 修改后的完整链条\n\n**澄清标准**\n你最看重的是每个人都能获得不被持续打断的学习环境。\n\n**准确复述**\n“你的意思是，因为你认为学校应优先保护共同学习环境，所以你支持上课期间统一收纳手机。”\n\n**定位后反对**\n我接受保护学习环境的标准，但反对“统一收纳”是唯一合理推论；分级规则也可能实现同一标准。\n\n先通过复述，再把反对落在推理上。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "restatement-model"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "restatement-model-result"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-model-restatement"
+           },
+           "to": "reflect"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-model-restatement"
+          }
+         ]
+        },
+        {
+         "id": "reflect",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": []
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "restatement-model",
+         "restatement-model-result"
+        ],
+        "visibleBlockIds": [
+         "restatement-model",
+         "restatement-model-result"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-model-restatement",
+        "text": "比较失败复述和修改版。合格复述保留对方的标准与结论，不加入贬低性解释；反对则另起一句，明确指出落点。",
+        "audio": "assets/audio/slice-model-restatement.mp3",
+        "durationSeconds": 12
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-3"
+      ],
+      "estimatedSeconds": 110
+     },
+     {
+      "id": "slice-practise-restatement",
+      "title": "不夹带反对地复述一次",
+      "blocks": [
+       {
+        "id": "restatement-source",
+        "type": "text",
+        "content": "## 待复述立场\n\n“学校上课期间应该统一收手机，因为学校最重要的责任是保护学习环境。”\n\n### 先保留两项\n\n- **标准**：保护共同学习环境\n- **结论**：上课期间统一收手机\n\n### 避免夹带\n\n先不要加入“只是、其实、不过、你就是认为”等压缩或评价。复述完成后，再把可能的反对落点单独写出。"
+       },
+       {
+        "id": "restatement-practice",
+        "type": "interactiveHtml",
+        "source": "interactions/html/restatement-lab.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "1:1",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "restatement-source"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "restatement-practice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-practise-restatement"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-practise-restatement"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "restatement-practice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "restatement-practice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "restatement-practice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "restatement-source",
+         "restatement-practice"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-practise-restatement",
+        "text": "现在自己完成一次复述。先保留标准与结论，不要夹带反对；通过结构检查以后，再单独标明你可能反对事实、标准、权重还是推理。",
+        "audio": "assets/audio/slice-practise-restatement.mp3",
+        "durationSeconds": 14
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-3"
+      ],
+      "estimatedSeconds": 140
+     },
+     {
+      "id": "slice-revise-with-feedback",
+      "title": "反馈只负责验收，修改仍由你完成",
+      "blocks": [
+       {
+        "id": "feedback-source",
+        "type": "text",
+        "content": "## 模拟反馈边界\n\n页面提供一段固定立场、三次澄清、第一次复述和具体反馈。\n\n你的任务不是让 AI 重写，而是自己完成两件事：\n\n1. 删除初稿强加的动机或评价；\n2. 补回遗漏的标准、结论与适用边界。\n\n这次‘通过’只验证你是否准确复述当前模拟立场，不代表现实中所有持类似立场的人都会认可。"
+       },
+       {
+        "id": "feedback-practice",
+        "type": "interactiveHtml",
+        "source": "interactions/html/feedback-revision.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "feedback-source"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "feedback-practice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-revise-with-feedback"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-revise-with-feedback"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "feedback-practice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "feedback-practice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "feedback-practice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "feedback-source",
+         "feedback-practice"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-revise-with-feedback",
+        "text": "这次不需要外部 AI。页面提供固定立场、三次澄清和一条具体反馈；请只修改漏掉或多加的部分，并留下你自己的修改理由。",
+        "audio": "assets/audio/slice-revise-with-feedback.mp3",
+        "durationSeconds": 13
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-3"
+      ],
+      "estimatedSeconds": 170
+     },
+     {
+      "id": "slice-build-response-card",
+      "title": "完成你的判断与回应卡",
+      "blocks": [
+       {
+        "id": "final-artifact",
+        "type": "interactiveHtml",
+        "source": "interactions/html/response-card.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "final-artifact"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "narrate-build-response-card"
+           },
+           "to": "work"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narrate-build-response-card"
+          }
+         ]
+        },
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "final-artifact"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "final-artifact"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "final-artifact"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "final-artifact"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "narrate-build-response-card",
+        "text": "最后把四步方法合在一起。完成判断类型、证据范围、准确复述、具体反对和元反思；页面会指出缺项，但不会替你写答案。",
+        "audio": "assets/audio/slice-build-response-card.mp3",
+        "durationSeconds": 14
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "fact-opinion-value-objective-1",
+       "fact-opinion-value-objective-2",
+       "fact-opinion-value-objective-3"
+      ],
+      "estimatedSeconds": 290
+     }
+    ],
+    "objectiveIds": [
+     "fact-opinion-value-objective-1",
+     "fact-opinion-value-objective-2",
+     "fact-opinion-value-objective-3"
+    ]
+   }
+  ],
+  "title": "事实、观点，还是价值判断？",
+  "closing": {
+   "fallback": {
+    "text": "下一次遇到争议，先问这句话在做什么，再选择查事实、评理由、问标准或准确复述。"
+   },
+   "takeaways": [
+    "事实要查证范围、样本和证据位置",
+    "观点要评估理由与替代解释",
+    "价值判断要说清标准",
+    "反对之前先准确复述对方看重什么"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "本课把事实、观点与价值判断的分类转化为一套可迁移的回应方法：识别类型、选择动作、定位分歧、复述后再反对。",
+   "transferApplications": [
+    "议论文写作",
+    "课堂讨论中的分歧回应",
+    "论文、新闻与 AI 回答的判断类型识别"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "先别急着站队。这门课训练你判断一句有争议的话在做什么，再决定如何回应。"
+   },
+   "learningPreview": [
+    "识别一句话在陈述、解释还是评价",
+    "为事实加上证据范围",
+    "定位事实、标准、权重或推理分歧",
+    "准确复述后再提出具体反对"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "fact-opinion-value-objective-1",
+    "text": "能够区分事实、观点和价值判断，并说明各自的处理方式。",
+    "evidenceBlockIds": [
+     "classifier-content",
+     "scope-content"
+    ]
+   },
+   {
+    "id": "fact-opinion-value-objective-2",
+    "text": "能够在论文案例中定位证据范围、理由强弱和价值标准。",
+    "evidenceBlockIds": [
+     "scope-content",
+     "comparison-evidence",
+     "disagreement-practice"
+    ]
+   },
+   {
+    "id": "fact-opinion-value-objective-3",
+    "text": "能够通过复述测试提出更具体、更有资格的反对。",
+    "evidenceBlockIds": [
+     "restatement-practice",
+     "feedback-practice",
+     "final-artifact"
+    ]
+   }
+  ],
+  "estimatedMinutes": 33
+ },
+ "schemaVersion": "2.0"
+}
