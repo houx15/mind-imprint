@@ -3,6 +3,7 @@ package api_test
 import (
 	"bytes"
 	"encoding/json"
+	"net/http"
 	"net/http/httptest"
 	"testing"
 
@@ -266,6 +267,81 @@ func TestDemoTakeawayAndAIUseDraftNeverCallLLM(t *testing.T) {
 	}
 	if afterLLM != beforeLLM {
 		t.Fatalf("demo draft endpoints wrote llm_call rows: before=%d after=%d", beforeLLM, afterLLM)
+	}
+}
+
+// TestGetMaterialSourceDemoReadOnly verifies the guided-tour P6 read-only
+// endpoint (getMaterialSource): a NON-owner GET against the seeded demo
+// material …0271 (Chen et al. 2019, linked into demo project …0200 by
+// migration 0082) returns a 200 MaterialSource with every required field
+// populated — matching enter-reading's own projection, just without its
+// write side effects — and a non-GET request to the very same path is either
+// 403 demo_readonly (if some other verb happened to be routed) or, as is the
+// actual case here since the route is registered GET-only, unrouted (405),
+// proving the endpoint never funnels through the mutation chokepoint.
+func TestGetMaterialSourceDemoReadOnly(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-material-source-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	base := "/api/v1/projects/" + demoProjectID + "/materials/00000000-0000-0000-0000-000000000271/source"
+
+	// (a) Non-owner GET → 200, a fully-populated MaterialSource.
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("GET", base, nil), otherCookie))
+	if rr.Code != 200 {
+		t.Fatalf("demo GET material source: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var src struct {
+		ID        string `json:"id"`
+		Title     string `json:"title"`
+		SourceURL string `json:"sourceUrl"`
+		Kind      string `json:"kind"`
+		Origin    string `json:"origin"`
+		Blocks    []struct {
+			ID   string `json:"id"`
+			Text string `json:"text"`
+		} `json:"blocks"`
+		Locked              bool   `json:"locked"`
+		Role                string `json:"role"`
+		Tier                string `json:"tier"`
+		Takeaway            string `json:"takeaway"`
+		Anchors             []any  `json:"anchors"`
+		TimeSpentS          int    `json:"timeSpentS"`
+		LateralRead         bool   `json:"lateralRead"`
+		IsLateralInstrument bool   `json:"isLateralInstrument"`
+		SiftSkipped         bool   `json:"siftSkipped"`
+		LateralRelation     string `json:"lateralRelation"`
+		LateralJudgment     string `json:"lateralJudgment"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &src); err != nil {
+		t.Fatalf("decode material source: %v — body=%s", err, rr.Body.String())
+	}
+	if src.ID == "" || src.Title == "" || src.SourceURL == "" || src.Kind == "" || src.Origin == "" {
+		t.Fatalf("demo material source: expected id/title/sourceUrl/kind/origin all populated, got %+v", src)
+	}
+	if len(src.Blocks) == 0 {
+		t.Fatalf("demo material source: want non-empty blocks (real seeded body), got 0 — %s", rr.Body.String())
+	}
+	for i, b := range src.Blocks {
+		if b.ID == "" || b.Text == "" {
+			t.Fatalf("demo material source: block[%d] missing id/text — %+v", i, b)
+		}
+	}
+	if src.Anchors == nil {
+		t.Fatalf("demo material source: want anchors as [] (never null), got null — %s", rr.Body.String())
+	}
+
+	// (b) A non-GET verb on the exact same path is not routed to a mutation
+	// handler: the route is registered GET-only, so Go's net/http mux returns
+	// 405 method-not-allowed rather than ever reaching loadOwnedProject's
+	// non-GET demo_readonly guard.
+	rr = httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base, nil), otherCookie))
+	if rr.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("POST material source: want 405 (unrouted, not funneled through mutation guard), got %d — %s", rr.Code, rr.Body.String())
 	}
 }
 
