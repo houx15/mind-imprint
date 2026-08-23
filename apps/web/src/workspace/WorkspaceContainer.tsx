@@ -1160,13 +1160,25 @@ export function WorkspaceContainer({
   // `pendingRoom` above, so re-passing the same value after the caller clears
   // it never re-fires. ReadingBlock's OWN ref guard then applies it once and
   // never overrides a later manual toggle.
+  //
+  // The tour can also issue this deep-link while the IMMERSIVE reader is open
+  // (e.g. `openDemoReadingRoom()` for the reading-room segment, followed by
+  // `setReadingView("list")` for the reading-library segment): `readingSource
+  // != null` renders the ReadingRoom OVER every room, so ReadingBlock (which
+  // `forceView` targets) never mounts and the deep-link would silently do
+  // nothing. Close the immersive reader first so the underlying room — and
+  // ReadingBlock inside it — actually mounts. This does NOT affect the
+  // reading-room segment itself: its `rr-*` steps never call `setReadingView`,
+  // so the reader stays open through them.
   const lastReadingView = useRef<"list" | "graph" | null>(null);
   useEffect(() => {
     if (pendingReadingView && pendingReadingView !== lastReadingView.current) {
       lastReadingView.current = pendingReadingView;
+      if (readingSource != null) closeReadingSource();
       setReadingForceView(pendingReadingView);
       onPendingReadingViewConsumed?.();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingReadingView, onPendingReadingViewConsumed]);
 
   // `pendingWritingView` deep-link (P6, Task 9 — guided tour): switch the
@@ -1175,14 +1187,22 @@ export function WorkspaceContainer({
   // "only on a new object" firing as `pendingRoom`. WritingBlock's OWN ref guard
   // then applies the tab once and never overrides a later manual click. This is
   // what lands the tour on the PROPOSAL 片段 tab where `writing-aicard` lives.
+  //
+  // Same "close the immersive reader first" guard as `pendingReadingView`
+  // above — by the time the tour reaches the writing steps, the reading-room
+  // segment's immersive reader may still be mounted (nothing else in between
+  // is guaranteed to have cleared it), and it would otherwise cover the
+  // writing room the tour is trying to land on.
   const lastWritingView = useRef<TourWritingView | null>(null);
   useEffect(() => {
     if (pendingWritingView && pendingWritingView !== lastWritingView.current) {
       lastWritingView.current = pendingWritingView;
+      if (readingSource != null) closeReadingSource();
       setDocOverride(pendingWritingView.doc);
       setWritingForceTab(pendingWritingView.tab);
       onPendingWritingViewConsumed?.();
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pendingWritingView, onPendingWritingViewConsumed]);
 
   // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
