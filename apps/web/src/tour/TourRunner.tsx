@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Pebble } from "@/ui";
+import { Pebble, Button } from "@/ui";
 import { Markdown } from "@/cards/Markdown";
 import { useTour } from "./TourProvider";
 import { resolveAnchor } from "./anchors";
@@ -97,8 +97,20 @@ export function TourRunner() {
   const centered = !rect;
 
   return createPortal(
-    <div className="fixed inset-0 z-[100]" role="dialog" aria-modal="true" aria-label="新手引导">
-      {/* Dim overlay. With a rect, a box-shadow cutout creates the spotlight. */}
+    // Root is click-through (pointer-events:none) so an `action` step's real
+    // anchor stays reachable; only the popover (and, on non-action steps, the
+    // click-blocker + spotlight) opt back into catching clicks.
+    <div
+      className="pointer-events-none fixed inset-0 z-[100]"
+      style={{ pointerEvents: "none" }}
+      role="dialog"
+      aria-modal="true"
+      aria-label="新手引导"
+    >
+      {/* Dim overlay. With a rect, a box-shadow cutout creates the spotlight.
+          On `action` steps it is click-through so the highlighted element itself
+          receives the click; on non-action steps it swallows anchor clicks
+          (highlight-but-inert). */}
       <div
         className="absolute inset-0"
         style={
@@ -109,17 +121,24 @@ export function TourRunner() {
                 position: "fixed", borderRadius: 12,
                 boxShadow: "0 0 0 9999px rgba(15,23,42,0.55)",
                 transition: "all 160ms ease",
+                pointerEvents: isAction ? "none" : "auto",
               }
-            : { background: "rgba(15,23,42,0.55)" }
+            : { background: "rgba(15,23,42,0.55)", pointerEvents: isAction ? "none" : "auto" }
         }
       />
+      {/* Full-screen click-blocker for NON-action steps only: keeps the modal
+          feel (dimmed area swallows stray clicks). Omitted on `action` steps so
+          the whole page stays reachable during "you try it". */}
+      {!isAction && (
+        <div data-testid="tour-blocker" className="pointer-events-auto absolute inset-0" />
+      )}
       {/* 印记 popover. Centered when no anchor; otherwise near the anchor, clamped
           inside the viewport so its controls (下一步/结束/跳过本节) never land
           off-screen when the anchor sits near an edge. Tall content scrolls
           internally rather than overflowing the viewport. */}
       <div
         ref={popRef}
-        className="fixed max-w-[360px] overflow-y-auto rounded-mk-md bg-mk-surface p-4 shadow-mk-lg ring-1 ring-mk-border"
+        className="pointer-events-auto fixed w-max min-w-[280px] max-w-[400px] overflow-y-auto rounded-mk-md bg-mk-surface p-4 shadow-mk-lg ring-1 ring-mk-border"
         style={{
           maxHeight: `calc(100vh - ${VIEWPORT_MARGIN * 2}px)`,
           ...(centered
@@ -130,23 +149,25 @@ export function TourRunner() {
         }}
       >
         <div className="mb-2 flex items-center gap-2">
-          <Pebble size={22} />
+          <span className="mk-pebble-bounce inline-flex">
+            <Pebble size={22} />
+          </span>
           <span className="text-mk-small font-semibold text-mk-accent-700">印记</span>
         </div>
         {t.step.title && <div className="mb-1 text-mk-body font-semibold text-mk-ink">{t.step.title}</div>}
-        <div className="text-mk-body text-mk-ink"><Markdown text={t.step.text} /></div>
+        <div className="text-mk-body leading-relaxed text-mk-ink"><Markdown text={t.step.text} /></div>
 
-        <div className="mt-3 flex items-center justify-between">
-          <button type="button" className="text-mk-small text-mk-muted hover:text-mk-ink" onClick={t.stop}>结束</button>
+        <div className="mt-3 flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+          <Button variant="link" size="sm" onClick={t.stop}>结束</Button>
           <div className="flex items-center gap-2">
-            <button type="button" className="text-mk-small text-mk-muted hover:text-mk-ink" onClick={t.skipSegment}>跳过本节</button>
+            <Button variant="link" size="sm" onClick={t.skipSegment}>跳过本节</Button>
             {t.stepIndex > 0 || t.segmentIndex > 0 ? (
-              <button type="button" className="rounded-mk-full px-3 py-1 text-mk-small text-mk-ink ring-1 ring-mk-border hover:bg-mk-paper" onClick={t.prev}>上一步</button>
+              <Button variant="secondary" size="sm" onClick={t.prev}>上一步</Button>
             ) : null}
             {isAction ? (
-              <span className="rounded-mk-full bg-mk-accent-50 px-3 py-1 text-mk-small font-semibold text-mk-accent-700">试试看 →</span>
+              <span className="rounded-mk-full bg-mk-accent-50 px-3 py-1 text-mk-small font-semibold text-mk-accent-700">点亮处可点 →</span>
             ) : (
-              <button type="button" className="rounded-mk-full bg-mk-accent px-3 py-1 text-mk-small font-semibold text-white hover:opacity-90" onClick={t.next}>下一步</button>
+              <Button variant="primary" size="sm" onClick={t.next}>下一步</Button>
             )}
           </div>
         </div>

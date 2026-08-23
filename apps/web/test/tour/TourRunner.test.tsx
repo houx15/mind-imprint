@@ -64,6 +64,27 @@ describe("TourRunner", () => {
     document.body.removeChild(target);
   });
 
+  it("makes the portal root click-through on an action step so the anchor is reachable", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "点它", advance: "action", actionEvent: { selector: "#target2", type: "click" }, placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    const root = screen.getByRole("dialog") as HTMLElement;
+    expect(root.style.pointerEvents).toBe("none");
+    // No full-screen click-blocker on action steps — the rest of the page must be reachable.
+    expect(screen.queryByTestId("tour-blocker")).not.toBeInTheDocument();
+  });
+
+  it("renders a full-screen click-blocker on a non-action step", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "居中说明", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByTestId("tour-blocker")).toBeInTheDocument();
+  });
+
   it("clears the spotlight immediately when advancing from an anchored step to a centered step", async () => {
     const target = document.createElement("div");
     target.id = "anchor-target";
