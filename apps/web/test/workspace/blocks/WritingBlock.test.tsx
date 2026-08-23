@@ -22,7 +22,7 @@ import { StudioChatContext, type StudioChatMsg } from "@/studio/ai/StudioChatCon
 // rail still renders what was sent.
 const mockSend = vi.fn();
 
-function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; children: React.ReactNode }) {
+function ChatProvider({ initial = [], isDemo = false, children }: { initial?: StudioChatMsg[]; isDemo?: boolean; children: React.ReactNode }) {
   const [messages, setMessages] = useState<StudioChatMsg[]>(initial);
   const [sending, setSending] = useState(false);
   const sendStudioTurn = async (userInput: string, opts?: { quotedPart?: string }) => {
@@ -64,6 +64,7 @@ function ChatProvider({ initial = [], children }: { initial?: StudioChatMsg[]; c
         started: true,
         startJourney: async () => {},
         starting: false,
+        isDemo,
       }}
     >
       {children}
@@ -76,6 +77,17 @@ function renderWithAiSlot(ui: React.ReactElement, initialMessages: StudioChatMsg
   document.body.appendChild(slot);
   return render(
     <ChatProvider initial={initialMessages}>
+      <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
+    </ChatProvider>,
+  );
+}
+
+// Task 9 (P6): render as the read-only demo (isDemo:true on the studio store).
+function renderDemoWithAiSlot(ui: React.ReactElement) {
+  const slot = document.createElement("div");
+  document.body.appendChild(slot);
+  return render(
+    <ChatProvider isDemo>
       <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
     </ChatProvider>,
   );
@@ -641,6 +653,47 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     // tab) — the main workspace tab comes first in the DOM.
     await userEvent.click(screen.getAllByRole("button", { name: "大纲" })[0]!);
     await waitFor(() => expect(mockPutBuffer).toHaveBeenCalledWith("p1", before + "最后一句还没保存。"));
+  });
+});
+
+// Task 9 (P6): the read-only demo unlocks the LIVE teaching layout so the tour
+// can spotlight it, while every write path stays dead (disabled + backend 403).
+describe("WritingBlock · read-only demo (P6 Task 9)", () => {
+  it("renders the 片段引导/写作卡 anchor even on a finished proposal (read-only)", async () => {
+    // A finished demo proposal is locked; without the demo unlock the card is
+    // hidden. isDemo renders it so the tour can spotlight `writing-aicard`.
+    renderDemoWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" doc="proposal" writingFinished={true} finalized refreshWorkspace={() => {}} />,
+    );
+    // the proposal opens on 片段 by default — the guided card wrapper is present.
+    await waitFor(() => {
+      // eslint-disable-next-line testing-library/no-node-access
+      expect(document.querySelector('[data-tour="writing-aicard"]')).toBeInTheDocument();
+    });
+  });
+
+  it("renders a DISABLED 完成写作 button even when archived (read-only, no bounce)", async () => {
+    renderDemoWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" writingFinished={true} refreshWorkspace={() => {}} />,
+    );
+    const finish = await screen.findByRole("button", { name: "完成写作" });
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(finish).toHaveAttribute("data-tour", "writing-finish");
+    expect(finish).toBeDisabled();
+    expect(finish).toHaveAttribute("title", "演示项目为只读，无法完成");
+    // 重新打开写作 (the normal finished-essay affordance) is NOT shown for the demo.
+    expect(screen.queryByRole("button", { name: "重新打开写作" })).toBeNull();
+  });
+
+  it("forceTab drives the active writing tab once (guided-tour deep-link)", async () => {
+    // essay opens on 大纲 by default; forceTab="snippets" flips it to 片段 once.
+    const onConsumed = vi.fn();
+    renderDemoWithAiSlot(
+      <WritingBlock projectId="p1" title="T" proposal={PROPOSAL} status="done" writingFinished={true} forceTab="snippets" onForceTabConsumed={onConsumed} refreshWorkspace={() => {}} />,
+    );
+    // the 片段 tab becomes the active one (its content renders).
+    await screen.findByText(/攒下引文、笔记/);
+    expect(onConsumed).toHaveBeenCalled();
   });
 });
 

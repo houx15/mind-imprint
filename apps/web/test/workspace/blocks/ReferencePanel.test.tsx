@@ -150,6 +150,46 @@ describe("ReferencePanel", () => {
     expect(screen.queryByText("批注会在印记体检你的写作后出现。")).not.toBeInTheDocument();
   });
 
+  // Task 9 (P6): the read-only demo defaults the panel to the AI批注 tab so the
+  // seeded 批注 render without a click (the tour spotlights `writing-annotations`).
+  it("defaults to the AI批注 tab for the demo (isDemo), so 批注 show without a click", async () => {
+    // a material is present → without isDemo the default tab would be 阅读笔记.
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+
+    render(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "material", id: "ref-1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+        isDemo
+      />,
+    );
+
+    // the AI批注 group renders as the ACTIVE tab with no click — its anchor and
+    // (empty) calm line are visible immediately.
+    expect(await screen.findByText("批注会在印记看过你的写作后出现。")).toBeInTheDocument();
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(document.querySelector('[data-tour="writing-annotations"]')).toBeInTheDocument();
+  });
+
+  it("without isDemo the panel does NOT default to AI批注 (control)", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+
+    render(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "material", id: "ref-1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+      />,
+    );
+
+    // the 阅读笔记 tab leads (material present); the 批注 group is behind its tab.
+    await screen.findByText("Nature Sustainability: China's renewable build-out");
+    expect(screen.queryByText("批注会在印记看过你的写作后出现。")).not.toBeInTheDocument();
+  });
+
   it("folds the collected materials into 你的材料 and inserts a fragment on click (retired floating box)", async () => {
     vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
     const onInsert = vi.fn();

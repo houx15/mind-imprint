@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { StudioAiSlotContext } from "@/studio/ai/StudioAiSlot";
+import { StudioChatContext } from "@/studio/ai/StudioChatContext";
 
 // S5 · the review room's AI-use retrospective panel + defense-readiness coach
 // thread + (S5·#20/#21) the two-stage 写作→回顾 flow: view-only lock until writing
@@ -50,6 +51,19 @@ function renderWithAiSlot(ui: React.ReactElement) {
   const slot = document.createElement("div");
   document.body.appendChild(slot);
   return render(<StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>);
+}
+
+// Task 9 (P6): render as the read-only demo. ReviewBlock reads `isDemo` off the
+// studio store via `useContext(StudioChatContext)`; it only touches `.isDemo`,
+// so a cast partial value is enough to drive the demo branch.
+function renderDemoWithAiSlot(ui: React.ReactElement) {
+  const slot = document.createElement("div");
+  document.body.appendChild(slot);
+  return render(
+    <StudioChatContext.Provider value={{ isDemo: true } as never}>
+      <StudioAiSlotContext.Provider value={slot}>{ui}</StudioAiSlotContext.Provider>
+    </StudioChatContext.Provider>,
+  );
 }
 
 beforeEach(() => {
@@ -177,6 +191,29 @@ describe("ReviewBlock · mutual reflection ordering (#21)", () => {
     // REFLECTION_DECK cards are summonable by the student
     expect(await screen.findByRole("button", { name: /学习报告/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /元认知/ })).toBeInTheDocument();
+  });
+});
+
+// Task 9 (P6): the read-only demo is a finished (archived) project. Normally
+// that shows only the 已归档 label, but the tour must spotlight 定稿并开始评估 —
+// so for the demo we render it DISABLED (read-only), never firing a write.
+describe("ReviewBlock · read-only demo (P6 Task 9)", () => {
+  it("renders a DISABLED 定稿并开始评估 button on a finished demo, no confirm modal", async () => {
+    renderDemoWithAiSlot(<ReviewBlock projectId="p1" proposal={PROPOSAL} status="done" writingFinished={true} />);
+    await screen.findByText(/12 轮对话/); // room unlocked (writingFinished)
+
+    const finalize = await screen.findByRole("button", { name: "定稿并开始评估" });
+    // eslint-disable-next-line testing-library/no-node-access
+    expect(finalize).toHaveAttribute("data-tour", "review-finalize");
+    expect(finalize).toBeDisabled();
+
+    // the 已归档 label (the normal finished-project state) is NOT shown for the demo.
+    expect(screen.queryByText(/已归档/)).toBeNull();
+
+    // clicking the disabled button opens no confirm modal → never reaches finishProject.
+    await userEvent.click(finalize).catch(() => {});
+    expect(screen.queryByRole("button", { name: "定稿并评估" })).toBeNull();
+    expect(mockFinishProject).not.toHaveBeenCalled();
   });
 });
 

@@ -275,10 +275,13 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-2",
+        // Real-scene (P6, Task 9): the 片段引导/写作卡 lives ONLY in the PROPOSAL
+        // doc's 片段 tab. Drive there so `writing-aicard` actually renders — the
+        // demo unlocks this card read-only (locked || isDemo), so it shows even
+        // though the demo project is finished.
         // 铁律①: describe the card as SCAFFOLDING her own thinking — never as
-        // writing body text. (In the finished demo the essay is locked, so this
-        // 片段 guide may not render and the step degrades to a centered bubble;
-        // the copy reads correctly either way.)
+        // writing body text.
+        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "snippets" }),
         anchor: '[data-tour="writing-aicard"]',
         placement: "right",
         text: "在「片段」里，印记把每个论证部分拆成一个个可填的引导框，帮你想清楚每一段要论证什么。**正文始终是你自己写的**——它只陪你想，绝不替你落笔。",
@@ -293,9 +296,9 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-4",
-        // Real seeded 批注 (migration 0083). Lives in the panel's「AI批注」tab —
-        // not the default tab, so in the demo it may sit behind a tab click and
-        // the step degrades to centered; the copy stands on its own.
+        // Real-scene (P6, Task 9): the seeded 批注 (migration 0083) live in the
+        // panel's「AI批注」tab. For the demo the ReferencePanel defaults to that
+        // tab, so the real 批注 render without a click — a genuine spotlight.
         anchor: '[data-tour="writing-annotations"]',
         placement: "right",
         text: "印记通读你的初稿后，会在这里留下分层批注：**绿色**是亮点、**蓝色**是建议、**红色**是要处理的问题。点一条，就跳到正文里对应的那句话。",
@@ -303,9 +306,11 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-5",
-        // The 完成写作 lock. In the finished demo this button is replaced by
-        // 「重新打开写作」, so the anchor may not resolve and the step degrades to
-        // a centered bubble — the copy still describes the real lock behavior.
+        // Real-scene (P6, Task 9): switch back to the 正文 doc so the button reads
+        // 「完成写作」(the essay's lock, matching the copy). For the demo it always
+        // renders (disabled, read-only), so `writing-finish` resolves and this is
+        // a real spotlight of the real lock.
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
         anchor: '[data-tour="writing-finish"]',
         placement: "bottom",
         text: "写完初稿，点「完成写作」会**锁定初稿、解锁回顾**——别担心，之后仍可「重新打开写作」继续改。",
@@ -333,11 +338,10 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reflection-2",
-        // The point of no return. In the finished demo this button is replaced
-        // by the archived-state label, so the anchor may not resolve and the
-        // step degrades to a centered bubble — the copy still carries the real
-        // warning (the student's answer to "after you finish, can I still
-        // change my writing?").
+        // Real-scene (P6, Task 9): the point of no return. For the demo this
+        // button always renders (disabled, read-only), so `review-finalize`
+        // resolves and this is a real spotlight of the real lock — the student's
+        // answer to "after you finish, can I still change my writing?".
         anchor: '[data-tour="review-finalize"]',
         placement: "top",
         text: "全部回顾写完、确认无误后，点「定稿并开始评估」。**注意：定稿后，正文和回顾都会锁定、无法再修改**，印记会据此生成过程评估——所以一定是真的改完了，再定稿。",

@@ -45,6 +45,7 @@ describe("courses segments", () => {
       openDemoReport: vi.fn(),
       setReadingView: vi.fn(),
       openDemoReadingRoom: vi.fn(),
+      setWritingView: vi.fn(),
     };
     coursesJourney[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("courses");

@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from "react";
+import { useContext, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
 import { useStudioAiSlot } from "@/studio/ai/StudioAiSlot";
+import { StudioChatContext } from "@/studio/ai/StudioChatContext";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { Composer } from "@/studio/ai/Composer";
@@ -73,6 +74,13 @@ export function ReviewBlock({
   const [confirmFinish, setConfirmFinish] = useState(false);
   // archived = the finalize path has begun (evaluating) or completed (done).
   const archived = status === "evaluating" || status === "done";
+  // Task 9 (P6 demo): the read-only demo is a finished (archived) project, which
+  // normally shows only the 已归档 label — but the tour must spotlight 定稿并开始评估
+  // (data-tour="review-finalize"). Read `isDemo` off the hoisted studio store the
+  // same flag WritingBlock uses; read defensively (`useContext`, not the throwing
+  // `useStudioChat`) so a room rendered outside a provider — e.g. an isolated
+  // unit test — degrades to a plain non-demo review instead of crashing.
+  const isDemo = useContext(StudioChatContext)?.isDemo ?? false;
   const answersRef = useRef<string[]>(reflectionPrompts.map(() => ""));
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -238,7 +246,25 @@ export function ReviewBlock({
                   ACTIVE coach while she's filling the form, not a buried footnote. */}
 
               <div className="mt-7 flex flex-wrap items-center gap-4">
-                {archived ? (
+                {isDemo ? (
+                  // Task 9 (P6 demo): render 定稿并开始评估 so the tour can spotlight
+                  // it — but DISABLED and read-only (演示项目为只读). Disabled means
+                  // the click never reaches setConfirmFinish → no confirm modal →
+                  // no finalizeAndEvaluate → no 403 write. The real point-of-no-
+                  // return copy still shows below it.
+                  <>
+                    <button
+                      type="button"
+                      data-tour="review-finalize"
+                      disabled
+                      className="rounded-mk-md bg-mk-accent px-5 py-2.5 text-[14px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+                      title="演示项目为只读，无法定稿"
+                    >
+                      定稿并开始评估
+                    </button>
+                    <span className="text-[14px] text-mk-faint">定稿后，正文与回顾都会锁定、无法再修改——这是示例项目，仅供你看清这一步。</span>
+                  </>
+                ) : archived ? (
                   <>
                     <span className="text-[14px] font-semibold text-mk-success">已归档 · 过程评估正在生成，稍后可在「全部项目」里点开查看</span>
                     {onFinished && (

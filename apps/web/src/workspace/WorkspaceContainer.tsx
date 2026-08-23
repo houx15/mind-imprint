@@ -23,6 +23,7 @@ import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
 import type { ChatMessage } from "../studio/reading/readingLoop";
 import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
+import type { TourWritingView } from "@/tour/types";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue, type ChatAction } from "../studio/ai/StudioChatContext";
@@ -105,6 +106,8 @@ export function WorkspaceContainer({
   onPendingRoomConsumed,
   pendingReadingView,
   onPendingReadingViewConsumed,
+  pendingWritingView,
+  onPendingWritingViewConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onRequestDemoTour,
@@ -142,6 +145,16 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingReadingView` has been captured, so the
    * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
   onPendingReadingViewConsumed?: () => void;
+  /** Drive the writing room to a document (提案/正文) + tab (大纲/片段/正文) — the
+   * guided tour's P6 Task 9 deep-link, so it can land on the PROPOSAL 片段 tab
+   * where the 片段引导/写作卡 (`writing-aicard`) lives. Mirrors `pendingRoom`: a
+   * one-shot captured into local state; the doc drives `docOverride` and the tab
+   * is handed to WritingBlock as `forceTab` (its own ref guard applies it once
+   * and never fights the student's later tab clicks). */
+  pendingWritingView?: TourWritingView | null;
+  /** Fired once right after `pendingWritingView` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingWritingViewConsumed?: () => void;
   /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
    * StudentApp) already fetched the demo material's `MaterialSource` (GET
    * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
@@ -316,6 +329,11 @@ export function WorkspaceContainer({
   // resets this back to null — so a later remount (room switch / source-open)
   // sees no stale force and never overrides the student's manual toggle.
   const [readingForceView, setReadingForceView] = useState<"list" | "graph" | null>(null);
+  // `pendingWritingView` deep-link (P6, Task 9): the tab half, captured and
+  // handed to WritingBlock as `forceTab` (its own ref guard applies it once and
+  // never fights the student's later tab clicks). The doc half drives
+  // `setDocOverride` in the consume effect below.
+  const [writingForceTab, setWritingForceTab] = useState<"outline" | "snippets" | "draft" | null>(null);
 
   function openReadingSource(
     m: MaterialSource,
@@ -1151,6 +1169,22 @@ export function WorkspaceContainer({
     }
   }, [pendingReadingView, onPendingReadingViewConsumed]);
 
+  // `pendingWritingView` deep-link (P6, Task 9 — guided tour): switch the
+  // writing document via `docOverride` (提案/正文) and stage the tab into
+  // `writingForceTab` (handed to WritingBlock as `forceTab`). Same ref-guarded
+  // "only on a new object" firing as `pendingRoom`. WritingBlock's OWN ref guard
+  // then applies the tab once and never overrides a later manual click. This is
+  // what lands the tour on the PROPOSAL 片段 tab where `writing-aicard` lives.
+  const lastWritingView = useRef<TourWritingView | null>(null);
+  useEffect(() => {
+    if (pendingWritingView && pendingWritingView !== lastWritingView.current) {
+      lastWritingView.current = pendingWritingView;
+      setDocOverride(pendingWritingView.doc);
+      setWritingForceTab(pendingWritingView.tab);
+      onPendingWritingViewConsumed?.();
+    }
+  }, [pendingWritingView, onPendingWritingViewConsumed]);
+
   // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
   // already-fetched demo `MaterialSource` into the real immersive
   // `ReadingRoom`, seeded with the canned read-only transcript. Same
@@ -1475,6 +1509,7 @@ export function WorkspaceContainer({
                     annotationsVersion={annotationsVersion}
                     needsVersion={needsVersion}
                     showSnippets={writingTab === "draft"}
+                    isDemo={workspace.isDemo ?? false}
                     onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                     onJumpToAnchor={(a) => draftScrollRef.current?.(a)}
                   />
@@ -1529,6 +1564,8 @@ export function WorkspaceContainer({
                       essayStage={studioState?.essayTrack?.stage}
                       onStudioStateChanged={continueYinji}
                       onActiveTabChange={setWritingTab}
+                      forceTab={writingForceTab}
+                      onForceTabConsumed={() => setWritingForceTab(null)}
                     />
                   );
                 })()}

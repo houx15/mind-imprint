@@ -48,6 +48,21 @@ export interface TourNavContext {
    *  disabled, no writes fire). On a fetch failure, falls back to
    *  `setReadingView("list")` so the step never dead-ends. */
   openDemoReadingRoom: () => void;
+  /** P6 (Task 9): drive the OPEN project's writing room to a specific document
+   *  (提案/正文) + tab (大纲/片段/正文) so the tour can land on the PROPOSAL 片段
+   *  tab where the 片段引导/写作卡 (`writing-aicard`) lives. Sets
+   *  `pendingWritingView` in WorkspaceContainer, which switches the doc via its
+   *  `docOverride` and hands the tab to WritingBlock as `forceTab` (a
+   *  ref-guarded one-shot). Assumes the writing room is already open (drive
+   *  there first with `setStudioRoom("writing")`). */
+  setWritingView: (view: TourWritingView) => void;
+}
+
+/** A one-shot writing-room deep-link target (P6, Task 9): which document and
+ *  which tab the guided tour wants the open project's writing room to show. */
+export interface TourWritingView {
+  doc: "proposal" | "essay";
+  tab: "outline" | "snippets" | "draft";
 }
 
 export interface TourStep {

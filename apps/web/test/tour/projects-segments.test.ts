@@ -29,6 +29,7 @@ describe("projects segments", () => {
       openDemoReport: vi.fn(),
       setReadingView: vi.fn(),
       openDemoReadingRoom: vi.fn(),
+      setWritingView: vi.fn(),
     };
     projectsSegments[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("projects");
@@ -48,6 +49,7 @@ describe("projects segments", () => {
           openDemoReport: vi.fn(),
       setReadingView: vi.fn(),
       openDemoReadingRoom: vi.fn(),
+      setWritingView: vi.fn(),
         };
         s.onEnter(nav);
         expect(calls.includes("openDemoProject") && calls.includes("setStudioRoom")).toBe(false);
@@ -82,6 +84,7 @@ describe("projects segments", () => {
       openDemoReport: vi.fn(),
       setReadingView: vi.fn((view) => calls.push(["setReadingView", view])),
       openDemoReadingRoom: vi.fn(),
+      setWritingView: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -102,6 +105,7 @@ describe("projects segments", () => {
       openDemoReport: vi.fn(),
       setReadingView: vi.fn((view) => calls.push(["setReadingView", view])),
       openDemoReadingRoom: vi.fn(),
+      setWritingView: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -125,6 +129,7 @@ describe("projects segments", () => {
       openDemoReport: vi.fn(),
       setReadingView: vi.fn(),
       openDemoReadingRoom: vi.fn(() => calls.push("openDemoReadingRoom")),
+      setWritingView: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContain("openDemoReadingRoom");
@@ -162,6 +167,34 @@ describe("projects segments", () => {
     // 铁律①: never claim the AI writes the essay.
     expect(byId("writing-2").text).toContain("正文");
     expect(byId("writing-2").text).toMatch(/自己写|不替|不.*代写|绝不替/);
+    // real-scene: the anchored writing steps are non-center spotlights.
+    for (const id of ["writing-2", "writing-4", "writing-5"]) expect(byId(id).placement).not.toBe("center");
+  });
+
+  // P6 Task 9 · the deeper writing walk drives the writing room to the exact
+  // doc + tab where each anchor renders (setWritingView deep-link) — the tour
+  // couldn't reach `writing-aicard` (proposal 片段) without it.
+  it("writing-2 lands on the PROPOSAL 片段 tab, writing-5 on the 正文 doc, via setWritingView", () => {
+    const seg = projectsSegments.find((s) => s.id === "writing")!;
+    const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
+
+    const calls: Array<[string, unknown]> = [];
+    const makeNav = (): TourNavContext => ({
+      setTab: vi.fn(),
+      openCourse: vi.fn(),
+      setCoursesSub: vi.fn(),
+      openDemoProject: vi.fn(),
+      setStudioRoom: vi.fn(),
+      openDemoReport: vi.fn(),
+      setReadingView: vi.fn(),
+      openDemoReadingRoom: vi.fn(),
+      setWritingView: vi.fn((v) => calls.push(["setWritingView", v])),
+    });
+
+    byId("writing-2").onEnter?.(makeNav());
+    byId("writing-5").onEnter?.(makeNav());
+    expect(calls).toContainEqual(["setWritingView", { doc: "proposal", tab: "snippets" }]);
+    expect(calls).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
   });
 
   // P6 Task 7 · the reflection walk warns about the point-of-no-return lock.

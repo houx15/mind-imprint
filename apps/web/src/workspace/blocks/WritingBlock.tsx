@@ -131,6 +131,8 @@ export function WritingBlock({
   essayStage,
   onStudioStateChanged,
   onActiveTabChange,
+  forceTab,
+  onForceTabConsumed,
 }: {
   projectId: string;
   title: string;
@@ -187,6 +189,12 @@ export function WritingBlock({
   /** Reports the active writing tab (大纲/片段/正文) up so the container can, e.g.,
    * surface the student's 片段 in the left panel only while they're on 正文. */
   onActiveTabChange?: (tab: "outline" | "snippets" | "draft") => void;
+  /** Guided-tour deep-link (P6, Task 9): force the active tab (大纲/片段/正文) once.
+   * A ref-guarded one-shot (mirrors WorkspaceContainer's `pendingRoom` /
+   * ReadingBlock's `forceView`) so it never fights the student's own later
+   * tab clicks — `onForceTabConsumed` retracts it right after it's applied. */
+  forceTab?: "outline" | "snippets" | "draft" | null;
+  onForceTabConsumed?: () => void;
 }) {
   // The proposal opens on 片段 — where its cards live and where the current part
   // is written; the essay opens on 大纲. Doc-scoped because WritingBlock remounts
@@ -199,6 +207,18 @@ export function WritingBlock({
     return () => onActiveTabChange?.("outline");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+  // Guided-tour deep-link (P6, Task 9): apply `forceTab` into the live tab once.
+  // Ref-guarded (mirrors ReadingBlock's `forceView`) so each new value applies
+  // exactly once and the student's own later tab clicks are never re-fought; the
+  // `onForceTabConsumed` retraction stops a stale-but-truthy value re-applying.
+  const lastForcedTab = useRef<string | null>(null);
+  useEffect(() => {
+    if (!forceTab || lastForcedTab.current === forceTab) return;
+    lastForcedTab.current = forceTab;
+    setTab(forceTab);
+    onForceTabConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceTab]);
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);
@@ -376,8 +396,24 @@ export function WritingBlock({
           <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{isProposal ? "提案" : "论点"}</span>
         )}
         <p className="min-w-0 flex-1 truncate text-[14px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
-        {!archived &&
-          (writingFinished ? (
+        {/* Task 9 (P6 demo): a finished demo is archived, which normally hides the
+            finish/reopen area entirely — but the tour must spotlight 完成写作
+            (data-tour="writing-finish"). So for the demo we ALWAYS render the
+            完成写作 button branch (disabled, read-only), even when archived. The
+            backend 403s the write regardless; disabled here means the click can
+            never even reach openFinish (no confirm modal, no bounce). */}
+        {(!archived || isDemo) &&
+          (isDemo ? (
+            <button
+              type="button"
+              data-tour="writing-finish"
+              disabled
+              className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+              title="演示项目为只读，无法完成"
+            >
+              {isProposal ? "完成提案" : "完成写作"}
+            </button>
+          ) : writingFinished ? (
             // #20 · reversible — 重新打开 unlocks this document again (铁律②).
             <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title={isProposal ? "重新编辑提案" : "重新打开写作，继续修改初稿"}>{isProposal ? "重新编辑提案" : "重新打开写作"}</button>
           ) : (
@@ -385,14 +421,11 @@ export function WritingBlock({
               type="button"
               data-tour="writing-finish"
               onClick={() => void openFinish()}
-              disabled={isDemo}
-              className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+              className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600"
               title={
-                isDemo
-                  ? "演示项目为只读，无法完成"
-                  : isProposal
-                    ? "提案写好了？点这里定稿，进入写正文"
-                    : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"
+                isProposal
+                  ? "提案写好了？点这里定稿，进入写正文"
+                  : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"
               }
             >
               {isProposal ? "完成提案" : "完成写作"}
@@ -441,9 +474,14 @@ export function WritingBlock({
                   <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
                 </div>
               </div>
-              {!locked && (
+              {/* Task 9 (P6 demo): a finished proposal is locked, which hides the
+                  片段引导/写作卡. The tour must spotlight it (data-tour=
+                  "writing-aicard"), so render it for the demo too — but pass
+                  `locked || isDemo` so ProposalGuidePane is fully READ-ONLY (no
+                  active inputs, no AI-write — 铁律①). */}
+              {(!locked || isDemo) && (
                 <div data-tour="writing-aicard">
-                  <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+                  <ProposalGuidePane projectId={projectId} locked={locked || !!isDemo} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
                 </div>
               )}
               <SnippetsPane snip={snip} projectId={projectId} doc="proposal" locked={finalized} embedded importedSections={importedSections} />

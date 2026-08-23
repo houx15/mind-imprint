@@ -14,7 +14,7 @@ import { TourRunner } from "@/tour/TourRunner";
 import { WelcomeModal } from "@/tour/WelcomeModal";
 import { FeedbackModal } from "@/tour/FeedbackModal";
 import { fullJourney, journeyStarting } from "@/tour/journey";
-import type { TourNavContext, StudioRoom } from "@/tour/types";
+import type { TourNavContext, StudioRoom, TourWritingView } from "@/tour/types";
 import { DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID, DEMO_READING_REFERENCE_ID } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
 import { getMaterialSource } from "@/workspace/api/workspace";
@@ -89,6 +89,11 @@ export function StudentApp({
   // driven by the guided tour (TourNavContext.setReadingView, P5 Task 4).
   // Consumed by ProjectsTab/WorkspaceContainer on entry.
   const [pendingReadingView, setPendingReadingView] = useState<"list" | "graph" | null>(null);
+  // One-shot deep-link to drive the open writing room to a specific document +
+  // tab (提案 片段 → where the 片段引导/写作卡 lives), driven by the guided tour
+  // (TourNavContext.setWritingView, P6 Task 9). Consumed by ProjectsTab/
+  // WorkspaceContainer on entry.
+  const [pendingWritingView, setPendingWritingView] = useState<TourWritingView | null>(null);
   // One-shot deep-link to open an already-fetched demo `MaterialSource` into
   // the real immersive 精读 reading room, driven by the guided tour
   // (TourNavContext.openDemoReadingRoom, P6 Task 5). Consumed by
@@ -171,6 +176,10 @@ export function StudentApp({
     setStudioRoom: (room) => setPendingRoom(room),
     openDemoReport: () => openReportFromHome(DEMO_PROJECT_ID),
     setReadingView: (view) => setPendingReadingView(view),
+    // P6 (Task 9): drive the open writing room to a document + tab so the tour
+    // can land on the PROPOSAL 片段 tab (where the 片段引导/写作卡 lives). The room
+    // itself is opened by the step's own setStudioRoom("writing").
+    setWritingView: (view) => setPendingWritingView(view),
     // P6 (Task 5): switch the open project's studio to the reading room, then
     // fetch the demo's seeded material (read-only GET, no enter-reading side
     // effects) and open it into the real, immersive 精读 room via
@@ -220,6 +229,8 @@ export function StudentApp({
         onPendingRoomConsumed={() => setPendingRoom(null)}
         pendingReadingView={pendingReadingView}
         onPendingReadingViewConsumed={() => setPendingReadingView(null)}
+        pendingWritingView={pendingWritingView}
+        onPendingWritingViewConsumed={() => setPendingWritingView(null)}
         pendingDemoReading={pendingDemoReading}
         onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
         onImmersiveChange={setProjectsImmersive}

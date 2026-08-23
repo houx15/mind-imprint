@@ -13,6 +13,7 @@ const nav: TourNavContext = {
   openDemoReport: vi.fn(),
   setReadingView: vi.fn(),
   openDemoReadingRoom: vi.fn(),
+  setWritingView: vi.fn(),
 };
 
 function Harness({ seg }: { seg: TourSegment }) {

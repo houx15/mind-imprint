@@ -62,11 +62,16 @@ export function ReferencePanel({
   showSnippets,
   onOpenReading,
   onJumpToAnchor,
+  isDemo = false,
 }: {
   projectId: string;
   reference: ReferenceRef[];
   stage: StudioStage;
   proposal: Proposal;
+  /** Task 9 (P6 demo): the read-only demo defaults this panel to the 批注 tab so
+   * the seeded AI 批注 render without a click (the tour spotlights them). It's
+   * still a real tab the student can switch away from. */
+  isDemo?: boolean;
   /** slice 5 · jump to the reading room from the 还需要探索的 box (§101). */
   onOpenReading?: (note?: string) => void;
   /** Click a 批注 → scroll+highlight the matching text in the draft. `quote`
@@ -98,7 +103,10 @@ export function ReferencePanel({
   const annotationDoc: "proposal" | "essay" = isProposalStage ? "proposal" : "essay";
   const [proposalAnnos, setProposalAnnos] = useState<DraftAnnotation[]>([]);
   // §93 · the left panel is multi-tab; a tab appears only when it has content.
-  const [activeTab, setActiveTab] = useState<string>("");
+  // Task 9 (P6 demo): default to the 批注 tab for the demo so the seeded AI 批注
+  // are visible immediately (the tour spotlights `writing-annotations`); the
+  // student can still click any other tab.
+  const [activeTab, setActiveTab] = useState<string>(isDemo ? "anno" : "");
   useEffect(() => {
     let cancelled = false;
     void getProposalAnnotations(projectId, annotationDoc)
