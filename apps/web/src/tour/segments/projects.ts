@@ -146,7 +146,7 @@ export const projectsSegments: TourSegment[] = [
       {
         id: "reading-warren-3",
         anchor: '[data-tour="warren-unfiled"]',
-        placement: "center",
+        placement: "top",
         text: "还没归类到具体子问题下的资料会先停在“未归档”区，你可以随时把它们拖到该去的地方。",
         advance: "next",
       },

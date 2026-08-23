@@ -68,7 +68,13 @@ function ProjectsSection({
   }
 
   const loading = projects === null;
-  const recent = (projects ?? []).slice(0, RECENT_LIMIT);
+  // The shared, world-readable demo project is appended to every user's list by
+  // the API (isDemo). It belongs in the 项目 directory (badged, behind the
+  // guide-or-leave guard) — not the home "最近项目" snapshot, whose cards open
+  // straight through `onOpenProject` and would bypass that guard (a brand-new
+  // user, whose only listed project IS the demo, would otherwise land in the
+  // read-only studio unguarded). Keep it out of this strip.
+  const recent = (projects ?? []).filter((p) => !p.isDemo).slice(0, RECENT_LIMIT);
 
   return (
     <section className="flex flex-col gap-4">
