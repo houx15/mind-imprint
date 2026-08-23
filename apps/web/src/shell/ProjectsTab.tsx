@@ -40,6 +40,10 @@ export interface ProjectsTabProps {
   onPendingReadingViewConsumed?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
+  /** Task 9: the demo project's guard modal's 好，带我逛一遍 — threaded straight
+   * to WorkspaceContainer → Directory. StudentApp implements it by playing
+   * `journeyStarting("projects")`. */
+  onRequestDemoTour?: () => void;
 }
 
 export function ProjectsTab({
@@ -54,6 +58,7 @@ export function ProjectsTab({
   pendingReadingView,
   onPendingReadingViewConsumed,
   onImmersiveChange,
+  onRequestDemoTour,
 }: ProjectsTabProps) {
   // A home 查看评估报告 deep-link lands on the 评估报告 sub, focused on that
   // project. Captured at mount (ProjectsTab remounts on each tab entry) so the
@@ -123,6 +128,7 @@ export function ProjectsTab({
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}
+            onRequestDemoTour={onRequestDemoTour}
           />
         ) : (
           <ReportsView initialProjectId={reportFocus} onFocusConsumed={() => setReportFocus(null)} />

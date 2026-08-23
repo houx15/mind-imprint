@@ -2,8 +2,17 @@ import { useEffect, useRef, useState } from "react";
 import { api } from "../api";
 import type { ProjectListItem } from "../api/projects";
 import { CreateProjectDrawer } from "./CreateProjectDrawer";
+import { DemoProjectGuardModal } from "./DemoProjectGuardModal";
 import { SkeletonCard, EmptyState } from "../ui";
 import { ProjectCard, NewProjectTile } from "@/catalog/ProjectCard";
+
+// Stable-sort so the shared demo project (isDemo) always renders last,
+// preserving the server's own ordering for every real project otherwise.
+// Array.prototype.sort is stable (ES2019+), so a 0 for two same-`isDemo`
+// items keeps their relative order untouched.
+function sortDemoLast(list: ProjectListItem[]): ProjectListItem[] {
+  return [...list].sort((a, b) => Number(a.isDemo === true) - Number(b.isDemo === true));
+}
 
 // The all-projects home: a gradient-cover card grid of the student's
 // workspaces, led by a dashed "新建" tile that opens the create drawer.
@@ -16,6 +25,7 @@ export function Directory({
   onViewReport,
   autoOpenCreate,
   onAutoOpenCreateHandled,
+  onRequestDemoTour,
 }: {
   onOpen: (id: string) => void;
   onViewReport?: (id: string) => void;
@@ -23,11 +33,19 @@ export function Directory({
    * Task 6) — read once, on mount, not tracked as a live toggle. */
   autoOpenCreate?: boolean;
   onAutoOpenCreateHandled?: () => void;
+  /** Task 9: a MANUAL click on the shared demo project card never opens the
+   * studio — it opens `DemoProjectGuardModal` instead, whose 好，带我逛一遍
+   * calls this to hand off to the guided tour. This is unrelated to the
+   * tour's OWN way into the demo studio (WorkspaceContainer's
+   * `initialProjectId` deep-link), which never goes through `onOpen`/Directory
+   * at all, so it can never trip this guard. */
+  onRequestDemoTour?: () => void;
 }) {
   const [projects, setProjects] = useState<ProjectListItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [demoGuardOpen, setDemoGuardOpen] = useState(false);
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Mount-only: Directory itself unmounts/remounts each time the workspace
@@ -107,14 +125,30 @@ export function Directory({
         ) : (
           <div className="grid grid-cols-[repeat(auto-fill,minmax(280px,1fr))] gap-5">
             <NewProjectTile onClick={() => setDrawerOpen(true)} className="min-h-[240px]" />
-            {projects.map((p) => (
-              <ProjectCard key={p.id} project={p} onOpen={() => onOpen(p.id)} onViewReport={onViewReport} onRename={handleRename} />
+            {sortDemoLast(projects).map((p) => (
+              <ProjectCard
+                key={p.id}
+                project={p}
+                // The shared demo project is read-only (backend 403s all
+                // writes): a manual click opens the guard modal instead of
+                // the studio, and it never offers 重命名. The tour's OWN way
+                // in (WorkspaceContainer's `initialProjectId`) bypasses this
+                // entirely — it never calls `onOpen` from here.
+                onOpen={() => (p.isDemo ? setDemoGuardOpen(true) : onOpen(p.id))}
+                onViewReport={onViewReport}
+                onRename={p.isDemo ? undefined : handleRename}
+              />
             ))}
           </div>
         )}
       </div>
 
       <CreateProjectDrawer open={drawerOpen} onClose={() => setDrawerOpen(false)} onCreated={handleCreated} />
+      <DemoProjectGuardModal
+        open={demoGuardOpen}
+        onGuide={() => onRequestDemoTour?.()}
+        onClose={() => setDemoGuardOpen(false)}
+      />
     </div>
   );
 }

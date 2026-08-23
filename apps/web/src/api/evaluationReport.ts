@@ -6,6 +6,9 @@ export interface EvalReportListEntry {
   title: string;
   type: string;
   createdAt: string;
+  /** True for the shared, world-readable demo project's report (backend Task 8) —
+   * appended last in the list. */
+  isDemo?: boolean;
 }
 
 // Backend three-state envelope (2026-08-14 retirement pass): the read/generate

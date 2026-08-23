@@ -204,4 +204,87 @@ describe("Directory", () => {
     await userEvent.click(screen.getByRole("button", { name: "新建项目" }));
     expect(await screen.findByText("作业题目 / 提示")).toBeInTheDocument();
   });
+
+  describe("shared demo project (Task 9)", () => {
+    const demoProject = { id: "demo", title: "示例：中国是否让地球更可持续", qualLabel: "拓展论文 EE", activeStation: "review", status: "done" as const, isDemo: true };
+
+    it("stable-sorts the demo project to the bottom, preserving order otherwise", async () => {
+      (api.listProjects as any).mockResolvedValue([demoProject, ...projects]);
+
+      const { container } = render(<Directory onOpen={vi.fn()} onViewReport={vi.fn()} />);
+      await screen.findByText(projects[0]!.title);
+
+      const titles = Array.from(container.querySelectorAll("[title]"))
+        .map((el) => el.getAttribute("title"))
+        .filter((t): t is string => !!t);
+      // The demo card renders last even though the API returned it first;
+      // the two real projects keep their original relative order.
+      expect(titles).toEqual([projects[0]!.title, projects[1]!.title, demoProject.title]);
+    });
+
+    it("renders a 示例 pill next to the demo card's title", async () => {
+      (api.listProjects as any).mockResolvedValue([...projects, demoProject]);
+
+      render(<Directory onOpen={vi.fn()} onViewReport={vi.fn()} />);
+      await screen.findByText(demoProject.title);
+
+      expect(screen.getByText("示例")).toBeInTheDocument();
+      // Real cards carry no such pill.
+      expect(screen.getAllByText("示例")).toHaveLength(1);
+    });
+
+    it("a manual click on the demo card opens the guard modal instead of the studio", async () => {
+      (api.listProjects as any).mockResolvedValue([...projects, demoProject]);
+      const onOpen = vi.fn();
+
+      render(<Directory onOpen={onOpen} onViewReport={vi.fn()} />);
+      const card = await screen.findByText(demoProject.title);
+      await userEvent.click(card);
+
+      expect(onOpen).not.toHaveBeenCalled();
+      expect(await screen.findByRole("heading", { name: "示例项目" })).toBeInTheDocument();
+    });
+
+    it("the guard modal's 好，带我逛一遍 calls onRequestDemoTour and closes", async () => {
+      (api.listProjects as any).mockResolvedValue([...projects, demoProject]);
+      const onRequestDemoTour = vi.fn();
+
+      render(<Directory onOpen={vi.fn()} onViewReport={vi.fn()} onRequestDemoTour={onRequestDemoTour} />);
+      const card = await screen.findByText(demoProject.title);
+      await userEvent.click(card);
+      await userEvent.click(await screen.findByRole("button", { name: "好，带我逛一遍" }));
+
+      expect(onRequestDemoTour).toHaveBeenCalledTimes(1);
+      expect(screen.queryByRole("heading", { name: "示例项目" })).not.toBeInTheDocument();
+    });
+
+    it("不用了 closes the guard modal and never opens the studio", async () => {
+      (api.listProjects as any).mockResolvedValue([...projects, demoProject]);
+      const onOpen = vi.fn();
+
+      render(<Directory onOpen={onOpen} onViewReport={vi.fn()} />);
+      const card = await screen.findByText(demoProject.title);
+      await userEvent.click(card);
+      await userEvent.click(await screen.findByRole("button", { name: "不用了" }));
+
+      expect(screen.queryByRole("heading", { name: "示例项目" })).not.toBeInTheDocument();
+      expect(onOpen).not.toHaveBeenCalled();
+    });
+
+    it("does not offer 重命名 on the demo card's overflow menu", async () => {
+      (api.listProjects as any).mockResolvedValue([...projects, demoProject]);
+
+      render(<Directory onOpen={vi.fn()} onViewReport={vi.fn()} />);
+      await screen.findByText(demoProject.title);
+
+      // Real cards (p1, p2) both carry 重命名; the demo card (done, third
+      // card) still offers 查看评估报告 but not 重命名 — one fewer trigger
+      // item overall confirms via the done card's menu contents.
+      const menuTriggers = screen.getAllByRole("button", { name: "更多操作" });
+      expect(menuTriggers).toHaveLength(3);
+      await userEvent.click(menuTriggers[2]!);
+      expect(await screen.findByText("查看评估报告")).toBeInTheDocument();
+      expect(screen.queryByText("重命名")).not.toBeInTheDocument();
+    });
+  });
 });

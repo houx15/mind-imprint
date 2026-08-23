@@ -107,6 +107,7 @@ export function ProjectCard({
   onViewReport?: (id: string) => void;
   onRename?: (id: string, title: string) => Promise<void>;
 }) {
+  const demo = project.isDemo === true;
   // 重命名 (when onRename given) is always available; 查看评估报告 only once the
   // report exists (done).
   const [editing, setEditing] = useState(false);
@@ -214,11 +215,18 @@ export function ProjectCard({
             aria-label="项目名称"
           />
         ) : (
-          <div
-            title={project.title || "未命名项目"}
-            className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink"
-          >
-            {project.title || "未命名项目"}
+          <div className="flex items-start gap-1.5">
+            {demo && (
+              <span className="mt-0.5 inline-flex shrink-0 items-center rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-mk-small font-semibold text-mk-accent-700">
+                示例
+              </span>
+            )}
+            <div
+              title={project.title || "未命名项目"}
+              className="line-clamp-2 flex-1 text-mk-h3 text-mk-ink"
+            >
+              {project.title || "未命名项目"}
+            </div>
           </div>
         )}
         <div className="truncate text-mk-small text-mk-muted">

@@ -18,6 +18,9 @@ export type ProjectListItem = {
   aiCalls: number;
   /** Activity-log entries for this project — the 活动 chip. */
   activityLog: number;
+  /** True for the single shared, world-readable demo project (backend Task 8) —
+   * appended last in the list. Read-only: the server 403s all writes for it. */
+  isDemo?: boolean;
 };
 
 export async function listProjects(): Promise<ProjectListItem[]> {

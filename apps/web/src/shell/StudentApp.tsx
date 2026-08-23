@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import { useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import type { SessionStore } from "./session";
 import { Nav, type NavTab } from "./Nav";
 import { HomePage } from "./home/HomePage";
@@ -87,6 +87,14 @@ export function StudentApp({
   // driven by the guided tour (TourNavContext.setReadingView, P5 Task 4).
   // Consumed by ProjectsTab/WorkspaceContainer on entry.
   const [pendingReadingView, setPendingReadingView] = useState<"list" | "graph" | null>(null);
+  // Task 9: the demo project's guard modal's 好，带我逛一遍 needs `tour.play(...)`,
+  // which only exists inside `TourProvider`'s subtree (`useTour()` in
+  // StudentAppInner below) — but `body` (ProjectsTab included) is built here,
+  // one level above the provider. A ref bridge (same pattern as
+  // TourProvider's own `navRef`/`doneRef`) lets StudentAppInner keep this
+  // pointed at the current `tour.play` call without threading `tour` itself
+  // down through `body`.
+  const demoTourRef = useRef<() => void>(() => {});
 
   // Welcome modal: opens on first login (never-onboarded user). The tour's
   // example-report overlay renders above the body when the tour deep-links into
@@ -199,6 +207,7 @@ export function StudentApp({
         pendingReadingView={pendingReadingView}
         onPendingReadingViewConsumed={() => setPendingReadingView(null)}
         onImmersiveChange={setProjectsImmersive}
+        onRequestDemoTour={() => demoTourRef.current()}
       />
     );
   } else if (tab === "courses") {
@@ -246,6 +255,7 @@ export function StudentApp({
             completeOnboarding={completeOnboarding}
             showExampleReport={showExampleReport}
             setShowExampleReport={setShowExampleReport}
+            demoTourRef={demoTourRef}
           />
         </TourProvider>
       </BackgroundProvider>
@@ -271,6 +281,7 @@ function StudentAppInner({
   completeOnboarding,
   showExampleReport,
   setShowExampleReport,
+  demoTourRef,
 }: {
   tab: NavTab;
   onTab: (t: NavTab) => void;
@@ -283,9 +294,15 @@ function StudentAppInner({
   completeOnboarding: () => void;
   showExampleReport: boolean;
   setShowExampleReport: (show: boolean) => void;
+  demoTourRef: MutableRefObject<() => void>;
 }) {
   const tour = useTour();
   const [feedbackOpen, setFeedbackOpen] = useState(false);
+  // Keep the bridge pointed at the current `tour.play` call every render —
+  // same "assign a ref directly in the render body" pattern TourProvider
+  // itself uses for `navRef`/`doneRef` (no effect needed: this never
+  // triggers a re-render, it just keeps a plain callback ref fresh).
+  demoTourRef.current = () => tour.play(journeyStarting("projects"));
 
   return (
     <>

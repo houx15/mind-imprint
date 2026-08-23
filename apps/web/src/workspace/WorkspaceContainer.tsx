@@ -103,6 +103,7 @@ export function WorkspaceContainer({
   onPendingRoomConsumed,
   pendingReadingView,
   onPendingReadingViewConsumed,
+  onRequestDemoTour,
 }: {
   onFinished?: (projectId?: string) => void;
   /** Fired when a project opens (true) or closes (false) — the shell uses
@@ -137,6 +138,11 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingReadingView` has been captured, so the
    * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
   onPendingReadingViewConsumed?: () => void;
+  /** Task 9: threaded straight to `Directory` — its demo-guard modal's
+   * 好，带我逛一遍 calls this (StudentApp plays `journeyStarting("projects")`).
+   * Only reached via a MANUAL card click; the tour's own way into the demo
+   * (`initialProjectId` below) never touches Directory at all. */
+  onRequestDemoTour?: () => void;
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
@@ -1123,6 +1129,7 @@ export function WorkspaceContainer({
         onViewReport={onViewReport}
         autoOpenCreate={autoOpenCreate}
         onAutoOpenCreateHandled={onAutoOpenCreateConsumed}
+        onRequestDemoTour={onRequestDemoTour}
       />
     );
   }

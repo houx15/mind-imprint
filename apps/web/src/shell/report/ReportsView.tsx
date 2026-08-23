@@ -64,7 +64,14 @@ function ReportRow({ entry, onOpen }: { entry: Row; onOpen: () => void }) {
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-mk-h3 text-mk-ink">{entry.title}</div>
+        <div className="flex items-center gap-1.5">
+          {entry.isDemo && (
+            <span className="inline-flex shrink-0 items-center rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-mk-small font-semibold text-mk-accent-700">
+              示例
+            </span>
+          )}
+          <div className="truncate text-mk-h3 text-mk-ink">{entry.title}</div>
+        </div>
         <div className="mt-1.5 flex items-center gap-2">
           <span className="inline-flex items-center gap-1 rounded-mk-full bg-mk-paper px-2 py-0.5 text-mk-small font-semibold text-mk-secondary">
             <Icon icon={FileText} size={12} className="text-mk-muted" />
@@ -130,10 +137,13 @@ export function ReportsView({
   }
 
   // Entries arrive newest-first; bucket them in that order so each section stays
-  // chronological and the section order is fixed (今天 → 更早).
+  // chronological and the section order is fixed (今天 → 更早). The shared demo
+  // report is stable-sorted to the end first (Task 9), so it's always the last
+  // row within whichever bucket its date falls into.
   const now = new Date();
+  const sortedRows = [...(rows ?? [])].sort((a, b) => Number(a.isDemo === true) - Number(b.isDemo === true));
   const grouped: { bucket: Bucket; rows: Row[] }[] = [];
-  for (const r of rows ?? []) {
+  for (const r of sortedRows) {
     const b = bucketOf(r.createdAt, now);
     const last = grouped[grouped.length - 1];
     if (last && last.bucket === b) last.rows.push(r);
