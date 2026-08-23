@@ -90,7 +90,8 @@ export const coursesSegments: TourSegment[] = [
       {
         id: "courses-report-example-0",
         onEnter: (nav) => nav.openCourse(EXAMPLE_SLUG),
-        anchor: '[data-tour="course-report"]',
+        // Deliberately centered — an overview of the whole report before the
+        // sub-section spotlights below; no anchor (a centered step ignores it).
         placement: "center",
         title: "这是一份学习报告的样子",
         text: "每学完一门课，你都会拿到这样一份报告。下面我带你看看它由哪几块组成。",
@@ -126,7 +127,8 @@ export const coursesSegments: TourSegment[] = [
       {
         id: "courses-history-0",
         onEnter: (nav) => { nav.setTab("courses"); nav.setCoursesSub("history"); },
-        anchor: '[data-tour="courses-history"]',
+        // Deliberately centered — for a new user this list is empty ("刚开始这里
+        // 是空的"), so a spotlight would frame nothing; no anchor.
         placement: "center",
         text: "你学过、正在学的课程都会记录在“学习记录”里，随时能回来继续，或重看报告。刚开始这里是空的，学起来就有了。",
         advance: "next",
