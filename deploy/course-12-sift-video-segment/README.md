@@ -101,3 +101,35 @@ is the only one that attaches native `<video>` controls.** Four legacy/e2e
 fixture slugs (`evidence-comparability`, `academic-writing-sustainability`,
 `course-authoring-v14-cover-e2e-20260820`, `follow-the-money-teacher-sim-20260818`)
 returned no signable assets and were not scanned; none is a catalog course.
+
+## Follow-up: patch2.py — the control row must never wrap
+
+The first patch added a 4th chip and a long end-of-segment hint. `.vctrl` is
+`flex-wrap: wrap` inside a **fixed 750px stage** (`.stage` is 1000×750,
+uniformly scaled by `fitStage()`, so this geometry is viewport-independent).
+The row wrapped to two lines — 81px instead of 37px — pushing the primary
+action 「看完了，动手做 →」 to y=677 while the footer starts at y=691.
+
+Measured on prod: `document.elementFromPoint()` at that button's centre
+returned **NONE**. It was not clickable. Since it is the only way from watch
+mode into the questions, the slice went from "looks frozen" to an actual dead
+end — strictly worse than the bug being fixed.
+
+`patch2.py` (applies on top of a patch.py-patched file):
+
+1. `.vctrl` → `flex-wrap: nowrap`, every chip `flex: 0 0 auto`, so the primary
+   action can never be shrunk or displaced.
+2. `.vhint` ellipsises instead of growing a second line, and carries its full
+   text in `title=`.
+3. Shorter end hint: 「本段到这里结束——点「重播」再看一遍。」
+4. The 播放/暂停 chip keeps a stable 2-character label (no longer swells to
+   重看本段). Clicking it on a finished segment still replays.
+
+Re-verified: `vctrlH: 37` and `elementFromPoint → goBtn` in all three states
+(mid-segment, segment-ended, and the deck's longest hint); 播放 on a finished
+segment replays; 看完了 enters do mode; all 7 rail steps answered → 7/7,
+完成 enabled and clicked; no page or console errors.
+
+**Lesson:** when adding a control to a fixed-height stage, measure the row —
+`flex-wrap: wrap` silently relocates the primary action instead of overflowing
+visibly.
