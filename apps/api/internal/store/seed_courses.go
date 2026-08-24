@@ -85,15 +85,32 @@ type courseSeedStructure struct {
 const goldenCourseFile = "coverage-course.json"
 
 // goldenCourseDoc is the narrow border slice of the golden 2.0 document: the
-// schemaVersion (must be "2.0") and the course.id/title/estimatedMinutes used
-// for the catalog row + slug. The whole document is stored verbatim.
+// schemaVersion (must be "2.0"), the course.id/title/estimatedMinutes used for
+// the catalog row + slug, and parts[].slices[] — counted (shallow) for the
+// catalog step_count (one slice = one step). The whole document is stored verbatim.
 type goldenCourseDoc struct {
 	SchemaVersion string `json:"schemaVersion"`
 	Course        struct {
 		ID               string `json:"id"`
 		Title            string `json:"title"`
 		EstimatedMinutes int    `json:"estimatedMinutes"`
+		Parts            []struct {
+			Slices []json.RawMessage `json:"slices"`
+		} `json:"parts"`
 	} `json:"course"`
+}
+
+// goldenStepCount sums the slices across the golden course's parts — the same
+// "one slice = one step" rule the authoring publish path uses (courseStepCount
+// in internal/api). Without this the seed loader re-upserts the golden course
+// with step_count 0 on every boot, overwriting any backfill and re-introducing
+// the "0 步" catalog bug for the seeded 2.0 course.
+func goldenStepCount(doc goldenCourseDoc) int {
+	n := 0
+	for _, part := range doc.Course.Parts {
+		n += len(part.Slices)
+	}
+	return n
 }
 
 // seedGoldenCourse upserts the golden 2.0 course as one course row (bare catalog
@@ -135,7 +152,7 @@ func seedGoldenCourse(ctx context.Context, agentStore goldenCourseStore) error {
 		CardIDs:     []string{},
 		Structure:   []byte("{}"),
 		RenderCache: []byte("{}"),
-		StepCount:   0,
+		StepCount:   goldenStepCount(doc),
 	}); err != nil {
 		return fmt.Errorf("seed golden course: upsert: %w", err)
 	}

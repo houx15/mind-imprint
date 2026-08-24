@@ -8,7 +8,8 @@
 -- name: ListCourseRows :many
 -- Preview courses are visible only when include_preview is true (the caller is
 -- an admin). Students (false) see 'published' only.
-SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover
+SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover,
+       category, introduction, featured_rank
 FROM course
 WHERE status = 'published' OR sqlc.arg(include_preview)::bool
 ORDER BY branch, title;
@@ -31,6 +32,71 @@ RETURNING id, slug;
 SELECT p.course_id, p.current_ordinal, p.completed_ordinals, p.started_at, p.completed_at, p.updated_at, p.active_seconds
 FROM course_progress p JOIN course c ON c.id = p.course_id
 WHERE p.user_id = $1 AND c.slug = $2;
+
+-- name: GetCourseSessionProgressBySlug :one
+-- Catalog progress for a 2.0 (runtime) course: its progress lives in
+-- course_session (sliceStates: sliceId -> { status }), NOT course_progress, so
+-- the catalog's completion ring has to read it from here. Returns the count of
+-- completed slices — clamped so a finished session reads exactly step_count
+-- (100%) even if the last slice's state lagged the closing-scene flip, and never
+-- exceeds step_count. `sliceStates` is a contract-guaranteed object; the
+-- jsonb_typeof guard keeps a malformed/legacy blob from erroring the count.
+SELECT c.id AS course_id,
+       cs.status AS status,
+       cs.updated_at AS updated_at,
+       CASE WHEN cs.status = 'completed' THEN c.step_count
+            WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+              THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                          WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+            ELSE 0 END AS completed_slices
+FROM course_session cs JOIN course c ON c.id = cs.course_id
+WHERE cs.user_id = $1 AND c.slug = $2
+ORDER BY cs.created_at DESC
+LIMIT 1;
+
+-- name: ListCourseProgressForUser :many
+-- Every course this student has TOUCHED, one row per course — the catalog's
+-- progress in ONE query instead of the frontend fanning out a per-course
+-- /progress request (an N+1 over the whole catalog on every visit to 课程).
+--
+-- Preference matters: a course that has BOTH a 2.0 runtime session and a legacy
+-- course_progress row must report the SESSION, exactly as the single-course
+-- GetProgress does — hence the NOT EXISTS on the legacy leg rather than
+-- ListCourseHistory's plain UNION ALL (that one is allowed to emit both because
+-- it is a chronological activity feed, not a per-course state).
+--
+-- completed_count mirrors GetCourseSessionProgressBySlug's own clamp: a finished
+-- session reads exactly step_count, and a malformed/legacy sliceStates blob
+-- counts 0 rather than erroring. status is normalized here to the two values the
+-- catalog actually renders ('completed' / 'in-progress'), never the runtime's
+-- five-state session status.
+-- Since 0077 a course can hold several attempts; the catalog ring reflects the
+-- CURRENT (newest) attempt, so the session leg is DISTINCT ON (slug) newest-first
+-- — one row per course, not one per attempt (ListCourseHistory is the per-attempt
+-- feed).
+SELECT slug, status, completed_count, updated_at FROM (
+  SELECT DISTINCT ON (c.slug)
+         c.slug AS slug,
+         CASE WHEN cs.status = 'completed' THEN 'completed' ELSE 'in-progress' END AS status,
+         CASE WHEN cs.status = 'completed' THEN c.step_count
+              WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+                THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                            WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+              ELSE 0 END AS completed_count,
+         cs.updated_at AS updated_at
+  FROM course_session cs JOIN course c ON c.id = cs.course_id
+  WHERE cs.user_id = sqlc.arg(user_id)
+  ORDER BY c.slug, cs.created_at DESC
+) latest_session
+UNION ALL
+SELECT c.slug AS slug,
+       CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
+       COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
+       cp.updated_at AS updated_at
+FROM course_progress cp JOIN course c ON c.id = cp.course_id
+WHERE cp.user_id = sqlc.arg(user_id)
+  AND NOT EXISTS (SELECT 1 FROM course_session cs2
+                  WHERE cs2.user_id = cp.user_id AND cs2.course_id = cp.course_id);
 
 -- name: GetCourseProgressByCourseID :one
 -- Task 4 addition: SaveProgress's union-completed-ordinals step is keyed by
@@ -74,12 +140,14 @@ SELECT status FROM course WHERE slug = $1;
 -- on insert (EXCLUDED is not applied on conflict), so re-posting a definition
 -- never (un)publishes an existing course. structure/render_cache are the empty
 -- object for 2.0 courses (they use course_definition, not the legacy blobs).
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, status, updated_at)
-VALUES ($1,$2,$3,$4,$5,$6,0,'{}','{}',$7,'preview', now())
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, status, updated_at)
+VALUES (sqlc.arg(slug), sqlc.arg(branch), sqlc.arg(title), sqlc.arg(blurb), sqlc.arg(time_label), sqlc.arg(card_ids), sqlc.arg(step_count), '{}','{}', sqlc.arg(course_definition), sqlc.arg(category), sqlc.arg(introduction),'preview', now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
-  course_definition = EXCLUDED.course_definition, updated_at = now()
+  step_count = EXCLUDED.step_count,
+  course_definition = EXCLUDED.course_definition,
+  category = EXCLUDED.category, introduction = EXCLUDED.introduction, updated_at = now()
 RETURNING slug, status;
 
 -- name: SetCourseStatusAndCover :exec
@@ -105,18 +173,42 @@ DELETE FROM course_progress WHERE user_id = $1 AND course_id = $2;
 -- runtime session status verbatim (created/opening/in-progress/closing/
 -- completed), or 'completed'/'in-progress' for a legacy course. The caller
 -- enriches title/cover from the course list, so this query stays cover-signing
--- free. completed_count is meaningful for legacy courses only (0 for runtime).
-SELECT c.slug AS slug, cs.status AS status, 0::int AS completed_count, cs.updated_at AS updated_at
-FROM course_session cs JOIN course c ON c.id = cs.course_id
-WHERE cs.user_id = $1
-UNION ALL
-SELECT c.slug AS slug,
-       CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
-       COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
-       cp.updated_at AS updated_at
-FROM course_progress cp JOIN course c ON c.id = cp.course_id
-WHERE cp.user_id = $1
-ORDER BY updated_at DESC;
+-- free. completed_count is the completed-step count for BOTH storages: a runtime
+-- course counts its completed slices from course_session.sliceStates (clamped to
+-- step_count; a finished session reads full step_count), a legacy course reads
+-- course_progress.completed_ordinals — so the history list shows a live ring for
+-- 2.0 courses too, not a stuck 0.
+-- Since 0077 this is a per-ATTEMPT feed: one row per course_session row, so a
+-- relearned course shows each finished run as its own record. attempt_id is the
+-- session id (a 2.0 attempt's report is fetched by it); '' for a legacy course.
+-- completed_at is the FROZEN completion date (NULL while in progress). Ordered by
+-- COALESCE(completed_at, updated_at) DESC — a finished attempt sorts by its fixed
+-- completion time, an in-progress one by last activity.
+-- The UNION is wrapped so ORDER BY can use an EXPRESSION over the columns (a
+-- post-set-operation ORDER BY may only reference output column names/positions,
+-- not COALESCE(...) directly — SQLSTATE 0A000 otherwise).
+SELECT attempt_id, slug, status, completed_count, updated_at, completed_at
+FROM (
+  SELECT cs.id::text AS attempt_id, c.slug AS slug, cs.status AS status,
+         CASE WHEN cs.status = 'completed' THEN c.step_count
+              WHEN jsonb_typeof(cs.session->'sliceStates') = 'object'
+                THEN LEAST((SELECT count(*) FROM jsonb_each(cs.session->'sliceStates') ss
+                            WHERE ss.value->>'status' = 'completed')::int, c.step_count)
+              ELSE 0 END AS completed_count,
+         cs.updated_at AS updated_at,
+         cs.completed_at AS completed_at
+  FROM course_session cs JOIN course c ON c.id = cs.course_id
+  WHERE cs.user_id = $1
+  UNION ALL
+  SELECT ''::text AS attempt_id, c.slug AS slug,
+         CASE WHEN cp.completed_at IS NOT NULL THEN 'completed' ELSE 'in-progress' END AS status,
+         COALESCE(array_length(cp.completed_ordinals, 1), 0)::int AS completed_count,
+         cp.updated_at AS updated_at,
+         cp.completed_at AS completed_at
+  FROM course_progress cp JOIN course c ON c.id = cp.course_id
+  WHERE cp.user_id = $1
+) h
+ORDER BY COALESCE(h.completed_at, h.updated_at) DESC;
 
 -- name: FinishedCourseIDsByUser :many
 -- Task 5 addition: cards_catalog.go's proficiency computation ("which

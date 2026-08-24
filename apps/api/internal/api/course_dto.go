@@ -17,6 +17,17 @@ import (
 	"mindimprint/api/internal/agent"
 )
 
+// courseCatalogProgressDTO is the student's own state on one catalog card:
+// enough to draw the ring and the 进行中/已学完 pill, and to order the list by
+// what they last worked on. Deliberately NOT courseProgressDTO — the catalog
+// has no use for the resume ordinal or the completed-ordinal array, and sending
+// them per course would put the whole player payload in a list response.
+type courseCatalogProgressDTO struct {
+	Status         string `json:"status"` // "in-progress" | "completed"
+	CompletedSteps int    `json:"completedSteps"`
+	UpdatedAt      string `json:"updatedAt"`
+}
+
 type courseSummaryDTO struct {
 	Slug      string   `json:"slug"`
 	Branch    string   `json:"branch"`
@@ -26,6 +37,14 @@ type courseSummaryDTO struct {
 	CardIDs   []string `json:"card_ids"`
 	StepCount int      `json:"step_count"`
 	CoverURL  string   `json:"coverUrl"`
+
+	Category     *string         `json:"category"`
+	Introduction json.RawMessage `json:"introduction"`
+	FeaturedRank *int32          `json:"featuredRank"`
+
+	// null for a course this student has never opened — the catalog reads that
+	// absence as 未开始, which a zero-valued object could not express.
+	Progress *courseCatalogProgressDTO `json:"progress"`
 }
 
 // toCourseSummaryDTO is an *API method (not a free function) solely so it can
@@ -41,8 +60,26 @@ func (a *API) toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 	return courseSummaryDTO{
 		Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 		TimeLabel: r.TimeLabel, CardIDs: cardIDs, StepCount: r.StepCount,
-		CoverURL: a.resolveCoverURL(r.Cover),
+		CoverURL:     a.resolveCourseCoverURL(r.Slug, r.Cover),
+		Category:     r.Category,
+		Introduction: json.RawMessage(r.Introduction),
+		FeaturedRank: r.FeaturedRank,
 	}
+}
+
+// withCatalogProgress attaches the student's own state to a summary DTO. A slug
+// missing from the map is untouched, and its Progress stays nil.
+func withCatalogProgress(dto courseSummaryDTO, progress map[string]agent.CourseCatalogProgress) courseSummaryDTO {
+	p, ok := progress[dto.Slug]
+	if !ok {
+		return dto
+	}
+	dto.Progress = &courseCatalogProgressDTO{
+		Status:         p.Status,
+		CompletedSteps: p.CompletedSteps,
+		UpdatedAt:      p.UpdatedAt.Format(tsLayout),
+	}
+	return dto
 }
 
 // coursePayloadDTO is CoursePlayerPayload (contract): structure/renderCache
@@ -167,4 +204,45 @@ func toCourseReportDTO(h courseStructureHeader, rep agent.CourseReportData) cour
 		CompletedStepTitles: titles, CardIDs: cardIDs, SecondsSpent: rep.SecondsSpent,
 		Quiz: courseQuizDTO{Total: rep.Quiz.Total, Correct: rep.Quiz.Correct},
 	}
+}
+
+// courseAnswerItemDTO / courseAnswerSliceDTO / courseAnswerReportDTO mirror the
+// @mind-imprint/contracts CourseAnswerReport DTO. `correct` is *bool so an
+// ungraded item marshals to JSON null (the contract's nullable), not false.
+type courseAnswerItemDTO struct {
+	BlockID    string `json:"blockId"`
+	Type       string `json:"type"`
+	Prompt     string `json:"prompt"`
+	Answered   bool   `json:"answered"`
+	YourAnswer string `json:"yourAnswer"`
+	Correct    *bool  `json:"correct"`
+	Attempts   int    `json:"attempts"`
+}
+
+type courseAnswerSliceDTO struct {
+	SliceID          string                `json:"sliceId"`
+	Title            string                `json:"title"`
+	TimeSpentSeconds int                   `json:"timeSpentSeconds"`
+	Items            []courseAnswerItemDTO `json:"items"`
+}
+
+type courseAnswerReportDTO struct {
+	Slices []courseAnswerSliceDTO `json:"slices"`
+}
+
+func toCourseAnswerReportDTO(rep agent.CourseAnswerReportData) courseAnswerReportDTO {
+	slices := make([]courseAnswerSliceDTO, 0, len(rep.Slices))
+	for _, sl := range rep.Slices {
+		items := make([]courseAnswerItemDTO, 0, len(sl.Items))
+		for _, it := range sl.Items {
+			items = append(items, courseAnswerItemDTO{
+				BlockID: it.BlockID, Type: it.Type, Prompt: it.Prompt,
+				Answered: it.Answered, YourAnswer: it.YourAnswer, Correct: it.Correct, Attempts: it.Attempts,
+			})
+		}
+		slices = append(slices, courseAnswerSliceDTO{
+			SliceID: sl.SliceID, Title: sl.Title, TimeSpentSeconds: sl.TimeSpentSeconds, Items: items,
+		})
+	}
+	return courseAnswerReportDTO{Slices: slices}
 }

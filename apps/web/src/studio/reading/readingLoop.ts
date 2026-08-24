@@ -3,6 +3,7 @@ import type { Anchor, MaterialSource, SelectionEval } from "@mind-imprint/contra
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import type { CreatedSpan } from "../../primitives/annotate/selection";
 import type { StudioTurnEvent } from "../../api/studioTurn";
+import { READING_DECK_IDS } from "./readingDeck";
 
 // The client-only read-together loop state machine (spec §9):
 //   idle → proposed → active → evaluating → feedback → idle
@@ -22,7 +23,11 @@ export type ChatMessage =
   // article's own highlight clears on send (ReadingRoom's `refs` resets), but
   // the quote now lives here instead of vanishing with it.
   | { id: string; role: "student"; kind: "text"; body: string; quotes?: string[] }
-  | { id: string; role: "assistant"; kind: "text"; body: string }
+  // offerCardId/offerCardName: a router "hint" identified a lens that would help
+  // but stayed 克制 — instead of dropping that on the floor, the bubble carries
+  // a one-tap offer to summon it (touch is automatic, opening stays the
+  // student's confirmed choice — 铁律②). undefined on a plain reply.
+  | { id: string; role: "assistant"; kind: "text"; body: string; offerCardId?: string; offerCardName?: string }
   | { id: string; role: "assistant"; kind: "lens"; body: string; cardName: string };
 
 // A confirmed reading outcome — the note card that accumulates in the
@@ -136,7 +141,16 @@ function studentSpanToAnchor(source: MaterialSource, span: CreatedSpan, dimensio
   };
 }
 
-export function useReadingLoop(projectId: string, source: MaterialSource, api: ReadingLoopApi): UseReadingLoop {
+export function useReadingLoop(
+  projectId: string,
+  source: MaterialSource,
+  api: ReadingLoopApi,
+  // initialMessages — the guided-tour demo replay (Task 4): seeds the chat
+  // log with a hand-authored transcript instead of the live GREETING, so a
+  // read-only demo room opens already "mid-conversation". Undefined/empty →
+  // unchanged default behavior ([GREETING]).
+  initialMessages?: ChatMessage[],
+): UseReadingLoop {
   const [status, setStatus] = useState<ReadingLoopStatus>("idle");
   const [cardInstanceId, setCardInstanceId] = useState<string | null>(null);
   const [cardId, setCardId] = useState<string | null>(null);
@@ -144,7 +158,9 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
   const [exampleWhy, setExampleWhy] = useState("");
   const [studentSpan, setStudentSpan] = useState<CreatedSpan | null>(null);
   const [evalResult, setEvalResult] = useState<SelectionEval | null>(null);
-  const [messages, setMessages] = useState<ChatMessage[]>([GREETING]);
+  const [messages, setMessages] = useState<ChatMessage[]>(
+    initialMessages && initialMessages.length > 0 ? initialMessages : [GREETING],
+  );
   const [outcomes, setOutcomes] = useState<ReadingOutcome[]>([]);
   const [busy, setBusy] = useState(false);
 
@@ -222,8 +238,18 @@ export function useReadingLoop(projectId: string, source: MaterialSource, api: R
           { id: msgId(), role: "assistant", kind: "lens", body: ev.nudgeText, cardName: name },
         ]);
       } else if (ev.type === "intervention") {
-        // A coach hint — appended, never replacing the thread.
-        setMessages((prev) => [...prev, { id: msgId(), role: "assistant", kind: "text", body: ev.body }]);
+        // A coach reply/hint — appended, never replacing the thread. When it's a
+        // "hint" naming a real reading-deck lens (ev.criterion = card id), carry
+        // that as a tappable offer so a 克制 hint still gives her a way in.
+        const offerCardId =
+          ev.level === "hint" && ev.criterion && (READING_DECK_IDS as readonly string[]).includes(ev.criterion)
+            ? ev.criterion
+            : undefined;
+        const offerCardName = offerCardId ? (CARD_REGISTRY[offerCardId]?.name ?? offerCardId) : undefined;
+        setMessages((prev) => [
+          ...prev,
+          { id: msgId(), role: "assistant", kind: "text", body: ev.body, offerCardId, offerCardName },
+        ]);
       }
       // "done" / "review" / "gate" / "error" — nothing to render here.
     }

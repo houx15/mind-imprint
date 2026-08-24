@@ -112,6 +112,76 @@ func TestEvaluationReport_GenerateThenRead(t *testing.T) {
 	}
 }
 
+// TestEvaluationReports_DemoAppendedForEveryUser — the demo project's report
+// (…0200, seeded status='ready' by migration 0082, owner Phoebe/SeedUserID)
+// shows up in EVERY user's report timeline, pinned last and marked isDemo
+// (guided-tour P5): a NON-owner sees it appended with isDemo:true; the OWNER
+// (Phoebe) sees it exactly ONCE (deduped) with isDemo:true.
+func TestEvaluationReports_DemoAppendedForEveryUser(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := New(Deps{Queries: mustNewQueries(pool), Pool: pool}).Handler()
+
+	type entry struct {
+		ProjectID string `json:"projectId"`
+		IsDemo    bool   `json:"isDemo"`
+	}
+	list := func(cookie *http.Cookie) []entry {
+		t.Helper()
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/evaluation-reports", nil), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("GET evaluation-reports = %d, want 200; body=%s", rec.Code, rec.Body)
+		}
+		var body struct {
+			Entries []entry `json:"entries"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+			t.Fatalf("decode timeline: %v — body=%s", err, rec.Body)
+		}
+		return body.Entries
+	}
+
+	// --- Non-owner: no reports of their own → the demo is the only entry. ---
+	otherID := createStudent(t, pool, SeedSchoolID, "eval-demo-other@demo.local")
+	otherEntries := list(signInAs(t, pool, otherID))
+	if len(otherEntries) == 0 {
+		t.Fatalf("non-owner timeline empty, want the demo report appended")
+	}
+	last := otherEntries[len(otherEntries)-1]
+	if last.ProjectID != demoProjectID || !last.IsDemo {
+		t.Fatalf("non-owner: last timeline entry = %+v, want demo %s isDemo:true", last, demoProjectID)
+	}
+	demoCount := 0
+	for _, e := range otherEntries {
+		if e.ProjectID == demoProjectID {
+			demoCount++
+			if !e.IsDemo {
+				t.Fatalf("non-owner: demo entry isDemo=false — %+v", e)
+			}
+		} else if e.IsDemo {
+			t.Fatalf("non-owner: non-demo entry marked isDemo:true — %+v", e)
+		}
+	}
+	if demoCount != 1 {
+		t.Fatalf("non-owner: demo report appears %d times, want exactly 1", demoCount)
+	}
+
+	// --- Owner (Phoebe) sees the demo report exactly once (deduped). ---
+	ownerEntries := list(signInSeed(t, pool))
+	ownerDemoCount := 0
+	for _, e := range ownerEntries {
+		if e.ProjectID == demoProjectID {
+			ownerDemoCount++
+			if !e.IsDemo {
+				t.Fatalf("owner: demo entry isDemo=false — %+v", e)
+			}
+		}
+	}
+	if ownerDemoCount != 1 {
+		t.Fatalf("owner: demo report appears %d times, want exactly 1 (deduped)", ownerDemoCount)
+	}
+}
+
 // TestEvaluationReport_RejectsOtherUsersProject — ownership hidden as
 // not-found, same idiom as every other project-scoped route (loadOwnedProject).
 func TestEvaluationReport_RejectsOtherUsersProject(t *testing.T) {

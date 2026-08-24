@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { putBuffer, commitSnapshot, orderReview, orderSpotCheck, attestGate } from "@/api/writing";
+import { putBuffer, commitSnapshot, orderReview } from "@/api/writing";
 import { API_BASE } from "@/api/client";
 
 afterEach(() => { vi.restoreAllMocks(); });
@@ -132,77 +132,5 @@ describe("orderReview", () => {
 
     const [url] = spy.mock.calls[0] as unknown as [string];
     expect(url).toBe(`${API_BASE}/api/v1/projects/p1/snapshots/snap-1/review`);
-  });
-});
-
-describe("orderSpotCheck", () => {
-  it("POSTs to .../contracts/{contractId}/spot-check and resolves on done", async () => {
-    const spy = vi.fn(async () => sseBody(
-      `event: review\ndata: [{"target_id":"m1","target_name":"NASA","evidence":"e","missing":"m","fix":"f"}]\n\n` +
-      `event: done\ndata: {}\n\n`,
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    await expect(orderSpotCheck("p1", "evaluate_sources")).resolves.toBeUndefined();
-
-    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit];
-    expect(url).toContain("/api/v1/projects/p1/contracts/evaluate_sources/spot-check");
-    expect(init.method).toBe("POST");
-  });
-
-  it("rejects with the server's error envelope on a non-OK response", async () => {
-    const spy = vi.fn(async () => new Response(
-      JSON.stringify({ error: { code: "nothing_to_check", message: "还没有可以体检的内容。" } }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    await expect(orderSpotCheck("p1", "evaluate_sources")).rejects.toThrow("还没有可以体检的内容。");
-  });
-
-  it("rejects when the stream itself carries an error frame", async () => {
-    const spy = vi.fn(async () => sseBody(
-      `event: error\ndata: {"error":{"code":"spot_check_rejected","message":"这次体检没通过内部校验，请再试一次"}}\n\n`,
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    await expect(orderSpotCheck("p1", "build_argument")).rejects.toThrow("这次体检没通过内部校验，请再试一次");
-  });
-
-  // M4 fix: the underlying HTTP response for this path is a 200 (the stream
-  // itself succeeded; only its in-band payload reported failure) — asserting
-  // `err.status` locks in that this is never mistaken for a real HTTP status
-  // a future caller might branch on (e.g. `err.status === 400`).
-  it("carries the sentinel status 0 (not the underlying 200) on an SSE error-frame rejection", async () => {
-    const spy = vi.fn(async () => sseBody(
-      `event: error\ndata: {"error":{"code":"spot_check_rejected","message":"这次体检没通过内部校验，请再试一次"}}\n\n`,
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    await expect(orderSpotCheck("p1", "build_argument")).rejects.toMatchObject({ status: 0, code: "spot_check_rejected" });
-  });
-});
-
-describe("attestGate", () => {
-  it("POSTs {item, confirmed} to .../gate/{contractId}/attest and resolves on 204", async () => {
-    const spy = vi.fn(async () => new Response(null, { status: 204 }));
-    vi.stubGlobal("fetch", spy);
-
-    await attestGate("p1", "draft_polish", "citations_matched", true);
-
-    const [url, init] = spy.mock.calls[0] as unknown as [string, RequestInit & { body: string }];
-    expect(url).toContain("/api/v1/projects/p1/gate/draft_polish/attest");
-    expect(init.method).toBe("POST");
-    expect(JSON.parse(init.body)).toEqual({ item: "citations_matched", confirmed: true });
-  });
-
-  it("throws on failure", async () => {
-    const spy = vi.fn(async () => new Response(
-      JSON.stringify({ error: { code: "validation_failed", message: "该条目不是学生自评项" } }),
-      { status: 400, headers: { "Content-Type": "application/json" } },
-    ));
-    vi.stubGlobal("fetch", spy);
-
-    await expect(attestGate("p1", "draft_polish", "bogus", true)).rejects.toThrow("该条目不是学生自评项");
   });
 });

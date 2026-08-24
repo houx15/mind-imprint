@@ -15,7 +15,7 @@ const user = {
   email: "phoebe@demo.local",
   display_name: "Phoebe",
   role: "student",
-  avatar_color: "vermilion", page_background: "paper",
+  avatar_color: "vermilion", page_background: "paper", onboarded_at: null,
   school: { id: "s1", name: "Demo School" },
   classes: [],
 };
@@ -44,6 +44,7 @@ describe("HomePage", () => {
     const onOpenCourse = vi.fn();
     const onCreateProject = vi.fn();
     const onGoProjects = vi.fn();
+    const onGoCourses = vi.fn();
 
     render(
       <HomePage
@@ -52,6 +53,8 @@ describe("HomePage", () => {
         onOpenCourse={onOpenCourse}
         onCreateProject={onCreateProject}
         onGoProjects={onGoProjects}
+        onGoCourses={onGoCourses}
+        onViewReport={vi.fn()}
       />,
     );
 
@@ -70,9 +73,13 @@ describe("HomePage", () => {
     await userEvent.click(courseCard);
     expect(onOpenCourse).toHaveBeenCalledWith("co1");
 
-    const viewAll = screen.getByText("查看全部 →");
-    await userEvent.click(viewAll);
+    // Both 最近项目 and 最近课程 carry a 查看全部 → link, in that DOM order.
+    const viewAll = screen.getAllByText("查看全部 →");
+    expect(viewAll).toHaveLength(2);
+    await userEvent.click(viewAll[0]!); // 最近项目
     expect(onGoProjects).toHaveBeenCalledTimes(1);
+    await userEvent.click(viewAll[1]!); // 最近课程
+    expect(onGoCourses).toHaveBeenCalledTimes(1);
   });
 
   it("renders a recent project's img: cover as a full-bleed <img> flush to the tile edges", async () => {
@@ -81,7 +88,7 @@ describe("HomePage", () => {
     (api.listCourses as any).mockResolvedValue(courses);
 
     const { container } = render(
-      <HomePage user={user} onOpenProject={noop} onOpenCourse={noop} onCreateProject={noop} onGoProjects={noop} />,
+      <HomePage user={user} onOpenProject={noop} onOpenCourse={noop} onCreateProject={noop} onGoProjects={noop} onGoCourses={noop} onViewReport={noop} />,
     );
 
     await screen.findByText(withCover[0]!.title);
@@ -107,6 +114,8 @@ describe("HomePage", () => {
         onOpenCourse={noop}
         onCreateProject={onCreateProject}
         onGoProjects={noop}
+        onGoCourses={noop}
+        onViewReport={noop}
       />,
     );
 

@@ -1,0 +1,1923 @@
+{
+ "course": {
+  "id": "course-17",
+  "parts": [
+   {
+    "id": "part-evidence-path",
+    "title": "先把问题变成可分析的设计",
+    "slices": [
+     {
+      "id": "slice-course-map-evidence-chain",
+      "title": "先看完整证据链",
+      "blocks": [
+       {
+        "id": "evidence-chain",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">课程地图</p>\n  <h1>数据分析不是先跑结果，而是搭一条证据链</h1>\n  <section class=\"callout ok\">\n  <h2>本课要解决的问题</h2>\n  <p>怎样把一个高中论文研究问题，转成可复核的数据证据，并写成不过度推断的结果段落。</p>\n</section>\n<section class=\"route\" aria-label=\"五步证据链\">\n  <div class=\"step\"><strong>1 框定问题</strong><span>判断描述、比较或关系，并写出结论边界。</span></div>\n  <div class=\"step\"><strong>2 落成数据</strong><span>说明样本、变量、单位、编码与缺失值。</span></div>\n  <div class=\"step\"><strong>3 清理描述</strong><span>核对异常和逻辑，留下处理记录。</span></div>\n  <div class=\"step\"><strong>4 匹配方法</strong><span>选择图表、比较、列联、相关或回归。</span></div>\n  <div class=\"step\"><strong>5 写作核查</strong><span>报告发现、证据强度和仍不能确定的地方。</span></div>\n</section>\n<section class=\"two-col\">\n  <div class=\"unit\">\n    <h2>贯穿案例</h2>\n    <p>40 名学生的每周阅读时长、是否参加阅读社、语文成绩与年级。</p>\n  </div>\n  <div class=\"unit\">\n    <h2>最终产出</h2>\n    <p>一张数据分析证据链卡：问题、变量、样本、清理、图表、方法、结果段和 AI 核查。</p>\n  </div>\n</section>\n</article>",
+        "type": "richText",
+        "title": "证据链课程地图"
+       },
+       {
+        "id": "evidence-chain-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "evidence-chain-image-item",
+          "alt": "论文数据分析证据链示例：研究问题、设计与样本、变量与数据、清理与描述、分析和结果表达。",
+          "source": "assets/images/slide-04-evidence-chain.png",
+          "caption": "证据链：问题、样本、变量、清理、分析、结果表达。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "evidence-chain"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "evidence-chain-image"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "review",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "evidence-chain"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "evidence-chain"
+        },
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "evidence-chain",
+         "evidence-chain-image"
+        ]
+       },
+       "initialStepId": "review"
+      },
+      "narrations": [
+       {
+        "id": "narration-course-map-evidence-chain",
+        "text": "本课从一条证据链开始：问题、样本、变量、清理、分析和结果表达，最后形成一张可复核的证据链卡。",
+        "audio": "assets/audio/slice-course-map-evidence-chain.mp3",
+        "durationSeconds": 8.846153846153847
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-frame-question",
+       "objective-prepare-data",
+       "objective-select-analysis",
+       "objective-write-results"
+      ],
+      "estimatedSeconds": 130
+     },
+     {
+      "id": "slice-question-variable-boundary",
+      "title": "把问题变成变量和边界",
+      "blocks": [
+       {
+        "id": "block-question-method-card",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">方法一：问题、变量与边界</p>\n  <h1>先问清问题，再决定数据和方法</h1>\n  <section class=\"flow\">\n  <div class=\"unit\"><strong>描述类</strong><p>问“样本大致如何”。例：本班学生每周阅读时长大致如何。</p></div>\n  <div class=\"unit\"><strong>比较类</strong><p>问“两组是否不同”。例：阅读社与非阅读社学生的阅读时长是否不同。</p></div>\n  <div class=\"unit\"><strong>关系类</strong><p>问“两个变量是否一起变化”。例：阅读时长与语文成绩是否有关。</p></div>\n</section>\n<section class=\"two-col\">\n  <div class=\"unit\">\n    <h2>变量要可记录</h2>\n    <p>结果变量是你想解释或比较的结果；解释变量或分组变量是可能相关的因素。</p>\n  </div>\n  <div class=\"unit warn\">\n    <h2>边界要同步写</h2>\n    <p>问卷和课堂样本通常只能说“本样本中有关”或“两组有差异”，不要直接写成因果证明。</p>\n  </div>\n</section>\n</article>",
+        "type": "richText",
+        "title": "问题、变量与边界方法卡"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "block-question-method-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "review",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "block-question-method-card"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "block-question-method-card"
+        },
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "block-question-method-card"
+        ]
+       },
+       "initialStepId": "review"
+      },
+      "narrations": [
+       {
+        "id": "narration-question-variable-boundary",
+        "text": "先判断问题类型，再说明变量和结论边界。问卷或课堂样本可以发现关联，但不能自动变成因果证明。",
+        "audio": "assets/audio/slice-question-variable-boundary.mp3",
+        "durationSeconds": 8.653846153846153
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-frame-question"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "slice-design-frame-practice",
+      "title": "为一个研究题目搭出设计骨架",
+      "blocks": [
+       {
+        "id": "block-design-frame-card",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">带练框架</p>\n  <h1>把研究兴趣写成可分析的设计骨架</h1>\n  <section class=\"callout ok\">\n  <h2>先写一句骨架</h2>\n  <p>“我想研究 A 与 B 的关系”还太松。把它改写为：问题类型、结果变量、解释或分组变量、样本范围、能说明什么、不能说明什么。</p>\n</section>\n<section>\n  <table>\n    <thead><tr><th>位置</th><th>要写清的内容</th><th>自检问题</th></tr></thead>\n    <tbody>\n      <tr><td>问题类型</td><td>描述、比较或关系</td><td>这个问题是在看概况、差别还是关联？</td></tr>\n      <tr><td>变量</td><td>结果变量与解释/分组变量</td><td>每个概念能不能落成数据表的一列？</td></tr>\n      <tr><td>边界</td><td>样本与设计限制</td><td>这个设计最多支持怎样的说法？</td></tr>\n    </tbody>\n  </table>\n</section>\n</article>",
+        "type": "richText",
+        "title": "设计骨架带练卡"
+       },
+       {
+        "id": "block-design-frame-fill",
+        "type": "fillBlank",
+        "prompt": "用一个自己的小研究题目填空：我的问题属于____类；结果变量是____；解释变量或分组变量是____；这个设计最多能说明____，还不能说明____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应写出问题类型、结果变量、解释或分组变量，并区分“能说明”和“不能说明”的边界。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例如：比较类；每周阅读时长；是否参加阅读社；本样本两组差异；不能证明因果。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "block-design-frame-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "block-design-frame-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "block-design-frame-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "block-design-frame-fill"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "block-design-frame-fill"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "block-design-frame-fill"
+        },
+        "enabledBlockIds": [
+         "block-design-frame-fill"
+        ],
+        "visibleBlockIds": [
+         "block-design-frame-card",
+         "block-design-frame-fill"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-design-frame-practice",
+        "text": "现在把自己的研究兴趣写成设计骨架：问题类型、变量、样本边界，以及能说明和不能说明的地方。",
+        "audio": "assets/audio/slice-design-frame-practice.mp3",
+        "durationSeconds": 8.461538461538462
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-frame-question"
+      ],
+      "estimatedSeconds": 170
+     },
+     {
+      "id": "slice-sample-privacy-boundary",
+      "title": "样本决定结论能代表谁",
+      "blocks": [
+       {
+        "id": "sample-boundary-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "sample-boundary-image-item",
+          "alt": "样本、问卷与隐私示例：样本是谁、如何收集、如何保护。",
+          "source": "assets/images/slide-08-sample-privacy.png",
+          "caption": "样本范围和隐私边界会限制结果能代表谁。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "sample-boundary",
+        "type": "singleChoice",
+        "prompt": "如果研究样本是“某校高一两个班共 40 人”，论文中最稳妥的表述是哪一个？",
+        "options": [
+         {
+          "id": "sample-overclaim-all",
+          "label": "本研究证明所有高中生都有同样规律。"
+         },
+         {
+          "id": "sample-local-boundary",
+          "label": "本研究样本为某校高一两个班，结论主要适用于该样本范围。"
+         },
+         {
+          "id": "sample-hide-source",
+          "label": "样本不重要，可以直接写最终结论。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。样本范围要和结论范围一致。",
+         "correctOptionId": "sample-local-boundary",
+         "incorrectFeedback": "再看样本来源：40 人的课堂样本不能直接代表所有高中生。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        },
+        "openAs": "modal"
+       }
+      ],
+      "layout": {
+       "preset": "full",
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "sample-boundary-image",
+          "sample-boundary"
+         ]
+        }
+       ]
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "sample-boundary"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "sample-boundary"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "sample-boundary"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "sample-boundary"
+        },
+        "enabledBlockIds": [
+         "sample-boundary"
+        ],
+        "visibleBlockIds": [
+         "sample-boundary-image",
+         "sample-boundary"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-sample-privacy-boundary",
+        "text": "数据从哪里来，决定它能代表谁。小型课堂样本要写清范围，也要保护填写者隐私。",
+        "audio": "assets/audio/slice-sample-privacy-boundary.mp3",
+        "durationSeconds": 7.115384615384615
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-frame-question"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "objective-frame-question"
+    ]
+   },
+   {
+    "id": "part-data-prep",
+    "title": "把数据表整理到可以复核",
+    "slices": [
+     {
+      "id": "slice-data-dictionary",
+      "title": "先给每一列写说明书",
+      "blocks": [
+       {
+        "id": "block-data-dictionary-card",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">方法二：数据准备</p>\n  <h1>给每一列写说明书，再开始计算</h1>\n  <section class=\"two-col\">\n  <div class=\"unit\">\n    <h2>数据字典至少包含</h2>\n    <p>变量名、含义、单位、取值规则、缺失值记录和计算注意点。</p>\n  </div>\n  <div class=\"unit warn\">\n    <h2>常见风险</h2>\n    <p>同一列里“是/否”和 1/0 混写，或把 -99、“未填”、空白当作真实数值。</p>\n  </div>\n</section>\n<section>\n  <table>\n    <thead><tr><th>变量名</th><th>含义</th><th>单位或编码</th><th>缺失值</th></tr></thead>\n    <tbody>\n      <tr><td>reading-hours</td><td>每周课外阅读时长</td><td>小时</td><td>空白或未填不参与均值</td></tr>\n      <tr><td>club</td><td>是否参加阅读社</td><td>1=参加，0=未参加</td><td>未回答需单独记录</td></tr>\n    </tbody>\n  </table>\n</section>\n</article>",
+        "type": "richText",
+        "title": "数据字典方法卡"
+       },
+       {
+        "id": "block-data-dictionary-fill",
+        "type": "fillBlank",
+        "prompt": "为一列数据写说明：变量名____；含义____；单位或取值____；缺失值怎样记录____；计算时要注意____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应包含变量名、含义、单位或取值、缺失值处理和一个计算注意点。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例如：reading-hours；每周课外阅读时长；小时；空白表示未答；均值计算时排除未答并说明人数。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "block-data-dictionary-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "block-data-dictionary-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "block-data-dictionary-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "block-data-dictionary-fill"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "block-data-dictionary-fill"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "block-data-dictionary-fill"
+        },
+        "enabledBlockIds": [
+         "block-data-dictionary-fill"
+        ],
+        "visibleBlockIds": [
+         "block-data-dictionary-card",
+         "block-data-dictionary-fill"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-data-dictionary",
+        "text": "数据字典让变量、单位、编码和缺失值规则都可检查。分析开始前，先让每一列有说明书。",
+        "audio": "assets/audio/slice-data-dictionary.mp3",
+        "durationSeconds": 7.692307692307692
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-prepare-data"
+      ],
+      "estimatedSeconds": 170
+     },
+     {
+      "id": "slice-clean-describe-model",
+      "title": "清理和描述：先确认数据可用",
+      "blocks": [
+       {
+        "id": "block-clean-describe-card",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">清理与描述</p>\n  <h1>清理不是删数据，是核对、记录和解释</h1>\n  <section class=\"flow\">\n  <div class=\"unit\"><strong>范围核对</strong><p>168 小时/周这类值先核对原始记录和填写规则。</p></div>\n  <div class=\"unit\"><strong>逻辑核对</strong><p>未参加阅读社却填写社团次数，需要核对变量之间是否矛盾。</p></div>\n  <div class=\"unit\"><strong>处理留痕</strong><p>记录“原始 N -> 处理理由 -> 最终分析 N”。</p></div>\n</section>\n<section class=\"callout ok\">\n  <h2>描述统计先回答“样本是什么样”</h2>\n  <p>先写人数与比例、平均数与中位数、分散程度和异常值。描述统计不是最终解释，但它决定后面的结果能不能被相信。</p>\n</section>\n</article>",
+        "type": "richText",
+        "title": "清理与描述模型卡"
+       },
+       {
+        "id": "block-clean-describe-choice",
+        "type": "singleChoice",
+        "prompt": "发现一名学生填写“每周课外阅读 168 小时”。最合适的处理是？",
+        "options": [
+         {
+          "id": "clean-calc-directly",
+          "label": "把 168 当作正常数值直接计算平均数。"
+         },
+         {
+          "id": "clean-delete-for-result",
+          "label": "为了让结果更好看，直接删掉这条记录。"
+         },
+         {
+          "id": "clean-check-record",
+          "label": "先核对原始记录和填写规则，记录处理理由后再决定是否修正或排除。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。异常值要先核对并留痕，不能为了结论好看随意处理。",
+         "correctOptionId": "clean-check-record",
+         "incorrectFeedback": "异常值会影响结果，但处理它必须有理由、有记录。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "block-clean-describe-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "block-clean-describe-choice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "block-clean-describe-choice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "block-clean-describe-choice"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "block-clean-describe-choice"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "block-clean-describe-choice"
+        },
+        "enabledBlockIds": [
+         "block-clean-describe-choice"
+        ],
+        "visibleBlockIds": [
+         "block-clean-describe-card",
+         "block-clean-describe-choice"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-clean-describe-model",
+        "text": "清理数据要先核对范围和逻辑，再记录处理理由。描述统计先回答样本是什么样。",
+        "audio": "assets/audio/slice-clean-describe-model.mp3",
+        "durationSeconds": 6.9230769230769225
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-prepare-data"
+      ],
+      "estimatedSeconds": 170
+     },
+     {
+      "id": "slice-chart-choice",
+      "title": "图表要为问题服务",
+      "blocks": [
+       {
+        "id": "chart-choice-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "chart-choice-image-item",
+          "alt": "图表选择示例：描述分布、比较两组、看关系分别对应不同图表。",
+          "source": "assets/images/slide-12-chart-choice.png",
+          "caption": "图表服务于问题，而不是装饰版面。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "chart-choice",
+        "type": "singleChoice",
+        "prompt": "如果问题是“阅读时长与语文成绩是否一起变化”，最适合先看的图表是？",
+        "options": [
+         {
+          "id": "chart-choice-pie",
+          "label": "饼图，因为它最适合展示两个连续变量的关系。"
+         },
+         {
+          "id": "chart-choice-scatter",
+          "label": "散点图，因为每个点可以表示一位同学的两个连续变量。"
+         },
+         {
+          "id": "chart-choice-random",
+          "label": "随便选一种图，只要颜色清楚就可以。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。两个连续变量的关系，先看散点图和趋势。",
+         "correctOptionId": "chart-choice-scatter",
+         "incorrectFeedback": "想一想：这个问题要同时看到每位同学的阅读时长和成绩。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        },
+        "openAs": "modal"
+       }
+      ],
+      "layout": {
+       "preset": "full",
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "chart-choice-image",
+          "chart-choice"
+         ]
+        }
+       ]
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "chart-choice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "chart-choice"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "chart-choice"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "chart-choice"
+        },
+        "enabledBlockIds": [
+         "chart-choice"
+        ],
+        "visibleBlockIds": [
+         "chart-choice-image",
+         "chart-choice"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-chart-choice",
+        "text": "图表不是装饰。描述、比较和关系问题各自需要不同图表，读者应一眼看出它回答哪个问题。",
+        "audio": "assets/audio/slice-chart-choice.mp3",
+        "durationSeconds": 7.884615384615384
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-prepare-data",
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "objective-prepare-data"
+    ]
+   },
+   {
+    "id": "part-method-choice",
+    "title": "选择方法并读出证据边界",
+    "slices": [
+     {
+      "id": "slice-anchor-case-path",
+      "title": "用同一案例选择分析路径",
+      "blocks": [
+       {
+        "id": "anchor-case-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "anchor-case-image-item",
+          "alt": "课堂案例：40 名学生的阅读时长、阅读社参与、语文成绩与年级，用于练习描述、比较和关系分析。",
+          "source": "assets/images/slide-13-classroom-case.png",
+          "caption": "同一份课堂数据，先描述，再比较，最后看关系。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "anchor-case-path",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">方法选择地图</p>\n  <h1>同一份数据可以回答不同问题</h1>\n  <section class=\"callout\">\n  <h2>锚定案例</h2>\n  <p>假设收集 40 名学生的每周阅读时长、是否参加阅读社、语文成绩与年级。本案例只用于练习分析路径，不代表真实研究结论。</p>\n</section>\n<section class=\"flow\">\n  <div class=\"unit\"><strong>描述样本</strong><p>先看人数、比例、平均数、中位数和分散程度。</p></div>\n  <div class=\"unit\"><strong>比较两组</strong><p>阅读社组和未参加组是否不同，先写差多少。</p></div>\n  <div class=\"unit\"><strong>分析关系</strong><p>阅读时长与成绩是否一起变化，再讨论证据边界。</p></div>\n</section>\n</article>",
+        "type": "richText",
+        "title": "课堂案例方法地图"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "anchor-case-image"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "anchor-case-path"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "review",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "anchor-case-path"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "anchor-case-path"
+        },
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "anchor-case-image",
+         "anchor-case-path"
+        ]
+       },
+       "initialStepId": "review"
+      },
+      "narrations": [
+       {
+        "id": "narration-anchor-case-path",
+        "text": "同一份课堂数据可以用来描述样本、比较两组，也可以看变量关系。关键仍是先说清问题。",
+        "audio": "assets/audio/slice-anchor-case-path.mp3",
+        "durationSeconds": 7.692307692307692
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 130
+     },
+     {
+      "id": "slice-two-group-figure",
+      "title": "两组比较：先看这张图",
+      "blocks": [
+       {
+        "id": "slice-two-group-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-two-group-figure-image-item",
+          "alt": "比较两组示例：阅读社组平均 7.0 小时，未参加组平均 5.6 小时。",
+          "source": "assets/images/slide-14-two-group.png",
+          "caption": "两组比较：先写差多少，再考虑检验。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-two-group-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-two-group-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-two-group-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-crosstab-figure",
+      "title": "分类比例：再看这张图",
+      "blocks": [
+       {
+        "id": "slice-crosstab-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-crosstab-figure-image-item",
+          "alt": "分类比较示例：参加阅读社与阅读时长是否达到 6 小时的列联表。",
+          "source": "assets/images/slide-15-crosstab.png",
+          "caption": "列联表：先看每格人数和比例。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-crosstab-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-crosstab-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-crosstab-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-two-group-crosstab",
+      "title": "比较两组与分类比例",
+      "blocks": [
+       {
+        "id": "two-group-compare",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">比较类问题</p>\n  <h1>两组比较和列联表回答的是不同差别</h1>\n  <section>\n  <table>\n    <thead><tr><th>问题</th><th>适合方法</th><th>先写什么</th><th>边界</th></tr></thead>\n    <tbody>\n      <tr><td>两组平均阅读时长是否不同</td><td>均值比较，可辅助 t 检验</td><td>均值差、各组人数和单位</td><td>显著不等于实际重要</td></tr>\n      <tr><td>两类变量的比例分布是否不同</td><td>列联表，可辅助卡方检验</td><td>每格人数与比例</td><td>小样本要更谨慎</td></tr>\n    </tbody>\n  </table>\n</section>\n<section class=\"callout warn\">\n  <h2>写作提醒</h2>\n  <p>先报告差多少，再报告检验。不要只写“显著”，也不要忽略样本量和比例。</p>\n</section>\n</article>",
+        "type": "richText",
+        "title": "比较方法对照卡"
+       },
+       {
+        "id": "crosstab-method",
+        "type": "singleChoice",
+        "prompt": "如果两个变量都是类别信息，例如“是否参加阅读社”与“阅读时长是否达到 6 小时”，最合适的第一步是什么？",
+        "options": [
+         {
+          "id": "method-crosstab",
+          "label": "做列联表，先报告每格人数和比例。"
+         },
+         {
+          "id": "method-mean-only",
+          "label": "只算全部学生的平均阅读时长。"
+         },
+         {
+          "id": "method-correlation-only",
+          "label": "直接算相关系数，不需要看类别比例。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。两个类别变量放入列联表，先看比例分布。",
+         "correctOptionId": "method-crosstab",
+         "incorrectFeedback": "这里两个变量都是类别信息，先看列联表比直接算均值或相关更合适。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "two-group-compare"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "crosstab-method"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "crosstab-method"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "crosstab-method"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "crosstab-method"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "crosstab-method"
+        },
+        "enabledBlockIds": [
+         "crosstab-method"
+        ],
+        "visibleBlockIds": [
+         "two-group-compare",
+         "crosstab-method"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-two-group-crosstab",
+        "text": "比较类问题要先写差多少。连续结果看均值差；两个类别信息放进列联表先看人数和比例。",
+        "audio": "assets/audio/slice-two-group-crosstab.mp3",
+        "durationSeconds": 7.692307692307692
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-correlation-figure",
+      "title": "相关：先看这张图",
+      "blocks": [
+       {
+        "id": "slice-correlation-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-correlation-figure-image-item",
+          "alt": "相关分析示例：阅读时长与语文成绩是否一起变化。",
+          "source": "assets/images/slide-16-correlation.png",
+          "caption": "相关：看两个变量是否一起变化。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-correlation-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-correlation-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-correlation-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-regression-figure",
+      "title": "回归：再看这张图",
+      "blocks": [
+       {
+        "id": "slice-regression-figure-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-regression-figure-image-item",
+          "alt": "回归分析示例：在其他条件相近时看阅读时长与语文成绩的关联。",
+          "source": "assets/images/slide-17-regression.png",
+          "caption": "回归：在列出的其他条件相近时看关联。"
+         }
+        ],
+        "presentation": "single"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-regression-figure-image"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-regression-figure-image"
+        ],
+        "visibleBlockIds": [
+         "slice-regression-figure-image"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-correlation-regression",
+      "title": "相关与回归的证据边界",
+      "blocks": [
+       {
+        "id": "block-correlation-regression-card",
+        "html": "<style>\n:root { color-scheme: light; }\n* { box-sizing: border-box; }\nbody {\n  margin: 0;\n  padding: 22px;\n  font-family: -apple-system, BlinkMacSystemFont, \"PingFang SC\", \"Microsoft YaHei\", sans-serif;\n  color: #172033;\n  background: #f7f9fc;\n  line-height: 1.58;\n}\n.card {\n  max-width: 980px;\n  margin: 0 auto;\n  background: #ffffff;\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 24px;\n}\n.eyebrow {\n  margin: 0 0 8px;\n  color: #2f6f73;\n  font-size: 13px;\n  font-weight: 700;\n}\nh1 {\n  margin: 0 0 14px;\n  font-size: 26px;\n  line-height: 1.25;\n  color: #12263a;\n}\nh2 {\n  margin: 0 0 10px;\n  font-size: 17px;\n  color: #12263a;\n}\np { margin: 0 0 12px; }\n.route,\n.two-col,\n.flow,\n.compare,\n.checklist {\n  display: grid;\n  gap: 12px;\n}\n.route { grid-template-columns: repeat(5, minmax(0, 1fr)); }\n.two-col { grid-template-columns: 1fr 1fr; }\n.flow { grid-template-columns: repeat(3, minmax(0, 1fr)); }\n.unit,\n.callout,\n.step,\n.note {\n  border: 1px solid #d9e1ea;\n  border-radius: 8px;\n  padding: 14px;\n  background: #fbfcfe;\n}\n.step strong,\n.unit strong {\n  display: block;\n  color: #2f6f73;\n  margin-bottom: 6px;\n}\n.warn {\n  border-color: #e7c36a;\n  background: #fff8e6;\n}\n.warn strong { color: #8a5a00; }\n.ok {\n  border-color: #9bc7bd;\n  background: #eef8f6;\n}\n.small { font-size: 14px; color: #526173; }\ntable {\n  width: 100%;\n  border-collapse: collapse;\n  overflow: hidden;\n  border-radius: 8px;\n}\nth,\ntd {\n  border: 1px solid #d9e1ea;\n  padding: 10px;\n  text-align: left;\n  vertical-align: top;\n}\nth {\n  background: #eef4f7;\n  color: #12263a;\n}\n@media (max-width: 760px) {\n  body { padding: 14px; }\n  .card { padding: 18px; }\n  .route,\n  .two-col,\n  .flow { grid-template-columns: 1fr; }\n  h1 { font-size: 22px; }\n}\n</style>\n<article class=\"card\">\n  <p class=\"eyebrow\">关系类问题</p>\n  <h1>相关和回归都看关联，但不能自动证明因果</h1>\n  <section>\n  <table>\n    <thead><tr><th>方法</th><th>它在回答什么</th><th>读结果时看什么</th></tr></thead>\n    <tbody>\n      <tr><td>相关分析</td><td>两个连续变量是否一起变化</td><td>散点趋势、相关系数方向与大小、异常点</td></tr>\n      <tr><td>回归分析</td><td>在列出的其他条件相近时看关联</td><td>方向、大小、样本量和不确定性</td></tr>\n    </tbody>\n  </table>\n</section>\n<section class=\"callout warn\">\n  <h2>结论边界</h2>\n  <p>控制部分因素，不等于排除所有原因。相关描述一起变化，不能单独证明谁导致谁。</p>\n</section>\n</article>",
+        "type": "richText",
+        "title": "关系方法对照卡"
+       },
+       {
+        "id": "relation-boundary",
+        "type": "singleChoice",
+        "prompt": "看到“阅读时长与语文成绩呈正相关”后，最稳妥的论文表达是？",
+        "options": [
+         {
+          "id": "relation-proof-cause",
+          "label": "阅读时长已经被证明会导致语文成绩提高。"
+         },
+         {
+          "id": "relation-no-meaning",
+          "label": "相关结果没有任何意义，因此不能写。"
+         },
+         {
+          "id": "relation-bounded",
+          "label": "本样本中阅读时长与语文成绩一起变化，但还不能单独证明因果。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。相关说明一起变化，不能单独证明因果。",
+         "correctOptionId": "relation-bounded",
+         "incorrectFeedback": "相关可以作为证据，但结论要保留样本和因果边界。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "block-correlation-regression-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "relation-boundary"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "relation-boundary"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "relation-boundary"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "relation-boundary"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "relation-boundary"
+        },
+        "enabledBlockIds": [
+         "relation-boundary"
+        ],
+        "visibleBlockIds": [
+         "block-correlation-regression-card",
+         "relation-boundary"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-correlation-regression",
+        "text": "关系类问题可以用相关或回归帮助读证据，但都要写清关联、方向、大小、样本和因果边界。",
+        "audio": "assets/audio/slice-correlation-regression.mp3",
+        "durationSeconds": 7.884615384615384
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis"
+      ],
+      "estimatedSeconds": 63
+     },
+     {
+      "id": "slice-reliability-claim-boundary",
+      "title": "结果可靠吗？看大小、样本和不确定性",
+      "blocks": [
+       {
+        "id": "reliability-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "reliability-image-item",
+          "alt": "结果可靠性自检：看差异大小、样本与波动、统计检验和不确定性。",
+          "source": "assets/images/slide-18-reliability.png",
+          "caption": "结果可靠性：大小、样本、波动和不确定性一起看。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "bounded-claim",
+        "type": "singleChoice",
+        "prompt": "写结果时，下面哪一句最符合“结论不超过证据”？",
+        "options": [
+         {
+          "id": "claim-star-only",
+          "label": "因为有星号，所以这个方法一定很重要。"
+         },
+         {
+          "id": "claim-bounded",
+          "label": "本样本中两组平均阅读时长相差 1.4 小时，但小样本和其他因素仍限制解释。"
+         },
+         {
+          "id": "claim-causal-proof",
+          "label": "阅读社必然导致每个学生阅读更多。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。它同时写了发现、大小、样本边界和不确定性。",
+         "correctOptionId": "claim-bounded",
+         "incorrectFeedback": "只看星号或直接写因果，都会超过当前证据能支持的范围。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        },
+        "openAs": "modal"
+       }
+      ],
+      "layout": {
+       "preset": "full",
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "reliability-image",
+          "bounded-claim"
+         ]
+        }
+       ]
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "bounded-claim"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "bounded-claim"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "bounded-claim"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "bounded-claim"
+        },
+        "enabledBlockIds": [
+         "bounded-claim"
+        ],
+        "visibleBlockIds": [
+         "reliability-image",
+         "bounded-claim"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-reliability-claim-boundary",
+        "text": "结果可靠性不能只看有没有星号，还要看差异大小、样本量、波动和仍然不能确定的因素。",
+        "audio": "assets/audio/slice-reliability-claim-boundary.mp3",
+        "durationSeconds": 7.692307692307692
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-select-analysis",
+       "objective-write-results"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "objective-select-analysis"
+    ]
+   },
+   {
+    "id": "part-write-transfer",
+    "title": "写成结果段并完成 AI 核查",
+    "slices": [
+     {
+      "id": "slice-results-paragraph-template",
+      "title": "把分析写进论文结果段",
+      "blocks": [
+       {
+        "id": "results-template-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "results-template-image-item",
+          "alt": "论文结果段落模板：问题与样本、发现与证据、解释与边界。",
+          "source": "assets/images/slide-19-results-template.png",
+          "caption": "结果段落先回答问题，再给证据和边界。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "results-sentence",
+        "type": "fillBlank",
+        "prompt": "仿照模板写一段结果句，必须包含样本、发现、证据大小和边界。可使用句式：本研究比较____；课堂示例中____；这一结果说明____，但不能单独说明____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应包含样本或范围、一个具体发现、证据大小或单位，以及不能过度推断的边界。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例如：本研究比较 40 名学生的阅读时长；阅读社组平均高 1.4 小时；本样本存在差异；不能证明社团导致改变。",
+        "openAs": "modal"
+       }
+      ],
+      "layout": {
+       "preset": "full",
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "results-template-image",
+          "results-sentence"
+         ]
+        }
+       ]
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "results-sentence"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "results-sentence"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "results-sentence"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "results-sentence"
+        },
+        "enabledBlockIds": [
+         "results-sentence"
+        ],
+        "visibleBlockIds": [
+         "results-template-image",
+         "results-sentence"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-results-paragraph-template",
+        "text": "结果段落先回答研究问题，再给样本、发现、证据大小和边界。不要让读者自己猜图表想说明什么。",
+        "audio": "assets/audio/slice-results-paragraph-template.mp3",
+        "durationSeconds": 8.461538461538462
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-write-results"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-ai-check-transfer",
+      "title": "AI 辅助后仍要回到原始数据",
+      "blocks": [
+       {
+        "id": "ai-check-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "ai-check-image-item",
+          "alt": "AI 辅助与提交前检查：AI 可辅助检查变量说明、图表标题和润色；不可编造数据或虚构检验结果。",
+          "source": "assets/images/slide-20-ai-check.png",
+          "caption": "任何说法都必须能追溯到原始数据。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "ai-check",
+        "type": "singleChoice",
+        "prompt": "AI 给你润色了一句“阅读社显著提升了所有学生成绩”。提交前你最应该做什么？",
+        "options": [
+         {
+          "id": "ai-check-verify",
+          "label": "回到原始表、计算过程和样本范围，核对是否真的支持这句话。"
+         },
+         {
+          "id": "ai-trust-fluent",
+          "label": "因为句子更流畅，所以直接使用。"
+         },
+         {
+          "id": "ai-invent-result",
+          "label": "让 AI 再补一个更显著的检验结果。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。AI 可以辅助表达，但研究判断和数据核对必须由你完成。",
+         "correctOptionId": "ai-check-verify",
+         "incorrectFeedback": "流畅不等于真实。无法追溯到原始数据的说法不能写进结论。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        },
+        "openAs": "modal"
+       }
+      ],
+      "layout": {
+       "preset": "full",
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "ai-check-image",
+          "ai-check"
+         ]
+        }
+       ]
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "work",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ai-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ai-check"
+           }
+          },
+          {
+           "type": "enable",
+           "targetId": "ai-check"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "ai-check"
+        },
+        "enabledBlockIds": [
+         "ai-check"
+        ],
+        "visibleBlockIds": [
+         "ai-check-image",
+         "ai-check"
+        ]
+       },
+       "initialStepId": "work"
+      },
+      "narrations": [
+       {
+        "id": "narration-ai-check-transfer",
+        "text": "AI 可以帮助检查变量说明、图表标题和表达，但不能编造样本、图表或检验结果。提交前回到原始数据核对。",
+        "audio": "assets/audio/slice-ai-check-transfer.mp3",
+        "durationSeconds": 9.615384615384615
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-write-results"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "objective-write-results"
+    ]
+   }
+  ],
+  "title": "数据分析：从研究问题到结果段落",
+  "closing": {
+   "fallback": {
+    "text": "接下来可以把这张证据链卡用于自己的研究题目：先确认问题类型和变量，再检查数据准备、方法选择、结果写法和 AI 核查。"
+   },
+   "takeaways": [
+    "问题在前，方法在后；图表和统计都要服务研究问题。",
+    "样本、变量、清理记录和数据字典决定结果能否被复核。",
+    "比较、相关和回归都要写出大小、样本和不确定性，不把关联写成因果证明。",
+    "AI 可以辅助表达和检查，但任何结论都必须回到原始数据核对。"
+   ],
+   "personalization": {
+    "enabled": true,
+    "allowedSignals": [
+     "answers",
+     "attempts",
+     "time-on-slice",
+     "interaction-results"
+    ]
+   },
+   "preparedSummary": "你已经沿着数据证据链走过问题、样本、变量、数据准备、图表选择、方法判断、证据边界和结果段写作。",
+   "transferApplications": [
+    "把证据链卡迁移到自己的小型调查或论文结果部分。",
+    "阅读他人论文时检查样本、变量、方法和结论是否配套。",
+    "使用 AI 辅助写作后，逐项核对数据、图表、计算和结论边界。"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "本课会用一份课堂示例数据，带你把研究问题转成可复核的数据证据，并写成不过度推断的论文结果段落。"
+   },
+   "learningPreview": [
+    "沿着证据链把研究问题、样本、变量和方法连起来",
+    "判断描述、比较、关系和回归各自能支持的结论",
+    "写出包含样本、发现、证据大小和边界的结果段落"
+   ],
+   "personalization": {
+    "enabled": true,
+    "allowedSignals": [
+     "recent-course-topics",
+     "prior-objective-performance"
+    ]
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "objective-frame-question",
+    "text": "判断研究问题属于描述、比较还是关系分析，并说明研究设计能支持的结论边界。",
+    "evidenceBlockIds": [
+     "block-design-frame-fill",
+     "sample-boundary"
+    ]
+   },
+   {
+    "id": "objective-prepare-data",
+    "text": "为一份小型研究数据建立数据字典，识别变量、编码、缺失值和清理记录。",
+    "evidenceBlockIds": [
+     "block-data-dictionary-fill",
+     "block-clean-describe-choice",
+     "chart-choice"
+    ]
+   },
+   {
+    "id": "objective-select-analysis",
+    "text": "根据问题选择合适的图表或基础统计方法，并解释结果能说明什么、不能说明什么。",
+    "evidenceBlockIds": [
+     "crosstab-method",
+     "relation-boundary",
+     "bounded-claim"
+    ]
+   },
+   {
+    "id": "objective-write-results",
+    "text": "写出一段包含样本、发现、证据强度和局限的论文结果文字，并完成 AI 辅助后的核查。",
+    "evidenceBlockIds": [
+     "results-sentence",
+     "ai-check"
+    ]
+   }
+  ],
+  "estimatedMinutes": 35
+ },
+ "schemaVersion": "2.0"
+}

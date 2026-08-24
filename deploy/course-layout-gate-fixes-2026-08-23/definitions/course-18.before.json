@@ -1,0 +1,2237 @@
+{
+ "course": {
+  "id": "course-18",
+  "parts": [
+   {
+    "id": "part-search-purpose",
+    "title": "查找资源贯穿研究全过程",
+    "slices": [
+     {
+      "id": "slice-research-moment",
+      "title": "先判断现在为什么要查",
+      "blocks": [
+       {
+        "id": "course-introduction",
+        "type": "text",
+        "content": "本课把“上网查一查”改造成一条可说明、可复查的信息查找路径：明确目的、匹配类型与渠道、记录学术检索过程，并用 CRAAP 判断资源是否值得进入论证。"
+       },
+       {
+        "id": "stage-purpose-text",
+        "type": "text",
+        "content": "资源查找贯穿研究全过程。定题阶段偏向了解方向，开题阶段深入学习已有成果，项目推进时补证据或修正论点，写作阶段还要核查已经写下的信息。每次检索前先问：这次查找要服务哪个研究动作？"
+       },
+       {
+        "id": "stage-purpose-timeline",
+        "type": "text",
+        "content": "研究时间线：项目报名 -> 项目启动 -> 立论/调查 -> 开题报告 -> 分析数据 -> 复盘反思 -> 展示成果 -> 撰写论文 -> 提交产出。越到写作阶段，越需要能支撑论点、可回溯的证据。"
+       },
+       {
+        "id": "stage-purpose-question",
+        "type": "singleChoice",
+        "prompt": "学生正在写论文正文，发现一个论点缺少支持材料。此时查找资源的主要目的是什么？",
+        "options": [
+         {
+          "id": "browse-anything",
+          "label": "随便浏览相关内容，增加一点熟悉感。"
+         },
+         {
+          "id": "support-claim",
+          "label": "为已有论点寻找可核查的证据或补充说明。"
+         },
+         {
+          "id": "choose-title",
+          "label": "重新从零开始选择整个研究题目。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。写作中回到资源，是为了让论点有可追溯的依据。",
+         "correctOptionId": "support-claim",
+         "incorrectFeedback": "再看研究阶段：正文写作时的检索通常服务于论点支撑和核查，而不是泛泛浏览。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "course-introduction",
+          "stage-purpose-text",
+          "stage-purpose-timeline"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "stage-purpose-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "stage-purpose-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "course-introduction",
+         "stage-purpose-text",
+         "stage-purpose-timeline",
+         "stage-purpose-question"
+        ],
+        "visibleBlockIds": [
+         "course-introduction",
+         "stage-purpose-text",
+         "stage-purpose-timeline",
+         "stage-purpose-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "先判断现在为什么要查。让学生看到资源查找贯穿定题、开题、推进、写作与核查，并能说清当前检索目的。",
+        "audio": "assets/audio/narrations/slice-research-moment-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-search-stage"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-search-myths",
+      "title": "破除“查资料”的几个误区",
+      "blocks": [
+       {
+        "id": "demystify-text",
+        "type": "text",
+        "content": "常见误区包括：只有时间充足才能查好、必须读很多论文、查找只是熟悉内容、可靠资源只来自书本论文、每次都先打开同一个搜索入口。成熟做法是围绕问题找高效、有用、能解释路径的资源。"
+       },
+       {
+        "id": "demystify-cards",
+        "type": "text",
+        "content": "本课的判断标准：资源要和问题匹配；质量能被评估；查找路径能说明；资源用途要分清。论文、报告、数据库、新闻、视频平台、微信公众号、知乎都可能有用，但不能承担同一种证据角色。"
+       },
+       {
+        "id": "demystify-question",
+        "type": "singleChoice",
+        "prompt": "下面哪一种想法更接近本课的资源查找方式？",
+        "options": [
+         {
+          "id": "useful-traceable",
+          "label": "找到和问题匹配、质量可评估、路径能说明的资源。"
+         },
+         {
+          "id": "first-baidu",
+          "label": "无论什么问题都先用同一个搜索入口。"
+         },
+         {
+          "id": "fifty-papers",
+          "label": "只要读够很多论文，研究质量就自然提高。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。资源查找的关键是匹配问题、评估质量、留下路径。",
+         "correctOptionId": "useful-traceable",
+         "incorrectFeedback": "注意本课强调的是有效和可复查，而不是数量越多越好，也不是固定入口。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "demystify-text",
+          "demystify-cards"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "demystify-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "demystify-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "demystify-text",
+         "demystify-cards",
+         "demystify-question"
+        ],
+        "visibleBlockIds": [
+         "demystify-text",
+         "demystify-cards",
+         "demystify-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "破除“查资料”的几个误区。澄清常见误区：时间、数量、固定平台和“只熟悉内容”等，都不是资源质量的核心。",
+        "audio": "assets/audio/narrations/slice-search-myths-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-search-stage"
+      ],
+      "estimatedSeconds": 160
+     },
+     {
+      "id": "slice-topic-cases-overview",
+      "title": "三个选题先看资源需求",
+      "blocks": [
+       {
+        "id": "topic-cases-text",
+        "type": "text",
+        "content": "三个选题对应三种查找重点：爱豆文化需要关键词、学术论文、微信文章和问卷访谈；疫苗成功原因需要公共卫生体系、研发策略和具体病例；5G 真实体验需要论文、测速数据、网络文章和视频资料。"
+       },
+       {
+        "id": "topic-cases-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "fiveg-phone",
+          "alt": "5G 日常体验选题的手机网络示例截图",
+          "source": "assets/images/five-g-phone-topic.png",
+          "caption": "5G 真实体验可以从个人设备与测速线索切入。"
+         },
+         {
+          "id": "idol-topic",
+          "alt": "爱豆文化选题的流行文化人物示例图",
+          "source": "assets/images/idol-culture-topic.jpeg",
+          "caption": "爱豆文化选题需要同时理解文化现象与群体语境。"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "topic-cases-prompt",
+        "type": "text",
+        "content": "观察要点：先写研究方向，再拆出关键词；再判断需要文字、数据、图片、视频、访谈还是学术文献；最后说明每类资源准备承担什么用途。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "topic-cases-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "topic-cases-gallery"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "topic-cases-prompt"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "topic-cases-text",
+         "topic-cases-gallery",
+         "topic-cases-prompt"
+        ],
+        "visibleBlockIds": [
+         "topic-cases-text",
+         "topic-cases-gallery",
+         "topic-cases-prompt"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "三个选题先看资源需求。比较爱豆文化、疫苗成功原因、5G 真实体验三个选题的关键词和资源类型差异。",
+        "audio": "assets/audio/narrations/slice-topic-cases-overview-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "objective-search-stage"
+      ],
+      "estimatedSeconds": 160
+     },
+     {
+      "id": "slice-idol-case-sources",
+      "title": "案例一：爱豆文化怎么找",
+      "blocks": [
+       {
+        "id": "idol-case-text",
+        "type": "text",
+        "content": "爱豆文化案例可以按阶段找资源：定题阶段广泛了解“爱豆文化/粉丝经济/00后粉丝”；开题阶段看相关研究；推进阶段用问卷、访谈或案例补证据；写作阶段把资源用途写清楚。"
+       },
+       {
+        "id": "idol-case-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "fan-cnki",
+          "alt": "爱豆文化与粉丝经济选题的知网检索结果示例",
+          "source": "assets/images/fan-culture-cnki-results.png",
+          "caption": "学术入口帮助梳理研究成果。"
+         },
+         {
+          "id": "fan-loan",
+          "alt": "饭圈少女打榜与网贷议题的网络文章示例",
+          "source": "assets/images/fan-culture-loan-article.jpeg",
+          "caption": "网络文章提供现实案例与热点语境。"
+         },
+         {
+          "id": "fan-youth",
+          "alt": "青少年追星调查议题的网络文章示例",
+          "source": "assets/images/fan-culture-youth-article.jpeg",
+          "caption": "调查报道可帮助形成问题意识。"
+         }
+        ],
+        "presentation": "gallery"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "idol-case-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "idol-case-gallery"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "idol-case-text",
+         "idol-case-gallery"
+        ],
+        "visibleBlockIds": [
+         "idol-case-text",
+         "idol-case-gallery"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "案例一：爱豆文化怎么找。展示同一选题如何结合学术论文、微信文章和问卷访谈，而不是只依赖一个入口。",
+        "audio": "assets/audio/narrations/slice-idol-case-sources-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "objective-search-stage"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-vaccine-5g-match",
+      "title": "案例二三：从选题到资源组合",
+      "blocks": [
+       {
+        "id": "vaccine-case-text",
+        "type": "text",
+        "content": "疫苗成功原因案例要把“疫苗研发策略、公共卫生体系、具体病例、学术研究”连起来。它既需要学术论文，也需要新闻或机构资料帮助理解背景与现实进程。"
+       },
+       {
+        "id": "fiveg-case-text",
+        "type": "text",
+        "content": "5G 真实体验案例要把“速度、应用场景、生活体验”连起来。它需要技术解释、测速或个人数据、视频材料，也需要用论文或报告核查概念。"
+       },
+       {
+        "id": "vaccine-fiveg-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "vaccine-cnki",
+          "alt": "疫苗研发与成功原因选题的知网检索结果示例",
+          "source": "assets/images/vaccine-cnki-results.png",
+          "caption": "疫苗议题的学术检索入口。"
+         },
+         {
+          "id": "vaccine-news",
+          "alt": "新冠疫苗研发速度与公共卫生体系相关的网络文章示例",
+          "source": "assets/images/vaccine-news-article.jpeg",
+          "caption": "新闻材料适合补充背景和案例。"
+         },
+         {
+          "id": "fiveg-cnki",
+          "alt": "5G速度与生活应用选题的知网检索结果示例",
+          "source": "assets/images/five-g-cnki-results.png",
+          "caption": "5G 议题的学术检索入口。"
+         },
+         {
+          "id": "fiveg-video",
+          "alt": "5G真实体验视频资料示例，显示视频也可能成为研究材料",
+          "source": "assets/images/five-g-video-example.png",
+          "caption": "视频可成为体验观察材料。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "topic-resource-fill",
+        "type": "fillBlank",
+        "prompt": "任选一个案例，写出：研究方向____；至少两个关键词____；可能使用的两类资源____；这些资源分别帮助我____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应把选题、关键词、资源类型和资源用途连起来，而不是只列搜索词。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "在这里写下你的回答"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "vaccine-case-text",
+          "fiveg-case-text",
+          "vaccine-fiveg-gallery"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "topic-resource-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "topic-resource-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "vaccine-case-text",
+         "fiveg-case-text",
+         "vaccine-fiveg-gallery",
+         "topic-resource-fill"
+        ],
+        "visibleBlockIds": [
+         "vaccine-case-text",
+         "fiveg-case-text",
+         "vaccine-fiveg-gallery",
+         "topic-resource-fill"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "案例二三：从选题到资源组合。用疫苗与 5G 案例练习把研究方向、关键词、资源类型和资源用途连起来。",
+        "audio": "assets/audio/narrations/slice-vaccine-5g-match-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-search-stage"
+      ],
+      "estimatedSeconds": 240
+     }
+    ],
+    "objectiveIds": [
+     "objective-search-stage"
+    ]
+   },
+   {
+    "id": "part-source-channel",
+    "title": "按问题匹配信息类型与渠道",
+    "slices": [
+     {
+      "id": "slice-information-types",
+      "title": "先判断需要哪类信息",
+      "blocks": [
+       {
+        "id": "information-types-text",
+        "type": "text",
+        "content": "查找前先判断需要哪类信息。文字信息适合理解、分析和总结；数字信息适合计算、模型或统计处理；音频、视频、图片等材料往往需要观察、描述和解释。"
+       },
+       {
+        "id": "information-types-cards",
+        "type": "text",
+        "content": "文字：新闻、论文、报告、访谈记录、观察记录、UGC。数字：实验数据、问卷数据、数据库。其他：音频、视频、图片。不同信息类型对应不同处理方式。"
+       },
+       {
+        "id": "information-types-question",
+        "type": "singleChoice",
+        "prompt": "如果研究“5G在日常使用中的真实体验”，下面哪组信息类型最合适？",
+        "options": [
+         {
+          "id": "only-novels",
+          "label": "小说、散文和人物传记。"
+         },
+         {
+          "id": "only-opinion",
+          "label": "只看社交平台上的几条主观感受。"
+         },
+         {
+          "id": "mixed-5g",
+          "label": "测速数据、体验视频、技术解读文章和相关研究。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。这个问题既需要数字数据，也需要实际体验材料和解释性文字。",
+         "correctOptionId": "mixed-5g",
+         "incorrectFeedback": "这个问题包含速度和真实体验，单一类型材料很难支撑完整判断。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "information-types-text",
+          "information-types-cards"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "information-types-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "information-types-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "information-types-text",
+         "information-types-cards",
+         "information-types-question"
+        ],
+        "visibleBlockIds": [
+         "information-types-text",
+         "information-types-cards",
+         "information-types-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "先判断需要哪类信息。区分文字、数字和音视频图片等信息类型，并说明不同类型对应不同处理方式。",
+        "audio": "assets/audio/narrations/slice-information-types-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-source-match"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-channel-selection",
+      "title": "再选择更准确的渠道",
+      "blocks": [
+       {
+        "id": "channel-selection-text",
+        "type": "text",
+        "content": "渠道可以分为权威平台、网络渠道和传统渠道。选择时不要先问哪个平台最方便，而要先问：这个问题需要什么证据角色？"
+       },
+       {
+        "id": "channel-platforms",
+        "type": "images",
+        "items": [
+         {
+          "id": "bilibili",
+          "alt": "B站搜索结果页面示例，显示视频平台也可以作为特定问题的信息入口",
+          "source": "assets/images/platform-bilibili-search.png",
+          "caption": "视频平台适合观察体验与表达方式。"
+         },
+         {
+          "id": "wechat",
+          "alt": "微信文章搜索结果示例，显示热点与流行文化资料的入口",
+          "source": "assets/images/wechat-search-results.jpeg",
+          "caption": "微信文章适合了解热点语境和公众讨论。"
+         },
+         {
+          "id": "article-search",
+          "alt": "平台文章搜索结果示例，显示可从标题和来源初步筛选资源",
+          "source": "assets/images/platform-article-search-results.jpeg",
+          "caption": "文章平台需要继续核查来源和证据。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "channel-selection-cards",
+        "type": "text",
+        "content": "权威平台可信度较高但更新可能慢；网络渠道更新快、材料丰富但质量差异大；传统出版物适合找背景和经典观点。"
+       },
+       {
+        "id": "channel-selection-question",
+        "type": "singleChoice",
+        "prompt": "研究“爱豆文化在高中生中的理解”，微信公众号文章最适合先承担哪种作用？",
+        "options": [
+         {
+          "id": "ignore-academic",
+          "label": "替代问卷、访谈和学术研究。"
+         },
+         {
+          "id": "culture-background",
+          "label": "了解热点话语、案例和公众讨论，再配合学术资料核查。"
+         },
+         {
+          "id": "final-proof",
+          "label": "直接作为所有结论的唯一核心证据。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。微信文章可以帮助理解现实语境，但核心论证还要结合更稳的证据。",
+         "correctOptionId": "culture-background",
+         "incorrectFeedback": "网络文章可以有启发价值，但通常不能单独承担全部核心证据。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "channel-selection-text",
+          "channel-platforms",
+          "channel-selection-cards"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "channel-selection-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "channel-selection-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "channel-selection-text",
+         "channel-platforms",
+         "channel-selection-cards",
+         "channel-selection-question"
+        ],
+        "visibleBlockIds": [
+         "channel-selection-text",
+         "channel-platforms",
+         "channel-selection-cards",
+         "channel-selection-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "再选择更准确的渠道。比较权威平台、网络渠道和传统渠道的价值与限制。",
+        "audio": "assets/audio/narrations/slice-channel-selection-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-source-match"
+      ],
+      "estimatedSeconds": 200
+     },
+     {
+      "id": "slice-source-use-role",
+      "title": "同一资源要说明用途",
+      "blocks": [
+       {
+        "id": "source-role-fill",
+        "type": "fillBlank",
+        "prompt": "一个资源不是因为“相关”就自动适合使用。它可能只适合启发问题、提供背景、参考方法、提供数据证据、对照观点或核查反例。任选一个你熟悉的平台资源，写出：资源类型____；我会用它来____；我不会直接用它来____，因为____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应区分资源可用处和不可直接承担的证据角色，并给出理由。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "在这里写下你的回答"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "source-role-fill"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "source-role-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "source-role-fill"
+        ],
+        "visibleBlockIds": [
+         "source-role-fill"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "同一资源要说明用途。让学生把资源标为启发问题、背景说明、方法参考、数据证据、观点对照或反例核查。",
+        "audio": "assets/audio/narrations/slice-source-use-role-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-source-match"
+      ],
+      "estimatedSeconds": 220
+     }
+    ],
+    "objectiveIds": [
+     "objective-source-match"
+    ]
+   },
+   {
+    "id": "part-literature-path",
+    "title": "建立可复查的学术检索路径",
+    "slices": [
+     {
+      "id": "slice-literature-workflow",
+      "title": "文献检索是一条可复查路径",
+      "blocks": [
+       {
+        "id": "literature-workflow-text",
+        "type": "text",
+        "content": "学术文献搜寻不是“找一篇文章”，而是建立一条从问题到证据的可复查路径。每条文献都要留下题名、作者、年份、DOI 或 URL、检索式、访问日期，以及它支持哪个论点。"
+       },
+       {
+        "id": "literature-workflow-diagram",
+        "type": "text",
+        "content": "四步路径：1. 拆关键词：研究问题、同义词、英文术语。2. 选入口：Google Scholar、图书馆、知网、学科库。3. 筛证据：年份、方法、样本、被引关系。4. 取全文：DOI、开放获取、馆藏、作者渠道。"
+       },
+       {
+        "id": "literature-workflow-question",
+        "type": "singleChoice",
+        "prompt": "下面哪一项最能体现“可复查”的文献路径？",
+        "options": [
+         {
+          "id": "traceable-path",
+          "label": "关键词、数据库、年份筛选、检索日期、题名作者和 DOI 都有记录。"
+         },
+         {
+          "id": "only-pdf",
+          "label": "只保存一个 PDF 文件名，不记录从哪里找到。"
+         },
+         {
+          "id": "memory-path",
+          "label": "我记得是在网上看到的，内容大概很相关。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。别人能根据这些信息复现你的查找路径。",
+         "correctOptionId": "traceable-path",
+         "incorrectFeedback": "可复查的关键是路径和元数据完整，而不是只留下印象或文件。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "literature-workflow-text",
+          "literature-workflow-diagram"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "literature-workflow-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "literature-workflow-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "literature-workflow-text",
+         "literature-workflow-diagram",
+         "literature-workflow-question"
+        ],
+        "visibleBlockIds": [
+         "literature-workflow-text",
+         "literature-workflow-diagram",
+         "literature-workflow-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "文献检索是一条可复查路径。说明拆关键词、选入口、筛证据、取全文四步，并强调记录元数据。",
+        "audio": "assets/audio/narrations/slice-literature-workflow-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-traceable-search"
+      ],
+      "estimatedSeconds": 200
+     },
+     {
+      "id": "slice-scholar-query",
+      "title": "用检索式缩小范围",
+      "blocks": [
+       {
+        "id": "scholar-query-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "scholar-query",
+          "alt": "Google Scholar 中 idol culture China 检索式示例",
+          "source": "assets/images/scholar-idol-culture-query.png",
+          "caption": "把主题改写成可检索关键词。"
+         },
+         {
+          "id": "scholar-annotated",
+          "alt": "Google Scholar 检索结果批注示例，标出年份、引用链和全文入口",
+          "source": "assets/images/google-scholar-annotated.png",
+          "caption": "观察年份、引用链和全文入口。"
+         },
+         {
+          "id": "academic-annotated",
+          "alt": "学术文章检索结果批注示例，提醒学生关注题名、作者、年份和来源",
+          "source": "assets/images/academic-article-search-annotated.png",
+          "caption": "记录题名、作者、年份和来源。"
+         },
+         {
+          "id": "scholar-results",
+          "alt": "Google Scholar 中 idol culture China 的检索结果页面示例",
+          "source": "assets/images/scholar-idol-culture-results.png",
+          "caption": "用结果页继续筛选和追踪。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "scholar-query-fill",
+        "type": "fillBlank",
+        "prompt": "Google Scholar 的重点不是把主题原封不动输入，而是改写成检索式。把一个中文研究主题改写成：中文关键词____；英文关键词____；同义词 OR____；年份筛选____；准备记录的路径信息____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应出现至少一个英文关键词或同义词组合，并说明筛选条件和记录信息。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "在这里写下你的回答"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "scholar-query-gallery"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "scholar-query-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "scholar-query-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "scholar-query-gallery",
+         "scholar-query-fill"
+        ],
+        "visibleBlockIds": [
+         "scholar-query-gallery",
+         "scholar-query-fill"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "用检索式缩小范围。引导学生使用英文关键词、精确词组、OR、年份筛选、引用链和导出引用。",
+        "audio": "assets/audio/narrations/slice-scholar-query-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-traceable-search"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-full-text-route",
+      "title": "拿全文时优先走合规路径",
+      "blocks": [
+       {
+        "id": "full-text-route-text",
+        "type": "text",
+        "content": "找不到全文时，不是简单换一个网站。更稳的顺序是先查学校图书馆或 VPN，再通过 DOI 和出版社页面确认文献信息，然后看开放获取入口，也可以查看作者主页或正式联系作者。"
+       },
+       {
+        "id": "full-text-route-diagram",
+        "type": "text",
+        "content": "全文路径：1. 学校图书馆/VPN。2. DOI/出版社页。3. 开放获取入口：Unpaywall、DOAJ、arXiv、PubMed Central。4. 作者主页或正式邮件。记录 PDF 文件名、数据库入口、检索式、访问日期和对应论点。"
+       },
+       {
+        "id": "full-text-question",
+        "type": "singleChoice",
+        "prompt": "找不到一篇论文 PDF 时，比较合适的下一步是什么？",
+        "options": [
+         {
+          "id": "random-copy",
+          "label": "随便找一个转载页面复制内容，不管来源。"
+         },
+         {
+          "id": "give-up-record",
+          "label": "只引用题名，不记录来源和访问日期。"
+         },
+         {
+          "id": "official-route",
+          "label": "先用 DOI、图书馆、开放获取入口或作者渠道确认全文路径。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。先确认文献信息和合规入口，资料链条才稳。",
+         "correctOptionId": "official-route",
+         "incorrectFeedback": "全文获取也需要留下来源路径，不能只追求最快拿到内容。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "full-text-route-text",
+          "full-text-route-diagram"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "full-text-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "full-text-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "full-text-route-text",
+         "full-text-route-diagram",
+         "full-text-question"
+        ],
+        "visibleBlockIds": [
+         "full-text-route-text",
+         "full-text-route-diagram",
+         "full-text-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "拿全文时优先走合规路径。说明找不到 PDF 时应优先走图书馆、DOI/出版社页、开放获取和作者渠道。",
+        "audio": "assets/audio/narrations/slice-full-text-route-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-traceable-search"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "objective-traceable-search"
+    ]
+   },
+   {
+    "id": "part-craap-evaluation",
+    "title": "用 CRAAP 判断资源是否值得使用",
+    "slices": [
+     {
+      "id": "slice-resource-type-comparison",
+      "title": "先比较资源类型",
+      "blocks": [
+       {
+        "id": "resource-type-context",
+        "type": "text",
+        "content": "评估练习主题：青少年社交情感发展与游戏的关系。第一步不是立刻判定能不能用，而是说清资源类型、发布者、证据形式和适合支持的判断。"
+       },
+       {
+        "id": "resource-type-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "gaming-column",
+          "alt": "青少年社交情感与游戏主题下的专栏资源示例",
+          "source": "assets/images/gaming-column-resource.png",
+          "caption": "专栏资源适合提供观点或背景。"
+         },
+         {
+          "id": "gaming-author",
+          "alt": "资源作者页面示例，用于观察作者身份与可信度",
+          "source": "assets/images/gaming-author-page.png",
+          "caption": "作者身份会影响权威性判断。"
+         },
+         {
+          "id": "gaming-paper",
+          "alt": "同行评审论文示例，用于比较资源类型和证据强度",
+          "source": "assets/images/gaming-peer-reviewed-paper.png",
+          "caption": "同行评审论文通常证据强度更高。"
+         },
+         {
+          "id": "gaming-zhihu",
+          "alt": "知乎回答示例，用于比较用户生成内容的使用边界",
+          "source": "assets/images/gaming-zhihu-answer.png",
+          "caption": "用户回答可呈现个人经验，但需要核查。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "resource-type-question",
+        "type": "singleChoice",
+        "prompt": "在这个主题中，同行评审论文通常最适合承担什么作用？",
+        "options": [
+         {
+          "id": "marketing-only",
+          "label": "只适合做娱乐宣传，不能阅读。"
+         },
+         {
+          "id": "research-evidence",
+          "label": "提供经过学术流程检验的研究证据或理论依据。"
+         },
+         {
+          "id": "personal-story",
+          "label": "代表所有青少年的个人游戏体验。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。同行评审论文通常更适合承担研究证据，但仍要继续看具体质量。",
+         "correctOptionId": "research-evidence",
+         "incorrectFeedback": "资源类型不能直接等于最终结论，但它会影响资源适合承担的证据角色。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "resource-type-context",
+          "resource-type-gallery"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "resource-type-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "resource-type-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "resource-type-context",
+         "resource-type-gallery",
+         "resource-type-question"
+        ],
+        "visibleBlockIds": [
+         "resource-type-context",
+         "resource-type-gallery",
+         "resource-type-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "先比较资源类型。通过游戏与青少年社交情感主题比较专栏、用户回答、同行评审论文等资源的适用位置。",
+        "audio": "assets/audio/narrations/slice-resource-type-comparison-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-craap-evaluate"
+      ],
+      "estimatedSeconds": 220
+     },
+     {
+      "id": "slice-craap-overview",
+      "title": "CRAAP 五个维度一起看",
+      "blocks": [
+       {
+        "id": "craap-overview-text",
+        "type": "text",
+        "content": "CRAAP 用五个维度评估资源。它帮助你从“看起来相关”推进到“为什么可靠、为什么适合、有什么限制”。五个维度要一起看，不能只凭其中一项下结论。"
+       },
+       {
+        "id": "craap-overview-diagram",
+        "type": "text",
+        "content": "C Currency：发布时间和时效需求。R Relevance：资源与课题的重要关联。A Authority：作者、机构、出版方是否可靠。A Accuracy：证据是否准确、能否被核查。P Purpose：发布目的、利益关系和表达倾向。"
+       },
+       {
+        "id": "craap-overview-summary",
+        "type": "text",
+        "content": "应用时先写观察，再写判断：我看到的线索是什么？这个线索影响哪个 CRAAP 维度？它让资源更适合做核心证据、背景材料、案例材料，还是只能作为待核查线索？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "craap-overview-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "craap-overview-diagram",
+          "craap-overview-summary"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "craap-overview-text",
+         "craap-overview-diagram",
+         "craap-overview-summary"
+        ],
+        "visibleBlockIds": [
+         "craap-overview-text",
+         "craap-overview-diagram",
+         "craap-overview-summary"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "CRAAP 五个维度一起看。讲清 Currency、Relevance、Authority、Accuracy、Purpose 五维各自看什么。",
+        "audio": "assets/audio/narrations/slice-craap-overview-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "objective-craap-evaluate"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-currency-relevance",
+      "title": "Currency 与 Relevance",
+      "blocks": [
+       {
+        "id": "currency-relevance-text",
+        "type": "text",
+        "content": "Currency 看资源发布时间是否适合你的问题；Relevance 看资源是否真正回答研究问题。近年资料不一定总是最好，旧资料也不一定不能用，关键是说清时效需求和相关程度。"
+       },
+       {
+        "id": "currency-relevance-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "sel-scholar",
+          "alt": "游戏与社交情感学习主题的 Google Scholar 结果示例",
+          "source": "assets/images/sel-scholar-result.png",
+          "caption": "从检索结果观察年份与题名。"
+         },
+         {
+          "id": "sel-summary",
+          "alt": "游戏与社交情感学习主题的论文摘要检索结果示例",
+          "source": "assets/images/sel-paper-summary-result.png",
+          "caption": "摘要帮助判断与研究问题的关系。"
+         },
+         {
+          "id": "sel-highlight",
+          "alt": "Google Scholar 中社交情感学习与游戏主题的高亮检索结果示例",
+          "source": "assets/images/sel-google-scholar-highlight.png",
+          "caption": "关键词高亮显示主题匹配线索。"
+         },
+         {
+          "id": "sel-relevance",
+          "alt": "用于判断资源相关性的论文页面截图示例",
+          "source": "assets/images/sel-paper-relevance-page.png",
+          "caption": "页面内容还要继续核查相关性。"
+         }
+        ],
+        "presentation": "gallery"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "currency-relevance-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "currency-relevance-gallery"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "currency-relevance-text",
+         "currency-relevance-gallery"
+        ],
+        "visibleBlockIds": [
+         "currency-relevance-text",
+         "currency-relevance-gallery"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "Currency 与 Relevance。用 SEL 与游戏主题截图观察年份、检索结果、摘要和页面内容是否与研究问题相关。",
+        "audio": "assets/audio/narrations/slice-currency-relevance-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "objective-craap-evaluate"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-authority-accuracy",
+      "title": "Authority 与 Accuracy",
+      "blocks": [
+       {
+        "id": "authority-accuracy-text",
+        "type": "text",
+        "content": "Authority 看作者、机构、出版方是否可靠；Accuracy 看证据是否准确、能否被其他来源核查。机构名称、作者背景、引用或数据来源，都是判断线索。"
+       },
+       {
+        "id": "authority-accuracy-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "sel-authority",
+          "alt": "用于判断来源权威性的文字资料截图示例",
+          "source": "assets/images/sel-authority-text-example.png",
+          "caption": "观察作者与来源身份。"
+         },
+         {
+          "id": "sel-foundation",
+          "alt": "游戏化学习机构材料示例，用于判断来源权威与发布目的",
+          "source": "assets/images/sel-foundation-report.png",
+          "caption": "机构材料需要同时看权威和目的。"
+         },
+         {
+          "id": "sel-accuracy",
+          "alt": "用于判断证据准确性的文章页面截图示例",
+          "source": "assets/images/sel-accuracy-article-example.png",
+          "caption": "证据支持和可核查性决定准确性。"
+         }
+        ],
+        "presentation": "gallery"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "authority-accuracy-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "authority-accuracy-gallery"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "authority-accuracy-text",
+         "authority-accuracy-gallery"
+        ],
+        "visibleBlockIds": [
+         "authority-accuracy-text",
+         "authority-accuracy-gallery"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "Authority 与 Accuracy。比较研究机构、产品方材料和文章证据，区分权威性与准确性。",
+        "audio": "assets/audio/narrations/slice-authority-accuracy-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "objective-craap-evaluate"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-purpose-check",
+      "title": "Purpose：看发布目的",
+      "blocks": [
+       {
+        "id": "purpose-check-text",
+        "type": "text",
+        "content": "Purpose 看信息为什么被发布：科普、研究、营销、娱乐、说服或公共服务。来自产品方或推广机构的材料不一定不能用，但要额外说明利益关系、表达倾向和适合承担的用途。"
+       },
+       {
+        "id": "purpose-check-gallery",
+        "type": "images",
+        "items": [
+         {
+          "id": "purpose-page",
+          "alt": "用于判断发布目的的资源页面截图示例",
+          "source": "assets/images/sel-purpose-resource-page.png",
+          "caption": "页面来源和表达目标是 Purpose 线索。"
+         },
+         {
+          "id": "purpose-summary",
+          "alt": "用于判断发布目的和利益关系的资料摘要示例",
+          "source": "assets/images/sel-purpose-summary-example.png",
+          "caption": "摘要中可能出现目的和立场。"
+         },
+         {
+          "id": "play-foundation",
+          "alt": "Social Emotional Learning Through Play with the LEGO Foundation 材料示例，用于分析发布目的",
+          "source": "assets/images/sel-play-foundation-purpose.png",
+          "caption": "机构合作背景需要进一步判断。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "purpose-question",
+        "type": "singleChoice",
+        "prompt": "如果一份材料来自产品方或推广机构，最需要额外追问哪一项？",
+        "options": [
+         {
+          "id": "purpose-bias",
+          "label": "它的发布目的和利益关系是否会影响表达。"
+         },
+         {
+          "id": "font-size",
+          "label": "页面字体是不是足够好看。"
+         },
+         {
+          "id": "language-only",
+          "label": "只要英文写得正式，就可以直接作为核心证据。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。发布目的和利益关系会影响材料的使用位置和可信度。",
+         "correctOptionId": "purpose-bias",
+         "incorrectFeedback": "正式语言不能代替证据质量和目的判断。"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "purpose-check-text",
+          "purpose-check-gallery"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "purpose-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "purpose-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "purpose-check-text",
+         "purpose-check-gallery",
+         "purpose-question"
+        ],
+        "visibleBlockIds": [
+         "purpose-check-text",
+         "purpose-check-gallery",
+         "purpose-question"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "Purpose：看发布目的。通过产品方/推广机构材料练习追问发布目的、偏见和利益关系。",
+        "audio": "assets/audio/narrations/slice-purpose-check-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-craap-evaluate"
+      ],
+      "estimatedSeconds": 200
+     },
+     {
+      "id": "slice-resource-record",
+      "title": "把评估写进资源记录",
+      "blocks": [
+       {
+        "id": "resource-record-table",
+        "type": "text",
+        "content": "资源评估表字段：Title；Resource type；Author(s)；Author Credential；Publisher；Publisher credentials；Publication date；Interest of parties；Evaluation (CRAAP)；Summary；Link。记录的目的不是堆表格，而是说明资源为什么可用、怎么使用、有什么限制。"
+       },
+       {
+        "id": "course-conclusion",
+        "type": "text",
+        "content": "本课的完整链条：先明确查找发生在哪个研究阶段，再判断信息类型和渠道；学术检索要留下关键词、筛选条件、引用链和全文路径；最后用 CRAAP 判断资源能否支撑论点，并把用途写进记录。"
+       },
+       {
+        "id": "resource-record-fill",
+        "type": "fillBlank",
+        "prompt": "按资源评估表写一条记录：Title____；Resource type____；Author/Publisher____；Publication date____；Evaluation (CRAAP)____；Summary____；Link____；对应的研究用途____。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应包含基本元数据、至少两个 CRAAP 维度判断、简短内容概括和对应研究用途。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "在这里写下你的回答"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "resource-record-table",
+          "course-conclusion"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "resource-record-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "resource-record-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "main"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "resource-record-table",
+         "course-conclusion",
+         "resource-record-fill"
+        ],
+        "visibleBlockIds": [
+         "resource-record-table",
+         "course-conclusion",
+         "resource-record-fill"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "main",
+        "text": "把评估写进资源记录。用资源评估表记录题名、类型、作者/发布方、日期、CRAAP 判断、摘要、链接和研究用途。",
+        "audio": "assets/audio/narrations/slice-resource-record-main.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "objective-craap-evaluate"
+      ],
+      "estimatedSeconds": 260
+     }
+    ],
+    "objectiveIds": [
+     "objective-craap-evaluate"
+    ]
+   }
+  ],
+  "title": "查找信息：从搜索入口到可用资源",
+  "closing": {
+   "fallback": {
+    "text": "离开本课时，带走一条可复查、可评估、能说明用途的信息查找路径。"
+   },
+   "takeaways": [
+    "好的资源查找不是越多越好，而是服务具体研究问题和论点。",
+    "同一个课题在不同阶段需要不同资料。",
+    "网络平台、论文和数据库都可能有用，但使用前要说明证据角色。",
+    "学术入口要配合关键词、年份、引用链和全文路径一起记录。",
+    "CRAAP 能帮助你判断资源为什么可靠、为什么适合、有什么局限。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "这门课把信息查找拆成一条从研究问题出发的完整链条：先明确阶段和目的，再判断信息类型与渠道；随后记录学术检索路径，最后用 CRAAP 判断资源是否能支撑论点，并把用途写进资源记录。",
+   "transferApplications": [
+    "探究项目、研究论文、项目式学习和学术写作中的资料查找。",
+    "面对 AI 推荐资料时，反查来源、检索式、发布时间和证据用途。",
+    "阅读新闻、视频或社交平台内容时，判断它适合做背景材料、案例材料还是核心证据。",
+    "为研究日志、附录或资源表整理可回溯的信息路径。"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "本课会把信息查找整理成一条从搜索入口到可用资源的路径。"
+   },
+   "learningPreview": [
+    "查找资源贯穿定题、开题、推进、写作和核查。",
+    "先判断需要哪类信息，再选择合适渠道。",
+    "学术检索要留下关键词、筛选条件、数据库、访问日期和对应论点。",
+    "资源评估要同时看时效、相关性、权威性、准确性和发布目的。",
+    "不同资源承担不同作用：启发问题、提供背景、支持证据或帮助比较。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "objective-search-stage",
+    "text": "判断研究过程中什么时候需要查找资源，并把查找目的说清楚。",
+    "evidenceBlockIds": [
+     "stage-purpose-question",
+     "topic-resource-fill"
+    ]
+   },
+   {
+    "id": "objective-source-match",
+    "text": "根据问题需求匹配信息类型、查找渠道和检索平台。",
+    "evidenceBlockIds": [
+     "information-types-question",
+     "channel-selection-question",
+     "source-role-fill"
+    ]
+   },
+   {
+    "id": "objective-traceable-search",
+    "text": "把学术文献检索写成从关键词到全文入口的可复查路径。",
+    "evidenceBlockIds": [
+     "literature-workflow-question",
+     "scholar-query-fill",
+     "full-text-question"
+    ]
+   },
+   {
+    "id": "objective-craap-evaluate",
+    "text": "用 CRAAP 五个维度评估资源质量，并形成一条资源记录。",
+    "evidenceBlockIds": [
+     "resource-type-question",
+     "purpose-question",
+     "resource-record-fill"
+    ]
+   }
+  ],
+  "estimatedMinutes": 55
+ },
+ "schemaVersion": "2.0"
+}

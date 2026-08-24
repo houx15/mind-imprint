@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
+import type { Collection, DigCandidate, ExplorationLead, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import { Illustration } from "@/ui/Illustration";
 import {
@@ -87,9 +87,56 @@ export function ReadingBlock({
   confirmStart,
   onConfirmStart,
   aiSide,
+  forceView,
+  onForceViewConsumed,
+  forceOpenSearchCard,
+  onForceOpenSearchCardConsumed,
+  demoReadRootIds,
+  demoAdoptedLeads,
+  demoAdoptedRefs,
+  onDemoAdopt,
 }: {
   projectId: string;
   title: string;
+  // Guided-tour deep-link (P5): drive the inner 列表/探索图谱 view deterministically
+  // so a tour step lands on a known surface. Threaded from WorkspaceContainer's
+  // `pendingReadingView` (which mirrors `pendingRoom`). Applied via a ref-guarded
+  // effect below: each distinct value is applied at most once, so it overrides
+  // the mount-time "graph" default when the tour asks but NEVER fights the
+  // student's own later toggling (铁律②: surfaces stay under the student's hand).
+  forceView?: "list" | "graph" | null;
+  // Fired right after `forceView` has been applied, so the owner can RETRACT it
+  // (set the source state back to null). Critical: ReadingBlock unmounts/remounts
+  // on every room switch or source-open, and the ref guard below is per-mount —
+  // without this retraction a stale-but-truthy `forceView` would re-apply on the
+  // next mount and clobber the student's manual toggle (the "view snaps back"
+  // bug). Mirrors `onPendingRoomConsumed`, one layer lower (application is here).
+  onForceViewConsumed?: () => void;
+  // P7 · the guided tour's `openSearchCard` deep-link — forwarded straight
+  // through to ExplorationView (this room owns no state of its own for it; the
+  // modal + its ref-guarded one-shot both live in ExplorationView). A bumped
+  // nonce, not a value, since "open the modal" carries no payload.
+  forceOpenSearchCard?: number | null;
+  onForceOpenSearchCardConsumed?: () => void;
+  // P7 Task 4b · the guided tour's demo-only "just read" root-id override
+  // (WorkspaceContainer's `demoReadRootIds`) — forwarded straight through to
+  // ExplorationView, which merges it into `readByRoot` before handing that to
+  // WarrenMap. This room owns no state of its own for it (same shape as
+  // `forceOpenSearchCard` above).
+  demoReadRootIds?: Set<string>;
+  // P8 Task 6 · the guided tour's demo-only synthetic adopted-node overrides
+  // (WorkspaceContainer's `demoAdoptedLeads`/`demoAdoptedRefs`) — forwarded
+  // straight through to ExplorationView, which merges them into its leads/
+  // references before WarrenMap/QuestionMindmap render (same shape as
+  // `demoReadRootIds` above: this room owns no state of its own for it).
+  demoAdoptedLeads?: ExplorationLead[];
+  demoAdoptedRefs?: Reference[];
+  // P8 Task 6 · when set (demo project only — WorkspaceContainer passes this
+  // undefined for every real project), ExplorationView's 采纳/addFromDetail
+  // handlers call this INSTEAD of the real POST /exploration/adopt (which the
+  // demo project 403s). Forwarded straight through, same as the two props
+  // above.
+  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => void;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -233,6 +280,24 @@ export function ReadingBlock({
       cancelled = true;
     };
   }, [projectId]);
+
+  // Guided-tour deep-link (P5): apply `forceView` into the memo + live state.
+  // Ref-guarded (mirrors WorkspaceContainer's `pendingRoom` one-shot) so each
+  // DISTINCT forced value is applied at most once — it overrides the mount-time
+  // "graph" default when the tour asks, but a later manual toggle is never
+  // re-fought (the effect only re-fires on a genuinely new forceView value).
+  // Runs AFTER the mount effect above so the memo it writes wins the auto-default.
+  const lastForcedView = useRef<"list" | "graph" | null>(null);
+  useEffect(() => {
+    if (!forceView || lastForcedView.current === forceView) return;
+    lastForcedView.current = forceView;
+    viewModeMemo.set(projectId, forceView);
+    setViewModeRaw(forceView);
+    // Retract immediately so a later remount (room switch / source-open resets
+    // the per-mount ref guard) doesn't see a stale `forceView` and re-apply it
+    // over the student's manual toggle.
+    onForceViewConsumed?.();
+  }, [forceView, projectId, onForceViewConsumed]);
 
   // Snapshot & clear all pending debounce timers on unmount.
   useEffect(() => {
@@ -457,7 +522,7 @@ export function ReadingBlock({
 
   return (
     <div className="relative flex h-full flex-col">
-      <div className="flex items-center justify-start border-b border-mk-border bg-mk-surface px-4 py-1.5">
+      <div data-tour="reading-viewtoggle" className="flex items-center justify-start border-b border-mk-border bg-mk-surface px-4 py-1.5">
         <ViewModeToggle mode={viewMode} onChange={chooseViewMode} signal={explorationSignal} />
       </div>
 
@@ -534,6 +599,12 @@ export function ReadingBlock({
               // the driving-question seed's fallback source.
               projectTitle={title}
               refreshNonce={refreshNonce}
+              forceOpenSearchCard={forceOpenSearchCard}
+              onForceOpenSearchCardConsumed={onForceOpenSearchCardConsumed}
+              demoReadRootIds={demoReadRootIds}
+              demoAdoptedLeads={demoAdoptedLeads}
+              demoAdoptedRefs={demoAdoptedRefs}
+              onDemoAdopt={onDemoAdopt}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // 采纳 in 探索 creates a new library reference — reload so its bib
@@ -617,6 +688,7 @@ export function ViewModeToggle({ mode, onChange, signal }: { mode: "list" | "gra
         <button
           key={m}
           type="button"
+          data-tour={m === "list" ? "reading-view-list" : "reading-view-graph"}
           onClick={() => onChange(m)}
           className={`flex items-center gap-1.5 rounded-[8px] px-3 py-1 transition ${mode === m ? "bg-mk-surface text-mk-accent shadow-sm" : "text-mk-faint hover:text-mk-ink"}`}
         >
@@ -831,7 +903,7 @@ function RefTable(props: {
   const { rows, selId, onSelect, checked, onCheck, onClearChecks, onExportBib, collName, activeTag, onAdd, onSetPhase, onSetStatus } = props;
   const nChecked = checked.size;
   return (
-    <div className="flex min-h-0 flex-col bg-mk-surface">
+    <div data-tour="library-table" className="flex min-h-0 flex-col bg-mk-surface">
       {/* toolbar */}
       <header className="flex items-center justify-between border-b border-mk-border px-5 py-3">
         <div className="flex items-baseline gap-2">
@@ -841,7 +913,7 @@ function RefTable(props: {
         </div>
         <div className="flex items-center gap-2">
           <button type="button" onClick={() => onExportBib()} className="rounded-full border border-mk-border px-3 py-1.5 text-[14px] font-bold text-mk-muted hover:text-mk-accent">导出注释书目</button>
-          <button type="button" onClick={onAdd} className="rounded-full bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加来源</button>
+          <button type="button" data-tour="library-add" onClick={onAdd} className="rounded-full bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">+ 添加来源</button>
         </div>
       </header>
 
@@ -1061,7 +1133,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
 
   if (r.pending) {
     return (
-      <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
+      <aside data-tour="library-preview" className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
         <span className="w-fit rounded-full bg-mk-accent-50 px-2.5 py-1 text-[12px] font-bold text-mk-accent">还没找到 · 待补充</span>
         <h1 className="mt-3 font-sans text-[16px] font-bold leading-snug text-mk-ink">{r.title}</h1>
         <p className="mt-2 text-[14px] leading-relaxed text-mk-muted">印记不替你搜，但能帮你搜得更准：</p>
@@ -1087,7 +1159,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     );
   }
   return (
-    <aside className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
+    <aside data-tour="library-preview" className="flex min-h-0 flex-col overflow-y-auto border-l border-mk-border bg-mk-surface px-5 py-5">
       {/* Editable title */}
       <input
         value={r.title}
@@ -1244,7 +1316,7 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
       )}
 
       <div className="mt-5 flex flex-col gap-2">
-        <button type="button" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">
+        <button type="button" data-tour="library-enter-reading" onClick={enter} disabled={entering} className="flex items-center justify-center gap-2 rounded-mk bg-mk-accent py-2.5 text-[14px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60">
           {entering ? "打开中…" : <>进入阅读室 <Icon name="arrow" size={15} /></>}
         </button>
         {enterNote ? (

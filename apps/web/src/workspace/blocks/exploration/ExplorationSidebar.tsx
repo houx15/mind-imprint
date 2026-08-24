@@ -159,7 +159,7 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
         {/* ---- find-actions ---- */}
         <div className="border-b border-mk-border px-4 py-3">
           {isPaper ? (
-            <div className="flex flex-col gap-2">
+            <div data-tour="explore-find" className="flex flex-col gap-2">
               <FindButton disabled={digging} onClick={() => onDig("similar")}>
                 {digging ? "印记在找…" : "找相似文献"}
               </FindButton>
@@ -175,7 +175,7 @@ function NodePanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
               <FindButton disabled={digging} onClick={() => onDig("similar")}>
                 {digging ? "印记在找…" : "找相似文献"}
               </FindButton>
-              <div className="mt-2 flex items-center gap-1.5">
+              <div data-tour="explore-keyword" className="mt-2 flex items-center gap-1.5">
                 <input
                   value={keyword}
                   onChange={(e) => setKeyword(e.target.value)}
@@ -358,7 +358,16 @@ function PaperMeta({
         flush
         primaryAction={
           onEnterReading && !pastePrompt
-            ? { label: entering ? "打开中…" : "进入阅读室", onClick: onEnterReading, busy: entering }
+            ? {
+                label: entering ? "打开中…" : "进入阅读室",
+                onClick: onEnterReading,
+                busy: entering,
+                // Guided tour · the "enter reading room" affordance on an
+                // adopted node/paper's own card (the ONLY per-node
+                // enter-reading control in this view — the map/library route
+                // via a different surface).
+                dataTour: "explore-enter-reading",
+              }
             : undefined
         }
       >
@@ -495,7 +504,7 @@ function QuestionMeta({
 function ResultsPanel(props: ExplorationSidebarProps & { node: ExplorationLead }) {
   const { digging, digError, candidates, adopting, onAdopt, onDiscard, onBackToAi, onBackToNode } = props;
   return (
-    <aside className={SHELL}>
+    <aside data-tour="explore-suggestions" className={SHELL}>
       <div className="flex flex-none items-center gap-2 border-b border-mk-border px-3 py-2">
         <button
           type="button"

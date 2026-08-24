@@ -55,6 +55,7 @@ type meUserDTO struct {
 	Role           string       `json:"role"`
 	AvatarColor    string       `json:"avatar_color"`
 	PageBackground string       `json:"page_background"`
+	OnboardedAt    *string      `json:"onboarded_at"`
 	School         meSchoolDTO  `json:"school"`
 	Classes        []meClassDTO `json:"classes"`
 }
@@ -77,6 +78,11 @@ func (a *API) buildMeUser(ctx context.Context, u User) (meUserDTO, error) {
 	for _, c := range rows {
 		classes = append(classes, meClassDTO{ID: c.ID.String(), Name: c.Name, RoleInClass: c.RoleInClass})
 	}
+	var onboardedAt *string
+	if full.OnboardedAt.Valid {
+		s := full.OnboardedAt.Time.Format(tsLayout)
+		onboardedAt = &s
+	}
 	return meUserDTO{
 		ID:             full.ID.String(),
 		Email:          full.Email,
@@ -84,6 +90,7 @@ func (a *API) buildMeUser(ctx context.Context, u User) (meUserDTO, error) {
 		Role:           full.Role,
 		AvatarColor:    full.AvatarColor,
 		PageBackground: full.PageBackground,
+		OnboardedAt:    onboardedAt,
 		School:         meSchoolDTO{ID: school.ID.String(), Name: school.Name},
 		Classes:        classes,
 	}, nil

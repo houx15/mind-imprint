@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>S 线 · 劳工与供应链 · 表述强度分级台</title>
+<style>
+:root{
+  --paper:#EDF0EC; --card:#FBFCFA; --ink:#14201B; --ink-2:#3A4A43;
+  --muted:#5C6A63; --line:#CBD4CE; --line-soft:#DFE5E0;
+  --t-corp:#1E7A54; --t-reg:#1F4B7A; --boundary:#9C5518; --wrong:#B4306B;
+  --serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+  --sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono","Menlo",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-size:16px}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);line-height:1.65;
+  display:flex;align-items:center;justify-content:center;min-height:100vh;overflow-x:hidden}
+#stage{width:1024px;height:768px;aspect-ratio:4 / 3;transform-origin:top left;
+  background:var(--paper);display:flex;flex-direction:column;padding:20px 28px 14px}
+.eyebrow.auxiliary{font-family:var(--mono);font-size:14px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--serif);font-size:26px;line-height:1.25;margin:4px 0 8px;font-weight:700}
+.cross{font-size:16px;color:var(--ink-2);background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--t-reg);border-radius:2px;padding:10px 14px;margin:0 0 10px}
+.legend.auxiliary{font-size:14px;color:var(--muted);margin:0 0 8px}
+#rows{flex:1;overflow-y:auto;padding-right:6px}
+.item{background:var(--card);border:1px solid var(--line);border-radius:2px;
+  padding:11px 14px;margin:0 0 10px}
+.item[data-mark="ok"]{border-left:3px solid var(--t-corp)}
+.item[data-mark="off"]{border-left:3px solid var(--wrong)}
+.stmt{font-size:16px;margin:0 0 8px}
+.stmt .n.auxiliary{font-family:var(--mono);font-size:14px;color:var(--muted);margin-right:8px}
+.segs{display:flex;gap:8px;flex-wrap:wrap}
+.seg{font-family:inherit;font-size:16px;line-height:1.2;color:var(--ink-2);background:#fff;
+  border:1px solid var(--line);border-radius:2px;padding:8px 14px;cursor:pointer;white-space:nowrap}
+.seg[aria-pressed="true"]{background:var(--t-reg);border-color:var(--t-reg);color:#fff;font-weight:700}
+.why{display:none;margin-top:9px;padding-top:9px;border-top:1px dashed var(--line-soft);font-size:16px;color:var(--ink-2)}
+.item.revealed .why{display:block}
+.item.revealed .seg{cursor:default}
+.why .tag.auxiliary{font-family:var(--mono);font-size:14px;color:var(--muted);display:block;margin-top:5px}
+.foot{border-top:1px solid var(--line);padding-top:10px;display:flex;align-items:center;gap:14px}
+#gate.auxiliary{font-size:14px;color:var(--boundary);flex:1}
+#score{font-size:16px;font-weight:700;color:var(--t-corp);flex:1;display:none}
+button.go{font-family:inherit;font-size:16px;font-weight:700;color:#fff;background:var(--t-corp);
+  border:1px solid var(--t-corp);border-radius:3px;padding:11px 26px;cursor:pointer}
+button.go:disabled{background:#9FB3A8;border-color:#9FB3A8;cursor:not-allowed}
+:focus-visible{outline:3px solid var(--t-reg);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <span class="eyebrow auxiliary" data-text-role="auxiliary">步骤 03 · 分组查证 · S 线 · 劳工与供应链</span>
+  <h1>表述强度分级台</h1>
+  <p class="cross">本线三张卡是 EEOC 诉讼、ASTM 工伤率、钴供应链提案。现在回看第三部分光环里的「125K 清洁能源岗位」：同一家公司，同一个 S 维度，两种叙述。</p>
+  <p class="legend auxiliary" data-text-role="auxiliary">六句说法，各放进一档：<b>可以直接说</b>＝材料上就有，写清出处即可；<b>必须加限定词</b>＝要注明「起诉称／提案要求／某分析指出」这类身份；<b>不能说</b>＝超出这些材料能支撑的范围。六句都分完才能提交，提交后逐句给出依据。</p>
+  <div id="rows"></div>
+  <div class="foot">
+    <div id="gate" class="auxiliary" data-text-role="auxiliary"></div>
+    <div id="score"></div>
+    <button class="go" id="submit" disabled>完成</button>
+  </div>
+</div>
+<script>
+var PROTOCOL="mind-course-interaction", VERSION="1.0";
+var sessionToken=null, pendingFrameMessages=[], completionSent=false;
+function postFrameMessage(type,payload){
+  window.parent.postMessage({protocol:PROTOCOL,version:VERSION,sessionToken:sessionToken,type:type,payload:payload},"*");
+}
+function send(type,payload){
+  if(!sessionToken){ pendingFrameMessages.push({type:type,payload:payload}); return; }
+  postFrameMessage(type,payload);
+}
+window.addEventListener("message",function(event){
+  var message=event.data;
+  if(!message||message.protocol!==PROTOCOL||message.version!==VERSION||!message.sessionToken) return;
+  var isNewSession = sessionToken!==message.sessionToken;
+  sessionToken=message.sessionToken;
+  if(!isNewSession) return;
+  postFrameMessage("ready",{});
+  while(pendingFrameMessages.length){
+    var pending=pendingFrameMessages.shift();
+    postFrameMessage(pending.type,pending.payload);
+  }
+});
+
+var LINE="S";
+var BUCKETS=[["direct", "可以直接说"], ["hedge", "必须加限定词"], ["no", "不能说"]];
+var ITEMS=[{"text": "EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称 Tesla 弗里蒙特工厂存在种族骚扰与报复。", "correct": "direct", "why": "时间、机构、文件类型和「起诉称」三个字都在截图上，可以直接引用。", "src": "EEOC 诉讼"}, {"text": "Tesla 弗里蒙特工厂存在种族骚扰。", "correct": "hedge", "why": "这是诉讼指控，不是最终判决。必须写成「EEOC 起诉称／指控」，否则你把一方的主张写成了已认定的事实。", "src": "EEOC 诉讼 · 表述边界"}, {"text": "Tesla 报告显示其 ASTM 工伤率从 2021 年的 3.57 降到 2024 年的 2.28。", "correct": "direct", "why": "这四个数字都在报告第 117 页的表格上，注明是企业自述即可直接引用。", "src": "ASTM 工伤率"}, {"text": "工伤率 2.28 说明 Tesla 的工作条件恶劣。", "correct": "no", "why": "不要把工伤率直接解释成「恶劣工作条件」。先问这个指标用的是什么标准、基数（工时）怎么变、和谁可比——2024 年的工时其实比 2023 年还少。", "src": "ASTM 工伤率 · 表述边界"}, {"text": "Tesla 的供应链存在童工风险。", "correct": "hedge", "why": "依据是股东提案发言人的陈述，要写成「股东提案指出／要求审计供应链童工风险」，而不是作为已确认的事实。", "src": "钴供应链提案 · 表述边界"}, {"text": "Tesla 助长了刚果（金）的童工问题。", "correct": "no", "why": "「助长和纵容」是提案发言人的措辞，不是本课材料确立的事实。不要把发言人的指控直接写成 Tesla 的行为。", "src": "钴供应链提案 · 表述边界"}];
+var LABEL={}; BUCKETS.forEach(function(b){ LABEL[b[0]]=b[1]; });
+var picked={};
+var rowsEl=document.getElementById("rows");
+var gateEl=document.getElementById("gate");
+var scoreEl=document.getElementById("score");
+var btn=document.getElementById("submit");
+
+ITEMS.forEach(function(it,i){
+  var row=document.createElement("div"); row.className="item";
+  var st=document.createElement("p"); st.className="stmt";
+  var n=document.createElement("span"); n.className="n auxiliary";
+  n.setAttribute("data-text-role","auxiliary"); n.textContent="0"+(i+1);
+  st.appendChild(n); st.appendChild(document.createTextNode(it.text));
+  row.appendChild(st);
+  var segs=document.createElement("div"); segs.className="segs";
+  BUCKETS.forEach(function(b){
+    var btn2=document.createElement("button"); btn2.type="button"; btn2.className="seg";
+    btn2.textContent=b[1]; btn2.setAttribute("aria-pressed","false");
+    btn2.addEventListener("click",function(){
+      if(completionSent) return;
+      picked[i]=b[0];
+      segs.querySelectorAll(".seg").forEach(function(x){ x.setAttribute("aria-pressed","false"); });
+      btn2.setAttribute("aria-pressed","true");
+      refresh();
+    });
+    segs.appendChild(btn2);
+  });
+  row.appendChild(segs);
+  var why=document.createElement("div"); why.className="why";
+  var head=document.createElement("b"); head.textContent="应归入：" + LABEL[it.correct];
+  why.appendChild(head);
+  var p=document.createElement("p"); p.style.margin="5px 0 0"; p.textContent=it.why;
+  why.appendChild(p);
+  var tag=document.createElement("span"); tag.className="tag auxiliary";
+  tag.setAttribute("data-text-role","auxiliary"); tag.textContent="依据：" + it.src;
+  why.appendChild(tag);
+  row.appendChild(why);
+  rowsEl.appendChild(row);
+});
+
+function refresh(){
+  var done=Object.keys(picked).length;
+  btn.disabled = done<ITEMS.length || completionSent;
+  gateEl.textContent = done<ITEMS.length ? ("还有 "+(ITEMS.length-done)+" 句没有分档") : "";
+  if(!completionSent) send("progress",{sorted:done,total:ITEMS.length});
+}
+btn.addEventListener("click",function(){
+  if(completionSent || Object.keys(picked).length<ITEMS.length) return;
+  completionSent=true; btn.disabled=true; gateEl.textContent="";
+  var rows=rowsEl.querySelectorAll(".item"), hit=0, detail=[];
+  ITEMS.forEach(function(it,i){
+    var ok = picked[i]===it.correct; if(ok) hit++;
+    rows[i].classList.add("revealed");
+    rows[i].setAttribute("data-mark", ok?"ok":"off");
+    detail.push({statement:it.text, chose:picked[i], correct:it.correct, ok:ok});
+  });
+  scoreEl.textContent = "对照完成 · 与依据一致 "+hit+" / "+ITEMS.length+" 句。不一致的地方，读一下它下面的依据。";
+  scoreEl.style.display="block";
+  send("completed",{resultId:"line-"+LINE+"-desk-attempt-1", correct: hit===ITEMS.length,
+                    value:{line:LINE, matched:hit, total:ITEMS.length, items:detail}});
+});
+refresh();
+
+function fit(){
+  var s=Math.min(window.innerWidth/1024, window.innerHeight/768);
+  var st=document.getElementById("stage");
+  st.style.transform="scale("+s+")";
+  document.body.style.height=(768*s)+"px";
+  document.body.style.width=(1024*s)+"px";
+}
+window.addEventListener("resize",fit); fit();
+</script>
+<!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html { height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+body { display: block !important; position: relative; flex: 0 0 auto; min-height: 0 !important; overflow: hidden; }
+#stage { position: absolute !important; top: 0 !important; left: 0 !important; }
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body>
+</html>

@@ -152,8 +152,16 @@ func studioSimilarity() enforcement.Similarity { return enforcement.LexicalSimil
 // Studio project and streams the result over SSE: at most one card,
 // intervention, or gate event, then done.
 func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	// A demo project never drives the runtime — emit a minimal canned SSE reply
+	// (one assistant delta + done) so the frontend still sees a well-formed
+	// stream for a read-only demo, with no provider call and no persistence.
+	if row.IsDemo {
+		a.streamDemoTurn(w, r, demoStudioTurnReply)
 		return
 	}
 	u, _ := UserFromContext(r.Context())

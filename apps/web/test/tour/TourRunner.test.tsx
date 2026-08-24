@@ -1,0 +1,177 @@
+import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { TourProvider, useTour } from "@/tour/TourProvider";
+import { TourRunner } from "@/tour/TourRunner";
+import type { TourNavContext, TourSegment } from "@/tour/types";
+
+const nav: TourNavContext = {
+  setTab: vi.fn(),
+  openCourse: vi.fn(),
+  setCoursesSub: vi.fn(),
+  openDemoProject: vi.fn(),
+  setStudioRoom: vi.fn(),
+  openDemoReport: vi.fn(),
+  setReadingView: vi.fn(),
+  openDemoReadingRoom: vi.fn(),
+  setWritingView: vi.fn(),
+  selectRefPanelTab: vi.fn(),
+  setPlanView: vi.fn(),
+  openSearchCard: vi.fn(),
+  markDemoNodeRead: vi.fn(),
+  markDemoNodeAdopted: vi.fn(),
+};
+
+function Harness({ seg }: { seg: TourSegment }) {
+  const t = useTour();
+  return <button onClick={() => t.play(seg)}>play</button>;
+}
+
+function renderTour(seg: TourSegment) {
+  return render(
+    <TourProvider nav={nav}>
+      <Harness seg={seg} />
+      <TourRunner />
+    </TourProvider>,
+  );
+}
+
+describe("TourRunner", () => {
+  it("renders the 印记 bubble text and advances on 下一步", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "第一步说明", advance: "next", placement: "center" },
+      { id: "s1", text: "第二步说明", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByText("第一步说明")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByText("第二步说明")).toBeInTheDocument();
+  });
+
+  it("ends when 结束 is clicked", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [{ id: "s0", text: "内容", advance: "next", placement: "center" }] };
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    fireEvent.click(screen.getByRole("button", { name: "结束" }));
+    expect(screen.queryByText("内容")).not.toBeInTheDocument();
+  });
+
+  it("advance:action shows a hint and advances when the target is clicked", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "点它", advance: "action", actionEvent: { selector: "#target", type: "click" }, placement: "center" },
+      { id: "s1", text: "完成", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    // an out-of-tour element to click
+    const target = document.createElement("button"); target.id = "target"; document.body.appendChild(target);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByText("点它")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "下一步" })).not.toBeInTheDocument(); // action steps have no 下一步
+    fireEvent.click(target);
+    expect(screen.getByText("完成")).toBeInTheDocument();
+    document.body.removeChild(target);
+  });
+
+  it("advance:action is delegated — clicking a NON-first match (or a child) advances", () => {
+    // Regression (prod smoke): the listener used to bind only the first match, so
+    // a 'click any card' step advanced only when the first card was clicked.
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "点任意卡片", advance: "action", actionEvent: { selector: ".card", type: "click" }, placement: "center" },
+      { id: "s1", text: "完成", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    const grid = document.createElement("div");
+    grid.innerHTML = `<div class="card" id="c1"></div><div class="card" id="c2"><span id="c2title">标题</span></div>`;
+    document.body.appendChild(grid);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByText("点任意卡片")).toBeInTheDocument();
+    // click a CHILD of the SECOND matching card — old single-element listener missed this
+    fireEvent.click(document.getElementById("c2title")!);
+    expect(screen.getByText("完成")).toBeInTheDocument();
+    document.body.removeChild(grid);
+  });
+
+  it("makes the portal root click-through on an action step so the anchor is reachable", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "点它", advance: "action", actionEvent: { selector: "#target2", type: "click" }, placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    const root = screen.getByRole("dialog") as HTMLElement;
+    expect(root.style.pointerEvents).toBe("none");
+    // No full-screen click-blocker on action steps — the rest of the page must be reachable.
+    expect(screen.queryByTestId("tour-blocker")).not.toBeInTheDocument();
+  });
+
+  it("renders a full-screen click-blocker on a non-action step", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "居中说明", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByTestId("tour-blocker")).toBeInTheDocument();
+  });
+
+  it("clears the spotlight immediately when advancing from an anchored step to a centered step", async () => {
+    const target = document.createElement("div");
+    target.id = "anchor-target";
+    // jsdom doesn't implement scrollIntoView; the runner calls it once the anchor resolves.
+    target.scrollIntoView = vi.fn();
+    document.body.appendChild(target);
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "锚定说明", advance: "next", anchor: "#anchor-target", placement: "bottom" },
+      { id: "s1", text: "居中说明", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    expect(screen.getByText("锚定说明")).toBeInTheDocument();
+    // Wait for the anchor to resolve so the spotlight cutout is actually showing
+    // before we advance — otherwise the test wouldn't exercise the stale-hole path.
+    await waitFor(() => {
+      const overlay = screen.getByRole("dialog").firstElementChild as HTMLElement;
+      expect(overlay.style.boxShadow).not.toBe("");
+    });
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    // Advancing to the centered step must clear the old spotlight cutout right
+    // away — no lingering "hole" over the previous anchor while the (moot, this
+    // step has no anchor) resolution would otherwise still be pending.
+    const overlay = screen.getByRole("dialog").firstElementChild as HTMLElement;
+    expect(overlay.style.boxShadow).toBe("");
+    expect(screen.getByText("居中说明")).toBeInTheDocument();
+    document.body.removeChild(target);
+  });
+
+  it("renders the demoModal mock plus 印记's text and a 下一步 control, with no spotlight blocker", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "这是提问卡", advance: "next", demoModal: { kind: "question-card", title: "提问卡演示" } },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    // The mock is shown (its distinctive pill + methodology step).
+    expect(screen.getByText("提问卡")).toBeInTheDocument();
+    expect(screen.getByText("拆解")).toBeInTheDocument();
+    // The 印记 explanation and 下一步 control still render as the modal footer.
+    expect(screen.getByText("这是提问卡")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一步" })).toBeInTheDocument();
+    // No spotlight click-blocker for a demoModal step (it's a real Modal, not the spotlight apparatus).
+    expect(screen.queryByTestId("tour-blocker")).not.toBeInTheDocument();
+    // 下一步 still advances/ends the tour normally.
+    fireEvent.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.queryByText("这是提问卡")).not.toBeInTheDocument();
+  });
+
+  it("renders the write-mode-choice demoModal mock (静态 印记 message + 两个选择按钮)", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "这里印记会先问你怎么写", advance: "next", demoModal: { kind: "write-mode-choice", title: "写作方式" } },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    // The mock shows 印记's proposing line and both static choice buttons.
+    expect(screen.getByText("这一部分，你想自己写，还是我一步步带你写？")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "我自己写" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "一步步带我写" })).toBeInTheDocument();
+    // The 印记 explanation and 下一步 control still render as the modal footer.
+    expect(screen.getByText("这里印记会先问你怎么写")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一步" })).toBeInTheDocument();
+  });
+});

@@ -79,6 +79,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/cards/theme", protected(a.putCardTheme))
 	mux.Handle("PUT /api/v1/users/me/accent", protected(a.putUserAccent))
 	mux.Handle("PUT /api/v1/users/me/background", protected(a.putUserBackground)) // page background colorway
+	mux.Handle("PUT /api/v1/users/me/onboarding", protected(a.putUserOnboarding)) // guided-tour first-run flag
+	mux.Handle("POST /api/v1/feedback", protected(a.postFeedback))                // nav 反馈 button
 	mux.Handle("GET /api/v1/projects", protected(a.listProjects))
 	mux.Handle("POST /api/v1/projects", protected(a.createProject))
 	mux.Handle("POST /api/v1/projects/{id}/onboarding", protected(a.submitOnboarding))
@@ -205,13 +207,14 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/read-turn", protected(a.postReadingTurn))
 	mux.Handle("POST /api/v1/projects/{id}/materials/{mid}/summon-card", protected(a.summonProjectCard))
 	mux.Handle("GET /api/v1/projects/{id}/materials/{mid}/open-card", protected(a.getOpenReadingCard))
+	mux.Handle("GET /api/v1/projects/{id}/materials/{mid}/source", protected(a.getMaterialSource)) // read-only MaterialSource projection (guided-tour P6)
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/evaluate", protected(a.evaluateProjectCard))
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
-	mux.Handle("GET /api/v1/courses/history", protected(a.getCourseHistory))                // learning history (touched courses)
+	mux.Handle("GET /api/v1/courses/history", protected(a.getCourseHistory)) // learning history (touched courses)
 	mux.Handle("GET /api/v1/courses/{slug}/progress", protected(a.getCourseProgress))
 	mux.Handle("PUT /api/v1/courses/{slug}/progress", protected(a.putCourseProgress))
-	mux.Handle("POST /api/v1/courses/{slug}/restart", protected(a.postCourseRestart))       // wipe progress → start over
+	mux.Handle("POST /api/v1/courses/{slug}/restart", protected(a.postCourseRestart)) // wipe progress → start over
 	mux.Handle("POST /api/v1/courses/{slug}/quiz-answer", protected(a.postCourseQuizAnswer))
 	mux.Handle("POST /api/v1/courses/{slug}/ask", protected(a.postCourseAsk))              // Task 6
 	mux.Handle("POST /api/v1/courses/{slug}/scene", protected(a.sceneForCourse))           // Course Runtime Slice 7
@@ -220,12 +223,14 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/courses/{slug}/session", protected(a.putCourseSession))        // Course Runtime Slice 8
 	mux.Handle("POST /api/v1/courses/{slug}/asset-urls", protected(a.postCourseAssetURLs)) // OSS CDN URL鉴权
 	mux.Handle("GET /api/v1/courses/{slug}/report", protected(a.getCourseReport))
+	mux.Handle("GET /api/v1/courses/{slug}/report/answers", protected(a.getCourseAnswerReport))                    // per-attempt recorded answers + time
 	mux.Handle("POST /api/v1/admin/courses", http.HandlerFunc(a.postAdminUploadCourse))                            // Task 7 (admin-key gate inside)
 	mux.Handle("GET /api/v1/admin/courses", http.HandlerFunc(a.listCoursesAdmin))                                  // course generator draft discovery (incl. preview)
 	mux.Handle("PUT /api/v1/admin/courses/{slug}/definition", http.HandlerFunc(a.putCourseDefinition))             // course generator create/modify
 	mux.Handle("GET /api/v1/admin/courses/{slug}/definition", http.HandlerFunc(a.getCourseDefinitionAdmin))        // course generator draft readback
 	mux.Handle("POST /api/v1/admin/courses/{slug}/asset-upload-url", http.HandlerFunc(a.postCourseAssetUploadURL)) // course generator media upload
 	mux.Handle("POST /api/v1/admin/courses/{slug}/ship", http.HandlerFunc(a.postCourseShip))                       // publish a preview course
+	mux.Handle("POST /api/v1/admin/courses/{slug}/unpublish", http.HandlerFunc(a.postCourseUnpublish))             // 下线: published -> preview (never a delete)
 	mux.Handle("POST /api/v1/voice/tts", protected(a.postVoiceTTS))
 	mux.Handle("GET /api/v1/voice/asr", protected(a.getVoiceASR))
 	// OSS storage. Admin upload + resolve are gated by the OSS_ADMIN_KEY bearer

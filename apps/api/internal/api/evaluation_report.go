@@ -107,15 +107,41 @@ func (a *API) listEvaluationReports(w http.ResponseWriter, r *http.Request) {
 		Title     string `json:"title"`
 		Type      string `json:"type"`
 		CreatedAt string `json:"createdAt"`
+		// IsDemo (guided-tour P5) — true for the shared, world-readable demo
+		// project's report, appended to EVERY user's timeline (pinned last).
+		IsDemo bool `json:"isDemo"`
 	}
 	out := make([]entry, 0, len(rows))
+	owned := make(map[string]int, len(rows)) // project id → index in out (dedup demo)
 	for _, row := range rows {
+		id := row.ProjectID.String()
+		owned[id] = len(out)
 		out = append(out, entry{
-			ProjectID: row.ProjectID.String(),
+			ProjectID: id,
 			Title:     row.Title,
 			Type:      row.Qualification,
 			CreatedAt: row.CreatedAt.UTC().Format(time.RFC3339),
 		})
+	}
+
+	// Append the demo project's report at the END for every user (dedup if the
+	// caller owns it — owner viewing). Best-effort — a fetch error leaves the
+	// timeline as the caller's own reports.
+	if demoRows, derr := a.d.Queries.ListDemoEvaluationReports(r.Context()); derr == nil {
+		for _, row := range demoRows {
+			id := row.ProjectID.String()
+			if idx, ok := owned[id]; ok {
+				out[idx].IsDemo = true
+				continue
+			}
+			out = append(out, entry{
+				ProjectID: id,
+				Title:     row.Title,
+				Type:      row.Qualification,
+				CreatedAt: row.CreatedAt.UTC().Format(time.RFC3339),
+				IsDemo:    true,
+			})
+		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"entries": out})
 }

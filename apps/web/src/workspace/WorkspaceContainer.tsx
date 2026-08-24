@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CardProposalWire,
+  DigCandidate,
+  ExplorationLead,
   LinkOffer,
   MaterialSource,
   NextStep,
@@ -19,8 +21,11 @@ import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { setReferenceEvidence, setReferenceTriage, archiveReference } from "@/api/evidenceMap";
 import type { Dispatch, SetStateAction } from "react";
 import { api } from "../api";
-import { createLead } from "@/api/exploration";
+import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
+import type { ChatMessage } from "../studio/reading/readingLoop";
+import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
+import type { TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
 import { StudioChatContext, type StudioChatMsg, type StudioChatValue, type ChatAction } from "../studio/ai/StudioChatContext";
@@ -99,16 +104,30 @@ export function WorkspaceContainer({
   autoOpenCreate,
   onAutoOpenCreateConsumed,
   onInProjectChange,
-  onExitToHome,
+  pendingRoom,
+  onPendingRoomConsumed,
+  pendingReadingView,
+  onPendingReadingViewConsumed,
+  pendingWritingView,
+  onPendingWritingViewConsumed,
+  pendingRefPanelTab,
+  onPendingRefPanelTabConsumed,
+  pendingPlanView,
+  onPendingPlanViewConsumed,
+  pendingOpenSearchCard,
+  onPendingOpenSearchCardConsumed,
+  pendingMarkNodeRead,
+  onPendingMarkNodeReadConsumed,
+  pendingDemoAdopt,
+  onPendingDemoAdoptConsumed,
+  pendingDemoReading,
+  onPendingDemoReadingConsumed,
+  onRequestDemoTour,
 }: {
   onFinished?: (projectId?: string) => void;
   /** Fired when a project opens (true) or closes (false) — the shell uses
    * this to hide its platform nav for the immersive studio (spec §17). */
   onInProjectChange?: (inProject: boolean) => void;
-  /** The studio top bar's 「← 主页」capsule — exits the immersive studio all
-   * the way back to the home page (spec §17). Falls back to the internal
-   * directory return when not supplied. */
-  onExitToHome?: () => void;
   /** Open this project on mount (or whenever it changes to a new id) — the
    * "open from home" deep-link (Task 6). Undefined/null leaves the
    * directory showing, same as before this prop existed. */
@@ -122,6 +141,109 @@ export function WorkspaceContainer({
    * "新建" → 项目 tab deep-link, Task 6). Only read on Directory's mount. */
   autoOpenCreate?: boolean;
   onAutoOpenCreateConsumed?: () => void;
+  /** Drive the manual room switcher to this room (the guided tour's studio
+   * deep-link, P3 Task 1) — mirrors `initialProjectId`: a one-shot signal
+   * acted on whenever it changes to a new, truthy value. */
+  pendingRoom?: BlockKey | null;
+  /** Fired once right after `pendingRoom` has been acted on, so the caller
+   * can clear its pending-room state (else a stale-but-unchanged prop would
+   * look "already handled"). */
+  onPendingRoomConsumed?: () => void;
+  /** Drive the reading room's inner 列表/探索图谱 view (the guided tour's P5
+   * deep-link) — mirrors `pendingRoom`: a one-shot signal captured into local
+   * state and handed to ReadingBlock as `forceView`, whose own ref guard
+   * applies it once and never fights the student's later toggle. */
+  pendingReadingView?: "list" | "graph" | null;
+  /** Fired once right after `pendingReadingView` has been captured, so the
+   * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
+  onPendingReadingViewConsumed?: () => void;
+  /** Drive the writing room to a document (提案/正文) + tab (大纲/片段/正文) — the
+   * guided tour's P6 Task 9 deep-link, so it can land on the PROPOSAL 片段 tab
+   * where the 片段引导/写作卡 (`writing-aicard`) lives. Mirrors `pendingRoom`: a
+   * one-shot captured into local state; the doc drives `docOverride` and the tab
+   * is handed to WritingBlock as `forceTab` (its own ref guard applies it once
+   * and never fights the student's later tab clicks). */
+  pendingWritingView?: TourWritingView | null;
+  /** Fired once right after `pendingWritingView` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingWritingViewConsumed?: () => void;
+  /** Drive the writing room's left `ReferencePanel` to a specific tab
+   * (阅读笔记/AI批注/…) — the guided tour's P7 `selectRefPanelTab` deep-link.
+   * Mirrors `pendingRoom`: a one-shot captured into local state and handed to
+   * ReferencePanel as `forceTab` (its own ref guard applies it once and never
+   * fights the student's later tab clicks). Assumes the writing room is
+   * already open. */
+  pendingRefPanelTab?: TourRefPanelTab | null;
+  /** Fired once right after `pendingRefPanelTab` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingRefPanelTabConsumed?: () => void;
+  /** Drive the OPEN project's 管理 room (PlanBlock) to a specific view
+   * (看板/甘特图/活动日志) — the guided tour's P7 `setPlanView` deep-link. Mirrors
+   * `pendingRoom`: a one-shot captured into local state and handed to
+   * PlanBlock as `forceView` (its own ref-guarded one-shot applies it once and
+   * never fights the student's later Segmented clicks). Assumes the 管理 room
+   * is already open. */
+  pendingPlanView?: TourPlanView | null;
+  /** Fired once right after `pendingPlanView` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingPlanViewConsumed?: () => void;
+  /** Open the 检索卡 teaching modal in the OPEN project's exploration graph —
+   * the guided tour's P7 `openSearchCard` deep-link. A bumped nonce (the
+   * action carries no payload), captured into local state and handed through
+   * ReadingBlock to ExplorationView as `forceOpenSearchCard` (its own
+   * ref-guarded one-shot opens the modal once). Assumes the reading room is
+   * already open on the 探索图谱 view. */
+  pendingOpenSearchCard?: number | null;
+  /** Fired once right after `pendingOpenSearchCard` has been captured (mirrors
+   * `onPendingRoomConsumed`). */
+  onPendingOpenSearchCardConsumed?: () => void;
+  /** P7 Task 4b · a root-lead id to demo-badge as 已读 — the guided tour's
+   * `TourNavContext.markDemoNodeRead` deep-link, fired when the tour returns
+   * from the read-only demo reading room. Unlike every other `pending*` prop
+   * above, the captured value is never retracted to null after consumption:
+   * it ACCUMULATES into `demoReadRootIds` state (a root once marked stays
+   * marked for the rest of the session), then forwarded through ReadingBlock
+   * to ExplorationView, which merges it into `readByRoot` before handing that
+   * to WarrenMap. Mirrors `pendingRoom`'s "new, distinct value ⇒ act" one-shot
+   * firing (a ref-guarded effect below), just with an additive rather than
+   * replacing local-state update. */
+  pendingMarkNodeRead?: string | null;
+  /** Fired once right after `pendingMarkNodeRead` has been captured into
+   * `demoReadRootIds` (mirrors `onPendingRoomConsumed`). */
+  onPendingMarkNodeReadConsumed?: () => void;
+  /** P8 Task 6 · a {candidate, parentLeadId} pair to demo-adopt into the
+   * exploration graph — the guided tour's `TourNavContext.markDemoNodeAdopted`
+   * deep-link. Mirrors `pendingMarkNodeRead`: ACCUMULATES (never retracted)
+   * into `demoAdoptedLeads`/`demoAdoptedRefs` state, forwarded through
+   * ReadingBlock to ExplorationView, which merges them into its leads/
+   * references before WarrenMap/QuestionMindmap render. This is the
+   * TOUR-driven entry point only — ExplorationView's own 采纳/addFromDetail
+   * click handlers reach the SAME accumulator directly via `onDemoAdopt`
+   * (below), since a live student click isn't a tour `onEnter`. */
+  pendingDemoAdopt?: { candidate: DigCandidate; parentLeadId: string } | null;
+  /** Fired once right after `pendingDemoAdopt` has been captured (mirrors
+   * `onPendingMarkNodeReadConsumed`). */
+  onPendingDemoAdoptConsumed?: () => void;
+  /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
+   * StudentApp) already fetched the demo material's `MaterialSource` (GET
+   * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
+   * object each successful fetch); this opens it into the real, immersive
+   * `ReadingRoom` with `demoMode` + the canned transcript. `readingNote` (P8
+   * Task 7) mirrors the `reference.reading_note` seeded by migration 0091 for
+   * `DEMO_READING_REFERENCE_ID` (`MaterialSource` itself carries no note, so
+   * StudentApp hands a matching constant rather than a second fetch) — passed
+   * through as `openReadingSource`'s 7th arg so 我的笔记 shows real content.
+   * Mirrors `pendingRoom`'s "new object ⇒ act, same reference ⇒ no-op"
+   * one-shot pattern. Absent/null ⇒ never fires (every non-demo project). */
+  pendingDemoReading?: { source: MaterialSource; referenceId: string; readingNote?: string } | null;
+  /** Fired once right after `pendingDemoReading` has been opened, so the
+   * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
+  onPendingDemoReadingConsumed?: () => void;
+  /** Task 9: threaded straight to `Directory` — its demo-guard modal's
+   * 好，带我逛一遍 calls this (StudentApp plays `journeyStarting("projects")`).
+   * Only reached via a MANUAL card click; the tour's own way into the demo
+   * (`initialProjectId` below) never touches Directory at all. */
+  onRequestDemoTour?: () => void;
 }) {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [workspace, setWorkspace] = useState<WorkspaceProjection | null>(null);
@@ -266,6 +388,102 @@ export function WorkspaceContainer({
   // from the warren-map sidebar). Optional — a paste-created source with no
   // saved evidence still passes its (fresh) reference so the note works.
   const [readingReference, setReadingReference] = useState<Reference | null>(null);
+  // The guided tour's demo-reading replay flags (P6, Task 5) — set alongside
+  // `readingSource` ONLY for the tour's read-only demo open (see
+  // `pendingDemoReading` below); a normal `openReadingSource` call always
+  // passes `demo` absent, which resets both to their off state so a real
+  // source opened right after a demo one never inherits its read-only replay.
+  const [readingDemoMode, setReadingDemoMode] = useState(false);
+  const [readingDemoMessages, setReadingDemoMessages] = useState<ChatMessage[] | undefined>(undefined);
+  // The guided tour's forced reading-room inner view (P5). Captured from the
+  // `pendingReadingView` prop by a ref-guarded effect below and handed to
+  // ReadingBlock as `forceView`; null leaves the room's own default/memo alone.
+  // ReadingBlock calls `onForceViewConsumed` right after applying it, which
+  // resets this back to null — so a later remount (room switch / source-open)
+  // sees no stale force and never overrides the student's manual toggle.
+  const [readingForceView, setReadingForceView] = useState<"list" | "graph" | null>(null);
+  // `pendingWritingView` deep-link (P6, Task 9): the tab half, captured and
+  // handed to WritingBlock as `forceTab` (its own ref guard applies it once and
+  // never fights the student's later tab clicks). The doc half drives
+  // `setDocOverride` in the consume effect below.
+  const [writingForceTab, setWritingForceTab] = useState<"outline" | "snippets" | "draft" | null>(null);
+  // `pendingRefPanelTab` deep-link (P7): captured and handed to ReferencePanel
+  // as `forceTab` (its own ref guard applies it once and never fights the
+  // student's later tab clicks).
+  const [refPanelForceTab, setRefPanelForceTab] = useState<TourRefPanelTab | null>(null);
+  // `pendingPlanView` deep-link (P7): captured and handed to PlanBlock as
+  // `forceView` (its own ref guard applies it once and never fights the
+  // student's later Segmented clicks).
+  const [planForceView, setPlanForceView] = useState<TourPlanView | null>(null);
+  // `pendingOpenSearchCard` deep-link (P7): captured and handed through
+  // ReadingBlock to ExplorationView as `forceOpenSearchCard` (its own ref
+  // guard opens the modal once and never fights the student's later
+  // open/close).
+  const [searchCardForceNonce, setSearchCardForceNonce] = useState<number | null>(null);
+  // P7 Task 4b: root-lead ids the guided tour has demo-badged 已读 this
+  // session (via `pendingMarkNodeRead`, accumulated below) — forwarded
+  // through ReadingBlock to ExplorationView, which merges it into
+  // `readByRoot`. Empty on every real project (the tour never calls
+  // `markDemoNodeRead` outside the demo project).
+  const [demoReadRootIds, setDemoReadRootIds] = useState<Set<string>>(new Set());
+  // P8 Task 6: synthetic {lead,reference} pairs the guided tour (or the
+  // student's own 采纳/addFromDetail click, in demo mode) has "adopted" into
+  // the exploration graph this session — client-side only, the demo project
+  // 403s the real POST /exploration/adopt. Forwarded through ReadingBlock to
+  // ExplorationView, which merges them into its leads/references before
+  // WarrenMap/QuestionMindmap and the "文献 x 篇" counts render. Empty on
+  // every real project (nothing here is ever reachable outside isDemo — see
+  // `addDemoAdopted` and the ReadingBlock render call below).
+  const [demoAdoptedLeads, setDemoAdoptedLeads] = useState<ExplorationLead[]>([]);
+  const [demoAdoptedRefs, setDemoAdoptedRefs] = useState<Reference[]>([]);
+  // The single accumulator both entry points call: the tour's
+  // `pendingDemoAdopt` effect (below) and ExplorationView's own demo-gated
+  // 采纳/addFromDetail handlers (via the `onDemoAdopt` prop threaded through
+  // ReadingBlock). Mints a fresh id pair and mirrors the REAL server-side
+  // mapping in adoptExploration (apps/api/internal/api/exploration.go): the
+  // reference takes the candidate's bibliographic fields and is auto-shelved
+  // "reading"; the lead is born "connected" with origin "guide" and
+  // `parentLeadId` = the node the candidate was dug/adopted from (papers
+  // never roots — the same invariant the real adopt enforces).
+  const addDemoAdopted = useCallback((candidate: DigCandidate, parentLeadId: string) => {
+    const refId = `demo-adopt-ref-${crypto.randomUUID()}`;
+    const leadId = `demo-adopt-lead-${crypto.randomUUID()}`;
+    const url = candidate.url || (candidate.doi ? `https://doi.org/${candidate.doi}` : "");
+    const reference: Reference = {
+      id: refId,
+      title: candidate.title,
+      classification: "",
+      author: candidate.authors,
+      credentials: "",
+      year: candidate.year,
+      url,
+      tags: [],
+      collectionId: null,
+      credibility: null,
+      evaluation: "",
+      decision: null,
+      pending: false,
+      searchHints: [],
+      materialId: null,
+      notes: [],
+      abstract: candidate.abstract,
+      journal: candidate.journal,
+      readingStatus: "reading",
+    };
+    const lead: ExplorationLead = {
+      id: leadId,
+      text: candidate.title,
+      status: "connected",
+      origin: "guide",
+      sourceReferenceId: null,
+      connectedReferenceId: refId,
+      position: 0,
+      parentLeadId,
+      createdAt: new Date().toISOString(),
+    };
+    setDemoAdoptedRefs((prev) => [...prev, reference]);
+    setDemoAdoptedLeads((prev) => [...prev, lead]);
+  }, []);
 
   function openReadingSource(
     m: MaterialSource,
@@ -277,6 +495,10 @@ export function WorkspaceContainer({
     readingNote?: string | null,
     bib?: ReferenceBib,
     reference?: Reference | null,
+    // P6 (Task 5): the guided tour's read-only demo open passes this to seed
+    // the coach thread + disable every write path. Every real call (paste,
+    // enter-reading, …) omits it, which resets both flags off.
+    demo?: { demoMode: boolean; initialMessages: ChatMessage[] },
   ) {
     setReadingSourceState(m);
     setReadingRefId(referenceId);
@@ -287,6 +509,8 @@ export function WorkspaceContainer({
     setReadingReadingNote(readingNote ?? null);
     setReadingBib(bib ?? null);
     setReadingReference(reference ?? null);
+    setReadingDemoMode(demo?.demoMode ?? false);
+    setReadingDemoMessages(demo?.initialMessages);
   }
   // EA · carry-forward acknowledgment: when the student 归纳'd a source before
   // leaving, show a brief "you just read X — it's carried forward" note so the
@@ -303,6 +527,8 @@ export function WorkspaceContainer({
     setReadingReadingFocus(null);
     setReadingReadingNote(null);
     setReadingBib(null);
+    setReadingDemoMode(false);
+    setReadingDemoMessages(undefined);
   }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
@@ -971,12 +1197,14 @@ export function WorkspaceContainer({
         if (cancelled) return;
         setWorkspace(w);
         // Compose-on-first-open (server is first-open-wins → no repeat spend),
-        // but only for an in-progress project.
+        // but only for an in-progress project — and NEVER for the read-only demo:
+        // /summary POST is a write, which the backend 403s for isDemo projects, so
+        // firing it just logs a spurious console 403 (the guard working, not a bug).
         const p = w.proposal;
         const inProgress = [p.objective, p.reason, p.activities, p.resources].some(
           (s) => s.trim().length > 0,
         );
-        if (inProgress) {
+        if (inProgress && !w.isDemo) {
           postProjectSummary(projectId)
             .then((prose) => {
               if (!cancelled && prose.trim()) setSummary(prose);
@@ -1062,6 +1290,174 @@ export function WorkspaceContainer({
     }
   }, [initialProjectId, onInitialProjectIdConsumed]);
 
+  // `pendingRoom` deep-link (P3 Task 1, guided tour): whenever it changes to a
+  // new, truthy value, drive the manual switcher into that room — mirrors the
+  // `initialProjectId` effect above, including the ref-guarded "only on
+  // change" firing (a `lastPendingRoom` ref, not state, so re-consuming the
+  // same room after the caller clears it never re-fires).
+  const lastPendingRoom = useRef<BlockKey | null>(null);
+  useEffect(() => {
+    if (pendingRoom && pendingRoom !== lastPendingRoom.current) {
+      lastPendingRoom.current = pendingRoom;
+      handleManualRoom(pendingRoom);
+      onPendingRoomConsumed?.();
+    }
+  }, [pendingRoom, onPendingRoomConsumed, handleManualRoom]);
+
+  // `pendingReadingView` deep-link (P5, guided tour): capture each new value
+  // into `readingForceView` (handed to ReadingBlock as `forceView`) and clear
+  // the parent's one-shot — same ref-guarded "only on change" firing as
+  // `pendingRoom` above, so re-passing the same value after the caller clears
+  // it never re-fires. ReadingBlock's OWN ref guard then applies it once and
+  // never overrides a later manual toggle.
+  //
+  // The tour can also issue this deep-link while the IMMERSIVE reader is open
+  // (e.g. `openDemoReadingRoom()` for the reading-room segment, followed by
+  // `setReadingView("list")` for the reading-library segment): `readingSource
+  // != null` renders the ReadingRoom OVER every room, so ReadingBlock (which
+  // `forceView` targets) never mounts and the deep-link would silently do
+  // nothing. Close the immersive reader first so the underlying room — and
+  // ReadingBlock inside it — actually mounts. This does NOT affect the
+  // reading-room segment itself: its `rr-*` steps never call `setReadingView`,
+  // so the reader stays open through them.
+  const lastReadingView = useRef<"list" | "graph" | null>(null);
+  useEffect(() => {
+    if (pendingReadingView && pendingReadingView !== lastReadingView.current) {
+      lastReadingView.current = pendingReadingView;
+      if (readingSource != null) closeReadingSource();
+      setReadingForceView(pendingReadingView);
+      onPendingReadingViewConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingReadingView, onPendingReadingViewConsumed]);
+
+  // `pendingWritingView` deep-link (P6, Task 9 — guided tour): switch the
+  // writing document via `docOverride` (提案/正文) and stage the tab into
+  // `writingForceTab` (handed to WritingBlock as `forceTab`). Same ref-guarded
+  // "only on a new object" firing as `pendingRoom`. WritingBlock's OWN ref guard
+  // then applies the tab once and never overrides a later manual click. This is
+  // what lands the tour on the PROPOSAL 片段 tab where `writing-aicard` lives.
+  //
+  // Same "close the immersive reader first" guard as `pendingReadingView`
+  // above — by the time the tour reaches the writing steps, the reading-room
+  // segment's immersive reader may still be mounted (nothing else in between
+  // is guaranteed to have cleared it), and it would otherwise cover the
+  // writing room the tour is trying to land on.
+  const lastWritingView = useRef<TourWritingView | null>(null);
+  useEffect(() => {
+    if (pendingWritingView && pendingWritingView !== lastWritingView.current) {
+      lastWritingView.current = pendingWritingView;
+      if (readingSource != null) closeReadingSource();
+      setDocOverride(pendingWritingView.doc);
+      setWritingForceTab(pendingWritingView.tab);
+      onPendingWritingViewConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingWritingView, onPendingWritingViewConsumed]);
+
+  // `pendingRefPanelTab` deep-link (P7 — guided tour): capture each new value
+  // into `refPanelForceTab` (handed to ReferencePanel as `forceTab`) and clear
+  // the parent's one-shot — same ref-guarded "only on change" firing as
+  // `pendingReadingView` above. ReferencePanel's OWN ref guard then applies it
+  // once and never overrides a later manual tab click.
+  const lastRefPanelTab = useRef<TourRefPanelTab | null>(null);
+  useEffect(() => {
+    if (pendingRefPanelTab && pendingRefPanelTab !== lastRefPanelTab.current) {
+      lastRefPanelTab.current = pendingRefPanelTab;
+      setRefPanelForceTab(pendingRefPanelTab);
+      onPendingRefPanelTabConsumed?.();
+    }
+  }, [pendingRefPanelTab, onPendingRefPanelTabConsumed]);
+
+  // `pendingPlanView` deep-link (P7 — guided tour): capture each new value
+  // into `planForceView` (handed to PlanBlock as `forceView`) and clear the
+  // parent's one-shot — same ref-guarded "only on change" firing as
+  // `pendingRefPanelTab` above. PlanBlock's OWN ref guard then applies it once
+  // and never overrides a later manual Segmented click.
+  const lastPlanView = useRef<TourPlanView | null>(null);
+  useEffect(() => {
+    if (pendingPlanView && pendingPlanView !== lastPlanView.current) {
+      lastPlanView.current = pendingPlanView;
+      setPlanForceView(pendingPlanView);
+      onPendingPlanViewConsumed?.();
+    }
+  }, [pendingPlanView, onPendingPlanViewConsumed]);
+
+  // `pendingOpenSearchCard` deep-link (P7 — guided tour): capture each new
+  // nonce into `searchCardForceNonce` (handed through ReadingBlock to
+  // ExplorationView as `forceOpenSearchCard`) and clear the parent's one-shot.
+  // ExplorationView's OWN ref guard then opens the modal once and never
+  // overrides a later manual open/close.
+  const lastOpenSearchCard = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingOpenSearchCard && pendingOpenSearchCard !== lastOpenSearchCard.current) {
+      lastOpenSearchCard.current = pendingOpenSearchCard;
+      setSearchCardForceNonce(pendingOpenSearchCard);
+      onPendingOpenSearchCardConsumed?.();
+    }
+  }, [pendingOpenSearchCard, onPendingOpenSearchCardConsumed]);
+
+  // `pendingMarkNodeRead` deep-link (P7 Task 4b — guided tour): capture each
+  // new, distinct root-lead id into `demoReadRootIds` — ADDITIVELY (a Set
+  // union, unlike every sibling effect above which REPLACES its local force*
+  // state) — and clear the parent's one-shot. There is no downstream "applied
+  // once" ref guard to hand this off to (ExplorationView's merge is a plain,
+  // idempotent useMemo, not a one-shot effect), so the guard here is the only
+  // one: without it, an unrelated re-render that leaves `pendingMarkNodeRead`
+  // unchanged must never re-fire `onPendingMarkNodeReadConsumed`.
+  const lastMarkNodeRead = useRef<string | null>(null);
+  useEffect(() => {
+    if (pendingMarkNodeRead && pendingMarkNodeRead !== lastMarkNodeRead.current) {
+      lastMarkNodeRead.current = pendingMarkNodeRead;
+      setDemoReadRootIds((prev) => {
+        if (prev.has(pendingMarkNodeRead)) return prev;
+        const next = new Set(prev);
+        next.add(pendingMarkNodeRead);
+        return next;
+      });
+      onPendingMarkNodeReadConsumed?.();
+    }
+  }, [pendingMarkNodeRead, onPendingMarkNodeReadConsumed]);
+
+  // `pendingDemoAdopt` deep-link (P8 Task 6 — guided tour): a fresh
+  // {candidate, parentLeadId} object each call, so a plain reference-equality
+  // guard (mirrors `pendingDemoReading`'s "new object ⇒ act" pattern, not
+  // `pendingMarkNodeRead`'s value-equality one — candidates carry no stable
+  // id of their own) is enough to fire `addDemoAdopted` exactly once per call
+  // and never re-fire on an unrelated re-render that leaves the prop unchanged.
+  const lastDemoAdopt = useRef<{ candidate: DigCandidate; parentLeadId: string } | null>(null);
+  useEffect(() => {
+    if (pendingDemoAdopt && pendingDemoAdopt !== lastDemoAdopt.current) {
+      lastDemoAdopt.current = pendingDemoAdopt;
+      addDemoAdopted(pendingDemoAdopt.candidate, pendingDemoAdopt.parentLeadId);
+      onPendingDemoAdoptConsumed?.();
+    }
+  }, [pendingDemoAdopt, onPendingDemoAdoptConsumed, addDemoAdopted]);
+
+  // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
+  // already-fetched demo `MaterialSource` into the real immersive
+  // `ReadingRoom`, seeded with the canned read-only transcript. Same
+  // ref-guarded "only on a new object" firing as `pendingRoom` above.
+  const lastDemoReading = useRef<{ source: MaterialSource; referenceId: string; readingNote?: string } | null>(null);
+  useEffect(() => {
+    if (pendingDemoReading && pendingDemoReading !== lastDemoReading.current) {
+      lastDemoReading.current = pendingDemoReading;
+      openReadingSource(
+        pendingDemoReading.source,
+        pendingDemoReading.referenceId,
+        undefined,
+        undefined,
+        undefined,
+        undefined,
+        pendingDemoReading.readingNote,
+        undefined,
+        undefined,
+        { demoMode: true, initialMessages: demoReadingTranscript },
+      );
+      onPendingDemoReadingConsumed?.();
+    }
+  }, [pendingDemoReading, onPendingDemoReadingConsumed]);
+
   // No project open — the all-projects directory (its own create form carries
   // the empty affordance). `autoOpenCreate` (home's "新建" deep-link) is only
   // relevant here, one level in from the four-room shell.
@@ -1072,6 +1468,7 @@ export function WorkspaceContainer({
         onViewReport={onViewReport}
         autoOpenCreate={autoOpenCreate}
         onAutoOpenCreateHandled={onAutoOpenCreateConsumed}
+        onRequestDemoTour={onRequestDemoTour}
       />
     );
   }
@@ -1095,8 +1492,13 @@ export function WorkspaceContainer({
         onSetEvidence={(ev) => setReferenceEvidence(projectId, readingRefId, ev)}
         onSetTriage={(triage) => setReferenceTriage(projectId, readingRefId, triage)}
         onArchive={(archived) => archiveReference(projectId, readingRefId, archived)}
+        onTraceCitation={(doi) => digExploration(projectId, { mode: "citation", doi }).then((r) => r.candidates)}
+        onTraceSearch={(keyword) => digExploration(projectId, { mode: "similar", keyword }).then((r) => r.candidates)}
+        onAdoptSource={(candidate) => adoptCandidate(projectId, candidate).then(() => {})}
         api={api}
         onBack={closeReadingSource}
+        initialMessages={readingDemoMessages}
+        demoMode={readingDemoMode}
       />
     );
   }
@@ -1142,7 +1544,7 @@ export function WorkspaceContainer({
       onToggleCollapse={toggleAiCollapsed}
       widthClass={aiPanelWidthClass}
     >
-      <div ref={aiSlotRef} className="h-full" />
+      <div ref={aiSlotRef} data-tour="coach-rail" className="h-full" />
     </AiPanel>
   );
   // Task 3 (P2a): reading used to be the one exception — it owned its own
@@ -1198,12 +1600,24 @@ export function WorkspaceContainer({
     started,
     startJourney,
     starting,
+    // Task 6 (P2, demo project): the shared, read-only demo project. The
+    // backend 403s all writes regardless — this only disables the composer
+    // so the demo reads honestly as read-only.
+    isDemo: workspace?.isDemo ?? false,
   };
 
   return (
     <StudioChatContext.Provider value={chatValue}>
     <div className="flex h-full w-full flex-col bg-mk-paper font-sans text-mk-ink">
-      <TopBar workspace={workspace} onBack={onExitToHome ?? backToAll} />
+      <TopBar workspace={workspace} onBack={backToAll} />
+      {/* Task 6 (P2, demo project): a small, honest read-only banner for the
+          shared demo project. The backend is the real safety net (403s all
+          writes for isDemo) — this is just legibility, not enforcement. */}
+      {workspace?.isDemo && (
+        <div className="shrink-0 border-b border-mk-border bg-mk-accent-50 px-6 py-2 text-mk-small font-medium text-mk-accent">
+          演示项目 · 只读 — 这是一个示例项目，带你了解项目工作台
+        </div>
+      )}
       <div className="flex min-h-0 flex-1">
         {aiSide === "left" && showAiPanel && aiPanel}
         <main className="relative flex min-w-0 flex-1 flex-col overflow-hidden">
@@ -1216,7 +1630,7 @@ export function WorkspaceContainer({
             highlighted). The whole row (switcher + plan spine + 继续印记)
             only exists once the journey has actually started. */}
         {started && (
-        <div className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
+        <div data-tour="room-bar" className="flex shrink-0 items-center gap-3 overflow-x-auto border-b border-mk-border bg-mk-paper px-4 py-2">
           <RoomSwitcher
             // While chat-only (印记 keeps the chat primary), `room` is the stale
             // interim default — highlighting it would falsely mark a segment the
@@ -1306,6 +1720,8 @@ export function WorkspaceContainer({
                 onGeneratingPlan={setGeneratingPlan}
                 onPlanMaybeGenerated={surfaceGeneratedPlan}
                 planRefreshSignal={planVersion}
+                forceView={planForceView}
+                onForceViewConsumed={() => setPlanForceView(null)}
               />
             )}
             {room === "reading" && (
@@ -1320,6 +1736,14 @@ export function WorkspaceContainer({
                 confirmStart={readingConfirmNeeded}
                 onConfirmStart={() => setReadingConfirmNeeded(false)}
                 aiSide={aiSide}
+                forceView={readingForceView}
+                onForceViewConsumed={() => setReadingForceView(null)}
+                forceOpenSearchCard={searchCardForceNonce}
+                onForceOpenSearchCardConsumed={() => setSearchCardForceNonce(null)}
+                demoReadRootIds={workspace?.isDemo ? demoReadRootIds : undefined}
+                demoAdoptedLeads={workspace?.isDemo ? demoAdoptedLeads : undefined}
+                demoAdoptedRefs={workspace?.isDemo ? demoAdoptedRefs : undefined}
+                onDemoAdopt={workspace?.isDemo ? addDemoAdopted : undefined}
               />
             )}
             {room === "writing" && (
@@ -1342,8 +1766,11 @@ export function WorkspaceContainer({
                     annotationsVersion={annotationsVersion}
                     needsVersion={needsVersion}
                     showSnippets={writingTab === "draft"}
+                    isDemo={workspace.isDemo ?? false}
                     onOpenReading={() => { setRoom("reading"); setReadingConfirmNeeded(false); }}
                     onJumpToAnchor={(a) => draftScrollRef.current?.(a)}
+                    forceTab={refPanelForceTab}
+                    onForceTabConsumed={() => setRefPanelForceTab(null)}
                   />
                 }
                 right={(() => {
@@ -1396,6 +1823,8 @@ export function WorkspaceContainer({
                       essayStage={studioState?.essayTrack?.stage}
                       onStudioStateChanged={continueYinji}
                       onActiveTabChange={setWritingTab}
+                      forceTab={writingForceTab}
+                      onForceTabConsumed={() => setWritingForceTab(null)}
                     />
                   );
                 })()}
@@ -1455,9 +1884,11 @@ export function WorkspaceContainer({
   );
 }
 
-// The top bar (spec §17): a small 「← 主页」capsule back to the Directory and
-// the project's title + qualification. The stage switcher no longer lives here
-// — it moved into the interactive area's top-left (spec §2), beside the chat.
+// The top bar (spec §17): a small 「← 返回」capsule back to the project list
+// (the Directory) and the project's title + qualification. The stage switcher no
+// longer lives here — it moved into the interactive area's top-left (spec §2),
+// beside the chat. Back returns to the student's OWN project list (not the
+// platform home): "返回" is one level up, and the nav rail reappears there.
 function TopBar({
   workspace,
   onBack,
@@ -1489,7 +1920,7 @@ function TopBar({
         )}
       >
         <UiIcon icon={ArrowLeft} size={14} />
-        主页
+        返回
       </button>
       <div className="flex min-w-0 flex-1 items-center gap-2">
         {showingQuestion && (

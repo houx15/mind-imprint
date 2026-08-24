@@ -95,6 +95,12 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 	if r.Tier == "chaperone" || req.DisableThinking {
 		body["thinking"] = map[string]any{"type": "disabled"}
 	}
+	// A bounded reasoning budget — the middle gear between full thinking and
+	// thinking-off. Set independently of tier (a flagship call can still ask for
+	// "low"); ignored alongside thinking:disabled, which already zeroes it.
+	if req.ReasoningEffort != "" {
+		body["reasoning_effort"] = req.ReasoningEffort
+	}
 	if req.Temperature != nil {
 		body["temperature"] = *req.Temperature
 	}

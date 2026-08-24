@@ -71,6 +71,49 @@ func (q *Queries) GetEvaluationReport(ctx context.Context, projectID uuid.UUID) 
 	return i, err
 }
 
+const listDemoEvaluationReports = `-- name: ListDemoEvaluationReports :many
+SELECT er.project_id, er.created_at, p.title, p.qualification
+FROM evaluation_report er
+JOIN project p ON p.id = er.project_id
+WHERE p.is_demo = true AND er.status = 'ready'
+ORDER BY er.created_at DESC
+`
+
+type ListDemoEvaluationReportsRow struct {
+	ProjectID     uuid.UUID `json:"project_id"`
+	CreatedAt     time.Time `json:"created_at"`
+	Title         string    `json:"title"`
+	Qualification string    `json:"qualification"`
+}
+
+// The demo project's report(s) — shown in EVERY authenticated user's report
+// timeline, pinned last and marked isDemo (guided-tour P5). Same columns as
+// ListEvaluationReports so the handler folds both into one entry shape.
+func (q *Queries) ListDemoEvaluationReports(ctx context.Context) ([]ListDemoEvaluationReportsRow, error) {
+	rows, err := q.db.Query(ctx, listDemoEvaluationReports)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDemoEvaluationReportsRow
+	for rows.Next() {
+		var i ListDemoEvaluationReportsRow
+		if err := rows.Scan(
+			&i.ProjectID,
+			&i.CreatedAt,
+			&i.Title,
+			&i.Qualification,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEvaluationReports = `-- name: ListEvaluationReports :many
 SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er

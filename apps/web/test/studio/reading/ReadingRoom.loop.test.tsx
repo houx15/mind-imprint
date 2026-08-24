@@ -171,26 +171,25 @@ describe("ReadingRoom — read-together loop", () => {
     expect(screen.getByText(/在文章里选出你要用来回答/)).toBeInTheDocument();
   });
 
-  it("clicking a sentence references it, shows the chip, and sends it as focused_spans", async () => {
+  it("clicking a paragraph references it, shows a cancelable quote chip, and sends it as focused_spans", async () => {
     const fakeApi = makeFakeApi();
     const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
-    // Idle by default — the hint invites referencing.
-    expect(screen.getByText("点击句子可引用原文")).toBeInTheDocument();
-    expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
+    // Idle by default — the hint invites referencing (paragraph OR selection).
+    expect(screen.getByText("点段落引用整段，或划选一句引用原文")).toBeInTheDocument();
+    expect(screen.queryByText(/已引用/)).not.toBeInTheDocument();
 
     const block0 = container.querySelector('[data-block-id="b0"]')!;
     fireEvent.click(block0);
 
-    // The chip appears with a count of 1, and the hint updates.
-    expect(screen.getByText(/正在引用/)).toBeInTheDocument();
-    expect(screen.getByText("1")).toBeInTheDocument();
-    expect(screen.getByText("已引用 1 处 · 再点可取消")).toBeInTheDocument();
+    // A quote chip appears (curly-quoted block text) and the hint updates.
+    expect(screen.getByText("已引用 1 处 · 可在下方逐条取消")).toBeInTheDocument();
+    expect(screen.getByText("“过去二十年，卫星图显示地球在变绿。”")).toBeInTheDocument();
 
     // Reference a second block too.
     const block1 = container.querySelector('[data-block-id="b1"]')!;
     fireEvent.click(block1);
-    expect(screen.getByText("已引用 2 处 · 再点可取消")).toBeInTheDocument();
+    expect(screen.getByText("已引用 2 处 · 可在下方逐条取消")).toBeInTheDocument();
 
     // Sending includes both referenced blocks as focused_spans, then clears them.
     fireEvent.change(screen.getByPlaceholderText(/说说你对哪一句有疑问/), { target: { value: "这段怪怪的" } });
@@ -205,8 +204,8 @@ describe("ReadingRoom — read-together loop", () => {
       ],
     });
 
-    // The chip is gone after sending — the reference set was cleared.
-    expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
+    // The chips are gone after sending — the reference set was cleared.
+    expect(screen.queryByText(/已引用/)).not.toBeInTheDocument();
 
     // Fix A: the quoted sentence(s) persist on the STUDENT's own message —
     // a blockquote above her bubble — even after the highlight/chip cleared.
@@ -216,18 +215,34 @@ describe("ReadingRoom — read-together loop", () => {
     expect(quoteTexts).toEqual(["过去二十年，卫星图显示地球在变绿。", "因此这项政策必然失败。"]);
   });
 
-  it("清除 clears referenced blocks without sending", async () => {
+  it("全部清除 clears referenced blocks without sending", async () => {
     const fakeApi = makeFakeApi();
     const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
 
     const block0 = container.querySelector('[data-block-id="b0"]')!;
     fireEvent.click(block0);
-    expect(screen.getByText(/正在引用/)).toBeInTheDocument();
+    expect(screen.getByText(/已引用/)).toBeInTheDocument();
 
-    fireEvent.click(screen.getByText("清除"));
-    expect(screen.queryByText(/正在引用/)).not.toBeInTheDocument();
-    expect(screen.getByText("点击句子可引用原文")).toBeInTheDocument();
+    fireEvent.click(screen.getByText("全部清除"));
+    expect(screen.queryByText(/已引用/)).not.toBeInTheDocument();
+    expect(screen.getByText("点段落引用整段，或划选一句引用原文")).toBeInTheDocument();
     expect(fakeApi.readTurn).not.toHaveBeenCalled();
+  });
+
+  it("each quote chip can be canceled individually via its ✕", async () => {
+    const fakeApi = makeFakeApi();
+    const { container } = render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={fakeApi as any} />);
+
+    fireEvent.click(container.querySelector('[data-block-id="b0"]')!);
+    fireEvent.click(container.querySelector('[data-block-id="b1"]')!);
+    expect(screen.getByText("已引用 2 处 · 可在下方逐条取消")).toBeInTheDocument();
+
+    // Cancel just the first chip — the other survives.
+    const xs = screen.getAllByLabelText("取消引用这一处");
+    fireEvent.click(xs[0]!);
+    expect(screen.getByText("已引用 1 处 · 可在下方逐条取消")).toBeInTheDocument();
+    expect(screen.queryByText("“过去二十年，卫星图显示地球在变绿。”")).not.toBeInTheDocument();
+    expect(screen.getByText("“因此这项政策必然失败。”")).toBeInTheDocument();
   });
 
   it("透镜库: browsing lists the deck, and picking a card summons it onto the article", async () => {

@@ -288,6 +288,66 @@ function SubQuestionEditor({
   );
 }
 
+// ProposalGuideReadOnly — Task 5 (P7 guided-tour, demo slice) · when the room is
+// LOCKED (a finished proposal, or the read-only demo project), the fillable
+// step-by-step ProposalGuide above renders nothing — there's no "current step"
+// left to fill, so it fell back to an empty pane. But the guided tour spotlights
+// `writing-aicard` to show the student what the 片段引导/写作卡 IS, so it needs a
+// REAL, POPULATED guide to frame, not an empty box. This renders the guide's own
+// structure — the sub-questions + every part's guiding prompt/example — as a
+// READ-ONLY filled scaffold: every textarea is disabled (GuidedWritingCard's
+// `locked`), and the only text shown is either the guide's own scaffold copy
+// (prompt/example, authored once when the step was first generated) or the
+// STUDENT's own saved writing (`textByKey`) — never new AI-authored body text
+// (铁律①: the guide scaffolds the student's thinking, it never writes for her).
+export function ProposalGuideReadOnly({
+  step,
+  textByKey,
+}: {
+  step: ProposalGuideStep | null;
+  textByKey: Record<string, string>;
+}) {
+  if (!step) return null;
+  const parts = (step.steps ?? []).filter((s) => s.kind !== "subq-define");
+  if (step.subQuestions.length === 0 && parts.length === 0) return null;
+  return (
+    <div className="border-b border-mk-border bg-mk-paper px-8 py-4">
+      <div className="mx-auto max-w-[70ch]">
+        <p className="mb-3 text-[12px] font-bold text-mk-faint">研究提案的引导框 · 只读（演示项目，印记不代写）</p>
+        {step.subQuestions.length > 0 && (
+          <div className="mb-4 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5">
+            <p className="text-[13px] font-bold text-mk-ink">研究计划的子问题</p>
+            <ol className="mt-1.5 flex flex-col gap-1">
+              {step.subQuestions.map((q, i) => (
+                <li key={q.id || i} className="flex gap-2 text-[13.5px] leading-relaxed text-mk-ink">
+                  <span className="flex-none font-bold text-mk-accent">{i + 1}</span>
+                  <span>{q.text}</span>
+                </li>
+              ))}
+            </ol>
+          </div>
+        )}
+        {parts.length > 0 && (
+          <div className="flex flex-col gap-3">
+            {parts.map((p) => (
+              <GuidedWritingCard
+                key={p.key}
+                title={p.title}
+                guidance={p.card?.prompt ?? ""}
+                example={p.card?.example}
+                value={textByKey[p.key] ?? ""}
+                onChange={() => {}}
+                locked
+                placeholder="（还没写这一部分）"
+              />
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ── Container: wires the track hook + coach thread + review + prose surface ──
 
 export function ProposalGuidePane({
@@ -362,6 +422,18 @@ export function ProposalGuidePane({
   useEffect(() => () => setChatAction?.(null), [setChatAction]);
 
   const step = track.step;
+
+  // Task 5 (P7) · every part's saved text, keyed by step.key (strip the
+  // "prop:" section prefix) — feeds the locked read-only guide below so a
+  // finished/demo project's `writing-aicard` frames the student's own words,
+  // not blanks.
+  const textByKey: Record<string, string> = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const s of snip.snippets) {
+      if (s.section && s.section.startsWith("prop:")) m[s.section.slice(5)] = s.text;
+    }
+    return m;
+  }, [snip.snippets]);
 
   // slice 4b retrofit · the current part's text is a snippet (section
   // "prop:<key>"); the ordered parts are assembled into the proposal buffer so
@@ -456,6 +528,7 @@ export function ProposalGuidePane({
           }}
         />
       )}
+      {locked && <ProposalGuideReadOnly step={step} textByKey={textByKey} />}
     </div>
   );
 }

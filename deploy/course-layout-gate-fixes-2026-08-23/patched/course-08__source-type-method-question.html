@@ -1,0 +1,47 @@
+<!doctype html>
+
+<html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>准备表：来源、类型、方法要连起来 · 作答</title>
+
+<style>
+
+:root{--paper:#fbf8f4;--surface:#fff;--border:#efe7dd;--ink:#33302e;--muted:#6f655e;--accent:#ea5140;--accent-soft:#fef0ed;--success:#5fa97e;--success-bg:#e7f1dd;--danger:#d64541;--danger-bg:#fbe3e1}
+
+*{box-sizing:border-box}html,body{font-size:16px;width:100%;height:100%;margin:0;overflow:hidden}body{display:flex;align-items:center;justify-content:center;padding:16px;background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif}.canvas{width:min(100%,1200px);aspect-ratio:4 / 3;display:flex;align-items:center;justify-content:center;overflow:hidden}.panel{width:100%;max-height:100%;overflow:auto}.card{width:100%;border:1px solid var(--border);border-radius:12px;background:var(--surface);box-shadow:0 2px 8px rgba(70,45,45,.08);padding:22px 24px}p{font-size:16px;line-height:1.72;margin:0 0 14px}p:last-child{margin-bottom:0}@media(max-width:680px){body{padding:10px}.card{padding:18px}.panel{max-height:calc(100vh - 20px)}}
+
+
+
+.question{margin:0 0 16px;font-size:19px;line-height:1.5;font-weight:700}.options{display:grid;gap:10px}.option{display:grid;grid-template-columns:22px 1fr;gap:10px;align-items:start;width:100%;padding:12px 14px;border:1px solid var(--border);border-radius:10px;background:var(--surface);color:var(--ink);font:inherit;font-size:16px;line-height:1.5;text-align:left;cursor:pointer}.option:hover,.option.selected{border-color:var(--accent);background:var(--accent-soft)}.dot{width:18px;height:18px;margin-top:3px;border:2px solid #bdb5ae;border-radius:50%;background:#fff}.option.selected .dot{border:5px solid var(--accent)}.submit{margin-top:16px;padding:11px 24px;border:0;border-radius:10px;background:var(--accent);color:#fff;font:inherit;font-size:16px;font-weight:700;cursor:pointer}.submit:disabled{opacity:.45;cursor:not-allowed}.feedback{margin-top:14px;padding:11px 14px;border:1px solid var(--border);border-radius:10px;font-size:16px;line-height:1.55;background:#f8f6f2}.feedback.good{border-color:var(--success);background:var(--success-bg)}.feedback.bad{border-color:var(--danger);background:var(--danger-bg)}
+
+</style></head><body><div class="canvas"><main class="panel"><section class="card"><h1 class="question" id="question"></h1><div class="options" id="options"></div><button class="submit" id="submit" type="button" disabled>完成任务</button><div class="feedback" id="feedback" hidden></div></section></main>
+
+<script>
+
+const CONFIG={"id": "evidence-chain-choice", "title": "准备表：来源、类型、方法要连起来", "prompt": "要检验“威尼斯无法禁止 Airbnb”这条主张，下面哪组核查链条最扎实？", "options": [{"id": "legal-cross-check", "label": "查政府/档案中的法律和政策文件，咨询法律专家，再比较其他城市短租限制案例。"}, {"id": "one-official", "label": "只引用 Paola Mar 的原话，因为她是旅游局议员。"}, {"id": "random-posts", "label": "看几个社交媒体帖子，统计谁点赞更多。"}], "correctOptionId": "legal-cross-check", "correctFeedback": "对。这组同时覆盖原始材料、专业解释和横向比较，证据链更完整。", "incorrectFeedback": "扎实核查要能说清来源、信息类型和方法。单一权威或随机帖子都不够。", "maxAttempts": 3};const PROTOCOL="mind-course-interaction",VERSION="1.0";let sessionToken=null,selected="",attempts=0,completed=false,feedback="",feedbackKind="";const pending=[];
+
+function post(type,payload){if(!sessionToken){pending.push({type,payload});return}window.parent.postMessage({protocol:PROTOCOL,version:VERSION,sessionToken,type,payload},"*")}
+
+function value(){return{activityId:CONFIG.id,answer:selected,attempts,correct:selected===CONFIG.correctOptionId}}
+
+function restore(payload){const saved=payload&&payload.value;if(saved){selected=saved.answer||"";attempts=Number(saved.attempts)||0}completed=Boolean(payload&&payload.completed);if(completed&&saved){const correct=saved.correct===true||selected===CONFIG.correctOptionId;feedback=correct?CONFIG.correctFeedback:CONFIG.incorrectFeedback;feedbackKind=correct?"good":"bad"}else{feedback="";feedbackKind=""}render()}
+window.addEventListener("message",event=>{const message=event.data;if(!message||message.protocol!==PROTOCOL||message.version!==VERSION||!message.sessionToken)return;const fresh=sessionToken!==message.sessionToken;sessionToken=message.sessionToken;if(message.type==="activate"&&message.payload&&message.payload.restore)restore(message.payload.restore);if(fresh){window.parent.postMessage({protocol:PROTOCOL,version:VERSION,sessionToken,type:"ready",payload:{}},"*");while(pending.length){const item=pending.shift();post(item.type,item.payload)}}});
+
+function render(){document.getElementById("question").textContent=CONFIG.prompt;const wrap=document.getElementById("options");wrap.innerHTML="";CONFIG.options.forEach(option=>{const button=document.createElement("button");button.type="button";button.className="option"+(selected===option.id?" selected":"");button.disabled=completed;button.innerHTML='<span class="dot" aria-hidden="true"></span><span></span>';button.lastElementChild.textContent=option.label;button.setAttribute("aria-pressed",String(selected===option.id));button.addEventListener("click",()=>{selected=option.id;feedback="";feedbackKind="";post("progress",{value:value()});render()});wrap.appendChild(button)});document.getElementById("submit").disabled=!selected||completed;const box=document.getElementById("feedback");box.hidden=!feedback;box.className="feedback"+(feedbackKind?" "+feedbackKind:"");box.textContent=feedback}
+
+document.getElementById("submit").addEventListener("click",()=>{if(!selected||completed)return;attempts+=1;const correct=selected===CONFIG.correctOptionId;feedback=correct?CONFIG.correctFeedback:CONFIG.incorrectFeedback;feedbackKind=correct?"good":"bad";post("progress",{value:value()});if(correct||attempts>=CONFIG.maxAttempts){completed=true;post("completed",{resultId:CONFIG.id+"-completion",correct,value:value()})}render()});render();
+
+</script><!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html, body { height: 100%; min-height: 0; }
+body { display: block !important; place-items: stretch !important; overflow: auto; }
+#stage, .canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  overflow: auto !important;
+}
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body></html>

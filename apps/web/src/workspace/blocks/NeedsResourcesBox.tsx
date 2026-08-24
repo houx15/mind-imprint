@@ -71,7 +71,7 @@ export function NeedsResourcesBox({
   }
 
   return (
-    <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
+    <div className="rounded-mk-md border border-mk-border bg-mk-surface p-3" data-tour="needs-resources">
       <div className="flex items-center gap-2">
         <Icon name="explore" />
         <h4 className="text-[13px] font-bold text-mk-ink">还需要探索的</h4>

@@ -38,7 +38,7 @@ func TestByID(t *testing.T) {
 	if got.NameEN != "AI Boundary & Hallucination Check" {
 		t.Fatalf("name_en = %q", got.NameEN)
 	}
-	if got.Category != "AI伦理" {
+	if got.Category != "信源核查" {
 		t.Fatalf("category = %q", got.Category)
 	}
 

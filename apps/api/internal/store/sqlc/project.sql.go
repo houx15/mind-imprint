@@ -12,10 +12,81 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countActivityLogByUserProject = `-- name: CountActivityLogByUserProject :many
+SELECT a.project_id, COUNT(*)::int AS n
+FROM activity_log_entry a
+JOIN project p ON p.id = a.project_id
+WHERE p.user_id = $1
+GROUP BY a.project_id
+`
+
+type CountActivityLogByUserProjectRow struct {
+	ProjectID uuid.UUID `json:"project_id"`
+	N         int32     `json:"n"`
+}
+
+// Per-project activity-log totals for the caller's whole project list, in ONE
+// grouped pass. activity_log_entry has no user_id, so join project to scope to
+// the caller; activity_log_entry is indexed on project_id.
+func (q *Queries) CountActivityLogByUserProject(ctx context.Context, userID uuid.UUID) ([]CountActivityLogByUserProjectRow, error) {
+	rows, err := q.db.Query(ctx, countActivityLogByUserProject, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountActivityLogByUserProjectRow
+	for rows.Next() {
+		var i CountActivityLogByUserProjectRow
+		if err := rows.Scan(&i.ProjectID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const countLLMCallsByUserProject = `-- name: CountLLMCallsByUserProject :many
+SELECT project_id, COUNT(*)::int AS n
+FROM llm_call
+WHERE user_id = $1 AND project_id IS NOT NULL
+GROUP BY project_id
+`
+
+type CountLLMCallsByUserProjectRow struct {
+	ProjectID pgtype.UUID `json:"project_id"`
+	N         int32       `json:"n"`
+}
+
+// Per-project AI-call totals for the caller's whole project list, in ONE grouped
+// pass (not N per-project reads). llm_call carries user_id + project_id directly
+// (project_id NULL for course/chat calls, excluded here); indexed on both.
+func (q *Queries) CountLLMCallsByUserProject(ctx context.Context, userID uuid.UUID) ([]CountLLMCallsByUserProjectRow, error) {
+	rows, err := q.db.Query(ctx, countLLMCallsByUserProject, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountLLMCallsByUserProjectRow
+	for rows.Next() {
+		var i CountLLMCallsByUserProjectRow
+		if err := rows.Scan(&i.ProjectID, &i.N); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover
+RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo
 `
 
 type CreateProjectParams struct {
@@ -49,12 +120,13 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.LastActiveAt,
 		&i.StudioState,
 		&i.Cover,
+		&i.IsDemo,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover FROM project WHERE id = $1
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project WHERE id = $1
 `
 
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
@@ -72,6 +144,7 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.LastActiveAt,
 		&i.StudioState,
 		&i.Cover,
+		&i.IsDemo,
 	)
 	return i, err
 }
@@ -87,8 +160,50 @@ func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, err
 	return studio_state, err
 }
 
+const listDemoProjects = `-- name: ListDemoProjects :many
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
+WHERE is_demo = true
+ORDER BY last_active_at DESC
+`
+
+// The world-readable demo project(s) — shown in EVERY authenticated user's list,
+// pinned last and marked isDemo (guided-tour P5). Same columns as
+// ListProjectsByUser so the handler folds both into one projectListItem shape.
+func (q *Queries) ListDemoProjects(ctx context.Context) ([]Project, error) {
+	rows, err := q.db.Query(ctx, listDemoProjects)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Project
+	for rows.Next() {
+		var i Project
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Qualification,
+			&i.Title,
+			&i.Deadline,
+			&i.BoardCfgVer,
+			&i.Status,
+			&i.CreatedAt,
+			&i.LastActiveAt,
+			&i.StudioState,
+			&i.Cover,
+			&i.IsDemo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectsByUser = `-- name: ListProjectsByUser :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover FROM project
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC
 `
@@ -114,6 +229,7 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 			&i.LastActiveAt,
 			&i.StudioState,
 			&i.Cover,
+			&i.IsDemo,
 		); err != nil {
 			return nil, err
 		}

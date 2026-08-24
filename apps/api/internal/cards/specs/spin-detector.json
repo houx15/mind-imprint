@@ -2,7 +2,7 @@
   "id": "spin-detector",
   "placement": "reading-toolkit",
   "asset_id": "T08",
-  "category": "信息素养",
+  "category": "媒介与信息素养",
   "name": "营销与否认套路卡（漂绿 + FLICC）",
   "name_en": "Greenwashing & Denial Tactics",
   "purpose": "两套套路识别器：漂绿——看穿绿色营销里「说的」和「做的」对不上；FLICC——识别否认科学的五类常见手法",
@@ -16,6 +16,21 @@
   "related": ["money-trail", "multimodal-decode"],
   "body_status": "full",
   "rubric_tags": ["D2", "D4", "D5"],
+  "teaching": {
+    "tagline": "两套「话术照妖镜」：漂绿——看穿绿色营销里「说的」和「做的」对不上；FLICC——认出否认科学的五种老套路。",
+    "mnemonic": {
+      "phrase": "FLICC = 假、谬、标、拣、阴",
+      "gloss": "假专家 Fake experts、逻辑谬误 Logical fallacies、不可能的标准 Impossible expectations、挑拣证据 Cherry-picking、阴谋论 Conspiracy theories。"
+    },
+    "steps": [
+      { "title": "漂绿：左右并排对齐", "detail": "左边写它**宣称什么**（100% 可持续、零碳……），右边写它**实际做了什么、有什么证据**。一条条对齐，盯住中间的落差。" },
+      { "title": "漂绿：抓住那道落差", "detail": "只读宣传语你只会被打动，并排放才暴露空话。宣称与行动对不上的那道缝，就是漂绿。" },
+      { "title": "FLICC：给套路命名", "detail": "把可疑句子归到五类之一（假专家 / 逻辑谬误 / 不可能的标准 / 挑拣证据 / 阴谋论），并说清它符合这类的哪一点。命名了，下次一眼就能认出。" },
+      { "title": "点破它在怎么说服你", "detail": "用一句话说明这段在如何影响你——是拿极少数异议冒充势均力敌的争论，还是要求一个没人能满足的证据标准？" }
+    ],
+    "watchOut": "一句话常常**同时踩好几类套路**——「还有科学家不同意呢」既是挑拣证据、又是假专家。别纠结只选一个标签，看清它叠加了哪些手法更重要。",
+    "example": "某品牌宣称「100% 可持续」，一查实际只有包装可回收、生产仍高排放——这道落差就是漂绿；而「气候还在变，但科学家们自己都没吵明白」则是**挑拣证据 + 假专家**，拿极少数异议冒充真正的科学争论。"
+  },
   "steps": [
     {
       "key": "greenwash",

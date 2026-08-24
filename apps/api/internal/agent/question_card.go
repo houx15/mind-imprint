@@ -65,11 +65,18 @@ func QuestionCardTurn(ctx context.Context, prov gateway.Provider, resolved gatew
 	}
 	msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleSystem, Content: sys})
 	for _, h := range in.History {
-		role := gateway.RoleUser
 		if h.Role == "assistant" {
-			role = gateway.RoleAssistant
+			// Re-feed prior AI turns AS their JSON envelope, not the bare narrate
+			// prose we stored. deepseek-v4-pro (chaperone, thinking-off) mirrors the
+			// format of the assistant turns it sees: fed plain Chinese, it abandoned
+			// the "只回 JSON" contract from turn #2 on and answered in prose → every
+			// parse failed → the caller leaked its canned opener verbatim, forever.
+			// Wrapping keeps the whole transcript in-contract so JSON keeps coming.
+			env, _ := json.Marshal(QuestionCardOut{Narrate: h.Content})
+			msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleAssistant, Content: string(env)})
+			continue
 		}
-		msgs = append(msgs, gateway.ChatMessage{Role: role, Content: h.Content})
+		msgs = append(msgs, gateway.ChatMessage{Role: gateway.RoleUser, Content: h.Content})
 	}
 	// A generous cap (matching the provider default): deepseek-v4-pro can spend
 	// budget on hidden reasoning even under the chaperone tier's thinking:disabled,

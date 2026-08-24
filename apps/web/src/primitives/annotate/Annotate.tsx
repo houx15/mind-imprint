@@ -33,7 +33,14 @@ export type AnnotateProps = {
    * default — behavior is unchanged when it is not supplied.
    */
   onReferenceBlock?: (blockId: string) => void;
-  /** Block ids currently referenced — rendered with a subtle highlight. */
+  /**
+   * Drag-select a phrase/sentence to reference it (引用原文, fine-grained).
+   * Fired on mouse-up when a real (non-collapsed) text selection exists AND
+   * `selectMode` is null. Lets her quote an arbitrary span into the chat, not
+   * only a whole paragraph. Absent by default — behavior unchanged.
+   */
+  onReferenceSelection?: (blockId: string, quote: string) => void;
+  /** Block ids currently referenced (whole-paragraph) — rendered with a subtle highlight. */
   referencedBlockIds?: string[];
 };
 
@@ -57,6 +64,7 @@ export function Annotate({
   onCreateSpan,
   renderAfterBlock,
   onReferenceBlock,
+  onReferenceSelection,
   referencedBlockIds,
 }: AnnotateProps) {
   const activeSpan = activeSpanId ? state.spans.find((s) => s.id === activeSpanId) ?? null : null;
@@ -93,16 +101,26 @@ export function Annotate({
     onCreateSpan({ blockId: block.id, start: sel.start, end: sel.end, text: sel.text });
   };
 
-  // Attached only when selectMode is set — with it absent, no handler exists
-  // on the element and behavior is unchanged. A drag ends in a real text
-  // selection; a plain click leaves it collapsed and is handled by the block
-  // onClick (pickBlock) instead, so the two never double-fire.
+  // Attached in select-mode (pick evidence) OR reference-mode (quote into the
+  // chat). A drag ends in a real text selection; a plain click leaves it
+  // collapsed → selectionToSpan returns null → the block onClick handles it
+  // instead, so the two never double-fire. In reference-mode the block onClick
+  // additionally bails when a live selection exists, so a drag never ALSO
+  // toggles the whole paragraph.
   const handleMouseUp = selectMode
     ? () => {
         const span = selectionToSpan();
         if (span) onCreateSpan?.(span);
       }
-    : undefined;
+    : referenceEnabled && onReferenceSelection
+      ? () => {
+          const span = selectionToSpan();
+          if (span && span.text.trim()) {
+            onReferenceSelection(span.blockId, span.text.trim());
+            window.getSelection()?.removeAllRanges();
+          }
+        }
+      : undefined;
 
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
@@ -151,7 +169,13 @@ export function Annotate({
                   selectMode
                     ? (e) => pickSentence(block, e.clientX, e.clientY)
                     : referenceEnabled
-                      ? () => onReferenceBlock?.(block.id)
+                      ? () => {
+                          // A drag-select just fired onReferenceSelection via
+                          // mouse-up; don't ALSO toggle the whole paragraph.
+                          const sel = window.getSelection();
+                          if (sel && !sel.isCollapsed && sel.toString().trim()) return;
+                          onReferenceBlock?.(block.id);
+                        }
                       : undefined
                 }
                 style={{
@@ -215,7 +239,10 @@ export function Annotate({
       </div>
 
       {activeSpan && (
-        <div style={{ marginTop: 14, background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}>
+        <div
+          data-tour="rr-inline-card"
+          style={{ marginTop: 14, background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}
+        >
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
           <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
         </div>

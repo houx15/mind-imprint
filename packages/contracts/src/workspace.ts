@@ -29,5 +29,8 @@ export const WorkspaceProjection = z.object({
     .object({ proposal: z.boolean(), essay: z.boolean() })
     .optional()
     .default({ proposal: false, essay: false }),
+  // Guided-tour P2 · true for the shared, read-only demo project. Optional
+  // (defaults false) so older mocks/responses still parse.
+  isDemo: z.boolean().optional().default(false),
 });
 export type WorkspaceProjection = z.infer<typeof WorkspaceProjection>;

@@ -71,7 +71,7 @@ interface AxisDimCardProps {
 
 function AxisDimCard({ code, name, means, tier, summary, evidence, suggestion }: AxisDimCardProps) {
   return (
-    <Surface level="md" radius="md" className="overflow-hidden p-0" data-testid={`axis-dim-${code}`}>
+    <Surface level="md" radius="md" className="overflow-hidden p-0" data-testid={`axis-dim-${code}`} data-tour={`axis-dim-${code}`}>
       <div className="flex items-stretch">
         <span aria-hidden className="w-2 shrink-0" style={{ background: tier.bar }} data-dim-bar={code} />
         <div className="min-w-0 flex-1 p-4">

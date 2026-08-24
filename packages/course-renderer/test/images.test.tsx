@@ -56,11 +56,69 @@ describe("ImagesRenderer", () => {
     expect(events[0]).toMatchObject({ sourceId: "pics", type: "image.selected", payload: { itemId: "item-2" } });
   });
 
+  it("gallery nav is overlay arrows on the image's sides, not a bar below it (bug: nav hidden until scroll)", () => {
+    const { container } = renderImages(block("gallery", 3));
+    const stage = container.querySelector(".course-images__gallery-stage");
+    expect(stage).toBeTruthy();
+    // Both arrows live INSIDE the image stage (overlaid on its left/right),
+    // so a tall image can no longer push them out of the visible slot area.
+    const prev = stage!.querySelector('[data-nav="prev"]');
+    const next = stage!.querySelector('[data-nav="next"]');
+    expect(prev).toHaveClass("course-images__nav-arrow");
+    expect(next).toHaveClass("course-images__nav-arrow");
+    // Accessible names are preserved (the arrows are the prev/next controls).
+    expect(prev).toHaveAttribute("aria-label", "上一张");
+    expect(next).toHaveAttribute("aria-label", "下一张");
+    // The position indicator is still shown.
+    expect(container.querySelector("[data-gallery-position]")).toHaveTextContent("1 / 3");
+  });
+
   it("focusedItemId marks the matching item", () => {
     const { container } = renderImages(block("side-by-side", 2), { focusedItemId: "item-2" });
     const focused = container.querySelectorAll('[data-focused="true"]');
     expect(focused).toHaveLength(1);
     expect(focused[0]).toHaveAttribute("data-item-id", "item-2");
+  });
+
+  it("clicking a figure opens the lightbox with the enlarged image + caption", async () => {
+    const user = userEvent.setup();
+    const withCaption: ImagesBlock = {
+      id: "pics",
+      type: "images",
+      presentation: "single",
+      items: [{ id: "item-1", source: "img/1.png", alt: "alt 1", caption: "一张示意图" }],
+    };
+    renderImages(withCaption);
+    // no lightbox until clicked
+    expect(screen.queryByRole("dialog")).toBeNull();
+
+    await user.click(screen.getByRole("button", { name: /放大图片/ }));
+
+    const dialog = screen.getByRole("dialog");
+    const big = dialog.querySelector("img.course-lightbox__img");
+    expect(big).toHaveAttribute("src", "/resolved/img/1.png");
+    expect(dialog).toHaveTextContent("一张示意图");
+  });
+
+  it("Escape closes the lightbox", async () => {
+    const user = userEvent.setup();
+    renderImages(block("single", 1));
+    await user.click(screen.getByRole("button", { name: /放大图片/ }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("clicking the backdrop closes the lightbox", async () => {
+    const user = userEvent.setup();
+    renderImages(block("single", 1));
+    await user.click(screen.getByRole("button", { name: /放大图片/ }));
+
+    const backdrop = document.querySelector(".course-lightbox__backdrop");
+    expect(backdrop).toBeTruthy();
+    await user.click(backdrop as Element);
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   // P1-11: unlike video/iframe, swapping an image's src on a signed-URL

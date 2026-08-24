@@ -11,6 +11,33 @@ SELECT * FROM project
 WHERE user_id = $1
 ORDER BY last_active_at DESC;
 
+-- name: ListDemoProjects :many
+-- The world-readable demo project(s) — shown in EVERY authenticated user's list,
+-- pinned last and marked isDemo (guided-tour P5). Same columns as
+-- ListProjectsByUser so the handler folds both into one projectListItem shape.
+SELECT * FROM project
+WHERE is_demo = true
+ORDER BY last_active_at DESC;
+
+-- name: CountLLMCallsByUserProject :many
+-- Per-project AI-call totals for the caller's whole project list, in ONE grouped
+-- pass (not N per-project reads). llm_call carries user_id + project_id directly
+-- (project_id NULL for course/chat calls, excluded here); indexed on both.
+SELECT project_id, COUNT(*)::int AS n
+FROM llm_call
+WHERE user_id = $1 AND project_id IS NOT NULL
+GROUP BY project_id;
+
+-- name: CountActivityLogByUserProject :many
+-- Per-project activity-log totals for the caller's whole project list, in ONE
+-- grouped pass. activity_log_entry has no user_id, so join project to scope to
+-- the caller; activity_log_entry is indexed on project_id.
+SELECT a.project_id, COUNT(*)::int AS n
+FROM activity_log_entry a
+JOIN project p ON p.id = a.project_id
+WHERE p.user_id = $1
+GROUP BY a.project_id;
+
 -- name: TouchProject :exec
 UPDATE project SET last_active_at = now() WHERE id = $1;
 

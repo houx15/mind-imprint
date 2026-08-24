@@ -19,7 +19,10 @@ describe("CoursesView", () => {
     (api.listCourses as any).mockResolvedValue([course]);
     render(<CoursesView />);
     expect(await screen.findByText("一条网络信息，该不该信")).toBeInTheDocument();
-    expect(screen.getByText("3 个任务 · 4 个工具")).toBeInTheDocument();
+    // The three metadata facts now render as separate coloured tags, not one
+    // grey run of text.
+    expect(screen.getByText("3 个任务")).toBeInTheDocument();
+    expect(screen.getByText("4 个工具")).toBeInTheDocument();
     expect(screen.getByText("约 40 分钟")).toBeInTheDocument();
   });
   it("renders the empty state when there are no courses", async () => {

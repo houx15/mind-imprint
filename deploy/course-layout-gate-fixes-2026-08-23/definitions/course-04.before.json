@@ -1,0 +1,6035 @@
+{
+ "course": {
+  "id": "course-04",
+  "parts": [
+   {
+    "id": "part-1-watch-first",
+    "title": "第一部分 · 先当一次观众",
+    "slices": [
+     {
+      "id": "slice-what-this-course-asks",
+      "title": "这门课要你做的事，和大多数「拆穿视频」的课不一样",
+      "blocks": [
+       {
+        "id": "s1-framing",
+        "type": "text",
+        "content": "多数「拆穿视频」的课是这样上的：让你看 A，再看 B，然后记住 B 的结论。\n\n那教的是换一个人相信，不是核查。\n\n这门课的做法不同。你会拿到两段视频：一段是被核查对象，一段是核查它的人。两段都是被核查对象。 你手里的工具，对谁都一样用。"
+       },
+       {
+        "id": "s1-bookends",
+        "type": "images",
+        "items": [
+         {
+          "id": "s1-bookends-item-1",
+          "alt": "影片开场画面：呈现「人正在死亡、生态系统崩溃、大灭绝开始」的气候危机叙事，作为全片要反击的对象",
+          "source": "assets/images/c01-crisis-opening.png",
+          "caption": "开场 C01 · 影片要反击的对象"
+         },
+         {
+          "id": "s1-bookends-item-2",
+          "alt": "影片结尾画面：得出「气候变化是被发明出来的恐慌」这一总括性结论",
+          "source": "assets/images/c81-invented-panic.png",
+          "caption": "结尾 C81 · 全片的总括结论"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s1-bookend-note",
+        "type": "text",
+        "content": "课程结束时，你应该能说出的不是「否认派用五种手法」，而是「这几种手法是可识别的行为模式，而我手里的尺子对谁都一样用」。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s1-framing"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s1-bookends",
+          "s1-bookend-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s1-framing",
+         "s1-bookends",
+         "s1-bookend-note"
+        ],
+        "visibleBlockIds": [
+         "s1-framing",
+         "s1-bookends",
+         "s1-bookend-note"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-what-this-course-asks",
+        "text": "这门课不是让你换一个人相信。两段视频都是被核查对象，你手里的工具对谁都一样用。",
+        "audio": "assets/audio/narration/slice-what-this-course-asks.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-two-materials-and-the-task",
+      "title": "两份材料，和进去之前要接的那个任务",
+      "blocks": [
+       {
+        "id": "s2-materials",
+        "type": "text",
+        "content": "#### 你会用到的两份材料\n\n材料 A（被核查对象） Martin Durkin《气候：真相》Climate: The Movie (The Cold Truth)，2024-03-21 发布，约 80 分钟。全片标注编号 C01–C81，共 81 条主张，无缺号。\n\n材料 B（核查方，同时也是被核查对象） potholer54（Peter Hadfield）*All the errors and fakery from \"Climate: The Movie (The Cold Truth)\" that I can fit in*，2024-08-10 发布。标注编号 R01–R55，共 55 条，无缺号。"
+       },
+       {
+        "id": "s2-tally-task",
+        "type": "text",
+        "content": "#### 进去之前，先接一个任务\n\n影片约 80 分钟。每听到一条可以被检验的主张，就记一笔。\n\n不用记内容，记数量就行。看完之后我会问你这个数字——它本身就是这门课要教的东西之一。"
+       },
+       {
+        "id": "s2-pause-notice",
+        "type": "text",
+        "content": "看片过程中会有若干次暂停提问。有些问题我不会给你答案，只会给你一个要去查的动作。这是故意的。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s2-materials"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s2-tally-task",
+          "s2-pause-notice"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s2-materials",
+         "s2-tally-task",
+         "s2-pause-notice"
+        ],
+        "visibleBlockIds": [
+         "s2-materials",
+         "s2-tally-task",
+         "s2-pause-notice"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-two-materials-and-the-task",
+        "text": "记住两份材料的编号体系。进去之前先接一个任务：每听到一条可以被检验的主张，就记一笔。",
+        "audio": "assets/audio/narration/slice-two-materials-and-the-task.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "slice-watch-the-film",
+      "title": "看片：Climate: The Movie（79:56）",
+      "blocks": [
+       {
+        "id": "s3-video",
+        "type": "video",
+        "source": "assets/videos/climate-the-movie.mp4",
+        "completion": {
+         "rule": "video-ended"
+        },
+        "interaction": {
+         "source": "interactions/video/climate-the-movie.json"
+        },
+        "durationSeconds": 4795.711
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "s3-video"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s3-video"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s3-video"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s3-video"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s3-video"
+        ],
+        "visibleBlockIds": [
+         "s3-video"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-watch-the-film",
+        "text": "无工具，先完整看一遍。片子里会有若干次暂停提问，有些问题不会给你答案，只给你一个要去查的动作。",
+        "audio": "assets/audio/narration/slice-watch-the-film.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 5100
+     },
+     {
+      "id": "slice-count-what-you-heard",
+      "title": "你刚才记了多少条",
+      "blocks": [
+       {
+        "id": "s4-recall",
+        "type": "text",
+        "content": "#### 先把你的数字写下来\n\n八十分钟过去了。现在回收进片前接的那个任务。\n\n先别看任何提示，也别回去重数——就写你当时记下的那个数。这个数字本身就是这门课要教的东西之一，它准不准并不重要，重要的是它和真实数量之间的差。\n\n第二问和数字同样重要：有人要求你「全部查完再来反驳」，这个要求本身合理吗？想一想这个要求的成本落在谁身上。"
+       },
+       {
+        "id": "s4-tally-report",
+        "type": "fillBlank",
+        "prompt": "把你记的数字写下来，再回答一个问题。\n\n（1）你数出了多少条可被检验的主张？\n（2）如果有人要求你「全部查完再来反驳」，这个要求本身合理吗？为什么？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "两问都要答。第二问不能只答是或否——要写出理由，说明「全部查完」这个要求的成本落在谁身上。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "s4-tally-reveal",
+        "type": "text",
+        "content": "#### 教师标注的数字\n\n81 条主张 / 约 80 分钟 —— 平均每分钟一条。\n\n如果你数出来的比这个少很多，那很正常：一条接一条地抛出来时，人是数不过来的。这恰好是这个手法生效的方式。\n\n#### 第六种手法：Gish gallop（散弹枪）\n\n它不在下一部分要讲的那五种里，但这门课要单独教它。\n\n堆量本身就是手法。它不是想让你相信某一条，而是让你在查完第三条之前就放弃，于是退回到那句听起来很中立的话——「总有几条是真的吧」。\n\n所以这门课不要求你全查。它要求你学会分诊：先判断这条值不值得查，以及哪种查法最便宜。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s4-recall"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s4-tally-report",
+          "s4-tally-reveal"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s4-tally-report"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s4-tally-report"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s4-tally-report"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s4-tally-reveal"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s4-recall",
+         "s4-tally-report"
+        ],
+        "visibleBlockIds": [
+         "s4-recall",
+         "s4-tally-report"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-count-what-you-heard",
+        "text": "先写下你自己的数字，再看教师标注的数字。差多少，就是这个手法生效的程度。",
+        "audio": "assets/audio/narration/slice-count-what-you-heard.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 300
+     }
+    ],
+    "objectiveIds": [
+     "flicc-objective-2",
+     "flicc-objective-1"
+    ]
+   },
+   {
+    "id": "part-2-five-techniques",
+    "title": "第二部分 · 五种手法，和它们的边界",
+    "slices": [
+     {
+      "id": "slice-flicc-framework",
+      "title": "FLICC：科学否认的五种手法",
+      "blocks": [
+       {
+        "id": "s5-flicc-table",
+        "type": "text",
+        "content": "FLICC 是五种科学否认手法的首字母。\n\n| 手法 | 含义 | 本片典型 | 英文触发词 |\n| --- | --- | --- | --- |\n| F 假专家 · Fake experts | 抬出没有相关专业的人，或曲解真专家 | C40：由量子纠缠领域的诺奖得主断言「云比 CO₂ 重要数百倍」 | what is important is clouds |\n| L 逻辑谬误 · Logical fallacies | 推理本身有漏洞 | C33：「CO₂ 只占 0.04%，所以不可能影响气候」 | trace gas |\n| I 不可能的标准 · Impossible expectations | 要求科学给出它本不可能给的百分百确定 | C13：「没有任何科学是定论的」 | no science is ever settled |\n| C 选择性挑选 · Cherry-picking | 只挑有利的数据、时段、图表 | C19：Ljungqvist 图末端的器测温度线被抹掉 | warmer than today |\n| C 阴谋论 · Conspiracy theories | 用「他们在合谋」解释一切 | C61：NASA/IPCC 不能说变暖不是问题，否则经费与存在理由消失 | self-preservation instinct |"
+       },
+       {
+        "id": "s5-trigger-note",
+        "type": "text",
+        "content": "注意最后一列。触发词是你的检索入口——它让你能在 80 分钟的字幕里定位到具体那一句，而不是凭印象争论「影片是不是这个意思」。"
+       },
+       {
+        "id": "s5-provenance",
+        "type": "text",
+        "content": "#### 这套框架自己的出处\n\n一门教溯源的课，自己不能挂错引用。所以这里把 FLICC 的来历完整交代：\n\n- 五类原型：Mark Hoofnagle，2007，博客 *Denialism*\n- 学术化：Diethelm & McKee，2009，*European Journal of Public Health* 19(1): 2–4\n- 缩写 FLICC 与教学框架化：John Cook，2013 年一次青年工作坊上定型，2015 年成为 Denial101x 课程主干；扩展分类见 Cook, Ellerton & Kinkead, 2018, *Environmental Research Letters* 13: 024018\n\n如果你以后引用「FLICC 五手法」，引的应该是这几条，而不是这门课。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s5-flicc-table"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s5-trigger-note",
+          "s5-provenance"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s5-flicc-table",
+         "s5-trigger-note",
+         "s5-provenance"
+        ],
+        "visibleBlockIds": [
+         "s5-flicc-table",
+         "s5-trigger-note",
+         "s5-provenance"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-flicc-framework",
+        "text": "五个字母，五种手法。注意最后一列的英文触发词，它是你回到字幕原句的入口。",
+        "audio": "assets/audio/narration/slice-flicc-framework.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "slice-claim-bank-howto",
+      "title": "主张库怎么用",
+      "blocks": [
+       {
+        "id": "s6-claim-bank-howto",
+        "type": "text",
+        "content": "主张库把 81 条按手法分区。每条包含：影片说了什么 / 编号与触发词 / 拿哪份来源去对 / 对出什么。"
+       },
+       {
+        "id": "s6-next-pages",
+        "type": "text",
+        "content": "接下来四页是分区表：先看逻辑谬误的四组，再看不可能的标准与选择性挑选，最后是阴谋论。\n\n不用背。 这几页是索引，第三到第五部分动手时你会回来查它。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s6-claim-bank-howto"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s6-next-pages"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s6-claim-bank-howto",
+         "s6-next-pages"
+        ],
+        "visibleBlockIds": [
+         "s6-claim-bank-howto",
+         "s6-next-pages"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-bank-howto",
+        "text": "一门教溯源的课，自己不能挂错引用。FLICC 的来历在这里完整交代。",
+        "audio": "assets/audio/narration/slice-claim-bank-howto.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "slice-claim-bank-trace-and-cause",
+      "title": "主张库 · 逻辑谬误（L）：痕量谬误与因果方向",
+      "blocks": [
+       {
+        "id": "s7-trace",
+        "type": "text",
+        "content": "#### 逻辑谬误（L）· 痕量谬误与内部矛盾\n\n| 编号 | 影片主张 | 对出什么 |\n| --- | --- | --- |\n| C33 | CO₂ 只是 0.04% 的痕量气体，因此需先证明它能影响气候 | 科学关心的是额外 CO₂ 的辐射强迫与由此造成的变暖，不是它占多少百分比。量小不等于作用小 |\n| C32 | 末次盛冰期 CO₂ 低到几乎让地球生命灭绝 | 这与 C33 不能同时成立 |\n| C31 | CO₂ 是植物食物，高 CO₂ 带来更绿的世界 | 最高 CO₂ 的寒武纪并不绿；低 CO₂ 的石炭纪反而有大森林 |"
+       },
+       {
+        "id": "s7-cause",
+        "type": "text",
+        "content": "#### 逻辑谬误（L）· 因果方向与替代机制\n\n| 编号 | 影片主张 | 对出什么 |\n| --- | --- | --- |\n| C34 | 冰芯显示温度先变、CO₂ 后变，因果方向相反 | 冰期旋回中轨道变化触发初始变暖，但 CO₂ 造成大部分增暖并推动进出冰期。驱动（forcing）与反馈（feedback）不是互斥的 |\n| C21 | 今天观察到的大部分变暖是小冰期恢复 | 「恢复」不是机制。要问：是什么在推动它恢复？能量从哪来？ |\n| C39 | 所有模型都基于 CO₂ 驱动气温的错误假设 | 影片没回答前一个问题就跳到结论；模型的强迫项不止 CO₂ |\n\n这一组的判据是：指出一个替代因子，不等于排除原来那个因子。 一样东西可以既是结果也是原因。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s7-trace"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s7-cause"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s7-trace",
+         "s7-cause"
+        ],
+        "visibleBlockIds": [
+         "s7-trace",
+         "s7-cause"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-bank-trace-and-cause",
+        "text": "左边这三条能在材料内部互相打架，右边这三条是因果方向问题。两组的核查成本完全不同。",
+        "audio": "assets/audio/narration/slice-claim-bank-trace-and-cause.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-claim-bank-scale-and-strawman",
+      "title": "主张库 · 逻辑谬误（L）：尺度偷换与稻草人",
+      "blocks": [
+       {
+        "id": "s8-scale",
+        "type": "text",
+        "content": "#### 逻辑谬误（L）· 尺度偷换\n\n| 编号 | 影片主张 | 触发词 | 偷换在哪 |\n| --- | --- | --- | --- |\n| C16 | 从过去五亿年看，现在地球异常寒冷 | exceptionally cold | 深时尺度回答不了人类文明尺度的风险 |\n| C18 | 地球处在五千万年降温期尾端 | tail end of a 50 million year | 长期趋势不否定短期人为强迫 |\n| C30 | 地质史中 CO₂ 大多远高于今天 | CO2 today is close to being as low | 浓度高低 ≠ 变化速率 |\n| C43 | 数千年海洋温度变化显然由太阳活动造成 | variations in solar activity | 宇宙射线机制是 2 亿年尺度，解释不了近代变暖 |\n| C42 | 太阳风屏蔽宇宙射线、减少云量，使地球变暖 | solar wind | 11 年周期与云量、全球温度都不匹配 |"
+       },
+       {
+        "id": "s8-strawman",
+        "type": "text",
+        "content": "#### 逻辑谬误（L）· 稻草人\n\n| 编号 | 影片主张 | 对出什么 |\n| --- | --- | --- |\n| C15 | 「我们被告知当前温度前所未有、危险地高」 | 没有任何研究说当前温度在地质史上前所未有。先虚构这个说法，再请受访者讲地质学本科常识来推翻它 |\n| — | 「1.5℃ 会导致文明终结」 | 这句话不在科学文献里 |\n| — | 1970 年代科学界预测新冰期 | 那是杂志封面故事，不是学术文献 |\n\n这一组的核查动作极简单：去片子里找那个「有人说」的引用源。 大概率找不到，而找不到本身就是结论。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s8-scale"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s8-strawman"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s8-scale",
+         "s8-strawman"
+        ],
+        "visibleBlockIds": [
+         "s8-scale",
+         "s8-strawman"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-bank-scale-and-strawman",
+        "text": "尺度偷换是拿五亿年回答一百年的问题；稻草人是先虚构一个没人主张的说法，再用真常识推翻它。",
+        "audio": "assets/audio/narration/slice-claim-bank-scale-and-strawman.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-claim-bank-impossible-and-cherry",
+      "title": "主张库 · 不可能的标准（I）与选择性挑选（C）",
+      "blocks": [
+       {
+        "id": "s9-impossible",
+        "type": "text",
+        "content": "#### 不可能的标准（I）\n\n| 编号 | 影片主张 | 为什么是 I |\n| --- | --- | --- |\n| C13 | 「科学真理不由共识决定，没有任何科学是定论的」 | 孤立看是对的，但被当作否定一切结论的万能钥匙：既然永远不是 100%，那就永远不必行动 |\n| C45 | 「IPCC 自己也显示很难发现极端天气趋势」 | 截取了报告中确实审慎的表述，推广为「什么都测不出」 |\n| C28 | 卫星测温比地面网更好，并不显示令人警觉的升温 | 卫星并非天然更好——它测的是辐射，温度需要复杂反演 |\n| C38 | 气候模型投入巨大但普遍跑得太热 | 模型给的是情景集合，不是一条线 |"
+       },
+       {
+        "id": "s9-cherry",
+        "type": "text",
+        "content": "#### 选择性挑选（C）\n\n| 编号 | 影片主张 | 触发词 | 挑选在哪 |\n| --- | --- | --- | --- |\n| C19 | 罗马暖期、中世纪暖期与今天一样暖或更暖 | warmer than today | 图末端的器测温度线被抹掉 |\n| C22 | 纽约中央公园自 1940 年以来没有升温 | New York Central Park | 单点记录淡化全球平均 |\n| C25 | 只用农村气象站会得到完全不同图景 | best rural station | 真实的城乡分离研究并不支持 |\n| C46 | 美国 1930 年代热浪更多更热 | 1930s were far more prone to heat waves | 美国 ≠ 全球 |\n| C48 | 全球野火数量下降 | forest fires | 数量、面积、强度、区域是四个不同指标 |\n| C51 | 北极熊数量在增长，大堡礁达到纪录水平 | polar bears | 选择性正例 |"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s9-impossible"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s9-cherry"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s9-impossible",
+         "s9-cherry"
+        ],
+        "visibleBlockIds": [
+         "s9-impossible",
+         "s9-cherry"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-bank-impossible-and-cherry",
+        "text": "左边是「永远不是百分之百，所以永远不必行动」；右边是只挑有利的数据、时段和图表。",
+        "audio": "assets/audio/narration/slice-claim-bank-impossible-and-cherry.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-claim-bank-conspiracy",
+      "title": "主张库 · 阴谋论（C）",
+      "blocks": [
+       {
+        "id": "s10-conspiracy",
+        "type": "text",
+        "content": "#### 阴谋论（C）\n\n| 编号 | 影片主张 | 手法 |\n| --- | --- | --- |\n| C02 / C03 | 气候议题是涉及数万亿美元的骗局 | 以资金规模推出骗局性质。规模大不等于内容假 |\n| C04 / C54 | 研究者只需在课题名里加 climate 就能拿钱 | 诉诸动机 |\n| C61 | NASA/IPCC 不能说变暖不是问题，否则经费消失 | 不可证伪的合谋叙事 |\n| C64 | 所谓共识是通过排除怀疑者制造出来的 | 把共识形成解释为筛除异见 |\n| C69 / C81 | 共识已成邪教；气候变化是被发明出来的恐慌 | 总括性阴谋结论——需要拆回前面所有证据链 |"
+       },
+       {
+        "id": "s10-common",
+        "type": "text",
+        "content": "#### 这一格的共同点\n\n把这五行放在一起看，它们用的是同一个动作：用「谁在得利」替换「证据是什么」。\n\n- 以资金规模推出骗局性质——规模大不等于内容假；\n- 以职业动机推出结论不可信——动机可能相关，但不能替代证据核查；\n- 以机构自保解释一切——这种叙事不可证伪，任何反例都能被解释成「他们在掩盖」。\n\n动机不是不能问。问题在于它回答不了原来那个问题：温度到底是多少，那张图有没有被动过手脚。\n\n#### 下一页：一次成本为零的核查\n\n看完这六页分区表，先做一件最便宜的事——不打开任何论文，只把同一份材料里的两句话放在一起读。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s10-conspiracy"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s10-common"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s10-conspiracy",
+         "s10-common"
+        ],
+        "visibleBlockIds": [
+         "s10-conspiracy",
+         "s10-common"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-bank-conspiracy",
+        "text": "动机不是不能问，问题在于它回答不了原来那个问题：温度到底是多少。",
+        "audio": "assets/audio/narration/slice-claim-bank-conspiracy.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "slice-inner-consistency",
+      "title": "零成本的核查：C32 和 C33 能同时成立吗",
+      "blocks": [
+       {
+        "id": "s11-pair",
+        "type": "text",
+        "content": "#### 把这两条放在一起读\n\n主张库里有两条，都在影片的同一段里出现过。\n\nC33 —— CO₂ 只是 0.04% 的痕量气体，量太小，因此需先证明它能影响气候。\n触发词：*trace gas*\n\nC32 —— 末次盛冰期 CO₂ 低到几乎让地球生命灭绝。\n\n现在只做一件事：把这两句话放在一起读一遍，然后判断它们的关系。\n\n你不需要打开任何论文，也不需要任何数据集。"
+       },
+       {
+        "id": "s11-coda",
+        "type": "text",
+        "content": "而且它有一个别的核查没有的性质：它无法用立场化解。 你可以说某份数据有争议、某个机构有动机，但你没法说「这两条互斥是因为科学家有偏见」——互斥是材料自己造成的。\n\n所以分诊的第一问永远是：这条能不能在材料内部解决？ 能，就先做这个。"
+       },
+       {
+        "id": "s11-check",
+        "type": "singleChoice",
+        "prompt": "回到 C32 和 C33 这一对：C33 说 CO₂ 只占 0.04%，量太小不可能影响气候；C32 说末次盛冰期 CO₂ 低到几乎让地球生命灭绝。这两条的关系是什么？",
+        "options": [
+         {
+          "id": "compatible",
+          "label": "可以同时成立，说的是不同时期"
+         },
+         {
+          "id": "mutually-exclusive",
+          "label": "不能同时成立——一条说 CO₂ 的微小变化生死攸关，另一条说 CO₂ 太少不可能有影响"
+         },
+         {
+          "id": "need-data",
+          "label": "要查外部数据才能判断"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "mutually-exclusive"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s11-explain",
+        "type": "text",
+        "content": "#### 为什么这一条特别值钱\n\n答案是：不能同时成立。\n\nC33 的论证方式是「量太小，所以作用可以忽略」。C32 的论证方式是「量再少一点，生命就灭绝了」——也就是说，CO₂ 浓度的微小变化后果极其严重。这两个论证要往相反的方向用力。\n\n这次核查的成本是零。\n\n你不需要打开任何论文，不需要任何数据集，不需要懂辐射物理。你只需要把同一份材料里的两句话放在一起读。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s11-pair",
+          "s11-coda"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s11-check",
+          "s11-explain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s11-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s11-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s11-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s11-explain"
+          },
+          {
+           "type": "show",
+           "targetId": "s11-coda"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s11-pair",
+         "s11-check"
+        ],
+        "visibleBlockIds": [
+         "s11-pair",
+         "s11-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-inner-consistency",
+        "text": "这一次核查的成本是零：不需要外部来源，只需要把同一份材料里的两句话放在一起读。",
+        "audio": "assets/audio/narration/slice-inner-consistency.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-not-a-label-gun",
+      "title": "手法不是标签：这套工具管不到哪里",
+      "blocks": [
+       {
+        "id": "s12-range-table",
+        "type": "text",
+        "content": "把 81 条按影片段落摊开，会看到一件事：\n\n| 段落 | 编号 | 条数 | 反驳片覆盖情况 |\n| --- | --- | --- | --- |\n| 框架段 | C01–C14 | 14 | 部分（R07–R11 处理稻草人与论证结构） |\n| 科学段 | C15–C52 | 38 | 密集覆盖——R12 至 R53 几乎全在这里 |\n| 政治段 | C53–C81 | 29 | 几乎没有。仅 R54、R55 触及 |\n\n科研经费激励、能源政策、发展伦理、阶级政治——这些是政策与价值争论，不是科学主张。\n\n这门课不把 FLICC 套在政治段上。"
+       },
+       {
+        "id": "s12-range-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "s12-range-images-item-1",
+          "alt": "影片把气候研究经费的增长与政治动机联系起来的画面",
+          "source": "assets/images/c53-funding-growth.jpg",
+          "caption": "C53 · 政治段：研究经费与政治动机"
+         },
+         {
+          "id": "s12-range-images-item-2",
+          "alt": "影片讲述「所谓科学共识是被制造出来的」的画面",
+          "source": "assets/images/c64-consensus-narrative.jpg",
+          "caption": "C64 · 政治段：共识是被制造出来的"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s12-check",
+        "type": "singleChoice",
+        "prompt": "影片从 C53 开始转入研究经费、学术压制、能源政策、发展伦理。这些主张适合用五种科学否认技法去分类吗？",
+        "options": [
+         {
+          "id": "yes-same",
+          "label": "适合，手法是一样的"
+         },
+         {
+          "id": "no-different",
+          "label": "不适合——这些是政策与价值争论，不是科学主张"
+         },
+         {
+          "id": "only-conspiracy",
+          "label": "只有阴谋论那一格适合"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "no-different"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s12-explain",
+        "type": "text",
+        "content": "#### 为什么这是一条红线\n\n因为工具用错地方不会报错，它只会给出一个像结论的东西。\n\n如果课堂开始给政治主张贴否认技法标签，会养出一个很危险的习惯：凡是我不同意的政治立场，都能贴一个技法标签打发掉。那不是核查，那是换了一套词汇的立场斗争。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s12-range-table",
+          "s12-range-images"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s12-check",
+          "s12-explain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s12-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s12-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s12-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s12-explain"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s12-range-table",
+         "s12-range-images",
+         "s12-check"
+        ],
+        "visibleBlockIds": [
+         "s12-range-table",
+         "s12-range-images",
+         "s12-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-not-a-label-gun",
+        "text": "工具用错地方不会报错，它只会给出一个像结论的东西。这是这门课的红线。",
+        "audio": "assets/audio/narration/slice-not-a-label-gun.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-political-claims-other-questions",
+      "title": "政治主张要问的是另一套问题",
+      "blocks": [
+       {
+        "id": "s12b-other-questions",
+        "type": "text",
+        "content": "#### 政治主张要问的是另一套问题\n\n- 这项政策的成本由谁承担？\n- 这个数字的分母是什么？\n- 支持方与反对方各自最强的论证是什么？\n- 涉及具体指控（比如「某人因异见被解雇」）时：实名、时间、机构、有无申诉记录？\n\n这些问题也有答案，也能查，但那是另一门课的内容。"
+       },
+       {
+        "id": "s12b-not-processed",
+        "type": "text",
+        "content": "#### 还有一句必须记住的\n\n那 29 条没被反驳片处理，不等于它们为真，也不等于为假。它只说明：科学核查这把尺子量不到那里。\n\n「没被处理」和「已被证实」之间，隔着一整个学科。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s12b-other-questions"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s12b-not-processed"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s12b-other-questions",
+         "s12b-not-processed"
+        ],
+        "visibleBlockIds": [
+         "s12b-other-questions",
+         "s12b-not-processed"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-political-claims-other-questions",
+        "text": "这些问题也有答案，也能查，但那是另一门课。而「没被处理」和「已被证实」之间，隔着一整个学科。",
+        "audio": "assets/audio/narration/slice-political-claims-other-questions.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "slice-roster-brief",
+      "title": "为什么假专家需要一份单独的名册",
+      "blocks": [
+       {
+        "id": "s13-roster-why",
+        "type": "text",
+        "content": "#### 为什么要单独做一份名册\n\n因为「假专家」抓不进以主张为单位的索引。\n\nC 表的每一行是一条主张，而 F 是发言人的属性：同一个人可能在一处内行、在另一处越界。所以这一格需要一份单独的作业单——按人来看，不按主张来看。\n\n#### 名册要问的那个问题\n\n「这个人的训练，与他在片中作出的这个具体断言，匹配吗？」\n\n不是「这个人可不可信」，不是「这个人拿了谁的钱」。\n\n物理学家谈辐射物理是内行；谈古气候重建的统计方法就不是。练的是这条边界，不是嘲讽。影片里也有断言与专业相符的人——如果你的名册每一行都填「不匹配」，那很可能是在给立场打分。"
+       },
+       {
+        "id": "s13-c40-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "s13-c40-image-item-1",
+          "alt": "影片中由量子纠缠领域的诺奖得主断言「控制气候的不是 CO₂ 而是云」的画面",
+          "source": "assets/images/c40-clouds-not-co2.png",
+          "caption": "C40 · 触发词 what is important is clouds｜诺奖领域是量子纠缠，不是云物理"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s13-triage-rule",
+        "type": "text",
+        "content": "#### 分诊台要练的是另一件事\n\n面对 81 条，你不可能全查，也不该全查。分诊台给你 8 条真实主张，每条选一种最便宜、且真能定案的查法。\n\n这里不判对错——分诊本身带判断成分，同一条常有两种都说得通的走法。选完你会看到一份汇总。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s13-roster-why"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s13-c40-image",
+          "s13-triage-rule"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s13-roster-why",
+         "s13-c40-image",
+         "s13-triage-rule"
+        ],
+        "visibleBlockIds": [
+         "s13-roster-why",
+         "s13-c40-image",
+         "s13-triage-rule"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-roster-brief",
+        "text": "问的是「这个人的训练与这个具体断言匹配吗」，不是「这个人可不可信」。练的是边界，不是嘲讽。",
+        "audio": "assets/audio/narration/slice-roster-brief.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "slice-roster-and-triage",
+      "title": "动手：发言人名册与主张分诊台",
+      "blocks": [
+       {
+        "id": "s14-roster-triage",
+        "type": "interactiveHtml",
+        "source": "interactions/html/roster-and-triage.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "s14-roster-triage"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "s14-roster-triage"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s14-roster-triage"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s14-roster-triage"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s14-roster-triage"
+        ],
+        "visibleBlockIds": [
+         "s14-roster-triage"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-roster-and-triage",
+        "text": "按人填名册，按条选查法。分诊台不判对错——同一条常有两种都说得通的走法。",
+        "audio": "assets/audio/narration/slice-roster-and-triage.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 540
+     }
+    ],
+    "objectiveIds": [
+     "flicc-objective-1",
+     "flicc-objective-3"
+    ]
+   },
+   {
+    "id": "part-3-demo-one-chart",
+    "title": "第三部分 · 示范：一张图是怎么被动手脚的",
+    "slices": [
+     {
+      "id": "slice-copy-the-citation",
+      "title": "第一步：抄下署名，先查这篇文献存不存在",
+      "blocks": [
+       {
+        "id": "s15-step1",
+        "type": "text",
+        "content": "你在看片时被问过一次：如果一段视频给你一张两千年温度曲线，还写了作者和年份，你会怎么验证它？\n\n现在我们把这套流程完整走一遍。请注意顺序——这一环的教学重点不是结论，是顺序。\n\n#### 第一步：抄下署名\n\n影片给出的署名是：「Ljungqvist, 2000」\n\n然后去找这篇。"
+       },
+       {
+        "id": "s15-film-chart",
+        "type": "images",
+        "items": [
+         {
+          "id": "s15-film-chart-item-1",
+          "alt": "影片中出现的两千年温度曲线图，画面上标有作者与年份署名",
+          "source": "assets/images/c19-film-2000-year-chart.jpg",
+          "caption": "C19 · 触发词 warmer than today｜画面署名写着「Ljungqvist, 2000」"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s15-check",
+        "type": "singleChoice",
+        "prompt": "你去检索「Ljungqvist 2000 温度重建」，找不到这篇文献——这位作者没有 2000 年的温度重建论文。这个结果应该怎么解读？",
+        "options": [
+         {
+          "id": "search-skill",
+          "label": "我的检索技巧不够，应该换关键词再试"
+         },
+         {
+          "id": "citation-fake",
+          "label": "引用本身有问题：署名指向的文献不存在"
+         },
+         {
+          "id": "paywall",
+          "label": "论文大概在付费墙后面，查不到很正常"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "citation-fake"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s15-real-paper",
+        "type": "text",
+        "content": "#### 真正的那篇\n\nLjungqvist, F.C. 2010. *A new reconstruction of temperature variability in the extra-tropical Northern Hemisphere during the last two millennia.* Geografiska Annaler: Series A, Physical Geography 92(3): 339–351. DOI: 10.1111/j.1468-0459.2010.00399.x\n\n作者、期刊、卷号、页码都在。年份不是 2000，是 2010。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s15-step1",
+          "s15-film-chart"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s15-check",
+          "s15-real-paper"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s15-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s15-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s15-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s15-real-paper"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s15-step1",
+         "s15-film-chart",
+         "s15-check"
+        ],
+        "visibleBlockIds": [
+         "s15-step1",
+         "s15-film-chart",
+         "s15-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-copy-the-citation",
+        "text": "这一环的教学重点不是结论，是顺序。第一步永远是抄下署名，先确认这篇文献存不存在。",
+        "audio": "assets/audio/narration/slice-copy-the-citation.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-why-citation-first",
+      "title": "为什么这一步必须放在最前面",
+      "blocks": [
+       {
+        "id": "s16-why-first",
+        "type": "text",
+        "content": "#### 这一步为什么必须放在最前面\n\n因为它的成本几乎为零，而它能挡掉最严重的一类问题。\n\n如果一张图的署名本身是错的，那你后面做的所有比对——图形对不对、数据准不准——都建立在一个不存在的基础上。先确认这篇存在，再讨论它说了什么。\n\n这不是吹毛求疵。一个把年份写错十年的署名，让读者无法核查它——而无法核查，正是它起作用的方式。"
+       },
+       {
+        "id": "s16-caption-frame",
+        "type": "images",
+        "items": [
+         {
+          "id": "s16-caption-frame-item-1",
+          "alt": "反驳视频放大展示原论文的图注文字，用于对照影片如何使用这张图",
+          "source": "assets/images/c19-original-figure-caption.jpg",
+          "caption": "R21 · 反驳视频放大原论文 Fig. 3 的图注"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s16-caption-what",
+        "type": "text",
+        "content": "#### 第二步：找到原文，读它的图注\n\n下面是 Ljungqvist 2010 的完整原文。不要读摘要就跳过去。 翻到 Fig. 3，读那一段图注。\n\n图注通常写着三件对核查最要紧的事：这张图覆盖哪块地方、覆盖哪段时间、图上每条线分别是什么。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s16-why-first"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s16-caption-frame",
+          "s16-caption-what"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s16-why-first",
+         "s16-caption-frame",
+         "s16-caption-what"
+        ],
+        "visibleBlockIds": [
+         "s16-why-first",
+         "s16-caption-frame",
+         "s16-caption-what"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-why-citation-first",
+        "text": "一个把年份写错十年的署名，让读者无法核查它——而无法核查，正是它起作用的方式。",
+        "audio": "assets/audio/narration/slice-why-citation-first.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "slice-caption-spatial-range",
+      "title": "第二步：打开原文，自己读 Fig. 3 的图注",
+      "blocks": [
+       {
+        "id": "s17-pdf",
+        "type": "pdf",
+        "title": "Ljungqvist 2010 原文（Geografiska Annaler A 92(3): 339–351，14 页）",
+        "source": "assets/pdfs/ljungqvist-2010-original.pdf"
+       },
+       {
+        "id": "s17-fill",
+        "type": "fillBlank",
+        "prompt": "在原文里找到 Fig. 3 的图注，然后回答：\n\n这张重建图覆盖的空间范围是什么？（照原文写，可以写英文原词，也可以写中文）",
+        "assessment": {
+         "mode": "graded",
+         "acceptedAnswers": [
+          "extra-tropical Northern Hemisphere",
+          "extra-tropical northern hemisphere",
+          "90-30°N",
+          "90–30°N",
+          "90-30N",
+          "北半球温带以北",
+          "北半球中高纬",
+          "extratropical Northern Hemisphere",
+          "extra-tropical NH",
+          "北半球30-90",
+          "北半球30–90",
+          "30-90°N",
+          "30–90°N"
+         ]
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s17-explain",
+        "type": "text",
+        "content": "#### 你刚读到的那一行\n\n原文写的是 extra-tropical Northern Hemisphere (90–30°N) —— 北半球温带以北，十年分辨率的多代用重建。\n\n这不是全球。\n\n影片把一份半球重建当成全球温度史来使用。请注意这一步的性质：没有任何一个数据点被改动。 图形一模一样，数字一模一样。被换掉的只是它代表什么。\n\n这类偷换特别难被发现，因为你在图上找不到任何异常——异常在图注里，而图注是最容易被裁掉的那部分。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s17-pdf"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s17-fill",
+          "s17-explain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s17-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s17-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s17-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s17-explain"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s17-pdf",
+         "s17-fill"
+        ],
+        "visibleBlockIds": [
+         "s17-pdf",
+         "s17-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-caption-spatial-range",
+        "text": "不要读摘要就跳过去。翻到 Fig. 3，读那一段图注：它覆盖哪块地方、哪段时间、每条线是什么。",
+        "audio": "assets/audio/narration/slice-caption-spatial-range.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-restore-brief",
+      "title": "第三步：并排比对，把删掉的那条线放回去",
+      "blocks": [
+       {
+        "id": "s18-restore-intro",
+        "type": "text",
+        "content": "#### 第三步：并排比对，然后把删掉的放回去\n\n下面这张交互图用的是作者自己存档的原始数据——NOAA / WDC Paleo 古气候数据库贡献序列 2010-089，Readme 里明写「As plotted in Figure 3, Ljungqvist (2010)」。200 个十年的重建值、上下 2σ 误差带，以及那一列器测温度。\n\n进去时你看到的是影片的版本。先按它判断一次，再打开开关。"
+       },
+       {
+        "id": "s18-instrumental-note",
+        "type": "text",
+        "content": "#### 顺便记住图注里的另一件事\n\nFig. 3 的图注还写明：图上除了灰色的重建线，还有一条黑色点线，是 variance adjusted CRUTEM3+HadSST2 90–30°N 的器测温度十年均值，跨度 AD 1850–1999。\n\n下一步你会用到它。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s18-restore-intro"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s18-instrumental-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s18-restore-intro",
+         "s18-instrumental-note"
+        ],
+        "visibleBlockIds": [
+         "s18-restore-intro",
+         "s18-instrumental-note"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-restore-brief",
+        "text": "下一页那张交互图用的是作者自己存档的原始数据。进去时你看到的是影片的版本。",
+        "audio": "assets/audio/narration/slice-restore-brief.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-restore-the-line",
+      "title": "动手：把器测线放回原图",
+      "blocks": [
+       {
+        "id": "s19-restorer",
+        "type": "interactiveHtml",
+        "source": "interactions/html/c19-chart-restorer.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "s19-restorer"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "s19-restorer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s19-restorer"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s19-restorer"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s19-restorer"
+        ],
+        "visibleBlockIds": [
+         "s19-restorer"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-restore-the-line",
+        "text": "先按影片的版本判断一次，再打开开关。差异在哪一段，那一段决定什么。",
+        "audio": "assets/audio/narration/slice-restore-the-line.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-three-actions-on-one-chart",
+      "title": "三处动作，叠在同一张图上",
+      "blocks": [
+       {
+        "id": "s20-overlay",
+        "type": "images",
+        "items": [
+         {
+          "id": "s20-overlay-item-1",
+          "alt": "反驳视频放大图表现代端，展示原图末端的黑色器测温度点线",
+          "source": "assets/images/c19-instrumental-line-detail.jpg",
+          "caption": "R21 · 原图末端的黑色器测点线（1850–1999）"
+         },
+         {
+          "id": "s20-overlay-item-2",
+          "alt": "反驳视频把原图与影片使用的版本叠放对照，影片版本中器测点线缺失",
+          "source": "assets/images/c19-overlay-comparison.jpg",
+          "caption": "R22 · 原图与影片版本叠放对照"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s20-actions",
+        "type": "text",
+        "content": "#### 三处动作，叠在同一张图上\n\n| | 动作 | 你是怎么发现的 |\n| --- | --- | --- |\n| ① | 假署名 —— 署名「Ljungqvist 2000」，该文献不存在 | 第一步：抄下署名去检索 |\n| ② | 偷换空间范围 —— 半球重建（90–30°N）被当成全球温度史 | 第二步：读原文图注 |\n| ③ | 删掉不利段落 —— 整条 1850–1999 器测线被移除 | 第三步：把它放回去 |"
+       },
+       {
+        "id": "s20-precise",
+        "type": "text",
+        "content": "#### 一处必须说精确的地方\n\n器测点线共 15 个十年。1850–1980 这 14 个十年，器测与重建基本贴合，而且全部低于中世纪暖期峰值。唯一超过中世纪峰值的是最后一个十年 1990–1999（器测 +0.388℃，中世纪峰值 +0.196℃）。\n\n所以「删掉了末端」的精确说法是：删掉的是整条器测线，而其中真正决定结论的，是它最后一个十年的抬升。\n\n这个精度差别值得在意。如果你只记住「他删掉了 1950 年以后的数据」，你会在被追问时说不清；而如果你能说出「原文图注写的器测线是 1850–1999，其中 1990 年代那一个十年跳到 +0.39，是它超过了中世纪峰值」，那你手里握的是可以复核的东西。"
+       },
+       {
+        "id": "s20-author-said",
+        "type": "text",
+        "content": "#### 作者本人早就写过这句话\n\n原文摘要里有一句：过去两千年的最高温可能出现在最近二十年，但这只见于器测温度数据，不见于多代用重建本身。\n\n影片删掉的，正是这一列。作者自己在摘要第一页就交代了它的存在。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s20-overlay",
+          "s20-actions"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s20-precise",
+          "s20-author-said"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s20-overlay",
+         "s20-actions",
+         "s20-precise",
+         "s20-author-said"
+        ],
+        "visibleBlockIds": [
+         "s20-overlay",
+         "s20-actions",
+         "s20-precise",
+         "s20-author-said"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-three-actions-on-one-chart",
+        "text": "「删掉了末端」要说得更精确：删掉的是整条器测线，而真正决定结论的是它最后一个十年。",
+        "audio": "assets/audio/narration/slice-three-actions-on-one-chart.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-more-reconstructions",
+      "title": "第四步：别停在一篇",
+      "blocks": [
+       {
+        "id": "s21-intro",
+        "type": "text",
+        "content": "你现在能正确读出 Ljungqvist 2010 了。但这里有一个容易掉进去的坑：\n\n把「我读懂了那一篇」当成「我核查完了」。\n\nLjungqvist 2010 是一份北半球温带以北的重建。它是一篇好论文，但它一篇不能回答「全球共同纪元温度变化」这个问题——这不是它的缺陷，是它的范围。\n\n反驳视频在这里做了一件对的事：它没有停在同一张图上打转，而是去找了覆盖范围更广、方法不同的其他重建。"
+       },
+       {
+        "id": "s21-marcott",
+        "type": "images",
+        "items": [
+         {
+          "id": "s21-marcott-item-1",
+          "alt": "反驳视频引用 Marcott 等人的全新世温度重建曲线",
+          "source": "assets/images/c19-marcott-holocene.jpg",
+          "caption": "Marcott 等人的全新世温度重建"
+         },
+         {
+          "id": "s21-marcott-item-2",
+          "alt": "反驳视频把现代器测温度叠加到全新世曲线上作对照",
+          "source": "assets/images/c19-marcott-modern-overlay.jpg",
+          "caption": "现代器测温度叠加到全新世曲线上"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s21-neukom",
+        "type": "pdf",
+        "title": "Neukom et al. 2019, Nature —— 共同纪元的冷暖期在全球并不同步（23 页）",
+        "source": "assets/pdfs/neukom-2019-nature.pdf"
+       },
+       {
+        "id": "s21-pages2k",
+        "type": "pdf",
+        "title": "PAGES 2k Consortium / Neukom et al. 2019, Nature Geoscience —— 共同纪元多方法温度重建（11 页）",
+        "source": "assets/pdfs/pages2k-2019-common-era.pdf"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s21-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s21-marcott"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "s21-neukom"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "s21-pages2k"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s21-intro",
+         "s21-marcott",
+         "s21-neukom",
+         "s21-pages2k"
+        ],
+        "visibleBlockIds": [
+         "s21-intro",
+         "s21-marcott",
+         "s21-neukom",
+         "s21-pages2k"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-more-reconstructions",
+        "text": "别把「我读懂了那一篇」当成「我核查完了」。去找覆盖更广、方法不同的独立重建。",
+        "audio": "assets/audio/narration/slice-more-reconstructions.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-independent-reconstructions",
+      "title": "一份支持，和多份独立重建指向同一结论",
+      "blocks": [
+       {
+        "id": "s22-what-they-did",
+        "type": "text",
+        "content": "#### 上一页那两份，各自做了什么\n\nNeukom et al. 2019（Nature） 检验的是一个空间问题：共同纪元里那些被命名的冷暖期——罗马暖期、中世纪暖期、小冰期——在全球是不是同时发生的。结论是不同步：不同地区的最暖／最冷世纪落在不同的时段。\n\nPAGES 2k Consortium / Neukom et al. 2019（Nature Geoscience） 检验的是一个方法问题：用七种不同的统计重建方法处理同一套代用资料，看结果是否一致。\n\n两份合起来提供的东西，和 Ljungqvist 2010 一篇不一样：一份是一个空间范围、一种方法；多份是不同数据、不同方法。\n\n翻一下它们的标题、摘要和主图就够，不必读完。"
+       },
+       {
+        "id": "s22-fill",
+        "type": "fillBlank",
+        "prompt": "翻一下这两份原文——看标题、摘要和主图就够，不必读完。\n\n然后写下你的判断：「一份重建支持某个结论」和「多份采用不同数据、不同方法的独立重建都指向同一结论」，在证据强度上差在哪里？\n\n再想一步：如果这几份重建之间有分歧，那意味着结论错了，还是意味着别的什么？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "两问都要答。第一问要说清「多份独立重建互相印证」比「一份支持」多给了你什么；第二问要给出你对分歧的处理方式，而不是回避它。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s22-what-they-did"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s22-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s22-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s22-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s22-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s22-what-they-did",
+         "s22-fill"
+        ],
+        "visibleBlockIds": [
+         "s22-what-they-did",
+         "s22-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-independent-reconstructions",
+        "text": "一份重建支持某个结论，和多份不同方法的独立重建都指向同一结论，证据强度不一样。",
+        "audio": "assets/audio/narration/slice-independent-reconstructions.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-the-order-is-the-skill",
+      "title": "这一环真正要你带走的东西",
+      "blocks": [
+       {
+        "id": "s23-four-steps",
+        "type": "text",
+        "content": "#### 你刚才走的是这四步\n\n1. 抄下署名 —— 先确认这篇文献存不存在\n2. 找到原文 —— 读标题、图注、空间范围，再看曲线\n3. 并排比对，把删掉的放回去 —— 差异在哪一段，那一段决定什么\n4. 别停在一篇 —— 去找不同数据、不同方法的独立重建"
+       },
+       {
+        "id": "s23-why-order",
+        "type": "text",
+        "content": "#### 为什么说顺序比结论值钱\n\n因为结论只对这一张图有效。\n\n「Durkin 抹掉了 Ljungqvist 图末端的器测线」——这个结论你记住了，下次遇到另一张图，它帮不了你。\n\n而这四步顺序，对任何一张带署名的图表都成立，跟气候没有关系。经济数据、医学试验结果、财报图、民调曲线，全都适用。"
+       },
+       {
+        "id": "s23-cheapest",
+        "type": "text",
+        "content": "#### 还有一件事\n\n注意第 1 步和第 2 步的成本：一次检索，一次读图注。在你还没打开任何数据、没做任何计算之前，三处动作里已经有两处被抓到了。\n\n这就是分诊的意义。不是所有核查都很贵，而多数人从没做过最便宜的那两步。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s23-four-steps"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s23-why-order",
+          "s23-cheapest"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s23-four-steps",
+         "s23-why-order",
+         "s23-cheapest"
+        ],
+        "visibleBlockIds": [
+         "s23-four-steps",
+         "s23-why-order",
+         "s23-cheapest"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-the-order-is-the-skill",
+        "text": "结论只对这一张图有效，而这四步顺序对任何一张带署名的图表都成立。",
+        "audio": "assets/audio/narration/slice-the-order-is-the-skill.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 240
+     }
+    ],
+    "objectiveIds": [
+     "flicc-objective-2"
+    ]
+   },
+   {
+    "id": "part-4-guided-level-trend",
+    "title": "第四部分 · 带练：差多少，还是升多快",
+    "slices": [
+     {
+      "id": "slice-who-found-the-heat-island",
+      "title": "第一步：热岛效应是谁发现的",
+      "blocks": [
+       {
+        "id": "s24-uhi-intro",
+        "type": "text",
+        "content": "影片说：城市热岛效应污染了现代温度记录。\n\n这听起来很有道理——城市确实比郊区热，这是任何人夏天都能感受到的事。\n\n先别急着信，也别急着驳。\n\n这一环我一次只带你走一步，卡住了给提示，但不替你给答案。"
+       },
+       {
+        "id": "s24-uhi-frames",
+        "type": "images",
+        "items": [
+         {
+          "id": "s24-uhi-frames-item-1",
+          "alt": "影片进入城市热岛叙事时的城市街景画面",
+          "source": "assets/images/c24-urban-street.jpg",
+          "caption": "C24 · 影片进入城市热岛叙事"
+         },
+         {
+          "id": "s24-uhi-frames-item-2",
+          "alt": "影片展示的巴黎城乡温差示意图",
+          "source": "assets/images/c24-paris-uhi-diagram.jpg",
+          "caption": "C24 · 影片展示的巴黎城乡温差示意图"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s24-fill",
+        "type": "fillBlank",
+        "prompt": "第一个问题，也是最关键的一个：\n\n「城市热岛效应」这个概念，最早出自哪个领域？是谁在反复量化它？\n\n如果你现在不知道，就写「不知道」，然后去查——这一步我不替你查。 查完再回来把结果写在这里。\n\n提示：去查这个概念最早出自哪个学科的文献。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "可以写「不知道」，但必须附一个具体的查证计划：你打算查什么、去哪里查。如果你已经查到了，写出结果和你依据的来源。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "s24-explain",
+        "type": "text",
+        "content": "#### 你查到之后应该会发现一件有意思的事\n\n热岛效应不是批评气候科学的人发现的漏洞。它是气候学与城市气候学自己的研究对象——被命名、被反复量化、被写进各大温度数据集的处理文档里。\n\n这里有一个可迁移的判断：\n\n当有人告诉你「这是主流研究没注意到的致命漏洞」，先查这个漏洞的来历。\n\n如果它有自己的名字、有几十年的文献、有专门的处理方法——那它就不是被忽略的破口，而是一个被研究过的已知问题。这两者的区别很大。\n\n当然，「被研究过」不等于「处理得好」。所以下一步我们要问一个更锋利的问题。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s24-uhi-intro",
+          "s24-uhi-frames"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s24-fill",
+          "s24-explain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s24-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s24-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s24-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s24-explain"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s24-uhi-intro",
+         "s24-uhi-frames",
+         "s24-fill"
+        ],
+        "visibleBlockIds": [
+         "s24-uhi-intro",
+         "s24-uhi-frames",
+         "s24-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-who-found-the-heat-island",
+        "text": "先别急着信，也别急着驳。这一环一次只带你走一步，卡住给提示，但不替你给答案。",
+        "audio": "assets/audio/narration/slice-who-found-the-heat-island.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-level-vs-trend",
+      "title": "第二步：它影响的到底是哪一个",
+      "blocks": [
+       {
+        "id": "s25-question",
+        "type": "text",
+        "content": "#### 第二个问题\n\n热岛效应让城市比农村热。请分清这句话说的是哪一件事：\n\n- 两地的温度差多少？\n- 还是两地升得多快？\n\n然后再问：全球变暖测量的是哪一个？\n\n下面这个工具有两个滑块，一个改「城乡温差」，一个改「升温速率」。一次只拖一个，盯住读数面板里的两个数字。\n\n哪个数字动，哪个数字不动——这就是全部答案，而它需要你亲手拖一次才算数。"
+       },
+       {
+        "id": "s25-comparator",
+        "type": "interactiveHtml",
+        "source": "interactions/html/level-trend-comparator.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s25-question"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s25-comparator"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "s25-comparator"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s25-comparator"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s25-comparator"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s25-question",
+         "s25-comparator"
+        ],
+        "visibleBlockIds": [
+         "s25-question",
+         "s25-comparator"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-level-vs-trend",
+        "text": "一次只拖一个滑块，盯住读数面板里的两个数字。哪个动、哪个不动，这就是全部答案。",
+        "audio": "assets/audio/narration/slice-level-vs-trend.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-level-vs-trend-payoff",
+      "title": "你刚拖出来的东西",
+      "blocks": [
+       {
+        "id": "s25b-what-moved",
+        "type": "text",
+        "content": "#### 你刚拖出来的东西\n\n拖「城乡温差」时，「每百年升温」这个数字一动不动。\n\n- 热岛效应改变的是 level —— 两地差多少\n- 全球变暖测量的是 trend —— 升得多快\n\n它影响前者，不影响后者，而被测量的正是后者。"
+       },
+       {
+        "id": "s25b-why-decisive",
+        "type": "text",
+        "content": "#### 这个区分为什么能定案\n\n因为它不需要你信任任何人。你不需要判断哪个机构可靠、哪个科学家有动机——你只需要分清两个量。\n\n而一旦分清，影片那条推理链在中间就断了：即使热岛效应完全真实、完全严重，它也推不出「升温速率被夸大了」这个结论。要推出那个结论，得先证明热岛效应本身在随时间增强，而那是一个完全不同的、需要单独证明的主张。\n\n下一步：去看真正做过城乡分离的研究，看看数字是什么。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s25b-what-moved"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s25b-why-decisive"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s25b-what-moved",
+         "s25b-why-decisive"
+        ],
+        "visibleBlockIds": [
+         "s25b-what-moved",
+         "s25b-why-decisive"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-level-vs-trend-payoff",
+        "text": "热岛效应改变的是 level，全球变暖测量的是 trend。它影响前者，不影响后者，而被测量的正是后者。",
+        "audio": "assets/audio/narration/slice-level-vs-trend-payoff.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-rural-station-claim",
+      "title": "第三步：影片说只用农村站会得到完全不同的图景",
+      "blocks": [
+       {
+        "id": "s26-intro",
+        "type": "text",
+        "content": "#### 第三个问题\n\n影片说：只用农村气象站，会得到完全不同的图景。\n\n这是一个可以直接检验的说法，因为真的有人做过这件事。\n\n下面是两份做过城乡分离的原始论文。去里面找数字，不要读我写的、也不要只信反驳视频说的。"
+       },
+       {
+        "id": "s26-film-chart",
+        "type": "images",
+        "items": [
+         {
+          "id": "s26-film-chart-item-1",
+          "alt": "影片展示「只用农村气象站」的温度曲线，并开始在图上画线",
+          "source": "assets/images/c25-film-rural-chart.jpg",
+          "caption": "C25 · 触发词 best rural station｜影片开始在农村站图上画线"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s26-peterson",
+        "type": "pdf",
+        "title": "Peterson et al. 1999, Geophysical Research Letters 26(3): 329–332 —— 全球农村站温度趋势（6 页）",
+        "source": "assets/pdfs/peterson-1999-rural-trends.pdf"
+       },
+       {
+        "id": "s26-wickham",
+        "type": "pdf",
+        "title": "Wickham et al. 2013 —— 用 MODIS 城乡分类检验城市化对陆地平均温度的影响（6 页）",
+        "source": "assets/pdfs/wickham-2013-uhi-rural.pdf"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s26-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s26-film-chart"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "s26-peterson"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "s26-wickham"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s26-intro",
+         "s26-film-chart",
+         "s26-peterson",
+         "s26-wickham"
+        ],
+        "visibleBlockIds": [
+         "s26-intro",
+         "s26-film-chart",
+         "s26-peterson",
+         "s26-wickham"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-rural-station-claim",
+        "text": "这是一个可以直接检验的说法，因为真的有人做过这件事。去里面找数字，不要只信转述。",
+        "audio": "assets/audio/narration/slice-rural-station-claim.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-rural-trend-numbers",
+      "title": "自己核对那两个数字",
+      "blocks": [
+       {
+        "id": "s27-pdf",
+        "type": "pdf",
+        "title": "Peterson et al. 1999 原文（6 页）",
+        "source": "assets/pdfs/peterson-1999-rural-trends.pdf"
+       },
+       {
+        "id": "s27-hint",
+        "type": "text",
+        "content": "Peterson 1999 那篇只有 6 页。你要找的那句话在结果部分，包含两个百分数式的趋势值。"
+       },
+       {
+        "id": "s27-fill",
+        "type": "fillBlank",
+        "prompt": "在 Peterson 1999 原文里找到这两个数字，填在下面（单位 ℃/100 年，1880–1998）：\n\n仅农村站的全球温度趋势 ＿＿＿ ；全数据集的趋势 ＿＿＿\n\n按「0.70 / 0.65」这样的格式写。",
+        "assessment": {
+         "mode": "graded",
+         "acceptedAnswers": [
+          "0.70 / 0.65",
+          "0.70/0.65",
+          "0.7 / 0.65",
+          "0.7/0.65",
+          "0.70 0.65",
+          "0.7 0.65",
+          "0.70，0.65",
+          "0.7，0.65",
+          "0.70,0.65",
+          "0.7,0.65",
+          "0.70、0.65",
+          "0.7、0.65"
+         ]
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s27-numbers",
+        "type": "text",
+        "content": "#### 你刚从原文里读到的\n\n| | 趋势（1880–1998） |\n| --- | --- |\n| 仅农村站 | 0.70 ℃/100 年 |\n| 全数据集 | 0.65 ℃/100 年 |\n\n两者都在 0.0005 水平显著；而两者之差不显著。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s27-pdf",
+          "s27-hint"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s27-fill",
+          "s27-numbers"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s27-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s27-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s27-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s27-numbers"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s27-pdf",
+         "s27-hint",
+         "s27-fill"
+        ],
+        "visibleBlockIds": [
+         "s27-pdf",
+         "s27-hint",
+         "s27-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-rural-trend-numbers",
+        "text": "不要读我写的，也不要只信反驳视频说的。那句话在结果部分，包含两个百分数式的趋势值。",
+        "audio": "assets/audio/narration/slice-rural-trend-numbers.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-why-you-read-it-yourself",
+      "title": "注意方向：不仅没变低，反而略高",
+      "blocks": [
+       {
+        "id": "s28-real-comparison",
+        "type": "images",
+        "items": [
+         {
+          "id": "s28-real-comparison-item-1",
+          "alt": "反驳视频展示真实的城乡分离研究中农村站趋势与全数据集的对照",
+          "source": "assets/images/c25-real-rural-comparison.jpg",
+          "caption": "R16 · 真实城乡分离研究：农村站趋势与全数据集对照"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s28-direction",
+        "type": "text",
+        "content": "#### 注意方向\n\n只用农村站，趋势不仅没有变低，反而略高一点。\n\n影片那句「会得到完全不同的图景」，在它自己指向的那类研究里不成立。而且请注意这不是「有争议」——是方向相反。"
+       },
+       {
+        "id": "s28-do-it-yourself",
+        "type": "text",
+        "content": "#### 这一步为什么必须你自己做\n\n因为如果你只从反驳视频那里听到「农村站也在升温」，你拿到的是一个结论。\n\n而你现在拿到的是两个可以复核的数字，加上它们出自哪一页、哪一年、哪本期刊。这两样东西在被人追问时的抗压能力完全不同。\n\n这门课后面还会反复用到这句话：不要停在任何一方的转述上，包括核查方。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s28-real-comparison",
+          "s28-direction"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s28-do-it-yourself"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s28-real-comparison",
+         "s28-direction",
+         "s28-do-it-yourself"
+        ],
+        "visibleBlockIds": [
+         "s28-real-comparison",
+         "s28-direction",
+         "s28-do-it-yourself"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-why-you-read-it-yourself",
+        "text": "这不是「有争议」，是方向相反。而你现在手里握的是两个可以复核的数字。",
+        "audio": "assets/audio/narration/slice-why-you-read-it-yourself.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-independent-not-better",
+      "title": "第四步：独立来源，不等于更可靠的来源",
+      "blocks": [
+       {
+        "id": "s29-intro",
+        "type": "text",
+        "content": "#### 第四个问题\n\n你已经知道地面站的数据经得起城乡分离的检验了。但只信一套数据仍然不够——\n\n有没有完全独立的第二套测量？\n\n有：卫星。影片也提到了它，而且说卫星测温比地面网更好。\n\n这里要小心一个坑。"
+       },
+       {
+        "id": "s29-frames",
+        "type": "images",
+        "items": [
+         {
+          "id": "s29-frames-item-1",
+          "alt": "影片中关于卫星温度记录的访谈画面",
+          "source": "assets/images/c28-spencer-interview.jpg",
+          "caption": "C28 · 影片：卫星测温比地面网更好"
+         },
+         {
+          "id": "s29-frames-item-2",
+          "alt": "反驳视频指出卫星温度数据本身也存在局限的画面",
+          "source": "assets/images/c28-satellite-limits.jpg",
+          "caption": "R18 · 卫星并非天然更好"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s29-check",
+        "type": "singleChoice",
+        "prompt": "「独立的第二套数据」和「更可靠的数据」，是同一件事吗？",
+        "options": [
+         {
+          "id": "same",
+          "label": "是，独立就意味着更可靠"
+         },
+         {
+          "id": "different",
+          "label": "不是——独立只意味着不共享同一批误差"
+         },
+         {
+          "id": "satellite-better",
+          "label": "卫星是遥感直接测量，确实天然更好"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "different"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s29-explain",
+        "type": "text",
+        "content": "#### 独立的价值在于印证，不在于权威\n\n用第二套独立数据去印证第一套，这个动作是对的——你在上一步做完地面站之后就该这么做。\n\n但「独立」的意思是不共享同一批系统误差，不是「更接近真相」。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s29-intro",
+          "s29-frames"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s29-check",
+          "s29-explain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s29-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s29-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s29-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s29-explain"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s29-intro",
+         "s29-frames",
+         "s29-check"
+        ],
+        "visibleBlockIds": [
+         "s29-intro",
+         "s29-frames",
+         "s29-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-independent-not-better",
+        "text": "只信一套数据不够，但「独立」的意思是不共享同一批系统误差，不是「更接近真相」。",
+        "audio": "assets/audio/narration/slice-independent-not-better.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-satellite-is-not-simple",
+      "title": "卫星温度是怎么来的",
+      "blocks": [
+       {
+        "id": "s30-atbd",
+        "type": "pdf",
+        "title": "RSS MSU/AMSU 大气层温度算法理论基础文档 —— 卫星温度是如何从辐射反演出来的（46 页）",
+        "source": "assets/pdfs/rss-msu-amsu-atbd.pdf"
+       },
+       {
+        "id": "s30-what-is-it",
+        "type": "text",
+        "content": "#### 卫星温度是什么\n\n打开上面那份算法文档，翻几页就够——你不需要读懂它，你需要看见它有多厚。\n\n卫星不直接测温度。它测的是微波辐射亮温，温度要经过一整套反演算法才能得出来，而反演要处理轨道漂移、卫星间定标、仪器衰减、不同高度层的权重函数。这些正是那 46 页在讲的东西。\n\n历史上卫星温度序列因为轨道衰减等问题多次修订版本，修订前后的趋势差别不小。"
+       },
+       {
+        "id": "s30-correct-use",
+        "type": "text",
+        "content": "#### 所以正确的用法是\n\n把卫星当作独立的印证，而不是更高的权威。当它与地面记录一致时，这种一致有价值——因为两套数据的误差来源完全不同。当它们不一致时，那是一个要去查原因的问题，而不是一个可以任选一方的机会。\n\n把「独立来源」直接读成「更可靠来源」，是核查里最常见的坑之一。 而这个坑两边的人都会掉：想否定升温的人挑卫星，想强调升温的人挑地面站——挑的动作是一样的。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s30-atbd"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s30-what-is-it",
+          "s30-correct-use"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s30-atbd",
+         "s30-what-is-it",
+         "s30-correct-use"
+        ],
+        "visibleBlockIds": [
+         "s30-atbd",
+         "s30-what-is-it",
+         "s30-correct-use"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-satellite-is-not-simple",
+        "text": "你不需要读懂这份文档，你需要看见它有多厚。卫星不直接测温度，它测的是微波辐射亮温。",
+        "audio": "assets/audio/narration/slice-satellite-is-not-simple.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 330
+     }
+    ],
+    "objectiveIds": [
+     "flicc-objective-2",
+     "flicc-objective-3"
+    ]
+   },
+   {
+    "id": "part-5-on-your-own",
+    "title": "第五部分 · 独立：认领一条，自己走完",
+    "slices": [
+     {
+      "id": "slice-submission-format",
+      "title": "提交格式就是评估工具",
+      "blocks": [
+       {
+        "id": "s31-format-table",
+        "type": "text",
+        "content": "从这里开始，脚手架撤掉。\n\n你要从主张库里自选一条，独立走完整套核查，然后按固定格式提交。建议开放选择：C13、C33、C34、C41、C45——但你也可以选别的。\n\n#### 提交格式（六个字段，缺一不可）\n\n| 字段 | 要求 |\n| --- | --- |\n| 编号与触发词 | 主张库里的 C 编号，加上英文触发词 |\n| 原话 | 逐字抄英文原文，不改写、不翻译 |\n| 手法 | FLICC 哪一格；若你认为它不属于任何一格，说明理由 |\n| 一手来源 | 期刊 + 年份 + DOI，或数据集页面地址 |\n| 核查结果 | 你自己走完之后的结论 |\n| 卡在哪 | 必填。如果全程没卡住，说明你没真的走。 |"
+       },
+       {
+        "id": "s31-stuck-field",
+        "type": "text",
+        "content": "#### 关于最后一栏\n\n「卡在哪」不是客套，它是这份作业里最难造假的一栏。\n\n真的去找过原文的人，一定会遇到某个具体的坎：文献在付费墙后面、图注写的范围和你以为的不一样、数据集有两个版本你不知道该用哪个、作者用的统计方法你看不懂。这些都是真实的、值得写下来的东西。\n\n而没真的走过的人，这一栏只能写空话。"
+       },
+       {
+        "id": "s31-ai-limits",
+        "type": "text",
+        "content": "#### 这一环里我会做什么、不会做什么\n\n我会：给你反馈，确认你的推理，在你卡住时帮你把问题拆小。\n\n我不会：替你宣布这条主张是真是假；也不会提前告诉你反驳视频对它是怎么说的。\n\n如果你问我某篇论文里写了什么，而我没有真的读过它，我会直接说「我没法替你打开那篇论文，你去查了再回来」。在一门教溯源的课里，我不能是唯一不被溯源的东西。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s31-format-table"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s31-stuck-field",
+          "s31-ai-limits"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s31-format-table",
+         "s31-stuck-field",
+         "s31-ai-limits"
+        ],
+        "visibleBlockIds": [
+         "s31-format-table",
+         "s31-stuck-field",
+         "s31-ai-limits"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-submission-format",
+        "text": "从这里开始脚手架撤掉。六个字段里最难造假的是最后一栏：卡在哪。",
+        "audio": "assets/audio/narration/slice-submission-format.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 270
+     },
+     {
+      "id": "slice-back-to-the-report",
+      "title": "按事件类型回到报告：C45 的「什么都测不出」",
+      "blocks": [
+       {
+        "id": "s32-intro",
+        "type": "text",
+        "content": "在独立作业之前，先练一个专门对付「总括化」的动作。\n\n影片说（C45）：IPCC 自己也显示很难发现极端天气趋势。\n\n报告里确实有审慎的表述——这句话不是编的。问题在于那些审慎表述是按事件类型分项给出的，每一类有自己的置信度。"
+       },
+       {
+        "id": "s32-action",
+        "type": "text",
+        "content": "核查动作：回到报告，按事件类型逐项看。\n\n下面是决策者摘要（32 页）和第 7 章（地球能量收支，132 页）。你不用读完——用目录和索引去定位。"
+       },
+       {
+        "id": "s32-spm",
+        "type": "pdf",
+        "title": "IPCC AR6 WGI 决策者摘要（32 页）",
+        "source": "assets/pdfs/ipcc-ar6-wgi-spm.pdf"
+       },
+       {
+        "id": "s32-ch7",
+        "type": "pdf",
+        "title": "IPCC AR6 WGI 第 7 章：地球能量收支、气候反馈与气候敏感度（132 页）",
+        "source": "assets/pdfs/ipcc-ar6-wgi-chapter07.pdf"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s32-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s32-action"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "s32-spm"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "s32-ch7"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s32-intro",
+         "s32-action",
+         "s32-spm",
+         "s32-ch7"
+        ],
+        "visibleBlockIds": [
+         "s32-intro",
+         "s32-action",
+         "s32-spm",
+         "s32-ch7"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-back-to-the-report",
+        "text": "报告里确实有审慎的表述，这句话不是编的。问题在于那些表述是按事件类型分项给出的。",
+        "audio": "assets/audio/narration/slice-back-to-the-report.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-extremes-by-type",
+      "title": "至少两类极端事件，结论有什么不同",
+      "blocks": [
+       {
+        "id": "s33-spm",
+        "type": "pdf",
+        "title": "IPCC AR6 WGI 决策者摘要（32 页）",
+        "source": "assets/pdfs/ipcc-ar6-wgi-spm.pdf"
+       },
+       {
+        "id": "s33-fill",
+        "type": "fillBlank",
+        "prompt": "在决策者摘要里找到关于已观测极端事件变化的那部分，然后：\n\n挑至少两类不同的极端事件（例如高温极端、强降水、干旱、热带气旋等），写下报告对它们分别给出的结论和置信度有什么不同。\n\n再回答：读完之后，「很难发现极端天气趋势」这句总括，问题出在哪里？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "必须点名至少两类具体的极端事件，并分别写出报告对它们给出的结论有什么不同。第二问要落在「这句总括抹掉了什么」上。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "s33-structure",
+        "type": "text",
+        "content": "#### 你刚看到的结构\n\n报告不是一句话，它是一张分项表格。不同事件类型的证据强度差别很大——有些结论很硬，有些确实数据不足。\n\n这个结构本身就是信息。而「很难发现极端天气趋势」这句总括，恰好把这个信息全部抹掉了。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s33-spm"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s33-fill",
+          "s33-structure"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s33-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s33-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s33-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s33-structure"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s33-spm",
+         "s33-fill"
+        ],
+        "visibleBlockIds": [
+         "s33-spm",
+         "s33-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-extremes-by-type",
+        "text": "用目录和索引去定位已观测极端事件变化那一部分，不用读完。",
+        "audio": "assets/audio/narration/slice-extremes-by-type.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 480
+     },
+     {
+      "id": "slice-blanket-and-ladder-brief",
+      "title": "遇到总括句，先问它由几条分项组成",
+      "blocks": [
+       {
+        "id": "s34-blanket",
+        "type": "text",
+        "content": "#### 一个可迁移的动作\n\n遇到总括句，先问它由几条分项组成。\n\n总括结论要成立，需要每条分项都成立。而分项一旦摊开，你通常会发现：有的分项确实成立，有的不成立，有的数据不足——而这三种情况被总括句压成了同一句话。\n\n这个动作对两个方向都有效。「极端天气全都在恶化」和「极端天气什么都测不出」，都是总括句，都要摊开分项来看。"
+       },
+       {
+        "id": "s34-ladder-intro",
+        "type": "text",
+        "content": "C41 是这门课里我最想让你自己走一遍的一条。\n\n影片拿宇宙射线致云当作气候变化的替代原因。你在看片时被问过：你要去原文确认哪一件事？\n\n现在把那句话拆成四段独立命题。请注意：这四段不是一个论证的四种说法，是四道各自需要证据的门槛。\n\n标注规则沿用研究里常用的三色约定：观测、假说/模型、推断。不允许把「相关」标成「因果」——如果你这么标，系统会提醒你一次，但不会告诉你正确答案。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s34-blanket"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s34-ladder-intro"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s34-blanket",
+         "s34-ladder-intro"
+        ],
+        "visibleBlockIds": [
+         "s34-blanket",
+         "s34-ladder-intro"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-blanket-and-ladder-brief",
+        "text": "「极端天气全都在恶化」和「什么都测不出」都是总括句，都要摊开分项来看。",
+        "audio": "assets/audio/narration/slice-blanket-and-ladder-brief.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-c41-ladder",
+      "title": "动手：C41 的四段证据阶梯",
+      "blocks": [
+       {
+        "id": "s35-ladder",
+        "type": "interactiveHtml",
+        "source": "interactions/html/c41-evidence-ladder.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "s35-ladder"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "s35-ladder"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s35-ladder"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s35-ladder"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s35-ladder"
+        ],
+        "visibleBlockIds": [
+         "s35-ladder"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-c41-ladder",
+        "text": "这四段不是一个论证的四种说法，是四道各自需要证据的门槛。",
+        "audio": "assets/audio/narration/slice-c41-ladder.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 480
+     },
+     {
+      "id": "slice-ladder-payoff",
+      "title": "这一条的手法，和你可能以为的不一样",
+      "blocks": [
+       {
+        "id": "s36-not-a-bad-paper",
+        "type": "text",
+        "content": "#### 这一条的手法，和你可能以为的不一样\n\n它不是「引用了一篇错误的论文」。\n\n那几篇论文本身没有被指为错误。跨级发生在引用它的人手里：作者自己称之为推测的东西，被讲成了已确立的机制。"
+       },
+       {
+        "id": "s36-open-the-source",
+        "type": "text",
+        "content": "#### 为什么这条必须打开原文才抓得到\n\n如果你只看二手核查文章，你会得到一句「这条是错的」。\n\n而打开原文，你会拿到一句精确得多的话：「作者自己把它称为假说，而影片把它讲成了机制。」\n\n这两个结论的精度天差地别。 第一个在被追问时立刻塌掉——对方只要说「可是确实有论文啊」，你就答不上来。第二个不会塌，因为它承认论文存在，只指出跨级发生在哪一步。"
+       },
+       {
+        "id": "s36-chain",
+        "type": "text",
+        "content": "#### 顺便记住这个结构\n\n「A 成立」推不出「D 成立」，这不是气候学特有的问题。任何一条 机制存在 → 机制足够强 → 机制主导结果 的链条都是这样：每一节都要单独证明，而中间任何一节断了，最后那个结论就悬空。\n\n下次有人跟你说「有研究表明 X 导致 Y」，你可以问：这条链有几节，每节各有什么证据？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s36-not-a-bad-paper"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s36-open-the-source",
+          "s36-chain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s36-not-a-bad-paper",
+         "s36-open-the-source",
+         "s36-chain"
+        ],
+        "visibleBlockIds": [
+         "s36-not-a-bad-paper",
+         "s36-open-the-source",
+         "s36-chain"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-ladder-payoff",
+        "text": "跨级不发生在论文里，发生在引用它的人手里：作者自己称为推测的东西，被讲成了已确立的机制。",
+        "audio": "assets/audio/narration/slice-ladder-payoff.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 270
+     },
+     {
+      "id": "slice-claim-your-own-1",
+      "title": "认领一条 · 字段 1–2：编号触发词与逐字原话",
+      "blocks": [
+       {
+        "id": "s37-claim-intro",
+        "type": "text",
+        "content": "现在选一条，独立走完。\n\n建议开放选择：C13、C33、C34、C41、C45；你也可以自选别的。\n\n下面六个字段逐项分开填，每填完一项才进入下一项。这么设计不是为了麻烦你——是为了让最后那一栏没法被跳过。\n\n先去做核查，做完再回来填。"
+       },
+       {
+        "id": "s37-field-id",
+        "type": "fillBlank",
+        "prompt": "字段 1 / 6 · 编号与触发词\n\n写下你选的 C 编号，以及主张库里对应的英文触发词。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "写出主张库里真实存在的 C 编号，并附上对应的英文触发词。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "s37-field-quote",
+        "type": "fillBlank",
+        "prompt": "字段 2 / 6 · 原话\n\n逐字抄下影片的英文原文。不改写、不翻译。\n\n为什么要求逐字：一旦你开始转述，你核查的就变成了自己的转述，而不是影片的主张。这是最常见的一种自我欺骗。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "英文原文逐字抄录，且与你所选的编号对应。改写、概括或翻译都不算完成——你后面所有的核查都建立在这句话上。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s37-claim-intro"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s37-field-id",
+          "s37-field-quote"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s37-field-id"
+           },
+           "to": "wait-1"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s37-field-id"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s37-field-id"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-1",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s37-field-quote"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s37-field-quote"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s37-field-quote"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s37-claim-intro",
+         "s37-field-id",
+         "s37-field-quote"
+        ],
+        "visibleBlockIds": [
+         "s37-claim-intro",
+         "s37-field-id",
+         "s37-field-quote"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-your-own-1",
+        "text": "先锁定对象，再逐字抄下原话。一旦开始转述，你核查的就变成了自己的转述。",
+        "audio": "assets/audio/narration/slice-claim-your-own-1.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-claim-your-own-2",
+      "title": "认领一条 · 字段 3–4：手法归类与一手来源",
+      "blocks": [
+       {
+        "id": "s38-criteria",
+        "type": "text",
+        "content": "#### 归类要落在判据上\n\n回到第二部分那张五手法表：每一格都有自己的判据，不是「感觉像」。\n\n- F 问的是：这个人的训练与这个具体断言匹配吗？\n- L 问的是：推理本身哪一步断了？\n- I 问的是：它要求的确定性，任何科学都给不出吗？\n- C 挑选 问的是：换一个时段、换一个区域、换一份数据集，结论还成立吗？\n- C 阴谋 问的是：这个叙事有没有任何可能被证伪？\n\n「不属于任何一格」是合法答案，而且在政治段主张上它才是正确答案——只要你写出理由。\n\n#### 什么算一手来源\n\n期刊 + 年份 + DOI、报告的具体章节，或数据集页面地址。\n\n二手核查文章、百科条目、新闻报道都不算。 反驳视频本身也不算——它是第二个被核查对象。\n\n如果你确实只找到二手来源，就如实写「只找到二手来源」，然后在字段 6 里说这个坎。这比编一个 DOI 好得多。"
+       },
+       {
+        "id": "s38-field-technique",
+        "type": "fillBlank",
+        "prompt": "字段 3 / 6 · 手法\n\n这条属于 FLICC 哪一格？\n\n如果你认为它不属于任何一格，那就写「不属于」并说明理由——这是一个合法答案，而且在政治段主张上它才是正确答案。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "除了归类，必须写理由，而且理由要落在这个手法的判据上，不能只写「感觉像」。判断「不属于任何一格」并说明理由，同样是有效答案。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "s38-field-source",
+        "type": "fillBlank",
+        "prompt": "字段 4 / 6 · 一手来源\n\n期刊 + 年份 + DOI，或数据集页面地址。\n\n注意：二手核查文章、百科条目、新闻报道都不算一手来源。如果你只找到这些，就在这里写明「只找到二手来源」，然后在字段 6 里说这个坎。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "给出可追溯的一手来源：期刊 + 年份 + DOI、报告章节，或数据集页面。二手核查文章和百科条目不算。如果你确实只找到二手来源，如实写明，并在字段 6 里说这个坎——这比编一个 DOI 好得多。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s38-criteria"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s38-field-technique",
+          "s38-field-source"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s38-field-technique"
+           },
+           "to": "wait-1"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s38-field-technique"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s38-field-technique"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-1",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s38-field-source"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s38-field-source"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s38-field-source"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s38-criteria",
+         "s38-field-technique",
+         "s38-field-source"
+        ],
+        "visibleBlockIds": [
+         "s38-criteria",
+         "s38-field-technique",
+         "s38-field-source"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-your-own-2",
+        "text": "归类要写理由，而且理由要落在这个手法的判据上。二手核查文章不算一手来源。",
+        "audio": "assets/audio/narration/slice-claim-your-own-2.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-claim-your-own-3",
+      "title": "认领一条 · 字段 5–6：核查结果与卡在哪",
+      "blocks": [
+       {
+        "id": "s39-result-and-stuck",
+        "type": "text",
+        "content": "#### 结论只说你的来源能支持的范围\n\n写你根据自己找到的来源能支持的结论，不要写你觉得老师想听的结论。\n\n这里有一个必须分清的差别：\n\n- 「这条主张本身错」——它说的事实不成立；\n- 「这条主张被用错了范围或尺度」——它说的事实成立，但推不出影片让它推出的那个结论。\n\n第三部分的 C19 就是后者：没有任何一个数据点被改动，被换掉的是它代表什么。这两个结论的精度差很远。\n\n#### 「卡在哪」为什么最难造假\n\n真的去找过原文的人一定会遇到某个具体的坎：文献在付费墙后面、图注写的范围和你以为的不一样、数据集有两个版本你不知道该用哪个、作者用的统计方法你看不懂，或者你花了二十分钟才确认某篇文献根本不存在。\n\n写具体的那一个：卡在哪一步、卡了多久、你后来怎么处理的。「有点难」「需要更多时间」不算。"
+       },
+       {
+        "id": "s39-field-result",
+        "type": "fillBlank",
+        "prompt": "字段 5 / 6 · 核查结果\n\n你自己走完之后的结论。\n\n写你根据自己找到的来源能支持的结论，不要写你觉得老师想听的结论。如果走完之后你的结论是「这条在它自己的范围内成立」，那就这么写。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "结论必须与你在字段 4 给出的来源一致，而且只说这份来源能支持的范围。注意区分「这条主张本身错」和「这条主张被用错了范围或尺度」——这是两个不同的结论。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "s39-field-stuck",
+        "type": "fillBlank",
+        "prompt": "字段 6 / 6 · 卡在哪（必填）\n\n如果全程没卡住，说明你没真的走。\n\n真的去找过原文的人一定会遇到某个具体的坎：文献在付费墙后面、图注写的范围和你以为的不一样、数据集有两个版本你不知道该用哪个、作者用的统计方法你看不懂、或者你花了二十分钟才确认某篇文献根本不存在。\n\n这些都是真实的、值得写下来的东西。写具体的那一个，不要写「有点难」。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "写一个具体的、能复述的障碍：卡在哪一步、卡了多久、你后来怎么处理的。「有点难」「需要更多时间」不算。声称全程没有任何障碍也不算。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s39-result-and-stuck"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s39-field-result",
+          "s39-field-stuck"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s39-field-result"
+           },
+           "to": "wait-1"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s39-field-result"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s39-field-result"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-1",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s39-field-stuck"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s39-field-stuck"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s39-field-stuck"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s39-result-and-stuck",
+         "s39-field-result",
+         "s39-field-stuck"
+        ],
+        "visibleBlockIds": [
+         "s39-result-and-stuck",
+         "s39-field-result",
+         "s39-field-stuck"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-claim-your-own-3",
+        "text": "如果全程没卡住，说明你没真的走。写具体的那一个坎。",
+        "audio": "assets/audio/narration/slice-claim-your-own-3.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "slice-selective-omission",
+      "title": "选择性遗漏：该在场的东西，为什么不在",
+      "blocks": [
+       {
+        "id": "s40-intro",
+        "type": "text",
+        "content": "到这里，你已经练过好几次「挑进来的东西对不对」。\n\n现在换一个方向：该在场的东西，为什么不在？\n\n影片指控气候模型普遍跑得太热（C38）。这个指控可以检验，而检验它需要三个动作。"
+       },
+       {
+        "id": "s40-scenarios",
+        "type": "images",
+        "items": [
+         {
+          "id": "s40-scenarios-item-1",
+          "alt": "反驳视频展示 Hansen 1988 给出的三种排放情景，而非单一预测线",
+          "source": "assets/images/r47-hansen-scenarios.png",
+          "caption": "R47 · Hansen 1988 给的是三种情景，不是一条线"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s40-hansen",
+        "type": "pdf",
+        "title": "Hansen et al. 1988 —— GISS 模型的全球气候变化预估（24 页，扫描件，看图为主）",
+        "source": "assets/pdfs/hansen-1988-giss-projections.pdf"
+       },
+       {
+        "id": "s40-hausfather",
+        "type": "pdf",
+        "title": "Hausfather et al. 2020, Geophysical Research Letters —— 评估历史气候模型预估的实际表现（23 页）",
+        "source": "assets/pdfs/hausfather-2019-model-performance.pdf"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "s40-intro"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "s40-scenarios"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "s40-hansen"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "s40-hausfather"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s40-intro",
+         "s40-scenarios",
+         "s40-hansen",
+         "s40-hausfather"
+        ],
+        "visibleBlockIds": [
+         "s40-intro",
+         "s40-scenarios",
+         "s40-hansen",
+         "s40-hausfather"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-selective-omission",
+        "text": "换一个方向：不只看挑进来的东西对不对，还要问该在场的为什么不在。",
+        "audio": "assets/audio/narration/slice-selective-omission.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-how-to-test-models",
+      "title": "怎么检验「那个模型跑得太热」",
+      "blocks": [
+       {
+        "id": "s41-hansen",
+        "type": "pdf",
+        "title": "Hansen et al. 1988 原文（24 页，扫描件）",
+        "source": "assets/pdfs/hansen-1988-giss-projections.pdf"
+       },
+       {
+        "id": "s41-hint",
+        "type": "text",
+        "content": "那份 Hansen 1988 是扫描件，没有可提取的文字。所以就只看图：找到那张三条情景曲线的图，看清它确实是三条。"
+       },
+       {
+        "id": "s41-check",
+        "type": "singleChoice",
+        "prompt": "要检验「1988 年那个模型跑得太热」这个指控，正确的做法是什么？",
+        "options": [
+         {
+          "id": "compare-highest",
+          "label": "把模型给出的最高一条线和实际温度比"
+         },
+         {
+          "id": "match-scenario",
+          "label": "先确认实际排放落在哪个情景上，再只跟那个情景的曲线比"
+         },
+         {
+          "id": "average-all",
+          "label": "把三条情景取平均，再和实际温度比"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "match-scenario"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s41-scenarios-explain",
+        "type": "text",
+        "content": "#### 情景不是预测\n\nHansen 1988 给的是三种情景：如果排放走 A、走 B、走 C，温度分别会怎样。这是一组条件陈述，不是一条断言。\n\n实际排放更接近中间那个情景。所以检验这个模型，只能拿中间那条去比。拿最高那条去比，等于在检验一个没有发生的世界——比错情景等于没比。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s41-hansen",
+          "s41-hint"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s41-check",
+          "s41-scenarios-explain"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s41-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s41-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s41-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s41-scenarios-explain"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s41-hansen",
+         "s41-hint",
+         "s41-check"
+        ],
+        "visibleBlockIds": [
+         "s41-hansen",
+         "s41-hint",
+         "s41-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-how-to-test-models",
+        "text": "那份是扫描件，没有可提取的文字。只看图：找到那张三条情景曲线的图，看清它确实是三条。",
+        "audio": "assets/audio/narration/slice-how-to-test-models.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-both-ends-bent",
+      "title": "影片在这里做了两件事",
+      "blocks": [
+       {
+        "id": "s42-bent",
+        "type": "images",
+        "items": [
+         {
+          "id": "s42-bent-item-1",
+          "alt": "反驳视频指出影片同时推高预测线、压低观测线",
+          "source": "assets/images/r48-bent-both-ends.png",
+          "caption": "R48 · 影片同时推高预测线、压低观测线"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s42-two-things",
+        "type": "text",
+        "content": "#### 影片在这里做了两件事\n\n不只是挑了错的那条情景，还同时压低了观测线。\n\n单侧的偏差可能来自选错版本或疏忽。而两端同时朝有利方向弯折，很难用偶然解释。 这不构成对动机的证明，但方向一致性本身是真实的信号：偶然的错误方向随机，有选择的错误方向一致。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s42-bent"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s42-two-things"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s42-bent",
+         "s42-two-things"
+        ],
+        "visibleBlockIds": [
+         "s42-bent",
+         "s42-two-things"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-both-ends-bent",
+        "text": "单侧的偏差可能来自疏忽。两端同时朝有利方向弯折，很难用偶然解释。",
+        "audio": "assets/audio/narration/slice-both-ends-bent.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-same-ruler-both-sides",
+      "title": "现在把尺子转过来",
+      "blocks": [
+       {
+        "id": "s42-skeptics",
+        "type": "images",
+        "items": [
+         {
+          "id": "s42-skeptics-item-1",
+          "alt": "反驳视频指出影片从未展示气候怀疑者自己失败的预测",
+          "source": "assets/images/r52-skeptic-failed-predictions.png",
+          "caption": "R52 · 影片从未展示怀疑者自己失败的预测"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s42-turn",
+        "type": "text",
+        "content": "#### 现在把尺子转过来\n\n反驳视频在这里提了一条更值得学的：影片从没展示过 Lindzen、Spencer 这些气候怀疑者自己失败过的预测。\n\n这一条把「选择性挑选」推进成了「选择性遗漏」——不只看挑进来的对不对，还要问该在场的为什么不在。"
+       },
+       {
+        "id": "s42-same-ruler",
+        "type": "text",
+        "content": "但请注意最后半句，这是这门课的分水岭：\n\n这把尺子对两边都用。\n\n如果你从这门课里只学会了挑剔一方的证据，你没有学会核查——你只是换了个方向偏。真正的检验标准是统一的：主流的预测和怀疑者的预测，都要拿实际发生的事去对，都要先确认比的是哪个情景。\n\nHausfather 2020 那篇做的正是这件事：按模型实际经历的外部强迫校正后，逐个评估历史模型的表现。方法是统一的，评的是所有模型。 这才是可以被信任的做法——不是因为结论讨人喜欢，而是因为它对每个对象用同一套程序。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s42-skeptics"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s42-turn",
+          "s42-same-ruler"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s42-skeptics",
+         "s42-turn",
+         "s42-same-ruler"
+        ],
+        "visibleBlockIds": [
+         "s42-skeptics",
+         "s42-turn",
+         "s42-same-ruler"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-same-ruler-both-sides",
+        "text": "如果你从这门课里只学会了挑剔一方的证据，你没有学会核查——你只是换了个方向偏。",
+        "audio": "assets/audio/narration/slice-same-ruler-both-sides.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 300
+     }
+    ],
+    "objectiveIds": [
+     "flicc-objective-1",
+     "flicc-objective-2",
+     "flicc-objective-3"
+    ]
+   },
+   {
+    "id": "part-6-check-the-checker",
+    "title": "第六部分 · 元层：核查者自己错了怎么办",
+    "slices": [
+     {
+      "id": "slice-watch-the-rebuttal-brief",
+      "title": "在开始之前把规则说清楚",
+      "blocks": [
+       {
+        "id": "s43-not-answer-key",
+        "type": "text",
+        "content": "现在看核查方。\n\n在开始之前把规则说清楚：这不是答案册。\n\n它是第二个被核查对象。你在前五部分练的每一样东西——查署名、读图注、分清 level 与 trend、按分项回查报告、问「该在场的为什么不在」——现在原样用在它身上。"
+       },
+       {
+        "id": "s43-listen-task",
+        "type": "text",
+        "content": "#### 看片时有一个特别的任务\n\n大约在 04:30，他会说 Durkin 反对科学的论证有「几条」路线。\n\n请把你听到的那个数字原样记下来。 后面要用。\n\n我现在不告诉你为什么。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s43-not-answer-key"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s43-listen-task"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s43-not-answer-key",
+         "s43-listen-task"
+        ],
+        "visibleBlockIds": [
+         "s43-not-answer-key",
+         "s43-listen-task"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-watch-the-rebuttal-brief",
+        "text": "它不是答案册，它是第二个被核查对象。你前五部分练的每一样东西，现在原样用在它身上。",
+        "audio": "assets/audio/narration/slice-watch-the-rebuttal-brief.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-watch-the-rebuttal",
+      "title": "看片：All the errors and fakery（37:07）",
+      "blocks": [
+       {
+        "id": "s44-video",
+        "type": "video",
+        "source": "assets/videos/all-the-errors-potholer54.mp4",
+        "completion": {
+         "rule": "video-ended"
+        },
+        "interaction": {
+         "source": "interactions/video/all-the-errors.json"
+        },
+        "durationSeconds": 2226.585
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "s44-video"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s44-video"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s44-video"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s44-video"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s44-video"
+        ],
+        "visibleBlockIds": [
+         "s44-video"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-watch-the-rebuttal",
+        "text": "大约在四分半，他会说 Durkin 反对科学的论证有几条路线。把你听到的那个数字原样记下来。",
+        "audio": "assets/audio/narration/slice-watch-the-rebuttal.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 2400
+     },
+     {
+      "id": "slice-said-three-listed-four",
+      "title": "数一下：说三条，列四条",
+      "blocks": [
+       {
+        "id": "s45-routes",
+        "type": "text",
+        "content": "然后他把这些路线一条条展开了：\n\n| 论证路线 | 对应原片 | 应查证据 | 典型陷阱 |\n| --- | --- | --- | --- |\n| ① 温度读数都错 | C20–C29 | 地面、海洋、卫星、再分析 | 挑站点 / 层次混用 |\n| ② 即使变暖也有益 | C17、C31、C47 | 区域收益与损失、分布效应 | 只列收益 |\n| ③ CO₂ 不是原因 | C33–C39 | 光谱、能量收支、归因 | 痕量谬误 / 短时段 |\n| ④ 另有太阳或云的原因 | C40–C44 | 替代机制的量级和预测 | 有替代因子 ≠ 排除 CO₂ |"
+       },
+       {
+        "id": "s45-count-it",
+        "type": "text",
+        "content": "拿出你在 04:30 记下的那个数字。\n\n他说的是：Durkin 反对科学的论证有「三条」路线。\n\n数一下。"
+       },
+       {
+        "id": "s45-frame",
+        "type": "images",
+        "items": [
+         {
+          "id": "s45-frame-item-1",
+          "alt": "反驳视频进入论证清单的画面：口头说三条，屏幕上展开为四条",
+          "source": "assets/images/r11-three-said-four-listed.png",
+          "caption": "R11 · 口头说三条，屏幕上展开为四条"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "s45-check",
+        "type": "singleChoice",
+        "prompt": "口头说三条，实际列了四条。发现这处失误需要什么？",
+        "options": [
+         {
+          "id": "expertise",
+          "label": "需要相当程度的气候学专业知识"
+         },
+         {
+          "id": "counting",
+          "label": "只需要数一下——零专业知识门槛"
+         },
+         {
+          "id": "original-data",
+          "label": "需要去查原始数据"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "counting"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s45-why-valuable",
+        "type": "text",
+        "content": "#### 这个瑕疵的价值，恰恰在于它不严重\n\n说三条，列四条。数一下就知道，不需要任何气候学知识。\n\n它不影响他任何一条实质证据。但它证明了两件事：\n\n1. 核查方也是需要核查的对象。\n2. 核查它的成本可以是零。 你不需要专业知识就能对核查者用同一把尺子。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s45-routes",
+          "s45-frame"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s45-count-it",
+          "s45-check",
+          "s45-why-valuable"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s45-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s45-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s45-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s45-why-valuable"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s45-routes",
+         "s45-count-it",
+         "s45-frame",
+         "s45-check"
+        ],
+        "visibleBlockIds": [
+         "s45-routes",
+         "s45-count-it",
+         "s45-frame",
+         "s45-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-said-three-listed-four",
+        "text": "说三条，列四条。数一下就知道，不需要任何气候学知识。",
+        "audio": "assets/audio/narration/slice-said-three-listed-four.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-two-kinds-of-error",
+      "title": "制造的怀疑，和可被核查的表达",
+      "blocks": [
+       {
+        "id": "s46-durkin-side",
+        "type": "text",
+        "content": "#### 现在把两边放在一起看\n\nDurkin 那边：2007 年那部片被发现处理过图表；17 年后，在 C19 上又做了一遍——假署名、偷换空间范围、删掉器测线。同一类动作，隔了十七年，重复出现。"
+       },
+       {
+        "id": "s46-potholer-side",
+        "type": "text",
+        "content": "potholer54 这边：这处计数失误就摆在他自己的论述里，任何人数一下就能发现。它没有被藏起来。\n\n而且还有一件事值得注意：你在做标注时，已经无声地修正过他了——第二部分的主张库把那些路线归并成了四条。做标注这个动作本身，就已经在核查核查者。"
+       },
+       {
+        "id": "s46-two-kinds",
+        "type": "text",
+        "content": "#### 这是两种不同的东西\n\n一个是制造的怀疑：用固定套路造出「还没定论」的假象，被指出后换个场合再做一遍。\n\n一个是可被核查的表达：会出错，但错误摆在明面上，任何人都能发现和指出。\n\n都会错。区别不在「谁不犯错」，在于错被指出来之后发生了什么。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s46-durkin-side"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s46-potholer-side",
+          "s46-two-kinds"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s46-durkin-side",
+         "s46-potholer-side",
+         "s46-two-kinds"
+        ],
+        "visibleBlockIds": [
+         "s46-durkin-side",
+         "s46-potholer-side",
+         "s46-two-kinds"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-two-kinds-of-error",
+        "text": "都会错。区别不在「谁不犯错」，在于错被指出来之后发生了什么。",
+        "audio": "assets/audio/narration/slice-two-kinds-of-error.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 270
+     },
+     {
+      "id": "slice-tools-have-range",
+      "title": "核查有射程：那 29 条一条都没被处理",
+      "blocks": [
+       {
+        "id": "s47-coverage",
+        "type": "text",
+        "content": "如果你只看核查视频，你会以为这部片被拆穿了。\n\n被拆穿的是它的科学部分——38 条。\n\n| 段落 | 编号 | 条数 | 反驳片覆盖 |\n| --- | --- | --- | --- |\n| 框架段 | C01–C14 | 14 | 部分（R07–R11） |\n| 科学段 | C15–C52 | 38 | 密集——R12 至 R53 几乎全在这里 |\n| 政治段 | C53–C81 | 29 | 几乎没有，仅 R54、R55 触及 |\n\n剩下 29 条政治主张——科研经费、学术压制、能源政策、发展伦理、阶级政治——一条都没被实质处理。"
+       },
+       {
+        "id": "s47-frames",
+        "type": "images",
+        "items": [
+         {
+          "id": "s47-frames-item-1",
+          "alt": "影片把气候研究经费增长与政治动机联系起来的画面",
+          "source": "assets/images/c53-funding-growth.jpg",
+          "caption": "C53 · 政治段主张之一：经费与动机"
+         },
+         {
+          "id": "s47-frames-item-2",
+          "alt": "反驳视频指出职业压制的说法需要具体、可核查的案例",
+          "source": "assets/images/r55-suppression-needs-cases.png",
+          "caption": "R55 · 压制叙事需要具体、可核查的案例"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "s47-check",
+        "type": "singleChoice",
+        "prompt": "那 29 条政治主张没有被反驳片处理。这说明什么？",
+        "options": [
+         {
+          "id": "they-are-true",
+          "label": "说明它们是真的——否则早被反驳了"
+         },
+         {
+          "id": "wrong-tool",
+          "label": "说明它们不是科学核查这把尺子量得到的类型，真假仍未定"
+         },
+         {
+          "id": "not-important",
+          "label": "说明它们不重要，可以忽略"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctOptionId": "wrong-tool"
+        },
+        "completion": {
+         "rule": "submit-correct"
+        }
+       },
+       {
+        "id": "s47-two-readings",
+        "type": "text",
+        "content": "#### 两个都要避免的读法\n\n「没被驳，所以是真的」 —— 错。反驳片没处理它们，是因为工具不对口，不是因为查过之后发现成立。\n\n「反正是那部片说的，所以都是假的」 —— 也错。这是「来源可疑就全否」，和「像科学就全信」是同一个错误的两面。\n\n正确的读法只有一个：这 29 条的真假，用科学核查这把尺子量不出来，需要换工具。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s47-coverage",
+          "s47-frames"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s47-check",
+          "s47-two-readings"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s47-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s47-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s47-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "s47-two-readings"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s47-coverage",
+         "s47-frames",
+         "s47-check"
+        ],
+        "visibleBlockIds": [
+         "s47-coverage",
+         "s47-frames",
+         "s47-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-tools-have-range",
+        "text": "被拆穿的是它的科学部分。剩下 29 条政治主张，一条都没被实质处理。",
+        "audio": "assets/audio/narration/slice-tools-have-range.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 330
+     },
+     {
+      "id": "slice-another-set-of-questions",
+      "title": "它们需要的另一套问题",
+      "blocks": [
+       {
+        "id": "s48-other-questions",
+        "type": "text",
+        "content": "#### 它们需要的另一套问题\n\n- 涉及具体指控（某人因异见被解雇、期刊编辑受压）：实名、时间、机构、有无申诉记录？\n- 涉及经费：分母是什么？ 增长是相对哪一年、占总科研预算多少、同期其他领域怎么变？\n- 涉及政策：成本由谁承担？ 支持方与反对方各自最强的论证是什么？\n\n这些问题都有答案，都能查——但那是另一门课。"
+       },
+       {
+        "id": "s48-no-error-signal",
+        "type": "text",
+        "content": "#### 记住这句\n\n工具用错地方不会报错，它只会给出一个像结论的东西。\n\n这是本课最容易被忽略、也最容易造成伤害的一条。一把好用的工具会让人想到处用它，而它在越界之后仍然会输出看起来很像分析的结果。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s48-other-questions"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s48-no-error-signal"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s48-other-questions",
+         "s48-no-error-signal"
+        ],
+        "visibleBlockIds": [
+         "s48-other-questions",
+         "s48-no-error-signal"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-another-set-of-questions",
+        "text": "工具用错地方不会报错，它只会给出一个像结论的东西。",
+        "audio": "assets/audio/narration/slice-another-set-of-questions.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-arrhenius-1896",
+      "title": "在写下你自己的总结之前，先给你一份文件",
+      "blocks": [
+       {
+        "id": "s49-arrhenius",
+        "type": "pdf",
+        "title": "Arrhenius 1896 —— On the Influence of Carbonic Acid in the Air upon the Temperature of the Ground（22 页）",
+        "source": "assets/pdfs/arrhenius-1896-carbonic-acid.pdf"
+       },
+       {
+        "id": "s49-setup",
+        "type": "text",
+        "content": "在写下你自己的总结之前，先给你一份文件。\n\n影片的总括结论是（C81）：气候变化是被发明出来的恐慌。\n\n这个结论要成立，需要面对一个很具体的问题：这件事是什么时候被「发明」的？\n\n下面这篇论文发表于 1896 年。作者 Svante Arrhenius 计算了大气中碳酸（CO₂）含量变化对地表温度的影响。\n\n它比 Al Gore 早了一个世纪，比现代环保运动早了半个多世纪，比任何一个今天被指控有经费动机的机构都早。"
+       },
+       {
+        "id": "s49-fill",
+        "type": "fillBlank",
+        "prompt": "现在用你自己的话回答两个问题。不要抄我前面写过的说法。\n\n（1） 这门课里 A 和 B 都被发现有错误。你打算用什么标准去区别它们？请把这个标准说成一句可以用在别处的话。\n\n（2） 这个标准用在你自己身上会是什么样？举一个具体的场景。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "两问都要答。第一问要说成一句能用在别处的话，而且要落在可观察的行为上——停在「看证据」「看是否客观」这类说法不算。第二问必须给一个具体场景，不要抽象表态。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s49-arrhenius"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s49-setup",
+          "s49-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s49-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s49-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s49-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s49-arrhenius",
+         "s49-setup",
+         "s49-fill"
+        ],
+        "visibleBlockIds": [
+         "s49-arrhenius",
+         "s49-setup",
+         "s49-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-arrhenius-1896",
+        "text": "影片说气候变化是被发明出来的恐慌。那么请回答：这件事是什么时候被发明的？",
+        "audio": "assets/audio/narration/slice-arrhenius-1896.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2"
+      ],
+      "estimatedSeconds": 480
+     },
+     {
+      "id": "slice-three-insights",
+      "title": "三个洞见，逐层递进",
+      "blocks": [
+       {
+        "id": "s50-insight-1-2",
+        "type": "text",
+        "content": "#### 三个洞见，逐层递进\n\n① 都会错，但「错的处理方式」不同。\n\nDurkin 2007 年被抓包处理过坐标轴，17 年后又做了一遍——假引用、删掉器测线、偷换空间范围。而 potholer54 那处「说三列四」摆在自己的论述里，任何人数一下就能发现，它没有被藏起来。\n\n这是两种不同的东西：一个是制造的怀疑，一个是可被核查的表达。\n\n② 判断一个来源，看它的纠错行为，比看它的立场更可靠。\n\n这是本课最可迁移的一句。\n\n它适用于新闻机构（出错后是否发更正、更正放在哪个位置）、学术期刊（是否有撤稿机制、撤稿后是否留痕）、AI 输出（被指出错误后是否承认、是否给出可追的来源）——以及你自己。\n\n立场是可以伪装的，纠错行为很难伪装，因为它需要在对自己不利的时候做出来。"
+       },
+       {
+        "id": "s50-insight-3",
+        "type": "text",
+        "content": "③ 核查有射程，而且工具用错地方不会报错。\n\nFLICC 处理得了科学段的 38 条，处理不了政治段的 29 条。而「没被处理」既不等于为真，也不等于为假。\n\n政治主张需要另一套问题：这项政策的成本由谁承担？这个数字的分母是什么？支持与反对方各自最强的论证是什么？"
+       },
+       {
+        "id": "s50-about-1896",
+        "type": "text",
+        "content": "#### 关于那篇 1896 年的论文\n\n它不能证明今天的任何一条具体结论——一篇 19 世纪的论文当然不能。\n\n它能做的是给「被发明出来的恐慌」这个总括结论设一道门槛：你得解释这篇 1896 年的计算是谁为了什么发明的。\n\n而这正是第②条的用法。你不需要判断 Arrhenius 的立场，你只需要看这条证据链的时间顺序对不对得上。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s50-insight-1-2"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s50-insight-3",
+          "s50-about-1896"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s50-insight-1-2",
+         "s50-insight-3",
+         "s50-about-1896"
+        ],
+        "visibleBlockIds": [
+         "s50-insight-1-2",
+         "s50-insight-3",
+         "s50-about-1896"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-three-insights",
+        "text": "立场是可以伪装的，纠错行为很难伪装，因为它需要在对自己不利的时候做出来。",
+        "audio": "assets/audio/narration/slice-three-insights.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-2",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "slice-ofcom-both-halves",
+      "title": "Ofcom 裁决的两半，两半都要讲",
+      "blocks": [
+       {
+        "id": "s51-both-halves",
+        "type": "text",
+        "content": "最后一道题没有标准答案，老师也不该给。\n\n2008 年，英国通讯管理局 Ofcom 对 Durkin 2007 年那部片《The Great Global Warming Swindle》作出裁决。裁决有两半，两半都要讲。\n\n前半句：Ofcom 认定该节目违反了公正性相关条款，对 David King、Carl Wunsch 和 IPCC 不公平——包括没有给予适当的回应机会。\n\n后半句：Ofcom 同时认定，该节目没有实质性误导观众以致造成伤害或冒犯，因此在准确性方面不构成违规。"
+       },
+       {
+        "id": "s51-why-second-half",
+        "type": "text",
+        "content": "#### 为什么后半句必须讲\n\n因为否认方长期拿后半句当护身符。\n\n如果你只从老师这里听到前半句，你一上网就会发现还有后半句，然后你会觉得被骗了——那这门课就白上了。\n\n而且更重要的是：这个「两半」结构本身，就是这门课最后要教的东西。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s51-both-halves"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s51-why-second-half"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s51-both-halves",
+         "s51-why-second-half"
+        ],
+        "visibleBlockIds": [
+         "s51-both-halves",
+         "s51-why-second-half"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-ofcom-both-halves",
+        "text": "裁决有两半，两半都要讲。只讲前半句，这门课就白上了。",
+        "audio": "assets/audio/narration/slice-ofcom-both-halves.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-ofcom-open-question",
+      "title": "开放题：监管裁定和科学裁定，是同一件事吗",
+      "blocks": [
+       {
+        "id": "s52-bulletin",
+        "type": "pdf",
+        "title": "Ofcom Broadcast Bulletin Issue 114（2008-07-21）—— 含 The Great Global Warming Swindle 裁决全文（86 页）",
+        "source": "assets/pdfs/ofcom-broadcast-bulletin-114.pdf"
+       },
+       {
+        "id": "s52-locate-hint",
+        "type": "text",
+        "content": "#### 怎么在 86 页里找到它\n\n这份公报收录的是同一批次的多项裁决。目录里按节目名列出，你要找的那一节标题是 The Great Global Warming Swindle，播出方为 Channel 4。\n\n裁决正文分成 Fairness（公正性）与 Accuracy / Standards（准确性与规范）两部分——这正是那「两半」的出处。\n\n用目录找，不要只信我前面的转述。"
+       },
+       {
+        "id": "s52-fill",
+        "type": "fillBlank",
+        "prompt": "公报原文在上面。先自己去里面定位那份裁决——用目录找，不要只信我前面的转述。（提示：找 The Great Global Warming Swindle 那一节。）\n\n然后回答：\n\n（1） 这算「官方认定它是错的」吗？\n（2） 监管裁定和科学裁定，是同一件事吗？\n\n这道题没有标准答案。写你自己的推理，包括你觉得难判断的地方。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "两问都要答，并写出你的推理过程。这道题没有标准答案，你可以得出与老师不同的结论，只要推理是基于你在公报原文里实际读到的内容。也请写出你觉得难判断的地方。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s52-bulletin",
+          "s52-locate-hint"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s52-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "s52-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "s52-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "s52-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s52-bulletin",
+         "s52-locate-hint",
+         "s52-fill"
+        ],
+        "visibleBlockIds": [
+         "s52-bulletin",
+         "s52-locate-hint",
+         "s52-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-ofcom-open-question",
+        "text": "先自己去公报原文里定位那份裁决，再写你自己的推理，包括你觉得难判断的地方。",
+        "audio": "assets/audio/narration/slice-ofcom-open-question.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 480
+     },
+     {
+      "id": "slice-what-you-take-away",
+      "title": "你带走的四样东西",
+      "blocks": [
+       {
+        "id": "s53-rules-not-facts",
+        "type": "text",
+        "content": "#### 这门课到这里为止\n\n「监管机构判的是播出规则，不是科学事实」 —— 这句话本身就是一课。\n\n它是「核查有射程」的又一个实例，而且是一个在现实里天天出现的实例。法院判决、监管裁定、平台审核结论、事实核查机构的评级——这些都是在各自规则内作出的判断，都不能直接换算成「这件事在科学上成立或不成立」。\n\n看清一个结论是在哪套规则下、用什么举证标准作出的，比记住它的结论重要得多。"
+       },
+       {
+        "id": "s53-four-things",
+        "type": "text",
+        "content": "#### 你带走的四样东西\n\n1. 一套顺序 —— 抄署名、找原文、并排比、把删掉的放回去。对任何一张带署名的图表都成立。\n2. 一个最便宜的动作 —— 先在材料内部找互斥。零成本，且无法用立场化解。\n3. 一个判据 —— 判断来源看它的纠错行为，不看它的立场。对新闻、期刊、AI，以及你自己。\n4. 一条边界 —— 核查有射程，而工具用错地方不会报错。\n\n第 4 条是最难守的。前三条会让你觉得手里有把好用的工具，而好用的工具总让人想到处用。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "s53-rules-not-facts"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "s53-four-things"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "s53-rules-not-facts",
+         "s53-four-things"
+        ],
+        "visibleBlockIds": [
+         "s53-rules-not-facts",
+         "s53-four-things"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-what-you-take-away",
+        "text": "看清一个结论是在哪套规则下、用什么举证标准作出的，比记住它的结论重要得多。",
+        "audio": "assets/audio/narration/slice-what-you-take-away.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "flicc-objective-1",
+       "flicc-objective-2",
+       "flicc-objective-3"
+      ],
+      "estimatedSeconds": 270
+     }
+    ],
+    "objectiveIds": [
+     "flicc-objective-2",
+     "flicc-objective-3",
+     "flicc-objective-1"
+    ]
+   }
+  ],
+  "title": "科学否认的五种手法：用 FLICC 拆两段气候视频",
+  "closing": {
+   "fallback": {
+    "text": "你带走的是一套顺序、一个最便宜的动作、一个判据和一条边界；最后那条边界最难守。"
+   },
+   "takeaways": [
+    "科学否认不是一种立场标签，而是一组可识别的行为模式。",
+    "查错时也要检查核查方自己的证据和表达。",
+    "判断一个来源，看它如何纠错，比只看立场更可靠。",
+    "FLICC 能处理科学段落中的手法，但不是所有政治或价值主张的万能工具。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "本课通过两段气候视频训练学生识别科学否认的五种常见手法。课程不是让学生换一个对象相信，而是让学生把 FLICC 当作可重复使用的核查工具：既看被核查视频，也看核查视频自身的表达和证据。学生会看到假专家、逻辑谬误、挑樱桃、总括句压扁分项和散弹枪式堆量如何改变判断负担。",
+   "transferApplications": [
+    "气候视频核查",
+    "科学传播判断",
+    "新闻与自媒体事实核查",
+    "AI 输出中的伪证据识别"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "这节课帮助你用 FLICC 识别科学否认的常见手法，并理解核查工具对谁都要一样使用。"
+   },
+   "learningPreview": [
+    "两段视频都是被核查对象",
+    "堆量本身就是一种手法",
+    "先抄署名、再找原文、再并排比、把删掉的放回去",
+    "差多少和升多快，是两件事",
+    "核查有射程，工具用错地方不会报错"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "flicc-objective-1",
+    "text": "能够识别假专家、逻辑谬误、不可能期待、挑樱桃和阴谋论等科学否认手法。",
+    "evidenceBlockIds": [
+     "s3-video",
+     "s4-tally-report",
+     "s11-check",
+     "s14-roster-triage",
+     "s35-ladder",
+     "s37-field-id",
+     "s37-field-quote",
+     "s38-field-technique",
+     "s38-field-source",
+     "s39-field-result",
+     "s39-field-stuck"
+    ]
+   },
+   {
+    "id": "flicc-objective-2",
+    "text": "能够区分被核查对象和核查方都需要接受证据检查。",
+    "evidenceBlockIds": [
+     "s15-check",
+     "s17-fill",
+     "s19-restorer",
+     "s22-fill",
+     "s24-fill",
+     "s25-comparator",
+     "s27-fill",
+     "s29-check",
+     "s35-ladder",
+     "s37-field-id",
+     "s37-field-quote",
+     "s38-field-technique",
+     "s38-field-source",
+     "s39-field-result",
+     "s39-field-stuck",
+     "s41-check",
+     "s44-video",
+     "s45-check",
+     "s49-fill"
+    ]
+   },
+   {
+    "id": "flicc-objective-3",
+    "text": "能够判断一个主张适合用哪种核查工具，哪些问题超出 FLICC 的射程。",
+    "evidenceBlockIds": [
+     "s11-check",
+     "s12-check",
+     "s14-roster-triage",
+     "s29-check",
+     "s33-fill",
+     "s47-check",
+     "s52-fill"
+    ]
+   }
+  ],
+  "estimatedMinutes": 402
+ },
+ "schemaVersion": "2.0"
+}

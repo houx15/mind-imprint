@@ -12,7 +12,7 @@ import (
 )
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme, page_background FROM users WHERE id = $1
+SELECT id, email, email_verified_at, password_hash, role, school_id, display_name, avatar_color, created_at, card_theme, page_background, onboarded_at FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
@@ -30,6 +30,7 @@ func (q *Queries) GetUserByID(ctx context.Context, id uuid.UUID) (User, error) {
 		&i.CreatedAt,
 		&i.CardTheme,
 		&i.PageBackground,
+		&i.OnboardedAt,
 	)
 	return i, err
 }
@@ -90,6 +91,17 @@ type SetUserCardThemeParams struct {
 // the handler validates against cards.ValidTheme before calling.
 func (q *Queries) SetUserCardTheme(ctx context.Context, arg SetUserCardThemeParams) error {
 	_, err := q.db.Exec(ctx, setUserCardTheme, arg.CardTheme, arg.UserID)
+	return err
+}
+
+const setUserOnboardedAt = `-- name: SetUserOnboardedAt :exec
+UPDATE users SET onboarded_at = now() WHERE id = $1
+`
+
+// Stamps the moment the student completed/dismissed onboarding. Idempotent enough for
+// our use (re-running just refreshes the timestamp).
+func (q *Queries) SetUserOnboardedAt(ctx context.Context, userID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, setUserOnboardedAt, userID)
 	return err
 }
 

@@ -1,5 +1,46 @@
 import { z } from "zod";
 
+// The 7 course categories — a closed, no-emoji vocabulary stored as
+// {slug, label} pairs so a stored slug is decoupled from its display label
+// (renaming a label never migrates data). The generator may SUGGEST a slug but
+// must never mint an 8th; the API rejects any slug outside this set.
+export const COURSE_CATEGORIES = [
+  { slug: "stance-value",     label: "立场与价值" },
+  { slug: "source-check",     label: "信源核查" },
+  { slug: "media-literacy",   label: "媒介与信息素养" },
+  { slug: "self-knowledge",   label: "自我认知" },
+  { slug: "data-literacy",    label: "数据素养" },
+  { slug: "research-process", label: "研究流程" },
+  { slug: "argument-writing", label: "论证写作" },
+] as const;
+
+export const CourseCategory = z.enum([
+  "stance-value", "source-check", "media-literacy",
+  "self-knowledge", "data-literacy", "research-process", "argument-writing",
+]);
+export type CourseCategory = z.infer<typeof CourseCategory>;
+
+// 学科对标 — curriculum alignment, three tracks (IB / other international /
+// domestic). Each an independent list of short labels.
+export const CourseAlignment = z.object({
+  ib: z.array(z.string()).default([]),
+  otherIntl: z.array(z.string()).default([]),
+  domestic: z.array(z.string()).default([]),
+});
+export type CourseAlignment = z.infer<typeof CourseAlignment>;
+
+// The schema-driven course introduction (rendered deterministically on the
+// detail page; filled by the generator). Mirrors docs/2026-08-19-courses.md's
+// per-course structure: 导语 / 学生做什么 / 带走什么 / 学科对标 / 关键词.
+export const CourseIntroduction = z.object({
+  hook: z.string().default(""),
+  whatYouDo: z.string().default(""),
+  takeaways: z.array(z.string()).default([]),
+  alignment: CourseAlignment.default({ ib: [], otherIntl: [], domestic: [] }),
+  keywords: z.array(z.string()).default([]),
+});
+export type CourseIntroduction = z.infer<typeof CourseIntroduction>;
+
 export const CourseAssetType = z.enum(["image", "link", "text"]);
 export const CourseAsset = z.object({
   id: z.string(),
@@ -65,6 +106,14 @@ export const CourseStructure = z.object({
   asset_library: z.array(CourseAsset).default([]),
 }).passthrough();
 
+/** One student's state on one catalog card — the ring and the pill, nothing more. */
+export const CourseCatalogProgress = z.object({
+  status: z.enum(["in-progress", "completed"]),
+  completedSteps: z.number().int().nonnegative(),
+  /** ISO-8601; the 最近学习 ordering reads this. */
+  updatedAt: z.string(),
+});
+
 export const CourseSummary = z.object({
   slug: z.string(),
   branch: z.string(),
@@ -77,6 +126,15 @@ export const CourseSummary = z.object({
   // server-side via resolveCoverURL); absent/"" when the course has no "img:"
   // cover or OSS is off — mirrors cardCatalog.ts's own coverUrl field.
   coverUrl: z.string().optional().default(""),
+  category: CourseCategory.nullable().default(null),
+  introduction: CourseIntroduction.nullable().default(null),
+  featuredRank: z.number().int().nullable().default(null),
+  // The AUTHED student's own state on this course, resolved server-side so the
+  // catalog is one round trip (it used to fan out a /progress request per card).
+  // null = never opened, which is what the card reads as 未开始 — a zero-valued
+  // object could not say that. `status` is already normalized to the two values
+  // the catalog renders, never the runtime session's five-state status.
+  progress: CourseCatalogProgress.nullable().default(null),
 });
 
 export const CoursePlayerPayload = z.object({
@@ -112,13 +170,53 @@ export const CourseReport = z.object({
   quiz: z.object({ total: z.number().int(), correct: z.number().int() }),
 });
 
+// CourseAnswerReport is the per-attempt answer detail (GET
+// /courses/{slug}/report/answers?attempt=<id>): the student's actual recorded
+// answers + time, read back from the stored course_session blob + the course
+// definition. Kept SEPARATE from CourseReport (lazy-loaded when the student
+// opens the 小测/我的答案 drawer) so the main report fetch stays lean. 2.0
+// courses only; a legacy course returns an empty `slices` array.
+//
+// One `CourseAnswerItem` per recorded interactive block:
+//   - singleChoice / fillBlank → the real question (prompt) + the student's
+//     answer (option label / typed text), graded correctness, attempts;
+//   - interactiveHtml / video   → the completion evidence the frame reported
+//     (a summarized value), correctness when the frame graded it.
+// `correct` is null for ungraded blocks (survey / reflection / no grade). An
+// unanswered assessment block is still listed with `answered:false` so a report
+// shows what was left blank, not a silent gap.
+export const CourseAnswerItem = z.object({
+  blockId: z.string(),
+  type: z.string(),
+  prompt: z.string(),
+  answered: z.boolean(),
+  yourAnswer: z.string(),
+  correct: z.boolean().nullable(),
+  attempts: z.number().int(),
+});
+
+export const CourseAnswerSlice = z.object({
+  sliceId: z.string(),
+  title: z.string(),
+  timeSpentSeconds: z.number().int(),
+  items: z.array(CourseAnswerItem),
+});
+
+export const CourseAnswerReport = z.object({
+  slices: z.array(CourseAnswerSlice),
+});
+
 export type CourseAsset = z.infer<typeof CourseAsset>;
 export type Interaction = z.infer<typeof Interaction>;
 export type RenderSegment = z.infer<typeof RenderSegment>;
 export type RenderStepContent = z.infer<typeof RenderStepContent>;
 export type RenderCache = z.infer<typeof RenderCache>;
 export type CourseStructure = z.infer<typeof CourseStructure>;
+export type CourseCatalogProgress = z.infer<typeof CourseCatalogProgress>;
 export type CourseSummary = z.infer<typeof CourseSummary>;
 export type CoursePlayerPayload = z.infer<typeof CoursePlayerPayload>;
 export type CourseProgress = z.infer<typeof CourseProgress>;
 export type CourseReport = z.infer<typeof CourseReport>;
+export type CourseAnswerItem = z.infer<typeof CourseAnswerItem>;
+export type CourseAnswerSlice = z.infer<typeof CourseAnswerSlice>;
+export type CourseAnswerReport = z.infer<typeof CourseAnswerReport>;

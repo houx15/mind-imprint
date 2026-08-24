@@ -1,0 +1,2857 @@
+{
+ "course": {
+  "id": "course-23",
+  "parts": [
+   {
+    "id": "part-translate",
+    "title": "第一部分 · 先把画面翻译成一句话",
+    "slices": [
+     {
+      "id": "why-translate",
+      "title": "画面为什么需要翻译",
+      "blocks": [
+       {
+        "id": "why-translate-intro",
+        "type": "text",
+        "content": "画面不给你前提，只给你结论的感觉。\n\n一句话要说服你，得先摆前提，再走到结论——中间每一步你都能拦下来问「凭什么」。画面不走这条路。它跳过论证，直接把判断塞进你脑子里，而且塞得你以为那是你自己想出来的。\n\n所以在影像面前，侦探的第一个动作不是拆，是**翻译**：把你看到的东西还原成一个可以被反对的句子。翻译不出来，就没有东西可拆。\n\n开始之前，先做一件事。"
+       },
+       {
+        "id": "study-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "study-shot-1",
+          "alt": "影片画面近景：一名受访者在暖色调室内说话，光线柔和均匀、没有明显阴影，背景虚化，上半身入画",
+          "source": "assets/images/study-closeup.jpg"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "blind-score",
+        "type": "singleChoice",
+        "prompt": "先别管他要说什么，你也还没听到他的任何一条理由。只凭这一眼，你给他在气候问题上的可信度打几分？（先打分，理由等一下再说。）",
+        "options": [
+         {
+          "id": "score-1",
+          "label": "1 分（很低）"
+         },
+         {
+          "id": "score-2",
+          "label": "2 分"
+         },
+         {
+          "id": "score-3",
+          "label": "3 分"
+         },
+         {
+          "id": "score-4",
+          "label": "4 分"
+         },
+         {
+          "id": "score-5",
+          "label": "5 分（很高）"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "why-translate-intro",
+          "study-shot"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "blind-score"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "blind-score"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-why-translate"
+          },
+          {
+           "type": "enable",
+           "targetId": "blind-score"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "blind-score"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "why-translate-intro",
+         "study-shot",
+         "blind-score"
+        ],
+        "visibleBlockIds": [
+         "why-translate-intro",
+         "study-shot",
+         "blind-score"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-why-translate",
+        "text": "先别管他要说什么。只凭这一眼，给他打个分。理由等一下再说。",
+        "audio": "assets/audio/narration/why-translate.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-translate"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "three-layers",
+      "title": "三层分开写",
+      "blocks": [
+       {
+        "id": "three-layers-explain",
+        "type": "text",
+        "content": "刚才那个分是怎么来的？\n\n把它拆开之前，先立一个规矩：看一个镜头，永远分三层写。\n\n**① 我看到的**\n\n- 判定标准：任何人重看一遍都会同意。\n- 例：近景；背景有书架；光线均匀、没有强阴影；人物嘴角微扬。\n\n**② 通常意味着**\n\n- 判定标准：这是行业惯例，可以讨论，也可以有例外。\n- 例：书架在纪录片里常用于暗示专业身份；柔光常用于让人物显得可亲。\n\n**③ 我的推论**\n\n- 判定标准：必须标记成推论，而且可以被质疑。\n- 例：因此观众更可能接受他的气候观点——这一步需要单独论证，不是自动成立的。\n\n三层最容易塌的地方是第一层。只要你写下「显得」「看起来很」「说明」「暗示」，你就已经跳到第二层或第三层了，而且自己不会察觉。"
+       },
+       {
+        "id": "study-shot-again",
+        "type": "images",
+        "items": [
+         {
+          "id": "study-shot-again-1",
+          "alt": "影片画面近景：一名受访者在暖色调室内说话，光线柔和均匀、没有明显阴影，背景虚化，上半身入画",
+          "source": "assets/images/study-closeup.jpg",
+          "caption": "刚才你打分的那张静帧"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "observation-check",
+        "type": "singleChoice",
+        "prompt": "下面四句都是在描述这张静帧。哪一句才是合格的「我看到的」？",
+        "options": [
+         {
+          "id": "obs-facts",
+          "label": "近景；背景是整墙书架；光线柔和、没有明显阴影；人物平静微笑。"
+         },
+         {
+          "id": "obs-professional",
+          "label": "他看起来很专业，像是一个可以信赖的学者。"
+         },
+         {
+          "id": "obs-intent",
+          "label": "这个镜头想让你相信他说的话。"
+         },
+         {
+          "id": "obs-calm-so-right",
+          "label": "他很冷静，说明他讲的内容比较可靠。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。景别、背景里有什么、光线、表情——这四样换一个人重看一遍，还是会写出同样的东西。这就是第一层的标准。",
+         "correctOptionId": "obs-facts",
+         "incorrectFeedback": "这是你的判断，不是你看到的。「看起来很专业」「想让你相信」「说明」都不是任何人重看一遍都会同意的东西，它们已经跳到第二层或第三层了。回到第一层：景别是什么？背景里有什么？光线是硬是柔？"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "three-layers-explain"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "study-shot-again",
+          "observation-check"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "observation-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-three-layers"
+          },
+          {
+           "type": "enable",
+           "targetId": "observation-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "observation-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "three-layers-explain",
+         "study-shot-again",
+         "observation-check"
+        ],
+        "visibleBlockIds": [
+         "three-layers-explain",
+         "study-shot-again",
+         "observation-check"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-three-layers",
+        "text": "三层里最容易塌的是第一层。出现「显得」「看起来很」，你已经跳层了。",
+        "audio": "assets/audio/narration/three-layers.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-translate"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "translate-one-line",
+      "title": "压成一句话",
+      "blocks": [
+       {
+        "id": "translate-brief",
+        "type": "text",
+        "content": "第一层写清楚了，才谈得上翻译。\n\n翻译就是把这些观察压成一个句子，格式固定：\n\n**因为＿＿＿，所以＿＿＿。**\n\n「因为」后面只能填上一题里那种可核查的观察——景别、光线、背景、表情、声音。「所以」后面要是一个完整的、别人可以站出来反对的判断句。\n\n写完自己检查一遍：别人要反驳你，反驳的是哪一句？"
+       },
+       {
+        "id": "study-shot-third",
+        "type": "images",
+        "items": [
+         {
+          "id": "study-shot-third-1",
+          "alt": "影片画面近景：一名受访者在暖色调室内说话，光线柔和均匀、没有明显阴影，背景虚化，上半身入画",
+          "source": "assets/images/study-closeup.jpg"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "translate-fill",
+        "type": "fillBlank",
+        "prompt": "把这张静帧压成一句话，用「因为＿，所以＿」的格式写出来。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "「因为」后面必须全部是可核查的观察（景别、光线、背景、表情、声音），不能出现「显得」「看起来很」「说明」。「所以」后面要是一个完整的、可以被别人反对的判断句。写完自己检查一遍：别人要反驳你，反驳的是哪一句？"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：因为他坐在书房里、光线柔和、说话平静，所以他对气候问题的判断更可信。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "translate-brief",
+          "study-shot-third"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "translate-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "translate-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-translate-one-line"
+          },
+          {
+           "type": "enable",
+           "targetId": "translate-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "translate-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "translate-brief",
+         "study-shot-third",
+         "translate-fill"
+        ],
+        "visibleBlockIds": [
+         "translate-brief",
+         "study-shot-third",
+         "translate-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-translate-one-line",
+        "text": "压成一句话。因为后面只放观察，所以后面放一个别人可以反对的判断。",
+        "audio": "assets/audio/narration/translate-one-line.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-translate"
+      ],
+      "estimatedSeconds": 210
+     }
+    ],
+    "objectiveIds": [
+     "obj-translate"
+    ]
+   },
+   {
+    "id": "part-context",
+    "title": "第二部分 · 同一组画面，读三次",
+    "slices": [
+     {
+      "id": "three-rounds",
+      "title": "三轮提问",
+      "blocks": [
+       {
+        "id": "three-rounds-brief",
+        "type": "text",
+        "content": "接下来的活动里有三张静帧，来自同一部纪录片。先不告诉你是哪一部。\n\n一次给你一张，顺序是打乱的。每张写一句就行。\n\n有一个规矩：写完不能改。这不是为了为难你——你待会儿需要看到自己最初写的那一句。"
+       },
+       {
+        "id": "three-rounds-html",
+        "type": "interactiveHtml",
+        "source": "interactions/html/three-rounds.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:2",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "three-rounds-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "three-rounds-html"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "three-rounds-html"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-three-rounds"
+          },
+          {
+           "type": "enable",
+           "targetId": "three-rounds-html"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "three-rounds-html"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "three-rounds-brief",
+         "three-rounds-html"
+        ],
+        "visibleBlockIds": [
+         "three-rounds-brief",
+         "three-rounds-html"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-three-rounds",
+        "text": "三张静帧，一次一张。写完不能改——你待会儿需要看到自己最初写的那一句。",
+        "audio": "assets/audio/narration/three-rounds.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context"
+      ],
+      "estimatedSeconds": 600
+     },
+     {
+      "id": "first-reading",
+      "title": "第一眼的读法",
+      "blocks": [
+       {
+        "id": "three-shots",
+        "type": "images",
+        "items": [
+         {
+          "id": "three-shots-1",
+          "alt": "影片画面全景：国家美术馆前，一群身着红色与绿色长袍、戴白色面具的人整齐举起手臂，建筑呈对称构图立于人群之后",
+          "source": "assets/images/shot-crowd.jpg",
+          "caption": "镜次 ① 国家美术馆前，红绿服装人群整齐举臂。全景，对称构图。"
+         },
+         {
+          "id": "three-shots-2",
+          "alt": "影片画面特写：一名少女在蓝色背景板前对着麦克风讲话，眉头紧锁、神情激动",
+          "source": "assets/images/shot-greta.jpg",
+          "caption": "镜次 ② 格蕾塔在联合国峰会上的特写。「你们怎么敢这样」。"
+         },
+         {
+          "id": "three-shots-3",
+          "alt": "影片画面俯拍：一个人仰面躺在大片红色液体中，浅蓝条纹衬衫上溅有红色痕迹，地面是被红色浸透的石阶",
+          "source": "assets/images/shot-blood.jpg",
+          "caption": "镜次 ③ 一个人躺在大片红色液体中，形似血泊。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "first-reading-table",
+        "type": "text",
+        "content": "这就是影片的开场三镜头，真实顺序是 ①→②→③。\n\n大多数人第一眼的读法，跟下面这张表差不多。\n\n| 镜次 | 第一眼的读法 |\n| --- | --- |\n| ① | **红衣人群**：团结、坚定的信念；诉求的严肃性和力量感；建筑的权威让诉求更有分量。 |\n| ② | **格蕾塔特写**：感同身受她的愤怒和无奈；她对这件事是真诚投入的。 |\n| ③ | **血泊**：象征创伤与牺牲；传达事情的紧迫和后果的灾难性。 |\n\n这一栏全部是**画面制作者**想表达的意思。\n\n但这部片是使用者，不是制作者。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "three-shots"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "first-reading-table"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-first-reading"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "three-shots",
+         "first-reading-table"
+        ],
+        "visibleBlockIds": [
+         "three-shots",
+         "first-reading-table"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-first-reading",
+        "text": "这一栏全部是画面制作者想表达的意思。但这部片是使用者，不是制作者。",
+        "audio": "assets/audio/narration/first-reading.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "four-checks",
+      "title": "四项取证清单",
+      "blocks": [
+       {
+        "id": "four-checks-table",
+        "type": "text",
+        "content": "要翻转这一案，只需要查四件事。\n\n| 要查什么 | 查到的 |\n| --- | --- |\n| 血泊那段的来源：行为艺术？新闻画面？剧情片片段？重演？ | 活动者的表演。 |\n| 这三个镜头之间有没有旁白或字幕？说了什么？ | 没有解说词；背景音是格蕾塔在联合国的发言。 |\n| 每个镜头各多长？血泊是一闪而过还是停留？ | **还没有人数过。** 停留够久＝要你看清楚；一闪而过＝只取印象。时长是可数的硬证据。 |\n| 这三个镜头真的连着吗？中间有没有别的？ | **还没有人核过。** 并置分析的全部前提就是相邻；不相邻，这一整套读法都不成立。 |\n\n后两格空着不是疏忽，是留给你的。等你拿到完整影片，这两格由你来填。\n\n右边两张是前两格的来源截图。"
+       },
+       {
+        "id": "source-evidence",
+        "type": "images",
+        "items": [
+         {
+          "id": "source-evidence-1",
+          "alt": "英国 Morning Star 网站 2020 年 8 月 9 日报道截图，标题为 XR 活动者在特拉法加广场倾倒「血」声援巴西原住民；配图是国家美术馆台阶上的红衣人群、红色液体与一面彩色旗帜",
+          "source": "assets/images/source-morning-star.jpg",
+          "caption": "Morning Star，2020-08-09。红衣人群与红色液体来自 Extinction Rebellion 在特拉法加广场／国家美术馆前的抗议。"
+         },
+         {
+          "id": "source-evidence-2",
+          "alt": "联合国新闻中文页面截图，网址栏为 news.un.org，2019 年 8 月 29 日报道瑞典少女格蕾塔扬帆远航抵达纽约、呼吁紧急采取气候行动，配图为帆船驶入纽约港",
+          "source": "assets/images/source-un-news.jpg",
+          "caption": "联合国新闻中文站，2019-08-29。格蕾塔赴纽约参加联合国气候峰会的报道。"
+         }
+        ],
+        "presentation": "gallery"
+       }
+      ],
+      "layout": {
+       "ratio": "2:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "four-checks-table"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "source-evidence"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-four-checks"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "four-checks-table",
+         "source-evidence"
+        ],
+        "visibleBlockIds": [
+         "four-checks-table",
+         "source-evidence"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-four-checks",
+        "text": "后两格空着不是疏忽，是留给你的。等你拿到完整影片，这两格由你来填。",
+        "audio": "assets/audio/narration/four-checks.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context",
+       "obj-same-ruler"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "two-contexts",
+      "title": "同样三个镜头，两种语境",
+      "blocks": [
+       {
+        "id": "source-finding",
+        "type": "text",
+        "content": "查到的东西改变了整件事。\n\n开场这三个镜头很可能全部来自气候行动方**自己生产**的影像——游行、演讲、行为艺术。其中红衣人群与红色液体，来自 2020 年 Extinction Rebellion 与巴西原住民相关组织在伦敦特拉法加广场／国家美术馆前发起的抗议，红色和绿色液体象征原住民死亡与生态破坏。\n\n影片一帧都没有篡改。它只是把这些画面放在一起，然后接上片名。"
+       },
+       {
+        "id": "two-contexts-table",
+        "type": "text",
+        "content": "同样三个镜头，换一个位置：\n\n| 镜次 | 在活动方自己的宣传片里 | 在这部片的开场里 |\n| --- | --- | --- |\n| ① 人群 | 有组织、有决心的公民行动。 | 穿着戏服的表演。 |\n| ② 格蕾塔 | 一代人的愤怒与紧迫。 | 一个失控的孩子。 |\n| ③ 血泊 | 气候造成的真实伤害。 | 为了吓唬你而演出来的死亡。 |\n| 三个合看 | 这件事很急，必须行动。 | 这一方是靠情绪和表演在说话的。 |"
+       },
+       {
+        "id": "edit-cleverness",
+        "type": "text",
+        "content": "这段剪辑有两个厉害的地方。\n\n**一、** 它从头到尾没有说一句「这些人歇斯底里」。这个结论是观众自己得出的——所以观众不会防备它，也不会觉得自己被说服了。\n\n**二、** 影片拿到了这些画面的全部冲击力，却不必为这个冲击力负责。它随时可以说：这是他们自己拍的。"
+       },
+       {
+        "id": "two-breakpoints",
+        "type": "singleChoice",
+        "prompt": "把这三个镜头翻译成一句话，是：「因为这些人穿红袍游行、这个女孩在联合国大吼、他们躺在假血里表演死亡，所以这一方是靠情绪和表演在说话的。」这句话最主要的两个毛病是什么？",
+        "options": [
+         {
+          "id": "cherry-strawman",
+          "label": "它挑的是对方最戏剧化的三个画面；而且这三个画面里没有一条是关于气候数据的——它根本没有回应对方的论证，只展示了对方的样子。"
+         },
+         {
+          "id": "faked",
+          "label": "它伪造了画面——这三个镜头不是真的。"
+         },
+         {
+          "id": "no-date",
+          "label": "它没有标明这些画面的拍摄时间和地点。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。两个断点：以偏概全（选样偏差）＋ 稻草人——影像版。最戏剧化的三个画面代表不了这一方的全部理由；而展示对方的样子，不等于回应对方的理由。",
+         "correctOptionId": "cherry-strawman",
+         "incorrectFeedback": "每一帧都是真的，这正是它难抓的地方——观众找不到「哪里造假了」，所以不会起疑。问题也不在缺少时间地点标注。再看一遍左边那张表：同样三个镜头，为什么换个位置意思就反过来了？"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "source-finding",
+          "two-contexts-table"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "edit-cleverness",
+          "two-breakpoints"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "two-breakpoints"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-two-contexts"
+          },
+          {
+           "type": "enable",
+           "targetId": "two-breakpoints"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "two-breakpoints"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "source-finding",
+         "two-contexts-table",
+         "edit-cleverness",
+         "two-breakpoints"
+        ],
+        "visibleBlockIds": [
+         "source-finding",
+         "two-contexts-table",
+         "edit-cleverness",
+         "two-breakpoints"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-two-contexts",
+        "text": "影片一帧都没有篡改。它只是把这些画面放在一起，然后接上片名。",
+        "audio": "assets/audio/narration/two-contexts.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "title-card",
+      "title": "片名不是标题，是结论句",
+      "blocks": [
+       {
+        "id": "opening-sequence",
+        "type": "images",
+        "items": [
+         {
+          "id": "opening-1",
+          "alt": "影片画面全景：国家美术馆前，一群身着红色与绿色长袍、戴白色面具的人整齐举起手臂，建筑呈对称构图立于人群之后",
+          "source": "assets/images/shot-crowd.jpg",
+          "caption": "① 红衣"
+         },
+         {
+          "id": "opening-2",
+          "alt": "影片画面特写：一名少女在蓝色背景板前对着麦克风讲话，眉头紧锁、神情激动",
+          "source": "assets/images/shot-greta.jpg",
+          "caption": "② 吼叫"
+         },
+         {
+          "id": "opening-3",
+          "alt": "影片画面俯拍：一个人仰面躺在大片红色液体中，浅蓝条纹衬衫上溅有红色痕迹，地面是被红色浸透的石阶",
+          "source": "assets/images/shot-blood.jpg",
+          "caption": "③ 血红"
+         },
+         {
+          "id": "opening-4",
+          "alt": "影片片名卡：CLIMATE the MOVIE 压在一条黄色背景条上，下方 The Cold Truth 垫着淡蓝色底纹，衬底是米白色纸面质感",
+          "source": "assets/images/title-card.jpg",
+          "caption": "④ 紧接着落下的片名卡：黄色警示条 + 蓝色冷静"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "title-card-turn",
+        "type": "text",
+        "content": "开场之后紧接着的，是这张片名卡。\n\n- **黄色**：片名主体压在黄色背景条里。黄色是高可见度色彩，交通警示标志上到处都是，带着强烈的警示意味。\n- **蓝色**：The Cold Truth 底下垫着蓝色。蓝色给人冷静、理性的感觉。\n- **字体与排版**：字大且粗，清晰醒目；两行上下排列，上面点题，下面强调「冷峻真相」。\n\n把开场连起来看：红衣—血红—吼叫，然后是黄色警示条与蓝色冷静。开场刻意做得越「热」，片名落下来时就越像解脱。红转蓝，情绪转真相。\n\n**片名不是标题，是这段剪辑的结论句。**"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "opening-sequence"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "title-card-turn"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-title-card"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "opening-sequence",
+         "title-card-turn"
+        ],
+        "visibleBlockIds": [
+         "opening-sequence",
+         "title-card-turn"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-title-card",
+        "text": "红转蓝，情绪转真相。片名不是标题，是这段剪辑的结论句。",
+        "audio": "assets/audio/narration/title-card.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "recut-experiment",
+      "title": "重剪实验",
+      "blocks": [
+       {
+        "id": "four-stills",
+        "type": "images",
+        "items": [
+         {
+          "id": "four-stills-1",
+          "alt": "影片画面全景：国家美术馆前，一群身着红色与绿色长袍、戴白色面具的人整齐举起手臂，建筑呈对称构图立于人群之后",
+          "source": "assets/images/shot-crowd.jpg",
+          "caption": "A 红衣人群"
+         },
+         {
+          "id": "four-stills-2",
+          "alt": "影片画面特写：一名少女在蓝色背景板前对着麦克风讲话，眉头紧锁、神情激动",
+          "source": "assets/images/shot-greta.jpg",
+          "caption": "B 格蕾塔特写"
+         },
+         {
+          "id": "four-stills-3",
+          "alt": "影片画面俯拍：一个人仰面躺在大片红色液体中，浅蓝条纹衬衫上溅有红色痕迹，地面是被红色浸透的石阶",
+          "source": "assets/images/shot-blood.jpg",
+          "caption": "C 血泊"
+         },
+         {
+          "id": "four-stills-4",
+          "alt": "影片画面近景：一名受访者在暖色调室内说话，光线柔和均匀、没有明显阴影，背景虚化，上半身入画",
+          "source": "assets/images/study-closeup.jpg",
+          "caption": "D 书房里平静的受访者"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "recut-brief",
+        "type": "text",
+        "content": "左边四张图，一张都不许改、不许删。你只能决定它们的顺序。\n\n- **版本 A**：排一个让观众支持气候行动的顺序。\n- **版本 B**：排一个让观众怀疑气候警报的顺序。\n\n每个版本先写顺序（例如 CABD），再写一句：我把＿放在＿前面，因为这样观众会先＿。\n\n两个版本用的是完全相同的四张图。素材一样，结论相反——那结论是从哪儿来的？"
+       },
+       {
+        "id": "recut-fill",
+        "type": "fillBlank",
+        "prompt": "写下你的两个版本，再回答最后那个问题：结论是从哪儿来的？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "两个版本的顺序必须不同。两句理由都要落在「观众会先感觉到什么」上，而不是「哪个版本才是对的」。最后一问要答出「顺序／上下文」这一层意思，而不是回到哪一方更有道理。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "版本A：____ ；我把_放在_前面，因为…… / 版本B：____ ；…… / 结论是从……来的"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "four-stills"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "recut-brief",
+          "recut-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "recut-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-recut-experiment"
+          },
+          {
+           "type": "enable",
+           "targetId": "recut-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "recut-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "four-stills",
+         "recut-brief",
+         "recut-fill"
+        ],
+        "visibleBlockIds": [
+         "four-stills",
+         "recut-brief",
+         "recut-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-recut-experiment",
+        "text": "素材一样，结论相反。那结论是从哪儿来的？",
+        "audio": "assets/audio/narration/recut-experiment.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "borrowed-footage",
+      "title": "嫌疑人档案：借来的画面",
+      "blocks": [
+       {
+        "id": "borrowed-entry",
+        "type": "text",
+        "content": "**借来的画面**（选样偏差的影像版）\n\n**长什么样**：一个镜头完全没有被篡改——是对方自己拍的、自己发布的——但被放在一个让它显得荒谬的位置上。\n\n**为什么难抓**：因为每一帧都是真的。观众找不到「哪里造假了」，所以不会起疑。\n\n**错在哪一步**：它挑的是对方最戏剧化的一面，而且从头到尾没有回应对方的任何一条理由。\n\n**反问它三句**：这段画面是谁拍的？它原本是给谁看的？它能代表这一方的全部理由吗？"
+       },
+       {
+        "id": "blood-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "blood-shot-1",
+          "alt": "影片画面俯拍：一个人仰面躺在大片红色液体中，浅蓝条纹衬衫上溅有红色痕迹，地面是被红色浸透的石阶",
+          "source": "assets/images/shot-blood.jpg",
+          "caption": "开场镜次 ③"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "borrowed-fill",
+        "type": "fillBlank",
+        "prompt": "用那三句反问，审一遍这个血泊镜头。三句都要答。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "前两句必须用到你在这一部分查到的来源信息（活动者自己的行为艺术；原本是为声援行动而拍摄并发布的），不能凭印象作答。第三句要给出理由，不能只写「不能」。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "谁拍的：… / 原本给谁看：… / 能代表全部理由吗：…因为…"
+       }
+      ],
+      "layout": {
+       "ratio": "2:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "borrowed-entry"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "blood-shot",
+          "borrowed-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "borrowed-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-borrowed-footage"
+          },
+          {
+           "type": "enable",
+           "targetId": "borrowed-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "borrowed-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "borrowed-entry",
+         "blood-shot",
+         "borrowed-fill"
+        ],
+        "visibleBlockIds": [
+         "borrowed-entry",
+         "blood-shot",
+         "borrowed-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-borrowed-footage",
+        "text": "每一帧都是真的。观众找不到哪里造假了，所以不会起疑。",
+        "audio": "assets/audio/narration/borrowed-footage.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context",
+       "obj-same-ruler"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "old-film-footage",
+      "title": "借来的画面 · 老电影",
+      "blocks": [
+       {
+        "id": "old-film-stills",
+        "type": "images",
+        "items": [
+         {
+          "id": "old-film-1",
+          "alt": "黑白历史画面：几名身着旧式军装、头戴三角帽的人乘小船穿行于浮冰之间，一人立于船头指向前方",
+          "source": "assets/images/old-film-arctic.jpg",
+          "caption": "影片中插入的黑白老片段之一"
+         },
+         {
+          "id": "old-film-2",
+          "alt": "黑白历史画面：风雪中列队持枪的士兵，一名军官骑白马立于队列前，街道两旁有围观人群",
+          "source": "assets/images/old-film-troops.jpg",
+          "caption": "影片中插入的黑白老片段之二"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "borrowed-old-films",
+        "type": "text",
+        "content": "借来的画面还有第二种。\n\n这部片里插进了不少黑白老片段。黑白镜头会做三件事：让人联想到过去，给内容添上历史的厚重感；跟彩色的现代镜头形成强烈反差，暗示「过去和现在不一样」；如果画面来自知名的经典电影，还能借走观众对经典的那份熟悉与信任。\n\n对这一类画面，反问要换一句：**它原本是在讲什么？**\n\n电影镜头是为艺术表达服务的，表意本来就开放、模糊。把它搬进一场关于事实的争论里，很容易断章取义——镜头传达出的意思可能根本不是创作者的本意，而观众看不出这一层。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "old-film-stills"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "borrowed-old-films"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-old-film-footage"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "old-film-stills",
+         "borrowed-old-films"
+        ],
+        "visibleBlockIds": [
+         "old-film-stills",
+         "borrowed-old-films"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-old-film-footage",
+        "text": "对老电影片段，反问要换一句：它原本是在讲什么？",
+        "audio": "assets/audio/narration/old-film-footage.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-context"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "obj-context",
+     "obj-same-ruler"
+    ]
+   },
+   {
+    "id": "part-two-grammars",
+    "title": "第三部分 · 影片对两方用了两套镜头语言",
+    "slices": [
+     {
+      "id": "two-grammars",
+      "title": "把两套语法并排摆开",
+      "blocks": [
+       {
+        "id": "two-grammars-intro",
+        "type": "text",
+        "content": "到这里，你已经在单个镜头上练过翻译了。现在换一个尺度：把影片对两方的处理并排摆开。\n\n**影片怎么拍「气候警报方」**——下面三张都出自影片。"
+       },
+       {
+        "id": "alarm-side",
+        "type": "images",
+        "items": [
+         {
+          "id": "alarm-1",
+          "alt": "影片画面极端特写：画面只剩一双眼睛与眉毛，瞳孔清晰可见，四周沉在暗处",
+          "source": "assets/images/alarm-eyes.jpg",
+          "caption": "大特写：只剩一双眼睛"
+         },
+         {
+          "id": "alarm-2",
+          "alt": "黑白影片画面：一张睁大眼睛的惊恐面孔从浓烟后方浮现，下方是翻涌的烟雾与火光",
+          "source": "assets/images/alarm-smoke-face.jpg",
+          "caption": "黑白：惊恐面孔从浓烟后浮现"
+         },
+         {
+          "id": "alarm-3",
+          "alt": "黑白影片画面：一名女性双手掩面伏坐，身旁有人伸手扶住她的肩膀",
+          "source": "assets/images/alarm-weeping.jpg",
+          "caption": "黑白：掩面伏坐的女性"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "skeptic-side-label",
+        "type": "text",
+        "content": "**影片怎么拍「质疑方」**——下面是四位不同的受访者。\n\n同一部片子，同一个剪辑台。先别急着下结论，只把两边的景别、光线、背景看一遍。"
+       },
+       {
+        "id": "skeptic-side",
+        "type": "images",
+        "items": [
+         {
+          "id": "skeptic-1",
+          "alt": "影片画面近景：一名受访者在暖色调室内说话，光线柔和均匀、没有明显阴影，背景虚化，上半身入画",
+          "source": "assets/images/study-closeup.jpg",
+          "caption": "近景：暖色调室内，柔光"
+         },
+         {
+          "id": "skeptic-2",
+          "alt": "影片画面近景：一名年长男性在书房中微笑说话，身后是整面书墙、台灯、窗户与一幅画",
+          "source": "assets/images/skeptic-bookwall.jpg",
+          "caption": "近景：整面书墙，微笑"
+         },
+         {
+          "id": "skeptic-3",
+          "alt": "影片画面：一名年长男性坐在扶手椅上读书，身后挂着大幅几何纹样织毯，右侧一盏台灯",
+          "source": "assets/images/skeptic-armchair.jpg",
+          "caption": "扶手椅上读书，台灯"
+         },
+         {
+          "id": "skeptic-4",
+          "alt": "影片画面近景：一名年长男性在室内说话，背景是墙上的搁架与书籍，光线均匀",
+          "source": "assets/images/skeptic-shelves.jpg",
+          "caption": "近景：背景是搁架与书籍"
+         }
+        ],
+        "presentation": "gallery"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "two-grammars-intro",
+          "alarm-side"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "skeptic-side-label",
+          "skeptic-side"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-two-grammars"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "two-grammars-intro",
+         "alarm-side",
+         "skeptic-side-label",
+         "skeptic-side"
+        ],
+        "visibleBlockIds": [
+         "two-grammars-intro",
+         "alarm-side",
+         "skeptic-side-label",
+         "skeptic-side"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-two-grammars",
+        "text": "同一部片子，同一个剪辑台。左边一组和右边一组，差别不是偶然。",
+        "audio": "assets/audio/narration/two-grammars.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-style"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "grammar-table",
+      "title": "七个维度的对照表",
+      "blocks": [
+       {
+        "id": "two-grammars-table",
+        "type": "text",
+        "content": "把它们放进一张表里，差别就不是印象了：\n\n| 维度 | 影片处理「气候警报方」 | 影片处理「质疑方」 |\n| --- | --- | --- |\n| 景别 | 大特写、特写——聚焦面部甚至眼部。 | 近景——上半身，完整、体面、有距离感。 |\n| 光线色调 | 黑白、高反差、烟雾弥漫、压抑沉重。 | 柔和均匀，没有明显阴影，平和理性。 |\n| 色彩 | 大片血红、强烈色彩冲击。 | 自然暖色，书房的木色与暖光。 |\n| 空间 | 街头、人群、抽象烟雾、没有归属的背景。 | 书房、书架、私人办公室——有身份的空间。 |\n| 人物状态 | 惊恐、愤怒、情绪外露、姿态激烈。 | 微笑、从容、眼神沉稳、嘴角微扬。 |\n| 配乐 | **这一格还是空的——留给你在第四部分自己听。** | 舒缓轻快，探索氛围（6:45—7:59）。 |\n| 观众印象 | 这一方是靠情绪在说话的。 | 这一方是靠脑子在说话的。 |"
+       },
+       {
+        "id": "bullying-detail",
+        "type": "text",
+        "content": "还有一处细节值得单独记下来。\n\n影片讲到「有人欺凌、恐吓质疑气候警报的人」时，配的是黑白老片段里的极端特写：眼神、惊恐、烟雾。字幕引述的是这样的说法——那些否认气候危机的人不仅错了，而且很危险，这些言论应该被回避、被羞辱、被审查。\n\n画面聚焦在一张张惊恐的脸上，观众的注意力被牢牢锁在情绪里。"
+       },
+       {
+        "id": "grammar-conclusion",
+        "type": "text",
+        "content": "**影片不是靠论证赢的，是靠「谁看起来更像一个理性的人」赢的。**\n\n观众在听懂任何一条证据之前，已经被安排好了该信谁。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "two-grammars-table"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "bullying-detail",
+          "grammar-conclusion"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-grammar-table"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "two-grammars-table",
+         "bullying-detail",
+         "grammar-conclusion"
+        ],
+        "visibleBlockIds": [
+         "two-grammars-table",
+         "bullying-detail",
+         "grammar-conclusion"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-grammar-table",
+        "text": "观众在听懂任何一条证据之前，已经被安排好了该信谁。",
+        "audio": "assets/audio/narration/grammar-table.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-style"
+      ],
+      "estimatedSeconds": 270
+     },
+     {
+      "id": "name-tags",
+      "title": "姓名条也是一次论证",
+      "blocks": [
+       {
+        "id": "name-tags-explain",
+        "type": "text",
+        "content": "谬误不一定藏在台词里，也可以藏在一行姓名条里。\n\n影片给每个出镜的人配了一行头衔。头衔都是真的——但一个人往往有好几个都是真的头衔，**选哪一个，本身就是一次论证**。\n\n| 人物 | 片中可以选的头衔 A | 片中可以选的头衔 B |\n| --- | --- | --- |\n| John Clauser | 2022 年诺贝尔物理学奖得主 | 量子光学研究者 |\n| Steven Koonin | 前奥巴马政府能源部副部长 | 理论物理学家 |\n\n- **选 A 的效果**：借到最大的权威，并且暗示「连体制内的人都反对」。\n- **选 B 的效果**：立刻暴露这个人的专业领域跟气候科学没有关系。\n\n片中出镜的质疑方还包括迪克·林森、威廉·哈珀等人。他们各自的观点是可以查的：库宁认为气候科学「尚未定论」、政策制定应更谨慎，并批评媒体夸大极端天气风险；克劳泽公开质疑气候变化共识，称二氧化碳的影响被夸大。"
+       },
+       {
+        "id": "name-tag-question",
+        "type": "singleChoice",
+        "prompt": "如果姓名条写的是「量子光学研究者」而不是「2022 年诺贝尔物理学奖得主」，观众最可能发生什么变化？",
+        "options": [
+         {
+          "id": "field-exposed",
+          "label": "会立刻注意到他的专业领域和气候科学没有关系，因此不再自动把诺奖的权威搬到这个话题上。"
+         },
+         {
+          "id": "less-credible-person",
+          "label": "会认为他这个人不可靠，说的话多半是错的。"
+         },
+         {
+          "id": "nothing",
+          "label": "不会有什么变化，反正两个头衔都是真的。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。两个头衔都是真的，差别在于它们把你的注意力引到哪儿。头衔 A 借来的是「诺贝尔奖」这四个字的分量，而这个奖不是发给气候科学的。这就是诉诸无关权威——只不过它藏在一行字幕里。",
+         "correctOptionId": "field-exposed",
+         "incorrectFeedback": "注意两件事。第一，换头衔改变的是「这份权威跟这个话题有没有关系」，不是这个人可不可靠——把领域不对读成人不可信，是另一个跳步。第二，两个头衔都真，不等于选哪个都一样：选择本身就在替你安排注意力。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "name-tags-explain"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "name-tag-question"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "name-tag-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-name-tags"
+          },
+          {
+           "type": "enable",
+           "targetId": "name-tag-question"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "name-tag-question"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "name-tags-explain",
+         "name-tag-question"
+        ],
+        "visibleBlockIds": [
+         "name-tags-explain",
+         "name-tag-question"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-name-tags",
+        "text": "头衔都是真的。但选哪一个，本身就是一次论证。",
+        "audio": "assets/audio/narration/name-tags.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-style"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "swap-the-lens",
+      "title": "换镜头实验",
+      "blocks": [
+       {
+        "id": "swap-brief",
+        "type": "text",
+        "content": "回到你在第一部分打的那个分。\n\n现在做一个实验：把两方的镜头处理**互换**。内容一个字都不改，只换拍法。\n\n| 原本的处理 | 换成对方的处理以后 |\n| --- | --- |\n| 质疑方：书房、柔光、近景、舒缓配乐、平静微笑。 | 街头、黑白、大特写、没有配乐、情绪激动地说出同一句话。 |\n| 警报方：街头、黑白、大特写、烟雾、愤怒。 | 书房、柔光、近景、舒缓配乐、平静地陈述同一件事。 |\n\n这个设计的好处是无法回避——两条路通向同一个发现。"
+       },
+       {
+        "id": "swap-score",
+        "type": "singleChoice",
+        "prompt": "如果第一部分那位受访者改成在街头、黑白、大特写、没有配乐、情绪激动地说出完全相同的话，你给他打的可信度分会变吗？",
+        "options": [
+         {
+          "id": "changed-down",
+          "label": "会变低"
+         },
+         {
+          "id": "changed-up",
+          "label": "会变高"
+         },
+         {
+          "id": "unchanged",
+          "label": "不变"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "swap-guidance",
+        "type": "text",
+        "content": "接着上一题往下写，两条路各有各的问题：\n\n**如果你的分变了**——原来那个分里，有几分是给内容的，有几分是给光线和家具的？把它拆开写。\n\n**如果你的分没变**——你最初那个分是根据什么打的？当时你还没听到他的任何一条理由。"
+       },
+       {
+        "id": "swap-split",
+        "type": "fillBlank",
+        "prompt": "按上面那两条路，写下你的答案。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "两条路都要落到同一个地方——说清楚第一次打分时你手上实际有什么。分变了，就要拆出具体的分数分配（例如「5 分里有 2 分是给书房和柔光的」）；分没变，就要说明那个分的依据是什么。「凭感觉」三个字不算答案。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：5 分里有 2 分是给书房和柔光的，剩下 3 分是给……"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "swap-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "swap-score",
+          "swap-guidance",
+          "swap-split"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-swap-the-lens"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "swap-score"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "swap-score"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "swap-split"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "swap-split"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "swap-split"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "swap-score"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "swap-score"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "swap-brief",
+         "swap-score",
+         "swap-guidance",
+         "swap-split"
+        ],
+        "visibleBlockIds": [
+         "swap-brief",
+         "swap-score",
+         "swap-guidance",
+         "swap-split"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narr-swap-the-lens",
+        "text": "分变了要拆开。分没变，那你最初那个分是根据什么打的？",
+        "audio": "assets/audio/narration/swap-the-lens.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-style"
+      ],
+      "estimatedSeconds": 330
+     },
+     {
+      "id": "style-as-evidence",
+      "title": "嫌疑人档案：风格当证据",
+      "blocks": [
+       {
+        "id": "style-explain",
+        "type": "text",
+        "content": "**风格当证据**\n\n这个毛病有两个方向，很多人只认得出其中一个。\n\n| 方向一 | 方向二 |\n| --- | --- |\n| **长什么样**：因为他很平静、很专业的样子，所以他说的更可信。 | **长什么样**：因为这部片很煽情、很会带节奏，所以它说的是假的。 |\n| **错在哪一步**：表达方式跟内容是否成立，是两件事。 | **错在哪一步**：同上——完全一样的毛病，方向反过来而已。 |\n| **反问它一句**：如果他今天没剃胡子、在街边说同样的话，你还信吗？ | **反问它一句**：如果这段话由一个平静的人在书房里说出来，你会同意它吗？ |\n\n一部片子拍得煽情，不能证明它说错了；拍得冷静，也不能证明它说对了。"
+       },
+       {
+        "id": "style-question",
+        "type": "singleChoice",
+        "prompt": "同学甲说：「这片子拍得这么会带节奏，说的肯定不可信。」这句话的问题是什么？",
+        "options": [
+         {
+          "id": "same-mistake",
+          "label": "它和「他坐在书房里所以更可信」犯的是同一个毛病，只是方向反过来——都在用风格判断内容。"
+         },
+         {
+          "id": "too-harsh",
+          "label": "它说得太绝对了，应该说「不太可信」。"
+         },
+         {
+          "id": "no-problem",
+          "label": "没有问题。会带节奏的片子本来就不该信。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。把「煽情」当成「说错了」的证据，和把「冷静」当成「说对了」的证据，是同一个动作。你要是只抓得住其中一个方向，那把尺子就只量了一边。",
+         "correctOptionId": "same-mistake",
+         "incorrectFeedback": "问题不在语气轻重，也不在这部片子本身。问题在这一步推理：从「怎么拍的」直接跳到「说的对不对」。把「不太可信」换上去，这一步还是跳的。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "but-line",
+        "type": "text",
+        "content": "最后一句，这一课少了它就会走歪：\n\n**这不等于他说的内容是错的。镜头在替他加分，不代表他没有依据。**\n\n你刚才看穿的是手法，不是内容。判断他讲的那些东西对不对，要另外去查——查数据、查原始报告、查有没有别人重复出同样的结果。看穿手法只完成了一半。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "style-explain"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "style-question",
+          "but-line"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "style-question"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-style-as-evidence"
+          },
+          {
+           "type": "enable",
+           "targetId": "style-question"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "style-question"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "style-explain",
+         "style-question",
+         "but-line"
+        ],
+        "visibleBlockIds": [
+         "style-explain",
+         "style-question",
+         "but-line"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-style-as-evidence",
+        "text": "拍得煽情不能证明它说错了，拍得冷静也不能证明它说对了。",
+        "audio": "assets/audio/narration/style-as-evidence.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-style",
+       "obj-boundary"
+      ],
+      "estimatedSeconds": 270
+     }
+    ],
+    "objectiveIds": [
+     "obj-style",
+     "obj-boundary"
+    ]
+   },
+   {
+    "id": "part-same-ruler",
+    "title": "第四部分 · 上全片，用同一把尺子",
+    "slices": [
+     {
+      "id": "watch-the-film",
+      "title": "看完整部影片",
+      "blocks": [
+       {
+        "id": "before-you-watch",
+        "type": "text",
+        "content": "接下来是完整的影片，一个多小时。\n\n看的时候带三件事在手上：\n\n- **一、数时长。** 质疑方说了多久，警报方说了多久。不用精确到秒，估到分钟就够，但要估到你自己敢写下来。\n- **二、看缺席。** 有没有哪一方从头到尾没拿到过柔光书房近景？有没有哪一方只在被反驳的时候出现？\n- **三、听配乐。** 舒缓的配乐铺在哪些段落上？紧张的音效呢？前面那张对照表里，「警报方·配乐」那一格还是空的，等你来填。\n\n中途会停两次，都在第 7 分钟前后。\n\n这三件事没有人会替你数。片子在你手上，数据只能你自己拿。"
+       },
+       {
+        "id": "film",
+        "type": "video",
+        "source": "assets/videos/climate-the-movie.mp4",
+        "completion": {
+         "rule": "video-ended-and-interactions-completed"
+        },
+        "interaction": {
+         "source": "interactions/video/climate-the-movie.json"
+        },
+        "durationSeconds": 4795.71
+       }
+      ],
+      "layout": {
+       "ratio": "1:2",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "before-you-watch"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "film"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "film"
+           },
+           "to": "finish"
+          },
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-watch-the-film"
+          },
+          {
+           "type": "enable",
+           "targetId": "film"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "film"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "before-you-watch",
+         "film"
+        ],
+        "visibleBlockIds": [
+         "before-you-watch",
+         "film"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-watch-the-film",
+        "text": "带三件事看片：数时长、看缺席、听配乐。数据只能你自己拿。",
+        "audio": "assets/audio/narration/watch-the-film.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-same-ruler"
+      ],
+      "estimatedSeconds": 4900
+     },
+     {
+      "id": "absence-audit",
+      "title": "审「没拍什么」",
+      "blocks": [
+       {
+        "id": "absence-checklist",
+        "type": "text",
+        "content": "看完了。现在审「没拍什么」。\n\n只看在场的画面是不够的。对纪录片来说，缺席往往比在场更有说服力——因为观众不会察觉自己没看到什么。\n\n下面四个问题，每一个后面都跟着「为什么它算证据」：\n\n| 要问的问题 | 为什么它是证据 |\n| --- | --- |\n| 有没有给支持主流共识的科学家一个同样的柔光书房近景？ | 如果没有，说明「书房＋柔光」这套语法被专门留给了一方。 |\n| 支持共识的一方有没有被允许完整回应片中的质疑？ | 只出现被反驳的样子而没有回应机会，是剪辑层面的稻草人。 |\n| 同行评审论文、IPCC 报告在片中以什么形象出现？ | 是被正面展示，还是只在被批评时被提及。 |\n| 反过来问：这部片有没有拍气候灾害实景？ | 不拍，也是一次选择。要同样记录下来，不能只查一个方向。 |"
+       },
+       {
+        "id": "absence-fill",
+        "type": "fillBlank",
+        "prompt": "把上面四个问题逐条回答。每一条要么写出具体的人名、段落或大致时间，要么明确写「没有」。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "四条都要有可核查的答案，不接受「好像有吧」这类模糊表述。第四条要特别认真答——它是用来检查你有没有只朝一个方向查。这一栏记录的是谁被允许好看地出场、谁被允许把话说完，不是谁说得对。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "① … ② … ③ … ④ …"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "absence-checklist"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "absence-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "absence-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-absence-audit"
+          },
+          {
+           "type": "enable",
+           "targetId": "absence-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "absence-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "absence-checklist",
+         "absence-fill"
+        ],
+        "visibleBlockIds": [
+         "absence-checklist",
+         "absence-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-absence-audit",
+        "text": "缺席往往比在场更有说服力，因为观众不会察觉自己没看到什么。",
+        "audio": "assets/audio/narration/absence-audit.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-same-ruler"
+      ],
+      "estimatedSeconds": 420
+     },
+     {
+      "id": "timeline-count",
+      "title": "数时间轴",
+      "blocks": [
+       {
+        "id": "count-brief",
+        "type": "text",
+        "content": "现在数时间轴。四项，全部要写成别人可以重数一遍的形式。\n\n1. 质疑方大约说了多久？警报方大约说了多久？\n2. 舒缓配乐主要铺在哪一方的段落上？\n3. 全片最后一句有分量的话是谁说的？\n4. 补上那一格：影片处理警报方时用的是什么声音？现场嘈杂声？紧张音效？还是完全没有配乐？\n\n另外，第二部分留给你的两格也在这里补上：\n\n5. 开场三个镜头各多长？\n6. 它们中间有没有插进别的画面？\n\n第 6 项特别要紧：如果核出来三个镜头并不相邻，那前面那一整套并置读法就不成立了。"
+       },
+       {
+        "id": "timeline-fill",
+        "type": "fillBlank",
+        "prompt": "写下你数到的六项结果。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "前三项都要有具体数字或人名。允许估算，但要写成别人可以重数一遍的形式（例如「质疑方约 40 分钟」，不是「质疑方多得多」）。第四项写你实际听到的声音，不要照抄别人的说法。开场那两格如果核出来三个镜头并不相邻，要写出中间插了什么。不接受直接下结论说影片偏袒某一方却不给数据。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "（1）质疑方约__分钟／警报方约__分钟 （2）… （3）… （4）… （5）… （6）…"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "count-brief"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "timeline-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "timeline-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-timeline-count"
+          },
+          {
+           "type": "enable",
+           "targetId": "timeline-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "timeline-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "count-brief",
+         "timeline-fill"
+        ],
+        "visibleBlockIds": [
+         "count-brief",
+         "timeline-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-timeline-count",
+        "text": "允许估算，但要估到别人可以重数一遍。",
+        "audio": "assets/audio/narration/timeline-count.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-same-ruler"
+      ],
+      "estimatedSeconds": 420
+     }
+    ],
+    "objectiveIds": [
+     "obj-same-ruler"
+    ]
+   },
+   {
+    "id": "part-boundary",
+    "title": "第五部分 · 收口：感觉和证据分开",
+    "slices": [
+     {
+      "id": "feeling-vs-evidence",
+      "title": "两栏不许写成同一句",
+      "blocks": [
+       {
+        "id": "two-columns-explain",
+        "type": "text",
+        "content": "最后两栏，必须分开写。\n\n- **我的感觉变了吗？** 看完这些，你对某一方的感觉有没有变？\n- **我掌握的证据变了吗？** 你手上关于气候问题本身的事实证据，有没有增加？\n\n这两栏不允许写成同一句。\n\n原因是这样：这门课教你看出了一部片子怎么安排你的感觉，这是一件真本事。但它有一个很危险的副作用——你可能会觉得自己已经「看穿」了，于是不再去查任何东西，对什么都不信。那不是清醒，那是另一种偷懒。\n\n**你现在知道的是它怎么安排你的感觉，还不知道它讲的内容对不对。**"
+       },
+       {
+        "id": "feeling-fill",
+        "type": "fillBlank",
+        "prompt": "我的感觉变了吗？对哪一方、往哪个方向变的、在哪一步变的？",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "写你自己的真实变化，不用装作没有感觉。要说清是对哪一方、往哪个方向变的，以及是在哪一步变的——是看完开场，是做完换镜头实验，还是数完时间轴。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：对……的感觉往……变了，是在……那一步"
+       },
+       {
+        "id": "evidence-fill",
+        "type": "fillBlank",
+        "prompt": "我掌握的证据变了吗？你手上关于气候问题本身的事实证据，有没有增加？如果有，增加了哪一条；如果没有，就写「没有」。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "这一栏不许和上一栏写成同一句。要区分两种东西：关于「这部片怎么拍的」的证据（时长、景别、配乐分配、缺席、画面来源），和关于「气候问题本身」的证据（数据、观测、研究结论）。这门课给了你前一种，几乎没有给后一种——如果你的答案是「没有」，那是一个诚实且正确的答案。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "有／没有；如果有，是哪一条"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "two-columns-explain"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "feeling-fill",
+          "evidence-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-feeling-vs-evidence"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "feeling-fill"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "feeling-fill"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "evidence-fill"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "evidence-fill"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "evidence-fill"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "feeling-fill"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "feeling-fill"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "two-columns-explain",
+         "feeling-fill",
+         "evidence-fill"
+        ],
+        "visibleBlockIds": [
+         "two-columns-explain",
+         "feeling-fill",
+         "evidence-fill"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narr-feeling-vs-evidence",
+        "text": "你现在知道的是它怎么安排你的感觉，还不知道它讲的内容对不对。",
+        "audio": "assets/audio/narration/feeling-vs-evidence.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-boundary"
+      ],
+      "estimatedSeconds": 330
+     },
+     {
+      "id": "case-sheet",
+      "title": "带走这张表",
+      "blocks": [
+       {
+        "id": "case-sheet-table",
+        "type": "text",
+        "content": "这张表是你带走的东西。下次遇到任何一段想说服你的影像，照着填一遍。\n\n| 栏目 | 你要填的 |\n| --- | --- |\n| 镜头 / 时间码 | 哪一段。 |\n| 我看到的 | 景别／光线／色彩／背景里有什么／声音。只写任何人重看都会同意的东西。 |\n| 通常意味着 | 这类处理在纪录片里一般用来做什么。可以讨论，可以有例外。 |\n| 翻译成一句话 | 因为＿＿＿，所以＿＿＿。 |\n| 断点 | 从这些画面特征到这个结论，中间跳了什么？ |\n| 嫌疑人 | 借来的画面？风格当证据？诉诸无关权威？理由必须引用上面的断点。 |\n| 前后各是什么 | 这个镜头前一个是什么？后一个是什么？换个位置意思会变吗？ |\n| 换镜头以后 | 如果换成对方的镜头处理，我的分从＿变成＿。差的这几分是给什么的？ |\n| 我的感觉变了吗 | 看完这一段，我对这一方的感觉有没有变？ |\n| 我掌握的证据变了吗 | 我手上关于这个问题的事实证据，有没有增加？（这两栏不许写成同一句） |"
+       },
+       {
+        "id": "case-sheet-task",
+        "type": "text",
+        "content": "现在用一次。\n\n找一段你自己最近刷到过的、想说服你的短视频——新闻、广告、街采、观点视频都行。照左边那张表审一遍，至少填满「我看到的」「翻译成一句话」「断点」「嫌疑人」这四栏。\n\n填完自己检查一遍：你挑的这段视频，立场是不是刚好跟你不一样？如果是，再找一段立场跟你一样的，同样审一遍。"
+       },
+       {
+        "id": "case-sheet-fill",
+        "type": "fillBlank",
+        "prompt": "写下你的四栏。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "「我看到的」必须是可核查的观察，不能出现「显得」「看起来很」。「翻译成一句话」要用「因为＿，所以＿」的格式。「断点」要指出具体跳过了哪一步。「嫌疑人」的理由必须引用你写的那个断点，不能只报一个名字。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "我看到的：… / 翻译成一句话：因为…所以… / 断点：… / 嫌疑人：…因为…"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "case-sheet-table"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "case-sheet-task",
+          "case-sheet-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "case-sheet-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "narr-case-sheet"
+          },
+          {
+           "type": "enable",
+           "targetId": "case-sheet-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "case-sheet-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "case-sheet-table",
+         "case-sheet-task",
+         "case-sheet-fill"
+        ],
+        "visibleBlockIds": [
+         "case-sheet-table",
+         "case-sheet-task",
+         "case-sheet-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-case-sheet",
+        "text": "最后自己检查一遍：你挑的这段视频，立场是不是刚好跟你不一样？",
+        "audio": "assets/audio/narration/case-sheet.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-boundary"
+      ],
+      "estimatedSeconds": 420
+     }
+    ],
+    "objectiveIds": [
+     "obj-boundary"
+    ]
+   }
+  ],
+  "title": "影像侦探局：镜头在替谁说话",
+  "closing": {
+   "fallback": {
+    "text": "这门课走了五步。先在一个镜头上练翻译，把它压成一句可以被反对的话；再在同一组开场画面上读三次，看着自己的答案翻转；然后把影片给两方的两套镜头语言并排摆开，当场检验自己那个可信度分里有几分是给光线和家具的；接着上全片，用同一把尺子数时长、查缺席、追来源；最后把「我的感觉」和「我掌握的证据」分成两栏。\n\n这套动作可以重复使用，但它不回答气候科学谁对谁错。它只让你看清一件事：你刚才那个判断里，有多少是画面替你做的。"
+   },
+   "takeaways": [
+    "侦探的第一个动作是翻译，不是拆。翻译不出来，就没有东西可拆。",
+    "「我看到的」只写任何人重看一遍都会同意的东西。出现「显得」「看起来很」，那已经是判断了。",
+    "每一帧都是真的，不等于这段剪辑是公平的——借来的画面挑的是对方最戏剧化的一面。",
+    "缺席也是证据。没给谁柔光书房、没让谁完整回应，都要记下来。",
+    "尺子要两边都量。只审一方，结论就站不住。",
+    "镜头语言有倾向 ≠ 内容有问题。看穿手法只完成了一半，另一半要另外去查。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "这门课走了五步。先在一个镜头上练翻译，把它压成一句可以被反对的话；再在同一组开场画面上读三次，看着自己的答案翻转；然后把影片给两方的两套镜头语言并排摆开，当场检验自己那个可信度分里有几分是给光线和家具的；接着上全片，用同一把尺子数时长、查缺席、追来源；最后把「我的感觉」和「我掌握的证据」分成两栏。\n\n这套动作可以重复使用，但它不回答气候科学谁对谁错。它只让你看清一件事：你刚才那个判断里，有多少是画面替你做的。",
+   "transferApplications": [
+    "看短视频新闻时，先问这段画面是谁拍的、原本是给谁看的",
+    "看街采时，注意哪些人被放在近景柔光里，哪些人被放在大特写里",
+    "看广告或宣传片时，把它压成一句「因为＿，所以＿」，检查那个「所以」是不是自己跳过去的",
+    "看辩论或访谈节目时，数一下两方各说了多久、谁拿到最后一句话",
+    "自己剪视频或做汇报时，问自己有没有挑了对方最难看的那一张",
+    "在社交平台上看到「某某专家说」时，查一下这位专家的专业领域和这个话题的关系"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "这门课不判断气候问题谁对谁错。它处理另一件事：你看完一段影像之后冒出来的那个判断，有多少来自证据，有多少来自光线、构图和配乐。\n\n素材是纪录片《Climate the Movie: The Cold Truth》。画面不给你前提，只给你结论的感觉——它跳过论证，直接把判断塞进来。所以侦探的第一个动作不是拆，是翻译：把看到的东西还原成一句可以被反对的话。翻译不出来，就没有东西可拆。"
+   },
+   "learningPreview": [
+    "画面不给你前提，只给你结论的感觉。侦探的第一个动作是翻译，不是拆。",
+    "「我看到的」只写任何人重看一遍都会同意的东西；写出「显得」「看起来很」，那已经是判断了。",
+    "这部片对两方用了两套镜头语言：一边是大特写、黑白、烟雾、情绪外露；一边是近景、书房、柔光、平静微笑。",
+    "借来的画面：每一帧都是真的，但被放在一个让它显得荒谬的位置上——所以最难抓。",
+    "缺席也是证据。没给谁柔光书房、没让谁完整回应，都要记下来。",
+    "镜头语言有倾向 ≠ 内容有问题。看穿手法只完成了一半，另一半要另外去查证据。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-translate",
+    "text": "把一个镜头拆成「我看到的／通常意味着／我的推论」三层，并压成一句「因为＿，所以＿」",
+    "evidenceBlockIds": [
+     "observation-check",
+     "translate-fill"
+    ]
+   },
+   {
+    "id": "obj-context",
+    "text": "说出同一组画面为什么会被读出不同的结论——变的是上下文，不是画面",
+    "evidenceBlockIds": [
+     "three-rounds-html",
+     "two-breakpoints",
+     "recut-fill",
+     "borrowed-fill"
+    ]
+   },
+   {
+    "id": "obj-style",
+    "text": "认出「风格当证据」：拍得冷静不等于说得对，拍得煽情也不等于说错了",
+    "evidenceBlockIds": [
+     "name-tag-question",
+     "swap-score",
+     "swap-split",
+     "style-question"
+    ]
+   },
+   {
+    "id": "obj-same-ruler",
+    "text": "用同一把尺子查两方——数时长、查缺席、追画面来源，而不是只查自己不喜欢的那一方",
+    "evidenceBlockIds": [
+     "film",
+     "absence-fill",
+     "timeline-fill"
+    ]
+   },
+   {
+    "id": "obj-boundary",
+    "text": "分开回答「我的感觉变了吗」和「我掌握的证据变了吗」，不把看穿手法当成已经查过内容",
+    "evidenceBlockIds": [
+     "feeling-fill",
+     "evidence-fill",
+     "case-sheet-fill"
+    ]
+   }
+  ],
+  "estimatedMinutes": 180
+ },
+ "schemaVersion": "2.0"
+}

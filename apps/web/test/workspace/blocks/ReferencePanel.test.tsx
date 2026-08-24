@@ -150,6 +150,102 @@ describe("ReferencePanel", () => {
     expect(screen.queryByText("批注会在印记体检你的写作后出现。")).not.toBeInTheDocument();
   });
 
+  // P7: the read-only demo now defaults the panel to 阅读笔记 (matching a normal
+  // writing session's landing tab) — a separate tour step selects AI批注
+  // explicitly via `forceTab`/`selectRefPanelTab`.
+  it("defaults to the 阅读笔记 tab for the demo (isDemo) when it has content (hasNotes)", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+
+    render(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "material", id: "ref-1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+        isDemo
+      />,
+    );
+
+    // 阅读笔记 is the ACTIVE tab with no click — the curated material renders
+    // immediately, and the AI批注 group's content is not shown yet.
+    expect(await screen.findByText("Nature Sustainability: China's renewable build-out")).toBeInTheDocument();
+    expect(screen.queryByText("批注会在印记看过你的写作后出现。")).not.toBeInTheDocument();
+  });
+
+  it("without isDemo the panel defaults the same way (unchanged control)", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+
+    render(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "material", id: "ref-1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+      />,
+    );
+
+    // the 阅读笔记 tab leads (material present); the 批注 group is behind its tab.
+    await screen.findByText("Nature Sustainability: China's renewable build-out");
+    expect(screen.queryByText("批注会在印记看过你的写作后出现。")).not.toBeInTheDocument();
+  });
+
+  it("isDemo falls back to the first real tab when 阅读笔记 has no content (no hasNotes)", async () => {
+    // Nothing curated/collected and no snippets → hasNotes is false, so the
+    // "notes" default doesn't resolve to a real tab; it must fall back to
+    // tabs[0] (提案要点, since the stage is a proposal stage) rather than
+    // dead-ending on a tab that doesn't exist.
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [] });
+
+    render(
+      <ReferencePanel projectId="p1" reference={[]} stage="proposal_writing" proposal={FILLED_PROPOSAL} isDemo />,
+    );
+
+    expect(await screen.findByText("提案要点")).toBeInTheDocument();
+    expect(await screen.findByText(FILLED_PROPOSAL.objective)).toBeInTheDocument();
+  });
+
+  // P7: a tour step drives the AI批注 tab explicitly (after the demo default
+  // moved off it) via the `forceTab`/`onForceTabConsumed` one-shot — mirrors
+  // WritingBlock's `forceTab` deep-link.
+  it("forceTab='anno' switches the active tab to AI批注 once, ref-guarded", async () => {
+    vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
+    const onConsumed = vi.fn();
+
+    const { rerender } = render(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "material", id: "ref-1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+        forceTab="anno"
+        onForceTabConsumed={onConsumed}
+      />,
+    );
+
+    // 阅读笔记 would otherwise lead (material present); forceTab jumps to 批注.
+    expect(await screen.findByText("批注会在印记看过你的写作后出现。")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+
+    // The student manually switches to 阅读笔记.
+    fireEvent.click(await screen.findByText("阅读笔记"));
+    expect(await screen.findByText("Nature Sustainability: China's renewable build-out")).toBeInTheDocument();
+
+    // A rerender with the SAME forceTab must not snap back to AI批注 (ref
+    // guard applies each distinct value at most once) or re-fire the callback.
+    rerender(
+      <ReferencePanel
+        projectId="p1"
+        reference={[{ kind: "material", id: "ref-1", label: "x" }]}
+        stage="body_writing"
+        proposal={EMPTY_PROPOSAL}
+        forceTab="anno"
+        onForceTabConsumed={onConsumed}
+      />,
+    );
+    expect(await screen.findByText("Nature Sustainability: China's renewable build-out")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+  });
+
   it("folds the collected materials into 你的材料 and inserts a fragment on click (retired floating box)", async () => {
     vi.spyOn(workspaceApi, "getLibrary").mockResolvedValue({ collections: [], references: [REF] });
     const onInsert = vi.fn();

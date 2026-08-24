@@ -68,6 +68,11 @@ func ErrNotEntitled() *APIError {
 	return &APIError{Status: http.StatusForbidden, Code: "not_entitled", Message: "当前没有可用额度"}
 }
 
+// ErrDemoReadonly — 403 for a write attempt against a read-only demo project.
+func ErrDemoReadonly() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "demo_readonly", Message: "演示项目为只读，无法修改。"}
+}
+
 func ErrNotFound(msg string) *APIError {
 	return &APIError{Status: http.StatusNotFound, Code: "not_found", Message: msg}
 }
@@ -114,6 +119,17 @@ func ErrOSSUnavailable() *APIError {
 // ErrInternal is the generic, client-safe 500. Real detail is logged, never sent.
 func ErrInternal() *APIError {
 	return &APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: "服务器内部错误"}
+}
+
+// ErrAIDialogueFailed is the 502 returned by AI-dialogue endpoints when the model
+// call cannot be made or its reply cannot be understood. We deliberately do NOT
+// fabricate a plausible-looking assistant sentence in this case: a fake reply
+// disguises the failure as normal conversation, so the student keeps talking to a
+// dead turn (the "canned opener repeats forever" bug). Surface it as a real error
+// instead. `reason` is a short, secret-free machine detail (also logged); model
+// API keys live only in headers, never in these error strings.
+func ErrAIDialogueFailed(reason string) *APIError {
+	return &APIError{Status: http.StatusBadGateway, Code: "ai_dialogue_failed", Message: "AI 暂时没接上，请重试。", Details: reason}
 }
 
 // WriteJSON marshals v and writes it with the given status. On marshal failure

@@ -88,6 +88,12 @@ vi.mock("@/workspace/api/workspace", () => ({
   pasteContent: vi.fn(),
   NoReadableContentError: class extends Error {},
 }));
+// P8 Task 6 · the controls column's 检索方向 propose box (proposeDirections),
+// mocked so the addFromDetail(inHole) demo-interception test can drive
+// idle→directions→list→detail without a real network call.
+vi.mock("@/api/searchGuidance", () => ({
+  proposeSearchGuidance: vi.fn(),
+}));
 
 import {
   getExploration,
@@ -101,6 +107,9 @@ import {
   patchEdge,
   deleteEdge,
 } from "@/api/exploration";
+import { proposeSearchGuidance } from "@/api/searchGuidance";
+
+const mockProposeSearchGuidance = vi.mocked(proposeSearchGuidance);
 
 const mockGetExploration = vi.mocked(getExploration);
 const mockCreateLead = vi.mocked(createLead);
@@ -864,6 +873,291 @@ describe("ExplorationView", () => {
     expect(call[2]).toBe("");
     // the reference itself is threaded through (9th arg) for the reading room's 证据笔记
     expect((call[8] as { id?: string } | undefined)?.id).toBe(NASA_REF.id);
+  });
+
+  // ---- P7 · 检索卡 open (guided-tour deep-link) ----
+
+  it("the 检索卡 trigger button opens SearchCardModal manually, both carrying their tour anchors", async () => {
+    const user = userEvent.setup();
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    const trigger = await screen.findByRole("button", { name: "如何检索资料？检索卡" });
+    expect(trigger).toHaveAttribute("data-tour", "search-card-trigger");
+    expect(screen.queryByText("怎么找资料、怎么判断可不可靠")).toBeNull();
+
+    await user.click(trigger);
+    expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
+    expect(document.querySelector('[data-tour="search-card"]')).toBeInTheDocument();
+  });
+
+  it("forceOpenSearchCard opens SearchCardModal once, ref-guarded (P7 guided-tour deep-link)", async () => {
+    const onConsumed = vi.fn();
+    const projectId = nextPid();
+    const { rerender } = render(
+      <ExplorationView projectId={projectId} references={[]} forceOpenSearchCard={1} onForceOpenSearchCardConsumed={onConsumed} />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+
+    expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+
+    // The student closes it manually.
+    await userEvent.click(screen.getByText("✕"));
+    expect(screen.queryByText("怎么找资料、怎么判断可不可靠")).toBeNull();
+
+    // A rerender with the SAME nonce must not reopen it or re-fire the callback
+    // (ref guard applies each distinct value at most once).
+    rerender(
+      <ExplorationView projectId={projectId} references={[]} forceOpenSearchCard={1} onForceOpenSearchCardConsumed={onConsumed} />,
+    );
+    await waitFor(() => expect(screen.queryByText("怎么找资料、怎么判断可不可靠")).toBeNull());
+    expect(onConsumed).toHaveBeenCalledTimes(1);
+
+    // A genuine bump (a new nonce) opens it again.
+    rerender(
+      <ExplorationView projectId={projectId} references={[]} forceOpenSearchCard={2} onForceOpenSearchCardConsumed={onConsumed} />,
+    );
+    expect(await screen.findByText("怎么找资料、怎么判断可不可靠")).toBeInTheDocument();
+    expect(onConsumed).toHaveBeenCalledTimes(2);
+  });
+
+  // ---- P7 Task 4b · demoReadRootIds merges into the 已读 badge (guided tour) ----
+
+  it("demoReadRootIds badges a root as 已读 even though its data readByRoot is false", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const { container } = render(
+      // No reference is readingStatus:"done" — NASA_REF defaults to "to_read" —
+      // so the data-derived readByRoot for ROOT_LEAD is false on its own.
+      <ExplorationView projectId={nextPid()} references={[NASA_REF]} demoReadRootIds={new Set([ROOT_LEAD.id])} />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+
+    const card = container.querySelector('[data-tour="warren-question"]');
+    expect(card).not.toBeNull();
+    const badge = card!.querySelector('[data-tour="warren-node-read"]');
+    expect(badge).not.toBeNull();
+    expect(badge!.textContent).toBe("已读✓");
+  });
+
+  it("an empty demoReadRootIds is a no-op — no badge (normal-graph regression guard)", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const { container } = render(
+      <ExplorationView projectId={nextPid()} references={[NASA_REF]} demoReadRootIds={new Set()} />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+    expect(container.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
+
+  // P7 cross-seam fix: when a data-done root ALSO exists alongside the demo
+  // override, the `warren-node-read` tour anchor must resolve to ONLY the
+  // override root — never the data-done one — so the tour spotlight is
+  // unambiguous (this is the exact demo-project shape: …0293/…0292 already
+  // badge from seeded data while …0290 is the tour's just-read node).
+  it("demoReadRootIds anchors ONLY the override root, not a separately data-done root", async () => {
+    const doneRef = makeRef({ id: "r-done", readingStatus: "done" });
+    // SECOND_ROOT itself carries the done reference — a root can be born
+    // directly from an adopted paper (see anyReferenceDoneByRoot).
+    const dataDoneRoot: ExplorationLead = { ...SECOND_ROOT, connectedReferenceId: doneRef.id };
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, dataDoneRoot], danglingSourceIds: [], edges: [] });
+    const { container } = render(
+      <ExplorationView
+        projectId={nextPid()}
+        references={[doneRef]}
+        demoReadRootIds={new Set([ROOT_LEAD.id])}
+      />,
+    );
+    await screen.findByText(ROOT_LEAD.text);
+
+    const cards = Array.from(container.querySelectorAll<HTMLElement>('[data-tour="warren-question"]'));
+    const overrideCard = cards.find((c) => c.textContent?.includes(ROOT_LEAD.text))!;
+    const dataDoneCard = cards.find((c) => c.textContent?.includes(SECOND_ROOT.text))!;
+
+    // Both roots show the 已读 badge (data OR override — unchanged)...
+    expect(overrideCard.textContent).toContain("已读✓");
+    expect(dataDoneCard.textContent).toContain("已读✓");
+
+    // ...but exactly one `warren-node-read` anchor exists, on the override root.
+    expect(container.querySelectorAll('[data-tour="warren-node-read"]').length).toBe(1);
+    expect(overrideCard.querySelector('[data-tour="warren-node-read"]')).not.toBeNull();
+    expect(dataDoneCard.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
+
+  // ---- P8 Task 6 · demoAdoptedLeads/demoAdoptedRefs simulate an adopted node
+  //      (guided tour + the student's own 采纳/addFromDetail click in demo) ----
+
+  const DEMO_ADOPTED_REF: Reference = makeRef({
+    id: "demo-ref-1",
+    title: "演示已采纳的候选论文",
+    author: "Zhang 等",
+    year: "2024",
+    journal: "Journal of Demo Studies",
+    readingStatus: "reading",
+  });
+  const DEMO_ADOPTED_LEAD: ExplorationLead = {
+    id: "demo-lead-1",
+    text: DEMO_ADOPTED_REF.title,
+    status: "connected",
+    origin: "guide",
+    sourceReferenceId: null,
+    connectedReferenceId: DEMO_ADOPTED_REF.id,
+    position: 0,
+    parentLeadId: ROOT_LEAD.id,
+    createdAt: "2026-08-24T00:00:00Z",
+  };
+
+  it("demoAdoptedLeads/demoAdoptedRefs merge a synthetic connected child under its root — the 文献 count and mindmap both reflect it", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    render(
+      <ExplorationView
+        projectId={nextPid()}
+        references={[]}
+        demoAdoptedLeads={[DEMO_ADOPTED_LEAD]}
+        demoAdoptedRefs={[DEMO_ADOPTED_REF]}
+      />,
+    );
+
+    // MAP level: the "文献 x 篇" tally counts the synthetic node even though
+    // the server-fetched leads (mocked above) carry none.
+    await screen.findByText(ROOT_LEAD.text);
+    expect(screen.getByText("文献 1 篇")).toBeInTheDocument();
+
+    // Zooming into the root shows the synthetic node in the REAL mindmap
+    // (QuestionMindmap), and selecting it shows its synthetic reference's bib.
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, DEMO_ADOPTED_LEAD.text);
+    expect(await screen.findByText("Zhang 等")).toBeInTheDocument();
+    expect(screen.getByText("Journal of Demo Studies")).toBeInTheDocument();
+  });
+
+  it("absent demoAdoptedLeads/demoAdoptedRefs is a no-op — no synthetic node (normal-graph regression guard)", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+    expect(screen.getByText("文献 0 篇")).toBeInTheDocument();
+    expect(screen.queryByText(DEMO_ADOPTED_LEAD.text)).toBeNull();
+  });
+
+  it("采纳 in 'results' calls onDemoAdopt instead of the real adoptCandidate POST when supplied — no network call fires", async () => {
+    const projectId = nextPid();
+    const onDemoAdopt = vi.fn();
+    const onLibraryChanged = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ExplorationView
+        projectId={projectId}
+        references={[NASA_REF]}
+        onLibraryChanged={onLibraryChanged}
+        onDemoAdopt={onDemoAdopt}
+      />,
+    );
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
+
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
+    await screen.findByText(CANDIDATE.title);
+
+    await user.click(screen.getByRole("button", { name: "采纳" }));
+
+    // The demo path is synchronous — no waitFor needed — and carries the
+    // SAME (candidate, parentLeadId) contract the real adopt uses.
+    expect(onDemoAdopt).toHaveBeenCalledWith(CANDIDATE, ROOT_LEAD.id);
+    // The candidate is dropped from the results tray, same UX as a real adopt.
+    expect(screen.queryByText(CANDIDATE.title)).toBeNull();
+    // Nothing hits the network: no write, no refetch, no library reload.
+    expect(mockAdoptCandidate).not.toHaveBeenCalled();
+    expect(mockGetExploration).toHaveBeenCalledTimes(1);
+    expect(onLibraryChanged).not.toHaveBeenCalled();
+  });
+
+  it("addFromDetail's 采纳到当前问题 (controls-column search, inHole) calls onDemoAdopt instead of adoptCandidate when supplied — no network call fires", async () => {
+    const projectId = nextPid();
+    const onDemoAdopt = vi.fn();
+    const onLibraryChanged = vi.fn();
+    const user = userEvent.setup();
+    mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "紧扣当前问题" }]);
+    render(
+      <ExplorationView
+        projectId={projectId}
+        references={[NASA_REF]}
+        onLibraryChanged={onLibraryChanged}
+        onDemoAdopt={onDemoAdopt}
+      />,
+    );
+    await zoomInto(user, ROOT_LEAD.text);
+
+    // idle → 检索方向 → 检索结果 → 论文 detail (no node selected — the
+    // controls-column drill-down `addFromDetail` owns).
+    await user.click(screen.getByRole("button", { name: "让印记建议检索方向" }));
+    await user.click(await screen.findByRole("button", { name: "搜索" }));
+    await user.click(await screen.findByText(CANDIDATE.title));
+    await user.click(await screen.findByRole("button", { name: "采纳到当前问题" }));
+
+    expect(onDemoAdopt).toHaveBeenCalledWith(CANDIDATE, ROOT_LEAD.id);
+    expect(mockAdoptCandidate).not.toHaveBeenCalled();
+    expect(mockGetExploration).toHaveBeenCalledTimes(1);
+    expect(onLibraryChanged).not.toHaveBeenCalled();
+    // back on the results list, the adopted candidate is gone.
+    expect(screen.queryByText(CANDIDATE.title)).toBeNull();
+  });
+
+  // ---- Task 9 (P8) · guided-tour anchors on the exploration search controls
+  //      (idle→directions→list→detail), so the tour can action-click a real
+  //      search→adopt scene instead of narrating it. ----
+
+  it("carries the 5 explore-* tour anchors through the controls-column search drill-down, landing on the inHole 采纳到当前问题 button", async () => {
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "紧扣当前问题" }]);
+    render(<ExplorationView projectId={projectId} references={[NASA_REF]} onEnterReading={vi.fn()} />);
+    await zoomInto(user, ROOT_LEAD.text);
+
+    // idle stage: 让印记建议检索方向 carries explore-directions
+    const proposeBtn = screen.getByRole("button", { name: "让印记建议检索方向" });
+    expect(proposeBtn).toHaveAttribute("data-tour", "explore-directions");
+    await user.click(proposeBtn);
+
+    // directions stage: the (single, so unambiguously first) 搜索 button carries explore-search
+    const searchBtn = await screen.findByRole("button", { name: "搜索" });
+    expect(searchBtn).toHaveAttribute("data-tour", "explore-search");
+    await user.click(searchBtn);
+
+    // list stage: the (single, so unambiguously first) result row carries explore-result
+    const resultText = await screen.findByText(CANDIDATE.title);
+    const resultBtn = resultText.closest("button")!;
+    expect(resultBtn).toHaveAttribute("data-tour", "explore-result");
+    await user.click(resultBtn);
+
+    // detail stage, inHole: the primary action reads 采纳到当前问题 and carries
+    // explore-adopt — the intercepted onDemoAdopt path, not 收进未归类.
+    const adoptBtn = await screen.findByRole("button", { name: "采纳到当前问题" });
+    expect(adoptBtn).toHaveAttribute("data-tour", "explore-adopt");
+
+    // clicking a NODE (not this search flow) surfaces the per-node
+    // explore-enter-reading control on its own PaperDetail card. Already
+    // inHole on ROOT_LEAD from above — just select the existing paper node.
+    await clickNode(user, CHILD_PAPER.text);
+    const enterBtn = await screen.findByRole("button", { name: "进入阅读室" });
+    expect(enterBtn).toHaveAttribute("data-tour", "explore-enter-reading");
+  });
+
+  it("the top-level (not-inHole) 收进未归类 branch stays unanchored — only the inHole adopt path is explore-adopt", async () => {
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "" }]);
+    render(<ExplorationView projectId={projectId} references={[]} onCreateReference={vi.fn()} />);
+    await screen.findByText("这里还是空的");
+
+    await user.click(screen.getByRole("button", { name: "让印记建议检索方向" }));
+    await user.click(await screen.findByRole("button", { name: "搜索" }));
+    const resultText = await screen.findByText(CANDIDATE.title);
+    await user.click(resultText.closest("button")!);
+
+    const collectBtn = await screen.findByRole("button", { name: "收进未归类" });
+    expect(collectBtn).not.toHaveAttribute("data-tour");
   });
 });
 

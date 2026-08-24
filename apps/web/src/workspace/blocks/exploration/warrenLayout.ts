@@ -108,6 +108,19 @@ export type WarrenNode = {
   paperCount: number;
   theme: NodeTheme;
   status: LeadStatus;
+  // "已读" badge: at least one reference "contained" by this root (its own
+  // connectedReferenceId, or any live descendant lead's) is readingStatus
+  // "done" — see anyReferenceDoneByRoot below.
+  hasReadReference: boolean;
+  // P7 cross-seam fix · true ONLY when this root is in the guided tour's
+  // "just marked read" override set (WarrenMap's `justReadRootIds`, sourced
+  // from ExplorationView's raw `demoReadRootIds` — NOT the merged
+  // `readByRoot`). Distinct from `hasReadReference`, which also lights up for
+  // roots whose 已读 comes from seeded/real data. Lets the caller place the
+  // `warren-node-read` tour anchor on exactly the one node that just changed,
+  // instead of on every badged node (a research map naturally has a mix of
+  // already-read and unread roots).
+  isJustRead: boolean;
   position: { x: number; y: number };
 };
 
@@ -118,6 +131,8 @@ export function buildWarrenNodes(
   roots: ExplorationLead[],
   paperCounts: Map<string, number>,
   saved?: Record<string, { x: number; y: number }>,
+  readRootIds?: Set<string>,
+  justReadRootIds?: Set<string>,
 ): WarrenNode[] {
   const circle = circlePositions(roots.map((r) => r.id));
   return roots.map((r, i) => ({
@@ -127,8 +142,64 @@ export function buildWarrenNodes(
     // theme by ordinal (index) → adjacent roots always differ in hue
     theme: themeForOrdinal(i),
     status: r.status,
+    hasReadReference: readRootIds?.has(r.id) ?? false,
+    isJustRead: justReadRootIds?.has(r.id) ?? false,
     position: saved?.[r.id] ?? circle.get(r.id) ?? { x: 0, y: 0 },
   }));
+}
+
+// "已读" badge data: which roots have AT LEAST ONE reference "contained" by
+// them — the root's own connectedReferenceId (a root can itself be born from
+// an adopted paper, carrying connectedReferenceId directly), or any live
+// descendant lead's connectedReferenceId at any depth — whose readingStatus
+// is "done". ANY-done, not all-done: the affordance is meant as "you've read
+// something here already", so it lights up as soon as one source under a
+// question is finished rather than gating on every source in a branch.
+// referenceStatus is keyed by reference id → its readingStatus string (kept
+// as a plain string, not the narrower literal union, so callers can build it
+// straight off a Reference[] without importing that contract type here).
+export function anyReferenceDoneByRoot(
+  leads: ExplorationLead[],
+  referenceStatus: Map<string, string>,
+): Set<string> {
+  const childrenByParent = new Map<string, ExplorationLead[]>();
+  for (const l of leads) {
+    if (l.parentLeadId) {
+      const arr = childrenByParent.get(l.parentLeadId) ?? [];
+      arr.push(l);
+      childrenByParent.set(l.parentLeadId, arr);
+    }
+  }
+  const isDone = (refId: string | null): boolean => refId != null && referenceStatus.get(refId) === "done";
+  const subtreeHasDone = (id: string): boolean => {
+    for (const k of childrenByParent.get(id) ?? []) {
+      if (isDone(k.connectedReferenceId) || subtreeHasDone(k.id)) return true;
+    }
+    return false;
+  };
+  const roots = leads.filter((l) => l.parentLeadId == null);
+  const out = new Set<string>();
+  for (const r of roots) {
+    if (isDone(r.connectedReferenceId) || subtreeHasDone(r.id)) out.add(r.id);
+  }
+  return out;
+}
+
+// P7 Task 4b · merges the guided tour's client-only "just marked read" demo
+// override into a data-derived `readByRoot` set (from anyReferenceDoneByRoot
+// above). The demo project's tour-read reference starts NOT 'done' (migration
+// 0088) so the map can actually SHOW the un-badged → badged transition; since
+// the demo project is write-blocked (0081), there is no real write to badge
+// it after the tour "reads" it — this override is the client-side stand-in.
+// A union, never a replacement: real data always still wins, and an
+// empty/undefined override is a no-op (returns `base` as-is, so every
+// non-demo graph — which never passes an override — is byte-for-byte
+// unaffected).
+export function mergeReadByRoot(base: Set<string>, override?: Set<string> | null): Set<string> {
+  if (!override || override.size === 0) return base;
+  const out = new Set(base);
+  for (const id of override) out.add(id);
+  return out;
 }
 
 export type WarrenEdge = {

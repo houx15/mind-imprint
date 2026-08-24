@@ -26,7 +26,9 @@
    the overlay root too or every var(--course-*) inside the modal resolves to
    nothing (no card, no button chrome). Same token values, one shared rule. */
 .course-shell,
-.course-video__cue-overlay {
+.course-video__cue-overlay,
+.course-lightbox,
+.course-pdf-modal {
   --course-bg: var(--mk-paper, #fbf8f4);
   --course-surface: var(--mk-surface, #ffffff);
   --course-border: var(--mk-border, #efe7dd);
@@ -77,7 +79,13 @@
 .course-shell *::after,
 .course-video__cue-overlay *,
 .course-video__cue-overlay *::before,
-.course-video__cue-overlay *::after {
+.course-video__cue-overlay *::after,
+.course-lightbox *,
+.course-lightbox *::before,
+.course-lightbox *::after,
+.course-pdf-modal *,
+.course-pdf-modal *::before,
+.course-pdf-modal *::after {
   box-sizing: border-box;
 }
 
@@ -109,13 +117,52 @@
 
 /* ---------- course-level phases ---------- */
 
-.course-loading,
 .course-error {
   flex: 1 1 auto;
   min-height: 0;
   /* a diagnostic/loading surface may legitimately need its own scroll —
      still contained to this region, never the shell/page. */
   overflow: auto;
+}
+
+/* Loading surface — a VISIBLE spinner + label centered in the region, not an
+ * empty white box (the previous `.course-loading` had no content, so a fresh
+ * course entry / a slow scene generation showed several seconds of blank
+ * white). Shown on first entry (session create + Opening generation) and while
+ * the closing summary generates. */
+.course-loading {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  overflow: auto;
+  color: var(--course-muted);
+}
+.course-loading__spinner {
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  border: 3px solid var(--course-accent-soft);
+  border-top-color: var(--course-accent);
+  animation: course-spin 0.8s linear infinite;
+}
+.course-loading__label {
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--course-secondary);
+}
+@keyframes course-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .course-loading__spinner {
+    animation-duration: 2s;
+  }
 }
 
 .course-player {
@@ -165,7 +212,16 @@
   overflow: auto;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 12px;
+  /* Every slot centers its content vertically — a short reading card, a single
+   * figure, or the two stacked blocks of a split column all float in the middle
+   * of their region instead of clinging to the top. `safe` keeps content taller
+   * than the slot pinned to the top (and scrollable via overflow:auto) rather
+   * than clipping its first lines. A slot holding a fill-block (PDF/video/etc.
+   * grows to fill via `.course-slot-block { flex:1 1 auto }`), so there is no
+   * free space to distribute and centering is a no-op there — media still
+   * fills, only natural-height content is centered. */
+  justify-content: safe center;
 }
 
 /* ---------- Slot-block wrapper: repair the flex-height chain ----------
@@ -183,12 +239,55 @@
   flex-direction: column;
   min-width: 0;
   min-height: 0;
+  /* Natural-height blocks (a question, a text intro) must NOT shrink below
+   * their own content. A slot is a flex column; a flex item defaults to
+   * `flex-shrink: 1`, so when a slot's stacked blocks are together taller than
+   * its box — e.g. a `grid` cell that is only 1fr (half the region) holding a
+   * single-choice ABOVE a fill-blank — the flex algorithm compressed each
+   * wrapper below its content height. Because the wrapper doesn't clip
+   * (`overflow: visible`), the content then bled OUT of its shrunken box and
+   * visually OVERLAPPED the block beneath it, while the slot's `overflow: auto`
+   * never engaged (the children had shrunk to nearly fit). `flex-shrink: 0`
+   * keeps each wrapper at its content height, so an over-full slot scrolls
+   * (its own `overflow: auto`) instead of overlapping. Fill-blocks that DO need
+   * to shrink/grow to the slot (pdf/video/interactive-html/rich-text, and an
+   * images block alone in its slot) restore `flex: 1 1 auto` below — those
+   * `:has()` rules are more specific, so they win. */
+  flex-shrink: 0;
 }
 .course-slot-block:has(> .course-block--pdf),
 .course-slot-block:has(> .course-block--video),
-.course-slot-block:has(> .course-block--images),
-.course-slot-block:has(> .course-block--interactive-html) {
+.course-slot-block:has(> .course-block--interactive-html),
+.course-slot-block:has(> .course-block--rich-text) {
   flex: 1 1 auto;
+}
+/* Images are the ONE fill-block that also reads fine at its natural height: a
+ * figure is width-driven, so it needs the slot's height only when it has the
+ * slot to itself. Letting it grow while it shares the slot with a caption/hint
+ * block consumed every pixel of free space, which left `justify-content: safe
+ * center` (below) nothing to distribute — the figure floated in the middle of
+ * the upper region and its text sibling was stranded at the very BOTTOM of the
+ * column, an obvious "not centered" break beside a correctly-centered opposite
+ * slot. Alone in a slot, growing and not growing look identical (the block
+ * centers its own figures), so restricting the grow to `:only-child` costs
+ * nothing and lets a stacked pair center as ONE group. PDF/video/HTML keep
+ * growing unconditionally — those genuinely need the height (a natural-height
+ * PDF squashes to a flat band), and their slots pay for it with a taller box. */
+.course-slot-block:only-child:has(> .course-block--images) {
+  flex: 1 1 auto;
+}
+/* A block hidden by the workflow reserves NO space. The `[hidden]` rule below
+ * keeps the BOX (so the block itself still renders and an interactive-HTML
+ * iframe still boots), but a reserved box the size of a 1:1 interaction ate the
+ * whole slot before the block was ever revealed: on a reveal-based Slice the
+ * visible question was jammed against the TOP of its column with a screen of
+ * blank space under it, and after the reveal BOTH boxes (the hidden question
+ * and the shown interaction) were in flow, overflowing the column. Collapsing
+ * the WRAPPER drops its height AND its slot gap, while everything inside keeps
+ * loading — verified: an iframe inside a `display:none` subtree still loads and
+ * runs. Siblings do reflow on a reveal; a one-frame reflow is the cheaper cost. */
+.course-slot-block:has(> .course-block[hidden]) {
+  display: none;
 }
 
 /* ---------- Media containment: video/pdf/image stay inside their slot ---------- */
@@ -232,6 +331,49 @@
   gap: 12px;
   flex: 0 0 auto;
   width: 100%;
+}
+.course-pdf__header-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 0 0 auto;
+}
+.course-pdf__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--course-ink);
+}
+.course-pdf__expand {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius);
+  background: var(--course-surface);
+  color: var(--course-secondary);
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.2;
+  padding: 6px 12px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease);
+}
+.course-pdf__expand:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
+.course-pdf__download {
+  font-size: 13px;
+  color: var(--course-accent);
+  text-underline-offset: 2px;
+  white-space: nowrap;
 }
 
 .course-pdf__viewport {
@@ -281,32 +423,46 @@
   max-width: 100%;
 }
 
-/* Interactive-HTML sizing (P?-fit): the block carries its own aspect ratio
- * inline (1:1 or 4:3). Without a height bound it sized purely from its width
- * — a 1:1 block in a wide slot became as TALL as the slot was wide and
- * overflowed (the "stuck", scroll-to-see interaction). Now it fits its slot
- * like the other media: fill the height, derive width from the aspect, cap to
- * the slot width, and center — never stretch, never overflow. `align-self:
- * center` stops the flex column from stretching it to full width (which would
- * re-inflate the height through the aspect ratio). */
+/* Interactive-HTML sizing: the block's `aspectRatio` is an authoring HINT about
+ * the shape the interaction was designed for — it is NOT a host clamp, and the
+ * renderer deliberately no longer emits it as a CSS `aspect-ratio`.
+ *
+ * It used to. The wrapper was sized `height:100%; width:auto` off the ratio, so
+ * the frame was only ever as wide as the ratio allowed: a wide interaction in a
+ * wide slot rendered as a narrow centred column, and anything below the fold of
+ * that shrunken box — typically the interaction's own 完成任务 footer — could be
+ * reached by neither the page (the slot had nothing to scroll: the block already
+ * fit) nor the frame. On a slice with `manualNext: "after-completion"` that is a
+ * dead end: the interaction can't be finished, so the slice never completes and
+ * 下一步 never enables.
+ *
+ * The host now hands the frame the WHOLE slot — full width, full height — for
+ * every ratio value, and the sandboxed document scrolls itself whenever its
+ * content is taller than the box (an iframe scrolls its own document natively;
+ * the slot keeps its own `overflow:auto` for everything else). Scrolling is
+ * available wherever it is needed, and no interaction is cropped. */
 .course-block--interactive-html {
+  width: 100%;
   height: 100%;
-  width: auto;
   max-width: 100%;
-  max-height: 100%;
-  align-self: center;
-  margin-inline: auto;
+  align-self: stretch;
 }
 
 /* ---------- Hidden-block stability (P1-06) ----------
  * Every block renderer marks its own root `hidden` + `aria-hidden` when its
  * layout flag is false (§10). The UA default style for `[hidden]` is
  * `display: none`, which removes the box entirely — revealing the block
- * later then reflows every sibling stacked in the same slot. This rule
- * (higher specificity than the UA `[hidden]` rule: one class + one
- * attribute) keeps the box — so siblings never move — while the block stays
- * invisible, non-interactive, and — via the `hidden` attribute + `aria-hidden`
- * the renderer already sets — out of the accessibility tree.
+ * later then reflows every sibling stacked in the same slot. This rule (higher
+ * specificity than the UA `[hidden]` rule: one class + one attribute) keeps the
+ * box, while the block stays invisible, non-interactive, and — via the `hidden`
+ * attribute + `aria-hidden` the renderer already sets — out of the
+ * accessibility tree.
+ *
+ * It is no longer what decides whether a hidden block occupies the SLOT: the
+ * wrapper rule above collapses the whole `.course-slot-block` instead, because
+ * a reserved box the size of a 1:1 interaction was eating the entire column
+ * before its block was ever revealed. This rule survives for any block rendered
+ * OUTSIDE that wrapper, and as the statement of intent for `[hidden]` itself.
  */
 .course-block[hidden] {
   display: block;
@@ -602,8 +758,8 @@
  * top-left corner. It gets a surface, border, radius, and real padding; the
  * measure is capped at ~66ch for readability and centered horizontally so it
  * never sprawls the full 1280px+ of a `full` slot. Vertical centering is the
- * slot's job (see the text-only-slot rule below) so a short card floats in the
- * middle of its space instead of clinging to the top. */
+ * slot's job (`.course-layout__slot { justify-content: safe center }`) so a
+ * short card floats in the middle of its space instead of clinging to the top. */
 .course-block--text.prose {
   font-size: 16px;
   line-height: 1.72;
@@ -619,13 +775,9 @@
   padding: 26px 30px;
 }
 
-/* A slot whose ONLY content is a text card centers it vertically. `safe`
- * keeps a card taller than the slot pinned to the top (and scrollable via the
- * slot's overflow:auto) instead of clipping its first lines. Multi-block slots
- * (e.g. text intro + PDF) are untouched — they stay top-aligned and stacked. */
-.course-layout__slot:has(> .course-slot-block:only-child > .course-block--text) {
-  justify-content: safe center;
-}
+/* Vertical centering is the slot's job now (see `.course-layout__slot` above —
+ * every slot `justify-content: safe center`s its content), so a short card
+ * floats in the middle of its space instead of clinging to the top. */
 .course-block--text.prose h1,
 .course-block--text.prose h2,
 .course-block--text.prose h3 {
@@ -645,11 +797,45 @@
 .course-block--text.prose strong { font-weight: 650; color: var(--course-ink); }
 .course-block--text.prose a { color: var(--course-accent); text-underline-offset: 2px; }
 
+/* ---------- Rich-text block (authored static HTML in a sandboxed card) ----------
+ * A reading CARD that fills its slot and scrolls INSIDE itself — the one block
+ * that is allowed to be taller than its slot, because that is the point: dense
+ * editorial content the student scrolls through without the Slice ever
+ * page-scrolling (D6 holds; the overflow is the frame's, not the shell's).
+ * The card owns the chrome (surface/border/radius); the authored document
+ * inside is transparent and supplies only type and spacing, so a course's CSS
+ * can never reach the frame's edges — or anything outside them. */
+.course-block--rich-text {
+  flex: 1 1 auto;
+  min-height: 0;
+  min-width: 0;
+  max-width: 100%;
+  display: flex;
+  overflow: hidden;
+  background: var(--course-surface);
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-lg);
+  box-shadow: var(--course-shadow-sm);
+}
+.course-rich-text__frame {
+  flex: 1 1 auto;
+  width: 100%;
+  min-height: 0;
+  border: 0;
+  /* The frame paints the card's own surface; the document inside is transparent
+     so this one declaration controls the background. */
+  background: transparent;
+  /* An anti-collapse floor for an unusually short slot — the fill above is the
+     target height, this only keeps the card readable if the chain is broken. */
+  min-height: 120px;
+}
+
 /* ---------- Images block ---------- */
 /* The images block fills its (now-growing) slot-block and centers its figures
  * in the available space rather than pinning them to the top. */
 .course-block--images {
   display: flex;
+  flex: 1 1 auto;
   flex-direction: column;
   justify-content: center;
 }
@@ -671,6 +857,27 @@
   flex-direction: column;
   gap: 6px;
 }
+/* The figure image is a zoom trigger — a bare, full-width button (no chrome of
+ * its own) so the image reads and sizes exactly as before, but is clickable and
+ * keyboard-focusable to open the lightbox. */
+.course-images__zoom {
+  appearance: none;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+  color: inherit;
+  font: inherit;
+}
+.course-images__zoom:focus-visible {
+  outline: 3px solid var(--course-focus-ring-color);
+  outline-offset: 3px;
+  border-radius: var(--course-radius);
+}
 .course-images__item img {
   border: 1px solid var(--course-border);
   border-radius: var(--course-radius);
@@ -685,14 +892,61 @@
   color: var(--course-muted);
   text-align: center;
 }
-.course-images__gallery { flex-direction: column; align-items: stretch; }
-.course-images__nav {
+.course-images__gallery { flex-direction: column; align-items: center; gap: 10px; }
+/* The image + its two overlay arrows. `relative` anchors the arrows; the figure
+ * still sizes/centers exactly as a single image would. */
+.course-images__gallery-stage {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 12px;
+  width: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+/* The figure inside the stage keeps a little side room so an arrow never sits
+ * on top of the image's own edge content. */
+.course-images__gallery-stage .course-images__item {
+  flex: 0 1 auto;
+  max-width: calc(100% - 96px);
+}
+.course-images__nav-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-full);
+  background: var(--course-surface);
+  color: var(--course-ink);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+  box-shadow: var(--course-shadow-sm);
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease),
+    background var(--course-fast) var(--course-ease);
+}
+.course-images__nav-arrow--prev { left: 4px; }
+.course-images__nav-arrow--next { right: 4px; }
+.course-images__nav-arrow > span { transform: translateY(-1px); }
+.course-images__nav-arrow:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
+.course-images__nav-arrow:focus-visible {
+  outline: 3px solid var(--course-focus-ring-color);
+  outline-offset: 2px;
+}
+.course-images__gallery-position {
   font-size: 13px;
   color: var(--course-muted);
+  font-variant-numeric: tabular-nums;
 }
 
 /* ---------- Single-choice assessment ---------- */
@@ -782,10 +1036,46 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
+  /* Anchors the absolutely-positioned loading overlay below. */
+  position: relative;
 }
 .course-video__player {
   border-radius: var(--course-radius);
   background: #000;
+}
+/* Buffering/loading overlay: a centered spinner over the (often black/blank)
+ * video while it loads, so the player never reads as a dead, unclickable box.
+ * `pointer-events: none` so it NEVER blocks the native <video controls>
+ * underneath — it's feedback, not a shield. */
+.course-video__loading {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  pointer-events: none;
+  border-radius: var(--course-radius);
+  background: rgba(0, 0, 0, 0.28);
+  color: #fff;
+}
+.course-video__loading-spinner {
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  border: 3px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  animation: course-spin 0.8s linear infinite;
+}
+.course-video__loading-label {
+  font-size: 13px;
+  font-weight: 500;
+}
+@media (prefers-reduced-motion: reduce) {
+  .course-video__loading-spinner {
+    animation-duration: 2s;
+  }
 }
 .course-video__controls {
   display: flex;
@@ -863,4 +1153,283 @@
   left: 12px;
   bottom: 12px;
   z-index: 3;
+}
+
+/* ---------- Image lightbox (click-to-enlarge) ----------
+ * Portaled to <body> like the cue modal, so it needs the same token +
+ * box-sizing setup — it carries `.course-video__cue-overlay` for that (see the
+ * shared token rule at the top). A dimmed backdrop that DOES dismiss on click
+ * (unlike the required-cue modal, an enlarged image is safe to close by a stray
+ * click), Escape closes, and the enlarged figure sits centered above it. */
+.course-lightbox {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 32px;
+}
+.course-lightbox__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 20, 18, 0.78);
+  cursor: zoom-out;
+}
+.course-lightbox__figure {
+  position: relative;
+  z-index: 1;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  max-width: 100%;
+  max-height: 100%;
+  min-height: 0;
+}
+.course-lightbox__img {
+  display: block;
+  max-width: min(1200px, 100%);
+  max-height: 82vh;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  border-radius: var(--course-radius);
+  box-shadow: var(--course-shadow-lg);
+  background: var(--course-surface);
+  /* zoom/pan: transform is driven inline (translate + scale); keep it centered,
+   * un-selectable while dragging, and claim wheel/touch gestures. */
+  transform-origin: center center;
+  user-select: none;
+  -webkit-user-drag: none;
+  touch-action: none;
+  will-change: transform;
+}
+.course-lightbox__caption {
+  margin: 0;
+  max-width: 72ch;
+  text-align: center;
+  font-size: 14px;
+  line-height: 1.55;
+  color: #fff;
+}
+.course-lightbox__hint {
+  position: absolute;
+  bottom: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 2;
+  margin: 0;
+  padding: 5px 14px;
+  border-radius: var(--course-radius-full);
+  background: rgba(0, 0, 0, 0.4);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 12.5px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.course-lightbox__close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 2;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: var(--course-radius-full);
+  background: rgba(0, 0, 0, 0.35);
+  color: #fff;
+  font-size: 20px;
+  line-height: 1;
+  cursor: pointer;
+  transition: background var(--course-fast) var(--course-ease), border-color var(--course-fast) var(--course-ease);
+}
+.course-lightbox__close:hover {
+  background: rgba(0, 0, 0, 0.6);
+  border-color: rgba(255, 255, 255, 0.7);
+}
+.course-lightbox__close:focus-visible {
+  outline: 3px solid var(--course-focus-ring-color);
+  outline-offset: 2px;
+}
+
+/* ---------- PDF read-in-popup modal ----------
+ * A course PDF slot is often short (a split side, a grid cell); the "放大阅读"
+ * control opens the same document in a large near-fullscreen modal so a page is
+ * actually readable. Portaled to <body> like the other overlays; Escape / the ✕
+ * / a backdrop click close it. */
+.course-pdf-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+}
+.course-pdf-modal__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(28, 20, 18, 0.72);
+  cursor: zoom-out;
+}
+.course-pdf-modal__panel {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(1000px, 100%);
+  height: 100%;
+  max-height: 100%;
+  min-height: 0;
+  background: var(--course-surface);
+  border-radius: var(--course-radius-lg);
+  box-shadow: var(--course-shadow-lg);
+  overflow: hidden;
+}
+.course-pdf-modal__header {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--course-border);
+}
+.course-pdf-modal__title {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 14.5px;
+  font-weight: 700;
+  color: var(--course-ink);
+}
+.course-pdf-modal__close {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  padding: 0;
+  border: 1px solid var(--course-border);
+  border-radius: var(--course-radius-full);
+  background: var(--course-surface);
+  color: var(--course-secondary);
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color var(--course-fast) var(--course-ease), color var(--course-fast) var(--course-ease);
+}
+.course-pdf-modal__close:hover {
+  border-color: var(--course-accent);
+  color: var(--course-accent);
+}
+.course-pdf-modal__close:focus-visible {
+  outline: 3px solid var(--course-focus-ring-color);
+  outline-offset: 2px;
+}
+.course-pdf-modal__frame {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  border: 0;
+  background: var(--course-surface);
+}
+
+/* ---------- §9.8: assessment blocks presented as a modal ----------
+ * A block authored `presentation: "modal"` answers in a dialog over the slice
+ * instead of taking slot height from the figure it belongs to. What stays in
+ * the slot is a compact launcher, so the question is never invisible and never
+ * a dead end: the student dismisses the dialog to study the figure and reopens
+ * it from here. The host collapses to nothing while the block is hidden, so a
+ * not-yet-revealed modal block costs the figure no space at all. */
+.course-block--modal-host {
+  flex: 0 0 auto;
+  align-self: stretch;
+  min-height: 0;
+}
+
+.course-modal-host__launcher {
+  appearance: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--course-accent-soft);
+  border-left: 3px solid var(--course-accent);
+  border-radius: var(--course-radius);
+  background: var(--course-accent-weak);
+  color: var(--course-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.course-modal-host__launcher:hover:not(:disabled) {
+  background: var(--course-surface);
+}
+
+.course-modal-host__launcher:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.course-modal-host__launcher[data-completed="true"] {
+  border-color: var(--course-border);
+  border-left-color: var(--course-faint);
+  background: var(--course-surface);
+}
+
+.course-modal-host__prompt {
+  min-width: 0;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: var(--course-secondary);
+}
+
+.course-modal-host__cta {
+  flex: 0 0 auto;
+  font-size: 13.5px;
+  font-weight: 700;
+  color: var(--course-accent);
+  white-space: nowrap;
+}
+
+.course-modal-host__launcher[data-completed="true"] .course-modal-host__cta {
+  color: var(--course-muted);
+}
+
+/* A RESOURCE launcher (a source, a figure, a video, a reference card) reads as
+ * a quiet affordance rather than a question waiting to be answered: it never
+ * auto-opens, so it should not shout for attention the way a live question
+ * does. Same box, calmer palette. */
+.course-block--modal-host[data-modal-kind="resource"] .course-modal-host__launcher {
+  border-color: var(--course-border);
+  border-left-color: var(--course-faint);
+  background: var(--course-surface);
+}
+
+.course-block--modal-host[data-modal-kind="resource"] .course-modal-host__launcher:hover:not(:disabled) {
+  border-left-color: var(--course-accent);
+  background: var(--course-accent-weak);
+}
+
+.course-block--modal-host[data-modal-kind="resource"] .course-modal-host__cta {
+  color: var(--course-secondary);
+}
+
+/* Several launchers stacked in one slot read as a list, not as separate cards. */
+.course-slot-block + .course-slot-block .course-block--modal-host {
+  margin-top: -4px;
 }

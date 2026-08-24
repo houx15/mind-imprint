@@ -477,8 +477,13 @@ func (a *API) assembleExplorationGuideInput(ctx context.Context, projectID uuid.
 // the guide only proposes, the student decides whether to turn a direction
 // into a lead via createExplorationLead.
 func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedExplorationGuide())
 		return
 	}
 	u, _ := UserFromContext(r.Context())
@@ -626,8 +631,13 @@ func (a *API) digResolvePaperDOI(ctx context.Context, projectID uuid.UUID, leadI
 //     ReferencedWorks/CitingWorks directly — no query refine, no LLM call,
 //     no metering (OpenAlex isn't an LLM). No DOI degrades to an empty tray.
 func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedDig())
 		return
 	}
 	u, _ := UserFromContext(r.Context())
@@ -1204,8 +1214,13 @@ type edgePairKey struct{ from, to int }
 // completed-call-only metering discipline (a resolver success with a
 // failed compose must not phantom-record a 0-token/$0 llm_call row).
 func (a *API) proposeQuestionEdges(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedQuestionEdges())
 		return
 	}
 

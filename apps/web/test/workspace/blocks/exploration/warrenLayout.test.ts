@@ -10,6 +10,7 @@ import {
   countPapersByRoot,
   dagreMindmapLayout,
   depthTint,
+  mergeReadByRoot,
   mixToward,
   NODE_THEMES,
   radialLayout,
@@ -142,6 +143,49 @@ describe("warrenLayout · buildWarrenNodes", () => {
     const n2 = nodes.find((n) => n.id === "r2")!;
     expect(n2.position).toBeDefined();
     expect(n2.paperCount).toBe(0);
+  });
+
+  // P7 cross-seam fix: `isJustRead` is a DISTINCT signal from `hasReadReference`
+  // — a root can be badged 已读 (data-done) without being the tour's "just
+  // changed" node, and vice versa. Both default to false when their inputs
+  // are omitted (normal-graph regression guard).
+  it("isJustRead reflects ONLY the 5th-arg override set, independent of hasReadReference", () => {
+    const roots = [lead({ id: "r-data-done" }), lead({ id: "r-just-read" }), lead({ id: "r-neither" })];
+    const nodes = buildWarrenNodes(
+      roots,
+      new Map(),
+      undefined,
+      new Set(["r-data-done", "r-just-read"]), // readRootIds (badge — data OR override, unchanged)
+      new Set(["r-just-read"]), // justReadRootIds (tour anchor gate)
+    );
+    const byId = new Map(nodes.map((n) => [n.id, n]));
+    expect(byId.get("r-data-done")).toMatchObject({ hasReadReference: true, isJustRead: false });
+    expect(byId.get("r-just-read")).toMatchObject({ hasReadReference: true, isJustRead: true });
+    expect(byId.get("r-neither")).toMatchObject({ hasReadReference: false, isJustRead: false });
+  });
+
+  it("isJustRead defaults to false when the override set is omitted", () => {
+    const roots = [lead({ id: "r1" })];
+    const nodes = buildWarrenNodes(roots, new Map(), undefined, new Set(["r1"]));
+    expect(nodes[0]).toMatchObject({ hasReadReference: true, isJustRead: false });
+  });
+});
+
+describe("warrenLayout · mergeReadByRoot (P7 Task 4b — guided-tour demo override)", () => {
+  it("unions the demo override into the data-derived set", () => {
+    const base = new Set(["r-data-done"]);
+    const merged = mergeReadByRoot(base, new Set(["r-tour-read"]));
+    expect(merged.has("r-data-done")).toBe(true);
+    expect(merged.has("r-tour-read")).toBe(true);
+    // Never mutates the caller's base set.
+    expect(base.has("r-tour-read")).toBe(false);
+  });
+
+  it("an empty or absent override is a no-op — returns base unchanged (normal-graph regression guard)", () => {
+    const base = new Set(["r-data-done"]);
+    expect(mergeReadByRoot(base, new Set())).toBe(base);
+    expect(mergeReadByRoot(base, null)).toBe(base);
+    expect(mergeReadByRoot(base, undefined)).toBe(base);
   });
 });
 

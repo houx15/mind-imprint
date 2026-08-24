@@ -118,6 +118,72 @@ func TestCourseShipPublishesAndSetsCover(t *testing.T) {
 	}
 }
 
+// TestCourseShipRejectsAmbiguousCover asserts a stock cover id and a generated-
+// cover asset path cannot both be supplied — the request is rejected 400 and
+// the course stays preview (never published on a bad request).
+func TestCourseShipRejectsAmbiguousCover(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{Queries: q, Pool: pool, OSSAdminKey: testAdminKey}).Handler()
+
+	slug := "ship-ambiguous"
+	if rec := putDefinition(h, slug, putCourseDefinitionBody(shipCourseDefinitionDoc(slug), []string{"craap"}, "c")); rec.Code != http.StatusOK {
+		t.Fatalf("precondition put: %d %s", rec.Code, rec.Body)
+	}
+
+	rec := postShip(h, slug, `{"cover":"img:3","coverAssetPath":"cover/course-cover.webp"}`, testAdminKey)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("ship ambiguous: want 400 got %d %s", rec.Code, rec.Body)
+	}
+	if status, _ := agent.NewSqlcAgentStore(q, pool).CourseStatus(context.Background(), slug); status != "preview" {
+		t.Fatalf("status = %q, want preview (unchanged by a rejected ship)", status)
+	}
+}
+
+// TestCourseShipRejectsAssetPrefixInStockCover asserts the reserved "asset:"
+// scheme cannot be smuggled through the stock `cover` field to bypass the
+// existence/WebP gate — it is rejected 400 and the course stays preview.
+func TestCourseShipRejectsAssetPrefixInStockCover(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{Queries: q, Pool: pool, OSSAdminKey: testAdminKey}).Handler()
+
+	slug := "ship-asset-smuggle"
+	if rec := putDefinition(h, slug, putCourseDefinitionBody(shipCourseDefinitionDoc(slug), []string{"craap"}, "c")); rec.Code != http.StatusOK {
+		t.Fatalf("precondition put: %d %s", rec.Code, rec.Body)
+	}
+
+	rec := postShip(h, slug, `{"cover":"asset:cover/course-cover.webp"}`, testAdminKey)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("stock cover with asset: prefix: want 400 got %d %s", rec.Code, rec.Body)
+	}
+	if status, _ := agent.NewSqlcAgentStore(q, pool).CourseStatus(context.Background(), slug); status != "preview" {
+		t.Fatalf("status = %q, want preview (asset: must not publish via stock cover)", status)
+	}
+}
+
+// TestCourseShipCoverAssetPathRequiresOSS asserts an asset-cover ship cannot
+// publish when OSS is unconfigured — it cannot verify or later serve the object
+// — and the course stays preview.
+func TestCourseShipCoverAssetPathRequiresOSS(t *testing.T) {
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{Queries: q, Pool: pool, OSSAdminKey: testAdminKey}).Handler() // no OSS
+
+	slug := "ship-asset-no-oss"
+	if rec := putDefinition(h, slug, putCourseDefinitionBody(shipCourseDefinitionDoc(slug), []string{"craap"}, "c")); rec.Code != http.StatusOK {
+		t.Fatalf("precondition put: %d %s", rec.Code, rec.Body)
+	}
+
+	rec := postShip(h, slug, `{"coverAssetPath":"cover/course-cover.webp"}`, testAdminKey)
+	if rec.Code == http.StatusOK {
+		t.Fatalf("asset-cover ship with no OSS must not succeed, got 200 %s", rec.Body)
+	}
+	if status, _ := agent.NewSqlcAgentStore(q, pool).CourseStatus(context.Background(), slug); status != "preview" {
+		t.Fatalf("status = %q, want preview (not published without OSS)", status)
+	}
+}
+
 // TestCourseShipGeneratesNarrationAudio asserts the definition this handler
 // fetches from the DB (store.GetCourseDefinition, the exact bytes
 // postCourseShip passes to agent.GenerateDefinitionAudio) produces a

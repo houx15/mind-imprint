@@ -15,8 +15,13 @@ import (
 
 // POST /projects/{id}/exploration/review → { review: "..." }
 func (a *API) postExplorationReview(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
+		return
+	}
+	projectID := row.ID
+	if row.IsDemo {
+		httpx.WriteJSON(w, http.StatusOK, cannedExplorationReview())
 		return
 	}
 	dto, papersBySubQ, err := a.evidenceMapProjection(r.Context(), projectID)

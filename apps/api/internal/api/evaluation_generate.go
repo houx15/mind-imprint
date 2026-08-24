@@ -143,8 +143,11 @@ func (a *API) runReportGeneration(ctx context.Context, projectID uuid.UUID, repo
 		Basics: evalreport.Basics{
 			// Type (project qualification) is intentionally left empty until
 			// multi-type support lands — it is not shown anywhere in the report.
-			Title:      title,
-			StartDate:  p.CreatedAt.UTC().Format(time.RFC3339),
+			Title:     title,
+			StartDate: p.CreatedAt.UTC().Format(time.RFC3339),
+			// EndDate = the project-finished milestone (the report is generated at
+			// finish, so this is normally set); nil → header reads "进行中".
+			EndDate:    milestones.ProjectFinished,
 			Milestones: milestones, Counters: counters,
 		},
 		Abstract:    abstract,

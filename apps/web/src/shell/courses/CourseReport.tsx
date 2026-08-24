@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
-import type { CourseReport as CourseReportT, CardCatalogEntry } from "@mind-imprint/contracts";
+import type { CourseReport as CourseReportT, CardCatalogEntry, CourseSummary, CourseAnswerReport } from "@mind-imprint/contracts";
 import { api } from "../../api";
+import { coverGradientStyle } from "@/ui";
 
 function Stat({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
@@ -39,11 +40,11 @@ function CardCover({ info }: { info?: CardCatalogEntry }) {
   );
 }
 
-// A tool card in the report now shows the full picture, not just a name:
-// cover art · 中文名 (+ English + category) · purpose (它做什么) · 何时使用
-// (阶段 chips + a concrete example). All fields come from the shared card
-// catalog (CardCatalogEntry); everything after the name degrades gracefully
-// when the catalog fetch failed (info undefined → name falls back to the id).
+// A tool card in the report shows the full picture, not just a name: cover art ·
+// 中文名 (+ English + category) · purpose (它做什么) · 何时使用 (阶段 chips + a
+// concrete example). All fields come from the shared card catalog
+// (CardCatalogEntry); everything after the name degrades gracefully when the
+// catalog fetch failed (info undefined → name falls back to the id).
 function ToolCardDetail({ cardId, info }: { cardId: string; info?: CardCatalogEntry }) {
   const name = info?.name ?? cardId;
   return (
@@ -83,46 +84,188 @@ function ToolCardDetail({ cardId, info }: { cardId: string; info?: CardCatalogEn
   );
 }
 
-// courseId is really the course slug (CourseSummary/CoursePlayerPayload no
-// longer have a numeric/string `id` — the slug is the sole identifier). The
-// prop is named courseId to stay compatible with CoursesContainer's existing
-// call site (Task 11 keeps that wiring, only the internal data model
-// changes).
-export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart }: { courseId: string; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
-  const [report, setReport] = useState<CourseReportT | null>(null);
+function SectionCard({ title, hint, children, dataTour }: { title: string; hint?: string; children: React.ReactNode; dataTour?: string }) {
+  return (
+    <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px" }} data-tour={dataTour}>
+      <div style={{ fontSize: 15, fontWeight: 800, color: "var(--mk-ink)", marginBottom: hint ? 4 : 14 }}>{title}</div>
+      {hint && <div style={{ fontSize: 12.5, color: "var(--mk-muted)", marginBottom: 16 }}>{hint}</div>}
+      {children}
+    </div>
+  );
+}
+
+// AnswerBadge renders per-item correctness: 正确 / 未答对 (graded) · 已作答 (ungraded
+// survey/reflection, correct === null) · 未作答 (answered === false).
+function AnswerBadge({ answered, correct }: { answered: boolean; correct: boolean | null }) {
+  let text = "未作答", fg = "var(--mk-muted)", bg = "var(--mk-paper)";
+  if (answered) {
+    if (correct === true) { text = "正确"; fg = "var(--mk-success)"; bg = "var(--mk-success-bg)"; }
+    else if (correct === false) { text = "未答对"; fg = "var(--mk-danger)"; bg = "var(--mk-danger-bg)"; }
+    else { text = "已作答"; fg = "var(--mk-accent-600)"; bg = "var(--mk-accent-50)"; }
+  }
+  return <span style={{ flex: "none", fontSize: 11.5, fontWeight: 700, color: fg, background: bg, padding: "3px 10px", borderRadius: 999 }}>{text}</span>;
+}
+
+// AnswerDrawer — the scrollable side panel with the student's per-question
+// answers for THIS attempt (the "click 小测 → detail" affordance). Lazy: the
+// answer report is fetched only when it opens. Reads back exactly what the
+// runtime recorded (final answer + attempts + graded correctness) per slice,
+// with the time spent on each slice.
+function AnswerDrawer({ courseId, attemptId, onClose }: { courseId: string; attemptId?: string; onClose: () => void }) {
+  const [data, setData] = useState<CourseAnswerReport | null>(null);
   const [error, setError] = useState(false);
-  const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
 
   useEffect(() => {
     let cancelled = false;
+    setData(null);
+    setError(false);
     void (async () => {
       try {
-        const r = await api.getCourseReport(courseId);
+        const r = await api.getCourseAnswerReport(courseId, attemptId);
+        if (!cancelled) setData(r);
+      } catch {
+        if (!cancelled) setError(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [courseId, attemptId]);
+
+  const empty = data != null && data.slices.length === 0;
+
+  return (
+    <div
+      onClick={onClose}
+      style={{ position: "fixed", inset: 0, zIndex: 60, background: "rgba(15,17,26,.38)", display: "flex", justifyContent: "flex-end" }}
+    >
+      <div
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-label="我的答案"
+        style={{ width: "min(560px, 94vw)", height: "100%", background: "var(--mk-paper)", boxShadow: "-16px 0 40px rgba(15,17,26,.18)", display: "flex", flexDirection: "column" }}
+      >
+        <div style={{ flex: "none", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, padding: "18px 22px", borderBottom: "1px solid var(--mk-border)", background: "var(--mk-surface)" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800, color: "var(--mk-ink)" }}>我的答案</div>
+            <div style={{ fontSize: 12.5, color: "var(--mk-muted)", marginTop: 2 }}>这一次学习里，你逐题的作答与用时。</div>
+          </div>
+          <button type="button" onClick={onClose} aria-label="关闭" style={{ flex: "none", width: 32, height: 32, borderRadius: 999, border: "1px solid var(--mk-input-border)", background: "var(--mk-surface)", color: "var(--mk-secondary)", cursor: "pointer", fontSize: 17, lineHeight: 1, fontFamily: "inherit" }}>×</button>
+        </div>
+
+        <div style={{ flex: 1, minHeight: 0, overflowY: "auto", padding: "20px 22px 40px" }}>
+          {error ? (
+            <div style={{ color: "var(--mk-danger)", fontSize: 14, padding: "20px 0" }}>作答记录暂时没能加载，稍后再看看。</div>
+          ) : data == null ? (
+            <div style={{ color: "var(--mk-muted)", fontSize: 14, padding: "20px 0" }}>正在整理你的作答…</div>
+          ) : empty ? (
+            <div style={{ color: "var(--mk-muted)", fontSize: 14, padding: "20px 0" }}>这门课没有需要作答的小测题。</div>
+          ) : (
+            <div style={{ display: "flex", flexDirection: "column", gap: 22 }}>
+              {data.slices.map((sl) => (
+                <div key={sl.sliceId}>
+                  <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 10, marginBottom: 10 }}>
+                    <div style={{ fontSize: 14, fontWeight: 800, color: "var(--mk-ink)" }}>{sl.title}</div>
+                    <div style={{ flex: "none", fontSize: 12, color: "var(--mk-muted)", fontWeight: 600 }}>用时 {formatSpent(sl.timeSpentSeconds)}</div>
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+                    {sl.items.map((it) => (
+                      <div key={it.blockId} style={{ border: "1px solid var(--mk-border)", borderRadius: 12, padding: "12px 14px", background: "var(--mk-surface)" }}>
+                        <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 10 }}>
+                          <div style={{ fontSize: 13.5, color: "var(--mk-ink)", lineHeight: 1.6, fontWeight: 600 }}>{it.prompt || "（题目）"}</div>
+                          <AnswerBadge answered={it.answered} correct={it.correct} />
+                        </div>
+                        <div style={{ fontSize: 13.5, color: it.answered ? "var(--mk-secondary)" : "var(--mk-faint)", lineHeight: 1.6, marginTop: 7 }}>
+                          <span style={{ color: "var(--mk-muted)", fontWeight: 600 }}>你的答案：</span>
+                          {it.answered ? it.yourAnswer : "未作答"}
+                        </div>
+                        {it.attempts > 1 && (
+                          <div style={{ fontSize: 12, color: "var(--mk-faint)", marginTop: 6 }}>作答 {it.attempts} 次</div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// courseId is really the course slug (CourseSummary/CoursePlayerPayload no
+// longer have a numeric/string `id` — the slug is the sole identifier). The
+// prop is named courseId to stay compatible with CoursesContainer's existing
+// call site.
+export function CourseReport({ courseId, attemptId, exampleReport, onBackToCourses, onGoPortal, onRestart }: { courseId: string; attemptId?: string; exampleReport?: CourseReportT; onBackToCourses: () => void; onGoPortal: () => void; onRestart?: () => void }) {
+  const [report, setReport] = useState<CourseReportT | null>(null);
+  const [error, setError] = useState(false);
+  const [cardInfo, setCardInfo] = useState<Record<string, CardCatalogEntry>>({});
+  // The course's own cover + introduction come from the catalog (the report
+  // itself carries neither) — a best-effort enrich; the report still renders
+  // fully if this fetch fails (no cover, no intro block).
+  const [summary, setSummary] = useState<CourseSummary | null>(null);
+  const [answersOpen, setAnswersOpen] = useState(false);
+
+  useEffect(() => {
+    // Example mode (tour): the report is a frozen fixture, never a live
+    // attempt — skip every fetch (report, cards catalog, course summary).
+    if (exampleReport) { setReport(exampleReport); setError(false); return; }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const r = await api.getCourseReport(courseId, attemptId);
         if (cancelled) return;
         setReport(r);
       } catch {
         if (!cancelled) setError(true);
         return;
       }
-      // Card details are a best-effort lookup — the report itself must still
-      // render (id-fallback names) if the catalog fetch fails.
+      // Card details and the course summary (cover/introduction) are two
+      // INDEPENDENT best-effort lookups — the report renders fully if either
+      // fails, and one failing must not suppress the other (keep them in
+      // separate try/catch, never a single Promise.all).
       try {
         const cat = await api.getCardsCatalog();
         if (cancelled) return;
         const m: Record<string, CardCatalogEntry> = {};
         for (const c of cat.cards as CardCatalogEntry[]) m[c.cardId] = c;
         setCardInfo(m);
-      } catch { /* cards fall back to id-only name, no cover/purpose */ }
+      } catch { /* cards fall back to id-only names, no cover/purpose */ }
+      try {
+        const courses = await api.listCourses();
+        if (cancelled) return;
+        setSummary(courses.find((c) => c.slug === courseId) ?? null);
+      } catch { /* no course summary → no cover / 关于这门课 block */ }
     })();
     return () => { cancelled = true; };
-  }, [courseId]);
+  }, [courseId, attemptId, exampleReport]);
 
-  if (error) return <div style={{ padding: 40, color: "var(--mk-danger)" }}>学习报告暂时没能生成，稍后再看看。</div>;
-  if (!report) return <div style={{ padding: 40, color: "var(--mk-muted)" }}>正在整理你的学习报告…</div>;
+  // NOTE: this component's parent (CoursesTab's content wrapper) is a plain
+  // block, not a flex container — so `flex:1` here is inert and the content
+  // would overflow and be clipped. Use `height:100%` (the wrapper has a
+  // definite height) so `overflowY:auto` actually scrolls.
+  if (error)
+    return (
+      <div style={{ height: "100%", minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", padding: 40, color: "var(--mk-danger)", background: "var(--mk-paper)" }}>
+        学习报告暂时没能生成，稍后再看看。
+      </div>
+    );
+  if (!report)
+    return (
+      <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 40, color: "var(--mk-muted)", background: "var(--mk-paper)" }}>
+        <span className="course-report__spinner" aria-hidden="true" style={{ width: 34, height: 34, borderRadius: "50%", border: "3px solid var(--mk-accent-100)", borderTopColor: "var(--mk-accent-500)", animation: "mk-course-report-spin .8s linear infinite" }} />
+        正在整理你的学习报告…
+        <style>{"@keyframes mk-course-report-spin{to{transform:rotate(360deg)}}"}</style>
+      </div>
+    );
+
+  const intro = summary?.introduction ?? null;
+  const hasIntro = Boolean(intro && (intro.hook || intro.whatYouDo || (intro.keywords?.length ?? 0) > 0));
 
   return (
-    <div style={{ flex: 1, minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }}>
-      <div style={{ maxWidth: 760, margin: "0 auto", padding: "34px 40px 56px" }}>
+    <div style={{ height: "100%", minHeight: 0, overflowY: "auto", background: "var(--mk-paper)" }} data-tour="course-report">
+      <div style={{ maxWidth: 1360, margin: "0 auto", padding: "34px 40px 56px" }}>
         {/* hero */}
         <div style={{ background: "linear-gradient(135deg,var(--mk-accent-500) 0%,var(--mk-accent-600) 100%)", borderRadius: 20, padding: "28px 30px", display: "flex", alignItems: "center", gap: 20, boxShadow: "0 10px 30px rgba(234,81,64,.20)" }}>
           <div style={{ flex: "none", width: 60, height: 60, borderRadius: 18, background: "rgba(255,255,255,.14)", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -135,47 +278,92 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart 
           </div>
         </div>
 
-        {/* stats */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 12, marginTop: 16 }}>
-          <Stat value={formatSpent(report.secondsSpent)} label="用时" />
-          <Stat value={`${report.completedStepTitles.length}`} label="阶段完成" />
-          <Stat value={`${report.quiz.correct} / ${report.quiz.total}`} label="小测表现" color="var(--mk-peach)" />
-        </div>
+        {/* two columns: left = cover + 关于这门课 + 你学到了什么; right = 本次学习
+            overview + 我的答案 (逐题回看) + 学到的工具卡 */}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1.25fr) minmax(0, 0.9fr)", gap: 20, marginTop: 20, alignItems: "start" }}>
+          {/* LEFT */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+            {summary?.coverUrl ? (
+              <img src={summary.coverUrl} alt={report.title} style={{ width: "100%", aspectRatio: "16 / 9", objectFit: "cover", borderRadius: 16, border: "1px solid var(--mk-border)", display: "block" }} />
+            ) : (
+              <div style={{ width: "100%", aspectRatio: "16 / 9", borderRadius: 16, border: "1px solid var(--mk-border)", ...coverGradientStyle(courseId) }} />
+            )}
 
-        {/* 学到了什么 */}
-        <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
-          <div style={{ fontSize: 15, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 14 }}>你学到了什么</div>
-          <div style={{ fontSize: 14.5, color: "var(--mk-ink)", lineHeight: 1.7 }}>{report.goal}</div>
-          {report.teaching_thread && (
-            <div style={{ fontSize: 13.5, color: "var(--mk-secondary)", lineHeight: 1.7, marginTop: 10 }}>{report.teaching_thread}</div>
-          )}
-          {report.completedStepTitles.length > 0 && (
-            <div style={{ marginTop: 16 }}>
-              {report.completedStepTitles.map((title, i) => (
-                <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
-                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--mk-success)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
-                  <span style={{ fontSize: 14, color: "var(--mk-ink)", lineHeight: 1.6 }}>{title}</span>
+            {hasIntro && intro && (
+              <SectionCard title="关于这门课">
+                {intro.hook && <p style={{ fontSize: 14.5, color: "var(--mk-ink)", lineHeight: 1.75, margin: 0 }}>{intro.hook}</p>}
+                {intro.whatYouDo && <p style={{ fontSize: 14, color: "var(--mk-secondary)", lineHeight: 1.75, margin: intro.hook ? "10px 0 0" : 0 }}>{intro.whatYouDo}</p>}
+                {(intro.keywords?.length ?? 0) > 0 && (
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 7, marginTop: 14 }}>
+                    {(intro.keywords ?? []).map((k, i) => (
+                      <span key={`${k}-${i}`} style={{ fontSize: 12, fontWeight: 600, color: "var(--mk-secondary)", background: "var(--mk-paper)", border: "1px solid var(--mk-border)", padding: "3px 10px", borderRadius: 999 }}>{k}</span>
+                    ))}
+                  </div>
+                )}
+              </SectionCard>
+            )}
+
+            <SectionCard title="你学到了什么">
+              <div style={{ fontSize: 14.5, color: "var(--mk-ink)", lineHeight: 1.7 }}>{report.goal}</div>
+              {report.teaching_thread && (
+                <div style={{ fontSize: 13.5, color: "var(--mk-secondary)", lineHeight: 1.7, marginTop: 10 }}>{report.teaching_thread}</div>
+              )}
+              {report.completedStepTitles.length > 0 && (
+                <div style={{ marginTop: 16 }}>
+                  {report.completedStepTitles.map((title, i) => (
+                    <div key={i} style={{ display: "flex", gap: 10, alignItems: "flex-start", marginBottom: 10 }}>
+                      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="var(--mk-success)" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" style={{ flex: "none", marginTop: 2 }}><path d="M20 6L9 17l-5-5" /></svg>
+                      <span style={{ fontSize: 14, color: "var(--mk-ink)", lineHeight: 1.6 }}>{title}</span>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* 学到的工具卡 — no empty state: the design has none, and an empty
-            block would wrongly imply nothing was learned. Each card shows its
-            cover, name, purpose and 何时使用 (from the shared card catalog) so
-            the report is a real takeaway, not just a list of names. */}
-        {report.cardIds.length > 0 && (
-          <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px", marginTop: 16 }}>
-            <div style={{ fontSize: 15, fontWeight: 800, color: "var(--mk-ink)", marginBottom: 4 }}>学到的工具卡</div>
-            <div style={{ fontSize: 12.5, color: "var(--mk-muted)", marginBottom: 16 }}>这门课带你上手的思维工具——记住它们能在什么时候帮到你。</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {report.cardIds.map((cardId, i) => (
-                <ToolCardDetail key={`${cardId}-${i}`} cardId={cardId} info={cardInfo[cardId]} />
-              ))}
-            </div>
+              )}
+            </SectionCard>
           </div>
-        )}
+
+          {/* RIGHT */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 16, minWidth: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2,1fr)", gap: 12 }} data-tour="course-report-stats">
+              <Stat value={formatSpent(report.secondsSpent)} label="用时" />
+              <Stat value={`${report.completedStepTitles.length}`} label="阶段完成" />
+            </div>
+
+            {/* 小测 & 我的答案 — the clickable card that opens the per-question
+                answer drawer (the recorded data, read back on demand). */}
+            <div style={{ background: "var(--mk-surface)", border: "1px solid var(--mk-border)", borderRadius: 16, padding: "22px 24px" }} data-tour="course-report-quiz">
+              <div style={{ fontSize: 15, fontWeight: 800, color: "var(--mk-ink)" }}>小测表现</div>
+              <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginTop: 12 }}>
+                <span style={{ fontSize: 34, fontWeight: 800, color: "var(--mk-peach)", lineHeight: 1 }}>{report.quiz.correct}</span>
+                <span style={{ fontSize: 18, fontWeight: 700, color: "var(--mk-muted)" }}>/ {report.quiz.total}</span>
+                <span style={{ fontSize: 13, color: "var(--mk-muted)", marginLeft: 2 }}>题答对</span>
+              </div>
+              {/* Example mode (tour) has no real attempt to read answers from —
+                  hide the trigger rather than open a drawer that would fetch. */}
+              {!exampleReport && (
+                <button
+                  type="button"
+                  onClick={() => { if (!exampleReport) setAnswersOpen(true); }}
+                  style={{ marginTop: 16, width: "100%", display: "inline-flex", alignItems: "center", justifyContent: "center", gap: 8, background: "var(--mk-paper)", border: "1px solid var(--mk-input-border)", color: "var(--mk-secondary)", fontSize: 13.5, fontWeight: 700, padding: "11px 14px", borderRadius: 12, cursor: "pointer", fontFamily: "inherit" }}
+                >
+                  查看我的答案（逐题）
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
+                </button>
+              )}
+            </div>
+
+            {/* 学到的工具卡 — no empty state: the design has none, and an empty
+                block would wrongly imply nothing was learned. */}
+            {report.cardIds.length > 0 && (
+              <SectionCard title="学到的工具卡" hint="这门课带你上手的思维工具——记住它们能在什么时候帮到你。" dataTour="course-report-cards">
+                <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                  {report.cardIds.map((cardId, i) => (
+                    <ToolCardDetail key={`${cardId}-${i}`} cardId={cardId} info={cardInfo[cardId]} />
+                  ))}
+                </div>
+              </SectionCard>
+            )}
+          </div>
+        </div>
 
         {/* actions — 返回课程 · 重新学一遍 (wipes progress and restarts from the
             top) · 去写作工作室 (the onward CTA). */}
@@ -193,6 +381,8 @@ export function CourseReport({ courseId, onBackToCourses, onGoPortal, onRestart 
           </button>
         </div>
       </div>
+
+      {!exampleReport && answersOpen && <AnswerDrawer courseId={courseId} attemptId={attemptId} onClose={() => setAnswersOpen(false)} />}
     </div>
   );
 }

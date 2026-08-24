@@ -12,23 +12,37 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store/sqlc"
-	"mindimprint/api/internal/studio"
 )
 
 // projectListItem is the summary shape returned by GET /projects.
 type projectListItem struct {
-	ID            string `json:"id"`
-	Title         string `json:"title"`
-	QualLabel     string `json:"qualLabel"`
-	ActiveStation string `json:"activeStation"`
-	Status        string `json:"status"`
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	QualLabel string `json:"qualLabel"`
+	Status    string `json:"status"`
 	// Cover is the raw stored value ("img:<n>" / "grad:<name>" / "" when
 	// unset); CoverURL is its signed CDN URL for "img:" covers, "" otherwise
 	// (gradients render client-side from the name, see resolveCoverURL).
 	Cover    string `json:"cover"`
 	CoverURL string `json:"coverUrl"`
+	// CreatedAt (RFC3339) — the project's start date, shown on the project list
+	// (title · 开始于 <date> · status). Sorting stays by last_active_at (the query),
+	// this is just the displayed calendar anchor.
+	CreatedAt string `json:"createdAt"`
+	// LastActiveAt (RFC3339) — the project's most-recent-activity timestamp; also
+	// the list's sort key. Surfaced on the card as the 最近 chip.
+	LastActiveAt string `json:"lastActiveAt"`
+	// AICalls / ActivityLog — per-project totals shown as card chips. Both come
+	// from ONE grouped query each over the caller's whole list (never per-project
+	// reads): AICalls = rows in llm_call (真实 AI 调用), ActivityLog = rows in
+	// activity_log_entry.
+	AICalls     int `json:"aiCalls"`
+	ActivityLog int `json:"activityLog"`
+	// IsDemo (guided-tour P5) — true for the shared, world-readable demo project,
+	// which is appended to EVERY user's list (pinned last). The SPA uses this to
+	// badge the card and route it to the read-only tour walkthrough.
+	IsDemo bool `json:"isDemo"`
 }
 
 // anyProposalDim reports whether any of the four kick-off dimensions carries
@@ -93,7 +107,14 @@ func (a *API) deriveDisplayStatus(ctx context.Context, projectID uuid.UUID, stat
 }
 
 // listProjects returns the caller's projects with enough state to render the
-// projects list (title, qualification, active station).
+// projects list (title, qualification, status, cover, start date).
+//
+// This handler used to run a full studio projection (studio.Load + studio.Project,
+// ~14 DB queries EACH) per project just to read one field — the active station
+// code. That was an N+1 that grew with the catalog and made the list slow; the
+// station code was also the unreadable "S1" leaking into the card. Both are gone:
+// the list now needs only the row itself plus deriveDisplayStatus's two cheap
+// reads per project.
 func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	rows, err := a.d.Queries.ListProjectsByUser(r.Context(), u.ID)
@@ -101,51 +122,122 @@ func (a *API) listProjects(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	sk, _ := skills.ByID("writing-project")
+
+	// Per-project card counts, each in ONE grouped query over the caller's whole
+	// list (best-effort — a count error just leaves that chip at 0, never fails
+	// the list). Keyed by project id string so pgtype.UUID (llm_call) and
+	// uuid.UUID (activity_log) fold into the same lookup.
+	aiCalls := map[string]int{}
+	if crows, err := a.d.Queries.CountLLMCallsByUserProject(r.Context(), u.ID); err == nil {
+		for _, c := range crows {
+			aiCalls[uuid.UUID(c.ProjectID.Bytes).String()] = int(c.N)
+		}
+	}
+	activityLog := map[string]int{}
+	if crows, err := a.d.Queries.CountActivityLogByUserProject(r.Context(), u.ID); err == nil {
+		for _, c := range crows {
+			activityLog[c.ProjectID.String()] = int(c.N)
+		}
+	}
+
 	out := make([]projectListItem, 0, len(rows))
+	owned := make(map[string]int, len(rows)) // project id → index in out (dedup demo)
 	for _, p := range rows {
-		d, err := studio.Load(r.Context(), a.d.Queries, p.ID)
-		if err != nil {
-			continue
-		}
-		proj, err := studio.Project(sk, a.d.SpecByID, d)
-		if err != nil {
-			continue
-		}
 		cover := derefOr(p.Cover, "")
+		id := p.ID.String()
+		owned[id] = len(out)
 		out = append(out, projectListItem{
-			ID:            p.ID.String(),
-			Title:         p.Title,
-			QualLabel:     p.Qualification,
-			ActiveStation: proj.ActiveStation,
-			Status:        a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
-			Cover:         cover,
-			CoverURL:      a.resolveCoverURL(cover),
+			ID:           id,
+			Title:        p.Title,
+			QualLabel:    p.Qualification,
+			Status:       a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
+			Cover:        cover,
+			CoverURL:     a.resolveCoverURL(cover),
+			CreatedAt:    p.CreatedAt.Format(time.RFC3339),
+			LastActiveAt: p.LastActiveAt.Format(time.RFC3339),
+			AICalls:      aiCalls[id],
+			ActivityLog:  activityLog[id],
+			IsDemo:       p.IsDemo,
 		})
+	}
+
+	// Append the world-readable demo project(s) at the END for every user. If the
+	// caller already owns it (owner viewing — e.g. Phoebe), just mark the existing
+	// item isDemo instead of duplicating. Best-effort — a demo-fetch error leaves
+	// the list as the caller's own rows, never fails it. Count chips for an
+	// appended (non-owned) demo stay 0 (no per-demo count queries).
+	if demoRows, derr := a.d.Queries.ListDemoProjects(r.Context()); derr == nil {
+		for _, p := range demoRows {
+			id := p.ID.String()
+			if idx, ok := owned[id]; ok {
+				out[idx].IsDemo = true
+				continue
+			}
+			cover := derefOr(p.Cover, "")
+			out = append(out, projectListItem{
+				ID:           id,
+				Title:        p.Title,
+				QualLabel:    p.Qualification,
+				Status:       a.deriveDisplayStatus(r.Context(), p.ID, p.Status),
+				Cover:        cover,
+				CoverURL:     a.resolveCoverURL(cover),
+				CreatedAt:    p.CreatedAt.Format(time.RFC3339),
+				LastActiveAt: p.LastActiveAt.Format(time.RFC3339),
+				AICalls:      aiCalls[id],
+				ActivityLog:  activityLog[id],
+				IsDemo:       true,
+			})
+		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"projects": out})
 }
 
 // loadOwnedProject parses {id} and confirms the request user owns it. On any
 // failure it writes a 404 envelope and returns ok=false — ownership is hidden
-// as not-found, never 403, so project existence doesn't leak.
+// as not-found, never 403, so project existence doesn't leak. Demo projects
+// (guided-tour P2) are the one exception: they are world-readable to any
+// authenticated user (a later tour walks a non-owner through one) but reject
+// every non-GET request with 403 demo_readonly, enforced here so every one of
+// the ~140 mutating handlers that funnel through this chokepoint is covered.
 func (a *API) loadOwnedProject(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
+	p, ok := a.loadOwnedProjectRow(w, r)
+	if !ok {
+		return uuid.UUID{}, false
+	}
+	if p.IsDemo && r.Method != http.MethodGet {
+		httpx.WriteError(w, r, httpx.ErrDemoReadonly())
+		return uuid.UUID{}, false
+	}
+	return p.ID, true
+}
+
+// loadOwnedProjectRow is loadOwnedProject's row-returning sibling: same
+// existence/ownership/demo-visibility semantics, but it does NOT apply the
+// non-GET demo_readonly 403 itself — it returns the row so a caller can
+// decide (e.g. a future canned-fixture short-circuit for demo POSTs instead
+// of a flat 403). loadOwnedProject is a thin wrapper around this for the
+// common case.
+func (a *API) loadOwnedProjectRow(w http.ResponseWriter, r *http.Request) (sqlc.Project, bool) {
 	u, _ := UserFromContext(r.Context())
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return uuid.UUID{}, false
+		return sqlc.Project{}, false
 	}
 	p, err := a.d.Queries.GetProject(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
-		return uuid.UUID{}, false
+		return sqlc.Project{}, false
+	}
+	if p.IsDemo {
+		// World-readable to any authenticated user, regardless of ownership.
+		return p, true
 	}
 	if p.UserID != u.ID {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return uuid.UUID{}, false
+		return sqlc.Project{}, false
 	}
-	return id, true
+	return p, true
 }
 
 // workspaceProposal is the four required kick-off dimensions plus the optional
@@ -178,6 +270,9 @@ type workspaceProjection struct {
 	// the entry for its ACTIVE doc to lock that document read-only, so the
 	// proposal and the essay lock independently.
 	WritingFinish writingFinishState `json:"writingFinish"`
+	// IsDemo (guided-tour P2) — true for the shared, read-only demo project.
+	// The SPA uses this to hide/disable write affordances during the tour.
+	IsDemo bool `json:"isDemo"`
 }
 
 // writingFinishState mirrors the writing_finish table for the two documents.
@@ -242,6 +337,7 @@ func (a *API) getProject(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:       p.CreatedAt.Format(time.RFC3339),
 		WritingFinished: finish.Essay,
 		WritingFinish:   finish,
+		IsDemo:          p.IsDemo,
 	})
 }
 

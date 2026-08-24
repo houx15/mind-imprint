@@ -1,0 +1,4600 @@
+{
+ "course": {
+  "id": "course-19",
+  "parts": [
+   {
+    "id": "part-tweet-entry",
+    "title": "第一部分 · 推文入口：先别判断，先看见",
+    "slices": [
+     {
+      "id": "slice-opening-green-halo",
+      "title": "这门课要分开评估的两件事",
+      "blocks": [
+       {
+        "id": "slice-opening-green-halo-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-opening-green-halo-shot-item-1",
+          "alt": "白色 Tesla 停在草地间的道路上，背景是成排风力发电机与蓝天",
+          "source": "assets/images/tesla-hero-green-halo.webp",
+          "caption": "这类画面，是「绿色产品＝绿色企业」印象的来源。本课要做的，是把这两件事分开评估。"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-opening-green-halo-text",
+        "type": "text",
+        "content": "#### 电动车是「绿色产品」，是否等于企业有「绿色运营」？\n\n「ESG 评级有缺陷」可能是真的。但它是否足以推出「特斯拉不需要改进」，或者「所有 ESG 都是骗局」？\n\n这门课要做的，就是把「绿色产品」和「绿色运营」这两件事**分开评估**。\n\n- **方法**　SIFT 调查链 · GONE 四维框架\n- **证据**　13 份材料，来源等级各不相同\n- **规则**　先写下自己的判断，才解锁讲解\n\n#### 三条写作规则\n\n1. 每一条你写下的句子，都要能指回一份具体材料。\n2. 事实句只写材料上真实存在的内容：谁、什么时候、说了或披露了什么。\n3. 推断句要留出被推翻的余地——用「可能／构成」，不用「证明」。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-opening-green-halo-shot"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-opening-green-halo-text"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-opening-green-halo-shot",
+         "slice-opening-green-halo-text"
+        ],
+        "visibleBlockIds": [
+         "slice-opening-green-halo-shot",
+         "slice-opening-green-halo-text"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-opening-green-halo",
+        "text": "一辆电动车，停在风电场前面。这样的画面你见过很多次。这门课要处理的，是从「看到」到「得出结论」之间被跳过去的那一段。",
+        "audio": "assets/audio/narration/slice-opening-green-halo.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-separate-claim"
+      ],
+      "estimatedSeconds": 150
+     },
+     {
+      "id": "slice-evidence-03-tweet",
+      "title": "马斯克推文 · 入口叙事：马斯克说「ESG 是骗局」",
+      "blocks": [
+       {
+        "id": "slice-evidence-03-tweet-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-03-tweet-shot-item-1",
+          "alt": "X 平台推文截图：马斯克指出埃克森在 S&P 的 ESG 评价中排名靠前而特斯拉未入选，接着断言 ESG 是骗局；下方是他指责评级机构失去诚信的追帖，以及评论区支持者把此事框定为“虚假环保行动”的回复。互动量：13K 回复 / 41K 转发 / 273K 点赞。",
+          "source": "assets/images/evidence-03.webp",
+          "caption": "来源等级：社媒·个人发声　|　来源：X 原帖：Elon Musk, May 18, 2022；Bloomberg Law 报道：Musk Says ESG ‘An Outrageous Scam’（备用·延伸）　|　材料中的数字：发布时间 2022-05-18、点赞 273K、转发 41K"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-03-tweet-card",
+        "type": "text",
+        "content": "#### 入口叙事：马斯克说「ESG 是骗局」\n\n**你先看见什么**　CEO 个人社媒发声、Exxon 对比、评论区“特斯拉被冤／ESG 政治正确”的情绪性框架。"
+       },
+       {
+        "id": "slice-evidence-03-tweet-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-03-tweet-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这张图是整条“冤案叙事”的信息源头。它把复杂 ESG 评级问题压缩成一个强烈判断：ESG 是骗局，特斯拉被双标。\n\n**表述边界**　可以引用“ESG is a scam”作为传播素材，但不要把推文当成事实证据本身。\n\n**用到的方法**　SIFT Stop、利益相关者识别、情绪/主张分离"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-03-tweet-shot",
+          "slice-evidence-03-tweet-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-03-tweet-fill",
+          "slice-evidence-03-tweet-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-03-tweet-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-03-tweet-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-03-tweet-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-03-tweet-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-03-tweet-shot",
+         "slice-evidence-03-tweet-card",
+         "slice-evidence-03-tweet-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-03-tweet-shot",
+         "slice-evidence-03-tweet-card",
+         "slice-evidence-03-tweet-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-03-tweet",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-03-tweet.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-separate-claim",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-first-reaction",
+      "title": "你的第一反应",
+      "blocks": [
+       {
+        "id": "slice-first-reaction-text",
+        "type": "text",
+        "content": "#### 不需要正确，需要真实\n\n你刚看完的，是绝大多数人接触这个话题的真实入口：一条 CEO 的社媒发言，加上评论区的情绪。\n\n此刻你还没有任何反证材料——**这是故意的**。\n\n写得越诚实越好，包括「我觉得他说得有道理」。这条记录，第八部分还会回来找你。"
+       },
+       {
+        "id": "slice-first-reaction-fill",
+        "type": "fillBlank",
+        "prompt": "写下你读完那条推文之后最初的真实感觉。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的回答是诚实的第一反应，不是「标准答案」；写出你当下真实的倾向即可，后面会拿它做对照。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "读完这条推文和评论区，我最初的感觉是……"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-first-reaction-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-first-reaction-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-first-reaction-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-first-reaction-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-first-reaction-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-first-reaction-text",
+         "slice-first-reaction-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-first-reaction-text",
+         "slice-first-reaction-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-first-reaction",
+        "text": "先别管对错。把你此刻真实的反应写下来，越诚实越好。",
+        "audio": "assets/audio/narration/slice-first-reaction.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-separate-claim"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "obj-separate-claim",
+     "obj-source-tier"
+    ]
+   },
+   {
+    "id": "part-sift-stop",
+    "title": "第二部分 · SIFT Stop：暂停判断，把话拆开",
+    "slices": [
+     {
+      "id": "slice-highlighter",
+      "title": "荧光笔：把情绪、主张和号召分开",
+      "blocks": [
+       {
+        "id": "slice-highlighter-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/highlighter-stop.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-highlighter-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "slice-highlighter-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-highlighter-interaction"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-highlighter-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-highlighter-interaction"
+        ],
+        "visibleBlockIds": [
+         "slice-highlighter-interaction"
+        ]
+       },
+       "initialStepId": "wait"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-highlighter",
+        "text": "SIFT 的第一步不是查证，是停下来。一条信息里混着情绪、事实主张和行动号召，先把它们分开，才知道该查什么。",
+        "audio": "assets/audio/narration/slice-highlighter.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-separate-claim"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-three-questions",
+      "title": "三个必须查清的问题",
+      "blocks": [
+       {
+        "id": "slice-three-questions-text",
+        "type": "text",
+        "content": "#### SIFT 调查链：接下来四步做什么\n\n| SIFT | 你要做的 |\n| --- | --- |\n| **Stop 停**　← 你在这里 | 把「冤案」「骗局」「政治正确」等情绪词圈出来，暂不判断。 |\n| **Investigate 查** | 查说话者、机构和利益：马斯克、特斯拉、S&P、EPA、EEOC、股东。 |\n| **Find 找** | 找到最好的一手来源：10-K、Impact Report、监管公告、股东会议结果。 |\n| **Trace 溯** | 追踪这条叙事如何从 CEO 推文扩散到短视频和评论区。 |\n\n后面三步的顺序不能颠倒——**先弄清谁在说，才谈得上找一手来源**。\n\n#### 三个必须查清的问题\n\n这一步不给你任何反证材料。你只能靠提问，决定接下来去查什么。"
+       },
+       {
+        "id": "slice-three-questions-q1",
+        "type": "fillBlank",
+        "prompt": "问题 1：写一个关于「事情本身」的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的问题是可以拿去查的：它指向一个具体的机构、文件或时间点，而不是一句态度。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "完整的剔除理由到底是什么？"
+       },
+       {
+        "id": "slice-three-questions-q2",
+        "type": "fillBlank",
+        "prompt": "问题 2：写一个关于「谁在说」的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的问题是可以拿去查的：它指向一个具体的机构、文件或时间点，而不是一句态度。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "谁在说这句话，他的位置是什么？"
+       },
+       {
+        "id": "slice-three-questions-q3",
+        "type": "fillBlank",
+        "prompt": "问题 3：写一个关于「谁获益」的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的问题是可以拿去查的：它指向一个具体的机构、文件或时间点，而不是一句态度。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "这条叙事传开，谁获益？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-three-questions-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-three-questions-q1",
+          "slice-three-questions-q2",
+          "slice-three-questions-q3"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-000",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q1"
+           },
+           "to": "gate-100"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q2"
+           },
+           "to": "gate-010"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q3"
+           },
+           "to": "gate-001"
+          }
+         ]
+        },
+        {
+         "id": "gate-100",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q2"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q2"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q3"
+           },
+           "to": "gate-101"
+          }
+         ]
+        },
+        {
+         "id": "gate-010",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q1"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q3"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-001",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q1"
+           },
+           "to": "gate-101"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q2"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-110",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q3"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q3"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-101",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q2"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q2"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-011",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-three-questions-q1"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-three-questions-q1"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-three-questions-text",
+         "slice-three-questions-q1",
+         "slice-three-questions-q2",
+         "slice-three-questions-q3"
+        ],
+        "visibleBlockIds": [
+         "slice-three-questions-text",
+         "slice-three-questions-q1",
+         "slice-three-questions-q2",
+         "slice-three-questions-q3"
+        ]
+       },
+       "initialStepId": "gate-000"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-three-questions",
+        "text": "这一步不给你任何反证材料。你只能靠提问，决定接下来去查什么。",
+        "audio": "assets/audio/narration/slice-three-questions.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-separate-claim"
+      ],
+      "estimatedSeconds": 210
+     }
+    ],
+    "objectiveIds": [
+     "obj-separate-claim"
+    ]
+   },
+   {
+    "id": "part-corporate-halo",
+    "title": "第三部分 · 看光环：只看公司怎么说自己",
+    "slices": [
+     {
+      "id": "slice-evidence-04-impact-home",
+      "title": "Impact 首页三数字 · 看光环：Tesla 2024 影响力报告摘要",
+      "blocks": [
+       {
+        "id": "slice-evidence-04-impact-home-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-04-impact-home-shot-item-1",
+          "alt": "tesla.com/impact 首屏：三张车辆与工厂大图，每张压着一个数字——32M、~10x、+125K。",
+          "source": "assets/images/evidence-04.webp",
+          "caption": "来源等级：企业自述　|　来源：Tesla Impact 页面：2024 Impact Report 归档入口；Tesla Investor Relations: 2024 Impact Report 归档（备用·延伸）　|　材料中的数字：避免排放 32M tCO₂e、Autopilot 安全 约 10×、清洁能源岗位 125K+"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-04-impact-home-card",
+        "type": "text",
+        "content": "#### 看光环：Tesla 2024 影响力报告摘要\n\n**你先看见什么**　32M 吨 CO₂e 避免排放、约 10 倍安全、125K+ 清洁能源岗位。三个数字都很强，容易形成“环保模范”第一印象。"
+       },
+       {
+        "id": "slice-evidence-04-impact-home-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-04-impact-home-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这是企业自我叙事的典型首页材料。学生先只回答：Tesla 希望公众记住哪三个数字？这些数字分别属于 E、S 还是 G？\n\n**表述边界**　不要一上来称其为漂绿；先让光环成立，再用后续证据对照。\n\n**用到的方法**　暂缓判断、主张可核化、企业自我陈述识别"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-04-impact-home-shot",
+          "slice-evidence-04-impact-home-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-04-impact-home-fill",
+          "slice-evidence-04-impact-home-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-04-impact-home-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-04-impact-home-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-04-impact-home-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-04-impact-home-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-04-impact-home-shot",
+         "slice-evidence-04-impact-home-card",
+         "slice-evidence-04-impact-home-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-04-impact-home-shot",
+         "slice-evidence-04-impact-home-card",
+         "slice-evidence-04-impact-home-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-04-impact-home",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-04-impact-home.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-cross-esg",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-halo-esg-sort",
+      "title": "三个数字分别属于 E、S 还是 G？",
+      "blocks": [
+       {
+        "id": "slice-halo-esg-sort-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-halo-esg-sort-shot-item-1",
+          "alt": "tesla.com/impact 首屏：三张车辆与工厂大图，每张压着一个数字——32M、~10x、+125K。",
+          "source": "assets/images/evidence-04.webp",
+          "caption": "tesla.com/impact 首屏 · 来源等级：企业自述"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-halo-esg-sort-q-32m",
+        "type": "singleChoice",
+        "prompt": "「32M metric tons of CO₂e emissions avoided（避免排放 3200 万公吨）」属于 ESG 的哪一维？",
+        "options": [
+         {
+          "id": "slice-halo-esg-sort-q-32m-o-e",
+          "label": "E · 环境"
+         },
+         {
+          "id": "slice-halo-esg-sort-q-32m-o-s",
+          "label": "S · 社会"
+         },
+         {
+          "id": "slice-halo-esg-sort-q-32m-o-g",
+          "label": "G · 治理"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。避免排放是环境（E）维度的指标。",
+         "correctOptionId": "slice-halo-esg-sort-q-32m-o-e",
+         "incorrectFeedback": "再想一遍：CO₂e 排放讲的是这家公司对环境的影响，还是对人、对治理结构的影响？"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "slice-halo-esg-sort-q-10x",
+        "type": "singleChoice",
+        "prompt": "「~10× safer than the average U.S. driver（辅助驾驶安全约 10 倍）」属于哪一维？",
+        "options": [
+         {
+          "id": "slice-halo-esg-sort-q-10x-o-e",
+          "label": "E · 环境"
+         },
+         {
+          "id": "slice-halo-esg-sort-q-10x-o-s",
+          "label": "S · 社会"
+         },
+         {
+          "id": "slice-halo-esg-sort-q-10x-o-g",
+          "label": "G · 治理"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。驾驶安全关系到人，属于社会（S）维度——它是产品安全，不是排放指标。",
+         "correctOptionId": "slice-halo-esg-sort-q-10x-o-s",
+         "incorrectFeedback": "提示：这个数字讲的是「人是否更安全」，既不是排放，也不是董事会与披露制度。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "slice-halo-esg-sort-q-125k",
+        "type": "singleChoice",
+        "prompt": "「+125K clean energy-related jobs（全球清洁能源相关岗位）」属于哪一维？",
+        "options": [
+         {
+          "id": "slice-halo-esg-sort-q-125k-o-e",
+          "label": "E · 环境"
+         },
+         {
+          "id": "slice-halo-esg-sort-q-125k-o-s",
+          "label": "S · 社会"
+         },
+         {
+          "id": "slice-halo-esg-sort-q-125k-o-g",
+          "label": "G · 治理"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。创造就业属于社会（S）维度。注意：这三个数字里**没有一个属于治理（G）**——而 G 恰恰是后面「标普 ESG 评分」那份材料要你去看的地方。",
+         "correctOptionId": "slice-halo-esg-sort-q-125k-o-s",
+         "incorrectFeedback": "提示：岗位是关于人的，既不是关于排放，也不是关于董事会与披露制度。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-halo-esg-sort-shot"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-halo-esg-sort-q-32m",
+          "slice-halo-esg-sort-q-10x",
+          "slice-halo-esg-sort-q-125k"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-000",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-32m"
+           },
+           "to": "gate-100"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-10x"
+           },
+           "to": "gate-010"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-125k"
+           },
+           "to": "gate-001"
+          }
+         ]
+        },
+        {
+         "id": "gate-100",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-10x"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-10x"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-125k"
+           },
+           "to": "gate-101"
+          }
+         ]
+        },
+        {
+         "id": "gate-010",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-32m"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-125k"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-001",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-32m"
+           },
+           "to": "gate-101"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-10x"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-110",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-125k"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-125k"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-101",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-10x"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-10x"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-011",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-esg-sort-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-esg-sort-q-32m"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-halo-esg-sort-shot",
+         "slice-halo-esg-sort-q-32m",
+         "slice-halo-esg-sort-q-10x",
+         "slice-halo-esg-sort-q-125k"
+        ],
+        "visibleBlockIds": [
+         "slice-halo-esg-sort-shot",
+         "slice-halo-esg-sort-q-32m",
+         "slice-halo-esg-sort-q-10x",
+         "slice-halo-esg-sort-q-125k"
+        ]
+       },
+       "initialStepId": "gate-000"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-halo-esg-sort",
+        "text": "先不质疑真假。只做一件事：判断每个数字属于 E、S 还是 G。",
+        "audio": "assets/audio/narration/slice-halo-esg-sort.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-cross-esg"
+      ],
+      "estimatedSeconds": 270
+     },
+     {
+      "id": "slice-halo-rewrite",
+      "title": "把三个主张改写成可核查的问题",
+      "blocks": [
+       {
+        "id": "slice-halo-rewrite-text",
+        "type": "text",
+        "content": "#### 从「记住这个数字」到「我要去查什么」\n\n把一个主张改写成可核查的问题，就是 SIFT 从 Stop 走向 Investigate 的那一步。\n\n改写时问三件事：**分母是什么？口径写在哪一页？谁用什么方法算的？**\n\n> **示例**　「32M 吨 CO₂e 避免排放」\n> → 这 3200 万吨是按什么反事实基准算出来的？是单车口径还是全车队口径？计算方法写在报告哪一页？"
+       },
+       {
+        "id": "slice-halo-rewrite-q-32m",
+        "type": "fillBlank",
+        "prompt": "把「32M 吨 CO₂e 避免排放」改写成一个可以去核查的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的改写指向一个可以去查的东西：分母、口径、页码、方法或比较对象；它不是对这个数字的评价。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "这个数字的分母是什么？口径在哪一页？"
+       },
+       {
+        "id": "slice-halo-rewrite-q-10x",
+        "type": "fillBlank",
+        "prompt": "把「约 10 倍安全」改写成一个可以去核查的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的改写指向一个可以去查的东西：分母、口径、页码、方法或比较对象；它不是对这个数字的评价。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "和谁比？在什么路况下？样本怎么选的？"
+       },
+       {
+        "id": "slice-halo-rewrite-q-125k",
+        "type": "fillBlank",
+        "prompt": "把「125K+ 清洁能源岗位」改写成一个可以去核查的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的改写指向一个可以去查的东西：分母、口径、页码、方法或比较对象；它不是对这个数字的评价。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "算的是自有员工还是产业链？哪一年的口径？"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-halo-rewrite-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-halo-rewrite-q-32m",
+          "slice-halo-rewrite-q-10x",
+          "slice-halo-rewrite-q-125k"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-000",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-32m"
+           },
+           "to": "gate-100"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-10x"
+           },
+           "to": "gate-010"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-125k"
+           },
+           "to": "gate-001"
+          }
+         ]
+        },
+        {
+         "id": "gate-100",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-10x"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-10x"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-125k"
+           },
+           "to": "gate-101"
+          }
+         ]
+        },
+        {
+         "id": "gate-010",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-32m"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-125k"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-001",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-32m"
+           },
+           "to": "gate-101"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-10x"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-110",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-125k"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-125k"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-101",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-10x"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-10x"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-011",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-halo-rewrite-q-32m"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-halo-rewrite-q-32m"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-halo-rewrite-text",
+         "slice-halo-rewrite-q-32m",
+         "slice-halo-rewrite-q-10x",
+         "slice-halo-rewrite-q-125k"
+        ],
+        "visibleBlockIds": [
+         "slice-halo-rewrite-text",
+         "slice-halo-rewrite-q-32m",
+         "slice-halo-rewrite-q-10x",
+         "slice-halo-rewrite-q-125k"
+        ]
+       },
+       "initialStepId": "gate-000"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-halo-rewrite",
+        "text": "暂缓判断。这一步只把每个主张改写成一个你能真的拿去查的问题。",
+        "audio": "assets/audio/narration/slice-halo-rewrite.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-separate-claim",
+       "obj-cross-esg"
+      ],
+      "estimatedSeconds": 210
+     },
+     {
+      "id": "slice-evidence-05-archive",
+      "title": "报告下载入口 · 一手来源入口：影响力报告在哪里下载",
+      "blocks": [
+       {
+        "id": "slice-evidence-05-archive-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-05-archive-shot-item-1",
+          "alt": "Impact Report 2024 封面页：车辆行驶在湖畔公路，页面中央是 View Impact Report 按钮，下方小字是 View Extended Version。",
+          "source": "assets/images/evidence-05.webp",
+          "caption": "来源等级：企业自述　|　来源：Tesla Impact Report Archive；Tesla Investor Relations（备用·延伸）"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-05-archive-card",
+        "type": "text",
+        "content": "#### 一手来源入口：影响力报告在哪里下载\n\n**你先看见什么**　Impact Report 2024 封面和下载按钮。这个入口说明材料不是二手转述，而是 Tesla 自己发布的报告。"
+       },
+       {
+        "id": "slice-evidence-05-archive-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-05-archive-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n官方报告的易得性也是分析起点：企业愿意把什么放在首页、什么放到扩展版或附录，本身就是披露策略。\n\n**表述边界**　当前 Tesla Impact 网页可能显示最新年份；课堂使用 2024 截图时要说明是在归档里查 2024 报告。\n\n**用到的方法**　横向阅读、披露位置分析、一手来源确认"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-05-archive-shot",
+          "slice-evidence-05-archive-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-05-archive-fill",
+          "slice-evidence-05-archive-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-05-archive-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-05-archive-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-05-archive-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-05-archive-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-05-archive-shot",
+         "slice-evidence-05-archive-card",
+         "slice-evidence-05-archive-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-05-archive-shot",
+         "slice-evidence-05-archive-card",
+         "slice-evidence-05-archive-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-05-archive",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-05-archive.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-disclosure",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 165
+     }
+    ],
+    "objectiveIds": [
+     "obj-cross-esg",
+     "obj-source-tier",
+     "obj-separate-claim",
+     "obj-disclosure"
+    ]
+   },
+   {
+    "id": "part-line-e",
+    "title": "第四部分 · E 线：排放与 Scope 3",
+    "slices": [
+     {
+      "id": "slice-evidence-08-lifecycle",
+      "title": "生命周期排放图 · 生命周期排放：EV vs ICE 图表的假设条件",
+      "blocks": [
+       {
+        "id": "slice-evidence-08-lifecycle-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-08-lifecycle-shot-item-1",
+          "alt": "折线＋柱状组合图：横轴为制造阶段到第 17 年，绿色累计避免排放曲线持续向下，灰柱为 ICE 排放、黑柱为 EV 排放；图下注明本年度更新了避免排放计算方法。",
+          "source": "assets/images/evidence-08.webp",
+          "caption": "来源等级：企业自述　|　来源：Tesla Impact 页面：lifetime emissions comparison　|　材料中的数字：模型年限 17 年、口径 单车全生命周期，非车队总量"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-08-lifecycle-card",
+        "type": "text",
+        "content": "**先写自己的事实句，讲解才会展开。** 三条线共 9 张卡。\n\n#### 生命周期排放：EV vs ICE 图表的假设条件\n\n**你先看见什么**　Tesla 车辆生命周期排放图显示 EV 累计排放低于 ICE，并标注长期避免排放。"
+       },
+       {
+        "id": "slice-evidence-08-lifecycle-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-08-lifecycle-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n“避免排放”（Avoided Emissions）是特斯拉向公众和投资者展示其核心价值的关键指标。它的计算逻辑是反事实推理：如果不使用特斯拉，消费者将驾驶同级别燃油车，从而产生相应排放。这一推理极其依赖假设参数。\n\n这张图是 Tesla E 维度最强论据之一。不是要否定它，而是让学生看清它依赖哪些假设：地区电网、里程、车辆寿命、制造排放、ICE 油耗等。\n\n**注意口径**：这张图的纵轴是单车全生命周期（17 年）累计量；首页那个 32M 是全车队当年总量。两者不能互相印证，也不能相减。\n\n**表述边界**　这张图支持“EV 有生命周期减排优势”，不应被粗暴归为漂绿；它的问题在于是否被用来遮蔽其他 ESG 维度。\n\n**用到的方法**　模型假设阅读、证据权重、避免本末倒置"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-08-lifecycle-shot",
+          "slice-evidence-08-lifecycle-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-08-lifecycle-fill",
+          "slice-evidence-08-lifecycle-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-08-lifecycle-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-08-lifecycle-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-08-lifecycle-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-08-lifecycle-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-08-lifecycle-shot",
+         "slice-evidence-08-lifecycle-card",
+         "slice-evidence-08-lifecycle-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-08-lifecycle-shot",
+         "slice-evidence-08-lifecycle-card",
+         "slice-evidence-08-lifecycle-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-08-lifecycle",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-08-lifecycle.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-cross-esg",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-evidence-10-scope3",
+      "title": "Scope 3 附录 · Scope 3 排放：被放到附录的不利数据",
+      "blocks": [
+       {
+        "id": "slice-evidence-10-scope3-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-10-scope3-shot-item-1",
+          "alt": "Impact Report 2024 附录第 194 页：Scope 3 GHG Emissions 表格，按类别 1–9、11、12 列出 2022/2023/2024 三年数值，末行为总计。",
+          "source": "assets/images/evidence-10.webp",
+          "caption": "来源等级：企业自述　|　来源：Tesla Impact 页面：2024 Extended Version 归档；Tesla Investor Relations: Impact Report archive（备用·延伸）　|　材料中的数字：2024 Scope 3 总量 5496.7 万 tCO₂e、2023 4935.4 万、2022 4117.1 万、行业通常占比 总排放 80%+"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-10-scope3-card",
+        "type": "text",
+        "content": "#### Scope 3 排放：被放到附录的不利数据\n\n**你先看见什么**　Scope 3 GHG Emissions 表格。它比首页“避免 32M 吨 CO₂e”的光环更不显眼，需要进入扩展版／附录查看。"
+       },
+       {
+        "id": "slice-evidence-10-scope3-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-10-scope3-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n对于汽车制造商，供应链（Scope 3）排放通常占总排放的 80% 以上。特斯拉在 2024 年披露其范围 3 排放总量约为 5496.7 万公吨 CO₂e，涵盖了上游采购和下游使用。\n\n这张图是训练选择性披露的关键：不是说 32M 一定假，而是问为什么避免量放在首页，Scope 3 排放总量放在更深位置。\n\n**表述边界**　不同排放口径不能机械相减；课堂重点是披露位置、口径和叙事选择。\n\n**用到的方法**　选择性披露、故意隐瞒、口径比较"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-10-scope3-shot",
+          "slice-evidence-10-scope3-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-10-scope3-fill",
+          "slice-evidence-10-scope3-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-10-scope3-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-10-scope3-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-10-scope3-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-10-scope3-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-10-scope3-shot",
+         "slice-evidence-10-scope3-card",
+         "slice-evidence-10-scope3-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-10-scope3-shot",
+         "slice-evidence-10-scope3-card",
+         "slice-evidence-10-scope3-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-10-scope3",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-10-scope3.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-disclosure",
+       "obj-cross-esg"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-evidence-13-credits",
+      "title": "碳积分与处罚 · 碳积分财务依赖：从监管体系获益，又攻击 ESG 体系",
+      "blocks": [
+       {
+        "id": "slice-evidence-13-credits-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-13-credits-shot-item-1",
+          "alt": "分析文章段落（中英对照）：2022 年上海超级工厂获评国家级绿色工厂、同年出售碳信用取得营收；紧接着写该年 2 月因尾气排放控制违规被 EPA 处罚、5 月被移出 S&P 500 ESG 指数，并提到环保组织指出其数家供应商存在监管违规。",
+          "source": "assets/images/evidence-13.webp",
+          "caption": "周锡来 2024 年案例分析论文正文节选（中英对照）· 来源等级：学术分析·二手　|　来源：截图出处：Xilai Zhou, *ESG \"Greenwashing\" Case Analysis*, Frontiers in Business, Economics and Management, 17(2), 2024；文中提及、本课未提供截图：Tesla 2024 Form 10-K（automotive regulatory credits）；文中提及、本课未提供截图：EPA Clean Air Act settlement, Feb. 22 2022；文中提及、本课未提供截图：Indexology 关于 2022 年 S&P 500 ESG 调整的分析　|　材料中的数字：2022 碳信用营收 17.8 亿美元、上海超级工厂 2022 年国家级绿色工厂、EPA 处罚 2022 年 2 月、移出 S&P 500 ESG 指数 2022 年 5 月"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-13-credits-card",
+        "type": "text",
+        "content": "#### 碳积分财务依赖：从监管体系获益，又攻击 ESG 体系\n\n**你先看见什么**　报道／分析把碳信用收入、EPA 处罚、S&P ESG 剔除并置，形成“利益—合规—叙事”的张力。"
+       },
+       {
+        "id": "slice-evidence-13-credits-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-13-credits-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n2024 年 Tesla 10-K 显示 automotive regulatory credits 为 27.63 亿美元；这可以进入 Greed，但要用 SEC 一手财报核数字。\n\n**截图上只有 2022 年的数字**：常被一起引用的「2024 年监管积分 27.63 亿美元」「2024 年归母净利 70.91 亿美元」本课没有截图，要用必须回 SEC 10-K 原文核对并说清分母。这段文字本身是学术二手分析，不是 EPA 或 SEC 的一手文书。\n\n**表述边界**　“占净利润 39%”要说明分母：按 2024 年归属普通股股东净利润 70.91 亿美元估算。\n\n**用到的方法**　GONE Greed、资金—利益—叙事链、横向核查"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-13-credits-shot",
+          "slice-evidence-13-credits-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-13-credits-fill",
+          "slice-evidence-13-credits-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-13-credits-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-13-credits-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-13-credits-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-13-credits-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-13-credits-shot",
+         "slice-evidence-13-credits-card",
+         "slice-evidence-13-credits-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-13-credits-shot",
+         "slice-evidence-13-credits-card",
+         "slice-evidence-13-credits-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-13-credits",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-13-credits.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-tier",
+       "obj-gone"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-line-e-desk",
+      "title": "E 线收口 · 表述强度分级台",
+      "blocks": [
+       {
+        "id": "slice-line-e-desk-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/line-e-desk.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-line-e-desk-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "slice-line-e-desk-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-line-e-desk-interaction"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-line-e-desk-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-line-e-desk-interaction"
+        ],
+        "visibleBlockIds": [
+         "slice-line-e-desk-interaction"
+        ]
+       },
+       "initialStepId": "wait"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-line-e-desk",
+        "text": "写完三张卡了。现在换一个问题：同样这三份材料，哪些话你可以直接说，哪些必须加限定词，哪些根本推不出来？",
+        "audio": "assets/audio/narration/slice-line-e-desk.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-disclosure",
+       "obj-cross-esg",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 330
+     }
+    ],
+    "objectiveIds": [
+     "obj-cross-esg",
+     "obj-source-tier",
+     "obj-disclosure",
+     "obj-gone"
+    ]
+   },
+   {
+    "id": "part-line-s",
+    "title": "第五部分 · S 线：劳工与供应链",
+    "slices": [
+     {
+      "id": "slice-evidence-06-eeoc",
+      "title": "EEOC 诉讼 · S 维度反证：EEOC 对 Tesla 提起种族骚扰与报复诉讼",
+      "blocks": [
+       {
+        "id": "slice-evidence-06-eeoc-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-06-eeoc-shot-item-1",
+          "alt": "美国平等就业机会委员会官网新闻稿页面，日期 09-28-2023，标题为 EEOC 起诉特斯拉种族骚扰与报复，正文陈述其对弗里蒙特工厂黑人员工处境的指控。",
+          "source": "assets/images/evidence-06.webp",
+          "caption": "来源等级：一手监管·法律　|　来源：EEOC: EEOC Sues Tesla for Racial Harassment and Retaliation　|　材料中的数字：发布机构 EEOC、新闻稿日期 2023-09-28、指控时间跨度 2015 至今"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-06-eeoc-card",
+        "type": "text",
+        "content": "**先写自己的事实句，讲解才会展开。** 三条线共 9 张卡。\n\n#### S 维度反证：EEOC 对 Tesla 提起种族骚扰与报复诉讼\n\n**你先看见什么**　EEOC 官方页面标题、时间、诉讼指控。它是联邦机构材料，不是评论文章。"
+       },
+       {
+        "id": "slice-evidence-06-eeoc-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-06-eeoc-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\nEEOC 称其诉讼指控 Tesla 弗里蒙特工厂存在种族骚扰和报复问题。这个材料把讨论从 E 环境维度拉回 S 社会维度。\n\n**表述边界**　必须用“EEOC 起诉称／指控”，不要把诉讼主张写成最终判决。\n\n**用到的方法**　S 维度证据、来源等级判断、法律表述严谨性"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-06-eeoc-shot",
+          "slice-evidence-06-eeoc-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-06-eeoc-fill",
+          "slice-evidence-06-eeoc-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-06-eeoc-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-06-eeoc-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-06-eeoc-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-06-eeoc-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-06-eeoc-shot",
+         "slice-evidence-06-eeoc-card",
+         "slice-evidence-06-eeoc-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-06-eeoc-shot",
+         "slice-evidence-06-eeoc-card",
+         "slice-evidence-06-eeoc-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-06-eeoc",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-06-eeoc.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-tier",
+       "obj-cross-esg"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-evidence-07-astm",
+      "title": "ASTM 工伤率 · 劳工安全：ASTM 工伤率下降与标准切换",
+      "blocks": [
+       {
+        "id": "slice-evidence-07-astm-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-07-astm-shot-item-1",
+          "alt": "Impact Report 2024 第 117 页：左侧是员工安全叙事文字，右侧表格列出 2021–2024 年 ASTM Rate 与工时。",
+          "source": "assets/images/evidence-07.webp",
+          "caption": "来源等级：企业自述　|　来源：Tesla Impact 页面：People and Community / Safety metrics；OSHA inspection database example for Tesla Fremont（备用·延伸）　|　材料中的数字：2024 ASTM 2.28、2023 2.51、2022 2.86、2021 3.57"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-07-astm-card",
+        "type": "text",
+        "content": "#### 劳工安全：ASTM 工伤率下降与标准切换\n\n**你先看见什么**　Tesla 报告中 ASTM 工伤率逐年下降，2024 年为 2.28；旁边还有员工安全叙事。"
+       },
+       {
+        "id": "slice-evidence-07-astm-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-07-astm-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这张图不是单纯反证，而是“亮点数据 + 方法追问”并存。它适合训练学生看基数、标准、定义和比较对象。\n\n**表述边界**　不要把工伤率 2.28 直接解释成“恶劣工作条件”；要问标准和可比性。\n\n**用到的方法**　指标方法论、S 维度、选择性呈现"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-07-astm-shot",
+          "slice-evidence-07-astm-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-07-astm-fill",
+          "slice-evidence-07-astm-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-07-astm-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-07-astm-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-07-astm-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-07-astm-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-07-astm-shot",
+         "slice-evidence-07-astm-card",
+         "slice-evidence-07-astm-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-07-astm-shot",
+         "slice-evidence-07-astm-card",
+         "slice-evidence-07-astm-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-07-astm",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-07-astm.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-cross-esg",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-evidence-12-cobalt",
+      "title": "钴供应链提案 · 供应链治理证据：儿童人权／钴供应链审计提案",
+      "blocks": [
+       {
+        "id": "slice-evidence-12-cobalt-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-12-cobalt-shot-item-1",
+          "alt": "股东会议发言纪要：一项提案支持员工组建工会的权利，指出董事会对工人权利反应冷漠；另一项要求公司就儿童人权发布公开报告，发言人陈述刚果（金）钴矿开采涉及剥削童工的情况，并认为特斯拉在其供应链中对该风险负有责任。",
+          "source": "assets/images/evidence-12.webp",
+          "caption": "来源等级：一手监管·法律　|　来源：Tesla 2025 Proxy Statement: child labor audit proposal；Tesla 2025 Form 8-K voting results（备用·延伸）"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-12-cobalt-card",
+        "type": "text",
+        "content": "#### 供应链治理证据：儿童人权／钴供应链审计提案\n\n**你先看见什么**　股东提案要求儿童人权影响评估或童工审计，聚焦刚果（金）等供应链风险。"
+       },
+       {
+        "id": "slice-evidence-12-cobalt-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-12-cobalt-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这张图提醒学生：绿色产品不是只看终端使用阶段，还要追问电池材料、矿产供应链、人权尽调和公司治理。\n\n**表述边界**　不要直接写“Tesla 助长童工”为已定事实；写“股东提案指出／要求审计供应链童工风险”。\n\n**用到的方法**　双重标准、供应链可追溯、GONE Opportunity"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-12-cobalt-shot",
+          "slice-evidence-12-cobalt-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-12-cobalt-fill",
+          "slice-evidence-12-cobalt-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-12-cobalt-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-12-cobalt-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-12-cobalt-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-12-cobalt-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-12-cobalt-shot",
+         "slice-evidence-12-cobalt-card",
+         "slice-evidence-12-cobalt-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-12-cobalt-shot",
+         "slice-evidence-12-cobalt-card",
+         "slice-evidence-12-cobalt-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-12-cobalt",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-12-cobalt.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-tier",
+       "obj-cross-esg"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-line-s-desk",
+      "title": "S 线收口 · 表述强度分级台",
+      "blocks": [
+       {
+        "id": "slice-line-s-desk-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/line-s-desk.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-line-s-desk-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "slice-line-s-desk-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-line-s-desk-interaction"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-line-s-desk-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-line-s-desk-interaction"
+        ],
+        "visibleBlockIds": [
+         "slice-line-s-desk-interaction"
+        ]
+       },
+       "initialStepId": "wait"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-line-s-desk",
+        "text": "企业披露、联邦机构起诉、股东提案——三种来源等级，能支撑的表述强度不一样。逐句分档看看。",
+        "audio": "assets/audio/narration/slice-line-s-desk.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-cross-esg",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 330
+     }
+    ],
+    "objectiveIds": [
+     "obj-source-tier",
+     "obj-cross-esg"
+    ]
+   },
+   {
+    "id": "part-line-g",
+    "title": "第六部分 · G 线：评分与治理",
+    "slices": [
+     {
+      "id": "slice-evidence-01-sp-score",
+      "title": "标普 ESG 评分 · 标普 ESG 评分：先查「被剔除」的评分基础",
+      "blocks": [
+       {
+        "id": "slice-evidence-01-sp-score-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-01-sp-score-shot-item-1",
+          "alt": "Tesla 历史 ESG 分数柱状图（2016–2020），四组柱分别是总分、环境、社会、治理。",
+          "source": "assets/images/evidence-01.webp",
+          "caption": "来源等级：评级机构　|　来源：S&P Global: Tesla not an automatic addition to S&P 500 ESG Index；Indexology: 2022 S&P 500 ESG rebalance and Tesla removal（备用·延伸）　|　材料中的数字：S&P DJI ESG 总分 22 / 100、E / S / G 分项 28 / 6 / 49、同行业组别 倒数 25%"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-01-sp-score-card",
+        "type": "text",
+        "content": "**先写自己的事实句，讲解才会展开。** 三条线共 9 张卡。\n\n#### 标普 ESG 评分：先查「被剔除」的评分基础\n\n**你先看见什么**　Tesla 历史 ESG 分数图：总分、环境、社会、治理维度分数并不等于“电动车＝ESG 高分”。"
+       },
+       {
+        "id": "slice-evidence-01-sp-score-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-01-sp-score-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\nS&P 材料显示，Tesla 曾获得 22/100 的 S&P DJI ESG Score，社会维度很低，在同行业组别中处于倒数 25% 位置。这一评分意味着被剔除不是因为“进步不够快”，而是本身得分就处于行业末位。\n\n学生要看到：ESG 不是只看产品是否低碳，还看披露、劳工、治理与争议事件。\n\n**表述边界**　S&P 方法也可以被批判；课堂重点不是证明 S&P 绝对正确，而是避免只听 CEO 单方叙事。\n\n**用到的方法**　主张/现实对照、E/S/G 拆分、反偷换概念"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-01-sp-score-shot"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-01-sp-score-card",
+          "slice-evidence-01-sp-score-fill",
+          "slice-evidence-01-sp-score-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-01-sp-score-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-01-sp-score-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-01-sp-score-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-01-sp-score-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-01-sp-score-shot",
+         "slice-evidence-01-sp-score-card",
+         "slice-evidence-01-sp-score-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-01-sp-score-shot",
+         "slice-evidence-01-sp-score-card",
+         "slice-evidence-01-sp-score-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-01-sp-score",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-01-sp-score.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-cross-esg",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-evidence-09-peer-lens",
+      "title": "同业视角分析 · 行业竞争视角：贡献真实，但生产阶段和管理仍需改进",
+      "blocks": [
+       {
+        "id": "slice-evidence-09-peer-lens-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-09-peer-lens-shot-item-1",
+          "alt": "分析文章段落（中英对照）：肯定特斯拉在电动与可再生能源领域的开创性贡献，同时指出其生产阶段仍显著高碳、报废车辆构成环境挑战，并认为在同业持续改进 ESG 管理的情况下，不主动变革将面临落后风险。",
+          "source": "assets/images/evidence-09.webp",
+          "caption": "周锡来 2024 年案例分析论文正文节选（中英对照）· 来源等级：学术分析·二手　|　来源：截图出处：Xilai Zhou, *ESG \"Greenwashing\" Case Analysis*, Frontiers in Business, Economics and Management, 17(2), 2024；文中提及、本课未提供截图：Indexology 关于 Tesla 在更宽 ESG 视角下落后同业的分析；文中提及、本课未提供截图：Tesla 2024 Form 10-K"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-09-peer-lens-card",
+        "type": "text",
+        "content": "#### 行业竞争视角：贡献真实，但生产阶段和管理仍需改进\n\n**你先看见什么**　材料强调 Tesla 在电动汽车和可再生能源上有贡献，同时指出生产阶段、报废、供应链和管理改进压力。"
+       },
+       {
+        "id": "slice-evidence-09-peer-lens-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-09-peer-lens-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这张图适合做课堂“不是非黑即白”的转折：真正的批判不是否认 Tesla 贡献，而是追问贡献是否被用来遮蔽其他维度。\n\n**这是学术二手分析**：出自周锡来 2024 年的案例分析论文，摘要写明它「选取特斯拉作为一个负面个案」，不是评级机构的评分文件。引用时要连同这个身份一起说。\n\n**表述边界**　不要把课程做成反 Tesla 宣传；要训练学生处理复杂证据。\n\n**用到的方法**　平衡但不虚假平衡、证据权重、回应怀疑者"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-09-peer-lens-shot",
+          "slice-evidence-09-peer-lens-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-09-peer-lens-fill",
+          "slice-evidence-09-peer-lens-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-09-peer-lens-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-09-peer-lens-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-09-peer-lens-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-09-peer-lens-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-09-peer-lens-shot",
+         "slice-evidence-09-peer-lens-card",
+         "slice-evidence-09-peer-lens-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-09-peer-lens-shot",
+         "slice-evidence-09-peer-lens-card",
+         "slice-evidence-09-peer-lens-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-09-peer-lens",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-09-peer-lens.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-evidence-11-proposal",
+      "title": "反骚扰报告提案 · 股东治理证据：反骚扰／反歧视报告提案未通过",
+      "blocks": [
+       {
+        "id": "slice-evidence-11-proposal-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-11-proposal-shot-item-1",
+          "alt": "年度股东会议纪要页：“未通过的股东提案”清单，第 7 项要求公司每年报告预防种族歧视与性骚扰方面的努力，第 8 项要求董事会性别多样性改善，均列于失败提案之下。",
+          "source": "assets/images/evidence-11.webp",
+          "caption": "来源等级：一手监管·法律　|　来源：Tesla 2024 Annual Meeting Results；SEC: Nia Impact Capital exempt solicitation for Proposal 8（备用·延伸）"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-11-proposal-card",
+        "type": "text",
+        "content": "#### 股东治理证据：反骚扰／反歧视报告提案未通过\n\n**你先看见什么**　股东提案要求公司报告反骚扰和反歧视努力；公司年度会议结果显示该提案未获通过。"
+       },
+       {
+        "id": "slice-evidence-11-proposal-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-11-proposal-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这张图适合放在 EEOC 之后：如果社会维度存在争议，治理层面有没有系统性披露和改进承诺？\n\n**表述边界**　这份截图是年度股东会议的失败提案清单，其中「每年报告预防种族歧视与性骚扰的努力」是第 (7) 项，(8) 是董事会性别多样性改善。引用时写「2024 年年度股东会议第 7 项提案未获通过」，不要写成「2025 第 7 号提案」，也不要把两项弄混。\n\n**用到的方法**　G 治理维度、空头承诺、问题—回应链"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-11-proposal-shot",
+          "slice-evidence-11-proposal-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-11-proposal-fill",
+          "slice-evidence-11-proposal-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-11-proposal-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-11-proposal-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-11-proposal-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-11-proposal-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-11-proposal-shot",
+         "slice-evidence-11-proposal-card",
+         "slice-evidence-11-proposal-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-11-proposal-shot",
+         "slice-evidence-11-proposal-card",
+         "slice-evidence-11-proposal-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-11-proposal",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-11-proposal.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-tier",
+       "obj-cross-esg"
+      ],
+      "estimatedSeconds": 165
+     },
+     {
+      "id": "slice-line-g-desk",
+      "title": "G 线收口 · 表述强度分级台",
+      "blocks": [
+       {
+        "id": "slice-line-g-desk-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/line-g-desk.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-line-g-desk-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "slice-line-g-desk-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-line-g-desk-interaction"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-line-g-desk-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-line-g-desk-interaction"
+        ],
+        "visibleBlockIds": [
+         "slice-line-g-desk-interaction"
+        ]
+       },
+       "initialStepId": "wait"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-line-g-desk",
+        "text": "评分是可核查的事实，论文的判断是一家之言，两者不能混着说。逐句分档看看。",
+        "audio": "assets/audio/narration/slice-line-g-desk.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-disclosure",
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 330
+     }
+    ],
+    "objectiveIds": [
+     "obj-cross-esg",
+     "obj-source-tier",
+     "obj-disclosure"
+    ]
+   },
+   {
+    "id": "part-gone-chain",
+    "title": "第七部分 · GONE 利益链：证据能不能组成一个解释？",
+    "slices": [
+     {
+      "id": "slice-gone-reframe",
+      "title": "同一张卡，换一个问法",
+      "blocks": [
+       {
+        "id": "slice-gone-reframe-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-gone-reframe-shot-item-1",
+          "alt": "分析文章段落（中英对照）：2022 年上海超级工厂获评国家级绿色工厂、同年出售碳信用取得营收；紧接着写该年 2 月因尾气排放控制违规被 EPA 处罚、5 月被移出 S&P 500 ESG 指数，并提到环保组织指出其数家供应商存在监管违规。",
+          "source": "assets/images/evidence-13.webp",
+          "caption": "周锡来 2024 年案例分析论文正文节选 · 来源等级：学术分析·二手"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-gone-reframe-text",
+        "type": "text",
+        "content": "#### 同一张卡，换一个问法\n\n这份材料你在 E 线见过。刚才你问的是它**证明了什么**；现在要问的是它**解释了什么动机**。\n\n同一份材料能同时做证据和做动机说明——这正是接下来那张四象限允许交叉的原因。\n\n截图上并置了三件事：2022 年上海超级工厂获评国家级绿色工厂、同年出售碳信用取得 17.8 亿美元营收、同年 2 月因尾气排放控制违规被 EPA 处罚且 5 月被移出 S&P 500 ESG 指数。"
+       },
+       {
+        "id": "slice-gone-reframe-note",
+        "type": "text",
+        "content": "**表述边界**\n\n「占净利润百分之多少」这类比例必须说明分母。本课**没有提供 2024 年 10-K 的截图**，任何 2024 年的数字都要回到 SEC 原文核对再引用。\n\n这段文字本身出自一篇案例分析论文，是学术二手分析，不是 EPA 或 SEC 的一手文书。"
+       },
+       {
+        "id": "slice-gone-reframe-fill",
+        "type": "fillBlank",
+        "prompt": "同一份材料，这次写出它解释了什么动机。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的回答用「可能／构成」这类留有余地的表述，指向一种利益结构，而不是断言企业故意欺骗。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：从监管体系获得碳信用收入，同时又公开攻击该体系，这可能构成……"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-gone-reframe-shot"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-gone-reframe-text",
+          "slice-gone-reframe-note",
+          "slice-gone-reframe-fill"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-0",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-gone-reframe-fill"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-gone-reframe-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-gone-reframe-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-gone-reframe-shot",
+         "slice-gone-reframe-text",
+         "slice-gone-reframe-note",
+         "slice-gone-reframe-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-gone-reframe-shot",
+         "slice-gone-reframe-text",
+         "slice-gone-reframe-note",
+         "slice-gone-reframe-fill"
+        ]
+       },
+       "initialStepId": "wait-0"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-gone-reframe",
+        "text": "我们不再继续堆证据，而是问：这些证据能否组成一个解释企业漂绿动机的结构？",
+        "audio": "assets/audio/narration/slice-gone-reframe.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone"
+      ],
+      "estimatedSeconds": 270
+     },
+     {
+      "id": "slice-gone-what",
+      "title": "GONE 四维是什么",
+      "blocks": [
+       {
+        "id": "slice-gone-what-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-gone-what-shot-item-1",
+          "alt": "特斯拉漂绿行为分析思维导图：中心为特斯拉，向外分出逐利动机、制度机会、现实需求、风险暴露四支，每支再列出若干具体因素",
+          "source": "assets/images/gone-mindmap.webp",
+          "caption": "四维分析图 · 出自周锡来 2024 年论文，是该文作者的分析结论，不是本课的判定"
+         },
+         {
+          "id": "slice-gone-what-shot-item-2",
+          "alt": "学术论文首页：ESG Greenwashing Case Analysis，作者 Xilai Zhou，刊于 Frontiers in Business, Economics and Management 2024 年第 17 卷第 2 期，摘要以特斯拉为个案分析漂绿的成因",
+          "source": "assets/images/gone-paper-frontpage.webp",
+          "caption": "这套框架的出处 · Xilai Zhou，《ESG \"Greenwashing\" Case Analysis》，Frontiers in Business, Economics and Management 17(2), 2024。摘要写明它「选取特斯拉作为一个具体的负面个案」——这是一家之言。"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "slice-gone-what-framework",
+        "type": "text",
+        "content": "#### GONE 四维：为什么会发生漂绿\n\nGONE 来自舞弊研究，被用于分析企业为何实施漂绿。四个维度是：\n\n**Greed 利益驱动**　企业追求利润、估值、制度性收益与绿色市场认同。\n\n**Opportunity 机会空间**　评级机制复杂、ESG 披露口径可选择、供应链和治理链条不透明。\n\n**Need 形象需求**　企业需要维护“绿色创新者”身份，回应负面评价，争取投资者、消费者和公共舆论支持。\n\n**Exposure 暴露成本**　被发现、被媒体批评、被监管处罚或被投资者纠正的概率与代价。\n\n---\n\n左边这张图是论文作者的分析结论，**不是本课的判定**。注意它把「特斯拉在漂绿」当作已经成立的前提——而你还没走到那一步。它同样可以被你质疑。"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-gone-what-shot"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-gone-what-framework"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-gone-what-shot",
+         "slice-gone-what-framework"
+        ],
+        "visibleBlockIds": [
+         "slice-gone-what-shot",
+         "slice-gone-what-framework"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-gone-what",
+        "text": "GONE 四维来自舞弊研究。它不是判定工具，是一个把散落证据组织起来的结构。",
+        "audio": "assets/audio/narration/slice-gone-what.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-gone-quadrant",
+      "title": "GONE 四象限证据表",
+      "blocks": [
+       {
+        "id": "slice-gone-quadrant-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/gone-quadrant-desk.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-gone-quadrant-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "slice-gone-quadrant-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-gone-quadrant-interaction"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-gone-quadrant-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-gone-quadrant-interaction"
+        ],
+        "visibleBlockIds": [
+         "slice-gone-quadrant-interaction"
+        ]
+       },
+       "initialStepId": "wait"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-gone-quadrant",
+        "text": "为每个维度挑出最能说明问题的材料。同一份材料可以出现在多个格子里——但你要能说清为什么。",
+        "audio": "assets/audio/narration/slice-gone-quadrant.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone"
+      ],
+      "estimatedSeconds": 540
+     },
+     {
+      "id": "slice-gone-reveal",
+      "title": "对照参考答案：证据如何进入四维",
+      "blocks": [
+       {
+        "id": "slice-gone-reveal-reveal",
+        "type": "text",
+        "content": "#### 揭露答案：证据如何进入 GONE 四维\n\n下面的匹配**不是唯一答案**。重点是你能用截图说明「为什么放在这一格」，并承认同一条证据也可能服务于另一格。\n\n| 维度 | 可引用的材料 | 学生可写句 | 边界提醒 |\n| --- | --- | --- | --- |\n| **利益驱动** · Greed | 碳积分与处罚、Impact 首页三数字、报告下载入口、生命周期排放图 | Tesla 的绿色定位和碳积分收入可能构成维持绿色形象的利益激励。 | 不能写成：这些证据已经证明 Tesla 故意欺骗。 |\n| **机会空间** · Opportunity | Scope 3 附录、反骚扰报告提案、钴供应链提案、ASTM 工伤率、标普 ESG 评分 | ESG 数据的专业性、分散性和自愿披露特征，给选择性呈现留下空间。 | 不能写成：只要数据复杂，就一定是漂绿。 |\n| **形象需求** · Need | 马斯克推文、Impact 首页三数字、同业视角分析、生命周期排放图 | 当 ESG 评分和 S/G 争议削弱绿色光环时，企业更需要讲述“产品贡献大于评价缺陷”的故事。 | 不能写成：反对 ESG 评分本身就是漂绿。 |\n| **暴露成本** · Exposure | 碳积分与处罚、反骚扰报告提案、钴供应链提案、中国漂绿榜、标普 ESG 评分 | 如果曝光主要带来声誉争议而非高额硬性成本，企业可能低估或承受暴露风险。 | 不能写成：没有严厉处罚就表示企业可以任意漂绿。 |\n\n这套框架出自周锡来 2024 年的案例分析论文（上一页右侧第二张图就是它的首页）。**它是一家之言**，是你刚用过的框架的出处，不是本课对特斯拉的结论——你在 G 线做过的「同业视角分析」和 E 线做过的「碳积分与处罚」，正是从这篇论文里节选的。"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "slice-gone-reveal-reveal"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-gone-reveal-reveal"
+        ],
+        "visibleBlockIds": [
+         "slice-gone-reveal-reveal"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-gone-reveal",
+        "text": "先有自己的版本，对照才有意义。重点看边界提醒那一列。",
+        "audio": "assets/audio/narration/slice-gone-reveal.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone"
+      ],
+      "estimatedSeconds": 300
+     }
+    ],
+    "objectiveIds": [
+     "obj-gone"
+    ]
+   },
+   {
+    "id": "part-meta-close",
+    "title": "第八部分 · 元层收口：评级有缺陷，等于不必改进吗？",
+    "slices": [
+     {
+      "id": "slice-evidence-02-china-list",
+      "title": "中国漂绿榜 · 中国语境证据：南方周末 2022 中国漂绿榜",
+      "blocks": [
+       {
+        "id": "slice-evidence-02-china-list-shot",
+        "type": "images",
+        "items": [
+         {
+          "id": "slice-evidence-02-china-list-shot-item-1",
+          "alt": "漂绿榜表格：乘用车行业 Tesla 在列，上榜理由一栏写排放控制违规、供应商环境违规；同表还有食品、医药、煤炭、跨境电商等行业企业。",
+          "source": "assets/images/evidence-02.webp",
+          "caption": "EqualOcean 转述的《南方周末》2022 中国漂绿榜 · 来源等级：媒体·二手转述　|　来源：截图出处：EqualOcean，*Southern Weekly 2022 'China Greenwashing List'*（表底注明 Source: Southern Weekly, public sources, EqualOcean analysis）；原始榜单：南方周末 2022 年中国漂绿榜（本课未提供原页截图）；南方+ 转载：2022 年「中国漂绿榜」发布（备用·延伸）"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "slice-evidence-02-china-list-card",
+        "type": "text",
+        "content": "#### 中国语境证据：南方周末 2022 中国漂绿榜\n\n**你先看见什么**　南方周末漂绿榜中 Tesla 上榜，理由涉及排放控制违规、供应商环境违规等。"
+       },
+       {
+        "id": "slice-evidence-02-china-list-fill",
+        "type": "fillBlank",
+        "prompt": "写一句只包含事实的话：谁、什么时候、说了或披露了什么。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的事实句只写材料上真实存在的内容：谁、在什么时候、说了或披露了什么，并且能指回本页这张截图；不含「这说明特斯拉在漂绿」这类推断或定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "例：EEOC 于 2023 年 9 月 28 日发布新闻稿，起诉称……"
+       },
+       {
+        "id": "slice-evidence-02-china-list-note",
+        "type": "text",
+        "content": "#### 写完之后再看\n\n这张图能把案例从美国评级争议转向中国公共语境：在最大海外市场，Tesla 的供应链与环境披露同样被公共媒体关注。\n\n**这是二手转述**：表底注明 Source: Southern Weekly, public sources, EqualOcean analysis，不是南方周末原页。引用时写「据 EqualOcean 转述的南方周末 2022 中国漂绿榜」。\n\n**表述边界**　南方周末榜单是媒体/专家评选，不等于行政处罚结论；需要与 EPA、IPE 等来源互证。\n\n**用到的方法**　横向阅读、媒体证据等级、劣币驱逐良币后果"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-evidence-02-china-list-shot",
+          "slice-evidence-02-china-list-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-evidence-02-china-list-fill",
+          "slice-evidence-02-china-list-note"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-answer",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-evidence-02-china-list-fill"
+           },
+           "to": "reveal"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "slice-evidence-02-china-list-fill"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-evidence-02-china-list-fill"
+           }
+          }
+         ]
+        },
+        {
+         "id": "reveal",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "show",
+           "targetId": "slice-evidence-02-china-list-note"
+          },
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-evidence-02-china-list-shot",
+         "slice-evidence-02-china-list-card",
+         "slice-evidence-02-china-list-fill"
+        ],
+        "visibleBlockIds": [
+         "slice-evidence-02-china-list-shot",
+         "slice-evidence-02-china-list-card",
+         "slice-evidence-02-china-list-fill"
+        ]
+       },
+       "initialStepId": "wait-answer"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-evidence-02-china-list",
+        "text": "先把这张截图看清楚，再写你自己的那一句；写完了，讲解和表述边界才会展开。",
+        "audio": "assets/audio/narration/slice-evidence-02-china-list.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-tier"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-final-judgement",
+      "title": "回看第一反应，写出最终判断",
+      "blocks": [
+       {
+        "id": "slice-final-judgement-text",
+        "type": "text",
+        "content": "#### 回到最初那条推文\n\n你在第一部分写下的第一反应，现在还站得住吗？\n\n#### 课堂主问题\n\n> 「ESG 评级有缺陷」可能是真的；\n> 但它是否足以推出「特斯拉不需要改进」，或者「所有 ESG 都是骗局」？\n\n先把你当时写的那句话原样抄回来——平台的题目之间读不到彼此的作答，所以要你自己抄一遍；**抄的过程本身就是一次重读**。然后再写最终判断。"
+       },
+       {
+        "id": "slice-final-judgement-copy",
+        "type": "fillBlank",
+        "prompt": "把你在第一部分「你的第一反应」那一页写下的句子，原样誊写在这里。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "原样誊写即可，不要修饰、不要改成现在的想法——对照的价值就在于它没被改动过。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "（回到第一部分那一页，把你当时写的那句抄过来）"
+       },
+       {
+        "id": "slice-final-judgement-final",
+        "type": "fillBlank",
+        "prompt": "写出你的最终判断。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的判断至少点名两份材料，明确区分哪些是事实、哪些是推断，并写出自己仍然不确定的地方。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "我的判断是……（请至少点名两份材料，并写清哪一步你仍然不确定）"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-final-judgement-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-final-judgement-copy",
+          "slice-final-judgement-final"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-final-judgement-copy"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-final-judgement-copy"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-final-judgement-final"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-final-judgement-final"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-final-judgement-final"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-final-judgement-copy"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-final-judgement-copy"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-final-judgement-text",
+         "slice-final-judgement-copy",
+         "slice-final-judgement-final"
+        ],
+        "visibleBlockIds": [
+         "slice-final-judgement-text",
+         "slice-final-judgement-copy",
+         "slice-final-judgement-final"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-final-judgement",
+        "text": "回到最初那条推文。你在第一步写下的第一反应，现在还站得住吗？",
+        "audio": "assets/audio/narration/slice-final-judgement.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone",
+       "obj-separate-claim"
+      ],
+      "estimatedSeconds": 330
+     },
+     {
+      "id": "slice-rubric-1",
+      "title": "用量规给自己评一次（前两项）",
+      "blocks": [
+       {
+        "id": "slice-rubric-1-text",
+        "type": "text",
+        "content": "#### 用量规给自己评一次\n\n诚实地选。选「需修改」不会扣分，但装作「优秀」会让你错过修改的机会。\n\n这里不计分、不排名，只是让你自己看清这一次做到了哪一步。"
+       },
+       {
+        "id": "slice-rubric-1-q-accuracy",
+        "type": "singleChoice",
+        "prompt": "证据准确：你这一次最接近哪一档？",
+        "options": [
+         {
+          "id": "slice-rubric-1-q-accuracy-o-good",
+          "label": "优秀 · 材料名称、网页来源、事实句完整，且没有编造数据。"
+         },
+         {
+          "id": "slice-rubric-1-q-accuracy-o-ok",
+          "label": "合格 · 有截图或网页，但事实句较笼统。"
+         },
+         {
+          "id": "slice-rubric-1-q-accuracy-o-revise",
+          "label": "需修改 · 没有明确来源，或把推断当事实。"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "slice-rubric-1-q-classification",
+        "type": "singleChoice",
+        "prompt": "分类合理：你这一次最接近哪一档？",
+        "options": [
+         {
+          "id": "slice-rubric-1-q-classification-o-good",
+          "label": "优秀 · 能解释为什么属于某一 GONE 维度，并承认可能交叉。"
+         },
+         {
+          "id": "slice-rubric-1-q-classification-o-ok",
+          "label": "合格 · 能分类，但理由较单一。"
+         },
+         {
+          "id": "slice-rubric-1-q-classification-o-revise",
+          "label": "需修改 · 只贴标签，缺少理由。"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-rubric-1-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-rubric-1-q-accuracy",
+          "slice-rubric-1-q-classification"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-00",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-1-q-accuracy"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-1-q-accuracy"
+           },
+           "to": "gate-10"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-1-q-classification"
+           },
+           "to": "gate-01"
+          }
+         ]
+        },
+        {
+         "id": "gate-10",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-1-q-classification"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-1-q-classification"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-01",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-1-q-accuracy"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-1-q-accuracy"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-rubric-1-text",
+         "slice-rubric-1-q-accuracy",
+         "slice-rubric-1-q-classification"
+        ],
+        "visibleBlockIds": [
+         "slice-rubric-1-text",
+         "slice-rubric-1-q-accuracy",
+         "slice-rubric-1-q-classification"
+        ]
+       },
+       "initialStepId": "gate-00"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-rubric-1",
+        "text": "诚实地选。选「需修改」不会扣分，但装作「优秀」会让你错过修改的机会。",
+        "audio": "assets/audio/narration/slice-rubric-1.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-rubric-2",
+      "title": "用量规给自己评一次（后两项）与出口票",
+      "blocks": [
+       {
+        "id": "slice-rubric-2-q-chain",
+        "type": "singleChoice",
+        "prompt": "链条完整：你这一次最接近哪一档？",
+        "options": [
+         {
+          "id": "slice-rubric-2-q-chain-o-good",
+          "label": "优秀 · 四维能连成因果链，不是并列罗列。"
+         },
+         {
+          "id": "slice-rubric-2-q-chain-o-ok",
+          "label": "合格 · 四维都出现，但关系不够清楚。"
+         },
+         {
+          "id": "slice-rubric-2-q-chain-o-revise",
+          "label": "需修改 · 只写漂绿判断，没有解释结构。"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "slice-rubric-2-q-boundary",
+        "type": "singleChoice",
+        "prompt": "边界意识：你这一次最接近哪一档？",
+        "options": [
+         {
+          "id": "slice-rubric-2-q-boundary-o-good",
+          "label": "优秀 · 能区分事实、推断和价值判断，避免过强定性。"
+         },
+         {
+          "id": "slice-rubric-2-q-boundary-o-ok",
+          "label": "合格 · 有少量过强词，但能修改。"
+         },
+         {
+          "id": "slice-rubric-2-q-boundary-o-revise",
+          "label": "需修改 · 使用“证明故意”等超出证据的表达。"
+         }
+        ],
+        "assessment": {
+         "mode": "survey"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       },
+       {
+        "id": "slice-rubric-2-exit",
+        "type": "fillBlank",
+        "prompt": "出口票：一句话。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "好的出口票具体到某一份证据或某一个说法，而不是「我学到了很多」。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        },
+        "placeholder": "今天我改变的一个想法是……；我仍然不确定的是……"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "slice-rubric-2-q-chain",
+          "slice-rubric-2-q-boundary"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "slice-rubric-2-exit"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "gate-000",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-q-chain"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-chain"
+           },
+           "to": "gate-100"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-boundary"
+           },
+           "to": "gate-010"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-exit"
+           },
+           "to": "gate-001"
+          }
+         ]
+        },
+        {
+         "id": "gate-100",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-q-boundary"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-boundary"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-exit"
+           },
+           "to": "gate-101"
+          }
+         ]
+        },
+        {
+         "id": "gate-010",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-q-chain"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-chain"
+           },
+           "to": "gate-110"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-exit"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-001",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-q-chain"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-chain"
+           },
+           "to": "gate-101"
+          },
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-boundary"
+           },
+           "to": "gate-011"
+          }
+         ]
+        },
+        {
+         "id": "gate-110",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-exit"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-exit"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-101",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-q-boundary"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-boundary"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "gate-011",
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "slice-rubric-2-q-chain"
+           }
+          }
+         ],
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "slice-rubric-2-q-chain"
+           },
+           "to": "finish"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ],
+         "transitions": []
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "slice-rubric-2-q-chain",
+         "slice-rubric-2-q-boundary",
+         "slice-rubric-2-exit"
+        ],
+        "visibleBlockIds": [
+         "slice-rubric-2-q-chain",
+         "slice-rubric-2-q-boundary",
+         "slice-rubric-2-exit"
+        ]
+       },
+       "initialStepId": "gate-000"
+      },
+      "narrations": [
+       {
+        "id": "narr-slice-rubric-2",
+        "text": "最后一句话。写完这门课就结束了。",
+        "audio": "assets/audio/narration/slice-rubric-2.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-gone"
+      ],
+      "estimatedSeconds": 210
+     }
+    ],
+    "objectiveIds": [
+     "obj-source-tier",
+     "obj-gone",
+     "obj-separate-claim"
+    ]
+   }
+  ],
+  "title": "识别企业漂绿：Tesla ESG 证据链",
+  "closing": {
+   "fallback": {
+    "text": "你从一条 CEO 推文出发，走过 13 份来源等级各不相同的材料，最后用 GONE 四维给出一个带边界的解释。真正的收获不是「特斯拉是不是在漂绿」这个答案，而是你现在有了一套可以对任何企业绿色主张复用的查证顺序。"
+   },
+   "takeaways": [
+    "把强情绪叙事拆成情绪／事实／号召三类，是查证的第一步而不是最后一步。",
+    "企业自述要先让它完整成立，再用外部证据对照，否则你只是换了一种偏见。",
+    "披露位置（首页 vs 附录）是可分析的证据，不只是排版。",
+    "同一份材料可以既是证据又是动机说明，取决于你问的是「证明了什么」还是「解释了什么」。",
+    "写不出反证的判断，是还没做完的判断。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "你从一条 CEO 推文出发，走过 13 份来源等级各不相同的材料，最后用 GONE 四维给出一个带边界的解释。真正的收获不是「特斯拉是不是在漂绿」这个答案，而是你现在有了一套可以对任何企业绿色主张复用的查证顺序。",
+   "transferApplications": [
+    "企业 ESG 报告与宣传页阅读",
+    "「某某体系是骗局」式强判断的拆解",
+    "研究论文的引用来源分级",
+    "报告披露位置分析",
+    "辩论中区分事实分歧与价值分歧"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "这节课帮助你把一条强情绪的企业争议放回证据里，并按来源等级决定每一句话能说到什么程度。"
+   },
+   "learningPreview": [
+    "绿色产品不等于绿色运营",
+    "先写自己的判断，再看参考答案",
+    "事实句只写材料上有的，推断句要留余地",
+    "来源等级决定表述强度",
+    "评级有缺陷，推不出不必改进"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-separate-claim",
+    "text": "能把一条强情绪叙事拆成情绪词、可核查的事实主张与行动号召。",
+    "evidenceBlockIds": [
+     "slice-evidence-03-tweet-fill",
+     "slice-first-reaction-fill",
+     "slice-highlighter-interaction",
+     "slice-three-questions-q1",
+     "slice-three-questions-q2",
+     "slice-three-questions-q3",
+     "slice-halo-rewrite-q-32m",
+     "slice-halo-rewrite-q-10x",
+     "slice-halo-rewrite-q-125k",
+     "slice-final-judgement-copy",
+     "slice-final-judgement-final"
+    ]
+   },
+   {
+    "id": "obj-source-tier",
+    "text": "能判断一份材料的来源等级，并据此调整表述强度。",
+    "evidenceBlockIds": [
+     "slice-evidence-03-tweet-fill",
+     "slice-evidence-04-impact-home-fill",
+     "slice-evidence-05-archive-fill",
+     "slice-evidence-08-lifecycle-fill",
+     "slice-evidence-13-credits-fill",
+     "slice-line-e-desk-interaction",
+     "slice-evidence-06-eeoc-fill",
+     "slice-evidence-07-astm-fill",
+     "slice-evidence-12-cobalt-fill",
+     "slice-line-s-desk-interaction",
+     "slice-evidence-01-sp-score-fill",
+     "slice-evidence-09-peer-lens-fill",
+     "slice-evidence-11-proposal-fill",
+     "slice-line-g-desk-interaction",
+     "slice-evidence-02-china-list-fill"
+    ]
+   },
+   {
+    "id": "obj-cross-esg",
+    "text": "能横向比对同一家公司在 E、S、G 三个维度上的证据。",
+    "evidenceBlockIds": [
+     "slice-evidence-04-impact-home-fill",
+     "slice-halo-esg-sort-q-32m",
+     "slice-halo-esg-sort-q-10x",
+     "slice-halo-esg-sort-q-125k",
+     "slice-halo-rewrite-q-32m",
+     "slice-halo-rewrite-q-10x",
+     "slice-halo-rewrite-q-125k",
+     "slice-evidence-08-lifecycle-fill",
+     "slice-evidence-10-scope3-fill",
+     "slice-line-e-desk-interaction",
+     "slice-evidence-06-eeoc-fill",
+     "slice-evidence-07-astm-fill",
+     "slice-evidence-12-cobalt-fill",
+     "slice-line-s-desk-interaction",
+     "slice-evidence-01-sp-score-fill",
+     "slice-evidence-11-proposal-fill"
+    ]
+   },
+   {
+    "id": "obj-disclosure",
+    "text": "能识别选择性披露：什么放首页、什么放附录，本身就是分析对象。",
+    "evidenceBlockIds": [
+     "slice-evidence-05-archive-fill",
+     "slice-evidence-10-scope3-fill",
+     "slice-line-e-desk-interaction",
+     "slice-line-g-desk-interaction"
+    ]
+   },
+   {
+    "id": "obj-gone",
+    "text": "能用 GONE 四维把证据组织成解释，并为每一格写出会推翻自己的反证。",
+    "evidenceBlockIds": [
+     "slice-evidence-13-credits-fill",
+     "slice-gone-reframe-fill",
+     "slice-gone-quadrant-interaction",
+     "slice-final-judgement-copy",
+     "slice-final-judgement-final",
+     "slice-rubric-1-q-accuracy",
+     "slice-rubric-1-q-classification",
+     "slice-rubric-2-q-chain",
+     "slice-rubric-2-q-boundary",
+     "slice-rubric-2-exit"
+    ]
+   }
+  ],
+  "estimatedMinutes": 110
+ },
+ "schemaVersion": "2.0"
+}

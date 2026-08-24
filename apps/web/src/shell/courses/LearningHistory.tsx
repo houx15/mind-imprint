@@ -1,32 +1,66 @@
 import { useEffect, useState } from "react";
-import { GraduationCap, ChevronRight, CheckCircle2 } from "lucide-react";
-import type { CourseSummary } from "@mind-imprint/contracts";
+import { GraduationCap, CheckCircle2, FileText, PlayCircle } from "lucide-react";
+import { COURSE_CATEGORIES, type CourseSummary } from "@mind-imprint/contracts";
 import type { CourseHistoryItem } from "@/api/courses";
+import type { CourseOpenTarget } from "@/shell/courses/CoursesContainer";
 import { api } from "@/api";
 import { Card, EmptyState, Icon, SkeletonRow, coverGradientStyle } from "@/ui";
 
 /**
- * LearningHistory — the 学习记录 section of the 课程 tab. Lists the courses the
- * student has actually engaged with (a runtime session or legacy progress row),
- * newest activity first, merging the server's per-course status/updatedAt
- * (`api.getCourseHistory`) with the course list's title/cover/branch. A
- * completed course reads 已学完; anything mid-flight reads 学习中. Clicking a row
- * re-opens that course (resume, or review if finished).
+ * LearningHistory — the 学习记录 section of the 课程 tab. An attempt-log (0077): one
+ * row per attempt, newest first, grouped into time buckets. A FINISHED attempt is
+ * frozen (its date is the completion date) and clicking it opens THAT run's
+ * report; an IN-PROGRESS attempt shows its date as last-activity and clicking it
+ * continues the course. Relearning a finished course adds a fresh in-progress row
+ * beside the kept finished one, so a course can appear several times.
  */
 
 type Row = CourseHistoryItem & {
   title: string;
-  branch: string;
+  // The course's category LABEL (e.g. 信源核查), resolved from its slug. Replaces
+  // the old `branch` free-text ("Runtime"-style values) which meant nothing to a
+  // student. Empty when the course carries no category.
+  category: string;
   coverUrl?: string;
   stepCount: number;
 };
+
+// slug → display label for the 7-category vocabulary; empty string for a course
+// with no category so the row simply omits the chip rather than showing a slug.
+const CATEGORY_LABEL = new Map<string, string>(COURSE_CATEGORIES.map((c) => [c.slug, c.label]));
+function categoryLabel(slug: string | null | undefined): string {
+  return slug ? CATEGORY_LABEL.get(slug) ?? "" : "";
+}
 
 function isCompleted(status: string): boolean {
   return status === "completed";
 }
 
+// The date a row is shown and sorted by: a finished attempt's FROZEN completion
+// date, otherwise its last-activity time.
+function rowDate(row: Row): string {
+  return isCompleted(row.status) && row.completedAt ? row.completedAt : row.updatedAt;
+}
+
 function formatDate(iso: string): string {
   return iso.slice(0, 10);
+}
+
+// Coarse time bucket for the section a row falls under. Uses calendar-day
+// distance so "今天/昨天" mean the actual days, not 24h windows.
+const BUCKET_ORDER = ["今天", "昨天", "本周", "本月", "更早"] as const;
+type Bucket = (typeof BUCKET_ORDER)[number];
+
+function bucketOf(iso: string, now: Date): Bucket {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "更早";
+  const startOfDay = (x: Date) => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const diffDays = Math.floor((startOfDay(now) - startOfDay(d)) / 86400000);
+  if (diffDays <= 0) return "今天";
+  if (diffDays === 1) return "昨天";
+  if (diffDays < 7) return "本周";
+  if (diffDays < 30) return "本月";
+  return "更早";
 }
 
 function HistoryRow({ row, onOpen }: { row: Row; onOpen: () => void }) {
@@ -37,21 +71,37 @@ function HistoryRow({ row, onOpen }: { row: Row; onOpen: () => void }) {
     <button
       type="button"
       onClick={onOpen}
-      className="group flex w-full items-center gap-4 rounded-mk-md border border-mk-border bg-mk-surface p-3.5 text-left shadow-mk-xs transition-all duration-[140ms] ease-mk hover:-translate-y-0.5 hover:border-mk-accent-200 hover:shadow-mk-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      className="group flex w-full items-center gap-4 rounded-mk-md border border-mk-border bg-mk-surface p-4 text-left shadow-mk-xs transition-all duration-[140ms] ease-mk hover:-translate-y-0.5 hover:border-mk-accent-200 hover:shadow-mk-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
     >
-      <div className="relative flex h-14 w-14 shrink-0 items-center justify-center overflow-hidden rounded-mk-md" style={row.coverUrl ? undefined : coverGradientStyle(row.slug)}>
+      <div className="relative flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-mk-md" style={row.coverUrl ? undefined : coverGradientStyle(row.slug)}>
         {row.coverUrl ? (
           <img src={row.coverUrl} alt="" loading="lazy" className="absolute inset-0 h-full w-full object-cover" />
         ) : (
-          <Icon icon={GraduationCap} size={22} className="text-white/85" />
+          <Icon icon={GraduationCap} size={24} className="text-white/85" />
         )}
       </div>
       <div className="min-w-0 flex-1">
-        <div className="truncate text-mk-h3 text-mk-ink">{row.title}</div>
+        <div className="flex items-center gap-2">
+          <span className="truncate text-mk-h3 text-mk-ink">{row.title}</span>
+          {done ? (
+            <span className="inline-flex shrink-0 items-center gap-1 rounded-mk-full bg-mk-success-bg px-2 py-0.5 text-mk-small font-bold text-mk-success">
+              <Icon icon={CheckCircle2} size={12} />
+              已学完
+            </span>
+          ) : (
+            <span className="inline-flex shrink-0 items-center rounded-mk-full bg-mk-accent-50 px-2 py-0.5 text-mk-small font-bold text-mk-accent-600">
+              学习中
+            </span>
+          )}
+        </div>
         <div className="mt-1 flex items-center gap-2 text-mk-small text-mk-muted">
-          <span className="truncate">{row.branch}</span>
-          <span aria-hidden>·</span>
-          <span>{formatDate(row.updatedAt)}</span>
+          {row.category && (
+            <>
+              <span className="truncate font-semibold text-mk-secondary">{row.category}</span>
+              <span aria-hidden>·</span>
+            </>
+          )}
+          <span>{done ? "学完于 " : "最近学习 "}{formatDate(rowDate(row))}</span>
         </div>
         {pct != null && !done && (
           <div className="mt-2 flex items-center gap-2">
@@ -62,22 +112,15 @@ function HistoryRow({ row, onOpen }: { row: Row; onOpen: () => void }) {
           </div>
         )}
       </div>
-      {done ? (
-        <span className="inline-flex shrink-0 items-center gap-1 rounded-mk-full bg-mk-success-bg px-2.5 py-1 text-mk-small font-bold text-mk-success">
-          <Icon icon={CheckCircle2} size={13} />
-          已学完
-        </span>
-      ) : (
-        <span className="inline-flex shrink-0 items-center rounded-mk-full bg-mk-accent-50 px-2.5 py-1 text-mk-small font-bold text-mk-accent-600">
-          学习中
-        </span>
-      )}
-      <Icon icon={ChevronRight} size={18} className="shrink-0 text-mk-faint transition-colors group-hover:text-mk-accent-500" />
+      <span className="inline-flex shrink-0 items-center gap-1.5 rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small font-bold text-mk-secondary transition-colors group-hover:border-mk-accent-200 group-hover:text-mk-accent-600">
+        <Icon icon={done ? FileText : PlayCircle} size={14} />
+        {done ? "查看报告" : "继续"}
+      </span>
     </button>
   );
 }
 
-export function LearningHistory({ onOpenCourse }: { onOpenCourse: (slug: string) => void }) {
+export function LearningHistory({ onOpen }: { onOpen: (target: CourseOpenTarget) => void }) {
   const [rows, setRows] = useState<Row[] | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,7 +135,7 @@ export function LearningHistory({ onOpenCourse }: { onOpenCourse: (slug: string)
           .map((h): Row | null => {
             const c = bySlug.get(h.slug);
             if (!c) return null; // course unpublished/hidden — skip
-            return { ...h, title: c.title, branch: c.branch, coverUrl: c.coverUrl, stepCount: c.step_count };
+            return { ...h, title: c.title, category: categoryLabel(c.category), coverUrl: c.coverUrl, stepCount: c.step_count };
           })
           .filter((r): r is Row => r !== null);
         setRows(merged);
@@ -105,9 +148,30 @@ export function LearningHistory({ onOpenCourse }: { onOpenCourse: (slug: string)
     };
   }, []);
 
+  // Clicking a row goes straight to the intent: a finished attempt → its own
+  // frozen report (addressed by attemptId); an in-progress one → resume the player.
+  const openRow = (row: Row) => {
+    if (isCompleted(row.status)) {
+      onOpen({ slug: row.slug, mode: "report", attemptId: row.attemptId || undefined });
+    } else {
+      onOpen({ slug: row.slug, mode: "player" });
+    }
+  };
+
+  // Rows arrive newest-first from the server; bucket them in that order so each
+  // section stays chronological and the section order is fixed (今天 → 更早).
+  const now = new Date();
+  const grouped: { bucket: Bucket; rows: Row[] }[] = [];
+  for (const r of rows ?? []) {
+    const b = bucketOf(rowDate(r), now);
+    const last = grouped[grouped.length - 1];
+    if (last && last.bucket === b) last.rows.push(r);
+    else grouped.push({ bucket: b, rows: [r] });
+  }
+
   return (
     <div className="h-full min-h-0 flex-1 overflow-y-auto bg-mk-paper">
-      <div className="mx-auto max-w-[760px] px-10 py-9">
+      <div className="mx-auto max-w-[960px] px-10 py-9">
         <header className="flex items-center gap-4">
           <span className="flex h-14 w-14 shrink-0 items-center justify-center rounded-mk-full bg-mk-accent-50 text-mk-accent-600">
             <Icon icon={GraduationCap} size={26} />
@@ -115,7 +179,7 @@ export function LearningHistory({ onOpenCourse }: { onOpenCourse: (slug: string)
           <div className="min-w-0">
             <div className="text-mk-label text-mk-muted">学习记录</div>
             <h1 className="mt-0.5 text-mk-h1 text-mk-ink">你走过的课程</h1>
-            <p className="mt-1 text-mk-body text-mk-muted">这里记着你学过、正在学的每一门课——随时回来接着学，或回顾一遍。</p>
+            <p className="mt-1 text-mk-body text-mk-muted">按时间记着你学过、正在学的每一次——学习中的接着学，学完的回看当时的报告。</p>
           </div>
         </header>
 
@@ -132,17 +196,26 @@ export function LearningHistory({ onOpenCourse }: { onOpenCourse: (slug: string)
             ))}
           </div>
         ) : rows.length === 0 ? (
-          <Card className="mt-6 p-6">
-            <EmptyState
-              illustration="emptyProjects"
-              title="还没有学习记录"
-              body="去课程里挑一门开始学，学习进度会记录在这里。"
-            />
-          </Card>
+          <div data-tour="courses-history">
+            <Card className="mt-6 p-6">
+              <EmptyState
+                illustration="emptyProjects"
+                title="还没有学习记录"
+                body="去课程里挑一门开始学，学习进度会记录在这里。"
+              />
+            </Card>
+          </div>
         ) : (
-          <div className="mt-6 flex flex-col gap-2.5">
-            {rows.map((r) => (
-              <HistoryRow key={r.slug} row={r} onOpen={() => onOpenCourse(r.slug)} />
+          <div className="mt-6 flex flex-col gap-7" data-tour="courses-history">
+            {grouped.map((g) => (
+              <section key={g.bucket}>
+                <div className="mb-2.5 text-mk-label font-bold uppercase tracking-wide text-mk-muted">{g.bucket}</div>
+                <div className="flex flex-col gap-2.5">
+                  {g.rows.map((r) => (
+                    <HistoryRow key={r.attemptId || `${r.slug}#${r.updatedAt}`} row={r} onOpen={() => openRow(r)} />
+                  ))}
+                </div>
+              </section>
             ))}
           </div>
         )}

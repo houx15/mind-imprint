@@ -22,6 +22,16 @@ import (
 	"mindimprint/api/internal/httpx"
 )
 
+// listCourses returns the catalog WITH each card's own progress for the authed
+// student (`progress`, null when untouched). The progress used to be the
+// client's job — the 课程 list fired one GET /courses/{slug}/progress per card,
+// an N+1 that grew with the catalog and raced its own renders. It is one extra
+// indexed query here (ListProgressForUser), so the list is a single round trip.
+//
+// Progress is per-student, so it is attached only when there IS an authed
+// student in context; the admin listing (listCoursesAdmin) reuses
+// toCourseSummaryDTO without it, and an admin browsing the catalog sees their
+// own progress like anyone else.
 func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 	rows, err := store.ListCourses(r.Context(), isAdmin(r.Context()))
@@ -29,9 +39,17 @@ func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	var progress map[string]agent.CourseCatalogProgress
+	if user, ok := UserFromContext(r.Context()); ok {
+		progress, err = store.ListProgressForUser(r.Context(), user.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
 	out := make([]courseSummaryDTO, 0, len(rows))
 	for _, c := range rows {
-		out = append(out, a.toCourseSummaryDTO(c))
+		out = append(out, withCatalogProgress(a.toCourseSummaryDTO(c), progress))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"courses": out})
 }
@@ -64,12 +82,13 @@ func (a *API) getCourseProgress(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"progress": toCourseProgressDTO(slug, row)})
 }
 
-// postCourseRestart wipes the student's progress for one course so it starts
-// over from the beginning — removing BOTH the 2.0 runtime session and the
-// legacy progress row (each idempotent; only one usually exists). Course events
-// (铁律④ evidence) are kept. After this the next session get-or-create /
-// progress read returns a fresh start. Owner-scoped: only the authed user's own
-// rows are touched.
+// postCourseRestart relearns a course. For a 2.0 course this is the attempt-log
+// model (0077): any FINISHED attempt is KEPT as a permanent record (its report is
+// still viewable from the history), and a brand-new 'created' attempt is minted to
+// start over from Opening. A partial, never-finished current attempt is discarded
+// first so abandoned runs don't accrete. A legacy course keeps the old wipe (its
+// single course_progress row). Course events (铁律④ evidence) are kept either way.
+// Owner-scoped: only the authed user's own rows are touched.
 func (a *API) postCourseRestart(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
 	slug := r.PathValue("slug")
@@ -82,10 +101,35 @@ func (a *API) postCourseRestart(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if err := store.DeleteCourseSession(r.Context(), user.ID, courseID); err != nil {
+	// A 2.0 course carries a definition; a legacy one doesn't. The slug is already
+	// validated (GetCoursePayload above), so a non-nil error here is a real DB fault.
+	def, _, err := store.GetCourseDefinition(r.Context(), slug)
+	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	if len(def) > 0 {
+		// 2.0: drop only an unfinished current attempt, then mint a fresh one. The
+		// finished attempts (each with completed_at set) stay as history records.
+		if err := store.DeleteIncompleteLatestCourseSession(r.Context(), user.ID, courseID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		raw, status, berr := buildInitialCourseSession(def, user.ID)
+		if berr != nil {
+			httpx.WriteError(w, r, &httpx.APIError{
+				Status: http.StatusUnprocessableEntity, Code: "invalid_course_definition", Message: "课程定义格式无效",
+			})
+			return
+		}
+		if _, err := store.CreateCourseSession(r.Context(), user.ID, courseID, raw, status); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"ok": true})
+		return
+	}
+	// Legacy course: wipe the single progress row (idempotent).
 	if err := store.DeleteCourseProgress(r.Context(), user.ID, courseID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -108,12 +152,18 @@ func (a *API) getCourseHistory(w http.ResponseWriter, r *http.Request) {
 	}
 	out := make([]map[string]any, 0, len(items))
 	for _, it := range items {
-		out = append(out, map[string]any{
+		row := map[string]any{
+			"attemptId":      it.AttemptID, // "" for a legacy course
 			"slug":           it.Slug,
 			"status":         it.Status,
 			"completedCount": it.CompletedCount,
 			"updatedAt":      it.UpdatedAt.UTC().Format("2006-01-02T15:04:05Z07:00"),
-		})
+		}
+		// completedAt is the FROZEN completion date — present only once finished.
+		if it.CompletedAt != nil {
+			row["completedAt"] = it.CompletedAt.UTC().Format("2006-01-02T15:04:05Z07:00")
+		}
+		out = append(out, row)
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"items": out})
 }
@@ -214,13 +264,18 @@ func (a *API) postCourseQuizAnswer(w http.ResponseWriter, r *http.Request) {
 func (a *API) getCourseReport(w http.ResponseWriter, r *http.Request) {
 	user, _ := UserFromContext(r.Context())
 	slug := r.PathValue("slug")
+	// ?attempt=<course_session id> selects a specific PAST run's frozen report
+	// (the learning history's "看那一次的报告"); absent = the current attempt, the
+	// live behavior. Owner/course scoping + a 404 for an unknown attempt live in
+	// CourseReport20.
+	attemptID := r.URL.Query().Get("attempt")
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
 
 	// A CourseDefinition-2.0 course has an empty legacy `structure`/`render_cache`
 	// and tracks progress in course_session, not course_progress — so compute its
 	// report from the definition + session. found=false means "legacy course",
 	// which falls through to the legacy path below unchanged.
-	if rep20, ok, err := store.CourseReport20(r.Context(), user.ID, slug); err != nil {
+	if rep20, ok, err := store.CourseReport20(r.Context(), user.ID, slug, attemptID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	} else if ok {
@@ -242,6 +297,34 @@ func (a *API) getCourseReport(w http.ResponseWriter, r *http.Request) {
 	var header courseStructureHeader
 	_ = json.Unmarshal(payload.Structure, &header)
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": toCourseReportDTO(header, rep)})
+}
+
+// getCourseAnswerReport returns the per-attempt answer detail — the student's
+// actual recorded answers + per-slice time, read back from the stored
+// course_session blob + the course definition (2.0 courses only; a legacy
+// course returns an empty `slices` array). Lazy-loaded when the student opens
+// the 小测/我的答案 drawer, so the main report fetch stays lean.
+//
+// ?attempt=<course_session id> selects a specific past run (the learning
+// history's "看那一次的报告"); absent = the current (latest) attempt. Owner/course
+// scoping + a 404 for an unknown attempt live in CourseAnswerReport20.
+func (a *API) getCourseAnswerReport(w http.ResponseWriter, r *http.Request) {
+	user, _ := UserFromContext(r.Context())
+	slug := r.PathValue("slug")
+	attemptID := r.URL.Query().Get("attempt")
+	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
+
+	rep, ok, err := store.CourseAnswerReport20(r.Context(), user.ID, slug, attemptID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if !ok {
+		// Legacy course (no 2.0 definition) — no per-block answer detail exists.
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": courseAnswerReportDTO{Slices: []courseAnswerSliceDTO{}}})
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": toCourseAnswerReportDTO(rep)})
 }
 
 // courseAskStructure is the narrow slice of `course.structure` postCourseAsk

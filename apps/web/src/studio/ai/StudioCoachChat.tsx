@@ -40,6 +40,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
     starting,
     openCard,
     questionCardAvailable,
+    isDemo,
   } = useStudioChat();
   const [draft, setDraft] = useState("");
   // An empty thread renders no fake AI line — a brand-new project simply
@@ -75,7 +76,14 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
       return;
     }
     el.scrollTop = el.scrollHeight;
-  }, [messages, sending]);
+    // `recap` is a dependency (not just messages/sending): the re-entry recap is
+    // an async LLM summary that lands AFTER the thread's first render and
+    // prepends a block ABOVE the conversation. Without it here, that late insert
+    // shoved the viewport to the top and stranded the student there instead of
+    // on the most recent turn (the "chat opens scrolled to the top" bug). The
+    // room coach bodies self-correct via ChatLog's own count change; only this
+    // chat-first surface, which owns its scroll, needed the recap dep.
+  }, [messages, sending, recap]);
 
   async function onSend() {
     const text = draft.trim();
@@ -122,6 +130,7 @@ export function StudioCoachChat({ recap, header }: { recap?: string | null; head
             onSend={onSend}
             state={sending ? "replying" : undefined}
             placeholder="和印记说说你的项目……（Shift+Enter 换行）"
+            disabled={isDemo}
             className="flex-none"
           />
         </div>

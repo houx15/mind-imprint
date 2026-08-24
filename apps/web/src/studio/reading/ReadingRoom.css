@@ -327,6 +327,32 @@
   background: var(--accent-hover);
 }
 
+/* An actionable "offer" chip under a 克制 hint bubble — a soft-accent outline
+   button, lighter than a summoned lens, so it reads as an invitation she may
+   take or ignore rather than a card that has already appeared. */
+.mk-reading-room__offer {
+  align-self: flex-start;
+  margin-top: 8px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  padding: 5px 13px;
+  color: var(--accent);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: background 0.14s ease, color 0.14s ease;
+}
+.mk-reading-room__offer:hover:not(:disabled) {
+  background: var(--accent);
+  color: var(--surface);
+}
+.mk-reading-room__offer:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 .mk-msg__thinking {
   display: flex;
   gap: 5px;
@@ -366,8 +392,9 @@
 }
 .mk-reading-room__focus-context {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
+  gap: 10px;
   margin: 0 2px 8px;
   color: var(--ink-soft);
   font-size: 12px;
@@ -375,7 +402,50 @@
 .mk-reading-room__focus-context strong {
   color: var(--accent);
 }
-.mk-reading-room__focus-context button {
+.mk-reading-room__quote-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  min-width: 0;
+}
+.mk-reading-room__quote-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  padding: 4px 6px 4px 10px;
+  border: 1px solid var(--accent);
+  border-radius: 999px;
+  background: var(--accent-50, transparent);
+  color: var(--accent);
+}
+.mk-reading-room__quote-chip-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 12px;
+  line-height: 1.4;
+}
+.mk-reading-room__quote-chip-x {
+  flex: none;
+  border: 0;
+  padding: 0;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  color: var(--accent);
+  background: transparent;
+  font-family: inherit;
+  font-size: 10px;
+  line-height: 1;
+  cursor: pointer;
+}
+.mk-reading-room__quote-chip-x:hover {
+  color: var(--surface);
+  background: var(--accent);
+}
+.mk-reading-room__quote-clear {
+  flex: none;
   border: 0;
   padding: 3px;
   color: var(--mk-danger);
@@ -384,6 +454,7 @@
   font-size: 12px;
   font-weight: 700;
   cursor: pointer;
+  white-space: nowrap;
 }
 .mk-reading-room__composer {
   display: flex;
@@ -439,6 +510,13 @@
 }
 .mk-reading-room__composer-input:disabled {
   cursor: not-allowed;
+}
+
+/* demoMode (Task 4): the read-only hint under the disabled composer. */
+.mk-reading-room__demo-hint {
+  margin: 6px 0 0;
+  color: var(--ink-soft);
+  font-size: 12px;
 }
 
 .mk-reading-room__starter-row {
@@ -559,6 +637,26 @@
 }
 .mk-reading-room__finalize-btn:hover {
   background: var(--accent-hover);
+}
+/* 追来源 — a quieter outline sibling of 完成这篇: it's an investigative side-trip,
+   not the primary "I'm done" action, so it reads as secondary. */
+.mk-reading-room__trace-btn {
+  flex: none;
+  border: 1px solid var(--accent);
+  border-radius: var(--mk-radius-sm);
+  padding: 6px 12px;
+  margin-right: 8px;
+  color: var(--accent);
+  background: transparent;
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 800;
+  cursor: pointer;
+  transition: background 0.16s ease, color 0.16s ease;
+}
+.mk-reading-room__trace-btn:hover {
+  color: var(--surface);
+  background: var(--accent);
 }
 
 /* ── reading: article view / trace view (shared scroller) ───────────── */

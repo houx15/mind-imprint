@@ -34,6 +34,7 @@ import { CoursesContainer } from "@/shell/courses/CoursesContainer";
 
 const summary: CourseSummary = {
   slug: "co1", branch: "批判性思维", title: "一条网络信息，该不该信", blurb: "从一句…出发", time_label: "约 40 分钟", card_ids: ["concession"], step_count: 1, coverUrl: "",
+  category: null, introduction: null, featuredRank: null, progress: null
 };
 
 const payload: CoursePlayerPayload = {
@@ -78,17 +79,29 @@ describe("CoursesContainer", () => {
     (api.getCardsCatalog as any).mockResolvedValue({ cards: [], theme: "light" });
   });
 
-  it("opens the player when a course is clicked, and returns to the grid", async () => {
+  it("clicking a course from the grid opens its detail page (not the player); the detail CTA enters the player, which exits back to the grid", async () => {
     render(<CoursesContainer />);
-    fireEvent.click(await screen.findByText("开始学习"));
+    fireEvent.click(await screen.findByText("开始学习")); // grid card click -> detail, NOT the player
+    await screen.findByText("从一句…出发"); // detail's blurb fallback (introduction is null) proves the detail page rendered
+    expect(screen.queryByText("开场正文。")).toBeNull(); // the player has not mounted yet
+    fireEvent.click(screen.getByText("开始学习")); // detail's own CTA -> player
     expect(await screen.findByText("开场正文。")).toBeInTheDocument(); // player step
     fireEvent.click(screen.getByText("课程")); // back
     expect(await screen.findByText("系统地学会一种思考方式")).toBeInTheDocument(); // grid header
   });
 
+  it("opens straight on the detail page for a deep-link (initialCourseId), same landing as a grid click", async () => {
+    render(<CoursesContainer initialOpen={{ slug: "co1", mode: "detail" }} />);
+    await screen.findByText("从一句…出发"); // detail's blurb fallback renders
+    expect(screen.queryByText("开场正文。")).toBeNull(); // NOT the player
+    expect(screen.queryByText("系统地学会一种思考方式")).toBeNull(); // NOT the grid
+  });
+
   it("shows the course report after finishing the last (only) step, with a back-to-courses affordance", async () => {
     render(<CoursesContainer />);
-    fireEvent.click(await screen.findByText("开始学习"));
+    fireEvent.click(await screen.findByText("开始学习")); // grid card -> detail
+    await screen.findByText("从一句…出发"); // confirm detail landing before entering the player
+    fireEvent.click(screen.getByText("开始学习")); // detail CTA -> player
     await screen.findByText("开场正文。");
     fireEvent.click(screen.getByLabelText("完成课程"));
     expect(await screen.findByText("学习报告 · 课程完成")).toBeInTheDocument(); // the report hero

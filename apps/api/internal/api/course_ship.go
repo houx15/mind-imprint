@@ -10,6 +10,7 @@ package api
 import (
 	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/jackc/pgx/v5"
 
@@ -17,10 +18,14 @@ import (
 	"mindimprint/api/internal/httpx"
 )
 
-// courseShipReq is the ship envelope: the stock catalog cover id to attach on
-// publish (e.g. "img:3"). Empty is allowed (no cover set).
+// courseShipReq is the ship envelope. Cover is a stock catalog cover id (e.g.
+// "img:3"). CoverAssetPath is the alternative for a generated course: a
+// course-relative WebP the toolkit uploaded (cover/course-cover.webp), bound as
+// the visible cover. The two are mutually exclusive; both empty preserves the
+// existing cover (idempotent re-ship).
 type courseShipReq struct {
-	Cover string `json:"cover"`
+	Cover          string `json:"cover"`
+	CoverAssetPath string `json:"coverAssetPath"`
 }
 
 func (a *API) postCourseShip(w http.ResponseWriter, r *http.Request) {
@@ -29,9 +34,32 @@ func (a *API) postCourseShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	slug := r.PathValue("slug")
+	// Defense-in-depth: the slug is used to derive OSS object keys
+	// (courseAssetKey) on the cover path below — never let a traversal-shaped
+	// slug through, mirroring course_asset_urls.go's write-path guard. (net/http
+	// already cleans `..` before routing; this makes the invariant explicit.)
+	if slug == "" || strings.Contains(slug, "..") || strings.Contains(slug, "/") {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_slug", "无效的课程标识。", nil))
+		return
+	}
 	var body courseShipReq
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
+		return
+	}
+	// Rule 1: a stock cover id and a generated-cover asset path cannot both be
+	// supplied — request-level validation, before any DB or OSS work.
+	if body.Cover != "" && body.CoverAssetPath != "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("ambiguous_cover", "cover 与 coverAssetPath 不能同时提供。", nil))
+		return
+	}
+	// The "asset:" scheme is minted ONLY by validateCoverAsset, after it has
+	// confirmed the object exists + is WebP inside this course's namespace. It
+	// must never be accepted as raw input via the stock `cover` field, or a
+	// caller could publish an unverified/nonexistent asset cover past that gate
+	// (rule 4). Asset covers must come through coverAssetPath.
+	if strings.HasPrefix(body.Cover, courseCoverAssetPrefix) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_cover", "生成封面请使用 coverAssetPath 字段。", nil))
 		return
 	}
 
@@ -70,6 +98,26 @@ func (a *API) postCourseShip(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Resolve the cover to persist. A generated course binds a course-relative
+	// WebP it uploaded (coverAssetPath) INSTEAD of a stock img:* cover; the
+	// object is verified to exist + be WebP inside this course's namespace
+	// BEFORE we publish (rule 4). Done before the expensive TTS below so a bad
+	// cover fails fast. Both fields empty leaves coverToStore == "" →
+	// SetCourseStatusAndCover preserves the existing cover (rule 7).
+	coverToStore := body.Cover
+	if body.CoverAssetPath != "" {
+		if a.d.OSS == nil {
+			httpx.WriteError(w, r, httpx.ErrOSSUnavailable())
+			return
+		}
+		stored, apiErr := validateCoverAsset(r.Context(), a.d.OSS, slug, body.CoverAssetPath)
+		if apiErr != nil {
+			httpx.WriteError(w, r, apiErr)
+			return
+		}
+		coverToStore = stored
+	}
+
 	// Nil-guard voice/OSS the same way postAdminUploadCourse (course_admin.go)
 	// does: a nil *oss.Service assigned straight into the agent.CourseAudioStore
 	// interface parameter would NOT compare equal to nil inside
@@ -89,7 +137,7 @@ func (a *API) postCourseShip(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := store.SetCourseStatusAndCover(r.Context(), slug, "published", body.Cover); err != nil {
+	if err := store.SetCourseStatusAndCover(r.Context(), slug, "published", coverToStore); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

@@ -10,16 +10,17 @@ describe("Nav", () => {
     expect(tabs.map((t) => t.textContent)).toEqual(["首页", "项目", "课程", "P我"]);
   });
 
-  it("marks the active tab with aria-selected + the accent tile class", () => {
+  it("marks the active tab with aria-selected + the active tile fill", () => {
     render(<Nav tab="courses" onTab={() => {}} user={{ display_name: "Phoebe" }} />);
     const tabs = screen.getAllByRole("tab");
     const courses = tabs.find((t) => t.textContent?.includes("课程"))!;
     expect(courses.getAttribute("aria-selected")).toBe("true");
-    expect(courses.className).toContain("bg-mk-accent-50");
+    // On the accent rail the active entry is a translucent-white pill.
+    expect(courses.className).toContain("bg-white/15");
 
     const home = tabs.find((t) => t.textContent?.includes("首页"))!;
     expect(home.getAttribute("aria-selected")).toBe("false");
-    expect(home.className).not.toContain("bg-mk-accent-50");
+    expect(home.className).not.toContain("bg-white/15");
   });
 
   it("fires onTab with the entry's key when clicked", () => {
@@ -36,5 +37,17 @@ describe("Nav", () => {
   it("renders the user's display-name initial for 我 when no display name is given", () => {
     render(<Nav tab="home" onTab={() => {}} user={null} />);
     expect(screen.getByText("?")).toBeTruthy();
+  });
+
+  it("renders the footer controls and fires their callbacks", () => {
+    const onRestartTour = vi.fn(); const onFeedback = vi.fn(); const onLogout = vi.fn();
+    render(<Nav tab="home" onTab={() => {}} user={{ display_name: "Phoebe" }}
+      onRestartTour={onRestartTour} onFeedback={onFeedback} onLogout={onLogout} />);
+    fireEvent.click(screen.getByText("重新开始引导"));
+    expect(onRestartTour).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("反馈"));
+    expect(onFeedback).toHaveBeenCalled();
+    fireEvent.click(screen.getByText("退出登录"));
+    expect(onLogout).toHaveBeenCalled();
   });
 });

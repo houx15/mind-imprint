@@ -177,6 +177,35 @@ func TestDeepSeekSendsJSONObjectResponseFormatOnlyWhenRequested(t *testing.T) {
 	}
 }
 
+func TestDeepSeekReasoningEffort(t *testing.T) {
+	// ReasoningEffort is the middle gear (reading router uses "low"): emitted as
+	// reasoning_effort when set, absent when empty, independent of tier.
+	srv, body := captureBody(t)
+	defer srv.Close()
+	p := NewDeepSeekProvider(srv.Client())
+	drainReq := func(r Resolved, req ChatRequest) {
+		t.Helper()
+		ch, err := p.Stream(context.Background(), r, req)
+		if err != nil {
+			t.Fatalf("Stream: %v", err)
+		}
+		for range ch {
+		}
+	}
+	base := ChatRequest{Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}}}
+
+	drainReq(Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "flagship"}, base)
+	if strings.Contains(*body, `"reasoning_effort"`) {
+		t.Fatalf("no ReasoningEffort → field must be absent, got: %s", *body)
+	}
+	low := base
+	low.ReasoningEffort = "low"
+	drainReq(Resolved{BaseURL: srv.URL, Model: "deepseek-v4-pro", APIKey: "sk", Tier: "flagship"}, low)
+	if !strings.Contains(*body, `"reasoning_effort":"low"`) {
+		t.Fatalf("ReasoningEffort=low must emit reasoning_effort, got: %s", *body)
+	}
+}
+
 func TestDeepSeekSurfacesHTTPErrorWithoutLeaking(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnauthorized)

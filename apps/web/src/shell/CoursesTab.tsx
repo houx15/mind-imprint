@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Segmented } from "@/ui";
-import { CoursesContainer } from "@/shell/courses/CoursesContainer";
+import { CoursesContainer, type CourseOpenTarget } from "@/shell/courses/CoursesContainer";
 import { LearningHistory } from "@/shell/courses/LearningHistory";
 import { ToolkitCards } from "@/shell/growth/ToolkitCards";
 
@@ -28,6 +28,9 @@ export interface CoursesTabProps {
   onGoPortal: () => void;
   /** True while a course is being played → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
+  /** One-shot: open this sub-tab on entry (guided tour). */
+  pendingSub?: Sub | null;
+  onPendingSubConsumed?: () => void;
 }
 
 export function CoursesTab({
@@ -36,34 +39,58 @@ export function CoursesTab({
   studentId,
   onGoPortal,
   onImmersiveChange,
+  pendingSub,
+  onPendingSubConsumed,
 }: CoursesTabProps) {
-  const [sub, setSub] = useState<Sub>("courses");
+  const [sub, setSub] = useState<Sub>(pendingSub ?? "courses");
   const [inCourse, setInCourse] = useState(false);
-  // The course to open in CoursesContainer — seeded from the host deep-link,
-  // or set when 学习记录 / 图鉴 requests a course. Consumed once.
-  const [openId, setOpenId] = useState<string | null>(pendingCourseId ?? null);
+  // The target to open in CoursesContainer — seeded from the host deep-link
+  // (always a browse landing), or set when 学习记录 / 图鉴 requests a course.
+  // Consumed once.
+  const [openTarget, setOpenTarget] = useState<CourseOpenTarget | null>(
+    pendingCourseId ? { slug: pendingCourseId, mode: "detail" } : null,
+  );
 
-  // Clear the host's one-shot deep-link on mount (openId already captured it).
+  // Clear the host's one-shot deep-link on mount (openTarget already captured it).
   useEffect(() => {
     if (pendingCourseId) onPendingCourseConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // React to the tour's requested sub-tab. Seeded once in useState above (avoids
+  // a first-paint flash), but CoursesTab stays mounted across tab switches, so
+  // later setCoursesSub calls must re-derive `sub` here rather than relying on
+  // the mount initializer.
+  useEffect(() => {
+    if (pendingSub) {
+      setSub(pendingSub);
+      onPendingSubConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pendingSub]);
 
   const immersive = inCourse && sub === "courses";
   useEffect(() => {
     onImmersiveChange(immersive);
   }, [immersive, onImmersiveChange]);
 
+  // 图鉴 / home deep-links open the browse landing (detail).
   const requestOpen = (slug: string) => {
-    setOpenId(slug);
+    setOpenTarget({ slug, mode: "detail" });
+    setSub("courses");
+  };
+  // 学习记录 opens straight to the intent: 继续 (player) or 查看报告 (report).
+  const requestOpenTarget = (t: CourseOpenTarget) => {
+    setOpenTarget(t);
     setSub("courses");
   };
 
   return (
     <div className="flex h-full w-full flex-col overflow-hidden bg-mk-paper">
       {!immersive && (
-        <div className="flex shrink-0 items-center justify-center border-b border-mk-border bg-mk-surface p-3">
+        <div className="flex shrink-0 items-center justify-center px-4 pb-1.5 pt-4" data-tour="courses-subswitcher">
           <Segmented
+            variant="island"
             value={sub}
             onChange={(v) => setSub(v as Sub)}
             options={[
@@ -77,14 +104,14 @@ export function CoursesTab({
       <div className="min-h-0 flex-1 overflow-hidden">
         {sub === "courses" ? (
           <CoursesContainer
-            initialCourseId={openId}
-            onCourseConsumed={() => setOpenId(null)}
+            initialOpen={openTarget}
+            onCourseConsumed={() => setOpenTarget(null)}
             studentId={studentId}
             onGoPortal={onGoPortal}
             onImmersiveChange={setInCourse}
           />
         ) : sub === "history" ? (
-          <LearningHistory onOpenCourse={requestOpen} />
+          <LearningHistory onOpen={requestOpenTarget} />
         ) : (
           <ToolkitCards onOpenCourse={requestOpen} />
         )}

@@ -123,6 +123,11 @@ body,
 @keyframes mk-pebble-spin  { to{transform:rotate(360deg)} }
 @keyframes mk-pebble-pop   { 0%,100%{transform:scale(1)} 14%{transform:scale(1.09)} 30%{transform:scale(.99)} 44%{transform:scale(1)} }
 
+/* Gentle bob for the 印记 popover header pebble (guided tour). */
+@keyframes mk-pebble-bounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-4px)} }
+.mk-pebble-bounce { animation: mk-pebble-bounce 1.6s var(--mk-ease, ease-in-out) infinite; }
+@media (prefers-reduced-motion: reduce) { .mk-pebble-bounce { animation: none; } }
+
 /* PebbleProgress (spec §15). Verbatim geometry/timing from
    docs/design/design-system-mockups/pebble-progress-v2.html — 豆豆 rides ON
    TOP of the accent fill bar. Rail/fill use the accent tokens (not the

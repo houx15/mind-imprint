@@ -1,0 +1,1225 @@
+{
+ "course": {
+  "id": "course-25",
+  "parts": [
+   {
+    "id": "part-1-learn-review-method",
+    "title": "Part 1 学会审理：把‘有问题’变成六个可检查的问题",
+    "slices": [
+     {
+      "id": "slice-1-courtroom-conflict",
+      "title": "每句话都是真的，结论就一定成立吗？",
+      "blocks": [
+       {
+        "id": "c30-course-opening-card",
+        "html": "<style>.eyebrow{margin:0;color:var(--course-accent);font-size:14px;font-weight:800;letter-spacing:.08em}.conflict{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;margin:16px 0}.dossier,.question{padding:18px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.dossier blockquote{margin:12px 0 0;padding:14px 16px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak);font-size:17px;line-height:1.7}.question{display:flex;flex-direction:column;justify-content:center;background:color-mix(in srgb,var(--course-accent-weak) 65%,var(--course-surface))}.question strong{font-size:22px;line-height:1.45}.question p{color:var(--course-secondary)}.route{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:18px}.step{padding:14px;border:1px solid var(--course-border);border-radius:var(--course-radius)}.step b{display:block;color:var(--course-accent);font-size:24px}.step p{margin:6px 0 0;color:var(--course-muted);font-size:14px}.outcome{margin-top:14px;padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:760px){.conflict,.route{grid-template-columns:1fr}}</style><p class=\"eyebrow\">课程导入 · 识别—审理—立案</p><h2>一段“每句都像事实”的证词</h2><div class=\"conflict\"><section class=\"dossier\"><h3>案情冲突</h3><blockquote>三名成绩垫底的学生都参加了电竞社。因此，社团活动就是成绩崩盘的原因；如果今天不全面禁止社团，最后学校升学率会跌到零。</blockquote></section><aside class=\"question\"><strong>事实出现了，结论就自动成立吗？</strong><p>需要检查的，是事实如何跨过推理桥、到达这个结论。</p></aside></div><div class=\"route\"><section class=\"step\"><b>01</b><h3>识别</h3><p>看见具体断点，不停在“听着不对”。</p></section><section class=\"step\"><b>02</b><h3>审理</h3><p>用六问检查一份完整论证。</p></section><section class=\"step\"><b>03</b><h3>立案</h3><p>把六问反向用于自己的表达。</p></section></div><aside class=\"outcome\"><strong>最终成果：</strong>一册包含诊断、修复、完整审理与公共立案结果的“论证审理案卷册”。下一页先获得完整六问地图。</aside>",
+        "type": "richText",
+        "title": "逻辑侦探局开庭"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-course-opening-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-1-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-1-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-opening"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-opening",
+           "durationSeconds": 30
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-course-opening-card"
+        },
+        "enabledBlockIds": [
+         "c30-course-opening-card"
+        ],
+        "visibleBlockIds": [
+         "c30-course-opening-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-1-guide",
+        "text": "欢迎进入逻辑侦探局。案卷中的事实可能都是真的，但从事实跳到结论仍需要推理桥。先看见这个冲突，再沿识别、审理、立案三段路线建立论证审理案卷册。",
+        "audio": "assets/audio/narrations/slice-1-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-six-question-map"
+      ],
+      "estimatedSeconds": 180
+     },
+     {
+      "id": "slice-2-six-question-map",
+      "title": "六问审理法：一张图看清完整论证",
+      "blocks": [
+       {
+        "id": "c30-six-question-map",
+        "html": "<style>.head{display:flex;justify-content:space-between;gap:16px;align-items:end;padding-bottom:12px;border-bottom:1px solid var(--course-border)}.head p{margin:0;color:var(--course-muted)}.rail{display:grid;grid-template-columns:repeat(6,1fr);gap:8px;margin:18px 0}.step{position:relative;min-height:150px;padding:13px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:color-mix(in srgb,var(--course-accent-weak) 60%,var(--course-surface))}.n{display:block;color:var(--course-accent);font-size:28px;font-weight:850}.step h3{margin:8px 0 5px;font-size:17px}.step p{margin:0;color:var(--course-muted);font-size:14px;line-height:1.55}.logic{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:14px;border:1px solid var(--course-border);border-radius:var(--course-radius)}.logic section{padding:10px;background:var(--course-accent-weak);border-radius:var(--course-radius)}.arrow{color:var(--course-accent);font-size:25px;font-weight:800}.mistakes{margin-top:14px;padding:13px 15px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}.mistakes strong{display:block;margin-bottom:5px}@media(max-width:900px){.rail{grid-template-columns:repeat(3,1fr)}}@media(max-width:620px){.rail,.logic{grid-template-columns:1fr}.arrow{transform:rotate(90deg);text-align:center}}</style><div class=\"head\"><div><small>方法学习 · 六问全图</small><h2>从“哪里不对”到“断在哪里”</h2></div><p>刚才：发现断裂<br>现在：获得检查顺序<br>接下来：看完整示范</p></div><div class=\"rail\" aria-label=\"六问论证审理法的六个连续步骤\"><section class=\"step\"><span class=\"n\">01</span><h3>定主张</h3><p>论证希望听众接受哪一句可争辩的话？</p></section><section class=\"step\"><span class=\"n\">02</span><h3>找理由</h3><p>哪些内容真的用于支持结论，哪些只是背景？</p></section><section class=\"step\"><span class=\"n\">03</span><h3>验证据</h3><p>样本、相关性与权威实际支持到哪里？</p></section><section class=\"step\"><span class=\"n\">04</span><h3>查推理桥</h3><p>证据到结论之间藏着什么未说出的连接？</p></section><section class=\"step\"><span class=\"n\">05</span><h3>划边界</h3><p>结论在哪些条件、范围与不确定性下成立？</p></section><section class=\"step\"><span class=\"n\">06</span><h3>过质询</h3><p>最强反方指出什么，主张需要怎样修正？</p></section></div><section class=\"logic\"><section><strong>前三问：拆出部件</strong><p>主张—理由—证据</p></section><div class=\"arrow\">→</div><section><strong>后三问：检验连接</strong><p>推理桥—边界—质询回应</p></section></section><aside class=\"mistakes\"><strong>四个常见误区</strong>只贴谬误标签；事实为真就默认足够；重述只换语气；把回应反方当成击败对方。案卷册从这里建立六栏，下一页沿同一顺序审理“社团的罪与罚”。</aside>",
+        "type": "richText",
+        "title": "六问论证审理法"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-six-question-map"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-2-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-2-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-method"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-method",
+           "durationSeconds": 50
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-six-question-map"
+        },
+        "enabledBlockIds": [
+         "c30-six-question-map"
+        ],
+        "visibleBlockIds": [
+         "c30-six-question-map"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-2-guide",
+        "text": "上一页发现事实与结论之间可能断裂。现在用六问依次检查主张、理由、证据、推理桥、边界和质询；下一页会用一份综合案卷演示整套方法。",
+        "audio": "assets/audio/narrations/slice-2-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-six-question-map"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-3-worked-fallacy-case",
+      "title": "示范审理：社团真的会让升学率归零吗？",
+      "blocks": [
+       {
+        "id": "c30-worked-case-card",
+        "html": "<style>.position{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--course-border)}.position p{margin:0;color:var(--course-muted)}.case{margin-top:14px;padding:15px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.case blockquote{margin:8px 0;line-height:1.65}.faults{display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin-top:10px}.fault{padding:9px;border-radius:var(--course-radius);background:var(--course-accent-weak);font-size:14px}.fault b{display:block;color:var(--course-accent)}.repair{margin-top:14px;padding:15px;border-left:4px solid var(--course-accent);background:color-mix(in srgb,var(--course-accent-weak) 70%,var(--course-surface))}.repair h3{margin-top:0}.anatomy{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.anatomy section{padding:10px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.anatomy b{display:block;color:var(--course-accent)}.next{margin-top:12px;color:var(--course-secondary)}@media(max-width:800px){.faults{grid-template-columns:1fr 1fr}.anatomy{grid-template-columns:1fr}}</style><div class=\"position\"><div><small>方法学习 · 完整示范</small><h2>沿六问定位一条综合谬误链</h2></div><p>刚才：六问全图<br>现在：完整示范<br>接下来：十案带练</p></div><section class=\"case\"><h3>原论证</h3><blockquote>全年级成绩最垫底的三个学生都是电竞社的，这足以证明社团活动导致成绩崩盘。如果今天不禁社团，最后学校升学率将跌至零；反对禁社团的人只想把学校变成游乐场，而且都是不在乎学生前途的自私鬼。</blockquote><div class=\"faults\"><section class=\"fault\"><b>验证据</b>三个学生推到所有社团：以偏概全</section><section class=\"fault\"><b>查推理桥</b>同时出现就当因果：虚假因果</section><section class=\"fault\"><b>划边界</b>不禁社团必然归零：滑坡</section><section class=\"fault\"><b>过质询</b>把反方改成“建游乐场”：稻草人</section><section class=\"fault\"><b>过质询</b>攻击“自私鬼”：人身攻击</section></div></section><section class=\"repair\"><h3>修复后的论证骨架</h3><p>有几位成绩较差的学生参加了社团；若要判断社团参与与成绩之间是否相关，需要更完整的调查数据。在结论出来之前，学校可以先试行社团时长上限，一学期后比较数据再决定。</p><div class=\"anatomy\"><section><b>证据</b>只保留真实样本范围，并补充所需调查。</section><section><b>推理桥与边界</b>从“导致”退回“是否相关”，先试行再比较。</section><section><b>质询回应</b>承认学习时间顾虑，用可复查措施回应。</section></div></section><p class=\"next\">示范结论：谬误名称只是入口，真正的诊断要指出六问中的具体断点。下一页把“定位—异议—重述—解释”交给你。</p>",
+        "type": "richText",
+        "title": "社团的罪与罚：原论证与修复版"
+       },
+       {
+        "id": "c30-worked-repair-card",
+        "html": "<style>.c30s3-head{padding-bottom:10px;border-bottom:1px solid var(--course-border)}.c30s3-head small{color:var(--course-accent);font-weight:800}.c30s3-track{display:grid;gap:10px;margin:14px 0}.c30s3-step{padding:12px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.c30s3-step:nth-child(2),.c30s3-step:nth-child(4){background:color-mix(in srgb,var(--course-accent-weak) 60%,var(--course-surface))}.c30s3-step b{display:block;color:var(--course-accent);margin-bottom:4px}.c30s3-rule{padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}</style><section class=\"c30s3-head\"><small>完整示范 · 修复侧</small><h2>从指出断点到重建论证</h2><p>左侧先定位原论证的问题；右侧按六问检查修复是否真正发生。</p></section><div class=\"c30s3-track\"><section class=\"c30s3-step\"><b>定主张、找理由</b>把“社团导致成绩崩盘”缩回证据能够讨论的相关性问题。</section><section class=\"c30s3-step\"><b>验证据</b>保留“三名学生”这一真实样本范围，并明确还需要完整调查。</section><section class=\"c30s3-step\"><b>查推理桥、划边界</b>不把同时出现当成因果，先试行一学期，再依据比较结果决定。</section><section class=\"c30s3-step\"><b>过质询</b>承认学习时间的合理顾虑，用可复查措施回应，而非攻击反方。</section></div><aside class=\"c30s3-rule\"><strong>修复标准：</strong>不是换一种语气，而是让证据、连接、范围和回应重新对齐。</aside>",
+        "type": "richText",
+        "title": "六问修复检查轨道"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "c30-worked-case-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "c30-worked-repair-card"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-3-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-3-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-model"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-model",
+           "durationSeconds": 70
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-worked-case-card"
+        },
+        "enabledBlockIds": [
+         "c30-worked-case-card",
+         "c30-worked-repair-card"
+        ],
+        "visibleBlockIds": [
+         "c30-worked-case-card",
+         "c30-worked-repair-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-3-guide",
+        "text": "上一页得到六问地图。现在对照社团的罪与罚原论证和修复版，观察谬误怎样落在证据、推理桥、边界与质询位置；看完后进入十案带练。",
+        "audio": "assets/audio/narrations/slice-3-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-six-question-map",
+       "obj-diagnose-rebuild"
+      ],
+      "estimatedSeconds": 300
+     }
+    ],
+    "objectiveIds": [
+     "obj-six-question-map"
+    ]
+   },
+   {
+    "id": "part-2-diagnose-and-rebuild",
+    "title": "Part 2 拆案与复议：从局部漏洞走向完整审理",
+    "slices": [
+     {
+      "id": "slice-4-fallacy-court",
+      "title": "带练：十个逻辑谬误案卷",
+      "blocks": [
+       {
+        "id": "c30-fallacy-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/logical-fallacy-judgment-wide.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": true
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-fallacy-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "orient",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-4-guide"
+           },
+           "to": "practice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-4-guide"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c30-fallacy-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "practice",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "c30-fallacy-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "c30-fallacy-interaction"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "c30-fallacy-interaction"
+        ]
+       },
+       "initialStepId": "orient"
+      },
+      "narrations": [
+       {
+        "id": "slice-4-guide",
+        "text": "你已经看过完整示范。现在进入十个逻辑谬误案卷，完成类型识别、异议、重述和解释。互动保留即时反馈与案卷记录，完成后再归纳结构断点。",
+        "audio": "assets/audio/narrations/slice-4-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "allowed"
+      },
+      "objectiveIds": [
+       "obj-six-question-map",
+       "obj-diagnose-rebuild"
+      ],
+      "estimatedSeconds": 900
+     },
+     {
+      "id": "slice-5-diagnosis-synthesis",
+      "title": "复盘：谬误标签背后的四类断点",
+      "blocks": [
+       {
+        "id": "c30-diagnosis-card",
+        "html": "<style>.head{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--course-border)}.head p{margin:0;color:var(--course-muted)}.grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:16px 0}.fault{padding:14px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.fault:nth-child(2),.fault:nth-child(3){background:color-mix(in srgb,var(--course-accent-weak) 55%,var(--course-surface))}.fault h3{margin:0 0 7px;color:var(--course-accent)}.fault p{margin:4px 0;color:var(--course-secondary)}.fault small{color:var(--course-muted)}.move{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:13px;border:1px solid var(--course-border);border-radius:var(--course-radius)}.move section{padding:10px;background:var(--course-accent-weak);border-radius:var(--course-radius)}.arrow{font-size:24px;color:var(--course-accent);font-weight:800}.next{margin-top:13px;padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:700px){.grid,.move{grid-template-columns:1fr}.arrow{text-align:center;transform:rotate(90deg)}}</style><div class=\"head\"><div><small>方法应用 · 局部诊断复盘</small><h2>把十个谬误名称压缩成四类断点</h2></div><p>刚才：十案反馈<br>现在：结构归纳<br>接下来：完整案件</p></div><div class=\"grid\"><section class=\"fault\"><h3>证据断点</h3><p>样本太少、相关当因果、无关权威。</p><small>检查：证据实际支持到哪里？</small></section><section class=\"fault\"><h3>连接断点</h3><p>循环论证、从理由跳到过强结论。</p><small>检查：隐藏推理桥成立吗？</small></section><section class=\"fault\"><h3>边界断点</h3><p>滑坡、虚假两难、绝对化范围。</p><small>检查：条件、范围和不确定性是什么？</small></section><section class=\"fault\"><h3>质询断点</h3><p>稻草人、人身攻击、诉诸从众。</p><small>检查：是否回应了真正的反方问题？</small></section></div><section class=\"move\"><section><strong>停在标签</strong><p>“这是滑坡。”</p></section><div class=\"arrow\">→</div><section><strong>进入结构诊断</strong><p>“中间三步没有证据，结论范围被扩大到必然灾难。”</p></section></section><aside class=\"next\"><strong>案卷册阶段标记：</strong>对照十案记录，圈出你最常出现的一类断点。下一页处理完整论证时，把它设为优先检查项。</aside>",
+        "type": "richText",
+        "title": "四类结构断点复盘"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-diagnosis-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-5-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-5-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-synthesis"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-synthesis",
+           "durationSeconds": 55
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-diagnosis-card"
+        },
+        "enabledBlockIds": [
+         "c30-diagnosis-card"
+        ],
+        "visibleBlockIds": [
+         "c30-diagnosis-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-5-guide",
+        "text": "上一页积累了十案反馈。现在把零散谬误标签压缩为证据、连接、边界和质询四类断点，并标记自己的高频问题，为完整案件审理设定检查重点。",
+        "audio": "assets/audio/narrations/slice-5-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-diagnose-rebuild"
+      ],
+      "estimatedSeconds": 240
+     },
+     {
+      "id": "slice-6-full-case-review",
+      "title": "独立审理：八步完整案件",
+      "blocks": [
+       {
+        "id": "c30-deconstruct-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/full-case-review-wide.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": true
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-deconstruct-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "orient",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-6-guide"
+           },
+           "to": "review"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-6-guide"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c30-deconstruct-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "review",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "c30-deconstruct-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "c30-deconstruct-interaction"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "c30-deconstruct-interaction"
+        ]
+       },
+       "initialStepId": "orient"
+      },
+      "narrations": [
+       {
+        "id": "slice-6-guide",
+        "text": "你已经能把谬误放回结构位置。现在进入八步完整案件审理，依次接案、录口供、验材料、查推理桥、指认问题、重建论证、交叉质询并宣判。",
+        "audio": "assets/audio/narrations/slice-6-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-diagnose-rebuild",
+       "obj-review-complete-case"
+      ],
+      "estimatedSeconds": 1200
+     },
+     {
+      "id": "slice-7-case-review-report",
+      "title": "结案报告：一份稳健论证还缺什么？",
+      "blocks": [
+       {
+        "id": "c30-case-review-card",
+        "html": "<style>.head{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--course-border)}.head p{margin:0;color:var(--course-muted)}.report{display:grid;grid-template-columns:1.05fr .95fr;gap:14px;margin:16px 0}.template,.checklist{padding:15px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.template dl{display:grid;grid-template-columns:auto 1fr;gap:8px 12px}.template dt{font-weight:800;color:var(--course-accent)}.template dd{margin:0;color:var(--course-secondary)}.checks{display:grid;gap:8px}.check{padding:10px;border-radius:var(--course-radius);background:var(--course-accent-weak)}.check b{display:block}.handoff{display:grid;grid-template-columns:1fr auto 1fr;gap:12px;align-items:center;padding:13px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}.handoff .arrow{font-size:24px;color:var(--course-accent);font-weight:800}.handoff section{padding:8px}@media(max-width:760px){.report,.handoff{grid-template-columns:1fr}.arrow{text-align:center;transform:rotate(90deg)}}</style><div class=\"head\"><div><small>方法应用 · 结案与角色转换</small><h2>把八案经验压缩成写作质量标准</h2></div><p>刚才：完整审理<br>现在：结案标准<br>接下来：公共立案</p></div><div class=\"report\"><section class=\"template\"><h3>一份完整结案报告</h3><dl><dt>原主张</dt><dd>发言者希望听众接受什么？</dd><dt>关键材料</dt><dd>哪些证据直接影响裁决？</dd><dt>推理桥</dt><dd>证据到结论的连接是否成立？</dd><dt>主要缺口</dt><dd>证据、连接、边界或质询哪里失效？</dd><dt>重建版本</dt><dd>怎样把主张改到证据能支持的位置？</dd><dt>最终裁决</dt><dd>接受、修正，还是暂缓判断？</dd></dl></section><section class=\"checklist\"><h3>立案前四项自检</h3><div class=\"checks\"><section class=\"check\"><b>事实够不够</b>证据来源与覆盖范围匹配吗？</section><section class=\"check\"><b>桥稳不稳</b>有没有从相关跳到因果、从局部跳到整体？</section><section class=\"check\"><b>边界清不清</b>适用对象、条件、期限与复查写明了吗？</section><section class=\"check\"><b>质询答没答</b>是否处理最强反方，而非稻草人？</section></div></section></div><aside class=\"handoff\"><section><strong>审理别人</strong><p>六问用于发现论证还缺什么。</p></section><div class=\"arrow\">→</div><section><strong>建立自己</strong><p>下一页把同一清单反向变成生成步骤。</p></section></aside>",
+        "type": "richText",
+        "title": "结案报告与立案质量标准"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-case-review-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-7-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-7-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-report"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-report",
+           "durationSeconds": 55
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-case-review-card"
+        },
+        "enabledBlockIds": [
+         "c30-case-review-card"
+        ],
+        "visibleBlockIds": [
+         "c30-case-review-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-7-guide",
+        "text": "上一页完成了八份完整审理。现在把经验压缩成一份结案报告和四项质量标准：事实够不够、推理桥稳不稳、边界清不清、质询答没答。下一页将用它反向建立论证。",
+        "audio": "assets/audio/narrations/slice-7-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-review-complete-case",
+       "obj-build-public-argument"
+      ],
+      "estimatedSeconds": 240
+     }
+    ],
+    "objectiveIds": [
+     "obj-six-question-map",
+     "obj-diagnose-rebuild",
+     "obj-review-complete-case"
+    ]
+   },
+   {
+    "id": "part-3-build-public-argument",
+    "title": "Part 3 社会议题立案：建立可质询、可修正的公共论证",
+    "slices": [
+     {
+      "id": "slice-8-build-orientation",
+      "title": "从审理到立案：六问反向生成论证",
+      "blocks": [
+       {
+        "id": "c30-build-model-card",
+        "html": "<style>.head{display:flex;justify-content:space-between;gap:12px;padding-bottom:10px;border-bottom:1px solid var(--course-border)}.head p{margin:0;color:var(--course-muted)}.case{margin:14px 0;padding:14px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.case strong{color:var(--course-accent)}.facts{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.fact{padding:9px;background:var(--course-accent-weak);border-radius:var(--course-radius);font-size:14px}.filing{display:grid;grid-template-columns:repeat(3,1fr);gap:9px}.item{padding:11px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.item b{display:block;color:var(--course-accent);margin-bottom:4px}.item p{margin:0;color:var(--course-secondary);font-size:14px}.process{margin-top:14px;padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:760px){.facts,.filing{grid-template-columns:1fr}}</style><div class=\"head\"><div><small>迁移 · 公共立案示范</small><h2>六问反向使用，就得到一份立案书</h2></div><p>刚才：质量标准<br>现在：生成示范<br>接下来：六案迁移</p></div><section class=\"case\"><strong>入门案：主要由AI生成的作品是否应标注？</strong><p>学校公众号准备发布学生作品；发布时可勾选“主要由AI生成”，而改错别字、调亮图片也可能使用AI工具。</p><div class=\"facts\"><section class=\"fact\">未标注的AI图片常被当作真实照片</section><section class=\"fact\">发布页面已有AI标注勾选项</section><section class=\"fact\">AI既可生成整篇，也可只做轻微修改</section></div></section><div class=\"filing\"><section class=\"item\"><b>主张</b><p>作品主要由AI生成时应标注，轻微修改不用标注。</p></section><section class=\"item\"><b>理由</b><p>标注帮助读者判断作品怎样形成，同时避免轻微修改淹没重要提示。</p></section><section class=\"item\"><b>证据</b><p>读者误认记录、现有勾选功能与编辑记录分别支持可读性、可执行性和范围区分。</p></section><section class=\"item\"><b>推理桥</b><p>当生成方式会改变读者判断且标注可执行时，重点标注能减少误认。</p></section><section class=\"item\"><b>边界</b><p>界定“主要生成”和“轻微修改”，保留纠错与复查机制。</p></section><section class=\"item\"><b>质询回应</b><p>回应“分类标准会模糊”，把标准、申诉和复核写进规则。</p></section></div><aside class=\"process\"><strong>八步立案流程：</strong>读卷—定主张—选理由—取证据—搭桥—划边界—过质询—交立案书。互动会保留原题、答案、反馈和复议路径；系统检查结构一致性，不判断你的立场方向。</aside>",
+        "type": "richText",
+        "title": "AI内容标注示范立案书"
+       },
+       {
+        "id": "c30-build-process-card",
+        "html": "<style>.c30s8-head{padding-bottom:10px;border-bottom:1px solid var(--course-border)}.c30s8-head small{color:var(--course-accent);font-weight:800}.c30s8-flow{display:grid;grid-template-columns:1fr 1fr;gap:9px;margin:14px 0}.c30s8-step{padding:11px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:color-mix(in srgb,var(--course-accent-weak) 60%,var(--course-surface))}.c30s8-step b{display:block;color:var(--course-accent);margin-bottom:3px}.c30s8-check{padding:12px 14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}@media(max-width:680px){.c30s8-flow{grid-template-columns:1fr}}</style><section class=\"c30s8-head\"><small>公共立案示范 · 流程侧</small><h2>把六问反向排成八步</h2><p>左侧展示AI内容标注立案书；右侧追踪从读卷到提交的生成顺序。</p></section><div class=\"c30s8-flow\"><section class=\"c30s8-step\"><b>1 读卷</b>分清议题事实、现有条件与争点。</section><section class=\"c30s8-step\"><b>2 定主张</b>写出可争辩、可修改的立场。</section><section class=\"c30s8-step\"><b>3 选理由</b>选择真正支持主张的理由。</section><section class=\"c30s8-step\"><b>4 取证据</b>让材料与理由逐项匹配。</section><section class=\"c30s8-step\"><b>5 搭桥</b>说明证据为何支持结论。</section><section class=\"c30s8-step\"><b>6 划边界</b>写清对象、条件与例外。</section><section class=\"c30s8-step\"><b>7 过质询</b>回应最强反方并修正主张。</section><section class=\"c30s8-step\"><b>8 交立案书</b>复核六个结构位置是否一致。</section></div><aside class=\"c30s8-check\"><strong>迁移提示：</strong>系统检查结构一致性，不判断立场方向；下一页沿同一流程处理六个新议题。</aside>",
+        "type": "richText",
+        "title": "八步立案流程与对齐检查"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "c30-build-model-card"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "c30-build-process-card"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-8-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-8-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-build-model"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-build-model",
+           "durationSeconds": 80
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-build-model-card"
+        },
+        "enabledBlockIds": [
+         "c30-build-model-card",
+         "c30-build-process-card"
+        ],
+        "visibleBlockIds": [
+         "c30-build-model-card",
+         "c30-build-process-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-8-guide",
+        "text": "你已经拥有立案质量标准。现在观察人工智能内容标注示范，六问怎样反向组成八步立案流程，并保持主张、理由、证据、推理桥、边界和质询回应彼此对齐。",
+        "audio": "assets/audio/narrations/slice-8-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-build-public-argument"
+      ],
+      "estimatedSeconds": 360
+     },
+     {
+      "id": "slice-9-public-issue-filing",
+      "title": "迁移任务：六个社会议题立案",
+      "blocks": [
+       {
+        "id": "c30-publicbuild-interaction",
+        "type": "interactiveHtml",
+        "source": "interactions/html/public-issue-case-building-wide.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": true
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-publicbuild-interaction"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "orient",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-9-guide"
+           },
+           "to": "filing"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-9-guide"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "c30-publicbuild-interaction"
+           }
+          }
+         ]
+        },
+        {
+         "id": "filing",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "c30-publicbuild-interaction"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "c30-publicbuild-interaction"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "c30-publicbuild-interaction"
+        ]
+       },
+       "initialStepId": "orient"
+      },
+      "narrations": [
+       {
+        "id": "slice-9-guide",
+        "text": "上一页展示了完整立案结构。现在从六个社会议题中选择立场，沿八步流程完成立案并回应质询。系统检查结构一致性，不替你判断立场方向。",
+        "audio": "assets/audio/narrations/slice-9-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-build-public-argument"
+      ],
+      "estimatedSeconds": 1200
+     },
+     {
+      "id": "slice-10-transfer-and-closing",
+      "title": "带走六问：下一份案卷就在日常生活里",
+      "blocks": [
+       {
+        "id": "c30-transfer-card",
+        "html": "<style>.head{text-align:center;padding-bottom:12px;border-bottom:1px solid var(--course-border)}.journey{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin:16px 0}.stage{padding:13px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface)}.stage:nth-child(2){background:color-mix(in srgb,var(--course-accent-weak) 55%,var(--course-surface))}.stage b{display:block;color:var(--course-accent);font-size:20px}.card{padding:14px;border-left:4px solid var(--course-accent);background:var(--course-accent-weak)}.questions{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:10px}.q{padding:9px;border:1px solid var(--course-border);border-radius:var(--course-radius);background:var(--course-surface);font-size:14px}.q b{color:var(--course-accent)}.transfer{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}.scene{padding:10px;border:1px solid var(--course-border);border-radius:var(--course-radius);text-align:center}.closing{margin-top:14px;text-align:center;color:var(--course-secondary);font-weight:700}@media(max-width:760px){.journey,.questions{grid-template-columns:1fr}.transfer{grid-template-columns:1fr 1fr}}</style><section class=\"head\"><small>课程结尾 · 方法压缩与迁移</small><h2>从旁听者到能立案的论证审理者</h2><p>上一页完成六份公共议题立案书；现在回收案卷册，把方法带到平台外。</p></section><div class=\"journey\"><section class=\"stage\"><b>识别</b><p>从“听着不对”走到定位具体断点。</p></section><section class=\"stage\"><b>审理</b><p>完成十案诊断与八份完整案件报告。</p></section><section class=\"stage\"><b>立案</b><p>建立六份可质询、可修正的公共论证。</p></section></div><section class=\"card\"><h3>随身六问卡</h3><div class=\"questions\"><section class=\"q\"><b>1 定主张</b><br>他要我接受什么？</section><section class=\"q\"><b>2 找理由</b><br>真正的支持理由是什么？</section><section class=\"q\"><b>3 验证据</b><br>证据实际支持到哪里？</section><section class=\"q\"><b>4 查推理桥</b><br>中间藏着什么连接？</section><section class=\"q\"><b>5 划边界</b><br>在哪些条件下成立？</section><section class=\"q\"><b>6 过质询</b><br>最强反方会逼我改什么？</section></div></section><div class=\"transfer\"><section class=\"scene\">广告与短视频</section><section class=\"scene\">AI回答与推荐</section><section class=\"scene\">课堂辩论</section><section class=\"scene\">议论文写作</section></div><p class=\"closing\">课程结束。下一份让你想点头、又值得追问的真实文本，就是新的案卷。</p>",
+        "type": "richText",
+        "title": "六问日常自检卡"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "c30-transfer-card"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "introduce",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "slice-10-guide"
+           },
+           "to": "read"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "slice-10-guide"
+          }
+         ]
+        },
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "timer.elapsed",
+            "timerId": "read-transfer"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "startTimer",
+           "timerId": "read-transfer",
+           "durationSeconds": 35
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "focusedTarget": {
+         "blockId": "c30-transfer-card"
+        },
+        "enabledBlockIds": [
+         "c30-transfer-card"
+        ],
+        "visibleBlockIds": [
+         "c30-transfer-card"
+        ]
+       },
+       "initialStepId": "introduce"
+      },
+      "narrations": [
+       {
+        "id": "slice-10-guide",
+        "text": "你已经走完识别、审理和立案。最后回收案卷册成果，把六问压缩成日常自检卡，迁移到广告、人工智能回答、辩论和写作。下一份真实文本，就是新的案卷。",
+        "audio": "assets/audio/narrations/slice-10-guide.m4a"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-six-question-map",
+       "obj-diagnose-rebuild",
+       "obj-review-complete-case",
+       "obj-build-public-argument"
+      ],
+      "estimatedSeconds": 180
+     }
+    ],
+    "objectiveIds": [
+     "obj-build-public-argument"
+    ]
+   }
+  ],
+  "title": "逻辑侦探局：从拆案到立案的论证训练",
+  "closing": {
+   "fallback": {
+    "text": "你已完成识别—审理—立案：先用十案稳定局部诊断，再用八步审理完整论证，最后围绕六个公共议题建立立案书。请保留六问自检卡，把下一份真实文本当作新的案卷。"
+   },
+   "takeaways": [
+    "谬误名称只是入口，诊断要指出具体推理断点。",
+    "事实为真不等于足以推出结论，证据与结论之间需要可检验的推理桥。",
+    "重建论证要修复证据、连接和边界，而不是只换语气。",
+    "最强反方的价值，是迫使主张补条件、补证据或缩小范围。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "你已经用六问论证审理法完成了从识别推理断点、审理完整案件到建立公共论证的完整路径，并形成论证审理案卷册。",
+   "transferApplications": [
+    "用六问检查广告、短视频和公共表达。",
+    "用六问核查AI回答与推荐内容的证据边界。",
+    "用六问准备课堂辩论中的主张与反方回应。",
+    "用六问修改议论文的证据、推理桥和限定条件。"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "欢迎进入逻辑侦探局。你会从一段每句都可能为真、结论却未必成立的证词开始，学习六问论证审理法；随后完成十个谬误案卷和八份完整案件审理，最后围绕六个公共议题建立可质询、可修正的立案书。"
+   },
+   "learningPreview": [
+    "识别：看见事实与结论之间可能存在的推理断裂。",
+    "审理：用六问定位证据、连接、边界和质询中的具体问题。",
+    "立案：把六问反向用于建立自己的公共论证。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-six-question-map",
+    "text": "能用六问论证审理法定位主张、理由、证据、推理桥、边界与反方回应。",
+    "evidenceBlockIds": [
+     "c30-fallacy-interaction"
+    ]
+   },
+   {
+    "id": "obj-diagnose-rebuild",
+    "text": "能把谬误标签还原为具体推理断点，并在反馈后重建更稳健的论证。",
+    "evidenceBlockIds": [
+     "c30-fallacy-interaction",
+     "c30-deconstruct-interaction"
+    ]
+   },
+   {
+    "id": "obj-review-complete-case",
+    "text": "能在完整案件中审查证据强度、推理连接、适用边界和质询回应，形成结案意见。",
+    "evidenceBlockIds": [
+     "c30-deconstruct-interaction"
+    ]
+   },
+   {
+    "id": "obj-build-public-argument",
+    "text": "能围绕公共议题建立结构一致、证据匹配、边界清楚且可回应质询的立案书。",
+    "evidenceBlockIds": [
+     "c30-publicbuild-interaction"
+    ]
+   }
+  ],
+  "estimatedMinutes": 84
+ },
+ "schemaVersion": "2.0"
+}

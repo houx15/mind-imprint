@@ -26,6 +26,7 @@ export function RoomSwitcher({ value, onChange, className }: RoomSwitcherProps) 
             key={b.key}
             type="button"
             aria-pressed={active}
+            data-tour={`room-tab-${b.key}`}
             onClick={() => onChange(b.key)}
             className={cx(
               "flex items-center gap-1.5 rounded-mk-full px-3 py-1.5 transition-colors duration-[120ms] ease-mk",

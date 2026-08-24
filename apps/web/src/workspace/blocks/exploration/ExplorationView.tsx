@@ -29,7 +29,7 @@ import { PaperDetail, candidateToPaperView } from "./PaperDetail";
 import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
 import { WarrenMap } from "./WarrenMap";
-import { countPapersByRoot } from "./warrenLayout";
+import { anyReferenceDoneByRoot, countPapersByRoot, mergeReadByRoot } from "./warrenLayout";
 import { RabbitHoleLoader } from "@/ui";
 import { SubagentHint } from "@/studio/ai/SubagentHint";
 import { ExplorationReviewBox } from "./ExplorationReviewBox";
@@ -126,6 +126,42 @@ export type ExplorationViewProps = {
   // — and so the graph stays the centered focal element (user request). Defaults
   // to "left" (the historical chat side) → controls on the right.
   aiSide?: "left" | "right";
+  /** P7 · the guided tour's `openSearchCard` deep-link — a bumped nonce
+   * (forwarded from WorkspaceContainer/ReadingBlock) that opens the 检索卡
+   * teaching modal once per new value. Ref-guarded (mirrors ReadingBlock's own
+   * `forceView`): applied at most once per distinct value, never re-fights the
+   * student's own later open/close of the modal. */
+  forceOpenSearchCard?: number | null;
+  /** Fired once right after `forceOpenSearchCard` has been applied, so the
+   * caller can retract it (mirrors every other force* one-shot). */
+  onForceOpenSearchCardConsumed?: () => void;
+  /** P7 Task 4b · the guided tour's demo-only "just read" root-id override
+   * (`TourNavContext.markDemoNodeRead`, accumulated in WorkspaceContainer as
+   * `demoReadRootIds`) — merged into the data-derived `readByRoot` (below)
+   * via `mergeReadByRoot` before it reaches `WarrenMap`. The demo project's
+   * tour-read reference starts NOT 'done' (migration 0088) so this is what
+   * lets the map SHOW the un-badged → badged transition without a real write
+   * (the demo project is write-blocked). Absent/empty on every real project
+   * → `readByRoot` is byte-for-byte unaffected.
+   *
+   * P7 cross-seam fix · ALSO threaded to `WarrenMap` raw (unmerged) as
+   * `justReadRootIds`, so it can tell which root just changed vs. which was
+   * already 已读 from data — and place the `warren-node-read` tour anchor on
+   * exactly that one node instead of on every badged node. */
+  demoReadRootIds?: Set<string>;
+  /** P8 Task 6 · the guided tour's demo-only synthetic ADOPTED-node overrides
+   * (`TourNavContext.markDemoNodeAdopted`, accumulated in WorkspaceContainer
+   * as `demoAdoptedLeads`/`demoAdoptedRefs`) — merged into the data-derived
+   * `leads`/`allReferences` (below) before every downstream computation
+   * (roots, counts, the mindmap, 已读, 未归类, …) so a demo-adopted paper
+   * behaves exactly like a real one everywhere it's read. Absent/empty on
+   * every real project → byte-for-byte unaffected. */
+  demoAdoptedLeads?: ExplorationLead[];
+  demoAdoptedRefs?: Reference[];
+  /** P8 Task 6 · when set (demo project only), 采纳/addFromDetail call this
+   * INSTEAD of the real POST /exploration/adopt (which the demo project
+   * 403s) — the write path a real project still takes is untouched. */
+  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => void;
 };
 
 export function ExplorationView({
@@ -137,8 +173,29 @@ export function ExplorationView({
   coach,
   refreshNonce,
   aiSide = "left",
+  forceOpenSearchCard,
+  onForceOpenSearchCardConsumed,
+  demoReadRootIds,
+  demoAdoptedLeads,
+  demoAdoptedRefs,
+  onDemoAdopt,
 }: ExplorationViewProps) {
   const [view, setView] = useState<ExplorationViewData>({ leads: [], danglingSourceIds: [], edges: [] });
+  // P8 Task 6 · the server-fetched leads/references, plus the demo project's
+  // client-only synthetic adopted nodes (see `demoAdoptedLeads`/
+  // `demoAdoptedRefs` above) — merged HERE, once, so every downstream
+  // computation (roots, counts, the mindmap, 已读, 未归类, addedTokens, …)
+  // reads a single consistent tree, exactly the shape it'd have if the
+  // adopt had really persisted. Returns the SAME array reference when
+  // there's nothing to merge (every real project), so this is a no-op.
+  const leads = useMemo(
+    () => (demoAdoptedLeads && demoAdoptedLeads.length > 0 ? [...view.leads, ...demoAdoptedLeads] : view.leads),
+    [view.leads, demoAdoptedLeads],
+  );
+  const allReferences = useMemo(
+    () => (demoAdoptedRefs && demoAdoptedRefs.length > 0 ? [...references, ...demoAdoptedRefs] : references),
+    [references, demoAdoptedRefs],
+  );
   const [loading, setLoading] = useState(true);
   const [busyLeadIds, setBusyLeadIds] = useState<Set<string>>(new Set());
   const [enteringRefId, setEnteringRefId] = useState<string | null>(null);
@@ -310,6 +367,22 @@ export function ExplorationView({
   const [searchDetail, setSearchDetail] = useState<DigCandidate | null>(null);
   const [showSearchCard, setShowSearchCard] = useState(false);
 
+  // P7 · guided-tour deep-link: apply `forceOpenSearchCard` once (ref-guarded,
+  // mirrors ReadingBlock's `forceView`) so a tour step can open 检索卡
+  // deterministically without ever re-fighting the student's own later
+  // open/close. This component remounts fresh whenever the reading room
+  // toggles 列表⇄探索图谱 (ReadingBlock only renders it in "graph"), so the ref
+  // guard is per-mount — the retraction below (via the consumed callback,
+  // which nulls the nonce upstream) is what stops a later remount from
+  // re-opening the modal off a stale truthy prop.
+  const lastOpenSearchCard = useRef<number | null>(null);
+  useEffect(() => {
+    if (!forceOpenSearchCard || lastOpenSearchCard.current === forceOpenSearchCard) return;
+    lastOpenSearchCard.current = forceOpenSearchCard;
+    setShowSearchCard(true);
+    onForceOpenSearchCardConsumed?.();
+  }, [forceOpenSearchCard, onForceOpenSearchCardConsumed]);
+
   async function runControlsSearch(keyword: string) {
     const kw = keyword.trim();
     if (!kw || searching) return;
@@ -408,6 +481,20 @@ export function ExplorationView({
     const key = candidateKey(c);
     if (savingRef.has(key)) return;
     if (inHole && focusRoot) {
+      // P8 Task 6 · the demo project write-blocks the real POST (403) —
+      // WorkspaceContainer hands this component `onDemoAdopt` only when
+      // isDemo, so its presence IS the gate (mirrors `onEnterReading` /
+      // `onCreateReference` elsewhere in this file). Simulate the adoption
+      // client-side instead: no network call, no `onLibraryChanged` (there's
+      // no real reference to reload — the synthetic one is already merged
+      // into `allReferences` above).
+      if (onDemoAdopt) {
+        onDemoAdopt(c, focusRoot.id);
+        setSearchTray((t) => t.filter((x) => candidateKey(x) !== key));
+        setSearchDetail(null);
+        setSearchStage("list");
+        return;
+      }
       setSavingRef((s) => new Set(s).add(key));
       setActionError(false);
       try {
@@ -450,6 +537,18 @@ export function ExplorationView({
     setAdopting((s) => new Set(s).add(key));
     setActionError(false);
     try {
+      // P8 Task 6 · same demo interception as addFromDetail above: when
+      // isDemo, WorkspaceContainer hands this component `onDemoAdopt`, which
+      // simulates the adoption client-side (mints a synthetic connected
+      // child lead under `digFromId` + a synthetic reference, both already
+      // merged into `leads`/`allReferences` above) instead of the real POST,
+      // which the demo project 403s. No refresh, no `onLibraryChanged` —
+      // nothing changed server-side.
+      if (onDemoAdopt) {
+        onDemoAdopt(c, digFromId);
+        setTray((t) => t.filter((x) => candidateKey(x) !== key));
+        return;
+      }
       await adoptCandidate(projectId, c, { parentLeadId: digFromId });
       setTray((t) => t.filter((x) => candidateKey(x) !== key));
       await refresh();
@@ -601,21 +700,22 @@ export function ExplorationView({
     }
   }
 
-  const roots = useMemo(() => view.leads.filter((l) => l.parentLeadId == null), [view.leads]);
+  const roots = useMemo(() => leads.filter((l) => l.parentLeadId == null), [leads]);
 
   // 未归类 · references with no non-pruned connected lead, and the open
   // questions they can be attached under (roots + their sub-questions).
-  const unfiled = useMemo(() => unfiledReferences(references, view.leads), [references, view.leads]);
+  const unfiled = useMemo(() => unfiledReferences(allReferences, leads), [allReferences, leads]);
   // Tokens of every reference already in the library — a search candidate whose
-  // DOI/url matches one is "已在图谱" (待加入 otherwise).
+  // DOI/url matches one is "已在图谱" (待加入 otherwise). Reads `allReferences` so
+  // a demo-adopted candidate is recognized as already-added on a re-search.
   const addedTokens = useMemo(() => {
     const s = new Set<string>();
-    for (const r of references) {
+    for (const r of allReferences) {
       const t = paperToken(r.url);
       if (t) s.add(t);
     }
     return s;
-  }, [references]);
+  }, [allReferences]);
   const candidateAdded = (c: DigCandidate) => {
     const byDoi = paperToken(c.doi);
     const byUrl = paperToken(c.url);
@@ -630,15 +730,29 @@ export function ExplorationView({
   }, [zoom.mode, unfiled.length]);
   const placementQuestions = useMemo<PlacementQuestion[]>(
     () =>
-      view.leads
+      leads
         .filter((l) => l.status !== "pruned" && l.connectedReferenceId == null)
         .map((l) => ({ id: l.id, text: l.text, parentId: l.parentLeadId })),
-    [view.leads],
+    [leads],
   );
 
   // GVa map data. countByRoot = "文献 x 篇" — descendant PAPERS (adopted leads
   // carrying a connectedReferenceId) under each root, not raw descendant count.
-  const countByRoot = useMemo(() => countPapersByRoot(view.leads), [view.leads]);
+  const countByRoot = useMemo(() => countPapersByRoot(leads), [leads]);
+  // "已读" badge — roots with ≥1 contained reference (own or descendant's)
+  // whose readingStatus is "done". referenceStatus is a plain id→status
+  // lookup off `allReferences` (the sidebar already joins against the same set).
+  const referenceStatusById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const r of allReferences) m.set(r.id, r.readingStatus);
+    return m;
+  }, [allReferences]);
+  // P7 Task 4b: unions in the guided tour's demo-only "just read" override —
+  // a no-op union on every real project (demoReadRootIds absent/empty).
+  const readByRoot = useMemo(
+    () => mergeReadByRoot(anyReferenceDoneByRoot(leads, referenceStatusById), demoReadRootIds),
+    [leads, referenceStatusById, demoReadRootIds],
+  );
 
   // The root the student is currently zoomed into (hole mode). If it vanished
   // (deleted elsewhere), fall back to the map rather than a blank subtree.
@@ -647,10 +761,10 @@ export function ExplorationView({
 
   // GVb · the selected mindmap node (hole mode) + its joined reference (when a
   // paper) → the sidebar's metadata + search target.
-  const selectedLead = inHole ? view.leads.find((l) => l.id === selectedId) ?? null : null;
+  const selectedLead = inHole ? leads.find((l) => l.id === selectedId) ?? null : null;
   const selectedRef =
     selectedLead?.connectedReferenceId != null
-      ? references.find((r) => r.id === selectedLead.connectedReferenceId) ?? null
+      ? allReferences.find((r) => r.id === selectedLead.connectedReferenceId) ?? null
       : null;
 
   // GVd · a selected QUESTION node's 论文列表 — its descendant leads carrying a
@@ -661,7 +775,7 @@ export function ExplorationView({
   const selectedQuestionPapers = useMemo<PaperInList[]>(() => {
     if (!selectedLead || selectedLead.connectedReferenceId != null) return [];
     const childrenOf = new Map<string, ExplorationLead[]>();
-    for (const l of view.leads) {
+    for (const l of leads) {
       if (l.parentLeadId) childrenOf.set(l.parentLeadId, [...(childrenOf.get(l.parentLeadId) ?? []), l]);
     }
     const out: PaperInList[] = [];
@@ -669,13 +783,13 @@ export function ExplorationView({
     while (stack.length) {
       const l = stack.pop()!;
       if (l.connectedReferenceId != null) {
-        const ref = references.find((r) => r.id === l.connectedReferenceId);
+        const ref = allReferences.find((r) => r.id === l.connectedReferenceId);
         out.push({ id: l.id, title: ref?.title ?? l.text });
       }
       stack.push(...(childrenOf.get(l.id) ?? []));
     }
     return out;
-  }, [selectedLead, view.leads, references]);
+  }, [selectedLead, leads, allReferences]);
 
   // GVd · the unified sidebar's state. 'ai' whenever nothing is selected (Level-1
   // always, Level-2 until a node is clicked); 'results' once a dig launched from
@@ -737,6 +851,7 @@ export function ExplorationView({
               </div>
               <button
                 type="button"
+                data-tour="explore-directions"
                 onClick={() => void proposeDirections()}
                 disabled={proposingDir}
                 className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
@@ -745,6 +860,7 @@ export function ExplorationView({
               </button>
               <button
                 type="button"
+                data-tour="search-card-trigger"
                 onClick={() => setShowSearchCard(true)}
                 className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
               >
@@ -826,6 +942,9 @@ export function ExplorationView({
                     </div>
                     <button
                       type="button"
+                      // Guided tour: anchor only the FIRST row's 搜索 button so
+                      // the tour's action-click target is deterministic.
+                      data-tour={i === 0 ? "explore-search" : undefined}
                       onClick={() => openDirection(s.keyword)}
                       className="flex-none rounded-mk bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600"
                     >
@@ -866,13 +985,16 @@ export function ExplorationView({
                 <p className="text-[12px] text-mk-faint">没有结果，换个关键词试试。</p>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {searchTray.map((c) => {
+                  {searchTray.map((c, i) => {
                     const key = candidateKey(c);
                     const meta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
                     return (
                       <li key={key}>
                         <button
                           type="button"
+                          // Guided tour: anchor only the FIRST result row so
+                          // the tour's action-click target is deterministic.
+                          data-tour={i === 0 ? "explore-result" : undefined}
                           onClick={() => openDetail(c)}
                           className="w-full cursor-pointer rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2 text-left hover:border-mk-accent hover:bg-mk-accent-50"
                         >
@@ -914,7 +1036,16 @@ export function ExplorationView({
                 primaryAction={
                   added
                     ? undefined
-                    : { label: inHole ? "采纳到当前问题" : "收进未归类", onClick: () => void addFromDetail(c), busy }
+                    : {
+                        label: inHole ? "采纳到当前问题" : "收进未归类",
+                        onClick: () => void addFromDetail(c),
+                        busy,
+                        // Guided tour: only the inHole "采纳到当前问题" branch
+                        // is the intercepted demo-adopt path (onDemoAdopt) that
+                        // makes a node appear — the unfiled "收进未归类" branch
+                        // is a different (403-on-demo) write, so it stays unanchored.
+                        dataTour: inHole ? "explore-adopt" : undefined,
+                      }
                 }
                 secondaryAction={
                   added
@@ -1033,7 +1164,7 @@ export function ExplorationView({
           <QuestionMindmap
             projectId={projectId}
             root={focusRoot!}
-            leads={view.leads}
+            leads={leads}
             selectedId={selectedId}
             onSelect={selectNode}
             onDeleteLead={removeNode}
@@ -1091,6 +1222,8 @@ export function ExplorationView({
               projectId={projectId}
               roots={roots}
               countByRoot={countByRoot}
+              readByRoot={readByRoot}
+              justReadRootIds={demoReadRootIds}
               edges={view.edges}
               onZoom={zoomInto}
               unfiledCount={unfiled.length}

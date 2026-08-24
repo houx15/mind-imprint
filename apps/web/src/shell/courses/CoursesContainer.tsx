@@ -2,13 +2,33 @@ import { useEffect, useState } from "react";
 import { CoursesView } from "./CoursesView";
 import { CoursePlayer } from "./CoursePlayer";
 import { RuntimeCoursePlayer } from "./RuntimeCoursePlayer";
+import { CourseDetail } from "./CourseDetail";
 import { getCourseDefinition } from "@/api/courseDefinition";
 import { ApiError } from "@/api/client";
 import { Button } from "@/ui";
 import { api } from "@/api";
 import { CourseReport } from "./CourseReport";
 
-type View = { name: "grid" } | { name: "player"; courseId: string } | { name: "report"; courseId: string };
+type View = { name: "grid" } | { name: "detail"; courseId: string } | { name: "player"; courseId: string } | { name: "report"; courseId: string; attemptId?: string };
+
+// CourseOpenTarget is a deep-link INTO a course from elsewhere (home cards, 图鉴,
+// or 学习记录). `mode` picks where it lands: "detail" is the universal browse
+// landing (home / 图鉴); "player" resumes the course (学习记录 → 继续); "report"
+// opens a finished attempt's frozen report (学习记录 → 查看报告), addressed by
+// `attemptId`.
+export type CourseOpenTarget = { slug: string; mode: "detail" | "player" | "report"; attemptId?: string };
+
+function initialViewFor(target: CourseOpenTarget | null | undefined): View {
+  if (!target) return { name: "grid" };
+  switch (target.mode) {
+    case "player":
+      return { name: "player", courseId: target.slug };
+    case "report":
+      return { name: "report", courseId: target.slug, attemptId: target.attemptId };
+    default:
+      return { name: "detail", courseId: target.slug };
+  }
+}
 
 // PlayerRouter decides PER COURSE which player to mount: a course that HAS a
 // 2.0 definition plays through the new runtime (RuntimeCoursePlayer); a course
@@ -65,27 +85,29 @@ function PlayerRouter({ slug, studentId, onExit, onFinish }: { slug: string; stu
   return <CoursePlayer courseId={slug} onExit={onExit} onFinish={onFinish} />;
 }
 
-export function CoursesContainer({ onGoPortal, initialCourseId, onCourseConsumed, studentId, onImmersiveChange }: { onGoPortal?: () => void; initialCourseId?: string | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void }) {
-  // Deep-link: opening a course from anywhere (home's course cards, the
-  // 图鉴's "去学这张卡的课程" link, the 学习记录 list) lands in the PLAYER so the
-  // student can actually learn it (the player resumes at their saved step).
-  // Finishing the course lands on the completion report. Read once at mount.
-  const [view, setView] = useState<View>(initialCourseId ? { name: "player", courseId: initialCourseId } : { name: "grid" });
+export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, studentId, onImmersiveChange }: { onGoPortal?: () => void; initialOpen?: CourseOpenTarget | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void }) {
+  // Deep-link: a course opened from elsewhere lands per initialOpen.mode —
+  // home cards / 图鉴 land on DETAIL (the universal landing, CTA → player);
+  // 学习记录 lands straight on the PLAYER (继续) or a finished attempt's REPORT
+  // (查看报告). Read once at mount.
+  const [view, setView] = useState<View>(() => initialViewFor(initialOpen));
 
   // Consume the one-shot deep-link so re-entering 课程 later shows the grid, not
-  // this same course again. `view` already captured the initial id above, so
+  // this same course again. `view` already captured the initial target above, so
   // clearing the parent's signal now never closes the just-opened course.
   useEffect(() => {
-    if (initialCourseId) onCourseConsumed?.();
+    if (initialOpen) onCourseConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Tell the host (CoursesTab) when a course is open (player/report) so it can
   // go immersive — hide the 课程/学习记录/图鉴 segmented + the platform nav rail,
-  // mirroring the 项目 tab's in-studio behavior. The grid is NOT immersive, so
-  // "back from a course" returns to the courses page with its chrome.
+  // mirroring the 项目 tab's in-studio behavior. The grid AND the detail page
+  // are NOT immersive — detail is a browse page, not the learning experience
+  // itself — so "back from a course" (or landing on its detail) keeps the
+  // courses page's chrome.
   useEffect(() => {
-    onImmersiveChange?.(view.name !== "grid");
+    onImmersiveChange?.(view.name === "player" || view.name === "report");
   }, [view.name, onImmersiveChange]);
 
   // Restart: wipe server-side progress (both storage models), then re-enter the
@@ -100,7 +122,23 @@ export function CoursesContainer({ onGoPortal, initialCourseId, onCourseConsumed
     setView({ name: "player", courseId: slug });
   };
 
+  if (view.name === "detail") {
+    return (
+      <CourseDetail
+        slug={view.courseId}
+        onStart={() => setView({ name: "player", courseId: view.courseId })}
+        onBack={() => setView({ name: "grid" })}
+        onOpenCourse={(id) => setView({ name: "detail", courseId: id })}
+      />
+    );
+  }
   if (view.name === "player") {
+    // Guided tour anchors (§P5 Task 7): RuntimeCoursePlayer's root carries
+    // `data-testid="course-region"` (stable across loading/opening/playing —
+    // unlike `.course-nav__next`, which only exists once the Opening scene's
+    // own "开始" has been clicked) and AskPanel's input row carries
+    // `data-tour="courses-ask-box"`. The tour targets these directly, so
+    // don't remove/rename them.
     return (
       <PlayerRouter
         slug={view.courseId}
@@ -114,6 +152,7 @@ export function CoursesContainer({ onGoPortal, initialCourseId, onCourseConsumed
     return (
       <CourseReport
         courseId={view.courseId}
+        attemptId={view.attemptId}
         onBackToCourses={() => setView({ name: "grid" })}
         onRestart={() => void restartAndPlay(view.courseId)}
         onGoPortal={() => (onGoPortal ? onGoPortal() : setView({ name: "grid" }))}
@@ -122,7 +161,7 @@ export function CoursesContainer({ onGoPortal, initialCourseId, onCourseConsumed
   }
   return (
     <CoursesView
-      onOpenCourse={(id) => setView({ name: "player", courseId: id })}
+      onOpenCourse={(id) => setView({ name: "detail", courseId: id })}
       onRestartCourse={(id) => void restartAndPlay(id)}
     />
   );

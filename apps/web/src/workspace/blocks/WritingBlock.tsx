@@ -131,6 +131,8 @@ export function WritingBlock({
   essayStage,
   onStudioStateChanged,
   onActiveTabChange,
+  forceTab,
+  onForceTabConsumed,
 }: {
   projectId: string;
   title: string;
@@ -187,6 +189,12 @@ export function WritingBlock({
   /** Reports the active writing tab (大纲/片段/正文) up so the container can, e.g.,
    * surface the student's 片段 in the left panel only while they're on 正文. */
   onActiveTabChange?: (tab: "outline" | "snippets" | "draft") => void;
+  /** Guided-tour deep-link (P6, Task 9): force the active tab (大纲/片段/正文) once.
+   * A ref-guarded one-shot (mirrors WorkspaceContainer's `pendingRoom` /
+   * ReadingBlock's `forceView`) so it never fights the student's own later
+   * tab clicks — `onForceTabConsumed` retracts it right after it's applied. */
+  forceTab?: "outline" | "snippets" | "draft" | null;
+  onForceTabConsumed?: () => void;
 }) {
   // The proposal opens on 片段 — where its cards live and where the current part
   // is written; the essay opens on 大纲. Doc-scoped because WritingBlock remounts
@@ -199,6 +207,18 @@ export function WritingBlock({
     return () => onActiveTabChange?.("outline");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab]);
+  // Guided-tour deep-link (P6, Task 9): apply `forceTab` into the live tab once.
+  // Ref-guarded (mirrors ReadingBlock's `forceView`) so each new value applies
+  // exactly once and the student's own later tab clicks are never re-fought; the
+  // `onForceTabConsumed` retraction stops a stale-but-truthy value re-applying.
+  const lastForcedTab = useRef<string | null>(null);
+  useEffect(() => {
+    if (!forceTab || lastForcedTab.current === forceTab) return;
+    lastForcedTab.current = forceTab;
+    setTab(forceTab);
+    onForceTabConsumed?.();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [forceTab]);
   // WC · part-by-part: the draft part the student has pinned to think through
   // with 印记 (lifted so DraftPane can set it and the rail can consume it).
   const [focusPart, setFocusPart] = useState<string | null>(null);
@@ -232,7 +252,10 @@ export function WritingBlock({
   // Phase B · finishing a document advances the studio status deterministically
   // (proposal → essay; essay → review). One student tap (the 完成 button IS the
   // confirmation — 铁律②). advanceStatusTo lives on the hoisted coach store.
-  const { advanceStatusTo, sendStudioTurn } = useStudioChat();
+  // Task 6 (P2, demo project): the shared, read-only demo. The backend 403s
+  // the write regardless — this just keeps the primary 完成 button from
+  // inviting a tap that would only bounce off a 403.
+  const { advanceStatusTo, sendStudioTurn, isDemo } = useStudioChat();
   const isProposal = doc === "proposal";
   // archived = the terminal finalize path has begun (can't reopen writing then).
   const archived = status === "evaluating" || status === "done";
@@ -354,7 +377,7 @@ export function WritingBlock({
             has begun). Auto-selected to the current doc; lets the student look
             back at the finished proposal without leaving the room. */}
         {docOptions && docOptions.length > 1 ? (
-          <div className="flex flex-none items-center gap-0.5 rounded-mk-full border border-mk-border bg-mk-paper p-0.5">
+          <div data-tour="writing-docswitch" className="flex flex-none items-center gap-0.5 rounded-mk-full border border-mk-border bg-mk-paper p-0.5">
             {docOptions.map((d) => (
               <button
                 key={d}
@@ -373,18 +396,46 @@ export function WritingBlock({
           <span className="flex-none rounded-full bg-mk-accent-50 px-2 py-0.5 text-[12px] font-bold text-mk-accent">{isProposal ? "提案" : "论点"}</span>
         )}
         <p className="min-w-0 flex-1 truncate text-[14px] text-mk-ink">{proposal.objective || "还没有写下你的论点——先去开题里想清楚。"}</p>
-        {!archived &&
-          (writingFinished ? (
+        {/* Task 9 (P6 demo): a finished demo is archived, which normally hides the
+            finish/reopen area entirely — but the tour must spotlight 完成写作
+            (data-tour="writing-finish"). So for the demo we ALWAYS render the
+            完成写作 button branch (disabled, read-only), even when archived. The
+            backend 403s the write regardless; disabled here means the click can
+            never even reach openFinish (no confirm modal, no bounce). */}
+        {(!archived || isDemo) &&
+          (isDemo ? (
+            <button
+              type="button"
+              data-tour="writing-finish"
+              disabled
+              className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+              title="演示项目为只读，无法完成"
+            >
+              {isProposal ? "完成提案" : "完成写作"}
+            </button>
+          ) : writingFinished ? (
             // #20 · reversible — 重新打开 unlocks this document again (铁律②).
             <button type="button" onClick={() => void doReopenWriting()} className="flex-none rounded-mk-md border border-mk-border px-3 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-accent" title={isProposal ? "重新编辑提案" : "重新打开写作，继续修改初稿"}>{isProposal ? "重新编辑提案" : "重新打开写作"}</button>
           ) : (
-            <button type="button" onClick={() => void openFinish()} className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600" title={isProposal ? "提案写好了？点这里定稿，进入写正文" : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"}>{isProposal ? "完成提案" : "完成写作"}</button>
+            <button
+              type="button"
+              data-tour="writing-finish"
+              onClick={() => void openFinish()}
+              className="flex-none rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600"
+              title={
+                isProposal
+                  ? "提案写好了？点这里定稿，进入写正文"
+                  : "写完了？点这里锁定初稿、进入回顾（之后仍可重新打开）"
+              }
+            >
+              {isProposal ? "完成提案" : "完成写作"}
+            </button>
           ))}
       </div>
 
       {/* tabs — 大纲/片段/正文, for BOTH the proposal and the essay. The proposal's
           正文 is its assembled prose (ProsePane); the essay's is the full draft. */}
-      <div className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
+      <div data-tour="writing-tabs" className="flex items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2.5">
         <Tab active={tab === "outline"} onClick={() => setTab("outline")} icon="plan">大纲</Tab>
         <Tab active={tab === "snippets"} onClick={() => setTab("snippets")} icon="spark">片段</Tab>
         <Tab active={tab === "draft"} onClick={() => setTab("draft")} icon="writing">正文</Tab>
@@ -423,8 +474,15 @@ export function WritingBlock({
                   <p className="mt-1 text-[14px] text-mk-muted">攒下引文、笔记、灵光一现的句子——把它们归到大纲的章节或探索的线索下（拖 ⠿ 或用「归到」），写作时一目了然。从右侧「材料」也能一键收进来。</p>
                 </div>
               </div>
-              {!locked && (
-                <ProposalGuidePane projectId={projectId} locked={locked} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+              {/* Task 9 (P6 demo): a finished proposal is locked, which hides the
+                  片段引导/写作卡. The tour must spotlight it (data-tour=
+                  "writing-aicard"), so render it for the demo too — but pass
+                  `locked || isDemo` so ProposalGuidePane is fully READ-ONLY (no
+                  active inputs, no AI-write — 铁律①). */}
+              {(!locked || isDemo) && (
+                <div data-tour="writing-aicard">
+                  <ProposalGuidePane projectId={projectId} locked={locked || !!isDemo} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
+                </div>
               )}
               <SnippetsPane snip={snip} projectId={projectId} doc="proposal" locked={finalized} embedded importedSections={importedSections} />
             </div>
@@ -436,20 +494,41 @@ export function WritingBlock({
           // 批注 review affordance (bug 5a): 印记 reads the full proposal and
           // leaves colored 批注 in the left 材料·AI批注 panel — never rewrites it.
           <div className="flex min-h-0 flex-1 flex-col">
-            {!locked && (
-              <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
-                <button
-                  type="button"
-                  onClick={() => void runProposalReview()}
-                  disabled={runningCheck}
-                  className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
-                  title="让印记通读整篇提案，在左侧「材料 · AI批注」里逐段给批注"
-                >
-                  {runningCheck ? "印记正在通读…" : "让印记通读并批注"}
-                </button>
-                <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
-              </div>
-            )}
+            {/* Task 5 (P7 demo slice): a finished/demo proposal hides this trigger
+                (locked), so the guided tour can't show HOW 批注 gets triggered.
+                For isDemo we ALSO render a DISABLED copy (mirrors the 完成写作
+                disabled pattern above) with its own tour anchor — no onClick, so
+                the click can never even reach runProposalReview (no POST, no
+                403). Non-demo behavior is unchanged: the real button stays
+                gated `!locked` exactly as before. */}
+            {(!locked || isDemo) &&
+              (isDemo ? (
+                <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
+                  <button
+                    type="button"
+                    data-tour="writing-review-trigger"
+                    disabled
+                    className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+                    title="演示项目为只读，无法运行批注"
+                  >
+                    让印记通读并批注
+                  </button>
+                  <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
+                </div>
+              ) : (
+                <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
+                  <button
+                    type="button"
+                    onClick={() => void runProposalReview()}
+                    disabled={runningCheck}
+                    className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"
+                    title="让印记通读整篇提案，在左侧「材料 · AI批注」里逐段给批注"
+                  >
+                    {runningCheck ? "印记正在通读…" : "让印记通读并批注"}
+                  </button>
+                  <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
+                </div>
+              ))}
             <div className="min-h-0 flex-1">
               {/* Bug 5b · select-to-quote stages the selection as CoachRail's
                   focusPart pill (editable/cancelable), same as the essay draft —
@@ -1196,7 +1275,7 @@ function OutlinePane({ projectId, title, doc }: { projectId: string; title: stri
   }, [nodes]);
 
   return (
-    <div className="flex min-h-0 flex-col">
+    <div data-tour="writing-outline" className="flex min-h-0 flex-col">
       <div className="flex items-center justify-between px-8 pt-6 pb-3">
         <div>
           <h2 className="font-sans text-[19px] font-bold text-mk-ink">提纲</h2>

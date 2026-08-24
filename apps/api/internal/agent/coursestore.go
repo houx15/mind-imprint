@@ -25,6 +25,7 @@ import (
 	"fmt"
 	"log/slog"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +49,10 @@ type CourseSummaryRow struct {
 	StepCount int
 	Status    string
 	Cover     string
+
+	Category     *string
+	Introduction []byte
+	FeaturedRank *int32
 }
 
 // CoursePlayerPayload is what the player needs to render one course:
@@ -138,7 +143,41 @@ func (s *sqlcAgentStore) ListCourses(ctx context.Context, includePreview bool) (
 			Slug: r.Slug, Branch: r.Branch, Title: r.Title, Blurb: r.Blurb,
 			TimeLabel: r.TimeLabel, CardIDs: r.CardIds, StepCount: int(r.StepCount),
 			Status: r.Status, Cover: r.Cover,
+			Category: r.Category, Introduction: r.Introduction, FeaturedRank: r.FeaturedRank,
 		})
+	}
+	return out, nil
+}
+
+// CourseCatalogProgress is one student's state on one course, as the CATALOG
+// needs it — a completed-step count and when they last worked on it, not the
+// full CourseProgressRow the player resumes from. Status is already normalized
+// to "completed" / "in-progress" by the query.
+type CourseCatalogProgress struct {
+	Status         string
+	CompletedSteps int
+	UpdatedAt      time.Time
+}
+
+// ListProgressForUser returns the student's progress on every course they have
+// TOUCHED, keyed by slug — the catalog's whole progress picture in one round
+// trip. Untouched courses are simply absent from the map (never a zero entry),
+// which is what lets the caller distinguish 未开始 from 0%.
+//
+// This is the batch form of GetProgress and shares its storage preference: a
+// course with both a 2.0 session and a legacy progress row reports the session.
+func (s *sqlcAgentStore) ListProgressForUser(ctx context.Context, userID uuid.UUID) (map[string]CourseCatalogProgress, error) {
+	rows, err := s.q.ListCourseProgressForUser(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	out := make(map[string]CourseCatalogProgress, len(rows))
+	for _, r := range rows {
+		n := int(r.CompletedCount)
+		if n < 0 {
+			n = 0
+		}
+		out[r.Slug] = CourseCatalogProgress{Status: r.Status, CompletedSteps: n, UpdatedAt: r.UpdatedAt}
 	}
 	return out, nil
 }
@@ -198,7 +237,39 @@ func (s *sqlcAgentStore) UpsertCourse(ctx context.Context, in UpsertCourseInput)
 // yet (first-time visitor) is not an error: it returns a zero progress row
 // still carrying the resolved CourseID, mirroring the pre-v2 handler's own
 // zero-progress default (internal/api/course.go's getCourseProgress).
+//
+// A 2.0 (runtime) course keeps its progress in course_session, not
+// course_progress, so its completion is derived from the session's completed
+// slice states (GetCourseSessionProgressBySlug) and takes precedence when a
+// session exists — that is what lets the catalog ring reflect a 2.0 course's
+// real progress. CompletedOrdinals is synthesized as the prefix [0..n) of the
+// completed-slice count: the catalog consumers use only its length, and a course
+// is completed slice-by-slice in order, so a prefix is a faithful record.
 func (s *sqlcAgentStore) GetProgress(ctx context.Context, userID uuid.UUID, slug string) (CourseProgressRow, error) {
+	if sp, serr := s.q.GetCourseSessionProgressBySlug(ctx, sqlc.GetCourseSessionProgressBySlugParams{UserID: userID, Slug: slug}); serr == nil {
+		n := int(sp.CompletedSlices)
+		if n < 0 {
+			n = 0
+		}
+		ords := make([]int, n)
+		for i := range ords {
+			ords[i] = i
+		}
+		var completedAt *time.Time
+		if sp.Status == "completed" {
+			t := sp.UpdatedAt
+			completedAt = &t
+		}
+		return CourseProgressRow{
+			CourseID:          sp.CourseID,
+			CompletedOrdinals: ords,
+			CompletedAt:       completedAt,
+			UpdatedAt:         sp.UpdatedAt,
+		}, nil
+	} else if !errors.Is(serr, pgx.ErrNoRows) {
+		return CourseProgressRow{}, serr
+	}
+
 	row, err := s.q.GetCourseProgressBySlug(ctx, sqlc.GetCourseProgressBySlugParams{UserID: userID, Slug: slug})
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -503,7 +574,12 @@ type CourseReport20Result struct {
 // total active time (sum of per-Slice elapsedSeconds), and a quiz tally from the
 // session's answer events (dedup by sourceId, last attempt wins — same rule as
 // the legacy path). Cards come from course.card_ids (the course↔cards relation).
-func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, slug string) (CourseReport20Result, bool, error) {
+// attemptID selects WHICH run's report to compute: "" is the current (latest)
+// attempt — the live behavior; a specific course_session id is a past finished
+// attempt (the learning history's "看那一次的报告"), owner- and course-scoped. A
+// malformed or foreign attempt id resolves to pgx.ErrNoRows → 404 at the handler,
+// NOT a silent fall-through to the empty/latest report.
+func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, slug, attemptID string) (CourseReport20Result, bool, error) {
 	def, _, err := s.GetCourseDefinition(ctx, slug)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
@@ -528,11 +604,27 @@ func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, s
 	}
 
 	var sess courseSessionForReport
-	sessBytes, _, found, err := s.GetCourseSession(ctx, userID, slug)
-	if err != nil {
-		return CourseReport20Result{}, false, err
+	var sessBytes []byte
+	if attemptID != "" {
+		id, perr := uuid.Parse(attemptID)
+		if perr != nil {
+			return CourseReport20Result{}, false, pgx.ErrNoRows // malformed id → 404, never the latest report
+		}
+		row, gerr := s.q.GetCourseSessionForReport(ctx, sqlc.GetCourseSessionForReportParams{ID: id, UserID: userID, Slug: slug})
+		if gerr != nil {
+			return CourseReport20Result{}, false, gerr // ErrNoRows (unknown/foreign attempt) → 404
+		}
+		sessBytes = row.Session
+	} else {
+		b, _, found, gerr := s.GetCourseSession(ctx, userID, slug)
+		if gerr != nil {
+			return CourseReport20Result{}, false, gerr
+		}
+		if found {
+			sessBytes = b
+		}
 	}
-	if found && len(sessBytes) > 0 {
+	if len(sessBytes) > 0 {
 		if err := json.Unmarshal(sessBytes, &sess); err != nil {
 			return CourseReport20Result{}, false, fmt.Errorf("course report 2.0: parse session: %w", err)
 		}
@@ -589,6 +681,225 @@ func (s *sqlcAgentStore) CourseReport20(ctx context.Context, userID uuid.UUID, s
 	}, true, nil
 }
 
+// ---- Course Runtime 2.0 answer detail (per-attempt recorded answers + time) ----
+
+// courseAnswerDef is the wider definition slice CourseAnswerReport20 reads: per
+// Slice, each block's id/type/prompt plus the assessment shape needed to grade
+// the student's stored answer and render option labels. (courseDefForReport,
+// used by the summary report, only needs slice id+title — this is the deeper
+// read the answer detail requires.)
+type courseAnswerDef struct {
+	SchemaVersion string `json:"schemaVersion"`
+	Course        struct {
+		Parts []struct {
+			Slices []struct {
+				ID     string `json:"id"`
+				Title  string `json:"title"`
+				Blocks []struct {
+					ID      string `json:"id"`
+					Type    string `json:"type"`
+					Prompt  string `json:"prompt"`
+					Options []struct {
+						ID    string `json:"id"`
+						Label string `json:"label"`
+					} `json:"options"`
+					Assessment struct {
+						Mode            string   `json:"mode"`
+						CorrectOptionID string   `json:"correctOptionId"`
+						AcceptedAnswers []string `json:"acceptedAnswers"`
+						CaseSensitive   bool     `json:"caseSensitive"`
+					} `json:"assessment"`
+				} `json:"blocks"`
+			} `json:"slices"`
+		} `json:"parts"`
+	} `json:"course"`
+}
+
+// courseAnswerSession is the session slice the answer detail reads: per Slice,
+// elapsed time + each block's recorded final answer and attempt count.
+type courseAnswerSession struct {
+	SliceStates map[string]struct {
+		ElapsedSeconds float64 `json:"elapsedSeconds"`
+		BlockStates    map[string]struct {
+			Attempts int             `json:"attempts"`
+			Answer   json.RawMessage `json:"answer"`
+		} `json:"blockStates"`
+	} `json:"sliceStates"`
+}
+
+// CourseAnswerItem / CourseAnswerSlice / CourseAnswerReportData mirror the
+// @mind-imprint/contracts CourseAnswerReport DTO — one item per recorded
+// assessment block (singleChoice / fillBlank), with the student's FINAL answer,
+// graded correctness (nil for ungraded), and attempt count.
+type CourseAnswerItem struct {
+	BlockID    string
+	Type       string
+	Prompt     string
+	Answered   bool
+	YourAnswer string
+	Correct    *bool
+	Attempts   int
+}
+
+type CourseAnswerSlice struct {
+	SliceID          string
+	Title            string
+	TimeSpentSeconds int
+	Items            []CourseAnswerItem
+}
+
+type CourseAnswerReportData struct {
+	Slices []CourseAnswerSlice
+}
+
+// courseSessionBytesForAttempt resolves WHICH run's session blob to read: a
+// specific past attempt (owner+course-scoped; malformed/foreign id →
+// pgx.ErrNoRows → 404 at the handler) or, when attemptID is "", the current
+// (latest) attempt. Shared by the answer detail; mirrors CourseReport20's own
+// inline resolution exactly.
+func (s *sqlcAgentStore) courseSessionBytesForAttempt(ctx context.Context, userID uuid.UUID, slug, attemptID string) ([]byte, error) {
+	if attemptID != "" {
+		id, perr := uuid.Parse(attemptID)
+		if perr != nil {
+			return nil, pgx.ErrNoRows // malformed id → 404, never a fall-through to the latest
+		}
+		row, gerr := s.q.GetCourseSessionForReport(ctx, sqlc.GetCourseSessionForReportParams{ID: id, UserID: userID, Slug: slug})
+		if gerr != nil {
+			return nil, gerr
+		}
+		return row.Session, nil
+	}
+	b, _, found, gerr := s.GetCourseSession(ctx, userID, slug)
+	if gerr != nil {
+		return nil, gerr
+	}
+	if !found {
+		return nil, nil
+	}
+	return b, nil
+}
+
+// CourseAnswerReport20 computes the per-attempt answer detail for a
+// CourseDefinition-2.0 course: for each Slice that has assessment blocks, the
+// student's recorded final answer to each singleChoice/fillBlank question, its
+// graded correctness, attempt count, and the Slice's time spent. Returns
+// found=false (not an error) for a legacy course (the caller returns an empty
+// report). attemptID selects the run ("" = latest); an unknown/foreign attempt
+// surfaces as pgx.ErrNoRows → 404. Non-assessment blocks (text/media/interactive
+// HTML) are intentionally omitted here — their raw evidence stays recorded in
+// the session blob for the future analytics export, but the answer drawer shows
+// only the genuine questions.
+func (s *sqlcAgentStore) CourseAnswerReport20(ctx context.Context, userID uuid.UUID, slug, attemptID string) (CourseAnswerReportData, bool, error) {
+	def, _, err := s.GetCourseDefinition(ctx, slug)
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return CourseAnswerReportData{}, false, nil
+		}
+		return CourseAnswerReportData{}, false, err
+	}
+	if len(def) == 0 {
+		return CourseAnswerReportData{}, false, nil // legacy course (no 2.0 definition)
+	}
+	var d courseAnswerDef
+	if err := json.Unmarshal(def, &d); err != nil {
+		return CourseAnswerReportData{}, false, fmt.Errorf("course answer report: parse definition: %w", err)
+	}
+	if d.SchemaVersion != "2.0" {
+		return CourseAnswerReportData{}, false, nil
+	}
+
+	sessBytes, err := s.courseSessionBytesForAttempt(ctx, userID, slug, attemptID)
+	if err != nil {
+		return CourseAnswerReportData{}, false, err
+	}
+	var sess courseAnswerSession
+	if len(sessBytes) > 0 {
+		if err := json.Unmarshal(sessBytes, &sess); err != nil {
+			return CourseAnswerReportData{}, false, fmt.Errorf("course answer report: parse session: %w", err)
+		}
+	}
+
+	out := CourseAnswerReportData{Slices: []CourseAnswerSlice{}}
+	for _, part := range d.Course.Parts {
+		for _, sl := range part.Slices {
+			ss := sess.SliceStates[sl.ID]
+			items := []CourseAnswerItem{}
+			for _, b := range sl.Blocks {
+				bs := ss.BlockStates[b.ID]
+				ans := jsonString(bs.Answer)
+				answered := ans != ""
+				switch b.Type {
+				case "singleChoice":
+					label := ans
+					for _, o := range b.Options {
+						if o.ID == ans {
+							label = o.Label
+							break
+						}
+					}
+					var correct *bool
+					if b.Assessment.Mode == "graded" && answered {
+						c := ans == b.Assessment.CorrectOptionID
+						correct = &c
+					}
+					display := ""
+					if answered {
+						display = label
+					}
+					items = append(items, CourseAnswerItem{
+						BlockID: b.ID, Type: b.Type, Prompt: b.Prompt,
+						Answered: answered, YourAnswer: display, Correct: correct, Attempts: bs.Attempts,
+					})
+				case "fillBlank":
+					var correct *bool
+					if b.Assessment.Mode == "graded" && answered {
+						c := false
+						for _, acc := range b.Assessment.AcceptedAnswers {
+							if b.Assessment.CaseSensitive {
+								if ans == acc {
+									c = true
+									break
+								}
+							} else if strings.EqualFold(strings.TrimSpace(ans), strings.TrimSpace(acc)) {
+								c = true
+								break
+							}
+						}
+						correct = &c
+					}
+					items = append(items, CourseAnswerItem{
+						BlockID: b.ID, Type: b.Type, Prompt: b.Prompt,
+						Answered: answered, YourAnswer: ans, Correct: correct, Attempts: bs.Attempts,
+					})
+				default:
+					// Non-assessment blocks carry no question to show here.
+					continue
+				}
+			}
+			if len(items) == 0 {
+				continue // a Slice with no assessment blocks adds nothing to the answer detail
+			}
+			out.Slices = append(out.Slices, CourseAnswerSlice{
+				SliceID: sl.ID, Title: sl.Title, TimeSpentSeconds: int(ss.ElapsedSeconds + 0.5), Items: items,
+			})
+		}
+	}
+	return out, true, nil
+}
+
+// jsonString decodes a JSON value expected to be a string, returning "" for
+// null / absent / non-string (a survey answer or an unanswered block).
+func jsonString(raw json.RawMessage) string {
+	if len(raw) == 0 {
+		return ""
+	}
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		return ""
+	}
+	return s
+}
+
 // GetCourseDefinition returns one course's stored CourseDefinition 2.0 document
 // (raw jsonb) by slug, alongside the course's publish status. A legacy course
 // with no 2.0 definition returns a nil []byte (SQL NULL), NOT an error; an
@@ -639,6 +950,14 @@ type UpsertCourseDefinitionInput struct {
 	TimeLabel  string
 	CardIDs    []string
 	Definition []byte
+	// StepCount is the authored slice count (one slice = one step). Stored on
+	// the course row's step_count so the catalog's "N 步" label and progress
+	// math work for 2.0 courses; the runtime's own in-course progress is
+	// session-derived and does not read this.
+	StepCount int
+
+	Category     *string
+	Introduction []byte
 }
 
 // UpsertCourseDefinition creates or modifies one 2.0 course's definition,
@@ -655,7 +974,10 @@ func (s *sqlcAgentStore) UpsertCourseDefinition(ctx context.Context, in UpsertCo
 		Slug: in.Slug, Branch: in.Branch, Title: in.Title, Blurb: in.Blurb,
 		TimeLabel:        in.TimeLabel,
 		CardIds:          cardIDs,
+		StepCount:        int32(in.StepCount),
 		CourseDefinition: in.Definition,
+		Category:         in.Category,
+		Introduction:     in.Introduction,
 	})
 	if err != nil {
 		return "", err
@@ -715,21 +1037,34 @@ func (s *sqlcAgentStore) DeleteCourseProgress(ctx context.Context, userID, cours
 	return s.q.DeleteCourseProgress(ctx, sqlc.DeleteCourseProgressParams{UserID: userID, CourseID: courseID})
 }
 
-// CourseHistoryItem is one touched course in a student's learning history:
-// the slug, a coarse status (the runtime session status verbatim, or
-// 'completed'/'in-progress' for a legacy course), the count of completed steps
-// (legacy only — 0 for runtime), and the last-activity time. The caller
-// enriches title/cover from the course list.
+// DeleteIncompleteLatestCourseSession powers the 2.0 RELEARN path: before minting
+// a fresh attempt, drop the current (newest) attempt IF it never finished, so
+// abandoned partial attempts don't pile up in the history. A completed current
+// attempt is kept (it becomes a permanent finished record). Idempotent.
+func (s *sqlcAgentStore) DeleteIncompleteLatestCourseSession(ctx context.Context, userID, courseID uuid.UUID) error {
+	return s.q.DeleteIncompleteLatestCourseSession(ctx, sqlc.DeleteIncompleteLatestCourseSessionParams{UserID: userID, CourseID: courseID})
+}
+
+// CourseHistoryItem is one ATTEMPT in a student's learning history (since 0077 a
+// course can be relearned, so a course may have several rows): the attempt id (the
+// course_session id — the report of that specific run is fetched by it; "" for a
+// legacy course), the slug, a coarse status (the runtime session status verbatim,
+// or 'completed'/'in-progress' for a legacy course), the count of completed steps,
+// the last-activity time, and the FROZEN completion time (nil while in progress).
+// The caller enriches title/cover from the course list.
 type CourseHistoryItem struct {
+	AttemptID      string
 	Slug           string
 	Status         string
 	CompletedCount int
 	UpdatedAt      time.Time
+	CompletedAt    *time.Time
 }
 
-// ListCourseHistory returns the courses this student has engaged with across
-// BOTH storage models (runtime session + legacy progress), newest activity
-// first.
+// ListCourseHistory returns the attempts this student has made across BOTH storage
+// models (runtime session + legacy progress) — one row per attempt, newest first
+// (a finished attempt sorted by its frozen completion time, an in-progress one by
+// last activity).
 func (s *sqlcAgentStore) ListCourseHistory(ctx context.Context, userID uuid.UUID) ([]CourseHistoryItem, error) {
 	rows, err := s.q.ListCourseHistory(ctx, userID)
 	if err != nil {
@@ -737,8 +1072,14 @@ func (s *sqlcAgentStore) ListCourseHistory(ctx context.Context, userID uuid.UUID
 	}
 	items := make([]CourseHistoryItem, 0, len(rows))
 	for _, r := range rows {
+		var completedAt *time.Time
+		if r.CompletedAt.Valid {
+			t := r.CompletedAt.Time
+			completedAt = &t
+		}
 		items = append(items, CourseHistoryItem{
-			Slug: r.Slug, Status: r.Status, CompletedCount: int(r.CompletedCount), UpdatedAt: r.UpdatedAt,
+			AttemptID: r.AttemptID, Slug: r.Slug, Status: r.Status,
+			CompletedCount: int(r.CompletedCount), UpdatedAt: r.UpdatedAt, CompletedAt: completedAt,
 		})
 	}
 	return items, nil

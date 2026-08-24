@@ -1,0 +1,397 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>第 5 步 · 查机构背后</title>
+<style>
+html, body { font-size: 16px; }
+button, input, select, textarea { font-size: 16px; }
+
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#12100e; --panel:#1b1815; --panel-2:#221e1a; --line:#3a332c;
+  --ink:#f0e9e0; --ink-2:#b8ada0; --muted:#8a7f73;
+  --gold:#c9a227; --gold-soft:rgba(201,162,39,.12);
+  --rust:#b5522f; --green:#5f7d5a;
+}
+html,body{height:100%}
+body{
+  background:var(--bg); color:var(--ink);
+  font-size: 16px; line-height: 1.75; font-family: -apple-system,BlinkMacSystemFont,"PingFang SC","Hiragino Sans GB","Microsoft YaHei",sans-serif;
+  display:flex; align-items:center; justify-content:center; padding:10px;
+  overflow-x:hidden;
+}
+#stage{
+  width:100%; max-width:1000px; aspect-ratio:4 / 3; max-height:calc(100vh - 20px);
+  background:var(--panel); border:1px solid var(--line); border-radius:14px;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+header{
+  padding:11px 20px 9px; border-bottom:1px solid var(--line);
+  background:var(--panel-2); flex:0 0 auto;
+}
+.eyebrow{
+  display:block; font-size: 16px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--gold); margin-bottom:5px;
+}
+h1{font-size: 18px; font-weight:650; letter-spacing:.01em}
+h1 .no{color:var(--muted); font-weight:400; margin-right:9px}
+.lede{font-size: 16px; color:var(--ink-2); margin-top:3px}
+.chain{
+  display:flex; align-items:center; gap:5px; flex-wrap:wrap;
+  padding:6px 20px; border-bottom:1px solid var(--line); flex:0 0 auto;
+  font-size: 16px; line-height:1.5;
+}
+.chain .lbl{color:var(--muted); margin-right:3px}
+.node{
+  padding:2px 8px; border:1px solid var(--line); border-radius:5px;
+  background:var(--panel-2); color:var(--ink-2); white-space:nowrap;
+}
+.node.origin{border-color:var(--muted)}
+.node.new{border-color:var(--gold); color:var(--gold); background:var(--gold-soft)}
+.node.new.lit{border-color:var(--gold); color:#12100e; background:var(--gold); font-weight:600}
+.node.money.lit{background:var(--rust); border-color:var(--rust); color:#fff}
+.arr{color:var(--muted)}
+main{flex:1 1 auto; overflow-y:auto; padding:13px 20px 6px}
+.ask{
+  background:var(--panel-2); border-left:3px solid var(--gold);
+  padding:10px 14px; border-radius:0 7px 7px 0; margin-bottom:12px;
+}
+.ask .q{font-size: 16px; line-height:1.65}
+.ask .q b{color:var(--gold)}
+.ask .do{font-size: 16px; color:var(--ink-2); margin-top:7px}
+label.wl{display:block; font-size: 16px; color:var(--ink-2); margin-bottom:6px}
+label.wl .req{color:var(--muted); font-size: 16px; margin-left:6px}
+textarea{
+  width:100%; min-height:68px; resize:vertical;
+  background:var(--bg); color:var(--ink); border:1px solid var(--line);
+  border-radius:7px; padding:10px 12px; font-size: 16px; font-size: 16px;
+}
+textarea:focus{outline:none; border-color:var(--gold)}
+.count{font-size: 16px; color:var(--muted); text-align:right; margin-top:4px}
+.m3{display:grid; grid-template-columns:repeat(3,1fr); gap:10px; margin-bottom:14px}
+.m3 .slot .n{font-size: 16px; color:var(--gold); margin-bottom:5px}
+.m3 textarea{min-height:56px; font-size:16px !important}
+.hints{margin:10px 0}
+.hint{
+  background:var(--gold-soft); border:1px solid rgba(201,162,39,.28);
+  border-radius:7px; padding:9px 12px; margin-bottom:8px; font-size: 16px; color:var(--ink);
+}
+.hint .lv{display:block; font-size: 16px; letter-spacing:.1em; color:var(--gold); margin-bottom:3px}
+.hintbar{display:flex; align-items:center; gap:11px; flex-wrap:wrap}
+.note{font-size: 16px; color:var(--muted)}
+button{
+  font-size: 16px; font-size: 16px; cursor:pointer;
+  background:var(--panel-2); color:var(--ink); border:1px solid var(--line);
+  border-radius:7px; padding:7px 15px;
+}
+button:hover:not(:disabled){border-color:var(--gold); color:var(--gold)}
+button:disabled{opacity:.4; cursor:not-allowed}
+button.solid{background:var(--gold); border-color:var(--gold); color:#12100e; font-weight:600}
+button.solid:hover:not(:disabled){background:#dbb02c; color:#12100e}
+.gate{
+  margin:14px 0 4px; padding:13px 15px; border:1px dashed var(--line);
+  border-radius:8px; text-align:center;
+}
+.gate p{font-size: 16px; color:var(--ink-2); margin-bottom:9px}
+.reveal{display:none; margin:14px 0 4px}
+.reveal.open{display:block}
+.reveal .hd{
+  font-size: 16px; letter-spacing:.16em; text-transform:uppercase;
+  color:var(--gold); margin-bottom:8px;
+}
+.ans{
+  background:var(--panel-2); border:1px solid var(--line); border-radius:8px;
+  padding:11px 14px; margin-bottom:9px; font-size: 16px; line-height:1.8;
+}
+.ans b{color:var(--gold)}
+.pr{display:flex; gap:7px; flex-wrap:wrap; margin:11px 0}
+.pr span{
+  font-size: 16px; padding:3px 10px; border-radius:20px;
+  border:1px solid var(--green); color:#9dbd97; background:rgba(95,125,90,.13);
+}
+.clue{
+  border-left:3px solid var(--rust); background:rgba(181,82,47,.1);
+  padding:10px 13px; border-radius:0 7px 7px 0; font-size: 16px; color:var(--ink-2);
+}
+.clue .hd{color:var(--rust)}
+footer{
+  flex:0 0 auto; padding:9px 20px; border-top:1px solid var(--line);
+  background:var(--panel-2); display:flex; align-items:center; gap:13px; flex-wrap:wrap;
+}
+.status{font-size: 16px; color:var(--muted); flex:1 1 auto; min-width:150px}
+.status.ok{color:var(--green)}
+.done-msg{display:none; font-size: 16px; color:var(--gold)}
+.done-msg.on{display:block}
+@media (prefers-reduced-motion: reduce){*{transition:none !important; animation:none !important}}
+
+/* platform-course font verification repair */
+#find { font-size: 16px !important; }
+textarea { font-size: 16px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <header>
+    <span class="eyebrow">追踪信息背后的利益链 · Follow the Money</span>
+    <h1><span class="no">第 5 步</span>查机构背后</h1>
+    <p class="lede">这家智库以前干过什么？</p>
+  </header>
+
+  <div class="chain" id="chain"><span class="lbl">你追出来的链条</span></div>
+
+  <main>
+    <div class="ask">
+      <p class="q">NIPCC 是<b>谁在哪一年发起</b>的？这个发起方过去做过什么？</p>
+      <p class="do">从录屏和《卫报》原文里读出来，写下发起方名称、年份，以及它的历史。</p>
+    </div>
+
+    
+
+    <label class="wl" for="find">你查到了什么<span class="req">写清楚：查到的事实，以及你是从哪儿查到的。至少 12 字。</span></label>
+    <textarea id="find" placeholder="NIPCC 由……于……年发起；这家机构过去还……"></textarea>
+    <div class="count" id="count">0 字</div>
+
+    <div class="hints">
+      <div id="hintList"></div>
+      <div class="hintbar">
+        <button id="hintBtn" type="button">卡住了？给个方向</button>
+        <span class="note" id="hintNote">提示只指方向，不给答案</span>
+      </div>
+    </div>
+
+    <div class="gate" id="gate">
+      <p>答案先扣着。写满 12 字你自己查到的东西，再对照。</p>
+      <button id="revealBtn" type="button" disabled>对照答案</button>
+    </div>
+
+    <div class="reveal" id="reveal">
+      <div class="hd">对照答案</div>
+      <div class="ans">NIPCC 由美国保守派智库 <b>Heartland Institute</b> 于 <b>2009 年</b>发起，专门反对 IPCC 和巴黎协定的结论，否认人为气候变化的科学共识。</div>
+      <div class="ans">这家智库的履历很说明问题：它长期推动<b>「烟草无害化」</b>，之后转向气候否定、反对清洁能源政策。《卫报》2012 年 5 月 4 日报道过它把「相信气候变化」比作大规模谋杀。</div>
+      <div class="ans">同一套打法，先用在烟草上，再用在气候上。</div>
+      <div class="pr"><span>智库背景核查</span><span>横向阅读</span></div>
+      <div class="clue"><span class="hd">下一步 · </span>现在到了最关键的一问。智库不产出产品，它靠什么活着？</div>
+    </div>
+  </main>
+
+  <footer>
+    <span class="status" id="status">还没开始</span>
+    <span class="done-msg" id="doneMsg">已提交，可以继续下一步了</span>
+    <button class="solid" id="completeBtn" type="button" disabled>完成</button>
+  </footer>
+</div>
+
+<script>
+(function(){
+  /* ---------- platform message adapter: mind-course-interaction 1.0 ---------- */
+  const PROTOCOL = "mind-course-interaction";
+  const VERSION = "1.0";
+  let sessionToken = null;
+  const pendingFrameMessages = [];
+  let completionSent = false;
+
+  function postFrameMessage(type, payload) {
+    window.parent.postMessage({
+      protocol: PROTOCOL,
+      version: VERSION,
+      sessionToken,
+      type,
+      payload
+    }, "*");
+  }
+
+  function send(type, payload) {
+    if (!sessionToken) {
+      pendingFrameMessages.push({ type, payload });
+      return;
+    }
+    postFrameMessage(type, payload);
+  }
+
+  window.addEventListener("message", (event) => {
+    const message = event.data;
+    if (!message || message.protocol !== PROTOCOL ||
+        message.version !== VERSION ||
+        !message.sessionToken) return;
+    const isNewSession = sessionToken !== message.sessionToken;
+    sessionToken = message.sessionToken;
+    if (!isNewSession) return;
+    postFrameMessage("ready", {});
+    while (pendingFrameMessages.length) {
+      const pending = pendingFrameMessages.shift();
+      postFrameMessage(pending.type, pending.payload);
+    }
+  });
+
+  var STEP = 5;
+  var LESSON_ID = "follow-money-step-5-thinktank";
+  var MIN = 12;
+  var HINTS = ["回看那段讲发起方的录屏，注意它出现的年份。", "查到智库名字之后，再看它过去做过什么——留意一个关键词：「烟草」。"];
+  var THREE = false;
+  var CHAIN_PRIOR = [["co2science.org", "网站", "源自"], ["Craig Idso", "运营者", "运营"], ["NIPCC", "伪科学机构", "任主席"]];
+  var CHAIN_NEW = ["Heartland Institute", "智库", "发起", false];
+
+  var started = Date.now();
+  var hintsUsed = 0;
+  var revealed = false;
+  var submitted = false;
+
+  var find = document.getElementById("find");
+  var count = document.getElementById("count");
+  var hintList = document.getElementById("hintList");
+  var hintBtn = document.getElementById("hintBtn");
+  var hintNote = document.getElementById("hintNote");
+  var revealBtn = document.getElementById("revealBtn");
+  var reveal = document.getElementById("reveal");
+  var gate = document.getElementById("gate");
+  var completeBtn = document.getElementById("completeBtn");
+  var status = document.getElementById("status");
+  var doneMsg = document.getElementById("doneMsg");
+  var chain = document.getElementById("chain");
+
+  function el(tag, cls, html){
+    var e = document.createElement(tag);
+    if(cls) e.className = cls;
+    if(html != null) e.innerHTML = html;
+    return e;
+  }
+
+  /* ---------- chain track ---------- */
+  function paintChain(){
+    while(chain.children.length > 1) chain.removeChild(chain.lastChild);
+    chain.appendChild(el("span","node origin","这条视频"));
+    for(var i=0;i<CHAIN_PRIOR.length;i++){
+      chain.appendChild(el("span","arr","←"));
+      chain.appendChild(el("span","node", CHAIN_PRIOR[i][0]));
+    }
+    if(CHAIN_NEW){
+      chain.appendChild(el("span","arr","←"));
+      var cls = "node new" + (CHAIN_NEW[3] ? " money" : "") + (revealed ? " lit" : "");
+      chain.appendChild(el("span", cls, revealed ? CHAIN_NEW[0] : "？"));
+    }
+  }
+
+  /* ---------- three method slots (step 8 only) ---------- */
+  function threeFilled(){
+    if(!THREE) return true;
+    for(var i=1;i<=3;i++){
+      var t = document.getElementById("m"+i);
+      if(!t || !t.value.trim()) return false;
+    }
+    return true;
+  }
+
+  /* ---------- gating ---------- */
+  function longEnough(){ return find.value.trim().length >= MIN; }
+
+  function refresh(){
+    count.textContent = find.value.length + " 字";
+    revealBtn.disabled = !(longEnough() && threeFilled());
+    completeBtn.disabled = !(longEnough() && threeFilled() && revealed) || submitted;
+    if(submitted){ return; }
+    if(revealed) status.textContent = "已对照答案，点「完成」提交";
+    else if(!threeFilled()) status.textContent = "三种方法都命名之后，才能对照答案";
+    else if(longEnough()) status.textContent = "可以对照答案了";
+    else status.textContent = "还差 " + (MIN - find.value.trim().length) + " 字";
+  }
+
+  find.addEventListener("input", refresh);
+
+  if(THREE){
+    for(var i=1;i<=3;i++){
+      var t = document.getElementById("m"+i);
+      if(t) t.addEventListener("input", refresh);
+    }
+  }
+
+  /* ---------- hint ladder ---------- */
+  hintBtn.addEventListener("click", function(){
+    if(hintsUsed >= HINTS.length) return;
+    hintList.appendChild(el("div","hint",
+      '<span class="lv">提示 ' + (hintsUsed+1) + ' / ' + HINTS.length + '</span>' + HINTS[hintsUsed]));
+    hintsUsed++;
+    if(hintsUsed >= HINTS.length){
+      hintBtn.style.display = "none";
+      hintNote.textContent = "提示已用完 —— 剩下的得你自己查";
+    }else{
+      hintBtn.textContent = "还是不行？再给一格";
+      hintNote.textContent = "还剩 " + (HINTS.length - hintsUsed) + " 级";
+    }
+  });
+
+  /* ---------- reveal ---------- */
+  revealBtn.addEventListener("click", function(){
+    if(revealBtn.disabled) return;
+    revealed = true;
+    reveal.classList.add("open");
+    gate.style.display = "none";
+    paintChain();
+    refresh();
+    reveal.scrollIntoView({behavior:"smooth", block:"start"});
+  });
+
+  /* ---------- complete ---------- */
+  completeBtn.addEventListener("click", function(){
+    if(completeBtn.disabled) return;
+    var duration = Math.round((Date.now() - started) / 1000);
+    var interactions = [{
+      interactionId: "step-" + STEP + "-finding",
+      type: "text",
+      answer: find.value.trim(),
+      hintsUsed: hintsUsed,
+      revealed: revealed,
+      duration: duration
+    }];
+    if(THREE){
+      for(var i=1;i<=3;i++){
+        var t = document.getElementById("m"+i);
+        interactions.push({
+          interactionId: "step-8-method-" + i,
+          type: "text",
+          answer: t ? t.value.trim() : "",
+          duration: duration
+        });
+      }
+    }
+    if (completionSent) return;
+    completionSent = true;
+    send("completed", {
+      resultId: LESSON_ID,
+      value: {
+        lessonId: LESSON_ID,
+        duration: duration,
+        hintsUsed: hintsUsed,
+        revealed: revealed,
+        interactions: interactions
+      }
+    });
+    submitted = true;
+    completeBtn.disabled = true;
+    doneMsg.classList.add("on");
+    status.textContent = "用了 " + hintsUsed + " 级提示";
+    status.className = "status ok";
+  });
+
+  paintChain();
+  refresh();
+})();
+</script>
+<!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html, body { height: 100%; min-height: 0; }
+body { display: block !important; place-items: stretch !important; overflow: auto; }
+#stage, .canvas {
+  width: 100% !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  aspect-ratio: auto !important;
+  margin: 0 !important;
+  overflow: auto !important;
+}
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body>
+</html>

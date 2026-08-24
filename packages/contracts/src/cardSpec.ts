@@ -46,6 +46,43 @@ export const ReadingLens = z.object({
   method_ids: z.array(z.string()).optional(), // tool cards that operationalize this lens
 });
 
+// teaching — additive, optional. The student-facing "how to use this card"
+// content shown in the 图鉴 / 课程 detail modal's 介绍 tab. Distinct from the
+// per-step `methodology` (which the card RUNTIME uses to coach a live task):
+// `teaching` is written to TEACH the method itself, plainly, before a student
+// ever runs the card. When present it REPLACES the old why/how/when dump in the
+// modal; when absent the modal falls back to steps[0].methodology.
+// Every field but `tagline` is optional — an author includes only what fits the
+// card (a 口诀 only where one naturally exists, a flow only for staged methods).
+export const TeachingStep = z.object({
+  // Short imperative title, optionally prefixed with a step marker (①/②/…).
+  title: z.string().min(1),
+  // One or two plain sentences: what to actually do in this step.
+  detail: z.string().min(1),
+});
+export const TeachingMnemonic = z.object({
+  // The memorable line or acronym itself, e.g. "CRAAP" or a 口诀.
+  phrase: z.string().min(1),
+  // Short unpack of the phrase (what each letter/word stands for). Optional.
+  gloss: z.string().optional(),
+});
+export const Teaching = z.object({
+  // One plain sentence: what this card is / does for the student. The modal's
+  // opening line, replacing the dense internal `purpose`. Required.
+  tagline: z.string().min(1),
+  // Optional 口诀 / acronym callout.
+  mnemonic: TeachingMnemonic.optional(),
+  // Optional lightweight "diagram": an ordered list of short phrases rendered as
+  // arrow-connected chips (e.g. ["框定来源","五维体检","汇总结论"]).
+  flow: z.array(z.string().min(1)).optional(),
+  // The how-to, as ordered scaffolded steps. The core teaching content.
+  steps: z.array(TeachingStep).optional(),
+  // The single most common mistake / 易错点, shown as a warning callout. Optional.
+  watchOut: z.string().optional(),
+  // One concrete worked mini-example. Optional (may duplicate top-level example).
+  example: z.string().optional(),
+});
+
 export const CardSpec = z.object({
   id: z.string().min(1),
   category: z.string().min(1),
@@ -96,8 +133,12 @@ export const CardSpec = z.object({
   consolidation: z.string().optional(),
   intrusiveness_cap: z.enum(["I0", "I1", "I2", "I3", "I4"]).optional(),
   reading_lens: ReadingLens.optional(),
+  teaching: Teaching.optional(),
 });
 
+export type TeachingStep = z.infer<typeof TeachingStep>;
+export type TeachingMnemonic = z.infer<typeof TeachingMnemonic>;
+export type Teaching = z.infer<typeof Teaching>;
 export type Methodology = z.infer<typeof Methodology>;
 export type Step = z.infer<typeof Step>;
 export type Priority = z.infer<typeof Priority>;

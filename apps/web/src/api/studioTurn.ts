@@ -1,6 +1,5 @@
 import type { Anchor } from "@mind-imprint/contracts";
 import { API_BASE } from "./client";
-import { apiFetch } from "./client";
 import { parseSSE, type SSEFrame } from "./sse";
 
 export type StudioTurnEvent =
@@ -64,11 +63,4 @@ export async function* studioTurn(projectId: string, userInput: string): AsyncGe
     const event = mapStudioFrame(frame);
     if (event) yield event;
   }
-}
-
-export async function postDisposition(projectId: string, interventionId: string, action: "accept" | "rewrite" | "reject", reason: string): Promise<void> {
-  await apiFetch<void>(`/api/v1/projects/${projectId}/interventions/${interventionId}/disposition`, {
-    method: "POST",
-    body: JSON.stringify({ action, reason }),
-  });
 }

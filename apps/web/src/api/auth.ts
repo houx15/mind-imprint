@@ -9,6 +9,7 @@ export interface MeUser {
   role: string;
   avatar_color: string;
   page_background: string;
+  onboarded_at: string | null;
   school: { id: string; name: string };
   classes: { id: string; name: string; role_in_class: string }[];
 }
@@ -63,5 +64,19 @@ export async function setBackground(background: BackgroundId): Promise<void> {
   await apiFetch<{ background: string }>("/api/v1/users/me/background", {
     method: "PUT",
     body: JSON.stringify({ background }),
+  });
+}
+
+// Stamp that the student finished/dismissed onboarding. No body; pure flag write.
+export async function putOnboarding(): Promise<void> {
+  await apiFetch<{ ok: boolean }>("/api/v1/users/me/onboarding", { method: "PUT" });
+}
+
+// Save free-text feedback from the nav rail's 反馈 button. Fire-and-forget from
+// the caller's perspective — the id isn't surfaced to the student.
+export async function submitFeedback(text: string): Promise<void> {
+  await apiFetch<{ id: string }>("/api/v1/feedback", {
+    method: "POST",
+    body: JSON.stringify({ text }),
   });
 }

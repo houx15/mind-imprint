@@ -74,6 +74,8 @@ export function PlanBlock({
   onGeneratingPlan,
   onPlanMaybeGenerated,
   planRefreshSignal,
+  forceView,
+  onForceViewConsumed,
 }: {
   projectId: string;
   title: string;
@@ -100,6 +102,16 @@ export function PlanBlock({
   /** Bug 2 follow-up · a monotonically-bumped signal from the container when a
    * coach turn mutated the plan (update_plan); the 管理 board re-fetches on it. */
   planRefreshSignal?: number;
+  /** P7 · the guided tour's `setPlanView` deep-link — force the 管理 board's
+   * 看板/甘特图/活动日志 toggle to a specific view (used to land on 活动日志).
+   * Threaded straight to `WorkingPhase`, which owns the local `view` state and
+   * applies it via its own ref-guarded one-shot (applies once, never fights
+   * the student's later Segmented clicks). Only meaningful once the project
+   * has left the "forming" phase (WorkingPhase is what renders the toggle). */
+  forceView?: "kanban" | "gantt" | "log" | null;
+  /** Fired once right after `forceView` has been applied (mirrors every other
+   * force* one-shot in this codebase), so the caller can retract it. */
+  onForceViewConsumed?: () => void;
 }) {
   // Local proposal state seeded from the projection; the component is keyed on
   // projectId upstream, so this initialises once per opened project.
@@ -214,6 +226,8 @@ export function PlanBlock({
       qualification={qualification}
       createdAt={createdAt}
       refreshSignal={planRefreshSignal}
+      forceView={forceView}
+      onForceViewConsumed={onForceViewConsumed}
     />
   );
 }
@@ -305,7 +319,7 @@ function FormingPhase(props: {
           <p className="mt-1.5 text-[14px] text-mk-muted">把这几件事聊清楚，计划会据此长出来。</p>
         </header>
 
-        <div className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
+        <div data-tour="forming-proposal" className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
           <div className="mb-1 flex items-center justify-between">
             <div className="flex items-center gap-2 text-mk-accent">
               <Icon name="spark" size={16} />
@@ -356,6 +370,7 @@ function FormingPhase(props: {
             {objectiveEmpty && (
               <button
                 type="button"
+                data-tour="forming-question-card"
                 onClick={() => openCard("question-card")}
                 className="flex flex-none items-center gap-2 self-start rounded-mk-md border border-mk-accent bg-mk-accent-50 px-3.5 py-2 text-[14px] font-bold text-mk-accent transition hover:bg-mk-accent-100"
               >
@@ -463,8 +478,11 @@ function WorkingPhase(props: {
   createdAt?: string;
   /** Bug 2 follow-up · bumped when a coach turn mutated the plan — re-fetch. */
   refreshSignal?: number;
+  /** P7 · the guided tour's `setPlanView` deep-link, forwarded from `PlanBlock`. */
+  forceView?: "kanban" | "gantt" | "log" | null;
+  onForceViewConsumed?: () => void;
 }) {
-  const { projectId, title, qualification, seedBoard, createdAt, refreshSignal } = props;
+  const { projectId, title, qualification, seedBoard, createdAt, refreshSignal, forceView, onForceViewConsumed } = props;
   // The room→panel contract (same as FormingPhase/ReadingBlock/WritingBlock/
   // ReviewBlock, Task 4, spec §17): 管理 previously portaled nothing into the
   // shared AiPanel slot, so it showed an empty 印记 panel — this is the SAME
@@ -474,6 +492,18 @@ function WorkingPhase(props: {
   // §3 · the management page opens on the 甘特图 by default (the whole-plan recap
   // view), then the student can switch to 看板 / 活动日志.
   const [view, setView] = useState<PlanView>("gantt");
+
+  // P7 · guided-tour deep-link: apply `forceView` once (ref-guarded, mirrors
+  // ReadingBlock's `forceView`/ReferencePanel's `forceTab`) so a tour step can
+  // force 活动日志 without ever re-fighting the student's own later Segmented
+  // click — the effect only re-fires on a genuinely NEW forced value.
+  const lastForcedView = useRef<PlanView | null>(null);
+  useEffect(() => {
+    if (!forceView || lastForcedView.current === forceView) return;
+    lastForcedView.current = forceView;
+    setView(forceView);
+    onForceViewConsumed?.();
+  }, [forceView, onForceViewConsumed]);
 
   // The board — seeded from a fresh 生成计划 when we arrive that way, otherwise
   // loaded on enter; mutated optimistically then reconciled.
@@ -616,7 +646,7 @@ function WorkingPhase(props: {
             <h2 className="font-sans text-[20px] font-bold text-mk-ink">项目管理</h2>
             <p className="mt-0.5 text-[14px] text-mk-muted">{view === "log" ? "项目一路上发生了什么——大多自动记下，你也能补一笔。" : "拖动来编辑：看板换列、甘特图挪动/拉长。点任务卡查看或修改。"}</p>
           </div>
-          <div className="flex items-center gap-3">
+          <div data-tour="manage-viewtoggle" className="flex items-center gap-3">
             <Segmented
               options={[
                 { value: "kanban", label: "看板" },
@@ -626,7 +656,7 @@ function WorkingPhase(props: {
               value={view}
               onChange={(v) => setView(v as PlanView)}
             />
-            <button type="button" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
+            <button type="button" data-tour="manage-export" onClick={view === "log" ? exportLog : exportPlan} disabled={exporting} className="rounded-mk-md border border-mk-border bg-mk-surface px-3.5 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-60">
               {exporting ? "导出中…" : "导出"}
             </button>
           </div>
@@ -743,7 +773,7 @@ function GanttView({ board, anchor, timelineDays, onReschedule, onResize, onAddT
   const stageStart = (s: string) => Math.min(...board.filter((i) => i.stage === s).map((i) => i.start));
   stages.sort((a, b) => stageStart(a) - stageStart(b));
   return (
-    <div className="min-h-0 flex-1 overflow-auto rounded-mk-lg border border-mk-border bg-mk-surface">
+    <div data-tour="manage-gantt" className="min-h-0 flex-1 overflow-auto rounded-mk-lg border border-mk-border bg-mk-surface">
       <div style={{ minWidth }}>
         {/* Day header */}
         <div className="sticky top-0 z-10 grid grid-cols-[240px,1fr] border-b border-mk-border bg-mk-surface">
@@ -896,7 +926,7 @@ export function ActivityLogView({ log, onAdd }: { log: LogEntry[] | null; onAdd:
     setDraft("");
   }
   return (
-    <div className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
+    <div data-tour="manage-activity-log" className="mx-auto flex min-h-0 w-full max-w-3xl flex-1 flex-col">
       <div className="min-h-0 flex-1 overflow-y-auto rounded-mk-lg border border-mk-border bg-mk-surface">
         {log === null ? (
           <div className="flex h-full items-center justify-center py-16 text-[14px] text-mk-faint">加载中…</div>

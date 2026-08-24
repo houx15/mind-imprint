@@ -27,24 +27,10 @@ test("J-teacher: 班级 → 周报 → 学生 → 家长报告", async ({ page }
   await expect(page.getByText(/班级周报 ·/)).toBeVisible({ timeout: 20_000 });
   await expect(page.getByText("本周点评暂未生成")).toHaveCount(0, { timeout: 150_000 });
 
-  // 3. 全部学生 → drill into a student → detail renders (stats).
+  // 3. 全部学生 → drill into a student → detail renders (stats). The parent-
+  //    stage-report projection (old step 4) was retired from the API + UI, so the
+  //    journey ends here — the teacher console's live class-week + drill-in path.
   await page.getByRole("button", { name: "全部学生" }).click();
   await page.locator("tr", { hasText: "林" }).first().click();
   await expect(page.getByText(/生成能力报告/)).toBeVisible({ timeout: 15_000 });
-
-  // 4. 家长报告 · 阶段 → the printable parent projection renders (Finding F: the
-  //    chrome only mounts if the GET DTO's arrays are [] not null). Idempotent:
-  //    if prose isn't generated yet, compose it (POST 200); if a prior run
-  //    already generated it, the report renders directly.
-  await page.getByRole("button", { name: /导出家长版·阶段报告/ }).click();
-  await expect(page.getByText("这一阶段的使用与成长")).toBeVisible({ timeout: 20_000 });
-  const genBtn = page.getByRole("button", { name: /生成家长版/ });
-  if (await genBtn.count()) {
-    const proseResp = page.waitForResponse(
-      (r) => /parent-stage-report\/[^/]+\/prose$/.test(r.url()) && r.request().method() === "POST",
-      { timeout: 120_000 },
-    );
-    await genBtn.first().click();
-    expect((await proseResp).status()).toBe(200);
-  }
 });

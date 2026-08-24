@@ -1,12 +1,13 @@
 package studio_test
 
-// roundtrip_test.go — Slice 5b Task 7: seeds a demo Task+Project (migration
-// 0018) and verifies studio.Load + studio.Project reconstruct the expected
-// StudioProjection end-to-end against real Postgres (testcontainers). This is
-// the external test package (studio_test) so it needs its own migration-
-// applying pool helper — same pattern as store_test.newStoreTestPool /
-// agent_test.newTurnTestPool (each external test package keeps its own copy;
-// there is no shared exported helper to reuse across packages).
+// roundtrip_test.go carries the shared migrated-Postgres pool helper
+// (newMigratedPool) and the seeded demo project id (demoProjectID, migration
+// 0018) used by other external-package tests in this file's package
+// (e.g. load_events_test.go's TestLoadProjectEvents). The original
+// TestSeededProjectProjection here exercised studio.Project/StudioProjection
+// end-to-end; that station-projection subtree was removed as dead code
+// (zero non-test callers), so the test went with it — this file now keeps
+// only the pool/seed plumbing other tests still depend on.
 
 import (
 	"context"
@@ -19,60 +20,10 @@ import (
 	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
 	"github.com/testcontainers/testcontainers-go/wait"
 
-	"mindimprint/api/internal/cards"
-	"mindimprint/api/internal/skills"
 	"mindimprint/api/internal/store"
-	"mindimprint/api/internal/store/sqlc"
-	"mindimprint/api/internal/studio"
 )
 
 var demoProjectID = uuid.MustParse("00000000-0000-0000-0000-000000000101")
-
-func TestSeededProjectProjection(t *testing.T) {
-	if testing.Short() {
-		t.Skip("requires postgres (testcontainers)")
-	}
-	pool := newMigratedPool(t) // applies all migrations incl. 0018 seed
-	q := sqlc.New(pool)
-	sk, ok := skills.ByID("writing-project")
-	if !ok {
-		t.Fatal("skills.ByID(writing-project) not found")
-	}
-
-	d, err := studio.Load(context.Background(), q, demoProjectID)
-	if err != nil {
-		t.Fatalf("load: %v", err)
-	}
-	proj, err := studio.Project(sk, cards.ByID, d)
-	if err != nil {
-		t.Fatalf("project: %v", err)
-	}
-
-	if len(proj.Stations) != 7 {
-		t.Fatalf("want 7 stations, got %d", len(proj.Stations))
-	}
-	wantStates := []string{"done", "done", "done", "done", "current", "locked", "locked"}
-	for i, w := range wantStates {
-		if proj.Stations[i].State != w {
-			t.Errorf("S%d = %q, want %q", i, proj.Stations[i].State, w)
-		}
-	}
-	if proj.ActiveStation != "S4" {
-		t.Errorf("activeStation = %q, want S4", proj.ActiveStation)
-	}
-	if proj.Coach.Anchor != "论证图 · 治理决心主张" {
-		t.Errorf("anchor = %q", proj.Coach.Anchor)
-	}
-	if len(proj.Coach.Messages) < 2 {
-		t.Errorf("coach thread = %d msgs, want >=2", len(proj.Coach.Messages))
-	}
-	if len(proj.Coach.Equipment) == 0 {
-		t.Errorf("equipment empty")
-	}
-	if len(proj.Onboarding.RubricRows) != 4 {
-		t.Errorf("rubric rows = %d, want 4", len(proj.Onboarding.RubricRows))
-	}
-}
 
 // newMigratedPool spins up a throwaway Postgres, runs all migrations
 // (including 0018's demo-project seed), and returns a connected pool. Same

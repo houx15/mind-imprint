@@ -34,7 +34,7 @@ export interface EvaluationReportViewProps {
  */
 export function EvaluationReportView({ report }: EvaluationReportViewProps) {
   return (
-    <div className="grid grid-cols-[224px_minmax(0,1fr)] items-start" data-testid="evaluation-report">
+    <div className="mx-auto grid max-w-[1360px] grid-cols-[224px_minmax(0,1fr)] items-start" data-testid="evaluation-report">
       <Ruler sections={SECTIONS} />
 
       <div className="min-w-0 px-12 pb-[140px] pt-8">

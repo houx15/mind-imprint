@@ -763,6 +763,44 @@ func (a *API) enterReading(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
+// getMaterialSource is a read-only sibling of enterReading's projection: it
+// returns the same MaterialSource DTO (studio.ProjectMaterials) for a material
+// already known to the project, WITHOUT any of enterReading's side effects —
+// no appendAutoLog breadcrumb, no fetch-on-demand, no suggestedReason merge.
+// Guided-tour P6 needs exactly this: the tour opens the real, immersive
+// Reading Room on a seeded demo material for a non-owner, and enter-reading
+// (a POST keyed off a reference id, not a material id) 403s for a non-owner
+// on a demo project via loadOwnedProject's non-GET mutation guard. This
+// handler is registered GET-only, so that guard's `r.Method != GET` branch
+// never fires — the route reads straight through loadOwnedProject's
+// world-readable demo path instead of being funneled through the write
+// chokepoint. 404s when the material id isn't one of this project's own
+// (mats scan, same ownership check enter-reading's own dto lookup performs).
+func (a *API) getMaterialSource(w http.ResponseWriter, r *http.Request) {
+	projectID, ok := a.loadOwnedProject(w, r)
+	if !ok {
+		return
+	}
+	mid, err := uuid.Parse(r.PathValue("mid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+		return
+	}
+	d, err := studio.Load(r.Context(), a.d.Queries, projectID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	mats := studio.ProjectMaterials(d)
+	for i := range mats {
+		if mats[i].ID == mid.String() {
+			httpx.WriteJSON(w, http.StatusOK, mats[i])
+			return
+		}
+	}
+	httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+}
+
 // fetchFailedError builds the 422 paste-fallback for a failed fetch, enriched
 // with any DOI metadata Crossref returned (#4): the title, authors, year,
 // journal, and abstract we recovered even though the full text couldn't be

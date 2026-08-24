@@ -128,11 +128,25 @@ export interface SegmentedProps {
   value: string;
   onChange: (value: string) => void;
   className?: string;
+  /**
+   * `plain` (default) — a paper groove with a white thumb, for switchers that
+   * sit inside a card or surface. `island` — an elevated surface pill (shadow +
+   * hairline ring) with an accent-tinted active lozenge, for a switcher that
+   * floats on its own over the page background (项目/课程 top switchers).
+   */
+  variant?: "plain" | "island";
 }
 
-export function Segmented({ options, value, onChange, className }: SegmentedProps) {
+export function Segmented({ options, value, onChange, className, variant = "plain" }: SegmentedProps) {
+  const island = variant === "island";
   return (
-    <div className={cx("inline-flex gap-0.5 rounded-mk-full bg-mk-paper p-1", className)}>
+    <div
+      className={cx(
+        "inline-flex gap-0.5 rounded-mk-full p-1",
+        island ? "bg-mk-surface shadow-mk-md ring-1 ring-mk-border" : "bg-mk-paper",
+        className,
+      )}
+    >
       {options.map((opt) => {
         const active = opt.value === value;
         return (
@@ -142,12 +156,18 @@ export function Segmented({ options, value, onChange, className }: SegmentedProp
             aria-pressed={active}
             onClick={() => onChange(opt.value)}
             className={cx(
-              "rounded-mk-full px-3 py-1 text-mk-small transition-colors duration-[120ms] ease-mk",
+              "rounded-mk-full text-mk-small transition-colors duration-[120ms] ease-mk",
+              island ? "px-4 py-1.5" : "px-3 py-1",
               "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
-              // The "thumb" is simply the active option's own white fill —
-              // functionally identical to a sliding thumb without absolute
-              // positioning/measurement.
-              active ? "bg-mk-surface text-mk-ink shadow-mk-xs" : "bg-transparent text-mk-muted",
+              // The "thumb" is simply the active option's own fill — functionally
+              // identical to a sliding thumb without absolute positioning. On an
+              // island (white) pill a white thumb would vanish, so the active
+              // lozenge is an accent tint instead.
+              active
+                ? island
+                  ? "bg-mk-accent-50 font-semibold text-mk-accent-700 shadow-mk-xs"
+                  : "bg-mk-surface text-mk-ink shadow-mk-xs"
+                : "bg-transparent text-mk-muted",
             )}
           >
             {opt.label}

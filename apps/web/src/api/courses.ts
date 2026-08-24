@@ -1,4 +1,4 @@
-import type { CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport } from "@mind-imprint/contracts";
+import type { CourseSummary, CoursePlayerPayload, CourseProgress, CourseReport, CourseAnswerReport } from "@mind-imprint/contracts";
 import { API_BASE, apiFetch } from "./client";
 import { parseSSE } from "./sse";
 
@@ -28,8 +28,23 @@ export async function saveCourseProgress(
 export async function answerCourseQuiz(slug: string, body: { stepId: string; interactionId: string; selected: string[]; correct: boolean }): Promise<void> {
   await apiFetch<void>(`/api/v1/courses/${slug}/quiz-answer`, { method: "POST", body: JSON.stringify(body) });
 }
-export async function getCourseReport(slug: string): Promise<CourseReport> {
-  const r = await apiFetch<{ report: CourseReport }>(`/api/v1/courses/${slug}/report`);
+// getCourseReport fetches a course's completion report. attemptId selects a
+// specific PAST run's frozen report (a finished attempt from the learning
+// history); omit it for the current attempt (the live behavior, e.g. right after
+// finishing in the player).
+export async function getCourseReport(slug: string, attemptId?: string): Promise<CourseReport> {
+  const qs = attemptId ? `?attempt=${encodeURIComponent(attemptId)}` : "";
+  const r = await apiFetch<{ report: CourseReport }>(`/api/v1/courses/${slug}/report${qs}`);
+  return r.report;
+}
+
+// getCourseAnswerReport fetches the per-attempt answer detail (the student's
+// recorded answers + per-slice time), lazy-loaded when the 小测/我的答案 drawer
+// opens. attemptId selects a past run, exactly like getCourseReport; omit it for
+// the current attempt. A legacy course returns an empty `slices` array.
+export async function getCourseAnswerReport(slug: string, attemptId?: string): Promise<CourseAnswerReport> {
+  const qs = attemptId ? `?attempt=${encodeURIComponent(attemptId)}` : "";
+  const r = await apiFetch<{ report: CourseAnswerReport }>(`/api/v1/courses/${slug}/report/answers${qs}`);
   return r.report;
 }
 
@@ -42,12 +57,21 @@ export async function restartCourse(slug: string): Promise<void> {
 
 /** One touched course in the student's learning history. status is the raw
  * runtime session status (created/opening/in-progress/closing/completed) or
- * 'completed'/'in-progress' for a legacy course; completedCount is legacy-only. */
+ * 'completed'/'in-progress' for a legacy course. completedCount is the number of
+ * completed steps for BOTH storages — a runtime course counts its completed
+ * slices from the session (clamped to step_count when finished), a legacy course
+ * counts its completed ordinals. */
 export interface CourseHistoryItem {
+  /** The course_session id of THIS attempt — used to fetch that run's frozen
+   * report. "" (or absent) for a legacy course, which has no per-attempt report. */
+  attemptId?: string;
   slug: string;
   status: string;
   completedCount: number;
+  /** Last-activity time (bumps as an in-progress attempt is worked on). */
   updatedAt: string;
+  /** Frozen completion time — present only once the attempt is finished. */
+  completedAt?: string | null;
 }
 
 // getCourseHistory lists the courses the student has engaged with, newest

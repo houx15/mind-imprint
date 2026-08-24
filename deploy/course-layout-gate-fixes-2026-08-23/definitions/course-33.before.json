@@ -1,0 +1,2694 @@
+{
+ "course": {
+  "id": "course-33",
+  "parts": [
+   {
+    "id": "part-one",
+    "title": "从短视频到可核查问题",
+    "slices": [
+     {
+      "id": "video-entry",
+      "title": "从小红书线索开始",
+      "blocks": [
+       {
+        "id": "video-entry-text",
+        "type": "text",
+        "content": "先看一段短视频。看完后不要急着判断 Anthropic 好坏，也不要直接判断 Project Panama 是否违法。你的第一步，是问：这条视频里面哪些是事实声称，哪些是法律判断，哪些是伦理评价？"
+       },
+       {
+        "id": "xhs-video",
+        "type": "video",
+        "source": "assets/videos/xiaohongshu-anthropic-panama.mp4",
+        "completion": {
+         "rule": "video-ended-and-interactions-completed"
+        },
+        "interaction": {
+         "source": "interactions/video/xhs-panama-video.json"
+        }
+       },
+       {
+        "id": "video-status-choice",
+        "type": "singleChoice",
+        "prompt": "如果只能给这条视频一个最准确的位置，它应该是什么？",
+        "options": [
+         {
+          "id": "claim-final",
+          "label": "最终结论"
+         },
+         {
+          "id": "claim-clue",
+          "label": "需要查证的线索"
+         },
+         {
+          "id": "claim-law",
+          "label": "法律判决本身"
+         },
+         {
+          "id": "claim-irrelevant",
+          "label": "与版权争议无关"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。社媒视频可以提供方向，但下一步要回到可核查材料。",
+         "correctOptionId": "claim-clue",
+         "incorrectFeedback": "再想想：视频可以提出说法，但不能替代法庭文件、新闻调查或公司材料。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "video-next-questions",
+        "type": "fillBlank",
+        "prompt": "写出两个下一步要查的问题。至少一个问题要区分 Project Panama 和盗版电子书链条。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应提出可查证的问题，例如 Project Panama 具体做了什么、盗版电子书来自哪里、法庭如何区分两条链、合法和伦理是否是同一件事。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "xhs-video"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "video-entry-text",
+          "video-status-choice",
+          "video-next-questions"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-video-entry-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "video-entry-guide"
+           },
+           "to": "wait-xhs-video"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "video-entry-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-xhs-video",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "xhs-video"
+           },
+           "to": "wait-video-status-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "xhs-video"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "xhs-video"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-video-status-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "video-status-choice"
+           },
+           "to": "wait-video-next-questions"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "video-status-choice"
+           },
+           "to": "wait-video-next-questions"
+          },
+          {
+           "on": {
+            "type": "answer.incorrect",
+            "sourceId": "video-status-choice"
+           },
+           "to": "retry-video-status-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "video-status-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "video-status-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "retry-video-status-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "video-status-choice"
+           },
+           "to": "wait-video-next-questions"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "video-status-choice"
+           },
+           "to": "wait-video-next-questions"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "video-status-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-video-next-questions",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "video-next-questions"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "video-next-questions"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "video-next-questions"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "video-entry-text"
+        ],
+        "visibleBlockIds": [
+         "video-entry-text",
+         "xhs-video",
+         "video-status-choice",
+         "video-next-questions"
+        ]
+       },
+       "initialStepId": "play-video-entry-narration"
+      },
+      "narrations": [
+       {
+        "id": "video-entry-guide",
+        "text": "先把短视频当作线索，而不是结论。观看时请留意哪些内容是事实声称，哪些是法律判断，哪些又属于伦理评价；看完再完成判断和追问。",
+        "audio": "assets/audio/narrations/video-entry-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-claim-split"
+      ],
+      "estimatedSeconds": 255
+     },
+     {
+      "id": "material-route",
+      "title": "材料包导航：先查哪一类材料",
+      "blocks": [
+       {
+        "id": "route-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "route-images-item-1",
+          "alt": "GovInfo 上 Bartz et al. v. Anthropic PBC 案件详情页截图",
+          "source": "assets/images/govinfo-bartz-case.png"
+         },
+         {
+          "id": "route-images-item-2",
+          "alt": "Washington Post 关于 Project Panama 报道首页截图",
+          "source": "assets/images/wapo-project-panama.png"
+         },
+         {
+          "id": "route-images-item-3",
+          "alt": "Anthropic Copyright Settlement 官网首页截图",
+          "source": "assets/images/anthropic-settlement-site.png"
+         },
+         {
+          "id": "route-images-item-4",
+          "alt": "Foundation Model Transparency Index 2025 总览与公司评分截图",
+          "source": "assets/images/fmti-2025-overview.png"
+         }
+        ],
+        "presentation": "gallery"
+       },
+       {
+        "id": "route-text",
+        "type": "text",
+        "content": "这节课会用五组材料互相校正。\n\n1. 法庭与和解材料：核查版权诉讼、盗版电子书链和案件后续。链接：[GovInfo 案件详情](https://www.govinfo.gov/app/details/USCOURTS-cand-3_24-cv-05417/summary)、[Justia 法庭文件](https://docs.justia.com/cases/federal/district-courts/california/candce/3%3A2024cv05417/434709/244/)、[Anthropic 版权和解网站](https://www.anthropiccopyrightsettlement.com/)\n2. 新闻调查材料：了解 Project Panama 的购买纸书、拆书、扫描与处置。链接：[Washington Post：Project Panama 调查](https://www.washingtonpost.com/technology/2026/01/27/anthropic-ai-scan-destroy-books/)\n3. 法律解读材料：理解 fair use、盗版副本和市场影响的区分。链接：[Bartz v. Anthropic：2025-06-23 fair use 法院裁定 PDF](https://storage.courtlistener.com/recap/gov.uscourts.cand.434709/gov.uscourts.cand.434709.231.0_4.pdf)、[Norton Rose Fulbright：两起美国判决解读](https://www.nortonrosefulbright.com/en/knowledge/publications/afb0e10b/two-us-decisions-find-that-reproducing-works-to-train-large-language-models-is-fair-use)\n4. 公司公开说明：看 Anthropic 如何描述训练数据、隐私和透明度。链接：[Anthropic 透明度中心](https://www.anthropic.com/transparency)、[Claude 隐私中心：模型训练中的个人数据](https://privacy.claude.com/en/articles/10023555-how-do-you-use-personal-data-in-model-training)\n5. 第三方与能源材料：看透明度评分、算力基础设施和电价责任。链接：[Stanford FMTI 2025](https://crfm.stanford.edu/fmti/December-2025/index.html)、[AWS Project Rainier](https://www.aboutamazon.com/news/aws/aws-project-rainier-ai-trainium-chips-compute-cluster)、[Anthropic：承担数据中心引发的电价上涨](https://www.anthropic.com/news/covering-electricity-price-increases)"
+       },
+       {
+        "id": "route-choice",
+        "type": "singleChoice",
+        "prompt": "如果要核查“真正让 Anthropic 面临更高版权责任的是哪条链”，最应该先看哪类材料？",
+        "options": [
+         {
+          "id": "route-company",
+          "label": "公司宣传页面"
+         },
+         {
+          "id": "route-court",
+          "label": "法庭与和解材料"
+         },
+         {
+          "id": "route-video",
+          "label": "短视频评论区"
+         },
+         {
+          "id": "route-energy",
+          "label": "数据中心能源材料"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。版权责任要先回到法庭文件、和解材料和案件记录。",
+         "correctOptionId": "route-court",
+         "incorrectFeedback": "公司页面、短视频或能源材料可以补充背景，但不能优先回答版权责任链条。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "route-images"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "route-text"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "route-choice"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-material-route-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "material-route-guide"
+           },
+           "to": "wait-route-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "material-route-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-route-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "route-choice"
+           },
+           "to": "finish"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "route-choice"
+           },
+           "to": "finish"
+          },
+          {
+           "on": {
+            "type": "answer.incorrect",
+            "sourceId": "route-choice"
+           },
+           "to": "retry-route-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "route-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "route-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "retry-route-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "route-choice"
+           },
+           "to": "finish"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "route-choice"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "route-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "route-images",
+         "route-text"
+        ],
+        "visibleBlockIds": [
+         "route-images",
+         "route-text",
+         "route-choice"
+        ]
+       },
+       "initialStepId": "play-material-route-narration"
+      },
+      "narrations": [
+       {
+        "id": "material-route-guide",
+        "text": "不同问题需要不同证据。版权责任应优先回到法庭与和解材料，公司页面、新闻调查和第三方报告则用于补充事实与透明度边界。",
+        "audio": "assets/audio/narrations/material-route-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-claim-split"
+      ],
+      "estimatedSeconds": 404
+     }
+    ],
+    "objectiveIds": [
+     "obj-claim-split"
+    ]
+   },
+   {
+    "id": "part-two",
+    "title": "分清两条书籍来源链",
+    "slices": [
+     {
+      "id": "panama-chain",
+      "title": "Project Panama：买书、拆书、扫描、处置",
+      "blocks": [
+       {
+        "id": "panama-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "panama-image-item-1",
+          "alt": "Washington Post 关于 Project Panama 报道首页截图",
+          "source": "assets/images/wapo-project-panama.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "panama-text",
+        "type": "text",
+        "content": "Project Panama 指向的是另一条书籍来源链：购买大量纸质书，拆掉装订或切开书脊，扫描成数字文本，再处置原书。新闻调查材料适合用来了解这条链的具体操作和内部文件说法。\n\n注意：这条链不能直接等同于盗版电子书链。它可以引出伦理追问，例如作者是否知情、是否补偿、是否应把文化作品用作商业模型训练数据；但这些追问和“盗版副本下载责任”不是同一个判断。原始材料链接：https://www.washingtonpost.com/technology/2026/01/27/anthropic-ai-scan-destroy-books/"
+       },
+       {
+        "id": "panama-pdf",
+        "type": "pdf",
+        "title": "材料包：Washington Post Project Panama 调查",
+        "source": "assets/pdfs/wapo-project-panama.pdf"
+       },
+       {
+        "id": "panama-response",
+        "type": "fillBlank",
+        "prompt": "写出一条 Project Panama 可以确认的事实，再写出一条即使合法仍可追问的伦理问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "事实应指向买纸书、扫描、拆装订或处置原书；伦理追问可涉及作者知情、补偿、透明度或公共文化资源使用。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "panama-image"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "panama-text"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "panama-pdf"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "panama-response"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-panama-chain-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "panama-chain-guide"
+           },
+           "to": "wait-panama-response"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "panama-chain-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-panama-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "panama-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "panama-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "panama-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "panama-image",
+         "panama-text",
+         "panama-pdf"
+        ],
+        "visibleBlockIds": [
+         "panama-image",
+         "panama-text",
+         "panama-pdf",
+         "panama-response"
+        ]
+       },
+       "initialStepId": "play-panama-chain-narration"
+      },
+      "narrations": [
+       {
+        "id": "panama-chain-guide",
+        "text": "这一页聚焦 Project Panama 的纸质书链条。请把可确认的操作事实与仍可讨论的伦理问题分开，不要把它直接等同于盗版电子书来源。",
+        "audio": "assets/audio/narrations/panama-chain-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-chain"
+      ],
+      "estimatedSeconds": 260
+     },
+     {
+      "id": "pirate-chain",
+      "title": "盗版电子书链：真正高风险的版权责任",
+      "blocks": [
+       {
+        "id": "pirate-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "pirate-images-item-1",
+          "alt": "Anthropic Copyright Settlement 官网首页截图",
+          "source": "assets/images/anthropic-settlement-site.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "pirate-text",
+        "type": "text",
+        "content": "另一条链是盗版电子书链。法庭材料提到 Books3、LibGen、PiLiMi 等来源，并把争议指向下载和保存大量未经授权的书籍副本。这里的关键表述要谨慎：更准确的说法是“约 700 万份盗版书籍副本”或 “up to seven million copies”，不能简单写成 700 万本互不重复的书。\n\n这条链才是版权责任风险更高的部分。材料链接：[Justia：Bartz v. Anthropic 法庭文件](https://docs.justia.com/cases/federal/district-courts/california/candce/3%3A2024cv05417/434709/244/)、[Anthropic 版权和解网站](https://www.anthropiccopyrightsettlement.com/)"
+       },
+       {
+        "id": "pirate-pdf",
+        "type": "pdf",
+        "title": "材料包：Bartz v. Anthropic class certification order",
+        "source": "assets/pdfs/bartz-class-certification-order.pdf"
+       },
+       {
+        "id": "pirate-choice",
+        "type": "singleChoice",
+        "prompt": "哪一条链条才是版权责任风险更高的来源？",
+        "options": [
+         {
+          "id": "pirate-panama",
+          "label": "Project Panama 买纸书扫描链"
+         },
+         {
+          "id": "pirate-ebooks",
+          "label": "Books3、LibGen、PiLiMi 等盗版电子书链"
+         },
+         {
+          "id": "pirate-energy",
+          "label": "数据中心用电链"
+         },
+         {
+          "id": "pirate-privacy",
+          "label": "用户选择加入数据链"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。课程会把盗版电子书链作为法律责任高风险链条处理。",
+         "correctOptionId": "pirate-ebooks",
+         "incorrectFeedback": "再看材料中的关键词：pirate libraries、Books3、LibGen、PiLiMi、copies。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "copies-wording",
+        "type": "fillBlank",
+        "prompt": "把“Anthropic 偷了 700 万本书”改写成更严谨的一句话。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应写成约 700 万份盗版书籍副本或 up to seven million copies，并避免暗示一定是 700 万本互不重复的书。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "pirate-images",
+          "pirate-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "pirate-pdf"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "pirate-choice"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "copies-wording"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-pirate-chain-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "pirate-chain-guide"
+           },
+           "to": "wait-pirate-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "pirate-chain-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-pirate-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "pirate-choice"
+           },
+           "to": "wait-copies-wording"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "pirate-choice"
+           },
+           "to": "wait-copies-wording"
+          },
+          {
+           "on": {
+            "type": "answer.incorrect",
+            "sourceId": "pirate-choice"
+           },
+           "to": "retry-pirate-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "pirate-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "pirate-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "retry-pirate-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "pirate-choice"
+           },
+           "to": "wait-copies-wording"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "pirate-choice"
+           },
+           "to": "wait-copies-wording"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "pirate-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-copies-wording",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "copies-wording"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "copies-wording"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "copies-wording"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "pirate-images",
+         "pirate-text",
+         "pirate-pdf"
+        ],
+        "visibleBlockIds": [
+         "pirate-images",
+         "pirate-text",
+         "pirate-pdf",
+         "pirate-choice",
+         "copies-wording"
+        ]
+       },
+       "initialStepId": "play-pirate-chain-narration"
+      },
+      "narrations": [
+       {
+        "id": "pirate-chain-guide",
+        "text": "现在转向盗版电子书链。阅读时注意副本数量的严谨表述，并辨认为什么下载和保存未经授权副本带来更高的版权责任风险。",
+        "audio": "assets/audio/narrations/pirate-chain-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-chain"
+      ],
+      "estimatedSeconds": 318
+     },
+     {
+      "id": "source-chain-html",
+      "title": "互动：两条书籍来源链辨析",
+      "blocks": [
+       {
+        "id": "source-chain-sort",
+        "type": "interactiveHtml",
+        "source": "interactions/html/source-chain-sort.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "main",
+         "blockIds": [
+          "source-chain-sort"
+         ]
+        }
+       ],
+       "preset": "full"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-source-chain-html-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "source-chain-html-guide"
+           },
+           "to": "wait-source-chain-sort"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "source-chain-html-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-source-chain-sort",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "source-chain-sort"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "source-chain-sort"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "source-chain-sort"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [],
+        "visibleBlockIds": [
+         "source-chain-sort"
+        ]
+       },
+       "initialStepId": "play-source-chain-html-narration"
+      },
+      "narrations": [
+       {
+        "id": "source-chain-html-guide",
+        "text": "请通过分类活动检验两条来源链的边界。完成全部卡片分类并写下总结后，再提交互动结果。",
+        "audio": "assets/audio/narrations/source-chain-html-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-source-chain"
+      ],
+      "estimatedSeconds": 150
+     }
+    ],
+    "objectiveIds": [
+     "obj-source-chain"
+    ]
+   },
+   {
+    "id": "part-three",
+    "title": "法律判断不等于伦理结论",
+    "slices": [
+     {
+      "id": "fair-use-boundary",
+      "title": "法庭说了什么，也没说什么",
+      "blocks": [
+       {
+        "id": "fair-use-image",
+        "type": "images",
+        "items": [
+         {
+          "id": "fair-use-image-item-1",
+          "alt": "Norton Rose Fulbright 关于 Bartz v. Anthropic 法律解读首页截图",
+          "source": "assets/images/norton-rose-fair-use.png"
+         }
+        ],
+        "presentation": "single"
+       },
+       {
+        "id": "fair-use-text",
+        "type": "text",
+        "content": "法律材料中有一个容易被误读的点：训练用途可能被看作 highly transformative fair use，但这不等于所有数据来源都没有问题。要把“模型训练用途是否 fair use”和“训练材料从哪里来、是否包含盗版副本”分开。\n\n所以，成熟写法不是“法院说 Anthropic 完全没问题”，也不是“Project Panama 一定违法”，而是：训练用途与合法取得材料的处理有其法律判断；盗版电子书副本的下载、保存和赔偿问题另算。材料链接：[Bartz v. Anthropic：2025-06-23 fair use 法院裁定 PDF](https://storage.courtlistener.com/recap/gov.uscourts.cand.434709/gov.uscourts.cand.434709.231.0_4.pdf)、[Norton Rose Fulbright：两起美国判决解读](https://www.nortonrosefulbright.com/en/knowledge/publications/afb0e10b/two-us-decisions-find-that-reproducing-works-to-train-large-language-models-is-fair-use)\n\n下一步，我们把这两份材料打开，自己读一遍，再回来判断：法院到底说了什么、又没有说什么。"
+       }
+      ],
+      "layout": {
+       "ratio": "2:3",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "fair-use-image"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "fair-use-text"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "read",
+         "transitions": [
+          {
+           "on": {
+            "type": "student.continue"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "fair-use-boundary-guide"
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "completeSlice"
+          },
+          {
+           "type": "navigate",
+           "target": "nextSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "fair-use-image",
+         "fair-use-text"
+        ],
+        "visibleBlockIds": [
+         "fair-use-image",
+         "fair-use-text"
+        ]
+       },
+       "initialStepId": "read"
+      },
+      "narrations": [
+       {
+        "id": "fair-use-boundary-guide",
+        "text": "法庭对训练用途的判断，不能被扩大成对所有数据来源的全面背书。请分别判断训练用途、合法取得材料和盗版副本责任。",
+        "audio": "assets/audio/narrations/fair-use-boundary-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-claim-split",
+       "obj-source-chain"
+      ],
+      "estimatedSeconds": 156
+     },
+     {
+      "id": "fair-use-materials",
+      "title": "读两份材料，划出判断的边界",
+      "blocks": [
+       {
+        "id": "fair-use-pdf",
+        "type": "pdf",
+        "title": "材料包：Bartz v. Anthropic fair use 文本",
+        "source": "assets/pdfs/bartz-anthropic-fair-use-h2o.pdf"
+       },
+       {
+        "id": "norton-pdf",
+        "type": "pdf",
+        "title": "材料包：Norton Rose Fulbright 法律解读",
+        "source": "assets/pdfs/norton-rose-bartz-fair-use-analysis.pdf"
+       },
+       {
+        "id": "fair-use-choice",
+        "type": "singleChoice",
+        "prompt": "下面哪句话最成熟？",
+        "options": [
+         {
+          "id": "fair-all-ok",
+          "label": "训练可能是 fair use，所以所有书籍来源都没有问题。"
+         },
+         {
+          "id": "fair-all-bad",
+          "label": "出现版权诉讼，所以 Project Panama 一定违法。"
+         },
+         {
+          "id": "fair-boundary",
+          "label": "训练用途、合法取得材料和盗版副本责任要分开判断。"
+         },
+         {
+          "id": "fair-ignore",
+          "label": "法律判断和伦理判断没有关系。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。分开判断，才不会把法律、事实和伦理混在一起。",
+         "correctOptionId": "fair-boundary",
+         "incorrectFeedback": "再看关键词：training use、legally acquired books、pirate libraries 分属不同层面。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "boundary-rewrite",
+        "type": "fillBlank",
+        "prompt": "把“法院说 Anthropic 没问题”改写成一句更有边界的判断。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应同时提到训练用途或 fair use，以及盗版来源或副本责任不能因此消失。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "fair-use-pdf",
+          "norton-pdf"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "fair-use-choice",
+          "boundary-rewrite"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "wait-fair-use-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "fair-use-choice"
+           },
+           "to": "wait-boundary-rewrite"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "fair-use-choice"
+           },
+           "to": "wait-boundary-rewrite"
+          },
+          {
+           "on": {
+            "type": "answer.incorrect",
+            "sourceId": "fair-use-choice"
+           },
+           "to": "retry-fair-use-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "fair-use-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "fair-use-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "retry-fair-use-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "fair-use-choice"
+           },
+           "to": "wait-boundary-rewrite"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "fair-use-choice"
+           },
+           "to": "wait-boundary-rewrite"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "fair-use-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-boundary-rewrite",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "boundary-rewrite"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "boundary-rewrite"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "boundary-rewrite"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "fair-use-pdf",
+         "norton-pdf"
+        ],
+        "visibleBlockIds": [
+         "fair-use-pdf",
+         "norton-pdf",
+         "fair-use-choice",
+         "boundary-rewrite"
+        ]
+       },
+       "initialStepId": "wait-fair-use-choice"
+      },
+      "narrations": [],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-claim-split",
+       "obj-source-chain"
+      ],
+      "estimatedSeconds": 300
+     },
+     {
+      "id": "ethics-after-law",
+      "title": "合法之后，伦理还可以追问什么",
+      "blocks": [
+       {
+        "id": "ethics-after-law-text",
+        "type": "text",
+        "content": "合法、透明、合伦理、负责任不是同一个词。\n\n合法：某个行为是否被法律允许或是否构成侵权。\n透明：公司是否公开足够信息，让外部可以核查。\n合伦理：行为是否尊重相关群体的权益、知情、补偿和公共价值。\n负责任：公司是否主动承担其技术带来的风险和外部成本。\n\nProject Panama 即使在某些法律判断中更接近合法格式转换，也仍可被伦理追问：作者是否知情？是否获得补偿？纸书被处置是否合理？训练数据透明度是否足够？"
+       },
+       {
+        "id": "ethics-questions",
+        "type": "fillBlank",
+        "prompt": "从“作者知情、补偿机制、公共文化资源、透明度边界”中选两个角度，各写一个伦理追问。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应是可讨论、可回到材料的追问，而不是直接给公司定性。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "ethics-after-law-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "ethics-questions"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-ethics-after-law-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "ethics-after-law-guide"
+           },
+           "to": "wait-ethics-questions"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "ethics-after-law-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-ethics-questions",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "ethics-questions"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "ethics-questions"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "ethics-questions"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "ethics-after-law-text"
+        ],
+        "visibleBlockIds": [
+         "ethics-after-law-text",
+         "ethics-questions"
+        ]
+       },
+       "initialStepId": "play-ethics-after-law-narration"
+      },
+      "narrations": [
+       {
+        "id": "ethics-after-law-guide",
+        "text": "合法、透明、合伦理和负责任并不是同义词。请从作者知情、补偿、公共文化资源或透明度中提出有材料边界的伦理追问。",
+        "audio": "assets/audio/narrations/ethics-after-law-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-claim-split"
+      ],
+      "estimatedSeconds": 110
+     }
+    ],
+    "objectiveIds": [
+     "obj-claim-split",
+     "obj-source-chain"
+    ]
+   },
+   {
+    "id": "part-four",
+    "title": "训练数据与数据劳动",
+    "slices": [
+     {
+      "id": "training-data-sources",
+      "title": "Anthropic 自己说训练数据从哪里来",
+      "blocks": [
+       {
+        "id": "training-data-text",
+        "type": "text",
+        "content": "现在转向公司自述。Anthropic 公开材料提到的训练数据来源包括：公开互联网信息、来自第三方的非公开数据、数据标注服务和付费承包商提供的数据、选择加入的 Claude 用户数据，以及 Anthropic 内部生成的数据。\n\n公司自述是重要证据，但它证明的是公司如何公开描述自己。你还要继续追问：哪些数据集没有列出具体名称？哪些来源没有披露比例？哪些劳动条件仍不清楚？材料链接：[Anthropic Transparency](https://www.anthropic.com/transparency)、[Claude Privacy Center：模型训练中的个人数据使用](https://privacy.claude.com/en/articles/10023555-how-do-you-use-personal-data-in-model-training)、[Anthropic：Introducing Anthropic Transparency Hub](https://www.anthropic.com/news/introducing-anthropic-transparency-hub)"
+       },
+       {
+        "id": "transparency-pdf",
+        "type": "pdf",
+        "title": "材料包：Anthropic Transparency Hub",
+        "source": "assets/pdfs/anthropic-transparency-hub.pdf"
+       },
+       {
+        "id": "privacy-pdf",
+        "type": "pdf",
+        "title": "材料包：Anthropic Privacy Center 模型训练数据说明",
+        "source": "assets/pdfs/anthropic-privacy-model-training.pdf"
+       },
+       {
+        "id": "transparency-intro-pdf",
+        "type": "pdf",
+        "title": "材料包：Introducing Anthropic Transparency Hub",
+        "source": "assets/pdfs/anthropic-introducing-transparency-hub.pdf"
+       },
+       {
+        "id": "training-data-response",
+        "type": "fillBlank",
+        "prompt": "从公司自述中摘出三类训练数据来源，并写出一个仍不清楚的问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应至少包含三类来源，并指出一个披露缺口，例如来源比例、具体数据集、第三方数据条件或用户数据选择边界。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "training-data-text",
+          "training-data-response"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "transparency-pdf"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "privacy-pdf"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "transparency-intro-pdf"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-training-data-sources-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "training-data-sources-guide"
+           },
+           "to": "wait-training-data-response"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "training-data-sources-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-training-data-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "training-data-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "training-data-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "training-data-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "training-data-text",
+         "transparency-pdf",
+         "privacy-pdf",
+         "transparency-intro-pdf"
+        ],
+        "visibleBlockIds": [
+         "training-data-text",
+         "transparency-pdf",
+         "privacy-pdf",
+         "transparency-intro-pdf",
+         "training-data-response"
+        ]
+       },
+       "initialStepId": "play-training-data-sources-narration"
+      },
+      "narrations": [
+       {
+        "id": "training-data-sources-guide",
+        "text": "公司公开说明能告诉我们它如何描述训练数据来源，但不能自动补齐数据集名称、来源比例和第三方条件。请同时摘录来源并记录披露缺口。",
+        "audio": "assets/audio/narrations/training-data-sources-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-data-labor"
+      ],
+      "estimatedSeconds": 425
+     },
+     {
+      "id": "data-labor-transparency",
+      "title": "数据劳动：透明度缺口不能直接写成剥削结论",
+      "blocks": [
+       {
+        "id": "data-labor-images",
+        "type": "images",
+        "items": [
+         {
+          "id": "data-labor-images-item-1",
+          "alt": "Stanford FMTI Anthropic 透明度报告中数据获取披露项目截图",
+          "source": "assets/images/fmti-anthropic-data-acquisition.png"
+         },
+         {
+          "id": "data-labor-images-item-2",
+          "alt": "Foundation Model Transparency Index 2025 总览与公司评分截图",
+          "source": "assets/images/fmti-2025-overview.png"
+         }
+        ],
+        "presentation": "side-by-side"
+       },
+       {
+        "id": "data-labor-text",
+        "type": "text",
+        "content": "基础模型不是只靠机器自己“长出来”。训练、评估、红队测试、反馈和标注都可能涉及人的劳动。第三方透明度材料能帮助你看见：公司披露了哪些数据获取方法，又在哪些具体数据集、劳动条件、供应商信息上仍不充分。\n\n但注意边界：透明度不足是伦理风险，不等于已经证明存在低薪、恶劣劳动条件或剥削。成熟判断要写成“目前证据能确认什么、还不能推出什么、下一步要查什么”。材料链接：[Stanford CRFM：Anthropic FMTI 2025 公司报告](https://crfm.stanford.edu/fmti/December-2025/company-reports/Anthropic_FinalReport_FMTI2025.html)、[Stanford CRFM：Foundation Model Transparency Index 2025](https://crfm.stanford.edu/fmti/December-2025/index.html)、[Stanford HAI：Transparency in AI Is on the Decline](https://hai.stanford.edu/news/transparency-in-ai-is-on-the-decline)"
+       },
+       {
+        "id": "hai-pdf",
+        "type": "pdf",
+        "title": "材料包：Stanford HAI 透明度下降文章",
+        "source": "assets/pdfs/stanford-hai-transparency-decline.pdf"
+       },
+       {
+        "id": "labor-choice",
+        "type": "singleChoice",
+        "prompt": "“透明度不足就证明劳动者被剥削。”这句话是否成立？",
+        "options": [
+         {
+          "id": "labor-yes",
+          "label": "成立，因为不透明就一定有问题。"
+         },
+         {
+          "id": "labor-no",
+          "label": "不成立。透明度不足是风险，但还需要薪酬、地区、供应商和工作条件证据。"
+         },
+         {
+          "id": "labor-ignore",
+          "label": "不成立，因为数据劳动不属于 AI 伦理。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。不要把披露缺口写成已经被证明的事实。",
+         "correctOptionId": "labor-no",
+         "incorrectFeedback": "透明度不足值得追问，但不能自动推出具体劳动条件。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "labor-next-check",
+        "type": "fillBlank",
+        "prompt": "写出下一步最应该查的一项数据劳动信息。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答可写薪酬、工作地点、供应商、审核压力、心理健康支持、合同保障或申诉机制。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "data-labor-images"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "data-labor-text"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "hai-pdf"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "labor-choice",
+          "labor-next-check"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-data-labor-transparency-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "data-labor-transparency-guide"
+           },
+           "to": "wait-labor-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "data-labor-transparency-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-labor-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "labor-choice"
+           },
+           "to": "wait-labor-next-check"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "labor-choice"
+           },
+           "to": "wait-labor-next-check"
+          },
+          {
+           "on": {
+            "type": "answer.incorrect",
+            "sourceId": "labor-choice"
+           },
+           "to": "retry-labor-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "labor-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "labor-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "retry-labor-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "labor-choice"
+           },
+           "to": "wait-labor-next-check"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "labor-choice"
+           },
+           "to": "wait-labor-next-check"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "labor-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-labor-next-check",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "labor-next-check"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "labor-next-check"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "labor-next-check"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "data-labor-images",
+         "data-labor-text",
+         "hai-pdf"
+        ],
+        "visibleBlockIds": [
+         "data-labor-images",
+         "data-labor-text",
+         "hai-pdf",
+         "labor-choice",
+         "labor-next-check"
+        ]
+       },
+       "initialStepId": "play-data-labor-transparency-narration"
+      },
+      "narrations": [
+       {
+        "id": "data-labor-transparency-guide",
+        "text": "透明度不足值得追问，却不能直接证明具体劳动条件。请区分已有证据、尚不能推出的结论，以及下一步需要核查的信息。",
+        "audio": "assets/audio/narrations/data-labor-transparency-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-data-labor"
+      ],
+      "estimatedSeconds": 336
+     }
+    ],
+    "objectiveIds": [
+     "obj-data-labor"
+    ]
+   },
+   {
+    "id": "part-five",
+    "title": "能耗与基础设施账本",
+    "slices": [
+     {
+      "id": "compute-infrastructure",
+      "title": "算力不是抽象云",
+      "blocks": [
+       {
+        "id": "compute-text",
+        "type": "text",
+        "content": "AI 模型背后不是一个抽象的“云”，而是芯片、机房、数据中心、电力供应、冷却系统和基础设施投资。AWS Project Rainier 和 Anthropic 基础设施投资材料可以帮助你把 AI 伦理从数据和版权扩展到能源与地区影响。\n\n阅读时不要只写“AI 很耗电”。要尝试说清楚：算力规模有多大？谁建设？谁使用？基础设施在哪里？哪些成本可能由公司、居民、电网或环境承担？材料链接：[Amazon：AWS Project Rainier AI 算力集群](https://www.aboutamazon.com/news/aws/aws-project-rainier-ai-trainium-chips-compute-cluster)、[Anthropic：投资 500 亿美元建设美国 AI 基础设施](https://www.anthropic.com/news/anthropic-invests-50-billion-in-american-ai-infrastructure)"
+       },
+       {
+        "id": "rainier-pdf",
+        "type": "pdf",
+        "title": "材料包：AWS Project Rainier",
+        "source": "assets/pdfs/aws-project-rainier.pdf"
+       },
+       {
+        "id": "infra-pdf",
+        "type": "pdf",
+        "title": "材料包：Anthropic AI 基础设施投资",
+        "source": "assets/pdfs/anthropic-ai-infrastructure-investment.pdf"
+       },
+       {
+        "id": "compute-response",
+        "type": "fillBlank",
+        "prompt": "从材料中提取两个基础设施事实，并说明它们为什么属于 AI 伦理问题。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答应包含两个事实，例如芯片规模、数据中心、投资金额或部署地点，并说明它们与电力、环境、地区负担或公司责任有关。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "compute-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "rainier-pdf"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "infra-pdf"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "compute-response"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-compute-infrastructure-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "compute-infrastructure-guide"
+           },
+           "to": "wait-compute-response"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "compute-infrastructure-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-compute-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "compute-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "compute-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "compute-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "compute-text",
+         "rainier-pdf",
+         "infra-pdf"
+        ],
+        "visibleBlockIds": [
+         "compute-text",
+         "rainier-pdf",
+         "infra-pdf",
+         "compute-response"
+        ]
+       },
+       "initialStepId": "play-compute-infrastructure-narration"
+      },
+      "narrations": [
+       {
+        "id": "compute-infrastructure-guide",
+        "text": "算力由芯片、机房、电力、冷却和投资共同支撑。请从材料中提取基础设施事实，再说明这些事实如何连接到环境与地区责任。",
+        "audio": "assets/audio/narrations/compute-infrastructure-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-energy"
+      ],
+      "estimatedSeconds": 330
+     },
+     {
+      "id": "electricity-boundary",
+      "title": "电价承诺与环境边界",
+      "blocks": [
+       {
+        "id": "electricity-text",
+        "type": "text",
+        "content": "Anthropic 的电价承诺可以说明公司意识到数据中心可能影响电力成本，并试图承担一部分消费者电价影响。但这不等于所有环境影响都已经解决。\n\n能源责任至少可以拆成四格：电价、碳排放、水资源、电网压力。公司材料能回答其中一部分问题，剩下的仍需要外部数据、地区能源结构和环境影响评估。材料链接：https://www.anthropic.com/news/covering-electricity-price-increases"
+       },
+       {
+        "id": "electricity-pdf",
+        "type": "pdf",
+        "title": "材料包：Anthropic 数据中心电价承诺",
+        "source": "assets/pdfs/anthropic-covering-electricity-price-increases.pdf"
+       },
+       {
+        "id": "electricity-choice",
+        "type": "singleChoice",
+        "prompt": "哪句话最准确？",
+        "options": [
+         {
+          "id": "energy-solved",
+          "label": "公司承诺承担电价影响，所以 AI 能源伦理问题已经解决。"
+         },
+         {
+          "id": "energy-partial",
+          "label": "电价承诺回应的是部分消费者成本问题，但碳排、水资源、电网压力仍需继续查。"
+         },
+         {
+          "id": "energy-unrelated",
+          "label": "数据中心能源和 AI 伦理无关。"
+         }
+        ],
+        "assessment": {
+         "mode": "graded",
+         "correctFeedback": "对。电价只是能源责任的一部分。",
+         "correctOptionId": "energy-partial",
+         "incorrectFeedback": "把能源问题拆开：电价、碳、水、电网，不要只看一个维度。"
+        },
+        "completion": {
+         "rule": "submit-correct-or-exhausted",
+         "maxAttempts": 2
+        }
+       },
+       {
+        "id": "energy-gap",
+        "type": "fillBlank",
+        "prompt": "写出一个电力价格以外的待查环境变量。",
+        "assessment": {
+         "mode": "reflection",
+         "rubric": "合格回答可写碳排放、水资源、冷却用水、当地电网压力、可再生能源比例或环境影响评估。"
+        },
+        "completion": {
+         "rule": "submit-any"
+        }
+       }
+      ],
+      "layout": {
+       "slots": [
+        {
+         "id": "cell-1",
+         "blockIds": [
+          "electricity-text"
+         ]
+        },
+        {
+         "id": "cell-2",
+         "blockIds": [
+          "electricity-pdf"
+         ]
+        },
+        {
+         "id": "cell-3",
+         "blockIds": [
+          "electricity-choice"
+         ]
+        },
+        {
+         "id": "cell-4",
+         "blockIds": [
+          "energy-gap"
+         ]
+        }
+       ],
+       "preset": "grid"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-electricity-boundary-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "electricity-boundary-guide"
+           },
+           "to": "wait-electricity-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "electricity-boundary-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-electricity-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "electricity-choice"
+           },
+           "to": "wait-energy-gap"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "electricity-choice"
+           },
+           "to": "wait-energy-gap"
+          },
+          {
+           "on": {
+            "type": "answer.incorrect",
+            "sourceId": "electricity-choice"
+           },
+           "to": "retry-electricity-choice"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "electricity-choice"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "electricity-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "retry-electricity-choice",
+         "transitions": [
+          {
+           "on": {
+            "type": "answer.correct",
+            "sourceId": "electricity-choice"
+           },
+           "to": "wait-energy-gap"
+          },
+          {
+           "on": {
+            "type": "answer.attemptsExhausted",
+            "sourceId": "electricity-choice"
+           },
+           "to": "wait-energy-gap"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "electricity-choice"
+           }
+          }
+         ]
+        },
+        {
+         "id": "wait-energy-gap",
+         "transitions": [
+          {
+           "on": {
+            "type": "block.completed",
+            "sourceId": "energy-gap"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "energy-gap"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "energy-gap"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "electricity-text",
+         "electricity-pdf"
+        ],
+        "visibleBlockIds": [
+         "electricity-text",
+         "electricity-pdf",
+         "electricity-choice",
+         "energy-gap"
+        ]
+       },
+       "initialStepId": "play-electricity-boundary-narration"
+      },
+      "narrations": [
+       {
+        "id": "electricity-boundary-guide",
+        "text": "电价承诺只回应能源责任的一部分。请把电价、碳排放、水资源和电网压力拆开，识别仍需外部材料核查的变量。",
+        "audio": "assets/audio/narrations/electricity-boundary-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-energy"
+      ],
+      "estimatedSeconds": 247
+     }
+    ],
+    "objectiveIds": [
+     "obj-energy"
+    ]
+   },
+   {
+    "id": "part-six",
+    "title": "形成 AI 公司伦理审计卡",
+    "slices": [
+     {
+      "id": "evidence-gap-table",
+      "title": "公开宣称与证据落差表",
+      "blocks": [
+       {
+        "id": "gap-table-text",
+        "type": "text",
+        "content": "现在把四条线放进同一张审计表：版权、训练数据、数据劳动、能耗。\n\n每一行都按同一格式写：\n1. 公司或公众说法是什么？\n2. 已有证据是什么？\n3. 目前还不能推出什么？\n4. 下一步要查什么？\n\n这一步用文字表格完成。你可以引用前面的材料包链接作为证据。"
+       },
+       {
+        "id": "gap-table-response",
+        "type": "interactiveHtml",
+        "source": "interactions/html/evidence-gap-table-v2.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "gap-table-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "gap-table-response"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-evidence-gap-table-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "evidence-gap-table-guide"
+           },
+           "to": "wait-gap-table-response"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "evidence-gap-table-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-gap-table-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "gap-table-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "gap-table-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "gap-table-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "gap-table-text"
+        ],
+        "visibleBlockIds": [
+         "gap-table-text",
+         "gap-table-response"
+        ]
+       },
+       "initialStepId": "play-evidence-gap-table-narration"
+      },
+      "narrations": [
+       {
+        "id": "evidence-gap-table-guide",
+        "text": "请把版权、训练数据、数据劳动和能耗放进同一张证据落差表。每一行都要写清证据、边界和下一步追问。",
+        "audio": "assets/audio/narrations/evidence-gap-table-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-audit-card"
+      ],
+      "estimatedSeconds": 91
+     },
+     {
+      "id": "final-audit-card",
+      "title": "最终任务：AI 公司伦理审计卡",
+      "blocks": [
+       {
+        "id": "final-audit-text",
+        "type": "text",
+        "content": "最后写一张 AI 公司伦理审计卡。不要写成“Anthropic 好”或“Anthropic 坏”。你要写成有边界的判断：\n\n我能确认的是……\n争议最大的地方是……\n目前证据还不能推出的是……\n所以我对“Anthropic 是负责任 AI 公司”这一说法的判断是：在……范围内有证据支持，但在……方面仍有透明度缺口。"
+       },
+       {
+        "id": "final-audit-response",
+        "type": "interactiveHtml",
+        "source": "interactions/html/final-audit-card-v2.html",
+        "completion": {
+         "rule": "interaction-complete"
+        },
+        "aspectRatio": "4:3",
+        "capabilities": {
+         "audio": false
+        },
+        "protocolVersion": "1.0"
+       }
+      ],
+      "layout": {
+       "ratio": "1:1",
+       "slots": [
+        {
+         "id": "left",
+         "blockIds": [
+          "final-audit-text"
+         ]
+        },
+        {
+         "id": "right",
+         "blockIds": [
+          "final-audit-response"
+         ]
+        }
+       ],
+       "preset": "split-horizontal"
+      },
+      "workflow": {
+       "steps": [
+        {
+         "id": "play-final-audit-card-narration",
+         "transitions": [
+          {
+           "on": {
+            "type": "narration.ended",
+            "sourceId": "final-audit-card-guide"
+           },
+           "to": "wait-final-audit-response"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "playNarration",
+           "narrationId": "final-audit-card-guide"
+          }
+         ]
+        },
+        {
+         "id": "wait-final-audit-response",
+         "transitions": [
+          {
+           "on": {
+            "type": "interaction.completed",
+            "sourceId": "final-audit-response"
+           },
+           "to": "finish"
+          }
+         ],
+         "enterActions": [
+          {
+           "type": "enable",
+           "targetId": "final-audit-response"
+          },
+          {
+           "type": "focus",
+           "target": {
+            "blockId": "final-audit-response"
+           }
+          }
+         ]
+        },
+        {
+         "id": "finish",
+         "transitions": [],
+         "enterActions": [
+          {
+           "type": "clearFocus"
+          },
+          {
+           "type": "completeSlice"
+          }
+         ]
+        }
+       ],
+       "version": "1.0",
+       "initialState": {
+        "enabledBlockIds": [
+         "final-audit-text"
+        ],
+        "visibleBlockIds": [
+         "final-audit-text",
+         "final-audit-response"
+        ]
+       },
+       "initialStepId": "play-final-audit-card-narration"
+      },
+      "narrations": [
+       {
+        "id": "final-audit-card-guide",
+        "text": "最后形成一张有证据边界的伦理审计卡。避免简单评价公司好坏，至少覆盖三个维度，并明确哪些判断有支持、哪些仍待核查。",
+        "audio": "assets/audio/narrations/final-audit-card-guide.mp3"
+       }
+      ],
+      "navigation": {
+       "revisit": "restore-completed-state",
+       "autoNext": false,
+       "previous": "allowed",
+       "manualNext": "after-completion"
+      },
+      "objectiveIds": [
+       "obj-audit-card"
+      ],
+      "estimatedSeconds": 98
+     }
+    ],
+    "objectiveIds": [
+     "obj-audit-card"
+    ]
+   }
+  ],
+  "title": "AI 公司的\"焚书坑儒\"：谁为 AI 付了账？",
+  "closing": {
+   "fallback": {
+    "text": "回到开场那条短视频：它可以成为追问的起点，却不能替代证据链。这条学习路径把同一个 AI 公司争议拆成四层问题：书籍如何进入训练材料、法庭如何区分 fair use 与盗版副本、公司如何公开描述训练数据与透明度、算力和数据中心怎样带来能源责任。\n\n下次遇到新的 AI 伦理争议，可以继续使用这张审计路径：先拆命题，再找材料；先区分事实、法律和伦理，再写判断；先说明证据能推出什么，再说明还不能推出什么。"
+   },
+   "takeaways": [
+    "把 AI 争议拆成证据链，而不是只表达立场。",
+    "使用“合法但仍有伦理问题”“证据不足”“透明度缺口”等更有边界的判断语言。",
+    "比较公司公开宣称与第三方材料之间的落差。",
+    "把版权、数据、劳动、能源放进同一个 AI 伦理审计框架。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   },
+   "preparedSummary": "回到开场那条短视频：它可以成为追问的起点，却不能替代证据链。这条学习路径把同一个 AI 公司争议拆成四层问题：书籍如何进入训练材料、法庭如何区分 fair use 与盗版副本、公司如何公开描述训练数据与透明度、算力和数据中心怎样带来能源责任。\n\n下次遇到新的 AI 伦理争议，可以继续使用这张审计路径：先拆命题，再找材料；先区分事实、法律和伦理，再写判断；先说明证据能推出什么，再说明还不能推出什么。",
+   "transferApplications": [
+    "评估其他 AI 公司的训练数据争议。",
+    "分析生成式 AI 产品的隐私政策与透明度说明。",
+    "审查科技公司 ESG、社会责任或安全宣传。",
+    "把“事实-法律-伦理-证据缺口”路径迁移到新闻辨析和议论文写作。"
+   ]
+  },
+  "opening": {
+   "fallback": {
+    "text": "你将从一段关于 Anthropic “巴拿马计划”的短视频开始，学习怎样把社媒上的强判断拆成可核查的证据问题。\n\n这节课不会要求你简单支持或反对某家公司。你要追查四类材料：法庭文件、新闻调查、公司公开说明、第三方透明度报告，并把“事实是否成立”“法律如何判断”“伦理还可以追问什么”分开。最后，你将完成一张 AI 公司伦理审计卡，说明 Anthropic 在版权、训练数据、数据劳动和能耗四个维度上，哪些证据较强，哪些地方仍有透明度缺口。"
+   },
+   "learningPreview": [
+    "社媒视频是线索，不是结论。",
+    "Project Panama 与盗版电子书链条必须分开判断。",
+    "合法、透明、合伦理、负责任不是同义词。",
+    "公司自述需要和法庭材料、新闻调查、第三方报告相互校正。",
+    "透明度不足是伦理风险，但不能自动写成已被证明的违法或剥削。",
+    "AI 伦理不仅关乎模型输出，也关乎数据、劳动、算力和基础设施成本。"
+   ],
+   "personalization": {
+    "enabled": false,
+    "allowedSignals": []
+   }
+  },
+  "language": "zh-CN",
+  "objectives": [
+   {
+    "id": "obj-claim-split",
+    "text": "能把社媒视频中的强判断拆成可核查命题，并区分事实声称、法律判断和伦理评价。",
+    "evidenceBlockIds": [
+     "xhs-video",
+     "video-status-choice",
+     "video-next-questions",
+     "route-choice"
+    ]
+   },
+   {
+    "id": "obj-source-chain",
+    "text": "能用法庭、新闻和和解材料区分 Project Panama 与盗版电子书链条。",
+    "evidenceBlockIds": [
+     "panama-response",
+     "pirate-choice",
+     "copies-wording",
+     "source-chain-sort"
+    ]
+   },
+   {
+    "id": "obj-data-labor",
+    "text": "能说明 Anthropic 公开披露的训练数据来源，并识别数据劳动与透明度缺口中的证据边界。",
+    "evidenceBlockIds": [
+     "training-data-response",
+     "labor-choice",
+     "labor-next-check"
+    ]
+   },
+   {
+    "id": "obj-energy",
+    "text": "能从基础设施和电价材料中分析 AI 能耗责任的不同维度。",
+    "evidenceBlockIds": [
+     "compute-response",
+     "electricity-choice",
+     "energy-gap"
+    ]
+   },
+   {
+    "id": "obj-audit-card",
+    "text": "能完成一张基于证据、边界和下一步追问的 AI 公司伦理审计卡。",
+    "evidenceBlockIds": [
+     "gap-table-response",
+     "final-audit-response"
+    ]
+   }
+  ],
+  "estimatedMinutes": 58
+ },
+ "schemaVersion": "2.0"
+}

@@ -54,7 +54,15 @@ export function referenceToPaperView(r: Reference): PaperView {
   };
 }
 
-export type PaperAction = { label: string; onClick: () => void; busy?: boolean; disabled?: boolean };
+export type PaperAction = {
+  label: string;
+  onClick: () => void;
+  busy?: boolean;
+  disabled?: boolean;
+  /** Guided-tour anchor for this action's button (`data-tour`), when the tour
+      needs to action-click this exact control. Absent everywhere else. */
+  dataTour?: string;
+};
 
 export function PaperDetail({
   paper,
@@ -125,7 +133,7 @@ export function PaperDetail({
         )}
       </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2">
+      <div data-tour="paper-enter-reading" className="mt-3 flex flex-wrap items-center gap-2">
         {paper.link && (
           <a href={paper.link} target="_blank" rel="noopener noreferrer" className="rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:border-mk-accent hover:bg-mk-accent-50">
             打开原文
@@ -134,6 +142,7 @@ export function PaperDetail({
         {primaryAction && (
           <button
             type="button"
+            data-tour={primaryAction.dataTour}
             onClick={primaryAction.onClick}
             disabled={primaryAction.busy || primaryAction.disabled}
             className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-60"

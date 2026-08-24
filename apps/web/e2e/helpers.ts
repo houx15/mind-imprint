@@ -7,17 +7,33 @@ export function uniqueEmail(prefix: string): string {
   return `${prefix}+${Date.now()}@e2e.local`;
 }
 
+// Dismisses the first-run welcome tour modal (shown when the logged-in
+// user's onboarded_at is null — true for every freshly seeded/registered
+// e2e user). No-op when the modal isn't present, so it's safe to call
+// unconditionally after any login/registration flow.
+export async function dismissWelcomeModal(page: Page): Promise<void> {
+  const later = page.getByRole("button", { name: "稍后再说" });
+  if (await later.isVisible({ timeout: 3_000 }).catch(() => false)) {
+    await later.click();
+    await expect(later).toHaveCount(0, { timeout: 10_000 });
+  }
+}
+
 // Drives the login card. Auth inputs have no test hooks, so target by the
 // password type + the first text input in the login card (see selector ref).
 export async function login(page: Page, email: string, password: string): Promise<void> {
   await page.goto("/");
-  const loginBtn = page.getByRole("button", { name: "登录" }).first();
+  // exact: true — Playwright's default name match is substring, and the
+  // student shell's nav footer now carries a persistent "退出登录" (logout)
+  // button that CONTAINS "登录", so a loose match never reaches count 0.
+  const loginBtn = page.getByRole("button", { name: "登录", exact: true }).first();
   await expect(loginBtn).toBeVisible();
   await page.locator('input:not([type="password"])').first().fill(email);
   await page.locator('input[type="password"]').first().fill(password);
   await loginBtn.click();
   // Login resolves when the login submit button is gone (app rendered).
-  await expect(page.getByRole("button", { name: "登录" })).toHaveCount(0, { timeout: 30_000 });
+  await expect(page.getByRole("button", { name: "登录", exact: true })).toHaveCount(0, { timeout: 30_000 });
+  await dismissWelcomeModal(page);
 }
 
 export async function logout(page: Page): Promise<void> {
@@ -44,6 +60,7 @@ export async function registerWithCode(
   await page.locator("input").last().fill(opts.code);
   await page.getByRole("button", { name: "完成，进入思维印记" }).click();
   await expect(page.getByRole("button", { name: "完成，进入思维印记" })).toHaveCount(0, { timeout: 30_000 });
+  await dismissWelcomeModal(page);
 }
 
 // ── Journey helpers (authored against the CURRENT refactored UI) ──────────────

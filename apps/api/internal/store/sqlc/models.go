@@ -135,6 +135,9 @@ type Course struct {
 	CourseDefinition []byte    `json:"course_definition"`
 	Status           string    `json:"status"`
 	Cover            string    `json:"cover"`
+	Category         *string   `json:"category"`
+	Introduction     []byte    `json:"introduction"`
+	FeaturedRank     *int32    `json:"featured_rank"`
 }
 
 type CourseProgress struct {
@@ -150,13 +153,14 @@ type CourseProgress struct {
 }
 
 type CourseSession struct {
-	ID        uuid.UUID `json:"id"`
-	UserID    uuid.UUID `json:"user_id"`
-	CourseID  uuid.UUID `json:"course_id"`
-	Session   []byte    `json:"session"`
-	Status    string    `json:"status"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	CourseID    uuid.UUID          `json:"course_id"`
+	Session     []byte             `json:"session"`
+	Status      string             `json:"status"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
 type Disposition struct {
@@ -261,6 +265,13 @@ type ExplorationLead struct {
 	CreatedAt            time.Time   `json:"created_at"`
 	UpdatedAt            time.Time   `json:"updated_at"`
 	ParentLeadID         pgtype.UUID `json:"parent_lead_id"`
+}
+
+type Feedback struct {
+	ID        uuid.UUID `json:"id"`
+	UserID    uuid.UUID `json:"user_id"`
+	Text      string    `json:"text"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type GraphEdge struct {
@@ -394,6 +405,7 @@ type Project struct {
 	LastActiveAt  time.Time          `json:"last_active_at"`
 	StudioState   []byte             `json:"studio_state"`
 	Cover         *string            `json:"cover"`
+	IsDemo        bool               `json:"is_demo"`
 }
 
 type ProjectAiUse struct {
@@ -567,6 +579,7 @@ type User struct {
 	CreatedAt       time.Time          `json:"created_at"`
 	CardTheme       string             `json:"card_theme"`
 	PageBackground  string             `json:"page_background"`
+	OnboardedAt     pgtype.Timestamptz `json:"onboarded_at"`
 }
 
 type VoiceTtsCache struct {

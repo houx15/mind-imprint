@@ -2,7 +2,7 @@
   "id": "opcvl",
   "placement": "reading-toolkit",
   "asset_id": "T06",
-  "category": "AOK",
+  "category": "信源核查",
   "name": "OPCVL 史料评估卡",
   "name_en": "OPCVL Source Evaluation",
   "purpose": "用 IB 历史的 OPCVL 框架评估史料：来源、目的、内容、价值、局限——并升到双源对照与史观自觉",
@@ -16,6 +16,24 @@
   "related": ["fact-opinion-value", "ai-boundary"],
   "body_status": "full",
   "rubric_tags": ["OPCVL D1", "OPCVL D2", "OPCVL D3", "OPCVL D4", "OPCVL D5", "OPCVL D6", "OPCVL D12"],
+  "teaching": {
+    "tagline": "评一份史料别停在「真还是假」——按 OPCVL 五步走一遍，你能说清它对历史研究到底有什么用、又有哪些盲区。",
+    "mnemonic": {
+      "phrase": "OPCVL = Origin · Purpose · Content · Value · Limitation",
+      "gloss": "来源 Origin、目的 Purpose、内容 Content、价值 Value、局限 Limitation；进阶再加双源对照与史观自觉。"
+    },
+    "flow": ["O 定位来源", "P 看清目的", "C 摘要内容", "V 价值", "L 局限（与价值成对）"],
+    "steps": [
+      { "title": "O 来源：先定位它从哪来", "detail": "问清作者 / 出版方是谁、产出的时间地点、是同期的一手还是事后的二手。来源定了，后面的价值与局限才有根。" },
+      { "title": "P 目的：它为什么而写", "detail": "作者为什么做这份材料（宣传？记录？说服？私信？），又写给谁看。受众往往反过来暴露目的。" },
+      { "title": "C 内容：先说清它说了什么", "detail": "用**自己的话**摘要主要内容，圈出值得注意的措辞。此刻只描述、不评判。" },
+      { "title": "V 价值：它有什么独特用处", "detail": "价值**不等于**「说的是真的」。哪怕满是偏见，它也能真实反映当时的立场或意图——这正是它的价值。" },
+      { "title": "L 局限：它的视角有哪些盲区", "detail": "局限不是「说错了」，而是它天然看不到、不愿说的部分。让局限和价值**成对呼应**：同一个来源 / 目的，既给它价值也给它局限。" },
+      { "title": "进阶：双源对照与史观自觉", "detail": "有第二份史料时，逐维对照两者的异同从何而来；最后回看自己带着什么立场在评判——别把自己的史观当成客观。" }
+    ],
+    "watchOut": "最常见的失分点是把「价值」等同于「内容是真的」。一份失实的宣传海报照样有价值——它精准记录了官方当时想让人相信什么。",
+    "example": "一张 1950 年代官方海报写「亩产万斤」：O 作者是政府、与事件同期；P 为动员宣传；C 先记下这句话本身；V 价值在于反映官方当时想灌输的意图；L 局限是看不到民众真实处境、也不会承认饥荒——价值与局限正好一体两面。"
+  },
   "steps": [
     {
       "key": "origin",

@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>荧光笔 · 把情绪、主张和号召分开</title>
+<style>
+:root{
+  --paper:#EDF0EC; --card:#FBFCFA; --ink:#14201B; --ink-2:#3A4A43;
+  --muted:#5C6A63; --line:#CBD4CE; --line-soft:#DFE5E0;
+  --t-corp:#1E7A54; --t-reg:#1F4B7A; --boundary:#9C5518;
+  --mk-emo:rgba(236,124,180,.55); --mk-fact:rgba(243,222,74,.72); --mk-call:rgba(120,190,235,.6);
+  --serif:"Songti SC","Noto Serif SC","STSong",Georgia,serif;
+  --sans:"PingFang SC","Noto Sans SC","Microsoft YaHei",-apple-system,"Segoe UI",sans-serif;
+  --mono:ui-monospace,"SF Mono","Menlo",Consolas,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;font-size:16px}
+body{background:var(--paper);color:var(--ink);font-family:var(--sans);
+  line-height:1.7;display:flex;align-items:center;justify-content:center;
+  min-height:100vh;overflow-x:hidden}
+#stage{width:1024px;height:768px;aspect-ratio:4 / 3;transform-origin:top left;background:var(--paper);
+  display:flex;flex-direction:column;padding:26px 34px 20px}
+.eyebrow.auxiliary{font-family:var(--mono);font-size:14px;letter-spacing:.14em;
+  text-transform:uppercase;color:var(--muted);font-weight:600}
+h1{font-family:var(--serif);font-size:30px;line-height:1.3;margin:6px 0 8px;font-weight:700}
+.lede{font-size:16px;color:var(--ink-2);margin:0 0 10px;max-width:900px}
+.task{font-size:16px;background:var(--card);border:1px solid var(--line);
+  border-left:3px solid var(--t-corp);border-radius:2px;padding:10px 14px;margin:0 0 14px}
+.legend.auxiliary{display:flex;gap:18px;flex-wrap:wrap;align-items:center;font-size:14px;
+  color:var(--ink-2);margin:0 0 12px}
+.legend span{display:flex;align-items:center;gap:7px}
+.legend i{width:22px;height:13px;border-radius:2px;display:inline-block}
+#chips{flex:1;overflow-y:auto;display:flex;flex-wrap:wrap;gap:10px;align-content:flex-start;
+  padding:4px 2px 8px}
+.chip{font-family:inherit;font-size:16px;line-height:1.5;color:var(--ink);
+  background:var(--card);border:1px solid var(--line);border-radius:3px;
+  padding:9px 13px;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px;
+  background-repeat:no-repeat;background-size:100% .8em;background-position:0 .62em}
+.chip:hover{border-color:var(--t-reg)}
+.chip .badge.auxiliary{font-family:var(--mono);font-size:14px;color:var(--muted);
+  border:1px solid var(--line-soft);border-radius:2px;padding:1px 6px;white-space:nowrap}
+.chip[data-tag] .badge{color:var(--ink-2);border-color:var(--line)}
+.chip[data-tag="emo"]{background-image:linear-gradient(102deg,transparent 1%,var(--mk-emo) 2%,var(--mk-emo) 97%,transparent 99%)}
+.chip[data-tag="fact"]{background-image:linear-gradient(102deg,transparent 1%,var(--mk-fact) 2%,var(--mk-fact) 97%,transparent 99%)}
+.chip[data-tag="call"]{background-image:linear-gradient(102deg,transparent 1%,var(--mk-call) 2%,var(--mk-call) 97%,transparent 99%)}
+.foot{border-top:1px solid var(--line);padding-top:12px;display:flex;align-items:center;gap:16px}
+#tally.auxiliary{font-family:var(--mono);font-size:14px;color:var(--ink-2);flex:1}
+#gate.auxiliary{font-size:14px;color:var(--boundary);text-align:right;max-width:330px}
+button.go{font-family:inherit;font-size:16px;font-weight:700;color:#fff;background:var(--t-corp);
+  border:1px solid var(--t-corp);border-radius:3px;padding:11px 26px;cursor:pointer}
+button.go:disabled{background:#9FB3A8;border-color:#9FB3A8;cursor:not-allowed}
+#done{font-size:16px;color:var(--t-corp);font-weight:700;display:none}
+:focus-visible{outline:3px solid var(--t-reg);outline-offset:2px}
+</style>
+</head>
+<body>
+<div id="stage">
+  <span class="eyebrow auxiliary" data-text-role="auxiliary">步骤 01 · SIFT Stop</span>
+  <h1>暂停判断，把话拆开</h1>
+  <p class="lede">SIFT 的第一步不是查证，是停下来。一条信息里混着情绪、事实主张和行动号召，先把它们分开，才知道该查什么。</p>
+  <div class="task"><b>你要做的：</b>下面是这条叙事在评论区扩散时最常见的说法。<b>反复点一个短语</b>，可以在四种标注之间切换：情绪词 → 事实主张 → 行动号召 → 取消标注。至少标注 5 条。</div>
+  <div class="legend auxiliary" data-text-role="auxiliary">
+    <span><i style="background:var(--mk-emo)"></i>情绪词</span>
+    <span><i style="background:var(--mk-fact)"></i>事实主张（可被核查）</span>
+    <span><i style="background:var(--mk-call)"></i>行动号召</span>
+    <span><i style="background:#fff;border:1px solid var(--line)"></i>未标注</span>
+  </div>
+  <div id="chips"></div>
+  <div class="foot">
+    <div id="tally" class="auxiliary" data-text-role="auxiliary"></div>
+    <div id="gate" class="auxiliary" data-text-role="auxiliary">还需要再标注 5 条才能提交</div>
+    <button class="go" id="submit" disabled>完成</button>
+    <span id="done">已提交 ✓</span>
+  </div>
+</div>
+<script>
+var PROTOCOL="mind-course-interaction", VERSION="1.0";
+var sessionToken=null, pendingFrameMessages=[], completionSent=false;
+function postFrameMessage(type,payload){
+  window.parent.postMessage({protocol:PROTOCOL,version:VERSION,sessionToken:sessionToken,type:type,payload:payload},"*");
+}
+function send(type,payload){
+  if(!sessionToken){ pendingFrameMessages.push({type:type,payload:payload}); return; }
+  postFrameMessage(type,payload);
+}
+window.addEventListener("message",function(event){
+  var message=event.data;
+  if(!message||message.protocol!==PROTOCOL||message.version!==VERSION||!message.sessionToken) return;
+  var isNewSession = sessionToken!==message.sessionToken;
+  sessionToken=message.sessionToken;
+  if(!isNewSession) return;
+  postFrameMessage("ready",{});
+  while(pendingFrameMessages.length){
+    var pending=pendingFrameMessages.shift();
+    postFrameMessage(pending.type,pending.payload);
+  }
+});
+
+var PHRASES=["ESG 是骗局","特斯拉被冤枉了","评级机构失去了诚信","埃克森排名比特斯拉高","这是政治正确","被虚假的社会正义武器化","标普用了双重标准","特斯拉未进入该指数名单","别再相信 ESG 评分","做做样子的环保行动"];
+var TAGS={emo:"情绪词",fact:"事实主张",call:"行动号召"};
+var ORDER=["","emo","fact","call"];
+var MIN=5;
+var state={};
+
+var chipsEl=document.getElementById("chips");
+var tallyEl=document.getElementById("tally");
+var gateEl=document.getElementById("gate");
+var btn=document.getElementById("submit");
+var doneEl=document.getElementById("done");
+
+PHRASES.forEach(function(p,i){
+  var c=document.createElement("button");
+  c.className="chip"; c.type="button";
+  var label=document.createElement("span"); label.textContent=p;
+  var badge=document.createElement("span"); badge.className="badge auxiliary"; badge.setAttribute("data-text-role","auxiliary"); badge.textContent="点击标注";
+  c.appendChild(label); c.appendChild(badge);
+  c.addEventListener("click",function(){
+    var now=state[i]||"";
+    var next=ORDER[(ORDER.indexOf(now)+1)%ORDER.length];
+    if(next){ state[i]=next; c.setAttribute("data-tag",next); }
+    else { delete state[i]; c.removeAttribute("data-tag"); }
+    badge.textContent = next ? TAGS[next] : "点击标注";
+    refresh();
+  });
+  chipsEl.appendChild(c);
+});
+
+function counts(){
+  var c={emo:0,fact:0,call:0};
+  Object.keys(state).forEach(function(k){ if(c[state[k]]!=null) c[state[k]]++; });
+  return c;
+}
+function refresh(){
+  var c=counts(), n=Object.keys(state).length;
+  tallyEl.textContent="已标注 · 情绪词 "+c.emo+"　事实主张 "+c.fact+"　行动号召 "+c.call+"　/ 共 "+PHRASES.length+" 条";
+  var ok = n>=MIN;
+  btn.disabled = !ok || completionSent;
+  gateEl.textContent = ok ? "" : ("还需要再标注 "+(MIN-n)+" 条才能提交");
+  if(!completionSent) send("progress",{tagged:n,counts:c});
+}
+btn.addEventListener("click",function(){
+  if(completionSent) return;
+  var n=Object.keys(state).length;
+  if(n<MIN) return;
+  completionSent=true;
+  btn.disabled=true; doneEl.style.display="inline"; gateEl.textContent="";
+  var tags=PHRASES.map(function(p,i){ return {phrase:p, tag:state[i]||null}; });
+  send("completed",{resultId:"highlighter-stop-attempt-1",value:{tagged:n,counts:counts(),tags:tags}});
+});
+refresh();
+
+function fit(){
+  var s=Math.min(window.innerWidth/1024, window.innerHeight/768);
+  var st=document.getElementById("stage");
+  st.style.transform="scale("+s+")";
+  document.body.style.height=(768*s)+"px";
+  document.body.style.width=(1024*s)+"px";
+}
+window.addEventListener("resize",fit); fit();
+</script>
+<!-- mind-imprint:layout-fix-2026-08-23 -->
+<style>
+html { height: 100%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+body { display: block !important; position: relative; flex: 0 0 auto; min-height: 0 !important; overflow: hidden; }
+#stage { position: absolute !important; top: 0 !important; left: 0 !important; }
+</style>
+<!-- /mind-imprint:layout-fix-2026-08-23 -->
+</body>
+</html>

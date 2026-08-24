@@ -31,7 +31,7 @@ function makeSession() {
   const session = createSession({ storage });
   session.setUser({
     id: "u1", email: "p@d.local", display_name: "Phoebe", role: "student",
-    avatar_color: "vermilion", page_background: "paper", school: { id: "s1", name: "Demo" }, classes: [],
+    avatar_color: "vermilion", page_background: "paper", onboarded_at: "2026-08-01T00:00:00Z", school: { id: "s1", name: "Demo" }, classes: [],
   });
   return session;
 }
