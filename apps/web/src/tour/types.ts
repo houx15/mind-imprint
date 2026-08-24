@@ -1,3 +1,5 @@
+import type { DigCandidate } from "@mind-imprint/contracts";
+
 export type TourPlacement = "top" | "bottom" | "left" | "right" | "center";
 /** Kinds of static real-UI mocks a step can pair its 印记 line with (§Task 2).
  *  Extend with a new string as more mocks are built — the registry lives in
@@ -90,6 +92,23 @@ export interface TourNavContext {
    * session) and merges it into `readByRoot` before handing that to
    * WarrenMap. Assumes the reading room is already open on the 探索图谱 view. */
   markDemoNodeRead: (rootLeadId: string) => void;
+  /** P8 (Task 6): demo-simulate ADOPTING a searched candidate into the OPEN
+   *  project's exploration graph, client-side only — the demo project is
+   *  write-blocked (403), so `ExplorationView`'s real POST /exploration/adopt
+   *  is swapped for this call when the project isDemo. Mirrors
+   *  `markDemoNodeRead`'s shape (accumulated, never retracted — every call
+   *  this session adds one more synthetic node) but the state ends up in
+   *  WorkspaceContainer's `demoAdoptedLeads`/`demoAdoptedRefs` instead of a
+   *  root-id Set: a synthetic `ExplorationLead` (status "connected",
+   *  `parentLeadId` = the node the candidate was dug/adopted from — same
+   *  papers-never-roots invariant as the real adopt) + a synthetic
+   *  `Reference` built from the `DigCandidate`'s bibliographic fields,
+   *  merged into the exploration view before `WarrenMap`/`QuestionMindmap`
+   *  and the "文献 x 篇" counts render. Reachable both from a tour step's
+   *  `onEnter` (this hook) and directly from ExplorationView's own
+   *  adopt/addFromDetail click handlers (threaded a callback down from
+   *  WorkspaceContainer, same accumulator either way). */
+  markDemoNodeAdopted: (candidate: DigCandidate, parentLeadId: string) => void;
 }
 
 /** A one-shot writing-room deep-link target (P6, Task 9): which document and

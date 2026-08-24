@@ -18,7 +18,7 @@ import type { TourNavContext, StudioRoom, TourWritingView, TourRefPanelTab, Tour
 import { DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID, DEMO_READING_REFERENCE_ID } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
 import { getMaterialSource } from "@/workspace/api/workspace";
-import type { MaterialSource } from "@mind-imprint/contracts";
+import type { DigCandidate, MaterialSource } from "@mind-imprint/contracts";
 
 // StudentApp — the student platform shell. Four top-level surfaces reachable
 // from the 64px `Nav` rail:
@@ -115,6 +115,16 @@ export function StudentApp({
   // which ACCUMULATES it (unlike every sibling `pending*` above) rather than
   // replacing prior state.
   const [pendingMarkNodeRead, setPendingMarkNodeRead] = useState<string | null>(null);
+  // One-shot demo-adopt signal — a fresh {candidate, parentLeadId} object each
+  // call — driven by the guided tour (TourNavContext.markDemoNodeAdopted, P8
+  // Task 6). Consumed by ProjectsTab/WorkspaceContainer, which ACCUMULATES it
+  // (mirrors pendingMarkNodeRead) into a synthetic node list rather than
+  // replacing prior state. ExplorationView itself also reaches the same
+  // WorkspaceContainer accumulator directly (a live 采纳 click, not a tour
+  // onEnter) — this pending slot only carries the TOUR-driven entry point.
+  const [pendingDemoAdopt, setPendingDemoAdopt] = useState<{ candidate: DigCandidate; parentLeadId: string } | null>(
+    null,
+  );
   // One-shot deep-link to open an already-fetched demo `MaterialSource` into
   // the real immersive 精读 reading room, driven by the guided tour
   // (TourNavContext.openDemoReadingRoom, P6 Task 5). Consumed by
@@ -216,6 +226,11 @@ export function StudentApp({
     // (the demo project is write-blocked); accumulated downstream, never
     // retracted.
     markDemoNodeRead: (rootLeadId) => setPendingMarkNodeRead(rootLeadId),
+    // P8 Task 6: demo-simulate adopting a searched candidate into the open
+    // project's exploration graph. Client-only override (the demo project is
+    // write-blocked); accumulated downstream, never retracted. A fresh object
+    // each call so WorkspaceContainer's ref-guard always sees a new value.
+    markDemoNodeAdopted: (candidate, parentLeadId) => setPendingDemoAdopt({ candidate, parentLeadId }),
     // P6 (Task 5): switch the open project's studio to the reading room, then
     // fetch the demo's seeded material (read-only GET, no enter-reading side
     // effects) and open it into the real, immersive 精读 room via
@@ -275,6 +290,8 @@ export function StudentApp({
         onPendingOpenSearchCardConsumed={() => setPendingOpenSearchCard(null)}
         pendingMarkNodeRead={pendingMarkNodeRead}
         onPendingMarkNodeReadConsumed={() => setPendingMarkNodeRead(null)}
+        pendingDemoAdopt={pendingDemoAdopt}
+        onPendingDemoAdoptConsumed={() => setPendingDemoAdopt(null)}
         pendingDemoReading={pendingDemoReading}
         onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
         onImmersiveChange={setProjectsImmersive}

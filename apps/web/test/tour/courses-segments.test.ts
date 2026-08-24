@@ -50,6 +50,7 @@ describe("courses segments", () => {
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
       markDemoNodeRead: vi.fn(),
+      markDemoNodeAdopted: vi.fn(),
     };
     coursesJourney[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("courses");

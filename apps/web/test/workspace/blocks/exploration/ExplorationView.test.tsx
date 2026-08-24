@@ -88,6 +88,12 @@ vi.mock("@/workspace/api/workspace", () => ({
   pasteContent: vi.fn(),
   NoReadableContentError: class extends Error {},
 }));
+// P8 Task 6 · the controls column's 检索方向 propose box (proposeDirections),
+// mocked so the addFromDetail(inHole) demo-interception test can drive
+// idle→directions→list→detail without a real network call.
+vi.mock("@/api/searchGuidance", () => ({
+  proposeSearchGuidance: vi.fn(),
+}));
 
 import {
   getExploration,
@@ -101,6 +107,9 @@ import {
   patchEdge,
   deleteEdge,
 } from "@/api/exploration";
+import { proposeSearchGuidance } from "@/api/searchGuidance";
+
+const mockProposeSearchGuidance = vi.mocked(proposeSearchGuidance);
 
 const mockGetExploration = vi.mocked(getExploration);
 const mockCreateLead = vi.mocked(createLead);
@@ -972,6 +981,125 @@ describe("ExplorationView", () => {
     expect(container.querySelectorAll('[data-tour="warren-node-read"]').length).toBe(1);
     expect(overrideCard.querySelector('[data-tour="warren-node-read"]')).not.toBeNull();
     expect(dataDoneCard.querySelector('[data-tour="warren-node-read"]')).toBeNull();
+  });
+
+  // ---- P8 Task 6 · demoAdoptedLeads/demoAdoptedRefs simulate an adopted node
+  //      (guided tour + the student's own 采纳/addFromDetail click in demo) ----
+
+  const DEMO_ADOPTED_REF: Reference = makeRef({
+    id: "demo-ref-1",
+    title: "演示已采纳的候选论文",
+    author: "Zhang 等",
+    year: "2024",
+    journal: "Journal of Demo Studies",
+    readingStatus: "reading",
+  });
+  const DEMO_ADOPTED_LEAD: ExplorationLead = {
+    id: "demo-lead-1",
+    text: DEMO_ADOPTED_REF.title,
+    status: "connected",
+    origin: "guide",
+    sourceReferenceId: null,
+    connectedReferenceId: DEMO_ADOPTED_REF.id,
+    position: 0,
+    parentLeadId: ROOT_LEAD.id,
+    createdAt: "2026-08-24T00:00:00Z",
+  };
+
+  it("demoAdoptedLeads/demoAdoptedRefs merge a synthetic connected child under its root — the 文献 count and mindmap both reflect it", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    const user = userEvent.setup();
+    render(
+      <ExplorationView
+        projectId={nextPid()}
+        references={[]}
+        demoAdoptedLeads={[DEMO_ADOPTED_LEAD]}
+        demoAdoptedRefs={[DEMO_ADOPTED_REF]}
+      />,
+    );
+
+    // MAP level: the "文献 x 篇" tally counts the synthetic node even though
+    // the server-fetched leads (mocked above) carry none.
+    await screen.findByText(ROOT_LEAD.text);
+    expect(screen.getByText("文献 1 篇")).toBeInTheDocument();
+
+    // Zooming into the root shows the synthetic node in the REAL mindmap
+    // (QuestionMindmap), and selecting it shows its synthetic reference's bib.
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, DEMO_ADOPTED_LEAD.text);
+    expect(await screen.findByText("Zhang 等")).toBeInTheDocument();
+    expect(screen.getByText("Journal of Demo Studies")).toBeInTheDocument();
+  });
+
+  it("absent demoAdoptedLeads/demoAdoptedRefs is a no-op — no synthetic node (normal-graph regression guard)", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+    expect(screen.getByText("文献 0 篇")).toBeInTheDocument();
+    expect(screen.queryByText(DEMO_ADOPTED_LEAD.text)).toBeNull();
+  });
+
+  it("采纳 in 'results' calls onDemoAdopt instead of the real adoptCandidate POST when supplied — no network call fires", async () => {
+    const projectId = nextPid();
+    const onDemoAdopt = vi.fn();
+    const onLibraryChanged = vi.fn();
+    const user = userEvent.setup();
+    render(
+      <ExplorationView
+        projectId={projectId}
+        references={[NASA_REF]}
+        onLibraryChanged={onLibraryChanged}
+        onDemoAdopt={onDemoAdopt}
+      />,
+    );
+    await zoomInto(user, ROOT_LEAD.text);
+    await clickNode(user, ROOT_LEAD.text);
+
+    await user.click(screen.getByRole("button", { name: "找相似文献" }));
+    await screen.findByText(CANDIDATE.title);
+
+    await user.click(screen.getByRole("button", { name: "采纳" }));
+
+    // The demo path is synchronous — no waitFor needed — and carries the
+    // SAME (candidate, parentLeadId) contract the real adopt uses.
+    expect(onDemoAdopt).toHaveBeenCalledWith(CANDIDATE, ROOT_LEAD.id);
+    // The candidate is dropped from the results tray, same UX as a real adopt.
+    expect(screen.queryByText(CANDIDATE.title)).toBeNull();
+    // Nothing hits the network: no write, no refetch, no library reload.
+    expect(mockAdoptCandidate).not.toHaveBeenCalled();
+    expect(mockGetExploration).toHaveBeenCalledTimes(1);
+    expect(onLibraryChanged).not.toHaveBeenCalled();
+  });
+
+  it("addFromDetail's 采纳到当前问题 (controls-column search, inHole) calls onDemoAdopt instead of adoptCandidate when supplied — no network call fires", async () => {
+    const projectId = nextPid();
+    const onDemoAdopt = vi.fn();
+    const onLibraryChanged = vi.fn();
+    const user = userEvent.setup();
+    mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "紧扣当前问题" }]);
+    render(
+      <ExplorationView
+        projectId={projectId}
+        references={[NASA_REF]}
+        onLibraryChanged={onLibraryChanged}
+        onDemoAdopt={onDemoAdopt}
+      />,
+    );
+    await zoomInto(user, ROOT_LEAD.text);
+
+    // idle → 检索方向 → 检索结果 → 论文 detail (no node selected — the
+    // controls-column drill-down `addFromDetail` owns).
+    await user.click(screen.getByRole("button", { name: "让印记建议检索方向" }));
+    await user.click(await screen.findByRole("button", { name: "搜索" }));
+    await user.click(await screen.findByText(CANDIDATE.title));
+    await user.click(await screen.findByRole("button", { name: "采纳到当前问题" }));
+
+    expect(onDemoAdopt).toHaveBeenCalledWith(CANDIDATE, ROOT_LEAD.id);
+    expect(mockAdoptCandidate).not.toHaveBeenCalled();
+    expect(mockGetExploration).toHaveBeenCalledTimes(1);
+    expect(onLibraryChanged).not.toHaveBeenCalled();
+    // back on the results list, the adopted candidate is gone.
+    expect(screen.queryByText(CANDIDATE.title)).toBeNull();
   });
 });
 

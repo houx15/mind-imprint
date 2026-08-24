@@ -21,6 +21,7 @@ function makeNav(mutate?: (n: TourNavContext) => void): TourNavContext {
     setPlanView: vi.fn(),
     openSearchCard: vi.fn(),
     markDemoNodeRead: vi.fn(),
+    markDemoNodeAdopted: vi.fn(),
   };
   mutate?.(nav);
   return nav;
@@ -56,6 +57,7 @@ describe("projects segments", () => {
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
       markDemoNodeRead: vi.fn(),
+      markDemoNodeAdopted: vi.fn(),
     };
     projectsSegments[0]!.steps[0]!.onEnter?.(nav);
     expect(nav.setTab).toHaveBeenCalledWith("projects");
@@ -80,6 +82,7 @@ describe("projects segments", () => {
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
       markDemoNodeRead: vi.fn(),
+      markDemoNodeAdopted: vi.fn(),
         };
         s.onEnter(nav);
         expect(calls.includes("openDemoProject") && calls.includes("setStudioRoom")).toBe(false);
@@ -119,6 +122,7 @@ describe("projects segments", () => {
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
       markDemoNodeRead: vi.fn(),
+      markDemoNodeAdopted: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -144,6 +148,7 @@ describe("projects segments", () => {
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
       markDemoNodeRead: vi.fn(),
+      markDemoNodeAdopted: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContainEqual(["setStudioRoom", "reading"]);
@@ -172,6 +177,7 @@ describe("projects segments", () => {
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
       markDemoNodeRead: vi.fn(),
+      markDemoNodeAdopted: vi.fn(),
     };
     seg.steps[0]!.onEnter?.(nav);
     expect(calls).toContain("openDemoReadingRoom");

@@ -17,6 +17,7 @@ const nav: TourNavContext = {
   setPlanView: vi.fn(),
   openSearchCard: vi.fn(),
   markDemoNodeRead: vi.fn(),
+  markDemoNodeAdopted: vi.fn(),
 };
 
 const seg = (id: string, n: number): TourSegment => ({

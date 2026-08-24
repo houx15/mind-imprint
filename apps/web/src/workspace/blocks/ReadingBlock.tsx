@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import type { Collection, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
+import type { Collection, DigCandidate, ExplorationLead, MaterialSource, PhaseTag, Reference } from "@mind-imprint/contracts";
 import { Icon } from "../Icon";
 import { Illustration } from "@/ui/Illustration";
 import {
@@ -92,6 +92,9 @@ export function ReadingBlock({
   forceOpenSearchCard,
   onForceOpenSearchCardConsumed,
   demoReadRootIds,
+  demoAdoptedLeads,
+  demoAdoptedRefs,
+  onDemoAdopt,
 }: {
   projectId: string;
   title: string;
@@ -121,6 +124,19 @@ export function ReadingBlock({
   // WarrenMap. This room owns no state of its own for it (same shape as
   // `forceOpenSearchCard` above).
   demoReadRootIds?: Set<string>;
+  // P8 Task 6 · the guided tour's demo-only synthetic adopted-node overrides
+  // (WorkspaceContainer's `demoAdoptedLeads`/`demoAdoptedRefs`) — forwarded
+  // straight through to ExplorationView, which merges them into its leads/
+  // references before WarrenMap/QuestionMindmap render (same shape as
+  // `demoReadRootIds` above: this room owns no state of its own for it).
+  demoAdoptedLeads?: ExplorationLead[];
+  demoAdoptedRefs?: Reference[];
+  // P8 Task 6 · when set (demo project only — WorkspaceContainer passes this
+  // undefined for every real project), ExplorationView's 采纳/addFromDetail
+  // handlers call this INSTEAD of the real POST /exploration/adopt (which the
+  // demo project 403s). Forwarded straight through, same as the two props
+  // above.
+  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => void;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -586,6 +602,9 @@ export function ReadingBlock({
               forceOpenSearchCard={forceOpenSearchCard}
               onForceOpenSearchCardConsumed={onForceOpenSearchCardConsumed}
               demoReadRootIds={demoReadRootIds}
+              demoAdoptedLeads={demoAdoptedLeads}
+              demoAdoptedRefs={demoAdoptedRefs}
+              onDemoAdopt={onDemoAdopt}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // 采纳 in 探索 creates a new library reference — reload so its bib

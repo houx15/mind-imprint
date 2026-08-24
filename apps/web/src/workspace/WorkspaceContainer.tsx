@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   CardProposalWire,
+  DigCandidate,
+  ExplorationLead,
   LinkOffer,
   MaterialSource,
   NextStep,
@@ -116,6 +118,8 @@ export function WorkspaceContainer({
   onPendingOpenSearchCardConsumed,
   pendingMarkNodeRead,
   onPendingMarkNodeReadConsumed,
+  pendingDemoAdopt,
+  onPendingDemoAdoptConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onRequestDemoTour,
@@ -207,6 +211,19 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingMarkNodeRead` has been captured into
    * `demoReadRootIds` (mirrors `onPendingRoomConsumed`). */
   onPendingMarkNodeReadConsumed?: () => void;
+  /** P8 Task 6 · a {candidate, parentLeadId} pair to demo-adopt into the
+   * exploration graph — the guided tour's `TourNavContext.markDemoNodeAdopted`
+   * deep-link. Mirrors `pendingMarkNodeRead`: ACCUMULATES (never retracted)
+   * into `demoAdoptedLeads`/`demoAdoptedRefs` state, forwarded through
+   * ReadingBlock to ExplorationView, which merges them into its leads/
+   * references before WarrenMap/QuestionMindmap render. This is the
+   * TOUR-driven entry point only — ExplorationView's own 采纳/addFromDetail
+   * click handlers reach the SAME accumulator directly via `onDemoAdopt`
+   * (below), since a live student click isn't a tour `onEnter`. */
+  pendingDemoAdopt?: { candidate: DigCandidate; parentLeadId: string } | null;
+  /** Fired once right after `pendingDemoAdopt` has been captured (mirrors
+   * `onPendingMarkNodeReadConsumed`). */
+  onPendingDemoAdoptConsumed?: () => void;
   /** P6 (Task 5): the guided tour's `openDemoReadingRoom` — the caller (
    * StudentApp) already fetched the demo material's `MaterialSource` (GET
    * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
@@ -405,6 +422,64 @@ export function WorkspaceContainer({
   // `readByRoot`. Empty on every real project (the tour never calls
   // `markDemoNodeRead` outside the demo project).
   const [demoReadRootIds, setDemoReadRootIds] = useState<Set<string>>(new Set());
+  // P8 Task 6: synthetic {lead,reference} pairs the guided tour (or the
+  // student's own 采纳/addFromDetail click, in demo mode) has "adopted" into
+  // the exploration graph this session — client-side only, the demo project
+  // 403s the real POST /exploration/adopt. Forwarded through ReadingBlock to
+  // ExplorationView, which merges them into its leads/references before
+  // WarrenMap/QuestionMindmap and the "文献 x 篇" counts render. Empty on
+  // every real project (nothing here is ever reachable outside isDemo — see
+  // `addDemoAdopted` and the ReadingBlock render call below).
+  const [demoAdoptedLeads, setDemoAdoptedLeads] = useState<ExplorationLead[]>([]);
+  const [demoAdoptedRefs, setDemoAdoptedRefs] = useState<Reference[]>([]);
+  // The single accumulator both entry points call: the tour's
+  // `pendingDemoAdopt` effect (below) and ExplorationView's own demo-gated
+  // 采纳/addFromDetail handlers (via the `onDemoAdopt` prop threaded through
+  // ReadingBlock). Mints a fresh id pair and mirrors the REAL server-side
+  // mapping in adoptExploration (apps/api/internal/api/exploration.go): the
+  // reference takes the candidate's bibliographic fields and is auto-shelved
+  // "reading"; the lead is born "connected" with origin "guide" and
+  // `parentLeadId` = the node the candidate was dug/adopted from (papers
+  // never roots — the same invariant the real adopt enforces).
+  const addDemoAdopted = useCallback((candidate: DigCandidate, parentLeadId: string) => {
+    const refId = `demo-adopt-ref-${crypto.randomUUID()}`;
+    const leadId = `demo-adopt-lead-${crypto.randomUUID()}`;
+    const url = candidate.url || (candidate.doi ? `https://doi.org/${candidate.doi}` : "");
+    const reference: Reference = {
+      id: refId,
+      title: candidate.title,
+      classification: "",
+      author: candidate.authors,
+      credentials: "",
+      year: candidate.year,
+      url,
+      tags: [],
+      collectionId: null,
+      credibility: null,
+      evaluation: "",
+      decision: null,
+      pending: false,
+      searchHints: [],
+      materialId: null,
+      notes: [],
+      abstract: candidate.abstract,
+      journal: candidate.journal,
+      readingStatus: "reading",
+    };
+    const lead: ExplorationLead = {
+      id: leadId,
+      text: candidate.title,
+      status: "connected",
+      origin: "guide",
+      sourceReferenceId: null,
+      connectedReferenceId: refId,
+      position: 0,
+      parentLeadId,
+      createdAt: new Date().toISOString(),
+    };
+    setDemoAdoptedRefs((prev) => [...prev, reference]);
+    setDemoAdoptedLeads((prev) => [...prev, lead]);
+  }, []);
 
   function openReadingSource(
     m: MaterialSource,
@@ -1340,6 +1415,21 @@ export function WorkspaceContainer({
     }
   }, [pendingMarkNodeRead, onPendingMarkNodeReadConsumed]);
 
+  // `pendingDemoAdopt` deep-link (P8 Task 6 — guided tour): a fresh
+  // {candidate, parentLeadId} object each call, so a plain reference-equality
+  // guard (mirrors `pendingDemoReading`'s "new object ⇒ act" pattern, not
+  // `pendingMarkNodeRead`'s value-equality one — candidates carry no stable
+  // id of their own) is enough to fire `addDemoAdopted` exactly once per call
+  // and never re-fire on an unrelated re-render that leaves the prop unchanged.
+  const lastDemoAdopt = useRef<{ candidate: DigCandidate; parentLeadId: string } | null>(null);
+  useEffect(() => {
+    if (pendingDemoAdopt && pendingDemoAdopt !== lastDemoAdopt.current) {
+      lastDemoAdopt.current = pendingDemoAdopt;
+      addDemoAdopted(pendingDemoAdopt.candidate, pendingDemoAdopt.parentLeadId);
+      onPendingDemoAdoptConsumed?.();
+    }
+  }, [pendingDemoAdopt, onPendingDemoAdoptConsumed, addDemoAdopted]);
+
   // `pendingDemoReading` deep-link (P6, Task 5 — guided tour): open the
   // already-fetched demo `MaterialSource` into the real immersive
   // `ReadingRoom`, seeded with the canned read-only transcript. Same
@@ -1647,6 +1737,9 @@ export function WorkspaceContainer({
                 forceOpenSearchCard={searchCardForceNonce}
                 onForceOpenSearchCardConsumed={() => setSearchCardForceNonce(null)}
                 demoReadRootIds={workspace?.isDemo ? demoReadRootIds : undefined}
+                demoAdoptedLeads={workspace?.isDemo ? demoAdoptedLeads : undefined}
+                demoAdoptedRefs={workspace?.isDemo ? demoAdoptedRefs : undefined}
+                onDemoAdopt={workspace?.isDemo ? addDemoAdopted : undefined}
               />
             )}
             {room === "writing" && (

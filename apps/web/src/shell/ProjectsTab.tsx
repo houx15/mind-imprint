@@ -3,7 +3,7 @@ import { Segmented } from "@/ui";
 import { WorkspaceContainer } from "@/workspace/WorkspaceContainer";
 import { ReportsView } from "@/shell/report/ReportsView";
 import type { StudioRoom, TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
-import type { MaterialSource } from "@mind-imprint/contracts";
+import type { DigCandidate, MaterialSource } from "@mind-imprint/contracts";
 
 /**
  * ProjectsTab — the 项目 top-level surface after the nav restructure. A
@@ -66,6 +66,13 @@ export interface ProjectsTabProps {
    * above) into `demoReadRootIds`. */
   pendingMarkNodeRead?: string | null;
   onPendingMarkNodeReadConsumed?: () => void;
+  /** One-shot: demo-simulate adopting this candidate into the exploration
+   * graph under `parentLeadId` (the guided tour's P8 Task 6
+   * `markDemoNodeAdopted` deep-link). Threaded straight to
+   * WorkspaceContainer, which ACCUMULATES it (like `pendingMarkNodeRead`)
+   * into a synthetic lead/reference list. */
+  pendingDemoAdopt?: { candidate: DigCandidate; parentLeadId: string } | null;
+  onPendingDemoAdoptConsumed?: () => void;
   /** One-shot: open this already-fetched demo `MaterialSource` into the real
    * immersive Reading Room as a read-only replay (the guided tour's P6
    * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
@@ -100,6 +107,8 @@ export function ProjectsTab({
   onPendingOpenSearchCardConsumed,
   pendingMarkNodeRead,
   onPendingMarkNodeReadConsumed,
+  pendingDemoAdopt,
+  onPendingDemoAdoptConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
   onImmersiveChange,
@@ -180,6 +189,8 @@ export function ProjectsTab({
             onPendingOpenSearchCardConsumed={onPendingOpenSearchCardConsumed}
             pendingMarkNodeRead={pendingMarkNodeRead}
             onPendingMarkNodeReadConsumed={onPendingMarkNodeReadConsumed}
+            pendingDemoAdopt={pendingDemoAdopt}
+            onPendingDemoAdoptConsumed={onPendingDemoAdoptConsumed}
             pendingDemoReading={pendingDemoReading}
             onPendingDemoReadingConsumed={onPendingDemoReadingConsumed}
             autoOpenCreate={autoOpenCreate}
