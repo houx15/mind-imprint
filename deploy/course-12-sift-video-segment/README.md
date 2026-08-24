@@ -89,3 +89,15 @@ https://mind-oss.uni-robot.cn/courses/course-12/interactions/html/
 
 And note edges **disagree with each other**: a `curl` that returns the new
 bytes does not prove students see them. Verify in a real browser.
+
+## Is it systemic? No.
+
+`sweep_native_controls.py` Range-fetches only the tail of every published
+course's `interactiveHtml` assets (the script sits after the base64 blobs, so
+this reads ~400KB instead of ~100MB) and greps for the same shape.
+
+**99 interactiveHtml assets across 39 courses — `course-12`'s `sift-check.html`
+is the only one that attaches native `<video>` controls.** Four legacy/e2e
+fixture slugs (`evidence-comparability`, `academic-writing-sustainability`,
+`course-authoring-v14-cover-e2e-20260820`, `follow-the-money-teacher-sim-20260818`)
+returned no signable assets and were not scanned; none is a catalog course.
