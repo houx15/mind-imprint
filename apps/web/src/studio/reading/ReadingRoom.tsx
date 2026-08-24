@@ -12,7 +12,7 @@ import { LensLibrary } from "./LensLibrary";
 import { ReadingOutcomes } from "./ReadingOutcomes";
 import { FinalizeReadingPanel } from "./FinalizeReadingPanel";
 import { TraceSourcePanel } from "./TraceSourcePanel";
-import { useReadingLoop, type ReadingLoopApi, type ChatMessage } from "./readingLoop";
+import { useReadingLoop, type ReadingLoopApi, type ChatMessage, type ReadingOutcome } from "./readingLoop";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import "./ReadingRoom.css";
 
@@ -126,6 +126,10 @@ export type ReadingRoomProps = {
   // `putReadingBrief`, or note POST can fire; the rest of the room (article,
   // deck, notes-read, chat log) renders exactly as normal.
   initialMessages?: ChatMessage[];
+  // initialOutcomes (guided-tour P8) — seeds the 阅读成果 accumulation with one
+  // already-confirmed finding so the demo's 阅读成果 tab shows a real result, and
+  // that finding stays highlighted in the article. Demo-only.
+  initialOutcomes?: ReadingOutcome[];
   demoMode?: boolean;
 };
 
@@ -175,9 +179,10 @@ export function ReadingRoom({
   api,
   onOpenLogged,
   initialMessages,
+  initialOutcomes,
   demoMode = false,
 }: ReadingRoomProps) {
-  const loop = useReadingLoop(projectId, source, api, initialMessages);
+  const loop = useReadingLoop(projectId, source, api, initialMessages, initialOutcomes);
 
   // 证据笔记 state — the live reference (updated from each setter's returned
   // Reference so triage/nature/archive toggles reflect immediately) + a
@@ -709,6 +714,7 @@ export function ReadingRoom({
               <button
                 type="button"
                 role="tab"
+                data-tour="rr-outcomes-tab"
                 aria-selected={rightView === "trace"}
                 className={rightView === "trace" ? "is-active" : ""}
                 onClick={() => setRightView("trace")}
@@ -888,7 +894,7 @@ export function ReadingRoom({
               </div>
             </article>
           ) : (
-            <div className="mk-reading-room__article">
+            <div className="mk-reading-room__article" data-tour="rr-outcomes">
               <ReadingOutcomes outcomes={loop.outcomes} onLocate={locateBlock} />
             </div>
           )}

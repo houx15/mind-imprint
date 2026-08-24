@@ -120,6 +120,31 @@ vi.mock("@/api/proposalAnnotations", () => ({
   getProposalAnnotations: vi.fn(async () => []),
   reviewProposalAnnotations: vi.fn(async () => []),
 }));
+// The read-only demo's 片段引导 (P8): the `writing-aicard` tour anchor now sits
+// on ONE filled 引导框 inside ProposalGuideReadOnly (not the whole pane), so the
+// track must return a step with a populated `steps` array — mirroring the
+// server-seeded proposalTrack (migration 0090) on the real demo project.
+vi.mock("@/api/proposalTrack", () => ({
+  getProposalTrack: vi.fn(async () => ({
+    key: "understanding",
+    title: "对题目的理解",
+    kind: "fixed",
+    index: 0,
+    total: 9,
+    mode: "guided",
+    started: true,
+    subQuestions: [],
+    card: { prompt: "解释你对题目的理解", example: "An English example paragraph." },
+    steps: [
+      { key: "understanding", title: "对题目的理解", kind: "fixed", card: { prompt: "解释你对题目的理解", example: "An English example paragraph." } },
+    ],
+  })),
+  setProposalMode: vi.fn(),
+  startProposalGuide: vi.fn(),
+  setSubQuestions: vi.fn(),
+  advanceProposalStep: vi.fn(),
+  jumpProposalStep: vi.fn(),
+}));
 
 import { runDraftReview, putBuffer } from "@/api/writing";
 import { ApiError } from "@/api/client";

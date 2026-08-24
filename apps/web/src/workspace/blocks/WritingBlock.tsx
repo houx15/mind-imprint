@@ -475,14 +475,14 @@ export function WritingBlock({
                 </div>
               </div>
               {/* Task 9 (P6 demo): a finished proposal is locked, which hides the
-                  片段引导/写作卡. The tour must spotlight it (data-tour=
-                  "writing-aicard"), so render it for the demo too — but pass
-                  `locked || isDemo` so ProposalGuidePane is fully READ-ONLY (no
-                  active inputs, no AI-write — 铁律①). */}
+                  片段引导/写作卡. The tour must spotlight it, so render it for the
+                  demo too — but pass `locked || isDemo` so ProposalGuidePane is
+                  fully READ-ONLY (no active inputs, no AI-write — 铁律①). The
+                  `writing-aicard` tour anchor now sits on ONE guiding card inside
+                  ProposalGuideReadOnly (a single filled 引导框), not this whole
+                  pane — the pane is viewport-tall and its rect can't be framed. */}
               {(!locked || isDemo) && (
-                <div data-tour="writing-aicard">
-                  <ProposalGuidePane projectId={projectId} locked={locked || !!isDemo} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
-                </div>
+                <ProposalGuidePane projectId={projectId} locked={locked || !!isDemo} onOpenReading={onOpenReading ?? (() => {})} onAnnotationsChanged={onAnnotationsChanged} />
               )}
               <SnippetsPane snip={snip} projectId={projectId} doc="proposal" locked={finalized} embedded importedSections={importedSections} />
             </div>

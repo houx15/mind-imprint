@@ -200,6 +200,22 @@ export function StudentApp({
   // The example-report overlay is opaque and full-bleed, so every tour nav that
   // moves off the report segment (setTab / setCoursesSub) must dismiss it — the
   // report segment's own steps carry no onEnter, so this never closes it early.
+  // Open the demo's seeded reading material into the real, immersive 精读 room
+  // as a read-only replay (demoMode + canned transcript + seeded outcome). Used
+  // BOTH by the tour nav hook (`openDemoReadingRoom`) and — via the
+  // `onDemoEnterReading` prop threaded down to the reading room's real
+  // 进入阅读室 buttons — as the demo project's honest, non-403 entry: the live
+  // enter-reading POST 403s on the read-only demo, so the button routes here to
+  // the GET-only replay instead. A fetch failure falls back to the 列表 view.
+  function enterDemoReadingRoom() {
+    setPendingRoom("reading");
+    void getMaterialSource(DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID)
+      .then((source) =>
+        setPendingDemoReading({ source, referenceId: DEMO_READING_REFERENCE_ID, readingNote: DEMO_READING_NOTE }),
+      )
+      .catch(() => setPendingReadingView("list"));
+  }
+
   const tourNav: TourNavContext = {
     setTab: (t) => {
       setShowExampleReport(false);
@@ -252,14 +268,7 @@ export function StudentApp({
     // a flaky demo backend, …) falls back to forcing the 列表 view instead of
     // dead-ending the step — the room switch above already landed somewhere
     // visible for that fallback to show up in.
-    openDemoReadingRoom: () => {
-      setPendingRoom("reading");
-      void getMaterialSource(DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID)
-        .then((source) =>
-          setPendingDemoReading({ source, referenceId: DEMO_READING_REFERENCE_ID, readingNote: DEMO_READING_NOTE }),
-        )
-        .catch(() => setPendingReadingView("list"));
-    },
+    openDemoReadingRoom: enterDemoReadingRoom,
   };
 
   // Stamp onboarding so the welcome modal never fires again. Called on tour
@@ -312,6 +321,7 @@ export function StudentApp({
         onPendingDemoAdoptConsumed={() => setPendingDemoAdopt(null)}
         pendingDemoReading={pendingDemoReading}
         onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
+        onDemoEnterReading={enterDemoReadingRoom}
         onImmersiveChange={setProjectsImmersive}
         onRequestDemoTour={() => demoTourRef.current()}
       />

@@ -273,7 +273,7 @@ export const projectsSegments: TourSegment[] = [
       {
         id: "reading-warren-12",
         placement: "center",
-        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了。地图上的每一步，都是你自己做的决定。接下来，我带你精读一篇已经收进来的核心资料，看看「和印记一起深读一篇」是什么样。",
+        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了。地图上的每一步，都是你自己做的决定。接下来，我带你精读一篇已经收进来的核心资料——去**文献库**里找到它、点「进入阅读室」，就能钻进去深读。",
         advance: "next",
       },
     ],
@@ -282,19 +282,43 @@ export const projectsSegments: TourSegment[] = [
     id: "reading-room",
     name: "精读一篇资料",
     steps: [
-      // Real-scene 精读: `openDemoReadingRoom()` (P6, Task 5) opens the REAL
-      // immersive Reading Room on the demo's Nature paper as a read-only replay
-      // (seeded transcript + demoMode; every write path disabled). All rr-*
-      // anchors render in demoMode (onSaveNote is still passed, so rr-notes
-      // mounts; its textarea is merely disabled).
+      // Real-scene 精读 (P8): the student ENTERS the reading room herself —
+      // switch to 文献库, then click a paper's real 「进入阅读室」 button. On the
+      // read-only demo the live enter-reading POST 403s, so that button is
+      // intercepted (`onDemoEnterReading`, WorkspaceContainer isDemo-gated) to
+      // open the SAME immersive read-only replay the tour used to jump into
+      // (demoMode + seeded transcript + seeded 阅读成果; every write path
+      // disabled). No auto-jump — the student sees exactly how to get in.
+      {
+        id: "reading-room-enter-0",
+        // switch to 文献库 (list) — the preview panel defaults to the first row
+        // (the seeded Nature paper …0260), so its 进入阅读室 button is on screen
+        // without any fragile node-selection.
+        onEnter: (nav) => {
+          nav.setStudioRoom("reading");
+          nav.setReadingView("list");
+        },
+        anchor: '[data-tour="library-preview"]',
+        placement: "left",
+        title: "怎么进精读室",
+        text: "切到**文献库**——你收进来的资料都在这。右边选中的，正是那篇 NASA 卫星「变绿」研究。想深读哪一篇，就打开它、看右边的题录。",
+        advance: "next",
+      },
+      {
+        id: "reading-room-enter-1",
+        // REAL action: click the paper's own 进入阅读室 button. Intercepted to
+        // the read-only replay on the demo (the live POST 403s).
+        anchor: '[data-tour="library-enter-reading"]',
+        placement: "top",
+        text: "点这篇的「**进入阅读室**」——钻进去，逐句精读。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="library-enter-reading"]', type: "click" },
+      },
       {
         id: "reading-room-0",
-        // enter reading (P8 Task 12): the per-node 「进入阅读室」 button lives on
-        // a selection-gated panel with no nav hook to reach it deterministically,
-        // and only the demo's Nature paper (…0271) carries the seeded highlights/
-        // transcript/notes — so openDemoReadingRoom jumps straight into THAT
-        // paper. Copy is decoupled from the just-adopted source and honestly
-        // frames this as 精读-ing a already-collected core resource (F3 fix).
+        // The click above already opened the room via `onDemoEnterReading`; this
+        // onEnter re-opens it idempotently as a safety net (same GET-only replay,
+        // same args) so the segment never dead-ends if the action was skipped.
         onEnter: (nav) => nav.openDemoReadingRoom(),
         anchor: '[data-tour="rr-article"]',
         placement: "left",
@@ -343,6 +367,24 @@ export const projectsSegments: TourSegment[] = [
         anchor: '[data-tour="rr-notes"]',
         placement: "left",
         text: "「我的笔记」是你自己的地盘——边读边写下想法、疑问、想引用的句子。印记不替你写，也不动它。",
+        advance: "next",
+      },
+      {
+        id: "reading-room-outcomes-0",
+        // 阅读成果 (P8) — REAL action: click the 阅读成果 view-tab to switch the
+        // reading pane from 文章 to the accumulated findings. The demo seeds one
+        // confirmed outcome (`DEMO_READING_OUTCOMES`), so the tab is not empty.
+        anchor: '[data-tour="rr-outcomes-tab"]',
+        placement: "bottom",
+        text: "读的时候不只是划线——每做完一次透镜练习，确认的结论会沉淀下来。点开「**阅读成果**」这个页签看看。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="rr-outcomes-tab"]', type: "click" },
+      },
+      {
+        id: "reading-room-outcomes-1",
+        anchor: '[data-tour="rr-outcomes"]',
+        placement: "left",
+        text: "每一条阅读成果都把**你的选句、你的判断、和印记的复核**并在一起——过程被记录下来，写作时随手可取，而不是读完就忘。这就是「过程即数据」：你怎么想，一步步留在这里。",
         advance: "next",
       },
       {

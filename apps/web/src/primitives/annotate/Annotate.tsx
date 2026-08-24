@@ -122,6 +122,22 @@ export function Annotate({
         }
       : undefined;
 
+  // The lens card for the active (clicked) span — its dimension tag + the
+  // question/finding it hung on that sentence. Rendered INLINE, right after the
+  // paragraph that owns the span (see the block loop below), so clicking a
+  // highlight reveals the card next to the sentence — "inside the article" —
+  // instead of far down at the article's foot. A range-only span with no
+  // `block_ref` has no paragraph to anchor to and falls back to the foot.
+  const activeCard = activeSpan ? (
+    <div
+      data-tour="rr-inline-card"
+      style={{ margin: "6px 0 14px", background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}
+    >
+      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
+      <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
+    </div>
+  ) : null;
+
   return (
     <div style={{ fontFamily: "'Plus Jakarta Sans','Noto Sans SC',system-ui,sans-serif" }}>
       {selectMode && (
@@ -233,20 +249,14 @@ export function Annotate({
                 })}
               </p>
               {renderAfterBlock?.(block.id)}
+              {activeSpan?.block_ref === block.id && activeCard}
             </Fragment>
           );
         })}
       </div>
 
-      {activeSpan && (
-        <div
-          data-tour="rr-inline-card"
-          style={{ marginTop: 14, background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}
-        >
-          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
-          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
-        </div>
-      )}
+      {/* Fallback for a range-only active span with no owning paragraph. */}
+      {activeSpan && !activeSpan.block_ref && activeCard}
     </div>
   );
 }

@@ -160,36 +160,56 @@ describe("projects segments", () => {
     expect(calls).toContainEqual(["setReadingView", "list"]);
   });
 
-  // P8 Task 12 · reading-room is the REAL immersive 精读 walk: its first step
-  // opens the demo reading room, a highlighted `<mark>` click reveals the real
-  // rr-inline-card lens, and every step spotlights a real anchor with a
-  // non-center placement.
-  it("reading-room opens the demo reading room and spotlights the real rr-* anchors (+ inline-card click)", () => {
+  // P8 · reading-room is the REAL immersive 精读 walk entered by the student
+  // herself: switch to 文献库 → click a paper's real 进入阅读室 → the room opens
+  // (via the demo enter-reading intercept), then the highlight → inline-card →
+  // chat → deck → notes → 阅读成果 → finish walk. Every step spotlights a real
+  // anchor with a non-center placement.
+  it("reading-room enters via the library 进入阅读室 and spotlights the real rr-* anchors", () => {
     const seg = projectsSegments.find((s) => s.id === "reading-room")!;
 
-    // step 0's onEnter opens the immersive 精读 room.
-    const calls: string[] = [];
-    seg.steps[0]!.onEnter?.(makeNav((n) => (n.openDemoReadingRoom = vi.fn(() => calls.push("openDemoReadingRoom")))));
-    expect(calls).toContain("openDemoReadingRoom");
+    // the first step drives to the 文献库 list (where the 进入阅读室 button lives).
+    const enterCalls: string[] = [];
+    seg.steps[0]!.onEnter?.(
+      makeNav((n) => {
+        n.setStudioRoom = vi.fn((r) => enterCalls.push(`room:${r}`));
+        n.setReadingView = vi.fn((v) => enterCalls.push(`view:${v}`));
+      }),
+    );
+    expect(enterCalls).toEqual(["room:reading", "view:list"]);
 
-    // every step is a real, non-center spotlight of an rr-*/mark anchor, in
-    // the click-highlight → inline-card → chat → deck → notes → finish order.
+    // reading-room-0's onEnter opens the immersive 精读 room (idempotent safety
+    // net — the library click already opened it via onDemoEnterReading).
+    const openCalls: string[] = [];
+    const room0 = seg.steps.find((s) => s.id === "reading-room-0")!;
+    room0.onEnter?.(makeNav((n) => (n.openDemoReadingRoom = vi.fn(() => openCalls.push("openDemoReadingRoom")))));
+    expect(openCalls).toContain("openDemoReadingRoom");
+
+    // every step is a real, non-center spotlight, in the enter → highlight →
+    // inline-card → chat → deck → notes → 阅读成果 → finish order.
     expect(seg.steps.map((s) => s.anchor)).toEqual([
+      '[data-tour="library-preview"]',
+      '[data-tour="library-enter-reading"]',
       '[data-tour="rr-article"]',
       '[data-tour="rr-article"] mark',
       '[data-tour="rr-inline-card"]',
       '[data-tour="rr-chat"]',
       '[data-tour="rr-deck"]',
       '[data-tour="rr-notes"]',
+      '[data-tour="rr-outcomes-tab"]',
+      '[data-tour="rr-outcomes"]',
       '[data-tour="rr-finish"]',
     ]);
     for (const s of seg.steps) expect(s.placement).not.toBe("center");
 
-    // the highlight click is the segment's one action step, gated on the same
-    // selector as its anchor.
+    // three real action clicks: enter the room, click a highlight, open 阅读成果.
     const actionSteps = seg.steps.filter((s) => s.advance === "action");
-    expect(actionSteps.map((s) => s.id)).toEqual(["reading-room-1"]);
-    expect(actionSteps[0]!.actionEvent).toEqual({ selector: '[data-tour="rr-article"] mark', type: "click" });
+    expect(actionSteps.map((s) => s.id)).toEqual(["reading-room-enter-1", "reading-room-1", "reading-room-outcomes-0"]);
+    expect(actionSteps.map((s) => s.actionEvent)).toEqual([
+      { selector: '[data-tour="library-enter-reading"]', type: "click" },
+      { selector: '[data-tour="rr-article"] mark', type: "click" },
+      { selector: '[data-tour="rr-outcomes-tab"]', type: "click" },
+    ]);
   });
 
   // P8 Task 12, ruling 5 · 我的笔记 is reworded student-relatable copy with no

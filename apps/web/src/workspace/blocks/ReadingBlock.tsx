@@ -97,6 +97,7 @@ export function ReadingBlock({
   demoAdoptedLeads,
   demoAdoptedRefs,
   onDemoAdopt,
+  onDemoEnterReading,
 }: {
   projectId: string;
   title: string;
@@ -146,6 +147,12 @@ export function ReadingBlock({
   // demo project 403s). Forwarded straight through, same as the two props
   // above.
   onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => void;
+  // P8 · when set (demo project only — undefined for every real project), the
+  // reading room's real 进入阅读室 buttons (library preview + per-node in the
+  // exploration graph) call this INSTEAD of the live enter-reading POST (which
+  // the read-only demo 403s). It opens the same GET-only demoMode replay the
+  // tour uses. Forwarded to Preview + ExplorationView.
+  onDemoEnterReading?: () => void;
   // §5 · when the student opens the reading room MANUALLY (via the switcher),
   // confirm they want to start an exploration journey first; entering from 印记's
   // guide begins directly (no gate).
@@ -582,6 +589,7 @@ export function ReadingBlock({
                   onPatchNow={(p) => patchNow(selected.id, p)}
                   onPatchDebounced={(p) => patchDebounced(selected.id, p)}
                   onEnterReading={setReadingSource}
+                  onDemoEnterReading={onDemoEnterReading}
                 />
               ) : (
                 <div className="border-l border-mk-border bg-mk-surface" />
@@ -616,6 +624,7 @@ export function ReadingBlock({
               demoAdoptedLeads={demoAdoptedLeads}
               demoAdoptedRefs={demoAdoptedRefs}
               onDemoAdopt={onDemoAdopt}
+              onDemoEnterReading={onDemoEnterReading}
               onEnterReading={setReadingSource}
               onCreateReference={createUntrackedSource}
               // 采纳 in 探索 creates a new library reference — reload so its bib
@@ -1074,7 +1083,7 @@ function refBib(r: Reference): ReferenceBib {
   return { title: r.title, author: r.author, year: r.year, journal: r.journal, abstract: r.abstract, url: r.url };
 }
 
-function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNow, onPatchDebounced, onEnterReading }: {
+function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNow, onPatchDebounced, onEnterReading, onDemoEnterReading }: {
   projectId: string;
   item: Reference;
   allTags: string[];
@@ -1093,6 +1102,9 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
     bib?: ReferenceBib,
     reference?: Reference | null,
   ) => void;
+  // P8 · demo-only: when set, 进入阅读室 routes to the read-only replay instead
+  // of the live enter-reading POST (which the demo 403s).
+  onDemoEnterReading?: () => void;
 }) {
   const [entering, setEntering] = useState(false);
   const [enterNote, setEnterNote] = useState<string | null>(null);
@@ -1107,6 +1119,12 @@ function Preview({ projectId, item: r, allTags, onAddTag, onRemoveTag, onPatchNo
 
   async function enter() {
     if (entering) return;
+    // P8 · demo project: the live enter-reading POST 403s, so route to the
+    // read-only replay (the seeded Nature paper) instead of a dead 403.
+    if (onDemoEnterReading) {
+      onDemoEnterReading();
+      return;
+    }
     setEnterNote(null);
     setEntering(true);
     try {

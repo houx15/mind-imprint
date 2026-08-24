@@ -150,6 +150,12 @@ export function useReadingLoop(
   // read-only demo room opens already "mid-conversation". Undefined/empty →
   // unchanged default behavior ([GREETING]).
   initialMessages?: ChatMessage[],
+  // initialOutcomes — the guided-tour demo replay (P8): seeds the 阅读成果
+  // accumulation with one already-confirmed finding, so the 阅读成果 tab shows a
+  // real result (选句 + 结论 + 完整复核) instead of an empty placeholder. Its
+  // span stays highlighted in the article too (see the `spans` memo). Undefined/
+  // empty → unchanged default ([]).
+  initialOutcomes?: ReadingOutcome[],
 ): UseReadingLoop {
   const [status, setStatus] = useState<ReadingLoopStatus>("idle");
   const [cardInstanceId, setCardInstanceId] = useState<string | null>(null);
@@ -161,7 +167,9 @@ export function useReadingLoop(
   const [messages, setMessages] = useState<ChatMessage[]>(
     initialMessages && initialMessages.length > 0 ? initialMessages : [GREETING],
   );
-  const [outcomes, setOutcomes] = useState<ReadingOutcome[]>([]);
+  const [outcomes, setOutcomes] = useState<ReadingOutcome[]>(
+    initialOutcomes && initialOutcomes.length > 0 ? initialOutcomes : [],
+  );
   const [busy, setBusy] = useState(false);
 
   const cardName = cardId ? (CARD_REGISTRY[cardId]?.name ?? cardId) : "";

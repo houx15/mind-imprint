@@ -98,6 +98,10 @@ export type ExplorationViewProps = {
     bib?: ReferenceBib,
     reference?: Reference | null,
   ) => void;
+  // P8 · demo-only: when set, a paper node's 进入阅读室 routes to the read-only
+  // replay instead of the live enter-reading POST (which the demo 403s). Its
+  // presence IS the isDemo gate (mirrors `onDemoAdopt`).
+  onDemoEnterReading?: () => void;
   // Kept for backward-compatibility with ReadingBlock's call site (A6 removed
   // the surfaces that used these — the ＋添加来源 button, the rabbit-hole card
   // and its coach bridge — but the parent still passes them; a later task
@@ -178,6 +182,7 @@ export function ExplorationView({
   projectId,
   references,
   onEnterReading,
+  onDemoEnterReading,
   onCreateReference,
   onLibraryChanged,
   coach,
@@ -689,6 +694,12 @@ export function ExplorationView({
       .catch(() => setActionError(true));
 
   async function enterSource(ref: Reference) {
+    // P8 · demo project: the live enter-reading POST 403s, so route a node's
+    // 进入阅读室 to the read-only replay instead of a dead 403.
+    if (onDemoEnterReading) {
+      onDemoEnterReading();
+      return;
+    }
     if (!onEnterReading || enteringRefId) return;
     setEnteringRefId(ref.id);
     setPasteFor(null);

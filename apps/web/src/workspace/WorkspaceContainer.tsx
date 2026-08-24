@@ -23,8 +23,9 @@ import type { Dispatch, SetStateAction } from "react";
 import { api } from "../api";
 import { createLead, digExploration, adoptCandidate } from "@/api/exploration";
 import { ReadingRoom } from "../studio/reading/ReadingRoom";
-import type { ChatMessage } from "../studio/reading/readingLoop";
+import type { ChatMessage, ReadingOutcome } from "../studio/reading/readingLoop";
 import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
+import { DEMO_READING_OUTCOMES } from "@/tour/fixtures/demoReadingOutcomes";
 import type { TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
 import { AiPanel, type AiPanelSide } from "../studio/ai/AiPanel";
 import { StudioAiSlotContext } from "../studio/ai/StudioAiSlot";
@@ -124,6 +125,7 @@ export function WorkspaceContainer({
   onPendingDemoAdoptConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
+  onDemoEnterReading,
   onRequestDemoTour,
 }: {
   onFinished?: (projectId?: string) => void;
@@ -252,6 +254,11 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingDemoReading` has been opened, so the
    * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
   onPendingDemoReadingConsumed?: () => void;
+  /** P8 · the demo project's honest 进入阅读室 entry: the live enter-reading POST
+   * 403s on the read-only demo, so its reading room's real 进入阅读室 buttons
+   * (library preview + per-node) route here instead — opening the same GET-only
+   * read-only replay as the tour's `openDemoReadingRoom`. isDemo-gated below. */
+  onDemoEnterReading?: () => void;
   /** Task 9: threaded straight to `Directory` — its demo-guard modal's
    * 好，带我逛一遍 calls this (StudentApp plays `journeyStarting("projects")`).
    * Only reached via a MANUAL card click; the tour's own way into the demo
@@ -408,6 +415,7 @@ export function WorkspaceContainer({
   // source opened right after a demo one never inherits its read-only replay.
   const [readingDemoMode, setReadingDemoMode] = useState(false);
   const [readingDemoMessages, setReadingDemoMessages] = useState<ChatMessage[] | undefined>(undefined);
+  const [readingDemoOutcomes, setReadingDemoOutcomes] = useState<ReadingOutcome[] | undefined>(undefined);
   // The guided tour's forced reading-room inner view (P5). Captured from the
   // `pendingReadingView` prop by a ref-guarded effect below and handed to
   // ReadingBlock as `forceView`; null leaves the room's own default/memo alone.
@@ -516,7 +524,7 @@ export function WorkspaceContainer({
     // P6 (Task 5): the guided tour's read-only demo open passes this to seed
     // the coach thread + disable every write path. Every real call (paste,
     // enter-reading, …) omits it, which resets both flags off.
-    demo?: { demoMode: boolean; initialMessages: ChatMessage[] },
+    demo?: { demoMode: boolean; initialMessages: ChatMessage[]; initialOutcomes?: ReadingOutcome[] },
   ) {
     // Reset the `pendingReadingView` value-dedupe guard the instant the
     // immersive reader mounts (both the tour's `pendingDemoReading` open and
@@ -541,6 +549,7 @@ export function WorkspaceContainer({
     setReadingReference(reference ?? null);
     setReadingDemoMode(demo?.demoMode ?? false);
     setReadingDemoMessages(demo?.initialMessages);
+    setReadingDemoOutcomes(demo?.initialOutcomes);
   }
   // EA · carry-forward acknowledgment: when the student 归纳'd a source before
   // leaving, show a brief "you just read X — it's carried forward" note so the
@@ -559,6 +568,7 @@ export function WorkspaceContainer({
     setReadingBib(null);
     setReadingDemoMode(false);
     setReadingDemoMessages(undefined);
+    setReadingDemoOutcomes(undefined);
   }
   // S1 · summary-on-return: a compact re-entry paragraph, composed once per
   // project (first-open-wins), shown as a dismissible welcome-back toast. Only
@@ -1497,7 +1507,7 @@ export function WorkspaceContainer({
         pendingDemoReading.readingNote,
         undefined,
         undefined,
-        { demoMode: true, initialMessages: demoReadingTranscript },
+        { demoMode: true, initialMessages: demoReadingTranscript, initialOutcomes: DEMO_READING_OUTCOMES },
       );
       onPendingDemoReadingConsumed?.();
     }
@@ -1543,6 +1553,7 @@ export function WorkspaceContainer({
         api={api}
         onBack={closeReadingSource}
         initialMessages={readingDemoMessages}
+        initialOutcomes={readingDemoOutcomes}
         demoMode={readingDemoMode}
       />
     );
@@ -1791,6 +1802,7 @@ export function WorkspaceContainer({
                 demoAdoptedLeads={workspace?.isDemo ? demoAdoptedLeads : undefined}
                 demoAdoptedRefs={workspace?.isDemo ? demoAdoptedRefs : undefined}
                 onDemoAdopt={workspace?.isDemo ? addDemoAdopted : undefined}
+                onDemoEnterReading={workspace?.isDemo ? onDemoEnterReading : undefined}
               />
             )}
             {room === "writing" && (

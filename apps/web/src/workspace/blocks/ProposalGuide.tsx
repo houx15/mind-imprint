@@ -315,7 +315,10 @@ export function ProposalGuideReadOnly({
       <div className="mx-auto max-w-[70ch]">
         <p className="mb-3 text-[12px] font-bold text-mk-faint">研究提案的引导框 · 只读（演示项目，印记不代写）</p>
         {step.subQuestions.length > 0 && (
-          <div className="mb-4 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5">
+          <div
+            {...(parts.length === 0 ? { "data-tour": "writing-aicard" } : {})}
+            className="mb-4 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5"
+          >
             <p className="text-[13px] font-bold text-mk-ink">研究计划的子问题</p>
             <ol className="mt-1.5 flex flex-col gap-1">
               {step.subQuestions.map((q, i) => (
@@ -329,17 +332,23 @@ export function ProposalGuideReadOnly({
         )}
         {parts.length > 0 && (
           <div className="flex flex-col gap-3">
-            {parts.map((p) => (
-              <GuidedWritingCard
-                key={p.key}
-                title={p.title}
-                guidance={p.card?.prompt ?? ""}
-                example={p.card?.example}
-                value={textByKey[p.key] ?? ""}
-                onChange={() => {}}
-                locked
-                placeholder="（还没写这一部分）"
-              />
+            {parts.map((p, i) => (
+              // The guided tour spotlights ONE filled 引导框 (the first part) so
+              // the student sees exactly what a snippet's guiding box looks like —
+              // a guiding question + an English example + her own text. Anchoring
+              // the whole pane instead (its old home) produced a viewport-tall
+              // rect the spotlight couldn't frame.
+              <div key={p.key} {...(i === 0 ? { "data-tour": "writing-aicard" } : {})}>
+                <GuidedWritingCard
+                  title={p.title}
+                  guidance={p.card?.prompt ?? ""}
+                  example={p.card?.example}
+                  value={textByKey[p.key] ?? ""}
+                  onChange={() => {}}
+                  locked
+                  placeholder="（还没写这一部分）"
+                />
+              </div>
             ))}
           </div>
         )}

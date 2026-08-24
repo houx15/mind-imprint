@@ -84,6 +84,9 @@ export interface ProjectsTabProps {
    * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
   pendingDemoReading?: { source: MaterialSource; referenceId: string; readingNote?: string } | null;
   onPendingDemoReadingConsumed?: () => void;
+  /** P8 · the demo project's honest 进入阅读室 entry: routes the real (403-ing)
+   *  enter-reading button to the read-only replay. Threaded to WorkspaceContainer. */
+  onDemoEnterReading?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
   /** Task 9: the demo project's guard modal's 好，带我逛一遍 — threaded straight
@@ -119,6 +122,7 @@ export function ProjectsTab({
   onPendingDemoAdoptConsumed,
   pendingDemoReading,
   onPendingDemoReadingConsumed,
+  onDemoEnterReading,
   onImmersiveChange,
   onRequestDemoTour,
 }: ProjectsTabProps) {
@@ -203,6 +207,7 @@ export function ProjectsTab({
             onPendingDemoAdoptConsumed={onPendingDemoAdoptConsumed}
             pendingDemoReading={pendingDemoReading}
             onPendingDemoReadingConsumed={onPendingDemoReadingConsumed}
+            onDemoEnterReading={onDemoEnterReading}
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}
