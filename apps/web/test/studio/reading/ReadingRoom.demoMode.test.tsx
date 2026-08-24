@@ -3,6 +3,7 @@ import { render, screen, fireEvent } from "@testing-library/react";
 import type { MaterialSource } from "@mind-imprint/contracts";
 import { ReadingRoom } from "@/studio/reading/ReadingRoom";
 import { demoReadingTranscript } from "@/tour/fixtures/demoReadingTranscript";
+import type { ChatMessage } from "@/studio/reading/readingLoop";
 
 const SOURCE: MaterialSource = {
   id: "m1", title: "Chen et al. 2019 — Nature Sustainability", sourceUrl: "", kind: "article", origin: "nature.com",
@@ -130,6 +131,48 @@ describe("ReadingRoom — demo replay (guided tour P6, Task 4)", () => {
     const noteTextarea = screen.getByPlaceholderText(/随手记下你自己的想法/);
     expect(noteTextarea).toHaveValue(seededNote);
     expect(noteTextarea).toBeDisabled();
+  });
+
+  it("renders markdown in an assistant chat bubble — **bold** becomes <strong>, not literal **", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", role: "assistant", kind: "text", body: "这一点很**关键**，再确认一下来源。" },
+    ];
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        onBack={() => {}}
+        api={NOOP_API}
+        initialMessages={messages}
+        demoMode
+      />,
+    );
+    const strong = screen.getByText("关键");
+    expect(strong.tagName).toBe("STRONG");
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+  });
+
+  // Student turns must NEVER be interpreted as markdown (a student typing a
+  // literal `*`/`#` must not be silently swallowed as markup) — same house
+  // rule as ChatMarkdown's other callers (StudioCoachChat/PlanBlock/etc.).
+  it("keeps a student chat bubble literal — ** stays as text, never becomes <strong>", () => {
+    const messages: ChatMessage[] = [
+      { id: "m1", role: "student", kind: "text", body: "我觉得**这句话**很重要。" },
+    ];
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        onBack={() => {}}
+        api={NOOP_API}
+        initialMessages={messages}
+        demoMode
+      />,
+    );
+    expect(screen.getByText("我觉得**这句话**很重要。")).toBeInTheDocument();
+    expect(document.querySelector(".mk-msg--student strong")).toBeNull();
   });
 
   it("falls back to the live GREETING when initialMessages is omitted (non-demo default unchanged)", () => {

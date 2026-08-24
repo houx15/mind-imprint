@@ -13,6 +13,7 @@ import { ReadingOutcomes } from "./ReadingOutcomes";
 import { FinalizeReadingPanel } from "./FinalizeReadingPanel";
 import { TraceSourcePanel } from "./TraceSourcePanel";
 import { useReadingLoop, type ReadingLoopApi, type ChatMessage } from "./readingLoop";
+import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import "./ReadingRoom.css";
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -562,7 +563,9 @@ export function ReadingRoom({
                       </div>
                     ) : (
                       <>
-                        <div className="mk-msg__bubble">{m.body}</div>
+                        <div className="mk-msg__bubble">
+                          <ChatMarkdown text={m.body} />
+                        </div>
                         {m.kind === "text" && m.offerCardId && (
                           // A 克制 hint that named a helpful lens — one tap opens
                           // it (she confirms; the AI never forces it, 铁律②).

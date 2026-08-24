@@ -61,3 +61,18 @@ export function Markdown({ text }: { text: string }) {
     </div>
   );
 }
+
+// Same markdown, but for single-line contexts (a heading, a modal title) that
+// already sit inside their own block element (a `<div>`/`<h2>`) — dropping the
+// `<p>` wrapper avoids nesting a block inside an inline title and keeps the
+// caller's own typography/margins intact. No list/quote handling here; the
+// callers this is meant for are short one-line strings.
+const inlineComponents: Components = { ...components, p: ({ children }) => <>{children}</> };
+
+export function MarkdownInline({ text }: { text: string }) {
+  return (
+    <ReactMarkdown remarkPlugins={[remarkGfm]} components={inlineComponents}>
+      {text}
+    </ReactMarkdown>
+  );
+}

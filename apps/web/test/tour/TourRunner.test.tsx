@@ -160,6 +160,28 @@ describe("TourRunner", () => {
     expect(screen.queryByText("这是提问卡")).not.toBeInTheDocument();
   });
 
+  it("renders markdown in a step title — **bold** becomes <strong>, not literal **", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", title: "先看 **重点**", text: "说明", advance: "next", placement: "center" },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    const strong = screen.getByText("重点");
+    expect(strong.tagName).toBe("STRONG");
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+  });
+
+  it("renders markdown in a demoModal title — **bold** becomes <strong>, not literal **", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "说明", advance: "next", demoModal: { kind: "question-card", title: "先看 **重点**" } },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    const strong = screen.getByText("重点");
+    expect(strong.tagName).toBe("STRONG");
+    expect(screen.queryByText(/\*\*/)).not.toBeInTheDocument();
+  });
+
   it("renders the write-mode-choice demoModal mock (静态 印记 message + 两个选择按钮)", () => {
     const seg: TourSegment = { id: "s", name: "s", steps: [
       { id: "s0", text: "这里印记会先问你怎么写", advance: "next", demoModal: { kind: "write-mode-choice", title: "写作方式" } },

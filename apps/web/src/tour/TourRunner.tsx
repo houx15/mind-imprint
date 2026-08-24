@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Pebble, Button, Modal } from "@/ui";
-import { Markdown } from "@/cards/Markdown";
+import { Markdown, MarkdownInline } from "@/cards/Markdown";
 import { useTour } from "./TourProvider";
 import { resolveAnchor } from "./anchors";
 import { clampToViewport } from "./viewport";
@@ -131,7 +131,7 @@ export function TourRunner() {
       <Modal
         open
         onClose={t.stop}
-        title={title ?? null}
+        title={title ? <MarkdownInline text={title} /> : null}
         footer={
           <div className="w-full">
             <BubbleHeader step={t.step} />
@@ -216,7 +216,11 @@ function BubbleHeader({ step }: { step: TourStep }) {
         </span>
         <span className="text-mk-small font-semibold text-mk-accent-700">印记</span>
       </div>
-      {step.title && <div className="mb-1 text-mk-body font-semibold text-mk-ink">{step.title}</div>}
+      {step.title && (
+        <div className="mb-1 text-mk-body font-semibold text-mk-ink">
+          <MarkdownInline text={step.title} />
+        </div>
+      )}
       <div className="text-mk-body leading-relaxed text-mk-ink"><Markdown text={step.text} /></div>
     </>
   );
