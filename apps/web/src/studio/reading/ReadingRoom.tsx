@@ -6,6 +6,7 @@ import type { ReferenceEvidence } from "@/api/evidenceMap";
 import { Annotate } from "../../primitives/annotate";
 import { anchorToSpan } from "../material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "./HangingCard";
+import { ConfirmedFindingCard } from "./ConfirmedFindingCard";
 import { READING_DECK_IDS } from "./readingDeck";
 import type { DigCandidate } from "@mind-imprint/contracts";
 import { LensLibrary } from "./LensLibrary";
@@ -444,6 +445,11 @@ export function ReadingRoom({
     return [...source.anchors, ...extra].map(anchorToSpan).filter((s): s is AnnotateSpan => s !== null);
   }, [source.anchors, source.id, loop.outcomes, loop.exampleAnchor, loop.studentAnchor]);
 
+  // Confirmed findings, keyed by span id — clicking a finding's highlight shows
+  // its full 透镜卡 recap (verdict + checks) rather than a bare note. The first
+  // one's mark is tagged for the guided tour (see `lensMarkSpanId` below).
+  const outcomeBySpanId = useMemo(() => new Map(loop.outcomes.map((o) => [o.id, o])), [loop.outcomes]);
+
   function send(text: string) {
     // demoMode (Task 4): the demo replay is read-only — never fire readTurn
     // (it 403s on the read-only demo project's backend guard anyway).
@@ -801,6 +807,23 @@ export function ReadingRoom({
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
                   onSelectSpan={setActiveSpanId}
+                  lensMarkSpanId={loop.outcomes[0]?.id}
+                  renderActiveCard={(span) => {
+                    const o = outcomeBySpanId.get(span.id);
+                    // A confirmed finding → the real 透镜卡 feedback recap.
+                    if (o?.eval) return <ConfirmedFindingCard cardName={o.cardName} eval={o.eval} finding={o.finding} />;
+                    // A plain 印记 flag (dimension + the question it hung on the
+                    // sentence) → a lighter taro card in the same family.
+                    return (
+                      <div className="overflow-hidden rounded-mk-sm border border-mk-taro-bg bg-mk-surface shadow-mk-sm">
+                        <div className="h-1 bg-mk-taro-fg" />
+                        <div className="px-[15px] pb-[14px] pt-[12px]">
+                          {span.tag && <div className="mb-2 font-sans text-[12px] font-bold text-mk-taro-fg">{span.tag}</div>}
+                          <div className="font-sans text-[14px] leading-[1.6] text-mk-secondary">{span.note}</div>
+                        </div>
+                      </div>
+                    );
+                  }}
                   selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
                   onCreateSpan={loop.pickSentence}
                   onReferenceBlock={loop.status === "idle" ? toggleRef : undefined}

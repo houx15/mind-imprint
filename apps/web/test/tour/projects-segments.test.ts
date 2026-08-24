@@ -194,7 +194,7 @@ describe("projects segments", () => {
       '[data-tour="explore-enter-reading"]',
       '[data-tour="explore-enter-reading"]',
       '[data-tour="rr-article"]',
-      '[data-tour="rr-article"] mark',
+      '[data-tour="rr-lens-mark"]',
       '[data-tour="rr-inline-card"]',
       '[data-tour="rr-chat"]',
       '[data-tour="rr-deck"]',
@@ -210,7 +210,7 @@ describe("projects segments", () => {
     expect(actionSteps.map((s) => s.id)).toEqual(["reading-room-enter-1", "reading-room-1", "reading-room-outcomes-0"]);
     expect(actionSteps.map((s) => s.actionEvent)).toEqual([
       { selector: '[data-tour="explore-enter-reading"]', type: "click" },
-      { selector: '[data-tour="rr-article"] mark', type: "click" },
+      { selector: '[data-tour="rr-lens-mark"]', type: "click" },
       { selector: '[data-tour="rr-outcomes-tab"]', type: "click" },
     ]);
   });

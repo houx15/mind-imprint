@@ -333,22 +333,22 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-room-1",
-        // click a highlight → rr-inline-card (P8 Task 12): `<mark>` runs carry
-        // no `data-tour` of their own, but `[data-tour="rr-article"] mark` is a
-        // valid, reliable descendant selector for both `document.querySelector`
-        // (spotlight) and `Element.closest()` (the engine's action delegate) —
-        // resolves to the first highlighted run in document order.
-        anchor: '[data-tour="rr-article"] mark',
+        // click the CONFIRMED-finding highlight → rr-inline-card (P8): the run
+        // for the seeded 阅读成果 span carries `data-tour="rr-lens-mark"`
+        // (Annotate.lensMarkSpanId), so we spotlight/click the ONE highlight
+        // that opens a real 透镜卡 recap — not whichever mark comes first in the
+        // document (an open 印记-flag would show only a bare question).
+        anchor: '[data-tour="rr-lens-mark"]',
         placement: "left",
-        text: "试着点一下正文里的**高亮句**——看看印记当时为什么划出它。",
+        text: "试着点一下正文里这句**高亮**——它是你用 CRAAP 透镜完成的一次溯源体检。",
         advance: "action",
-        actionEvent: { selector: '[data-tour="rr-article"] mark', type: "click" },
+        actionEvent: { selector: '[data-tour="rr-lens-mark"]', type: "click" },
       },
       {
         id: "reading-room-2",
         anchor: '[data-tour="rr-inline-card"]',
         placement: "left",
-        text: "这张透镜卡划出了这句话，并抛给你一个要想清楚的问题。",
+        text: "这就是**透镜卡**——和你平时用它时长得一样：你选的句子、你的判断，加上印记逐条的复核（绿=站得住，黄=要留意），一次看清这句证据强在哪、要小心哪。",
         advance: "next",
       },
       {

@@ -42,7 +42,25 @@ export type AnnotateProps = {
   onReferenceSelection?: (blockId: string, quote: string) => void;
   /** Block ids currently referenced (whole-paragraph) — rendered with a subtle highlight. */
   referencedBlockIds?: string[];
+  /**
+   * Renders the body of the inline card shown when a highlight is clicked. Lets
+   * the caller (the reading room) show a rich, real 透镜卡 recap (verdict +
+   * checks) for a confirmed finding instead of the built-in dimension+note box.
+   * The `rr-inline-card` wrapper + inline placement (after the owning paragraph,
+   * foot fallback) stay here; only the card body is delegated. Absent → the
+   * built-in box renders, output unchanged.
+   */
+  renderActiveCard?: (span: AnnotateSpan) => ReactNode;
+  /**
+   * When a highlighted run belongs to this span, its `<mark>` also carries
+   * `data-tour="rr-lens-mark"` — so the guided tour can spotlight/click the ONE
+   * confirmed-finding highlight (rich 透镜卡) rather than whichever mark happens
+   * to come first in the document. Absent → no mark is tagged.
+   */
+  lensMarkSpanId?: string;
 };
+
+type AnnotateSpan = AnnotateState["spans"][number];
 
 // Three distinct macarons for a genuine 3-way category (who authored this
 // span), not one accent collapsed across all of them (色彩纪律): AI-authored
@@ -66,6 +84,8 @@ export function Annotate({
   onReferenceBlock,
   onReferenceSelection,
   referencedBlockIds,
+  renderActiveCard,
+  lensMarkSpanId,
 }: AnnotateProps) {
   const activeSpan = activeSpanId ? state.spans.find((s) => s.id === activeSpanId) ?? null : null;
 
@@ -129,12 +149,18 @@ export function Annotate({
   // instead of far down at the article's foot. A range-only span with no
   // `block_ref` has no paragraph to anchor to and falls back to the foot.
   const activeCard = activeSpan ? (
-    <div
-      data-tour="rr-inline-card"
-      style={{ margin: "6px 0 14px", background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}
-    >
-      <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
-      <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
+    // The wrapper owns only placement (inline gap + the tour anchor); the card
+    // body is either the caller's rich 透镜卡 recap (renderActiveCard) or the
+    // built-in dimension+note box.
+    <div data-tour="rr-inline-card" style={{ margin: "6px 0 14px" }}>
+      {renderActiveCard ? (
+        renderActiveCard(activeSpan)
+      ) : (
+        <div style={{ background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}>
+          <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
+          <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
+        </div>
+      )}
     </div>
   ) : null;
 
@@ -216,6 +242,7 @@ export function Annotate({
                   return (
                     <mark
                       key={i}
+                      data-tour={run.spanId === lensMarkSpanId ? "rr-lens-mark" : undefined}
                       onClick={(e) => {
                         // In select-mode a click anywhere — including on the
                         // AI's underlined example — picks the SENTENCE under the

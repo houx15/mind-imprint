@@ -24,7 +24,7 @@ export type HangingCardProps = {
 };
 
 /** Join truthy class fragments with a single space; drops falsy/empty ones. */
-function cx(...parts: Array<string | false | null | undefined>): string {
+export function cx(...parts: Array<string | false | null | undefined>): string {
   return parts.filter(Boolean).join(" ");
 }
 
@@ -43,13 +43,13 @@ export function anchorBlockId(exampleBlockId: string, studentBlockId: string | n
 // Verdict/check tones read straight off the shared semantic tokens (never a
 // local hex table) — strong/pass reads as success, partial as a heads-up
 // (warning), rethink/miss as the thing needing another look (danger).
-const VERDICT_TONE: Record<SelectionEval["verdict"], { fg: string; bg: string }> = {
+export const VERDICT_TONE: Record<SelectionEval["verdict"], { fg: string; bg: string }> = {
   strong: { fg: "text-mk-success", bg: "bg-mk-success-bg" },
   partial: { fg: "text-mk-warning", bg: "bg-mk-warning-bg" },
   rethink: { fg: "text-mk-danger", bg: "bg-mk-danger-bg" },
 };
 
-const CHECK_TONE: Record<SelectionEval["checks"][number]["status"], { fg: string; bg: string; label: string }> = {
+export const CHECK_TONE: Record<SelectionEval["checks"][number]["status"], { fg: string; bg: string; label: string }> = {
   pass: { fg: "text-mk-success", bg: "bg-mk-success-bg", label: "✓" },
   partial: { fg: "text-mk-warning", bg: "bg-mk-warning-bg", label: "~" },
   miss: { fg: "text-mk-danger", bg: "bg-mk-danger-bg", label: "✕" },

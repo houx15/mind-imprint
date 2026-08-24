@@ -46,6 +46,33 @@ describe("Annotate", () => {
     expect(container.querySelector('[data-tour="rr-inline-card"]')).not.toBeInTheDocument();
   });
 
+  it("renderActiveCard replaces the built-in note box body (rich 透镜卡 recap) while keeping the rr-inline-card wrapper", () => {
+    const { container } = render(
+      <Annotate
+        blocks={blocks}
+        state={state}
+        activeSpanId="s1"
+        onSelectSpan={() => {}}
+        renderActiveCard={(span) => <div data-testid="rich">RICH:{span.id}</div>}
+      />,
+    );
+    const panel = container.querySelector('[data-tour="rr-inline-card"]');
+    expect(panel).toBeInTheDocument();
+    expect(screen.getByTestId("rich")).toHaveTextContent("RICH:s1");
+    // the built-in dimension+note body is NOT rendered when delegated.
+    expect(panel).not.toHaveTextContent("这条往上追，原始出处是谁？");
+  });
+
+  it("lensMarkSpanId tags the matching span's <mark> with data-tour=\"rr-lens-mark\"", () => {
+    const { container } = render(
+      <Annotate blocks={blocks} state={state} activeSpanId={null} onSelectSpan={() => {}} lensMarkSpanId="s1" />,
+    );
+    const mark = container.querySelector('[data-tour="rr-lens-mark"]');
+    expect(mark).toBeInTheDocument();
+    expect(mark?.tagName).toBe("MARK");
+    expect(mark).toHaveTextContent("XXXX");
+  });
+
   it("select-mode: clicking the mark picks a sentence instead of calling onSelectSpan", () => {
     const onSelect = vi.fn();
     const onCreateSpan = vi.fn();
