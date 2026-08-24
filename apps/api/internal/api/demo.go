@@ -103,9 +103,24 @@ func cannedExplorationReview() map[string]any {
 	return map[string]any{"review": demoExplorationReview}
 }
 
+// cannedSearchGuidance — three real, on-topic检索方向 for the demo research
+// question ("中国是否让地球变得更可持续"), so the read-only「让印记建议检索方向」
+// button surfaces genuine directions instead of a placeholder — never a live
+// model call, never network search.
 func cannedSearchGuidance() map[string]any {
 	return map[string]any{"suggestions": []map[string]string{
-		{"keyword": "示例检索方向（演示）", "why": "演示项目不联网检索——真实项目里这里会是印记给你的检索建议。"},
+		{
+			"keyword": "卫星植被指数 NDVI 与可持续性",
+			"why":     "\"变绿\"只反映叶面积增加，不等于生态质量或碳汇能力提升——需要分清这两者，别把 NDVI 数据直接当作可持续性的证据。",
+		},
+		{
+			"keyword": "中国可再生能源装机 vs 存量煤电",
+			"why":     "光伏、风电新增装机世界第一，但同时还在新建煤电——需要弄清清洁能源投资能否真正抵消存量高碳产能，而不是只看增量。",
+		},
+		{
+			"keyword": "中国净零承诺 时间表 可核查性",
+			"why":     "2060 碳中和是官方目标，但目标本身不是证据——需要找到可核查的阶段性数据，区分口头承诺和已经兑现的进展。",
+		},
 	}}
 }
 

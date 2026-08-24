@@ -491,6 +491,64 @@ func TestDemoWarrenHasSecondLayerAndResourceNeeds(t *testing.T) {
 	}
 }
 
+// TestDemoSearchGuidanceRealDirections verifies guided-tour P8 Task 4: the
+// demo project's POST .../search-guidance short-circuit (cannedSearchGuidance)
+// must return >=2 real, on-topic keyword+why directions — not the old
+// single "示例检索方向（演示）" placeholder — so the read-only tour's「让印记
+// 建议检索方向」button has genuine content to show. Driven as a non-owner
+// (demo is world-readable) against a real *API wired with NO provider, so a
+// 200 with real content also proves no live model/network call happened.
+func TestDemoSearchGuidanceRealDirections(t *testing.T) {
+	pool := newAPITestPool(t)
+	h := newTestAPI(pool).Handler()
+	ctx := t.Context()
+
+	otherID := createStudent(t, pool, SeedSchoolID, "demo-search-guidance-other@demo.local")
+	otherCookie := signInAs(t, pool, otherID)
+
+	var beforeLLM int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM llm_call`).Scan(&beforeLLM); err != nil {
+		t.Fatalf("count llm_call before: %v", err)
+	}
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+demoProjectID+"/search-guidance", bytes.NewReader([]byte("{}"))), otherCookie))
+	if rr.Code != http.StatusOK {
+		t.Fatalf("demo POST /search-guidance: want 200, got %d — %s", rr.Code, rr.Body.String())
+	}
+	var out struct {
+		Suggestions []struct {
+			Keyword string `json:"keyword"`
+			Why     string `json:"why"`
+		} `json:"suggestions"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode search-guidance: %v — body=%s", err, rr.Body.String())
+	}
+	if len(out.Suggestions) < 2 {
+		t.Fatalf("demo search-guidance: want >=2 directions, got %d — %s", len(out.Suggestions), rr.Body.String())
+	}
+	for i, s := range out.Suggestions {
+		if s.Keyword == "" || s.Why == "" {
+			t.Fatalf("demo search-guidance suggestion[%d]: expected non-empty keyword+why, got %+v", i, s)
+		}
+		if strings.Contains(s.Keyword, "演示") || strings.Contains(s.Keyword, "示例") {
+			t.Fatalf("demo search-guidance suggestion[%d]: keyword still looks like a placeholder — %+v", i, s)
+		}
+		if strings.Contains(s.Why, "演示") || strings.Contains(s.Why, "示例") {
+			t.Fatalf("demo search-guidance suggestion[%d]: why still looks like a placeholder — %+v", i, s)
+		}
+	}
+
+	var afterLLM int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM llm_call`).Scan(&afterLLM); err != nil {
+		t.Fatalf("count llm_call after: %v", err)
+	}
+	if afterLLM != beforeLLM {
+		t.Fatalf("demo search-guidance wrote llm_call rows: before=%d after=%d", beforeLLM, afterLLM)
+	}
+}
+
 // assertDemoReadonly asserts rr is a 403 carrying error.code = "demo_readonly".
 func assertDemoReadonly(t *testing.T, rr *httptest.ResponseRecorder, label string) {
 	t.Helper()
