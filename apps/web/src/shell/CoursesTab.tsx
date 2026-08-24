@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Segmented } from "@/ui";
 import { CoursesContainer, type CourseOpenTarget } from "@/shell/courses/CoursesContainer";
 import { LearningHistory } from "@/shell/courses/LearningHistory";
@@ -66,6 +66,21 @@ export function CoursesTab({
     if (pendingCourseId) onPendingCourseConsumed();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // React to a `pendingCourseId` that arrives AFTER mount — CoursesTab stays
+  // mounted across in-tab navigation, so the mount initializer above can't
+  // catch a later deep-link (e.g. the browser Back button re-opening a course
+  // via the shell's popstate handler). Ref-guarded "only on a new id" firing,
+  // seeded with the mount value so the same id isn't re-handled here.
+  const lastCourseId = useRef<string | null>(pendingCourseId ?? null);
+  useEffect(() => {
+    if (pendingCourseId && pendingCourseId !== lastCourseId.current) {
+      lastCourseId.current = pendingCourseId;
+      setOpenTarget({ slug: pendingCourseId, mode: "detail" });
+      setSub("courses");
+      onPendingCourseConsumed();
+    }
+  }, [pendingCourseId, onPendingCourseConsumed]);
 
   // React to the tour's requested sub-tab. Seeded once in useState above (avoids
   // a first-paint flash), but CoursesTab stays mounted across tab switches, so
