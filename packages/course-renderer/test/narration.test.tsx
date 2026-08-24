@@ -160,3 +160,73 @@ describe("NarrationController + NarrationPlayer", () => {
     expect(screen.getByText("transcript for intro")).toBeInTheDocument();
   });
 });
+
+/**
+ * The learner's 停止 used to call `stop()`, which is SILENT. On the shape the
+ * generator emits for almost every slice — an `introduce` step whose only exit
+ * is `narration.ended` — that stranded the slice: the player unmounted (taking
+ * 重播 with it), the engine's `ended` listener was unsubscribed, and 下一步
+ * stayed disabled with no control left that could ever produce the event. The
+ * only escape was 上一步 then 下一步. Reproduced live on course-06.
+ */
+describe("stopping a narration from the transport control (dismiss)", () => {
+  it("emits narration.ended so a step gated on it is never stranded", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const events: Array<{ sourceId: string; type: string }> = [];
+    const emit: SliceEmitter = (sourceId, type) => events.push({ sourceId, type: String(type) });
+
+    controller.play(narration("intro"), "/resolved/audio/intro.mp3", emit);
+    controller.dismiss(emit);
+
+    expect(events).toEqual([{ sourceId: "intro", type: "narration.ended" }]);
+    expect(controller.getSnapshot()).toBeNull(); // still stops playback + clears the player
+  });
+
+  it("does NOT re-emit for a track that already ended on its own", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const events: string[] = [];
+    const emit: SliceEmitter = (sourceId) => events.push(sourceId);
+
+    controller.play(narration("intro"), "/resolved/audio/intro.mp3", emit);
+    engine.fireEnded();
+    controller.dismiss(emit);
+
+    expect(events).toEqual(["intro"]); // one event, not two
+  });
+
+  it("is a no-op when nothing is playing", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const events: string[] = [];
+    controller.dismiss((sourceId) => events.push(sourceId));
+    expect(events).toEqual([]);
+  });
+
+  it("keeps stop() itself silent — unmount and an authored stopNarration must not fake an ending", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const events: string[] = [];
+    const emit: SliceEmitter = (sourceId) => events.push(sourceId);
+
+    controller.play(narration("intro"), "/resolved/audio/intro.mp3", emit);
+    controller.stop();
+
+    expect(events).toEqual([]);
+  });
+
+  it("the 停止 button emits it (the control the learner actually presses)", () => {
+    const engine = new FakeAudioEngine();
+    const controller = new NarrationController(engine);
+    const events: Array<{ sourceId: string; type: string }> = [];
+    const emit: SliceEmitter = (sourceId, type) => events.push({ sourceId, type: String(type) });
+    render(<NarrationPlayer controller={controller} emit={emit} />);
+
+    act(() => controller.play(narration("intro"), "/resolved/audio/intro.mp3", emit));
+    act(() => screen.getByLabelText("停止").click());
+
+    expect(events).toEqual([{ sourceId: "intro", type: "narration.ended" }]);
+    expect(screen.queryByLabelText("讲解")).toBeNull();
+  });
+});

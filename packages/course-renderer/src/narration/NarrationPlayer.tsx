@@ -36,6 +36,8 @@ export class NarrationController {
   private readonly listeners = new Set<() => void>();
   private active: ActiveNarration | null = null;
   private unsubEnded: (() => void) | null = null;
+  /** True once the ACTIVE track has already reported `narration.ended` — so {@link dismiss} never emits it twice. */
+  private endedEmitted = false;
 
   constructor(engine: AudioEngine, arbiter: AudioArbiter = getDefaultAudioArbiter()) {
     this.engine = engine;
@@ -55,8 +57,10 @@ export class NarrationController {
       this.detach();
     }
     this.active = { id: narration.id, text: narration.text, audioUrl, status: "playing" };
+    this.endedEmitted = false;
     this.arbiter.notifyPlaying("narration", narration.id, () => this.engine.pause());
     this.unsubEnded = this.engine.onEnded(() => {
+      this.endedEmitted = true;
       emit(narration.id, "narration.ended");
     });
     // A rejected play() (autoplay blocked) surfaces as `status: "blocked"`
@@ -85,7 +89,34 @@ export class NarrationController {
     this.detach();
     if (id !== undefined) this.arbiter.notifyStopped("narration", id);
     this.active = null;
+    this.endedEmitted = false;
     this.notify();
+  }
+
+  /**
+   * The LEARNER's own "停止" — "I'm done listening" — as opposed to {@link stop},
+   * which is the silent teardown used by unmount and by an authored
+   * `stopNarration` effect.
+   *
+   * The distinction is not cosmetic: an `introduce`-style step's ONLY exit is
+   * `narration.ended`, and `stop()` both clears `active` (so the player
+   * unmounts, taking 重播 with it) and unsubscribes the engine's `ended`
+   * listener. A silent stop therefore strands the slice for good — no
+   * narration left to finish, no control that could ever produce that event
+   * again, 下一步 disabled forever. The only escape was 上一步 then 下一步.
+   *
+   * So a learner-initiated stop ENDS the track as far as the workflow is
+   * concerned. It also doubles as the escape hatch when audio stalls without
+   * ever firing `ended`. Emitting is suppressed once the track has already
+   * ended on its own, so dismissing a finished narration adds no duplicate
+   * event to the session trace.
+   */
+  dismiss(emit: SliceEmitter): void {
+    const active = this.active;
+    if (!active) return;
+    const shouldEmit = !this.endedEmitted;
+    this.stop();
+    if (shouldEmit) emit(active.id, "narration.ended");
   }
 
   /** Replays the active track from the start (§11 replay control). */
@@ -163,7 +194,7 @@ export function NarrationPlayer({ controller, emit }: NarrationPlayerProps) {
             <rect x="14" y="5" width="4" height="14" rx="1" />
           </svg>
         </button>
-        <button type="button" className="course-narration__control" data-narration-control="stop" aria-label="停止" title="停止" onClick={() => controller.stop()}>
+        <button type="button" className="course-narration__control" data-narration-control="stop" aria-label="停止" title="停止" onClick={() => controller.dismiss(emit)}>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" stroke="none" aria-hidden="true">
             <rect x="6" y="6" width="12" height="12" rx="1.5" />
           </svg>
