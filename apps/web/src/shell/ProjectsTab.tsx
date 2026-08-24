@@ -76,7 +76,7 @@ export interface ProjectsTabProps {
   /** One-shot: open this already-fetched demo `MaterialSource` into the real
    * immersive Reading Room as a read-only replay (the guided tour's P6
    * `openDemoReadingRoom` deep-link). Threaded straight to WorkspaceContainer. */
-  pendingDemoReading?: { source: MaterialSource; referenceId: string } | null;
+  pendingDemoReading?: { source: MaterialSource; referenceId: string; readingNote?: string } | null;
   onPendingDemoReadingConsumed?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;

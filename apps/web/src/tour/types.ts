@@ -20,6 +20,15 @@ export const DEMO_PROJECT_ID = "00000000-0000-0000-0000-000000000200";
  *  migration `0082_seed_demo_project_finished.sql`. */
 export const DEMO_READING_MATERIAL_ID = "00000000-0000-0000-0000-000000000271";
 export const DEMO_READING_REFERENCE_ID = "00000000-0000-0000-0000-000000000260";
+/** The freeform 我的笔记 note seeded on `DEMO_READING_REFERENCE_ID` by migration
+ *  `0091_demo_reading_notes.sql` (`reference.reading_note` for reference
+ *  …0260). `getMaterialSource` (used by `openDemoReadingRoom`) returns a
+ *  `MaterialSource`, not the `Reference` row, so it carries no `readingNote`
+ *  field — this constant mirrors the 0091 seed text verbatim rather than
+ *  adding a second fetch (`getLibrary`) to the tour's read-only open path.
+ *  Keep this in sync with 0091 if that migration's text ever changes. */
+export const DEMO_READING_NOTE =
+  "读到这里先记一笔：论文用 NASA MODIS 2000–2017 的数据说全球绿叶面积净增约 5%，中国和印度合计贡献了净增量的三分之一以上——但机制主要是农业集约化（约 32%）和人工造林（约 42%），不是森林自然恢复。这是个关键区分：论文只证明了「变绿」，从没有说这等于「更可持续」，更没有提碳排放。我得把这条数据和 Global Carbon Project 的排放数字放在一起看，才能判断「趋势变好」是不是等于「问题已解决」。";
 
 /** Setters the tour uses to drive the app. Assembled in StudentApp (§Task 9).
  *  P1 only needs the courses-side setters; P3 extends this. */

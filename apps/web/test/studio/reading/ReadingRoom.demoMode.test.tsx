@@ -106,6 +106,32 @@ describe("ReadingRoom — demo replay (guided tour P6, Task 4)", () => {
     expect(screen.getByPlaceholderText(/随手记下你自己的想法/)).toBeDisabled();
   });
 
+  it("seeds 我的笔记 from readingNote and keeps it read-only (P8 Task 7 demo carry-through)", () => {
+    const seededNote =
+      "读到这里先记一笔：论文用 NASA MODIS 2000–2017 的数据说全球绿叶面积净增约 5%……（migration 0091 seed）";
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        onBack={() => {}}
+        api={NOOP_API}
+        initialMessages={demoReadingTranscript}
+        readingNote={seededNote}
+        onSaveNote={async () => {
+          throw new Error("onSaveNote must not fire in demoMode");
+        }}
+        demoMode
+      />,
+    );
+
+    // A non-empty readingNote opens 我的笔记 by default (no click needed) and
+    // the textarea shows the REAL seeded text, not a blank placeholder.
+    const noteTextarea = screen.getByPlaceholderText(/随手记下你自己的想法/);
+    expect(noteTextarea).toHaveValue(seededNote);
+    expect(noteTextarea).toBeDisabled();
+  });
+
   it("falls back to the live GREETING when initialMessages is omitted (non-demo default unchanged)", () => {
     render(<ReadingRoom projectId="p1" referenceId="r1" source={SOURCE} onBack={() => {}} api={NOOP_API} />);
     expect(screen.getByText(/文章已经准备好了/)).toBeInTheDocument();

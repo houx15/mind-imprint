@@ -15,7 +15,7 @@ import { WelcomeModal } from "@/tour/WelcomeModal";
 import { FeedbackModal } from "@/tour/FeedbackModal";
 import { fullJourney, journeyStarting } from "@/tour/journey";
 import type { TourNavContext, StudioRoom, TourWritingView, TourRefPanelTab, TourPlanView } from "@/tour/types";
-import { DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID, DEMO_READING_REFERENCE_ID } from "@/tour/types";
+import { DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID, DEMO_READING_REFERENCE_ID, DEMO_READING_NOTE } from "@/tour/types";
 import { exampleCourseReport } from "@/tour/fixtures/exampleCourseReport";
 import { getMaterialSource } from "@/workspace/api/workspace";
 import type { DigCandidate, MaterialSource } from "@mind-imprint/contracts";
@@ -129,9 +129,11 @@ export function StudentApp({
   // the real immersive 精读 reading room, driven by the guided tour
   // (TourNavContext.openDemoReadingRoom, P6 Task 5). Consumed by
   // ProjectsTab/WorkspaceContainer once opened.
-  const [pendingDemoReading, setPendingDemoReading] = useState<{ source: MaterialSource; referenceId: string } | null>(
-    null,
-  );
+  const [pendingDemoReading, setPendingDemoReading] = useState<{
+    source: MaterialSource;
+    referenceId: string;
+    readingNote?: string;
+  } | null>(null);
   // Task 9: the demo project's guard modal's 好，带我逛一遍 needs `tour.play(...)`,
   // which only exists inside `TourProvider`'s subtree (`useTour()` in
   // StudentAppInner below) — but `body` (ProjectsTab included) is built here,
@@ -241,7 +243,9 @@ export function StudentApp({
     openDemoReadingRoom: () => {
       setPendingRoom("reading");
       void getMaterialSource(DEMO_PROJECT_ID, DEMO_READING_MATERIAL_ID)
-        .then((source) => setPendingDemoReading({ source, referenceId: DEMO_READING_REFERENCE_ID }))
+        .then((source) =>
+          setPendingDemoReading({ source, referenceId: DEMO_READING_REFERENCE_ID, readingNote: DEMO_READING_NOTE }),
+        )
         .catch(() => setPendingReadingView("list"));
     },
   };

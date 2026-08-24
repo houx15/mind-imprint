@@ -228,10 +228,14 @@ export function WorkspaceContainer({
    * StudentApp) already fetched the demo material's `MaterialSource` (GET
    * `/materials/{mid}/source`) and hands it here as a one-shot signal (a new
    * object each successful fetch); this opens it into the real, immersive
-   * `ReadingRoom` with `demoMode` + the canned transcript. Mirrors
-   * `pendingRoom`'s "new object ⇒ act, same reference ⇒ no-op" one-shot
-   * pattern. Absent/null ⇒ never fires (every non-demo project). */
-  pendingDemoReading?: { source: MaterialSource; referenceId: string } | null;
+   * `ReadingRoom` with `demoMode` + the canned transcript. `readingNote` (P8
+   * Task 7) mirrors the `reference.reading_note` seeded by migration 0091 for
+   * `DEMO_READING_REFERENCE_ID` (`MaterialSource` itself carries no note, so
+   * StudentApp hands a matching constant rather than a second fetch) — passed
+   * through as `openReadingSource`'s 7th arg so 我的笔记 shows real content.
+   * Mirrors `pendingRoom`'s "new object ⇒ act, same reference ⇒ no-op"
+   * one-shot pattern. Absent/null ⇒ never fires (every non-demo project). */
+  pendingDemoReading?: { source: MaterialSource; referenceId: string; readingNote?: string } | null;
   /** Fired once right after `pendingDemoReading` has been opened, so the
    * caller can clear its pending state (mirrors `onPendingRoomConsumed`). */
   onPendingDemoReadingConsumed?: () => void;
@@ -1434,7 +1438,7 @@ export function WorkspaceContainer({
   // already-fetched demo `MaterialSource` into the real immersive
   // `ReadingRoom`, seeded with the canned read-only transcript. Same
   // ref-guarded "only on a new object" firing as `pendingRoom` above.
-  const lastDemoReading = useRef<{ source: MaterialSource; referenceId: string } | null>(null);
+  const lastDemoReading = useRef<{ source: MaterialSource; referenceId: string; readingNote?: string } | null>(null);
   useEffect(() => {
     if (pendingDemoReading && pendingDemoReading !== lastDemoReading.current) {
       lastDemoReading.current = pendingDemoReading;
@@ -1445,7 +1449,7 @@ export function WorkspaceContainer({
         undefined,
         undefined,
         undefined,
-        undefined,
+        pendingDemoReading.readingNote,
         undefined,
         undefined,
         { demoMode: true, initialMessages: demoReadingTranscript },

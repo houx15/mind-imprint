@@ -29,18 +29,26 @@ vi.mock("@/workspace/blocks/WritingBlock", () => ({ WritingBlock: () => <div dat
 vi.mock("@/workspace/blocks/ReferencePanel", () => ({ ReferencePanel: () => <div data-testid="writing-ref-panel" /> }));
 vi.mock("@/workspace/blocks/ReviewBlock", () => ({ ReviewBlock: () => <div data-testid="review-block" /> }));
 
-const readingRoomProps: { demoMode?: boolean; initialMessages?: unknown; sourceId?: string; referenceId?: string } = {};
+const readingRoomProps: {
+  demoMode?: boolean;
+  initialMessages?: unknown;
+  sourceId?: string;
+  referenceId?: string;
+  readingNote?: string | null;
+} = {};
 vi.mock("@/studio/reading/ReadingRoom", () => ({
   ReadingRoom: (props: {
     demoMode?: boolean;
     initialMessages?: unknown;
     source: MaterialSource;
     referenceId: string;
+    readingNote?: string | null;
   }) => {
     readingRoomProps.demoMode = props.demoMode;
     readingRoomProps.initialMessages = props.initialMessages;
     readingRoomProps.sourceId = props.source.id;
     readingRoomProps.referenceId = props.referenceId;
+    readingRoomProps.readingNote = props.readingNote;
     return <div data-testid="reading-room" />;
   },
 }));
@@ -124,6 +132,7 @@ describe("WorkspaceContainer · pendingDemoReading", () => {
     readingRoomProps.initialMessages = undefined;
     readingRoomProps.sourceId = undefined;
     readingRoomProps.referenceId = undefined;
+    readingRoomProps.readingNote = undefined;
     getWorkspace.mockImplementation(async (id: string) => fakeWorkspace(id));
     getStudioState.mockImplementation(async () => fakeStudioState());
     coach.mockResolvedValue({
@@ -150,10 +159,15 @@ describe("WorkspaceContainer · pendingDemoReading", () => {
     await screen.findByTestId("plan-block");
 
     const source = fakeMaterialSource("mat-271");
+    // P8 Task 7: StudentApp's openDemoReadingRoom now carries the seeded
+    // reference note (0091) alongside the source/referenceId — this must
+    // reach ReadingRoom's readingNote prop (its 7th openReadingSource arg),
+    // not stay undefined, so 我的笔记 shows real content on the demo.
+    const seededNote = "读到这里先记一笔：论文用 NASA MODIS 2000–2017 的数据……";
     rerender(
       <WorkspaceContainer
         initialProjectId="demo1"
-        pendingDemoReading={{ source, referenceId: "ref-260" }}
+        pendingDemoReading={{ source, referenceId: "ref-260", readingNote: seededNote }}
         onPendingDemoReadingConsumed={onConsumed}
       />,
     );
@@ -162,6 +176,7 @@ describe("WorkspaceContainer · pendingDemoReading", () => {
     expect(readingRoomProps.demoMode).toBe(true);
     expect(readingRoomProps.sourceId).toBe("mat-271");
     expect(readingRoomProps.referenceId).toBe("ref-260");
+    expect(readingRoomProps.readingNote).toBe(seededNote);
     expect(Array.isArray(readingRoomProps.initialMessages)).toBe(true);
     expect((readingRoomProps.initialMessages as unknown[]).length).toBeGreaterThan(0);
     expect(onConsumed).toHaveBeenCalledTimes(1);
