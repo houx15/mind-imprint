@@ -149,9 +149,10 @@ func TestDemoTokenFixtures(t *testing.T) {
 		t.Fatalf("demo POST /coach: want a canned narrate, got empty — %s", rr.Body.String())
 	}
 
-	// (b) POST /exploration/dig → 200 with 3 canned, real candidate sources
+	// (b) POST /exploration/dig → 200 with 4 canned, real candidate sources
 	// (never a live OpenAlex call) so the read-only tour can populate the
-	// real 采纳/丢弃 panel.
+	// real 采纳/丢弃 panel. The first (Liu et al. 2015) is deliberately not one
+	// of the seeded library refs, so the tour can actually 采纳 it.
 	digBody, _ := json.Marshal(map[string]string{"keyword": "sustainability"})
 	rr = httptest.NewRecorder()
 	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", "/api/v1/projects/"+demo.ID.String()+"/exploration/dig", bytes.NewReader(digBody)), otherCookie))
@@ -172,8 +173,8 @@ func TestDemoTokenFixtures(t *testing.T) {
 	if err := json.Unmarshal(rr.Body.Bytes(), &dig); err != nil {
 		t.Fatalf("decode dig reply: %v", err)
 	}
-	if len(dig.Candidates) != 3 {
-		t.Fatalf("demo POST /exploration/dig: want 3 candidates, got %d — %s", len(dig.Candidates), rr.Body.String())
+	if len(dig.Candidates) != 4 {
+		t.Fatalf("demo POST /exploration/dig: want 4 candidates, got %d — %s", len(dig.Candidates), rr.Body.String())
 	}
 	for i, c := range dig.Candidates {
 		if c.Title == "" || c.Authors == "" || c.Year == "" || c.Journal == "" || c.Abstract == "" || c.URL == "" {

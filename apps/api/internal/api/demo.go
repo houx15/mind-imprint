@@ -54,13 +54,28 @@ func cannedExplorationGuide() map[string]any {
 	return map[string]any{"directions": toGuideDirectionDTOs(nil)}
 }
 
-// cannedDigCandidates — three real, on-topic sources for the demo research
+// cannedDigCandidates — four real, on-topic sources for the demo research
 // question ("中国是否让地球变得更可持续"), so the read-only 探索 tray has
-// something worth practising 采纳/丢弃 on. Real, checkable sources (NASA-fed
-// Nature Sustainability study, IEA renewables report, Global Carbon Project
-// budget) — never a live OpenAlex call, never model output.
+// something worth practising 采纳/丢弃 on. Real, checkable sources — never a
+// live OpenAlex call, never model output.
+//
+// The FIRST entry (Liu et al. 2015) is deliberately NOT one of the demo's
+// seeded library references (…0260–0264 = Chen / IEA / GCP / 公众号 / GEM), so
+// it shows up as adoptable — the guided tour clicks it and 采纳 it to
+// demonstrate a source being added to the graph. The remaining three ARE
+// already shelved, so they render "已在图书馆" (a realistic "you already have
+// these" mix).
 func cannedDigCandidates() []digCandidateDTO {
 	return []digCandidateDTO{
+		{
+			DOI:      "10.1038/nature14677",
+			Title:    "Reduced Carbon Emission Estimates from Fossil Fuel Combustion and Cement Production in China",
+			Authors:  "Liu, Z., Guan, D., Wei, W. et al.",
+			Year:     "2015",
+			Journal:  "Nature",
+			Abstract: "研究基于实测排放因子重新核算，发现中国 2000–2013 年间化石燃料燃烧与水泥生产的二氧化碳排放量，比此前国际机构的估算低约 14%——提示在评估「最大碳排放国」时，排放数据本身的口径与不确定性也需要被追问，而不是直接采信单一数字。",
+			URL:      "https://doi.org/10.1038/nature14677",
+		},
 		{
 			DOI:      "10.1038/s41893-019-0220-7",
 			Title:    "China and India Lead in Greening of the World Through Land-Use Management",

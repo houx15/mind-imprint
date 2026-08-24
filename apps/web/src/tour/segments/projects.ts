@@ -190,7 +190,7 @@ export const projectsSegments: TourSegment[] = [
         // box (migration 0087 seeded 3 rows into studio_state).
         anchor: '[data-tour="needs-resources"]',
         placement: "left",
-        text: "还差哪些资料？记在**「还需要探索」**里——它是你给自己留的找料清单，读到一半想起还缺什么，随手补一条。",
+        text: "还差哪些资料？记在「**还需要探索**」里——它是你给自己留的找料清单，读到一半想起还缺什么，随手补一条。",
         advance: "next",
       },
       {
@@ -374,7 +374,7 @@ export const projectsSegments: TourSegment[] = [
         // P7 cross-seam fix: reframed to point at the SPECIFIC node that just
         // changed, not imply it's the only 已读 node on the map — a research
         // map naturally has a mix of read and unread questions.
-        text: "回到探索图谱——你刚读的这一篇，它所在的问题节点亮起了**「已读」**。地图上本来就会有读过的、也有还没读的，这颗只是刚刚被点亮的那一个，阅读进度就这样自然地长在图上。",
+        text: "回到探索图谱——你刚读的这一篇，它所在的问题节点亮起了「**已读**」。地图上本来就会有读过的、也有还没读的，这颗只是刚刚被点亮的那一个，阅读进度就这样自然地长在图上。",
         advance: "next",
       },
       {
@@ -531,7 +531,7 @@ export const projectsSegments: TourSegment[] = [
         // always shown while writing). Seeded rows render for the demo.
         anchor: '[data-tour="needs-resources"]',
         placement: "right",
-        text: "写着写着发现还缺点什么？记进**「还需要探索」**里——它是你给自己留的找料清单，回头去补，不怕当场卡住。",
+        text: "写着写着发现还缺点什么？记进「**还需要探索**」里——它是你给自己留的找料清单，回头去补，不怕当场卡住。",
         advance: "next",
       },
       {
