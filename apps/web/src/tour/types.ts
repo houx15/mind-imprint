@@ -2,7 +2,7 @@ export type TourPlacement = "top" | "bottom" | "left" | "right" | "center";
 /** Kinds of static real-UI mocks a step can pair its 印记 line with (§Task 2).
  *  Extend with a new string as more mocks are built — the registry lives in
  *  `tour/mocks/index.tsx`. */
-export type DemoMockKind = "question-card";
+export type DemoMockKind = "question-card" | "write-mode-choice";
 export type NavTabKey = "home" | "projects" | "courses" | "me";
 export type CoursesSub = "courses" | "history" | "gallery";
 /** The five studio rooms (mirrors `BlockKey` in workspace/blocks/mockData —

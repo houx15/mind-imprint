@@ -158,4 +158,19 @@ describe("TourRunner", () => {
     fireEvent.click(screen.getByRole("button", { name: "下一步" }));
     expect(screen.queryByText("这是提问卡")).not.toBeInTheDocument();
   });
+
+  it("renders the write-mode-choice demoModal mock (静态 印记 message + 两个选择按钮)", () => {
+    const seg: TourSegment = { id: "s", name: "s", steps: [
+      { id: "s0", text: "这里印记会先问你怎么写", advance: "next", demoModal: { kind: "write-mode-choice", title: "写作方式" } },
+    ]};
+    renderTour(seg);
+    fireEvent.click(screen.getByText("play"));
+    // The mock shows 印记's proposing line and both static choice buttons.
+    expect(screen.getByText("这一部分，你想自己写，还是我一步步带你写？")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "我自己写" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "一步步带我写" })).toBeInTheDocument();
+    // The 印记 explanation and 下一步 control still render as the modal footer.
+    expect(screen.getByText("这里印记会先问你怎么写")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "下一步" })).toBeInTheDocument();
+  });
 });
