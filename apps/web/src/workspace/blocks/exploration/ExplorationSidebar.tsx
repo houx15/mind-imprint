@@ -358,7 +358,16 @@ function PaperMeta({
         flush
         primaryAction={
           onEnterReading && !pastePrompt
-            ? { label: entering ? "打开中…" : "进入阅读室", onClick: onEnterReading, busy: entering }
+            ? {
+                label: entering ? "打开中…" : "进入阅读室",
+                onClick: onEnterReading,
+                busy: entering,
+                // Guided tour · the "enter reading room" affordance on an
+                // adopted node/paper's own card (the ONLY per-node
+                // enter-reading control in this view — the map/library route
+                // via a different surface).
+                dataTour: "explore-enter-reading",
+              }
             : undefined
         }
       >

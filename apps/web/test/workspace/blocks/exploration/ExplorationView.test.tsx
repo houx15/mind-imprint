@@ -1101,6 +1101,64 @@ describe("ExplorationView", () => {
     // back on the results list, the adopted candidate is gone.
     expect(screen.queryByText(CANDIDATE.title)).toBeNull();
   });
+
+  // ---- Task 9 (P8) · guided-tour anchors on the exploration search controls
+  //      (idle→directions→list→detail), so the tour can action-click a real
+  //      search→adopt scene instead of narrating it. ----
+
+  it("carries the 5 explore-* tour anchors through the controls-column search drill-down, landing on the inHole 采纳到当前问题 button", async () => {
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
+    mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "紧扣当前问题" }]);
+    render(<ExplorationView projectId={projectId} references={[NASA_REF]} onEnterReading={vi.fn()} />);
+    await zoomInto(user, ROOT_LEAD.text);
+
+    // idle stage: 让印记建议检索方向 carries explore-directions
+    const proposeBtn = screen.getByRole("button", { name: "让印记建议检索方向" });
+    expect(proposeBtn).toHaveAttribute("data-tour", "explore-directions");
+    await user.click(proposeBtn);
+
+    // directions stage: the (single, so unambiguously first) 搜索 button carries explore-search
+    const searchBtn = await screen.findByRole("button", { name: "搜索" });
+    expect(searchBtn).toHaveAttribute("data-tour", "explore-search");
+    await user.click(searchBtn);
+
+    // list stage: the (single, so unambiguously first) result row carries explore-result
+    const resultText = await screen.findByText(CANDIDATE.title);
+    const resultBtn = resultText.closest("button")!;
+    expect(resultBtn).toHaveAttribute("data-tour", "explore-result");
+    await user.click(resultBtn);
+
+    // detail stage, inHole: the primary action reads 采纳到当前问题 and carries
+    // explore-adopt — the intercepted onDemoAdopt path, not 收进未归类.
+    const adoptBtn = await screen.findByRole("button", { name: "采纳到当前问题" });
+    expect(adoptBtn).toHaveAttribute("data-tour", "explore-adopt");
+
+    // clicking a NODE (not this search flow) surfaces the per-node
+    // explore-enter-reading control on its own PaperDetail card. Already
+    // inHole on ROOT_LEAD from above — just select the existing paper node.
+    await clickNode(user, CHILD_PAPER.text);
+    const enterBtn = await screen.findByRole("button", { name: "进入阅读室" });
+    expect(enterBtn).toHaveAttribute("data-tour", "explore-enter-reading");
+  });
+
+  it("the top-level (not-inHole) 收进未归类 branch stays unanchored — only the inHole adopt path is explore-adopt", async () => {
+    const projectId = nextPid();
+    const user = userEvent.setup();
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "" }]);
+    render(<ExplorationView projectId={projectId} references={[]} onCreateReference={vi.fn()} />);
+    await screen.findByText("这里还是空的");
+
+    await user.click(screen.getByRole("button", { name: "让印记建议检索方向" }));
+    await user.click(await screen.findByRole("button", { name: "搜索" }));
+    const resultText = await screen.findByText(CANDIDATE.title);
+    await user.click(resultText.closest("button")!);
+
+    const collectBtn = await screen.findByRole("button", { name: "收进未归类" });
+    expect(collectBtn).not.toHaveAttribute("data-tour");
+  });
 });
 
 // Task 8 (P2b) · 未归类 = references with no NON-PRUNED connected lead, minus

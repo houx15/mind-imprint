@@ -851,6 +851,7 @@ export function ExplorationView({
               </div>
               <button
                 type="button"
+                data-tour="explore-directions"
                 onClick={() => void proposeDirections()}
                 disabled={proposingDir}
                 className="w-full rounded-mk border border-mk-border px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-50"
@@ -941,6 +942,9 @@ export function ExplorationView({
                     </div>
                     <button
                       type="button"
+                      // Guided tour: anchor only the FIRST row's 搜索 button so
+                      // the tour's action-click target is deterministic.
+                      data-tour={i === 0 ? "explore-search" : undefined}
                       onClick={() => openDirection(s.keyword)}
                       className="flex-none rounded-mk bg-mk-accent px-2.5 py-1 text-[12px] font-bold text-white hover:bg-mk-accent-600"
                     >
@@ -981,13 +985,16 @@ export function ExplorationView({
                 <p className="text-[12px] text-mk-faint">没有结果，换个关键词试试。</p>
               ) : (
                 <ul className="flex flex-col gap-2">
-                  {searchTray.map((c) => {
+                  {searchTray.map((c, i) => {
                     const key = candidateKey(c);
                     const meta = [c.authors, c.year, c.journal].map((s) => s?.trim()).filter(Boolean).join(" · ");
                     return (
                       <li key={key}>
                         <button
                           type="button"
+                          // Guided tour: anchor only the FIRST result row so
+                          // the tour's action-click target is deterministic.
+                          data-tour={i === 0 ? "explore-result" : undefined}
                           onClick={() => openDetail(c)}
                           className="w-full cursor-pointer rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2 text-left hover:border-mk-accent hover:bg-mk-accent-50"
                         >
@@ -1029,7 +1036,16 @@ export function ExplorationView({
                 primaryAction={
                   added
                     ? undefined
-                    : { label: inHole ? "采纳到当前问题" : "收进未归类", onClick: () => void addFromDetail(c), busy }
+                    : {
+                        label: inHole ? "采纳到当前问题" : "收进未归类",
+                        onClick: () => void addFromDetail(c),
+                        busy,
+                        // Guided tour: only the inHole "采纳到当前问题" branch
+                        // is the intercepted demo-adopt path (onDemoAdopt) that
+                        // makes a node appear — the unfiled "收进未归类" branch
+                        // is a different (403-on-demo) write, so it stays unanchored.
+                        dataTour: inHole ? "explore-adopt" : undefined,
+                      }
                 }
                 secondaryAction={
                   added
