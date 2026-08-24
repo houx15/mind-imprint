@@ -1,0 +1,8 @@
+# sift-check.html inlines three screen recordings as base64 data: URIs (~4MB
+# each copy). Not worth carrying in git — fetch_original.py re-pulls the live
+# asset and patch.py rebuilds the patched copy deterministically (it refuses to
+# run unless every needle matches exactly once).
+original/
+patched/
+.cookies.txt
+.put.out
