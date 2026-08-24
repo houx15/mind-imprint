@@ -1,5 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
+import { useState } from "react";
 import { Annotate } from "@/primitives/annotate/Annotate";
 import type { AnnotateState } from "@mind-imprint/contracts";
 
@@ -18,6 +19,49 @@ describe("Annotate", () => {
     render(<Annotate blocks={blocks} state={state} activeSpanId="s1" onSelectSpan={() => {}} />);
     expect(screen.getByText("权威性")).toBeInTheDocument();
     expect(screen.getByText(/原始出处是谁/)).toBeInTheDocument();
+  });
+
+  // Task 5 (guided-tour P8): clicking a highlight reveals the lens card
+  // inline, and the panel carries a stable tour anchor only while it's
+  // actually showing.
+  it("clicking a highlighted span reveals the note panel tagged data-tour=\"rr-inline-card\"", () => {
+    function Harness() {
+      const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
+      return <Annotate blocks={blocks} state={state} activeSpanId={activeSpanId} onSelectSpan={setActiveSpanId} />;
+    }
+    const { container } = render(<Harness />);
+
+    expect(container.querySelector('[data-tour="rr-inline-card"]')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText("XXXX"));
+
+    const panel = container.querySelector('[data-tour="rr-inline-card"]');
+    expect(panel).toBeInTheDocument();
+    expect(panel).toHaveTextContent("权威性");
+    expect(panel).toHaveTextContent("这条往上追，原始出处是谁？");
+  });
+
+  it("does not tag the note panel with data-tour when no span is active", () => {
+    const { container } = render(<Annotate blocks={blocks} state={state} activeSpanId={null} onSelectSpan={() => {}} />);
+    expect(container.querySelector('[data-tour="rr-inline-card"]')).not.toBeInTheDocument();
+  });
+
+  it("select-mode: clicking the mark picks a sentence instead of calling onSelectSpan", () => {
+    const onSelect = vi.fn();
+    const onCreateSpan = vi.fn();
+    render(
+      <Annotate
+        blocks={blocks}
+        state={state}
+        activeSpanId={null}
+        onSelectSpan={onSelect}
+        selectMode={{ dimension: "权威性", onCancel: () => {} }}
+        onCreateSpan={onCreateSpan}
+      />
+    );
+    fireEvent.click(screen.getByText("XXXX"), { clientX: 0, clientY: 0 });
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onCreateSpan).toHaveBeenCalled();
   });
 
   it("tags each block with data-block-id", () => {

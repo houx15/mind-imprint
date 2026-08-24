@@ -239,7 +239,10 @@ export function Annotate({
       </div>
 
       {activeSpan && (
-        <div style={{ marginTop: 14, background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}>
+        <div
+          data-tour="rr-inline-card"
+          style={{ marginTop: 14, background: "var(--mk-accent-50)", border: "1px solid var(--mk-accent-200)", borderRadius: 12, padding: "13px 15px" }}
+        >
           <div style={{ fontSize: 12, fontWeight: 700, color: "var(--mk-accent-700)", marginBottom: 6 }}>{activeSpan.tag}</div>
           <div style={{ fontSize: 13.5, lineHeight: 1.6, color: "var(--mk-secondary)" }}>{activeSpan.note}</div>
         </div>

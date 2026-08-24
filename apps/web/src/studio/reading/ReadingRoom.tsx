@@ -295,6 +295,12 @@ export function ReadingRoom({
   // 追来源 (trace-to-source) panel — only wired when the workspace supplied the
   // dig/adopt callbacks.
   const traceEnabled = Boolean(onTraceCitation && onTraceSearch && onAdoptSource);
+  // Click-to-reveal: clicking a highlighted span opens its note panel
+  // (dimension + answer/question) inline, right under the sentence. Only
+  // takes effect outside select-mode — Annotate routes mark clicks through
+  // pickSentence instead while selectMode is set, so this never fights
+  // evidence-picking.
+  const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
   const [traceOpen, setTraceOpen] = useState(false);
 
   // 透镜库 (LensLibrary) — the student browses the reading deck and summons
@@ -784,8 +790,8 @@ export function ReadingRoom({
                 <Annotate
                   blocks={source.blocks}
                   state={{ material_id: source.id, spans }}
-                  activeSpanId={null}
-                  onSelectSpan={() => {}}
+                  activeSpanId={activeSpanId}
+                  onSelectSpan={setActiveSpanId}
                   selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
                   onCreateSpan={loop.pickSentence}
                   onReferenceBlock={loop.status === "idle" ? toggleRef : undefined}
