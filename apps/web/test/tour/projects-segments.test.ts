@@ -314,31 +314,35 @@ describe("projects segments", () => {
     }
   });
 
-  // P7 Task 10 · the rebuilt writing walk spotlights the real docswitch / 大纲 /
-  // refpanel / 片段引导 / 批注 / review-trigger / needs-resources / 完成写作
-  // anchors (铁律①② copy: AI never writes the body text).
-  it("writing spotlights the deeper docswitch/outline/aicard/annotations/finish anchors", () => {
+  // P8 Task 13 · the reordered writing walk: 边界 → mode-choice mock →
+  // docswitch → 大纲 → 片段(real box) → 正文 page → refpanel → needs-resources →
+  // review-trigger → 批注(result) → finish. Spotlights the real anchors
+  // (铁律①② copy: AI never writes the body text).
+  it("writing spotlights the reordered docswitch/outline/aicard/tabs/refpanel/needs/trigger/annotations/finish anchors", () => {
     const seg = projectsSegments.find((s) => s.id === "writing")!;
     const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
-    expect(byId("writing-1").anchor).toBe('[data-tour="writing-docswitch"]');
-    expect(byId("writing-2").anchor).toBe('[data-tour="writing-outline"]');
-    expect(byId("writing-3").anchor).toBe('[data-tour="writing-refpanel"]');
+    expect(byId("writing-2").anchor).toBe('[data-tour="writing-docswitch"]');
+    expect(byId("writing-3").anchor).toBe('[data-tour="writing-outline"]');
     expect(byId("writing-4").anchor).toBe('[data-tour="writing-aicard"]');
-    expect(byId("writing-5").anchor).toBe('[data-tour="writing-annotations"]');
-    expect(byId("writing-6").anchor).toBe('[data-tour="writing-review-trigger"]');
-    expect(byId("writing-7").anchor).toBe('[data-tour="writing-refpanel"]');
-    expect(byId("writing-8").anchor).toBe('[data-tour="needs-resources"]');
-    expect(byId("writing-9").anchor).toBe('[data-tour="writing-finish"]');
+    expect(byId("writing-5").anchor).toBe('[data-tour="writing-tabs"]');
+    expect(byId("writing-6").anchor).toBe('[data-tour="writing-refpanel"]');
+    expect(byId("writing-7").anchor).toBe('[data-tour="needs-resources"]');
+    expect(byId("writing-8").anchor).toBe('[data-tour="writing-review-trigger"]');
+    expect(byId("writing-9").anchor).toBe('[data-tour="writing-annotations"]');
+    expect(byId("writing-10").anchor).toBe('[data-tour="writing-finish"]');
+    // the mode-choice step is a demoModal mock, not a spotlight.
+    expect(byId("writing-1").demoModal).toEqual({ kind: "write-mode-choice", title: expect.any(String) });
+    expect(byId("writing-1").anchor).toBeUndefined();
     // 铁律①: the 片段引导 step never claims the AI writes the essay.
     expect(byId("writing-4").text).toContain("正文");
     expect(byId("writing-4").text).toMatch(/自己写|不替|不.*代写|绝不替/);
     // real-scene: every anchored writing step is a non-center spotlight.
-    for (const id of ["writing-1", "writing-2", "writing-3", "writing-4", "writing-5", "writing-6", "writing-7", "writing-8", "writing-9"]) {
+    for (const id of ["writing-2", "writing-3", "writing-4", "writing-5", "writing-6", "writing-7", "writing-8", "writing-9", "writing-10"]) {
       expect(byId(id).placement).not.toBe("center");
     }
   });
 
-  // P7 Task 10 · the writing walk drives the writing room to the exact doc + tab
+  // P8 Task 13 · the writing walk drives the writing room to the exact doc + tab
   // where each anchor renders (setWritingView deep-link) — the tour couldn't
   // reach `writing-aicard` (proposal 片段) or `writing-review-trigger`
   // (proposal 正文) without it.
@@ -357,21 +361,24 @@ describe("projects segments", () => {
       return calls;
     };
 
-    expect(capture("writing-2")).toContainEqual(["setWritingView", { doc: "essay", tab: "outline" }]);
+    expect(capture("writing-3")).toContainEqual(["setWritingView", { doc: "essay", tab: "outline" }]);
     expect(capture("writing-4")).toContainEqual(["setWritingView", { doc: "proposal", tab: "snippets" }]);
-    expect(capture("writing-6")).toContainEqual(["setWritingView", { doc: "proposal", tab: "draft" }]);
-    expect(capture("writing-7")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
-    expect(capture("writing-9")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
+    expect(capture("writing-5")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
+    expect(capture("writing-6")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
+    expect(capture("writing-8")).toContainEqual(["setWritingView", { doc: "proposal", tab: "draft" }]);
+    expect(capture("writing-10")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
   });
 
-  // P7 Task 10 · 🚨 the 批注-tab constraint (T6): `selectRefPanelTab("anno")`
-  // must fire while the writing room is NOT on the 正文/draft tab, otherwise the
-  // showSnippets→snippets override clobbers it. writing-5 selects 批注 and must
-  // NOT itself drive the room to the draft tab (it stays on the proposal 片段
-  // tab left by writing-4).
-  it("writing-5 selects the 批注 tab and does NOT switch to the 正文/draft tab", () => {
+  // P8 Task 13 · the reorder's whole point: the trigger button (writing-8)
+  // comes BEFORE the 批注 result (writing-9), and 批注 is selected only after
+  // the room has already settled on the draft tab (no simultaneous tab
+  // transition in writing-9's own onEnter, per the showSnippets constraint).
+  it("writing-8 (trigger) precedes writing-9 (批注 result); writing-9 only selects the tab", () => {
     const seg = projectsSegments.find((s) => s.id === "writing")!;
-    const step = seg.steps.find((s) => s.id === "writing-5")!;
+    const idx = (id: string) => seg.steps.findIndex((s) => s.id === id);
+    expect(idx("writing-8")).toBeLessThan(idx("writing-9"));
+
+    const step = seg.steps.find((s) => s.id === "writing-9")!;
     const calls: Array<[string, unknown]> = [];
     step.onEnter?.(
       makeNav((n) => {
@@ -380,8 +387,8 @@ describe("projects segments", () => {
       }),
     );
     expect(calls).toContainEqual(["selectRefPanelTab", "anno"]);
-    // never moves to the draft tab in the same step.
-    expect(calls.some(([k, v]) => k === "setWritingView" && (v as { tab: string }).tab === "draft")).toBe(false);
+    // never moves doc/tab in the same step (would race the showSnippets effect).
+    expect(calls.some(([k]) => k === "setWritingView")).toBe(false);
   });
 
   // P6 Task 7 · the reflection walk warns about the point-of-no-return lock.

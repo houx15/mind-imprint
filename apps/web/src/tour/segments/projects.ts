@@ -453,10 +453,21 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "writing-1",
+        // ⑥ mode-choice mock (P8 Task 13, consumes T8's `write-mode-choice`
+        // demoModal) — BEFORE any writing content, show 印记 proposing the
+        // choice it always opens a section with: 自己写 or 一步步带我写.
+        // 铁律②: 印记 PROPOSES, the student PICKS — this mirrors
+        // `WriteModeChoiceMock` exactly, no option pre-selected.
+        demoModal: { kind: "write-mode-choice", title: "写每一部分之前，印记先问你怎么写" },
+        text: "开始写任何一部分之前，印记都会先问一句：**这一段你想自己写，还是我一步步带你写？** 两条路都通向你自己落笔——区别只是要不要陪练搭个脚手架。",
+        advance: "next",
+      },
+      {
+        id: "writing-2",
         // ⑯ 提案/正文 两种模式 (P7 Task 10) — REAL spotlight of the doc-mode
         // toggle (`writing-docswitch`, WritingBlock.tsx:380). The demo seeds BOTH
         // a proposal and an essay, so the switch renders. Land on the essay 大纲
-        // so ⑯→⑰ flow without a jarring jump.
+        // so this step→outline flow without a jarring jump.
         onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "outline" }),
         anchor: '[data-tour="writing-docswitch"]',
         placement: "bottom",
@@ -464,7 +475,7 @@ export const projectsSegments: TourSegment[] = [
         advance: "next",
       },
       {
-        id: "writing-2",
+        id: "writing-3",
         // ⑰ 大纲 building-blocks / subquestions (P7 Task 10) — REAL spotlight of
         // the seeded outline (`writing-outline`, added on OutlinePane's root).
         // The essay 大纲 carries the thesis→subquestion branches (each becomes a
@@ -477,79 +488,88 @@ export const projectsSegments: TourSegment[] = [
         advance: "next",
       },
       {
-        id: "writing-3",
-        // ⑱ sidebar default = 阅读笔记 (P7 Task 10) — the demo's ReferencePanel
-        // now DEFAULTS to the 阅读笔记 tab (T6), so this is a real spotlight of
-        // the panel with your notes already摊开; no forceTab needed.
-        anchor: '[data-tour="writing-refpanel"]',
-        placement: "right",
-        text: "左边这栏默认摊开你的**阅读笔记**——写到哪、要引哪一篇，随手就能翻到，不用来回切窗口找资料。",
-        advance: "next",
-      },
-      {
         id: "writing-4",
-        // ⑲ 片段 real guiding box (P7 Task 10) — the 片段引导/写作卡 lives ONLY in
-        // the PROPOSAL doc's 片段 tab. Drive there so `writing-aicard` renders as
-        // a FILLED read-only guide (T5 `ProposalGuideReadOnly`).
-        // 铁律①: the card SCAFFOLDS her thinking — it never writes body text.
+        // ⑤ 片段 REAL filled guiding box (P8 Task 13, consumes T2/T5) — the
+        // 片段引导/写作卡 lives ONLY in the PROPOSAL doc's 片段 tab. Now seeded
+        // server-side so `ProposalGuideReadOnly` renders a genuine filled box
+        // (a guiding QUESTION + an English EXAMPLE + the student's own text),
+        // not an empty template. 铁律①: the card SCAFFOLDS her thinking — it
+        // never writes body text.
         onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "snippets" }),
         anchor: '[data-tour="writing-aicard"]',
         placement: "right",
-        text: "在「片段」里，印记把每个论证部分拆成一个个**可填的引导框**，帮你想清楚每段要论证什么。**正文始终是你自己写的**——它只陪你想，绝不替你落笔。",
+        text: "每个论证片段都配一个**真实填好的引导框**：一句要想清楚的引导问题、一个英文示例，还有你自己写下的内容。印记只搭这个脚手架——**正文永远是你自己写的**，它绝不替你落笔。",
         advance: "next",
       },
       {
         id: "writing-5",
-        // ⑳ AI批注 (P7 Task 10, relabeled from the old 引用面板 mislabel) — select
-        // the 批注 tab so the real seeded 批注 (migration 0083) render.
-        // 🚨 CONSTRAINT (T6): `selectRefPanelTab("anno")` is OVERRIDDEN by the
-        // showSnippets→snippets effect if the writing room is on the 正文/draft
-        // tab. writing-4 left us on the PROPOSAL 片段 tab (showSnippets off), so
-        // this switch STICKS — we deliberately spotlight 批注 BEFORE moving to
-        // 正文 in the next step.
-        onEnter: (nav) => nav.selectRefPanelTab("anno"),
-        anchor: '[data-tour="writing-annotations"]',
-        placement: "right",
-        text: "切到「**AI批注**」——印记通读你的初稿后留下的分层批注：**绿色**是亮点、**蓝色**是建议、**红色**是要处理的问题。点一条，就跳到正文里对应的那句话。",
+        // ⑦ move to the full 正文 page (P8 Task 13) — spotlight the 大纲/片段/正文
+        // tab bar (`writing-tabs`) while landing on 正文/draft, so the walk
+        // visibly steps OFF 片段 and ONTO the page where she writes prose herself.
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
+        anchor: '[data-tour="writing-tabs"]',
+        placement: "bottom",
+        text: "想清楚每段要论证什么之后，切到「**正文**」——这里你自己写正文，印记不会替你写一个字，只在你卡住时陪你想。",
         advance: "next",
       },
       {
         id: "writing-6",
-        // ㉑ how to trigger 批注 + move to 正文 (P7 Task 10) — REAL spotlight of the
-        // DISABLED read-only「让印记通读并批注」button (T5 `writing-review-trigger`,
-        // renders on the proposal 正文/prose tab for the demo). This is the FIRST
-        // step onto the draft tab — the 批注 spotlight above already happened, so
-        // the showSnippets override can't clobber it retroactively.
-        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "draft" }),
-        anchor: '[data-tour="writing-review-trigger"]',
-        placement: "bottom",
-        text: "写好一稿，点「**让印记通读并批注**」，它就会从头读一遍、逐段给批注——就是你刚看到的那些。看完提案，我们切到正文继续写。",
+        // ⑱ sidebar on 正文 (P7/P8) — panel now DEFAULTS to 阅读笔记 (T6), and on
+        // the essay 正文 all three tabs（片段/阅读笔记/AI批注）sit at hand while
+        // writing. Spotlight the whole `writing-refpanel` root (stable anchor
+        // regardless of active tab).
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
+        anchor: '[data-tour="writing-refpanel"]',
+        placement: "right",
+        text: "写正文时，左边这栏一直在：**片段、阅读笔记、AI批注**三个页签都摆在手边——默认摊开的是你的阅读笔记，边写边取，不打断思路。",
         advance: "next",
       },
       {
         id: "writing-7",
-        // ㉓ 正文 left sidebar (P7 Task 10) — on the essay 正文, the panel's
-        // 片段/阅读笔记/AI批注 tabs are all at hand while you write. Spotlight the
-        // whole `writing-refpanel` (its root anchor is stable regardless of which
-        // tab is active — showSnippets flips it to 片段 here, which is fine).
-        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
-        anchor: '[data-tour="writing-refpanel"]',
-        placement: "right",
-        text: "正式写正文时，左边这栏还在：**片段、阅读笔记、AI批注**三个页签都摆在手边，边写边取，不打断思路。",
-        advance: "next",
-      },
-      {
-        id: "writing-8",
-        // ㉔ to-explore box (P7 Task 10) — REAL spotlight of the 还需要探索的 box at
-        // the top of the writing ReferencePanel (`needs-resources`, always shown
-        // while writing). Seeded rows render for the demo.
+        // ㉔ to-explore box (P7 Task 10, kept) — REAL spotlight of the 还需要探索的
+        // box at the top of the writing ReferencePanel (`needs-resources`,
+        // always shown while writing). Seeded rows render for the demo.
         anchor: '[data-tour="needs-resources"]',
         placement: "right",
         text: "写着写着发现还缺点什么？记进**「还需要探索」**里——它是你给自己留的找料清单，回头去补，不怕当场卡住。",
         advance: "next",
       },
       {
+        id: "writing-8",
+        // ㉑ how to trigger 批注 (P8 Task 13) — REAL spotlight of the DISABLED
+        // read-only「让印记通读并批注」button (T5 `writing-review-trigger`).
+        // Land on the proposal 正文/prose tab where the demo renders it. This is
+        // deliberately BEFORE the 批注 spotlight below — the whole point of the
+        // reorder is trigger-first, then-result, matching how a student would
+        // actually meet it.
+        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "draft" }),
+        anchor: '[data-tour="writing-review-trigger"]',
+        placement: "bottom",
+        text: "写完后，点这里让印记通读并批注——它会从头读一遍、逐段给你反馈。",
+        advance: "next",
+      },
+      {
         id: "writing-9",
+        // ⑳ AI批注 appears (P8 Task 13) — select the 批注 tab so the real seeded
+        // 批注 (migration 0083) render, now framed as the RESULT of the trigger
+        // in writing-8. 🚨 CONSTRAINT (T6): ReferencePanel's `showSnippets` prop
+        // is `writingTab === "draft"` (WorkspaceContainer.tsx) — it flips true
+        // the moment ANY step lands on the draft tab (writing-5) and stays true
+        // through every later doc switch on that same tab (writing-6/8, essay↔
+        // proposal). Its effect (`if (showSnippets) setActiveTab("snippets")`)
+        // only re-fires when showSnippets CHANGES value, so as long as this step
+        // doesn't ALSO change doc/tab in the same onEnter, `selectRefPanelTab
+        // ("anno")` lands cleanly after it. Firing it together with a tab
+        // transition (e.g. in the same onEnter as a fresh switch onto draft)
+        // would instead race the two effects and lose to showSnippets.
+        onEnter: (nav) => nav.selectRefPanelTab("anno"),
+        anchor: '[data-tour="writing-annotations"]',
+        placement: "right",
+        text: "点开就是「**AI批注**」——印记通读后留下的分层批注：**绿色**是亮点、**蓝色**是建议、**红色**是要处理的问题。点一条，就跳到正文里对应的那句话。",
+        advance: "next",
+      },
+      {
+        id: "writing-10",
         // 完成写作 (P6, Task 9 → kept) — the essay 正文's lock. For the demo it
         // always renders DISABLED (read-only), so `writing-finish` resolves and
         // this is a real spotlight of the real lock.
