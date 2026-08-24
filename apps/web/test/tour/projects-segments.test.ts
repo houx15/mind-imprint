@@ -161,14 +161,17 @@ describe("projects segments", () => {
   });
 
   // P8 · reading-room is the REAL immersive 精读 walk entered by the student
-  // herself: switch to 文献库 → click a paper's real 进入阅读室 → the room opens
-  // (via the demo enter-reading intercept), then the highlight → inline-card →
-  // chat → deck → notes → 阅读成果 → finish walk. Every step spotlights a real
-  // anchor with a non-center placement.
-  it("reading-room enters via the library 进入阅读室 and spotlights the real rr-* anchors", () => {
+  // herself — straight from the node she just adopted in the warren map (no
+  // library detour): the adopted node's sidebar 进入阅读室 → the room opens (via
+  // the demo enter-reading intercept), then the highlight → inline-card → chat →
+  // deck → notes → 阅读成果 → finish walk. Every step spotlights a real anchor
+  // with a non-center placement.
+  it("reading-room enters from the adopted node's 进入阅读室 and spotlights the real rr-* anchors", () => {
     const seg = projectsSegments.find((s) => s.id === "reading-room")!;
 
-    // the first step drives to the 文献库 list (where the 进入阅读室 button lives).
+    // the first step keeps us in the exploration (graph) view — the adopted
+    // node is still selected there, so its sidebar 进入阅读室 is on screen (no
+    // library switch).
     const enterCalls: string[] = [];
     seg.steps[0]!.onEnter?.(
       makeNav((n) => {
@@ -176,10 +179,10 @@ describe("projects segments", () => {
         n.setReadingView = vi.fn((v) => enterCalls.push(`view:${v}`));
       }),
     );
-    expect(enterCalls).toEqual(["room:reading", "view:list"]);
+    expect(enterCalls).toEqual(["room:reading", "view:graph"]);
 
     // reading-room-0's onEnter opens the immersive 精读 room (idempotent safety
-    // net — the library click already opened it via onDemoEnterReading).
+    // net — the node's 进入阅读室 click already opened it via onDemoEnterReading).
     const openCalls: string[] = [];
     const room0 = seg.steps.find((s) => s.id === "reading-room-0")!;
     room0.onEnter?.(makeNav((n) => (n.openDemoReadingRoom = vi.fn(() => openCalls.push("openDemoReadingRoom")))));
@@ -188,8 +191,8 @@ describe("projects segments", () => {
     // every step is a real, non-center spotlight, in the enter → highlight →
     // inline-card → chat → deck → notes → 阅读成果 → finish order.
     expect(seg.steps.map((s) => s.anchor)).toEqual([
-      '[data-tour="library-preview"]',
-      '[data-tour="library-enter-reading"]',
+      '[data-tour="explore-enter-reading"]',
+      '[data-tour="explore-enter-reading"]',
       '[data-tour="rr-article"]',
       '[data-tour="rr-article"] mark',
       '[data-tour="rr-inline-card"]',
@@ -206,7 +209,7 @@ describe("projects segments", () => {
     const actionSteps = seg.steps.filter((s) => s.advance === "action");
     expect(actionSteps.map((s) => s.id)).toEqual(["reading-room-enter-1", "reading-room-1", "reading-room-outcomes-0"]);
     expect(actionSteps.map((s) => s.actionEvent)).toEqual([
-      { selector: '[data-tour="library-enter-reading"]', type: "click" },
+      { selector: '[data-tour="explore-enter-reading"]', type: "click" },
       { selector: '[data-tour="rr-article"] mark', type: "click" },
       { selector: '[data-tour="rr-outcomes-tab"]', type: "click" },
     ]);

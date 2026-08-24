@@ -509,6 +509,12 @@ export function WorkspaceContainer({
     };
     setDemoAdoptedRefs((prev) => [...prev, reference]);
     setDemoAdoptedLeads((prev) => [...prev, lead]);
+    // Return the freshly-minted lead id so ExplorationView's own demo-adopt
+    // click path can SELECT it — the guided tour enters the reading room from
+    // the just-adopted node's sidebar 进入阅读室 (not the library), which needs
+    // that node selected. The tour's `pendingDemoAdopt` deep-link ignores the
+    // return (it selects nothing).
+    return leadId;
   }, []);
 
   function openReadingSource(

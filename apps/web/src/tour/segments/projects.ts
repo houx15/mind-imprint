@@ -273,7 +273,7 @@ export const projectsSegments: TourSegment[] = [
       {
         id: "reading-warren-12",
         placement: "center",
-        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了。地图上的每一步，都是你自己做的决定。接下来，我带你精读一篇已经收进来的核心资料——去**文献库**里找到它、点「进入阅读室」，就能钻进去深读。",
+        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了，还被自动选中，右边就是它的题录。地图上的每一步，都是你自己做的决定。接下来，就从这里带你精读它。",
         advance: "next",
       },
     ],
@@ -283,36 +283,41 @@ export const projectsSegments: TourSegment[] = [
     name: "精读一篇资料",
     steps: [
       // Real-scene 精读 (P8): the student ENTERS the reading room herself —
-      // switch to 文献库, then click a paper's real 「进入阅读室」 button. On the
-      // read-only demo the live enter-reading POST 403s, so that button is
-      // intercepted (`onDemoEnterReading`, WorkspaceContainer isDemo-gated) to
-      // open the SAME immersive read-only replay the tour used to jump into
-      // (demoMode + seeded transcript + seeded 阅读成果; every write path
-      // disabled). No auto-jump — the student sees exactly how to get in.
+      // straight from the node she just adopted in the warren map, no library
+      // detour (the library gets its own tour later). The controls-search 采纳
+      // in reading-warren-11 auto-selects that new paper node (ExplorationView's
+      // demo-adopt path calls `selectNode`), so its sidebar 题录 + 进入阅读室
+      // (`explore-enter-reading`) is already on screen. On the read-only demo
+      // the live enter-reading POST 403s, so that button is intercepted
+      // (`onDemoEnterReading`, WorkspaceContainer isDemo-gated) to open the SAME
+      // immersive read-only replay (demoMode + seeded transcript + seeded 阅读
+      // 成果; every write path disabled). No auto-jump — the student sees exactly
+      // how to get in.
       {
         id: "reading-room-enter-0",
-        // switch to 文献库 (list) — the preview panel defaults to the first row
-        // (the seeded Nature paper …0260), so its 进入阅读室 button is on screen
-        // without any fragile node-selection.
+        // Stay in the reading room's exploration (graph) view — we've been here
+        // since reading-warren-0, and the adopted node is still selected, so
+        // this is idempotent and preserves that selection (no remount, no
+        // library switch).
         onEnter: (nav) => {
           nav.setStudioRoom("reading");
-          nav.setReadingView("list");
+          nav.setReadingView("graph");
         },
-        anchor: '[data-tour="library-preview"]',
+        anchor: '[data-tour="explore-enter-reading"]',
         placement: "left",
         title: "怎么进精读室",
-        text: "切到**文献库**——你收进来的资料都在这。右边选中的，正是那篇 NASA 卫星「变绿」研究。想深读哪一篇，就打开它、看右边的题录。",
+        text: "右边是刚采纳那篇的**题录**。想深读某个节点，就在它的卡片上点「进入阅读室」——从地图直接钻进去，不用绕去文献库。",
         advance: "next",
       },
       {
         id: "reading-room-enter-1",
-        // REAL action: click the paper's own 进入阅读室 button. Intercepted to
+        // REAL action: click the node's own 进入阅读室 button. Intercepted to
         // the read-only replay on the demo (the live POST 403s).
-        anchor: '[data-tour="library-enter-reading"]',
-        placement: "top",
+        anchor: '[data-tour="explore-enter-reading"]',
+        placement: "left",
         text: "点这篇的「**进入阅读室**」——钻进去，逐句精读。",
         advance: "action",
-        actionEvent: { selector: '[data-tour="library-enter-reading"]', type: "click" },
+        actionEvent: { selector: '[data-tour="explore-enter-reading"]', type: "click" },
       },
       {
         id: "reading-room-0",

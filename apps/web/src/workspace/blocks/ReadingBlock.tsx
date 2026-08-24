@@ -146,7 +146,7 @@ export function ReadingBlock({
   // handlers call this INSTEAD of the real POST /exploration/adopt (which the
   // demo project 403s). Forwarded straight through, same as the two props
   // above.
-  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => void;
+  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => string;
   // P8 · when set (demo project only — undefined for every real project), the
   // reading room's real 进入阅读室 buttons (library preview + per-node in the
   // exploration graph) call this INSTEAD of the live enter-reading POST (which

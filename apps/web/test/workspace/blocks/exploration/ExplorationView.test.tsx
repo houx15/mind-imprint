@@ -1071,17 +1071,25 @@ describe("ExplorationView", () => {
     expect(onLibraryChanged).not.toHaveBeenCalled();
   });
 
-  it("addFromDetail's 采纳到当前问题 (controls-column search, inHole) calls onDemoAdopt instead of adoptCandidate when supplied — no network call fires", async () => {
+  it("addFromDetail's 采纳到当前问题 (controls-column search, inHole) calls onDemoAdopt instead of adoptCandidate, then SELECTS the adopted node so its 进入阅读室 is on screen", async () => {
     const projectId = nextPid();
-    const onDemoAdopt = vi.fn();
+    // The real accumulator (WorkspaceContainer.addDemoAdopted) mints and RETURNS
+    // the new lead id; the guided tour then enters the reading room from that
+    // node's sidebar 进入阅读室 (no library detour), so the click path SELECTS it.
+    // Stand in a paper lead already in the merged graph (CHILD_PAPER, connected
+    // to NASA_REF) as the "freshly adopted" node the mock returns.
+    const onDemoAdopt = vi.fn(() => CHILD_PAPER.id);
     const onLibraryChanged = vi.fn();
+    const onEnterReading = vi.fn();
     const user = userEvent.setup();
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD, CHILD_PAPER], danglingSourceIds: [], edges: [] });
     mockProposeSearchGuidance.mockResolvedValue([{ keyword: CANDIDATE.title, why: "紧扣当前问题" }]);
     render(
       <ExplorationView
         projectId={projectId}
         references={[NASA_REF]}
         onLibraryChanged={onLibraryChanged}
+        onEnterReading={onEnterReading}
         onDemoAdopt={onDemoAdopt}
       />,
     );
@@ -1098,8 +1106,10 @@ describe("ExplorationView", () => {
     expect(mockAdoptCandidate).not.toHaveBeenCalled();
     expect(mockGetExploration).toHaveBeenCalledTimes(1);
     expect(onLibraryChanged).not.toHaveBeenCalled();
-    // back on the results list, the adopted candidate is gone.
-    expect(screen.queryByText(CANDIDATE.title)).toBeNull();
+    // the adopted node is now selected → its sidebar shows 进入阅读室 (the
+    // tour's real entry into the reading room, straight from the map).
+    const enterBtn = await screen.findByRole("button", { name: "进入阅读室" });
+    expect(enterBtn).toHaveAttribute("data-tour", "explore-enter-reading");
   });
 
   // ---- Task 9 (P8) · guided-tour anchors on the exploration search controls

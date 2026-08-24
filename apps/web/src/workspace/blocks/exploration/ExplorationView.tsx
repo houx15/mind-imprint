@@ -174,8 +174,10 @@ export type ExplorationViewProps = {
   demoAdoptedRefs?: Reference[];
   /** P8 Task 6 · when set (demo project only), 采纳/addFromDetail call this
    * INSTEAD of the real POST /exploration/adopt (which the demo project
-   * 403s) — the write path a real project still takes is untouched. */
-  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => void;
+   * 403s) — the write path a real project still takes is untouched. Returns
+   * the freshly-minted lead id so the click path can SELECT the adopted node
+   * (the guided tour enters the reading room from its sidebar 进入阅读室). */
+  onDemoAdopt?: (candidate: DigCandidate, parentLeadId: string) => string;
 };
 
 export function ExplorationView({
@@ -520,10 +522,16 @@ export function ExplorationView({
       // no real reference to reload — the synthetic one is already merged
       // into `allReferences` above).
       if (onDemoAdopt) {
-        onDemoAdopt(c, focusRoot.id);
+        const newLeadId = onDemoAdopt(c, focusRoot.id);
         setSearchTray((t) => t.filter((x) => candidateKey(x) !== key));
         setSearchDetail(null);
         setSearchStage("list");
+        // Select the just-adopted paper node so its sidebar (PaperMeta + 进入
+        // 阅读室) is on screen — the guided tour enters the reading room from
+        // there, no library detour. `selectNode` resets dig state; the
+        // synthetic lead lands in `leads` on the next render (merged from the
+        // parent's `demoAdoptedLeads`), so `selectedLead` resolves then.
+        selectNode(newLeadId);
         return;
       }
       setSavingRef((s) => new Set(s).add(key));
@@ -576,8 +584,11 @@ export function ExplorationView({
       // which the demo project 403s. No refresh, no `onLibraryChanged` —
       // nothing changed server-side.
       if (onDemoAdopt) {
-        onDemoAdopt(c, digFromId);
+        const newLeadId = onDemoAdopt(c, digFromId);
         setTray((t) => t.filter((x) => candidateKey(x) !== key));
+        // Select the just-adopted paper node → its sidebar (PaperMeta + 进入
+        // 阅读室) shows, matching the controls-search adopt path above.
+        selectNode(newLeadId);
         return;
       }
       await adoptCandidate(projectId, c, { parentLeadId: digFromId });
