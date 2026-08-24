@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import type { CourseReport as CourseReportT, CardCatalogEntry, CourseSummary, CourseAnswerReport } from "@mind-imprint/contracts";
 import { api } from "../../api";
-import { coverGradientStyle } from "@/ui";
+import { coverGradientStyle, PebbleInlineSpinner } from "@/ui";
+import { CourseLoading } from "./CourseLoading";
 
 function Stat({ value, label, color }: { value: string; label: string; color?: string }) {
   return (
@@ -155,7 +156,9 @@ function AnswerDrawer({ courseId, attemptId, onClose }: { courseId: string; atte
           {error ? (
             <div style={{ color: "var(--mk-danger)", fontSize: 14, padding: "20px 0" }}>作答记录暂时没能加载，稍后再看看。</div>
           ) : data == null ? (
-            <div style={{ color: "var(--mk-muted)", fontSize: 14, padding: "20px 0" }}>正在整理你的作答…</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 9, color: "var(--mk-muted)", fontSize: 14, padding: "20px 0" }}>
+              <PebbleInlineSpinner size={18} />正在整理你的作答…
+            </div>
           ) : empty ? (
             <div style={{ color: "var(--mk-muted)", fontSize: 14, padding: "20px 0" }}>这门课没有需要作答的小测题。</div>
           ) : (
@@ -253,11 +256,9 @@ export function CourseReport({ courseId, attemptId, exampleReport, onBackToCours
     );
   if (!report)
     return (
-      <div style={{ height: "100%", minHeight: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", gap: 14, padding: 40, color: "var(--mk-muted)", background: "var(--mk-paper)" }}>
-        <span className="course-report__spinner" aria-hidden="true" style={{ width: 34, height: 34, borderRadius: "50%", border: "3px solid var(--mk-accent-100)", borderTopColor: "var(--mk-accent-500)", animation: "mk-course-report-spin .8s linear infinite" }} />
-        正在整理你的学习报告…
-        <style>{"@keyframes mk-course-report-spin{to{transform:rotate(360deg)}}"}</style>
-      </div>
+      <CourseLoading
+        captions={["正在整理你逐题的作答…", "正在计算用时与正确率…", "正在生成你的学习报告…"]}
+      />
     );
 
   const intro = summary?.introduction ?? null;

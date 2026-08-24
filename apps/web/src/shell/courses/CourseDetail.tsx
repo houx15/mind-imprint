@@ -3,6 +3,7 @@ import type { CourseSummary, CardCatalogEntry } from "@mind-imprint/contracts";
 import { api } from "@/api";
 import { Button } from "@/ui";
 import { CardDetailModal } from "@/shell/growth/CardDetailModal";
+import { CourseLoading } from "./CourseLoading";
 
 // One mapped tool card in the course summary: cover art (falls back to a text
 // face) + 中文名 + purpose. Rendering one per course.card_ids means a course
@@ -93,7 +94,7 @@ export function CourseDetail({ slug, onStart, onBack, onOpenCourse }: { slug: st
   }, []);
 
   if (course === undefined) {
-    return <div style={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", color: "var(--mk-faint)", fontSize: 14 }}>正在加载课程…</div>;
+    return <CourseLoading />;
   }
   if (course === null) {
     return (

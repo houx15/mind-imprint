@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import type { CourseAsset } from "@mind-imprint/contracts";
 import { api } from "../../api";
+import { PebbleInlineSpinner } from "@/ui";
 
 // objectKeyFrom resolves the OSS object key a `CourseAsset` points at. The
 // authoring convention embeds it as a `objectKey=` query param on `src` (URL
@@ -96,8 +97,8 @@ export function AssetView({ asset }: { asset: CourseAsset }) {
             </span>
           </div>
         ) : (
-          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", color: "var(--mk-muted)", fontSize: 13, fontWeight: 600 }}>
-            {failed ? "图片加载失败" : "加载中…"}
+          <div style={{ height: 160, display: "flex", alignItems: "center", justifyContent: "center", gap: 8, color: "var(--mk-muted)", fontSize: 13, fontWeight: 600 }}>
+            {failed ? "图片加载失败" : <><PebbleInlineSpinner size={18} />加载中…</>}
           </div>
         )}
         <figcaption style={{ padding: "8px 12px", fontSize: 12.5, color: "var(--mk-secondary)", fontWeight: 600 }}>{title}</figcaption>

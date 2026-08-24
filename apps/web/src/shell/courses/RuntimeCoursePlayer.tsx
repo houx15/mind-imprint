@@ -7,6 +7,7 @@ import type { CourseDefinitionDocument } from "@mind-imprint/course-contract";
 import { api } from "@/api";
 import { useAccentHex } from "@/ui";
 import { AskPanel, type AskMessage } from "./AskPanel";
+import { CourseLoading } from "./CourseLoading";
 import { getCourseDefinition } from "@/api/courseDefinition";
 import { fetchCourseAssetUrls } from "@/api/courseAssetUrls";
 import { ApiError } from "@/api/client";
@@ -301,9 +302,7 @@ export function RuntimeCoursePlayer({
               />
             </InteractionLoaderProvider>
           ) : (
-            <div aria-busy="true" style={{ padding: 40, color: "var(--mk-faint)", fontSize: 14 }}>
-              正在加载课程…
-            </div>
+            <CourseLoading />
           )}
         </div>
 

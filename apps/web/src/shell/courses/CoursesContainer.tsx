@@ -8,6 +8,7 @@ import { ApiError } from "@/api/client";
 import { Button } from "@/ui";
 import { api } from "@/api";
 import { CourseReport } from "./CourseReport";
+import { CourseLoading } from "./CourseLoading";
 
 type View = { name: "grid" } | { name: "detail"; courseId: string } | { name: "player"; courseId: string } | { name: "report"; courseId: string; attemptId?: string };
 
@@ -68,11 +69,7 @@ function PlayerRouter({ slug, studentId, onExit, onFinish }: { slug: string; stu
   }, [slug, attempt]);
 
   if (kind === "loading") {
-    return (
-      <div aria-busy="true" style={{ flex: 1, minHeight: 0, display: "flex", alignItems: "center", justifyContent: "center", background: "var(--mk-paper)", color: "var(--mk-faint)", fontSize: 14 }}>
-        正在加载课程…
-      </div>
-    );
+    return <CourseLoading caption="正在打开课程…" />;
   }
   if (kind === "error") {
     return (

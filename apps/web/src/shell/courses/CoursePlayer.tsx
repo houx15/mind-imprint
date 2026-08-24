@@ -4,6 +4,7 @@ import { api } from "../../api";
 import { useAccentHex } from "@/ui";
 import { SegmentTimeline, buildTimeline, pieceIdFor } from "./SegmentTimeline";
 import { AskPanel, type AskMessage } from "./AskPanel";
+import { CourseLoading } from "./CourseLoading";
 
 const MUTED_STORAGE_KEY = "course-audio-muted";
 
@@ -370,7 +371,7 @@ export function CoursePlayer({ courseId, onExit, onFinish }: { courseId: string;
     };
   }, [courseId, takeActiveDelta]);
 
-  if (!payload) return <div style={{ padding: 40, color: "var(--mk-muted)" }}>正在载入课程…</div>;
+  if (!payload) return <CourseLoading />;
 
   const steps = payload.renderCache.steps;
   const total = steps.length;
