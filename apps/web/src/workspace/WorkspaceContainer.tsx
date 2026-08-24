@@ -127,11 +127,27 @@ export function WorkspaceContainer({
   onPendingDemoReadingConsumed,
   onDemoEnterReading,
   onRequestDemoTour,
+  onActiveProjectChange,
+  closeSignal,
+  onCloseSignalConsumed,
 }: {
   onFinished?: (projectId?: string) => void;
   /** Fired when a project opens (true) or closes (false) — the shell uses
    * this to hide its platform nav for the immersive studio (spec §17). */
   onInProjectChange?: (inProject: boolean) => void;
+  /** Fired with the OPEN project's id (or null when back at the directory) —
+   * the shell mirrors it into the URL (`/projects/:id`) so refresh, copy-link,
+   * and Back/Forward all land on the same open project. Fires alongside
+   * `onInProjectChange`. */
+  onActiveProjectChange?: (projectId: string | null) => void;
+  /** A bumped nonce that asks the container to CLOSE the open project (back to
+   * the directory) — the shell bumps it when the browser Back button lands on
+   * `/projects` while a project is open. A one-shot: acted on whenever it
+   * changes to a new value, then `onCloseSignalConsumed` clears it. */
+  closeSignal?: number | null;
+  /** Fired once right after `closeSignal` has been acted on (mirrors the other
+   * one-shot consumed callbacks). */
+  onCloseSignalConsumed?: () => void;
   /** Open this project on mount (or whenever it changes to a new id) — the
    * "open from home" deep-link (Task 6). Undefined/null leaves the
    * directory showing, same as before this prop existed. */
@@ -1310,8 +1326,25 @@ export function WorkspaceContainer({
   // for the immersive studio (spec §17). Fires on open/close and on unmount.
   useEffect(() => {
     onInProjectChange?.(projectId !== null);
-    return () => onInProjectChange?.(false);
-  }, [projectId, onInProjectChange]);
+    onActiveProjectChange?.(projectId);
+    return () => {
+      onInProjectChange?.(false);
+      onActiveProjectChange?.(null);
+    };
+  }, [projectId, onInProjectChange, onActiveProjectChange]);
+
+  // `closeSignal` deep-link: the shell bumps this nonce to close the open
+  // project (browser Back from `/projects/:id` to `/projects`). Ref-guarded
+  // "only on change" firing, mirroring `pendingRoom` et al.
+  const lastCloseSignal = useRef<number | null>(closeSignal ?? null);
+  useEffect(() => {
+    if (closeSignal != null && closeSignal !== lastCloseSignal.current) {
+      lastCloseSignal.current = closeSignal;
+      backToAll();
+      onCloseSignalConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeSignal]);
 
   // Open a finished project's process-evaluation report — routes up to the
   // 成长报告 tab, deep-linked to that project's entry (see StudentApp).

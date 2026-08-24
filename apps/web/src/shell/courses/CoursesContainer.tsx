@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CoursesView } from "./CoursesView";
 import { CoursePlayer } from "./CoursePlayer";
 import { RuntimeCoursePlayer } from "./RuntimeCoursePlayer";
@@ -85,7 +85,20 @@ function PlayerRouter({ slug, studentId, onExit, onFinish }: { slug: string; stu
   return <CoursePlayer courseId={slug} onExit={onExit} onFinish={onFinish} />;
 }
 
-export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, studentId, onImmersiveChange }: { onGoPortal?: () => void; initialOpen?: CourseOpenTarget | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void }) {
+export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, studentId, onImmersiveChange, onActiveCourseChange, closeSignal, onCloseSignalConsumed }: { onGoPortal?: () => void; initialOpen?: CourseOpenTarget | null; onCourseConsumed?: () => void; studentId?: string; onImmersiveChange?: (immersive: boolean) => void;
+  /** Fired with the OPEN course's slug (detail / player / report), or null on
+   * the grid — the shell mirrors it into the URL (`/courses/:slug`) so refresh,
+   * copy-link, and Back/Forward land on the same course. Independent of
+   * `onImmersiveChange`: detail is a non-immersive browse page that still owns a
+   * URL. */
+  onActiveCourseChange?: (slug: string | null) => void;
+  /** A bumped nonce that asks the container to return to the grid — the shell
+   * bumps it when browser Back lands on `/courses` while a course is open. A
+   * one-shot: acted on whenever it changes, then `onCloseSignalConsumed`
+   * clears it. */
+  closeSignal?: number | null;
+  onCloseSignalConsumed?: () => void;
+ }) {
   // Deep-link: a course opened from elsewhere lands per initialOpen.mode —
   // home cards / 图鉴 land on DETAIL (the universal landing, CTA → player);
   // 学习记录 lands straight on the PLAYER (继续) or a finished attempt's REPORT
@@ -109,6 +122,28 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
   useEffect(() => {
     onImmersiveChange?.(view.name === "player" || view.name === "report");
   }, [view.name, onImmersiveChange]);
+
+  // Mirror the open course's slug up to the shell for the URL. Unlike immersive
+  // above, this fires for DETAIL too (a browse page that still deserves a
+  // `/courses/:slug` address). The grid reports null.
+  const activeSlug = view.name === "grid" ? null : view.courseId;
+  useEffect(() => {
+    onActiveCourseChange?.(activeSlug);
+    return () => onActiveCourseChange?.(null);
+  }, [activeSlug, onActiveCourseChange]);
+
+  // `closeSignal` deep-link: the shell bumps this nonce to return to the grid
+  // (browser Back from `/courses/:slug` to `/courses`). Ref-guarded "only on
+  // change" firing.
+  const lastCloseSignal = useRef<number | null>(closeSignal ?? null);
+  useEffect(() => {
+    if (closeSignal != null && closeSignal !== lastCloseSignal.current) {
+      lastCloseSignal.current = closeSignal;
+      setView({ name: "grid" });
+      onCloseSignalConsumed?.();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [closeSignal]);
 
   // Restart: wipe server-side progress (both storage models), then re-enter the
   // player fresh. Best-effort on the wipe — even if it fails we re-mount the

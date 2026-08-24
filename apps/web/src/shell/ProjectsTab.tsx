@@ -89,6 +89,13 @@ export interface ProjectsTabProps {
   onDemoEnterReading?: () => void;
   /** True while a project is open (studio full-bleed) → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
+  /** The open project's id (or null at the directory) — threaded up so the
+   * shell mirrors it into the URL (`/projects/:id`). */
+  onActiveProjectChange?: (projectId: string | null) => void;
+  /** A bumped nonce asking the studio to close the open project (browser Back
+   * from `/projects/:id`). Threaded straight to WorkspaceContainer. */
+  closeSignal?: number | null;
+  onCloseSignalConsumed?: () => void;
   /** Task 9: the demo project's guard modal's 好，带我逛一遍 — threaded straight
    * to WorkspaceContainer → Directory. StudentApp implements it by playing
    * `journeyStarting("projects")`. */
@@ -124,6 +131,9 @@ export function ProjectsTab({
   onPendingDemoReadingConsumed,
   onDemoEnterReading,
   onImmersiveChange,
+  onActiveProjectChange,
+  closeSignal,
+  onCloseSignalConsumed,
   onRequestDemoTour,
 }: ProjectsTabProps) {
   // A home 查看评估报告 deep-link lands on the 评估报告 sub, focused on that
@@ -211,6 +221,9 @@ export function ProjectsTab({
             autoOpenCreate={autoOpenCreate}
             onAutoOpenCreateConsumed={onAutoOpenCreateConsumed}
             onInProjectChange={setInProject}
+            onActiveProjectChange={onActiveProjectChange}
+            closeSignal={closeSignal}
+            onCloseSignalConsumed={onCloseSignalConsumed}
             onRequestDemoTour={onRequestDemoTour}
           />
         ) : (

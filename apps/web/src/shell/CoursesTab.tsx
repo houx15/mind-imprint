@@ -28,6 +28,13 @@ export interface CoursesTabProps {
   onGoPortal: () => void;
   /** True while a course is being played → host hides the nav rail. */
   onImmersiveChange: (immersive: boolean) => void;
+  /** The open course's slug (detail/player/report), or null on the grid —
+   * threaded up so the shell mirrors it into the URL (`/courses/:slug`). */
+  onActiveCourseChange?: (slug: string | null) => void;
+  /** A bumped nonce asking the container to return to the grid (browser Back
+   * from `/courses/:slug`). Threaded straight to CoursesContainer. */
+  closeSignal?: number | null;
+  onCloseSignalConsumed?: () => void;
   /** One-shot: open this sub-tab on entry (guided tour). */
   pendingSub?: Sub | null;
   onPendingSubConsumed?: () => void;
@@ -39,6 +46,9 @@ export function CoursesTab({
   studentId,
   onGoPortal,
   onImmersiveChange,
+  onActiveCourseChange,
+  closeSignal,
+  onCloseSignalConsumed,
   pendingSub,
   onPendingSubConsumed,
 }: CoursesTabProps) {
@@ -109,6 +119,9 @@ export function CoursesTab({
             studentId={studentId}
             onGoPortal={onGoPortal}
             onImmersiveChange={setInCourse}
+            onActiveCourseChange={onActiveCourseChange}
+            closeSignal={closeSignal}
+            onCloseSignalConsumed={onCloseSignalConsumed}
           />
         ) : sub === "history" ? (
           <LearningHistory onOpen={requestOpenTarget} />

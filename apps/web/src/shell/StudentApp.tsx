@@ -1,6 +1,7 @@
-import { useRef, useState, type MutableRefObject, type ReactNode } from "react";
+import { useEffect, useRef, useState, type MutableRefObject, type ReactNode } from "react";
 import type { SessionStore } from "./session";
 import { Nav, type NavTab } from "./Nav";
+import { parsePath, routePath, type AppRoute } from "./routing";
 import { HomePage } from "./home/HomePage";
 import { ProjectsTab } from "./ProjectsTab";
 import { CoursesTab } from "./CoursesTab";
@@ -40,6 +41,16 @@ import type { DigCandidate, MaterialSource } from "@mind-imprint/contracts";
 
 type Tab = NavTab;
 
+// The canonical route for the current shell state — the source of truth the URL
+// is kept in sync with. Only the open project id / course slug enrich the top
+// tab; sub-tabs (评估报告 / 学习记录 / 图鉴) are intentionally not addressed.
+function deriveRoute(tab: Tab, openProjectId: string | null, openCourseSlug: string | null): AppRoute {
+  if (tab === "projects") return openProjectId ? { tab: "projects", projectId: openProjectId } : { tab: "projects" };
+  if (tab === "courses") return openCourseSlug ? { tab: "courses", slug: openCourseSlug } : { tab: "courses" };
+  if (tab === "me") return { tab: "me" };
+  return { tab: "home" };
+}
+
 /** Only a known 8-preset id seeds the accent provider; anything else (unset,
  * legacy free-hex `avatar_color`, etc) falls back to accent.tsx's own
  * localStorage → vermilion default. */
@@ -62,13 +73,19 @@ export function StudentApp({
   session: SessionStore;
   onLogout: () => void;
 }) {
-  const [tab, setTab] = useState<Tab>("home");
+  // Seed the initial tab + deep-links from the browser URL so a refresh or a
+  // pasted link lands on the same page (and, for 项目/课程, the same open
+  // project/course — reusing the existing `pending*` deep-link machinery).
+  const [initialRoute] = useState<AppRoute>(() => parsePath(window.location.pathname));
+  const [tab, setTab] = useState<Tab>(initialRoute.tab);
   const user = session.getUser();
 
   // Open-from-home deep-links into the 项目 tab: a specific project (recent
   // tiles) or the create drawer (新建 tiles). Each is a one-shot signal —
   // ProjectsTab / WorkspaceContainer consume it right after acting on it.
-  const [pendingProjectId, setPendingProjectId] = useState<string | null>(null);
+  const [pendingProjectId, setPendingProjectId] = useState<string | null>(
+    initialRoute.tab === "projects" ? initialRoute.projectId ?? null : null,
+  );
   const [pendingCreate, setPendingCreate] = useState(false);
   // Open-from-home deep-link into the 项目 tab's 评估报告 sub: a finished
   // project's report (home project card's ⋯ menu → 查看评估报告). One-shot,
@@ -77,7 +94,9 @@ export function StudentApp({
   // Open-from-anywhere deep-link into the 课程 tab: a course to play (home
   // course cards, a 图鉴 card's "去学这张卡的课程"). One-shot, consumed by
   // CoursesTab on entry.
-  const [pendingCourseId, setPendingCourseId] = useState<string | null>(null);
+  const [pendingCourseId, setPendingCourseId] = useState<string | null>(
+    initialRoute.tab === "courses" ? initialRoute.slug ?? null : null,
+  );
   // One-shot deep-link into the 课程 tab's sub-tab, driven by the guided tour
   // (TourNavContext.setCoursesSub). Consumed by CoursesTab on entry.
   const [pendingCoursesSub, setPendingCoursesSub] = useState<CoursesSub | null>(null);
@@ -161,6 +180,88 @@ export function StudentApp({
   const [projectsImmersive, setProjectsImmersive] = useState(false);
   const [coursesImmersive, setCoursesImmersive] = useState(false);
   const showNav = !((tab === "projects" && projectsImmersive) || (tab === "courses" && coursesImmersive));
+
+  // ── URL sync ────────────────────────────────────────────────────────────
+  // The shell mirrors its top tab + open project/course into the browser URL
+  // (`/projects/:id`, `/courses/:slug`, `/me`, `/` — see routing.ts), so a
+  // refresh, a copied link, and the Back/Forward buttons all resolve. The open
+  // ids are lifted from ProjectsTab/CoursesTab; opening from a URL reuses the
+  // `pending*` deep-links, closing from a URL bumps a close-signal nonce. No
+  // domain is ever referenced — everything is root-relative + the History API.
+  const [openProjectId, setOpenProjectId] = useState<string | null>(null);
+  const [openCourseSlug, setOpenCourseSlug] = useState<string | null>(null);
+  const [projectCloseSignal, setProjectCloseSignal] = useState<number | null>(null);
+  const [courseCloseSignal, setCourseCloseSignal] = useState<number | null>(null);
+  // Refs so the once-registered popstate handler reads current values (no stale
+  // closure) without re-subscribing on every open/close.
+  const openProjectIdRef = useRef<string | null>(null);
+  openProjectIdRef.current = openProjectId;
+  const openCourseSlugRef = useRef<string | null>(null);
+  openCourseSlugRef.current = openCourseSlug;
+  // While non-null, we're reconciling toward a URL the browser already shows
+  // (initial load or a Back/Forward pop) — the state→URL effect must NOT push
+  // during that window, or an async open (pending* → open completes a tick
+  // later) would get clobbered by a premature `/projects` push. Cleared the
+  // moment the derived route actually matches the address bar. Initialised to
+  // the canonical initial path so the first commit doesn't self-push.
+  const pendingUrlSync = useRef<string | null>(routePath(initialRoute));
+
+  // Normalise the address bar once on mount (e.g. `/index.html`, a trailing
+  // slash, or `/home` → `/`) so the canonical path is what gets bookmarked.
+  useEffect(() => {
+    const canonical = routePath(initialRoute);
+    if (canonical !== window.location.pathname) {
+      window.history.replaceState(null, "", canonical);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // State → URL. Pushes a new history entry whenever the derived route diverges
+  // from the address bar, except while reconciling FROM the URL (see above).
+  useEffect(() => {
+    const desired = routePath(deriveRoute(tab, openProjectId, openCourseSlug));
+    if (pendingUrlSync.current !== null) {
+      if (desired === window.location.pathname) pendingUrlSync.current = null;
+      return;
+    }
+    if (desired !== window.location.pathname) {
+      window.history.pushState(null, "", desired);
+    }
+  }, [tab, openProjectId, openCourseSlug]);
+
+  // URL → State on Back/Forward. Re-parses the popped path and reconciles: open
+  // via the `pending*` deep-links when the URL names something not open; bump a
+  // close-signal when it drops back to a list. Switching tabs unmounts the old
+  // tab's surface, which closes its open project/course on its own.
+  useEffect(() => {
+    function onPop() {
+      const route = parsePath(window.location.pathname);
+      const canonical = routePath(route);
+      if (canonical !== window.location.pathname) {
+        window.history.replaceState(null, "", canonical);
+      }
+      pendingUrlSync.current = canonical; // suppress the echo push while reconciling
+      setShowExampleReport(false);
+      setTab(route.tab);
+      if (route.tab === "projects") {
+        if (route.projectId) {
+          if (route.projectId !== openProjectIdRef.current) setPendingProjectId(route.projectId);
+        } else if (openProjectIdRef.current) {
+          setProjectCloseSignal((n) => (n ?? 0) + 1);
+        }
+      }
+      if (route.tab === "courses") {
+        if (route.slug) {
+          if (route.slug !== openCourseSlugRef.current) setPendingCourseId(route.slug);
+        } else if (openCourseSlugRef.current) {
+          setCourseCloseSignal((n) => (n ?? 0) + 1);
+        }
+      }
+    }
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   function openProjectFromHome(id: string) {
     setPendingCreate(false);
@@ -323,6 +424,9 @@ export function StudentApp({
         onPendingDemoReadingConsumed={() => setPendingDemoReading(null)}
         onDemoEnterReading={enterDemoReadingRoom}
         onImmersiveChange={setProjectsImmersive}
+        onActiveProjectChange={setOpenProjectId}
+        closeSignal={projectCloseSignal}
+        onCloseSignalConsumed={() => setProjectCloseSignal(null)}
         onRequestDemoTour={() => demoTourRef.current()}
       />
     );
@@ -339,6 +443,9 @@ export function StudentApp({
           setTab("projects");
         }}
         onImmersiveChange={setCoursesImmersive}
+        onActiveCourseChange={setOpenCourseSlug}
+        closeSignal={courseCloseSignal}
+        onCloseSignalConsumed={() => setCourseCloseSignal(null)}
       />
     );
   } else {
