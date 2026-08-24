@@ -38,13 +38,22 @@ export function TourRunner() {
     void resolveAnchor(t.step.anchor).then((el) => {
       if (cancelled) return;
       if (!el) { setRect(null); return; }
-      // Instant (not smooth) scroll: it settles synchronously, so the very next
-      // getBoundingClientRect reflects the anchor's post-scroll viewport position.
-      // A smooth scroll left the rect stale (captured pre-scroll), which mis-placed
-      // the fixed popover — onto a bottom-of-page action target, eating its click
-      // (prod smoke). Snappier is also fine for a step-by-step tour.
-      el.scrollIntoView({ block: "center" });
+      // Force an INSTANT scroll and re-measure after it settles. A plain
+      // scrollIntoView() uses behavior "auto", which RESPECTS a scroll
+      // container's CSS `scroll-behavior: smooth` — and the reading room's
+      // article pane (.mk-reading-room__article) sets exactly that. A smooth
+      // scroll is async, so the immediately-following getBoundingClientRect
+      // returns the PRE-scroll rect: fine for a target already near the top
+      // (tiny delta), but for a DEEP target needing a large scroll (the reading
+      // room's confirmed-finding highlight, ~750px down) the spotlight landed
+      // off-screen = "no highlight" (prod smoke). `behavior:"instant"` overrides
+      // the CSS so the scroll is synchronous; the rAF re-measure is a belt-and-
+      // suspenders correction if a nested container still settled a frame late.
+      el.scrollIntoView({ block: "center", behavior: "instant" });
       setRect(el.getBoundingClientRect());
+      requestAnimationFrame(() => {
+        if (!cancelled) setRect(el.getBoundingClientRect());
+      });
     });
     return () => { cancelled = true; };
   }, [t.running, t.step]);
