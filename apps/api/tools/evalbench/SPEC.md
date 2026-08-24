@@ -6,7 +6,7 @@ never writes production report rows.
 
 ## Contract
 
-- Configuration uses `schemaVersion: 2` and the baseline evaluator ID
+- Configuration uses `schemaVersion: 3` and the baseline evaluator ID
   `production-evalreport-v1`. Schema v1 targeted the retired DualAxis report
   and is rejected rather than silently reinterpreted.
 - Persona exports are parsed through a whitelist. Historical assessment,
@@ -60,11 +60,14 @@ successful comparison.
 
 ## Gold and comparison
 
-Gold Markdown is user-provided and is not generated or transformed. It must
-contain D1–D6, A1–A6, `综述`, `提问透镜`, `风险`, `下一步`, and `未归类内容`.
-The LLM comparator evaluates only model-authored sections: D/A judgement,
-evidence and suggestion; abstract; prompt lens; and risks. FACT sections
-(`basics`, `events`, `materials`, `toolUsage`) are never judged by the model.
+Gold is a user-provided JSON file with a required `report: EvaluationReportV1`.
+The manual-editor provenance fields `status` and `_meta` are allowed but are
+never evaluated; any other top-level field is rejected. Evalbench validates the
+wrapper and the complete inner report contract before any model call, then
+snapshots the exact source file as `gold-report.json`. The LLM comparator evaluates only
+model-authored sections: D/A judgement, evidence and suggestion; abstract;
+prompt lens; and risks. FACT sections (`basics`, `events`, `materials`,
+`toolUsage`) are never judged by the model.
 Every comparison item is `aligned`, `overstates`, `understates`, or
 `not_comparable`; low confidence is forced to `not_comparable` plus manual
 review. No student total score is produced.

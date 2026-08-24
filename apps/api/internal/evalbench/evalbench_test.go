@@ -191,7 +191,7 @@ func TestRunAttemptReturnsArtifactDirectoryFailure(t *testing.T) {
 	if err := os.WriteFile(blocked, []byte("not a directory"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	_, err := runAttempt(context.Background(), &Runtime{}, Config{}, CaseConfig{ID: "case"}, AdaptedInput{}, "", VariantConfig{ID: "variant"}, 1, root)
+	_, err := runAttempt(context.Background(), &Runtime{}, Config{}, CaseConfig{ID: "case"}, AdaptedInput{}, evalreport.Report{}, VariantConfig{ID: "variant"}, 1, root)
 	if err == nil {
 		t.Fatal("attempt directory failure unexpectedly ignored")
 	}
@@ -241,16 +241,6 @@ func TestSummaryCostIncludesFailedAttemptsAndRetries(t *testing.T) {
 	perCall, _ := gateway.EstimateCost("deepseek", "deepseek-v4-pro", in, out)
 	if *variant.CandidateCostPerSuccessUSD != perCall*3 || *variant.TotalCostPerSuccessUSD != perCall*5 {
 		t.Fatalf("cost must include failed/retried calls: %#v", variant)
-	}
-}
-
-func TestValidateGoldMarkdown(t *testing.T) {
-	valid := strings.Join(requiredGoldHeadings, "\n")
-	if err := ValidateGoldMarkdown(valid); err != nil {
-		t.Fatalf("valid gold rejected: %v", err)
-	}
-	if err := ValidateGoldMarkdown("## D1"); err == nil {
-		t.Fatal("incomplete gold unexpectedly accepted")
 	}
 }
 

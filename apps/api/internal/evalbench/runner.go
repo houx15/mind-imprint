@@ -153,14 +153,14 @@ func RunExperiment(ctx context.Context, c Config, resultsDir string) (string, in
 	}
 	seed := started.UnixNano()
 	pricing := buildPricingSnapshot(c.Models)
-	manifest := Manifest{ExperimentID: id, Name: c.Name, ConfigHash: hashBytes(configBytes), GitCommit: git("rev-parse", "HEAD"), Dirty: git("status", "--porcelain") != "", RubricHash: hashJSON(rubric.Model()), StartedAt: started, Status: "running", Seed: seed, Inputs: map[string]string{}, Gold: map[string]string{}, Models: c.Models, Pricing: pricing, Versions: map[string]string{"adapter": PersonaAdapterVersion, "report": "evaluation-report-v1", "comparator": "comparator-v2", "pricing": gateway.PricingVersion}, Evaluators: evaluatorDescriptors(c.Variants)}
+	manifest := Manifest{ExperimentID: id, Name: c.Name, ConfigHash: hashBytes(configBytes), GitCommit: git("rev-parse", "HEAD"), Dirty: git("status", "--porcelain") != "", RubricHash: hashJSON(rubric.Model()), StartedAt: started, Status: "running", Seed: seed, Inputs: map[string]string{}, Gold: map[string]string{}, Models: c.Models, Pricing: pricing, Versions: map[string]string{"adapter": PersonaAdapterVersion, "report": "evaluation-report-v1", "comparator": ComparatorPromptVersion, "pricing": gateway.PricingVersion}, Evaluators: evaluatorDescriptors(c.Variants)}
 	if err := writeJSON(filepath.Join(root, "manifest.json"), manifest); err != nil {
 		return "", 1, err
 	}
 
 	states := map[string][]*variantState{}
 	inputs := map[string]AdaptedInput{}
-	golds := map[string]string{}
+	golds := map[string]evalreport.Report{}
 	for _, cs := range c.Cases {
 		p, err := LoadPersona(c.ResolvePath(cs.ProjectData))
 		if err != nil {
@@ -170,15 +170,12 @@ func RunExperiment(ctx context.Context, c Config, resultsDir string) (string, in
 		if err != nil {
 			return root, 1, err
 		}
-		gold, err := os.ReadFile(c.ResolvePath(cs.GoldReport))
+		gold, goldRaw, err := LoadGoldReport(c.ResolvePath(cs.GoldReport))
 		if err != nil {
-			return root, 1, err
-		}
-		if err := ValidateGoldMarkdown(string(gold)); err != nil {
 			return root, 1, fmt.Errorf("evalbench: case %q: %w", cs.ID, err)
 		}
-		inputs[cs.ID], golds[cs.ID] = adapted, string(gold)
-		manifest.Inputs[cs.ID], manifest.Gold[cs.ID] = adapted.Hash, hashBytes(gold)
+		inputs[cs.ID], golds[cs.ID] = adapted, gold.Report
+		manifest.Inputs[cs.ID], manifest.Gold[cs.ID] = adapted.Hash, hashBytes(goldRaw)
 		caseDir := filepath.Join(root, "cases", cs.ID)
 		if err := os.MkdirAll(caseDir, 0o755); err != nil {
 			return root, 1, err
@@ -189,7 +186,7 @@ func RunExperiment(ctx context.Context, c Config, resultsDir string) (string, in
 		if err := os.WriteFile(filepath.Join(caseDir, "input.sha256"), []byte(adapted.Hash+"\n"), 0o644); err != nil {
 			return root, 1, err
 		}
-		if err := os.WriteFile(filepath.Join(caseDir, "gold-report.md"), gold, 0o644); err != nil {
+		if err := writeGoldReport(filepath.Join(caseDir, "gold-report.json"), goldRaw); err != nil {
 			return root, 1, err
 		}
 		if len(adapted.Warnings) > 0 {
@@ -308,11 +305,7 @@ func preflight(c Config, rt *Runtime) error {
 		if _, err := AdaptPersona(cs.ID, p); err != nil {
 			return err
 		}
-		gold, err := os.ReadFile(c.ResolvePath(cs.GoldReport))
-		if err != nil {
-			return fmt.Errorf("evalbench: case %q goldReport: %w", cs.ID, err)
-		}
-		if err := ValidateGoldMarkdown(string(gold)); err != nil {
+		if _, _, err := LoadGoldReport(c.ResolvePath(cs.GoldReport)); err != nil {
 			return fmt.Errorf("evalbench: case %q: %w", cs.ID, err)
 		}
 	}
@@ -336,7 +329,7 @@ func preflight(c Config, rt *Runtime) error {
 	return nil
 }
 
-func runAttempt(ctx context.Context, rt *Runtime, c Config, cs CaseConfig, input AdaptedInput, gold string, v VariantConfig, n int, root string) (attemptResult, error) {
+func runAttempt(ctx context.Context, rt *Runtime, c Config, cs CaseConfig, input AdaptedInput, gold evalreport.Report, v VariantConfig, n int, root string) (attemptResult, error) {
 	started := time.Now().UTC()
 	res := attemptResult{status: AttemptStatus{Attempt: n, Status: "failed", StartedAt: started, InputHash: input.Hash}}
 	dir := filepath.Join(root, "cases", cs.ID, v.ID, fmt.Sprintf("attempt-%03d", n))
@@ -420,7 +413,7 @@ func hasIncompleteCall(calls []CallRecord) bool {
 	return false
 }
 
-func compareRetry(ctx context.Context, rt *Runtime, use ModelUse, report evalreport.Report, gold string) (Comparison, []CallRecord, error) {
+func compareRetry(ctx context.Context, rt *Runtime, use ModelUse, report, gold evalreport.Report) (Comparison, []CallRecord, error) {
 	var all []CallRecord
 	var last error
 	for i := 0; i < 2; i++ {
@@ -433,6 +426,13 @@ func compareRetry(ctx context.Context, rt *Runtime, use ModelUse, report evalrep
 		last = e
 	}
 	return Comparison{}, all, last
+}
+
+func writeGoldReport(path string, raw []byte) error {
+	if err := os.WriteFile(path, raw, 0o644); err != nil {
+		return fmt.Errorf("evalbench: write JSON gold report: %w", err)
+	}
+	return nil
 }
 func successes(s *variantState) int {
 	n := 0

@@ -11,7 +11,7 @@ import (
 	"regexp"
 )
 
-const SchemaVersion = 2
+const SchemaVersion = 3
 
 var safeID = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]*$`)
 
@@ -112,6 +112,9 @@ func (c Config) Validate() error {
 		if !safeID.MatchString(cs.ID) || cs.ProjectData == "" || cs.GoldReport == "" || caseIDs[cs.ID] {
 			return fmt.Errorf("evalbench: each case needs unique id, projectData, and goldReport")
 		}
+		if filepath.Ext(cs.GoldReport) != ".json" {
+			return fmt.Errorf("evalbench: case %q goldReport must be a JSON file", cs.ID)
+		}
 		caseIDs[cs.ID] = true
 	}
 	for id, p := range c.Models {
@@ -147,6 +150,9 @@ func (c Config) Validate() error {
 		if _, ok := c.Models[use.Model]; !ok {
 			return fmt.Errorf("evalbench: %s references unknown model %q", label, use.Model)
 		}
+	}
+	if c.Comparator.PromptVersion != ComparatorPromptVersion {
+		return fmt.Errorf("evalbench: comparator promptVersion = %q, want %q", c.Comparator.PromptVersion, ComparatorPromptVersion)
 	}
 	return nil
 }

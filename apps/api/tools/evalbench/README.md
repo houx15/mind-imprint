@@ -31,11 +31,11 @@ ANTHROPIC_API_KEY=...
 
 ## 配置实验
 
-默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应 Gold Markdown、模型 profile，以及两个同模型 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、DeepSeek JSON mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
+默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应人工 Gold JSON、模型 profile，以及两个同模型 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、DeepSeek JSON mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
 
 ```json
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "name": "baseline-2026-08",
   "successfulRuns": 2,
   "maxAttempts": 3,
@@ -43,17 +43,17 @@ ANTHROPIC_API_KEY=...
     {
       "id": "persona2-deepdiver",
       "projectData": "cases/persona2-deepdiver.json",
-      "goldReport": "cases/persona2-deepdiver-gold.md"
+      "goldReport": "cases/persona2-deepdiver.manual.report.json"
     },
     {
       "id": "persona4-confirmbias",
       "projectData": "cases/persona4-confirmbias.json",
-      "goldReport": "cases/persona4-confirmbias-gold.md"
+      "goldReport": "cases/persona4-confirmbias.manual.report.json"
     },
     {
       "id": "persona5-ghostwrite",
       "projectData": "cases/persona5-ghostwrite.json",
-      "goldReport": "cases/persona5-ghostwrite-gold.md"
+      "goldReport": "cases/persona5-ghostwrite.manual.report.json"
     }
   ],
   "models": {
@@ -78,7 +78,7 @@ ANTHROPIC_API_KEY=...
   ],
   "comparator": {
     "model": "deepseek-flagship",
-    "promptVersion": "comparator-v1"
+    "promptVersion": "comparator-json-v1"
   }
 }
 ```
@@ -107,9 +107,12 @@ Evalbench 的 evaluator 是受版本控制的 Go 实现加可审计 prompt，不
 
 ## 准备人工 Gold
 
-运行实验前，请自行提供并确认标准 Markdown gold。evalbench 不读取、转换或生成 `.docx`、`.txt` 等源材料，也不会调用模型补全 gold。
-
-每份 gold 至少包含 D1–D6、A1–A6、综述、提问透镜、风险、下一步和未归类内容。运行前会校验这些章节是否存在；FACT 区域不会交给 LLM 裁判。具体格式可参考 [persona2-deepdiver-gold.md](cases/persona2-deepdiver-gold.md)。
+运行实验前，请提供并确认 JSON Gold。每份文件必须包含
+`report: EvaluationReportV1`；手工编辑器的 `status` 与 `_meta` 可保留为
+provenance，但不参与评判，其他顶层字段会被拒绝。内层报告包含完整、有序的
+D1–D6 与 A1–A6，以及 abstract、promptLens 和 risks。运行前会校验 wrapper、
+完整 EvaluationReport schema 和枚举范围；FACT 区域不会交给 LLM 裁判。可参考
+[persona2-deepdiver.manual.report.json](cases/persona2-deepdiver.manual.report.json)。
 
 ## 运行实验
 
@@ -154,7 +157,7 @@ tools/evalbench/results/20260814T120000Z-<uuid>/
   cases/<case-id>/
     input.json              # 所有 variant 共享的冻结 Evalbench Input
     input.sha256
-    gold-report.md
+    gold-report.json
     <variant-id>/
       attempt-001/
         status.json

@@ -275,7 +275,7 @@ results/baseline-2026-08-12/
   cases/
     persona2-deepdiver/
       input-digest.txt
-      gold-report.md
+      gold-report.json
       production-current/
         run-01/
           report.json

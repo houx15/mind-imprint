@@ -900,7 +900,7 @@ func renderReproducibility(b *strings.Builder, c Config, manifest Manifest) {
 	b.WriteString("### 机器可读产物\n\n")
 	b.WriteString("- `summary.json`：variant 汇总和调用统计。\n")
 	b.WriteString("- `manifest.json`：配置、版本、价格快照、输入/Gold hash 和执行顺序。\n")
-	b.WriteString("- `cases/<case-id>/input.json`、`gold-report.md`：冻结输入与人工 Gold。\n")
+	b.WriteString("- `cases/<case-id>/input.json`、`gold-report.json`：冻结输入与人工 Gold。\n")
 	b.WriteString("- `cases/<case-id>/<variant>/attempt-XXX/report.json`、`comparison.json`、`status.json`：逐次 candidate、对齐和状态。\n")
 	b.WriteString("- `evaluator-calls/`、`comparator-calls/`：请求、原始输出和观测 metadata；可能含学生过程数据。\n\n")
 }

@@ -233,7 +233,7 @@ func markdownFixture() (Config, Manifest, Summary, map[string][]*variantState) {
 			{ID: "production-current", Evaluator: "production-evalreport-v1", Model: "flagship"},
 			{ID: "single-prompt-v1", Evaluator: singlePromptEvaluatorID, Model: "flagship"},
 		},
-		Comparator: ModelUse{Model: "flagship", PromptVersion: "comparator-v2"},
+		Comparator: ModelUse{Model: "flagship", PromptVersion: ComparatorPromptVersion},
 	}
 	now := time.Date(2026, 8, 18, 4, 5, 6, 0, time.UTC)
 	manifest := Manifest{

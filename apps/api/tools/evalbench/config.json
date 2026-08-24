@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "name": "baseline-2026-08",
   "successfulRuns": 2,
   "maxAttempts": 3,
@@ -7,17 +7,17 @@
     {
       "id": "persona2-deepdiver",
       "projectData": "cases/persona2-deepdiver.json",
-      "goldReport": "cases/persona2-deepdiver-gold.md"
+      "goldReport": "cases/persona2-deepdiver.manual.report.json"
     },
     {
       "id": "persona4-confirmbias",
       "projectData": "cases/persona4-confirmbias.json",
-      "goldReport": "cases/persona4-confirmbias-gold.md"
+      "goldReport": "cases/persona4-confirmbias.manual.report.json"
     },
     {
       "id": "persona5-ghostwrite",
       "projectData": "cases/persona5-ghostwrite.json",
-      "goldReport": "cases/persona5-ghostwrite-gold.md"
+      "goldReport": "cases/persona5-ghostwrite.manual.report.json"
     }
   ],
   "models": {
@@ -42,7 +42,7 @@
   ],
   "comparator": {
     "model": "deepseek-flagship",
-    "promptVersion": "comparator-v1"
+    "promptVersion": "comparator-json-v1"
   },
   "timeouts": {
     "candidateSeconds": 300,

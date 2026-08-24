@@ -26,6 +26,25 @@ type Comparison struct {
 	Items []ComparisonItem `json:"items"`
 }
 
+const ComparatorPromptVersion = "comparator-json-v1"
+
+// comparisonProjection is the model-authored portion of an EvaluationReport.
+// FACT fields stay outside of the LLM comparator by design.
+type comparisonProjection struct {
+	Abstract   evalreport.Abstract            `json:"abstract"`
+	Depth      []evalreport.DepthDimResult    `json:"depth"`
+	Autonomy   []evalreport.AutonomyDimResult `json:"autonomy"`
+	PromptLens evalreport.PromptLens          `json:"promptLens"`
+	Risks      []evalreport.RiskEntry         `json:"risks"`
+}
+
+func projectForComparison(report evalreport.Report) comparisonProjection {
+	return comparisonProjection{
+		Abstract: report.Abstract, Depth: report.Depth, Autonomy: report.Autonomy,
+		PromptLens: report.PromptLens, Risks: report.Risks,
+	}
+}
+
 // ExpectedComparisonItems covers only model-produced judgements/prose. FACT
 // sections are validated deterministically by the adapter and never judged by
 // an LLM.
@@ -53,20 +72,17 @@ func ExpectedComparisonItems() []ComparisonItem {
 	return out
 }
 
-func Compare(ctx context.Context, rt *Runtime, use ModelUse, candidate evalreport.Report, gold string, recorder *CallRecorder) (Comparison, error) {
+func Compare(ctx context.Context, rt *Runtime, use ModelUse, candidate, gold evalreport.Report, recorder *CallRecorder) (Comparison, error) {
 	resolved, _, err := rt.Resolve(use.Model)
 	if err != nil {
 		return Comparison{}, err
 	}
-	// Deliberately exclude deterministic FACT sections from the judge input.
-	projection := struct {
-		Abstract   evalreport.Abstract            `json:"abstract"`
-		Depth      []evalreport.DepthDimResult    `json:"depth"`
-		Autonomy   []evalreport.AutonomyDimResult `json:"autonomy"`
-		PromptLens evalreport.PromptLens          `json:"promptLens"`
-		Risks      []evalreport.RiskEntry         `json:"risks"`
-	}{candidate.Abstract, candidate.Depth, candidate.Autonomy, candidate.PromptLens, candidate.Risks}
-	b, err := json.Marshal(projection)
+	// Deliberately exclude deterministic FACT sections from both judge inputs.
+	candidateJSON, err := json.Marshal(projectForComparison(candidate))
+	if err != nil {
+		return Comparison{}, err
+	}
+	goldJSON, err := json.Marshal(projectForComparison(gold))
 	if err != nil {
 		return Comparison{}, err
 	}
@@ -74,7 +90,7 @@ func Compare(ctx context.Context, rt *Runtime, use ModelUse, candidate evalrepor
 	// DeepSeek reasoning mode can consume the full output budget before any JSON
 	// token is streamed, so keep the same flagship model but reserve its budget
 	// for the judge's structured output.
-	req := gateway.ChatRequest{MaxTokens: 12000, DisableThinking: true, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: comparatorPrompt()}, {Role: gateway.RoleUser, Content: "人工 gold Markdown：\n" + gold + "\n\n候选 EvaluationReport 的模型部分 JSON：\n" + string(b)}}}
+	req := gateway.ChatRequest{MaxTokens: 12000, DisableThinking: true, Messages: []gateway.ChatMessage{{Role: gateway.RoleSystem, Content: comparatorPrompt()}, {Role: gateway.RoleUser, Content: "人工 Gold EvaluationReport 的模型部分 JSON：\n" + string(goldJSON) + "\n\n候选 EvaluationReport 的模型部分 JSON：\n" + string(candidateJSON)}}}
 	res, err := collectEvalbench(ctx, rt.Observed("comparator", recorder), resolved, req)
 	if err != nil {
 		return Comparison{}, err
@@ -91,7 +107,7 @@ func Compare(ctx context.Context, rt *Runtime, use ModelUse, candidate evalrepor
 
 func comparatorPrompt() string {
 	expected, _ := json.Marshal(ExpectedComparisonItems())
-	return `你只比较人工 gold 与候选评估的模型生成部分，不读取或推断学生过程，也不判断绝对正确性。每项只相对 gold：aligned、overstates、understates、not_comparable。gold 缺失、含糊、非序数状态不可定向或低置信度时，必须 not_comparable 且 manualReview=true。忽略 FACT（basics/events/materials/toolUsage）。必须只输出 JSON：{"items":[...]}; items 必须与下面完整矩阵一一对应，不可新增、遗漏或重复。每项带 goldExcerpt、candidateExcerpt、reason，且 excerpt 必须来自给定输入。完整矩阵：` + string(expected)
+	return `你只比较人工 Gold EvaluationReport JSON 与候选评估的模型生成部分，不读取或推断学生过程，也不判断绝对正确性。每项只相对 Gold：aligned、overstates、understates、not_comparable。Gold 缺失、含糊、非序数状态不可定向或低置信度时，必须 not_comparable 且 manualReview=true。忽略 FACT（basics/events/materials/toolUsage）。必须只输出 JSON：{"items":[...]}; items 必须与下面完整矩阵一一对应，不可新增、遗漏或重复。每项带 goldExcerpt、candidateExcerpt、reason，且 excerpt 必须来自给定输入。完整矩阵：` + string(expected)
 }
 func extractJSON(s string) string {
 	s = strings.TrimSpace(s)

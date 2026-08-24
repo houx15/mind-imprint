@@ -1,0 +1,888 @@
+{
+  "report": {
+    "version": 1,
+    "reportId": "8298ee0f-090c-416f-b84e-c9de076858dc",
+    "projectId": "401c8b09-d2c7-452a-9c98-25b5203cc4e0",
+    "student": {
+      "id": "abb0e6bc-ecb0-4ca7-96d3-0b5b231acff5",
+      "name": "画像10·检索表达薄弱型"
+    },
+    "basics": {
+      "title": "把\"中国是否让地球更可持续\"这个大问题拆成可检索的指标词(而不是好/坏这类判断词),追踪从公众号线索到NASA到Nature到PMC的绿化证据链,再用同样方法找到排放证据,最终给出一个有边界的结论。",
+      "type": "",
+      "startDate": "2026-08-21T11:11:30Z",
+      "endDate": null,
+      "milestones": {
+        "started": "2026-08-21T11:11:30Z",
+        "frameworkFinished": "2026-08-21T11:25:07Z",
+        "proposalFinished": "2026-08-21T11:27:11Z",
+        "writingFinished": "2026-08-21T11:29:54Z",
+        "projectFinished": null
+      },
+      "counters": {
+        "aiTurns": 33,
+        "materialsRead": 2,
+        "wordsWritten": 333,
+        "aiCommentCount": 7,
+        "editCount": 34
+      }
+    },
+    "abstract": {
+      "overview": "这个项目体现出你正在从“找观点”转向“找可核验指标”，并能用排放数据给绿化结论设限；你也能给反方一个位置而不被它带走。但你的思考更多停留在做对动作的层面，哪些来源被采纳或拒绝、指标之间为何冲突、你自身的检索偏好如何影响结论，还没有被明确说出来。",
+      "materialSentence": "你从公众号线索追到 NASA 页面，再核对 Nature Sustainability 与 PMC 原文，能区分 NASA 的线索作用和论文的正式证据作用，也注意到中国 25% 净增叶面积与 6.6% 植被面积是两个不同口径。",
+      "writingSentence": "正文按绿化、排放、人类影响和让步展开，结论试图与证据口径匹配，但各段之间“为什么采信这个数字”的理由仍不够显性。",
+      "aiSentence": "你大量借助 AI 检索、核对与寻找反方，也偶尔追问 AI 给搜索词是否算代替写作，但这类边界意识还没有变成稳定的记录或规则。",
+      "suggestionParagraph": "下一步不必再扩充材料，而应把已经发生的判断显性化。你的论证依赖一些关键取舍：放弃 pollution ranking 改用 31.8% 年度排放份额、把 co2science 当反方但不把它当正式来源、承认 CO2 施肥机制真实但认为它不推翻排放结论。这些取舍是论证的关键节点，但读者目前只能看到结果，看不到你为何这样选。把采纳与拒绝的理由写进搜索记录或正文脚注，结论会更有边界，也更容易被自己复查。",
+      "suggestionSentences": [
+        "在搜索词记录表增加一栏“采纳/拒绝理由”，为 NASA 线索、co2science 反方和 pollution ranking 的放弃分别写一句原因。",
+        "回读正文，给每个关键数字标注统计口径与来源层级；遇到 31.8% 与 IEA 0.5% 这类容易混淆的指标时，明确写出你为何认为前者更适合回答研究问题。",
+        "保留至少一次失败搜索的原始词与改写词，并写一句它如何改变你后续的检索策略。"
+      ],
+      "recommendedCourses": []
+    },
+    "events": [
+      {
+        "ts": "2026-08-21T11:11:48Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "bb212b7d-6cef-4c0a-bbfe-ca9d5e238ae5"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:12:42Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "746d484e-6566-4377-b27c-2324b551495b"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:13:09Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "2c6dbf75-5000-4cf0-b96f-a5346972b6df"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:13:46Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "5a31dc0e-b115-48aa-aafc-50ac5ad4e076"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:14:31Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "2f0e298b-e693-424f-ad7c-2d7991b8d022"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:15:28Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "91186557-0320-4474-9ae2-df90ef4e17df"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:15:50Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "e2c8ec42-7e6d-4e9e-bbaf-c0e5fd6d05d1"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:16:12Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "5e75fa58-febb-4408-b701-5fc9b60c8301"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:17:01Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "bbaab4c5-b796-441c-9985-f48843436841"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:17:20Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "8e0e65fd-c85c-424e-a818-0d5f159ec96b"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:17:42Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "582e7ca8-e792-4bae-bf89-18e83f7bcaea"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:18:07Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "d8354e80-96c2-42e9-8c08-f9b231b0992d"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:18:45Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "9abd7bc1-3557-491c-8fb6-56b72ad8df2d"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:19:19Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "bb8acbbf-9c0c-4260-abfd-1057537cd3b5"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:19:53Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "82cccac8-b08c-4be8-9f0b-0cd65e25ba1e"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:20:23Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "5574eb23-92c8-4194-9af0-b0d464e4e5db"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:20:45Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "2ae3b3fd-dd63-4f72-870a-5adecce34aed"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:21:24Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "c51a62a5-0dc3-40ca-a49f-0ddd92aeaa18"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:22:03Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "60f75be9-8d51-4b4c-b704-7e6b87baeb67"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:22:30Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "31307511-cf3e-4eeb-9e9c-5feec391cd77"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:23:18Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "e1b3dcde-c35e-4c4b-8a08-f62567228ea2"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:23:49Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "0d192c89-99d0-46cf-af9c-16a7bab86f67"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:24:00Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "f09d442d-7bdc-4bb7-9bb8-f0f738a1247f"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:25:07Z",
+        "kind": "milestone",
+        "summary": "立题完成，生成了项目计划",
+        "aiTurns": 0,
+        "ref": {
+          "id": "9365f003-1696-4b72-865a-cdacd29a0ddd"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:25:51Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "7b1ec790-8a57-476b-acbd-7e2c2ba85723"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:25:51Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "79a27977-c6b1-4352-8a4d-9e7569b3e25a"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:11Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "5f3cc06e-f185-42a7-8231-8d5a896e5b38"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:19Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "fcef205b-0922-475b-8035-782392b27795"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:19Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "ed30793e-590a-40a2-abd9-023597d77653"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:19Z",
+        "kind": "reading",
+        "summary": "新增了一份来源",
+        "aiTurns": 0,
+        "ref": {
+          "id": "dc976e8c-5887-414c-b58e-2c26688e40b1"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:20Z",
+        "kind": "reading",
+        "summary": "新增了一份来源",
+        "aiTurns": 0,
+        "ref": {
+          "id": "9c4747d7-7f9f-4e4b-b5e7-ac2c5ff03e4f"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:21Z",
+        "kind": "writing",
+        "summary": "version_saved",
+        "aiTurns": 0,
+        "ref": {
+          "id": "6cc72e5f-af66-4924-9b4d-9e237153b030"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:14Z",
+        "kind": "review",
+        "summary": "请印记体检了整稿",
+        "aiTurns": 0,
+        "ref": {
+          "id": "96064c7b-b687-4edd-a86a-d79131e4c0d4"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:14Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "a6fb0bb0-6d77-4951-9d8f-fc9c8e62497e"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:26Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "b4388399-8b8a-46d3-9f3c-f95ef8eeaeab"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:26Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "3761970e-1a35-459b-bd20-b91f12a7bd6d"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:26Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "6edec81d-6b62-4fe4-b9d7-5d3331141801"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:26Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "cfafe192-dfbd-46c4-bee4-34182c754b83"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:42Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "d0086645-8cdb-4a04-94b2-56b3f9b38742"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:42Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "200636f1-8ed0-4e6a-bee5-70f4d7a9cb5a"
+        }
+      }
+    ],
+    "materials": [
+      {
+        "materialId": "a3d2fbf4-3775-45e0-bcbe-23a41df8086f",
+        "addedAt": "2026-08-21T11:27:19Z",
+        "source": "Chen et al. (2019), Nature Sustainability / PMC open-access — China and India Lead in Greening of the World Through Land-Use Management",
+        "url": null,
+        "usedIn": null,
+        "finalStatus": "收集",
+        "comment": "",
+        "cannotSupport": "中国贡献全球净增叶面积25%,仅占全球植被面积6.6%"
+      },
+      {
+        "materialId": "b8c8e394-8fe5-42cf-80cc-fa34e61ee072",
+        "addedAt": "2026-08-21T11:27:20Z",
+        "source": "Our World in Data / Global Carbon Budget — Chinas Share of Global Annual CO2 Emissions",
+        "url": null,
+        "usedIn": null,
+        "finalStatus": "收集",
+        "comment": "",
+        "cannotSupport": "中国约占全球年CO2排放31.8%"
+      }
+    ],
+    "depth": [
+      {
+        "id": "D1",
+        "level": 3,
+        "summary": "学生把宽泛命题拆成绿化与排放两类可检索指标，并设定从NASA到Nature到PMC再到OWID的追踪路线，最终指向有边界结论，而非停留在好坏判断。",
+        "evidence": [
+          {
+            "id": "837a4775-029c-4834-8cd5-da072612aee0",
+            "quote": "把\"中国是否让地球更可持续\"这个大问题拆成可检索的指标词(而不是好/坏这类判断词),追踪从公众号线索到NASA到Nature到PMC的绿化证据链,再用同样方法找到排放证据,最终给出一个有边界的结论。",
+            "observation": "学生自己将宏大且极具判断意味的问题转化为可核验的指标和证据链，明确结论边界。"
+          },
+          {
+            "id": "",
+            "quote": "To what extent is China making the Earth more sustainable? The honest answer needs precise indicators, not judgement words like good or bad.",
+            "observation": "正文开头进一步把问题表述为需要精确指标而非好/坏判断，区别于原始绝对化提问。"
+          }
+        ],
+        "suggestion": "可以再明确写出结论的不可回答之处，例如“绿化率变化不能单独证明可持续发展”。"
+      },
+      {
+        "id": "D2",
+        "level": 3,
+        "summary": "学生从NASA追溯至Nature Sustainability和PMC开放全文并核对原文，区分NASA作为线索与正式证据，评估co2science反方来源，体现信源等级和适用边界的判断。",
+        "evidence": [
+          {
+            "id": "29919058-704c-437b-bfce-098a7b4b3a87",
+            "quote": "我想找原始论文,但我不知道搜什么词,是不是要从NASA页面底部找线索?",
+            "observation": "学生主动追溯一手出处，不满足于二手新闻页面。"
+          },
+          {
+            "id": "",
+            "quote": "NASA不写进正文有点可惜,因为线索就是从它来的,能不能提一句而不当正式证据?",
+            "observation": "学生意识到线索来源与正式证据的等级不同，并据此调整引用方式。"
+          },
+          {
+            "id": "",
+            "quote": "要回NASA原页确认one-third是中印合计,不是中国单独",
+            "observation": "学生主动核对原始页面表述，避免把中印合计数字误作中国单独贡献。"
+          },
+          {
+            "id": "9ef8e537-2f01-46f0-a7ab-1f770bd19f4c",
+            "quote": "如果我要搜这个反方有没有问题,搜co2science bad可以吗?",
+            "observation": "学生在使用反方来源前先检验其可信度和搜索角度，体现对来源立场的审慎。"
+          },
+          {
+            "id": "工具卡·search-plan·avoid",
+            "quote": "避免good/bad/pollution ranking这类模糊或情绪化词,避免把NASA/Nature/PMC/PubMed当成互相独立的四篇研究",
+            "observation": "search-plan 卡 avoid 字段：写明要避开哪一类词以及为什么。"
+          },
+          {
+            "id": "工具卡·metacognition·adjusted",
+            "quote": "把评价词换成机构名加可测量指标词,比如NASA China India greening Earth satellite,再从论文标题反推下一步搜索词",
+            "observation": "metacognition 卡 adjusted 字段：说明检索策略具体怎么改的。"
+          }
+        ],
+        "suggestion": "可进一步写明每份来源能支持哪一层论证，例如NASA只作线索，PMC用于核绿化比例。"
+      },
+      {
+        "id": "D3",
+        "level": 3,
+        "summary": "论证按绿化、排放、影响、让步展开，区分31.8%年度份额与IEA短期趋势，并用让步段协调反方主张，结论与证据口径相匹配。",
+        "evidence": [
+          {
+            "id": "6a975911-d0a8-455b-a76a-ccfdbcc06bb7",
+            "quote": "第二段OWID的31.8%和IEA的0.5%放在一起,会不会看起来像我自相矛盾?",
+            "observation": "学生注意到不同证据口径不能直接对比，主动检查论证内部一致性。"
+          },
+          {
+            "id": "66953ecc-bec4-4389-bb71-b852b312515f",
+            "quote": "图表显示中国2024大概31.8%。我一开始差点搜China pollution ranking,现在想明白poll…",
+            "observation": "学生从污染排名转向年度排放份额，使证据更能支持有限结论。"
+          },
+          {
+            "id": "",
+            "quote": "A fair concession: a counter-source, co2science, argues that rising CO2 can improve some plants water-use efficiency, implying emissions are not purely harmful.",
+            "observation": "正文用让步段协调反方机制与主结论，结论谨慎且不越过证据可支持范围。（原记录把正文里不相邻的两句用省略号拼成了一句，已还原为第一句）"
+          },
+          {
+            "id": "正文 · 让步段",
+            "quote": "I accept the mechanism is real, but it does not make national-scale emissions harmless, and it does not override the 31.8% annual emissions share.",
+            "observation": "让步段的第二句：接受机制为真，但说明它不足以推翻年排放份额。"
+          }
+        ],
+        "suggestion": "可以在让步段之前写清“绿化本身不等于可持续”这一层warrant，让推理链更显性。"
+      },
+      {
+        "id": "D4",
+        "level": 3,
+        "summary": "学生主动寻找反方，处理CO2 fertilization机制，并将其真实但不足以推翻年排放份额作为限制条件，把反方纳入结论边界。",
+        "evidence": [
+          {
+            "id": "e6033e44-47d4-4f4a-998a-a9d758df878e",
+            "quote": "我现在想搜反方。直接搜climate change fake吗?",
+            "observation": "学生主动邀请反方立场进入论证，不回避对立观点。"
+          },
+          {
+            "id": "9ef8e537-2f01-46f0-a7ab-1f770bd19f4c",
+            "quote": "如果我要搜这个反方有没有问题,搜co2science bad可以吗?",
+            "observation": "学生对反方来源保持审慎，避免直接以预设立场词查找反方。"
+          },
+          {
+            "id": "",
+            "quote": "I accept the mechanism is real, but it does not make national-scale emissions harmless, and it does not override the 31.8% annual emissions share.",
+            "observation": "正文处理替代解释，将反方机制接受为真实但限定其不能推翻排放结论，形成结论边界。"
+          }
+        ],
+        "suggestion": "可再补一项研究局限，例如绿化数据时间范围或排放份额口径限制，让偏见处理更系统。"
+      },
+      {
+        "id": "D5",
+        "level": 3,
+        "summary": "学生有多项修订动作，如询问NASA是否可作非正式证据、担心两指标自相矛盾，但记录中暂无足够证据表明其明确说明采纳与拒绝理由或重构论证。",
+        "evidence": [
+          {
+            "id": "",
+            "quote": "NASA不写进正文有点可惜,因为线索就是从它来的,能不能提一句而不当正式证据?",
+            "observation": "学生提出具体修订方案，不只是语言润色。"
+          },
+          {
+            "id": "6a975911-d0a8-455b-a76a-ccfdbcc06bb7",
+            "quote": "第二段OWID的31.8%和IEA的0.5%放在一起,会不会看起来像我自相矛盾?",
+            "observation": "学生在修订阶段检查证据间关系，属于论证层面的调整。"
+          },
+          {
+            "id": "正文 v2 新增",
+            "quote": "A separate, narrower indicator from the IEA shows Chinas energy-related CO2 falling by roughly 0.5% in 2025; this does not contradict the 31.8% figure, since the two measure different things — an annual global share versus a short-term energy-sector trend.",
+            "observation": "正文 v2 新增句：把两个指标为何不矛盾写了出来。"
+          }
+        ],
+        "suggestion": "下次收到反馈后，明确写出‘我采纳哪条、拒绝哪条、为什么’，让修订理由可见。"
+      },
+      {
+        "id": "D6",
+        "level": 3,
+        "summary": "学生留下自写反思：觉察自己只记住中国、搜索词像聊天、搜索路径太顺，能审视早期倾向与检索策略；尚未系统说清判断来源及其局限。",
+        "evidence": [
+          {
+            "id": "7e02001b-7476-4b8c-a5fe-fb1dc3ed6fce",
+            "quote": "我刚刚才发现公众号标题虽然也写印度和中国,但我自己一开始只记住了中国。",
+            "observation": "学生反思自己的早期认知倾向，意识到信息接收中的偏差。"
+          },
+          {
+            "id": "d644013d-75a8-45e5-b2df-23c31ad7ed1d",
+            "quote": "我发现我一开始搜的词都像在聊天,不像检索,这个是不是也该写进反思?",
+            "observation": "学生审视自己的检索策略，区分对话式搜索与研究式检索。"
+          },
+          {
+            "id": "150189e0-7b9e-4a12-9478-8fc2c0e3358c",
+            "quote": "我在检查自己的搜索路径,会不会太顺,看起来太像是AI教出来的,不像真的自己搜的?",
+            "observation": "学生审视自己研究路径的真实性和来源，不满足于表面顺利。"
+          },
+          {
+            "id": "反思",
+            "quote": "我一开始搜索词都像在聊天,比如China good for environment,结果全是观点文,根本判断不了能不能用。",
+            "observation": "自写反思，指名自己的检索起点问题。"
+          },
+          {
+            "id": "反思",
+            "quote": "我保留了失败的搜索词,比如China good for environment和climate change fake,这些反而证明我是一步步修正过来的,不是一开始就会。",
+            "observation": "说明保留失败记录的理由是它证明了修正过程。"
+          }
+        ],
+        "suggestion": "可以把‘只记住中国’这一早期倾向进一步写成：它如何影响后面的检索选择，以及你如何纠正它。"
+      }
+    ],
+    "autonomy": [
+      {
+        "id": "A1",
+        "band": 3,
+        "summary": "学生多次自发收窄方向：把大问题拆成指标、自行设定活动顺序、放弃pollution ranking改用31.8%年度排放份额。",
+        "evidence": [
+          {
+            "id": "837a4775-029c-4834-8cd5-da072612aee0",
+            "quote": "把\"中国是否让地球更可持续\"这个大问题拆成可检索的指标词(而不是好/坏这类判断词)...",
+            "observation": "学生自己决定研究角度和指标化路径。"
+          },
+          {
+            "id": "43cbed51-1842-4fb8-8033-1975bfe6f30e",
+            "quote": "活动顺序我想好了:公众号线索到NASA到Nature到PMC核绿化数据,再到OWID/GCB核排放,再补视频和反方候…",
+            "observation": "学生自行设定研究路线，不依赖教师或AI代定。"
+          },
+          {
+            "id": "66953ecc-bec4-4389-bb71-b852b312515f",
+            "quote": "我一开始差点搜China pollution ranking,现在想明白poll…",
+            "observation": "学生自主替换研究变量，从排名转向可验证的排放份额。"
+          }
+        ],
+        "suggestion": "可在记录中标注哪些方向判断是你独立做出的，哪些是接受建议后做出的，让自主性更明确。"
+      },
+      {
+        "id": "A2",
+        "band": 4,
+        "summary": "学生多次自发补查：找原始论文、换排放指标、回NASA核实、检验反方、补中文政策语境，跨越多个阶段并形成后续论证。",
+        "evidence": [
+          {
+            "id": "29919058-704c-437b-bfce-098a7b4b3a87",
+            "quote": "我想找原始论文,但我不知道搜什么词,是不是要从NASA页面底部找线索?",
+            "observation": "自发追溯一手论文。"
+          },
+          {
+            "id": "66953ecc-bec4-4389-bb71-b852b312515f",
+            "quote": "图表显示中国2024大概31.8%。我一开始差点搜China pollution ranking...",
+            "observation": "自发更换指标核查排放证据。"
+          },
+          {
+            "id": "",
+            "quote": "要回NASA原页确认one-third是中印合计,不是中国单独",
+            "observation": "自发回原页核实数据表述，不是被要求后才做。"
+          },
+          {
+            "id": "43cbed51-1842-4fb8-8033-1975bfe6f30e",
+            "quote": "再到OWID/GCB核排放,再补视频和反方候…",
+            "observation": "计划中主动补查排放、视频和反方候选，说明补查不是偶发。"
+          }
+        ],
+        "suggestion": "可以把每次补查与它补强的论证环节对应起来，显示自发补查如何推动研究。"
+      },
+      {
+        "id": "A3",
+        "band": 2,
+        "summary": "学生有明确边界句‘AI能不能直接把所有更好的搜索词都给我，这样算不算AI替我写了’，并关心保留失败搜索，边界意识部分自发但数量仍少。",
+        "evidence": [
+          {
+            "id": "37e13956-0a3d-4485-98e9-1c33f3a0b64c",
+            "quote": "AI能不能直接把所有更好的搜索词都给我,这样算不算AI替我写了?",
+            "observation": "学生明确拒绝AI代拟搜索词，设置代写边界。"
+          },
+          {
+            "id": "097c5c79-e8dc-4ce4-813b-2301fbe6e557",
+            "quote": "source log要不要保留China good for environment这种失败搜索,会不会让老师觉得我一…",
+            "observation": "学生关心是否如实保留失败搜索，体现不美化研究路径的边界意识。"
+          },
+          {
+            "id": "AI 使用声明·不用于",
+            "quote": "直接给我最终来源链接、替我总结未读过的视频内容、预测分数、替我写反思或论证正文。",
+            "observation": "AI 使用声明 not_used_for：边界定在「不要给成品来源」，与他的检索训练目标一致。"
+          }
+        ],
+        "suggestion": "可以在使用AI前更明确地写下‘只用于反馈，不用于代写/编来源’，让边界句更稳定。"
+      },
+      {
+        "id": "A4",
+        "band": 3,
+        "summary": "学生主动请AI检查自相矛盾、找反方并检验反方来源，对手邀请跨多个阶段且部分形成修订。",
+        "evidence": [
+          {
+            "id": "6a975911-d0a8-455b-a76a-ccfdbcc06bb7",
+            "quote": "第二段OWID的31.8%和IEA的0.5%放在一起,会不会看起来像我自相矛盾?",
+            "observation": "主动请AI挑自己论证中的一致性问题。"
+          },
+          {
+            "id": "e6033e44-47d4-4f4a-998a-a9d758df878e",
+            "quote": "我现在想搜反方。直接搜climate change fake吗?",
+            "observation": "主动寻找对立视角，避免只找支持性材料。"
+          },
+          {
+            "id": "9ef8e537-2f01-46f0-a7ab-1f770bd19f4c",
+            "quote": "如果我要搜这个反方有没有问题,搜co2science bad可以吗?",
+            "observation": "主动检验反方来源，不轻易接受反方材料。"
+          }
+        ],
+        "suggestion": "可更明确地邀请AI或同伴直接攻击你的核心结论，而不是只核对局部问题。"
+      },
+      {
+        "id": "A5",
+        "band": 3,
+        "summary": "学生在方法选择、保留失败搜索和让步段中多次为判断负责，但较少直接说出‘这是我的判断’。",
+        "evidence": [
+          {
+            "id": "66953ecc-bec4-4389-bb71-b852b312515f",
+            "quote": "我一开始差点搜China pollution ranking,现在想明白poll…",
+            "observation": "学生解释方法选择的转变。"
+          },
+          {
+            "id": "097c5c79-e8dc-4ce4-813b-2301fbe6e557",
+            "quote": "source log要不要保留China good for environment这种失败搜索...",
+            "observation": "学生对自己的搜索路径负责，不想掩盖失败搜索。"
+          },
+          {
+            "id": "",
+            "quote": "I accept the mechanism is real, but it does not make national-scale emissions harmless...",
+            "observation": "正文中明确承担对反方机制的判断，而非模糊处理。"
+          },
+          {
+            "id": "反思",
+            "quote": "AI帮我把评价词换成机构名和可测量指标词,但每一步搜索、打开和判断都是我自己做的。",
+            "observation": "为检索过程的归属署名。"
+          }
+        ],
+        "suggestion": "可以在结尾直接写‘这是我的判断：绿化不足以抵消排放份额’，为结论署名。"
+      },
+      {
+        "id": "A6",
+        "band": 3,
+        "summary": "学生因不利证据几次修正认知或收窄结论：放弃pollution ranking、承认一开始只记住中国、承认反方机制真实但限定其不推翻排放结论。",
+        "evidence": [
+          {
+            "id": "66953ecc-bec4-4389-bb71-b852b312515f",
+            "quote": "我一开始差点搜China pollution ranking,现在想明白poll…",
+            "observation": "在与数据接触后，学生放弃了预设的污染排名角度。"
+          },
+          {
+            "id": "7e02001b-7476-4b8c-a5fe-fb1dc3ed6fce",
+            "quote": "我刚刚才发现公众号标题虽然也写印度和中国,但我自己一开始只记住了中国。",
+            "observation": "学生承认自己的早期认知偏差，没有硬撑原来的记忆。"
+          },
+          {
+            "id": "",
+            "quote": "I accept the mechanism is real, but it does not make national-scale emissions harmless, and it does not override the 31.8% annual emissions share.",
+            "observation": "面对反方机制，学生把它纳入后只做有限结论，而不是忽略或夸大。"
+          }
+        ],
+        "suggestion": "可进一步写出：如果绿化数据与中国贡献口径改变，你的结论会如何缩小。"
+      }
+    ],
+    "promptLens": {
+      "summary": "学生整体上把AI当作检索教练、方法确认者和证据校核对象，而不是直接求代写。提问从早期“不知道搜什么”的模糊求助，逐步演进到能把大问题拆成可检索指标、比较不同统计口径、主动检查搜索路径真实性，体现出明显的研究性检索意识；但出现一条关于“AI能不能直接给所有搜索词”的边界性提问，仍带有把检索策略外包的求快倾向，值得提醒。",
+      "prompts": [
+        {
+          "stage": "proposal_forming",
+          "quote": "老师让写800词议论文:Did China make the Earth become more sustainable? 我现在最大的问题是不知道从哪里搜,搜出来总是一堆很杂的东西。",
+          "ref": {
+            "id": "541bbb31-668b-44d2-8e9c-2ac403063c5f",
+            "label": "入口式求助"
+          },
+          "observation": "这是早期模糊求助，体现了对检索入口的困惑，但还没有把问题拆成可操作的指标或来源。",
+          "relatedDomains": [
+            "信息素养",
+            "可持续发展",
+            "环境科学"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "我第一反应搜了China good for environment,结果出来一堆宣传和观点文,看不出来能不能用。",
+          "ref": {
+            "id": "2c939924-3ed8-4973-89f2-d214d307ac13",
+            "label": "失败搜索复盘"
+          },
+          "observation": "能自我报告失败搜索并意识到宣传文与可证据材料不同，但仍停留在问题描述阶段，尚未形成替代检索策略。",
+          "relatedDomains": [
+            "信息检索",
+            "环境传播",
+            "批判性思维"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "我把词换成NASA China India greening Earth satellite,这次打开的是NASA Ames的页面。",
+          "ref": {
+            "id": "2dfc4703-a5a2-4db5-9838-b885834b8428",
+            "label": "检索词转向事件"
+          },
+          "observation": "出现明显成熟度转折：从“好/坏”判断词转向具体事件、机构和来源词，说明她开始理解可检验的检索路径。",
+          "relatedDomains": [
+            "遥感",
+            "生态学",
+            "科学传播"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "图表显示中国2024大概31.8%。我一开始差点搜China pollution ranking,现在想明白pollution太杂了。",
+          "ref": {
+            "id": "66953ecc-bec4-4389-bb71-b852b312515f",
+            "label": "指标意识出现"
+          },
+          "observation": "开始区分“排名”与“排放份额”，把宽泛问题换成具体指标，AI在她眼中更像方法确认者而不是搜索工具。",
+          "relatedDomains": [
+            "气候变化",
+            "能源政策",
+            "数据素养"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "IEA提到中国2025 energy-related CO2可能下降约0.5%。这个和OWID 31.8%放一起会不会冲突?",
+          "ref": {
+            "id": "06498b03-5d1d-47dd-8ebe-9ea7e66f2881",
+            "label": "统计口径冲突"
+          },
+          "observation": "主动比较不同统计口径并请求协助判断数据是否冲突，已经进入证据校核层面，而不是找现成结论。",
+          "relatedDomains": [
+            "气候数据",
+            "统计口径",
+            "能源经济"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "body_writing",
+          "quote": "AI能不能直接把所有更好的搜索词都给我,这样算不算AI替我写了?",
+          "ref": {
+            "id": "37e13956-0a3d-4485-98e9-1c33f3a0b64c",
+            "label": "AI使用边界"
+          },
+          "observation": "这条是对AI参与边界的自觉追问，但话里仍有“直接给我所有搜索词”的求快冲动，值得提醒不要把检索策略外包。",
+          "relatedDomains": [
+            "学术诚信",
+            "信息素养",
+            "研究方法"
+          ],
+          "attention": true
+        }
+      ]
+    },
+    "toolUsage": [
+      {
+        "toolId": "search-plan",
+        "name": "search-plan",
+        "stage": "",
+        "purpose": "completed",
+        "summary": "状态：completed"
+      },
+      {
+        "toolId": "metacognition",
+        "name": "metacognition",
+        "stage": "",
+        "purpose": "completed",
+        "summary": "状态：completed"
+      }
+    ],
+    "risks": [
+      {
+        "type": "missing-source",
+        "behaviour": "正文把 Chen et al. (2019) 的“中国单独贡献25%全球净增叶面积”作为绿化核心证据，但该来源在来源溯源状态中无链接/未溯源，正文也未标注可核验引用。",
+        "ref": {
+          "id": "a3d2fbf4-3775-45e0-bcbe-23a41df8086f",
+          "label": "Chen et al. 2019 未溯源"
+        },
+        "suggestion": "补充 PMC 或 Nature Sustainability 的 DOI/链接，并在正文中标注作者-年份。"
+      },
+      {
+        "type": "missing-source",
+        "behaviour": "正文引用 Our World in Data / Global Carbon Budget 的 31.8% 中国年排放份额，但该来源未提供链接或可核验数据年份，属于引用未溯源。",
+        "ref": {
+          "id": "b8c8e394-8fe5-42cf-80cc-fa34e61ee072",
+          "label": "OWID/GCB 未溯源"
+        },
+        "suggestion": "给出 OWID 图表页面或 Global Carbon Budget 的数据年份链接，并标注访问日期。"
+      }
+    ],
+    "generatedAt": "2026-08-21T12:26:01Z"
+  },
+  "status": "ready",
+  "_meta": {
+    "kind": "manual-edited-evaluation-report",
+    "cohort": "eval-cohort-2026-08-21",
+    "persona": 10,
+    "slug": "search",
+    "displayName": "画像10·检索表达薄弱型",
+    "studentEmail": "search@eval0821.mindimprint.cn",
+    "projectId": "401c8b09-d2c7-452a-9c98-25b5203cc4e0",
+    "basedOn": "reports/persona10-search.report.json",
+    "editedAt": "2026-08-23T06:52:44.973Z",
+    "editedWith": "评估数据查看器 (built 2026-08-22 08:27)"
+  }
+}
