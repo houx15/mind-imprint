@@ -109,6 +109,22 @@ describe("CoursesContainer", () => {
     expect(screen.queryByText("系统地学会一种思考方式")).toBeNull(); // no longer the grid
   });
 
+  it("re-opens the SAME course after it was left (Back onto a course just visited)", async () => {
+    // Mount straight on the course (as a fresh load at /courses/:slug does).
+    const onCourseConsumed = vi.fn();
+    const { rerender } = render(<CoursesContainer initialOpen={{ slug: "co1", mode: "detail" }} onCourseConsumed={onCourseConsumed} />);
+    await screen.findByText("从一句…出发"); // detail
+    rerender(<CoursesContainer initialOpen={null} onCourseConsumed={onCourseConsumed} />); // host consumes the signal
+    fireEvent.click(screen.getByText(/返回课程/)); // detail's back → the grid
+    await screen.findByText("系统地学会一种思考方式"); // grid
+
+    // Back lands on /courses/co1 again → the shell re-passes the SAME target. The
+    // guard reset (on the null above) lets it re-open rather than no-op.
+    rerender(<CoursesContainer initialOpen={{ slug: "co1", mode: "detail" }} onCourseConsumed={onCourseConsumed} />);
+    await screen.findByText("从一句…出发"); // detail again
+    expect(screen.queryByText("系统地学会一种思考方式")).toBeNull();
+  });
+
   it("shows the course report after finishing the last (only) step, with a back-to-courses affordance", async () => {
     render(<CoursesContainer />);
     fireEvent.click(await screen.findByText("开始学习")); // grid card -> detail

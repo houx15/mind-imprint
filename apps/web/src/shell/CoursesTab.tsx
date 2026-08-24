@@ -74,11 +74,17 @@ export function CoursesTab({
   // seeded with the mount value so the same id isn't re-handled here.
   const lastCourseId = useRef<string | null>(pendingCourseId ?? null);
   useEffect(() => {
-    if (pendingCourseId && pendingCourseId !== lastCourseId.current) {
-      lastCourseId.current = pendingCourseId;
-      setOpenTarget({ slug: pendingCourseId, mode: "detail" });
-      setSub("courses");
-      onPendingCourseConsumed();
+    if (pendingCourseId) {
+      if (pendingCourseId !== lastCourseId.current) {
+        lastCourseId.current = pendingCourseId;
+        setOpenTarget({ slug: pendingCourseId, mode: "detail" });
+        setSub("courses");
+        onPendingCourseConsumed();
+      }
+    } else {
+      // The host nulls the signal after each consume, so reset the guard — the
+      // SAME course can be re-requested later (Back onto a course just left).
+      lastCourseId.current = null;
     }
   }, [pendingCourseId, onPendingCourseConsumed]);
 

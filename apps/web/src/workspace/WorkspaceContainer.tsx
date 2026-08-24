@@ -1362,10 +1362,17 @@ export function WorkspaceContainer({
   // (e.g. back to the directory) with the same prop value still passed down.
   const lastInitialProjectId = useRef<string | null>(null);
   useEffect(() => {
-    if (initialProjectId && initialProjectId !== lastInitialProjectId.current) {
-      lastInitialProjectId.current = initialProjectId;
-      openProject(initialProjectId);
-      onInitialProjectIdConsumed?.();
+    if (initialProjectId) {
+      if (initialProjectId !== lastInitialProjectId.current) {
+        lastInitialProjectId.current = initialProjectId;
+        openProject(initialProjectId);
+        onInitialProjectIdConsumed?.();
+      }
+    } else {
+      // The host nulls the signal after each consume, so reset the guard — the
+      // SAME project can be re-opened later (Back onto a project just left, or
+      // re-clicking the same card in the directory).
+      lastInitialProjectId.current = null;
     }
   }, [initialProjectId, onInitialProjectIdConsumed]);
 

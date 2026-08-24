@@ -128,7 +128,12 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
   // null) never re-navigates. Mirrors WorkspaceContainer's `initialProjectId`.
   const lastOpenKey = useRef<string | null>(initialOpen ? openTargetKey(initialOpen) : null);
   useEffect(() => {
-    if (!initialOpen) return;
+    if (!initialOpen) {
+      // The host nulls the signal after each consume, so reset the guard — the
+      // SAME target can be re-requested later (Back onto a course just left).
+      lastOpenKey.current = null;
+      return;
+    }
     const key = openTargetKey(initialOpen);
     if (key !== lastOpenKey.current) {
       lastOpenKey.current = key;
