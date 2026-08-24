@@ -202,6 +202,67 @@ describe("WorkspaceContainer · pendingReadingView / pendingWritingView close th
     expect(onWritingViewConsumed).toHaveBeenCalledTimes(1);
   });
 
+  // Regression test for Task 11 (P8 real-scene deepening): the guided tour's
+  // "回到探索图谱" step re-issues `pendingReadingView="graph"` — the SAME
+  // value the exploration view was already showing before the tour opened
+  // the immersive reader via `pendingDemoReading`. The `lastReadingView` ref
+  // guard used to only update on a genuinely new VALUE, so `openReadingSource`
+  // (called from the `pendingDemoReading` handler) had to reset it the
+  // instant the reader mounts — otherwise the later same-value "graph"
+  // request is silently swallowed and `closeReadingSource()` never runs,
+  // leaving the reader stuck open under the tour popover.
+  it("closes the immersive reader when pendingReadingView repeats the value set before the reader opened", async () => {
+    const onReadingViewConsumed = vi.fn();
+    const { rerender } = render(<WorkspaceContainer initialProjectId="p5" />);
+    await screen.findByTestId("plan-block");
+
+    // The exploration view opens on 探索图谱 first (mirrors the tour's early
+    // `setReadingView("graph")`, well before the reading-room segment).
+    rerender(
+      <WorkspaceContainer
+        initialProjectId="p5"
+        pendingRoom="reading"
+        pendingReadingView="graph"
+        onPendingReadingViewConsumed={onReadingViewConsumed}
+      />,
+    );
+    expect(await screen.findByTestId("reading-block")).toBeInTheDocument();
+    expect(onReadingViewConsumed).toHaveBeenCalledTimes(1);
+
+    // The caller clears its one-shot prop after consumption (real usage:
+    // `onPendingReadingViewConsumed` resets the parent's state to null).
+    rerender(<WorkspaceContainer initialProjectId="p5" pendingRoom="reading" onPendingReadingViewConsumed={onReadingViewConsumed} />);
+
+    // reading-room-0: openDemoReadingRoom() opens the immersive reader OVER
+    // the graph view that was already showing.
+    const source = fakeMaterialSource("mat-5");
+    rerender(
+      <WorkspaceContainer
+        initialProjectId="p5"
+        pendingRoom="reading"
+        pendingDemoReading={{ source, referenceId: "ref-5" }}
+        onPendingReadingViewConsumed={onReadingViewConsumed}
+      />,
+    );
+    expect(await screen.findByTestId("reading-room")).toBeInTheDocument();
+
+    // reading-nodedone-0: "回到探索图谱" re-requests the SAME "graph" value.
+    // Without the fix this is swallowed by the dedupe guard and the reader
+    // never closes.
+    rerender(
+      <WorkspaceContainer
+        initialProjectId="p5"
+        pendingRoom="reading"
+        pendingReadingView="graph"
+        onPendingReadingViewConsumed={onReadingViewConsumed}
+      />,
+    );
+
+    expect(await screen.findByTestId("reading-block")).toBeInTheDocument();
+    expect(screen.queryByTestId("reading-room")).not.toBeInTheDocument();
+    expect(onReadingViewConsumed).toHaveBeenCalledTimes(2);
+  });
+
   it("does not touch the immersive reader when pendingReadingView is absent", async () => {
     const { rerender } = render(<WorkspaceContainer initialProjectId="p3" />);
     await screen.findByTestId("plan-block");

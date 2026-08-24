@@ -500,6 +500,18 @@ export function WorkspaceContainer({
     // enter-reading, …) omits it, which resets both flags off.
     demo?: { demoMode: boolean; initialMessages: ChatMessage[] },
   ) {
+    // Reset the `pendingReadingView` value-dedupe guard the instant the
+    // immersive reader mounts (both the tour's `pendingDemoReading` open and
+    // any normal open funnel through here). Without this, if the reader was
+    // opened while `lastReadingView.current` already equals the view the
+    // tour is about to deep-link back to (e.g. the exploration graph was
+    // `"graph"` before the reader opened, and "回到探索图谱" re-requests
+    // `"graph"`), that effect's `pendingReadingView !== lastReadingView.current`
+    // guard sees no change, skips its body, and never calls
+    // `closeReadingSource()` — leaving the reader stuck open under the tour
+    // popover. Clearing the ref here guarantees the NEXT `pendingReadingView`
+    // value, whatever it is, is treated as a change and forces the close.
+    lastReadingView.current = null;
     setReadingSourceState(m);
     setReadingRefId(referenceId);
     setReadingSuggestedReason(suggestedReason ?? "");
