@@ -97,6 +97,18 @@ describe("CoursesContainer", () => {
     expect(screen.queryByText("系统地学会一种思考方式")).toBeNull(); // NOT the grid
   });
 
+  it("reacts to an initialOpen that arrives AFTER mount (browser Back → /courses/:slug)", async () => {
+    // Mount on the grid (no deep-link), as when the courses tab is already open.
+    const { rerender } = render(<CoursesContainer initialOpen={null} onCourseConsumed={() => {}} />);
+    await screen.findByText("系统地学会一种思考方式"); // grid header confirms we start on the grid
+
+    // The shell's popstate handler feeds a fresh target into the already-mounted
+    // container — it must navigate to the detail page, not stay on the grid.
+    rerender(<CoursesContainer initialOpen={{ slug: "co1", mode: "detail" }} onCourseConsumed={() => {}} />);
+    await screen.findByText("从一句…出发"); // detail landed
+    expect(screen.queryByText("系统地学会一种思考方式")).toBeNull(); // no longer the grid
+  });
+
   it("shows the course report after finishing the last (only) step, with a back-to-courses affordance", async () => {
     render(<CoursesContainer />);
     fireEvent.click(await screen.findByText("开始学习")); // grid card -> detail

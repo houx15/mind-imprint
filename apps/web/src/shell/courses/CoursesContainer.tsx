@@ -18,6 +18,12 @@ type View = { name: "grid" } | { name: "detail"; courseId: string } | { name: "p
 // `attemptId`.
 export type CourseOpenTarget = { slug: string; mode: "detail" | "player" | "report"; attemptId?: string };
 
+// A stable identity for a deep-link target, so the post-mount effect below
+// navigates once per genuinely-new target rather than on every object reference.
+function openTargetKey(target: CourseOpenTarget): string {
+  return `${target.slug}:${target.mode}:${target.attemptId ?? ""}`;
+}
+
 function initialViewFor(target: CourseOpenTarget | null | undefined): View {
   if (!target) return { name: "grid" };
   switch (target.mode) {
@@ -112,6 +118,24 @@ export function CoursesContainer({ onGoPortal, initialOpen, onCourseConsumed, st
     if (initialOpen) onCourseConsumed?.();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // React to an `initialOpen` that changes AFTER mount — CoursesContainer stays
+  // mounted across grid↔detail↔player navigation, so the mount initializer above
+  // can't catch a later deep-link. This happens when the browser Back button
+  // lands on `/courses/:slug` (the shell's popstate → pendingCourseId →
+  // openTarget), or a tour/home open arrives while the container is already
+  // showing. Ref-guarded on the target's identity so a repeat (or the post-open
+  // null) never re-navigates. Mirrors WorkspaceContainer's `initialProjectId`.
+  const lastOpenKey = useRef<string | null>(initialOpen ? openTargetKey(initialOpen) : null);
+  useEffect(() => {
+    if (!initialOpen) return;
+    const key = openTargetKey(initialOpen);
+    if (key !== lastOpenKey.current) {
+      lastOpenKey.current = key;
+      setView(initialViewFor(initialOpen));
+      onCourseConsumed?.();
+    }
+  }, [initialOpen, onCourseConsumed]);
 
   // Tell the host (CoursesTab) when a course is open (player/report) so it can
   // go immersive — hide the 课程/学习记录/图鉴 segmented + the platform nav rail,
