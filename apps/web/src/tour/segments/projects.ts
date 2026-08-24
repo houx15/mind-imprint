@@ -273,7 +273,7 @@ export const projectsSegments: TourSegment[] = [
       {
         id: "reading-warren-12",
         placement: "center",
-        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了。地图上的每一步，都是你自己做的决定。接下来我带你直接进去读一读它。",
+        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了。地图上的每一步，都是你自己做的决定。接下来，我带你精读一篇已经收进来的核心资料，看看「和印记一起深读一篇」是什么样。",
         advance: "next",
       },
     ],
@@ -289,15 +289,17 @@ export const projectsSegments: TourSegment[] = [
       // mounts; its textarea is merely disabled).
       {
         id: "reading-room-0",
-        // enter reading (P8 Task 12): the just-adopted paper's real 「进入阅读
-        // 室」 button lives on a selection-gated panel with no nav hook to
-        // reach it deterministically — so, same as before, openDemoReadingRoom
-        // jumps straight in. Narrated honestly (we didn't actually click it).
+        // enter reading (P8 Task 12): the per-node 「进入阅读室」 button lives on
+        // a selection-gated panel with no nav hook to reach it deterministically,
+        // and only the demo's Nature paper (…0271) carries the seeded highlights/
+        // transcript/notes — so openDemoReadingRoom jumps straight into THAT
+        // paper. Copy is decoupled from the just-adopted source and honestly
+        // frames this as 精读-ing a already-collected core resource (F3 fix).
         onEnter: (nav) => nav.openDemoReadingRoom(),
         anchor: '[data-tour="rr-article"]',
         placement: "left",
         title: "精读室",
-        text: "采纳的这篇来源，印记直接带你翻到了它的精读室——平时你会在新长出的节点上点「进入阅读室」。整篇正文都在这里，你可以逐句读、随时停下来追问。注意正文里几处**高亮的句子**——那是思维卡帮你划出来的关键句。",
+        text: "示例里，印记带你精读那篇 Nature 的卫星「变绿」研究——平时你在任意一个节点上点「进入阅读室」，就能这样深读它。整篇正文都在这里，你可以逐句读、随时停下来追问。注意正文里几处**高亮的句子**——那是思维卡帮你划出来的关键句。",
         advance: "next",
       },
       {
@@ -364,7 +366,13 @@ export const projectsSegments: TourSegment[] = [
         // (…0260) the tour just "read" — the demo project is write-blocked, and
         // migration 0088 seeded that reference 'reading' (not 'done') on purpose
         // so this shows a real un-badged → 已读 transition without a write.
+        // P8: `resetExplorationZoom()` fires FIRST — the exploration graph's
+        // "hole" zoom (drilled into a QuestionMindmap) may still be open from
+        // an earlier step, and the root map's `warren-node-read` badge/anchor
+        // only renders `!inHole`, so the spotlight can't land until the hole
+        // is exited back to the Level-1 root map.
         onEnter: (nav) => {
+          nav.resetExplorationZoom();
           nav.setStudioRoom("reading");
           nav.setReadingView("graph");
           nav.markDemoNodeRead("00000000-0000-0000-0000-000000000290");
@@ -538,11 +546,13 @@ export const projectsSegments: TourSegment[] = [
         id: "writing-8",
         // ㉑ how to trigger 批注 (P8 Task 13) — REAL spotlight of the DISABLED
         // read-only「让印记通读并批注」button (T5 `writing-review-trigger`).
-        // Land on the proposal 正文/prose tab where the demo renders it. This is
-        // deliberately BEFORE the 批注 spotlight below — the whole point of the
-        // reorder is trigger-first, then-result, matching how a student would
-        // actually meet it.
-        onEnter: (nav) => nav.setWritingView({ doc: "proposal", tab: "draft" }),
+        // Land on the ESSAY 正文/draft tab, where the seeded FILLED essay body
+        // is visible (not the empty proposal draft) — the essay branch now
+        // renders its own mirrored demo review-trigger bar above DraftPane.
+        // This is deliberately BEFORE the 批注 spotlight below — the whole
+        // point of the reorder is trigger-first, then-result, matching how a
+        // student would actually meet it.
+        onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "draft" }),
         anchor: '[data-tour="writing-review-trigger"]',
         placement: "bottom",
         text: "写完后，点这里让印记通读并批注——它会从头读一遍、逐段给你反馈。",

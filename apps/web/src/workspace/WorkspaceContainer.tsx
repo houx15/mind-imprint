@@ -116,6 +116,8 @@ export function WorkspaceContainer({
   onPendingPlanViewConsumed,
   pendingOpenSearchCard,
   onPendingOpenSearchCardConsumed,
+  pendingResetExplorationZoom,
+  onPendingResetExplorationZoomConsumed,
   pendingMarkNodeRead,
   onPendingMarkNodeReadConsumed,
   pendingDemoAdopt,
@@ -197,6 +199,17 @@ export function WorkspaceContainer({
   /** Fired once right after `pendingOpenSearchCard` has been captured (mirrors
    * `onPendingRoomConsumed`). */
   onPendingOpenSearchCardConsumed?: () => void;
+  /** Exit the OPEN project's exploration graph "hole" zoom back to the
+   * Level-1 root map — the guided tour's P8 `resetExplorationZoom` deep-link.
+   * A bumped nonce (the action carries no payload), captured into local
+   * state and handed through ReadingBlock to ExplorationView as
+   * `forceResetExplorationZoom` (its own ref-guarded one-shot calls
+   * `backToMap()` once). Assumes the reading room is already open on the
+   * 探索图谱 view. Mirrors `pendingOpenSearchCard` exactly. */
+  pendingResetExplorationZoom?: number | null;
+  /** Fired once right after `pendingResetExplorationZoom` has been captured
+   * (mirrors `onPendingRoomConsumed`). */
+  onPendingResetExplorationZoomConsumed?: () => void;
   /** P7 Task 4b · a root-lead id to demo-badge as 已读 — the guided tour's
    * `TourNavContext.markDemoNodeRead` deep-link, fired when the tour returns
    * from the read-only demo reading room. Unlike every other `pending*` prop
@@ -420,6 +433,11 @@ export function WorkspaceContainer({
   // guard opens the modal once and never fights the student's later
   // open/close).
   const [searchCardForceNonce, setSearchCardForceNonce] = useState<number | null>(null);
+  // `pendingResetExplorationZoom` deep-link (P8): captured and handed through
+  // ReadingBlock to ExplorationView as `forceResetExplorationZoom` (its own
+  // ref guard calls `backToMap()` once and never fights the student's later
+  // zoom navigation). Mirrors `searchCardForceNonce` exactly.
+  const [resetExplorationZoomNonce, setResetExplorationZoomNonce] = useState<number | null>(null);
   // P7 Task 4b: root-lead ids the guided tour has demo-badged 已读 this
   // session (via `pendingMarkNodeRead`, accumulated below) — forwarded
   // through ReadingBlock to ExplorationView, which merges it into
@@ -1409,6 +1427,21 @@ export function WorkspaceContainer({
     }
   }, [pendingOpenSearchCard, onPendingOpenSearchCardConsumed]);
 
+  // `pendingResetExplorationZoom` deep-link (P8 — guided tour): capture each
+  // new nonce into `resetExplorationZoomNonce` (handed through ReadingBlock to
+  // ExplorationView as `forceResetExplorationZoom`) and clear the parent's
+  // one-shot. ExplorationView's OWN ref guard then calls `backToMap()` once
+  // and never fights the student's later zoom navigation. Mirrors
+  // `pendingOpenSearchCard`'s consume effect exactly.
+  const lastResetExplorationZoom = useRef<number | null>(null);
+  useEffect(() => {
+    if (pendingResetExplorationZoom && pendingResetExplorationZoom !== lastResetExplorationZoom.current) {
+      lastResetExplorationZoom.current = pendingResetExplorationZoom;
+      setResetExplorationZoomNonce(pendingResetExplorationZoom);
+      onPendingResetExplorationZoomConsumed?.();
+    }
+  }, [pendingResetExplorationZoom, onPendingResetExplorationZoomConsumed]);
+
   // `pendingMarkNodeRead` deep-link (P7 Task 4b — guided tour): capture each
   // new, distinct root-lead id into `demoReadRootIds` — ADDITIVELY (a Set
   // union, unlike every sibling effect above which REPLACES its local force*
@@ -1752,6 +1785,8 @@ export function WorkspaceContainer({
                 onForceViewConsumed={() => setReadingForceView(null)}
                 forceOpenSearchCard={searchCardForceNonce}
                 onForceOpenSearchCardConsumed={() => setSearchCardForceNonce(null)}
+                forceResetExplorationZoom={resetExplorationZoomNonce}
+                onForceResetExplorationZoomConsumed={() => setResetExplorationZoomNonce(null)}
                 demoReadRootIds={workspace?.isDemo ? demoReadRootIds : undefined}
                 demoAdoptedLeads={workspace?.isDemo ? demoAdoptedLeads : undefined}
                 demoAdoptedRefs={workspace?.isDemo ? demoAdoptedRefs : undefined}

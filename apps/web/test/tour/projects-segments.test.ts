@@ -20,6 +20,7 @@ function makeNav(mutate?: (n: TourNavContext) => void): TourNavContext {
     selectRefPanelTab: vi.fn(),
     setPlanView: vi.fn(),
     openSearchCard: vi.fn(),
+    resetExplorationZoom: vi.fn(),
     markDemoNodeRead: vi.fn(),
     markDemoNodeAdopted: vi.fn(),
   };
@@ -56,6 +57,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      resetExplorationZoom: vi.fn(),
       markDemoNodeRead: vi.fn(),
       markDemoNodeAdopted: vi.fn(),
     };
@@ -81,6 +83,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      resetExplorationZoom: vi.fn(),
       markDemoNodeRead: vi.fn(),
       markDemoNodeAdopted: vi.fn(),
         };
@@ -121,6 +124,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      resetExplorationZoom: vi.fn(),
       markDemoNodeRead: vi.fn(),
       markDemoNodeAdopted: vi.fn(),
     };
@@ -147,6 +151,7 @@ describe("projects segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      resetExplorationZoom: vi.fn(),
       markDemoNodeRead: vi.fn(),
       markDemoNodeAdopted: vi.fn(),
     };
@@ -345,7 +350,7 @@ describe("projects segments", () => {
   // P8 Task 13 · the writing walk drives the writing room to the exact doc + tab
   // where each anchor renders (setWritingView deep-link) — the tour couldn't
   // reach `writing-aicard` (proposal 片段) or `writing-review-trigger`
-  // (proposal 正文) without it.
+  // (essay 正文 — the FILLED essay body, not the empty proposal draft) without it.
   it("writing steps deep-link the right doc+tab via setWritingView", () => {
     const seg = projectsSegments.find((s) => s.id === "writing")!;
     const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
@@ -365,7 +370,7 @@ describe("projects segments", () => {
     expect(capture("writing-4")).toContainEqual(["setWritingView", { doc: "proposal", tab: "snippets" }]);
     expect(capture("writing-5")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
     expect(capture("writing-6")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
-    expect(capture("writing-8")).toContainEqual(["setWritingView", { doc: "proposal", tab: "draft" }]);
+    expect(capture("writing-8")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
     expect(capture("writing-10")).toContainEqual(["setWritingView", { doc: "essay", tab: "draft" }]);
   });
 

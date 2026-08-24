@@ -59,6 +59,12 @@ export interface ProjectsTabProps {
    * straight to WorkspaceContainer. */
   pendingOpenSearchCard?: number | null;
   onPendingOpenSearchCardConsumed?: () => void;
+  /** One-shot (bumped nonce): exit the open project's exploration graph
+   * "hole" zoom back to the Level-1 root map (the guided tour's P8
+   * `resetExplorationZoom` deep-link). Threaded straight to
+   * WorkspaceContainer. */
+  pendingResetExplorationZoom?: number | null;
+  onPendingResetExplorationZoomConsumed?: () => void;
   /** One-shot: demo-badge this root-lead id as 已读 (the guided tour's P7
    * Task 4b `markDemoNodeRead` deep-link, fired when the tour returns from
    * the read-only demo reading room). Threaded straight to
@@ -105,6 +111,8 @@ export function ProjectsTab({
   onPendingPlanViewConsumed,
   pendingOpenSearchCard,
   onPendingOpenSearchCardConsumed,
+  pendingResetExplorationZoom,
+  onPendingResetExplorationZoomConsumed,
   pendingMarkNodeRead,
   onPendingMarkNodeReadConsumed,
   pendingDemoAdopt,
@@ -187,6 +195,8 @@ export function ProjectsTab({
             onPendingPlanViewConsumed={onPendingPlanViewConsumed}
             pendingOpenSearchCard={pendingOpenSearchCard}
             onPendingOpenSearchCardConsumed={onPendingOpenSearchCardConsumed}
+            pendingResetExplorationZoom={pendingResetExplorationZoom}
+            onPendingResetExplorationZoomConsumed={onPendingResetExplorationZoomConsumed}
             pendingMarkNodeRead={pendingMarkNodeRead}
             onPendingMarkNodeReadConsumed={onPendingMarkNodeReadConsumed}
             pendingDemoAdopt={pendingDemoAdopt}

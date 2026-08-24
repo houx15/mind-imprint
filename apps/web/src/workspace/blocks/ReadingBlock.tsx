@@ -91,6 +91,8 @@ export function ReadingBlock({
   onForceViewConsumed,
   forceOpenSearchCard,
   onForceOpenSearchCardConsumed,
+  forceResetExplorationZoom,
+  onForceResetExplorationZoomConsumed,
   demoReadRootIds,
   demoAdoptedLeads,
   demoAdoptedRefs,
@@ -118,6 +120,13 @@ export function ReadingBlock({
   // nonce, not a value, since "open the modal" carries no payload.
   forceOpenSearchCard?: number | null;
   onForceOpenSearchCardConsumed?: () => void;
+  // P8 · the guided tour's `resetExplorationZoom` deep-link — forwarded
+  // straight through to ExplorationView (this room owns no state of its own
+  // for it; the "hole" zoom + its ref-guarded one-shot both live in
+  // ExplorationView). A bumped nonce, not a value, since "exit the hole"
+  // carries no payload. Mirrors `forceOpenSearchCard` exactly.
+  forceResetExplorationZoom?: number | null;
+  onForceResetExplorationZoomConsumed?: () => void;
   // P7 Task 4b · the guided tour's demo-only "just read" root-id override
   // (WorkspaceContainer's `demoReadRootIds`) — forwarded straight through to
   // ExplorationView, which merges it into `readByRoot` before handing that to
@@ -601,6 +610,8 @@ export function ReadingBlock({
               refreshNonce={refreshNonce}
               forceOpenSearchCard={forceOpenSearchCard}
               onForceOpenSearchCardConsumed={onForceOpenSearchCardConsumed}
+              forceResetExplorationZoom={forceResetExplorationZoom}
+              onForceResetExplorationZoomConsumed={onForceResetExplorationZoomConsumed}
               demoReadRootIds={demoReadRootIds}
               demoAdoptedLeads={demoAdoptedLeads}
               demoAdoptedRefs={demoAdoptedRefs}

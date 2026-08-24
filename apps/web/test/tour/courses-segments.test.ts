@@ -49,6 +49,7 @@ describe("courses segments", () => {
       selectRefPanelTab: vi.fn(),
       setPlanView: vi.fn(),
       openSearchCard: vi.fn(),
+      resetExplorationZoom: vi.fn(),
       markDemoNodeRead: vi.fn(),
       markDemoNodeAdopted: vi.fn(),
     };

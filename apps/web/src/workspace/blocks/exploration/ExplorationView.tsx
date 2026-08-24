@@ -135,6 +135,16 @@ export type ExplorationViewProps = {
   /** Fired once right after `forceOpenSearchCard` has been applied, so the
    * caller can retract it (mirrors every other force* one-shot). */
   onForceOpenSearchCardConsumed?: () => void;
+  /** P8 · the guided tour's `resetExplorationZoom` deep-link — a bumped nonce
+   * (forwarded from WorkspaceContainer/ReadingBlock) that calls `backToMap()`
+   * once per new value, exiting the "hole" zoom back to the Level-1 root map.
+   * Ref-guarded: applied at most once per distinct value, never re-fights the
+   * student's own later zoom navigation. Mirrors `forceOpenSearchCard`
+   * exactly. */
+  forceResetExplorationZoom?: number | null;
+  /** Fired once right after `forceResetExplorationZoom` has been applied, so
+   * the caller can retract it (mirrors every other force* one-shot). */
+  onForceResetExplorationZoomConsumed?: () => void;
   /** P7 Task 4b · the guided tour's demo-only "just read" root-id override
    * (`TourNavContext.markDemoNodeRead`, accumulated in WorkspaceContainer as
    * `demoReadRootIds`) — merged into the data-derived `readByRoot` (below)
@@ -175,6 +185,8 @@ export function ExplorationView({
   aiSide = "left",
   forceOpenSearchCard,
   onForceOpenSearchCardConsumed,
+  forceResetExplorationZoom,
+  onForceResetExplorationZoomConsumed,
   demoReadRootIds,
   demoAdoptedLeads,
   demoAdoptedRefs,
@@ -382,6 +394,20 @@ export function ExplorationView({
     setShowSearchCard(true);
     onForceOpenSearchCardConsumed?.();
   }, [forceOpenSearchCard, onForceOpenSearchCardConsumed]);
+
+  // P8 · guided-tour deep-link: apply `forceResetExplorationZoom` once
+  // (ref-guarded, mirrors `forceOpenSearchCard` directly above) so a tour step
+  // can exit the "hole" zoom back to the Level-1 root map deterministically —
+  // the root map's `warren-node-read` 已读 badge only renders `!inHole`, so a
+  // step spotlighting it must land here first. Same per-mount ref-guard +
+  // upstream-retraction shape as `forceOpenSearchCard`.
+  const lastResetExplorationZoom = useRef<number | null>(null);
+  useEffect(() => {
+    if (!forceResetExplorationZoom || lastResetExplorationZoom.current === forceResetExplorationZoom) return;
+    lastResetExplorationZoom.current = forceResetExplorationZoom;
+    backToMap();
+    onForceResetExplorationZoomConsumed?.();
+  }, [forceResetExplorationZoom, onForceResetExplorationZoomConsumed]);
 
   async function runControlsSearch(keyword: string) {
     const kw = keyword.trim();

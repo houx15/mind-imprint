@@ -88,6 +88,15 @@ export interface TourNavContext {
    *  once. Assumes the reading room is already open on the 探索图谱 view (drive
    *  there first with `setStudioRoom("reading")` + `setReadingView("graph")`). */
   openSearchCard: () => void;
+  /** P8: exit the exploration graph's "hole" zoom (a drilled-in
+   *  QuestionMindmap view) back to the Level-1 root map, client-side only —
+   *  used before spotlighting the root map's 已读 badge (which only renders
+   *  `!inHole`). Sets `pendingResetExplorationZoom` (a bumped nonce — the
+   *  action carries no payload) in WorkspaceContainer, threaded through
+   *  ReadingBlock to ExplorationView as a ref-guarded one-shot that calls its
+   *  own `backToMap()` once. Mirrors `openSearchCard`'s nonce shape exactly.
+   *  Assumes the reading room is already open on the 探索图谱 view. */
+  resetExplorationZoom: () => void;
   /** P7 (Task 4b): demo-badge one warren-map root as 已读, client-side only —
    * called when the tour returns from the read-only demo reading room
    * (`openDemoReadingRoom`). The demo project's tour-read reference

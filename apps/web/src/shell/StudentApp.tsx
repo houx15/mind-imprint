@@ -109,6 +109,12 @@ export function StudentApp({
   // the guided tour (TourNavContext.openSearchCard, P7). Consumed by
   // ProjectsTab/WorkspaceContainer on entry.
   const [pendingOpenSearchCard, setPendingOpenSearchCard] = useState<number | null>(null);
+  // One-shot signal (a bumped nonce — the action carries no payload) to exit
+  // the open project's exploration graph "hole" zoom back to the Level-1 root
+  // map, driven by the guided tour (TourNavContext.resetExplorationZoom, P8).
+  // Consumed by ProjectsTab/WorkspaceContainer/ReadingBlock on entry. Mirrors
+  // pendingOpenSearchCard's nonce shape exactly.
+  const [pendingResetExplorationZoom, setPendingResetExplorationZoom] = useState<number | null>(null);
   // One-shot demo-badge-as-已读 root-lead id, driven by the guided tour
   // (TourNavContext.markDemoNodeRead, P7 Task 4b) when it returns from the
   // read-only demo reading room. Consumed by ProjectsTab/WorkspaceContainer,
@@ -223,6 +229,12 @@ export function StudentApp({
     // action → bump a nonce so a repeat call (same step re-entered) still
     // fires the one-shot downstream.
     openSearchCard: () => setPendingOpenSearchCard((n) => (n ?? 0) + 1),
+    // P8: exit the open project's exploration graph "hole" zoom back to the
+    // Level-1 root map — used before spotlighting the root map's 已读 badge
+    // (`warren-node-read`, which only renders `!inHole`). Void action → bump a
+    // nonce so a repeat call (same step re-entered) still fires the one-shot
+    // downstream.
+    resetExplorationZoom: () => setPendingResetExplorationZoom((n) => (n ?? 0) + 1),
     // P7 Task 4b: demo-badge a warren-map root as 已读 — fired when the tour
     // returns from the read-only demo reading room. Client-only override
     // (the demo project is write-blocked); accumulated downstream, never
@@ -292,6 +304,8 @@ export function StudentApp({
         onPendingPlanViewConsumed={() => setPendingPlanView(null)}
         pendingOpenSearchCard={pendingOpenSearchCard}
         onPendingOpenSearchCardConsumed={() => setPendingOpenSearchCard(null)}
+        pendingResetExplorationZoom={pendingResetExplorationZoom}
+        onPendingResetExplorationZoomConsumed={() => setPendingResetExplorationZoom(null)}
         pendingMarkNodeRead={pendingMarkNodeRead}
         onPendingMarkNodeReadConsumed={() => setPendingMarkNodeRead(null)}
         pendingDemoAdopt={pendingDemoAdopt}

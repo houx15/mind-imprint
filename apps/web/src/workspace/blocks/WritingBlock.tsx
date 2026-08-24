@@ -537,16 +537,36 @@ export function WritingBlock({
             </div>
           </div>
         ) : (
-          <DraftPane
-            projectId={projectId}
-            title={title}
-            locked={locked}
-            onFocusPart={setFocusPart}
-            registerInsert={(fn) => { insertTarget.current = fn; onInsertReady?.(!!fn); }}
-            registerScroll={(fn) => { scrollTarget.current = fn; }}
-            pendingReview={pendingReview}
-            onPendingReviewHandled={() => setPendingReview(null)}
-          />
+          <div className="flex min-h-0 flex-1 flex-col">
+            {/* P8 demo slice: the ESSAY 正文/draft branch had no review-trigger at
+                all, so the demo could show 批注 in the AI批注 panel but never HOW
+                it gets triggered against the essay body. Mirrors the proposal's
+                isDemo disabled copy above — no onClick, read-only. */}
+            {isDemo && (
+              <div className="flex flex-none items-center gap-2 border-b border-mk-border bg-mk-surface px-8 py-2">
+                <button
+                  type="button"
+                  data-tour="writing-review-trigger"
+                  disabled
+                  className="rounded-mk-md bg-mk-accent px-3 py-1 text-[12px] font-bold text-white disabled:cursor-not-allowed disabled:opacity-50 disabled:hover:bg-mk-accent"
+                  title="演示项目为只读，无法运行批注"
+                >
+                  让印记通读并批注
+                </button>
+                <span className="text-[12px] text-mk-muted">批注会出现在左侧「材料 · AI批注」里。</span>
+              </div>
+            )}
+            <DraftPane
+              projectId={projectId}
+              title={title}
+              locked={locked}
+              onFocusPart={setFocusPart}
+              registerInsert={(fn) => { insertTarget.current = fn; onInsertReady?.(!!fn); }}
+              registerScroll={(fn) => { scrollTarget.current = fn; }}
+              pendingReview={pendingReview}
+              onPendingReviewHandled={() => setPendingReview(null)}
+            />
+          </div>
         )}
       </div>
 
