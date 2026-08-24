@@ -155,74 +155,114 @@ describe("projects segments", () => {
     expect(calls).toContainEqual(["setReadingView", "list"]);
   });
 
-  // P6 Task 7 · reading-room is now the REAL immersive 精读 walk: its first
-  // step opens the demo reading room, and every step spotlights a real rr-*
-  // anchor with a non-center placement.
-  it("reading-room opens the demo reading room and spotlights the real rr-* anchors", () => {
+  // P8 Task 12 · reading-room is the REAL immersive 精读 walk: its first step
+  // opens the demo reading room, a highlighted `<mark>` click reveals the real
+  // rr-inline-card lens, and every step spotlights a real anchor with a
+  // non-center placement.
+  it("reading-room opens the demo reading room and spotlights the real rr-* anchors (+ inline-card click)", () => {
     const seg = projectsSegments.find((s) => s.id === "reading-room")!;
 
     // step 0's onEnter opens the immersive 精读 room.
     const calls: string[] = [];
-    const nav: TourNavContext = {
-      setTab: vi.fn(),
-      openCourse: vi.fn(),
-      setCoursesSub: vi.fn(),
-      openDemoProject: vi.fn(),
-      setStudioRoom: vi.fn(),
-      openDemoReport: vi.fn(),
-      setReadingView: vi.fn(),
-      openDemoReadingRoom: vi.fn(() => calls.push("openDemoReadingRoom")),
-      setWritingView: vi.fn(),
-      selectRefPanelTab: vi.fn(),
-      setPlanView: vi.fn(),
-      openSearchCard: vi.fn(),
-      markDemoNodeRead: vi.fn(),
-      markDemoNodeAdopted: vi.fn(),
-    };
-    seg.steps[0]!.onEnter?.(nav);
+    seg.steps[0]!.onEnter?.(makeNav((n) => (n.openDemoReadingRoom = vi.fn(() => calls.push("openDemoReadingRoom")))));
     expect(calls).toContain("openDemoReadingRoom");
 
-    // every step is a real, non-center spotlight of an rr-* anchor.
+    // every step is a real, non-center spotlight of an rr-*/mark anchor, in
+    // the click-highlight → inline-card → chat → deck → notes → finish order.
     expect(seg.steps.map((s) => s.anchor)).toEqual([
       '[data-tour="rr-article"]',
+      '[data-tour="rr-article"] mark',
+      '[data-tour="rr-inline-card"]',
       '[data-tour="rr-chat"]',
       '[data-tour="rr-deck"]',
       '[data-tour="rr-notes"]',
       '[data-tour="rr-finish"]',
     ]);
     for (const s of seg.steps) expect(s.placement).not.toBe("center");
+
+    // the highlight click is the segment's one action step, gated on the same
+    // selector as its anchor.
+    const actionSteps = seg.steps.filter((s) => s.advance === "action");
+    expect(actionSteps.map((s) => s.id)).toEqual(["reading-room-1"]);
+    expect(actionSteps[0]!.actionEvent).toEqual({ selector: '[data-tour="rr-article"] mark', type: "click" });
   });
 
-  // P7 Task 9 · the exploration walk's single reachable ACTION step is the
-  // drill-into-a-question gesture (reading-warren-6): clicking a real
-  // warren-question root card zooms into its Level-2 layer. Every other
-  // exploration beat is a "next" step (spotlight or narrated) — an action gated
-  // on the selection-only find controls would dead-end the tour.
-  it("reading-warren has exactly one action step, the real warren-question drill-in", () => {
+  // P8 Task 12, ruling 5 · 我的笔记 is reworded student-relatable copy with no
+  // forward reference to evaluation.
+  it("reading-room-5 (我的笔记) never mentions evaluation", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-room")!;
+    const step = seg.steps.find((s) => s.id === "reading-room-5")!;
+    expect(step.anchor).toBe('[data-tour="rr-notes"]');
+    expect(step.text).not.toMatch(/评估/);
+    expect(step.text).toContain("印记不替你写");
+  });
+
+  // P8 Task 12 · the exploration walk now runs the REAL search→adopt scene:
+  // 检索卡 close → drill-into-question → 建议检索方向 → 搜索 → open a paper →
+  // 采纳, in that order, each gated on its own real `[data-tour=…]` selector.
+  it("reading-warren's action steps run the real 检索卡-close→drill→search→adopt scene in order", () => {
     const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
     const actions = seg.steps.filter((s) => s.advance === "action");
-    expect(actions.length).toBe(1);
-    const step = actions[0]!;
-    expect(step.id).toBe("reading-warren-6");
-    expect(step.actionEvent).toEqual({ selector: '[data-tour="warren-question"]', type: "click" });
-    expect(step.anchor).toBe('[data-tour="warren-question"]');
-    expect(step.placement).not.toBe("center");
+    expect(actions.map((s) => s.id)).toEqual([
+      "reading-warren-4",
+      "reading-warren-6",
+      "reading-warren-7",
+      "reading-warren-8",
+      "reading-warren-9",
+      "reading-warren-11",
+    ]);
+    expect(actions.map((s) => s.actionEvent?.selector)).toEqual([
+      '[data-tour="search-card"] button',
+      '[data-id="00000000-0000-0000-0000-000000000292"] [data-tour="warren-question"]',
+      '[data-tour="explore-directions"]',
+      '[data-tour="explore-search"]',
+      '[data-tour="explore-result"]',
+      '[data-tour="explore-adopt"]',
+    ]);
+    for (const s of actions) {
+      expect(s.actionEvent?.type).toBe("click");
+      expect(s.placement).not.toBe("center");
+    }
   });
 
-  // P7 Task 9 · the exploration walk spotlights the real search/needs controls
-  // and opens the static 检索卡 modal (openSearchCard) — all reachable read-only.
-  it("reading-warren spotlights search-card-trigger + needs-resources and opens 检索卡", () => {
+  // P8 Task 12 · the drill step is scoped to the ONE root the demo seeded a
+  // real 2nd layer under (…0292) — not the generic `warren-question` selector
+  // every root card carries — so the search/adopt scene downstream lands
+  // somewhere real.
+  it("reading-warren-6 (drill) is scoped to root …0292 via a data-id ancestor selector", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
+    const step = seg.steps.find((s) => s.id === "reading-warren-6")!;
+    expect(step.anchor).toBe('[data-id="00000000-0000-0000-0000-000000000292"] [data-tour="warren-question"]');
+    expect(step.anchor).toContain('[data-tour="warren-question"]');
+  });
+
+  // P8 Task 12 · reading-warren-4 opens the real 检索卡 modal directly
+  // (openSearchCard) and requires closing it (its one <button>) before the
+  // tour continues — the modal stays mounted for many more real steps now, so
+  // nothing else would tear it down. reading-warren-5 spotlights 还需要探索.
+  it("reading-warren-4 opens 检索卡 via openSearchCard and gates on closing it; reading-warren-5 spotlights needs-resources", () => {
     const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
     const byId = (id: string) => seg.steps.find((s) => s.id === id)!;
-    expect(byId("reading-warren-4").anchor).toBe('[data-tour="search-card-trigger"]');
-    expect(byId("reading-warren-5").anchor).toBe('[data-tour="needs-resources"]');
 
-    const cardStep = byId("reading-warren-9");
+    const cardStep = byId("reading-warren-4");
     expect(cardStep.anchor).toBe('[data-tour="search-card"]');
     expect(cardStep.placement).not.toBe("center");
+    expect(cardStep.actionEvent).toEqual({ selector: '[data-tour="search-card"] button', type: "click" });
     const calls: string[] = [];
     cardStep.onEnter?.(makeNav((n) => (n.openSearchCard = vi.fn(() => calls.push("openSearchCard")))));
     expect(calls).toContain("openSearchCard");
+
+    expect(byId("reading-warren-5").anchor).toBe('[data-tour="needs-resources"]');
+  });
+
+  // P8 Task 12, ruling 1 · adopt never calls markDemoNodeAdopted itself — the
+  // real explore-adopt click (intercepted by ExplorationView's onDemoAdopt for
+  // the write-blocked demo project) does that; the tour step only clicks.
+  it("reading-warren-11 (采纳) has no onEnter and never calls markDemoNodeAdopted", () => {
+    const seg = projectsSegments.find((s) => s.id === "reading-warren")!;
+    const step = seg.steps.find((s) => s.id === "reading-warren-11")!;
+    expect(step.onEnter).toBeUndefined();
+    expect(step.anchor).toBe('[data-tour="explore-adopt"]');
   });
 
   // P7 Task 9 · 管理 walk drives the plan room to 甘特图 then 活动日志 via setPlanView.

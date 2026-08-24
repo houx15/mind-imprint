@@ -169,19 +169,24 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-warren-4",
-        // ⑥ 让印记建议检索方向 (P7 Task 9) — REAL spotlight of the controls
-        // column's 检索卡/建议方向 entry (`search-card-trigger`), which renders
-        // on the idle exploration view (map or hole, no node selected). The
-        // sibling「让印记建议检索方向」button in the same box has no anchor, so
-        // this trigger button is the reliable real target for the "怎么找" beat.
-        anchor: '[data-tour="search-card-trigger"]',
-        placement: "left",
-        text: "不知道搜什么、上哪找？让印记按你的研究问题**建议几个检索方向**；旁边这张**检索卡**还会教你怎么判断一条来源可不可信。",
-        advance: "next",
+        // 检索卡 (P8 Task 12): open the real static teaching modal directly via
+        // openSearchCard() (mirrors reading-room's openDemoReadingRoom pattern)
+        // instead of only narrating the trigger button. Moved out of last place
+        // in the segment (P7's spot), so the modal must be explicitly CLOSED —
+        // action-click its one `<button>` (the ✕) — before the tour continues;
+        // ExplorationView stays mounted for many more real steps now, so
+        // nothing else would tear the modal down for us.
+        onEnter: (nav) => nav.openSearchCard(),
+        anchor: '[data-tour="search-card"]',
+        placement: "bottom",
+        title: "检索卡：给来源做体检",
+        text: "读一篇之前，先看看这张**检索卡**——它把「怎么判断来源靠不靠谱」拆成一串可操作的问题（谁写的、什么时候、有没有依据……）。看完点右上角 **✕** 关掉它，我们接着往下走。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="search-card"] button', type: "click" },
       },
       {
         id: "reading-warren-5",
-        // ⑦ 还需要探索 (P7 Task 9) — REAL spotlight of the seeded resource-needs
+        // 还需要探索 (P7 Task 9) — REAL spotlight of the seeded resource-needs
         // box (migration 0087 seeded 3 rows into studio_state).
         anchor: '[data-tour="needs-resources"]',
         placement: "left",
@@ -190,56 +195,85 @@ export const projectsSegments: TourSegment[] = [
       },
       {
         id: "reading-warren-6",
-        // ④ drill-in (P7 Task 9) — REAL, reachable action: the map's root
-        // question cards carry `warren-question`; clicking one zooms into that
-        // question's real 2nd layer (Level-2 mindmap; read-only, no server
-        // write). The document-capture click delegate matches via
-        // `closest('[data-tour="warren-question"]')`, so a click on any root
-        // card (or its inner text) both zooms AND advances the step.
-        anchor: '[data-tour="warren-question"]',
+        // DRILL (P8 Task 12): the real, reachable action. Every root card
+        // carries the same generic `warren-question` anchor, but the search →
+        // adopt scene downstream needs to land on the ONE root the demo seeded
+        // a real 2nd layer under — …0292 "既然是最大碳排放国，为什么还能说治
+        // 理有决心？" (migrations 0087/0089; still 'open', unconnected). Scope
+        // the selector to that root via `[data-id="…"]` — @xyflow/react stamps
+        // every node's outer wrapper with `data-id={node.id}`, which equals the
+        // lead's UUID (`warrenLayout.ts`'s `id: r.id`) — so `document.
+        // querySelector`/`Element.closest()` both resolve exactly this card,
+        // not whichever root happens to render first.
+        anchor: '[data-id="00000000-0000-0000-0000-000000000292"] [data-tour="warren-question"]',
         placement: "bottom",
-        text: "点开一条问题线，**钻进去**——印记会顺着这个问题，帮你往下补充相关来源。",
+        text: "点开「既然是最大碳排放国，为什么还能说治理有决心？」这条问题线，**钻进去**——印记会顺着它帮你补充候选来源。",
         advance: "action",
-        actionEvent: { selector: '[data-tour="warren-question"]', type: "click" },
+        actionEvent: {
+          selector: '[data-id="00000000-0000-0000-0000-000000000292"] [data-tour="warren-question"]',
+          type: "click",
+        },
       },
       {
         id: "reading-warren-7",
-        // ⑤ search + 采纳/丢弃 (P7 Task 9) — NARRATED FALLBACK. The live find
-        // controls (`explore-find`/`explore-keyword`) and the candidate panel
-        // (`explore-suggestions`) only render after a Level-2 mindmap node is
-        // SELECTED, and Level-2 nodes carry NO `data-tour` anchor and there is
-        // no selection nav hook — so the tour can't deterministically click one
-        // (and an `action` step gated on an unreachable control would dead-end
-        // the tour, which only advances on the action). We narrate honestly.
-        // 铁律②: 印记 proposes, the student decides.
-        placement: "center",
-        title: "印记建议，你来决定",
-        text: "钻进去后，用「**找相似文献**」或换个关键词，让印记补充候选来源。它给出的每条候选都带着**标题、作者·年份·期刊、摘要**——**采纳还是丢弃，由你说了算**，印记只负责建议，绝不替你收进来。",
-        advance: "next",
+        // 建议检索方向 (P8 Task 12): REAL action — the controls column's idle
+        // page renders at both map- and hole-level whenever no node is
+        // selected, so this is reachable immediately after the drill above.
+        anchor: '[data-tour="explore-directions"]',
+        placement: "left",
+        text: "钻进来后，点「**让印记建议检索方向**」——它会照着这条问题，给你几个具体的检索方向。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="explore-directions"]', type: "click" },
       },
       {
         id: "reading-warren-8",
-        // ⑧⑨ add + where-to-enter-reading (P7 Task 9) — NARRATED. adopt/paste/
-        // enter-reading all 403 on the read-only demo, and `paper-enter-reading`
-        // lives on a selection-gated paper detail panel (see above). We narrate
-        // the gesture and hand off to the real immersive room via the deep-link
-        // in the next segment.
-        placement: "center",
-        text: "把有用的来源**采纳、收进来**（没有全文时，也能直接把正文粘进来）。挑好一篇，点「**进入阅读室**」，就能和印记逐句深读它——我这就带你进去看一篇。",
-        advance: "next",
+        // 搜索 (P8 Task 12): REAL action — clicking the first proposed
+        // direction's 搜索 button (the only row this anchor renders on).
+        anchor: '[data-tour="explore-search"]',
+        placement: "left",
+        text: "选一个方向，点「**搜索**」，让印记去找候选来源。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="explore-search"]', type: "click" },
       },
       {
         id: "reading-warren-9",
-        // 检索卡 (P7 Task 9) — REAL: `openSearchCard()` opens the static
-        // `SearchCardModal` (GET-only, no 403) via a ref-guarded one-shot. Kept
-        // LAST in the segment so the modal it leaves open is torn down cleanly
-        // by the next segment's `openDemoReadingRoom` (which unmounts the whole
-        // exploration view) — no stuck overlay, and no `action` step follows it.
-        onEnter: (nav) => nav.openSearchCard(),
-        anchor: '[data-tour="search-card"]',
-        placement: "bottom",
-        title: "检索卡：给来源做体检",
-        text: "读一篇之前，先看看这张**检索卡**——它把「怎么判断来源靠不靠谱」拆成一串可操作的问题（谁写的、什么时候、有没有依据……）。挑好、读透一篇来源前，常回来用它。",
+        // open a paper (P8 Task 12): REAL action — opens the first result's
+        // detail panel (title/authors/journal/abstract + adopt/discard/find).
+        anchor: '[data-tour="explore-result"]',
+        placement: "left",
+        text: "点开第一条候选，看看它的详细信息。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="explore-result"]', type: "click" },
+      },
+      {
+        id: "reading-warren-10",
+        // narrate 找相似 (P8 Task 12): no dedicated anchor for the 找相似
+        // button — narrated here, right where the candidate's detail is
+        // actually on screen. 铁律②: 印记 proposes, the student decides.
+        placement: "center",
+        title: "印记建议，你来决定",
+        text: "标题、作者·年份·期刊、摘要都在这儿了。你还能点「**找相似文献**」，让印记从这一篇顺藤摸瓜找更多——但采不采纳，永远是你说了算，印记只负责建议，绝不替你收进来。",
+        advance: "next",
+      },
+      {
+        id: "reading-warren-11",
+        // 采纳 (P8 Task 12): REAL action. The `inHole` branch of
+        // ExplorationView's `addFromDetail` is intercepted client-side for the
+        // write-blocked demo project (`onDemoAdopt`, wired in WorkspaceContainer
+        // — its presence IS the isDemo gate) and synthesizes a new connected
+        // lead + reference under the drilled root, no server write, no 403. The
+        // real click handler fires it — the tour step does NOT call
+        // `markDemoNodeAdopted` itself.
+        anchor: '[data-tour="explore-adopt"]',
+        placement: "left",
+        text: "把它**采纳到当前问题**下——它会作为一条新长出的候选，出现在探索图谱上。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="explore-adopt"]', type: "click" },
+      },
+      {
+        id: "reading-warren-12",
+        placement: "center",
+        text: "看——刚才采纳的这篇，已经作为新节点长在这条问题下面了。地图上的每一步，都是你自己做的决定。接下来我带你直接进去读一读它。",
         advance: "next",
       },
     ],
@@ -250,41 +284,67 @@ export const projectsSegments: TourSegment[] = [
     steps: [
       // Real-scene 精读: `openDemoReadingRoom()` (P6, Task 5) opens the REAL
       // immersive Reading Room on the demo's Nature paper as a read-only replay
-      // (seeded transcript + demoMode; every write path disabled). All five
-      // rr-* anchors render in demoMode (onSaveNote is still passed, so
-      // rr-notes mounts; its textarea is merely disabled).
+      // (seeded transcript + demoMode; every write path disabled). All rr-*
+      // anchors render in demoMode (onSaveNote is still passed, so rr-notes
+      // mounts; its textarea is merely disabled).
       {
         id: "reading-room-0",
+        // enter reading (P8 Task 12): the just-adopted paper's real 「进入阅读
+        // 室」 button lives on a selection-gated panel with no nav hook to
+        // reach it deterministically — so, same as before, openDemoReadingRoom
+        // jumps straight in. Narrated honestly (we didn't actually click it).
         onEnter: (nav) => nav.openDemoReadingRoom(),
         anchor: '[data-tour="rr-article"]',
         placement: "left",
         title: "精读室",
-        text: "这就是精读室——示例里，印记正陪 Phoebe 读那篇 Nature 论文。整篇正文都在这里，你可以逐句读、随时停下来追问。注意正文里几处**高亮的句子**——那是思维卡帮你划出来的关键句。",
+        text: "采纳的这篇来源，印记直接带你翻到了它的精读室——平时你会在新长出的节点上点「进入阅读室」。整篇正文都在这里，你可以逐句读、随时停下来追问。注意正文里几处**高亮的句子**——那是思维卡帮你划出来的关键句。",
         advance: "next",
       },
       {
         id: "reading-room-1",
+        // click a highlight → rr-inline-card (P8 Task 12): `<mark>` runs carry
+        // no `data-tour` of their own, but `[data-tour="rr-article"] mark` is a
+        // valid, reliable descendant selector for both `document.querySelector`
+        // (spotlight) and `Element.closest()` (the engine's action delegate) —
+        // resolves to the first highlighted run in document order.
+        anchor: '[data-tour="rr-article"] mark',
+        placement: "left",
+        text: "试着点一下正文里的**高亮句**——看看印记当时为什么划出它。",
+        advance: "action",
+        actionEvent: { selector: '[data-tour="rr-article"] mark', type: "click" },
+      },
+      {
+        id: "reading-room-2",
+        anchor: '[data-tour="rr-inline-card"]',
+        placement: "left",
+        text: "这张透镜卡划出了这句话，并抛给你一个要想清楚的问题。",
+        advance: "next",
+      },
+      {
+        id: "reading-room-3",
         anchor: '[data-tour="rr-chat"]',
         placement: "right",
         text: "一边读一边问印记：划一句、点一段，就能就这里和它讨论。示例里能看到用 CRAAP 透镜逐条盘问来源的真实对话。",
         advance: "next",
       },
       {
-        id: "reading-room-2",
+        id: "reading-room-4",
         anchor: '[data-tour="rr-deck"]',
         placement: "right",
         text: "卡住时，从「透镜库」召一张思维卡，用一套现成的方法拆解这篇来源——比如溯源、辨可信度。示例里这张卡已经跑过，把正文里几处关键句**划了出来**（就是你刚看到的高亮），一眼看清它在哪儿站得住、哪儿站不住。",
         advance: "next",
       },
       {
-        id: "reading-room-3",
+        id: "reading-room-5",
+        // reworded (P8 Task 12, ruling 5): student-relatable, no forward
+        // reference to evaluation.
         anchor: '[data-tour="rr-notes"]',
         placement: "left",
-        text: "「我的笔记」是你自己的空间——随手记下想法、疑问、要引用的点。它只属于你，不会喂给评估。",
+        text: "「我的笔记」是你自己的地盘——边读边写下想法、疑问、想引用的句子。印记不替你写，也不动它。",
         advance: "next",
       },
       {
-        id: "reading-room-4",
+        id: "reading-room-6",
         anchor: '[data-tour="rr-finish"]',
         placement: "bottom",
         text: "读完点「完成这篇」，它就带着你的笔记和判断收进文献库，写作时随手可取。",
