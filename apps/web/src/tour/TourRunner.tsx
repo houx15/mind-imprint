@@ -77,7 +77,6 @@ export function TourRunner() {
   // paint, so there's no flash of an off-screen popover — the layout effect
   // corrects position in the same commit the browser paints.
   const placement = t.step?.placement ?? "bottom";
-  const isActionStep = t.step?.advance === "action";
   useLayoutEffect(() => {
     if (!rect) return;
     const el = popRef.current;
@@ -86,12 +85,15 @@ export function TourRunner() {
     const vw = window.innerWidth, vh = window.innerHeight;
     const dims = { w: box.width, h: box.height };
     let { top, left } = clampToViewport({ top: box.top, left: box.left }, dims, { vw, vh }, VIEWPORT_MARGIN);
-    // Action steps: the user must be able to CLICK the highlighted target, so the
-    // popover must never sit on top of it (clamping a bottom-placed bubble on a
-    // bottom-of-page anchor pulled it up onto the button, eating the click — found
-    // in prod smoke). If the clamped box overlaps the padded anchor, move it to
-    // whichever side of the anchor has room (prefer above), then re-clamp.
-    if (isActionStep) {
+    // The popover must never sit on top of its own spotlight target — an action
+    // step needs the target CLICKABLE (a covering bubble eats the click — found
+    // in prod smoke), and a narration step needs it VISIBLE (a right-sidebar
+    // anchor with placement "left" whose clamped bubble lands back over the
+    // anchor hid the very button being introduced — 怎么进精读室 / 探索 box).
+    // Whenever the clamped box overlaps the padded anchor, move it to whichever
+    // side of the anchor has room (prefer above), then re-clamp. Applies to
+    // every anchored, non-center step (center steps never set `rect`).
+    {
       const a = { top: rect.top - PAD, left: rect.left - PAD, right: rect.right + PAD, bottom: rect.bottom + PAD };
       const overlaps = top < a.bottom && top + dims.h > a.top && left < a.right && left + dims.w > a.left;
       if (overlaps) {
@@ -101,7 +103,7 @@ export function TourRunner() {
       }
     }
     setClampState({ rect, placement, top, left });
-  }, [rect, placement, isActionStep]);
+  }, [rect, placement]);
 
   // Keyboard: Esc ends; Enter/→ advances a "next" step.
   useEffect(() => {
