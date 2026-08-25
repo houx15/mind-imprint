@@ -32,29 +32,36 @@
   --amber: #f0b354;
   --amber-tint: #33280f;
 
-  /* neutrals — deep-sea navy, the hero's palette carried through the page.
-     Names keep their old meaning: --white is the page base, --paper a
-     recessed band, --surface the raised panel that cards are cut from. */
-  --ink: #e9eff8;
-  --ink-2: #b4c1d4;
-  --muted: #8593a8;
-  --faint: #64728a;
-  --white: #0b1220;
-  --surface: #101a2a;
-  --paper: #080e1a;
-  --paper-2: #162233;
-  --cool: #0a1322;
-  --line: #1f2b40;
-  --line-2: #18222f;
-  --deep: #05090f;
+  /* neutrals — the page is pure black, so the ramp runs UPWARD from it. The
+     names keep their old meaning (--white is the page base, --paper a set-off
+     band, --surface the panel a card is cut from) but the DIRECTION flipped:
+     nothing can be recessed below black, so --deep, which used to be the
+     darkest band, is now the most lifted one. */
+  --ink: #eef3fa;
+  --ink-2: #b6c2d4;
+  --muted: #85919f;
+  --faint: #626e7d;
+  --white: #000000;
+  --surface: #0c1015;
+  --paper: #07090c;
+  --paper-2: #151a21;
+  --cool: #090d12;
+  --line: #222933;
+  --line-2: #171c23;
+  --deep: #0d1218;
   /* text that sits ON a brand fill — those fills are light now */
   --on-brand: #07101d;
 
-  --r-xs: 8px;
-  --r-sm: 12px;
-  --r: 16px;
-  --r-lg: 22px;
-  --r-xl: 28px;
+  /* Rounded boxes everywhere read as a prototype. The page now has exactly two
+     shapes: a pill, which is always something you can press, and a flat
+     rectangle, which is always a surface. Surfaces are told apart by shade and
+     hairline, never by their corners. */
+  --r-xs: 0;
+  --r-sm: 0;
+  --r: 0;
+  --r-lg: 0;
+  --r-xl: 0;
+  --r-pill: 999px;
 
   --maxw: 1200px;
   --gutter: 40px;
@@ -117,7 +124,7 @@ ol {
 :focus-visible {
   outline: 2px solid var(--primary);
   outline-offset: 3px;
-  border-radius: 4px;
+  border-radius: 0;
 }
 
 .ic {
@@ -348,7 +355,7 @@ html[lang="zh-CN"] .sec-title {
   font-family: inherit;
   font-weight: 600;
   font-size: 14.5px;
-  border-radius: var(--r-sm);
+  border-radius: var(--r-pill);
   padding: 11px 20px;
   cursor: pointer;
   border: 1px solid transparent;
@@ -371,7 +378,7 @@ html[lang="zh-CN"] .sec-title {
 .btn-lg {
   font-size: 16px;
   padding: 15px 28px;
-  border-radius: 14px;
+  border-radius: var(--r-pill);
 }
 .btn-primary {
   color: var(--on-brand);
@@ -501,7 +508,7 @@ nav.site-nav.stuck {
 .brand .mk {
   width: 28px;
   height: 28px;
-  border-radius: 9px;
+  border-radius: 0;
   background: var(--primary);
   display: grid;
   place-items: center;
@@ -522,16 +529,15 @@ nav.site-nav.stuck {
 .navlinks a {
   color: var(--ink-2);
   padding: 8px 14px;
-  border-radius: 10px;
+  border-radius: 0;
   transition: background 0.2s var(--ease), color 0.2s var(--ease);
 }
 .navlinks a:hover {
-  background: var(--paper-2);
   color: var(--ink);
 }
 .navlinks a[aria-current="page"] {
   color: var(--primary);
-  background: var(--primary-tint);
+  box-shadow: inset 0 -1px 0 var(--primary);
 }
 
 /* --- product dropdown ----------------------------------------------------
@@ -582,7 +588,7 @@ nav.site-nav.stuck {
 .navmenu-in {
   min-width: 310px;
   padding: 8px;
-  border-radius: 16px;
+  border-radius: 0;
   background: var(--surface);
   border: 1px solid var(--line);
   box-shadow:
@@ -595,7 +601,7 @@ nav.site-nav.stuck {
   display: grid;
   gap: 3px;
   padding: 11px 13px;
-  border-radius: 11px;
+  border-radius: 0;
 }
 .navmenu-in a b {
   font-size: 14.5px;
@@ -639,7 +645,7 @@ nav.site-nav.stuck {
   letter-spacing: 0.06em;
   color: var(--faint);
   padding: 7px 11px;
-  border-radius: 9px;
+  border-radius: 0;
   border: 1px solid var(--line);
   transition: border-color 0.2s var(--ease), color 0.2s var(--ease);
 }
@@ -655,7 +661,7 @@ nav.site-nav.stuck {
   width: 38px;
   height: 38px;
   border: 1px solid var(--line);
-  border-radius: 10px;
+  border-radius: 0;
   background: var(--surface);
   color: var(--ink);
   place-items: center;
@@ -974,7 +980,7 @@ nav.site-nav.stuck {
 .card {
   background: var(--surface);
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 0;
   padding: 30px;
   transition: border-color 0.3s var(--ease), transform 0.4s var(--ease),
     box-shadow 0.4s var(--ease);
@@ -987,7 +993,7 @@ nav.site-nav.stuck {
 .card .cardic {
   width: 44px;
   height: 44px;
-  border-radius: 13px;
+  border-radius: 0;
   display: grid;
   place-items: center;
   margin-bottom: 20px;
@@ -1052,7 +1058,7 @@ nav.site-nav.stuck {
 .figure {
   position: relative;
   border: 1.5px dashed var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 0;
   background: linear-gradient(135deg, var(--paper), var(--surface));
   display: grid;
   place-items: center;
@@ -1085,7 +1091,7 @@ nav.site-nav.stuck {
   width: 34px;
   height: 34px;
   margin: 0 auto 12px;
-  border-radius: 10px;
+  border-radius: 0;
   border: 1.5px solid var(--line);
   display: grid;
   place-items: center;
@@ -1155,7 +1161,7 @@ nav.site-nav.stuck {
 
 /* — callout / contrast pair ————————————————————————————————— */
 .callout {
-  border-radius: var(--r-lg);
+  border-radius: 0;
   padding: 28px 30px;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -1238,7 +1244,7 @@ nav.site-nav.stuck {
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 4px 9px;
-  border-radius: 6px;
+  border-radius: 0;
   background: var(--primary-tint);
   color: var(--primary);
 }
@@ -1263,7 +1269,7 @@ nav.site-nav.stuck {
 .tablewrap {
   overflow-x: auto;
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 0;
   background: var(--surface);
 }
 table.dt {
@@ -1305,7 +1311,7 @@ table.dt td .small {
 .stage {
   position: relative;
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   background: var(--surface);
   overflow: hidden;
   isolation: isolate;
@@ -1506,7 +1512,7 @@ table.dt td .small {
 .legend i {
   width: 11px;
   height: 11px;
-  border-radius: 3.5px;
+  border-radius: 0;
   display: block;
   border: 1px solid var(--line);
   background: var(--surface);
@@ -1643,7 +1649,7 @@ html:not(.js) .shotstack {
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   overflow: hidden;
   background: var(--surface);
 }
@@ -1693,7 +1699,7 @@ html:not(.js) .shotstack {
   display: grid;
   grid-template-columns: repeat(6, minmax(0, 1fr));
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 0;
   overflow: hidden;
   background: var(--surface);
 }
@@ -1750,7 +1756,7 @@ html:not(.js) .shotstack {
 }
 .axis {
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   overflow: hidden;
   background: var(--surface);
 }
@@ -1769,7 +1775,7 @@ html:not(.js) .shotstack {
 .axis .ai {
   width: 44px;
   height: 44px;
-  border-radius: 13px;
+  border-radius: 0;
   display: grid;
   place-items: center;
   background: var(--paper);
@@ -1816,7 +1822,7 @@ html:not(.js) .shotstack {
   font-size: 10.5px;
   font-weight: 600;
   color: var(--on-brand);
-  border-radius: 5px;
+  border-radius: 0;
   padding: 3px 7px;
   height: fit-content;
   flex-shrink: 0;
@@ -1869,7 +1875,7 @@ html:not(.js) .shotstack {
 }
 .tcard {
   border: 1px solid var(--line);
-  border-radius: 14px;
+  border-radius: 0;
   padding: 15px 18px;
   background: var(--surface);
   min-width: 190px;
@@ -1928,7 +1934,7 @@ html:not(.js) .shotstack {
 }
 .member .portrait {
   aspect-ratio: 4 / 5;
-  border-radius: var(--r-lg);
+  border-radius: 0;
   overflow: hidden;
 }
 .member .mname {
@@ -1997,7 +2003,7 @@ html:not(.js) .shotstack {
   padding: 22px 24px;
   border: 1px solid var(--line);
   border-left: 3px solid var(--accent);
-  border-radius: var(--r-sm);
+  border-radius: 0;
   background: var(--surface);
 }
 .redline .rn {
@@ -2023,7 +2029,7 @@ html:not(.js) .shotstack {
 .ctaband {
   position: relative;
   overflow: hidden;
-  border-radius: var(--r-xl);
+  border-radius: 0;
   background: var(--deep);
   color: var(--ink);
   padding: 72px 56px;
@@ -2075,7 +2081,7 @@ html:not(.js) .shotstack {
 }
 .pagelink {
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 0;
   padding: 28px 30px;
   display: flex;
   align-items: center;
@@ -2387,7 +2393,7 @@ footer.site-foot {
   align-items: start;
   padding: 22px 24px;
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 0;
   background: var(--surface);
   transition: border-color 0.28s var(--ease), background 0.28s var(--ease),
     transform 0.28s var(--ease);
@@ -2504,7 +2510,7 @@ footer.site-foot {
   overflow: hidden;
   padding: 34px 32px 32px;
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   background: var(--surface);
 }
 /* a hairline of the side's own colour, so the two read as opposed */
@@ -2581,7 +2587,7 @@ html[lang="zh-CN"] .split-side h3 {
   gap: 12px 14px;
   padding: 30px 26px;
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   background: var(--surface);
 }
 .formula .fq {
@@ -2788,7 +2794,7 @@ html[lang="zh-CN"] .split-side h3 {
   width: 38px;
   height: 38px;
   flex: none;
-  border-radius: 11px;
+  border-radius: 0;
   background: var(--primary-tint);
   border: 1px solid var(--primary-line);
   color: var(--primary);
@@ -2862,7 +2868,7 @@ html[lang="zh-CN"] .split-side h3 {
   font: inherit;
   padding: 11px 14px;
   border: 1px solid var(--line);
-  border-radius: var(--r-sm);
+  border-radius: 0;
   background: var(--surface);
   cursor: pointer;
   transition: border-color 0.28s var(--ease), background 0.28s var(--ease),
@@ -2911,7 +2917,7 @@ html[lang="zh-CN"] .split-side h3 {
   position: relative;
   margin-top: 26px;
   border: 1px solid var(--line);
-  border-radius: var(--r-lg);
+  border-radius: 0;
   background: var(--paper-2);
   padding: 30px 32px;
   display: grid;
@@ -2940,7 +2946,7 @@ html[lang="zh-CN"] .split-side h3 {
   font-weight: 600;
   letter-spacing: 0.08em;
   padding: 4px 9px;
-  border-radius: 6px;
+  border-radius: 0;
   color: var(--on-brand);
   background: var(--primary);
 }
@@ -2963,7 +2969,7 @@ html[lang="zh-CN"] .split-side h3 {
   padding: 15px 18px;
   border-left: 2px solid var(--primary);
   background: var(--surface);
-  border-radius: 0 var(--r-sm) var(--r-sm) 0;
+  border-radius: 0;
 }
 .axdet.a .dex {
   border-left-color: var(--accent);
@@ -3028,7 +3034,7 @@ html:not(.js) .axdet {
   align-items: start;
   padding: 20px 24px;
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 0;
   background: var(--surface);
   transition: border-color 0.35s var(--ease), transform 0.35s var(--ease);
 }
@@ -3093,7 +3099,7 @@ html:not(.js) .axdet {
   gap: 10px;
   padding: 30px 24px;
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   background: var(--surface);
 }
 .noiseq .nt {
@@ -3101,7 +3107,7 @@ html:not(.js) .axdet {
   place-items: center;
   gap: 6px;
   padding: 14px 18px;
-  border-radius: var(--r-sm);
+  border-radius: 0;
   border: 1px dashed var(--line);
   min-width: 116px;
 }
@@ -3186,7 +3192,7 @@ html:not(.js) .axdet {
   flex-direction: column;
   padding: 20px 22px 18px;
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 0;
   background: var(--surface);
   transition: border-color 0.3s var(--ease), transform 0.3s var(--ease),
     box-shadow 0.3s var(--ease);
@@ -3231,7 +3237,7 @@ html:not(.js) .axdet {
   font-size: 10px;
   letter-spacing: 0.06em;
   padding: 3px 8px;
-  border-radius: 5px;
+  border-radius: 0;
   background: var(--paper-2);
   color: var(--ink-2);
 }
@@ -3282,7 +3288,7 @@ html:not(.js) .axdet {
   min-height: clamp(230px, 27svh, 290px);
   padding: 30px 32px 28px;
   border: 1px solid var(--line);
-  border-radius: var(--r-xl);
+  border-radius: 0;
   background: var(--surface);
   transition: border-color 0.4s var(--ease), transform 0.5s var(--ease),
     box-shadow 0.5s var(--ease);
@@ -3366,7 +3372,7 @@ html[lang="zh-CN"] .ability h3 {
 }
 .rs-page {
   border: 1px solid var(--line);
-  border-radius: var(--r);
+  border-radius: 0;
   overflow: hidden;
   background: var(--surface);
   box-shadow: var(--shadow-lift);
@@ -3754,7 +3760,7 @@ html[lang="zh-CN"] .ab4 h3 {
 /* No frame, no chrome, no controls: the clip should read as a gesture, the way
    a GIF does, not as a video player parked on the page. */
 .dial-media {
-  border-radius: var(--r-lg);
+  border-radius: 0;
   overflow: hidden;
   background: var(--paper-2);
   box-shadow: var(--shadow-lift);
@@ -3884,5 +3890,284 @@ html[lang="zh-CN"] .closeline {
   .closerow {
     width: 86%;
     height: 58px;
+  }
+}
+
+/* --------------------------------------------- 23 完整案例 · the journey
+   Seven stations on one irregular line. The line is drawn per station rather
+   than as a single full-height path, so it stays continuous however tall each
+   station's asset turns out to be — the segments all begin and end on the same
+   x, and bend the other way each time.
+   ====================================================================== */
+.journeysec {
+  padding-top: clamp(56px, 8vh, 96px);
+}
+.journey {
+  display: grid;
+}
+.jstep {
+  display: grid;
+  grid-template-columns: 56px minmax(0, 300px) minmax(0, 1fr);
+  column-gap: clamp(18px, 3vw, 46px);
+  align-items: center;
+  padding: clamp(28px, 5vh, 58px) 0;
+}
+
+/* --- the line ---------------------------------------------------------- */
+.jrail {
+  position: relative;
+  align-self: stretch;
+  min-height: 120px;
+}
+.jline {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+  overflow: visible;
+}
+.jpath {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 1.6;
+  /* Drawn on as the station arrives. The dash length is in user units, before
+     the non-uniform stretch, so it only has to be longer than the path. */
+  stroke-dasharray: 190;
+  stroke-dashoffset: 190;
+  transition: stroke-dashoffset 1.4s var(--ease), stroke 0.8s var(--ease);
+}
+.jstep.in .jpath {
+  stroke-dashoffset: 0;
+  stroke: var(--accent-line);
+}
+.jnode {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 9px;
+  height: 9px;
+  margin: -4.5px 0 0 -4.5px;
+  border-radius: 50%;
+  background: var(--white);
+  border: 1.6px solid var(--line);
+  transform: translateX(var(--bend, 0));
+  transition: border-color 0.6s var(--ease), box-shadow 0.6s var(--ease);
+}
+.bend-l .jnode {
+  --bend: -20px;
+}
+.bend-r .jnode {
+  --bend: 20px;
+}
+.jstep.in .jnode {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 4px rgba(240, 148, 111, 0.13);
+}
+
+/* --- the name ---------------------------------------------------------- */
+.jn {
+  font-size: 11px;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+}
+.jk {
+  margin-top: 10px;
+  font-size: 12.5px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+}
+.jcopy h3 {
+  margin-top: 8px;
+  font-size: clamp(20px, 1.9vw, 26px);
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  line-height: 1.26;
+}
+html[lang="zh-CN"] .jcopy h3 {
+  letter-spacing: 0;
+}
+.jcopy p {
+  margin-top: 12px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.72;
+}
+
+/* --- the asset, which owns the whole right-hand side ------------------- */
+.jasset {
+  position: relative;
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+}
+.jasset img,
+.jasset video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+@media (max-width: 980px) {
+  .jstep {
+    grid-template-columns: 34px minmax(0, 1fr);
+    row-gap: 20px;
+    align-items: start;
+  }
+  .jrail {
+    grid-row: 1 / span 2;
+  }
+  .jnode {
+    top: 26px;
+  }
+  .bend-l .jnode,
+  .bend-r .jnode {
+    --bend: 0;
+  }
+  .jasset {
+    grid-column: 2;
+  }
+}
+
+/* A title whose second line is a whole quoted question has to set smaller, or
+   it wraps to a third line and runs off the dark half of the artwork, where it
+   loses its contrast. Both halves of the fix are needed: a smaller size, and a
+   measure wide enough to hold a 17-character question on one line (15em at
+   44px is 660px, and the line wants 750). */
+.pbanner.compact .page-title {
+  font-size: clamp(26px, 3.4vw, 44px);
+  line-height: 1.2;
+  max-width: 20em;
+}
+
+/* ------------------------------------- 24 courses · the three to open on
+   The category and the course name hold still on the left while the
+   recordings run past them, so the three read as one shelf rather than as
+   three unrelated demos. Driven by the site-wide `.scrub` engine.
+   ====================================================================== */
+.exsec {
+  padding-top: clamp(48px, 7vh, 84px);
+}
+.ex-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 380px) minmax(0, 1fr);
+  gap: clamp(28px, 4vw, 68px);
+  align-items: start;
+}
+.ex-rail {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  padding-top: 62px; /* clear the nav */
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+.ex-list {
+  list-style: none;
+  margin-top: 26px;
+  display: grid;
+  gap: 2px;
+}
+.exi {
+  padding: 18px 0 18px 18px;
+  border-left: 2px solid var(--line-2);
+  opacity: 0.32;
+  transition:
+    opacity 0.55s var(--ease),
+    border-color 0.55s var(--ease);
+}
+.exc {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+.exi h3 {
+  margin-top: 10px;
+  font-size: clamp(18px, 1.7vw, 23px);
+  font-weight: 800;
+  letter-spacing: -0.018em;
+  line-height: 1.32;
+}
+html[lang="zh-CN"] .exi h3 {
+  letter-spacing: 0;
+}
+.exi p {
+  margin-top: 10px;
+  font-size: 14.5px;
+  line-height: 1.7;
+  color: var(--muted);
+  max-width: 40ch;
+}
+.excourse[data-active="0"] .exi[data-i="0"],
+.excourse[data-active="1"] .exi[data-i="1"],
+.excourse[data-active="2"] .exi[data-i="2"],
+.excourse:not([data-active]) .exi[data-i="0"] {
+  opacity: 1;
+  border-left-color: var(--accent);
+}
+
+.ex-step {
+  padding: 9vh 0;
+  opacity: 1;
+}
+.ex-step:first-child {
+  padding-top: 7vh;
+}
+.ex-step:last-child {
+  padding-bottom: 10vh;
+}
+.ex-media {
+  background: var(--paper);
+  border: 1px solid var(--line-2);
+  overflow: hidden;
+}
+.ex-media video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* --- the catalogue, two rows deep until asked -------------------------- */
+.catclip {
+  position: relative;
+  overflow: hidden;
+  transition: max-height 0.5s var(--ease);
+}
+/* No fade over the last row: it lands on the subject tags and reads as a
+   rendering fault. The cut is clean and the button says what is behind it. */
+.catmore {
+  display: flex;
+  justify-content: center;
+  margin-top: 26px;
+}
+.catmore .ic,
+.catmore svg {
+  transition: transform 0.3s var(--ease);
+}
+.catmore .is-open svg {
+  transform: rotate(180deg);
+}
+
+@media (max-width: 980px) {
+  .ex-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  .ex-rail {
+    position: static;
+    height: auto;
+    padding-top: 0;
+  }
+  .exi {
+    opacity: 1;
+    border-left-color: var(--line);
+  }
+  .ex-step {
+    padding: 5vh 0;
   }
 }

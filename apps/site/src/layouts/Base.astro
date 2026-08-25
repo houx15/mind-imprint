@@ -258,10 +258,56 @@ const enHref = site + localePath("en", key);
           );
           if (count) count.textContent = (count.dataset.catcountTpl || "{n}").replace("{n}", String(shown));
         };
+        // Two rows, then a button. The clip height is measured from where the
+        // third row actually starts, so it survives cards of unequal height
+        // and any filter that changes how many there are.
+        const clip = root.querySelector<HTMLElement>("[data-catclip]");
+        const more = root.querySelector<HTMLButtonElement>("[data-catmore]");
+        let open = false;
+        const fit = () => {
+          if (!clip) return;
+          if (open) {
+            clip.style.maxHeight = "none";
+            clip.classList.add("open");
+            return;
+          }
+          clip.classList.remove("open");
+          const vis = cards.filter((c) => !c.hidden);
+          const tops = Array.from(new Set(vis.map((c) => c.offsetTop))).sort(
+            (a, b2) => a - b2,
+          );
+          if (tops.length <= 2) {
+            clip.style.maxHeight = "none";
+            if (more) more.hidden = true;
+            return;
+          }
+          if (more) more.hidden = false;
+          const gap = tops[1] - (tops[0] + (vis[0]?.offsetHeight ?? 0));
+          clip.style.maxHeight = `${tops[2] - tops[0] - gap}px`;
+        };
+        more?.addEventListener("click", () => {
+          open = !open;
+          more.textContent = open
+            ? more.dataset.less || ""
+            : more.dataset.more || "";
+          more.classList.toggle("is-open", open);
+          fit();
+        });
+
         btns.forEach((b) =>
-          b.addEventListener("click", () => apply(b.dataset.tag || "*")),
+          b.addEventListener("click", () => {
+            open = false;
+            if (more) {
+              more.textContent = more.dataset.more || "";
+              more.classList.remove("is-open");
+            }
+            apply(b.dataset.tag || "*");
+            fit();
+          }),
         );
         apply("*");
+        fit();
+        window.addEventListener("resize", fit, { passive: true });
       });
     </script>
   </body>

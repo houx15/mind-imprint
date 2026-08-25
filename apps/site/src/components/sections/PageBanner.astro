@@ -17,11 +17,14 @@ import { assetUrl } from "../../config";
 interface Props {
   /** Media key, e.g. "banner/about-v1.webp". */
   asset: string;
-  eyebrow: [string, string];
+  /** Omitted when the title already says what the page is. */
+  eyebrow?: [string, string];
   /** Two lines: the second is set in the softer weight. */
   title: [[string, string], [string, string]];
   lead: [string, string];
   mirror?: boolean;
+  /** For a long second line: sets the title smaller so it stays on the dark half. */
+  compact?: boolean;
   /** Accent for the eyebrow pip: "" | "a" | "g" | "m". */
   tone?: string;
 }
@@ -32,12 +35,13 @@ const {
   title,
   lead,
   mirror = false,
+  compact = false,
   tone = "",
 } = Astro.props;
 const lang = getLang(Astro.currentLocale);
 ---
 
-<section class={`pbanner ${tone}`}>
+<section class={`pbanner ${tone} ${compact ? "compact" : ""}`}>
   <div class="pb-media" data-parallax>
     <img
       src={assetUrl(asset)}
@@ -52,7 +56,9 @@ const lang = getLang(Astro.currentLocale);
   <div class="pb-grid"></div>
 
   <div class="pb-inner">
-    <div class="eyebrow rv"><span class="pip"></span>{t(lang, eyebrow[0], eyebrow[1])}</div>
+    {eyebrow && (
+      <div class="eyebrow rv"><span class="pip"></span>{t(lang, eyebrow[0], eyebrow[1])}</div>
+    )}
     <h1 class="page-title">
       <span class="rv-line" style="--i:0"><span>{t(lang, title[0][0], title[0][1])}</span></span>
       <span class="rv-line" style="--i:1"><span class="soft">{t(lang, title[1][0], title[1][1])}</span></span>

@@ -5,8 +5,46 @@ import CtaBand from "../../sections/CtaBand.astro";
 import Pager from "../../sections/Pager.astro";
 import PageBanner from "../../sections/PageBanner.astro";
 import { getLang, t } from "../../../i18n/utils";
+import { assetUrl } from "../../../config";
 
 const lang = getLang(Astro.currentLocale);
+
+/* ── three courses to open on ────────────────────────────────────────
+   One about what is going on inside her, two about how she handles what
+   comes at her from outside. Real recordings of the running product. */
+const examples: {
+  cat: [string, string];
+  zh: string;
+  en: string;
+  pz: string;
+  pe: string;
+  clip: string;
+}[] = [
+  {
+    cat: ["内在觉察", "Inner awareness"],
+    zh: "你身体里的小队：IFS 内在部分与注意力审计",
+    en: "The team inside you: IFS parts and an attention audit",
+    pz: "认出此刻替你说话的是哪一个部分，再回头审计一遍：这段时间，注意力究竟去了哪里。",
+    pe: "Notice which part of you is doing the talking — then audit where the last hour of attention actually went.",
+    clip: "courses/ifs-v1",
+  },
+  {
+    cat: ["批判性思维", "Critical thinking"],
+    zh: "SIFT 信息横向调查：从一条推文到一篇有立场的议论文",
+    en: "SIFT lateral reading: from a post to an argued essay",
+    pz: "一条没有出处的推文，横向核查追回一手来源，最后写成一篇有立场、有证据的议论文。",
+    pe: "One unsourced post, read laterally back to where it came from, and written up as an essay that takes a position and can defend it.",
+    clip: "courses/sift-v1",
+  },
+  {
+    cat: ["批判性思维", "Critical thinking"],
+    zh: "信息过滤神器：从 CRAAP 到 CRRAAB",
+    en: "The information filter: from CRAAP to CRRAAB",
+    pz: "把课本上的 CRAAP 补成 CRRAAB，练成一套她带得走的筛选手法，而不是一张要背的清单。",
+    pe: "Extend the textbook's CRAAP into CRRAAB, until it is a habit she carries rather than a checklist she recites.",
+    clip: "courses/craap-v1",
+  },
+];
 
 /* ── the card library (packages/contracts/cards) ────────────────────── */
 const cards: [string, string][] = [
@@ -100,7 +138,7 @@ const courseList: [number, string, string, string, string, string, string][] = [
 
 <PageBanner
   asset="banner/course-v1.webp"
-  eyebrow={["产品 · 课程与工具卡", "Product · courses & thinking cards"]}
+  eyebrow={["解决方案 · 课程与工具卡", "Solution · courses & thinking cards"]}
   title={[
     ["一门课，把一个思维方法", "A course coaches one thinking method"],
     ["带练到会用。", "until she can actually use it."],
@@ -111,21 +149,108 @@ const courseList: [number, string, string, string, string, string, string][] = [
   ]}
 />
 
-<section class="section">
-    <div class="container">
-            <Figure
-        class="rv-pop"
-        name="product-course-runtime"
-        asset="product/course-runtime-v1.webp"
-        ratio="16-9"
-        caption={t(
-          lang,
-          "《学术写作原来是这样》第 1 / 8 页：讲解里嵌着真实材料——哈佛与剑桥招生网站对书面作品的原文要求。页面底部写着「先看完本页内容，再继续」：课程按教学节奏推进，不按播放条推进。右侧「问印记」随时可以打断提问。",
-          "“What Academic Writing Really Is”, page 1 of 8. Real material sits inside the teaching — the actual wording Harvard and Cambridge use about written work. At the foot: read this page before continuing. The course is paced by teaching, not by a progress bar. The panel on the right takes a question at any moment.",
-        )}
-      />
+<!-- ═══════════════════════════════════════ THREE TO OPEN ON ══════ -->
+<!-- The category stays put on the left while the recordings run past it, so
+     the three read as one shelf rather than three unrelated demos. -->
+<section class="section exsec">
+  <div class="container wide">
+    <div class="scrub excourse">
+      <div class="ex-grid">
+        <aside class="ex-rail">
+          <div class="eyebrow" data-type>{t(lang, "课程示例", "Three courses")}</div>
+          <ol class="ex-list">
+            {examples.map((e, i) => (
+              <li class="exi" data-i={i}>
+                <div class="exc">{t(lang, e.cat[0], e.cat[1])}</div>
+                <h3>{t(lang, e.zh, e.en)}</h3>
+                <p>{t(lang, e.pz, e.pe)}</p>
+              </li>
+            ))}
+          </ol>
+        </aside>
 
-      <div class="grid-3" style="margin-top:56px">
+        <div class="scrub-steps ex-steps">
+          {examples.map((e) => (
+            <div class="scrub-step ex-step">
+              <div class="ex-media">
+                <video
+                  data-clip
+                  src={assetUrl(`${e.clip}.mp4`)}
+                  poster={assetUrl(`${e.clip}-poster.webp`)}
+                  muted
+                  playsinline
+                  preload="none"
+                  aria-label={t(lang, e.zh, e.en)}
+                ></video>
+              </div>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+  <section class="section band-paper">
+    <div class="container" data-catalog>
+      <div class="sec-head rv">
+        <div class="eyebrow"><span class="pip"></span>{t(lang, "课程库", "The catalogue")}</div>
+        <h2 class="sec-title">
+          <span data-count="33">33</span>{t(lang, " 门课，每一门都对得上某张官方评分表", " courses, each mapped onto a real mark scheme")}
+        </h2>
+        <p class="lead">
+          {t(
+            lang,
+            "一门课通常只用到三到五张工具卡。选课不按学科分，按学生这学期最缺的那一样能力分。",
+            "A course usually calls on three to five cards. They aren't sorted by subject but by the ability a student is short of this term.",
+          )}
+        </p>
+      </div>
+
+      <div class="catbar rv" style="margin-top:34px">
+        {courseTags.map(([k, zh, en], i) => (
+          <button class="catbtn" type="button" data-tag={k} aria-pressed={i === 0 ? "true" : "false"}>
+            {t(lang, zh, en)}
+          </button>
+        ))}
+        <span class="catcount" data-catcount data-catcount-tpl={t(lang, "{n} 门", "{n} courses")}></span>
+      </div>
+
+      <!-- Two rows to start with. Thirty-three cards at once is a wall, and a
+           wall is not a catalogue. -->
+      <div class="catclip" data-catclip>
+        <div class="catgrid rv">
+          {courseList.map(([n, zh, en, fz, fe, sysx, tags]) => (
+            <article class="catcard" data-tags={tags}>
+              <div class="cn">{String(n).padStart(2, "0")}</div>
+              <h4>{t(lang, zh, en)}</h4>
+              <div class="cf">{t(lang, fz, fe)}</div>
+              <div class="cs">
+                {sysx.split(" · ").map((x) => <span>{x}</span>)}
+              </div>
+            </article>
+          ))}
+        </div>
+      </div>
+      <div class="catmore">
+        <button
+          class="btn btn-outline"
+          type="button"
+          data-catmore
+          data-more={t(lang, "展开全部课程", "Show every course")}
+          data-less={t(lang, "收起", "Show fewer")}
+        >
+          {t(lang, "展开全部课程", "Show every course")}
+          <Icon name="arrow" />
+        </button>
+      </div>
+    </div>
+  </section>
+
+<section class="section cardsec">
+    <div class="container">
+
+      <div class="grid-3">
         <div class="card rv" style="--i:0">
           <div class="cardic a"><Icon name="cards" /></div>
           <h3>{t(lang, "一张卡是一套方法", "A card is a method, packaged")}</h3>
@@ -218,46 +343,6 @@ const courseList: [number, string, string, string, string, string, string][] = [
       </div>
     </div>
   </section>
-
-  <!-- the catalogue: every course we actually run -->
-  <section class="section band-paper">
-    <div class="container" data-catalog>
-      <div class="sec-head rv">
-        <div class="eyebrow"><span class="pip"></span>{t(lang, "课程库", "The catalogue")}</div>
-        <h2 class="sec-title">
-          <span data-count="33">33</span>{t(lang, " 门课，每一门都对得上某张官方评分表", " courses, each mapped onto a real mark scheme")}
-        </h2>
-        <p class="lead">
-          {t(
-            lang,
-            "一门课通常只用到三到五张工具卡。选课不按学科分，按学生这学期最缺的那一样能力分。",
-            "A course usually calls on three to five cards. They aren't sorted by subject but by the ability a student is short of this term.",
-          )}
-        </p>
-      </div>
-
-      <div class="catbar rv" style="margin-top:34px">
-        {courseTags.map(([k, zh, en], i) => (
-          <button class="catbtn" type="button" data-tag={k} aria-pressed={i === 0 ? "true" : "false"}>
-            {t(lang, zh, en)}
-          </button>
-        ))}
-        <span class="catcount" data-catcount data-catcount-tpl={t(lang, "{n} 门", "{n} courses")}></span>
-      </div>
-
-      <div class="catgrid rv">
-        {courseList.map(([n, zh, en, fz, fe, sysx, tags]) => (
-          <article class="catcard" data-tags={tags}>
-            <div class="cn">{String(n).padStart(2, "0")}</div>
-            <h4>{t(lang, zh, en)}</h4>
-            <div class="cf">{t(lang, fz, fe)}</div>
-            <div class="cs">
-              {sysx.split(" · ").map((x) => <span>{x}</span>)}
-            </div>
-          </article>
-        ))}
-      </div>
-    </div>
   </section>
 
 <CtaBand />
@@ -272,7 +357,12 @@ const courseList: [number, string, string, string, string, string, string][] = [
     {
       href: "/product",
       kicker: ["返回", "Back"],
-      title: ["产品总览", "Product overview"],
+      title: ["完整案例", "The full case"],
       body: ["四个部分，合起来是一条完整链路", "Four parts, one path end to end"],
     },
   ]} />
+
+<script>
+  import "../../../scripts/clip";
+  import "../../../scripts/typewriter";
+</script>

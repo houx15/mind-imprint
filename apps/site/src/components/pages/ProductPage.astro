@@ -1,329 +1,181 @@
 ---
-import Icon from "../Icon.astro";
-import Figure from "../Figure.astro";
+/**
+ * 完整案例 — one student, one piece of coursework, from the first lesson to
+ * the assessment.
+ *
+ * There is no index of surfaces here any more. A list of four products asks
+ * the reader to assemble the story themselves; the story IS the argument, so
+ * the page tells it straight through, and the four surfaces are reachable from
+ * the nav for anyone who wants the detail.
+ *
+ * The seven stations are strung on one irregular line that bends around each
+ * node — drawn per station rather than as a single full-height path, so it
+ * stays continuous no matter how tall each station's asset turns out to be.
+ */
 import CtaBand from "../sections/CtaBand.astro";
 import PageBanner from "../sections/PageBanner.astro";
-import { getLang, t, localePath } from "../../i18n/utils";
+import { getLang, t } from "../../i18n/utils";
 import { assetUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
-const L = (p: string) => localePath(lang, p);
 
-/* The four surfaces, in the order a school meets them. Each is its own page —
-   they are separate products in practice, and a tab strip buried three of
-   them. */
-const surfaces: {
-  icon: string;
-  href: string;
-  zh: string;
-  en: string;
-  pz: string;
-  pe: string;
-  tone: string;
-}[] = [
-  {
-    icon: "cards",
-    href: "/product/courses",
-    zh: "课程与工具卡",
-    en: "Courses & thinking cards",
-    pz: "AI 互动课堂，在真实情境中带着学生学会多项思维工具的应用。",
-    pe: "An interactive AI classroom that teaches a set of thinking tools by using them on real material.",
-    tone: "",
-  },
-  {
-    icon: "pen",
-    href: "/product/projects",
-    zh: "探究性写作空间",
-    en: "Inquiry writing space",
-    pz: "涵盖项目管理、立题、研究、写作、复盘全生命周期的多智能体写作教练，在真实项目中引导学生探索并独立完成课题。",
-    pe: "A multi-agent writing coach across the whole life cycle — planning, framing, research, writing, review — guiding a student through a real project she finishes herself.",
-    tone: "a",
-  },
-  {
-    icon: "gauge",
-    href: "/product/evaluation",
-    zh: "过程性评估报告",
-    en: "Process assessment report",
-    pz: "基于学生实际项目过程的系统评估报告，覆盖九大板块，包括认知深度与智识自主两大轴线，详细呈现学生认知过程。",
-    pe: "A systematic report built from the student's actual project record — nine sections, including the two axes, laying out how the thinking went.",
-    tone: "g",
-  },
-  {
-    icon: "users",
-    href: "/product/teacher",
-    zh: "教师端全过程数据监控",
-    en: "Teacher console",
-    pz: "让学生的 AI 使用过程可视化、可管理、可回溯，让过程性评估、家长报告一键生成。",
-    pe: "Makes each student's AI use visible, manageable and reviewable — and generates process assessments and family reports in one click.",
-    tone: "m",
-  },
-];
-
-/* ── the three surfaces this page is organised by ───────────────────── */
-const tabs: [string, string, string, string, string][] = [
-  ["courses", "课程", "Courses", "真实情境带练，习得思维工具", "Coached practice in real situations"],
-  ["projects", "项目", "Projects", "AI 全过程支持的探究性写作", "Inquiry writing, supported end to end"],
-  ["evaluation", "评估", "Evaluation", "基于 AI 互动全过程的思维印记评估", "Assessment from the full interaction record"],
-  ["teacher", "教师端", "Teachers", "全过程数据，可视化、可回溯", "The whole process, visible and reviewable"],
-];
-
-/* Each surface opens on its own artwork — the same set the sub-pages use. */
-const panelArt: Record<string, string> = {
-  courses: "banner/course-v1.webp",
-  projects: "banner/project-v1.webp",
-  evaluation: "banner/evaluation-v1.webp",
-  teacher: "banner/teacher-v1.webp",
-};
-
-/* ── the six-station inquiry spine ──────────────────────────────────── */
-const stations: [string, string, string, string, string, string, string][] = [
-  ["S1", "选题与研究问题", "Question", "把兴趣主题收窄为可回答的问题，限定对象、范围与比较关系。", "Narrow an interest into an answerable question — object, scope, comparison.", "问题链", "question chain"],
-  ["S2", "文献搜索与综述", "Sources", "从「找到资料」走向「让来源彼此对话」，并指认研究缺口。", "Move from finding material to making sources argue with each other.", "文献表格", "source table"],
-  ["S3", "研究方法设计", "Method", "比较方法候选，说明为什么这一种方法能回答这个问题。", "Compare candidate methods; say why this one answers this question.", "方法框架", "method frame"],
-  ["S4", "数据分析", "Data", "处理自己收集的证据，记录清洗、分析与不确定性。", "Work her own evidence — cleaning, analysis, and how certain she is.", "数据包", "data pack"],
-  ["S5", "学术写作", "Writing", "搭论证、接反方、写让步段，控制结论的强度。", "Build the argument, take the counter-case, bound the conclusion.", "修订稿", "revisions"],
-  ["S6", "项目管理", "Managing", "贯穿全程：定计划、发现计划失效、调整行动。", "Throughout: plan, notice the plan failing, adjust.", "项目日志", "project log"],
-];
-
-/* ── the card library (packages/contracts/cards) ────────────────────── */
-const cards: [string, string][] = [
-  ["CRAAP 信源体检", "CRAAP source check"],
-  ["SIFT 横向核查", "SIFT lateral reading"],
-  ["让步段", "Concession"],
-  ["图尔敏论证", "Toulmin argument"],
-  ["PEE 段落", "PEE paragraph"],
-  ["论证地图", "Argument map"],
-  ["提问卡", "Question card"],
-  ["兔子洞日志", "Rabbit-hole log"],
-  ["元认知复盘", "Metacognition"],
-  ["OPCVL 史料评估", "OPCVL source evaluation"],
-  ["话语分析 CDA", "Discourse analysis"],
-  ["资金链溯源", "Money trail"],
-  ["框定识别", "Spin detector"],
-  ["多模态甄别", "Multimodal decode"],
-  ["数据素养", "Data literacy"],
-  ["事实 / 观点 / 价值", "Fact · opinion · value"],
-  ["立场光谱", "Belief spectrum"],
-  ["视角对照矩阵", "Perspective matrix"],
-  ["认知者视角", "Knower's perspective"],
-  ["AI 边界声明", "AI boundary"],
-  ["AI 使用决策树", "AI decision tree"],
-  ["检索计划", "Search plan"],
-  ["伦理透镜", "Ethics lenses"],
-  ["情感对齐", "Emotional alignment"],
-  ["学习报告", "Learning report"],
-];
-
-/* ── the course catalogue (docs/reference/课程详细介绍) ─────────────────
-   Thirty-three real courses. `tags` drive the filter chips; a course can
-   carry more than one because most of them genuinely do. */
-const courseTags: [string, string, string][] = [
-  ["*", "全部", "All"],
-  ["src", "信息与信源", "Information & sources"],
-  ["data", "证据与数据", "Evidence & data"],
-  ["arg", "论证与写作", "Argument & writing"],
-  ["res", "研究与项目", "Research & projects"],
-  ["ai", "AI 与元认知", "AI & metacognition"],
-];
-const courseList: [number, string, string, string, string, string, string][] = [
-  [1, "把争议放回证据里：立场光谱与视角对照矩阵", "Put the dispute back on the evidence", "争议判断与来源评估", "Disputes and source assessment", "TOK · ESS · 思想政治", "src"],
-  [2, "当 AI 重写历史：历史图像的证据核查", "When AI rewrites history", "AI 时代历史图像核查", "Verifying historical images", "History · TOK · 信息技术", "src ai"],
-  [3, "信息过滤神器：从 CRAAP 到 CRRAAB", "The filter: from CRAAP to CRRAAB", "信息筛选与来源评价", "Filtering and evaluating sources", "EE · EPQ · 综合实践", "src"],
-  [4, "科学否认的五种手法：用 FLICC 拆两段气候视频", "Five moves of science denial: FLICC", "科学传播与否认手法识别", "Science communication and denial tactics", "ESS · Biology NOS · 科学", "src"],
-  [5, "一张图，四次翻案：OPCVL 史料评估", "One image, four reversals: OPCVL", "历史史料评估", "Historical source evaluation", "History P1 · DBQ · 历史", "src"],
-  [6, "事实、观点，还是价值判断？", "Fact, opinion, or value judgment?", "判断类型与论证回应", "Types of claim, and how to answer them", "TOK · IB English", "arg"],
-  [7, "信息交互能力工具包", "The information-handling toolkit", "公共议题信息整合", "Synthesising public-issue information", "Geography · Global Politics · 地理", "src"],
-  [8, "信息素养：从一句权威主张到多源核查写作", "From one authoritative claim to verified writing", "多源核查与证据写作", "Multi-source checking and evidence writing", "Geography · AP Seminar · 语文", "src arg"],
-  [9, "元认知：我怎么知道我没被自己骗？", "Metacognition: how do I know I haven't fooled myself?", "自我推理校准", "Calibrating your own reasoning", "TOK 核心主题", "ai"],
-  [10, "可比性检验：先查四格，再判断", "Comparability check: four boxes before you judge", "证据可比性与冲突判断", "Comparability and conflicting evidence", "Biology IA · AP Statistics · 数学 · 生物", "data"],
-  [11, "哥伦布：英雄还是恶棍？OPCVL 多源综合", "Columbus: hero or villain? OPCVL across sources", "多源史料综合", "Synthesising multiple historical sources", "History P1+IA · 历史", "src"],
-  [12, "SIFT 信息横向调查：从一条微信到一篇有立场的议论文", "SIFT lateral reading: from a post to an argued essay", "学术写作与可持续议题论证", "Academic writing on a sustainability question", "ESS · AP Seminar · 语文", "src arg"],
-  [13, "威尼斯三选一：把一部纪录片写成一份站得住的建议", "Venice, three options: a defensible recommendation", "纪录片材料到建议写作", "From documentary material to a recommendation", "Geography 决策题 · 地理", "arg"],
-  [14, "英文学术写作：从论文结构到引用规范", "Academic writing in English: structure to citation", "英文学术论文写作", "Academic paper writing", "EE · AP Research · 英语", "arg"],
-  [15, "我们能多确定？证据语言的校准", "How sure can we be? Calibrating the language of evidence", "证据确定度校准", "Calibrating certainty", "TOK · Psychology · 语文", "data"],
-  [16, "当数字想骗你：数据三问", "When numbers want to fool you: three questions", "数据与统计素养", "Data and statistical literacy", "Math AI · AP Statistics · 数学", "data"],
-  [17, "数据分析：从研究问题到结果段落", "Data analysis: from question to results paragraph", "数据分析与结果表达", "Analysis and reporting results", "各科 IA · AP Research · 数学", "data res"],
-  [18, "查找信息：从搜索入口到可用资源", "Finding information: from the search box to a usable source", "学术检索与资源路径", "Academic search and source routes", "EE 研究过程 · EPQ · 信息技术", "res src"],
-  [19, "识别企业漂绿：Tesla ESG 证据链", "Spotting greenwashing: the Tesla ESG evidence chain", "ESG 漂绿证据链", "ESG greenwashing evidence chains", "Business Management · 思想政治", "data src"],
-  [20, "生成式 AI 时代的多模态信息甄别与可信判断", "Judging multimodal information in the age of generative AI", "AI 生成多模态信息可信判断", "Credibility of AI-generated media", "Digital Society · TOK · 信息技术", "src ai"],
-  [21, "电竞是不是体育？", "Is esports a sport?", "概念承认与证据射程", "Concept boundaries and evidential reach", "TOK 展览 · IB English", "arg"],
-  [22, "研究方法：从问题到可执行计划", "Research methods: from question to a workable plan", "研究设计与方法计划", "Research design and method planning", "EE/IA 方法 · AP Research · 综合实践", "res"],
-  [23, "影像侦探局：镜头在替谁说话", "The image detective: whose side is the camera on?", "视听语言与证据区分", "Audiovisual language versus evidence", "Film · Lang&Lit P1 · 语文跨媒介", "src"],
-  [24, "删得掉的让步段，不是让步段", "A concession you can delete was never a concession", "反方证据与论点限定", "Counter-evidence and bounding a claim", "Lang A P2 · AP Lang · 语文", "arg"],
-  [25, "逻辑侦探局：从拆案到立案的论证训练", "The logic detective: taking arguments apart and building them", "论证解剖与谬误识别", "Dissecting arguments, spotting fallacies", "TOK · IB English", "arg"],
-  [26, "语言如何塑造思维：五把工具扫描文本框定", "How language shapes thought: five tools for reading framing", "语言框定与文本扫描", "Framing in language, scanned", "TOK 语言主题 · AP Lang · 语文", "arg"],
-  [27, "追踪信息背后的利益链", "Following the money behind a claim", "利益链与资金来源核查", "Interests and funding trails", "Global Politics · 思想政治", "src"],
-  [28, "选题与 Proposal：从宽泛兴趣到可写研究提案", "Topic and proposal: from a broad interest to a writable question", "选题与 Proposal 写作", "Choosing a topic, writing a proposal", "EE 开题 · AP Research · 综合实践", "res"],
-  [29, "项目管理：把长期探究变成一周冲刺", "Project management: a long inquiry as weekly sprints", "长期探究项目管理", "Managing a long inquiry", "EE/CAS · EPQ log · 综合实践", "res"],
-  [30, "问得好，AI 才会答得妙：提示词如何写", "Ask well and the AI answers well: writing prompts", "AI 提问与提示词设计", "Asking AI well: prompt design", "Digital Society · TOK · AP Seminar", "ai"],
-  [31, "你身体里的小队：IFS 内在部分与注意力审计", "The team inside you: IFS parts and an attention audit", "内在部分识别", "Recognising your inner parts", "心理健康教育", "ai"],
-  [32, "向内探索：三个视角与变革免疫地图", "Looking inward: three perspectives and immunity to change", "主客体转换与变革免疫", "Subject-object shift and immunity to change", "心理健康教育", "ai"],
-  [33, "AI 公司的「焚书坑儒」", "Who paid for the AI?", "谁为 AI 付了账：AI 伦理", "Who paid for the AI: AI ethics", "AI 伦理 · Digital Society", "ai"],
-];
-
-/* ── one real inquiry, walked across all three surfaces ─────────────── */
-const walk: {
+type Station = {
   k: [string, string];
   h: [string, string];
   p: [string, string];
-  href: string;
+  /** Media key without extension; `clip` says whether it moves. */
   asset: string;
-  /** Media key, when the screenshot exists. Absent = labelled empty slot. */
-  shot?: string;
-  brief: [string, string];
-}[] = [
+  clip?: boolean;
+  alt: [string, string];
+};
+
+const stations: Station[] = [
   {
-    k: ["课程与工具卡", "Courses & thinking cards"],
-    h: ["方法先在课上学会", "She learns the method in class first"],
+    k: ["课程", "The course"],
+    h: ["情境化的知识输入", "Knowledge, delivered in a situation"],
     p: [
-      "《信息过滤神器》用一条真实的气候信息带她走完 CRAAP 与 SIFT。课程结束时，她手上多了两张能带进任何课题的工具卡。",
-      "“The Information Filter” walks her through CRAAP and SIFT on a real piece of climate reporting. She finishes the course holding two cards she can take into any piece of coursework.",
+      "通过案例学习，系统了解顶尖名校对学术写作的标准。",
+      "She learns what the best universities actually ask of academic writing — through a case, not a checklist.",
     ],
-    href: "/product/courses",
-    asset: "walk-01-course",
-    shot: "product/course-runtime-v1.webp",
-    brief: ["课程播放界面：素材 + 旁白 + 递出的工具卡", "The course player: material, narration, and the card being handed over"],
+    asset: "case/01-course-v1.webp",
+    alt: ["课程页：哈佛与剑桥招生网站对书面作品的原文要求", "The course page: what Harvard and Cambridge really say about written work"],
   },
   {
-    k: ["立题与提案", "Framing and the proposal"],
-    h: ["把一个大问题收窄成能回答的问题", "Narrowing a big question into an answerable one"],
+    k: ["立题", "Framing"],
+    h: ["与 AI 一同讨论研究议题", "Talking the question through with the AI"],
     p: [
-      "教练逐项追问目标、缘由、活动与时间、资源与可能的反例，形成研究框架；系统据此生成项目计划与甘特图。她写出第一版提案，拿到分段批注。",
-      "The coach works through objective, motivation, activities and timeline, resources and likely counter-cases to build the research framework; the system generates the project plan and Gantt chart from it. She writes a first proposal and gets paragraph-level annotation back.",
+      "AI 引导学生把宽泛的想法，逐步定义成一个具体的研究主题。",
+      "The AI walks her from a broad interest to a subject specific enough to research.",
     ],
-    href: "/product/projects",
-    asset: "walk-02-proposal",
-    shot: "product/framing-v1.webp",
-    brief: ["提案页：左侧要点与批注，右侧写作区", "The proposal page: notes and annotations left, writing surface right"],
+    asset: "case/02-proposal-v1",
+    clip: true,
+    alt: ["立题：教练把模糊的主题追问成可回答的研究问题", "Framing: the coach pressing a vague topic into an answerable question"],
   },
   {
-    k: ["阅读室 · 溯源", "The reading room"],
-    h: ["一条没有出处的推文，追到 Nature", "An unsourced post, traced back to Nature"],
+    k: ["研究", "Research"],
+    h: ["系统化的溯源检索", "Searching, and tracing what she finds"],
     p: [
-      "推文说「全球变绿 40% 以上来自中国」。她横向核查：公众号 → NASA 发布稿 → Nature Sustainability 原论文，发现分母被换过——原文的 42% 说的是中国自身变绿里森林工程的占比。每一次来源评估都留在证据地图上。",
-      "The post claimed “over 40% of the Earth's greening comes from China”. She reads laterally — post, then the NASA release, then the Nature Sustainability paper — and finds the denominator was swapped: the original 42% is forest programmes' share of China's own greening. Every source assessment stays on the evidence map.",
+      "引导学生追溯每一条信息的来源，把检索做成研究。",
+      "She is walked back to where each claim came from, until searching becomes research.",
     ],
-    href: "/product/projects",
-    asset: "walk-03-reading",
-    brief: ["阅读室：原文 + 溯源链 + 证据地图", "The reading room: source text, provenance chain, evidence map"],
+    asset: "case/03-research-v1",
+    clip: true,
+    alt: ["溯源检索：从二手转述追回一手来源", "Tracing a claim from a second-hand retelling back to its source"],
   },
   {
-    k: ["兔子洞日志", "The rabbit-hole log"],
-    h: ["岔路也是过程的一部分", "A detour belongs on the record too"],
+    k: ["研究", "Research"],
+    h: ["兔子洞收集岔路的探索", "The rabbit hole keeps the detours"],
     p: [
-      "追资金链时她拐进了一条与题目无关的线索。系统不打断，只记录：什么时候进去的、追了多远、为什么退出来。及时退出与主动深挖，同样算自主。",
-      "Chasing a funding trail, she turned down a line that had nothing to do with her question. The system doesn't interrupt — it records when she went in, how far she went, and why she came out. Leaving in good time counts as autonomy just as digging deeper does.",
+      "兔子洞图谱记录下学生的探索轨迹——包括那些没有走通的岔路。",
+      "The rabbit-hole map records where she went, including the turnings that led nowhere.",
     ],
-    href: "/product/projects",
-    asset: "walk-04-warren",
-    shot: "product/warren-map-v1.webp",
-    brief: ["探索图谱：主线与岔路，含退出标记", "The exploration map: the main line, the detours, and where each was left"],
+    asset: "case/04-warrenmap-v1.webp",
+    alt: ["兔子洞图谱：问题、挂在问题下的文献，与未归类的来源", "The rabbit-hole map: questions, the sources hung beneath them, and what is still unfiled"],
   },
   {
-    k: ["写作教练", "The writing coach"],
-    h: ["正文她自己写，教练只帮她想清楚", "She writes the prose; the coach only helps her think"],
+    k: ["阅读", "Reading"],
+    h: ["深入考察数据、信息、来源", "Reading the data, the claim and the source closely"],
     p: [
-      "中国碳排放全球第一——这条反方证据不推翻她的题目，但会限制结论的射程。教练不代写一个字，它递上论证卡、给出逐句批注，让她自己写出那段让步。",
-      "China is the world's largest emitter — counter-evidence that doesn't sink her question but does bound her conclusion. The coach writes none of it. It offers an argument card and sentence-level annotation, and she writes the concession herself.",
+      "AI 用学科透镜和工具包，陪学生一起深度阅读。",
+      "The AI reads with her, through a subject lens and the tools that go with it.",
     ],
-    href: "/product/projects",
-    asset: "walk-05-writing",
-    shot: "product/writing-v1.webp",
-    brief: ["写作面：正文 + 批注 + 只读过程树", "The writing surface: draft, annotations, and the read-only process tree"],
+    asset: "case/05-guided-reading-v1.webp",
+    alt: ["阅读室：原文、学科透镜与逐段的阅读工具", "The reading room: the source, a subject lens, and the tools for each passage"],
   },
   {
-    k: ["复盘与评估", "Review and assessment"],
-    h: ["全过程数据生成一份思维印记", "The whole record becomes one imprint report"],
+    k: ["写作", "Writing"],
+    h: ["AI 只提供引导，每个词都自己写", "The AI guides; every word is hers"],
     p: [
-      "成稿之后，她和教练一起回看活动日志、研究框架、提案与终稿，自己先写下复盘。系统随后生成九个板块的评估报告：数出来的事实，加上每一条都能点开原始记录的判断。",
-      "With the paper finished, she and the coach look back over the activity log, the research framework, the proposal and the final draft, and she writes her own review first. The system then generates the nine-section report: counted facts, plus judgments that each open onto the record behind them.",
+      "AI 在需要的时候给出引导性问题和写作反馈，正文一个字也不代写。",
+      "It asks the question that unsticks her and marks up what she has written. It writes none of the prose.",
     ],
-    href: "/product/evaluation",
-    asset: "walk-06-report",
-    shot: "product/evaluation-report-v1.webp",
-    brief: ["评估报告：双轴读数 + 可点开的证据链接", "The report: the two axis readings and clickable evidence"],
+    asset: "case/06-writing-v1",
+    clip: true,
+    alt: ["写作面：引导卡、阅读笔记与 AI 批注，正文由学生自己填", "The writing surface: a guiding card, her notes, the AI's annotations — and her own prose"],
+  },
+  {
+    k: ["评估", "Assessment"],
+    h: ["详细的过程评估报告，记录每次尝试", "A report of the process, attempt by attempt"],
+    p: [
+      "成稿之后，她自己先写下复盘。系统随后生成九个板块的评估报告。",
+      "With the paper finished she writes her own review first. The system then generates the nine-section report.",
+    ],
+    asset: "case/07-evaluation-v1",
+    clip: true,
+    alt: ["评估报告：里程碑、数出来的计数，与九个板块", "The report: milestones, counted figures, and the nine sections"],
   },
 ];
 ---
 
 <PageBanner
   asset="banner/product-overview-v1.webp"
-  eyebrow={["产品", "Product"]}
+  compact
   title={[
-    ["学生自己走完一个真实课题，", "The student does the whole inquiry."],
-    ["AI 全程支持，但从不代笔。", "The AI supports every step, and never writes it."],
+    ["一个真实的学术写作案例", "One real piece of academic writing"],
+    ["「中国有没有让地球变得更可持续？」", "“Has China made the planet more sustainable?”"],
   ]}
   lead={[
-    "课程把方法练成习惯，项目让她做自己的真实课题，评估写下她是怎么想的，教师端让这一切看得见。",
-    "Courses turn method into habit, projects give her real coursework of her own, the assessment writes down how she thought, and the teacher console makes all of it visible.",
+    "学生学习、探索、思考，AI 辅助、记录、搭建脚手架。",
+    "The student learns, explores and thinks. The AI assists, records, and builds the scaffolding.",
   ]}
 />
 
-<!-- ═════════════════════════════════════════ FOUR SURFACES ══════ -->
-<section class="section tight">
-  <div class="container">
-    <div class="grid-2">
-      {surfaces.map((s, i) => (
-        <a class="card hoverable rv" style={`--i:${i % 2}`} href={L(s.href)}>
-          <div class={`cardic ${s.tone}`}><Icon name={s.icon} /></div>
-          <h3>{t(lang, s.zh, s.en)}</h3>
-          <p>{t(lang, s.pz, s.pe)}</p>
-          <span class="tlink" style="margin-top:18px">
-            {t(lang, "了解更多", "Learn more")}<Icon name="arrow" />
-          </span>
-        </a>
+<!-- ═══════════════════════════════════════ THE SEVEN STATIONS ══════ -->
+<section class="section journeysec">
+  <div class="container wide">
+    <div class="journey">
+      {stations.map((s, i) => (
+        <article class={`jstep rv ${i % 2 ? "bend-r" : "bend-l"}`}>
+          <div class="jrail" aria-hidden="true">
+            <svg class="jline" viewBox="0 0 56 100" preserveAspectRatio="none">
+              <path
+                class="jpath"
+                d={
+                  i % 2
+                    ? "M28,0 C28,24 48,36 48,50 C48,64 28,76 28,100"
+                    : "M28,0 C28,24 8,36 8,50 C8,64 28,76 28,100"
+                }
+              />
+            </svg>
+            <span class="jnode"></span>
+          </div>
+
+          <div class="jcopy">
+            <div class="jn mono">{String(i + 1).padStart(2, "0")}</div>
+            <div class="jk">{t(lang, s.k[0], s.k[1])}</div>
+            <h3 data-type>{t(lang, s.h[0], s.h[1])}</h3>
+            <p>{t(lang, s.p[0], s.p[1])}</p>
+          </div>
+
+          <div class="jasset">
+            {s.clip ? (
+              <video
+                data-clip
+                src={assetUrl(`${s.asset}.mp4`)}
+                poster={assetUrl(`${s.asset}-poster.webp`)}
+                muted
+                playsinline
+                preload="none"
+                aria-label={t(lang, s.alt[0], s.alt[1])}
+              ></video>
+            ) : (
+              <img
+                src={assetUrl(s.asset)}
+                alt={t(lang, s.alt[0], s.alt[1])}
+                loading="lazy"
+                decoding="async"
+              />
+            )}
+          </div>
+        </article>
       ))}
     </div>
   </div>
 </section>
 
-<!-- ══════════════════════════════ ONE REAL INQUIRY (scrub) ══════ -->
-<!-- This walk crosses every surface, so it belongs to the overview rather
-     than to any one of the four pages. -->
-<section class="section loose scrub band-paper">
-  <div class="container wide">
-    <div class="sec-head rv" style="margin-bottom:56px">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "用户案例", "Case study")}</div>
-      <h2 class="sec-title">
-        {t(lang, "「中国有没有让地球变得更可持续？」", "“Has China made the planet more sustainable?”")}
-      </h2>
-    </div>
-
-    <div class="scrub-grid">
-      <div class="scrub-steps">
-        {walk.map((s) => (
-          <div class="scrub-step">
-            <div class="k">{t(lang, s.k[0], s.k[1])}</div>
-            <h3>{t(lang, s.h[0], s.h[1])}</h3>
-            <p>{t(lang, s.p[0], s.p[1])}</p>
-            <a class="tlink" style="margin-top:16px" href={L(s.href)}>
-              {t(lang, "了解更多", "Learn more")}<Icon name="arrow" />
-            </a>
-          </div>
-        ))}
-      </div>
-
-      <div class="scrub-sticky">
-        <div class="shotstack">
-          {walk.map((s, i) => (
-            <div class="shot" data-shot={i}>
-              <div class="figure ratio-16-9" data-asset={s.asset}>
-                {s.shot ? (
-                  <img src={assetUrl(s.shot)} alt={t(lang, s.brief[0], s.brief[1])} loading="lazy" decoding="async" />
-                ) : (
-                  <div class="fslot">
-                    <div class="ficon"><Icon name="image" /></div>
-                    <div class="fname">{s.asset}</div>
-                    <div class="fdesc">{t(lang, s.brief[0], s.brief[1])}</div>
-                  </div>
-                )}
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
 <CtaBand />
+
+<script>
+  import "../../scripts/clip";
+  import "../../scripts/typewriter";
+</script>
