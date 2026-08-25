@@ -16,11 +16,16 @@
  * active step onto `data-active`.
  */
 import Icon from "../Icon.astro";
+import GlyphMark from "../GlyphMark.astro";
 import { getLang, t, localePath } from "../../i18n/utils";
 import { assetUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 const L = (p: string) => localePath(lang, p);
+
+/* The four from the screen above, arriving here as a vertical line beside the
+   dial — the same shapes the water left, now the thing the dial turns on. */
+const marks = ["brain", "heart", "robot", "mirror"] as const;
 
 const parts: {
   k: string;
@@ -112,39 +117,47 @@ const majors = parts.map((_, i) => {
         )}
       </h2>
     </div>
-
-    <!-- the four, no longer weather -->
-    <div class="fourmark rv-pop" data-glyphsolid="row" aria-hidden="true">
-      <canvas class="gr-figs"></canvas>
-    </div>
   </div>
 
   <div class="container wide">
     <div class="scrub dial" data-dial>
       <div class="dial-grid">
         <aside class="dial-rail">
-          <svg class="dialsvg" viewBox="0 0 300 900" aria-hidden="true">
-            <g class="dial-rot">
-              <path class="d-arc" d={arcPath} />
-              {minors.map((d) => <path class="d-minor" d={d} />)}
-              {majors.map((m, i) => <path class="d-major" data-i={i} d={m.d} />)}
-              {majors.map((m, i) => (
-                <g
-                  class="d-label"
-                  data-i={i}
-                  style={`transform-origin:${m.label.x}px ${m.label.y}px`}
-                >
-                  <text class="d-num" x={m.label.x} y={m.label.y - 13}>{parts[i].k}</text>
-                  <text class="d-name" x={m.label.x} y={m.label.y + 9}>
-                    {t(lang, parts[i].tab[0], parts[i].tab[1])}
-                  </text>
-                </g>
-              ))}
-            </g>
-            <!-- the marker never moves: the dial comes to it -->
-            <path class="d-mark" d="M112,450 L150,450" />
-            <path class="d-dot" d="M162,450 L156,444 L150,450 L156,456 Z" />
-          </svg>
+          <div class="dial-rail-in">
+            <!-- They fall into line one after another, which is how the reader
+                 is told these are the same four that stood up in the water. -->
+            <div class="dial-spine" data-sequence data-step="170" aria-hidden="true">
+              <div class="ds-stack">
+                <span class="ds-line" data-seq-item></span>
+                {marks.map((k) => (
+                  <span class="ds" data-seq-item><GlyphMark k={k} /></span>
+                ))}
+              </div>
+            </div>
+
+            <svg class="dialsvg" viewBox="0 0 300 900" aria-hidden="true">
+              <g class="dial-rot">
+                <path class="d-arc" d={arcPath} />
+                {minors.map((d) => <path class="d-minor" d={d} />)}
+                {majors.map((m, i) => <path class="d-major" data-i={i} d={m.d} />)}
+                {majors.map((m, i) => (
+                  <g
+                    class="d-label"
+                    data-i={i}
+                    style={`transform-origin:${m.label.x}px ${m.label.y}px`}
+                  >
+                    <text class="d-num" x={m.label.x} y={m.label.y - 13}>{parts[i].k}</text>
+                    <text class="d-name" x={m.label.x} y={m.label.y + 9}>
+                      {t(lang, parts[i].tab[0], parts[i].tab[1])}
+                    </text>
+                  </g>
+                ))}
+              </g>
+              <!-- the marker never moves: the dial comes to it -->
+                <path class="d-mark" d="M112,450 L150,450" />
+              <path class="d-dot" d="M162,450 L156,444 L150,450 L156,456 Z" />
+            </svg>
+          </div>
         </aside>
 
         <div class="scrub-steps dial-steps">

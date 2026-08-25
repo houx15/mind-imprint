@@ -3434,6 +3434,31 @@ html[lang="zh-CN"] .rs-note h3 {
   }
 }
 
+/* --- the four figures, standing still -------------------------------------
+   Same masks as the waterfall, drawn as a path (GlyphMark.astro). Wherever one
+   of these appears the reader should recognise the shape they watched form:
+   that recognition is the whole link between an ability and its figure. */
+.gm {
+  display: block;
+  color: var(--h, var(--ink-2));
+  overflow: visible;
+}
+.gm path {
+  fill: currentColor;
+}
+.gm-brain {
+  --h: var(--primary);
+}
+.gm-heart {
+  --h: var(--accent);
+}
+.gm-robot {
+  --h: var(--green);
+}
+.gm-mirror {
+  --h: var(--amber);
+}
+
 /* --- 22.1 screen two: the waterfall -------------------------------------- */
 .mission {
   position: relative;
@@ -3442,10 +3467,17 @@ html[lang="zh-CN"] .rs-note h3 {
      For the fall to carry past the hero's bottom edge this has to clear the
      highest of them — .hi-copy at 6. */
   z-index: 7;
-  min-height: 100svh;
+  /* The extra height IS the reading time: one screen of it is spent watching
+     the four grow and reading what each one is. */
+  height: 215svh;
+}
+.mission-pin {
+  position: sticky;
+  top: 0;
+  height: 100svh;
   display: flex;
   align-items: center;
-  padding: 6vh 0 9vh;
+  overflow: hidden;
 }
 /* Full-bleed, and starting inside the hero: the water must not appear to begin
    at a seam between two sections. 10svh is exactly the empty band the hero's
@@ -3484,10 +3516,10 @@ html[lang="zh-CN"] .rs-note h3 {
 /* The fall thins out before it reaches the copy, rather than being cut off. */
 .gr-rain {
   -webkit-mask-image:
-    linear-gradient(to right, #000 0, #000 30%, rgba(0, 0, 0, 0.28) 45%, transparent 56%),
+    linear-gradient(to right, #000 0, #000 22%, rgba(0, 0, 0, 0.26) 34%, transparent 44%),
     linear-gradient(to bottom, #000 0, #000 66%, rgba(0, 0, 0, 0.22) 88%, transparent 100%);
   mask-image:
-    linear-gradient(to right, #000 0, #000 30%, rgba(0, 0, 0, 0.28) 45%, transparent 56%),
+    linear-gradient(to right, #000 0, #000 22%, rgba(0, 0, 0, 0.26) 34%, transparent 44%),
     linear-gradient(to bottom, #000 0, #000 66%, rgba(0, 0, 0, 0.22) 88%, transparent 100%);
   /* Both at once, not one on top of the other: the fall thins towards the copy
      AND settles out where it lands, which is what lets the four stand clear
@@ -3513,7 +3545,7 @@ html[lang="zh-CN"] .rs-note h3 {
   width: 100%;
 }
 .mission-void {
-  min-height: min(72vh, 620px);
+  min-height: min(78vh, 660px);
 }
 .mission-copy .sec-title {
   margin-top: 18px;
@@ -3525,26 +3557,52 @@ html[lang="zh-CN"] .rs-note h3 {
 
 .ab4list {
   list-style: none;
-  margin-top: clamp(22px, 3vh, 38px);
+  margin-top: clamp(20px, 3vh, 34px);
+  border-top: 1px solid var(--line-2);
 }
 .ab4 {
-  border-top: 1px solid var(--line);
-  padding: 15px 6px 13px;
+  position: relative;
+  border-bottom: 1px solid var(--line-2);
+  padding: 15px 6px 15px 18px;
   outline: none;
   opacity: 0.3;
-  transform: translateY(7px);
   transition:
     opacity 0.7s var(--ease),
-    transform 0.7s var(--ease),
     background 0.4s var(--ease);
 }
-.ab4:last-child {
-  border-bottom: 1px solid var(--line);
+/* The bar is the marker: it lights on the row being read, the way the era
+   list on the reference page marks its open item. */
+.ab4::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 8px;
+  bottom: 8px;
+  width: 2px;
+  background: var(--h);
+  opacity: 0;
+  transform: scaleY(0.3);
+  transform-origin: center;
+  transition:
+    opacity 0.5s var(--ease),
+    transform 0.5s var(--ease);
 }
-/* lit as its own figure finishes growing under the fall */
+/* arrived: its figure has grown out of the water */
 .ab4.on {
   opacity: 1;
-  transform: none;
+}
+/* open: the one being read now */
+.ab4.open::before,
+.ab4:hover::before,
+.ab4:focus-within::before {
+  opacity: 1;
+  transform: scaleY(1);
+  box-shadow: 0 0 12px var(--h);
+}
+.ab4:hover,
+.ab4:focus-visible {
+  opacity: 1;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 74%);
 }
 .ab4-brain {
   --h: var(--primary);
@@ -3561,15 +3619,37 @@ html[lang="zh-CN"] .rs-note h3 {
 .ab4-head {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
 }
-.ab4-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--h);
+.ab4-mark {
+  width: 34px;
+  height: auto;
   flex-shrink: 0;
-  transition: box-shadow 0.4s var(--ease);
+  opacity: 0.55;
+  transition:
+    opacity 0.45s var(--ease),
+    filter 0.45s var(--ease);
+}
+.ab4.on .ab4-mark {
+  opacity: 0.8;
+}
+.ab4.open .ab4-mark,
+.ab4:hover .ab4-mark,
+.ab4:focus-within .ab4-mark {
+  opacity: 1;
+  filter: drop-shadow(0 0 7px var(--h));
+}
+.ab4-t {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+}
+.ab4-n {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+  flex-shrink: 0;
 }
 .ab4 h3 {
   font-size: clamp(17px, 1.5vw, 21px);
@@ -3579,36 +3659,48 @@ html[lang="zh-CN"] .rs-note h3 {
 html[lang="zh-CN"] .ab4 h3 {
   letter-spacing: 0;
 }
-/* Folded by default: the title is the whole item until you want more. */
+/* Folded until it is the one being read. */
 .ab4-fold {
   display: grid;
   grid-template-rows: 0fr;
-  transition: grid-template-rows 0.5s var(--ease);
+  transition: grid-template-rows 0.55s var(--ease);
 }
 .ab4-fold > div {
   overflow: hidden;
 }
-.ab4-fold p {
-  padding: 9px 0 2px 21px;
-  color: var(--muted);
-  font-size: 15px;
-  line-height: 1.7;
-  max-width: 42ch;
-}
-.ab4:hover,
-.ab4:focus-visible {
-  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent 72%);
-}
-.ab4:hover .ab4-dot,
-.ab4:focus-within .ab4-dot {
-  box-shadow: 0 0 16px var(--h);
-}
+.ab4.open .ab4-fold,
 .ab4:hover .ab4-fold,
 .ab4:focus-within .ab4-fold {
   grid-template-rows: 1fr;
 }
-/* Nothing hovers on a touch screen, so there the descriptions simply stand. */
+.ab4-body {
+  padding: 12px 0 4px 48px;
+}
+.ab4-body p {
+  color: var(--muted);
+  font-size: 14.5px;
+  line-height: 1.75;
+  max-width: 46ch;
+}
+.ab4-body p + p {
+  margin-top: 10px;
+}
+.ab4-body b {
+  display: block;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--h);
+  margin-bottom: 4px;
+}
+/* Nothing hovers on a touch screen, and a scroll-driven accordion is fiddly
+   with a thumb — there, every row simply stands open. */
 @media (hover: none) {
+  .ab4 {
+    opacity: 1;
+  }
   .ab4-fold {
     grid-template-rows: 1fr;
   }
@@ -3618,28 +3710,65 @@ html[lang="zh-CN"] .ab4 h3 {
 .dialsec {
   padding-top: clamp(72px, 9vh, 116px);
 }
-/* the four, hardened out of the water and standing still */
-.fourmark {
-  position: relative;
-  width: min(460px, 76%);
-  height: 76px;
-  margin: clamp(28px, 4vh, 44px) auto 0;
-  opacity: 0.72;
-}
-.fourmark canvas {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
+/* --- the four, arriving beside the dial --------------------------------- */
+.dial-rail-in {
   height: 100%;
+  display: grid;
+  grid-template-columns: clamp(56px, 6vw, 88px) minmax(0, 1fr);
+  gap: clamp(8px, 1vw, 18px);
+  align-items: stretch;
 }
-.gr-figs {
-  color: var(--ink);
+.dial-spine {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+/* The line belongs to the four, not to the rail: it is sized by the stack so
+   it never trails off into empty space above and below them. */
+.ds-stack {
+  position: relative;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(14px, 3vh, 36px);
+}
+/* drawn first, then the four fall into it */
+.ds-line {
+  position: absolute;
+  left: 50%;
+  top: -14px;
+  bottom: -14px;
+  width: 1px;
+  background: linear-gradient(var(--line), var(--accent) 52%, var(--line));
+  transform: scaleY(0);
+  transform-origin: top;
+  transition: transform 1.1s var(--ease);
+}
+.ds-line.on {
+  transform: scaleY(1);
+}
+.ds {
+  position: relative;
+  width: 100%;
+  opacity: 0;
+  transform: translateY(-16px);
+  transition:
+    opacity 0.6s var(--ease),
+    transform 0.6s var(--ease);
+}
+.ds.on {
+  opacity: 0.9;
+  transform: none;
+}
+.ds .gm {
+  width: 100%;
+  height: auto;
 }
 
 .dial-grid {
   display: grid;
-  grid-template-columns: clamp(196px, 20vw, 300px) minmax(0, 1fr);
+  grid-template-columns: clamp(232px, 24vw, 360px) minmax(0, 1fr);
   gap: clamp(24px, 3vw, 56px);
   align-items: start;
   margin-top: clamp(24px, 4vh, 48px);
@@ -3821,18 +3950,16 @@ html[lang="zh-CN"] .dial-step h3 {
   padding: clamp(80px, 11vh, 120px) 0;
 }
 .closerow {
-  position: relative;
-  width: min(460px, 74%);
-  height: 74px;
+  display: flex;
+  justify-content: center;
+  align-items: flex-end;
+  gap: clamp(26px, 5vw, 54px);
   margin: 0 auto clamp(30px, 5vh, 48px);
-  opacity: 0.42;
+  opacity: 0.5;
 }
-.closerow canvas {
-  position: absolute;
-  inset: 0;
-  display: block;
-  width: 100%;
-  height: 100%;
+.closerow .gm {
+  width: clamp(42px, 5vw, 62px);
+  height: auto;
 }
 .closeline {
   font-size: clamp(24px, 2.8vw, 38px);
@@ -3852,8 +3979,20 @@ html[lang="zh-CN"] .closeline {
 /* --- 22.4 narrow ---------------------------------------------------------- */
 @media (max-width: 980px) {
   .mission {
-    min-height: 92svh;
+    height: auto;
+  }
+  /* Nothing pins on a narrow screen, so there is no room for the four to open
+     one at a time — every row simply stands open. */
+  .mission-pin {
+    position: static;
+    height: auto;
     padding: 4vh 0 8vh;
+  }
+  .ab4 {
+    opacity: 1;
+  }
+  .ab4-fold {
+    grid-template-rows: 1fr;
   }
   .mission-grid {
     grid-template-columns: 1fr;
@@ -3861,18 +4000,34 @@ html[lang="zh-CN"] .closeline {
   }
   /* Still the floor of the fall, just a shorter one. */
   .mission-void {
-    min-height: 34vh;
+    min-height: 40vh;
     order: -1;
   }
+  /* The copy sits BELOW the fall here rather than beside it, so the water has
+     to stop where the words start — a full-page sheet of digits behind body
+     text is unreadable. */
+  .mission-fall {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 22%, transparent 34%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 22%, transparent 34%);
+  }
+  /* Four figures side by side in a phone's width would be two pixels a cell —
+     unreadable. Here the fall is pure weather and the four are the marks
+     beside each ability instead. Hidden with opacity, not display, because the
+     engine measures this canvas to lay everything else out. */
+  .mission-fall .gr-figs {
+    opacity: 0;
+  }
   .gr-rain {
-    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 62%, transparent 100%);
-    mask-image: linear-gradient(to bottom, #000 0, #000 62%, transparent 100%);
+    -webkit-mask-image: none;
+    mask-image: none;
+    -webkit-mask-composite: source-over;
+    mask-composite: add;
   }
   .dial-grid {
     grid-template-columns: 1fr;
     gap: 0;
   }
-  /* A 200px sticky column is a stripe of nothing on a phone. */
+  /* A 230px sticky column is a stripe of nothing on a phone. */
   .dial-rail {
     display: none;
   }
@@ -3882,14 +4037,6 @@ html[lang="zh-CN"] .closeline {
   }
   .dial-step:first-child {
     padding-top: 4vh;
-  }
-  .fourmark {
-    width: 88%;
-    height: 58px;
-  }
-  .closerow {
-    width: 86%;
-    height: 58px;
   }
 }
 
@@ -4169,5 +4316,13 @@ html[lang="zh-CN"] .exi h3 {
   }
   .ex-step {
     padding: 5vh 0;
+  }
+}
+
+/* --- the left column gives a little back to the copy, which now has to hold
+       four expandable entries rather than four titles ---------------------- */
+@media (min-width: 981px) {
+  .mission-grid {
+    grid-template-columns: minmax(0, 0.84fr) minmax(0, 1.16fr);
   }
 }

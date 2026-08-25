@@ -1,0 +1,26 @@
+---
+/**
+ * One of the four figures, standing still.
+ *
+ * The same masks the waterfall grows, drawn as a single path. Wherever this
+ * appears the reader should recognise the shape they watched form — that
+ * recognition is the whole link between an ability and its figure.
+ */
+import { glyphPath, GLYPH_VIEWBOX, type GlyphKey } from "../scripts/glyph-path";
+
+interface Props {
+  k: GlyphKey;
+  class?: string;
+}
+const { k, class: cls = "" } = Astro.props;
+const d = glyphPath(k);
+---
+
+<svg
+  class={`gm gm-${k} ${cls}`}
+  viewBox={GLYPH_VIEWBOX}
+  aria-hidden="true"
+  focusable="false"
+>
+  <path d={d} />
+</svg>

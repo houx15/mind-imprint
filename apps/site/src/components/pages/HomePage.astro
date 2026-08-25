@@ -16,6 +16,7 @@ import HeroImmersive from "../sections/HeroImmersive.astro";
 import MissionRain from "../sections/MissionRain.astro";
 import ProductDial from "../sections/ProductDial.astro";
 import CtaBand from "../sections/CtaBand.astro";
+import GlyphMark from "../GlyphMark.astro";
 import { getLang, t } from "../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
@@ -30,8 +31,11 @@ const lang = getLang(Astro.currentLocale);
 <!-- ═══════════════════════════════════ 4 · THE IMPRINT ══════════ -->
 <section class="section band-ink closing">
   <div class="container narrow center">
-    <div class="closerow" data-glyphsolid="row" aria-hidden="true">
-      <canvas class="gr-figs"></canvas>
+    <div class="closerow rv" aria-hidden="true">
+      <GlyphMark k="brain" />
+      <GlyphMark k="heart" />
+      <GlyphMark k="robot" />
+      <GlyphMark k="mirror" />
     </div>
 
     <p class="closeline rv" data-type>

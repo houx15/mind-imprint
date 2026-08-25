@@ -3,98 +3,133 @@
  * Screen two — the mission, and the four things it comes down to.
  *
  * The hero's water runs off its bottom-left corner and falls through this
- * screen as a river of digits, which settles into four figures: a brain, a
- * heart, a robot, a mirror. Each one answers to an ability on the right, and
- * lights as that ability's turn comes.
+ * screen as a river of digits, which settles into four small figures on the
+ * floor of it: a brain, a heart, a robot, a mirror.
  *
- * The canvas deliberately bleeds ABOVE this section so the rain appears to
+ * The two columns are one mechanism, not a picture next to a list. Each figure
+ * finishing its growth OPENS its ability on the right — so the reader watches a
+ * shape stand up and reads what it is in the same beat — and every ability
+ * carries that same shape beside its name, drawn from the same mask.
+ *
+ * The canvas deliberately bleeds ABOVE this section so the water appears to
  * pour out of the hero itself rather than starting at a seam.
  */
+import GlyphMark from "../GlyphMark.astro";
 import { getLang, t } from "../../i18n/utils";
+import type { GlyphKey } from "../../scripts/glyph-path";
 
 const lang = getLang(Astro.currentLocale);
 
 const abilities: {
-  k: string;
+  k: GlyphKey;
   zh: string;
   en: string;
-  pz: string;
-  pe: string;
+  /** what it is */
+  wz: string;
+  we: string;
+  /** why it matters */
+  yz: string;
+  ye: string;
 }[] = [
   {
     k: "brain",
     zh: "批判性思维",
     en: "Critical thinking",
-    pz: "追到一手来源，看清一条证据到底能证明到哪一步。",
-    pe: "Trace a claim to its primary source, and see how far one piece of evidence actually reaches.",
+    wz: "不是「怀疑一切」。是能把一句话追回到它的一手来源，并说清这条证据能证明到哪一步、又在哪里停住。",
+    we: "Not doubting everything. Being able to walk a sentence back to where it came from, and say how far that evidence reaches — and where it stops.",
+    yz: "AI 写出来的东西，语气永远是笃定的。分不出来源，就只能相信语气。",
+    ye: "What an AI writes always sounds certain. With no source to check, all you are left trusting is the tone.",
   },
   {
     k: "heart",
     zh: "好奇心与持续探索",
     en: "Curiosity that keeps going",
-    pz: "把一个模糊的兴趣，收窄成一个能回答的问题，然后一直挖下去。",
-    pe: "Narrow a vague interest into a question that can be answered — then keep digging.",
+    wz: "把一个模糊的兴趣收窄成一个能回答的问题，然后忍住不马上要答案，顺着它一直挖下去。",
+    we: "Narrowing a vague interest into a question that can be answered — then not taking the answer straight away, and following it down.",
+    yz: "AI 让「拿到答案」变得几乎不要钱。愿意在问题里多待一会儿的人，才走得比答案更远。",
+    ye: "AI has made getting an answer almost free. The ones who get further than the answer are the ones willing to stay in the question a while.",
   },
   {
     k: "robot",
     zh: "驾驭 AI 的能力",
     en: "Command of AI",
-    pz: "知道什么可以交给 AI、什么必须自己来，并且说得出理由。",
-    pe: "Know what may go to the AI and what may not — and be able to say why.",
+    wz: "知道什么可以交给 AI、什么必须自己来，并且说得出理由；会把一件大事，拆成 AI 真正做得好的那几步。",
+    we: "Knowing what may go to the AI and what may not — and being able to say why; breaking a large job into the steps an AI is actually good at.",
+    yz: "用 AI 的人和被 AI 用的人，差别从来不在工具熟不熟，而在方向是谁定的。",
+    ye: "The difference between using AI and being used by it was never fluency with the tool. It is who sets the direction.",
   },
   {
     k: "mirror",
     zh: "反思与自我迭代",
     en: "Reflection, and the next attempt",
-    pz: "看得见自己是怎么想的：哪一步走偏了，下一次从哪里开始。",
-    pe: "See how your own thinking went: where it drifted, and where to start next time.",
+    wz: "看得见自己是怎么想的：哪一步走偏了、当时为什么那样判断、下一次该从哪里重新开始。",
+    we: "Seeing how your own thinking actually went: where it drifted, why you judged as you did, and where to start again.",
+    yz: "这是四项里唯一一项，能让另外三项自己长出来的能力。",
+    ye: "It is the one of the four that can grow the other three by itself.",
   },
 ];
 ---
 
 <section class="mission" data-mission>
-  <!-- The fall is full-bleed and starts ABOVE this section, inside the empty
-       band at the foot of the hero, so there is no seam to see. -->
-  <div class="mission-fall" data-glyphrain aria-hidden="true">
-    <canvas class="gr-rain"></canvas>
-    <canvas class="gr-figs"></canvas>
-  </div>
+  <!-- Tall, and pinned: the four take a beat each to grow, and each one opens
+       what it means on the right as it finishes. Rushing that was the whole
+       problem — they were all done before the screen had even settled. -->
+  <div class="mission-pin">
+    <!-- The fall is full-bleed and starts ABOVE this screen, inside the empty
+         band at the foot of the hero, so there is no seam to see. -->
+    <div class="mission-fall" data-glyphrain aria-hidden="true">
+      <canvas class="gr-rain"></canvas>
+      <canvas class="gr-figs"></canvas>
+    </div>
 
-  <div class="container wide mission-grid">
-    <!-- Nothing in it: it is the column the four settle under, and the engine
+    <div class="container wide mission-grid">
+      <!-- Nothing in it: it is the column the four settle under, and the engine
          measures it rather than guessing at a percentage. -->
-    <div class="mission-void" data-figbox aria-hidden="true"></div>
+      <div class="mission-void" data-figbox aria-hidden="true"></div>
 
-    <div class="mission-copy">
-      <div class="eyebrow mono rv" data-type>{t(lang, "我们的使命", "Our mission")}</div>
-      <h2 class="sec-title rv" style="--i:1" data-type>
+      <div class="mission-copy">
+        <div class="eyebrow mono rv" data-type>{t(lang, "我们的使命", "Our mission")}</div>
+        <h2 class="sec-title rv" style="--i:1" data-type>
         {t(
           lang,
           "帮孩子建立 AI 时代最有价值的四项能力",
           "The four abilities worth the most in the age of AI",
         )}
-      </h2>
-      <p class="lead rv" style="--i:2">
+        </h2>
+        <p class="lead rv" style="--i:2">
         {t(
           lang,
           "我们用 AI 来教孩子——在真实的任务里，把这四件事练成他自己的。",
           "We teach with AI itself — inside real work, until these four belong to the child.",
         )}
-      </p>
+        </p>
 
-      <ul class="ab4list">
+        <ol class="ab4list">
         {abilities.map((a, i) => (
-          <li class={`ab4 ab4-${a.k}`} style={`--i:${i + 3}`} data-glyph-item tabindex="0">
-            <div class="ab4-head">
-              <span class="ab4-dot" aria-hidden="true"></span>
-              <h3>{t(lang, a.zh, a.en)}</h3>
-            </div>
-            <div class="ab4-fold">
-              <div><p>{t(lang, a.pz, a.pe)}</p></div>
-            </div>
-          </li>
+            <li class={`ab4 ab4-${a.k}`} data-glyph-item tabindex="0">
+              <div class="ab4-head">
+                <GlyphMark k={a.k} class="ab4-mark" />
+                <div class="ab4-t">
+                  <span class="ab4-n mono">{String(i + 1).padStart(2, "0")}</span>
+                  <h3>{t(lang, a.zh, a.en)}</h3>
+                </div>
+              </div>
+              <div class="ab4-fold">
+                <div class="ab4-body">
+                  <p>
+                    <b>{t(lang, "是什么", "What it is")}</b>
+                  {t(lang, a.wz, a.we)}
+                  </p>
+                  <p>
+                    <b>{t(lang, "为什么要紧", "Why it matters")}</b>
+                  {t(lang, a.yz, a.ye)}
+                  </p>
+                </div>
+              </div>
+            </li>
         ))}
-      </ul>
+        </ol>
+      </div>
     </div>
   </div>
 </section>

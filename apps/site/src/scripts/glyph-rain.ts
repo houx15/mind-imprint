@@ -14,9 +14,9 @@
  * destination-out fade (which is what draws the trails), while the figures must
  * persist, and want a glow the rain must not get.
  *
- * The same module renders the figures again further down the page in "solid"
- * mode — square pixels instead of digits. That is the point of the third
- * screen: the four have stopped being weather and become structure.
+ * Where one of the four has to appear standing still — beside its ability, on
+ * the rail next to the dial, in the closing row — it is drawn from the same
+ * masks as a static SVG (GlyphMark.astro), not by this.
  */
 import { MASKS, GRID_COLS, GRID_ROWS, type GlyphKey } from "./glyph-masks";
 
@@ -77,17 +77,9 @@ const smooth = (v: number) => v * v * (3 - 2 * v);
 
 type Placed = { key: GlyphKey; ox: number; oy: number };
 
-/** Where each figure sits, in figure-grid cells, for a given arrangement. */
-function place(layout: "col" | "row"): { cols: number; rows: number; at: Placed[] } {
+/** The four in a row, left to right, in the order the abilities are listed. */
+function place(): { cols: number; rows: number; at: Placed[] } {
   const GAP_X = 5;
-  const GAP_Y = 3;
-  if (layout === "col") {
-    return {
-      cols: GRID_COLS,
-      rows: GRID_ROWS * 4 + GAP_Y * 3,
-      at: ORDER.map((key, i) => ({ key, ox: 0, oy: i * (GRID_ROWS + GAP_Y) })),
-    };
-  }
   return {
     cols: GRID_COLS * 4 + GAP_X * 3,
     rows: GRID_ROWS,
@@ -113,9 +105,6 @@ function lipAt(x: number, flat: number, ramp: number, bleed: number): number {
 }
 
 interface Options {
-  layout: "col" | "row";
-  /** "rain": grown by the waterfall. "solid": square pixels, already standing. */
-  mode: "rain" | "solid";
   /** The element whose scroll position drives the fall. */
   driver?: HTMLElement | null;
   /** Lit one at a time as their figure grows; also the hover targets. */
@@ -131,8 +120,7 @@ function mount(host: HTMLElement, opts: Options): void {
   if (!figCv) return;
   const fctx = figCv.getContext("2d");
   const rctx = rainCv?.getContext("2d") ?? null;
-  if (!fctx) return;
-  const raining = opts.mode === "rain" && !!rctx;
+  if (!fctx || !rctx) return;
 
   const items = opts.items ?? [];
 
@@ -158,9 +146,11 @@ function mount(host: HTMLElement, opts: Options): void {
   let drops: Drop[] = [];
   let dpr = 1;
 
-  const eps = ORDER.map(() => (raining ? 0 : 1));
-  /** Which cells the water has actually reached, and what it left there. */
+  const eps = ORDER.map(() => 0);
+  /** Which cells the water has reached, and what digit it left there. */
   let grown: Int16Array[] = [];
+  /** When each landed — a cell drops the last little way rather than blinking on. */
+  let born: Float64Array[] = [];
   /** Figure-grid lookup, so a falling drop can find what it just hit. */
   let index = new Map<number, [number, number]>();
   let focus: number | null = null;
@@ -173,9 +163,7 @@ function mount(host: HTMLElement, opts: Options): void {
     W = Math.round(r.width);
     H = Math.round(r.height);
 
-    // A vertical rail of four is a stripe of nothing on a phone: lie them down.
-    const lay = opts.layout === "col" && window.innerWidth <= 980 ? "row" : opts.layout;
-    ({ cols: gCols, rows: gRows, at } = place(lay));
+    ({ cols: gCols, rows: gRows, at } = place());
 
     for (const cv of [rainCv, figCv]) {
       if (!cv) continue;
@@ -184,29 +172,25 @@ function mount(host: HTMLElement, opts: Options): void {
       cv.getContext("2d")?.setTransform(dpr, 0, 0, dpr, 0, 0);
     }
 
-    if (raining) {
-      // Small, and at the foot of the fall: they are what the water left, not
-      // an illustration of it. The canvas runs the full width of the page, so
-      // the column they settle under is measured rather than guessed at.
-      const cRect = figCv.getBoundingClientRect();
-      const bRect = opts.figBox?.getBoundingClientRect();
-      const boxW = bRect ? bRect.width : W * 0.44;
-      const boxL = bRect ? bRect.left - cRect.left : W * 0.05;
-      void boxW;
-      ch = Math.min((H * 0.26) / gRows, boxW / gCols / CELL_ASPECT);
-      cw = ch * CELL_ASPECT;
-      figX = boxL + (boxW - gCols * cw) / 2;
-      figY = H - gRows * ch - H * 0.085;
-    } else {
-      ch = Math.min(H / gRows, W / gCols / CELL_ASPECT);
-      cw = ch * CELL_ASPECT;
-      figX = (W - gCols * cw) / 2;
-      figY = (H - gRows * ch) / 2;
-    }
+    // Small, and at the foot of the fall: they are what the water left, not an
+    // illustration of it. The canvas runs the full width of the page, so the
+    // column they settle under is measured rather than guessed at.
+    const cRect = figCv.getBoundingClientRect();
+    const bRect = opts.figBox?.getBoundingClientRect();
+    const colW = bRect ? bRect.width : W * 0.42;
+    const boxL = bRect ? bRect.left - cRect.left : W * 0.05;
+    // The floor is the bottom of that column, not the bottom of the canvas.
+    // On a narrow screen the canvas runs the whole page and the copy is BELOW
+    // the column — the four must not end up behind the words.
+    const boxB = bRect ? bRect.bottom - cRect.top : H * 0.9;
+    ch = Math.min((H * 0.19) / gRows, (colW * 0.86) / gCols / CELL_ASPECT);
+    cw = ch * CELL_ASPECT;
+    figX = boxL + (colW - gCols * cw) / 2;
+    figY = boxB - gRows * ch;
 
     // The waterfall keeps its own, much larger character size. Tying it to the
     // figures would shrink the weather every time the figures got smaller.
-    rch = Math.max(14, Math.min(21, H / 42));
+    rch = Math.max(13, Math.min(18, H / 48));
     rcw = rch * CELL_ASPECT;
     rainCols = Math.ceil(W / rcw) + 1;
     rainRows = Math.ceil(H / rch) + 2;
@@ -223,7 +207,7 @@ function mount(host: HTMLElement, opts: Options): void {
     lipRamp = lipFlat * 0.5;
 
     drops = [];
-    if (raining) {
+    {
       // Dense enough to be a fall rather than a drizzle, but a wall of type
       // with no gaps in it stops looking like water at all: the dark between
       // the streaks is what makes it read as falling.
@@ -238,14 +222,14 @@ function mount(host: HTMLElement, opts: Options): void {
     }
 
     grown = at.map(({ key }) => new Int16Array(CELLS[key].length).fill(-1));
+    born = at.map(({ key }) => new Float64Array(CELLS[key].length));
     index = new Map();
     at.forEach(({ key, ox, oy }, gi) => {
       CELLS[key].forEach((c, ci) => {
         index.set((oy + c.cy) * 4096 + (ox + c.cx), [gi, ci]);
       });
     });
-    if (!raining) grown.forEach((g, gi) => g.fill(0));
-    rctx?.clearRect(0, 0, W, H);
+    rctx.clearRect(0, 0, W, H);
   }
 
   function font(ctx: CanvasRenderingContext2D, size: number, weight = 500): void {
@@ -270,39 +254,65 @@ function mount(host: HTMLElement, opts: Options): void {
         if (grown[gi][ci] >= 0) continue;
         if (CELLS[at[gi].key][ci].rank > eps[gi]) continue;
         grown[gi][ci] = Math.floor(Math.random() * 10);
+        born[gi][ci] = performance.now();
       }
     }
   }
+
+  /** How long a cell takes to fall the last little way into place. */
+  const DROP = 520;
 
   function drawFigures(now: number): void {
     fctx.clearRect(0, 0, W, H);
     font(fctx, ch * 1.18, 700);
     for (let gi = 0; gi < at.length; gi++) {
       const { key, ox, oy } = at[gi];
-      const focused = focus === gi;
-      const alpha = focus === null ? 0.95 : focused ? 1 : 0.3;
-      fctx.fillStyle = focused
-        ? `rgba(${HUE[key]}, 1)`
-        : `rgba(${FIGURE}, ${alpha})`;
+      // The figure belonging to the ability currently OPEN on the right takes
+      // its hue without anyone having to hover — that is what tells the reader
+      // the two columns are one thing. A pointer overrides it.
+      const active = focus ?? lit;
+      const focused = active === gi && active >= 0;
+      const alpha = focused ? 1 : focus === null ? 0.6 : 0.28;
+      const settled = focused ? `rgba(${HUE[key]}, 1)` : `rgba(${FIGURE}, ${alpha})`;
       const cells = CELLS[key];
+
+      // Settled cells share one fillStyle; only the handful still falling need
+      // their own, which is what keeps this cheap enough to run every frame.
+      fctx.fillStyle = settled;
+      const falling: number[] = [];
       for (let ci = 0; ci < cells.length; ci++) {
         const seeded = grown[gi][ci];
         if (seeded < 0) continue;
-        const c = cells[ci];
-        const px = figX + (ox + c.cx + 0.5) * cw;
-        const py = figY + (oy + c.cy + 0.5) * ch;
-        if (opts.mode === "solid") {
-          fctx.fillRect(px - cw * 0.45, py - ch * 0.45, cw * 0.9, ch * 0.9);
-        } else {
-          // It keeps flickering: it is still made of water, not set in stone.
-          const step = Math.floor(now / (420 + (c.seed % 6) * 260));
-          fctx.fillText(DIGITS[(seeded + step) % 10], px, py);
+        const age = now - born[gi][ci];
+        if (age < DROP) {
+          falling.push(ci);
+          continue;
         }
+        const c = cells[ci];
+        // It keeps flickering: it is still made of water, not set in stone.
+        const step = Math.floor(now / (420 + (c.seed % 6) * 260));
+        fctx.fillText(
+          DIGITS[(seeded + step) % 10],
+          figX + (ox + c.cx + 0.5) * cw,
+          figY + (oy + c.cy + 0.5) * ch,
+        );
       }
+
+      for (const ci of falling) {
+        const c = cells[ci];
+        const e = 1 - Math.pow(1 - (now - born[gi][ci]) / DROP, 3);
+        fctx.globalAlpha = 0.1 + 0.9 * e;
+        fctx.fillText(
+          DIGITS[grown[gi][ci]],
+          figX + (ox + c.cx + 0.5) * cw,
+          figY + (oy + c.cy + 0.5) * ch - (1 - e) * ch * 2.6,
+        );
+      }
+      fctx.globalAlpha = 1;
     }
   }
 
-  function drawRain(p: number): void {
+  function drawRain(enter: number, through: number): void {
     if (!rctx) return;
     // Erase rather than paint over: the canvas stays transparent, so it sits on
     // any background, and the erasure IS the trail.
@@ -314,8 +324,9 @@ function mount(host: HTMLElement, opts: Options): void {
 
     // It pours over the left corner first and widens into a sheet; once the
     // four are standing it thins, but it never stops.
-    const reach = 0.2 + p * 2.2;
-    const thin = 1 - 0.42 * smooth(clamp01((p - 0.8) / 0.2));
+    const reach = 0.2 + enter * 2.2;
+    // It settles once the four are standing, but it never stops.
+    const thin = 1 - 0.42 * smooth(clamp01((through - 0.72) / 0.28));
 
     for (const d of drops) {
       if (d.col / rainCols > reach) continue;
@@ -342,34 +353,52 @@ function mount(host: HTMLElement, opts: Options): void {
     }
   }
 
-  function progress(): number {
+  /**
+   * Two clocks, not one.
+   *
+   * `enter` is how far the screen has arrived — 0 with its top at the foot of
+   * the viewport, 1 with its top at the head. The fall widens on that, so the
+   * water is already pouring by the time you get here.
+   *
+   * `through` is how far you are through the pinned part of it. The figures
+   * grow on that, so each of the four gets a real beat of scroll to stand up
+   * in and to be read about, instead of all four finishing before the screen
+   * has even settled.
+   */
+  function progress(): { enter: number; through: number } {
     const driver = opts.driver;
-    if (!driver) return 1;
-    // 0 when the section's top is at the foot of the viewport, 1 when it has
-    // reached the head of it — so the four finish standing exactly as the
-    // screen becomes theirs, whatever height the section turns out to have.
+    if (!driver) return { enter: 1, through: 1 };
     const r = driver.getBoundingClientRect();
     const vh = window.innerHeight || 1;
-    return clamp01((vh - r.top) / vh);
+    return {
+      enter: clamp01((vh - r.top) / vh),
+      through: clamp01(-r.top / Math.max(1, r.height - vh)),
+    };
   }
 
   function form(p: number): void {
     let next = -1;
     for (let i = 0; i < eps.length; i++) {
-      eps[i] = smooth(clamp01((p - (0.2 + i * 0.11)) / 0.3));
+      eps[i] = smooth(clamp01((p - (0.06 + i * 0.21)) / 0.2));
       if (eps[i] > 0.5) next = i;
       // The water is not always thorough. Past the point where a figure should
       // be complete, finish it, so nothing is left half-grown on the page.
       if (eps[i] > 0.97) {
         const cells = CELLS[at[i].key];
         for (let ci = 0; ci < cells.length; ci++) {
-          if (grown[i][ci] < 0) grown[i][ci] = Math.floor(Math.random() * 10);
+          if (grown[i][ci] >= 0) continue;
+          grown[i][ci] = Math.floor(Math.random() * 10);
+          born[i][ci] = performance.now();
         }
       }
     }
     if (next !== lit) {
       lit = next;
-      items.forEach((el, i) => el.classList.toggle("on", i <= lit));
+      items.forEach((el, i) => {
+        // arrived: its figure has grown. open: it is the one being read now.
+        el.classList.toggle("on", i <= lit);
+        el.classList.toggle("open", i === lit);
+      });
     }
   }
 
@@ -378,11 +407,9 @@ function mount(host: HTMLElement, opts: Options): void {
   function frame(now: number): void {
     raf = 0;
     if (!visible) return;
-    if (raining) {
-      const p = progress();
-      form(p);
-      drawRain(p);
-    }
+    const { enter, through } = progress();
+    form(through);
+    drawRain(enter, through);
     drawFigures(now);
     raf = requestAnimationFrame(frame);
   }
@@ -396,7 +423,11 @@ function mount(host: HTMLElement, opts: Options): void {
   if (reduced) {
     eps.fill(1);
     grown.forEach((g) => g.fill(0));
-    items.forEach((el) => el.classList.add("on"));
+    born.forEach((b) => b.fill(-1e9));
+    items.forEach((el, i) => {
+      el.classList.add("on");
+      el.classList.toggle("open", i === 0);
+    });
     drawFigures(0);
   } else {
     start();
@@ -436,6 +467,7 @@ function mount(host: HTMLElement, opts: Options): void {
         size();
         if (reduced) {
           grown.forEach((g) => g.fill(0));
+          born.forEach((b) => b.fill(-1e9));
           drawFigures(0);
         }
       }, 160);
@@ -448,19 +480,11 @@ function init(): void {
   document.querySelectorAll<HTMLElement>("[data-glyphrain]").forEach((host) => {
     const section = host.closest<HTMLElement>("[data-mission]");
     mount(host, {
-      layout: "row",
-      mode: "rain",
       driver: section,
       figBox: section?.querySelector<HTMLElement>("[data-figbox]") ?? null,
       items: section
         ? Array.from(section.querySelectorAll<HTMLElement>("[data-glyph-item]"))
         : [],
-    });
-  });
-  document.querySelectorAll<HTMLElement>("[data-glyphsolid]").forEach((host) => {
-    mount(host, {
-      layout: host.dataset.glyphsolid === "row" ? "row" : "col",
-      mode: "solid",
     });
   });
 }
