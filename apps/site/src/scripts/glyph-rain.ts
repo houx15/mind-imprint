@@ -32,12 +32,15 @@ const CELL_ASPECT = 0.6;
 const TRAIL = "rgba(66, 224, 180, 0.34)";
 const HEAD = "rgba(198, 255, 236, 0.96)";
 
-/* The two halves of the screen, in order: the four appear, and only then do the
-   abilities arrive to name them. */
-const SHOW_FROM = 0.08;
-const SHOW_STEP = 0.1;
-const TELL_FROM = 0.54;
-const TELL_STEP = 0.11;
+/* The screen in order: the water falls, the four appear in it, and only then
+   do the abilities arrive to name them.
+   The four come quickly — they are an event, not a chapter. All of them are
+   standing by a fifth of the way through, which leaves the rest of the pinned
+   scroll to the reading. */
+const SHOW_FROM = 0.04;
+const SHOW_STEP = 0.05;
+const TELL_FROM = 0.28;
+const TELL_STEP = 0.16;
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smooth = (v: number) => v * v * (3 - 2 * v);
@@ -76,7 +79,7 @@ function mount(section: HTMLElement): void {
   function dropFigs(): void {
     if (dropped) return;
     dropped = true;
-    figs.forEach((el, i) => window.setTimeout(() => el.classList.add("on"), i * 170));
+    figs.forEach((el, i) => window.setTimeout(() => el.classList.add("on"), i * 120));
   }
 
   function sequence(p: number): void {

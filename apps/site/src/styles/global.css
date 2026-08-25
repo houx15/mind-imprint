@@ -3471,9 +3471,9 @@ html[lang="zh-CN"] .rs-note h3 {
      For the fall to carry past the hero's bottom edge this has to clear the
      highest of them — .hi-copy at 6. */
   z-index: 7;
-  /* The extra height IS the reading time: one screen of it is spent watching
-     the four grow and reading what each one is. */
-  height: 215svh;
+  /* The extra height IS the reading time. The four are quick; almost all of
+     it goes to the four things they stand for. */
+  height: 200svh;
 }
 .mission-pin {
   position: sticky;
@@ -3558,11 +3558,14 @@ html[lang="zh-CN"] .rs-note h3 {
 }
 /* At the foot of the fall, which is where what the water carried would end up. */
 .mission-figs {
-  width: 100%;
+  /* Pulled left of the text column: they belong to the water, not to the
+     grid the copy is set on. */
+  width: 86%;
+  margin-left: -5%;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
-  gap: clamp(10px, 2vw, 28px);
+  gap: clamp(10px, 2vw, 26px);
   padding-bottom: 2%;
 }
 .mfig {
@@ -3575,9 +3578,9 @@ html[lang="zh-CN"] .rs-note h3 {
      appear, rather than switched on. */
   clip-path: inset(0 0 100% 0);
   transition:
-    opacity 0.7s var(--ease),
-    transform 0.7s var(--ease),
-    clip-path 0.9s var(--ease);
+    opacity 0.4s var(--ease),
+    transform 0.44s var(--ease-out),
+    clip-path 0.5s var(--ease-out);
 }
 .mfig.on {
   opacity: 1;
@@ -4079,6 +4082,8 @@ html[lang="zh-CN"] .closeline {
     min-height: 30vh;
   }
   .mission-figs {
+    width: 100%;
+    margin-left: 0;
     padding-bottom: 0;
     gap: 12px;
   }
