@@ -83,11 +83,17 @@ export const MaterialEntry = z.object({
 }).strict();
 export type MaterialEntry = z.infer<typeof MaterialEntry>;
 
+// `evidence` tolerates a null/absent value (coerced to []) for the same reason
+// the Abstract list fields do: a dimension with no grounded evidence is still a
+// valid dimension, and one null array must never make EvaluationReport.parse
+// throw and blank the whole report. Older stored reports serialized empty
+// evidence as JSON `null` (a nil Go slice); the Go validator only boundary-checks
+// the envelope, so those rows reach the client and would otherwise fail here.
 export const DepthDimResult = z.object({
   id: z.enum(["D1", "D2", "D3", "D4", "D5", "D6"]),
   level: z.number().int().min(1).max(4),
   summary: z.string(),
-  evidence: z.array(EvidenceItem),
+  evidence: z.array(EvidenceItem).nullish().transform((v) => v ?? []),
   suggestion: z.string(),
 }).strict();
 export type DepthDimResult = z.infer<typeof DepthDimResult>;
@@ -96,7 +102,7 @@ export const AutonomyDimResult = z.object({
   id: z.enum(["A1", "A2", "A3", "A4", "A5", "A6"]),
   band: z.number().int().min(0).max(5),
   summary: z.string(),
-  evidence: z.array(EvidenceItem),
+  evidence: z.array(EvidenceItem).nullish().transform((v) => v ?? []),
   suggestion: z.string(),
 }).strict();
 export type AutonomyDimResult = z.infer<typeof AutonomyDimResult>;

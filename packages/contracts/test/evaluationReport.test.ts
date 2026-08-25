@@ -35,4 +35,17 @@ describe("EvaluationReport", () => {
     const bad = structuredClone(MIN); (bad.risks[0] as any).type = "nope";
     expect(() => EvaluationReport.parse(bad)).toThrow();
   });
+  // Regression (2026-08-25): older stored reports serialized empty depth/autonomy
+  // evidence as JSON `null` (a nil Go slice). The Go validator only boundary-checks
+  // the envelope, so those rows reach the client and served `ready`; a strict
+  // `z.array(...)` here threw and blanked the whole report ("报告加载失败" on both the
+  // teacher view and the student's own page). Null must coerce to [].
+  it("tolerates null depth/autonomy evidence, coercing to []", () => {
+    const legacy = structuredClone(MIN);
+    (legacy.depth[0] as any).evidence = null;
+    (legacy.autonomy[0] as any).evidence = null;
+    const parsed = EvaluationReport.parse(legacy);
+    expect(parsed.depth[0]!.evidence).toEqual([]);
+    expect(parsed.autonomy[0]!.evidence).toEqual([]);
+  });
 });
