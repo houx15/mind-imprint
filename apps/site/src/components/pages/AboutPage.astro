@@ -4,35 +4,69 @@ import CtaBand from "../sections/CtaBand.astro";
 import PageBanner from "../sections/PageBanner.astro";
 import Pager from "../sections/Pager.astro";
 import { getLang, t } from "../../i18n/utils";
-import { demoUrl } from "../../config";
+import { demoUrl, assetUrl } from "../../config";
 
 const lang = getLang(Astro.currentLocale);
 
-/* The founding team. Portraits drop into apps/site/assets/team/ and get
-   wired through `photo`; everything else here is final copy. */
+/* The team. Portraits live in apps/site/assets/team/ and are served through
+   the site CDN; a member without one gets a monogram rather than a broken
+   frame, which is a state the page should be able to hold indefinitely. */
 const team: {
-  slug: string;
+  name: [string, string];
   role: [string, string];
-  name?: [string, string];
-  bio?: [string, string];
+  bio: [string, string];
+  /** media key under the site CDN; absent means the monogram */
   photo?: string;
+  /** shown when there is no photo; a Latin initial reads better in English */
+  initial: [string, string];
 }[] = [
   {
-    slug: "team-ceo",
-    role: ["联合创始人 · CEO", "Co-founder & CEO"],
     name: ["陈玉洁", "Yujie Chen"],
+    role: ["创始人", "Founder"],
+    photo: "team/chen-yujie-v1.webp",
+    initial: ["陈", "C"],
     bio: [
-      "教育学、心理学与社会学的跨学科背景，在德国、美国、澳大利亚求学与工作。曾任职于联合国训练研究所（UNITAR）纽约，从事媒介与信息素养、可持续发展教育与 AI 课程设计。她长期在不同国家、文化与教育体系之间做课程协作，擅长把复杂议题转化为可学习、可评估、可行动的教育方案——参与过全球媒介与信息素养课程框架、AI 伦理与数字素养培训、ESG 与可持续发展教育项目，并为学校、教师与青年学习者设计跨学科课程。",
-      "An interdisciplinary background in education, psychology and sociology, with study and work across Germany, the United States and Australia. She worked at UNITAR in New York on media and information literacy, education for sustainable development, and AI curriculum design. Years of curriculum collaboration across countries, cultures and education systems have made her expert at turning a complex issue into something that can be learned, assessed and acted on — from global media-literacy frameworks and AI-ethics training to ESG and sustainability programmes, and interdisciplinary courses for schools, teachers and young learners.",
+      "教育学、心理学与社会学的跨学科背景，在德国、美国、澳大利亚求学与工作。曾任职于联合国训练研究所（UNITAR）纽约，从事媒介与信息素养、可持续发展教育与 AI 课程设计。她长期在不同国家、文化与教育体系之间做课程协作，擅长把复杂议题转化为可学习、可评估、可行动的教育方案。",
+      "An interdisciplinary background in education, psychology and sociology, with study and work across Germany, the United States and Australia. At UNITAR in New York she worked on media and information literacy, education for sustainable development and AI curriculum design. Years of collaboration across countries, cultures and education systems have made her expert at turning a complex issue into something that can be learned, assessed and acted on.",
     ],
   },
   {
-    slug: "team-cto",
-    role: ["联合创始人 · CTO", "Co-founder & CTO"],
     name: ["侯煜欣", "Yuxin Hou"],
+    role: ["创始人", "Founder"],
+    photo: "team/hou-yuxin-v1.webp",
+    initial: ["侯", "H"],
     bio: [
       "清华大学毕业，工学、教育学、心理学与社会学的跨学科背景，在 AI + 教育领域深耕十余年。曾作为联合创始人与 CTO 打造全国首个自适应 AI 教师，也曾在联合国儿童基金会（UNICEF）参与社会情感学习课程设计。她持续研究的问题只有一个：AI 时代真正的核心竞争力是什么，以及它到底怎么习得。",
       "A Tsinghua graduate with an interdisciplinary background spanning engineering, education, psychology and sociology, and more than a decade in AI and education. She was co-founder and CTO of China's first adaptive AI teacher, and worked on social-emotional learning curriculum design at UNICEF. One question runs through all of it: what the core competence of the AI era actually is, and how it is actually acquired.",
+    ],
+  },
+  {
+    name: ["杨欣松", "Xinsong Yang"],
+    role: ["技术顾问", "Technical adviser"],
+    initial: ["杨", "Y"],
+    bio: [
+      "计算机科学与社会科学的跨学科背景，多年软件工程与互联网产品研发经验，曾任职于 Tubi、爱奇艺等科技公司，参与大规模互联网产品与数据系统的研发。近年持续关注生成式 AI 如何改变人的学习、思考与决策方式，并探索 AI 原生产品的设计与开发。",
+      "An interdisciplinary background in computer science and the social sciences, with years of software engineering and product work at Tubi and iQIYI on large-scale consumer products and the data systems behind them. Lately his attention has been on how generative AI changes the way people learn, think and decide — and on what an AI-native product should therefore be.",
+    ],
+  },
+  {
+    name: ["周晓卓", "Xiaozhuo Zhou"],
+    role: ["课程实习生", "Curriculum intern"],
+    photo: "team/zhou-xiaozhuo-v1.webp",
+    initial: ["周", "Z"],
+    bio: [
+      "北京大学国际中文教育硕士，语言学、认知科学与心理学的跨学科背景，研究方向涵盖二语习得、实验语用学与心理语言学。曾任高校辩论队队长与学生心理协会会长，有中文教学、跨文化教育与逻辑思维训练的实践经验。她关心的是怎么把复杂知识变成清晰、可参与的学习体验。",
+      "A master's in international Chinese-language education from Peking University, with an interdisciplinary background in linguistics, cognitive science and psychology — second-language acquisition, experimental pragmatics, psycholinguistics. She has captained a university debate team, chaired its student psychology society, and taught Chinese across cultures. Her question is how complex knowledge becomes a learning experience clear enough to take part in.",
+    ],
+  },
+  {
+    name: ["郭浩然", "Haoran Guo"],
+    role: ["研究实习生", "Research intern"],
+    photo: "team/guo-haoran-v1.webp",
+    initial: ["郭", "G"],
+    bio: [
+      "清华大学博士生在读，专业为管理科学与工程。",
+      "A PhD candidate in management science and engineering at Tsinghua University.",
     ],
   },
 ];
@@ -45,15 +79,6 @@ const redlines: [string, string, string, string][] = [
   ["过程即数据", "Process is data", "学生跳过工具卡、让 AI 直接答，也被记录。摩擦被转成信号，不被消灭。一个只测量、不干预的系统，测得越准，也只是更准确地记录学生如何变得被动。", "Skipping a card, or asking the AI to just answer, is recorded too. Friction becomes signal instead of being eliminated. A system that only measures and never intervenes just documents, with increasing accuracy, how a student became passive."],
 ];
 
-/* the six commitments — whitepaper §measurement ethics */
-const vows: [string, string, string, string][] = [
-  ["目的限定与禁用声明", "Purpose limitation, and a list of what we won't do", "观测的唯一目的是教学引导与成长反馈。双轴数据永不用于入学筛选、学生排名、纪律惩戒或教师绩效考核；不出售，不用于任何形式的商业画像。这份禁用清单写进合同与系统权限，而非仅写进隐私政策。", "The only purpose of observation is teaching and growth feedback. The axis data is never used for admissions, ranking, discipline or staff appraisal — never sold, never turned into a commercial profile. That list lives in the contract and in system permissions, not only in a privacy policy."],
-  ["数据最小化与假名化", "Minimisation and pseudonymisation", "只采集与测量点对应的交互事件；与测量无关的内容不进入分析。分析层身份假名化，行为明细滚动保留十二个月，到期只留聚合后的轨迹读数。家长与学生可行使删除权。", "We collect only the interaction events that correspond to a measurement point; anything unrelated never enters analysis. Identity is pseudonymised in the analysis layer, behavioural detail rolls off after twelve months leaving only aggregate trajectory, and families can exercise deletion."],
-  ["分层可见性", "Tiered visibility", "不同的人看到不同的颗粒度。学生看自己的成长报告与对话明细；家长看周期叙事与就绪度；教师看判定与可点开的证据；学校管理者只看班级层聚合。内部工作用的文学化命名，永不出现在任何用户界面。", "Different people see different granularity. The student sees her own growth report and conversation detail; parents see the cycle narrative and readiness; teachers see judgments with openable evidence; admins see class-level aggregates only. Our internal shorthand never appears in any interface."],
-  ["知情与退出", "Informed consent, and a real exit", "「采集先于同意」不发生：家长知情同意先于任何测量。退出是真实的选项——家庭可以只使用训练功能而不进入测量，退出不影响课程使用，也不被区别对待。", "Collection never precedes consent: informed parental consent comes before any measurement. Opting out is real — a family can use the training and stay out of the measurement, with no loss of course access and no different treatment."],
-  ["高利害判定非自动化，且可争议", "High-stakes calls aren't automated, and can be contested", "任何可能影响学生重大利益的判断，不由算法自动作出。教师可一键改判，改判数据回流用于纠错；学生与家长对任何结果享有异议通道，人工复核在四十八小时内响应。「证据不足」这个显示态本身就是一项伦理设计。", "No judgment that could materially affect a student is made automatically. Teachers can overturn in one click, and those overturns flow back as correction data. Students and families have a channel to object, with human review inside forty-eight hours. The “insufficient evidence” state is itself an ethical design decision."],
-  ["对发展中的人的特殊义务", "A special duty toward people who are still forming", "被观测的是尚在发展中的孩子。所以一切表述使用「本周期观察到」的情境化语言，不做特质断言——标签有自我实现的力量。并且测量对学生透明：让孩子知道「什么值得被看」，本身就是元认知教育的一部分。", "The people being observed are children still forming. So everything is phrased as “observed this cycle”, never as a trait claim — labels have a way of coming true. And the measurement is transparent to the student: letting a child know what is worth looking at is itself part of metacognitive education."],
-];
 
 const rollout: [string, string, string, string][] = [
   ["学校建班", "The school creates a class", "老师或管理员建立班级，拿到一个班级邀请码。", "A teacher or admin creates a class and receives a join code."],
@@ -71,8 +96,8 @@ const rollout: [string, string, string, string][] = [
     ["AI 原生团队。", "built for AI-native education."],
   ]}
   lead={[
-    "两位联合创始人，一位来自教育与课程设计，一位来自 AI 工程。跨越教育学、心理学、社会学与工学，我们在同一个问题上花了十几年：AI 时代真正值得培养的能力是什么，以及它怎么被教会、被看见。",
-    "Two co-founders — one from education and curriculum design, one from AI engineering. Across education, psychology, sociology and engineering, we have spent more than a decade on one question: what ability is actually worth building in the age of AI, and how it can be taught and made visible.",
+    "一支跨教育学、心理学、社会学与工学的团队，来自清华、北大与联合国机构。我们在同一个问题上花了十几年：AI 时代真正值得培养的能力是什么，以及它怎么被教会、被看见。",
+    "One team across education, psychology, sociology and engineering, out of Tsinghua, Peking University and the UN system. We have spent more than a decade on a single question: what ability is actually worth building in the age of AI, and how it can be taught and made visible.",
   ]}
 />
 
@@ -102,12 +127,12 @@ const rollout: [string, string, string, string][] = [
   <div class="container">
     <div class="sec-head rv">
       <div class="eyebrow"><span class="pip"></span>{t(lang, "团队", "The team")}</div>
-      <h2 class="sec-title">{t(lang, "两位联合创始人", "The two co-founders")}</h2>
+      <h2 class="sec-title">{t(lang, "课程、系统与认知，坐在同一张桌子上", "Curriculum, systems and cognition at one table")}</h2>
       <p class="lead">
         {t(
           lang,
-          "一位设计课程与评估，一位构建系统与算法。这套产品里的每个决定——什么时候递出工具卡、什么时候不给答案、报告里哪句话可以写——同时是教学问题和工程问题，所以它们必须在同一张桌子上被决定。",
-          "One designs the curriculum and the assessment; one builds the systems and the algorithms. Every decision in this product — when a thinking card appears, when the coach withholds an answer, what a report is allowed to say — is a teaching question and an engineering question at once, which is why they have to be settled at the same table.",
+          "有人设计课程与评估，有人构建系统与算法，有人研究语言与认知。这套产品里的每个决定——什么时候递出工具卡、什么时候不给答案、报告里哪句话可以写——同时是教学问题和工程问题，所以它们必须一起被决定。",
+          "Some of us design the curriculum and the assessment, some build the systems and the algorithms, some study language and cognition. Every decision in this product — when a thinking card appears, when the coach withholds an answer, what a report is allowed to say — is a teaching question and an engineering question at once, which is why they have to be settled together.",
         )}
       </p>
     </div>
@@ -117,25 +142,20 @@ const rollout: [string, string, string, string][] = [
         <div class="member rv" style={`--i:${i % 3}`}>
           <div class="portrait">
             {m.photo ? (
-              <img src={m.photo} alt={m.name ? t(lang, m.name[0], m.name[1]) : t(lang, m.role[0], m.role[1])} loading="lazy" />
+              <img
+                src={assetUrl(m.photo)}
+                alt={t(lang, m.name[0], m.name[1])}
+                loading="lazy"
+                decoding="async"
+              />
             ) : (
-              <div class="figure" style="height:100%; border-radius:0">
-                <div class="fslot">
-                  <div class="ficon"><Icon name="users" /></div>
-                  <div class="fname">{m.slug}</div>
-                  <div class="fdesc">{t(lang, "人像 · 4:5", "portrait · 4:5")}</div>
-                </div>
-              </div>
+              <div class="mono-ph" aria-hidden="true">{t(lang, m.initial[0], m.initial[1])}</div>
             )}
           </div>
           <div class="mtext">
-            <div class="mname">{m.name ? t(lang, m.name[0], m.name[1]) : t(lang, "姓名待补", "Name to come")}</div>
+            <div class="mname">{t(lang, m.name[0], m.name[1])}</div>
             <div class="mrole">{t(lang, m.role[0], m.role[1])}</div>
-            <p class="mbio">
-              {m.bio
-                ? t(lang, m.bio[0], m.bio[1])
-                : t(lang, "一段两三句的介绍，说清这个人带来的是什么判断力。", "Two or three sentences on the judgment this person brings.")}
-            </p>
+            <p class="mbio">{t(lang, m.bio[0], m.bio[1])}</p>
           </div>
         </div>
       ))}
@@ -179,43 +199,6 @@ const rollout: [string, string, string, string][] = [
           "It does not apply to deterministic system steps: generating a plan, deriving an outline from a research question she has already stated. Those are things the system should just do. Stretching the rule to cover them makes the product harder to use without making it more principled.",
         )}
       </p>
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════════ SIX COMMITMENTS ═════ -->
-<section class="section band-cool">
-  <div class="container">
-    <div class="sec-head rv">
-      <div class="eyebrow"><span class="pip"></span>{t(lang, "六项承诺", "Six commitments")}</div>
-      <h2 class="sec-title">{t(lang, "拦住我们自己越界使用孩子的思考", "Holding ourselves back from misusing a child's thinking")}</h2>
-      <p class="lead">
-        {t(
-          lang,
-          "一个持续观测学生思维过程的产品，必须回答另一个问题：凭什么观测，观测到哪里为止。正当性从来不是默认存在的，它得被设计出来。",
-          "A product that argues for continuously observing how a student thinks has to answer a second question: on what authority, and up to where. Legitimacy isn't a default. It has to be designed.",
-        )}
-      </p>
-    </div>
-
-    <div class="vows rv" style="margin-top:44px">
-      {vows.map(([zh, en, pz, pe]) => (
-        <div class="vow">
-          <div class="vn"></div>
-          <div>
-            <h4>{t(lang, zh, en)}</h4>
-            <p>{t(lang, pz, pe)}</p>
-          </div>
-        </div>
-      ))}
-    </div>
-
-    <div class="pull rv" style="margin-top:52px; max-width:900px">
-      {t(
-        lang,
-        "我们对学生数据的纪律，是我们对学生思维的纪律的镜像：四条红线防止 AI 越界替孩子思考，这六项承诺防止平台越界使用孩子的思考。",
-        "The discipline we hold over a student's data mirrors the discipline we hold over their thinking: four red lines stop the AI from thinking for the child, and these six stop the platform from misusing what the child thought.",
-      )}
     </div>
   </div>
 </section>

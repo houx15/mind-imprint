@@ -1936,39 +1936,48 @@ html:not(.js) .shotstack {
 }
 
 /* team */
-/* Two founders, side by side, with the portrait beside the bio rather than
-   above it — a three-up grid made two people look like a gap. */
+/* The whole team, given one treatment — five people in a three-up grid, the
+   portrait above the name rather than beside it. Circles, because the four
+   photographs were taken in four different places (a dark studio, a white
+   wall, a porch in the afternoon) and square tiles would print those
+   backgrounds on the page as four mismatched blocks. */
 .team {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 34px;
-}
-.member {
-  display: grid;
-  grid-template-columns: 168px 1fr;
-  gap: 24px;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 40px 30px;
   align-items: start;
 }
-.member .mbio {
-  font-size: 14px;
-  line-height: 1.72;
-  color: var(--muted);
-  margin-top: 12px;
-}
-@media (max-width: 1000px) {
-  .team {
-    grid-template-columns: 1fr;
-  }
-}
-@media (max-width: 560px) {
-  .member {
-    grid-template-columns: 1fr;
-  }
+.member {
+  display: block;
 }
 .member .portrait {
-  aspect-ratio: 4 / 5;
-  border-radius: 0;
+  width: 116px;
+  aspect-ratio: 1 / 1;
+  border-radius: 999px;
   overflow: hidden;
+  background: var(--paper-2);
+  border: 1px solid var(--line);
+}
+.member .portrait img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+/* A member without a photograph gets a monogram, not a broken frame: this is
+   a state the page has to be able to hold for as long as it takes. */
+.member .mono-ph {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  place-items: center;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--faint);
+  background: var(--paper-2);
+}
+.member .mtext {
+  margin-top: 18px;
 }
 .member .mname {
   font-size: 18px;
@@ -1987,46 +1996,21 @@ html:not(.js) .shotstack {
   font-size: 14px;
   color: var(--muted);
   margin-top: 11px;
-  line-height: 1.68;
-}
-
-/* commitments list */
-.vows {
-  counter-reset: vow;
-}
-.vow {
-  display: grid;
-  grid-template-columns: 62px 1fr;
-  gap: 22px;
-  padding: 26px 0;
-  border-top: 1px solid var(--line);
-  align-items: start;
-}
-.vow:last-child {
-  border-bottom: 1px solid var(--line);
-}
-.vow .vn {
-  counter-increment: vow;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--faint);
-  letter-spacing: 0.08em;
-  padding-top: 4px;
-}
-.vow .vn::before {
-  content: "0" counter(vow);
-}
-.vow h4 {
-  font-size: 17.5px;
-  font-weight: 700;
-  letter-spacing: -0.012em;
-}
-.vow p {
-  font-size: 14.5px;
-  color: var(--muted);
-  margin-top: 8px;
   line-height: 1.72;
-  max-width: 68ch;
+}
+@media (max-width: 1000px) {
+  .team {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+@media (max-width: 620px) {
+  .team {
+    grid-template-columns: 1fr;
+    gap: 34px;
+  }
+  .member .portrait {
+    width: 96px;
+  }
 }
 
 /* red lines (the four 铁律) */
