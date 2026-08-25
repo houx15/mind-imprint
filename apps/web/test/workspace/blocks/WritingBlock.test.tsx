@@ -231,16 +231,13 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     expect(ta.value).toBe(before);
   });
 
-  it("re-runs with the chosen voice", async () => {
-    await openDraftTab();
-    await userEvent.selectOptions(screen.getByLabelText("体检视角"), "sceptic");
-    await userEvent.click(screen.getByRole("button", { name: "让印记体检整稿" }));
-    await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", expect.any(String), "sceptic"));
-  });
-
-  it("exports the body via 导出成品 (WB)", async () => {
+  // 导出 moved out of the toolbar into the 完成写作 flow (both docs). The 体检视角
+  // selector was removed from the writing surface (整稿体检 uses the default
+  // "board" lens; per-lens 体检 lives in the AI rail's shelf, not here).
+  it("exports the body via 导出 inside the 完成写作 modal (WB)", async () => {
     const ta = await openDraftTab();
-    await userEvent.click(screen.getByRole("button", { name: /导出成品/ }));
+    await userEvent.click(screen.getByRole("button", { name: "完成写作" }));
+    await userEvent.click(await screen.findByRole("button", { name: "导出 .docx" }));
     await waitFor(() => expect(mockExport).toHaveBeenCalledWith(ta.value, expect.objectContaining({ title: "T" })));
   });
 
@@ -365,27 +362,8 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
     });
   });
 
-  it("分节 mode: generate sections from the outline and write under a heading (#5)", async () => {
-    vi.mocked(getOutline).mockResolvedValue([{ id: "o1", text: "背景与主张", depth: 0, position: 0 }] as never);
-    await openDraftTab();
-    await userEvent.click(screen.getByRole("button", { name: "分节" }));
-    await userEvent.click(await screen.findByRole("button", { name: /从大纲生成章节/ }));
-    // the outline heading becomes an editable section heading
-    expect(await screen.findByDisplayValue("背景与主张")).toBeInTheDocument();
-    // write in the generated section's body → the draft serializes with the heading
-    const bodies = screen.getAllByPlaceholderText("在这一节写……");
-    await userEvent.type(bodies[bodies.length - 1]!, "这是正文。");
-    // Q6 · the autosave debounce is ~1.2s (was 800ms) — give waitFor enough
-    // room past the default 1s timeout.
-    await waitFor(
-      () => {
-        const last = vi.mocked(putBuffer).mock.calls.at(-1)?.[1] ?? "";
-        expect(last).toContain("# 背景与主张");
-        expect(last).toContain("这是正文。");
-      },
-      { timeout: 3000 },
-    );
-  });
+  // (分节 mode removed 2026-08-25 — the writing surface is now a single calm
+  // free-text pane matching the proposal; the 自由/分节 toggle is gone.)
 
   // #6 · replaces the old assumption that the live outline auto-appears as a
   // 片段 board section — it must NOT, until the student explicitly imports it.
@@ -420,15 +398,14 @@ describe("WritingBlock · 整稿体检 (WA)", () => {
   // (a niche import; snippets are still creatable + 归到-assignable in the 片段
   // tab). The live-outline-not-auto-rendered guard (#6) above still holds.
 
-  it("selection chip can run the chosen voice's 体检 on just that paragraph (#8)", async () => {
+  it("selection chip runs 体检 on just that paragraph, default lens (#8)", async () => {
     const ta = await openDraftTab();
-    await userEvent.selectOptions(screen.getByLabelText("体检视角"), "sceptic");
     ta.setSelectionRange(0, 8);
     fireEvent.mouseUp(ta, { clientX: 20, clientY: 20 });
     await userEvent.click(await screen.findByRole("button", { name: "体检这段" }));
     // the review runs on the selected paragraph (not the whole draft), with the
-    // chosen voice — and the panel says it checked just this段.
-    await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", "我的草稿第一段。", "sceptic"));
+    // default "board" lens — and the panel says it checked just this段.
+    await waitFor(() => expect(mockReview).toHaveBeenCalledWith("p1", "我的草稿第一段。", "board"));
     expect(await screen.findByText(/体检了你选中的这一段/)).toBeInTheDocument();
   });
 

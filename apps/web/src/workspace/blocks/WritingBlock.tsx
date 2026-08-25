@@ -242,6 +242,10 @@ export function WritingBlock({
   const [showFinishModal, setShowFinishModal] = useState(false);
   const [finishingWriting, setFinishingWriting] = useState(false);
   const [finishWritingError, setFinishWritingError] = useState<string | null>(null);
+  // Export lives INSIDE the 完成写作 flow now (not a toolbar button): the finish
+  // modal loads the current draft so a student can 导出 .docx from there — for
+  // both the proposal and the essay, whether or not they go on to lock it.
+  const [draftForExport, setDraftForExport] = useState("");
   // §99 · after finishing the proposal, a congrats modal offers export + 继续 to
   // the next step (essay). proposalExportText holds the proposal buffer to export.
   const [showProposalCongrats, setShowProposalCongrats] = useState(false);
@@ -293,6 +297,7 @@ export function WritingBlock({
   // has ever commented; if not, the modal offers a review before locking (§4).
   async function openFinish() {
     setProposalAnnoCount(null);
+    setDraftForExport(await getDraft(projectId, doc).catch(() => ""));
     setShowFinishModal(true);
     if (isProposal) {
       try {
@@ -601,23 +606,36 @@ export function WritingBlock({
                 <p className="mt-3 text-[14px] leading-relaxed text-mk-muted">
                   印记还没批注过你的提案。要不要先让它像老师一样看一遍、给点批注，再决定完成？
                 </p>
-                <div className="mt-6 flex justify-end gap-3">
+                {finishWritingError && (
+                  <p className="mt-3 text-[14px] font-semibold text-mk-danger">{finishWritingError}</p>
+                )}
+                <div className="mt-6 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    disabled={runningCheck || finishingWriting}
-                    onClick={() => { void doFinishWriting(); }}
-                    className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink disabled:opacity-50"
+                    disabled={!draftForExport.trim()}
+                    onClick={() => { void exportDraftDocx(draftForExport, { title }).catch(() => {}); }}
+                    className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-50"
                   >
-                    {finishingWriting ? "定稿中……" : "跳过，直接完成"}
+                    导出 .docx
                   </button>
-                  <button
-                    type="button"
-                    disabled={runningCheck}
-                    onClick={() => { void runCommentFirst(); }}
-                    className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
-                  >
-                    {runningCheck ? "印记在看……" : "先让印记看一遍"}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      disabled={runningCheck || finishingWriting}
+                      onClick={() => { void doFinishWriting(); }}
+                      className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink disabled:opacity-50"
+                    >
+                      {finishingWriting ? "定稿中……" : "跳过，直接完成"}
+                    </button>
+                    <button
+                      type="button"
+                      disabled={runningCheck}
+                      onClick={() => { void runCommentFirst(); }}
+                      className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                    >
+                      {runningCheck ? "印记在看……" : "先让印记看一遍"}
+                    </button>
+                  </div>
                 </div>
               </>
             ) : (
@@ -633,22 +651,32 @@ export function WritingBlock({
                 {finishWritingError && (
                   <p className="mt-3 text-[14px] font-semibold text-mk-danger">{finishWritingError}</p>
                 )}
-                <div className="mt-6 flex justify-end gap-3">
+                <div className="mt-6 flex items-center justify-between gap-3">
                   <button
                     type="button"
-                    onClick={() => setShowFinishModal(false)}
-                    className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink"
+                    disabled={!draftForExport.trim()}
+                    onClick={() => { void exportDraftDocx(draftForExport, { title }).catch(() => {}); }}
+                    className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-50"
                   >
-                    再改改
+                    导出 .docx
                   </button>
-                  <button
-                    type="button"
-                    disabled={finishingWriting}
-                    onClick={() => { void doFinishWriting(); }}
-                    className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
-                  >
-                    {finishingWriting ? (isProposal ? "定稿中……" : "锁定中……") : (isProposal ? "进入写正文" : "锁定初稿")}
-                  </button>
+                  <div className="flex gap-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowFinishModal(false)}
+                      className="rounded-mk-md border border-mk-border px-4 py-2 text-[14px] font-semibold text-mk-muted hover:text-mk-ink"
+                    >
+                      再改改
+                    </button>
+                    <button
+                      type="button"
+                      disabled={finishingWriting}
+                      onClick={() => { void doFinishWriting(); }}
+                      className="rounded-mk-md bg-mk-accent px-5 py-2 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                    >
+                      {finishingWriting ? (isProposal ? "定稿中……" : "锁定中……") : (isProposal ? "进入写正文" : "锁定初稿")}
+                    </button>
+                  </div>
                 </div>
               </>
             )}
@@ -1568,12 +1596,6 @@ function DraftPane({
 }) {
   const [mode, setMode] = useState<"write" | "upload">("write");
   const [pane, setPane] = useState<"edit" | "preview">("edit");
-  // #5-follow-on · 自由 (one free textarea) vs 分节 (write under outline-driven
-  // headings). A toggle — free-form is always available (never a cage).
-  const [layout, setLayout] = useState<"free" | "sections">("free");
-  // When 分节 is active, the sections editor registers its own insert here so
-  // the materials sidebar drops a fragment into the focused section.
-  const sectionInsertRef = useRef<((t: string, referenceId?: string) => void) | null>(null);
   const [text, setText] = useState("");
   const [uploadNote, setUploadNote] = useState<string | null>(null);
   // #7 · a floating "问印记" chip that appears next to a text selection. selPop
@@ -1824,14 +1846,6 @@ function DraftPane({
     if (!frag) return;
     setMode("write");
     setPane("edit");
-    // #5 · in 分节 mode the sections editor owns placement (into the focused
-    // section); the free textarea path below only runs in 自由 mode. G3 · the
-    // referenceId (when the fragment came from a library source) rides along so
-    // the sections editor can record the source→section citation link.
-    if (layout === "sections" && sectionInsertRef.current) {
-      sectionInsertRef.current(frag, referenceId);
-      return;
-    }
     const cur = textRef.current;
     const ta = draftRef.current;
     // honor the caret only once the textarea has been focused — a never-focused
@@ -1850,6 +1864,9 @@ function DraftPane({
       const el = draftRef.current;
       if (el) { el.focus(); el.setSelectionRange(caret, caret); }
     });
+    // G3 · when the fragment came from a library source, record the
+    // source→正文 citation link (previously only the 分节 path did this).
+    if (referenceId) void recordCitation(projectId, referenceId, "正文").catch(() => {});
   }
   // Register the inserter once; a ref holds the latest closure so the stable
   // registered fn always sees current state. Unregister on unmount so the
@@ -1924,79 +1941,33 @@ function DraftPane({
         ref={paneRef}
         className={`relative mx-auto flex min-h-0 w-full flex-1 flex-col ${showReview ? "max-w-6xl" : "max-w-2xl"}`}
       >
-        <div className="mb-3 flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            {!locked && (
-              <Segmented
-                options={[
-                  { value: "write", label: "写在这里" },
-                  { value: "upload", label: "我在别处写了" },
-                ]}
-                value={mode}
-                onChange={(v) => setMode(v as "write" | "upload")}
-              />
-            )}
-            {mode === "write" && (
-              <Segmented
-                options={[
-                  { value: "edit", label: "写" },
-                  { value: "preview", label: "预览" },
-                ]}
-                value={pane}
-                onChange={(v) => { if (v === "preview") setSelPop(null); setPane(v as "edit" | "preview"); }}
-              />
-            )}
-            {mode === "write" && pane === "edit" && (
-              <Segmented
-                options={[
-                  { value: "free", label: "自由" },
-                  { value: "sections", label: "分节" },
-                ]}
-                value={layout}
-                onChange={(v) => setLayout(v as "free" | "sections")}
-              />
+        {/* Calm top row — mirrors the proposal (ProsePane): one AI-comment
+            button + a small "写在别处" upload entry. Preview / 字数 / 保存 live in
+            the lower-right overlay; 导出 moved into the 完成写作 flow. */}
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex min-w-0 items-center gap-3">
+            {mode === "write" && !locked && (
+              <>
+                <button
+                  type="button"
+                  onClick={() => void runReview()}
+                  disabled={reviewing || text.trim() === ""}
+                  className="flex-none rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
+                >
+                  {reviewing ? "体检中…" : "让印记体检整稿"}
+                </button>
+                <span className="truncate text-[12px] text-mk-faint">整稿体检会出现在右侧 · 供你参考，印记不替你改字</span>
+              </>
             )}
           </div>
-          {mode === "write" && (
-            <div className="flex items-center gap-2">
-              <span className="text-[12px] font-semibold text-mk-faint">{words} 字</span>
-              {!locked && <SaveStatusIndicator status={saveStatus} />}
-              {!locked && (
-                <>
-                  {/* #6 · 体检视角: each option carries a plain-language description so
-                      the lens is legible before picking; the closed control shows the
-                      chosen lens + what it does. */}
-                  <span className="text-[12px] font-semibold text-mk-faint">视角</span>
-                  <select
-                    value={voice}
-                    onChange={(e) => setVoice(e.target.value as ReviewVoice)}
-                    aria-label="体检视角"
-                    title="换个视角，印记体检整稿的侧重就不同"
-                    className="max-w-[13rem] rounded-mk-md border border-mk-border bg-mk-surface px-2 py-1 text-[12px] text-mk-ink outline-none focus:border-mk-accent"
-                  >
-                    {VOICE_ORDER.map((v) => (
-                      <option key={v} value={v}>{VOICE_META[v].label} · {VOICE_META[v].desc}</option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={() => void runReview()}
-                    disabled={reviewing || text.trim() === ""}
-                    className="rounded-mk-md bg-mk-accent px-3 py-1.5 text-[14px] font-bold text-white transition hover:bg-mk-accent-600 disabled:opacity-50"
-                  >
-                    {reviewing ? "体检中…" : "让印记体检整稿"}
-                  </button>
-                </>
-              )}
-              <button
-                type="button"
-                onClick={() => { void exportDraftDocx(text, { title }).catch(() => {/* never crash the room */}); }}
-                disabled={text.trim() === ""}
-                className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[14px] font-semibold text-mk-muted hover:text-mk-accent disabled:opacity-50"
-              >
-                导出成品 .docx
-              </button>
-            </div>
+          {!locked && (
+            <button
+              type="button"
+              onClick={() => { setSelPop(null); setMode(mode === "write" ? "upload" : "write"); }}
+              className="flex-none rounded-mk-md border border-mk-border px-3 py-1.5 text-[13px] font-semibold text-mk-muted transition hover:text-mk-accent"
+            >
+              {mode === "write" ? "上传写好的文档" : "← 回到写作"}
+            </button>
           )}
         </div>
         {locked && (
@@ -2011,27 +1982,17 @@ function DraftPane({
           <div className="flex min-h-0 flex-col">
             {mode === "write" ? (
               pane === "edit" ? (
-                layout === "sections" ? (
-                  <SectionedDraft
-                    projectId={projectId}
-                    text={text}
-                    onChange={onChange}
-                    locked={locked}
-                    registerInsert={(fn) => { sectionInsertRef.current = fn; }}
-                  />
-                ) : (
-                  <textarea
-                    ref={draftRef}
-                    value={text}
-                    onChange={(e) => onChange(e.target.value)}
-                    onFocus={() => { hasFocusedRef.current = true; }}
-                    onMouseUp={onDraftMouseUp}
-                    onScroll={() => setSelPop(null)}
-                    readOnly={locked}
-                    placeholder="在这里写你的草稿……（支持 Markdown）"
-                    className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-input-border p-5 font-sans text-mk-body leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
-                  />
-                )
+                <textarea
+                  ref={draftRef}
+                  value={text}
+                  onChange={(e) => onChange(e.target.value)}
+                  onFocus={() => { hasFocusedRef.current = true; }}
+                  onMouseUp={onDraftMouseUp}
+                  onScroll={() => setSelPop(null)}
+                  readOnly={locked}
+                  placeholder="在这里写你的草稿……（支持 Markdown）"
+                  className={`min-h-0 flex-1 resize-none rounded-mk-lg border border-mk-input-border p-5 font-sans text-mk-body leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint ${locked ? "bg-mk-paper cursor-default" : "bg-mk-surface focus:border-mk-accent"}`}
+                />
               ) : (
                 <MarkdownPreview text={text} />
               )
@@ -2104,6 +2065,22 @@ function DraftPane({
           )}
         </div>
         <p className="mt-2 text-center text-[12px] text-mk-faint">你写，印记只在一旁陪你想——它不替你写正文。</p>
+        {/* lower-right overlay (mirrors the proposal's ProsePane): preview toggle
+            + 字数 + 保存 status, so the top row stays calm. */}
+        {mode === "write" && (
+          <div className="pointer-events-none absolute bottom-8 right-2 flex items-center gap-3 rounded-mk-md border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] text-mk-muted shadow-mk-xs">
+            <button
+              type="button"
+              onClick={() => { if (pane === "edit") setSelPop(null); setPane(pane === "edit" ? "preview" : "edit"); }}
+              className="pointer-events-auto font-bold text-mk-muted hover:text-mk-accent"
+              title="切换 Markdown 预览"
+            >
+              {pane === "preview" ? "编辑" : "预览"}
+            </button>
+            <span>{words} 字</span>
+            {!locked && <SaveStatusIndicator status={saveStatus} />}
+          </div>
+        )}
       </div>
     </div>
   );

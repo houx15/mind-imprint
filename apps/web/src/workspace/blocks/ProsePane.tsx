@@ -33,6 +33,12 @@ export function ProsePane({
   const [preview, setPreview] = useState(false);
   const [saveStatus, setSaveStatus] = useState<"saved" | "dirty" | "saving">("saved");
   const [selPop, setSelPop] = useState<{ x: number; y: number; text: string } | null>(null);
+  // "上传写好的文档" — a student who wrote this doc elsewhere can drop it in
+  // (mirrors the essay DraftPane). .md/.txt is read straight in; .docx/.pdf is
+  // accepted with a note (parsing lands later).
+  const [mode, setMode] = useState<"write" | "upload">("write");
+  const [uploadNote, setUploadNote] = useState<string | null>(null);
+  const fileInput = useRef<HTMLInputElement | null>(null);
   const textRef = useRef("");
   const dirtyRef = useRef(false);
   const savingRef = useRef(false);
@@ -137,15 +143,56 @@ export function ProsePane({
     scheduleSave(1200);
   }
 
+  async function handleFile(file: File) {
+    const name = file.name.toLowerCase();
+    if (name.endsWith(".md") || name.endsWith(".markdown") || name.endsWith(".txt")) {
+      const content = await file.text();
+      onChange(content);
+      setUploadNote(null);
+      setMode("write");
+    } else {
+      // .docx / .pdf — accepted but not parsed yet; don't crash, just note it.
+      setUploadNote(`已上传「${file.name}」，正文解析稍后支持。`);
+    }
+  }
+
   const saveLabel = saveStatus === "saving" ? "保存中…" : saveStatus === "dirty" ? "未保存" : "已保存 ✓";
 
   return (
     // §4: no top icon bar — word count + save status live in a lower-right
     // overlay, with an unobtrusive preview toggle beside them.
     <div ref={paneRef} className="relative flex h-full min-h-0 flex-col">
+      {/* small "上传写好的文档" entry — top-right, unobtrusive (mirrors the essay) */}
+      {!locked && (
+        <button
+          type="button"
+          onClick={() => setMode(mode === "write" ? "upload" : "write")}
+          className="absolute right-4 top-3 z-10 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-1 text-[12px] font-semibold text-mk-muted shadow-mk-xs transition hover:text-mk-accent"
+        >
+          {mode === "write" ? "上传写好的文档" : "← 回到写作"}
+        </button>
+      )}
       {/* surface */}
       <div className="min-h-0 flex-1 overflow-auto px-8 py-5">
-        {preview ? (
+        {mode === "upload" ? (
+          <div
+            className="mx-auto flex h-full max-w-[70ch] flex-col items-center justify-center rounded-mk-lg border-2 border-dashed border-mk-input-border bg-mk-surface px-6 text-center"
+            onDragOver={(e) => e.preventDefault()}
+            onDrop={(e) => { e.preventDefault(); const f = e.dataTransfer.files[0]; if (f) void handleFile(f); }}
+          >
+            <p className="text-[15px] font-bold text-mk-ink">把你写好的提案拖进来</p>
+            <p className="mt-1 text-[14px] text-mk-faint">Word / PDF / Markdown——印记读进来后，也能和你聊这一稿</p>
+            <input
+              ref={fileInput}
+              type="file"
+              accept=".md,.markdown,.txt,.docx,.pdf"
+              className="hidden"
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) void handleFile(f); e.target.value = ""; }}
+            />
+            <button type="button" onClick={() => fileInput.current?.click()} className="mt-4 rounded-mk-md bg-mk-accent px-4 py-2 text-[14px] font-bold text-white hover:bg-mk-accent-600">选择文件</button>
+            {uploadNote && <p className="mt-3 text-[14px] font-semibold text-mk-warning">{uploadNote}</p>}
+          </div>
+        ) : preview ? (
           <div className="mx-auto max-w-[70ch]">
             {text.trim() === "" ? (
               <p className="text-[14px] text-mk-muted">还没有内容可预览。</p>
@@ -165,7 +212,7 @@ export function ProsePane({
           />
         )}
         {/* slice 3b · the floating 问印记 chip next to a selection */}
-        {selPop && !preview && !locked && onSendToCoach && (
+        {selPop && mode === "write" && !preview && !locked && onSendToCoach && (
           <button
             type="button"
             onMouseDown={(e) => e.preventDefault()} // keep the textarea selection alive

@@ -51,9 +51,13 @@ func (a *API) finishWriting(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if strings.TrimSpace(content) == "" {
+		docLabel := "正文"
+		if doc == "proposal" {
+			docLabel = "提案"
+		}
 		httpx.WriteError(w, r, &httpx.APIError{
 			Status: http.StatusUnprocessableEntity, Code: "draft_empty",
-			Message: "正文还是空的，先写点东西再完成写作",
+			Message: docLabel + "还是空的，先写点东西再完成",
 		})
 		return
 	}
