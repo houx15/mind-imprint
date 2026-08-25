@@ -196,7 +196,11 @@ Walked in a fresh project (pid dd2f42d4) + P1/P3. Legend: ✅ driven · ➖ cove
 
 **S5 writing-main-paper** — ✅ 正文 write · ✅ 整稿体检 (4-dim, verified) · ✅ word-count (fixed) · ✅ calm toolbar (fixed+verified) · ✅ 完成写作/lock · ✅ 回顾 · ✅ export-in-finish · ➖ drag snippet (as S3) · ➖ comment cycle (essay uses 整稿体检, verified).
 
-**Net:** every step driven or covered at an equivalent level. Open items are low-risk (literal drag-drop, writing a freeform reading note, a 3rd paper) plus **two things for you to decide**: (1) translate of a student's own writing (currently refused), (2) whether the proposal phase should be auto-entered after plan-gen (currently reached via a coach "下一步" step).
+**Net:** every step driven or covered at an equivalent level. Open items are low-risk (literal drag-drop, writing a freeform reading note, a 3rd paper).
+
+### Two design decisions — resolved (user, 2026-08-25)
+1. **Translate refusal = EXPECTED.** The coach refusing to translate a student's own body text is the intended 铁律① behavior. No change.
+2. **Proposal-phase ordering: keep the flow, make the next-step clear.** 🐛→✅ **Fixed** (`52e6536f`): the plan-intro walkthrough ending in **「开始写研究提案」** fired on the coach / note-confirm / dim-edit plan-gen paths but NOT on the **「想不到反例？跳过这一步，先生成计划」** waive path — so a student who generated the plan by waiving 反例 was left on the plan with no clear next step. `onWaiveCounterpoints` now calls `onPlanMaybeGenerated`, so **all four plan-gen paths** surface the same clear "next: write your research proposal" step. (`PlanBlock.tsx`; 9 PlanBlock tests + tsc green; deployed web `52e6536f`.)
 
 ## Fixes (round 1 — all on branch, verified green)
 
