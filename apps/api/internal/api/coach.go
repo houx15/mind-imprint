@@ -130,18 +130,30 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Once the turn is under way, let it RUN TO COMPLETION even if the student
+	// navigates away mid-reply. The turn is a synchronous POST on r.Context(),
+	// which net/http cancels the instant the browser disconnects (refresh /
+	// tab-close) — so a refresh during the multi-second model call used to abort
+	// the reply + studio_state persist below, leaving an orphan student message
+	// with no answer (2026-08-25 edge findings). WithoutCancel keeps auth /
+	// request-id and drops only cancellation; a 150s cap still bounds a genuinely
+	// stuck call. The response write to `w` at the end is best-effort — it simply
+	// fails harmlessly if the student already left, but the work is persisted.
+	turnCtx, cancelTurn := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
+	defer cancelTurn()
+
 	// Persist the student turn to the ONE per-project thread under the single
 	// continuous `studio` surface — the four rooms are views of one thread now,
 	// not separate scope-tagged conversations. Best-effort — the reply does not
 	// depend on it, since the current turn is already in `history` above.
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "user", userInput, "studio", string(state.Stage)); err != nil {
+	if err := store.AppendProjectCoachMessage(turnCtx, projectID, "user", userInput, "studio", string(state.Stage)); err != nil {
 		slog.Warn("coach: persist student turn failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
 	// Always-on spine projection (D2). The room scope is derived from the open
 	// tool (the studio_state), not a client-supplied scope. A build error
 	// degrades to no projection rather than failing the turn.
-	projection, perr := a.buildSpineProjection(r.Context(), projectID, spineScopeForTool(state.OpenTool))
+	projection, perr := a.buildSpineProjection(turnCtx, projectID, spineScopeForTool(state.OpenTool))
 	if perr != nil {
 		slog.Warn("coach: build spine projection failed; proceeding without it", "err", perr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		projection = ""
@@ -158,13 +170,13 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	}
 	status := agent.StatusForStage(state.Stage)
 	def := agent.StatusRegistry()[status]
-	dec, usage, cerr := agent.ProposeStatusTurn(r.Context(), a.d.Provider, fastResolved, def, projection, state, history)
+	dec, usage, cerr := agent.ProposeStatusTurn(turnCtx, a.d.Provider, fastResolved, def, projection, state, history)
 
 	// Meter BEFORE any bail — a call that yields nothing (or was enforcement-
 	// rejected) still cost money. Only when a real call happened (usage > 0).
 	// A metering failure never fails the turn.
 	if usage.InputTokens > 0 || usage.OutputTokens > 0 {
-		if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+		if rerr := store.RecordLLMCall(turnCtx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "coach",
 			Resolved: fastResolved, PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),
 		}); rerr != nil {
@@ -172,14 +184,22 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Build the reply. Narration falls back to a restrained nudge when the
-	// orchestrator produced nothing (empty narrate or a hard error).
+	// A genuine model FAILURE is surfaced as a real 502, NEVER masked by a canned
+	// reply — a fake "先自己说说看…" makes 印记 look broken/stupid to the student
+	// (USER RULE 2026-08-25; same posture as 提问卡 ai_dialogue_failed). The FE
+	// catches this and shows an honest "我没接住——再试一次？" retry note; the
+	// student turn is already persisted (above), so a resend self-heals. Nothing
+	// fake is written to the thread.
+	if cerr != nil {
+		slog.Warn("coach: model turn failed; surfacing to student", "err", cerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+		return
+	}
+	// Build the reply. A restrained nudge stands in only when the model SUCCEEDED
+	// but produced no prose (e.g. a tool-only turn) — that is not a failure.
 	reply := orchestratorReplyDTO{}
 	narrate := strings.TrimSpace(dec.Narrate)
-	if cerr != nil || narrate == "" {
-		if cerr != nil {
-			slog.Warn("coach: orchestrator turn not produced", "err", cerr, "request_id", httpx.RequestIDFromContext(r.Context()))
-		}
+	if narrate == "" {
 		narrate = coachFallbackReply
 	}
 	// Strip any workspace id the model copied into prose (belongs in tool args,
@@ -191,7 +211,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// postCoachStart so the two paths can never drift on how a tool call
 	// mutates studio_state / the reply.
 	var effects orchestratorToolEffects
-	state, effects = a.applyOrchestratorTools(r.Context(), projectID, dec, state, store)
+	state, effects = a.applyOrchestratorTools(turnCtx, projectID, dec, state, store)
 	// Note extraction (2026-08-10): the conversational coach runs REASONING-OFF
 	// (v4-pro, thinking disabled — the product owner's routing decision), and a
 	// reasoning-off coach does not reliably emit propose_note (or even claim a
@@ -206,10 +226,10 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		if er, ok := a.resolveEval(r.Context()); ok {
 			noteResolved = er // flagship → reasoning ON for the extraction
 		}
-		if args, nusage, ok := agent.ExtractProposalNote(r.Context(), a.d.Provider, noteResolved, userInput, narrate); ok {
+		if args, nusage, ok := agent.ExtractProposalNote(turnCtx, a.d.Provider, noteResolved, userInput, narrate); ok {
 			effects.Note = &noteProposalDTO{Section: args.Section, Value: args.Value}
 			if nusage.InputTokens > 0 || nusage.OutputTokens > 0 {
-				if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
+				if rerr := store.RecordLLMCall(turnCtx, agent.LLMCallRow{
 					ProjectID: projectID, Surface: "studio", Purpose: "coach_note_recover",
 					Resolved: noteResolved, PromptTokens: int32(nusage.InputTokens), CompletionTokens: int32(nusage.OutputTokens),
 				}); rerr != nil {
@@ -220,7 +240,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	}
 	// Deterministic flow router: run the funnel (stage floor + plan auto-gen) and
 	// compute the one-tap nextStep to the following status. Never auto-advances.
-	state, next, autoPlan := a.advanceStudioFlow(r.Context(), projectID, state, effects)
+	state, next, autoPlan := a.advanceStudioFlow(turnCtx, projectID, state, effects)
 	if autoPlan {
 		effects.PlanGenerated = true
 	}
@@ -237,7 +257,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// Persist the AI-managed state (best-effort — a failure logs, never fails the
 	// turn). The reply carries the same state back as the directive.
 	if b, merr := json.Marshal(state); merr == nil {
-		if serr := a.d.Queries.SetStudioState(r.Context(), sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
+		if serr := a.d.Queries.SetStudioState(turnCtx, sqlc.SetStudioStateParams{ID: projectID, StudioState: b}); serr != nil {
 			slog.Warn("coach: persist studio_state failed", "err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 	}
@@ -246,13 +266,13 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 
 	// Persist the assistant narration to the ONE thread (studio surface), tagged
 	// with the FINAL stage (post-tool-effects) — where the turn landed. Best-effort.
-	if err := store.AppendProjectCoachMessage(r.Context(), projectID, "assistant", narrate, "studio", string(state.Stage)); err != nil {
+	if err := store.AppendProjectCoachMessage(turnCtx, projectID, "assistant", narrate, "studio", string(state.Stage)); err != nil {
 		slog.Warn("coach: persist reply failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
 	// Record the exchange as a coach_turn event so the process tree carries it.
 	// Best-effort.
-	if err := store.AppendEvent(r.Context(), agent.EventRow{
+	if err := store.AppendEvent(turnCtx, agent.EventRow{
 		ProjectID: projectID, Surface: "studio", Type: "coach_turn",
 		Payload: mustJSON(map[string]any{"student": userInput, "ai": narrate}),
 	}); err != nil {
@@ -275,26 +295,26 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// post-turn value.
 	switch state.Stage {
 	case agent.StageBodyWriting:
-		a.recordCheckpoints(r.Context(), projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointDraft, checkpointOutline)
+		a.recordCheckpoints(turnCtx, projectID, triggerAskFeedback, nil, checkpointSnippets, checkpointDraft, checkpointOutline)
 	case agent.StageProposalWriting, agent.StageProposalReview:
-		a.recordCheckpoint(r.Context(), projectID, checkpointProposal, triggerAskFeedback, nil)
+		a.recordCheckpoint(turnCtx, projectID, checkpointProposal, triggerAskFeedback, nil)
 	}
 
 	// A turn is activity — the roster's 最近活跃 depends on it. Best-effort.
-	if err := a.d.Queries.TouchProject(r.Context(), projectID); err != nil {
+	if err := a.d.Queries.TouchProject(turnCtx, projectID); err != nil {
 		slog.Warn("coach: touch project failed", "err", err, "request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 
 	// S4 · size-threshold compaction backstop: if the active window overflows,
 	// fold the oldest turns into the rolling conversation_digest. Best-effort;
 	// never disturbs the reply — only its Compacted flag reflects the outcome.
-	reply.Compacted = a.maybeCompactBackstop(r.Context(), projectID)
+	reply.Compacted = a.maybeCompactBackstop(turnCtx, projectID)
 
 	// Phase-agnostic link bridge: if the student dropped a new URL in this turn,
 	// offer to read it — in ANY phase (topic / proposal / writing / retro), not
 	// just the reading room. Free (string scan + one library read), best-effort:
 	// a nil offer never changes the reply.
-	reply.LinkOffer = a.detectLinkOffer(r.Context(), projectID, userInput)
+	reply.LinkOffer = a.detectLinkOffer(turnCtx, projectID, userInput)
 
 	httpx.WriteJSON(w, http.StatusOK, reply)
 }
@@ -983,12 +1003,16 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// A genuine model failure surfaces as a real 502 (never a canned greeting) —
+	// the FE catches it and lets the student re-tap 开始 (USER RULE 2026-08-25).
+	if cerr != nil {
+		slog.Warn("coach start: model turn failed; surfacing to student", "err", cerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+		return
+	}
 	reply := orchestratorReplyDTO{}
 	narrate := strings.TrimSpace(dec.Narrate)
-	if cerr != nil || narrate == "" {
-		if cerr != nil {
-			slog.Warn("coach start: orchestrator turn not produced", "err", cerr, "request_id", httpx.RequestIDFromContext(r.Context()))
-		}
+	if narrate == "" {
 		narrate = coachFallbackReply
 	}
 	narrate = agent.SanitizeNarrate(narrate)
@@ -1173,9 +1197,17 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("coach advance: record llm call failed", "err", mrerr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 	}
+	// A genuine model failure surfaces as a real 502 (never a canned greeting) —
+	// the FE catches it and lets the student re-tap the next step (USER RULE
+	// 2026-08-25).
+	if cerr != nil {
+		slog.Warn("coach advance: model turn failed; surfacing to student", "err", cerr, "request_id", httpx.RequestIDFromContext(r.Context()))
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+		return
+	}
 	reply := orchestratorReplyDTO{}
 	narrate := strings.TrimSpace(dec.Narrate)
-	if cerr != nil || narrate == "" {
+	if narrate == "" {
 		narrate = coachFallbackReply
 	}
 	narrate = agent.SanitizeNarrate(narrate)

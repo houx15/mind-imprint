@@ -43,6 +43,42 @@ func orchestratorHandler(t *testing.T, jsonOut string) (http.Handler, *http.Cook
 	return h, signInSeed(t, pool), pool
 }
 
+// TestPostCoach_ModelFailureSurfacesError — when the model reply is unparseable
+// (braced-but-broken JSON, truncation, envelope drift), the coach must return a
+// real 502 ai_dialogue_failed, NOT a canned "先自己说说看…" 200 that makes 印记
+// look broken/stupid to the student (USER RULE 2026-08-25). The FE catches the
+// 502 and shows an honest retry note; the student turn is already persisted so a
+// resend self-heals.
+func TestPostCoach_ModelFailureSurfacesError(t *testing.T) {
+	// braced-but-broken: fails to parse AND (because it contains "{") is not
+	// salvaged as prose → ProposeStatusTurn returns its parse error.
+	h, cookie, pool := orchestratorHandler(t, `{"narrate": "oops`)
+	setStudioStage(t, pool, seedProjectID, agent.StageProposalForming)
+	base := "/api/v1/projects/" + seedProjectID
+
+	rr := httptest.NewRecorder()
+	h.ServeHTTP(rr, withCookie(httptest.NewRequest("POST", base+"/coach",
+		strings.NewReader(`{"user_input":"我的研究问题是净影响"}`)), cookie))
+	if rr.Code != http.StatusBadGateway {
+		t.Fatalf("model failure should surface as 502, got %d — %s", rr.Code, rr.Body)
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rr.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode: %v — %s", err, rr.Body)
+	}
+	if body.Error.Code != "ai_dialogue_failed" {
+		t.Fatalf("want ai_dialogue_failed, got %q — %s", body.Error.Code, rr.Body)
+	}
+	// Must NOT smuggle the canned coach opener into the response.
+	if strings.Contains(rr.Body.String(), "先自己说说看") {
+		t.Fatalf("must not fabricate a canned reply on model failure: %s", rr.Body)
+	}
+}
+
 // setStudioStage puts the seed project into a started status so status-scoped
 // tool filtering (studioflow) admits the tool a test exercises. Fresh projects
 // default to topic_discussion (FlowTopic), which permits only propose_question;
