@@ -150,12 +150,12 @@ const reportParts: [string, string, string, string][] = [
       <Figure
         class="rv-pop"
         name="product-evaluation-report"
-        asset="product/evaluation-report-v1.webp"
+        clip="case/07-evaluation-v1"
         ratio="16-9"
         caption={t(
           lang,
-          "一份真实项目的报告首页：左侧是九个板块的刻度目录，上方是里程碑与数出来的计数——612 轮 AI 对话、9 份阅读材料、812 字正文、23 条 AI 批注、18 次修改。下面的综述必须引用这些记录才能写出来。报告可导出 PDF，教师可点开任何一条判断背后的原始片段并一键改判。",
-          "The first page of a report from a real project. The nine sections run down the left; milestones and counted figures sit across the top — 612 AI turns, 9 sources read, 812 words written, 23 annotations, 18 revisions. The overview below can only be written by citing those records. The report exports to PDF, and a teacher can open the fragment behind any judgment and overturn it in one click.",
+          "一份真实项目的报告：标题就是她那句研究问题，下面是 08-16 到 08-22、历时 6 天的五个里程碑，和数出来的计数——148 轮 AI 对话、11 条 AI 批注、14 次修改。左侧九个板块从基本信息一路排到风险提示；综述那一段必须引用上面这些记录才写得出来。报告可导出 PDF，教师能点开任何一条判断背后的原始片段并一键改判。",
+          "A report from a real project. The title is her research question; under it, five milestones from 16 to 22 August — six days — and the figures someone counted: 148 AI turns, 11 annotations, 14 revisions. The nine sections run down the left, from the basic facts to the risks. The overview below can only be written by citing the records above. The report exports to PDF, and a teacher can open the fragment behind any judgment and overturn it in one click.",
         )}
       />
 
@@ -254,3 +254,7 @@ const reportParts: [string, string, string, string][] = [
       body: ["同一份记录，教师看到的那一层", "The same record, at the grain a teacher needs"],
     },
   ]} />
+
+<script>
+  import "../../../scripts/clip";
+</script>
