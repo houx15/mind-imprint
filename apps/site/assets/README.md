@@ -61,6 +61,7 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 | `product/card-craap-v1.webp`、`product/card-pee-v1.webp` | `/product/courses`「点开一张卡，看见的是什么」两张卡详情 |
 | `product/teacher-week-v1.webp` | `/product/teacher` 班级周报 |
 | `product/teacher-student-v1.webp` | `/product/teacher` 单个学生页 |
+| `team/chen-yujie-v1.webp` 等 4 张 | `/about` 团队人像，**方形**（页面裁成圆形）。文件名用姓名拼音，不用交付来的原始文件名 |
 
 > 交付来的原图是印刷尺寸（卡面 1024×1536、课程封面 1664×936），页面上只显示 200–400px。
 > 上传前一律用 `cwebp -q 80 -resize <2 倍显示宽> 0` 压过：34 张卡面 5.3MB → 1.4MB，
@@ -72,10 +73,10 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 
 | key 建议 | 内容 |
 |---|---|
-| `team/ceo.jpg`、`team/cto.jpg` | 两位联合创始人人像，4:5 竖版 |
+| `team/yang-xinsong-v1.webp` | 杨欣松人像，方形。没有照片时页面显示姓氏字母，不会开天窗 |
 | `banner/multi-agent-v2.webp` | 多智能体页横幅（现暂用 hero v4 左右镜像） |
 
-阅读室与教师端两个槽位已于 2026-08-25 补齐（见上表），页面上不再有空槽——只剩这两张人像。
+阅读室、教师端与团队人像都已于 2026-08-25 补齐（见上表），页面上不再有空槽。
 
 **桶里还有几个已经没人引用的 key**：`product/course-runtime-v1.webp`、`product/framing-v1.webp`、
 `product/warren-map-v1.webp`、`product/writing-v1.webp`。`/product/projects` 的四张图在
