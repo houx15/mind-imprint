@@ -1,9 +1,13 @@
 /**
  * Clips that behave like GIFs.
  *
- * Muted, no controls, no loop: a clip starts from the beginning when it comes
- * into view, and stops when it leaves. It is an illustration that happens to
- * move, not a video player parked on the page.
+ * Muted, no controls: a clip starts from the beginning when it comes into
+ * view, repeats while it is on screen, and stops when it leaves. It is an
+ * illustration that happens to move, not a video player parked on the page.
+ *
+ * It repeats because there is no way to ask it to. Playing once means ending
+ * frozen on whatever frame came last, and anyone who arrives a moment late
+ * sees a still they cannot replay.
  *
  *   <video data-clip …>
  *
@@ -23,6 +27,9 @@ function init(): void {
         const v = e.target as HTMLVideoElement;
         if (e.isIntersecting) {
           if (v.preload !== "auto") v.preload = "auto";
+          // Set here rather than on each <video>: this is the one place that
+          // knows about every clip on the site.
+          v.loop = true;
           v.currentTime = 0;
           void v.play().catch(() => {});
         } else {

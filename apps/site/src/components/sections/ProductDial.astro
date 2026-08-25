@@ -165,6 +165,7 @@ const majors = parts.map((_, i) => {
               <div class="dial-media">
                 <video
                   class="dial-video"
+                  loop
                   src={assetUrl(`${p.video}.mp4`)}
                   poster={assetUrl(`${p.video}-poster.webp`)}
                   muted
@@ -206,9 +207,11 @@ const majors = parts.map((_, i) => {
   import "../../scripts/glyph-rain";
   import "../../scripts/typewriter";
 
-  /* The active panel plays its clip from the start and types its heading. The
-     clips are short and do not loop: they should read as a gesture, not as a
-     video playing in the corner of the page. */
+  /* The active panel plays its clip from the start and types its heading. It
+     repeats while it is the active one — the panel has no controls, so a clip
+     that stopped would leave a reader who looked away with a frozen frame and
+     no way to ask for it again. Only the active one runs; the rest are paused,
+     so nothing decodes off screen. */
   document.querySelectorAll<HTMLElement>("[data-dial]").forEach((dial) => {
     const steps = Array.from(dial.querySelectorAll<HTMLElement>(".dial-step"));
     if (!steps.length) return;
