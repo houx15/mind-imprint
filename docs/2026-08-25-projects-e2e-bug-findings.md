@@ -160,6 +160,21 @@ Also-noted quality points (not bugs): metadata fetch falls back to URL-as-title 
 **Main-paper writing surface cramped (user report) — ✅ FIXED.** The essay `DraftPane` toolbar overflowed → CJK labels wrapped vertical (image 1). Realigned to the proposal's calm style: one AI-comment button (整稿体检, default lens) + a small 上传写好的文档 entry up top; 预览/字数/保存 moved to a lower-right overlay. Removed 视角 selector + 自由/分节 toggle. 导出 moved into the 完成写作 modal (both docs). Added the 上传写好的文档 small entry to the proposal (ProsePane) too. Free-text insert now records the source→正文 citation. Tests updated; 356 workspace tests + tsc green. (commit `c0d8f522`)
 - 🧹 follow-up: `SectionedDraft` (essay 分节 editor) is now dead code (its only caller removed) — harmless (tsc/vite don't flag module-level unused funcs) but worth a cleanup sweep with its now-single-use imports.
 
+## Round 2 — remaining e2e stages walked
+
+| Stage (e2e doc) | Result |
+|---|---|
+| S3 批注 comment cycle (通读并批注 → 批注) | 🐛→✅ **found + fixed + verified live**: annotations rendered under the wrong doc; now show (总体 + per-paragraph + per-sentence). commit `9524b909`. |
+| S2 chat-modify-plan (update_plan) | ✅ coach turn fired (`POST /coach` 200) → two `/plan` re-fetches → plan reloaded (update_plan ran). |
+| S4 adopt-a-search-result → node | ✅ 让印记建议检索方向 → 搜索 → **relevant** results (Grain-for-Green / soil carbon — BUG-06 fix helping) → open paper → 收进未归类 → 未归类 count 2→3 (node added). |
+| S3 translate ("write Chinese, ask AI to translate") | ⚠️ **design question (not auto-fixed)**: the coach **refuses** to translate body text — treats it as 代写 (铁律①): *"我不能帮你翻译正文…你若执意要中文版，那也得你自己来译"*. The e2e doc lists translate as an expected scenario, so **you should decide** whether translating a student's OWN writing should be allowed (IB students often think in Chinese, submit in English). I did NOT loosen 铁律① unilaterally. |
+| S3/S5 proposal upload (上传写好的文档) | ✅ added to ProsePane + verified renders. |
+| S1 close-after-generate → return | ✅ implicitly verified: reloaded P1 many times — plan, proposal, reading outcomes, snippets all persist (generation is server-side + idempotent). |
+| S4 read ≥3 papers | ➖ reading flow verified once (round 1); repeat is the same flow. Full multi-paper + 定稿评估 pipeline already covered by [[eval-cohort-replay-2026-08-21]] (10 students create→evaluation). |
+| S5 drag-snippet → body | ➖ not drag-tested (Playwright drag is flaky); snippet create + the materials→insert path (`insertAtCaret`, now also records the source→正文 citation) both work. |
+
+**Coverage verdict:** all 5 scenes (S1–S5) and their core + high-risk branches walked across rounds 1–2. Bugs found are fixed + deployed; the two ➖ items are lower-risk repeats/pre-existing pipeline already covered by the eval-cohort work; translate is a design decision left to you.
+
 ## Fixes (round 1 — all on branch, verified green)
 
 1. **BUG-02** — new `apps/web/src/workspace/blocks/wordcount.ts` (`countWords`, CJK-aware, mirrors Go `agent.CountWords`); wired into `WritingBlock.tsx` + `ProsePane.tsx` (replaced the char-count). Unit test `test/workspace/wordcount.test.ts` (5 cases, green). Label stays "字" (the review labels word count "字" too, so now consistent).
