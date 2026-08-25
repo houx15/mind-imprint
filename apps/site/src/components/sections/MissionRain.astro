@@ -6,10 +6,13 @@
  * screen as a river of digits, which settles into four small figures on the
  * floor of it: a brain, a heart, a robot, a mirror.
  *
- * The two columns are one mechanism, not a picture next to a list. Each figure
- * finishing its growth OPENS its ability on the right — so the reader watches a
- * shape stand up and reads what it is in the same beat — and every ability
- * carries that same shape beside its name, drawn from the same mask.
+ * The two columns are one mechanism, not a picture next to a list: every
+ * ability carries the same shape beside its name, drawn from the same mask, and
+ * reading one lights its figure across the screen in that ability's colour.
+ *
+ * The screen plays itself on arrival — water, then the four, then the names —
+ * and stops there. Which of the four you open is the reader's business, not the
+ * scrollbar's.
  *
  * The canvas deliberately bleeds ABOVE this section so the water appears to
  * pour out of the hero itself rather than starting at a seam.
@@ -71,10 +74,10 @@ const abilities: {
 ---
 
 <section class="mission" data-mission>
-  <!-- Tall, and pinned: the four take a beat each to grow, and each one opens
-       what it means on the right as it finishes. Rushing that was the whole
-       problem — they were all done before the screen had even settled. -->
-  <div class="mission-pin">
+  <!-- One screen. It was two, pinned, with the sequence scrubbed by scroll
+       position — which meant it played at whatever speed you happened to be
+       scrolling, and never at its own. -->
+  <div class="mission-stage">
     <!-- The fall starts ABOVE this screen, inside the empty band at the foot
          of the hero, so there is no seam to see. -->
     <div class="mission-fall" aria-hidden="true">
@@ -82,11 +85,11 @@ const abilities: {
     </div>
 
     <div class="container wide mission-grid">
-      <!-- The four stand at the foot of the fall, appearing one at a time as
-           you scroll. They are pixel art either way, so they are the same masks
-           drawn as SVG — which costs nothing at rest and reveals with one CSS
-           transition, rather than being grown a character at a time on a second
-           full-page canvas. -->
+      <!-- The four stand at the foot of the fall, dropping in one at a time
+           when the screen is reached. They are pixel art either way, so they
+           are the same masks drawn as SVG — which costs nothing at rest and
+           reveals with one CSS transition, rather than being grown a character
+           at a time on a second full-page canvas. -->
       <div class="mission-void" aria-hidden="true">
         <div class="mission-figs">
           {abilities.map((a) => (
@@ -123,6 +126,9 @@ const abilities: {
                   <span class="ab4-n mono">{String(i + 1).padStart(2, "0")}</span>
                   <h3>{t(lang, a.zh, a.en)}</h3>
                 </div>
+                <!-- The fold is opened by hovering, and a fold nobody can see
+                     is a fold nobody opens. -->
+                <span class="ab4-more" aria-hidden="true"></span>
               </div>
               <div class="ab4-fold">
                 <div class="ab4-body">

@@ -7,6 +7,18 @@
  * appear in it — and only once they are standing do the abilities on the right
  * arrive to say what each of them is.
  *
+ * ── why it plays itself ─────────────────────────────────────────────────────
+ * That order used to be SCRUBBED: the screen was pinned for two viewports and
+ * every reveal keyed to a scroll fraction. Which is exactly why it never felt
+ * smooth — a flick fired the whole sequence at once, a slow drag smeared each
+ * transition out until it read as a fade rather than an arrival, and the beat
+ * between the two halves existed only at one particular scrolling speed.
+ *
+ * Arriving is now the only cue. After that the screen runs on its own clock,
+ * at its own tempo, identically every time. Scroll position still widens the
+ * fall on the way down, because that is a state of the water rather than a
+ * step in the sequence.
+ *
  * ── what this used to cost ──────────────────────────────────────────────────
  * The four were grown out of the falling water itself: every drop hit-tested
  * against a 167x22 cell grid, and every cell of every figure was redrawn as a
@@ -32,15 +44,17 @@ const CELL_ASPECT = 0.6;
 const TRAIL = "rgba(66, 224, 180, 0.34)";
 const HEAD = "rgba(198, 255, 236, 0.96)";
 
-/* The screen in order: the water falls, the four appear in it, and only then
-   do the abilities arrive to name them.
-   The four come quickly — they are an event, not a chapter. All of them are
-   standing by a fifth of the way through, which leaves the rest of the pinned
-   scroll to the reading. */
-const SHOW_FROM = 0.04;
-const SHOW_STEP = 0.05;
-const TELL_FROM = 0.28;
-const TELL_STEP = 0.16;
+/* The screen in milliseconds from the moment it is reached: the four drop out
+   of the water one at a time, and once the last of them has landed the
+   abilities arrive to name them. All of it is over inside a second and a half.
+   */
+const FIG_DELAY = 220;
+const FIG_STEP = 130;
+/** The beat between the two halves. Without it they read as one blur. */
+const TELL_GAP = 380;
+const TELL_STEP = 140;
+/** How far into view the screen must be before it starts. */
+const PLAY_AT = 0.45;
 
 const clamp01 = (v: number) => (v < 0 ? 0 : v > 1 ? 1 : v);
 const smooth = (v: number) => v * v * (3 - 2 * v);
@@ -69,55 +83,60 @@ function mount(section: HTMLElement): void {
   const figs = Array.from(section.querySelectorAll<HTMLElement>("[data-glyph-fig]"));
   const items = Array.from(section.querySelectorAll<HTMLElement>("[data-glyph-item]"));
 
-  /** Nothing pins on a narrow screen, so nothing can be paced by scrolling it. */
-  const narrow = () => window.innerWidth <= 980;
-
-  /** Reveal the four, then name them. Runs with or without the canvas. */
-  let shown = -1;
-  let lit = -1;
-  let dropped = false;
-  function dropFigs(): void {
-    if (dropped) return;
-    dropped = true;
-    figs.forEach((el, i) => window.setTimeout(() => el.classList.add("on"), i * 120));
-  }
-
-  function sequence(p: number): void {
-    // On a narrow screen the four sit in a band at the top of the section,
-    // which has scrolled past before any scroll-driven cue could fire. There
-    // they simply drop in, in order, as soon as the screen is reached.
-    if (narrow()) {
-      dropFigs();
-    } else {
-      let nextShown = -1;
-      for (let i = 0; i < figs.length; i++) {
-        if (p >= SHOW_FROM + i * SHOW_STEP) nextShown = i;
-      }
-      if (nextShown !== shown) {
-        shown = nextShown;
-        figs.forEach((el, i) => el.classList.toggle("on", i <= shown));
-      }
-    }
-
-    let nextLit = -1;
-    for (let i = 0; i < items.length; i++) {
-      if (p >= TELL_FROM + i * TELL_STEP) nextLit = i;
-    }
-    if (nextLit === lit) return;
-    lit = nextLit;
-    items.forEach((el, i) => {
-      // arrived: it has been named. open: it is the one being read now.
-      el.classList.toggle("on", i <= lit);
-      el.classList.toggle("open", i === lit);
+  /**
+   * Hold the list at the height of its tallest entry standing open.
+   *
+   * Which one is open is now the reader's business — they hover. But an
+   * accordion inside a centred column shoves everything on the screen up and
+   * down as it opens, and the figures are on that same line. Reserving the
+   * room once means nothing moves at all: the fold just fills space that was
+   * already being kept for it.
+   */
+  function reserve(): void {
+    const list = section.querySelector<HTMLElement>(".ab4list");
+    if (!list || window.innerWidth <= 980) return;
+    list.style.minHeight = "";
+    // Each one is opened for exactly as long as it takes to read the list's
+    // height, with transitions off. Asking the folded body how tall it is does
+    // not work: inside a 0fr grid row it reports its padding and nothing else.
+    list.classList.add("measuring");
+    let tallest = 0;
+    section.querySelectorAll<HTMLElement>(".ab4-fold").forEach((fold) => {
+      fold.style.gridTemplateRows = "1fr";
+      tallest = Math.max(tallest, list.offsetHeight);
+      fold.style.gridTemplateRows = "";
     });
+    void list.offsetHeight;
+    list.classList.remove("measuring");
+    if (tallest) list.style.minHeight = `${tallest}px`;
   }
+
+  /**
+   * The sequence, on its own clock: the four drop in, and once the last has
+   * landed the abilities arrive to name them. Arriving on screen is the only
+   * cue it takes; nothing here reads the scroll position.
+   */
+  let played = false;
+  let t0 = 0;
+  function play(): void {
+    if (played) return;
+    played = true;
+    t0 = performance.now();
+    figs.forEach((el, i) =>
+      window.setTimeout(() => el.classList.add("on"), FIG_DELAY + i * FIG_STEP),
+    );
+    const after = FIG_DELAY + (figs.length - 1) * FIG_STEP + TELL_GAP;
+    items.forEach((el, i) =>
+      window.setTimeout(() => el.classList.add("on"), after + i * TELL_STEP),
+    );
+  }
+
+  reserve();
+  if (document.fonts?.ready) document.fonts.ready.then(reserve);
 
   if (reduced) {
     figs.forEach((el) => el.classList.add("on"));
-    items.forEach((el, i) => {
-      el.classList.add("on");
-      el.classList.toggle("open", i === 0);
-    });
+    items.forEach((el) => el.classList.add("on"));
     return;
   }
 
@@ -177,7 +196,7 @@ function mount(section: HTMLElement): void {
     }
   }
 
-  function draw(enter: number, through: number): void {
+  function draw(enter: number): void {
     if (!ctx) return;
     // Erase rather than paint over: the canvas stays transparent, so it sits on
     // any background, and the erasure IS the trail.
@@ -194,9 +213,13 @@ function mount(section: HTMLElement): void {
     ctx.textBaseline = "middle";
 
     // It pours over the left corner first and widens into a sheet; once the
-    // four are standing it thins, but it never stops.
+    // four are standing it thins, but it never stops. The thinning follows the
+    // sequence's own clock, not the scroll — it is the water settling after it
+    // has delivered something, and that has to happen at the same speed
+    // whether you scrolled here quickly or slowly.
     const reach = 0.2 + enter * 2.2;
-    const thin = 1 - 0.42 * smooth(clamp01((through - 0.45) / 0.3));
+    const since = t0 ? (performance.now() - t0) / 1000 : 0;
+    const thin = 1 - 0.42 * smooth(clamp01((since - 1.5) / 1.1));
 
     for (const d of drops) {
       const at = d.col / cols;
@@ -227,14 +250,11 @@ function mount(section: HTMLElement): void {
   }
 
   /**
-   * Two clocks, not one.
-   *
    * `enter` is how far the screen has arrived — 0 with its top at the foot of
-   * the viewport, 1 with its top at the head. The fall widens on that, so the
-   * water is already pouring by the time you get here.
-   *
-   * `through` is how far you are through the pinned part of it, and it runs the
-   * sequence: the four appear, then the abilities arrive to name them.
+   * the viewport, 1 with its top at the head. The fall widens on it, so the
+   * water is already pouring by the time you get here, and past PLAY_AT it is
+   * the cue that starts the sequence. That is all the scroll position does:
+   * it says WHEN to begin, never how far along to be.
    */
   let raf = 0;
   let visible = true;
@@ -244,9 +264,8 @@ function mount(section: HTMLElement): void {
     const r = section.getBoundingClientRect();
     const vh = window.innerHeight || 1;
     const enter = clamp01((vh - r.top) / vh);
-    const through = clamp01(-r.top / Math.max(1, r.height - vh));
-    sequence(through);
-    draw(enter, through);
+    if (enter >= PLAY_AT) play();
+    draw(enter);
     raf = requestAnimationFrame(frame);
   }
 
@@ -271,7 +290,10 @@ function mount(section: HTMLElement): void {
     "resize",
     () => {
       window.clearTimeout(resizeT);
-      resizeT = window.setTimeout(size, 160);
+      resizeT = window.setTimeout(() => {
+        size();
+        reserve();
+      }, 160);
     },
     { passive: true },
   );

@@ -3471,16 +3471,20 @@ html[lang="zh-CN"] .rs-note h3 {
      For the fall to carry past the hero's bottom edge this has to clear the
      highest of them — .hi-copy at 6. */
   z-index: 7;
-  /* The extra height IS the reading time. The four are quick; almost all of
-     it goes to the four things they stand for. */
-  height: 200svh;
 }
-.mission-pin {
-  position: sticky;
-  top: 0;
-  height: 100svh;
+/* One screen, and it no longer pins.
+   It used to be two viewports tall and stuck to the top, with every reveal
+   keyed to how far through that pin you were. That bought nothing: the water
+   is a loop, the four are an event, and the four paragraphs are read by
+   hovering, not by scrolling. What it cost was a screen that played at
+   whatever speed you happened to be scrolling at, and a second screen of
+   scrolling in which nothing whatsoever changed. */
+.mission-stage {
+  position: relative;
+  min-height: 100svh;
   display: flex;
   align-items: center;
+  padding: clamp(48px, 7vh, 96px) 0;
   /* NOT overflow:hidden. The fall reaches up out of this box and into the
      hero on purpose — clipping it here is what silently cut the water off at
      the seam when this screen was first pinned. */
@@ -3593,37 +3597,37 @@ html[lang="zh-CN"] .rs-note h3 {
   filter: drop-shadow(0 0 6px rgba(66, 224, 180, 0.45));
   transition: filter 0.5s var(--ease);
 }
-/* The figure belonging to the ability being read takes that ability's colour,
-   with nobody having to hover — which is what says the two columns are one
-   thing. :has() means no script has to keep them in step. */
-.mission:has(.ab4-brain.open) .mfig-brain .gm,
+/* Read an ability and its figure across the screen lights in that ability's
+   colour — which is what says the two columns are one thing rather than a
+   picture beside a list. :has() means no script has to keep them in step. */
 .mission:has(.ab4-brain:hover) .mfig-brain .gm,
-.mission:has(.ab4-heart.open) .mfig-heart .gm,
+.mission:has(.ab4-brain:focus-within) .mfig-brain .gm,
 .mission:has(.ab4-heart:hover) .mfig-heart .gm,
-.mission:has(.ab4-robot.open) .mfig-robot .gm,
+.mission:has(.ab4-heart:focus-within) .mfig-heart .gm,
 .mission:has(.ab4-robot:hover) .mfig-robot .gm,
-.mission:has(.ab4-mirror.open) .mfig-mirror .gm,
-.mission:has(.ab4-mirror:hover) .mfig-mirror .gm {
+.mission:has(.ab4-robot:focus-within) .mfig-robot .gm,
+.mission:has(.ab4-mirror:hover) .mfig-mirror .gm,
+.mission:has(.ab4-mirror:focus-within) .mfig-mirror .gm {
   filter: drop-shadow(0 0 10px currentColor);
 }
-.mission:has(.ab4.open) .mfig .gm,
-.mission:has(.ab4:hover) .mfig .gm {
+.mission:has(.ab4:hover) .mfig .gm,
+.mission:has(.ab4:focus-within) .mfig .gm {
   color: rgba(214, 255, 240, 0.5);
 }
-.mission:has(.ab4-brain.open) .mfig-brain .gm,
-.mission:has(.ab4-brain:hover) .mfig-brain .gm {
+.mission:has(.ab4-brain:hover) .mfig-brain .gm,
+.mission:has(.ab4-brain:focus-within) .mfig-brain .gm {
   color: var(--primary);
 }
-.mission:has(.ab4-heart.open) .mfig-heart .gm,
-.mission:has(.ab4-heart:hover) .mfig-heart .gm {
+.mission:has(.ab4-heart:hover) .mfig-heart .gm,
+.mission:has(.ab4-heart:focus-within) .mfig-heart .gm {
   color: var(--accent);
 }
-.mission:has(.ab4-robot.open) .mfig-robot .gm,
-.mission:has(.ab4-robot:hover) .mfig-robot .gm {
+.mission:has(.ab4-robot:hover) .mfig-robot .gm,
+.mission:has(.ab4-robot:focus-within) .mfig-robot .gm {
   color: var(--green);
 }
-.mission:has(.ab4-mirror.open) .mfig-mirror .gm,
-.mission:has(.ab4-mirror:hover) .mfig-mirror .gm {
+.mission:has(.ab4-mirror:hover) .mfig-mirror .gm,
+.mission:has(.ab4-mirror:focus-within) .mfig-mirror .gm {
   color: var(--amber);
 }
 .mission-copy .sec-title {
@@ -3638,6 +3642,10 @@ html[lang="zh-CN"] .rs-note h3 {
   list-style: none;
   margin-top: clamp(20px, 3vh, 34px);
   border-top: 1px solid var(--line-2);
+}
+/* Held open for one frame apiece while the list is measured. */
+.ab4list.measuring .ab4-fold {
+  transition: none;
 }
 .ab4 {
   position: relative;
@@ -3670,8 +3678,7 @@ html[lang="zh-CN"] .rs-note h3 {
 .ab4.on {
   opacity: 1;
 }
-/* open: the one being read now */
-.ab4.open::before,
+/* open: the one being read now — whichever one the reader is on */
 .ab4:hover::before,
 .ab4:focus-within::before {
   opacity: 1;
@@ -3700,6 +3707,33 @@ html[lang="zh-CN"] .rs-note h3 {
   align-items: center;
   gap: 14px;
 }
+.ab4-t {
+  flex: 1 1 auto;
+}
+/* A chevron, so the row reads as something that opens. */
+.ab4-more {
+  flex-shrink: 0;
+  width: 7px;
+  height: 7px;
+  margin-right: 6px;
+  border-right: 1.5px solid var(--faint);
+  border-bottom: 1.5px solid var(--faint);
+  transform: rotate(45deg) translate(-2px, -2px);
+  opacity: 0;
+  transition:
+    opacity 0.4s var(--ease),
+    transform 0.4s var(--ease),
+    border-color 0.4s var(--ease);
+}
+.ab4.on .ab4-more {
+  opacity: 0.7;
+}
+.ab4:hover .ab4-more,
+.ab4:focus-within .ab4-more {
+  opacity: 1;
+  border-color: var(--h);
+  transform: rotate(225deg) translate(-2px, -2px);
+}
 .ab4-mark {
   width: 34px;
   height: auto;
@@ -3712,7 +3746,6 @@ html[lang="zh-CN"] .rs-note h3 {
 .ab4.on .ab4-mark {
   opacity: 0.8;
 }
-.ab4.open .ab4-mark,
 .ab4:hover .ab4-mark,
 .ab4:focus-within .ab4-mark {
   opacity: 1;
@@ -3747,7 +3780,6 @@ html[lang="zh-CN"] .ab4 h3 {
 .ab4-fold > div {
   overflow: hidden;
 }
-.ab4.open .ab4-fold,
 .ab4:hover .ab4-fold,
 .ab4:focus-within .ab4-fold {
   grid-template-rows: 1fr;
@@ -3782,6 +3814,9 @@ html[lang="zh-CN"] .ab4 h3 {
   }
   .ab4-fold {
     grid-template-rows: 1fr;
+  }
+  .ab4-more {
+    display: none;
   }
 }
 
@@ -4042,14 +4077,10 @@ html[lang="zh-CN"] .closeline {
 
 /* --- 22.4 narrow ---------------------------------------------------------- */
 @media (max-width: 980px) {
-  .mission {
-    height: auto;
-  }
-  /* Nothing pins on a narrow screen, so there is no room for the four to open
-     one at a time — every row simply stands open. */
-  .mission-pin {
-    position: static;
-    height: auto;
+  /* No hovering with a thumb, so every row simply stands open — and with them
+     all open there is nothing to reserve room for. */
+  .mission-stage {
+    min-height: 0;
     padding: 4vh 0 8vh;
   }
   .ab4 {
@@ -4057,6 +4088,9 @@ html[lang="zh-CN"] .closeline {
   }
   .ab4-fold {
     grid-template-rows: 1fr;
+  }
+  .ab4-more {
+    display: none;
   }
   .mission-grid {
     grid-template-columns: 1fr;
