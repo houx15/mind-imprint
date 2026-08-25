@@ -1,0 +1,233 @@
+---
+/**
+ * Screen three — the three parts, indexed on a dial.
+ *
+ * The four figures from the screen above are here too, but they have stopped
+ * being water: square pixels now, standing in a row under the heading. What
+ * they turn is a dial — a single huge arc running off both edges of the rail,
+ * ticked once per part. Scroll and the dial turns, bringing the next tick to
+ * the marker while the panel beside it changes.
+ *
+ * A dial rather than a gear: a gear at this size reads as clip art, and its
+ * teeth claim a mechanism we do not have. An index arc claims only what is
+ * true — that these are three positions of one instrument.
+ *
+ * Driven by the site-wide `.scrub` engine (Base.astro §3), which mirrors the
+ * active step onto `data-active`.
+ */
+import Icon from "../Icon.astro";
+import { getLang, t, localePath } from "../../i18n/utils";
+import { assetUrl } from "../../config";
+
+const lang = getLang(Astro.currentLocale);
+const L = (p: string) => localePath(lang, p);
+
+const parts: {
+  k: string;
+  tab: [string, string];
+  zh: string;
+  en: string;
+  pz: string;
+  pe: string;
+  href: string;
+  video: string;
+}[] = [
+  {
+    k: "01",
+    tab: ["课程", "Courses"],
+    zh: "情境化 AI 互动课程",
+    en: "AI courses set in real situations",
+    pz: "一节课就是一个真实情境。AI 讲到关键处停下来，把问题递回给学生——答不上来，课就不往下走。",
+    pe: "A lesson is a real situation. The AI stops at the moment that matters and hands the question back — and the lesson does not move on until it is answered.",
+    href: "/product/courses",
+    video: "home/product-course-v1",
+  },
+  {
+    k: "02",
+    tab: ["教练", "The coach"],
+    zh: "有边界的 AI 教练",
+    en: "A coach with a boundary",
+    pz: "立题、查证、写作、复盘，几周的课题全程陪着。它会追问、会挑逻辑、会扮反方，唯独不替学生写正文。",
+    pe: "Framing, checking, writing, review — it stays with a project that runs for weeks. It questions, tests the logic, plays the opposition. The one thing it never does is write the prose.",
+    href: "/product/projects",
+    video: "home/product-coach-v1",
+  },
+  {
+    k: "03",
+    tab: ["评估", "Assessment"],
+    zh: "全过程评估报告",
+    en: "Assessment of the whole process",
+    pz: "每一次互动都留下印记，最后长成一份可追溯的报告：每一条判断，都能点开它背后的原始记录。",
+    pe: "Every exchange leaves an imprint and grows into a report that can be traced: the raw record behind each judgment is one click away.",
+    href: "/product/evaluation",
+    video: "home/product-evaluation-v1",
+  },
+];
+
+/* The dial. One circle, centred far off the left edge, so only a shallow slice
+   of its rim crosses the rail — which is what makes it read as something much
+   bigger than the page. Everything is computed so the ticks, the labels and
+   the marker cannot drift apart. */
+const CX = -620;
+const CY = 450;
+const R = 760;
+const STEP = 9.7; // degrees between parts — 128px of arc at this radius
+const rad = (d: number) => (d * Math.PI) / 180;
+const at = (r: number, d: number) => ({
+  x: +(CX + r * Math.cos(rad(d))).toFixed(2),
+  y: +(CY + r * Math.sin(rad(d))).toFixed(2),
+});
+
+const span = 34;
+const arcA = at(R, -span);
+const arcB = at(R, span);
+const arcPath = `M${arcA.x},${arcA.y} A${R},${R} 0 0 1 ${arcB.x},${arcB.y}`;
+
+/* fine ticks, for the texture of an instrument that measures something */
+const minors: string[] = [];
+for (let d = -span + 1; d < span; d += 2.2) {
+  const a = at(R - 7, d);
+  const b = at(R, d);
+  minors.push(`M${a.x},${a.y} L${b.x},${b.y}`);
+}
+
+const majors = parts.map((_, i) => {
+  const d = (i - 1) * STEP;
+  const a = at(R - 18, d);
+  const b = at(R + 5, d);
+  const label = at(R + 46, d);
+  return { d: `M${a.x},${a.y} L${b.x},${b.y}`, label };
+});
+---
+
+<section class="section dialsec">
+  <div class="container">
+    <div class="sec-head center rv">
+      <div class="eyebrow mono" data-type>{t(lang, "我们做的三件事", "The three things we build")}</div>
+      <h2 class="sec-title">
+        {t(
+          lang,
+          "把这四项能力，真正交到孩子手里",
+          "Putting those four abilities in a child's hands",
+        )}
+      </h2>
+    </div>
+
+    <!-- the four, no longer weather -->
+    <div class="fourmark rv-pop" data-glyphsolid="row" aria-hidden="true">
+      <canvas class="gr-figs"></canvas>
+    </div>
+  </div>
+
+  <div class="container wide">
+    <div class="scrub dial" data-dial>
+      <div class="dial-grid">
+        <aside class="dial-rail">
+          <svg class="dialsvg" viewBox="0 0 300 900" aria-hidden="true">
+            <g class="dial-rot">
+              <path class="d-arc" d={arcPath} />
+              {minors.map((d) => <path class="d-minor" d={d} />)}
+              {majors.map((m, i) => <path class="d-major" data-i={i} d={m.d} />)}
+              {majors.map((m, i) => (
+                <g
+                  class="d-label"
+                  data-i={i}
+                  style={`transform-origin:${m.label.x}px ${m.label.y}px`}
+                >
+                  <text class="d-num" x={m.label.x} y={m.label.y - 13}>{parts[i].k}</text>
+                  <text class="d-name" x={m.label.x} y={m.label.y + 9}>
+                    {t(lang, parts[i].tab[0], parts[i].tab[1])}
+                  </text>
+                </g>
+              ))}
+            </g>
+            <!-- the marker never moves: the dial comes to it -->
+            <path class="d-mark" d="M112,450 L150,450" />
+            <path class="d-dot" d="M162,450 L156,444 L150,450 L156,456 Z" />
+          </svg>
+        </aside>
+
+        <div class="scrub-steps dial-steps">
+          {parts.map((p) => (
+            <article class="scrub-step dial-step">
+              <div class="dial-media">
+                <video
+                  class="dial-video"
+                  src={assetUrl(`${p.video}.mp4`)}
+                  poster={assetUrl(`${p.video}-poster.webp`)}
+                  muted
+                  playsinline
+                  preload="metadata"
+                  aria-hidden="true"
+                ></video>
+              </div>
+              <div class="k mono">{p.k}</div>
+              <h3 data-type data-type-hold>{t(lang, p.zh, p.en)}</h3>
+              <p>{t(lang, p.pz, p.pe)}</p>
+              <a class="btn btn-primary dial-cta" href={L(p.href)}>
+                {t(lang, "了解更多", "Learn more")}
+                <Icon name="arrow" />
+              </a>
+            </article>
+          ))}
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="container">
+    <p class="dial-foot rv">
+      {t(lang, "还有为学校准备的", "And for the school itself: the")}
+      <a href={L("/product/teacher")}>
+        {t(lang, "教师端", "teacher console")}<Icon name="arrow" />
+      </a>
+      {t(
+        lang,
+        "——班级实时名单、学生摘要、详细评估与报告导出。",
+        " — a live class roster, per-student summaries, the full assessment, and export.",
+      )}
+    </p>
+  </div>
+</section>
+
+<script>
+  import "../../scripts/glyph-rain";
+  import "../../scripts/typewriter";
+
+  /* The active panel plays its clip from the start and types its heading. The
+     clips are short and do not loop: they should read as a gesture, not as a
+     video playing in the corner of the page. */
+  document.querySelectorAll<HTMLElement>("[data-dial]").forEach((dial) => {
+    const steps = Array.from(dial.querySelectorAll<HTMLElement>(".dial-step"));
+    if (!steps.length) return;
+    let last = -1;
+
+    const activate = () => {
+      const i = Number(dial.dataset.active ?? 0);
+      if (i === last) return;
+      last = i;
+      steps.forEach((step, si) => {
+        const v = step.querySelector<HTMLVideoElement>("video");
+        if (!v) return;
+        if (si !== i) {
+          v.pause();
+          return;
+        }
+        v.currentTime = 0;
+        // Muted autoplay, started by a scroll, but a browser may still refuse;
+        // the poster stays up, which is a perfectly good outcome.
+        void v.play().catch(() => {});
+      });
+      steps[i]
+        ?.querySelector<HTMLElement>("h3[data-type]")
+        ?.dispatchEvent(new CustomEvent("type:play"));
+    };
+
+    new MutationObserver(activate).observe(dial, {
+      attributes: true,
+      attributeFilter: ["data-active"],
+    });
+    // The engine sets data-active before this runs, so catch up once.
+    activate();
+  });
+</script>

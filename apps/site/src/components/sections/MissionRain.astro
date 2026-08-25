@@ -1,0 +1,105 @@
+---
+/**
+ * Screen two — the mission, and the four things it comes down to.
+ *
+ * The hero's water runs off its bottom-left corner and falls through this
+ * screen as a river of digits, which settles into four figures: a brain, a
+ * heart, a robot, a mirror. Each one answers to an ability on the right, and
+ * lights as that ability's turn comes.
+ *
+ * The canvas deliberately bleeds ABOVE this section so the rain appears to
+ * pour out of the hero itself rather than starting at a seam.
+ */
+import { getLang, t } from "../../i18n/utils";
+
+const lang = getLang(Astro.currentLocale);
+
+const abilities: {
+  k: string;
+  zh: string;
+  en: string;
+  pz: string;
+  pe: string;
+}[] = [
+  {
+    k: "brain",
+    zh: "批判性思维",
+    en: "Critical thinking",
+    pz: "追到一手来源，看清一条证据到底能证明到哪一步。",
+    pe: "Trace a claim to its primary source, and see how far one piece of evidence actually reaches.",
+  },
+  {
+    k: "heart",
+    zh: "好奇心与持续探索",
+    en: "Curiosity that keeps going",
+    pz: "把一个模糊的兴趣，收窄成一个能回答的问题，然后一直挖下去。",
+    pe: "Narrow a vague interest into a question that can be answered — then keep digging.",
+  },
+  {
+    k: "robot",
+    zh: "驾驭 AI 的能力",
+    en: "Command of AI",
+    pz: "知道什么可以交给 AI、什么必须自己来，并且说得出理由。",
+    pe: "Know what may go to the AI and what may not — and be able to say why.",
+  },
+  {
+    k: "mirror",
+    zh: "反思与自我迭代",
+    en: "Reflection, and the next attempt",
+    pz: "看得见自己是怎么想的：哪一步走偏了，下一次从哪里开始。",
+    pe: "See how your own thinking went: where it drifted, and where to start next time.",
+  },
+];
+---
+
+<section class="mission" data-mission>
+  <!-- The fall is full-bleed and starts ABOVE this section, inside the empty
+       band at the foot of the hero, so there is no seam to see. -->
+  <div class="mission-fall" data-glyphrain aria-hidden="true">
+    <canvas class="gr-rain"></canvas>
+    <canvas class="gr-figs"></canvas>
+  </div>
+
+  <div class="container wide mission-grid">
+    <!-- Nothing in it: it is the column the four settle under, and the engine
+         measures it rather than guessing at a percentage. -->
+    <div class="mission-void" data-figbox aria-hidden="true"></div>
+
+    <div class="mission-copy">
+      <div class="eyebrow mono rv" data-type>{t(lang, "我们的使命", "Our mission")}</div>
+      <h2 class="sec-title rv" style="--i:1" data-type>
+        {t(
+          lang,
+          "帮孩子建立 AI 时代最有价值的四项能力",
+          "The four abilities worth the most in the age of AI",
+        )}
+      </h2>
+      <p class="lead rv" style="--i:2">
+        {t(
+          lang,
+          "我们用 AI 来教孩子——在真实的任务里，把这四件事练成他自己的。",
+          "We teach with AI itself — inside real work, until these four belong to the child.",
+        )}
+      </p>
+
+      <ul class="ab4list">
+        {abilities.map((a, i) => (
+          <li class={`ab4 ab4-${a.k}`} style={`--i:${i + 3}`} data-glyph-item tabindex="0">
+            <div class="ab4-head">
+              <span class="ab4-dot" aria-hidden="true"></span>
+              <h3>{t(lang, a.zh, a.en)}</h3>
+            </div>
+            <div class="ab4-fold">
+              <div><p>{t(lang, a.pz, a.pe)}</p></div>
+            </div>
+          </li>
+        ))}
+      </ul>
+    </div>
+  </div>
+</section>
+
+<script>
+  import "../../scripts/glyph-rain";
+  import "../../scripts/typewriter";
+</script>

@@ -1,373 +1,55 @@
 ---
-import Icon from "../Icon.astro";
+/**
+ * The front page is one journey, not a summary of us.
+ *
+ *   1 · the hero — who this is for
+ *   2 · the mission — the hero's water falls as digits and settles into the
+ *       four abilities we are trying to build
+ *   3 · the three parts of the product, indexed on a dial those four turn
+ *   4 · the closing note, and a way in
+ *
+ * Everything that argues our case in more depth — the measurement design, the
+ * multi-agent architecture, the product matrix — lives one click away, on the
+ * pages built for it. This page's job is to be understood.
+ */
 import HeroImmersive from "../sections/HeroImmersive.astro";
+import MissionRain from "../sections/MissionRain.astro";
+import ProductDial from "../sections/ProductDial.astro";
 import CtaBand from "../sections/CtaBand.astro";
-import DualAxis from "../diagrams/DualAxis.astro";
-import AgentTopology from "../diagrams/AgentTopology.astro";
-import { getLang, t, localePath } from "../../i18n/utils";
-import { assetUrl } from "../../config";
+import { getLang, t } from "../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
-const L = (p: string) => localePath(lang, p);
-
-/* Screen 1 — the fork every school is standing at. Two answers, both costly.
-   The page's whole argument hangs off this, so it comes first. */
-const forks: {
-  k: [string, string];
-  h: [string, string];
-  p: [string, string];
-  tone: string;
-  costs: [string, string][];
-}[] = [
-  {
-    k: ["选项一", "Option one"],
-    h: ["禁止使用 AI", "Ban it"],
-    p: [
-      "关掉账号、封掉网站、把 AI 挡在作业之外。",
-      "Close the accounts, block the sites, keep AI out of the coursework.",
-    ],
-    tone: "no",
-    costs: [
-      ["学生照样在用，只是没有人教过他怎么用。", "They use it anyway — only with nobody teaching them how."],
-      ["与 AI 协作是这一代人的基本功，禁令让它没有地方长出来。", "Working with AI is this generation's basic skill, and a ban leaves it nowhere to grow."],
-      ["本来能走得更远的学习效率，被人为按在原地。", "Learning that could go much further is held in place on purpose."],
-    ],
-  },
-  {
-    k: ["选项二", "Option two"],
-    h: ["放开使用 AI", "Let it run"],
-    p: [
-      "交给学生自己把握，用得越多越好。",
-      "Leave it to the student — the more they use it, the better.",
-    ],
-    tone: "yes",
-    costs: [
-      ["认知外包：该他自己想的那一步交了出去，人只负责粘贴。", "Cognitive outsourcing: the step he should have thought gets handed over, and the person is left pasting."],
-      ["没有边界：什么必须自己做、什么可以交给 AI，没有人说得清。", "No boundary: nobody can say what has to stay his and what may be handed off."],
-      ["无法分辨：交上来的到底是谁的思考，学校手里没有证据。", "No way to tell: whose thinking got handed in — the school has no evidence either way."],
-    ],
-  },
-];
-
-/* Screen 2 — the three things that have to hold at once. */
-const solution: [string, string, string, string, string, string][] = [
-  [
-    "cards",
-    "思维工具",
-    "Thinking tools",
-    "将批判性思维、信源验证、数据分析、AI 伦理等思维模式工具化，在真实情境中带学生一起操练，在实际练习中提升思辨能力。",
-    "Critical thinking, source verification, data analysis and AI ethics — each turned into a tool the student picks up and runs on real material, until the thinking is hers.",
-    "",
-  ],
-  [
-    "shield",
-    "有边界的 AI 教练",
-    "A coach with boundaries",
-    "它会解释、会追问、会扮演反方，唯独不给答案。学生练的是指挥 AI 干活，而不是等 AI 交货。",
-    "It explains, it questions, it plays the opposition — the one thing it never does is answer. The student learns to direct the AI, not to wait for its delivery.",
-    "a",
-  ],
-  [
-    "gauge",
-    "全过程评估报告",
-    "Whole-process assessment",
-    "每一次互动都留下印记，长成一份可追溯、可复盘的报告。学生的思考过程，第一次有了证据。",
-    "Every exchange leaves an imprint and grows into a report that can be traced and replayed. For the first time, how a student thought is on the record.",
-    "g",
-  ],
-];
-
-/* Screen 3 — what those three add up to in a student.
-   One line each: this screen is four pictures and four claims, nothing else. */
-const abilities: {
-  asset: string;
-  zh: string;
-  en: string;
-  pz: string;
-  pe: string;
-}[] = [
-  {
-    asset: "ability/critical-thinking-v1.webp",
-    zh: "批判性思维",
-    en: "Critical thinking",
-    pz: "追到一手来源，看清一条证据到底能证明到哪一步。",
-    pe: "Trace a claim to its primary source, and see how far one piece of evidence actually reaches.",
-  },
-  {
-    asset: "ability/exploration-v1.webp",
-    zh: "持续探索",
-    en: "Unending exploration",
-    pz: "把一个模糊的兴趣，收窄成一个能回答的问题，然后往下挖。",
-    pe: "Narrow a vague interest into a question that can be answered — then dig.",
-  },
-  {
-    asset: "ability/ai-collaboration-v1.webp",
-    zh: "与 AI 协作",
-    en: "Working with AI",
-    pz: "知道什么可以交给 AI、什么必须自己来，并且说得出理由。",
-    pe: "Know what may go to the AI and what may not — and be able to say why.",
-  },
-  {
-    asset: "ability/metacognition-v1.webp",
-    zh: "元认知",
-    en: "Metacognition",
-    pz: "看得见自己是怎么想的：哪一步走偏，下一次从哪里开始。",
-    pe: "See how your own thinking went: where it drifted, and where to start next time.",
-  },
-];
-
-/* Screen 4 — the product matrix, in the order a school meets it. */
-const matrix: [string, string, string, string, string, string, string][] = [
-  [
-    "cards",
-    "/product/courses",
-    "课程与工具卡",
-    "Courses & thinking cards",
-    "AI 互动课堂，在真实情境中带着学生学会多项思维工具的应用。",
-    "An interactive AI classroom that teaches a set of thinking tools by using them on real material.",
-    "",
-  ],
-  [
-    "pen",
-    "/product/projects",
-    "探究性写作空间",
-    "Inquiry writing space",
-    "涵盖项目管理、立题、研究、写作、复盘全生命周期的多智能体写作教练，在真实项目中引导学生探索并独立完成课题。",
-    "A multi-agent writing coach across the whole life cycle — planning, framing, research, writing, review — guiding a student through a real project she finishes herself.",
-    "a",
-  ],
-  [
-    "gauge",
-    "/product/evaluation",
-    "过程性评估报告",
-    "Process assessment report",
-    "基于学生实际项目过程的系统评估报告，覆盖九大板块，包括认知深度与智识自主两大轴线，详细呈现学生认知过程。",
-    "A systematic report built from the student's actual project record — nine sections, including the cognitive-depth and intellectual-autonomy axes, laying out how the thinking went.",
-    "g",
-  ],
-  [
-    "users",
-    "/product/teacher",
-    "教师端全过程数据监控",
-    "Teacher console",
-    "让学生的 AI 使用过程可视化、可管理、可回溯，让过程性评估、家长报告一键生成。",
-    "Makes each student's AI use visible, manageable and reviewable — and generates process assessments and family reports in one click.",
-    "m",
-  ],
-];
 ---
 
 <HeroImmersive />
 
-<!-- ═══════════════════════════════ 1 · THE FORK IN THE ROAD ══════ -->
-<section class="section">
-  <div class="container">
-    <div class="sec-head center rv">
-      <h2 class="sec-title">
-        {t(lang, "AI 时代，该怎么让孩子用 AI？", "In the age of AI, how should a student be allowed to use it?")}
-      </h2>
-    </div>
+<MissionRain />
 
-    <div class="split" style="margin-top:56px">
-      {forks.map((f, i) => (
-        <div class={`split-side ${f.tone} rv`} style={`--i:${i}`}>
-          <div class="sk">{t(lang, f.k[0], f.k[1])}</div>
-          <h3>{t(lang, f.h[0], f.h[1])}</h3>
-          <p class="sl">{t(lang, f.p[0], f.p[1])}</p>
-          <ul class="split-cost">
-            <li class="ct">{t(lang, "代价", "What it costs")}</li>
-            {f.costs.map(([cz, ce]) => (
-              <li><Icon name="slash" />{t(lang, cz, ce)}</li>
-            ))}
-          </ul>
-        </div>
-      ))}
-    </div>
+<ProductDial />
 
-    <div class="pull rv" style="margin-top:56px; max-width:900px">
-      {t(
-        lang,
-        "AI 影响我们的学习、生活和工作已成既定事实。如何让孩子安全地学会用 AI，才是关键问题。",
-        "AI already runs through how we learn, live and work. The question left is how a child learns to use it safely.",
-      )}
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════ 2 · THE SOLUTION ══════════ -->
-<section class="section band-paper">
-  <div class="container">
-    <div class="sec-head center rv">
-      <h2 class="sec-title">
-        {t(lang, "安全地用 AI，需要三件事同时成立", "Safe AI use takes three things holding at once")}
-      </h2>
-      <p class="lead">
-        {t(
-          lang,
-          "少任何一件，剩下的两件都撑不住：只有工具没有边界，学生照样把判断交出去；只有边界没有记录，学校依旧看不见过程。",
-          "Drop any one and the other two give way. Tools without a boundary, and the judgment still gets handed over. A boundary without a record, and the school still can't see the process.",
-        )}
-      </p>
-    </div>
-
-    <div class="formula rv-pop" style="margin-top:48px">
-      <span class="fq">{t(lang, "安全地用 AI", "Safe AI use")}</span>
-      <span class="op">=</span>
-      <span class="ft">{t(lang, "思维工具", "thinking tools")}</span>
-      <span class="op">+</span>
-      <span class="ft a">{t(lang, "有边界的 AI 教练", "a bounded AI coach")}</span>
-      <span class="op">+</span>
-      <span class="ft g">{t(lang, "全过程评估", "whole-process assessment")}</span>
-    </div>
-
-    <div class="grid-3" style="margin-top:48px">
-      {solution.map(([icon, zh, en, pz, pe, tone], i) => (
-        <div class="card hoverable rv" style={`--i:${i}`}>
-          <div class={`cardic ${tone}`}><Icon name={icon} /></div>
-          <h3>{t(lang, zh, en)}</h3>
-          <p>{t(lang, pz, pe)}</p>
-        </div>
-      ))}
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════ 3 · THE ABILITIES ════════════ -->
-<!-- Tightened deliberately: the four are meant to be taken in together, in
-     one screen, so this section gives up the standard vertical air. -->
-<section class="section" style="padding-top:76px; padding-bottom:76px">
-  <div class="container">
-    <div class="sec-head rv">
-      <h2 class="sec-title">
-        {t(
-          lang,
-          "我们希望帮助孩子建立 AI 时代最有价值的四项能力",
-          "The four abilities we want to help a child build for the age of AI",
-        )}
-      </h2>
-    </div>
-
-    <div class="abilities" style="margin-top:34px">
-      {abilities.map((a, i) => (
-        <article class="ability rv" style={`--i:${i % 2}`}>
-          <div class="ab-art">
-            <img src={assetUrl(a.asset)} alt="" aria-hidden="true" loading="lazy" decoding="async" />
-          </div>
-          <h3>{t(lang, a.zh, a.en)}</h3>
-          <p>{t(lang, a.pz, a.pe)}</p>
-        </article>
-      ))}
-    </div>
-  </div>
-</section>
-
-<!-- ══════════════════════════════════ 4 · THE MATRIX ════════════ -->
-<section class="section band-cool">
-  <div class="container">
-    <div class="sec-head rv">
-      <h2 class="sec-title">{t(lang, "产品矩阵", "The product matrix")}</h2>
-      <p class="lead">
-        {t(
-          lang,
-          "四个部分各自独立成立，合起来是一条从学会方法到留下证据的完整链路。",
-          "Four parts, each standing on its own — together one path from learning a method to leaving the evidence.",
-        )}
-      </p>
-    </div>
-
-    <div class="grid-2" style="margin-top:52px">
-      {matrix.map(([icon, href, zh, en, pz, pe, tone], i) => (
-        <a class="card hoverable rv" style={`--i:${i}`} href={L(href)}>
-          <div class={`cardic ${tone}`}><Icon name={icon} /></div>
-          <h3>{t(lang, zh, en)}</h3>
-          <p>{t(lang, pz, pe)}</p>
-          <span class="tlink" style="margin-top:18px">
-            {t(lang, "了解更多", "Learn more")}<Icon name="arrow" />
-          </span>
-        </a>
-      ))}
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════ 5 · THE MEASUREMENT DESIGN ═══════ -->
-<section class="section">
-  <div class="container">
-    <div class="algo-head rv">
-      <div class="algo-tag mono">{t(lang, "核心设计 01 · 过程评估", "Core design 01 · assessment")}</div>
-      <h2 class="sec-title">
-        {t(lang, "两根轴线，十二维度，综合测量「思维印记」", "Two axes, twelve dimensions — the full measure of a thinking imprint")}
-      </h2>
-      <a class="tlink" style="margin-top:24px" href={L("/algorithm/evaluation")}>
-        {t(lang, "了解完整的评估设计", "See the full assessment design")}<Icon name="arrow" />
-      </a>
-    </div>
-
-    <div class="rv-pop" style="margin-top:52px">
-      <DualAxis />
-    </div>
-  </div>
-</section>
-
-<!-- ═════════════════════════ 6 · THE COACH ARCHITECTURE ════════ -->
-<section class="section band-paper">
-  <div class="container">
-    <div class="algo-head rv">
-      <div class="algo-tag mono">{t(lang, "核心设计 02 · 多智能体教练", "Core design 02 · the coach")}</div>
-      <h2 class="sec-title">
-        {t(lang, "探究写作教练：多智能体架构支撑项目全流程", "The inquiry writing coach: a multi-agent architecture across the whole project")}
-      </h2>
-      <p class="lead">
-        {t(
-          lang,
-          "立题、检索、阅读、写作、复盘，一个课题要跑好几周。学生全程只面对一个教练，它记得住这个项目的每一步；查文献、通读长论文、批注整篇初稿这类重活，由各自专精的智能体分工完成。",
-          "Framing, searching, reading, writing, review — a piece of coursework runs for weeks. The student works with one coach throughout, and it remembers every step of the project; the heavy lifting — literature search, reading a full paper, annotating a whole draft — is divided among specialist agents behind it.",
-        )}
-      </p>
-      <p class="lead" style="margin-top:16px">
-        {t(
-          lang,
-          "教练本身也在被改进。每一届学生留下的过程数据，都会回到教学设计里：哪一步最容易卡住、哪张工具卡真正起了作用、哪句引导反而让学生停止思考——据此调整触发时机与引导策略，下一届拿到的是更懂学生的教练。",
-          "The coach itself keeps improving. The process data each cohort leaves behind feeds back into the teaching design: where students get stuck, which thinking tool actually changed the work, which prompt made them stop thinking. Trigger timing and guidance strategy are tuned from that evidence, so the next cohort meets a coach that understands them better.",
-        )}
-      </p>
-      <a class="tlink" style="margin-top:24px" href={L("/algorithm/multi-agent")}>
-        {t(lang, "了解多智能体系统设计", "See the multi-agent design")}<Icon name="arrow" />
-      </a>
-    </div>
-
-    <div class="stage rv-pop" style="margin-top:48px">
-      <div class="stage-bar">
-        <span class="dots"><b></b><b></b><b></b></span>
-        <span class="t">one thread · isolated sub-agents · one spine</span>
-      </div>
-      <div class="stage-body">
-        <div class="dhint">{t(lang, "← 左右滑动查看完整图 →", "← swipe to pan the diagram →")}</div>
-        <div class="dscroll"><AgentTopology /></div>
-        <div class="legend">
-          <span><i class="p"></i>{t(lang, "一直在场的陪练", "the coach that stays")}</span>
-          <span><i class="a"></i>{t(lang, "隔离的子代理", "isolated sub-agents")}</span>
-          <span><i class="g"></i>{t(lang, "项目脊柱", "the project spine")}</span>
-        </div>
-      </div>
-    </div>
-  </div>
-</section>
-
-<!-- ═══════════════════════════════════ 7 · THE IMPRINT ══════════ -->
-<section class="section band-ink" style="padding:112px 0">
+<!-- ═══════════════════════════════════ 4 · THE IMPRINT ══════════ -->
+<section class="section band-ink closing">
   <div class="container narrow center">
-    <p class="rv" style="font-size:clamp(24px,2.8vw,38px); line-height:1.42; letter-spacing:-0.02em; font-weight:700">
+    <div class="closerow" data-glyphsolid="row" aria-hidden="true">
+      <canvas class="gr-figs"></canvas>
+    </div>
+
+    <p class="closeline rv" data-type>
       {t(
         lang,
         "我们想培养的，是能借助 AI 把事情想得更深、判断依然属于自己的人。",
         "We're trying to grow people who can think further with AI, and still own the judgment at the end of it.",
       )}
     </p>
-    <p class="rv" style="color:var(--muted); font-size:14px; margin-top:26px">
+    <p class="closecite rv">
       {t(lang, "《思维印记产品白皮书》· 结语", "Mind Imprint white paper · Conclusion")}
     </p>
   </div>
 </section>
 
 <CtaBand />
+
+<script>
+  import "../../scripts/glyph-rain";
+  import "../../scripts/typewriter";
+</script>

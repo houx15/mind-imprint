@@ -3402,3 +3402,487 @@ html[lang="zh-CN"] .rs-note h3 {
     max-height: 380px;
   }
 }
+
+/* ------------------------------------------- 22 the front-page journey (home)
+   Four screens that read as one movement: the hero's water pours over its own
+   bottom edge, falls through the second screen as digits, leaves four small
+   figures on the floor of it, and those four index the three parts of the
+   product on a dial. Nothing here is used off the homepage.
+   ========================================================================== */
+
+/* --- 22.0 typed text ------------------------------------------------------ */
+.typing::after {
+  content: "▌";
+  color: var(--accent);
+  margin-left: 1px;
+  animation: caret 0.85s steps(1) infinite;
+}
+@keyframes caret {
+  0%,
+  49% {
+    opacity: 1;
+  }
+  50%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* --- 22.1 screen two: the waterfall -------------------------------------- */
+.mission {
+  position: relative;
+  /* The hero's layers are z-indexed in the ROOT stacking context (its section
+     is position:relative with z-index:auto, so it never made one of its own).
+     For the fall to carry past the hero's bottom edge this has to clear the
+     highest of them — .hi-copy at 6. */
+  z-index: 7;
+  min-height: 100svh;
+  display: flex;
+  align-items: center;
+  padding: 6vh 0 9vh;
+}
+/* Full-bleed, and starting inside the hero: the water must not appear to begin
+   at a seam between two sections. 10svh is exactly the empty band the hero's
+   copy leaves at its foot, so nothing is ever fallen on. */
+.mission-fall {
+  position: absolute;
+  inset: -34svh 0 0 0;
+  z-index: 0;
+  overflow: hidden;
+  pointer-events: none;
+  /* The head of the fall has to dissolve into the hero rather than start on a
+     ruled line. This lives on the container so it applies to both canvases —
+     the figures are at the foot and never reach it. */
+  -webkit-mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgba(0, 0, 0, 0.3) 6%,
+    rgba(0, 0, 0, 0.72) 13%,
+    #000 22%
+  );
+  mask-image: linear-gradient(
+    to bottom,
+    transparent 0,
+    rgba(0, 0, 0, 0.3) 6%,
+    rgba(0, 0, 0, 0.72) 13%,
+    #000 22%
+  );
+}
+.mission-fall canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+/* The fall thins out before it reaches the copy, rather than being cut off. */
+.gr-rain {
+  -webkit-mask-image:
+    linear-gradient(to right, #000 0, #000 30%, rgba(0, 0, 0, 0.28) 45%, transparent 56%),
+    linear-gradient(to bottom, #000 0, #000 66%, rgba(0, 0, 0, 0.22) 88%, transparent 100%);
+  mask-image:
+    linear-gradient(to right, #000 0, #000 30%, rgba(0, 0, 0, 0.28) 45%, transparent 56%),
+    linear-gradient(to bottom, #000 0, #000 66%, rgba(0, 0, 0, 0.22) 88%, transparent 100%);
+  /* Both at once, not one on top of the other: the fall thins towards the copy
+     AND settles out where it lands, which is what lets the four stand clear
+     of it. */
+  -webkit-mask-composite: source-in;
+  mask-composite: intersect;
+}
+/* The shine is a filter on the whole layer: one GPU pass, rather than a blurred
+   shadow on each of several hundred characters. */
+.mission-fall .gr-figs {
+  filter: drop-shadow(0 0 5px rgba(120, 255, 220, 0.75))
+    drop-shadow(0 0 16px rgba(66, 224, 180, 0.5))
+    drop-shadow(0 0 38px rgba(66, 224, 180, 0.25));
+}
+
+.mission-grid {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: clamp(36px, 5vw, 84px);
+  align-items: center;
+  width: 100%;
+}
+.mission-void {
+  min-height: min(72vh, 620px);
+}
+.mission-copy .sec-title {
+  margin-top: 18px;
+}
+.mission-copy .lead {
+  margin-top: 18px;
+  max-width: 46ch;
+}
+
+.ab4list {
+  list-style: none;
+  margin-top: clamp(22px, 3vh, 38px);
+}
+.ab4 {
+  border-top: 1px solid var(--line);
+  padding: 15px 6px 13px;
+  outline: none;
+  opacity: 0.3;
+  transform: translateY(7px);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease),
+    background 0.4s var(--ease);
+}
+.ab4:last-child {
+  border-bottom: 1px solid var(--line);
+}
+/* lit as its own figure finishes growing under the fall */
+.ab4.on {
+  opacity: 1;
+  transform: none;
+}
+.ab4-brain {
+  --h: var(--primary);
+}
+.ab4-heart {
+  --h: var(--accent);
+}
+.ab4-robot {
+  --h: var(--green);
+}
+.ab4-mirror {
+  --h: var(--amber);
+}
+.ab4-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.ab4-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--h);
+  flex-shrink: 0;
+  transition: box-shadow 0.4s var(--ease);
+}
+.ab4 h3 {
+  font-size: clamp(17px, 1.5vw, 21px);
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+html[lang="zh-CN"] .ab4 h3 {
+  letter-spacing: 0;
+}
+/* Folded by default: the title is the whole item until you want more. */
+.ab4-fold {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.5s var(--ease);
+}
+.ab4-fold > div {
+  overflow: hidden;
+}
+.ab4-fold p {
+  padding: 9px 0 2px 21px;
+  color: var(--muted);
+  font-size: 15px;
+  line-height: 1.7;
+  max-width: 42ch;
+}
+.ab4:hover,
+.ab4:focus-visible {
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.05), transparent 72%);
+}
+.ab4:hover .ab4-dot,
+.ab4:focus-within .ab4-dot {
+  box-shadow: 0 0 16px var(--h);
+}
+.ab4:hover .ab4-fold,
+.ab4:focus-within .ab4-fold {
+  grid-template-rows: 1fr;
+}
+/* Nothing hovers on a touch screen, so there the descriptions simply stand. */
+@media (hover: none) {
+  .ab4-fold {
+    grid-template-rows: 1fr;
+  }
+}
+
+/* --- 22.2 screen three: the dial ----------------------------------------- */
+.dialsec {
+  padding-top: clamp(72px, 9vh, 116px);
+}
+/* the four, hardened out of the water and standing still */
+.fourmark {
+  position: relative;
+  width: min(460px, 76%);
+  height: 76px;
+  margin: clamp(28px, 4vh, 44px) auto 0;
+  opacity: 0.72;
+}
+.fourmark canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.gr-figs {
+  color: var(--ink);
+}
+
+.dial-grid {
+  display: grid;
+  grid-template-columns: clamp(196px, 20vw, 300px) minmax(0, 1fr);
+  gap: clamp(24px, 3vw, 56px);
+  align-items: start;
+  margin-top: clamp(24px, 4vh, 48px);
+}
+.dial-rail {
+  position: sticky;
+  top: 0;
+  height: 100svh;
+  padding-top: 62px; /* clear the nav */
+  box-sizing: border-box;
+}
+.dialsvg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+.d-arc,
+.d-minor,
+.d-major,
+.d-mark {
+  fill: none;
+  stroke: rgba(100, 114, 138, 0.42);
+  stroke-width: 1.4;
+}
+.d-arc {
+  stroke: rgba(100, 114, 138, 0.3);
+}
+.d-major {
+  stroke-width: 2.2;
+  transition:
+    stroke 0.6s var(--ease),
+    stroke-width 0.6s var(--ease);
+}
+.d-mark {
+  stroke: var(--accent);
+  stroke-width: 1.4;
+}
+.d-dot {
+  fill: var(--accent);
+  stroke: none;
+}
+.d-num,
+.d-name {
+  font-family: var(--mono);
+  fill: var(--faint);
+  transition: fill 0.6s var(--ease);
+}
+.d-num {
+  font-size: 10.5px;
+  letter-spacing: 0.14em;
+}
+.d-name {
+  font-family: var(--sans);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+/* The dial turns; each label turns back the same amount around its own anchor,
+   so it rides the arc without ever going over on its side. */
+.dial {
+  --rot: 0deg;
+}
+.dial[data-active="0"] {
+  --rot: 9.7deg;
+}
+.dial[data-active="2"] {
+  --rot: -9.7deg;
+}
+.dial-rot {
+  transform-box: view-box;
+  transform-origin: -620px 450px;
+  transform: rotate(var(--rot));
+  transition: transform 1s var(--ease);
+}
+.d-label {
+  transform-box: view-box;
+  transform: rotate(calc(-1 * var(--rot)));
+  transition: transform 1s var(--ease);
+}
+.dial:not([data-active]) .d-major[data-i="0"],
+.dial[data-active="0"] .d-major[data-i="0"],
+.dial[data-active="1"] .d-major[data-i="1"],
+.dial[data-active="2"] .d-major[data-i="2"] {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.dial:not([data-active]) .d-label[data-i="0"] .d-name,
+.dial[data-active="0"] .d-label[data-i="0"] .d-name,
+.dial[data-active="1"] .d-label[data-i="1"] .d-name,
+.dial[data-active="2"] .d-label[data-i="2"] .d-name {
+  fill: var(--ink);
+}
+.dial:not([data-active]) .d-label[data-i="0"] .d-num,
+.dial[data-active="0"] .d-label[data-i="0"] .d-num,
+.dial[data-active="1"] .d-label[data-i="1"] .d-num,
+.dial[data-active="2"] .d-label[data-i="2"] .d-num {
+  fill: var(--accent);
+}
+
+.dial-steps {
+  display: grid;
+}
+.dial-step {
+  padding: 15vh 0;
+  opacity: 0.26;
+  transition: opacity 0.6s var(--ease);
+}
+.dial-step:first-child {
+  padding-top: 10vh;
+}
+.dial-step:last-child {
+  padding-bottom: 12vh;
+}
+.dial-step.on,
+.scrub:not([data-active]) .dial-step:first-child {
+  opacity: 1;
+}
+/* No frame, no chrome, no controls: the clip should read as a gesture, the way
+   a GIF does, not as a video player parked on the page. */
+.dial-media {
+  border-radius: var(--r-lg);
+  overflow: hidden;
+  background: var(--paper-2);
+  box-shadow: var(--shadow-lift);
+}
+.dial-video {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.dial-step .k {
+  display: block;
+  margin-top: 26px;
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.11em;
+  color: var(--accent);
+}
+.dial-step h3 {
+  font-size: clamp(24px, 2.6vw, 34px);
+  font-weight: 800;
+  letter-spacing: -0.022em;
+  line-height: 1.2;
+  margin-top: 10px;
+}
+html[lang="zh-CN"] .dial-step h3 {
+  letter-spacing: 0;
+}
+.dial-step p {
+  margin-top: 14px;
+  color: var(--ink-2);
+  font-size: 16.5px;
+  line-height: 1.72;
+  max-width: 54ch;
+}
+.dial-cta {
+  margin-top: 24px;
+}
+.dial-foot {
+  margin-top: clamp(26px, 4vh, 52px);
+  text-align: center;
+  color: var(--muted);
+  font-size: 15px;
+}
+.dial-foot a {
+  color: var(--ink);
+  font-weight: 600;
+  border-bottom: 1px solid var(--line);
+}
+.dial-foot a svg {
+  width: 14px;
+  height: 14px;
+  vertical-align: -2px;
+  margin-left: 4px;
+}
+
+/* --- 22.3 screen four: the closing note ---------------------------------- */
+.closing {
+  padding: clamp(80px, 11vh, 120px) 0;
+}
+.closerow {
+  position: relative;
+  width: min(460px, 74%);
+  height: 74px;
+  margin: 0 auto clamp(30px, 5vh, 48px);
+  opacity: 0.42;
+}
+.closerow canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.closeline {
+  font-size: clamp(24px, 2.8vw, 38px);
+  line-height: 1.42;
+  letter-spacing: -0.02em;
+  font-weight: 700;
+}
+html[lang="zh-CN"] .closeline {
+  letter-spacing: 0;
+}
+.closecite {
+  color: var(--muted);
+  font-size: 14px;
+  margin-top: 26px;
+}
+
+/* --- 22.4 narrow ---------------------------------------------------------- */
+@media (max-width: 980px) {
+  .mission {
+    min-height: 92svh;
+    padding: 4vh 0 8vh;
+  }
+  .mission-grid {
+    grid-template-columns: 1fr;
+    gap: 26px;
+  }
+  /* Still the floor of the fall, just a shorter one. */
+  .mission-void {
+    min-height: 34vh;
+    order: -1;
+  }
+  .gr-rain {
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 62%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 62%, transparent 100%);
+  }
+  .dial-grid {
+    grid-template-columns: 1fr;
+    gap: 0;
+  }
+  /* A 200px sticky column is a stripe of nothing on a phone. */
+  .dial-rail {
+    display: none;
+  }
+  .dial-step {
+    padding: 7vh 0;
+    opacity: 1;
+  }
+  .dial-step:first-child {
+    padding-top: 4vh;
+  }
+  .fourmark {
+    width: 88%;
+    height: 58px;
+  }
+  .closerow {
+    width: 86%;
+    height: 58px;
+  }
+}
