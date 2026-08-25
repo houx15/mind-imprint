@@ -30,6 +30,26 @@ export async function putBuffer(projectId: string, content: string, doc: Writing
   });
 }
 
+// Best-effort synchronous flush for page-hide / hard-refresh / tab-close. A
+// normal fetch is aborted when the document tears down, silently dropping the
+// last (still-debounced) edit; `keepalive` lets the PUT outlive the page.
+// Cookies still ride along (apiFetch sets credentials:"include"). Fire-and-
+// forget — there's no page left to surface a retry to. Body cap for keepalive
+// is ~64KB, which a prose draft won't approach in practice.
+export function flushBufferKeepalive(projectId: string, content: string, doc: WritingDocKind = "essay"): void {
+  try {
+    void apiFetch<void>(`/api/v1/projects/${projectId}/buffer?doc=${doc}`, {
+      method: "PUT",
+      body: JSON.stringify({ content }),
+      keepalive: true,
+    }).catch(() => {
+      /* best-effort */
+    });
+  } catch {
+    /* ignore — never let a flush attempt throw during unload */
+  }
+}
+
 // Mints an immutable draft snapshot from the posted content (Task 3's POST
 // /snapshots) — fails loud on schema drift, same posture as materials.ts. `doc`
 // selects the document (Phase B).

@@ -108,6 +108,7 @@ vi.mock("@/workspace/api/workspace", () => ({
 }));
 vi.mock("@/api/writing", () => ({
   putBuffer: vi.fn(async () => {}),
+  flushBufferKeepalive: vi.fn(),
   runDraftReview: vi.fn(),
 }));
 vi.mock("@/api/exploration", () => ({ getExploration: vi.fn(async () => ({ leads: [], danglingSourceIds: [] })) }));

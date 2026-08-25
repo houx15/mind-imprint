@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { putBuffer, type WritingDocKind } from "../../api/writing";
+import { putBuffer, flushBufferKeepalive, type WritingDocKind } from "../../api/writing";
 import { getDraft } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
 import { countWords } from "./wordcount";
@@ -133,6 +133,28 @@ export function ProsePane({
     },
     [projectId, doc],
   );
+
+  // A React unmount effect does NOT run on a hard browser refresh / tab-close,
+  // so the last ≤1.2s of typing (still in the debounce) would be silently lost
+  // (2026-08-25 edge-case findings). Flush it with a keepalive PUT that outlives
+  // the page teardown; visibilitychange:hidden covers tab-switch / backgrounding,
+  // pagehide covers refresh / navigate-away / close.
+  useEffect(() => {
+    const flush = () => {
+      if (!dirtyRef.current) return;
+      flushBufferKeepalive(projectId, textRef.current, doc);
+      dirtyRef.current = false;
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [projectId, doc]);
 
   function onChange(next: string) {
     setText(next);

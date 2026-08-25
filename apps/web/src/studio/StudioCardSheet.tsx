@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { CardInstance, CardSpec, TraceEvent } from "@mind-imprint/contracts";
 import { pickCardBody } from "../cards/customRenderers";
 import { envelopeReducer, newEnvelope } from "../cards/envelopeReducer";
@@ -7,6 +7,13 @@ export type StudioCardSheetProps = {
   spec: CardSpec;
   onSubmit: (finalEnvelope: CardInstance) => void;
   onSkip: (eventTrace: TraceEvent[]) => void;
+  // When set, the in-progress envelope is mirrored to localStorage under this
+  // key, so a mid-fill refresh / tab-close doesn't silently wipe what the
+  // student typed (过程即数据 — an unfinished card is still her work; the field
+  // values otherwise live only in this component's state). Cleared on submit
+  // or skip. Per-viewer convenience only; the server stays the source of truth
+  // for *submitted* cards.
+  persistKey?: string;
 };
 
 // Lean coach-rail-fit card host: reuses the SAME schema-driven renderer +
@@ -14,11 +21,45 @@ export type StudioCardSheetProps = {
 // the 388px coach-rail column instead of a full-bleed bottom-sheet. No
 // card-specific branching here — pickCardBody(spec.id) resolves any custom
 // renderer, CardRenderer otherwise (schema-driven).
-export function StudioCardSheet({ spec, onSubmit, onSkip }: StudioCardSheetProps) {
+export function StudioCardSheet({ spec, onSubmit, onSkip, persistKey }: StudioCardSheetProps) {
   // task_id is a vestigial local artifact — the project submit endpoint
   // ignores it — so an empty string is fine here.
-  const [env, setEnv] = useState<CardInstance>(() => newEnvelope(spec.id, ""));
+  const [env, setEnv] = useState<CardInstance>(() => {
+    if (persistKey) {
+      try {
+        const raw = localStorage.getItem(persistKey);
+        if (raw) {
+          const saved = JSON.parse(raw) as CardInstance;
+          // Only restore a draft that belongs to THIS card spec.
+          if (saved && saved.card_id === spec.id) return saved;
+        }
+      } catch {
+        // corrupt / blocked storage — fall through to a fresh envelope
+      }
+    }
+    return newEnvelope(spec.id, "");
+  });
   const Body = pickCardBody(spec.id);
+
+  // Mirror the in-progress envelope so a refresh / tab-close mid-fill keeps
+  // her work; guarded because some contexts throw on storage access.
+  useEffect(() => {
+    if (!persistKey) return;
+    try {
+      localStorage.setItem(persistKey, JSON.stringify(env));
+    } catch {
+      // ignore — persistence is best-effort
+    }
+  }, [persistKey, env]);
+
+  function clearDraft() {
+    if (!persistKey) return;
+    try {
+      localStorage.removeItem(persistKey);
+    } catch {
+      // ignore
+    }
+  }
 
   function handleField(path: string, value: unknown) {
     setEnv((e) => envelopeReducer(e, { type: "field_change", path, value }));
@@ -33,11 +74,13 @@ export function StudioCardSheet({ spec, onSubmit, onSkip }: StudioCardSheetProps
   }
 
   function handleSubmit() {
+    clearDraft();
     const finalEnvelope = envelopeReducer(env, { type: "submit" });
     onSubmit(finalEnvelope);
   }
 
   function handleSkip() {
+    clearDraft();
     onSkip(env.event_trace);
   }
 

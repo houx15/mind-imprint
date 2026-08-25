@@ -121,6 +121,7 @@ export function CoachCardPanel({
       {openCardId && CARD_REGISTRY[openCardId] && (
         <StudioCardSheet
           spec={CARD_REGISTRY[openCardId]!}
+          persistKey={`mi:carddraft:${projectId}:${openCardId}`}
           onSubmit={(env) => submit(env.field_values, env.event_trace)}
           onSkip={() => setOpenCardId(null)}
         />

@@ -6,16 +6,18 @@ import { ProsePane } from "@/workspace/blocks/ProsePane";
 // it loads AND saves against the SAME per-doc buffer the backend keys on
 // `doc_kind` — so the proposal never collides with the essay.
 vi.mock("@/workspace/api/workspace", () => ({ getDraft: vi.fn(async () => "已有的提案内容") }));
-vi.mock("@/api/writing", () => ({ putBuffer: vi.fn(async () => {}) }));
+vi.mock("@/api/writing", () => ({ putBuffer: vi.fn(async () => {}), flushBufferKeepalive: vi.fn() }));
 
 import { getDraft } from "@/workspace/api/workspace";
-import { putBuffer } from "@/api/writing";
+import { putBuffer, flushBufferKeepalive } from "@/api/writing";
 const mockGetDraft = vi.mocked(getDraft);
 const mockPut = vi.mocked(putBuffer);
+const mockFlush = vi.mocked(flushBufferKeepalive);
 
 beforeEach(() => {
   mockGetDraft.mockClear();
   mockPut.mockClear();
+  mockFlush.mockClear();
 });
 
 describe("ProsePane", () => {
@@ -34,6 +36,16 @@ describe("ProsePane", () => {
     await waitFor(() => expect(mockPut).toHaveBeenCalledWith("p1", "我的新提案：探究印刷术与宗教改革。", "proposal"), {
       timeout: 3000,
     });
+  });
+
+  it("flushes the pending edit with a keepalive PUT on pagehide (hard refresh / tab-close)", async () => {
+    render(<ProsePane projectId="p1" doc="proposal" />);
+    const ta = (await screen.findByLabelText("研究提案正文")) as HTMLTextAreaElement;
+    await waitFor(() => expect(ta.value.length).toBeGreaterThan(0));
+    // type but do NOT wait for the 1.2s debounce — simulate an abrupt close
+    fireEvent.change(ta, { target: { value: "还没来得及保存就刷新了" } });
+    window.dispatchEvent(new Event("pagehide"));
+    expect(mockFlush).toHaveBeenCalledWith("p1", "还没来得及保存就刷新了", "proposal");
   });
 
   it("is read-only when locked", async () => {

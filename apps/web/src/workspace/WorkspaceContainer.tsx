@@ -1988,6 +1988,7 @@ export function WorkspaceContainer({
         <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
           <StudioCardSheet
             spec={CARD_REGISTRY[openCardId]}
+            persistKey={`mi:carddraft:${projectId ?? ""}:${openCardId}`}
             onSubmit={(env) => void submitStudioCard(env.field_values, env.event_trace)}
             onSkip={() => setOpenCardId(null)}
           />

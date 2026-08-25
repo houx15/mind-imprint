@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import type { Proposal, ProjectStatus } from "@mind-imprint/contracts";
-import { putBuffer, runDraftReview } from "../../api/writing";
+import { putBuffer, flushBufferKeepalive, runDraftReview } from "../../api/writing";
 import type { ReviewItem, ReviewVoice, DraftReviewResult, WritingDocKind } from "../../api/writing";
 import { finishWriting, reopenWriting } from "../../api/projects";
 import { ApiError } from "../../api/client";
@@ -1805,6 +1805,28 @@ function DraftPane({
     [projectId],
   );
 
+  // Q6b · a React unmount effect does NOT run on a hard browser refresh or
+  // tab-close, so the debounced edit from the last ≤1.2s would be silently
+  // lost (2026-08-25 edge-case findings). Flush it with a keepalive PUT that
+  // survives the page teardown; visibilitychange:hidden covers tab-switch /
+  // mobile backgrounding, pagehide covers refresh / navigate-away / close.
+  useEffect(() => {
+    const flush = () => {
+      if (!dirtyRef.current) return;
+      flushBufferKeepalive(projectId, textRef.current);
+      dirtyRef.current = false;
+    };
+    const onVis = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    window.addEventListener("pagehide", flush);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [projectId]);
+
   function onChange(next: string) {
     setText(next);
     textRef.current = next;
@@ -2643,6 +2665,7 @@ function CoachRail({
           <div className="max-h-[88vh] w-full max-w-lg overflow-y-auto rounded-mk-lg bg-mk-surface shadow-mk-lg" onClick={(e) => e.stopPropagation()}>
             <StudioCardSheet
               spec={CARD_REGISTRY[openCardId]}
+              persistKey={`mi:carddraft:${projectId}:${openCardId}`}
               onSubmit={(env) => submitProposedCard(env.field_values, env.event_trace)}
               onSkip={() => setOpenCardId(null)}
             />
