@@ -151,7 +151,16 @@ Rather than 10 identical full walks (very costly, diminishing returns), covered 
 
 Also-noted quality points (not bugs): metadata fetch falls back to URL-as-title for scrape-blocked sites (fields are editable); "印记不替你搜" messaging vs the 探索 student-driven search.
 
-## Fixes (all on branch, verified green)
+## Round 2 (goal: continue walk→fix + 3 reported items)
+
+**Warren-map ↔ library sync (user worry) — ✅ VERIFIED, no bug.** Reproduced live on prod: added a **manual** source (no material engaged, never opened) to 图书馆 → switched to 探索 → the 未归类 tray count went **1 → 2 篇**, i.e. the new paper synced immediately, and a placement modal auto-appeared ("这篇挂到哪个问题下？" with an 印记 suggestion → 先放进未归类). Confirmed in code: `ExplorationView.tsx:48-50` computes 未归类 from the **full library** (any ref with no non-pruned connected lead), NOT the sharper server `danglingSourceIds` (which needs an engaged material) — so an unread just-added paper correctly shows. No fix needed.
+
+**完成写作/提案 "跳过" dead-end (user report) — ✅ FIXED.** Empty proposal → 完成提案 → "先让印记看一遍？" modal → 跳过 did nothing because that modal branch never rendered `finishWritingError` (the backend correctly 422s `draft_empty`). Now the error renders in that branch; backend message is doc-aware (提案 vs 正文). `WritingBlock.tsx` + `project_writing_finish.go`. (commit `c0d8f522`)
+
+**Main-paper writing surface cramped (user report) — ✅ FIXED.** The essay `DraftPane` toolbar overflowed → CJK labels wrapped vertical (image 1). Realigned to the proposal's calm style: one AI-comment button (整稿体检, default lens) + a small 上传写好的文档 entry up top; 预览/字数/保存 moved to a lower-right overlay. Removed 视角 selector + 自由/分节 toggle. 导出 moved into the 完成写作 modal (both docs). Added the 上传写好的文档 small entry to the proposal (ProsePane) too. Free-text insert now records the source→正文 citation. Tests updated; 356 workspace tests + tsc green. (commit `c0d8f522`)
+- 🧹 follow-up: `SectionedDraft` (essay 分节 editor) is now dead code (its only caller removed) — harmless (tsc/vite don't flag module-level unused funcs) but worth a cleanup sweep with its now-single-use imports.
+
+## Fixes (round 1 — all on branch, verified green)
 
 1. **BUG-02** — new `apps/web/src/workspace/blocks/wordcount.ts` (`countWords`, CJK-aware, mirrors Go `agent.CountWords`); wired into `WritingBlock.tsx` + `ProsePane.tsx` (replaced the char-count). Unit test `test/workspace/wordcount.test.ts` (5 cases, green). Label stays "字" (the review labels word count "字" too, so now consistent).
 2. **BUG-04** — `studio/reading/ReadingRoom.tsx` composer `onKeyDown`: Enter sends / Shift+Enter newline (matches the coach `Composer`); Ctrl/Cmd+Enter still sends; guards on busy + non-empty.
