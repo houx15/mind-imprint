@@ -3443,6 +3443,10 @@ html[lang="zh-CN"] .rs-note h3 {
   color: var(--h, var(--ink-2));
   overflow: visible;
 }
+/* In the water they are the water's colour until one of them is named. */
+.mfig .gm {
+  color: rgba(214, 255, 240, 0.82);
+}
 .gm path {
   fill: currentColor;
 }
@@ -3484,7 +3488,10 @@ html[lang="zh-CN"] .rs-note h3 {
    copy leaves at its foot, so nothing is ever fallen on. */
 .mission-fall {
   position: absolute;
-  inset: -34svh 0 0 0;
+  /* Only as wide as the water actually reaches. It used to span the page and
+     have most of itself masked away — paid for, then thrown out. */
+  inset: -34svh auto 0 0;
+  width: 56%;
   z-index: 0;
   overflow: hidden;
   pointer-events: none;
@@ -3516,23 +3523,16 @@ html[lang="zh-CN"] .rs-note h3 {
 /* The fall thins out before it reaches the copy, rather than being cut off. */
 .gr-rain {
   -webkit-mask-image:
-    linear-gradient(to right, #000 0, #000 22%, rgba(0, 0, 0, 0.26) 34%, transparent 44%),
+    linear-gradient(to right, #000 0, #000 62%, rgba(0, 0, 0, 0.28) 82%, transparent 100%),
     linear-gradient(to bottom, #000 0, #000 66%, rgba(0, 0, 0, 0.22) 88%, transparent 100%);
   mask-image:
-    linear-gradient(to right, #000 0, #000 22%, rgba(0, 0, 0, 0.26) 34%, transparent 44%),
+    linear-gradient(to right, #000 0, #000 62%, rgba(0, 0, 0, 0.28) 82%, transparent 100%),
     linear-gradient(to bottom, #000 0, #000 66%, rgba(0, 0, 0, 0.22) 88%, transparent 100%);
   /* Both at once, not one on top of the other: the fall thins towards the copy
      AND settles out where it lands, which is what lets the four stand clear
      of it. */
   -webkit-mask-composite: source-in;
   mask-composite: intersect;
-}
-/* The shine is a filter on the whole layer: one GPU pass, rather than a blurred
-   shadow on each of several hundred characters. */
-.mission-fall .gr-figs {
-  filter: drop-shadow(0 0 5px rgba(120, 255, 220, 0.75))
-    drop-shadow(0 0 16px rgba(66, 224, 180, 0.5))
-    drop-shadow(0 0 38px rgba(66, 224, 180, 0.25));
 }
 
 .mission-grid {
@@ -3545,7 +3545,77 @@ html[lang="zh-CN"] .rs-note h3 {
   width: 100%;
 }
 .mission-void {
+  position: relative;
   min-height: min(78vh, 660px);
+  display: flex;
+  align-items: flex-end;
+}
+/* At the foot of the fall, which is where what the water carried would end up. */
+.mission-figs {
+  width: 100%;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: clamp(10px, 2vw, 28px);
+  padding-bottom: 2%;
+}
+.mfig {
+  display: block;
+  flex: 1 1 0;
+  min-width: 0;
+  opacity: 0;
+  transform: translateY(-10px);
+  /* Wiped in from the top, the way something the water is depositing would
+     appear, rather than switched on. */
+  clip-path: inset(0 0 100% 0);
+  transition:
+    opacity 0.7s var(--ease),
+    transform 0.7s var(--ease),
+    clip-path 0.9s var(--ease);
+}
+.mfig.on {
+  opacity: 1;
+  transform: none;
+  clip-path: inset(0 0 0 0);
+}
+.mfig .gm {
+  width: 100%;
+  height: auto;
+  filter: drop-shadow(0 0 6px rgba(66, 224, 180, 0.45));
+  transition: filter 0.5s var(--ease);
+}
+/* The figure belonging to the ability being read takes that ability's colour,
+   with nobody having to hover — which is what says the two columns are one
+   thing. :has() means no script has to keep them in step. */
+.mission:has(.ab4-brain.open) .mfig-brain .gm,
+.mission:has(.ab4-brain:hover) .mfig-brain .gm,
+.mission:has(.ab4-heart.open) .mfig-heart .gm,
+.mission:has(.ab4-heart:hover) .mfig-heart .gm,
+.mission:has(.ab4-robot.open) .mfig-robot .gm,
+.mission:has(.ab4-robot:hover) .mfig-robot .gm,
+.mission:has(.ab4-mirror.open) .mfig-mirror .gm,
+.mission:has(.ab4-mirror:hover) .mfig-mirror .gm {
+  filter: drop-shadow(0 0 10px currentColor);
+}
+.mission:has(.ab4.open) .mfig .gm,
+.mission:has(.ab4:hover) .mfig .gm {
+  color: rgba(214, 255, 240, 0.5);
+}
+.mission:has(.ab4-brain.open) .mfig-brain .gm,
+.mission:has(.ab4-brain:hover) .mfig-brain .gm {
+  color: var(--primary);
+}
+.mission:has(.ab4-heart.open) .mfig-heart .gm,
+.mission:has(.ab4-heart:hover) .mfig-heart .gm {
+  color: var(--accent);
+}
+.mission:has(.ab4-robot.open) .mfig-robot .gm,
+.mission:has(.ab4-robot:hover) .mfig-robot .gm {
+  color: var(--green);
+}
+.mission:has(.ab4-mirror.open) .mfig-mirror .gm,
+.mission:has(.ab4-mirror:hover) .mfig-mirror .gm {
+  color: var(--amber);
 }
 .mission-copy .sec-title {
   margin-top: 18px;
@@ -3732,21 +3802,6 @@ html[lang="zh-CN"] .ab4 h3 {
   flex-direction: column;
   align-items: center;
   gap: clamp(14px, 3vh, 36px);
-}
-/* drawn first, then the four fall into it */
-.ds-line {
-  position: absolute;
-  left: 50%;
-  top: -14px;
-  bottom: -14px;
-  width: 1px;
-  background: linear-gradient(var(--line), var(--accent) 52%, var(--line));
-  transform: scaleY(0);
-  transform-origin: top;
-  transition: transform 1.1s var(--ease);
-}
-.ds-line.on {
-  transform: scaleY(1);
 }
 .ds {
   position: relative;
@@ -4006,16 +4061,19 @@ html[lang="zh-CN"] .closeline {
   /* The copy sits BELOW the fall here rather than beside it, so the water has
      to stop where the words start — a full-page sheet of digits behind body
      text is unreadable. */
+  /* The copy sits BELOW the fall here rather than beside it, so the water has
+     to stop where the words start. */
   .mission-fall {
-    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 22%, transparent 34%);
-    mask-image: linear-gradient(to bottom, #000 0, #000 22%, transparent 34%);
+    width: 100%;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 24%, transparent 38%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 24%, transparent 38%);
   }
-  /* Four figures side by side in a phone's width would be two pixels a cell —
-     unreadable. Here the fall is pure weather and the four are the marks
-     beside each ability instead. Hidden with opacity, not display, because the
-     engine measures this canvas to lay everything else out. */
-  .mission-fall .gr-figs {
-    opacity: 0;
+  .mission-void {
+    min-height: 30vh;
+  }
+  .mission-figs {
+    padding-bottom: 0;
+    gap: 12px;
   }
   .gr-rain {
     -webkit-mask-image: none;

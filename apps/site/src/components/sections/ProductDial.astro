@@ -124,11 +124,10 @@ const majors = parts.map((_, i) => {
       <div class="dial-grid">
         <aside class="dial-rail">
           <div class="dial-rail-in">
-            <!-- They fall into line one after another, which is how the reader
-                 is told these are the same four that stood up in the water. -->
+            <!-- They arrive one after another, which is how the reader is told
+                 these are the same four that stood up in the water. -->
             <div class="dial-spine" data-sequence data-step="170" aria-hidden="true">
               <div class="ds-stack">
-                <span class="ds-line" data-seq-item></span>
                 {marks.map((k) => (
                   <span class="ds" data-seq-item><GlyphMark k={k} /></span>
                 ))}

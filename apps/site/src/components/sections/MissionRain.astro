@@ -75,17 +75,27 @@ const abilities: {
        what it means on the right as it finishes. Rushing that was the whole
        problem — they were all done before the screen had even settled. -->
   <div class="mission-pin">
-    <!-- The fall is full-bleed and starts ABOVE this screen, inside the empty
-         band at the foot of the hero, so there is no seam to see. -->
-    <div class="mission-fall" data-glyphrain aria-hidden="true">
+    <!-- The fall starts ABOVE this screen, inside the empty band at the foot
+         of the hero, so there is no seam to see. -->
+    <div class="mission-fall" aria-hidden="true">
       <canvas class="gr-rain"></canvas>
-      <canvas class="gr-figs"></canvas>
     </div>
 
     <div class="container wide mission-grid">
-      <!-- Nothing in it: it is the column the four settle under, and the engine
-         measures it rather than guessing at a percentage. -->
-      <div class="mission-void" data-figbox aria-hidden="true"></div>
+      <!-- The four stand at the foot of the fall, appearing one at a time as
+           you scroll. They are pixel art either way, so they are the same masks
+           drawn as SVG — which costs nothing at rest and reveals with one CSS
+           transition, rather than being grown a character at a time on a second
+           full-page canvas. -->
+      <div class="mission-void" aria-hidden="true">
+        <div class="mission-figs">
+          {abilities.map((a) => (
+            <span class={`mfig mfig-${a.k}`} data-glyph-fig>
+              <GlyphMark k={a.k} />
+            </span>
+          ))}
+        </div>
+      </div>
 
       <div class="mission-copy">
         <div class="eyebrow mono rv" data-type>{t(lang, "我们的使命", "Our mission")}</div>
