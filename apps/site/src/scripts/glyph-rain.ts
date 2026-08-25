@@ -127,6 +127,11 @@ function mount(section: HTMLElement): void {
   let bleedRows = 0;
   let lipFlat = 0;
   let lipRamp = 0;
+  /** How many rows above the spill are already numbers, right across. */
+  let bandRows = 0;
+
+  /** Weighted to the left: that is the corner the water goes over. */
+  const pickCol = () => Math.floor(Math.pow(Math.random(), 1.7) * cols);
   let drops: Drop[] = [];
 
   function size(): void {
@@ -152,12 +157,17 @@ function mount(section: HTMLElement): void {
     const safe = title ? title.getBoundingClientRect().left - r.left - 14 : W * 0.18;
     lipFlat = Math.max(0, Math.min(safe, W * 0.22));
     lipRamp = lipFlat * 0.5;
+    // The hero's copy ends well above its bottom edge, and that last band is
+    // where the water is about to go over. Letting every column carry digits
+    // there is what makes the fall look like it comes OUT of the hero rather
+    // than starting underneath it.
+    bandRows = Math.min(bleedRows, 80 / chh);
 
     drops = [];
     const n = Math.round(cols * 1.35);
     for (let i = 0; i < n; i++) {
       drops.push({
-        col: Math.floor(Math.random() * cols),
+        col: pickCol(),
         y: -Math.random() * rows,
         sp: 1.3 + Math.random() * 1.9,
       });
@@ -170,7 +180,11 @@ function mount(section: HTMLElement): void {
     // any background, and the erasure IS the trail.
     ctx.globalCompositeOperation = "destination-out";
     ctx.fillStyle = "rgba(0, 0, 0, 0.11)";
-    ctx.fillRect(0, 0, W, H);
+    // Two rects, not one: high up inside the hero only the left ribbon can
+    // carry anything, and the empty rest of that band is most of the canvas.
+    const spill = (bleedRows - bandRows) * chh;
+    ctx.fillRect(0, 0, lipFlat + lipRamp + cw, spill);
+    ctx.fillRect(0, spill, W, H - spill);
     ctx.globalCompositeOperation = "source-over";
     ctx.font = `500 ${chh * 0.94}px "JetBrains Mono", ui-monospace, monospace`;
     ctx.textAlign = "center";
@@ -182,20 +196,28 @@ function mount(section: HTMLElement): void {
     const thin = 1 - 0.42 * smooth(clamp01((through - 0.45) / 0.3));
 
     for (const d of drops) {
-      if (d.col / cols > reach) continue;
+      const at = d.col / cols;
+      if (at > reach) continue;
+      // Feathered, or the sheet has a ruled vertical edge where it happens to
+      // have got to.
+      if (at > reach - 0.07 && Math.random() > (reach - at) / 0.07) continue;
       const prev = d.y;
       d.y += d.sp;
       if (Math.random() > thin) continue;
       const x = (d.col + 0.5) * cw;
-      const lip = lipAt(x, lipFlat, lipRamp, bleedRows);
+      const lip = Math.min(lipAt(x, lipFlat, lipRamp, bleedRows), bleedRows - bandRows);
       for (let r = Math.floor(prev) + 1; r <= Math.floor(d.y); r++) {
         if (r < lip || r > rows) continue;
         ctx.fillStyle = r === Math.floor(d.y) ? HEAD : TRAIL;
         ctx.fillText(DIGITS[Math.floor(Math.random() * 10)], x, (r + 0.5) * chh);
       }
       if (d.y > rows) {
-        d.col = Math.floor(Math.random() * cols);
-        d.y = lipAt((d.col + 0.5) * cw, lipFlat, lipRamp, bleedRows) - Math.random() * 8;
+        d.col = pickCol();
+        d.y =
+          Math.min(
+            lipAt((d.col + 0.5) * cw, lipFlat, lipRamp, bleedRows),
+            bleedRows - bandRows,
+          ) - Math.random() * 8;
         d.sp = 1.3 + Math.random() * 1.9;
       }
     }

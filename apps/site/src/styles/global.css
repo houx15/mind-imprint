@@ -3481,7 +3481,9 @@ html[lang="zh-CN"] .rs-note h3 {
   height: 100svh;
   display: flex;
   align-items: center;
-  overflow: hidden;
+  /* NOT overflow:hidden. The fall reaches up out of this box and into the
+     hero on purpose — clipping it here is what silently cut the water off at
+     the seam when this screen was first pinned. */
 }
 /* Full-bleed, and starting inside the hero: the water must not appear to begin
    at a seam between two sections. 10svh is exactly the empty band the hero's
@@ -3489,8 +3491,10 @@ html[lang="zh-CN"] .rs-note h3 {
 .mission-fall {
   position: absolute;
   /* Only as wide as the water actually reaches. It used to span the page and
-     have most of itself masked away — paid for, then thrown out. */
-  inset: -34svh auto 0 0;
+     have most of itself masked away — paid for, then thrown out.
+     It climbs most of the hero, but only the left ribbon draws that high: the
+     lip keeps everything else down at the spill. */
+  inset: -74svh auto 0 0;
   width: 56%;
   z-index: 0;
   overflow: hidden;
@@ -3498,19 +3502,21 @@ html[lang="zh-CN"] .rs-note h3 {
   /* The head of the fall has to dissolve into the hero rather than start on a
      ruled line. This lives on the container so it applies to both canvases —
      the figures are at the foot and never reach it. */
+  /* In pixels, not percent: the canvas is nearly three screens tall now, and a
+     percentage fade would leave the ribbon half-lit for its whole climb. */
   -webkit-mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.3) 6%,
-    rgba(0, 0, 0, 0.72) 13%,
-    #000 22%
+    rgba(0, 0, 0, 0.3) 80px,
+    rgba(0, 0, 0, 0.75) 210px,
+    #000 340px
   );
   mask-image: linear-gradient(
     to bottom,
     transparent 0,
-    rgba(0, 0, 0, 0.3) 6%,
-    rgba(0, 0, 0, 0.72) 13%,
-    #000 22%
+    rgba(0, 0, 0, 0.3) 80px,
+    rgba(0, 0, 0, 0.75) 210px,
+    #000 340px
   );
 }
 .mission-fall canvas {
@@ -4065,8 +4071,9 @@ html[lang="zh-CN"] .closeline {
      to stop where the words start. */
   .mission-fall {
     width: 100%;
-    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 24%, transparent 38%);
-    mask-image: linear-gradient(to bottom, #000 0, #000 24%, transparent 38%);
+    inset: -22svh auto 0 0;
+    -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 34%, transparent 46%);
+    mask-image: linear-gradient(to bottom, #000 0, #000 34%, transparent 46%);
   }
   .mission-void {
     min-height: 30vh;
