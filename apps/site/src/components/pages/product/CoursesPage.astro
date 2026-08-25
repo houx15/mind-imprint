@@ -250,7 +250,25 @@ const courseList: [number, string, string, string, string, string, string][] = [
 <section class="section cardsec">
     <div class="container">
 
-      <div class="grid-3">
+      <div class="sec-head rv">
+        <div class="eyebrow" data-type>{t(lang, "工具卡", "The thinking cards")}</div>
+        <h2 class="sec-title">
+          {t(
+            lang,
+            "课上学会的方法，一张一张沉淀下来",
+            "The methods she learns settle, one card at a time",
+          )}
+        </h2>
+        <p class="lead">
+          {t(
+            lang,
+            "一门课教的方法，会以一张卡的形式留在她自己的图鉴里。下一次遇到同类的问题，不必重新上一门课——她手上已经有那张卡了。",
+            "The method a course teaches stays with her as a card, in a collection that is hers. Next time she meets the same kind of problem she doesn't retake the course: she already holds the card.",
+          )}
+        </p>
+      </div>
+
+      <div class="grid-3" style="margin-top:44px">
         <div class="card rv" style="--i:0">
           <div class="cardic a"><Icon name="cards" /></div>
           <h3>{t(lang, "一张卡是一套方法", "A card is a method, packaged")}</h3>
@@ -287,7 +305,7 @@ const courseList: [number, string, string, string, string, string, string][] = [
       </div>
 
       <div class="rv" style="margin-top:64px">
-        <div class="eyebrow" style="margin-bottom:18px"><span class="pip"></span>{t(lang, "34 张卡 · 一门课通常只用三到五张", "34 cards · a course usually uses three to five")}</div>
+        <div class="eyebrow" style="margin-bottom:18px"><span class="pip"></span>{t(lang, "她的图鉴 · 34 张 · 一门课通常只用三到五张", "Her collection · 34 cards · a course usually uses three to five")}</div>
         <div class="marquee">
           <div class="marquee-track">
             {[...cards, ...cards].map(([zh, en], i) => (
