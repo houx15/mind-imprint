@@ -159,4 +159,6 @@ Also-noted quality points (not bugs): metadata fetch falls back to URL-as-title 
 4. **BUG-01 + BUG-05** — `agent/studioflow.go` `toolProposeNote`: emit one `propose_note` per dimension actually discussed in a turn (not just one), AND never propose a note for a pure "no idea / no stance / confusion" message (don't file confusion as `objective`).
 5. **BUG-03** — left as-is: the 422 is the intended, load-bearing signal the reading client keys on (`NoReadableContentError`, status===422) to show its paste fallback; changing it risks breaking that working path for pure console-noise gain.
 
-**Verification:** `tsc --noEmit` ✅ · `go build ./...` ✅ · `go test ./internal/agent -run 'ComposeDigQuery|ProposeNote|Prompt|Orchestrator|Catalog|Studio'` ✅ · new `wordcount.test.ts` (5) ✅. Fixes not yet deployed to prod.
+**Verification:** `tsc --noEmit` ✅ · `go build ./...` ✅ · `go test ./internal/agent -run 'ComposeDigQuery|ProposeNote|Prompt|Orchestrator|Catalog|Studio'` ✅ · new `wordcount.test.ts` (5) ✅.
+
+**Shipped:** `1bcf00be` on main → **deployed full (backend + frontend) to prod** (`DEPLOY OK (full @ 1bcf00be)`). **Live-verified BUG-02**: reopened P1's English draft in prod — the counter now reads **"187 字"** (was "986 字"), exactly matching the review's word count. ✅
