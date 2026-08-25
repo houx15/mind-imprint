@@ -52,13 +52,19 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 | `home/hero-bg-v3.webp` | 首屏 |
 | `banner/*-v1.webp` | 各页横幅（about / algorithm / evaluation-design / multi-agent / course / project / evaluation / teacher / product-overview） |
 | `ability/*-v1.webp` | 首页「四项能力」四张背景插画 |
-| `product/course-runtime-v1.webp` | `/product/courses`，以及总览案例第 1 步 |
-| `product/framing-v1.webp` | `/product/projects` 立题阶段，以及案例第 2 步 |
-| `product/warren-map-v1.webp` | `/product/projects` 兔子洞地图，以及案例第 4 步 |
-| `product/writing-v1.webp` | `/product/projects` 写作面，以及案例第 5 步 |
-| `product/evaluation-report-v1.webp` | `/product/evaluation`，以及案例第 6 步 |
+| `product/evaluation-report-v1.webp` | `/product/evaluation` 报告 |
+| `case/01-course-v1.webp` … `07-evaluation-v1` | `/product` 那条案例主线；`-v1.mp4` + `-v1-poster.webp` 成对的是会动的 |
 | `evaluation/report-sample-v1.webp` | `/algorithm/evaluation` 示例报告首页 |
 | `evaluation/report-sample-v1.pdf` | 同页「查看完整报告」按钮（12 页） |
+| `courses/cover/01-v1.webp` … `33-v1.webp` | 课程库 33 张封面，按课程序号编号（`CoursesPage.astro` 里 `courseList` 的 `n`） |
+| `cards/<card-id>-v3.webp` | 图鉴 34 张卡面。id 取自 `packages/contracts/cards/*.json` 的文件名，只用第 1 面（原始素材的 `-1`） |
+| `product/card-craap-v1.webp`、`product/card-pee-v1.webp` | `/product/courses`「点开一张卡，看见的是什么」两张卡详情 |
+| `product/teacher-week-v1.webp` | `/product/teacher` 班级周报 |
+| `product/teacher-student-v1.webp` | `/product/teacher` 单个学生页 |
+
+> 交付来的原图是印刷尺寸（卡面 1024×1536、课程封面 1664×936），页面上只显示 200–400px。
+> 上传前一律用 `cwebp -q 80 -resize <2 倍显示宽> 0` 压过：34 张卡面 5.3MB → 1.4MB，
+> 33 张封面 5.7MB → 1.3MB。别把印刷尺寸的图直接推上 CDN。
 
 ## 当前待补的图
 
@@ -66,10 +72,15 @@ CDN 按 URL 缓存。**要换一张图，请换一个 key**（`hero-v2.png`）�
 
 | key 建议 | 内容 |
 |---|---|
-| `product/reading-provenance.png` | 阅读室：原文 + 溯源链（公众号 → NASA → Nature）+ 证据地图 |
-| `product/teacher-console.png` | 教师端：实时名单 + 学生摘要 + 可点开的证据链接 |
 | `team/ceo.jpg`、`team/cto.jpg` | 两位联合创始人人像，4:5 竖版 |
 | `banner/multi-agent-v2.webp` | 多智能体页横幅（现暂用 hero v4 左右镜像） |
+
+阅读室与教师端两个槽位已于 2026-08-25 补齐（见上表），页面上不再有空槽——只剩这两张人像。
+
+**桶里还有几个已经没人引用的 key**：`product/course-runtime-v1.webp`、`product/framing-v1.webp`、
+`product/warren-map-v1.webp`、`product/writing-v1.webp`。`/product/projects` 的四张图在
+2026-08-25 换成了 `case/` 里录到的同一批真实素材（立题 / 阅读室 / 兔子洞 / 写作面），这几张
+静态图就此闲置。留着不碍事，但要改这几个页面时别再往它们上面接。
 
 白皮书 `docs/reference/思维印记白皮书.docx` 里内嵌了 30 张图（CRAAP 模型、SIFT×CRAAP、
 信源金字塔、WEF 图表、地球变绿的几张截图），其中不少可以直接拿来用。

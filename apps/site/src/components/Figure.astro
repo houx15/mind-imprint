@@ -5,10 +5,12 @@ import { assetUrl } from "../config";
 /**
  * An image slot that is deliberately EMPTY until the real asset arrives.
  *
- * Two ways to fill it:
+ * Three ways to fill it:
  *   asset="home/course-player.png"   → resolved through the site's CDN
  *                                      (or public/media/ in local dev)
  *   src="/media/whatever.png"        → a literal path, escape hatch
+ *   clip="case/02-proposal-v1"       → a .mp4 + -poster.webp pair, played
+ *                                      like a GIF by scripts/clip.ts
  *
  * Until one is given it renders a labelled placeholder, so the page composes
  * correctly and it is obvious which asset belongs where.
@@ -20,6 +22,8 @@ interface Props {
   asset?: string;
   /** Literal URL/path, when the file is not in object storage. */
   src?: string;
+  /** Media key of a clip, WITHOUT extension: `${clip}.mp4` + `${clip}-poster.webp`. */
+  clip?: string;
   /** What the picture should show — a brief for whoever prepares it. */
   desc?: string;
   /** Aspect ratio class suffix: "16-9" | "4-3" | "3-2" | "1-1" | "21-9". */
@@ -35,6 +39,7 @@ const {
   name,
   asset,
   src,
+  clip,
   desc,
   ratio = "16-9",
   caption,
@@ -47,7 +52,17 @@ const resolved = src ?? (asset ? assetUrl(asset) : undefined);
 
 <figure class={`figure-block ${extra}`}>
   <div class={`figure ratio-${ratio}`} data-asset={name}>
-    {resolved ? (
+    {clip ? (
+      <video
+        data-clip
+        src={assetUrl(`${clip}.mp4`)}
+        poster={assetUrl(`${clip}-poster.webp`)}
+        muted
+        playsinline
+        preload="none"
+        aria-label={alt ?? caption ?? name}
+      ></video>
+    ) : resolved ? (
       <img
         src={resolved}
         alt={alt ?? caption ?? name}

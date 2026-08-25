@@ -47,13 +47,25 @@ const teacher: [string, string, string, string, string][] = [
 
       <Figure
         class="rv-pop"
-        name="product-teacher-console"
+        name="product-teacher-week"
+        asset="product/teacher-week-v1.webp"
         ratio="16-9"
-        desc={t(lang, "教师端：叙述版周报 + 实时班级名单 + 可点开的证据链接", "Teacher console: narrated week, live roster, clickable evidence")}
         caption={t(
           lang,
-          "教师端看的是活跃度与过程证据。学生不会被按双轴排名——分层可见性写进权限，不只写进隐私政策。",
-          "The console shows activity and process evidence. Students are never ranked by axis; tiered visibility is written into permissions, not just into a privacy policy.",
+          "班级周报：本周活跃 11 / 34 人、21 份能力报告、完成 2 节课程，每个数字都带着与上周的差。下面「建议关注」先列值得表扬的，再列需要给建议的——每张卡都挂着证据，具体沟通放到线下。作业的布置与提交仍在学校自己的平台上，这里只看学生在思维印记上的使用情况。",
+          "The class week. Eleven of thirty-four students active, twenty-one ability reports generated, two course sections finished — each figure carrying its change on last week. Below, who to look at: those worth praising first, then those who need a word. Every card is attached to its evidence, and the conversation itself happens off the platform. Setting and handing in work stays on the school's own system; this page only shows what happened here.",
+        )}
+      />
+
+      <Figure
+        class="rv-pop"
+        name="product-teacher-student"
+        asset="product/teacher-student-v1.webp"
+        ratio="16-9"
+        caption={t(
+          lang,
+          "点开一个学生：本周活跃天数、对话轮次、生成的能力报告、完成的课程节，再往下是完整的平台使用记录——每个项目一行，带日期与状态，能力报告生成了的才点得开。对话明细不生成报告就只显示标题：教师看得见发生过什么，看不见与教学无关的内容。",
+          "One student, opened. Days active this week, turns of conversation, ability reports generated, course sections finished — and below, the whole record of what she did here: one line per project, dated and stated, and a report to open only where one has been generated. A conversation without a report shows its title and nothing more: a teacher can see that it happened without reading what was in it.",
         )}
       />
 
@@ -99,7 +111,7 @@ const teacher: [string, string, string, string, string][] = [
     {
       href: "/product/evaluation",
       kicker: ["上一面", "Previous"],
-      title: ["过程性评估报告", "The process assessment"],
+      title: ["过程评估报告", "The process assessment"],
       body: ["教师端读的就是这份报告的底层记录", "The console reads the record this report is built from"],
     },
     {

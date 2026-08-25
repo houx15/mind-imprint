@@ -8,19 +8,18 @@ import { getLang, t } from "../../../i18n/utils";
 
 const lang = getLang(Astro.currentLocale);
 
-/* ── the seven stages a project actually moves through ───────────────
+/* ── the six stages a project actually moves through ─────────────────
    Source of truth: docs/2026-08-09-all-statuses.md. The coach's job, the
    page the student is on, and which cards are available all change per
    stage — so this list has to match that document, not a generic
    research spine. */
 const stations: [string, string, string, string, string, string, string][] = [
-  ["01", "开始", "Start", "全屏对话。教练介绍这趟探究要走的路，学生点「开始」才真正建项目。", "A full-screen conversation. The coach lays out the route ahead; nothing starts until the student says go.", "项目建立", "project opened"],
-  ["02", "研究框架", "Framing", "目标、缘由、活动与时间、资源、可能的反例，五项逐条谈清。卡住时递出提问卡，把题目拆回学生自己的经验。", "Objective, motivation, activities and timeline, resources, likely counter-cases — five items, settled one at a time. When she stalls, the question card takes the prompt apart and connects it to her own experience.", "研究框架", "research framework"],
-  ["03", "项目管理", "Planning", "系统据框架生成计划：甘特图排期、看板拆任务、活动日志留痕。中途回来先看这一页，用于复位。", "The framework becomes a plan: a Gantt schedule, a kanban of tasks, an activity log. Coming back after a break, this is the page that re-orients her.", "计划与日志", "plan and log"],
-  ["04", "写提案", "Proposal", "九个部分的提案，可以自由写，也可以逐段引导——每段一张卡、一个具体问题、一个可参考的范例。写完拿到分段批注。", "A nine-part proposal, written freely or section by section — each with one card, one specific question and a worked example. It comes back with paragraph-level annotation.", "提案定稿", "proposal locked"],
-  ["05", "阅读与探索", "Reading", "阅读室里做检索与精读：逐篇记来源、论点、证据，标出它服务哪个子问题，长成一张证据地图。教练提检索方向，也提醒哪条线跑偏了。", "Search and close reading in the reading room: source, claim and evidence noted per paper, tagged to the sub-question it serves, growing into an evidence map. The coach suggests directions — and says when a line has drifted.", "证据地图", "evidence map"],
-  ["06", "写论文", "Writing", "先定大纲，再逐个论点写：证据、分析、限度、与其他论点的关系。需要时递上 PEE 与论证解剖卡。最后写引言与结论，AI 批注与修改轮流走，直到她说完成。", "Outline first, then claim by claim: evidence, analysis, limits, and how it connects to the rest. PEE and argument-anatomy cards arrive when needed. Introduction and conclusion last, then annotate-and-revise until she calls it done.", "终稿", "final draft"],
-  ["07", "复盘", "Review", "左边摊开活动日志、研究框架、提案与终稿，右边是她自己的复盘表。她先写，教练再补。复盘完成，评估报告随之生成。", "The activity log, research framework, proposal and final draft on the left; her own review form on the right. She writes first, the coach adds after. Finishing the review is what generates the assessment.", "思维印记报告", "the imprint report"],
+  ["01", "研究框架", "Framing", "目标、缘由、活动与时间、资源、可能的反例，五项逐条谈清。卡住时递出提问卡，把题目拆回学生自己的经验。", "Objective, motivation, activities and timeline, resources, likely counter-cases — five items, settled one at a time. When she stalls, the question card takes the prompt apart and connects it to her own experience.", "研究框架", "research framework"],
+  ["02", "项目管理", "Planning", "系统据框架生成计划：甘特图排期、看板拆任务、活动日志留痕。中途回来先看这一页，用于复位。", "The framework becomes a plan: a Gantt schedule, a kanban of tasks, an activity log. Coming back after a break, this is the page that re-orients her.", "计划与日志", "plan and log"],
+  ["03", "写提案", "Proposal", "九个部分的提案，可以自由写，也可以逐段引导——每段一张卡、一个具体问题、一个可参考的范例。写完拿到分段批注。", "A nine-part proposal, written freely or section by section — each with one card, one specific question and a worked example. It comes back with paragraph-level annotation.", "提案定稿", "proposal locked"],
+  ["04", "阅读与探索", "Reading", "阅读室里做检索与精读：逐篇记来源、论点、证据，标出它服务哪个子问题，长成一张证据地图。教练提检索方向，也提醒哪条线跑偏了。", "Search and close reading in the reading room: source, claim and evidence noted per paper, tagged to the sub-question it serves, growing into an evidence map. The coach suggests directions — and says when a line has drifted.", "证据地图", "evidence map"],
+  ["05", "写论文", "Writing", "先定大纲，再逐个论点写：证据、分析、限度、与其他论点的关系。需要时递上 PEE 与论证解剖卡。最后写引言与结论，AI 批注与修改轮流走，直到她说完成。", "Outline first, then claim by claim: evidence, analysis, limits, and how it connects to the rest. PEE and argument-anatomy cards arrive when needed. Introduction and conclusion last, then annotate-and-revise until she calls it done.", "终稿", "final draft"],
+  ["06", "复盘", "Review", "左边摊开活动日志、研究框架、提案与终稿，右边是她自己的复盘表。她先写，教练再补。复盘完成，评估报告随之生成。", "The activity log, research framework, proposal and final draft on the left; her own review form on the right. She writes first, the coach adds after. Finishing the review is what generates the assessment.", "思维印记报告", "the imprint report"],
 ];
 
 /* ── the transposition-gap table from the greening case ─────────────── */
@@ -35,7 +34,7 @@ const gaps: [string, string, string, string, string, string, string, string][] =
 <PageBanner
   asset="banner/project-v1.webp"
   tone="a"
-  eyebrow={["产品 · 探究性写作空间", "Product · the inquiry writing space"]}
+  eyebrow={["解决方案 · AI 写作教练", "Solution · the AI writing coach"]}
   title={[
     ["学生自己走完一个真实课题，", "The student does the whole inquiry."],
     ["AI 全程支持，但从不代笔。", "The AI supports every step, and never writes it."],
@@ -50,7 +49,7 @@ const gaps: [string, string, string, string, string, string, string, string][] =
     <div class="container">
       <div class="sec-head rv">
         <div class="eyebrow"><span class="pip"></span>{t(lang, "项目全流程", "The whole project")}</div>
-        <h2 class="sec-title">{t(lang, "七个阶段，教练在每个阶段做的事都不一样", "Seven stages — and the coach does a different job in each")}</h2>
+        <h2 class="sec-title">{t(lang, "六个阶段，教练在每个阶段做的事都不一样", "Six stages — and the coach does a different job in each")}</h2>
         <p class="lead">
           {t(
             lang,
@@ -74,12 +73,12 @@ const gaps: [string, string, string, string, string, string, string, string][] =
       <Figure
         class="rv-pop"
         name="product-framing"
-        asset="product/framing-v1.webp"
+        clip="case/02-proposal-v1"
         ratio="16-9"
         caption={t(
           lang,
-          "第二阶段「立题」：右侧五件事逐条聊清（5 / 5 已聊到），左侧是教练把一个模糊的主题追问成一句可回答的研究问题——「你目前说的更接近一个比较的对象，还没有形成一个完整的、可以用实证材料去回答的问句」。活动与时间那一栏，已经长成一份 12 周的计划。",
-          "Stage two, framing. On the right, five items settled one at a time (5 of 5 covered). On the left, the coach pressing a vague topic into an answerable research question: what you have is closer to an object of comparison than a question empirical material could answer. The activities-and-timeline box has already become a twelve-week plan.",
+          "第一阶段「研究框架」：不写正式开题报告，把五件事逐条聊清楚就行（4 / 5 已聊到）。左边教练正在追问那条自媒体说法的原始来源；右边「活动与时间」已经长成一份三步走的取证计划——先用 CRAAP 追回一手论文，再三条线交叉验证，最后用论证图去撞反例。",
+          "Stage one, the research framework. No formal proposal document: five things talked through one at a time, four of five so far. On the left, the coach pressing on where that viral claim originally came from. On the right, the activities-and-timeline box has already become a three-step plan for gathering evidence — trace back to the primary paper, cross-check three separate lines, then take the argument map out to look for counter-cases.",
         )}
       />
     </div>
@@ -100,8 +99,7 @@ const gaps: [string, string, string, string, string, string, string, string][] =
         </p>
       </div>
 
-      <div class="grid-2 rv" style="margin-top:48px; align-items:start">
-        <div class="stack">
+      <div class="grid-3 rv" style="margin-top:48px; align-items:start">
           <div class="card">
             <div class="cardnum">{t(lang, "横向 · 跳出页面", "LATERAL · step outside the page")}</div>
             <h4>SIFT</h4>
@@ -117,19 +115,19 @@ const gaps: [string, string, string, string, string, string, string, string][] =
             <h4>{t(lang, "遇到个人证言，第五维要换", "For personal testimony, the fifth criterion changes")}</h4>
             <p>{t(lang, "把横向工具一路用到底，只会停在「《Nature》发的，可信」。溯源抵达一手论文之后，必须切回纵向，读它说得立不立得住。", "Ride the lateral tool all the way and you stop at “Nature published it, so it's fine”. Once you reach the primary paper you must switch back to vertical and ask whether it holds.")}</p>
           </div>
-        </div>
-
-        <Figure
-          name="product-reading-provenance"
-          ratio="4-3"
-          desc={t(lang, "阅读室：溯源链 公众号 → NASA → Nature，以及探索图谱", "Reading room: the provenance chain post → NASA → Nature, plus the exploration map")}
-          caption={t(
-            lang,
-            "溯源在做的事，用信源金字塔的语言说，就是沿着梯子往上爬，直到爬不动为止。",
-            "In the language of the source pyramid, tracing provenance means climbing the ladder until you can climb no further.",
-          )}
-        />
       </div>
+
+      <Figure
+        class="rv-pop"
+        name="product-reading-provenance"
+        asset="case/05-guided-reading-v1.webp"
+        ratio="16-9"
+        caption={t(
+          lang,
+          "阅读室：左边陪练把信源辨识卡递过来，右边是一手论文本身。她划中的那一句被逐条体检——权威性站得住、口径要留意、相关性正好回应总问题——最下面是她自己记下的发现：这条「碳排放全球第一」提醒她，「变绿」不能单独用来证明「更可持续」。",
+          "The reading room. On the left the coach hands over the source-evaluation card; on the right, the primary paper itself. The sentence she selected is checked line by line — authority holds, the basis needs care, relevance answers the main question — and underneath, the finding in her own words: a country can be the largest emitter and be greening at once, so greening alone cannot carry the word sustainable.",
+        )}
+      />
 
       <div class="sec-head rv" style="margin-top:80px">
         <h2 class="sub-title">{t(lang, "溯源只完成了一半。转述与原文之间，差了什么？", "Tracing is only half of it. What got lost between the retelling and the original?")}</h2>
@@ -206,7 +204,7 @@ const gaps: [string, string, string, string, string, string, string, string][] =
       <Figure
         class="rv-pop"
         name="product-warren-map"
-        asset="product/warren-map-v1.webp"
+        clip="case/03-research-v1"
         ratio="16-9"
         caption={t(
           lang,
@@ -235,12 +233,12 @@ const gaps: [string, string, string, string, string, string, string, string][] =
       <Figure
         class="rv-pop"
         name="product-writing-studio"
-        asset="product/writing-v1.webp"
+        clip="case/06-writing-v1"
         ratio="16-9"
         caption={t(
           lang,
-          "写作面的第 7 / 8 步：右侧是「论证结构」引导卡，附一段英文范例供参考，正文由学生自己填；中间是她的阅读笔记与 AI 批注；左侧陪练栏顶上就写着这条边界——「聊提纲、挑逻辑、撞反例——但不替你写正文」。",
-          "Step 7 of 8 on the writing surface. On the right, a guiding card for argument structure with a worked English example alongside — the prose itself is hers. In the middle, her reading notes and the AI's annotations. And at the top of the coach rail, the boundary in plain sight: talk through the outline, test the logic, throw counter-examples — never write your prose.",
+          "写作面：左侧陪练栏顶上就写着这条边界——「聊提纲、挑逻辑、撞反例——但不替你写正文」；中间是她的阅读笔记、AI 批注，和还没查完的方向；右侧是她自己搭的提纲，每一条论点后面跟着出处，最后一条是带限定条件的结论。",
+          "The writing surface. At the top of the coach rail, the boundary in plain sight: talk through the outline, test the logic, throw counter-examples — never write your prose. In the middle, her reading notes, the AI's annotations, and the directions she has not chased yet. On the right, the outline she built herself: every claim followed by where it came from, and a last line that states the conclusion with its limits attached.",
         )}
       />
 
@@ -282,13 +280,17 @@ const gaps: [string, string, string, string, string, string, string, string][] =
     {
       href: "/product/evaluation",
       kicker: ["下一面", "Next"],
-      title: ["过程性评估报告", "The process assessment"],
+      title: ["过程评估报告", "The process assessment"],
       body: ["九个板块，把这段过程读成一份可核对的报告", "Nine sections that read the process into a checkable report"],
     },
     {
       href: "/product/courses",
       kicker: ["上一面", "Previous"],
-      title: ["课程与工具卡", "Courses & thinking cards"],
+      title: ["AI 互动课程", "AI courses"],
       body: ["方法从这里来", "Where the method comes from"],
     },
   ]} />
+
+<script>
+  import "../../../scripts/clip";
+</script>

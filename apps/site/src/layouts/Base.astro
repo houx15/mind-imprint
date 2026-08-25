@@ -246,6 +246,33 @@ const enHref = site + localePath("en", key);
         const btns = Array.from(root.querySelectorAll<HTMLElement>(".catbtn"));
         const cards = Array.from(root.querySelectorAll<HTMLElement>(".catcard"));
         const count = root.querySelector<HTMLElement>("[data-catcount]");
+
+        // Turning a card over. Exactly one is ever face-down: two open backs
+        // in the same row read as a rendering fault rather than a choice.
+        let flipped: HTMLElement | null = null;
+        const unflip = () => {
+          if (!flipped) return;
+          flipped.classList.remove("flipped");
+          flipped
+            .querySelector(".catflip")
+            ?.setAttribute("aria-expanded", "false");
+          flipped = null;
+        };
+        cards.forEach((card) => {
+          const btn = card.querySelector<HTMLButtonElement>(".catflip");
+          btn?.addEventListener("click", () => {
+            const wasOpen = card === flipped;
+            unflip();
+            if (wasOpen) return;
+            card.classList.add("flipped");
+            btn.setAttribute("aria-expanded", "true");
+            flipped = card;
+          });
+        });
+        document.addEventListener("keydown", (e) => {
+          if (e.key === "Escape") unflip();
+        });
+
         const apply = (tag: string) => {
           let shown = 0;
           cards.forEach((c) => {
@@ -285,11 +312,17 @@ const enHref = site + localePath("en", key);
           const gap = tops[1] - (tops[0] + (vis[0]?.offsetHeight ?? 0));
           clip.style.maxHeight = `${tops[2] - tops[0] - gap}px`;
         };
+        // The label is a span of its own: writing to the button's textContent
+        // would delete the arrow inside it.
+        const moreLabel = more?.querySelector<HTMLElement>(".lbl");
         more?.addEventListener("click", () => {
           open = !open;
-          more.textContent = open
-            ? more.dataset.less || ""
-            : more.dataset.more || "";
+          unflip();
+          if (moreLabel) {
+            moreLabel.textContent = open
+              ? more.dataset.less || ""
+              : more.dataset.more || "";
+          }
           more.classList.toggle("is-open", open);
           fit();
         });
@@ -297,8 +330,9 @@ const enHref = site + localePath("en", key);
         btns.forEach((b) =>
           b.addEventListener("click", () => {
             open = false;
+            unflip();
             if (more) {
-              more.textContent = more.dataset.more || "";
+              if (moreLabel) moreLabel.textContent = more.dataset.more || "";
               more.classList.remove("is-open");
             }
             apply(b.dataset.tag || "*");
