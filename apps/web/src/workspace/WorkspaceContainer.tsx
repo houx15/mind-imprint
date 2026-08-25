@@ -1865,6 +1865,15 @@ export function WorkspaceContainer({
                     projectId={projectId}
                     reference={studioState?.reference ?? []}
                     stage={studioState?.stage ?? "body_writing"}
+                    activeDoc={(() => {
+                      // Mirror `writeDoc` (the right pane) so the 批注 panel follows
+                      // the active doc TAB, not just the stage — else proposal 批注 run
+                      // from the 提案 tab during essay phase never render.
+                      const s = studioState?.stage ?? "body_writing";
+                      const opts: WritingDocKind[] =
+                        s === "body_writing" || s === "retrospective" ? ["proposal", "essay"] : [activeDocForStage(s)];
+                      return docOverride && opts.includes(docOverride) ? docOverride : activeDocForStage(s);
+                    })()}
                     proposal={workspace.proposal}
                     onInsert={(t, referenceId) => draftInsertRef.current?.(t, referenceId)}
                     canInsert={insertReady}

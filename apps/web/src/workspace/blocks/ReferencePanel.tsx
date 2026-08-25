@@ -55,6 +55,7 @@ export function ReferencePanel({
   projectId,
   reference,
   stage,
+  activeDoc,
   proposal,
   onInsert,
   canInsert,
@@ -70,6 +71,10 @@ export function ReferencePanel({
   projectId: string;
   reference: ReferenceRef[];
   stage: StudioStage;
+  /** The active writing doc tab (proposal/essay). When set it drives which
+   * doc's 批注 the panel shows — a student can view the 提案 tab during essay
+   * phase, and its 通读并批注 must show under proposal, not the stage default. */
+  activeDoc?: "proposal" | "essay";
   proposal: Proposal;
   /** Task 9 (P6 demo), updated P7: the read-only demo defaults this panel to
    * the 阅读笔记 tab (matching a normal writing session's landing tab); a
@@ -115,7 +120,11 @@ export function ReferencePanel({
   // slice 3b/4b · the layered colored 批注 (view-only) for the active document —
   // proposal on a proposal stage, essay otherwise. Re-fetched on annotationsVersion.
   const isProposalStage = PROPOSAL_VISIBLE_STAGES.includes(stage);
-  const annotationDoc: "proposal" | "essay" = isProposalStage ? "proposal" : "essay";
+  // Prefer the active doc tab (a student may view 提案 during essay phase); fall
+  // back to the stage default. Keeps the 批注 panel aligned with the doc whose
+  // 通读并批注 button she just clicked (else proposal 批注 never render — the panel
+  // was querying essay). See 2026-08-25 projects-e2e findings.
+  const annotationDoc: "proposal" | "essay" = activeDoc ?? (isProposalStage ? "proposal" : "essay");
   const [proposalAnnos, setProposalAnnos] = useState<DraftAnnotation[]>([]);
   // §93 · the left panel is multi-tab; a tab appears only when it has content.
   // P7: default the demo to the 阅读笔记 tab (not AI批注 — a separate tour step
