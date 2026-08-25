@@ -12,7 +12,7 @@
 | # | Symptom | Root cause | Severity | Status |
 |---|---------|-----------|----------|--------|
 | T-01 | Teacher opens Phoebe's 能力报告 → **"报告加载失败"** | Stored reports have `depth[].evidence` / `autonomy[].evidence` = JSON `null`; Go validator only boundary-checks the envelope and serves `ready`; the strict contracts Zod schema rejected null → `EvaluationReport.parse` threw → whole report blanked. **Also broke the student's own report page** (shared `parseEnvelope`). | **HIGH (report unviewable)** | **FIXED + verified live** (`56296cc9`, web `452a7025`) |
-| T-02 | Class-page student "abstract" is one plain sentence | Weekly focus card = deterministic **evidence** sentence + LLM **lead** + action; the `lead` prose prompt asks only for "one sentence saying what happened", so on activity facts it echoes the evidence verbatim → card shows the same sentence twice. Deliberately minimal (activity-migration / 铁律②③). | design decision | **surfaced — awaiting product direction** |
+| T-02 | Class-page student "abstract" is one plain sentence | Weekly focus card = deterministic **evidence** sentence + LLM **lead** + action; the `lead` prose prompt asks only for "one sentence saying what happened", so on activity facts it echoes the evidence verbatim → card shows the same sentence twice. | design → **product chose "pull a substance line from the report"** | **DONE + verified live** (`bd1e49ae`, full deploy) |
 
 ## T-01 · Report load failure — the real bug (FIXED)
 
@@ -71,21 +71,38 @@ affected stored report with zero migration.
   综述 prose. A second, older report (2026-08-14 EE) also renders. No failure,
   no stuck spinner.
 
-## T-02 · The "plain one-sentence" student abstract (design, not a bug)
+## T-02 · The "plain one-sentence" student abstract → substance line (DONE)
 
-The class page's per-student card (`ClassWeeklyView` `FocusCard`) renders three
+The class page's per-student card (`ClassWeeklyView` `FocusCard`) rendered three
 fields: **lead** (LLM prose, bold) + **evidence** (deterministic fact) + **action**
 (线下 nudge). The prose prompt (`compose_weekly.go`, rule 3) asks the model for a
-`lead` that is *"one sentence saying what happened"* — so when the evidence is
+`lead` that is *"one sentence saying what happened"* — so when the evidence was
 already a complete activity sentence ("本周完成 2 份能力报告。"), the `lead` just
-echoes it, and the card reads as the same sentence twice.
+echoed it, and the card read as the same sentence twice.
 
-This is the deliberate post-activity-migration shape: the weekly card is an
-**activity** note (登录/报告/课程/对话 counts), not a substance summary of the
-student's thinking — the substance lives in the full 能力报告. Making it richer is
-a product decision (it touches 铁律② "不操纵" — per-student weekly substance
-summaries edge back toward evaluative framing), so it's surfaced for direction
-rather than changed unilaterally.
+**Chosen fix (product direction): lead the card with the student's own 报告 综述.**
+For a student with a generated 能力报告, the praise card now leads with a 1–2
+sentence teaser of that report's `abstract.overview` — *what the student actually
+thought about* — with the activity fact kept as the muted line and the action
+intact.
+
+- **Deterministic, no model call.** The overview is lifted from the
+  already-stored report JSONB inside the existing weekly CTE
+  (`er.report->'abstract'->>'overview'`, `teacher_weekly.sql`), truncated to
+  ≤110 runes on a sentence boundary (`truncateOverview`, `teacher/weekly.go`).
+- **Praise cards only.** Watch (未使用) cards never carry it — the substance line
+  is about a produced report, not an inactivity note. Falls back to the composed
+  `lead` when a card has no 综述.
+- **铁律②-safe.** It is the student's own report narrative, one click from what
+  the 看能力报告 link already opens — no new score / rank / badge.
+- **Verified live:** all 11 praise cards in Demo Class now lead with "综述 · …";
+  Phoebe's teaser ends cleanly on 。 with the activity fact below.
+
+Files: `teacher_weekly.sql` (+ sqlc regen), `teacher/weekly.go`,
+`api/teacher_weekly.go` (`WeeklyCardDTO.reportOverview`), `web/api/teacher.ts`,
+`web/console/ClassWeeklyView.tsx`. Tests: `teacher/weekly_test.go` (+2),
+`web/console/ClassWeeklyView.test.tsx` (+2), store query test covers the JSON
+extract on a real DB.
 
 ## Verified robust (no bug)
 - Roster table (`全部学生`), student detail, usage records, weekly prev-week nav,
