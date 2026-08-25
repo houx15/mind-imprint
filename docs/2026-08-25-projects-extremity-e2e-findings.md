@@ -16,11 +16,12 @@ self-healing UX gap documented; everything else verified robust.
 
 | # | Area | Interrupt | Result | Severity | Status |
 |---|------|-----------|--------|----------|--------|
-| EDGE-01 | Coach chat turn | refresh mid-turn (during the LLM call) | user message saved, AI reply lost → **orphan message, no reply** | LOW (self-healing) | documented, left as-is |
-| EDGE-02 | Draft autosave (essay `DraftPane` + proposal `ProsePane`) | type then hard-refresh / close within the 1.2s debounce | last ≤1.2s of typing **silently lost** | **MED/HIGH (data-loss)** | **FIXED + verified** |
-| EDGE-03 | 工具卡 partial fill (`StudioCardSheet`) | fill a card then refresh without submitting | **all typed fields wiped**, card reopens blank | **HIGH (silent data-loss)** | **FIXED + verified** |
+| EDGE-01 | Coach chat turn | refresh mid-turn (during the LLM call) | user message saved, AI reply lost → **orphan message, no reply** | LOW (self-healing) | **FIXED + verified** (`d5b86fff`) |
+| EDGE-02 | Draft autosave (essay `DraftPane` + proposal `ProsePane`) | type then hard-refresh / close within the 1.2s debounce | last ≤1.2s of typing **silently lost** | **MED/HIGH (data-loss)** | **FIXED + verified** (`126f25cc`) |
+| EDGE-03 | 工具卡 partial fill (`StudioCardSheet`) | fill a card then refresh without submitting | **all typed fields wiped**, card reopens blank | **HIGH (silent data-loss)** | **FIXED + verified** (`126f25cc`) |
+| EDGE-04 | Coach turn (model failure) | model call errors / returns unparseable output | canned "先自己说说看…" 200 makes 印记 look broken | correctness/trust | **FIXED + verified** (`d5b86fff`) |
 
-Shipped **`126f25cc` (web)**, deployed to prod, both fixes re-verified live.
+Shipped **`126f25cc` (web)** + **`d5b86fff` (api)**, deployed to prod, all fixes re-verified live.
 
 ---
 
@@ -36,22 +37,44 @@ there only loses frames, not data. This split explains EDGE-01 exactly.
 
 ---
 
-## EDGE-01 · Coach mid-turn refresh → orphan message (LOW, self-healing)
+## EDGE-01 · Coach mid-turn refresh → orphan message (FIXED, `d5b86fff`)
 
-**Repro (live):** send a coach message, reload before the reply renders. The
-student turn is persisted and shown on reload, but the assistant reply is gone
-permanently (the request was aborted before `coach.go` reached the reply-persist
-step). Sending ANY next message recovers cleanly — the coach re-reads the orphan
-user message and responds to it (verified: "你还在吗？…" got a full, on-topic
-reply that referenced the orphaned research question).
+**Root cause:** the coach turn is a synchronous JSON POST that runs entirely on
+`r.Context()`, which `net/http` cancels the instant the browser disconnects. A
+refresh during the multi-second model call aborted every step after the LLM call
+— tool effects, `studio_state`, and the assistant-reply persist — leaving the
+already-saved student message with no answer.
 
-**Why not fixed now:** it self-heals, loses no student input (the user message
-is saved; only the never-shown generated reply is lost), and never strands or
-crashes. A real fix means decoupling the LLM turn from the request context
-(run to completion on `context.Background()` so a disconnect still persists the
-reply) or a client-side "this turn didn't finish — resend?" affordance — both
-are behavior changes worth doing deliberately, not as a drive-by. Documented for
-a future pass.
+**Fix:** the turn now runs on `context.WithoutCancel(r.Context())` with a 150s
+cap (`coach.go`), so it completes and persists **regardless of whether the
+student is still connected**; the JSON response write is best-effort (fails
+harmlessly if they left). Applied to the main `postCoach`; `postCoachStart` /
+`postCoachAdvance` re-fire idempotently on reload, so they didn't need it.
+
+**Verified live (after fix):** sent a coach message, reloaded ~immediately
+(mid-reply), waited, reloaded again — the AI's full on-topic reply is now
+present (before the fix this exact sequence left an orphan message).
+
+## EDGE-04 · Canned reply masks a real model failure → FIXED (`d5b86fff`)
+
+**The worry (user, 2026-08-25):** when the model call genuinely fails, the coach
+returned a 200 with a canned "先自己说说看——现在你最想弄清楚的是哪一点？", which
+reads to the student as 印记 being evasive/broken.
+
+**Fix:** a genuine model failure (`cerr != nil` from `ProposeStatusTurn` —
+transport error or unparseable output) now returns a real `502
+ai_dialogue_failed`, never a fabricated reply — same posture as the 提问卡 path,
+per the firm rule "AI-dialogue errors must be SURFACED, never masked." The FE
+already catches this and shows an honest "（…我没接住——再试一次？）" retry note
+(`WorkspaceContainer.tsx`); the student turn is persisted so a resend self-heals.
+A **successful-but-empty** turn (e.g. tool-only, no prose) still uses the
+restrained nudge — only real failures error. Applied to `postCoach` /
+`postCoachStart` / `postCoachAdvance`. The two sub-agent coaches (find_sources /
+reflection) and card-reflect keep their fallback pending separate FE
+error-state verification.
+
+**Verified:** `TestPostCoach_ModelFailureSurfacesError` (malformed model output →
+502 `ai_dialogue_failed`, no canned text); full coach api suite green.
 
 ## EDGE-02 · Draft autosave window → data-loss on abrupt exit (FIXED)
 
