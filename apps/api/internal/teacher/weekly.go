@@ -3,6 +3,7 @@ package teacher
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"mindimprint/api/internal/agent"
 )
@@ -16,15 +17,21 @@ type StudentWeek struct {
 	ActiveDays, Turns, PrevActiveDays int
 	ReportsThisWeek, PriorReports     int
 	LatestReportProjectID             string // "" when the student has no ready report
+	LatestReportOverview              string // the latest ready report's 综述 overview; "" when none
 }
 
 // Card is one 值得表扬 / 需要建议 card. Evidence is ALWAYS deterministic — a bare
 // statement of the week's numbers. Lead/action (wording) are added later by the
-// composer and are not fields here.
+// composer and are not fields here. ReportOverview is also deterministic (lifted
+// verbatim from the student's own generated report), shown only on praise cards
+// so the teacher sees WHAT the student actually thought about, not just that a
+// report exists — no model call, no new scoring (铁律②-safe: it is the student's
+// own report narrative, one click from what the 看能力报告 link already opens).
 type Card struct {
 	UserID, DisplayName, AvatarColor string
 	TagCode, TagLabel, Kind          string
 	Evidence                         string
+	ReportOverview                   string
 	HasReport                        bool
 	ReportScopeID                    string // project id; surface is always "project"
 }
@@ -78,14 +85,42 @@ func watchCard(s StudentWeek) (Card, bool) {
 // reward engagement for its own sake and violate 铁律②（不操纵）.
 func praiseCard(s StudentWeek) (Card, bool) {
 	if s.ReportsThisWeek > 0 {
+		var c Card
 		if s.PriorReports == 0 {
-			return mkCard(s, "praise", "first_report", "第一份报告",
-				"本周完成了第一份能力报告。"), true
+			c = mkCard(s, "praise", "first_report", "第一份报告",
+				"本周完成了第一份能力报告。")
+		} else {
+			c = mkCard(s, "praise", "produced_report", "有产出",
+				fmt.Sprintf("本周完成 %d 份能力报告。", s.ReportsThisWeek))
 		}
-		return mkCard(s, "praise", "produced_report", "有产出",
-			fmt.Sprintf("本周完成 %d 份能力报告。", s.ReportsThisWeek)), true
+		// The substance line: a 1–2 sentence teaser of the latest report's 综述,
+		// so the card leads with what the student actually thought about. Cheap
+		// to keep the activity evidence too — it stays as the small fact line.
+		c.ReportOverview = truncateOverview(s.LatestReportOverview, overviewCardMax)
+		return c, true
 	}
 	return Card{}, false
+}
+
+// overviewCardMax caps the substance teaser (rune count — Chinese-first). The
+// full 综述 is one click away via 看能力报告; the card only needs a scannable lead.
+const overviewCardMax = 110
+
+// truncateOverview trims the report 综述 to at most max runes, preferring to end
+// on a sentence boundary so the teaser never cuts mid-clause. A hard cut past
+// the halfway point appends an ellipsis.
+func truncateOverview(s string, max int) string {
+	r := []rune(strings.TrimSpace(s))
+	if len(r) <= max {
+		return string(r)
+	}
+	for i := max; i > max/2; i-- {
+		switch r[i-1] {
+		case '。', '！', '？', '!', '?':
+			return string(r[:i])
+		}
+	}
+	return string(r[:max]) + "…"
 }
 
 // ClassWeekCounts is one window's class-wide counters.

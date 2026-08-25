@@ -80,8 +80,21 @@ function FocusCard({ card, onOpenStudent, onOpenReport }: {
           </span>
         </div>
       </div>
-      {card.lead !== "" && (
-        <div style={{ marginTop: 16, fontSize: 15, fontWeight: 700, color: "var(--mk-secondary)", lineHeight: 1.5 }}>{card.lead}</div>
+      {/* Lead the card with the report's own 综述 when it exists (praise cards
+          with a report) — what the student actually thought about — falling back
+          to the composed lead. The deterministic activity fact stays below as the
+          muted line either way. */}
+      {(card.reportOverview || card.lead) !== "" && (
+        <div style={{ marginTop: 16, fontSize: 15, fontWeight: 700, color: "var(--mk-secondary)", lineHeight: 1.5 }}>
+          {card.reportOverview ? (
+            <>
+              <b style={{ color: "var(--mk-accent-600)", fontWeight: 800 }}>综述 · </b>
+              {card.reportOverview}
+            </>
+          ) : (
+            card.lead
+          )}
+        </div>
       )}
       <div style={{ marginTop: 7, fontSize: 12.5, color: "var(--mk-muted)", lineHeight: 1.65 }}>{card.evidence}</div>
       {card.action !== "" && (

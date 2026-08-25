@@ -70,6 +70,9 @@ export interface WeeklyCard {
   evidence: string;
   lead: string;
   action: string;
+  /** Deterministic 综述 teaser from the student's own report; present only on
+   * praise cards that have a report. Leads the card when set. */
+  reportOverview?: string;
   hasReport: boolean;
   reportSurface?: string;
   reportScopeId?: string;

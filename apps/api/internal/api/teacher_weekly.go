@@ -32,9 +32,12 @@ type WeeklyCardDTO struct {
 	Evidence      string `json:"evidence"`
 	Lead          string `json:"lead"`
 	Action        string `json:"action"`
-	HasReport     bool   `json:"hasReport"`
-	ReportSurface string `json:"reportSurface,omitempty"`
-	ReportScopeID string `json:"reportScopeId,omitempty"`
+	// ReportOverview is the deterministic 综述 teaser from the student's own
+	// report; present only on praise cards that have a report. "" otherwise.
+	ReportOverview string `json:"reportOverview,omitempty"`
+	HasReport      bool   `json:"hasReport"`
+	ReportSurface  string `json:"reportSurface,omitempty"`
+	ReportScopeID  string `json:"reportScopeId,omitempty"`
 }
 
 type WeeklyStatDTO struct {
@@ -104,6 +107,11 @@ func (a *API) loadWeekly(ctx context.Context, cls sqlc.Class, weekStart, now tim
 		if u.LatestReportProjectID.Valid {
 			s.LatestReportProjectID = uuid.UUID(u.LatestReportProjectID.Bytes).String()
 		}
+		// latest_report_overview is a JSON ->> extract, so sqlc types it as
+		// interface{}; pgx decodes the text result to a string (nil when null).
+		if ov, ok := u.LatestReportOverview.(string); ok {
+			s.LatestReportOverview = ov
+		}
 		students = append(students, s)
 	}
 	return weeklyData{
@@ -154,7 +162,7 @@ func weeklyDTO(d weeklyData, prose *sqlc.GetClassWeeklyProseRow) WeeklyReportDTO
 			out = append(out, WeeklyCardDTO{
 				UserID: c.UserID, DisplayName: c.DisplayName, AvatarColor: c.AvatarColor,
 				TagCode: c.TagCode, TagLabel: c.TagLabel, Kind: c.Kind, Evidence: c.Evidence,
-				Lead: w.Lead, Action: w.Action,
+				Lead: w.Lead, Action: w.Action, ReportOverview: c.ReportOverview,
 				HasReport: c.HasReport, ReportSurface: "project", ReportScopeID: c.ReportScopeID,
 			})
 		}

@@ -188,6 +188,47 @@ func TestCardCarriesReportLinkFields(t *testing.T) {
 	}
 }
 
+// TestPraiseCardCarriesReportOverview: a praise card leads with the student's
+// own 综述 (deterministic, lifted from the report), truncated on a sentence
+// boundary. Watch cards never carry it — the substance line is about a produced
+// report, not an inactivity note.
+func TestPraiseCardCarriesReportOverview(t *testing.T) {
+	overview := "这个项目从一个具体冲突出发，收束为可研究的问题。但目前论证更接近框架展示：证据基础较薄，尚未回到材料回答核心问题。"
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "Phoebe", ActiveDays: 5, PrevActiveDays: 5,
+		ReportsThisWeek: 2, PriorReports: 1,
+		LatestReportProjectID: "proj-1", LatestReportOverview: overview,
+	}})
+	if len(w.Praise) != 1 {
+		t.Fatalf("praise = %+v; want one card", w.Praise)
+	}
+	ov := w.Praise[0].ReportOverview
+	if ov == "" {
+		t.Fatal("praise card must carry the report 综述")
+	}
+	if []rune(ov)[len([]rune(ov))-1] != '。' {
+		t.Fatalf("overview = %q; a truncated teaser should end on a sentence boundary", ov)
+	}
+	if len([]rune(ov)) > 110 {
+		t.Fatalf("overview = %d runes; want <= 110", len([]rune(ov)))
+	}
+}
+
+func TestWatchCardNeverCarriesReportOverview(t *testing.T) {
+	// An inactive student may still have an OLD ready report on file, but the
+	// watch card is about this week's silence — no substance teaser.
+	w := teacher.Detect([]teacher.StudentWeek{{
+		UserID: "u1", DisplayName: "沈亦然", ActiveDays: 0, PrevActiveDays: 2,
+		LatestReportProjectID: "proj-old", LatestReportOverview: "一段旧的综述。",
+	}})
+	if len(w.Watch) != 1 {
+		t.Fatalf("watch = %+v; want one card", w.Watch)
+	}
+	if w.Watch[0].ReportOverview != "" {
+		t.Fatalf("watch card carried an overview %q; it must not", w.Watch[0].ReportOverview)
+	}
+}
+
 func TestStatsRenderDeltaAndDirection(t *testing.T) {
 	got := teacher.Stats(
 		teacher.ClassWeekCounts{ActiveStudents: 8, Reports: 14, Turns: 386, CourseSteps: 23},

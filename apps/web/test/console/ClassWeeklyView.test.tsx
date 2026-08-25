@@ -106,6 +106,53 @@ describe("ClassWeeklyView", () => {
     expect(tag).toHaveStyle({ color: "var(--mk-matcha-fg)", background: "var(--mk-matcha-bg)" });
   });
 
+  it("leads a praise card with the report 综述 when present, keeping the activity fact", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({
+        praise: [{
+          userId: "u3", displayName: "Phoebe", avatarColor: "#3E7CA8",
+          tagCode: "produced_report", tagLabel: "有产出", kind: "praise",
+          evidence: "本周完成 2 份能力报告。",
+          lead: "本周完成 2 份能力报告。", // the composer echo we want the 综述 to replace
+          action: "线下可以表扬她的稳定产出。",
+          reportOverview: "项目从一个具体亲子冲突收束为可研究问题，但论证仍偏框架展示、证据基础较薄。",
+          hasReport: true, reportSurface: "project", reportScopeId: "p3",
+        }],
+        watch: [],
+        proseReady: true, comment: "c",
+      })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    // The substance line (from the report) leads the card...
+    expect(await screen.findByText(/项目从一个具体亲子冲突收束为可研究问题/)).toBeInTheDocument();
+    expect(screen.getByText("综述 ·")).toBeInTheDocument();
+    // ...the deterministic activity fact still shows once, as the muted line...
+    expect(screen.getByText("本周完成 2 份能力报告。")).toBeInTheDocument();
+    // ...and the action is intact.
+    expect(screen.getByText(/线下可以表扬她的稳定产出/)).toBeInTheDocument();
+  });
+
+  it("falls back to the composed lead when a card has no report 综述", async () => {
+    const client = {
+      getClassWeeklyReport: vi.fn().mockResolvedValue(report({
+        praise: [{
+          userId: "u4", displayName: "林知远", avatarColor: "#3E7CA8",
+          tagCode: "produced_report", tagLabel: "有产出", kind: "praise",
+          evidence: "本周完成 1 份能力报告。",
+          lead: "他把一个模糊的想法收成了能完成的题。", action: "线下可以肯定他。",
+          hasReport: true, reportSurface: "project", reportScopeId: "p4",
+        }],
+        watch: [],
+        proseReady: true, comment: "c",
+      })),
+      generateClassWeeklyProse: vi.fn(),
+    };
+    render(<ClassWeeklyView client={client} classId="c1" onOpenStudent={() => {}} onOpenReport={() => {}} />);
+    expect(await screen.findByText("他把一个模糊的想法收成了能完成的题。")).toBeInTheDocument();
+    expect(screen.queryByText("综述 ·")).not.toBeInTheDocument();
+  });
+
   it("renders a distinct error with a retry when the fetch fails", async () => {
     const client = {
       getClassWeeklyReport: vi.fn().mockRejectedValue(new Error("boom")),

@@ -61,7 +61,8 @@ SELECT
 -- LEFT JOIN ... ON condition is the shape sqlc reliably marks nullable
 -- (-> pgtype.UUID).
 WITH latest_reports AS (
-  SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id
+  SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id,
+         er.report->'abstract'->>'overview' AS overview
   FROM evaluation_report er JOIN project p ON p.id = er.project_id
   WHERE er.status = 'ready'
   ORDER BY p.user_id, er.created_at DESC
@@ -73,7 +74,8 @@ SELECT
   COALESCE(prv.active_days, 0)::int AS prev_active_days,
   COALESCE(rep.n, 0)::int           AS reports_this_week,
   COALESCE(prior.n, 0)::int         AS prior_reports,
-  lr.project_id                     AS latest_report_project_id
+  lr.project_id                     AS latest_report_project_id,
+  lr.overview                       AS latest_report_overview
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 LEFT JOIN LATERAL (

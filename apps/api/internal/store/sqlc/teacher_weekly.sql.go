@@ -153,7 +153,8 @@ func (q *Queries) InsertClassWeeklyProse(ctx context.Context, arg InsertClassWee
 
 const listClassStudentWeekActivity = `-- name: ListClassStudentWeekActivity :many
 WITH latest_reports AS (
-  SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id
+  SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id,
+         er.report->'abstract'->>'overview' AS overview
   FROM evaluation_report er JOIN project p ON p.id = er.project_id
   WHERE er.status = 'ready'
   ORDER BY p.user_id, er.created_at DESC
@@ -165,7 +166,8 @@ SELECT
   COALESCE(prv.active_days, 0)::int AS prev_active_days,
   COALESCE(rep.n, 0)::int           AS reports_this_week,
   COALESCE(prior.n, 0)::int         AS prior_reports,
-  lr.project_id                     AS latest_report_project_id
+  lr.project_id                     AS latest_report_project_id,
+  lr.overview                       AS latest_report_overview
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 LEFT JOIN LATERAL (
@@ -210,6 +212,7 @@ type ListClassStudentWeekActivityRow struct {
 	ReportsThisWeek       int32       `json:"reports_this_week"`
 	PriorReports          int32       `json:"prior_reports"`
 	LatestReportProjectID pgtype.UUID `json:"latest_report_project_id"`
+	LatestReportOverview  interface{} `json:"latest_report_overview"`
 }
 
 // Per-student activity for a COMPLETED week + the full prior week, plus report
@@ -249,6 +252,7 @@ func (q *Queries) ListClassStudentWeekActivity(ctx context.Context, arg ListClas
 			&i.ReportsThisWeek,
 			&i.PriorReports,
 			&i.LatestReportProjectID,
+			&i.LatestReportOverview,
 		); err != nil {
 			return nil, err
 		}
