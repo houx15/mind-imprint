@@ -215,6 +215,7 @@ export function PlanBlock({
         projectId={projectId}
         refreshWorkspace={refreshWorkspace}
         onStudioStateChanged={onStudioStateChanged}
+        onPlanMaybeGenerated={onPlanMaybeGenerated}
       />
     );
   }
@@ -269,10 +270,11 @@ function FormingPhase(props: {
   projectId: string;
   refreshWorkspace?: () => void;
   onStudioStateChanged?: () => void | Promise<void>;
+  onPlanMaybeGenerated?: (projectId: string) => void | Promise<void>;
 }) {
   const {
     proposal, setDim, messages, recap, draft, setDraft, sending, onSend,
-    projectId, refreshWorkspace, onStudioStateChanged,
+    projectId, refreshWorkspace, onStudioStateChanged, onPlanMaybeGenerated,
   } = props;
   const [waiving, setWaiving] = useState(false);
   async function onWaiveCounterpoints() {
@@ -282,6 +284,11 @@ function FormingPhase(props: {
       await waiveCounterpoints(projectId);
       refreshWorkspace?.();
       await onStudioStateChanged?.();
+      // Waiving 反例 also generates the plan server-side — surface the same
+      // plan walkthrough + 「开始写研究提案」 next-step the other plan-gen paths
+      // get, so the student clearly knows to move on to the proposal (was
+      // silent on this path — 2026-08-25 e2e per-step review).
+      await onPlanMaybeGenerated?.(projectId);
     } catch {
       setWaiving(false);
     }
