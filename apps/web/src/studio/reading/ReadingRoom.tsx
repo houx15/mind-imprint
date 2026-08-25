@@ -647,9 +647,12 @@ export function ReadingRoom({
                 value={draft}
                 onChange={(e) => setDraft(e.target.value)}
                 onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
+                  // Enter sends, Shift+Enter = newline — matches the coach
+                  // Composer so the two chat inputs behave the same (BUG-04,
+                  // 2026-08-25 findings). Ctrl/Cmd+Enter still sends too.
+                  if (e.key === "Enter" && !e.shiftKey) {
                     e.preventDefault();
-                    send(draft);
+                    if (!busyOrCarded && draft.trim()) send(draft);
                   }
                 }}
                 placeholder={

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { putBuffer, type WritingDocKind } from "../../api/writing";
 import { getDraft } from "../api/workspace";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { countWords } from "./wordcount";
 
 // ProsePane (Phase B) — the plain prose writing surface for the 研究提案. Unlike
 // the essay room (大纲/片段/正文), the proposal is a short prose document: a
@@ -37,7 +38,9 @@ export function ProsePane({
   const savingRef = useRef(false);
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const paneRef = useRef<HTMLDivElement | null>(null);
-  const words = text.replace(/\s+/g, "").length;
+  // CJK-aware word count matching the backend (agent.CountWords), so English
+  // proposals aren't over-counted ~5× vs the "字" target (BUG-02).
+  const words = countWords(text);
 
   // slice 3b · select-to-send. On mouse-up over a selection, float a "问印记"
   // chip; clicking pins the selection into the coach thread (text only). Mirrors

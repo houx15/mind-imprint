@@ -27,6 +27,7 @@ import { scheduleCardRevision } from "../../api/revision";
 import { recordCitation } from "../../api/citations";
 import { parseSections, serializeSections, sectionsFromOutline, newSection, type DraftSection } from "./draftSections";
 import { MarkdownPreview } from "./MarkdownPreview";
+import { countWords } from "./wordcount";
 import { ProposalGuidePane } from "./ProposalGuide";
 import { ProsePane } from "./ProsePane";
 import { EssayStatementPane } from "./EssayStatementGuide";
@@ -1622,7 +1623,10 @@ function DraftPane({
   // state — the indicator always occupies its slot so it never flickers or
   // shifts the 字数 counter next to it.
   const [saveStatus, setSaveStatus] = useState<"saved" | "dirty" | "saving" | "retrying">("saved");
-  const words = text.replace(/\s+/g, "").length;
+  // CJK-aware word count matching the backend (agent.CountWords) so the live
+  // "字" counter agrees with the 整稿体检 review header and the word budget — a
+  // plain char count over-counts English ~5× (BUG-02, 2026-08-25 findings).
+  const words = countWords(text);
 
   // WA · 整稿体检: save a version + run the whole-draft review, render its advice
   // read-only. Never edits the draft — 印记 checks argument/structure, you revise.

@@ -51,7 +51,7 @@ const studioIdentity = `你是「印记」，陪学生把研究项目做完的 a
 // Tool-contract lines reused across status prompts (kept identical to the old
 // mega-prompt's wording where they overlap, so behavior transfers).
 const (
-	toolProposeNote   = `- propose_note: {"section":分区,"value":内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区用英文码之一，按内容严格归类：objective=研究问题本身/核心变量怎么测量；reason=为什么研究这个/动机/个人经历；activities=打算怎么做/步骤/方法/时间安排（「先读文献再做问卷最后写作、大概三周」是 activities，不是 objective）；resources=能用或需要的数据/文献/工具/渠道；counterpoints=可能的反例/混淆因素/张力。凡是你在 narrate 里说「我把这点记下了/记进提案了」，本轮就必须真的放出对应的 propose_note，别只说不做。`
+	toolProposeNote   = `- propose_note: {"section":分区,"value":内容} —— 从学生说过的话里提炼一条提案要点候选（学生确认后才落库）。分区用英文码之一，按内容严格归类：objective=研究问题本身/核心变量怎么测量；reason=为什么研究这个/动机/个人经历；activities=打算怎么做/步骤/方法/时间安排（「先读文献再做问卷最后写作、大概三周」是 activities，不是 objective）；resources=能用或需要的数据/文献/工具/渠道；counterpoints=可能的反例/混淆因素/张力。凡是你在 narrate 里说「我把这点记下了/记进提案了」，本轮就必须真的放出对应的 propose_note，别只说不做；一轮里若同时聊到多个分区（比如学生一句话里既讲了目标又讲了缘由），就每个分区各放一条 propose_note，不要只放一条、把其它分区「说了没记」。但只有当学生的话里带着能填进该分区的实质内容时才提；学生只是表达「没头绪 / 不知道该写什么 / 还没有立场」这类没有内容的困惑时，不要 propose_note（绝不能把「我不知道该问什么」记成 objective）。`
 	toolSummonCard    = `- summon_card: {"card_id":...,"reason":...,"nudge_text":...} —— 在对的时刻把一张思维工具卡塞回给学生自己填（你不替他填）。`
 	toolOpenReading   = `- open_reading: {"reason":...} —— 学生要读某个来源/需要查资料时，打开阅读室。`
 	toolFinishPart    = `- finish_part: {} —— 学生说这一部分写完了、想收尾时。`

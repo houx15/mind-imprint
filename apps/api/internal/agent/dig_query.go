@@ -15,7 +15,9 @@ import (
 // Never decides FOR the student which source matters (铁律①) — it only
 // reframes her own question so the search actually finds what she meant.
 
-const digQuerySystem = `你把学生的研究问题（任何语言）转成一个简短的英文关键词查询，用于在 OpenAlex 上检索学术文献。只输出查询词本身，不要引号、不要解释、不要写成完整句子；3-8 个词，抓住核心概念；把非英文的概念译成对应的标准英文学术术语。输出要尽量短。`
+const digQuerySystem = `你把学生的研究问题（任何语言）转成一个简短的英文关键词查询，用于在 OpenAlex 上检索学术文献。只输出查询词本身，不要引号、不要解释、不要写成完整句子；3-8 个词，抓住核心概念；把非英文的概念译成对应的标准英文学术术语。
+
+关键：避免会跨学科撞车的单个歧义词，用能锁定学科语境的多词学术术语。例如「注意力」在人的认知语境里要用 "attention span" 或 "sustained attention"，绝不要只输出裸词 "attention"（它会命中机器学习的 attention 机制文献）；同理把研究对象（如 adolescents / secondary school students）和现象一起写进去，让查询自带语境。输出要尽量短。`
 
 // ComposeDigQuery refines a student's research question into a concise
 // English keyword query via one isolated LLM call. Best-effort: on an
