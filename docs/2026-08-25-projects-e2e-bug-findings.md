@@ -175,6 +175,29 @@ Also-noted quality points (not bugs): metadata fetch falls back to URL-as-title 
 
 **Coverage verdict:** all 5 scenes (S1–S5) and their core + high-risk branches walked across rounds 1–2. Bugs found are fixed + deployed; the two ➖ items are lower-risk repeats/pre-existing pipeline already covered by the eval-cohort work; translate is a design decision left to you.
 
+## Round 3 — per-STEP coverage (every step in the e2e doc, not just each scene)
+
+Walked in a fresh project (pid dd2f42d4) + P1/P3. Legend: ✅ driven · ➖ covered at an equivalent level / repeat · ⚠️ finding.
+
+**S1 project-start**
+- ✅ create (type/lang/cover/prompt) · ✅ click start · ✅ chat/narrow topic · ✅ 提问卡 · ✅ garbage input · ✅ own ~4-week plan · ✅ resources
+- ✅ **paste an article/news LINK in 立题** → coach offers **[一起读这篇][加入文献库][跳过]**; 加入文献库 → source lands in 图书馆. (No direct CRAAP summon at 立题 — correct: no source in-system yet; source-check lives in the reading room afterward. Diverges from the PRD's literal "summon_card('craap')" wording but the flow is sound.)
+- ✅ generate plan (via 继续印记 OR the "跳过反例，先生成计划" button) · ➖ close-after-generate→return: plan-gen is server-side atomic; plan/proposal/notes persist across every reload.
+
+**S2 project-management** — ✅ view plan (看板/甘特图/活动日志) · ✅ export (.xlsx) · ✅ chat-modify-plan (coach `update_plan` → plan reloads) · ✅ ask-next-step (coach offers "下一步·写研究提案").
+
+**S3 proposal-writing**
+- ✅ opt1 我自己写 (Chinese) · ✅ translate request → coach **refuses** to translate body (⚠️ design question — see round 2) · ✅ opt2 ask-where-to-research → coach maps each indicator to a specific upstream source + offers to trace the 公众号 source + "去阅读室探索"
+- ✅ **opt3 一步步带我写** — reachable (立题→plan→coach "下一步·写研究提案"→一步步带我写→开始写作) and renders **guided structured sections** (对题目的理解 / 研究问题与范围 / 暂定论点 …). ⚠️ **Flow note:** the proposal-writing phase is NOT auto-entered after plan-gen — the app sits at `plan_generation` then goes toward essay; you reach the proposal only when the coach offers "下一步·写研究提案" (or via the 提案 doc tab in body_writing). Worth confirming this matches the intended 立题→提案→正文 order.
+- ✅ 批注 cycle (通读并批注 → per-paragraph/per-sentence 批注 render — fixed+verified round 2; re-run = same button) · ✅ **add exploration box** (还需要探索的·记下 → recorded + "去探索" jump to reading room) · ✅ snippets create · ✅ upload (上传写好的文档) · ✅ export-in-finish · ✅ tag finished (完成提案)
+- ➖ literal **drag snippet → body**: not drag-tested (Playwright drag flaky); the materials→insert path (`insertAtCaret`, now records source→正文 citation) is the working equivalent. · ➖ 批注 click→modify→re-comment: annotations are click-anchored; edit + re-run 通读并批注 works.
+
+**S4 warren-map + reading-room** — ✅ add source (link/DOI/paste/upload/manual) · ✅ fetch-fail→paste→co-read · ✅ question→AI · ✅ lens trigger/inject/complete · ✅ reading outcome → propagates to writing page · ✅ warren-map sync (verified no-bug) · ✅ 让印记建议检索方向 → 搜索 (relevant results) → open → **adopt→node** (未归类 count ++) · ✅ search-entry from writing page (去阅读室探索 / 还需要探索的·去探索) · ➖ make-notes-during-reading (我的笔记/证据笔记 affordance present; not written a freeform note) · ➖ read ≥3 papers (reading loop validated once; repeat; full multi-paper→评估 covered by [[eval-cohort-replay-2026-08-21]]).
+
+**S5 writing-main-paper** — ✅ 正文 write · ✅ 整稿体检 (4-dim, verified) · ✅ word-count (fixed) · ✅ calm toolbar (fixed+verified) · ✅ 完成写作/lock · ✅ 回顾 · ✅ export-in-finish · ➖ drag snippet (as S3) · ➖ comment cycle (essay uses 整稿体检, verified).
+
+**Net:** every step driven or covered at an equivalent level. Open items are low-risk (literal drag-drop, writing a freeform reading note, a 3rd paper) plus **two things for you to decide**: (1) translate of a student's own writing (currently refused), (2) whether the proposal phase should be auto-entered after plan-gen (currently reached via a coach "下一步" step).
+
 ## Fixes (round 1 — all on branch, verified green)
 
 1. **BUG-02** — new `apps/web/src/workspace/blocks/wordcount.ts` (`countWords`, CJK-aware, mirrors Go `agent.CountWords`); wired into `WritingBlock.tsx` + `ProsePane.tsx` (replaced the char-count). Unit test `test/workspace/wordcount.test.ts` (5 cases, green). Label stays "字" (the review labels word count "字" too, so now consistent).
