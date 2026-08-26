@@ -222,60 +222,79 @@ git commit -m "feat(lite): add project.kind and exclude containers from every pr
 
 ---
 
-### Task 2: `users.edition` 与站点分流
+### Task 2: `schools.edition`
+
+edition 是**学校**的属性，不是账号的属性：一所学校买的是轻量版还是现有版本，校内账号在注册（凭 join code 进班级 → 班级属于学校）那一刻随之确定。所以这里**不动 `users` 表**，也**不改 `/auth/me`** —— 前端不需要知道 edition，将来每校各自的子域名本身即已分流。
 
 **Files:**
-- Create: `apps/api/internal/store/migrations/0093_users_edition.sql`
-- Modify: `apps/api/internal/api/dto.go`（`meUserDTO` + `buildMeUser`）
-- Test: `apps/api/internal/api/edition_test.go`
+- Create: `apps/api/internal/store/migrations/0093_schools_edition.sql`
+- Regenerate: `apps/api/internal/store/sqlc/*.sql.go`（由 `make sqlc` 产出，不手改）
+- Test: `apps/api/internal/store/schools_edition_test.go`
 
 **Interfaces:**
 - Consumes: Task 1 的迁移编号序列
-- Produces: `users.edition text NOT NULL DEFAULT 'pro' CHECK (edition IN ('pro','lite'))`；`GET /api/v1/auth/me` 的 `user` 对象新增 `"edition"` 字段（字符串）。前端据此判断是否走错了站。
+- Produces: `schools.edition text NOT NULL DEFAULT 'pro' CHECK (edition IN ('pro','lite'))`；sqlc 生成的 `sqlc.School` 结构体新增字段 `Edition string`。Task 6 的鉴权闸据此取值（session principal 已携带 `SchoolID`，无需新增账号字段）。
+- **不产出**：没有 DTO 变更，没有 `/auth/me` 变更，没有 `users` 列。
 
 - [ ] **Step 1: 写下会失败的测试**
 
-新建 `apps/api/internal/api/edition_test.go`：
+新建 `apps/api/internal/store/schools_edition_test.go`。先读 `apps/api/internal/store/sqlc_test.go` 顶部，照抄它的 pool bootstrap helper 名（本包已有，不要新建）：
 
 ```go
-package api_test
+package store_test
 
 import (
-	"encoding/json"
-	"net/http"
-	"net/http/httptest"
+	"context"
+	"strings"
 	"testing"
-
-	. "mindimprint/api/internal/api"
-	"mindimprint/api/internal/cards"
-	"mindimprint/api/internal/store/sqlc"
 )
 
-// TestMe_ReportsEdition — /auth/me carries the account's edition so each site
-// can tell a student they've landed on the wrong one. Default is 'pro'.
-func TestMe_ReportsEdition(t *testing.T) {
-	pool := newAPITestPool(t)
-	h := New(Deps{
-		Queries: sqlc.New(pool), Pool: pool,
-		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
-	}).Handler()
-	cookie := signInSeed(t, pool)
+// TestSchoolsEdition_DefaultsToPro — edition rides on the SCHOOL, not the
+// account: a school buys the lite edition or the pro one, and every account
+// under it follows. Existing schools must keep working untouched, so the
+// default is 'pro'.
+func TestSchoolsEdition_DefaultsToPro(t *testing.T) {
+	pool := newTestPool(t) // ← 用本包既有的 helper 名，见 sqlc_test.go
+	ctx := context.Background()
 
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/auth/me", nil), cookie))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /auth/me = %d, want 200; body=%s", rec.Code, rec.Body)
+	var edition string
+	if err := pool.QueryRow(ctx, `SELECT edition FROM schools LIMIT 1`).Scan(&edition); err != nil {
+		t.Fatalf("read seeded school edition: %v", err)
 	}
-	var out struct {
-		User struct {
-			Edition string `json:"edition"`
-		} `json:"user"`
+	if edition != "pro" {
+		t.Fatalf("seeded school edition = %q, want \"pro\"", edition)
 	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+}
+
+// TestSchoolsEdition_RejectsUnknownValue — the CHECK constraint is the only
+// thing standing between a typo and a school nobody can sign in to.
+func TestSchoolsEdition_RejectsUnknownValue(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+
+	_, err := pool.Exec(ctx, `UPDATE schools SET edition = 'liet'`)
+	if err == nil {
+		t.Fatal("UPDATE schools SET edition = 'liet' succeeded, want a CHECK violation")
 	}
-	if out.User.Edition != "pro" {
-		t.Fatalf("edition = %q, want \"pro\"", out.User.Edition)
+	if !strings.Contains(strings.ToLower(err.Error()), "check") {
+		t.Fatalf("want a CHECK constraint violation, got: %v", err)
+	}
+}
+
+// TestSchoolsEdition_AcceptsLite — the value the whole lite edition turns on.
+func TestSchoolsEdition_AcceptsLite(t *testing.T) {
+	pool := newTestPool(t)
+	ctx := context.Background()
+
+	if _, err := pool.Exec(ctx, `UPDATE schools SET edition = 'lite'`); err != nil {
+		t.Fatalf("set edition lite: %v", err)
+	}
+	var edition string
+	if err := pool.QueryRow(ctx, `SELECT edition FROM schools LIMIT 1`).Scan(&edition); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if edition != "lite" {
+		t.Fatalf("edition = %q, want \"lite\"", edition)
 	}
 }
 ```
@@ -283,59 +302,52 @@ func TestMe_ReportsEdition(t *testing.T) {
 - [ ] **Step 2: 跑测试，确认它失败**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run TestMe_ReportsEdition -timeout 1800s
+cd apps/api && go test ./internal/store/ -run TestSchoolsEdition -timeout 1800s
 ```
 
-预期：FAIL —— `edition = "", want "pro"`。
+预期：FAIL —— `column "edition" does not exist`。
 
 - [ ] **Step 3: 写迁移**
 
-新建 `apps/api/internal/store/migrations/0093_users_edition.sql`：
+新建 `apps/api/internal/store/migrations/0093_schools_edition.sql`：
 
 ```sql
 -- +goose Up
--- edition 只决定账号进哪个站（现有的 pro 站 / 轻量站），不改变组织归属：
--- 每个账号仍必属某学校 + ≥1 班级，注册仍需 join code。
-ALTER TABLE users ADD COLUMN edition text NOT NULL DEFAULT 'pro'
+-- edition 属于学校，不属于账号：一所学校买的是轻量版还是现有版本，校内账号在
+-- 注册（凭 join code 进班级 → 班级属于学校）那一刻随之确定。组织不变式不变；
+-- edition 只决定进哪个站，不改变归属结构。默认 'pro'，存量学校行为不变。
+ALTER TABLE schools ADD COLUMN edition text NOT NULL DEFAULT 'pro'
   CHECK (edition IN ('pro','lite'));
 
 -- +goose Down
-ALTER TABLE users DROP COLUMN edition;
+ALTER TABLE schools DROP COLUMN edition;
 ```
 
-- [ ] **Step 4: 重新生成 sqlc 并把字段接进 DTO**
+- [ ] **Step 4: 重新生成 sqlc**
 
 ```bash
 cd apps/api && make sqlc
 ```
 
-在 `apps/api/internal/api/dto.go` 的 `meUserDTO` 结构体里，`Role` 之后加一行：
-
-```go
-	Edition        string       `json:"edition"`
-```
-
-在同文件 `buildMeUser` 的返回字面量里，`Role: full.Role,` 之后加一行：
-
-```go
-		Edition:        full.Edition,
-```
+预期：`sqlc.School` 结构体多出 `Edition string` 字段。若有既有测试用 `sqlc.School{...}` 字面量而缺字段导致编译失败，就地补上。
 
 - [ ] **Step 5: 跑测试，确认通过**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run TestMe_ReportsEdition -timeout 1800s
+cd apps/api && go test ./internal/store/ -run TestSchoolsEdition -timeout 1800s
 ```
 
-预期：PASS。
+预期：三条全部 PASS。
+
+> 不要运行整包 Go 测试（`go test ./internal/api/` 之类）：本仓库每个测试都会启动一个独立的 Postgres 容器，整包要 10 分钟以上，超过前台命令上限。整包验证由 controller 统一跑。
 
 - [ ] **Step 6: 提交**
 
 ```bash
-git add apps/api/internal/store/migrations/0093_users_edition.sql \
-        apps/api/internal/store/queries/ apps/api/internal/store/sqlc/ \
-        apps/api/internal/api/dto.go apps/api/internal/api/edition_test.go
-git commit -m "feat(lite): add users.edition and surface it on /auth/me"
+git add apps/api/internal/store/migrations/0093_schools_edition.sql \
+        apps/api/internal/store/sqlc/ \
+        apps/api/internal/store/schools_edition_test.go
+git commit -m "feat(lite): edition rides on the school, defaulting to pro"
 ```
 
 ---
@@ -1231,8 +1243,8 @@ git commit -m "feat(lite): reuse the reading room under /readings/{id}/room via 
 - Test: `apps/api/internal/api/edition_test.go`（追加）
 
 **Interfaces:**
-- Consumes: Task 2 的 `users.edition`
-- Produces: `func requireEdition(want string, h http.Handler) http.Handler`
+- Consumes: Task 2 的 `schools.edition`；既有的 `GetSchool` 查询；session principal `api.User` 已携带的 `SchoolID`
+- Produces: `func (a *API) requireEdition(want string, h http.Handler) http.Handler`（方法而非自由函数——它要查库）
 
 - [ ] **Step 1: 写下会失败的测试**
 
@@ -1242,13 +1254,8 @@ git commit -m "feat(lite): reuse the reading room under /readings/{id}/room via 
 // TestEditionGate_LiteAccountCannotReachProjects — a lite student has no
 // projects; the pro surface is simply not there for them. 404, not 403.
 func TestEditionGate_LiteAccountCannotReachProjects(t *testing.T) {
-	h, cookie, _ := liteHandler(t)
-	pool := poolOf(t, h) // see note below
-
-	if _, err := pool.Exec(context.Background(),
-		`UPDATE users SET edition = 'lite' WHERE id = $1`, SeedUserID); err != nil {
-		t.Fatalf("set edition: %v", err)
-	}
+	h, cookie, _, _ := liteHandler(t) // liteHandler already puts the seed
+	                                  // school on the lite edition (Ruling R3)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), cookie))
@@ -1274,12 +1281,12 @@ func TestEditionGate_ProAccountCannotReachReadings(t *testing.T) {
 func liteHandler(t *testing.T) (http.Handler, *http.Cookie, *sqlc.Queries, *pgxpool.Pool) { … }
 ```
 
-**同时**：Task 4/5 的既有测试目前用的是默认 `edition='pro'` 的种子账号，而它们打的是 `/readings/*` —— 加闸后会全部变 404。所以在 `liteHandler` 里建完 handler 后立刻把种子账号切成 lite：
+**同时**：Task 4/5 的既有测试目前用的是默认 `edition='pro'` 的种子学校，而它们打的是 `/readings/*` —— 加闸后会全部变 404。所以在 `liteHandler` 里建完 handler 后立刻把种子**学校**切成 lite：
 
 ```go
 	if _, err := pool.Exec(context.Background(),
-		`UPDATE users SET edition = 'lite' WHERE id = $1`, SeedUserID); err != nil {
-		t.Fatalf("set edition lite: %v", err)
+		`UPDATE schools SET edition = 'lite'`); err != nil {
+		t.Fatalf("set school edition lite: %v", err)
 	}
 ```
 
@@ -1298,14 +1305,23 @@ cd apps/api && go test ./internal/api/ -run TestEditionGate -timeout 1800s
 在 `apps/api/internal/api/authz.go` 末尾追加：
 
 ```go
-// requireEdition gates a route group on the caller's account edition. A
-// mismatch is 404, not 403 — from a lite student's point of view the pro
+// requireEdition gates a route group on the edition of the caller's SCHOOL.
+// edition is an organisation fact, not an account one: a school buys the lite
+// edition or the pro one, and every account under it follows — so this reads
+// schools.edition rather than any per-user field.
+//
+// A mismatch is 404, not 403: from a lite student's point of view the pro
 // surface does not exist, and vice versa. Same non-leaking convention as
 // ownership failures.
-func requireEdition(want string, h http.Handler) http.Handler {
+func (a *API) requireEdition(want string, h http.Handler) http.Handler {
 	return RequireUser(func(w http.ResponseWriter, r *http.Request) {
 		u, _ := UserFromContext(r.Context())
-		if u.Edition != want {
+		school, err := a.d.Queries.GetSchool(r.Context(), u.SchoolID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if school.Edition != want {
 			httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 			return
 		}
@@ -1314,17 +1330,17 @@ func requireEdition(want string, h http.Handler) http.Handler {
 }
 ```
 
-若 `User`（session principal）上没有 `Edition` 字段，在它的构造处（`SessionAuth` / `UserFromContext` 的来源，见 `apps/api/internal/api/auth.go`）把 `edition` 一并带上；session 已经查了 users 行，加一个字段即可，不增加查询。
+`api.User` 已经携带 `SchoolID`（见 `apps/api/internal/api/auth.go` 的 `type User struct`），所以**不需要给 principal 加任何字段**。这里每请求多一次 `schools` 主键查询——表极小且走主键，代价可以忽略；若将来确实成为热点，再把 edition 缓存进 session。
 
 - [ ] **Step 4: 包住两组路由**
 
 在 `api.go` 里，把 `protected` 之外再定义两个包装器，并把 `/projects` 与 `/readings` 两组分别换掉：
 
 ```go
-	// 站点分流：pro 账号看不见 /readings，lite 账号看不见 /projects——
-	// 双向都是 404，不泄漏另一侧的存在。
-	proOnly := func(h http.HandlerFunc) http.Handler { return requireEdition("pro", http.HandlerFunc(h)) }
-	liteOnly := func(h http.HandlerFunc) http.Handler { return requireEdition("lite", http.HandlerFunc(h)) }
+	// 站点分流：pro 学校的账号看不见 /readings，lite 学校的账号看不见
+	// /projects —— 双向都是 404，不泄漏另一侧的存在。
+	proOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("pro", http.HandlerFunc(h)) }
+	liteOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("lite", http.HandlerFunc(h)) }
 ```
 
 把 `/api/v1/projects` 及其全部子路由的 `protected(...)` 改为 `proOnly(...)`；把 Task 4 的四条 `/readings` 改为 `liteOnly(...)`；`mountReadingRoom` 里的 `a.withReadingContainer(rt.h)` 外面再包一层 `requireEdition("lite", ...)`。
@@ -1353,7 +1369,7 @@ cd apps/api && go test ./... -timeout 1800s
 git add apps/api/internal/api/authz.go apps/api/internal/api/api.go \
         apps/api/internal/api/auth.go apps/api/internal/api/edition_test.go \
         apps/api/internal/api/readings_test.go apps/api/internal/api/atom_container_test.go
-git commit -m "feat(lite): gate the pro and lite surfaces on users.edition"
+git commit -m "feat(lite): gate the pro and lite surfaces on the school edition"
 ```
 
 ---
@@ -2266,7 +2282,7 @@ cd apps/api && make run
 pnpm --filter @mind-imprint/lite-web dev
 ```
 
-把种子账号设为 lite（`UPDATE users SET edition='lite' WHERE id = …`），登录后：贴一篇文章 → 开始阅读 → 确认**透镜库、段落上的悬挂工具卡、批注、AI 引导都在**，且证据笔记 / 追踪来源**不在**。jsdom 测不出这些，必须真看。
+把种子学校设为 lite（`UPDATE schools SET edition='lite'`），登录后：贴一篇文章 → 开始阅读 → 确认**透镜库、段落上的悬挂工具卡、批注、AI 引导都在**，且证据笔记 / 追踪来源**不在**。jsdom 测不出这些，必须真看。
 
 - [ ] **Step 8: 提交**
 
@@ -2413,7 +2429,7 @@ git commit -m "test(lite): end-to-end walk of the lite reading journey"
 | Spec 条目 | 落在哪个任务 |
 |---|---|
 | §3.2 `project.kind` + 容器泄漏封堵 | Task 1 |
-| §3.5 `users.edition` | Task 2 |
+| §3.5 `schools.edition` | Task 2 |
 | §3.1 `reading` 表 | Task 3 |
 | §4.1 阅读原子端点 | Task 4 |
 | §4.2 房间透传接缝 | Task 5 |

@@ -127,14 +127,22 @@ CREATE UNIQUE INDEX atom_report_reading_idx ON atom_report (reading_id) WHERE re
 
 生成沿用现有 `evaluation` 的**原子 `ON CONFLICT` 单飞 + 三态 + 轮询**生命周期（见 `retire-old-evaluation-pipeline` 的既有实现），不重新发明。
 
-### 3.5 账号分流
+### 3.5 站点分流：edition 属于**学校**，不属于账号
+
+**一所学校买的是轻量版还是现有版本，校内账号随之确定。** 学生注册时凭 join code 进入某个班级 → 班级属于某学校 → 该学校的 edition 就决定了这个账号进哪个站。因此**不在 `users` 上加列**，edition 在注册那一刻就由所属学校定下，不是一个可以随账号漂移的属性。
 
 ```sql
-ALTER TABLE users ADD COLUMN edition text NOT NULL DEFAULT 'pro'
+ALTER TABLE schools ADD COLUMN edition text NOT NULL DEFAULT 'pro'
   CHECK (edition IN ('pro','lite'));
 ```
 
-组织不变式不变：每个账号仍必属某学校 + ≥1 班级，注册仍需 join code。`edition` 只决定**进哪个站**，不改变归属结构。`GET /auth/me` 回传 `edition`；两个站点各自在登录后校验，edition 不匹配则给出一句话提示并指向正确的域名。
+组织不变式不变：每个账号仍必属某学校 + ≥1 班级，注册仍需 join code。
+
+**服务端判定：** session principal（`apps/api/internal/api/auth.go` 的 `api.User`）已经携带 `SchoolID`，鉴权闸据此取学校的 edition，不需要任何新的账号字段。
+
+**`/auth/me` 不回传 edition。** 前端不需要知道它：将来每所学校使用各自的子域名，域名本身已经决定了进哪个站；走错站的请求由服务端一律 404（与归属失败同语义，不泄漏另一侧的存在）。
+
+> 若将来确实需要「同校个别账号走另一边」，再加一个可空的 `users.edition` 作为覆盖层即可，届时不影响本设计——本轮按 YAGNI 不做。
 
 ## 4. API
 
@@ -184,7 +192,7 @@ POST   /api/v1/readings/{id}/report/generate
 ### 4.3 鉴权
 
 - 原子端点：仅本人可读写（沿用「归属失败一律 404、不泄漏存在性」的既有约定）。
-- `edition = 'lite'` 的账号访问 `/projects/*` → 404；`edition = 'pro'` 的账号访问 `/writings|readings/*` → 404。语义与归属失败一致，不新增错误码。
+- 所属学校 `edition = 'lite'` 的账号访问 `/projects/*` → 404；所属学校 `edition = 'pro'` 的账号访问 `/writings|readings/*` → 404。语义与归属失败一致，不新增错误码。
 - 容器 project 永远不可经 `/projects/{id}` 直接访问：`loadOwnedProjectRow` 在**没有**容器 context 时，遇到 `kind = 'container'` 的行直接 404。
 - 消耗 token 的端点前照旧过 `HasEntitlement(ctx, user)`。
 
@@ -330,7 +338,7 @@ lite 与 pro 共用房间组件，lite 的改动可能打坏 pro。防线：能�
 
 | 期 | 内容 |
 |---|---|
-| **P1 · 地基** | 迁移（`writing` / `reading` / `project.kind` / `users.edition`）；原子 CRUD + `withAtomContainer` 透传；容器泄漏审计与测试；`apps/lite-web` 脚手架 + 构建/部署；能力对象；**阅读原子跑通至「我的收获」**（复用阅读室；收尾此期仍走 pro 面板，P2 再换 lite 变体） |
+| **P1 · 地基** | 迁移（`reading` / `project.kind` / `schools.edition`）；原子 CRUD + `withAtomContainer` 透传；容器泄漏审计与测试；`apps/lite-web` 脚手架 + 构建/部署；能力对象；**阅读原子跑通至「我的收获」**（复用阅读室；收尾此期仍走 pro 面板，P2 再换 lite 变体） |
 | **P2 · 阅读收尾** | `FinalizeReadingPanel` 的 lite 变体；理解检测（出题 / 答题 / 判分）；阅读简版报告 |
 | **P3 · 写作** | 写作落地大对话框 + 历史；提纲生成、片段写作、合成全文、AI 反馈；英文示范段落；写作简版报告 |
 | **P4 · 以后** | 教师布置阅读任务；`chat` 原子；小型 PBL `project` 原子 |
@@ -348,3 +356,4 @@ lite 与 pro 共用房间组件，lite 的改动可能打坏 pro。防线：能�
 | 过程评估 | 项目级 `EvaluationReport` 不用于轻量版；新设 `AtomReport` 简版报告 |
 | 阅读室与 pro 的差距 | 收尾之前完全一致；收尾因无立题而需 lite 变体 |
 | 隐藏容器 | 采用——以 `project` 表名的轻微失真，换取房间逻辑零分叉 |
+| edition 放在哪 | **学校**（`schools.edition`），注册时随 join code 的班级→学校定下。不加 `users` 列，不下发 `/auth/me`；将来每校各自的子域名本身即已分流 |
