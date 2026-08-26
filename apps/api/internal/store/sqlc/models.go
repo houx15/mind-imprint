@@ -20,6 +20,44 @@ type ActivityLogEntry struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+type Atom struct {
+	ID        uuid.UUID `json:"id"`
+	Kind      string    `json:"kind"`
+	UserID    uuid.UUID `json:"user_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type AtomAnnotation struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	BlockID   string    `json:"block_id"`
+	Span      []byte    `json:"span"`
+	Quote     string    `json:"quote"`
+	Note      string    `json:"note"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type AtomCard struct {
+	ID          uuid.UUID          `json:"id"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	CardID      string             `json:"card_id"`
+	BlockID     *string            `json:"block_id"`
+	Status      string             `json:"status"`
+	FieldValues []byte             `json:"field_values"`
+	EventTrace  []byte             `json:"event_trace"`
+	CreatedAt   time.Time          `json:"created_at"`
+	SubmittedAt pgtype.Timestamptz `json:"submitted_at"`
+}
+
+type AtomMessage struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	Seq       int32     `json:"seq"`
+	Role      string    `json:"role"`
+	Content   string    `json:"content"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type CardCompetence struct {
 	ID              uuid.UUID `json:"id"`
 	UserID          uuid.UUID `json:"user_id"`
@@ -448,6 +486,38 @@ type QuestionEdge struct {
 	Label      string    `json:"label"`
 	Status     string    `json:"status"`
 	CreatedAt  time.Time `json:"created_at"`
+}
+
+type Reading struct {
+	AtomID     uuid.UUID          `json:"atom_id"`
+	Title      string             `json:"title"`
+	Lang       string             `json:"lang"`
+	Status     string             `json:"status"`
+	UpdatedAt  time.Time          `json:"updated_at"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+}
+
+type ReadingBrief struct {
+	AtomID        uuid.UUID `json:"atom_id"`
+	PhaseTag      *string   `json:"phase_tag"`
+	ReadingReason string    `json:"reading_reason"`
+	ReadingFocus  string    `json:"reading_focus"`
+	UpdatedAt     time.Time `json:"updated_at"`
+}
+
+type ReadingSource struct {
+	AtomID     uuid.UUID `json:"atom_id"`
+	Title      string    `json:"title"`
+	Body       string    `json:"body"`
+	SourceUrl  *string   `json:"source_url"`
+	Bib        []byte    `json:"bib"`
+	IngestedAt time.Time `json:"ingested_at"`
+}
+
+type ReadingTakeaway struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	Text      string    `json:"text"`
+	UpdatedAt time.Time `json:"updated_at"`
 }
 
 type Reference struct {
