@@ -2259,6 +2259,88 @@ git commit -m "test(lite): end-to-end walk of the lite reading journey"
 
 ---
 
+### Task 15: 文章文件上传（DOCX / PDF）
+
+Task 4 有意只接了粘贴与链接（Ruling R11）。用户看过真实页面后明确要求落地页也能上传 DOCX / PDF，所以补上——`internal/docextract` 已经存在且是 pro 侧的真实解析器，直接复用。
+
+**Files:**
+- Create: `apps/api/internal/api/reading_source_file.go`
+- Modify: `apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/reading_source_file_test.go`
+
+**Interfaces:**
+- Consumes: Task 3 的 `loadOwnedReadingAtom` / `liteOnly`；Task 4 的 `SplitBlocks` 与 `UpsertReadingSource`
+- Produces: `POST /api/v1/readings/{id}/source/file`（multipart），→ `200 sourceDTO`（与 `PUT .../source` 同形，前端一条渲染路径）
+
+- [ ] **Step 1: 先读 pro 是怎么做的**
+
+```bash
+grep -rn "ingestReferenceFile" -A 40 apps/api/internal/api/workspace_library.go | head -60
+grep -rn "func " apps/api/internal/docextract/*.go | head
+```
+
+照它的**大小上限、类型允许列表、错误文案**来，不要另发明一套。在报告里写明你抄到的三项值。
+
+- [ ] **Step 2: 写下会失败的测试**
+
+覆盖：一个真实的小 .docx 上传成功并被分段（断言 `blocks` 非空）；不在允许列表内的类型 → 400；超过大小上限 → 400；抽取结果为空正文 → 400 `missing_text`（与 `PUT .../source` 同一语义）；跨账号 atom → 404。测试用的 fixture 文件放在 `apps/api/internal/api/testdata/`。
+
+- [ ] **Step 3-5: 跑失败 → 实现 → 跑通过**
+
+```bash
+cd apps/api && go test ./internal/api/ -run TestReadingSourceFile -timeout 1800s
+```
+
+实现要点：抽取后走**与 `PUT .../source` 完全相同**的落库路径（`UpsertReadingSource` + `SplitBlocks`），这样「粘贴 / 链接 / 上传」三条入口产生的数据完全一致，前端不需要分支。
+
+- [ ] **Step 6: 提交**
+
+```bash
+git add apps/api/internal/api/reading_source_file.go apps/api/internal/api/reading_source_file_test.go apps/api/internal/api/testdata/ apps/api/internal/api/api.go
+git commit -m "feat(lite): accept DOCX/PDF uploads for a reading's article"
+```
+
+---
+
+### Task 16: 阅读落地页重设计（AI 产品的门面）
+
+Task 11 交付的是**能跑的骨架**，不是设计过的门面——一个输入框、一个文本域、一个按钮。用户看过真实页面后的原话：「it is not cool, not like an AI-product」。这一任务把它变成产品。
+
+> **实现者必须先 invoke `frontend-design` skill。** 这是一个「有辨识度的视觉设计」任务（手绘书本 / 圈词 / 手写体、边框辉光动效），不是布局任务。默认的 AI 味排版正是要避免的东西。
+
+**Files:**
+- Modify: `apps/lite-web/src/readings/ReadingsLanding.tsx`
+- Create: `apps/lite-web/src/readings/ReadingHistoryPanel.tsx`
+- Create: `apps/lite-web/src/readings/recommendations.ts`（种子数据）
+- Modify: `apps/lite-web/src/api/readings.ts`（上传）
+- Test: `apps/lite-web/test/readingsLanding.test.tsx`
+
+**要做成什么样**
+
+1. **居中的一句招呼**：AI 向学生打招呼——「Hi，今天要读点什么」。**「读」字要有设计**：手绘书本、圈出来的笔触、手写体三选一或组合。这是整页的视觉锚点。
+2. **粘贴框**：边框有**轻微的辉光动效**（呼吸感，不是闪烁）。提示文案说明：可以贴链接、贴整篇正文，**也可以上传 DOCX / PDF**（走 Task 15 的端点）。
+3. **不知道读什么？**：下方给出**今日推荐**。本期用**种子数据**（`recommendations.ts` 里 3-5 条，真实的标题 + 一句话理由 + 正文或链接），点一条即以它开始阅读。将来接样本库与教师布置的任务。
+4. **右上角入口 → 我的阅读面板**：**未完成的排在最上面**，点击**继续**；已完成的在下面，点击**看报告**（报告本身是 P2）。
+5. **落地页提示条**：有未完成时显示「你有 N 篇还没读完」；教师任务的位置**留出来但不接线**（P4）。
+
+**约束**
+
+- `mk-*` 是裸 CSS 变量：**任何 Tailwind alpha 语法（`bg-mk-x/50`）都不产出 CSS**。辉光用 `linear-gradient` / `color-mix` / `box-shadow` 做。
+- 辉光与任何动效都必须尊重 `prefers-reduced-motion`。
+- 复用 `apps/web` 的设计 token 与组件，不要新造一套色板。
+- **动到任何 e2e 相关文案，必须在报告里逐条列出新值**——Task 14 的走查按字面匹配，它在本任务之后才写。
+- 铁律②：推荐是「不知道读什么」时的帮助，**不是**信息流、不做无限滚动、不做「继续读」的成瘾式钩子。
+
+- [ ] **Step 1: invoke frontend-design skill，先定方向**
+- [ ] **Step 2: 实现落地页三块（招呼 / 辉光框 / 推荐）**
+- [ ] **Step 3: 实现我的阅读面板与提示条**
+- [ ] **Step 4: 接上传**
+- [ ] **Step 5: `pnpm --filter @mind-imprint/lite-web test && typecheck && build`**
+- [ ] **Step 6: 在真实浏览器里看，并截图**——这是唯一能验收「像不像 AI 产品」的方式
+- [ ] **Step 7: 提交**
+
+---
+
 ## 自检（写完计划后对照 spec）
 
 | Spec 条目 | 落在哪个任务 |
