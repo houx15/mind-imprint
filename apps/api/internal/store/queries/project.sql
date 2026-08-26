@@ -8,7 +8,7 @@ SELECT * FROM project WHERE id = $1;
 
 -- name: ListProjectsByUser :many
 SELECT * FROM project
-WHERE user_id = $1
+WHERE user_id = $1 AND kind = 'project'
 ORDER BY last_active_at DESC;
 
 -- name: ListDemoProjects :many
@@ -16,7 +16,7 @@ ORDER BY last_active_at DESC;
 -- pinned last and marked isDemo (guided-tour P5). Same columns as
 -- ListProjectsByUser so the handler folds both into one projectListItem shape.
 SELECT * FROM project
-WHERE is_demo = true
+WHERE is_demo = true AND kind = 'project'
 ORDER BY last_active_at DESC;
 
 -- name: CountLLMCallsByUserProject :many
@@ -31,11 +31,12 @@ GROUP BY project_id;
 -- name: CountActivityLogByUserProject :many
 -- Per-project activity-log totals for the caller's whole project list, in ONE
 -- grouped pass. activity_log_entry has no user_id, so join project to scope to
--- the caller; activity_log_entry is indexed on project_id.
+-- the caller; activity_log_entry is indexed on project_id. Containers (lite
+-- atoms' storage rows) are excluded — they are not projects.
 SELECT a.project_id, COUNT(*)::int AS n
 FROM activity_log_entry a
 JOIN project p ON p.id = a.project_id
-WHERE p.user_id = $1
+WHERE p.user_id = $1 AND p.kind = 'project'
 GROUP BY a.project_id;
 
 -- name: TouchProject :exec

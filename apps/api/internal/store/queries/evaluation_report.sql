@@ -22,7 +22,7 @@ SELECT * FROM evaluation_report WHERE project_id = @project_id;
 SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
-WHERE p.user_id = @user_id AND er.status = 'ready'
+WHERE p.user_id = @user_id AND er.status = 'ready' AND p.kind = 'project'
 ORDER BY er.created_at DESC;
 
 -- name: ListDemoEvaluationReports :many
@@ -32,5 +32,5 @@ ORDER BY er.created_at DESC;
 SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
-WHERE p.is_demo = true AND er.status = 'ready'
+WHERE p.is_demo = true AND er.status = 'ready' AND p.kind = 'project'
 ORDER BY er.created_at DESC;
