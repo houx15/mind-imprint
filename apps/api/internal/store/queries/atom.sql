@@ -19,8 +19,8 @@ SELECT * FROM atom_message WHERE atom_id = $1 ORDER BY seq;
 SELECT COALESCE(MAX(seq), 0)::int + 1 AS next FROM atom_message WHERE atom_id = $1;
 
 -- name: CreateAtomCard :one
-INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: GetAtomCard :one
@@ -33,10 +33,21 @@ SELECT * FROM atom_card WHERE atom_id = $1 ORDER BY created_at;
 UPDATE atom_card SET status = $2 WHERE id = $1 RETURNING *;
 
 -- name: SubmitAtomCard :one
+-- anchors is REPLACED here, not merged: the student's own picked sentence
+-- supersedes the AI's example the summon hung the card on. framework_fill is
+-- untouched, so the selection review recorded by the evaluate endpoint
+-- survives the submit (过程即数据).
 UPDATE atom_card
-SET status = 'submitted', field_values = $2, event_trace = $3, submitted_at = now()
+SET status = 'submitted', field_values = $2, event_trace = $3, anchors = $4, submitted_at = now()
 WHERE id = $1
 RETURNING *;
+
+-- name: SetAtomCardFramework :one
+-- The selection review (agent.EvaluateSelection) for this card, persisted so
+-- the AI's judgment of the student's picked sentence is a recorded fact and
+-- not just browser state. Never flips status — evaluate is a read-with-a-model,
+-- the confirm step is what submits.
+UPDATE atom_card SET framework_fill = $2 WHERE id = $1 RETURNING *;
 
 -- name: CreateAtomAnnotation :one
 INSERT INTO atom_annotation (atom_id, block_id, span, quote, note)

@@ -38,15 +38,17 @@ type AtomAnnotation struct {
 }
 
 type AtomCard struct {
-	ID          uuid.UUID          `json:"id"`
-	AtomID      uuid.UUID          `json:"atom_id"`
-	CardID      string             `json:"card_id"`
-	BlockID     *string            `json:"block_id"`
-	Status      string             `json:"status"`
-	FieldValues []byte             `json:"field_values"`
-	EventTrace  []byte             `json:"event_trace"`
-	CreatedAt   time.Time          `json:"created_at"`
-	SubmittedAt pgtype.Timestamptz `json:"submitted_at"`
+	ID            uuid.UUID          `json:"id"`
+	AtomID        uuid.UUID          `json:"atom_id"`
+	CardID        string             `json:"card_id"`
+	BlockID       *string            `json:"block_id"`
+	Status        string             `json:"status"`
+	FieldValues   []byte             `json:"field_values"`
+	EventTrace    []byte             `json:"event_trace"`
+	CreatedAt     time.Time          `json:"created_at"`
+	SubmittedAt   pgtype.Timestamptz `json:"submitted_at"`
+	Anchors       []byte             `json:"anchors"`
+	FrameworkFill []byte             `json:"framework_fill"`
 }
 
 type AtomMessage struct {

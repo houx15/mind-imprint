@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"log/slog"
@@ -377,6 +378,7 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	// is metered and a second flagship call to rescue a rare bad quote costs
 	// more than it saves, and she still gets her answer either way.)
 	var blockID *string
+	exampleAnchors := []byte("[]")
 	if decision.Decision == "summon" {
 		if !inReadingDeck(in.Catalog, decision.CardID) {
 			// The router named a card outside the deck it was given. Never mint
@@ -387,6 +389,13 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 		} else if anchor, aok := agent.ResolveExampleAnchor(decision, at.ID.String(), materialBlocks(blocks)); aok {
 			b := anchor.BlockID
 			blockID = &b
+			// Persist the FULL anchor, not just its block id: the room
+			// highlights the example sentence inside the paragraph and refuses
+			// a student pick that overlaps it, and both need the rune offsets
+			// and the verbatim quote ResolveExampleAnchor just proved.
+			if aj, merr := json.Marshal([]agent.Anchor{anchor}); merr == nil {
+				exampleAnchors = aj
+			}
 		} else {
 			slog.Info("lite reading turn: example quote not verbatim; degrading to respond",
 				"card_id", decision.CardID, "block_id", decision.ExampleBlockID, "atom_id", at.ID)
@@ -429,7 +438,7 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	if decision.Decision == "summon" {
 		row, cerr := qtx.CreateAtomCard(turnCtx, sqlc.CreateAtomCardParams{
 			AtomID: at.ID, CardID: decision.CardID, BlockID: blockID, Status: "proposed",
-			FieldValues: []byte("{}"), EventTrace: []byte("[]"),
+			FieldValues: []byte("{}"), EventTrace: []byte("[]"), Anchors: exampleAnchors,
 		})
 		if cerr != nil {
 			httpx.WriteError(w, r, cerr)

@@ -100,9 +100,9 @@ func (q *Queries) CreateAtomAnnotation(ctx context.Context, arg CreateAtomAnnota
 }
 
 const createAtomCard = `-- name: CreateAtomCard :one
-INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at
+INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
 `
 
 type CreateAtomCardParams struct {
@@ -112,6 +112,7 @@ type CreateAtomCardParams struct {
 	Status      string    `json:"status"`
 	FieldValues []byte    `json:"field_values"`
 	EventTrace  []byte    `json:"event_trace"`
+	Anchors     []byte    `json:"anchors"`
 }
 
 func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) (AtomCard, error) {
@@ -122,6 +123,7 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 		arg.Status,
 		arg.FieldValues,
 		arg.EventTrace,
+		arg.Anchors,
 	)
 	var i AtomCard
 	err := row.Scan(
@@ -134,6 +136,8 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 		&i.EventTrace,
 		&i.CreatedAt,
 		&i.SubmittedAt,
+		&i.Anchors,
+		&i.FrameworkFill,
 	)
 	return i, err
 }
@@ -155,7 +159,7 @@ func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 }
 
 const getAtomCard = `-- name: GetAtomCard :one
-SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at FROM atom_card WHERE id = $1
+SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill FROM atom_card WHERE id = $1
 `
 
 func (q *Queries) GetAtomCard(ctx context.Context, id uuid.UUID) (AtomCard, error) {
@@ -171,6 +175,8 @@ func (q *Queries) GetAtomCard(ctx context.Context, id uuid.UUID) (AtomCard, erro
 		&i.EventTrace,
 		&i.CreatedAt,
 		&i.SubmittedAt,
+		&i.Anchors,
+		&i.FrameworkFill,
 	)
 	return i, err
 }
@@ -208,7 +214,7 @@ func (q *Queries) ListAtomAnnotations(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listAtomCards = `-- name: ListAtomCards :many
-SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at FROM atom_card WHERE atom_id = $1 ORDER BY created_at
+SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill FROM atom_card WHERE atom_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCard, error) {
@@ -230,6 +236,8 @@ func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCa
 			&i.EventTrace,
 			&i.CreatedAt,
 			&i.SubmittedAt,
+			&i.Anchors,
+			&i.FrameworkFill,
 		); err != nil {
 			return nil, err
 		}
@@ -286,21 +294,21 @@ func (q *Queries) NextAtomMessageSeq(ctx context.Context, atomID uuid.UUID) (int
 	return next, err
 }
 
-const submitAtomCard = `-- name: SubmitAtomCard :one
-UPDATE atom_card
-SET status = 'submitted', field_values = $2, event_trace = $3, submitted_at = now()
-WHERE id = $1
-RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at
+const setAtomCardFramework = `-- name: SetAtomCardFramework :one
+UPDATE atom_card SET framework_fill = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
 `
 
-type SubmitAtomCardParams struct {
-	ID          uuid.UUID `json:"id"`
-	FieldValues []byte    `json:"field_values"`
-	EventTrace  []byte    `json:"event_trace"`
+type SetAtomCardFrameworkParams struct {
+	ID            uuid.UUID `json:"id"`
+	FrameworkFill []byte    `json:"framework_fill"`
 }
 
-func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) (AtomCard, error) {
-	row := q.db.QueryRow(ctx, submitAtomCard, arg.ID, arg.FieldValues, arg.EventTrace)
+// The selection review (agent.EvaluateSelection) for this card, persisted so
+// the AI's judgment of the student's picked sentence is a recorded fact and
+// not just browser state. Never flips status — evaluate is a read-with-a-model,
+// the confirm step is what submits.
+func (q *Queries) SetAtomCardFramework(ctx context.Context, arg SetAtomCardFrameworkParams) (AtomCard, error) {
+	row := q.db.QueryRow(ctx, setAtomCardFramework, arg.ID, arg.FrameworkFill)
 	var i AtomCard
 	err := row.Scan(
 		&i.ID,
@@ -312,12 +320,56 @@ func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) 
 		&i.EventTrace,
 		&i.CreatedAt,
 		&i.SubmittedAt,
+		&i.Anchors,
+		&i.FrameworkFill,
+	)
+	return i, err
+}
+
+const submitAtomCard = `-- name: SubmitAtomCard :one
+UPDATE atom_card
+SET status = 'submitted', field_values = $2, event_trace = $3, anchors = $4, submitted_at = now()
+WHERE id = $1
+RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
+`
+
+type SubmitAtomCardParams struct {
+	ID          uuid.UUID `json:"id"`
+	FieldValues []byte    `json:"field_values"`
+	EventTrace  []byte    `json:"event_trace"`
+	Anchors     []byte    `json:"anchors"`
+}
+
+// anchors is REPLACED here, not merged: the student's own picked sentence
+// supersedes the AI's example the summon hung the card on. framework_fill is
+// untouched, so the selection review recorded by the evaluate endpoint
+// survives the submit (过程即数据).
+func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) (AtomCard, error) {
+	row := q.db.QueryRow(ctx, submitAtomCard,
+		arg.ID,
+		arg.FieldValues,
+		arg.EventTrace,
+		arg.Anchors,
+	)
+	var i AtomCard
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.CardID,
+		&i.BlockID,
+		&i.Status,
+		&i.FieldValues,
+		&i.EventTrace,
+		&i.CreatedAt,
+		&i.SubmittedAt,
+		&i.Anchors,
+		&i.FrameworkFill,
 	)
 	return i, err
 }
 
 const updateAtomCardStatus = `-- name: UpdateAtomCardStatus :one
-UPDATE atom_card SET status = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at
+UPDATE atom_card SET status = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
 `
 
 type UpdateAtomCardStatusParams struct {
@@ -338,6 +390,8 @@ func (q *Queries) UpdateAtomCardStatus(ctx context.Context, arg UpdateAtomCardSt
 		&i.EventTrace,
 		&i.CreatedAt,
 		&i.SubmittedAt,
+		&i.Anchors,
+		&i.FrameworkFill,
 	)
 	return i, err
 }

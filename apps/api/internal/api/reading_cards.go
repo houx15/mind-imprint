@@ -23,12 +23,21 @@ import (
 // packages/contracts' Zod schemas; duplicating it here would guarantee drift.
 
 type cardDTO struct {
-	ID          string          `json:"id"`
-	CardID      string          `json:"cardId"`
-	BlockID     *string         `json:"blockId"`
-	Status      string          `json:"status"`
+	ID      string  `json:"id"`
+	CardID  string  `json:"cardId"`
+	BlockID *string `json:"blockId"`
+	Status  string  `json:"status"`
+	// anchors is what the card HANGS ON — the AI's example sentence while the
+	// card is proposed, the student's own picked sentence once she submits.
+	// The reading room needs the full span (block + rune offsets + quote), not
+	// just blockId: it highlights the example sentence inside the paragraph and
+	// enforces "pick a DIFFERENT sentence" by range overlap.
+	Anchors     json.RawMessage `json:"anchors"`
 	FieldValues json.RawMessage `json:"fieldValues"`
 	EventTrace  json.RawMessage `json:"eventTrace"`
+	// framework is the persisted selection review (verdict + 3 checks + finding)
+	// from the evaluate endpoint — `{}` until she has picked a sentence.
+	Framework   json.RawMessage `json:"framework"`
 	CreatedAt   string          `json:"createdAt"`
 	SubmittedAt *string         `json:"submittedAt"`
 }
@@ -36,8 +45,10 @@ type cardDTO struct {
 func cardDTOOf(row sqlc.AtomCard) cardDTO {
 	out := cardDTO{
 		ID: row.ID.String(), CardID: row.CardID, BlockID: row.BlockID, Status: row.Status,
+		Anchors:     jsonOr(row.Anchors, "[]"),
 		FieldValues: json.RawMessage(row.FieldValues),
 		EventTrace:  json.RawMessage(row.EventTrace),
+		Framework:   jsonOr(row.FrameworkFill, "{}"),
 		CreatedAt:   row.CreatedAt.Format(time.RFC3339),
 	}
 	if row.SubmittedAt.Valid {
@@ -45,6 +56,18 @@ func cardDTOOf(row sqlc.AtomCard) cardDTO {
 		out.SubmittedAt = &s
 	}
 	return out
+}
+
+// jsonOr keeps a jsonb column from ever reaching the client as a literal
+// `null`. The columns are NOT NULL with defaults, so this is belt-and-braces
+// for rows written before 0095 — but a stored null slipping past a Go
+// boundary check into a strict Zod parse is exactly how the teacher report
+// blanked once already, and the fix costs one line.
+func jsonOr(raw []byte, fallback string) json.RawMessage {
+	if len(bytes.TrimSpace(raw)) == 0 || bytes.Equal(bytes.TrimSpace(raw), []byte("null")) {
+		return json.RawMessage(fallback)
+	}
+	return json.RawMessage(raw)
 }
 
 // validateEnvelope is the boundary check the spec mandates: Go verifies only
@@ -211,6 +234,11 @@ func (a *API) liteSubmitCard(w http.ResponseWriter, r *http.Request) {
 	var body struct {
 		FieldValues json.RawMessage `json:"fieldValues"`
 		EventTrace  json.RawMessage `json:"eventTrace"`
+		// anchors — the sentence the student actually picked. 过程即数据: a
+		// submit that recorded only the envelope would lose WHICH sentence she
+		// chose, which is the whole point of the reading loop. Omitted → the
+		// card keeps the anchors it was summoned with.
+		Anchors json.RawMessage `json:"anchors"`
 	}
 	if err := decodeJSON(r, &body); err != nil {
 		httpx.WriteError(w, r, err)
@@ -220,8 +248,18 @@ func (a *API) liteSubmitCard(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	anchors := card.Anchors
+	if len(bytes.TrimSpace(body.Anchors)) > 0 {
+		var arr []any
+		if err := json.Unmarshal(body.Anchors, &arr); err != nil || arr == nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_anchors", "anchors 必须是一个 JSON 数组。", nil))
+			return
+		}
+		anchors = []byte(body.Anchors)
+	}
 	row, err := a.d.Queries.SubmitAtomCard(r.Context(), sqlc.SubmitAtomCardParams{
 		ID: card.ID, FieldValues: []byte(body.FieldValues), EventTrace: []byte(body.EventTrace),
+		Anchors: anchors,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
