@@ -2139,7 +2139,9 @@ describe("parseLiteRoute", () => {
 
 `ReadingsLanding.tsx`：标题输入（placeholder「给这次阅读起个名字（可留空）」）+ 正文 textarea（placeholder「把文章正文粘贴到这里…」）+「开始阅读」按钮 → `createReading` → `putReadingSource` → `navigate(readingPath(id))`；下方「过往的阅读」列表。**这三个字符串 Task 14 的 e2e 会按字面匹配，改动请同步。**
 
-`LiteApp.tsx`：左栏两项（写作 / 阅读），`popstate` 监听，按路由渲染；写作 tab 本期显示「写作即将上线」。`ReadingRoomHost` 先放一个临时占位（Task 12 实现），好让构建通过。
+`LiteApp.tsx`：**左侧边栏 + tab 切换，可自动折叠为纯图标**（与既有前端同形），`popstate` 监听，按路由渲染；写作 tab 本期显示「写作即将上线」。`ReadingRoomHost` 先放一个临时占位（Task 12 实现），好让构建通过。
+
+> **为什么是 tab 侧边栏而不是 Cowork 式的会话列表**（2026-08-26 用户定夺）：Cowork 那类「顶部切换 + 下方历史会话」是为**并行工作**设计的——同时活着许多线程，列表本身就是工作区。而**读一篇文章、写一篇东西是聚焦任务**：同一时刻只有一件事在手上，侧边栏是导航而非工作区。因此保留 tab 形态，并让它**自动折叠成图标**，把宽度还给阅读室（正文 + 陪练 + 悬挂卡片三者都吃横向空间）。历史仍留在各自 tab 的落地页上。
 
 ```bash
 pnpm --filter @mind-imprint/lite-web test && pnpm --filter @mind-imprint/lite-web typecheck && pnpm --filter @mind-imprint/lite-web build
