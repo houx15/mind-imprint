@@ -1,1 +1,115 @@
 @import "@/index.css";
+
+/* ---------------------------------------------------------------------------
+ * Lite landing — the two hand-made motions of the 阅读 front door.
+ *
+ * Both live here rather than in Tailwind classes for the same reason: they
+ * need pseudo-elements and keyframes, which utility classes can't express.
+ *
+ * HARD RULE this file exists to obey: `mk-*` are BARE CSS VARIABLES, so every
+ * Tailwind alpha modifier on them (`bg-mk-accent/40`, `text-mk-ink/70`) emits
+ * NO CSS AT ALL — the element just renders untinted. Every translucent accent
+ * below is therefore built with `color-mix()`, never with an alpha modifier.
+ * ------------------------------------------------------------------------- */
+
+/* 1 · The paste box breathes.
+ *
+ * A halo — not a border. The ring is a blurred accent gradient on a
+ * pseudo-element inset OUTSIDE the surface, so the box's own hairline stays
+ * crisp and the light spills onto the paper around it. Warm ink tones
+ * (朱砂 → 蜜桃 → 朱砂), deliberately not the cyan/violet an "AI glow" usually
+ * reaches for. Slow (6s) and shallow (.22 → .46) so it reads as breathing,
+ * not blinking. */
+.lite-glow {
+  position: relative;
+}
+
+.lite-glow::before {
+  content: "";
+  position: absolute;
+  inset: -10px;
+  /* the surface is rounded-mk-lg (12px); +10px of inset needs +10px of radius */
+  border-radius: 22px;
+  background: linear-gradient(
+    115deg,
+    color-mix(in srgb, var(--mk-accent-400) 62%, transparent) 0%,
+    color-mix(in srgb, var(--mk-peach) 58%, transparent) 45%,
+    color-mix(in srgb, var(--mk-accent-500) 62%, transparent) 100%
+  );
+  filter: blur(18px);
+  opacity: 0.42;
+  pointer-events: none;
+  z-index: 0;
+  animation: lite-breathe 6s ease-in-out infinite;
+}
+
+/* While she is actually typing the halo holds brighter. This has to be its
+ * own keyframe, not an `opacity:` override — a running animation wins the
+ * cascade for the properties it animates, so a plain declaration would
+ * silently do nothing. */
+.lite-glow:focus-within::before {
+  animation-name: lite-breathe-focus;
+}
+
+.lite-glow > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes lite-breathe {
+  0%,
+  100% {
+    opacity: 0.34;
+    transform: scale(0.994);
+  }
+  50% {
+    opacity: 0.66;
+    transform: scale(1.014);
+  }
+}
+
+@keyframes lite-breathe-focus {
+  0%,
+  100% {
+    opacity: 0.7;
+    transform: scale(1.004);
+  }
+  50% {
+    opacity: 0.92;
+    transform: scale(1.018);
+  }
+}
+
+/* 2 · The ink ring around 读 draws itself, once.
+ *
+ * `pathLength="1"` on the path normalizes its length, so the dash pair is
+ * exactly 1 → 0 regardless of the actual geometry — no measured magic number
+ * to drift when the stroke is redrawn. `forwards` leaves it closed. */
+.lite-ink-ring {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: lite-ink-draw 1.05s cubic-bezier(0.2, 0, 0, 1) 0.25s forwards;
+}
+
+@keyframes lite-ink-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Reduced motion: both motions stop and rest in their FINISHED state. The
+ * global reset in @/index.css already collapses every animation to ~0ms, but
+ * that alone would strand the ink ring mid-draw on some engines and leave the
+ * halo at its dimmest keyframe — so both are pinned explicitly. */
+@media (prefers-reduced-motion: reduce) {
+  .lite-glow::before,
+  .lite-glow:focus-within::before {
+    animation: none;
+    opacity: 0.46;
+    transform: none;
+  }
+  .lite-ink-ring {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}

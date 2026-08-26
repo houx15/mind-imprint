@@ -202,6 +202,36 @@ describe("ReadingRoomHost", () => {
     render(<ReadingRoomHost readingId={READING_ID} />);
     expect(await screen.findByText(/资源不存在|打不开/)).toBeTruthy();
   });
+
+  // A finished reading is TERMINAL. Before this, /readings/:id mounted the
+  // live room whatever the status was, so she could summon fresh lenses on a
+  // reading she had already finished and finish it again.
+  it("opens a finished reading read-only, never the live room", async () => {
+    routes[key("GET", `/api/v1/readings/${READING_ID}`)] = {
+      body: { ...READING, status: "finished", finishedAt: "2026-08-25T00:00:00Z" },
+    };
+    routes[key("GET", `/api/v1/readings/${READING_ID}/takeaway`)] = {
+      body: { text: "作者把「装机量」当成了「实际发电量」。", updatedAt: "2026-08-25T00:00:00Z" },
+    };
+    render(<ReadingRoomHost readingId={READING_ID} />);
+
+    expect(await screen.findByText("已完成")).toBeTruthy();
+    expect(screen.getByText("作者把「装机量」当成了「实际发电量」。")).toBeTruthy();
+    // Nothing that could change the reading is on the page.
+    expect(screen.queryByRole("tab")).toBeNull();
+    expect(screen.queryByText(/完成这次阅读/)).toBeNull();
+    // And the room's own loads are never even attempted.
+    expect(calls.some((c) => c.url.endsWith("/source"))).toBe(false);
+  });
+
+  it("still opens a finished reading when its takeaway cannot be read", async () => {
+    routes[key("GET", `/api/v1/readings/${READING_ID}`)] = {
+      body: { ...READING, status: "finished", finishedAt: "2026-08-25T00:00:00Z" },
+    };
+    render(<ReadingRoomHost readingId={READING_ID} />); // no takeaway route → 404
+    expect(await screen.findByText("已完成")).toBeTruthy();
+    expect(screen.getByText("这次阅读没有留下收获记录。")).toBeTruthy();
+  });
 });
 
 describe("createReadingRoomApi", () => {

@@ -25,10 +25,18 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+  // A FormData body must NOT carry an explicit Content-Type: the browser has
+  // to set it itself so it can append the multipart boundary. Forcing
+  // application/json here (the default for every other call) makes the server
+  // see a body it cannot parse — this is why the DOCX/PDF upload gets the
+  // same wrapper instead of a hand-rolled fetch of its own.
+  const isMultipart = typeof FormData !== "undefined" && init?.body instanceof FormData;
   const res = await fetch(`${API_BASE}${path}`, {
     ...init,
     credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
+    headers: isMultipart
+      ? { ...(init?.headers ?? {}) }
+      : { "Content-Type": "application/json", ...(init?.headers ?? {}) },
   });
   if (!res.ok) {
     let code = "internal_error";

@@ -67,3 +67,38 @@ export async function putReadingSource(
     body: JSON.stringify({ title: input.title ?? "", text: input.text ?? "", url: input.url ?? "" }),
   });
 }
+
+/** POST /api/v1/readings/{id}/source/file — multipart upload of a DOCX or
+ * PDF (field name "file", ≤30MB). The server extracts the text and lands it
+ * through the SAME storage call as paste/URL, so the response is the same
+ * `sourceDTO` and nothing downstream can tell how the article arrived.
+ *
+ * The extracted DOCUMENT's own title wins server-side — an uploaded file
+ * carries a real title and the student typed hers before she knew what the
+ * file contained. Callers that want hers to survive must `renameReading`
+ * afterwards. */
+export async function uploadReadingSourceFile(id: string, file: File): Promise<ReadingSource> {
+  const form = new FormData();
+  form.append("file", file);
+  return apiFetch<ReadingSource>(`/api/v1/readings/${encodeURIComponent(id)}/source/file`, {
+    method: "POST",
+    body: form,
+  });
+}
+
+/** PATCH /api/v1/readings/{id} — renames the reading. Title must be
+ * non-empty (the server 400s on blank). */
+export async function renameReading(id: string, title: string): Promise<Reading> {
+  return apiFetch<Reading>(`/api/v1/readings/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify({ title }),
+  });
+}
+
+/** GET /api/v1/readings/{id}/takeaway — 「我的收获」. Never 404s: a reading
+ * with nothing written yet answers 200 with an empty `text`. */
+export async function getReadingTakeaway(id: string): Promise<{ text: string; updatedAt: string }> {
+  return apiFetch<{ text: string; updatedAt: string }>(
+    `/api/v1/readings/${encodeURIComponent(id)}/takeaway`,
+  );
+}

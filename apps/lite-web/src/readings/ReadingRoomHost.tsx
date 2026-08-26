@@ -5,7 +5,15 @@ import { ReadingRoom } from "@/studio/reading/ReadingRoom";
 import type { ChatMessage } from "@/studio/reading/readingLoop";
 import { LITE_READING_CAPABILITIES } from "@/rooms/capabilities";
 import { ApiError } from "../api/client";
-import { getReading, getReadingSource, putReadingSource, type Reading, type ReadingSource } from "../api/readings";
+import {
+  getReading,
+  getReadingSource,
+  getReadingTakeaway,
+  putReadingSource,
+  type Reading,
+  type ReadingSource,
+} from "../api/readings";
+import { isFinished as isFinishedReading, shortDay } from "./ReadingHistoryPanel";
 import {
   createReadingRoomApi,
   getReadingBrief,
@@ -48,6 +56,7 @@ type LoadState =
   | { phase: "loading" }
   | { phase: "error"; message: string }
   | { phase: "needs-source"; reading: Reading }
+  | { phase: "finished"; reading: Reading; takeaway: string }
   | {
       phase: "ready";
       reading: Reading;
@@ -69,6 +78,19 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     void (async () => {
       try {
         const reading = await getReading(readingId);
+        // A FINISHED reading never mounts the room. Before this branch
+        // existed, `/readings/:id` opened the live room whatever the reading's
+        // status was — so a student could reopen a reading she had already
+        // finished, summon fresh lenses on it, and finish it a second time,
+        // with no 已完成 state anywhere to tell her the work was already done.
+        // Finished is a terminal state, and the surface has to say so.
+        if (isFinishedReading(reading)) {
+          const takeaway = await getReadingTakeaway(readingId)
+            .then((t) => t.text)
+            .catch(() => "");
+          if (!cancelled) setState({ phase: "finished", reading, takeaway });
+          return;
+        }
         // The source is fetched on its own so a 404 can be told apart from a
         // real failure: no article yet is a recoverable state with its own
         // surface, everything else is an error.
@@ -133,6 +155,15 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   if (state.phase === "error") {
     return <Centered>{state.message}</Centered>;
   }
+  if (state.phase === "finished") {
+    return (
+      <FinishedReadingPanel
+        reading={state.reading}
+        takeaway={state.takeaway}
+        onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
+      />
+    );
+  }
   if (state.phase === "needs-source") {
     return (
       <PasteSourcePanel
@@ -183,6 +214,61 @@ function Centered({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex h-full items-center justify-center p-8">
       <p className="text-mk-body text-mk-muted">{children}</p>
+    </div>
+  );
+}
+
+/**
+ * FinishedReadingPanel — what a finished reading opens into.
+ *
+ * READ-ONLY BY CONSTRUCTION. There is no room here, so there is no way to
+ * summon another lens, write another note, or re-finish it: the state is
+ * terminal and the surface has nothing that could change it. What she gets
+ * instead is the thing the reading produced — 我的收获, in her own words.
+ *
+ * The report is P2. Until it lands this page says so plainly rather than
+ * pretending: a promise with a date attached would be a claim we cannot keep,
+ * and a dead 「看报告」 button would be worse than the honest line.
+ */
+function FinishedReadingPanel({
+  reading,
+  takeaway,
+  onBack,
+}: {
+  reading: Reading;
+  takeaway: string;
+  onBack: () => void;
+}) {
+  const day = shortDay(reading.finishedAt ?? reading.updatedAt);
+  return (
+    <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 py-14">
+      <div className="flex flex-col gap-3">
+        <span
+          className="w-fit rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
+          style={{ background: "var(--mk-success-bg)" }}
+        >
+          已完成
+        </span>
+        <h1 className="text-mk-display text-mk-ink">{reading.title}</h1>
+        {day && <p className="text-mk-small text-mk-muted">完成于 {day}</p>}
+      </div>
+
+      <div className="rounded-mk-md border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
+        <h2 className="text-mk-label text-mk-faint">我的收获</h2>
+        <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">
+          {takeaway.trim() || "这次阅读没有留下收获记录。"}
+        </p>
+      </div>
+
+      <p className="text-mk-small text-mk-muted">
+        这次阅读的报告还在路上。你的批注和收获都已经存好了，报告上线后会出现在这里。
+      </p>
+
+      <div>
+        <Button variant="secondary" onClick={onBack}>
+          回到阅读
+        </Button>
+      </div>
     </div>
   );
 }
