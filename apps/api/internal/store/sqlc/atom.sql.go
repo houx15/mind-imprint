@@ -102,6 +102,7 @@ func (q *Queries) CreateAtomAnnotation(ctx context.Context, arg CreateAtomAnnota
 const createAtomCard = `-- name: CreateAtomCard :one
 INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (atom_id) WHERE status IN ('proposed', 'active') DO NOTHING
 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
 `
 
@@ -115,6 +116,13 @@ type CreateAtomCardParams struct {
 	Anchors     []byte    `json:"anchors"`
 }
 
+// ON CONFLICT DO NOTHING against atom_card_one_open_idx (0096): if another
+// request opened a lens between this caller's check and this insert, we get
+// pgx.ErrNoRows instead of a second open card. The handlers translate that
+// into "someone just opened one" — the SAME answer their own pre-check gives,
+// so the race and the ordinary case are indistinguishable to the student.
+// A row that is already terminal ('submitted'/'skipped') is not in the index,
+// so it can never conflict.
 func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) (AtomCard, error) {
 	row := q.db.QueryRow(ctx, createAtomCard,
 		arg.AtomID,

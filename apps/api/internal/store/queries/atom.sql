@@ -19,8 +19,16 @@ SELECT * FROM atom_message WHERE atom_id = $1 ORDER BY seq;
 SELECT COALESCE(MAX(seq), 0)::int + 1 AS next FROM atom_message WHERE atom_id = $1;
 
 -- name: CreateAtomCard :one
+-- ON CONFLICT DO NOTHING against atom_card_one_open_idx (0096): if another
+-- request opened a lens between this caller's check and this insert, we get
+-- pgx.ErrNoRows instead of a second open card. The handlers translate that
+-- into "someone just opened one" — the SAME answer their own pre-check gives,
+-- so the race and the ordinary case are indistinguishable to the student.
+-- A row that is already terminal ('submitted'/'skipped') is not in the index,
+-- so it can never conflict.
 INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (atom_id) WHERE status IN ('proposed', 'active') DO NOTHING
 RETURNING *;
 
 -- name: GetAtomCard :one

@@ -19,9 +19,12 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+
+	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
@@ -158,6 +161,22 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 		AtomID: at.ID, CardID: cardID, BlockID: blockID, Status: "proposed",
 		FieldValues: []byte("{}"), EventTrace: []byte("[]"), Anchors: anchorsJSON,
 	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		// atom_card_one_open_idx (0096) refused a SECOND open lens: another
+		// request opened one between the scan above and this insert. Answer
+		// with the same 先完成当前这副透镜 line the scan would have given —
+		// from the student's side nothing unusual happened, and the card she
+		// can actually see is the one that won.
+		//
+		// Without the index this branch is unreachable and the insert simply
+		// succeeds, leaving a second `proposed` row that getOpenCard never
+		// returns: invisible to her, yet blocking every future summon.
+		slog.Info("lite summon: lost the one-open-lens race; declining",
+			"atom_id", at.ID, "card_id", cardID,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		liteSummonDecline(w, liteSummonBusyReply)
+		return
+	}
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

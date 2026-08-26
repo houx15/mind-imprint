@@ -14,6 +14,19 @@ import (
 // propose one lands in Task 7.
 func seedCard(t *testing.T, pool *pgxpool.Pool, atomID, blockID string) string {
 	t.Helper()
+	// Retire whatever this reading already has open first. Since 0096 a
+	// reading can hold at most ONE proposed/active card
+	// (atom_card_one_open_idx), so a helper whose contract is "hand me an open
+	// card to act on" has to make room for it. Callers that seed a fresh card
+	// per subtest (see TestCardSubmit_RejectsMalformedEnvelope, which does so
+	// deliberately) would otherwise trip the constraint instead of exercising
+	// what they came to test.
+	if _, err := pool.Exec(t.Context(),
+		`UPDATE atom_card SET status = 'skipped'
+		 WHERE atom_id = $1 AND status IN ('proposed','active')`,
+		mustUUID(atomID)); err != nil {
+		t.Fatalf("retire open cards: %v", err)
+	}
 	var id string
 	if err := pool.QueryRow(t.Context(),
 		`INSERT INTO atom_card (atom_id, card_id, block_id, status)

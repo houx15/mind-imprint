@@ -440,12 +440,25 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 			AtomID: at.ID, CardID: decision.CardID, BlockID: blockID, Status: "proposed",
 			FieldValues: []byte("{}"), EventTrace: []byte("[]"), Anchors: exampleAnchors,
 		})
-		if cerr != nil {
+		switch {
+		case errors.Is(cerr, pgx.ErrNoRows):
+			// atom_card_one_open_idx (0096) refused a SECOND open lens: a
+			// concurrent turn or summon opened one after this turn assembled
+			// its PacingState. Degrade to a plain answer — her question and
+			// the coach's reply still commit, only the card is dropped. That
+			// is strictly better than failing the whole turn and losing the
+			// answer she already paid a flagship call for.
+			slog.Info("lite reading turn: lost the one-open-lens race; card dropped",
+				"atom_id", at.ID, "card_id", decision.CardID,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+			decision = agent.ReadingDecision{Decision: "respond"}
+		case cerr != nil:
 			httpx.WriteError(w, r, cerr)
 			return
+		default:
+			dto := cardDTOOf(row)
+			card = &dto
 		}
-		dto := cardDTOOf(row)
-		card = &dto
 	}
 	if err := tx.Commit(turnCtx); err != nil {
 		httpx.WriteError(w, r, err)
