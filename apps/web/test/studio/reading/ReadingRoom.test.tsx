@@ -2,6 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import type { MaterialSource } from "@mind-imprint/contracts";
 import { ReadingRoom } from "@/studio/reading/ReadingRoom";
+import { LITE_READING_CAPABILITIES } from "@/rooms/capabilities";
 
 const SOURCE: MaterialSource = {
   id: "m1", title: "NASA 气候报告", sourceUrl: "", kind: "article", origin: "nasa.gov",
@@ -43,6 +44,25 @@ describe("ReadingRoom", () => {
     // The chat starts with the coach greeting and the reading-deck starters.
     expect(screen.getByText(/这条来源可信吗/)).toBeInTheDocument();
     fireEvent.click(screen.getByText(/返回工作区/));
+    expect(onBack).toHaveBeenCalled();
+  });
+
+  // D2 (Task 18): 工作区 is a pro concept (the project) — a lite student has
+  // never seen one, so the label must not promise a place that isn't there.
+  it("lite mode: the back button reads 返回, not 返回工作区", () => {
+    const onBack = vi.fn();
+    render(
+      <ReadingRoom
+        projectId="p1"
+        referenceId="r1"
+        source={SOURCE}
+        onBack={onBack}
+        api={NOOP_API}
+        capabilities={LITE_READING_CAPABILITIES}
+      />
+    );
+    expect(screen.queryByText(/返回工作区/)).not.toBeInTheDocument();
+    fireEvent.click(screen.getByText("返回"));
     expect(onBack).toHaveBeenCalled();
   });
 });

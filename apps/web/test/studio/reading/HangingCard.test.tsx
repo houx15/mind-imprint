@@ -101,6 +101,36 @@ describe("HangingCard", () => {
     expect(onSkip).toHaveBeenCalled();
   });
 
+  it("active: shows the default instruction when there is no pickHint", () => {
+    render(
+      <HangingCard
+        cardName="证据溯源"
+        status="active"
+        exampleWhy="AI 选的这句话展示了如何找到支撑论点的证据。"
+        onStartPick={() => {}}
+        onConfirm={() => {}}
+        onRepick={() => {}}
+      />
+    );
+    expect(screen.getByText("在文章里点出你自己的证据句")).toBeInTheDocument();
+  });
+
+  it("active: a pickHint (D1) replaces the default instruction, in the same voice/styling", () => {
+    render(
+      <HangingCard
+        cardName="证据溯源"
+        status="active"
+        exampleWhy="AI 选的这句话展示了如何找到支撑论点的证据。"
+        onStartPick={() => {}}
+        onConfirm={() => {}}
+        onRepick={() => {}}
+        pickHint="这句是示范句——换一句你自己的证据句。"
+      />
+    );
+    expect(screen.getByText("这句是示范句——换一句你自己的证据句。")).toBeInTheDocument();
+    expect(screen.queryByText("在文章里点出你自己的证据句")).not.toBeInTheDocument();
+  });
+
   it("without onSkip, no skip control renders (optional prop stays optional)", () => {
     render(
       <HangingCard

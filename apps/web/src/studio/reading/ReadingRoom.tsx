@@ -36,6 +36,9 @@ export type ReadingRoomCard = {
   onRepick: () => void;
   onSkip: () => void;
   hasExample: boolean;
+  // D1 (Task 18): a transient "you clicked my example, not your own
+  // sentence" line — see readingLoop's pickHint.
+  pickHint?: string | null;
 };
 
 // ReadingRoomApi — the loop's own slice (readTurn/activateProjectCard/…) plus
@@ -417,6 +420,7 @@ export function ReadingRoom({
           onRepick: loop.repick,
           onSkip: loop.skip,
           hasExample: loop.exampleBlockId !== "",
+          pickHint: loop.pickHint,
         };
 
   // A graceful-degrade summon has no example block to hang under — and a resumed
@@ -481,7 +485,11 @@ export function ReadingRoom({
       <header className="mk-reading-room__topbar">
         <button type="button" className="mk-reading-room__back" onClick={() => onBack(finalizeDone)}>
           <BackIcon />
-          返回工作区
+          {/* Pro (and demo, which is read-only pro — same surfaces) has a
+              工作区 (the project) to return to; a lite student never sees a
+              project workspace, so the label must not promise a place that
+              isn't there (D2). */}
+          {caps.mode === "lite" ? "返回" : "返回工作区"}
         </button>
         <div className="mk-reading-room__brand">
           <span className="mk-reading-room__brand-name">思维印记 · 阅读工作台</span>
@@ -859,6 +867,7 @@ export function ReadingRoom({
                         onRepick={card.onRepick}
                         onSkip={card.onSkip}
                         hasExample={card.hasExample}
+                        pickHint={card.pickHint}
                       />
                     );
                   }}

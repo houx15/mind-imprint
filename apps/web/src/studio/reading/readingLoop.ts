@@ -98,6 +98,10 @@ export type UseReadingLoop = {
   studentSpan: CreatedSpan | null;
   studentAnchor: Anchor | null;
   eval: SelectionEval | null;
+  // A transient line for HangingCard (D1): set when pickSentence rejects a
+  // click on the AI's own example, cleared automatically a few seconds later
+  // (or immediately on the next real pick/repick). Null the rest of the time.
+  pickHint: string | null;
   // The coach dialogue log (student + assistant turns), oldest first.
   messages: ChatMessage[];
   // Confirmed reading outcomes, oldest first — the 阅读成果 accumulation.
@@ -171,6 +175,23 @@ export function useReadingLoop(
     initialOutcomes && initialOutcomes.length > 0 ? initialOutcomes : [],
   );
   const [busy, setBusy] = useState(false);
+  // pickHint (Task 18 / D1) — a transient line shown on HangingCard when
+  // pickSentence silently rejects a pick. Before this, clicking the AI's
+  // underlined example (the single most natural click on screen) did
+  // NOTHING — no message, no shake — because the guard below just
+  // `return`ed. The rejection itself is correct (she must find her OWN
+  // sentence); only the silence was the bug. Auto-clears after a few
+  // seconds, or immediately on the next real pick/repick/card change, so it
+  // never lingers as stale copy.
+  const [pickHint, setPickHint] = useState<string | null>(null);
+  const pickHintTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const clearPickHintTimer = useCallback(() => {
+    if (pickHintTimerRef.current != null) {
+      clearTimeout(pickHintTimerRef.current);
+      pickHintTimerRef.current = null;
+    }
+  }, []);
+  useEffect(() => clearPickHintTimer, [clearPickHintTimer]);
 
   const cardName = cardId ? (CARD_REGISTRY[cardId]?.name ?? cardId) : "";
 
@@ -223,7 +244,9 @@ export function useReadingLoop(
     setExampleWhy("");
     setStudentSpan(null);
     setEvalResult(null);
-  }, []);
+    setPickHint(null);
+    clearPickHintTimer();
+  }, [clearPickHintTimer]);
 
   // applyTurnEvents drains one SSE turn (readTurn OR summonCard both yield
   // the same StudioTurnEvent vocabulary) and applies its card/intervention
@@ -328,9 +351,18 @@ export function useReadingLoop(
         // With other blocks present she still has an alternative, so reject.
         const noAlternative = source.blocks.length <= 1 && pickedWholeBlock;
         if (overlapsExample && !noAlternative) {
+          // D1: tell her plainly, in the product's voice ("示范"/"证据句" are
+          // the same terms HangingCard already uses), instead of doing
+          // nothing. Transient — clears itself so it never reads as a
+          // lingering error banner.
+          clearPickHintTimer();
+          setPickHint("这句是示范句——换一句你自己的证据句。");
+          pickHintTimerRef.current = setTimeout(() => setPickHint(null), 2600);
           return;
         }
       }
+      clearPickHintTimer();
+      setPickHint(null);
       setStudentSpan(span);
       setStatus("evaluating");
       const result = await api.evaluateCardSelection(projectId, cardInstanceId, {
@@ -346,7 +378,7 @@ export function useReadingLoop(
       setEvalResult(result);
       setStatus("feedback");
     },
-    [api, projectId, cardInstanceId, cardId, exampleAnchor, source],
+    [api, projectId, cardInstanceId, cardId, exampleAnchor, source, clearPickHintTimer],
   );
 
   const confirm = useCallback(async () => {
@@ -392,8 +424,10 @@ export function useReadingLoop(
   const repick = useCallback(() => {
     setStudentSpan(null);
     setEvalResult(null);
+    setPickHint(null);
+    clearPickHintTimer();
     setStatus("active");
-  }, []);
+  }, [clearPickHintTimer]);
 
   const skip = useCallback(async () => {
     if (!cardInstanceId) return;
@@ -416,6 +450,7 @@ export function useReadingLoop(
     studentSpan,
     studentAnchor,
     eval: evalResult,
+    pickHint,
     messages,
     outcomes,
     busy,

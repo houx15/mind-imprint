@@ -220,10 +220,12 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await expect(finalize).toBeHidden({ timeout: 15_000 });
 
   // ── it is 已完成 afterwards, and it does NOT reopen as a live room ────────
-  // NOTE the literal: the room's back button still says 「返回工作区」, which is
-  // pro vocabulary — a lite student has no 工作区, she has 我的阅读. Asserted
-  // verbatim so the copy fix, when it lands, has to come through this walk.
-  await page.getByRole("button", { name: "返回工作区" }).click();
+  // D2 fix (Task 18): the room's back button used to read 「返回工作区」 in the
+  // lite room too — pro vocabulary a lite student has never seen (she has no
+  // 工作区, only 我的阅读). ReadingRoom now varies the label by
+  // `capabilities.mode`; asserted verbatim here so a regression back to the
+  // pro string is caught by this walk.
+  await page.getByRole("button", { name: "返回" }).click();
   await expect(page).toHaveURL(/\/readings$/);
   await expectGreeting(page);
 

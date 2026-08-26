@@ -21,6 +21,12 @@ export type HangingCardProps = {
   // state then drops the "看懂示范" framing and invites her to pick her own
   // sentence directly. Defaults true (the router/normal summon always has one).
   hasExample?: boolean;
+  // pickHint (D1, Task 18) — a transient line shown in place of the default
+  // "active" instruction when her last click was rejected (she clicked the
+  // AI's own underlined example instead of picking her own sentence). The
+  // hook clears it automatically a few seconds later. Absent/null → the
+  // default instruction renders, unchanged.
+  pickHint?: string | null;
 };
 
 /** Join truthy class fragments with a single space; drops falsy/empty ones. */
@@ -89,7 +95,7 @@ function SkipLink({ onSkip }: { onSkip: () => void }) {
 // composer/CTAs/tabs, mirroring the note block's taro treatment below it in
 // ReadingRoom.tsx. `radius-sm` (8px) matches the design system's default
 // card radius.
-export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick, onSkip, hasExample = true }: HangingCardProps) {
+export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval, onStartPick, onConfirm, onRepick, onSkip, hasExample = true, pickHint }: HangingCardProps) {
   return (
     <div className="relative mt-1 mb-[22px] ml-[18px] overflow-hidden rounded-mk-sm border border-mk-taro-bg bg-mk-surface shadow-mk-sm">
       <div className="lens-connector" aria-hidden="true" />
@@ -118,7 +124,12 @@ export function HangingCard({ cardName, status, exampleWhy, eval: selectionEval,
 
         {status === "active" && (
           <>
-            <div className="font-sans text-[14px] leading-[1.6] text-mk-ink">在文章里点出你自己的证据句</div>
+            {/* D1: a click on the AI's own underlined example is rejected —
+                correctly, she must find her OWN sentence — but it used to
+                reject SILENTLY. pickHint swaps in here, in the same voice
+                and styling as the ordinary instruction (not an error), then
+                clears itself and reverts. */}
+            <div className="font-sans text-[14px] leading-[1.6] text-mk-ink">{pickHint || "在文章里点出你自己的证据句"}</div>
             {onSkip && <SkipLink onSkip={onSkip} />}
           </>
         )}

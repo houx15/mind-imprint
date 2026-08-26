@@ -135,6 +135,43 @@ describe("useReadingLoop", () => {
 
     expect(result.current.status).toBe("active");
     expect(fakeApi.evaluateCardSelection).not.toHaveBeenCalled();
+    // D1 (Task 18): the rejection used to be silent. It now surfaces a
+    // one-line hint in the product's own voice — no exclamation, no "error".
+    expect(result.current.pickHint).toBe("这句是示范句——换一句你自己的证据句。");
+
+    // A subsequent VALID pick (a different block) clears the hint immediately,
+    // rather than leaving stale copy under a card that has moved on.
+    await act(async () => {
+      await result.current.pickSentence({ blockId: "b2", start: 0, end: 8, text: "然而事实并非如此" });
+    });
+    expect(result.current.pickHint).toBeNull();
+    expect(result.current.status).toBe("feedback");
+  });
+
+  it("pickHint auto-clears a few seconds after a rejected pick", async () => {
+    vi.useFakeTimers();
+    try {
+      const fakeApi = makeFakeApi();
+      const { result } = renderHook(() => useReadingLoop("p1", SOURCE, fakeApi as any));
+
+      await act(async () => {
+        await result.current.sendTurn("这段怪怪的");
+      });
+      await act(async () => {
+        await result.current.startPick();
+      });
+      await act(async () => {
+        await result.current.pickSentence({ blockId: "b1", start: 0, end: 10, text: "因此这项政策必然失败" });
+      });
+      expect(result.current.pickHint).not.toBeNull();
+
+      await act(async () => {
+        vi.advanceTimersByTime(3000);
+      });
+      expect(result.current.pickHint).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("repick() clears the student pick and eval, returning to active", async () => {
