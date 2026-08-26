@@ -77,7 +77,11 @@ func (a *API) postReadingSourceFileLite(w http.ResponseWriter, r *http.Request) 
 
 	data, err := io.ReadAll(file)
 	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("file_too_large", "文件太大，最多 30MB。", nil))
+		// Distinct from the oversize case above: ParseMultipartForm already
+		// accepted the body (so it was within the size cap) — this is a read
+		// failure on the already-parsed part itself, e.g. a truncated/corrupt
+		// multipart stream, not "too large".
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_file", "文件读取失败，请重新上传。", nil))
 		return
 	}
 
