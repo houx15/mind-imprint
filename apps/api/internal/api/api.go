@@ -75,6 +75,7 @@ func (a *API) Handler() http.Handler {
 	// 站点分流：pro 学校的账号看不见 /readings，lite 学校的账号看不见
 	// /projects —— 双向都是 404，不泄漏另一侧的存在。
 	proOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("pro", http.HandlerFunc(h)) }
+	liteOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("lite", http.HandlerFunc(h)) }
 	mux.Handle("GET /api/v1/auth/me", protected(a.me))
 	mux.Handle("GET /api/v1/growth/cards", protected(a.getGrowthCards))
 	mux.Handle("GET /api/v1/cards/catalog", protected(a.getCardsCatalog))
@@ -212,6 +213,13 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/projects/{id}/materials/{mid}/open-card", proOnly(a.getOpenReadingCard))
 	mux.Handle("GET /api/v1/projects/{id}/materials/{mid}/source", proOnly(a.getMaterialSource)) // read-only MaterialSource projection (guided-tour P6)
 	mux.Handle("POST /api/v1/projects/{id}/cards/{cid}/evaluate", proOnly(a.evaluateProjectCard))
+
+	// 轻量版（lite edition）· 阅读原子。{id} 一律是 atom id。
+	mux.Handle("GET /api/v1/readings", liteOnly(a.listReadings))
+	mux.Handle("POST /api/v1/readings", liteOnly(a.createReading))
+	mux.Handle("GET /api/v1/readings/{id}", liteOnly(a.getReading))
+	mux.Handle("PATCH /api/v1/readings/{id}", liteOnly(a.renameReading))
+
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
 	mux.Handle("GET /api/v1/courses/history", protected(a.getCourseHistory)) // learning history (touched courses)
