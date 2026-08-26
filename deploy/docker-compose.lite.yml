@@ -1,0 +1,46 @@
+# Lite-edition web stack — 思维印记 · lite reading/writing SPA
+#
+# DELIBERATELY SEPARATE from deploy/docker-compose.prod.yml and
+# deploy/docker-compose.site.yml, mirroring the site stack's shape: a single
+# static SPA behind nginx, no database, no secrets. Different compose project
+# name and its own port, so bringing lite up or down cannot touch the pro SPA,
+# the API or the marketing site.
+#
+# Lite talks to the SAME Go API as the pro SPA (apps/lite-web adds routes to
+# the existing apps/api service; P1 stood up no separate backend) — so the
+# default VITE_API_BASE_URL below matches apps/web's, not a distinct host.
+# Override it only if a lite-specific API origin is ever introduced.
+#
+# Run from the repo root:
+#   docker compose -f deploy/docker-compose.lite.yml up -d --build
+#
+# Topology (once a host vhost is added — not yet created, see the P1 task-13
+# report for what's outstanding):
+#   host nginx (TLS, certbot)
+#     ├── mind-api.uni-robot.cn   → 127.0.0.1:8090  → api container       (existing, shared)
+#     ├── mind-web.uni-robot.cn   → 127.0.0.1:8091  → web container       (existing, pro SPA)
+#     ├── mind.uni-robot.cn       → 127.0.0.1:8092  → site container      (existing, marketing)
+#     └── <lite domain, TBD>      → 127.0.0.1:8093  → lite-web container  (THIS FILE)
+#
+# There are no secrets in this stack: VITE_API_BASE_URL is a public origin,
+# baked into the bundle at build time, not a credential. So, like the site
+# stack, this compose file takes no --env-file.
+name: mindimprint-lite
+
+services:
+  lite-web:
+    build:
+      context: ..
+      dockerfile: apps/lite-web/Dockerfile
+      args:
+        # The public origin of the Go API, baked into the bundle at build
+        # time. Same backend as the pro SPA unless overridden.
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL:-https://mind-api.uni-robot.cn}
+    image: mindimprint-lite-web:latest
+    restart: unless-stopped
+    ports:
+      # 8090/8091/8092 are already taken by api/web/site (see
+      # deploy/docker-compose.prod.yml, deploy/docker-compose.site.yml) — 8093
+      # is the next free port, matching the port the P1 plan (Task 13 brief)
+      # named for local dev.
+      - "127.0.0.1:8093:80"
