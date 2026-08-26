@@ -88,6 +88,9 @@ func (p *AnthropicProvider) buildBody(r Resolved, req ChatRequest) map[string]an
 
 // Stream issues the streaming request and emits StreamEvents.
 func (p *AnthropicProvider) Stream(ctx context.Context, r Resolved, req ChatRequest) (<-chan StreamEvent, error) {
+	if req.ResponseFormat != "" {
+		return nil, fmt.Errorf("%w: anthropic does not support response format %q", errStreamFailed, req.ResponseFormat)
+	}
 	body, _ := json.Marshal(p.buildBody(r, req))
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, r.BaseURL+"/messages", bytes.NewReader(body))
 	if err != nil {
@@ -172,6 +175,7 @@ func (p *AnthropicProvider) consume(ctx context.Context, body io.Reader, out cha
 	inputTokens := 0
 	outputTokens := 0
 	var stop StopReason
+	completed := false
 
 	emit := func(ev StreamEvent) bool {
 		select {
@@ -235,19 +239,19 @@ func (p *AnthropicProvider) consume(ctx context.Context, body io.Reader, out cha
 				outputTokens = f.Usage.OutputTokens
 			}
 		case "message_stop":
-			// terminal
+			completed = true
 		}
 	}
 
-	// Surface scanner errors (e.g. line exceeding 1 MB buffer) rather than
-	// silently falling through to a fake-success Done.
+	// Preserve the historical terminal semantics for production callers while
+	// exposing incomplete upstream streams as observation-only metadata.
 	if err := sc.Err(); err != nil {
-		emit(StreamEvent{Kind: EventDone, StopReason: StopOther})
+		emit(StreamEvent{Kind: EventDone, StopReason: StopOther, Incomplete: true})
 		return
 	}
 
 	if !emit(StreamEvent{Kind: EventUsage, Usage: &ChatUsage{InputTokens: inputTokens, OutputTokens: outputTokens}}) {
 		return
 	}
-	emit(StreamEvent{Kind: EventDone, StopReason: stop})
+	emit(StreamEvent{Kind: EventDone, StopReason: stop, Incomplete: !completed})
 }

@@ -84,6 +84,9 @@ venv/
 dist/
 build/
 
+# Local evalbench binary (use `go run` or write builds outside the source tree)
+/apps/api/evalbench
+
 # Python package build
 *.egg-info/
 

@@ -1,0 +1,844 @@
+{
+  "report": {
+    "version": 1,
+    "reportId": "b3d70cd4-f41d-471b-a643-76ab22bfae18",
+    "projectId": "a9e7a1c4-238d-4bd8-b0af-3d6745cdf6e1",
+    "student": {
+      "id": "e061f198-a478-4d4b-ae5b-87bb97c940e0",
+      "name": "画像7·兴趣发散跑题型"
+    },
+    "basics": {
+      "title": "在800词篇幅内，聚焦回答中国是否让地球更可持续，用绿化(greening)、排放(emissions)、人类影响(human impact)三条主路证据给出一个有边界的答案，把卫星技术、印度对比、农业机制、能源转型、气候正义、Exxon历史等有趣但跑题的岔路记录在案，而不写进正文。",
+      "type": "",
+      "startDate": "2026-08-21T11:11:21Z",
+      "endDate": null,
+      "milestones": {
+        "started": "2026-08-21T11:11:21Z",
+        "frameworkFinished": "2026-08-21T11:27:37Z",
+        "proposalFinished": "2026-08-21T11:29:40Z",
+        "writingFinished": "2026-08-21T11:32:41Z",
+        "projectFinished": "2026-08-21T12:14:42Z"
+      },
+      "counters": {
+        "aiTurns": 38,
+        "materialsRead": 3,
+        "wordsWritten": 365,
+        "aiCommentCount": 7,
+        "editCount": 37
+      }
+    },
+    "abstract": {
+      "overview": "你在这次项目里最明显的进展是把一个容易写成大而全的问题收窄为三条主路，并能沿着绿化、排放、人类影响做证据链。材料溯源和反方让步都显示你在控制结论范围；但你的反思还停在“我知道自己容易发散”，尚未系统说清哪些证据改变过判断，与AI协作也没有明确立边界。总的说，这是一个有边界感、但还缺少可复盘研究轨迹的初稿。",
+      "materialSentence": "材料上，你能从公众号线索追到NASA发布稿、Nature Sustainability原文和PMC/PubMed，并识别co2science反方证据的适用范围，形成一条可核验的证据链。",
+      "writingSentence": "写作上，正文已经形成“证据—有限结论—让步”的链条，并主动加入CO2施肥反方让步和limitation，把结论压在数据能支撑的范围内。",
+      "aiSentence": "与AI协作中，你多次主动要求收窄范围和核查来源，但没有留下“不要代写、不要编来源、不要替我下结论”之类的边界句，协作边界主要靠你自己把关。",
+      "suggestionParagraph": "下一步的重点不是再找更多材料，而是把你已经开始的“主路/岔路”控制变成可检查的研究日志。尤其要补上两件事：一是记录证据怎样改变了你的判断，而不是只写“我容易发散”；二是在与AI协作时先立一条明确边界，让AI只挑刺、不代劳。这样你的收窄就不是一次性的，而会成为可迁移的写作习惯。",
+      "suggestionSentences": [
+        "补两条“证据改变判断”日志：写清哪条数据让你放弃了哪个写法或结论，至少补齐两次。",
+        "下次与AI开头先写一句边界：“请只指出漏洞和反例，不要帮我改结论或补来源。”保留这句原文。",
+        "扩充正文到800词时，优先补human impact主路的具体证据，而不是把卫星、印度、农业、能源转型等岔路放回。"
+      ],
+      "recommendedCourses": []
+    },
+    "events": [
+      {
+        "ts": "2026-08-21T11:11:33Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "425c951d-5be6-4666-b764-61648ba75cb8"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:11:57Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "55362cac-6686-4c48-a663-9a09ba5e8c58"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:12:20Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "d3f18d59-6db3-4ac9-9bda-9c8f0e17ae62"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:12:28Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "2c477e3f-b41c-49fa-aca5-3abaf3a6310d"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:12:54Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "cecd65c1-9b27-4e78-a040-eda619b1b24c"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:13:11Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "6f54cabe-84e0-4b01-b9ea-081159e0ae18"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:13:33Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "da612a22-62a8-4424-9b7e-cf96cd298550"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:13:59Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "dbd8ca3d-5be5-4060-b5f1-901881ef8e3a"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:14:39Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "703b6fc4-1122-4abe-bbbb-f1f238fde4be"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:15:38Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "91f83027-ed6a-4a8d-b02d-2c6f3acb641f"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:16:02Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "d3700463-cd6a-44b7-8e22-6cdfbc14962b"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:19:12Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "17d9e992-dc09-492e-b547-c6f0e61f5c3e"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:19:36Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "53a24af8-37c8-462c-91aa-9640091772cc"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:19:58Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "9c549fa4-69b7-4581-ae9c-fa43215383dc"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:20:27Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "330358a2-b091-4d51-bc86-48105b2706a3"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:20:50Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "cceb66ce-0a84-476e-8115-6fcdc63cd84e"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:21:13Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "ec12b92c-1a4b-431a-9125-dbe475a7b781"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:21:43Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "a04504e3-b17c-4709-a6c0-7570cf3464f7"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:22:04Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "0064b0a2-82c8-4b70-b91f-248099795848"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:22:37Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "ea07c4e3-f381-4c38-86e4-c1b84a35d1a2"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:23:17Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "303b0b79-7b58-4cc8-a780-fc03a530fa5d"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:23:49Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "b6768025-b61e-455f-b9b2-cd0576ced7c1"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:24:23Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "269c33e7-89be-400b-a673-2989271c5a75"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:24:50Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "c3ac7569-c61c-4712-a031-b6c6837b39c7"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:25:39Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "0d5fa563-eb63-43cc-a9b6-401f64d25f1d"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:26:12Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "67acae76-d29f-47fd-b8f2-4cb8e47c07e3"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:26:28Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "08aae4ee-469a-4e8c-84f1-256cb148cd79"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:27:37Z",
+        "kind": "milestone",
+        "summary": "立题完成，生成了项目计划",
+        "aiTurns": 0,
+        "ref": {
+          "id": "70f65c5e-b0fc-44fc-909f-f2b81e4f97cd"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:14Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "4ed065ff-13ba-4777-8ce3-e5e507c7b3f6"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:28:14Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "0fd47bbd-93bd-40c1-bc1d-f044b342f3f3"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:40Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "c0a41525-e250-46d9-ae1c-005668768409"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:50Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "8f3356c3-c863-4ac1-9a63-61bc70f77fb0"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:50Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "f9859600-b332-4f7d-9cb9-e26bbd5e4ee3"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:50Z",
+        "kind": "reading",
+        "summary": "新增了一份来源",
+        "aiTurns": 0,
+        "ref": {
+          "id": "9eba0f42-a443-4212-83cc-00031e33fbcb"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:51Z",
+        "kind": "reading",
+        "summary": "新增了一份来源",
+        "aiTurns": 0,
+        "ref": {
+          "id": "2da76f6c-65a8-4991-bdce-e1f75eba4993"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:52Z",
+        "kind": "reading",
+        "summary": "新增了一份来源",
+        "aiTurns": 0,
+        "ref": {
+          "id": "498b1b17-dccf-4d18-9e15-366d62278570"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:29:53Z",
+        "kind": "writing",
+        "summary": "version_saved",
+        "aiTurns": 0,
+        "ref": {
+          "id": "2a119282-b102-4903-98ef-1be05c96da88"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:31:07Z",
+        "kind": "review",
+        "summary": "请印记体检了整稿",
+        "aiTurns": 0,
+        "ref": {
+          "id": "0dd34a67-971b-4b9a-b851-f35d865c34aa"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:31:07Z",
+        "kind": "writing",
+        "summary": "revision_checkpoint",
+        "aiTurns": 0,
+        "ref": {
+          "id": "3e07ee1f-2348-4458-9f31-69b6663d742b"
+        }
+      },
+      {
+        "ts": "2026-08-21T11:31:16Z",
+        "kind": "chat",
+        "summary": "coach_turn",
+        "aiTurns": 0,
+        "ref": {
+          "id": "5fa486c9-bd54-4b4d-88cd-3b1e1af8ed2e"
+        }
+      }
+    ],
+    "materials": [
+      {
+        "materialId": "672a8a5b-866e-46c8-89ab-c6a12a5bb55f",
+        "addedAt": "2026-08-21T11:29:50Z",
+        "source": "NASA / Nature Sustainability / PMC — China greening evidence chain (Chen et al. 2019)",
+        "url": null,
+        "usedIn": null,
+        "finalStatus": "收集",
+        "comment": "",
+        "cannotSupport": "中国约占全球净增叶面积25%，仅占6.6%植被面积"
+      },
+      {
+        "materialId": "9f213c5b-d77f-4f4b-bd63-ffd689dc50e0",
+        "addedAt": "2026-08-21T11:29:51Z",
+        "source": "Our World in Data / Global Carbon Budget / IEA — China annual CO2 emissions share",
+        "url": null,
+        "usedIn": null,
+        "finalStatus": "收集",
+        "comment": "",
+        "cannotSupport": "中国约占全球年CO2排放31.8%"
+      },
+      {
+        "materialId": "fddb000e-81a0-4198-b45e-48901873b66f",
+        "addedAt": "2026-08-21T11:29:52Z",
+        "source": "The Economist video + World Bank Bangladesh report — human impact background",
+        "url": null,
+        "usedIn": null,
+        "finalStatus": "收集",
+        "comment": "",
+        "cannotSupport": "孟加拉未来30年可能有1330万气候内迁移民"
+      }
+    ],
+    "depth": [
+      {
+        "id": "D1",
+        "level": 3,
+        "summary": "学生主动把宽泛的“中国是否让地球更可持续”收窄为绿化、排放、人类影响三条主路，并预设结论边界与排除项，体现从绝对命题到有限定判断的收窄。",
+        "evidence": [
+          {
+            "id": "91af3e6c-f689-4e8b-afd4-c620522682f2",
+            "quote": "我感觉每个词都能展开一篇文章。我需要一个主路和岔路的表格，主路负责回答题目，岔路只记录为什么不展开，不然我会把800词写成一篇什么都讲的百科介绍。",
+            "observation": "学生识别到入口过大并主动建立主路/岔路约束，把任务收窄为可回答的问题，并明确边界。",
+            "boundary": "收窄依据记录为真，但未看到学生把这种判断直接写进开头的问题表述。"
+          },
+          {
+            "id": "915800c7-d5ff-41de-a82f-006914179b15",
+            "quote": "结论那句'my answer is limited because my evidence is limited'够不够...",
+            "observation": "学生在结论中主动加入证据边界，显示其不把结论绝对化。"
+          }
+        ],
+        "suggestion": "可在开篇写清三条主路外不回答什么，让边界更可验收。"
+      },
+      {
+        "id": "D2",
+        "level": 3,
+        "summary": "学生从公众号线索追到NASA发布稿、Nature原文和PMC/PubMed，并能识别数据合并口径和反方证据co2science的适用范围。",
+        "evidence": [
+          {
+            "id": "a2db4b83-39a7-4595-9004-280765666527",
+            "quote": "Nature页面读起来不方便，我又找到了PMC开放全文和PubMed索引记录，同一篇研究我现在有三个入口了。",
+            "observation": "显示学生围绕同一个问题追到一手出处，并比较不同入口的可获得性与来源等级。"
+          },
+          {
+            "id": "",
+            "quote": "那我只写一句：一些NASA的数字是中国和印度合计的，这样够不够，会不会把合计数字误当成中国单独的？",
+            "observation": "学生意识到中印合计数据不能误解为中国单独，体现对证据适用范围的判断。"
+          }
+        ],
+        "suggestion": "可进一步为每条核心证据标注它只能支持哪一句结论，避免过度引用。"
+      },
+      {
+        "id": "D3",
+        "level": 3,
+        "summary": "正文形成“证据—有限结论—让步”链条，学生主动加入co2science反方让步，并用limitation收窄结论，显示结论与证据匹配。",
+        "evidence": [
+          {
+            "id": "155cef74-accb-401c-8a4b-f0bc7f3e5760",
+            "quote": "co2science这句如果不正式引用网站本身，只写它的论点，会不会显得不够严谨？",
+            "observation": "学生在论证中纳入反方论点并关注其表述严谨性，显示让步段不是简单套话。"
+          },
+          {
+            "id": "915800c7-d5ff-41de-a82f-006914179b15",
+            "quote": "结论那句'my answer is limited because my evidence is limited'够不够...",
+            "observation": "结论主动降低强度，证据不能支持的部分被明确排除。"
+          },
+          {
+            "id": "提案·counterpoints",
+            "quote": "反方论点：CO2施肥效应能促进植物生长，所以气候变化没那么坏；另外Exxon的历史材料故事性很强，容易把文章拉向企业气候传播专题，需要在让步句里简短回应，而不是展开成单独一段。",
+            "observation": "提案 counterpoints：预先给反方定了篇幅位置。"
+          }
+        ],
+        "suggestion": "可以把每个claim到evidence之间的warrant写成一句话，使推理链更稳定。"
+      },
+      {
+        "id": "D4",
+        "level": 3,
+        "summary": "学生识别greening只是单一指标、排除地下水/生物多样性/长期维持等限制，并用反方CO2施肥效应协调主张，把限制转化为结论边界。",
+        "evidence": [
+          {
+            "id": "155cef74-accb-401c-8a4b-f0bc7f3e5760",
+            "quote": "co2science这句如果不正式引用网站本身，只写它的论点，会不会显得不够严谨？",
+            "observation": "学生主动处理反方证据，防止反方观点被草率采用或夸大。"
+          },
+          {
+            "id": "",
+            "quote": "那我只写一句：一些NASA的数字是中国和印度合计的，这样够不够，会不会把合计数字误当成中国单独的？",
+            "observation": "关注数据口径和解释范围，减少把合计贡献归因于中国单独贡献的偏误。"
+          },
+          {
+            "id": "对话",
+            "quote": "我看到有人从反方视频一路追到Exxon的历史材料——Science论文、PubMed记录、InsideClimateNews专题，我其实很想写Exxon，因为故事性真的很强。",
+            "observation": "承认取材冲动的来源是故事性，不是论证需要。",
+            "boundary": "反向证据；与后面的退出理由合读。"
+          }
+        ],
+        "suggestion": "可把水体、生物多样性等限制集中写入结论段，使边界更明显。"
+      },
+      {
+        "id": "D5",
+        "level": 3,
+        "summary": "学生收到“入口太大、不要被标题带偏”等反馈后，主动放弃Exxon、建立主路/岔路表，并重构材料取舍，修订改变研究判断而非仅措辞。",
+        "evidence": [
+          {
+            "id": "82c9e717-12eb-47ca-bdac-d372a9fc69cc",
+            "quote": "那我先不要继续写Exxon了，因为这篇文章只有800字，故事性强不代表适合这篇文章，退出理由是它离China sus...",
+            "observation": "学生明确说出放弃岔路的理由，并据此改变文章材料结构。"
+          },
+          {
+            "id": "91af3e6c-f689-4e8b-afd4-c620522682f2",
+            "quote": "我感觉每个词都能展开一篇文章。我需要一个主路和岔路的表格，主路负责回答题目，岔路只记录为什么不展开，不然我会把800词写成一篇什么都讲的百科介绍。",
+            "observation": "学生把反馈内化为结构性修订方案，影响论证边界。"
+          },
+          {
+            "id": "正文 v2 新增",
+            "quote": "That single, well-sourced illustration stands in for a much wider set of human-impact examples this research turned up, most of which are kept as notes rather than argument.",
+            "observation": "正文 v2 新增句：把「大量人类影响例子只留一个」这个取舍写进了正文。"
+          }
+        ],
+        "suggestion": "可保留一条“修订前-修订后”对照，持续记录哪些判断被改变。"
+      },
+      {
+        "id": "D6",
+        "level": 3,
+        "summary": "学生留下了自写反思，识别到自己发散倾向并提出主路/岔路控制策略，但尚未系统说明研究判断如何随证据改变。",
+        "evidence": [
+          {
+            "id": "91af3e6c-f689-4e8b-afd4-c620522682f2",
+            "quote": "我感觉每个词都能展开一篇文章。我需要一个主路和岔路的表格，主路负责回答题目，岔路只记录为什么不展开，不然我会把800词写成一篇什么都讲的百科介绍。",
+            "observation": "属于对自身检索与写作策略的自觉觉察，但更接近策略反思，尚未进入原假设如何被证据修正的层次。"
+          },
+          {
+            "id": "反思",
+            "quote": "一开始我总觉得不写三个视频案例、不写Exxon故事就浪费了查到的东西，后来明白source log可以保留岔路，正文只呈现主线。",
+            "observation": "自写反思，说明「不写就浪费」这个想法后来怎么被替换掉。"
+          },
+          {
+            "id": "反思",
+            "quote": "下次我会更早画main road/rabbit hole表，而不是等到查了几十条线索之后才意识到要收。",
+            "observation": "把这次的教训折成下次的启动动作。"
+          }
+        ],
+        "suggestion": "可在结尾加一句回顾：一开始想写哪些内容、后来为什么放弃，把策略反思升级为判断来源反思。"
+      }
+    ],
+    "autonomy": [
+      {
+        "id": "A1",
+        "band": 4,
+        "summary": "学生多次主动发起路线收窄：放弃Exxon、控制印度、把卫星/农业/能源/气候正义放入岔路，并落实到正文取舍。",
+        "evidence": [
+          {
+            "id": "82c9e717-12eb-47ca-bdac-d372a9fc69cc",
+            "quote": "那我先不要继续写Exxon了，因为这篇文章只有800字，故事性强不代表适合这篇文章，退出理由是它离China sus...",
+            "observation": "学生主动放弃一个故事性强但跑题的分支，并说明理由。"
+          },
+          {
+            "id": "a7aa2a0a-bbeb-4268-8d72-40759a71a254",
+            "quote": "我又想加一句印度也贡献很多，显得我没有忽略NASA标题，这样会不会跑题？",
+            "observation": "学生在写入印度前先判断是否偏离主问题，体现方向上的自查。"
+          }
+        ],
+        "suggestion": "可为每条岔路预判退出标准，避免反复纠结。"
+      },
+      {
+        "id": "A2",
+        "band": 4,
+        "summary": "学生至少7次自发补查/核查：从NASA搜索、Nature/PMC/PubMed、OWID/IEA到视频和反方co2science，跨多个阶段并形成正文证据。",
+        "evidence": [
+          {
+            "id": "bec39776-2c4e-477d-8807-dc76a2262f4b",
+            "quote": "我先搜NASA China India greening Earth satellite，打开了NASA Ames的...",
+            "observation": "学生主动从公众号线索出发检索一手来源。"
+          },
+          {
+            "id": "a2db4b83-39a7-4595-9004-280765666527",
+            "quote": "Nature页面读起来不方便，我又找到了PMC开放全文和PubMed索引记录，同一篇研究我现在有三个入口了。",
+            "observation": "未被要求地补充多个入口，显示自发核查。"
+          },
+          {
+            "id": "739b98d1-4d1f-4438-b5ae-f3c3331acd5f",
+            "quote": "OWID图表旁边列了很多国家，我又想比较一下美国、印度、中国的排放，还点进了中国profile页看到人均、累计、消费…",
+            "observation": "主动延伸阅读排放数据，寻找可比较维度。"
+          }
+        ],
+        "suggestion": "可继续为每次自发查证标记它最终是否改变了正文结论。"
+      },
+      {
+        "id": "A3",
+        "band": 1,
+        "summary": "记录中未见学生向AI提出“不要代写、不要编来源、不要替我下结论”之类的有效边界句或边界动作，暂无足够证据。",
+        "evidence": [
+          {
+            "id": "AI 使用声明·不用于",
+            "quote": "代写正文、替我决定哪条岔路该保留、替我看视频或读论文、预测分数。",
+            "observation": "AI 使用声明 not_used_for；第二条正对着自己的发散软肋。",
+            "boundary": "属声明层边界；对话里没有对 AI 复述过。"
+          },
+          {
+            "id": "边界的下游痕迹",
+            "quote": "greening (Nature/PMC 中国25%净增叶面积、6.6%植被面积)、emissions (OWID/GCB 31.8%，IEA近期趋势)、human impact (Economist视频+World Bank孟加拉背景)",
+            "observation": "声明里写的是「不要替我决定哪条岔路该保留」；rabbit-hole 卡的主路是学生自己定的三条，这是那条边界的下游痕迹。",
+            "boundary": "边界句本身未在对话中对 AI 说出，取舍动作是自己做的。"
+          }
+        ],
+        "suggestion": "可在使用AI时明确说“不要替我下结论、不要编来源”，并保留语境。"
+      },
+      {
+        "id": "A4",
+        "band": 2,
+        "summary": "学生有1次主动让AI检查结论表述是否足够，但尚未形成稳定的请人挑刺或对手邀请。",
+        "evidence": [
+          {
+            "id": "915800c7-d5ff-41de-a82f-006914179b15",
+            "quote": "结论那句'my answer is limited because my evidence is limited'够不够...",
+            "observation": "这是对结论强度的评价请求，近似对手检验，但未邀请质疑gap/方法/样本。"
+          },
+          {
+            "id": "对话",
+            "quote": "Exxon如果完全不写进正文，会不会显得我没有深挖反方背景，让评审觉得我漏查了？",
+            "observation": "主动把「不写 Exxon 会不会被判漏查」拿出来检验。"
+          },
+          {
+            "id": "对话",
+            "quote": "我又想加一句印度也贡献很多，显得我没有忽略NASA标题，这样会不会跑题？",
+            "observation": "在写作阶段主动请人检查是否偏离主问题。"
+          }
+        ],
+        "suggestion": "可定期让AI或同伴专门攻击你的gap、方法、样本，并把由此形成的修订写下来。"
+      },
+      {
+        "id": "A5",
+        "band": 3,
+        "summary": "学生至少2-3次解释材料选择与结论范围（放弃Exxon的理由、选择中国单独25%而非中印合计），显示愿意为选择负责。",
+        "evidence": [
+          {
+            "id": "82c9e717-12eb-47ca-bdac-d372a9fc69cc",
+            "quote": "那我先不要继续写Exxon了，因为这篇文章只有800字，故事性强不代表适合这篇文章，退出理由是它离China sus...",
+            "observation": "学生为材料取舍给出判断理由。"
+          },
+          {
+            "id": "09291642-3bfd-47ae-a503-a1cbc1bfafb4",
+            "quote": "我在PMC里看到中国单独贡献全球净增叶面积的25%，只占全球植被面积的6.6%，这个数字感觉比中印合计更适合做核心证...",
+            "observation": "学生解释为何选择中国单独数据为核心证据，体现方法选择负责。"
+          }
+        ],
+        "suggestion": "可在结论处加一句“基于我的证据与判断……”，更明确署名。"
+      },
+      {
+        "id": "A6",
+        "band": 3,
+        "summary": "学生因证据边界实质性收窄结论：担心合计数据误读为单独贡献、结论句加入limitation、对CO2施肥反方做让步而不夸大。",
+        "evidence": [
+          {
+            "id": "",
+            "quote": "那我只写一句：一些NASA的数字是中国和印度合计的，这样够不够，会不会把合计数字误当成中国单独的？",
+            "observation": "学生主动避免把中印合计数据抬高为中国单独贡献，属于求真性收窄。"
+          },
+          {
+            "id": "915800c7-d5ff-41de-a82f-006914179b15",
+            "quote": "结论那句'my answer is limited because my evidence is limited'够不够...",
+            "observation": "学生明确以证据局限降低结论强度。"
+          },
+          {
+            "id": "155cef74-accb-401c-8a4b-f0bc7f3e5760",
+            "quote": "co2science这句如果不正式引用网站本身，只写它的论点，会不会显得不够严谨？",
+            "observation": "处理反方证据时保留其真实可能，但未由此推翻主结论。"
+          }
+        ],
+        "suggestion": "可把“我本来想写但证据不支持”的决策单独标注，强化求真优先可见度。"
+      }
+    ],
+    "promptLens": {
+      "summary": "这个学生整体上不是在向AI索取直接答案或代写正文，而是把AI当作思路陪练和边界检查器。她的提问从“题目太大不知道从哪下手”的元认知开始，逐渐展现出主动追踪一手来源、用反方数据约束结论、要求建立主路/岔路表格和主动砍掉高故事性岔路的能力；正文阶段的问题也集中在“该展开多少、会不会跑题、是否严谨”，而不是“帮我写”。成熟度中高，主要可提醒的是她仍会被趣味材料短暂吸引，但多数时候能自我纠正。",
+      "prompts": [
+        {
+          "stage": "proposal_forming",
+          "quote": "老师让写800词议论文：中国有没有让地球更可持续？我感觉气候、植树、农业、卫星都能扯上，一开始完全不知道从哪下手，好像每个方向都能单独写一篇。",
+          "ref": {
+            "id": "",
+            "label": "问题空间过大"
+          },
+          "observation": "这条不是求标准答案，而是把“话题太大、入口太多”的困难摆在AI面前，说明她已经意识到需要聚焦，但还没有自己形成结构。提问成熟度体现在她能描述问题而不是乱抓一个方向。",
+          "relatedDomains": [
+            "学术写作",
+            "气候与可持续发展",
+            "信息组织"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "我第一条材料是刷到的微信公众号文章，标题是《美航局卫星发现地球变绿了，源头在印度和中国，这是怎么回事？》。我觉得这个开头很有意思。",
+          "ref": {
+            "id": "83b7dd92-2ead-40ca-9214-14b0143d6271",
+            "label": "公众号线索"
+          },
+          "observation": "她从二手转述材料进入，但有对趣味开头的判断力。这样的提问说明她会被媒介叙事吸引，而还没有立即追问一手来源；后需要教练提醒她从公众号追到NASA原文。",
+          "relatedDomains": [
+            "媒介素养",
+            "气候传播",
+            "遥感与地球科学"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "我感觉每个词都能展开一篇文章。我需要一个主路和岔路的表格，主路负责回答题目，岔路只记录为什么不展开，不然我会把800词写成一篇什么都讲的百科介绍。",
+          "ref": {
+            "id": "91af3e6c-f689-4e8b-afd4-c620522682f2",
+            "label": "主路/岔路框架"
+          },
+          "observation": "这是全过程中成熟度最高的一条提问：她不要AI给内容，而是要一个认知架构来管理注意力和边界，并且能清晰预判失控后果。这说明她在把AI当作结构性思考的对手，而不是资料补充工具。",
+          "relatedDomains": [
+            "认知策略",
+            "学术写作",
+            "研究设计"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "我搜China share of global CO2 emissions 2024，打开了OWID的图表，2024年中国大概占31.8%，这个能限制我的sustainability结论。",
+          "ref": {
+            "id": "",
+            "label": "OWID排放数据"
+          },
+          "observation": "这条体现她主动寻找反方证据，并意识到数据可以用来限制结论，而不是只搜集对“中国让地球更可持续”有利的材料。这是议论文中比较高阶的证据意识。",
+          "relatedDomains": [
+            "环境数据",
+            "排放核算",
+            "论证评估"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "proposal_forming",
+          "quote": "那我先不要继续写Exxon了，因为这篇文章只有800字，故事性强不代表适合这篇文章，退出理由是它离China sustainability这个主问题太远。",
+          "ref": {
+            "id": "82c9e717-12eb-47ca-bdac-d372a9fc69cc",
+            "label": "拒绝Exxon岔路"
+          },
+          "observation": "她能在高故事性材料面前主动割舍，并用研究问题和篇幅作为判断标准。这表明她开始把“有趣”和“相关”分开，是边界管理能力的直接体现。",
+          "relatedDomains": [
+            "气候政治",
+            "论证边界",
+            "叙事取舍"
+          ],
+          "attention": false
+        },
+        {
+          "stage": "body_writing",
+          "quote": "排放段我想顺便提一下美国的历史累计排放做对比，篇幅装得下吗？",
+          "ref": {
+            "id": "72e86cd4-7a27-47d3-89da-51b4e04d530c",
+            "label": "历史累计排放/篇幅"
+          },
+          "observation": "正文阶段她仍在用“该不该写、会否跑题、篇幅是否允许”向AI求证，说明她把AI当成写作边界讨论的对象。不过这个提问背后有论证重心的潜在风险：美国历史责任很容易把排放段从“中国排放”拖向“中美责任对比”，她当时只问篇幅，未完全意识到会改变论证性质。",
+          "relatedDomains": [
+            "气候正义",
+            "中美排放比较",
+            "论文结构"
+          ],
+          "attention": false
+        }
+      ]
+    },
+    "toolUsage": [
+      {
+        "toolId": "rabbit-hole",
+        "name": "rabbit-hole",
+        "stage": "",
+        "purpose": "completed",
+        "summary": "状态：completed"
+      }
+    ],
+    "risks": [
+      {
+        "type": "missing-source",
+        "behaviour": "正文引用 NASA/Nature Sustainability 的绿化数据（中国单独贡献 25% 净增叶面积、42% 森林、32% 农田），但正文引用数为 0，来源状态为无链接/未溯源。",
+        "ref": {
+          "id": "672a8a5b-866e-46c8-89ab-c6a12a5bb55f",
+          "label": "NASA / Nature Sustainability / PMC — China greening evidence"
+        },
+        "suggestion": "在首次引用该数据处补上可追溯的来源标记或链接，避免数据看似来自作者。"
+      },
+      {
+        "type": "missing-source",
+        "behaviour": "正文引用 OWID/Global Carbon Budget 的 31.8% 全球 CO2 排放占比和 IEA 2025 年能源相关 CO2 可能下降约 0.5%，但未给出可追溯来源标注。",
+        "ref": {
+          "id": "9f213c5b-d77f-4f4b-bd63-ffd689dc50e0",
+          "label": "Our World in Data / Global Carbon Budget / IEA — China annual CO2 emissions share"
+        },
+        "suggestion": "为排放段数据补充来源标注或可点击引用，使证据链可复核。"
+      },
+      {
+        "type": "data-scope",
+        "behaviour": "正文用孟加拉国未来 30 年最多 1330 万国内气候移民的单一案例代表更广泛的人类影响证据，结论范围可能过宽。",
+        "ref": {
+          "id": "1c1f7e27-4b71-4e8a-be3a-9b401ca7aeb3",
+          "label": "The Economist视频+World Bank孟加拉迁移者线索"
+        },
+        "suggestion": "将孟加拉案例明确限定为单个例证，或补充其他人类影响证据以支撑更广结论。"
+      }
+    ],
+    "generatedAt": "2026-08-21T16:00:03Z"
+  },
+  "status": "ready",
+  "_meta": {
+    "kind": "manual-edited-evaluation-report",
+    "cohort": "eval-cohort-2026-08-21",
+    "persona": 7,
+    "slug": "divergent",
+    "displayName": "画像7·兴趣发散跑题型",
+    "studentEmail": "divergent@eval0821.mindimprint.cn",
+    "projectId": "a9e7a1c4-238d-4bd8-b0af-3d6745cdf6e1",
+    "basedOn": "reports/persona7-divergent.report.json",
+    "editedAt": "2026-08-23T06:48:50.677Z",
+    "editedWith": "评估数据查看器 (built 2026-08-22 08:27)"
+  }
+}

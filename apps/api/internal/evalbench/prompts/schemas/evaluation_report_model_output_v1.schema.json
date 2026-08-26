@@ -1,0 +1,571 @@
+{
+  "$ref": "#/definitions/EvaluationReportModelOutput",
+  "definitions": {
+    "EvaluationReportModelOutput": {
+      "type": "object",
+      "properties": {
+        "abstract": {
+          "type": "object",
+          "properties": {
+            "overview": {
+              "type": "string"
+            },
+            "materialSentence": {
+              "type": "string"
+            },
+            "writingSentence": {
+              "type": "string"
+            },
+            "aiSentence": {
+              "type": "string"
+            },
+            "suggestionParagraph": {
+              "type": "string"
+            },
+            "suggestionSentences": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "recommendedCourses": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "courseId": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "required": [
+                  "courseId",
+                  "reason"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "overview",
+            "materialSentence",
+            "writingSentence",
+            "aiSentence",
+            "suggestionParagraph",
+            "suggestionSentences",
+            "recommendedCourses"
+          ],
+          "additionalProperties": false
+        },
+        "depth": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "D1"
+                },
+                "level": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 4
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "ts": {
+                        "type": "string"
+                      },
+                      "stage": {
+                        "type": "string"
+                      },
+                      "quote": {
+                        "type": "string"
+                      },
+                      "observation": {
+                        "type": "string"
+                      },
+                      "boundary": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id",
+                      "quote",
+                      "observation"
+                    ],
+                    "additionalProperties": false
+                  }
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "D2"
+                },
+                "level": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/level"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "D3"
+                },
+                "level": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/level"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "D4"
+                },
+                "level": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/level"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "D5"
+                },
+                "level": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/level"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "D6"
+                },
+                "level": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/level"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "level",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "autonomy": {
+          "type": "array",
+          "minItems": 6,
+          "maxItems": 6,
+          "items": [
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "A1"
+                },
+                "band": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 5
+                },
+                "summary": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/definitions/EvaluationReportModelOutput/properties/depth/items/0/properties/evidence/items"
+                  }
+                },
+                "suggestion": {
+                  "type": "string"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "A2"
+                },
+                "band": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/band"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "A3"
+                },
+                "band": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/band"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "A4"
+                },
+                "band": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/band"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "A5"
+                },
+                "band": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/band"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "id": {
+                  "type": "string",
+                  "const": "A6"
+                },
+                "band": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/band"
+                },
+                "summary": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/summary"
+                },
+                "evidence": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/evidence"
+                },
+                "suggestion": {
+                  "$ref": "#/definitions/EvaluationReportModelOutput/properties/autonomy/items/0/properties/suggestion"
+                }
+              },
+              "required": [
+                "id",
+                "band",
+                "summary",
+                "evidence",
+                "suggestion"
+              ],
+              "additionalProperties": false
+            }
+          ]
+        },
+        "promptLens": {
+          "type": "object",
+          "properties": {
+            "summary": {
+              "type": "string"
+            },
+            "prompts": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "stage": {
+                    "type": "string"
+                  },
+                  "quote": {
+                    "type": "string"
+                  },
+                  "ref": {
+                    "type": "object",
+                    "properties": {
+                      "id": {
+                        "type": "string"
+                      },
+                      "label": {
+                        "type": "string"
+                      },
+                      "ts": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [
+                      "id"
+                    ],
+                    "additionalProperties": false
+                  },
+                  "observation": {
+                    "type": "string"
+                  },
+                  "relatedDomains": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "attention": {
+                    "type": "boolean"
+                  }
+                },
+                "required": [
+                  "stage",
+                  "quote",
+                  "ref",
+                  "observation",
+                  "relatedDomains",
+                  "attention"
+                ],
+                "additionalProperties": false
+              }
+            }
+          },
+          "required": [
+            "summary",
+            "prompts"
+          ],
+          "additionalProperties": false
+        },
+        "risks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "ai-ghostwrite",
+                  "missing-source",
+                  "argument-logic",
+                  "data-scope",
+                  "rabbit-hole-offtopic"
+                ]
+              },
+              "behaviour": {
+                "type": "string"
+              },
+              "ref": {
+                "$ref": "#/definitions/EvaluationReportModelOutput/properties/promptLens/properties/prompts/items/properties/ref"
+              },
+              "suggestion": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "behaviour",
+              "suggestion"
+            ],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": [
+        "abstract",
+        "depth",
+        "autonomy",
+        "promptLens",
+        "risks"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "$schema": "http://json-schema.org/draft-07/schema#"
+}
