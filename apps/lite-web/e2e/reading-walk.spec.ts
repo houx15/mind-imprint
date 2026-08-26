@@ -73,13 +73,33 @@ async function startReading(page: Page, title: string, body: string): Promise<st
   return new URL(page.url()).pathname.split("/").pop()!;
 }
 
-/** Every surface that belongs to a research project and must never appear in
- *  a lite room. Asserted on DOM counts (not visibility) so a hidden-but-
- *  rendered surface still fails. */
+/**
+ * Every surface that belongs to a research project and must never appear in a
+ * lite room. Asserted on DOM counts (not visibility) so a hidden-but-rendered
+ * surface still fails.
+ *
+ * RULE FOR ANYONE ADDING TO THIS LIST: an absence assertion can never fail on
+ * its own, so a literal that does not exist in the product is indistinguishable
+ * from one that is correctly absent — it reads as coverage while guarding
+ * nothing. This list carried 「追踪来源」 for one commit; the real string is
+ * 「追来源」 and the longer form appears nowhere in apps/web/src. Every literal
+ * below has been grepped and rendered:
+ *
+ *   证据笔记      ReadingRoom.tsx           (gated on caps.evidenceMap)
+ *   追来源        ReadingRoom.tsx           (gated on caps.explorationLeads)
+ *   新的线索      FinalizeReadingPanel.tsx  (gated on caps.proposalImpact)
+ *   对论点的影响  FinalizeReadingPanel.tsx  (gated on caps.proposalImpact)
+ *
+ * Only the last two are load-bearing HERE: the first two are ALSO gated on
+ * callbacks `ReadingRoomHost` never passes, so they would stay absent even
+ * under PRO_CAPABILITIES. The real guard for those lives at the unit level, in
+ * apps/lite-web/test/readingRoomCapabilities.test.tsx, which supplies the
+ * callbacks and asserts both surfaces PRESENT under PRO_CAPABILITIES and
+ * absent under lite. These two lines are belt-and-braces on top of it.
+ */
 async function expectNoProjectSurfaces(page: Page): Promise<void> {
   await expect(page.getByText("证据笔记")).toHaveCount(0);
   await expect(page.getByText("追来源")).toHaveCount(0);
-  await expect(page.getByText("追踪来源")).toHaveCount(0);
   await expect(page.getByText("新的线索")).toHaveCount(0);
   await expect(page.getByText("对论点的影响")).toHaveCount(0);
 }

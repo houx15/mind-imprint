@@ -28,6 +28,14 @@ const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:5174";
  *    Seeding it here (rather than by hand before a run) is what keeps the
  *    suite runnable from a cold `run-stack.sh`.
  *
+ *    The UPDATE has **no WHERE clause** on purpose: `run-stack.sh` boots a
+ *    throwaway database whose only school is the seeded Demo School, and
+ *    naming its fixed UUID here would silently stop working the day the seed
+ *    changes. It is a landmine the day a SECOND, deliberately-pro school is
+ *    seeded for cross-edition testing — this would flip that one to lite too.
+ *    If that day comes, scope it (`WHERE id = …` / `WHERE name = 'Demo
+ *    School'`) rather than leaving it broad.
+ *
  * 2. **Sign in once.** The lite shell has no login surface of its own in P1 —
  *    the session cookie is shared infrastructure. Signing in through the dev
  *    server's `/api` proxy means the cookie is stored against the same origin
