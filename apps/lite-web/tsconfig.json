@@ -1,7 +1,13 @@
 {
   "extends": "../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
+    // No `rootDir` here (unlike apps/web's tsconfig): lite's `@/*` alias
+    // deliberately resolves into apps/web/src (room components + design
+    // tokens are imported from there across the workspace, per Task 9's
+    // scaffold), which sits outside a `rootDir` scoped to apps/lite-web and
+    // trips tsc's TS6059 "not under rootDir" under `--noEmit`. `--noEmit`
+    // never writes output, so `rootDir` has nothing to police here; leaving
+    // it unset lets tsc infer the common ancestor instead of failing.
     "baseUrl": ".",
     "paths": {
       "@/*": ["../web/src/*"],
