@@ -13,6 +13,14 @@ describe("RoomCapabilities", () => {
       expect(LITE_READING_CAPABILITIES[k]).toBe(false);
     }
   });
+  it("lite reading does not turn on exemplars — that belongs to a future lite writing preset", () => {
+    // exemplars denotes the English-writing 示范 paragraphs, a writing-room
+    // feature (P3). It is forward-declared on RoomCapabilities but must stay
+    // false in the READING preset — its home is a future
+    // LITE_WRITING_CAPABILITIES. Asserted explicitly (not folded into the
+    // loop above) so a future edit flipping it back to true fails loudly.
+    expect(LITE_READING_CAPABILITIES.exemplars).toBe(false);
+  });
   it("demo is read-only pro, not a third lifecycle", () => {
     expect(DEMO_CAPABILITIES.mode).toBe("demo");
     expect(DEMO_CAPABILITIES.evidenceMap).toBe(PRO_CAPABILITIES.evidenceMap);

@@ -30,8 +30,14 @@ export const PRO_CAPABILITIES: RoomCapabilities = {
 // Demo is read-only pro, not a third lifecycle — same surfaces.
 export const DEMO_CAPABILITIES: RoomCapabilities = { ...PRO_CAPABILITIES, mode: "demo" };
 
-// comprehensionCheck and exemplars are forward-declared true here for lite
-// reading (they land in P2/P3); nothing consumes them yet.
+// comprehensionCheck is forward-declared true here — a genuine reading
+// capability landing in P2; nothing consumes it yet.
+//
+// exemplars stays false here: it denotes the English-writing 示范 paragraphs,
+// a WRITING-room feature landing in P3. A reading preset has no business
+// enabling it — its correct home is a future LITE_WRITING_CAPABILITIES. It
+// stays on the shared RoomCapabilities type (forward-declared) so the writing
+// preset can turn it on when it lands; it just isn't this preset's to enable.
 export const LITE_READING_CAPABILITIES: RoomCapabilities = {
   mode: "lite",
   plan: false,
@@ -40,5 +46,5 @@ export const LITE_READING_CAPABILITIES: RoomCapabilities = {
   proposalImpact: false,
   essayTrack: false,
   comprehensionCheck: true,
-  exemplars: true,
+  exemplars: false,
 };
