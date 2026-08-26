@@ -15,6 +15,7 @@ import { FinalizeReadingPanel } from "./FinalizeReadingPanel";
 import { TraceSourcePanel } from "./TraceSourcePanel";
 import { useReadingLoop, type ReadingLoopApi, type ChatMessage, type ReadingOutcome } from "./readingLoop";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
+import { PRO_CAPABILITIES, type RoomCapabilities } from "@/rooms/capabilities";
 import "./ReadingRoom.css";
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -132,6 +133,12 @@ export type ReadingRoomProps = {
   // that finding stays highlighted in the article. Demo-only.
   initialOutcomes?: ReadingOutcome[];
   demoMode?: boolean;
+  // What this room may show (Task 10) — the lite edition runs this SAME
+  // component with no project-lifecycle around it, so surfaces that only make
+  // sense inside a research project (证据笔记, 追来源) are gated on this
+  // instead of being assumed present. Absent → PRO_CAPABILITIES, so every
+  // existing call site keeps today's behaviour unchanged.
+  capabilities?: RoomCapabilities;
 };
 
 // Starter prompts adapted to OUR reading deck (source-checking + deep
@@ -182,7 +189,9 @@ export function ReadingRoom({
   initialMessages,
   initialOutcomes,
   demoMode = false,
+  capabilities,
 }: ReadingRoomProps) {
+  const caps = capabilities ?? PRO_CAPABILITIES;
   const loop = useReadingLoop(projectId, source, api, initialMessages, initialOutcomes);
 
   // 证据笔记 state — the live reference (updated from each setter's returned
@@ -741,7 +750,7 @@ export function ReadingRoom({
                     ? `已引用 ${quoted.length} 处 · 可在下方逐条取消`
                     : "点段落引用整段，或划选一句引用原文"}
             </span>
-            {traceEnabled && (
+            {caps.explorationLeads && traceEnabled && (
               <button
                 type="button"
                 className="mk-reading-room__trace-btn"
@@ -889,7 +898,7 @@ export function ReadingRoom({
                 {/* 证据笔记 — moved here from the warren-map sidebar. Sits
                     beside 我的笔记 (both per-source reflective tools); opens
                     when there's already something recorded. */}
-                {evRef && onSetEvidence && onSetTriage && onArchive && (
+                {caps.evidenceMap && evRef && onSetEvidence && onSetTriage && onArchive && (
                   <div className="mt-5 border-t border-mk-border pt-[14px]">
                     <button
                       type="button"
@@ -937,7 +946,7 @@ export function ReadingRoom({
         />
       )}
 
-      {traceOpen && traceEnabled && (
+      {caps.explorationLeads && traceOpen && traceEnabled && (
         <TraceSourcePanel
           seedQuote={quoted[quoted.length - 1]?.quote ?? ""}
           sourceUrl={bib?.url ?? reference?.url ?? ""}
