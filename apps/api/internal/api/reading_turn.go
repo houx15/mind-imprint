@@ -439,6 +439,11 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 		row, cerr := qtx.CreateAtomCard(turnCtx, sqlc.CreateAtomCardParams{
 			AtomID: at.ID, CardID: decision.CardID, BlockID: blockID, Status: "proposed",
 			FieldValues: []byte("{}"), EventTrace: []byte("[]"), Anchors: exampleAnchors,
+			// 铁律④ — the ROUTER decided this lens would help; she did not ask
+			// for it. reading_lens.go's 透镜库 summon records 'student' for the
+			// mirror-image case, and the difference between the two is the
+			// autonomy signal a later report reads.
+			Origin: cardOriginRouter,
 		})
 		switch {
 		case errors.Is(cerr, pgx.ErrNoRows):

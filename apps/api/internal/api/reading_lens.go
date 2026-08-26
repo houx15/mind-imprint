@@ -18,11 +18,13 @@ package api
 // her own hand.
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 
@@ -49,6 +51,33 @@ const (
 	liteSummonUnknownCard   = "这不是可用的阅读透镜。"
 	liteSummonNoExampleHint = "这副透镜就位了——直接在文章里挑一句你最想用它来读的话。"
 )
+
+// liteModelWorkTimeout caps a detached lens call. Same 150s ceiling
+// postLiteReadingTurn's turnCtx uses, and for the same reason: WithoutCancel
+// drops cancellation entirely, so something has to bound a genuinely stuck
+// provider. 选句复核 has been measured at 45–62 seconds, which this clears
+// with room to spare.
+const liteModelWorkTimeout = 150 * time.Second
+
+// detachedModelCtx is the one seam this file shares with reading_turn.go: once
+// a model call is under way, let the work RUN TO COMPLETION even if the
+// student navigates away mid-call.
+//
+// These are synchronous POSTs on r.Context(), which net/http cancels the
+// instant the browser disconnects (refresh / tab-close). Left on that context,
+// a refresh during the multi-second flagship call aborts the model call, the
+// llm_call metering row AND the write that records the result — money spent,
+// nothing recorded, and under 铁律④ a piece of the evidence a later report is
+// generated from silently missing. /evaluate is the worst case in the whole
+// product: 45–62 seconds of staring at a sentence is exactly when a student
+// reloads.
+//
+// WithoutCancel keeps auth / request-id and drops only cancellation. The
+// response write to `w` afterwards is best-effort — it fails harmlessly if she
+// already left, but the work is persisted.
+func detachedModelCtx(r *http.Request) (context.Context, context.CancelFunc) {
+	return context.WithTimeout(context.WithoutCancel(r.Context()), liteModelWorkTimeout)
+}
 
 // liteSummonCard mints the card the student chose from the lens library.
 // Deliberately never consults the router: she already decided, and asking a
@@ -94,7 +123,13 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cardRows, err := a.d.Queries.ListAtomCards(r.Context(), at.ID)
+	// Everything from here on runs detached from the request — see
+	// detachedModelCtx. The reads below feed the model call directly, so they
+	// belong on the same context as the work they set up.
+	lensCtx, cancelLens := detachedModelCtx(r)
+	defer cancelLens()
+
+	cardRows, err := a.d.Queries.ListAtomCards(lensCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -118,7 +153,7 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	src, err := a.d.Queries.GetReadingSource(r.Context(), at.ID)
+	src, err := a.d.Queries.GetReadingSource(lensCtx, at.ID)
 	if err != nil {
 		// No article pasted yet — there is nothing to hang a lens on.
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
@@ -135,11 +170,11 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 	if !usedChaperone {
 		groundResolver = a.d.EvalResolver
 	}
-	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(r.Context(), a.d.Provider, groundResolver, spec, at.ID.String(), blocks)
-	a.recordLiteLLMCall(r.Context(), u.ID, at.ID, "read_card_example", resolved, usage)
+	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(lensCtx, a.d.Provider, groundResolver, spec, at.ID.String(), blocks)
+	a.recordLiteLLMCall(lensCtx, u.ID, at.ID, "read_card_example", resolved, usage)
 	if !exampleOK && usedChaperone && a.d.EvalResolver != nil {
-		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(r.Context(), a.d.Provider, a.d.EvalResolver, spec, at.ID.String(), blocks)
-		a.recordLiteLLMCall(r.Context(), u.ID, at.ID, "read_card_example", resolved, usage)
+		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(lensCtx, a.d.Provider, a.d.EvalResolver, spec, at.ID.String(), blocks)
+		a.recordLiteLLMCall(lensCtx, u.ID, at.ID, "read_card_example", resolved, usage)
 	}
 
 	// The lens opens whether or not the model could ground an example — a
@@ -157,9 +192,14 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	row, err := a.d.Queries.CreateAtomCard(r.Context(), sqlc.CreateAtomCardParams{
+	row, err := a.d.Queries.CreateAtomCard(lensCtx, sqlc.CreateAtomCardParams{
 		AtomID: at.ID, CardID: cardID, BlockID: blockID, Status: "proposed",
 		FieldValues: []byte("{}"), EventTrace: []byte("[]"), Anchors: anchorsJSON,
+		// 铁律④ — SHE chose this lens out of the 透镜库. That is the autonomy
+		// signal itself, it is not reconstructible from any other column on
+		// the row, and the router's own creation site (reading_turn.go)
+		// records 'router' for the same reason.
+		Origin: cardOriginStudent,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		// atom_card_one_open_idx (0096) refused a SECOND open lens: another
@@ -247,20 +287,40 @@ func (a *API) liteEvaluateCardSelection(w http.ResponseWriter, r *http.Request) 
 	}
 	spec, _ := cards.ByID(card.CardID)
 
-	eval, resolved, usage, _ := agent.EvaluateSelection(r.Context(), a.d.Provider, a.d.EvalResolver, spec, dimension, studentSpan)
-	a.recordLiteLLMCall(r.Context(), u.ID, at.ID, "read_eval", resolved, usage)
+	// THE most abandonable call in the product — 45–62 seconds with nothing on
+	// screen but the sentence she picked. Detached, so a refresh at second 50
+	// still leaves the metering row and her review behind. See detachedModelCtx.
+	evalCtx, cancelEval := detachedModelCtx(r)
+	defer cancelEval()
+
+	eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.d.EvalResolver, spec, dimension, studentSpan)
+	a.recordLiteLLMCall(evalCtx, u.ID, at.ID, "read_eval", resolved, usage)
 
 	dto := toSelectionEvalDTO(eval)
 	// 过程即数据 — the AI's judgment of her pick is recorded, not just returned.
 	// A persistence failure only warns: she already has her review on screen,
 	// and losing it to a transient DB error would be the worse outcome.
+	//
+	// dto.Degraded rides along: agent.EvaluateSelection NEVER returns an error
+	// — it degrades internally to fallbackEval's canned, deliberately generic
+	// text ("你选了这句作为证据。") on a resolver failure, a provider failure,
+	// or an unparseable reply. That text is not her finding and not the AI's
+	// reading of her sentence; the known MaxTokens truncation makes it a
+	// COMMON path, not a rare one. Persisting it unmarked would let a P2
+	// report count a canned sentence as her own work (铁律①/④), so the flag
+	// travels with the payload and a report can exclude it.
 	if frameworkJSON, merr := json.Marshal(dto); merr == nil {
-		if _, serr := a.d.Queries.SetAtomCardFramework(r.Context(), sqlc.SetAtomCardFrameworkParams{
+		if _, serr := a.d.Queries.SetAtomCardFramework(evalCtx, sqlc.SetAtomCardFrameworkParams{
 			ID: card.ID, FrameworkFill: frameworkJSON,
 		}); serr != nil {
 			slog.Warn("lite evaluate selection: persist framework failed",
 				"err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
+	}
+	if dto.Degraded {
+		slog.Warn("lite evaluate selection: degraded fallback review persisted",
+			"atom_id", at.ID, "card_id", card.CardID,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
 	}
 	httpx.WriteJSON(w, http.StatusOK, dto)
 }

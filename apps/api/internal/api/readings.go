@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -20,22 +21,31 @@ import (
 // project-scoped table.
 
 type readingDTO struct {
-	ID         string  `json:"id"` // the ATOM id — every reading endpoint is keyed by it
-	Title      string  `json:"title"`
-	Lang       string  `json:"lang"`
-	Status     string  `json:"status"`
-	HasSource  bool    `json:"hasSource"`
-	CreatedAt  string  `json:"createdAt"`
-	UpdatedAt  string  `json:"updatedAt"`
-	FinishedAt *string `json:"finishedAt"`
+	ID        string `json:"id"` // the ATOM id — every reading endpoint is keyed by it
+	Title     string `json:"title"`
+	Lang      string `json:"lang"`
+	Status    string `json:"status"`
+	HasSource bool   `json:"hasSource"`
+	CreatedAt string `json:"createdAt"`
+	// updatedAt is reading.updated_at: TITLE/status metadata only (rename and
+	// finish write it). It is NOT "when she last read this" — see below.
+	UpdatedAt string `json:"updatedAt"`
+	// lastActivityAt is atom.last_activity_at (0098): the last time she wrote
+	// ANYTHING into this reading — a turn, a card, the article, a margin note.
+	// This is what 上次读到 means and what 「你有 N 篇还没读完」 orders by.
+	// Before it existed both were answered by updatedAt, so an hour of actual
+	// reading moved neither.
+	LastActivityAt string  `json:"lastActivityAt"`
+	FinishedAt     *string `json:"finishedAt"`
 }
 
-func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt time.Time) readingDTO {
+func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt, lastActivityAt time.Time) readingDTO {
 	out := readingDTO{
 		ID: rd.AtomID.String(), Title: rd.Title, Lang: rd.Lang, Status: rd.Status,
-		HasSource: hasSource,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: rd.UpdatedAt.Format(time.RFC3339),
+		HasSource:      hasSource,
+		CreatedAt:      createdAt.Format(time.RFC3339),
+		UpdatedAt:      rd.UpdatedAt.Format(time.RFC3339),
+		LastActivityAt: lastActivityAt.Format(time.RFC3339),
 	}
 	if rd.FinishedAt.Valid {
 		s := rd.FinishedAt.Time.Format(time.RFC3339)
@@ -61,9 +71,17 @@ func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt time.Time)
 // reading_source_file.go, reading_notes.go, reading_cards.go, reading_turn.go,
 // reading_lens.go), so gating here covers every one of them at once. The one
 // deliberate exception is finish itself: POST /finish is idempotent by
-// design (calling it again after it already succeeded just re-stamps
-// finished_at and returns 200), so finishReading calls the ungated sibling
-// below directly instead of this wrapper.
+// design (calling it again after it already succeeded is a no-op returning
+// 200), so finishReading calls the ungated sibling below directly instead of
+// this wrapper.
+//
+// Being that single chokepoint is also why last_activity_at (0098) is bumped
+// HERE rather than at each write. Every non-GET on a still-open reading is,
+// by definition, her doing something to it — a turn, a card transition, the
+// article, a margin note, her 收获 — so one bump at the one door covers all
+// of them and, unlike a per-handler call, cannot be forgotten by the next
+// endpoint someone adds. (reading.updated_at, which only rename and finish
+// ever wrote, is exactly what forgetting looks like.)
 func (a *API) loadOwnedReadingAtom(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
 	at, ok := a.loadOwnedReadingAtomRow(w, r)
 	if !ok {
@@ -78,6 +96,17 @@ func (a *API) loadOwnedReadingAtom(w http.ResponseWriter, r *http.Request) (sqlc
 		if rd.Status == "finished" {
 			httpx.WriteError(w, r, httpx.ErrReadingFinished())
 			return sqlc.Atom{}, false
+		}
+		// AFTER the finished gate: a refused write is not activity.
+		// Best-effort — an activity timestamp must never be the reason a
+		// student's actual work fails. The returned row replaces `at` so a
+		// handler that answers with a readingDTO reports the fresh value
+		// rather than one write's worth of stale.
+		if touched, terr := a.d.Queries.TouchAtom(r.Context(), at.ID); terr == nil {
+			at = touched
+		} else {
+			slog.Warn("lite reading: touch last_activity_at failed",
+				"err", terr, "atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 	}
 	return at, true
@@ -184,17 +213,17 @@ func (a *API) listReadings(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// ONE query, no per-row follow-up: hasSource now rides along on the list
+	// (ListReadingsByUser LEFT JOINs reading_source). This used to run a
+	// GetReadingSource per reading — an N+1 on the landing's first paint that
+	// also dragged every article's whole BODY across the wire just to ask
+	// whether the row existed.
 	out := make([]readingDTO, 0, len(rows))
 	for _, row := range rows {
-		hasSrc, err := a.hasSource(r, row.AtomID)
-		if err != nil {
-			httpx.WriteError(w, r, err)
-			return
-		}
 		out = append(out, a.readingDTOOf(sqlc.Reading{
 			AtomID: row.AtomID, Title: row.Title, Lang: row.Lang,
 			Status: row.Status, UpdatedAt: row.UpdatedAt, FinishedAt: row.FinishedAt,
-		}, hasSrc, row.AtomCreatedAt))
+		}, row.HasSource, row.AtomCreatedAt, row.LastActivityAt))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"readings": out})
 }
@@ -214,7 +243,7 @@ func (a *API) getReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt, at.LastActivityAt))
 }
 
 func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
@@ -251,7 +280,7 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt, at.LastActivityAt))
 }
 
 // finishReading marks the reading finished, gated on a non-empty takeaway.
@@ -263,10 +292,14 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 // with it empty would record a hollow completion — nothing was actually
 // taken away — so the endpoint refuses with 400 missing_takeaway before any
 // state changes. Unlike finishProject there is no async report to generate,
-// so this is a plain synchronous flip: SetReadingFinished is an unconditional
-// UPDATE (no status guard), so calling finish again after it already
-// succeeded just re-stamps finished_at and still returns 200 — idempotent by
-// construction, not by a special-cased check.
+// so this is a plain synchronous flip.
+//
+// Idempotent, and idempotent means NO-OP, not "do it again": SetReadingFinished
+// carries `AND status <> 'finished'`, so a second POST answers 200 with the
+// unchanged row instead of re-stamping finished_at. 铁律④ makes finished_at
+// evidence — when she finished is a fact about the past, and a replayed
+// request (a double-click, a retry, a stale tab) must not be able to move it
+// hours later.
 func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
 	// loadOwnedReadingAtomRow, NOT loadOwnedReadingAtom: this endpoint must
 	// stay callable (idempotently) after the reading is already finished —
@@ -298,5 +331,5 @@ func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt, at.LastActivityAt))
 }

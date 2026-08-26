@@ -91,6 +91,18 @@ func ErrConflict(msg string) *APIError {
 	return &APIError{Status: http.StatusConflict, Code: "conflict", Message: msg}
 }
 
+// ErrSourceLocked refuses to replace the article under a reading that already
+// has process evidence hanging off it. Block ids are POSITIONAL and anchors
+// carry rune offsets into the old text, so swapping the body would silently
+// re-point every card, highlight and margin note at unrelated prose. 铁律④
+// makes those rows evidence; corrupting them quietly is worse than refusing.
+func ErrSourceLocked() *APIError {
+	return &APIError{
+		Status: http.StatusConflict, Code: "source_locked",
+		Message: "这篇文章已经有了阅读痕迹（卡片 / 批注 / 对话），不能再换正文了——换一篇的话，新建一次阅读。",
+	}
+}
+
 // P2 auth error codes — stable machine codes the SPA maps to inline messages.
 
 func ErrEmailTaken() *APIError {

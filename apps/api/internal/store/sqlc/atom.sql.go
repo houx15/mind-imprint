@@ -43,8 +43,29 @@ func (q *Queries) AppendAtomMessage(ctx context.Context, arg AppendAtomMessagePa
 	return i, err
 }
 
+const countAtomEvidence = `-- name: CountAtomEvidence :one
+SELECT (
+    (SELECT count(*) FROM atom_card c WHERE c.atom_id = $1)
+  + (SELECT count(*) FROM atom_annotation an WHERE an.atom_id = $1)
+  + (SELECT count(*) FROM atom_message m WHERE m.atom_id = $1)
+)::bigint AS n
+`
+
+// How many rows of PROCESS EVIDENCE hang off this atom: cards, margin notes,
+// transcript turns. All three are anchored INTO the article — block ids are
+// positional and anchors carry rune offsets — so replacing the article under
+// them would silently re-point every one at unrelated prose. 铁律④ makes
+// these rows evidence, so putReadingSourceLite refuses the replacement once
+// this is non-zero rather than corrupting them.
+func (q *Queries) CountAtomEvidence(ctx context.Context, atomID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countAtomEvidence, atomID)
+	var n int64
+	err := row.Scan(&n)
+	return n, err
+}
+
 const createAtom = `-- name: CreateAtom :one
-INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at
+INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at
 `
 
 type CreateAtomParams struct {
@@ -60,6 +81,7 @@ func (q *Queries) CreateAtom(ctx context.Context, arg CreateAtomParams) (Atom, e
 		&i.Kind,
 		&i.UserID,
 		&i.CreatedAt,
+		&i.LastActivityAt,
 	)
 	return i, err
 }
@@ -100,10 +122,10 @@ func (q *Queries) CreateAtomAnnotation(ctx context.Context, arg CreateAtomAnnota
 }
 
 const createAtomCard = `-- name: CreateAtomCard :one
-INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors, origin)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (atom_id) WHERE status IN ('proposed', 'active') DO NOTHING
-RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
+RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin
 `
 
 type CreateAtomCardParams struct {
@@ -114,6 +136,7 @@ type CreateAtomCardParams struct {
 	FieldValues []byte    `json:"field_values"`
 	EventTrace  []byte    `json:"event_trace"`
 	Anchors     []byte    `json:"anchors"`
+	Origin      string    `json:"origin"`
 }
 
 // ON CONFLICT DO NOTHING against atom_card_one_open_idx (0096): if another
@@ -123,6 +146,12 @@ type CreateAtomCardParams struct {
 // so the race and the ordinary case are indistinguishable to the student.
 // A row that is already terminal ('submitted'/'skipped') is not in the index,
 // so it can never conflict.
+//
+// origin (0097) is NOT optional at this seam: it is the ONLY record of whether
+// the AI proposed this lens or the student picked it herself out of the 透镜库,
+// and it cannot be reconstructed from anything else on the row. Both call
+// sites pass it explicitly (reading_turn.go → 'router', reading_lens.go →
+// 'student') so a new creation site cannot inherit a silent default.
 func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) (AtomCard, error) {
 	row := q.db.QueryRow(ctx, createAtomCard,
 		arg.AtomID,
@@ -132,6 +161,7 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 		arg.FieldValues,
 		arg.EventTrace,
 		arg.Anchors,
+		arg.Origin,
 	)
 	var i AtomCard
 	err := row.Scan(
@@ -146,12 +176,13 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 		&i.SubmittedAt,
 		&i.Anchors,
 		&i.FrameworkFill,
+		&i.Origin,
 	)
 	return i, err
 }
 
 const getAtom = `-- name: GetAtom :one
-SELECT id, kind, user_id, created_at FROM atom WHERE id = $1
+SELECT id, kind, user_id, created_at, last_activity_at FROM atom WHERE id = $1
 `
 
 func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
@@ -162,12 +193,13 @@ func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.Kind,
 		&i.UserID,
 		&i.CreatedAt,
+		&i.LastActivityAt,
 	)
 	return i, err
 }
 
 const getAtomCard = `-- name: GetAtomCard :one
-SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill FROM atom_card WHERE id = $1
+SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin FROM atom_card WHERE id = $1
 `
 
 func (q *Queries) GetAtomCard(ctx context.Context, id uuid.UUID) (AtomCard, error) {
@@ -185,6 +217,7 @@ func (q *Queries) GetAtomCard(ctx context.Context, id uuid.UUID) (AtomCard, erro
 		&i.SubmittedAt,
 		&i.Anchors,
 		&i.FrameworkFill,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -222,7 +255,7 @@ func (q *Queries) ListAtomAnnotations(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listAtomCards = `-- name: ListAtomCards :many
-SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill FROM atom_card WHERE atom_id = $1 ORDER BY created_at
+SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin FROM atom_card WHERE atom_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCard, error) {
@@ -246,6 +279,7 @@ func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCa
 			&i.SubmittedAt,
 			&i.Anchors,
 			&i.FrameworkFill,
+			&i.Origin,
 		); err != nil {
 			return nil, err
 		}
@@ -303,7 +337,7 @@ func (q *Queries) NextAtomMessageSeq(ctx context.Context, atomID uuid.UUID) (int
 }
 
 const setAtomCardFramework = `-- name: SetAtomCardFramework :one
-UPDATE atom_card SET framework_fill = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
+UPDATE atom_card SET framework_fill = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin
 `
 
 type SetAtomCardFrameworkParams struct {
@@ -330,6 +364,7 @@ func (q *Queries) SetAtomCardFramework(ctx context.Context, arg SetAtomCardFrame
 		&i.SubmittedAt,
 		&i.Anchors,
 		&i.FrameworkFill,
+		&i.Origin,
 	)
 	return i, err
 }
@@ -338,7 +373,7 @@ const submitAtomCard = `-- name: SubmitAtomCard :one
 UPDATE atom_card
 SET status = 'submitted', field_values = $2, event_trace = $3, anchors = $4, submitted_at = now()
 WHERE id = $1
-RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
+RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin
 `
 
 type SubmitAtomCardParams struct {
@@ -372,12 +407,36 @@ func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) 
 		&i.SubmittedAt,
 		&i.Anchors,
 		&i.FrameworkFill,
+		&i.Origin,
+	)
+	return i, err
+}
+
+const touchAtom = `-- name: TouchAtom :one
+UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at
+`
+
+// Bumps last_activity_at (0098). Called from the ONE write chokepoint every
+// lite per-id route funnels through (loadOwnedReadingAtom), so "she was here"
+// can never drift out of sync with "she wrote something" the way
+// reading.updated_at did — that column moved only on rename and finish, so an
+// hour of reading left 上次读到 pointing at the day the reading was created.
+// Returns the refreshed row so the caller's atom is never one write stale.
+func (q *Queries) TouchAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
+	row := q.db.QueryRow(ctx, touchAtom, id)
+	var i Atom
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.LastActivityAt,
 	)
 	return i, err
 }
 
 const updateAtomCardStatus = `-- name: UpdateAtomCardStatus :one
-UPDATE atom_card SET status = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill
+UPDATE atom_card SET status = $2 WHERE id = $1 RETURNING id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin
 `
 
 type UpdateAtomCardStatusParams struct {
@@ -400,6 +459,7 @@ func (q *Queries) UpdateAtomCardStatus(ctx context.Context, arg UpdateAtomCardSt
 		&i.SubmittedAt,
 		&i.Anchors,
 		&i.FrameworkFill,
+		&i.Origin,
 	)
 	return i, err
 }

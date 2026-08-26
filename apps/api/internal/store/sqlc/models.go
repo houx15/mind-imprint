@@ -21,10 +21,11 @@ type ActivityLogEntry struct {
 }
 
 type Atom struct {
-	ID        uuid.UUID `json:"id"`
-	Kind      string    `json:"kind"`
-	UserID    uuid.UUID `json:"user_id"`
-	CreatedAt time.Time `json:"created_at"`
+	ID             uuid.UUID `json:"id"`
+	Kind           string    `json:"kind"`
+	UserID         uuid.UUID `json:"user_id"`
+	CreatedAt      time.Time `json:"created_at"`
+	LastActivityAt time.Time `json:"last_activity_at"`
 }
 
 type AtomAnnotation struct {
@@ -49,6 +50,7 @@ type AtomCard struct {
 	SubmittedAt   pgtype.Timestamptz `json:"submitted_at"`
 	Anchors       []byte             `json:"anchors"`
 	FrameworkFill []byte             `json:"framework_fill"`
+	Origin        string             `json:"origin"`
 }
 
 type AtomMessage struct {

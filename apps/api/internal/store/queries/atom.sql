@@ -4,6 +4,28 @@ INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING *;
 -- name: GetAtom :one
 SELECT * FROM atom WHERE id = $1;
 
+-- name: TouchAtom :one
+-- Bumps last_activity_at (0098). Called from the ONE write chokepoint every
+-- lite per-id route funnels through (loadOwnedReadingAtom), so "she was here"
+-- can never drift out of sync with "she wrote something" the way
+-- reading.updated_at did — that column moved only on rename and finish, so an
+-- hour of reading left 上次读到 pointing at the day the reading was created.
+-- Returns the refreshed row so the caller's atom is never one write stale.
+UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING *;
+
+-- name: CountAtomEvidence :one
+-- How many rows of PROCESS EVIDENCE hang off this atom: cards, margin notes,
+-- transcript turns. All three are anchored INTO the article — block ids are
+-- positional and anchors carry rune offsets — so replacing the article under
+-- them would silently re-point every one at unrelated prose. 铁律④ makes
+-- these rows evidence, so putReadingSourceLite refuses the replacement once
+-- this is non-zero rather than corrupting them.
+SELECT (
+    (SELECT count(*) FROM atom_card c WHERE c.atom_id = sqlc.arg(atom_id))
+  + (SELECT count(*) FROM atom_annotation an WHERE an.atom_id = sqlc.arg(atom_id))
+  + (SELECT count(*) FROM atom_message m WHERE m.atom_id = sqlc.arg(atom_id))
+)::bigint AS n;
+
 -- name: AppendAtomMessage :one
 INSERT INTO atom_message (atom_id, seq, role, content)
 VALUES ($1, $2, $3, $4)
@@ -26,8 +48,14 @@ SELECT COALESCE(MAX(seq), 0)::int + 1 AS next FROM atom_message WHERE atom_id = 
 -- so the race and the ordinary case are indistinguishable to the student.
 -- A row that is already terminal ('submitted'/'skipped') is not in the index,
 -- so it can never conflict.
-INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+--
+-- origin (0097) is NOT optional at this seam: it is the ONLY record of whether
+-- the AI proposed this lens or the student picked it herself out of the 透镜库,
+-- and it cannot be reconstructed from anything else on the row. Both call
+-- sites pass it explicitly (reading_turn.go → 'router', reading_lens.go →
+-- 'student') so a new creation site cannot inherit a silent default.
+INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace, anchors, origin)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (atom_id) WHERE status IN ('proposed', 'active') DO NOTHING
 RETURNING *;
 

@@ -56,6 +56,13 @@ type selectionEvalDTO struct {
 	Caveat        string              `json:"caveat"`
 	NextStep      string              `json:"nextStep"`
 	SpanIDs       []string            `json:"spanIds"`
+	// degraded — true when NO model produced this review (agent.fallbackEval's
+	// canned text). It is persisted into framework_fill along with everything
+	// else, which is the point: a later report reads framework_fill's `finding`
+	// as the student's own reading of her sentence, and must be able to exclude
+	// the ones no model ever read. The client's Zod SelectionEval schema is
+	// non-strict, so the extra key is simply ignored there.
+	Degraded bool `json:"degraded"`
 }
 
 func toSelectionEvalDTO(e agent.SelectionEval) selectionEvalDTO {
@@ -74,6 +81,7 @@ func toSelectionEvalDTO(e agent.SelectionEval) selectionEvalDTO {
 		Verdict: e.Verdict, VerdictLabel: e.VerdictLabel, VerdictReason: e.VerdictReason,
 		Checks: checks, Finding: e.Finding, Judgment: e.Judgment, Support: e.Support,
 		Caveat: e.Caveat, NextStep: e.NextStep, SpanIDs: spanIDs,
+		Degraded: e.Degraded,
 	}
 }
 

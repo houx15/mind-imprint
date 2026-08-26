@@ -22,11 +22,26 @@ import (
 // check — Go never validates the inner shape. That truth lives in
 // packages/contracts' Zod schemas; duplicating it here would guarantee drift.
 
+// cardOriginRouter / cardOriginStudent are atom_card.origin's two values
+// (0097) — WHO put this lens on the article. The AI's router proposing 「要不要
+// 查一下来源」 and the student walking into the 透镜库 and picking CRAAP herself
+// produce otherwise byte-identical rows, and 铁律④ makes that difference
+// evidence: it is the autonomy signal the P2 report exists to measure, and it
+// cannot be reconstructed afterwards. Every creation site names one explicitly.
+const (
+	cardOriginRouter  = "router"
+	cardOriginStudent = "student"
+)
+
 type cardDTO struct {
 	ID      string  `json:"id"`
 	CardID  string  `json:"cardId"`
 	BlockID *string `json:"blockId"`
 	Status  string  `json:"status"`
+	// origin — 'router' (the AI proposed it) or 'student' (she picked it out
+	// of the 透镜库). Surfaced so the client, and anything reading the card
+	// list, can tell her own initiative from the coach's.
+	Origin string `json:"origin"`
 	// anchors is what the card HANGS ON — the AI's example sentence while the
 	// card is proposed, the student's own picked sentence once she submits.
 	// The reading room needs the full span (block + rune offsets + quote), not
@@ -45,6 +60,7 @@ type cardDTO struct {
 func cardDTOOf(row sqlc.AtomCard) cardDTO {
 	out := cardDTO{
 		ID: row.ID.String(), CardID: row.CardID, BlockID: row.BlockID, Status: row.Status,
+		Origin:      row.Origin,
 		Anchors:     jsonOr(row.Anchors, "[]"),
 		FieldValues: json.RawMessage(row.FieldValues),
 		EventTrace:  json.RawMessage(row.EventTrace),
@@ -106,6 +122,16 @@ func validateEnvelope(fieldValues, eventTrace json.RawMessage) error {
 // isJSONNull reports whether raw is exactly the JSON literal `null` (modulo
 // surrounding whitespace) — the one input json.Unmarshal accepts into a
 // map/slice pointer without error while leaving it nil.
+//
+// THE ONE SPELLING of this check in the lite edition. It used to have three:
+// this function (envelope), an unguarded unmarshal (liteCreateAnnotation's
+// span, which therefore stored a literal `null` happily), and an `arr == nil`
+// test (liteSubmitCard's anchors). Three spellings of a boundary rule means
+// two of them are eventually wrong, and the failure mode is not loud: a
+// stored `null` survives every Go read and only detonates later, at a strict
+// Zod `.array()` parse — which is exactly how the teacher report blanked once
+// already. Every jsonb column this package accepts from a client goes through
+// here.
 func isJSONNull(raw json.RawMessage) bool {
 	return string(bytes.TrimSpace(raw)) == "null"
 }
@@ -250,8 +276,10 @@ func (a *API) liteSubmitCard(w http.ResponseWriter, r *http.Request) {
 	}
 	anchors := card.Anchors
 	if len(bytes.TrimSpace(body.Anchors)) > 0 {
+		// Same isJSONNull guard validateEnvelope uses — `null` unmarshals into
+		// a []any pointer without error and leaves it nil.
 		var arr []any
-		if err := json.Unmarshal(body.Anchors, &arr); err != nil || arr == nil {
+		if isJSONNull(body.Anchors) || json.Unmarshal(body.Anchors, &arr) != nil {
 			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_anchors", "anchors 必须是一个 JSON 数组。", nil))
 			return
 		}

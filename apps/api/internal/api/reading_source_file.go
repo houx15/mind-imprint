@@ -44,6 +44,13 @@ func (a *API) postReadingSourceFileLite(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
+	// Same guard as PUT .../source (refuseIfAnchored): this path lands through
+	// the identical UpsertReadingSource call, so it can re-point anchors into
+	// unrelated prose in exactly the same way. Checked before the upload is
+	// read, so an oversize replacement is refused for the honest reason.
+	if a.refuseIfAnchored(w, r, at.ID) {
+		return
+	}
 
 	// Bound the read BEFORE any parsing touches the body — an oversize upload
 	// must be rejected without ever buffering the whole file into memory.

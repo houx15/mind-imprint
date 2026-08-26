@@ -18,6 +18,17 @@ type SelectionEval struct {
 	Checks                                       []SelectionCheck
 	Finding, Judgment, Support, Caveat, NextStep string
 	SpanIDs                                      []string
+	// Degraded marks a review NO MODEL PRODUCED — fallbackEval's canned,
+	// deliberately generic text, returned when the resolver failed, the
+	// provider failed, or the reply did not parse (the known MaxTokens
+	// truncation makes that a common path, not a rare one).
+	//
+	// It matters because this struct is PERSISTED (framework_fill) and read
+	// back as the student's `finding`. Unmarked, a report generated from the
+	// process record would count "你选了这句作为证据。" as her own reading of
+	// the sentence — a canned sentence laundered into evidence. 铁律④ makes
+	// the record evidence; evidence has to say when it is not real.
+	Degraded bool
 }
 
 var checkLabels = map[string]string{"target": "找对对象", "evidence": "看得到线索", "centrality": "线索足够关键"}
@@ -139,5 +150,9 @@ func fallbackEval(studentSpan Anchor) SelectionEval {
 		VerdictReason: "先把你的发现记下来。", Checks: checks,
 		Finding: "你选了这句作为证据。", NextStep: "回到文章，标出这句里最关键的一处线索。",
 		SpanIDs: []string{studentSpan.ID},
+		// Set HERE, at the single place the canned text is minted, so no
+		// caller can forget it and no future degrade path can slip through
+		// unmarked.
+		Degraded: true,
 	}
 }

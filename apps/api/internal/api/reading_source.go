@@ -5,13 +5,48 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/google/uuid"
+
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
 
 // reading_source.go — the article the student is reading. One reading, one
 // article: PUT replaces it wholesale (a student who pastes twice meant the
-// second one).
+// second one) — but ONLY while nothing is anchored into it yet. See
+// refuseIfAnchored.
+
+// refuseIfAnchored blocks a source replacement once ANY process evidence hangs
+// off this reading: a card, a margin note, or a single line of transcript.
+//
+// Block ids are POSITIONAL ("b1" is simply the first paragraph) and anchors
+// carry rune offsets into the body they were made against. Swapping the
+// article underneath therefore does not orphan those rows — which would at
+// least be visible — it silently RE-POINTS every one of them at whatever
+// prose now happens to occupy those coordinates. A CRAAP card would come back
+// hanging off a sentence the student never read, and 铁律④ says that row is
+// evidence a report gets generated from.
+//
+// Not reachable from today's UI (the room offers the paste box only when the
+// reading has no article), so this costs a student nothing; it exists because
+// the endpoint is reachable without the UI, and because "not reachable today"
+// is not a property that survives a redesign.
+//
+// The empty case is deliberately permissive: pasting the wrong thing and
+// immediately re-pasting is a normal correction, and nothing points at the old
+// text yet.
+func (a *API) refuseIfAnchored(w http.ResponseWriter, r *http.Request, atomID uuid.UUID) bool {
+	n, err := a.d.Queries.CountAtomEvidence(r.Context(), atomID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return true
+	}
+	if n > 0 {
+		httpx.WriteError(w, r, httpx.ErrSourceLocked())
+		return true
+	}
+	return false
+}
 
 type sourceDTO struct {
 	Title     string  `json:"title"`
@@ -22,6 +57,11 @@ type sourceDTO struct {
 func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
+		return
+	}
+	// Before anything else — refusing costs nothing, and the URL branch below
+	// would otherwise burn a server-side fetch on a replacement we will reject.
+	if a.refuseIfAnchored(w, r, at.ID) {
 		return
 	}
 	var req struct {

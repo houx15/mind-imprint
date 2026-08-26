@@ -198,8 +198,12 @@ func (a *API) liteCreateAnnotation(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_block_id", "block id 不能为空。", nil))
 		return
 	}
+	// isJSONNull first (reading_cards.go): `null` unmarshals into a map
+	// pointer with NO error, leaving it nil — so the unmarshal alone would
+	// wave a literal `null` straight into the jsonb column, where it survives
+	// every Go read and only detonates at a strict client-side parse.
 	var obj map[string]any
-	if err := json.Unmarshal(req.Span, &obj); err != nil {
+	if isJSONNull(req.Span) || json.Unmarshal(req.Span, &obj) != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_span", "span 必须是一个 JSON 对象。", nil))
 		return
 	}

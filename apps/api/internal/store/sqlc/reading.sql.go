@@ -102,24 +102,36 @@ func (q *Queries) GetReadingTakeaway(ctx context.Context, atomID uuid.UUID) (Rea
 }
 
 const listReadingsByUser = `-- name: ListReadingsByUser :many
-SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, a.created_at AS atom_created_at
+SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at,
+       a.created_at AS atom_created_at,
+       a.last_activity_at,
+       (s.atom_id IS NOT NULL)::bool AS has_source
 FROM reading r
 JOIN atom a ON a.id = r.atom_id
+LEFT JOIN reading_source s ON s.atom_id = r.atom_id
 WHERE a.user_id = $1 AND a.kind = 'reading'
 ORDER BY a.created_at DESC
 `
 
 type ListReadingsByUserRow struct {
-	AtomID        uuid.UUID          `json:"atom_id"`
-	Title         string             `json:"title"`
-	Lang          string             `json:"lang"`
-	Status        string             `json:"status"`
-	UpdatedAt     time.Time          `json:"updated_at"`
-	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
-	AtomCreatedAt time.Time          `json:"atom_created_at"`
+	AtomID         uuid.UUID          `json:"atom_id"`
+	Title          string             `json:"title"`
+	Lang           string             `json:"lang"`
+	Status         string             `json:"status"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	AtomCreatedAt  time.Time          `json:"atom_created_at"`
+	LastActivityAt time.Time          `json:"last_activity_at"`
+	HasSource      bool               `json:"has_source"`
 }
 
 // The list the 阅读 tab shows. Joins atom for ownership + creation order.
+//
+// The LEFT JOIN on reading_source is what keeps the landing's first paint to
+// ONE query: hasSource used to be answered by a GetReadingSource per reading
+// (a textbook N+1 — and it pulled each article's whole BODY across the wire
+// only to test the row's existence). Existence is all the DTO needs, so it is
+// computed here.
 func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]ListReadingsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listReadingsByUser, userID)
 	if err != nil {
@@ -137,6 +149,8 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.UpdatedAt,
 			&i.FinishedAt,
 			&i.AtomCreatedAt,
+			&i.LastActivityAt,
+			&i.HasSource,
 		); err != nil {
 			return nil, err
 		}
@@ -164,9 +178,13 @@ func (q *Queries) RenameReading(ctx context.Context, arg RenameReadingParams) er
 
 const setReadingFinished = `-- name: SetReadingFinished :exec
 UPDATE reading SET status = 'finished', finished_at = now(), updated_at = now()
-WHERE atom_id = $1
+WHERE atom_id = $1 AND status <> 'finished'
 `
 
+// Guarded on status, so a SECOND POST /finish is a genuine no-op rather than a
+// re-stamp. finished_at is a fact about when she finished; an idempotent
+// endpoint that quietly moves it lets a completion time drift after the fact,
+// and 铁律④ makes that timestamp evidence like everything else on the atom.
 func (q *Queries) SetReadingFinished(ctx context.Context, atomID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setReadingFinished, atomID)
 	return err
