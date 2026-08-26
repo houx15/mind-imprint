@@ -3,6 +3,7 @@ import { BookOpen, PenLine } from "lucide-react";
 import { Icon, Pebble, type LucideIcon } from "@/ui";
 import { liteRoutePath, navigate, parseLiteRoute, type LiteRoute } from "./routing";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
+import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -28,8 +29,8 @@ import { ReadingsLanding } from "./readings/ReadingsLanding";
  * parse/format `window.location.pathname`; a `popstate` listener re-derives
  * the route on Back/Forward and on `navigate`'s synthetic dispatch.
  *
- * `ReadingRoomHost` (Task 12) is not built yet — `/readings/:id` renders a
- * temporary placeholder here so the build/typecheck pass end-to-end.
+ * `/readings/:id` mounts `ReadingRoomHost` (Task 12), which mounts the REAL
+ * `ReadingRoom` from apps/web under `LITE_READING_CAPABILITIES`.
  * 写作 is not built until P3 — its tab is an honest "写作即将上线" line, not a
  * fake composer.
  */
@@ -47,18 +48,6 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 
 function tabPath(tab: LiteTab): string {
   return liteRoutePath(tab === "readings" ? { tab: "readings" } : { tab: "writings" });
-}
-
-// Placeholder for Task 12's real reading room. Deliberately minimal — its
-// only job here is to prove the route wires up and the build passes.
-function ReadingRoomPlaceholder({ readingId }: { readingId: string }) {
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <p className="text-mk-body text-mk-muted">
-        阅读室加载中…（reading {readingId}，Task 12 接入真正的阅读室）
-      </p>
-    </div>
-  );
 }
 
 function WritingsComingSoon() {
@@ -139,7 +128,7 @@ export function LiteApp() {
         {route.tab === "writings" ? (
           <WritingsComingSoon />
         ) : route.readingId ? (
-          <ReadingRoomPlaceholder readingId={route.readingId} />
+          <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (
           <ReadingsLanding />
         )}

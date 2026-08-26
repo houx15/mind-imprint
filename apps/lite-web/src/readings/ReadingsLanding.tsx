@@ -23,6 +23,11 @@ export function ReadingsLanding() {
   const [body, setBody] = useState("");
   const [starting, setStarting] = useState(false);
   const [startError, setStartError] = useState<string | null>(null);
+  // The reading minted by a PREVIOUS attempt that then failed to take its
+  // article. 开始阅读 is two calls (createReading, putReadingSource) and only
+  // the second is retried here — without this, every retry after a transient
+  // network blip left another empty reading behind in 过往的阅读.
+  const [pendingId, setPendingId] = useState<string | null>(null);
 
   const [history, setHistory] = useState<Reading[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
@@ -41,8 +46,15 @@ export function ReadingsLanding() {
     setStarting(true);
     setStartError(null);
     try {
-      const { id } = await createReading({ title: title.trim() });
+      // Resume the half-created reading if there is one; only mint a new atom
+      // when there isn't.
+      let id = pendingId;
+      if (!id) {
+        id = (await createReading({ title: title.trim() })).id;
+        setPendingId(id);
+      }
       await putReadingSource(id, { title: title.trim(), text });
+      setPendingId(null);
       navigate(readingPath(id));
     } catch (err) {
       setStartError(err instanceof ApiError ? err.message : "开始阅读失败，请重试。");

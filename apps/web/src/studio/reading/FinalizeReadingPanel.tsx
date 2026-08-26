@@ -20,6 +20,13 @@ export type FinalizeReadingPanelProps = {
   done: boolean;
   onConfirm: () => void;
   onClose: () => void;
+  // proposalImpact (RoomCapabilities) — the synthesis half is written against a
+  // 立题: "新的线索" feed the proposal's next question, "对论点的影响" is about
+  // the argument this reading serves. The lite edition has NO proposal, so
+  // both would be questions with nothing behind them. With this false the
+  // leads field is gone and the one remaining box is her own 我的收获.
+  // Defaults true so every existing (pro) call site is unchanged.
+  proposalImpact?: boolean;
 };
 
 export function FinalizeReadingPanel({
@@ -33,6 +40,7 @@ export function FinalizeReadingPanel({
   done,
   onConfirm,
   onClose,
+  proposalImpact = true,
 }: FinalizeReadingPanelProps) {
   const record = draft?.record;
   return (
@@ -104,23 +112,25 @@ export function FinalizeReadingPanel({
 
               <section className="mk-finalize-panel__synthesis">
                 <h3>你的归纳 · 可编辑</h3>
+                {proposalImpact && (
+                  <label className="mk-finalize-panel__field">
+                    <span>新的线索</span>
+                    <textarea
+                      value={leadsText}
+                      onChange={(e) => onLeadsChange(e.target.value)}
+                      rows={3}
+                      placeholder="这篇给你带来了什么新的线索？（一行一条）"
+                      disabled={done}
+                    />
+                  </label>
+                )}
                 <label className="mk-finalize-panel__field">
-                  <span>新的线索</span>
-                  <textarea
-                    value={leadsText}
-                    onChange={(e) => onLeadsChange(e.target.value)}
-                    rows={3}
-                    placeholder="这篇给你带来了什么新的线索？（一行一条）"
-                    disabled={done}
-                  />
-                </label>
-                <label className="mk-finalize-panel__field">
-                  <span>对论点的影响</span>
+                  <span>{proposalImpact ? "对论点的影响" : "我的收获"}</span>
                   <textarea
                     value={impactText}
                     onChange={(e) => onImpactChange(e.target.value)}
                     rows={3}
-                    placeholder="这篇对你的论点有什么影响？"
+                    placeholder={proposalImpact ? "这篇对你的论点有什么影响？" : "读完这篇，你自己最想记住的是什么？"}
                     disabled={done}
                   />
                 </label>

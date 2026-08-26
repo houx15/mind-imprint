@@ -45,11 +45,16 @@ export type ReadingRoomCard = {
 export type ReadingRoomApi = ReadingLoopApi & {
   putReadingBrief(projectId: string, rid: string, brief: ReadingBrief): Promise<void>;
   getTakeawayDraft(projectId: string, rid: string): Promise<TakeawayDraft>;
+  // Returns `unknown`, not `Reference`: the room only ever awaits this for
+  // success/failure and discards the value, and the lite edition (which has no
+  // reference row at all — a reading IS the unit) has nothing honest to return
+  // in its place. Pro's `postFinalizeReading(): Promise<Reference>` still
+  // satisfies this, so nothing changes for the existing call site.
   postFinalizeReading(
     projectId: string,
     rid: string,
     body: { newLeads: string[]; proposalImpact: string },
-  ): Promise<Reference>;
+  ): Promise<unknown>;
 };
 
 export type ReadingRoomProps = {
@@ -969,6 +974,7 @@ export function ReadingRoom({
           done={finalizeDone}
           onConfirm={() => void confirmFinalize()}
           onClose={() => setFinalizeOpen(false)}
+          proposalImpact={caps.proposalImpact}
         />
       )}
     </div>

@@ -48,6 +48,14 @@ export async function getReading(id: string): Promise<Reading> {
   return apiFetch<Reading>(`/api/v1/readings/${encodeURIComponent(id)}`);
 }
 
+/** GET /api/v1/readings/{id}/source — 404 when no article has been pasted
+ * yet, which is a RECOVERABLE state (the room offers the paste box for this
+ * same reading), not a failure. Callers must tell the two apart by
+ * `ApiError.status`. */
+export async function getReadingSource(id: string): Promise<ReadingSource> {
+  return apiFetch<ReadingSource>(`/api/v1/readings/${encodeURIComponent(id)}/source`);
+}
+
 /** PUT /api/v1/readings/{id}/source — full-replace; either `text` (pasted
  * body) or `url` (server-side fetch) must be supplied. */
 export async function putReadingSource(
