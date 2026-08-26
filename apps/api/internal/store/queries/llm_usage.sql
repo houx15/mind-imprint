@@ -26,8 +26,3 @@ WHERE project_id = $1 AND purpose = $2;
 INSERT INTO llm_call (user_id, atom_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 RETURNING *;
-
--- name: ListLLMCallsByAtom :many
-SELECT * FROM llm_call
-WHERE atom_id = $1
-ORDER BY created_at;

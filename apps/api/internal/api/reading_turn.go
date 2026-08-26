@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
@@ -66,11 +68,21 @@ type liteTurnReq struct {
 // liteTurnDTO is one turn's answer: what the coach said, what it decided, the
 // card it proposed (nil unless the decision survived the gate as a summon),
 // and the student-facing one-liner inviting her to open it.
+//
+// HintCardID is the other half of that invitation. On a `hint` the router is
+// instructed to name the card it has in mind ("当学生的问题明显对应某副卡…
+// 优先给 hint 并在 card_id 填上那张卡——这会变成一个「要不要用它看看」的邀请",
+// buildRouterPrompt) — and a summon the gate SOFTENS for breathing room lands
+// on this path too, carrying its CardID. Without the id the client can only
+// render a naked sentence, and 铁律②'s invitation half ("触发是自动的，但打开
+// 由学生确认") degrades into an unanswerable remark. Null whenever the decision
+// names no card.
 type liteTurnDTO struct {
-	Reply    string   `json:"reply"`
-	Decision string   `json:"decision"`
-	Card     *cardDTO `json:"card"`
-	Nudge    string   `json:"nudge"`
+	Reply      string   `json:"reply"`
+	Decision   string   `json:"decision"`
+	Card       *cardDTO `json:"card"`
+	Nudge      string   `json:"nudge"`
+	HintCardID *string  `json:"hintCardId"`
 }
 
 type liteMessageDTO struct {
@@ -153,11 +165,18 @@ func (a *API) buildReadingRouteInput(ctx context.Context, atomID uuid.UUID, stud
 	// written one), so a missing row degrades to the zero brief, which
 	// buildReadingRouteUserPrompt renders byte-for-byte as no brief block at
 	// all. ProposalSnap stays empty: a lite reading has no owning proposal.
+	// A MISSING row is normal; any other error is not, and swallowing it would
+	// quietly strip her reading purpose out of the prompt on a transient DB
+	// failure — the degrade-quietly pattern this turn otherwise rejects.
 	var brief agent.ReadingBrief
-	if row, berr := a.d.Queries.GetReadingBrief(ctx, atomID); berr == nil {
+	row, berr := a.d.Queries.GetReadingBrief(ctx, atomID)
+	switch {
+	case berr == nil:
 		brief = agent.ReadingBrief{
 			Reason: row.ReadingReason, Focus: row.ReadingFocus, PhaseTag: derefOr(row.PhaseTag, ""),
 		}
+	case !errors.Is(berr, pgx.ErrNoRows):
+		return agent.ReadingRouteInput{}, nil, berr
 	}
 
 	catalog, err := agent.ReadingDeck()
@@ -283,8 +302,22 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 		spans = append(spans, agent.FocusSpan{BlockID: s.BlockID, Quote: s.Quote})
 	}
 
+	// Once the turn is under way, let it RUN TO COMPLETION even if the student
+	// navigates away mid-reply. This is a synchronous POST on r.Context(), which
+	// net/http cancels the instant the browser disconnects (refresh / tab-close)
+	// — so a refresh during the multi-second flagship call would abort the model
+	// call, the metering row, AND the transaction below, spending money and
+	// recording nothing while she loses the answer she already paid for
+	// (2026-08-25 edge findings; same pattern and cap as coach.go's turnCtx).
+	// WithoutCancel keeps auth / request-id and drops only cancellation; the
+	// 150s cap still bounds a genuinely stuck call. The response write to `w` at
+	// the end is best-effort — it fails harmlessly if she already left, but the
+	// work is persisted.
+	turnCtx, cancelTurn := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
+	defer cancelTurn()
+
 	// 1. 装配 — everything below comes from the lite tables alone.
-	in, blocks, err := a.buildReadingRouteInput(r.Context(), at.ID, studentText, spans)
+	in, blocks, err := a.buildReadingRouteInput(turnCtx, at.ID, studentText, spans)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows (no article pasted) → 404
 		return
@@ -295,7 +328,7 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	// read of a small per-atom indexed table, kept so buildReadingRouteInput
 	// stays self-contained and independently testable. It is immaterial next
 	// to the flagship call this turn is about to make.
-	cardRows, err := a.d.Queries.ListAtomCards(r.Context(), at.ID)
+	cardRows, err := a.d.Queries.ListAtomCards(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -303,12 +336,12 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	ordering := readingOrderingGuard(cardRows)
 
 	// 2. 复用 AI 大脑，一行没改.
-	raw, resolved, usage, rerr := agent.RouteReading(r.Context(), a.d.Provider, a.d.EvalResolver, in)
+	raw, resolved, usage, rerr := agent.RouteReading(turnCtx, a.d.Provider, a.d.EvalResolver, in)
 
 	// Meter BEFORE any bail: a call that reached a provider cost money whatever
 	// happens to its reply. A metering failure only warns — it never fails the
 	// turn, and it must never be the reason a student loses her answer.
-	a.recordLiteLLMCall(r.Context(), u.ID, at.ID, "reading_turn", resolved, usage)
+	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_turn", resolved, usage)
 
 	// USER RULE: an AI-dialogue failure is surfaced as a real 502, NEVER masked
 	// by a canned stand-in sentence — a fake reply disguises a dead turn as
@@ -321,7 +354,9 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	// answer ("reply 永远不留空"), and only the degraded fallback comes back
 	// empty. Checked on the RAW decision, before the gate — ApplyReadingGate
 	// legitimately returns a bare respond (empty Reply) when it suppresses a
-	// summon, and that is restraint working, not a failure.
+	// summon, AND an empty-Reply hint when it softens one, and that is restraint
+	// working, not a failure. DO NOT move this below the gate: it would 502 on
+	// every act of restraint. reading_turn_gate_test.go holds the tripwire.
 	if rerr != nil || strings.TrimSpace(raw.Reply) == "" {
 		slog.Warn("lite reading turn: model turn failed; surfacing to student",
 			"err", rerr, "atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -364,26 +399,26 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	// index is what actually protects the transcript's order against a
 	// concurrent second turn: a racing pair either serializes or one fails
 	// outright, never interleaves into a scrambled thread.
-	tx, err := a.d.Pool.Begin(r.Context())
+	tx, err := a.d.Pool.Begin(turnCtx)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	defer func() { _ = tx.Rollback(r.Context()) }()
+	defer func() { _ = tx.Rollback(turnCtx) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	next, err := qtx.NextAtomMessageSeq(r.Context(), at.ID)
+	next, err := qtx.NextAtomMessageSeq(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
+	if _, err := qtx.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
 		AtomID: at.ID, Seq: next, Role: "student", Content: studentText,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if _, err := qtx.AppendAtomMessage(r.Context(), sqlc.AppendAtomMessageParams{
+	if _, err := qtx.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
 		AtomID: at.ID, Seq: next + 1, Role: "ai", Content: reply,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
@@ -392,7 +427,7 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 
 	var card *cardDTO
 	if decision.Decision == "summon" {
-		row, cerr := qtx.CreateAtomCard(r.Context(), sqlc.CreateAtomCardParams{
+		row, cerr := qtx.CreateAtomCard(turnCtx, sqlc.CreateAtomCardParams{
 			AtomID: at.ID, CardID: decision.CardID, BlockID: blockID, Status: "proposed",
 			FieldValues: []byte("{}"), EventTrace: []byte("[]"),
 		})
@@ -403,15 +438,27 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 		dto := cardDTOOf(row)
 		card = &dto
 	}
-	if err := tx.Commit(r.Context()); err != nil {
+	if err := tx.Commit(turnCtx); err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+
+	// On a hint, forward the card the router named so the nudge can be rendered
+	// as a real 要不要用它看看 invitation rather than a naked sentence. Validated
+	// against the same deck as a summon — an id no renderer can resolve is worse
+	// than no id. A gate-SOFTENED summon arrives here too, which is exactly the
+	// case where the invitation matters most.
+	var hintCardID *string
+	if decision.Decision == "hint" && inReadingDeck(in.Catalog, decision.CardID) {
+		id := decision.CardID
+		hintCardID = &id
 	}
 
 	// 触发是自动的，但「打开」由学生确认 (铁律②): the card comes back
 	// 'proposed' with an invitation, never already open.
 	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{
-		Reply: reply, Decision: decision.Decision, Card: card, Nudge: decision.Reason,
+		Reply: reply, Decision: decision.Decision, Card: card,
+		Nudge: decision.Reason, HintCardID: hintCardID,
 	})
 }
 

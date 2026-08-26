@@ -29,46 +29,6 @@ func (q *Queries) CountLLMCallsByProjectPurpose(ctx context.Context, arg CountLL
 	return count, err
 }
 
-const listLLMCallsByAtom = `-- name: ListLLMCallsByAtom :many
-SELECT id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, atom_id FROM llm_call
-WHERE atom_id = $1
-ORDER BY created_at
-`
-
-func (q *Queries) ListLLMCallsByAtom(ctx context.Context, atomID pgtype.UUID) ([]LlmCall, error) {
-	rows, err := q.db.Query(ctx, listLLMCallsByAtom, atomID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []LlmCall
-	for rows.Next() {
-		var i LlmCall
-		if err := rows.Scan(
-			&i.ID,
-			&i.UserID,
-			&i.ProjectID,
-			&i.Surface,
-			&i.Purpose,
-			&i.Provider,
-			&i.Model,
-			&i.Tier,
-			&i.PromptTokens,
-			&i.CompletionTokens,
-			&i.CostEstimate,
-			&i.CreatedAt,
-			&i.AtomID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listLLMCallsByProject = `-- name: ListLLMCallsByProject :many
 SELECT id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, atom_id FROM llm_call
 WHERE project_id = $1

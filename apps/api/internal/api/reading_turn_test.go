@@ -83,10 +83,11 @@ func listMessages(t *testing.T, h http.Handler, cookie *http.Cookie, id string) 
 }
 
 type turnReply struct {
-	Reply    string `json:"reply"`
-	Decision string `json:"decision"`
-	Nudge    string `json:"nudge"`
-	Card     *struct {
+	Reply      string  `json:"reply"`
+	Decision   string  `json:"decision"`
+	Nudge      string  `json:"nudge"`
+	HintCardID *string `json:"hintCardId"`
+	Card       *struct {
 		ID      string  `json:"id"`
 		CardID  string  `json:"cardId"`
 		BlockID *string `json:"blockId"`
