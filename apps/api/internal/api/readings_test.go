@@ -185,3 +185,37 @@ func TestEditionGate_LiteBlocksDeepProjectRoutes(t *testing.T) {
 		t.Fatalf("body missing not_found code — got %s", rec.Body)
 	}
 }
+
+// 「我的收获」是这次阅读的产出。空着就完成，等于没读——所以 finish 以它为门槛。
+func TestFinishReading_RequiresTakeaway(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+id+"/finish", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("finish without takeaway = %d, want 400; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "missing_takeaway") {
+		t.Fatalf("want missing_takeaway, got %s", rec.Body)
+	}
+}
+
+func TestFinishReading_IsIdempotent(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	putTakeaway := httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/takeaway",
+		strings.NewReader(`{"text":"我的收获。"}`))
+	h.ServeHTTP(httptest.NewRecorder(), withCookie(putTakeaway, cookie))
+
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+			"/api/v1/readings/"+id+"/finish", strings.NewReader("{}")), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("finish #%d = %d, want 200; body=%s", i+1, rec.Code, rec.Body)
+		}
+	}
+}

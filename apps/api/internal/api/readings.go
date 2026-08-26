@@ -213,3 +213,47 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 	}
 	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt))
 }
+
+// finishReading marks the reading finished, gated on a non-empty takeaway.
+// Named finishReading, not finishProject — that name is already the pro
+// side's terminal (project_finish.go), and internal/api is one shared
+// package.
+//
+// The gate is the point: 「我的收获」 is what a reading produces. Finishing
+// with it empty would record a hollow completion — nothing was actually
+// taken away — so the endpoint refuses with 400 missing_takeaway before any
+// state changes. Unlike finishProject there is no async report to generate,
+// so this is a plain synchronous flip: SetReadingFinished is an unconditional
+// UPDATE (no status guard), so calling finish again after it already
+// succeeded just re-stamps finished_at and still returns 200 — idempotent by
+// construction, not by a special-cased check.
+func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedReadingAtom(w, r)
+	if !ok {
+		return
+	}
+	tk, err := a.d.Queries.GetReadingTakeaway(r.Context(), at.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if strings.TrimSpace(tk.Text) == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_takeaway", "先写下你的收获，再完成这次阅读。", nil))
+		return
+	}
+	if err := a.d.Queries.SetReadingFinished(r.Context(), at.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	hasSrc, err := a.hasSource(r, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt))
+}
