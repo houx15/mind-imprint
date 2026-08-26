@@ -1,88 +1,494 @@
-# 轻量版 P1（地基 + 阅读原子）Implementation Plan
+# 轻量版 P1（原子底座 + 阅读跑通）Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让一个 `edition = 'lite'` 的学生在独立的轻量站上新建一次「阅读」，贴进一篇文章，用**与现有产品完全相同的阅读室**（透镜、工具卡、批注、AI 引导）读完，并写下「我的收获」。
+**Goal:** 让一个 lite 学校的学生在独立的轻量站上新建一次「阅读」，贴进一篇文章，用与现有产品同样的 AI 引导与工具卡读完，并写下「我的收获」。
 
-**Architecture:** 阅读是一个一等原子（`reading` 表），它静默持有一行 `project`（`kind='container'`）作为存储锚点。房间端点不重写：`apps/api/internal/api/projects.go:220` 的 `loadOwnedProjectRow` 是 107 个调用点唯一把 URL 变成 project id 的地方，中间件把容器 id 放进 request context，该函数优先读它——房间路由因此可以在 `/readings/{id}/room/*` 前缀下用**同一批 handler 函数**再注册一次。前端新建 `apps/lite-web`，跨 workspace 从 `apps/web` 引入房间组件，不复制。
+**Architecture:** 阅读是一等原子，**自持存储**——不借用 `project` 行。薄薄一层 `atom` 身份表承载共享机制（消息流 / 工具卡 / 批注 / 报告），阅读专属字段各自成表。AI 层**原样复用**：`agent.RouteReading` 等全是纯函数，输入 `ReadingRouteInput` 里没有任何 project 引用，handler 只需把值从新表装配出来。前端新建 `apps/lite-web`，跨 workspace 从 `apps/web` 引入房间组件与设计 token。
 
-**Tech Stack:** Go 1.22+（`net/http` 路由、`pgx`、`sqlc`、`goose`）、PostgreSQL、React + Vite + TypeScript + Tailwind、pnpm workspace、Playwright。
+**Tech Stack:** Go 1.22+（`net/http`、`pgx`、`sqlc`、`goose`）、PostgreSQL、React + Vite + TypeScript + Tailwind、pnpm workspace、Playwright。
 
 **Spec:** `docs/superpowers/specs/2026-08-26-lite-edition-writings-readings-design.md`
 
 ## Global Constraints
 
-- **迁移编号从 `0092` 起**（当前最高为 `0091_demo_reading_notes.sql`）。goose 格式：`-- +goose Up` / `-- +goose Down` 两段，Down 必须真正可回滚。
-- **sqlc 重新生成必须用 `CGO_ENABLED=0`**：`cd apps/api && make sqlc`（Makefile 已内置该变量；macOS 上原生 pg_query C 库会构建失败）。
-- **Go 测试**：`cd apps/api && go test ./internal/api/ -timeout 1800s`。集成测试用 testcontainers，第一次会拉 Postgres 镜像。
+- **迁移编号从 `0092` 起**（当前最高 `0091_demo_reading_notes.sql`）。goose 两段式 `-- +goose Up` / `-- +goose Down`，Down 必须真正可回滚。
+- **sqlc 重新生成：`cd apps/api && make sqlc`**（Makefile 已内置必需的 `CGO_ENABLED=0`）。**绝不手改 `internal/store/sqlc/` 下的文件。**
+- 🚨 **实现者只跑定向测试**（`go test ./internal/... -run TestX -timeout 1800s`）。**绝不运行整包 Go 测试**：本仓库每个集成测试都会启动一个独立 Postgres 容器，整包要 10 分钟以上，**超过前台命令 10 分钟上限**——实现者一旦把它放后台就会丢失它、然后开始写等待脚本。整包验证由 controller 统一在后台跑。
 - **绝不 `git add -A`**：每次提交只 stage 本任务明确列出的文件。
-- **密钥绝不进 git / 日志 / 错误体**。
 - **归属失败一律 404**（`httpx.ErrNotFound("资源不存在")`），绝不用 403 —— 既有约定，不泄漏资源存在性。
-- **`mk-*` 是裸 CSS 变量**：`bg-mk-x/NN` 这类 Tailwind alpha 语法**不产出任何 CSS**。需要透明度时用 `linear-gradient` / `color-mix`，并在**真实浏览器**里验证。
+- **不碰 `/projects/*` 的任何 handler，不碰 project 的任何表。** 本期对 pro 的唯一改动是 Task 2 的路由分流包装与 Task 10 的房间组件能力对象（后者默认值保证 pro 行为不变）。
+- **密钥绝不进 git / 日志 / 错误体。**
+- **标准信封结构与 pro 一致**：Go 只做边界校验（`status` 枚举、id、`field_values` 为对象、`event_trace` 为数组），内层深结构真相归 `packages/contracts` 的 Zod 契约。
+- **`mk-*` 是裸 CSS 变量**：`bg-mk-x/NN` 这类 Tailwind alpha 语法**不产出任何 CSS**。需要透明度用 `linear-gradient` / `color-mix`，并在**真实浏览器**里验证。
 - **铁律②**：不做连胜、排行榜、徽章、推送。
-- 本期**不做** `writing` 表、`reading_check`、`atom_report` —— 它们随各自的 handler 在 P2/P3 落地（YAGNI：P1 没有任何代码读它们）。
-- 本期**不实现** spec §4.1 的 `POST /readings/{id}/text`：`GET /readings/{id}` 已回传 `referenceId`，前端直接走 `/room/references/{rid}/paste-content` 透传，与既有实现完全一致，不再包一层。
+- **铁律④**：跳过工具卡必须留痕（改状态，绝不删行）。
 
 ---
 
-### Task 1: `project.kind` 与容器泄漏封堵
+### Task 1: 原子底座建表
 
-隐藏容器是本设计最高风险项。这个任务先立起「容器行绝不出现在任何项目列表/聚合里」的护栏，**再**让任何东西去创建容器。
+一次迁移立起整个底座：身份、阅读、以及四种形态共用的机制表。放在一个任务里，是因为它们是一个不可分割的结构决定——评审要么接受这个底座，要么不接受。
 
 **Files:**
-- Create: `apps/api/internal/store/migrations/0092_project_kind.sql`
-- Modify: `apps/api/internal/store/queries/project.sql`
-- Modify: `apps/api/internal/store/queries/teacher.sql`
-- Modify: `apps/api/internal/store/queries/org.sql`
-- Regenerate: `apps/api/internal/store/sqlc/*.sql.go`（由 `make sqlc` 产出，不手改）
-- Test: `apps/api/internal/api/project_kind_test.go`
+- Create: `apps/api/internal/store/migrations/0092_atom_substrate.sql`
+- Create: `apps/api/internal/store/queries/atom.sql`
+- Create: `apps/api/internal/store/queries/reading.sql`
+- Regenerate: `apps/api/internal/store/sqlc/*.sql.go`
+- Test: `apps/api/internal/store/atom_store_test.go`
 
 **Interfaces:**
-- Consumes: 无（本计划的第一个任务）
-- Produces: `project.kind text NOT NULL DEFAULT 'project' CHECK (kind IN ('project','container'))`。后续任务用 `kind = 'container'` 建容器。sqlc 生成的 `sqlc.Project` 结构体新增字段 `Kind string`。
+- Consumes: 无（首个任务）
+- Produces: 表 `atom` / `reading` / `atom_message` / `atom_card` / `atom_annotation` / `reading_source` / `reading_brief` / `reading_takeaway`，以及 sqlc 方法 `CreateAtom` / `GetAtom` / `CreateReading` / `GetReading` / `ListReadingsByUser` / `RenameReading` / `SetReadingFinished` / `UpsertReadingSource` / `GetReadingSource` / `UpsertReadingBrief` / `GetReadingBrief` / `UpsertReadingTakeaway` / `GetReadingTakeaway` / `AppendAtomMessage` / `ListAtomMessages` / `NextAtomMessageSeq` / `CreateAtomCard` / `GetAtomCard` / `ListAtomCards` / `UpdateAtomCardStatus` / `SubmitAtomCard` / `CreateAtomAnnotation` / `ListAtomAnnotations`。
 
 - [ ] **Step 1: 写下会失败的测试**
 
-新建 `apps/api/internal/api/project_kind_test.go`：
+新建 `apps/api/internal/store/atom_store_test.go`。先读 `apps/api/internal/store/sqlc_test.go` 顶部，**照抄本包既有的 pool bootstrap helper 名**（不要新建）：
+
+```go
+package store_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/google/uuid"
+
+	"mindimprint/api/internal/store/sqlc"
+)
+
+// TestAtomSubstrate_ReadingRoundTrips — an atom carries identity, the reading
+// row carries the reading's own fields, and the two are created together.
+func TestAtomSubstrate_ReadingRoundTrips(t *testing.T) {
+	pool := newTestPool(t) // ← 用本包既有的 helper 名，见 sqlc_test.go
+	q := sqlc.New(pool)
+	ctx := context.Background()
+
+	var uid uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM users LIMIT 1`).Scan(&uid); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+
+	a, err := q.CreateAtom(ctx, sqlc.CreateAtomParams{Kind: "reading", UserID: uid})
+	if err != nil {
+		t.Fatalf("CreateAtom: %v", err)
+	}
+	rd, err := q.CreateReading(ctx, sqlc.CreateReadingParams{AtomID: a.ID, Title: "气候与农业", Lang: "zh"})
+	if err != nil {
+		t.Fatalf("CreateReading: %v", err)
+	}
+	if rd.Status != "active" {
+		t.Fatalf("status = %q, want \"active\"", rd.Status)
+	}
+
+	list, err := q.ListReadingsByUser(ctx, uid)
+	if err != nil {
+		t.Fatalf("ListReadingsByUser: %v", err)
+	}
+	if len(list) != 1 || list[0].Title != "气候与农业" {
+		t.Fatalf("list = %+v, want exactly my one reading", list)
+	}
+}
+
+// TestAtomSubstrate_SharedMachineryIsPerAtom — messages, cards and annotations
+// hang off the atom id, so every future kind (writing, chat, project) reuses
+// them without a second implementation.
+func TestAtomSubstrate_SharedMachineryIsPerAtom(t *testing.T) {
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+
+	var uid uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM users LIMIT 1`).Scan(&uid); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	a, err := q.CreateAtom(ctx, sqlc.CreateAtomParams{Kind: "reading", UserID: uid})
+	if err != nil {
+		t.Fatalf("CreateAtom: %v", err)
+	}
+
+	if _, err := q.AppendAtomMessage(ctx, sqlc.AppendAtomMessageParams{
+		AtomID: a.ID, Seq: 1, Role: "student", Content: "这段在讲什么？",
+	}); err != nil {
+		t.Fatalf("AppendAtomMessage: %v", err)
+	}
+	if _, err := q.AppendAtomMessage(ctx, sqlc.AppendAtomMessageParams{
+		AtomID: a.ID, Seq: 2, Role: "ai", Content: "它在比较两种口径。",
+	}); err != nil {
+		t.Fatalf("AppendAtomMessage 2: %v", err)
+	}
+	msgs, err := q.ListAtomMessages(ctx, a.ID)
+	if err != nil {
+		t.Fatalf("ListAtomMessages: %v", err)
+	}
+	if len(msgs) != 2 || msgs[0].Seq != 1 || msgs[1].Role != "ai" {
+		t.Fatalf("messages = %+v, want the two in seq order", msgs)
+	}
+
+	// (atom_id, seq) is unique — a duplicated seq must be rejected, so a
+	// concurrent double-append can never silently reorder the transcript.
+	if _, err := q.AppendAtomMessage(ctx, sqlc.AppendAtomMessageParams{
+		AtomID: a.ID, Seq: 2, Role: "student", Content: "重复",
+	}); err == nil {
+		t.Fatal("duplicate seq accepted, want a unique-violation")
+	}
+}
+
+// TestAtomSubstrate_CascadesFromAtom — deleting the atom takes its whole world
+// with it; no orphaned messages, cards or annotations.
+func TestAtomSubstrate_CascadesFromAtom(t *testing.T) {
+	pool := newTestPool(t)
+	q := sqlc.New(pool)
+	ctx := context.Background()
+
+	var uid uuid.UUID
+	if err := pool.QueryRow(ctx, `SELECT id FROM users LIMIT 1`).Scan(&uid); err != nil {
+		t.Fatalf("seed user: %v", err)
+	}
+	a, err := q.CreateAtom(ctx, sqlc.CreateAtomParams{Kind: "reading", UserID: uid})
+	if err != nil {
+		t.Fatalf("CreateAtom: %v", err)
+	}
+	if _, err := q.CreateReading(ctx, sqlc.CreateReadingParams{AtomID: a.ID, Title: "t", Lang: "zh"}); err != nil {
+		t.Fatalf("CreateReading: %v", err)
+	}
+	if _, err := q.AppendAtomMessage(ctx, sqlc.AppendAtomMessageParams{
+		AtomID: a.ID, Seq: 1, Role: "student", Content: "x",
+	}); err != nil {
+		t.Fatalf("AppendAtomMessage: %v", err)
+	}
+
+	if _, err := pool.Exec(ctx, `DELETE FROM atom WHERE id = $1`, a.ID); err != nil {
+		t.Fatalf("delete atom: %v", err)
+	}
+	var n int
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM atom_message WHERE atom_id = $1`, a.ID).Scan(&n); err != nil {
+		t.Fatalf("count messages: %v", err)
+	}
+	if n != 0 {
+		t.Fatalf("orphaned %d messages after atom delete", n)
+	}
+}
+```
+
+- [ ] **Step 2: 跑测试，确认它失败**
+
+```bash
+cd apps/api && go test ./internal/store/ -run TestAtomSubstrate -timeout 1800s
+```
+
+预期：FAIL —— 编译不过，`sqlc.CreateAtomParams` 未定义。
+
+- [ ] **Step 3: 写迁移**
+
+新建 `apps/api/internal/store/migrations/0092_atom_substrate.sql`：
+
+```sql
+-- +goose Up
+-- 轻量版的原子底座。阅读 / 写作（以及之后的 AI 聊天、AI 项目）四者不同的是各自
+-- 的专属字段，相同的是四件事：一条消息流、一批工具卡、一层批注、一份小报告。
+-- 所以：薄薄一层 atom 身份 + 共享机制表，专属字段各自成表。加一种新形态 =
+-- 加一张专属表 + 复用底座。
+--
+-- 这些表与 pro 的 project 及其子表完全无关，互不引用。
+
+CREATE TABLE atom (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  kind       text NOT NULL CHECK (kind IN ('reading','writing')),
+  user_id    uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX atom_user_kind_idx ON atom (user_id, kind, created_at DESC);
+
+CREATE TABLE reading (
+  atom_id     uuid PRIMARY KEY REFERENCES atom(id) ON DELETE CASCADE,
+  title       text NOT NULL DEFAULT '',
+  lang        text NOT NULL CHECK (lang IN ('zh','en')),
+  status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished')),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz
+);
+
+-- 共享机制 ---------------------------------------------------------------
+
+-- seq 由服务端分配；(atom_id, seq) 唯一，保证并发下不会静默乱序。
+CREATE TABLE atom_message (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  atom_id    uuid NOT NULL REFERENCES atom(id) ON DELETE CASCADE,
+  seq        integer NOT NULL,
+  role       text NOT NULL CHECK (role IN ('student','ai','system')),
+  content    text NOT NULL,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE UNIQUE INDEX atom_message_seq_idx ON atom_message (atom_id, seq);
+
+-- 标准信封。结构与 pro 的 card_instances 保持一致——它是过程数据与评估的
+-- 共同地基。Go 只做边界校验，内层深结构真相归 packages/contracts 的 Zod 契约。
+CREATE TABLE atom_card (
+  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  atom_id      uuid NOT NULL REFERENCES atom(id) ON DELETE CASCADE,
+  card_id      text NOT NULL,
+  block_id     text,
+  status       text NOT NULL CHECK (status IN ('proposed','active','submitted','skipped')),
+  field_values jsonb NOT NULL DEFAULT '{}'::jsonb,
+  event_trace  jsonb NOT NULL DEFAULT '[]'::jsonb,
+  created_at   timestamptz NOT NULL DEFAULT now(),
+  submitted_at timestamptz
+);
+CREATE INDEX atom_card_atom_idx ON atom_card (atom_id, created_at);
+
+CREATE TABLE atom_annotation (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  atom_id    uuid NOT NULL REFERENCES atom(id) ON DELETE CASCADE,
+  block_id   text NOT NULL,
+  span       jsonb NOT NULL,
+  quote      text NOT NULL DEFAULT '',
+  note       text NOT NULL DEFAULT '',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX atom_annotation_atom_idx ON atom_annotation (atom_id, created_at);
+
+-- 阅读专属 ---------------------------------------------------------------
+
+CREATE TABLE reading_source (
+  atom_id     uuid PRIMARY KEY REFERENCES atom(id) ON DELETE CASCADE,
+  title       text NOT NULL DEFAULT '',
+  body        text NOT NULL,
+  source_url  text,
+  bib         jsonb,
+  ingested_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE reading_brief (
+  atom_id        uuid PRIMARY KEY REFERENCES atom(id) ON DELETE CASCADE,
+  phase_tag      text,
+  reading_reason text NOT NULL DEFAULT '',
+  reading_focus  text NOT NULL DEFAULT '',
+  updated_at     timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE reading_takeaway (
+  atom_id    uuid PRIMARY KEY REFERENCES atom(id) ON DELETE CASCADE,
+  text       text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+
+-- +goose Down
+DROP TABLE reading_takeaway;
+DROP TABLE reading_brief;
+DROP TABLE reading_source;
+DROP TABLE atom_annotation;
+DROP TABLE atom_card;
+DROP TABLE atom_message;
+DROP TABLE reading;
+DROP TABLE atom;
+```
+
+- [ ] **Step 4: 写共享机制的查询**
+
+新建 `apps/api/internal/store/queries/atom.sql`：
+
+```sql
+-- name: CreateAtom :one
+INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING *;
+
+-- name: GetAtom :one
+SELECT * FROM atom WHERE id = $1;
+
+-- name: AppendAtomMessage :one
+INSERT INTO atom_message (atom_id, seq, role, content)
+VALUES ($1, $2, $3, $4)
+RETURNING *;
+
+-- name: ListAtomMessages :many
+SELECT * FROM atom_message WHERE atom_id = $1 ORDER BY seq;
+
+-- name: NextAtomMessageSeq :one
+-- The next free seq for this atom. Callers append inside the same transaction
+-- as this read, so the (atom_id, seq) unique index — not this read — is the
+-- real guard against a concurrent double-append.
+SELECT COALESCE(MAX(seq), 0)::int + 1 AS next FROM atom_message WHERE atom_id = $1;
+
+-- name: CreateAtomCard :one
+INSERT INTO atom_card (atom_id, card_id, block_id, status, field_values, event_trace)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING *;
+
+-- name: GetAtomCard :one
+SELECT * FROM atom_card WHERE id = $1;
+
+-- name: ListAtomCards :many
+SELECT * FROM atom_card WHERE atom_id = $1 ORDER BY created_at;
+
+-- name: UpdateAtomCardStatus :one
+UPDATE atom_card SET status = $2 WHERE id = $1 RETURNING *;
+
+-- name: SubmitAtomCard :one
+UPDATE atom_card
+SET status = 'submitted', field_values = $2, event_trace = $3, submitted_at = now()
+WHERE id = $1
+RETURNING *;
+
+-- name: CreateAtomAnnotation :one
+INSERT INTO atom_annotation (atom_id, block_id, span, quote, note)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListAtomAnnotations :many
+SELECT * FROM atom_annotation WHERE atom_id = $1 ORDER BY created_at;
+```
+
+- [ ] **Step 5: 写阅读的查询**
+
+新建 `apps/api/internal/store/queries/reading.sql`：
+
+```sql
+-- name: CreateReading :one
+INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING *;
+
+-- name: GetReading :one
+SELECT * FROM reading WHERE atom_id = $1;
+
+-- name: ListReadingsByUser :many
+-- The list the 阅读 tab shows. Joins atom for ownership + creation order.
+SELECT r.*, a.created_at AS atom_created_at
+FROM reading r
+JOIN atom a ON a.id = r.atom_id
+WHERE a.user_id = $1 AND a.kind = 'reading'
+ORDER BY a.created_at DESC;
+
+-- name: RenameReading :exec
+UPDATE reading SET title = $2, updated_at = now() WHERE atom_id = $1;
+
+-- name: SetReadingFinished :exec
+UPDATE reading SET status = 'finished', finished_at = now(), updated_at = now()
+WHERE atom_id = $1;
+
+-- name: UpsertReadingSource :one
+INSERT INTO reading_source (atom_id, title, body, source_url)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (atom_id) DO UPDATE
+  SET title = EXCLUDED.title, body = EXCLUDED.body,
+      source_url = EXCLUDED.source_url, ingested_at = now()
+RETURNING *;
+
+-- name: GetReadingSource :one
+SELECT * FROM reading_source WHERE atom_id = $1;
+
+-- name: UpsertReadingBrief :one
+INSERT INTO reading_brief (atom_id, phase_tag, reading_reason, reading_focus)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (atom_id) DO UPDATE
+  SET phase_tag = EXCLUDED.phase_tag,
+      reading_reason = EXCLUDED.reading_reason,
+      reading_focus = EXCLUDED.reading_focus,
+      updated_at = now()
+RETURNING *;
+
+-- name: GetReadingBrief :one
+SELECT * FROM reading_brief WHERE atom_id = $1;
+
+-- name: UpsertReadingTakeaway :one
+INSERT INTO reading_takeaway (atom_id, text)
+VALUES ($1, $2)
+ON CONFLICT (atom_id) DO UPDATE SET text = EXCLUDED.text, updated_at = now()
+RETURNING *;
+
+-- name: GetReadingTakeaway :one
+SELECT * FROM reading_takeaway WHERE atom_id = $1;
+```
+
+- [ ] **Step 6: 重新生成 sqlc**
+
+```bash
+cd apps/api && make sqlc
+```
+
+- [ ] **Step 7: 跑测试，确认通过**
+
+```bash
+cd apps/api && go test ./internal/store/ -run TestAtomSubstrate -timeout 1800s
+```
+
+预期：三条全部 PASS。**不要跑整包。**
+
+- [ ] **Step 8: 提交**
+
+```bash
+git add apps/api/internal/store/migrations/0092_atom_substrate.sql \
+        apps/api/internal/store/queries/atom.sql \
+        apps/api/internal/store/queries/reading.sql \
+        apps/api/internal/store/sqlc/ \
+        apps/api/internal/store/atom_store_test.go
+git commit -m "feat(lite): atom substrate — shared identity, messages, cards, annotations"
+```
+
+---
+
+### Task 2: `schools.edition` 与站点分流闸
+
+edition 是**学校**的属性：一所学校买的是轻量版还是现有版本，校内账号在注册（凭 join code 进班级 → 班级属于学校）那一刻随之确定。**不动 `users` 表，不改 `/auth/me`** —— 前端不需要知道，将来每校各自的子域名本身即已分流。
+
+**Files:**
+- Create: `apps/api/internal/store/migrations/0093_schools_edition.sql`
+- Modify: `apps/api/internal/api/authz.go`
+- Modify: `apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/edition_test.go`
+
+**Interfaces:**
+- Consumes: Task 1
+- Produces: `schools.edition text NOT NULL DEFAULT 'pro' CHECK (edition IN ('pro','lite'))`；`func (a *API) requireEdition(want string, h http.Handler) http.Handler`（方法而非自由函数——它要查库）；测试 helper `liteHandler(t) (http.Handler, *http.Cookie, *sqlc.Queries, *pgxpool.Pool)`，Task 3-8 全部复用。
+
+- [ ] **Step 1: 写下会失败的测试**
+
+新建 `apps/api/internal/api/edition_test.go`：
 
 ```go
 package api_test
 
 import (
 	"context"
-	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// insertContainerProject inserts a raw container-kind project row for the seed
-// user, bypassing the API (nothing creates containers yet — that lands in
-// Task 4). Returns its id.
-func insertContainerProject(t *testing.T, pool interface {
-	QueryRow(context.Context, string, ...any) interface{ Scan(...any) error }
-}) string {
+// liteHandler builds an API whose seed SCHOOL is on the lite edition, plus a
+// signed-in cookie. Shared by every lite test in this package.
+func liteHandler(t *testing.T) (http.Handler, *http.Cookie, *sqlc.Queries, *pgxpool.Pool) {
 	t.Helper()
-	var id string
-	err := pool.QueryRow(context.Background(),
-		`INSERT INTO project (user_id, qualification, title, board_cfg_ver, kind)
-		 VALUES ($1, '0457', '容器', 1, 'container') RETURNING id::text`,
-		SeedUserID).Scan(&id)
-	if err != nil {
-		t.Fatalf("insert container project: %v", err)
+	pool := newAPITestPool(t)
+	q := sqlc.New(pool)
+	h := New(Deps{
+		Queries: q, Pool: pool,
+		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+	}).Handler()
+	if _, err := pool.Exec(context.Background(), `UPDATE schools SET edition = 'lite'`); err != nil {
+		t.Fatalf("set school edition lite: %v", err)
 	}
-	return id
+	return h, signInSeed(t, pool), q, pool
 }
 
-// TestListProjects_ExcludesContainers is the guard rail for the hidden-container
-// design: a container row is storage for a lite atom, never a project. If this
-// ever fails, containers are leaking into the student's project list — and by
-// the same query shape, into teacher dashboards and cost aggregates.
-func TestListProjects_ExcludesContainers(t *testing.T) {
+// TestEditionGate_LiteSchoolCannotReachProjects — a lite student has no
+// projects; the pro surface simply is not there for them. 404, never 403.
+func TestEditionGate_LiteSchoolCannotReachProjects(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), cookie))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("lite school GET /projects = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestEditionGate_ProSchoolKeepsProjects — the default edition is 'pro', so
+// every existing school and every existing test keeps working untouched.
+func TestEditionGate_ProSchoolKeepsProjects(t *testing.T) {
 	pool := newAPITestPool(t)
 	h := New(Deps{
 		Queries: sqlc.New(pool), Pool: pool,
@@ -90,211 +496,10 @@ func TestListProjects_ExcludesContainers(t *testing.T) {
 	}).Handler()
 	cookie := signInSeed(t, pool)
 
-	containerID := insertContainerProject(t, pool)
-
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), cookie))
 	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /projects = %d, want 200; body=%s", rec.Code, rec.Body)
-	}
-	var out struct {
-		Projects []struct {
-			ID string `json:"id"`
-		} `json:"projects"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode: %v — body=%s", err, rec.Body)
-	}
-	for _, p := range out.Projects {
-		if p.ID == containerID {
-			t.Fatalf("container project %s leaked into GET /projects", containerID)
-		}
-	}
-}
-```
-
-> 若 `GET /projects` 的响应键不是 `projects`，先读 `apps/api/internal/api/projects.go` 的 `listProjects` 末尾的 `httpx.WriteJSON` 确认真实键名，并改这里的结构体标签。
-
-- [ ] **Step 2: 跑测试，确认它失败**
-
-```bash
-cd apps/api && go test ./internal/api/ -run TestListProjects_ExcludesContainers -timeout 1800s
-```
-
-预期：FAIL —— 编译期就会挂在 `kind` 列不存在（`INSERT ... kind` 报 `column "kind" of relation "project" does not exist`）。
-
-- [ ] **Step 3: 写迁移**
-
-新建 `apps/api/internal/store/migrations/0092_project_kind.sql`：
-
-```sql
--- +goose Up
--- 轻量版（lite edition）的写作/阅读原子各自静默持有一行 project 作为存储锚点
--- （reference / material / card_instances / outline_node / snippet /
--- draft_snapshot 等全部外键到 project）。kind 把这些容器行与真正的项目分开，
--- 好让每一处项目列表与聚合都能把它们排除掉。
-ALTER TABLE project ADD COLUMN kind text NOT NULL DEFAULT 'project'
-  CHECK (kind IN ('project','container'));
-CREATE INDEX project_kind_idx ON project (kind);
-
--- +goose Down
-DROP INDEX IF EXISTS project_kind_idx;
-ALTER TABLE project DROP COLUMN kind;
-```
-
-- [ ] **Step 4: 给每一处读 `project` 的查询加过滤**
-
-先把范围列全：
-
-```bash
-cd apps/api && grep -rn "FROM project\b\|JOIN project\b" internal/store/queries/
-```
-
-对上面列出的**每一条**查询，判断它是否面向「学生的项目 / 教师看板 / 组织聚合」；是则加 `kind = 'project'`。已知至少这两条必须改（`internal/store/queries/project.sql`）：
-
-```sql
--- name: ListProjectsByUser :many
-SELECT * FROM project
-WHERE user_id = $1 AND kind = 'project'
-ORDER BY last_active_at DESC;
-
--- name: ListDemoProjects :many
--- The world-readable demo project(s) — shown in EVERY authenticated user's list,
--- pinned last and marked isDemo (guided-tour P5). Same columns as
--- ListProjectsByUser so the handler folds both into one projectListItem shape.
-SELECT * FROM project
-WHERE is_demo = true AND kind = 'project'
-ORDER BY last_active_at DESC;
-```
-
-`GetProject`（按主键取单行）**不加**过滤 —— 容器行必须能被 Task 5 的透传取到；直达 `/projects/{id}` 的拦截在 handler 层做（Task 5 Step 5）。
-
-`CountLLMCallsByUserProject` 与 `CountActivityLogByUserProject` 是按 project 分组的计数：前者从 `llm_call` 出发、不 JOIN project，容器的调用量会落在一个不在列表里的 id 上，无害；后者 `JOIN project p` 且只按 `p.user_id` 过滤，**必须**补 `AND p.kind = 'project'`：
-
-```sql
--- name: CountActivityLogByUserProject :many
--- Per-project activity-log totals for the caller's whole project list, in ONE
--- grouped pass. activity_log_entry has no user_id, so join project to scope to
--- the caller; activity_log_entry is indexed on project_id. Containers (lite
--- atoms' storage rows) are excluded — they are not projects.
-SELECT a.project_id, COUNT(*)::int AS n
-FROM activity_log_entry a
-JOIN project p ON p.id = a.project_id
-WHERE p.user_id = $1 AND p.kind = 'project'
-GROUP BY a.project_id;
-```
-
-`queries/teacher.sql` 与 `queries/org.sql` 里每一条 `JOIN project` / `FROM project` 的聚合，同样补 `kind = 'project'`。
-
-- [ ] **Step 5: 重新生成 sqlc**
-
-```bash
-cd apps/api && make sqlc
-```
-
-预期：`internal/store/sqlc/*.sql.go` 变更，`sqlc.Project` 多出 `Kind string` 字段。
-
-- [ ] **Step 6: 跑测试，确认通过**
-
-```bash
-cd apps/api && go test ./internal/api/ -run TestListProjects_ExcludesContainers -timeout 1800s
-```
-
-预期：PASS。
-
-- [ ] **Step 7: 跑全量 API 测试，确认没打坏别的**
-
-```bash
-cd apps/api && go test ./internal/api/ ./internal/store/ ./internal/teacher/ -timeout 1800s
-```
-
-预期：全部 PASS。任何因新增 `Kind` 字段而挂掉的结构体字面量（缺字段的 `sqlc.Project{...}`）就地补上。
-
-- [ ] **Step 8: 提交**
-
-```bash
-git add apps/api/internal/store/migrations/0092_project_kind.sql \
-        apps/api/internal/store/queries/ \
-        apps/api/internal/store/sqlc/ \
-        apps/api/internal/api/project_kind_test.go
-git commit -m "feat(lite): add project.kind and exclude containers from every project read"
-```
-
----
-
-### Task 2: `schools.edition`
-
-edition 是**学校**的属性，不是账号的属性：一所学校买的是轻量版还是现有版本，校内账号在注册（凭 join code 进班级 → 班级属于学校）那一刻随之确定。所以这里**不动 `users` 表**，也**不改 `/auth/me`** —— 前端不需要知道 edition，将来每校各自的子域名本身即已分流。
-
-**Files:**
-- Create: `apps/api/internal/store/migrations/0093_schools_edition.sql`
-- Regenerate: `apps/api/internal/store/sqlc/*.sql.go`（由 `make sqlc` 产出，不手改）
-- Test: `apps/api/internal/store/schools_edition_test.go`
-
-**Interfaces:**
-- Consumes: Task 1 的迁移编号序列
-- Produces: `schools.edition text NOT NULL DEFAULT 'pro' CHECK (edition IN ('pro','lite'))`；sqlc 生成的 `sqlc.School` 结构体新增字段 `Edition string`。Task 6 的鉴权闸据此取值（session principal 已携带 `SchoolID`，无需新增账号字段）。
-- **不产出**：没有 DTO 变更，没有 `/auth/me` 变更，没有 `users` 列。
-
-- [ ] **Step 1: 写下会失败的测试**
-
-新建 `apps/api/internal/store/schools_edition_test.go`。先读 `apps/api/internal/store/sqlc_test.go` 顶部，照抄它的 pool bootstrap helper 名（本包已有，不要新建）：
-
-```go
-package store_test
-
-import (
-	"context"
-	"strings"
-	"testing"
-)
-
-// TestSchoolsEdition_DefaultsToPro — edition rides on the SCHOOL, not the
-// account: a school buys the lite edition or the pro one, and every account
-// under it follows. Existing schools must keep working untouched, so the
-// default is 'pro'.
-func TestSchoolsEdition_DefaultsToPro(t *testing.T) {
-	pool := newTestPool(t) // ← 用本包既有的 helper 名，见 sqlc_test.go
-	ctx := context.Background()
-
-	var edition string
-	if err := pool.QueryRow(ctx, `SELECT edition FROM schools LIMIT 1`).Scan(&edition); err != nil {
-		t.Fatalf("read seeded school edition: %v", err)
-	}
-	if edition != "pro" {
-		t.Fatalf("seeded school edition = %q, want \"pro\"", edition)
-	}
-}
-
-// TestSchoolsEdition_RejectsUnknownValue — the CHECK constraint is the only
-// thing standing between a typo and a school nobody can sign in to.
-func TestSchoolsEdition_RejectsUnknownValue(t *testing.T) {
-	pool := newTestPool(t)
-	ctx := context.Background()
-
-	_, err := pool.Exec(ctx, `UPDATE schools SET edition = 'liet'`)
-	if err == nil {
-		t.Fatal("UPDATE schools SET edition = 'liet' succeeded, want a CHECK violation")
-	}
-	if !strings.Contains(strings.ToLower(err.Error()), "check") {
-		t.Fatalf("want a CHECK constraint violation, got: %v", err)
-	}
-}
-
-// TestSchoolsEdition_AcceptsLite — the value the whole lite edition turns on.
-func TestSchoolsEdition_AcceptsLite(t *testing.T) {
-	pool := newTestPool(t)
-	ctx := context.Background()
-
-	if _, err := pool.Exec(ctx, `UPDATE schools SET edition = 'lite'`); err != nil {
-		t.Fatalf("set edition lite: %v", err)
-	}
-	var edition string
-	if err := pool.QueryRow(ctx, `SELECT edition FROM schools LIMIT 1`).Scan(&edition); err != nil {
-		t.Fatalf("read back: %v", err)
-	}
-	if edition != "lite" {
-		t.Fatalf("edition = %q, want \"lite\"", edition)
+		t.Fatalf("pro school GET /projects = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 }
 ```
@@ -302,10 +507,10 @@ func TestSchoolsEdition_AcceptsLite(t *testing.T) {
 - [ ] **Step 2: 跑测试，确认它失败**
 
 ```bash
-cd apps/api && go test ./internal/store/ -run TestSchoolsEdition -timeout 1800s
+cd apps/api && go test ./internal/api/ -run TestEditionGate -timeout 1800s
 ```
 
-预期：FAIL —— `column "edition" does not exist`。
+预期：`LiteSchoolCannotReachProjects` FAIL（拿到 200，闸还不存在）；另一条 PASS。
 
 - [ ] **Step 3: 写迁移**
 
@@ -314,8 +519,8 @@ cd apps/api && go test ./internal/store/ -run TestSchoolsEdition -timeout 1800s
 ```sql
 -- +goose Up
 -- edition 属于学校，不属于账号：一所学校买的是轻量版还是现有版本，校内账号在
--- 注册（凭 join code 进班级 → 班级属于学校）那一刻随之确定。组织不变式不变；
--- edition 只决定进哪个站，不改变归属结构。默认 'pro'，存量学校行为不变。
+-- 注册（凭 join code 进班级 → 班级属于学校）那一刻随之确定。组织不变式不变。
+-- 默认 'pro'，存量学校行为完全不变。
 ALTER TABLE schools ADD COLUMN edition text NOT NULL DEFAULT 'pro'
   CHECK (edition IN ('pro','lite'));
 
@@ -323,236 +528,96 @@ ALTER TABLE schools ADD COLUMN edition text NOT NULL DEFAULT 'pro'
 ALTER TABLE schools DROP COLUMN edition;
 ```
 
-- [ ] **Step 4: 重新生成 sqlc**
-
 ```bash
 cd apps/api && make sqlc
 ```
 
-预期：`sqlc.School` 结构体多出 `Edition string` 字段。若有既有测试用 `sqlc.School{...}` 字面量而缺字段导致编译失败，就地补上。
+- [ ] **Step 4: 写闸**
 
-- [ ] **Step 5: 跑测试，确认通过**
-
-```bash
-cd apps/api && go test ./internal/store/ -run TestSchoolsEdition -timeout 1800s
-```
-
-预期：三条全部 PASS。
-
-> 不要运行整包 Go 测试（`go test ./internal/api/` 之类）：本仓库每个测试都会启动一个独立的 Postgres 容器，整包要 10 分钟以上，超过前台命令上限。整包验证由 controller 统一跑。
-
-- [ ] **Step 6: 提交**
-
-```bash
-git add apps/api/internal/store/migrations/0093_schools_edition.sql \
-        apps/api/internal/store/sqlc/ \
-        apps/api/internal/store/schools_edition_test.go
-git commit -m "feat(lite): edition rides on the school, defaulting to pro"
-```
-
----
-
-### Task 3: `reading` 表与查询
-
-**Files:**
-- Create: `apps/api/internal/store/migrations/0094_reading_atom.sql`
-- Create: `apps/api/internal/store/queries/reading.sql`
-- Regenerate: `apps/api/internal/store/sqlc/reading.sql.go`
-- Test: `apps/api/internal/store/reading_store_test.go`
-
-**Interfaces:**
-- Consumes: Task 1 的 `project.kind`
-- Produces: sqlc 方法 `CreateReading(ctx, CreateReadingParams{UserID, Title, Lang, ContainerID}) (Reading, error)`、`GetReading(ctx, id) (Reading, error)`、`ListReadingsByUser(ctx, userID) ([]Reading, error)`、`RenameReading(ctx, RenameReadingParams{ID, Title})`、`SetReadingReference(ctx, SetReadingReferenceParams{ID, ReferenceID})`、`SetReadingFinished(ctx, id)`。`sqlc.Reading` 字段：`ID`、`UserID`、`Title`、`Lang`、`Status`、`ContainerID`（均 uuid.UUID / string）、`ReferenceID`（可空）、`CreatedAt`、`UpdatedAt`、`FinishedAt`。
-
-- [ ] **Step 1: 写下会失败的测试**
-
-新建 `apps/api/internal/store/reading_store_test.go`。先读 `apps/api/internal/store/sqlc_test.go` 顶部，照抄它的 pool bootstrap helper 名（本包已有，不要新建）：
+在 `apps/api/internal/api/authz.go` 末尾追加：
 
 ```go
-package store_test
-
-import (
-	"context"
-	"testing"
-
-	"mindimprint/api/internal/store/sqlc"
-)
-
-// TestCreateReading_RoundTrips — a reading atom persists and reads back with
-// its container, and defaults to status 'active'.
-func TestCreateReading_RoundTrips(t *testing.T) {
-	pool := newTestPool(t) // ← 用本包既有的 helper 名，见 sqlc_test.go
-	q := sqlc.New(pool)
-	ctx := context.Background()
-
-	var userID, containerID string
-	if err := pool.QueryRow(ctx, `SELECT id::text FROM users LIMIT 1`).Scan(&userID); err != nil {
-		t.Fatalf("seed user: %v", err)
-	}
-	if err := pool.QueryRow(ctx,
-		`INSERT INTO project (user_id, qualification, title, board_cfg_ver, kind)
-		 VALUES ($1, '0457', '容器', 1, 'container') RETURNING id::text`,
-		userID).Scan(&containerID); err != nil {
-		t.Fatalf("insert container: %v", err)
-	}
-
-	rd, err := q.CreateReading(ctx, sqlc.CreateReadingParams{
-		UserID:      mustParseUUID(t, userID),
-		Title:       "一篇文章",
-		Lang:        "zh",
-		ContainerID: mustParseUUID(t, containerID),
+// requireEdition gates a route group on the edition of the caller's SCHOOL.
+// edition is an organisation fact, not an account one: a school buys the lite
+// edition or the pro one and every account under it follows — so this reads
+// schools.edition rather than any per-user field.
+//
+// A mismatch is 404, not 403: from a lite student's point of view the pro
+// surface does not exist, and vice versa. Same non-leaking convention as
+// ownership failures.
+func (a *API) requireEdition(want string, h http.Handler) http.Handler {
+	return RequireUser(func(w http.ResponseWriter, r *http.Request) {
+		u, _ := UserFromContext(r.Context())
+		school, err := a.d.Queries.GetSchool(r.Context(), u.SchoolID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if school.Edition != want {
+			httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+			return
+		}
+		h.ServeHTTP(w, r)
 	})
-	if err != nil {
-		t.Fatalf("CreateReading: %v", err)
-	}
-	if rd.Status != "active" {
-		t.Fatalf("status = %q, want \"active\"", rd.Status)
-	}
-
-	got, err := q.GetReading(ctx, rd.ID)
-	if err != nil {
-		t.Fatalf("GetReading: %v", err)
-	}
-	if got.Title != "一篇文章" || got.Lang != "zh" {
-		t.Fatalf("round-trip mismatch: %+v", got)
-	}
-
-	list, err := q.ListReadingsByUser(ctx, mustParseUUID(t, userID))
-	if err != nil {
-		t.Fatalf("ListReadingsByUser: %v", err)
-	}
-	if len(list) != 1 || list[0].ID != rd.ID {
-		t.Fatalf("list = %+v, want exactly the created reading", list)
-	}
 }
 ```
 
-若本包没有 `mustParseUUID`，在测试文件底部加：
+`api.User` 已经携带 `SchoolID`（见 `apps/api/internal/api/auth.go` 的 `type User struct`），**不需要给 principal 加字段**。每请求多一次 `schools` 主键查询——表极小，代价可忽略。
+
+- [ ] **Step 5: 把 `/projects` 组包成 pro-only**
+
+在 `apps/api/internal/api/api.go` 的 `protected := …` 之后加：
 
 ```go
-func mustParseUUID(t *testing.T, s string) uuid.UUID {
-	t.Helper()
-	id, err := uuid.Parse(s)
-	if err != nil {
-		t.Fatalf("parse uuid %q: %v", s, err)
-	}
-	return id
-}
+	// 站点分流：pro 学校的账号看不见 /readings，lite 学校的账号看不见
+	// /projects —— 双向都是 404，不泄漏另一侧的存在。
+	proOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("pro", http.HandlerFunc(h)) }
 ```
 
-并 import `"github.com/google/uuid"`。
-
-- [ ] **Step 2: 跑测试，确认它失败**
+然后把**所有** `/api/v1/projects` 及其子路由的 `protected(...)` 改成 `proOnly(...)`。先数一下有多少行，改完再数一次核对：
 
 ```bash
-cd apps/api && go test ./internal/store/ -run TestCreateReading_RoundTrips -timeout 1800s
+grep -c '"\(GET\|POST\|PUT\|PATCH\|DELETE\) /api/v1/projects' apps/api/internal/api/api.go
 ```
 
-预期：FAIL —— 编译不过，`sqlc.CreateReadingParams` 未定义。
-
-- [ ] **Step 3: 写迁移**
-
-新建 `apps/api/internal/store/migrations/0094_reading_atom.sql`：
-
-```sql
--- +goose Up
--- 阅读是轻量版的一等原子：学生的一次阅读练习。它静默持有一行 kind='container'
--- 的 project 作为存储锚点，好让阅读室的既有端点一行都不用改。writing 是它的
--- 兄弟表（P3 落地），chat / project 之后同样以兄弟身份加入——所以这里不设
--- kind 判别列。
-CREATE TABLE reading (
-  id           uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id      uuid NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  title        text NOT NULL DEFAULT '',
-  lang         text NOT NULL CHECK (lang IN ('zh','en')),
-  status       text NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished')),
-  container_id uuid NOT NULL REFERENCES project(id) ON DELETE CASCADE,
-  reference_id uuid REFERENCES reference(id) ON DELETE SET NULL,
-  created_at   timestamptz NOT NULL DEFAULT now(),
-  updated_at   timestamptz NOT NULL DEFAULT now(),
-  finished_at  timestamptz
-);
-CREATE INDEX reading_user_created_idx ON reading (user_id, created_at DESC);
-CREATE UNIQUE INDEX reading_container_idx ON reading (container_id);
-
--- +goose Down
-DROP TABLE reading;
-```
-
-- [ ] **Step 4: 写查询**
-
-新建 `apps/api/internal/store/queries/reading.sql`：
-
-```sql
--- name: CreateReading :one
-INSERT INTO reading (user_id, title, lang, container_id)
-VALUES ($1, $2, $3, $4)
-RETURNING *;
-
--- name: GetReading :one
-SELECT * FROM reading WHERE id = $1;
-
--- name: ListReadingsByUser :many
-SELECT * FROM reading
-WHERE user_id = $1
-ORDER BY created_at DESC;
-
--- name: RenameReading :exec
-UPDATE reading SET title = $2, updated_at = now() WHERE id = $1;
-
--- name: SetReadingReference :exec
--- The atom's single reference row, minted alongside the container at create
--- time. The reading room addresses itself by project + reference, so the DTO
--- hands this id to the client.
-UPDATE reading SET reference_id = $2, updated_at = now() WHERE id = $1;
-
--- name: SetReadingFinished :exec
-UPDATE reading SET status = 'finished', finished_at = now(), updated_at = now()
-WHERE id = $1;
-```
-
-- [ ] **Step 5: 重新生成 sqlc**
-
-```bash
-cd apps/api && make sqlc
-```
+`/auth/*`、`/courses/*`、`/cards/*`、`/users/me/*`、`/oss/*`、`/voice/*`、`/chat/*`、`/classes/*`、`/admin/*` **不加闸**（两个站或教师端都要用）。
 
 - [ ] **Step 6: 跑测试，确认通过**
 
 ```bash
-cd apps/api && go test ./internal/store/ -run TestCreateReading_RoundTrips -timeout 1800s
+cd apps/api && go test ./internal/api/ -run TestEditionGate -timeout 1800s
 ```
 
-预期：PASS。
+预期：两条都 PASS。**不要跑整包**——controller 会统一验证。
 
 - [ ] **Step 7: 提交**
 
 ```bash
-git add apps/api/internal/store/migrations/0094_reading_atom.sql \
-        apps/api/internal/store/queries/reading.sql \
+git add apps/api/internal/store/migrations/0093_schools_edition.sql \
         apps/api/internal/store/sqlc/ \
-        apps/api/internal/store/reading_store_test.go
-git commit -m "feat(lite): add the reading atom table and its queries"
+        apps/api/internal/api/authz.go apps/api/internal/api/api.go \
+        apps/api/internal/api/edition_test.go
+git commit -m "feat(lite): edition rides on the school and gates the pro surface"
 ```
 
 ---
 
-### Task 4: 阅读原子 CRUD 端点
+### Task 3: 阅读原子 CRUD 端点
 
 **Files:**
 - Create: `apps/api/internal/api/readings.go`
-- Modify: `apps/api/internal/api/api.go`（注册 4 条路由）
+- Modify: `apps/api/internal/api/api.go`
 - Test: `apps/api/internal/api/readings_test.go`
 
 **Interfaces:**
-- Consumes: Task 3 的 sqlc 方法；Task 1 的 `kind='container'`
+- Consumes: Task 1 的 sqlc 方法；Task 2 的 `requireEdition` 与 `liteHandler`
 - Produces:
-  - `POST /api/v1/readings` → `201 {"id","referenceId"}`
+  - `POST /api/v1/readings` → `201 {"id"}`（id = **atom id**）
   - `GET /api/v1/readings` → `200 {"readings":[readingDTO]}`
-  - `GET /api/v1/readings/{id}` → `200 readingDTO`
-  - `PATCH /api/v1/readings/{id}` → `200 readingDTO`（改标题）
-  - `readingDTO` = `{id, title, lang, status, referenceId, createdAt, updatedAt, finishedAt}`，时间用 RFC3339，`referenceId`/`finishedAt` 可为 `null`
-  - Go 侧导出的构造器 `func (a *API) readingDTOOf(rd sqlc.Reading) readingDTO`，Task 5/6 复用
+  - `GET|PATCH /api/v1/readings/{id}` → `200 readingDTO`
+  - `readingDTO` = `{id,title,lang,status,hasSource,createdAt,updatedAt,finishedAt}`，RFC3339 时间，`finishedAt` 可为 `null`
+  - 供 Task 4-8 复用：`func (a *API) loadOwnedReadingAtom(w, r) (sqlc.Atom, bool)`、`func (a *API) hasSource(r, atomID) (bool, error)`、测试 helper `createReadingAtom(t, h, cookie) string`
+  - `liteOnly` 包装器（注册在 api.go）
 
 - [ ] **Step 1: 写下会失败的测试**
 
@@ -562,128 +627,114 @@ git commit -m "feat(lite): add the reading atom table and its queries"
 package api_test
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
-
-	. "mindimprint/api/internal/api"
-	"mindimprint/api/internal/cards"
-	"mindimprint/api/internal/store/sqlc"
 )
 
-func liteHandler(t *testing.T) (http.Handler, *http.Cookie, *sqlc.Queries) {
+// createReadingAtom returns a new reading's atom id. Shared by Tasks 3-8.
+func createReadingAtom(t *testing.T, h http.Handler, cookie *http.Cookie) string {
 	t.Helper()
-	pool := newAPITestPool(t)
-	q := sqlc.New(pool)
-	h := New(Deps{
-		Queries: q, Pool: pool,
-		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
-	}).Handler()
-	return h, signInSeed(t, pool), q
-}
-
-// TestCreateReading_MintsContainerAndReference — creating a reading atom also
-// creates its hidden container project and the single reference the reading
-// room addresses itself by. All three in one transaction.
-func TestCreateReading_MintsContainerAndReference(t *testing.T) {
-	h, cookie, q := liteHandler(t)
-
 	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"title":"气候变化与农业","lang":"zh"}`)
+	body := strings.NewReader(`{"title":"一篇文章","lang":"zh"}`)
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/readings", body), cookie))
 	if rec.Code != http.StatusCreated {
-		t.Fatalf("POST /readings = %d, want 201; body=%s", rec.Code, rec.Body)
+		t.Fatalf("create reading = %d; body=%s", rec.Code, rec.Body)
 	}
 	var out struct {
-		ID          string `json:"id"`
-		ReferenceID string `json:"referenceId"`
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.ID == "" {
+		t.Fatalf("decode id: %v — body=%s", err, rec.Body)
+	}
+	return out.ID
+}
+
+func TestCreateReading_CreatesAtomAndReading(t *testing.T) {
+	h, cookie, q, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	a, err := q.GetAtom(t.Context(), mustUUID(id))
+	if err != nil {
+		t.Fatalf("GetAtom: %v", err)
+	}
+	if a.Kind != "reading" {
+		t.Fatalf("atom kind = %q, want \"reading\"", a.Kind)
+	}
+	if _, err := q.GetReading(t.Context(), a.ID); err != nil {
+		t.Fatalf("GetReading: %v", err)
+	}
+}
+
+func TestListReadings_OnlyMineNewestFirst(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	createReadingAtom(t, h, cookie)
+	createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET /readings = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Readings []struct {
+			ID        string `json:"id"`
+			HasSource bool   `json:"hasSource"`
+		} `json:"readings"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode: %v — body=%s", err, rec.Body)
 	}
-	if out.ID == "" || out.ReferenceID == "" {
-		t.Fatalf("want both id and referenceId, got %+v", out)
+	if len(out.Readings) != 2 {
+		t.Fatalf("got %d readings, want 2", len(out.Readings))
 	}
-
-	rd, err := q.GetReading(context.Background(), mustUUID(out.ID))
-	if err != nil {
-		t.Fatalf("GetReading: %v", err)
-	}
-	proj, err := q.GetProject(context.Background(), rd.ContainerID)
-	if err != nil {
-		t.Fatalf("GetProject(container): %v", err)
-	}
-	if proj.Kind != "container" {
-		t.Fatalf("container project kind = %q, want \"container\"", proj.Kind)
+	if out.Readings[0].HasSource {
+		t.Fatal("a brand-new reading reports hasSource=true; nothing has been pasted yet")
 	}
 }
 
-// TestListReadings_OnlyMine — a reading is private to its owner; another
-// account's atom is invisible, and a direct GET on it is 404 (never 403).
-func TestListReadings_OnlyMine(t *testing.T) {
-	h, cookie, _ := liteHandler(t)
-
-	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"title":"我的","lang":"zh"}`)
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/readings", body), cookie))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create = %d; body=%s", rec.Code, rec.Body)
-	}
-
-	rec = httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings", nil), cookie))
-	if rec.Code != http.StatusOK {
-		t.Fatalf("GET /readings = %d, want 200", rec.Code)
-	}
-	var list struct {
-		Readings []struct {
-			ID    string `json:"id"`
-			Title string `json:"title"`
-		} `json:"readings"`
-	}
-	if err := json.Unmarshal(rec.Body.Bytes(), &list); err != nil {
-		t.Fatalf("decode: %v — body=%s", err, rec.Body)
-	}
-	if len(list.Readings) != 1 || list.Readings[0].Title != "我的" {
-		t.Fatalf("list = %+v, want exactly my one reading", list.Readings)
-	}
-}
-
-// TestGetReading_UnknownIs404 — existence is never leaked.
 func TestGetReading_UnknownIs404(t *testing.T) {
-	h, cookie, _ := liteHandler(t)
+	h, cookie, _, _ := liteHandler(t)
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(
 		httptest.NewRequest("GET", "/api/v1/readings/00000000-0000-0000-0000-0000000009ff", nil), cookie))
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("GET unknown reading = %d, want 404", rec.Code)
+		t.Fatalf("unknown reading = %d, want 404", rec.Code)
+	}
+}
+
+func TestRenameReading(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	body := strings.NewReader(`{"title":"新标题"}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PATCH", "/api/v1/readings/"+id, body), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PATCH = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Title string `json:"title"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil || out.Title != "新标题" {
+		t.Fatalf("title = %q, want 新标题 (err=%v)", out.Title, err)
 	}
 }
 ```
 
+> `t.Context()` 需要 Go 1.24+。看 `apps/api/go.mod` 的 `go` 行；更低就换 `context.Background()` 并 import `"context"`。
+
 - [ ] **Step 2: 跑测试，确认它失败**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run 'TestCreateReading_MintsContainerAndReference|TestListReadings_OnlyMine|TestGetReading_UnknownIs404' -timeout 1800s
+cd apps/api && go test ./internal/api/ -run 'TestCreateReading|TestListReadings|TestGetReading|TestRenameReading' -timeout 1800s
 ```
 
-预期：全部 FAIL —— 404，路由尚不存在。
+预期：全 FAIL —— 404，路由不存在。
 
-- [ ] **Step 3: 确认 `CreateReference` 的真实参数**
-
-阅读原子建容器时要顺带建一行 reference。**先读真实签名**，不要凭记忆写：
-
-```bash
-cd apps/api && sed -n '366,430p' internal/api/workspace_library.go
-grep -n "name: CreateReference" -A 12 internal/store/queries/*.sql
-```
-
-把 `sqlc.CreateReferenceParams` 的必填字段抄进下一步的代码里（下面的实现按「`ProjectID` + `Title` + 其余留零值」写，若真实结构体有额外 NOT NULL 字段，照抄 `createReference` handler 的填法）。
-
-- [ ] **Step 4: 写实现**
+- [ ] **Step 3: 写实现**
 
 新建 `apps/api/internal/api/readings.go`：
 
@@ -692,46 +743,40 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// readings.go — the lite edition's 阅读 atom. A reading is a student's single
-// reading exercise. It quietly owns one kind='container' project row plus one
-// reference row: every reading-room endpoint addresses itself by project +
-// reference, so giving the atom both lets those endpoints be reused verbatim
-// through the /readings/{id}/room/* passthrough (atom_container.go).
+// readings.go — the lite edition's 阅读 atom: one student's single reading
+// exercise. It owns its storage outright (atom + reading + the shared atom_*
+// machinery); it does NOT borrow a project row and never touches any
+// project-scoped table.
 
 type readingDTO struct {
-	ID          string  `json:"id"`
-	Title       string  `json:"title"`
-	Lang        string  `json:"lang"`
-	Status      string  `json:"status"`
-	ReferenceID *string `json:"referenceId"`
-	CreatedAt   string  `json:"createdAt"`
-	UpdatedAt   string  `json:"updatedAt"`
-	FinishedAt  *string `json:"finishedAt"`
+	ID         string  `json:"id"` // the ATOM id — every reading endpoint is keyed by it
+	Title      string  `json:"title"`
+	Lang       string  `json:"lang"`
+	Status     string  `json:"status"`
+	HasSource  bool    `json:"hasSource"`
+	CreatedAt  string  `json:"createdAt"`
+	UpdatedAt  string  `json:"updatedAt"`
+	FinishedAt *string `json:"finishedAt"`
 }
 
-func (a *API) readingDTOOf(rd sqlc.Reading) readingDTO {
+func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt time.Time) readingDTO {
 	out := readingDTO{
-		ID:        rd.ID.String(),
-		Title:     rd.Title,
-		Lang:      rd.Lang,
-		Status:    rd.Status,
-		CreatedAt: rd.CreatedAt.Time.Format(time.RFC3339),
+		ID: rd.AtomID.String(), Title: rd.Title, Lang: rd.Lang, Status: rd.Status,
+		HasSource: hasSource,
+		CreatedAt: createdAt.Format(time.RFC3339),
 		UpdatedAt: rd.UpdatedAt.Time.Format(time.RFC3339),
-	}
-	if rd.ReferenceID.Valid {
-		s := uuid.UUID(rd.ReferenceID.Bytes).String()
-		out.ReferenceID = &s
 	}
 	if rd.FinishedAt.Valid {
 		s := rd.FinishedAt.Time.Format(time.RFC3339)
@@ -740,32 +785,40 @@ func (a *API) readingDTOOf(rd sqlc.Reading) readingDTO {
 	return out
 }
 
-// loadOwnedReading parses {id} and confirms the caller owns it. Ownership
-// failure is 404, never 403 — existence is never leaked (same convention as
-// loadOwnedProjectRow).
-func (a *API) loadOwnedReading(w http.ResponseWriter, r *http.Request) (sqlc.Reading, bool) {
+// loadOwnedReadingAtom parses {id} as an atom of kind 'reading' owned by the
+// caller. Every failure — malformed id, missing row, wrong kind, wrong owner —
+// is a flat 404, so atom existence is never leaked. Shared by Tasks 3-8.
+func (a *API) loadOwnedReadingAtom(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
 	u, _ := UserFromContext(r.Context())
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return sqlc.Reading{}, false
+		return sqlc.Atom{}, false
 	}
-	rd, err := a.d.Queries.GetReading(r.Context(), id)
+	at, err := a.d.Queries.GetAtom(r.Context(), id)
 	if err != nil {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
-		return sqlc.Reading{}, false
+		return sqlc.Atom{}, false
 	}
-	if rd.UserID != u.ID {
+	if at.Kind != "reading" || at.UserID != u.ID {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return sqlc.Reading{}, false
+		return sqlc.Atom{}, false
 	}
-	return rd, true
+	return at, true
 }
 
-// createReading mints, in ONE transaction: the container project, the single
-// reference inside it, and the reading atom pointing at both. Any failure rolls
-// all three back — a half-built atom would strand the student in a room with no
-// reference to read.
+// hasSource reports whether the article body has been pasted yet. A missing
+// row is a legitimate state (a brand-new reading), not an error.
+func (a *API) hasSource(r *http.Request, atomID uuid.UUID) (bool, error) {
+	if _, err := a.d.Queries.GetReadingSource(r.Context(), atomID); err != nil {
+		if errors.Is(err, pgx.ErrNoRows) {
+			return false, nil
+		}
+		return false, err
+	}
+	return true, nil
+}
+
 func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	entitled, err := HasEntitlement(r.Context(), u)
@@ -797,6 +850,8 @@ func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 		lang = "zh"
 	}
 
+	// atom + reading in ONE transaction: an atom with no reading row would be
+	// an identity nothing can render.
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -805,36 +860,13 @@ func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 	defer func() { _ = tx.Rollback(r.Context()) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	container, err := qtx.CreateProject(r.Context(), sqlc.CreateProjectParams{
-		UserID: u.ID, Qualification: "lite", Title: title,
-		Deadline: pgtype.Timestamptz{}, BoardCfgVer: 1, Cover: nil,
-	})
+	at, err := qtx.CreateAtom(r.Context(), sqlc.CreateAtomParams{Kind: "reading", UserID: u.ID})
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	// CreateProject does not set kind (it is the pro funnel's query); flip this
-	// row to a container so every project list and aggregate skips it.
-	if _, err := tx.Exec(r.Context(), `UPDATE project SET kind = 'container' WHERE id = $1`, container.ID); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	ref, err := qtx.CreateReference(r.Context(), sqlc.CreateReferenceParams{
-		ProjectID: container.ID, Title: title,
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	rd, err := qtx.CreateReading(r.Context(), sqlc.CreateReadingParams{
-		UserID: u.ID, Title: title, Lang: lang, ContainerID: container.ID,
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := qtx.SetReadingReference(r.Context(), sqlc.SetReadingReferenceParams{
-		ID: rd.ID, ReferenceID: pgtype.UUID{Bytes: ref.ID, Valid: true},
+	if _, err := qtx.CreateReading(r.Context(), sqlc.CreateReadingParams{
+		AtomID: at.ID, Title: title, Lang: lang,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -843,10 +875,7 @@ func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-
-	httpx.WriteJSON(w, http.StatusCreated, map[string]any{
-		"id": rd.ID.String(), "referenceId": ref.ID.String(),
-	})
+	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"id": at.ID.String()})
 }
 
 func (a *API) listReadings(w http.ResponseWriter, r *http.Request) {
@@ -857,22 +886,40 @@ func (a *API) listReadings(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	out := make([]readingDTO, 0, len(rows))
-	for _, rd := range rows {
-		out = append(out, a.readingDTOOf(rd))
+	for _, row := range rows {
+		hasSrc, err := a.hasSource(r, row.AtomID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		out = append(out, a.readingDTOOf(sqlc.Reading{
+			AtomID: row.AtomID, Title: row.Title, Lang: row.Lang,
+			Status: row.Status, UpdatedAt: row.UpdatedAt, FinishedAt: row.FinishedAt,
+		}, hasSrc, row.AtomCreatedAt.Time))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"readings": out})
 }
 
 func (a *API) getReading(w http.ResponseWriter, r *http.Request) {
-	rd, ok := a.loadOwnedReading(w, r)
+	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd))
+	rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	hasSrc, err := a.hasSource(r, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt.Time))
 }
 
 func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
-	rd, ok := a.loadOwnedReading(w, r)
+	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
 		return
 	}
@@ -891,86 +938,194 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 	if len([]rune(title)) > 200 {
 		title = string([]rune(title)[:200])
 	}
-	if err := a.d.Queries.RenameReading(r.Context(), sqlc.RenameReadingParams{ID: rd.ID, Title: title}); err != nil {
+	if err := a.d.Queries.RenameReading(r.Context(), sqlc.RenameReadingParams{AtomID: at.ID, Title: title}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	fresh, err := a.d.Queries.GetReading(r.Context(), rd.ID)
+	rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(fresh))
+	hasSrc, err := a.hasSource(r, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt.Time))
 }
 ```
 
-> 若 `sqlc.Reading.ReferenceID` 生成为 `*uuid.UUID` 而非 `pgtype.UUID`，按生成结果调整 `readingDTOOf` 与 `SetReadingReference` 的取值；`pgtype` 与 `google/uuid` 不可混用。
+> `ListReadingsByUser` 生成的 row 类型字段名以 `make sqlc` 的产出为准（`AtomCreatedAt` 等），按生成结果调整装配。`pgtype` 与 `google/uuid` 不可混用——以生成的类型为准。
 
-- [ ] **Step 5: 注册路由**
+- [ ] **Step 4: 注册路由**
 
-在 `apps/api/internal/api/api.go` 的 `mux.Handle("POST /api/v1/projects", protected(a.createProject))` 那一行**之后**插入：
+在 `apps/api/internal/api/api.go` 里，Task 2 的 `proOnly` 旁边加 `liteOnly`：
 
 ```go
-	// 轻量版（lite edition）· 阅读原子。房间端点在 atom_container.go 里以
-	// /readings/{id}/room/* 前缀复用同一批 handler，不在这里重复声明。
-	mux.Handle("GET /api/v1/readings", protected(a.listReadings))
-	mux.Handle("POST /api/v1/readings", protected(a.createReading))
-	mux.Handle("GET /api/v1/readings/{id}", protected(a.getReading))
-	mux.Handle("PATCH /api/v1/readings/{id}", protected(a.renameReading))
+	liteOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("lite", http.HandlerFunc(h)) }
+
+	// 轻量版（lite edition）· 阅读原子。{id} 一律是 atom id。
+	mux.Handle("GET /api/v1/readings", liteOnly(a.listReadings))
+	mux.Handle("POST /api/v1/readings", liteOnly(a.createReading))
+	mux.Handle("GET /api/v1/readings/{id}", liteOnly(a.getReading))
+	mux.Handle("PATCH /api/v1/readings/{id}", liteOnly(a.renameReading))
 ```
 
-- [ ] **Step 6: 跑测试，确认通过**
+- [ ] **Step 5: 跑测试，确认通过**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run 'TestCreateReading_MintsContainerAndReference|TestListReadings_OnlyMine|TestGetReading_UnknownIs404' -timeout 1800s
+cd apps/api && go test ./internal/api/ -run 'TestCreateReading|TestListReadings|TestGetReading|TestRenameReading|TestEditionGate' -timeout 1800s
 ```
 
-预期：全部 PASS。
+预期：全部 PASS。**不要跑整包。**
 
-- [ ] **Step 7: 确认容器护栏仍然成立**
-
-```bash
-cd apps/api && go test ./internal/api/ -run TestListProjects_ExcludesContainers -timeout 1800s
-```
-
-预期：PASS —— 现在有真实的容器行在被创建，这条护栏才第一次有真正的意义。
-
-- [ ] **Step 8: 提交**
+- [ ] **Step 6: 提交**
 
 ```bash
 git add apps/api/internal/api/readings.go apps/api/internal/api/readings_test.go apps/api/internal/api/api.go
-git commit -m "feat(lite): reading atom CRUD, minting container + reference in one tx"
+git commit -m "feat(lite): reading atom CRUD endpoints"
 ```
 
 ---
 
-### Task 5: 容器透传中间件与 `loadOwnedProjectRow` 接缝
+### Task 4: 文章入库与分段
 
-这是整个设计的支点：一个函数改动，换来整个阅读室零改动复用。
+阅读室要把正文按段渲染，工具卡要悬挂在**某一段**上，AI 的 `ExampleBlockID` 也指向段 id。所以分段规则必须确定、可单测。
 
 **Files:**
-- Create: `apps/api/internal/api/atom_container.go`
-- Modify: `apps/api/internal/api/projects.go:220-241`（`loadOwnedProjectRow`）
-- Modify: `apps/api/internal/api/api.go`（调用 `a.mountReadingRoom(mux)`）
-- Test: `apps/api/internal/api/atom_container_test.go`
+- Create: `apps/api/internal/api/reading_blocks.go`
+- Create: `apps/api/internal/api/reading_source.go`
+- Modify: `apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/reading_blocks_test.go`
+- Test: `apps/api/internal/api/reading_source_test.go`
 
 **Interfaces:**
-- Consumes: Task 4 的 `loadOwnedReading`；Task 1 的 `project.kind`
-- Produces: `func (a *API) withReadingContainer(h http.HandlerFunc) http.Handler`；`func (a *API) mountReadingRoom(mux *http.ServeMux)`；context 读写对 `withContainerID(ctx, uuid.UUID) context.Context` / `containerIDFrom(ctx) (uuid.UUID, bool)`
+- Consumes: Task 3 的 `loadOwnedReadingAtom`、`liteOnly`
+- Produces:
+  - `PUT /api/v1/readings/{id}/source` — body `{"title"?,"text"?,"url"?}` → `200 sourceDTO`
+  - `GET /api/v1/readings/{id}/source` → `200 sourceDTO`（未贴过 → 404）
+  - `sourceDTO` = `{title, sourceUrl, blocks:[{id,text}]}`
+  - `type Block struct { ID, Text string }`（JSON `id`/`text`）与 `func SplitBlocks(body string) []Block` —— 段 id 形如 `b1`、`b2`，Task 7 装配与 Task 12 渲染都依赖它
 
-- [ ] **Step 1: 先确认没有 handler 绕开接缝**
-
-`loadOwnedProjectRow` 是唯一的 project-id 入口——但要亲手证实，别信注释：
+- [ ] **Step 1: 先看 pro 的锚点类型**
 
 ```bash
-cd apps/api && grep -rn 'PathValue("id")' internal/api/ | grep -v _test
+grep -n "type MaterialBlock" -A 8 apps/api/internal/agent/*.go
+grep -n "func ResolveExampleAnchor" -A 10 apps/api/internal/agent/reading_gate.go
 ```
 
-预期：只有 `projects.go` 里那一处（`loadOwnedProjectRow` 内）。若还有其他命中，**逐一确认它不属于阅读室路由表**（Step 5 的列表）。属于的话，把它也改成走 `containerIDFrom`，并在提交信息里点名。
+`agent.MaterialBlock` 是 `ResolveExampleAnchor` 的输入——**你的 `Block` 必须能转成它**。在报告里写明字段对应关系。
 
-- [ ] **Step 2: 写下会失败的测试**
+- [ ] **Step 2: 写下会失败的分段测试**
 
-新建 `apps/api/internal/api/atom_container_test.go`：
+新建 `apps/api/internal/api/reading_blocks_test.go`：
+
+```go
+package api_test
+
+import (
+	"strings"
+	"testing"
+
+	. "mindimprint/api/internal/api"
+)
+
+func TestSplitBlocks_ParagraphsGetStableIDs(t *testing.T) {
+	blocks := SplitBlocks("第一段。\n\n第二段，稍长一些。\n\n\n第三段。")
+	if len(blocks) != 3 {
+		t.Fatalf("got %d blocks, want 3: %+v", len(blocks), blocks)
+	}
+	if blocks[0].ID != "b1" || blocks[1].ID != "b2" || blocks[2].ID != "b3" {
+		t.Fatalf("ids = %s/%s/%s, want b1/b2/b3", blocks[0].ID, blocks[1].ID, blocks[2].ID)
+	}
+	if blocks[1].Text != "第二段，稍长一些。" {
+		t.Fatalf("block 2 text = %q", blocks[1].Text)
+	}
+}
+
+func TestSplitBlocks_IgnoresBlankAndTrims(t *testing.T) {
+	blocks := SplitBlocks("  \n\n  正文  \n\n   \n\n 尾段 \n")
+	if len(blocks) != 2 {
+		t.Fatalf("got %d blocks, want 2: %+v", len(blocks), blocks)
+	}
+	if blocks[0].Text != "正文" || blocks[1].Text != "尾段" {
+		t.Fatalf("blocks = %+v, want trimmed text", blocks)
+	}
+}
+
+func TestSplitBlocks_EmptyBodyYieldsNone(t *testing.T) {
+	if got := SplitBlocks("   \n\n  "); len(got) != 0 {
+		t.Fatalf("got %d blocks, want 0", len(got))
+	}
+}
+
+// Block ids must not shift when the body is re-split — a hanging card stores
+// its block id, so renumbering would move every card to the wrong paragraph.
+func TestSplitBlocks_IsDeterministic(t *testing.T) {
+	body := strings.Repeat("一段。\n\n", 5)
+	a, b := SplitBlocks(body), SplitBlocks(body)
+	if len(a) != len(b) {
+		t.Fatalf("lengths differ: %d vs %d", len(a), len(b))
+	}
+	for i := range a {
+		if a[i].ID != b[i].ID || a[i].Text != b[i].Text {
+			t.Fatalf("block %d differs: %+v vs %+v", i, a[i], b[i])
+		}
+	}
+}
+```
+
+- [ ] **Step 3: 跑测试，确认它失败**
+
+```bash
+cd apps/api && go test ./internal/api/ -run TestSplitBlocks -timeout 1800s
+```
+
+预期：FAIL —— `SplitBlocks` 未定义。
+
+- [ ] **Step 4: 写分段**
+
+新建 `apps/api/internal/api/reading_blocks.go`：
+
+```go
+package api
+
+import (
+	"strconv"
+	"strings"
+)
+
+// reading_blocks.go — 正文分段。工具卡悬挂在某一段上、AI 的 ExampleBlockID 也
+// 指向段 id，所以这个函数必须是纯的、确定的：同样的正文永远得到同样的 id，
+// 否则已经悬挂的卡片会集体移位到错误的段落。
+
+type Block struct {
+	ID   string `json:"id"`
+	Text string `json:"text"`
+}
+
+// SplitBlocks splits an article body into paragraphs on blank lines, trims
+// each, drops the empties, and numbers what SURVIVES b1, b2, … — so the
+// numbering stays stable for as long as the body does.
+func SplitBlocks(body string) []Block {
+	body = strings.ReplaceAll(body, "\r\n", "\n")
+	raw := strings.Split(body, "\n\n")
+	out := make([]Block, 0, len(raw))
+	for _, p := range raw {
+		t := strings.TrimSpace(p)
+		if t == "" {
+			continue
+		}
+		out = append(out, Block{ID: "b" + strconv.Itoa(len(out)+1), Text: t})
+	}
+	return out
+}
+```
+
+- [ ] **Step 5: 写 source 端点的测试**
+
+新建 `apps/api/internal/api/reading_source_test.go`：
 
 ```go
 package api_test
@@ -983,477 +1138,819 @@ import (
 	"testing"
 )
 
-// createReadingAtom returns (readingID, referenceID).
-func createReadingAtom(t *testing.T, h http.Handler, cookie *http.Cookie) (string, string) {
+func putSource(t *testing.T, h http.Handler, cookie *http.Cookie, id, text string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"title":"一篇文章","lang":"zh"}`)
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/readings", body), cookie))
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("create reading = %d; body=%s", rec.Code, rec.Body)
+	body, _ := json.Marshal(map[string]string{"text": text})
+	h.ServeHTTP(rec, withCookie(
+		httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/source", strings.NewReader(string(body))), cookie))
+	return rec
+}
+
+func TestPutSource_StoresAndSegments(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := putSource(t, h, cookie, id, "太阳能装机十年增长十倍。\n\n但储能仍是瓶颈。")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT source = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var out struct {
-		ID          string `json:"id"`
-		ReferenceID string `json:"referenceId"`
+		Blocks []struct {
+			ID   string `json:"id"`
+			Text string `json:"text"`
+		} `json:"blocks"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
-		t.Fatalf("decode: %v", err)
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
 	}
-	return out.ID, out.ReferenceID
-}
-
-// TestRoomPassthrough_ReachesTheContainer — the reading room's own endpoints,
-// mounted under the atom prefix, resolve to the atom's container project. This
-// is the whole reuse story: same handler, different owner.
-func TestRoomPassthrough_ReachesTheContainer(t *testing.T) {
-	h, cookie, _ := liteHandler(t)
-	rid, refID := createReadingAtom(t, h, cookie)
-
-	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"text":"太阳能装机在过去十年增长了十倍。"}`)
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
-		"/api/v1/readings/"+rid+"/room/references/"+refID+"/paste-content", body), cookie))
-	if rec.Code < 200 || rec.Code >= 300 {
-		t.Fatalf("paste-content through atom prefix = %d, want 2xx; body=%s", rec.Code, rec.Body)
+	if len(out.Blocks) != 2 || out.Blocks[0].ID != "b1" {
+		t.Fatalf("blocks = %+v, want two starting at b1", out.Blocks)
 	}
 }
 
-// TestRoomPassthrough_ForeignAtomIs404 — another account's atom is unreachable,
-// and the failure is 404 (never 403).
-func TestRoomPassthrough_ForeignAtomIs404(t *testing.T) {
-	h, cookie, _ := liteHandler(t)
-	_, refID := createReadingAtom(t, h, cookie)
+func TestPutSource_RejectsEmptyBody(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := putSource(t, h, cookie, id, "   \n\n  ")
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("empty body = %d, want 400; body=%s", rec.Code, rec.Body)
+	}
+}
+
+func TestPutSource_ReplacesOnSecondPut(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	putSource(t, h, cookie, id, "第一版。")
+	putSource(t, h, cookie, id, "第二版。\n\n多了一段。")
 
 	rec := httptest.NewRecorder()
-	body := strings.NewReader(`{"text":"x"}`)
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
-		"/api/v1/readings/00000000-0000-0000-0000-0000000009ff/room/references/"+refID+"/paste-content",
-		body), cookie))
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/source", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET source = %d, want 200", rec.Code)
+	}
+	var out struct {
+		Blocks []struct {
+			Text string `json:"text"`
+		} `json:"blocks"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	if len(out.Blocks) != 2 || out.Blocks[0].Text != "第二版。" {
+		t.Fatalf("blocks = %+v, want the second version", out.Blocks)
+	}
+}
+
+func TestGetSource_BeforePasteIs404(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/source", nil), cookie))
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("unknown atom = %d, want 404; body=%s", rec.Code, rec.Body)
+		t.Fatalf("GET source before paste = %d, want 404", rec.Code)
 	}
 }
 
-// TestContainerNotReachableAsProject — a container is storage for an atom, not
-// a project. Hitting it directly on /projects/{id} is 404.
-func TestContainerNotReachableAsProject(t *testing.T) {
-	h, cookie, q := liteHandler(t)
-	rid, _ := createReadingAtom(t, h, cookie)
-
-	rd, err := q.GetReading(t.Context(), mustUUID(rid))
-	if err != nil {
-		t.Fatalf("GetReading: %v", err)
-	}
-
-	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(
-		httptest.NewRequest("GET", "/api/v1/projects/"+rd.ContainerID.String(), nil), cookie))
+func TestPutSource_ForeignAtomIs404(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	rec := putSource(t, h, cookie, "00000000-0000-0000-0000-0000000009ff", "正文")
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("GET /projects/{container} = %d, want 404; body=%s", rec.Code, rec.Body)
+		t.Fatalf("foreign atom = %d, want 404", rec.Code)
 	}
 }
 ```
 
-> `t.Context()` 需要 Go 1.24+。若本仓库的 Go 版本更低（看 `apps/api/go.mod` 的 `go` 行），换成 `context.Background()` 并 import `"context"`。
+- [ ] **Step 6: 写 source 端点**
 
-- [ ] **Step 3: 跑测试，确认它失败**
-
-```bash
-cd apps/api && go test ./internal/api/ -run 'TestRoomPassthrough|TestContainerNotReachableAsProject' -timeout 1800s
-```
-
-预期：前两条 404（路由不存在），第三条 200（容器目前还能当项目直接打开）—— 三条全 FAIL。
-
-- [ ] **Step 4: 写中间件与路由表**
-
-新建 `apps/api/internal/api/atom_container.go`：
+新建 `apps/api/internal/api/reading_source.go`：
 
 ```go
 package api
 
 import (
-	"context"
+	"encoding/json"
 	"net/http"
+	"strings"
 
-	"github.com/google/uuid"
+	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/store/sqlc"
 )
 
-// atom_container.go — the one seam that lets the lite edition reuse the rooms
-// instead of forking them.
-//
-// Every room endpoint addresses itself by project id, and every one of them
-// funnels through loadOwnedProjectRow. So rather than re-declaring ~20 handlers
-// under a second prefix, we re-REGISTER the same handler funcs under
-// /readings/{id}/room/* behind a middleware that resolves the atom to its
-// container project and puts that id in the request context.
-// loadOwnedProjectRow prefers the context value over PathValue("id").
+// reading_source.go — the article the student is reading. One reading, one
+// article: PUT replaces it wholesale (a student who pastes twice meant the
+// second one).
 
-type containerCtxKey struct{}
-
-// withContainerID scopes an atom's container project id into ctx. Set only by
-// the atom middlewares below; read only by loadOwnedProjectRow.
-func withContainerID(ctx context.Context, id uuid.UUID) context.Context {
-	return context.WithValue(ctx, containerCtxKey{}, id)
+type sourceDTO struct {
+	Title     string  `json:"title"`
+	SourceURL string  `json:"sourceUrl"`
+	Blocks    []Block `json:"blocks"`
 }
 
-func containerIDFrom(ctx context.Context) (uuid.UUID, bool) {
-	id, ok := ctx.Value(containerCtxKey{}).(uuid.UUID)
-	return id, ok
-}
+func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedReadingAtom(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Title string `json:"title"`
+		Text  string `json:"text"`
+		URL   string `json:"url"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	body := strings.TrimSpace(req.Text)
+	srcURL := strings.TrimSpace(req.URL)
 
-// withReadingContainer resolves {id} as a reading atom owned by the caller and
-// hands the wrapped handler its container. Ownership failure is 404.
-func (a *API) withReadingContainer(h http.HandlerFunc) http.Handler {
-	return RequireUser(func(w http.ResponseWriter, r *http.Request) {
-		rd, ok := a.loadOwnedReading(w, r)
-		if !ok {
+	// A URL is fetched server-side through the same guarded fetcher the pro
+	// side uses; a pasted body is taken as-is.
+	if body == "" && srcURL != "" {
+		if a.d.Fetcher == nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_unavailable", "暂时无法抓取链接，请直接粘贴正文。", nil))
 			return
 		}
-		h(w, r.WithContext(withContainerID(r.Context(), rd.ContainerID)))
+		fetchedTitle, text, _, err := a.d.Fetcher.FetchReadable(r.Context(), srcURL)
+		if err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("fetch_failed", "这个链接抓不到正文，请直接粘贴。", nil))
+			return
+		}
+		body = strings.TrimSpace(text)
+		if title == "" {
+			title = fetchedTitle
+		}
+	}
+
+	if len(SplitBlocks(body)) == 0 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_text", "先把文章正文放进来。", nil))
+		return
+	}
+	if title == "" {
+		title = "未命名文章"
+	}
+
+	row, err := a.d.Queries.UpsertReadingSource(r.Context(), sqlc.UpsertReadingSourceParams{
+		AtomID: at.ID, Title: title, Body: body, SourceUrl: nullableText(srcURL),
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, sourceDTO{
+		Title: row.Title, SourceURL: srcURL, Blocks: SplitBlocks(row.Body),
 	})
 }
 
-// mountReadingRoom registers the reading room's surface a second time under the
-// atom prefix. Same handler funcs as /projects/{id}/… — the ONLY difference is
-// which project id they resolve to. Keep this list in sync when a reading-room
-// endpoint is added on the pro side.
-func (a *API) mountReadingRoom(mux *http.ServeMux) {
-	const p = "/api/v1/readings/{id}/room"
-	for _, rt := range []struct {
-		pattern string
-		h       http.HandlerFunc
-	}{
-		{"GET " + p + "/library", a.getLibrary},
-		{"PATCH " + p + "/references/{rid}", a.patchReference},
-		{"POST " + p + "/references/{rid}/enter-reading", a.enterReading},
-		{"POST " + p + "/references/{rid}/paste-content", a.pasteContent},
-		{"POST " + p + "/references/{rid}/ingest-file", a.ingestReferenceFile},
-		{"PUT " + p + "/references/{rid}/reading-brief", a.putReadingBrief},
-		{"GET " + p + "/references/{rid}/takeaway-draft", a.getTakeawayDraft},
-		{"POST " + p + "/references/{rid}/finalize-reading", a.postFinalizeReading},
-		{"GET " + p + "/materials/{mid}/source", a.getMaterialSource},
-		{"POST " + p + "/materials/{mid}/read-turn", a.postReadTurn},
-		{"POST " + p + "/materials/{mid}/summon-card", a.postSummonCard},
-		{"GET " + p + "/materials/{mid}/open-card", a.getOpenCard},
-		{"POST " + p + "/cards/{cid}/activate", a.activateCard},
-		{"POST " + p + "/cards/{cid}/skip", a.skipCard},
-		{"POST " + p + "/cards/{cid}/submit", a.submitCard},
-		{"POST " + p + "/cards/persist", a.persistCard},
-		{"POST " + p + "/cards/reflect", a.reflectCard},
-		{"GET " + p + "/annotations", a.listAnnotations},
-		{"POST " + p + "/annotations/open", a.openAnnotations},
-		{"POST " + p + "/citations", a.postCitation},
-	} {
-		mux.Handle(rt.pattern, a.withReadingContainer(rt.h))
+func (a *API) getReadingSourceLite(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedReadingAtom(w, r)
+	if !ok {
+		return
 	}
-}
-```
-
-> **方法名必须核对。** 上表的 handler 方法名取自 `api.go` 的既有注册行。逐条与 `api.go` 里对应的 `/projects/{id}/…` 注册行比对，名字不一致就以 `api.go` 为准改这里 —— 编译器会替你抓出大部分，但 `getTakeawayDraft` / `getMaterialSource` 这类要亲眼确认。
-
-- [ ] **Step 5: 改接缝**
-
-把 `apps/api/internal/api/projects.go` 的 `loadOwnedProjectRow` 整体替换为：
-
-```go
-// loadOwnedProjectRow is loadOwnedProject's row-returning sibling: same
-// existence/ownership/demo-visibility semantics, but it does NOT apply the
-// non-GET demo_readonly 403 itself — it returns the row so a caller can
-// decide (e.g. a future canned-fixture short-circuit for demo POSTs instead
-// of a flat 403). loadOwnedProject is a thin wrapper around this for the
-// common case.
-//
-// It is also the lite edition's seam (atom_container.go): when the request
-// arrived through an atom prefix (/readings/{id}/room/…), the middleware has
-// already resolved the atom to its container project and put that id in the
-// context — prefer it over {id}, which is the ATOM's id there, not a project's.
-func (a *API) loadOwnedProjectRow(w http.ResponseWriter, r *http.Request) (sqlc.Project, bool) {
-	u, _ := UserFromContext(r.Context())
-	id, viaAtom := containerIDFrom(r.Context())
-	if !viaAtom {
-		parsed, err := uuid.Parse(r.PathValue("id"))
-		if err != nil {
-			httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-			return sqlc.Project{}, false
-		}
-		id = parsed
-	}
-	p, err := a.d.Queries.GetProject(r.Context(), id)
+	row, err := a.d.Queries.GetReadingSource(r.Context(), at.ID)
 	if err != nil {
-		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
-		return sqlc.Project{}, false
+		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404: nothing pasted yet
+		return
 	}
-	// A container row is a lite atom's storage, reachable ONLY through its atom
-	// prefix. Hit directly on /projects/{id} it is simply not a project.
-	if p.Kind == "container" && !viaAtom {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return sqlc.Project{}, false
-	}
-	if p.IsDemo {
-		// World-readable to any authenticated user, regardless of ownership.
-		return p, true
-	}
-	if p.UserID != u.ID {
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return sqlc.Project{}, false
-	}
-	return p, true
+	httpx.WriteJSON(w, http.StatusOK, sourceDTO{
+		Title: row.Title, SourceURL: derefOr(row.SourceUrl, ""), Blocks: SplitBlocks(row.Body),
+	})
 }
 ```
 
-- [ ] **Step 6: 挂上路由**
+⚠️ **命名冲突自查**：`apps/api/internal/api/` 是同一个 package，pro 已有 `getMaterialSource` 等名字。动手前 grep 确认你要用的每个方法名都空着：
 
-在 `apps/api/internal/api/api.go` 中，Task 4 加的四条 `/readings` 路由**之后**加一行：
+```bash
+grep -rn "func (a \*API) \(putReadingSourceLite\|getReadingSourceLite\|nullableText\|derefOr\)" apps/api/internal/api/
+grep -rn "func derefOr\|func nullableText" apps/api/internal/api/
+```
+
+`derefOr` 本包很可能已有（`projects.go` 在用）——先看签名再用，**不要重复定义**。`nullableText`（空串存 NULL）若没有就加一个。
+
+文件上传（PDF/DOCX 走 `internal/docextract`）与 `bib` **本期不接**：落地页只提供粘贴与链接。这是有意的范围收窄。
+
+- [ ] **Step 7: 注册路由**
 
 ```go
-	a.mountReadingRoom(mux)
+	mux.Handle("PUT /api/v1/readings/{id}/source", liteOnly(a.putReadingSourceLite))
+	mux.Handle("GET /api/v1/readings/{id}/source", liteOnly(a.getReadingSourceLite))
 ```
 
-- [ ] **Step 7: 跑测试，确认通过**
+- [ ] **Step 8: 跑测试，确认通过**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run 'TestRoomPassthrough|TestContainerNotReachableAsProject' -timeout 1800s
+cd apps/api && go test ./internal/api/ -run 'TestSplitBlocks|TestPutSource|TestGetSource' -timeout 1800s
 ```
-
-预期：全部 PASS。
-
-- [ ] **Step 8: 跑全量，确认 pro 一点没坏**
-
-```bash
-cd apps/api && go test ./... -timeout 1800s
-```
-
-预期：全部 PASS。这一步是本任务真正的验收 —— 接缝改的是 107 个调用点共用的函数。
 
 - [ ] **Step 9: 提交**
 
 ```bash
-git add apps/api/internal/api/atom_container.go apps/api/internal/api/atom_container_test.go \
-        apps/api/internal/api/projects.go apps/api/internal/api/api.go
-git commit -m "feat(lite): reuse the reading room under /readings/{id}/room via a container seam"
+git add apps/api/internal/api/reading_blocks.go apps/api/internal/api/reading_blocks_test.go \
+        apps/api/internal/api/reading_source.go apps/api/internal/api/reading_source_test.go \
+        apps/api/internal/api/api.go
+git commit -m "feat(lite): article ingestion with deterministic paragraph blocks"
 ```
 
 ---
 
-### Task 6: edition 分流闸
+### Task 5: brief、takeaway、annotations
+
+三组小端点，形状相同（upsert 一张表 / 追加一行），一并评审。
 
 **Files:**
-- Modify: `apps/api/internal/api/authz.go`（新增 `requireEdition`）
-- Modify: `apps/api/internal/api/api.go`（包住两组路由）
-- Test: `apps/api/internal/api/edition_test.go`（追加）
+- Create: `apps/api/internal/api/reading_notes.go`
+- Modify: `apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/reading_notes_test.go`
 
 **Interfaces:**
-- Consumes: Task 2 的 `schools.edition`；既有的 `GetSchool` 查询；session principal `api.User` 已携带的 `SchoolID`
-- Produces: `func (a *API) requireEdition(want string, h http.Handler) http.Handler`（方法而非自由函数——它要查库）
+- Consumes: Task 3 的 `loadOwnedReadingAtom`、`liteOnly`
+- Produces:
+  - `GET|PUT /api/v1/readings/{id}/brief` → `{phaseTag, readingReason, readingFocus}`
+  - `GET|PUT /api/v1/readings/{id}/takeaway` → `{text, updatedAt}`
+  - `GET|POST /api/v1/readings/{id}/annotations` → `{annotations:[{id,blockId,span,quote,note,createdAt}]}`
+  - 方法名：`liteGetBrief` / `litePutBrief` / `liteGetTakeaway` / `litePutTakeaway` / `liteListAnnotations` / `liteCreateAnnotation`
 
 - [ ] **Step 1: 写下会失败的测试**
 
-追加到 `apps/api/internal/api/edition_test.go`：
+新建 `apps/api/internal/api/reading_notes_test.go`：
 
 ```go
-// TestEditionGate_LiteAccountCannotReachProjects — a lite student has no
-// projects; the pro surface is simply not there for them. 404, not 403.
-func TestEditionGate_LiteAccountCannotReachProjects(t *testing.T) {
-	h, cookie, _, _ := liteHandler(t) // liteHandler already puts the seed
-	                                  // school on the lite edition (Ruling R3)
+package api_test
 
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
+)
+
+func TestBrief_EmptyBeforeSetThenRoundTrips(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	// A reading with no brief yet is a legitimate state, not a 404 — the brief
+	// is optional context and the room asks for it the moment it opens, so a
+	// 404 here would make the frontend treat "normal" as "broken".
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/projects", nil), cookie))
-	if rec.Code != http.StatusNotFound {
-		t.Fatalf("lite account GET /projects = %d, want 404; body=%s", rec.Code, rec.Body)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/brief", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET brief before set = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	rec = httptest.NewRecorder()
+	body := strings.NewReader(`{"phaseTag":null,"readingReason":"想弄清储能瓶颈","readingFocus":"看数据口径"}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/brief", body), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT brief = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/brief", nil), cookie))
+	var out struct {
+		ReadingReason string `json:"readingReason"`
+		ReadingFocus  string `json:"readingFocus"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if out.ReadingReason != "想弄清储能瓶颈" || out.ReadingFocus != "看数据口径" {
+		t.Fatalf("brief = %+v, want what we just PUT", out)
 	}
 }
 
-// TestEditionGate_ProAccountCannotReachReadings — the mirror image.
-func TestEditionGate_ProAccountCannotReachReadings(t *testing.T) {
-	h, cookie, _ := liteHandler(t)
+func TestTakeaway_EmptyBeforeSetThenRoundTrips(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings", nil), cookie))
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/takeaway", nil), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET takeaway before set = %d, want 200", rec.Code)
+	}
+
+	rec = httptest.NewRecorder()
+	body := strings.NewReader(`{"text":"作者其实没证明因果，只给了相关。"}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/takeaway", body), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("PUT takeaway = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/takeaway", nil), cookie))
+	var out struct {
+		Text string `json:"text"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	if !strings.Contains(out.Text, "没证明因果") {
+		t.Fatalf("takeaway = %q, want what we PUT", out.Text)
+	}
+}
+
+func TestAnnotations_AppendAndList(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	body := strings.NewReader(`{"blockId":"b1","span":{"start":0,"end":6},"quote":"太阳能装机","note":"这个数字要查来源"}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/readings/"+id+"/annotations", body), cookie))
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("POST annotation = %d, want 201; body=%s", rec.Code, rec.Body)
+	}
+
+	rec = httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+id+"/annotations", nil), cookie))
+	var out struct {
+		Annotations []struct {
+			BlockID string `json:"blockId"`
+			Note    string `json:"note"`
+		} `json:"annotations"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if len(out.Annotations) != 1 || out.Annotations[0].BlockID != "b1" {
+		t.Fatalf("annotations = %+v, want the one we appended", out.Annotations)
+	}
+}
+
+func TestAnnotations_RequiresBlockID(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	body := strings.NewReader(`{"blockId":"","span":{"start":0,"end":1},"quote":"x","note":"y"}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/readings/"+id+"/annotations", body), cookie))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("blank blockId = %d, want 400; body=%s", rec.Code, rec.Body)
+	}
+}
+
+func TestAnnotations_ForeignAtomIs404(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	rec := httptest.NewRecorder()
+	body := strings.NewReader(`{"blockId":"b1","span":{"start":0,"end":1},"quote":"x","note":"y"}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/00000000-0000-0000-0000-0000000009ff/annotations", body), cookie))
 	if rec.Code != http.StatusNotFound {
-		t.Fatalf("pro account GET /readings = %d, want 404; body=%s", rec.Code, rec.Body)
+		t.Fatalf("foreign atom = %d, want 404", rec.Code)
 	}
 }
 ```
-
-把 Task 4 的 `liteHandler` 改成同时回传 pool，好让上面的 `UPDATE users` 能跑（并把 Task 4/5 里的调用点一起改）：
-
-```go
-func liteHandler(t *testing.T) (http.Handler, *http.Cookie, *sqlc.Queries, *pgxpool.Pool) { … }
-```
-
-**同时**：Task 4/5 的既有测试目前用的是默认 `edition='pro'` 的种子学校，而它们打的是 `/readings/*` —— 加闸后会全部变 404。所以在 `liteHandler` 里建完 handler 后立刻把种子**学校**切成 lite：
-
-```go
-	if _, err := pool.Exec(context.Background(),
-		`UPDATE schools SET edition = 'lite'`); err != nil {
-		t.Fatalf("set school edition lite: %v", err)
-	}
-```
-
-并把 `TestEditionGate_ProAccountCannotReachReadings` 改用一个**新的** pro handler（直接用 `newAPITestPool` + `signInSeed`，不经 `liteHandler`）。
 
 - [ ] **Step 2: 跑测试，确认它失败**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run TestEditionGate -timeout 1800s
+cd apps/api && go test ./internal/api/ -run 'TestBrief|TestTakeaway|TestAnnotations' -timeout 1800s
 ```
 
-预期：FAIL —— 两条都拿到 200。
+- [ ] **Step 3: 写实现**
 
-- [ ] **Step 3: 写闸**
+新建 `apps/api/internal/api/reading_notes.go`，六个 handler。**动手前 grep 确认名字没被 pro 占用**（`putReadingBrief` 在 pro 的 `reading_brief.go` 里已存在，所以本组统一加 `lite` 前缀）：
 
-在 `apps/api/internal/api/authz.go` 末尾追加：
+```bash
+grep -rn "func (a \*API) lite" apps/api/internal/api/
+```
+
+要点：
+
+- **GET brief / takeaway 在没有行时回 200 + 零值**，不是 404（理由写在测试注释里）。用 `errors.Is(err, pgx.ErrNoRows)` 分支返回零值 DTO。
+- **PUT 是全量替换**（upsert），与 pro 的 brief 语义一致：每次保存重发全部字段，否则没动的字段会被静默清空。
+- **span 原样存 jsonb**：Go 只校验「是一个 JSON 对象」，形状真相归前端契约。
+- annotation 的 `blockId` 必须非空（400 `missing_block_id`）；`note` 与 `quote` 可空。
+
+- [ ] **Step 4: 注册路由**
 
 ```go
-// requireEdition gates a route group on the edition of the caller's SCHOOL.
-// edition is an organisation fact, not an account one: a school buys the lite
-// edition or the pro one, and every account under it follows — so this reads
-// schools.edition rather than any per-user field.
-//
-// A mismatch is 404, not 403: from a lite student's point of view the pro
-// surface does not exist, and vice versa. Same non-leaking convention as
-// ownership failures.
-func (a *API) requireEdition(want string, h http.Handler) http.Handler {
-	return RequireUser(func(w http.ResponseWriter, r *http.Request) {
-		u, _ := UserFromContext(r.Context())
-		school, err := a.d.Queries.GetSchool(r.Context(), u.SchoolID)
-		if err != nil {
-			httpx.WriteError(w, r, err)
-			return
-		}
-		if school.Edition != want {
-			httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-			return
-		}
-		h.ServeHTTP(w, r)
-	})
-}
+	mux.Handle("GET /api/v1/readings/{id}/brief", liteOnly(a.liteGetBrief))
+	mux.Handle("PUT /api/v1/readings/{id}/brief", liteOnly(a.litePutBrief))
+	mux.Handle("GET /api/v1/readings/{id}/takeaway", liteOnly(a.liteGetTakeaway))
+	mux.Handle("PUT /api/v1/readings/{id}/takeaway", liteOnly(a.litePutTakeaway))
+	mux.Handle("GET /api/v1/readings/{id}/annotations", liteOnly(a.liteListAnnotations))
+	mux.Handle("POST /api/v1/readings/{id}/annotations", liteOnly(a.liteCreateAnnotation))
 ```
 
-`api.User` 已经携带 `SchoolID`（见 `apps/api/internal/api/auth.go` 的 `type User struct`），所以**不需要给 principal 加任何字段**。这里每请求多一次 `schools` 主键查询——表极小且走主键，代价可以忽略；若将来确实成为热点，再把 edition 缓存进 session。
-
-- [ ] **Step 4: 包住两组路由**
-
-在 `api.go` 里，把 `protected` 之外再定义两个包装器，并把 `/projects` 与 `/readings` 两组分别换掉：
-
-```go
-	// 站点分流：pro 学校的账号看不见 /readings，lite 学校的账号看不见
-	// /projects —— 双向都是 404，不泄漏另一侧的存在。
-	proOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("pro", http.HandlerFunc(h)) }
-	liteOnly := func(h http.HandlerFunc) http.Handler { return a.requireEdition("lite", http.HandlerFunc(h)) }
-```
-
-把 `/api/v1/projects` 及其全部子路由的 `protected(...)` 改为 `proOnly(...)`；把 Task 4 的四条 `/readings` 改为 `liteOnly(...)`；`mountReadingRoom` 里的 `a.withReadingContainer(rt.h)` 外面再包一层 `requireEdition("lite", ...)`。
-
-> `/auth/*`、`/courses/*`、`/cards/*`、`/users/me/*`、`/oss/*` 等**不加闸** —— 两个站都要用。
-
-- [ ] **Step 5: 跑测试，确认通过**
+- [ ] **Step 5: 跑测试，确认通过；Step 6: 提交**
 
 ```bash
-cd apps/api && go test ./internal/api/ -run TestEditionGate -timeout 1800s
-```
-
-预期：PASS。
-
-- [ ] **Step 6: 跑全量**
-
-```bash
-cd apps/api && go test ./... -timeout 1800s
-```
-
-预期：全部 PASS。**大量既有 pro 测试会打 `/projects/*`** —— 种子账号默认 `edition='pro'`，所以它们应当原样通过。若有失败，是某个测试用了非种子账号，给那个账号显式设 `edition='pro'`。
-
-- [ ] **Step 7: 提交**
-
-```bash
-git add apps/api/internal/api/authz.go apps/api/internal/api/api.go \
-        apps/api/internal/api/auth.go apps/api/internal/api/edition_test.go \
-        apps/api/internal/api/readings_test.go apps/api/internal/api/atom_container_test.go
-git commit -m "feat(lite): gate the pro and lite surfaces on the school edition"
+cd apps/api && go test ./internal/api/ -run 'TestBrief|TestTakeaway|TestAnnotations' -timeout 1800s
+git add apps/api/internal/api/reading_notes.go apps/api/internal/api/reading_notes_test.go apps/api/internal/api/api.go
+git commit -m "feat(lite): reading brief, takeaway and annotations"
 ```
 
 ---
 
-### Task 7: `apps/lite-web` 脚手架
+### Task 6: 工具卡生命周期
 
 **Files:**
-- Modify: `apps/web/package.json`（取包名 + 暴露源码）
-- Create: `apps/lite-web/package.json`
-- Create: `apps/lite-web/vite.config.ts`
-- Create: `apps/lite-web/tailwind.config.ts`
-- Create: `apps/lite-web/postcss.config.js`
-- Create: `apps/lite-web/tsconfig.json`
-- Create: `apps/lite-web/index.html`
-- Create: `apps/lite-web/src/main.tsx`
-- Create: `apps/lite-web/src/index.css`
-- Create: `apps/lite-web/src/LiteApp.tsx`（本任务只放一个占位骨架，Task 9 填内容）
+- Create: `apps/api/internal/api/reading_cards.go`
+- Modify: `apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/reading_cards_test.go`
 
 **Interfaces:**
-- Consumes: 无
-- Produces: 一个能 `pnpm --filter lite-web build` 成功的应用；`@mind-imprint/web` 这个包名可被跨包引入；`@/…` 别名在 lite 侧解析到 `apps/web/src`
+- Consumes: Task 1 的 `atom_card` 查询；Task 3 的 `loadOwnedReadingAtom`、`liteOnly`
+- Produces:
+  - `GET /api/v1/readings/{id}/cards` → `{"cards":[cardDTO]}`
+  - `POST /api/v1/readings/{id}/cards/{cid}/activate|skip` → `200 cardDTO`
+  - `POST /api/v1/readings/{id}/cards/{cid}/submit` — body `{fieldValues, eventTrace}` → `200 cardDTO`
+  - `cardDTO` = `{id, cardId, blockId, status, fieldValues, eventTrace, createdAt, submittedAt}`
+  - `func (a *API) loadOwnedAtomCard(w, r, atomID uuid.UUID) (sqlc.AtomCard, bool)`（Task 7 复用）
+  - `func validateEnvelope(fieldValues, eventTrace json.RawMessage) error`
 
-- [ ] **Step 1: 给 `apps/web` 取包名并暴露源码**
+- [ ] **Step 1: 写下会失败的测试**
 
-编辑 `apps/web/package.json`，把 `"name": "web"` 改为：
+新建 `apps/api/internal/api/reading_cards_test.go`：
 
-```json
-  "name": "@mind-imprint/web",
-  "exports": {
-    "./src/*": "./src/*"
-  },
-```
+```go
+package api_test
 
-> 改名会影响既有的 filter 命令：原先的 `pnpm --filter web …` 要改成 `pnpm --filter @mind-imprint/web …`。改完立刻全仓 grep 一遍并同步：
-> ```bash
-> grep -rn -- "--filter web" --include=*.json --include=*.sh --include=*.yml --include=Dockerfile . | grep -v node_modules
-> ```
-> 逐条改掉（至少检查 `apps/web/Dockerfile`、`.deploy-local/` 下的部署脚本、根 `package.json`）。
+import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"testing"
 
-- [ ] **Step 2: 建 lite 应用骨架**
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
-`apps/lite-web/package.json`：
+// seedCard inserts a proposed card directly — the AI turn that would normally
+// propose one lands in Task 7.
+func seedCard(t *testing.T, pool *pgxpool.Pool, atomID, blockID string) string {
+	t.Helper()
+	var id string
+	if err := pool.QueryRow(t.Context(),
+		`INSERT INTO atom_card (atom_id, card_id, block_id, status)
+		 VALUES ($1, 'craap', $2, 'proposed') RETURNING id::text`,
+		mustUUID(atomID), blockID).Scan(&id); err != nil {
+		t.Fatalf("seed card: %v", err)
+	}
+	return id
+}
 
-```json
-{
-  "name": "@mind-imprint/lite-web",
-  "version": "0.0.0",
-  "private": true,
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "test": "vitest run --passWithNoTests",
-    "typecheck": "tsc --noEmit"
-  },
-  "dependencies": {
-    "@mind-imprint/contracts": "workspace:*",
-    "@mind-imprint/web": "workspace:*",
-    "lucide-react": "^1.28.0",
-    "marked": "^18.0.7",
-    "react": "^18.3.0",
-    "react-dom": "^18.3.0",
-    "react-markdown": "^10.1.0",
-    "remark-cjk-friendly": "2.3.1",
-    "remark-gfm": "^4.0.1",
-    "zod": "^3.23.0"
-  },
-  "devDependencies": {
-    "@types/node": "^20.0.0",
-    "@types/react": "^18.3.0",
-    "@types/react-dom": "^18.3.0",
-    "@vitejs/plugin-react": "^4.3.0",
-    "autoprefixer": "^10.4.0",
-    "jsdom": "^24.1.0",
-    "postcss": "^8.4.0",
-    "tailwindcss": "^3.4.0",
-    "typescript": "^5.4.0",
-    "vite": "^5.3.0",
-    "vitest": "^1.6.0"
-  }
+func TestCardSubmit_StoresEnvelopeAndStamps(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	rec := httptest.NewRecorder()
+	body := strings.NewReader(`{"fieldValues":{"currency":"2024"},"eventTrace":[{"t":"open"}]}`)
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/submit", body), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("submit = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Status      string `json:"status"`
+		SubmittedAt string `json:"submittedAt"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	if out.Status != "submitted" || out.SubmittedAt == "" {
+		t.Fatalf("card = %+v, want submitted with a timestamp", out)
+	}
+}
+
+func TestCardSubmit_RejectsMalformedEnvelope(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	for _, tc := range []struct{ name, body string }{
+		{"fieldValues is an array", `{"fieldValues":[],"eventTrace":[]}`},
+		{"eventTrace is an object", `{"fieldValues":{},"eventTrace":{}}`},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			rec := httptest.NewRecorder()
+			h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+				"/api/v1/readings/"+atomID+"/cards/"+cardID+"/submit", strings.NewReader(tc.body)), cookie))
+			if rec.Code != http.StatusBadRequest {
+				t.Fatalf("%s = %d, want 400; body=%s", tc.name, rec.Code, rec.Body)
+			}
+		})
+	}
+}
+
+// 铁律④ 过程即数据：跳过是信号，必须留痕，不能删行。
+func TestCardSkip_IsRecordedNotDeleted(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/skip", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("skip = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var status string
+	if err := pool.QueryRow(t.Context(),
+		`SELECT status FROM atom_card WHERE id = $1`, mustUUID(cardID)).Scan(&status); err != nil {
+		t.Fatalf("read back: %v", err)
+	}
+	if status != "skipped" {
+		t.Fatalf("status = %q, want \"skipped\" (the row must survive)", status)
+	}
+}
+
+func TestCardActivate_MovesProposedToActive(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/activate", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusOK {
+		t.Fatalf("activate = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Status string `json:"status"`
+	}
+	_ = json.Unmarshal(rec.Body.Bytes(), &out)
+	if out.Status != "active" {
+		t.Fatalf("status = %q, want \"active\"", out.Status)
+	}
+}
+
+// A card belonging to another atom must not be reachable through this one.
+func TestCard_CrossAtomIs404(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomA := createReadingAtom(t, h, cookie)
+	atomB := createReadingAtom(t, h, cookie)
+	cardOfB := seedCard(t, pool, atomB, "b1")
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomA+"/cards/"+cardOfB+"/activate", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("cross-atom card = %d, want 404", rec.Code)
+	}
 }
 ```
 
-`apps/lite-web/vite.config.ts` —— **`@/` 必须指向 `apps/web/src`**，因为被引入的房间组件内部就是这么写的：
+- [ ] **Step 2: 跑测试，确认它失败**
+
+```bash
+cd apps/api && go test ./internal/api/ -run TestCard -timeout 1800s
+```
+
+- [ ] **Step 3: 写实现**
+
+新建 `apps/api/internal/api/reading_cards.go`。边界校验单独成函数：
+
+```go
+// validateEnvelope is the boundary check the spec mandates: Go verifies only
+// the envelope's OUTER shape — field_values is a JSON object, event_trace is a
+// JSON array — and stores the inner structure verbatim. The deep truth lives
+// in packages/contracts' Zod schemas; duplicating it here would guarantee the
+// two drift apart.
+func validateEnvelope(fieldValues, eventTrace json.RawMessage) error {
+	var obj map[string]any
+	if err := json.Unmarshal(fieldValues, &obj); err != nil {
+		return httpx.ErrBadRequest("bad_field_values", "字段值格式不对", nil)
+	}
+	var arr []any
+	if err := json.Unmarshal(eventTrace, &arr); err != nil {
+		return httpx.ErrBadRequest("bad_event_trace", "事件轨迹格式不对", nil)
+	}
+	return nil
+}
+```
+
+`loadOwnedAtomCard` **必须校验卡片属于这个 atom**（`card.AtomID == atomID`），否则跨原子越权；不匹配一律 404。
+
+- [ ] **Step 4: 注册路由；Step 5: 跑测试；Step 6: 提交**
+
+```go
+	mux.Handle("GET /api/v1/readings/{id}/cards", liteOnly(a.liteListCards))
+	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/activate", liteOnly(a.liteActivateCard))
+	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/skip", liteOnly(a.liteSkipCard))
+	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/submit", liteOnly(a.liteSubmitCard))
+```
+
+```bash
+cd apps/api && go test ./internal/api/ -run TestCard -timeout 1800s
+git add apps/api/internal/api/reading_cards.go apps/api/internal/api/reading_cards_test.go apps/api/internal/api/api.go
+git commit -m "feat(lite): tool-card lifecycle over the atom substrate"
+```
+
+---
+
+### Task 7: 陪练一轮 —— 复用 AI 大脑
+
+本期最有价值的任务：证明 AI 层可以原样复用。
+
+**Files:**
+- Create: `apps/api/internal/store/migrations/0094_llm_call_atom.sql`
+- Create: `apps/api/internal/api/reading_turn.go`
+- Modify: `apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/reading_turn_test.go`
+
+**Interfaces:**
+- Consumes: Task 1、3、4、6
+- Produces:
+  - `POST /api/v1/readings/{id}/turn` — body `{"text":"…","focusedSpans":[…]}` → `200 {"reply","decision","card":cardDTO|null,"nudge"}`
+  - `GET /api/v1/readings/{id}/messages` → `{"messages":[{seq,role,content,createdAt}]}`
+  - `llm_call.atom_id` 列
+  - `func (a *API) buildReadingRouteInput(ctx context.Context, atomID uuid.UUID, studentText string, spans []agent.FocusSpan) (agent.ReadingRouteInput, error)`
+
+- [ ] **Step 1: 先读清楚 AI 层的真实签名**
+
+**不要凭本计划的描述写代码**，打开这些确认类型与字段：
+
+```bash
+sed -n '1,70p' apps/api/internal/agent/reading_router.go
+grep -n "type FocusSpan\|type PacingState\|type ReadingBrief\|type ReadingCard\|type MaterialBlock\|type OrderingGuard" -A 8 apps/api/internal/agent/*.go
+grep -n "func ReadingDeck\|func ApplyReadingGate\|func ResolveExampleAnchor" -A 8 apps/api/internal/agent/reading_deck.go apps/api/internal/agent/reading_gate.go
+grep -rn "ai_dialogue_failed" apps/api/internal/ | head
+grep -rn "func .*RecordLLMCall" -A 12 apps/api/internal/agent/agentstore.go | head -20
+```
+
+在报告里写明每个类型的真实字段、以及你如何从新表装配它们。
+
+- [ ] **Step 2: 写迁移**
+
+新建 `apps/api/internal/store/migrations/0094_llm_call_atom.sql`：
+
+```sql
+-- +goose Up
+-- 轻量版的模型调用记在 llm_call：project_id 为 NULL（与 course/chat 调用一致），
+-- surface='lite'，并用 atom_id 指回具体的阅读/写作。llm_usage 视图按 user_id /
+-- tier / tokens / cost 聚合、不读 project_id，所以学校维度的成本汇总无需改动。
+ALTER TABLE llm_call ADD COLUMN atom_id uuid REFERENCES atom(id) ON DELETE SET NULL;
+CREATE INDEX llm_call_atom_created_idx ON llm_call (atom_id, created_at DESC);
+
+-- +goose Down
+DROP INDEX IF EXISTS llm_call_atom_created_idx;
+ALTER TABLE llm_call DROP COLUMN atom_id;
+```
+
+```bash
+cd apps/api && make sqlc
+```
+
+- [ ] **Step 3: 写下会失败的测试**
+
+`RouteReading` 走 `gateway.Provider`，测试用 `gateway.NewStubProvider` 脚本化模型回复（`maintest_test.go` 的 `assessStubProvider` 与 `project_create_test.go` 的 `composeJourneyStubProvider` 都是现成写法，照抄那个形状；把 stub 通过 `Deps{Provider: …}` 注入）。
+
+必须覆盖三件事：
+
+1. **respond**：模型回 `{"decision":"respond","reply":"…"}` → 端点返回 reply，且**学生与 AI 两条消息都进了 `atom_message`，seq 连续**（`GET /messages` 断言）。
+2. **summon**：模型回 `{"decision":"summon","card_id":"craap","example_block_id":"b1",…}` → 建出一行 `atom_card`（`status='proposed'`、`block_id='b1'`），响应带 `card` 与 `nudge`。
+3. **模型失败必须如实报错**：provider 返回错误 → **502 且 body 含 `ai_dialogue_failed`**，**绝不返回罐头回复**。这是记录在案的用户规则：AI 对话错误必须被暴露，不能被掩盖。
+
+```go
+func TestReadingTurn_ModelFailureSurfacesAsError(t *testing.T) {
+	// …用一个 Stream 立刻返回 error 的 provider stub 构造 Deps…
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("model failure = %d, want 502; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "ai_dialogue_failed") {
+		t.Fatalf("want ai_dialogue_failed in body, got %s", rec.Body)
+	}
+}
+```
+
+- [ ] **Step 4: 写实现**
+
+`reading_turn.go` 的骨架（类型以 Step 1 读到的为准）：
+
+```go
+// postReadingTurn — one coach turn. This is the whole reuse thesis in a single
+// handler: the reading brain (agent.RouteReading + agent.ApplyReadingGate) is
+// a set of PURE functions over plain values, so it runs UNCHANGED over the
+// lite tables. All this handler does is assemble the input, persist the
+// output, and meter the call.
+func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
+	at, ok := a.loadOwnedReadingAtom(w, r)
+	if !ok {
+		return
+	}
+	// … HasEntitlement gate …
+
+	// 1. 装配 —— 全部来自 lite 自己的表
+	in, err := a.buildReadingRouteInput(r.Context(), at.ID, studentText, spans)
+
+	// 2. 复用 AI 大脑，一行没改
+	decision, resolved, usage, err := agent.RouteReading(r.Context(), a.d.Provider, a.d.ChatResolver, in)
+	if err != nil {
+		// 用户规则：AI 对话失败必须如实暴露，绝不用罐头回复掩盖。
+		httpx.WriteError(w, r, aiDialogueFailed())
+		return
+	}
+	decision = agent.ApplyReadingGate(decision, in.Pacing, orderingGuard)
+
+	// 3. 落库：学生一条、AI 一条，seq 连续；summon 则建一行 proposed 卡
+	// 4. 计量：surface="lite", purpose="reading_turn", atom_id=at.ID
+}
+```
+
+`aiDialogueFailed()` 用 pro 侧既有的 502 构造方式（Step 1 已 grep 出它在哪）。**seq 分配与两条消息的写入必须在同一事务里**，靠 `(atom_id, seq)` 唯一索引兜住并发。
+
+`buildReadingRouteInput` 单独成函数，方便单测：`Article` 来自 `reading_source.body`，`RecentTurns` 来自 `ListAtomMessages` 的尾部，`Brief` 来自 `reading_brief`，`Catalog` 来自 `agent.ReadingDeck()`，`Pacing` 由已提交/跳过的 `atom_card` 计数得出。
+
+- [ ] **Step 5: 注册路由；Step 6: 跑测试；Step 7: 提交**
+
+```go
+	mux.Handle("POST /api/v1/readings/{id}/turn", liteOnly(a.postReadingTurn))
+	mux.Handle("GET /api/v1/readings/{id}/messages", liteOnly(a.liteListMessages))
+```
+
+```bash
+cd apps/api && go test ./internal/api/ -run TestReadingTurn -timeout 1800s
+git add apps/api/internal/store/migrations/0094_llm_call_atom.sql apps/api/internal/store/sqlc/ \
+        apps/api/internal/api/reading_turn.go apps/api/internal/api/reading_turn_test.go apps/api/internal/api/api.go
+git commit -m "feat(lite): reading coach turn reusing the agent brain verbatim"
+```
+
+---
+
+### Task 8: 完成阅读
+
+**Files:**
+- Modify: `apps/api/internal/api/readings.go`、`apps/api/internal/api/api.go`
+- Test: `apps/api/internal/api/readings_test.go`（追加）
+
+**Interfaces:**
+- Produces: `POST /api/v1/readings/{id}/finish` → `200 readingDTO`（`status='finished'`）
+
+- [ ] **Step 1: 写下会失败的测试**
+
+```go
+// 「我的收获」是这次阅读的产出。空着就完成，等于没读——所以 finish 以它为门槛。
+func TestFinishReading_RequiresTakeaway(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+id+"/finish", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("finish without takeaway = %d, want 400; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), "missing_takeaway") {
+		t.Fatalf("want missing_takeaway, got %s", rec.Body)
+	}
+}
+
+func TestFinishReading_IsIdempotent(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+	id := createReadingAtom(t, h, cookie)
+
+	putTakeaway := httptest.NewRequest("PUT", "/api/v1/readings/"+id+"/takeaway",
+		strings.NewReader(`{"text":"我的收获。"}`))
+	h.ServeHTTP(httptest.NewRecorder(), withCookie(putTakeaway, cookie))
+
+	for i := 0; i < 2; i++ {
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+			"/api/v1/readings/"+id+"/finish", strings.NewReader("{}")), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("finish #%d = %d, want 200; body=%s", i+1, rec.Code, rec.Body)
+		}
+	}
+}
+```
+
+- [ ] **Step 2-4: 跑失败 → 实现 → 跑通过**
+
+```bash
+cd apps/api && go test ./internal/api/ -run TestFinishReading -timeout 1800s
+```
+
+- [ ] **Step 5: 提交**
+
+```bash
+git add apps/api/internal/api/readings.go apps/api/internal/api/readings_test.go apps/api/internal/api/api.go
+git commit -m "feat(lite): finish a reading, gated on the takeaway"
+```
+
+---
+
+### Task 9: `apps/lite-web` 脚手架
+
+**Files:** `apps/web/package.json`（改名）+ `apps/lite-web/` 全套配置
+
+**Interfaces:**
+- Produces: 可 `pnpm --filter @mind-imprint/lite-web build` 成功的应用；`@/` 别名解析到 `apps/web/src`；Tailwind content 覆盖 web 源码
+
+- [ ] **Step 1: 给 `apps/web` 取包名并暴露源码**
+
+`apps/web/package.json`：`"name": "web"` → `"name": "@mind-imprint/web"`，并加 `"exports": { "./src/*": "./src/*" }`。
+
+**改名会波及既有命令**，全仓 grep 并同步（至少 `apps/web/Dockerfile`、`.deploy-local/` 部署脚本、根 `package.json`）：
+
+```bash
+grep -rn -- "--filter web" --include=*.json --include=*.sh --include=*.yml --include=Dockerfile . | grep -v node_modules
+```
+
+- [ ] **Step 2: 建 lite 骨架**
+
+`apps/lite-web/package.json`（依赖版本对齐 `apps/web`；scripts: dev/build/test/typecheck；deps: `@mind-imprint/contracts`、`@mind-imprint/web`、react、react-dom、react-markdown、remark-gfm、remark-cjk-friendly、marked、lucide-react、zod；devDeps: vite、@vitejs/plugin-react、tailwindcss、postcss、autoprefixer、typescript、vitest、jsdom、@testing-library/react、@testing-library/jest-dom、@types/*）。
+
+`apps/lite-web/vite.config.ts`：
 
 ```ts
 import path from "node:path";
@@ -1468,19 +1965,18 @@ export default defineConfig({
   plugins: [react()],
   resolve: {
     alias: [
-      // 房间组件是从 apps/web 的源码里直接引入的，它们内部用 "@/…" 自引用 —— 这个
-      // 别名必须解析到 web 的 src，否则一进阅读室就是一片解析失败。
+      // 房间组件从 apps/web 源码引入，它们内部用 "@/…" 自引用 —— 这个别名必须
+      // 解析到 web 的 src，否则一进阅读室就是一片解析失败。
       { find: /^@\//, replacement: webSrc + "/" },
       { find: "@lite", replacement: path.resolve(__dirname, "src") },
     ],
   },
-  // web 是 workspace 链接的源码包，不能被预打包成 CJS。
   optimizeDeps: { exclude: ["@mind-imprint/web", "@mind-imprint/contracts"] },
   server: { proxy: { "/api": { target: "http://localhost:8080", changeOrigin: true } } },
 });
 ```
 
-`apps/lite-web/tailwind.config.ts` —— **content glob 必须覆盖 web 的源码**，否则房间用到的 class 会被 purge 掉：
+`apps/lite-web/tailwind.config.ts`：
 
 ```ts
 import type { Config } from "tailwindcss";
@@ -1489,109 +1985,23 @@ import base from "../web/tailwind.config";
 export default {
   ...base,
   // 房间组件的 class 写在 apps/web 里。漏掉这一条，阅读室会渲染成没有样式的裸 DOM。
-  content: [
-    "./index.html",
-    "./src/**/*.{ts,tsx}",
-    "../web/src/**/*.{ts,tsx}",
-  ],
+  content: ["./index.html", "./src/**/*.{ts,tsx}", "../web/src/**/*.{ts,tsx}"],
 } satisfies Config;
 ```
 
-`apps/lite-web/postcss.config.js`：照抄 `apps/web/postcss.config.js`。
+`tsconfig.json`（`paths`: `@/*` → `../web/src/*`，`@lite/*` → `./src/*`）、`postcss.config.js`、`index.html`（title「思维印记 · 轻量版」）、`src/index.css`（首行 `@import "@/index.css";`）、`src/main.tsx`、`src/LiteApp.tsx`（占位）、`vitest.config.ts`（别名与 vite 一致）——均照 `apps/web` 对应文件改写。
 
-`apps/lite-web/tsconfig.json`：
-
-```json
-{
-  "extends": "../../tsconfig.base.json",
-  "compilerOptions": {
-    "jsx": "react-jsx",
-    "module": "ESNext",
-    "moduleResolution": "Bundler",
-    "baseUrl": ".",
-    "paths": {
-      "@/*": ["../web/src/*"],
-      "@lite/*": ["./src/*"]
-    },
-    "types": ["vite/client"]
-  },
-  "include": ["src", "vite.config.ts", "tailwind.config.ts"]
-}
-```
-
-`apps/lite-web/index.html`：照抄 `apps/web/index.html`，把 `<title>` 改为 `思维印记 · 轻量版`，脚本入口指向 `/src/main.tsx`。
-
-`apps/lite-web/src/index.css`：第一行引入 web 的全局样式（token 变量都在里面），再放 lite 自己的：
-
-```css
-@import "@/index.css";
-```
-
-`apps/lite-web/src/main.tsx`：
-
-```tsx
-import { StrictMode } from "react";
-import { createRoot } from "react-dom/client";
-import { LiteApp } from "./LiteApp";
-import "./index.css";
-
-createRoot(document.getElementById("root")!).render(
-  <StrictMode>
-    <LiteApp />
-  </StrictMode>,
-);
-```
-
-`apps/lite-web/src/LiteApp.tsx`（占位，Task 9 填内容）：
-
-```tsx
-export function LiteApp() {
-  return <div className="p-8 text-mk-ink">轻量版</div>;
-}
-```
-
-- [ ] **Step 3: 装依赖并构建**
+- [ ] **Step 3: 构建，并在真实浏览器里验证样式**
 
 ```bash
 pnpm install
 pnpm --filter @mind-imprint/lite-web build
-```
-
-预期：构建成功，产出 `apps/lite-web/dist`。
-
-- [ ] **Step 4: 验证跨包别名真的通了**
-
-临时在 `LiteApp.tsx` 里引一个 web 的叶子组件，证明别名与 Tailwind 都成立：
-
-```tsx
-import { Segmented } from "@/ui";
-
-export function LiteApp() {
-  return (
-    <div className="p-8 text-mk-ink bg-mk-paper min-h-screen">
-      <Segmented options={[{ value: "a", label: "阅读" }, { value: "b", label: "写作" }]} value="a" onChange={() => {}} />
-    </div>
-  );
-}
-```
-
-> `@/ui` 的真实导出名以 `apps/web/src/ui/index.ts` 为准；`Segmented` 在 `WritingBlock.tsx` 里被引用过，签名以那里为准。
-
-```bash
-pnpm --filter @mind-imprint/lite-web build
-```
-
-预期：构建成功。**然后在真实浏览器里看一眼**（`pnpm --filter @mind-imprint/lite-web dev`），确认它有样式而不是裸 DOM —— 这是 Tailwind content glob 是否生效的唯一可靠验证。确认后把这段临时代码还原成占位骨架。
-
-- [ ] **Step 5: 确认没打坏 pro 的构建**
-
-```bash
 pnpm --filter @mind-imprint/web build && pnpm --filter @mind-imprint/web typecheck
 ```
 
-预期：成功。改包名后 Dockerfile / 部署脚本里的 filter 若漏改，这一步不会报错——所以 Step 1 的 grep 必须做完。
+在 `LiteApp.tsx` 里临时引一个 web 的叶子组件（如 `@/ui` 的 `Segmented`），`pnpm --filter @mind-imprint/lite-web dev` 后**在真实浏览器里确认它有样式而不是裸 DOM** —— 这是 Tailwind content glob 是否生效的唯一可靠验证。确认后还原占位。
 
-- [ ] **Step 6: 提交**
+- [ ] **Step 4: 提交**
 
 ```bash
 git add apps/web/package.json apps/lite-web pnpm-lock.yaml
@@ -1600,41 +2010,21 @@ git commit -m "feat(lite): scaffold apps/lite-web importing the rooms from apps/
 
 ---
 
-### Task 8: `RoomCapabilities`
+### Task 10: `RoomCapabilities`
 
 **Files:**
 - Create: `apps/web/src/rooms/capabilities.ts`
 - Modify: `apps/web/src/studio/reading/ReadingRoom.tsx`
-- Modify: `apps/web/src/workspace/WorkspaceContainer.tsx`（传入 pro 能力集）
 - Test: `apps/web/test/roomCapabilities.test.tsx`
 
 **Interfaces:**
-- Consumes: 无
-- Produces:
-  ```ts
-  export type RoomCapabilities = {
-    mode: "pro" | "lite" | "demo";
-    plan: boolean; evidenceMap: boolean; explorationLeads: boolean;
-    proposalImpact: boolean; essayTrack: boolean;
-    comprehensionCheck: boolean; exemplars: boolean;
-  };
-  export const PRO_CAPABILITIES: RoomCapabilities;
-  export const DEMO_CAPABILITIES: RoomCapabilities;
-  export const LITE_READING_CAPABILITIES: RoomCapabilities;
-  ```
-  `ReadingRoomProps` 新增可选字段 `capabilities?: RoomCapabilities`（缺省即 `PRO_CAPABILITIES`，保证既有调用点零改动仍是今天的行为）。
+- Produces: `RoomCapabilities` + `PRO_CAPABILITIES` / `DEMO_CAPABILITIES` / `LITE_READING_CAPABILITIES`；`ReadingRoomProps` 新增可选 `capabilities?: RoomCapabilities`，**缺省即 `PRO_CAPABILITIES`**，保证既有调用点行为一字不变
 
 - [ ] **Step 1: 写下会失败的测试**
 
-新建 `apps/web/test/roomCapabilities.test.tsx`：
-
 ```tsx
 import { describe, expect, it } from "vitest";
-import {
-  PRO_CAPABILITIES,
-  DEMO_CAPABILITIES,
-  LITE_READING_CAPABILITIES,
-} from "@/rooms/capabilities";
+import { PRO_CAPABILITIES, DEMO_CAPABILITIES, LITE_READING_CAPABILITIES } from "@/rooms/capabilities";
 
 describe("RoomCapabilities", () => {
   it("pro keeps the whole project lifecycle", () => {
@@ -1642,16 +2032,12 @@ describe("RoomCapabilities", () => {
     expect(PRO_CAPABILITIES.evidenceMap).toBe(true);
     expect(PRO_CAPABILITIES.proposalImpact).toBe(true);
   });
-
   it("lite reading drops every project-lifecycle surface", () => {
     expect(LITE_READING_CAPABILITIES.mode).toBe("lite");
-    expect(LITE_READING_CAPABILITIES.plan).toBe(false);
-    expect(LITE_READING_CAPABILITIES.evidenceMap).toBe(false);
-    expect(LITE_READING_CAPABILITIES.explorationLeads).toBe(false);
-    expect(LITE_READING_CAPABILITIES.proposalImpact).toBe(false);
-    expect(LITE_READING_CAPABILITIES.essayTrack).toBe(false);
+    for (const k of ["plan", "evidenceMap", "explorationLeads", "proposalImpact", "essayTrack"] as const) {
+      expect(LITE_READING_CAPABILITIES[k]).toBe(false);
+    }
   });
-
   it("demo is read-only pro, not a third lifecycle", () => {
     expect(DEMO_CAPABILITIES.mode).toBe("demo");
     expect(DEMO_CAPABILITIES.evidenceMap).toBe(PRO_CAPABILITIES.evidenceMap);
@@ -1659,441 +2045,107 @@ describe("RoomCapabilities", () => {
 });
 ```
 
-- [ ] **Step 2: 跑测试，确认它失败**
+- [ ] **Step 2-4: 跑失败 → 实现 → 跑通过**
 
-```bash
-pnpm --filter @mind-imprint/web test -- roomCapabilities
-```
-
-预期：FAIL —— 模块不存在。
-
-- [ ] **Step 3: 写实现**
-
-新建 `apps/web/src/rooms/capabilities.ts`：
+`capabilities.ts`：
 
 ```ts
 // capabilities.ts — what a room is allowed to show.
 //
 // The rooms used to reach for project-lifecycle facts directly (and carried a
-// separate `demoMode` boolean). The lite edition runs the SAME rooms without a
-// project around them, so the rooms now read one object instead of asking what
-// stage the project is in. Adding an edition means adding a preset here, not
-// threading another boolean through the tree.
+// separate `demoMode` boolean). The lite edition runs the SAME room components
+// with no project around them, so a room now reads one object instead of
+// asking what stage a project is in. Adding an edition means adding a preset
+// here, not threading another boolean through the tree.
 export type RoomCapabilities = {
   mode: "pro" | "lite" | "demo";
-  /** 计划 room + plan items. */
   plan: boolean;
-  /** 证据图 / evidence map sidebar and its review actions. */
   evidenceMap: boolean;
-  /** 探索 leads, dig, adopt, edges. */
   explorationLeads: boolean;
-  /** The finalize step's 「对立题的影响」 field — meaningless without a 立题. */
   proposalImpact: boolean;
-  /** essay-track stages: statement guide, submission guide, stage advance. */
   essayTrack: boolean;
-  /** Post-reading comprehension check (lite only; lands in P2). */
   comprehensionCheck: boolean;
-  /** English-writing 示范 paragraphs (lite only; lands in P3). */
   exemplars: boolean;
 };
 
 export const PRO_CAPABILITIES: RoomCapabilities = {
-  mode: "pro",
-  plan: true,
-  evidenceMap: true,
-  explorationLeads: true,
-  proposalImpact: true,
-  essayTrack: true,
-  comprehensionCheck: false,
-  exemplars: false,
+  mode: "pro", plan: true, evidenceMap: true, explorationLeads: true,
+  proposalImpact: true, essayTrack: true, comprehensionCheck: false, exemplars: false,
 };
 
-// Demo is read-only pro, not a third lifecycle — it shows the same surfaces.
+// Demo is read-only pro, not a third lifecycle — same surfaces.
 export const DEMO_CAPABILITIES: RoomCapabilities = { ...PRO_CAPABILITIES, mode: "demo" };
 
 export const LITE_READING_CAPABILITIES: RoomCapabilities = {
-  mode: "lite",
-  plan: false,
-  evidenceMap: false,
-  explorationLeads: false,
-  proposalImpact: false,
-  essayTrack: false,
-  comprehensionCheck: true,
-  exemplars: false,
+  mode: "lite", plan: false, evidenceMap: false, explorationLeads: false,
+  proposalImpact: false, essayTrack: false, comprehensionCheck: true, exemplars: false,
 };
 ```
 
-- [ ] **Step 4: 跑测试，确认通过**
+接进 `ReadingRoom.tsx`：`const caps = props.capabilities ?? PRO_CAPABILITIES;`，并把**证据笔记**与**追踪来源 / 线索**两处 JSX 分别包上 `{caps.evidenceMap && (…)}`、`{caps.explorationLeads && (…)}`。用 grep 定位：
 
 ```bash
-pnpm --filter @mind-imprint/web test -- roomCapabilities
+grep -n "EvidenceNote\|TraceSourcePanel\|onTraceCitation\|onTraceSearch\|onAdoptSource" apps/web/src/studio/reading/ReadingRoom.tsx
 ```
 
-预期：PASS。
-
-- [ ] **Step 5: 把能力对象接进 `ReadingRoom`**
-
-在 `apps/web/src/studio/reading/ReadingRoom.tsx` 的 `ReadingRoomProps` 里加：
-
-```ts
-  /**
-   * What this room may show. Defaults to PRO_CAPABILITIES so every existing
-   * call site keeps today's behaviour untouched; the lite host passes
-   * LITE_READING_CAPABILITIES.
-   */
-  capabilities?: RoomCapabilities;
-```
-
-在组件体的开头解构默认值：
-
-```ts
-  const caps = props.capabilities ?? PRO_CAPABILITIES;
-```
-
-然后把**证据笔记 / 线索 / 追踪来源**三处渲染分别包上条件。用 `grep -n "EvidenceNote\|TraceSourcePanel\|onTraceCitation\|onTraceSearch\|onAdoptSource" apps/web/src/studio/reading/ReadingRoom.tsx` 找到它们的 JSX 位置，把每一处包成：
-
-```tsx
-{caps.evidenceMap && ( /* …既有 JSX 原样… */ )}
-```
-```tsx
-{caps.explorationLeads && ( /* …既有 TraceSourcePanel JSX 原样… */ )}
-```
-
-`demoMode` 这一轮**保持不动**（它已在多处使用，收敛进 `caps.mode === "demo"` 是独立的清理，不在 P1 的关键路径上）。
-
-- [ ] **Step 6: 跑 web 全量测试与类型检查**
+`demoMode` 这一轮**保持不动**（收敛进 `caps.mode` 是独立清理，不在 P1 关键路径上）。
 
 ```bash
 pnpm --filter @mind-imprint/web test && pnpm --filter @mind-imprint/web typecheck
 ```
 
-预期：全部 PASS —— 因为默认值是 `PRO_CAPABILITIES`，pro 的行为一字未变。
+预期：全部 PASS —— 默认值是 `PRO_CAPABILITIES`，pro 行为一字未变。
 
-- [ ] **Step 7: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
-git add apps/web/src/rooms/capabilities.ts apps/web/src/studio/reading/ReadingRoom.tsx \
-        apps/web/test/roomCapabilities.test.tsx
+git add apps/web/src/rooms/capabilities.ts apps/web/src/studio/reading/ReadingRoom.tsx apps/web/test/roomCapabilities.test.tsx
 git commit -m "feat(lite): give the rooms a RoomCapabilities object, defaulting to pro"
 ```
 
 ---
 
-### Task 9: 轻量版 shell 与阅读落地页
+### Task 11: 轻量版 shell 与阅读落地页
 
 **Files:**
-- Create: `apps/lite-web/src/api/client.ts`
-- Create: `apps/lite-web/src/api/readings.ts`
-- Create: `apps/lite-web/src/routing.ts`
-- Modify: `apps/lite-web/src/LiteApp.tsx`
-- Create: `apps/lite-web/src/readings/ReadingsLanding.tsx`
+- Create: `apps/lite-web/src/routing.ts`、`src/LiteApp.tsx`、`src/api/client.ts`、`src/api/readings.ts`、`src/readings/ReadingsLanding.tsx`
 - Test: `apps/lite-web/test/routing.test.ts`
 
 **Interfaces:**
-- Consumes: Task 4 的 `/api/v1/readings` 端点；Task 7 的脚手架
-- Produces: `parseLiteRoute(pathname): LiteRoute`，其中 `type LiteRoute = {tab:"readings"|"writings"} | {tab:"readings", readingId:string}`；`listReadings()`、`createReading(input)`、`getReading(id)` 三个客户端函数
+- Produces: `parseLiteRoute(pathname)`、`readingPath(id)`、`navigate(path)`；`listReadings()`、`createReading()`、`getReading()`、`putReadingSource()`
 
-- [ ] **Step 1: 写下会失败的测试**
-
-新建 `apps/lite-web/test/routing.test.ts`：
+- [ ] **Step 1: 写下会失败的路由测试**
 
 ```ts
 import { describe, expect, it } from "vitest";
 import { parseLiteRoute, readingPath } from "@lite/routing";
 
 describe("parseLiteRoute", () => {
-  it("defaults to the readings tab", () => {
-    expect(parseLiteRoute("/")).toEqual({ tab: "readings" });
-  });
-
-  it("reads a reading id out of the path", () => {
-    expect(parseLiteRoute("/readings/abc-123")).toEqual({ tab: "readings", readingId: "abc-123" });
-  });
-
-  it("knows the writings tab", () => {
-    expect(parseLiteRoute("/writings")).toEqual({ tab: "writings" });
-  });
-
-  it("round-trips a reading path", () => {
-    expect(parseLiteRoute(readingPath("xyz"))).toEqual({ tab: "readings", readingId: "xyz" });
-  });
+  it("defaults to the readings tab", () => expect(parseLiteRoute("/")).toEqual({ tab: "readings" }));
+  it("reads a reading id", () =>
+    expect(parseLiteRoute("/readings/abc-123")).toEqual({ tab: "readings", readingId: "abc-123" }));
+  it("knows the writings tab", () => expect(parseLiteRoute("/writings")).toEqual({ tab: "writings" }));
+  it("round-trips", () => expect(parseLiteRoute(readingPath("xyz"))).toEqual({ tab: "readings", readingId: "xyz" }));
 });
 ```
 
-新建 `apps/lite-web/vitest.config.ts`，照抄 `apps/web/vitest.config.ts` 并把别名改成 lite 的（`@` → `../web/src`，`@lite` → `./src`）。
+- [ ] **Step 2-4: 跑失败 → 实现 → 跑通过**
 
-- [ ] **Step 2: 跑测试，确认它失败**
+`routing.ts`：不引 router 库；`parseLiteRoute` 解析 pathname；`navigate` 用 `history.pushState` + 派发 `popstate`。
 
-```bash
-pnpm --filter @mind-imprint/lite-web test
-```
+`api/client.ts`：`fetch` 包装，`credentials: "include"`。**错误体键名先读 `apps/api/internal/httpx/errors.go` 的 `WriteError` 确认**再写。
 
-预期：FAIL —— 模块不存在。
+`api/readings.ts`：`listReadings` / `createReading` / `getReading` / `putReadingSource`。
 
-- [ ] **Step 3: 写路由**
+`ReadingsLanding.tsx`：标题输入（placeholder「给这次阅读起个名字（可留空）」）+ 正文 textarea（placeholder「把文章正文粘贴到这里…」）+「开始阅读」按钮 → `createReading` → `putReadingSource` → `navigate(readingPath(id))`；下方「过往的阅读」列表。**这三个字符串 Task 14 的 e2e 会按字面匹配，改动请同步。**
 
-新建 `apps/lite-web/src/routing.ts`：
-
-```ts
-// routing.ts — no router library, same convention as the pro shell: parse the
-// pathname, push with history.pushState, listen for popstate.
-export type LiteRoute =
-  | { tab: "readings"; readingId?: string }
-  | { tab: "writings" };
-
-export function parseLiteRoute(pathname: string): LiteRoute {
-  const parts = pathname.split("/").filter(Boolean);
-  if (parts[0] === "writings") return { tab: "writings" };
-  if (parts[0] === "readings" && parts[1]) return { tab: "readings", readingId: parts[1] };
-  return { tab: "readings" };
-}
-
-export function readingPath(id: string): string {
-  return `/readings/${id}`;
-}
-
-export function navigate(path: string): void {
-  window.history.pushState({}, "", path);
-  window.dispatchEvent(new PopStateEvent("popstate"));
-}
-```
-
-- [ ] **Step 4: 跑测试，确认通过**
+`LiteApp.tsx`：左栏两项（写作 / 阅读），`popstate` 监听，按路由渲染；写作 tab 本期显示「写作即将上线」。`ReadingRoomHost` 先放一个临时占位（Task 12 实现），好让构建通过。
 
 ```bash
-pnpm --filter @mind-imprint/lite-web test
+pnpm --filter @mind-imprint/lite-web test && pnpm --filter @mind-imprint/lite-web typecheck && pnpm --filter @mind-imprint/lite-web build
 ```
 
-预期：PASS。
-
-- [ ] **Step 5: 写 API 客户端**
-
-新建 `apps/lite-web/src/api/client.ts`：
-
-```ts
-// client.ts — the lite site's fetch wrapper. Same cookie-session contract as
-// the pro client: credentials are sent, errors carry the server's envelope.
-export class LiteApiError extends Error {
-  constructor(public status: number, public code: string, message: string) {
-    super(message);
-  }
-}
-
-export async function api<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`/api/v1${path}`, {
-    credentials: "include",
-    headers: { "Content-Type": "application/json", ...(init?.headers ?? {}) },
-    ...init,
-  });
-  if (!res.ok) {
-    let code = "unknown";
-    let message = `请求失败（${res.status}）`;
-    try {
-      const body = await res.json();
-      code = body?.error?.code ?? code;
-      message = body?.error?.message ?? message;
-    } catch {
-      // 非 JSON 错误体（网关层的 502/504）——保留兜底文案
-    }
-    throw new LiteApiError(res.status, code, message);
-  }
-  if (res.status === 204) return undefined as T;
-  return (await res.json()) as T;
-}
-```
-
-> 错误体的真实形状以 `apps/api/internal/httpx/errors.go` 的 `WriteError` 为准 —— 打开它确认 `error.code` / `error.message` 的键名，不一致就照改。
-
-新建 `apps/lite-web/src/api/readings.ts`：
-
-```ts
-import { api } from "./client";
-
-export type Reading = {
-  id: string;
-  title: string;
-  lang: "zh" | "en";
-  status: "active" | "finished";
-  referenceId: string | null;
-  createdAt: string;
-  updatedAt: string;
-  finishedAt: string | null;
-};
-
-export function listReadings(): Promise<{ readings: Reading[] }> {
-  return api("/readings");
-}
-
-export function createReading(input: { title: string; lang: "zh" | "en" }): Promise<{ id: string; referenceId: string }> {
-  return api("/readings", { method: "POST", body: JSON.stringify(input) });
-}
-
-export function getReading(id: string): Promise<Reading> {
-  return api(`/readings/${id}`);
-}
-
-/** Paste the article body into the atom's single reference, through the room passthrough. */
-export function pasteReadingText(readingId: string, referenceId: string, text: string): Promise<unknown> {
-  return api(`/readings/${readingId}/room/references/${referenceId}/paste-content`, {
-    method: "POST",
-    body: JSON.stringify({ text }),
-  });
-}
-```
-
-> `paste-content` 的真实请求体键名以 `apps/api/internal/api/workspace_library.go:987` 的 `pasteContent` 为准 —— 打开确认是 `text` 还是别的键。
-
-- [ ] **Step 6: 写 shell 与阅读落地页**
-
-新建 `apps/lite-web/src/readings/ReadingsLanding.tsx`：
-
-```tsx
-import { useEffect, useState } from "react";
-import { createReading, listReadings, pasteReadingText, type Reading } from "@lite/api/readings";
-import { navigate, readingPath } from "@lite/routing";
-
-// ReadingsLanding — 阅读 tab 的落地面：贴一篇文章开始，下面是过往的阅读。
-export function ReadingsLanding() {
-  const [history, setHistory] = useState<Reading[]>([]);
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    listReadings()
-      .then((r) => setHistory(r.readings))
-      .catch((e) => setError(e.message));
-  }, []);
-
-  async function start() {
-    const body = text.trim();
-    if (!body) {
-      setError("先把文章正文贴进来。");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    try {
-      const created = await createReading({ title: title.trim() || "未命名阅读", lang: "zh" });
-      await pasteReadingText(created.id, created.referenceId, body);
-      navigate(readingPath(created.id));
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "出了点问题，再试一次。");
-      setBusy(false);
-    }
-  }
-
-  return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
-      <h1 className="text-2xl text-mk-ink">阅读</h1>
-      <p className="mt-1 text-sm text-mk-secondary">把一篇文章贴进来，我们一起读。</p>
-
-      <input
-        className="mt-6 w-full rounded-lg border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-ink"
-        placeholder="给这次阅读起个名字（可留空）"
-        value={title}
-        onChange={(e) => setTitle(e.target.value)}
-      />
-      <textarea
-        className="mt-3 h-64 w-full resize-y rounded-lg border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-ink"
-        placeholder="把文章正文粘贴到这里…"
-        value={text}
-        onChange={(e) => setText(e.target.value)}
-      />
-      {error && <p className="mt-2 text-sm text-mk-danger">{error}</p>}
-      <button
-        className="mt-3 rounded-lg bg-mk-accent px-4 py-2 text-white disabled:opacity-50"
-        disabled={busy}
-        onClick={start}
-      >
-        {busy ? "正在准备…" : "开始阅读"}
-      </button>
-
-      {history.length > 0 && (
-        <div className="mt-12">
-          <h2 className="text-sm text-mk-secondary">过往的阅读</h2>
-          <ul className="mt-3 space-y-2">
-            {history.map((r) => (
-              <li key={r.id}>
-                <button
-                  className="w-full rounded-lg border border-mk-border bg-mk-surface px-4 py-3 text-left text-mk-ink"
-                  onClick={() => navigate(readingPath(r.id))}
-                >
-                  <span>{r.title}</span>
-                  <span className="ml-2 text-xs text-mk-muted">
-                    {r.status === "finished" ? "已完成" : "进行中"}
-                  </span>
-                </button>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
-    </div>
-  );
-}
-```
-
-替换 `apps/lite-web/src/LiteApp.tsx`：
-
-```tsx
-import { useEffect, useState } from "react";
-import { parseLiteRoute, navigate, type LiteRoute } from "@lite/routing";
-import { ReadingsLanding } from "@lite/readings/ReadingsLanding";
-import { ReadingRoomHost } from "@lite/readings/ReadingRoomHost";
-
-// LiteApp — 轻量版的 shell。左栏只有两项：写作、阅读。没有图鉴，没有课程，
-// 没有项目。
-export function LiteApp() {
-  const [route, setRoute] = useState<LiteRoute>(() => parseLiteRoute(window.location.pathname));
-
-  useEffect(() => {
-    const onPop = () => setRoute(parseLiteRoute(window.location.pathname));
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  return (
-    <div className="flex min-h-screen bg-mk-paper">
-      <nav className="w-40 shrink-0 border-r border-mk-border px-3 py-6">
-        <NavItem label="写作" active={route.tab === "writings"} onClick={() => navigate("/writings")} />
-        <NavItem label="阅读" active={route.tab === "readings"} onClick={() => navigate("/readings")} />
-      </nav>
-      <main className="flex-1">
-        {route.tab === "writings" && (
-          <div className="mx-auto w-full max-w-3xl px-6 py-10 text-mk-secondary">写作即将上线。</div>
-        )}
-        {route.tab === "readings" && !route.readingId && <ReadingsLanding />}
-        {route.tab === "readings" && route.readingId && <ReadingRoomHost readingId={route.readingId} />}
-      </main>
-    </div>
-  );
-}
-
-function NavItem({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
-  return (
-    <button
-      className={`mb-1 w-full rounded-lg px-3 py-2 text-left ${active ? "bg-mk-surface text-mk-ink" : "text-mk-secondary"}`}
-      onClick={onClick}
-    >
-      {label}
-    </button>
-  );
-}
-```
-
-> `ReadingRoomHost` 在 Task 10 建。本任务先建一个只渲染 `<div>加载中…</div>` 的临时版本，好让构建通过。
-
-- [ ] **Step 7: 构建 + 类型检查**
-
-```bash
-pnpm --filter @mind-imprint/lite-web build && pnpm --filter @mind-imprint/lite-web typecheck
-```
-
-预期：成功。
-
-- [ ] **Step 8: 提交**
+- [ ] **Step 5: 提交**
 
 ```bash
 git add apps/lite-web/src apps/lite-web/test apps/lite-web/vitest.config.ts
@@ -2102,189 +2154,39 @@ git commit -m "feat(lite): lite shell with the readings landing and history"
 
 ---
 
-### Task 10: 把阅读室接进轻量站
+### Task 12: 把阅读室接进轻量站
 
 **Files:**
-- Create: `apps/lite-web/src/readings/ReadingRoomHost.tsx`
-- Create: `apps/lite-web/src/api/readingRoom.ts`
+- Create: `apps/lite-web/src/api/readingRoom.ts`、`src/readings/ReadingRoomHost.tsx`
 - Test: `apps/lite-web/test/readingRoomHost.test.tsx`
-
-**Interfaces:**
-- Consumes: Task 5 的 `/readings/{id}/room/*`；Task 8 的 `LITE_READING_CAPABILITIES`；Task 9 的路由与客户端
-- Produces: `ReadingRoomHost({ readingId }: { readingId: string })`
 
 - [ ] **Step 1: 照抄 pro 的调用点，摸清 `ReadingRoom` 到底要什么**
 
-**不要凭 props 类型猜。** 打开真实调用点，把它需要的每一个 prop 与 `api` 对象的每一个方法列出来：
+**不要凭 props 类型猜。** 打开真实调用点，把每个 prop 与 `api` 对象的每个方法列出来：
 
 ```bash
-sed -n '1540,1610p' apps/web/src/workspace/WorkspaceContainer.tsx
-sed -n '52,140p' apps/web/src/studio/reading/ReadingRoom.tsx
+sed -n '1540,1615p' apps/web/src/workspace/WorkspaceContainer.tsx
+sed -n '52,150p' apps/web/src/studio/reading/ReadingRoom.tsx
 grep -n "export type ReadingLoopApi" -A 40 apps/web/src/studio/reading/readingLoop.ts
 ```
 
-`ReadingRoomApi` = `ReadingLoopApi` + 三个 brief/takeaway 方法。lite 的 `api` 对象要实现同一组方法，只是每个 URL 都带 `/readings/{id}/room` 前缀。
+lite 的 `api` 对象要实现**同一组方法名与签名**，少一个就会在运行时炸在 `undefined is not a function`。在报告里列出你对齐后的完整方法表。
 
-- [ ] **Step 2: 写下会失败的测试**
+- [ ] **Step 2-4: 测试 → 实现 → 通过**
 
-新建 `apps/lite-web/test/readingRoomHost.test.tsx`：
+`api/readingRoom.ts`：每个方法映射到 Task 3-7 的 lite 端点。签名保留 pro 的形参位置（lite 不需要 projectId，忽略即可）。
 
-```tsx
-import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
-import { ReadingRoomHost } from "@lite/readings/ReadingRoomHost";
-
-beforeEach(() => {
-  vi.restoreAllMocks();
-});
-
-describe("ReadingRoomHost", () => {
-  it("shows a plain error when the reading cannot be loaded", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ error: { code: "not_found", message: "资源不存在" } }), { status: 404 }),
-    ));
-    render(<ReadingRoomHost readingId="missing" />);
-    await waitFor(() => expect(screen.getByText(/资源不存在/)).toBeInTheDocument());
-  });
-
-  it("waits for the reading before mounting the room", async () => {
-    vi.stubGlobal("fetch", vi.fn().mockImplementation(() => new Promise(() => {})));
-    render(<ReadingRoomHost readingId="pending" />);
-    expect(screen.getByText(/加载中/)).toBeInTheDocument();
-  });
-});
-```
-
-需要 `@testing-library/react`、`@testing-library/jest-dom`、`jsdom` —— 加进 `apps/lite-web/package.json` 的 devDependencies（版本对齐 `apps/web`），并照抄 `apps/web` 的 vitest setup 文件配置。
-
-- [ ] **Step 3: 跑测试，确认它失败**
-
-```bash
-pnpm --filter @mind-imprint/lite-web test -- readingRoomHost
-```
-
-预期：FAIL —— 模块不存在。
-
-- [ ] **Step 4: 写 room API 客户端**
-
-新建 `apps/lite-web/src/api/readingRoom.ts`。为每一个 `ReadingLoopApi` 方法实现一个带前缀的版本：
-
-```ts
-import { api } from "./client";
-
-// readingRoom.ts — the reading room's own API surface, addressed through the
-// atom passthrough. Every path is the pro path with /readings/{id}/room in
-// front of it; the server resolves the atom to its container project, so the
-// request shapes and responses are byte-identical to the pro side.
-export function readingRoomApi(readingId: string) {
-  const base = `/readings/${readingId}/room`;
-  return {
-    enterReading: (_projectId: string, rid: string) =>
-      api(`${base}/references/${rid}/enter-reading`, { method: "POST", body: "{}" }),
-    getMaterialSource: (_projectId: string, mid: string) =>
-      api(`${base}/materials/${mid}/source`),
-    readTurn: (_projectId: string, mid: string, body: unknown) =>
-      api(`${base}/materials/${mid}/read-turn`, { method: "POST", body: JSON.stringify(body) }),
-    summonCard: (_projectId: string, mid: string, body: unknown) =>
-      api(`${base}/materials/${mid}/summon-card`, { method: "POST", body: JSON.stringify(body) }),
-    openCard: (_projectId: string, mid: string) =>
-      api(`${base}/materials/${mid}/open-card`),
-    activateCard: (_projectId: string, cid: string) =>
-      api(`${base}/cards/${cid}/activate`, { method: "POST", body: "{}" }),
-    skipCard: (_projectId: string, cid: string) =>
-      api(`${base}/cards/${cid}/skip`, { method: "POST", body: "{}" }),
-    submitCard: (_projectId: string, cid: string, body: unknown) =>
-      api(`${base}/cards/${cid}/submit`, { method: "POST", body: JSON.stringify(body) }),
-    putReadingBrief: (_projectId: string, rid: string, brief: unknown) =>
-      api(`${base}/references/${rid}/reading-brief`, { method: "PUT", body: JSON.stringify(brief) }),
-    getTakeawayDraft: (_projectId: string, rid: string) =>
-      api(`${base}/references/${rid}/takeaway-draft`),
-    postFinalizeReading: (_projectId: string, rid: string, body: unknown) =>
-      api(`${base}/references/${rid}/finalize-reading`, { method: "POST", body: JSON.stringify(body) }),
-  };
-}
-```
-
-> 方法名与签名**必须**与 Step 1 里读到的 `ReadingLoopApi` / `ReadingRoomApi` 完全一致 —— 少一个方法，阅读室会在运行时炸在一个 `undefined is not a function` 上。`_projectId` 参数保留是为了签名对齐（lite 不需要它，容器由服务端解析）。
-
-- [ ] **Step 5: 写 host**
-
-新建 `apps/lite-web/src/readings/ReadingRoomHost.tsx`：
-
-```tsx
-import { useEffect, useState } from "react";
-import { ReadingRoom } from "@/studio/reading/ReadingRoom";
-import { LITE_READING_CAPABILITIES } from "@/rooms/capabilities";
-import { getReading, type Reading } from "@lite/api/readings";
-import { readingRoomApi } from "@lite/api/readingRoom";
-import { navigate } from "@lite/routing";
-
-// ReadingRoomHost — mounts the SAME ReadingRoom the pro product uses. The only
-// differences: the api object routes through the atom passthrough, and the
-// capabilities object hides the surfaces that need a project around them.
-export function ReadingRoomHost({ readingId }: { readingId: string }) {
-  const [reading, setReading] = useState<Reading | null>(null);
-  const [source, setSource] = useState<unknown | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const rd = await getReading(readingId);
-        if (cancelled) return;
-        setReading(rd);
-        if (!rd.referenceId) throw new Error("这次阅读还没有文章。");
-        const api = readingRoomApi(readingId);
-        const entered = await api.enterReading("", rd.referenceId);
-        if (!cancelled) setSource(entered);
-      } catch (e) {
-        if (!cancelled) setError(e instanceof Error ? e.message : "打不开这次阅读。");
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [readingId]);
-
-  if (error) return <div className="px-6 py-10 text-mk-danger">{error}</div>;
-  if (!reading || !source) return <div className="px-6 py-10 text-mk-secondary">加载中…</div>;
-
-  return (
-    <ReadingRoom
-      projectId=""
-      referenceId={reading.referenceId!}
-      source={extractSource(source)}
-      capabilities={LITE_READING_CAPABILITIES}
-      api={readingRoomApi(readingId)}
-      onBack={() => navigate("/readings")}
-    />
-  );
-}
-```
-
-`extractSource` 与其余必填 prop，照 Step 1 读到的 pro 调用点补齐 —— **以 `WorkspaceContainer.tsx` 的那一段为准**，逐个 prop 对照，缺一个就补一个。`projectId` 传空串：lite 不需要它，容器由服务端从 atom 解析；若 `ReadingRoom` 内部真的用它拼了 URL，改成让那处走 `api` 对象而不是自己拼 —— 那本来就是一个应该收进 api 层的漏洞。
-
-- [ ] **Step 6: 跑测试，确认通过**
+`ReadingRoomHost.tsx`：加载 reading + source → 装配 props → 渲染 `<ReadingRoom capabilities={LITE_READING_CAPABILITIES} api={readingRoomApi(id)} … />`。加载中与错误各有朴素文案。
 
 ```bash
 pnpm --filter @mind-imprint/lite-web test && pnpm --filter @mind-imprint/lite-web typecheck
 ```
 
-预期：PASS。
+- [ ] **Step 5: 在真实浏览器里走一遍**
 
-- [ ] **Step 7: 在真实浏览器里走一遍**
+起 `cd apps/api && make run` 与 lite dev server，把种子学校设为 lite（`UPDATE schools SET edition='lite'`），贴一篇文章 → 开始阅读 → 确认**透镜库、段落上的悬挂工具卡、批注、AI 引导都在**，证据笔记 / 追踪来源**不在**。jsdom 测不出这些，必须真看。
 
-```bash
-# 终端 1
-cd apps/api && make run
-# 终端 2
-pnpm --filter @mind-imprint/lite-web dev
-```
-
-把种子学校设为 lite（`UPDATE schools SET edition='lite'`），登录后：贴一篇文章 → 开始阅读 → 确认**透镜库、段落上的悬挂工具卡、批注、AI 引导都在**，且证据笔记 / 追踪来源**不在**。jsdom 测不出这些，必须真看。
-
-- [ ] **Step 8: 提交**
+- [ ] **Step 6: 提交**
 
 ```bash
 git add apps/lite-web/src/readings apps/lite-web/src/api/readingRoom.ts apps/lite-web/test
@@ -2293,50 +2195,23 @@ git commit -m "feat(lite): mount the real reading room on the lite site"
 
 ---
 
-### Task 11: 部署
+### Task 13: 部署
 
-**Files:**
-- Create: `apps/lite-web/Dockerfile`
-- Create: `apps/lite-web/nginx.conf`
-- Create: `.deploy-local/deploy-lite.sh`
+**Files:** `apps/lite-web/Dockerfile`、`apps/lite-web/nginx.conf`、`.deploy-local/deploy-lite.sh`
 
-**Interfaces:**
-- Consumes: Task 7 的构建产物
-- Produces: 一个可部署到独立域名的静态站
+照 `apps/web/Dockerfile` / `nginx.conf` / `.deploy-local/deploy-site.sh` 改写：`--filter` 换成 `@mind-imprint/lite-web`，产物目录 `apps/lite-web/dist`，新容器名与新端口（如 `8093`），新域名。
 
-- [ ] **Step 1: 照抄 pro 的部署形状**
-
-```bash
-cat apps/web/Dockerfile
-cat apps/web/nginx.conf
-ls .deploy-local/
-```
-
-- [ ] **Step 2: 写 Dockerfile 与 nginx.conf**
-
-`apps/lite-web/Dockerfile` 完全照 `apps/web/Dockerfile` 改写，只换两处：`--filter` 的包名改为 `@mind-imprint/lite-web`，产物目录改为 `apps/lite-web/dist`。
-
-> ⚠️ 构建上下文必须是**仓库根目录**（lite 依赖 `apps/web` 与 `packages/contracts` 的源码）。
-> ⚠️ 既有教训：根 `.dockerignore` 里的 `*.png` 会把图片排除掉 —— 若 lite 用到图片，确认这一条。
-
-`apps/lite-web/nginx.conf` 照 `apps/web/nginx.conf`，保留 SPA 的 `try_files $uri /index.html;`（`/readings/:id` 深链需要它）。
-
-- [ ] **Step 3: 写部署脚本**
-
-`.deploy-local/deploy-lite.sh` 照 `.deploy-local/deploy-site.sh` 改写：新的容器名、新的端口（取一个未被占用的，例如 `8093`）、新的域名。域名与证书按既有 certbot 流程办。
-
-- [ ] **Step 4: 本地验证镜像能构建并跑起来**
+- ⚠️ 构建上下文必须是**仓库根目录**（lite 依赖 `apps/web` 与 `packages/contracts` 源码）。
+- ⚠️ 既有教训：根 `.dockerignore` 的 `*.png` 会排除图片。
+- nginx 保留 SPA 的 `try_files $uri /index.html;`（`/readings/:id` 深链需要）。
+- 🚨 **绝不在 ECS 上跑 `docker prune -a`。**
 
 ```bash
 docker build -f apps/lite-web/Dockerfile -t mind-lite-web:dev .
 docker run --rm -p 8093:80 mind-lite-web:dev
 ```
 
-打开 `http://localhost:8093`，确认页面有样式、`/readings/xxx` 深链不 404。
-
-> 🚨 **绝不在 ECS 上跑 `docker prune -a`。**
-
-- [ ] **Step 5: 提交**
+打开 `http://localhost:8093`，确认有样式、深链不 404。
 
 ```bash
 git add apps/lite-web/Dockerfile apps/lite-web/nginx.conf .deploy-local/deploy-lite.sh
@@ -2345,77 +2220,37 @@ git commit -m "chore(lite): dockerfile, nginx and deploy script for the lite sit
 
 ---
 
-### Task 12: 端到端走查
+### Task 14: 端到端走查
 
-**Files:**
-- Create: `apps/lite-web/e2e/reading-walk.spec.ts`
-- Create: `apps/lite-web/e2e/playwright.config.ts`
+**Files:** `apps/lite-web/e2e/playwright.config.ts`、`apps/lite-web/e2e/reading-walk.spec.ts`
 
-**Interfaces:**
-- Consumes: 前面所有任务
-- Produces: 一条覆盖「新建 → 贴文 → 精读 → 我的收获」的 Playwright 走查
-
-- [ ] **Step 1: 照抄 pro 的 e2e 配置**
-
-```bash
-ls apps/web/e2e/
-cat apps/web/e2e/playwright.config.ts
-```
-
-`apps/lite-web/e2e/playwright.config.ts` 照抄，`baseURL` 指向 lite 的 dev server，`webServer` 命令改为 `pnpm --filter @mind-imprint/lite-web dev`。
-
-- [ ] **Step 2: 写走查**
-
-新建 `apps/lite-web/e2e/reading-walk.spec.ts`：
+照 `apps/web/e2e/` 配置改写（`baseURL` 指 lite dev server，`webServer` 用 lite dev 命令；测试账号所属学校须为 lite，在 `globalSetup` 里种）。
 
 ```ts
 import { expect, test } from "@playwright/test";
 
-// A lite student's whole P1 journey: paste an article, read it with the real
+// A lite student's whole P1 journey: paste an article, read it in the real
 // room, write a takeaway. Anything that dead-ends here is a shipping blocker.
 test("lite reading walk: paste → read → takeaway", async ({ page }) => {
   await page.goto("/readings");
-
   await page.getByPlaceholder("给这次阅读起个名字（可留空）").fill("太阳能的十年");
   await page.getByPlaceholder("把文章正文粘贴到这里…").fill(
     "过去十年，全球太阳能装机容量增长了约十倍。成本下降是主要驱动力，" +
       "但并网能力与储能仍是瓶颈。若不解决储能，装机增长的边际收益会递减。",
   );
   await page.getByRole("button", { name: "开始阅读" }).click();
-
   await expect(page).toHaveURL(/\/readings\/[0-9a-f-]+$/);
-
-  // 阅读室真的起来了：文章正文在页面上。
   await expect(page.getByText("全球太阳能装机容量")).toBeVisible({ timeout: 30_000 });
-
-  // 项目专属的面板不在轻量版里。
+  // 项目专属面板不在轻量版里
   await expect(page.getByText("对立题的影响")).toHaveCount(0);
 });
 ```
 
-> 断言用的可见文案必须与真实 DOM 对齐 —— 先手动跑一遍 dev server，用真实文案改这些选择器，不要留猜的。
-
-- [ ] **Step 3: 跑走查**
+> 断言文案必须与真实 DOM 对齐——先手动跑一遍 dev server，用真实文案改选择器，不要留猜的。
 
 ```bash
 pnpm --filter @mind-imprint/lite-web exec playwright install --with-deps chromium
 pnpm --filter @mind-imprint/lite-web exec playwright test -c e2e/playwright.config.ts
-```
-
-预期：PASS。测试账号需要 `edition='lite'`，在 config 的 `globalSetup` 里种，或复用 pro e2e 的登录方式。
-
-- [ ] **Step 4: 跑全仓验证**
-
-```bash
-cd apps/api && go test ./... -timeout 1800s
-cd ../.. && pnpm -r typecheck && pnpm -r test
-```
-
-预期：全部 PASS。
-
-- [ ] **Step 5: 提交**
-
-```bash
 git add apps/lite-web/e2e
 git commit -m "test(lite): end-to-end walk of the lite reading journey"
 ```
@@ -2424,25 +2259,30 @@ git commit -m "test(lite): end-to-end walk of the lite reading journey"
 
 ## 自检（写完计划后对照 spec）
 
-**Spec 覆盖：**
-
 | Spec 条目 | 落在哪个任务 |
 |---|---|
-| §3.2 `project.kind` + 容器泄漏封堵 | Task 1 |
-| §3.5 `schools.edition` | Task 2 |
-| §3.1 `reading` 表 | Task 3 |
-| §4.1 阅读原子端点 | Task 4 |
-| §4.2 房间透传接缝 | Task 5 |
-| §4.3 鉴权（归属 404、容器不可直达、edition 闸） | Task 4 Step 1 / Task 5 Step 5 / Task 6 |
-| §6.1 `apps/lite-web` 与两处构建陷阱 | Task 7 |
-| §6.3 `RoomCapabilities` | Task 8 |
-| §6.2 shell 与阅读落地页 | Task 9 |
-| §5.1 阅读主动线（至「我的收获」） | Task 10 + Task 12 |
-| §8.4 测试 | 各任务内 + Task 12 |
-| §3.1 `writing` 表 | **本期不做** —— 见 Global Constraints，随 P3 的 handler 落地 |
-| §3.3 `reading_check` / §3.4 `atom_report` / §7 简版报告 | **本期不做** —— P2/P3 |
-| §4.1 `POST /readings/{id}/text` | **本期不做** —— 走 `/room/…/paste-content` 透传，见 Global Constraints |
+| §4.2 `atom` / `reading` | Task 1 |
+| §4.3 共享机制建表 | Task 1 |
+| §4.3 message 端点 | Task 7 |
+| §4.3 card 端点 | Task 6 |
+| §4.3 annotation 端点 | Task 5 |
+| §4.4 `reading_source` / `reading_brief` / `reading_takeaway` | Task 1（建表）、4（source）、5（brief/takeaway） |
+| §4.5 `llm_call.atom_id` 成本归属 | Task 7 |
+| §4.6 `schools.edition` | Task 2 |
+| §5 API 全表 | Task 3、4、5、6、7、8 |
+| §5.1 鉴权（本人 404 / 跨 edition 404 / 跨 atom 404） | Task 2、3、6 |
+| §3 复用边界（AI 大脑原样复用） | Task 7 |
+| §7.1 lite-web 与两处构建陷阱 | Task 9 |
+| §7.3 `RoomCapabilities` | Task 10 |
+| §7.2 shell 与落地页 | Task 11、12 |
+| §6.1 阅读主动线至「我的收获」 | Task 12、14 |
+| §9 风险 1（信封边界校验） | Task 6 |
+| §9 风险 2（`ReadingRouteInput` 装配） | Task 4（分段单测）、7（装配函数） |
+| §9 风险 3（共享组件回归 pro） | Task 10 |
+| §4.4 `reading_check` / §4.3 `atom_report` / §8 简版报告 | **本期不做** —— P2 |
+| §6.2 写作 | **本期不做** —— P3 |
+| 文件上传（PDF/DOCX）与 `bib` | **本期不做** —— Task 4 只接粘贴与链接 |
 
-**类型一致性：** `readingDTO` 的字段（`referenceId` / `createdAt` / `finishedAt`）在 Task 4 定义、Task 9 的 `Reading` 类型消费，键名一致；`readingRoomApi` 的方法名在 Task 10 Step 1 被要求对照 `ReadingLoopApi` 逐一核实；`withContainerID` / `containerIDFrom` 在 Task 5 一处定义、一处消费。
+**类型一致性：** `readingDTO.id` 全程是 **atom id**（Task 3 定义，Task 11 的 `Reading` 类型消费）；`loadOwnedReadingAtom` Task 3 定义，Task 4/5/6/7/8 消费；`Block`/`SplitBlocks` Task 4 定义，Task 7 装配与 Task 12 渲染消费；`liteOnly` Task 3 定义（依赖 Task 2 的 `requireEdition`），Task 4-8 复用；`liteHandler` / `createReadingAtom` 测试 helper 分别在 Task 2 / Task 3 定义，之后各任务复用。
 
-**已知需要在实现时亲手核实的外部名字**（计划里已各自标出核实步骤，不是占位符）：`sqlc.CreateReferenceParams` 的字段（Task 4 Step 3）、`mountReadingRoom` 表里的 handler 方法名（Task 5 Step 4）、`ReadingRoomProps` 的完整 prop 集与 `ReadingLoopApi` 的方法集（Task 10 Step 1）、`httpx.WriteError` 的错误体键名（Task 9 Step 5）、`pasteContent` 的请求体键名（Task 9 Step 5）。
+**必须在实现时亲手核实的外部名字**（各任务内已标出核实步骤，不是占位符）：`agent.FocusSpan` / `PacingState` / `ReadingBrief` / `ReadingCard` / `MaterialBlock` / `OrderingGuard` 的真实字段与 `RecordLLMCall` 的签名（Task 7 Step 1）、`ReadingRoomProps` 与 `ReadingLoopApi` 的完整方法集（Task 12 Step 1）、`httpx` 的 502 构造器与错误体键名（Task 7 Step 1、Task 11）、sqlc 为 `ListReadingsByUser` 生成的 row 字段名（Task 3 Step 3）、`derefOr` / `nullableText` 是否已存在（Task 4 Step 6）。
