@@ -47,7 +47,47 @@ func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt time.Time)
 // loadOwnedReadingAtom parses {id} as an atom of kind 'reading' owned by the
 // caller. Every failure — malformed id, missing row, wrong kind, wrong owner —
 // is a flat 404, so atom existence is never leaked. Shared by Tasks 3-8.
+//
+// Every non-GET request against a *finished* reading is additionally refused
+// with 403 reading_finished (Task 17): 铁律④ makes the process record
+// evidence a report is generated from, and a raw API call — or a tab that
+// had the room open before the reading finished — must not be able to keep
+// writing to it after Task 16's client-side read-only view says otherwise.
+// 403, not 404, because the reading genuinely exists and is hers; mirrors
+// loadOwnedProject's demo_readonly shape for the same reason that one does.
+//
+// This is every lite reading handler's sole authorization chokepoint (all
+// ~20 per-id routes funnel through it — see readings.go, reading_source.go,
+// reading_source_file.go, reading_notes.go, reading_cards.go, reading_turn.go,
+// reading_lens.go), so gating here covers every one of them at once. The one
+// deliberate exception is finish itself: POST /finish is idempotent by
+// design (calling it again after it already succeeded just re-stamps
+// finished_at and returns 200), so finishReading calls the ungated sibling
+// below directly instead of this wrapper.
 func (a *API) loadOwnedReadingAtom(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
+	at, ok := a.loadOwnedReadingAtomRow(w, r)
+	if !ok {
+		return sqlc.Atom{}, false
+	}
+	if r.Method != http.MethodGet {
+		rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return sqlc.Atom{}, false
+		}
+		if rd.Status == "finished" {
+			httpx.WriteError(w, r, httpx.ErrReadingFinished())
+			return sqlc.Atom{}, false
+		}
+	}
+	return at, true
+}
+
+// loadOwnedReadingAtomRow is loadOwnedReadingAtom's ungated sibling: same
+// existence/ownership/kind checks (still a flat 404 on any failure), but
+// applies no finished-reading write gate. finishReading uses this directly
+// so a second POST /finish stays callable after the first one succeeded.
+func (a *API) loadOwnedReadingAtomRow(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
 	u, _ := UserFromContext(r.Context())
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -228,7 +268,10 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 // succeeded just re-stamps finished_at and still returns 200 — idempotent by
 // construction, not by a special-cased check.
 func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
+	// loadOwnedReadingAtomRow, NOT loadOwnedReadingAtom: this endpoint must
+	// stay callable (idempotently) after the reading is already finished —
+	// see the finished-reading write gate's doc comment above.
+	at, ok := a.loadOwnedReadingAtomRow(w, r)
 	if !ok {
 		return
 	}

@@ -73,6 +73,16 @@ func ErrDemoReadonly() *APIError {
 	return &APIError{Status: http.StatusForbidden, Code: "demo_readonly", Message: "演示项目为只读，无法修改。"}
 }
 
+// ErrReadingFinished — 403 for a write attempt against a finished lite
+// reading. Mirrors ErrDemoReadonly's shape (403, not 404: the reading
+// genuinely exists and is hers — pretending otherwise would be confusing,
+// not protective) but with its own stable code, since the two reasons a
+// write is refused (this is someone else's read-only demo vs. this is mine
+// but I already finished it) are not the same fact for a client to react to.
+func ErrReadingFinished() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "reading_finished", Message: "这次阅读已完成，内容不能再修改。"}
+}
+
 func ErrNotFound(msg string) *APIError {
 	return &APIError{Status: http.StatusNotFound, Code: "not_found", Message: msg}
 }
