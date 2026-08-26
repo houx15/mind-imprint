@@ -29,8 +29,48 @@ func (q *Queries) CountLLMCallsByProjectPurpose(ctx context.Context, arg CountLL
 	return count, err
 }
 
+const listLLMCallsByAtom = `-- name: ListLLMCallsByAtom :many
+SELECT id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, atom_id FROM llm_call
+WHERE atom_id = $1
+ORDER BY created_at
+`
+
+func (q *Queries) ListLLMCallsByAtom(ctx context.Context, atomID pgtype.UUID) ([]LlmCall, error) {
+	rows, err := q.db.Query(ctx, listLLMCallsByAtom, atomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LlmCall
+	for rows.Next() {
+		var i LlmCall
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.ProjectID,
+			&i.Surface,
+			&i.Purpose,
+			&i.Provider,
+			&i.Model,
+			&i.Tier,
+			&i.PromptTokens,
+			&i.CompletionTokens,
+			&i.CostEstimate,
+			&i.CreatedAt,
+			&i.AtomID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listLLMCallsByProject = `-- name: ListLLMCallsByProject :many
-SELECT id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at FROM llm_call
+SELECT id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, atom_id FROM llm_call
 WHERE project_id = $1
 ORDER BY created_at
 `
@@ -57,6 +97,7 @@ func (q *Queries) ListLLMCallsByProject(ctx context.Context, projectID pgtype.UU
 			&i.CompletionTokens,
 			&i.CostEstimate,
 			&i.CreatedAt,
+			&i.AtomID,
 		); err != nil {
 			return nil, err
 		}
@@ -68,11 +109,67 @@ func (q *Queries) ListLLMCallsByProject(ctx context.Context, projectID pgtype.UU
 	return items, nil
 }
 
+const recordAtomLLMCall = `-- name: RecordAtomLLMCall :one
+INSERT INTO llm_call (user_id, atom_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, atom_id
+`
+
+type RecordAtomLLMCallParams struct {
+	UserID           uuid.UUID      `json:"user_id"`
+	AtomID           pgtype.UUID    `json:"atom_id"`
+	Surface          string         `json:"surface"`
+	Purpose          string         `json:"purpose"`
+	Provider         string         `json:"provider"`
+	Model            string         `json:"model"`
+	Tier             string         `json:"tier"`
+	PromptTokens     int32          `json:"prompt_tokens"`
+	CompletionTokens int32          `json:"completion_tokens"`
+	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
+}
+
+// The lite edition's metering row (migration 0094). project_id stays NULL —
+// a lite atom has no owning project, exactly as course/chat calls have none —
+// and atom_id points back at the reading/writing the call belongs to. Kept as
+// a SEPARATE statement rather than widening RecordLLMCall so the pro side's
+// ~20 call sites keep their existing params struct untouched.
+func (q *Queries) RecordAtomLLMCall(ctx context.Context, arg RecordAtomLLMCallParams) (LlmCall, error) {
+	row := q.db.QueryRow(ctx, recordAtomLLMCall,
+		arg.UserID,
+		arg.AtomID,
+		arg.Surface,
+		arg.Purpose,
+		arg.Provider,
+		arg.Model,
+		arg.Tier,
+		arg.PromptTokens,
+		arg.CompletionTokens,
+		arg.CostEstimate,
+	)
+	var i LlmCall
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.ProjectID,
+		&i.Surface,
+		&i.Purpose,
+		&i.Provider,
+		&i.Model,
+		&i.Tier,
+		&i.PromptTokens,
+		&i.CompletionTokens,
+		&i.CostEstimate,
+		&i.CreatedAt,
+		&i.AtomID,
+	)
+	return i, err
+}
+
 const recordLLMCall = `-- name: RecordLLMCall :one
 
 INSERT INTO llm_call (user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at
+RETURNING id, user_id, project_id, surface, purpose, provider, model, tier, prompt_tokens, completion_tokens, cost_estimate, created_at, atom_id
 `
 
 type RecordLLMCallParams struct {
@@ -119,6 +216,7 @@ func (q *Queries) RecordLLMCall(ctx context.Context, arg RecordLLMCallParams) (L
 		&i.CompletionTokens,
 		&i.CostEstimate,
 		&i.CreatedAt,
+		&i.AtomID,
 	)
 	return i, err
 }

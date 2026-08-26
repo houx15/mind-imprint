@@ -359,6 +359,7 @@ type LlmCall struct {
 	CompletionTokens int32          `json:"completion_tokens"`
 	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
 	CreatedAt        time.Time      `json:"created_at"`
+	AtomID           pgtype.UUID    `json:"atom_id"`
 }
 
 type LlmUsage struct {

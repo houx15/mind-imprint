@@ -227,6 +227,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/readings/{id}/takeaway", liteOnly(a.litePutTakeaway))
 	mux.Handle("GET /api/v1/readings/{id}/annotations", liteOnly(a.liteListAnnotations))
 	mux.Handle("POST /api/v1/readings/{id}/annotations", liteOnly(a.liteCreateAnnotation))
+	mux.Handle("POST /api/v1/readings/{id}/turn", liteOnly(a.postLiteReadingTurn))
+	mux.Handle("GET /api/v1/readings/{id}/messages", liteOnly(a.liteListMessages))
 	mux.Handle("GET /api/v1/readings/{id}/cards", liteOnly(a.liteListCards))
 	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/activate", liteOnly(a.liteActivateCard))
 	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/skip", liteOnly(a.liteSkipCard))

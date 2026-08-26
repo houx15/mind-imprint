@@ -10,6 +10,7 @@ import (
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -17,10 +18,18 @@ import (
 // signed-in cookie. Shared by every lite test in this package.
 func liteHandler(t *testing.T) (http.Handler, *http.Cookie, *sqlc.Queries, *pgxpool.Pool) {
 	t.Helper()
+	return liteHandlerWithProvider(t, nil)
+}
+
+// liteHandlerWithProvider is liteHandler with a scripted model behind it —
+// the coach-turn tests (Task 7) need one; every other lite test passes nil
+// because no lite endpoint but the turn calls a model.
+func liteHandlerWithProvider(t *testing.T, prov gateway.Provider) (http.Handler, *http.Cookie, *sqlc.Queries, *pgxpool.Pool) {
+	t.Helper()
 	pool := newAPITestPool(t)
 	q := sqlc.New(pool)
 	h := New(Deps{
-		Queries: q, Pool: pool,
+		Queries: q, Pool: pool, Provider: prov,
 		ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
 	}).Handler()
 	if _, err := pool.Exec(context.Background(), `UPDATE schools SET edition = 'lite'`); err != nil {
