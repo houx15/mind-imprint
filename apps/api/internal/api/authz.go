@@ -74,3 +74,27 @@ func (a *API) assertTeacherOwnsClass(ctx context.Context, classID uuid.UUID) (sq
 	}
 	return cls, nil
 }
+
+// requireEdition gates a route group on the edition of the caller's SCHOOL.
+// edition is an organisation fact, not an account one: a school buys the lite
+// edition or the pro one and every account under it follows — so this reads
+// schools.edition rather than any per-user field.
+//
+// A mismatch is 404, not 403: from a lite student's point of view the pro
+// surface does not exist, and vice versa. Same non-leaking convention as
+// ownership failures.
+func (a *API) requireEdition(want string, h http.Handler) http.Handler {
+	return RequireUser(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		u, _ := UserFromContext(r.Context())
+		school, err := a.d.Queries.GetSchool(r.Context(), u.SchoolID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if school.Edition != want {
+			httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
+			return
+		}
+		h.ServeHTTP(w, r)
+	}))
+}

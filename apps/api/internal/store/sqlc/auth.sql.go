@@ -199,13 +199,18 @@ func (q *Queries) GetClassByJoinCode(ctx context.Context, joinCode string) (Clas
 }
 
 const getSchool = `-- name: GetSchool :one
-SELECT id, name, created_at FROM schools WHERE id = $1
+SELECT id, name, created_at, edition FROM schools WHERE id = $1
 `
 
 func (q *Queries) GetSchool(ctx context.Context, id uuid.UUID) (School, error) {
 	row := q.db.QueryRow(ctx, getSchool, id)
 	var i School
-	err := row.Scan(&i.ID, &i.Name, &i.CreatedAt)
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.Edition,
+	)
 	return i, err
 }
 

@@ -572,6 +572,7 @@ type School struct {
 	ID        uuid.UUID `json:"id"`
 	Name      string    `json:"name"`
 	CreatedAt time.Time `json:"created_at"`
+	Edition   string    `json:"edition"`
 }
 
 type Session struct {
