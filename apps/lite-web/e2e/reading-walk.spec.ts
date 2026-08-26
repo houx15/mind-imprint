@@ -225,7 +225,13 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // 工作区, only 我的阅读). ReadingRoom now varies the label by
   // `capabilities.mode`; asserted verbatim here so a regression back to the
   // pro string is caught by this walk.
-  await page.getByRole("button", { name: "返回" }).click();
+  //
+  // `exact: true` IS THE ASSERTION. Playwright matches accessible names by
+  // SUBSTRING by default, so a bare { name: "返回" } also matches
+  // 「返回工作区」 — it would pass on exactly the regression it exists to
+  // catch. Same trap apps/web/e2e/helpers.ts already documents for 登录 vs
+  // 退出登录. Do not drop the flag.
+  await page.getByRole("button", { name: "返回", exact: true }).click();
   await expect(page).toHaveURL(/\/readings$/);
   await expectGreeting(page);
 
@@ -351,8 +357,42 @@ test("the room's AI is live: a summoned lens hangs under a paragraph and becomes
   await expect(page.getByRole("button", { name: "跳过这副透镜" })).toBeVisible();
 
   // ── the rest of the card's own loop: pick a sentence, get reviewed, keep it
+  //
+  // Whether the summon grounded an example decides two things: the proposed
+  // button's wording, and whether the D1 probe below is applicable at all. A
+  // graceful-degrade summon (the AI could not ground a sentence) renders
+  // 「开始选句」 with no example mark in the article, so there is nothing to
+  // click to trigger the rejection. Captured here rather than inferred later.
+  const hadExample = (await card.getByRole("button", { name: "看懂示范，开始选句" }).count()) > 0;
   await card.getByRole("button", { name: /开始选句$/ }).click();
   await expect(card.getByText("在文章里点出你自己的证据句")).toBeVisible();
+
+  // ── D1 (fixed in Task 18): clicking the AI's OWN underlined example is
+  // still refused — she must find her own sentence — but it is no longer
+  // refused in silence. This is the one path a student hits first, and until
+  // Task 18 it was a dead click with no feedback whatsoever.
+  //
+  // Stable because: the example is the ONLY <mark> in this reading's article
+  // (this test creates no annotations and has confirmed no outcomes yet), the
+  // hint's 2.6s auto-clear is far longer than Playwright's polling interval,
+  // and the whole probe is skipped — loudly — when the summon returned no
+  // example to click.
+  if (hadExample) {
+    const exampleMark = page.locator(`p[data-block-id="${anchorBlock}"] mark`).first();
+    await expect(exampleMark).toBeVisible();
+    await exampleMark.click();
+    await expect(card.getByText("这句是示范句——换一句你自己的证据句。")).toBeVisible();
+    // Refused, not evaluated: the card stays 'active' and never spends a
+    // model call on the example. And the hint is transient — it reverts to
+    // the ordinary instruction instead of lingering as a stale error.
+    await expect(card.getByRole("button", { name: "记下这条发现" })).toHaveCount(0);
+    await expect(card.getByText("在文章里点出你自己的证据句")).toBeVisible({ timeout: 10_000 });
+  } else {
+    test.info().annotations.push({
+      type: "skipped",
+      description: "D1 probe not applicable: this summon grounded no example sentence to click.",
+    });
+  }
   // Her pick has to be a paragraph OTHER than the one carrying the AI's
   // example: `useReadingLoop.pickSentence` rejects a span overlapping the
   // example outright (she must choose for herself), and it rejects it
