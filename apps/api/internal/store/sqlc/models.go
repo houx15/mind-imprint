@@ -406,7 +406,6 @@ type Project struct {
 	StudioState   []byte             `json:"studio_state"`
 	Cover         *string            `json:"cover"`
 	IsDemo        bool               `json:"is_demo"`
-	Kind          string             `json:"kind"`
 }
 
 type ProjectAiUse struct {

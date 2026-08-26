@@ -16,7 +16,7 @@ const countActivityLogByUserProject = `-- name: CountActivityLogByUserProject :m
 SELECT a.project_id, COUNT(*)::int AS n
 FROM activity_log_entry a
 JOIN project p ON p.id = a.project_id
-WHERE p.user_id = $1 AND p.kind = 'project'
+WHERE p.user_id = $1
 GROUP BY a.project_id
 `
 
@@ -27,8 +27,7 @@ type CountActivityLogByUserProjectRow struct {
 
 // Per-project activity-log totals for the caller's whole project list, in ONE
 // grouped pass. activity_log_entry has no user_id, so join project to scope to
-// the caller; activity_log_entry is indexed on project_id. Containers (lite
-// atoms' storage rows) are excluded — they are not projects.
+// the caller; activity_log_entry is indexed on project_id.
 func (q *Queries) CountActivityLogByUserProject(ctx context.Context, userID uuid.UUID) ([]CountActivityLogByUserProjectRow, error) {
 	rows, err := q.db.Query(ctx, countActivityLogByUserProject, userID)
 	if err != nil {
@@ -87,7 +86,7 @@ func (q *Queries) CountLLMCallsByUserProject(ctx context.Context, userID uuid.UU
 const createProject = `-- name: CreateProject :one
 INSERT INTO project (user_id, qualification, title, deadline, board_cfg_ver, cover)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo, kind
+RETURNING id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo
 `
 
 type CreateProjectParams struct {
@@ -122,13 +121,12 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (P
 		&i.StudioState,
 		&i.Cover,
 		&i.IsDemo,
-		&i.Kind,
 	)
 	return i, err
 }
 
 const getProject = `-- name: GetProject :one
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo, kind FROM project WHERE id = $1
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project WHERE id = $1
 `
 
 func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error) {
@@ -147,7 +145,6 @@ func (q *Queries) GetProject(ctx context.Context, id uuid.UUID) (Project, error)
 		&i.StudioState,
 		&i.Cover,
 		&i.IsDemo,
-		&i.Kind,
 	)
 	return i, err
 }
@@ -164,8 +161,8 @@ func (q *Queries) GetStudioState(ctx context.Context, id uuid.UUID) ([]byte, err
 }
 
 const listDemoProjects = `-- name: ListDemoProjects :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo, kind FROM project
-WHERE is_demo = true AND kind = 'project'
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
+WHERE is_demo = true
 ORDER BY last_active_at DESC
 `
 
@@ -194,7 +191,6 @@ func (q *Queries) ListDemoProjects(ctx context.Context) ([]Project, error) {
 			&i.StudioState,
 			&i.Cover,
 			&i.IsDemo,
-			&i.Kind,
 		); err != nil {
 			return nil, err
 		}
@@ -207,8 +203,8 @@ func (q *Queries) ListDemoProjects(ctx context.Context) ([]Project, error) {
 }
 
 const listProjectsByUser = `-- name: ListProjectsByUser :many
-SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo, kind FROM project
-WHERE user_id = $1 AND kind = 'project'
+SELECT id, user_id, qualification, title, deadline, board_cfg_ver, status, created_at, last_active_at, studio_state, cover, is_demo FROM project
+WHERE user_id = $1
 ORDER BY last_active_at DESC
 `
 
@@ -234,7 +230,6 @@ func (q *Queries) ListProjectsByUser(ctx context.Context, userID uuid.UUID) ([]P
 			&i.StudioState,
 			&i.Cover,
 			&i.IsDemo,
-			&i.Kind,
 		); err != nil {
 			return nil, err
 		}

@@ -75,7 +75,7 @@ const listDemoEvaluationReports = `-- name: ListDemoEvaluationReports :many
 SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
-WHERE p.is_demo = true AND er.status = 'ready' AND p.kind = 'project'
+WHERE p.is_demo = true AND er.status = 'ready'
 ORDER BY er.created_at DESC
 `
 
@@ -118,7 +118,7 @@ const listEvaluationReports = `-- name: ListEvaluationReports :many
 SELECT er.project_id, er.created_at, p.title, p.qualification
 FROM evaluation_report er
 JOIN project p ON p.id = er.project_id
-WHERE p.user_id = $1 AND er.status = 'ready' AND p.kind = 'project'
+WHERE p.user_id = $1 AND er.status = 'ready'
 ORDER BY er.created_at DESC
 `
 

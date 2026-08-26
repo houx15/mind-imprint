@@ -52,7 +52,7 @@ SELECT
        AND ev.type = 'step_viewed')::int AS course_steps,
   (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
      JOIN members m ON m.id = p.user_id
-     WHERE er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2 AND p.kind = 'project')::int AS reports
+     WHERE er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2)::int AS reports
 `
 
 type GetClassWeekStatsParams struct {
@@ -156,7 +156,7 @@ WITH latest_reports AS (
   SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id,
          er.report->'abstract'->>'overview' AS overview
   FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE er.status = 'ready' AND p.kind = 'project'
+  WHERE er.status = 'ready'
   ORDER BY p.user_id, er.created_at DESC
 )
 SELECT
@@ -183,11 +183,11 @@ LEFT JOIN LATERAL (
 ) prv ON true
 LEFT JOIN LATERAL (
   SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE p.user_id = u.id AND er.status = 'ready' AND p.kind = 'project' AND er.created_at >= $1 AND er.created_at < $2
+  WHERE p.user_id = u.id AND er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2
 ) rep ON true
 LEFT JOIN LATERAL (
   SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE p.user_id = u.id AND er.status = 'ready' AND p.kind = 'project' AND er.created_at < $1
+  WHERE p.user_id = u.id AND er.status = 'ready' AND er.created_at < $1
 ) prior ON true
 LEFT JOIN latest_reports lr ON lr.user_id = u.id
 WHERE e.class_id = $5 AND e.role_in_class = 'student'

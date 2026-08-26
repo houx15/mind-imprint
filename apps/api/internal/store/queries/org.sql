@@ -46,7 +46,7 @@ SELECT u.id, u.display_name, u.email,
        COUNT(DISTINCT ci.id) AS card_count
 FROM enrollments e
 JOIN users u                ON u.id = e.user_id
-LEFT JOIN project p         ON p.user_id = u.id AND p.kind = 'project'
+LEFT JOIN project p         ON p.user_id = u.id
 LEFT JOIN evaluations ev    ON ev.project_id = p.id
 LEFT JOIN card_instances ci ON ci.project_id = p.id
 WHERE e.class_id = $1 AND e.role_in_class = 'student'
@@ -70,9 +70,9 @@ SELECT
   (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'student')   AS student_count,
   (SELECT count(*) FROM users         WHERE users.school_id = $1 AND users.role = 'teacher')   AS teacher_count,
   (SELECT count(*) FROM classes       WHERE classes.school_id = $1)                            AS class_count,
-  (SELECT count(*) FROM project p JOIN users u ON u.id = p.user_id WHERE u.school_id = $1 AND p.kind = 'project')  AS project_count,
-  (SELECT count(*) FROM evaluations e JOIN project p ON p.id = e.project_id JOIN users u ON u.id = p.user_id WHERE u.school_id = $1 AND p.kind = 'project') AS evaluation_count,
-  (SELECT count(DISTINCT p.user_id) FROM project p JOIN users u ON u.id = p.user_id WHERE u.school_id = $1 AND p.kind = 'project') AS active_student_count;
+  (SELECT count(*) FROM project p JOIN users u ON u.id = p.user_id WHERE u.school_id = $1)  AS project_count,
+  (SELECT count(*) FROM evaluations e JOIN project p ON p.id = e.project_id JOIN users u ON u.id = p.user_id WHERE u.school_id = $1) AS evaluation_count,
+  (SELECT count(DISTINCT p.user_id) FROM project p JOIN users u ON u.id = p.user_id WHERE u.school_id = $1) AS active_student_count;
 
 -- name: GetSchoolUsageByTier :many
 SELECT COALESCE(tier, 'unknown') AS tier,

@@ -45,7 +45,7 @@ SELECT
        AND ev.type = 'step_viewed')::int AS course_steps,
   (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
      JOIN members m ON m.id = p.user_id
-     WHERE er.status = 'ready' AND er.created_at >= @week_start AND er.created_at < @week_end AND p.kind = 'project')::int AS reports;
+     WHERE er.status = 'ready' AND er.created_at >= @week_start AND er.created_at < @week_end)::int AS reports;
 
 -- name: ListClassStudentWeekActivity :many
 -- Per-student activity for a COMPLETED week + the full prior week, plus report
@@ -64,7 +64,7 @@ WITH latest_reports AS (
   SELECT DISTINCT ON (p.user_id) p.user_id, er.project_id,
          er.report->'abstract'->>'overview' AS overview
   FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE er.status = 'ready' AND p.kind = 'project'
+  WHERE er.status = 'ready'
   ORDER BY p.user_id, er.created_at DESC
 )
 SELECT
@@ -91,11 +91,11 @@ LEFT JOIN LATERAL (
 ) prv ON true
 LEFT JOIN LATERAL (
   SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE p.user_id = u.id AND er.status = 'ready' AND p.kind = 'project' AND er.created_at >= @week_start AND er.created_at < @week_end
+  WHERE p.user_id = u.id AND er.status = 'ready' AND er.created_at >= @week_start AND er.created_at < @week_end
 ) rep ON true
 LEFT JOIN LATERAL (
   SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE p.user_id = u.id AND er.status = 'ready' AND p.kind = 'project' AND er.created_at < @week_start
+  WHERE p.user_id = u.id AND er.status = 'ready' AND er.created_at < @week_start
 ) prior ON true
 LEFT JOIN latest_reports lr ON lr.user_id = u.id
 WHERE e.class_id = @class_id AND e.role_in_class = 'student'

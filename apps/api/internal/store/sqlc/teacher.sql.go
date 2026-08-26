@@ -36,10 +36,10 @@ SELECT
      WHERE ev.created_at >= $1 AND ev.created_at < $2
        AND ev.type IN ('prompt_sent','course_message'))::int AS turns,
   (SELECT count(*) FROM project p JOIN members m ON m.id = p.user_id
-     WHERE p.status = 'active' AND p.kind = 'project')::int AS active_projects,
+     WHERE p.status = 'active')::int AS active_projects,
   (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
      JOIN members m ON m.id = p.user_id
-     WHERE er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2 AND p.kind = 'project')::int AS reports
+     WHERE er.status = 'ready' AND er.created_at >= $1 AND er.created_at < $2)::int AS reports
 `
 
 type GetClassLiveHeaderParams struct {
@@ -107,7 +107,7 @@ SELECT
   COUNT(DISTINCT (ev.created_at AT TIME ZONE 'UTC')::date)::int AS active_days,
   COUNT(*) FILTER (WHERE ev.type IN ('prompt_sent','course_message'))::int AS turns,
   (SELECT count(*) FROM evaluation_report er JOIN project p ON p.id = er.project_id
-     WHERE p.user_id = $1 AND er.status = 'ready' AND p.kind = 'project'
+     WHERE p.user_id = $1 AND er.status = 'ready'
        AND er.created_at >= $2 AND er.created_at < $3)::int AS reports,
   COUNT(DISTINCT (ev.course_id, ev.payload->>'ordinal'))
     FILTER (WHERE ev.type = 'step_viewed')::int AS course_steps
@@ -157,11 +157,11 @@ SELECT
 FROM enrollments e
 JOIN users u ON u.id = e.user_id
 LEFT JOIN LATERAL (
-  SELECT count(*) AS n FROM project p WHERE p.user_id = u.id AND p.status = 'active' AND p.kind = 'project'
+  SELECT count(*) AS n FROM project p WHERE p.user_id = u.id AND p.status = 'active'
 ) ap ON true
 LEFT JOIN LATERAL (
   SELECT count(*) AS n FROM evaluation_report er JOIN project p ON p.id = er.project_id
-  WHERE p.user_id = u.id AND er.status = 'ready' AND p.kind = 'project'
+  WHERE p.user_id = u.id AND er.status = 'ready'
 ) rc ON true
 LEFT JOIN LATERAL (
   SELECT count(*) AS n FROM course_progress cp WHERE cp.user_id = u.id AND cp.completed_at IS NOT NULL
@@ -217,7 +217,7 @@ const listStudentProjectsForTeacher = `-- name: ListStudentProjectsForTeacher :m
 SELECT p.id, p.title, p.last_active_at,
        EXISTS (SELECT 1 FROM evaluation_report er WHERE er.project_id = p.id AND er.status = 'ready') AS has_report
 FROM project p
-WHERE p.user_id = $1 AND p.kind = 'project'
+WHERE p.user_id = $1
 ORDER BY p.last_active_at DESC NULLS LAST
 `
 
