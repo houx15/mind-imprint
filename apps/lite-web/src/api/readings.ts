@@ -13,7 +13,15 @@ export interface Reading {
   status: string;
   hasSource: boolean;
   createdAt: string;
+  /** `reading.updated_at` — TITLE/status metadata only: rename and finish are
+   *  the only two things that write it. NOT "when she last read this". */
   updatedAt: string;
+  /** `atom.last_activity_at` — the last time she wrote anything into this
+   *  reading (a turn, a card, the article, a margin note). This is what
+   *  上次读到 means and what 「你有 N 篇还没读完」 orders by. Before the
+   *  server grew this field both were answered by `updatedAt`, so reading an
+   *  article for an hour moved neither. */
+  lastActivityAt: string;
   finishedAt: string | null;
 }
 

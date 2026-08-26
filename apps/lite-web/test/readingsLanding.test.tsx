@@ -41,7 +41,7 @@ function stubFetch() {
 }
 
 function reading(over: Partial<Record<string, unknown>> = {}) {
-  return {
+  const row = {
     id: "r1",
     title: "城市为什么比郊区热？",
     lang: "zh",
@@ -51,7 +51,12 @@ function reading(over: Partial<Record<string, unknown>> = {}) {
     updatedAt: "2026-08-20T00:00:00Z",
     finishedAt: null,
     ...over,
-  };
+  } as Record<string, unknown>;
+  // lastActivityAt is what "last touched" actually means now (atom.
+  // last_activity_at); updatedAt only moves on rename/finish. A fixture that
+  // doesn't care about the distinction gets them equal.
+  if (row.lastActivityAt === undefined) row.lastActivityAt = row.updatedAt;
+  return row;
 }
 
 beforeEach(() => {
@@ -240,12 +245,16 @@ describe("the unfinished notice and 我的阅读", () => {
     expect(screen.queryByText(/还没读完/)).toBeNull();
   });
 
+  // "Most recently touched" means lastActivityAt (atom.last_activity_at), NOT
+  // updatedAt — which only rename and finish ever write. The fixture here is
+  // deliberately adversarial: `newer` was created first and has the OLDER
+  // updatedAt, and is still the one she was last reading.
   it("jumps the notice straight into the most recently touched unfinished reading", async () => {
     routes[key("GET", "/api/v1/readings")] = {
       body: {
         readings: [
-          reading({ id: "older", updatedAt: "2026-08-24T00:00:00Z" }),
-          reading({ id: "newer", updatedAt: "2026-08-25T00:00:00Z" }),
+          reading({ id: "older", updatedAt: "2026-08-25T00:00:00Z", lastActivityAt: "2026-08-24T00:00:00Z" }),
+          reading({ id: "newer", updatedAt: "2026-08-20T00:00:00Z", lastActivityAt: "2026-08-25T00:00:00Z" }),
         ],
       },
     };
@@ -304,11 +313,13 @@ describe("pure helpers", () => {
     expect(isFinished(reading({ finishedAt: "2026-08-01T00:00:00Z" }) as never)).toBe(true);
   });
 
+  // Unfinished are ordered by lastActivityAt — where she left off — so the
+  // updatedAt values here are deliberately in the OPPOSITE order.
   it("splitReadings puts unfinished first, each newest-first", () => {
     const rows = [
-      reading({ id: "u-old", updatedAt: "2026-08-20T00:00:00Z" }),
+      reading({ id: "u-old", updatedAt: "2026-08-24T00:00:00Z", lastActivityAt: "2026-08-20T00:00:00Z" }),
       reading({ id: "f-new", status: "finished", finishedAt: "2026-08-25T00:00:00Z" }),
-      reading({ id: "u-new", updatedAt: "2026-08-24T00:00:00Z" }),
+      reading({ id: "u-new", updatedAt: "2026-08-20T00:00:00Z", lastActivityAt: "2026-08-24T00:00:00Z" }),
       reading({ id: "f-old", status: "finished", finishedAt: "2026-08-10T00:00:00Z" }),
     ];
     const { unfinished, finished } = splitReadings(rows as never);

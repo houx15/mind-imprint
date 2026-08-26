@@ -20,7 +20,8 @@
 #     ├── mind-api.uni-robot.cn   → 127.0.0.1:8090  → api container       (existing, shared)
 #     ├── mind-web.uni-robot.cn   → 127.0.0.1:8091  → web container       (existing, pro SPA)
 #     ├── mind.uni-robot.cn       → 127.0.0.1:8092  → site container      (existing, marketing)
-#     └── <lite domain, TBD>      → 127.0.0.1:8093  → lite-web container  (THIS FILE)
+#     └── <lite domain, TBD —     → 127.0.0.1:8093  → lite-web container  (THIS FILE)
+#          MUST be *.uni-robot.cn, see OPERATOR PREREQUISITE (2)>
 #
 # There are no secrets in this stack: VITE_API_BASE_URL is a public origin,
 # baked into the bundle at build time, not a credential. So, like the site
@@ -39,6 +40,31 @@
 # container — otherwise the browser blocks every credentialed request from
 # lite (sign-in and everything session-dependent) with no server-side error to
 # point at it.
+#
+# OPERATOR PREREQUISITE (2) — THE LITE DOMAIN MUST BE A SUBDOMAIN OF
+# uni-robot.cn. This one constrains which domain may be chosen at all, so it
+# has to be settled before the vhost above, not after.
+#
+# The session cookie the API sets is SameSite=Lax (apps/api/internal/api/cookie.go,
+# same cookie the pro SPA uses). Lax means the browser withholds it from
+# cross-SITE requests — and "site" is the registrable domain, NOT the origin.
+# So:
+#
+#   lite.uni-robot.cn      → same site as mind-api.uni-robot.cn → cookie sent ✅
+#   mind-lite.example.com  → a different site entirely          → cookie NEVER sent ❌
+#
+# On its own registrable domain, NO amount of CORS configuration can make
+# sign-in work: CORS_ORIGINS governs whether the browser lets the RESPONSE
+# through, while SameSite governs whether the cookie is attached to the
+# REQUEST in the first place. Adding the origin to CORS_ORIGINS makes the
+# preflight pass and the request still arrives unauthenticated.
+#
+# That is exactly what makes this worth writing down: the failure looks
+# IDENTICAL to the CORS failure from the console — requests that fail only
+# when credentialed — so an operator will reasonably spend the afternoon
+# re-checking CORS_ORIGINS, which is already correct. If lite ever genuinely
+# needs its own registrable domain, that is a backend change (SameSite=None;
+# Secure, plus the CSRF posture that implies), not a deploy-time knob.
 name: mindimprint-lite
 
 services:

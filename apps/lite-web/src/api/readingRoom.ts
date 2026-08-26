@@ -38,6 +38,9 @@ export type LiteCard = {
   cardId: string;
   blockId: string | null;
   status: "proposed" | "active" | "submitted" | "skipped";
+  /** Who put this lens on the article: `"router"` (the AI proposed it in a
+   *  coach turn) or `"student"` (she picked it out of the 透镜库). */
+  origin: "router" | "student";
   anchors: Anchor[];
   fieldValues: Record<string, unknown>;
   eventTrace: unknown[];
@@ -222,8 +225,12 @@ export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOpti
       ]);
       const submitted = cards.filter((c) => c.status === "submitted");
       const findings = submitted.map((c) => c.framework?.finding ?? "").filter(Boolean);
+      // HER sentence only — never anchors[0], which on a card missing the
+      // student anchor is the AI's example. See studentAnchorOf: quoting the
+      // AI's sentence back to her as a key quote of her own is the same
+      // 铁律① leak toReadingOutcomes had.
       const keyQuotes = submitted
-        .map((c) => ({ quote: c.anchors?.[0]?.quote ?? "", why: c.framework?.finding ?? "" }))
+        .map((c) => ({ quote: studentAnchorOf(c)?.quote ?? "", why: c.framework?.finding ?? "" }))
         .filter((q) => q.quote);
       return {
         record: {
@@ -284,11 +291,31 @@ export async function listReadingCards(id: string): Promise<LiteCard[]> {
  * that produced the finding lives in `framework_fill`. A card with either
  * missing is skipped rather than shown as a half-outcome.
  */
+/**
+ * The sentence SHE picked, or nothing.
+ *
+ * A card carries up to two anchors: the AI's example (author `"ai"`, written
+ * at summon time to show her what the lens is for) and her own pick (author
+ * `"student"`, written at submit). There used to be a `?? anchors[0]` fallback
+ * here, which on a card missing the student anchor quietly promoted the AI's
+ * example sentence into her finding — rendered as 阅读成果 and carried into
+ * the takeaway draft's key quotes.
+ *
+ * That is a 铁律① leak: the AI never writes her prose, and being QUOTED BACK
+ * to her as her own work is the same violation wearing a different hat.
+ * Mis-attribution is worse than omission, so a card with no student anchor is
+ * simply skipped. (The pro side's Go assembly, readingOutcomesFromCards, has
+ * always filtered on `Author == "student"` for the same reason.)
+ */
+function studentAnchorOf(c: LiteCard): Anchor | undefined {
+  return c.anchors?.find((a) => a.author === "student");
+}
+
 export function toReadingOutcomes(cards: LiteCard[]): ReadingOutcome[] {
   const out: ReadingOutcome[] = [];
   for (const c of cards) {
     if (c.status !== "submitted") continue;
-    const anchor = c.anchors?.find((a) => a.author === "student") ?? c.anchors?.[0];
+    const anchor = studentAnchorOf(c);
     if (!anchor || anchor.end <= anchor.start) continue;
     const parsed = SelectionEvalSchema.safeParse(c.framework);
     if (!parsed.success) continue;

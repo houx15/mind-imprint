@@ -181,9 +181,12 @@ export function ReadingsLanding() {
   }
 
   function openMostRecentUnfinished() {
+    // lastActivityAt, not updatedAt: "most recently touched" has to mean the
+    // one she was actually last reading. updatedAt moves only on rename and
+    // finish, so this used to open an essentially arbitrary reading.
     const next = (history ?? [])
       .filter((r) => !isFinished(r))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
+      .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))[0];
     if (next) navigate(readingPath(next.id));
   }
 

@@ -53,6 +53,7 @@ const READING = {
   hasSource: true,
   createdAt: "2026-08-26T00:00:00Z",
   updatedAt: "2026-08-26T00:00:00Z",
+  lastActivityAt: "2026-08-26T00:00:00Z",
   finishedAt: null,
 };
 
@@ -365,8 +366,22 @@ describe("createReadingRoomApi", () => {
             id: "c1",
             cardId: "craap",
             status: "submitted",
-            anchors: [{ quote: "碳排放总量仍居全球第一" }],
+            anchors: [
+              // The AI's example is stored FIRST; hers is the one that counts.
+              { quote: "中国的太阳能装机量在过去十年增长了十倍。", author: "ai" },
+              { quote: "碳排放总量仍居全球第一", author: "student" },
+            ],
             framework: { finding: "这句给出了与全文乐观基调相反的事实。" },
+          },
+          // 铁律①: a submitted card carrying ONLY the AI's example contributes
+          // no key quote — quoting the AI's sentence back to her as her own
+          // evidence is worse than leaving it out.
+          {
+            id: "c3",
+            cardId: "corroborate",
+            status: "submitted",
+            anchors: [{ quote: "中国的太阳能装机量在过去十年增长了十倍。", author: "ai" }],
+            framework: { finding: "AI 的示范句。" },
           },
           { id: "c2", cardId: "sift", status: "skipped", anchors: [], framework: {} },
         ],
@@ -375,7 +390,10 @@ describe("createReadingRoomApi", () => {
     routes[key("GET", `/api/v1/readings/${READING_ID}/takeaway`)] = { body: { text: "先记到这里。" } };
     const api = createReadingRoomApi(READING_ID);
     const draft = await api.getTakeawayDraft("p", "r");
-    expect(draft.record.findings).toEqual(["这句给出了与全文乐观基调相反的事实。"]);
+    expect(draft.record.findings).toEqual([
+      "这句给出了与全文乐观基调相反的事实。",
+      "AI 的示范句。",
+    ]);
     expect(draft.record.keyQuotes).toEqual([
       { quote: "碳排放总量仍居全球第一", why: "这句给出了与全文乐观基调相反的事实。" },
     ]);

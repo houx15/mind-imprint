@@ -41,11 +41,15 @@ export function isFinished(r: Reading): boolean {
 }
 
 /** Unfinished first, each section newest-first: unfinished by last touch
- *  (that is where she left off), finished by when she finished. */
+ *  (that is where she left off), finished by when she finished.
+ *
+ *  "Last touch" is `lastActivityAt`, not `updatedAt`: the latter moves only on
+ *  rename and finish, so ordering by it put the reading she spent the last
+ *  hour in wherever it happened to have been created. */
 export function splitReadings(readings: Reading[]): { unfinished: Reading[]; finished: Reading[] } {
   const unfinished = readings
     .filter((r) => !isFinished(r))
-    .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+    .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
   const finished = readings
     .filter(isFinished)
     .sort((a, b) => (b.finishedAt ?? b.updatedAt).localeCompare(a.finishedAt ?? a.updatedAt));
@@ -155,7 +159,7 @@ export function ReadingHistoryPanel({
                   key={r.id}
                   reading={r}
                   tone="open"
-                  meta={r.hasSource ? `上次读到 ${shortDay(r.updatedAt)}` : "还没放正文进来"}
+                  meta={r.hasSource ? `上次读到 ${shortDay(r.lastActivityAt)}` : "还没放正文进来"}
                   action="继续"
                   onSelect={onSelect}
                 />
