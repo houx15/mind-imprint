@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"time"
@@ -51,16 +52,39 @@ func cardDTOOf(row sqlc.AtomCard) cardDTO {
 // a JSON array — and stores the inner structure verbatim. The deep truth
 // lives in packages/contracts' Zod schemas; duplicating it here would
 // guarantee the two drift apart.
+//
+// The literal `null` must be rejected explicitly: unmarshaling JSON `null`
+// into a map or slice pointer succeeds with no error and simply leaves the
+// target nil, so a bare type-switch on unmarshal error alone would let
+// `null` slip past this check and get stored verbatim by SubmitAtomCard —
+// exactly the class of bug that blanked the teacher report elsewhere in this
+// codebase (a stored `null` surviving a Go boundary check and later hitting
+// a strict Zod `.array()` parse). A genuinely missing field (absent JSON
+// key, so the json.RawMessage arg is nil/empty) still fails the unmarshal
+// itself with "unexpected end of JSON input" and needs no separate case.
 func validateEnvelope(fieldValues, eventTrace json.RawMessage) error {
 	var obj map[string]any
+	if isJSONNull(fieldValues) {
+		return httpx.ErrBadRequest("bad_field_values", "字段值格式不对", nil)
+	}
 	if err := json.Unmarshal(fieldValues, &obj); err != nil {
 		return httpx.ErrBadRequest("bad_field_values", "字段值格式不对", nil)
 	}
 	var arr []any
+	if isJSONNull(eventTrace) {
+		return httpx.ErrBadRequest("bad_event_trace", "事件轨迹格式不对", nil)
+	}
 	if err := json.Unmarshal(eventTrace, &arr); err != nil {
 		return httpx.ErrBadRequest("bad_event_trace", "事件轨迹格式不对", nil)
 	}
 	return nil
+}
+
+// isJSONNull reports whether raw is exactly the JSON literal `null` (modulo
+// surrounding whitespace) — the one input json.Unmarshal accepts into a
+// map/slice pointer without error while leaving it nil.
+func isJSONNull(raw json.RawMessage) bool {
+	return string(bytes.TrimSpace(raw)) == "null"
 }
 
 // loadOwnedAtomCard parses {cid} and verifies it belongs to atomID. Every

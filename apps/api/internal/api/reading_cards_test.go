@@ -49,13 +49,21 @@ func TestCardSubmit_StoresEnvelopeAndStamps(t *testing.T) {
 func TestCardSubmit_RejectsMalformedEnvelope(t *testing.T) {
 	h, cookie, _, pool := liteHandler(t)
 	atomID := createReadingAtom(t, h, cookie)
-	cardID := seedCard(t, pool, atomID, "b1")
 
 	for _, tc := range []struct{ name, body string }{
 		{"fieldValues is an array", `{"fieldValues":[],"eventTrace":[]}`},
 		{"eventTrace is an object", `{"fieldValues":{},"eventTrace":{}}`},
+		{"fieldValues is null", `{"fieldValues":null,"eventTrace":[]}`},
+		{"eventTrace is null", `{"fieldValues":{},"eventTrace":null}`},
+		{"fieldValues is missing", `{"eventTrace":[]}`},
+		{"eventTrace is missing", `{"fieldValues":{}}`},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
+			// A fresh card per subtest: if a rejection ever regressed into a
+			// successful submit, reusing one card across subtests would make
+			// every later subtest fail on the 409 terminal guard instead of
+			// exercising validation — the wrong reason entirely.
+			cardID := seedCard(t, pool, atomID, "b1")
 			rec := httptest.NewRecorder()
 			h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
 				"/api/v1/readings/"+atomID+"/cards/"+cardID+"/submit", strings.NewReader(tc.body)), cookie))
@@ -120,5 +128,71 @@ func TestCard_CrossAtomIs404(t *testing.T) {
 		"/api/v1/readings/"+atomA+"/cards/"+cardOfB+"/activate", strings.NewReader("{}")), cookie))
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("cross-atom card = %d, want 404", rec.Code)
+	}
+}
+
+// Terminal states ('submitted', 'skipped') accept no further transition —
+// a re-activate, re-skip, or submit-after-skip must not silently overwrite
+// evidence that is already on record. 409, not a silent no-op or 200.
+
+func TestCardActivate_AfterSubmitIs409(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	submitRec := httptest.NewRecorder()
+	h.ServeHTTP(submitRec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/submit",
+		strings.NewReader(`{"fieldValues":{},"eventTrace":[]}`)), cookie))
+	if submitRec.Code != http.StatusOK {
+		t.Fatalf("submit setup = %d, want 200; body=%s", submitRec.Code, submitRec.Body)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/activate", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("activate-after-submit = %d, want 409; body=%s", rec.Code, rec.Body)
+	}
+}
+
+func TestCardSkip_AfterSkipIs409(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	firstSkip := httptest.NewRecorder()
+	h.ServeHTTP(firstSkip, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/skip", strings.NewReader("{}")), cookie))
+	if firstSkip.Code != http.StatusOK {
+		t.Fatalf("skip setup = %d, want 200; body=%s", firstSkip.Code, firstSkip.Body)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/skip", strings.NewReader("{}")), cookie))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("skip-after-skip = %d, want 409; body=%s", rec.Code, rec.Body)
+	}
+}
+
+func TestCardSubmit_AfterSkipIs409(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	atomID := createReadingAtom(t, h, cookie)
+	cardID := seedCard(t, pool, atomID, "b1")
+
+	skipRec := httptest.NewRecorder()
+	h.ServeHTTP(skipRec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/skip", strings.NewReader("{}")), cookie))
+	if skipRec.Code != http.StatusOK {
+		t.Fatalf("skip setup = %d, want 200; body=%s", skipRec.Code, skipRec.Body)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
+		"/api/v1/readings/"+atomID+"/cards/"+cardID+"/submit",
+		strings.NewReader(`{"fieldValues":{},"eventTrace":[]}`)), cookie))
+	if rec.Code != http.StatusConflict {
+		t.Fatalf("submit-after-skip = %d, want 409; body=%s", rec.Code, rec.Body)
 	}
 }
