@@ -222,6 +222,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/readings/{id}/finish", liteOnly(a.finishReading))
 	mux.Handle("PUT /api/v1/readings/{id}/source", liteOnly(a.putReadingSourceLite))
 	mux.Handle("GET /api/v1/readings/{id}/source", liteOnly(a.getReadingSourceLite))
+	mux.Handle("POST /api/v1/readings/{id}/source/file", liteOnly(a.postReadingSourceFileLite))
 	mux.Handle("GET /api/v1/readings/{id}/brief", liteOnly(a.liteGetBrief))
 	mux.Handle("PUT /api/v1/readings/{id}/brief", liteOnly(a.litePutBrief))
 	mux.Handle("GET /api/v1/readings/{id}/takeaway", liteOnly(a.liteGetTakeaway))
