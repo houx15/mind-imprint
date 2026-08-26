@@ -148,6 +148,55 @@ describe("ReadingRoomHost", () => {
     expect(await screen.findByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
   });
 
+  it("restores her confirmed 阅读成果 after a reload, from the persisted cards", async () => {
+    // Everything below was already in the database — the sentence she picked
+    // (anchors) and the review that produced the finding (framework). Without
+    // rebuilding them the tab resets to 0 and the article highlight vanishes,
+    // which reads as "my work is gone".
+    routes[key("GET", `/api/v1/readings/${READING_ID}/cards`)] = {
+      body: {
+        cards: [
+          {
+            id: "c1",
+            cardId: "craap",
+            status: "submitted",
+            anchors: [
+              {
+                id: "sel0",
+                material_id: READING_ID,
+                block_id: "b2",
+                start: 0,
+                end: 8,
+                quote: "但同一时期",
+                dimension: "craap",
+                author: "student",
+                question: "",
+                answer: "",
+              },
+            ],
+            framework: {
+              verdict: "strong",
+              verdictLabel: "高度匹配",
+              verdictReason: "",
+              checks: [],
+              finding: "这句给出了与全文乐观基调相反的事实。",
+              judgment: "",
+              support: "",
+              caveat: "",
+              nextStep: "",
+              spanIds: ["sel0"],
+            },
+          },
+          // A skipped card has no finding — it must not become a half-outcome.
+          { id: "c2", cardId: "sift", status: "skipped", anchors: [], framework: {} },
+        ],
+      },
+    };
+    render(<ReadingRoomHost readingId={READING_ID} />);
+
+    expect(await screen.findByRole("tab", { name: /阅读成果 1/ })).toBeTruthy();
+  });
+
   it("shows a real error when the reading itself cannot be loaded", async () => {
     delete routes[key("GET", `/api/v1/readings/${READING_ID}`)];
     render(<ReadingRoomHost readingId={READING_ID} />);
@@ -169,8 +218,8 @@ describe("createReadingRoomApi", () => {
     const api = createReadingRoomApi(READING_ID);
     // The pro parameter positions are kept and deliberately ignored.
     await drain(api.readTurn("project-that-does-not-exist", "material-x", { student_text: "在吗", focused_spans: [] }));
-    expect(calls[0].url).toBe(`/api/v1/readings/${READING_ID}/turn`);
-    expect(calls[0].body).toEqual({ text: "在吗", focusedSpans: [] });
+    expect(calls[0]?.url).toBe(`/api/v1/readings/${READING_ID}/turn`);
+    expect(calls[0]?.body).toEqual({ text: "在吗", focusedSpans: [] });
   });
 
   it("turns a summon into a card event carrying the example anchor", async () => {

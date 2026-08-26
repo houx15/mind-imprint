@@ -10,9 +10,12 @@ import {
   createReadingRoomApi,
   getReadingBrief,
   listReadingAnnotations,
+  listReadingCards,
   listReadingMessages,
+  toReadingOutcomes,
   type LiteAnnotation,
   type LiteBrief,
+  type LiteCard,
   type LiteMessage,
 } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
@@ -45,7 +48,15 @@ type LoadState =
   | { phase: "loading" }
   | { phase: "error"; message: string }
   | { phase: "needs-source"; reading: Reading }
-  | { phase: "ready"; reading: Reading; source: ReadingSource; brief: LiteBrief; annotations: LiteAnnotation[]; messages: LiteMessage[] };
+  | {
+      phase: "ready";
+      reading: Reading;
+      source: ReadingSource;
+      brief: LiteBrief;
+      annotations: LiteAnnotation[];
+      messages: LiteMessage[];
+      cards: LiteCard[];
+    };
 
 export function ReadingRoomHost({ readingId }: { readingId: string }) {
   const [state, setState] = useState<LoadState>({ phase: "loading" });
@@ -74,12 +85,13 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // The rest is decoration around the article — a failure on any of it
         // must not keep her out of the room, so each degrades to its empty
         // value rather than failing the load.
-        const [brief, annotations, messages] = await Promise.all([
+        const [brief, annotations, messages, cards] = await Promise.all([
           getReadingBrief(readingId).catch(() => EMPTY_BRIEF),
           listReadingAnnotations(readingId).catch(() => [] as LiteAnnotation[]),
           listReadingMessages(readingId).catch(() => [] as LiteMessage[]),
+          listReadingCards(readingId).catch(() => [] as LiteCard[]),
         ]);
-        if (!cancelled) setState({ phase: "ready", reading, source, brief, annotations, messages });
+        if (!cancelled) setState({ phase: "ready", reading, source, brief, annotations, messages, cards });
       } catch (err) {
         if (cancelled) return;
         setState({
@@ -103,6 +115,15 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
 
   const initialMessages = useMemo(
     () => (state.phase === "ready" ? toChatMessages(state.messages) : []),
+    [state],
+  );
+
+  // Her confirmed findings, rebuilt from the card rows. Without this a reload
+  // resets 阅读成果 to 0 and drops the highlights off the article — the work is
+  // still in the database, it just stops being visible, which is worse than
+  // losing it loudly.
+  const initialOutcomes = useMemo(
+    () => (state.phase === "ready" ? toReadingOutcomes(state.cards) : []),
     [state],
   );
 
@@ -147,6 +168,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         readingFocus={state.brief.readingFocus}
         bib={state.source.sourceUrl ? { url: state.source.sourceUrl } : null}
         initialMessages={initialMessages.length > 0 ? initialMessages : undefined}
+        initialOutcomes={initialOutcomes.length > 0 ? initialOutcomes : undefined}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         capabilities={LITE_READING_CAPABILITIES}

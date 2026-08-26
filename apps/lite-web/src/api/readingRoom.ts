@@ -1,7 +1,8 @@
 import type { Anchor, ReadingBrief, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
-import { SelectionEval as SelectionEvalSchema } from "@mind-imprint/contracts";
+import { CARD_REGISTRY, SelectionEval as SelectionEvalSchema } from "@mind-imprint/contracts";
 import type { StudioTurnEvent } from "@/api/studioTurn";
 import type { ReadingRoomApi } from "@/studio/reading/ReadingRoom";
+import type { ReadingOutcome } from "@/studio/reading/readingLoop";
 import { apiFetch } from "./client";
 
 /**
@@ -269,4 +270,42 @@ export async function listReadingAnnotations(id: string): Promise<LiteAnnotation
 export async function listReadingMessages(id: string): Promise<LiteMessage[]> {
   const raw = await apiFetch<{ messages: LiteMessage[] }>(`${base(id)}/messages`);
   return raw.messages ?? [];
+}
+
+export async function listReadingCards(id: string): Promise<LiteCard[]> {
+  const raw = await apiFetch<{ cards: LiteCard[] }>(`${base(id)}/cards`);
+  return raw.cards ?? [];
+}
+
+/**
+ * The confirmed findings, rebuilt from the card rows so a reload does not wipe
+ * 阅读成果 (and its article highlights) back to zero. Everything here was
+ * already persisted: the sentence she picked lives in `anchors`, the review
+ * that produced the finding lives in `framework_fill`. A card with either
+ * missing is skipped rather than shown as a half-outcome.
+ */
+export function toReadingOutcomes(cards: LiteCard[]): ReadingOutcome[] {
+  const out: ReadingOutcome[] = [];
+  for (const c of cards) {
+    if (c.status !== "submitted") continue;
+    const anchor = c.anchors?.find((a) => a.author === "student") ?? c.anchors?.[0];
+    if (!anchor || anchor.end <= anchor.start) continue;
+    const parsed = SelectionEvalSchema.safeParse(c.framework);
+    if (!parsed.success) continue;
+    out.push({
+      id: `outcome-${c.id}`,
+      cardId: c.cardId,
+      cardName: CARD_REGISTRY[c.cardId]?.name ?? c.cardId,
+      blockId: anchor.block_id,
+      start: anchor.start,
+      end: anchor.end,
+      quote: anchor.quote,
+      finding: parsed.data.finding,
+      judgment: parsed.data.judgment,
+      support: parsed.data.support,
+      caveat: parsed.data.caveat,
+      eval: parsed.data,
+    });
+  }
+  return out;
 }
