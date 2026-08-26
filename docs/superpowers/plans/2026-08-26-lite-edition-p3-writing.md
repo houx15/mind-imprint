@@ -225,6 +225,7 @@ sed -n '1,60p' apps/api/internal/api/reading_turn.go
 - `compose` 后可 `PUT /draft` 继续自己改。
 - `review` 给整篇反馈：**返回评语，不改 `writing_draft.body`**。断言调用后 body 一字未变。模型失败 → 502。
 - `finish` 以**非空 draft** 为门槛（400 `missing_draft`），幂等，置 `status='finished'` 且 `stage='finished'`。
+- **完成之后，服务端必须拒绝一切改写**（P1 Task 17 的同款闸，见 `loadOwnedReadingAtom` 的 `loadOwnedWritingAtom` 对应物）：非 GET 请求一律 **403 `writing_finished`**，读取照常可用，`POST /finish` 自身豁免以保持幂等。**这不是可选项**——铁律④ 让过程记录成为证据，而 P2 的简版报告正是从这些行生成的；若完成之后还能改写，报告就可能与它所依据的状态自相矛盾。P1 曾把这条只做在前端，评审抓出来后补了服务端闸；写作不要重犯。断言：完成后 `PUT /snippets`、`POST /turn`、`PUT /draft`、`POST /review` 全部 403，而 `GET /draft`、`GET /messages` 仍 200。
 
 - [ ] **Step 2-5: 实现 → 跑通过 → 提交**
 
