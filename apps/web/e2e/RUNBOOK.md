@@ -4,7 +4,7 @@ A browser-driven smoke over the real stack (web → Go API → throwaway Postgre
 
 ## One-time setup
 1. Docker running (for the throwaway Postgres).
-2. `pnpm install` at the repo root; `pnpm --filter web exec playwright install chromium`.
+2. `pnpm install` at the repo root; `pnpm --filter @mind-imprint/web exec playwright install chromium`.
 3. Create `apps/api/.env.local`:
    ```
    DATABASE_URL=postgres://postgres:postgres@localhost:5432/mindimprint?sslmode=disable

@@ -101,7 +101,7 @@ echo "==> Checking port 5173 is free"
 check_port_free 5173
 
 echo "==> Starting web dev server on :5173"
-( cd "$REPO" && pnpm --filter web dev --port 5173 --strictPort ) &
+( cd "$REPO" && pnpm --filter @mind-imprint/web dev --port 5173 --strictPort ) &
 WEB_PID=$!
 _wait_iters=0
 until curl -sf http://localhost:5173 >/dev/null 2>&1; do

@@ -16,8 +16,9 @@ WORKDIR /repo
 RUN corepack enable && corepack prepare pnpm@10.29.3 --activate
 
 # Workspace manifests first for layer caching. Every workspace package.json must
-# be present so pnpm can validate the frozen lockfile, even though --filter web...
-# only installs the web project's dependency closure (skips site/peraspera).
+# be present so pnpm can validate the frozen lockfile, even though
+# --filter @mind-imprint/web... only installs the web project's dependency
+# closure (skips site/peraspera).
 COPY pnpm-lock.yaml pnpm-workspace.yaml package.json ./
 COPY packages/contracts/package.json packages/contracts/package.json
 COPY packages/course-contract/package.json packages/course-contract/package.json
@@ -26,7 +27,7 @@ COPY packages/course-renderer/package.json packages/course-renderer/package.json
 COPY apps/web/package.json apps/web/package.json
 COPY apps/site/package.json apps/site/package.json
 COPY apps/peraspera/package.json apps/peraspera/package.json
-RUN pnpm install --frozen-lockfile --filter web...
+RUN pnpm install --frozen-lockfile --filter @mind-imprint/web...
 
 # Sources needed to build the SPA.
 COPY tsconfig.base.json ./
@@ -40,7 +41,7 @@ COPY apps/web apps/web
 # client prefixes /api/v1; an empty value would mean same-origin.
 ARG VITE_API_BASE_URL=https://mind-api.uni-robot.cn
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
-RUN pnpm --filter web build
+RUN pnpm --filter @mind-imprint/web build
 
 # ---- runtime: static nginx serving the built bundle ----
 FROM nginx:1.27-alpine AS runtime

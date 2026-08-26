@@ -1,26 +1,17 @@
 {
-  "name": "@mind-imprint/web",
+  "name": "@mind-imprint/lite-web",
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "exports": {
-    "./src/*": "./src/*"
-  },
   "scripts": {
     "dev": "vite",
     "build": "vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit",
-    "e2e": "playwright test -c e2e/playwright.config.ts"
+    "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@dagrejs/dagre": "^3.1.0",
     "@mind-imprint/contracts": "workspace:*",
-    "@mind-imprint/course-contract": "workspace:*",
-    "@mind-imprint/course-renderer": "workspace:*",
-    "@mind-imprint/course-runtime": "workspace:*",
-    "@xyflow/react": "^12.11.2",
-    "docx": "^9.7.1",
+    "@mind-imprint/web": "workspace:*",
     "lucide-react": "^1.28.0",
     "marked": "^18.0.7",
     "react": "^18.3.0",
@@ -28,14 +19,11 @@
     "react-markdown": "^10.1.0",
     "remark-cjk-friendly": "2.3.1",
     "remark-gfm": "^4.0.1",
-    "xlsx": "^0.18.5",
     "zod": "^3.23.0"
   },
   "devDependencies": {
-    "@playwright/test": "^1.48.0",
     "@testing-library/jest-dom": "^6.4.0",
     "@testing-library/react": "^16.0.0",
-    "@testing-library/user-event": "^14.5.0",
     "@types/node": "^20.0.0",
     "@types/react": "^18.3.0",
     "@types/react-dom": "^18.3.0",

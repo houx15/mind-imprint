@@ -224,7 +224,7 @@ cd apps/api && make run          # → http://localhost:8080
 
 # 5. 配置并启动前端
 cp apps/web/.env.example apps/web/.env.local   # 指向 http://localhost:8080
-pnpm --filter web dev            # → http://localhost:5173
+pnpm --filter @mind-imprint/web dev            # → http://localhost:5173
 ```
 
 种子登录：`phoebe@demo.mindimprint.local` / `wu.teacher@demo.mindimprint.local`（密码 `phoebe-dev-pass`）；或访问 `?trial=1` 自动登录为 Phoebe。
