@@ -1,11 +1,15 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	. "mindimprint/api/internal/api"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // createReadingAtom returns a new reading's atom id. Shared by Tasks 3-8.
@@ -114,6 +118,53 @@ func TestEditionGate_LiteKeepsSharedRoutes(t *testing.T) {
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/evaluation-reports", nil), cookie))
 	if rec.Code != http.StatusOK {
 		t.Fatalf("lite account GET /evaluation-reports = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestLoadOwnedReadingAtom_WrongKindIs404 — loadOwnedReadingAtom is the
+// authorization chokepoint every reading handler (and every later task)
+// funnels through. atom.kind's CHECK constraint also permits 'writing'; an
+// atom of that kind must be unreachable through a reading route, 404 exactly
+// like a missing id — never leak that the id exists but is the wrong kind.
+func TestLoadOwnedReadingAtom_WrongKindIs404(t *testing.T) {
+	h, cookie, q, _ := liteHandler(t)
+
+	at, err := q.CreateAtom(context.Background(), sqlc.CreateAtomParams{Kind: "writing", UserID: SeedUserID})
+	if err != nil {
+		t.Fatalf("create writing atom: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+at.ID.String(), nil), cookie))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("GET reading route on a writing atom = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+	if !strings.Contains(rec.Body.String(), `"code":"not_found"`) {
+		t.Fatalf("body missing not_found code — got %s", rec.Body)
+	}
+}
+
+// TestLoadOwnedReadingAtom_WrongOwnerIs404 — a reading atom owned by a
+// different student in the same school must be indistinguishable from one
+// that does not exist: 404, never 403.
+func TestLoadOwnedReadingAtom_WrongOwnerIs404(t *testing.T) {
+	h, cookie, q, pool := liteHandler(t)
+
+	otherID := createStudent(t, pool, SeedSchoolID, "other-reader@demo.local")
+	at, err := q.CreateAtom(context.Background(), sqlc.CreateAtomParams{Kind: "reading", UserID: otherID})
+	if err != nil {
+		t.Fatalf("create other's atom: %v", err)
+	}
+	if _, err := q.CreateReading(context.Background(), sqlc.CreateReadingParams{
+		AtomID: at.ID, Title: "别人的文章", Lang: "zh",
+	}); err != nil {
+		t.Fatalf("create other's reading: %v", err)
+	}
+
+	rec := httptest.NewRecorder()
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/readings/"+at.ID.String(), nil), cookie))
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("GET another student's reading = %d, want 404; body=%s", rec.Code, rec.Body)
 	}
 }
 
