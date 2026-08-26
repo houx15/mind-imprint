@@ -357,46 +357,17 @@ test("the room's AI is live: a summoned lens hangs under a paragraph and becomes
   await expect(page.getByRole("button", { name: "跳过这副透镜" })).toBeVisible();
 
   // ── the rest of the card's own loop: pick a sentence, get reviewed, keep it
-  //
-  // Whether the summon grounded an example decides two things: the proposed
-  // button's wording, and whether the D1 probe below is applicable at all. A
-  // graceful-degrade summon (the AI could not ground a sentence) renders
-  // 「开始选句」 with no example mark in the article, so there is nothing to
-  // click to trigger the rejection. Captured here rather than inferred later.
-  const hadExample = (await card.getByRole("button", { name: "看懂示范，开始选句" }).count()) > 0;
+  // (D1 — the refusal when she clicks the AI's OWN example — has its own test
+  // below, because asserting it needs a `test.skip()` that would otherwise
+  // abort this whole walk.)
   await card.getByRole("button", { name: /开始选句$/ }).click();
   await expect(card.getByText("在文章里点出你自己的证据句")).toBeVisible();
 
-  // ── D1 (fixed in Task 18): clicking the AI's OWN underlined example is
-  // still refused — she must find her own sentence — but it is no longer
-  // refused in silence. This is the one path a student hits first, and until
-  // Task 18 it was a dead click with no feedback whatsoever.
-  //
-  // Stable because: the example is the ONLY <mark> in this reading's article
-  // (this test creates no annotations and has confirmed no outcomes yet), the
-  // hint's 2.6s auto-clear is far longer than Playwright's polling interval,
-  // and the whole probe is skipped — loudly — when the summon returned no
-  // example to click.
-  if (hadExample) {
-    const exampleMark = page.locator(`p[data-block-id="${anchorBlock}"] mark`).first();
-    await expect(exampleMark).toBeVisible();
-    await exampleMark.click();
-    await expect(card.getByText("这句是示范句——换一句你自己的证据句。")).toBeVisible();
-    // Refused, not evaluated: the card stays 'active' and never spends a
-    // model call on the example. And the hint is transient — it reverts to
-    // the ordinary instruction instead of lingering as a stale error.
-    await expect(card.getByRole("button", { name: "记下这条发现" })).toHaveCount(0);
-    await expect(card.getByText("在文章里点出你自己的证据句")).toBeVisible({ timeout: 10_000 });
-  } else {
-    test.info().annotations.push({
-      type: "skipped",
-      description: "D1 probe not applicable: this summon grounded no example sentence to click.",
-    });
-  }
   // Her pick has to be a paragraph OTHER than the one carrying the AI's
   // example: `useReadingLoop.pickSentence` rejects a span overlapping the
-  // example outright (she must choose for herself), and it rejects it
-  // SILENTLY — clicking the example looks like a dead click.
+  // example outright — she must choose for herself. Since Task 18 that
+  // refusal is spoken rather than silent (asserted in the D1 test below);
+  // this walk still picks elsewhere because it wants the accepted path.
   const ownBlock = anchorBlock === "b1" ? "b3" : "b1";
   await page.locator(`p[data-block-id="${ownBlock}"]`).click();
 
@@ -413,4 +384,83 @@ test("the room's AI is live: a summoned lens hangs under a paragraph and becomes
   await page.getByRole("tab", { name: "阅读成果 1" }).click();
   await expect(page.getByRole("heading", { name: "我的阅读成果" })).toBeVisible();
   await expect(page.getByRole("alert")).toHaveCount(0);
+});
+
+/**
+ * D1 (fixed in Task 18) — its own test, on purpose, rather than a branch
+ * inside the lens walk above.
+ *
+ * WHY IT CAN SKIP. The refusal only exists to be triggered when the summon
+ * actually grounded an example sentence to click. A graceful-degrade summon
+ * renders 「开始选句」 with no example mark in the article, and then nothing
+ * on screen can trigger D1 at all. That is a legitimate product path —
+ * HangingCard carries its own `hasExample: false` copy for it — so the model
+ * being terse must not turn the suite red; a red that means "the model was
+ * brief today" only teaches people to ignore red.
+ *
+ * WHY IT MUST NOT SKIP QUIETLY. If it does skip, D1 went untested, and a
+ * maintainer reading CI has to be told. `test.skip()` is what actually tells
+ * them: the reporter counts it and prints it in the run summary. The two
+ * tempting alternatives do not:
+ *   - `test.info().annotations.push(...)` is INERT metadata. Playwright only
+ *     special-cases annotations the real test.skip()/test.fixme() APIs create,
+ *     and formatTestTitle — which composes every console line for the `list`
+ *     and `line` reporters — never prints annotations at all. A skipped probe
+ *     would have looked like an ordinary green pass.
+ *   - a bare `console.log` does print, but into a stream that (under
+ *     run-stack.sh) also carries the API's per-request JSON log. One line in
+ *     several hundred is not "visible".
+ *
+ * WHY IT IS A SEPARATE TEST. `test.skip()` inside a test body aborts that
+ * test. Called from inside the lens walk it would take the entire card cycle
+ * — pick, evaluate, 记下这条发现, 阅读成果 — down with it, trading the
+ * coverage we have for visibility of the coverage we lack.
+ */
+test("D1: clicking the AI's own example sentence is refused — and says so", async ({ page }) => {
+  await startReading(page, titled("D1 走查用的一篇"), ARTICLE_BODY);
+
+  await page.getByRole("button", { name: /^透镜库 · \d+$/ }).click();
+  await page.getByRole("dialog", { name: "透镜库" }).locator(".mk-lens-library__row").first().click();
+
+  const card = page.locator(".lens-connector").locator("..");
+  await expect(card).toBeVisible({ timeout: 180_000 });
+
+  // 「看懂示范，开始选句」 ⇒ an example was grounded. 「开始选句」 alone ⇒
+  // the summon degraded and there is no example mark to click.
+  const hasExample = (await card.getByRole("button", { name: "看懂示范，开始选句" }).count()) > 0;
+  test.skip(
+    !hasExample,
+    "This summon grounded no example sentence, so nothing on screen can trigger the D1 refusal — D1 went UNTESTED this run.",
+  );
+
+  const anchorBlock = await card.evaluate((el) => {
+    const prev = el.previousElementSibling;
+    return prev && prev.tagName === "P" ? prev.getAttribute("data-block-id") : null;
+  });
+  expect(anchorBlock).toMatch(/^b\d+$/);
+
+  await card.getByRole("button", { name: "看懂示范，开始选句" }).click();
+  await expect(card.getByText("在文章里点出你自己的证据句")).toBeVisible();
+
+  // Until Task 18 this click did NOTHING — no message, no shake — which made
+  // the most natural click on the screen look broken. It is still refused (she
+  // has to find her own sentence); it just says so now.
+  //
+  // The example is the only <mark> in this article: the reading is fresh, so
+  // there are no stored annotations and no confirmed outcomes adding marks.
+  const exampleMark = page.locator(`p[data-block-id="${anchorBlock}"] mark`).first();
+  await expect(exampleMark).toBeVisible();
+  await exampleMark.click();
+  await expect(card.getByText("这句是示范句——换一句你自己的证据句。")).toBeVisible();
+
+  // Still refused. This does NOT independently prove "no model call was
+  // spent": Playwright aborts at the first failing expect, so this line is
+  // only reached when the assertion above already passed — and only the
+  // refusal path sets the hint, so an accepted click would have failed there
+  // first. Kept because it costs nothing and narrows the window in which both
+  // could be wrong at once.
+  await expect(card.getByRole("button", { name: "记下这条发现" })).toHaveCount(0);
+
+  // Transient, not a lingering error banner: it reverts on its own (2.6s).
+  await expect(card.getByText("在文章里点出你自己的证据句")).toBeVisible({ timeout: 10_000 });
 });
