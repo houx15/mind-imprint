@@ -9,7 +9,7 @@
 # alias needs.
 #
 #   docker build -f apps/lite-web/Dockerfile \
-#     --build-arg VITE_API_BASE_URL=https://mind-lite-api.uni-robot.cn -t mindimprint-lite-web .
+#     --build-arg VITE_API_BASE_URL=https://mind-api.uni-robot.cn -t mindimprint-lite-web .
 
 # ---- build: install the `lite-web` dependency closure and build the bundle ----
 FROM node:22-bookworm-slim AS build

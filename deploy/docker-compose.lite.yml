@@ -25,6 +25,20 @@
 # There are no secrets in this stack: VITE_API_BASE_URL is a public origin,
 # baked into the bundle at build time, not a credential. So, like the site
 # stack, this compose file takes no --env-file.
+#
+# OPERATOR PREREQUISITE — not yet done, and not fixable here (same reason the
+# vhost above is still TBD: the lite domain isn't decided, and deploy/.env.prod
+# is gitignored, out of this repo, on the API host, not this one):
+# lite's auth depends on credentialed fetches (apps/lite-web/src/api/client.ts
+# sends `credentials: "include"`) reaching the SAME api container the pro SPA
+# uses. That container's CORS allowlist is CORS_ORIGINS, an EXACT-MATCH list
+# (apps/api/internal/config/config.go, consumed by apps/api/internal/httpx/
+# server.go; deploy/env.prod.example currently sets it to the pro domain
+# only). Before lite goes live on its own domain, an operator MUST append the
+# lite origin to CORS_ORIGINS in deploy/.env.prod and redeploy the api
+# container — otherwise the browser blocks every credentialed request from
+# lite (sign-in and everything session-dependent) with no server-side error to
+# point at it.
 name: mindimprint-lite
 
 services:
