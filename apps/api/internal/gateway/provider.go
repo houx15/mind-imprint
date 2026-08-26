@@ -32,6 +32,9 @@ type StreamEvent struct {
 	ToolUse    *StreamToolUse // EventToolUse
 	Usage      *ChatUsage     // EventUsage
 	StopReason StopReason     // EventDone
+	// Incomplete records an abnormal upstream terminal stream for observational
+	// consumers. Existing callers continue to receive EventDone as before.
+	Incomplete bool // EventDone
 }
 
 // Resolved is the per-call resolution of which provider/model/key to use. It is

@@ -47,6 +47,14 @@ type ChatMessage struct {
 	ToolCallID string     `json:"toolCallId,omitempty"`
 }
 
+// ResponseFormat restricts the provider response encoding when supported.
+// Empty keeps the provider's default response behavior.
+type ResponseFormat = string
+
+const (
+	ResponseFormatJSONObject ResponseFormat = "json_object"
+)
+
 // ChatRequest mirrors TS ChatRequest.
 type ChatRequest struct {
 	Messages  []ChatMessage `json:"messages"`
@@ -58,14 +66,18 @@ type ChatRequest struct {
 	// fully disabled (chaperone tier): the reading router uses "low" to roughly
 	// halve latency while keeping the decision + JSON discipline that
 	// thinking-off loses. Only the DeepSeek provider emits it; empty = unset.
-	ReasoningEffort string   `json:"reasoningEffort,omitempty"`
-	Temperature     *float64 `json:"temperature,omitempty"`
+	ReasoningEffort string         `json:"reasoningEffort,omitempty"`
+	Temperature     *float64       `json:"temperature,omitempty"`
+	DisableThinking bool           `json:"disableThinking,omitempty"`
+	ResponseFormat  ResponseFormat `json:"responseFormat,omitempty"`
 }
 
-// ChatUsage mirrors TS ChatUsage { inputTokens?, outputTokens? }.
+// ChatUsage mirrors provider usage. ReasoningTokens is optional because only
+// providers that expose a completion-token breakdown can supply it.
 type ChatUsage struct {
-	InputTokens  int `json:"inputTokens"`
-	OutputTokens int `json:"outputTokens"`
+	InputTokens     int  `json:"inputTokens"`
+	OutputTokens    int  `json:"outputTokens"`
+	ReasoningTokens *int `json:"reasoningTokens,omitempty"`
 }
 
 // ChatResult mirrors TS ChatResult (the accumulated, non-streamed shape; useful

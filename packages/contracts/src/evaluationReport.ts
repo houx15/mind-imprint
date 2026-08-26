@@ -143,6 +143,44 @@ export const RiskEntry = z.object({
 }).strict();
 export type RiskEntry = z.infer<typeof RiskEntry>;
 
+// Model-generated portion of an EvaluationReport. The fact envelope is copied
+// by the service/evaluator and must never be requested from a model. Unlike the
+// persisted report schema, D/A are fixed ordered tuples so this contract can be
+// rendered as a precise response schema for single-prompt evaluators.
+export const EvaluationReportModelOutput = z.object({
+  // Persisted reports accept legacy null/missing recommendation fields and
+  // normalize them to empty arrays. A model response must be complete instead:
+  // JSON mode uses this schema to make omissions observable experiment failures.
+  abstract: z.object({
+    overview: z.string(),
+    materialSentence: z.string(),
+    writingSentence: z.string(),
+    aiSentence: z.string(),
+    suggestionParagraph: z.string(),
+    suggestionSentences: z.array(z.string()),
+    recommendedCourses: z.array(RecommendedCourse),
+  }).strict(),
+  depth: z.tuple([
+    DepthDimResult.extend({ id: z.literal("D1") }),
+    DepthDimResult.extend({ id: z.literal("D2") }),
+    DepthDimResult.extend({ id: z.literal("D3") }),
+    DepthDimResult.extend({ id: z.literal("D4") }),
+    DepthDimResult.extend({ id: z.literal("D5") }),
+    DepthDimResult.extend({ id: z.literal("D6") }),
+  ]),
+  autonomy: z.tuple([
+    AutonomyDimResult.extend({ id: z.literal("A1") }),
+    AutonomyDimResult.extend({ id: z.literal("A2") }),
+    AutonomyDimResult.extend({ id: z.literal("A3") }),
+    AutonomyDimResult.extend({ id: z.literal("A4") }),
+    AutonomyDimResult.extend({ id: z.literal("A5") }),
+    AutonomyDimResult.extend({ id: z.literal("A6") }),
+  ]),
+  promptLens: PromptLens,
+  risks: z.array(RiskEntry),
+}).strict();
+export type EvaluationReportModelOutput = z.infer<typeof EvaluationReportModelOutput>;
+
 export const EvaluationReport = z.object({
   version: z.literal(1),
   reportId: z.string(),

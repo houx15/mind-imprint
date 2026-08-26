@@ -1,0 +1,58 @@
+{
+  "abstract": {
+    "overview": "<replace-with-overview>",
+    "materialSentence": "<replace-with-material-sentence>",
+    "writingSentence": "<replace-with-writing-sentence>",
+    "aiSentence": "<replace-with-ai-sentence>",
+    "suggestionParagraph": "<replace-with-suggestion-paragraph>",
+    "suggestionSentences": ["<replace-with-next-step>"],
+    "recommendedCourses": [
+      {"courseId": "<replace-with-course-id>", "reason": "<replace-with-course-reason>"}
+    ]
+  },
+  "depth": [
+    {
+      "id": "D1",
+      "level": 1,
+      "summary": "<replace-with-D1-summary>",
+      "evidence": [
+        {"id": "<evidence-id-from-input>", "quote": "<verbatim-student-evidence>", "observation": "<replace-with-observation>", "boundary": "<optional-boundary>"}
+      ],
+      "suggestion": "<replace-with-D1-suggestion>"
+    },
+    {"id": "D2", "level": 1, "summary": "<replace-with-D2-summary>", "evidence": [], "suggestion": "<replace-with-D2-suggestion>"},
+    {"id": "D3", "level": 1, "summary": "<replace-with-D3-summary>", "evidence": [], "suggestion": "<replace-with-D3-suggestion>"},
+    {"id": "D4", "level": 1, "summary": "<replace-with-D4-summary>", "evidence": [], "suggestion": "<replace-with-D4-suggestion>"},
+    {"id": "D5", "level": 1, "summary": "<replace-with-D5-summary>", "evidence": [], "suggestion": "<replace-with-D5-suggestion>"},
+    {"id": "D6", "level": 1, "summary": "<replace-with-D6-summary>", "evidence": [], "suggestion": "<replace-with-D6-suggestion>"}
+  ],
+  "autonomy": [
+    {"id": "A1", "band": 0, "summary": "<replace-with-A1-summary>", "evidence": [], "suggestion": "<replace-with-A1-suggestion>"},
+    {"id": "A2", "band": 0, "summary": "<replace-with-A2-summary>", "evidence": [], "suggestion": "<replace-with-A2-suggestion>"},
+    {"id": "A3", "band": 0, "summary": "<replace-with-A3-summary>", "evidence": [], "suggestion": "<replace-with-A3-suggestion>"},
+    {"id": "A4", "band": 0, "summary": "<replace-with-A4-summary>", "evidence": [], "suggestion": "<replace-with-A4-suggestion>"},
+    {"id": "A5", "band": 0, "summary": "<replace-with-A5-summary>", "evidence": [], "suggestion": "<replace-with-A5-suggestion>"},
+    {"id": "A6", "band": 0, "summary": "<replace-with-A6-summary>", "evidence": [], "suggestion": "<replace-with-A6-suggestion>"}
+  ],
+  "promptLens": {
+    "summary": "<replace-with-prompt-lens-summary>",
+    "prompts": [
+      {
+        "stage": "<replace-with-stage>",
+        "quote": "<verbatim-student-prompt>",
+        "ref": {"id": "<evidence-id-from-input>", "label": "<replace-with-evidence-label>"},
+        "observation": "<replace-with-observation>",
+        "relatedDomains": ["D1"],
+        "attention": false
+      }
+    ]
+  },
+  "risks": [
+    {
+      "type": "missing-source",
+      "behaviour": "<replace-with-observed-risk>",
+      "ref": {"id": "<evidence-id-from-input>", "label": "<replace-with-evidence-label>"},
+      "suggestion": "<replace-with-risk-suggestion>"
+    }
+  ]
+}
