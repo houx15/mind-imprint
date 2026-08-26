@@ -221,6 +221,12 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/readings/{id}", liteOnly(a.renameReading))
 	mux.Handle("PUT /api/v1/readings/{id}/source", liteOnly(a.putReadingSourceLite))
 	mux.Handle("GET /api/v1/readings/{id}/source", liteOnly(a.getReadingSourceLite))
+	mux.Handle("GET /api/v1/readings/{id}/brief", liteOnly(a.liteGetBrief))
+	mux.Handle("PUT /api/v1/readings/{id}/brief", liteOnly(a.litePutBrief))
+	mux.Handle("GET /api/v1/readings/{id}/takeaway", liteOnly(a.liteGetTakeaway))
+	mux.Handle("PUT /api/v1/readings/{id}/takeaway", liteOnly(a.litePutTakeaway))
+	mux.Handle("GET /api/v1/readings/{id}/annotations", liteOnly(a.liteListAnnotations))
+	mux.Handle("POST /api/v1/readings/{id}/annotations", liteOnly(a.liteCreateAnnotation))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
