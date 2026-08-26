@@ -283,18 +283,110 @@ POST   /api/v1/readings/{id}/report/generate
 
 交互与 pro 阅读室**一致**（同样的透镜、工具卡、批注、一次只问一个的节奏），因为前端组件与 AI 大脑都是同一套。差别只在两处：**没有立题**，所以收尾不写「新线索 / 对立题的影响」，改为「我的收获 + 理解检测」；**没有证据图与探索**，所以相关面板不出现。
 
-### 6.2 写作（P3）
+### 6.2 写作
+
+写作与阅读同形：**一个框进去，一次专注的任务出来**。
+
+#### 6.2.1 入口
+
+落地页与阅读同一套骨架（见 §7.2b）：居中的招呼 + 一个框 + 推荐 + 右上角「我的写作」+ 提示条。
+
+**框里直接写「你想写点什么」**——不是填表，不是先选体裁。学生把念头打进去（一句话就够），就进入写作页。
+
+落地页同样提供：**推荐题目**（不知道写什么时）、**历史**（未完成在上、点击继续；已完成点击看报告）、**教师布置的写作任务**（P4 接线，位置先留）。
+
+#### 6.2.2 进去之后：先聊，再写
+
+进入写作页，**AI 先和学生讨论这个想法**——不是立刻给提纲，也不是立刻让写。一次只问一个（铁律③）。
+
+然后 AI 把整件事拆成**四个阶段**，并把学生所在的位置显示出来：
 
 ```
-新建 → 大对话框：说出你的想法
-     → AI 生成提纲（学生可改；确定性系统步骤，非代写）
-     → 分段写片段：引导问题以 block 呈现；英文写作附示范段落
-     → 合成全文（只拼学生自己的片段）
-     → AI 反馈
-     → 简版报告
+构思 → 大纲 → 段落 → 成稿
 ```
 
-**英文示范段落的执行细则（铁律① 的落法）：** 示范渲染在与草稿分离的容器中，带明确「示范」标识；界面不提供任何一键插入 / 复制到草稿的入口；示范文本不写入任何草稿表。
+**构思**：就这个题目**简单地聊**——试着把它和**证据、想法、或故事**连起来。这一阶段还必须敲定一件事：**这篇要写多长**（字数量级）。长度决定后面提纲的粒度与段落的数量，不先定下来，后面每一步都在猜。
+
+**大纲**：由学生已经说出口的东西**派生**出提纲，学生可改。提纲生成是确定性的系统步骤，AGENTS.md 明确允许，**不是代写**。
+
+**段落**：**引导式片段写作**——一段一段来，引导问题以 block 形式出现在旁边。**英文写作附示范段落**：明确标注为示范，与草稿在结构与视觉上分离，界面不提供任何一键插入，示范文本不写入任何草稿表（铁律①）。
+
+**成稿**：把学生自己写的片段**拼成全文**——只拼接，不新造一个字。然后 AI 给整篇的反馈（结构、论证、清楚不清楚），仍然不代写。
+
+最后：完成 → 简版报告（§8）。
+
+#### 6.2.3 阶段是显示出来的，不是关卡
+
+四个阶段是**给学生看的地图**，让他知道自己在哪、下一步是什么。**不做强制关卡**：学生想先写一段再回头补提纲，允许；想跳过构思直接写，允许——但**跳过被记录**（铁律④），并进入简版报告的确定性事实区。
+
+> 与 pro 的 essay-track 的区别：pro 是研究论文的阶段机，带证据图与提案轨道；这里只有四步，没有立题、没有证据图、没有 essay-track 状态机。共享的是**底座**（`atom` / `atom_message` / `atom_card` / `atom_annotation`）与**AI 能力**，不是流程。
+
+#### 6.2.4 数据
+
+`writing` 与 `reading` 同为 `atom` 的一种形态（§4.2），专属表：
+
+```sql
+CREATE TABLE writing (
+  atom_id     uuid PRIMARY KEY REFERENCES atom(id) ON DELETE CASCADE,
+  title       text NOT NULL DEFAULT '',
+  lang        text NOT NULL CHECK (lang IN ('zh','en')),
+  stage       text NOT NULL DEFAULT 'ideate'
+              CHECK (stage IN ('ideate','outline','snippets','draft','finished')),
+  target_words integer,                    -- 构思阶段敲定的篇幅，NULL 表示还没定
+  status      text NOT NULL DEFAULT 'active' CHECK (status IN ('active','finished')),
+  updated_at  timestamptz NOT NULL DEFAULT now(),
+  finished_at timestamptz
+);
+
+CREATE TABLE writing_outline (
+  id         uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  atom_id    uuid NOT NULL REFERENCES atom(id) ON DELETE CASCADE,
+  text       text NOT NULL,
+  depth      integer NOT NULL DEFAULT 0,
+  position   integer NOT NULL
+);
+CREATE INDEX writing_outline_atom_idx ON writing_outline (atom_id, position);
+
+CREATE TABLE writing_snippet (
+  id          uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  atom_id     uuid NOT NULL REFERENCES atom(id) ON DELETE CASCADE,
+  outline_id  uuid REFERENCES writing_outline(id) ON DELETE SET NULL,
+  position    integer NOT NULL,
+  text        text NOT NULL DEFAULT '',
+  updated_at  timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX writing_snippet_atom_idx ON writing_snippet (atom_id, position);
+
+-- 成稿：由片段拼成，可再编辑。只有学生的字。
+CREATE TABLE writing_draft (
+  atom_id    uuid PRIMARY KEY REFERENCES atom(id) ON DELETE CASCADE,
+  body       text NOT NULL DEFAULT '',
+  updated_at timestamptz NOT NULL DEFAULT now()
+);
+```
+
+`atom_message` 承载「先聊」与各阶段的陪练对话；`atom_card` 承载写作用的工具卡；`atom_report` 承载简版报告——**四张共享表一张都不用新建**，这正是 §4.1 底座的回报。
+
+#### 6.2.5 API（形状与阅读一致）
+
+```
+GET/POST  /api/v1/writings                  列表 / 新建（body: {idea, lang}）
+GET/PATCH /api/v1/writings/{id}
+POST      /api/v1/writings/{id}/turn        陪练一轮（复用 AI 层）
+GET       /api/v1/writings/{id}/messages
+POST      /api/v1/writings/{id}/stage       推进 / 回退阶段（记录，不设关卡）
+PUT       /api/v1/writings/{id}/target-words
+GET/PUT   /api/v1/writings/{id}/outline
+GET/PUT   /api/v1/writings/{id}/snippets
+POST      /api/v1/writings/{id}/compose     把片段拼成成稿（确定性，不调模型）
+GET/PUT   /api/v1/writings/{id}/draft
+POST      /api/v1/writings/{id}/review      AI 给整篇反馈
+POST      /api/v1/writings/{id}/finish
+GET/POST  /api/v1/writings/{id}/report[/generate]
+```
+
+`{id}` 一律是 atom id。鉴权与阅读同：归属失败 404，跨 edition 404。
+
 
 ## 7. 前端
 
@@ -371,10 +463,10 @@ export type RoomCapabilities = {
 
 | 期 | 内容 |
 |---|---|
-| **P1 · 底座 + 阅读跑通** | `atom` / `reading` / `atom_message` / `atom_card` / `atom_annotation` / `reading_source` / `reading_brief` / `reading_takeaway` 建表；`schools.edition` + 分流闸；`llm_call.atom_id`；阅读全部端点（含 `/turn` 装配并调用 `RouteReading`）；`apps/lite-web` 脚手架 + 能力对象 + shell；**阅读跑通至「我的收获」** |
-| **P2 · 阅读收尾** | `reading_check` 理解检测；`atom_report` + 简版报告 |
-| **P3 · 写作** | `writing` 表 + `writing_outline` / `writing_snippet` / `writing_draft`；大对话框落地；提纲、片段、合成、反馈；英文示范；写作报告 |
-| **P4 · 以后** | 教师布置阅读任务；`chat` 原子；AI 项目原子（均为「加一张专属表 + 复用底座」） |
+| **P1 · 底座 + 阅读** | `atom` / `reading` / `atom_message` / `atom_card` / `atom_annotation` / `reading_source` / `reading_brief` / `reading_takeaway` 建表；`schools.edition` + 分流闸；`llm_call.atom_id`；阅读全部端点（含 `/turn` 装配并调用 `RouteReading`、透镜召唤、选句评价、锚点持久化）；`apps/lite-web` + 能力对象 + shell；**DOCX/PDF 上传**；**阅读落地页重设计**（招呼 + 辉光框 + 推荐 + 我的阅读面板 + 提示条）；端到端走查 |
+| **P2 · 阅读收尾** | `reading_check` 理解检测（完成时出题验证是否真读懂）；`atom_report` + 简版报告（统计 + 阅读笔记 + 互动小结） |
+| **P3 · 写作** | `writing` / `writing_outline` / `writing_snippet` / `writing_draft`；一个框进去 → AI 先聊想法 → 四阶段（构思 / 大纲 / 段落 / 成稿）；构思阶段敲定篇幅；英文示范；写作落地页（推荐题目 + 历史 + 未完成 + 教师任务位）；写作报告 |
+| **P4 · 以后** | 教师布置阅读与写作任务（含截止日期与落地页提醒）；逐段 AI 辅助（写法 / 叙事 / 关键词 / 结构 / 朗读，复用 `/voice/tts`）；样本库；`chat` 原子；AI 项目原子 |
 
 每一期独立 spec → plan → build。
 
