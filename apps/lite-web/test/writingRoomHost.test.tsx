@@ -281,6 +281,26 @@ describe("结构 stage — the AI picks a skeleton, it never writes an outline",
       expect(put?.body).toEqual({ outline: [{ text: "我反对一刀切", role: "你的立场", depth: 0 }] });
     });
   });
+
+  it("still shows her blocks when the structure library cannot be read", async () => {
+    // Silent data loss, the class of bug this codebase keeps re-learning: her
+    // rows exist and carry their own `role`, so a failed library lookup must
+    // cost her the skeleton's NAME and HINTS — never the sight of her own
+    // sentences.
+    routes = {
+      ...emptyRoutes({ stage: "outline", structureKey: "zh-argument-concession" }),
+      [key("GET", base("/outline"))]: {
+        body: { outline: [{ id: "o1", text: "我反对一刀切", role: "你的立场", depth: 0, position: 0 }] },
+      },
+    };
+    delete routes[key("GET", "/api/v1/writings/structures?lang=zh")];
+
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+
+    expect(await screen.findByDisplayValue("我反对一刀切")).toBeTruthy();
+    expect(screen.getByLabelText("你的立场")).toBeTruthy();
+  });
 });
 
 describe("the coach speaks first", () => {

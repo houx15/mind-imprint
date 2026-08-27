@@ -124,10 +124,21 @@ export function StructureStage({
         />
       )}
 
-      {structureKey && chosen && (
+      {/*
+        Gated on the OUTLINE, never on the library lookup. `chosen` can be null
+        for reasons that have nothing to do with her — the library fetch failed,
+        or she is on a skeleton that was later retired — and if this were gated
+        on `chosen`, every block she has written would silently vanish from the
+        page while still sitting in the database. Her rows carry their own
+        `role`, so they render perfectly well on their own; the skeleton only
+        contributes a name and the per-block hints, and both degrade to
+        nothing.
+      */}
+      {outline.length > 0 && (
         <ChosenBlocks
           writingId={writingId}
-          structure={chosen}
+          structureName={chosen?.name ?? ""}
+          hints={chosen?.blocks.map((b) => b.hint) ?? []}
           outline={outline}
           onOutlineChange={onOutlineChange}
         />
@@ -306,12 +317,15 @@ function StructureShelf({
  */
 function ChosenBlocks({
   writingId,
-  structure,
+  structureName,
+  hints,
   outline,
   onOutlineChange,
 }: {
   writingId: string;
-  structure: WritingStructure;
+  /** Empty when the library could not be read — the blocks still render. */
+  structureName: string;
+  hints: string[];
   outline: WritingOutlineItem[];
   onOutlineChange: (next: WritingOutlineItem[]) => void;
 }) {
@@ -345,7 +359,7 @@ function ChosenBlocks({
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-mk-label text-mk-faint">
-          正在用《{structure.name}》· 每一块写一句你自己的要点就够了
+          {structureName ? `正在用《${structureName}》· ` : ""}每一块写一句你自己的要点就够了
         </span>
         {dirty && (
           <Button size="sm" variant="secondary" onClick={() => void saveAll()} loading={saving}>
@@ -356,7 +370,7 @@ function ChosenBlocks({
 
       <div className="flex flex-col gap-2.5">
         {ordered.map((item, i) => {
-          const hint = structure.blocks[i]?.hint ?? "";
+          const hint = hints[i] ?? "";
           return (
             <div key={item.id} className="flex flex-col gap-1.5 rounded-mk-md border border-mk-border bg-mk-surface p-3.5">
               <div className="flex items-baseline gap-2">
