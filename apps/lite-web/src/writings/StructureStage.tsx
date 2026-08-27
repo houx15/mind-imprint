@@ -449,8 +449,13 @@ function BlockRow({
 
   return (
     <div className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-3.5">
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+      {/* The label+hint column takes the remaining width (min-w-0 so it can
+          actually shrink) and the button is pinned right. Letting the whole
+          row wrap dropped 「想不出来？」 onto its own line on exactly the blocks
+          with the longest hints — the ones where she is most likely to want
+          it. */}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-2 gap-y-1">
           <span
             className="shrink-0 rounded-mk-xs px-1.5 py-0.5 text-mk-label font-semibold"
             style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
@@ -459,15 +464,17 @@ function BlockRow({
           </span>
           {hint && <span className="text-mk-small text-mk-muted">{hint}</span>}
         </div>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => void ask()}
-          loading={guiding}
-          iconStart={<Icon icon={HelpCircle} size={13} />}
-        >
-          想不出来？
-        </Button>
+        <span className="shrink-0">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => void ask()}
+            loading={guiding}
+            iconStart={<Icon icon={HelpCircle} size={13} />}
+          >
+            想不出来？
+          </Button>
+        </span>
       </div>
 
       {guide && <GuideBox guide={guide} onDismiss={() => setGuide(null)} />}
