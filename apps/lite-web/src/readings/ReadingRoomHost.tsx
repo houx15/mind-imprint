@@ -17,6 +17,9 @@ import { isFinished as isFinishedReading, shortDay } from "./ReadingHistoryPanel
 import {
   createReadingRoomApi,
   getReadingBrief,
+  getReadingPlan,
+  listReadingBlockNotes,
+  listReadingBlockTools,
   listReadingAnnotations,
   listReadingCards,
   listReadingMessages,
@@ -25,7 +28,12 @@ import {
   type LiteBrief,
   type LiteCard,
   type LiteMessage,
+  type ReadingBlockNote,
+  type ReadingBlockTool,
+  type ReadingPlan,
 } from "../api/readingRoom";
+import { ReadingPlanPanel } from "./ReadingPlanPanel";
+import { BlockToolsPanel } from "./BlockToolsPanel";
 import { liteRoutePath, navigate } from "../routing";
 
 /**
@@ -71,6 +79,13 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [aiError, setAiError] = useState<string | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
+  // 任务清单 + 段落工具 (0101). Kept OUT of LoadState on purpose: all three
+  // degrade to nothing, and a failure to load any of them must not keep her
+  // out of the room — the article is the point, these are the scaffolding.
+  const [plan, setPlan] = useState<ReadingPlan | null>(null);
+  const [blockTools, setBlockTools] = useState<ReadingBlockTool[]>([]);
+  const [blockNotes, setBlockNotes] = useState<ReadingBlockNote[]>([]);
+  const [openBlock, setOpenBlock] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -107,13 +122,21 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // The rest is decoration around the article — a failure on any of it
         // must not keep her out of the room, so each degrades to its empty
         // value rather than failing the load.
-        const [brief, annotations, messages, cards] = await Promise.all([
+        const [brief, annotations, messages, cards, loadedPlan, tools, notes] = await Promise.all([
           getReadingBrief(readingId).catch(() => EMPTY_BRIEF),
           listReadingAnnotations(readingId).catch(() => [] as LiteAnnotation[]),
           listReadingMessages(readingId).catch(() => [] as LiteMessage[]),
           listReadingCards(readingId).catch(() => [] as LiteCard[]),
+          getReadingPlan(readingId).catch(() => null),
+          listReadingBlockTools(readingId).catch(() => ({ lang: "zh", tools: [] as ReadingBlockTool[] })),
+          listReadingBlockNotes(readingId).catch(() => [] as ReadingBlockNote[]),
         ]);
-        if (!cancelled) setState({ phase: "ready", reading, source, brief, annotations, messages, cards });
+        if (!cancelled) {
+          setPlan(loadedPlan);
+          setBlockTools(tools.tools);
+          setBlockNotes(notes);
+          setState({ phase: "ready", reading, source, brief, annotations, messages, cards });
+        }
       } catch (err) {
         if (cancelled) return;
         setState({
@@ -174,8 +197,24 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     );
   }
 
+  /**
+   * Scroll the article to a paragraph 印记 singled out.
+   *
+   * Reaches for the DOM rather than a prop because `data-block-id` is already
+   * on every paragraph (Annotate renders it, and ReadingRoom's own
+   * `locateBlock` uses exactly this) — threading a second imperative handle
+   * out of the room would be a bigger change to a shared component than the
+   * one behaviour needs.
+   */
+  const focusBlock = (blockId: string) => {
+    document
+      .querySelector(`[data-block-id="${blockId}"]`)
+      ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    setOpenBlock(blockId);
+  };
+
   return (
-    <div className="relative h-full">
+    <div className="relative flex h-full">
       {aiError && (
         <div
           role="alert"
@@ -188,11 +227,64 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
           </button>
         </div>
       )}
+
+      {/* 任务清单 (0101). A rail BESIDE the room, not inside it: the room is
+          pro's component and stays untouched, and a student who wants to just
+          read can collapse this away entirely. It is a map, never a gate. */}
+      <aside className="mk-scroll hidden w-[300px] shrink-0 overflow-y-auto border-r border-mk-border bg-mk-paper p-4 lg:block">
+        <ReadingPlanPanel readingId={readingId} plan={plan} onPlan={setPlan} onFocusBlock={focusBlock} />
+      </aside>
+
+      <div className="min-w-0 flex-1">
+
       <ReadingRoom
         // A lite reading has no project and no reference row — the atom id is
         // the only addressing unit, and the api object ignores both anyway.
         projectId={readingId}
         referenceId={readingId}
+        // 段落工具 (0101). Hung under each paragraph through ReadingRoom's own
+        // optional seam rather than by forking the room: pro passes nothing
+        // and renders exactly what it renders today.
+        //
+        // A small button rather than a click on the paragraph itself, because
+        // clicking a paragraph ALREADY means "quote this one" in this room —
+        // overloading that gesture would break a working one to add a new one.
+        renderBlockAside={(blockId) => {
+          if (blockTools.length === 0) return null;
+          if (openBlock !== blockId) {
+            const opened = blockNotes.filter((n) => n.blockId === blockId).length;
+            return (
+              <div className="mt-1.5">
+                <button
+                  type="button"
+                  onClick={() => setOpenBlock(blockId)}
+                  className="flex items-center gap-1 rounded-mk-xs px-1.5 py-0.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                >
+                  拆开这一段
+                  {opened > 0 && <span className="text-mk-label text-mk-accent-700">· {opened}</span>}
+                </button>
+              </div>
+            );
+          }
+          return (
+            <div className="mt-2">
+              <BlockToolsPanel
+                readingId={readingId}
+                blockId={blockId}
+                blockText={state.source.blocks.find((b) => b.id === blockId)?.text ?? ""}
+                tools={blockTools}
+                notes={blockNotes}
+                onNote={(note) =>
+                  setBlockNotes((prev) => [
+                    ...prev.filter((n) => !(n.blockId === note.blockId && n.tool === note.tool)),
+                    note,
+                  ])
+                }
+                onClose={() => setOpenBlock(null)}
+              />
+            </div>
+          );
+        }}
         source={source!}
         phaseTag={(state.brief.phaseTag as PhaseTag | null) ?? null}
         readingReason={state.brief.readingReason}
@@ -204,6 +296,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         capabilities={LITE_READING_CAPABILITIES}
       />
+      </div>
     </div>
   );
 }

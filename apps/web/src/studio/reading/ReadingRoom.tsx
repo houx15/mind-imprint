@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Anchor, AnnotateState, MaterialSource, ReadingBrief, Reference, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
 import { PhaseTag } from "@mind-imprint/contracts";
 import { EvidenceNote } from "@/workspace/blocks/exploration/ExplorationSidebar";
@@ -147,6 +147,14 @@ export type ReadingRoomProps = {
   // instead of being assumed present. Absent → PRO_CAPABILITIES, so every
   // existing call site keeps today's behaviour unchanged.
   capabilities?: RoomCapabilities;
+  // Extra content hung under one paragraph, composed with (never replacing)
+  // the room's own hanging card. The lite edition uses it for the
+  // per-paragraph tools — 翻译 / 关键单词 / 语法 / 写作解析 — which are the
+  // step BELOW reading a whole article through a lens.
+  //
+  // Optional and additive: a caller that passes nothing renders exactly what
+  // it renders today, which is why pro is untouched by this.
+  renderBlockAside?: (blockId: string) => ReactNode;
 };
 
 // Starter prompts adapted to OUR reading deck (source-checking + deep
@@ -198,6 +206,7 @@ export function ReadingRoom({
   initialOutcomes,
   demoMode = false,
   capabilities,
+  renderBlockAside,
 }: ReadingRoomProps) {
   const caps = capabilities ?? PRO_CAPABILITIES;
   const loop = useReadingLoop(projectId, source, api, initialMessages, initialOutcomes);
@@ -855,20 +864,31 @@ export function ReadingRoom({
                   onReferenceSelection={loop.status === "idle" ? addSelection : undefined}
                   referencedBlockIds={refs}
                   renderAfterBlock={(blockId) => {
-                    if (!card || cardBlockId !== blockId) return null;
+                    // Composed, not either/or: a paragraph can carry the
+                    // hanging card AND the lite edition's paragraph tools at
+                    // the same time, and neither may hide the other.
+                    const hanging =
+                      card && cardBlockId === blockId ? (
+                        <HangingCard
+                          cardName={card.cardName}
+                          status={card.status}
+                          exampleWhy={card.exampleWhy}
+                          eval={card.eval}
+                          onStartPick={card.onStartPick}
+                          onConfirm={card.onConfirm}
+                          onRepick={card.onRepick}
+                          onSkip={card.onSkip}
+                          hasExample={card.hasExample}
+                          pickHint={card.pickHint}
+                        />
+                      ) : null;
+                    const aside = renderBlockAside?.(blockId) ?? null;
+                    if (!hanging && !aside) return null;
                     return (
-                      <HangingCard
-                        cardName={card.cardName}
-                        status={card.status}
-                        exampleWhy={card.exampleWhy}
-                        eval={card.eval}
-                        onStartPick={card.onStartPick}
-                        onConfirm={card.onConfirm}
-                        onRepick={card.onRepick}
-                        onSkip={card.onSkip}
-                        hasExample={card.hasExample}
-                        pickHint={card.pickHint}
-                      />
+                      <>
+                        {hanging}
+                        {aside}
+                      </>
                     );
                   }}
                 />

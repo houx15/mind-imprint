@@ -311,6 +311,97 @@ function studentAnchorOf(c: LiteCard): Anchor | undefined {
   return c.anchors?.find((a) => a.author === "student");
 }
 
+// ---------------------------------------------------------------------------
+// 任务清单 + 段落工具 (0101)
+//
+// The step BELOW the lens. A lite student has to be able to read a paragraph
+// before "read it through a lens" means anything, so the room now offers
+// per-paragraph explainers and a task list that says what to do in what order.
+// ---------------------------------------------------------------------------
+
+export type ReadingTask = {
+  id: string;
+  position: number;
+  /** 'read' | 'focus_block' | 'lens' | 'reflect' | 'quiz' — what the step
+   *  renders as. Adding a kind is a code change; adding a ROUTINE is not. */
+  kind: string;
+  label: string;
+  detail: string;
+  /** Only 'focus_block' carries one: the paragraph 印记 picked out. */
+  blockId: string;
+  status: "pending" | "done" | "skipped";
+  completedAt: string | null;
+};
+
+export type ReadingPlan = { routineKey: string; routineName: string; tasks: ReadingTask[] };
+
+/** The plan as it stands. An empty task list is the honest "not planned yet"
+ *  answer, not an error. */
+export async function getReadingPlan(id: string): Promise<ReadingPlan> {
+  const raw = await apiFetch<ReadingPlan>(`/api/v1/readings/${encodeURIComponent(id)}/plan`);
+  return { routineKey: raw.routineKey ?? "", routineName: raw.routineName ?? "", tasks: raw.tasks ?? [] };
+}
+
+/**
+ * Ask 印记 to lay out a reading plan for this article. One model call.
+ *
+ * REPLACES any existing plan — which is what makes 重新排一份 possible. The old
+ * statuses go with it, and that is right: a new plan is a new set of steps,
+ * not the old ones renumbered.
+ */
+export async function generateReadingPlan(id: string): Promise<ReadingPlan> {
+  const raw = await apiFetch<ReadingPlan>(`/api/v1/readings/${encodeURIComponent(id)}/plan`, { method: "POST" });
+  return { routineKey: raw.routineKey ?? "", routineName: raw.routineName ?? "", tasks: raw.tasks ?? [] };
+}
+
+/** 铁律②: 'skipped' is a real outcome, recorded rather than prevented. */
+export async function setReadingTaskStatus(
+  id: string,
+  taskId: string,
+  status: "pending" | "done" | "skipped",
+): Promise<ReadingTask> {
+  return apiFetch<ReadingTask>(
+    `/api/v1/readings/${encodeURIComponent(id)}/plan/tasks/${encodeURIComponent(taskId)}`,
+    { method: "POST", body: JSON.stringify({ status }) },
+  );
+}
+
+export type ReadingBlockTool = { id: string; label: string };
+
+/** Which tools exist depends on the ARTICLE's language. Fetched rather than
+ *  hardcoded so the buttons she sees and the ids the server accepts cannot
+ *  drift apart. */
+export async function listReadingBlockTools(id: string): Promise<{ lang: string; tools: ReadingBlockTool[] }> {
+  const raw = await apiFetch<{ lang: string; tools: ReadingBlockTool[] }>(
+    `/api/v1/readings/${encodeURIComponent(id)}/blocks/tools`,
+  );
+  return { lang: raw.lang ?? "zh", tools: raw.tools ?? [] };
+}
+
+export type ReadingBlockNote = { blockId: string; tool: string; body: string };
+
+/** Everything she has already opened, so a reload restores it instead of
+ *  making her pay for it twice. */
+export async function listReadingBlockNotes(id: string): Promise<ReadingBlockNote[]> {
+  const raw = await apiFetch<{ notes: ReadingBlockNote[] }>(
+    `/api/v1/readings/${encodeURIComponent(id)}/blocks/notes`,
+  );
+  return raw.notes ?? [];
+}
+
+/** Explain ONE paragraph with ONE tool. Cached server-side by (blockId, tool),
+ *  so a second call is instant and free. */
+export async function explainReadingBlock(
+  id: string,
+  blockId: string,
+  tool: string,
+): Promise<ReadingBlockNote & { cached: boolean }> {
+  return apiFetch<ReadingBlockNote & { cached: boolean }>(
+    `/api/v1/readings/${encodeURIComponent(id)}/blocks/${encodeURIComponent(blockId)}/explain`,
+    { method: "POST", body: JSON.stringify({ tool }) },
+  );
+}
+
 export function toReadingOutcomes(cards: LiteCard[]): ReadingOutcome[] {
   const out: ReadingOutcome[] = [];
   for (const c of cards) {
