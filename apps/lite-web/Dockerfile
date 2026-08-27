@@ -50,6 +50,11 @@ COPY apps/lite-web apps/lite-web
 # would mean same-origin.
 ARG VITE_API_BASE_URL=https://mind-api.uni-robot.cn
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
+# The mirror of apps/web/Dockerfile's VITE_LITE_APP_URL: where to send a
+# student whose school is on the FULL edition but who signed in here.
+ARG VITE_PRO_APP_URL=https://mind-web.uni-robot.cn
+ENV VITE_PRO_APP_URL=$VITE_PRO_APP_URL
 RUN pnpm --filter @mind-imprint/lite-web build
 
 # ---- runtime: static nginx serving the built bundle ----

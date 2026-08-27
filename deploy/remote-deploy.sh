@@ -8,11 +8,16 @@
 # bundle builds with an EMPTY VITE_API_BASE_URL and login 405s — can never be
 # forgotten again.
 #
-# Usage (on server):  bash -s -- <web|api|full> [git-ref]
+# Usage (on server):  bash -s -- <web|api|lite|full> [git-ref]
 #   web   rebuild + restart the web container only (fast; no DB touch)
+#   lite  rebuild + restart the lite-web container only (fast; no DB touch)
 #   api   backup DB → migrate+seed → rebuild + restart the api container
-#   full  api steps, then web
+#   full  api steps, then web, then lite
 # git-ref defaults to origin/main.
+#
+# `full` deploys BOTH frontends. They are built from one source tree and talk
+# to one API, so shipping only half of a change that touches shared components
+# is how the two editions drift apart.
 set -uo pipefail
 
 # NOTE: this script is delivered to the server via `ssh 'bash -s' < this-file`,
@@ -22,7 +27,7 @@ set -uo pipefail
 
 MODE="${1:-}"
 REF="${2:-origin/main}"
-case "$MODE" in web|api|full) ;; *) echo "usage: bash -s -- <web|api|full> [git-ref]"; exit 2;; esac
+case "$MODE" in web|api|lite|full) ;; *) echo "usage: bash -s -- <web|api|lite|full> [git-ref]"; exit 2;; esac
 
 REPO=~/mind-imprint
 COMPOSE=(docker compose --env-file deploy/.env.prod -f deploy/docker-compose.prod.yml)
@@ -92,10 +97,28 @@ deploy_web() {
   fi
 }
 
+deploy_lite() {
+  step "rebuild + restart lite-web (WITH --env-file so VITE_API_BASE_URL is baked in)"
+  "${COMPOSE[@]}" up -d --build lite-web || fail "lite-web up"
+
+  step "verify built lite bundle embeds the absolute API host (in-container, deterministic)"
+  # Same reasoning as deploy_web: read the artifact from the container, not
+  # over the network, so a restart race cannot fail a healthy deploy.
+  local hits
+  hits=$("${COMPOSE[@]}" exec -T lite-web sh -c "grep -rl '$API_HOST' /usr/share/nginx/html/assets/ 2>/dev/null | head -3" < /dev/null)
+  if [ -n "$hits" ]; then
+    echo "OK lite bundle embeds $API_HOST:"
+    echo "$hits" | sed 's/^/    /'
+  else
+    fail "built lite bundle does NOT embed $API_HOST — VITE_API_BASE_URL was empty. Check deploy/.env.prod + --env-file."
+  fi
+}
+
 case "$MODE" in
   api)  deploy_api ;;
   web)  deploy_web ;;
-  full) deploy_api; deploy_web ;;
+  lite) deploy_lite ;;
+  full) deploy_api; deploy_web; deploy_lite ;;
 esac
 
 # Reclaim disk from the build we just superseded: `compose build` retags

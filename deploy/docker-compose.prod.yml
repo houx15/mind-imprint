@@ -6,7 +6,9 @@
 # Topology (see docs/deploy/README.md):
 #   host nginx (TLS, certbot)
 #     ├── mind-api.uni-robot.cn  → 127.0.0.1:8090 → api container (Go, :8080)
-#     └── mind-web.uni-robot.cn  → 127.0.0.1:8091 → web container (nginx static)
+#     ├── mind-web.uni-robot.cn  → 127.0.0.1:8091 → web container (nginx static)
+#     └── mind-lite.uni-robot.cn → 127.0.0.1:8093 → lite-web container (静态)
+#   (8092 is the marketing site, deployed separately by .deploy-local/deploy-site.sh)
 #   db (postgres) is internal to the compose network — no published host port.
 #
 # Secrets come from deploy/.env.prod (git-ignored). Nothing secret lives here.
@@ -65,10 +67,32 @@ services:
       dockerfile: apps/web/Dockerfile
       args:
         VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        # Where a lite-edition student who signed in here gets sent. The
+        # Dockerfile already defaults this to the production host, so a
+        # missing entry in .env.prod degrades to the right value rather than
+        # to an empty string.
+        VITE_LITE_APP_URL: ${VITE_LITE_APP_URL:-https://mind-lite.uni-robot.cn}
     image: mindimprint-web:latest
     restart: unless-stopped
     ports:
       - "127.0.0.1:8091:80"
+
+  # The LITE edition's frontend. A separate bundle and a separate host, but the
+  # same API and the same session: the cookie is host-only on mind-api and
+  # same-site for every *.uni-robot.cn origin, so a student who signs in on
+  # either frontend is signed in on both. Which one they belong in is decided
+  # by schools.edition — see shell/edition/editionRouting.ts.
+  lite-web:
+    build:
+      context: ..
+      dockerfile: apps/lite-web/Dockerfile
+      args:
+        VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+        VITE_PRO_APP_URL: ${VITE_PRO_APP_URL:-https://mind-web.uni-robot.cn}
+    image: mindimprint-lite-web:latest
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8093:80"
 
 volumes:
   pgdata:

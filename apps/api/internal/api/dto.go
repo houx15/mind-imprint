@@ -40,6 +40,13 @@ func decodeJSON(r *http.Request, v any) error {
 type meSchoolDTO struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
+	// Edition is which product the school bought ('pro' | 'lite'). It travels
+	// on the signed-in user because it decides WHICH FRONTEND that user
+	// belongs in: each app checks this on boot and sends the student to the
+	// other host if they landed on the wrong one. An organisation fact, never
+	// a per-account one — see schools.edition (migration 0093) and
+	// requireEdition in authz.go, which gate the API side on the same value.
+	Edition string `json:"edition"`
 }
 
 type meClassDTO struct {
@@ -91,7 +98,7 @@ func (a *API) buildMeUser(ctx context.Context, u User) (meUserDTO, error) {
 		AvatarColor:    full.AvatarColor,
 		PageBackground: full.PageBackground,
 		OnboardedAt:    onboardedAt,
-		School:         meSchoolDTO{ID: school.ID.String(), Name: school.Name},
+		School:         meSchoolDTO{ID: school.ID.String(), Name: school.Name, Edition: school.Edition},
 		Classes:        classes,
 	}, nil
 }

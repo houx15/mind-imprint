@@ -10,7 +10,15 @@ export interface MeUser {
   avatar_color: string;
   page_background: string;
   onboarded_at: string | null;
-  school: { id: string; name: string };
+  // `edition` is which product the school bought ('pro' | 'lite'), and it is
+  // what each frontend checks on boot to see whether this student is standing
+  // in the right app — see shell/edition/editionRouting.ts.
+  //
+  // Optional on purpose. The API always sends it now, but a client can be
+  // talking to an older one mid-deploy, and the routing rule treats an
+  // unrecognised edition as "stay put" rather than ejecting a student from an
+  // app that was working for them.
+  school: { id: string; name: string; edition?: string };
   classes: { id: string; name: string; role_in_class: string }[];
 }
 

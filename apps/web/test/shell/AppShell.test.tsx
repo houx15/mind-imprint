@@ -101,3 +101,49 @@ describe("AppShell demo trial (?trial=1)", () => {
     expect(signin).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * The edition gate on the PRO side — the mirror of apps/lite-web's own test.
+ *
+ * This is the one behavioural change the lite edition makes to this app, so
+ * it is asserted in both directions: a lite student is sent away, and a pro
+ * student (every existing account — schools.edition defaults to 'pro') is
+ * left completely alone.
+ */
+describe("AppShell edition gate", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    window.history.replaceState({}, "", "/");
+  });
+
+  it("sends a lite-edition student to the lite app instead of showing them pro", async () => {
+    window.history.replaceState({}, "", "/");
+    vi.stubEnv("VITE_LITE_APP_URL", "https://mind-lite.uni-robot.cn");
+    const session = createSession({ storage: mem() });
+    const LITE_STUDENT = { ...ME, school: { id: "s1", name: "Demo", edition: "lite" } };
+    const client = { getMe: vi.fn(async () => LITE_STUDENT), signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn() };
+
+    render(<AppShell session={session} client={client as never} />);
+
+    // Addressed by NAME: the pro shell renders its own onboarding dialog, so
+    // a bare role="dialog" query would not distinguish the two.
+    const dialog = await screen.findByRole("dialog", { name: "版本不匹配" });
+    expect(dialog.textContent).toContain("轻量版");
+    // Never the pro shell in the meantime: every project/course route this
+    // student would hit answers 404 for them.
+    expect(screen.queryByText(/你好，Phoebe/)).toBeNull();
+  });
+
+  it("leaves a pro-edition student exactly where they are", async () => {
+    window.history.replaceState({}, "", "/");
+    vi.stubEnv("VITE_LITE_APP_URL", "https://mind-lite.uni-robot.cn");
+    const session = createSession({ storage: mem() });
+    const PRO_STUDENT = { ...ME, school: { id: "s1", name: "Demo", edition: "pro" } };
+    const client = { getMe: vi.fn(async () => PRO_STUDENT), signout: vi.fn(), listTasks: vi.fn(async () => []), createTask: vi.fn() };
+
+    render(<AppShell session={session} client={client as never} />);
+
+    await waitFor(() => expect(screen.getByText(/你好，Phoebe/)).toBeInTheDocument());
+    expect(screen.queryByRole("dialog", { name: "版本不匹配" })).toBeNull();
+  });
+});

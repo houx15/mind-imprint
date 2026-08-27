@@ -10,7 +10,12 @@
 
 export type LiteRoute =
   | { tab: "readings"; readingId?: string }
-  | { tab: "writings"; writingId?: string };
+  | { tab: "writings"; writingId?: string }
+  // 设置 is a route, not a rail tab: it is reached from the account button at
+  // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
+  // active tab. Keeping it in the same union is what lets Back leave settings
+  // and land exactly where the student was.
+  | { tab: "settings" };
 
 /** Parse a browser pathname into a lite route. Unknown paths fall back to the
  * readings tab (the lite shell's landing surface), so a stale or hand-typed
@@ -31,6 +36,8 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "readings", readingId: second } : { tab: "readings" };
     case "writings":
       return second ? { tab: "writings", writingId: second } : { tab: "writings" };
+    case "settings":
+      return { tab: "settings" };
     default:
       return { tab: "readings" };
   }
@@ -44,7 +51,14 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.readingId ? `/readings/${encodeSegment(route.readingId)}` : "/readings";
     case "writings":
       return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
+    case "settings":
+      return "/settings";
   }
+}
+
+/** The canonical path for the settings page. */
+export function settingsPath(): string {
+  return "/settings";
 }
 
 /** The canonical path for a single reading — used by the landing page after

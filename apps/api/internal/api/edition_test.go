@@ -2,6 +2,7 @@ package api_test
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -64,4 +65,65 @@ func TestEditionGate_ProSchoolKeepsProjects(t *testing.T) {
 	if rec.Code != http.StatusOK {
 		t.Fatalf("pro school GET /projects = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
+}
+
+// TestMeCarriesSchoolEdition — /auth/me must report which edition the
+// signed-in user's SCHOOL is on.
+//
+// This is load-bearing, not cosmetic: it is the only thing either frontend
+// can read to decide whether the student is standing in the right app. Both
+// apps show the same auth screen and share one session cookie across
+// *.uni-robot.cn, so after sign-in each one compares its own edition against
+// this field and sends the student to the other host when they differ. If
+// this field ever stops reflecting schools.edition, a lite student silently
+// lands in the pro app — where every lite route 404s and nothing works.
+//
+// Asserted in BOTH directions on purpose: a handler that hardcoded either
+// value would pass a one-sided test.
+func TestMeCarriesSchoolEdition(t *testing.T) {
+	t.Run("lite school reports lite", func(t *testing.T) {
+		h, cookie, _, _ := liteHandler(t)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/auth/me", nil), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("lite GET /auth/me = %d, want 200; body=%s", rec.Code, rec.Body)
+		}
+		if got := meEdition(t, rec.Body.Bytes()); got != "lite" {
+			t.Fatalf("lite school /auth/me edition = %q, want %q; body=%s", got, "lite", rec.Body)
+		}
+	})
+
+	t.Run("pro school reports pro", func(t *testing.T) {
+		pool := newAPITestPool(t)
+		h := New(Deps{
+			Queries: sqlc.New(pool), Pool: pool,
+			ChatResolver: fakeResolver(), EvalResolver: fakeEvalResolver(), SpecByID: cards.ByID,
+		}).Handler()
+		cookie := signInSeed(t, pool)
+		rec := httptest.NewRecorder()
+		h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/auth/me", nil), cookie))
+		if rec.Code != http.StatusOK {
+			t.Fatalf("pro GET /auth/me = %d, want 200; body=%s", rec.Code, rec.Body)
+		}
+		if got := meEdition(t, rec.Body.Bytes()); got != "pro" {
+			t.Fatalf("pro school /auth/me edition = %q, want %q; body=%s", got, "pro", rec.Body)
+		}
+	})
+}
+
+// meEdition digs school.edition out of a /auth/me body. Decoded rather than
+// substring-matched so a field nested under the wrong object cannot pass.
+func meEdition(t *testing.T, body []byte) string {
+	t.Helper()
+	var payload struct {
+		User struct {
+			School struct {
+				Edition string `json:"edition"`
+			} `json:"school"`
+		} `json:"user"`
+	}
+	if err := json.Unmarshal(body, &payload); err != nil {
+		t.Fatalf("decode /auth/me body: %v — %s", err, body)
+	}
+	return payload.User.School.Edition
 }

@@ -41,6 +41,13 @@ COPY apps/web apps/web
 # client prefixes /api/v1; an empty value would mean same-origin.
 ARG VITE_API_BASE_URL=https://mind-api.uni-robot.cn
 ENV VITE_API_BASE_URL=$VITE_API_BASE_URL
+
+# Where to send a student whose school is on the LITE edition but who signed
+# in here. The default is the real production host so this cannot be forgotten
+# at deploy time: without it, such a student is told they are in the wrong app
+# but cannot be sent to the right one (see shell/edition/editionRouting.ts).
+ARG VITE_LITE_APP_URL=https://mind-lite.uni-robot.cn
+ENV VITE_LITE_APP_URL=$VITE_LITE_APP_URL
 RUN pnpm --filter @mind-imprint/web build
 
 # ---- runtime: static nginx serving the built bundle ----

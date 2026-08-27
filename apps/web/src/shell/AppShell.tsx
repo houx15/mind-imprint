@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { createSession, useSession, type SessionStore } from "./session";
 import { api as defaultApi, type ApiClient, type MeUser } from "../api";
 import { AuthScreen } from "./auth/AuthScreen";
+import { resolveEditionDecision } from "./edition/editionRouting";
+import { EditionRedirectNotice } from "./edition/EditionRedirectNotice";
 import { StudentApp } from "./StudentApp";
 import { ConsoleShell } from "../console/ConsoleShell";
 
@@ -75,6 +77,20 @@ export function AppShell({
   }
   if (!sess.authed) {
     return <AuthScreen onAuthed={(u) => { session.setUser(u); session.setAuthed(true); }} />;
+  }
+
+  // A student whose SCHOOL is on the lite edition has landed on the wrong
+  // host: every route this app needs answers 404 for them (requireEdition,
+  // authz.go). Send them to the lite app, where the shared session cookie
+  // means they arrive already signed in.
+  //
+  // This changes nothing for pro students, who are every existing account:
+  // schools.edition defaults to 'pro', so the decision is "stay" and this
+  // branch never renders. It also stays "stay" when the field is missing
+  // entirely — see decideEdition.
+  const editionDecision = resolveEditionDecision("pro", session.getUser()?.school?.edition);
+  if (editionDecision.kind !== "stay") {
+    return <EditionRedirectNotice decision={editionDecision} appEdition="pro" />;
   }
 
   const onLogout = () => { void client.signout().finally(() => { session.setUser(null); session.setAuthed(false); }); };
