@@ -95,68 +95,48 @@ file. An install-everything run while adding a new host would have knocked
 `mind-api` and `mind-web` back to plain HTTP. It now installs only the hosts
 named on the command line and refuses to run with no arguments.
 
-## Open: TLS
+## TLS: resolved with an Aliyun certificate
 
-`certbot --nginx -d mind-lite.uni-robot.cn` failed three times. The first two
-reported:
+Let's Encrypt could not issue for this host. Certbot failed four times, in two
+forms — `During secondary validation: DNS problem: query timed out looking up
+A`, and once `DNSSEC: DNSKEY Missing: key for validation cn. is marked as
+invalid`.
 
-```
-During secondary validation: DNS problem: query timed out looking up A for
-mind-lite.uni-robot.cn
-```
+**The fault was on LE's side, not in this domain.** A staging dry run for the
+same host *succeeded*, which proves nginx, the A record, inbound reachability
+and the HTTP-01 challenge are all correct here. Production differs by
+validating from **several vantage points worldwide**; the non-China ones time
+out querying `dns13`/`dns14.hichina.com`. `uni-robot.cn` is itself unsigned
+(no DS, no DNSKEY), which is normal — the DNSSEC error variant is just LE
+failing to fetch `cn.`'s keys in order to prove that.
 
-and the third, more usefully:
+Note for anyone reaching for the usual advice: **a DNS-01 challenge does not
+help here.** It still requires LE to resolve a `_acme-challenge` TXT record
+through the same failing path. DNS-01 solves inbound-reachability problems,
+and this was not one.
 
-```
-DNS problem: looking up A for mind-lite.uni-robot.cn: DNSSEC: DNSKEY Missing:
-validation failure: key for validation cn. is marked as invalid because of a
-previous No DNSKEY record [exceeded the maximum number of sends]
-```
+The host therefore carries an **Aliyun-issued DV certificate** (DigiCert
+`Encryption Everywhere DV TLS CA - G2`, valid **2026-08-27 → 2026-11-24**),
+installed by `deploy/install-tls-cert.sh`. Verified from outside: HTTPS returns
+200 with a fully-verifying chain, and HTTP 301-redirects to it.
 
-**The failure is inside Let's Encrypt's resolver, at the `.cn` TLD — not in
-this domain's DNS.** `cn.` is DNSSEC-signed (DS at the root, DNSKEY served),
-`uni-robot.cn`'s own nameservers (`dns13`/`dns14.hichina.com`) both answer
-`47.93.151.131`, and so do Aliyun's and Google's public resolvers. LE's
-validator could not reach the `.cn` TLD servers to fetch their DNSKEY, and
-cached that failure. The same server holds LE certificates issued for
-`mind-web` in July and `mind.uni-robot.cn` nine days ago, so LE reaches this
-domain under normal conditions.
+### ⚠️ This certificate does not auto-renew
 
-A **staging dry run for the same host succeeded**
-(`certbot certonly --nginx --dry-run -d mind-lite.uni-robot.cn`). That proves
-our side end to end — nginx config, the A record, inbound reachability, the
-HTTP-01 challenge — and narrows the fault to LE *production*. The difference
-between them is that production validates from **multiple vantage points**
-worldwide while staging does not, and the recurring production error is
-`During secondary validation` — i.e. the non-primary perspectives, outside
-China, time out querying `dns13`/`dns14.hichina.com`.
+Roughly 90 days, and nothing renews it. Before **2026-11-24**:
 
-`uni-robot.cn` is itself **unsigned** (no DS, no DNSKEY), which is normal;
-the DNSSEC error variant is just LE failing to fetch `cn.`'s keys to prove
-that.
+1. Aliyun console → SSL 证书 → renew for `mind-lite.uni-robot.cn` → download,
+   choosing **Nginx** as the server type (gives `<host>.pem` + `<host>.key`).
+2. `scp` both to the server's home directory. They are secrets — never commit
+   them; `.deploy-local/` and `docs/reference/` are both git-ignored.
+3. `cd ~/mind-imprint && sudo bash deploy/install-tls-cert.sh mind-lite.uni-robot.cn`
 
-**This is a latent risk beyond lite.** The existing `mind-api` + `mind-web`
-certificate renews in ~57 days and will face the same multi-perspective
-validation. If LE's reachability to the `.cn` nameservers stays this flaky,
-that renewal can fail too — worth watching, or worth moving the whole
-deployment to an Aliyun-issued certificate.
+The script refuses a key that does not match the certificate or one that does
+not cover the host, warns on a leaf-only chain, installs the key `600`
+root-owned, reloads nginx, and deletes the staging copies.
 
-**Until a certificate exists the lite host is HTTP-only, and login cannot work
-at all** — the session cookie is set with `Secure`, so no browser will store
-it over plain HTTP.
-
-Options, in order:
-
-1. **Retry later.** This class of `.cn` resolver failure at LE clears on its
-   own, usually within hours. Space attempts out: LE allows 5 failed
-   validations per hostname per hour.
-2. **Try another ACME CA** (Buypass, ZeroSSL). The obstacle is one CA's
-   resolver, so a different one may simply succeed.
-3. **Issue the certificate from Aliyun** (free DV) and install it by hand. No
-   ACME validation is involved at all, which makes it immune to this failure —
-   at the cost of manual renewal.
-
-**A DNS-01 challenge does NOT help here**, contrary to the usual advice for
-validation trouble: DNS-01 still requires LE to resolve a `_acme-challenge`
-TXT record under the same `.cn` chain, through the same resolver that is
-failing. It solves inbound-reachability problems, and this is not one.
+**The same exposure applies to the certbot-managed hosts.** The
+`mind-api` + `mind-web` certificate renews in ~57 days through the same
+multi-perspective validation that just failed repeatedly. If LE's reach into
+`.cn` stays this unreliable, that renewal can fail too — which would take the
+main product down, not just lite. Moving those hosts to Aliyun certificates on
+a chosen schedule is safer than discovering it at expiry.
