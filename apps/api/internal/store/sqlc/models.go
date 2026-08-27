@@ -665,9 +665,43 @@ type VoiceTtsCache struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type Writing struct {
+	AtomID      uuid.UUID          `json:"atom_id"`
+	Title       string             `json:"title"`
+	Lang        string             `json:"lang"`
+	Stage       string             `json:"stage"`
+	TargetWords *int32             `json:"target_words"`
+	Status      string             `json:"status"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+}
+
+type WritingDraft struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	Body      string    `json:"body"`
+	UpdatedAt time.Time `json:"updated_at"`
+}
+
 type WritingFinish struct {
 	ID         uuid.UUID `json:"id"`
 	ProjectID  uuid.UUID `json:"project_id"`
 	DocKind    string    `json:"doc_kind"`
 	FinishedAt time.Time `json:"finished_at"`
+}
+
+type WritingOutline struct {
+	ID       uuid.UUID `json:"id"`
+	AtomID   uuid.UUID `json:"atom_id"`
+	Text     string    `json:"text"`
+	Depth    int32     `json:"depth"`
+	Position int32     `json:"position"`
+}
+
+type WritingSnippet struct {
+	ID        uuid.UUID   `json:"id"`
+	AtomID    uuid.UUID   `json:"atom_id"`
+	OutlineID pgtype.UUID `json:"outline_id"`
+	Position  int32       `json:"position"`
+	Text      string      `json:"text"`
+	UpdatedAt time.Time   `json:"updated_at"`
 }
