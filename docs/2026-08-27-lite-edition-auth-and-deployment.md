@@ -122,6 +122,25 @@ cached that failure. The same server holds LE certificates issued for
 `mind-web` in July and `mind.uni-robot.cn` nine days ago, so LE reaches this
 domain under normal conditions.
 
+A **staging dry run for the same host succeeded**
+(`certbot certonly --nginx --dry-run -d mind-lite.uni-robot.cn`). That proves
+our side end to end — nginx config, the A record, inbound reachability, the
+HTTP-01 challenge — and narrows the fault to LE *production*. The difference
+between them is that production validates from **multiple vantage points**
+worldwide while staging does not, and the recurring production error is
+`During secondary validation` — i.e. the non-primary perspectives, outside
+China, time out querying `dns13`/`dns14.hichina.com`.
+
+`uni-robot.cn` is itself **unsigned** (no DS, no DNSKEY), which is normal;
+the DNSSEC error variant is just LE failing to fetch `cn.`'s keys to prove
+that.
+
+**This is a latent risk beyond lite.** The existing `mind-api` + `mind-web`
+certificate renews in ~57 days and will face the same multi-perspective
+validation. If LE's reachability to the `.cn` nameservers stays this flaky,
+that renewal can fail too — worth watching, or worth moving the whole
+deployment to an Aliyun-issued certificate.
+
 **Until a certificate exists the lite host is HTTP-only, and login cannot work
 at all** — the session cookie is set with `Secure`, so no browser will store
 it over plain HTTP.
