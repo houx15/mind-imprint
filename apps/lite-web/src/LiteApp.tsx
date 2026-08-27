@@ -4,6 +4,8 @@ import { Icon, Pebble, type LucideIcon } from "@/ui";
 import { liteRoutePath, navigate, parseLiteRoute, type LiteRoute } from "./routing";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
+import { WritingsLanding } from "./writings/WritingsLanding";
+import { WritingRoomHost } from "./writings/WritingRoomHost";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -31,8 +33,11 @@ import { ReadingRoomHost } from "./readings/ReadingRoomHost";
  *
  * `/readings/:id` mounts `ReadingRoomHost` (Task 12), which mounts the REAL
  * `ReadingRoom` from apps/web under `LITE_READING_CAPABILITIES`.
- * 写作 is not built until P3 — its tab is an honest "写作即将上线" line, not a
- * fake composer.
+ * `/writings/:id` mounts `WritingRoomHost` (P3 Task 8) — writing has no
+ * analogous standalone pro room to host (`WritingBlock`/`WorkspaceContainer`
+ * are module-private and cannot mount independently — see the task brief's
+ * 复用边界), so the writing room is assembled fresh out of the standalone
+ * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
  */
 
 type LiteTab = LiteRoute["tab"];
@@ -48,14 +53,6 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 
 function tabPath(tab: LiteTab): string {
   return liteRoutePath(tab === "readings" ? { tab: "readings" } : { tab: "writings" });
-}
-
-function WritingsComingSoon() {
-  return (
-    <div className="flex h-full items-center justify-center p-8">
-      <p className="text-mk-body text-mk-muted">写作即将上线。</p>
-    </div>
-  );
 }
 
 export function LiteApp() {
@@ -126,7 +123,11 @@ export function LiteApp() {
 
       <main className="min-w-0 flex-1 overflow-y-auto">
         {route.tab === "writings" ? (
-          <WritingsComingSoon />
+          route.writingId ? (
+            <WritingRoomHost key={route.writingId} writingId={route.writingId} />
+          ) : (
+            <WritingsLanding />
+          )
         ) : route.readingId ? (
           <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (

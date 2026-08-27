@@ -10,7 +10,7 @@
 
 export type LiteRoute =
   | { tab: "readings"; readingId?: string }
-  | { tab: "writings" };
+  | { tab: "writings"; writingId?: string };
 
 /** Parse a browser pathname into a lite route. Unknown paths fall back to the
  * readings tab (the lite shell's landing surface), so a stale or hand-typed
@@ -30,7 +30,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
     case "readings":
       return second ? { tab: "readings", readingId: second } : { tab: "readings" };
     case "writings":
-      return { tab: "writings" };
+      return second ? { tab: "writings", writingId: second } : { tab: "writings" };
     default:
       return { tab: "readings" };
   }
@@ -43,7 +43,7 @@ export function liteRoutePath(route: LiteRoute): string {
     case "readings":
       return route.readingId ? `/readings/${encodeSegment(route.readingId)}` : "/readings";
     case "writings":
-      return "/writings";
+      return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
   }
 }
 
@@ -51,6 +51,12 @@ export function liteRoutePath(route: LiteRoute): string {
  * `createReading` to route into it, and by `parseLiteRoute`'s inverse. */
 export function readingPath(id: string): string {
   return `/readings/${encodeSegment(id)}`;
+}
+
+/** The canonical path for a single writing — used by the landing page after
+ * `createWriting` to route into it, and by `parseLiteRoute`'s inverse. */
+export function writingPath(id: string): string {
+  return `/writings/${encodeSegment(id)}`;
 }
 
 /** Push a new root-relative path onto the History stack and dispatch a
