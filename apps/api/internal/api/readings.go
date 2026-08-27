@@ -1,8 +1,10 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -54,69 +56,67 @@ func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt, lastActiv
 	return out
 }
 
-// loadOwnedReadingAtom parses {id} as an atom of kind 'reading' owned by the
+// loadOwnedAtom parses {id} as an atom of the given kind owned by the
 // caller. Every failure — malformed id, missing row, wrong kind, wrong owner —
-// is a flat 404, so atom existence is never leaked. Shared by Tasks 3-8.
+// is a flat 404, so atom existence is never leaked. Shared by every lite
+// handler whose body is genuinely kind-agnostic (Task 1.5 generalised this
+// from loadOwnedReadingAtom, which every ~20-route reading handler funnelled
+// through since Tasks 3-8).
 //
-// Every non-GET request against a *finished* reading is additionally refused
-// with 403 reading_finished (Task 17): 铁律④ makes the process record
+// Every non-GET request against an atom that is already *finished* is
+// additionally refused with the kind's own 403 (reading_finished /
+// writing_finished — see atomFinishedError): 铁律④ makes the process record
 // evidence a report is generated from, and a raw API call — or a tab that
-// had the room open before the reading finished — must not be able to keep
-// writing to it after Task 16's client-side read-only view says otherwise.
-// 403, not 404, because the reading genuinely exists and is hers; mirrors
+// had the room open before the atom finished — must not be able to keep
+// writing to it after the client-side read-only view says otherwise. 403,
+// not 404, because the atom genuinely exists and is hers; mirrors
 // loadOwnedProject's demo_readonly shape for the same reason that one does.
 //
-// This is every lite reading handler's sole authorization chokepoint (all
-// ~20 per-id routes funnel through it — see readings.go, reading_source.go,
-// reading_source_file.go, reading_notes.go, reading_cards.go, reading_turn.go,
-// reading_lens.go), so gating here covers every one of them at once. The one
-// deliberate exception is finish itself: POST /finish is idempotent by
-// design (calling it again after it already succeeded is a no-op returning
-// 200), so finishReading calls the ungated sibling below directly instead of
-// this wrapper.
+// Callers pass an explicit, literal kind at the mux ("reading" / "writing")
+// — never derive it by sniffing r.URL.Path. A future route rename would
+// otherwise silently break authorization, and an authorization check that
+// fails open is the worst kind of bug.
 //
-// Being that single chokepoint is also why last_activity_at (0098) is bumped
-// HERE rather than at each write. Every non-GET on a still-open reading is,
-// by definition, her doing something to it — a turn, a card transition, the
-// article, a margin note, her 收获 — so one bump at the one door covers all
-// of them and, unlike a per-handler call, cannot be forgotten by the next
-// endpoint someone adds. (reading.updated_at, which only rename and finish
-// ever wrote, is exactly what forgetting looks like.)
-func (a *API) loadOwnedReadingAtom(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
-	at, ok := a.loadOwnedReadingAtomRow(w, r)
+// Being the single chokepoint is also why last_activity_at (0098) is bumped
+// HERE rather than at each write. Every non-GET on a still-open atom is, by
+// definition, her doing something to it — a turn, a card transition, a
+// margin note — so one bump at the one door covers all of them and, unlike a
+// per-handler call, cannot be forgotten by the next endpoint someone adds.
+func (a *API) loadOwnedAtom(w http.ResponseWriter, r *http.Request, kind string) (sqlc.Atom, bool) {
+	at, ok := a.loadOwnedAtomRow(w, r, kind)
 	if !ok {
 		return sqlc.Atom{}, false
 	}
 	if r.Method != http.MethodGet {
-		rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
+		finished, err := a.atomIsFinished(r.Context(), at.ID, kind)
 		if err != nil {
 			httpx.WriteError(w, r, err)
 			return sqlc.Atom{}, false
 		}
-		if rd.Status == "finished" {
-			httpx.WriteError(w, r, httpx.ErrReadingFinished())
+		if finished {
+			httpx.WriteError(w, r, atomFinishedError(kind))
 			return sqlc.Atom{}, false
 		}
 		// AFTER the finished gate: a refused write is not activity.
 		// Best-effort — an activity timestamp must never be the reason a
 		// student's actual work fails. The returned row replaces `at` so a
-		// handler that answers with a readingDTO reports the fresh value
-		// rather than one write's worth of stale.
+		// handler that answers with a DTO reports the fresh value rather
+		// than one write's worth of stale.
 		if touched, terr := a.d.Queries.TouchAtom(r.Context(), at.ID); terr == nil {
 			at = touched
 		} else {
-			slog.Warn("lite reading: touch last_activity_at failed",
-				"err", terr, "atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			slog.Warn("lite atom: touch last_activity_at failed",
+				"err", terr, "atom_id", at.ID, "kind", kind, "request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 	}
 	return at, true
 }
 
-// loadOwnedReadingAtomRow is loadOwnedReadingAtom's ungated sibling: same
+// loadOwnedAtomRow is loadOwnedAtom's ungated sibling: same
 // existence/ownership/kind checks (still a flat 404 on any failure), but
-// applies no finished-reading write gate. finishReading uses this directly
-// so a second POST /finish stays callable after the first one succeeded.
-func (a *API) loadOwnedReadingAtomRow(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
+// applies no finished-atom write gate. finishReading uses this directly so a
+// second POST /finish stays callable after the first one succeeded.
+func (a *API) loadOwnedAtomRow(w http.ResponseWriter, r *http.Request, kind string) (sqlc.Atom, bool) {
 	u, _ := UserFromContext(r.Context())
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -128,11 +128,64 @@ func (a *API) loadOwnedReadingAtomRow(w http.ResponseWriter, r *http.Request) (s
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404
 		return sqlc.Atom{}, false
 	}
-	if at.Kind != "reading" || at.UserID != u.ID {
+	if at.Kind != kind || at.UserID != u.ID {
 		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
 		return sqlc.Atom{}, false
 	}
 	return at, true
+}
+
+// atomIsFinished answers "is this atom already finished?" per kind. Each
+// lite kind owns its own table and its own 'active'|'finished' status column
+// (reading.status; writing.status, added alongside the writing table in
+// commit c0ce1d46) — there is no shared status column on atom itself, so this
+// is a small per-kind dispatch rather than one query.
+func (a *API) atomIsFinished(ctx context.Context, atomID uuid.UUID, kind string) (bool, error) {
+	switch kind {
+	case "reading":
+		rd, err := a.d.Queries.GetReading(ctx, atomID)
+		if err != nil {
+			return false, err
+		}
+		return rd.Status == "finished", nil
+	case "writing":
+		wr, err := a.d.Queries.GetWriting(ctx, atomID)
+		if err != nil {
+			return false, err
+		}
+		return wr.Status == "finished", nil
+	default:
+		return false, fmt.Errorf("atomIsFinished: no finished-gate wired for kind %q", kind)
+	}
+}
+
+// atomFinishedError returns the kind-appropriate 403 for a write attempt
+// against an atom that is already finished. Mirrors ErrReadingFinished's
+// shape exactly (see httpx/errors.go) — same 403, a distinct stable code per
+// kind so a client can react to "this is a writing, not a reading" without
+// parsing the message.
+func atomFinishedError(kind string) error {
+	if kind == "writing" {
+		return httpx.ErrWritingFinished()
+	}
+	return httpx.ErrReadingFinished()
+}
+
+// loadOwnedReadingAtom is loadOwnedAtom curried to "reading". Kept as a thin
+// wrapper (rather than updating every call site to pass the kind) so this
+// refactor's blast radius stays inside the loader itself: ~20 existing
+// reading call sites (readings.go, reading_source.go, reading_source_file.go,
+// reading_notes.go's brief/takeaway handlers, reading_lens.go's liteSummonCard)
+// need no edit.
+func (a *API) loadOwnedReadingAtom(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
+	return a.loadOwnedAtom(w, r, "reading")
+}
+
+// loadOwnedReadingAtomRow is loadOwnedReadingAtom's ungated sibling, curried
+// to "reading" for the same reason. finishReading uses this directly so a
+// second POST /finish stays callable after the first one succeeded.
+func (a *API) loadOwnedReadingAtomRow(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
+	return a.loadOwnedAtomRow(w, r, "reading")
 }
 
 // hasSource reports whether the article body has been pasted yet. A missing

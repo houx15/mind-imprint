@@ -82,6 +82,16 @@ func detachedModelCtx(r *http.Request) (context.Context, context.CancelFunc) {
 // liteSummonCard mints the card the student chose from the lens library.
 // Deliberately never consults the router: she already decided, and asking a
 // model whether she may is both slower and a small insult.
+//
+// NOT curried by kind (Task 1.5), on purpose: unlike the eight handlers below
+// that only touch atom_card, this one reaches directly into
+// GetReadingSource — the reading-only article table — to find something to
+// hang the lens on, and its whole shape (blocks-of-an-article) is reading's,
+// not a generic atom concept. A writing room summons a lens over an outline
+// or a draft snippet, not an article body, so forcing this handler through a
+// `kind string` parameter would either lie about supporting writing or grow
+// a kind-switch inside the body — worse than an honest reading-only handler.
+// Writing's own summon endpoint is a later task's to write.
 func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
@@ -236,91 +246,100 @@ func liteSummonDecline(w http.ResponseWriter, reply string) {
 	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{Reply: reply, Decision: "respond"})
 }
 
-// liteEvaluateCardSelection judges the sentence the student picked against the
-// open card's lens. Mirrors evaluateProjectCard (readeval.go) — same
+// liteEvaluateCardSelectionFor judges the sentence the student picked against
+// the open card's lens. Mirrors evaluateProjectCard (readeval.go) — same
 // agent.EvaluateSelection call, same flagship resolver (never downgraded), same
 // "this endpoint never flips status" rule — with the atom substrate underneath
 // and the review persisted on the card row instead of card_instances.
-func (a *API) liteEvaluateCardSelection(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
-	}
-	card, ok := a.loadOwnedAtomCard(w, r, at.ID)
-	if !ok {
-		return
-	}
-	u, _ := UserFromContext(r.Context())
-	// Entitlement before the model call — this spends a flagship-tier call.
-	entitled, err := HasEntitlement(r.Context(), u)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if !entitled {
-		httpx.WriteError(w, r, httpx.ErrNotEntitled())
-		return
-	}
-	if cardIsTerminal(card.Status) {
-		httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再复核选句。"))
-		return
-	}
-
-	var body evaluateSelectionReq
-	if err := decodeJSON(r, &body); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if strings.TrimSpace(body.Quote) == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_quote", "先在文章里选一句话。", nil))
-		return
-	}
-
-	dimension := body.Dimension
-	if dimension == "" {
-		dimension = card.CardID
-	}
-	studentSpan := agent.Anchor{
-		ID: "sel0", MaterialID: at.ID.String(), BlockID: body.BlockID,
-		Start: body.Start, End: body.End, Quote: body.Quote,
-		Dimension: dimension, Author: "student",
-	}
-	spec, _ := cards.ByID(card.CardID)
-
-	// THE most abandonable call in the product — 45–62 seconds with nothing on
-	// screen but the sentence she picked. Detached, so a refresh at second 50
-	// still leaves the metering row and her review behind. See detachedModelCtx.
-	evalCtx, cancelEval := detachedModelCtx(r)
-	defer cancelEval()
-
-	eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.d.EvalResolver, spec, dimension, studentSpan)
-	a.recordLiteLLMCall(evalCtx, u.ID, at.ID, "read_eval", resolved, usage)
-
-	dto := toSelectionEvalDTO(eval)
-	// 过程即数据 — the AI's judgment of her pick is recorded, not just returned.
-	// A persistence failure only warns: she already has her review on screen,
-	// and losing it to a transient DB error would be the worse outcome.
-	//
-	// dto.Degraded rides along: agent.EvaluateSelection NEVER returns an error
-	// — it degrades internally to fallbackEval's canned, deliberately generic
-	// text ("你选了这句作为证据。") on a resolver failure, a provider failure,
-	// or an unparseable reply. That text is not her finding and not the AI's
-	// reading of her sentence; the known MaxTokens truncation makes it a
-	// COMMON path, not a rare one. Persisting it unmarked would let a P2
-	// report count a canned sentence as her own work (铁律①/④), so the flag
-	// travels with the payload and a report can exclude it.
-	if frameworkJSON, merr := json.Marshal(dto); merr == nil {
-		if _, serr := a.d.Queries.SetAtomCardFramework(evalCtx, sqlc.SetAtomCardFrameworkParams{
-			ID: card.ID, FrameworkFill: frameworkJSON,
-		}); serr != nil {
-			slog.Warn("lite evaluate selection: persist framework failed",
-				"err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+//
+// Curried by kind (Task 1.5) — see reading_cards.go's liteListCardsFor:
+// everything below reads/writes only atom_card, never a reading-specific
+// table, so the same handler serves both editions' card loops. The metering
+// purpose string stays "read_eval" — reading is the only kind wired to a
+// route today; a later task mounting this under /writings/* should decide
+// then whether a kind-specific purpose label is worth adding.
+func (a *API) liteEvaluateCardSelectionFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
 		}
+		card, ok := a.loadOwnedAtomCard(w, r, at.ID)
+		if !ok {
+			return
+		}
+		u, _ := UserFromContext(r.Context())
+		// Entitlement before the model call — this spends a flagship-tier call.
+		entitled, err := HasEntitlement(r.Context(), u)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if !entitled {
+			httpx.WriteError(w, r, httpx.ErrNotEntitled())
+			return
+		}
+		if cardIsTerminal(card.Status) {
+			httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再复核选句。"))
+			return
+		}
+
+		var body evaluateSelectionReq
+		if err := decodeJSON(r, &body); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if strings.TrimSpace(body.Quote) == "" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("missing_quote", "先在文章里选一句话。", nil))
+			return
+		}
+
+		dimension := body.Dimension
+		if dimension == "" {
+			dimension = card.CardID
+		}
+		studentSpan := agent.Anchor{
+			ID: "sel0", MaterialID: at.ID.String(), BlockID: body.BlockID,
+			Start: body.Start, End: body.End, Quote: body.Quote,
+			Dimension: dimension, Author: "student",
+		}
+		spec, _ := cards.ByID(card.CardID)
+
+		// THE most abandonable call in the product — 45–62 seconds with nothing on
+		// screen but the sentence she picked. Detached, so a refresh at second 50
+		// still leaves the metering row and her review behind. See detachedModelCtx.
+		evalCtx, cancelEval := detachedModelCtx(r)
+		defer cancelEval()
+
+		eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.d.EvalResolver, spec, dimension, studentSpan)
+		a.recordLiteLLMCall(evalCtx, u.ID, at.ID, "read_eval", resolved, usage)
+
+		dto := toSelectionEvalDTO(eval)
+		// 过程即数据 — the AI's judgment of her pick is recorded, not just returned.
+		// A persistence failure only warns: she already has her review on screen,
+		// and losing it to a transient DB error would be the worse outcome.
+		//
+		// dto.Degraded rides along: agent.EvaluateSelection NEVER returns an error
+		// — it degrades internally to fallbackEval's canned, deliberately generic
+		// text ("你选了这句作为证据。") on a resolver failure, a provider failure,
+		// or an unparseable reply. That text is not her finding and not the AI's
+		// reading of her sentence; the known MaxTokens truncation makes it a
+		// COMMON path, not a rare one. Persisting it unmarked would let a P2
+		// report count a canned sentence as her own work (铁律①/④), so the flag
+		// travels with the payload and a report can exclude it.
+		if frameworkJSON, merr := json.Marshal(dto); merr == nil {
+			if _, serr := a.d.Queries.SetAtomCardFramework(evalCtx, sqlc.SetAtomCardFrameworkParams{
+				ID: card.ID, FrameworkFill: frameworkJSON,
+			}); serr != nil {
+				slog.Warn("lite evaluate selection: persist framework failed",
+					"err", serr, "request_id", httpx.RequestIDFromContext(r.Context()))
+			}
+		}
+		if dto.Degraded {
+			slog.Warn("lite evaluate selection: degraded fallback review persisted",
+				"atom_id", at.ID, "card_id", card.CardID,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+		httpx.WriteJSON(w, http.StatusOK, dto)
 	}
-	if dto.Degraded {
-		slog.Warn("lite evaluate selection: degraded fallback review persisted",
-			"atom_id", at.ID, "card_id", card.CardID,
-			"request_id", httpx.RequestIDFromContext(r.Context()))
-	}
-	httpx.WriteJSON(w, http.StatusOK, dto)
 }

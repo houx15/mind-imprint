@@ -83,6 +83,14 @@ func ErrReadingFinished() *APIError {
 	return &APIError{Status: http.StatusForbidden, Code: "reading_finished", Message: "这次阅读已完成，内容不能再修改。"}
 }
 
+// ErrWritingFinished — 403 for a write attempt against a finished lite
+// writing. Mirrors ErrReadingFinished exactly (same shape, same reasoning:
+// 403 not 404 because the writing genuinely exists and is hers), with its
+// own stable code since a client needs to tell the two kinds apart.
+func ErrWritingFinished() *APIError {
+	return &APIError{Status: http.StatusForbidden, Code: "writing_finished", Message: "这篇写作已完成，内容不能再修改。"}
+}
+
 func ErrNotFound(msg string) *APIError {
 	return &APIError{Status: http.StatusNotFound, Code: "not_found", Message: msg}
 }

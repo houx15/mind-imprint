@@ -154,65 +154,72 @@ func liteAnnotationDTOOf(row sqlc.AtomAnnotation) liteAnnotationDTO {
 	}
 }
 
-// liteListAnnotations lists every margin note on this reading, oldest first
-// (ListAtomAnnotations orders by created_at).
-func (a *API) liteListAnnotations(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
+// liteListAnnotationsFor lists every margin note on this atom, oldest first
+// (ListAtomAnnotations orders by created_at). Curried by kind (Task 1.5) —
+// see reading_cards.go's liteListCardsFor: it only reads atom_annotation,
+// never a reading-specific table.
+func (a *API) liteListAnnotationsFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
+		}
+		rows, err := a.d.Queries.ListAtomAnnotations(r.Context(), at.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		out := make([]liteAnnotationDTO, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, liteAnnotationDTOOf(row))
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 	}
-	rows, err := a.d.Queries.ListAtomAnnotations(r.Context(), at.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	out := make([]liteAnnotationDTO, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, liteAnnotationDTOOf(row))
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"annotations": out})
 }
 
-// liteCreateAnnotation appends one annotation. blockId is the only required
-// field; quote and note may be empty (a student may anchor a note before
-// writing it). span is stored verbatim as jsonb — Go validates only that it
-// decodes as a JSON object, nothing deeper; the shape's truth lives in the
-// frontend contract.
-func (a *API) liteCreateAnnotation(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
+// liteCreateAnnotationFor appends one annotation. blockId is the only
+// required field; quote and note may be empty (a student may anchor a note
+// before writing it). span is stored verbatim as jsonb — Go validates only
+// that it decodes as a JSON object, nothing deeper; the shape's truth lives
+// in the frontend contract. Curried by kind (Task 1.5) — see
+// liteListAnnotationsFor.
+func (a *API) liteCreateAnnotationFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
+		}
+		var req struct {
+			BlockID string          `json:"blockId"`
+			Span    json.RawMessage `json:"span"`
+			Quote   string          `json:"quote"`
+			Note    string          `json:"note"`
+		}
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+			return
+		}
+		blockID := strings.TrimSpace(req.BlockID)
+		if blockID == "" {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("missing_block_id", "block id 不能为空。", nil))
+			return
+		}
+		// isJSONNull first (reading_cards.go): `null` unmarshals into a map
+		// pointer with NO error, leaving it nil — so the unmarshal alone would
+		// wave a literal `null` straight into the jsonb column, where it survives
+		// every Go read and only detonates at a strict client-side parse.
+		var obj map[string]any
+		if isJSONNull(req.Span) || json.Unmarshal(req.Span, &obj) != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_span", "span 必须是一个 JSON 对象。", nil))
+			return
+		}
+		row, err := a.d.Queries.CreateAtomAnnotation(r.Context(), sqlc.CreateAtomAnnotationParams{
+			AtomID: at.ID, BlockID: blockID, Span: []byte(req.Span), Quote: req.Quote, Note: req.Note,
+		})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusCreated, liteAnnotationDTOOf(row))
 	}
-	var req struct {
-		BlockID string          `json:"blockId"`
-		Span    json.RawMessage `json:"span"`
-		Quote   string          `json:"quote"`
-		Note    string          `json:"note"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
-		return
-	}
-	blockID := strings.TrimSpace(req.BlockID)
-	if blockID == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_block_id", "block id 不能为空。", nil))
-		return
-	}
-	// isJSONNull first (reading_cards.go): `null` unmarshals into a map
-	// pointer with NO error, leaving it nil — so the unmarshal alone would
-	// wave a literal `null` straight into the jsonb column, where it survives
-	// every Go read and only detonates at a strict client-side parse.
-	var obj map[string]any
-	if isJSONNull(req.Span) || json.Unmarshal(req.Span, &obj) != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_span", "span 必须是一个 JSON 对象。", nil))
-		return
-	}
-	row, err := a.d.Queries.CreateAtomAnnotation(r.Context(), sqlc.CreateAtomAnnotationParams{
-		AtomID: at.ID, BlockID: blockID, Span: []byte(req.Span), Quote: req.Quote, Note: req.Note,
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusCreated, liteAnnotationDTOOf(row))
 }

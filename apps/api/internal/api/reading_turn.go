@@ -93,26 +93,30 @@ type liteMessageDTO struct {
 	CreatedAt string `json:"createdAt"`
 }
 
-// liteListMessages returns the whole transcript, oldest first. The client
+// liteListMessagesFor returns the whole transcript, oldest first. The client
 // renders it; the ROUTER only ever sees the windowed tail (recentTurnsWindow).
-func (a *API) liteListMessages(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
+// Curried by kind (Task 1.5) — see reading_cards.go's liteListCardsFor: it
+// only reads atom_message, never a reading-specific table.
+func (a *API) liteListMessagesFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
+		}
+		rows, err := a.d.Queries.ListAtomMessages(r.Context(), at.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		out := make([]liteMessageDTO, 0, len(rows))
+		for _, m := range rows {
+			out = append(out, liteMessageDTO{
+				Seq: m.Seq, Role: m.Role, Content: m.Content,
+				CreatedAt: m.CreatedAt.Format(time.RFC3339),
+			})
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": out})
 	}
-	rows, err := a.d.Queries.ListAtomMessages(r.Context(), at.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	out := make([]liteMessageDTO, 0, len(rows))
-	for _, m := range rows {
-		out = append(out, liteMessageDTO{
-			Seq: m.Seq, Role: m.Role, Content: m.Content,
-			CreatedAt: m.CreatedAt.Format(time.RFC3339),
-		})
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"messages": out})
 }
 
 // buildReadingRouteInput assembles agent.ReadingRouteInput entirely from the

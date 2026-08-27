@@ -124,9 +124,9 @@ func validateEnvelope(fieldValues, eventTrace json.RawMessage) error {
 // map/slice pointer without error while leaving it nil.
 //
 // THE ONE SPELLING of this check in the lite edition. It used to have three:
-// this function (envelope), an unguarded unmarshal (liteCreateAnnotation's
+// this function (envelope), an unguarded unmarshal (liteCreateAnnotationFor's
 // span, which therefore stored a literal `null` happily), and an `arr == nil`
-// test (liteSubmitCard's anchors). Three spellings of a boundary rule means
+// test (liteSubmitCardFor's anchors). Three spellings of a boundary rule means
 // two of them are eventually wrong, and the failure mode is not loud: a
 // stored `null` survives every Go read and only detonates later, at a strict
 // Zod `.array()` parse — which is exactly how the teacher report blanked once
@@ -171,127 +171,139 @@ func cardIsTerminal(status string) bool {
 	return status == "submitted" || status == "skipped"
 }
 
-// liteListCards lists every card proposed against this reading, oldest
-// first (ListAtomCards orders by created_at).
-func (a *API) liteListCards(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
-	}
-	rows, err := a.d.Queries.ListAtomCards(r.Context(), at.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	out := make([]cardDTO, 0, len(rows))
-	for _, row := range rows {
-		out = append(out, cardDTOOf(row))
-	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"cards": out})
-}
-
-// liteActivateCard marks a proposed card "active" once the student opens it
-// (design's "触发是自动的，但「打开」由学生确认" — opening is a distinct,
-// recorded step from being surfaced).
-func (a *API) liteActivateCard(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
-	}
-	card, ok := a.loadOwnedAtomCard(w, r, at.ID)
-	if !ok {
-		return
-	}
-	if cardIsTerminal(card.Status) {
-		httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再打开。"))
-		return
-	}
-	row, err := a.d.Queries.UpdateAtomCardStatus(r.Context(), sqlc.UpdateAtomCardStatusParams{
-		ID: card.ID, Status: "active",
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, cardDTOOf(row))
-}
-
-// liteSkipCard records a skipped card. 铁律④ 过程即数据: the row survives —
-// status flips to 'skipped', nothing is deleted. Friction is a signal, not
-// something to erase.
-func (a *API) liteSkipCard(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
-	}
-	card, ok := a.loadOwnedAtomCard(w, r, at.ID)
-	if !ok {
-		return
-	}
-	if cardIsTerminal(card.Status) {
-		httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再跳过。"))
-		return
-	}
-	row, err := a.d.Queries.UpdateAtomCardStatus(r.Context(), sqlc.UpdateAtomCardStatusParams{
-		ID: card.ID, Status: "skipped",
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, cardDTOOf(row))
-}
-
-// liteSubmitCard persists a filled card envelope verbatim past the boundary
-// check.
-func (a *API) liteSubmitCard(w http.ResponseWriter, r *http.Request) {
-	at, ok := a.loadOwnedReadingAtom(w, r)
-	if !ok {
-		return
-	}
-	card, ok := a.loadOwnedAtomCard(w, r, at.ID)
-	if !ok {
-		return
-	}
-	if cardIsTerminal(card.Status) {
-		httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再提交。"))
-		return
-	}
-	var body struct {
-		FieldValues json.RawMessage `json:"fieldValues"`
-		EventTrace  json.RawMessage `json:"eventTrace"`
-		// anchors — the sentence the student actually picked. 过程即数据: a
-		// submit that recorded only the envelope would lose WHICH sentence she
-		// chose, which is the whole point of the reading loop. Omitted → the
-		// card keeps the anchors it was summoned with.
-		Anchors json.RawMessage `json:"anchors"`
-	}
-	if err := decodeJSON(r, &body); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := validateEnvelope(body.FieldValues, body.EventTrace); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	anchors := card.Anchors
-	if len(bytes.TrimSpace(body.Anchors)) > 0 {
-		// Same isJSONNull guard validateEnvelope uses — `null` unmarshals into
-		// a []any pointer without error and leaves it nil.
-		var arr []any
-		if isJSONNull(body.Anchors) || json.Unmarshal(body.Anchors, &arr) != nil {
-			httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_anchors", "anchors 必须是一个 JSON 数组。", nil))
+// liteListCardsFor lists every card proposed against this atom, oldest
+// first (ListAtomCards orders by created_at). Curried by kind (Task 1.5):
+// the body below never touches a reading- or writing-specific table, so the
+// same handler serves both /readings/{id}/cards and (a later task's)
+// /writings/{id}/cards.
+func (a *API) liteListCardsFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
 			return
 		}
-		anchors = []byte(body.Anchors)
+		rows, err := a.d.Queries.ListAtomCards(r.Context(), at.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		out := make([]cardDTO, 0, len(rows))
+		for _, row := range rows {
+			out = append(out, cardDTOOf(row))
+		}
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"cards": out})
 	}
-	row, err := a.d.Queries.SubmitAtomCard(r.Context(), sqlc.SubmitAtomCardParams{
-		ID: card.ID, FieldValues: []byte(body.FieldValues), EventTrace: []byte(body.EventTrace),
-		Anchors: anchors,
-	})
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+}
+
+// liteActivateCardFor marks a proposed card "active" once the student opens
+// it (design's "触发是自动的，但「打开」由学生确认" — opening is a distinct,
+// recorded step from being surfaced). Curried by kind (Task 1.5) — see
+// liteListCardsFor.
+func (a *API) liteActivateCardFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
+		}
+		card, ok := a.loadOwnedAtomCard(w, r, at.ID)
+		if !ok {
+			return
+		}
+		if cardIsTerminal(card.Status) {
+			httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再打开。"))
+			return
+		}
+		row, err := a.d.Queries.UpdateAtomCardStatus(r.Context(), sqlc.UpdateAtomCardStatusParams{
+			ID: card.ID, Status: "active",
+		})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, cardDTOOf(row))
 	}
-	httpx.WriteJSON(w, http.StatusOK, cardDTOOf(row))
+}
+
+// liteSkipCardFor records a skipped card. 铁律④ 过程即数据: the row survives
+// — status flips to 'skipped', nothing is deleted. Friction is a signal, not
+// something to erase. Curried by kind (Task 1.5) — see liteListCardsFor.
+func (a *API) liteSkipCardFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
+		}
+		card, ok := a.loadOwnedAtomCard(w, r, at.ID)
+		if !ok {
+			return
+		}
+		if cardIsTerminal(card.Status) {
+			httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再跳过。"))
+			return
+		}
+		row, err := a.d.Queries.UpdateAtomCardStatus(r.Context(), sqlc.UpdateAtomCardStatusParams{
+			ID: card.ID, Status: "skipped",
+		})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, cardDTOOf(row))
+	}
+}
+
+// liteSubmitCardFor persists a filled card envelope verbatim past the
+// boundary check. Curried by kind (Task 1.5) — see liteListCardsFor.
+func (a *API) liteSubmitCardFor(kind string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		at, ok := a.loadOwnedAtom(w, r, kind)
+		if !ok {
+			return
+		}
+		card, ok := a.loadOwnedAtomCard(w, r, at.ID)
+		if !ok {
+			return
+		}
+		if cardIsTerminal(card.Status) {
+			httpx.WriteError(w, r, httpx.ErrConflict("这张卡片已经结束，不能再提交。"))
+			return
+		}
+		var body struct {
+			FieldValues json.RawMessage `json:"fieldValues"`
+			EventTrace  json.RawMessage `json:"eventTrace"`
+			// anchors — the sentence the student actually picked. 过程即数据: a
+			// submit that recorded only the envelope would lose WHICH sentence
+			// she chose, which is the whole point of the card loop. Omitted →
+			// the card keeps the anchors it was summoned with.
+			Anchors json.RawMessage `json:"anchors"`
+		}
+		if err := decodeJSON(r, &body); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		if err := validateEnvelope(body.FieldValues, body.EventTrace); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		anchors := card.Anchors
+		if len(bytes.TrimSpace(body.Anchors)) > 0 {
+			// Same isJSONNull guard validateEnvelope uses — `null` unmarshals into
+			// a []any pointer without error and leaves it nil.
+			var arr []any
+			if isJSONNull(body.Anchors) || json.Unmarshal(body.Anchors, &arr) != nil {
+				httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_anchors", "anchors 必须是一个 JSON 数组。", nil))
+				return
+			}
+			anchors = []byte(body.Anchors)
+		}
+		row, err := a.d.Queries.SubmitAtomCard(r.Context(), sqlc.SubmitAtomCardParams{
+			ID: card.ID, FieldValues: []byte(body.FieldValues), EventTrace: []byte(body.EventTrace),
+			Anchors: anchors,
+		})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		httpx.WriteJSON(w, http.StatusOK, cardDTOOf(row))
+	}
 }

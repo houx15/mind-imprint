@@ -94,3 +94,13 @@ func ComputeDanglingSourceIdsForTest(refs []sqlc.Reference, leads []sqlc.Explora
 func IsAdminForTest(ctx context.Context) bool {
 	return isAdmin(ctx)
 }
+
+// LoadOwnedAtomForTest exposes the unexported loadOwnedAtom (readings.go,
+// Task 1.5) to the external api_test package. No /writings/* route exists
+// yet to drive the "writing" kind through HTTP — that is later tasks' to
+// build — so atom_loader_test.go calls the generalised loader directly with
+// an explicit kind to prove the cross-kind isolation invariant holds for
+// BOTH kinds the loader already supports, not just the one with a route.
+func (a *API) LoadOwnedAtomForTest(w http.ResponseWriter, r *http.Request, kind string) (sqlc.Atom, bool) {
+	return a.loadOwnedAtom(w, r, kind)
+}
