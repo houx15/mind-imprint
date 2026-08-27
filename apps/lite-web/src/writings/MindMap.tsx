@@ -117,19 +117,33 @@ export function MindMap({
         if (from && to) {
           const f = from.getBoundingClientRect();
           const t = to.getBoundingClientRect();
-          const x1 = f.right - origin.left + canvas.scrollLeft;
-          const y1 = f.top + f.height / 2 - origin.top + canvas.scrollTop;
-          const x2 = t.left - origin.left + canvas.scrollLeft;
-          const y2 = t.top + t.height / 2 - origin.top + canvas.scrollTop;
-          // Control points pushed horizontally, so a branch leaves its parent
-          // sideways and arrives sideways — the shape a hand-drawn mind map
-          // makes, and the reason a straight elbow reads as an org chart.
-          const dx = Math.max(18, (x2 - x1) * 0.5);
-          next.push({
-            id: `${node.item.id}->${child.item.id}`,
-            d: `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`,
-            isNew: justAdded.includes(child.item.id),
-          });
+          const dx0 = canvas.scrollLeft - origin.left;
+          const dy0 = canvas.scrollTop - origin.top;
+          const x2 = t.left + dx0;
+          const y2 = t.top + t.height / 2 + dy0;
+
+          // Two anchor shapes, because there are two layouts. A child BESIDE
+          // its parent leaves the right edge and arrives at the left edge,
+          // control points pushed horizontally — the curve a hand-drawn mind
+          // map makes, and the reason a straight elbow reads as an org chart.
+          // A STACKED child (the evidence level, which sits below) instead
+          // drops out of the parent's underside near its left, then bends in:
+          // anchoring that one on the right edge would send the curve
+          // backwards across the node it came from.
+          const stacked = t.top >= f.bottom - 1;
+          let d: string;
+          if (stacked) {
+            const x1 = f.left + 22 + dx0;
+            const y1 = f.bottom + dy0;
+            const dy = Math.max(10, (y2 - y1) * 0.55);
+            d = `M ${x1} ${y1} C ${x1} ${y1 + dy}, ${x1} ${y2}, ${x2} ${y2}`;
+          } else {
+            const x1 = f.right + dx0;
+            const y1 = f.top + f.height / 2 + dy0;
+            const dx = Math.max(18, (x2 - x1) * 0.5);
+            d = `M ${x1} ${y1} C ${x1 + dx} ${y1}, ${x2 - dx} ${y2}, ${x2} ${y2}`;
+          }
+          next.push({ id: `${node.item.id}->${child.item.id}`, d, isNew: justAdded.includes(child.item.id) });
         }
         walk(child);
       }
@@ -262,8 +276,20 @@ function Branch({
   const isNew = justAdded.includes(node.item.id);
   const isRoot = node.item.depth === 0;
 
+  /**
+   * The evidence level (depth 2) stacks BELOW its reason instead of beside it.
+   *
+   * Three Chinese columns need roughly 600px and no side panel has that, so
+   * the third column was being clipped off the right edge. Stacking the leaves
+   * costs one column and reads naturally — a piece of evidence is supporting
+   * detail hanging off a reason, not a peer of it. Only the leaf level does
+   * this: stacking the reasons too would collapse the map back into the
+   * indented list this panel exists not to be.
+   */
+  const stackChildren = node.item.depth >= 1;
+
   return (
-    <li className="flex list-none items-center gap-7">
+    <li className={stackChildren ? "flex list-none flex-col gap-2.5" : "flex list-none items-center gap-7"}>
       <div
         ref={(el) => registerNode(node.item.id, el)}
         className={[
@@ -272,7 +298,7 @@ function Branch({
           // panel, and evidence nodes are short phrases anyway. Widths shrink
           // rather than the text truncating — a clipped sentence on her own
           // plan is worse than a scroll.
-          isRoot ? "max-w-[190px]" : node.item.depth === 1 ? "max-w-[175px]" : "max-w-[165px]",
+          isRoot ? "max-w-[200px]" : node.item.depth === 1 ? "max-w-[210px]" : "max-w-[190px]",
           isNew ? "mk-node-new mk-node-flash" : "",
         ]
           .filter(Boolean)
@@ -320,7 +346,7 @@ function Branch({
       </div>
 
       {node.children.length > 0 && (
-        <ul className="flex flex-col gap-3">
+        <ul className={stackChildren ? "ml-7 flex flex-col gap-2.5" : "flex flex-col gap-3"}>
           {node.children.map((child) => (
             <Branch
               key={child.item.id}
