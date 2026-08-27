@@ -276,6 +276,67 @@ describe("成稿 stage", () => {
   });
 });
 
+describe("B1 — the hanging card must not be erased or resurrected by unrelated state changes", () => {
+  it("keeps a proposed card visible across an unrelated chat turn", async () => {
+    routes[key("POST", base("/summon"))] = {
+      body: {
+        reply: "",
+        decision: "summon",
+        nudge: "试试从「学期中打工」这条切入。",
+        hintCardId: null,
+        card: { id: "c1", cardId: "concession", blockId: null, status: "proposed", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
+      },
+    };
+    routes[key("POST", base("/turn"))] = {
+      body: { reply: "好的，继续说说。", decision: "respond", card: null, nudge: "", hintCardId: null },
+    };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "构思" });
+
+    fireEvent.click(await screen.findByText("让步段 · 以退为进"));
+    expect(await screen.findByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
+
+    // An UNRELATED state change — a chat turn, nothing to do with cards.
+    // Bug: WritingRoomHost's `useEffect(..., [state])` recomputes hangingCard
+    // from a stale `state.cards` snapshot on every setState, so this send
+    // wipes the card off the screen even though it is still proposed on the
+    // server.
+    fireEvent.change(screen.getByPlaceholderText("想到什么，跟印记说说"), { target: { value: "继续" } });
+    fireEvent.click(screen.getByLabelText("发送"));
+    await screen.findByText("好的，继续说说。");
+
+    expect(screen.getByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
+  });
+
+  it("does not resurrect a card after it has been skipped to a terminal state", async () => {
+    routes[key("GET", base("/cards"))] = {
+      body: {
+        cards: [
+          { id: "c1", cardId: "concession", blockId: null, status: "proposed", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
+        ],
+      },
+    };
+    routes[key("POST", `${base("/cards")}/c1/skip`)] = {
+      body: { id: "c1", cardId: "concession", blockId: null, status: "skipped", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
+    };
+    routes[key("POST", base("/stage"))] = { body: writing({ stage: "outline" }) };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByText(/要不要用《让步段 · 以退为进》看看/);
+
+    fireEvent.click(screen.getByRole("button", { name: "跳过这张卡" }));
+    await waitFor(() => expect(screen.queryByText(/要不要用《让步段 · 以退为进》看看/)).toBeNull());
+
+    // An UNRELATED state change — a stage jump.
+    // Bug: the same stale-snapshot effect re-derives hangingCard from the
+    // ORIGINAL load-time `state.cards` (still "proposed"), bringing the card
+    // back from the dead even though it was just skipped to a terminal state.
+    fireEvent.click(screen.getByRole("button", { name: /大纲/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "大纲" })).toBeTruthy());
+
+    expect(screen.queryByText(/要不要用《让步段 · 以退为进》看看/)).toBeNull();
+  });
+});
+
 describe("工具卡", () => {
   it("summons a card, opens it on her tap, fills it, and submits without clobbering its anchors", async () => {
     routes[key("POST", base("/summon"))] = {

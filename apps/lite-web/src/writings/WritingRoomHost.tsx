@@ -96,7 +96,17 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           getWritingDraft(writingId).catch(() => EMPTY_DRAFT),
           listWritingCards(writingId).catch(() => [] as LiteCard[]),
         ]);
-        if (!cancelled) setState({ phase: "ready", writing, messages, outline, snippets, draft, cards });
+        if (!cancelled) {
+          setState({ phase: "ready", writing, messages, outline, snippets, draft, cards });
+          // Seed hangingCard ONCE, right here at load — a card left
+          // proposed/active from a previous session must still show up
+          // after a reload. From this point on, hangingCard is owned
+          // entirely by the imperative handlers below (summon/open/skip/
+          // submit); it must NEVER be re-derived from this `cards` array
+          // again, because that array is a snapshot that goes stale the
+          // instant she does anything else (see B1).
+          setHangingCard(cards.find((c) => c.status === "proposed" || c.status === "active") ?? null);
+        }
       } catch (err) {
         if (cancelled) return;
         setState({
@@ -109,14 +119,6 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       cancelled = true;
     };
   }, [writingId]);
-
-  // A card left proposed/active from a previous session must still show up
-  // after a reload — same reasoning as ReadingRoomHost/getOpenCard.
-  useEffect(() => {
-    if (state.phase !== "ready") return;
-    const open = state.cards.find((c) => c.status === "proposed" || c.status === "active");
-    setHangingCard(open ?? null);
-  }, [state]);
 
   const chatMessages: ChatMessage[] = useMemo(() => {
     if (state.phase !== "ready") return [];

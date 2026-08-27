@@ -37,24 +37,45 @@ type Slot = {
   snippet: WritingSnippet | null;
 };
 
+/**
+ * B2/H1 fix. Two rules:
+ *
+ * 1. EVERY persisted snippet gets a slot, whether or not it maps to a
+ *    current outline point. Slicing to outline-derived slots ONLY
+ *    (whenever an outline existed) used to silently drop any snippet that
+ *    wasn't one of them — a free paragraph added via 加一段, or one
+ *    written before the outline was ever confirmed. Its text still lands
+ *    in the composed draft either way, so hiding it left her unable to see
+ *    or edit part of her own finished piece (B2).
+ * 2. A snippet is matched to an outline point strictly by `outlineId`
+ *    (the server's own by-text-repaired link — see writing_snippets.go's
+ *    `writingSnippetHeadingByID`), never by array position. Position
+ *    matching can point at the WRONG outline point the moment the outline
+ *    is reordered or a point is removed — "specific, confident and
+ *    wrong", exactly what the backend refuses to do (H1).
+ */
 function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnippet[]): Slot[] {
-  if (outline.length > 0) {
-    return outline
-      .slice()
-      .sort((a, b) => a.position - b.position)
-      .map((o) => ({
-        position: o.position,
-        outlineId: o.id,
-        heading: o.text,
-        snippet: snippets.find((s) => s.position === o.position) ?? null,
-      }));
-  }
-  // No outline yet — fall back to whatever free-form paragraphs already
-  // exist, in position order.
-  return snippets
+  const sortedOutline = outline.slice().sort((a, b) => a.position - b.position);
+  const outlineIds = new Set(sortedOutline.map((o) => o.id));
+
+  const outlineSlots: Slot[] = sortedOutline.map((o) => ({
+    position: o.position,
+    outlineId: o.id,
+    heading: o.text,
+    snippet: snippets.find((s) => s.outlineId === o.id) ?? null,
+  }));
+
+  // Every snippet not claimed by a current outline point — genuinely free
+  // (no outlineId), or its link went stale (outline point renamed/removed,
+  // in which case `outlineHeading` is the server's own honest last-known
+  // heading, never guessed here).
+  const freeSlots: Slot[] = snippets
+    .filter((s) => !s.outlineId || !outlineIds.has(s.outlineId))
     .slice()
     .sort((a, b) => a.position - b.position)
     .map((s) => ({ position: s.position, outlineId: s.outlineId, heading: s.outlineHeading, snippet: s }));
+
+  return [...outlineSlots, ...freeSlots];
 }
 
 export function SnippetsStage({
@@ -71,7 +92,13 @@ export function SnippetsStage({
   onSnippetsChange: (next: WritingSnippet[]) => void;
 }) {
   const slots = buildSlots(outline, snippets);
-  const nextFreePosition = snippets.length === 0 ? 0 : Math.max(...snippets.map((s) => s.position)) + 1;
+  // Avoid colliding with an outline point's own position too — position is
+  // writing_snippet's upsert key, so a free paragraph minted at a position
+  // an (as yet unfilled) outline slot will later use would silently
+  // overwrite that outline point's paragraph and detach it, the moment she
+  // saves it.
+  const usedPositions = [...snippets.map((s) => s.position), ...outline.map((o) => o.position)];
+  const nextFreePosition = usedPositions.length === 0 ? 0 : Math.max(...usedPositions) + 1;
 
   async function addFreeParagraph() {
     const saved = await putWritingSnippet(writingId, { position: nextFreePosition, text: "" }).catch(() => null);
@@ -138,7 +165,14 @@ function SnippetBlock({
     setError(null);
     try {
       const saved = await putWritingSnippet(writingId, {
-        outlineId: slot.outlineId,
+        // Only send outlineId to ESTABLISH a link, on this slot's very
+        // first save (no persisted row yet). Once a snippet row exists,
+        // omit it — the PUT's own "absent outlineId = preserve whatever
+        // link is already there" semantics then apply, so an ordinary
+        // text save can never clobber a link the server holds (including
+        // one it just repaired by heading text after an outline edit) with
+        // a value merely inferred client-side (H1).
+        outlineId: slot.snippet ? undefined : slot.outlineId,
         position: slot.position,
         text,
       });

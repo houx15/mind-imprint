@@ -1,0 +1,173 @@
+import { useState } from "react";
+import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { SnippetsStage } from "@lite/writings/SnippetsStage";
+import type { WritingOutlineItem, WritingSnippet } from "@lite/api/writingRoom";
+
+/**
+ * SnippetsStage — 段落, driven directly (not through the whole room) since
+ * both B2 and H1 are entirely local to this component's own slot-building
+ * and save logic.
+ *
+ * `Harness` mimics the one bit of WritingRoomHost this component actually
+ * depends on: a parent that re-renders it with whatever `onSnippetsChange`
+ * hands back, the same controlled-child relationship StagePanel gives it in
+ * the real room.
+ */
+
+const WID = "w1";
+
+let calls: { method: string; url: string; body: unknown }[];
+
+function jsonResponse(status: number, body: unknown): Response {
+  return { ok: status >= 200 && status < 300, status, json: async () => body } as Response;
+}
+
+function stubFetch(handler: (method: string, url: string, body: unknown) => { status?: number; body?: unknown } | undefined) {
+  calls = [];
+  vi.stubGlobal(
+    "fetch",
+    vi.fn(async (url: string, init?: RequestInit) => {
+      const method = (init?.method ?? "GET").toUpperCase();
+      const body = init?.body ? JSON.parse(init.body as string) : undefined;
+      calls.push({ method, url, body });
+      const route = handler(method, url, body);
+      if (!route) return jsonResponse(404, { error: { code: "not_found", message: "资源不存在" } });
+      return jsonResponse(route.status ?? 200, route.body ?? {});
+    }),
+  );
+}
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+function Harness({
+  outline,
+  initialSnippets,
+}: {
+  outline: WritingOutlineItem[];
+  initialSnippets: WritingSnippet[];
+}) {
+  const [snippets, setSnippets] = useState(initialSnippets);
+  return (
+    <SnippetsStage writingId={WID} lang="zh" outline={outline} snippets={snippets} onSnippetsChange={setSnippets} />
+  );
+}
+
+describe("B2 — every persisted snippet must stay visible and editable", () => {
+  it("shows the paragraph added via 加一段 even though a confirmed outline exists", async () => {
+    const outline: WritingOutlineItem[] = [
+      { id: "o1", text: "打工能带来的收获", depth: 0, position: 0 },
+      { id: "o2", text: "打工的代价", depth: 0, position: 1 },
+    ];
+    stubFetch((method, url) => {
+      if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
+        return {
+          body: {
+            snippets: [{ id: "s3", outlineId: null, outlineHeading: "", position: 2, text: "" }],
+          },
+        };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={outline} initialSnippets={[]} />);
+    expect(screen.getAllByPlaceholderText("写这一段……")).toHaveLength(2);
+
+    fireEvent.click(screen.getByRole("button", { name: "加一段" }));
+
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    // Bug: buildSlots returns ONLY outline-derived slots whenever an outline
+    // exists, so the newly-persisted free paragraph (position 2, no
+    // outlineId) never gets a slot — the PUT succeeds but nothing new
+    // renders.
+    await waitFor(() => expect(screen.getAllByPlaceholderText("写这一段……")).toHaveLength(3));
+  });
+
+  it("keeps a free paragraph written before the outline existed visible after the outline is confirmed", async () => {
+    const outline: WritingOutlineItem[] = [{ id: "o1", text: "打工能带来的收获", depth: 0, position: 0 }];
+    // position 5 — nowhere near any outline point's position, so this can
+    // only be shown by NOT being silently swallowed into buildSlots'
+    // outline-only branch (a position collision with an outline slot would
+    // paper over the bug rather than reproduce it).
+    const freeSnippet: WritingSnippet = {
+      id: "s0",
+      outlineId: null,
+      outlineHeading: "",
+      position: 5,
+      text: "这是提纲确认之前写的自由段落",
+      updatedAt: "",
+    };
+    stubFetch(() => undefined);
+
+    render(<Harness outline={outline} initialSnippets={[freeSnippet]} />);
+
+    // One slot for the outline point, plus one for the pre-existing free
+    // paragraph that has no outline link at all.
+    expect(await screen.findByDisplayValue("这是提纲确认之前写的自由段落")).toBeTruthy();
+  });
+});
+
+describe("H1 — snippets link to outline points by id, never by position", () => {
+  it("matches a snippet to its outline point by outlineId, not by array position", async () => {
+    const outline: WritingOutlineItem[] = [
+      { id: "o1", text: "第一部分", depth: 0, position: 0 },
+      { id: "o2", text: "第二部分", depth: 0, position: 1 },
+    ];
+    // Deliberately mismatched: this snippet is genuinely linked to o2 (the
+    // SECOND outline point) but its own storage `position` is 0 — the same
+    // position o1 happens to occupy. Position-matching would wrongly file it
+    // under o1.
+    const snippet: WritingSnippet = {
+      id: "s1",
+      outlineId: "o2",
+      outlineHeading: "第二部分",
+      position: 0,
+      text: "这是第二部分的内容",
+      updatedAt: "",
+    };
+    stubFetch(() => undefined);
+
+    render(<Harness outline={outline} initialSnippets={[snippet]} />);
+
+    const textarea = (await screen.findByDisplayValue("这是第二部分的内容")) as HTMLTextAreaElement;
+    const block = textarea.closest("div.rounded-mk-md")!;
+    expect(block.textContent).toContain("第二部分");
+    expect(block.textContent).not.toContain("第一部分");
+  });
+
+  it("does not persist a client-guessed outlineId back onto an already-linked snippet", async () => {
+    const outline: WritingOutlineItem[] = [{ id: "o1", text: "第一部分", depth: 0, position: 0 }];
+    const snippet: WritingSnippet = {
+      id: "s1",
+      outlineId: "o1",
+      outlineHeading: "第一部分",
+      position: 0,
+      text: "已有的内容",
+      updatedAt: "",
+    };
+    stubFetch((method, url) => {
+      if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
+        return { body: { snippets: [{ ...snippet, text: "改过的内容" }] } };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={outline} initialSnippets={[snippet]} />);
+    const textarea = screen.getByDisplayValue("已有的内容");
+    fireEvent.change(textarea, { target: { value: "改过的内容" } });
+    fireEvent.blur(textarea);
+
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    const put = calls.find((c) => c.method === "PUT")!;
+    const posted = (put.body as { snippets: { outlineId: string | null }[] }).snippets[0]!;
+    // The server already has the correct link (possibly just repaired by
+    // heading text after an outline edit). Resending our own locally-cached
+    // outlineId on every ordinary text save risks clobbering that repair
+    // with a client-side guess — so an update to an EXISTING snippet must
+    // omit outlineId (server semantics: absent = preserve).
+    expect(posted.outlineId).toBeNull();
+  });
+});
