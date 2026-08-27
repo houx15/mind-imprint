@@ -208,12 +208,82 @@ func buildReadingTasks(routine readingRoutine, plan readingPlanReply, valid map[
 	return positions, kinds, labels, details, blockIDs
 }
 
-// generateReadingPlan is POST /api/v1/readings/{id}/plan.
+// planReadingTasks is the plan generation itself, split out of the HTTP
+// handler so the guided coach can plan on demand: 开始 is the only button she
+// has, and pressing it with no plan yet must produce one rather than refuse.
 //
-// A spend endpoint (one model call), metered as purpose="reading_plan". It
-// REPLACES any existing plan, which is what makes 重新排一份 possible; the
-// statuses of the old plan go with it, and that is correct — a new plan is a
-// new set of steps, not the old ones renumbered.
+// Returns the persisted rows. Errors are already httpx errors, ready to write.
+func (a *API) planReadingTasks(
+	ctx context.Context,
+	userID uuid.UUID,
+	atomID uuid.UUID,
+	src sqlc.ReadingSource,
+	blocks []Block,
+) ([]sqlc.ReadingTask, error) {
+	lang := readingLangOf(src.Body)
+
+	resolved, okResolve := a.resolveEval(ctx)
+	if !okResolve {
+		slog.Warn("reading plan: no provider resolved", "atom_id", atomID)
+		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
+	}
+	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
+		Messages: []gateway.ChatMessage{
+			{Role: gateway.RoleSystem, Content: readingPlanSystem},
+			{Role: gateway.RoleUser, Content: buildReadingPlanPrompt(lang, src.Title, blocks)},
+		},
+	})
+	a.recordLiteLLMCall(ctx, userID, atomID, "reading_plan", resolved, res.Usage)
+	if cerr != nil {
+		slog.Warn("reading plan: provider call failed", "err", cerr, "atom_id", atomID)
+		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
+	}
+	plan, routine, okParse := parseReadingPlan(res.Text, lang)
+	if !okParse {
+		// No canned fallback routine. A silently-substituted default would be
+		// indistinguishable from a real plan, and she would never know the
+		// coach had not actually looked at her article.
+		slog.Warn("reading plan: unparseable or out-of-library reply", "atom_id", atomID)
+		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
+	}
+
+	valid := make(map[string]bool, len(blocks))
+	for _, blk := range blocks {
+		valid[blk.ID] = true
+	}
+	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, valid)
+	if len(positions) == 0 {
+		slog.Warn("reading plan: routine produced no usable steps", "atom_id", atomID, "routine", routine.Key)
+		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
+	}
+
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	if _, err := qtx.SetReadingRoutine(ctx, sqlc.SetReadingRoutineParams{
+		AtomID: atomID, RoutineKey: routine.Key,
+	}); err != nil {
+		return nil, err
+	}
+	if _, err := qtx.ReplaceReadingTasks(ctx, sqlc.ReplaceReadingTasksParams{
+		AtomID: atomID, Positions: positions, Kinds: kinds,
+		Labels: labels, Details: details, BlockIds: blockIDs,
+	}); err != nil {
+		return nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return nil, err
+	}
+	return a.d.Queries.ListReadingTasks(ctx, atomID)
+}
+
+// generateReadingPlan is POST /api/v1/readings/{id}/plan — the explicit
+// 重排. It REPLACES any existing plan; the old statuses go with it, and that
+// is correct: a new plan is a new set of steps, not the old ones renumbered.
 func (a *API) generateReadingPlan(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedReadingAtom(w, r)
 	if !ok {
@@ -240,102 +310,42 @@ func (a *API) generateReadingPlan(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_article", "这篇还没有正文，先把文章贴进来。", nil))
 		return
 	}
-	lang := readingLangOf(src.Body)
 
+	// Run to completion even if she navigates away mid-plan: a synchronous
+	// POST is cancelled the instant the browser disconnects, which would
+	// otherwise spend the call and record nothing.
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
 
-	// §model-routing: judging which paragraph is the one worth slowing down on
-	// is the hardest call in this room — flagship, like the writing room's
-	// planning turn, not the chaperone an ordinary reply uses.
-	resolved, okResolve := a.resolveEval(turnCtx)
-	if !okResolve {
-		slog.Warn("reading plan: no provider resolved",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
-	}
-	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: readingPlanSystem},
-			{Role: gateway.RoleUser, Content: buildReadingPlanPrompt(lang, src.Title, blocks)},
-		},
-	})
-	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_plan", resolved, res.Usage)
-	if cerr != nil {
-		slog.Warn("reading plan: provider call failed", "err", cerr,
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
-	}
-	plan, routine, okParse := parseReadingPlan(res.Text, lang)
-	if !okParse {
-		// No canned fallback routine. A silently-substituted default would be
-		// indistinguishable from a real plan, and she would never know the
-		// coach had not actually looked at her article.
-		slog.Warn("reading plan: unparseable or out-of-library reply",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
-	}
-
-	valid := make(map[string]bool, len(blocks))
-	for _, blk := range blocks {
-		valid[blk.ID] = true
-	}
-	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, valid)
-	if len(positions) == 0 {
-		slog.Warn("reading plan: routine produced no usable steps",
-			"atom_id", at.ID, "routine", routine.Key)
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
-	}
-
-	tx, err := a.d.Pool.Begin(turnCtx)
+	rows, err := a.planReadingTasks(turnCtx, u.ID, at.ID, src, blocks)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	defer func() { _ = tx.Rollback(turnCtx) }()
-	qtx := a.d.Queries.WithTx(tx)
-
-	if _, err := qtx.SetReadingRoutine(turnCtx, sqlc.SetReadingRoutineParams{
-		AtomID: at.ID, RoutineKey: routine.Key,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := qtx.ReplaceReadingTasks(turnCtx, sqlc.ReplaceReadingTasksParams{
-		AtomID: at.ID, Positions: positions, Kinds: kinds,
-		Labels: labels, Details: details, BlockIds: blockIDs,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if err := tx.Commit(turnCtx); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-
-	rows, err := a.d.Queries.ListReadingTasks(r.Context(), at.ID)
+	rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	name := ""
+	if routine, found := findReadingRoutine(rd.RoutineKey); found {
+		name = routine.Name
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"routineKey":  routine.Key,
-		"routineName": routine.Name,
-		"tasks":       readingTaskDTOs(rows),
+		"routineKey": rd.RoutineKey, "routineName": name, "tasks": readingTaskDTOs(rows),
 	})
 }
 
 type readingTaskDTO struct {
-	ID          string  `json:"id"`
-	Position    int32   `json:"position"`
-	Kind        string  `json:"kind"`
-	Label       string  `json:"label"`
-	Detail      string  `json:"detail"`
-	BlockID     string  `json:"blockId"`
+	ID       string `json:"id"`
+	Position int32  `json:"position"`
+	Kind     string `json:"kind"`
+	Label    string `json:"label"`
+	Detail   string `json:"detail"`
+	BlockID  string `json:"blockId"`
+	// 'pending' | 'done' | 'skipped'. The student never sets this any more —
+	// the guided coach does (reading_coach.go) — but it is still rendered, as
+	// progress she can see rather than a control she operates.
 	Status      string  `json:"status"`
 	CompletedAt *string `json:"completedAt"`
 }

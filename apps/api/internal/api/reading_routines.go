@@ -154,10 +154,26 @@ func findReadingRoutine(key string) (readingRoutine, bool) {
 type readingBlockTool struct {
 	ID    string `json:"id"`
 	Label string `json:"label"`
-	Lang  string `json:"lang"`
+	// Lang scopes a tool to the language whose difficulty it addresses. "" =
+	// both: 想一想 and 仿写 are about what the paragraph DOES, which is not a
+	// language-specific problem.
+	Lang string `json:"lang"`
 	// Instruction is appended to the shared system prompt. Kept beside the
 	// label so a new tool is one entry here and nothing else.
 	Instruction string `json:"-"`
+	// Shape decides how the reply is parsed and what it is ALLOWED to contain:
+	//
+	//   "prose"     — free explanation of the article. Safe: explaining someone
+	//                 else's published paragraph is what a teacher does.
+	//   "questions" — questions only. Anything not ending in a question mark is
+	//                 dropped server-side.
+	//   "imitate"   — a named move plus situations to try it on. There is
+	//                 deliberately NO FIELD for a sample paragraph, so the
+	//                 model has nowhere to put one even if it wants to.
+	//
+	// The last two are 铁律① enforced by output TYPE rather than by asking the
+	// model to behave — the same trick the writing room's guiding box uses.
+	Shape string `json:"shape"`
 }
 
 // 铁律 CHECK. These are EXPLANATORY, and that is why they are safe: 铁律①
@@ -170,32 +186,46 @@ type readingBlockTool struct {
 // Enforced structurally — reading_block.go never touches those tables.
 var readingBlockTools = []readingBlockTool{
 	{
-		ID: "translate", Label: "翻译", Lang: "en",
+		Shape: "prose", ID: "translate", Label: "翻译", Lang: "en",
 		Instruction: "把这一段忠实地翻译成中文。不要意译到走样，也不要逐字硬译到读不通。只给译文。",
 	},
 	{
-		ID: "vocabulary", Label: "关键单词", Lang: "en",
+		Shape: "prose", ID: "vocabulary", Label: "关键单词", Lang: "en",
 		Instruction: "挑出这一段里**真正值得学**的 3–5 个词（不是最长的，是最有用的、在这里意思特别的）。每个词给：词 — 在这句里的意思 — 一个短例子。不要把整段的词都列出来，那是词典干的事。",
 	},
 	{
-		ID: "grammar", Label: "语法", Lang: "en",
+		Shape: "prose", ID: "grammar", Label: "语法", Lang: "en",
 		Instruction: "指出这一段里让人读不懂的那 1–2 个句子结构（长从句、倒装、插入语、非谓语……）。把那个句子摘出来，说清楚它的主干是什么、修饰的部分挂在哪。只讲让人卡住的，不要通篇语法课。",
 	},
 	{
-		ID: "craft", Label: "写作解析", Lang: "en",
+		Shape: "prose", ID: "craft", Label: "写作解析", Lang: "en",
 		Instruction: "这一段在整篇里**在干什么**（提出主张、举例、让步、转折、收束……），以及作者用什么手法让它起作用。两三句话，说的是写法，不是内容摘要。",
 	},
 	{
-		ID: "rhetoric", Label: "成语修辞", Lang: "zh",
+		Shape: "prose", ID: "rhetoric", Label: "成语修辞", Lang: "zh",
 		Instruction: "指出这一段用到的成语、俗语和修辞手法（比喻、排比、反问、对比……），每个都说清楚它在这里起了什么效果。没有就直说没有，不要硬找。",
 	},
 	{
-		ID: "examples", Label: "案例", Lang: "zh",
+		Shape: "prose", ID: "examples", Label: "案例", Lang: "zh",
 		Instruction: "这一段举了哪些具体的事例、数据或引用？每个说清楚它是用来支持什么的。没有具体事例就直说这一段是在讲道理，不是在举例。",
 	},
 	{
-		ID: "structure", Label: "结构解析", Lang: "zh",
+		Shape: "prose", ID: "structure", Label: "结构解析", Lang: "zh",
 		Instruction: "这一段在整篇里**在干什么**（起头、承接、转折、举证、收束……），以及它和上一段是什么关系。两三句话，说的是位置和作用，不是内容摘要。",
+	},
+}
+
+// 想一想 and 仿写 close the loop from reading into writing: understand the
+// paragraph, then make the same move yourself. They are language-independent
+// because "what does this paragraph DO" is not a language-specific question.
+var readingWritingTools = []readingBlockTool{
+	{
+		Shape: "questions", ID: "questions", Label: "想一想", Lang: "",
+		Instruction: "针对这一段，给她 2 到 4 个能帮她想下去的问题。必须是问题，每条以问号结尾，一条一个问题。要具体到这一段的内容，不要问「这段讲了什么」这种空问题。**不要在问题里把答案说出来。**",
+	},
+	{
+		Shape: "imitate", ID: "imitate", Label: "仿写", Lang: "",
+		Instruction: "先用一句话说清楚这一段**在写法上做了什么**（比如「先给一个日常场景，再解释背后的原理」），然后给 2 到 3 个她可以用同一个写法去写的、和原文无关的话题。",
 	},
 }
 
@@ -204,17 +234,25 @@ func readingBlockToolsFor(lang string) []readingBlockTool {
 	if want != "en" {
 		want = "zh"
 	}
-	out := make([]readingBlockTool, 0, len(readingBlockTools))
+	out := make([]readingBlockTool, 0, len(readingBlockTools)+len(readingWritingTools))
 	for _, t := range readingBlockTools {
 		if t.Lang == want {
 			out = append(out, t)
 		}
 	}
+	// The language-independent pair always comes last: understand first, then
+	// make the move yourself.
+	out = append(out, readingWritingTools...)
 	return out
 }
 
 func findReadingBlockTool(id string) (readingBlockTool, bool) {
 	for _, t := range readingBlockTools {
+		if t.ID == id {
+			return t, true
+		}
+	}
+	for _, t := range readingWritingTools {
 		if t.ID == id {
 			return t, true
 		}

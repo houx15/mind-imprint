@@ -28,6 +28,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
@@ -46,6 +47,98 @@ import (
 // paragraph alone — 结构解析 and 写作解析 are both about position — so the
 // neighbours travel with it, bounded.
 const readingBlockContextRunes = 1200
+
+// readingShapedSuffix is appended for the two tools whose output is a
+// STRUCTURE rather than prose. The structure IS the guarantee: a sample
+// paragraph has no field to live in, so 铁律① is enforced by the schema rather
+// than by asking the model to restrain itself.
+var readingShapedSuffix = map[string]string{
+	"questions": "\n\n只输出一个 JSON 对象：{\"questions\":[\"...\",\"...\"]}。每条都必须以问号结尾。不要输出对象以外的任何文字或代码块标记。",
+	"imitate":   "\n\n只输出一个 JSON 对象：{\"move\":\"这一段在写法上做了什么，一句话\",\"tryThis\":[\"一个可以用同样写法去写的话题\",\"另一个\"]}。\n\n**绝对不要写出任何一段示范文字。** 你只说写法和话题，段落由她自己写。tryThis 里每一条是一个话题或情境，不是一句范文。不要输出对象以外的任何文字或代码块标记。",
+}
+
+// parseShapedBlockReply turns a structured reply into the markdown the panel
+// renders, and DROPS anything that does not fit the shape.
+//
+// For "questions" that means every entry must end in a question mark — the
+// same filter the writing room's guiding box uses, for the same reason: a
+// declarative sentence slipped into the list is a sentence she could paste,
+// which is exactly what these two shapes exist to make impossible.
+func parseShapedBlockReply(shape, text string) (string, bool) {
+	c := strings.TrimSpace(text)
+	if strings.HasPrefix(c, "```json") {
+		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
+	} else if strings.HasPrefix(c, "```") {
+		c = strings.TrimLeft(c[3:], " \t\r\n")
+	}
+	if strings.HasSuffix(c, "```") {
+		c = strings.TrimRight(c[:len(c)-3], " \t\r\n")
+	}
+	if i := strings.IndexByte(c, '{'); i > 0 {
+		c = c[i:]
+	}
+	if j := strings.LastIndexByte(c, '}'); j >= 0 && j < len(c)-1 {
+		c = c[:j+1]
+	}
+	c = strings.TrimSpace(c)
+
+	switch shape {
+	case "questions":
+		var got struct {
+			Questions []string `json:"questions"`
+		}
+		if err := json.Unmarshal([]byte(c), &got); err != nil {
+			return "", false
+		}
+		kept := make([]string, 0, len(got.Questions))
+		for _, q := range got.Questions {
+			q = strings.TrimSpace(q)
+			if q == "" || (!strings.HasSuffix(q, "？") && !strings.HasSuffix(q, "?")) {
+				continue
+			}
+			kept = append(kept, "- "+q)
+			if len(kept) == 4 {
+				break
+			}
+		}
+		if len(kept) == 0 {
+			return "", false
+		}
+		return strings.Join(kept, "\n"), true
+
+	case "imitate":
+		var got struct {
+			Move    string   `json:"move"`
+			TryThis []string `json:"tryThis"`
+		}
+		if err := json.Unmarshal([]byte(c), &got); err != nil {
+			return "", false
+		}
+		move := strings.TrimSpace(got.Move)
+		if move == "" {
+			return "", false
+		}
+		var b strings.Builder
+		b.WriteString("**这一段的写法**：" + move + "\n\n换个话题，你也这样写一段：\n")
+		n := 0
+		for _, t := range got.TryThis {
+			t = strings.TrimSpace(t)
+			if t == "" {
+				continue
+			}
+			b.WriteString("- " + t + "\n")
+			n++
+			if n == 3 {
+				break
+			}
+		}
+		if n == 0 {
+			return "", false
+		}
+		return strings.TrimRight(b.String(), "\n"), true
+	}
+	return "", false
+}
 
 const readingBlockSystem = `你是「印记」，正在给一个中学生讲解她点开的**这一段**。
 
@@ -202,7 +295,11 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	// A tool from the other language set is a mis-click, not a preference:
 	// 语法讲解 on a Chinese paragraph would produce something confidently
 	// useless. Refuse rather than spend.
-	if tool.Lang != readingLangOf(src.Body) {
+	//
+	// Lang == "" means the tool is language-independent (想一想 / 仿写 — what a
+	// paragraph DOES is not a language-specific question), so it is never a
+	// mismatch.
+	if tool.Lang != "" && tool.Lang != readingLangOf(src.Body) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("tool_language_mismatch", "这个工具不适用于这篇文章。", nil))
 		return
 	}
@@ -234,12 +331,25 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	}
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: readingBlockSystem + tool.Instruction},
+			{Role: gateway.RoleSystem, Content: readingBlockSystem + tool.Instruction + readingShapedSuffix[tool.Shape]},
 			{Role: gateway.RoleUser, Content: buildReadingBlockPrompt(src.Title, blocks, idx)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "block_"+tool.ID, resolved, res.Usage)
 	body := strings.TrimSpace(res.Text)
+	if cerr == nil && body != "" && tool.Shape != "prose" {
+		shaped, okShape := parseShapedBlockReply(tool.Shape, body)
+		if !okShape {
+			// A shaped reply that will not parse is a FAILURE, never rendered
+			// raw — rendering it raw is exactly how a sample paragraph would
+			// reach her through the one tool built to prevent that.
+			slog.Warn("reading block explain: shaped reply unparseable",
+				"atom_id", at.ID, "tool", tool.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		body = shaped
+	}
 	if cerr != nil || body == "" {
 		slog.Warn("reading block explain: model call failed", "err", cerr,
 			"atom_id", at.ID, "tool", tool.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

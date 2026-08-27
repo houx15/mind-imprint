@@ -240,6 +240,7 @@ func (a *API) Handler() http.Handler {
 	// 任务清单 + 段落工具（0101）：先能读懂一段，才谈得上用透镜读一篇。
 	mux.Handle("GET /api/v1/readings/{id}/plan", liteOnly(a.getReadingPlan))
 	mux.Handle("POST /api/v1/readings/{id}/plan", liteOnly(a.generateReadingPlan))
+	mux.Handle("POST /api/v1/readings/{id}/coach", liteOnly(a.postReadingCoachTurn))
 	mux.Handle("POST /api/v1/readings/{id}/plan/tasks/{tid}", liteOnly(a.setReadingTaskStatus))
 	mux.Handle("GET /api/v1/readings/{id}/blocks/tools", liteOnly(a.listReadingBlockTools))
 	mux.Handle("GET /api/v1/readings/{id}/blocks/notes", liteOnly(a.listReadingBlockNotes))
