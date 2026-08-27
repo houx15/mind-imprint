@@ -97,21 +97,47 @@ named on the command line and refuses to run with no arguments.
 
 ## Open: TLS
 
-`certbot --nginx -d mind-lite.uni-robot.cn` failed twice with:
+`certbot --nginx -d mind-lite.uni-robot.cn` failed three times. The first two
+reported:
 
 ```
 During secondary validation: DNS problem: query timed out looking up A for
 mind-lite.uni-robot.cn
 ```
 
-The record is fine — both authoritative nameservers (`dns13`/`dns14.hichina.com`)
-return `47.93.151.131`, as do Aliyun's and Google's public resolvers. Let's
-Encrypt validates from several vantage points, and the non-China ones time out
-against hichina. The same domain has been issued certificates twice before, so
-this is expected to be transient.
+and the third, more usefully:
+
+```
+DNS problem: looking up A for mind-lite.uni-robot.cn: DNSSEC: DNSKEY Missing:
+validation failure: key for validation cn. is marked as invalid because of a
+previous No DNSKEY record [exceeded the maximum number of sends]
+```
+
+**The failure is inside Let's Encrypt's resolver, at the `.cn` TLD — not in
+this domain's DNS.** `cn.` is DNSSEC-signed (DS at the root, DNSKEY served),
+`uni-robot.cn`'s own nameservers (`dns13`/`dns14.hichina.com`) both answer
+`47.93.151.131`, and so do Aliyun's and Google's public resolvers. LE's
+validator could not reach the `.cn` TLD servers to fetch their DNSKEY, and
+cached that failure. The same server holds LE certificates issued for
+`mind-web` in July and `mind.uni-robot.cn` nine days ago, so LE reaches this
+domain under normal conditions.
 
 **Until a certificate exists the lite host is HTTP-only, and login cannot work
 at all** — the session cookie is set with `Secure`, so no browser will store
-it over plain HTTP. Retry certbot; if it keeps failing, move this host to a
-DNS-01 challenge using the Aliyun DNS API, which never needs an inbound lookup
-from LE's vantage points.
+it over plain HTTP.
+
+Options, in order:
+
+1. **Retry later.** This class of `.cn` resolver failure at LE clears on its
+   own, usually within hours. Space attempts out: LE allows 5 failed
+   validations per hostname per hour.
+2. **Try another ACME CA** (Buypass, ZeroSSL). The obstacle is one CA's
+   resolver, so a different one may simply succeed.
+3. **Issue the certificate from Aliyun** (free DV) and install it by hand. No
+   ACME validation is involved at all, which makes it immune to this failure —
+   at the cost of manual renewal.
+
+**A DNS-01 challenge does NOT help here**, contrary to the usual advice for
+validation trouble: DNS-01 still requires LE to resolve a `_acme-challenge`
+TXT record under the same `.cn` chain, through the same resolver that is
+failing. It solves inbound-reachability problems, and this is not one.
