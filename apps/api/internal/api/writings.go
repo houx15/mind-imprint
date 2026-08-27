@@ -49,6 +49,14 @@ func (a *API) loadOwnedWritingAtom(w http.ResponseWriter, r *http.Request) (sqlc
 	return a.loadOwnedAtom(w, r, "writing")
 }
 
+// loadOwnedWritingAtomRow is loadOwnedWritingAtom's ungated sibling, curried
+// to "writing" for the same reason loadOwnedReadingAtomRow is (readings.go):
+// finishWritingAtom (writing_compose.go) uses this directly so a second
+// POST /finish stays callable after the first one already succeeded.
+func (a *API) loadOwnedWritingAtomRow(w http.ResponseWriter, r *http.Request) (sqlc.Atom, bool) {
+	return a.loadOwnedAtomRow(w, r, "writing")
+}
+
 // createWriting is the "type one sentence into a box" entry point. The
 // sentence she types — idea — does double duty: truncated to 200 runes it
 // becomes the writing's initial title, and verbatim (untruncated) it becomes

@@ -253,6 +253,11 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/writings/{id}/snippets", liteOnly(a.getWritingSnippets))
 	mux.Handle("PUT /api/v1/writings/{id}/snippets", liteOnly(a.putWritingSnippets))
 	mux.Handle("POST /api/v1/writings/{id}/snippets/{sid}/exemplar", liteOnly(a.generateWritingSnippetExemplar))
+	mux.Handle("POST /api/v1/writings/{id}/compose", liteOnly(a.composeWritingDraft))
+	mux.Handle("GET /api/v1/writings/{id}/draft", liteOnly(a.getWritingDraft))
+	mux.Handle("PUT /api/v1/writings/{id}/draft", liteOnly(a.putWritingDraft))
+	mux.Handle("POST /api/v1/writings/{id}/review", liteOnly(a.reviewWritingDraft))
+	mux.Handle("POST /api/v1/writings/{id}/finish", liteOnly(a.finishWritingAtom))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
