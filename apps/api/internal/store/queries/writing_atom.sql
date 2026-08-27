@@ -12,8 +12,10 @@ SELECT * FROM writing WHERE atom_id = $1;
 
 -- name: ListWritingsByUser :many
 -- The list the 写作 tab shows. Joins atom for ownership + creation order,
--- same shape as ListReadingsByUser.
-SELECT w.*
+-- same shape as ListReadingsByUser — atom_created_at rides along so the API
+-- layer can fill writingDTO.createdAt without an N+1 GetAtom per row (the
+-- writing table itself has no created_at column; only atom does).
+SELECT w.*, a.created_at AS atom_created_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'

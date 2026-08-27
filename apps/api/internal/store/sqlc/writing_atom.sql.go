@@ -7,6 +7,7 @@ package sqlc
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -137,24 +138,38 @@ func (q *Queries) ListWritingSnippets(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingsByUser = `-- name: ListWritingsByUser :many
-SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at
+SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, a.created_at AS atom_created_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'
 ORDER BY a.created_at DESC
 `
 
+type ListWritingsByUserRow struct {
+	AtomID        uuid.UUID          `json:"atom_id"`
+	Title         string             `json:"title"`
+	Lang          string             `json:"lang"`
+	Stage         string             `json:"stage"`
+	TargetWords   *int32             `json:"target_words"`
+	Status        string             `json:"status"`
+	UpdatedAt     time.Time          `json:"updated_at"`
+	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	AtomCreatedAt time.Time          `json:"atom_created_at"`
+}
+
 // The list the 写作 tab shows. Joins atom for ownership + creation order,
-// same shape as ListReadingsByUser.
-func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]Writing, error) {
+// same shape as ListReadingsByUser — atom_created_at rides along so the API
+// layer can fill writingDTO.createdAt without an N+1 GetAtom per row (the
+// writing table itself has no created_at column; only atom does).
+func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]ListWritingsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listWritingsByUser, userID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []Writing
+	var items []ListWritingsByUserRow
 	for rows.Next() {
-		var i Writing
+		var i ListWritingsByUserRow
 		if err := rows.Scan(
 			&i.AtomID,
 			&i.Title,
@@ -164,6 +179,7 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]W
 			&i.Status,
 			&i.UpdatedAt,
 			&i.FinishedAt,
+			&i.AtomCreatedAt,
 		); err != nil {
 			return nil, err
 		}

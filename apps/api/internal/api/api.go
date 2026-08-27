@@ -238,6 +238,12 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/evaluate", liteOnly(a.liteEvaluateCardSelectionFor("reading")))
 	mux.Handle("POST /api/v1/readings/{id}/summon", liteOnly(a.liteSummonCard))
 
+	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
+	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
+	mux.Handle("POST /api/v1/writings", liteOnly(a.createWriting))
+	mux.Handle("GET /api/v1/writings/{id}", liteOnly(a.getWriting))
+	mux.Handle("PATCH /api/v1/writings/{id}", liteOnly(a.renameWriting))
+
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
 	mux.Handle("GET /api/v1/courses/history", protected(a.getCourseHistory)) // learning history (touched courses)
