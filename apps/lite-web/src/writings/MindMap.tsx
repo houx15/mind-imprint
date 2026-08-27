@@ -184,11 +184,17 @@ export function MindMap({
         ))}
       </svg>
 
-      <ul className="relative flex w-max flex-col gap-4">
-        {roots.map((node) => (
-          <Branch key={node.item.id} node={node} justAdded={justAdded} registerNode={registerNode} onRemove={onRemove} onEdit={onEdit} />
-        ))}
-      </ul>
+      {/* min-h-full + items-center vertically centres the map on the canvas
+          while still letting it grow past the panel and scroll. A short map
+          pinned to the top of a tall panel reads as a list that happens to be
+          drawn; centred, it reads as something sitting on a sheet. */}
+      <div className="relative flex min-h-full w-max items-center">
+        <ul className="flex flex-col gap-4">
+          {roots.map((node) => (
+            <Branch key={node.item.id} node={node} justAdded={justAdded} registerNode={registerNode} onRemove={onRemove} onEdit={onEdit} />
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
