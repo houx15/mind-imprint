@@ -245,6 +245,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/writings/{id}", liteOnly(a.renameWriting))
 	mux.Handle("POST /api/v1/writings/{id}/stage", liteOnly(a.setWritingStage))
 	mux.Handle("PUT /api/v1/writings/{id}/target-words", liteOnly(a.setWritingTargetWords))
+	mux.Handle("POST /api/v1/writings/{id}/turn", liteOnly(a.postLiteWritingTurn))
+	mux.Handle("GET /api/v1/writings/{id}/messages", liteOnly(a.liteListMessagesFor("writing")))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
