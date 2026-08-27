@@ -43,36 +43,62 @@ student already has a research question and the outline is scaffolding around
 it. It does **not** hold for lite, where the outline *is* the thing being
 learned. Generating it steals the lesson.
 
-## What replaced it
+The rest of that sentence — *"gives general structures, and guides students to
+fill each block"* — is what took two attempts to get right. See below.
 
-The model's job went from **authoring** to **selecting**.
+## What replaced it — twice
 
-`writing_structures.go` holds a fixed library of skeletons — 立场式议论,
-让步式议论, 说明文, 记叙文, and four English counterparts. Each is a list of
-generic block labels: 「你的立场」「反方最强的说法」「你的回应」. Identical for
-every student in the school. Not one word of any block is about her topic.
+The first replacement was a **fixed library of skeletons**: the model picked
+one (立场式议论, 让步式议论, …) and the blocks were laid out with generic
+labels. It shipped, and seeing it on production immediately showed the problem:
 
-Three reasons it is data and not a model call:
+> 你的立场 / 反方最强的说法 / 你承认它哪一部分是对的 / 你的回应 / 结论
+> — this looks very rigid and not easy to understand.
+>
+> 结构 is like planning, is not a fixed one, but guide students to think, then
+> compose the structure.
 
-- **It has to be generic.** A model asked to invent block names will
-  inevitably produce ones carrying her subject ("手机对睡眠的影响") — and at
-  that moment the AI has done her thinking. Hardcoded, that cannot drift.
-- **It has to be stable.** A student writing her second argument essay should
-  recognise the skeleton from the first. Serving fresh "AI inspiration" each
-  time teaches her to depend on novelty, not to learn a shape.
-- **It has to be cheap.** Laying out a skeleton is deterministic. It should
-  not cost a model call.
+「你承认它哪一部分是对的」 is not a phrase you say to a 13-year-old, and a
+shelf of four skeleton cards is still a form. So the library went too.
 
-What the model still does: `POST /structure/recommend` picks **one key from
-that table** and gives a one-line reason about *shape*, never content. If it
-invents a key, or picks the other language's, the response is rejected outright
-— no silent substitution of a default, because a substituted default is
-indistinguishable from a real recommendation and she would never know the
-coach hadn't looked.
+**结构 is now a full-screen planning conversation with a live mind map.**
 
-The 铁律 line is expressed as data, not as a prompt: applying a skeleton writes
-`text = ""` for every block. There is no field anywhere on that path that could
-hold a thesis.
+印记 asks one question at a time — first the one sentence this piece is really
+making, then what she will use to show it, then what goes under each point —
+and every answer grows onto a canvas at the right. The panel appears only once
+the map has something on it, the way an artifact pane does: an empty panel
+from the first second is a promise the screen hasn't kept.
+
+The map is `writing_outline` rendered as a tree (`depth` + `position` already
+encode one), so when she leaves for 段落 **the thing she planned IS the
+outline**. No conversion step, nothing lost between them, and no new table.
+
+### The hard guarantee
+
+A planning turn can only ever **ADD**. `writing_plan.go` contains no update
+and no delete call, so 印记 can put her sentence on the map but can never
+rewrite or remove one — that is hers, through the PUT her own edits use.
+Pinned by a test that drives two turns and asserts the first node comes back
+byte-identical. A node whose `parentId` the model invented is dropped rather
+than reparented: specific-and-wrong is worse than absent, and she can always
+say it again.
+
+### Where the writing pedagogy lives
+
+In the prompt, as 印记's own knowledge — never as a menu:
+
+- **Spines**: 立场式 / 起承转合 / 钩子式 / 记叙
+- **How one point gets made**: 并列, 递进, 正反, 举例（PEE）, 让步, 因果
+
+The teaching move is that a pattern is **named only after she produces it**.
+She gives three parallel reasons, then hears 「你这三条是并列的」. Handing her
+those words as options to pick from is what made the old screen a form.
+Students don't fail at naming structures; they fail at having anything to put
+in one, so the questions extract material first.
+
+The third level (evidence under a point) is recommended where a point sounds
+hollow and never required, and 去写 is available from the first render.
+Planning is a surface, not a gate.
 
 ## The guiding box
 
@@ -115,9 +141,15 @@ second field a sentence could arrive in.
   学科透镜: those are used *against an article*, which gives them something real
   to bite on.
 - **Four stages became three**: 结构 / 段落 / 成稿. 构思's only content was the
-  dead word-count box; what it was *supposed* to host now happens where it
-  belongs — in the opening line, and in the per-block questions at the moment
-  each block is actually being written.
+  dead word-count box; what it was *supposed* to host is now the planning
+  conversation itself.
+- **The map is a canvas, not a list.** Dot-grid ground, branches from flexbox,
+  connectors as measured cubic beziers in an SVG underlay (borders cannot
+  curve, and hand-rolled tree arithmetic breaks the moment a node wraps to
+  three lines). A new node animates in from the direction its connector grows,
+  its edge draws itself via `pathLength={1}`, and the canvas pans to whatever
+  just appeared. Leaves stack below their parent so three Chinese columns fit
+  a side panel.
 - **Language is asked, not guessed.** `lang` at creation is now provisional and
   the dialog overwrites it before anything else happens.
 
