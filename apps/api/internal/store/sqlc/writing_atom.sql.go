@@ -15,7 +15,7 @@ import (
 
 const createWriting = `-- name: CreateWriting :one
 
-INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at
+INSERT INTO writing (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
 `
 
 type CreateWritingParams struct {
@@ -41,12 +41,14 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 		&i.Status,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.StructureKey,
+		&i.SetupAt,
 	)
 	return i, err
 }
 
 const getWriting = `-- name: GetWriting :one
-SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at FROM writing WHERE atom_id = $1
+SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at FROM writing WHERE atom_id = $1
 `
 
 func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, error) {
@@ -61,6 +63,8 @@ func (q *Queries) GetWriting(ctx context.Context, atomID uuid.UUID) (Writing, er
 		&i.Status,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.StructureKey,
+		&i.SetupAt,
 	)
 	return i, err
 }
@@ -77,7 +81,7 @@ func (q *Queries) GetWritingDraft(ctx context.Context, atomID uuid.UUID) (Writin
 }
 
 const listWritingOutline = `-- name: ListWritingOutline :many
-SELECT id, atom_id, text, depth, position FROM writing_outline WHERE atom_id = $1 ORDER BY position
+SELECT id, atom_id, text, depth, position, role FROM writing_outline WHERE atom_id = $1 ORDER BY position
 `
 
 func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]WritingOutline, error) {
@@ -95,6 +99,7 @@ func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]W
 			&i.Text,
 			&i.Depth,
 			&i.Position,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -138,7 +143,7 @@ func (q *Queries) ListWritingSnippets(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingsByUser = `-- name: ListWritingsByUser :many
-SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, a.created_at AS atom_created_at
+SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, a.created_at AS atom_created_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'
@@ -154,6 +159,8 @@ type ListWritingsByUserRow struct {
 	Status        string             `json:"status"`
 	UpdatedAt     time.Time          `json:"updated_at"`
 	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
+	StructureKey  string             `json:"structure_key"`
+	SetupAt       pgtype.Timestamptz `json:"setup_at"`
 	AtomCreatedAt time.Time          `json:"atom_created_at"`
 }
 
@@ -179,6 +186,8 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.Status,
 			&i.UpdatedAt,
 			&i.FinishedAt,
+			&i.StructureKey,
+			&i.SetupAt,
 			&i.AtomCreatedAt,
 		); err != nil {
 			return nil, err
@@ -230,17 +239,19 @@ const replaceWritingOutline = `-- name: ReplaceWritingOutline :many
 WITH deleted AS (
   DELETE FROM writing_outline WHERE atom_id = $1
 )
-INSERT INTO writing_outline (atom_id, text, depth, position)
+INSERT INTO writing_outline (atom_id, text, role, depth, position)
 SELECT $1,
        unnest($2::text[]),
-       unnest($3::int[]),
-       unnest($4::int[])
-RETURNING id, atom_id, text, depth, position
+       unnest($3::text[]),
+       unnest($4::int[]),
+       unnest($5::int[])
+RETURNING id, atom_id, text, depth, position, role
 `
 
 type ReplaceWritingOutlineParams struct {
 	AtomID    uuid.UUID `json:"atom_id"`
 	Texts     []string  `json:"texts"`
+	Roles     []string  `json:"roles"`
 	Depths    []int32   `json:"depths"`
 	Positions []int32   `json:"positions"`
 }
@@ -250,10 +261,13 @@ type ReplaceWritingOutlineParams struct {
 // position contiguous and never leaves a stale tail row behind. The DELETE
 // and INSERT run as ONE statement (a data-modifying CTE), so a concurrent
 // reader never observes a momentarily-empty outline between the two.
+// roles 与 texts 平行传入（0100）：role 是骨架给的通用块名，text 是她自己
+// 写的那句话。一次 PUT 同时重写两列，role 才不会在她编辑正文时被抹掉。
 func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingOutlineParams) ([]WritingOutline, error) {
 	rows, err := q.db.Query(ctx, replaceWritingOutline,
 		arg.AtomID,
 		arg.Texts,
+		arg.Roles,
 		arg.Depths,
 		arg.Positions,
 	)
@@ -270,6 +284,7 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 			&i.Text,
 			&i.Depth,
 			&i.Position,
+			&i.Role,
 		); err != nil {
 			return nil, err
 		}
@@ -297,8 +312,43 @@ func (q *Queries) SetWritingFinished(ctx context.Context, atomID uuid.UUID) erro
 	return err
 }
 
+const setWritingSetup = `-- name: SetWritingSetup :one
+UPDATE writing
+SET lang = $2, target_words = $3, setup_at = now(), updated_at = now()
+WHERE atom_id = $1
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
+`
+
+type SetWritingSetupParams struct {
+	AtomID      uuid.UUID `json:"atom_id"`
+	Lang        string    `json:"lang"`
+	TargetWords *int32    `json:"target_words"`
+}
+
+// 进入房间的「设定」弹窗：语言 + 目标篇幅一次落库，并盖上 setup_at 时间戳，
+// 这样弹窗只在第一次进入时出现。三件事必须在同一条语句里完成——分成三次
+// 写，中途失败就会留下「定了语言但还会再被弹窗拦一次」的半截状态。
+// target_words 允许为 NULL（她可以不定篇幅，铁律②：篇幅从来不是前置条件）。
+func (q *Queries) SetWritingSetup(ctx context.Context, arg SetWritingSetupParams) (Writing, error) {
+	row := q.db.QueryRow(ctx, setWritingSetup, arg.AtomID, arg.Lang, arg.TargetWords)
+	var i Writing
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Lang,
+		&i.Stage,
+		&i.TargetWords,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.StructureKey,
+		&i.SetupAt,
+	)
+	return i, err
+}
+
 const setWritingStage = `-- name: SetWritingStage :one
-UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at
+UPDATE writing SET stage = $2, updated_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
 `
 
 type SetWritingStageParams struct {
@@ -321,6 +371,39 @@ func (q *Queries) SetWritingStage(ctx context.Context, arg SetWritingStageParams
 		&i.Status,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.StructureKey,
+		&i.SetupAt,
+	)
+	return i, err
+}
+
+const setWritingStructure = `-- name: SetWritingStructure :one
+UPDATE writing SET structure_key = $2, updated_at = now()
+WHERE atom_id = $1
+RETURNING atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at
+`
+
+type SetWritingStructureParams struct {
+	AtomID       uuid.UUID `json:"atom_id"`
+	StructureKey string    `json:"structure_key"`
+}
+
+// 记下她选中的骨架。与 ReplaceWritingOutline 由调用方放进同一个事务：骨架
+// 与它铺出来的空块必须同生同死，否则 structure_key 会指向一副并不存在的提纲。
+func (q *Queries) SetWritingStructure(ctx context.Context, arg SetWritingStructureParams) (Writing, error) {
+	row := q.db.QueryRow(ctx, setWritingStructure, arg.AtomID, arg.StructureKey)
+	var i Writing
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Lang,
+		&i.Stage,
+		&i.TargetWords,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.StructureKey,
+		&i.SetupAt,
 	)
 	return i, err
 }

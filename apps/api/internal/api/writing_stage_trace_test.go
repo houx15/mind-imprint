@@ -42,8 +42,8 @@ func TestSetWritingStage_TraceAndStageAreAtomic(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetWriting before: %v", err)
 	}
-	if before.Stage != "ideate" {
-		t.Fatalf("precondition: stage = %q, want \"ideate\"", before.Stage)
+	if before.Stage != "outline" {
+		t.Fatalf("precondition: stage = %q, want \"outline\"", before.Stage)
 	}
 
 	if _, err := pool.Exec(ctx, `
@@ -71,7 +71,7 @@ func TestSetWritingStage_TraceAndStageAreAtomic(t *testing.T) {
 		}
 	}()
 
-	// The skip that must not become invisible: ideate → snippets, past 大纲.
+	// The jump that must not become invisible: outline → snippets.
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(
 		httptest.NewRequest("POST", "/api/v1/writings/"+id+"/stage",

@@ -1,58 +1,69 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Plus } from "lucide-react";
+import { Sparkles, Plus, HelpCircle } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import {
   putWritingSnippet,
   generateWritingSnippetExemplar,
+  guideWritingBlock,
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingExemplar,
+  type WritingBlockGuide,
 } from "../api/writingRoom";
 
 /**
- * SnippetsStage — 段落: "write paragraph by paragraph following the
- * outline, with guiding questions appearing as blocks; the English exemplar
- * sits in a visually separate container, labeled 「示范」, with no insert
- * button of any kind."
+ * SnippetsStage — 段落.
  *
- * 铁律① IS ENFORCED IN THIS FILE. `ExemplarBlock` below renders the model's
- * English paragraph as plain, non-editable text inside its own bordered
- * `示范` box — there is no button, icon, or click target anywhere near it
- * that could move that text into her paragraph textarea. The two pieces of
- * state (`slotText`, the textarea she types into, and `exemplar`, what the
- * box below it shows) are never assigned to each other anywhere in this
- * component — that is the whole guarantee, not a comment promising it.
+ * The 2026-08-27 note that reshaped this file: *"snippets is important, the
+ * key is the AI-generated guiding box, instead of letting students write
+ * paragraph by paragraph."* The old shape was the second thing — a bare
+ * textarea under a heading, and a student staring at a cursor. What was
+ * missing wasn't a bigger box; it was something to think *about*.
  *
- * Exemplar generation is English-only server-side (writing_snippets.go 400s
- * `exemplar_not_available` for `lang !== "en"`), so the "示范" affordance is
- * only offered at all when `lang === "en"` — a Chinese writing simply has no
- * demonstration block, rather than a button that always fails.
+ * So every block now carries 「卡住了？」 → GuideBox: two to four questions
+ * about THIS block, grounded in what she has already said. Not suggestions,
+ * not a model paragraph — questions.
+ *
+ * 铁律① IS ENFORCED IN THIS FILE, twice over:
+ *
+ *   - GuideBox renders `guide.questions`, and the server has already dropped
+ *     anything that isn't a question (writing_guide.go's parseWritingGuide).
+ *     A question cannot be pasted into an essay; a sentence can. The
+ *     guarantee is the output TYPE, not a promise.
+ *   - ExemplarBlock (English only) renders the model's demonstration
+ *     paragraph as plain, non-editable text in its own bordered 「示范」 box,
+ *     with nothing clickable inside it that touches the textarea above. The
+ *     two pieces of state — `slotText` and `exemplar` — are never assigned to
+ *     each other anywhere in this component. That is the whole guarantee.
+ *
+ * A card the guide nominates is OFFERED, never opened: `onSummonCard` hands
+ * it up to the room, which is where the student confirms (铁律②).
  */
 
 type Slot = {
   position: number;
   outlineId: string | null;
   heading: string;
+  /** The generic block label from the skeleton ("反方最强的说法"), when this
+   *  slot comes from one. Free paragraphs have none. */
+  role: string;
   snippet: WritingSnippet | null;
 };
 
 /**
- * B2/H1 fix. Two rules:
+ * Two rules, both learned from bugs:
  *
- * 1. EVERY persisted snippet gets a slot, whether or not it maps to a
- *    current outline point. Slicing to outline-derived slots ONLY
- *    (whenever an outline existed) used to silently drop any snippet that
- *    wasn't one of them — a free paragraph added via 加一段, or one
- *    written before the outline was ever confirmed. Its text still lands
- *    in the composed draft either way, so hiding it left her unable to see
- *    or edit part of her own finished piece (B2).
- * 2. A snippet is matched to an outline point strictly by `outlineId`
- *    (the server's own by-text-repaired link — see writing_snippets.go's
- *    `writingSnippetHeadingByID`), never by array position. Position
- *    matching can point at the WRONG outline point the moment the outline
- *    is reordered or a point is removed — "specific, confident and
- *    wrong", exactly what the backend refuses to do (H1).
+ * 1. EVERY persisted snippet gets a slot, whether or not it maps to a current
+ *    outline point. Slicing to outline-derived slots ONLY used to silently
+ *    drop any snippet that wasn't one of them — a free paragraph added via
+ *    加一段, or one written before a structure was ever chosen. Its text still
+ *    lands in the composed draft either way, so hiding it left her unable to
+ *    see or edit part of her own finished piece.
+ * 2. A snippet is matched to a block strictly by `outlineId` (the server's own
+ *    by-text-repaired link), never by array position. Position matching can
+ *    point at the WRONG block the moment the outline is reordered — "specific,
+ *    confident and wrong", exactly what the backend refuses to do.
  */
 function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnippet[]): Slot[] {
   const sortedOutline = outline.slice().sort((a, b) => a.position - b.position);
@@ -61,19 +72,25 @@ function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnippet[]): 
   const outlineSlots: Slot[] = sortedOutline.map((o) => ({
     position: o.position,
     outlineId: o.id,
-    heading: o.text,
+    // Her own sentence is the heading when she has written one; the generic
+    // role is the fallback, so a block she hasn't summarised yet still says
+    // what it is for rather than showing an empty strip.
+    heading: o.text.trim() || o.role,
+    role: o.role,
     snippet: snippets.find((s) => s.outlineId === o.id) ?? null,
   }));
 
-  // Every snippet not claimed by a current outline point — genuinely free
-  // (no outlineId), or its link went stale (outline point renamed/removed,
-  // in which case `outlineHeading` is the server's own honest last-known
-  // heading, never guessed here).
   const freeSlots: Slot[] = snippets
     .filter((s) => !s.outlineId || !outlineIds.has(s.outlineId))
     .slice()
     .sort((a, b) => a.position - b.position)
-    .map((s) => ({ position: s.position, outlineId: s.outlineId, heading: s.outlineHeading, snippet: s }));
+    .map((s) => ({
+      position: s.position,
+      outlineId: s.outlineId,
+      heading: s.outlineHeading,
+      role: "",
+      snippet: s,
+    }));
 
   return [...outlineSlots, ...freeSlots];
 }
@@ -84,29 +101,27 @@ export function SnippetsStage({
   outline,
   snippets,
   onSnippetsChange,
+  onSummonCard,
 }: {
   writingId: string;
   lang: string;
   outline: WritingOutlineItem[];
   snippets: WritingSnippet[];
   onSnippetsChange: (next: WritingSnippet[]) => void;
+  onSummonCard: (cardId: string) => void;
 }) {
   const slots = buildSlots(outline, snippets);
+
   // Free paragraphs live in a position range an outline can never reach.
   //
   // position is writing_snippet's upsert key, and outline positions are just
   // array indices 0..N-1 reassigned on every outline save. So "one past the
   // current maximum" is not safe: a free paragraph minted at position 1 while
-  // the outline has one point sits exactly where a SECOND outline point will
-  // land the next time she adds one — and the first save of that new outline
-  // slot then upserts onto her free paragraph's row, destroying its text and
-  // relinking the row to a heading she never wrote it under. Silent, and the
-  // kind of loss she would only notice much later.
-  //
-  // Offsetting past any plausible outline length removes the collision by
-  // construction rather than by arithmetic that has to stay correct as the
-  // outline grows. Free paragraphs therefore also sort after outline
-  // paragraphs in the composed draft, which matches where they render.
+  // the outline has one block sits exactly where a SECOND block will land the
+  // next time the structure grows — and the first save of that new slot then
+  // upserts onto her free paragraph's row, destroying its text and relinking
+  // it to a heading she never wrote it under. Silent, and the kind of loss
+  // she would only notice much later.
   const FREE_POSITION_BASE = 1000;
   const freePositions = snippets.map((s) => s.position).filter((p) => p >= FREE_POSITION_BASE);
   const nextFreePosition = freePositions.length === 0 ? FREE_POSITION_BASE : Math.max(...freePositions) + 1;
@@ -118,11 +133,14 @@ export function SnippetsStage({
 
   return (
     <div className="flex flex-col gap-4">
-      <h2 className="text-mk-h2 text-mk-ink">段落</h2>
+      <div className="flex flex-col gap-1.5">
+        <h2 className="text-mk-h2 text-mk-ink">段落</h2>
+        <p className="text-mk-body text-mk-muted">一块一块来。哪一块写不动了，就点「卡住了？」，印记问你几个问题。</p>
+      </div>
 
       {slots.length === 0 && (
         <p className="rounded-mk-md border border-dashed border-mk-border p-4 text-mk-small text-mk-muted">
-          还没有提纲，段落就没有跟着的地方——先去「大纲」列几个要点，或者直接加一段自由写。
+          还没有结构，段落就没有跟着的地方——先回「结构」挑一副骨架，或者直接加一段自由写。
         </p>
       )}
 
@@ -134,6 +152,7 @@ export function SnippetsStage({
             lang={lang}
             slot={slot}
             onSaved={onSnippetsChange}
+            onSummonCard={onSummonCard}
           />
         ))}
       </div>
@@ -154,16 +173,20 @@ function SnippetBlock({
   lang,
   slot,
   onSaved,
+  onSummonCard,
 }: {
   writingId: string;
   lang: string;
   slot: Slot;
   onSaved: (next: WritingSnippet[]) => void;
+  onSummonCard: (cardId: string) => void;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [exemplar, setExemplar] = useState<WritingExemplar | null>(null);
+  const [guide, setGuide] = useState<WritingBlockGuide | null>(null);
+  const [guiding, setGuiding] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -176,13 +199,13 @@ function SnippetBlock({
     setError(null);
     try {
       const saved = await putWritingSnippet(writingId, {
-        // Only send outlineId to ESTABLISH a link, on this slot's very
-        // first save (no persisted row yet). Once a snippet row exists,
-        // omit it — the PUT's own "absent outlineId = preserve whatever
-        // link is already there" semantics then apply, so an ordinary
-        // text save can never clobber a link the server holds (including
-        // one it just repaired by heading text after an outline edit) with
-        // a value merely inferred client-side (H1).
+        // Only send outlineId to ESTABLISH a link, on this slot's very first
+        // save (no persisted row yet). Once a snippet row exists, omit it —
+        // the PUT's "absent outlineId = preserve whatever link is already
+        // there" semantics then apply, so an ordinary text save can never
+        // clobber a link the server holds (including one it just repaired by
+        // heading text after a structure change) with a value merely inferred
+        // client-side.
         outlineId: slot.snippet ? undefined : slot.outlineId,
         position: slot.position,
         text,
@@ -195,13 +218,31 @@ function SnippetBlock({
     }
   }
 
+  async function askForGuide() {
+    if (!slot.outlineId) {
+      // A free paragraph has no block to reason about — the guide endpoint is
+      // keyed on an outline row. Say so rather than firing a call that 404s.
+      setError("这是一段自由写的段落，先把它挂到「结构」里的某一块上，印记才知道该往哪个方向问。");
+      return;
+    }
+    setGuiding(true);
+    setError(null);
+    try {
+      setGuide(await guideWritingBlock(writingId, slot.outlineId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "这次没问出问题来，再试一次。");
+    } finally {
+      setGuiding(false);
+    }
+  }
+
   async function requestExemplar() {
     setGenerating(true);
     setError(null);
     try {
-      // The exemplar endpoint needs an existing snippet row (`{sid}`) — if
-      // this slot has never been saved yet, save it first (even if still
-      // empty) so there is something to attach the demonstration to.
+      // The exemplar endpoint needs an existing snippet row — if this slot has
+      // never been saved, save it first (even empty) so there is something to
+      // attach the demonstration to.
       let sid = slot.snippet?.id;
       if (!sid) {
         const saved = await putWritingSnippet(writingId, { outlineId: slot.outlineId, position: slot.position, text });
@@ -209,8 +250,7 @@ function SnippetBlock({
         sid = saved.find((s) => s.position === slot.position)?.id;
       }
       if (!sid) throw new Error("missing snippet id");
-      const result = await generateWritingSnippetExemplar(writingId, sid);
-      setExemplar(result);
+      setExemplar(await generateWritingSnippetExemplar(writingId, sid));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "生成示范失败，请重试。");
     } finally {
@@ -220,20 +260,43 @@ function SnippetBlock({
 
   return (
     <div className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-4">
-      <div className="flex items-center justify-between gap-2">
-        <span className="text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
-        {lang === "en" && (
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div className="flex min-w-0 items-baseline gap-2">
+          {slot.role && (
+            <span
+              className="shrink-0 rounded-mk-xs px-1.5 py-0.5 text-mk-label font-semibold"
+              style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
+            >
+              {slot.role}
+            </span>
+          )}
+          <span className="truncate text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
+        </div>
+        <div className="flex shrink-0 items-center gap-1.5">
           <Button
             variant="secondary"
             size="sm"
-            onClick={() => void requestExemplar()}
-            loading={generating}
-            iconStart={<Icon icon={Sparkles} size={14} />}
+            onClick={() => void askForGuide()}
+            loading={guiding}
+            iconStart={<Icon icon={HelpCircle} size={14} />}
           >
-            示范段落
+            卡住了？
           </Button>
-        )}
+          {lang === "en" && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void requestExemplar()}
+              loading={generating}
+              iconStart={<Icon icon={Sparkles} size={14} />}
+            >
+              示范段落
+            </Button>
+          )}
+        </div>
       </div>
+
+      {guide && <GuideBox guide={guide} onSummonCard={onSummonCard} onDismiss={() => setGuide(null)} />}
 
       <textarea
         value={text}
@@ -251,11 +314,72 @@ function SnippetBlock({
 }
 
 /**
- * ExemplarBlock — the 铁律① pressure point. Visually separate container
- * (its own border/background, distinct from the textarea above), labeled
- * 「示范」, and there is NOTHING clickable inside it that touches `text` in
- * the sibling component — no copy button, no "用这段" button, no drag
- * handle. Read it, then go write your own.
+ * GuideBox — the guiding box.
+ *
+ * Rendered ABOVE the textarea on purpose: she reads the questions, then
+ * writes. Below it, it would be a footnote to a blank page.
+ *
+ * Nothing in here writes to the textarea. There is no "use this" affordance,
+ * because there is nothing here that could be used — only questions.
+ */
+function GuideBox({
+  guide,
+  onSummonCard,
+  onDismiss,
+}: {
+  guide: WritingBlockGuide;
+  onSummonCard: (cardId: string) => void;
+  onDismiss: () => void;
+}) {
+  return (
+    <div
+      className="flex flex-col gap-2.5 rounded-mk-md border p-3.5"
+      style={{ borderColor: "var(--mk-accent-300)", background: "color-mix(in srgb, var(--mk-accent-500) 5%, var(--mk-paper))" }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span
+          className="rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
+          style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
+        >
+          想一想
+        </span>
+        <button type="button" onClick={onDismiss} className="text-mk-label text-mk-faint hover:text-mk-muted">
+          收起
+        </button>
+      </div>
+
+      <ol className="flex list-none flex-col gap-2">
+        {guide.questions.map((q, i) => (
+          <li key={i} className="flex gap-2">
+            <span
+              className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-mk-full text-[10px] font-semibold"
+              style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
+            >
+              {i + 1}
+            </span>
+            <span className="text-mk-body text-mk-ink">{q}</span>
+          </li>
+        ))}
+      </ol>
+
+      {guide.cardId && (
+        <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-2.5">
+          <span className="text-mk-small text-mk-muted">{guide.cardReason || "这一块也许适合用一张工具卡拆开想。"}</span>
+          <Button size="sm" variant="secondary" onClick={() => onSummonCard(guide.cardId)}>
+            打开这张卡
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * ExemplarBlock — the 铁律① pressure point. Visually separate container (its
+ * own border/background, distinct from the textarea), labeled 「示范」, and
+ * there is NOTHING clickable inside it that touches `text` in the sibling
+ * component — no copy button, no "用这段" button, no drag handle. Read it,
+ * then go write your own.
  */
 function ExemplarBlock({ exemplar }: { exemplar: WritingExemplar }) {
   return (

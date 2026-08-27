@@ -19,7 +19,7 @@ func postWritingStage(t *testing.T, h http.Handler, cookie *http.Cookie, id, sta
 }
 
 // TestSetWritingStage_SkippingAheadIs200 — the four stages are a map, not a
-// gate (铁律②): jumping straight from ideate to snippets, skipping outline
+// gate (铁律②): jumping straight past a step
 // entirely, must succeed.
 func TestSetWritingStage_SkippingAheadIs200(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
@@ -27,7 +27,7 @@ func TestSetWritingStage_SkippingAheadIs200(t *testing.T) {
 
 	rec := postWritingStage(t, h, cookie, id, "snippets")
 	if rec.Code != http.StatusOK {
-		t.Fatalf("skip ideate->snippets = %d, want 200; body=%s", rec.Code, rec.Body)
+		t.Fatalf("skip outline->snippets = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var out struct {
 		Stage string `json:"stage"`
@@ -62,8 +62,8 @@ func TestSetWritingStage_SkipIsRecorded(t *testing.T) {
 	if trace.Role != "system" {
 		t.Fatalf("trace role = %q, want system", trace.Role)
 	}
-	if !strings.Contains(trace.Content, "ideate") || !strings.Contains(trace.Content, "snippets") {
-		t.Fatalf("trace content = %q, want it to record ideate->snippets", trace.Content)
+	if !strings.Contains(trace.Content, "outline") || !strings.Contains(trace.Content, "snippets") {
+		t.Fatalf("trace content = %q, want it to record outline->snippets", trace.Content)
 	}
 }
 
@@ -75,7 +75,7 @@ func TestSetWritingStage_BackwardIsAllowed(t *testing.T) {
 	id := createWritingAtomHTTP(t, h, cookie, "先写片段再回头补大纲")
 
 	if rec := postWritingStage(t, h, cookie, id, "snippets"); rec.Code != http.StatusOK {
-		t.Fatalf("ideate->snippets = %d, want 200; body=%s", rec.Code, rec.Body)
+		t.Fatalf("outline->snippets = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	rec := postWritingStage(t, h, cookie, id, "outline")
 	if rec.Code != http.StatusOK {
@@ -92,7 +92,7 @@ func TestSetWritingStage_BackwardIsAllowed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ListAtomMessages: %v", err)
 	}
-	// seq=1 opening idea, seq=2 ideate->snippets trace, seq=3 snippets->outline trace.
+	// seq=1 opening idea, seq=2 outline->snippets trace, seq=3 snippets->outline trace.
 	if len(msgs) != 3 {
 		t.Fatalf("got %d atom_messages, want 3", len(msgs))
 	}
@@ -140,8 +140,8 @@ func TestSetWritingTargetWords_ValidAtAnyStage(t *testing.T) {
 	if out.TargetWords == nil || *out.TargetWords != 800 {
 		t.Fatalf("targetWords = %v, want 800", out.TargetWords)
 	}
-	if out.Stage != "ideate" {
-		t.Fatalf("stage = %q, want ideate unchanged — target-words must not touch stage", out.Stage)
+	if out.Stage != "outline" {
+		t.Fatalf("stage = %q, want outline unchanged — target-words must not touch stage", out.Stage)
 	}
 }
 

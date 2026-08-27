@@ -11,6 +11,7 @@ import {
   type Reading,
 } from "../api/readings";
 import { navigate, readingPath } from "../routing";
+import { PromptTile } from "../shared/PromptTile";
 import { RECOMMENDED_READINGS, type RecommendedReading } from "./recommendations";
 import { ReadingHistoryPanel, isFinished } from "./ReadingHistoryPanel";
 
@@ -296,10 +297,14 @@ export function ReadingsLanding() {
           </div>
 
           <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {RECOMMENDED_READINGS.map((rec) => (
-              <RecommendationTile
+            {RECOMMENDED_READINGS.map((rec, i) => (
+              <PromptTile
                 key={rec.id}
-                rec={rec}
+                index={i + 1}
+                tag={rec.genre}
+                title={rec.title}
+                reason={rec.reason}
+                tone={rec.tone}
                 disabled={starting}
                 onPick={() => void handleRecommendation(rec)}
               />
@@ -423,40 +428,4 @@ function OpenBookMark() {
 
 function Hairline() {
   return <span aria-hidden="true" className="h-px w-14 bg-mk-border" />;
-}
-
-/** One book on the shelf. The macaron tone is the only colour it carries —
- *  a left edge and the genre chip — so four tiles read as four different
- *  things without four different card styles. */
-function RecommendationTile({
-  rec,
-  disabled,
-  onPick,
-}: {
-  rec: RecommendedReading;
-  disabled: boolean;
-  onPick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onPick}
-      disabled={disabled}
-      className="group relative flex flex-col items-start gap-1.5 overflow-hidden rounded-mk-md border border-mk-border bg-mk-surface py-3.5 pl-5 pr-4 text-left transition-[transform,box-shadow,border-color] duration-200 ease-mk hover:-translate-y-0.5 hover:border-mk-accent-200 hover:shadow-mk-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:cursor-not-allowed motion-reduce:transition-none motion-reduce:hover:translate-y-0"
-    >
-      <span
-        aria-hidden="true"
-        className="absolute inset-y-0 left-0 w-[3px]"
-        style={{ background: `var(--mk-${rec.tone})` }}
-      />
-      <span
-        className="rounded-mk-full px-2 py-0.5 text-mk-label"
-        style={{ background: `var(--mk-${rec.tone}-bg)`, color: `var(--mk-${rec.tone}-fg)` }}
-      >
-        {rec.genre}
-      </span>
-      <span className="text-mk-h3 text-mk-ink">{rec.title}</span>
-      <span className="text-mk-small text-mk-muted">{rec.reason}</span>
-    </button>
-  );
 }

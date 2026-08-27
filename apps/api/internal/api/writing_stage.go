@@ -34,10 +34,23 @@ import (
 //     sqlc methods (like SetWritingFinished, which also never touches
 //     stage), and this handler does not couple them either.
 
-// validWritingStages mirrors the writing.stage CHECK constraint
-// (migrations/0099_writing_tables.sql) exactly — five values, no more.
+// validWritingStages is the vocabulary this API ACCEPTS, and it is
+// deliberately NARROWER than the writing.stage CHECK constraint (0099),
+// which still permits 'ideate'.
+//
+// The four-step map collapsed to three on 2026-08-27 — 结构 / 段落 / 成稿 —
+// when 构思 stopped being a page of its own: what little lived there (目标
+// 篇幅) moved into the entry 设定 dialog, and the thinking it was supposed to
+// host is now the coach's opening line plus the per-block guiding questions.
+// 0100 migrated every existing 'ideate' row to 'outline'.
+//
+// The CHECK constraint was left alone on purpose: tightening it means
+// rebuilding it, and a database that still tolerates a value nothing writes
+// costs nothing. THIS map is the enforcement point, so a stale client posting
+// 'ideate' gets a clean 400 rather than parking a writing on a stage with no
+// page behind it.
 var validWritingStages = map[string]bool{
-	"ideate": true, "outline": true, "snippets": true, "draft": true, "finished": true,
+	"outline": true, "snippets": true, "draft": true, "finished": true,
 }
 
 const (

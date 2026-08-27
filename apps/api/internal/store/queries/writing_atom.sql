@@ -52,9 +52,12 @@ WHERE atom_id = $1 AND status <> 'finished';
 WITH deleted AS (
   DELETE FROM writing_outline WHERE atom_id = sqlc.arg(atom_id)
 )
-INSERT INTO writing_outline (atom_id, text, depth, position)
+-- roles 与 texts 平行传入（0100）：role 是骨架给的通用块名，text 是她自己
+-- 写的那句话。一次 PUT 同时重写两列，role 才不会在她编辑正文时被抹掉。
+INSERT INTO writing_outline (atom_id, text, role, depth, position)
 SELECT sqlc.arg(atom_id),
        unnest(sqlc.arg(texts)::text[]),
+       unnest(sqlc.arg(roles)::text[]),
        unnest(sqlc.arg(depths)::int[]),
        unnest(sqlc.arg(positions)::int[])
 RETURNING *;
@@ -91,3 +94,20 @@ SELECT * FROM writing_draft WHERE atom_id = $1;
 -- moment she reorders her outline, which is worse than showing none).
 UPDATE writing_snippet SET outline_id = $2, updated_at = now()
 WHERE atom_id = $1 AND id = $3;
+
+-- name: SetWritingSetup :one
+-- 进入房间的「设定」弹窗：语言 + 目标篇幅一次落库，并盖上 setup_at 时间戳，
+-- 这样弹窗只在第一次进入时出现。三件事必须在同一条语句里完成——分成三次
+-- 写，中途失败就会留下「定了语言但还会再被弹窗拦一次」的半截状态。
+-- target_words 允许为 NULL（她可以不定篇幅，铁律②：篇幅从来不是前置条件）。
+UPDATE writing
+SET lang = $2, target_words = $3, setup_at = now(), updated_at = now()
+WHERE atom_id = $1
+RETURNING *;
+
+-- name: SetWritingStructure :one
+-- 记下她选中的骨架。与 ReplaceWritingOutline 由调用方放进同一个事务：骨架
+-- 与它铺出来的空块必须同生同死，否则 structure_key 会指向一副并不存在的提纲。
+UPDATE writing SET structure_key = $2, updated_at = now()
+WHERE atom_id = $1
+RETURNING *;

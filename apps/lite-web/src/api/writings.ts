@@ -12,10 +12,18 @@ export interface Writing {
   id: string;
   title: string;
   lang: string;
-  /** One of 'ideate' | 'outline' | 'snippets' | 'draft' | 'finished' — the
-   *  four-stage MAP position (铁律②: a map, never a gate). */
+  /** One of 'outline' | 'snippets' | 'draft' | 'finished' — the three-stage
+   *  MAP position, 结构 / 段落 / 成稿 (铁律②: a map, never a gate). The old
+   *  'ideate' step was retired on 2026-08-27: migration 0100 moved every row
+   *  onto 'outline', and the server now 400s on it. */
   stage: string;
   targetWords: number | null;
+  /** Which skeleton she picked out of the fixed structure library; "" = none
+   *  yet, which is what the 结构 page's empty state keys on. */
+  structureKey: string;
+  /** When the entry 设定 dialog was completed. null = never, and that is
+   *  exactly what opens it — see WritingSetupModal. */
+  setupAt: string | null;
   /** 'active' | 'finished' — independent of `stage` (a finished piece may
    *  still show any stage; see writing_stage.go's file comment). */
   status: string;
@@ -36,9 +44,18 @@ export async function listWritings(): Promise<Writing[]> {
   return raw.writings;
 }
 
-/** POST /api/v1/writings — "type one sentence into a box and you're
- *  started." `idea` must be non-empty (the server 400s on blank: unlike a
- *  reading, a writing has nothing to talk about without one). */
+/**
+ * POST /api/v1/writings — "type one sentence into a box and you're started."
+ * `idea` must be non-empty (the server 400s on blank: unlike a reading, a
+ * writing has nothing to talk about without one).
+ *
+ * `lang` here is PROVISIONAL. It used to be final, and the landing box
+ * hardcoded "zh" for anything freely typed — so a student who typed her own
+ * English essay idea silently lost every English-only affordance in the room
+ * and had no way to discover why. The entry 设定 dialog now asks her outright
+ * and overwrites this via `setWritingSetup` before she does anything, so a
+ * wrong guess at creation time costs nothing.
+ */
 export async function createWriting(input: { idea: string; lang?: "zh" | "en" }): Promise<{ id: string }> {
   return apiFetch<{ id: string }>("/api/v1/writings", {
     method: "POST",

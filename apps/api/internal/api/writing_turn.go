@@ -63,15 +63,20 @@ import (
 // writing thread.
 const writingTurnsWindow = 12
 
-// writingStageLabels names each of the four stages (§6.2.2) for the coach's
-// "you are here" framing (mirrors coachSurfaceLabel's pro-side room names,
-// projectcoach.go, but keyed on writing.stage rather than a room scope).
-// 'finished' cannot actually reach this handler (loadOwnedWritingAtom's
-// finished-write gate refuses the POST before this runs) but is mapped
-// defensively rather than left to fall through to the generic label.
+// writingStageLabels names each stage for the coach's "you are here" framing
+// (mirrors coachSurfaceLabel's pro-side room names, projectcoach.go, but
+// keyed on writing.stage rather than a room scope).
+//
+// Two entries here are READ-ONLY mappings for values this API no longer
+// accepts (validWritingStages, writing_stage.go): 'finished' cannot reach
+// this handler at all (loadOwnedWritingAtom's finished-write gate refuses the
+// POST first), and 'ideate' was retired when the map collapsed to three steps
+// — 0100 migrated the rows, but an un-migrated replica or an old fixture
+// could still hand one over, and a label lookup must degrade to the right
+// step rather than to the generic "写作".
 var writingStageLabels = map[string]string{
-	"ideate":   "构思",
-	"outline":  "大纲",
+	"ideate":   "结构",
+	"outline":  "结构",
 	"snippets": "段落",
 	"draft":    "成稿",
 	"finished": "成稿",

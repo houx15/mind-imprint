@@ -56,8 +56,8 @@ func TestCreateWriting_IdeaBecomesTitleAndFirstMessage(t *testing.T) {
 	if wr.Title != "我想写中国的可持续发展" {
 		t.Fatalf("title = %q, want the idea verbatim", wr.Title)
 	}
-	if wr.Stage != "ideate" {
-		t.Fatalf("stage = %q, want \"ideate\"", wr.Stage)
+	if wr.Stage != "outline" {
+		t.Fatalf("stage = %q, want \"outline\"", wr.Stage)
 	}
 	if wr.TargetWords != nil {
 		t.Fatalf("targetWords = %v, want nil on a new writing", wr.TargetWords)
@@ -153,8 +153,8 @@ func TestListWritings_OnlyMineNewestFirst(t *testing.T) {
 	if out.Writings[0].ID != second || out.Writings[1].ID != first {
 		t.Fatalf("order = [%s,%s], want newest first [%s,%s]", out.Writings[0].ID, out.Writings[1].ID, second, first)
 	}
-	if out.Writings[0].Stage != "ideate" {
-		t.Fatalf("stage = %q, want ideate", out.Writings[0].Stage)
+	if out.Writings[0].Stage != "outline" {
+		t.Fatalf("stage = %q, want outline", out.Writings[0].Stage)
 	}
 	if out.Writings[0].TargetWords != nil {
 		t.Fatalf("targetWords = %v, want null", out.Writings[0].TargetWords)

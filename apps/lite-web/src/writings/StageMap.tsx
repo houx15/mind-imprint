@@ -2,30 +2,42 @@ import { Check } from "lucide-react";
 import { Icon } from "@/ui";
 
 /**
- * StageMap — the four-step 构思/大纲/段落/成稿 indicator.
+ * StageMap — the three-step 结构 / 段落 / 成稿 indicator.
  *
- * 铁律②: "Stages are a MAP, not a gate" (writing_stage.go's own file
- * comment — jumping forward OR backward is a plain 200 server-side, and the
- * server records the transition rather than refusing it). Every step is
- * ALWAYS a clickable button, never disabled, whatever stage she is
- * currently on — there is no "you haven't unlocked 成稿 yet" state anywhere
- * in this component.
+ * It was four steps until 2026-08-27. 构思 came first and owned a page whose
+ * entire content was a 目标字数 input that gave no feedback — a screen that
+ * looked like a step and did nothing. What it was *supposed* to host (working
+ * out what you think) now lives where it belongs: the entry 设定 dialog takes
+ * the settings, and the thinking happens in the coach's opening line and in
+ * the per-block guiding questions, at the moment each block is actually being
+ * written rather than all up front.
+ *
+ * 铁律②: stages are a MAP, not a gate (writing_stage.go's own file comment —
+ * jumping forward OR backward is a plain 200 server-side, and the server
+ * records the transition rather than refusing it). Every step is ALWAYS a
+ * clickable button, never disabled, whatever stage she is on. There is no
+ * "you haven't unlocked 成稿 yet" state anywhere in this component.
  */
 
-export type WritingStageKey = "ideate" | "outline" | "snippets" | "draft";
+export type WritingStageKey = "outline" | "snippets" | "draft";
 
 const STEPS: { key: WritingStageKey; label: string }[] = [
-  { key: "ideate", label: "构思" },
-  { key: "outline", label: "大纲" },
+  { key: "outline", label: "结构" },
   { key: "snippets", label: "段落" },
   { key: "draft", label: "成稿" },
 ];
 
-/** `writing.stage` also carries a fifth value, `'finished'` — a terminal
- *  status that still means "she was working in 成稿". Maps it onto the same
- *  four-step highlight rather than growing a fifth dot nothing points at. */
+/**
+ * `writing.stage` carries two values with no step of their own: 'finished'
+ * (a terminal status that still means "she was working in 成稿") and the
+ * retired 'ideate' (migration 0100 moved the rows, but a stale payload could
+ * still carry one). Both map onto a real step rather than growing a dot
+ * nothing points at, or — worse — highlighting nothing at all.
+ */
 function normalizeStage(stage: string): WritingStageKey {
-  return stage === "finished" ? "draft" : (stage as WritingStageKey);
+  if (stage === "finished") return "draft";
+  if (stage === "ideate") return "outline";
+  return STEPS.some((s) => s.key === stage) ? (stage as WritingStageKey) : "outline";
 }
 
 export function StageMap({
@@ -41,7 +53,7 @@ export function StageMap({
   const currentIndex = STEPS.findIndex((s) => s.key === current);
 
   return (
-    <nav aria-label="写作四步" className="flex items-center gap-1">
+    <nav aria-label="写作三步" className="flex items-center gap-1">
       {STEPS.map((step, i) => {
         const active = step.key === current;
         const done = i < currentIndex;

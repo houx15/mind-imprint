@@ -52,15 +52,15 @@ function Harness({
 }) {
   const [snippets, setSnippets] = useState(initialSnippets);
   return (
-    <SnippetsStage writingId={WID} lang="zh" outline={outline} snippets={snippets} onSnippetsChange={setSnippets} />
+    <SnippetsStage writingId={WID} lang="zh" outline={outline} snippets={snippets} onSnippetsChange={setSnippets} onSummonCard={() => {}} />
   );
 }
 
 describe("B2 — every persisted snippet must stay visible and editable", () => {
   it("shows the paragraph added via 加一段 even though a confirmed outline exists", async () => {
     const outline: WritingOutlineItem[] = [
-      { id: "o1", text: "打工能带来的收获", depth: 0, position: 0 },
-      { id: "o2", text: "打工的代价", depth: 0, position: 1 },
+      { id: "o1", text: "打工能带来的收获", role: "", depth: 0, position: 0 },
+      { id: "o2", text: "打工的代价", role: "", depth: 0, position: 1 },
     ];
     stubFetch((method, url) => {
       if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
@@ -87,7 +87,7 @@ describe("B2 — every persisted snippet must stay visible and editable", () => 
   });
 
   it("keeps a free paragraph written before the outline existed visible after the outline is confirmed", async () => {
-    const outline: WritingOutlineItem[] = [{ id: "o1", text: "打工能带来的收获", depth: 0, position: 0 }];
+    const outline: WritingOutlineItem[] = [{ id: "o1", text: "打工能带来的收获", role: "", depth: 0, position: 0 }];
     // position 5 — nowhere near any outline point's position, so this can
     // only be shown by NOT being silently swallowed into buildSlots'
     // outline-only branch (a position collision with an outline slot would
@@ -113,8 +113,8 @@ describe("B2 — every persisted snippet must stay visible and editable", () => 
 describe("H1 — snippets link to outline points by id, never by position", () => {
   it("matches a snippet to its outline point by outlineId, not by array position", async () => {
     const outline: WritingOutlineItem[] = [
-      { id: "o1", text: "第一部分", depth: 0, position: 0 },
-      { id: "o2", text: "第二部分", depth: 0, position: 1 },
+      { id: "o1", text: "第一部分", role: "", depth: 0, position: 0 },
+      { id: "o2", text: "第二部分", role: "", depth: 0, position: 1 },
     ];
     // Deliberately mismatched: this snippet is genuinely linked to o2 (the
     // SECOND outline point) but its own storage `position` is 0 — the same
@@ -139,7 +139,7 @@ describe("H1 — snippets link to outline points by id, never by position", () =
   });
 
   it("does not persist a client-guessed outlineId back onto an already-linked snippet", async () => {
-    const outline: WritingOutlineItem[] = [{ id: "o1", text: "第一部分", depth: 0, position: 0 }];
+    const outline: WritingOutlineItem[] = [{ id: "o1", text: "第一部分", role: "", depth: 0, position: 0 }];
     const snippet: WritingSnippet = {
       id: "s1",
       outlineId: "o1",
@@ -182,7 +182,7 @@ describe("free paragraphs must sit where an outline can never grow into them", (
     // The first save of that new outline slot then upserts onto her free
     // paragraph's row: her text is destroyed and the row is relinked to a
     // heading she never wrote it under. Silent, and only noticed much later.
-    const outline: WritingOutlineItem[] = [{ id: "o1", text: "打工能带来的收获", depth: 0, position: 0 }];
+    const outline: WritingOutlineItem[] = [{ id: "o1", text: "打工能带来的收获", role: "", depth: 0, position: 0 }];
     stubFetch((method, url) => {
       if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
         return { body: { snippets: [] } };

@@ -331,8 +331,8 @@ func TestWritingFinish_SetsStatusNotStage_AndIsIdempotent(t *testing.T) {
 	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
 
 	before := getWritingHTTP(t, h, cookie, id)
-	if before.Stage != "ideate" || before.Status != "active" {
-		t.Fatalf("baseline = %+v, want stage=ideate status=active", before)
+	if before.Stage != "outline" || before.Status != "active" {
+		t.Fatalf("baseline = %+v, want stage=outline status=active", before)
 	}
 
 	if rec := putWritingSnippetsHTTP(t, h, cookie, id, `{"snippets":[{"position":0,"text":"她跳过大纲和多段，直接写了一段就完成。"}]}`); rec.Code != http.StatusOK {
@@ -353,7 +353,7 @@ func TestWritingFinish_SetsStatusNotStage_AndIsIdempotent(t *testing.T) {
 	if out1.Status != "finished" {
 		t.Fatalf("status after finish = %q, want finished", out1.Status)
 	}
-	if out1.Stage != "ideate" {
+	if out1.Stage != "outline" {
 		t.Fatalf("finish forced stage to %q — status and stage must stay independent (she never touched 提纲/片段/成稿 stage transitions)", out1.Stage)
 	}
 	if out1.FinishedAt == nil || *out1.FinishedAt == "" {
@@ -371,8 +371,8 @@ func TestWritingFinish_SetsStatusNotStage_AndIsIdempotent(t *testing.T) {
 	if err := json.Unmarshal(second.Body.Bytes(), &out2); err != nil {
 		t.Fatalf("decode second finish: %v — body=%s", err, second.Body)
 	}
-	if out2.Status != "finished" || out2.Stage != "ideate" {
-		t.Fatalf("second finish = %+v, want status=finished stage=ideate unchanged", out2)
+	if out2.Status != "finished" || out2.Stage != "outline" {
+		t.Fatalf("second finish = %+v, want status=finished stage=outline unchanged", out2)
 	}
 	if out2.FinishedAt == nil || *out2.FinishedAt != *out1.FinishedAt {
 		t.Fatalf("finished_at drifted on a second finish: first=%v second=%v", out1.FinishedAt, out2.FinishedAt)

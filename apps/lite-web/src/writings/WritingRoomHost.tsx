@@ -1,11 +1,12 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { CARD_REGISTRY } from "@mind-imprint/contracts";
 import { Button, Icon } from "@/ui";
+import { countWords } from "@/workspace/blocks/wordcount";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { StudioCardSheet } from "@/studio/StudioCardSheet";
-import { Sparkles } from "lucide-react";
+import { Wrench, X } from "lucide-react";
 import { ApiError } from "../api/client";
 import { getWriting, isWritingFinished, type Writing } from "../api/writings";
 import {
@@ -15,7 +16,9 @@ import {
   getWritingDraft,
   listWritingCards,
   postWritingTurn,
+  postWritingOpening,
   setWritingStage,
+  setWritingTargetWords,
   activateWritingCard,
   skipWritingCard,
   submitWritingCard,
@@ -27,26 +30,34 @@ import {
 import type { LiteCard, LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
 import { StageMap, type WritingStageKey } from "./StageMap";
-import { IdeateStage } from "./IdeateStage";
-import { OutlineStage } from "./OutlineStage";
+import { WritingSetupModal } from "./WritingSetupModal";
+import { StructureStage } from "./StructureStage";
 import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 
 /**
- * WritingRoomHost — the 写作 room. Unlike reading, there is no pro component
- * to mount here (see the task brief's 复用边界): `WritingBlock`/
- * `WorkspaceContainer` are module-private and cannot host independently, so
- * this file assembles the room itself out of the genuinely standalone
- * primitives — `StudioCardSheet` (the real 工具卡 renderer), `ChatLog`/
- * `Composer`/`ChatMarkdown` (the shared chat primitives), and `CARD_REGISTRY`
- * — behind a layout written fresh for lite (no top title bar / stage bar,
- * per the product's own instruction that lite's writing page should not
- * look like pro's).
+ * WritingRoomHost — the 写作 room.
  *
- * Layout: a stage map up top (always clickable — 铁律②, never a gate), a
- * main panel on the left that changes with `writing.stage`, and a coach
- * rail on the right (dialogue + card shelf) that is THE SAME regardless of
- * stage — "talk first" is not something a stage switch should ever hide.
+ * Reshaped on 2026-08-27 after walking it on production. Three things were
+ * wrong, and all three were about guidance rather than features:
+ *
+ *   1. **The room was silent.** Her opening sentence sat alone in the rail and
+ *      the coach said nothing at all until she spoke first. Fixed by
+ *      `postWritingOpening` — 印记 speaks first, right after setup.
+ *   2. **目标字数 looked broken.** The PUT was always a 200, but nothing
+ *      confirmed it and no screen ever showed the number again, so from her
+ *      side it did nothing. It now lives in the header as a live counter
+ *      (`已写 320 / 800`), which is both the confirmation and the point.
+ *   3. **The tool cards were parked on screen permanently**, four of them,
+ *      pushed at her whether or not anything needed them. The shelf is gone.
+ *      Cards now arrive two ways only: the guiding box nominates one when a
+ *      block warrants it, and a quiet 工具 button opens the deck on demand.
+ *      Available, never insistent.
+ *
+ * Layout: stage map + length counter up top, a main panel on the left that
+ * changes with `writing.stage`, and a coach rail on the right that is THE
+ * SAME regardless of stage — "talk first" is not something a stage switch
+ * should ever hide.
  */
 
 type LoadState =
@@ -66,8 +77,8 @@ type LoadState =
 const EMPTY_DRAFT: WritingDraft = { body: "", updatedAt: null };
 
 // Mirrors writing_lens.go's `writingDeckIDs` — the fixed set of writing-room
-// tool cards. Growing the deck server-side (adding an id there) means
-// growing this list too; there is no endpoint that reports it back.
+// tool cards. Growing the deck server-side (adding an id there) means growing
+// this list too; there is no endpoint that reports it back.
 const WRITING_DECK = ["argument-map", "concession", "pee", "toulmin"];
 
 export function WritingRoomHost({ writingId }: { writingId: string }) {
@@ -77,6 +88,16 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   const [draftText, setDraftText] = useState("");
   const [hangingCard, setHangingCard] = useState<LiteCard | null>(null);
   const [cardNote, setCardNote] = useState<string | null>(null);
+  const [deckOpen, setDeckOpen] = useState(false);
+  /**
+   * Tracked separately from `sending` on purpose. Both put the thinking
+   * indicator in the transcript, but only `sending` locks the composer.
+   * Reusing `sending` for the opening would disable her input for the whole
+   * first second of the room — locking her out at the exact moment the room
+   * is supposed to feel welcoming. She can always type; 印记 catching up is
+   * 印记's problem.
+   */
+  const [opening, setOpening] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -99,12 +120,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         if (!cancelled) {
           setState({ phase: "ready", writing, messages, outline, snippets, draft, cards });
           // Seed hangingCard ONCE, right here at load — a card left
-          // proposed/active from a previous session must still show up
-          // after a reload. From this point on, hangingCard is owned
-          // entirely by the imperative handlers below (summon/open/skip/
-          // submit); it must NEVER be re-derived from this `cards` array
-          // again, because that array is a snapshot that goes stale the
-          // instant she does anything else (see B1).
+          // proposed/active from a previous session must still show up after a
+          // reload. From this point on, hangingCard is owned entirely by the
+          // imperative handlers below (summon/open/skip/submit); it must NEVER
+          // be re-derived from this `cards` array again, because that array is
+          // a snapshot that goes stale the instant she does anything else.
           setHangingCard(cards.find((c) => c.status === "proposed" || c.status === "active") ?? null);
         }
       } catch (err) {
@@ -119,6 +139,45 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       cancelled = true;
     };
   }, [writingId]);
+
+  /**
+   * The coach's opening line. Fired once setup is done and the transcript
+   * holds nothing from 印记 yet.
+   *
+   * Safe to call more than once: the endpoint replays an existing opening
+   * rather than generating a second one, so a double-invoked effect or a
+   * refresh mid-flight cannot produce two greetings or two charges. The local
+   * guard below is about not showing a spinner twice, not about correctness.
+   */
+  const openingNeeded =
+    state.phase === "ready" && state.writing.setupAt !== null && !state.messages.some((m) => m.role === "ai");
+
+  useEffect(() => {
+    if (!openingNeeded) return;
+    let cancelled = false;
+    setOpening(true);
+    void postWritingOpening(writingId)
+      .then((res) => {
+        if (cancelled) return;
+        const reply = res.reply.trim();
+        if (!reply) return;
+        setState((s) =>
+          s.phase === "ready" ? { ...s, messages: [...s.messages, { seq: -10, role: "ai", content: reply, createdAt: "" }] } : s,
+        );
+      })
+      .catch((err: unknown) => {
+        if (cancelled) return;
+        // USER RULE: an AI failure is surfaced, never masked by a canned
+        // greeting. She can still type — the room is usable, just not greeted.
+        setRoomError(err instanceof ApiError ? err.message : "印记这次没接上，你可以直接开始说。");
+      })
+      .finally(() => {
+        if (!cancelled) setOpening(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [openingNeeded, writingId]);
 
   const chatMessages: ChatMessage[] = useMemo(() => {
     if (state.phase !== "ready") return [];
@@ -172,10 +231,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   async function summon(cardId: string) {
     if (state.phase !== "ready" || hangingCard) return;
     setRoomError(null);
+    setDeckOpen(false);
     try {
       const turn = await summonWritingCard(writingId, cardId);
       if (turn.reply.trim()) {
-        setState((s) => (s.phase === "ready" ? { ...s, messages: [...s.messages, { seq: -3, role: "ai", content: turn.reply, createdAt: "" }] } : s));
+        setState((s) =>
+          s.phase === "ready" ? { ...s, messages: [...s.messages, { seq: -3, role: "ai", content: turn.reply, createdAt: "" }] } : s,
+        );
       }
       if (turn.card) setHangingCard(turn.card);
     } catch (err) {
@@ -217,6 +279,16 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     }
   }
 
+  async function changeTargetWords(next: number) {
+    if (state.phase !== "ready") return;
+    try {
+      const wr = await setWritingTargetWords(writingId, next);
+      setState((s) => (s.phase === "ready" ? { ...s, writing: wr } : s));
+    } catch (err) {
+      setRoomError(err instanceof ApiError ? err.message : "改目标字数失败，请重试。");
+    }
+  }
+
   if (state.phase === "loading") return <Centered>正在打开这次写作…</Centered>;
   if (state.phase === "error") return <Centered>{state.message}</Centered>;
   if (state.phase === "finished") {
@@ -224,6 +296,21 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   }
 
   const { writing } = state;
+
+  // The setup dialog gates the room on first open only — `setupAt` is stamped
+  // once and never cleared, and migration 0100 back-filled it for every
+  // writing that predates the dialog, so nobody mid-piece gets ambushed.
+  if (writing.setupAt === null) {
+    return (
+      <>
+        <div className="h-full w-full bg-mk-paper" />
+        <WritingSetupModal
+          writing={writing}
+          onDone={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
+        />
+      </>
+    );
+  }
 
   return (
     <div className="mx-auto flex h-full w-full max-w-[1180px] flex-col gap-4 p-4 sm:p-6">
@@ -238,7 +325,10 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           </button>
           <h1 className="truncate text-mk-h2 text-mk-ink">{writing.title || "还没起名字的写作"}</h1>
         </div>
-        <StageMap stage={writing.stage} onJump={(s) => void jumpStage(s)} />
+        <div className="flex flex-wrap items-center gap-3">
+          <LengthMeter writing={writing} state={state} onChange={(n) => void changeTargetWords(n)} />
+          <StageMap stage={writing.stage} onJump={(s) => void jumpStage(s)} />
+        </div>
       </header>
 
       {roomError && (
@@ -252,11 +342,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
         <div className="mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5">
-          <StagePanel state={state} writingId={writingId} setState={setState} />
+          <StagePanel state={state} writingId={writingId} setState={setState} onSummonCard={(id) => void summon(id)} />
         </div>
 
         <div className="flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
-          <ChatLog messages={chatMessages} thinking={sending} className="min-h-0 flex-1" />
+          <ChatLog messages={chatMessages} thinking={sending || opening} className="min-h-0 flex-1" />
           <Composer
             value={draftText}
             onChange={setDraftText}
@@ -265,9 +355,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             placeholder="想到什么，跟印记说说"
           />
 
-          <CardShelf
+          <CardDock
             hangingCard={hangingCard}
             cardNote={cardNote}
+            deckOpen={deckOpen}
+            onToggleDeck={() => setDeckOpen((v) => !v)}
             onSummon={(id) => void summon(id)}
             onOpen={() => void openHangingCard()}
             onSkip={() => void skipHangingCard()}
@@ -280,25 +372,94 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   );
 }
 
+/**
+ * LengthMeter — 目标字数, finally visible.
+ *
+ * Counts the same material the student is actually producing: her composed
+ * draft once there is one, otherwise the paragraphs she has written so far.
+ * `countWords` is imported from pro's own counter rather than reimplemented —
+ * an independent copy is how the two silently drift, and the last time this
+ * count was hand-rolled it counted CHARACTERS and read ~5× high on English.
+ */
+function LengthMeter({
+  writing,
+  state,
+  onChange,
+}: {
+  writing: Writing;
+  state: Extract<LoadState, { phase: "ready" }>;
+  onChange: (next: number) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+  const [value, setValue] = useState(writing.targetWords != null ? String(writing.targetWords) : "");
+
+  const written = useMemo(() => {
+    const body = state.draft.body.trim();
+    if (body) return countWords(body);
+    return state.snippets.reduce((n, s) => n + countWords(s.text), 0);
+  }, [state.draft.body, state.snippets]);
+
+  function commit() {
+    const n = Number(value.trim());
+    setEditing(false);
+    if (Number.isFinite(n) && n > 0 && n !== writing.targetWords) onChange(Math.round(n));
+  }
+
+  if (editing) {
+    return (
+      <span className="flex items-center gap-1.5">
+        <input
+          type="number"
+          min={1}
+          autoFocus
+          value={value}
+          onChange={(e) => setValue(e.target.value)}
+          onBlur={commit}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") commit();
+            if (e.key === "Escape") setEditing(false);
+          }}
+          aria-label="目标字数"
+          className="w-24 rounded-mk-xs border border-mk-input-border bg-mk-paper px-2 py-1 text-mk-small text-mk-ink outline-none focus-visible:border-mk-accent"
+        />
+      </span>
+    );
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={() => {
+        setValue(writing.targetWords != null ? String(writing.targetWords) : "");
+        setEditing(true);
+      }}
+      title="点一下改目标字数"
+      className="rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+    >
+      {writing.targetWords != null ? (
+        <>
+          已写 <span className="font-semibold text-mk-ink">{written}</span> / {writing.targetWords}
+        </>
+      ) : (
+        <>已写 {written} · 定个目标</>
+      )}
+    </button>
+  );
+}
+
 function StagePanel({
   state,
   writingId,
   setState,
+  onSummonCard,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
   setState: Dispatch<SetStateAction<LoadState>>;
+  onSummonCard: (cardId: string) => void;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
-    case "outline":
-      return (
-        <OutlineStage
-          writingId={writingId}
-          outline={outline}
-          onSaved={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
-        />
-      );
     case "snippets":
       return (
         <SnippetsStage
@@ -307,6 +468,7 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          onSummonCard={onSummonCard}
         />
       );
     case "draft":
@@ -319,21 +481,43 @@ function StagePanel({
           onFinished={(w) => setState({ phase: "finished", writing: w, draft: state.draft })}
         />
       );
-    case "ideate":
+    // 'outline' is 结构, and it is also the fallback: the retired 'ideate'
+    // lands here rather than on a blank panel.
+    case "outline":
     default:
       return (
-        <IdeateStage
+        <StructureStage
           writingId={writingId}
-          writing={writing}
-          onChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
+          lang={writing.lang}
+          structureKey={writing.structureKey}
+          outline={outline}
+          onOutlineChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
+          onStructureChange={(key) =>
+            setState((s) => (s.phase === "ready" ? { ...s, writing: { ...s.writing, structureKey: key } } : s))
+          }
         />
       );
   }
 }
 
-function CardShelf({
+/**
+ * CardDock — what replaced the permanent card shelf.
+ *
+ * The shelf listed all four cards, always, taking up a third of the rail
+ * whether or not anything needed them. Product note, 2026-08-27: *"we don't
+ * need cards showing there. just when students need help, AI can provide
+ * framework to help student think."*
+ *
+ * So the resting state is ONE small 工具 button. Cards surface either because
+ * the guiding box nominated one for a specific block, or because she went
+ * looking. Both paths still end in the same proposed → she confirms → open
+ * sequence (铁律②).
+ */
+function CardDock({
   hangingCard,
   cardNote,
+  deckOpen,
+  onToggleDeck,
   onSummon,
   onOpen,
   onSkip,
@@ -342,6 +526,8 @@ function CardShelf({
 }: {
   hangingCard: LiteCard | null;
   cardNote: string | null;
+  deckOpen: boolean;
+  onToggleDeck: () => void;
   onSummon: (cardId: string) => void;
   onOpen: () => void;
   onSkip: () => void;
@@ -376,30 +562,40 @@ function CardShelf({
     );
   }
 
-  const available = WRITING_DECK.filter((id) => CARD_REGISTRY[id]);
   return (
-    <div className="rounded-mk-sm border border-mk-border bg-mk-paper p-2">
-      <p className="mb-1.5 flex items-center gap-1 px-0.5 text-mk-label text-mk-faint">
-        <Icon icon={Sparkles} size={12} /> 工具卡 · 挑一张想清楚（你填，印记不替你写）
-      </p>
-      {cardNote && <p className="mb-1.5 px-0.5 text-mk-label text-mk-success">{cardNote}</p>}
-      <div className="flex flex-col gap-1.5">
-        {available.map((id) => {
-          const spec = CARD_REGISTRY[id]!;
-          return (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onSummon(id)}
-              title={spec.purpose}
-              className="flex w-full flex-col items-start gap-0.5 rounded-mk-sm px-2.5 py-1.5 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50"
-            >
-              <span className="text-mk-small font-bold text-mk-ink">{spec.name}</span>
-              <span className="truncate text-mk-label text-mk-faint">{spec.purpose}</span>
-            </button>
-          );
-        })}
-      </div>
+    <div className="flex flex-col gap-1.5">
+      {cardNote && <p className="px-0.5 text-mk-label text-mk-success">{cardNote}</p>}
+
+      <button
+        type="button"
+        onClick={onToggleDeck}
+        aria-expanded={deckOpen}
+        className="flex w-fit items-center gap-1.5 rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-label text-mk-muted transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      >
+        <Icon icon={deckOpen ? X : Wrench} size={12} />
+        {deckOpen ? "收起工具卡" : "工具卡"}
+      </button>
+
+      {deckOpen && (
+        <div className="flex flex-col gap-1 rounded-mk-sm border border-mk-border bg-mk-paper p-2">
+          <p className="px-0.5 pb-1 text-mk-label text-mk-faint">你填，印记不替你写</p>
+          {WRITING_DECK.filter((id) => CARD_REGISTRY[id]).map((id) => {
+            const spec = CARD_REGISTRY[id]!;
+            return (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onSummon(id)}
+                title={spec.purpose}
+                className="flex w-full flex-col items-start gap-0.5 rounded-mk-sm px-2.5 py-1.5 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50"
+              >
+                <span className="text-mk-small font-bold text-mk-ink">{spec.name}</span>
+                <span className="line-clamp-2 text-mk-label text-mk-faint">{spec.purpose}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -417,8 +613,8 @@ function Centered({ children }: { children: ReactNode }) {
  * ReadingRoomHost's `FinishedReadingPanel`: read-only by construction (no
  * coach input, no stage map, nothing that could change a finished piece),
  * showing the one thing the writing produced — her finished draft. The
- * per-audience report is a later phase; until it lands this says so
- * honestly rather than promising a date.
+ * per-audience report is a later phase; until it lands this says so honestly
+ * rather than promising a date.
  */
 function FinishedWritingPanel({
   writing,

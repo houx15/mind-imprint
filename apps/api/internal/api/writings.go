@@ -16,23 +16,33 @@ import (
 // any project-scoped table.
 
 type writingDTO struct {
-	ID          string  `json:"id"` // the ATOM id — every writing endpoint is keyed by it
-	Title       string  `json:"title"`
-	Lang        string  `json:"lang"`
-	Stage       string  `json:"stage"`
-	TargetWords *int32  `json:"targetWords"`
-	Status      string  `json:"status"`
-	CreatedAt   string  `json:"createdAt"`
-	UpdatedAt   string  `json:"updatedAt"`
-	FinishedAt  *string `json:"finishedAt"`
+	ID          string `json:"id"` // the ATOM id — every writing endpoint is keyed by it
+	Title       string `json:"title"`
+	Lang        string `json:"lang"`
+	Stage       string `json:"stage"`
+	TargetWords *int32 `json:"targetWords"`
+	// StructureKey names the skeleton she picked out of the fixed structure
+	// library (writing_structures.go); "" = not chosen yet. SetupAt is when
+	// the entry 设定 dialog was completed; null = never, which is exactly
+	// what the frontend gates that dialog on. Both are 0100 columns.
+	StructureKey string  `json:"structureKey"`
+	SetupAt      *string `json:"setupAt"`
+	Status       string  `json:"status"`
+	CreatedAt    string  `json:"createdAt"`
+	UpdatedAt    string  `json:"updatedAt"`
+	FinishedAt   *string `json:"finishedAt"`
 }
 
 func writingDTOOf(wr sqlc.Writing, createdAt time.Time) writingDTO {
 	out := writingDTO{
 		ID: wr.AtomID.String(), Title: wr.Title, Lang: wr.Lang, Stage: wr.Stage,
-		TargetWords: wr.TargetWords, Status: wr.Status,
+		TargetWords: wr.TargetWords, StructureKey: wr.StructureKey, Status: wr.Status,
 		CreatedAt: createdAt.Format(time.RFC3339),
 		UpdatedAt: wr.UpdatedAt.Format(time.RFC3339),
+	}
+	if wr.SetupAt.Valid {
+		s := wr.SetupAt.Time.Format(time.RFC3339)
+		out.SetupAt = &s
 	}
 	if wr.FinishedAt.Valid {
 		s := wr.FinishedAt.Time.Format(time.RFC3339)
@@ -151,7 +161,8 @@ func (a *API) listWritings(w http.ResponseWriter, r *http.Request) {
 	for _, row := range rows {
 		out = append(out, writingDTOOf(sqlc.Writing{
 			AtomID: row.AtomID, Title: row.Title, Lang: row.Lang, Stage: row.Stage,
-			TargetWords: row.TargetWords, Status: row.Status,
+			TargetWords: row.TargetWords, StructureKey: row.StructureKey, SetupAt: row.SetupAt,
+			Status:    row.Status,
 			UpdatedAt: row.UpdatedAt, FinishedAt: row.FinishedAt,
 		}, row.AtomCreatedAt))
 	}

@@ -21,10 +21,11 @@ import (
 // NULL constraint violation surfacing as an opaque 500.
 func TestValidateWritingOutlineArrayLengths_MismatchReturns400(t *testing.T) {
 	texts := []string{"a", "b"}
+	roles := []string{"", ""}
 	depths := []int32{0}
 	positions := []int32{0, 1}
 
-	err := validateWritingOutlineArrayLengths(texts, depths, positions)
+	err := validateWritingOutlineArrayLengths(texts, roles, depths, positions)
 	if err == nil {
 		t.Fatalf("mismatched array lengths must be rejected, got nil error")
 	}
@@ -41,9 +42,10 @@ func TestValidateWritingOutlineArrayLengths_MismatchReturns400(t *testing.T) {
 // equal-length arrays (as buildWritingOutlineArrays always produces) pass.
 func TestValidateWritingOutlineArrayLengths_MatchedIsNil(t *testing.T) {
 	texts := []string{"a", "b"}
+	roles := []string{"你的立场", "最强的那个理由"}
 	depths := []int32{0, 1}
 	positions := []int32{0, 1}
-	if err := validateWritingOutlineArrayLengths(texts, depths, positions); err != nil {
+	if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions); err != nil {
 		t.Fatalf("matched lengths must pass, got %v", err)
 	}
 }
@@ -55,13 +57,13 @@ func TestBuildWritingOutlineArrays_AlwaysProducesEqualLengths(t *testing.T) {
 	for _, n := range []int{0, 1, 5} {
 		items := make([]writingOutlineItemReq, n)
 		for i := range items {
-			items[i] = writingOutlineItemReq{Text: "x", Depth: int32(i)}
+			items[i] = writingOutlineItemReq{Text: "x", Role: "r", Depth: int32(i)}
 		}
-		texts, depths, positions := buildWritingOutlineArrays(items)
-		if len(texts) != n || len(depths) != n || len(positions) != n {
-			t.Fatalf("n=%d: got lengths %d/%d/%d", n, len(texts), len(depths), len(positions))
+		texts, roles, depths, positions := buildWritingOutlineArrays(items)
+		if len(texts) != n || len(roles) != n || len(depths) != n || len(positions) != n {
+			t.Fatalf("n=%d: got lengths %d/%d/%d/%d", n, len(texts), len(roles), len(depths), len(positions))
 		}
-		if err := validateWritingOutlineArrayLengths(texts, depths, positions); err != nil {
+		if err := validateWritingOutlineArrayLengths(texts, roles, depths, positions); err != nil {
 			t.Fatalf("n=%d: buildWritingOutlineArrays' own output failed its own guard: %v", n, err)
 		}
 	}

@@ -44,8 +44,14 @@ function writing(over: Partial<Record<string, unknown>> = {}) {
     id: WID,
     title: "该不该把上学时间往后推？",
     lang: "zh",
-    stage: "ideate",
+    // 结构, the first of the three steps since 2026-08-27 (构思 was retired
+    // into the setup dialog + the coach's opening line).
+    stage: "outline",
     targetWords: null,
+    structureKey: "",
+    // Non-null so the setup dialog does NOT gate these tests. Its own
+    // behaviour is covered by "the setup dialog" below, which sets it null.
+    setupAt: "2026-08-26T00:00:00Z",
     status: "active",
     createdAt: "2026-08-26T00:00:00Z",
     updatedAt: "2026-08-26T00:00:00Z",
@@ -66,8 +72,35 @@ function emptyRoutes(over: Partial<Record<string, unknown>> = {}): Record<string
     [key("GET", base("/snippets"))]: { body: { snippets: [] } },
     [key("GET", base("/draft"))]: { body: { body: "", updatedAt: null } },
     [key("GET", base("/cards"))]: { body: { cards: [] } },
+    // The coach speaks first now. Every room load with no AI turn yet fires
+    // this once, so it belongs in the baseline rather than in each test.
+    [key("POST", base("/opening"))]: { body: { reply: "先说说你自己更倾向哪一边？", generated: true } },
+    [key("GET", "/api/v1/writings/structures?lang=zh")]: { body: { structures: STRUCTURES_ZH } },
+    [key("GET", "/api/v1/writings/structures?lang=en")]: { body: { structures: [] } },
   };
 }
+
+/** A trimmed stand-in for the server's fixed library — labels only, exactly
+ *  as the real one is: no block carries content. */
+const STRUCTURES_ZH = [
+  {
+    key: "zh-argument-concession",
+    lang: "zh",
+    name: "让步式议论",
+    blurb: "对方也有道理，硬顶反而站不住。",
+    blocks: [
+      { role: "你的立场", hint: "一句话说清楚你站哪一边。" },
+      { role: "反方最强的说法", hint: "找对方最难反驳的那条。" },
+    ],
+  },
+  {
+    key: "zh-narrative",
+    lang: "zh",
+    name: "记叙文",
+    blurb: "你想讲一件真实发生过的事。",
+    blocks: [{ role: "事情发生前", hint: "当时的你在意什么？" }],
+  },
+];
 
 beforeEach(() => {
   routes = emptyRoutes();
@@ -80,15 +113,15 @@ afterEach(() => {
 });
 
 describe("loading the room", () => {
-  it("restores the transcript and shows the stage map on 构思", async () => {
+  it("restores the transcript and shows the stage map on 结构", async () => {
     routes[key("GET", base("/messages"))] = {
       body: { messages: [{ seq: 1, role: "student", content: "我想论证短视频有没有让人变笨。", createdAt: "" }] },
     };
     render(<WritingRoomHost writingId={WID} />);
 
     expect(await screen.findByText("我想论证短视频有没有让人变笨。")).toBeTruthy();
-    expect(screen.getByRole("button", { name: /构思/ })).toHaveAttribute("aria-current", "step");
-    expect(screen.getByRole("heading", { name: "构思" })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /结构/ })).toHaveAttribute("aria-current", "step");
+    expect(screen.getByRole("heading", { name: "结构" })).toBeTruthy();
   });
 
   it("shows a real error when the writing itself cannot load", async () => {
@@ -104,7 +137,7 @@ describe("loading the room", () => {
 
     expect(await screen.findByText("已完成")).toBeTruthy();
     expect(screen.getByText("这是我的成稿。")).toBeTruthy();
-    expect(screen.queryByRole("navigation", { name: "写作四步" })).toBeNull();
+    expect(screen.queryByRole("navigation", { name: "写作三步" })).toBeNull();
     expect(screen.queryByRole("textbox")).toBeNull();
     // The room's own loads are never even attempted for a finished writing.
     expect(calls.some((c) => c.url.endsWith("/outline"))).toBe(false);
@@ -112,10 +145,10 @@ describe("loading the room", () => {
 });
 
 describe("the stage map — a MAP, not a gate", () => {
-  it("jumps straight from 构思 to 成稿 with one click, no gating", async () => {
+  it("jumps straight from 结构 to 成稿 with one click, no gating", async () => {
     routes[key("POST", base("/stage"))] = { body: writing({ stage: "draft" }) };
     render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "构思" });
+    await screen.findByRole("heading", { name: "结构" });
 
     fireEvent.click(screen.getByRole("button", { name: /成稿/ }));
 
@@ -131,7 +164,7 @@ describe("talk first", () => {
       body: { reply: "你想说服谁读这段论证？", decision: "respond", card: null, nudge: "", hintCardId: null },
     };
     render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "构思" });
+    await screen.findByRole("heading", { name: "结构" });
 
     fireEvent.change(screen.getByPlaceholderText("想到什么，跟印记说说"), { target: { value: "我想写打工的利弊。" } });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -144,7 +177,7 @@ describe("talk first", () => {
   it("surfaces a failed turn instead of a fabricated reply", async () => {
     routes[key("POST", base("/turn"))] = { status: 502, body: { error: { code: "ai_dialogue_failed", message: "印记暂时没接上，请重试。" } } };
     render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "构思" });
+    await screen.findByRole("heading", { name: "结构" });
 
     fireEvent.change(screen.getByPlaceholderText("想到什么，跟印记说说"), { target: { value: "在吗" } });
     fireEvent.click(screen.getByLabelText("发送"));
@@ -153,38 +186,171 @@ describe("talk first", () => {
   });
 });
 
-describe("大纲 stage", () => {
-  it("generates a candidate, lets her edit it, and confirms it", async () => {
-    routes = { ...emptyRoutes({ stage: "outline" }) };
-    routes[key("POST", base("/outline/generate"))] = {
-      body: { outline: [{ text: "打工能带来的收获", depth: 0 }, { text: "打工的代价", depth: 0 }] },
+describe("结构 stage — the AI picks a skeleton, it never writes an outline", () => {
+  /**
+   * The regression this whole describe exists to prevent. Until 2026-08-27
+   * this stage had 「帮我拟一份候选」: her transcript went to the model and a
+   * finished outline came back, which she then "edited". That is the AI doing
+   * the thinking. It is gone, and these tests fail if it returns.
+   */
+  it("has no outline-generation affordance anywhere on the page", async () => {
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+
+    expect(screen.queryByRole("button", { name: "帮我拟一份候选" })).toBeNull();
+    expect(screen.queryByText(/拟一份/)).toBeNull();
+    expect(calls.some((c) => c.url.includes("/outline/generate"))).toBe(false);
+  });
+
+  it("recommends a skeleton from the library, persisting nothing until she accepts", async () => {
+    routes[key("POST", base("/structure/recommend"))] = {
+      body: { structureKey: "zh-argument-concession", reason: "你两边都有理由，让步式放得下反方。" },
     };
-    routes[key("PUT", base("/outline"))] = {
+    routes[key("POST", base("/structure"))] = {
       body: {
+        structureKey: "zh-argument-concession",
         outline: [
-          { id: "o1", text: "打工能带来的收获", depth: 0, position: 0 },
-          { id: "o2", text: "打工的代价（改）", depth: 0, position: 1 },
+          { id: "o1", text: "", role: "你的立场", depth: 0, position: 0 },
+          { id: "o2", text: "", role: "反方最强的说法", depth: 0, position: 1 },
         ],
       },
     };
     render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "大纲" });
+    await screen.findByRole("heading", { name: "结构" });
 
-    fireEvent.click(screen.getByRole("button", { name: "帮我拟一份候选" }));
-    const second = await screen.findByDisplayValue("打工的代价");
-    fireEvent.change(second, { target: { value: "打工的代价（改）" } });
+    fireEvent.click(screen.getByRole("button", { name: "帮我看看该用哪一副" }));
+    expect(await screen.findByText("你两边都有理由，让步式放得下反方。")).toBeTruthy();
 
-    fireEvent.click(screen.getByRole("button", { name: "确认这份提纲" }));
+    // Recommending must not lay out an outline behind her back.
+    expect(calls.some((c) => c.method === "POST" && c.url === base("/structure"))).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "就用这一副" }));
+
+    await waitFor(() => {
+      const post = calls.find((c) => c.method === "POST" && c.url === base("/structure"));
+      expect(post?.body).toEqual({ structureKey: "zh-argument-concession", force: false });
+    });
+  });
+
+  it("lays out labelled blocks whose text fields are EMPTY — 铁律①", async () => {
+    routes = {
+      ...emptyRoutes({ stage: "outline", structureKey: "zh-argument-concession" }),
+      [key("GET", base("/outline"))]: {
+        body: {
+          outline: [
+            { id: "o1", text: "", role: "你的立场", depth: 0, position: 0 },
+            { id: "o2", text: "", role: "反方最强的说法", depth: 0, position: 1 },
+          ],
+        },
+      },
+    };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+
+    // The label shows up more than once on purpose — on her block, and again
+    // in the shelf's preview chips for the skeleton she is using.
+    expect((await screen.findAllByText("反方最强的说法")).length).toBeGreaterThan(0);
+
+    // The label is present as TEXT and NOT as an editable field: if she could
+    // type over it, the template and her thinking would stop being
+    // distinguishable in the data too, and that distinction is what the
+    // process report reads.
+    const hers = screen.getByLabelText("反方最强的说法") as HTMLInputElement;
+    expect(hers.value).toBe("");
+    expect(screen.queryByDisplayValue("反方最强的说法")).toBeNull();
+  });
+
+  it("echoes role back on save so editing her text cannot wipe the block labels", async () => {
+    routes = {
+      ...emptyRoutes({ stage: "outline", structureKey: "zh-argument-concession" }),
+      [key("GET", base("/outline"))]: {
+        body: { outline: [{ id: "o1", text: "", role: "你的立场", depth: 0, position: 0 }] },
+      },
+      [key("PUT", base("/outline"))]: {
+        body: { outline: [{ id: "o1", text: "我反对一刀切", role: "你的立场", depth: 0, position: 0 }] },
+      },
+    };
+    render(<WritingRoomHost writingId={WID} />);
+    const field = (await screen.findByLabelText("你的立场")) as HTMLInputElement;
+
+    fireEvent.change(field, { target: { value: "我反对一刀切" } });
+    fireEvent.blur(field);
 
     await waitFor(() => {
       const put = calls.find((c) => c.method === "PUT" && c.url === base("/outline"));
-      expect(put?.body).toEqual({
-        outline: [
-          { text: "打工能带来的收获", depth: 0 },
-          { text: "打工的代价（改）", depth: 0 },
-        ],
-      });
+      expect(put?.body).toEqual({ outline: [{ text: "我反对一刀切", role: "你的立场", depth: 0 }] });
     });
+  });
+});
+
+describe("the coach speaks first", () => {
+  it("greets her on open without her having to say anything", async () => {
+    render(<WritingRoomHost writingId={WID} />);
+    expect(await screen.findByText("先说说你自己更倾向哪一边？")).toBeTruthy();
+    expect(calls.some((c) => c.method === "POST" && c.url === base("/opening"))).toBe(true);
+  });
+
+  it("does not ask for an opening when 印记 has already spoken", async () => {
+    routes[key("GET", base("/messages"))] = {
+      body: {
+        messages: [
+          { seq: 1, role: "student", content: "我想写手机。", createdAt: "" },
+          { seq: 2, role: "ai", content: "你更倾向哪一边？", createdAt: "" },
+        ],
+      },
+    };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByText("你更倾向哪一边？");
+    expect(calls.some((c) => c.method === "POST" && c.url === base("/opening"))).toBe(false);
+  });
+});
+
+describe("the setup dialog", () => {
+  it("asks for language and length once, and stamps setupAt so it never asks again", async () => {
+    routes = { ...emptyRoutes({ setupAt: null }) };
+    routes[key("PUT", base("/setup"))] = { body: writing({ lang: "en", targetWords: 500 }) };
+    render(<WritingRoomHost writingId={WID} />);
+
+    const dialog = await screen.findByRole("dialog", { name: "开始之前" });
+    // No 文体 selector: a lite student may not know the word, so the third
+    // field is an open box instead and the model infers genre from it.
+    expect(within(dialog).queryByText(/文体/)).toBeNull();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: /English/ }));
+    fireEvent.change(within(dialog).getByLabelText("目标字数"), { target: { value: "500" } });
+    fireEvent.change(within(dialog).getByLabelText("还想说点什么"), { target: { value: "这是老师布置的作业。" } });
+    fireEvent.click(within(dialog).getByRole("button", { name: "开始" }));
+
+    await waitFor(() => {
+      const put = calls.find((c) => c.method === "PUT" && c.url === base("/setup"));
+      expect(put?.body).toEqual({ lang: "en", targetWords: 500, note: "这是老师布置的作业。" });
+    });
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "开始之前" })).toBeNull());
+  });
+
+  it("lets her skip it entirely — length is never a precondition", async () => {
+    routes = { ...emptyRoutes({ setupAt: null }) };
+    routes[key("PUT", base("/setup"))] = { body: writing({}) };
+    render(<WritingRoomHost writingId={WID} />);
+
+    const dialog = await screen.findByRole("dialog", { name: "开始之前" });
+    fireEvent.click(within(dialog).getByRole("button", { name: "跳过" }));
+
+    await waitFor(() => {
+      const put = calls.find((c) => c.method === "PUT" && c.url === base("/setup"));
+      expect(put?.body).toEqual({ lang: "zh", targetWords: null, note: "" });
+    });
+  });
+});
+
+describe("目标字数 — visible, or it may as well not exist", () => {
+  it("shows the target in the header next to a live count", async () => {
+    routes = { ...emptyRoutes({ targetWords: 800 }) };
+    routes[key("GET", base("/draft"))] = { body: { body: "一二三四五", updatedAt: null } };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+    expect(screen.getByText(/800/)).toBeTruthy();
+    expect(screen.getByText("5")).toBeTruthy();
   });
 });
 
@@ -291,8 +457,9 @@ describe("B1 — the hanging card must not be erased or resurrected by unrelated
       body: { reply: "好的，继续说说。", decision: "respond", card: null, nudge: "", hintCardId: null },
     };
     render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "构思" });
+    await screen.findByRole("heading", { name: "结构" });
 
+    fireEvent.click(screen.getByRole("button", { name: "工具卡" }));
     fireEvent.click(await screen.findByText("让步段 · 以退为进"));
     expect(await screen.findByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
 
@@ -319,7 +486,7 @@ describe("B1 — the hanging card must not be erased or resurrected by unrelated
     routes[key("POST", `${base("/cards")}/c1/skip`)] = {
       body: { id: "c1", cardId: "concession", blockId: null, status: "skipped", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
     };
-    routes[key("POST", base("/stage"))] = { body: writing({ stage: "outline" }) };
+    routes[key("POST", base("/stage"))] = { body: writing({ stage: "snippets" }) };
     render(<WritingRoomHost writingId={WID} />);
     await screen.findByText(/要不要用《让步段 · 以退为进》看看/);
 
@@ -330,8 +497,8 @@ describe("B1 — the hanging card must not be erased or resurrected by unrelated
     // Bug: the same stale-snapshot effect re-derives hangingCard from the
     // ORIGINAL load-time `state.cards` (still "proposed"), bringing the card
     // back from the dead even though it was just skipped to a terminal state.
-    fireEvent.click(screen.getByRole("button", { name: /大纲/ }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "大纲" })).toBeTruthy());
+    fireEvent.click(screen.getByRole("button", { name: /段落/ }));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "段落" })).toBeTruthy());
 
     expect(screen.queryByText(/要不要用《让步段 · 以退为进》看看/)).toBeNull();
   });
@@ -355,8 +522,9 @@ describe("工具卡", () => {
       body: { id: "c1", cardId: "concession", blockId: null, status: "submitted", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: "2026-08-26T00:00:00Z" },
     };
     render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "构思" });
+    await screen.findByRole("heading", { name: "结构" });
 
+    fireEvent.click(screen.getByRole("button", { name: "工具卡" }));
     fireEvent.click(await screen.findByText("让步段 · 以退为进"));
     expect(await screen.findByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
     const summonCall = calls.find((c) => c.method === "POST" && c.url === base("/summon"))!;
