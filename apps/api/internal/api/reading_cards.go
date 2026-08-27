@@ -294,7 +294,26 @@ func (a *API) liteSubmitCardFor(kind string) http.HandlerFunc {
 				httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_anchors", "anchors 必须是一个 JSON 数组。", nil))
 				return
 			}
-			anchors = []byte(body.Anchors)
+			// An EMPTY array does not clear the anchors — it is ignored.
+			//
+			// This used to overwrite, which made a submit that carried
+			// `anchors: []` silently destroy the card's AI-grounded example
+			// anchor. That is a trap rather than a feature: the shared
+			// CardInstance envelope ALWAYS carries an `anchors` key (empty when
+			// the client never touched it), so any caller built by
+			// pattern-matching an existing one — the obvious way to write the
+			// next card-submitting client — wipes the grounding with no
+			// compiler or runtime signal. The lite writing client had to work
+			// around it by omitting the key entirely, which is safety resting
+			// on every future author remembering that a key's PRESENCE, not its
+			// value, carries meaning.
+			//
+			// Clearing every anchor is not a thing a student does; re-anchoring
+			// is. So a non-empty array replaces, and an empty one leaves what
+			// the AI grounded alone. Callers keep working unchanged either way.
+			if len(arr) > 0 {
+				anchors = []byte(body.Anchors)
+			}
 		}
 		row, err := a.d.Queries.SubmitAtomCard(r.Context(), sqlc.SubmitAtomCardParams{
 			ID: card.ID, FieldValues: []byte(body.FieldValues), EventTrace: []byte(body.EventTrace),
