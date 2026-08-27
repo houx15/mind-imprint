@@ -1,7 +1,28 @@
 # Lite Reading Room: Task List + Paragraph Tools
 
 **Date:** 2026-08-27
-**Status:** DESIGN — not built. Needs sign-off before a plan.
+**Status:** ✅ BUILT AND LIVE (2026-08-27) — `05854287` (backend + migration
+0101) and `23ca3bcd` (UI).
+
+Walked on production against a real English article: 印记 picked *Close Read*,
+singled out b2/b3 — the mechanism paragraphs, not paragraph one — and 语法 on
+b2 isolated the genuinely hard sentence, naming its 主干, the 破折号
+apposition, and the reduced relative clause.
+
+Deviations from this design, all decided during the build:
+
+- **No ability signal, as predicted.** Routine selection uses the article's
+  language and content only. Adding ability later costs nothing structural,
+  which was the whole reason for a fixed library.
+- **Language is detected from the article, never asked.** She already said what
+  she wants to read by pasting it; a picker on top of that is a question whose
+  answer is sitting right there.
+- **The tools open from a small 拆开这一段 button, not a paragraph click** —
+  clicking a paragraph already means "quote this one" in this room, and
+  overloading a working gesture to add a new one breaks both.
+- **The quiz step ships as a prompt, not a graded exercise.** It is a task-list
+  step with a label and no checking path. Making it checkable is a separate
+  decision — open question 2 below is still open.
 **Sibling:** `docs/2026-08-27-lite-writing-room-scaffold-redesign.md` (shipped)
 
 ## The idea in one line
