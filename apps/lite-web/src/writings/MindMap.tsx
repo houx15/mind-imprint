@@ -150,6 +150,48 @@ export function MindMap({
     return () => ro.disconnect();
   }, [measure]);
 
+  /**
+   * Pan to whatever just appeared.
+   *
+   * A three-level map is wider than any side panel, so without this the newest
+   * node — the one that is mid-animation, the one her last answer produced —
+   * lands off the right edge and she never sees it arrive. Panning is what
+   * makes the surface behave like a canvas rather than a clipped box: the map
+   * is allowed to be bigger than the window because the view follows the work.
+   *
+   * Scrolls the CANVAS explicitly rather than calling `scrollIntoView` on the
+   * node: that walks every scrollable ancestor, so on a short viewport it
+   * would also pan the surrounding shell and shove the chat column out of
+   * view. This moves exactly one element.
+   */
+  const lastPanned = useRef<string | null>(null);
+  useEffect(() => {
+    const newest = justAdded[justAdded.length - 1];
+    if (!newest || newest === lastPanned.current) return;
+    const canvas = canvasRef.current;
+    const el = nodeRefs.current.get(newest);
+    if (!canvas || !el) return;
+    lastPanned.current = newest;
+    // Deferred a frame: the entry animation starts from a translated position,
+    // so measuring on the same tick pans to where the node *was*.
+    const id = requestAnimationFrame(() => {
+      const box = el.getBoundingClientRect();
+      const view = canvas.getBoundingClientRect();
+      const left = Math.max(0, canvas.scrollLeft + (box.left - view.left) - (view.width - box.width) / 2);
+      const top = Math.max(0, canvas.scrollTop + (box.top - view.top) - (view.height - box.height) / 2);
+      // jsdom (and older engines) have no Element.scrollTo — fall back to
+      // assigning the offsets, which lands in the same place without the
+      // smooth tween rather than throwing.
+      if (typeof canvas.scrollTo === "function") {
+        canvas.scrollTo({ left, top, behavior: "smooth" });
+      } else {
+        canvas.scrollLeft = left;
+        canvas.scrollTop = top;
+      }
+    });
+    return () => cancelAnimationFrame(id);
+  }, [justAdded]);
+
   if (items.length === 0) {
     return (
       <div className="mk-canvas flex h-full items-center justify-center p-8 text-center">
