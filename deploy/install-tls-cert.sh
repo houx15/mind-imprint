@@ -60,3 +60,11 @@ systemctl reload nginx
 
 echo "installed TLS for $HOST"
 openssl x509 -in "/etc/nginx/ssl/$HOST.pem" -noout -subject -issuer -dates
+
+# The staging copies were scp'd into a home directory to get here. Now that
+# the real ones are in place, root-owned and 600, leave no second copy of a
+# private key lying around readable by the deploy user.
+if [ "$KEY" != "/etc/nginx/ssl/$HOST.key" ]; then
+  rm -f "$KEY" "$PEM"
+  echo "removed staging copies ($PEM, $KEY)"
+fi
