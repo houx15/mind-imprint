@@ -160,6 +160,14 @@ Additive only — no column is dropped or retyped, so pro is untouched.
 - lite-web: 90 tests green (was 82).
 - **pro: 1291 tests green, typecheck clean, bundle builds** — the standing
   "lite must never break pro" check.
+- `internal/store`: four TestWritingStore_* failures caught by the full suite
+  and fixed — the default stage moved to `outline`, and ReplaceWritingOutline
+  gained a parallel `roles` array whose omission NULL-pads against a NOT NULL
+  column. That second failure is the parallel-array guard doing its job.
+- The Playwright walk (`apps/lite-web/e2e/writing-walk.spec.ts`) was rewritten:
+  it had been silently broken by this redesign, waiting on the deleted
+  `/outline/generate` and driving a four-step map. It now asserts the four
+  mechanical 铁律 proofs against a real API and database.
 
 ## Not done
 
