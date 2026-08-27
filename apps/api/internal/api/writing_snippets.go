@@ -46,18 +46,41 @@ import (
 // outlineId is nullable both in the DB (ON DELETE SET NULL, since W5's
 // outline PUT is a full replace that mints fresh outline ids on every save —
 // see the task's context note) and here.
+//
+// outlineHeading is a SEPARATE field from outlineId, deliberately: the two
+// can and routinely do disagree. outline PUT is a full replace, so revising
+// the outline while drafting — the normal thing to do — nulls outlineId on
+// every snippet that pointed at the old outline (writing_snippet.outline_id
+// ON DELETE SET NULL). Without a second field, a frontend showing "this
+// paragraph belongs to outline point N" would go blank the moment she
+// resaves the outline, even though the exemplar path (below) has always been
+// able to recover the topic by POSITION. outlineHeading surfaces that same
+// recovered text through the READ path too, so it degrades gracefully with
+// outlineId rather than going blank alongside it — "" (never null) when
+// neither the (now-stale) id nor position resolves to a current outline row.
 type writingSnippetDTO struct {
-	ID        string  `json:"id"`
-	OutlineID *string `json:"outlineId"`
-	Position  int32   `json:"position"`
-	Text      string  `json:"text"`
-	UpdatedAt string  `json:"updatedAt"`
+	ID             string  `json:"id"`
+	OutlineID      *string `json:"outlineId"`
+	OutlineHeading string  `json:"outlineHeading"`
+	Position       int32   `json:"position"`
+	Text           string  `json:"text"`
+	UpdatedAt      string  `json:"updatedAt"`
 }
 
-func toWritingSnippetDTO(row sqlc.WritingSnippet) writingSnippetDTO {
+// toWritingSnippetDTO renders one snippet row. outline is the writing's
+// CURRENT outline rows (ListWritingOutline) — passed in rather than
+// re-queried per snippet, since every caller already needs the full outline
+// once to resolve OutlineHeading for every snippet, not once per row.
+// OutlineHeading reuses findWritingSnippetOutlineTopic (writing_snippets.go)
+// — the SAME id-then-position fallback the exemplar prompt already relies
+// on, not a second mechanism: one place decides "what outline point is this
+// snippet about", and both the model-facing prompt and the client-facing DTO
+// go through it.
+func toWritingSnippetDTO(row sqlc.WritingSnippet, outline []sqlc.WritingOutline) writingSnippetDTO {
 	out := writingSnippetDTO{
 		ID: row.ID.String(), Position: row.Position, Text: row.Text,
-		UpdatedAt: row.UpdatedAt.Format(time.RFC3339),
+		OutlineHeading: findWritingSnippetOutlineTopic(outline, row),
+		UpdatedAt:      row.UpdatedAt.Format(time.RFC3339),
 	}
 	if row.OutlineID.Valid {
 		s := uuid.UUID(row.OutlineID.Bytes).String()
@@ -76,7 +99,10 @@ type writingSnippetItemReq struct {
 	Text      string  `json:"text"`
 }
 
-// getWritingSnippets is GET /api/v1/writings/{id}/snippets.
+// getWritingSnippets is GET /api/v1/writings/{id}/snippets. Reads the
+// CURRENT outline alongside the snippets so each DTO's outlineHeading can
+// recover a resaved outline's heading text via position, same as the
+// exemplar prompt already does — see toWritingSnippetDTO's comment.
 func (a *API) getWritingSnippets(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
@@ -87,9 +113,14 @@ func (a *API) getWritingSnippets(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	outline, err := a.d.Queries.ListWritingOutline(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	out := make([]writingSnippetDTO, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toWritingSnippetDTO(row))
+		out = append(out, toWritingSnippetDTO(row, outline))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"snippets": out})
 }
@@ -186,9 +217,13 @@ func (a *API) putWritingSnippets(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// `outline` was already read above (to validate each posted outlineId) and
+	// this PUT never writes to writing_outline itself, so it is still exactly
+	// what a fresh ListWritingOutline would return — reused rather than
+	// re-queried for the DTO's outlineHeading.
 	out := make([]writingSnippetDTO, 0, len(rows))
 	for _, row := range rows {
-		out = append(out, toWritingSnippetDTO(row))
+		out = append(out, toWritingSnippetDTO(row, outline))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"snippets": out})
 }

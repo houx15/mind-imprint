@@ -46,11 +46,12 @@ func createWritingAtomHTTPLang(t *testing.T, h http.Handler, cookie *http.Cookie
 }
 
 type writingSnippetItem struct {
-	ID        string  `json:"id"`
-	OutlineID *string `json:"outlineId"`
-	Position  int32   `json:"position"`
-	Text      string  `json:"text"`
-	UpdatedAt string  `json:"updatedAt"`
+	ID             string  `json:"id"`
+	OutlineID      *string `json:"outlineId"`
+	OutlineHeading string  `json:"outlineHeading"`
+	Position       int32   `json:"position"`
+	Text           string  `json:"text"`
+	UpdatedAt      string  `json:"updatedAt"`
 }
 
 func getWritingSnippetsHTTP(t *testing.T, h http.Handler, cookie *http.Cookie, id string) []writingSnippetItem {
@@ -392,5 +393,110 @@ func TestWritingSnippetExemplar_UnknownSnippet404s(t *testing.T) {
 	rec := postWritingSnippetExemplar(t, h, cookie, id, "00000000-0000-0000-0000-000000000000")
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("exemplar for unknown sid = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// TestWritingSnippets_OutlineHeadingSurvivesOutlineResave is Part B of this
+// task: outline PUT is a full replace (writing_outline.go) that mints FRESH
+// outline row ids on every save, which fires writing_snippet.outline_id's
+// ON DELETE SET NULL on every snippet linked to the old outline — revising
+// the outline while drafting is the normal thing to do, not an edge case.
+// findWritingSnippetOutlineTopic already recovered the topic by POSITION for
+// the exemplar's internal prompt; this asserts the READ path (GET/PUT
+// /snippets) surfaces that SAME recovered heading, not merely that the
+// exemplar's internal lookup does — before this fix, outlineHeading did not
+// exist on the wire at all and a frontend showing "this paragraph belongs to
+// outline point N" would go blank the instant she resaved the outline.
+func TestWritingSnippets_OutlineHeadingSurvivesOutlineResave(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于可持续发展的议论文")
+
+	firstOutline := `{"outline":[{"text":"引言：问题的提出","depth":0},{"text":"论点一：碳排放现状","depth":0}]}`
+	if rec := putWritingOutlineHTTP(t, h, cookie, id, firstOutline); rec.Code != http.StatusOK {
+		t.Fatalf("first outline PUT = %d; body=%s", rec.Code, rec.Body)
+	}
+	outline1 := getWritingOutlineHTTP(t, h, cookie, id)
+	if len(outline1) != 2 {
+		t.Fatalf("outline1 = %+v, want 2 items", outline1)
+	}
+
+	// Link both snippets EXPLICITLY by the first outline's real ids.
+	putBody := `{"snippets":[` +
+		`{"position":0,"text":"第一段草稿","outlineId":"` + outline1[0].ID + `"},` +
+		`{"position":1,"text":"第二段草稿","outlineId":"` + outline1[1].ID + `"}` +
+		`]}`
+	if rec := putWritingSnippetsHTTP(t, h, cookie, id, putBody); rec.Code != http.StatusOK {
+		t.Fatalf("put snippets = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	before := getWritingSnippetsHTTP(t, h, cookie, id)
+	if len(before) != 2 {
+		t.Fatalf("snippets before resave = %+v, want 2", before)
+	}
+	for _, s := range before {
+		if s.OutlineID == nil {
+			t.Fatalf("snippet %+v: outlineId nil before any outline resave, want it linked", s)
+		}
+		want := outline1[0].Text
+		if s.Position == 1 {
+			want = outline1[1].Text
+		}
+		if s.OutlineHeading != want {
+			t.Fatalf("snippet position %d outlineHeading = %q, want %q (before resave)", s.Position, s.OutlineHeading, want)
+		}
+	}
+
+	// Resave the outline — a FULL REPLACE, same texts at the same positions but
+	// brand-new outline row ids. This is what nulls outline_id on both snippets.
+	secondOutline := `{"outline":[{"text":"引言：问题的提出（改）","depth":0},{"text":"论点一：碳排放现状（改）","depth":0}]}`
+	if rec := putWritingOutlineHTTP(t, h, cookie, id, secondOutline); rec.Code != http.StatusOK {
+		t.Fatalf("second outline PUT = %d; body=%s", rec.Code, rec.Body)
+	}
+	outline2 := getWritingOutlineHTTP(t, h, cookie, id)
+	if len(outline2) != 2 || outline2[0].ID == outline1[0].ID {
+		t.Fatalf("outline2 = %+v, want 2 FRESH ids distinct from outline1 %+v", outline2, outline1)
+	}
+
+	// THE assertion: read the snippets back through the plain GET path (not
+	// the exemplar's internal helper) and confirm outlineId went null WHILE
+	// outlineHeading still names the (new) heading at that position — the
+	// same recovery findWritingSnippetOutlineTopic already gave the exemplar
+	// prompt, now surfaced on the wire.
+	after := getWritingSnippetsHTTP(t, h, cookie, id)
+	if len(after) != 2 {
+		t.Fatalf("snippets after resave = %+v, want still 2", after)
+	}
+	for _, s := range after {
+		if s.OutlineID != nil {
+			t.Fatalf("snippet position %d outlineId = %v after a full outline replace, want null (ON DELETE SET NULL)", s.Position, *s.OutlineID)
+		}
+		want := outline2[0].Text
+		if s.Position == 1 {
+			want = outline2[1].Text
+		}
+		if s.OutlineHeading != want {
+			t.Fatalf("snippet position %d outlineHeading = %q after outline resave, want %q (position fallback) — "+
+				"a frontend showing her outline point would go blank here without this fix", s.Position, s.OutlineHeading, want)
+		}
+	}
+
+	// PUT's own response must carry the same recovered heading, not just GET —
+	// putWritingSnippetsHTTP returns the freshly-upserted rows, and a client
+	// that only ever reads PUT's response (never re-GETs) must see it too.
+	rePutBody := `{"snippets":[{"position":0,"text":"第一段草稿（略作修改）"}]}`
+	rec := putWritingSnippetsHTTP(t, h, cookie, id, rePutBody)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("re-put position 0 = %d; body=%s", rec.Code, rec.Body)
+	}
+	var putOut struct {
+		Snippets []writingSnippetItem `json:"snippets"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &putOut); err != nil {
+		t.Fatalf("decode put response: %v — body=%s", err, rec.Body)
+	}
+	for _, s := range putOut.Snippets {
+		if s.Position == 0 && s.OutlineHeading != outline2[0].Text {
+			t.Fatalf("PUT response outlineHeading = %q, want %q", s.OutlineHeading, outline2[0].Text)
+		}
 	}
 }
