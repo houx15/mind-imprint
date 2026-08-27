@@ -259,6 +259,19 @@ func TestWritingStore_TargetWordsAndFinish(t *testing.T) {
 	if !finished.FinishedAt.Valid {
 		t.Fatal("finished_at not set")
 	}
+	// `status` and `stage` are independent facts and must stay that way.
+	// `status` answers "is this piece done"; `stage` answers "how far through
+	// 构思→大纲→段落→成稿 did she actually get", and the report reads the
+	// latter. This writing finished without ever leaving 'ideate' — a student
+	// who skips straight to a finished draft, which is a real thing students
+	// do and a thing 过程即数据 says we record rather than tidy away.
+	//
+	// Nothing else guards this: a future edit to SetWritingFinished that also
+	// forced stage='finished' would pass every other assertion in this file
+	// while silently erasing the skip from every report.
+	if finished.Stage != "ideate" {
+		t.Fatalf("finish moved stage to %q; status and stage must stay independent", finished.Stage)
+	}
 	firstFinishedAt := finished.FinishedAt.Time
 
 	// Second finish is a no-op (guarded), so finished_at does not drift.
