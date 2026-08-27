@@ -1,65 +1,65 @@
-# 轻量版 P3（写作）Implementation Plan
+# Lite Edition P3 (Writing) Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** 让一个 lite 学校的学生把一个念头打进一个框，和 AI 聊清楚，走过 构思 → 大纲 → 段落 → 成稿 四步，**自己写完每一个字**，拿到反馈与简版报告。
+**Goal:** Let a the student at a lite school type a thought into one box, talk it through clearly with the AI, walk through the four steps 构思 (ideate) → 大纲 (outline) → 段落 (paragraphs) → 成稿 (compose), **write every character themselves**, and come away with feedback and a lite report.
 
-**Architecture:** 写作是 `atom` 的第二种形态。**共享底座一张表都不用新建**——`atom` / `atom_message` / `atom_card` / `atom_annotation` / `atom_report` 全部复用，写作只加自己的四张专属表。AI 层继续原样复用（P1 已证明 `internal/agent` 零改动可行）。前端复用 `apps/lite-web` 的壳与 `apps/web` 的组件与设计 token。
+**Architecture:** Writing is the second form of `atom`. **Not a single shared-foundation table needs to be newly created** — `atom` / `atom_message` / `atom_card` / `atom_annotation` / `atom_report` are all reused as-is; writing only adds its own four dedicated tables. The AI layer continues to be reused unchanged (P1 already proved `internal/agent` needs zero modification). The frontend reuses `apps/lite-web`'s shell and `apps/web`'s components and design tokens.
 
-**Tech Stack:** Go（`net/http`、`pgx`、`sqlc`、`goose`）、PostgreSQL、React + Vite + TypeScript + Tailwind、Playwright。
+**Tech Stack:** Go (`net/http`, `pgx`, `sqlc`, `goose`), PostgreSQL, React + Vite + TypeScript + Tailwind, Playwright.
 
 **Spec:** `docs/superpowers/specs/2026-08-26-lite-edition-writings-readings-design.md` §6.2
 
 ## Global Constraints
 
-- **迁移编号接着 P1 往后排**（P1 用到 `0095`）。先 `ls apps/api/internal/store/migrations | sort | tail -3` 确认当前最高号再写。
-- **sqlc 重新生成：`cd apps/api && make sqlc`**；绝不手改 `internal/store/sqlc/`。
-- 🚨 **实现者只跑定向测试**（`-run TestX -timeout 1800s`）。**绝不跑整包 Go 测试**——每个集成测试都会起一个 Postgres 容器，整包超过十分钟、越过前台命令上限。整包验证由 controller 统一在后台跑。
-- **绝不 `git add -A`**；只 stage 本任务列出的文件。
-- **归属失败一律 404**（`httpx.ErrNotFound("资源不存在")`），绝不用 403。
-- `{id}` **一律是 atom id**；每个 handler 先过 `loadOwnedWritingAtom`。
-- `apps/api/internal/api` 是与 pro 共享的**同一个 Go package**：`putOutline` / `getDraft` / `listSnippets` 等名字**pro 已占用**。lite 一律加 `lite` 前缀或 `Lite` 后缀，动手前 grep。
-- **铁律① 是本期的红线**：AI 绝不写学生的正文。提纲派生与「合成全文」是**确定性系统步骤**（AGENTS.md 明确允许）；合成只拼接学生已写的片段，**不新造一个字**；英文示范段落明确标注、与草稿分离、界面无插入入口、**不写入任何草稿表**。
-- **铁律②**：阶段是地图不是关卡；不做连胜、排行榜、推送。
-- **铁律④**：跳过阶段允许，但**必须留痕**并进入报告的确定性事实区。
-- `mk-*` 是裸 CSS 变量：`bg-mk-x/NN` 一律不产出 CSS，用 `linear-gradient` / `color-mix` / `box-shadow`。
+- **Migration numbers continue on from P1** (P1 ultimately used up to `0098`, so this phase starts at `0099`). First run `ls apps/api/internal/store/migrations | sort | tail -3` to confirm the current highest number before writing anything.
+- **Regenerate sqlc: `cd apps/api && make sqlc`**; never hand-edit `internal/store/sqlc/`.
+- 🚨 **Implementers only run targeted tests** (`-run TestX -timeout 1800s`). **Never run the full Go test package** — every integration test spins up its own Postgres container, and a full-package run exceeds ten minutes, past the foreground command limit. Full-package verification runs in the background, coordinated by the controller.
+- **Never `git add -A`**; only stage the files listed for this task.
+- **An ownership failure is always 404** (`httpx.ErrNotFound("资源不存在")`), never 403.
+- `{id}` **is always the atom id**; every handler goes through `loadOwnedWritingAtom` first.
+- `apps/api/internal/api` is **the same Go package** shared with pro: names like `putOutline` / `getDraft` / `listSnippets` **are already taken by pro**. lite must always add a `lite` prefix or `Lite` suffix — grep before starting.
+- **铁律① (Iron Rule ①) is this phase's red line**: the AI never writes the student's body text. Outline derivation and 「合成全文」("compose the full draft") are **deterministic system steps** (explicitly allowed by AGENTS.md); composing only concatenates fragments the student has already written, **never inventing a single new character**; the English exemplar paragraph is explicitly labeled, separated from the draft, has no insertion entry point in the UI, and **is never written into any draft table**.
+- **铁律②**: stages are a map, not a gate; no streaks, leaderboards, or push notifications.
+- **铁律④**: skipping a stage is allowed, but **it must leave a trace** and flow into the report's deterministic-facts section.
+- `mk-*` are bare CSS variables: `bg-mk-x/NN` never produces any CSS — use `linear-gradient` / `color-mix` / `box-shadow`.
 
 ---
 
-### Task W1: 写作专属四张表
+### Task 1: The Four Writing-Specific Tables
 
 **Files:**
-- Create: `apps/api/internal/store/migrations/00XX_writing_tables.sql`（编号见 Global Constraints）
+- Create: `apps/api/internal/store/migrations/00XX_writing_tables.sql` (numbering per Global Constraints)
 - Create: `apps/api/internal/store/queries/writing.sql`
 - Regenerate: `apps/api/internal/store/sqlc/`
 - Test: `apps/api/internal/store/writing_store_test.go`
 
 **Interfaces:**
-- Consumes: P1 的 `atom` 表
-- Produces: 表 `writing` / `writing_outline` / `writing_snippet` / `writing_draft`，以及 sqlc 方法 `CreateWriting` / `GetWriting` / `ListWritingsByUser` / `RenameWriting` / `SetWritingStage` / `SetWritingTargetWords` / `SetWritingFinished` / `ReplaceWritingOutline` / `ListWritingOutline` / `UpsertWritingSnippet` / `ListWritingSnippets` / `UpsertWritingDraft` / `GetWritingDraft`
+- Consumes: P1's `atom` table
+- Produces: tables `writing` / `writing_outline` / `writing_snippet` / `writing_draft`, plus the sqlc methods `CreateWriting` / `GetWriting` / `ListWritingsByUser` / `RenameWriting` / `SetWritingStage` / `SetWritingTargetWords` / `SetWritingFinished` / `ReplaceWritingOutline` / `ListWritingOutline` / `UpsertWritingSnippet` / `ListWritingSnippets` / `UpsertWritingDraft` / `GetWritingDraft`
 
-- [ ] **Step 1: 写下会失败的测试**
+- [ ] **Step 1: Write a failing test**
 
-照 `apps/api/internal/store/atom_store_test.go`（P1 Task 1 的产物）的形状写，用本包既有的 pool helper（`newStoreTestPool`）。必须覆盖：
+Write it in the shape of `apps/api/internal/store/atom_store_test.go` (P1 Task 1's output), using the package's existing pool helper (`newStoreTestPool`). Must cover:
 
-1. `CreateWriting` 后 `stage` 默认 `'ideate'`、`target_words` 为 NULL、`status` 默认 `'active'`。
-2. `ListWritingsByUser` 只返回本人的、按 `atom.created_at DESC`。
-3. **级联**：`DELETE FROM atom` 后 outline / snippet / draft 三张表都为空——与阅读同一条不变式。
-4. `stage` 的 CHECK 拒绝非法值（例如 `'drafting'`）。
+1. After `CreateWriting`, `stage` defaults to `'ideate'`, `target_words` is NULL, and `status` defaults to `'active'`.
+2. `ListWritingsByUser` returns only the caller's own rows, ordered by `atom.created_at DESC`.
+3. **Cascade**: after `DELETE FROM atom`, all three tables — outline / snippet / draft — end up empty, the same invariant as reading.
+4. The `stage` CHECK rejects invalid values (e.g. `'drafting'`).
 
-- [ ] **Step 2: 跑测试确认失败**
+- [ ] **Step 2: Run the test to confirm it fails**
 
 ```bash
 cd apps/api && go test ./internal/store/ -run TestWritingStore -timeout 1800s
 ```
 
-- [ ] **Step 3: 写迁移**
+- [ ] **Step 3: Write the migration**
 
-表结构逐字取自 spec §6.2.4。四张表全部 `atom_id … REFERENCES atom(id) ON DELETE CASCADE`。Down 按依赖倒序 DROP。
+Take the table structure verbatim from spec §6.2.4. All four tables use `atom_id … REFERENCES atom(id) ON DELETE CASCADE`. The Down migration DROPs in reverse dependency order.
 
-`stage` 的 CHECK 必须是 `('ideate','outline','snippets','draft','finished')`——**五个值，不是四个**：`finished` 是终态，与 `status` 的 `finished` 并存（`status` 说这篇结束了，`stage` 说她走到哪一步）。
+The `stage` CHECK must be `('ideate','outline','snippets','draft','finished')` — **five values, not four**: `finished` is a terminal state, coexisting with `status`'s `finished` (`status` says this piece is done; `stage` says how far along she's gotten).
 
-- [ ] **Step 4: 写查询、regen、跑通过、提交**
+- [ ] **Step 4: Write the queries, regenerate, run to pass, commit**
 
 ```bash
 cd apps/api && make sqlc && go test ./internal/store/ -run TestWritingStore -timeout 1800s
@@ -69,7 +69,7 @@ git commit -m "feat(lite): writing atom tables — outline, snippets, draft"
 
 ---
 
-### Task W2: 写作原子 CRUD（一个框进去）
+### Task 2: Writing Atom CRUD (One Box Goes In)
 
 **Files:**
 - Create: `apps/api/internal/api/writings.go`
@@ -77,27 +77,27 @@ git commit -m "feat(lite): writing atom tables — outline, snippets, draft"
 - Test: `apps/api/internal/api/writings_test.go`
 
 **Interfaces:**
-- Consumes: W1；P1 的 `liteOnly`、`liteHandler` 测试 helper
+- Consumes: W1; P1's `liteOnly`, `liteHandler` test helpers
 - Produces:
   - `POST /api/v1/writings` — body `{idea, lang}` → `201 {id}`
   - `GET /api/v1/writings` → `{writings:[writingDTO]}`
   - `GET|PATCH /api/v1/writings/{id}`
   - `writingDTO` = `{id,title,lang,stage,targetWords,status,createdAt,updatedAt,finishedAt}`
-  - `func (a *API) loadOwnedWritingAtom(w, r) (sqlc.Atom, bool)` —— W3-W7 全部复用
+  - `func (a *API) loadOwnedWritingAtom(w, r) (sqlc.Atom, bool)` — reused by all of W3–W7
 
-- [ ] **Step 1: 写下会失败的测试**
+- [ ] **Step 1: Write a failing test**
 
-关键行为，逐条断言：
+Key behaviors, asserted one by one:
 
-- `POST /writings` 用 **`idea`** 建原子：`idea` 是学生打进框里的那句话，**它同时成为初始 `title`**（截断到 200 runes），并**作为第一条 `atom_message`（role='student'）写进对话**——因为「先聊」的第一句就是她说的这句，不该消失。
-- 空 `idea` → 400 `missing_idea`。这与阅读不同：阅读可以先建后贴，写作没有想法就没有可聊的东西。
-- 新建的 `stage` 是 `'ideate'`，`targetWords` 是 `null`。
-- 列表只含本人、新的在前。
-- 未知 id → 404；`writing` 形态的 atom 走 `/readings/{id}` → 404，反向亦然（**跨形态隔离**，与 P1 Task 3 的 wrong-kind 断言同一条不变式）。
+- `POST /writings` creates the atom using **`idea`**: `idea` is the sentence the student typed into the box, **it simultaneously becomes the initial `title`** (truncated to 200 runes), and **is written into the conversation as the first `atom_message` (role='student')** — because the first sentence of 「先聊」("talk first") is exactly this one she said, and it shouldn't vanish.
+- An empty `idea` → 400 `missing_idea`. This differs from reading: reading can be created first and have content pasted in later; writing has nothing to talk about without an idea.
+- A newly created item has `stage` `'ideate'` and `targetWords` `null`.
+- The list contains only the caller's own items, newest first.
+- An unknown id → 404; a `writing`-form atom accessed via `/readings/{id}` → 404, and vice versa (**cross-form isolation**, the same invariant as P1 Task 3's wrong-kind assertion).
 
-- [ ] **Step 2-5: 跑失败 → 实现 → 跑通过 → 提交**
+- [ ] **Step 2-5: run failing → implement → run passing → commit**
 
-实现要点：建 `atom(kind='writing')` + `writing` + 第一条 `atom_message`，**同一个事务**。
+Implementation notes: create `atom(kind='writing')` + `writing` + the first `atom_message`, **in the same transaction**.
 
 ```bash
 cd apps/api && go test ./internal/api/ -run 'TestCreateWriting|TestListWritings|TestGetWriting' -timeout 1800s
@@ -105,7 +105,7 @@ cd apps/api && go test ./internal/api/ -run 'TestCreateWriting|TestListWritings|
 
 ---
 
-### Task W3: 阶段与篇幅
+### Task 3: Stage and Length
 
 **Files:**
 - Create: `apps/api/internal/api/writing_stage.go`
@@ -117,22 +117,22 @@ cd apps/api && go test ./internal/api/ -run 'TestCreateWriting|TestListWritings|
   - `POST /api/v1/writings/{id}/stage` — body `{stage}` → `200 writingDTO`
   - `PUT /api/v1/writings/{id}/target-words` — body `{targetWords}` → `200 writingDTO`
 
-- [ ] **Step 1: 写下会失败的测试**
+- [ ] **Step 1: Write a failing test**
 
-这是本期最容易做错的地方，测试要把设计意图钉死：
+This is the easiest place to get wrong this phase; the tests need to pin the design intent down hard:
 
-- **阶段是地图，不是关卡**：可以从 `ideate` 直接跳到 `snippets`（跳过 `outline`）→ **200**，不是 400。铁律②：不设门槛。
-- **但跳过要留痕**（铁律④）：每次阶段变化写一条 `atom_message`（role='system'），内容记录 from→to。断言这条记录存在，且**跳过时也存在**。
-- **可以回退**：`snippets` → `outline` → 200。学生想回去补提纲是正常的。
-- 非法阶段值 → 400。
-- `targetWords` 必须是正整数且有上限（例如 1..100000），越界 400。
-- `targetWords` 可以在任何阶段设置——虽然 spec 说构思阶段敲定，但**不强制**，同样是地图不是关卡。
+- **Stages are a map, not a gate**: jumping straight from `ideate` to `snippets` (skipping `outline`) → **200**, not 400. 铁律②: no gating.
+- **But a skip must leave a trace** (铁律④): every stage change writes one `atom_message` (role='system') whose content records from→to. Assert this record exists, **including when skipping**.
+- **Going backward is allowed**: `snippets` → `outline` → 200. It's normal for the student to want to go back and fill in the outline.
+- An invalid stage value → 400.
+- `targetWords` must be a positive integer with an upper bound (e.g. 1..100000); out of range → 400.
+- `targetWords` can be set at any stage — although the spec says it's settled during 构思, it's **not enforced**; same principle, a map not a gate.
 
-- [ ] **Step 2-5: 跑失败 → 实现 → 跑通过 → 提交**
+- [ ] **Step 2-5: run failing → implement → run passing → commit**
 
 ---
 
-### Task W4: 写作陪练一轮（复用 AI 大脑）
+### Task 4: A Writing 陪练 (Coach) Turn (Reusing the AI Brain)
 
 **Files:**
 - Create: `apps/api/internal/api/writing_turn.go`
@@ -140,128 +140,148 @@ cd apps/api && go test ./internal/api/ -run 'TestCreateWriting|TestListWritings|
 - Test: `apps/api/internal/api/writing_turn_test.go`
 
 **Interfaces:**
-- Produces: `POST /api/v1/writings/{id}/turn` → `{reply, decision, card|null, nudge, hintCardId}`；`GET /api/v1/writings/{id}/messages`
+- Produces: `POST /api/v1/writings/{id}/turn` → `{reply, decision, card|null, nudge, hintCardId}`; `GET /api/v1/writings/{id}/messages`
 
-- [ ] **Step 1: 先读 AI 层，决定复用哪一个入口**
+- [ ] **Step 1: Read the AI layer first, decide which entry point to reuse**
 
-P1 的阅读用 `agent.RouteReading`，它的输入是「文章 + 学生的话」。写作没有文章，有的是**想法、提纲、已写的片段**。
+P1's reading uses `agent.RouteReading`, whose input is 「文章 + the student的话」("article + what the student said"). Writing has no article; what it has is **the idea, the outline, and the fragments already written**.
 
 ```bash
 grep -rn "^func " apps/api/internal/agent/*.go | grep -iv test | grep -iE "coach|route|guide|propose" | head -20
 sed -n '1,60p' apps/api/internal/api/reading_turn.go
 ```
 
-**判断并在报告里写明**：是复用一个既有的写作/陪练入口（若存在），还是用与 `RouteReading` 同形的方式装配一个写作输入。**不论选哪条，都不许修改 `internal/agent`**——若发现必须改，报告 BLOCKED，那是真正的架构发现。
+**Determine this and state it explicitly in the report**: whether to reuse an existing writing/陪练 entry point (if one exists), or to assemble a writing input shaped the same way as `RouteReading`. **Whichever path is chosen, `internal/agent` must not be modified** — if you find you must change it, report BLOCKED; that's a genuine architectural discovery.
 
-- [ ] **Step 2: 写下会失败的测试**
+- [ ] **Step 2: Write a failing test**
 
-必须覆盖，与 P1 Task 7 同一套硬要求：
+Must cover, the same hard requirements as P1 Task 7:
 
-1. 正常一轮：学生一条、AI 一条进 `atom_message`，**seq 连续**，同一事务。
-2. **模型失败一律 502 `ai_dialogue_failed`，绝不返回罐头回复**（本仓库的既定规则）。
-3. **`RecentTurns` 必须显式开窗**（命名常量），lite 没有 compaction。复用 P1 的 `recentTurnsWindow` 或按写作另定并说明理由。
-4. 计量：`surface="lite"`、`purpose="writing_turn"`、`atom_id` 落 `llm_call`。
-5. 整轮跑在 `context.WithoutCancel(r.Context())` + 超时上（P1 Task 7 的教训：断连会让「钱花了、什么都没记下」）。
+1. A normal turn: one the student message and one AI message go into `atom_message`, **seq is contiguous**, same transaction.
+2. **A model failure is always 502 `ai_dialogue_failed`, never a canned reply** (an established rule of this repo).
+3. **`RecentTurns` must be windowed explicitly** (a named constant); lite has no compaction. Reuse P1's `recentTurnsWindow` or define a separate one for writing and explain why.
+4. Metering: `surface="lite"`, `purpose="writing_turn"`, `atom_id` recorded on `llm_call`.
+5. The whole turn runs on `context.WithoutCancel(r.Context())` + a timeout (P1 Task 7's lesson: a dropped connection would mean 「钱花了、什么都没记下」 — "the money got spent and nothing got recorded").
 
-- [ ] **Step 3-6: 实现 → 跑通过 → 提交**
+- [ ] **Step 3-6: implement → run passing → commit**
 
 ---
 
-### Task W5: 大纲
+### Task 5: Outline
 
 **Files:**
 - Create: `apps/api/internal/api/writing_outline.go`
 - Test: `apps/api/internal/api/writing_outline_test.go`
 
 **Interfaces:**
-- Produces: `GET|PUT /api/v1/writings/{id}/outline`；`POST /api/v1/writings/{id}/outline/generate`
+- Produces: `GET|PUT /api/v1/writings/{id}/outline`; `POST /api/v1/writings/{id}/outline/generate`
 
-- [ ] **Step 1: 写下会失败的测试**
+- [ ] **Step 1: Write a failing test**
 
-- `PUT` 是**全量替换**（与 pro 的 outline 语义一致）：删光再按数组顺序重插，`position` = 数组下标，`depth` 夹到 0..2。测试要能区分「全量替换」与「合并」——先 PUT 三条，再 PUT 两条，断言只剩两条。
-- `POST /outline/generate` 从**学生已经说过的话**（`atom_message` 中 role='student' 的内容 + `title`）派生提纲。**这是确定性系统步骤 + 一次模型调用，不是代写正文**——它产出的是结构，不是句子。生成后**不自动覆盖**已有提纲：返回候选，由学生 `PUT` 确认。断言：generate 不改数据库。
-- 若 `targetWords` 已设置，把它作为粒度信号传给模型；未设置也能生成（不设门槛）。
-- 模型失败 → 502 `ai_dialogue_failed`。
+- `PUT` is a **full replace** (same semantics as pro's outline): wipe everything and reinsert in array order, `position` = the array index, `depth` clamped to 0..2. The test must distinguish 「全量替换」("full replace") from 「合并」("merge") — PUT three items, then PUT two, and assert only two remain.
+- `POST /outline/generate` derives the outline from **what the student has already said** (the content of `atom_message` rows with role='student', plus `title`). **This is a deterministic system step plus one model call, not writing body text on the student's behalf** — it produces structure, not sentences. After generation it **does not auto-overwrite** the existing outline: it returns a candidate, which the student confirms via `PUT`. Assert: generate does not modify the database.
+- If `targetWords` is already set, pass it to the model as a granularity signal; generation also works without it (no gate).
+- Model failure → 502 `ai_dialogue_failed`.
 
-- [ ] **Step 2-5: 实现 → 跑通过 → 提交**
+- [ ] **Step 2-5: implement → run passing → commit**
 
 ---
 
-### Task W6: 片段与英文示范
+### Task 6: Snippets and the English Exemplar
 
 **Files:**
 - Create: `apps/api/internal/api/writing_snippets.go`
 - Test: `apps/api/internal/api/writing_snippets_test.go`
 
 **Interfaces:**
-- Produces: `GET|PUT /api/v1/writings/{id}/snippets`；`POST /api/v1/writings/{id}/snippets/{sid}/exemplar`
+- Produces: `GET|PUT /api/v1/writings/{id}/snippets`; `POST /api/v1/writings/{id}/snippets/{sid}/exemplar`
 
-- [ ] **Step 1: 写下会失败的测试 —— 铁律① 在这里被守住或被打破**
+- [ ] **Step 1: Write a failing test — 铁律① is upheld or broken right here**
 
-- 片段的 `text` **只来自学生**。断言：任何端点都不会把模型输出写进 `writing_snippet.text`。
-- `POST .../exemplar` 生成**英文示范段落**：
-  - **只在 `lang='en'` 时可用**；`lang='zh'` → 400 `exemplar_not_available`。
-  - 返回体里示范文本在**独立字段**（例如 `{exemplar: "..."}`），**绝不**混进 snippet 的响应。
-  - **断言数据库**：调用后 `writing_snippet.text` 一字未变，且**没有任何表**存了这段示范。这是本期最重要的一条测试——它是铁律① 的机械证据。
-- 引导问题以 block 形式返回（`{prompts: [...]}`），同样不进草稿表。
+- A snippet's `text` **comes only from the student**. Assert: no endpoint ever writes model output into `writing_snippet.text`.
+- `POST .../exemplar` generates the **English exemplar paragraph**:
+  - **Only available when `lang='en'`**; `lang='zh'` → 400 `exemplar_not_available`.
+  - In the response body the exemplar text sits in a **separate field** (e.g. `{exemplar: "..."}`), and **never** gets mixed into the snippet response.
+  - **Assert against the database**: after the call, `writing_snippet.text` is unchanged by a single character, and **no table anywhere** stores this exemplar. This is the single most important test this phase — it's the mechanical proof of 铁律①.
+- Guiding questions are returned as blocks (`{prompts: [...]}`), and likewise never enter a draft table.
 
-- [ ] **Step 2-5: 实现 → 跑通过 → 提交**
+- [ ] **Step 2-5: implement → run passing → commit**
 
 ---
 
-### Task W7: 合成、反馈、完成
+### Task 7: Compose, Feedback, Finish
 
 **Files:**
 - Create: `apps/api/internal/api/writing_compose.go`
 - Test: `apps/api/internal/api/writing_compose_test.go`
 
 **Interfaces:**
-- Produces: `POST /api/v1/writings/{id}/compose`；`GET|PUT /api/v1/writings/{id}/draft`；`POST /api/v1/writings/{id}/review`；`POST /api/v1/writings/{id}/finish`
+- Produces: `POST /api/v1/writings/{id}/compose`; `GET|PUT /api/v1/writings/{id}/draft`; `POST /api/v1/writings/{id}/review`; `POST /api/v1/writings/{id}/finish`
 
-- [ ] **Step 1: 写下会失败的测试**
+- [ ] **Step 1: Write a failing test**
 
-- **`compose` 不调模型**。断言：用一个会 panic 的 provider 注入 `Deps`，`compose` 仍然成功——若它调了模型，测试就炸。这是「只拼接、不新造一个字」的机械证据。
-- `compose` 的输出 = 学生片段按 `position` 顺序拼接（段落之间空行）。断言拼出来的 `body` 里每一段都能在某个 snippet 里逐字找到。
-- `compose` 后可 `PUT /draft` 继续自己改。
-- `review` 给整篇反馈：**返回评语，不改 `writing_draft.body`**。断言调用后 body 一字未变。模型失败 → 502。
-- `finish` 以**非空 draft** 为门槛（400 `missing_draft`），幂等，置 `status='finished'` 且 `stage='finished'`。
-- **完成之后，服务端必须拒绝一切改写**（P1 Task 17 的同款闸，见 `loadOwnedReadingAtom` 的 `loadOwnedWritingAtom` 对应物）：非 GET 请求一律 **403 `writing_finished`**，读取照常可用，`POST /finish` 自身豁免以保持幂等。**这不是可选项**——铁律④ 让过程记录成为证据，而 P2 的简版报告正是从这些行生成的；若完成之后还能改写，报告就可能与它所依据的状态自相矛盾。P1 曾把这条只做在前端，评审抓出来后补了服务端闸；写作不要重犯。断言：完成后 `PUT /snippets`、`POST /turn`、`PUT /draft`、`POST /review` 全部 403，而 `GET /draft`、`GET /messages` 仍 200。
+- **`compose` never calls the model**. Assert: inject a panicking provider into `Deps`, and `compose` still succeeds — if it ever called the model, the test would blow up. This is the mechanical proof of 「只拼接、不新造一个字」("only concatenate, never invent a single new character").
+- `compose`'s output = the student's fragments concatenated in `position` order (a blank line between paragraphs). Assert that every paragraph in the resulting `body` can be found verbatim in some snippet.
+- After `compose`, `PUT /draft` can still be used to keep editing it yourself.
+- `review` gives feedback on the whole piece: **returns commentary, does not modify `writing_draft.body`**. Assert the body is unchanged by a single character after the call. Model failure → 502.
+- `finish` gates on a **non-empty draft** (400 `missing_draft`), is idempotent, and sets `status='finished'` and `stage='finished'`.
+- **Once finished, the server must reject every further write** (the same gate as P1 Task 17, the `loadOwnedWritingAtom` counterpart of `loadOwnedReadingAtom`): every non-GET request is **403 `writing_finished`**, reads still work as usual, and `POST /finish` itself is exempt to stay idempotent. **This is not optional** — 铁律④ makes the process record into evidence, and P2's lite report is generated directly from these rows; if writes are still possible after finishing, the report could end up contradicting the state it's based on. P1 originally implemented this only on the frontend, and review caught it and added the server-side gate afterward; writing must not repeat that mistake. Assert: after finishing, `PUT /snippets`, `POST /turn`, `PUT /draft`, `POST /review` are all 403, while `GET /draft` and `GET /messages` are still 200.
 
-- [ ] **Step 2-5: 实现 → 跑通过 → 提交**
+- [ ] **Step 2-5: implement → run passing → commit**
 
 ---
 
-### Task W8: 写作前端（落地页 + 写作页）
+### Task 8: Writing Frontend (Landing Page + Writing Page)
 
 **Files:**
 - Create: `apps/lite-web/src/writings/*`
-- Modify: `apps/lite-web/src/LiteApp.tsx`（写作 tab 换掉「即将上线」）
+- Modify: `apps/lite-web/src/LiteApp.tsx` (replace 「即将上线」 ("coming soon") on the Writing tab)
 - Test: `apps/lite-web/test/writings*.test.tsx`
 
-**要做成什么样**（与阅读落地页同一套骨架，见 P1 Task 16 的产物，直接复用它的组件）：
+**What it should look like** (the same skeleton as the reading landing page, see P1 Task 16's output, and directly reuse its components):
 
-- 居中招呼 + **一个框**：「今天想写点什么」——直接打进去就开始，不是表单。
-- **推荐题目**（不知道写什么时）、**我的写作**面板（未完成在上→继续；已完成→报告）、**提示条**（未完成数量 / 教师任务位）。
-- 进去之后：**先聊**（对话），旁边显示**四阶段地图**（构思 / 大纲 / 段落 / 成稿），当前阶段高亮，**可点击跳转**（地图不是关卡）。
-- 大纲阶段：生成候选 + 学生编辑 + 确认。
-- 段落阶段：按提纲逐段写，引导问题以 block 出现；**英文示范在明显分离的容器里，带「示范」标识，没有任何插入按钮**。
-- 成稿阶段：合成 → 学生可继续改 → 要反馈。
-- 复用 `apps/web` 的组件与 `mk-*` token；**不新造色板**。
+- Centered greeting + **one box**: 「今天想写点什么」 ("what do you want to write today") — type directly into it and it begins; it's not a form.
+- **Suggested topics** (for when you don't know what to write), a **我的写作 (My Writing)** panel (unfinished on top → continue; finished → report), and a **hint bar** (count of unfinished items / a slot for the teacher tasks).
+- Once inside: **talk first** (dialogue), with a **four-stage map** shown beside it (构思 / 大纲 / 段落 / 成稿), the current stage highlighted, **clickable to jump** (a map, not a gate).
+- Outline stage: generate a candidate + the student edits + confirm.
+- Paragraph stage: write paragraph by paragraph following the outline, with guiding questions appearing as blocks; **the English exemplar sits in a visually separate container, labeled 「示范」("exemplar"), with no insert button of any kind**.
+- Compose stage: compose → the student can keep editing → request feedback.
+**Reuse boundary (finalized 2026-08-27, read this fully before touching anything — this one is different from reading):**
 
-- [ ] Steps: 实现 → `pnpm --filter @mind-imprint/lite-web test && typecheck && build` → **真实浏览器走一遍并截图** → 提交
+Reading could be reused wholesale because `ReadingRoom` was already a **self-contained, props-driven** room, with the 陪练 inside it, so `ReadingRoomHost` can just mount it by passing in an `api` and `capabilities`.
+
+**Writing has no room like that.** Writing is `apps/web/src/workspace/blocks/WritingBlock.tsx` (2677 lines), and it can only mount inside `WorkspaceContainer.tsx` (2072 lines). Every piece you'd want — `CoachRail` (dialogue + input box), `DraftPane` (the body-text editor), `OutlinePane`, `SnippetsPane` — is **module-private, with no export**, so none of them can be imported from outside at all. And `CoachRail` is portaled into `AiPanel` via `useStudioAiSlot()`, with its dialogue content coming from `useStudioChat()` — both of these contexts are provided only by `WorkspaceContainer`; outside of it, the whole component silently renders empty.
+
+So:
+
+- ❌ **Do not host `WritingBlock`** — it is not a room that can be mounted independently.
+- ❌ **Do not modify `WritingBlock.tsx` / `WorkspaceContainer.tsx` for the sake of exporting things**. Hard product constraint: not one line of pro's functionality may change. Turning 陪练 from an ambient context into props that get injected is exactly the kind of high-risk change that 「看起来只是加代码、实际改了 pro 行为」 ("looks like it's just adding code, but actually changes pro's behavior"). If you find yourself wanting to touch these two files → report BLOCKED.
+- ✅ **Assemble it yourself out of the primitives below, which are already exported and genuinely independent** (lite's writing page layout is supposed to differ from pro's anyway — the product has explicitly said it doesn't want pro's top title bar and stage bar):
+
+| Purpose | Module | Notes |
+|---|---|---|
+| **工具卡 (tool card) rendering** | `@/studio/StudioCardSheet` | props `{spec, onSubmit, onSkip, persistKey}`, **doesn't need `projectId`**. This is the actual renderer pro uses; 「卡片与 pro 完全一致」("the card behaves exactly like pro's") is achieved by directly reusing it, not by imitating it. |
+| Card standard envelope | `@/studio/compileCard` (`compileCardEnvelope`) | Same one as the backend contract |
+| Dialogue area | `@/studio/ai/ChatLog`, `Composer`, `ChatMarkdown` | Independent primitives, no context dependency |
+| Base UI + design tokens | `@/ui`, `mk-*` | **Don't invent a new color palette**; `mk-*` are bare CSS variables, and no Tailwind alpha syntax (`bg-mk-x/50`) produces any CSS — use `color-mix()` |
+| Landing-page skeleton | P1 Task 16's components | First confirm they can actually generalize; forcing components written for readings onto writings is worse than writing one of each |
+
+What gets duplicated is only **the layout assembly**; the parts that must stay identical (card rendering, the envelope, markdown) are already shared modules to begin with.
+
+- [ ] Steps: implement → `pnpm --filter @mind-imprint/lite-web test && typecheck && build` → **walk through it in a real browser and screenshot it** → commit
 
 ---
 
-### Task W9: 写作端到端走查
+### Task 9: Writing End-to-End Walkthrough
 
 **Files:** `apps/lite-web/e2e/writing-walk.spec.ts`
 
-一条完整走查：打开写作 → 把一个念头打进框 → AI 回应 → 设定篇幅 → 生成并确认提纲 → 写两段片段 → 合成 → 要反馈 → 完成。
+One complete walkthrough: open writing → type a thought into the box → AI responds → set the length → generate and confirm the outline → write two paragraph snippets → compose → request feedback → finish.
 
-断言中必须包含**两条铁律的机械证据**：
+The assertions must include **mechanical proof for two 铁律**:
 
-1. 合成出来的正文里，**每一段都能在学生输入过的文字里找到**——没有凭空出现的句子。
-2. 英文写作时示范段落**存在于页面上**，但**不在草稿框里**，且**没有任何按钮能把它插进去**。
+1. In the composed body text, **every paragraph can be found in text the student actually typed** — no sentence appears out of nowhere.
+2. When writing in English, the exemplar paragraph **exists on the page**, but is **not in the draft box**, and **no button can insert it there**.
 
 ```bash
 pnpm --filter @mind-imprint/lite-web exec playwright test -c e2e/playwright.config.ts
@@ -269,21 +289,21 @@ pnpm --filter @mind-imprint/lite-web exec playwright test -c e2e/playwright.conf
 
 ---
 
-## 自检（写完计划后对照 spec）
+## Self-Check (against the spec, after writing the plan)
 
-| Spec §6.2 条目 | 落在哪个任务 |
+| Spec §6.2 item | Which task it lands in |
 |---|---|
-| 一个框进去，直接写想法 | W2（`idea` 建原子并成为第一条消息） |
-| 进去先聊 | W4 |
-| 四阶段 构思/大纲/段落/成稿 | W3（状态与留痕）、W8（地图 UI） |
-| 构思敲定篇幅 | W3（`target-words`） |
-| 大纲派生 + 学生可改 | W5 |
-| 引导式片段写作 | W6 |
-| 英文示范（永不进草稿） | W6（服务端证据）、W9（页面证据） |
-| 合成全文（只拼接） | W7（panic-provider 证据） |
-| AI 反馈 | W7 |
-| 推荐题目 / 历史 / 未完成 / 教师任务位 | W8 |
-| 简版报告 | **本期不做** —— 与阅读报告同属 P2 的 `atom_report`，写作接入随其落地 |
-| 阶段是地图不是关卡 + 跳过留痕 | W3 |
+| One box in, write the idea directly | W2 (`idea` creates the atom and becomes the first message) |
+| Talk first once inside | W4 |
+| Four stages 构思/大纲/段落/成稿 | W3 (state and traces), W8 (map UI) |
+| Length settled during 构思 | W3 (`target-words`) |
+| Outline derivation + the student can edit | W5 |
+| Guided fragment writing | W6 |
+| English exemplar (never enters the draft) | W6 (server-side proof), W9 (on-page proof) |
+| Compose the full text (concatenation only) | W7 (panic-provider proof) |
+| AI feedback | W7 |
+| Suggested topics / history / unfinished / the teacher-task slot | W8 |
+| Lite report | **Not done this phase** — belongs to P2's `atom_report`, same as the reading report; writing hooks in when that lands |
+| Stages are a map not a gate + skips leave a trace | W3 |
 
-**必须在实现时亲手核实的外部名字**：当前最高迁移号（W1）；`internal/agent` 里可复用的写作/陪练入口的真实签名（W4 Step 1）；pro 已占用的 handler 名（各任务动手前 grep）；P1 Task 16 产出的落地页组件名（W8）。
+**External names that must be verified by hand at implementation time**: the current highest migration number (W1); the real signature of the reusable writing/陪练 entry point in `internal/agent` (W4 Step 1); handler names pro already occupies (grep before starting each task); the landing-page component names produced by P1 Task 16 (W8).

@@ -1,45 +1,45 @@
-# 轻量版（Lite Edition）· 原子底座与阅读 / 写作 — 设计 Spec
+# Lite Edition · Atom Foundation and Reading / Writing — Design Spec
 
-> 2026-08-26 · 状态：待实现。
+> 2026-08-26 · Status: not yet implemented.
 >
-> **这是程序级（program-level）设计**，覆盖 P1–P3 的整体形状。与仓库既有做法一致，**每一期各自再出 spec → plan → build**；紧接其后的实现计划只覆盖 §10 的 P1。
+> **This is a program-level design**, covering the overall shape of P1–P3. Consistent with the repo's existing practice, **each phase gets its own spec → plan → build**; the implementation plan that follows immediately covers only P1 from §10.
 
-## 1. 背景与目标
+## 1. Background and Goals
 
-现有产品服务 IB / AP Seminar 学生，围绕一条重量级的**项目生命周期**（立题 → 管理 → 阅读 → 写作 → 回顾）展开。新客户群是**普通学校**：他们不做研究项目，也不需要证据图、提案轨道、essay-track 阶段机。他们要的是**一次阅读练习**、**一次写作练习**——各自独立、可重复、当堂就能完成。
+The existing product serves IB / AP Seminar the student, built around a heavyweight **project lifecycle** (立题 (topic proposal) → management → reading → writing → review). The new customer segment is **ordinary schools**: they don't run research projects, and they don't need evidence maps, proposal tracks, or an essay-track state machine. What they want is **a single reading exercise** and **a single writing exercise** — each independent, repeatable, and completable within one class period.
 
-轻量版因此是**独立前端站点** + **独立的一套后端表**。它与现有产品共享的是**能力**，不是**数据结构**。
+Lite Edition is therefore an **independent frontend site** + **an independent set of backend tables**. What it shares with the existing product is **capability**, not **data structure**.
 
-### 目标
+### Goals
 
-- 独立前端站点，左栏只有两项：**写作**、**阅读**。
-- **复用 AI 能力、前端设计与设计 token**；**不复用** project 的表与 handler。
-- 阅读新增**理解检测**：读完后 AI 出几道题，验证学生是否读懂。
-- 新的**简版报告**，取代项目级的 `EvaluationReport`。
-- 写作支持中英双语；**英文写作提供示范段落**。
-- 账号按**学校**的 edition 分流。
-- **为未来的 AI 聊天、AI 项目预留底座**：加一种新形态 = 加一张表 + 复用底座，而不是把消息、卡片、批注、报告再写一遍。
+- An independent frontend site whose left sidebar has only two items: **Writing** and **Reading**.
+- **Reuse AI capability, frontend design, and design tokens**; **do not reuse** project's tables and handlers.
+- Reading gets a new **comprehension check**: after finishing, the AI asks a few questions to verify whether the student actually understood it.
+- A new **lite report**, replacing the project-level `EvaluationReport`.
+- Writing supports both Chinese and English; **English writing provides an exemplar paragraph**.
+- Accounts are routed by **school** edition.
+- **Lay groundwork for future AI chat and AI projects**: adding a new form = adding one table + reusing the foundation, instead of rewriting messages, cards, annotations, and reports all over again.
 
-### 非目标（本轮不做）
+### Non-goals (not in this round)
 
-- 不迁移现有 pro 的 `project` 到新底座。现有项目的数据结构原样不动；将来若要让 project 成为 atom 的一种，另开 spec。
-- 教师布置阅读任务、课堂内小聊天、小型 PBL —— 底座为它们留好形状，但不实现。
-- 轻量版不设 图鉴 / 课程 / 项目 三个 tab。
-- 不改动现有版本（pro）的任何行为。
-- AI 不代写正文（见 §2）。
+- Do not migrate the existing pro `project` onto the new foundation. The existing project's data structure is left untouched; if project is ever to become one form of atom, that gets its own spec.
+- the teacher assigning reading tasks, small in-class chats, small-scale PBL — the foundation leaves room for these in shape, but they are not implemented.
+- Lite Edition has no 图鉴 (compendium) / course / project tabs.
+- No change to any behavior of the existing (pro) version.
+- AI does not write body text on the student's behalf (see §2).
 
-## 2. 守住的设计铁律
+## 2. The Design 铁律 (Iron Rules) We Hold
 
-| 铁律 | 在轻量版中的落法 |
+| 铁律 | How it lands in Lite Edition |
 |---|---|
-| ① AI 绝不代写正文 | 提纲生成与「合成全文」都是**确定性系统步骤**（AGENTS.md 明确允许）：合成只拼接学生自己写的片段，不新造一个字。英文示范段落**明确标注为示范**，与草稿在结构与视觉上分离，永不自动插入。 |
-| ② 不操纵 | 无连胜、无排行榜、无徽章、无推送。工具卡自动触发但由学生确认打开，与现状一致。 |
-| ③ 一次只问一个 | 陪练对话与引导问题 block 均沿用现有节奏（`ApplyReadingGate` 的 pacing 原样复用）。 |
-| ④ 过程即数据 | 跳过工具卡、让 AI 直接答，同样被记录，并进入简版报告的确定性事实区。 |
+| ① AI never writes body text on the student's behalf | Outline generation and 「合成全文」("compose the full draft") are both **deterministic system steps** (explicitly allowed by AGENTS.md): composing only concatenates fragments the student wrote themselves, never inventing a single new character. The English exemplar paragraph is **explicitly labeled as an exemplar**, separated from the draft both structurally and visually, and is never auto-inserted. |
+| ② No manipulation | No streaks, no leaderboards, no badges, no push notifications. 工具卡 (tool card) trigger automatically but are opened only on the student's confirmation, same as today. |
+| ③ Ask one thing at a time | Both the 陪练 (coach) dialogue and the guiding-question blocks follow the existing pacing (`ApplyReadingGate`'s pacing is reused as-is). |
+| ④ Process is data | Skipping a 工具卡 and letting the AI answer directly is likewise recorded, and flows into the deterministic-facts section of the lite report. |
 
-## 3. 复用边界（本设计的核心判断）
+## 3. Reuse Boundary (the core judgment call of this design)
 
-**复用能力，不复用数据结构。** 这条边界之所以成立，是因为阅读的 AI 层本来就与存储无关：
+**Reuse capability, not data structure.** This boundary holds because the reading AI layer was already storage-agnostic to begin with:
 
 ```go
 // apps/api/internal/agent/reading_router.go
@@ -56,23 +56,23 @@ type ReadingRouteInput struct {
 func RouteReading(ctx, p gateway.Provider, resolver gateway.KeyResolver, in ReadingRouteInput) (ReadingDecision, ...)
 ```
 
-**`ReadingRouteInput` 里没有任何 project 引用**，`RouteReading` / `ApplyReadingGate` / `ResolveExampleAnchor` / `ReadingDeck` 全是纯函数。handler 只要把这些值从自己的表里装配出来即可——AI 这一层一行都不用改。
+**`ReadingRouteInput` contains no project reference at all**, and `RouteReading` / `ApplyReadingGate` / `ResolveExampleAnchor` / `ReadingDeck` are all pure functions. The handler just needs to assemble these values from its own tables — this AI layer doesn't need a single line changed.
 
-| 复用 | 不复用 |
+| Reuse | Do not reuse |
 |---|---|
-| `internal/agent` 的阅读大脑：`RouteReading`、`ApplyReadingGate`、`ResolveExampleAnchor`、`ReadingDeck`、相关 prompt | pro 的 handler（`/projects/*` 一个都不碰） |
-| `internal/gateway`：模型路由、降级、token 与成本计量 | project 生命周期（立题 / 计划 / 证据图 / 探索 / essay-track / 回顾） |
-| `internal/docextract`：真实 PDF / DOCX 正文抽取 | `project` / `reference` / `material` / `card_instances` / `outline_node` / `snippet` / `draft_snapshot` 等 project 子表 |
-| `internal/cards` + `packages/contracts`：卡 spec 与标准信封契约 | `EvaluationReport` 项目级报告 |
-| 前端房间组件、交互设计、**设计 token（`mk-*`）与 CSS** | pro 的 shell、导航、图鉴、课程 |
+| `internal/agent`'s reading brain: `RouteReading`, `ApplyReadingGate`, `ResolveExampleAnchor`, `ReadingDeck`, and related prompts | pro's handlers (not one of `/projects/*` is touched) |
+| `internal/gateway`: model routing, degradation, token and cost metering | project lifecycle (立题 (topic proposal) / planning / evidence map / exploration / essay-track / review) |
+| `internal/docextract`: real PDF / DOCX body-text extraction | project's `reference` / `material` / `card_instances` / `outline_node` / `snippet` / `draft_snapshot`, and other project sub-tables |
+| `internal/cards` + `packages/contracts`: card specs and the standard envelope contract | the project-level `EvaluationReport` |
+| frontend room components, interaction design, **design tokens (`mk-*`) and CSS** | pro's shell, navigation, 图鉴, courses |
 
-## 4. 领域模型：原子底座
+## 4. Domain Model: Atom Foundation
 
-### 4.1 为什么要底座
+### 4.1 Why a Foundation
 
-阅读之后是写作，再之后是 **AI 聊天**与 **AI 项目**。这四者不同的是各自的专属字段，**相同的是四件事**：一条对话消息流、一批工具卡实例、一层批注、一份小报告。若按形态各写一套，这四件事就要写四遍、修四遍。
+After reading comes writing, and after that, **AI chat** and **AI projects**. What differs between these four is their own dedicated fields; **what's the same across all four is four things**: one conversation message stream, a batch of tool-card instances, one annotation layer, one lite report. If a separate set were written for each form, these four things would need to be written four times and fixed four times.
 
-因此：**薄薄一层共享身份 + 共享机制，专属字段各自成表。**
+Hence: **a thin shared-identity + shared-mechanism layer, with dedicated fields each in their own table.**
 
 ```
 atom                身份：id / kind / user_id / created_at
@@ -83,9 +83,9 @@ atom                身份：id / kind / user_id / created_at
 └── atom_report     简版报告          ← 四种形态共用
 ```
 
-加一种新形态 = **加一张专属表 + 复用四张共享表**。共享表用**真外键**指向 `atom`，不使用 `(owner_kind, owner_id)` 这类多态列——那会丢掉引用完整性。
+Adding a new form = **adding one dedicated table + reusing the four shared tables**. The shared tables use **real foreign keys** pointing at `atom`, not polymorphic columns like `(owner_kind, owner_id)` — that would lose referential integrity.
 
-### 4.2 身份与形态
+### 4.2 Identity and Form
 
 ```sql
 CREATE TABLE atom (
@@ -106,9 +106,9 @@ CREATE TABLE reading (
 );
 ```
 
-> `kind` 的 CHECK 随形态增加而放宽（`'chat'`、`'project'`），一行迁移的事。`writing` 表结构与 `reading` 同形，随 P3 落地。
+> The `kind` CHECK relaxes as more forms are added (`'chat'`, `'project'`) — a one-line migration. The `writing` table has the same shape as `reading`, landing with P3.
 
-### 4.3 共享机制
+### 4.3 Shared Mechanisms
 
 ```sql
 -- 对话消息流。seq 由服务端分配，(atom_id, seq) 唯一，保证顺序可靠。
@@ -161,7 +161,7 @@ CREATE TABLE atom_report (
 );
 ```
 
-### 4.4 阅读专属
+### 4.4 Reading-Specific
 
 ```sql
 -- 文章正文：一次阅读只有一篇。body 是抽取后的可读正文（复用 internal/docextract）。
@@ -202,37 +202,37 @@ CREATE TABLE reading_check (
 );
 ```
 
-### 4.5 成本归属
+### 4.5 Cost Attribution
 
-`llm_call` 已有 `project_id`（可空，course/chat 调用即为 NULL）与 `surface` 判别列。轻量版的调用记 `project_id = NULL`、`surface = 'lite'`，并新增一列指回原子：
+`llm_call` already has `project_id` (nullable; course/chat calls are NULL) and a `surface` discriminator column. Lite Edition's calls record `project_id = NULL`, `surface = 'lite'`, and add one new column pointing back to the atom:
 
 ```sql
 ALTER TABLE llm_call ADD COLUMN atom_id uuid REFERENCES atom(id) ON DELETE SET NULL;
 CREATE INDEX llm_call_atom_created_idx ON llm_call (atom_id, created_at DESC);
 ```
 
-`llm_usage` 视图按 `user_id` / tier / tokens / cost 聚合，**不读 project_id**，因此学校维度的成本汇总无需改动即可把轻量版算进去。
+The `llm_usage` view aggregates by `user_id` / tier / tokens / cost, and **does not read `project_id`**, so school-level cost roll-ups pick up Lite Edition automatically with no changes needed.
 
-### 4.6 站点分流：edition 属于**学校**
+### 4.6 Site Routing: Edition Belongs to the **School**
 
-**一所学校买的是轻量版还是现有版本，校内账号随之确定。** 学生注册时凭 join code 进入某个班级 → 班级属于某学校 → 该学校的 edition 决定这个账号进哪个站。因此**不在 `users` 上加列**。
+**Whether a school has bought Lite Edition or the existing edition determines where accounts within it land.** When a student registers with a join code, they enter a class → the class belongs to a school → that school's edition determines which site the account lands on. So **no column is added to `users`**.
 
 ```sql
 ALTER TABLE schools ADD COLUMN edition text NOT NULL DEFAULT 'pro'
   CHECK (edition IN ('pro','lite'));
 ```
 
-组织不变式不变：每个账号仍必属某学校 + ≥1 班级，注册仍需 join code。
+The organizational invariant is unchanged: every account still must belong to a school + ≥1 class, and registration still requires a join code.
 
-**服务端判定：** session principal（`apps/api/internal/api/auth.go` 的 `api.User`）已经携带 `SchoolID`，鉴权闸据此取学校的 edition，不需要任何新的账号字段。
+**Server-side determination:** the session principal (`api.User` in `apps/api/internal/api/auth.go`) already carries `SchoolID`; the auth gate reads the school's edition from it — no new account field is needed.
 
-**`/auth/me` 不回传 edition。** 前端不需要知道它：将来每所学校使用各自的子域名，域名本身已经决定了进哪个站；走错站的请求由服务端一律 404（与归属失败同语义，不泄漏另一侧的存在）。
+**`/auth/me` does not return the edition.** The frontend doesn't need to know it: in the future each school will use its own subdomain, and the domain itself already determines which site to enter; a request that hits the wrong site is uniformly 404'd by the server (the same semantics as an ownership failure, so the existence of the other side is never leaked).
 
-> 若将来需要「同校个别账号走另一边」，再加一个可空的 `users.edition` 覆盖层即可——本轮按 YAGNI 不做。
+> If, in the future, "a few accounts at the same school need to go to the other side" becomes a requirement, add one nullable `users.edition` override layer — per YAGNI, this round doesn't do that.
 
 ## 5. API
 
-`{id}` 一律是 **atom id**。全部为轻量版自己的 handler，**不透传、不复用 pro 的 handler**。
+`{id}` is always the **atom id**. All handlers belong to Lite Edition itself; **none of pro's handlers are passed through or reused**.
 
 ```
 GET    /api/v1/readings                     我的阅读列表
@@ -263,15 +263,15 @@ GET    /api/v1/readings/{id}/report
 POST   /api/v1/readings/{id}/report/generate
 ```
 
-### 5.1 鉴权
+### 5.1 Authorization
 
-- 原子端点仅本人可读写；归属失败一律 **404**，不泄漏存在性（沿用既有约定）。
-- 所属学校 `edition = 'lite'` 的账号访问 `/projects/*` → 404；`edition = 'pro'` 的账号访问 `/readings|writings/*` → 404。语义与归属失败一致，不新增错误码。
-- 消耗 token 的端点前照旧过 `HasEntitlement(ctx, user)`。
+- Atom endpoints are readable/writable only by their owner; an ownership failure is always **404**, and existence is never leaked (following the existing convention).
+- An account whose school has `edition = 'lite'` accessing `/projects/*` → 404; an account with `edition = 'pro'` accessing `/readings|writings/*` → 404. Same semantics as an ownership failure; no new error code is added.
+- Endpoints that consume tokens still gate on `HasEntitlement(ctx, user)` as before.
 
-## 6. 两条主动线
+## 6. The Two Main Flows
 
-### 6.1 阅读
+### 6.1 Reading
 
 ```
 新建 → 放入文本（粘贴 / 上传 / 链接）
@@ -281,49 +281,58 @@ POST   /api/v1/readings/{id}/report/generate
      → 简版报告（P2）
 ```
 
-交互与 pro 阅读室**一致**（同样的透镜、工具卡、批注、一次只问一个的节奏），因为前端组件与 AI 大脑都是同一套。差别只在两处：**没有立题**，所以收尾不写「新线索 / 对立题的影响」，改为「我的收获 + 理解检测」；**没有证据图与探索**，所以相关面板不出现。
+The interaction is **the same as** pro's 阅读室 (reading room) (same lens, 工具卡, annotation, and one-question-at-a-time pacing), because the frontend components and the AI brain are the exact same set. The only two differences: **there's no 立题**, so the wrap-up doesn't write "new leads / impact on the topic" but instead "我的收获 (my takeaway) + comprehension check"; and **there's no evidence map or exploration**, so the related panels don't appear.
 
-### 6.2 写作
+### 6.2 Writing
 
-写作与阅读同形：**一个框进去，一次专注的任务出来**。
+Writing has the same shape as reading: **one box goes in, one focused task comes out.**
 
-#### 6.2.1 入口
+#### 6.2.1 Entry
 
-落地页与阅读同一套骨架（见 §7.2b）：居中的招呼 + 一个框 + 推荐 + 右上角「我的写作」+ 提示条。
+The landing page shares the same skeleton as reading's (see §7.2b): a centered greeting + one box + recommendations + a "我的写作" (My Writing) entry in the top right + a hint bar.
 
-**框里直接写「你想写点什么」**——不是填表，不是先选体裁。学生把念头打进去（一句话就够），就进入写作页。
+**the student types "what do you want to write" directly into the box** — it's not a form, and there's no picking a genre first. the student types the thought in (one sentence is enough), and lands on the writing page.
 
-落地页同样提供：**推荐题目**（不知道写什么时）、**历史**（未完成在上、点击继续；已完成点击看报告）、**教师布置的写作任务**（P4 接线，位置先留）。
+The landing page likewise offers: **suggested topics** (for when you don't know what to write), **history** (unfinished items on top — click to continue; finished items — click to view the report), and **the teacher-assigned writing tasks** (wired in P4; the slot is reserved now).
 
-#### 6.2.2 进去之后：先聊，再写
+#### 6.2.2 Once Inside: Talk First, Then Write
 
-进入写作页，**AI 先和学生讨论这个想法**——不是立刻给提纲，也不是立刻让写。一次只问一个（铁律③）。
+Once on the writing page, **the AI discusses the idea with the student first** — not immediately handing over an outline, and not immediately telling them to write. One question at a time (铁律③).
 
-然后 AI 把整件事拆成**四个阶段**，并把学生所在的位置显示出来：
+Then the AI breaks the whole thing into **four stages**, and shows the student where they currently are:
 
 ```
 构思 → 大纲 → 段落 → 成稿
 ```
 
-**构思**：就这个题目**简单地聊**——试着把它和**证据、想法、或故事**连起来。这一阶段还必须敲定一件事：**这篇要写多长**（字数量级）。长度决定后面提纲的粒度与段落的数量，不先定下来，后面每一步都在猜。
+**构思 (ideate)**: just **talk simply** about the topic — try to connect it to **evidence, ideas, or a story**. This stage also has one thing to settle: **how long this piece should be** (an order-of-magnitude word count). Length determines the granularity of the later outline and the number of paragraphs; without it, every step after this is guesswork.
 
-**大纲**：由学生已经说出口的东西**派生**出提纲，学生可改。提纲生成是确定性的系统步骤，AGENTS.md 明确允许，**不是代写**。
+**Who "must" here binds (resolved 2026-08-27 — the obligation is the coach's, never the server's).** An earlier draft of this section read as if length *had* to be set before 构思 could be left, which would make it a gate and collide with 铁律② (stages are a map, not a gate). The resolution:
 
-**段落**：**引导式片段写作**——一段一段来，引导问题以 block 形式出现在旁边。**英文写作附示范段落**：明确标注为示范，与草稿在结构与视觉上分离，界面不提供任何一键插入，示范文本不写入任何草稿表（铁律①）。
+- The **coach must raise it** while the student is in 构思. That is what "settle it here" means — an obligation on the AI to ask, subject to 铁律③ (one question at a time), not a precondition on the student to answer.
+- The **server must not block** anything on `target_words`. No stage transition, no outline generation, no compose step may 403 or refuse because it is NULL. A student who ignores the question keeps moving.
+- **Downstream steps degrade honestly rather than guess.** With no target, the outline is generated without length guidance and the paragraph stage does not imply a paragraph count. Nothing invents a number on her behalf.
+- **Leaving it unset is recorded, not corrected** (铁律④). `target_words` stays NULL and the report's deterministic-facts section simply omits it — an omitted field, never a zero and never an estimate.
 
-**成稿**：把学生自己写的片段**拼成全文**——只拼接，不新造一个字。然后 AI 给整篇的反馈（结构、论证、清楚不清楚），仍然不代写。
+So plan Task 3 is right to keep `targetWords` optional at every stage, and this section is not asking for a gate.
 
-最后：完成 → 简版报告（§8）。
+**大纲 (outline)**: **derived** from what the student has already said out loud, and the student can edit it. Generating the outline is a deterministic system step, explicitly allowed by AGENTS.md — **it is not writing on the student's behalf**.
 
-#### 6.2.3 阶段是显示出来的，不是关卡
+**段落 (paragraphs)**: **guided fragment writing** — one paragraph at a time, with guiding questions appearing beside it as blocks. **English writing comes with an exemplar paragraph**: explicitly labeled as an exemplar, separated from the draft both structurally and visually; the interface offers no one-click insert, and the exemplar text is never written into any draft table (铁律①).
 
-四个阶段是**给学生看的地图**，让他知道自己在哪、下一步是什么。**不做强制关卡**：学生想先写一段再回头补提纲，允许；想跳过构思直接写，允许——但**跳过被记录**（铁律④），并进入简版报告的确定性事实区。
+**成稿 (compose)**: **stitch** the fragments the student wrote themselves **into a full text** — only concatenation, never inventing a single new character. Then the AI gives feedback on the whole piece (structure, argument, clarity) — still not writing on the student's behalf.
 
-> 与 pro 的 essay-track 的区别：pro 是研究论文的阶段机，带证据图与提案轨道；这里只有四步，没有立题、没有证据图、没有 essay-track 状态机。共享的是**底座**（`atom` / `atom_message` / `atom_card` / `atom_annotation`）与**AI 能力**，不是流程。
+Finally: finish → lite report (§8).
 
-#### 6.2.4 数据
+#### 6.2.3 The Stages Are Shown, Not Gates
 
-`writing` 与 `reading` 同为 `atom` 的一种形态（§4.2），专属表：
+The four stages are **a map for the student to see**, so they know where they are and what's next. **No stage is a mandatory gate**: if the student wants to write a paragraph first and go back to fill in the outline afterward, that's allowed; wanting to skip 构思 and go straight to writing is allowed too — but **the skip is recorded** (铁律④), and flows into the deterministic-facts section of the lite report.
+
+> The difference from pro's essay-track: pro is a state machine for research-paper stages, complete with an evidence map and a proposal track; here there are only four steps, with no 立题, no evidence map, and no essay-track state machine. What's shared is **the foundation** (`atom` / `atom_message` / `atom_card` / `atom_annotation`) and **AI capability**, not the process.
+
+#### 6.2.4 Data
+
+`writing`, like `reading`, is one form of `atom` (§4.2), with its own dedicated tables:
 
 ```sql
 CREATE TABLE writing (
@@ -365,9 +374,9 @@ CREATE TABLE writing_draft (
 );
 ```
 
-`atom_message` 承载「先聊」与各阶段的陪练对话；`atom_card` 承载写作用的工具卡；`atom_report` 承载简版报告——**四张共享表一张都不用新建**，这正是 §4.1 底座的回报。
+`atom_message` carries the "talk first" and per-stage 陪练 dialogue; `atom_card` carries the 工具卡 used in writing; `atom_report` carries the lite report — **not one of the four shared tables needs to be newly created**, and that's exactly the payoff of the §4.1 foundation.
 
-#### 6.2.5 API（形状与阅读一致）
+#### 6.2.5 API (Same Shape as Reading)
 
 ```
 GET/POST  /api/v1/writings                  列表 / 新建（body: {idea, lang}）
@@ -385,51 +394,51 @@ POST      /api/v1/writings/{id}/finish
 GET/POST  /api/v1/writings/{id}/report[/generate]
 ```
 
-`{id}` 一律是 atom id。鉴权与阅读同：归属失败 404，跨 edition 404。
+`{id}` is always the atom id. Authorization is the same as reading: ownership failure → 404, cross-edition → 404.
 
 
-## 7. 前端
+## 7. Frontend
 
 ### 7.1 `apps/lite-web`
 
-独立目录、独立 `vite.config.ts` / `index.html` / `tailwind.config` / Dockerfile / nginx / 部署脚本，部署到独立域名。
+An independent directory, with its own `vite.config.ts` / `index.html` / `tailwind.config` / Dockerfile / nginx / deploy scripts, deployed to its own domain.
 
-依赖 `@mind-imprint/contracts` 与 `@mind-imprint/web`（`apps/web` 取包名并以 `exports` 暴露源码），**从源码引入房间组件与设计 token，不复制**。
+Depends on `@mind-imprint/contracts` and `@mind-imprint/web` (`apps/web` takes on a package name and exposes source via `exports`); **room components and design tokens are imported from source, not copied.**
 
-两处必须在 P1 处理的构建陷阱：
+Two build traps that must be handled in P1:
 
-- **Tailwind purge：** lite 的 `content` glob 必须包含 `../web/src/**`，否则房间样式被裁掉。
-- **路径别名：** lite 的 vite / tsconfig 必须复刻 web 的 `@/` → `apps/web/src`，否则房间内部的 `@/…` 引入全部解析失败。
-- 另注意 `mk-*` token 是**裸 CSS 变量**：所有 Tailwind alpha 语法（`bg-mk-x/NN`）**不产出任何 CSS**，须用 `linear-gradient` / `color-mix`，并在真实浏览器中验证。
+- **Tailwind purge:** lite's `content` glob must include `../web/src/**`, or room styles get purged out.
+- **Path aliasing:** lite's vite / tsconfig must replicate web's `@/` → `apps/web/src` alias, or every internal `@/…` import inside the room fails to resolve.
+- Also note that `mk-*` tokens are **bare CSS variables**: every Tailwind alpha syntax (`bg-mk-x/NN`) **produces no CSS at all**; use `linear-gradient` / `color-mix` instead, and verify in a real browser.
 
 ### 7.2 Shell
 
-`LiteApp.tsx`，**左侧边栏 + tab 切换，可自动折叠为纯图标**（与既有前端同形），URL 路由沿用既有「不引 router 库」的写法：
+`LiteApp.tsx`, **a left sidebar + tab switching, which can auto-collapse to icons only** (same shape as the existing frontend), URL routing follows the existing "no router library" approach:
 
-- **写作** `/writings` —— 落地是一个大对话框（AI App 形状）：学生把想法打进那一个框里，写作即开始；下方是历史。
-- **阅读** `/readings` —— 落地是提交面（粘贴 / 上传文章）+ 历史列表。`/readings/:id` 进入阅读室。
+- **Writing** `/writings` — lands on one big dialog box (an AI-app shape): the student types the idea directly into that one box and writing begins; history is below it.
+- **Reading** `/readings` — lands on a submission surface (paste / upload an article) + a history list. `/readings/:id` enters the 阅读室.
 
-无 图鉴、无 课程、无 项目。
+No 图鉴, no courses, no projects.
 
-### 7.2b 阅读落地页 —— 门面的形状（2026-08-26 用户看过真机后定）
+### 7.2b Reading Landing Page — the Shape of the Front Door (settled 2026-08-26 after the user reviewed it on a real device)
 
-落地页要像一个 **AI 产品**，不是一张表单：
+The landing page should feel like an **AI product**, not a form:
 
-1. **居中的招呼**：AI 问「Hi，今天要读点什么」，**「读」字带设计**（手绘书本 / 圈词 / 手写体）——整页的视觉锚点。
-2. **粘贴框**：边框带**轻微辉光**（呼吸感）。可贴链接、贴整篇正文，**也可上传 DOCX / PDF**。
-3. **不知道读什么？**：今日推荐。本期种子数据；将来接样本库与教师布置的任务。
-4. **右上角入口 → 我的阅读**：**未完成在最上面**，点击继续；已完成在下方，点击看报告。历史**不进左栏**——左栏是「工作的种类」（阅读 / 写作），把子视图塞进去会打乱这套语义。
-5. **提示条**：有未完成时提示「你有 N 篇还没读完」；教师任务的位置留出来（P4 接线）。
+1. **A centered greeting**: the AI asks 「Hi，今天要读点什么」 ("Hi, what do you want to read today"), with **the character 读 ("read") specially designed** (a hand-drawn book / circled word / handwritten typeface) — the page's single visual anchor.
+2. **A paste box**: the border has a **subtle glow** (a breathing feel). It accepts a pasted link, a pasted full body of text, and **DOCX / PDF upload** as well.
+3. **Don't know what to read?**: today's recommendations. Seed data for this round; a sample library and the teacher-assigned tasks will connect to it later.
+4. **Top-right entry → 我的阅读 (My Reading)**: **unfinished items on top**, click to continue; finished items below, click to view the report. History **does not go into the left sidebar** — the left sidebar is 「工作的种类」("categories of work") (reading / writing); stuffing sub-views into it would break that semantics.
+5. **A hint bar**: when there are unfinished items, it shows 「你有 N 篇还没读完」 ("you have N pieces you haven't finished reading"); a slot is reserved for the teacher tasks (wired in P4).
 
-> 发现历史的路径有两条，所以入口可以收起来：提示条是**主动提醒**，右上角图标是**归档入口**。这也让落地页保持单一目的——开始读一篇。
+> There are two paths to discovering history, so the entry point can stay tucked away: the hint bar is an **active reminder**, and the top-right icon is an **archive entry point**. This also keeps the landing page single-purpose — start reading a piece.
 
-**阅读旅程本身不变**（透镜、工具卡、批注、一次只问一个）。**将来**再加逐段的 AI 辅助：分析写法、叙事、关键词、结构，或**朗读**（`/voice/tts` 已存在，可复用）。
+**The reading journey itself is unchanged** (lens, 工具卡, annotation, one-question-at-a-time). **In the future**, per-paragraph AI assistance can be added: analyzing craft, narrative, keywords, structure, or **read-aloud** (`/voice/tts` already exists and can be reused).
 
-**不采用 Cowork 式「顶部切换 + 下方会话列表」。** 那类布局服务于**并行工作**——许多线程同时活着，列表即工作区；而读一篇文章、写一篇东西是**聚焦任务**，同一时刻只有一件事在手上，侧边栏只是导航。tab 形态 + 自动折叠成图标，既保持导航清晰，又把横向空间还给阅读室（正文、陪练、悬挂卡片三者都吃宽度）。
+**Not adopting Cowork's "top switcher + session list below" layout.** That kind of layout serves **parallel work** — many threads alive at once, where the list is the workspace; whereas reading one article or writing one piece is a **focused task** — only one thing is in hand at any given moment, and the sidebar is just navigation. The tab shape + auto-collapse-to-icons keeps navigation clear while giving the horizontal space back to the 阅读室 (the body text, the 陪练, and the hanging cards all compete for width).
 
-### 7.3 房间能力对象
+### 7.3 Room Capability Object
 
-房间组件目前散落着对 project 生命周期事实的直接读取，`demoMode` 已是这一模式的先例。把它泛化成一个对象，房间只读它：
+Room components currently have scattered direct reads of project-lifecycle facts; `demoMode` is already a precedent for this pattern. Generalize it into an object that rooms only read from:
 
 ```ts
 export type RoomCapabilities = {
@@ -439,47 +448,47 @@ export type RoomCapabilities = {
 }
 ```
 
-房间的数据出入口一律走注入的 `api` 对象——lite 传自己的客户端，pro 传现有的，组件本身不知道背后是哪套表。
+Every data in/out for the room goes through an injected `api` object — lite passes its own client, pro passes the existing one, and the component itself doesn't know which set of tables is behind it.
 
-## 8. 简版报告（P2/P3）
+## 8. Lite Report (P2/P3)
 
-`packages/contracts` 新增 `AtomReport` 契约（v1）：`overview`（MODEL）+ `facts`（FACT，确定性）+ `strengths`（2 条）+ `nextTime`（1 条）。
+`packages/contracts` gets a new `AtomReport` contract (v1): `overview` (MODEL) + `facts` (FACT, deterministic) + `strengths` (2 items) + `nextTime` (1 item).
 
-每一项事实都来自已有记录，不新增采集：字数（`agent.CountWords`）、用了哪几张卡（`atom_card` 已提交行）、提问轮次（`atom_message` 中 role='student'）、理解检测得分（`reading_check`）。缺失的字段**省略而非填零**，不估算。
+Every fact comes from existing records, with no new collection added: word count (`agent.CountWords`), which cards were used (submitted `atom_card` rows), number of question turns (`atom_message` rows with `role='student'`), comprehension-check score (`reading_check`). Missing fields are **omitted, not zero-filled**, and never estimated.
 
-综述与建议 = **一次旗舰调用**（对比项目报告的四次）。不做等级、不做排名（铁律②）。前端渲染必须走 markdown renderer；契约对可空数组用 `.nullish().transform(v => v ?? [])`（既有教训：严格 `z.array` 遇到存量 JSON `null` 会让整份报告解析失败）。
+The overview and recommendations = **one flagship-tier call** (versus four for the project report). No tiers, no rankings (铁律②). The frontend must render through a markdown renderer; the contract uses `.nullish().transform(v => v ?? [])` for nullable arrays (an existing lesson: a strict `z.array` hitting a legacy `null` in stored JSON would fail parsing for the whole report).
 
-## 9. 风险与验证
+## 9. Risks and Verification
 
-1. **信封漂移**：`atom_card` 与 pro 的 `card_instances` 是两张表，信封结构必须保持一致——它是过程树与评估的共同地基。防线：两侧共用 `packages/contracts` 的 Zod 契约，Go 侧只做边界校验，并有一条断言两侧信封同形的契约测试。
-2. **`ReadingRouteInput` 装配失真**：AI 大脑复用得再干净，若 `Article` 分段、`FocusedSpans`、`RecentTurns` 装配得与 pro 语义不同，AI 表现就会退化。防线：装配逻辑单独成函数并单测，用与 pro 相同的分段规则。
-3. **共享组件回归 pro**：lite 与 pro 共用房间组件。防线：能力对象 + 每个被触及的组件在 lite / pro 两套能力集下都要有测试。
-4. **铁律① 漂移**：英文示范是唯一可能滑向代写的地方。防线：示范文本不入任何草稿表，界面无插入入口，两者都要有测试断言。
-5. **测试时长**：本仓库每个 Go 集成测试都会启动一个独立 Postgres 容器，整包运行 10 分钟以上，**超过前台命令上限**。整包验证必须由 controller 统一在后台跑，实现者只跑定向 `-run`。
+1. **Envelope drift**: `atom_card` and pro's `card_instances` are two separate tables, but the envelope structure must stay identical — it's the shared foundation for the 过程树 (process tree) and evaluation. Defense: both sides share the Zod contract in `packages/contracts`, the Go side only does boundary validation, and there's a contract test asserting the two envelopes have the same shape.
+2. **`ReadingRouteInput` assembly drift**: no matter how cleanly the AI brain is reused, if `Article` segmentation, `FocusedSpans`, and `RecentTurns` are assembled with different semantics than pro's, AI behavior degrades. Defense: the assembly logic is its own function with its own unit tests, using the same segmentation rules as pro.
+3. **Shared components regressing pro**: lite and pro share room components. Defense: the capability object, plus a test under both the lite and pro capability sets for every component touched.
+4. **铁律① drift**: the English exemplar is the only place that could slide toward writing on the student's behalf. Defense: the exemplar text never enters any draft table, the UI has no insertion entry point, and both must have test assertions.
+5. **Test duration**: every Go integration test in this repo spins up its own Postgres container, and a full-package run takes 10+ minutes, **exceeding the foreground command limit**. Full-package verification must run in the background, coordinated by the controller; implementers only run targeted `-run` tests.
 
-**测试面：** Go 单测覆盖原子 CRUD、装配函数、鉴权（本人 / 跨 edition）、信封边界校验、报告三态单飞；契约测试覆盖 `AtomReport` 与信封同形；前端组件在两套能力集下测试；e2e 走一条完整阅读（贴文 → 精读 → 收获）与一条完整写作。Go 测试统一 `-timeout 1800s` + `CGO_ENABLED=0`。
+**Test surface:** Go unit tests cover atom CRUD, assembly functions, authorization (self / cross-edition), envelope boundary validation, and the report's three-state single-flight; contract tests cover `AtomReport` and envelope shape parity; frontend components are tested under both capability sets; e2e covers one complete reading flow (paste → close reading → takeaway) and one complete writing flow. Go tests uniformly use `-timeout 1800s` + `CGO_ENABLED=0`.
 
-## 10. 分期
+## 10. Phasing
 
-| 期 | 内容 |
+| Phase | Content |
 |---|---|
-| **P1 · 底座 + 阅读** | `atom` / `reading` / `atom_message` / `atom_card` / `atom_annotation` / `reading_source` / `reading_brief` / `reading_takeaway` 建表；`schools.edition` + 分流闸；`llm_call.atom_id`；阅读全部端点（含 `/turn` 装配并调用 `RouteReading`、透镜召唤、选句评价、锚点持久化）；`apps/lite-web` + 能力对象 + shell；**DOCX/PDF 上传**；**阅读落地页重设计**（招呼 + 辉光框 + 推荐 + 我的阅读面板 + 提示条）；端到端走查 |
-| **P2 · 阅读收尾** | `reading_check` 理解检测（完成时出题验证是否真读懂）；`atom_report` + 简版报告（统计 + 阅读笔记 + 互动小结） |
-| **P3 · 写作** | `writing` / `writing_outline` / `writing_snippet` / `writing_draft`；一个框进去 → AI 先聊想法 → 四阶段（构思 / 大纲 / 段落 / 成稿）；构思阶段敲定篇幅；英文示范；写作落地页（推荐题目 + 历史 + 未完成 + 教师任务位）；写作报告 |
-| **P4 · 以后** | 教师布置阅读与写作任务（含截止日期与落地页提醒）；逐段 AI 辅助（写法 / 叙事 / 关键词 / 结构 / 朗读，复用 `/voice/tts`）；样本库；`chat` 原子；AI 项目原子 |
+| **P1 · Foundation + Reading** | Create tables `atom` / `reading` / `atom_message` / `atom_card` / `atom_annotation` / `reading_source` / `reading_brief` / `reading_takeaway`; `schools.edition` + the routing gate; `llm_call.atom_id`; all reading endpoints (including `/turn` assembling and calling `RouteReading`, lens summoning, quote-selection feedback, anchor persistence); `apps/lite-web` + capability object + shell; **DOCX/PDF upload**; **reading landing page redesign** (greeting + glow box + recommendations + My Reading panel + hint bar); end-to-end walkthrough |
+| **P2 · Reading Wrap-up** | `reading_check` comprehension check (questions generated at completion to verify real understanding); `atom_report` + lite report (stats + reading notes + interaction summary) |
+| **P3 · Writing** | `writing` / `writing_outline` / `writing_snippet` / `writing_draft`; one box in → AI discusses the idea first → four stages (构思 / 大纲 / 段落 / 成稿); length settled during 构思; English exemplar; writing landing page (suggested topics + history + unfinished + the teacher-task slot); writing report |
+| **P4 · Later** | the teacher assigning reading and writing tasks (with deadlines and landing-page reminders); per-paragraph AI assistance (craft / narrative / keywords / structure / read-aloud, reusing `/voice/tts`); sample library; `chat` atom; AI project atom |
 
-每一期独立 spec → plan → build。
+Each phase gets its own independent spec → plan → build.
 
-## 11. 已定的决策
+## 11. Decisions Already Made
 
-| 问题 | 结论 |
+| Question | Conclusion |
 |---|---|
-| 轻量版与 pro 的关系 | 同一后端服务、同一 Postgres、同一鉴权与组织；**前端独立站点，后端表独立** |
-| 是否借用 `project` 行做存储容器 | **否**（2026-08-26 用户明确否决）。原子自持存储，`project.kind` 方案已回滚 |
-| 复用什么 | AI 函数（阅读大脑本就与存储无关）、前端设计与设计 token、卡 spec 与信封契约、docextract、gateway 计量 |
-| 为什么要 `atom` 底座 | AI 聊天与 AI 项目在路上；消息流 / 工具卡 / 批注 / 报告这四件事不该写四遍 |
-| 是否迁移现有 project 到底座 | 本轮**不迁移**；将来若做，另开 spec |
-| 工具卡是否保留 | 保留在房间内，与 pro 一致；轻量版左栏不设 图鉴 / 课程 tab |
-| 过程评估 | 项目级 `EvaluationReport` 不用于轻量版；新设 `AtomReport` |
-| 谁写正文 | 学生写每一个字；AI 给提纲建议与引导问题；英文写作提供**示范**（永不进入草稿） |
-| edition 放在哪 | **学校**（`schools.edition`），注册时随 join code 的班级→学校定下；不加 `users` 列，不下发 `/auth/me` |
+| Relationship between Lite Edition and pro | Same backend service, same Postgres, same auth and organization; **independent frontend site, independent backend tables** |
+| Whether to borrow the `project` row as a storage container | **No** (explicitly vetoed by the user on 2026-08-26). Atoms hold their own storage; the `project.kind` approach was rolled back. |
+| What gets reused | AI functions (the reading brain was already storage-agnostic), frontend design and design tokens, card specs and the envelope contract, docextract, gateway metering |
+| Why an `atom` foundation | AI chat and AI projects are on the way; the four things — message stream / tool card / annotation / report — shouldn't be written four separate times |
+| Whether to migrate the existing project onto the foundation | **Not this round**; if it happens later, it gets its own spec |
+| Whether 工具卡 are kept | Kept inside the room, same as pro; Lite Edition's left sidebar has no 图鉴 / course tab |
+| Process evaluation | The project-level `EvaluationReport` is not used for Lite Edition; a new `AtomReport` is defined |
+| Who writes the body text | the student writes every character; the AI gives outline suggestions and guiding questions; English writing provides an **exemplar** (never entering the draft) |
+| Where the edition lives | **The school** (`schools.edition`), settled at registration via the join code's class → school; no column added to `users`, not returned in `/auth/me` |
