@@ -60,6 +60,8 @@ const readingPlanSystem = `你是「印记」，要给一个中学生排出读�
 - 步骤的 kind 和顺序**只能**来自你挑的那套读法，不能新增、不能改顺序。
 - focusBlocks 必须是真实存在的段落编号。
 - detail 每条不超过 40 个字。
+- **detail 里说段落要用「第几段」，绝对不要写 b1/b2。** 那是给你看的内部标记，
+  她的屏幕上没有。（focusBlocks 字段里当然还是用 b1/b2。）
 
 只输出一个 JSON 对象：
 {"routineKey":"...","focusBlocks":["b3"],"steps":[{"kind":"read","detail":"..."}]}

@@ -50,6 +50,8 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 - **一次只领一步。** 说清楚当前这一步要她做什么，说完就停，等她。不要一口气讲两步。
 - 说话要短。不超过 120 个字。
+- **段落要用「第几段」来说，绝对不要说 b1/b2 这种编号。** 那是给你看的内部标记，
+  她的屏幕上没有这个东西——说了她只会一脸茫然地找。
 - 要具体到这篇文章：不要说「精读重点段」，要说「往下翻到第二段，那段里有三个数字，先把它们圈出来」。
 - 她答完一步之后，先接住她说的（一句就够），再领下一步。
 - 她问问题的时候先回答她，回答完再把她带回当前这一步。
@@ -72,10 +74,27 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 只输出一个 JSON 对象：
 
-{"reply":"你要对她说的话","advance":"","focusBlock":""}
+{"reply":"你要对她说的话","advance":"","focusBlock":"","tool":""}
 
 - advance：""（留在当前步）/ "done"（当前步完成）/ "skipped"（她想跳过当前步）。
 - focusBlock：如果这一步要她看某一段，给出段落编号（b1/b2/…）；否则留空。必须是真实存在的段落。
+- tool：见下。不用就留空。
+
+## 段落工具：你手上的教具
+
+每一段都能用下面这些工具拆开。它们不是给她自己乱点的菜单——**该用哪一件、什么时候用，
+由你决定**。你在 tool 里写一个 id，她屏幕上那一段就会自动展开这件工具的结果。
+
+%s
+
+怎么用：
+- 她说这段读不懂、卡在某个句子上 → 用讲解类的工具（翻译 / 关键单词 / 语法 / 成语修辞 / 案例）。
+- 她读懂了字面意思，但没看出作者的手法 → 用 craft / structure。
+- 你想让她自己往深里想一层，而不是听你讲 → 用 questions（想一想）。
+- 这一段的写法值得她自己练一遍 → 用 imitate（仿写）。**这是把读转成写的那一步**，
+  遇到写法特别的段落别浪费。
+- 一轮最多用一件。不确定就留空——工具是拿来推她一把的，不是拿来填满屏幕的。
+- 用了工具，reply 里要说一句你为什么给她这个（一句就够），别让它凭空冒出来。
 
 不要输出对象以外的任何文字或代码块标记。`
 
@@ -166,6 +185,18 @@ func buildReadingCoachPrompt(
 	return b.String()
 }
 
+// readingCoachToolMenu renders the paragraph tools for the article's language
+// into the coach's own prompt, from the same table the explain endpoint
+// validates against — so an id the coach names is always an id the endpoint
+// will accept.
+func readingCoachToolMenu(lang string) string {
+	var b strings.Builder
+	for _, t := range readingBlockToolsFor(lang) {
+		b.WriteString("- tool=" + t.ID + " · " + t.Label + "\n")
+	}
+	return b.String()
+}
+
 // currentReadingTask is the first step not yet settled. Nil when everything is
 // done or skipped — the state where the coach stops leading rather than
 // inventing a step to fill the silence.
@@ -182,9 +213,12 @@ type readingCoachReply struct {
 	Reply      string `json:"reply"`
 	Advance    string `json:"advance"`
 	FocusBlock string `json:"focusBlock"`
+	// The paragraph tool the coach chose to reach for this turn, if any. The
+	// tools are its teaching instruments, not a menu she is left to browse.
+	Tool string `json:"tool"`
 }
 
-func parseReadingCoachReply(text string, valid map[string]bool) (readingCoachReply, bool) {
+func parseReadingCoachReply(text string, valid map[string]bool, lang string) (readingCoachReply, bool) {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -216,6 +250,20 @@ func parseReadingCoachReply(text string, valid map[string]bool) (readingCoachRep
 	}
 	if got.FocusBlock != "" && !valid[got.FocusBlock] {
 		got.FocusBlock = ""
+	}
+	// A tool the coach named must exist AND fit this article's language — a
+	// 语法 breakdown of a Chinese paragraph is confidently useless. An
+	// unusable id is dropped rather than passed on: the reply still stands,
+	// she just doesn't get an instrument that would have opened onto nothing.
+	if got.Tool != "" {
+		tool, found := findReadingBlockTool(got.Tool)
+		if !found || (tool.Lang != "" && tool.Lang != lang) {
+			got.Tool = ""
+		}
+	}
+	// A tool with no paragraph to open on is meaningless.
+	if got.Tool != "" && got.FocusBlock == "" {
+		got.Tool = ""
 	}
 	return got, true
 }
@@ -295,9 +343,11 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
+	lang := readingLangOf(src.Body)
+	system := strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: readingCoachSystem},
+			{Role: gateway.RoleSystem, Content: system},
 			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, studentText)},
 		},
 	})
@@ -312,7 +362,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	for _, blk := range blocks {
 		valid[blk.ID] = true
 	}
-	parsed, okParse := parseReadingCoachReply(res.Text, valid)
+	parsed, okParse := parseReadingCoachReply(res.Text, valid, lang)
 	if !okParse {
 		slog.Warn("reading coach: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -389,6 +439,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		"tasks":         readingTaskDTOs(after),
 		"currentTaskId": currentID,
 		"focusBlock":    focus,
+		"tool":          parsed.Tool,
 		"finished":      next == nil,
 	})
 }

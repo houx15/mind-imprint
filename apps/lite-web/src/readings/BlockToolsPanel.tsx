@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Sparkles, X } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
@@ -40,6 +40,8 @@ export function BlockToolsPanel({
   blockText,
   tools,
   notes,
+  autoTool,
+  onAutoToolConsumed,
   onNote,
   onClose,
 }: {
@@ -48,6 +50,10 @@ export function BlockToolsPanel({
   blockText: string;
   tools: ReadingBlockTool[];
   notes: ReadingBlockNote[];
+  /** A tool 印记 reached for. Runs itself once, so its teaching lands as
+   *  teaching rather than as a button she has to find and press. */
+  autoTool?: string | null;
+  onAutoToolConsumed?: () => void;
   onNote: (note: ReadingBlockNote) => void;
   onClose: () => void;
 }) {
@@ -79,6 +85,24 @@ export function BlockToolsPanel({
       setBusy(null);
     }
   }
+
+  // Run the coach's chosen tool once. Keyed on blockId+tool so moving to a new
+  // paragraph re-arms it, and guarded by a ref so a re-render never fires the
+  // same call twice — this is a metered call, not a render effect.
+  const autoFired = useRef<string | null>(null);
+  useEffect(() => {
+    if (!autoTool) return;
+    const key = `${blockId}:${autoTool}`;
+    if (autoFired.current === key) return;
+    const tool = tools.find((t) => t.id === autoTool);
+    if (!tool) {
+      onAutoToolConsumed?.();
+      return;
+    }
+    autoFired.current = key;
+    void run(tool).finally(() => onAutoToolConsumed?.());
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [autoTool, blockId, tools]);
 
   const shown = open ? noteFor(open) : undefined;
 

@@ -195,6 +195,67 @@ func TestReadingCoach_FocusBlockPrefersThePlansOwnParagraph(t *testing.T) {
 	}
 }
 
+// TestReadingCoach_ReachesForAParagraphTool — 想一想 and 仿写 are the coach's
+// instruments, not a menu she is left to browse. It names one, and the room
+// opens it on the paragraph the step is about.
+func TestReadingCoach_ReachesForAParagraphTool(t *testing.T) {
+	const withTool = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],
+	  "steps":[{"kind":"read","detail":"先整体读一遍。"}],
+	  "reply":"这一段的写法值得你自己练一遍——我给你开了仿写。","advance":"done","focusBlock":"b3","tool":"imitate"}`
+	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(withTool))
+	id := createReadingAtom(t, h, cookie)
+	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
+
+	var out struct {
+		Tool       string `json:"tool"`
+		FocusBlock string `json:"focusBlock"`
+	}
+	rec := coachTurn(t, h, cookie, id, "")
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if out.Tool != "imitate" {
+		t.Fatalf("tool = %q, want the one the coach reached for", out.Tool)
+	}
+	if out.FocusBlock == "" {
+		t.Fatalf("a tool arrived with no paragraph to open on")
+	}
+}
+
+// TestReadingCoach_DropsAToolItCannotOpen — an invented id, a tool from the
+// other language, or a tool with no paragraph behind it. In every case the
+// REPLY still stands: losing an instrument must not cost her the turn.
+func TestReadingCoach_DropsAToolItCannotOpen(t *testing.T) {
+	cases := []struct{ name, reply string }{
+		{"invented id", `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],"steps":[],
+		  "reply":"看这段。","advance":"","focusBlock":"b3","tool":"rewrite_it_for_her"}`},
+		{"wrong language", `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],"steps":[],
+		  "reply":"看这段。","advance":"","focusBlock":"b3","tool":"grammar"}`},
+		{"no paragraph", `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],"steps":[],
+		  "reply":"想一想。","advance":"","focusBlock":"","tool":"questions"}`},
+	}
+	for _, tc := range cases {
+		h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(tc.reply))
+		id := createReadingAtom(t, h, cookie)
+		putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
+
+		var out struct {
+			Tool  string `json:"tool"`
+			Reply string `json:"reply"`
+		}
+		rec := coachTurn(t, h, cookie, id, "")
+		if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+			t.Fatalf("%s: decode: %v — body=%s", tc.name, err, rec.Body)
+		}
+		if out.Tool != "" {
+			t.Fatalf("%s: tool = %q, want it dropped", tc.name, out.Tool)
+		}
+		if strings.TrimSpace(out.Reply) == "" {
+			t.Fatalf("%s: the reply was lost along with the tool", tc.name)
+		}
+	}
+}
+
 // TestReadingCoach_ModelFailureSurfaces — USER RULE: a real 502.
 func TestReadingCoach_ModelFailureSurfaces(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, streamErrorProvider{})

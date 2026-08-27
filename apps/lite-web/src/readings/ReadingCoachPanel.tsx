@@ -37,7 +37,8 @@ export function ReadingCoachPanel({
   readingId: string;
   tasks: ReadingTask[];
   onTasks: (next: ReadingTask[]) => void;
-  onFocusBlock: (blockId: string) => void;
+  /** `tool` is set when 印记 reached for a paragraph tool this turn. */
+  onFocusBlock: (blockId: string, tool?: string) => void;
 }) {
   const [messages, setMessages] = useState<LiteMessage[]>([]);
   const [draft, setDraft] = useState("");
@@ -64,7 +65,7 @@ export function ReadingCoachPanel({
       setFinished(res.finished);
       // The coach names the paragraph this step is about; jumping there is
       // part of leading her, not a separate thing she has to do.
-      if (res.focusBlock) onFocusBlock(res.focusBlock);
+      if (res.focusBlock) onFocusBlock(res.focusBlock, res.tool || undefined);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "印记这次没接上，再试一次。");
       if (text) setMessages((prev) => prev.slice(0, -1));

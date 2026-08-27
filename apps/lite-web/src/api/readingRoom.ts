@@ -370,6 +370,8 @@ export async function postReadingCoachTurn(
   tasks: ReadingTask[];
   currentTaskId: string;
   focusBlock: string;
+  /** The paragraph tool the coach reached for this turn, if any. */
+  tool: string;
   finished: boolean;
 }> {
   const raw = await apiFetch<{
@@ -377,6 +379,7 @@ export async function postReadingCoachTurn(
     tasks: ReadingTask[];
     currentTaskId: string;
     focusBlock: string;
+    tool: string;
     finished: boolean;
   }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
     method: "POST",
@@ -387,6 +390,7 @@ export async function postReadingCoachTurn(
     tasks: raw.tasks ?? [],
     currentTaskId: raw.currentTaskId ?? "",
     focusBlock: raw.focusBlock ?? "",
+    tool: raw.tool ?? "",
     finished: Boolean(raw.finished),
   };
 }

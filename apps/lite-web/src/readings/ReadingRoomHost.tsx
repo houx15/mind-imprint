@@ -87,6 +87,8 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   const [blockTools, setBlockTools] = useState<ReadingBlockTool[]>([]);
   const [blockNotes, setBlockNotes] = useState<ReadingBlockNote[]>([]);
   const [openBlock, setOpenBlock] = useState<string | null>(null);
+  // Set when the coach chose a tool for this turn; consumed once by the panel.
+  const [autoTool, setAutoTool] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -207,11 +209,15 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
    * out of the room would be a bigger change to a shared component than the
    * one behaviour needs.
    */
-  const focusBlock = (blockId: string) => {
+  const focusBlock = (blockId: string, tool?: string) => {
     document
       .querySelector(`[data-block-id="${blockId}"]`)
       ?.scrollIntoView({ behavior: "smooth", block: "center" });
     setOpenBlock(blockId);
+    // 印记 reaching for a tool is it teaching, not a suggestion she has to act
+    // on — so the panel opens with that tool already running rather than
+    // showing her a row of buttons and hoping she presses the right one.
+    setAutoTool(tool ?? null);
   };
 
   return (
@@ -303,7 +309,12 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
                     note,
                   ])
                 }
-                onClose={() => setOpenBlock(null)}
+                autoTool={autoTool}
+                onAutoToolConsumed={() => setAutoTool(null)}
+                onClose={() => {
+                  setOpenBlock(null);
+                  setAutoTool(null);
+                }}
               />
             </div>
           );
