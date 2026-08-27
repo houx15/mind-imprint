@@ -309,7 +309,14 @@ func TestWritingSnippetExemplar_ModelFailureIs502(t *testing.T) {
 // text (e.g. an implementation that "helpfully" fills the fragment in for
 // her), assertion (3) fails first, since it compares the exact string.
 func TestWritingSnippetExemplar_NeverPersisted(t *testing.T) {
-	const exemplarText = "Photosynthesis converts sunlight into chemical energy, a process with cascading consequences for global carbon cycles-EXEMPLAR-MARKER-8f2c1a."
+	// Markers at BOTH ends, deliberately. A single trailing marker leaves this
+	// guard — the one that enforces 铁律① — bypassable by the most ordinary
+	// persistence bug there is: storing a truncated prefix into a
+	// length-capped column, or a "first N characters" preview. That would cut
+	// the marker off and the test would pass while the exemplar sat in the
+	// database. Two markers mean a prefix bug trips the leading one and a
+	// suffix bug trips the trailing one.
+	const exemplarText = "EXEMPLAR-HEAD-8f2c1a-Photosynthesis converts sunlight into chemical energy, a process with cascading consequences for global carbon cycles-EXEMPLAR-MARKER-8f2c1a."
 	stub := writingTextStubProvider(`{"exemplar":"` + exemplarText + `","prompts":["What evidence could open this paragraph?","How does this connect to your thesis?"]}`)
 	h, cookie, _, pool := liteHandlerWithProvider(t, stub)
 	id := createWritingAtomHTTPLang(t, h, cookie, "Photosynthesis and climate", "en")
@@ -371,6 +378,9 @@ func TestWritingSnippetExemplar_NeverPersisted(t *testing.T) {
 
 	// (4): no table anywhere stores the exemplar. THE assertion.
 	assertExemplarNeverPersisted(t, pool, id, "EXEMPLAR-MARKER-8f2c1a")
+	// The leading marker catches a truncated-prefix persistence bug that the
+	// trailing one would silently miss. See the exemplarText comment.
+	assertExemplarNeverPersisted(t, pool, id, "EXEMPLAR-HEAD-8f2c1a")
 }
 
 // TestWritingSnippetExemplar_UnknownSnippet404s — {sid} must name a real
