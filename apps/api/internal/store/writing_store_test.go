@@ -32,8 +32,8 @@ func TestWritingStore_DefaultsOnCreate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateWriting: %v", err)
 	}
-	if w.Stage != "ideate" {
-		t.Fatalf("stage = %q, want \"ideate\"", w.Stage)
+	if w.Stage != "outline" {
+		t.Fatalf("stage = %q, want \"outline\"", w.Stage)
 	}
 	if w.TargetWords != nil {
 		t.Fatalf("target_words = %v, want NULL", w.TargetWords)
@@ -133,6 +133,7 @@ func TestWritingStore_CascadesFromAtom(t *testing.T) {
 	if _, err := q.ReplaceWritingOutline(ctx, sqlc.ReplaceWritingOutlineParams{
 		AtomID:    a.ID,
 		Texts:     []string{"引子", "论证"},
+		Roles:     []string{"", ""},
 		Depths:    []int32{0, 0},
 		Positions: []int32{0, 1},
 	}); err != nil {
@@ -193,10 +194,18 @@ func TestWritingStore_StageCheckRejectsInvalidValue(t *testing.T) {
 		t.Fatal("invalid stage \"drafting\" accepted, want a check-violation")
 	}
 
-	// A legal value still goes through, and all five values in the vocabulary
-	// are individually acceptable — including 'finished', which coexists with
-	// status='finished' as a separate fact (how far she got vs. whether she's
-	// done).
+	// A legal value still goes through, and all five values the CHECK
+	// constraint permits are individually acceptable — including 'finished',
+	// which coexists with status='finished' as a separate fact (how far she
+	// got vs. whether she's done).
+	//
+	// 'ideate' is deliberately still in this list. The four-step map collapsed
+	// to three on 2026-08-27 and 0100 migrated every row off it, but the CHECK
+	// constraint was left permissive on purpose (tightening it means rebuilding
+	// it, and a database that tolerates a value nothing writes costs nothing).
+	// The narrowing lives one layer up, in validWritingStages — so this test
+	// asserting the DB still accepts 'ideate' and the API test asserting a
+	// 400 for it are both correct, and are describing different layers.
 	for _, stage := range []string{"ideate", "outline", "snippets", "draft", "finished"} {
 		w, err := q.SetWritingStage(ctx, sqlc.SetWritingStageParams{AtomID: a.ID, Stage: stage})
 		if err != nil {
@@ -261,15 +270,15 @@ func TestWritingStore_TargetWordsAndFinish(t *testing.T) {
 	}
 	// `status` and `stage` are independent facts and must stay that way.
 	// `status` answers "is this piece done"; `stage` answers "how far through
-	// 构思→大纲→段落→成稿 did she actually get", and the report reads the
-	// latter. This writing finished without ever leaving 'ideate' — a student
+	// 结构→段落→成稿 did she actually get", and the report reads the
+	// latter. This writing finished without ever leaving the first step — a student
 	// who skips straight to a finished draft, which is a real thing students
 	// do and a thing 过程即数据 says we record rather than tidy away.
 	//
 	// Nothing else guards this: a future edit to SetWritingFinished that also
 	// forced stage='finished' would pass every other assertion in this file
 	// while silently erasing the skip from every report.
-	if finished.Stage != "ideate" {
+	if finished.Stage != "outline" {
 		t.Fatalf("finish moved stage to %q; status and stage must stay independent", finished.Stage)
 	}
 	firstFinishedAt := finished.FinishedAt.Time
@@ -314,6 +323,7 @@ func TestWritingStore_OutlineSnippetDraftRoundTrip(t *testing.T) {
 	if _, err := q.ReplaceWritingOutline(ctx, sqlc.ReplaceWritingOutlineParams{
 		AtomID:    a.ID,
 		Texts:     []string{"引子", "论证一", "结论"},
+		Roles:     []string{"", "", ""},
 		Depths:    []int32{0, 0, 0},
 		Positions: []int32{0, 1, 2},
 	}); err != nil {
@@ -331,6 +341,7 @@ func TestWritingStore_OutlineSnippetDraftRoundTrip(t *testing.T) {
 	if _, err := q.ReplaceWritingOutline(ctx, sqlc.ReplaceWritingOutlineParams{
 		AtomID:    a.ID,
 		Texts:     []string{"仅一项"},
+		Roles:     []string{""},
 		Depths:    []int32{0},
 		Positions: []int32{0},
 	}); err != nil {
