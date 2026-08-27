@@ -255,9 +255,11 @@ func liteSummonDecline(w http.ResponseWriter, reply string) {
 // Curried by kind (Task 1.5) — see reading_cards.go's liteListCardsFor:
 // everything below reads/writes only atom_card, never a reading-specific
 // table, so the same handler serves both editions' card loops. The metering
-// purpose string stays "read_eval" — reading is the only kind wired to a
-// route today; a later task mounting this under /writings/* should decide
-// then whether a kind-specific purpose label is worth adding.
+// purpose is now kind-specific (evalCardMeteringPurpose): once writing mounted
+// this same route, a hardcoded "read_eval" would file every writing
+// selection-evaluate's flagship-tier spend under reading in every cost
+// rollup. Reading's value is unchanged — still exactly "read_eval" — so
+// pro/reading cost reporting is byte-identical to before.
 func (a *API) liteEvaluateCardSelectionFor(kind string) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		at, ok := a.loadOwnedAtom(w, r, kind)
@@ -312,7 +314,7 @@ func (a *API) liteEvaluateCardSelectionFor(kind string) http.HandlerFunc {
 		defer cancelEval()
 
 		eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.d.EvalResolver, spec, dimension, studentSpan)
-		a.recordLiteLLMCall(evalCtx, u.ID, at.ID, "read_eval", resolved, usage)
+		a.recordLiteLLMCall(evalCtx, u.ID, at.ID, evalCardMeteringPurpose(kind), resolved, usage)
 
 		dto := toSelectionEvalDTO(eval)
 		// 过程即数据 — the AI's judgment of her pick is recorded, not just returned.
@@ -341,5 +343,22 @@ func (a *API) liteEvaluateCardSelectionFor(kind string) http.HandlerFunc {
 				"request_id", httpx.RequestIDFromContext(r.Context()))
 		}
 		httpx.WriteJSON(w, http.StatusOK, dto)
+	}
+}
+
+// evalCardMeteringPurpose is the llm_call.purpose value liteEvaluateCardSelectionFor
+// meters its one flagship-tier call under, keyed by kind. Reading keeps the
+// exact pre-existing literal ("read_eval") byte-for-byte — every pro/reading
+// cost rollup that already filters on that string keeps working unchanged.
+// Writing gets its own ("write_eval") so mounting the same shared handler
+// under /writings/* does not silently fold writing's spend into reading's
+// bucket. New kinds must extend this switch explicitly — falling through to
+// a shared default would reintroduce exactly the mis-filing bug this fixes.
+func evalCardMeteringPurpose(kind string) string {
+	switch kind {
+	case "writing":
+		return "write_eval"
+	default:
+		return "read_eval"
 	}
 }
