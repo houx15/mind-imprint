@@ -210,11 +210,32 @@ describe("段落 stage — the 铁律① pressure point", () => {
     expect(screen.getByText("How would you counter the obvious objection?")).toBeTruthy();
     expect(screen.getByText("示范")).toBeTruthy();
 
-    // The exemplar's own container has NO button in it — nothing to insert,
-    // copy, or otherwise pull the AI's English into her textarea.
+    // 铁律①, asserted by OUTCOME rather than by inventory.
+    //
+    // The obvious check — queryAllByRole("button") is empty — is weaker than
+    // it looks. A <div onClick> carries no accessible role at all and an <a>
+    // carries "link", so the two most natural ways someone would later add an
+    // "insert this" affordance both slip straight past it. A guard that misses
+    // the exact regression it exists to catch is worse than no guard, because
+    // it reads as protection.
+    //
+    // So click EVERY node inside the exemplar box and assert her paragraph
+    // textarea never changes. That holds whatever markup a future edit reaches
+    // for — button, div, anchor, span with a handler — because it tests what
+    // the rule actually cares about: that no path exists from the AI's English
+    // into her draft.
     const exemplarText = screen.getByText("Working part-time teaches real accountability.");
-    const container = exemplarText.closest("div")!;
-    expect(within(container).queryAllByRole("button")).toHaveLength(0);
+    const box = exemplarText.closest("div")!;
+    expect(within(box).queryAllByRole("button")).toHaveLength(0);
+
+    const draft = screen.getByPlaceholderText("写这一段……") as HTMLTextAreaElement;
+    const draftBefore = draft.value;
+    for (const node of Array.from(box.querySelectorAll("*"))) {
+      fireEvent.click(node);
+    }
+    fireEvent.click(box);
+    expect(draft.value).toBe(draftBefore);
+    expect(draft.value).not.toContain("Working part-time teaches real accountability.");
 
     // It lazily created the snippet row before asking for the exemplar.
     expect(calls.some((c) => c.method === "PUT" && c.url === base("/snippets"))).toBe(true);
