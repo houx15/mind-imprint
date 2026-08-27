@@ -199,3 +199,98 @@ POST /readings/{id}/blocks/{bid}/explain {tool} → cached explanation
 Not a course. The course runtime already exists and is a different thing —
 authored slices, a fixed script. This is a scaffold generated per article,
 around the student's own material.
+
+---
+
+# Amendment · 2026-08-27, later the same day
+
+Everything above shipped, and then walking it produced two rulings that
+supersede parts of it. The original text stays as written — it is the record
+of how we got here — but where the two disagree, this section is what is in
+the product.
+
+## Ruling 1 — 印记 leads. She does not manage stages.
+
+> *merge the tasks with the AI bar. at start the AI begins with 让我来带你详细
+> 阅读这篇文章吧, clicks 开始button. then AI generates the plan, introduces the
+> plan, then we will enter a stage directly. student doesn't handle the stages
+> themselves, but the AI directs these. so 是否完成，进行到哪一步, is guided by
+> AI.*
+
+This retires **Part 2's checklist as an interface**. The routine library, the
+`reading_task` rows and their `pending|done|skipped` status all survive
+unchanged — what dies is the student operating them.
+
+Concretely:
+
+- No 做完了 / 跳过 buttons, and no clickable steps. The step list is rendered
+  small, above the conversation, as **progress she can see** — not controls
+  she works. `POST /tasks/{tid}/done` is gone.
+- The coach's reply carries `advance` (`""` / `"done"` / `"skipped"`),
+  clamped server-side to those three. It decides whether her answer counted.
+- Skipping did not disappear; it moved into language. She says 这步跳过吧 and
+  the coach records `skipped` without arguing. 铁律④ is intact — the skip is
+  still data — and 铁律② is better served than before: a student who wants
+  out of a step should not have to find the button that admits it.
+- The plan is generated on demand at the first turn, so 开始 is the only
+  thing she ever presses to begin.
+
+This also answers Open question 1: the task list is neither a spine nor a
+parallel panel. It is the coach's own agenda, shown for legibility.
+
+## Ruling 2 — 想一想 and 仿写 are instruments, and 印记 picks them up
+
+> *in 带读, AI 拆解 one paragraph, propose some guiding questions, or let
+> students mock that to write a paragraph* … *for the 仿写 or questions, these
+> are tools and AI can decide how to guide students to read deeper. though
+> different interactions.*
+
+Part 1 described paragraph tools as explanatory only — 翻译 / 关键单词 / 语法 /
+写作解析 for English, 成语修辞 / 案例 / 结构解析 for Chinese. Two more join
+them, and they are not explanations:
+
+- **想一想** — guiding questions about this paragraph.
+- **仿写** — an invitation to write one of her own on the same pattern.
+
+Both are language-neutral, so they exist on every article.
+
+They are also the point at which the coach stops suggesting and starts
+teaching. The coach's reply carries a `tool` alongside `focusBlock`, and the
+panel that opens **runs that tool itself**. If it merely lit up a button she
+had to find, the coach would have made a suggestion; teaching means the
+explanation is already there when she looks.
+
+Validation is entirely server-side and entirely by construction. A tool is
+dropped before she ever sees it if it does not exist, if its language does
+not match the article, or if the turn named no paragraph to apply it to. The
+coach cannot invent an instrument it does not have.
+
+### 铁律① under 仿写
+
+仿写 is the one tool that touches writing, so the line is drawn in the data
+rather than in the prompt: **the 仿写 renderer has no field a sample paragraph
+could live in.** It can name the pattern and set the task; it has nowhere to
+put a model-written paragraph even if it tried. 想一想 is enforced the same
+way — every entry that does not end in `？` or `?` is dropped
+entry-by-entry, so a "question" that is secretly an assertion cannot survive
+the parse.
+
+The general rule this is an instance of, and the one to reach for next time:
+**enforce restraint in the output type, not in the prompt's manners.**
+
+## Fix on the same walk — paragraph ordinals
+
+The coach is told to say 「第几段」 and never `b1`/`b2`, but the prompt used to
+list paragraphs as bare ids, leaving it to map ids onto ordinals in its head.
+On production it split: the prose said 第三段 while `focusBlock` came back
+`b4`, so a tool opened on a paragraph the sentence had not named. Both prompts
+now label each paragraph `b3（第3段）`, counting every block so the ordinal
+keeps matching her screen. The inference is removed rather than the model
+asked to be careful.
+
+## Still open
+
+Open question 2 (are the quiz questions checkable and graded?) is still
+open, and is now narrower: 想一想 answered the *reflection* half, so what
+remains is only whether lite ever gets a right/wrong path. Open question 3
+(no ability signal yet; selection uses text difficulty only) is unchanged.
