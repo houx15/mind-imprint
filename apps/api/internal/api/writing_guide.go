@@ -14,9 +14,9 @@ package api
 //   - 问题把「想不出来」拆成「答不上来的是哪一问」。学生卡住时需要的不是
 //     更大的空白，是更小的问题。
 //
-// 它另外允许模型提名一张工具卡（cardId），但**只提名，不打开**——前端把它
-// 渲染成一句「要不要用《让步段》拆一下？」，由学生点了才召唤。这正是常驻
-// 卡片架被撤掉之后，卡片重新出现的唯一入口：需要时才出现，不需要时不占地方。
+// 写作房间没有工具卡（2026-08-27 产品裁定）：pro 的写作面本来也几乎不用它们，
+// 学生停在一段上时要的是一个问题，不是一张要填的表。这个端点的返回结构里
+// 因此**没有第二个字段**能装下一句话——只有 questions。
 
 import (
 	"context"
@@ -29,7 +29,6 @@ import (
 
 	"github.com/google/uuid"
 
-	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -40,9 +39,13 @@ import (
 // is trying not to be.
 const writingGuideMaxQuestions = 4
 
-// writingGuideSystem. The card vocabulary is injected rather than hardcoded
-// in the prompt text so the deck and the prompt cannot drift (writingDeckIDs,
-// writing_lens.go).
+// writingGuideSystem.
+//
+// It used to also let the model nominate a 工具卡. That is gone (2026-08-27):
+// the writing room has no tool cards at all any more — pro's own writing
+// surface barely used them, and what a student stuck on a paragraph needs is
+// a question, not a form. Dropping it made this prompt do exactly one thing,
+// which is the reason to prefer it even setting the product call aside.
 const writingGuideSystem = `你是「印记」。学生正在写一篇文章，现在停在其中**一块**上，不知道该写什么。
 
 你要做的**只有一件事**：针对这一块，给她 2 到 4 个能帮她想下去的问题。
@@ -59,29 +62,7 @@ const writingGuideSystem = `你是「印记」。学生正在写一篇文章，�
 - 不要替她判断对错，不要说「你应该主张……」。
 - 不要重复她已经写在这一块里的内容。
 
-你还可以（不是必须）提名一张工具卡，如果这一块正好适合用它拆开来想。可用的卡只有这几张，cardId 必须逐字取自其中：
-%s
-
-只输出一个 JSON 对象：
-{"questions":["...","..."],"cardId":"","cardReason":""}
-cardId 不提名就留空字符串。不要输出对象以外的任何文字或代码块标记。`
-
-// buildWritingGuideCardMenu renders the writing deck for the prompt, from the
-// same writingDeckIDs the summon endpoint validates against.
-func buildWritingGuideCardMenu() string {
-	var b strings.Builder
-	for _, id := range writingDeckIDs {
-		spec, ok := cards.ByID(id)
-		if !ok {
-			continue
-		}
-		b.WriteString("- cardId=" + id + " · " + spec.Name + "：" + spec.Purpose + "\n")
-	}
-	if b.Len() == 0 {
-		return "（这次没有可提名的工具卡，cardId 留空。）"
-	}
-	return b.String()
-}
+只输出一个 JSON 对象：{"questions":["...","..."]}，不要输出对象以外的任何文字或代码块标记。`
 
 // buildWritingGuidePrompt assembles what the model sees for ONE block: which
 // block it is (role + her own heading text), the skeleton it sits in, what she
@@ -150,24 +131,19 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	return b.String()
 }
 
-// writingGuideResult is the wire shape.
+// writingGuideResult is the wire shape: questions, and nothing else. There is
+// deliberately no second field a sentence could arrive in.
 type writingGuideResult struct {
-	Questions  []string `json:"questions"`
-	CardID     string   `json:"cardId"`
-	CardReason string   `json:"cardReason"`
+	Questions []string `json:"questions"`
 }
 
 // parseWritingGuide decodes and HARD-FILTERS the model's reply.
 //
-// The filtering is the security boundary, not a nicety. Two rules:
-//
-//   - Every entry must end in a question mark (either script's). A model that
-//     slips a declarative sentence — "你可以写：手机让人分心" — into the list
-//     has just handed her a sentence for her essay, which is the one thing
-//     this endpoint exists to make impossible. Dropping non-questions is
-//     cheaper and far more reliable than asking the prompt again.
-//   - cardId must be in the writing deck, or it is cleared. An unresolvable
-//     card would render as an offer that dead-ends on click.
+// The filter is the security boundary, not a nicety: every entry must end in a
+// question mark (either script's). A model that slips a declarative sentence —
+// "你可以写：手机让人分心" — into the list has just handed her a sentence for
+// her essay, which is the one thing this endpoint exists to make impossible.
+// Dropping non-questions is cheaper and far more reliable than re-prompting.
 func parseWritingGuide(text string) (writingGuideResult, bool) {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
@@ -207,12 +183,6 @@ func parseWritingGuide(text string) (writingGuideResult, bool) {
 		return writingGuideResult{}, false
 	}
 	got.Questions = kept
-
-	if got.CardID != "" && !inWritingDeck(got.CardID) {
-		got.CardID = ""
-		got.CardReason = ""
-	}
-	got.CardReason = strings.TrimSpace(got.CardReason)
 	return got, true
 }
 
@@ -300,10 +270,9 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	system := strings.Replace(writingGuideSystem, "%s", buildWritingGuideCardMenu(), 1)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: system},
+			{Role: gateway.RoleSystem, Content: writingGuideSystem},
 			{Role: gateway.RoleUser, Content: buildWritingGuidePrompt(wr, block, siblings, existing, msgs)},
 		},
 	})

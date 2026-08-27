@@ -1,4 +1,4 @@
-import type { LiteCard, LiteMessage, LiteTurn } from "./readingRoom";
+import type { LiteMessage, LiteTurn } from "./readingRoom";
 import { apiFetch } from "./client";
 import type { Writing } from "./writings";
 
@@ -7,17 +7,13 @@ import type { Writing } from "./writings";
  * api/writings.ts the same way api/readingRoom.ts is split from
  * api/readings.ts: writings.ts owns the CRUD shell (list/create/get/rename),
  * this file owns everything that happens once she is INSIDE one — stage/
- * target words, the coach turn, outline, snippets + exemplar, compose/draft/
- * review/finish, and the card lifecycle (list/activate/skip/submit/summon).
+ * target words, setup + opening, structure, the coach turn, outline, snippets
+ * + exemplar, and compose/draft/review/finish.
  *
- * `LiteCard`/`LiteMessage`/`LiteTurn` are reused from readingRoom.ts, not
- * redeclared: `cardDTO`/`liteMessageDTO`/`liteTurnDTO` (apps/api/internal/
- * api/reading_cards.go, reading_turn.go) are the SAME Go types the writing
- * handlers answer with too (liteListCardsFor/liteActivateCardFor/etc. are
- * curried by kind, and writing_turn.go/writing_lens.go literally construct
- * `liteTurnDTO`) — importing the type is genuine reuse, not a second
- * definition to drift out of sync. Everything else here (outline/snippets/
- * draft) is writing-only, mirroring the Go side's own naming split
+ * `LiteMessage`/`LiteTurn` are reused from readingRoom.ts, not redeclared:
+ * `liteMessageDTO`/`liteTurnDTO` (apps/api/internal/api/reading_turn.go) are
+ * the SAME Go types the writing handlers answer with. Everything else here is
+ * writing-only, mirroring the Go side's own naming split
  * (writing_outline.go's file comment: "two unrelated domains share a word,
  * not a table or a handler").
  */
@@ -41,9 +37,10 @@ export type WritingStructure = {
   blocks: { role: string; hint: string }[];
 };
 
-/** What the coach hands back when she asks for help on ONE block: questions,
- *  never prose, plus an optional tool-card nomination she must accept. */
-export type WritingBlockGuide = { questions: string[]; cardId: string; cardReason: string };
+/** What the coach hands back when she asks for help on ONE block. Questions,
+ *  and deliberately no second field a sentence could arrive in. */
+export type WritingBlockGuide = { questions: string[] };
+
 export type WritingSnippet = {
   id: string;
   outlineId: string | null;
@@ -113,8 +110,7 @@ export async function listWritingStructures(lang: string): Promise<WritingStruct
 
 /**
  * The model PICKS one from the library and says why. It persists nothing —
- * she accepts by calling `applyWritingStructure`, the same
- * propose-then-she-confirms shape the 工具卡 use.
+ * she accepts by calling `applyWritingStructure`.
  */
 export async function recommendWritingStructure(id: string): Promise<{ structureKey: string; reason: string }> {
   return apiFetch<{ structureKey: string; reason: string }>(`${base(id)}/structure/recommend`, { method: "POST" });
@@ -150,7 +146,7 @@ export async function guideWritingBlock(id: string, outlineId: string): Promise<
     `${base(id)}/outline/${encodeURIComponent(outlineId)}/guide`,
     { method: "POST" },
   );
-  return { questions: raw.questions ?? [], cardId: raw.cardId ?? "", cardReason: raw.cardReason ?? "" };
+  return { questions: raw.questions ?? [] };
 }
 
 // --- coach turn ---------------------------------------------------------
@@ -257,46 +253,12 @@ export async function finishWriting(id: string): Promise<Writing> {
   return apiFetch<Writing>(`${base(id)}/finish`, { method: "POST" });
 }
 
-// --- cards --------------------------------------------------------------
-
-export async function listWritingCards(id: string): Promise<LiteCard[]> {
-  const raw = await apiFetch<{ cards: LiteCard[] }>(`${base(id)}/cards`);
-  return raw.cards ?? [];
-}
-
-export async function activateWritingCard(id: string, cid: string): Promise<LiteCard> {
-  return apiFetch<LiteCard>(`${base(id)}/cards/${encodeURIComponent(cid)}/activate`, { method: "POST" });
-}
-
-export async function skipWritingCard(id: string, cid: string): Promise<LiteCard> {
-  return apiFetch<LiteCard>(`${base(id)}/cards/${encodeURIComponent(cid)}/skip`, { method: "POST" });
-}
-
-/**
- * `anchors` is deliberately OMITTED, not sent as `[]`. The four writing-deck
- * cards never populate `CardInstance.anchors` locally (there is no text-span
- * picker in the writing room the way the reading room has one) — it stays
- * `[]` for the whole life of the card. The lite submit endpoint
- * (liteSubmitCardFor, reading_cards.go) treats a PRESENT `anchors` key as an
- * explicit overwrite and an ABSENT one as "keep what the card already has" —
- * so forwarding `env.anchors` unconditionally (an empty array) would silently
- * erase the AI's grounded example anchor from writing_lens.go's summon at the
- * exact moment she completes the card. Pro's own WritingBlock never sends
- * anchors on this call either (`submitProposedCard(field_values, event_trace)`
- * — no anchors argument at all), which is the same avoidance, not an
- * oversight this file is introducing.
+/*
+ * The writing room has NO 工具卡 (2026-08-27). listWritingCards /
+ * activateWritingCard / skipWritingCard / submitWritingCard /
+ * summonWritingCard and their endpoints are all deleted: pro's own writing
+ * surface barely used the cards, and what a student stuck on a paragraph
+ * needs is a question, not a form to fill in. The reading room keeps its
+ * 学科透镜 — those cards are used against an article, which gives them
+ * something real to bite on.
  */
-export async function submitWritingCard(
-  id: string,
-  cid: string,
-  input: { fieldValues: Record<string, unknown>; eventTrace: unknown[] },
-): Promise<LiteCard> {
-  return apiFetch<LiteCard>(`${base(id)}/cards/${encodeURIComponent(cid)}/submit`, {
-    method: "POST",
-    body: JSON.stringify({ fieldValues: input.fieldValues, eventTrace: input.eventTrace }),
-  });
-}
-
-export async function summonWritingCard(id: string, cardId: string): Promise<LiteTurn> {
-  return apiFetch<LiteTurn>(`${base(id)}/summon`, { method: "POST", body: JSON.stringify({ cardId }) });
-}

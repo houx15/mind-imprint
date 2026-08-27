@@ -1,12 +1,9 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
-import { CARD_REGISTRY } from "@mind-imprint/contracts";
-import { Button, Icon } from "@/ui";
+import { Button } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
-import { StudioCardSheet } from "@/studio/StudioCardSheet";
-import { Wrench, X } from "lucide-react";
 import { ApiError } from "../api/client";
 import { getWriting, isWritingFinished, type Writing } from "../api/writings";
 import {
@@ -14,20 +11,15 @@ import {
   getWritingOutline,
   getWritingSnippets,
   getWritingDraft,
-  listWritingCards,
   postWritingTurn,
   postWritingOpening,
   setWritingStage,
   setWritingTargetWords,
-  activateWritingCard,
-  skipWritingCard,
-  submitWritingCard,
-  summonWritingCard,
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingDraft,
 } from "../api/writingRoom";
-import type { LiteCard, LiteMessage } from "../api/readingRoom";
+import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { WritingSetupModal } from "./WritingSetupModal";
@@ -49,10 +41,10 @@ import { ComposeStage } from "./ComposeStage";
  *      side it did nothing. It now lives in the header as a live counter
  *      (`已写 320 / 800`), which is both the confirmation and the point.
  *   3. **The tool cards were parked on screen permanently**, four of them,
- *      pushed at her whether or not anything needed them. The shelf is gone.
- *      Cards now arrive two ways only: the guiding box nominates one when a
- *      block warrants it, and a quiet 工具 button opens the deck on demand.
- *      Available, never insistent.
+ *      pushed at her whether or not anything needed them. They are gone
+ *      entirely — pro's own writing surface barely used them, and a student
+ *      stuck on a paragraph wants a question, not a form. What she gets
+ *      instead is the guiding box, on the block she is actually stuck on.
  *
  * Layout: stage map + length counter up top, a main panel on the left that
  * changes with `writing.stage`, and a coach rail on the right that is THE
@@ -71,24 +63,15 @@ type LoadState =
       outline: WritingOutlineItem[];
       snippets: WritingSnippet[];
       draft: WritingDraft;
-      cards: LiteCard[];
     };
 
 const EMPTY_DRAFT: WritingDraft = { body: "", updatedAt: null };
-
-// Mirrors writing_lens.go's `writingDeckIDs` — the fixed set of writing-room
-// tool cards. Growing the deck server-side (adding an id there) means growing
-// this list too; there is no endpoint that reports it back.
-const WRITING_DECK = ["argument-map", "concession", "pee", "toulmin"];
 
 export function WritingRoomHost({ writingId }: { writingId: string }) {
   const [state, setState] = useState<LoadState>({ phase: "loading" });
   const [roomError, setRoomError] = useState<string | null>(null);
   const [sending, setSending] = useState(false);
   const [draftText, setDraftText] = useState("");
-  const [hangingCard, setHangingCard] = useState<LiteCard | null>(null);
-  const [cardNote, setCardNote] = useState<string | null>(null);
-  const [deckOpen, setDeckOpen] = useState(false);
   /**
    * Tracked separately from `sending` on purpose. Both put the thinking
    * indicator in the transcript, but only `sending` locks the composer.
@@ -110,23 +93,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           if (!cancelled) setState({ phase: "finished", writing, draft });
           return;
         }
-        const [messages, outline, snippets, draft, cards] = await Promise.all([
+        const [messages, outline, snippets, draft] = await Promise.all([
           listWritingMessages(writingId).catch(() => [] as LiteMessage[]),
           getWritingOutline(writingId).catch(() => [] as WritingOutlineItem[]),
           getWritingSnippets(writingId).catch(() => [] as WritingSnippet[]),
           getWritingDraft(writingId).catch(() => EMPTY_DRAFT),
-          listWritingCards(writingId).catch(() => [] as LiteCard[]),
         ]);
-        if (!cancelled) {
-          setState({ phase: "ready", writing, messages, outline, snippets, draft, cards });
-          // Seed hangingCard ONCE, right here at load — a card left
-          // proposed/active from a previous session must still show up after a
-          // reload. From this point on, hangingCard is owned entirely by the
-          // imperative handlers below (summon/open/skip/submit); it must NEVER
-          // be re-derived from this `cards` array again, because that array is
-          // a snapshot that goes stale the instant she does anything else.
-          setHangingCard(cards.find((c) => c.status === "proposed" || c.status === "active") ?? null);
-        }
+        if (!cancelled) setState({ phase: "ready", writing, messages, outline, snippets, draft });
       } catch (err) {
         if (cancelled) return;
         setState({
@@ -228,57 +201,6 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     }
   }
 
-  async function summon(cardId: string) {
-    if (state.phase !== "ready" || hangingCard) return;
-    setRoomError(null);
-    setDeckOpen(false);
-    try {
-      const turn = await summonWritingCard(writingId, cardId);
-      if (turn.reply.trim()) {
-        setState((s) =>
-          s.phase === "ready" ? { ...s, messages: [...s.messages, { seq: -3, role: "ai", content: turn.reply, createdAt: "" }] } : s,
-        );
-      }
-      if (turn.card) setHangingCard(turn.card);
-    } catch (err) {
-      setRoomError(err instanceof ApiError ? err.message : "召唤工具卡失败，请重试。");
-    }
-  }
-
-  async function openHangingCard() {
-    if (!hangingCard) return;
-    try {
-      const activated = await activateWritingCard(writingId, hangingCard.id);
-      setHangingCard(activated);
-    } catch (err) {
-      setRoomError(err instanceof ApiError ? err.message : "打开工具卡失败，请重试。");
-    }
-  }
-
-  async function skipHangingCard() {
-    if (!hangingCard) return;
-    try {
-      await skipWritingCard(writingId, hangingCard.id);
-    } catch {
-      // 铁律④: a failed skip just leaves the card hanging — she can try again.
-    } finally {
-      setHangingCard(null);
-    }
-  }
-
-  async function submitHangingCard(fieldValues: Record<string, unknown>, eventTrace: unknown[]) {
-    if (!hangingCard) return;
-    const spec = CARD_REGISTRY[hangingCard.cardId];
-    try {
-      await submitWritingCard(writingId, hangingCard.id, { fieldValues, eventTrace });
-      setCardNote(spec ? `记下了——你在《${spec.name}》里的思考已经存进过程里。` : "记下了——已经存进过程里。");
-    } catch (err) {
-      setRoomError(err instanceof ApiError ? err.message : "提交工具卡失败，请重试。");
-    } finally {
-      setHangingCard(null);
-    }
-  }
-
   async function changeTargetWords(next: number) {
     if (state.phase !== "ready") return;
     try {
@@ -342,7 +264,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
         <div className="mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5">
-          <StagePanel state={state} writingId={writingId} setState={setState} onSummonCard={(id) => void summon(id)} />
+          <StagePanel state={state} writingId={writingId} setState={setState} />
         </div>
 
         <div className="flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
@@ -353,18 +275,6 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
             onSend={() => void send()}
             state={sending ? "replying" : undefined}
             placeholder="想到什么，跟印记说说"
-          />
-
-          <CardDock
-            hangingCard={hangingCard}
-            cardNote={cardNote}
-            deckOpen={deckOpen}
-            onToggleDeck={() => setDeckOpen((v) => !v)}
-            onSummon={(id) => void summon(id)}
-            onOpen={() => void openHangingCard()}
-            onSkip={() => void skipHangingCard()}
-            onSubmit={submitHangingCard}
-            writingId={writingId}
           />
         </div>
       </div>
@@ -451,12 +361,10 @@ function StagePanel({
   state,
   writingId,
   setState,
-  onSummonCard,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
   setState: Dispatch<SetStateAction<LoadState>>;
-  onSummonCard: (cardId: string) => void;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -468,7 +376,6 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
-          onSummonCard={onSummonCard}
         />
       );
     case "draft":
@@ -498,106 +405,6 @@ function StagePanel({
         />
       );
   }
-}
-
-/**
- * CardDock — what replaced the permanent card shelf.
- *
- * The shelf listed all four cards, always, taking up a third of the rail
- * whether or not anything needed them. Product note, 2026-08-27: *"we don't
- * need cards showing there. just when students need help, AI can provide
- * framework to help student think."*
- *
- * So the resting state is ONE small 工具 button. Cards surface either because
- * the guiding box nominated one for a specific block, or because she went
- * looking. Both paths still end in the same proposed → she confirms → open
- * sequence (铁律②).
- */
-function CardDock({
-  hangingCard,
-  cardNote,
-  deckOpen,
-  onToggleDeck,
-  onSummon,
-  onOpen,
-  onSkip,
-  onSubmit,
-  writingId,
-}: {
-  hangingCard: LiteCard | null;
-  cardNote: string | null;
-  deckOpen: boolean;
-  onToggleDeck: () => void;
-  onSummon: (cardId: string) => void;
-  onOpen: () => void;
-  onSkip: () => void;
-  onSubmit: (fieldValues: Record<string, unknown>, eventTrace: unknown[]) => void;
-  writingId: string;
-}) {
-  if (hangingCard) {
-    const spec = CARD_REGISTRY[hangingCard.cardId];
-    if (!spec) return null;
-    if (hangingCard.status === "proposed") {
-      return (
-        <div className="rounded-mk-sm border border-mk-accent-200 bg-mk-accent-50 p-3">
-          <p className="text-mk-small font-semibold text-mk-accent-700">要不要用《{spec.name}》看看？</p>
-          <div className="mt-2 flex gap-2">
-            <Button size="sm" onClick={onOpen}>
-              打开
-            </Button>
-            <Button size="sm" variant="ghost" onClick={onSkip}>
-              跳过这张卡
-            </Button>
-          </div>
-        </div>
-      );
-    }
-    return (
-      <StudioCardSheet
-        spec={spec}
-        persistKey={`mi:litecarddraft:${writingId}:${hangingCard.cardId}`}
-        onSubmit={(env) => onSubmit(env.field_values, env.event_trace)}
-        onSkip={onSkip}
-      />
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1.5">
-      {cardNote && <p className="px-0.5 text-mk-label text-mk-success">{cardNote}</p>}
-
-      <button
-        type="button"
-        onClick={onToggleDeck}
-        aria-expanded={deckOpen}
-        className="flex w-fit items-center gap-1.5 rounded-mk-full border border-mk-border px-2.5 py-1 text-mk-label text-mk-muted transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-      >
-        <Icon icon={deckOpen ? X : Wrench} size={12} />
-        {deckOpen ? "收起工具卡" : "工具卡"}
-      </button>
-
-      {deckOpen && (
-        <div className="flex flex-col gap-1 rounded-mk-sm border border-mk-border bg-mk-paper p-2">
-          <p className="px-0.5 pb-1 text-mk-label text-mk-faint">你填，印记不替你写</p>
-          {WRITING_DECK.filter((id) => CARD_REGISTRY[id]).map((id) => {
-            const spec = CARD_REGISTRY[id]!;
-            return (
-              <button
-                key={id}
-                type="button"
-                onClick={() => onSummon(id)}
-                title={spec.purpose}
-                className="flex w-full flex-col items-start gap-0.5 rounded-mk-sm px-2.5 py-1.5 text-left transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50"
-              >
-                <span className="text-mk-small font-bold text-mk-ink">{spec.name}</span>
-                <span className="line-clamp-2 text-mk-label text-mk-faint">{spec.purpose}</span>
-              </button>
-            );
-          })}
-        </div>
-      )}
-    </div>
-  );
 }
 
 function Centered({ children }: { children: ReactNode }) {

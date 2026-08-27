@@ -37,9 +37,11 @@ import {
  *     with nothing clickable inside it that touches the textarea above. The
  *     two pieces of state — `slotText` and `exemplar` — are never assigned to
  *     each other anywhere in this component. That is the whole guarantee.
+
  *
- * A card the guide nominates is OFFERED, never opened: `onSummonCard` hands
- * it up to the room, which is where the student confirms (铁律②).
+ * There are no 工具卡 in this room at all (2026-08-27): pro's writing surface
+ * barely used them, and a student stuck on a paragraph wants a question, not a
+ * form to fill in.
  */
 
 type Slot = {
@@ -102,14 +104,12 @@ export function SnippetsStage({
   outline,
   snippets,
   onSnippetsChange,
-  onSummonCard,
 }: {
   writingId: string;
   lang: string;
   outline: WritingOutlineItem[];
   snippets: WritingSnippet[];
   onSnippetsChange: (next: WritingSnippet[]) => void;
-  onSummonCard: (cardId: string) => void;
 }) {
   const slots = buildSlots(outline, snippets);
 
@@ -153,7 +153,6 @@ export function SnippetsStage({
             lang={lang}
             slot={slot}
             onSaved={onSnippetsChange}
-            onSummonCard={onSummonCard}
           />
         ))}
       </div>
@@ -174,13 +173,11 @@ function SnippetBlock({
   lang,
   slot,
   onSaved,
-  onSummonCard,
 }: {
   writingId: string;
   lang: string;
   slot: Slot;
   onSaved: (next: WritingSnippet[]) => void;
-  onSummonCard: (cardId: string) => void;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
@@ -297,7 +294,7 @@ function SnippetBlock({
         </div>
       </div>
 
-      {guide && <GuideBox guide={guide} onSummonCard={onSummonCard} onDismiss={() => setGuide(null)} />}
+      {guide && <GuideBox guide={guide} onDismiss={() => setGuide(null)} />}
 
       <textarea
         value={text}

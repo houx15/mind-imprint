@@ -203,7 +203,7 @@ function RecommendationPanel({
           loading={recommending}
           iconStart={<Icon icon={Sparkles} size={14} />}
         >
-          帮我看看该用哪一副
+          帮我挑一副
         </Button>
       </div>
     );

@@ -52,7 +52,7 @@ function Harness({
 }) {
   const [snippets, setSnippets] = useState(initialSnippets);
   return (
-    <SnippetsStage writingId={WID} lang="zh" outline={outline} snippets={snippets} onSnippetsChange={setSnippets} onSummonCard={() => {}} />
+    <SnippetsStage writingId={WID} lang="zh" outline={outline} snippets={snippets} onSnippetsChange={setSnippets} />
   );
 }
 

@@ -263,12 +263,9 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/writings/{id}/draft", liteOnly(a.putWritingDraft))
 	mux.Handle("POST /api/v1/writings/{id}/review", liteOnly(a.reviewWritingDraft))
 	mux.Handle("POST /api/v1/writings/{id}/finish", liteOnly(a.finishWritingAtom))
-	mux.Handle("GET /api/v1/writings/{id}/cards", liteOnly(a.liteListCardsFor("writing")))
-	mux.Handle("POST /api/v1/writings/{id}/cards/{cid}/activate", liteOnly(a.liteActivateCardFor("writing")))
-	mux.Handle("POST /api/v1/writings/{id}/cards/{cid}/skip", liteOnly(a.liteSkipCardFor("writing")))
-	mux.Handle("POST /api/v1/writings/{id}/cards/{cid}/submit", liteOnly(a.liteSubmitCardFor("writing")))
-	mux.Handle("POST /api/v1/writings/{id}/cards/{cid}/evaluate", liteOnly(a.liteEvaluateCardSelectionFor("writing")))
-	mux.Handle("POST /api/v1/writings/{id}/summon", liteOnly(a.liteSummonWritingCard))
+	// 写作房间没有工具卡（2026-08-27 产品裁定）：pro 的写作面本来也几乎不用它们，
+	// 学生要的是段落框和引导问题，不是一摞卡。阅读房间的 学科透镜 保持不变——
+	// 那里的卡是拿来对着一篇文章用的，有真实的着力点。
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))

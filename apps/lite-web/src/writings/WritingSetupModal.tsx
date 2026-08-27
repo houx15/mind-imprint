@@ -69,7 +69,7 @@ export function WritingSetupModal({
         className="flex w-full max-w-[520px] flex-col gap-5 rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-lg"
       >
         <div className="flex flex-col gap-1.5">
-          <h2 className="text-mk-h2 text-mk-ink">开始之前，两件小事</h2>
+          <h2 className="text-mk-h2 text-mk-ink">开始之前</h2>
           <p className="text-mk-small text-mk-muted">都可以之后再改，现在随便填。</p>
         </div>
 

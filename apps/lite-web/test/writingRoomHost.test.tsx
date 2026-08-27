@@ -6,8 +6,8 @@ import { WritingRoomHost } from "@lite/writings/WritingRoomHost";
  * WritingRoomHost — driven through a stubbed `fetch`, same harness shape as
  * readingRoomHost.test.tsx. There is no pro room to mount here (see the task
  * brief's 复用边界), so these tests exercise the assembled room directly:
- * the stage map, the coach turn, each stage's own panel, and the card
- * lifecycle through the REAL `StudioCardSheet`.
+ * the stage map, the setup dialog, the coach's opening line, each stage's own
+ * panel, and the guiding box.
  */
 
 const WID = "w1";
@@ -71,7 +71,6 @@ function emptyRoutes(over: Partial<Record<string, unknown>> = {}): Record<string
     [key("GET", base("/outline"))]: { body: { outline: [] } },
     [key("GET", base("/snippets"))]: { body: { snippets: [] } },
     [key("GET", base("/draft"))]: { body: { body: "", updatedAt: null } },
-    [key("GET", base("/cards"))]: { body: { cards: [] } },
     // The coach speaks first now. Every room load with no AI turn yet fires
     // this once, so it belongs in the baseline rather than in each test.
     [key("POST", base("/opening"))]: { body: { reply: "先说说你自己更倾向哪一边？", generated: true } },
@@ -218,7 +217,7 @@ describe("结构 stage — the AI picks a skeleton, it never writes an outline",
     render(<WritingRoomHost writingId={WID} />);
     await screen.findByRole("heading", { name: "结构" });
 
-    fireEvent.click(screen.getByRole("button", { name: "帮我看看该用哪一副" }));
+    fireEvent.click(screen.getByRole("button", { name: "帮我挑一副" }));
     expect(await screen.findByText("你两边都有理由，让步式放得下反方。")).toBeTruthy();
 
     // Recommending must not lay out an outline behind her back.
@@ -493,116 +492,46 @@ describe("成稿 stage", () => {
   });
 });
 
-describe("B1 — the hanging card must not be erased or resurrected by unrelated state changes", () => {
-  it("keeps a proposed card visible across an unrelated chat turn", async () => {
-    routes[key("POST", base("/summon"))] = {
-      body: {
-        reply: "",
-        decision: "summon",
-        nudge: "试试从「学期中打工」这条切入。",
-        hintCardId: null,
-        card: { id: "c1", cardId: "concession", blockId: null, status: "proposed", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
+describe("工具卡 — there are none in this room", () => {
+  /**
+   * 2026-08-27 product call: pro's own writing surface barely used the tool
+   * cards, and a student stuck on a paragraph wants a question, not a form.
+   * The whole surface is gone — deck, shelf, summon, and the guide's
+   * nomination. These assertions are what stop it drifting back in.
+   */
+  it("offers no card surface anywhere in the room", async () => {
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+
+    expect(screen.queryByRole("button", { name: "工具卡" })).toBeNull();
+    expect(screen.queryByText("让步段 · 以退为进")).toBeNull();
+    expect(screen.queryByText(/要不要用《/)).toBeNull();
+  });
+
+  it("never asks the server for cards", async () => {
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+    expect(calls.some((c) => c.url.includes("/cards"))).toBe(false);
+    expect(calls.some((c) => c.url.includes("/summon"))).toBe(false);
+  });
+
+  it("renders a guide as questions only, with nothing to open", async () => {
+    routes = {
+      ...emptyRoutes({ stage: "outline", structureKey: "zh-argument-concession" }),
+      [key("GET", base("/outline"))]: {
+        body: { outline: [{ id: "o1", text: "", role: "你的立场", depth: 0, position: 0 }] },
       },
-    };
-    routes[key("POST", base("/turn"))] = {
-      body: { reply: "好的，继续说说。", decision: "respond", card: null, nudge: "", hintCardId: null },
+      [key("POST", base("/outline/o1/guide"))]: {
+        body: { questions: ["你自己更倾向哪一边？"] },
+      },
     };
     render(<WritingRoomHost writingId={WID} />);
     await screen.findByRole("heading", { name: "结构" });
 
-    fireEvent.click(screen.getByRole("button", { name: "工具卡" }));
-    fireEvent.click(await screen.findByText("让步段 · 以退为进"));
-    expect(await screen.findByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "想不出来？" }));
+    expect(await screen.findByText("你自己更倾向哪一边？")).toBeTruthy();
 
-    // An UNRELATED state change — a chat turn, nothing to do with cards.
-    // Bug: WritingRoomHost's `useEffect(..., [state])` recomputes hangingCard
-    // from a stale `state.cards` snapshot on every setState, so this send
-    // wipes the card off the screen even though it is still proposed on the
-    // server.
-    fireEvent.change(screen.getByPlaceholderText("想到什么，跟印记说说"), { target: { value: "继续" } });
-    fireEvent.click(screen.getByLabelText("发送"));
-    await screen.findByText("好的，继续说说。");
-
-    expect(screen.getByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
-  });
-
-  it("does not resurrect a card after it has been skipped to a terminal state", async () => {
-    routes[key("GET", base("/cards"))] = {
-      body: {
-        cards: [
-          { id: "c1", cardId: "concession", blockId: null, status: "proposed", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
-        ],
-      },
-    };
-    routes[key("POST", `${base("/cards")}/c1/skip`)] = {
-      body: { id: "c1", cardId: "concession", blockId: null, status: "skipped", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
-    };
-    routes[key("POST", base("/stage"))] = { body: writing({ stage: "snippets" }) };
-    render(<WritingRoomHost writingId={WID} />);
-    await screen.findByText(/要不要用《让步段 · 以退为进》看看/);
-
-    fireEvent.click(screen.getByRole("button", { name: "跳过这张卡" }));
-    await waitFor(() => expect(screen.queryByText(/要不要用《让步段 · 以退为进》看看/)).toBeNull());
-
-    // An UNRELATED state change — a stage jump.
-    // Bug: the same stale-snapshot effect re-derives hangingCard from the
-    // ORIGINAL load-time `state.cards` (still "proposed"), bringing the card
-    // back from the dead even though it was just skipped to a terminal state.
-    fireEvent.click(screen.getByRole("button", { name: /段落/ }));
-    await waitFor(() => expect(screen.getByRole("heading", { name: "段落" })).toBeTruthy());
-
-    expect(screen.queryByText(/要不要用《让步段 · 以退为进》看看/)).toBeNull();
-  });
-});
-
-describe("工具卡", () => {
-  it("summons a card, opens it on her tap, fills it, and submits without clobbering its anchors", async () => {
-    routes[key("POST", base("/summon"))] = {
-      body: {
-        reply: "",
-        decision: "summon",
-        nudge: "试试从「学期中打工」这条切入。",
-        hintCardId: null,
-        card: { id: "c1", cardId: "concession", blockId: null, status: "proposed", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
-      },
-    };
-    routes[key("POST", `${base("/cards")}/c1/activate`)] = {
-      body: { id: "c1", cardId: "concession", blockId: null, status: "active", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: null },
-    };
-    routes[key("POST", `${base("/cards")}/c1/submit`)] = {
-      body: { id: "c1", cardId: "concession", blockId: null, status: "submitted", origin: "student", anchors: [], fieldValues: {}, eventTrace: [], framework: {}, createdAt: "", submittedAt: "2026-08-26T00:00:00Z" },
-    };
-    render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "结构" });
-
-    fireEvent.click(screen.getByRole("button", { name: "工具卡" }));
-    fireEvent.click(await screen.findByText("让步段 · 以退为进"));
-    expect(await screen.findByText(/要不要用《让步段 · 以退为进》看看/)).toBeTruthy();
-    const summonCall = calls.find((c) => c.method === "POST" && c.url === base("/summon"))!;
-    expect(summonCall.body).toEqual({ cardId: "concession" });
-
-    fireEvent.click(screen.getByRole("button", { name: "打开" }));
-    await screen.findByText("提交并钉到过程树");
-
-    fireEvent.change(screen.getByLabelText("你的中心论点是什么？"), { target: { value: "学期中打工值得。" } });
-    fireEvent.change(screen.getByLabelText("反方最强的那个事实是什么？"), { target: { value: "会挤占学习时间。" } });
-    fireEvent.change(screen.getByLabelText("先承认它（让步）"), { target: { value: "确实会占用一些晚上的时间。" } });
-    fireEvent.change(screen.getByLabelText("再转折反驳（为什么它不足以推翻你的论点）"), { target: { value: "但打工的时间是可控的，收获的责任感更持久。" } });
-
-    fireEvent.click(screen.getByRole("button", { name: "提交并钉到过程树" }));
-
-    await waitFor(() => expect(screen.getByText(/记下了/)).toBeTruthy());
-    const submitCall = calls.find((c) => c.method === "POST" && c.url === `${base("/cards")}/c1/submit`)!;
-    expect(submitCall.body).toMatchObject({
-      fieldValues: {
-        thesis: "学期中打工值得。",
-        counter: "会挤占学习时间。",
-        concede: "确实会占用一些晚上的时间。",
-        rebut: "但打工的时间是可控的，收获的责任感更持久。",
-      },
-    });
-    // No `anchors` key at all — sending one (even `[]`) would overwrite the
-    // card's AI-grounded example anchor server-side.
-    expect(submitCall.body).not.toHaveProperty("anchors");
+    // No card offer can appear alongside the questions.
+    expect(screen.queryByText(/这张卡/)).toBeNull();
   });
 });

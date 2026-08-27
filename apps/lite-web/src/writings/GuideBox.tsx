@@ -1,4 +1,3 @@
-import { Button } from "@/ui";
 import type { WritingBlockGuide } from "../api/writingRoom";
 
 /**
@@ -21,12 +20,9 @@ import type { WritingBlockGuide } from "../api/writingRoom";
  */
 export function GuideBox({
   guide,
-  onSummonCard,
   onDismiss,
 }: {
   guide: WritingBlockGuide;
-  /** Omitted where the room has no card surface to summon into. */
-  onSummonCard?: (cardId: string) => void;
   onDismiss: () => void;
 }) {
   return (
@@ -60,17 +56,6 @@ export function GuideBox({
         ))}
       </ol>
 
-      {guide.cardId && onSummonCard && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-2.5">
-          <span className="text-mk-small text-mk-muted">{guide.cardReason || "这一块也许适合用一张工具卡拆开想。"}</span>
-          {/* 「叫出来」, not 「打开」: summoning mints the card as *proposed*,
-              and she still confirms it in the rail before it opens (铁律②).
-              Labelling this 打开 would promise a step it doesn't take. */}
-          <Button size="sm" variant="secondary" onClick={() => onSummonCard(guide.cardId)}>
-            把这张卡叫出来
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
