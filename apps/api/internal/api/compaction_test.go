@@ -108,12 +108,52 @@ func TestMaybeCompactBackstop_UnderBudgetNoSpend(t *testing.T) {
 	}
 }
 
-// emptyTextProvider yields no text and no usage — a successful-but-empty
-// completion. The coach falls back; the compact compose returns empty prose.
-func emptyTextProvider() gateway.Provider {
+// digestSystemPromptMarker is a substring unique to internal/agent's
+// (unexported) digestSystemPrompt (digest.go) among every system prompt this
+// package's Provider ever receives. coachOKDigestEmptyProvider uses it to
+// tell apart, cross-package, a digest-compose call (agent.ComposeDigestMerge)
+// from a coach-turn call (agent.ProposeStatusTurn) — both are driven through
+// the SAME injected gateway.Provider (Deps.Provider), so one stub must
+// discriminate. It can only appear in a coach turn's OWN messages once a
+// conversation_digest row already exists (projectcoach.go renders a "会话记忆："
+// line into the spine projection then) — this test never creates one, so
+// there is no risk of a false match there, and even then it would land on a
+// user message, not a system one.
+const digestSystemPromptMarker = "会话记忆"
+
+// coachOKDigestEmptyProvider is a gateway.Provider that branches on the call
+// kind so the two model calls this test drives can behave differently: the
+// coach turn must SUCCEED (12 turns need to return 200 and build an
+// over-budget window), while the digest compose must come back a
+// successful-but-EMPTY completion — the "empty compose folds nothing"
+// condition under test. Replaces the old emptyTextProvider (single script for
+// both calls), whose stale comment ("200 with fallback replies") predated the
+// 2026-08-25 rule that a genuine model failure surfaces as a real 502
+// ai_dialogue_failed instead of a canned reply: with one empty script, the
+// coach turn itself failed to parse and the test died in its setup loop,
+// before ever reaching its three assertions.
+type coachOKDigestEmptyProvider struct{}
+
+func (coachOKDigestEmptyProvider) Stream(ctx context.Context, r gateway.Resolved, req gateway.ChatRequest) (<-chan gateway.StreamEvent, error) {
+	for _, m := range req.Messages {
+		if m.Role == gateway.RoleSystem && strings.Contains(m.Content, digestSystemPromptMarker) {
+			// The digest compose call (ComposeDigestMerge): successful, but no
+			// text and no usage — a real, empty completion.
+			return gateway.NewStubProvider([]gateway.StreamEvent{
+				{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+			}).Stream(ctx, r, req)
+		}
+	}
+	// Every other call is the coach turn: succeed with a minimal reply the
+	// orchestrator can parse. Plain prose with no braces salvages as a
+	// narrate-only decision (ParseOrchestratorOutput's prose-fallback path in
+	// ProposeStatusTurn) — mirrors fakeProvider's proven shape in
+	// studioturn_test.go.
 	return gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: "先说说你打算怎么把这条证据接上主张？"},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 123, OutputTokens: 45}},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
-	})
+	}).Stream(ctx, r, req)
 }
 
 // TestMaybeCompactBackstop_EmptyComposeFoldsNothing — when the compose yields no
@@ -122,12 +162,12 @@ func emptyTextProvider() gateway.Provider {
 func TestMaybeCompactBackstop_EmptyComposeFoldsNothing(t *testing.T) {
 	pool := newAPITestPool(t)
 	q := sqlc.New(pool)
-	h := New(Deps{Queries: q, Pool: pool, Provider: emptyTextProvider(), ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
+	h := New(Deps{Queries: q, Pool: pool, Provider: coachOKDigestEmptyProvider{}, ChatResolver: fakeResolver(), SpecByID: cards.ByID}).Handler()
 	cookie := signInSeed(t, pool)
 	base := "/api/v1/projects/" + seedProjectID
 
 	for i := 0; i < 12; i++ {
-		postCoachTurn(t, h, cookie, base, "writing", longTurn) // 200 with fallback replies
+		postCoachTurn(t, h, cookie, base, "writing", longTurn) // coach turn succeeds; digest compose (below) returns empty
 	}
 
 	if _, err := q.GetConversationDigest(context.Background(), mustUUID(seedProjectID)); err == nil {
