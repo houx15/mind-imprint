@@ -354,7 +354,49 @@ export async function generateReadingPlan(id: string): Promise<ReadingPlan> {
   return { routineKey: raw.routineKey ?? "", routineName: raw.routineName ?? "", tasks: raw.tasks ?? [] };
 }
 
-/** 铁律②: 'skipped' is a real outcome, recorded rather than prevented. */
+/**
+ * One guided turn (带读). Empty `text` means she pressed 开始 — the coach
+ * plans on demand and leads her into step one.
+ *
+ * She never sets a step's status herself: `advance` is the coach's judgement,
+ * applied server-side. That is the whole point of this endpoint existing
+ * separately from the checklist below.
+ */
+export async function postReadingCoachTurn(
+  id: string,
+  text: string,
+): Promise<{
+  reply: string;
+  tasks: ReadingTask[];
+  currentTaskId: string;
+  focusBlock: string;
+  finished: boolean;
+}> {
+  const raw = await apiFetch<{
+    reply: string;
+    tasks: ReadingTask[];
+    currentTaskId: string;
+    focusBlock: string;
+    finished: boolean;
+  }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+  return {
+    reply: raw.reply,
+    tasks: raw.tasks ?? [],
+    currentTaskId: raw.currentTaskId ?? "",
+    focusBlock: raw.focusBlock ?? "",
+    finished: Boolean(raw.finished),
+  };
+}
+
+/**
+ * 铁律②: 'skipped' is a real outcome, recorded rather than prevented.
+ *
+ * NOT used by the guided flow — there the coach decides. This stays for the
+ * explicit plan surface, where 重排 and manual correction still make sense.
+ */
 export async function setReadingTaskStatus(
   id: string,
   taskId: string,

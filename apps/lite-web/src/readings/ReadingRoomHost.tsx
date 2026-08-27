@@ -31,8 +31,9 @@ import {
   type ReadingBlockNote,
   type ReadingBlockTool,
   type ReadingPlan,
+  type ReadingTask,
 } from "../api/readingRoom";
-import { ReadingPlanPanel } from "./ReadingPlanPanel";
+import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { liteRoutePath, navigate } from "../routing";
 
@@ -228,11 +229,22 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         </div>
       )}
 
-      {/* 任务清单 (0101). A rail BESIDE the room, not inside it: the room is
-          pro's component and stays untouched, and a student who wants to just
-          read can collapse this away entirely. It is a map, never a gate. */}
-      <aside className="mk-scroll hidden w-[300px] shrink-0 overflow-y-auto border-r border-mk-border bg-mk-paper p-4 lg:block">
-        <ReadingPlanPanel readingId={readingId} plan={plan} onPlan={setPlan} onFocusBlock={focusBlock} />
+      {/* 带读 (0101). A rail BESIDE the room, not inside it: the room is pro's
+          component and stays untouched. 印记 leads from here — there are no
+          step controls in it, because she does not manage stages. */}
+      <aside className="hidden w-[330px] shrink-0 flex-col border-r border-mk-border bg-mk-paper p-4 lg:flex">
+        <ReadingCoachPanel
+          readingId={readingId}
+          tasks={plan?.tasks ?? []}
+          onTasks={(tasks: ReadingTask[]) =>
+            setPlan((prev) => ({
+              routineKey: prev?.routineKey ?? "",
+              routineName: prev?.routineName ?? "",
+              tasks,
+            }))
+          }
+          onFocusBlock={focusBlock}
+        />
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -253,15 +265,26 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
           if (blockTools.length === 0) return null;
           if (openBlock !== blockId) {
             const opened = blockNotes.filter((n) => n.blockId === blockId).length;
+            // Hidden until the paragraph is hovered or the button is focused.
+            // A control repeated under EVERY paragraph stops reading as an
+            // offer and starts reading as clutter — and it competed with the
+            // article for attention on a page whose whole job is the article.
+            //
+            // A paragraph she has ALREADY opened keeps its marker visible:
+            // her own work must never hide itself behind a hover.
             return (
-              <div className="mt-1.5">
+              <div className={["mk-blocktool mt-1", opened > 0 ? "mk-blocktool--opened" : ""].join(" ")}>
                 <button
                   type="button"
                   onClick={() => setOpenBlock(blockId)}
-                  className="flex items-center gap-1 rounded-mk-xs px-1.5 py-0.5 text-mk-small text-mk-muted transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                  className={[
+                    "flex items-center gap-1 rounded-mk-xs px-1.5 py-0.5 text-mk-small",
+                    "hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
+                    opened > 0 ? "text-mk-accent-700" : "text-mk-muted",
+                  ].join(" ")}
                 >
-                  拆开这一段
-                  {opened > 0 && <span className="text-mk-label text-mk-accent-700">· {opened}</span>}
+                  详细带读
+                  {opened > 0 && <span className="text-mk-label">· {opened}</span>}
                 </button>
               </div>
             );

@@ -196,3 +196,48 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 详细带读 — the per-paragraph entry point (ReadingRoomHost)
+ *
+ * Revealed by hovering the PARAGRAPH, not by a control parked under every one
+ * of them. A button repeated under all N paragraphs stops reading as an offer
+ * and starts reading as clutter, on a page whose whole job is the article.
+ *
+ * Done in CSS with an adjacent-sibling selector rather than a React hover
+ * handler, because the thing being hovered lives in pro's component: the
+ * aside is rendered as the paragraph's NEXT SIBLING (Annotate's
+ * renderAfterBlock), so `p[data-block-id]:hover + .mk-blocktool` reaches it
+ * without pro's DOM changing at all.
+ * ------------------------------------------------------------------------ */
+
+.mk-blocktool {
+  opacity: 0;
+  transition: opacity 140ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+p[data-block-id]:hover + .mk-blocktool,
+.mk-blocktool:hover,
+.mk-blocktool:focus-within {
+  opacity: 1;
+}
+
+/* A paragraph she has already opened keeps its marker visible: her own work
+ * must never hide itself behind a hover. */
+.mk-blocktool--opened {
+  opacity: 1;
+}
+
+/* Touch and reduced-motion: there is no hover to discover the control with, so
+ * it is simply always visible. */
+@media (hover: none) {
+  .mk-blocktool {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-blocktool {
+    transition: none;
+  }
+}
