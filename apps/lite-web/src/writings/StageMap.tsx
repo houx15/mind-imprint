@@ -74,7 +74,7 @@ export function StageMap({
             }
           >
             <span
-              className="flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full text-[10px]"
+              className="flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-mk-full text-mk-label"
               style={
                 active
                   ? { background: "rgba(255,255,255,0.3)" }

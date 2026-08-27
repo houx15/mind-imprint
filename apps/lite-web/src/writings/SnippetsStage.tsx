@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { Sparkles, Plus, HelpCircle } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { Button, EmptyState, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import { GuideBox } from "./GuideBox";
 import {
@@ -104,12 +104,16 @@ export function SnippetsStage({
   outline,
   snippets,
   onSnippetsChange,
+  onGoToStructure,
 }: {
   writingId: string;
   lang: string;
   outline: WritingOutlineItem[];
   snippets: WritingSnippet[];
   onSnippetsChange: (next: WritingSnippet[]) => void;
+  /** Sends her to 结构 from the empty state — naming the step she needs is
+   *  not the same as getting her there. */
+  onGoToStructure: () => void;
 }) {
   const slots = buildSlots(outline, snippets);
 
@@ -139,10 +143,18 @@ export function SnippetsStage({
         <p className="text-mk-body text-mk-muted">一块一块来。写不动了就点「卡住了？」。</p>
       </div>
 
+      {/* The design system's own empty state, illustration and all — a bare
+          dashed box with a sentence in it is the shape this page is supposed
+          to avoid, and an empty stage is exactly where a student needs the
+          most warmth rather than the least. `action` sends her to the step
+          that actually unblocks her instead of only naming it. */}
       {slots.length === 0 && (
-        <p className="rounded-mk-md border border-dashed border-mk-border p-4 text-mk-small text-mk-muted">
-          还没挑结构，段落没有能跟着的块。先去「结构」挑一副，或者直接加一段。
-        </p>
+        <EmptyState
+          illustration="writing"
+          title="还没有可以写的块"
+          body="段落是跟着结构里的每一块写的。先去挑一副骨架，或者直接加一段自由写。"
+          action={{ label: "去挑一副结构", onClick: onGoToStructure }}
+        />
       )}
 
       <div className="flex flex-col gap-5">
@@ -303,7 +315,7 @@ function SnippetBlock({
         placeholder="写这一段……"
         className="min-h-[100px] w-full resize-y rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
       />
-      {saving && <span className="text-mk-label text-mk-faint">保存中…</span>}
+      {saving && <span className="text-mk-small text-mk-faint">保存中…</span>}
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
 
       {exemplar && <ExemplarBlock exemplar={exemplar} />}
@@ -331,7 +343,7 @@ function ExemplarBlock({ exemplar }: { exemplar: WritingExemplar }) {
         >
           示范
         </span>
-        <span className="text-mk-label text-mk-faint">读一读别人会怎么写这一段，再回去写你自己的版本——不是给你抄的</span>
+        <span className="text-mk-small text-mk-muted">读一读别人会怎么写这一段，再回去写你自己的版本——不是给你抄的</span>
       </div>
       <p className="select-text whitespace-pre-wrap text-mk-body italic text-mk-secondary">{exemplar.exemplar}</p>
       {exemplar.prompts.length > 0 && (

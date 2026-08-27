@@ -37,7 +37,7 @@ export function GuideBox({
         >
           想一想
         </span>
-        <button type="button" onClick={onDismiss} className="text-mk-label text-mk-faint hover:text-mk-muted">
+        <button type="button" onClick={onDismiss} className="text-mk-small text-mk-muted hover:text-mk-ink">
           收起
         </button>
       </div>
@@ -46,7 +46,7 @@ export function GuideBox({
         {guide.questions.map((q, i) => (
           <li key={i} className="flex gap-2">
             <span
-              className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-mk-full text-[10px] font-semibold"
+              className="mt-[2px] flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-mk-label"
               style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
             >
               {i + 1}

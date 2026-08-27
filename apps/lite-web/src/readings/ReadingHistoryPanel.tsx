@@ -1,5 +1,5 @@
 import { BookOpen, ChevronRight, Check } from "lucide-react";
-import { Drawer, Icon } from "@/ui";
+import { Drawer, Icon, Illustration } from "@/ui";
 import type { Reading } from "../api/readings";
 
 /**
@@ -147,7 +147,10 @@ export function ReadingHistoryPanel({
         {!error && readings === null && <p className="text-mk-body text-mk-muted">加载中…</p>}
 
         {!error && readings !== null && unfinished.length === 0 && finished.length === 0 && (
-          <p className="text-mk-body text-mk-muted">还没有开始过阅读。回到首页，贴一篇进来就开始了。</p>
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <Illustration name="bookLover" className="h-[120px] w-[120px]" />
+            <p className="text-mk-body text-mk-muted">还没有开始过阅读。回到首页，贴一篇进来就开始了。</p>
+          </div>
         )}
 
         {unfinished.length > 0 && (

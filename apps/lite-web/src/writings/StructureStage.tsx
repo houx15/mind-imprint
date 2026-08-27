@@ -192,10 +192,8 @@ function RecommendationPanel({
 }) {
   if (!recommendation) {
     return (
-      <div className="flex flex-col items-start gap-2 rounded-mk-md border border-dashed border-mk-border p-4">
-        <p className="text-mk-small text-mk-muted">
-          不知道挑哪一副？印记只帮你选，不替你写。
-        </p>
+      <div className="flex flex-col items-start gap-2 rounded-mk-md border border-mk-border bg-mk-paper p-4">
+        <p className="text-mk-body text-mk-muted">不知道挑哪一副？印记只帮你选，不替你写。</p>
         <Button
           variant="secondary"
           size="sm"
@@ -224,7 +222,7 @@ function RecommendationPanel({
         >
           印记的建议
         </span>
-        <span className="text-mk-label text-mk-faint">下面也都能挑</span>
+        <span className="text-mk-small text-mk-muted">下面也都能挑</span>
       </div>
       <div>
         <p className="text-mk-h3 text-mk-ink">{rec.name}</p>
@@ -361,7 +359,7 @@ function ChosenBlocks({
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
-        <span className="text-mk-label text-mk-faint">
+        <span className="text-mk-small text-mk-muted">
           {structureName ? `正在用《${structureName}》· ` : ""}每一块写一句你自己的要点
         </span>
         {dirty && (
@@ -459,7 +457,7 @@ function BlockRow({
           >
             {label}
           </span>
-          {hint && <span className="text-mk-label text-mk-faint">{hint}</span>}
+          {hint && <span className="text-mk-small text-mk-muted">{hint}</span>}
         </div>
         <Button
           variant="ghost"

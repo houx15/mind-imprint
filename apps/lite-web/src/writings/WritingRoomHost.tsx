@@ -264,7 +264,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
         <div className="mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5">
-          <StagePanel state={state} writingId={writingId} setState={setState} />
+          <StagePanel state={state} writingId={writingId} setState={setState} onGoToStructure={() => void jumpStage("outline")} />
         </div>
 
         <div className="flex min-h-0 flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-3">
@@ -361,10 +361,12 @@ function StagePanel({
   state,
   writingId,
   setState,
+  onGoToStructure,
 }: {
   state: Extract<LoadState, { phase: "ready" }>;
   writingId: string;
   setState: Dispatch<SetStateAction<LoadState>>;
+  onGoToStructure: () => void;
 }) {
   const { writing, outline, snippets, draft } = state;
   switch (writing.stage) {
@@ -376,6 +378,7 @@ function StagePanel({
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          onGoToStructure={onGoToStructure}
         />
       );
     case "draft":

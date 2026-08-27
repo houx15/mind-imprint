@@ -72,18 +72,13 @@ export function PromptTile({
           style={{ background: `var(--mk-${tone})` }}
         />
         <span
-          className="font-mono text-[11px] leading-none text-mk-faint"
-          style={{ fontVariantNumeric: "tabular-nums", letterSpacing: "0.08em" }}
+          className="font-mono text-mk-label leading-none text-mk-faint"
+          style={{ fontVariantNumeric: "tabular-nums" }}
         >
           {String(index).padStart(2, "0")}
         </span>
         <span aria-hidden="true" className="h-px w-3 bg-mk-border" />
-        <span
-          className="font-mono text-[11px] leading-none text-mk-muted"
-          style={{ letterSpacing: "0.12em" }}
-        >
-          {tag}
-        </span>
+        <span className="font-mono text-mk-label leading-none text-mk-muted">{tag}</span>
         <ArrowUpRight
           aria-hidden="true"
           size={14}

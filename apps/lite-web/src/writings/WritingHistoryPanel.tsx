@@ -1,5 +1,5 @@
 import { PenLine, ChevronRight, Check } from "lucide-react";
-import { Drawer, Icon } from "@/ui";
+import { Drawer, Icon, Illustration } from "@/ui";
 import type { Writing } from "../api/writings";
 import { isWritingFinished } from "../api/writings";
 
@@ -129,7 +129,10 @@ export function WritingHistoryPanel({ open, onClose, writings, error, onSelect }
         {!error && writings === null && <p className="text-mk-body text-mk-muted">加载中…</p>}
 
         {!error && writings !== null && unfinished.length === 0 && finished.length === 0 && (
-          <p className="text-mk-body text-mk-muted">还没有开始过写作。回到首页，说一句你想写什么就开始了。</p>
+          <div className="flex flex-col items-center gap-3 py-8 text-center">
+            <Illustration name="writing" className="h-[120px] w-[120px]" />
+            <p className="text-mk-body text-mk-muted">还没有开始过写作。回到首页，说一句你想写什么就开始了。</p>
+          </div>
         )}
 
         {unfinished.length > 0 && (
