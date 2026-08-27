@@ -479,12 +479,22 @@ func relinkWritingSnippetsToOutline(
 //     paragraph 1 the heading now sitting at index 0, confidently and
 //     silently. A wrong heading is worse than none.
 //
-//  2. POSITION, but only among rows LEFT OVER by pass 1. Handles REWORDING —
-//     "引言" → "引言：问题的提出" is the same point with better words, and her
-//     paragraph is still about it. Restricting this to leftovers is what makes
-//     it safe: on a reorder, pass 1 has already consumed every row, so there
-//     is nothing for position to mispair. It can only fire where the text
-//     genuinely changed.
+//  2. The SINGLE leftover, if exactly one row is left unmatched on each side.
+//     Handles REWORDING — "引言" → "引言：问题的提出" is the same point with
+//     better words, and her paragraph is still about it.
+//
+// Pass 2 is deliberately narrow, and an earlier version of it was wrong. It
+// used to pair every leftover by position, on the reasoning that a reorder
+// leaves no leftovers for position to mispair. That reasoning fails as soon as
+// one save both reorders and INSERTS: old [原因@0, 结果@1] → new [引言@0,
+// 原因：排放结构@1, 结果@2] leaves 原因 and 引言 both unmatched at position 0,
+// and pairs her 原因 paragraph to 引言 — a heading she had just written, that
+// she never wrote that paragraph under. Confident, specific, and wrong, which
+// is precisely what this function exists to avoid.
+//
+// One-in, one-out is the case where "the same point, reworded" is the only
+// reading available. With more than one leftover on either side there is no
+// way to tell a reword from an insertion, so nothing is guessed.
 //
 // Anything still unmatched is a point she deleted or replaced outright. That
 // link is honestly gone, and the caller says nothing rather than guessing —
@@ -519,14 +529,12 @@ func matchOutlineRows(oldOutline, newOutline []sqlc.WritingOutline) map[uuid.UUI
 			leftoverNew = append(leftoverNew, o)
 		}
 	}
-	for _, o := range leftoverOld {
-		for _, n := range leftoverNew {
-			if n.Position == o.Position && !claimed[n.ID] {
-				out[o.ID] = n.ID
-				claimed[n.ID] = true
-				break
-			}
-		}
+	// Exactly one on each side, or nothing. See the doc comment: with more than
+	// one leftover there is no way to distinguish a reworded point from a newly
+	// inserted one, and guessing attaches her paragraph to a heading she never
+	// wrote it under.
+	if len(leftoverOld) == 1 && len(leftoverNew) == 1 {
+		out[leftoverOld[0].ID] = leftoverNew[0].ID
 	}
 	return out
 }

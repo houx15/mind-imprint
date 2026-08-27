@@ -145,10 +145,45 @@ func TestWritingOutline_RelinkDropsDeletedHeading(t *testing.T) {
 	// 结果 to pair with.
 	putOutlineHTTP(t, h, cookie, id, `{"outline":[{"text":"原因","depth":0}]}`)
 
-	after := headingByText(getWritingSnippetsHTTP(t, h, cookie, id))
-	if after["这段写结果"] != "" {
+	afterDeleted := headingByText(getWritingSnippetsHTTP(t, h, cookie, id))
+	if afterDeleted["这段写结果"] != "" {
 		t.Fatalf("heading = %q after she deleted that outline point; want \"\" — attaching her paragraph to 原因, a point she never wrote it under, would be worse than showing nothing",
-			after["这段写结果"])
+			afterDeleted["这段写结果"])
+	}
+}
+
+// TestWritingOutline_RelinkRefusesToGuessOnReorderPlusInsert — the case that
+// killed the previous version of the second pass, kept as a permanent guard.
+//
+// She reorders AND adds a new opening point in one save. Text matching places
+// 结果. That leaves her old 原因 unmatched, and TWO new rows unmatched: the
+// freshly written 引言 and the reworded 原因：排放结构. Pairing leftovers by
+// position — which the previous version did, on the reasoning that a reorder
+// leaves nothing to mispair — hands her 原因 paragraph the heading 引言, a
+// point she had just written and never wrote that paragraph under.
+//
+// With more than one leftover on either side, a reword and an insertion are
+// indistinguishable. Silence is then the correct answer.
+func TestWritingOutline_RelinkRefusesToGuessOnReorderPlusInsert(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
+
+	putOutlineHTTP(t, h, cookie, id,
+		`{"outline":[{"text":"原因","depth":0},{"text":"结果","depth":0}]}`)
+	ids := outlineIDsByText(t, h, cookie, id)
+	putWritingSnippetsHTTP(t, h, cookie, id,
+		`{"snippets":[{"position":0,"text":"这段写原因","outlineId":"`+ids["原因"]+`"}]}`)
+
+	putOutlineHTTP(t, h, cookie, id,
+		`{"outline":[{"text":"引言","depth":0},{"text":"原因：排放结构","depth":0},{"text":"结果","depth":0}]}`)
+
+	after := headingByText(getWritingSnippetsHTTP(t, h, cookie, id))
+	if after["这段写原因"] == "引言" {
+		t.Fatal("her 原因 paragraph was attached to 引言 — a heading she had just written and never wrote that paragraph under")
+	}
+	if after["这段写原因"] != "" {
+		t.Fatalf("heading = %q; want \"\" — with two candidates a reword and an insertion are indistinguishable, so nothing should be guessed",
+			after["这段写原因"])
 	}
 }
 
