@@ -220,10 +220,23 @@ export function PlanningView({
         </div>
 
         {hasMap && (
-          <aside className="flex min-h-0 flex-col border-t border-mk-border lg:border-l lg:border-t-0">
-            <div className="flex shrink-0 items-center justify-between px-4 pt-4">
-              <span className="text-mk-label text-mk-faint">你的思路</span>
-              <span className="text-mk-small text-mk-faint">点一条可以改，也能删</span>
+          <aside className="relative flex min-h-0 flex-col border-t border-mk-border lg:border-l lg:border-t-0">
+            {/* Floats over the canvas rather than sitting above it: a header
+                band would cut the drawing surface in two, and the point of
+                this panel is that it reads as one continuous sheet. */}
+            <div className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 py-2">
+              <span
+                className="rounded-mk-full px-2 py-0.5 text-mk-label text-mk-faint"
+                style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
+              >
+                你的思路
+              </span>
+              <span
+                className="rounded-mk-full px-2 py-0.5 text-mk-small text-mk-faint"
+                style={{ background: "color-mix(in srgb, var(--mk-paper) 88%, transparent)" }}
+              >
+                点一条可以改，也能删
+              </span>
             </div>
             <MindMap items={outline} justAdded={justAdded} onRemove={removeNode} onEdit={editNode} />
           </aside>

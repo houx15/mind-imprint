@@ -113,3 +113,86 @@
     stroke-dashoffset: 0;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 思维导图画布 (MindMap.tsx)
+ *
+ * The right-hand panel of the planning screen is a CANVAS, not a list: a dot
+ * grid behind branching connectors, so that adding a node feels like drawing
+ * on something rather than appending a row.
+ * ------------------------------------------------------------------------ */
+
+.mk-canvas {
+  /* Two grids, one coarse and one fine, so the surface reads as paper with
+   * tooth rather than as a wireframe. Sized in px (not em) so the texture
+   * does not resize with the node text. */
+  background-color: var(--mk-paper);
+  background-image:
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--mk-ink) 9%, transparent) 1px, transparent 0),
+    radial-gradient(circle at 1px 1px, color-mix(in srgb, var(--mk-ink) 4%, transparent) 1px, transparent 0);
+  background-size:
+    96px 96px,
+    24px 24px;
+}
+
+/* A node that just arrived: it comes in from slightly left-and-small, the
+ * direction its connector grows from, so the eye reads "this branched off
+ * that" rather than "a box appeared". */
+.mk-node-new {
+  animation: mk-node-in 0.42s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes mk-node-in {
+  from {
+    opacity: 0;
+    transform: translateX(-10px) scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+/* The accent ring fades out on its own, so a node stops looking "new" a beat
+ * after she has seen it — without any state to clear. */
+.mk-node-flash {
+  animation: mk-node-flash 2.4s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes mk-node-flash {
+  0%,
+  35% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--mk-accent-500) 26%, transparent);
+  }
+  100% {
+    box-shadow: 0 0 0 3px transparent;
+  }
+}
+
+/* Connectors draw themselves. `pathLength={1}` on the <path> makes the dash
+ * math exactly 1 → 0 whatever the real geometry is — the same trick the ink
+ * ring uses, and the reason no measured magic number can drift here. */
+.mk-edge-draw {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: mk-edge-draw 0.5s cubic-bezier(0.2, 0, 0, 1) both;
+}
+
+@keyframes mk-edge-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+/* Reduced motion: everything rests in its FINISHED state. A half-drawn
+ * connector is worse than no animation at all. */
+@media (prefers-reduced-motion: reduce) {
+  .mk-node-new,
+  .mk-node-flash {
+    animation: none;
+  }
+  .mk-edge-draw {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
+}
