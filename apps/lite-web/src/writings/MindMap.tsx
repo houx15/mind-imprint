@@ -215,11 +215,16 @@ function Branch({
   const isRoot = node.item.depth === 0;
 
   return (
-    <li className="flex list-none items-center gap-10">
+    <li className="flex list-none items-center gap-7">
       <div
         ref={(el) => registerNode(node.item.id, el)}
         className={[
-          "group/node relative flex max-w-[240px] shrink-0 items-start gap-2 rounded-mk-md border px-3 py-2 shadow-mk-xs",
+          "group/node relative flex shrink-0 items-start gap-2 rounded-mk-md border px-3 py-2 shadow-mk-xs",
+          // Narrower the deeper it goes: three 240px columns cannot fit a side
+          // panel, and evidence nodes are short phrases anyway. Widths shrink
+          // rather than the text truncating — a clipped sentence on her own
+          // plan is worse than a scroll.
+          isRoot ? "max-w-[190px]" : node.item.depth === 1 ? "max-w-[175px]" : "max-w-[165px]",
           isNew ? "mk-node-new mk-node-flash" : "",
         ]
           .filter(Boolean)
