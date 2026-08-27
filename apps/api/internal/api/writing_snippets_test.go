@@ -448,14 +448,15 @@ func TestWritingSnippets_OutlineHeadingSurvivesOutlineResave(t *testing.T) {
 
 	// Resave the outline — a FULL REPLACE, same texts at the same positions but
 	// brand-new outline row ids. This is what nulls outline_id on both snippets.
-	// Rewords ONE heading, keeping the other verbatim. Deliberately not both:
-	// the relink pairs an unmatched old row with an unmatched new one only when
-	// there is exactly one of each, because with two candidates a reword and an
-	// insertion are indistinguishable and pairing them by position attaches a
-	// paragraph to a heading she never wrote it under. Two simultaneous rewords
-	// therefore drop both links on purpose — the honest answer, and the reason
-	// this fixture changes one.
-	secondOutline := `{"outline":[{"text":"引言：问题的提出（改）","depth":0},{"text":"论点一：碳排放现状","depth":0}]}`
+	// A genuine RESAVE — identical texts, brand-new row ids — which is what
+	// this test's name describes and what actually happens constantly: every
+	// outline PUT is a full replace, so ids churn even when she changed
+	// nothing. Deliberately does NOT reword: heading text is the only thing
+	// tying a paragraph to its point across a replace, so rewording one drops
+	// its link on purpose (see matchOutlineRows — a reword and a replacement
+	// are the same bytes in a full-replace PUT, and guessing between them
+	// produced a wrong heading twice).
+	secondOutline := `{"outline":[{"text":"引言：问题的提出","depth":0},{"text":"论点一：碳排放现状","depth":0}]}`
 	if rec := putWritingOutlineHTTP(t, h, cookie, id, secondOutline); rec.Code != http.StatusOK {
 		t.Fatalf("second outline PUT = %d; body=%s", rec.Code, rec.Body)
 	}

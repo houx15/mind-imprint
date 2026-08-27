@@ -470,35 +470,38 @@ func relinkWritingSnippetsToOutline(
 // same point, so snippets can be re-attached across a full replace. Returns
 // old id → new id; an old row with no counterpart is simply absent.
 //
-// Two passes, because the two ways she edits an outline fail each other's
-// heuristic:
+// EXACT TEXT IS THE ONLY MATCH. If a heading's text survives the save, the
+// paragraph written under it is genuinely still about it, wherever a reorder
+// moved it to. If the text is gone, the link is gone, and the caller says
+// nothing — the same "omit, never estimate" rule the report generator follows
+// for missing facts.
 //
-//  1. EXACT TEXT. Handles REORDERING — dragging 结果 above 因 keeps each
-//     paragraph with the heading it was written under, wherever it moved to.
-//     Position-matching gets this catastrophically wrong: it would hand
-//     paragraph 1 the heading now sitting at index 0, confidently and
-//     silently. A wrong heading is worse than none.
+// This function has now been wrong TWICE by trying to be cleverer than that,
+// and both attempts failed the same way — they produced a confident, specific,
+// wrong heading, which is worse than a blank one:
 //
-//  2. The SINGLE leftover, if exactly one row is left unmatched on each side.
-//     Handles REWORDING — "引言" → "引言：问题的提出" is the same point with
-//     better words, and her paragraph is still about it.
+//  1. Pairing every leftover by POSITION. Broke as soon as one save both
+//     reordered and inserted: old [原因, 结果] → [引言, 原因：排放结构, 结果]
+//     handed her 原因 paragraph the heading 引言, a point she had just written.
 //
-// Pass 2 is deliberately narrow, and an earlier version of it was wrong. It
-// used to pair every leftover by position, on the reasoning that a reorder
-// leaves no leftovers for position to mispair. That reasoning fails as soon as
-// one save both reorders and INSERTS: old [原因@0, 结果@1] → new [引言@0,
-// 原因：排放结构@1, 结果@2] leaves 原因 and 引言 both unmatched at position 0,
-// and pairs her 原因 paragraph to 引言 — a heading she had just written, that
-// she never wrote that paragraph under. Confident, specific, and wrong, which
-// is precisely what this function exists to avoid.
+//  2. Pairing the SINGLE leftover when exactly one was unmatched on each side,
+//     on the theory that "the same point, reworded" was then the only reading.
+//     It is not. Deleting one point and adding an unrelated one in the same
+//     save — old [原因, 结果] → [原因, 反驳] — produces exactly that shape, and
+//     reattached her 结果 paragraph to 反驳.
 //
-// One-in, one-out is the case where "the same point, reworded" is the only
-// reading available. With more than one leftover on either side there is no
-// way to tell a reword from an insertion, so nothing is guessed.
+// The lesson both times: a full-replace PUT carries no per-row intent, so
+// nothing in the payload distinguishes "I reworded this point" from "I
+// replaced it with a different one". They are the same bytes. No heuristic can
+// recover an intent the request never expressed, and every attempt buys a
+// small convenience by occasionally lying to her about what she wrote.
 //
-// Anything still unmatched is a point she deleted or replaced outright. That
-// link is honestly gone, and the caller says nothing rather than guessing —
-// the same "omit, never estimate" rule the report generator follows.
+// The cost is accepted deliberately: rewording a heading drops its
+// paragraphs' labels. That is visible, harmless, and she can relink by
+// rewriting the heading back or simply carrying on — whereas a wrong label is
+// silent and misleads her about her own work. If reword-survival is wanted
+// later, the fix is to carry row IDENTITY in the PUT (send ids for rows she
+// kept), not to guess here.
 //
 // Duplicate texts bind to the first match: identical headings are
 // indistinguishable by definition, and dropping both links would serve her
@@ -513,28 +516,14 @@ func matchOutlineRows(oldOutline, newOutline []sqlc.WritingOutline) map[uuid.UUI
 		}
 	}
 	claimed := make(map[uuid.UUID]bool, len(newOutline))
-	var leftoverOld []sqlc.WritingOutline
 	for _, o := range oldOutline {
 		if newID, ok := newByText[o.Text]; ok && !claimed[newID] {
 			out[o.ID] = newID
 			claimed[newID] = true
-			continue
 		}
-		leftoverOld = append(leftoverOld, o)
-	}
-
-	var leftoverNew []sqlc.WritingOutline
-	for _, o := range newOutline {
-		if !claimed[o.ID] {
-			leftoverNew = append(leftoverNew, o)
-		}
-	}
-	// Exactly one on each side, or nothing. See the doc comment: with more than
-	// one leftover there is no way to distinguish a reworded point from a newly
-	// inserted one, and guessing attaches her paragraph to a heading she never
-	// wrote it under.
-	if len(leftoverOld) == 1 && len(leftoverNew) == 1 {
-		out[leftoverOld[0].ID] = leftoverNew[0].ID
+		// No else. An old row whose text is gone is simply absent from the
+		// result — see the doc comment on why every attempt to pair the
+		// leftovers has produced a wrong heading instead of a missing one.
 	}
 	return out
 }

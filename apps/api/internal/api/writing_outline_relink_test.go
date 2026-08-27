@@ -99,17 +99,22 @@ func TestWritingOutline_RelinkSurvivesReorder(t *testing.T) {
 	}
 }
 
-// TestWritingOutline_RelinkFollowsRewordedHeading — the second pass, and the
-// reason there is one.
+// TestWritingOutline_RelinkDropsRewordedHeading — the accepted cost of
+// refusing to guess.
 //
-// She keeps the point but improves its wording: 原因 → 原因：排放结构. Text
-// matching alone would call that a different point and drop her paragraph's
-// heading, which is wrong — it is the same point, better said, and her
-// paragraph is still about it. Position among the rows text-matching could not
-// place recovers it. That fallback is safe here precisely because it only sees
-// leftovers: on a reorder, text matching consumes everything first, so
-// position never gets the chance to mispair.
-func TestWritingOutline_RelinkFollowsRewordedHeading(t *testing.T) {
+// She keeps the point but improves its wording: 原因 → 原因：排放结构. Her
+// paragraph is arguably still about it, and two earlier versions of the
+// matcher tried to recover that — first by pairing leftovers by position, then
+// by pairing when exactly one row was unmatched on each side. Both produced a
+// WRONG heading in ordinary cases (reorder-plus-insert; delete-one-add-one),
+// because a full-replace PUT carries no per-row intent: "I reworded this
+// point" and "I replaced it with a different one" are the same bytes.
+//
+// So the link drops, visibly, and she can carry on or rewrite the heading
+// back. A blank label costs her nothing; a confident wrong one misleads her
+// about her own work. If reword-survival is wanted later, the request must
+// carry row identity — the fix belongs in the wire shape, not in a guess here.
+func TestWritingOutline_RelinkDropsRewordedHeading(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
 	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
 
@@ -121,9 +126,39 @@ func TestWritingOutline_RelinkFollowsRewordedHeading(t *testing.T) {
 	putOutlineHTTP(t, h, cookie, id, `{"outline":[{"text":"原因：排放结构","depth":0}]}`)
 
 	after := headingByText(getWritingSnippetsHTTP(t, h, cookie, id))
-	if after["这段写原因"] != "原因：排放结构" {
-		t.Fatalf("heading = %q after she reworded that outline point; want the reworded text — rewording is not deleting, and her paragraph is still about that point",
+	if after["这段写原因"] != "" {
+		t.Fatalf("heading = %q after she reworded that outline point; want \"\" — a reworded point and a replaced point are indistinguishable in a full-replace PUT, so nothing may be guessed",
 			after["这段写原因"])
+	}
+}
+
+// TestWritingOutline_RelinkRefusesToGuessOnDeleteAndAdd — the case that killed
+// the "exactly one leftover on each side" heuristic.
+//
+// She deletes 结果 and adds an unrelated 反驳 in the same save. That leaves
+// exactly one unmatched row on each side — identical in shape to a reword — so
+// the previous version paired them and reattached her 结果 paragraph to 反驳, a
+// heading she never wrote it under. Swapping one point for another is an
+// entirely ordinary edit, not a corner case.
+func TestWritingOutline_RelinkRefusesToGuessOnDeleteAndAdd(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
+
+	putOutlineHTTP(t, h, cookie, id,
+		`{"outline":[{"text":"原因","depth":0},{"text":"结果","depth":0}]}`)
+	ids := outlineIDsByText(t, h, cookie, id)
+	putWritingSnippetsHTTP(t, h, cookie, id,
+		`{"snippets":[{"position":1,"text":"这段写结果","outlineId":"`+ids["结果"]+`"}]}`)
+
+	putOutlineHTTP(t, h, cookie, id,
+		`{"outline":[{"text":"原因","depth":0},{"text":"反驳","depth":0}]}`)
+
+	after := headingByText(getWritingSnippetsHTTP(t, h, cookie, id))
+	if after["这段写结果"] == "反驳" {
+		t.Fatal("her 结果 paragraph was reattached to 反驳 — a different point she added in the same save, not a rewording of the one she deleted")
+	}
+	if after["这段写结果"] != "" {
+		t.Fatalf("heading = %q; want \"\"", after["这段写结果"])
 	}
 }
 

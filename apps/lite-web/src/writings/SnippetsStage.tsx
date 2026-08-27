@@ -92,13 +92,24 @@ export function SnippetsStage({
   onSnippetsChange: (next: WritingSnippet[]) => void;
 }) {
   const slots = buildSlots(outline, snippets);
-  // Avoid colliding with an outline point's own position too — position is
-  // writing_snippet's upsert key, so a free paragraph minted at a position
-  // an (as yet unfilled) outline slot will later use would silently
-  // overwrite that outline point's paragraph and detach it, the moment she
-  // saves it.
-  const usedPositions = [...snippets.map((s) => s.position), ...outline.map((o) => o.position)];
-  const nextFreePosition = usedPositions.length === 0 ? 0 : Math.max(...usedPositions) + 1;
+  // Free paragraphs live in a position range an outline can never reach.
+  //
+  // position is writing_snippet's upsert key, and outline positions are just
+  // array indices 0..N-1 reassigned on every outline save. So "one past the
+  // current maximum" is not safe: a free paragraph minted at position 1 while
+  // the outline has one point sits exactly where a SECOND outline point will
+  // land the next time she adds one — and the first save of that new outline
+  // slot then upserts onto her free paragraph's row, destroying its text and
+  // relinking the row to a heading she never wrote it under. Silent, and the
+  // kind of loss she would only notice much later.
+  //
+  // Offsetting past any plausible outline length removes the collision by
+  // construction rather than by arithmetic that has to stay correct as the
+  // outline grows. Free paragraphs therefore also sort after outline
+  // paragraphs in the composed draft, which matches where they render.
+  const FREE_POSITION_BASE = 1000;
+  const freePositions = snippets.map((s) => s.position).filter((p) => p >= FREE_POSITION_BASE);
+  const nextFreePosition = freePositions.length === 0 ? FREE_POSITION_BASE : Math.max(...freePositions) + 1;
 
   async function addFreeParagraph() {
     const saved = await putWritingSnippet(writingId, { position: nextFreePosition, text: "" }).catch(() => null);

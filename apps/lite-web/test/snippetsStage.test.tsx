@@ -171,3 +171,36 @@ describe("H1 — snippets link to outline points by id, never by position", () =
     expect(posted.outlineId).toBeNull();
   });
 });
+
+describe("free paragraphs must sit where an outline can never grow into them", () => {
+  it("mints a free paragraph past any outline position, so a later outline point cannot overwrite it", async () => {
+    // The bug this guards, found by the whole-branch re-review. position is
+    // writing_snippet's upsert key, and outline positions are array indices
+    // reassigned on every outline save. Under "one past the current maximum",
+    // a free paragraph minted beside a one-point outline lands at position 1 —
+    // exactly where a SECOND outline point goes the next time she adds one.
+    // The first save of that new outline slot then upserts onto her free
+    // paragraph's row: her text is destroyed and the row is relinked to a
+    // heading she never wrote it under. Silent, and only noticed much later.
+    const outline: WritingOutlineItem[] = [{ id: "o1", text: "打工能带来的收获", depth: 0, position: 0 }];
+    stubFetch((method, url) => {
+      if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
+        return { body: { snippets: [] } };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={outline} initialSnippets={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: "加一段" }));
+
+    await waitFor(() => expect(calls.some((c) => c.method === "PUT")).toBe(true));
+    const put = calls.find((c) => c.method === "PUT")!;
+    const posted = (put.body as { snippets: { position: number }[] }).snippets[0];
+    expect(posted).toBeTruthy();
+    const position = posted!.position;
+    expect(
+      position,
+      `free paragraph minted at position ${position}; an outline grown to ${position + 1} points would upsert onto this row and destroy her text`,
+    ).toBeGreaterThanOrEqual(1000);
+  });
+});
