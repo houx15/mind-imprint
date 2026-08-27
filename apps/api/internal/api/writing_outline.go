@@ -9,6 +9,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -156,6 +159,21 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Capture the OLD outline before it is replaced, so the snippets she has
+	// already written can be re-attached to their headings afterwards. Read
+	// before the replace or the mapping is gone: ReplaceWritingOutline deletes
+	// the old rows, and writing_snippet.outline_id is ON DELETE SET NULL.
+	oldOutline, err := a.d.Queries.ListWritingOutline(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	oldSnippets, err := a.d.Queries.ListWritingSnippets(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+
 	if _, err := a.d.Queries.ReplaceWritingOutline(r.Context(), sqlc.ReplaceWritingOutlineParams{
 		AtomID: at.ID, Texts: texts, Depths: depths, Positions: positions,
 	}); err != nil {
@@ -168,6 +186,9 @@ func (a *API) putWritingOutline(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+
+	relinkWritingSnippetsToOutline(r.Context(), a, at.ID, oldOutline, oldSnippets, rows)
+
 	out := make([]writingOutlineItemDTO, 0, len(rows))
 	for _, row := range rows {
 		out = append(out, toWritingOutlineItemDTO(row))
@@ -389,4 +410,123 @@ func (a *API) generateWritingOutline(w http.ResponseWriter, r *http.Request) {
 	// edits it first) via PUT /outline. No write to writing_outline happens
 	// on this path.
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"outline": items})
+}
+
+// relinkWritingSnippetsToOutline restores each snippet's link to its heading
+// after a full outline replace, matching on the heading's TEXT.
+//
+// Why text and not position. Every outline save mints fresh row ids, and
+// writing_snippet.outline_id is ON DELETE SET NULL, so a save silently
+// detaches every paragraph she has already written — and revising the outline
+// while drafting is the normal thing to do, not an edge case. The tempting
+// repair is to re-attach by position, since positions are just array indices.
+// That is wrong in the most damaging way available: the moment she REORDERS
+// her outline (a drag, or a deleted middle point), position-matching hands
+// paragraph 1 the heading that now belongs to paragraph 2 — confidently,
+// specifically, and silently. Showing her the wrong heading is worse than
+// showing none.
+//
+// Text identity is a real match, not a guess. If a heading's text survives the
+// save, the paragraph written under it is genuinely still about it, wherever
+// it moved to. If she REWROTE that heading, the link is honestly gone and we
+// say nothing rather than invent something — the same "omit, never estimate"
+// rule the report generator already follows for missing facts.
+//
+// Duplicate heading texts bind to the first match: two identical headings are
+// indistinguishable by definition, and dropping both links would serve her
+// worse than picking one.
+//
+// Best-effort by design: a failed relink must never fail her outline save. The
+// outline is what she asked to store; the heading label is a convenience on
+// top of it.
+func relinkWritingSnippetsToOutline(
+	ctx context.Context, a *API, atomID uuid.UUID,
+	oldOutline []sqlc.WritingOutline, oldSnippets []sqlc.WritingSnippet, newOutline []sqlc.WritingOutline,
+) {
+	if len(oldOutline) == 0 || len(oldSnippets) == 0 || len(newOutline) == 0 {
+		return
+	}
+	newIDByOldID := matchOutlineRows(oldOutline, newOutline)
+	for _, s := range oldSnippets {
+		if !s.OutlineID.Valid {
+			continue
+		}
+		newID, ok := newIDByOldID[uuid.UUID(s.OutlineID.Bytes)]
+		if !ok {
+			continue // that heading is genuinely gone — say nothing, guess nothing
+		}
+		if err := a.d.Queries.RelinkWritingSnippetOutline(ctx, sqlc.RelinkWritingSnippetOutlineParams{
+			AtomID:    atomID,
+			OutlineID: pgtype.UUID{Bytes: newID, Valid: true},
+			ID:        s.ID,
+		}); err != nil {
+			slog.Warn("lite writing: relinking snippet to outline failed",
+				"err", err, "atom_id", atomID, "snippet_id", s.ID)
+		}
+	}
+}
+
+// matchOutlineRows pairs each OLD outline row with the NEW row that is the
+// same point, so snippets can be re-attached across a full replace. Returns
+// old id → new id; an old row with no counterpart is simply absent.
+//
+// Two passes, because the two ways she edits an outline fail each other's
+// heuristic:
+//
+//  1. EXACT TEXT. Handles REORDERING — dragging 结果 above 因 keeps each
+//     paragraph with the heading it was written under, wherever it moved to.
+//     Position-matching gets this catastrophically wrong: it would hand
+//     paragraph 1 the heading now sitting at index 0, confidently and
+//     silently. A wrong heading is worse than none.
+//
+//  2. POSITION, but only among rows LEFT OVER by pass 1. Handles REWORDING —
+//     "引言" → "引言：问题的提出" is the same point with better words, and her
+//     paragraph is still about it. Restricting this to leftovers is what makes
+//     it safe: on a reorder, pass 1 has already consumed every row, so there
+//     is nothing for position to mispair. It can only fire where the text
+//     genuinely changed.
+//
+// Anything still unmatched is a point she deleted or replaced outright. That
+// link is honestly gone, and the caller says nothing rather than guessing —
+// the same "omit, never estimate" rule the report generator follows.
+//
+// Duplicate texts bind to the first match: identical headings are
+// indistinguishable by definition, and dropping both links would serve her
+// worse than picking one.
+func matchOutlineRows(oldOutline, newOutline []sqlc.WritingOutline) map[uuid.UUID]uuid.UUID {
+	out := make(map[uuid.UUID]uuid.UUID, len(oldOutline))
+
+	newByText := make(map[string]uuid.UUID, len(newOutline))
+	for _, o := range newOutline {
+		if _, seen := newByText[o.Text]; !seen {
+			newByText[o.Text] = o.ID
+		}
+	}
+	claimed := make(map[uuid.UUID]bool, len(newOutline))
+	var leftoverOld []sqlc.WritingOutline
+	for _, o := range oldOutline {
+		if newID, ok := newByText[o.Text]; ok && !claimed[newID] {
+			out[o.ID] = newID
+			claimed[newID] = true
+			continue
+		}
+		leftoverOld = append(leftoverOld, o)
+	}
+
+	var leftoverNew []sqlc.WritingOutline
+	for _, o := range newOutline {
+		if !claimed[o.ID] {
+			leftoverNew = append(leftoverNew, o)
+		}
+	}
+	for _, o := range leftoverOld {
+		for _, n := range leftoverNew {
+			if n.Position == o.Position && !claimed[n.ID] {
+				out[o.ID] = n.ID
+				claimed[n.ID] = true
+				break
+			}
+		}
+	}
+	return out
 }

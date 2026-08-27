@@ -82,3 +82,12 @@ RETURNING *;
 
 -- name: GetWritingDraft :one
 SELECT * FROM writing_draft WHERE atom_id = $1;
+
+-- name: RelinkWritingSnippetOutline :exec
+-- Re-attach one snippet to an outline row after ReplaceWritingOutline minted
+-- fresh ids. Called only with a NEW outline id whose TEXT matches the heading
+-- the snippet was written under, so this restores a real link rather than
+-- guessing one by position (position guessing silently swaps headings the
+-- moment she reorders her outline, which is worse than showing none).
+UPDATE writing_snippet SET outline_id = $2, updated_at = now()
+WHERE atom_id = $1 AND id = $3;

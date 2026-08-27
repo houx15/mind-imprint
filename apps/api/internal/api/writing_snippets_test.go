@@ -467,16 +467,22 @@ func TestWritingSnippets_OutlineHeadingSurvivesOutlineResave(t *testing.T) {
 		t.Fatalf("snippets after resave = %+v, want still 2", after)
 	}
 	for _, s := range after {
-		if s.OutlineID != nil {
-			t.Fatalf("snippet position %d outlineId = %v after a full outline replace, want null (ON DELETE SET NULL)", s.Position, *s.OutlineID)
+		// outlineId is now NON-null again: the replace nulls it (ON DELETE SET
+		// NULL), and relinkWritingSnippetsToOutline (writing_outline.go)
+		// immediately re-attaches it to the row that is the same point. This
+		// assertion used to require null — that encoded the BROKEN state as
+		// expected. The link surviving a resave is the fix, not a violation.
+		if s.OutlineID == nil {
+			t.Fatalf("snippet position %d outlineId is null after an outline resave, want it re-attached to the same point", s.Position)
 		}
 		want := outline2[0].Text
 		if s.Position == 1 {
 			want = outline2[1].Text
 		}
 		if s.OutlineHeading != want {
-			t.Fatalf("snippet position %d outlineHeading = %q after outline resave, want %q (position fallback) — "+
-				"a frontend showing her outline point would go blank here without this fix", s.Position, s.OutlineHeading, want)
+			t.Fatalf("snippet position %d outlineHeading = %q after outline resave, want %q — "+
+				"she reworded the heading in place, which is the same point better said, so her paragraph keeps it",
+				s.Position, s.OutlineHeading, want)
 		}
 	}
 

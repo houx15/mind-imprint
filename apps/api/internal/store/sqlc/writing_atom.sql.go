@@ -191,6 +191,27 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 	return items, nil
 }
 
+const relinkWritingSnippetOutline = `-- name: RelinkWritingSnippetOutline :exec
+UPDATE writing_snippet SET outline_id = $2, updated_at = now()
+WHERE atom_id = $1 AND id = $3
+`
+
+type RelinkWritingSnippetOutlineParams struct {
+	AtomID    uuid.UUID   `json:"atom_id"`
+	OutlineID pgtype.UUID `json:"outline_id"`
+	ID        uuid.UUID   `json:"id"`
+}
+
+// Re-attach one snippet to an outline row after ReplaceWritingOutline minted
+// fresh ids. Called only with a NEW outline id whose TEXT matches the heading
+// the snippet was written under, so this restores a real link rather than
+// guessing one by position (position guessing silently swaps headings the
+// moment she reorders her outline, which is worse than showing none).
+func (q *Queries) RelinkWritingSnippetOutline(ctx context.Context, arg RelinkWritingSnippetOutlineParams) error {
+	_, err := q.db.Exec(ctx, relinkWritingSnippetOutline, arg.AtomID, arg.OutlineID, arg.ID)
+	return err
+}
+
 const renameWriting = `-- name: RenameWriting :exec
 UPDATE writing SET title = $2, updated_at = now() WHERE atom_id = $1
 `

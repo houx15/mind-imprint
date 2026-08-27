@@ -47,17 +47,20 @@ import (
 // outline PUT is a full replace that mints fresh outline ids on every save —
 // see the task's context note) and here.
 //
-// outlineHeading is a SEPARATE field from outlineId, deliberately: the two
-// can and routinely do disagree. outline PUT is a full replace, so revising
-// the outline while drafting — the normal thing to do — nulls outlineId on
-// every snippet that pointed at the old outline (writing_snippet.outline_id
-// ON DELETE SET NULL). Without a second field, a frontend showing "this
-// paragraph belongs to outline point N" would go blank the moment she
-// resaves the outline, even though the exemplar path (below) has always been
-// able to recover the topic by POSITION. outlineHeading surfaces that same
-// recovered text through the READ path too, so it degrades gracefully with
-// outlineId rather than going blank alongside it — "" (never null) when
-// neither the (now-stale) id nor position resolves to a current outline row.
+// outlineHeading is a SEPARATE field from outlineId so a client can render
+// the heading without joining the outline itself. It is resolved STRICTLY by
+// id (writingSnippetHeadingByID) — never guessed by position.
+//
+// The reason it can be trusted: outline PUT is a full replace that mints fresh
+// ids, so revising the outline while drafting (the normal thing to do) would
+// otherwise detach every paragraph. That is repaired at WRITE time instead —
+// relinkWritingSnippetsToOutline (writing_outline.go) re-attaches snippets by
+// heading TEXT after a replace, so a surviving heading keeps its paragraphs
+// wherever it moved to.
+//
+// "" therefore means something honest and specific: she rewrote that heading,
+// so the link is genuinely gone. It never means "we could not be bothered to
+// look" and never means "here is our best guess".
 type writingSnippetDTO struct {
 	ID             string  `json:"id"`
 	OutlineID      *string `json:"outlineId"`
@@ -71,15 +74,14 @@ type writingSnippetDTO struct {
 // CURRENT outline rows (ListWritingOutline) — passed in rather than
 // re-queried per snippet, since every caller already needs the full outline
 // once to resolve OutlineHeading for every snippet, not once per row.
-// OutlineHeading reuses findWritingSnippetOutlineTopic (writing_snippets.go)
-// — the SAME id-then-position fallback the exemplar prompt already relies
-// on, not a second mechanism: one place decides "what outline point is this
-// snippet about", and both the model-facing prompt and the client-facing DTO
-// go through it.
+// OutlineHeading resolves strictly by id (writingSnippetHeadingByID), NOT via
+// findWritingSnippetOutlineTopic's id-then-position fallback. The two callers
+// want different things: a model prompt can absorb a loosely-wrong topic hint,
+// a client-facing field cannot — see writingSnippetHeadingByID's comment.
 func toWritingSnippetDTO(row sqlc.WritingSnippet, outline []sqlc.WritingOutline) writingSnippetDTO {
 	out := writingSnippetDTO{
 		ID: row.ID.String(), Position: row.Position, Text: row.Text,
-		OutlineHeading: findWritingSnippetOutlineTopic(outline, row),
+		OutlineHeading: writingSnippetHeadingByID(outline, row),
 		UpdatedAt:      row.UpdatedAt.Format(time.RFC3339),
 	}
 	if row.OutlineID.Valid {
@@ -99,10 +101,9 @@ type writingSnippetItemReq struct {
 	Text      string  `json:"text"`
 }
 
-// getWritingSnippets is GET /api/v1/writings/{id}/snippets. Reads the
-// CURRENT outline alongside the snippets so each DTO's outlineHeading can
-// recover a resaved outline's heading text via position, same as the
-// exemplar prompt already does — see toWritingSnippetDTO's comment.
+// getWritingSnippets is GET /api/v1/writings/{id}/snippets. Reads the CURRENT
+// outline alongside the snippets so each DTO's outlineHeading can be resolved
+// from the live rows — see toWritingSnippetDTO's comment.
 func (a *API) getWritingSnippets(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
@@ -186,6 +187,24 @@ func (a *API) putWritingSnippets(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Existing rows, so an omitted outlineId can PRESERVE the link she already
+	// has rather than silently clearing it. She re-saves a paragraph's text
+	// constantly while drafting, and a client that does not resend outlineId
+	// every single time would otherwise detach the paragraph from its heading
+	// on an ordinary keystroke-save — the same silent-unlink bug the outline
+	// replace had, arriving by a different door. Absent means "leave it
+	// alone"; there is no request today that needs to clear a link, and
+	// inventing that meaning for absence costs her data.
+	existing, err := a.d.Queries.ListWritingSnippets(r.Context(), at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	outlineIDByPosition := make(map[int32]pgtype.UUID, len(existing))
+	for _, row := range existing {
+		outlineIDByPosition[row.Position] = row.OutlineID
+	}
+
 	tx, err := a.d.Pool.Begin(r.Context())
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -199,6 +218,11 @@ func (a *API) putWritingSnippets(w http.ResponseWriter, r *http.Request) {
 		if verr != nil {
 			httpx.WriteError(w, r, verr)
 			return
+		}
+		if it.OutlineID == nil {
+			if prior, ok := outlineIDByPosition[it.Position]; ok {
+				outlineID = prior
+			}
 		}
 		if _, err := qtx.UpsertWritingSnippet(r.Context(), sqlc.UpsertWritingSnippetParams{
 			AtomID: at.ID, OutlineID: outlineID, Position: it.Position, Text: strings.TrimSpace(it.Text),
@@ -486,4 +510,35 @@ func (a *API) generateWritingSnippetExemplar(w http.ResponseWriter, r *http.Requ
 	// handler's file comment. Returned verbatim, in fields of their own,
 	// structurally separate from writingSnippetDTO.
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"exemplar": exemplar, "prompts": prompts})
+}
+
+// writingSnippetHeadingByID resolves a snippet's outline heading for the
+// CLIENT-facing DTO, strictly by id — no position fallback, deliberately.
+//
+// findWritingSnippetOutlineTopic (above) does fall back to position, and that
+// is fine where it is used: a loosely-wrong topic hint inside a model prompt
+// costs a slightly-off exemplar. Putting the same guess in the DTO is a
+// different thing entirely. Positions are array indices, so the moment she
+// REORDERS her outline or deletes a middle point, position-matching would show
+// paragraph 1 the heading belonging to paragraph 2 — specific, confident and
+// wrong, with nothing in the payload marking it as a guess. Showing her the
+// wrong heading is worse than showing none.
+//
+// The link itself is repaired properly at write time instead:
+// relinkWritingSnippetsToOutline (writing_outline.go) re-attaches snippets by
+// heading TEXT after an outline replace, so an id match here is a real match.
+// When the id does not resolve, she genuinely rewrote that heading, and the
+// honest answer is silence — the same "omit, never estimate" rule the report
+// generator follows.
+func writingSnippetHeadingByID(outline []sqlc.WritingOutline, row sqlc.WritingSnippet) string {
+	if !row.OutlineID.Valid {
+		return ""
+	}
+	want := uuid.UUID(row.OutlineID.Bytes)
+	for _, o := range outline {
+		if o.ID == want {
+			return o.Text
+		}
+	}
+	return ""
 }
