@@ -112,7 +112,7 @@ export function StructureStage({
       <div className="flex flex-col gap-1.5">
         <h2 className="text-mk-h2 text-mk-ink">结构</h2>
         <p className="text-mk-body text-mk-muted">
-          先挑一副骨架，再一块一块把你自己的想法填进去。骨架只给出每一块的作用，里面写什么全是你说了算。
+          先挑一副骨架，再一块一块填上你自己的想法。骨架只说每一块的作用，写什么由你。
         </p>
       </div>
 
@@ -157,7 +157,7 @@ export function StructureStage({
               确认换
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setConfirmSwap(null)}>
-              算了，保留
+              不换
             </Button>
           </div>
         </div>
@@ -194,7 +194,7 @@ function RecommendationPanel({
     return (
       <div className="flex flex-col items-start gap-2 rounded-mk-md border border-dashed border-mk-border p-4">
         <p className="text-mk-small text-mk-muted">
-          不知道挑哪一副？印记可以看看你想写的东西，从下面这些里推荐一副——它只会帮你选，不会替你写。
+          不知道挑哪一副？印记只帮你选，不替你写。
         </p>
         <Button
           variant="secondary"
@@ -224,7 +224,7 @@ function RecommendationPanel({
         >
           印记的建议
         </span>
-        <span className="text-mk-label text-mk-faint">你可以不听，下面全都能挑</span>
+        <span className="text-mk-label text-mk-faint">下面也都能挑</span>
       </div>
       <div>
         <p className="text-mk-h3 text-mk-ink">{rec.name}</p>
@@ -362,11 +362,11 @@ function ChosenBlocks({
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between gap-2">
         <span className="text-mk-label text-mk-faint">
-          {structureName ? `正在用《${structureName}》· ` : ""}每一块写一句你自己的要点就够了
+          {structureName ? `正在用《${structureName}》· ` : ""}每一块写一句你自己的要点
         </span>
         {dirty && (
           <Button size="sm" variant="secondary" onClick={() => void saveAll()} loading={saving}>
-            存下来
+            保存
           </Button>
         )}
       </div>

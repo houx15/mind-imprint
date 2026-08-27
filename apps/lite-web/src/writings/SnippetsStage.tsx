@@ -136,12 +136,12 @@ export function SnippetsStage({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <h2 className="text-mk-h2 text-mk-ink">段落</h2>
-        <p className="text-mk-body text-mk-muted">一块一块来。哪一块写不动了，就点「卡住了？」，印记问你几个问题。</p>
+        <p className="text-mk-body text-mk-muted">一块一块来。写不动了就点「卡住了？」。</p>
       </div>
 
       {slots.length === 0 && (
         <p className="rounded-mk-md border border-dashed border-mk-border p-4 text-mk-small text-mk-muted">
-          还没有结构，段落就没有跟着的地方——先回「结构」挑一副骨架，或者直接加一段自由写。
+          还没挑结构，段落没有能跟着的块。先去「结构」挑一副，或者直接加一段。
         </p>
       )}
 

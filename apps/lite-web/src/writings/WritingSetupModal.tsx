@@ -102,7 +102,7 @@ export function WritingSetupModal({
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-mk-label text-mk-faint">大概写多长？（不定也完全可以）</span>
+          <span className="text-mk-label text-mk-faint">大概写多长？（可以不填）</span>
           <div className="flex items-center gap-2">
             <input
               type="number"
@@ -118,7 +118,7 @@ export function WritingSetupModal({
         </div>
 
         <div className="flex flex-col gap-2">
-          <span className="text-mk-label text-mk-faint">还想说点什么？想到哪儿说到哪儿就行</span>
+          <span className="text-mk-label text-mk-faint">还想说点什么？</span>
           <textarea
             value={note}
             onChange={(e) => setNote(e.target.value)}
@@ -126,7 +126,7 @@ export function WritingSetupModal({
             aria-label="还想说点什么"
             className="min-h-[88px] w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
           />
-          <span className="text-mk-label text-mk-faint">你说得越多，接下来的问题就越贴着你自己的事情问。</span>
+          <span className="text-mk-label text-mk-faint">说得越多，后面的问题越贴着你自己的事。</span>
         </div>
 
         {error && (
