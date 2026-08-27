@@ -126,17 +126,7 @@ func TestCreateWriting_RollsBackEntirelyOnFailure(t *testing.T) {
 	// 'idle in transaction (aborted)' — a leak that, repeated per failed
 	// request, eventually exhausts the pool and takes the room down for
 	// everyone, which is a worse outcome than the orphaned rows below.
-	var open int
-	if err := pool.QueryRow(ctx, `
-		SELECT count(*) FROM pg_stat_activity
-		WHERE datname = current_database()
-		  AND state IN ('idle in transaction', 'idle in transaction (aborted)')
-	`).Scan(&open); err != nil {
-		t.Fatalf("count open transactions: %v", err)
-	}
-	if open != 0 {
-		t.Fatalf("failed create left %d transaction(s) open — the deferred Rollback did not run, so the connection leaked", open)
-	}
+	assertNoOpenTransactions(t, ctx, pool, "failed create")
 
 	// And the data invariant itself: the two rows written BEFORE the failing
 	// one must be gone, never a titled writing with no opening line.

@@ -92,15 +92,5 @@ func TestSetWritingStage_TraceAndStageAreAtomic(t *testing.T) {
 	}
 
 	// And no transaction left open — the leak-shaped half of the same bug.
-	var open int
-	if err := pool.QueryRow(ctx, `
-		SELECT count(*) FROM pg_stat_activity
-		WHERE datname = current_database()
-		  AND state IN ('idle in transaction', 'idle in transaction (aborted)')
-	`).Scan(&open); err != nil {
-		t.Fatalf("count open transactions: %v", err)
-	}
-	if open != 0 {
-		t.Fatalf("failed stage change left %d transaction(s) open — the deferred Rollback did not run", open)
-	}
+	assertNoOpenTransactions(t, ctx, pool, "failed stage change")
 }
