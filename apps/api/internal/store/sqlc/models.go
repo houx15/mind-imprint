@@ -500,6 +500,16 @@ type Reading struct {
 	Status     string             `json:"status"`
 	UpdatedAt  time.Time          `json:"updated_at"`
 	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	RoutineKey string             `json:"routine_key"`
+}
+
+type ReadingBlockNote struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	BlockID   string    `json:"block_id"`
+	Tool      string    `json:"tool"`
+	Body      string    `json:"body"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type ReadingBrief struct {
@@ -523,6 +533,18 @@ type ReadingTakeaway struct {
 	AtomID    uuid.UUID `json:"atom_id"`
 	Text      string    `json:"text"`
 	UpdatedAt time.Time `json:"updated_at"`
+}
+
+type ReadingTask struct {
+	ID          uuid.UUID          `json:"id"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	Position    int32              `json:"position"`
+	Kind        string             `json:"kind"`
+	Label       string             `json:"label"`
+	Detail      string             `json:"detail"`
+	BlockID     string             `json:"block_id"`
+	Status      string             `json:"status"`
+	CompletedAt pgtype.Timestamptz `json:"completed_at"`
 }
 
 type Reference struct {

@@ -65,3 +65,52 @@ RETURNING *;
 
 -- name: GetReadingTakeaway :one
 SELECT * FROM reading_takeaway WHERE atom_id = $1;
+
+-- name: SetReadingRoutine :one
+-- 记下这篇用的是哪一套读法。与 ReplaceReadingTasks 由调用方放进同一个事务：
+-- routine_key 与它排出的清单必须同生同死，否则会指向一份并不存在的清单。
+UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING *;
+
+-- name: ReplaceReadingTasks :many
+-- 全量替换，与 ReplaceWritingOutline 同一个理由：清单是一次排好的一个形状，
+-- delete-then-insert 保证 position 连续、不留下上一份的尾巴。DELETE 与
+-- INSERT 是**一条语句**（data-modifying CTE），所以并发读者永远看不到一份
+-- 空清单。
+WITH deleted AS (
+  DELETE FROM reading_task WHERE atom_id = sqlc.arg(atom_id)
+)
+INSERT INTO reading_task (atom_id, position, kind, label, detail, block_id)
+SELECT sqlc.arg(atom_id),
+       unnest(sqlc.arg(positions)::int[]),
+       unnest(sqlc.arg(kinds)::text[]),
+       unnest(sqlc.arg(labels)::text[]),
+       unnest(sqlc.arg(details)::text[]),
+       unnest(sqlc.arg(block_ids)::text[])
+RETURNING *;
+
+-- name: ListReadingTasks :many
+SELECT * FROM reading_task WHERE atom_id = $1 ORDER BY position;
+
+-- name: SetReadingTaskStatus :one
+-- 只改状态，永不改文字：清单排定之后，学生能做的是完成或跳过它，不是重写它。
+-- completed_at 在 'done' 时盖章，其余状态清空——一步被改回 pending 却还留着
+-- 完成时间，会让报告读出一个从没发生过的完成。
+UPDATE reading_task
+SET status = $3,
+    completed_at = CASE WHEN $3 = 'done' THEN now() ELSE NULL END
+WHERE atom_id = $1 AND id = $2
+RETURNING *;
+
+-- name: GetReadingBlockNote :one
+SELECT * FROM reading_block_note WHERE atom_id = $1 AND block_id = $2 AND tool = $3;
+
+-- name: InsertReadingBlockNote :one
+-- ON CONFLICT DO UPDATE 而不是 DO NOTHING：并发两次点同一个工具时，两边都要
+-- 拿到一行回来，否则输的那一边会看到「成功了但没有内容」。
+INSERT INTO reading_block_note (atom_id, block_id, tool, body)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (atom_id, block_id, tool) DO UPDATE SET body = EXCLUDED.body
+RETURNING *;
+
+-- name: ListReadingBlockNotes :many
+SELECT * FROM reading_block_note WHERE atom_id = $1 ORDER BY created_at;

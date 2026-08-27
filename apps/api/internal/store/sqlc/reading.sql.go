@@ -14,7 +14,7 @@ import (
 )
 
 const createReading = `-- name: CreateReading :one
-INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at
+INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key
 `
 
 type CreateReadingParams struct {
@@ -33,12 +33,13 @@ func (q *Queries) CreateReading(ctx context.Context, arg CreateReadingParams) (R
 		&i.Status,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.RoutineKey,
 	)
 	return i, err
 }
 
 const getReading = `-- name: GetReading :one
-SELECT atom_id, title, lang, status, updated_at, finished_at FROM reading WHERE atom_id = $1
+SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key FROM reading WHERE atom_id = $1
 `
 
 func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, error) {
@@ -51,6 +52,31 @@ func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, er
 		&i.Status,
 		&i.UpdatedAt,
 		&i.FinishedAt,
+		&i.RoutineKey,
+	)
+	return i, err
+}
+
+const getReadingBlockNote = `-- name: GetReadingBlockNote :one
+SELECT id, atom_id, block_id, tool, body, created_at FROM reading_block_note WHERE atom_id = $1 AND block_id = $2 AND tool = $3
+`
+
+type GetReadingBlockNoteParams struct {
+	AtomID  uuid.UUID `json:"atom_id"`
+	BlockID string    `json:"block_id"`
+	Tool    string    `json:"tool"`
+}
+
+func (q *Queries) GetReadingBlockNote(ctx context.Context, arg GetReadingBlockNoteParams) (ReadingBlockNote, error) {
+	row := q.db.QueryRow(ctx, getReadingBlockNote, arg.AtomID, arg.BlockID, arg.Tool)
+	var i ReadingBlockNote
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.BlockID,
+		&i.Tool,
+		&i.Body,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -101,8 +127,108 @@ func (q *Queries) GetReadingTakeaway(ctx context.Context, atomID uuid.UUID) (Rea
 	return i, err
 }
 
+const insertReadingBlockNote = `-- name: InsertReadingBlockNote :one
+INSERT INTO reading_block_note (atom_id, block_id, tool, body)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (atom_id, block_id, tool) DO UPDATE SET body = EXCLUDED.body
+RETURNING id, atom_id, block_id, tool, body, created_at
+`
+
+type InsertReadingBlockNoteParams struct {
+	AtomID  uuid.UUID `json:"atom_id"`
+	BlockID string    `json:"block_id"`
+	Tool    string    `json:"tool"`
+	Body    string    `json:"body"`
+}
+
+// ON CONFLICT DO UPDATE 而不是 DO NOTHING：并发两次点同一个工具时，两边都要
+// 拿到一行回来，否则输的那一边会看到「成功了但没有内容」。
+func (q *Queries) InsertReadingBlockNote(ctx context.Context, arg InsertReadingBlockNoteParams) (ReadingBlockNote, error) {
+	row := q.db.QueryRow(ctx, insertReadingBlockNote,
+		arg.AtomID,
+		arg.BlockID,
+		arg.Tool,
+		arg.Body,
+	)
+	var i ReadingBlockNote
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.BlockID,
+		&i.Tool,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listReadingBlockNotes = `-- name: ListReadingBlockNotes :many
+SELECT id, atom_id, block_id, tool, body, created_at FROM reading_block_note WHERE atom_id = $1 ORDER BY created_at
+`
+
+func (q *Queries) ListReadingBlockNotes(ctx context.Context, atomID uuid.UUID) ([]ReadingBlockNote, error) {
+	rows, err := q.db.Query(ctx, listReadingBlockNotes, atomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReadingBlockNote
+	for rows.Next() {
+		var i ReadingBlockNote
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.BlockID,
+			&i.Tool,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadingTasks = `-- name: ListReadingTasks :many
+SELECT id, atom_id, position, kind, label, detail, block_id, status, completed_at FROM reading_task WHERE atom_id = $1 ORDER BY position
+`
+
+func (q *Queries) ListReadingTasks(ctx context.Context, atomID uuid.UUID) ([]ReadingTask, error) {
+	rows, err := q.db.Query(ctx, listReadingTasks, atomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReadingTask
+	for rows.Next() {
+		var i ReadingTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.Position,
+			&i.Kind,
+			&i.Label,
+			&i.Detail,
+			&i.BlockID,
+			&i.Status,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReadingsByUser = `-- name: ListReadingsByUser :many
-SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at,
+SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key,
        a.created_at AS atom_created_at,
        a.last_activity_at,
        (s.atom_id IS NOT NULL)::bool AS has_source
@@ -120,6 +246,7 @@ type ListReadingsByUserRow struct {
 	Status         string             `json:"status"`
 	UpdatedAt      time.Time          `json:"updated_at"`
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	RoutineKey     string             `json:"routine_key"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 	HasSource      bool               `json:"has_source"`
@@ -148,6 +275,7 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.Status,
 			&i.UpdatedAt,
 			&i.FinishedAt,
+			&i.RoutineKey,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 			&i.HasSource,
@@ -176,6 +304,70 @@ func (q *Queries) RenameReading(ctx context.Context, arg RenameReadingParams) er
 	return err
 }
 
+const replaceReadingTasks = `-- name: ReplaceReadingTasks :many
+WITH deleted AS (
+  DELETE FROM reading_task WHERE atom_id = $1
+)
+INSERT INTO reading_task (atom_id, position, kind, label, detail, block_id)
+SELECT $1,
+       unnest($2::int[]),
+       unnest($3::text[]),
+       unnest($4::text[]),
+       unnest($5::text[]),
+       unnest($6::text[])
+RETURNING id, atom_id, position, kind, label, detail, block_id, status, completed_at
+`
+
+type ReplaceReadingTasksParams struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	Positions []int32   `json:"positions"`
+	Kinds     []string  `json:"kinds"`
+	Labels    []string  `json:"labels"`
+	Details   []string  `json:"details"`
+	BlockIds  []string  `json:"block_ids"`
+}
+
+// 全量替换，与 ReplaceWritingOutline 同一个理由：清单是一次排好的一个形状，
+// delete-then-insert 保证 position 连续、不留下上一份的尾巴。DELETE 与
+// INSERT 是**一条语句**（data-modifying CTE），所以并发读者永远看不到一份
+// 空清单。
+func (q *Queries) ReplaceReadingTasks(ctx context.Context, arg ReplaceReadingTasksParams) ([]ReadingTask, error) {
+	rows, err := q.db.Query(ctx, replaceReadingTasks,
+		arg.AtomID,
+		arg.Positions,
+		arg.Kinds,
+		arg.Labels,
+		arg.Details,
+		arg.BlockIds,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReadingTask
+	for rows.Next() {
+		var i ReadingTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.Position,
+			&i.Kind,
+			&i.Label,
+			&i.Detail,
+			&i.BlockID,
+			&i.Status,
+			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setReadingFinished = `-- name: SetReadingFinished :exec
 UPDATE reading SET status = 'finished', finished_at = now(), updated_at = now()
 WHERE atom_id = $1 AND status <> 'finished'
@@ -188,6 +380,66 @@ WHERE atom_id = $1 AND status <> 'finished'
 func (q *Queries) SetReadingFinished(ctx context.Context, atomID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setReadingFinished, atomID)
 	return err
+}
+
+const setReadingRoutine = `-- name: SetReadingRoutine :one
+UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key
+`
+
+type SetReadingRoutineParams struct {
+	AtomID     uuid.UUID `json:"atom_id"`
+	RoutineKey string    `json:"routine_key"`
+}
+
+// 记下这篇用的是哪一套读法。与 ReplaceReadingTasks 由调用方放进同一个事务：
+// routine_key 与它排出的清单必须同生同死，否则会指向一份并不存在的清单。
+func (q *Queries) SetReadingRoutine(ctx context.Context, arg SetReadingRoutineParams) (Reading, error) {
+	row := q.db.QueryRow(ctx, setReadingRoutine, arg.AtomID, arg.RoutineKey)
+	var i Reading
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Lang,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.RoutineKey,
+	)
+	return i, err
+}
+
+const setReadingTaskStatus = `-- name: SetReadingTaskStatus :one
+UPDATE reading_task
+SET status = $3,
+    completed_at = CASE WHEN $3 = 'done' THEN now() ELSE NULL END
+WHERE atom_id = $1 AND id = $2
+RETURNING id, atom_id, position, kind, label, detail, block_id, status, completed_at
+`
+
+type SetReadingTaskStatusParams struct {
+	AtomID uuid.UUID `json:"atom_id"`
+	ID     uuid.UUID `json:"id"`
+	Status string    `json:"status"`
+}
+
+// 只改状态，永不改文字：清单排定之后，学生能做的是完成或跳过它，不是重写它。
+// completed_at 在 'done' 时盖章，其余状态清空——一步被改回 pending 却还留着
+// 完成时间，会让报告读出一个从没发生过的完成。
+func (q *Queries) SetReadingTaskStatus(ctx context.Context, arg SetReadingTaskStatusParams) (ReadingTask, error) {
+	row := q.db.QueryRow(ctx, setReadingTaskStatus, arg.AtomID, arg.ID, arg.Status)
+	var i ReadingTask
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Position,
+		&i.Kind,
+		&i.Label,
+		&i.Detail,
+		&i.BlockID,
+		&i.Status,
+		&i.CompletedAt,
+	)
+	return i, err
 }
 
 const upsertReadingBrief = `-- name: UpsertReadingBrief :one

@@ -237,6 +237,13 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/submit", liteOnly(a.liteSubmitCardFor("reading")))
 	mux.Handle("POST /api/v1/readings/{id}/cards/{cid}/evaluate", liteOnly(a.liteEvaluateCardSelectionFor("reading")))
 	mux.Handle("POST /api/v1/readings/{id}/summon", liteOnly(a.liteSummonCard))
+	// 任务清单 + 段落工具（0101）：先能读懂一段，才谈得上用透镜读一篇。
+	mux.Handle("GET /api/v1/readings/{id}/plan", liteOnly(a.getReadingPlan))
+	mux.Handle("POST /api/v1/readings/{id}/plan", liteOnly(a.generateReadingPlan))
+	mux.Handle("POST /api/v1/readings/{id}/plan/tasks/{tid}", liteOnly(a.setReadingTaskStatus))
+	mux.Handle("GET /api/v1/readings/{id}/blocks/tools", liteOnly(a.listReadingBlockTools))
+	mux.Handle("GET /api/v1/readings/{id}/blocks/notes", liteOnly(a.listReadingBlockNotes))
+	mux.Handle("POST /api/v1/readings/{id}/blocks/{bid}/explain", liteOnly(a.explainReadingBlock))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
