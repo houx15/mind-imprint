@@ -78,6 +78,8 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 - advance：""（留在当前步）/ "done"（当前步完成）/ "skipped"（她想跳过当前步）。
 - focusBlock：如果这一步要她看某一段，给出段落编号（b1/b2/…）；否则留空。必须是真实存在的段落。
+  **它必须和 reply 里你说的那一段是同一段。** 每段后面都标了「第几段」，照着填，别自己数。
+  你嘴上说「第三段」、focusBlock 却给了 b4，她屏幕上跳开的就是另一段。
 - tool：见下。不用就留空。
 
 ## 段落工具：你手上的教具
@@ -112,18 +114,19 @@ func buildReadingCoachPrompt(
 
 	b.WriteString("\n【文章，按段落】\n")
 	total := 0
-	for _, blk := range blocks {
+	for i, blk := range blocks {
 		text := strings.TrimSpace(blk.Text)
 		if text == "" {
 			continue
 		}
+		tag := readingBlockTag(i, blk.ID)
 		runes := []rune(text)
 		if total+len(runes) > readingPlanArticleRuneBudget {
-			b.WriteString(blk.ID + "：（这一段没放进来，但它存在）\n")
+			b.WriteString(tag + "：（这一段没放进来，但它存在）\n")
 			continue
 		}
 		total += len(runes)
-		b.WriteString(blk.ID + "：" + text + "\n")
+		b.WriteString(tag + "：" + text + "\n")
 	}
 
 	b.WriteString("\n【你排的读法】\n")

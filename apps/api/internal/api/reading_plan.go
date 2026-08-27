@@ -86,28 +86,43 @@ func buildReadingPlanPrompt(lang, title string, blocks []Block) string {
 
 	b.WriteString("\n【文章，按段落】\n")
 	total := 0
-	for _, blk := range blocks {
+	for i, blk := range blocks {
 		text := strings.TrimSpace(blk.Text)
 		if text == "" {
 			continue
 		}
+		tag := readingBlockTag(i, blk.ID)
 		runes := []rune(text)
 		if total+len(runes) > readingPlanArticleRuneBudget {
 			// Truncate rather than drop: the model still needs to know that a
 			// later paragraph EXISTS, or it can never pick it as a focus.
 			keep := readingPlanArticleRuneBudget - total
 			if keep > 60 {
-				b.WriteString(blk.ID + "：" + string(runes[:keep]) + "…（这一段更长，已截断）\n")
+				b.WriteString(tag + "：" + string(runes[:keep]) + "…（这一段更长，已截断）\n")
 				total = readingPlanArticleRuneBudget
 			} else {
-				b.WriteString(blk.ID + "：（这一段没放进来，但它存在）\n")
+				b.WriteString(tag + "：（这一段没放进来，但它存在）\n")
 			}
 			continue
 		}
 		total += len(runes)
-		b.WriteString(blk.ID + "：" + text + "\n")
+		b.WriteString(tag + "：" + text + "\n")
 	}
 	return b.String()
+}
+
+// readingBlockTag labels a paragraph with BOTH the id the model must emit and
+// the ordinal it must speak. The model is told to say 「第几段」 and never
+// b1/b2 — but the prompt used to hand it only the ids, so it had to do that
+// mapping in its head on every turn. A production walk caught it splitting:
+// the prose said 第三段 while focusBlock came back b4, so a tool opened on a
+// paragraph the sentence had not named. Writing both removes the inference
+// rather than asking the model to be careful.
+//
+// The ordinal counts every block, including ones the budget elides, so it
+// keeps matching the paragraph she is actually looking at.
+func readingBlockTag(i int, id string) string {
+	return id + "（第" + itoaSmall(i+1) + "段）"
 }
 
 func itoaSmall(n int) string {
