@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Sparkles, RefreshCw } from "lucide-react";
+import { Sparkles, RefreshCw, HelpCircle } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import {
@@ -7,9 +7,12 @@ import {
   recommendWritingStructure,
   applyWritingStructure,
   putWritingOutline,
+  guideWritingBlock,
   type WritingOutlineItem,
   type WritingStructure,
+  type WritingBlockGuide,
 } from "../api/writingRoom";
+import { GuideBox } from "./GuideBox";
 
 /**
  * StructureStage — 结构. This file replaces OutlineStage, and the difference
@@ -372,27 +375,18 @@ function ChosenBlocks({
         {ordered.map((item, i) => {
           const hint = hints[i] ?? "";
           return (
-            <div key={item.id} className="flex flex-col gap-1.5 rounded-mk-md border border-mk-border bg-mk-surface p-3.5">
-              <div className="flex items-baseline gap-2">
-                <span
-                  className="shrink-0 rounded-mk-xs px-1.5 py-0.5 text-mk-label font-semibold"
-                  style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
-                >
-                  {item.role || `第 ${i + 1} 块`}
-                </span>
-                {hint && <span className="text-mk-label text-mk-faint">{hint}</span>}
-              </div>
-              <input
-                value={valueFor(item)}
-                onChange={(e) => setDrafts((d) => ({ ...d, [item.id]: e.target.value }))}
-                onBlur={() => {
-                  if (drafts[item.id] !== undefined) void saveAll();
-                }}
-                placeholder="用一句话写下你在这一块想说什么"
-                aria-label={item.role || `第 ${i + 1} 块`}
-                className="w-full rounded-mk-xs border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-              />
-            </div>
+            <BlockRow
+              key={item.id}
+              writingId={writingId}
+              item={item}
+              index={i}
+              hint={hint}
+              value={valueFor(item)}
+              onChange={(v) => setDrafts((d) => ({ ...d, [item.id]: v }))}
+              onCommit={() => {
+                if (drafts[item.id] !== undefined) void saveAll();
+              }}
+            />
           );
         })}
       </div>
@@ -403,5 +397,92 @@ function ChosenBlocks({
         </p>
       )}
     </section>
+  );
+}
+
+/**
+ * BlockRow — one skeleton block: the fixed label, her one-line point, and
+ * 「想不出来？」.
+ *
+ * The guiding box lives HERE as well as in 段落 because guidance was asked for
+ * at both moments — *"AI should guide me to think about the outlines"* and
+ * *"the key is the AI-generated guiding box"* for the paragraphs. Same
+ * mechanism at two zoom levels: what this block is for, and then what goes in
+ * it. Working out what 「反方最强的说法」 means for HER topic is exactly where
+ * a student stalls, and it is upstream of every paragraph she writes after.
+ *
+ * No card offer is wired here: the summon surface lives in the room's rail and
+ * 结构 has no way to hand one over. GuideBox drops the offer when
+ * `onSummonCard` is absent rather than rendering a button that goes nowhere.
+ */
+function BlockRow({
+  writingId,
+  item,
+  index,
+  hint,
+  value,
+  onChange,
+  onCommit,
+}: {
+  writingId: string;
+  item: WritingOutlineItem;
+  index: number;
+  hint: string;
+  value: string;
+  onChange: (v: string) => void;
+  onCommit: () => void;
+}) {
+  const [guide, setGuide] = useState<WritingBlockGuide | null>(null);
+  const [guiding, setGuiding] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const label = item.role || `第 ${index + 1} 块`;
+
+  async function ask() {
+    setGuiding(true);
+    setError(null);
+    try {
+      setGuide(await guideWritingBlock(writingId, item.id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "这次没问出问题来，再试一次。");
+    } finally {
+      setGuiding(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-3.5">
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <div className="flex min-w-0 flex-wrap items-baseline gap-2">
+          <span
+            className="shrink-0 rounded-mk-xs px-1.5 py-0.5 text-mk-label font-semibold"
+            style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
+          >
+            {label}
+          </span>
+          {hint && <span className="text-mk-label text-mk-faint">{hint}</span>}
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => void ask()}
+          loading={guiding}
+          iconStart={<Icon icon={HelpCircle} size={13} />}
+        >
+          想不出来？
+        </Button>
+      </div>
+
+      {guide && <GuideBox guide={guide} onDismiss={() => setGuide(null)} />}
+
+      <input
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        onBlur={onCommit}
+        placeholder="用一句话写下你在这一块想说什么"
+        aria-label={label}
+        className="w-full rounded-mk-xs border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-[#B8ADA2] focus-visible:border-mk-accent focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+      />
+      {error && <p className="text-mk-small text-mk-danger">{error}</p>}
+    </div>
   );
 }

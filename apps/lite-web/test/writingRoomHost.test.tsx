@@ -301,6 +301,37 @@ describe("结构 stage — the AI picks a skeleton, it never writes an outline",
     expect(await screen.findByDisplayValue("我反对一刀切")).toBeTruthy();
     expect(screen.getByLabelText("你的立场")).toBeTruthy();
   });
+
+  it("guides her on a BLOCK too, with questions and never a sentence", async () => {
+    // "AI should guide me to think about the outlines" — the guiding box has
+    // to reach the outline, not only the paragraphs. Working out what
+    // 「反方最强的说法」 means for her topic is where she stalls, and it is
+    // upstream of every paragraph she writes after it.
+    routes = {
+      ...emptyRoutes({ stage: "outline", structureKey: "zh-argument-concession" }),
+      [key("GET", base("/outline"))]: {
+        body: { outline: [{ id: "o2", text: "", role: "反方最强的说法", depth: 0, position: 0 }] },
+      },
+      [key("POST", base("/outline/o2/guide"))]: {
+        body: {
+          questions: ["支持禁手机的老师最常说的一句话是什么？", "你身边有没有哪件事，正好证明了他们那句话？"],
+          cardId: "",
+          cardReason: "",
+        },
+      },
+    };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "结构" });
+
+    fireEvent.click(screen.getByRole("button", { name: "想不出来？" }));
+
+    expect(await screen.findByText("支持禁手机的老师最常说的一句话是什么？")).toBeTruthy();
+    expect(screen.getByText("你身边有没有哪件事，正好证明了他们那句话？")).toBeTruthy();
+
+    // Guidance must not become content: her field is still empty, and nothing
+    // in the guide box can put anything into it.
+    expect((screen.getByLabelText("反方最强的说法") as HTMLInputElement).value).toBe("");
+  });
 });
 
 describe("the coach speaks first", () => {

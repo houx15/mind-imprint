@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Sparkles, Plus, HelpCircle } from "lucide-react";
 import { Button, Icon } from "@/ui";
 import { ApiError } from "../api/client";
+import { GuideBox } from "./GuideBox";
 import {
   putWritingSnippet,
   generateWritingSnippetExemplar,
@@ -309,67 +310,6 @@ function SnippetBlock({
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
 
       {exemplar && <ExemplarBlock exemplar={exemplar} />}
-    </div>
-  );
-}
-
-/**
- * GuideBox — the guiding box.
- *
- * Rendered ABOVE the textarea on purpose: she reads the questions, then
- * writes. Below it, it would be a footnote to a blank page.
- *
- * Nothing in here writes to the textarea. There is no "use this" affordance,
- * because there is nothing here that could be used — only questions.
- */
-function GuideBox({
-  guide,
-  onSummonCard,
-  onDismiss,
-}: {
-  guide: WritingBlockGuide;
-  onSummonCard: (cardId: string) => void;
-  onDismiss: () => void;
-}) {
-  return (
-    <div
-      className="flex flex-col gap-2.5 rounded-mk-md border p-3.5"
-      style={{ borderColor: "var(--mk-accent-300)", background: "color-mix(in srgb, var(--mk-accent-500) 5%, var(--mk-paper))" }}
-    >
-      <div className="flex items-center justify-between gap-2">
-        <span
-          className="rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
-          style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
-        >
-          想一想
-        </span>
-        <button type="button" onClick={onDismiss} className="text-mk-label text-mk-faint hover:text-mk-muted">
-          收起
-        </button>
-      </div>
-
-      <ol className="flex list-none flex-col gap-2">
-        {guide.questions.map((q, i) => (
-          <li key={i} className="flex gap-2">
-            <span
-              className="mt-[3px] flex h-[18px] w-[18px] shrink-0 items-center justify-center rounded-mk-full text-[10px] font-semibold"
-              style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
-            >
-              {i + 1}
-            </span>
-            <span className="text-mk-body text-mk-ink">{q}</span>
-          </li>
-        ))}
-      </ol>
-
-      {guide.cardId && (
-        <div className="flex flex-wrap items-center gap-2 border-t border-mk-border pt-2.5">
-          <span className="text-mk-small text-mk-muted">{guide.cardReason || "这一块也许适合用一张工具卡拆开想。"}</span>
-          <Button size="sm" variant="secondary" onClick={() => onSummonCard(guide.cardId)}>
-            打开这张卡
-          </Button>
-        </div>
-      )}
     </div>
   );
 }
