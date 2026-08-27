@@ -13,22 +13,27 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// writing_outline.go — Task 5 of the lite writing phase: 大纲 (outline). Three
-// routes:
-//   - GET  /writings/{id}/outline           — read the confirmed outline.
-//   - PUT  /writings/{id}/outline           — full replace (學生可改), same
-//     semantics as pro's putOutline (workspace_write.go): wipe everything,
-//     reinsert the posted array in order, position = array index, depth
-//     clamped to 0..2.
-//   - POST /writings/{id}/outline/generate  — derive a CANDIDATE outline from
-//     what she has already said in 构思 (atom_message role='student', plus
-//     the title/target words). One model call, deterministic assembly around
-//     it. Per 铁律①'s scope (AGENTS.md: the rule is about her PROSE, not
-//     system-derived structure) this is explicitly allowed — but the result
-//     is a proposal she confirms via PUT, never auto-persisted here.
+// writing_outline.go — the blocks of a writing, stored. Two routes:
+//   - GET  /writings/{id}/outline  — read them.
+//   - PUT  /writings/{id}/outline  — full replace (学生可改), same semantics as
+//     pro's putOutline (workspace_write.go): wipe everything, reinsert the
+//     posted array in order, position = array index, depth clamped to 0..2.
+//     Carries `role` alongside `text` (0100) — the skeleton's generic label
+//     and HER sentence, rewritten together so an ordinary text save cannot
+//     wipe the labels.
+//
+// There was a third route, POST /outline/generate, which derived a candidate
+// outline from everything she had said. It is DELETED (2026-08-27): the
+// product ruling for lite is that the AI never authors an outline at all.
+// AGENTS.md's 铁律 boundary — outline derivation as a deterministic system
+// step — still holds for PRO, where the outline is scaffolding around an
+// existing research question; in lite the outline IS the lesson, so
+// generating it steals it. What replaced it lives in writing_structure.go
+// (pick a generic skeleton) and writing_guide.go (ask her questions about a
+// block). Do not reintroduce it here.
 //
 // Named writing_outline.go / getWritingOutline / putWritingOutline /
-// generateWritingOutline / writingOutlineItemDTO throughout — pro already
+// writingOutlineItemDTO throughout — pro already
 // owns the plain names (listOutline/putOutline/outlineNodeDTO,
 // workspace_write.go) for the project-scoped essay+提案 outline. Two
 // unrelated "outline" domains share a word, not a table or a handler; see
