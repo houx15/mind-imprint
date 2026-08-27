@@ -27,15 +27,15 @@ import type { Writing } from "./writings";
  */
 export type WritingOutlineItem = { id: string; text: string; role: string; depth: number; position: number };
 
-/** One skeleton in the fixed structure library, served by the API so the
- *  labels she sees and the labels stored in `role` cannot drift. */
-export type WritingStructure = {
-  key: string;
-  lang: string;
-  name: string;
-  blurb: string;
-  blocks: { role: string; hint: string }[];
-};
+/*
+ * `WritingStructure` and the structure-library calls (listWritingStructures /
+ * recommendWritingStructure / applyWritingStructure) were DELETED on
+ * 2026-08-27, along with their endpoints. Picking a skeleton off a shelf —
+ * with block names like 「你承认它哪一部分是对的」 — was rigid and
+ * unreadable for a middle-school student, and filling a template is not
+ * thinking. 结构 is now a planning conversation (postWritingPlanTurn) whose
+ * output grows into the mind map. Do not reintroduce a picker.
+ */
 
 /** What the coach hands back when she asks for help on ONE block. Questions,
  *  and deliberately no second field a sentence could arrive in. */
@@ -98,42 +98,26 @@ export async function postWritingOpening(id: string): Promise<{ reply: string; g
   return apiFetch<{ reply: string; generated: boolean }>(`${base(id)}/opening`, { method: "POST" });
 }
 
-// --- structure --------------------------------------------------------------
-
-/** The fixed library. Not keyed by writing: it is the same for everyone. */
-export async function listWritingStructures(lang: string): Promise<WritingStructure[]> {
-  const raw = await apiFetch<{ structures: WritingStructure[] }>(
-    `/api/v1/writings/structures?lang=${encodeURIComponent(lang)}`,
-  );
-  return raw.structures ?? [];
-}
+// --- planning (结构) ---------------------------------------------------
 
 /**
- * The model PICKS one from the library and says why. It persists nothing —
- * she accepts by calling `applyWritingStructure`.
- */
-export async function recommendWritingStructure(id: string): Promise<{ structureKey: string; reason: string }> {
-  return apiFetch<{ structureKey: string; reason: string }>(`${base(id)}/structure/recommend`, { method: "POST" });
-}
-
-/**
- * Lay out a skeleton's blocks. Every block arrives with a `role` and an EMPTY
- * `text` — the skeleton contributes the labels and not one word of content.
+ * One turn of the planning conversation. Returns 印记's reply, the WHOLE map
+ * after the turn, and which node ids are new — so the map can highlight what
+ * just grew rather than silently re-rendering.
  *
- * Destructive: it replaces the outline. Without `force` the server answers
- * 409 when any block already holds her text, so switching skeletons after
- * she has written something is always a decision she makes on purpose.
+ * The server can only ever ADD nodes on this path (writing_plan.go has no
+ * update or delete call in it), so a turn can never rewrite or remove
+ * something she put on the map.
  */
-export async function applyWritingStructure(
+export async function postWritingPlanTurn(
   id: string,
-  structureKey: string,
-  opts?: { force?: boolean },
-): Promise<{ structureKey: string; outline: WritingOutlineItem[] }> {
-  const raw = await apiFetch<{ structureKey: string; outline: WritingOutlineItem[] }>(`${base(id)}/structure`, {
-    method: "POST",
-    body: JSON.stringify({ structureKey, force: opts?.force ?? false }),
-  });
-  return { structureKey: raw.structureKey, outline: raw.outline ?? [] };
+  text: string,
+): Promise<{ reply: string; outline: WritingOutlineItem[]; addedIds: string[] }> {
+  const raw = await apiFetch<{ reply: string; outline: WritingOutlineItem[]; addedIds: string[] }>(
+    `${base(id)}/plan/turn`,
+    { method: "POST", body: JSON.stringify({ text }) },
+  );
+  return { reply: raw.reply, outline: raw.outline ?? [], addedIds: raw.addedIds ?? [] };
 }
 
 /**

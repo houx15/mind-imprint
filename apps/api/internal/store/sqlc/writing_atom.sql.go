@@ -80,6 +80,47 @@ func (q *Queries) GetWritingDraft(ctx context.Context, atomID uuid.UUID) (Writin
 	return i, err
 }
 
+const insertWritingOutlineNode = `-- name: InsertWritingOutlineNode :one
+INSERT INTO writing_outline (atom_id, text, role, depth, position)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, atom_id, text, depth, position, role
+`
+
+type InsertWritingOutlineNodeParams struct {
+	AtomID   uuid.UUID `json:"atom_id"`
+	Text     string    `json:"text"`
+	Role     string    `json:"role"`
+	Depth    int32     `json:"depth"`
+	Position int32     `json:"position"`
+}
+
+// 往思维导图里加一个节点。**只加，不改不删**——这是规划对话的硬保证：
+// 印记 能往图上加她刚说过的东西，但永远动不了、也删不掉她已经写下的节点
+// （ReplaceWritingOutline 那条全量替换的路只留给学生自己的编辑）。
+//
+// 与 ReplaceWritingOutline 的关键差别是**保住 id**。规划是一轮一轮长出来的，
+// 每一轮都全量重写会重新铸 id，把父子引用和 writing_snippet.outline_id 一起
+// 打断；这里逐个插入，既有的行一个都不动。
+func (q *Queries) InsertWritingOutlineNode(ctx context.Context, arg InsertWritingOutlineNodeParams) (WritingOutline, error) {
+	row := q.db.QueryRow(ctx, insertWritingOutlineNode,
+		arg.AtomID,
+		arg.Text,
+		arg.Role,
+		arg.Depth,
+		arg.Position,
+	)
+	var i WritingOutline
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Text,
+		&i.Depth,
+		&i.Position,
+		&i.Role,
+	)
+	return i, err
+}
+
 const listWritingOutline = `-- name: ListWritingOutline :many
 SELECT id, atom_id, text, depth, position, role FROM writing_outline WHERE atom_id = $1 ORDER BY position
 `
@@ -419,6 +460,23 @@ type SetWritingTargetWordsParams struct {
 
 func (q *Queries) SetWritingTargetWords(ctx context.Context, arg SetWritingTargetWordsParams) error {
 	_, err := q.db.Exec(ctx, setWritingTargetWords, arg.AtomID, arg.TargetWords)
+	return err
+}
+
+const shiftWritingOutlinePositions = `-- name: ShiftWritingOutlinePositions :exec
+UPDATE writing_outline SET position = position + 1
+WHERE atom_id = $1 AND position >= $2
+`
+
+type ShiftWritingOutlinePositionsParams struct {
+	AtomID   uuid.UUID `json:"atom_id"`
+	Position int32     `json:"position"`
+}
+
+// 给插入腾位：把 position >= $2 的行整体后移一位。与 InsertWritingOutlineNode
+// 由调用方放进同一个事务——中间断开会留下两行同 position 的提纲。
+func (q *Queries) ShiftWritingOutlinePositions(ctx context.Context, arg ShiftWritingOutlinePositionsParams) error {
+	_, err := q.db.Exec(ctx, shiftWritingOutlinePositions, arg.AtomID, arg.Position)
 	return err
 }
 

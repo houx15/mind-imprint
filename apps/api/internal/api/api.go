@@ -240,7 +240,6 @@ func (a *API) Handler() http.Handler {
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
-	mux.Handle("GET /api/v1/writings/structures", liteOnly(a.listWritingStructures))
 	mux.Handle("POST /api/v1/writings", liteOnly(a.createWriting))
 	mux.Handle("GET /api/v1/writings/{id}", liteOnly(a.getWriting))
 	mux.Handle("PATCH /api/v1/writings/{id}", liteOnly(a.renameWriting))
@@ -248,13 +247,12 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PUT /api/v1/writings/{id}/target-words", liteOnly(a.setWritingTargetWords))
 	mux.Handle("PUT /api/v1/writings/{id}/setup", liteOnly(a.setWritingSetup))
 	mux.Handle("POST /api/v1/writings/{id}/opening", liteOnly(a.postWritingOpening))
+	mux.Handle("POST /api/v1/writings/{id}/plan/turn", liteOnly(a.postWritingPlanTurn))
 	mux.Handle("POST /api/v1/writings/{id}/turn", liteOnly(a.postLiteWritingTurn))
 	mux.Handle("GET /api/v1/writings/{id}/messages", liteOnly(a.liteListMessagesFor("writing")))
 	mux.Handle("GET /api/v1/writings/{id}/outline", liteOnly(a.getWritingOutline))
 	mux.Handle("PUT /api/v1/writings/{id}/outline", liteOnly(a.putWritingOutline))
 	mux.Handle("POST /api/v1/writings/{id}/outline/{oid}/guide", liteOnly(a.guideWritingBlock))
-	mux.Handle("POST /api/v1/writings/{id}/structure", liteOnly(a.applyWritingStructure))
-	mux.Handle("POST /api/v1/writings/{id}/structure/recommend", liteOnly(a.recommendWritingStructure))
 	mux.Handle("GET /api/v1/writings/{id}/snippets", liteOnly(a.getWritingSnippets))
 	mux.Handle("PUT /api/v1/writings/{id}/snippets", liteOnly(a.putWritingSnippets))
 	mux.Handle("POST /api/v1/writings/{id}/snippets/{sid}/exemplar", liteOnly(a.generateWritingSnippetExemplar))

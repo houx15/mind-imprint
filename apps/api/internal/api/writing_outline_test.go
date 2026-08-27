@@ -44,14 +44,15 @@ func putWritingOutlineHTTP(t *testing.T, h http.Handler, cookie *http.Cookie, id
 	return rec
 }
 
-// postWritingStructure replaces the retired POST /outline/generate helper.
-// The generation endpoint is gone (2026-08-27 ruling: AI never authors an
-// outline), and the ownership test below now guards the endpoint that took
-// its place on the same path prefix.
-func postWritingStructure(t *testing.T, h http.Handler, cookie *http.Cookie, id, body string) *httptest.ResponseRecorder {
+// postWritingPlanTurn drives the planning conversation — the endpoint that
+// replaced BOTH the retired POST /outline/generate and the short-lived
+// structure picker that briefly stood in for it. The ownership test below
+// guards this one, so that assertion keeps testing ownership instead of
+// quietly passing because the route it named no longer exists at all.
+func postWritingPlanTurn(t *testing.T, h http.Handler, cookie *http.Cookie, id, body string) *httptest.ResponseRecorder {
 	t.Helper()
 	rec := httptest.NewRecorder()
-	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/writings/"+id+"/structure", strings.NewReader(body)), cookie))
+	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST", "/api/v1/writings/"+id+"/plan/turn", strings.NewReader(body)), cookie))
 	return rec
 }
 
@@ -137,7 +138,7 @@ func TestWritingOutline_RequiresOwnWriting(t *testing.T) {
 	if rec := putWritingOutlineHTTP(t, h, cookie, bogus, `{"outline":[]}`); rec.Code != http.StatusNotFound {
 		t.Fatalf("PUT on nonexistent writing = %d, want 404; body=%s", rec.Code, rec.Body)
 	}
-	if rec := postWritingStructure(t, h, cookie, bogus, `{"structureKey":"zh-argument-stance"}`); rec.Code != http.StatusNotFound {
-		t.Fatalf("apply structure on nonexistent writing = %d, want 404; body=%s", rec.Code, rec.Body)
+	if rec := postWritingPlanTurn(t, h, cookie, bogus, `{"text":"在吗"}`); rec.Code != http.StatusNotFound {
+		t.Fatalf("plan turn on nonexistent writing = %d, want 404; body=%s", rec.Code, rec.Body)
 	}
 }

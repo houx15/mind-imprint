@@ -23,7 +23,7 @@ import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { WritingSetupModal } from "./WritingSetupModal";
-import { StructureStage } from "./StructureStage";
+import { PlanningView } from "./PlanningView";
 import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
 
@@ -122,8 +122,19 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
    * refresh mid-flight cannot produce two greetings or two charges. The local
    * guard below is about not showing a spinner twice, not about correctness.
    */
+  //
+  // Explicitly NOT while planning: PlanningView owns the opening on that
+  // screen. Both effects live in components that mount for the same writing,
+  // and the hook here runs whichever branch renders — so without this guard
+  // two greetings land in the transcript. The server is idempotent, so it is
+  // one charge and one stored message either way; the damage is purely that
+  // she is greeted twice, which is exactly the thing the opening exists to
+  // avoid feeling like.
   const openingNeeded =
-    state.phase === "ready" && state.writing.setupAt !== null && !state.messages.some((m) => m.role === "ai");
+    state.phase === "ready" &&
+    state.writing.stage !== "outline" &&
+    state.writing.setupAt !== null &&
+    !state.messages.some((m) => m.role === "ai");
 
   useEffect(() => {
     if (!openingNeeded) return;
@@ -231,6 +242,26 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           onDone={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
         />
       </>
+    );
+  }
+
+  /**
+   * 结构 is a FULL-SCREEN planning conversation, not a panel inside the room.
+   * It branches here, before the room chrome exists, because a stage bar and a
+   * length countercompete for attention with the one thing this screen is for —
+   * thinking. She lands back in the room the moment she chooses 去写.
+   */
+  if (writing.stage === "outline") {
+    return (
+      <PlanningView
+        writing={writing}
+        messages={state.messages}
+        outline={state.outline}
+        onMessages={(next) => setState((s) => (s.phase === "ready" ? { ...s, messages: next } : s))}
+        onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
+        onDone={() => void jumpStage("snippets")}
+        onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
+      />
     );
   }
 
@@ -391,20 +422,18 @@ function StagePanel({
           onFinished={(w) => setState({ phase: "finished", writing: w, draft: state.draft })}
         />
       );
-    // 'outline' is 结构, and it is also the fallback: the retired 'ideate'
-    // lands here rather than on a blank panel.
-    case "outline":
+    // 'outline' (结构) never reaches here: it takes the WHOLE screen as
+    // PlanningView, branched before the room layout is rendered at all. The
+    // retired 'ideate' falls through to 段落 rather than to a blank panel.
     default:
       return (
-        <StructureStage
+        <SnippetsStage
           writingId={writingId}
           lang={writing.lang}
-          structureKey={writing.structureKey}
           outline={outline}
-          onOutlineChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
-          onStructureChange={(key) =>
-            setState((s) => (s.phase === "ready" ? { ...s, writing: { ...s.writing, structureKey: key } } : s))
-          }
+          snippets={snippets}
+          onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
+          onGoToStructure={onGoToStructure}
         />
       );
   }

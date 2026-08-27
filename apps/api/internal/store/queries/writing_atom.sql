@@ -111,3 +111,21 @@ RETURNING *;
 UPDATE writing SET structure_key = $2, updated_at = now()
 WHERE atom_id = $1
 RETURNING *;
+
+-- name: ShiftWritingOutlinePositions :exec
+-- 给插入腾位：把 position >= $2 的行整体后移一位。与 InsertWritingOutlineNode
+-- 由调用方放进同一个事务——中间断开会留下两行同 position 的提纲。
+UPDATE writing_outline SET position = position + 1
+WHERE atom_id = $1 AND position >= $2;
+
+-- name: InsertWritingOutlineNode :one
+-- 往思维导图里加一个节点。**只加，不改不删**——这是规划对话的硬保证：
+-- 印记 能往图上加她刚说过的东西，但永远动不了、也删不掉她已经写下的节点
+-- （ReplaceWritingOutline 那条全量替换的路只留给学生自己的编辑）。
+--
+-- 与 ReplaceWritingOutline 的关键差别是**保住 id**。规划是一轮一轮长出来的，
+-- 每一轮都全量重写会重新铸 id，把父子引用和 writing_snippet.outline_id 一起
+-- 打断；这里逐个插入，既有的行一个都不动。
+INSERT INTO writing_outline (atom_id, text, role, depth, position)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;

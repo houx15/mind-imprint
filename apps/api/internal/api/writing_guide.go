@@ -77,9 +77,11 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 		b.WriteString("目标篇幅：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字\n")
 	}
 
-	if st, ok := findWritingStructure(wr.StructureKey); ok {
-		b.WriteString("她选的结构：" + st.Name + "\n")
-	}
+	// There is no template name to report any more: the structure is not
+	// chosen from a library, it is grown out of her own planning conversation
+	// (writing_plan.go). The sibling blocks below already carry everything
+	// this prompt needs to know about the shape she ended up with — and they
+	// carry it in HER words rather than as a category name.
 
 	// The sibling blocks matter: a question for 「你的回应」 is only good if it
 	// knows what she put in 「反方最强的说法」. Without them the model asks the
