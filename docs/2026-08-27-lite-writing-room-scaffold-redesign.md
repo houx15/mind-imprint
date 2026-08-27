@@ -89,8 +89,8 @@ point: a demonstration paragraph can be pasted into an essay, a question
 cannot. 铁律① is enforced by the output *type*, not by asking the model
 nicely.
 
-The guide may also nominate one tool card, which is rendered as an offer she
-taps — the same propose-then-confirm shape the cards already use (铁律②).
+The response shape is `{questions}` and nothing else. There is deliberately no
+second field a sentence could arrive in.
 
 ## The rest
 
@@ -108,8 +108,12 @@ taps — the same propose-then-confirm shape the cards already use (铁律②).
   to edit. `countWords` is imported from pro's own counter rather than
   reimplemented — the last hand-rolled copy counted characters and read ~5×
   high on English.
-- **The card shelf is gone**, replaced by one small 工具卡 button plus the
-  guide's nominations.
+- **The tool cards are gone from this room entirely.** Not just the shelf —
+  the deck, the summon door (`writing_lens.go`), the five writing-scoped card
+  routes, all of it. Pro's own writing surface barely used them, and a student
+  stuck on a paragraph wants a question, not a form. The reading room keeps its
+  学科透镜: those are used *against an article*, which gives them something real
+  to bite on.
 - **Four stages became three**: 结构 / 段落 / 成稿. 构思's only content was the
   dead word-count box; what it was *supposed* to host now happens where it
   belongs — in the opening line, and in the per-block questions at the moment
