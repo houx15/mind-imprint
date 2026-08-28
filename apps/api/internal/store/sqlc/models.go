@@ -26,6 +26,7 @@ type Atom struct {
 	UserID         uuid.UUID `json:"user_id"`
 	CreatedAt      time.Time `json:"created_at"`
 	LastActivityAt time.Time `json:"last_activity_at"`
+	ActiveSeconds  int32     `json:"active_seconds"`
 }
 
 type AtomAnnotation struct {
@@ -61,6 +62,15 @@ type AtomMessage struct {
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
 	BlockID   *string   `json:"block_id"`
+}
+
+type AtomReport struct {
+	AtomID     uuid.UUID          `json:"atom_id"`
+	Kind       string             `json:"kind"`
+	Report     []byte             `json:"report"`
+	ShareToken *string            `json:"share_token"`
+	SharedAt   pgtype.Timestamptz `json:"shared_at"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 type CardCompetence struct {

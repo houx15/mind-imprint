@@ -107,3 +107,25 @@ RETURNING *;
 
 -- name: ListAtomAnnotations :many
 SELECT * FROM atom_annotation WHERE atom_id = $1 ORDER BY created_at;
+
+-- name: GetAtomReport :one
+SELECT * FROM atom_report WHERE atom_id = $1;
+
+-- name: UpsertAtomReport :one
+INSERT INTO atom_report (atom_id, kind, report)
+VALUES ($1, $2, $3)
+ON CONFLICT (atom_id) DO UPDATE SET report = EXCLUDED.report
+RETURNING *;
+
+-- name: SetAtomReportShare :one
+UPDATE atom_report
+SET share_token = sqlc.narg(share_token),
+    shared_at = CASE WHEN sqlc.narg(share_token) IS NULL THEN NULL ELSE now() END
+WHERE atom_id = sqlc.arg(atom_id)
+RETURNING *;
+
+-- name: GetAtomReportByShareToken :one
+SELECT * FROM atom_report WHERE share_token = $1;
+
+-- name: AddAtomActiveSeconds :exec
+UPDATE atom SET active_seconds = active_seconds + $2 WHERE id = $1;

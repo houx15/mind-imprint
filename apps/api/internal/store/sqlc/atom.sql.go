@@ -11,6 +11,20 @@ import (
 	"github.com/google/uuid"
 )
 
+const addAtomActiveSeconds = `-- name: AddAtomActiveSeconds :exec
+UPDATE atom SET active_seconds = active_seconds + $2 WHERE id = $1
+`
+
+type AddAtomActiveSecondsParams struct {
+	ID            uuid.UUID `json:"id"`
+	ActiveSeconds int32     `json:"active_seconds"`
+}
+
+func (q *Queries) AddAtomActiveSeconds(ctx context.Context, arg AddAtomActiveSecondsParams) error {
+	_, err := q.db.Exec(ctx, addAtomActiveSeconds, arg.ID, arg.ActiveSeconds)
+	return err
+}
+
 const appendAtomBlockMessage = `-- name: AppendAtomBlockMessage :one
 INSERT INTO atom_message (atom_id, seq, role, content, block_id)
 VALUES ($1, $2, $3, $4, $5)
@@ -101,7 +115,7 @@ func (q *Queries) CountAtomEvidence(ctx context.Context, atomID uuid.UUID) (int6
 }
 
 const createAtom = `-- name: CreateAtom :one
-INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at
+INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds
 `
 
 type CreateAtomParams struct {
@@ -118,6 +132,7 @@ func (q *Queries) CreateAtom(ctx context.Context, arg CreateAtomParams) (Atom, e
 		&i.UserID,
 		&i.CreatedAt,
 		&i.LastActivityAt,
+		&i.ActiveSeconds,
 	)
 	return i, err
 }
@@ -218,7 +233,7 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 }
 
 const getAtom = `-- name: GetAtom :one
-SELECT id, kind, user_id, created_at, last_activity_at FROM atom WHERE id = $1
+SELECT id, kind, user_id, created_at, last_activity_at, active_seconds FROM atom WHERE id = $1
 `
 
 func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
@@ -230,6 +245,7 @@ func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.UserID,
 		&i.CreatedAt,
 		&i.LastActivityAt,
+		&i.ActiveSeconds,
 	)
 	return i, err
 }
@@ -254,6 +270,42 @@ func (q *Queries) GetAtomCard(ctx context.Context, id uuid.UUID) (AtomCard, erro
 		&i.Anchors,
 		&i.FrameworkFill,
 		&i.Origin,
+	)
+	return i, err
+}
+
+const getAtomReport = `-- name: GetAtomReport :one
+SELECT atom_id, kind, report, share_token, shared_at, created_at FROM atom_report WHERE atom_id = $1
+`
+
+func (q *Queries) GetAtomReport(ctx context.Context, atomID uuid.UUID) (AtomReport, error) {
+	row := q.db.QueryRow(ctx, getAtomReport, atomID)
+	var i AtomReport
+	err := row.Scan(
+		&i.AtomID,
+		&i.Kind,
+		&i.Report,
+		&i.ShareToken,
+		&i.SharedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getAtomReportByShareToken = `-- name: GetAtomReportByShareToken :one
+SELECT atom_id, kind, report, share_token, shared_at, created_at FROM atom_report WHERE share_token = $1
+`
+
+func (q *Queries) GetAtomReportByShareToken(ctx context.Context, shareToken *string) (AtomReport, error) {
+	row := q.db.QueryRow(ctx, getAtomReportByShareToken, shareToken)
+	var i AtomReport
+	err := row.Scan(
+		&i.AtomID,
+		&i.Kind,
+		&i.Report,
+		&i.ShareToken,
+		&i.SharedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -450,6 +502,33 @@ func (q *Queries) SetAtomCardFramework(ctx context.Context, arg SetAtomCardFrame
 	return i, err
 }
 
+const setAtomReportShare = `-- name: SetAtomReportShare :one
+UPDATE atom_report
+SET share_token = $1,
+    shared_at = CASE WHEN $1 IS NULL THEN NULL ELSE now() END
+WHERE atom_id = $2
+RETURNING atom_id, kind, report, share_token, shared_at, created_at
+`
+
+type SetAtomReportShareParams struct {
+	ShareToken *string   `json:"share_token"`
+	AtomID     uuid.UUID `json:"atom_id"`
+}
+
+func (q *Queries) SetAtomReportShare(ctx context.Context, arg SetAtomReportShareParams) (AtomReport, error) {
+	row := q.db.QueryRow(ctx, setAtomReportShare, arg.ShareToken, arg.AtomID)
+	var i AtomReport
+	err := row.Scan(
+		&i.AtomID,
+		&i.Kind,
+		&i.Report,
+		&i.ShareToken,
+		&i.SharedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const submitAtomCard = `-- name: SubmitAtomCard :one
 UPDATE atom_card
 SET status = 'submitted', field_values = $2, event_trace = $3, anchors = $4, submitted_at = now()
@@ -494,7 +573,7 @@ func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) 
 }
 
 const touchAtom = `-- name: TouchAtom :one
-UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at
+UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds
 `
 
 // Bumps last_activity_at (0098). Called from the ONE write chokepoint every
@@ -512,6 +591,7 @@ func (q *Queries) TouchAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.UserID,
 		&i.CreatedAt,
 		&i.LastActivityAt,
+		&i.ActiveSeconds,
 	)
 	return i, err
 }
@@ -541,6 +621,33 @@ func (q *Queries) UpdateAtomCardStatus(ctx context.Context, arg UpdateAtomCardSt
 		&i.Anchors,
 		&i.FrameworkFill,
 		&i.Origin,
+	)
+	return i, err
+}
+
+const upsertAtomReport = `-- name: UpsertAtomReport :one
+INSERT INTO atom_report (atom_id, kind, report)
+VALUES ($1, $2, $3)
+ON CONFLICT (atom_id) DO UPDATE SET report = EXCLUDED.report
+RETURNING atom_id, kind, report, share_token, shared_at, created_at
+`
+
+type UpsertAtomReportParams struct {
+	AtomID uuid.UUID `json:"atom_id"`
+	Kind   string    `json:"kind"`
+	Report []byte    `json:"report"`
+}
+
+func (q *Queries) UpsertAtomReport(ctx context.Context, arg UpsertAtomReportParams) (AtomReport, error) {
+	row := q.db.QueryRow(ctx, upsertAtomReport, arg.AtomID, arg.Kind, arg.Report)
+	var i AtomReport
+	err := row.Scan(
+		&i.AtomID,
+		&i.Kind,
+		&i.Report,
+		&i.ShareToken,
+		&i.SharedAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }
