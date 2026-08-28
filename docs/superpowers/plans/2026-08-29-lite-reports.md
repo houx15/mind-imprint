@@ -280,7 +280,9 @@ Expected: FAIL — undefined.
 
 `cappedGapSeconds`: sort, sum `min(gap, cap)` over consecutive pairs, return seconds.
 
-`buildReadingCorpus`: join, in this order and each with a `Where` label — the takeaway (「我的收获」), each annotation's `note` (「批注」), each student message's `stripQuotedLines(content)` (「和印记聊的时候」), and each **submitted** card's `field_values` string leaves (「读的时候记下的」). **Never** touch `framework_fill`, `anchors[].quote`, or `atom_annotation.quote` — those are AI's or the article's.
+`buildReadingCorpus`: join, in this order and each with a `Where` label — the takeaway (「我的收获」), each annotation's `note` (「批注」), each student message's `stripQuotedLines(content)` (「和印记聊的时候」), and each **submitted** card's `field_values` string leaves (「读的时候记下的」).
+
+**"String leaves" means:** unmarshal `field_values` into `any` and walk it recursively, collecting every **string** value (trimmed, skipping empties) wherever it sits in the structure. Include only cards whose `status` is `'submitted'`. Everything she types into a lens card is a string leaf, and nothing AI-authored lives in `field_values` — AI output lives in `framework_fill` and `anchors`, both excluded below. **Never** touch `framework_fill`, `anchors[].quote`, or `atom_annotation.quote` — those are AI's or the article's.
 
 `buildWritingCorpus`: the draft body (「成稿」), each snippet (「第 N 段」), each outline node's `text` (「提纲」), each student message stripped (「和印记聊的时候」). **Never** `role`, `guide`, or any `writing_comment` field.
 
@@ -310,7 +312,17 @@ git commit -m "feat(lite): the facts a report may state, and only her words in t
 
 **Interfaces:**
 - Consumes: Tasks 1 and 3.
-- Produces: `GET /api/v1/readings/{id}/report`, `GET /api/v1/writings/{id}/report` → `{"report": <LiteReport>|null}`; `validateMoments(ms []reportMoment, corpus string) []reportMoment`.
+- Produces: `GET /api/v1/readings/{id}/report`, `GET /api/v1/writings/{id}/report` → `{"report": <LiteReport>|null}`; `validateMoments(ms []reportMoment, corpus string) []reportMoment`; and — **required by Task 5, do not omit it** —
+
+```go
+// ensureAtomReport returns the atom's report, generating and storing it on
+// first call. The bool is false when the atom is not finished: no report, no
+// generation, nothing stamped. Both the GET handler and the share handler go
+// through here, so there is exactly one generator.
+func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, kind string) (sqlc.AtomReport, bool, error)
+```
+
+The GET handler is a thin wrapper over it.
 
 - [ ] **Step 1: Write the failing validator test**
 
@@ -347,8 +359,9 @@ Handler `getAtomReportFor(kind string) http.HandlerFunc` (curried like `liteList
 2. **Finished gate.** Load the `reading`/`writing` row; if `status != "finished"`, write `{"report": null}` and return — no generation, no lock, no stamp.
 3. Cheap read: `GetAtomReport`; if found, return it.
 4. Open a transaction; `pg_advisory_xact_lock(hashtextextended(atom_id::text || ':report', 0))`; **re-run `GetAtomReport` inside the transaction** and return it if a racer won.
-5. Assemble the deterministic half: stats (per the spec's per-kind list), `keep` from her own takeaway (reading) or nil, `studentName`, `title`, `finishedAt`. Time = `active_seconds` if > 0, else `cappedGapSeconds` over the event stamps.
-6. Build the corpus (Task 3). **One** `a.d.EvalResolver` call via `gateway.Collect` returning `{moments:[{quote,where}], keep, gains:[]}`; `recordLiteLLMCall(..., "lite_report", ...)`.
+5. Assemble the deterministic half: stats (per the spec's per-kind list), `studentName`, `title`, `finishedAt`, and `keep`. Time = `active_seconds` if > 0, else `cappedGapSeconds` over the event stamps.
+   **`keep` is deterministic and never comes from the model:** for a reading it is her `reading_takeaway.text` **verbatim** — she wrote it, and it *is* the one thing she wanted to take away; for a writing it is `null`. Nothing to validate, and R4 holds for that field by construction.
+6. Build the corpus (Task 3). **One** `a.d.EvalResolver` call via `gateway.Collect` returning exactly `{moments:[{quote,where}], gains:[]}` — **not** `keep`; `recordLiteLLMCall(..., "lite_report", ...)`.
 7. Validate moments against the corpus. **Best-effort:** if the call errors or nothing survives, keep going with the deterministic half — a report is never blocked on prose.
 8. `UpsertAtomReport`; commit; return.
 
@@ -583,15 +596,19 @@ The first open generates the report, which is a flagship call and can take tens 
 
 In `ReadingRoomHost`'s `FinishedReadingPanel`, **replace** the line 「这次阅读的报告还在路上。…」 with `<ReportPanel kind="reading" atomId={readingId} />`. Same for `FinishedWritingPanel` and 「这篇写作的报告还在路上。…」. These two placeholder lines are the thing this whole sub-project exists to remove — they go now.
 
-- [ ] **Step 4: Run**
+- [ ] **Step 4: Make 「看报告」 true (folded in from the old Task 13)**
 
-Run: `cd apps/lite-web && pnpm vitest run test/reportPanel.test.tsx test/readingRoomHost.test.tsx && pnpm typecheck`
+Both history drawers already label a finished row 「看报告」 (`ReadingHistoryPanel.tsx:280`, `WritingHistoryPanel.tsx:166`) and route to the room path, which resolves to the finished panel. With Step 3 done that label is finally honest — so pin it: add a test asserting that selecting a finished reading from the drawer routes to `/readings/:id` **and** that the finished panel mounts the report panel. If the existing suite already covers the routing half, add only the missing half. Change no copy.
+
+- [ ] **Step 5: Run**
+
+Run: `cd apps/lite-web && pnpm vitest run test/reportPanel.test.tsx test/readingRoomHost.test.tsx test/readingsLanding.test.tsx && pnpm typecheck`
 Expected: PASS.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 6: Commit**
 
 ```bash
-git add apps/lite-web/src/reports/ReportPanel.tsx apps/lite-web/src/readings/ReadingRoomHost.tsx apps/lite-web/src/writings/WritingRoomHost.tsx apps/lite-web/test/reportPanel.test.tsx
+git add apps/lite-web/src/reports/ReportPanel.tsx apps/lite-web/src/readings/ReadingRoomHost.tsx apps/lite-web/src/writings/WritingRoomHost.tsx apps/lite-web/test/reportPanel.test.tsx apps/lite-web/test/readingsLanding.test.tsx
 git commit -m "feat(lite): 报告还在路上 is no longer true, so it no longer says so"
 ```
 
@@ -712,15 +729,15 @@ cd apps/lite-web && pnpm add html-to-image
 - [ ] **Step 2: Write the failing test**
 
 ```tsx
-it("produces a PNG data URL of non-trivial length", async () => {
-  // mock html-to-image's toPng to assert it is called with the poster node
-  // and the expected pixel size, and assert the download is triggered with
-  // a filename containing the title
+it("hands the poster node to the rasterizer with the right options", async () => {
+  // mock html-to-image's toPng; assert it is called with the poster NODE
+  // (not a wrapper), with pixelRatio 2, and that a download is triggered
+  // with a filename containing the title
 });
 it("the poster carries her name, the date, the stats and at most three 金句", () => { /* … */ });
 ```
 
-Assert on the produced data URL's shape and length — **not** merely that the button did not throw.
+**Do NOT assert here that the returned data URL is a long PNG string** — `toPng` is mocked, so that would only assert the mock's own return value. Whether a real picture actually comes out is asserted in Task 14's e2e, where a real browser rasterizes.
 
 - [ ] **Step 3: Run to verify failure**
 
@@ -796,34 +813,6 @@ git commit -m "feat(lite): a shared report opens for someone with no account"
 
 ---
 
-### Task 13: 「看报告」 becomes true
-
-**Files:**
-- Modify: `apps/lite-web/src/readings/ReadingHistoryPanel.tsx`
-- Modify: `apps/lite-web/src/writings/WritingHistoryPanel.tsx`
-- Modify: `apps/lite-web/test/readingsLanding.test.tsx` (or the nearest covering suite)
-
-- [ ] **Step 1: Confirm what the labels do today**
-
-Both drawers label a finished row 「看报告」 and route to the same room path, which resolves to the finished panel. After Task 8 that panel contains the report — so the label is now honest and the only work is confirming it, plus adding a test that pins it.
-
-- [ ] **Step 2: Write the test**
-
-Assert that selecting a finished reading from the drawer routes to `/readings/:id`, and that the finished panel mounts the report panel. If the existing suites already cover the routing half, add only the missing half.
-
-- [ ] **Step 3: Run**
-
-Run: `cd apps/lite-web && pnpm vitest run test/readingsLanding.test.tsx test/reportPanel.test.tsx`
-Expected: PASS.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git commit -m "test(lite): 看报告 now goes to a report"
-```
-
----
-
 ### Task 14: e2e — finish, report, share, open cold, revoke
 
 **Files:**
@@ -838,6 +827,8 @@ Follow the existing e2e files' conventions (`coach-walk.spec.ts`, `reading-walk.
 3. turn sharing on — the link and the QR appear;
 4. **open the share URL in a fresh browser context with no session** and see the report. This is the assertion that matters: `browser.newContext()`, not a new tab in the signed-in one, or the test proves nothing about public access;
 5. revoke; the same URL now shows the unavailable line.
+
+Also assert here, in a real browser, that **the picture actually exports**: click 导出图片 and assert the produced data URL starts with `data:image/png` and is of non-trivial length. This is the assertion Task 11's unit test deliberately does NOT make, because there `toPng` is mocked.
 
 - [ ] **Step 2: Run**
 
