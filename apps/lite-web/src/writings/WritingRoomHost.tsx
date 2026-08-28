@@ -424,7 +424,6 @@ function StagePanel({
       return (
         <SnippetsStage
           writingId={writingId}
-          lang={writing.lang}
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}
@@ -454,7 +453,6 @@ function StagePanel({
       return (
         <SnippetsStage
           writingId={writingId}
-          lang={writing.lang}
           outline={outline}
           snippets={snippets}
           onSnippetsChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, snippets: next } : s))}

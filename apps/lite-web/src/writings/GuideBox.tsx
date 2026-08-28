@@ -61,13 +61,17 @@ export function GuideBox({
 }: {
   guide: WritingBlockGuide;
   onDismiss: () => void;
-  /** 深入一层 — opens a fuller drawer on this block. The drawer itself is a
-   *  later task; this component only owns the button and the callback. */
+  /** 深入一层 — opens `DeepenDrawer` on this block (the same 印记, scoped to
+   *  one block). This component owns only the button and the callback. */
   onDeepen: () => void;
 }) {
   const [showExamples, setShowExamples] = useState(false);
   const hasMethods = guide.methods.length > 0;
-  const hasExamples = guide.methods.some((m) => m.examples.length > 0);
+  // Patterns count as something to show. The English methods in vocab carry
+  // sentence FRAMES instead of worked examples, so gating this button on
+  // `examples` alone hid 例子 from every English block that had frames to
+  // teach — which was most of them.
+  const hasIllustrations = guide.methods.some((m) => m.examples.length > 0 || m.patterns.length > 0);
 
   return (
     <div
@@ -129,7 +133,7 @@ export function GuideBox({
       )}
 
       <div className="flex flex-wrap items-center gap-2 pt-1">
-        {hasExamples && (
+        {hasIllustrations && (
           <Button
             variant="secondary"
             size="sm"
@@ -144,7 +148,7 @@ export function GuideBox({
         </Button>
       </div>
 
-      {showExamples && hasExamples && <VocabExamples methods={guide.methods} />}
+      {showExamples && hasIllustrations && <VocabExamples methods={guide.methods} />}
     </div>
   );
 }
