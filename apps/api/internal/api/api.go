@@ -261,6 +261,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/writings/{id}/outline", liteOnly(a.getWritingOutline))
 	mux.Handle("PUT /api/v1/writings/{id}/outline", liteOnly(a.putWritingOutline))
 	mux.Handle("POST /api/v1/writings/{id}/outline/{oid}/guide", liteOnly(a.guideWritingBlock))
+	mux.Handle("POST /api/v1/writings/{id}/guide", liteOnly(a.guideWritingBlocks))
 	mux.Handle("GET /api/v1/writings/{id}/snippets", liteOnly(a.getWritingSnippets))
 	mux.Handle("PUT /api/v1/writings/{id}/snippets", liteOnly(a.putWritingSnippets))
 	mux.Handle("POST /api/v1/writings/{id}/snippets/{sid}/exemplar", liteOnly(a.generateWritingSnippetExemplar))
