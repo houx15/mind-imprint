@@ -118,7 +118,18 @@ export function ReadingCoachPanel({
     // send. Only refuse when there is truly nothing at all — no text AND no
     // quote — or while a lens holds the composer locked.
     if ((!text && slot.quotes.length === 0) || slot.locked) return;
-    const quoted = slot.quotes.map((q) => `> ${q.quote}`).join("\n");
+    // F1: prefix EVERY line of a quote, not just its first. A drag-selection
+    // across a hard-wrapped paragraph (no blank line between its lines —
+    // SplitBlocks on the server only splits on "\n\n") returns a quote whose
+    // text contains internal "\n"s; prefixing only the first line left the
+    // article's later lines sitting in the stored message with no "> " at
+    // all, where report_facts.go's stripQuotedLines (which only strips lines
+    // that already start with "> ") could not catch them. See
+    // report_facts.go's stripArticleLines for the server-side half of this
+    // fix, which also repairs transcripts already stored under this bug.
+    const quoted = slot.quotes
+      .map((q) => q.quote.split("\n").map((line) => `> ${line}`).join("\n"))
+      .join("\n");
     const picks = slot.quotes
       .filter((q) => Boolean(q.blockId))
       .map((q) => ({ blockId: q.blockId as string, quote: q.quote }));

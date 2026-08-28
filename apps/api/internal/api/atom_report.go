@@ -113,6 +113,31 @@ func validateMoments(ms []reportMoment, corpus string) []reportMoment {
 	return out
 }
 
+// dedupeMomentsAgainstKeep is F4: her 收获 is both rendered verbatim as
+// `keep` AND part of the corpus a moment's quote is validated against
+// (buildReadingCorpus includes the takeaway) — so the model can legally
+// quote her own takeaway sentence back as a 金句, and it then prints twice
+// on the same report. Post-hoc dedupe, applied AFTER validateMoments, not a
+// corpus exclusion: stripping the takeaway out of the corpus before the
+// model call would leave the corpus EMPTY for a thin reading finished on
+// takeaway alone, and generateReportProse short-circuits an empty corpus —
+// killing `gains` too, for a session that had real material to reflect on.
+// A moment whose quote equals `keep.Text`, or is a literal substring of it,
+// is dropped; everything else survives untouched.
+func dedupeMomentsAgainstKeep(moments []reportMoment, keep *reportKeep) []reportMoment {
+	if keep == nil || strings.TrimSpace(keep.Text) == "" {
+		return moments
+	}
+	out := make([]reportMoment, 0, len(moments))
+	for _, m := range moments {
+		if strings.Contains(keep.Text, m.Quote) {
+			continue
+		}
+		out = append(out, m)
+	}
+	return out
+}
+
 // cleanGains trims each line, drops empties, and caps at 4 — "2-4 short
 // lines" per the spec. Fewer than 2 is still shown; a thin session is the
 // honest outcome, not an error.
@@ -334,8 +359,19 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	if err != nil {
 		return liteReportDTO{}, err
 	}
+	// F1: the article's own paragraphs, so buildReadingCorpus can drop any
+	// article sentence that reached a student message without a "> " prefix
+	// (see stripArticleLines, report_facts.go). A source that no longer
+	// exists (should not happen for a finished reading, but this is a
+	// best-effort report, not the source-loading path) degrades to nil
+	// blocks — stripArticleLines is then a no-op, same as before this fix.
+	src, err := qtx.GetReadingSource(ctx, at.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return liteReportDTO{}, err
+	}
+	blocks := SplitBlocks(src.Body)
 
-	corpus := buildReadingCorpus(takeaway.Text, notes, msgs, cards)
+	corpus := buildReadingCorpus(takeaway.Text, notes, msgs, cards, blocks)
 
 	stamps := make([]time.Time, 0, len(msgs)+len(notes)+len(cards))
 	for _, m := range msgs {
@@ -361,6 +397,12 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	}
 
 	moments, gains := a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
+	// F4: the takeaway stays IN the corpus (see this function's caller
+	// context and dedupeMomentsAgainstKeep's own doc comment for why), so
+	// strip it back out of moments here, after generation, rather than
+	// before — otherwise a thin reading finished on takeaway alone would
+	// hand the model an empty corpus and lose `gains` too.
+	moments = dedupeMomentsAgainstKeep(moments, keep)
 
 	finishedAt := ""
 	if rd.FinishedAt.Valid {
@@ -606,9 +648,23 @@ func (a *API) getAtomReportFor(kind string) http.HandlerFunc {
 			return
 		}
 		if !found {
-			httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": nil})
+			httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": nil, "shared": false, "shareToken": nil})
 			return
 		}
-		httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": json.RawMessage(row.Report)})
+		// F2: tell the AUTHENTICATED caller whether this report is already
+		// shared, and with what token, so SharePanel can rebuild its own
+		// state on reload instead of always starting at {phase:"off"} — a
+		// state whose copy describes sharing as hypothetical when it may
+		// already be live, and whose only path to 停止分享 is a button
+		// labelled 生成分享链接 that most students will never press. The
+		// PUBLIC payload (getPublicReport) must NEVER carry this — see that
+		// function's own comment and TestPublicPayloadCarriesNothingExtra,
+		// which pins its exact key set.
+		shared := row.ShareToken != nil && *row.ShareToken != ""
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{
+			"report":     json.RawMessage(row.Report),
+			"shared":     shared,
+			"shareToken": row.ShareToken,
+		})
 	}
 }

@@ -84,6 +84,25 @@ describe("SharePanel", () => {
     expect(unshareReport).toHaveBeenCalledWith("reading", "atom-1");
   });
 
+  it("F2: mounting on an already-shared report shows the link, the QR, and 停止分享 — not the off state", async () => {
+    render(<SharePanel kind="reading" atomId="atom-1" initialShareToken="already-shared-token" />);
+
+    // Off-state affordances must be absent immediately — no flash of "off"
+    // before the fetch, because there is no fetch: the token is a prop.
+    expect(screen.queryByRole("button", { name: "生成分享链接" })).toBeNull();
+
+    const link = screen.getByDisplayValue("https://mind-lite.example/s/already-shared-token");
+    expect(link).toBeTruthy();
+    expect(screen.getByRole("button", { name: "停止分享" })).toBeTruthy();
+
+    const img = (await screen.findByRole("img", { name: /二维码/ })) as HTMLImageElement;
+    expect(img.src).toBe("data:image/png;base64,QR(https://mind-lite.example/s/already-shared-token)");
+
+    // Nothing was minted — the token came from the server's earlier report
+    // fetch, not from a fresh POST.
+    expect(shareReport).not.toHaveBeenCalled();
+  });
+
   it("maps kind='writing' onto the writing atom id when sharing/unsharing", async () => {
     shareReport.mockResolvedValue({ token: "tok-w", url: "https://irrelevant.example/s/tok-w" });
     unshareReport.mockResolvedValue(undefined);

@@ -70,9 +70,19 @@ func getReadingReportHTTP(h http.Handler, cookie *http.Cookie, id string) *httpt
 // does not matter to either test below — TestReportUnfinishedGeneratesNothing
 // never reaches it, and TestReportChargesOnce only cares that it was called
 // exactly once.
+//
+// The canned quote deliberately does NOT overlap finishedReadingID's
+// takeaway text: after F4 (dedupeMomentsAgainstKeep), any moment that is a
+// substring of `keep` (her takeaway, verbatim) is dropped post-generation —
+// so a quote drawn from the takeaway would always vanish from the response.
+// finishedReadingID plants a separate student chat message carrying this
+// exact phrase so a moment quoting it survives BOTH validateMoments (a
+// literal substring of the corpus) and dedupeMomentsAgainstKeep (not a
+// substring of keep) — the shape TestPublicPayloadCarriesNothingExtra needs
+// to see a non-empty `moments` key on the wire.
 func reportStubProvider() *gateway.StubProvider {
 	return gateway.NewStubProvider([]gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `{"moments":[{"quote":"我觉得应该多看数据来源","where":"写收获的时候"}],"gains":["她学会了先看信息的来源，而不是先信结论"]}`},
+		{Kind: gateway.EventTextDelta, TextDelta: `{"moments":[{"quote":"数据来源要能查到出处","where":"和印记聊的时候"}],"gains":["她学会了先看信息的来源，而不是先信结论"]}`},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 80, OutputTokens: 40}},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
 	})

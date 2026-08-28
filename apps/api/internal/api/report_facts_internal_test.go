@@ -207,7 +207,7 @@ func TestBuildReadingCorpus(t *testing.T) {
 		},
 	}
 
-	corpus := buildReadingCorpus(takeaway, notes, msgs, cards)
+	corpus := buildReadingCorpus(takeaway, notes, msgs, cards, nil)
 
 	// Included: hers.
 	for _, want := range []string{
@@ -234,6 +234,73 @@ func TestBuildReadingCorpus(t *testing.T) {
 		if strings.Contains(corpus.Text, mustNotAppear) {
 			t.Errorf("R4 VIOLATION: excluded text leaked into reading corpus: %q", mustNotAppear)
 		}
+	}
+}
+
+// TestBuildReadingCorpusDropsUnprefixedArticleLines is F1's server-side
+// enforcement point at the corpus-builder level. ReadingCoachPanel.tsx's
+// send() (before its own F1 fix) prefixed only the FIRST line of a
+// multi-line quote with "> " — a drag-selection across a hard-wrapped
+// paragraph (no blank line between its lines, so SplitBlocks never split it)
+// returns exactly such a quote. This simulates that transcript shape — which
+// can also already be sitting in storage from before the client fix — and
+// asserts the article's SECOND line never reaches the corpus even though it
+// carries no "> " prefix at all. stripQuotedLines alone (which only strips
+// already-prefixed lines) cannot catch this; stripArticleLines, driven by
+// the blocks parameter, is what does.
+func TestBuildReadingCorpusDropsUnprefixedArticleLines(t *testing.T) {
+	atomID := uuid.New()
+	blocks := []Block{
+		{ID: "b1", Text: "中国的碳排放总量位居世界第一。\n但人均排放仍低于多数发达国家。"},
+	}
+	msgs := []sqlc.AtomMessage{
+		{
+			ID:     uuid.New(),
+			AtomID: atomID,
+			Seq:    1,
+			Role:   "student",
+			// Only the first line is "> "-prefixed — the pre-fix client shape.
+			Content: "> 中国的碳排放总量位居世界第一。\n但人均排放仍低于多数发达国家。\n\n我觉得这句话说明责任还要看人均。",
+		},
+	}
+
+	corpus := buildReadingCorpus("", nil, msgs, nil, blocks)
+
+	if strings.Contains(corpus.Text, "但人均排放仍低于多数发达国家") {
+		t.Error("R4 VIOLATION: an unprefixed second line of the article survived into her corpus")
+	}
+	if !strings.Contains(corpus.Text, "我觉得这句话说明责任还要看人均") {
+		t.Error("her own sentence was stripped along with the unprefixed article line")
+	}
+}
+
+// TestBuildReadingCorpusDropsHerOwnLineThatCoincidesWithArticle documents
+// F1's choice on the one ambiguity stripArticleLines cannot resolve: a line
+// of HER OWN prose that happens, coincidentally, to be a literal substring
+// of the article. stripArticleLines cannot tell that apart from an actual
+// unprefixed article line reaching the transcript — and between "a rare
+// false-positive drop" and "the exact R4 leak this file exists to close",
+// dropping is the safer choice (see stripArticleLines' doc comment), so this
+// test locks that choice in rather than the more generous alternative.
+func TestBuildReadingCorpusDropsHerOwnLineThatCoincidesWithArticle(t *testing.T) {
+	atomID := uuid.New()
+	blocks := []Block{{ID: "b1", Text: "地球变暖是真实存在的。"}}
+	msgs := []sqlc.AtomMessage{
+		{
+			ID:     uuid.New(),
+			AtomID: atomID,
+			Seq:    1,
+			Role:   "student",
+			// She typed this herself — it just happens to coincide, word for
+			// word, with a sentence in the article.
+			Content: "地球变暖是真实存在的。",
+		},
+	}
+
+	corpus := buildReadingCorpus("", nil, msgs, nil, blocks)
+
+	if strings.Contains(corpus.Text, "地球变暖是真实存在的") {
+		t.Error("expected the coincidental line to be dropped — see the ruling in this test's doc comment")
 	}
 }
 

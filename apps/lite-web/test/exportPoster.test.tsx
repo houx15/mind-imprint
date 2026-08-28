@@ -39,14 +39,17 @@ vi.mock("html-to-image", () => ({
   toPng: (...args: unknown[]) => toPng(...args),
 }));
 
-const getReport = vi.fn();
+// F2: ReportPanel fetches through `getReportEnvelope` now (report +
+// share state together), not the bare `getReport` this file used to mock —
+// see api/reports.ts and ReportPanel.tsx.
+const getReportEnvelope = vi.fn();
 const shareReport = vi.fn();
 const unshareReport = vi.fn();
 vi.mock("@lite/api/reports", async (importOriginal) => {
   const actual = await importOriginal<typeof import("@lite/api/reports")>();
   return {
     ...actual,
-    getReport: (...args: unknown[]) => getReport(...args),
+    getReportEnvelope: (...args: unknown[]) => getReportEnvelope(...args),
     shareReport: (...args: unknown[]) => shareReport(...args),
     unshareReport: (...args: unknown[]) => unshareReport(...args),
   };
@@ -198,7 +201,7 @@ describe("ReportPanel → 导出图片", () => {
   it("drives the whole export path through the button, and the rasterizer sees a live, in-document node", async () => {
     const restore = stubDownloadAnchor();
     try {
-      getReport.mockResolvedValue(thinReport());
+      getReportEnvelope.mockResolvedValue({ report: thinReport(), shareToken: null });
       let sawNodeInDocument: boolean | null = null;
       toPng.mockImplementation(async (node: HTMLElement) => {
         sawNodeInDocument = document.body.contains(node);
@@ -226,7 +229,7 @@ describe("ReportPanel → 导出图片", () => {
   it("cleans up the temporary mount after a successful export — no stray poster, no stray container", async () => {
     const restore = stubDownloadAnchor();
     try {
-      getReport.mockResolvedValue(thinReport());
+      getReportEnvelope.mockResolvedValue({ report: thinReport(), shareToken: null });
       toPng.mockResolvedValue("data:image/png;base64,stub");
 
       render(<ReportPanel kind="reading" atomId="atom-1" />);
@@ -250,7 +253,7 @@ describe("ReportPanel → 导出图片", () => {
   it("cleans up even when the rasterizer rejects — no leaked container, no error escaping into the render", async () => {
     const restore = stubDownloadAnchor();
     try {
-      getReport.mockResolvedValue(thinReport());
+      getReportEnvelope.mockResolvedValue({ report: thinReport(), shareToken: null });
       toPng.mockRejectedValue(new Error("rasterize failed"));
 
       render(<ReportPanel kind="reading" atomId="atom-1" />);
@@ -274,7 +277,7 @@ describe("ReportPanel → 导出图片", () => {
   it("the exporting gate blocks a second click while the first export is still in flight", async () => {
     const restore = stubDownloadAnchor();
     try {
-      getReport.mockResolvedValue(thinReport());
+      getReportEnvelope.mockResolvedValue({ report: thinReport(), shareToken: null });
       let resolveToPng!: (v: string) => void;
       toPng.mockImplementation(
         () =>

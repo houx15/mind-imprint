@@ -52,13 +52,35 @@ function atomBase(kind: AtomKind, id: string): string {
   return `/api/v1/${pathSegment[kind]}/${encodeURIComponent(id)}`;
 }
 
+/** Wire shape of the AUTHENTICATED GET .../report response — `report` plus
+ *  F2's share state (`shared`/`shareToken`), so a returning student sees a
+ *  share she already made instead of the panel always starting closed. The
+ *  PUBLIC payload (`getPublicReport`) never carries these two fields — see
+ *  atom_report_share.go's file comment and TestPublicPayloadCarriesNothingExtra. */
+type RawReportEnvelope = { report: RawLiteReport | null; shared?: boolean; shareToken?: string | null };
+
+/** F2: `report` plus whether this report is already shared and, if so, with
+ *  which token — read by `ReportPanel` to hand `SharePanel` its starting
+ *  state on mount, rather than always starting at {phase:"off"}. */
+export type ReportEnvelope = { report: LiteReport | null; shareToken: string | null };
+
 /**
  * `null` means the atom is not finished yet — a normal, expected state (the
  * server generates the report on first call and stores it), not an error.
  */
 export async function getReport(kind: AtomKind, id: string): Promise<LiteReport | null> {
-  const raw = await apiFetch<{ report: RawLiteReport | null }>(`${atomBase(kind, id)}/report`);
-  return raw.report ? normalizeReport(raw.report) : null;
+  const env = await getReportEnvelope(kind, id);
+  return env.report;
+}
+
+/** Same fetch as `getReport`, but also surfaces F2's share state — see
+ *  `ReportEnvelope`. */
+export async function getReportEnvelope(kind: AtomKind, id: string): Promise<ReportEnvelope> {
+  const raw = await apiFetch<RawReportEnvelope>(`${atomBase(kind, id)}/report`);
+  return {
+    report: raw.report ? normalizeReport(raw.report) : null,
+    shareToken: raw.shareToken ?? null,
+  };
 }
 
 /** Mints (or, on a report already shared, re-returns) the public share link. */

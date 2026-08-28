@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { shareReport, unshareReport, type AtomKind } from "../api/reports";
 
@@ -23,13 +23,20 @@ import { shareReport, unshareReport, type AtomKind } from "../api/reports";
  * so building the URL here removes that failure class outright rather than
  * testing around it.
  *
- * ## Off by default, no fetch on mount
+ * ## F2: starts from whatever is already true, not always "off"
  *
- * Unlike `ReportPanel`, this never asks the server "is this already
- * shared?" — there is no such endpoint (Task 6 only gave us `shareReport`/
- * `unshareReport`), and starting closed is the safe default for a minor
- * publishing her own schoolwork: nothing is ever shown as shared unless
- * SHE, in this sitting, clicked the button that shares it.
+ * `ReportPanel` now reads `shareToken` off the same GET .../report call
+ * that fetches the report (see api/reports.ts's `getReportEnvelope`) and
+ * passes it down as `initialShareToken`. Before this fix this panel always
+ * started at {phase:"off"} regardless of server state, because there was no
+ * way to ask "is this already shared?" — so a student who shared, closed
+ * the tab, and came back saw the OFF state's copy describe as hypothetical
+ * ("分享之后，任何拿到这个链接的人都能打开这份报告") something that was
+ * currently true, with no visible 停止分享 at all. Starting from
+ * `initialShareToken` when it is present fixes that; starting at
+ * {phase:"off"} when it is absent (or omitted, e.g. in isolation/tests) is
+ * still the safe default for a minor's own schoolwork: nothing is ever
+ * shown as shared unless the server itself says a token already exists.
  *
  * ## Copy
  *
@@ -44,17 +51,59 @@ type ShareState =
   | { phase: "on"; url: string; qr: string | null }
   | { phase: "unsharing"; url: string; qr: string | null };
 
-export function SharePanel({ kind, atomId }: { kind: AtomKind; atomId: string }) {
-  const [state, setState] = useState<ShareState>({ phase: "off" });
+/** The one place a share token turns into the student-facing link — used by
+ *  both `handleShare` (a freshly minted token) and the mount-time restore of
+ *  an `initialShareToken`, so the two paths can never disagree on the URL
+ *  shape. See the file comment: always built from the browser's own origin,
+ *  never trusted from the server. */
+function buildShareUrl(token: string): string {
+  return `${window.location.origin}/s/${token}`;
+}
+
+export function SharePanel({
+  kind,
+  atomId,
+  initialShareToken = null,
+}: {
+  kind: AtomKind;
+  atomId: string;
+  /** F2: a token already minted server-side, e.g. from a previous sitting —
+   *  when present, the panel starts at {phase:"on"} instead of "off". */
+  initialShareToken?: string | null;
+}) {
+  const [state, setState] = useState<ShareState>(() =>
+    initialShareToken ? { phase: "on", url: buildShareUrl(initialShareToken), qr: null } : { phase: "off" },
+  );
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // Mount-only: fill in the QR image for a share that was ALREADY live when
+  // this panel mounted (initialShareToken). handleShare below generates its
+  // own QR inline as part of minting a NEW share — this effect only covers
+  // the "reopened on an already-shared report" path, and runs once, so it
+  // never fights with handleShare's own qr write.
+  useEffect(() => {
+    if (!initialShareToken) return;
+    let cancelled = false;
+    QRCode.toDataURL(buildShareUrl(initialShareToken))
+      .then((qr) => {
+        if (!cancelled) setState((s) => (s.phase === "on" ? { ...s, qr } : s));
+      })
+      .catch(() => {
+        /* link still works without the image */
+      });
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   async function handleShare() {
     setError(null);
     setState({ phase: "sharing" });
     try {
       const { token } = await shareReport(kind, atomId);
-      const url = `${window.location.origin}/s/${token}`;
+      const url = buildShareUrl(token);
       let qr: string | null = null;
       try {
         qr = await QRCode.toDataURL(url);

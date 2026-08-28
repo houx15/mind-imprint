@@ -6,9 +6,14 @@ import { ReportView } from "./ReportView";
 /**
  * PublicReportPage — what a shared report link actually opens, for someone
  * with NO account at all (a parent scanning the QR code on a printed poster,
- * a link pasted into a family chat). Mounted by `LiteApp` for the `/s/:token`
- * route, BEFORE the auth boot effect runs — see the comment at that call
- * site for why the ordering is load-bearing.
+ * a link pasted into a family chat). For the `/s/:token` route this is
+ * mounted directly by `rootElementFor.tsx` (the composition root, called
+ * from `main.tsx`) instead of `LiteApp` — that module parses the pathname
+ * itself and picks between this component and `LiteApp` before either one
+ * renders, so `LiteApp`'s own hooks and auth boot effect never run at all
+ * for a visitor on a share link. See `rootElementFor.tsx`'s own comment for
+ * why that decision lives at the composition root rather than as an early
+ * return inside `LiteApp`.
  *
  * Deliberately thin: fetch the report, mount the same `ReportView` the
  * signed-in student sees (Task 7 — pure presentation, no fetching, no auth),

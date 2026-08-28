@@ -17,10 +17,12 @@ export type LiteRoute =
   // and land exactly where the student was.
   | { tab: "settings" }
   // `/s/:token` — a shared report's public link. Not a rail tab at all: it is
-  // opened by someone with NO session (a parent scanning a QR code), so
-  // `LiteApp` must recognize and render it BEFORE the auth boot effect ever
-  // runs. See the routing check at the top of `LiteApp` for why the order
-  // matters.
+  // opened by someone with NO session (a parent scanning a QR code), so it
+  // is never routed through `LiteApp` at all — `rootElementFor.tsx` (the
+  // composition root, called from `main.tsx`) parses the pathname itself and
+  // mounts `PublicReportPage` directly for `tab === "share"`, `LiteApp`
+  // otherwise. See that module's own comment for why the choice lives there
+  // instead of as an early return inside `LiteApp`.
   | { tab: "share"; token: string };
 
 /** Parse a browser pathname into a lite route. Unknown paths fall back to the

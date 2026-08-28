@@ -16,16 +16,32 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	"mindimprint/api/internal/store/sqlc"
 )
 
-// finishedSharedReadingID creates a reading atom, gives it a takeaway whose
-// text contains reportStubProvider's canned quote (so moments survive
-// validateMoments deterministically, the same fixture TestReportChargesOnce
-// uses), and finishes it — the state every share test starts from.
-func finishedReadingID(t *testing.T, h http.Handler, cookie *http.Cookie, title string) string {
+// finishedSharedReadingID creates a reading atom, gives it a takeaway, plants
+// a separate student chat message carrying reportStubProvider's canned quote
+// (so a moment survives BOTH validateMoments and F4's dedupeMomentsAgainstKeep
+// deterministically — see reportStubProvider's own comment for why the quote
+// can no longer just live inside the takeaway), and finishes it — the state
+// every share test starts from.
+func finishedReadingID(t *testing.T, h http.Handler, cookie *http.Cookie, q *sqlc.Queries, title string) string {
 	t.Helper()
 	id := createReadingAtomHTTP(t, h, cookie, title)
 	putReadingTakeawayHTTP(t, h, cookie, id, "我觉得应该多看数据来源，而不是只看结论")
+	atomID := mustUUID(id)
+	ctx := context.Background()
+	seq, err := q.NextAtomMessageSeq(ctx, atomID)
+	if err != nil {
+		t.Fatalf("NextAtomMessageSeq: %v", err)
+	}
+	if _, err := q.AppendAtomMessage(ctx, sqlc.AppendAtomMessageParams{
+		AtomID: atomID, Seq: seq, Role: "student",
+		Content: "我又想了想，数据来源要能查到出处，这样才可信。",
+	}); err != nil {
+		t.Fatalf("AppendAtomMessage: %v", err)
+	}
 	finishReadingHTTP(t, h, cookie, id)
 	return id
 }
@@ -78,8 +94,8 @@ func keysOf(m map[string]any) []string {
 // resolve the old link. share -> public GET 200 -> revoke -> public GET 404.
 func TestRevokedShareIs404(t *testing.T) {
 	prov := &countingProvider{inner: reportStubProvider()}
-	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
-	id := finishedReadingID(t, h, cookie, "一篇关于气候变化的文章")
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
+	id := finishedReadingID(t, h, cookie, q, "一篇关于气候变化的文章")
 
 	shareRec := shareReportHTTP(t, h, cookie, "readings", id)
 	if shareRec.Code != http.StatusOK {
@@ -112,8 +128,8 @@ func TestRevokedShareIs404(t *testing.T) {
 // existed.
 func TestUnknownTokenIs404AndLooksLikeRevoked(t *testing.T) {
 	prov := &countingProvider{inner: reportStubProvider()}
-	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
-	id := finishedReadingID(t, h, cookie, "一篇没人分享过的文章")
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
+	id := finishedReadingID(t, h, cookie, q, "一篇没人分享过的文章")
 
 	shareRec := shareReportHTTP(t, h, cookie, "readings", id)
 	token, _ := decodeShareResponse(t, shareRec)
@@ -136,8 +152,8 @@ func TestUnknownTokenIs404AndLooksLikeRevoked(t *testing.T) {
 // this test rather than shipping to the open internet.
 func TestPublicPayloadCarriesNothingExtra(t *testing.T) {
 	prov := &countingProvider{inner: reportStubProvider()}
-	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
-	id := finishedReadingID(t, h, cookie, "一篇关于气候变化的文章")
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
+	id := finishedReadingID(t, h, cookie, q, "一篇关于气候变化的文章")
 
 	shareRec := shareReportHTTP(t, h, cookie, "readings", id)
 	if shareRec.Code != http.StatusOK {
@@ -183,8 +199,8 @@ func TestPublicPayloadCarriesNothingExtra(t *testing.T) {
 // someone must stay valid.
 func TestReshareReturnsExistingToken(t *testing.T) {
 	prov := &countingProvider{inner: reportStubProvider()}
-	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
-	id := finishedReadingID(t, h, cookie, "一篇会被分享两次的文章")
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
+	id := finishedReadingID(t, h, cookie, q, "一篇会被分享两次的文章")
 
 	first := shareReportHTTP(t, h, cookie, "readings", id)
 	if first.Code != http.StatusOK {
@@ -213,7 +229,7 @@ func TestReshareReturnsExistingToken(t *testing.T) {
 // already revoked once.
 func TestRevokeIsIdempotent(t *testing.T) {
 	prov := &countingProvider{inner: reportStubProvider()}
-	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
 
 	t.Run("no report row yet (never finished, never shared)", func(t *testing.T) {
 		id := createReadingAtomHTTP(t, h, cookie, "还没读完也没分享过的一篇")
@@ -224,7 +240,7 @@ func TestRevokeIsIdempotent(t *testing.T) {
 	})
 
 	t.Run("already revoked once", func(t *testing.T) {
-		id := finishedReadingID(t, h, cookie, "分享过又停止分享的一篇")
+		id := finishedReadingID(t, h, cookie, q, "分享过又停止分享的一篇")
 		if rec := shareReportHTTP(t, h, cookie, "readings", id); rec.Code != http.StatusOK {
 			t.Fatalf("share = %d, want 200; body=%s", rec.Code, rec.Body)
 		}
@@ -282,5 +298,68 @@ func TestWritingReportShareRoundTrip(t *testing.T) {
 	}
 	if rec := getPublicReportHTTP(h, token); rec.Code != http.StatusNotFound {
 		t.Fatalf("public GET writing report after revoke = %d, want 404; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// decodeAuthedReportEnvelope decodes the AUTHENTICATED GET .../report
+// response's top-level share fields — distinct from decodeShareResponse
+// (the POST .../report/share response) and from the public envelope
+// (TestPublicPayloadCarriesNothingExtra), which must never carry these.
+func decodeAuthedReportEnvelope(t *testing.T, rec *httptest.ResponseRecorder) (shared bool, shareToken *string) {
+	t.Helper()
+	var out struct {
+		Shared     bool    `json:"shared"`
+		ShareToken *string `json:"shareToken"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode authed report envelope: %v — body=%s", err, rec.Body)
+	}
+	return out.Shared, out.ShareToken
+}
+
+// TestReportReflectsLiveShareState is F2: a live share must survive a
+// reload. Before this fix, GET .../report said nothing about share_token at
+// all, so SharePanel always mounted at {phase:"off"} — closed copy, and a
+// 停止分享 button that is nowhere on screen — even though the link was still
+// fully live and revocable server-side. share -> GET report -> the
+// AUTHENTICATED envelope must say shared:true with the SAME token; revoke ->
+// GET report again -> shared:false, token gone.
+func TestReportReflectsLiveShareState(t *testing.T) {
+	prov := &countingProvider{inner: reportStubProvider()}
+	h, cookie, q, _ := liteHandlerWithProvider(t, prov)
+	id := finishedReadingID(t, h, cookie, q, "一篇分享后又刷新页面的文章")
+
+	// Before sharing: the report exists (she finished), but nothing is shared.
+	beforeRec := getReadingReportHTTP(h, cookie, id)
+	if beforeRec.Code != http.StatusOK {
+		t.Fatalf("GET report before share = %d, want 200; body=%s", beforeRec.Code, beforeRec.Body)
+	}
+	if shared, token := decodeAuthedReportEnvelope(t, beforeRec); shared || (token != nil && *token != "") {
+		t.Fatalf("before sharing: shared=%v token=%v, want false/empty", shared, token)
+	}
+
+	shareRec := shareReportHTTP(t, h, cookie, "readings", id)
+	mintedToken, _ := decodeShareResponse(t, shareRec)
+
+	// This is the reload: a FRESH GET of the same report, as if she closed
+	// the tab and came back — must reflect the share that is already live.
+	afterRec := getReadingReportHTTP(h, cookie, id)
+	if afterRec.Code != http.StatusOK {
+		t.Fatalf("GET report after share = %d, want 200; body=%s", afterRec.Code, afterRec.Body)
+	}
+	shared, token := decodeAuthedReportEnvelope(t, afterRec)
+	if !shared {
+		t.Fatalf("after sharing: shared=false, want true — body=%s", afterRec.Body)
+	}
+	if token == nil || *token != mintedToken {
+		t.Fatalf("after sharing: shareToken=%v, want %q", token, mintedToken)
+	}
+
+	revokeReportHTTP(t, h, cookie, "readings", id)
+
+	revokedRec := getReadingReportHTTP(h, cookie, id)
+	shared, token = decodeAuthedReportEnvelope(t, revokedRec)
+	if shared || (token != nil && *token != "") {
+		t.Fatalf("after revoking: shared=%v token=%v, want false/empty", shared, token)
 	}
 }

@@ -82,6 +82,49 @@ func stripQuotedLines(s string) string {
 	return strings.TrimSpace(strings.Join(kept, "\n"))
 }
 
+// stripArticleLines is R4's second enforcement point (F1's server-side
+// half): it drops any line of s — prefixed with "> " or not — that is a
+// literal substring of some block's Text, the same "real paragraph, quoted
+// literally" test quotedLinesCiteArticle (reading_coach.go) applies to
+// `> `-prefixed lines, generalized here to every line so it also catches an
+// article sentence that reached a student message with NO "> " prefix at
+// all (see buildReadingCorpus's doc comment for how that happens).
+//
+// A line of her own prose that happens to ALSO be a literal substring of
+// the article is dropped too — this function cannot tell "she typed a
+// sentence that coincidentally matches the article" apart from "the client
+// failed to prefix an article line", and between those two, dropping is the
+// safe choice: R4's whole promise is that nothing on the exported picture
+// can be the article's words, and a false-negative drop of a rare
+// coincidental match costs her nothing a report already needs, while a
+// false-positive keep would be exactly the leak this file exists to close.
+func stripArticleLines(s string, blocks []Block) string {
+	if len(blocks) == 0 {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		t := strings.TrimSpace(line)
+		if t == "" {
+			kept = append(kept, line)
+			continue
+		}
+		cited := false
+		for _, blk := range blocks {
+			if strings.Contains(blk.Text, t) {
+				cited = true
+				break
+			}
+		}
+		if cited {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.TrimSpace(strings.Join(kept, "\n"))
+}
+
 // cjkFullwidthPunct covers common CJK fullwidth/ideographic punctuation
 // marks, checked in addition to unicode.IsPunct so countWordsForLang does
 // not undercount-exclude (i.e. accidentally count as a "word") any mark in
@@ -196,9 +239,9 @@ func collectFieldValueLeaves(raw []byte) []string {
 //   - the reading takeaway text ("我的收获") — hers: reading_takeaway.text.
 //   - every atom_annotation's `note` ("批注") — hers: her commentary on a
 //     highlight.
-//   - every atom_message with role='student', AFTER stripQuotedLines
-//     ("和印记聊的时候") — hers, once the article sentences she quoted at
-//     印记 are stripped out (see stripQuotedLines).
+//   - every atom_message with role='student', AFTER stripQuotedLines AND
+//     stripArticleLines ("和印记聊的时候") — hers, once the article
+//     sentences she quoted at 印记 are stripped out.
 //   - every string leaf inside a SUBMITTED atom_card's `field_values`
 //     ("读的时候记下的") — hers: everything she typed into a lens card
 //     (see collectFieldValueLeaves).
@@ -212,7 +255,19 @@ func collectFieldValueLeaves(raw []byte) []string {
 //   - any atom_card whose status != 'submitted' — a draft/abandoned card
 //     may hold half-typed, never-finished text.
 //   - any atom_message whose role != 'student' — 印记's own turns.
-func buildReadingCorpus(takeaway string, notes []sqlc.AtomAnnotation, msgs []sqlc.AtomMessage, cards []sqlc.AtomCard) reportCorpus {
+//
+// blocks is the article's own paragraphs (SplitBlocks(src.Body)) — F1's
+// server-side half of the fix. stripQuotedLines alone trusts a client
+// convention (every quoted line is prefixed with "> "); ReadingCoachPanel's
+// send() only prefixes the FIRST line of a multi-line quote, so a
+// drag-selection across a hard-wrapped paragraph's internal newlines (a
+// PDF/Word paste, a poem, a list with no blank lines — see SplitBlocks'
+// blank-line-only split) can leave later lines of the article sitting in a
+// student message with no "> " at all. stripArticleLines is the check that
+// makes R4 hold regardless of what the client sent, and it ALSO repairs
+// transcripts already stored under the old client behaviour, since it runs
+// against the article every time a report is (re)generated.
+func buildReadingCorpus(takeaway string, notes []sqlc.AtomAnnotation, msgs []sqlc.AtomMessage, cards []sqlc.AtomCard, blocks []Block) reportCorpus {
 	var c reportCorpus
 
 	c.add(takeaway, "我的收获")
@@ -225,7 +280,7 @@ func buildReadingCorpus(takeaway string, notes []sqlc.AtomAnnotation, msgs []sql
 		if m.Role != "student" {
 			continue
 		}
-		c.add(stripQuotedLines(m.Content), "和印记聊的时候")
+		c.add(stripArticleLines(stripQuotedLines(m.Content), blocks), "和印记聊的时候")
 	}
 
 	for _, card := range cards {

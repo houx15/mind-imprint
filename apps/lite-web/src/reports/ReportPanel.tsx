@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
-import { getReport, type AtomKind, type LiteReport } from "../api/reports";
+import { getReportEnvelope, type AtomKind, type LiteReport } from "../api/reports";
 import { useAlive } from "../shared/useAlive";
 import { exportPoster } from "./exportPoster";
 import { ReportPoster } from "./ReportPoster";
@@ -38,6 +38,15 @@ import { SharePanel } from "./SharePanel";
  * the one real response lands in a closure that was told to drop it and the
  * loading state never clears.
  *
+ * Also carries F2's share state: `getReportEnvelope` returns `shareToken`
+ * alongside the report, and it is handed to `SharePanel` as
+ * `initialShareToken` so a report she already shared in an earlier sitting
+ * reopens with the link, the QR, and 停止分享 already showing — not the
+ * closed {phase:"off"} state a plain reload used to fall back to, whose
+ * off-state copy describes sharing as hypothetical when it may already be
+ * live and whose only path back to 停止分享 was a button that reads as
+ * "publish", not "manage".
+ *
  * The first open is the one that GENERATES the report server-side — a
  * flagship model call that can run tens of seconds — so the waiting copy
  * says that honestly, the way 印记 talks (a real explanation of what's
@@ -52,6 +61,7 @@ import { SharePanel } from "./SharePanel";
  */
 export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }) {
   const [report, setReport] = useState<LiteReport | null>(null);
+  const [shareToken, setShareToken] = useState<string | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
   const [exporting, setExporting] = useState(false);
   const alive = useAlive();
@@ -59,11 +69,13 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
   useEffect(() => {
     setState("loading");
     setReport(null);
-    getReport(kind, atomId)
-      .then((r) => {
+    setShareToken(null);
+    getReportEnvelope(kind, atomId)
+      .then((env) => {
         if (!alive.current) return;
-        setReport(r);
-        setState(r ? "done" : "quiet");
+        setReport(env.report);
+        setShareToken(env.shareToken);
+        setState(env.report ? "done" : "quiet");
       })
       .catch(() => {
         if (!alive.current) return;
@@ -114,7 +126,7 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
           >
             {exporting ? "生成图片中…" : "导出图片"}
           </button>
-          <SharePanel kind={kind} atomId={atomId} />
+          <SharePanel kind={kind} atomId={atomId} initialShareToken={shareToken} />
         </div>
       </>
     );

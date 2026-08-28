@@ -105,6 +105,43 @@ describe("ReadingCoachPanel — picks", () => {
     expect(picks).toEqual([{ blockId: "b2", quote: "碳排放总量位居世界第一" }]);
   });
 
+  it("F1: prefixes EVERY line of a multi-line quote, not just the first", async () => {
+    // A drag-selection across a hard-wrapped paragraph (no blank line
+    // between its lines) can return a quote whose text contains an internal
+    // "\n". If only the first line carries "> ", the article's later lines
+    // sit in the stored message unprefixed, where the server's
+    // stripQuotedLines (report_facts.go) — which only strips lines already
+    // starting with "> " — cannot catch them, and they can reach a "her
+    // words only" corpus. See report_facts.go's stripArticleLines for the
+    // server-side half of this same fix.
+    const slot = baseSlot({
+      quotes: [{ key: "q1", quote: "中国的碳排放总量位居世界第一。\n但人均排放仍低于多数发达国家。", blockId: "b2" }],
+    });
+    render(
+      <ReadingCoachPanel
+        readingId="r1"
+        tasks={[]}
+        initialMessages={STARTED_MESSAGES}
+        slot={slot}
+        onTasks={() => {}}
+        onFocusBlock={() => {}}
+      />,
+    );
+
+    fireEvent.click(screen.getByLabelText("发送"));
+
+    await waitFor(() => expect(postTurn).toHaveBeenCalled());
+    const [, text] = postTurn.mock.calls[0] as [string, string, unknown];
+    // Every line of the payload's quote block must carry "> " — none of the
+    // article's lines may reach the server unprefixed.
+    const quoteLines = text.split("\n").filter((l) => l.trim() !== "");
+    for (const line of quoteLines) {
+      expect(line.startsWith("> ")).toBe(true);
+    }
+    expect(text).toContain("> 中国的碳排放总量位居世界第一。");
+    expect(text).toContain("> 但人均排放仍低于多数发达国家。");
+  });
+
   it("shows the hunt hint only while the current step is a hunt", async () => {
     const huntTasks: ReadingTask[] = [
       { id: "t1", position: 0, kind: "hunt", label: "找一找", detail: "", blockId: "", status: "pending", completedAt: null },
