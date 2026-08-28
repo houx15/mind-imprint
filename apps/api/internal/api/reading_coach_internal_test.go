@@ -42,3 +42,23 @@ func TestParseReadingCoachReplyLens(t *testing.T) {
 		})
 	}
 }
+
+// TestParseReadingCoachReplyLens_NilLensOK — the guard's `lensOK == nil`
+// short-circuit has no caller yet exercising it: every real call site passes
+// a real predicate. A nil lensOK must still drop the lens rather than panic
+// on the nil call.
+func TestParseReadingCoachReplyLens_NilLensOK(t *testing.T) {
+	valid := map[string]bool{"b1": true, "b2": true}
+
+	got, ok := parseReadingCoachReply(
+		`{"reply":"看这段","advance":"","focusBlock":"b2","lens":"craap"}`, valid, "zh", nil)
+	if !ok {
+		t.Fatalf("parse failed")
+	}
+	if got.Lens != "" {
+		t.Errorf("lens = %q, want dropped when lensOK is nil", got.Lens)
+	}
+	if got.Reply == "" {
+		t.Error("a dropped lens must not take the reply down with it")
+	}
+}

@@ -32,6 +32,7 @@ import (
 	"strings"
 	"time"
 
+	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -375,10 +376,36 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	for _, blk := range blocks {
 		valid[blk.ID] = true
 	}
-	// TODO(task 5): replace with the real lensOK — deck membership + ordering
-	// guard + one-open mutex. Always-false is a temporary stand-in, not a
-	// deliberate disable of the lens feature.
-	parsed, okParse := parseReadingCoachReply(res.Text, valid, lang, func(string) bool { return false })
+	cardRows, err := a.d.Queries.ListAtomCards(turnCtx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	deck, deckErr := agent.ReadingDeck()
+	ordering := readingOrderingGuard(cardRows)
+	anyOpen := false
+	for _, c := range cardRows {
+		if c.Status == "proposed" || c.Status == "active" {
+			anyOpen = true
+			break
+		}
+	}
+	// The coach may only reach for a lens the room could actually open right
+	// now. Checking here rather than after the call means a refused summon
+	// never reaches her as a card that silently failed to appear.
+	lensOK := func(id string) bool {
+		if deckErr != nil || anyOpen || !inReadingDeck(deck, id) {
+			return false
+		}
+		if id == "sift" && !ordering.AllowSift {
+			return false
+		}
+		if id == "craap" && !ordering.AllowCraap {
+			return false
+		}
+		return true
+	}
+	parsed, okParse := parseReadingCoachReply(res.Text, valid, lang, lensOK)
 	if !okParse {
 		slog.Warn("reading coach: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -450,12 +477,33 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 			focus = next.BlockID
 		}
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+	var cardOut *cardDTO
+	nudge := ""
+	if parsed.Lens != "" {
+		// 铁律④ — origin is 'router': SHE did not pick this lens, and the
+		// autonomy signal on the row must say so. Failure is silent: the
+		// coach's words still stand, she simply doesn't get the instrument.
+		lres, serr := a.summonReadingLens(turnCtx, u.ID, at.ID, parsed.Lens, parsed.FocusBlock, cardOriginRouter)
+		if serr != nil {
+			slog.Info("lite coach: lens summon failed; turn stands without it",
+				"atom_id", at.ID, "card_id", parsed.Lens,
+				"request_id", httpx.RequestIDFromContext(r.Context()), "err", serr)
+		} else if lres.Card != nil {
+			cardOut, nudge = lres.Card, lres.Nudge
+		}
+	}
+
+	resp := map[string]any{
 		"reply":         parsed.Reply,
 		"tasks":         readingTaskDTOs(after),
 		"currentTaskId": currentID,
 		"focusBlock":    focus,
 		"tool":          parsed.Tool,
 		"finished":      next == nil,
-	})
+	}
+	if cardOut != nil {
+		resp["card"] = cardOut
+		resp["nudge"] = nudge
+	}
+	httpx.WriteJSON(w, http.StatusOK, resp)
 }

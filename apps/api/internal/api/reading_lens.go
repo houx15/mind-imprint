@@ -277,6 +277,10 @@ func (a *API) summonReadingLens(
 	// arrives 'proposed'; activate is still a separate, recorded step.
 	return summonedLens{Card: &dto, Nudge: nudge}, nil
 }
+
+// liteSummonDecline answers a refused summon the way the coach would: a plain
+// sentence, decision "respond", no card. Not an HTTP error — nothing went
+// wrong, the room is just already busy or the ordering says not yet.
 func liteSummonDecline(w http.ResponseWriter, reply string) {
 	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{Reply: reply, Decision: "respond"})
 }
