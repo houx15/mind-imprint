@@ -521,6 +521,16 @@ type ReadingBrief struct {
 	UpdatedAt     time.Time `json:"updated_at"`
 }
 
+type ReadingQuestion struct {
+	ID          uuid.UUID `json:"id"`
+	AtomID      uuid.UUID `json:"atom_id"`
+	Position    int32     `json:"position"`
+	Text        string    `json:"text"`
+	AnchorQuote string    `json:"anchor_quote"`
+	AnchorBlock string    `json:"anchor_block"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type ReadingSource struct {
 	AtomID     uuid.UUID `json:"atom_id"`
 	Title      string    `json:"title"`

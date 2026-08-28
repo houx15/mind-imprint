@@ -162,6 +162,41 @@ func (q *Queries) InsertReadingBlockNote(ctx context.Context, arg InsertReadingB
 	return i, err
 }
 
+const insertReadingQuestion = `-- name: InsertReadingQuestion :one
+INSERT INTO reading_question (atom_id, position, text, anchor_quote, anchor_block)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, atom_id, position, text, anchor_quote, anchor_block, created_at
+`
+
+type InsertReadingQuestionParams struct {
+	AtomID      uuid.UUID `json:"atom_id"`
+	Position    int32     `json:"position"`
+	Text        string    `json:"text"`
+	AnchorQuote string    `json:"anchor_quote"`
+	AnchorBlock string    `json:"anchor_block"`
+}
+
+func (q *Queries) InsertReadingQuestion(ctx context.Context, arg InsertReadingQuestionParams) (ReadingQuestion, error) {
+	row := q.db.QueryRow(ctx, insertReadingQuestion,
+		arg.AtomID,
+		arg.Position,
+		arg.Text,
+		arg.AnchorQuote,
+		arg.AnchorBlock,
+	)
+	var i ReadingQuestion
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Position,
+		&i.Text,
+		&i.AnchorQuote,
+		&i.AnchorBlock,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listReadingBlockNotes = `-- name: ListReadingBlockNotes :many
 SELECT id, atom_id, block_id, tool, body, created_at FROM reading_block_note WHERE atom_id = $1 ORDER BY created_at
 `
@@ -181,6 +216,38 @@ func (q *Queries) ListReadingBlockNotes(ctx context.Context, atomID uuid.UUID) (
 			&i.BlockID,
 			&i.Tool,
 			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadingQuestions = `-- name: ListReadingQuestions :many
+SELECT id, atom_id, position, text, anchor_quote, anchor_block, created_at FROM reading_question WHERE atom_id = $1 ORDER BY position
+`
+
+func (q *Queries) ListReadingQuestions(ctx context.Context, atomID uuid.UUID) ([]ReadingQuestion, error) {
+	rows, err := q.db.Query(ctx, listReadingQuestions, atomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReadingQuestion
+	for rows.Next() {
+		var i ReadingQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.Position,
+			&i.Text,
+			&i.AnchorQuote,
+			&i.AnchorBlock,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

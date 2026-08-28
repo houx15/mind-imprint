@@ -114,3 +114,11 @@ RETURNING *;
 
 -- name: ListReadingBlockNotes :many
 SELECT * FROM reading_block_note WHERE atom_id = $1 ORDER BY created_at;
+
+-- name: ListReadingQuestions :many
+SELECT * FROM reading_question WHERE atom_id = $1 ORDER BY position;
+
+-- name: InsertReadingQuestion :one
+INSERT INTO reading_question (atom_id, position, text, anchor_quote, anchor_block)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
