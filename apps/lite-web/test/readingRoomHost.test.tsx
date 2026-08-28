@@ -309,6 +309,39 @@ describe("ReadingRoomHost", () => {
     expect(calls.some((c) => c.url.endsWith("/source"))).toBe(false);
   });
 
+  // The drawer's 「看报告」 label (ReadingHistoryPanel.tsx) routes to this
+  // same finished panel — this pins the half of that promise the routing
+  // test can't: that the panel she lands on actually mounts the report, not
+  // the old 「报告还在路上」 placeholder.
+  it("mounts the report panel on a finished reading — 看报告 is no longer a lie", async () => {
+    routes[key("GET", `/api/v1/readings/${READING_ID}`)] = {
+      body: { ...READING, status: "finished", finishedAt: "2026-08-25T00:00:00Z" },
+    };
+    routes[key("GET", `/api/v1/readings/${READING_ID}/takeaway`)] = {
+      body: { text: "作者把「装机量」当成了「实际发电量」。", updatedAt: "2026-08-25T00:00:00Z" },
+    };
+    routes[key("GET", `/api/v1/readings/${READING_ID}/report`)] = {
+      body: {
+        report: {
+          version: 1,
+          kind: "reading",
+          title: READING.title,
+          studentName: "Phoebe",
+          finishedAt: "2026-08-25T00:00:00Z",
+          stats: [{ key: "focusMinutes", label: "专注时长", value: 9, unit: "分钟" }],
+          moments: [],
+          keep: null,
+          gains: [],
+        },
+      },
+    };
+    render(<ReadingRoomHost readingId={READING_ID} />);
+
+    expect(await screen.findByText("专注时长")).toBeTruthy();
+    expect(screen.getByText("9")).toBeTruthy();
+    expect(screen.queryByText(/报告还在路上/)).toBeNull();
+  });
+
   it("still opens a finished reading when its takeaway cannot be read", async () => {
     routes[key("GET", `/api/v1/readings/${READING_ID}`)] = {
       body: { ...READING, status: "finished", finishedAt: "2026-08-25T00:00:00Z" },

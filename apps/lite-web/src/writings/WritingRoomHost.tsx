@@ -22,6 +22,7 @@ import {
 } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
+import { ReportPanel } from "../reports/ReportPanel";
 import { StageMap, type WritingStageKey } from "./StageMap";
 import { EditableTitle } from "./EditableTitle";
 import { WritingSetupModal } from "./WritingSetupModal";
@@ -489,9 +490,8 @@ function Centered({ children }: { children: ReactNode }) {
  * FinishedWritingPanel — the terminal view, mirroring readings/
  * ReadingRoomHost's `FinishedReadingPanel`: read-only by construction (no
  * coach input, no stage map, nothing that could change a finished piece),
- * showing the one thing the writing produced — her finished draft. The
- * per-audience report is a later phase; until it lands this says so honestly
- * rather than promising a date.
+ * showing the one thing the writing produced — her finished draft, then the
+ * end-of-session report below it via `ReportPanel`.
  */
 function FinishedWritingPanel({
   writing,
@@ -519,7 +519,7 @@ function FinishedWritingPanel({
         <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{draft.body || "这篇没有留下正文。"}</p>
       </div>
 
-      <p className="text-mk-small text-mk-muted">这篇写作的报告还在路上。你的过程都已经存好了，报告上线后会出现在这里。</p>
+      <ReportPanel kind="writing" atomId={writing.id} />
 
       <div>
         <Button variant="secondary" onClick={onBack}>

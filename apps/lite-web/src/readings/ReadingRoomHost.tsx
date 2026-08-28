@@ -33,6 +33,7 @@ import {
   type ReadingPlan,
   type ReadingTask,
 } from "../api/readingRoom";
+import { ReportPanel } from "../reports/ReportPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanRail } from "./ReadingPlanRail";
 import { ReadingQuestions } from "./ReadingQuestions";
@@ -371,11 +372,8 @@ function Centered({ children }: { children: React.ReactNode }) {
  * READ-ONLY BY CONSTRUCTION. There is no room here, so there is no way to
  * summon another lens, write another note, or re-finish it: the state is
  * terminal and the surface has nothing that could change it. What she gets
- * instead is the thing the reading produced — 我的收获, in her own words.
- *
- * The report is P2. Until it lands this page says so plainly rather than
- * pretending: a promise with a date attached would be a claim we cannot keep,
- * and a dead 「看报告」 button would be worse than the honest line.
+ * instead is the thing the reading produced — 我的收获, in her own words —
+ * and, below it via `ReportPanel`, the end-of-session report.
  */
 function FinishedReadingPanel({
   reading,
@@ -409,9 +407,7 @@ function FinishedReadingPanel({
 
       <ReadingQuestions readingId={reading.id} />
 
-      <p className="text-mk-small text-mk-muted">
-        这次阅读的报告还在路上。你的批注和收获都已经存好了，报告上线后会出现在这里。
-      </p>
+      <ReportPanel kind="reading" atomId={reading.id} />
 
       <div>
         <Button variant="secondary" onClick={onBack}>
