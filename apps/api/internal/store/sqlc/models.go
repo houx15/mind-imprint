@@ -60,6 +60,7 @@ type AtomMessage struct {
 	Role      string    `json:"role"`
 	Content   string    `json:"content"`
 	CreatedAt time.Time `json:"created_at"`
+	BlockID   *string   `json:"block_id"`
 }
 
 type CardCompetence struct {
@@ -700,6 +701,16 @@ type Writing struct {
 	SetupAt      pgtype.Timestamptz `json:"setup_at"`
 }
 
+type WritingComment struct {
+	ID        uuid.UUID   `json:"id"`
+	AtomID    uuid.UUID   `json:"atom_id"`
+	SnippetID pgtype.UUID `json:"snippet_id"`
+	Scope     string      `json:"scope"`
+	Summary   string      `json:"summary"`
+	Points    []byte      `json:"points"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
 type WritingDraft struct {
 	AtomID    uuid.UUID `json:"atom_id"`
 	Body      string    `json:"body"`
@@ -720,6 +731,7 @@ type WritingOutline struct {
 	Depth    int32     `json:"depth"`
 	Position int32     `json:"position"`
 	Role     string    `json:"role"`
+	Guide    []byte    `json:"guide"`
 }
 
 type WritingSnippet struct {

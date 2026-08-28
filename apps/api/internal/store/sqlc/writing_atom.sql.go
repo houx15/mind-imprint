@@ -47,6 +47,63 @@ func (q *Queries) CreateWriting(ctx context.Context, arg CreateWritingParams) (W
 	return i, err
 }
 
+const createWritingComment = `-- name: CreateWritingComment :one
+INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, atom_id, snippet_id, scope, summary, points, created_at
+`
+
+type CreateWritingCommentParams struct {
+	AtomID    uuid.UUID   `json:"atom_id"`
+	SnippetID pgtype.UUID `json:"snippet_id"`
+	Scope     string      `json:"scope"`
+	Summary   string      `json:"summary"`
+	Points    []byte      `json:"points"`
+}
+
+func (q *Queries) CreateWritingComment(ctx context.Context, arg CreateWritingCommentParams) (WritingComment, error) {
+	row := q.db.QueryRow(ctx, createWritingComment,
+		arg.AtomID,
+		arg.SnippetID,
+		arg.Scope,
+		arg.Summary,
+		arg.Points,
+	)
+	var i WritingComment
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.SnippetID,
+		&i.Scope,
+		&i.Summary,
+		&i.Points,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getLatestWritingDraftComment = `-- name: GetLatestWritingDraftComment :one
+SELECT id, atom_id, snippet_id, scope, summary, points, created_at FROM writing_comment
+WHERE atom_id = $1 AND scope = 'draft'
+ORDER BY created_at DESC
+LIMIT 1
+`
+
+func (q *Queries) GetLatestWritingDraftComment(ctx context.Context, atomID uuid.UUID) (WritingComment, error) {
+	row := q.db.QueryRow(ctx, getLatestWritingDraftComment, atomID)
+	var i WritingComment
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.SnippetID,
+		&i.Scope,
+		&i.Summary,
+		&i.Points,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getWriting = `-- name: GetWriting :one
 SELECT atom_id, title, lang, stage, target_words, status, updated_at, finished_at, structure_key, setup_at FROM writing WHERE atom_id = $1
 `
@@ -83,7 +140,7 @@ func (q *Queries) GetWritingDraft(ctx context.Context, atomID uuid.UUID) (Writin
 const insertWritingOutlineNode = `-- name: InsertWritingOutlineNode :one
 INSERT INTO writing_outline (atom_id, text, role, depth, position)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, atom_id, text, depth, position, role
+RETURNING id, atom_id, text, depth, position, role, guide
 `
 
 type InsertWritingOutlineNodeParams struct {
@@ -117,12 +174,45 @@ func (q *Queries) InsertWritingOutlineNode(ctx context.Context, arg InsertWritin
 		&i.Depth,
 		&i.Position,
 		&i.Role,
+		&i.Guide,
 	)
 	return i, err
 }
 
+const listWritingComments = `-- name: ListWritingComments :many
+SELECT id, atom_id, snippet_id, scope, summary, points, created_at FROM writing_comment WHERE atom_id = $1 ORDER BY created_at DESC
+`
+
+func (q *Queries) ListWritingComments(ctx context.Context, atomID uuid.UUID) ([]WritingComment, error) {
+	rows, err := q.db.Query(ctx, listWritingComments, atomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []WritingComment
+	for rows.Next() {
+		var i WritingComment
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.SnippetID,
+			&i.Scope,
+			&i.Summary,
+			&i.Points,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWritingOutline = `-- name: ListWritingOutline :many
-SELECT id, atom_id, text, depth, position, role FROM writing_outline WHERE atom_id = $1 ORDER BY position
+SELECT id, atom_id, text, depth, position, role, guide FROM writing_outline WHERE atom_id = $1 ORDER BY position
 `
 
 func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]WritingOutline, error) {
@@ -141,6 +231,7 @@ func (q *Queries) ListWritingOutline(ctx context.Context, atomID uuid.UUID) ([]W
 			&i.Depth,
 			&i.Position,
 			&i.Role,
+			&i.Guide,
 		); err != nil {
 			return nil, err
 		}
@@ -286,7 +377,7 @@ SELECT $1,
        unnest($3::text[]),
        unnest($4::int[]),
        unnest($5::int[])
-RETURNING id, atom_id, text, depth, position, role
+RETURNING id, atom_id, text, depth, position, role, guide
 `
 
 type ReplaceWritingOutlineParams struct {
@@ -326,6 +417,7 @@ func (q *Queries) ReplaceWritingOutline(ctx context.Context, arg ReplaceWritingO
 			&i.Depth,
 			&i.Position,
 			&i.Role,
+			&i.Guide,
 		); err != nil {
 			return nil, err
 		}
@@ -350,6 +442,20 @@ WHERE atom_id = $1 AND status <> 'finished'
 // overwritten at finish time.
 func (q *Queries) SetWritingFinished(ctx context.Context, atomID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, setWritingFinished, atomID)
+	return err
+}
+
+const setWritingOutlineGuide = `-- name: SetWritingOutlineGuide :exec
+UPDATE writing_outline SET guide = $2 WHERE id = $1
+`
+
+type SetWritingOutlineGuideParams struct {
+	ID    uuid.UUID `json:"id"`
+	Guide []byte    `json:"guide"`
+}
+
+func (q *Queries) SetWritingOutlineGuide(ctx context.Context, arg SetWritingOutlineGuideParams) error {
+	_, err := q.db.Exec(ctx, setWritingOutlineGuide, arg.ID, arg.Guide)
 	return err
 }
 

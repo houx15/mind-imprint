@@ -129,3 +129,20 @@ WHERE atom_id = $1 AND position >= $2;
 INSERT INTO writing_outline (atom_id, text, role, depth, position)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
+
+-- name: SetWritingOutlineGuide :exec
+UPDATE writing_outline SET guide = $2 WHERE id = $1;
+
+-- name: CreateWritingComment :one
+INSERT INTO writing_comment (atom_id, snippet_id, scope, summary, points)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: ListWritingComments :many
+SELECT * FROM writing_comment WHERE atom_id = $1 ORDER BY created_at DESC;
+
+-- name: GetLatestWritingDraftComment :one
+SELECT * FROM writing_comment
+WHERE atom_id = $1 AND scope = 'draft'
+ORDER BY created_at DESC
+LIMIT 1;

@@ -11,10 +11,45 @@ import (
 	"github.com/google/uuid"
 )
 
+const appendAtomBlockMessage = `-- name: AppendAtomBlockMessage :one
+INSERT INTO atom_message (atom_id, seq, role, content, block_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, atom_id, seq, role, content, created_at, block_id
+`
+
+type AppendAtomBlockMessageParams struct {
+	AtomID  uuid.UUID `json:"atom_id"`
+	Seq     int32     `json:"seq"`
+	Role    string    `json:"role"`
+	Content string    `json:"content"`
+	BlockID *string   `json:"block_id"`
+}
+
+func (q *Queries) AppendAtomBlockMessage(ctx context.Context, arg AppendAtomBlockMessageParams) (AtomMessage, error) {
+	row := q.db.QueryRow(ctx, appendAtomBlockMessage,
+		arg.AtomID,
+		arg.Seq,
+		arg.Role,
+		arg.Content,
+		arg.BlockID,
+	)
+	var i AtomMessage
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Seq,
+		&i.Role,
+		&i.Content,
+		&i.CreatedAt,
+		&i.BlockID,
+	)
+	return i, err
+}
+
 const appendAtomMessage = `-- name: AppendAtomMessage :one
 INSERT INTO atom_message (atom_id, seq, role, content)
 VALUES ($1, $2, $3, $4)
-RETURNING id, atom_id, seq, role, content, created_at
+RETURNING id, atom_id, seq, role, content, created_at, block_id
 `
 
 type AppendAtomMessageParams struct {
@@ -39,6 +74,7 @@ func (q *Queries) AppendAtomMessage(ctx context.Context, arg AppendAtomMessagePa
 		&i.Role,
 		&i.Content,
 		&i.CreatedAt,
+		&i.BlockID,
 	)
 	return i, err
 }
@@ -254,6 +290,45 @@ func (q *Queries) ListAtomAnnotations(ctx context.Context, atomID uuid.UUID) ([]
 	return items, nil
 }
 
+const listAtomBlockMessages = `-- name: ListAtomBlockMessages :many
+SELECT id, atom_id, seq, role, content, created_at, block_id FROM atom_message
+WHERE atom_id = $1 AND block_id = $2
+ORDER BY seq
+`
+
+type ListAtomBlockMessagesParams struct {
+	AtomID  uuid.UUID `json:"atom_id"`
+	BlockID *string   `json:"block_id"`
+}
+
+func (q *Queries) ListAtomBlockMessages(ctx context.Context, arg ListAtomBlockMessagesParams) ([]AtomMessage, error) {
+	rows, err := q.db.Query(ctx, listAtomBlockMessages, arg.AtomID, arg.BlockID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AtomMessage
+	for rows.Next() {
+		var i AtomMessage
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.Seq,
+			&i.Role,
+			&i.Content,
+			&i.CreatedAt,
+			&i.BlockID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listAtomCards = `-- name: ListAtomCards :many
 SELECT id, atom_id, card_id, block_id, status, field_values, event_trace, created_at, submitted_at, anchors, framework_fill, origin FROM atom_card WHERE atom_id = $1 ORDER BY created_at
 `
@@ -292,9 +367,14 @@ func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCa
 }
 
 const listAtomMessages = `-- name: ListAtomMessages :many
-SELECT id, atom_id, seq, role, content, created_at FROM atom_message WHERE atom_id = $1 ORDER BY seq
+SELECT id, atom_id, seq, role, content, created_at, block_id FROM atom_message WHERE atom_id = $1 AND block_id IS NULL ORDER BY seq
 `
 
+// The room's OWN thread only. The `block_id IS NULL` filter is the whole safety
+// property of 0102: seven callers across reading and writing read this query and
+// every one of them means "the main conversation". Making the default safe is why
+// none of them needed editing when block scoping arrived — do not remove it, and
+// do not add a variant that omits it.
 func (q *Queries) ListAtomMessages(ctx context.Context, atomID uuid.UUID) ([]AtomMessage, error) {
 	rows, err := q.db.Query(ctx, listAtomMessages, atomID)
 	if err != nil {
@@ -311,6 +391,7 @@ func (q *Queries) ListAtomMessages(ctx context.Context, atomID uuid.UUID) ([]Ato
 			&i.Role,
 			&i.Content,
 			&i.CreatedAt,
+			&i.BlockID,
 		); err != nil {
 			return nil, err
 		}
