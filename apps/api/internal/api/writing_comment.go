@@ -25,6 +25,21 @@ package api
 // fewer point — so the prompt asks nicely (writingCommentSystem's
 // 逐字照抄，不要改标点) but validateCommentPoints is what actually holds the
 // line.
+//
+// WHAT IS *NOT* GUARANTEED, HONESTLY — the third entry in this room's short
+// list of known limits, beside the guide box's `job` field (writing_guide.go:
+// free prose, exempt from the ？-suffix filter because a task description
+// structurally cannot hold her body text) and 深入一层 (writing_deepen.go:
+// having no write path to outline/snippet is structural, but the chat itself
+// is free-form). Here it is CommentPoint.Text. Quote is pinned to her own
+// sentences by validateCommentPoints — that half is structural. Text is not:
+// it is free model prose ABOUT that sentence, and nothing in this file stops
+// it carrying a rewrite（「这句应该写成……」）she could paste straight back into
+// her draft. The only thing holding 铁律① there is writingCommentSystem's
+// opening line (绝不是替她改：不要重写、不要润色、不要续写、不要给出可以直接
+// 复制粘贴替换的句子或段落). Known limit, accepted deliberately: a structural
+// filter on Text would have to guess which prose is a rewrite, and guessing
+// wrong silently drops real feedback.
 
 import (
 	"context"

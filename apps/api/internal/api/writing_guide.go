@@ -57,6 +57,11 @@ const writingGuideMaxQuestions = 4
 // different versions of how 印记 is supposed to talk. Shared by the
 // single-block and batch guide prompts below so the two paths can never
 // drift apart on tone.
+//
+// 🔑 下面示范句里的「留悬念、设问、开门见山」是 methods.json 里逐字存在的三个
+// name（opening_suspense / opening_question / opening_direct）。任何写进提示词
+// 散文里的方法名都必须这样对得上 packages/contracts/vocab/methods.json——示范里
+// 出现一个库里没有的名字，就是在教模型造词，而下一段恰好在禁止它造词。
 const writingGuideTeachingRules = `## 怎么说话（这条比什么都重要）
 
 你是老师，不是问答机器。每次开口都要做到四件事：

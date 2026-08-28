@@ -126,6 +126,36 @@ describe("the draft is there when she arrives", () => {
     expect(composeCalls()).toHaveLength(1);
   });
 
+  it("does not paint the assembled text over what she typed while it was in flight", async () => {
+    // The arrival assemble is one non-LLM round trip on a blank page, but the
+    // textarea is live throughout it. Before the guard, those keystrokes were
+    // discarded on resolution AND the next autosave pushed the clobbered text
+    // to the server — the same silent loss the re-assembly dialog exists for.
+    routes[key("POST", base("/compose"))] = {
+      hold: true,
+      body: { body: "拼好的正文", updatedAt: "2026-08-28T00:01:00Z" },
+    };
+    renderStage({ draft: draftOf("") });
+
+    await waitFor(() => expect(composeCalls()).toHaveLength(1));
+    fireEvent.change(page(), { target: { value: "我趁它还在转的时候写的第一句。" } });
+
+    release();
+    // aria-busy clears in the same `finally` that used to write the assembled
+    // text, so waiting on it is waiting on the resolution itself.
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: "从段落重新拼一次" }).getAttribute("aria-busy"),
+      ).toBeNull(),
+    );
+
+    expect(page().value).toBe("我趁它还在转的时候写的第一句。");
+    // And nothing was ever saved on top of it.
+    expect(
+      calls.filter((c) => c.method === "PUT" && c.url === base("/draft")).map((c) => c.body),
+    ).not.toContainEqual({ body: "拼好的正文" });
+  });
+
   it("does not call compose when there are no paragraphs to assemble", async () => {
     renderStage({ draft: draftOf(""), snippets: [] });
 
