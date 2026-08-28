@@ -58,10 +58,12 @@ const writingGuideMaxQuestions = 4
 // single-block and batch guide prompts below so the two paths can never
 // drift apart on tone.
 //
-// 🔑 下面示范句里的「留悬念、设问、开门见山」是 methods.json 里逐字存在的三个
-// name（opening_suspense / opening_question / opening_direct）。任何写进提示词
-// 散文里的方法名都必须这样对得上 packages/contracts/vocab/methods.json——示范里
-// 出现一个库里没有的名字，就是在教模型造词，而下一段恰好在禁止它造词。
+// 🔑 下面示范句里的「留个悬念、先抛一个问题、开门见山」是 methods.json 里逐字
+// 存在的三个 name（opening_suspense / opening_question / opening_direct）。任何
+// 写进提示词散文里的方法名都必须这样对得上
+// packages/contracts/vocab/methods.json——示范里出现一个库里没有的名字，就是在
+// 教模型造词，而下一段恰好在禁止它造词。2026-08-28 起 name 是学生读得懂的说法，
+// 正式名称（举例论证、让步……）存在 formal_name 里，散文里优先用前者。
 const writingGuideTeachingRules = `## 怎么说话（这条比什么都重要）
 
 你是老师，不是问答机器。每次开口都要做到四件事：
@@ -69,9 +71,12 @@ const writingGuideTeachingRules = `## 怎么说话（这条比什么都重要）
 ③ 给她一个真的选择，她也可以不选；④ 主动提出可以举例子一起看。
 
 不要这样说：「有人会从一个具体场景切进去，有人直接抛个问题。你这篇你想怎么进？」
-要这样说：「对于一篇文章来说，有意思的开头非常重要。留悬念、设问、开门见山等，
-都是常见的方式。你想尝试哪一种？或者需要我给几个具体的案例我们一起来学习一下
-这几种方法吗？」
+要这样说：「对于一篇文章来说，有意思的开头非常重要。留个悬念、先抛一个问题、
+开门见山等，都是常见的方式。你想尝试哪一种？或者需要我给几个具体的案例我们
+一起来学习一下这几种方法吗？」
+
+说方法名的时候用【可用的方法】里括号外面那个说法（学生读得懂的那个）；括号里的
+正式名称是她问起「这在语文课上叫什么」时才拿出来的，别主动用它说话。
 
 一次仍然只问**一个**问题——「一次只问一个」说的是问题的数量，从来不是让你少说话。`
 
@@ -213,20 +218,23 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 		b.WriteString("（她还没在对话里说过什么。）\n")
 	}
 
+	// Filtered by position AND by the piece's language — see vocab.For: an
+	// English frame offered inside a Chinese essay is a bug, not a rough edge.
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.For(writingGuideAppliesTo(block.Role)) {
-		b.WriteString("- id=" + m.ID + " · " + m.Name + "：" + m.Definition + "\n")
+	for _, m := range vocab.For(writingGuideAppliesTo(block.Role), wr.Lang) {
+		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
 	return b.String()
 }
 
 // buildWritingGuideBatchPrompt assembles what the model sees for the WHOLE
 // outline at once: every block (id, role, her heading text, what she has
-// already drafted there, if anything), her material, and the full method
-// library annotated with where each one applies (same "list everything,
-// annotate applies_to" shape buildWritingPlanPrompt already uses) — a single
-// block's narrower vocab.For(...) filter does not fit here because one call
-// has to serve blocks at every position at once.
+// already drafted there, if anything), her material, and the method library
+// for THIS PIECE'S LANGUAGE annotated with where each one applies (same "list
+// every position, annotate applies_to" shape buildWritingPlanPrompt already
+// uses) — a single block's narrower vocab.For(...) position filter does not fit
+// here because one call has to serve blocks at every position at once. The
+// language filter (vocab.ForLang) still applies: it is not a position.
 func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline, textByBlock map[uuid.UUID]string, msgs []sqlc.AtomMessage) string {
 	var b strings.Builder
 	if t := strings.TrimSpace(wr.Title); t != "" {
@@ -273,8 +281,8 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 	}
 
 	b.WriteString("\n【可用的方法】（只能用这里的 id，不要自己编）\n")
-	for _, m := range vocab.All() {
-		b.WriteString("- id=" + m.ID + " · " + m.Name + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
+	for _, m := range vocab.ForLang(wr.Lang) {
+		b.WriteString("- id=" + m.ID + " · " + m.Label() + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 	}
 	return b.String()
 }
@@ -298,8 +306,15 @@ type writingGuideResult struct {
 // writingGuideMethodDTO is a method fully resolved for display: the id
 // itself never reaches the client — a bare id means nothing to a student who
 // has never seen vocab's registry.
+//
+// FormalName rides along so the client can offer the 语文 curriculum term on a
+// card she chooses to open (2026-08-28 ruling: the term is offered, never
+// imposed). It is empty where the library has no distinct formal term, and a
+// guide stored before this field existed decodes it as "" — both mean the same
+// thing to the client: there is no card to offer.
 type writingGuideMethodDTO struct {
 	Name       string          `json:"name"`
+	FormalName string          `json:"formalName"`
 	Definition string          `json:"definition"`
 	Examples   []vocab.Example `json:"examples"`
 	Patterns   []vocab.Pattern `json:"patterns"`
@@ -328,7 +343,8 @@ func writingGuideDTOOf(g writingGuideResult) writingGuideDTO {
 			continue
 		}
 		methods = append(methods, writingGuideMethodDTO{
-			Name: m.Name, Definition: m.Definition, Examples: m.Examples, Patterns: m.Patterns,
+			Name: m.Name, FormalName: m.FormalName, Definition: m.Definition,
+			Examples: m.Examples, Patterns: m.Patterns,
 		})
 	}
 	return writingGuideDTO{Job: g.Job, Methods: methods, Questions: g.Questions}

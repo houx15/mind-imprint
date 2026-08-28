@@ -60,7 +60,8 @@ func (writingGuideBatchStubProvider) Stream(ctx context.Context, resolved gatewa
 type writingGuideDTOForTest struct {
 	Job     string `json:"job"`
 	Methods []struct {
-		Name string `json:"name"`
+		Name       string `json:"name"`
+		FormalName string `json:"formalName"`
 	} `json:"methods"`
 	Questions []string `json:"questions"`
 }
@@ -107,8 +108,10 @@ func TestGuideWritingBlocks_BatchPersistsAndOutlineEchoesIt(t *testing.T) {
 	if len(g0.Questions) != 1 || g0.Questions[0] != "你有没有见过类似的事？" {
 		t.Fatalf("block 0 questions = %v, want only the real question (declarative sentence dropped)", g0.Questions)
 	}
-	if len(g0.Methods) != 1 || g0.Methods[0].Name != "留悬念" {
-		t.Fatalf("block 0 methods = %+v, want only opening_suspense resolved to 留悬念 (bogus_id dropped)", g0.Methods)
+	// 留个悬念 is the STUDENT-FACING name; 留悬念 is the curriculum term the
+	// explainer card reveals. Both must reach the client (2026-08-28 ruling).
+	if len(g0.Methods) != 1 || g0.Methods[0].Name != "留个悬念" || g0.Methods[0].FormalName != "留悬念" {
+		t.Fatalf("block 0 methods = %+v, want only opening_suspense resolved to 留个悬念/留悬念 (bogus_id dropped)", g0.Methods)
 	}
 
 	g1, ok1 := batchOut.Guides[rows[1].ID]
@@ -151,8 +154,8 @@ func TestGuideWritingBlocks_BatchPersistsAndOutlineEchoesIt(t *testing.T) {
 	if len(got0.Questions) != 1 || got0.Questions[0] != "你有没有见过类似的事？" {
 		t.Fatalf("GET /outline block 0 questions = %v, want only the real question surviving", got0.Questions)
 	}
-	if len(got0.Methods) != 1 || got0.Methods[0].Name != "留悬念" {
-		t.Fatalf("GET /outline block 0 methods = %+v, want only 留悬念 (unknown id stayed dropped on read-back)", got0.Methods)
+	if len(got0.Methods) != 1 || got0.Methods[0].Name != "留个悬念" || got0.Methods[0].FormalName != "留悬念" {
+		t.Fatalf("GET /outline block 0 methods = %+v, want only 留个悬念/留悬念 (unknown id stayed dropped on read-back)", got0.Methods)
 	}
 
 	got1 := byID[rows[1].ID]

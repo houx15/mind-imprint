@@ -43,13 +43,41 @@ type Pattern struct {
 	Frame string `json:"frame"`
 }
 
+// Method is one entry in the library. It carries TWO names on purpose
+// (2026-08-28 product ruling): even 论证 is jargon to a 中学生, but the
+// curriculum term must stay reachable rather than be hidden.
+//
+//   - Name is plain language — what the student reads. It names the ACTION she
+//     already performs（「举个例子」「比一比」）.
+//   - FormalName is the 语文 curriculum term（「举例论证」「对比论证」）, revealed
+//     by a card she can click. Offered, never imposed. It is empty where no
+//     curriculum term exists (closing_scope) and on the English entries, whose
+//     Name is already what an English writer reads.
 type Method struct {
-	ID         string    `json:"id"`
-	Name       string    `json:"name"`
-	AppliesTo  string    `json:"applies_to"`
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	FormalName string `json:"formal_name"`
+	AppliesTo  string `json:"applies_to"`
+	// Lang is the writing language this method may be offered for: "zh", "en"
+	// or "any". It is a STRUCTURAL guard, not a hint to the model — handing an
+	// English sentence frame ("While it is true that ___") to a student writing
+	// a Chinese essay is a bug, and a prompt line asking the model to please
+	// avoid that is not a fix. See For.
+	Lang       string    `json:"lang"`
 	Definition string    `json:"definition"`
 	Examples   []Example `json:"examples"`
 	Patterns   []Pattern `json:"patterns"`
+}
+
+// Label is how a method is named INSIDE A PROMPT: the plain name, plus the
+// curriculum term in parentheses when there is a distinct one. 印记 has to be
+// able to say the plain name to the student and still know what the method is
+// really called when she asks.
+func (m Method) Label() string {
+	if m.FormalName == "" || m.FormalName == m.Name {
+		return m.Name
+	}
+	return m.Name + "（正式名称：" + m.FormalName + "）"
 }
 
 var loaded []Method
@@ -76,14 +104,37 @@ func ByID(id string) (Method, bool) {
 	return m, ok
 }
 
-// For returns the methods usable at a position in the piece. "any" is always
-// included, because a method that fits everywhere fits here too.
-func For(appliesTo string) []Method {
+// For returns the methods usable at a position in the piece, IN THE LANGUAGE
+// the piece is written in. "any" is always included on both axes, because a
+// method that fits everywhere fits here too.
+//
+// The lang axis is not a refinement, it is a bug fix (2026-08-28 ruling):
+// filtering on position alone handed en_concession's "While it is true that
+// ___" to a student writing a Chinese essay. Language belongs in the selector,
+// not in a prompt sentence asking the model to be careful.
+func For(appliesTo string, lang string) []Method {
 	out := make([]Method, 0, len(loaded))
 	for _, m := range loaded {
-		if m.AppliesTo == appliesTo || m.AppliesTo == "any" {
+		if (m.AppliesTo == appliesTo || m.AppliesTo == "any") && speaks(m, lang) {
 			out = append(out, m)
 		}
 	}
 	return out
 }
+
+// ForLang returns every method usable in a language, at ANY position. It
+// serves the two prompts that must cover the whole piece at once (the planning
+// turn, and the batch guide that guides every block in one call): they annotate
+// each entry with its applies_to instead of filtering by it, but they must
+// still never offer the wrong language.
+func ForLang(lang string) []Method {
+	out := make([]Method, 0, len(loaded))
+	for _, m := range loaded {
+		if speaks(m, lang) {
+			out = append(out, m)
+		}
+	}
+	return out
+}
+
+func speaks(m Method, lang string) bool { return m.Lang == lang || m.Lang == "any" }
