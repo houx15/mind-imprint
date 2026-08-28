@@ -43,8 +43,6 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
  *    composeSnippetsIntoDraft (writing_compose.go) is a pure string join, so
  *    the composed body is asserted EXACTLY equal to the two paragraphs she
  *    typed — not "contains", not "roughly matches".
- *  - **铁律 proof #4 — the English exemplar never reaches her draft**, and no
- *    control anywhere could put it there.
  *  - **Stages are a map, not a gate.** Every step is always clickable.
  */
 
@@ -410,98 +408,3 @@ test("the 设定 dialog can be skipped entirely — length is never a preconditi
   await expect(page.getByRole("dialog", { name: "开始之前" })).toHaveCount(0, { timeout: 30_000 });
 });
 
-test("铁律 — the English exemplar exists on the page, never enters the draft, and no control can insert it", async ({
-  page,
-}) => {
-  // One live model call (exemplar generation), capped server-side at 150s.
-  test.setTimeout(400_000);
-
-  // The 英文写作 topic tile creates the writing with `lang: "en"`, and the
-  // 设定 dialog opens with English already selected — so 开始 keeps it. (A
-  // Chinese writing cannot exercise this leg at all: exemplar generation 400s
-  // `exemplar_not_available` for anything but `lang === "en"` before any model
-  // call is made.)
-  await page.goto("/writings");
-  await expectGreeting(page);
-  await page.getByText("A Moment That Changed How I See Something", { exact: true }).click();
-  await expect(page).toHaveURL(WRITING_URL, { timeout: 30_000 });
-  await completeSetup(page, { lang: "English", words: 400 });
-
-  // Straight past planning — this leg is about the exemplar, and 去写 is
-  // reachable from the first render precisely so it can be skipped.
-  await expect(page.getByPlaceholder("说说你的想法")).toBeVisible({ timeout: 30_000 });
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/stage") && r.request().method() === "POST"),
-    page.getByRole("button", { name: /去写/ }).click(),
-  ]);
-  await expect(page.getByRole("navigation", { name: STAGE_NAV })).toBeVisible({ timeout: 30_000 });
-
-  // Stages are a map: jump straight to 段落 with no structure at all, then
-  // add one free paragraph (SnippetsStage supports free-form paragraphs when
-  // there is no structure to follow).
-  await jumpStage(page, "段落");
-  await expect(page.getByRole("heading", { name: "段落" })).toBeVisible();
-  await page.getByRole("button", { name: "加一段", exact: true }).click();
-
-  const paragraphBox = page.getByPlaceholder("写这一段……");
-  await expect(paragraphBox).toBeVisible({ timeout: 15_000 });
-  const herOwnParagraph =
-    "I still remember the afternoon I finally understood why my grandmother kept every worn-out umbrella in the hallway closet.";
-  await paragraphBox.fill(herOwnParagraph);
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
-    paragraphBox.blur(),
-  ]);
-
-  // 示范段落 is offered at all only because lang === "en".
-  const exemplarButton = page.getByRole("button", { name: "示范段落", exact: true });
-  await expect(exemplarButton).toBeVisible();
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/exemplar") && r.request().method() === "POST", { timeout: 180_000 }),
-    exemplarButton.click(),
-  ]);
-
-  // ── ASSERTION 1: the exemplar EXISTS on the page ────────────────────────
-  const badge = page.getByText("示范", { exact: true });
-  await expect(badge).toBeVisible({ timeout: 180_000 });
-  await expect(
-    page.getByText("读一读别人会怎么写这一段，再回去写你自己的版本——不是给你抄的", { exact: true }),
-  ).toBeVisible();
-  const exemplarBox: Locator = badge.locator("..").locator("..");
-  const exemplarText = (await exemplarBox.locator("p").first().innerText()).trim();
-  expect(exemplarText.length).toBeGreaterThan(40);
-  expect(exemplarText).not.toBe(herOwnParagraph);
-  expect(/[A-Za-z]/.test(exemplarText)).toBe(true);
-
-  // ── ASSERTION 2: absent from the draft — both the paragraph box she typed
-  // into and, downstream, the composed draft. ─────────────────────────────
-  await expect(paragraphBox).toHaveValue(herOwnParagraph);
-
-  await jumpStage(page, "成稿");
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/compose") && r.request().method() === "POST"),
-    page.getByRole("button", { name: "从段落拼出初稿", exact: true }).click(),
-  ]);
-  const draftBox = page.getByPlaceholder("拼出来的初稿会出现在这里——你也可以直接在这儿写、改。");
-  await expect(draftBox).toHaveValue(herOwnParagraph);
-  expect(await draftBox.inputValue()).not.toContain(exemplarText);
-
-  // ── ASSERTION 3: no control anywhere puts it there. ─────────────────────
-  // Structural: nothing clickable or editable lives inside the exemplar's own
-  // box — no copy button, no "用这段", no drag handle. Asserted by counting
-  // interactive descendants rather than by trusting the source comment.
-  await jumpStage(page, "段落");
-  const badgeAgain = page.getByText("示范", { exact: true });
-  if (await badgeAgain.count()) {
-    const boxAgain = badgeAgain.locator("..").locator("..");
-    await expect(boxAgain.locator('button, a, [role="button"], input, textarea, select')).toHaveCount(0);
-  }
-  await expect(page.getByRole("alert")).toHaveCount(0);
-
-  // ── never persisted: reload and the exemplar is gone, while her own
-  // paragraph — which WAS saved — survives. ──────────────────────────────
-  await page.reload();
-  await jumpStage(page, "段落");
-  await expect(page.getByPlaceholder("写这一段……")).toHaveValue(herOwnParagraph, { timeout: 15_000 });
-  await expect(page.getByText("示范", { exact: true })).toHaveCount(0);
-});

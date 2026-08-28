@@ -357,57 +357,6 @@ describe("目标字数 — visible, or it may as well not exist", () => {
 });
 
 describe("段落 stage — the 铁律 pressure point", () => {
-  it("shows a labelled 示范 with NO way to move it into her draft", async () => {
-    routes = {
-      ...emptyRoutes(inRoom({ lang: "en" })),
-      [key("GET", base("/outline"))]: {
-        body: { outline: [{ id: "o1", text: "The upside", role: "", depth: 0, position: 0 }] },
-      },
-    };
-    routes[key("PUT", base("/snippets"))] = {
-      body: {
-        snippets: [{ id: "s1", outlineId: "o1", outlineHeading: "The upside", position: 0, text: "", updatedAt: "" }],
-      },
-    };
-    routes[key("POST", base("/snippets/s1/exemplar"))] = {
-      body: {
-        exemplar: "Working part-time teaches real accountability.",
-        prompts: ["What is your strongest example?"],
-      },
-    };
-    render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "段落" });
-
-    fireEvent.click(screen.getByRole("button", { name: "示范段落" }));
-    expect(await screen.findByText("Working part-time teaches real accountability.")).toBeTruthy();
-    expect(screen.getByText("示范")).toBeTruthy();
-
-    // 铁律, asserted by OUTCOME rather than by inventory: click EVERY node
-    // inside the exemplar box and assert her textarea never changes. A
-    // queryAllByRole("button") check would miss a <div onClick> or an <a>,
-    // which are the two most natural ways someone would later add an
-    // "insert this" affordance.
-    const box = screen.getByText("Working part-time teaches real accountability.").closest("div")!;
-    const draftBox = screen.getByPlaceholderText("写这一段……") as HTMLTextAreaElement;
-    const before = draftBox.value;
-    for (const node of Array.from(box.querySelectorAll("*"))) fireEvent.click(node);
-    fireEvent.click(box);
-    expect(draftBox.value).toBe(before);
-    expect(draftBox.value).not.toContain("Working part-time teaches real accountability.");
-  });
-
-  it("offers no 示范 affordance at all for a Chinese writing", async () => {
-    routes = {
-      ...emptyRoutes(inRoom({ lang: "zh" })),
-      [key("GET", base("/outline"))]: {
-        body: { outline: [{ id: "o1", text: "打工的好处", role: "", depth: 0, position: 0 }] },
-      },
-    };
-    render(<WritingRoomHost writingId={WID} />);
-    await screen.findByRole("heading", { name: "段落" });
-    expect(screen.queryByRole("button", { name: "示范段落" })).toBeNull();
-  });
-
   it("guides a block with questions only, and never touches what she wrote", async () => {
     routes = {
       ...emptyRoutes(inRoom()),

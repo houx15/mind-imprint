@@ -225,9 +225,9 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// §model-routing: reviewing the whole piece is reviewer-tier work, the
-	// same "faithful, never downgrade" reasoning generateWritingOutline and
-	// generateWritingSnippetExemplar apply — so this resolves EvalResolver
-	// (flagship) rather than writing_turn.go's chaperone ChatResolver.
+	// same "faithful, never downgrade" reasoning generateWritingOutline
+	// applies — so this resolves EvalResolver (flagship) rather than
+	// writing_turn.go's chaperone ChatResolver.
 	resolved, ok := a.resolveEval(turnCtx)
 	if !ok {
 		slog.Warn("writing review: no provider resolved",
