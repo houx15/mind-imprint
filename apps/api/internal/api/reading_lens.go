@@ -26,6 +26,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
 	"mindimprint/api/internal/agent"
@@ -115,61 +116,103 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 	}
 	cardID := strings.TrimSpace(req.CardID)
 
-	catalog, err := agent.ReadingDeck()
+	// Everything from here on runs detached from the request — see
+	// detachedModelCtx.
+	lensCtx, cancelLens := detachedModelCtx(r)
+	defer cancelLens()
+
+	res, err := a.summonReadingLens(lensCtx, u.ID, at.ID, cardID, "", cardOriginStudent)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if !inReadingDeck(catalog, cardID) {
-		liteSummonDecline(w, liteSummonUnknownCard)
+	if res.Decline != "" {
+		liteSummonDecline(w, res.Decline)
 		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{
+		Reply: "", Decision: "summon", Card: res.Card, Nudge: res.Nudge,
+	})
+}
+
+// summonedLens is summonReadingLens's answer: either a minted card (Card
+// non-nil) or a decline (Decline non-empty, the sentence to say instead of
+// opening anything). Never both.
+type summonedLens struct {
+	Card    *cardDTO // nil when the summon was declined
+	Nudge   string   // the "why this sentence" line, or the no-example hint
+	Decline string   // non-empty when declined: the sentence to say instead
+}
+
+// summonReadingLens mints the card cardID names, or declines with the plain
+// sentence to say instead. Shared by two callers: liteSummonCard (the
+// student picking straight out of the 透镜库) and the reading coach (a later
+// task, aiming the mint at a paragraph it just talked about via preferBlock)
+// — see this file's header comment for why both still funnel through here
+// rather than the router.
+//
+// origin is the caller's, not hardcoded: the student's own pick records
+// cardOriginStudent (铁律④'s autonomy signal), while a coach-initiated mint
+// records its own origin.
+func (a *API) summonReadingLens(
+	ctx context.Context,
+	userID, atomID uuid.UUID,
+	cardID, preferBlock, origin string,
+) (summonedLens, error) {
+	catalog, err := agent.ReadingDeck()
+	if err != nil {
+		return summonedLens{}, err
+	}
+	if !inReadingDeck(catalog, cardID) {
+		return summonedLens{Decline: liteSummonUnknownCard}, nil
 	}
 	spec, specOK := cards.ByID(cardID)
 	if !specOK {
 		// The deck named an id the registry no longer has. ReadingDeck() errors
 		// on that drift, so this should be unreachable — degrade rather than
 		// mint a card no renderer can resolve.
-		liteSummonDecline(w, liteSummonUnknownCard)
-		return
+		return summonedLens{Decline: liteSummonUnknownCard}, nil
 	}
 
-	// Everything from here on runs detached from the request — see
-	// detachedModelCtx. The reads below feed the model call directly, so they
-	// belong on the same context as the work they set up.
-	lensCtx, cancelLens := detachedModelCtx(r)
-	defer cancelLens()
-
-	cardRows, err := a.d.Queries.ListAtomCards(lensCtx, at.ID)
+	cardRows, err := a.d.Queries.ListAtomCards(ctx, atomID)
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return summonedLens{}, err
 	}
 	// One-active mutex — the same rule the router's PacingState.OpenCard
 	// enforces, applied here because this path never reaches the router.
 	for _, c := range cardRows {
 		if c.Status == "proposed" || c.Status == "active" {
-			liteSummonDecline(w, liteSummonBusyReply)
-			return
+			return summonedLens{Decline: liteSummonBusyReply}, nil
 		}
 	}
 	// Source-check ordering, derived exactly like the router's guard.
 	ordering := readingOrderingGuard(cardRows)
 	if cardID == "sift" && !ordering.AllowSift {
-		liteSummonDecline(w, liteSummonSiftFirst)
-		return
+		return summonedLens{Decline: liteSummonSiftFirst}, nil
 	}
 	if cardID == "craap" && !ordering.AllowCraap {
-		liteSummonDecline(w, liteSummonCraapDone)
-		return
+		return summonedLens{Decline: liteSummonCraapDone}, nil
 	}
 
-	src, err := a.d.Queries.GetReadingSource(lensCtx, at.ID)
+	src, err := a.d.Queries.GetReadingSource(ctx, atomID)
 	if err != nil {
 		// No article pasted yet — there is nothing to hang a lens on.
-		httpx.WriteError(w, r, httpx.ErrNotFound("资源不存在"))
-		return
+		return summonedLens{}, httpx.ErrNotFound("资源不存在")
 	}
 	blocks := materialBlocks(SplitBlocks(src.Body))
+	// Aiming the grounding call: handing it ONE paragraph is what makes the
+	// example land where the caller pointed. Block ids are position-derived
+	// and preserved by the filter, so the returned anchor's BlockID is still
+	// correct and ResolveExampleAnchor's guarantee is untouched. An unknown
+	// preferBlock falls through to the whole article rather than to nothing.
+	if preferBlock != "" {
+		for _, b := range blocks {
+			if b.ID == preferBlock {
+				blocks = []agent.MaterialBlock{b}
+				break
+			}
+		}
+	}
 
 	// Grounding ONE illustrative sentence is a lightweight pick, not a
 	// reasoning task — the pro side measured the chaperone tier grounding just
@@ -180,11 +223,11 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 	if !usedChaperone {
 		groundResolver = a.d.EvalResolver
 	}
-	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(lensCtx, a.d.Provider, groundResolver, spec, at.ID.String(), blocks)
-	a.recordLiteLLMCall(lensCtx, u.ID, at.ID, "read_card_example", resolved, usage)
+	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(ctx, a.d.Provider, groundResolver, spec, atomID.String(), blocks)
+	a.recordLiteLLMCall(ctx, userID, atomID, "read_card_example", resolved, usage)
 	if !exampleOK && usedChaperone && a.d.EvalResolver != nil {
-		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(lensCtx, a.d.Provider, a.d.EvalResolver, spec, at.ID.String(), blocks)
-		a.recordLiteLLMCall(lensCtx, u.ID, at.ID, "read_card_example", resolved, usage)
+		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(ctx, a.d.Provider, a.d.EvalResolver, spec, atomID.String(), blocks)
+		a.recordLiteLLMCall(ctx, userID, atomID, "read_card_example", resolved, usage)
 	}
 
 	// The lens opens whether or not the model could ground an example — a
@@ -202,14 +245,14 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	row, err := a.d.Queries.CreateAtomCard(lensCtx, sqlc.CreateAtomCardParams{
-		AtomID: at.ID, CardID: cardID, BlockID: blockID, Status: "proposed",
+	row, err := a.d.Queries.CreateAtomCard(ctx, sqlc.CreateAtomCardParams{
+		AtomID: atomID, CardID: cardID, BlockID: blockID, Status: "proposed",
 		FieldValues: []byte("{}"), EventTrace: []byte("[]"), Anchors: anchorsJSON,
 		// 铁律④ — SHE chose this lens out of the 透镜库. That is the autonomy
 		// signal itself, it is not reconstructible from any other column on
 		// the row, and the router's own creation site (reading_turn.go)
 		// records 'router' for the same reason.
-		Origin: cardOriginStudent,
+		Origin: origin,
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		// atom_card_one_open_idx (0096) refused a SECOND open lens: another
@@ -222,26 +265,18 @@ func (a *API) liteSummonCard(w http.ResponseWriter, r *http.Request) {
 		// succeeds, leaving a second `proposed` row that getOpenCard never
 		// returns: invisible to her, yet blocking every future summon.
 		slog.Info("lite summon: lost the one-open-lens race; declining",
-			"atom_id", at.ID, "card_id", cardID,
-			"request_id", httpx.RequestIDFromContext(r.Context()))
-		liteSummonDecline(w, liteSummonBusyReply)
-		return
+			"atom_id", atomID, "card_id", cardID,
+			"request_id", httpx.RequestIDFromContext(ctx))
+		return summonedLens{Decline: liteSummonBusyReply}, nil
 	}
 	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
+		return summonedLens{}, err
 	}
 	dto := cardDTOOf(row)
 	// 触发是自动的，但「打开」由学生确认 (铁律②) — even a card she asked for
 	// arrives 'proposed'; activate is still a separate, recorded step.
-	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{
-		Reply: "", Decision: "summon", Card: &dto, Nudge: nudge,
-	})
+	return summonedLens{Card: &dto, Nudge: nudge}, nil
 }
-
-// liteSummonDecline answers a refused summon the way the coach would: a plain
-// sentence, decision "respond", no card. Not an HTTP error — nothing went
-// wrong, the room is just already busy or the ordering says not yet.
 func liteSummonDecline(w http.ResponseWriter, reply string) {
 	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{Reply: reply, Decision: "respond"})
 }
