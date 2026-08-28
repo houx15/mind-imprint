@@ -124,3 +124,225 @@ test("clicking a paragraph raises its tools, carrying 想一想 and 仿写", asy
   await page.locator("p[data-block-id]").nth(1).click();
   await expect(bar).toHaveCount(0);
 });
+
+/**
+ * Programmatic drag-select: Annotate's `onReferenceSelection` (fine-grained
+ * quoting, apps/web/src/primitives/annotate/Annotate.tsx) reads a real,
+ * non-collapsed `window.getSelection()` on `mouseup` — there is no button for
+ * this, a student does it by dragging her cursor across a sentence. A
+ * Playwright mouse drag over CJK text is unreliable (no word boundaries to
+ * land on), so this builds the same end state directly: a `Range` over the
+ * quote's own text node, installed as the live selection, followed by a real
+ * `mouseup` DOM event (bubbles, so Annotate's handler on the wrapping `<div>`
+ * still fires) — the exact shape `selectionToSpan` reads either way.
+ */
+async function selectQuoteInBlock(page: Page, blockId: string, quote: string): Promise<void> {
+  const found = await page.evaluate(
+    ({ blockId, quote }) => {
+      const p = document.querySelector(`p[data-block-id="${blockId}"]`);
+      if (!p) return false;
+      const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+      let range: Range | null = null;
+      let node: Text | null;
+      while ((node = walker.nextNode() as Text | null)) {
+        const idx = node.data.indexOf(quote);
+        if (idx !== -1) {
+          range = document.createRange();
+          range.setStart(node, idx);
+          range.setEnd(node, idx + quote.length);
+          break;
+        }
+      }
+      if (!range) return false;
+      const sel = window.getSelection();
+      sel?.removeAllRanges();
+      sel?.addRange(range);
+      p.dispatchEvent(new MouseEvent("mouseup", { bubbles: true }));
+      return true;
+    },
+    { blockId, quote },
+  );
+  if (!found) throw new Error(`could not select "${quote}" inside block ${blockId}`);
+}
+
+/**
+ * The sub-project's centrepiece: 印记 doesn't just say which paragraph it
+ * means, it hangs the lens THERE. The AI turn is mocked (page.route) for a
+ * deterministic aim — the live version of this same hand-off (a real model
+ * call grounding a real example) is already walked for real in
+ * reading-walk.spec.ts's "a summoned lens hangs under a paragraph and
+ * becomes a finding"; this test is about the paragraph-naming wiring, not
+ * the model's judgement.
+ */
+test("带读 hands her a lens aimed at the paragraph it just named", async ({ page }) => {
+  const readingIdFrom = (url: string) => new URL(url).pathname.match(/\/readings\/([^/]+)\//)?.[1] ?? "";
+
+  // A real substring of paragraph 2 (b2) — so the mark it becomes renders
+  // exactly where "aimed at the paragraph it just named" claims it will.
+  const paragraph2 = ARTICLE_BODY.split("\n\n")[1]!;
+  const quote = "组件价格在这十年里下降了八成以上";
+  const start = paragraph2.indexOf(quote);
+  expect(start).toBeGreaterThan(-1);
+
+  // Anchor field names are the shared `Anchor` contract's own (snake_case) —
+  // distinct from the camelCase wire shape of the card DTO around it, and
+  // that mismatch is real (apps/api/internal/agent/anchors.go vs
+  // apps/api/internal/api/reading_cards.go's cardDTO), not a typo here.
+  const card = (readingId: string) => ({
+    id: "mock-card-1",
+    cardId: "craap",
+    blockId: "b2",
+    status: "proposed",
+    origin: "router",
+    anchors: [
+      {
+        id: "mock-anchor-1",
+        material_id: readingId,
+        block_id: "b2",
+        start,
+        end: start + quote.length,
+        quote,
+        dimension: "",
+        author: "ai",
+        question: "这句给了个具体百分比，但没说是哪国的数字——查一下来源。",
+        answer: "",
+      },
+    ],
+    fieldValues: {},
+    eventTrace: [],
+    framework: {},
+    createdAt: new Date().toISOString(),
+    submittedAt: null,
+  });
+
+  // Before the coach turn below fires there is no card yet — the room's
+  // mount-time "resume an open card" check (useReadingLoop) hits this same
+  // GET, so it must answer honestly with nothing until the turn has minted
+  // one, or the card would appear before 开始 is even clicked.
+  let minted = false;
+  await page.route("**/api/v1/readings/*/coach", async (route) => {
+    minted = true;
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        reply: "第二段这个百分比没说是哪国的数据，值得先查一下来源。",
+        tasks: [],
+        currentTaskId: "",
+        focusBlock: "b2",
+        tool: "",
+        finished: false,
+        nudge: "这句缺出处，用 CRAAP 查一下来源再往下读。",
+        card: card(readingIdFrom(route.request().url())),
+      }),
+    });
+  });
+  await page.route("**/api/v1/readings/*/cards", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ cards: minted ? [card(readingIdFrom(route.request().url()))] : [] }),
+    });
+  });
+
+  await startReading(page, titled("透镜命中走查"));
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+
+  const hangingCard = page.locator(".lens-connector").locator("..");
+  await expect(hangingCard).toBeVisible({ timeout: 30_000 });
+
+  // PARAGRAPH-ANCHORED: the card renders immediately after b2's own <p> —
+  // the same check reading-walk.spec.ts's lens walk makes, here on the
+  // paragraph the COACH (not the student) named.
+  const anchorBlock = await hangingCard.evaluate((el) => {
+    const prev = el.previousElementSibling;
+    return prev && prev.tagName === "P" ? prev.getAttribute("data-block-id") : null;
+  });
+  expect(anchorBlock).toBe("b2");
+
+  // The 示范 sentence itself is rendered inside that same paragraph.
+  const exampleMark = page.locator('p[data-block-id="b2"] mark', { hasText: quote });
+  await expect(exampleMark).toBeVisible();
+});
+
+/**
+ * A 找一找 (hunt) step settles on a POINT, not a typed description — the
+ * plan is arranged directly (page.route on GET /plan and /messages) rather
+ * than walked there through a live model call, since what this test is
+ * proving is the wiring from a pending "hunt" step through to the
+ * structured `picks` field, not the coach's own routing judgement.
+ */
+test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
+  const huntTask = {
+    id: "task-hunt-1",
+    position: 3,
+    kind: "hunt",
+    label: "找一找：这个百分比说的是哪国的数字？",
+    detail: "在文章里点出能回答这个问题的那一句。",
+    blockId: "",
+    status: "pending",
+    completedAt: null,
+  };
+
+  await page.route("**/api/v1/readings/*/plan", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ routineKey: "zh-scan-focus-lens", routineName: "扫读定位透镜", tasks: [huntTask] }),
+    });
+  });
+  // 带读 has to already be STARTED for the hint to render — ReadingCoachPanel
+  // shows the 开始 invitation, not the task rail's hint, until `messages` is
+  // non-empty.
+  await page.route("**/api/v1/readings/*/messages", async (route) => {
+    if (route.request().method() !== "GET") return route.continue();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        messages: [
+          { seq: 1, role: "ai", content: "先看看这句是不是点名了国家。", createdAt: new Date().toISOString() },
+        ],
+      }),
+    });
+  });
+
+  let capturedBody: { text: string; picks: { blockId: string; quote: string }[] } | null = null;
+  await page.route("**/api/v1/readings/*/coach", async (route) => {
+    capturedBody = route.request().postDataJSON();
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        reply: "找到了，这句确实点名了国家。",
+        tasks: [{ ...huntTask, status: "done", completedAt: new Date().toISOString() }],
+        currentTaskId: "",
+        focusBlock: "",
+        tool: "",
+        finished: false,
+        card: null,
+        nudge: "",
+      }),
+    });
+  });
+
+  await startReading(page, titled("找一找走查"));
+
+  // The hint names the gesture: pointing, not typing.
+  await expect(page.getByText("在文章里点出那一句")).toBeVisible();
+
+  const quote = "组件价格在这十年里下降了八成以上";
+  await selectQuoteInBlock(page, "b2", quote);
+
+  // The chip is the proof a POINT was made, distinct from her typed words.
+  await expect(page.getByText(`“${quote}”`)).toBeVisible();
+
+  await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("这句提到具体国家了吗？");
+  await page.getByRole("button", { name: "发送" }).click();
+
+  await expect.poll(() => capturedBody).not.toBeNull();
+  // The structured field, not just the inlined blockquote in `text`.
+  expect(capturedBody?.picks?.[0]).toEqual({ blockId: "b2", quote });
+});

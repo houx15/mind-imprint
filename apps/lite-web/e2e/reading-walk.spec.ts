@@ -218,6 +218,15 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await expect(finalize.getByText("我的收获")).toBeVisible();
   await expect(finalize.getByText("新的线索")).toHaveCount(0);
   await expect(finalize.getByText("对论点的影响")).toHaveCount(0);
+  // Task 11 hid this row (LITE_READING_CAPABILITIES.credibility = false):
+  // lite has no CRAAP-style verdict producer, so it could only ever read
+  // 尚未评估 — a permanent false "not yet" rather than an honest absence.
+  // `credibility` DEFAULTS TRUE on FinalizeReadingPanel, so dropping the
+  // `credibility={caps.credibility}` wiring in ReadingRoom.tsx would bring
+  // this row back silently; this is the only test on the real render tree
+  // that would notice (the unit tests render the panel directly with an
+  // explicit prop, bypassing the app wiring entirely).
+  await expect(finalize.getByText("可信度", { exact: true })).toHaveCount(0);
 
   const takeaway = "增长是真的，但把它外推到下一个十年之前，得先问储能解决了没有。";
   const takeawayBox = finalize.locator("textarea");
