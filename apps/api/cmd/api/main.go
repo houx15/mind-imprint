@@ -129,6 +129,7 @@ func main() {
 	provider := gateway.NewMuxProvider(map[string]gateway.Provider{
 		"deepseek":  gateway.NewDeepSeekProvider(httpClient),
 		"anthropic": gateway.NewAnthropicProvider(httpClient),
+		"glm":       gateway.NewGLMProvider(httpClient),
 	})
 
 	apiHandler := api.New(api.Deps{

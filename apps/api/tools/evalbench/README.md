@@ -25,13 +25,17 @@ cd apps/api
 DEEPSEEK_API_KEY=...
 # 或
 ANTHROPIC_API_KEY=...
+# GLM-5.3-Flash experiment:
+ZAI_API_KEY=...
 ```
 
-配置中的 provider 目前只能是 `deepseek` 或 `anthropic`。评估试验台始终按 `flagship` 档位调用模型。
+配置中的 provider 可以是 `deepseek`、`anthropic` 或 `glm`。评估试验台始终按 `flagship` 档位调用模型。
+
+GLM profile 可选 `reasoningEffort`：`low`、`high` 或 `max`。未设置时 GLM 仍使用官方默认 `max`；该字段只影响离线 Evalbench 的 model profile，不会改变生产 resolver。
 
 ## 配置实验
 
-默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应人工 Gold JSON、模型 profile，以及两个同模型 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、DeepSeek JSON mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
+默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应人工 Gold JSON、DeepSeek 与 GLM model profile，以及两个使用 DeepSeek profile 的 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、JSON object mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
 
 ```json
 {
@@ -60,6 +64,11 @@ ANTHROPIC_API_KEY=...
     "deepseek-flagship": {
       "provider": "deepseek",
       "model": "deepseek-v4-pro"
+    },
+    "glm-5.3-flash": {
+      "provider": "glm",
+      "model": "glm-5.3-flash",
+      "reasoningEffort": "max"
     }
   },
   "variants": [
@@ -95,6 +104,8 @@ ANTHROPIC_API_KEY=...
 ```
 
 一个模型 profile 可被多个 variant 使用，因此可在不改生产代码的前提下，配置同一 evaluator 分别使用多个旗舰模型。默认两组都使用同一旗舰模型并保持 reasoning 开启。单 prompt v1 的正常完整实验发起 production 的 4 次 candidate calls 加单 prompt 的 1 次 candidate call，以及每个成功 variant 各 1 次 comparator call。
+
+默认 `config.json` 中的 GLM profile 不被两个默认 variant 引用；它只使 GLM 成为可在 Evalbench 配置中显式引用的模型。GLM 的公开定价以人民币及可能限时价格发布；共享 gateway 价格表只保存可审计的 USD 费率。因此 GLM candidate 在报告中会正确显示为“未定价”，不会被误报为 `$0`；DeepSeek Comparator 仍按既有 USD 费率计价。
 
 ## 添加实验 evaluator
 
@@ -182,6 +193,6 @@ tools/evalbench/results/20260814T120000Z-<uuid>/
 
 `summary.json` 将 candidate 与 comparator 的调用统计分开，包含调用次数、输入/输出 token、reasoning/content token、成本覆盖和异常流数。`contentTokens` 仅在 provider 返回 `reasoningTokens` 时按 `outputTokens - reasoningTokens` 记录；不保存 reasoning/CoT 原文。若 provider 没有返回 usage，相关 token 会保持为 `null`，不会自行估算。流式调用在 HTTP 200 后仍可能以 `provider stream read failed`、`provider stream ended before completion` 或超时失败；这些安全分类会写入调用 metadata，不记录 key 或上游响应体。
 
-`single-prompt-evalreport-v1` 的正常 candidate attempt 只有 `single_prompt_evalreport_v1` 一次调用，不做 JSON 重试；输出少维度、重复维度、非法字段、不合法 JSON 或模型截断都会使 attempt 失败。这是有意设计，用来测量单次综合 prompt 的真实完整率，而不是用回填掩盖它。24K JSON mode 只由 DeepSeek 支持；若配置到不支持的 provider，调用会明确失败而不会静默降级。
+`single-prompt-evalreport-v1` 的正常 candidate attempt 只有 `single_prompt_evalreport_v1` 一次调用，不做 JSON 重试；输出少维度、重复维度、非法字段、不合法 JSON 或模型截断都会使 attempt 失败。这是有意设计，用来测量单次综合 prompt 的真实完整率，而不是用回填掩盖它。该实验依赖 provider 的 JSON object response format；当前 DeepSeek 与 GLM-5.3-Flash 支持它。若配置到不支持的 provider，调用会明确失败而不会静默降级。
 
 结果目录默认被 Git 忽略。调用记录中的 request 和 raw output 可能包含实验输入与 prompt，应按学生过程数据妥善保管；其中不会记录 API key。

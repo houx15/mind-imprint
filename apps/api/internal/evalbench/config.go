@@ -43,8 +43,9 @@ type CaseConfig struct {
 }
 
 type ModelProfile struct {
-	Provider string `json:"provider"`
-	Model    string `json:"model"`
+	Provider        string `json:"provider"`
+	Model           string `json:"model"`
+	ReasoningEffort string `json:"reasoningEffort,omitempty"`
 }
 
 type VariantConfig struct {
@@ -160,8 +161,18 @@ func (c Config) Validate() error {
 // ValidateModelProfile ensures the experiment only uses providers implemented
 // by gateway.
 func ValidateModelProfile(p ModelProfile) error {
-	if p.Model == "" || (p.Provider != "deepseek" && p.Provider != "anthropic") {
+	if p.Model == "" || (p.Provider != "deepseek" && p.Provider != "anthropic" && p.Provider != "glm") {
 		return fmt.Errorf("must use supported provider and model")
+	}
+	if p.ReasoningEffort != "" {
+		if p.Provider != "glm" {
+			return fmt.Errorf("reasoningEffort is currently supported only for glm")
+		}
+		switch p.ReasoningEffort {
+		case "low", "high", "max":
+		default:
+			return fmt.Errorf("glm reasoningEffort must be low, high, or max")
+		}
 	}
 	return nil
 }

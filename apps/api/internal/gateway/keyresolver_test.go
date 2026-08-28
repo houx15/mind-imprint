@@ -47,6 +47,15 @@ func TestKeyResolverFallsBackToAnthropic(t *testing.T) {
 	}
 }
 
+func TestDefaultResolversDoNotSelectGLM(t *testing.T) {
+	cfg := config.Config{ZAIKey: "zai-only"}
+	for _, resolver := range []KeyResolver{NewKeyResolver(cfg), NewFastChaperoneResolver(cfg), NewEvalKeyResolver(cfg)} {
+		if _, err := resolver(context.Background()); err == nil {
+			t.Fatal("GLM key alone must not change the existing resolver fallback chain")
+		}
+	}
+}
+
 func TestKeyResolverErrorsWhenNoKey(t *testing.T) {
 	r := NewKeyResolver(config.Config{})
 	_, err := r(context.Background())
@@ -57,7 +66,9 @@ func TestKeyResolverErrorsWhenNoKey(t *testing.T) {
 
 func TestEvalResolverIsFlagship(t *testing.T) {
 	r, err := NewEvalKeyResolver(config.Config{DeepSeekKey: "k"})(context.Background())
-	if err != nil { t.Fatal(err) }
+	if err != nil {
+		t.Fatal(err)
+	}
 	if r.Tier != "flagship" || r.Model != "deepseek-v4-pro" {
 		t.Fatalf("want flagship deepseek-v4-pro, got %s/%s", r.Tier, r.Model)
 	}

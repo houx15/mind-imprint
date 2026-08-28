@@ -37,6 +37,7 @@ func NewRuntime(c Config) (*Runtime, error) {
 		provider: gateway.NewMuxProvider(map[string]gateway.Provider{
 			"deepseek":  gateway.NewDeepSeekProvider(client),
 			"anthropic": gateway.NewAnthropicProvider(client),
+			"glm":       gateway.NewGLMProvider(client),
 		}),
 		candidateTimeout:  timeoutDuration(c.Timeouts.CandidateSeconds, defaultCandidateCallTimeout),
 		comparatorTimeout: timeoutDuration(c.Timeouts.ComparatorSeconds, defaultComparatorCallTimeout),
@@ -61,13 +62,15 @@ func (r *Runtime) Resolve(profileID string) (gateway.Resolved, ModelProfile, err
 		baseURL, key = "https://api.deepseek.com/v1", os.Getenv("DEEPSEEK_API_KEY")
 	case "anthropic":
 		baseURL, key = "https://api.anthropic.com/v1", os.Getenv("ANTHROPIC_API_KEY")
+	case "glm":
+		baseURL, key = "https://open.bigmodel.cn/api/paas/v4", os.Getenv("ZAI_API_KEY")
 	default:
 		return gateway.Resolved{}, ModelProfile{}, fmt.Errorf("evalbench: unsupported provider %q", p.Provider)
 	}
 	if key == "" {
 		return gateway.Resolved{}, ModelProfile{}, fmt.Errorf("evalbench: missing API key for provider %q", p.Provider)
 	}
-	return gateway.Resolved{Provider: p.Provider, BaseURL: baseURL, Model: p.Model, APIKey: key, Tier: FlagshipTier}, p, nil
+	return gateway.Resolved{Provider: p.Provider, BaseURL: baseURL, Model: p.Model, APIKey: key, Tier: FlagshipTier, DefaultReasoningEffort: p.ReasoningEffort}, p, nil
 }
 
 func (r *Runtime) Observed(purpose string, recorder *CallRecorder) gateway.Provider {
