@@ -19,6 +19,17 @@ export const PROSE_TYPOGRAPHY = Object.freeze({
   lineHeight: "1.9",
   letterSpacing: "0",
   padding: "48px 32px 40vh",
+  // 🔑 The textarea scrolls internally once the draft passes min-h-[60vh];
+  // the layer (absolute inset-0, overflow-hidden) never does. On Windows and
+  // Linux Chrome a classic scrollbar takes ~15px out of the TEXTAREA's
+  // content box and nothing out of the layer's, so the two wrap at different
+  // points and the glyphs she reads drift away from the caret she types at —
+  // further with every line. `stable` reserves the gutter on BOTH elements
+  // whether or not a scrollbar is showing, so their content widths stay
+  // equal. macOS overlay scrollbars hide the bug entirely, which is why it
+  // survived a green e2e run. It also settles where an unbroken long token
+  // wraps: same width, same break.
+  scrollbarGutter: "stable",
 });
 
 /**

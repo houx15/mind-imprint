@@ -197,10 +197,19 @@ export function ComposeStage({
   }
 
   async function assemble() {
+    // The textarea stays enabled while this is in flight (a disabled surface
+    // that steals focus mid-keystroke is worse), so she CAN type into a blank
+    // arrival page during the round trip. Capture what was there when we
+    // asked, and refuse to paint over anything she added since: the old
+    // unconditional write dropped those keystrokes AND then let the next
+    // autosave push the clobbered text to the server — the same silent loss
+    // `wouldOverwrite` guards the manual 重新拼合 against.
+    const startBody = bodyRef.current;
     setComposing(true);
     setError(null);
     try {
       const next = await composeWritingDraft(writingId);
+      if (bodyRef.current !== "" && bodyRef.current !== startBody) return;
       clearPending();
       savedRef.current = next.body;
       bodyRef.current = next.body;
