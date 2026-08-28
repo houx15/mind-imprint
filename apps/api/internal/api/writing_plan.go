@@ -83,18 +83,24 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 ## 提示，不是菜单
 
-她卡住的时候，给**例子和可能的写法**，让她挑着想，而不是给她一张表去选：
-- 「有人会用三条并列的理由，也有人一正一反举两个例子——你手上有什么？」
-- 「你可以先讲一件小事，再从那件事说开去。」
-绝对不要把「并列/递进/正反/让步」当成选项列给她挑。
+她卡住的时候，用【可用的方法】里真正的名字给她一两个具体的路子，而不是甩一张
+表去选：
+- 「这条理由可以用『并列论证』——几件事摆在一起同等重要；也可以用『正反对比』
+  ——一好一坏两个例子放在一起看。哪一种更接近你手上的材料？」
+- 「你可以先讲一件小事，再从那件事说开去，这是『钩子式开头』。」
+不要把方法名堆成一整张表甩给她挑——一次给一两个、说清楚为什么、给她一个真选择。
 
-## 结构的名字，在她做出来之后才说
+## 结构的名字，做出来之后点最准
 
-她给出东西之后，你可以顺口点一句她刚做的是什么，让她把名字和自己的东西对上：
+她做出东西之后，顺口点一句这是什么，让名字和她自己的东西对上，记得最牢：
 - 三条平行的理由 →「你这三条是并列的，稳，但要小心三条一样重就没有高潮。」
 - 一好一坏两个例子 →「这是正反对比。」
 - 先承认再反驳 →「你这是让步，写出来最有说服力。」
 一次最多点一句，别上课。
+
+这不是说不能先说方法名——她卡住的时候提前说一个，是在给她一条路走；只是
+「等她做出来再点」永远是最扎实的一次，因为名字这时候是在描述真实发生的事，
+不是在预告一张要填的表。
 
 ## 你心里要装着「一整篇」
 
@@ -106,6 +112,8 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 也可能是「理由一底下什么都没有」。**有时候答案是什么都不缺，让她去写。**
 
 开头和结尾要等主体有了再谈——不知道要把人领进哪里，就没法决定怎么开门。
+
+她想去写了，就让她去写；或者她说「先这样」，就往下走。规划不是关卡。
 
 ## 怎么说话（这条比什么都重要）
 
@@ -174,7 +182,7 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 
 	b.WriteString("\n【可用的方法】（只能用这里的名字，别造新词）\n")
 	for _, m := range vocab.All() {
-		if m.AppliesTo == "opening" || m.AppliesTo == "closing" || m.AppliesTo == "body" {
+		if m.AppliesTo == "opening" || m.AppliesTo == "closing" || m.AppliesTo == "body" || m.AppliesTo == "any" {
 			b.WriteString("- " + m.Name + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 		}
 	}
@@ -266,13 +274,42 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 	return got, true
 }
 
+// rootInsertPosition decides where a NEW top-level (depth-0) node lands
+// among the existing rows: an opening-ish role goes to position 0 (first in
+// document order, ahead of the thesis); everything else — 中心论点, a
+// closing, or a role we don't recognise — keeps the old behaviour of
+// appending at the end, in the order she produced them.
+//
+// This exists because 印记 asks about the opening only AFTER the thesis and
+// body already exist (see "开头和结尾要等主体有了再谈" in the system prompt),
+// so a plain end-append would always land the opening LAST — after the
+// thesis and every 分论点 — even though the spec requires the opening to
+// render as the piece's first block, ahead of 中心论点.
+//
+// It is a heuristic over the model's free-form `role` text, matched by
+// substring against a handful of Chinese synonyms for "opening". Its failure
+// mode if a role doesn't match is narrow: the block sorts to the end instead
+// of the front — a mis-ordered top-level node, never a wrong parent and
+// never a lost one.
+func rootInsertPosition(role string, rows []sqlc.WritingOutline) int32 {
+	for _, kw := range []string{"开头", "引言", "开篇", "钩子", "导入"} {
+		if strings.Contains(role, kw) {
+			return 0
+		}
+	}
+	return int32(len(rows))
+}
+
 // insertPlanNode places one node under `parent` (nil = top level) and returns
 // the created row.
 //
-// Position: a node goes at the END of its parent's subtree, so siblings keep
-// the order she produced them in. The subtree ends at the first following row
-// whose depth is <= the parent's — the same "flattened outline encodes a
-// tree" convention the frontend renders from.
+// Position: a node under a parent goes at the END of that parent's subtree,
+// so siblings keep the order she produced them in. The subtree ends at the
+// first following row whose depth is <= the parent's — the same "flattened
+// outline encodes a tree" convention the frontend renders from. A top-level
+// (parent == nil) node's position instead goes through rootInsertPosition,
+// since the document order for root nodes is not simply "arrival order" —
+// an opening has to sort ahead of the thesis that was already there.
 func insertPlanNode(
 	ctx context.Context,
 	q *sqlc.Queries,
@@ -282,7 +319,7 @@ func insertPlanNode(
 	text, role string,
 ) (sqlc.WritingOutline, []sqlc.WritingOutline, error) {
 	depth := int32(0)
-	insertAt := int32(len(rows))
+	var insertAt int32
 	if parent != nil {
 		depth = parent.Depth + 1
 		if depth > writingPlanMaxDepth {
@@ -296,6 +333,8 @@ func insertPlanNode(
 				break
 			}
 		}
+	} else {
+		insertAt = rootInsertPosition(role, rows)
 	}
 	if err := q.ShiftWritingOutlinePositions(ctx, sqlc.ShiftWritingOutlinePositionsParams{
 		AtomID: atomID, Position: insertAt,
