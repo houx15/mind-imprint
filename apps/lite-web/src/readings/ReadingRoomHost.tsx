@@ -34,6 +34,7 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import { ReportPanel } from "../reports/ReportPanel";
+import { useHeartbeat } from "../shared/useHeartbeat";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanRail } from "./ReadingPlanRail";
 import { ReadingQuestions } from "./ReadingQuestions";
@@ -169,6 +170,11 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
       cancelled = true;
     };
   }, [readingId, reloadKey]);
+
+  // The report's minute count. `state.phase === "ready"` is exactly "loaded
+  // and not finished" — a finished reading takes the "finished" phase above,
+  // which never reaches this line — so no extra state is needed for `enabled`.
+  useHeartbeat("reading", readingId, state.phase === "ready");
 
   const onAiError = useCallback((message: string) => setAiError(message), []);
   const api = useMemo(() => createReadingRoomApi(readingId, { onAiError }), [readingId, onAiError]);

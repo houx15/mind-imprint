@@ -7,6 +7,7 @@ import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
 import { getWriting, isWritingFinished, type Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
+import { useHeartbeat } from "../shared/useHeartbeat";
 import {
   listWritingMessages,
   getWritingOutline,
@@ -84,6 +85,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
    * 印记's problem.
    */
   const [opening, setOpening] = useState(false);
+
+  // The report's minute count. `state.phase === "ready"` is exactly "loaded
+  // and not finished" — a finished writing takes the "finished" phase below,
+  // which never reaches this line — so no extra state is needed for `enabled`.
+  useHeartbeat("writing", writingId, state.phase === "ready");
 
   useEffect(() => {
     let cancelled = false;
