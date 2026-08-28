@@ -204,17 +204,61 @@ export async function guideWritingBlock(id: string, outlineId: string): Promise<
   return { job: raw.job ?? "", methods: raw.methods ?? [], questions: raw.questions ?? [] };
 }
 
-/*
- * The batch endpoint (POST /writings/{id}/guide, writing_guide.go's
- * guideWritingBlocks) answers `{"guides": {"<outline-uuid>": WritingBlockGuide}}`
- * — keyed by outline row id, deliberately, so a block's guide lands on the
- * exact block it belongs to rather than walking a list and hoping the order
- * lines up. `getWritingOutline` above already carries each block's stored
- * guide (WritingOutlineItem.guide) painted from that same batch call, so no
- * client wrapper for the batch route itself exists yet — wiring it in is
- * Task 11's, alongside the SnippetsStage/ComposeStage rebuild that consumes
- * it.
+/**
+ * The WHOLE outline, guided in ONE model call — POST /writings/{id}/guide
+ * (writing_guide.go's guideWritingBlocks). The server STORES what it
+ * generates, so this is called at most once per piece: every later load gets
+ * the same guidance back for free on `WritingOutlineItem.guide`, which is why
+ * 段落 can paint guidance on arrival instead of waiting for a click.
+ *
+ * Keyed by outline row id, deliberately — a guide lands on the exact block it
+ * belongs to rather than walking two lists and hoping the order lines up. The
+ * map is normalised here so a block whose guide came back without `methods`
+ * or `questions` still renders instead of throwing on `.map`.
  */
+export async function guideWritingBlocks(id: string): Promise<Record<string, WritingBlockGuide>> {
+  const raw = await apiFetch<{ guides: Record<string, Partial<WritingBlockGuide>> }>(`${base(id)}/guide`, {
+    method: "POST",
+  });
+  const out: Record<string, WritingBlockGuide> = {};
+  for (const [outlineId, g] of Object.entries(raw.guides ?? {})) {
+    out[outlineId] = { job: g.job ?? "", methods: g.methods ?? [], questions: g.questions ?? [] };
+  }
+  return out;
+}
+
+// --- 深入一层 (the block-scoped side conversation) ---------------------------
+
+/**
+ * One turn of 深入一层 — POST /outline/{oid}/deepen (writing_deepen.go).
+ *
+ * It is the SAME 印记. Server-side this is a context-isolated sub-agent
+ * briefed on one block; the student must never meet a second character, so
+ * nothing in this call's drawer, heading or copy introduces one.
+ *
+ * The endpoint has no write path to `writing_outline` or `writing_snippet`,
+ * so it structurally cannot author her outline or her prose — which is why
+ * the drawer has no "把这句放进去" affordance to build on top of it.
+ */
+export async function postWritingBlockDeepen(id: string, outlineId: string, text: string): Promise<string> {
+  const raw = await apiFetch<{ reply: string }>(`${base(id)}/outline/${encodeURIComponent(outlineId)}/deepen`, {
+    method: "POST",
+    body: JSON.stringify({ text }),
+  });
+  return raw.reply ?? "";
+}
+
+/**
+ * This block's whole deepen thread, oldest first — GET the same path. The
+ * thread persists per block, so reopening a block returns to the conversation
+ * rather than to a blank slate. No model call, no spend.
+ */
+export async function getWritingBlockThread(id: string, outlineId: string): Promise<LiteMessage[]> {
+  const raw = await apiFetch<{ messages: LiteMessage[] }>(
+    `${base(id)}/outline/${encodeURIComponent(outlineId)}/deepen`,
+  );
+  return raw.messages ?? [];
+}
 
 // --- coach turn ---------------------------------------------------------
 

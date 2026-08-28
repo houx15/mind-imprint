@@ -1,11 +1,13 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, HelpCircle } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import { GuideBox } from "./GuideBox";
+import { DeepenDrawer } from "./DeepenDrawer";
 import {
   putWritingSnippet,
   guideWritingBlock,
+  guideWritingBlocks,
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingBlockGuide,
@@ -20,9 +22,21 @@ import {
  * textarea under a heading, and a student staring at a cursor. What was
  * missing wasn't a bigger box; it was something to think *about*.
  *
- * So every block now carries 「卡住了？」 → GuideBox: two to four questions
- * about THIS block, grounded in what she has already said. Not suggestions,
- * not a model paragraph — questions.
+ * ## Guidance is PRESENT ON ARRIVAL (Task 11)
+ *
+ * It used to be that the only way to see a guide was to find and press
+ * 「卡住了？」 — which meant the student who most needed it (the one who does
+ * not know what she is allowed to ask for) was the one least likely to get
+ * it. Now:
+ *
+ *   - every block's guide is **stored** server-side and arrives on
+ *     `GET /outline` (`WritingOutlineItem.guide`), so on any later visit it
+ *     is simply painted, with no call and no click;
+ *   - the first time a piece reaches 段落 with nothing stored yet, the BATCH
+ *     route (`POST /writings/{id}/guide`, one model call for the whole
+ *     outline) runs once by itself. She should not have to ask to be taught.
+ *   - 「卡住了？」 survives as **regenerate this one block** — a second opinion
+ *     when the first set of questions didn't land — not as the way in.
  *
  * 铁律① IS ENFORCED IN THIS FILE: GuideBox renders `guide.questions`, and the
  * server has already dropped anything that isn't a question
@@ -88,16 +102,23 @@ function buildSlots(outline: WritingOutlineItem[], snippets: WritingSnippet[]): 
   return [...outlineSlots, ...freeSlots];
 }
 
+/** The guides the server already stored, keyed by outline row id. */
+function storedGuides(outline: WritingOutlineItem[]): Record<string, WritingBlockGuide> {
+  const out: Record<string, WritingBlockGuide> = {};
+  for (const o of outline) {
+    if (o.guide) out[o.id] = o.guide;
+  }
+  return out;
+}
+
 export function SnippetsStage({
   writingId,
-  lang,
   outline,
   snippets,
   onSnippetsChange,
   onGoToStructure,
 }: {
   writingId: string;
-  lang: string;
   outline: WritingOutlineItem[];
   snippets: WritingSnippet[];
   onSnippetsChange: (next: WritingSnippet[]) => void;
@@ -106,6 +127,52 @@ export function SnippetsStage({
   onGoToStructure: () => void;
 }) {
   const slots = buildSlots(outline, snippets);
+
+  /**
+   * Guides live here rather than inside each block, because the batch call
+   * answers for the WHOLE outline at once and every block has to be able to
+   * receive its share. Seeded from what the server already stored; a locally
+   * regenerated guide wins over the stored one it replaced.
+   */
+  const [guides, setGuides] = useState<Record<string, WritingBlockGuide>>(() => storedGuides(outline));
+  useEffect(() => {
+    setGuides((prev) => ({ ...storedGuides(outline), ...prev }));
+  }, [outline]);
+
+  const [batching, setBatching] = useState(false);
+  const [batchError, setBatchError] = useState<string | null>(null);
+  // One attempt per mount. A failed batch must not turn into a retry loop
+  // that bills a model call every render, and a piece whose outline genuinely
+  // produced nothing must not be asked again on every keystroke.
+  const batchTried = useRef(false);
+
+  const anyGuide = outline.some((o) => guides[o.id]);
+  const needsBatch = outline.length > 0 && !anyGuide;
+
+  useEffect(() => {
+    if (!needsBatch || batchTried.current) return;
+    batchTried.current = true;
+    let cancelled = false;
+    setBatching(true);
+    void guideWritingBlocks(writingId)
+      .then((next) => {
+        if (!cancelled) setGuides((prev) => ({ ...next, ...prev }));
+      })
+      .catch((err: unknown) => {
+        // Surfaced, never masked: 「卡住了？」 still works per block, and
+        // saying so is more useful than a page that silently teaches nothing.
+        if (!cancelled) setBatchError(err instanceof ApiError ? err.message : "这次没能把引导算出来，点某一块的「卡住了？」也可以。");
+      })
+      .finally(() => {
+        if (!cancelled) setBatching(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [needsBatch, writingId]);
+
+  /** Which block, if any, has 深入一层 open. */
+  const [deepen, setDeepen] = useState<{ outlineId: string; heading: string } | null>(null);
 
   // Free paragraphs live in a position range an outline can never reach.
   //
@@ -130,8 +197,22 @@ export function SnippetsStage({
     <div className="flex flex-col gap-4">
       <div className="flex flex-col gap-1.5">
         <h2 className="text-mk-h2 text-mk-ink">段落</h2>
-        <p className="text-mk-body text-mk-muted">一块一块来。写不动了就点「卡住了？」。</p>
+        <p className="text-mk-body text-mk-muted">一块一块来。每一块上面都写着它要做的事，照着想就行。</p>
       </div>
+
+      {batching && (
+        <p className="text-mk-body text-mk-muted" role="status">
+          印记正在把每一块都先想一遍…
+        </p>
+      )}
+      {batchError && (
+        <div role="alert" className="rounded-mk-sm px-3 py-2 text-mk-small text-mk-danger" style={{ background: "var(--mk-danger-bg)" }}>
+          {batchError}
+          <button type="button" className="ml-3 underline" onClick={() => setBatchError(null)}>
+            知道了
+          </button>
+        </div>
+      )}
 
       {/* The design system's own empty state, illustration and all — a bare
           dashed box with a sentence in it is the shape this page is supposed
@@ -142,21 +223,30 @@ export function SnippetsStage({
         <EmptyState
           illustration="writing"
           title="还没有可以写的块"
-          body="段落是跟着结构里的每一块写的。先去挑一副骨架，或者直接加一段自由写。"
-          action={{ label: "去挑一副结构", onClick: onGoToStructure }}
+          body="段落是跟着结构里的每一块写的。先去把思路理一理，或者直接加一段自由写。"
+          action={{ label: "去理思路", onClick: onGoToStructure }}
         />
       )}
 
       <div className="flex flex-col gap-5">
-        {slots.map((slot) => (
-          <SnippetBlock
-            key={`${slot.outlineId ?? "free"}-${slot.position}`}
-            writingId={writingId}
-            lang={lang}
-            slot={slot}
-            onSaved={onSnippetsChange}
-          />
-        ))}
+        {slots.map((slot) => {
+          const oid = slot.outlineId;
+          return (
+            <SnippetBlock
+              key={`${oid ?? "free"}-${slot.position}`}
+              writingId={writingId}
+              slot={slot}
+              guide={oid ? (guides[oid] ?? null) : null}
+              onGuide={(next) => {
+                if (oid) setGuides((prev) => ({ ...prev, [oid]: next }));
+              }}
+              onDeepen={() => {
+                if (oid) setDeepen({ outlineId: oid, heading: slot.heading });
+              }}
+              onSaved={onSnippetsChange}
+            />
+          );
+        })}
       </div>
 
       <button
@@ -166,25 +256,46 @@ export function SnippetsStage({
       >
         <Icon icon={Plus} size={14} /> 加一段
       </button>
+
+      {deepen && (
+        <DeepenDrawer
+          writingId={writingId}
+          outlineId={deepen.outlineId}
+          heading={deepen.heading}
+          onClose={() => setDeepen(null)}
+        />
+      )}
     </div>
   );
 }
 
 function SnippetBlock({
   writingId,
-  lang,
   slot,
+  guide,
+  onGuide,
+  onDeepen,
   onSaved,
 }: {
   writingId: string;
-  lang: string;
   slot: Slot;
+  /** Whatever guidance this block already has — stored from the server or
+   *  just regenerated. Null only for a block that has never been guided (and
+   *  for free paragraphs, which have no outline row to guide). */
+  guide: WritingBlockGuide | null;
+  onGuide: (next: WritingBlockGuide) => void;
+  onDeepen: () => void;
   onSaved: (next: WritingSnippet[]) => void;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
-  const [guide, setGuide] = useState<WritingBlockGuide | null>(null);
   const [guiding, setGuiding] = useState(false);
+  /**
+   * 收起 hides the box; it does not throw the guidance away. Regenerating on
+   * the way back in would charge a model call to see something we already
+   * have, so the button becomes 「打开引导」 instead.
+   */
+  const [collapsed, setCollapsed] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -216,7 +327,7 @@ function SnippetBlock({
     }
   }
 
-  async function askForGuide() {
+  async function regenerate() {
     if (!slot.outlineId) {
       // A free paragraph has no block to reason about — the guide endpoint is
       // keyed on an outline row. Say so rather than firing a call that 404s.
@@ -226,13 +337,16 @@ function SnippetBlock({
     setGuiding(true);
     setError(null);
     try {
-      setGuide(await guideWritingBlock(writingId, slot.outlineId));
+      onGuide(await guideWritingBlock(writingId, slot.outlineId));
+      setCollapsed(false);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "这次没问出问题来，再试一次。");
     } finally {
       setGuiding(false);
     }
   }
+
+  const showGuide = guide !== null && !collapsed;
 
   return (
     <div className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-4">
@@ -249,22 +363,25 @@ function SnippetBlock({
           <span className="truncate text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          <Button
-            variant="secondary"
-            size="sm"
-            onClick={() => void askForGuide()}
-            loading={guiding}
-            iconStart={<Icon icon={HelpCircle} size={14} />}
-          >
-            卡住了？
-          </Button>
+          {guide !== null && collapsed ? (
+            <Button variant="secondary" size="sm" onClick={() => setCollapsed(false)}>
+              打开引导
+            </Button>
+          ) : (
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => void regenerate()}
+              loading={guiding}
+              iconStart={<Icon icon={HelpCircle} size={14} />}
+            >
+              {guide === null ? "卡住了？" : "换一组问题"}
+            </Button>
+          )}
         </div>
       </div>
 
-      {/* onDeepen: the fuller drawer this button opens is Task 11's — for now
-          it is a no-op landing spot so the button is real and wired without
-          this stage being rebuilt (Task 9 owns GuideBox, not SnippetsStage). */}
-      {guide && <GuideBox guide={guide} onDismiss={() => setGuide(null)} onDeepen={() => {}} />}
+      {showGuide && <GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />}
 
       <textarea
         value={text}

@@ -79,6 +79,32 @@ describe("GuideBox", () => {
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
+  it("shows a method's sentence patterns, which is all an English method carries", () => {
+    // The English half of vocab's library (en_concession / en_qualify /
+    // en_evidence) ships FRAMES rather than worked examples. Gating 例子 on
+    // `examples` alone left an English block with a button that never
+    // appeared and teaching that never reached her.
+    const english: WritingBlockGuide = {
+      job: "Concede the strongest objection before answering it.",
+      methods: [
+        {
+          name: "Conceding, then turning",
+          definition: "Grant what is true, then say what it does not settle.",
+          examples: [],
+          patterns: [{ label: "Admit then limit", frame: "While it is true that ___, this does not mean ___." }],
+        },
+      ],
+      questions: ["What is the strongest thing someone could say against you?"],
+    };
+    render(<GuideBox guide={english} onDismiss={() => {}} onDeepen={() => {}} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /看几个例子/ }));
+    expect(screen.getByText(/While it is true that ___/)).toBeTruthy();
+    // The blanks are the 铁律① line: the frame says what SHAPE the sentence
+    // takes, and the part it will not write is exactly the part she fills in.
+    expect(screen.getByText(/横线上的内容要你自己填/)).toBeTruthy();
+  });
+
   it("omits parts that have nothing to show, rather than rendering an empty section", () => {
     const sparse: WritingBlockGuide = { job: "", methods: [], questions: ["只有一个问题？"] };
     render(<GuideBox guide={sparse} onDismiss={() => {}} onDeepen={() => {}} />);
