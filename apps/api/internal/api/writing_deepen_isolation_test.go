@@ -134,3 +134,63 @@ func TestDeepenTurn_UnknownBlockIs404(t *testing.T) {
 		t.Fatalf("POST deepen on unknown block = %d, want 404; body=%s", rec.Code, rec.Body)
 	}
 }
+
+// TestDeepenTurn_PromptCarriesBriefButNotRoomThread — the real proof of the
+// transcript exclusion: not at buildDeepenBrief (it has no transcript
+// parameter to leak through, so a marker-absence test there can never fail —
+// see writing_deepen_test.go's comment), but at the ONE place a leak could
+// actually happen: this handler has the atom, and one careless
+// ListAtomMessages call would pull the room's whole planning conversation
+// into the model prompt. writingTextStubProvider's underlying
+// *gateway.StubProvider records the exact ChatRequest the handler built
+// (LastRequest) — this test inspects that recording directly rather than
+// only the reply, so it fails the moment someone adds such a call.
+func TestDeepenTurn_PromptCarriesBriefButNotRoomThread(t *testing.T) {
+	prov := writingTextStubProvider("具体谁来管维护，物业还是市政，得先弄清楚。")
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	id := createWritingAtomHTTP(t, h, cookie, "城市该不该大规模种行道树")
+	rows := seedTwoBlockOutline(t, h, cookie, id)
+	oid := rows[1].ID
+
+	// A distinctive turn in the ROOM's own planning thread — this must never
+	// reach the sub-agent's prompt.
+	const planningMarker = "规划环节专属暗号-行道树该种在人行道内侧还是外侧"
+	if rec := postWritingTurn(t, h, cookie, id, `{"text":"`+planningMarker+`"}`); rec.Code != http.StatusOK {
+		t.Fatalf("seed room planning turn = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	// A prior turn already in THIS block's own thread — this must survive
+	// into the prompt as real conversational history.
+	const priorBlockTurn = "之前问过：这一块的维护费大概每年多少？"
+	if rec := postWritingDeepenTurn(t, h, cookie, id, oid, `{"text":"`+priorBlockTurn+`"}`); rec.Code != http.StatusOK {
+		t.Fatalf("seed prior deepen turn = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	// The turn under test — the model call this asserts on.
+	if rec := postWritingDeepenTurn(t, h, cookie, id, oid, `{"text":"具体谁承担这笔维护费？"}`); rec.Code != http.StatusOK {
+		t.Fatalf("POST deepen = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	var prompt strings.Builder
+	for _, m := range prov.LastRequest.Messages {
+		prompt.WriteString(string(m.Role))
+		prompt.WriteString(": ")
+		prompt.WriteString(m.Content)
+		prompt.WriteString("\n---\n")
+	}
+	got := prompt.String()
+
+	for _, want := range []string{
+		"城市该不该大规模种行道树",        // title
+		"中心论点", "该种，但要先定谁长期养", // the whole outline map — the OTHER block
+		"一条理由", "维护年年花钱", // the whole outline map — THIS block's own row
+		priorBlockTurn, // this block's own prior thread turn
+	} {
+		if !strings.Contains(got, want) {
+			t.Errorf("prompt sent to the model is missing %q — full prompt:\n%s", want, got)
+		}
+	}
+	if strings.Contains(got, planningMarker) {
+		t.Errorf("prompt sent to the model leaked the room's planning thread (%q found) — full prompt:\n%s", planningMarker, got)
+	}
+}

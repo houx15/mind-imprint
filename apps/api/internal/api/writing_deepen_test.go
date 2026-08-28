@@ -13,11 +13,16 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// The brief is what makes this a sub-agent rather than a second general chat:
-// it carries the map and this block, and it deliberately does NOT carry the
-// planning transcript. That exclusion is the whole cost saving and the whole
-// reason it stays on topic, so it is pinned here.
-func TestBuildDeepenBrief_CarriesTheMapAndBlockButNotTheTranscript(t *testing.T) {
+// buildDeepenBrief carries the map and this block — asserted here. Its OTHER
+// half of the guarantee (that it does NOT carry the planning transcript) is
+// not testable at this function: buildDeepenBrief has no transcript
+// parameter to leak through, so a string-absence assertion here would be
+// vacuous — nothing could ever make it fail. That guarantee is instead
+// proven where a leak could actually occur — the handler, which DOES have
+// the atom and could carelessly call ListAtomMessages — by
+// TestDeepenTurn_PromptCarriesBriefButNotRoomThread
+// (writing_deepen_isolation_test.go).
+func TestBuildDeepenBrief_CarriesTheMapAndBlock(t *testing.T) {
 	wr := sqlc.Writing{Title: "城市该不该大规模种行道树", Lang: "zh"}
 	outline := []sqlc.WritingOutline{
 		{Text: "该种，但要先定谁长期养", Role: "中心论点", Depth: 0, Position: 0},
@@ -31,8 +36,5 @@ func TestBuildDeepenBrief_CarriesTheMapAndBlockButNotTheTranscript(t *testing.T)
 		if !strings.Contains(brief, want) {
 			t.Errorf("brief is missing %q", want)
 		}
-	}
-	if strings.Contains(brief, "PLANNING_TRANSCRIPT_MARKER") {
-		t.Error("brief carries the planning transcript; it must not")
 	}
 }
