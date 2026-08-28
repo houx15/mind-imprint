@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Anchor, MaterialSource, PhaseTag } from "@mind-imprint/contracts";
 import { Button, Input, Textarea } from "@/ui";
 import { ReadingRoom } from "@/studio/reading/ReadingRoom";
@@ -34,6 +34,7 @@ import {
   type ReadingTask,
 } from "../api/readingRoom";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
+import { ReadingPlanRail } from "./ReadingPlanRail";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { liteRoutePath, navigate } from "../routing";
 
@@ -86,9 +87,23 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   const [plan, setPlan] = useState<ReadingPlan | null>(null);
   const [blockTools, setBlockTools] = useState<ReadingBlockTool[]>([]);
   const [blockNotes, setBlockNotes] = useState<ReadingBlockNote[]>([]);
-  const [openBlock, setOpenBlock] = useState<string | null>(null);
+  // The paragraph whose tool bar is open, together with what the bar pins
+  // itself to: the paragraph element, and the x her pointer went down at.
+  const [blockAnchor, setBlockAnchor] = useState<{ id: string; el: HTMLElement; x: number } | null>(null);
   // Set when the coach chose a tool for this turn; consumed once by the panel.
   const [autoTool, setAutoTool] = useState<string | null>(null);
+
+  // Where the last pointer press landed. `onReferenceBlock` hands over a block
+  // id and nothing else, and "near my mouse" needs the mouse — so the position
+  // is captured on the way down rather than threaded through pro's primitive.
+  const pointerX = useRef(0);
+  useEffect(() => {
+    const onDown = (e: PointerEvent) => {
+      pointerX.current = e.clientX;
+    };
+    window.addEventListener("pointerdown", onDown, true);
+    return () => window.removeEventListener("pointerdown", onDown, true);
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -210,14 +225,32 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
    * one behaviour needs.
    */
   const focusBlock = (blockId: string, tool?: string) => {
-    document
-      .querySelector(`[data-block-id="${blockId}"]`)
-      ?.scrollIntoView({ behavior: "smooth", block: "center" });
-    setOpenBlock(blockId);
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+    el?.scrollIntoView({ behavior: "smooth", block: "center" });
+    if (el) {
+      // No pointer to be near — 印记 opened this one — so the bar sits over
+      // the paragraph's own left edge rather than wherever she last clicked.
+      setBlockAnchor({ id: blockId, el, x: el.getBoundingClientRect().left + 140 });
+    }
     // 印记 reaching for a tool is it teaching, not a suggestion she has to act
     // on — so the panel opens with that tool already running rather than
     // showing her a row of buttons and hoping she presses the right one.
     setAutoTool(tool ?? null);
+  };
+
+  /**
+   * Her own click on a paragraph. Toggles, so a second click on the paragraph
+   * she is already looking at puts the bar away instead of re-opening it.
+   */
+  const pickBlock = (blockId: string) => {
+    setAutoTool(null);
+    if (blockAnchor?.id === blockId) {
+      setBlockAnchor(null);
+      return;
+    }
+    const el = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
+    if (!el) return;
+    setBlockAnchor({ id: blockId, el, x: pointerX.current });
   };
 
   return (
@@ -235,22 +268,12 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         </div>
       )}
 
-      {/* 带读 (0101). A rail BESIDE the room, not inside it: the room is pro's
-          component and stays untouched. 印记 leads from here — there are no
-          step controls in it, because she does not manage stages. */}
-      <aside className="hidden w-[330px] shrink-0 flex-col border-r border-mk-border bg-mk-paper p-4 lg:flex">
-        <ReadingCoachPanel
-          readingId={readingId}
-          tasks={plan?.tasks ?? []}
-          onTasks={(tasks: ReadingTask[]) =>
-            setPlan((prev) => ({
-              routineKey: prev?.routineKey ?? "",
-              routineName: prev?.routineName ?? "",
-              tasks,
-            }))
-          }
-          onFocusBlock={focusBlock}
-        />
+      {/* 带读进度. STATUS ONLY — the conversation that used to live here moved
+          into the room's own coach column (renderCoach below), because two AI
+          chat boxes on one screen read as two AIs. Nothing in this rail is
+          clickable: 印记 moves her between steps. */}
+      <aside className="hidden w-[262px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-paper p-4 lg:flex">
+        <ReadingPlanRail tasks={plan?.tasks ?? []} />
       </aside>
 
       <div className="min-w-0 flex-1">
@@ -268,57 +291,53 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // clicking a paragraph ALREADY means "quote this one" in this room —
         // overloading that gesture would break a working one to add a new one.
         renderBlockAside={(blockId) => {
-          if (blockTools.length === 0) return null;
-          if (openBlock !== blockId) {
-            const opened = blockNotes.filter((n) => n.blockId === blockId).length;
-            // Hidden until the paragraph is hovered or the button is focused.
-            // A control repeated under EVERY paragraph stops reading as an
-            // offer and starts reading as clutter — and it competed with the
-            // article for attention on a page whose whole job is the article.
-            //
-            // A paragraph she has ALREADY opened keeps its marker visible:
-            // her own work must never hide itself behind a hover.
-            return (
-              <div className={["mk-blocktool mt-1", opened > 0 ? "mk-blocktool--opened" : ""].join(" ")}>
-                <button
-                  type="button"
-                  onClick={() => setOpenBlock(blockId)}
-                  className={[
-                    "flex items-center gap-1 rounded-mk-xs px-1.5 py-0.5 text-mk-small",
-                    "hover:bg-mk-accent-50 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
-                    opened > 0 ? "text-mk-accent-700" : "text-mk-muted",
-                  ].join(" ")}
-                >
-                  详细带读
-                  {opened > 0 && <span className="text-mk-label">· {opened}</span>}
-                </button>
-              </div>
-            );
-          }
+          if (blockTools.length === 0 || blockAnchor?.id !== blockId) return null;
           return (
-            <div className="mt-2">
-              <BlockToolsPanel
-                readingId={readingId}
-                blockId={blockId}
-                blockText={state.source.blocks.find((b) => b.id === blockId)?.text ?? ""}
-                tools={blockTools}
-                notes={blockNotes}
-                onNote={(note) =>
-                  setBlockNotes((prev) => [
-                    ...prev.filter((n) => !(n.blockId === note.blockId && n.tool === note.tool)),
-                    note,
-                  ])
-                }
-                autoTool={autoTool}
-                onAutoToolConsumed={() => setAutoTool(null)}
-                onClose={() => {
-                  setOpenBlock(null);
-                  setAutoTool(null);
-                }}
-              />
-            </div>
+            <BlockToolsPanel
+              readingId={readingId}
+              blockId={blockId}
+              anchorEl={blockAnchor.el}
+              pointerX={blockAnchor.x}
+              tools={blockTools}
+              notes={blockNotes}
+              onNote={(note) =>
+                setBlockNotes((prev) => [
+                  ...prev.filter((n) => !(n.blockId === note.blockId && n.tool === note.tool)),
+                  note,
+                ])
+              }
+              autoTool={autoTool}
+              onAutoToolConsumed={() => setAutoTool(null)}
+              onClose={() => {
+                setBlockAnchor(null);
+                setAutoTool(null);
+              }}
+            />
           );
         }}
+        // 点一段 → 工具栏浮在她手边。In pro this gesture quotes the paragraph
+        // into the composer; in lite the composer belongs to 带读 and this is
+        // the better thing to spend the click on.
+        onBlockPick={pickBlock}
+        // ONE 印记. The room's own chat log and composer step aside for the
+        // 带读 conversation — same character, same `atom_message` table, one
+        // thread on screen instead of two.
+        renderCoach={(slot) => (
+          <ReadingCoachPanel
+            readingId={readingId}
+            tasks={plan?.tasks ?? []}
+            initialMessages={state.messages}
+            slot={slot}
+            onTasks={(tasks: ReadingTask[]) =>
+              setPlan((prev) => ({
+                routineKey: prev?.routineKey ?? "",
+                routineName: prev?.routineName ?? "",
+                tasks,
+              }))
+            }
+            onFocusBlock={focusBlock}
+          />
+        )}
         source={source!}
         phaseTag={(state.brief.phaseTag as PhaseTag | null) ?? null}
         readingReason={state.brief.readingReason}

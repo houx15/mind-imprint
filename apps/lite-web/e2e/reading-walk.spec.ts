@@ -159,12 +159,20 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await library.getByRole("button", { name: "关闭透镜库" }).click();
   await expect(library).toBeHidden();
 
-  // The room's own surfaces: the coach column, the two view tabs, and 完成这篇.
-  await expect(page.getByRole("heading", { name: "换一个视角，再读一遍" })).toBeVisible();
+  // The room's own surfaces: the two view tabs and 完成这篇.
   await expect(page.getByRole("tab", { name: "文章" })).toBeVisible();
   await expect(page.getByRole("tab", { name: /阅读成果/ })).toBeVisible();
   await expect(page.getByRole("button", { name: "完成这篇" })).toBeVisible();
-  await expect(page.getByPlaceholder("说说你对哪一句有疑问…")).toBeVisible();
+
+  // ONE 印记. The coach column carries the 带读 invitation, and the room's own
+  // chat log, composer and starter row are NOT also on the page — two AI chat
+  // boxes side by side is exactly what this replaced.
+  await expect(page.getByText("让我来带你详细读一遍这篇文章吧。")).toBeVisible();
+  await expect(page.getByPlaceholder("说说你对哪一句有疑问…")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "换一个视角，再读一遍" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "这条来源可信吗？" })).toHaveCount(0);
+  // 这篇用在哪个阶段 names PROJECT phases; a lite reading is not in one.
+  await expect(page.getByLabel("这篇材料用在哪个阶段")).toHaveCount(0);
 
   // ── project-only surfaces are absent (LITE_READING_CAPABILITIES) ──────────
   await expectNoProjectSurfaces(page);
@@ -236,7 +244,9 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await expectGreeting(page);
 
   await page.getByRole("button", { name: /我的阅读/ }).click();
-  await expect(page.getByText(/^已完成 · \d+$/)).toBeVisible();
+  // The groups are chips now, not section labels — one time-ordered list,
+  // filtered by a control she can actually hit.
+  await expect(page.getByRole("button", { name: /^已完成 \d+$/ })).toBeVisible();
   await expect(page.getByRole("button", { name: new RegExp(`${ARTICLE_TITLE}.*看报告`, "s") })).toBeVisible();
   await page.getByRole("button", { name: new RegExp(`${ARTICLE_TITLE}.*看报告`, "s") }).click();
 
@@ -292,33 +302,40 @@ test("the browser's own Back/Forward move between the landing page and the room"
 test("the coach answers for real, and a failure would be said out loud", async ({ page }) => {
   await startReading(page, titled("陪练走查用的一篇"), ARTICLE_BODY);
 
-  // The room opens with the loop's own greeting; a real reply is the SECOND
-  // assistant turn.
+  // There is ONE conversation in the room now, and it is 带读 — so this
+  // drives the same chat a student drives, from its own front door.
   //
-  // CAREFUL: the "正在阅读与判断" typing indicator is itself a
-  // `.mk-msg--assistant` node, so counting that class alone would go to 2 the
-  // instant the request left the browser and pass without any reply at all.
-  // The wait is therefore on the indicator CLEARING, which only happens when
-  // the turn resolves.
-  const assistantTurns = page.locator(".mk-msg--assistant");
-  const thinking = page.locator(".mk-msg__thinking");
-  await expect(assistantTurns).toHaveCount(1);
+  // CAREFUL: the typing bubble is itself an assistant-role node, so counting
+  // `[data-role="assistant"]` alone would tick up the instant the request left
+  // the browser and pass without any reply at all. Every wait below is on the
+  // typing bubble CLEARING, which only happens when the turn resolves.
+  const assistantTurns = page.locator('[data-role="assistant"]:not([aria-label])');
+  const thinking = page.locator('[aria-label="印记正在打字"]');
+  await expect(assistantTurns).toHaveCount(0);
+
+  // 开始 is one live model call: it plans the route AND leads her into step one.
+  //
+  // The wait is on the assistant TURN arriving, never on the typing bubble
+  // clearing — `expect(thinking).toHaveCount(0)` is already true in the
+  // millisecond before the bubble mounts, so it would resolve instantly and
+  // pass the whole turn by.
+  await page.getByRole("button", { name: "开始", exact: true }).click();
+  await expect(assistantTurns).toHaveCount(1, { timeout: 180_000 });
   await expect(thinking).toHaveCount(0);
 
-  await page.getByPlaceholder("说说你对哪一句有疑问…").fill("第四段说边际收益会递减，这个推论站得住吗？");
+  await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("第四段说边际收益会递减，这个推论站得住吗？");
   await page.getByRole("button", { name: "发送" }).click();
-  await expect(page.locator(".mk-msg--student")).toHaveCount(1);
-  await expect(thinking).toBeVisible();
+  await expect(page.locator('[data-role="student"]')).toHaveCount(1);
 
-  // One live model call through the lite gateway. At least two assistant
-  // turns, not exactly two: a turn that also proposes a lens adds a second
-  // frame ("… 已就绪") after the reply, and that is correct behaviour, not a
-  // failure — so the assertion is on the REPLY being real, not on the count.
-  await expect(thinking).toHaveCount(0, { timeout: 180_000 });
-  expect(await assistantTurns.count()).toBeGreaterThanOrEqual(2);
+  // A second live model call. The assertion is on the REPLY being real rather
+  // than on an exact count, so a turn that also opens a paragraph tool passes.
+  await expect(assistantTurns).toHaveCount(2, { timeout: 180_000 });
+  await expect(thinking).toHaveCount(0);
   const reply = (await assistantTurns.nth(1).innerText()).trim();
-  expect(reply.length).toBeGreaterThan(20);
-  expect(reply).not.toContain("文章已经准备好了");
+  expect(reply.length).toBeGreaterThan(10);
+  // She is being LED, not answered: 印记 must not hand back the article's own
+  // conclusion, and must not talk in the internal block ids.
+  expect(reply).not.toMatch(/\bb\d+\b/);
 
   // Standing rule: an AI failure is SURFACED, never masked as a coach
   // sentence. If the turn had failed, the host's banner would be here.

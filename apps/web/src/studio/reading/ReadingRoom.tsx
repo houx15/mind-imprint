@@ -155,6 +155,43 @@ export type ReadingRoomProps = {
   // Optional and additive: a caller that passes nothing renders exactly what
   // it renders today, which is why pro is untouched by this.
   renderBlockAside?: (blockId: string) => ReactNode;
+  // LITE · one 印记, one thread. The lite edition drives its own guided
+  // conversation (带读) against a different endpoint, and running that
+  // BESIDE this room put two AI chat boxes on one screen — two composers,
+  // two logs, the same character talking in both:
+  //
+  //   > we don't have two AIs. only one AI talks. but the left column can
+  //   > serve as a task status column.
+  //
+  // So when `renderCoach` is given, this column renders THAT conversation in
+  // place of the room's own log + composer + starter row, and gets back the
+  // few room-owned handles a conversation needs (the lens library, the
+  // article quotes she picked, whether the article is currently carded).
+  // Pro passes nothing and keeps every one of those surfaces unchanged.
+  renderCoach?: (slot: ReadingCoachSlot) => ReactNode;
+  // LITE · clicking a paragraph. Pro's paragraph click means "quote this
+  // whole paragraph into my next message", which has no consumer once
+  // `renderCoach` owns the composer — so lite spends the gesture on opening
+  // that paragraph's tools instead. Drag-select-to-quote is untouched in both.
+  onBlockPick?: (blockId: string) => void;
+};
+
+/**
+ * What a `renderCoach` conversation is handed back.
+ *
+ * Deliberately small: the slot owns the talking, the room still owns the
+ * article. Anything here is something a composer genuinely cannot do for
+ * itself — summon a lens onto the text, read the sentences she picked out of
+ * it, or know that a card is currently open and typing should wait.
+ */
+export type ReadingCoachSlot = {
+  /** A lens is open on the article (or this is a read-only demo): sending
+   *  anything now would talk over it. */
+  locked: boolean;
+  /** Sentences she picked out of the article for her next message. */
+  quotes: { key: string; quote: string }[];
+  removeQuote: (key: string) => void;
+  clearQuotes: () => void;
 };
 
 // Starter prompts adapted to OUR reading deck (source-checking + deep
@@ -207,6 +244,8 @@ export function ReadingRoom({
   demoMode = false,
   capabilities,
   renderBlockAside,
+  renderCoach,
+  onBlockPick,
 }: ReadingRoomProps) {
   const caps = capabilities ?? PRO_CAPABILITIES;
   const loop = useReadingLoop(projectId, source, api, initialMessages, initialOutcomes);
@@ -544,6 +583,10 @@ export function ReadingRoom({
                 )}
               </button>
             )}
+            {/* 「这篇用在哪个阶段」 names the PROJECT phases (立题/探索/…). A
+                lite reading has no project around it, so in lite the control
+                offers her a taxonomy of stages she is not in. */}
+            {caps.mode !== "lite" && (
             <select
               className="mk-reading-room__brief-phase"
               value={briefPhase}
@@ -562,8 +605,18 @@ export function ReadingRoom({
                 </option>
               ))}
             </select>
+            )}
           </div>
 
+          {renderCoach ? (
+            renderCoach({
+              locked: busyOrCarded,
+              quotes: quoted,
+              removeQuote: removeQuoted,
+              clearQuotes: () => setQuoted([]),
+            })
+          ) : (
+            <>
           <div className="mk-reading-room__pane-heading">
             <span className="mk-reading-room__kicker">AI 思维陪练</span>
             <h1>换一个视角，再读一遍</h1>
@@ -737,6 +790,8 @@ export function ReadingRoom({
               </button>
             </div>
           </div>
+            </>
+          )}
         </section>
 
         <section className="mk-reading-room__reading" aria-label="阅读材料区">
@@ -770,8 +825,26 @@ export function ReadingRoom({
                   ? "先看示范，再开始选句"
                   : quoted.length > 0
                     ? `已引用 ${quoted.length} 处 · 可在下方逐条取消`
-                    : "点段落引用整段，或划选一句引用原文"}
+                    : onBlockPick
+                      ? "点一段，看这一段能怎么拆开"
+                      : "点段落引用整段，或划选一句引用原文"}
             </span>
+            {/* 透镜库 lives in the starter row for pro. With `renderCoach`
+                that row is gone, and 「换一个透镜再看」 is a real step in every
+                lite reading routine — so the library moves to the toolbar,
+                beside 完成这篇. It acts on the article, which is what this
+                toolbar is for, and it stays reachable before 带读 starts. */}
+            {renderCoach && (
+              <button
+                type="button"
+                className="mk-reading-room__trace-btn"
+                onClick={() => setLibraryOpen(true)}
+                disabled={busyOrCarded}
+                title="换一副透镜，把这篇再看一遍"
+              >
+                透镜库 · {READING_DECK_IDS.length}
+              </button>
+            )}
             {caps.explorationLeads && traceEnabled && (
               <button
                 type="button"
@@ -860,7 +933,7 @@ export function ReadingRoom({
                   }}
                   selectMode={loop.status === "active" ? { dimension: loop.cardName, onCancel: loop.repick } : null}
                   onCreateSpan={loop.pickSentence}
-                  onReferenceBlock={loop.status === "idle" ? toggleRef : undefined}
+                  onReferenceBlock={loop.status === "idle" ? (onBlockPick ?? toggleRef) : undefined}
                   onReferenceSelection={loop.status === "idle" ? addSelection : undefined}
                   referencedBlockIds={refs}
                   renderAfterBlock={(blockId) => {

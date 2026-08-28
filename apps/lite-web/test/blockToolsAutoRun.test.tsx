@@ -29,11 +29,17 @@ const TOOLS = [
 ];
 
 function mount(autoTool: string | null, onConsumed = vi.fn()) {
+  // The tool buttons live in the floating bar, and the bar pins itself to the
+  // paragraph — so a mount with no paragraph renders no buttons at all.
+  const paragraph = document.createElement("p");
+  paragraph.setAttribute("data-block-id", "b2");
+  document.body.appendChild(paragraph);
   render(
     <BlockToolsPanel
       readingId="r1"
       blockId="b2"
-      blockText="但同一时期，中国的碳排放总量仍居全球第一。"
+      anchorEl={paragraph}
+      pointerX={200}
       tools={TOOLS}
       notes={[]}
       autoTool={autoTool}

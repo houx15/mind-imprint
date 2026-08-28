@@ -95,8 +95,15 @@ describe("ReadingRoomHost", () => {
 
     expect(await screen.findByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
     // The room's own chrome, not a lite re-implementation.
-    expect(screen.getByText(/透镜库/)).toBeTruthy();
     expect(screen.getByRole("tab", { name: /阅读成果/ })).toBeTruthy();
+    // ONE 印记. The room's coach column carries the 带读 invitation, and the
+    // room's own chat log and composer are not ALSO on the page — two AI chat
+    // boxes side by side is what this replaced.
+    expect(screen.getByText("让我来带你详细读一遍这篇文章吧。")).toBeTruthy();
+    expect(screen.queryByPlaceholderText(/说说你对哪一句有疑问/)).toBeNull();
+    expect(screen.queryByRole("button", { name: "这条来源可信吗？" })).toBeNull();
+    // 「这篇用在哪个阶段」 names PROJECT phases; a lite reading has no project.
+    expect(screen.queryByLabelText("这篇材料用在哪个阶段")).toBeNull();
     // The persisted brief seeds the banner rather than an empty template.
     expect(screen.getByText(/我想弄清这篇有没有回避排放总量/)).toBeTruthy();
     // Gated off by LITE_READING_CAPABILITIES.

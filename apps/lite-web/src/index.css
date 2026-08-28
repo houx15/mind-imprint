@@ -198,46 +198,49 @@
 }
 
 /* ---------------------------------------------------------------------------
- * 详细带读 — the per-paragraph entry point (ReadingRoomHost)
+ * 点一段 — the paragraph IS the control (ReadingRoomHost + BlockToolbar)
  *
- * Revealed by hovering the PARAGRAPH, not by a control parked under every one
- * of them. A button repeated under all N paragraphs stops reading as an offer
- * and starts reading as clutter, on a page whose whole job is the article.
+ * There used to be a 详细带读 button hanging under every paragraph, revealed
+ * on hover. It was never found:
  *
- * Done in CSS with an adjacent-sibling selector rather than a React hover
- * handler, because the thing being hovered lives in pro's component: the
- * aside is rendered as the paragraph's NEXT SIBLING (Annotate's
- * renderAfterBlock), so `p[data-block-id]:hover + .mk-blocktool` reaches it
- * without pro's DOM changing at all.
+ *   > the 详细带读 button is still not like a button that can click and never
+ *   > get noticed. […] when click some texts, there appears a 横着的一栏，有
+ *   > 一些按钮，在我的鼠标附近, so that I know those are possible operations.
+ *
+ * So the paragraph itself is now the target, and these rules are its
+ * affordance: a warm wash and an accent edge that say "this is a thing you can
+ * press" before she has pressed anything.
+ *
+ * `!important` is load-bearing, not a specificity shortcut. Annotate (pro's
+ * primitive) writes `background` and `border-left` as INLINE styles on every
+ * paragraph, and an inline declaration outranks any author rule that does not
+ * carry `!important`. Without it these two lines simply do not render.
  * ------------------------------------------------------------------------ */
 
-.mk-blocktool {
-  opacity: 0;
-  transition: opacity 140ms cubic-bezier(0.2, 0, 0, 1);
+.mk-reading-room__article p[data-block-id]:hover {
+  background: color-mix(in srgb, var(--mk-accent-500) 5%, transparent) !important;
+  border-left-color: var(--mk-accent-200) !important;
 }
 
-p[data-block-id]:hover + .mk-blocktool,
-.mk-blocktool:hover,
-.mk-blocktool:focus-within {
-  opacity: 1;
+/* The floating bar: it arrives where her pointer already is, so it rises the
+ * short distance rather than fading in from nowhere. */
+.mk-blockbar {
+  animation: mk-blockbar-in 130ms cubic-bezier(0.2, 0, 0, 1);
 }
 
-/* A paragraph she has already opened keeps its marker visible: her own work
- * must never hide itself behind a hover. */
-.mk-blocktool--opened {
-  opacity: 1;
-}
-
-/* Touch and reduced-motion: there is no hover to discover the control with, so
- * it is simply always visible. */
-@media (hover: none) {
-  .mk-blocktool {
+@keyframes mk-blockbar-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
     opacity: 1;
+    transform: none;
   }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .mk-blocktool {
-    transition: none;
+  .mk-blockbar {
+    animation: none;
   }
 }

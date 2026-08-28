@@ -10,9 +10,10 @@ import { expect, test, type Page } from "@playwright/test";
  *    the negative ones as much as the positive: no 做完了, no 跳过, and nothing
  *    in the progress list is clickable. An edit that "helpfully" gives her
  *    back a checkbox fails here.
- *  - **The paragraph tools are instruments, not a permanent shelf.** 详细带读
- *    is per paragraph, and the panel it opens carries the language-neutral
- *    想一想 / 仿写 alongside the explainers for the ARTICLE's own language.
+ *  - **The paragraph tools are instruments, not a permanent shelf.** The
+ *    paragraph itself is the control — clicking one raises a bar of tools at
+ *    her pointer, carrying the language-neutral 想一想 / 仿写 alongside the
+ *    explainers for the ARTICLE's own language.
  *
  * It lives beside reading-walk.spec.ts rather than inside it because that file
  * is one continuous journey (land → read → 完成 → 已完成) and this is a
@@ -92,23 +93,34 @@ test("带读: 印记 plans the route and leads, and she administrates none of it
  * reaches for one is a model decision, and belongs in the unit tests where it
  * can be made deterministic (reading_coach_test.go).
  */
-test("详细带读 opens one paragraph, carrying 想一想 and 仿写", async ({ page }) => {
+test("clicking a paragraph raises its tools, carrying 想一想 and 仿写", async ({ page }) => {
   await startReading(page, titled("段落工具走查"));
 
-  const opener = page.getByRole("button", { name: "详细带读" });
-  // One per paragraph — not a single global button, and not a permanent shelf.
-  expect(await opener.count()).toBe(4);
+  // Nothing is parked under the paragraphs — the old 详细带读 button was never
+  // found, and a control repeated under all four read as clutter.
+  await expect(page.getByRole("button", { name: "详细带读" })).toHaveCount(0);
+  const bar = page.getByRole("toolbar", { name: "这一段可以怎么拆" });
+  await expect(bar).toHaveCount(0);
 
-  await opener.nth(1).click();
-  await expect(page.getByText("这一段").first()).toBeVisible();
+  await page.locator("p[data-block-id]").nth(1).click();
+  await expect(bar).toBeVisible();
 
   // Chinese article ⇒ the Chinese explainers, never the English ones. The
   // toolset is derived from the article's own characters server-side, so a
   // failure here means the language detection drifted.
-  await expect(page.getByRole("button", { name: "成语修辞" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "翻译" })).toHaveCount(0);
+  await expect(bar.getByRole("button", { name: "成语修辞" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "翻译" })).toHaveCount(0);
 
   // Language-neutral, so present on every article whatever its language.
-  await expect(page.getByRole("button", { name: "想一想" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "仿写" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "想一想" })).toBeVisible();
+  await expect(bar.getByRole("button", { name: "仿写" })).toBeVisible();
+
+  // The paragraph is not reprinted anywhere: she is looking straight at it,
+  // and a copy of it in a card underneath was the duplication this replaced.
+  const paragraph = (await page.locator("p[data-block-id]").nth(1).innerText()).trim();
+  expect(await page.getByText(paragraph, { exact: false }).count()).toBe(1);
+
+  // Clicking the same paragraph again puts the bar away.
+  await page.locator("p[data-block-id]").nth(1).click();
+  await expect(bar).toHaveCount(0);
 });

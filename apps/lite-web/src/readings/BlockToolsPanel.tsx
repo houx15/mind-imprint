@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { Sparkles, X } from "lucide-react";
-import { Button, Icon } from "@/ui";
+import { X } from "lucide-react";
+import { Icon } from "@/ui";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
 import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } from "../api/readingRoom";
+import { BlockToolbar } from "./BlockToolbar";
 
 /**
  * BlockToolsPanel — 点开一段，把它拆给她看。
@@ -16,6 +17,21 @@ import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } fro
  * That **then** is the whole point: being able to read one paragraph is the
  * step below reading a whole article through a lens. The lens was always
  * here; this is the rung underneath it.
+ *
+ * ## Shape (2026-08-28)
+ *
+ * This used to be a card that opened under the paragraph carrying (a) a copy
+ * of the paragraph, (b) the row of tool buttons, (c) the explanation. The
+ * copy was the complaint:
+ *
+ *   > after clicking 详细带读, the paragraph appears again in that card, which
+ *   > is really duplicated. so as above: click a paragraph, a row of clickable
+ *   > operations appears near my mouse, with a AI mascot at the left.
+ *
+ * So the buttons left for a floating bar at her pointer (BlockToolbar), the
+ * duplicated paragraph is gone — she is looking straight at the real one —
+ * and what remains in the flow is **only the explanation**, hung under the
+ * paragraph it explains.
  *
  * ## 铁律 check
  *
@@ -37,7 +53,8 @@ import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } fro
 export function BlockToolsPanel({
   readingId,
   blockId,
-  blockText,
+  anchorEl,
+  pointerX,
   tools,
   notes,
   autoTool,
@@ -47,7 +64,10 @@ export function BlockToolsPanel({
 }: {
   readingId: string;
   blockId: string;
-  blockText: string;
+  /** The paragraph element the floating bar pins itself to. Null → no bar
+   *  (the explanation still renders; this is the path a bare render takes). */
+  anchorEl?: HTMLElement | null;
+  pointerX?: number;
   tools: ReadingBlockTool[];
   notes: ReadingBlockNote[];
   /** A tool 印记 reached for. Runs itself once, so its teaching lands as
@@ -105,60 +125,54 @@ export function BlockToolsPanel({
   }, [autoTool, blockId, tools]);
 
   const shown = open ? noteFor(open) : undefined;
+  const shownLabel = tools.find((t) => t.id === open)?.label ?? "";
+  const opened = new Set(notes.filter((n) => n.blockId === blockId).map((n) => n.tool));
 
   return (
-    <div className="flex flex-col gap-3 rounded-mk-md border border-mk-border bg-mk-surface p-4 shadow-mk-sm">
-      <div className="flex items-start justify-between gap-2">
-        <span className="text-mk-label text-mk-faint">这一段</span>
-        <button
-          type="button"
-          aria-label="关闭段落工具"
-          onClick={onClose}
-          className="shrink-0 text-mk-faint hover:text-mk-muted"
-        >
-          <Icon icon={X} size={15} />
-        </button>
-      </div>
+    <>
+      {anchorEl && (
+        <BlockToolbar
+          anchorEl={anchorEl}
+          pointerX={pointerX ?? 0}
+          tools={tools}
+          openedTools={opened}
+          busyTool={busy}
+          activeTool={open}
+          onPick={(tool) => void run(tool)}
+          onClose={onClose}
+        />
+      )}
 
-      {/* The paragraph itself, so she can read it and the explanation side by
-          side without scrolling back. Clamped: this is a reminder of which
-          paragraph she opened, not a second copy of the article. */}
-      <p className="line-clamp-3 text-mk-small leading-relaxed text-mk-secondary">{blockText}</p>
-
-      <div className="flex flex-wrap gap-1.5">
-        {tools.map((tool) => {
-          const has = Boolean(noteFor(tool.id));
-          const isOpen = open === tool.id;
-          return (
-            <Button
-              key={tool.id}
-              variant={isOpen ? "secondary" : "ghost"}
-              size="sm"
-              onClick={() => void run(tool)}
-              loading={busy === tool.id}
-              iconStart={has ? undefined : <Icon icon={Sparkles} size={13} />}
-            >
-              {tool.label}
-            </Button>
-          );
-        })}
-      </div>
-
-      {error && <p className="text-mk-small text-mk-danger">{error}</p>}
+      {error && (
+        <p role="alert" className="mt-2 text-mk-small text-mk-danger">
+          {error}
+        </p>
+      )}
 
       {shown && (
         <div
-          className="rounded-mk-sm border p-3"
+          className="mt-2 rounded-mk-md border p-3.5"
           style={{
             borderColor: "var(--mk-accent-200)",
             background: "color-mix(in srgb, var(--mk-accent-500) 4%, var(--mk-paper))",
           }}
         >
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-mk-caption text-mk-accent-700">{shownLabel}</span>
+            <button
+              type="button"
+              aria-label="收起这段讲解"
+              onClick={() => setOpen(null)}
+              className="shrink-0 rounded-mk-xs p-0.5 text-mk-faint hover:text-mk-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+            >
+              <Icon icon={X} size={14} />
+            </button>
+          </div>
           <div className="text-mk-body leading-relaxed text-mk-ink">
             <ChatMarkdown text={shown.body} />
           </div>
         </div>
       )}
-    </div>
+    </>
   );
 }
