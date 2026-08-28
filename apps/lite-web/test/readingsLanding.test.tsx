@@ -245,22 +245,30 @@ describe("the unfinished notice and 我的阅读", () => {
     expect(screen.queryByText(/还没读完/)).toBeNull();
   });
 
-  // "Most recently touched" means lastActivityAt (atom.last_activity_at), NOT
-  // updatedAt — which only rename and finish ever write. The fixture here is
-  // deliberately adversarial: `newer` was created first and has the OLDER
-  // updatedAt, and is still the one she was last reading.
-  it("jumps the notice straight into the most recently touched unfinished reading", async () => {
+  // The notice used to JUMP into the most recently touched unfinished reading.
+  // It is a count, and a count's only honest offer is the list behind it:
+  //
+  //   > when click "还有8篇没读完" I was directly navigated to a paper, but it
+  //   > should pop the reading history list so I can select.
+  //
+  // The pathname assertion is the load-bearing half — an edit that restores
+  // the shortcut still satisfies the drawer assertions and fails there.
+  it("opens the shelf from the notice instead of picking a reading for her", async () => {
     routes[key("GET", "/api/v1/readings")] = {
       body: {
         readings: [
-          reading({ id: "older", updatedAt: "2026-08-25T00:00:00Z", lastActivityAt: "2026-08-24T00:00:00Z" }),
-          reading({ id: "newer", updatedAt: "2026-08-20T00:00:00Z", lastActivityAt: "2026-08-25T00:00:00Z" }),
+          reading({ id: "older", title: "先读的那篇", lastActivityAt: "2026-08-24T00:00:00Z" }),
+          reading({ id: "newer", title: "后读的那篇", lastActivityAt: "2026-08-25T00:00:00Z" }),
         ],
       },
     };
     render(<ReadingsLanding />);
     fireEvent.click(await screen.findByText("你有 2 篇还没读完"));
-    expect(window.location.pathname).toBe("/readings/newer");
+
+    // The shelf opens; nothing was chosen for her. What the shelf then holds
+    // is the 我的阅读 test's job, not this one's.
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(window.location.pathname).toBe("/readings");
   });
 
   it("opens 我的阅读 with unfinished above finished, and routes both", async () => {
@@ -288,6 +296,51 @@ describe("the unfinished notice and 我的阅读", () => {
 
     fireEvent.click(screen.getByText("读完的那篇"));
     expect(window.location.pathname).toBe("/readings/done-1");
+  });
+
+  // The two doors into the drawer want different chips, and which door she
+  // came through has to beat whatever she last picked — so this asserts the
+  // filter after a round trip through the OTHER entry, not just on first open.
+  it("opens the notice onto 还没读完 and 我的阅读 onto everything", async () => {
+    routes[key("GET", "/api/v1/readings")] = {
+      body: {
+        readings: [
+          reading({ id: "done-1", title: "读完的那篇", status: "finished", finishedAt: "2026-08-23T00:00:00Z" }),
+          reading({ id: "open-1", title: "没读完的那篇", lastActivityAt: "2026-08-25T00:00:00Z" }),
+        ],
+      },
+    };
+    render(<ReadingsLanding />);
+
+    fireEvent.click(await screen.findByText("你有 1 篇还没读完"));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("没读完的那篇");
+    // Pre-filtered: the finished one is counted on its chip but not listed.
+    expect(screen.queryByText("读完的那篇")).toBeNull();
+    // The dot is the at-a-glance signal, and only unfinished rows carry it.
+    expect(screen.getAllByLabelText("还没读完")).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(screen.getByRole("button", { name: /我的阅读/ }));
+    expect(await screen.findByText("读完的那篇")).toBeTruthy();
+    expect(screen.getByText("没读完的那篇")).toBeTruthy();
+  });
+
+  it("sorts the shelf by when each reading last mattered, not by creation", async () => {
+    routes[key("GET", "/api/v1/readings")] = {
+      body: {
+        readings: [
+          // Created LAST and finished long ago; opened first and read all week.
+          reading({ id: "b", title: "上周读完的", status: "finished", finishedAt: "2026-08-19T00:00:00Z" }),
+          reading({ id: "a", title: "这周一直在读的", lastActivityAt: "2026-08-27T00:00:00Z" }),
+        ],
+      },
+    };
+    render(<ReadingsLanding />);
+    fireEvent.click(await screen.findByRole("button", { name: /我的阅读/ }));
+
+    const text = (await screen.findByRole("dialog")).textContent ?? "";
+    expect(text.indexOf("这周一直在读的")).toBeLessThan(text.indexOf("上周读完的"));
   });
 });
 

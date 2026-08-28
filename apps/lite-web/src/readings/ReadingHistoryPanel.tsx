@@ -1,27 +1,45 @@
+import { useEffect, useState } from "react";
 import { BookOpen, ChevronRight, Check } from "lucide-react";
 import { Drawer, Icon, Illustration } from "@/ui";
 import type { Reading } from "../api/readings";
 
 /**
  * ReadingHistoryPanel — 我的阅读, the drawer behind the landing page's
- * upper-right entry.
+ * upper-right entry and behind the 「你有 N 篇还没读完」 notice.
  *
- * THE ORDER IS THE POINT. 还没读完 comes first, newest touched at the top,
- * because an unfinished reading is the only thing on this page with a claim
- * on her attention — it is work she already started and can pick straight
- * back up. 已完成 sits underneath as a record: nothing to resume, only
- * something to look back at.
+ * ## One list, sorted by time, filtered by chip (2026-08-28)
  *
- * Both sections route to the SAME place, `/readings/:id`; what she gets there
- * depends on the reading's own state, not on which section she clicked from.
- * An unfinished one reopens the room where she left it; a finished one opens
- * the read-only 已完成 panel (ReadingRoomHost), which is why finishing a
- * reading is not something she can accidentally undo by revisiting it.
+ * It used to be two fixed sections (还没读完 above 已完成) under
+ * `mk-label`-sized headers — 11px, 0.1em tracking, `--mk-faint`, which is the
+ * smallest and palest type in the system carrying the one number that tells
+ * her what to do next:
  *
- * This is history, not a feed: it is a fixed list of HER OWN readings, shown
- * only when she opens the drawer, with no counts to grow and nothing to
+ *   > 还没读完 · 8 is too small to be noticed and absolutely not follow our
+ *   > design tokens. […] we should have a time sorting and filter. like the
+ *   > unread ones have a red/orange dot, and generally sort by time. only load
+ *   > the most recent xxx ones.
+ *
+ * So: **one list in time order**, newest first, because "what was I last
+ * doing" is the question a history answers. The two groups did not disappear
+ * — they became chips at a size she can hit, which is also what the notice
+ * hands her (`initialFilter="open"`, so 「你有 8 篇还没读完」 opens onto those
+ * eight rather than onto everything).
+ *
+ * An unfinished reading carries an accent dot before its title: at a glance,
+ * without reading a word, she can see which rows still want her.
+ *
+ * Both filters route to the SAME place, `/readings/:id`; what she gets there
+ * depends on the reading's own state, not on which chip was selected. An
+ * unfinished one reopens the room where she left it; a finished one opens the
+ * read-only 已完成 panel (ReadingRoomHost), which is why finishing a reading
+ * is not something she can accidentally undo by revisiting it.
+ *
+ * This is history, not a feed: HER OWN readings, shown only when she opens the
+ * drawer, capped at the most recent `limit` — no counts to grow, nothing to
  * scroll toward.
  */
+
+export type ReadingFilter = "all" | "open" | "done";
 
 export interface ReadingHistoryPanelProps {
   open: boolean;
@@ -30,30 +48,47 @@ export interface ReadingHistoryPanelProps {
   readings: Reading[] | null;
   error: string | null;
   onSelect: (reading: Reading) => void;
+  /** Which chip the drawer opens on. The 还没读完 notice passes "open" so the
+   *  list it pops is the list the notice was counting. */
+  initialFilter?: ReadingFilter;
+  /** How many rows to render. The server already caps what it sends; this is
+   *  the second half of the same promise — a drawer is for picking up where
+   *  she left off, not for scrolling a year of history. */
+  limit?: number;
 }
+
+const DEFAULT_LIMIT = 40;
 
 /** A reading is finished when the server says so. `finishedAt` is the stamp
  *  `POST /finish` writes alongside `status='finished'`; either alone is
  *  enough, and checking both means a legacy row missing one still lands in
- *  the right section. */
+ *  the right group. */
 export function isFinished(r: Reading): boolean {
   return r.status === "finished" || Boolean(r.finishedAt);
 }
 
-/** Unfinished first, each section newest-first: unfinished by last touch
- *  (that is where she left off), finished by when she finished.
+/**
+ * When this reading last mattered.
  *
- *  "Last touch" is `lastActivityAt`, not `updatedAt`: the latter moves only on
- *  rename and finish, so ordering by it put the reading she spent the last
- *  hour in wherever it happened to have been created. */
+ * For work still open that is `lastActivityAt` (`atom.last_activity_at`) —
+ * NOT `updatedAt`, which only rename and finish ever write, so ordering by it
+ * put the reading she spent the last hour in wherever it happened to have
+ * been created. For work she finished it is the moment she finished it.
+ */
+export function sortKeyOf(r: Reading): string {
+  return isFinished(r) ? (r.finishedAt ?? r.updatedAt) : r.lastActivityAt;
+}
+
+/** The whole history in one line, newest first. */
+export function sortReadings(readings: Reading[]): Reading[] {
+  return [...readings].sort((a, b) => sortKeyOf(b).localeCompare(sortKeyOf(a)));
+}
+
+/** Unfinished first, each group newest-first. Kept because the two groups are
+ *  still what the chips select, and what the landing's notice counts. */
 export function splitReadings(readings: Reading[]): { unfinished: Reading[]; finished: Reading[] } {
-  const unfinished = readings
-    .filter((r) => !isFinished(r))
-    .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt));
-  const finished = readings
-    .filter(isFinished)
-    .sort((a, b) => (b.finishedAt ?? b.updatedAt).localeCompare(a.finishedAt ?? a.updatedAt));
-  return { unfinished, finished };
+  const sorted = sortReadings(readings);
+  return { unfinished: sorted.filter((r) => !isFinished(r)), finished: sorted.filter(isFinished) };
 }
 
 /** 今天 / 昨天 / 8月26日 — a date a student reads at a glance, not a
@@ -70,8 +105,35 @@ export function shortDay(iso: string | null): string {
   return `${then.getMonth() + 1}月${then.getDate()}日`;
 }
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
-  return <div className="px-1 pb-2 text-mk-label text-mk-faint">{children}</div>;
+function FilterChip({
+  active,
+  count,
+  onClick,
+  children,
+}: {
+  active: boolean;
+  count: number;
+  onClick: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      aria-pressed={active}
+      className={[
+        "flex items-center gap-1.5 rounded-mk-full border px-3 py-1.5 text-mk-body transition-colors duration-[120ms] ease-mk",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
+        active
+          ? "border-transparent text-white"
+          : "border-mk-border text-mk-secondary hover:border-mk-accent-200 hover:text-mk-accent-700",
+      ].join(" ")}
+      style={active ? { background: "var(--mk-accent-500)" } : undefined}
+    >
+      {children}
+      <span className="tabular-nums opacity-70">{count}</span>
+    </button>
+  );
 }
 
 function HistoryRow({
@@ -109,7 +171,19 @@ function HistoryRow({
         />
       </span>
       <span className="min-w-0 flex-1">
-        <span className="block truncate text-mk-h3 text-mk-ink">{reading.title}</span>
+        <span className="flex items-center gap-1.5">
+          {/* 还没读完 wears a dot. It is the same signal a mail client spends
+              on an unread message, and it survives being read at a glance —
+              which the meta line underneath does not. */}
+          {tone === "open" && (
+            <span
+              aria-label="还没读完"
+              className="h-[7px] w-[7px] shrink-0 rounded-mk-full"
+              style={{ background: "var(--mk-accent-500)" }}
+            />
+          )}
+          <span className="min-w-0 truncate text-mk-h3 text-mk-ink">{reading.title}</span>
+        </span>
         <span className="block truncate text-mk-small text-mk-muted">{meta}</span>
       </span>
       <span className="flex shrink-0 items-center gap-0.5 text-mk-small text-mk-accent-700">
@@ -126,12 +200,28 @@ export function ReadingHistoryPanel({
   readings,
   error,
   onSelect,
+  initialFilter = "all",
+  limit = DEFAULT_LIMIT,
 }: ReadingHistoryPanelProps) {
-  const { unfinished, finished } = splitReadings(readings ?? []);
+  const [filter, setFilter] = useState<ReadingFilter>(initialFilter);
+  // Re-armed on every OPEN, not on every render: 我的阅读 and the 还没读完
+  // notice are two doors into the same drawer and they want different chips,
+  // so which one she came through has to win over whatever she last picked.
+  useEffect(() => {
+    if (open) setFilter(initialFilter);
+  }, [open, initialFilter]);
+
+  const all = sortReadings(readings ?? []);
+  const openCount = all.filter((r) => !isFinished(r)).length;
+  const doneCount = all.length - openCount;
+  const matching =
+    filter === "all" ? all : filter === "open" ? all.filter((r) => !isFinished(r)) : all.filter(isFinished);
+  const shown = matching.slice(0, limit);
+  const hidden = matching.length - shown.length;
 
   return (
     <Drawer open={open} onClose={onClose} side="right">
-      <div className="flex flex-col gap-6">
+      <div className="flex flex-col gap-5">
         <div className="flex items-baseline justify-between">
           <h2 className="text-mk-h1 text-mk-ink">我的阅读</h2>
           <button
@@ -146,47 +236,59 @@ export function ReadingHistoryPanel({
         {error && <p className="text-mk-small text-mk-danger">{error}</p>}
         {!error && readings === null && <p className="text-mk-body text-mk-muted">加载中…</p>}
 
-        {!error && readings !== null && unfinished.length === 0 && finished.length === 0 && (
+        {!error && readings !== null && all.length === 0 && (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Illustration name="bookLover" className="h-[120px] w-[120px]" />
             <p className="text-mk-body text-mk-muted">还没有开始过阅读。回到首页，贴一篇进来就开始了。</p>
           </div>
         )}
 
-        {unfinished.length > 0 && (
-          <section>
-            <SectionLabel>还没读完 · {unfinished.length}</SectionLabel>
-            <div className="flex flex-col gap-2">
-              {unfinished.map((r) => (
-                <HistoryRow
-                  key={r.id}
-                  reading={r}
-                  tone="open"
-                  meta={r.hasSource ? `上次读到 ${shortDay(r.lastActivityAt)}` : "还没放正文进来"}
-                  action="继续"
-                  onSelect={onSelect}
-                />
-              ))}
+        {!error && all.length > 0 && (
+          <>
+            <div className="flex flex-wrap gap-2">
+              <FilterChip active={filter === "all"} count={all.length} onClick={() => setFilter("all")}>
+                全部
+              </FilterChip>
+              <FilterChip active={filter === "open"} count={openCount} onClick={() => setFilter("open")}>
+                还没读完
+              </FilterChip>
+              <FilterChip active={filter === "done"} count={doneCount} onClick={() => setFilter("done")}>
+                已完成
+              </FilterChip>
             </div>
-          </section>
-        )}
 
-        {finished.length > 0 && (
-          <section>
-            <SectionLabel>已完成 · {finished.length}</SectionLabel>
-            <div className="flex flex-col gap-2">
-              {finished.map((r) => (
-                <HistoryRow
-                  key={r.id}
-                  reading={r}
-                  tone="done"
-                  meta={`完成于 ${shortDay(r.finishedAt ?? r.updatedAt)}`}
-                  action="看报告"
-                  onSelect={onSelect}
-                />
-              ))}
-            </div>
-          </section>
+            {shown.length === 0 ? (
+              <p className="py-6 text-center text-mk-body text-mk-muted">
+                {filter === "open" ? "都读完了，这里空着。" : "还没有读完的。"}
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {shown.map((r) => {
+                  const done = isFinished(r);
+                  return (
+                    <HistoryRow
+                      key={r.id}
+                      reading={r}
+                      tone={done ? "done" : "open"}
+                      meta={
+                        done
+                          ? `完成于 ${shortDay(r.finishedAt ?? r.updatedAt)}`
+                          : r.hasSource
+                            ? `上次读到 ${shortDay(r.lastActivityAt)}`
+                            : "还没放正文进来"
+                      }
+                      action={done ? "看报告" : "继续"}
+                      onSelect={onSelect}
+                    />
+                  );
+                })}
+              </div>
+            )}
+
+            {hidden > 0 && (
+              <p className="text-center text-mk-small text-mk-faint">只显示最近 {shown.length} 篇</p>
+            )}
+          </>
         )}
       </div>
     </Drawer>

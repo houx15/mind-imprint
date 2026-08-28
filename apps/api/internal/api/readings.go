@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -39,6 +41,45 @@ type readingDTO struct {
 	// reading moved neither.
 	LastActivityAt string  `json:"lastActivityAt"`
 	FinishedAt     *string `json:"finishedAt"`
+}
+
+// readingListDefaultLimit / readingListMaxLimit bound 我的阅读.
+//
+// The default is deliberately generous for one student and still small enough
+// that the drawer stays a shelf rather than an archive. The ceiling exists so
+// a hand-crafted `?limit=100000` cannot be used to ask the API to serialize
+// everything she has ever read.
+const (
+	readingListDefaultLimit = 50
+	readingListMaxLimit     = 200
+)
+
+// readingListLimit reads `?limit=`. Anything missing, unparseable, or ≤0 takes
+// the default: a malformed query string should narrow her history to nothing
+// even less than it should hand back all of it.
+func readingListLimit(r *http.Request) int {
+	raw := strings.TrimSpace(r.URL.Query().Get("limit"))
+	if raw == "" {
+		return readingListDefaultLimit
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return readingListDefaultLimit
+	}
+	if n > readingListMaxLimit {
+		return readingListMaxLimit
+	}
+	return n
+}
+
+// readingRecency is when this reading last mattered: the moment she finished
+// it, or — while it is still open — the last time she wrote anything into it.
+// RFC3339 sorts correctly as a string, which is why these stay formatted.
+func readingRecency(d readingDTO) string {
+	if d.FinishedAt != nil && *d.FinishedAt != "" {
+		return *d.FinishedAt
+	}
+	return d.LastActivityAt
 }
 
 func (a *API) readingDTOOf(rd sqlc.Reading, hasSource bool, createdAt, lastActivityAt time.Time) readingDTO {
@@ -278,7 +319,22 @@ func (a *API) listReadings(w http.ResponseWriter, r *http.Request) {
 			Status: row.Status, UpdatedAt: row.UpdatedAt, FinishedAt: row.FinishedAt,
 		}, row.HasSource, row.AtomCreatedAt, row.LastActivityAt))
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"readings": out})
+	// 我的阅读 is a shelf she picks up from, not an archive she scrolls: the
+	// answer is ordered by when each reading last mattered (finished → when
+	// she finished it; still open → when she last touched it) and cut to the
+	// most recent `limit`.
+	//
+	// The ordering is done here rather than in the query because the query's
+	// ORDER BY is `atom.created_at` — which answers "when did she open this",
+	// not "when was she last in it". Sorting the row set costs nothing at a
+	// student's scale; if it ever stops being nothing, this same ordering
+	// belongs in the SQL with the LIMIT beside it.
+	sort.SliceStable(out, func(i, j int) bool { return readingRecency(out[i]) > readingRecency(out[j]) })
+	total := len(out)
+	if n := readingListLimit(r); n < len(out) {
+		out = out[:n]
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"readings": out, "total": total})
 }
 
 func (a *API) getReading(w http.ResponseWriter, r *http.Request) {

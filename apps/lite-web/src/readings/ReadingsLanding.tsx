@@ -13,7 +13,7 @@ import {
 import { navigate, readingPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
 import { RECOMMENDED_READINGS, type RecommendedReading } from "./recommendations";
-import { ReadingHistoryPanel, isFinished } from "./ReadingHistoryPanel";
+import { ReadingHistoryPanel, isFinished, type ReadingFilter } from "./ReadingHistoryPanel";
 
 /**
  * ReadingsLanding — the lite edition's front door.
@@ -95,6 +95,14 @@ export function ReadingsLanding() {
   const [history, setHistory] = useState<Reading[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Which chip the drawer opens on. 我的阅读 wants everything; the 还没读完
+  // notice wants the eight it just counted.
+  const [panelFilter, setPanelFilter] = useState<ReadingFilter>("all");
+
+  function openPanel(filter: ReadingFilter) {
+    setPanelFilter(filter);
+    setPanelOpen(true);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -163,6 +171,22 @@ export function ReadingsLanding() {
 
   async function handleRecommendation(rec: RecommendedReading) {
     if (starting) return;
+    // 开一次就够了。Every tap here used to mint a NEW reading, so opening a
+    // recommendation, reading nothing, backing out and tapping it again left
+    // two 还没读完 rows behind — and four taps left four:
+    //
+    //   > I click a reading, I did nothing, I exit -> this should not be
+    //   > created a separate task, by clicking again and again, I will have a
+    //   > lot of to read things.
+    //
+    // A recommendation is a FIXED article with a fixed title, so an unfinished
+    // reading already carrying that title is the same reading she opened
+    // before — reopen it. (Nothing is deleted: 铁律④ keeps what happened.)
+    const already = (history ?? []).find((r) => !isFinished(r) && r.title === rec.title);
+    if (already) {
+      navigate(readingPath(already.id));
+      return;
+    }
     setStarting(true);
     setStartError(null);
     try {
@@ -181,16 +205,6 @@ export function ReadingsLanding() {
     }
   }
 
-  function openMostRecentUnfinished() {
-    // lastActivityAt, not updatedAt: "most recently touched" has to mean the
-    // one she was actually last reading. updatedAt moves only on rename and
-    // finish, so this used to open an essentially arbitrary reading.
-    const next = (history ?? [])
-      .filter((r) => !isFinished(r))
-      .sort((a, b) => b.lastActivityAt.localeCompare(a.lastActivityAt))[0];
-    if (next) navigate(readingPath(next.id));
-  }
-
   return (
     <div className="relative min-h-full overflow-hidden">
       <PaperBloom />
@@ -199,7 +213,7 @@ export function ReadingsLanding() {
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => setPanelOpen(true)}
+            onClick={() => openPanel("all")}
             className="flex items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 text-mk-small text-mk-secondary shadow-mk-xs transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
           >
             <Icon icon={Library} size={15} />
@@ -223,7 +237,11 @@ export function ReadingsLanding() {
           {unfinishedCount > 0 && (
             <button
               type="button"
-              onClick={openMostRecentUnfinished}
+              // Opens the SHELF, not a reading. It used to jump straight into
+              // the most recently touched one, which answered a question she
+              // hadn't asked — 「你有 8 篇还没读完」 is a count, and the only
+              // sane thing a count can offer is the list behind it.
+              onClick={() => openPanel("open")}
               className="group flex items-center gap-1.5 rounded-mk-full px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
               style={{ background: "color-mix(in srgb, var(--mk-accent-500) 10%, transparent)" }}
             >
@@ -315,6 +333,7 @@ export function ReadingsLanding() {
 
       <ReadingHistoryPanel
         open={panelOpen}
+        initialFilter={panelFilter}
         onClose={() => setPanelOpen(false)}
         readings={history}
         error={historyError}

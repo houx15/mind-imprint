@@ -36,9 +36,17 @@ export interface ReadingSource {
   blocks: ReadingBlock[];
 }
 
-/** GET /api/v1/readings — 过往的阅读, newest-ordered by the server. */
-export async function listReadings(): Promise<Reading[]> {
-  const raw = await apiFetch<{ readings: Reading[] }>("/api/v1/readings");
+/**
+ * GET /api/v1/readings — 我的阅读.
+ *
+ * The server orders by when each reading last MATTERED (finished → when she
+ * finished it; still open → `lastActivityAt`) and cuts to `limit`, so this is
+ * genuinely the most recent N rather than the first N of everything. Asking
+ * for more than the server's ceiling gets the ceiling.
+ */
+export async function listReadings(limit?: number): Promise<Reading[]> {
+  const query = limit ? `?limit=${encodeURIComponent(String(limit))}` : "";
+  const raw = await apiFetch<{ readings: Reading[] }>(`/api/v1/readings${query}`);
   return raw.readings;
 }
 
