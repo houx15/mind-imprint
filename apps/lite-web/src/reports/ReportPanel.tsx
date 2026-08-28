@@ -1,6 +1,10 @@
 import { useEffect, useState } from "react";
+import { createRoot } from "react-dom/client";
+import { flushSync } from "react-dom";
 import { getReport, type AtomKind, type LiteReport } from "../api/reports";
 import { useAlive } from "../shared/useAlive";
+import { exportPoster } from "./exportPoster";
+import { ReportPoster } from "./ReportPoster";
 import { ReportView } from "./ReportView";
 import { SharePanel } from "./SharePanel";
 
@@ -11,8 +15,21 @@ import { SharePanel } from "./SharePanel";
  * presentation (props in, markup out — Task 7). Once the report has
  * arrived, also mounts `SharePanel` underneath it (Task 10) — the opt-in
  * that lets her publish this exact report to anyone with the link, and take
- * it back. Sharing is never offered while the report is still loading or
- * absent: there is nothing to share yet.
+ * it back — and an 导出图片 button (Task 11) that mounts an offscreen
+ * `ReportPoster` and hands it to `exportPoster`. Neither is ever offered
+ * while the report is still loading or absent: there is nothing to share or
+ * export yet.
+ *
+ * The poster is mounted only for the instant of export — into a fresh,
+ * detached container appended to `document.body` and torn down right after
+ * — rather than kept sitting in the tree for the whole time a report is on
+ * screen. `ReportPoster`'s own root already carries the offscreen
+ * `position:fixed; left:-99999px` sizing that keeps it out of the visible
+ * page (see `ReportPoster.tsx`); mounting it only on demand additionally
+ * means nobody — least of all a screen reader, which position:fixed alone
+ * does nothing to hide from — ever has to contend with a duplicate, inert
+ * copy of the title/name/stats/quotes sitting in the page the whole time
+ * she's just reading her own report.
  *
  * Fetches on mount with `useAlive`, NOT a `useRef` latch paired with a
  * per-invocation `cancelled` flag — that exact combination is a known
@@ -36,6 +53,7 @@ import { SharePanel } from "./SharePanel";
 export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }) {
   const [report, setReport] = useState<LiteReport | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
+  const [exporting, setExporting] = useState(false);
   const alive = useAlive();
 
   useEffect(() => {
@@ -53,11 +71,49 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
       });
   }, [kind, atomId, alive]);
 
+  async function handleExport() {
+    if (!report) return;
+    setExporting(true);
+    const mountEl = document.createElement("div");
+    document.body.appendChild(mountEl);
+    const root = createRoot(mountEl);
+    try {
+      let posterNode: HTMLDivElement | null = null;
+      // `flushSync` forces the render to commit synchronously, so
+      // `posterNode` is populated before `root.render` returns — no waiting
+      // on an effect just to get a ref to something we're about to unmount.
+      flushSync(() => {
+        root.render(
+          <ReportPoster
+            report={report}
+            ref={(el) => {
+              posterNode = el;
+            }}
+          />,
+        );
+      });
+      await exportPoster(posterNode, `${report.title}.png`);
+    } finally {
+      root.unmount();
+      mountEl.remove();
+      if (alive.current) setExporting(false);
+    }
+  }
+
   if (state === "done" && report) {
     return (
       <>
         <ReportView report={report} />
-        <div className="mx-auto w-full max-w-[640px] px-6 pb-14">
+        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4 px-6 pb-14">
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={exporting}
+            className="w-fit rounded-mk-full px-4 py-2 text-mk-small text-white disabled:cursor-not-allowed disabled:opacity-60"
+            style={{ background: "var(--mk-accent-500)" }}
+          >
+            {exporting ? "生成图片中…" : "导出图片"}
+          </button>
           <SharePanel kind={kind} atomId={atomId} />
         </div>
       </>
