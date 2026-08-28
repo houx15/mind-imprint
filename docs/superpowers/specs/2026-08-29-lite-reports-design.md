@@ -126,9 +126,12 @@ model call; the ordering is not negotiable.
 
 **Stats are deterministic.** They are computed in Go from rows, never asked of a model.
 
-**One model call, best-effort.** It produces `moments`, `keep` and `gains` together —
-they are one editorial judgment over one corpus, and three calls would cost three times
-as much to no benefit. If it fails or returns nothing usable, the report still stores and
+**One model call, best-effort.** It produces `moments` and `gains` together — they are
+one editorial judgment over one corpus, and two calls would cost twice as much to no
+benefit. **`keep` is NOT among them:** it is deterministic — for a reading it is her
+`reading_takeaway.text` verbatim (she wrote it, and it *is* the one thing she wanted to
+take away), and for a writing it is `null`. Keeping it out of the model's reply removes a
+validation surface and makes R4 true for that field by construction. If it fails or returns nothing usable, the report still stores and
 renders with stats and her own 收获; the prose sections are simply absent. A report is
 never blocked on prose.
 
