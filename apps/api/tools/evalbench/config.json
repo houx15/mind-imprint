@@ -24,6 +24,11 @@
     "deepseek-flagship": {
       "provider": "deepseek",
       "model": "deepseek-v4-pro"
+    },
+    "glm-5.3-flash": {
+      "provider": "glm",
+      "model": "glm-5.3-flash",
+      "reasoningEffort": "max"
     }
   },
   "variants": [

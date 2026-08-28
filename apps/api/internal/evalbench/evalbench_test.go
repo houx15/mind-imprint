@@ -289,8 +289,11 @@ func TestDefaultConfigIncludesProductionAndSinglePromptVariants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
-	if profile := c.Models["deepseek-flagship"]; len(c.Models) != 1 || profile.Provider != "deepseek" || profile.Model != "deepseek-v4-pro" {
+	if profile := c.Models["deepseek-flagship"]; len(c.Models) != 2 || profile.Provider != "deepseek" || profile.Model != "deepseek-v4-pro" {
 		t.Fatalf("default models changed: %#v", c.Models)
+	}
+	if profile := c.Models["glm-5.3-flash"]; profile.Provider != "glm" || profile.Model != "glm-5.3-flash" || profile.ReasoningEffort != "max" {
+		t.Fatalf("default GLM profile changed: %#v", c.Models)
 	}
 	got := map[string]string{}
 	for _, v := range c.Variants {
@@ -302,35 +305,5 @@ func TestDefaultConfigIncludesProductionAndSinglePromptVariants(t *testing.T) {
 	descriptors := evaluatorDescriptors(c.Variants)
 	if descriptors["single-prompt-v1"].ImplementationVersion != singlePromptImplementationV1 || descriptors["single-prompt-v1"].PromptSHA256 == "" || descriptors["production-current"].ImplementationVersion != "evalbench-production-baseline-v1" {
 		t.Fatalf("descriptors = %#v", descriptors)
-	}
-}
-
-func TestGLMConfigBindsBothCandidatesAndKeepsDeepSeekComparator(t *testing.T) {
-	c, err := LoadConfig(filepath.Join("..", "..", "tools", "evalbench", "config.glm-5.3-flash.json"))
-	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
-	}
-	if got := c.Models["glm-5.3-flash"]; got.Provider != "glm" || got.Model != "glm-5.3-flash" || got.ReasoningEffort != "max" {
-		t.Fatalf("GLM profile = %#v", got)
-	}
-	models := map[string]string{}
-	for _, v := range c.Variants {
-		models[v.ID] = v.Model
-	}
-	if models["production-current"] != "glm-5.3-flash" || models["single-prompt-v1"] != "glm-5.3-flash" || c.Comparator.Model != "deepseek-flagship" {
-		t.Fatalf("variants = %#v, comparator = %#v", models, c.Comparator)
-	}
-}
-
-func TestGLMLowThreeCaseConfig(t *testing.T) {
-	c, err := LoadConfig(filepath.Join("..", "..", "tools", "evalbench", "config.glm-5.3-flash-low-3case-r2.json"))
-	if err != nil {
-		t.Fatalf("LoadConfig: %v", err)
-	}
-	if c.Name != "glm-5.3-flash-low-3case-r2" || c.SuccessfulRuns != 2 || c.MaxAttempts != 3 || len(c.Cases) != 3 {
-		t.Fatalf("low GLM config = %#v", c)
-	}
-	if got := c.Models["glm-5.3-flash"]; got.Provider != "glm" || got.Model != "glm-5.3-flash" || got.ReasoningEffort != "low" {
-		t.Fatalf("low GLM profile = %#v", got)
 	}
 }

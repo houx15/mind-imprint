@@ -35,7 +35,7 @@ GLM profile 可选 `reasoningEffort`：`low`、`high` 或 `max`。未设置时 G
 
 ## 配置实验
 
-默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应人工 Gold JSON、模型 profile，以及两个同模型 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、JSON object mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
+默认配置是 [config.json](config.json)。其中包含三个展示 case（深度研究、确认偏误、代写依赖）、对应人工 Gold JSON、DeepSeek 与 GLM model profile，以及两个使用 DeepSeek profile 的 variant：在 Evalbench 内本地复刻的四调用基线 `production-evalreport-v1`，和可行的单次综合调用 `single-prompt-evalreport-v1`。后者使用 24K 输出、reasoning、JSON object mode、完整 Zod 派生 JSON Schema 和完整结构示例。默认每个 case/variant 要求两次完整成功，最多三次 attempt；可直接运行，或按需要另建 JSON 并用 `--config` 覆盖。成本估算复用服务端共享 USD 价格表；配置不维护第二份价格或价格覆盖项。
 
 ```json
 {
@@ -64,6 +64,11 @@ GLM profile 可选 `reasoningEffort`：`low`、`high` 或 `max`。未设置时 G
     "deepseek-flagship": {
       "provider": "deepseek",
       "model": "deepseek-v4-pro"
+    },
+    "glm-5.3-flash": {
+      "provider": "glm",
+      "model": "glm-5.3-flash",
+      "reasoningEffort": "max"
     }
   },
   "variants": [
@@ -100,15 +105,7 @@ GLM profile 可选 `reasoningEffort`：`low`、`high` 或 `max`。未设置时 G
 
 一个模型 profile 可被多个 variant 使用，因此可在不改生产代码的前提下，配置同一 evaluator 分别使用多个旗舰模型。默认两组都使用同一旗舰模型并保持 reasoning 开启。单 prompt v1 的正常完整实验发起 production 的 4 次 candidate calls 加单 prompt 的 1 次 candidate call，以及每个成功 variant 各 1 次 comparator call。
 
-GLM-5.3-Flash 的专用实验配置在 [config.glm-5.3-flash.json](config.glm-5.3-flash.json)。它保持默认 [config.json](config.json) 不变，让 `production-current` 和 `single-prompt-v1` 两个 candidate 都使用 `glm-5.3-flash`，而 Comparator 继续使用 DeepSeek（因此需要同时设置 `ZAI_API_KEY` 与 `DEEPSEEK_API_KEY`）：
-
-```bash
-go run ./tools/evalbench run --config tools/evalbench/config.glm-5.3-flash.json
-```
-
-已提供可复现实验配置 [config.glm-5.3-flash-low-3case-r2.json](config.glm-5.3-flash-low-3case-r2.json)：3 个既有 case、每个 candidate variant 需要 2 次成功 run、GLM profile 使用 `reasoningEffort: "low"`。它同样不改变默认配置或生产 resolver。
-
-GLM 的公开定价以人民币及可能限时价格发布；共享 gateway 价格表只保存可审计的 USD 费率。因此 GLM candidate 在报告中会正确显示为“未定价”，不会被误报为 `$0`；DeepSeek Comparator 仍按既有 USD 费率计价。
+默认 `config.json` 中的 GLM profile 不被两个默认 variant 引用；它只使 GLM 成为可在 Evalbench 配置中显式引用的模型。GLM 的公开定价以人民币及可能限时价格发布；共享 gateway 价格表只保存可审计的 USD 费率。因此 GLM candidate 在报告中会正确显示为“未定价”，不会被误报为 `$0`；DeepSeek Comparator 仍按既有 USD 费率计价。
 
 ## 添加实验 evaluator
 
