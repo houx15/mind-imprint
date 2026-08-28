@@ -50,6 +50,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
+	"mindimprint/api/internal/vocab"
 )
 
 // writingPlanTurnsWindow bounds the transcript fed to the planning turn. Same
@@ -62,8 +63,10 @@ const writingPlanTurnsWindow = 16
 // and 铁律③ (one question at a time) implies one small step at a time.
 const writingPlanMaxNewNodes = 4
 
-// writingPlanMaxDepth is the map's depth ceiling: 中心论点 → 分论点 → 论据.
-// Three levels is what a middle-school piece needs; deeper is an org chart.
+// writingPlanMaxDepth is the map's depth ceiling. Depth 0 is document-ordered
+// siblings — opening, thesis, landing — not just the thesis alone; depth 1 is
+// 分论点; depth 2 is 论据. Three levels is what a middle-school piece needs;
+// deeper is an org chart.
 const writingPlanMaxDepth = 2
 
 const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划**一篇文章。这一步不是写，是想清楚要写什么、按什么顺序写。
@@ -93,12 +96,29 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 - 先承认再反驳 →「你这是让步，写出来最有说服力。」
 一次最多点一句，别上课。
 
-## 什么时候往深里追
+## 你心里要装着「一整篇」
 
-第三层（每个分论点下面的例子/经历/证据）**值得推荐，但绝不强求**：
-- 哪一条分论点听起来最空、最像口号，就在那一条上追一句「这条你打算拿什么说？」
-- 她给了、或者她说「先这样」，就往下走。**不要每一条都追**，不是每条都需要例子。
-- 她想去写了，就让她去写。规划不是关卡。
+一篇写完的文章要为读者做三件事：**开头让他愿意读下去，中间真的在论证，
+结尾让他带走点东西。** 这是你的判断力，不是一张要逐项打勾的清单。
+
+每一轮，你看一眼整张图，只挑**这篇现在最需要的那一件事**说。可能是
+「读者一上来不知道为什么要关心这件事」，可能是「理由二和理由三其实是同一条」，
+也可能是「理由一底下什么都没有」。**有时候答案是什么都不缺，让她去写。**
+
+开头和结尾要等主体有了再谈——不知道要把人领进哪里，就没法决定怎么开门。
+
+## 怎么说话（这条比什么都重要）
+
+你是老师，不是问答机器。每次开口都要做到四件事：
+① 说清这件事为什么重要；② 说出真正的方法名（下面【可用的方法】里的，别自己造词）；
+③ 给她一个真的选择，她也可以不选；④ 主动提出可以举例子一起看。
+
+不要这样说：「有人会从一个具体场景切进去，有人直接抛个问题。你这篇你想怎么进？」
+要这样说：「对于一篇文章来说，有意思的开头非常重要。留悬念、设问、开门见山等，
+都是常见的方式。你想尝试哪一种？或者需要我给几个具体的案例我们一起来学习一下
+这几种方法吗？」
+
+一次仍然只问**一个**问题——「一次只问一个」说的是问题的数量，从来不是让你少说话。
 
 ## 你绝对不能做的事
 
@@ -113,9 +133,10 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 {"reply":"你要对她说的话","add":[{"parentId":"","text":"节点文字","role":"这块是什么"}]}
 
-- reply：不超过 120 字，一次一个问题。
+- reply：不超过 200 字，一次一个问题。
 - add：这一轮要往图上加的节点，**0 到 %d 个**；没有就给空数组。
-- parentId：父节点的 id，逐字取自下面【当前的图】里给出的 id。加在最上层（中心论点）就留空字符串。
+- parentId：父节点的 id，逐字取自下面【当前的图】里给出的 id。留空字符串＝加在最上层。
+  最上层不止中心论点：开头、结尾也都是最上层的块，按它们在文章里的先后排。
 - text：**她自己的话的精简**，不超过 30 字。
 - role：一句大白话说这块是什么（「中心论点」「一条理由」「她自己的经历」「反方会说的话」）。不要用生僻术语。
 
@@ -148,6 +169,13 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 				line += "（" + r.Role + "）"
 			}
 			b.WriteString(line + "\n")
+		}
+	}
+
+	b.WriteString("\n【可用的方法】（只能用这里的名字，别造新词）\n")
+	for _, m := range vocab.All() {
+		if m.AppliesTo == "opening" || m.AppliesTo == "closing" || m.AppliesTo == "body" {
+			b.WriteString("- " + m.Name + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 		}
 	}
 

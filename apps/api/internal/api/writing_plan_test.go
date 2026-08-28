@@ -14,6 +14,8 @@ import (
 	"strconv"
 	"strings"
 	"testing"
+
+	"mindimprint/api/internal/gateway"
 )
 
 type planTurnResult struct {
@@ -37,6 +39,63 @@ func decodePlanTurn(t *testing.T, rec *httptest.ResponseRecorder) planTurnResult
 		t.Fatalf("decode plan turn: %v — body=%s", err, rec.Body)
 	}
 	return out
+}
+
+// writingTextSequenceStubProvider replays a DIFFERENT plain-text plan reply
+// per model call, in order — planTurnWith uses it to seed a thesis on the
+// first turn, then exercise the scripted reply under test on the second.
+func writingTextSequenceStubProvider(replies ...string) *gateway.SequenceStubProvider {
+	scripts := make([][]gateway.StreamEvent, len(replies))
+	for i, reply := range replies {
+		scripts[i] = []gateway.StreamEvent{
+			{Kind: gateway.EventTextDelta, TextDelta: reply},
+			{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 90, OutputTokens: 30}},
+			{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+		}
+	}
+	return gateway.NewSequenceStubProvider(scripts...)
+}
+
+// planTurnWith spins up a fresh writing atom, seeds a depth-0 thesis with an
+// ordinary first plan turn, then runs a second plan turn scripted with
+// `reply` and returns its decoded result. Shared by tests that need an
+// existing thesis already on the map before asserting on what a further turn
+// does around it.
+func planTurnWith(t *testing.T, reply string) planTurnResult {
+	t.Helper()
+	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextSequenceStubProvider(
+		`{"reply":"你打算用哪几件事来说明？","add":[{"parentId":"","text":"不该一刀切禁手机","role":"中心论点"}]}`,
+		reply,
+	))
+	id := createWritingAtomHTTP(t, h, cookie, "学校该不该禁手机。")
+
+	planTurn(t, h, cookie, id, "我觉得不该一刀切禁手机。")
+	rec := planTurn(t, h, cookie, id, "开头我想这样写。")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("plan turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	return decodePlanTurn(t, rec)
+}
+
+// B0: an opening is a top-level sibling of the thesis, ordered before it — not a
+// child of it. The old prompt taught the model that the only depth-0 node IS the
+// thesis, so this is the assertion that the teaching changed.
+func TestPlanTurn_AcceptsATopLevelOpeningBesideTheThesis(t *testing.T) {
+	// Existing thesis at depth 0, position 0.
+	// Model adds an opening with parentId "" — it must be stored at depth 0 and
+	// must NOT be reparented under the thesis or dropped.
+	out := planTurnWith(t,
+		`{"reply":"记下了。","add":[{"parentId":"","text":"夏天路上晒得受不了","role":"开头"}]}`)
+
+	var roots []string
+	for _, n := range out.Outline {
+		if n.Depth == 0 {
+			roots = append(roots, n.Role)
+		}
+	}
+	if len(roots) < 2 {
+		t.Fatalf("depth-0 nodes = %v, want the thesis AND the opening as siblings", roots)
+	}
 }
 
 // TestWritingPlanTurn_GrowsTheMapFromWhatSheSaid — the ordinary case: she
