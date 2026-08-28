@@ -74,6 +74,10 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     const date = formatDate(report.finishedAt);
     // At most three 金句 — "given real space", not shrunk to fit more in.
     const moments = report.moments.slice(0, 3);
+    // Same "absent rather than empty" rule as ReportView's StatsRow: a stat
+    // of 0 is absence, not a fact worth putting in the picture she sends to
+    // a parent. No row at all when nothing survives.
+    const stats = report.stats.filter((stat) => stat.value !== 0);
 
     return (
       <div
@@ -113,9 +117,9 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           </p>
         </header>
 
-        {report.stats.length > 0 && (
+        {stats.length > 0 && (
           <div style={{ display: "flex", flexWrap: "wrap", gap: 22 }}>
-            {report.stats.map((stat, i) => {
+            {stats.map((stat, i) => {
               const { bg, fg } = macaron(i);
               return (
                 <div

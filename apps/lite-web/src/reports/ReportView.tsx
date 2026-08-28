@@ -82,10 +82,15 @@ export function ReportView({ report }: { report: LiteReport }) {
 }
 
 function StatsRow({ stats }: { stats: LiteReport["stats"] }) {
-  if (stats.length === 0) return null;
+  // A stat of 0 is absence, not a fact worth stating — four coloured zeros
+  // read as a broken page, not as a record. Same "absent rather than empty"
+  // rule every other section here already follows: no row, no wrapper, no
+  // gap when nothing survives.
+  const nonZero = stats.filter((stat) => stat.value !== 0);
+  if (nonZero.length === 0) return null;
   return (
     <div className="flex flex-wrap gap-4">
-      {stats.map((stat, i) => {
+      {nonZero.map((stat, i) => {
         const { bg, fg } = macaron(i);
         return (
           <div

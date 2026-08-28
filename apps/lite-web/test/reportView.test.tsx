@@ -54,6 +54,43 @@ describe("ReportView", () => {
     }
   });
 
+  it("renders no stat tiles at all when every stat is 0 — a wall of zeros reads as broken, not as a record", () => {
+    const allZero = report({
+      stats: [
+        { key: "focusMinutes", label: "专注时长", value: 0, unit: "分钟" },
+        { key: "coachTurns", label: "和印记聊了", value: 0, unit: "轮" },
+        { key: "notes", label: "笔记", value: 0, unit: "条" },
+        { key: "steps", label: "读完", value: 0, unit: "步" },
+      ],
+    });
+
+    const { container } = render(<ReportView report={allZero} />);
+
+    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("和印记聊了")).toBeNull();
+    expect(screen.queryByText("笔记")).toBeNull();
+    expect(screen.queryByText("读完")).toBeNull();
+    // no row, no wrapper, no gap left behind for an empty stats section.
+    expect(container.querySelectorAll(".flex-wrap").length).toBe(0);
+  });
+
+  it("renders only the non-zero stats from a mixed set", () => {
+    const mixed = report({
+      stats: [
+        { key: "focusMinutes", label: "专注时长", value: 0, unit: "分钟" },
+        { key: "wordsRead", label: "阅读字数", value: 860, unit: "字" },
+        { key: "notes", label: "笔记", value: 0, unit: "条" },
+      ],
+    });
+
+    render(<ReportView report={mixed} />);
+
+    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("笔记")).toBeNull();
+    expect(screen.getByText("860")).toBeTruthy();
+    expect(screen.getByText("阅读字数")).toBeTruthy();
+  });
+
   it("shows each 金句 and where it came from", () => {
     const withMoments = report({
       moments: [

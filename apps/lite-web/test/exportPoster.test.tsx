@@ -145,6 +145,37 @@ describe("ReportPoster", () => {
     expect(screen.queryByRole("button")).toBeNull();
   });
 
+  it("renders no stat tiles at all when every stat is 0 — the exported picture must not carry four zeros to a parent", () => {
+    const allZero = report({
+      stats: [
+        { key: "focusMinutes", label: "专注时长", value: 0, unit: "分钟" },
+        { key: "coachTurns", label: "和印记聊了", value: 0, unit: "轮" },
+      ],
+      moments: [],
+    });
+
+    render(<ReportPoster report={allZero} />);
+
+    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("和印记聊了")).toBeNull();
+  });
+
+  it("renders only the non-zero stats from a mixed set", () => {
+    const mixed = report({
+      stats: [
+        { key: "focusMinutes", label: "专注时长", value: 0, unit: "分钟" },
+        { key: "wordsRead", label: "阅读字数", value: 860, unit: "字" },
+      ],
+      moments: [],
+    });
+
+    render(<ReportPoster report={mixed} />);
+
+    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.getByText("860")).toBeTruthy();
+    expect(screen.getByText("阅读字数")).toBeTruthy();
+  });
+
   it("is rendered offscreen (fixed + off-canvas), never display:none", () => {
     const { container } = render(<ReportPoster report={report()} />);
     const posterNode = container.firstElementChild as HTMLElement;

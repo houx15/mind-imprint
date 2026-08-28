@@ -3,7 +3,10 @@ package api
 // atom_report_internal_test.go — validateMoments is unexported, so its test
 // lives here (package api), not in atom_report_test.go (package api_test).
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestValidateMoments(t *testing.T) {
 	corpus := "我觉得人均排放更能说明责任。\n作者只讲了总量，没有讲人口。"
@@ -51,5 +54,25 @@ func TestReportDedupesMomentsAgainstKeep(t *testing.T) {
 	// An empty-text keep must also be a no-op — nothing to dedupe against.
 	if got := dedupeMomentsAgainstKeep(moments, &reportKeep{Label: "我的收获", Text: "   "}); len(got) != len(moments) {
 		t.Errorf("blank-text keep should pass every moment through, got %d of %d", len(got), len(moments))
+	}
+}
+
+// TestLiteReportSystemAddressesHerDirectly — V2 fix: the report's `gains`
+// used to come back in third person ("她抓住了…"), which reads as the
+// student being described to someone else rather than a teacher speaking to
+// her. The prompt must instruct second person (你) for gains, and must not
+// itself model or invite third-person reference (她/这位学生/该生) — a
+// third-person exemplar in the instruction would just teach the model the
+// habit it's supposed to forbid. Precedent for pinning a prompt clause this
+// way: TestReadingCoachSystemCarriesTheRulings in
+// reading_coach_internal_test.go.
+func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
+	if !strings.Contains(liteReportSystem, "用\"你\"称呼她本人") {
+		t.Error("liteReportSystem must explicitly instruct gains to address her as 你, not describe her in third person")
+	}
+	for _, banned := range []string{"她抓住了", "她能说出", "她调整了", "这位学生", "该生"} {
+		if strings.Contains(liteReportSystem, banned) {
+			t.Errorf("liteReportSystem must not model third-person reference as an example, found %q", banned)
+		}
 	}
 }
