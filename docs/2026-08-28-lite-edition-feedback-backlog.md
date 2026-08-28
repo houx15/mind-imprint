@@ -201,6 +201,47 @@ This is checkable and belongs in every spec that lets 印记 demonstrate.
 
 ---
 
+## ⏸ Model routing — a deliberate later exercise (2026-08-28)
+
+**Direction (user):** *"for proper places we can use no reasoning deepseek. and later
+we will schedule a time to test different models to reach a balance between speed,
+performance, and cost. but this is not current focus."*
+
+So: **do not re-route models ad hoc.** It gets its own session, with a benchmark
+across speed / quality / cost, and the decisions are made against measurements
+rather than intuition. This section exists so that session starts from a map.
+
+### Where lite stands today
+
+**Every lite room call resolves `resolveEval` — the flagship, never-downgrade
+tier.** Lite uses `resolveFast` nowhere, although it exists (`proposal_track.go:103`)
+and pro's lighter endpoints already use it (`essay_statement.go:94`,
+`placement.go:68`, `question_card.go:78`, `search_guidance.go:61`).
+
+| Call | Site | First read on whether it needs reasoning |
+|---|---|---|
+| 规划 turn | `writing_plan.go:441` | Asks one question, compresses HER words into nodes. Structured JSON. Plausibly the strongest candidate for a cheaper tier. |
+| 引导框 (batch + single) | `writing_guide.go:745`, `:597` | Deliberately flagship — its comment argues asking a good question about a half-formed argument is the hardest reasoning in the room. **Also the one that times out.** Needs measurement, not a guess. |
+| 段落/成稿 评语 | `writing_comment.go:253`, `writing_compose.go:231` | Genuinely hard: on the production walk it caught a real defect (an example that attacked over-dense planting rather than large-scale planting). Keep flagship until proven otherwise. |
+| 深入一层 | `writing_deepen.go:303` | Socratic follow-up on one block, narrow context. Mid candidate. |
+| 带读 coach / plan | `reading_coach.go:342`, `reading_plan.go:242` | Untouched by sub-project B; measure alongside A. |
+
+### The concrete problem this would also solve
+
+`/guide` can exceed **the handler's own 150s deadline** (observed: 1m52s fine,
+>2m30s ⇒ 502). The lite e2e walk flakes on it, and from the test side it looks
+identical to a client bug — so it costs debugging time as well as wall-clock. A
+faster tier on that call, a longer deadline, or both — but decide it with numbers.
+
+### Worth knowing before that session
+
+Every real LLM call already writes a `llm_call` row with tier, tokens and cost, and
+`llm_usage` unions it for org-level totals. So the benchmark does not need new
+instrumentation — the cost side can be measured from data the platform already
+keeps.
+
+---
+
 ## Cross-cutting rulings still needed
 
 These cut across C+D and must be decided before either report is specced.
