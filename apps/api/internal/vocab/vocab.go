@@ -63,6 +63,17 @@ type Method struct {
 	// English sentence frame ("While it is true that ___") to a student writing
 	// a Chinese essay is a bug, and a prompt line asking the model to please
 	// avoid that is not a fix. See For.
+	//
+	// 🔑 What is language-bound is the WORDING, not the rhetoric. The en_*
+	// entries carry literal English sentence frames, so they are "en": useless
+	// inside a Chinese essay. Every structural method — hooks, parallel
+	// reasons, concession, cause-and-effect — is "any", because an English
+	// essay has all of those too, and 印记 discusses an English piece IN
+	// CHINESE anyway (buildWritingPlanPrompt: 「这篇用英文写（但你和她用中文
+	// 讨论）」), so a Chinese method name in front of an English writer is
+	// exactly what the rest of the room already does. Tagging the structural
+	// entries "zh" would fix the reported bug and create its mirror image: an
+	// English writer left with one opening method and no closings at all.
 	Lang       string    `json:"lang"`
 	Definition string    `json:"definition"`
 	Examples   []Example `json:"examples"`
@@ -112,6 +123,10 @@ func ByID(id string) (Method, bool) {
 // filtering on position alone handed en_concession's "While it is true that
 // ___" to a student writing a Chinese essay. Language belongs in the selector,
 // not in a prompt sentence asking the model to be careful.
+//
+// It filters EXPRESSIONS, not rhetoric — see Method.Lang. In practice: a
+// Chinese piece never sees an English sentence frame, and an English piece
+// keeps the whole method vocabulary plus the frames.
 func For(appliesTo string, lang string) []Method {
 	out := make([]Method, 0, len(loaded))
 	for _, m := range loaded {

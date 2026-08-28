@@ -118,51 +118,60 @@ func TestByID_AndFor(t *testing.T) {
 	}
 }
 
-// TestFor_NeverCrossesLanguages is the regression test for the bug the product
-// owner called serious: a student writing a Chinese essay was being offered
-// "While it is true that ___". Position filtering alone could not stop that, so
-// the guarantee has to live in the selector — which is what this pins.
-func TestFor_NeverCrossesLanguages(t *testing.T) {
-	for _, pos := range []string{"opening", "body", "closing", "any"} {
+// TestFor_NeverOffersEnglishWordingToAChinesePiece pins the TWO properties the
+// language axis exists for — deliberately as properties, not as counts, so that
+// re-tagging an entry wrongly fails here instead of quietly passing:
+//
+//  1. A Chinese piece is never offered an English EXPRESSION. Sentence frames
+//     ("While it is true that ___") are the only language-bound thing in the
+//     library, and they live in `patterns` — so "no entry carrying patterns
+//     reaches lang=zh" is the real guarantee, stronger than naming en_* ids.
+//  2. An English piece keeps a full vocabulary at EVERY position. Tagging the
+//     structural methods "zh" would have left an English writer with one
+//     opening method and no closings — the mirror image of the reported bug,
+//     and just as much a bug (2026-08-28 ruling).
+func TestFor_NeverOffersEnglishWordingToAChinesePiece(t *testing.T) {
+	positions := []string{"opening", "body", "closing"}
+
+	for _, pos := range append(positions, "any") {
 		for _, m := range For(pos, "zh") {
-			if m.Lang == "en" {
-				t.Errorf("For(%q, \"zh\") offered English method %q — 中文作文 must never be handed an English frame", pos, m.ID)
+			if len(m.Patterns) > 0 {
+				t.Errorf("For(%q, \"zh\") offered %q, which carries sentence frames — 中文作文 must never be handed English wording", pos, m.ID)
 			}
-		}
-		for _, m := range For(pos, "en") {
-			if m.Lang == "zh" {
-				t.Errorf("For(%q, \"en\") offered Chinese-only method %q", pos, m.ID)
+			if m.Lang == "en" {
+				t.Errorf("For(%q, \"zh\") offered English-only method %q", pos, m.ID)
 			}
 		}
 	}
 	for _, m := range ForLang("zh") {
-		if m.Lang == "en" {
-			t.Errorf(`ForLang("zh") offered English method %q`, m.ID)
+		if len(m.Patterns) > 0 || m.Lang == "en" {
+			t.Errorf(`ForLang("zh") offered %q, an English-wording entry`, m.ID)
 		}
 	}
-	for _, m := range ForLang("en") {
-		if m.Lang == "zh" {
-			t.Errorf(`ForLang("en") offered Chinese-only method %q`, m.ID)
+
+	// The English half: every position must still have something to teach.
+	for _, pos := range positions {
+		if got := For(pos, "en"); len(got) == 0 {
+			t.Errorf("For(%q, \"en\") returned nothing — an English writer has no method to be offered at this position", pos)
 		}
 	}
-	// Concretely: the concession frames are the entry that used to leak.
-	for _, m := range For("body", "zh") {
-		if m.ID == "en_concession" {
-			t.Fatal(`For("body", "zh") still returns en_concession — the reported bug is back`)
-		}
-	}
-	var sawEnConcession bool
+	// …and the frames themselves are what an English writer gets that a
+	// Chinese one must not.
+	var sawFrames bool
 	for _, m := range For("body", "en") {
-		if m.ID == "en_concession" {
-			sawEnConcession = true
+		if len(m.Patterns) > 0 {
+			sawFrames = true
 		}
 	}
-	if !sawEnConcession {
-		t.Error(`For("body", "en") no longer returns en_concession — English writers lost their frames`)
+	if !sawFrames {
+		t.Error(`For("body", "en") offered no sentence frames — English writers lost the entries that are theirs`)
 	}
-	// And the Chinese methods are still there for a Chinese piece.
-	if len(For("body", "zh")) < 5 {
-		t.Errorf(`For("body", "zh") returned only %d methods`, len(For("body", "zh")))
+
+	// The structural methods serve both, so a Chinese piece keeps its own.
+	for _, pos := range positions {
+		if got := For(pos, "zh"); len(got) == 0 {
+			t.Errorf("For(%q, \"zh\") returned nothing", pos)
+		}
 	}
 }
 
