@@ -248,6 +248,8 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/readings/{id}/questions", liteOnly(a.getReadingQuestions))
 	mux.Handle("POST /api/v1/readings/{id}/heartbeat", liteOnly(a.readingHeartbeat))
 	mux.Handle("GET /api/v1/readings/{id}/report", liteOnly(a.getAtomReportFor("reading")))
+	mux.Handle("POST /api/v1/readings/{id}/report/share", liteOnly(a.shareReadingReport()))
+	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
@@ -278,9 +280,18 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/writings/{id}/finish", liteOnly(a.finishWritingAtom))
 	mux.Handle("POST /api/v1/writings/{id}/heartbeat", liteOnly(a.writingHeartbeat))
 	mux.Handle("GET /api/v1/writings/{id}/report", liteOnly(a.getAtomReportFor("writing")))
+	mux.Handle("POST /api/v1/writings/{id}/report/share", liteOnly(a.shareWritingReport()))
+	mux.Handle("DELETE /api/v1/writings/{id}/report/share", liteOnly(a.revokeWritingReport()))
 	// 写作房间没有工具卡（2026-08-27 产品裁定）：pro 的写作面本来也几乎不用它们，
 	// 学生要的是段落框和引导问题，不是一摞卡。阅读房间的 学科透镜 保持不变——
 	// 那里的卡是拿来对着一篇文章用的，有真实的着力点。
+
+	// PUBLIC — deliberately NOT protected/liteOnly (see atom_report_share.go's
+	// file comment). This is the one route in the lite edition meant to be
+	// reachable with no session at all: a student who opted in shares this
+	// link, and anyone with it — no login — can view her report. Do not wrap
+	// this in an auth gate; that would defeat the whole feature.
+	mux.Handle("GET /api/v1/public/reports/{token}", http.HandlerFunc(a.getPublicReport))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))
