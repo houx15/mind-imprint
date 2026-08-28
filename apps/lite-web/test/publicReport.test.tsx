@@ -1,18 +1,23 @@
 import { render, screen, waitFor, cleanup } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { LiteApp } from "@lite/LiteApp";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { rootElementFor } from "@lite/rootElementFor";
 
 /**
  * The public share page — what `/s/:token` actually opens for someone with
  * NO account at all (a parent scanning the QR code on a shared report).
  *
- * Today's whole-app boot sequence calls `getMe()` in an effect and renders
- * `AuthScreen` as soon as it resolves to "no session", BEFORE any route is
- * ever inspected. The first test below is the one that proves this task's
- * whole point: mounting `LiteApp` itself (not `PublicReportPage` directly)
- * on the share path, with `getMe()` mocked to REJECT, must render the
- * report and must never show `AuthScreen` — a test written while signed in
- * would prove nothing here.
+ * `rootElementFor` is the composition-root decision between the public
+ * report viewer and the authenticated `LiteApp` shell — the exact choice
+ * `main.tsx` makes on a real page load, imported directly here (not via
+ * `main.tsx` itself, which calls `createRoot` at module scope and would
+ * blow up the instant the module loads outside a real `#root` element). The
+ * first test below is the one that proves this task's whole point: on the
+ * share path, with `getMe()` mocked to REJECT (so
+ * if the wrong branch were ever rendered, it would look exactly like "no
+ * session"), the report must render and `AuthScreen` must never appear, and
+ * — now that the choice lives at the composition root rather than inside
+ * `LiteApp` — `LiteApp` must never even mount, so `getMe()` is never called
+ * at all. A test written while signed in would prove nothing here.
  */
 
 type Route = { status?: number; body?: unknown; reject?: boolean };
@@ -71,7 +76,7 @@ it("renders a shared report with no session at all", async () => {
     return undefined;
   });
 
-  render(<LiteApp />);
+  render(rootElementFor(window.location.pathname));
 
   await waitFor(() => expect(screen.getByText(REPORT.title)).toBeTruthy());
 
@@ -92,7 +97,7 @@ it("says the link is no longer available on a 404", async () => {
     return undefined;
   });
 
-  render(<LiteApp />);
+  render(rootElementFor(window.location.pathname));
 
   await waitFor(() =>
     expect(screen.getByText("这份记录不存在，或者已经被收回了。")).toBeTruthy(),
@@ -109,7 +114,7 @@ it("says something different on a network failure than on a 404", async () => {
     return undefined;
   });
 
-  render(<LiteApp />);
+  render(rootElementFor(window.location.pathname));
 
   await waitFor(() =>
     expect(screen.getByText("网络好像断开了，请稍后再试一次。")).toBeTruthy(),
