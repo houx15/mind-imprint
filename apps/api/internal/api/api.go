@@ -245,6 +245,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/readings/{id}/blocks/tools", liteOnly(a.listReadingBlockTools))
 	mux.Handle("GET /api/v1/readings/{id}/blocks/notes", liteOnly(a.listReadingBlockNotes))
 	mux.Handle("POST /api/v1/readings/{id}/blocks/{bid}/explain", liteOnly(a.explainReadingBlock))
+	mux.Handle("GET /api/v1/readings/{id}/questions", liteOnly(a.getReadingQuestions))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
