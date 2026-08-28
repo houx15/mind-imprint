@@ -141,6 +141,63 @@ Both should surface the student's shining moments and their effort.
 
 ---
 
+## 🚨 Cross-cutting rule — 印记 must talk like a teacher, not like an AI
+
+**Ruling (user, firm, 2026-08-28):** *"generally your guidance towards students are
+all this AI-feeling and not a human-feeling language."*
+
+The example that triggered it. Rejected:
+
+> 有人会从一个具体场景切进去，有人直接抛个问题。你这篇你想怎么进？
+
+What a real teacher says:
+
+> 对于一篇文章来说，有意思的开头非常重要。留悬念、设问、开篇直接叙述等，都是常见的
+> 方式。你想尝试哪一种？或者需要我给几个具体的案例我们一起来学习一下这几种方法吗？
+
+**The four things the teacher's version does, and the AI's doesn't:**
+
+1. **States why it matters** — one line of stakes, so the question isn't arbitrary.
+2. **Names the real methods** — 留悬念 / 设问 / 开篇直接叙述. The vocabulary is what
+   she is here to learn; withholding it is not humility, it is teaching nothing.
+3. **Offers a genuine choice**, with room to decline.
+4. **Offers to teach** — 「要不要我举几个例子，咱们一起看看」. The door to instruction
+   stays open instead of leaving her alone with a question.
+
+**Mechanical cause, and the fix.** `writing_plan.go`'s output contract caps
+`reply` at 不超过 120 字 and says 不要一次问好几个问题. Under those two rules the
+model *cannot* state stakes, name methods, and offer to teach — so it emits the
+clipped shrug above. The prompt manufactures the AI voice. Any spec in this
+backlog that touches a student-facing prompt must revisit that cap.
+
+**This applies everywhere**, not just B0: B1's guidance questions, B3's side chat,
+B4/B7's comments, A's reading coach, and the prose in both reports.
+
+**Interaction with 铁律③ (一次只问一个).** Still holds — one *question* per turn.
+It never meant "say as little as possible". Stakes + method names + an offer to
+show examples is one question with the teaching around it.
+
+### This revises the 2026-08-27 ruling on naming patterns
+
+That ruling said: *name the pattern only AFTER she produces it — handing her those
+words as options is what made the old screen a form.* What was wrong there was the
+**vessel, not the vocabulary**. A screen of labeled tiles is a form; a teacher
+naming the common ways and offering to show examples is teaching. Same words,
+opposite thing.
+
+- 印记 **may** name 留悬念 / 设问 / 起承转合 / PEE / 让步 etc. in conversation.
+- 印记 **may not** render them as a picker, menu, or tile grid. That ruling stands.
+
+### Falls out of it: examples must be borrowed material
+
+When 印记 offers 具体的案例 to teach a technique, those examples must be drawn from
+something **other than the student's own piece**. An "example of a 留悬念 opening"
+written about her topic *is* her opening, authored by AI — 铁律① violated through
+the back door. Examples teach the technique on borrowed material; she writes hers.
+This is checkable and belongs in every spec that lets 印记 demonstrate.
+
+---
+
 ## Cross-cutting rulings still needed
 
 These cut across C+D and must be decided before either report is specced.
