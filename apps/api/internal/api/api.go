@@ -247,6 +247,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/readings/{id}/blocks/{bid}/explain", liteOnly(a.explainReadingBlock))
 	mux.Handle("GET /api/v1/readings/{id}/questions", liteOnly(a.getReadingQuestions))
 	mux.Handle("POST /api/v1/readings/{id}/heartbeat", liteOnly(a.readingHeartbeat))
+	mux.Handle("GET /api/v1/readings/{id}/report", liteOnly(a.getAtomReportFor("reading")))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
@@ -276,6 +277,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/writings/{id}/review", liteOnly(a.reviewWritingDraft))
 	mux.Handle("POST /api/v1/writings/{id}/finish", liteOnly(a.finishWritingAtom))
 	mux.Handle("POST /api/v1/writings/{id}/heartbeat", liteOnly(a.writingHeartbeat))
+	mux.Handle("GET /api/v1/writings/{id}/report", liteOnly(a.getAtomReportFor("writing")))
 	// 写作房间没有工具卡（2026-08-27 产品裁定）：pro 的写作面本来也几乎不用它们，
 	// 学生要的是段落框和引导问题，不是一摞卡。阅读房间的 学科透镜 保持不变——
 	// 那里的卡是拿来对着一篇文章用的，有真实的着力点。
