@@ -58,6 +58,11 @@ export default {
         "mk-h2":["18px",{lineHeight:"1.3",fontWeight:"600"}],
         "mk-h3":["16px",{lineHeight:"1.35",fontWeight:"600"}],
         "mk-body-lg":["16px",{lineHeight:"1.75"}],
+        // Composition surfaces only — the writing page, and the mirrored layer
+        // that highlights inside it. 14px mk-body is chrome type; a page needs
+        // page type. 1.9 leading matters more for Chinese than for Latin: the
+        // glyphs are dense and full-height.
+        "mk-prose":["17px",{lineHeight:"1.9"}],
         "mk-body":["14px",{lineHeight:"1.6"}],
         "mk-small":["12px",{lineHeight:"1.5"}],
         "mk-caption":["12px",{lineHeight:"1.45",fontWeight:"500"}],
