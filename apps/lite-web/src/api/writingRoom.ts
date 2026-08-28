@@ -64,9 +64,18 @@ export type WritingGuidePattern = { label: string; frame: string };
  * A method resolved for display — writing_guide.go's writingGuideMethodDTO.
  * The bare vocab id never reaches the client (a bare id means nothing to a
  * student who has never seen vocab's registry); this is the full record.
+ *
+ * `formalName` is the 语文课 curriculum term (2026-08-28 ruling: offered, never
+ * imposed — `name` is plain language and stays what she reads by default).
+ * It is `""` when the library has no distinct formal term for this method
+ * (最后提个建议), and equal to `name` for the two methods she already knows by
+ * their real name (留悬念、开门见山) — in both cases there is nothing a card
+ * would add, which is exactly the condition GuideBox uses to decide whether
+ * the name is tappable at all.
  */
 export type WritingGuideMethod = {
   name: string;
+  formalName: string;
   definition: string;
   examples: WritingGuideExample[];
   patterns: WritingGuidePattern[];

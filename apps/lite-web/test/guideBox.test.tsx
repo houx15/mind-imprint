@@ -18,6 +18,7 @@ const GUIDE: WritingBlockGuide = {
   methods: [
     {
       name: "正反",
+      formalName: "对比论证",
       definition: "一正一反两个例子放在一起。",
       examples: [{ topic: "两个菜市场", text: "东街留了装卸区…" }],
       patterns: [],
@@ -89,6 +90,7 @@ describe("GuideBox", () => {
       methods: [
         {
           name: "Conceding, then turning",
+          formalName: "Concession",
           definition: "Grant what is true, then say what it does not settle.",
           examples: [],
           patterns: [{ label: "Admit then limit", frame: "While it is true that ___, this does not mean ___." }],
@@ -112,5 +114,89 @@ describe("GuideBox", () => {
     expect(screen.queryByText(/常见的几种写法/)).toBeNull();
     expect(screen.queryByRole("button", { name: /看几个例子/ })).toBeNull();
     expect(screen.getByText("只有一个问题？")).toBeTruthy();
+  });
+
+  /**
+   * The 语文课 term card (F3, 2026-08-28 ruling: offered, never imposed).
+   * `name` ("正反") stays what she reads by default; `formalName`
+   * ("对比论证") only surfaces if she taps for it.
+   */
+  describe("the 语文课 term card", () => {
+    it("opens on tapping the method's name and reveals the formal term", () => {
+      render(<GuideBox guide={GUIDE} onDismiss={() => {}} onDeepen={() => {}} />);
+
+      // Not shown before she asks.
+      expect(screen.queryByText(/对比论证/)).toBeNull();
+
+      fireEvent.click(screen.getByRole("button", { name: /正反/ }));
+
+      const term = screen.getByText(/对比论证/);
+      expect(term).toBeTruthy();
+      // The explanation rides along in the same paragraph, at reading size —
+      // this is the room's legibility standard, not an 11px chip.
+      expect(term.closest("p")?.className).toContain("text-mk-body-lg");
+    });
+
+    it("is dismissible — re-tap, 收起 button, and Escape", () => {
+      render(<GuideBox guide={GUIDE} onDismiss={() => {}} onDeepen={() => {}} />);
+      const nameButton = screen.getByRole("button", { name: /正反/ });
+
+      fireEvent.click(nameButton);
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      fireEvent.click(nameButton);
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(nameButton);
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      fireEvent.click(screen.getByRole("button", { name: "知道了" }));
+      expect(screen.queryByRole("dialog")).toBeNull();
+
+      fireEvent.click(nameButton);
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(screen.queryByRole("dialog")).toBeNull();
+    });
+
+    it("shows the borrowed example already in the library, inside the card", () => {
+      render(<GuideBox guide={GUIDE} onDismiss={() => {}} onDeepen={() => {}} />);
+      fireEvent.click(screen.getByRole("button", { name: /正反/ }));
+      expect(screen.getByText(/东街留了装卸区/)).toBeTruthy();
+      expect(screen.getByText(/两个菜市场/)).toBeTruthy();
+    });
+
+    it("exposes no card affordance when formalName equals name — nothing to reveal", () => {
+      // 开门见山: the one pair in vocab's library where the plain name IS the
+      // curriculum term — she already knows it by its real name.
+      const known: WritingBlockGuide = {
+        job: "",
+        methods: [
+          { name: "开门见山", formalName: "开门见山", definition: "第一句就把结论说出来。", examples: [], patterns: [] },
+        ],
+        questions: [],
+      };
+      render(<GuideBox guide={known} onDismiss={() => {}} onDeepen={() => {}} />);
+      // The name is plain text — no button at all for this entry.
+      expect(screen.queryByRole("button", { name: /开门见山/ })).toBeNull();
+      expect(screen.getByText("开门见山")).toBeTruthy();
+    });
+
+    it("exposes no card affordance when formalName is empty — no curriculum term to offer", () => {
+      const noTerm: WritingBlockGuide = {
+        job: "",
+        methods: [{ name: "最后提个建议", formalName: "", definition: "结尾给读者一个具体能做的事。", examples: [], patterns: [] }],
+        questions: [],
+      };
+      render(<GuideBox guide={noTerm} onDismiss={() => {}} onDeepen={() => {}} />);
+      expect(screen.queryByRole("button", { name: /最后提个建议/ })).toBeNull();
+      expect(screen.getByText("最后提个建议")).toBeTruthy();
+    });
+
+    it("is an explainer, not a picker — no selectable control anywhere once open", () => {
+      render(<GuideBox guide={GUIDE} onDismiss={() => {}} onDeepen={() => {}} />);
+      fireEvent.click(screen.getByRole("button", { name: /正反/ }));
+      expect(screen.getByRole("dialog")).toBeTruthy();
+      expect(screen.queryAllByRole("radio")).toHaveLength(0);
+      expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    });
   });
 });

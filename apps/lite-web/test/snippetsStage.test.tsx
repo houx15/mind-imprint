@@ -218,6 +218,7 @@ const GUIDE: WritingBlockGuide = {
   methods: [
     {
       name: "正反",
+      formalName: "对比论证",
       definition: "一正一反两个例子放在一起。",
       examples: [{ topic: "两个菜市场", text: "东街留了装卸区…" }],
       patterns: [],

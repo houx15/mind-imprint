@@ -1,7 +1,7 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button, Icon } from "@/ui";
-import { BookOpen } from "lucide-react";
-import type { WritingBlockGuide } from "../api/writingRoom";
+import { BookOpen, GraduationCap } from "lucide-react";
+import type { WritingBlockGuide, WritingGuideMethod } from "../api/writingRoom";
 import { VocabExamples } from "./VocabExamples";
 
 /**
@@ -53,6 +53,20 @@ import { VocabExamples } from "./VocabExamples";
  * radio group. That shape ("choose one to apply to your essay") was
  * explicitly killed in this product before; naming methods and showing
  * examples is teaching, choosing one for her is not.
+ *
+ * ## The 语文课 term, offered rather than imposed (F3, 2026-08-28)
+ *
+ * `name` is what she reads — 举个例子, 比一比 — never essay-theory jargon.
+ * `formalName` is the curriculum word a 语文 teacher would use for the same
+ * move, and it only ever shows up if she taps for it: when it differs from
+ * `name`, the method's name becomes a small button that opens a card naming
+ * the term, its explanation, and the same borrowed example/pattern
+ * `VocabExamples` already renders — nothing new to teach twice, just handed
+ * to her on request. When `formalName` is empty (no curriculum term for this
+ * one, e.g. 最后提个建议) or equal to `name` (she already knows it by its real
+ * name — 开门见山 is 开门见山 either way), the name stays a plain,
+ * non-interactive span: there is nothing a card would add, so nothing
+ * pretends to be tappable.
  */
 export function GuideBox({
   guide,
@@ -66,6 +80,10 @@ export function GuideBox({
   onDeepen: () => void;
 }) {
   const [showExamples, setShowExamples] = useState(false);
+  // Index into guide.methods of the card currently open, or null. Index
+  // rather than name — two methods could in principle share a display name,
+  // and this keeps "which one is open" unambiguous either way.
+  const [openTermIndex, setOpenTermIndex] = useState<number | null>(null);
   const hasMethods = guide.methods.length > 0;
   // Patterns count as something to show. The English methods in vocab carry
   // sentence FRAMES instead of worked examples, so gating this button on
@@ -101,14 +119,40 @@ export function GuideBox({
         <section className="flex flex-col gap-1.5">
           <h3 className="text-mk-label font-semibold text-mk-accent-700">常见的几种写法</h3>
           <div className="flex flex-col gap-1.5">
-            {guide.methods.map((m) => (
-              <p key={m.name} className="text-mk-body">
-                <span className="font-semibold" style={{ color: "var(--mk-accent-700)" }}>
-                  {m.name}
-                </span>
-                <span className="text-mk-muted">：{m.definition}</span>
-              </p>
-            ))}
+            {guide.methods.map((m, i) => {
+              // A card only has something to add when there IS a curriculum
+              // term and it differs from the plain name she already reads —
+              // 开门见山 (identical either way) and 最后提个建议 (no term at
+              // all) stay plain text, not a button pretending to open
+              // something.
+              const hasTerm = m.formalName.trim() !== "" && m.formalName !== m.name;
+              const open = openTermIndex === i;
+              return (
+                <div key={`${m.name}-${i}`} className="flex flex-col gap-1.5">
+                  <p className="text-mk-body">
+                    {hasTerm ? (
+                      <button
+                        type="button"
+                        onClick={() => setOpenTermIndex(open ? null : i)}
+                        aria-haspopup="dialog"
+                        aria-expanded={open}
+                        className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                        style={{ color: "var(--mk-accent-700)" }}
+                      >
+                        {m.name}
+                        <Icon icon={GraduationCap} size={13} />
+                      </button>
+                    ) : (
+                      <span className="font-semibold" style={{ color: "var(--mk-accent-700)" }}>
+                        {m.name}
+                      </span>
+                    )}
+                    <span className="text-mk-muted">：{m.definition}</span>
+                  </p>
+                  {open && <FormalTermCard method={m} onClose={() => setOpenTermIndex(null)} />}
+                </div>
+              );
+            })}
           </div>
         </section>
       )}
@@ -149,6 +193,81 @@ export function GuideBox({
       </div>
 
       {showExamples && hasIllustrations && <VocabExamples methods={guide.methods} />}
+    </div>
+  );
+}
+
+/**
+ * FormalTermCard — the 语文课 explainer for one method (F3).
+ *
+ * A teacher offering a word, not a glossary entry: "在语文课上，这个叫
+ * 『举例论证』" first, so the term arrives already anchored to the plain name
+ * she just read, then the one-line explanation at reading size
+ * (`text-mk-body-lg`, matching 想一想 above — not the 11px `mk-label` chip
+ * size that was called unreadable for content in this room). The borrowed
+ * example/pattern is `VocabExamples` itself, scoped to just this one method,
+ * so there is exactly one renderer for "here is a worked example" in this
+ * file.
+ *
+ * Nothing here writes anywhere. There is no "apply this" button, no
+ * checkbox, no selectable state — the card explains, it does not choose. It
+ * is dismissible three ways, matching how the room's other small overlays
+ * behave (`BlockToolbar`, `DeepenDrawer`): Escape, a click outside it, or
+ * re-tapping the name that opened it (handled by the parent's toggle).
+ */
+function FormalTermCard({ method, onClose }: { method: WritingGuideMethod; onClose: () => void }) {
+  const cardRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    function onDown(e: PointerEvent) {
+      const card = cardRef.current;
+      if (!card) return;
+      const target = e.target as Node | null;
+      if (target && card.contains(target)) return;
+      onClose();
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown, true);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown, true);
+    };
+  }, [onClose]);
+
+  return (
+    <div
+      ref={cardRef}
+      role="dialog"
+      aria-label={`语文课上，这个叫「${method.formalName}」`}
+      className="ml-1 flex flex-col gap-2 rounded-mk-md border p-3"
+      style={{
+        borderColor: "var(--mk-accent-300)",
+        background: "color-mix(in srgb, var(--mk-accent-500) 8%, var(--mk-paper))",
+      }}
+    >
+      <div className="flex items-start justify-between gap-2">
+        <span
+          className="inline-flex w-fit items-center rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
+          style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
+        >
+          语文课怎么说
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="text-mk-small text-mk-muted hover:text-mk-ink"
+        >
+          知道了
+        </button>
+      </div>
+      <p className="text-mk-body-lg text-mk-ink">
+        在语文课上，这个叫「<span className="font-semibold">{method.formalName}</span>」。
+        {method.definition && <span className="text-mk-muted"> {method.definition}</span>}
+      </p>
+      <VocabExamples methods={[method]} />
     </div>
   );
 }
