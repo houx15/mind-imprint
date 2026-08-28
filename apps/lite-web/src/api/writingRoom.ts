@@ -25,7 +25,17 @@ import type { Writing } from "./writings";
  * there is no telling her thinking from the template, and that distinction is
  * the whole point.
  */
-export type WritingOutlineItem = { id: string; text: string; role: string; depth: number; position: number };
+export type WritingOutlineItem = {
+  id: string;
+  text: string;
+  role: string;
+  depth: number;
+  position: number;
+  /** The stored guide for this block (writing_outline.go's writingOutlineItemDTO.Guide),
+   *  painted the moment GET /outline loads instead of waiting for her to open
+   *  the block — absent when this block has never been guided yet. */
+  guide?: WritingBlockGuide | null;
+};
 
 /*
  * `WritingStructure` and the structure-library calls (listWritingStructures /
@@ -37,9 +47,44 @@ export type WritingOutlineItem = { id: string; text: string; role: string; depth
  * output grows into the mind map. Do not reintroduce a picker.
  */
 
-/** What the coach hands back when she asks for help on ONE block. Questions,
- *  and deliberately no second field a sentence could arrive in. */
-export type WritingBlockGuide = { questions: string[] };
+/**
+ * One worked example for a method, pre-authored about a topic no student is
+ * writing on (apps/api/internal/vocab.Example). `topic` MUST be shown beside
+ * `text` wherever this is rendered — that is what keeps a borrowed example
+ * from ever reading as a suggestion about her own piece (铁律①, VocabExamples).
+ */
+export type WritingGuideExample = { topic: string; text: string };
+
+/** A sentence frame for a method (apps/api/internal/vocab.Pattern) — a shape
+ *  to fill in, not filled-in words, so it never doubles as a sentence for
+ *  her essay. */
+export type WritingGuidePattern = { label: string; frame: string };
+
+/**
+ * A method resolved for display — writing_guide.go's writingGuideMethodDTO.
+ * The bare vocab id never reaches the client (a bare id means nothing to a
+ * student who has never seen vocab's registry); this is the full record.
+ */
+export type WritingGuideMethod = {
+  name: string;
+  definition: string;
+  examples: WritingGuideExample[];
+  patterns: WritingGuidePattern[];
+};
+
+/**
+ * What the coach hands back when she asks for help on ONE block —
+ * writing_guide.go's writingGuideDTO, the wire AND stored shape (also what
+ * `GET /outline`'s per-block `guide` decodes into).
+ *
+ * `job` is about the BLOCK's task, never her content — the same job holds for
+ * any student writing this kind of block, so there is nothing here for her to
+ * paste into her essay. `methods` are resolved from vocab's registry, never
+ * invented by the model. `questions` is the one field that could carry a
+ * sentence, so it is the one the server hard-filters (？ / ? ending only) —
+ * see writing_guide.go's parseWritingGuide.
+ */
+export type WritingBlockGuide = { job: string; methods: WritingGuideMethod[]; questions: string[] };
 
 export type WritingSnippet = {
   id: string;
@@ -129,8 +174,20 @@ export async function guideWritingBlock(id: string, outlineId: string): Promise<
     `${base(id)}/outline/${encodeURIComponent(outlineId)}/guide`,
     { method: "POST" },
   );
-  return { questions: raw.questions ?? [] };
+  return { job: raw.job ?? "", methods: raw.methods ?? [], questions: raw.questions ?? [] };
 }
+
+/*
+ * The batch endpoint (POST /writings/{id}/guide, writing_guide.go's
+ * guideWritingBlocks) answers `{"guides": {"<outline-uuid>": WritingBlockGuide}}`
+ * — keyed by outline row id, deliberately, so a block's guide lands on the
+ * exact block it belongs to rather than walking a list and hoping the order
+ * lines up. `getWritingOutline` above already carries each block's stored
+ * guide (WritingOutlineItem.guide) painted from that same batch call, so no
+ * client wrapper for the batch route itself exists yet — wiring it in is
+ * Task 11's, alongside the SnippetsStage/ComposeStage rebuild that consumes
+ * it.
+ */
 
 // --- coach turn ---------------------------------------------------------
 

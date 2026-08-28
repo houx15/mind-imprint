@@ -261,7 +261,10 @@ function SnippetBlock({
         </div>
       </div>
 
-      {guide && <GuideBox guide={guide} onDismiss={() => setGuide(null)} />}
+      {/* onDeepen: the fuller drawer this button opens is Task 11's — for now
+          it is a no-op landing spot so the button is real and wired without
+          this stage being rebuilt (Task 9 owns GuideBox, not SnippetsStage). */}
+      {guide && <GuideBox guide={guide} onDismiss={() => setGuide(null)} onDeepen={() => {}} />}
 
       <textarea
         value={text}
