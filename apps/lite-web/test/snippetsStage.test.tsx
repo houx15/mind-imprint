@@ -2,7 +2,7 @@ import { useState } from "react";
 import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SnippetsStage } from "@lite/writings/SnippetsStage";
-import type { WritingBlockGuide, WritingOutlineItem, WritingSnippet } from "@lite/api/writingRoom";
+import type { Comment, WritingBlockGuide, WritingOutlineItem, WritingSnippet } from "@lite/api/writingRoom";
 
 /**
  * SnippetsStage — 段落, driven directly (not through the whole room) since
@@ -343,5 +343,156 @@ describe("B3 — 深入一层 opens the SAME 印记, never a second character", 
     const post = calls.find((c) => c.method === "POST" && c.url === `/api/v1/writings/${WID}/outline/o1/deepen`);
     expect(post).toBeTruthy();
     expect((post!.body as { text: string }).text).toBe("我不知道怎么算这笔账");
+  });
+});
+
+/**
+ * B4 at paragraph zoom — 请印记看看这一段.
+ *
+ * The endpoint (Task 5) and the renderer (Task 10) both existed; the button
+ * belonged to neither task brief, so 段落 had no way to reach either.
+ */
+
+const PARAGRAPH = "街上的树种得太密，夏天反而不凉快。修剪的钱也没人出。";
+
+const BLOCK_COMMENT: Comment = {
+  id: "c1",
+  scope: "block",
+  snippetId: "s1",
+  summary: "理由说清楚了，但没说是谁的钱。",
+  points: [{ text: "这句只说了结果，没说原因。", quote: "修剪的钱也没人出。" }],
+  createdAt: "",
+};
+
+const linkedSnippet: WritingSnippet = {
+  id: "s1",
+  outlineId: "o1",
+  outlineHeading: "种树不便宜",
+  position: 0,
+  text: PARAGRAPH,
+  updatedAt: "",
+};
+
+const OUTLINE_O1: WritingOutlineItem[] = [
+  { id: "o1", text: "种树不便宜", role: "中心论点", depth: 0, position: 0, guide: GUIDE },
+];
+
+describe("B4 — 请印记看看这一段", () => {
+  it("comments on this paragraph and renders it through the shared CommentPanel", async () => {
+    stubFetch((method, url) => {
+      if (method === "POST" && url === `/api/v1/writings/${WID}/snippets/s1/comment`) {
+        return { body: { comment: BLOCK_COMMENT } };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
+    fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
+
+    expect(await screen.findByText("理由说清楚了，但没说是谁的钱。")).toBeTruthy();
+    expect(screen.getByText("这句只说了结果，没说原因。")).toBeTruthy();
+    // The shared renderer, not a second one built for this stage.
+    expect(document.querySelectorAll("[data-comment-point]")).toHaveLength(1);
+  });
+
+  it("saves the block first, so 印记 judges what is actually on screen", async () => {
+    stubFetch((method, url) => {
+      if (method === "PUT" && url === `/api/v1/writings/${WID}/snippets`) {
+        return { body: { snippets: [{ ...linkedSnippet, text: `${PARAGRAPH}还得有人天天浇。` }] } };
+      }
+      if (method === "POST" && url === `/api/v1/writings/${WID}/snippets/s1/comment`) {
+        return { body: { comment: BLOCK_COMMENT } };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
+    fireEvent.change(screen.getByDisplayValue(PARAGRAPH), {
+      target: { value: `${PARAGRAPH}还得有人天天浇。` },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
+
+    await screen.findByText("理由说清楚了，但没说是谁的钱。");
+    // Order matters: commenting on a stale save would anchor every point to
+    // sentences she has since rewritten.
+    const put = calls.findIndex((c) => c.method === "PUT" && c.url === `/api/v1/writings/${WID}/snippets`);
+    const post = calls.findIndex((c) => c.url === `/api/v1/writings/${WID}/snippets/s1/comment`);
+    expect(put).toBeGreaterThanOrEqual(0);
+    expect(post).toBeGreaterThan(put);
+  });
+
+  it("refuses to spend a call on an empty paragraph", async () => {
+    const empty: WritingSnippet = { ...linkedSnippet, text: "" };
+    stubFetch(() => undefined);
+
+    render(<Harness outline={OUTLINE_O1} initialSnippets={[empty]} />);
+    fireEvent.click(screen.getByRole("button", { name: /请印记看看这一段/ }));
+
+    expect(await screen.findByText(/这一段还没有内容/)).toBeTruthy();
+    await waitFor(() => expect(calls.some((c) => c.url.endsWith("/comment"))).toBe(false));
+  });
+
+  it("shows a stored comment on arrival, not only right after generating one", async () => {
+    stubFetch((method, url) => {
+      if (method === "GET" && url === `/api/v1/writings/${WID}/comments`) {
+        return {
+          body: {
+            comments: [
+              // A draft-scope comment belongs to 成稿 and must not surface here.
+              { ...BLOCK_COMMENT, id: "c0", scope: "draft", snippetId: null, summary: "整篇的评语" },
+              BLOCK_COMMENT,
+            ],
+          },
+        };
+      }
+      return undefined;
+    });
+
+    render(<Harness outline={OUTLINE_O1} initialSnippets={[linkedSnippet]} />);
+
+    expect(await screen.findByText("理由说清楚了，但没说是谁的钱。")).toBeTruthy();
+    expect(screen.queryByText("整篇的评语")).toBeNull();
+  });
+});
+
+describe("B4 — tracing a point back to the sentence, or honestly not at all", () => {
+  async function renderWithComment(comment: Comment, snippet: WritingSnippet) {
+    stubFetch((method, url) => {
+      if (method === "GET" && url === `/api/v1/writings/${WID}/comments`) {
+        return { body: { comments: [comment] } };
+      }
+      return undefined;
+    });
+    render(<Harness outline={OUTLINE_O1} initialSnippets={[snippet]} />);
+    await screen.findByText(comment.summary);
+    return document.querySelector("[data-comment-point]") as HTMLButtonElement;
+  }
+
+  it("selects the quoted sentence in the block's own textarea", async () => {
+    const point = await renderWithComment(BLOCK_COMMENT, linkedSnippet);
+    const textarea = screen.getByDisplayValue(PARAGRAPH) as HTMLTextAreaElement;
+
+    fireEvent.click(point);
+
+    const at = PARAGRAPH.indexOf("修剪的钱也没人出。");
+    expect(textarea.selectionStart).toBe(at);
+    expect(textarea.selectionEnd).toBe(at + "修剪的钱也没人出。".length);
+    expect(document.activeElement).toBe(textarea);
+  });
+
+  it("does NOTHING when the quote is no longer in the text — never an approximate highlight", async () => {
+    // She rewrote the sentence after the comment was generated. An
+    // approximate match here would land on a neighbouring sentence and teach
+    // her something false about her own paragraph — the same reason the
+    // server drops points whose quote is not a literal substring.
+    const rewritten: WritingSnippet = { ...linkedSnippet, text: "街上的树种得太密，夏天反而不凉快。" };
+    const point = await renderWithComment(BLOCK_COMMENT, rewritten);
+    const textarea = screen.getByDisplayValue(rewritten.text) as HTMLTextAreaElement;
+
+    fireEvent.click(point);
+
+    expect(textarea.selectionStart).toBe(0);
+    expect(textarea.selectionEnd).toBe(0);
+    expect(document.activeElement).not.toBe(textarea);
   });
 });

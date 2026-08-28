@@ -68,3 +68,37 @@ describe("MindMap renders every depth-0 node", () => {
     expect(screen.getByText("先定人再种树")).toBeTruthy();
   });
 });
+
+describe("the spine still reads as the spine", () => {
+  /** The node box is the nearest ancestor carrying an inline background. */
+  const boxOf = (text: string) => screen.getByText(text).closest("[style*='background']") as HTMLElement;
+
+  it("fills the root that carries the 分论点, and leaves the bookends quieter", () => {
+    // Three identical accent boxes in a column is what a bare multi-root
+    // render produces, and it loses the one sentence the piece hangs off.
+    // Told apart structurally (has children), never by matching `role` text,
+    // which is free-form model prose.
+    const piece: WritingOutlineItem[] = [
+      node("a", "夏天路上晒得受不了", "开头", 0, 0),
+      node("b", "该种，但要先定谁长期养", "中心论点", 0, 1),
+      node("b1", "夏天太热", "理由", 1, 2),
+      node("c", "谁来养这件事得先定", "结尾", 0, 3),
+    ];
+    render(<MindMap items={piece} justAdded={[]} />);
+
+    expect(boxOf("该种，但要先定谁长期养").style.background).toContain("--mk-accent-50");
+    expect(boxOf("夏天路上晒得受不了").style.background).toContain("--mk-surface");
+    expect(boxOf("谁来养这件事得先定").style.background).toContain("--mk-surface");
+    // A bookend is still top-level: an accent hairline, not the body border.
+    expect(boxOf("夏天路上晒得受不了").style.borderColor).toContain("--mk-accent-300");
+  });
+
+  it("emphasises nothing while she is still planning and no root has children yet", () => {
+    render(<MindMap items={THREE_ROOTS} justAdded={[]} />);
+    // Honest failure mode of the structural test: at this moment there is no
+    // spine yet, so nothing claims to be one.
+    for (const t of ["夏天路上晒得受不了", "该种，但要先定谁长期养", "谁来养这件事得先定"]) {
+      expect(boxOf(t).style.background).toContain("--mk-surface");
+    }
+  });
+});

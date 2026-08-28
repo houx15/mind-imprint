@@ -1,13 +1,17 @@
 import { useEffect, useRef, useState } from "react";
-import { Plus, HelpCircle } from "lucide-react";
+import { Plus, HelpCircle, Eye } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import { GuideBox } from "./GuideBox";
+import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
 import {
   putWritingSnippet,
   guideWritingBlock,
   guideWritingBlocks,
+  commentOnWritingSnippet,
+  listWritingComments,
+  type Comment,
   type WritingOutlineItem,
   type WritingSnippet,
   type WritingBlockGuide,
@@ -37,6 +41,16 @@ import {
  *     outline) runs once by itself. She should not have to ask to be taught.
  *   - 「卡住了？」 survives as **regenerate this one block** — a second opinion
  *     when the first set of questions didn't land — not as the way in.
+ *
+ * ## 请印记看看这一段 (B4)
+ *
+ * The same structured critique 成稿 gets on the whole piece, at paragraph
+ * zoom — one summary line plus points, each anchored to a sentence she
+ * actually wrote (the server drops any point whose quote is not a literal
+ * substring). It renders through the SAME `CommentPanel` 成稿 uses; only the
+ * trace differs, because there is no `ProseSurface` here to highlight into.
+ * Comments persist, so they are fetched on arrival rather than living only in
+ * the seconds after she presses the button.
  *
  * 铁律① IS ENFORCED IN THIS FILE: GuideBox renders `guide.questions`, and the
  * server has already dropped anything that isn't a question
@@ -174,6 +188,40 @@ export function SnippetsStage({
   /** Which block, if any, has 深入一层 open. */
   const [deepen, setDeepen] = useState<{ outlineId: string; heading: string } | null>(null);
 
+  /**
+   * 印记's comments on individual paragraphs, keyed by snippet id — the
+   * newest one per block.
+   *
+   * Fetched on arrival rather than only held from the moment she presses the
+   * button: a comment is PERSISTED (migration 0102), and feedback that
+   * silently disappears when she comes back tomorrow is the exact failure
+   * `POST /review`'s old `{"feedback": "<prose>"}` had. `GET /comments`
+   * returns both zoom levels newest-first, so the first row seen for a
+   * snippet is the one to keep and the draft-scope rows are skipped here —
+   * they belong to 成稿.
+   */
+  const [comments, setComments] = useState<Record<string, Comment>>({});
+  useEffect(() => {
+    let cancelled = false;
+    void listWritingComments(writingId)
+      .then((rows) => {
+        if (cancelled) return;
+        const byBlock: Record<string, Comment> = {};
+        for (const c of rows) {
+          if (c.scope !== "block" || !c.snippetId) continue;
+          if (!byBlock[c.snippetId]) byBlock[c.snippetId] = c;
+        }
+        setComments(byBlock);
+      })
+      // Not worth an error banner: nothing she did failed, and 请印记看看这一段
+      // still works. Silence here beats an alarm about a page she never asked
+      // to load.
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [writingId]);
+
   // Free paragraphs live in a position range an outline can never reach.
   //
   // position is writing_snippet's upsert key, and outline positions are just
@@ -243,6 +291,11 @@ export function SnippetsStage({
               onDeepen={() => {
                 if (oid) setDeepen({ outlineId: oid, heading: slot.heading });
               }}
+              comment={slot.snippet ? (comments[slot.snippet.id] ?? null) : null}
+              onCommented={(c) => {
+                const sid = c.snippetId;
+                if (sid) setComments((prev) => ({ ...prev, [sid]: c }));
+              }}
               onSaved={onSnippetsChange}
             />
           );
@@ -275,6 +328,8 @@ function SnippetBlock({
   guide,
   onGuide,
   onDeepen,
+  comment,
+  onCommented,
   onSaved,
 }: {
   writingId: string;
@@ -285,11 +340,16 @@ function SnippetBlock({
   guide: WritingBlockGuide | null;
   onGuide: (next: WritingBlockGuide) => void;
   onDeepen: () => void;
+  /** The newest stored comment on THIS paragraph, if 印记 has looked at it. */
+  comment: Comment | null;
+  onCommented: (next: Comment) => void;
   onSaved: (next: WritingSnippet[]) => void;
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
   const [guiding, setGuiding] = useState(false);
+  const [commenting, setCommenting] = useState(false);
+  const textareaRef = useRef<HTMLTextAreaElement | null>(null);
   /**
    * 收起 hides the box; it does not throw the guidance away. Regenerating on
    * the way back in would charge a model call to see something we already
@@ -303,7 +363,13 @@ function SnippetBlock({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slot.snippet?.id]);
 
-  async function save() {
+  /**
+   * Persist this block's text. Returns the saved row for THIS slot (or null
+   * if the save failed), because 请印记看看这一段 needs the snippet id and the
+   * comment endpoint is keyed on it — a block she has typed into but never
+   * blurred has no row on the server at all.
+   */
+  async function save(): Promise<WritingSnippet | null> {
     setSaving(true);
     setError(null);
     try {
@@ -320,11 +386,66 @@ function SnippetBlock({
         text,
       });
       onSaved(saved);
+      // Same by-id-never-by-position discipline buildSlots uses: match on
+      // outlineId when this slot has one, and only fall back to position for
+      // a free paragraph, which has nothing else to be matched by.
+      return (
+        saved.find((s) => (slot.outlineId ? s.outlineId === slot.outlineId : s.position === slot.position)) ?? null
+      );
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "保存这一段失败，请重试。");
+      return null;
     } finally {
       setSaving(false);
     }
+  }
+
+  /**
+   * 请印记看看这一段 — B4 at the paragraph zoom level.
+   *
+   * Saves first, deliberately: the endpoint needs a snippet row and judges
+   * the text the SERVER holds, so commenting on a stale save would anchor
+   * every point to sentences she has since rewritten. Empty text is answered
+   * here rather than by burning a call the server will refuse anyway.
+   */
+  async function askForComment() {
+    if (!text.trim()) {
+      setError("这一段还没有内容，先写点什么再来看看。");
+      return;
+    }
+    setCommenting(true);
+    setError(null);
+    try {
+      const row = slot.snippet && slot.snippet.text === text ? slot.snippet : await save();
+      if (!row) return; // save() already surfaced why.
+      onCommented(await commentOnWritingSnippet(writingId, row.id));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "印记这次没看成，再试一次。");
+    } finally {
+      setCommenting(false);
+    }
+  }
+
+  /**
+   * Clicking a point traces it back to the sentence it is about.
+   *
+   * 成稿 hands the quote to `ProseSurface`; there is no prose surface here,
+   * only a textarea, so the honest equivalent is to focus it and select the
+   * quoted range. **A quote that cannot be located does nothing visible** —
+   * no scroll, no approximate highlight. That is the same line the server
+   * holds when it drops points whose quote is not a literal substring
+   * (validateCommentPoints): a trace landing on the neighbouring sentence is
+   * worse than no trace, because it teaches her something false about her own
+   * paragraph. The miss is real — she may have edited the text since the
+   * comment was generated — and silence is the correct answer to it.
+   */
+  function trace(quote: string) {
+    const el = textareaRef.current;
+    if (!el) return;
+    const at = el.value.indexOf(quote);
+    if (at < 0) return;
+    el.focus();
+    el.setSelectionRange(at, at + quote.length);
   }
 
   async function regenerate() {
@@ -378,12 +499,26 @@ function SnippetBlock({
               {guide === null ? "卡住了？" : "换一组问题"}
             </Button>
           )}
+          {/* 请印记看看这一段 — the same critique 成稿 gets on the whole piece,
+              at paragraph zoom. It comes AFTER the guide button on purpose:
+              this one reads what she has written, so it only makes sense once
+              there is something in the box. */}
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={() => void askForComment()}
+            loading={commenting}
+            iconStart={<Icon icon={Eye} size={14} />}
+          >
+            请印记看看这一段
+          </Button>
         </div>
       </div>
 
       {showGuide && <GuideBox guide={guide} onDismiss={() => setCollapsed(true)} onDeepen={onDeepen} />}
 
       <textarea
+        ref={textareaRef}
         value={text}
         onChange={(e) => setText(e.target.value)}
         onBlur={() => void save()}
@@ -392,6 +527,10 @@ function SnippetBlock({
       />
       {saving && <span className="text-mk-small text-mk-faint">保存中…</span>}
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
+
+      {/* The SAME renderer 成稿 uses — one comment shape, one component, two
+          zoom levels. `onTrace` is what differs, because the surface differs. */}
+      {comment && <CommentPanel comment={comment} onTrace={trace} />}
     </div>
   );
 }
