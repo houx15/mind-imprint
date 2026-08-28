@@ -5,6 +5,7 @@ import { ApiError } from "../api/client";
 import { createWriting, listWritings, isWritingFinished, type Writing } from "../api/writings";
 import { navigate, writingPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
+import { WRITING_IDEA_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
 import { WritingHistoryPanel } from "./WritingHistoryPanel";
 
@@ -58,6 +59,23 @@ export function WritingsLanding() {
     return () => {
       cancelled = true;
     };
+  }, []);
+
+  // Pick up a question 印记 grew from a finished reading (Task 10's
+  // ReadingQuestions, 去写一写). READ-AND-CLEAR, not read: the key is a
+  // one-shot handoff for THIS arrival, not a standing preference — a
+  // lingering key would silently refill this box on every future visit.
+  useEffect(() => {
+    try {
+      const stashed = sessionStorage.getItem(WRITING_IDEA_KEY);
+      if (stashed) {
+        sessionStorage.removeItem(WRITING_IDEA_KEY);
+        setIdea(stashed);
+      }
+    } catch {
+      // Private mode / storage disabled: nothing to pick up, and no reason
+      // to block the rest of the page over it.
+    }
   }, []);
 
   const unfinishedCount = useMemo(

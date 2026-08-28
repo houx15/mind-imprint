@@ -465,6 +465,27 @@ export async function explainReadingBlock(
   );
 }
 
+// ---------------------------------------------------------------------------
+// 阅读问题 (Task 10)
+//
+// What a finished reading leaves her with besides a full stop. The product
+// ruling this exists for: *"just a suggestion, but suggestion is very
+// important, some interesting questions would grow from this reading."*
+// Generated on first call, cheap thereafter (server-side cache) — this file
+// just reads the answer, same shape as every other list-fetch here.
+// ---------------------------------------------------------------------------
+
+export type ReadingQuestion = { id: string; text: string; anchorQuote: string; anchorBlock: string };
+
+/** An empty list is a designed outcome — the article was too thin to grow at
+ *  least two anchored questions — not an error. */
+export async function getReadingQuestions(id: string): Promise<ReadingQuestion[]> {
+  const raw = await apiFetch<{ questions: ReadingQuestion[] }>(
+    `/api/v1/readings/${encodeURIComponent(id)}/questions`,
+  );
+  return raw.questions ?? [];
+}
+
 export function toReadingOutcomes(cards: LiteCard[]): ReadingOutcome[] {
   const out: ReadingOutcome[] = [];
   for (const c of cards) {

@@ -35,6 +35,7 @@ import {
 } from "../api/readingRoom";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanRail } from "./ReadingPlanRail";
+import { ReadingQuestions } from "./ReadingQuestions";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { liteRoutePath, navigate } from "../routing";
 
@@ -405,6 +406,8 @@ function FinishedReadingPanel({
           {takeaway.trim() || "这次阅读没有留下收获记录。"}
         </p>
       </div>
+
+      <ReadingQuestions readingId={reading.id} />
 
       <p className="text-mk-small text-mk-muted">
         这次阅读的报告还在路上。你的批注和收获都已经存好了，报告上线后会出现在这里。
