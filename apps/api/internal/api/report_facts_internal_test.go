@@ -35,6 +35,54 @@ func TestStripQuotedLines(t *testing.T) {
 	}
 }
 
+// TestStripQuotedLinesEdgeCases locks in the 4 edge cases the dispatch named
+// as verified only by reading, not by a test — each guards a specific,
+// plausible "simplification" regression.
+func TestStripQuotedLinesEdgeCases(t *testing.T) {
+	t.Run("indented quote line is still stripped", func(t *testing.T) {
+		// Guards: someone "simplifies" the check to strings.HasPrefix(line, ">"),
+		// dropping the TrimSpace. An indented article quote would then flow
+		// straight into the corpus.
+		in := "   > 中国的碳排放总量位居世界第一。\n她的话"
+		got := stripQuotedLines(in)
+		if strings.Contains(got, "碳排放总量位居世界第一") {
+			t.Error("an indented article quote line survived — TrimSpace before the prefix check must have been dropped")
+		}
+		if !strings.Contains(got, "她的话") {
+			t.Error("her own line was stripped alongside the indented quote")
+		}
+	})
+
+	t.Run("mid-line > in her own prose is not stripped", func(t *testing.T) {
+		// The mirror-image R4 bug: deleting HER words because a line contains
+		// ">" somewhere that isn't a leading blockquote marker.
+		in := "3 > 2 是显然的"
+		got := stripQuotedLines(in)
+		if got != in {
+			t.Errorf("a mid-line > in her own prose was stripped: got %q, want unchanged %q", got, in)
+		}
+	})
+
+	t.Run("CRLF: article line goes, her line survives", func(t *testing.T) {
+		in := "> foo\r\n她的话\r\n"
+		got := stripQuotedLines(in)
+		if strings.Contains(got, "foo") {
+			t.Error("a CRLF-terminated article quote line survived")
+		}
+		if !strings.Contains(got, "她的话") {
+			t.Error("her CRLF-terminated line was stripped")
+		}
+	})
+
+	t.Run("entirely quote lines yields empty string", func(t *testing.T) {
+		in := "> 第一行引用\n> 第二行引用"
+		got := stripQuotedLines(in)
+		if got != "" {
+			t.Errorf("an all-quote message should strip to empty, got %q", got)
+		}
+	})
+}
+
 func TestCountWordsForLang(t *testing.T) {
 	// The counter MUST branch on lang. This repo has already shipped a count
 	// that counted characters for English and was ~5x wrong.
@@ -47,6 +95,10 @@ func TestCountWordsForLang(t *testing.T) {
 		{"en counts words", "Per capita emissions tell a fairer story", "en", 7},
 		{"en collapses runs of spaces", "one   two\nthree", "en", 3},
 		{"empty", "   ", "zh", 0},
+		// Minor: lock in "zh is the default" — anything that isn't "en" takes
+		// the character-counting branch, not just the literal string "zh".
+		{"empty lang defaults to character counting", "人均排放更能说明责任", "", 10},
+		{"unrecognized lang defaults to character counting", "人均排放更能说明责任", "fr", 10},
 	}
 	for _, c := range cases {
 		t.Run(c.name, func(t *testing.T) {
@@ -70,6 +122,18 @@ func TestCappedGapSeconds(t *testing.T) {
 	}
 	if cappedGapSeconds(nil, 5*time.Minute) != 0 {
 		t.Error("no events is not a duration")
+	}
+
+	// Important: the only fixture above is already monotonically increasing,
+	// so sort.Slice inside cappedGapSeconds is never exercised by it. Feed the
+	// SAME timestamps out of order and assert the SAME total. Guards: someone
+	// removes sort.Slice as "dead code" — no test fails until real,
+	// plausible-from-async-writes-or-clock-skew unsorted input arrives, at
+	// which point negative gaps get silently swallowed by `if gap < 0
+	// { continue }`, undercounting her focus time invisibly.
+	unsorted := []time.Time{at(45), at(0), at(46), at(5), at(2)}
+	if gotUnsorted := cappedGapSeconds(unsorted, 5*time.Minute); gotUnsorted != 11*60 {
+		t.Errorf("cappedGapSeconds on unsorted input = %d, want %d (same as sorted)", gotUnsorted, 11*60)
 	}
 }
 
