@@ -219,9 +219,13 @@ type readingCoachReply struct {
 	// The paragraph tool the coach chose to reach for this turn, if any. The
 	// tools are its teaching instruments, not a menu she is left to browse.
 	Tool string `json:"tool"`
+	// Lens is the reading-deck card id the coach reaches for this turn, if
+	// any. A paragraph tool explains a paragraph; a lens makes her perform an
+	// analysis on a sentence she chooses herself. Empty on most turns.
+	Lens string `json:"lens"`
 }
 
-func parseReadingCoachReply(text string, valid map[string]bool, lang string) (readingCoachReply, bool) {
+func parseReadingCoachReply(text string, valid map[string]bool, lang string, lensOK func(cardID string) bool) (readingCoachReply, bool) {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -267,6 +271,12 @@ func parseReadingCoachReply(text string, valid map[string]bool, lang string) (re
 	// A tool with no paragraph to open on is meaningless.
 	if got.Tool != "" && got.FocusBlock == "" {
 		got.Tool = ""
+	}
+	// A lens must be aimed. An un-aimed coach summon is exactly the 透镜库
+	// she already has — what makes this the thing the product asked for is
+	// that it lands on the paragraph the coach just talked about.
+	if got.Lens != "" && (got.FocusBlock == "" || lensOK == nil || !lensOK(got.Lens)) {
+		got.Lens = ""
 	}
 	return got, true
 }
@@ -365,7 +375,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	for _, blk := range blocks {
 		valid[blk.ID] = true
 	}
-	parsed, okParse := parseReadingCoachReply(res.Text, valid, lang)
+	// TODO(task 5): replace with the real lensOK — deck membership + ordering
+	// guard + one-open mutex. Always-false is a temporary stand-in, not a
+	// deliberate disable of the lens feature.
+	parsed, okParse := parseReadingCoachReply(res.Text, valid, lang, func(string) bool { return false })
 	if !okParse {
 		slog.Warn("reading coach: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
