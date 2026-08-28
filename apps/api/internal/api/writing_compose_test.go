@@ -85,6 +85,24 @@ func postWritingFinish(t *testing.T, h http.Handler, cookie *http.Cookie, id str
 	return rec
 }
 
+// commentResp / commentPointResp mirror Comment / CommentPoint's JSON shape
+// (writing_comment.go) for decoding in this file's package (api_test) —
+// same "local mirror struct, not an import of the internal type" convention
+// as writingDraftResp/writingResp above.
+type commentPointResp struct {
+	Text  string `json:"text"`
+	Quote string `json:"quote"`
+}
+
+type commentResp struct {
+	ID        string             `json:"id"`
+	Scope     string             `json:"scope"`
+	SnippetID *string            `json:"snippetId"`
+	Summary   string             `json:"summary"`
+	Points    []commentPointResp `json:"points"`
+	CreatedAt string             `json:"createdAt"`
+}
+
 type writingResp struct {
 	ID         string  `json:"id"`
 	Stage      string  `json:"stage"`
@@ -226,14 +244,16 @@ func TestWritingCompose_ThenPutDraftKeepsEditing(t *testing.T) {
 }
 
 // TestWritingReview_ReturnsCommentaryDoesNotModifyDraft — review's other
-// half of the brief: it gives feedback, and the draft body is byte-for-byte
-// unchanged afterward.
+// half of the brief (Task 5 / B4+B7 shape): it returns a structured
+// {summary, points} comment whose quote is a real sentence of her draft, and
+// the draft body itself is byte-for-byte unchanged afterward.
 func TestWritingReview_ReturnsCommentaryDoesNotModifyDraft(t *testing.T) {
-	feedback := "结构清楚，但第二段的论证需要更具体的数据支撑，建议补充一个可核实的来源。"
-	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(feedback))
+	draftText := "这是我写的第一段内容。"
+	reply := `{"summary":"结构清楚，但论证需要更具体的数据支撑。","points":[{"text":"这句话缺一个可核实的来源。","quote":"` + draftText + `"}]}`
+	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(reply))
 	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
 
-	if rec := putWritingSnippetsHTTP(t, h, cookie, id, `{"snippets":[{"position":0,"text":"这是我写的第一段内容。"}]}`); rec.Code != http.StatusOK {
+	if rec := putWritingSnippetsHTTP(t, h, cookie, id, `{"snippets":[{"position":0,"text":"`+draftText+`"}]}`); rec.Code != http.StatusOK {
 		t.Fatalf("put snippets = %d; body=%s", rec.Code, rec.Body)
 	}
 	if rec := postWritingCompose(t, h, cookie, id); rec.Code != http.StatusOK {
@@ -246,13 +266,19 @@ func TestWritingReview_ReturnsCommentaryDoesNotModifyDraft(t *testing.T) {
 		t.Fatalf("review = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
 	var out struct {
-		Feedback string `json:"feedback"`
+		Comment commentResp `json:"comment"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
 		t.Fatalf("decode review: %v — body=%s", err, rec.Body)
 	}
-	if out.Feedback != feedback {
-		t.Fatalf("feedback = %q, want the model's reply verbatim %q", out.Feedback, feedback)
+	if out.Comment.Scope != "draft" {
+		t.Fatalf("comment scope = %q, want draft", out.Comment.Scope)
+	}
+	if out.Comment.SnippetID != nil {
+		t.Fatalf("draft-scope comment must have a nil snippetId, got %v", *out.Comment.SnippetID)
+	}
+	if len(out.Comment.Points) != 1 || out.Comment.Points[0].Quote != draftText {
+		t.Fatalf("points = %+v, want exactly one point quoting %q verbatim", out.Comment.Points, draftText)
 	}
 
 	after, _ := getWritingDraftHTTP(t, h, cookie, id)
