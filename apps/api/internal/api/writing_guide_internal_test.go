@@ -97,3 +97,33 @@ func TestParseWritingGuide_GarbageIsAFailure(t *testing.T) {
 		}
 	}
 }
+
+// The ？ filter is the security boundary and it must survive the guide growing
+// prose fields: a declarative sentence in `questions` is a sentence for her essay.
+func TestParseWritingGuide_QuestionFilterAppliesToQuestionsOnly(t *testing.T) {
+	got, ok := parseWritingGuide(`{
+      "job":"这一段要让读者相信「便宜」这个说法不成立。",
+      "method_ids":["point_contrast","no_such_method"],
+      "questions":["你见过哪条街上的树长不开？","你可以写：树会抢水。","这跟成本有什么关系？"]
+    }`)
+	if !ok {
+		t.Fatal("parse failed")
+	}
+	if len(got.Questions) != 2 {
+		t.Fatalf("questions = %v, want the declarative one dropped", got.Questions)
+	}
+	if got.Job == "" {
+		t.Error("job was dropped; the prose field must survive the filter")
+	}
+	// An id the model invented is not a method. Dropping it is what keeps
+	// terminology ours.
+	if len(got.MethodIDs) != 1 || got.MethodIDs[0] != "point_contrast" {
+		t.Fatalf("method ids = %v, want only the known one", got.MethodIDs)
+	}
+}
+
+func TestParseWritingGuide_FailsWhenNoQuestionsSurvive(t *testing.T) {
+	if _, ok := parseWritingGuide(`{"job":"x","method_ids":[],"questions":["你可以写：手机让人分心。"]}`); ok {
+		t.Fatal("parse succeeded with zero surviving questions; a guide with no questions teaches her nothing")
+	}
+}

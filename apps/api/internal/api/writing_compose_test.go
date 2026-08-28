@@ -1,11 +1,16 @@
 package api_test
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // writing_compose_test.go — Task 7: 成稿 (compose), draft, review, finish.
@@ -449,4 +454,51 @@ func listWritingMessagesRaw(t *testing.T, h http.Handler, cookie *http.Cookie, i
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("GET", "/api/v1/writings/"+id+"/messages", nil), cookie))
 	return rec
+}
+
+// TestComposeDraft_NeverIncludesGuideText — the test Task 4's persistence
+// decision rests on (writing_guide.go's "PERSISTED, deliberately" comment on
+// guideWritingBlock): if this ever fails, revert to not persisting the guide.
+// composeWritingDraft reads ONLY writing_snippet (see composeSnippetsIntoDraft's
+// doc comment) — it never touches writing_outline at all — so this test seeds
+// a distinctive string directly into writing_outline.guide (bypassing the
+// model entirely, via the *sqlc.Queries liteHandlerWithProvider hands back)
+// and proves it can never surface in the composed draft body.
+func TestComposeDraft_NeverIncludesGuideText(t *testing.T) {
+	h, cookie, q, _ := liteHandlerWithProvider(t, nil)
+	id := createWritingAtomHTTP(t, h, cookie, "写一篇关于气候变化的议论文")
+	atomID, err := uuid.Parse(id)
+	if err != nil {
+		t.Fatalf("parse atom id %q: %v", id, err)
+	}
+
+	block, err := q.InsertWritingOutlineNode(context.Background(), sqlc.InsertWritingOutlineNodeParams{
+		AtomID: atomID, Text: "开头", Role: "开头", Depth: 0, Position: 0,
+	})
+	if err != nil {
+		t.Fatalf("seed outline node: %v", err)
+	}
+
+	const guideMarker = "GUIDE_MARKER_绝不能出现在正文里"
+	guidePayload := []byte(`{"job":"` + guideMarker + `","methods":[],"questions":["她见过这种事吗？"]}`)
+	if err := q.SetWritingOutlineGuide(context.Background(), sqlc.SetWritingOutlineGuideParams{
+		ID: block.ID, Guide: guidePayload,
+	}); err != nil {
+		t.Fatalf("seed guide: %v", err)
+	}
+
+	if rec := putWritingSnippetsHTTP(t, h, cookie, id, `{"snippets":[{"position":0,"text":"这是她自己写的第一段。"}]}`); rec.Code != http.StatusOK {
+		t.Fatalf("put snippets = %d; body=%s", rec.Code, rec.Body)
+	}
+	if rec := postWritingCompose(t, h, cookie, id); rec.Code != http.StatusOK {
+		t.Fatalf("compose = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	draft, rec := getWritingDraftHTTP(t, h, cookie, id)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("GET draft = %d; body=%s", rec.Code, rec.Body)
+	}
+	if strings.Contains(draft.Body, guideMarker) {
+		t.Fatalf("composed draft contains the guide marker — 铁律① breach: %q", draft.Body)
+	}
 }

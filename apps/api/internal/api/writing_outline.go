@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -59,12 +60,24 @@ type writingOutlineItemDTO struct {
 	Role     string `json:"role"`
 	Depth    int32  `json:"depth"`
 	Position int32  `json:"position"`
+	// Guide is the stored 引导 (Task 4, writing_guide.go): job + resolved
+	// methods + questions, painted on first render instead of waiting for
+	// her to click 卡住了？. nil (omitted) when this block has never been
+	// guided yet.
+	Guide *writingGuideDTO `json:"guide,omitempty"`
 }
 
 func toWritingOutlineItemDTO(row sqlc.WritingOutline) writingOutlineItemDTO {
-	return writingOutlineItemDTO{
+	dto := writingOutlineItemDTO{
 		ID: row.ID.String(), Text: row.Text, Role: row.Role, Depth: row.Depth, Position: row.Position,
 	}
+	if len(row.Guide) > 0 {
+		var g writingGuideDTO
+		if err := json.Unmarshal(row.Guide, &g); err == nil {
+			dto.Guide = &g
+		}
+	}
+	return dto
 }
 
 // writingOutlineItemReq is PUT's per-item request shape (no id/position — the
