@@ -75,8 +75,12 @@ export function ReadingCoachPanel({
   // Everything settled → the walk is over. Derived from the plan rather than
   // remembered from the last turn's flag, so a reload lands in the same state.
   const finished = tasks.length > 0 && tasks.every((t) => t.status !== "pending");
+  // 找一找 (hunt): the current step only settles when she POINTS at a
+  // sentence, not when she describes one — the hint says so, right above
+  // wherever her quote chips are about to appear.
+  const hunting = tasks.find((t) => t.status === "pending")?.kind === "hunt";
 
-  async function turn(text: string) {
+  async function turn(text: string, picks: { blockId: string; quote: string }[] = []) {
     if (busy) return;
     setBusy(true);
     setError(null);
@@ -84,12 +88,16 @@ export function ReadingCoachPanel({
       setMessages((prev) => [...prev, { seq: --localSeq.current, role: "student", content: text, createdAt: "" }]);
     }
     try {
-      const res = await postReadingCoachTurn(readingId, text);
+      const res = await postReadingCoachTurn(readingId, text, picks);
       setMessages((prev) => [...prev, { seq: --localSeq.current, role: "ai", content: res.reply, createdAt: "" }]);
       onTasks(res.tasks);
       // The coach names the paragraph this step is about; jumping there is
       // part of leading her, not a separate thing she has to do.
       if (res.focusBlock) onFocusBlock(res.focusBlock, res.tool || undefined);
+      // A lens landed on the article from THIS endpoint, not from the room's
+      // own turn/summon flow — the room's card state has no way to have
+      // picked it up on its own, so it needs telling.
+      if (res.card) slot.onCardSummoned?.();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "印记这次没接上，再试一次。");
       if (text) setMessages((prev) => prev.slice(0, -1));
@@ -100,16 +108,20 @@ export function ReadingCoachPanel({
   }
 
   /** Her message, with whatever she quoted out of the article carried in
-   *  front of it. The coach endpoint takes one text field, so the quotes ride
-   *  inside it as blockquotes rather than needing a wire change — and she can
-   *  see exactly what she is sending, because it is what she picked. */
+   *  front of it. The coach endpoint still takes one text field — the quotes
+   *  ride inside it as blockquotes, unchanged — and ALSO takes them as
+   *  structured `picks` (one per quote that came from a real paragraph),
+   *  which is what tells "点了" apart from "打字说了". */
   function send() {
     const text = draft.trim();
     if (!text || slot.locked) return;
     const quoted = slot.quotes.map((q) => `> ${q.quote}`).join("\n");
+    const picks = slot.quotes
+      .filter((q) => Boolean(q.blockId))
+      .map((q) => ({ blockId: q.blockId as string, quote: q.quote }));
     setDraft("");
     slot.clearQuotes();
-    void turn(quoted ? `${quoted}\n\n${text}` : text);
+    void turn(quoted ? `${quoted}\n\n${text}` : text, picks);
   }
 
   const chatMessages: ChatMessage[] = useMemo(
@@ -158,6 +170,9 @@ export function ReadingCoachPanel({
       {error && <p className="shrink-0 text-mk-small text-mk-danger">{error}</p>}
 
       <div className="shrink-0 flex flex-col gap-2">
+        {hunting && !slot.locked && (
+          <p className="text-mk-small text-mk-muted">在文章里点出那一句，点了就会出现在这里</p>
+        )}
         {slot.quotes.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {slot.quotes.map((q) => (

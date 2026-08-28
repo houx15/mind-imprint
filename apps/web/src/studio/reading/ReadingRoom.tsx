@@ -174,6 +174,10 @@ export type ReadingRoomProps = {
   // `renderCoach` owns the composer — so lite spends the gesture on opening
   // that paragraph's tools instead. Drag-select-to-quote is untouched in both.
   onBlockPick?: (blockId: string) => void;
+  // LITE · threaded straight through to `ReadingCoachSlot.onCardSummoned`
+  // (see there for why). Purely additive — an unset prop means the slot
+  // simply carries `undefined`, which is what pro already gets today.
+  onCardSummoned?: () => void;
 };
 
 /**
@@ -188,10 +192,18 @@ export type ReadingCoachSlot = {
   /** A lens is open on the article (or this is a read-only demo): sending
    *  anything now would talk over it. */
   locked: boolean;
-  /** Sentences she picked out of the article for her next message. */
-  quotes: { key: string; quote: string }[];
+  /** Sentences she picked out of the article for her next message.
+   *  `blockId` is which paragraph each one came from — undefined only for a
+   *  legacy/degraded entry with nowhere real to point at. */
+  quotes: { key: string; quote: string; blockId?: string }[];
   removeQuote: (key: string) => void;
   clearQuotes: () => void;
+  /** LITE · a lens landed on the article from OUTSIDE this room's own
+   *  turn/summon flow (印记 minting one mid-带读, via a different endpoint) —
+   *  so the room's own card state has no way to have picked it up. Absent
+   *  when the caller has nothing to reload with (e.g. pro, which never sets
+   *  this prop in the first place). */
+  onCardSummoned?: () => void;
 };
 
 // Starter prompts adapted to OUR reading deck (source-checking + deep
@@ -246,6 +258,7 @@ export function ReadingRoom({
   renderBlockAside,
   renderCoach,
   onBlockPick,
+  onCardSummoned,
 }: ReadingRoomProps) {
   const caps = capabilities ?? PRO_CAPABILITIES;
   const loop = useReadingLoop(projectId, source, api, initialMessages, initialOutcomes);
@@ -614,6 +627,7 @@ export function ReadingRoom({
               quotes: quoted,
               removeQuote: removeQuoted,
               clearQuotes: () => setQuoted([]),
+              onCardSummoned,
             })
           ) : (
             <>

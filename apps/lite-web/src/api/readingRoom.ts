@@ -362,10 +362,17 @@ export async function generateReadingPlan(id: string): Promise<ReadingPlan> {
  * She never sets a step's status herself: `advance` is the coach's judgement,
  * applied server-side. That is the whole point of this endpoint existing
  * separately from the checklist below.
+ *
+ * `picks` — the sentence(s) she POINTED AT in the article for this turn
+ * (distinct from typing "I think it's this one"), keyed by block id. Sent
+ * ALONGSIDE `text` (which still carries the same quotes inlined as markdown
+ * blockquotes) rather than instead of it, so a server build that hasn't
+ * learned about `picks` yet still sees exactly what it always has.
  */
 export async function postReadingCoachTurn(
   id: string,
   text: string,
+  picks: { blockId: string; quote: string }[] = [],
 ): Promise<{
   reply: string;
   tasks: ReadingTask[];
@@ -374,6 +381,11 @@ export async function postReadingCoachTurn(
   /** The paragraph tool the coach reached for this turn, if any. */
   tool: string;
   finished: boolean;
+  /** The lens 印记 aimed at a paragraph this turn, if any — same shape the
+   *  student-summon endpoint returns. */
+  card: LiteCard | null;
+  /** Why this lens, in the coach's own words — only meaningful alongside `card`. */
+  nudge: string;
 }> {
   const raw = await apiFetch<{
     reply: string;
@@ -382,9 +394,11 @@ export async function postReadingCoachTurn(
     focusBlock: string;
     tool: string;
     finished: boolean;
+    card?: LiteCard | null;
+    nudge?: string;
   }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
     method: "POST",
-    body: JSON.stringify({ text }),
+    body: JSON.stringify({ text, picks }),
   });
   return {
     reply: raw.reply,
@@ -393,6 +407,8 @@ export async function postReadingCoachTurn(
     focusBlock: raw.focusBlock ?? "",
     tool: raw.tool ?? "",
     finished: Boolean(raw.finished),
+    card: raw.card ?? null,
+    nudge: raw.nudge ?? "",
   };
 }
 
