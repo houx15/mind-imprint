@@ -396,27 +396,15 @@ Move the body of `liteSummonCard` from the `catalog, err := agent.ReadingDeck()`
 
 `liteSummonCard` becomes: load atom → entitlement → decode → `detachedModelCtx` → call `summonReadingLens(ctx, u.ID, at.ID, cardID, "", cardOriginStudent)` → on `Decline` call `liteSummonDecline(w, res.Decline)` → on error `httpx.WriteError` → else write the same `liteTurnDTO` it writes today.
 
-- [ ] **Step 3: Add the aiming test**
-
-```go
-func TestSummonReadingLensPrefersOneBlock(t *testing.T) {
-	// A fake provider records the prompt it was given; grounding a card
-	// example over a single-paragraph article can only cite that paragraph.
-	// Asserting on the anchor's BlockID (not on prompt text) keeps this a
-	// test of behaviour rather than of wording.
-	t.Skip("integration: covered by Task 5's coach-summon test")
-}
-```
-
-Leave this as an explicit skip with that reason rather than writing a weak unit test — the real assertion lives in Task 5 where a provider is already faked.
-
-- [ ] **Step 4: Verify the refactor changed nothing**
+- [ ] **Step 3: Verify the refactor changed nothing**
 
 Run the exact command from Step 1 again.
 Expected: the same tests, still passing, unedited.
 Also run: `cd apps/api && CGO_ENABLED=0 go build ./...`
 
-- [ ] **Step 5: Commit**
+The aiming behaviour is deliberately NOT unit-tested here — it is asserted in Task 5, where a provider is already faked and a real card is minted. Do not add a skipped placeholder test.
+
+- [ ] **Step 4: Commit**
 
 ```bash
 git add apps/api/internal/api/reading_lens.go
@@ -713,7 +701,7 @@ with, after the `tool` line:
 
 可用的透镜：
 
-%s
+%LENS%
 
 规矩：
 - **给 lens 就必须同时给 focusBlock**，而且是你 reply 里刚讲的那一段。
@@ -723,7 +711,16 @@ with, after the `tool` line:
   或者某一段特别值得她自己做一遍时才用。
 ```
 
-The `%s` is a rendered list of the reading deck (id + name + when to reach for it), formatted like the paragraph-tool list already is. Render it from `agent.ReadingDeck()` — **do not hand-write a second copy of the deck** (the spec-registry single-source rule).
+**The placeholder must be `%LENS%`, not `%s`.** The call site is `strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)` at `reading_coach.go:350` — a Replace with **count 1**, not a `Sprintf`. A second `%s` would survive into the prompt verbatim and be sent to the model as the literal characters `%s`. So write `%LENS%` in the prompt text and add a second replace immediately after the existing one:
+
+```go
+	system := strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)
+	system = strings.Replace(system, "%LENS%", readingCoachLensMenu(), 1)
+```
+
+`readingCoachLensMenu()` renders the reading deck (id + name + when to reach for it) from `agent.ReadingDeck()`, formatted like `readingCoachToolMenu` already formats the paragraph tools — **do not hand-write a second copy of the deck** (the spec-registry single-source rule). If `ReadingDeck()` errors, return an empty string: the coach then simply never names a lens, which is the safe direction to fail in.
+
+Add to the Step 1 test: `if strings.Contains(system, "%LENS%") || strings.Contains(system, "%s")` — after both replaces, no placeholder may remain.
 
 4. **A new section on the two new step kinds:**
 
@@ -1034,7 +1031,7 @@ useEffect(() => {
 
 Read-and-clear, not read: the suggestion is for this arrival, not for every future visit to 写作.
 
-Mount `<ReadingQuestions readingId={readingId} />` inside `FinishedReadingPanel` (`ReadingRoomHost.tsx:~409`), directly **below** the 我的收获 block, and delete the placeholder line 「这次阅读的报告还在路上。…」 only if questions render — no: **leave the placeholder line in place**. C+D replaces it with the real report; removing it now would leave the screen claiming nothing is coming.
+Mount `<ReadingQuestions readingId={readingId} />` inside `FinishedReadingPanel` (`ReadingRoomHost.tsx:~409`), directly **below** the 我的收获 block and **above** the 「这次阅读的报告还在路上。…」 line. **Leave that line exactly as it is** — sub-project C replaces this whole screen with the real report, and removing the line now would leave a finished reading claiming nothing further is coming.
 
 - [ ] **Step 4: Run**
 
@@ -1087,8 +1084,10 @@ Add `credibility: boolean` to the `RoomCapabilities` type; `true` in `PRO_CAPABI
 
 - [ ] **Step 4: Run both suites**
 
-Run: `cd apps/lite-web && pnpm vitest run test/readingRoomCapabilities.test.tsx` and `cd ../web && pnpm vitest run` (the panel is pro's file — its own tests must stay green).
-Expected: PASS.
+Run: `cd apps/lite-web && pnpm vitest run test/readingRoomCapabilities.test.tsx`
+Then, for pro's own coverage of the file you edited, run only its reading tests plus a typecheck:
+`cd ../web && pnpm vitest run --dir src/studio/reading && pnpm typecheck`
+Expected: PASS. (The controller runs pro's full suite in Final verification — do not run it here.)
 
 - [ ] **Step 5: Commit**
 
