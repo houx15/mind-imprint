@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { StrictMode, useState } from "react";
 import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { SnippetsStage } from "@lite/writings/SnippetsStage";
@@ -494,5 +494,50 @@ describe("B4 — tracing a point back to the sentence, or honestly not at all", 
     expect(textarea.selectionStart).toBe(0);
     expect(textarea.selectionEnd).toBe(0);
     expect(document.activeElement).not.toBe(textarea);
+  });
+});
+
+/**
+ * StrictMode regression — the trap that cost the writing walk a red run.
+ *
+ * `main.tsx` renders the whole app inside `<React.StrictMode>`, so in dev
+ * React mounts every effect, runs its cleanup, and mounts it again. A
+ * "fire only once" `useRef` latch combined with a per-invocation
+ * `let cancelled = false` cleanup flag disagree under that: pass 1 sets the
+ * latch and fires the request, the cleanup marks THAT closure cancelled,
+ * pass 2 is skipped because the latch is set — and when the one real
+ * request lands, the only closure watching it has been told to drop it.
+ * Result: `batching` never clears and the guide box never appears, on a
+ * request the server answered perfectly.
+ *
+ * These tests render through StrictMode on purpose. The ones above do not,
+ * which is exactly why they stayed green while the room hung.
+ */
+describe("guidance must survive React StrictMode's double-invoked effects", () => {
+  it("paints the batch guide after mount → cleanup → remount, with exactly one call", async () => {
+    const outline: WritingOutlineItem[] = [
+      { id: "o1", text: "种树不便宜", role: "中心论点", depth: 0, position: 0 },
+      { id: "o2", text: "谁来养", role: "结尾", depth: 0, position: 1 },
+    ];
+    stubFetch((method, url) => {
+      if (method === "POST" && url === `/api/v1/writings/${WID}/guide`) {
+        return { body: { guides: { o1: GUIDE } } };
+      }
+      return undefined;
+    });
+
+    render(
+      <StrictMode>
+        <Harness outline={outline} initialSnippets={[]} />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText("你见过哪条街上的树长不开？")).toBeTruthy();
+    // Still exactly one metered call — the fix must not buy its correctness
+    // by letting StrictMode bill the model twice.
+    expect(calls.filter((c) => c.url === `/api/v1/writings/${WID}/guide`)).toHaveLength(1);
+    // And the "印记 is thinking" line must be gone: the `finally` that clears
+    // it is the first casualty of the cancelled-closure trap.
+    await waitFor(() => expect(screen.queryByText(/印记正在把每一块都先想一遍/)).toBeNull());
   });
 });

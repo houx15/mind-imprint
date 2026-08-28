@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { render, screen, waitFor, cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WritingRoomHost } from "@lite/writings/WritingRoomHost";
@@ -490,5 +491,57 @@ describe("工具卡 — there are none in this room", () => {
     expect(screen.queryByText("让步段 · 以退为进")).toBeNull();
     expect(calls.some((c) => c.url.includes("/cards"))).toBe(false);
     expect(calls.some((c) => c.url.includes("/summon"))).toBe(false);
+  });
+});
+
+/**
+ * StrictMode — 印记's opening must arrive exactly once, and must arrive.
+ *
+ * `main.tsx` renders the app inside `<React.StrictMode>`, so in dev React
+ * mounts every effect, runs its cleanup, and mounts it again. Two failures
+ * sit on either side of that:
+ *
+ *  - No once-latch → TWO concurrent `POST /opening` calls. The server's
+ *    idempotency gate is a read-then-write with no lock, so both bill a model
+ *    call and both append an 'ai' row: charged twice, greeted twice on her
+ *    next load.
+ *  - A once-latch paired with a per-invocation `let cancelled = false` cleanup
+ *    flag → the cleanup cancels the closure that fired the call, the latch
+ *    skips the remount, and the single real reply is discarded. The room then
+ *    waits forever on a request the server already answered. That is what
+ *    hung 段落's guide box and reddened writing-walk.spec.ts on 2026-08-28;
+ *    write-up in `src/shared/useAlive.ts`.
+ *
+ * Every other test in this file renders WITHOUT StrictMode — which is exactly
+ * why they all stayed green while the live room hung. These two render
+ * through it on purpose.
+ */
+describe("StrictMode — the opening fires once and its reply always lands", () => {
+  it("greets her once while planning, on exactly one POST /opening", async () => {
+    render(
+      <StrictMode>
+        <WritingRoomHost writingId={WID} />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText("先说说你自己更倾向哪一边？")).toBeTruthy();
+    expect(screen.getAllByText("先说说你自己更倾向哪一边？")).toHaveLength(1);
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === "POST" && c.url === base("/opening"))).toHaveLength(1),
+    );
+  });
+
+  it("greets her once in the room proper, on exactly one POST /opening", async () => {
+    routes = { ...emptyRoutes(inRoom()) };
+    render(
+      <StrictMode>
+        <WritingRoomHost writingId={WID} />
+      </StrictMode>,
+    );
+
+    expect(await screen.findByText("先说说你自己更倾向哪一边？")).toBeTruthy();
+    await waitFor(() =>
+      expect(calls.filter((c) => c.method === "POST" && c.url === base("/opening"))).toHaveLength(1),
+    );
   });
 });

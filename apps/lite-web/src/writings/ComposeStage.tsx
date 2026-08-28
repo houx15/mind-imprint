@@ -131,6 +131,14 @@ export function ComposeStage({
    * Only when there is nothing here yet AND she has written paragraphs — an
    * empty 段落 would just produce an empty draft and a wasted round trip, and
    * an existing body is hers to keep.
+   *
+   * DO NOT add a `let cancelled = false` cleanup flag to this effect. A
+   * once-latch plus a per-invocation cancel flag is the combination that hung
+   * 段落's guide box (write-up in `shared/useAlive.ts`): StrictMode's cleanup
+   * cancels the closure that fired the call, the latch skips the remount, and
+   * the reply is dropped. `assemble()` sets state unconditionally here, which
+   * is why this site is already correct — if it ever needs an unmount guard,
+   * use `useAlive()`.
    */
   const arrived = useRef(false);
   useEffect(() => {
