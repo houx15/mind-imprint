@@ -28,7 +28,17 @@ reached both terminal screens and confirmed:
 The reading room's shell is right (*"I love the current box!"*). What is missing is
 depth inside it.
 
-- [ ] **A1 · 带读 must be able to summon a support card onto a specific passage.**
+Delivered by: spec `docs/superpowers/specs/2026-08-28-lite-reading-room-depth-design.md`,
+plan `docs/superpowers/plans/2026-08-28-lite-reading-room-depth.md`.
+
+**Shipped 2026-08-29.** The surprise: A1 turned out to be *wiring*, not invention — the
+aimed-summon path with a verbatim-validated example already existed in Go
+(`agent.RouteReading` + `ResolveExampleAnchor`) and was dead code from the UI, because
+`ReadingCoachPanel` replaced the room's own chat branch. And the 示范 → 你来选句 mechanic
+inside the lens card already did exactly what was asked, down to rejecting a click on the
+AI's own example sentence.
+
+- [x] **A1 · 带读 must be able to summon a support card onto a specific passage.**
       Today the lens cards are only reachable by the student opening 透镜库 herself.
       带读 should be able to point at *this sentence / this paragraph*, analyze that
       particular part as a demonstration, and then hand the same move back to the
@@ -38,17 +48,17 @@ depth inside it.
       - Note: the 示范 → 你来选句 mechanic already exists inside the lens card. The
         gap is that 带读 cannot *trigger* it or aim it at a chosen block.
 
-- [ ] **A2 · The closing step becomes a task, not a text question.**
+- [x] **A2 · The closing step becomes a task, not a text question.**
       Today step 5 is 回答几个问题 — typed answers. It should instead invite an
       action performed *in the article*: go find the sentence that does X, go find
       the keywords that signal Y. (*"not textual questions, but we can invite
       students do something like find some texts, or find some keywords etc."*)
 
-- [ ] **A3 · The route should bend toward the student's own experience.**
+- [x] **A3 · The route should bend toward the student's own experience.**
       The whole 带读 process should make reading more interesting and continuously
       invite the student to connect the text to her own experience or thinking.
 
-- [ ] **A4 · Reading should be able to hand off to writing.**
+- [x] **A4 · Reading should be able to hand off to writing.**
       After finishing a reading, sometimes invite the student to write something
       about that article or that topic. (Bridge into the writing loop.)
 
@@ -301,8 +311,8 @@ outcome and the design must look right when it happens.
       shows 发现 and 关键引句 from the student's lens cards; the finished screen shows
       only 我的收获. The lens findings, key quotes, and the whole 带读 transcript are
       stored but unreachable. (C will likely absorb this.)
-- [ ] **可信度 shows 尚未评估 in lite** — the field is rendered in the finalize modal
-      but lite has no producer for it.
+- [x] **可信度 shows 尚未评估 in lite** — fixed with sub-project A (Task 11): gated off by a
+      new `credibility` capability, so pro — which does produce a verdict — keeps the field.
 - [ ] **The 我的写作 drawer never got the shelf redesign.** It still uses the old
       two-section layout with the 11px 「还没写完 · N」 label — the exact thing that
       was called out and fixed for 我的阅读 on 2026-08-28 (`57524de5`). Missing there:
