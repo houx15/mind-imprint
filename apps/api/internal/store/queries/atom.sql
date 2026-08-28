@@ -32,7 +32,22 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: ListAtomMessages :many
-SELECT * FROM atom_message WHERE atom_id = $1 ORDER BY seq;
+-- The room's OWN thread only. The `block_id IS NULL` filter is the whole safety
+-- property of 0102: seven callers across reading and writing read this query and
+-- every one of them means "the main conversation". Making the default safe is why
+-- none of them needed editing when block scoping arrived — do not remove it, and
+-- do not add a variant that omits it.
+SELECT * FROM atom_message WHERE atom_id = $1 AND block_id IS NULL ORDER BY seq;
+
+-- name: ListAtomBlockMessages :many
+SELECT * FROM atom_message
+WHERE atom_id = $1 AND block_id = $2
+ORDER BY seq;
+
+-- name: AppendAtomBlockMessage :one
+INSERT INTO atom_message (atom_id, seq, role, content, block_id)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
 
 -- name: NextAtomMessageSeq :one
 -- The next free seq for this atom. Callers append inside the same transaction
