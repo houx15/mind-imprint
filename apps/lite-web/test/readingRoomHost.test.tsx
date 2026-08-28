@@ -205,6 +205,83 @@ describe("ReadingRoomHost", () => {
     expect(await screen.findByRole("tab", { name: /阅读成果 1/ })).toBeTruthy();
   });
 
+  // Fix round 1: onCardSummoned used to bump reloadKey, which set
+  // state.phase to "loading" SYNCHRONOUSLY — wiping the whole screen (article,
+  // plan rail, conversation) back to "正在打开这次阅读…" at the exact moment
+  // 带读 hands her a lens, then remounting everything from scratch. This test
+  // proves that no longer happens: the room stays mounted (no loading text, the
+  // article never disappears, no full reload of /source), and the newly
+  // summoned lens still surfaces — via a narrow re-check (GET /cards), not a
+  // room-wide reload.
+  it("keeps the room mounted — no reload, no torn-down screen — when 带读 hands her a lens mid-conversation", async () => {
+    const cardsUrl = `/api/v1/readings/${READING_ID}/cards`;
+    const sourceUrl = `/api/v1/readings/${READING_ID}/source`;
+    const coachUrl = `/api/v1/readings/${READING_ID}/coach`;
+
+    render(<ReadingRoomHost readingId={READING_ID} />);
+    expect(await screen.findByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
+
+    const sourceCallsBefore = calls.filter((c) => c.method === "GET" && c.url === sourceUrl).length;
+
+    // The coach turn's own lens summon just persisted a card row
+    // server-side — mirrored here by making the NEXT /cards read see it,
+    // same as a real POST would have.
+    routes[key("GET", cardsUrl)] = {
+      body: {
+        cards: [
+          {
+            id: "card-1",
+            cardId: "craap",
+            status: "proposed",
+            anchors: [
+              {
+                id: "ex0",
+                material_id: READING_ID,
+                block_id: "b1",
+                start: 0,
+                end: 5,
+                quote: "中国的",
+                dimension: "craap",
+                author: "ai",
+                question: "这句缺一个出处。",
+                answer: "",
+              },
+            ],
+          },
+        ],
+      },
+    };
+    routes[key("POST", coachUrl)] = {
+      body: {
+        reply: "试着自己做一遍：这一句站得住吗？",
+        tasks: [],
+        currentTaskId: "",
+        focusBlock: "",
+        tool: "",
+        finished: false,
+        card: { id: "card-1", cardId: "craap", blockId: "b1", status: "proposed", anchors: [] },
+        nudge: "这句话缺一个出处。",
+      },
+    };
+
+    fireEvent.click(screen.getByRole("button", { name: "开始" }));
+
+    expect(await screen.findByText("试着自己做一遍：这一句站得住吗？")).toBeTruthy();
+
+    // The room never wiped and reloaded. (b2's text, untouched by the new
+    // lens's example highlight, stays a single readable text node — b1's own
+    // text is now legitimately split by a <mark>, which is the mechanism
+    // working, not the room disappearing.)
+    expect(screen.queryByText("正在打开这次阅读…")).toBeNull();
+    expect(screen.getByText("但同一时期，中国的碳排放总量仍居全球第一。")).toBeTruthy();
+    const sourceCallsAfter = calls.filter((c) => c.method === "GET" && c.url === sourceUrl).length;
+    expect(sourceCallsAfter).toBe(sourceCallsBefore);
+
+    // And the mechanism actually works: the newly-summoned lens surfaces,
+    // fetched through the narrow re-check rather than a reload.
+    expect(await screen.findByText("看懂示范，开始选句")).toBeTruthy();
+  });
+
   it("shows a real error when the reading itself cannot be loaded", async () => {
     delete routes[key("GET", `/api/v1/readings/${READING_ID}`)];
     render(<ReadingRoomHost readingId={READING_ID} />);

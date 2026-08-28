@@ -338,11 +338,6 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
             onFocusBlock={focusBlock}
           />
         )}
-        // A lens 印记 mints mid-带读 (via /coach, not the room's own turn/summon
-        // flow) is invisible to the room's own card state until the room
-        // reloads — same "reload everything" path PasteSourcePanel's onSaved
-        // already uses, not a second refresh mechanism.
-        onCardSummoned={() => setReloadKey((k) => k + 1)}
         source={source!}
         phaseTag={(state.brief.phaseTag as PhaseTag | null) ?? null}
         readingReason={state.brief.readingReason}

@@ -115,6 +115,12 @@ export type UseReadingLoop = {
   confirm: () => Promise<void>;
   repick: () => void;
   skip: () => Promise<void>;
+  // LITE · re-runs the SAME "is a card already open" check the mount-time
+  // resume (below) runs once — callable again on demand, for a card that
+  // landed OUTSIDE this loop's own turn/summon flow (印记 minting a lens via
+  // 带读's own endpoint). Additive: nothing here touches existing behaviour,
+  // and a caller that never invokes it (pro) is unaffected.
+  refetchOpenCard: () => Promise<void>;
 };
 
 let msgSeq = 0;
@@ -232,6 +238,27 @@ export function useReadingLoop(
     return () => {
       cancelled = true;
     };
+  }, [api, projectId, source.id]);
+
+  // LITE · refetchOpenCard — the same "is a card open right now" check as
+  // the mount-time resume just above, but callable again on demand instead
+  // of once. A card summoned via a DIFFERENT endpoint (印记 minting a lens
+  // mid-带读, through the coach turn rather than readTurn/summonCard) never
+  // flows through applyTurnEvents below, so this is the only way the loop
+  // learns about it. Deliberately does NOT push the "这副透镜还没有完成"
+  // resume line into `messages` — that copy means "left over from before a
+  // reload", which isn't true here, and lite (the only caller) never renders
+  // `messages` anyway (renderCoach replaces that whole log).
+  const refetchOpenCard = useCallback(async () => {
+    if (typeof api.getOpenCard !== "function") return;
+    const open = await api.getOpenCard(projectId, source.id);
+    if (!open) return;
+    const anchor = open.anchors[0] ?? null;
+    setCardInstanceId(open.cardInstanceId);
+    setCardId(open.cardId);
+    setExampleAnchor(anchor);
+    setExampleWhy(anchor?.question || "");
+    setStatus(open.status);
   }, [api, projectId, source.id]);
 
   // Shared by confirm() (on a completed submit) and skip() — both retire the
@@ -461,5 +488,6 @@ export function useReadingLoop(
     confirm,
     repick,
     skip,
+    refetchOpenCard,
   };
 }

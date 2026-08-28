@@ -174,10 +174,6 @@ export type ReadingRoomProps = {
   // `renderCoach` owns the composer — so lite spends the gesture on opening
   // that paragraph's tools instead. Drag-select-to-quote is untouched in both.
   onBlockPick?: (blockId: string) => void;
-  // LITE · threaded straight through to `ReadingCoachSlot.onCardSummoned`
-  // (see there for why). Purely additive — an unset prop means the slot
-  // simply carries `undefined`, which is what pro already gets today.
-  onCardSummoned?: () => void;
 };
 
 /**
@@ -200,9 +196,9 @@ export type ReadingCoachSlot = {
   clearQuotes: () => void;
   /** LITE · a lens landed on the article from OUTSIDE this room's own
    *  turn/summon flow (印记 minting one mid-带读, via a different endpoint) —
-   *  so the room's own card state has no way to have picked it up. Absent
-   *  when the caller has nothing to reload with (e.g. pro, which never sets
-   *  this prop in the first place). */
+   *  so the room's own card state has no way to have picked it up on its
+   *  own. Wired to `loop.refetchOpenCard` below; pro never renders through
+   *  `renderCoach` so nothing ever calls this for pro. */
   onCardSummoned?: () => void;
 };
 
@@ -258,7 +254,6 @@ export function ReadingRoom({
   renderBlockAside,
   renderCoach,
   onBlockPick,
-  onCardSummoned,
 }: ReadingRoomProps) {
   const caps = capabilities ?? PRO_CAPABILITIES;
   const loop = useReadingLoop(projectId, source, api, initialMessages, initialOutcomes);
@@ -627,7 +622,9 @@ export function ReadingRoom({
               quotes: quoted,
               removeQuote: removeQuoted,
               clearQuotes: () => setQuoted([]),
-              onCardSummoned,
+              // Narrow re-check, not a reload: nothing here unmounts the
+              // room, so her transcript/draft/scroll position survive.
+              onCardSummoned: () => void loop.refetchOpenCard(),
             })
           ) : (
             <>
