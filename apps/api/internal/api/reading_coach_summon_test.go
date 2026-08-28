@@ -99,3 +99,47 @@ func TestCoachTurnMintsAimedLens(t *testing.T) {
 		t.Errorf("reply = %q, want the coach's own reply untouched by the summon", out.Reply)
 	}
 }
+
+// focusLensDisagreeScript — F4 (final review): a turn that BOTH advances into
+// a focus_block step (routine "zh-scan-focus-lens", focusBlocks=["b2"] — so
+// the step she is walking INTO carries block "b2") AND summons a lens aimed
+// at a DIFFERENT paragraph ("b4", the one the reply itself just discussed).
+// Before the fix, the response's focusBlock was unconditionally overridden
+// with the NEXT step's own block id — so the article would scroll to b2
+// while the lens card hung under b4.
+const focusLensDisagreeScript = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b2"],"steps":[],
+  "reply":"通读完了，来看这一句","advance":"done","focusBlock":"b4","lens":"craap",
+  "block_id":"b4","quote":"绿地和水面是相反的力量。","why":"这句提出了一个对比论点。"}`
+
+// TestCoachTurn_LensAgreesWithFocusBlockOverStepsOwnParagraph — the card and
+// the scroll must agree. When a lens actually minted THIS turn, the response
+// stays aimed at the paragraph the lens is aimed at, even though the newly
+// current step names its own (different) paragraph.
+func TestCoachTurn_LensAgreesWithFocusBlockOverStepsOwnParagraph(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(focusLensDisagreeScript))
+	id := createReadingAtom(t, h, cookie)
+	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
+
+	rec := coachTurn(t, h, cookie, id, "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("coach turn = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	var out coachTurnSummonJSON
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode coach turn: %v — body=%s", err, rec.Body)
+	}
+
+	if out.Card == nil {
+		t.Fatalf("no card minted at all; body=%s", rec.Body)
+	}
+	if out.Card.BlockID == nil || *out.Card.BlockID != "b4" {
+		t.Fatalf("card blockId = %v, want \"b4\" (setup broken, not the thing under test)", out.Card.BlockID)
+	}
+	// The bug: this used to read "b2" (the newly-current focus_block step's
+	// own paragraph) instead of staying on the paragraph the card is aimed
+	// at.
+	if out.FocusBlock != "b4" {
+		t.Errorf("focusBlock = %q, want \"b4\" to agree with the minted card — "+
+			"the room would scroll one way while the lens card hangs under the other paragraph", out.FocusBlock)
+	}
+}

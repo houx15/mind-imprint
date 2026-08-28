@@ -186,6 +186,55 @@ func readingPickOrdinal(blocks []Block, blockID string) (int, bool) {
 	return 0, false
 }
 
+// hasHuntPickEvidence is the F3 guard: a hunt step may only settle when a
+// valid pick (a literal quote of a real paragraph) was seen THIS turn, or in
+// the immediately preceding student turn. The one-turn lookback exists
+// because she may point on turn N and the coach may legitimately settle on
+// turn N+1 — without it, a coach that says "good, noted" one turn late would
+// read as her having asserted rather than pointed.
+//
+// This needs no schema change: validateReadingPicks already guarantees
+// `picks` covers this turn, and ReadingCoachPanel.tsx's send() always inlines
+// every surviving quote into the student message content as `> ` blockquote
+// lines BEFORE it is persisted — so re-validating the previous student
+// message's quoted lines against the article's real paragraphs is an honest
+// reconstruction of "did she point last turn", not a guess.
+func hasHuntPickEvidence(picks []readingPick, msgs []sqlc.AtomMessage, blocks []Block) bool {
+	if len(picks) > 0 {
+		return true
+	}
+	for i := len(msgs) - 1; i >= 0; i-- {
+		if msgs[i].Role != "student" {
+			continue
+		}
+		return quotedLinesCiteArticle(msgs[i].Content, blocks)
+	}
+	return false
+}
+
+// quotedLinesCiteArticle reports whether content contains at least one `> `
+// blockquote line that is a literal substring of some real paragraph — the
+// same "real paragraph, quoted literally" bar validateReadingPicks holds
+// structured picks to, applied to the transcript's own `> ` convention.
+func quotedLinesCiteArticle(content string, blocks []Block) bool {
+	for _, line := range strings.Split(content, "\n") {
+		line = strings.TrimSpace(line)
+		if !strings.HasPrefix(line, ">") {
+			continue
+		}
+		quote := strings.TrimSpace(strings.TrimPrefix(line, ">"))
+		if quote == "" {
+			continue
+		}
+		for _, blk := range blocks {
+			if strings.Contains(blk.Text, quote) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func buildReadingCoachPrompt(
 	title string,
 	blocks []Block,
@@ -226,7 +275,14 @@ func buildReadingCoachPrompt(
 		case "skipped":
 			mark = "已跳过"
 		}
-		line := "- [" + mark + "] " + t.Label
+		// The kind rides on every line, in the same English identifiers ("hunt",
+		// "connect", …) the system prompt's own "## 两种特别的步骤" section names
+		// them by — so a task line and the instructions that govern it are
+		// actually joined up, instead of the model reverse-inferring a kind from
+		// a Chinese label. Harmless to show her-facing paragraph tags too: like
+		// the block-id tags above, this is an internal marker for the model, not
+		// prose it is told to repeat to her.
+		line := "- [" + mark + "] (" + t.Kind + ") " + t.Label
 		if t.Detail != "" {
 			line += "：" + t.Detail
 		}
@@ -578,11 +634,22 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if current := currentReadingTask(tasks); current != nil && parsed.Advance != "" {
-		if _, err := qtx.SetReadingTaskStatus(turnCtx, sqlc.SetReadingTaskStatusParams{
-			AtomID: at.ID, ID: current.ID, Status: parsed.Advance,
-		}); err != nil {
-			httpx.WriteError(w, r, err)
-			return
+		advance := parsed.Advance
+		// F3: a hunt step settling on "done" must be backed by an actual point,
+		// not an assertion the model was talked into accepting. "skipped" is
+		// deliberately untouched — 铁律② means she can always decline a step by
+		// saying so, and a guard that trapped her on the hunt would defeat the
+		// whole point of that ruling.
+		if current.Kind == string(taskHunt) && advance == "done" && !hasHuntPickEvidence(picks, msgs, blocks) {
+			advance = ""
+		}
+		if advance != "" {
+			if _, err := qtx.SetReadingTaskStatus(turnCtx, sqlc.SetReadingTaskStatusParams{
+				AtomID: at.ID, ID: current.ID, Status: advance,
+			}); err != nil {
+				httpx.WriteError(w, r, err)
+				return
+			}
 		}
 	}
 	if err := tx.Commit(turnCtx); err != nil {
@@ -597,17 +664,10 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	next := currentReadingTask(after)
 	currentID := ""
-	focus := parsed.FocusBlock
 	if next != nil {
 		currentID = next.ID.String()
-		// A step that names its own paragraph wins over the model's guess: the
-		// plan already decided which paragraph this step is about, and letting
-		// a per-turn guess override it would scroll her somewhere the step
-		// never meant.
-		if next.BlockID != "" {
-			focus = next.BlockID
-		}
 	}
+
 	var cardOut *cardDTO
 	nudge := ""
 	if parsed.Lens != "" {
@@ -622,6 +682,20 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		} else if lres.Card != nil {
 			cardOut, nudge = lres.Card, lres.Nudge
 		}
+	}
+
+	// F4: the card and the scroll must agree. When a lens actually minted this
+	// turn, it is aimed at parsed.FocusBlock (parseReadingCoachReply requires
+	// that pairing), and the response's focusBlock must stay there — not jump
+	// to the NEXT step's paragraph, which is a different one on any turn that
+	// both advances into a focus_block step and summons a lens. Only absent a
+	// minted lens does the plan's own paragraph win over the model's guess:
+	// the plan already decided which paragraph the next step is about, and
+	// letting a per-turn guess override it would scroll her somewhere the step
+	// never meant.
+	focus := parsed.FocusBlock
+	if cardOut == nil && next != nil && next.BlockID != "" {
+		focus = next.BlockID
 	}
 
 	resp := map[string]any{

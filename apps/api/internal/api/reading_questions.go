@@ -244,6 +244,18 @@ func (a *API) getReadingQuestions(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// F5: the whole guarantee this endpoint makes — ONE flagship generation,
+	// spent once, on a reading she has actually finished — depends on never
+	// reaching the provider before then. Gated here, before even the cheap
+	// questions_at pre-check, so an unfinished reading costs nothing and
+	// stamps nothing: a direct call mid-reading (the component only mounts on
+	// the finished screen, but nothing stops a direct request) must not burn
+	// the single generation early and permanently. Not an error — an
+	// unfinished reading simply has no questions yet.
+	if rd.Status != "finished" {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"questions": []readingQuestionDTO{}})
+		return
+	}
 	if rd.QuestionsAt.Valid {
 		rows, err := a.d.Queries.ListReadingQuestions(r.Context(), at.ID)
 		if err != nil {

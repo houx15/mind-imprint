@@ -114,14 +114,20 @@ export function ReadingCoachPanel({
    *  which is what tells "点了" apart from "打字说了". */
   function send() {
     const text = draft.trim();
-    if (!text || slot.locked) return;
+    // Pointing counts on its own: a quote chip with nothing typed must still
+    // send. Only refuse when there is truly nothing at all — no text AND no
+    // quote — or while a lens holds the composer locked.
+    if ((!text && slot.quotes.length === 0) || slot.locked) return;
     const quoted = slot.quotes.map((q) => `> ${q.quote}`).join("\n");
     const picks = slot.quotes
       .filter((q) => Boolean(q.blockId))
       .map((q) => ({ blockId: q.blockId as string, quote: q.quote }));
     setDraft("");
     slot.clearQuotes();
-    void turn(quoted ? `${quoted}\n\n${text}` : text, picks);
+    // An empty composer must not leave a bare trailing blank line once the
+    // quote block is prepended — quoted alone is already a coherent payload.
+    const payload = quoted ? (text ? `${quoted}\n\n${text}` : quoted) : text;
+    void turn(payload, picks);
   }
 
   const chatMessages: ChatMessage[] = useMemo(
@@ -199,7 +205,14 @@ export function ReadingCoachPanel({
           value={draft}
           onChange={setDraft}
           onSend={send}
-          state={busy ? "replying" : undefined}
+          // Composer (shared, apps/web) derives "empty" vs "typing" from
+          // `value` alone when `state` is left undefined — it has no way to
+          // know a quote chip exists. Left to that default, the send button
+          // stays disabled on an empty box even with a chip queued, and
+          // send() never gets called at all. Passing state explicitly here
+          // (rather than touching the shared component) is what actually
+          // lets pointing alone send.
+          state={busy ? "replying" : draft.trim() || slot.quotes.length > 0 ? "typing" : "empty"}
           placeholder={
             slot.locked
               ? "先完成文章里的这副透镜…"

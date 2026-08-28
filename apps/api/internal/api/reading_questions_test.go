@@ -116,6 +116,62 @@ func TestReadingQuestionsChargesOnce(t *testing.T) {
 	}
 }
 
+// TestReadingQuestions_UnfinishedReadingGetsNone — F3 (final review). The
+// spec says questions are generated "on a finished reading". Before this
+// fix, GET only checked ownership and entitlement — a direct call mid-reading
+// (nothing stops one; the component just happens to only mount on the
+// finished screen) would burn the single flagship generation EARLY, stamp
+// questions_at from a half-read article, and the real questions would never
+// generate. An unfinished reading must get an empty list, no provider call,
+// and no stamp — so finishing later still gets the real generation.
+func TestReadingQuestions_UnfinishedReadingGetsNone(t *testing.T) {
+	prov := &countingProvider{inner: readingStubProvider(readingQuestionsTestReply)}
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	id := createReadingAtom(t, h, cookie)
+	if rec := putSource(t, h, cookie, id, readingQuestionsTestBody); rec.Code != http.StatusOK {
+		t.Fatalf("put source = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	// Deliberately NOT finished.
+
+	rec := getReadingQuestionsHTTP(t, h, cookie, id)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("questions on an unfinished reading = %d, want 200 (empty, not an error); body=%s", rec.Code, rec.Body)
+	}
+	var out struct {
+		Questions []readingQuestionDTOForTest `json:"questions"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	if len(out.Questions) != 0 {
+		t.Fatalf("unfinished reading returned %d questions, want 0: %+v", len(out.Questions), out.Questions)
+	}
+	if n := prov.count(); n != 0 {
+		t.Fatalf("model called %d times for an unfinished reading, want 0 — the single generation must not be spent early", n)
+	}
+
+	// Finishing afterward must still get the REAL generation — questions_at
+	// must not have been stamped by the unfinished call above.
+	finishReadingAtom(t, h, cookie, id)
+	second := getReadingQuestionsHTTP(t, h, cookie, id)
+	if second.Code != http.StatusOK {
+		t.Fatalf("questions after finishing = %d, want 200; body=%s", second.Code, second.Body)
+	}
+	var secondOut struct {
+		Questions []readingQuestionDTOForTest `json:"questions"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &secondOut); err != nil {
+		t.Fatalf("decode second: %v — body=%s", err, second.Body)
+	}
+	if len(secondOut.Questions) != 2 {
+		t.Fatalf("after finishing, got %d questions, want the 2 real survivors: %+v — "+
+			"the early unfinished call must not have permanently stamped questions_at", len(secondOut.Questions), secondOut.Questions)
+	}
+	if n := prov.count(); n != 1 {
+		t.Fatalf("model called %d times total, want exactly 1 (only after she actually finished)", n)
+	}
+}
+
 // TestReadingQuestionsThinArticle_NoRetryOnReopen — Task 8 fix round 1's
 // regression test. Before the fix, "generated" was inferred from
 // reading_question having rows; a thin article that validates down to ZERO

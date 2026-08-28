@@ -10,6 +10,8 @@ package api
 import (
 	"strings"
 	"testing"
+
+	"mindimprint/api/internal/store/sqlc"
 )
 
 func TestParseReadingCoachReplyLens(t *testing.T) {
@@ -144,6 +146,25 @@ func TestBuildReadingCoachSystem_NoPlaceholderSurvives(t *testing.T) {
 // short-circuit has no caller yet exercising it: every real call site passes
 // a real predicate. A nil lensOK must still drop the lens rather than panic
 // on the nil call.
+// TestReadingCoachPrompt_TaskLinesCarryKind — F2. The system prompt's "## 两
+// 种特别的步骤" section addresses connect and hunt BY NAME, but the task
+// listing never wrote t.Kind — so the instructions and the state they govern
+// were never joined up. Every task line must now carry its kind, in the same
+// identifier the system prompt uses.
+func TestReadingCoachPrompt_TaskLinesCarryKind(t *testing.T) {
+	tasks := []sqlc.ReadingTask{
+		{Status: "pending", Kind: "hunt", Label: "回去找一句", Detail: "在文章里点出一句。"},
+		{Status: "pending", Kind: "connect", Label: "你见过这件事吗", Detail: "想到什么说什么。"},
+		{Status: "pending", Kind: "read", Label: "先通读一遍"},
+	}
+	prompt := buildReadingCoachPrompt("标题", nil, tasks, nil, nil, "")
+	for _, want := range []string{"(hunt)", "(connect)", "(read)"} {
+		if !strings.Contains(prompt, want) {
+			t.Errorf("task listing missing kind marker %q:\n%s", want, prompt)
+		}
+	}
+}
+
 func TestParseReadingCoachReplyLens_NilLensOK(t *testing.T) {
 	valid := map[string]bool{"b1": true, "b2": true}
 

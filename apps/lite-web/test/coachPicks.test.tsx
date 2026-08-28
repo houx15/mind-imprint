@@ -79,6 +79,32 @@ describe("ReadingCoachPanel — picks", () => {
     expect(picks).toEqual([{ blockId: "b2", quote: "碳排放总量位居世界第一" }]);
   });
 
+  it("sends on an EMPTY composer when a quote chip is present — pointing alone must count", async () => {
+    const slot = baseSlot({
+      quotes: [{ key: "q1", quote: "碳排放总量位居世界第一", blockId: "b2" }],
+    });
+    render(
+      <ReadingCoachPanel
+        readingId="r1"
+        tasks={[]}
+        initialMessages={STARTED_MESSAGES}
+        slot={slot}
+        onTasks={() => {}}
+        onFocusBlock={() => {}}
+      />,
+    );
+
+    // No typing at all — the composer stays empty.
+    fireEvent.click(screen.getByLabelText("发送"));
+
+    await waitFor(() => expect(postTurn).toHaveBeenCalled());
+    const [id, text, picks] = postTurn.mock.calls[0] as [string, string, unknown];
+    expect(id).toBe("r1");
+    expect(text.trim()).not.toBe("");
+    expect(text).toContain("碳排放总量位居世界第一");
+    expect(picks).toEqual([{ blockId: "b2", quote: "碳排放总量位居世界第一" }]);
+  });
+
   it("shows the hunt hint only while the current step is a hunt", async () => {
     const huntTasks: ReadingTask[] = [
       { id: "t1", position: 0, kind: "hunt", label: "找一找", detail: "", blockId: "", status: "pending", completedAt: null },
