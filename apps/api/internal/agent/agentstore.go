@@ -754,16 +754,38 @@ func (s *sqlcAgentStore) SeedEvidenceMapFromProposal(ctx context.Context, projec
 	if mainRQ == "" {
 		return nil
 	}
+	// A project whose map has never been touched carries exactly one lead: the
+	// title-seeded placeholder root (api.ensureRootQuestion), which exists so
+	// the map is never empty. Confirming the proposal REPLACES that placeholder
+	// rather than parking a near-duplicate root beside the real RQ.
+	var placeholderID *uuid.UUID
 	if leads, err := s.q.ListExplorationLeads(ctx, projectID); err == nil {
 		for _, l := range leads {
 			if l.Text == mainRQ {
 				return nil // already seeded
 			}
 		}
+		if len(leads) == 1 {
+			l := leads[0]
+			untouched := l.Origin == "guide" && l.Status == "open" &&
+				!l.ParentLeadID.Valid && !l.ConnectedReferenceID.Valid && !l.SourceReferenceID.Valid
+			if untouched {
+				id := l.ID
+				placeholderID = &id
+			}
+		}
 	}
-	main, err := s.q.CreateExplorationLead(ctx, sqlc.CreateExplorationLeadParams{
-		ProjectID: projectID, Text: mainRQ, Status: "open", Origin: "guide", Position: 0,
-	})
+	var main sqlc.ExplorationLead
+	var err error
+	if placeholderID != nil {
+		main, err = s.q.UpdateExplorationLead(ctx, sqlc.UpdateExplorationLeadParams{
+			ID: *placeholderID, ProjectID: projectID, Text: mainRQ, Status: "open", Position: 0,
+		})
+	} else {
+		main, err = s.q.CreateExplorationLead(ctx, sqlc.CreateExplorationLeadParams{
+			ProjectID: projectID, Text: mainRQ, Status: "open", Origin: "guide", Position: 0,
+		})
+	}
 	if err != nil {
 		return err
 	}

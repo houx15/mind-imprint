@@ -106,6 +106,10 @@ type WarrenNodeData = {
   // tour anchor so it lands on exactly one node, not every badged one.
   isJustRead: boolean;
   onRequestDelete: (id: string) => void;
+  // Rename in place. A root can be SEEDED from the project title (server-side,
+  // so the map is never empty and never dead-locks) — a starting point, not a
+  // finished research question, so it has to be editable right here.
+  onRequestRename: (id: string, text: string) => void;
 };
 
 type QuestionEdgeData = {
@@ -124,7 +128,7 @@ type QuestionEdgeData = {
 // per-root color is the macaron ordinal theme, never accent).
 function WarrenNodeView({ id, data, selected }: NodeProps) {
   const d = data as unknown as WarrenNodeData;
-  const { text, paperCount, theme, hasReadReference, isJustRead, onRequestDelete } = d;
+  const { text, paperCount, theme, hasReadReference, isJustRead, onRequestDelete, onRequestRename } = d;
   return (
     <div
       data-theme={theme.key}
@@ -173,6 +177,19 @@ function WarrenNodeView({ id, data, selected }: NodeProps) {
         }}
       >
         ×
+      </button>
+      <button
+        type="button"
+        aria-label="改这个问题"
+        title="改一下这个问题"
+        className="nodrag absolute right-8 top-2 flex h-5 w-5 items-center justify-center rounded-full bg-mk-paper text-[11px] font-bold leading-none opacity-0 shadow-mk-xs transition group-hover:opacity-100 hover:bg-mk-paper"
+        style={{ color: theme.label }}
+        onClick={(e) => {
+          e.stopPropagation();
+          onRequestRename(id, text);
+        }}
+      >
+        ✎
       </button>
 
       <span
@@ -370,6 +387,12 @@ export type WarrenMapProps = {
   // Student-drawn relation (drag one question onto another) + deleting a question.
   onCreateEdge: (fromLeadId: string, toLeadId: string, label: QuestionEdgeLabel) => void;
   onDeleteLead: (leadId: string) => void;
+  // Put a NEW question on the map / rename one. Without the first of these the
+  // room dead-locks whenever the map is empty: nothing to hang a source under
+  // and no way to make one (bug report 2026-08-28 §4). Optional so existing
+  // callers and tests that don't wire them simply render no control.
+  onAddQuestion?: () => void;
+  onRenameLead?: (leadId: string, text: string) => void;
   // The 未归类 system node: how many references hang under no question (read or
   // unread), and what to do when the student opens it. count 0 → node hidden.
   unfiledCount: number;
@@ -407,6 +430,8 @@ function WarrenMapInner({
   onRelabelEdge,
   onCreateEdge,
   onDeleteLead,
+  onAddQuestion,
+  onRenameLead,
   unfiledCount,
   onOpenUnfiled,
 }: WarrenMapProps) {
@@ -422,6 +447,12 @@ function WarrenMapInner({
   const requestDelete = useCallback((id: string) => {
     setDeleteTarget((cur) => cur ?? { id, text: "" });
   }, []);
+  const requestRename = useCallback(
+    (id: string, text: string) => {
+      onRenameLead?.(id, text);
+    },
+    [onRenameLead],
+  );
   // Fill in the question text for the modal from the current roots.
   const deleteText = useMemo(
     () => (deleteTarget ? roots.find((r) => r.id === deleteTarget.id)?.text ?? "" : ""),
@@ -455,6 +486,7 @@ function WarrenMapInner({
             hasReadReference: m.hasReadReference,
             isJustRead: m.isJustRead,
             onRequestDelete: requestDelete,
+            onRequestRename: requestRename,
           },
           draggable: true,
         } as RFNode;
@@ -471,7 +503,7 @@ function WarrenMapInner({
       }
       return rootNodes;
     });
-  }, [nodeModels, requestDelete, unfiledCount]);
+  }, [nodeModels, requestDelete, requestRename, unfiledCount]);
 
   const onNodesChange = useCallback((changes: NodeChange<RFNode>[]) => {
     setRfNodes((nds) => applyNodeChanges(changes, nds) as RFNode[]);
@@ -549,6 +581,16 @@ function WarrenMapInner({
           <span className="ml-auto text-[12px] font-semibold text-mk-accent">{dupNote}</span>
         ) : (
           <span className="ml-auto text-[12px] text-mk-faint">拖动问题排布 · 拖一个问题到另一个上，连出它们的关系</span>
+        )}
+        {onAddQuestion && (
+          <button
+            type="button"
+            data-tour="warren-add-question"
+            onClick={onAddQuestion}
+            className="flex-none rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50"
+          >
+            ＋ 新建问题
+          </button>
         )}
         {helpOpen && (
           <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-mk border border-mk-border bg-mk-surface p-3 text-[12px] leading-relaxed text-mk-ink shadow-[0_12px_32px_rgba(28,35,51,0.18)]">

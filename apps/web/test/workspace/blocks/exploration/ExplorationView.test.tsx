@@ -80,6 +80,7 @@ vi.mock("@/api/exploration", () => ({
   patchEdge: vi.fn(),
   deleteEdge: vi.fn(),
   attachReference: vi.fn(),
+  suggestPlacement: vi.fn(),
 }));
 // The 进入阅读室 path (a paper node's ⋯ menu) goes through workspace.enterReading;
 // mocked so the component's import resolves and never hits the network in tests.
@@ -106,6 +107,8 @@ import {
   createEdge,
   patchEdge,
   deleteEdge,
+  attachReference,
+  suggestPlacement,
 } from "@/api/exploration";
 import { proposeSearchGuidance } from "@/api/searchGuidance";
 
@@ -121,6 +124,8 @@ const mockProposeEdges = vi.mocked(proposeEdges);
 const mockCreateEdge = vi.mocked(createEdge);
 const mockPatchEdge = vi.mocked(patchEdge);
 const mockDeleteEdge = vi.mocked(deleteEdge);
+const mockAttachReference = vi.mocked(attachReference);
+const mockSuggestPlacement = vi.mocked(suggestPlacement);
 
 // The 进入阅读室 path (workspace.enterReading) + its 422 paste fallback
 // (workspace.pasteContent), both mocked above so nothing hits the network.
@@ -308,13 +313,18 @@ describe("ExplorationView", () => {
     render(<ExplorationView projectId={nextPid()} references={[]} projectTitle="中国是否让地球变得更可持续？" />);
 
     expect(await screen.findByText("这里还是空的")).toBeInTheDocument();
-    // Task 8 (P2b): 印记 proposes questions via a chat chip now — the manual
-    // create-a-question boxes and the driving-question seed button are gone,
-    // even when references/projectTitle would once have populated them.
+    // Task 8 (P2b): 印记 proposes questions via a chat chip now — the OLD
+    // manual create-a-question boxes and the driving-question seed button are
+    // gone, even when references/projectTitle would once have populated them.
     expect(screen.queryByRole("button", { name: "记下问题" })).toBeNull();
     expect(screen.queryByRole("button", { name: "从笔记新建问题" })).toBeNull();
     expect(screen.queryByRole("button", { name: "用我的研究问题开始" })).toBeNull();
     expect(screen.queryByPlaceholderText(/记一个你想弄清楚的问题/)).toBeNull();
+    // …but ONE escape hatch is deliberately back (bug report 2026-08-28 §4):
+    // with zero questions the placement picker has no targets, so a student who
+    // collected sources before 印记 proposed anything was dead-locked. 印记 still
+    // leads; this is the way out when it hasn't.
+    expect(screen.getByRole("button", { name: "＋ 立一个问题" })).toBeInTheDocument();
   });
 
   it("the manual question affordances stay gone once roots exist, even with note-bearing references", async () => {
@@ -330,6 +340,114 @@ describe("ExplorationView", () => {
     expect(screen.queryByRole("button", { name: "记下问题" })).toBeNull();
     expect(screen.queryByRole("button", { name: "从笔记新建问题" })).toBeNull();
     expect(mockCreateLead).not.toHaveBeenCalled();
+  });
+
+  /* ---- bug report 2026-08-28 · the 未归类 dead lock -----------------------
+     Four symptoms, one shape: a student searches, adopts several papers into
+     未归类, and every route out of that panel is closed. These lock each one
+     open. ---------------------------------------------------------------- */
+
+  it("§4 · an empty map can be given its first question — ＋立一个问题 → createLead", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    mockCreateLead.mockResolvedValue(ROOT_LEAD);
+    render(<ExplorationView projectId={nextPid()} references={[]} projectTitle="中国是否让地球变得更可持续？" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "＋ 立一个问题" }));
+    // Seeded with the project title — the student edits it into a real question.
+    const box = screen.getByLabelText("问题内容");
+    expect(box).toHaveValue("中国是否让地球变得更可持续？");
+    await userEvent.clear(box);
+    await userEvent.type(box, "中国的可再生能源扩张抵消了碳排放增长吗？");
+    await userEvent.click(screen.getByRole("button", { name: "加到地图上" }));
+
+    await waitFor(() =>
+      expect(mockCreateLead).toHaveBeenCalledWith(expect.any(String), "中国的可再生能源扩张抵消了碳排放增长吗？"),
+    );
+  });
+
+  it("§4 · the map with roots carries its own ＋新建问题 control", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    mockCreateLead.mockResolvedValue(ROOT_LEAD);
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    await userEvent.click(screen.getByRole("button", { name: "＋ 新建问题" }));
+    await userEvent.type(screen.getByLabelText("问题内容"), "第二个问题");
+    await userEvent.click(screen.getByRole("button", { name: "加到地图上" }));
+    await waitFor(() => expect(mockCreateLead).toHaveBeenCalledWith(expect.any(String), "第二个问题"));
+  });
+
+  it("§3 · a seeded root question is editable in place — ✎ → patchLead", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    mockPatchLead.mockResolvedValue({ ...ROOT_LEAD, text: "改过的问题" });
+    render(<ExplorationView projectId={nextPid()} references={[]} />);
+    await screen.findByText(ROOT_LEAD.text);
+
+    await userEvent.click(screen.getByRole("button", { name: "改这个问题" }));
+    const box = screen.getByLabelText("问题内容");
+    expect(box).toHaveValue(ROOT_LEAD.text);
+    await userEvent.clear(box);
+    await userEvent.type(box, "改过的问题");
+    await userEvent.click(screen.getByRole("button", { name: "保存" }));
+
+    await waitFor(() => expect(mockPatchLead).toHaveBeenCalledWith(expect.any(String), ROOT_LEAD.id, { text: "改过的问题" }));
+  });
+
+  it("§1 · 未归类 · a 422 on 进入阅读室 offers the paste box instead of dead-clicking", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    mockEnterReading.mockRejectedValue(new NoReadableContentError("这篇的正文抓不下来"));
+    mockPasteContent.mockResolvedValue({ id: "m1" } as any);
+    const onEnterReading = vi.fn();
+    render(
+      <ExplorationView projectId={nextPid()} references={[NASA_REF]} onEnterReading={onEnterReading} projectTitle="T" />,
+    );
+
+    await userEvent.click(await screen.findByRole("button", { name: "查看 1 篇未归类的来源 →" }));
+    await userEvent.click(await screen.findByRole("button", { name: "进入阅读室" }));
+
+    // The failure is VISIBLE in this panel (it used to set state nothing rendered).
+    expect(await screen.findByText("这篇的正文抓不下来")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "粘贴正文，开始共读" }));
+    await userEvent.type(screen.getByPlaceholderText(/把文章正文粘到这里/), "正文全文……");
+    await userEvent.click(screen.getByRole("button", { name: "开始共读" }));
+
+    await waitFor(() => expect(mockPasteContent).toHaveBeenCalledWith(expect.any(String), NASA_REF.id, "正文全文……"));
+    await waitFor(() => expect(onEnterReading).toHaveBeenCalled());
+  });
+
+  it("§4 · the 未归类 panel offers a way to make the first question when there are none", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [], danglingSourceIds: [], edges: [] });
+    mockCreateLead.mockResolvedValue(ROOT_LEAD);
+    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} projectTitle="标题问题" />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "查看 1 篇未归类的来源 →" }));
+    expect(screen.getByText("还没有任何问题，没法归位")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "＋ 新建一个问题" }));
+    await userEvent.click(screen.getByRole("button", { name: "加到地图上" }));
+    await waitFor(() => expect(mockCreateLead).toHaveBeenCalledWith(expect.any(String), "标题问题"));
+  });
+
+  it("§2 · 让印记建议归类 asks for a placement per unfiled source and pre-highlights it; the student still taps", async () => {
+    mockGetExploration.mockResolvedValue({ leads: [ROOT_LEAD], danglingSourceIds: [], edges: [] });
+    mockSuggestPlacement.mockResolvedValue({ leadId: ROOT_LEAD.id, reason: "它正面回答了这个问题。" });
+    mockAttachReference.mockResolvedValue(undefined as any);
+    render(<ExplorationView projectId={nextPid()} references={[NASA_REF]} />);
+
+    // Open 未归类 from the map's system node.
+    const unfiledNode = (await screen.findAllByTestId("rf-node")).find((n) => within(n).queryByText("未归类"));
+    await userEvent.click(unfiledNode!);
+
+    await userEvent.click(await screen.findByRole("button", { name: "让印记建议归类" }));
+    await waitFor(() => expect(mockSuggestPlacement).toHaveBeenCalledWith(expect.any(String), NASA_REF.id));
+    // 印记's reason is shown and its pick is highlighted — but nothing is filed
+    // until the student taps it (铁律②).
+    expect(await screen.findByText("它正面回答了这个问题。")).toBeInTheDocument();
+    const pick = screen.getByRole("button", { name: new RegExp(ROOT_LEAD.text) });
+    expect(pick).toHaveAttribute("data-suggested", "true");
+    expect(mockAttachReference).not.toHaveBeenCalled();
+
+    await userEvent.click(pick);
+    await waitFor(() => expect(mockAttachReference).toHaveBeenCalledWith(expect.any(String), NASA_REF.id, ROOT_LEAD.id));
   });
 
   // ---- Task 8 (P2b) · refreshNonce re-fetches the graph on a bump ----

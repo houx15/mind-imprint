@@ -435,6 +435,25 @@ func (a *API) buildSpineProjection(ctx context.Context, projectID uuid.UUID, sur
 			if open > 0 || dangling > 0 {
 				fmt.Fprintf(&b, "探索：待追 %d 条线索 · %d 个悬空来源\n", open, dangling)
 			}
+			// 问题节点 + 未归类 · a student asking "帮我把文献理一理" is asking about
+			// exactly this pairing, and the projection never carried either
+			// side (bug report 2026-08-28 §2): the coach saw a flat 文献库 with
+			// no idea which sources hang under no question, and no idea what
+			// the questions even were. Both are cheap (already-loaded rows)
+			// and capped. Advisory: the coach SAYS where a source belongs, the
+			// student taps 归位 in 未归类 to place it (铁律②).
+			questions, unfiled := explorationQuestionsAndUnfiled(refs, leads)
+			if len(questions) > 0 {
+				b.WriteString("兔子洞地图上的问题：" + strings.Join(cappedTexts(questions, 6), " / ") + "\n")
+			}
+			if len(unfiled) > 0 {
+				fmt.Fprintf(&b, "未归类的来源（%d 篇，还没挂到任何问题下）：%s\n", len(unfiled), strings.Join(cappedTexts(unfiled, 6), " / "))
+				if len(questions) == 0 {
+					b.WriteString("（她手上有材料但还没立下任何问题：可以就着这些材料提议 2-3 个值得追的问题，用 propose_question 一次提一个，她确认后就会成为地图上的节点。）\n")
+				} else {
+					b.WriteString("（如果她请你帮忙整理/归类文献：逐篇说这一篇该挂到上面哪个问题下、为什么，然后请她到「未归类」里点一下确认——别说你已经帮她归好了，归位得由她点。）\n")
+				}
+			}
 		}
 	}
 
@@ -638,4 +657,46 @@ func formingCoverageNudge(objective, reason, activities, resources, counterpoint
 	}
 	b.WriteString("）\n")
 	return b.String()
+}
+
+// explorationQuestionsAndUnfiled splits the exploration graph into the two
+// lists the coach needs to help a student organize: the live QUESTION nodes'
+// texts, and the titles of references that hang under none of them (未归类).
+// Pure — mirrors the client's own unfiledReferences so both ends agree on what
+// "未归类" means.
+func explorationQuestionsAndUnfiled(refs []sqlc.Reference, leads []sqlc.ExplorationLead) (questions []string, unfiled []string) {
+	attached := map[string]bool{}
+	for _, l := range leads {
+		if l.Status == "pruned" {
+			continue
+		}
+		if l.ConnectedReferenceID.Valid {
+			attached[uuid.UUID(l.ConnectedReferenceID.Bytes).String()] = true
+			continue
+		}
+		if t := strings.TrimSpace(l.Text); t != "" {
+			questions = append(questions, t)
+		}
+	}
+	for _, r := range refs {
+		if r.Archived || attached[r.ID.String()] {
+			continue
+		}
+		unfiled = append(unfiled, strings.TrimSpace(r.Title))
+	}
+	return questions, unfiled
+}
+
+// cappedTexts truncates each entry and caps the list, appending a "…另有 N 条"
+// tail so the coach knows the list is partial without paying for the rest.
+func cappedTexts(items []string, limit int) []string {
+	out := make([]string, 0, limit+1)
+	for i, s := range items {
+		if i >= limit {
+			out = append(out, fmt.Sprintf("…另有 %d 条", len(items)-limit))
+			break
+		}
+		out = append(out, truncateRunes(s, 30))
+	}
+	return out
 }

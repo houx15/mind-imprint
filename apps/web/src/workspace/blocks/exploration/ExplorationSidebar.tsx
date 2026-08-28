@@ -400,7 +400,7 @@ function PaperMeta({
 // PasteReadingModal — the deliberate "paste the article body" action, in a
 // roomy modal (the old inline sidebar box overflowed and read as "stuck").
 // Clicking the backdrop closes it; the card stops propagation.
-function PasteReadingModal({
+export function PasteReadingModal({
   msg,
   busy,
   onSubmit,

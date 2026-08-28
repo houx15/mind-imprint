@@ -119,10 +119,21 @@ func (a *API) getRootLeadForProject(ctx context.Context, projectID, leadID uuid.
 // plus the question_edge graph — no spend, purely a projection over
 // ListExplorationLeads + ListReferences + ListQuestionEdgesByProject.
 func (a *API) getExploration(w http.ResponseWriter, r *http.Request) {
-	projectID, ok := a.loadOwnedProject(w, r)
+	row, ok := a.loadOwnedProjectRow(w, r)
 	if !ok {
 		return
 	}
+	projectID := row.ID
+	// The map must never open EMPTY: with zero question nodes there is nothing
+	// to hang a source under, the placement picker has no targets, and the
+	// student cannot create one from the map — a dead lock (bug report
+	// 2026-08-28 §3/§4). Seed the project's own title as the first root
+	// question so the warren always has somewhere to start. Deterministic
+	// derivation from what the student already stated, not a judgement call —
+	// AGENTS.md's 铁律 boundary explicitly leaves system steps like this
+	// un-gated. Idempotent + best-effort; a failure just leaves the map as it
+	// was.
+	a.ensureRootQuestion(r.Context(), row)
 	leads, err := a.d.Queries.ListExplorationLeads(r.Context(), projectID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -151,6 +162,104 @@ func (a *API) getExploration(w http.ResponseWriter, r *http.Request) {
 		"danglingSourceIds": computeDanglingSourceIds(refs, leads),
 		"edges":             edgeDTOs,
 	})
+}
+
+// warrenSeededNodeType marks a project whose map has already had its opening
+// state decided, so the seed below runs exactly ONCE per project — on the first
+// load of the exploration room, and never again.
+//
+// The marker is written on that first load whether or not anything was actually
+// seeded. That distinction is the whole point: without it, "seed when the map is
+// empty" would resurrect the title node every time a student deleted her last
+// question — the system quietly undoing a deliberate action, the opposite of
+// what 铁律② asks for. She still can't get stranded: 「＋ 新建问题」 sits on the
+// empty map and in the 未归类 panel.
+const warrenSeededNodeType = "warren_seeded"
+
+// warrenSeedDecided reports whether this project's opening map state has
+// already been decided. Deps.Pool is a narrow TxBeginner (no query outside a
+// transaction), so this reads the generated node list and looks for the marker
+// — the list is per-project and small (tens of rows), and this is the only cost
+// on the steady-state path.
+func warrenSeedDecided(ctx context.Context, q *sqlc.Queries, projectID uuid.UUID) (bool, error) {
+	nodes, err := q.ListGraphNodesByProject(ctx, projectID)
+	if err != nil {
+		return false, err
+	}
+	for _, n := range nodes {
+		if n.Type == warrenSeededNodeType {
+			return true, nil
+		}
+	}
+	return false, nil
+}
+
+// ensureRootQuestion decides the warren's opening state, once, on the first load
+// of the exploration room: an empty map gets the project's own title as its
+// first root question, so there is always somewhere to hang a source (bug report
+// 2026-08-28 §3/§4 — with zero question nodes the placement picker has no
+// targets and a student who collected papers first was dead-locked in 未归类).
+// Deriving a starting node from what the student already stated is a
+// deterministic system step, which AGENTS.md's 铁律 boundary leaves un-gated.
+//
+// Runs on the read path (rather than at project creation) so projects created
+// before this fix heal on their next visit instead of staying dead-locked.
+//
+// Guards: demo projects are read-only; an empty title has nothing to seed from;
+// the warren_seeded marker makes it once-per-project; and a transaction-scoped
+// advisory lock keyed on the project makes two concurrent first-loads (React's
+// dev double-mount, a refresh racing the mount fetch) decide once, not twice.
+// Every failure path is silent — the map still renders exactly as it would have.
+func (a *API) ensureRootQuestion(ctx context.Context, row sqlc.Project) {
+	if row.IsDemo || a.d.Pool == nil {
+		return // demo projects are read-only; a pool-less handler cannot write
+	}
+	// Cheap pre-check outside the transaction: after the first load this is the
+	// only cost, and it short-circuits every subsequent request.
+	if decided, err := warrenSeedDecided(ctx, a.d.Queries, row.ID); err != nil || decided {
+		return
+	}
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		slog.Warn("seed root question: begin failed", "err", err)
+		return
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	// hashtext of the project uuid — a per-project mutex held to COMMIT.
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", row.ID.String()); err != nil {
+		slog.Warn("seed root question: lock failed", "err", err)
+		return
+	}
+	qtx := a.d.Queries.WithTx(tx)
+	if decided, err := warrenSeedDecided(ctx, qtx, row.ID); err != nil || decided {
+		return // lost the race — the other caller decided it
+	}
+	leads, err := qtx.ListExplorationLeads(ctx, row.ID)
+	if err != nil {
+		return
+	}
+	// Only an EMPTY map gets a seeded question. A map that already has one (印记
+	// proposed it, or the proposal seeded the evidence map) is left alone — but
+	// still marked decided, so emptying it later stays empty.
+	if title := strings.TrimSpace(row.Title); len(leads) == 0 && title != "" {
+		if _, err := qtx.CreateExplorationLead(ctx, sqlc.CreateExplorationLeadParams{
+			ProjectID: row.ID, Text: title, Status: "open", Origin: "guide", Position: 0,
+		}); err != nil {
+			slog.Warn("seed root question: insert failed", "err", err)
+			return
+		}
+	}
+	if _, err := qtx.InsertGraphNode(ctx, sqlc.InsertGraphNodeParams{
+		// author is CHECK-constrained to student|ai|imported; this marker is
+		// derived from the student's own title, not authored by the model.
+		ProjectID: row.ID, Type: warrenSeededNodeType, Body: []byte(`{}`), Author: "imported",
+	}); err != nil {
+		slog.Warn("seed root question: marker insert failed", "err", err)
+		return // no marker → do NOT commit the lead, or it would re-seed forever
+	}
+	if err := tx.Commit(ctx); err != nil {
+		slog.Warn("seed root question: commit failed", "err", err)
+	}
 }
 
 // computeDanglingSourceIds is a PURE function (spec §4a): a reference is

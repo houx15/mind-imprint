@@ -17,14 +17,17 @@ import {
   adoptCandidate,
   attachReference,
   createEdge,
+  createLead,
   deleteEdge,
   deleteLead,
   digExploration,
   getExploration,
   patchEdge,
+  patchLead,
   proposeEdges,
+  suggestPlacement,
 } from "../../../api/exploration";
-import { ExplorationSidebar, candidateKey, type DigMode, type PaperInList } from "./ExplorationSidebar";
+import { ExplorationSidebar, PasteReadingModal, candidateKey, type DigMode, type PaperInList } from "./ExplorationSidebar";
 import { PaperDetail, candidateToPaperView } from "./PaperDetail";
 import { PlacementPicker, type PlacementQuestion } from "./PlacementPicker";
 import { QuestionMindmap } from "./QuestionMindmap";
@@ -183,6 +186,7 @@ export type ExplorationViewProps = {
 export function ExplorationView({
   projectId,
   references,
+  projectTitle,
   onEnterReading,
   onDemoEnterReading,
   onCreateReference,
@@ -224,6 +228,9 @@ export function ExplorationView({
   // metadata so the sidebar shows an inline paste box, mirroring the Library.
   const [pasteFor, setPasteFor] = useState<{ refId: string; msg: string; meta?: SourceMeta } | null>(null);
   const [pasteBusy, setPasteBusy] = useState(false);
+  // Which 未归类 row has its paste MODAL open (the panel has no sidebar to hang
+  // the box off, so the recovery lives on the row itself).
+  const [pasteOpenFor, setPasteOpenFor] = useState<string | null>(null);
 
   // GVb · which node inside the focused question's mindmap is selected → the
   // sidebar's metadata + search target. Zooming in selects the root question.
@@ -740,6 +747,7 @@ export function ExplorationView({
     try {
       const source = await pasteContent(projectId, ref.id, text);
       setPasteFor(null);
+      setPasteOpenFor(null);
       onEnterReading(source, ref.id, "", ref.phaseTag, ref.readingReason, ref.readingFocus, ref.readingNote, undefined, ref);
     } catch {
       setActionError(true);
@@ -776,6 +784,84 @@ export function ExplorationView({
     if (zoom.mode === "unfiled" && unfiled.length === 0) backToMap();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [zoom.mode, unfiled.length]);
+  // ── 新建问题 ──────────────────────────────────────────────────────────────
+  // The map's own way to put a question on it. Without this the room dead-locks:
+  // a student who collects sources before 印记 has proposed a question has an
+  // empty map, an empty placement picker, and no affordance anywhere to make
+  // one (bug report 2026-08-28 §4). `createLead` existed and was reachable from
+  // exactly one place — the chat's confirm-question chip.
+  const [questionDraft, setQuestionDraft] = useState<string | null>(null); // null = form closed
+  const [creatingQuestion, setCreatingQuestion] = useState(false);
+  const openQuestionForm = (seed = "") => setQuestionDraft(seed);
+  async function submitNewQuestion() {
+    const text = (questionDraft ?? "").trim();
+    if (!text || creatingQuestion) return;
+    setCreatingQuestion(true);
+    setActionError(false);
+    try {
+      await createLead(projectId, text);
+      setQuestionDraft(null);
+      await refresh();
+    } catch {
+      setActionError(true);
+    } finally {
+      setCreatingQuestion(false);
+    }
+  }
+
+  // ── 改问题 ────────────────────────────────────────────────────────────────
+  // A root question can be seeded from the project title (server-side, so the
+  // map is never empty), which is a starting point, not a final research
+  // question — so it has to be editable in place.
+  const [renaming, setRenaming] = useState<{ id: string; text: string } | null>(null);
+  const [renameBusy, setRenameBusy] = useState(false);
+  async function submitRename() {
+    const text = renaming?.text.trim() ?? "";
+    if (!renaming || !text || renameBusy) return;
+    setRenameBusy(true);
+    setActionError(false);
+    try {
+      await patchLead(projectId, renaming.id, { text });
+      setRenaming(null);
+      await refresh();
+    } catch {
+      setActionError(true);
+    } finally {
+      setRenameBusy(false);
+    }
+  }
+
+  // ── 印记 建议归类 ─────────────────────────────────────────────────────────
+  // "帮我把这些文献理一理" used to have no answer in the 未归类 panel: the
+  // suggest-placement endpoint existed but was only wired to the add-time
+  // modal, which self-closes when the project has no questions yet. Run it
+  // across the whole unfiled list and PRE-HIGHLIGHT each picker with 印记's
+  // pick + reason — the student still taps to place it (铁律②).
+  const [suggestingPlacements, setSuggestingPlacements] = useState(false);
+  const [placementHints, setPlacementHints] = useState<Record<string, { leadId: string | null; reason: string }>>({});
+  // Capped: each source is one metered model call, so a 40-source library must
+  // not turn one tap into 40 calls. The rest keep their manual pickers.
+  const PLACEMENT_SUGGEST_CAP = 12;
+  async function suggestAllPlacements(refs: Reference[]) {
+    if (suggestingPlacements) return;
+    setSuggestingPlacements(true);
+    setActionError(false);
+    try {
+      // Sequential on purpose — a burst of parallel flagship-adjacent calls is
+      // what rate limits are for; the hints stream in as they land.
+      for (const ref of refs.slice(0, PLACEMENT_SUGGEST_CAP)) {
+        try {
+          const hint = await suggestPlacement(projectId, ref.id);
+          setPlacementHints((h) => ({ ...h, [ref.id]: hint }));
+        } catch {
+          /* one failed suggestion must never abort the rest */
+        }
+      }
+    } finally {
+      setSuggestingPlacements(false);
+    }
+  }
+
   const placementQuestions = useMemo<PlacementQuestion[]>(
     () =>
       leads
@@ -868,6 +954,88 @@ export function ExplorationView({
       pasteBusy={pasteBusy}
       onPaste={onEnterReading && selectedRef ? (text: string) => submitPaste(selectedRef, text) : undefined}
     />
+  );
+
+  // The 新建问题 / 改问题 form — one modal shared by every surface that can open
+  // it (the empty map, the map header, the 未归类 panel), so a question can be
+  // put on the map from wherever the student notices she needs one.
+  const questionForm = (
+    <>
+      {questionDraft !== null && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setQuestionDraft(null)}>
+          <div
+            className="w-[440px] rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[15px] font-bold text-mk-ink">立一个问题</p>
+            <p className="mt-1 text-[12.5px] leading-relaxed text-mk-faint">
+              一个你想弄清楚的问题，越具体越好。它会成为地图上的一个洞口，你挖到的文献挂在它下面。
+            </p>
+            <textarea
+              autoFocus
+              rows={3}
+              aria-label="问题内容"
+              value={questionDraft}
+              onChange={(e) => setQuestionDraft(e.target.value)}
+              placeholder="例如：中国的可再生能源扩张，真的抵消了它的碳排放增长吗？"
+              className="mt-2.5 w-full resize-none rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setQuestionDraft(null)}
+                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-ink"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitNewQuestion()}
+                disabled={creatingQuestion || !questionDraft.trim()}
+                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
+              >
+                {creatingQuestion ? "加上去…" : "加到地图上"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {renaming && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4" onClick={() => setRenaming(null)}>
+          <div
+            className="w-[440px] rounded-mk-lg border border-mk-border bg-mk-surface p-4 shadow-[0_18px_44px_rgba(28,35,51,0.24)]"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[15px] font-bold text-mk-ink">改一下这个问题</p>
+            <textarea
+              autoFocus
+              rows={3}
+              aria-label="问题内容"
+              value={renaming.text}
+              onChange={(e) => setRenaming((cur) => (cur ? { ...cur, text: e.target.value } : cur))}
+              className="mt-2.5 w-full resize-none rounded-mk border border-mk-border bg-mk-paper px-2.5 py-2 text-[13.5px] leading-relaxed text-mk-ink outline-none focus:border-mk-accent"
+            />
+            <div className="mt-3 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setRenaming(null)}
+                className="rounded-mk border border-mk-border px-3 py-1.5 text-[12px] font-bold text-mk-faint hover:text-mk-ink"
+              >
+                取消
+              </button>
+              <button
+                type="button"
+                onClick={() => void submitRename()}
+                disabled={renameBusy || !renaming.text.trim()}
+                className="rounded-mk bg-mk-accent px-3 py-1.5 text-[12px] font-bold text-white hover:bg-mk-accent-600 disabled:opacity-50"
+              >
+                {renameBusy ? "保存中…" : "保存"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 
   // The exploration CONTROLS (印记's search-direction guidance, 理一理材料, 还需要
@@ -1143,8 +1311,38 @@ export function ExplorationView({
             ← 返回兔子洞地图
           </button>
           <h2 className="min-w-0 truncate font-sans text-[14px] font-bold text-mk-ink">未归类的来源 · {unfiled.length} 篇</h2>
+          {/* 印记 reads the whole unfiled list and pre-picks a question for each
+              — it never files anything itself (铁律②). */}
+          {placementQuestions.length > 0 && unfiled.length > 0 && (
+            <button
+              type="button"
+              onClick={() => void suggestAllPlacements(unfiled)}
+              disabled={suggestingPlacements}
+              className="ml-auto flex-none rounded-full border border-mk-accent/40 bg-mk-surface px-3 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-50 disabled:opacity-60"
+            >
+              {suggestingPlacements ? "印记在看…" : "让印记建议归类"}
+            </button>
+          )}
         </div>
         <div className="mk-scroll min-h-0 flex-1 overflow-y-auto px-6 py-4">
+          {/* No questions yet → the picker below has nothing to offer. Give her
+              the way out right here instead of a dead end. */}
+          {placementQuestions.length > 0 || unfiled.length === 0 ? null : (
+            <div className="mb-3 rounded-mk-md border border-mk-accent-200 bg-mk-accent-50 p-3">
+              <p className="text-[13px] font-bold text-mk-ink">还没有任何问题，没法归位</p>
+              <p className="mt-1 text-[12.5px] leading-relaxed text-mk-muted">
+                先立一个你想弄清楚的问题——它会成为地图上的第一个节点，这些来源就能挂上去了。
+              </p>
+              <button
+                type="button"
+                onClick={() => openQuestionForm(projectTitle ?? "")}
+                className="mt-2 rounded-mk border border-mk-accent bg-mk-surface px-3 py-1.5 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-100"
+              >
+                ＋ 新建一个问题
+              </button>
+            </div>
+          )}
+          {actionError && <p className="mb-3 text-[12px] font-semibold text-mk-accent">刚才那步没接上，再试一次？</p>}
           {unfiled.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <EmptyState illustration="warren" title="都归好位了" body="每一篇来源都挂到了某个问题下——干净。" />
@@ -1155,7 +1353,7 @@ export function ExplorationView({
                 <li key={ref.id} className="rounded-mk-md border border-mk-border bg-mk-surface p-3">
                   <p className="text-[14px] font-bold text-mk-ink">{ref.title || "未命名来源"}</p>
                   <div className="mt-2 flex flex-col gap-2">
-                    {onEnterReading && (
+                    {onEnterReading && pasteFor?.refId !== ref.id && (
                       <button
                         type="button"
                         onClick={() => void enterSource(ref)}
@@ -1165,12 +1363,40 @@ export function ExplorationView({
                         {enteringRefId === ref.id ? "打开中…" : "进入阅读室"}
                       </button>
                     )}
+                    {/* 422 (the normal outcome for a paywalled DOI, which is what
+                        most search-adopted papers are): enter-reading sets
+                        `pasteFor` and the sidebar renders the paste box — but the
+                        sidebar only ever shows for a SELECTED node, and nothing is
+                        selected here. So this button was a permanent dead click
+                        (bug report 2026-08-28 §1). Surface the same recovery
+                        inline. */}
+                    {onEnterReading && pasteFor?.refId === ref.id && (
+                      <div className="self-stretch rounded-mk border border-mk-accent-200 bg-mk-accent-50 p-2.5">
+                        <p className="text-[12.5px] leading-relaxed text-mk-muted">{pasteFor.msg}</p>
+                        <div className="mt-2 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => setPasteOpenFor(ref.id)}
+                            className="rounded-mk border border-mk-accent bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-accent hover:bg-mk-accent-100"
+                          >
+                            粘贴正文，开始共读
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setPasteFor(null)}
+                            className="text-[12px] font-semibold text-mk-faint hover:text-mk-ink"
+                          >
+                            先算了
+                          </button>
+                        </div>
+                      </div>
+                    )}
                     <div className="rounded-mk border border-mk-border bg-mk-paper p-2.5">
                       <p className="mb-2 text-[12px] font-bold text-mk-faint">挂到问题下</p>
                       <PlacementPicker
                         questions={placementQuestions}
-                        suggestedLeadId={null}
-                        reason=""
+                        suggestedLeadId={placementHints[ref.id]?.leadId ?? null}
+                        reason={placementHints[ref.id]?.reason ?? ""}
                         busy={attaching === ref.id}
                         showUnfiledOption={false}
                         onPick={(leadId) => leadId && void attach(ref.id, leadId)}
@@ -1184,11 +1410,21 @@ export function ExplorationView({
         </div>
       </div>
     );
+    const pasteRef = unfiled.find((r) => r.id === pasteOpenFor) ?? null;
     return (
       <div className="relative flex h-full min-h-0 bg-mk-paper">
         {auxOnLeft && auxColumn}
         {unfiledMain}
         {!auxOnLeft && auxColumn}
+        {pasteRef && pasteFor?.refId === pasteRef.id && (
+          <PasteReadingModal
+            msg={pasteFor.msg}
+            busy={pasteBusy}
+            onSubmit={(text) => void submitPaste(pasteRef, text)}
+            onClose={() => setPasteOpenFor(null)}
+          />
+        )}
+        {questionForm}
       </div>
     );
   }
@@ -1255,19 +1491,30 @@ export function ExplorationView({
                     : "聊聊你想弄清楚的问题，印记会在合适的时候提出来——你确认后它就会出现在这里，点开再「深挖」，采纳的文献会挂到这条线下面，慢慢长成一张图。"
                 }
               />
-              {unfiled.length > 0 && (
+              <div className="flex flex-wrap items-center justify-center gap-2">
                 <button
                   type="button"
-                  onClick={() => goZoom({ mode: "unfiled", focusRootId: null })}
-                  className="rounded-mk-md border border-mk-accent bg-mk-accent-50 px-4 py-2 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-100"
+                  onClick={() => openQuestionForm(projectTitle ?? "")}
+                  className="rounded-mk-md border border-mk-accent bg-mk-surface px-4 py-2 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-50"
                 >
-                  查看 {unfiled.length} 篇未归类的来源 →
+                  ＋ 立一个问题
                 </button>
-              )}
+                {unfiled.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => goZoom({ mode: "unfiled", focusRootId: null })}
+                    className="rounded-mk-md border border-mk-accent bg-mk-accent-50 px-4 py-2 text-[14px] font-bold text-mk-accent hover:bg-mk-accent-100"
+                  >
+                    查看 {unfiled.length} 篇未归类的来源 →
+                  </button>
+                )}
+              </div>
             </div>
           ) : (
             <WarrenMap
               projectId={projectId}
+              onAddQuestion={() => openQuestionForm("")}
+              onRenameLead={(id, text) => setRenaming({ id, text })}
               roots={roots}
               countByRoot={countByRoot}
               readByRoot={readByRoot}
@@ -1287,6 +1534,7 @@ export function ExplorationView({
         </div>
       </div>
       {!auxOnLeft && auxColumn}
+      {questionForm}
     </div>
   );
 }
