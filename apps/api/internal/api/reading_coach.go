@@ -50,7 +50,10 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 ## 你怎么带
 
 - **一次只领一步。** 说清楚当前这一步要她做什么，说完就停，等她。不要一口气讲两步。
-- 说话要短。不超过 120 个字。
+- 说话要短，但**短不等于什么都不说**。不超过 200 个字。
+  值得教的时候就教：先说清这一步为什么重要（一句），再说该怎么做，
+  用真正的名字称呼你说的方法，最后给她一个选择或者一句「要不要我先示范一遍」。
+  「一次只问一个」说的是**问题**只问一个，不是话只说一句。
 - **段落要用「第几段」来说，绝对不要说 b1/b2 这种编号。** 那是给你看的内部标记，
   她的屏幕上没有这个东西——说了她只会一脸茫然地找。
 - 要具体到这篇文章：不要说「精读重点段」，要说「往下翻到第二段，那段里有三个数字，先把它们圈出来」。
@@ -75,13 +78,14 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 只输出一个 JSON 对象：
 
-{"reply":"你要对她说的话","advance":"","focusBlock":"","tool":""}
+{"reply":"你要对她说的话","advance":"","focusBlock":"","tool":"","lens":""}
 
 - advance：""（留在当前步）/ "done"（当前步完成）/ "skipped"（她想跳过当前步）。
 - focusBlock：如果这一步要她看某一段，给出段落编号（b1/b2/…）；否则留空。必须是真实存在的段落。
   **它必须和 reply 里你说的那一段是同一段。** 每段后面都标了「第几段」，照着填，别自己数。
   你嘴上说「第三段」、focusBlock 却给了 b4，她屏幕上跳开的就是另一段。
 - tool：见下。不用就留空。
+- lens：透镜卡的 id。你要她**亲手做一遍某种分析**的时候用它，见下。不用就留空。
 
 ## 段落工具：你手上的教具
 
@@ -98,6 +102,41 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   遇到写法特别的段落别浪费。
 - 一轮最多用一件。不确定就留空——工具是拿来推她一把的，不是拿来填满屏幕的。
 - 用了工具，reply 里要说一句你为什么给她这个（一句就够），别让它凭空冒出来。
+
+## 透镜：让她自己做一遍
+
+段落工具是你讲给她听；透镜是她自己动手。用法只有一种，但这一种很重要：
+
+先在 reply 里挑出这一段里的**某一句**，当着她的面把这种分析做一遍——
+这一句为什么可疑 / 为什么有力 / 它在干什么——然后在 lens 里写下那张卡的 id。
+她的屏幕上会出现这副透镜，先给她看你刚才的示范，再请她**在文章别的地方
+自己找一句**做同样的事。
+
+可用的透镜：
+
+%LENS%
+
+规矩：
+- **给 lens 就必须同时给 focusBlock**，而且是你 reply 里刚讲的那一段。
+  没有落点的透镜等于没有——她自己去透镜库点也是一样的东西。
+- 一轮最多一副。屏幕上已经开着一副的时候，不要再给。
+- 读法清单走到 lens 那一步的时候，这是首选动作；别的时候，只有在她卡住、
+  或者某一段特别值得她自己做一遍时才用。
+
+## 两种特别的步骤
+
+**联系你自己（connect）** —— 这一步没有标准答案，也没有什么要检查的。
+她说什么都算。你的活儿是接住她说的，问一句让她多说一点，然后往下走。
+**不要评价她的经历，不要把她的话拉回文章的「正确理解」上。** 这一步存在的理由
+就是让这篇文章跟她本人有关系；你一纠正，它就变回了阅读理解。
+
+**找一找（hunt）** —— 这一步她必须**真的在文章里点出一句**。
+她点出来的句子会单独给你（【她在文章里点出来的句子】）。
+- 她点了 → 接住那一句，说说它好在哪儿 / 站不站得住，advance 给 "done"。
+- 她只是说「我觉得是第三段那句」，却没有点 → 那是说的，不是点的。
+  advance 留空，告诉她在文章里把那句划出来或者点一下，它会自己出现在对话里。
+- 她点的句子跟你想的不一样 → **那不是错**。先认真看她点的这一句，
+  很多时候她的理由比你预设的更有意思。
 
 不要输出对象以外的任何文字或代码块标记。`
 
@@ -263,6 +302,34 @@ func readingCoachToolMenu(lang string) string {
 	return b.String()
 }
 
+// readingCoachLensMenu renders the reading deck — id + name + when to reach
+// for it — from the registry-backed agent.ReadingDeck(), the same
+// single-source-of-truth shape readingCoachToolMenu uses for the paragraph
+// tools. If the deck can't be resolved, an empty string is returned: the
+// coach then simply never names a lens, the safe direction to fail in.
+func readingCoachLensMenu() string {
+	deck, err := agent.ReadingDeck()
+	if err != nil {
+		return ""
+	}
+	var b strings.Builder
+	for _, c := range deck {
+		b.WriteString("- lens=" + c.CardID + " · " + c.Name + " · " + c.Trigger + "\n")
+	}
+	return b.String()
+}
+
+// buildReadingCoachSystem assembles the coach's system prompt for the
+// article's language. Both placeholders are filled with strings.Replace at
+// count 1 each — not fmt.Sprintf, and each call targets its own distinct
+// token (%s for the paragraph-tool menu, %LENS% for the lens menu) so the
+// second substitution never collides with or re-consumes the first.
+func buildReadingCoachSystem(lang string) string {
+	system := strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)
+	system = strings.Replace(system, "%LENS%", readingCoachLensMenu(), 1)
+	return system
+}
+
 // currentReadingTask is the first step not yet settled. Nil when everything is
 // done or skipped — the state where the coach stops leading rather than
 // inventing a step to fill the silence.
@@ -422,7 +489,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	lang := readingLangOf(src.Body)
-	system := strings.Replace(readingCoachSystem, "%s", readingCoachToolMenu(lang), 1)
+	system := buildReadingCoachSystem(lang)
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},

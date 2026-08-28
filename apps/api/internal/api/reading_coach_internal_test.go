@@ -55,10 +55,10 @@ func TestValidateReadingPicks(t *testing.T) {
 		{ID: "b2", Text: "但人均排放仍低于多数发达国家。"},
 	}
 	got := validateReadingPicks([]readingPick{
-		{BlockID: "b1", Quote: "碳排放总量位居世界第一"}, // literal substring — kept
-		{BlockID: "b2", Quote: "人均排放低于发达国家"},   // paraphrase — dropped
-		{BlockID: "b9", Quote: "中国的碳排放总量"},       // no such block — dropped
-		{BlockID: "b1", Quote: "  "},                  // empty — dropped
+		{BlockID: "b1", Quote: "碳排放总量位居世界第一"},     // literal substring — kept
+		{BlockID: "b2", Quote: "人均排放低于发达国家"},      // paraphrase — dropped
+		{BlockID: "b9", Quote: "中国的碳排放总量"},        // no such block — dropped
+		{BlockID: "b1", Quote: "  "},              // empty — dropped
 		{BlockID: "b1", Quote: "但人均排放仍低于多数发达国家。"}, // right words, wrong block — dropped
 	}, blocks)
 	if len(got) != 1 {
@@ -100,6 +100,43 @@ func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
 	noPicks := buildReadingCoachPrompt("标题", blocks, nil, nil, nil, "")
 	if strings.Contains(noPicks, "【她在文章里点出来的句子】") {
 		t.Errorf("picks section must be omitted when no picks survive:\n%s", noPicks)
+	}
+}
+
+// TestReadingCoachSystemCarriesTheRulings — the prompt is a product surface:
+// these clauses are what stops the coach reading as a clipped AI, and what
+// makes the hunt a hunt. Pinning them keeps a later edit from quietly
+// deleting a ruling.
+func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
+	for _, want := range []string{
+		"200 个字", // the raised cap (铁律③ is one QUESTION, not one sentence)
+		"找一找",    // the hunt step's own section
+		"联系你自己",  // the connect step's own section
+		"lens",   // the lens field is documented in the output contract
+	} {
+		if !strings.Contains(readingCoachSystem, want) {
+			t.Errorf("readingCoachSystem no longer mentions %q", want)
+		}
+	}
+	if strings.Contains(readingCoachSystem, "120 个字") {
+		t.Error("the 120-字 cap is the mechanical cause of the AI voice; it must be gone")
+	}
+}
+
+// TestBuildReadingCoachSystem_NoPlaceholderSurvives — assembly is
+// strings.Replace at count 1, not fmt.Sprintf: a second unresolved
+// placeholder would ship to the model as a literal, silently. Both %s (the
+// paragraph-tool menu) and %LENS% (the lens menu) must be gone after
+// buildReadingCoachSystem runs, for both languages.
+func TestBuildReadingCoachSystem_NoPlaceholderSurvives(t *testing.T) {
+	for _, lang := range []string{"zh", "en"} {
+		system := buildReadingCoachSystem(lang)
+		if strings.Contains(system, "%LENS%") {
+			t.Errorf("lang=%s: %%LENS%% placeholder survived assembly", lang)
+		}
+		if strings.Contains(system, "%s") {
+			t.Errorf("lang=%s: %%s placeholder survived assembly", lang)
+		}
 	}
 }
 
