@@ -16,6 +16,7 @@ import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
+import { PublicReportPage } from "./reports/PublicReportPage";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -97,6 +98,29 @@ const unusedSettingsSession = createSession({ storage: makeMemoryStorage() });
  * the pro host, rather than left in an app where every request 404s.
  */
 export function LiteApp() {
+  // A shared report's public link (`/s/:token`) MUST be recognized and
+  // returned before anything below this line runs — in particular before
+  // the `getMe()` effect and before `booted`/`user` ever gate what renders.
+  // The visitor opening this path has no account and no session cookie at
+  // all (a parent scanning a QR code printed on a poster); the ordinary
+  // boot sequence renders a loading placeholder, calls `getMe()`, gets a 401,
+  // and shows `AuthScreen` — exactly wrong for someone who came here for a
+  // report, not to sign in. Checking the route FIRST and returning early
+  // sidesteps that gate entirely, rather than trying to special-case it
+  // inside the auth branches below.
+  //
+  // This check is deliberately placed above every hook in this component,
+  // not tucked inside the `booted`/`user` branches further down. A future
+  // refactor that "tidies" this into a branch alongside the auth states
+  // would look more consistent — and would silently reintroduce the sign-in
+  // screen for every shared link, a regression invisible to anyone testing
+  // while signed in. If you are moving this, first write a test with
+  // `getMe()` mocked to REJECT and assert `AuthScreen` never appears.
+  const shareRoute = parseLiteRoute(window.location.pathname);
+  if (shareRoute.tab === "share") {
+    return <PublicReportPage token={shareRoute.token} />;
+  }
+
   const [booted, setBooted] = useState(false);
   const [user, setUser] = useState<MeUser | null>(null);
 
@@ -253,9 +277,15 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <WritingsLanding />
           )
-        ) : route.readingId ? (
+        ) : route.tab === "readings" && route.readingId ? (
           <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (
+          // Also covers `route.tab === "share"`: the share route is meant to
+          // be caught by `LiteApp`'s own pre-auth check and never reach this
+          // shell at all (see the comment there). This branch is only a safe
+          // fallback should `LiteShell`'s popstate listener ever pick one up
+          // mid-session — the readings landing, same as any other unknown
+          // path (`parseLiteRoute`'s own default).
           <ReadingsLanding />
         )}
       </main>

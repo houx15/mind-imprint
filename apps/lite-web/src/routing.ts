@@ -15,7 +15,13 @@ export type LiteRoute =
   // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
   // active tab. Keeping it in the same union is what lets Back leave settings
   // and land exactly where the student was.
-  | { tab: "settings" };
+  | { tab: "settings" }
+  // `/s/:token` — a shared report's public link. Not a rail tab at all: it is
+  // opened by someone with NO session (a parent scanning a QR code), so
+  // `LiteApp` must recognize and render it BEFORE the auth boot effect ever
+  // runs. See the routing check at the top of `LiteApp` for why the order
+  // matters.
+  | { tab: "share"; token: string };
 
 /** Parse a browser pathname into a lite route. Unknown paths fall back to the
  * readings tab (the lite shell's landing surface), so a stale or hand-typed
@@ -38,6 +44,12 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "writings", writingId: second } : { tab: "writings" };
     case "settings":
       return { tab: "settings" };
+    case "s":
+      // A malformed `/s` with no token is not a share route — it has nothing
+      // to fetch — so it falls through to the readings default like any
+      // other unrecognized path, rather than producing a route with an empty
+      // token.
+      return second ? { tab: "share", token: second } : { tab: "readings" };
     default:
       return { tab: "readings" };
   }
@@ -53,6 +65,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
     case "settings":
       return "/settings";
+    case "share":
+      return `/s/${encodeSegment(route.token)}`;
   }
 }
 
