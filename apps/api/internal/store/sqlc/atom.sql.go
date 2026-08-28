@@ -505,7 +505,7 @@ func (q *Queries) SetAtomCardFramework(ctx context.Context, arg SetAtomCardFrame
 const setAtomReportShare = `-- name: SetAtomReportShare :one
 UPDATE atom_report
 SET share_token = $1,
-    shared_at = CASE WHEN $1 IS NULL THEN NULL ELSE now() END
+    shared_at = CASE WHEN $1::text IS NULL THEN NULL ELSE now() END
 WHERE atom_id = $2
 RETURNING atom_id, kind, report, share_token, shared_at, created_at
 `
@@ -515,6 +515,12 @@ type SetAtomReportShareParams struct {
 	AtomID     uuid.UUID `json:"atom_id"`
 }
 
+// The ::text cast on the CASE branch is load-bearing, not decoration: without
+// it Postgres cannot infer sqlc.narg(share_token)'s type from an unqualified
+// "$1 IS NULL" test alone (SQLSTATE 42P08, "could not determine data type of
+// parameter $1") even though the SET target above pins the same $1 to text —
+// reproduced directly against postgres:16 with a plain PREPARE (no explicit
+// param types), the exact shape pgx's Parse step uses.
 func (q *Queries) SetAtomReportShare(ctx context.Context, arg SetAtomReportShareParams) (AtomReport, error) {
 	row := q.db.QueryRow(ctx, setAtomReportShare, arg.ShareToken, arg.AtomID)
 	var i AtomReport
