@@ -22,6 +22,7 @@ import {
 import type { LiteMessage } from "../api/readingRoom";
 import { liteRoutePath, navigate } from "../routing";
 import { StageMap, type WritingStageKey } from "./StageMap";
+import { EditableTitle } from "./EditableTitle";
 import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
 import { SnippetsStage } from "./SnippetsStage";
@@ -257,6 +258,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         writing={writing}
         messages={state.messages}
         outline={state.outline}
+        onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
         onMessages={(next) => setState((s) => (s.phase === "ready" ? { ...s, messages: next } : s))}
         onOutline={(next) => setState((s) => (s.phase === "ready" ? { ...s, outline: next } : s))}
         onDone={() => void jumpStage("snippets")}
@@ -265,8 +267,15 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     );
   }
 
+  // 成稿 is a writing PAGE, not a panel: it wants the room's width and its own
+  // paper surface, and it does its own scrolling (the prose column and the
+  // rail scroll independently, which a single scrolling panel cannot do).
+  const onPage = writing.stage === "draft" || writing.stage === "finished";
+
   return (
-    <div className="mx-auto flex h-full w-full max-w-[1180px] flex-col gap-4 p-4 sm:p-6">
+    <div
+      className={`mx-auto flex h-full w-full flex-col gap-4 p-4 sm:p-6 ${onPage ? "max-w-[1440px]" : "max-w-[1180px]"}`}
+    >
       <header className="flex flex-wrap items-center justify-between gap-3">
         <div className="min-w-0">
           <button
@@ -276,7 +285,11 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
           >
             ← 我的写作
           </button>
-          <h1 className="truncate text-mk-h2 text-mk-ink">{writing.title || "还没起名字的写作"}</h1>
+          <EditableTitle
+            writingId={writingId}
+            title={writing.title}
+            onRenamed={(next) => setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s))}
+          />
         </div>
         <div className="flex flex-wrap items-center gap-3">
           <LengthMeter writing={writing} state={state} onChange={(n) => void changeTargetWords(n)} />
@@ -294,7 +307,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       )}
 
       <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[1fr_380px]">
-        <div className="mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5">
+        <div
+          className={
+            onPage
+              ? "min-h-0 overflow-hidden rounded-mk-md border border-mk-border bg-mk-paper"
+              : "mk-scroll min-h-0 overflow-y-auto rounded-mk-md border border-mk-border bg-mk-surface p-5"
+          }
+        >
           <StagePanel state={state} writingId={writingId} setState={setState} onGoToStructure={() => void jumpStage("outline")} />
         </div>
 
@@ -418,8 +437,14 @@ function StagePanel({
         <ComposeStage
           writingId={writingId}
           draft={draft}
+          snippets={snippets}
           onDraftChange={(next) => setState((s) => (s.phase === "ready" ? { ...s, draft: next } : s))}
-          onFinished={(w) => setState({ phase: "finished", writing: w, draft: state.draft })}
+          // Functional, not `state.draft`: 完成这篇 flushes the autosave first,
+          // and a captured `state` from an older render would freeze the
+          // finished screen on the body as it stood BEFORE that last save.
+          onFinished={(w) =>
+            setState((s) => ({ phase: "finished", writing: w, draft: s.phase === "ready" ? s.draft : EMPTY_DRAFT }))
+          }
         />
       );
     // 'outline' (结构) never reaches here: it takes the WHOLE screen as
