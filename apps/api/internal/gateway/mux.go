@@ -14,7 +14,7 @@ type MuxProvider struct {
 }
 
 // NewMuxProvider builds a dispatching provider keyed by Resolved.Provider value
-// ("deepseek" | "anthropic").
+// ("deepseek" | "anthropic" | "glm").
 func NewMuxProvider(providers map[string]Provider) *MuxProvider {
 	return &MuxProvider{providers: providers}
 }

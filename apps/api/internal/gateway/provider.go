@@ -41,11 +41,12 @@ type StreamEvent struct {
 // built by a KeyResolver from server-side config. APIKey is a secret and must
 // never be logged or echoed.
 type Resolved struct {
-	Provider string // "deepseek" | "anthropic"
-	BaseURL  string
-	Model    string
-	APIKey   string
-	Tier     string // "chaperone" (chat) — eval tier is P1.3
+	Provider               string // "deepseek" | "anthropic" | "glm"
+	BaseURL                string
+	Model                  string
+	APIKey                 string
+	Tier                   string // "chaperone" (chat) — eval tier is P1.3
+	DefaultReasoningEffort string // model-profile default; request value takes precedence
 }
 
 // Provider streams a single model turn. The returned channel is closed when the

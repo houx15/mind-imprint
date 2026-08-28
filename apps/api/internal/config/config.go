@@ -22,6 +22,9 @@ type Config struct {
 	AnthropicKey string `env:"ANTHROPIC_API_KEY"`
 	// DeepSeekKey is the DeepSeek provider key (server-side only).
 	DeepSeekKey string `env:"DEEPSEEK_API_KEY"`
+	// ZAIKey is the Zhipu AI / GLM provider key (server-side only). It is
+	// intentionally not used by the default resolvers.
+	ZAIKey string `env:"ZAI_API_KEY"`
 	// CookieSecure sets the Secure flag on the session cookie. Default true;
 	// set COOKIE_SECURE=false for local http dev so the browser sends it.
 	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`

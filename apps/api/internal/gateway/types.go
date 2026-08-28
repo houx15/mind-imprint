@@ -60,12 +60,12 @@ type ChatRequest struct {
 	Messages  []ChatMessage `json:"messages"`
 	Tools     []ChatTool    `json:"tools,omitempty"`
 	MaxTokens int           `json:"maxTokens,omitempty"`
-	// ReasoningEffort, when set ("low"|"medium"|"high"), asks a reasoning model
-	// to spend a bounded amount of thinking rather than its full budget. It is
-	// the middle gear between full reasoning (flagship default) and thinking
-	// fully disabled (chaperone tier): the reading router uses "low" to roughly
-	// halve latency while keeping the decision + JSON discipline that
-	// thinking-off loses. Only the DeepSeek provider emits it; empty = unset.
+	// ReasoningEffort, when set, asks a reasoning model to spend a bounded amount
+	// of thinking rather than its full budget. It is the middle gear between full
+	// reasoning (flagship default) and thinking fully disabled (chaperone tier):
+	// the reading router uses "low" to roughly halve latency while keeping the
+	// decision + JSON discipline that thinking-off loses. Providers that support
+	// the field emit it; GLM otherwise defaults it to its recommended "max".
 	ReasoningEffort string         `json:"reasoningEffort,omitempty"`
 	Temperature     *float64       `json:"temperature,omitempty"`
 	DisableThinking bool           `json:"disableThinking,omitempty"`

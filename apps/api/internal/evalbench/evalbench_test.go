@@ -172,6 +172,40 @@ func TestBuildPricingSnapshotKeepsPricedAndUnpricedModelsDistinct(t *testing.T) 
 	}
 }
 
+func TestGLMProfileResolvesWithZAIKey(t *testing.T) {
+	rt := &Runtime{profiles: map[string]ModelProfile{"glm": {Provider: "glm", Model: "glm-5.3-flash", ReasoningEffort: "low"}}}
+	t.Setenv("ZAI_API_KEY", "zai-key")
+	resolved, profile, err := rt.Resolve("glm")
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if profile.Provider != "glm" || resolved.Provider != "glm" || resolved.BaseURL != "https://open.bigmodel.cn/api/paas/v4" || resolved.Model != "glm-5.3-flash" || resolved.APIKey != "zai-key" || resolved.Tier != FlagshipTier || resolved.DefaultReasoningEffort != "low" {
+		t.Fatalf("resolved = %#v, profile = %#v", resolved, profile)
+	}
+	t.Setenv("ZAI_API_KEY", "")
+	if _, _, err := rt.Resolve("glm"); err == nil || !strings.Contains(err.Error(), "missing API key") {
+		t.Fatalf("missing GLM key error = %v", err)
+	}
+}
+
+func TestValidateModelProfileRestrictsReasoningEffortToGLMValues(t *testing.T) {
+	for _, p := range []ModelProfile{
+		{Provider: "glm", Model: "glm-5.3-flash", ReasoningEffort: "low"},
+		{Provider: "glm", Model: "glm-5.3-flash", ReasoningEffort: "high"},
+		{Provider: "glm", Model: "glm-5.3-flash", ReasoningEffort: "max"},
+	} {
+		if err := ValidateModelProfile(p); err != nil {
+			t.Fatalf("valid GLM profile rejected: %v", err)
+		}
+	}
+	if err := ValidateModelProfile(ModelProfile{Provider: "glm", Model: "glm-5.3-flash", ReasoningEffort: "medium"}); err == nil {
+		t.Fatal("unsupported GLM effort accepted")
+	}
+	if err := ValidateModelProfile(ModelProfile{Provider: "deepseek", Model: "deepseek-v4-pro", ReasoningEffort: "low"}); err == nil {
+		t.Fatal("non-GLM effort accepted")
+	}
+}
+
 func TestWriteCallsReturnsArtifactFailure(t *testing.T) {
 	root := filepath.Join(t.TempDir(), "blocked")
 	if err := os.WriteFile(root, []byte("not a directory"), 0o644); err != nil {
@@ -255,15 +289,48 @@ func TestDefaultConfigIncludesProductionAndSinglePromptVariants(t *testing.T) {
 	if err != nil {
 		t.Fatalf("LoadConfig: %v", err)
 	}
+	if profile := c.Models["deepseek-flagship"]; len(c.Models) != 1 || profile.Provider != "deepseek" || profile.Model != "deepseek-v4-pro" {
+		t.Fatalf("default models changed: %#v", c.Models)
+	}
 	got := map[string]string{}
 	for _, v := range c.Variants {
-		got[v.ID] = v.Evaluator
+		got[v.ID] = v.Evaluator + ":" + v.Model
 	}
-	if len(got) != 2 || got["production-current"] != "production-evalreport-v1" || got["single-prompt-v1"] != singlePromptEvaluatorID {
+	if len(got) != 2 || got["production-current"] != "production-evalreport-v1:deepseek-flagship" || got["single-prompt-v1"] != singlePromptEvaluatorID+":deepseek-flagship" {
 		t.Fatalf("variants = %#v", got)
 	}
 	descriptors := evaluatorDescriptors(c.Variants)
 	if descriptors["single-prompt-v1"].ImplementationVersion != singlePromptImplementationV1 || descriptors["single-prompt-v1"].PromptSHA256 == "" || descriptors["production-current"].ImplementationVersion != "evalbench-production-baseline-v1" {
 		t.Fatalf("descriptors = %#v", descriptors)
+	}
+}
+
+func TestGLMConfigBindsBothCandidatesAndKeepsDeepSeekComparator(t *testing.T) {
+	c, err := LoadConfig(filepath.Join("..", "..", "tools", "evalbench", "config.glm-5.3-flash.json"))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if got := c.Models["glm-5.3-flash"]; got.Provider != "glm" || got.Model != "glm-5.3-flash" || got.ReasoningEffort != "max" {
+		t.Fatalf("GLM profile = %#v", got)
+	}
+	models := map[string]string{}
+	for _, v := range c.Variants {
+		models[v.ID] = v.Model
+	}
+	if models["production-current"] != "glm-5.3-flash" || models["single-prompt-v1"] != "glm-5.3-flash" || c.Comparator.Model != "deepseek-flagship" {
+		t.Fatalf("variants = %#v, comparator = %#v", models, c.Comparator)
+	}
+}
+
+func TestGLMLowThreeCaseConfig(t *testing.T) {
+	c, err := LoadConfig(filepath.Join("..", "..", "tools", "evalbench", "config.glm-5.3-flash-low-3case-r2.json"))
+	if err != nil {
+		t.Fatalf("LoadConfig: %v", err)
+	}
+	if c.Name != "glm-5.3-flash-low-3case-r2" || c.SuccessfulRuns != 2 || c.MaxAttempts != 3 || len(c.Cases) != 3 {
+		t.Fatalf("low GLM config = %#v", c)
+	}
+	if got := c.Models["glm-5.3-flash"]; got.Provider != "glm" || got.Model != "glm-5.3-flash" || got.ReasoningEffort != "low" {
+		t.Fatalf("low GLM profile = %#v", got)
 	}
 }
