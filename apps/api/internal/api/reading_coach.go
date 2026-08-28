@@ -101,11 +101,58 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 不要输出对象以外的任何文字或代码块标记。`
 
+// readingPick is one sentence she pointed at in the article, rather than
+// typed. Same shape, and the same reason, as the writing room's comment-quote
+// validator: a guarantee you can check (literal substring of a real
+// paragraph) beats one you asked the model to honor.
+type readingPick struct {
+	BlockID string `json:"blockId"`
+	Quote   string `json:"quote"`
+}
+
+// validateReadingPicks keeps only picks that point at a real paragraph AND
+// quote it literally. Anything else — an unknown block id, an empty quote, a
+// paraphrase, or words that are real but belong to a different paragraph —
+// is dropped silently rather than passed on for the model to sort out.
+func validateReadingPicks(picks []readingPick, blocks []Block) []readingPick {
+	byID := make(map[string]string, len(blocks))
+	for _, b := range blocks {
+		byID[b.ID] = b.Text
+	}
+	out := make([]readingPick, 0, len(picks))
+	for _, p := range picks {
+		q := strings.TrimSpace(p.Quote)
+		if q == "" {
+			continue
+		}
+		body, ok := byID[p.BlockID]
+		if !ok || !strings.Contains(body, q) {
+			continue
+		}
+		out = append(out, readingPick{BlockID: p.BlockID, Quote: q})
+	}
+	return out
+}
+
+// readingPickOrdinal finds the paragraph ordinal (第几段) for a pick's block
+// id, counting position in blocks the same way readingBlockTag does — so the
+// number shown here always matches the number the paragraph listing above it
+// uses for the same block.
+func readingPickOrdinal(blocks []Block, blockID string) (int, bool) {
+	for i, blk := range blocks {
+		if blk.ID == blockID {
+			return i + 1, true
+		}
+	}
+	return 0, false
+}
+
 func buildReadingCoachPrompt(
 	title string,
 	blocks []Block,
 	tasks []sqlc.ReadingTask,
 	msgs []sqlc.AtomMessage,
+	picks []readingPick,
 	studentText string,
 ) string {
 	var b strings.Builder
@@ -179,6 +226,21 @@ func buildReadingCoachPrompt(
 	}
 	if !any {
 		b.WriteString("（还没聊过。）\n")
+	}
+
+	// Structurally distinct from what she typed: a pick is a pointer at a real
+	// paragraph, never spoken to the model as a block id (only 第几段, same as
+	// the paragraph listing above) — the id is an internal marker, not
+	// something the model should ever try to repeat back to her.
+	if len(picks) > 0 {
+		b.WriteString("\n【她在文章里点出来的句子】\n")
+		for _, p := range picks {
+			ord, ok := readingPickOrdinal(blocks, p.BlockID)
+			if !ok {
+				continue
+			}
+			b.WriteString("第" + itoaSmall(ord) + "段：「" + p.Quote + "」\n")
+		}
 	}
 
 	if studentText != "" {
@@ -304,7 +366,8 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req struct {
-		Text string `json:"text"`
+		Text  string        `json:"text"`
+		Picks []readingPick `json:"picks"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
@@ -322,6 +385,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_article", "这篇还没有正文，先把文章贴进来。", nil))
 		return
 	}
+	picks := validateReadingPicks(req.Picks, blocks)
 
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
@@ -362,7 +426,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, studentText)},
+			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentText)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)

@@ -7,7 +7,10 @@ package api
 // separately from reading_coach_test.go (package api_test, black-box) which
 // cannot see unexported functions like parseReadingCoachReply.
 
-import "testing"
+import (
+	"strings"
+	"testing"
+)
 
 func TestParseReadingCoachReplyLens(t *testing.T) {
 	valid := map[string]bool{"b1": true, "b2": true}
@@ -40,6 +43,63 @@ func TestParseReadingCoachReplyLens(t *testing.T) {
 				t.Error("a dropped lens must not take the reply down with it")
 			}
 		})
+	}
+}
+
+// TestValidateReadingPicks — a pick is only kept when it points at a real
+// paragraph AND quotes it literally. A paraphrase, a right-words-wrong-block
+// pick, an unknown block id, and an empty quote are all dropped silently.
+func TestValidateReadingPicks(t *testing.T) {
+	blocks := []Block{
+		{ID: "b1", Text: "中国的碳排放总量位居世界第一。"},
+		{ID: "b2", Text: "但人均排放仍低于多数发达国家。"},
+	}
+	got := validateReadingPicks([]readingPick{
+		{BlockID: "b1", Quote: "碳排放总量位居世界第一"}, // literal substring — kept
+		{BlockID: "b2", Quote: "人均排放低于发达国家"},   // paraphrase — dropped
+		{BlockID: "b9", Quote: "中国的碳排放总量"},       // no such block — dropped
+		{BlockID: "b1", Quote: "  "},                  // empty — dropped
+		{BlockID: "b1", Quote: "但人均排放仍低于多数发达国家。"}, // right words, wrong block — dropped
+	}, blocks)
+	if len(got) != 1 {
+		t.Fatalf("kept %d picks, want 1: %+v", len(got), got)
+	}
+	if got[0].BlockID != "b1" || got[0].Quote != "碳排放总量位居世界第一" {
+		t.Errorf("kept the wrong pick: %+v", got[0])
+	}
+}
+
+// TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs — a survived
+// pick must show up as its own section, labelled 第几段 the same way the
+// paragraph listing above it is, and must NEVER speak the block id (b2):
+// the system prompt is explicit that block ids are an internal marker the
+// model must not repeat back to her, and picks are no exception. An empty
+// picks slice must omit the section entirely rather than print a bare
+// heading.
+func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
+	blocks := []Block{
+		{ID: "b1", Text: "中国的碳排放总量位居世界第一。"},
+		{ID: "b2", Text: "但人均排放仍低于多数发达国家。"},
+	}
+
+	withPicks := buildReadingCoachPrompt("标题", blocks, nil, nil,
+		[]readingPick{{BlockID: "b2", Quote: "但人均排放仍低于多数发达国家。"}}, "")
+	if !strings.Contains(withPicks, "【她在文章里点出来的句子】") {
+		t.Fatalf("missing picks section:\n%s", withPicks)
+	}
+	if !strings.Contains(withPicks, "第2段：「但人均排放仍低于多数发达国家。」") {
+		t.Fatalf("pick not rendered as 第几段:\n%s", withPicks)
+	}
+	// The paragraph listing above legitimately says b2（第2段）— but nothing
+	// in the picks section itself may hand the model a bare "b2" as
+	// something it could echo back to her.
+	if i := strings.Index(withPicks, "【她在文章里点出来的句子】"); i >= 0 && strings.Contains(withPicks[i:], "b2") {
+		t.Errorf("picks section leaks the block id:\n%s", withPicks[i:])
+	}
+
+	noPicks := buildReadingCoachPrompt("标题", blocks, nil, nil, nil, "")
+	if strings.Contains(noPicks, "【她在文章里点出来的句子】") {
+		t.Errorf("picks section must be omitted when no picks survive:\n%s", noPicks)
 	}
 }
 
