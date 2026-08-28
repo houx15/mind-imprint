@@ -2,14 +2,15 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
@@ -166,50 +167,25 @@ func (a *API) composeWritingDraft(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, toWritingDraftDTO(row))
 }
 
-// writingReviewSystem instructs the model to comment on the WHOLE piece —
-// structure, argument, evidence, clarity — without ever handing back
-// replacement prose. This is the legitimate carve-out AGENTS.md draws
-// explicitly: "Review feedback is different and legitimate... It must not
-// hand her replacement text." The prompt says so in both directions (what it
-// may do, what it must never do) rather than leaving the second half
-// implicit.
-const writingReviewSystem = `你是「印记」，正在帮国际课程的学生看她已经写完的整篇稿子。你的任务只是给反馈，绝不是替她改稿：不要重写、不要润色、不要续写、不要给出可以直接复制粘贴替换的句子或段落。
-
-请针对她这篇稿子，从结构、论证是否站得住、证据是否充分、语言是否清楚这几个角度，分点指出具体问题在哪里、为什么是问题，并给出她自己可以怎么去改的方向（用问题或建议的方式，不要写出改好之后的成品句子）。如果某部分已经写得不错，也可以肯定，但不要泛泛而谈。
-
-只用中文，直接输出这段反馈本身，不要输出任何格式说明、代码块标记或与反馈无关的文字。`
-
-// buildWritingReviewPrompt assembles the user turn: title, target words
-// (only if set, never invented — same W-R7 discipline as
-// buildWritingCoachProjection/buildWritingExemplarPrompt), then the draft
-// body itself in full — the whole point of this endpoint is that the model
-// sees the WHOLE piece, not a windowed slice.
-func buildWritingReviewPrompt(wr sqlc.Writing, body string) string {
-	var b strings.Builder
-	if t := strings.TrimSpace(wr.Title); t != "" {
-		b.WriteString("题目：" + t + "\n")
-	}
-	if wr.TargetWords != nil {
-		b.WriteString("目标字数：约 ")
-		b.WriteString(strconv.Itoa(int(*wr.TargetWords)))
-		b.WriteString(" 字（仅供参考）\n")
-	}
-	b.WriteString("\n她的整篇稿子：\n" + body + "\n")
-	return b.String()
-}
-
 // reviewWritingDraft is POST /api/v1/writings/{id}/review — a spend endpoint
 // (one model call): gates on HasEntitlement and on a non-empty draft (400
 // missing_draft — reviewing nothing would just burn a call for no reason),
-// meters purpose="review" BEFORE any bail, and — per the brief — NEVER
-// writes to writing_draft.body or anywhere else. It returns the model's
-// commentary in the HTTP response only, the same "return it, persist
-// nothing" shape generateWritingSnippetExemplar uses for its demonstration
-// paragraph (writing_snippets.go) — feedback about her draft is exactly as
-// disposable as a demonstration paragraph is: useful to read once, never a
-// resource with a lifecycle of its own. A model failure or an empty reply
-// both surface as the honest 502 ai_dialogue_failed, never a canned
-// fallback comment.
+// meters purpose="review" BEFORE any bail.
+//
+// Task 5 (B4+B7) changed this handler's output shape: it used to return
+// {"feedback":"<prose>"} and write nowhere — commentary that rendered once
+// and evaporated on the next navigation. It now produces the SAME
+// {summary, points} object commentOnSnippet does (writing_comment.go),
+// validates every point's quote against the draft body with
+// validateCommentPoints, PERSISTS it via CreateWritingComment with
+// scope='draft' and snippet_id=NULL, and responds {"comment": Comment}. It
+// still never writes to writing_draft.body or anywhere else — persisting the
+// comment is not the same as persisting a rewrite of her text, and AGENTS.md's
+// "Review feedback is different and legitimate... It must not hand her
+// replacement text" carve-out from 铁律① is exactly as true of a structured
+// comment as it was of a paragraph of prose. A model failure or an
+// unparseable reply both surface as the honest 502 ai_dialogue_failed, never
+// a canned fallback comment.
 func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
@@ -247,7 +223,6 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	prompt := buildWritingReviewPrompt(wr, body)
 
 	// §model-routing: reviewing the whole piece is reviewer-tier work, the
 	// same "faithful, never downgrade" reasoning generateWritingOutline and
@@ -263,8 +238,8 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: writingReviewSystem},
-			{Role: gateway.RoleUser, Content: prompt},
+			{Role: gateway.RoleSystem, Content: writingCommentSystem},
+			{Role: gateway.RoleUser, Content: buildWritingCommentPrompt(wr, "她的整篇稿子", body)},
 		},
 	})
 
@@ -279,19 +254,36 @@ func (a *API) reviewWritingDraft(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	feedback := strings.TrimSpace(res.Text)
-	if feedback == "" {
-		slog.Warn("writing review: model reply empty",
+	parsed, okParse := parseWritingComment(res.Text)
+	if !okParse {
+		slog.Warn("writing review: reply unparseable or empty summary",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
 
-	// NEVER written to writing_draft (or any other table) — see the
-	// handler's comment. Returned verbatim in a field of its own, separate
-	// from writingDraftDTO, so a client cannot mistake commentary for a
-	// persisted draft body.
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"feedback": feedback})
+	points := validateCommentPoints(parsed.Points, body)
+	payload, merr := json.Marshal(points)
+	if merr != nil {
+		slog.Warn("writing review: marshal points failed", "err", merr, "atom_id", at.ID)
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+		return
+	}
+	row, serr := a.d.Queries.CreateWritingComment(turnCtx, sqlc.CreateWritingCommentParams{
+		AtomID:    at.ID,
+		SnippetID: pgtype.UUID{Valid: false},
+		Scope:     "draft",
+		Summary:   strings.TrimSpace(parsed.Summary),
+		Points:    payload,
+	})
+	if serr != nil {
+		httpx.WriteError(w, r, serr)
+		return
+	}
+
+	// The comment is persisted (writing_comment, scope='draft') but
+	// writing_draft.body is never touched — see the handler's comment.
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"comment": toCommentDTO(row)})
 }
 
 // finishWritingAtom is POST /api/v1/writings/{id}/finish — the terminal
