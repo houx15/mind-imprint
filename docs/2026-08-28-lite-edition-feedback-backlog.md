@@ -59,7 +59,10 @@ depth inside it.
 The weakest surface. The user's verdict on the current 段落 guidance: *"our snippets
 is not real guidance, it is even not good as pro version."*
 
-- [ ] **B0 · The plan must produce a whole essay skeleton, not just claims.**
+Delivered by: spec `docs/superpowers/specs/2026-08-28-lite-writing-room-deepening-design.md`,
+plan `docs/superpowers/plans/2026-08-28-lite-writing-room-deepening.md`.
+
+- [x] **B0 · The plan must produce a whole essay skeleton, not just claims.**
       Today the map produces 中心论点 → 分论点 → 论据 and the 段落 stage renders one
       textarea per node — so there is nowhere for an **introduction, a hook, or a
       conclusion** to live, yet those are exactly what turns key points into a full
@@ -69,7 +72,7 @@ is not real guidance, it is even not good as pro version."*
         free-form model-invented string, and `writingPlanMaxDepth` (`:65`) caps the
         map at 中心论点 → 分论点 → 论据.
 
-- [ ] **B1 · Real guidance questions, in a readable layout.**
+- [x] **B1 · Real guidance questions, in a readable layout.**
       The guidance must actually guide, and must be *legible* — *"a large paragraph
       of small texts is not easy to read."* Beautiful, clear layout for the
       questions.
@@ -77,26 +80,26 @@ is not real guidance, it is even not good as pro version."*
         exists and renders numbered questions, but only appears on-demand behind the
         `卡住了？` button, which is why it reads as absent.
 
-- [ ] **B2 · English writing needs expression support.**
+- [x] **B2 · English writing needs expression support.**
       For EN writing, offer sentence structures / ways of expressing the thing the
       student is trying to say.
 
-- [ ] **B3 · 「深入一层」 opens a side AI chat.**
+- [x] **B3 · 「深入一层」 opens a side AI chat.**
       Guidance questions will sometimes not be enough. The student can click to dive
       deeper, opening a side chat that pushes further on examples, expression,
       logic, etc. (*Open question in the feedback: should this be a sub-agent?*)
 
-- [ ] **B4 · Per-snippet AI comments, concrete and traceable.**
+- [x] **B4 · Per-snippet AI comments, concrete and traceable.**
       Like the pro version: one general sentence plus specific key points, each able
       to **trace back to the original writing** it refers to.
 
-- [ ] **B5 · 成稿 becomes a real writing surface.**
+- [x] **B5 · 成稿 becomes a real writing surface.**
       Not a box. The full left side is the writing space, with generous padding and
       good typography; the snippets sit alongside it by default.
 
-- [ ] **B6 · The title is editable at any time.**
+- [x] **B6 · The title is editable at any time.**
 
-- [ ] **B7 · The full-draft AI comment renders in the sidebar** — clear,
+- [x] **B7 · The full-draft AI comment renders in the sidebar** — clear,
       good-looking, and traceable back to the passage it is about.
       - Note: the review call itself is already strong. On the walk it produced a
         four-section critique (结构 / 论证 / 证据 / 语言) that caught a real defect in
