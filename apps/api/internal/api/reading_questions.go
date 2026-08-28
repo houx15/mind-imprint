@@ -28,6 +28,18 @@ package api
 // concurrent first-opens costs exactly one charge: the loser blocks on the
 // lock, wakes up after the winner's commit, and re-reads the winner's rows
 // instead of ever reaching the provider.
+//
+// Task 8 fix round 1: "has it been generated" is NOT "does reading_question
+// have rows". A thin article can legitimately validate down to zero
+// survivors, and that outcome looks IDENTICAL, in reading_question, to
+// "never generated" — so gating on row-count made the room re-call the
+// flagship model on every single reopen of a thin, already-finished reading,
+// forever, rendering nothing each time. The fix is `reading.questions_at`
+// (migration 0104): NULL means "never attempted", non-NULL means "attempted
+// once, whatever it produced" — set inside the same transaction as the
+// inserts, unconditionally, even when zero rows are inserted. Both existence
+// checks (the cheap pre-check and the re-check under the lock) gate on this
+// column now, never on row count.
 
 import (
 	"context"
@@ -223,15 +235,21 @@ func (a *API) getReadingQuestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Cheap pre-check outside any transaction: after the first successful
-	// generation this is the only cost, and it short-circuits every reopen
-	// without ever touching the lock.
-	rows, err := a.d.Queries.ListReadingQuestions(r.Context(), at.ID)
+	// Cheap pre-check outside any transaction: after the first attempt (of
+	// EITHER outcome — survivors or none) this is the only cost, and it
+	// short-circuits every reopen without ever touching the lock. Gated on
+	// reading.questions_at, never on row count — see the file comment.
+	rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if len(rows) > 0 {
+	if rd.QuestionsAt.Valid {
+		rows, err := a.d.Queries.ListReadingQuestions(r.Context(), at.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"questions": toReadingQuestionDTOs(rows)})
 		return
 	}
@@ -268,15 +286,21 @@ func (a *API) getReadingQuestions(w http.ResponseWriter, r *http.Request) {
 	}
 	qtx := a.d.Queries.WithTx(tx)
 
-	// Re-read UNDER the lock. A racing request that already generated (and
-	// committed) while this one waited on the lock wins outright — this one
-	// returns its rows without ever reaching the provider.
-	rows, err = qtx.ListReadingQuestions(qCtx, at.ID)
+	// Re-read UNDER the lock, same column as the cheap pre-check. A racing
+	// request that already generated (and committed — of either outcome)
+	// while this one waited on the lock wins outright: this one returns its
+	// rows (possibly empty) without ever reaching the provider.
+	rd, err = qtx.GetReading(qCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if len(rows) > 0 {
+	if rd.QuestionsAt.Valid {
+		rows, err := qtx.ListReadingQuestions(qCtx, at.ID)
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 		if err := tx.Commit(qCtx); err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -324,6 +348,13 @@ func (a *API) getReadingQuestions(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		inserted = append(inserted, row)
+	}
+	// Record the ATTEMPT, unconditionally — even when survivors is empty.
+	// This is the whole point of the fix: the outcome (2-5 questions, or
+	// none) must never be confused with "never tried" on the next open.
+	if _, err := qtx.MarkReadingQuestionsGenerated(qCtx, at.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
 	}
 	if err := tx.Commit(qCtx); err != nil {
 		httpx.WriteError(w, r, err)

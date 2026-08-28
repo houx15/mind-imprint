@@ -14,7 +14,7 @@ import (
 )
 
 const createReading = `-- name: CreateReading :one
-INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key
+INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at
 `
 
 type CreateReadingParams struct {
@@ -34,12 +34,13 @@ func (q *Queries) CreateReading(ctx context.Context, arg CreateReadingParams) (R
 		&i.UpdatedAt,
 		&i.FinishedAt,
 		&i.RoutineKey,
+		&i.QuestionsAt,
 	)
 	return i, err
 }
 
 const getReading = `-- name: GetReading :one
-SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key FROM reading WHERE atom_id = $1
+SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at FROM reading WHERE atom_id = $1
 `
 
 func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, error) {
@@ -53,6 +54,7 @@ func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, er
 		&i.UpdatedAt,
 		&i.FinishedAt,
 		&i.RoutineKey,
+		&i.QuestionsAt,
 	)
 	return i, err
 }
@@ -295,7 +297,7 @@ func (q *Queries) ListReadingTasks(ctx context.Context, atomID uuid.UUID) ([]Rea
 }
 
 const listReadingsByUser = `-- name: ListReadingsByUser :many
-SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key,
+SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key, r.questions_at,
        a.created_at AS atom_created_at,
        a.last_activity_at,
        (s.atom_id IS NOT NULL)::bool AS has_source
@@ -314,6 +316,7 @@ type ListReadingsByUserRow struct {
 	UpdatedAt      time.Time          `json:"updated_at"`
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
 	RoutineKey     string             `json:"routine_key"`
+	QuestionsAt    pgtype.Timestamptz `json:"questions_at"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 	HasSource      bool               `json:"has_source"`
@@ -343,6 +346,7 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.UpdatedAt,
 			&i.FinishedAt,
 			&i.RoutineKey,
+			&i.QuestionsAt,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 			&i.HasSource,
@@ -355,6 +359,30 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 		return nil, err
 	}
 	return items, nil
+}
+
+const markReadingQuestionsGenerated = `-- name: MarkReadingQuestionsGenerated :one
+UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at
+`
+
+// Records that a generation ATTEMPT happened, independent of how many
+// questions survived it. Set unconditionally (even when zero rows were
+// inserted) so a thin article that legitimately yields nothing never looks,
+// to the next open, indistinguishable from "never tried".
+func (q *Queries) MarkReadingQuestionsGenerated(ctx context.Context, atomID uuid.UUID) (Reading, error) {
+	row := q.db.QueryRow(ctx, markReadingQuestionsGenerated, atomID)
+	var i Reading
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Lang,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.RoutineKey,
+		&i.QuestionsAt,
+	)
+	return i, err
 }
 
 const renameReading = `-- name: RenameReading :exec
@@ -450,7 +478,7 @@ func (q *Queries) SetReadingFinished(ctx context.Context, atomID uuid.UUID) erro
 }
 
 const setReadingRoutine = `-- name: SetReadingRoutine :one
-UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key
+UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at
 `
 
 type SetReadingRoutineParams struct {
@@ -471,6 +499,7 @@ func (q *Queries) SetReadingRoutine(ctx context.Context, arg SetReadingRoutinePa
 		&i.UpdatedAt,
 		&i.FinishedAt,
 		&i.RoutineKey,
+		&i.QuestionsAt,
 	)
 	return i, err
 }

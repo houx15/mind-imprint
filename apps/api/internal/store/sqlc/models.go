@@ -495,13 +495,14 @@ type QuestionEdge struct {
 }
 
 type Reading struct {
-	AtomID     uuid.UUID          `json:"atom_id"`
-	Title      string             `json:"title"`
-	Lang       string             `json:"lang"`
-	Status     string             `json:"status"`
-	UpdatedAt  time.Time          `json:"updated_at"`
-	FinishedAt pgtype.Timestamptz `json:"finished_at"`
-	RoutineKey string             `json:"routine_key"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	Title       string             `json:"title"`
+	Lang        string             `json:"lang"`
+	Status      string             `json:"status"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
+	RoutineKey  string             `json:"routine_key"`
+	QuestionsAt pgtype.Timestamptz `json:"questions_at"`
 }
 
 type ReadingBlockNote struct {

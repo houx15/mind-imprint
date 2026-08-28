@@ -24,6 +24,19 @@ const readingQuestionsTestReply = `{"questions":[` +
 	`{"text":"总量第一意味着什么样的责任？","anchorQuote":"中国的碳排放总量位居世界第一"},` +
 	`{"text":"人均排放和总量，哪个更该被用来衡量责任？","anchorQuote":"人均排放仍低于多数发达国家"}]}`
 
+// readingQuestionsThinTestBody/Reply is the "fewer than two survive" case —
+// Task 8 fix round 1's regression fixture. Fewer than two anchorable
+// questions is exactly what a thin article, or a model that reaches for a
+// generic question, produces: the SECOND draft's anchorQuote ("环境保护很重要")
+// is not a substring of the body, so validateReadingQuestions drops it and
+// only one survivor is left — below the 2-survivor floor, so the endpoint
+// must show NONE.
+const readingQuestionsThinTestBody = "全球气温在过去五十年持续上升。"
+
+const readingQuestionsThinTestReply = `{"questions":[` +
+	`{"text":"气温上升的原因是什么？","anchorQuote":"全球气温在过去五十年持续上升"},` +
+	`{"text":"你怎么看待环保？","anchorQuote":"环境保护很重要"}]}`
+
 type readingQuestionDTOForTest struct {
 	ID          string `json:"id"`
 	Text        string `json:"text"`
@@ -100,5 +113,62 @@ func TestReadingQuestionsChargesOnce(t *testing.T) {
 
 	if n := prov.count(); n != 1 {
 		t.Fatalf("model called %d times for one first-open race, want 1 — a concurrent double-open is billed twice", n)
+	}
+}
+
+// TestReadingQuestionsThinArticle_NoRetryOnReopen — Task 8 fix round 1's
+// regression test. Before the fix, "generated" was inferred from
+// reading_question having rows; a thin article that validates down to ZERO
+// survivors leaves no rows, which is indistinguishable from "never
+// generated" — so every reopen of the finished reading's screen re-called
+// the flagship model, forever, showing nothing each time. The fix
+// (reading.questions_at, migration 0104) records the ATTEMPT itself,
+// independent of the outcome, so a second open must NOT call the model
+// again.
+func TestReadingQuestionsThinArticle_NoRetryOnReopen(t *testing.T) {
+	prov := &countingProvider{inner: readingStubProvider(readingQuestionsThinTestReply)}
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	id := createReadingAtom(t, h, cookie)
+	if rec := putSource(t, h, cookie, id, readingQuestionsThinTestBody); rec.Code != http.StatusOK {
+		t.Fatalf("put source = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	finishReadingAtom(t, h, cookie, id)
+
+	first := getReadingQuestionsHTTP(t, h, cookie, id)
+	if first.Code != http.StatusOK {
+		t.Fatalf("first open = %d, want 200; body=%s", first.Code, first.Body)
+	}
+	var firstOut struct {
+		Questions []readingQuestionDTOForTest `json:"questions"`
+	}
+	if err := json.Unmarshal(first.Body.Bytes(), &firstOut); err != nil {
+		t.Fatalf("decode first open: %v — body=%s", err, first.Body)
+	}
+	if len(firstOut.Questions) != 0 {
+		t.Fatalf("first open returned %d questions, want 0 (only 1 of 2 drafts survives validation): %+v",
+			len(firstOut.Questions), firstOut.Questions)
+	}
+	if n := prov.count(); n != 1 {
+		t.Fatalf("model called %d times on first open, want 1", n)
+	}
+
+	// Reopen — the room's finished-reading screen can be mounted any number
+	// of times from her history. This must be free.
+	second := getReadingQuestionsHTTP(t, h, cookie, id)
+	if second.Code != http.StatusOK {
+		t.Fatalf("second open = %d, want 200; body=%s", second.Code, second.Body)
+	}
+	var secondOut struct {
+		Questions []readingQuestionDTOForTest `json:"questions"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &secondOut); err != nil {
+		t.Fatalf("decode second open: %v — body=%s", err, second.Body)
+	}
+	if len(secondOut.Questions) != 0 {
+		t.Fatalf("second open returned %d questions, want 0: %+v", len(secondOut.Questions), secondOut.Questions)
+	}
+	if n := prov.count(); n != 1 {
+		t.Fatalf("model called %d times after a second open of a thin-article reading, want 1 — "+
+			"a zero-survivor outcome must not look like \"never generated\" and re-trigger the model", n)
 	}
 }

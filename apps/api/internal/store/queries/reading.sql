@@ -122,3 +122,10 @@ SELECT * FROM reading_question WHERE atom_id = $1 ORDER BY position;
 INSERT INTO reading_question (atom_id, position, text, anchor_quote, anchor_block)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
+
+-- name: MarkReadingQuestionsGenerated :one
+-- Records that a generation ATTEMPT happened, independent of how many
+-- questions survived it. Set unconditionally (even when zero rows were
+-- inserted) so a thin article that legitimately yields nothing never looks,
+-- to the next open, indistinguishable from "never tried".
+UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING *;
