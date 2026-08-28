@@ -14,6 +14,7 @@ export type RoomCapabilities = {
   essayTrack: boolean;
   comprehensionCheck: boolean;
   exemplars: boolean;
+  credibility: boolean;
 };
 
 export const PRO_CAPABILITIES: RoomCapabilities = {
@@ -25,6 +26,7 @@ export const PRO_CAPABILITIES: RoomCapabilities = {
   essayTrack: true,
   comprehensionCheck: false,
   exemplars: false,
+  credibility: true,
 };
 
 // Demo is read-only pro, not a third lifecycle — same surfaces.
@@ -38,6 +40,11 @@ export const DEMO_CAPABILITIES: RoomCapabilities = { ...PRO_CAPABILITIES, mode: 
 // enabling it — its correct home is a future LITE_WRITING_CAPABILITIES. It
 // stays on the shared RoomCapabilities type (forward-declared) so the writing
 // preset can turn it on when it lands; it just isn't this preset's to enable.
+// credibility stays false here: it names the 可信度 verdict a CRAAP-style
+// producer writes onto the record (verdict + why). Lite has no such
+// producer, so the field could only ever read 尚未评估 — a permanent lie
+// dressed as a status. Off until lite grows something that actually
+// evaluates credibility.
 export const LITE_READING_CAPABILITIES: RoomCapabilities = {
   mode: "lite",
   plan: false,
@@ -47,4 +54,5 @@ export const LITE_READING_CAPABILITIES: RoomCapabilities = {
   essayTrack: false,
   comprehensionCheck: true,
   exemplars: false,
+  credibility: false,
 };

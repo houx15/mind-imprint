@@ -1088,6 +1088,7 @@ export function ReadingRoom({
           onConfirm={() => void confirmFinalize()}
           onClose={() => setFinalizeOpen(false)}
           proposalImpact={caps.proposalImpact}
+          credibility={caps.credibility}
         />
       )}
     </div>

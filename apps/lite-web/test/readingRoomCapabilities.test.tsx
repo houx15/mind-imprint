@@ -1,7 +1,8 @@
 import { render, screen, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { MaterialSource, Reference } from "@mind-imprint/contracts";
+import type { MaterialSource, Reference, TakeawayDraft } from "@mind-imprint/contracts";
 import { ReadingRoom, type ReadingRoomApi } from "@/studio/reading/ReadingRoom";
+import { FinalizeReadingPanel } from "@/studio/reading/FinalizeReadingPanel";
 import { LITE_READING_CAPABILITIES, PRO_CAPABILITIES } from "@/rooms/capabilities";
 
 /**
@@ -142,5 +143,43 @@ describe("ReadingRoom capability gates", () => {
     // the capability the room passes down rather than the open modal.
     expect(LITE_READING_CAPABILITIES.proposalImpact).toBe(false);
     expect(PRO_CAPABILITIES.proposalImpact).toBe(true);
+  });
+
+  const DRAFT: TakeawayDraft = {
+    record: {
+      findings: ["中国的太阳能装机量在过去十年增长了十倍。"],
+      credibility: { verdict: "可信", why: "来自 NASA 与 Nature Sustainability 的交叉印证。" },
+      keyQuotes: [],
+    },
+    suggestedNewLeads: [],
+    suggestedProposalImpact: "",
+  };
+
+  function renderFinalizePanel(credibility: boolean) {
+    return render(
+      <FinalizeReadingPanel
+        loading={false}
+        draft={DRAFT}
+        leadsText=""
+        onLeadsChange={() => {}}
+        impactText=""
+        onImpactChange={() => {}}
+        saving={false}
+        done={false}
+        onConfirm={() => {}}
+        onClose={() => {}}
+        credibility={credibility}
+      />,
+    );
+  }
+
+  it("does not show 可信度 in lite — there is no producer for it, so 尚未评估 is a lie", () => {
+    renderFinalizePanel(LITE_READING_CAPABILITIES.credibility);
+    expect(screen.queryByText(/可信度/)).toBeNull();
+  });
+
+  it("still shows 可信度 under pro capabilities", () => {
+    renderFinalizePanel(PRO_CAPABILITIES.credibility);
+    expect(screen.getByText(/可信度/)).toBeTruthy();
   });
 });

@@ -27,6 +27,12 @@ export type FinalizeReadingPanelProps = {
   // leads field is gone and the one remaining box is her own 我的收获.
   // Defaults true so every existing (pro) call site is unchanged.
   proposalImpact?: boolean;
+  // credibility (RoomCapabilities) — the 可信度 row echoes a CRAAP-style
+  // producer's verdict onto the record. The lite edition has NO such
+  // producer, so the row would only ever read 尚未评估 — a permanent, false
+  // "not yet" rather than an absence. With this false the row is gone.
+  // Defaults true so every existing (pro) call site is unchanged.
+  credibility?: boolean;
 };
 
 export function FinalizeReadingPanel({
@@ -41,6 +47,7 @@ export function FinalizeReadingPanel({
   onConfirm,
   onClose,
   proposalImpact = true,
+  credibility = true,
 }: FinalizeReadingPanelProps) {
   const record = draft?.record;
   return (
@@ -81,18 +88,20 @@ export function FinalizeReadingPanel({
                     <p className="mk-finalize-panel__empty">还没有确认过的阅读发现——先完成一次透镜练习。</p>
                   )}
                 </div>
-                <div className="mk-finalize-panel__field">
-                  <span>可信度</span>
-                  <p>
-                    {record?.credibility.verdict ? (
-                      <>
-                        <strong>{record.credibility.verdict}</strong> — {record.credibility.why}
-                      </>
-                    ) : (
-                      <span className="mk-finalize-panel__empty">尚未评估</span>
-                    )}
-                  </p>
-                </div>
+                {credibility && (
+                  <div className="mk-finalize-panel__field">
+                    <span>可信度</span>
+                    <p>
+                      {record?.credibility.verdict ? (
+                        <>
+                          <strong>{record.credibility.verdict}</strong> — {record.credibility.why}
+                        </>
+                      ) : (
+                        <span className="mk-finalize-panel__empty">尚未评估</span>
+                      )}
+                    </p>
+                  </div>
+                )}
                 <div className="mk-finalize-panel__field">
                   <span>关键引句</span>
                   {record && record.keyQuotes.length > 0 ? (
