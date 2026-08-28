@@ -277,6 +277,25 @@ function Branch({
   const isRoot = node.item.depth === 0;
 
   /**
+   * Which root is the SPINE.
+   *
+   * 开头 and 结尾 are top-level siblings of 中心论点, so once a piece has all
+   * three, three identical accent boxes sit in a column and the thesis — the
+   * one sentence the whole piece hangs off — no longer reads as different
+   * from its bookends.
+   *
+   * The thesis is told apart STRUCTURALLY, by carrying the 分论点 beneath it,
+   * not by matching its `role` text: `role` is free-form model prose (see
+   * writing_plan.go's own keyword heuristics and the narrow failure they
+   * accept), and a 中心论点 that came back labelled 「这篇的主张」 would then
+   * quietly lose its emphasis. The structural test has an honest failure mode
+   * too — while she is still planning, nothing has children and nothing is
+   * emphasised, which is correct, because at that moment there is no spine
+   * yet.
+   */
+  const isSpine = isRoot && node.children.length > 0;
+
+  /**
    * The evidence level (depth 2) stacks BELOW its reason instead of beside it.
    *
    * Three Chinese columns need roughly 600px and no side panel has that, so
@@ -304,9 +323,13 @@ function Branch({
           .filter(Boolean)
           .join(" ")}
         style={
-          isRoot
+          isSpine
             ? { borderColor: "var(--mk-accent-500)", background: "var(--mk-accent-50)" }
-            : { borderColor: "var(--mk-border)", background: "var(--mk-surface)" }
+            : isRoot
+              ? // A bookend: still top-level, but quieter than the spine —
+                // accent hairline on the plain surface rather than a filled box.
+                { borderColor: "var(--mk-accent-300)", background: "var(--mk-surface)" }
+              : { borderColor: "var(--mk-border)", background: "var(--mk-surface)" }
         }
       >
         <div className="flex min-w-0 flex-1 flex-col gap-0.5">
