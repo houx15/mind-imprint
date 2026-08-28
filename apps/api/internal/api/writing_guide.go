@@ -124,7 +124,8 @@ const writingGuideBatchSystem = `你是「印记」。学生正在写一整篇�
 ` + writingGuideQuestionRules + `
 
 输出 JSON：{"blocks":[{"id":"…","job":"…","method_ids":["…"],"questions":["…？"]}]}
-- 【整篇的结构】里给出的每一块都要出现一次，id 逐字取自那里给出的 id。
+- 【整篇的结构】里**没有**标着「这一块已经有引导了」的每一块，都要出现一次，id 逐字取自那里给出的 id。
+- 标着「这一块已经有引导了」的块不要输出——它的引导早就存好了，重给一份只会把她之前看到的那份换掉。它仍然列在结构里，是为了让你看清整篇的走向。
 - job / method_ids / questions 的要求和上面完全一样。
 
 只输出一个 JSON 对象，不要输出对象以外的任何文字或代码块标记。`
@@ -262,6 +263,14 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 			b.WriteString("  已经写的段落：" + e + "\n")
 		} else {
 			b.WriteString("  这一段还是空的。\n")
+		}
+		// An already-guided block stays IN the list — the model needs the whole
+		// shape of the piece to guide the rest well — but is marked so it does
+		// not get re-guided. The handler drops any guide it returns for one of
+		// these anyway (knownIDs); this line is what keeps it from wasting the
+		// tokens in the first place.
+		if _, has := storedWritingGuide(s); has {
+			b.WriteString("  这一块已经有引导了，不用再给。\n")
 		}
 	}
 
@@ -637,21 +646,31 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 // A spend endpoint (ONE model call for the whole skeleton), metered as
 // purpose="block_guide" — the same purpose as the single-block regenerate;
 // it is the same KIND of spend at a different batch size, not a new kind.
+//
+// IDEMPOTENT ON THE SERVER (2026-08-28). It used to re-guide the WHOLE
+// outline on every call, and the only thing standing between a second tab and
+// a second full flagship bill was `needsBatch` in SnippetsStage.tsx — a
+// client-side guard, which is to say no guard. Now a block that already has a
+// stored guide is RETURNED, never regenerated; only blocks lacking one reach
+// the model; and if every block already has one, the handler makes no model
+// call at all. Opening 段落 is a one-time cost, and every reopen is free.
+//
+// NO CONCURRENCY GUARD, deliberately — unlike postWritingOpening, which takes
+// an advisory lock. The asymmetry is the damage, not the shape: a duplicated
+// greeting is permanently visible to her as a room that says hello twice,
+// while two tabs racing the first 段落 open produce two valid guides for the
+// same block and the last write wins — she sees one coherent guide either
+// way, and the only cost is one duplicated call, once, in the single window
+// that now exists (the very first entry; every later open is short-circuited
+// above). Buying that back would mean holding a pool connection across the
+// most expensive call in the room — the flagship, over the whole outline, up
+// to 150 s. Pool exhaustion is a worse failure than one extra call.
 func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
 		return
 	}
 	u, _ := UserFromContext(r.Context())
-	entitled, eerr := HasEntitlement(r.Context(), u)
-	if eerr != nil {
-		httpx.WriteError(w, r, eerr)
-		return
-	}
-	if !entitled {
-		httpx.WriteError(w, r, httpx.ErrNotEntitled())
-		return
-	}
 
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
@@ -672,6 +691,38 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"guides": map[string]writingGuideDTO{}})
 		return
 	}
+
+	// The stored/missing split. `out` starts as everything already paid for,
+	// so the response shape is the same whether the model ran or not: the
+	// client always gets a guide for every block that has one.
+	out := make(map[string]writingGuideDTO, len(blocks))
+	missing := make(map[uuid.UUID]bool, len(blocks))
+	for _, b := range blocks {
+		if g, has := storedWritingGuide(b); has {
+			out[b.ID.String()] = g
+			continue
+		}
+		missing[b.ID] = true
+	}
+	if len(missing) == 0 {
+		// The common case after the first open: zero model calls. Note this
+		// returns BEFORE the entitlement gate — reading back guidance she has
+		// already paid for is not a new spend, so it must not be gated on
+		// having credit left (the same reasoning setWritingSetup states).
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"guides": out})
+		return
+	}
+
+	entitled, eerr := HasEntitlement(turnCtx, u)
+	if eerr != nil {
+		httpx.WriteError(w, r, eerr)
+		return
+	}
+	if !entitled {
+		httpx.WriteError(w, r, httpx.ErrNotEntitled())
+		return
+	}
+
 	snippets, err := a.d.Queries.ListWritingSnippets(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -712,11 +763,11 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	knownIDs := make(map[uuid.UUID]bool, len(blocks))
-	for _, b := range blocks {
-		knownIDs[b.ID] = true
-	}
-	guides, okParse := parseWritingGuideBatch(res.Text, knownIDs)
+	// knownIDs is the MISSING set, not every block: a guide the model volunteers
+	// for a block that already has one is dropped here rather than persisted,
+	// so a stored guide can never be overwritten by this route. Overwriting is
+	// what POST /outline/{oid}/guide is for, and only when she asks.
+	guides, okParse := parseWritingGuideBatch(res.Text, missing)
 	if !okParse {
 		slog.Warn("writing block guide batch: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -724,7 +775,6 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	out := make(map[string]writingGuideDTO, len(guides))
 	for id, g := range guides {
 		dto := writingGuideDTOOf(g)
 		payload, merr := json.Marshal(dto)

@@ -185,26 +185,48 @@ func buildWritingOpeningPrompt(wr sqlc.Writing, msgs []sqlc.AtomMessage) string 
 // first line, called by the frontend immediately after the setup dialog
 // closes.
 //
-// IDEMPOTENT BY CONSTRUCTION: if the transcript already holds any 'ai'
-// message, this returns that existing opening rather than generating a
-// second one. Without that guard a refresh (or React's double-invoked
-// effects in dev) would mint a fresh greeting every time — burning money and,
-// worse, showing her a room that keeps re-introducing itself.
+// IDEMPOTENT, AND POSTGRES IS WHAT MAKES IT SO. The first version of this
+// handler read the transcript for an 'ai' message and, finding none,
+// generated one — a check-then-write with nothing holding the gap. Production
+// on 2026-08-28 caught two requests 386 ms apart doing exactly that: two
+// model charges, two stored greetings, a room that says hello twice.
+//
+// Why not a partial unique index (the usual answer here, and the one 0096
+// used for atom_card): there is no predicate that picks out the opening. The
+// planning conversation legitimately accumulates MANY 'ai' rows in the same
+// thread (writing_plan.go, writing_turn.go), so "one ai row per atom" is
+// false; and the opening is not at a fixed seq either — seq 1 is always her
+// idea (writings.go) and seq 2 is her setup note when she wrote one, so the
+// greeting lands at 2 or 3. The only property that distinguishes it is "it is
+// the first ai turn", which no index predicate can express without a new
+// marker column.
+//
+// So the guarantee is a TRANSACTION-SCOPED ADVISORY LOCK keyed on the atom —
+// the same instrument ensureRootQuestion (exploration.go) already uses in
+// this codebase for the same shape, and the same thing 0096's index bought
+// atom_card: arbitration by the database, not by application sequencing. It
+// also buys something an index alone cannot — the loser blocks BEFORE the
+// model call, so a race costs one call, not two. That is the whole point;
+// a unique index would have caught the second row after paying for it.
+//
+// The cost, stated plainly: the winner holds a pool connection for the length
+// of the model call (chaperone tier, a couple of seconds). Openings are once
+// per writing, so this is a handful of connections out of 20 at worst.
 func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 	at, ok := a.loadOwnedWritingAtom(w, r)
 	if !ok {
 		return
 	}
+	// Cheap pre-check outside the lock: after the first call this is the only
+	// cost, and it short-circuits every reload without touching the lock.
 	msgs, err := a.d.Queries.ListAtomMessages(r.Context(), at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	for _, m := range msgs {
-		if m.Role == "ai" {
-			httpx.WriteJSON(w, http.StatusOK, map[string]any{"reply": m.Content, "generated": false})
-			return
-		}
+	if reply, found := firstAIReply(msgs); found {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"reply": reply, "generated": false})
+		return
 	}
 
 	u, _ := UserFromContext(r.Context())
@@ -221,7 +243,37 @@ func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
 
-	wr, err := a.d.Queries.GetWriting(turnCtx, at.ID)
+	// Everything from here to the commit is the critical section. A second
+	// request blocks on the advisory lock until this one commits, then re-reads
+	// and finds the greeting — so it never reaches the provider at all.
+	tx, err := a.d.Pool.Begin(turnCtx)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(turnCtx)) }()
+	// hashtext of the atom uuid — a per-writing mutex held to COMMIT. Namespaced
+	// with a suffix so it can never collide with another advisory lock that
+	// happens to key on the same uuid.
+	if _, err := tx.Exec(turnCtx, "SELECT pg_advisory_xact_lock(hashtext($1))", at.ID.String()+":opening"); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	qtx := a.d.Queries.WithTx(tx)
+
+	// Re-read UNDER the lock. This is the check that actually decides; the one
+	// above the entitlement gate is only an optimisation.
+	msgs, err = qtx.ListAtomMessages(turnCtx, at.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if reply, found := firstAIReply(msgs); found {
+		httpx.WriteJSON(w, http.StatusOK, map[string]any{"reply": reply, "generated": false})
+		return
+	}
+
+	wr, err := qtx.GetWriting(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -255,16 +307,34 @@ func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	seq, err := a.d.Queries.NextAtomMessageSeq(turnCtx, at.ID)
+	seq, err := qtx.NextAtomMessageSeq(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if _, err := a.d.Queries.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
+	if _, err := qtx.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
 		AtomID: at.ID, Seq: seq, Role: "ai", Content: reply,
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	if err := tx.Commit(turnCtx); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"reply": reply, "generated": true})
+}
+
+// firstAIReply is the "has the coach already spoken here?" test, in one place
+// because postWritingOpening asks it twice (once cheaply, once under the
+// lock) and the two must never disagree. The room's own thread only —
+// ListAtomMessages already filters block_id IS NULL, so a 深入一层 sub-agent
+// turn on some block can never be mistaken for the opening.
+func firstAIReply(msgs []sqlc.AtomMessage) (string, bool) {
+	for _, m := range msgs {
+		if m.Role == "ai" {
+			return m.Content, true
+		}
+	}
+	return "", false
 }

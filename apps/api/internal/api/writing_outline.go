@@ -71,13 +71,34 @@ func toWritingOutlineItemDTO(row sqlc.WritingOutline) writingOutlineItemDTO {
 	dto := writingOutlineItemDTO{
 		ID: row.ID.String(), Text: row.Text, Role: row.Role, Depth: row.Depth, Position: row.Position,
 	}
-	if len(row.Guide) > 0 {
-		var g writingGuideDTO
-		if err := json.Unmarshal(row.Guide, &g); err == nil {
-			dto.Guide = &g
-		}
+	if g, ok := storedWritingGuide(row); ok {
+		dto.Guide = &g
 	}
 	return dto
+}
+
+// storedWritingGuide decodes writing_outline.guide, and is the ONE definition
+// of "this block already has a guide" — read both here (what GET /outline
+// paints) and by the batch route (which blocks still need a model call). Two
+// definitions would mean a block that renders a guide but keeps getting
+// regenerated, or the reverse.
+//
+// A guide with no questions does not count as one: JSON null decodes into a
+// zero-valued struct without error (the 2026-08-25 报告加载失败 lesson), and a
+// guide with nothing to ask teaches her nothing — parseWritingGuide refuses to
+// produce one, so neither should reading one back.
+func storedWritingGuide(row sqlc.WritingOutline) (writingGuideDTO, bool) {
+	if len(row.Guide) == 0 {
+		return writingGuideDTO{}, false
+	}
+	var g writingGuideDTO
+	if err := json.Unmarshal(row.Guide, &g); err != nil {
+		return writingGuideDTO{}, false
+	}
+	if len(g.Questions) == 0 {
+		return writingGuideDTO{}, false
+	}
+	return g, true
 }
 
 // writingOutlineItemReq is PUT's per-item request shape (no id/position — the
