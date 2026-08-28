@@ -13,7 +13,8 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
  *
  * Strings come from the sources, not from a brief:
  * apps/lite-web/src/writings/{WritingsLanding,WritingRoomHost,StageMap,
- * WritingSetupModal,StructureStage,SnippetsStage,ComposeStage,GuideBox}.tsx.
+ * WritingSetupModal,PlanningView,SnippetsStage,ComposeStage,GuideBox,
+ * CommentPanel,ProseSurface}.tsx.
  *
  * REWRITTEN 2026-08-27 for the scaffold redesign. What changed and why it
  * matters to this walk:
@@ -24,6 +25,22 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
  *   - 「帮我拟一份候选」 is DELETED, and so is the skeleton picker that briefly
  *     replaced it. 结构 is a planning conversation whose output IS the outline.
  *   - The 工具卡 are gone from this room entirely.
+ *
+ * REWRITTEN AGAIN 2026-08-28, this time to catch up with eleven merged
+ * commits that rebuilt 段落 and 成稿 underneath this file while it sat
+ * unrun (it had gone known-stale). What changed this round:
+ *   - 从段落拼出初稿 is gone. composeWritingDraft now fires ONCE,
+ *     automatically, on arrival in 成稿 — the draft is simply there, not
+ *     behind a button. The button survives, demoted to 从段落重新拼一次, for
+ *     re-pulling after she edits 段落 again.
+ *   - 请印记看看 now answers a STRUCTURED Comment (summary + points), not a
+ *     prose blob under a "印记的反馈" heading — that heading no longer
+ *     exists. `CommentPanel` renders it, and every point is a
+ *     `[data-comment-point]` button that traces to a `<mark>` inside
+ *     ProseSurface's `[data-prose-layer]`.
+ *   - 段落's guide box is now PRESENT ON ARRIVAL: a single batch call guides
+ *     the whole outline by itself, so the happy path never needs to click
+ *     「卡住了？」.
  *
  * WHAT EACH LEG PROTECTS
  *
@@ -43,6 +60,14 @@ import { expect, test, type Page, type Locator } from "@playwright/test";
  *    composeSnippetsIntoDraft (writing_compose.go) is a pure string join, so
  *    the composed body is asserted EXACTLY equal to the two paragraphs she
  *    typed — not "contains", not "roughly matches".
+ *  - **Guidance is visible without being clicked.** 段落's guide box is
+ *    painted from a batch call that fires on arrival, never gated behind
+ *    「卡住了？」 — asserted with no click anywhere in the happy path. If this
+ *    ever needs a click to pass, that is the exact regression it exists to
+ *    catch.
+ *  - **A comment traces to a real sentence.** Clicking a
+ *    `[data-comment-point]` must produce a `<mark>` inside ProseSurface's
+ *    `[data-prose-layer]`, over the literal quote the server validated.
  *  - **Stages are a map, not a gate.** Every step is always clickable.
  */
 
@@ -160,12 +185,12 @@ test("the landing page is the front door: greeting, box, and the fixed topic she
 test("writing walk: 设定 → 印记 opens → planning grows a mind map → 去写 → two paragraphs → compose → feedback → 完成这篇", async ({
   page,
 }) => {
-  // Five separate live model calls happen here (opening, coach turn,
-  // two planning turns) plus the review, each capped
-  // server-side at 150s. The shared 300s default was sized for reading's
-  // two-call walk, so this test takes its own generous ceiling rather than
-  // racing it.
-  test.setTimeout(900_000);
+  // Five separate live model calls happen here — opening, two planning
+  // turns, the batch paragraph guide (fired once on arrival in 段落), and
+  // the review — each capped server-side at 150s. The shared 300s default
+  // was sized for reading's two-call walk, so this test takes its own
+  // generous ceiling rather than racing it.
+  test.setTimeout(1_200_000);
 
   const idea =
     "我想写一篇论证文，说说学校该不该允许学生在课间用手机——我自己观察到很多同学课间刷手机后上课更难集中注意力，但也有人说课间是唯一能自由社交、放松一下的时间。";
@@ -304,6 +329,19 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const paragraphBoxes = page.getByPlaceholder("写这一段……");
   await expect(paragraphBoxes).toHaveCount(plannedCount, { timeout: 15_000 });
 
+  // ── guidance is PRESENT ON ARRIVAL — no 「卡住了？」 click needed on the
+  // happy path. A single batch call (POST /writings/{id}/guide) guides the
+  // whole outline by itself the first time 段落 has nothing guided yet; if
+  // this box only ever showed up after a click, that IS the regression it
+  // exists to catch. Waited on with a generous timeout because the batch
+  // call is a real (if fast) round trip that fires on mount — not something
+  // already true the instant the heading appeared. ────────────────────────
+  const firstGuideBox = page.getByText("写作引导").first();
+  await expect(firstGuideBox).toBeVisible({ timeout: 180_000 });
+  await expect(page.getByText("这一段要做的事").first()).toBeVisible();
+  await expect(page.getByText("想一想").first()).toBeVisible();
+  await expect(page.getByRole("alert")).toHaveCount(0);
+
   await paragraphBoxes.nth(0).fill(paragraph1);
   await Promise.all([
     page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
@@ -321,36 +359,70 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await expect(page.getByRole("button", { name: "工具卡" })).toHaveCount(0);
   await expect(page.getByText("让步段 · 以退为进")).toHaveCount(0);
 
-  // ── 成稿: compose, then the 铁律 mechanical proof ───────────────────────
+  // ── 成稿: the draft ASSEMBLES ITSELF on arrival, then the 铁律 mechanical
+  // proof. There is no button to click here first — 从段落拼出初稿 is gone;
+  // composeWritingDraft (writing_compose.go's pure string join) now fires
+  // once, automatically, the moment she reaches a stage with nothing
+  // composed yet and paragraphs to compose from. ─────────────────────────
   await jumpStage(page, "成稿");
   await expect(page.getByRole("heading", { name: "成稿", level: 2 })).toBeVisible();
 
-  await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/compose") && r.request().method() === "POST"),
-    page.getByRole("button", { name: "从段落拼出初稿", exact: true }).click(),
-  ]);
-  const draftBox = page.getByPlaceholder("拼出来的初稿会出现在这里——你也可以直接在这儿写、改。");
+  const draftBox = page.getByPlaceholder(
+    "从哪儿开始都行。先把你最想说的那句话写下来，剩下的会跟着它长出来。",
+  );
 
   // ── 铁律 PROOF #3. composeSnippetsIntoDraft only trims and joins non-empty
   // snippet text with "\n\n" — no model call, nothing invented. Only two
   // slots were ever filled, so the body must be EXACTLY those two paragraphs
-  // joined — not merely "contains them".
+  // joined — not merely "contains them". A generous timeout here: the
+  // arrival assembly is a real round trip fired on mount, not something
+  // already true the instant the heading appeared.
+  await expect(draftBox).toHaveValue(`${paragraph1}\n\n${paragraph2}`, { timeout: 30_000 });
+
+  // ── the button survives, demoted to a manual re-pull for after she edits
+  // 段落 again (从段落重新拼一次). Pressing it here — body === assembledBody,
+  // nothing at stake — exercises /compose the same way a click always did,
+  // without tripping the overwrite-confirm dialog this button now guards.
+  await Promise.all([
+    page.waitForResponse((r) => r.url().includes("/compose") && r.request().method() === "POST"),
+    page.getByRole("button", { name: "从段落重新拼一次", exact: true }).click(),
+  ]);
   await expect(draftBox).toHaveValue(`${paragraph1}\n\n${paragraph2}`);
 
-  // ── ask for feedback: a real model call that must never touch the draft ─
+  // ── ask for feedback: a real model call that must never touch the draft.
+  // POST /review now answers a STRUCTURED Comment (summary + points), not
+  // the old prose blob under a "印记的反馈" heading — that heading is gone.
+  // CommentPanel renders the summary as a line of text and each point as a
+  // `[data-comment-point]` button. ────────────────────────────────────────
   const beforeReview = await draftBox.inputValue();
-  await Promise.all([
+  const [reviewResp] = await Promise.all([
     page.waitForResponse((r) => r.url().includes("/review") && r.request().method() === "POST", { timeout: 180_000 }),
     page.getByRole("button", { name: "请印记看看", exact: true }).click(),
   ]);
-  await expect(page.getByRole("heading", { name: "印记的反馈" })).toBeVisible({ timeout: 180_000 });
-  const feedbackPanel = page.getByRole("heading", { name: "印记的反馈" }).locator("..");
-  const feedbackText = (await feedbackPanel.locator("p").innerText()).trim();
-  expect(feedbackText.length).toBeGreaterThan(10);
+  const reviewed = (await reviewResp.json()) as {
+    comment: { summary: string; points: { text: string; quote: string }[] };
+  };
+  expect(reviewed.comment.summary.trim().length).toBeGreaterThan(5);
   await expect(page.getByText("这次体检没成功，请重试。")).toHaveCount(0);
+
+  const summaryLine = page.getByText(reviewed.comment.summary, { exact: true });
+  await expect(summaryLine).toBeVisible({ timeout: 180_000 });
+
   // reviewWritingDraft returns commentary only — never writes to
   // writing_draft.body. The box must read exactly as it did before.
   await expect(draftBox).toHaveValue(beforeReview);
+
+  // ── a comment traces back to a real sentence: click a
+  // `[data-comment-point]`, and a <mark> appears in ProseSurface's mirrored
+  // highlight layer over the sentence it quoted. Both waited on as
+  // ARRIVALS (visible, generous timeout) — never as an absence that could
+  // resolve true in the instant before the click's re-render lands.
+  const firstPoint = page.locator("[data-comment-point]").first();
+  await expect(firstPoint).toBeVisible({ timeout: 15_000 });
+  await firstPoint.click();
+  const mark = page.locator("[data-prose-layer] mark");
+  await expect(mark).toBeVisible({ timeout: 15_000 });
+  await expect(mark).toHaveText(reviewed.comment.points[0].quote);
 
   // ── 完成这篇 → 已完成, terminal, and the finished draft is what she wrote ─
   await Promise.all([
