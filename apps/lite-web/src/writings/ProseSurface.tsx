@@ -63,6 +63,13 @@ export function ProseSurface({
 
   return (
     <div className="relative max-w-[68ch] mx-auto bg-mk-paper">
+      {/* `selection:bg-mk-accent-500/30` was tried first and emitted NO CSS —
+          `mk-*` are bare CSS vars, not Tailwind-native colours with an alpha
+          channel, so any `/NN` suffix on one silently does nothing. `mark`
+          above already routes around this with `color-mix()`; `::selection`
+          needs the same fix, but can't take an inline `style` prop (it's a
+          pseudo-element), so it's scoped here instead. */}
+      <style>{`.mk-prose-selection::selection { background: color-mix(in srgb, var(--mk-accent-500) 30%, transparent); }`}</style>
       <div
         ref={layerRef}
         data-prose-layer
@@ -93,7 +100,7 @@ export function ProseSurface({
         onScroll={syncScroll}
         placeholder={placeholder}
         spellCheck={false}
-        className="relative w-full min-h-[60vh] bg-transparent resize-none border-none outline-none focus:outline-none focus:ring-0 caret-mk-accent-500 selection:bg-mk-accent-500/30 text-transparent"
+        className="mk-prose-selection relative w-full min-h-[60vh] bg-transparent resize-none border-none outline-none focus:outline-none focus:ring-0 caret-mk-accent-500 text-transparent"
         style={{ ...PROSE_TYPOGRAPHY, caretColor: "var(--mk-accent-500)" }}
       />
     </div>
