@@ -76,8 +76,13 @@ export function ComposeStage({
     setFeedback(null);
     try {
       await save();
-      const { feedback: text } = await reviewWritingDraft(writingId);
-      setFeedback(text);
+      // reviewWritingDraft now returns a structured Comment (Task 5/10), not
+      // {feedback: prose}. This stage still only shows the one-line summary
+      // — rendering the full Comment (points, quote-trace) is Task 11's;
+      // this is the minimal change to keep this stage compiling against the
+      // real client type, not that wiring.
+      const comment = await reviewWritingDraft(writingId);
+      setFeedback(comment.summary);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "这次体检没成功，请重试。");
     } finally {

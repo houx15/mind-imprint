@@ -384,7 +384,20 @@ describe("成稿 stage", () => {
     routes = { ...emptyRoutes({ stage: "draft" }) };
     routes[key("POST", base("/compose"))] = { body: { body: "拼合出的初稿。", updatedAt: "2026-08-26T00:00:00Z" } };
     routes[key("PUT", base("/draft"))] = { body: { body: "拼合出的初稿，改过。", updatedAt: "2026-08-26T00:01:00Z" } };
-    routes[key("POST", base("/review"))] = { body: { feedback: "论证的第二段证据略薄，可以再补一个例子。" } };
+    // POST /review now answers a structured Comment (Task 5/10), not
+    // {feedback: prose} — {"comment": Comment} with scope="draft".
+    routes[key("POST", base("/review"))] = {
+      body: {
+        comment: {
+          id: "cm1",
+          scope: "draft",
+          snippetId: null,
+          summary: "论证的第二段证据略薄，可以再补一个例子。",
+          points: [],
+          createdAt: "2026-08-26T00:02:00Z",
+        },
+      },
+    };
     routes[key("POST", base("/finish"))] = {
       body: writing({ stage: "draft", status: "finished", finishedAt: "2026-08-26T01:00:00Z" }),
     };

@@ -96,6 +96,33 @@ export type WritingSnippet = {
 };
 export type WritingDraft = { body: string; updatedAt: string | null };
 
+/**
+ * One concrete point in a comment — apps/api/internal/api/writing_comment.go's
+ * CommentPoint. `quote` is a sentence copied VERBATIM from the text being
+ * commented on (the server's validateCommentPoints drops any point whose
+ * quote does not appear literally in the source, so every point that reaches
+ * the client is guaranteed traceable). `text` is why that sentence matters —
+ * never a rewrite of it.
+ */
+export type CommentPoint = { text: string; quote: string };
+
+/**
+ * 印记's structured critique of a piece of writing — writing_comment.go's
+ * Comment, the wire AND stored shape at both zoom levels: `scope: "block"`
+ * with `snippetId` set is a comment on one paragraph
+ * (commentOnWritingSnippet); `scope: "draft"` with `snippetId: null` is a
+ * comment on the whole piece (reviewWritingDraft). One shape, two zoom
+ * levels.
+ */
+export type Comment = {
+  id: string;
+  scope: string;
+  snippetId: string | null;
+  summary: string;
+  points: CommentPoint[];
+  createdAt: string;
+};
+
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;
 
 // --- stage / target words ---------------------------------------------------
@@ -274,9 +301,38 @@ export async function putWritingDraft(id: string, body: string): Promise<Writing
   return apiFetch<WritingDraft>(`${base(id)}/draft`, { method: "PUT", body: JSON.stringify({ body }) });
 }
 
-/** Feedback only — never writes to the draft. */
-export async function reviewWritingDraft(id: string): Promise<{ feedback: string }> {
-  return apiFetch<{ feedback: string }>(`${base(id)}/review`, { method: "POST" });
+/**
+ * Feedback only — never writes to the draft. As of Task 5 this is a
+ * structured, PERSISTED `Comment` (scope="draft", snippetId=null), not the
+ * old `{feedback: "<prose>"}` wall of text that evaporated on navigation —
+ * see writing_compose.go's reviewWritingDraft.
+ */
+export async function reviewWritingDraft(id: string): Promise<Comment> {
+  const raw = await apiFetch<{ comment: Comment }>(`${base(id)}/review`, { method: "POST" });
+  return raw.comment;
+}
+
+/**
+ * Comment on ONE paragraph — POST /snippets/{sid}/comment
+ * (writing_comment.go's commentOnSnippet). Points are validated against
+ * THIS SNIPPET's text only, never the whole draft.
+ */
+export async function commentOnWritingSnippet(id: string, snippetId: string): Promise<Comment> {
+  const raw = await apiFetch<{ comment: Comment }>(
+    `${base(id)}/snippets/${encodeURIComponent(snippetId)}/comment`,
+    { method: "POST" },
+  );
+  return raw.comment;
+}
+
+/**
+ * Every stored comment for this writing, both scopes together, newest first
+ * — GET /comments (writing_comment.go's listWritingComments). No model
+ * call, no entitlement gate.
+ */
+export async function listWritingComments(id: string): Promise<Comment[]> {
+  const raw = await apiFetch<{ comments: Comment[] }>(`${base(id)}/comments`);
+  return raw.comments ?? [];
 }
 
 export async function finishWriting(id: string): Promise<Writing> {
