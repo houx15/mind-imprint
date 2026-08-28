@@ -54,19 +54,26 @@ import { VocabExamples } from "./VocabExamples";
  * explicitly killed in this product before; naming methods and showing
  * examples is teaching, choosing one for her is not.
  *
- * ## The 语文课 term, offered rather than imposed (F3, 2026-08-28)
+ * ## What is this method, explained on tap (F3, 2026-08-28; widened same day)
  *
  * `name` is what she reads — 举个例子, 比一比 — never essay-theory jargon.
- * `formalName` is the curriculum word a 语文 teacher would use for the same
- * move, and it only ever shows up if she taps for it: when it differs from
- * `name`, the method's name becomes a small button that opens a card naming
- * the term, its explanation, and the same borrowed example/pattern
- * `VocabExamples` already renders — nothing new to teach twice, just handed
- * to her on request. When `formalName` is empty (no curriculum term for this
- * one, e.g. 最后提个建议) or equal to `name` (she already knows it by its real
- * name — 开门见山 is 开门见山 either way), the name stays a plain,
- * non-interactive span: there is nothing a card would add, so nothing
- * pretends to be tappable.
+ * Every method's name is tappable and opens a card answering "what is this,
+ * really" — its definition at reading size, plus the same borrowed
+ * example/pattern `VocabExamples` already renders. That is true even for
+ * 最后提个建议 (no curriculum term) and 开门见山 (curriculum term identical to
+ * the name she already reads) — a vague-sounding plain name is exactly the
+ * kind of thing she'd want explained, term or no term.
+ *
+ * `formalName`, the curriculum word a 语文 teacher would use for the same
+ * move, is a NARROWER thing than the card itself: one sentence inside it —
+ * "在语文课上，这个叫「…」" — that appears only when `formalName` is
+ * non-empty AND differs from `name` (the original, correct half of the
+ * ruling; what was wrong the first time was gating the whole card on it).
+ * For 留个悬念 → 留悬念, one character apart, that sentence still shows: the
+ * canonical form is what a teacher would write on the board, and a
+ * one-character difference is still a difference. For 最后提个建议 and
+ * 开门见山 the sentence is simply absent — the card still opens, it just has
+ * nothing further to name.
  */
 export function GuideBox({
   guide,
@@ -120,33 +127,21 @@ export function GuideBox({
           <h3 className="text-mk-label font-semibold text-mk-accent-700">常见的几种写法</h3>
           <div className="flex flex-col gap-1.5">
             {guide.methods.map((m, i) => {
-              // A card only has something to add when there IS a curriculum
-              // term and it differs from the plain name she already reads —
-              // 开门见山 (identical either way) and 最后提个建议 (no term at
-              // all) stay plain text, not a button pretending to open
-              // something.
-              const hasTerm = m.formalName.trim() !== "" && m.formalName !== m.name;
               const open = openTermIndex === i;
               return (
                 <div key={`${m.name}-${i}`} className="flex flex-col gap-1.5">
                   <p className="text-mk-body">
-                    {hasTerm ? (
-                      <button
-                        type="button"
-                        onClick={() => setOpenTermIndex(open ? null : i)}
-                        aria-haspopup="dialog"
-                        aria-expanded={open}
-                        className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-                        style={{ color: "var(--mk-accent-700)" }}
-                      >
-                        {m.name}
-                        <Icon icon={GraduationCap} size={13} />
-                      </button>
-                    ) : (
-                      <span className="font-semibold" style={{ color: "var(--mk-accent-700)" }}>
-                        {m.name}
-                      </span>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => setOpenTermIndex(open ? null : i)}
+                      aria-haspopup="dialog"
+                      aria-expanded={open}
+                      className="inline-flex items-center gap-1 font-semibold underline decoration-dotted underline-offset-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                      style={{ color: "var(--mk-accent-700)" }}
+                    >
+                      {m.name}
+                      <Icon icon={GraduationCap} size={13} />
+                    </button>
                     <span className="text-mk-muted">：{m.definition}</span>
                   </p>
                   {open && <FormalTermCard method={m} onClose={() => setOpenTermIndex(null)} />}
@@ -198,16 +193,19 @@ export function GuideBox({
 }
 
 /**
- * FormalTermCard — the 语文课 explainer for one method (F3).
+ * FormalTermCard — "what is this method, really" for one method (F3;
+ * widened same day from "the 语文课 term card" — see the file-level doc).
  *
- * A teacher offering a word, not a glossary entry: "在语文课上，这个叫
- * 『举例论证』" first, so the term arrives already anchored to the plain name
- * she just read, then the one-line explanation at reading size
- * (`text-mk-body-lg`, matching 想一想 above — not the 11px `mk-label` chip
- * size that was called unreadable for content in this room). The borrowed
- * example/pattern is `VocabExamples` itself, scoped to just this one method,
- * so there is exactly one renderer for "here is a worked example" in this
- * file.
+ * ALWAYS shows the definition (reading size, `text-mk-body-lg` — matching
+ * 想一想 above, not the 11px `mk-label` chip size called unreadable for
+ * content in this room) and the borrowed example/pattern (`VocabExamples`
+ * itself, scoped to just this one method — one renderer for "here is a
+ * worked example" in this file, not two).
+ *
+ * The "在语文课上，这个叫「…」" sentence is the ONE part that is conditional
+ * — only when `method.formalName` is non-empty and differs from
+ * `method.name`. A teacher offering a word, not a glossary entry: it anchors
+ * to the plain name she already read rather than leading with jargon.
  *
  * Nothing here writes anywhere. There is no "apply this" button, no
  * checkbox, no selectable state — the card explains, it does not choose. It
@@ -217,6 +215,7 @@ export function GuideBox({
  */
 function FormalTermCard({ method, onClose }: { method: WritingGuideMethod; onClose: () => void }) {
   const cardRef = useRef<HTMLDivElement | null>(null);
+  const hasTerm = method.formalName.trim() !== "" && method.formalName !== method.name;
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -241,7 +240,7 @@ function FormalTermCard({ method, onClose }: { method: WritingGuideMethod; onClo
     <div
       ref={cardRef}
       role="dialog"
-      aria-label={`语文课上，这个叫「${method.formalName}」`}
+      aria-label={hasTerm ? `语文课上，这个叫「${method.formalName}」` : `${method.name}是什么`}
       className="ml-1 flex flex-col gap-2 rounded-mk-md border p-3"
       style={{
         borderColor: "var(--mk-accent-300)",
@@ -253,7 +252,7 @@ function FormalTermCard({ method, onClose }: { method: WritingGuideMethod; onClo
           className="inline-flex w-fit items-center rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
           style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
         >
-          语文课怎么说
+          {hasTerm ? "语文课怎么说" : "这是什么"}
         </span>
         <button
           type="button"
@@ -264,8 +263,17 @@ function FormalTermCard({ method, onClose }: { method: WritingGuideMethod; onClo
         </button>
       </div>
       <p className="text-mk-body-lg text-mk-ink">
-        在语文课上，这个叫「<span className="font-semibold">{method.formalName}</span>」。
-        {method.definition && <span className="text-mk-muted"> {method.definition}</span>}
+        {/* Conditional half of the card — only when there IS a curriculum term
+            AND it differs from the plain name. Everything else on this card
+            (this paragraph's definition, and VocabExamples below) is
+            unconditional: every method gets explained, the term is just one
+            more thing some of them have. */}
+        {hasTerm && (
+          <>
+            在语文课上，这个叫「<span className="font-semibold">{method.formalName}</span>」。{" "}
+          </>
+        )}
+        {method.definition}
       </p>
       <VocabExamples methods={[method]} />
     </div>

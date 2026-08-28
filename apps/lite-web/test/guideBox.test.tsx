@@ -1,4 +1,4 @@
-import { render, screen, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { GuideBox } from "@lite/writings/GuideBox";
 import type { WritingBlockGuide } from "@lite/api/writingRoom";
@@ -117,11 +117,14 @@ describe("GuideBox", () => {
   });
 
   /**
-   * The 语文课 term card (F3, 2026-08-28 ruling: offered, never imposed).
-   * `name` ("正反") stays what she reads by default; `formalName`
-   * ("对比论证") only surfaces if she taps for it.
+   * The method card (F3, 2026-08-28; widened same day). Every method's name
+   * is tappable and opens a card explaining "what is this, really" —
+   * definition + borrowed example, always. `formalName` only gates ONE
+   * sentence inside the card (the curriculum term), not the affordance
+   * itself: `name` ("正反") stays what she reads by default, and the 语文课
+   * term ("对比论证") only surfaces as an extra sentence if she taps for it.
    */
-  describe("the 语文课 term card", () => {
+  describe("the method card", () => {
     it("opens on tapping the method's name and reveals the formal term", () => {
       render(<GuideBox guide={GUIDE} onDismiss={() => {}} onDeepen={() => {}} />);
 
@@ -164,31 +167,65 @@ describe("GuideBox", () => {
       expect(screen.getByText(/两个菜市场/)).toBeTruthy();
     });
 
-    it("exposes no card affordance when formalName equals name — nothing to reveal", () => {
+    it("opens the card even when formalName equals name, but omits the 语文课 line", () => {
       // 开门见山: the one pair in vocab's library where the plain name IS the
-      // curriculum term — she already knows it by its real name.
+      // curriculum term. There is nothing left to NAME, but "what is this
+      // method" is still worth explaining — the card opens, the definition
+      // and example still show, only the term sentence is absent.
       const known: WritingBlockGuide = {
         job: "",
         methods: [
-          { name: "开门见山", formalName: "开门见山", definition: "第一句就把结论说出来。", examples: [], patterns: [] },
+          {
+            name: "开门见山",
+            formalName: "开门见山",
+            definition: "第一句就把结论说出来，后面全部用来支撑它。",
+            examples: [{ topic: "校车安全", text: "校车该不该装安全带，其实早有答案：该装。" }],
+            patterns: [],
+          },
         ],
         questions: [],
       };
       render(<GuideBox guide={known} onDismiss={() => {}} onDeepen={() => {}} />);
-      // The name is plain text — no button at all for this entry.
-      expect(screen.queryByRole("button", { name: /开门见山/ })).toBeNull();
-      expect(screen.getByText("开门见山")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: /开门见山/ }));
+
+      const dialog = screen.getByRole("dialog");
+      // The definition also appears in the collapsed list row above (it's
+      // always shown there too), so these assertions are scoped to the card
+      // itself rather than the whole document.
+      expect(within(dialog).getByText(/第一句就把结论说出来/)).toBeTruthy();
+      expect(within(dialog).getByText(/校车该不该装安全带/)).toBeTruthy();
+      // The one thing that must NOT appear: a "在语文课上，这个叫" sentence
+      // naming a term identical to what she already read.
+      expect(within(dialog).queryByText(/在语文课上/)).toBeNull();
     });
 
-    it("exposes no card affordance when formalName is empty — no curriculum term to offer", () => {
+    it("opens the card even when formalName is empty, but omits the 语文课 line", () => {
+      // 最后提个建议 has no curriculum term at all — and is exactly the kind
+      // of vague-sounding name a student would want explained. Gating the
+      // whole card on formalName would have hidden the explanation from
+      // precisely the method that needed it most.
       const noTerm: WritingBlockGuide = {
         job: "",
-        methods: [{ name: "最后提个建议", formalName: "", definition: "结尾给读者一个具体能做的事。", examples: [], patterns: [] }],
+        methods: [
+          {
+            name: "最后提个建议",
+            formalName: "",
+            definition: "结尾给读者一个具体能做的事，而不是空喊一句口号。",
+            examples: [{ topic: "旧书摊", text: "如果你也常去，不妨周末去看看还剩多少本。" }],
+            patterns: [],
+          },
+        ],
         questions: [],
       };
       render(<GuideBox guide={noTerm} onDismiss={() => {}} onDeepen={() => {}} />);
-      expect(screen.queryByRole("button", { name: /最后提个建议/ })).toBeNull();
-      expect(screen.getByText("最后提个建议")).toBeTruthy();
+
+      fireEvent.click(screen.getByRole("button", { name: /最后提个建议/ }));
+
+      const dialog = screen.getByRole("dialog");
+      expect(within(dialog).getByText(/结尾给读者一个具体能做的事/)).toBeTruthy();
+      expect(within(dialog).getByText(/不妨周末去看看还剩多少本/)).toBeTruthy();
+      expect(within(dialog).queryByText(/在语文课上/)).toBeNull();
     });
 
     it("is an explainer, not a picker — no selectable control anywhere once open", () => {
