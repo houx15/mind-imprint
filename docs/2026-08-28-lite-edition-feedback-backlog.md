@@ -128,28 +128,42 @@ Both reports must be **colorful, clear, not verbose, but interesting and
 appealing** — the user's stated goal is 分享欲: the student should *want* to show it.
 Both should surface the student's shining moments and their effort.
 
+Delivered by: spec `docs/superpowers/specs/2026-08-29-lite-reports-design.md`,
+plan `docs/superpowers/plans/2026-08-29-lite-reports.md`.
+
+**Shipped 2026-08-29.** Two discoveries shaped it. (1) **Nothing in lite recorded
+duration** — no heartbeat, no session table, only point-in-time stamps — so the
+minutes had to be built: a visibility-gated, server-clamped heartbeat, plus a
+capped-gap estimate so sessions finished before this shipped don't read 0 分钟.
+(2) **Half of what looks like her writing is not hers**: the 发现 at finalize is AI
+prose, highlight quotes are the article's, and since sub-project A a student
+message carries sentences she *pointed at* as leading `>` lines. Stripping those is
+where R4 is enforced — and a whole-branch review found a live leak in it (a
+hard-wrapped paragraph makes a multi-line quote whose later lines were never
+prefixed), now closed on both the client and the server.
+
 ### C · Reading report
 
-- [ ] **C1 · Stats:** reading time (min), AI chat turns, reading notes count.
-- [ ] **C2 · One thing to take away.** Open in the feedback — could be one important
+- [x] **C1 · Stats:** reading time (min), AI chat turns, reading notes count.
+- [x] **C2 · One thing to take away.** Open in the feedback — could be one important
       sentence, or the student's own most striking thought, or several columns that
       get filled in only if the student has something for them. *Design question,
       not yet decided.*
-- [ ] **C3 · My reading notes.**
-- [ ] **C4 · Export as an image** — good-looking, not verbose.
-- [ ] **C5 · Shining moments, Lark-meeting-notes style.** Lark surfaces a speaker's
+- [x] **C3 · My reading notes.**
+- [x] **C4 · Export as an image** — good-looking, not verbose.
+- [x] **C5 · Shining moments, Lark-meeting-notes style.** Lark surfaces a speaker's
       金句; do the same for the student's own best lines. Export with the student's
       name and their effort noted. (*"it would have fantastic effect!"*)
-- [ ] **C6 · Opt-in public share.** If the student agrees, a QR code others can scan
+- [x] **C6 · Opt-in public share.** If the student agrees, a QR code others can scan
       to view her reading notes publicly.
 
 ### D · Writing report
 
-- [ ] **D1 · Stats:** words written, time spent, AI chat turns.
-- [ ] **D2 · Their most shining points.**
-- [ ] **D3 · Their gains.**
-- [ ] **D4 · Appealing enough to create 分享欲**, showing shining moments and effort.
-- [ ] **D5 · Opt-in public share.** If the student agrees, a QR code to view her
+- [x] **D1 · Stats:** words written, time spent, AI chat turns.
+- [x] **D2 · Their most shining points.**
+- [x] **D3 · Their gains.**
+- [x] **D4 · Appealing enough to create 分享欲**, showing shining moments and effort.
+- [x] **D5 · Opt-in public share.** If the student agrees, a QR code to view her
       writing publicly.
 
 ---
@@ -305,12 +319,17 @@ outcome and the design must look right when it happens.
 
 ## Also found on the walk (small, unassigned)
 
-- [ ] **「看报告」 is a dead label** in both history drawers — it navigates to the
-      "报告还在路上" placeholder. Until the reports exist it should not promise one.
-- [ ] **The reading's own output is stranded at the finish line.** The finalize modal
-      shows 发现 and 关键引句 from the student's lens cards; the finished screen shows
-      only 我的收获. The lens findings, key quotes, and the whole 带读 transcript are
-      stored but unreachable. (C will likely absorb this.)
+- [x] **「看报告」 is a dead label** — fixed with C+D: both placeholder lines are
+      deleted and the label now leads to a real report.
+- [ ] **The reading's own output is still partly stranded** *(partly absorbed by C+D)*.
+      The report now surfaces her takeaway and her 金句, so the loop no longer
+      dead-ends. But the **lens findings** (`atom_card.framework_fill.finding`) and
+      the **key quotes** (her chosen `anchors[].quote`) are still unreachable after
+      finishing. They cannot be 金句 — R4 forbids it, since the finding is AI prose
+      and the quote is the article's — but they are real work she did and could have
+      their own clearly-labelled section. Left open deliberately rather than
+      smuggled into a section whose whole promise is "her own words".
+
 - [x] **可信度 shows 尚未评估 in lite** — fixed with sub-project A (Task 11): gated off by a
       new `credibility` capability, so pro — which does produce a verdict — keeps the field.
 - [ ] **The 我的写作 drawer never got the shelf redesign.** It still uses the old
