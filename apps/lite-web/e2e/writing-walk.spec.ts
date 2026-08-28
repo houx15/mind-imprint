@@ -352,10 +352,20 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
     page.waitForResponse((r) => r.url().includes("/snippets") && r.request().method() === "PUT"),
     paragraphBoxes.nth(1).blur(),
   ]);
+  // An absence is only worth asserting once the thing it contradicts has had
+  // its chance to render. `waitForResponse` returns on the NETWORK response —
+  // one tick before React has committed anything — so checking the banner
+  // there would pass whether or not it later appears. SnippetsStage clears
+  // 「保存中…」 in the same `finally` that follows the `catch` which sets
+  // 「保存这一段失败」, so the spinner going away IS the save's settle signal:
+  // once it is gone, a failed save has already painted its banner.
+  await expect(page.getByText("保存中…")).toHaveCount(0);
   await expect(page.getByText("保存这一段失败，请重试。")).toHaveCount(0);
 
   // ── there are NO 工具卡 in this room. Not a shelf, not a deck, not an
-  // offer inside the guiding box. ────────────────────────────────────────
+  // offer inside the guiding box. Safe as absences: nothing in flight could
+  // introduce one, and the room is provably fully painted by here (the guide
+  // box arrived above, and the save settle just landed). ─────────────────
   await expect(page.getByRole("button", { name: "工具卡" })).toHaveCount(0);
   await expect(page.getByText("让步段 · 以退为进")).toHaveCount(0);
 
@@ -402,11 +412,18 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   const reviewed = (await reviewResp.json()) as {
     comment: { summary: string; points: { text: string; quote: string }[] };
   };
-  expect(reviewed.comment.summary.trim().length).toBeGreaterThan(5);
-  await expect(page.getByText("这次体检没成功，请重试。")).toHaveCount(0);
+  expect(reviewed.comment.summary.trim().length).toBeGreaterThan(10);
 
   const summaryLine = page.getByText(reviewed.comment.summary, { exact: true });
   await expect(summaryLine).toBeVisible({ timeout: 180_000 });
+  // AFTER the summary is on screen, never before. `reviewResp.json()` resolves
+  // a tick after the network response and well before CommentPanel has
+  // re-rendered, so checking this absence there would pass regardless of
+  // whether the error state later appears — vacuous, and exactly the trap
+  // this file has been caught by twice. The summary being visible is proof
+  // the review round trip has been applied; only then does the error banner's
+  // absence mean anything.
+  await expect(page.getByText("这次体检没成功，请重试。")).toHaveCount(0);
 
   // reviewWritingDraft returns commentary only — never writes to
   // writing_draft.body. The box must read exactly as it did before.
