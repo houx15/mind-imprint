@@ -1,0 +1,147 @@
+{
+  "methods": [
+    {
+      "id": "opening_suspense",
+      "name": "留悬念",
+      "applies_to": "opening",
+      "definition": "先抛出一个还没有答案的情况，让读者为了知道结果而读下去。",
+      "examples": [
+        { "topic": "南极科考", "text": "1912 年 1 月，斯科特一行到达南极点，却发现雪地里已经插着一面旗子。那面旗子改变了他们回程的每一个决定。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "opening_question",
+      "name": "设问",
+      "applies_to": "opening",
+      "definition": "开篇提一个真问题，然后用全文来回答它。问题要具体，大到无法回答的问题不算设问。",
+      "examples": [
+        { "topic": "地铁票价", "text": "一张地铁票卖三块钱，可运一个人真正花掉的是七块。剩下那四块，是谁在付？" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "opening_direct",
+      "name": "开门见山",
+      "applies_to": "opening",
+      "definition": "第一句就把结论说出来，后面全部用来支撑它。适合读者已经关心这件事的时候。",
+      "examples": [
+        { "topic": "校车安全", "text": "校车该不该装安全带，其实早有答案：该装，而且早就该装了。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_parallel",
+      "name": "并列",
+      "applies_to": "body",
+      "definition": "几条互不依赖的理由并排放。稳，但要小心几条一样重就没有高潮。",
+      "examples": [
+        { "topic": "图书馆延长开放", "text": "延长开放有三个理由：夜里的座位一直不够、住得远的人白天来不了、闭馆太早反而把人赶去了更吵的地方。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_progressive",
+      "name": "递进",
+      "applies_to": "body",
+      "definition": "是什么 → 为什么 → 怎么办。后一层必须依赖前一层，否则它其实是并列。",
+      "examples": [
+        { "topic": "路灯改造", "text": "这条路晚上太暗；暗是因为灯距按二十年前的车流定的；所以要改的不是换灯泡，是重新算灯距。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_contrast",
+      "name": "正反",
+      "applies_to": "body",
+      "definition": "一正一反两个例子放在一起，差别本身就是论证。两个例子要在其他条件上尽量相似。",
+      "examples": [
+        { "topic": "两个菜市场", "text": "东街的市场留了装卸区，早晨不堵；西街的没留，同样的车流每天堵四十分钟。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_pee",
+      "name": "举例（PEE）",
+      "applies_to": "body",
+      "definition": "观点（Point）→ 例子（Example）→ 解释（Explanation）。最常被漏掉的是第三步：说清这个例子为什么能证明那个观点。",
+      "examples": [
+        { "topic": "自行车道", "text": "隔离带比划线管用。某条路加了隔离带之后，机动车占道从每天十几起降到零。因为划线只是提示，隔离带是物理上进不去。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_concession",
+      "name": "让步",
+      "applies_to": "body",
+      "definition": "先真诚承认对方最强的那一点，再说明它为什么不足以推翻你的结论。承认得越具体，转折越有力。",
+      "examples": [
+        { "topic": "夜市管理", "text": "夜市确实吵，住在楼上的人休息不好，这一点不能装作没有。但吵的是通宵那几家，不是整条街，所以该管的是时间，不是取消。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "point_causal",
+      "name": "因果",
+      "applies_to": "body",
+      "definition": "指出前因如何导致后果。要小心「先后」不等于「因果」，中间的机制得说出来。",
+      "examples": [
+        { "topic": "早自习", "text": "早自习提前半小时，迟到反而变多了——因为最早的一班公交没有跟着提前。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "closing_return",
+      "name": "回扣开头",
+      "applies_to": "closing",
+      "definition": "结尾回到开头那个场景或问题，用全文得到的东西重新回答一次。读者会觉得这篇是完整的。",
+      "examples": [
+        { "topic": "地铁票价", "text": "所以再看开头那四块钱：它不是补贴谁的善意，是我们共同决定要不要让这座城市跑得起来。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "closing_scope",
+      "name": "收束到可做的事",
+      "applies_to": "closing",
+      "definition": "把大结论收回到一件具体、可执行的事上。比喊口号更有力，也更难反驳。",
+      "examples": [
+        { "topic": "校车安全", "text": "不必等全套法规。先把已有的校车按最旧的一批排序，今年换掉前二十辆，就是可以做的第一步。" }
+      ],
+      "patterns": []
+    },
+    {
+      "id": "en_concession",
+      "name": "Conceding, then turning",
+      "applies_to": "body",
+      "definition": "English concessive frames — admit the opposing point, then limit it.",
+      "examples": [],
+      "patterns": [
+        { "label": "Admit then limit", "frame": "While it is true that ___, this does not mean ___." },
+        { "label": "Grant the strongest case", "frame": "Critics are right that ___. What this overlooks, however, is ___." }
+      ]
+    },
+    {
+      "id": "en_qualify",
+      "name": "Qualifying a claim",
+      "applies_to": "any",
+      "definition": "English hedging frames — state how strongly the claim is meant.",
+      "examples": [],
+      "patterns": [
+        { "label": "Degree", "frame": "To a large extent, ___ — though ___." },
+        { "label": "Bounded claim", "frame": "In the case of ___, ___; it is less clear whether ___." }
+      ]
+    },
+    {
+      "id": "en_evidence",
+      "name": "Introducing evidence",
+      "applies_to": "body",
+      "definition": "English frames for bringing a source in and saying what it shows.",
+      "examples": [],
+      "patterns": [
+        { "label": "Cite a study", "frame": "A 2019 study of ___ found that ___." },
+        { "label": "Say what it shows", "frame": "This suggests that ___, because ___." }
+      ]
+    }
+  ]
+}
