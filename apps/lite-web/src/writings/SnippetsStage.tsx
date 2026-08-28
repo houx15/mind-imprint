@@ -1,15 +1,13 @@
 import { useEffect, useState } from "react";
-import { Sparkles, Plus, HelpCircle } from "lucide-react";
+import { Plus, HelpCircle } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { ApiError } from "../api/client";
 import { GuideBox } from "./GuideBox";
 import {
   putWritingSnippet,
-  generateWritingSnippetExemplar,
   guideWritingBlock,
   type WritingOutlineItem,
   type WritingSnippet,
-  type WritingExemplar,
   type WritingBlockGuide,
 } from "../api/writingRoom";
 
@@ -26,18 +24,10 @@ import {
  * about THIS block, grounded in what she has already said. Not suggestions,
  * not a model paragraph — questions.
  *
- * 铁律① IS ENFORCED IN THIS FILE, twice over:
- *
- *   - GuideBox renders `guide.questions`, and the server has already dropped
- *     anything that isn't a question (writing_guide.go's parseWritingGuide).
- *     A question cannot be pasted into an essay; a sentence can. The
- *     guarantee is the output TYPE, not a promise.
- *   - ExemplarBlock (English only) renders the model's demonstration
- *     paragraph as plain, non-editable text in its own bordered 「示范」 box,
- *     with nothing clickable inside it that touches the textarea above. The
- *     two pieces of state — `slotText` and `exemplar` — are never assigned to
- *     each other anywhere in this component. That is the whole guarantee.
-
+ * 铁律① IS ENFORCED IN THIS FILE: GuideBox renders `guide.questions`, and the
+ * server has already dropped anything that isn't a question
+ * (writing_guide.go's parseWritingGuide). A question cannot be pasted into an
+ * essay; a sentence can. The guarantee is the output TYPE, not a promise.
  *
  * There are no 工具卡 in this room at all (2026-08-27): pro's writing surface
  * barely used them, and a student stuck on a paragraph wants a question, not a
@@ -193,8 +183,6 @@ function SnippetBlock({
 }) {
   const [text, setText] = useState(slot.snippet?.text ?? "");
   const [saving, setSaving] = useState(false);
-  const [generating, setGenerating] = useState(false);
-  const [exemplar, setExemplar] = useState<WritingExemplar | null>(null);
   const [guide, setGuide] = useState<WritingBlockGuide | null>(null);
   const [guiding, setGuiding] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -246,28 +234,6 @@ function SnippetBlock({
     }
   }
 
-  async function requestExemplar() {
-    setGenerating(true);
-    setError(null);
-    try {
-      // The exemplar endpoint needs an existing snippet row — if this slot has
-      // never been saved, save it first (even empty) so there is something to
-      // attach the demonstration to.
-      let sid = slot.snippet?.id;
-      if (!sid) {
-        const saved = await putWritingSnippet(writingId, { outlineId: slot.outlineId, position: slot.position, text });
-        onSaved(saved);
-        sid = saved.find((s) => s.position === slot.position)?.id;
-      }
-      if (!sid) throw new Error("missing snippet id");
-      setExemplar(await generateWritingSnippetExemplar(writingId, sid));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : "生成示范失败，请重试。");
-    } finally {
-      setGenerating(false);
-    }
-  }
-
   return (
     <div className="flex flex-col gap-2 rounded-mk-md border border-mk-border bg-mk-surface p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -292,17 +258,6 @@ function SnippetBlock({
           >
             卡住了？
           </Button>
-          {lang === "en" && (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => void requestExemplar()}
-              loading={generating}
-              iconStart={<Icon icon={Sparkles} size={14} />}
-            >
-              示范段落
-            </Button>
-          )}
         </div>
       </div>
 
@@ -317,44 +272,6 @@ function SnippetBlock({
       />
       {saving && <span className="text-mk-small text-mk-faint">保存中…</span>}
       {error && <p className="text-mk-small text-mk-danger">{error}</p>}
-
-      {exemplar && <ExemplarBlock exemplar={exemplar} />}
-    </div>
-  );
-}
-
-/**
- * ExemplarBlock — the 铁律① pressure point. Visually separate container (its
- * own border/background, distinct from the textarea), labeled 「示范」, and
- * there is NOTHING clickable inside it that touches `text` in the sibling
- * component — no copy button, no "用这段" button, no drag handle. Read it,
- * then go write your own.
- */
-function ExemplarBlock({ exemplar }: { exemplar: WritingExemplar }) {
-  return (
-    <div
-      className="flex flex-col gap-2 rounded-mk-md border border-dashed p-3"
-      style={{ borderColor: "var(--mk-accent-300)", background: "color-mix(in srgb, var(--mk-accent-500) 5%, var(--mk-paper))" }}
-    >
-      <div className="flex items-center gap-1.5">
-        <span
-          className="rounded-mk-full px-2 py-0.5 text-mk-label font-semibold"
-          style={{ background: "var(--mk-accent-100)", color: "var(--mk-accent-700)" }}
-        >
-          示范
-        </span>
-        <span className="text-mk-small text-mk-muted">读一读别人会怎么写这一段，再回去写你自己的版本——不是给你抄的</span>
-      </div>
-      <p className="select-text whitespace-pre-wrap text-mk-body italic text-mk-secondary">{exemplar.exemplar}</p>
-      {exemplar.prompts.length > 0 && (
-        <div className="flex flex-col gap-1.5 pt-1">
-          {exemplar.prompts.map((p, i) => (
-            <div key={i} className="rounded-mk-sm bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-muted shadow-mk-xs">
-              {p}
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

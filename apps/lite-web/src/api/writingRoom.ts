@@ -7,8 +7,8 @@ import type { Writing } from "./writings";
  * api/writings.ts the same way api/readingRoom.ts is split from
  * api/readings.ts: writings.ts owns the CRUD shell (list/create/get/rename),
  * this file owns everything that happens once she is INSIDE one — stage/
- * target words, setup + opening, structure, the coach turn, outline, snippets
- * + exemplar, and compose/draft/review/finish.
+ * target words, setup + opening, structure, the coach turn, outline,
+ * snippets, and compose/draft/review/finish.
  *
  * `LiteMessage`/`LiteTurn` are reused from readingRoom.ts, not redeclared:
  * `liteMessageDTO`/`liteTurnDTO` (apps/api/internal/api/reading_turn.go) are
@@ -50,7 +50,6 @@ export type WritingSnippet = {
   updatedAt: string;
 };
 export type WritingDraft = { body: string; updatedAt: string | null };
-export type WritingExemplar = { exemplar: string; prompts: string[] };
 
 const base = (id: string) => `/api/v1/writings/${encodeURIComponent(id)}`;
 
@@ -200,16 +199,6 @@ export async function putWritingSnippet(
     }),
   });
   return raw.snippets ?? [];
-}
-
-/** English-only demonstration paragraph + guiding questions. NEVER
- *  persisted server-side (writing_snippets.go's own comment) — the caller
- *  must not offer any "insert into my draft" affordance for the result
- *  (铁律①: the AI never writes her prose). */
-export async function generateWritingSnippetExemplar(id: string, snippetId: string): Promise<WritingExemplar> {
-  return apiFetch<WritingExemplar>(`${base(id)}/snippets/${encodeURIComponent(snippetId)}/exemplar`, {
-    method: "POST",
-  });
 }
 
 // --- compose / draft / review / finish --------------------------------------

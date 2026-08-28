@@ -266,7 +266,6 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/writings/{id}/outline/{oid}/deepen", liteOnly(a.getWritingBlockThread))
 	mux.Handle("GET /api/v1/writings/{id}/snippets", liteOnly(a.getWritingSnippets))
 	mux.Handle("PUT /api/v1/writings/{id}/snippets", liteOnly(a.putWritingSnippets))
-	mux.Handle("POST /api/v1/writings/{id}/snippets/{sid}/exemplar", liteOnly(a.generateWritingSnippetExemplar))
 	mux.Handle("POST /api/v1/writings/{id}/snippets/{sid}/comment", liteOnly(a.commentOnSnippet))
 	mux.Handle("GET /api/v1/writings/{id}/comments", liteOnly(a.listWritingComments))
 	mux.Handle("POST /api/v1/writings/{id}/compose", liteOnly(a.composeWritingDraft))

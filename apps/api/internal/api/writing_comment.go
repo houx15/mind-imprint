@@ -140,10 +140,9 @@ const writingCommentSystem = `你是「印记」，正在给学生已经写的�
 只输出一个 JSON 对象，不要输出对象以外的任何文字或代码块标记。`
 
 // buildWritingCommentPrompt assembles the user turn shared by both zoom
-// levels: title, target words (only if set, never invented — same W-R7
-// discipline as buildWritingExemplarPrompt), then the text itself under a
-// caller-supplied label ("她写的这一段" vs "她的整篇稿子") so the model knows
-// which zoom level it is looking at.
+// levels: title, target words (only if set, never invented — W-R7), then the
+// text itself under a caller-supplied label ("她写的这一段" vs "她的整篇稿子")
+// so the model knows which zoom level it is looking at.
 func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 	var b strings.Builder
 	if t := strings.TrimSpace(wr.Title); t != "" {
@@ -167,11 +166,11 @@ type writingCommentResult struct {
 }
 
 // parseWritingComment decodes and lightly sanity-checks the model's reply.
-// Reuses extractWritingExemplarJSONObject (writing_snippets.go) — same
-// "strip fences, clamp to the outermost {..}" extraction every JSON-replying
-// prompt in this package already shares.
+// Reuses extractWritingJSONObject (writing_snippets.go) — same "strip
+// fences, clamp to the outermost {..}" extraction every JSON-replying prompt
+// in this package already shares.
 func parseWritingComment(text string) (writingCommentResult, bool) {
-	c := extractWritingExemplarJSONObject(text)
+	c := extractWritingJSONObject(text)
 	if c == "" {
 		return writingCommentResult{}, false
 	}
