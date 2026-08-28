@@ -84,7 +84,8 @@ const zhPlanReply = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],"st
   {"kind":"focus_block","detail":"第三段是全文唯一解释原理的地方。"},
   {"kind":"lens","detail":"用一个角度再看一遍。"},
   {"kind":"reflect","detail":"说说你以前是怎么以为的。"},
-  {"kind":"quiz","detail":"几个问题。"}]}`
+  {"kind":"connect","detail":"想想你自己见过没有。"},
+  {"kind":"hunt","detail":"回去找一句。"}]}`
 
 // TestReadingPlan_GeneratesATaskListFromTheArticle — the ordinary case.
 func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
@@ -103,12 +104,12 @@ func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
 	if out.RoutineName == "" {
 		t.Fatalf("routineName empty — she is never shown a bare key")
 	}
-	if len(out.Tasks) != 5 {
-		t.Fatalf("got %d tasks, want the routine's 5; %+v", len(out.Tasks), out.Tasks)
+	if len(out.Tasks) != 6 {
+		t.Fatalf("got %d tasks, want the routine's 6; %+v", len(out.Tasks), out.Tasks)
 	}
 
 	// The shape the product asked for, in order.
-	wantKinds := []string{"read", "focus_block", "lens", "reflect", "quiz"}
+	wantKinds := []string{"read", "focus_block", "lens", "reflect", "connect", "hunt"}
 	for i, want := range wantKinds {
 		if out.Tasks[i].Kind != want {
 			t.Fatalf("task %d kind = %q, want %q", i, out.Tasks[i].Kind, want)
@@ -137,8 +138,8 @@ func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
 	if rec2.Code != http.StatusOK {
 		t.Fatalf("GET plan = %d; body=%s", rec2.Code, rec2.Body)
 	}
-	if got := decodeReadingPlan(t, rec2); len(got.Tasks) != 5 {
-		t.Fatalf("GET plan returned %d tasks, want 5", len(got.Tasks))
+	if got := decodeReadingPlan(t, rec2); len(got.Tasks) != 6 {
+		t.Fatalf("GET plan returned %d tasks, want 6", len(got.Tasks))
 	}
 }
 
@@ -151,19 +152,19 @@ func TestReadingPlan_ModelCannotInventSteps(t *testing.T) {
 	// the extra-steps case in particular is the one a shorter rogue reply
 	// would never exercise.
 	const rogue = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b2"],"steps":[
-	  {"kind":"quiz","detail":"先考她。"},
+	  {"kind":"hunt","detail":"先考她。"},
 	  {"kind":"summarize_for_her","detail":"我来替她总结全文。"},
 	  {"kind":"read","detail":"随便读读。"},
 	  {"kind":"lens","detail":"再来一次。"},
 	  {"kind":"reflect","detail":"想想。"},
 	  {"kind":"read","detail":"我自己加的第六步。"},
-	  {"kind":"quiz","detail":"我自己加的第七步。"}]}`
+	  {"kind":"hunt","detail":"我自己加的第七步。"}]}`
 	h, cookie, _, _ := liteHandlerWithProvider(t, writingTextStubProvider(rogue))
 	id := createReadingAtom(t, h, cookie)
 	putReadingSourceHTTP(t, h, cookie, id, "城市为什么比郊区热？", zhArticle)
 
 	out := decodeReadingPlan(t, postReadingPlan(t, h, cookie, id))
-	wantKinds := []string{"read", "focus_block", "lens", "reflect", "quiz"}
+	wantKinds := []string{"read", "focus_block", "lens", "reflect", "connect", "hunt"}
 	if len(out.Tasks) != len(wantKinds) {
 		t.Fatalf("got %d tasks, want the routine's %d — the model added steps", len(out.Tasks), len(wantKinds))
 	}

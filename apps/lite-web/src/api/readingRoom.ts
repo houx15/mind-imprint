@@ -322,8 +322,9 @@ function studentAnchorOf(c: LiteCard): Anchor | undefined {
 export type ReadingTask = {
   id: string;
   position: number;
-  /** 'read' | 'focus_block' | 'lens' | 'reflect' | 'quiz' — what the step
-   *  renders as. Adding a kind is a code change; adding a ROUTINE is not. */
+  /** 'read' | 'focus_block' | 'lens' | 'reflect' | 'connect' | 'hunt' — what
+   *  the step renders as. Adding a kind is a code change; adding a ROUTINE is
+   *  not. */
   kind: string;
   label: string;
   detail: string;

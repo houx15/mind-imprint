@@ -39,8 +39,12 @@ const (
 	taskLens readingTaskKind = "lens"
 	// 想想这篇给了你什么信息。
 	taskReflect readingTaskKind = "reflect"
-	// 回答几个问题。
-	taskQuiz readingTaskKind = "quiz"
+	// 联系你自己：把这篇跟她自己的经历、见过的事、原本的想法接上。这一步没有
+	// 对错，也不检查——它存在的意义是让这篇文章跟她本人有关系。
+	taskConnect readingTaskKind = "connect"
+	// 找一找：不是打字回答，是回到文章里把某样东西点出来。收尾用它，因为
+	// 打字的答案可以凭印象给，点出来的句子不能。
+	taskHunt readingTaskKind = "hunt"
 )
 
 type readingRoutineStep struct {
@@ -74,7 +78,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskFocusBlock, Label: "精读重点段", Detail: "挑出来的这一段值得慢慢看——点开段落工具，把它拆开。"},
 			{Kind: taskLens, Label: "换一个透镜再看", Detail: "用一个角度重新过一遍，看看能不能看出刚才没看见的东西。"},
 			{Kind: taskReflect, Label: "这篇给了你什么", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
-			{Kind: taskQuiz, Label: "回答几个问题", Detail: "几个问题，检查一下有没有真的读懂。"},
+			{Kind: taskConnect, Label: "你见过这件事吗", Detail: "这篇讲的事，你自己身边、新闻里、或者别的书里，有没有碰到过？想到什么说什么，这一步没有标准答案。"},
+			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出最能撑住作者观点的那一句。点出来，我们一起看看它撑不撑得住。"},
 		},
 	},
 	{
@@ -86,7 +91,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskRead, Label: "先读完这件事", Detail: "先把故事看完，别急着分析。"},
 			{Kind: taskFocusBlock, Label: "看转折那一段", Detail: "事情在这里变了方向——点开段落工具，看看作者是怎么写的。"},
 			{Kind: taskReflect, Label: "作者想让你有什么感觉", Detail: "他是靠什么让你有这种感觉的？"},
-			{Kind: taskQuiz, Label: "回答几个问题", Detail: "几个问题，检查一下细节有没有读住。"},
+			{Kind: taskConnect, Label: "换成你呢", Detail: "如果是你在那个位置上，你会怎么做？跟他一样吗？说说你的理由。"},
+			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出你觉得写得最好的那一句——不是最重要的，是最好的。"},
 		},
 	},
 	{
@@ -100,7 +106,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskFocusBlock, Label: "再拆一段", Detail: "第二段。这一次先自己读，读不懂再点工具。"},
 			{Kind: taskLens, Label: "换一个透镜再看", Detail: "用一个角度重新过一遍。"},
 			{Kind: taskReflect, Label: "用你自己的话复述", Detail: "不看原文，用中文把这篇讲一遍。"},
-			{Kind: taskQuiz, Label: "回答几个问题", Detail: "几个问题，检查一下有没有真的读懂。"},
+			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
+			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出你觉得最难、但现在读懂了的那一句。"},
 		},
 	},
 	{
@@ -113,7 +120,8 @@ var readingRoutines = []readingRoutine{
 			{Kind: taskFocusBlock, Label: "拆开他最用力的那一段", Detail: "点开段落工具，看他是怎么把话说重的。"},
 			{Kind: taskLens, Label: "换一个透镜再看", Detail: "用一个角度检查他的论证。"},
 			{Kind: taskReflect, Label: "你信吗", Detail: "哪一步你觉得站得住，哪一步你觉得他跳过去了？"},
-			{Kind: taskQuiz, Label: "回答几个问题", Detail: "几个问题，检查一下有没有真的读懂。"},
+			{Kind: taskConnect, Label: "你站哪边", Detail: "读之前你自己是什么立场？作者动摇你了吗，还是让你更确定了？"},
+			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出作者最没说服你的那一句。"},
 		},
 	},
 }
