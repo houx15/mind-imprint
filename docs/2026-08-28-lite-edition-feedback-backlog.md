@@ -242,21 +242,54 @@ keeps.
 
 ---
 
-## Cross-cutting rulings still needed
+## ✅ Cross-cutting rulings — DECIDED (user, 2026-08-28)
 
-These cut across C+D and must be decided before either report is specced.
+These cut across A and C+D. All four were put to the user and answered; they are
+binding on every spec below.
 
-1. **Public sharing of minors' work.** Who can open a shared QR link, for how long,
-   whether it can be revoked, whether a teacher or school gates it, and whether the
-   student's real name appears. This is minors' names and schoolwork leaving the
-   platform, so it needs a deliberate answer rather than a default.
+### R1 · Public sharing of a minor's work
 
-2. **铁律② and "shining moments."** An exportable artifact of the student's *own*
-   work is not a slot-machine mechanic, and 铁律② should not be over-applied (see
-   the standing ruling that 铁律 scope is student body text, not orchestration).
-   But *AI selecting what is impressive about you* can drift into flattery, and a
-   report engineered for 分享欲 sits adjacent to the retention mechanics 铁律② rules
-   out (连胜 / 排行榜 / 徽章 / 推送). Decide the line once, explicitly.
+**Anyone with the link, revocable, no expiry.** An unguessable random URL, no login
+required. The student can turn sharing off at any time and the link dies
+immediately. Her name may appear (she asked for the exported picture to carry it).
+
+Consequences for the spec: the share token must be unguessable (not the atom id),
+revocation must be a real state that the public route re-checks on every request
+(no caching a revoked page), and the public route must expose **only** what the
+report shows — never the transcript, never her account, never anything else she
+owns.
+
+### R2 · 铁律② and "shining moments"
+
+**AI selects and displays them directly.** The user overruled the softer
+"AI proposes, student confirms" option deliberately.
+
+The line that keeps this inside 铁律②: what is displayed is **her own words**,
+selected — never a score, a rank, a streak, a badge, or a comparison to anyone
+else. Selection is editorial, not evaluative. And the thing that actually leaves
+the platform still requires her explicit opt-in (R1), so nothing is published
+about her without her acting.
+
+### R3 · Reading → writing is a suggestion, and the suggestion is the product
+
+**Not** a pre-seeded writing project, and **not** a third writing surface inside the
+reading room. It is a suggestion — but a substantial one. In the user's words:
+
+> *"just a suggestion, but suggestion is very important, some interesting questions
+> would grow from this reading — why xxxx, what is xxx, how people view xxx, etc."*
+
+So the deliverable is **questions grown from this particular reading** — real,
+specific, article-derived questions worth writing about (为什么…… / 什么是…… /
+别人怎么看……), not a generic 「去写点什么吧」 link. Generic questions are the failure
+mode here, and the spec must make them structurally hard to emit.
+
+### R4 · The reading report's 金句 are her own words only
+
+Only sentences the student typed herself (her notes, her replies to 带读) may appear
+as 金句 on the report or the exported picture. A striking sentence from the article
+may not — an exported, shareable picture must never put the author's words under the
+student's name. If she wrote little, the picture shows little; that is the honest
+outcome and the design must look right when it happens.
 
 ---
 
