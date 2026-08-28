@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Plus, HelpCircle, Eye } from "lucide-react";
 import { Button, EmptyState, Icon } from "@/ui";
 import { ApiError } from "../api/client";
+import { useAlive } from "../shared/useAlive";
 import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
@@ -159,6 +160,22 @@ export function SnippetsStage({
   // that bills a model call every render, and a piece whose outline genuinely
   // produced nothing must not be asked again on every keystroke.
   const batchTried = useRef(false);
+  /**
+   * Deliberately NOT a per-invocation `let cancelled = false` cleanup flag.
+   *
+   * THE TRAP (it hung this exact box for the whole 180s of the writing walk,
+   * 2026-08-28): `batchTried` and a `cancelled` closure disagree under
+   * StrictMode's mount → cleanup → remount. Pass 1 sets the latch and fires
+   * the one real `/guide` call; the cleanup marks pass 1's closure cancelled;
+   * pass 2 is skipped *because the latch is already set*. The single in-flight
+   * request then lands in the only closure watching it — the cancelled one —
+   * so `setGuides`/`setBatching(false)` are both dropped and the room sits on
+   * 「印记正在把每一块都先想一遍」 forever, on a 200 the server answered
+   * perfectly. `useAlive` is restored to true by the remount and only goes
+   * false on a real unmount, so the latch and the guard can no longer
+   * contradict each other. Full write-up in `shared/useAlive.ts`.
+   */
+  const alive = useAlive();
 
   const anyGuide = outline.some((o) => guides[o.id]);
   const needsBatch = outline.length > 0 && !anyGuide;
@@ -166,24 +183,20 @@ export function SnippetsStage({
   useEffect(() => {
     if (!needsBatch || batchTried.current) return;
     batchTried.current = true;
-    let cancelled = false;
     setBatching(true);
     void guideWritingBlocks(writingId)
       .then((next) => {
-        if (!cancelled) setGuides((prev) => ({ ...next, ...prev }));
+        if (alive.current) setGuides((prev) => ({ ...next, ...prev }));
       })
       .catch((err: unknown) => {
         // Surfaced, never masked: 「卡住了？」 still works per block, and
         // saying so is more useful than a page that silently teaches nothing.
-        if (!cancelled) setBatchError(err instanceof ApiError ? err.message : "这次没能把引导算出来，点某一块的「卡住了？」也可以。");
+        if (alive.current) setBatchError(err instanceof ApiError ? err.message : "这次没能把引导算出来，点某一块的「卡住了？」也可以。");
       })
       .finally(() => {
-        if (!cancelled) setBatching(false);
+        if (alive.current) setBatching(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [needsBatch, writingId]);
+  }, [needsBatch, writingId, alive]);
 
   /** Which block, if any, has 深入一层 open. */
   const [deepen, setDeepen] = useState<{ outlineId: string; heading: string } | null>(null);

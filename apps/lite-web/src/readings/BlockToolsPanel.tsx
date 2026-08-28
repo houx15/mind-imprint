@@ -109,6 +109,14 @@ export function BlockToolsPanel({
   // Run the coach's chosen tool once. Keyed on blockId+tool so moving to a new
   // paragraph re-arms it, and guarded by a ref so a re-render never fires the
   // same call twice — this is a metered call, not a render effect.
+  //
+  // DO NOT pair this latch with a `let cancelled = false` cleanup flag. Under
+  // StrictMode the cleanup cancels the closure that fired the call while the
+  // latch skips the remount, so the one real reply is thrown away and the
+  // busy state never clears — the bug that hung 段落's guide box (write-up in
+  // `src/shared/useAlive.ts`). `run()` sets state unconditionally,
+  // which is why this site is correct as written; if it ever needs an unmount
+  // guard, use `useAlive()`.
   const autoFired = useRef<string | null>(null);
   useEffect(() => {
     if (!autoTool) return;

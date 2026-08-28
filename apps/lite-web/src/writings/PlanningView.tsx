@@ -13,6 +13,7 @@ import {
 } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import type { Writing } from "../api/writings";
+import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
 import { MindMap } from "./MindMap";
 
@@ -79,26 +80,42 @@ export function PlanningView({
    * replays rather than greeting her again, so a refresh mid-flight is free.
    */
   const openingNeeded = writing.setupAt !== null && !messages.some((m) => m.role === "ai");
+  /**
+   * Fire once per writing, and apply the answer unless she has really left.
+   *
+   * Unlike the room's own opening effect, this one is already `openingNeeded`
+   * at mount — so StrictMode's mount → cleanup → remount used to send TWO
+   * concurrent `POST /opening` calls. The server's idempotency gate is a
+   * read-then-write with no lock, so both saw an empty transcript, both billed
+   * a model call, and both appended an 'ai' row: she was charged twice and
+   * greeted twice on her next load.
+   *
+   * The fix is NOT a bare `useRef` latch on its own. A latch plus the old
+   * per-invocation `let cancelled = false` cleanup flag is the exact
+   * combination that hung 段落's guide box (see `shared/useAlive.ts`): the
+   * cleanup cancels pass 1's closure, the latch skips pass 2, and the one
+   * real reply is thrown away by the only closure left watching it. Latch +
+   * `alive` keeps both properties — one call, and its answer always lands.
+   */
+  const openedFor = useRef<string | null>(null);
+  const alive = useAlive();
   useEffect(() => {
-    if (!openingNeeded) return;
-    let cancelled = false;
+    if (!openingNeeded || openedFor.current === writing.id) return;
+    openedFor.current = writing.id;
     setOpening(true);
     void postWritingOpening(writing.id)
       .then((res) => {
-        if (cancelled) return;
+        if (!alive.current) return;
         const reply = res.reply.trim();
         if (reply) onMessages([...messages, { seq: --localSeq.current, role: "ai", content: reply, createdAt: "" }]);
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (!alive.current) return;
         setError(err instanceof ApiError ? err.message : "印记这次没接上，你可以直接开始说。");
       })
       .finally(() => {
-        if (!cancelled) setOpening(false);
+        if (alive.current) setOpening(false);
       });
-    return () => {
-      cancelled = true;
-    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openingNeeded, writing.id]);
 

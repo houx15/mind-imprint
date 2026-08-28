@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type Dispatch, type ReactNode, type SetStateAction } from "react";
 import { Button } from "@/ui";
 import { countWords } from "@/workspace/blocks/wordcount";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
@@ -6,6 +6,7 @@ import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
 import { getWriting, isWritingFinished, type Writing } from "../api/writings";
+import { useAlive } from "../shared/useAlive";
 import {
   listWritingMessages,
   getWritingOutline,
@@ -137,13 +138,30 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
     state.writing.setupAt !== null &&
     !state.messages.some((m) => m.role === "ai");
 
+  /**
+   * Once per writing, and the answer always lands.
+   *
+   * The `alive` ref replaces the per-invocation `let cancelled = false` this
+   * effect used to carry. A once-latch and a `cancelled` closure disagree
+   * under StrictMode's mount → cleanup → remount: the cleanup cancels pass
+   * 1's closure, the latch skips pass 2, and the single in-flight reply is
+   * discarded by the only closure watching it — the room then waits forever
+   * on a request the server already answered. That is exactly how 段落's
+   * guide box hung the writing walk on 2026-08-28; the full write-up lives in
+   * `shared/useAlive.ts`. Without the latch the opposite bill arrives: two
+   * concurrent `POST /opening` calls (the server's idempotency gate is a
+   * read-then-write with no lock) means two model charges and two stored
+   * greetings. Both guards are needed, and they must not be able to disagree.
+   */
+  const openedFor = useRef<string | null>(null);
+  const alive = useAlive();
   useEffect(() => {
-    if (!openingNeeded) return;
-    let cancelled = false;
+    if (!openingNeeded || openedFor.current === writingId) return;
+    openedFor.current = writingId;
     setOpening(true);
     void postWritingOpening(writingId)
       .then((res) => {
-        if (cancelled) return;
+        if (!alive.current) return;
         const reply = res.reply.trim();
         if (!reply) return;
         setState((s) =>
@@ -151,18 +169,15 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         );
       })
       .catch((err: unknown) => {
-        if (cancelled) return;
+        if (!alive.current) return;
         // USER RULE: an AI failure is surfaced, never masked by a canned
         // greeting. She can still type — the room is usable, just not greeted.
         setRoomError(err instanceof ApiError ? err.message : "印记这次没接上，你可以直接开始说。");
       })
       .finally(() => {
-        if (!cancelled) setOpening(false);
+        if (alive.current) setOpening(false);
       });
-    return () => {
-      cancelled = true;
-    };
-  }, [openingNeeded, writingId]);
+  }, [openingNeeded, writingId, alive]);
 
   const chatMessages: ChatMessage[] = useMemo(() => {
     if (state.phase !== "ready") return [];
