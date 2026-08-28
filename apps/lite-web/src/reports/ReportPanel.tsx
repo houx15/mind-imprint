@@ -2,12 +2,17 @@ import { useEffect, useState } from "react";
 import { getReport, type AtomKind, type LiteReport } from "../api/reports";
 import { useAlive } from "../shared/useAlive";
 import { ReportView } from "./ReportView";
+import { SharePanel } from "./SharePanel";
 
 /**
  * ReportPanel — the thing `FinishedReadingPanel` / `FinishedWritingPanel`
  * mount where 「这次阅读/写作的报告还在路上」 used to sit. Owns the fetch and
  * the loading/absent/failed states; `ReportView` itself stays pure
- * presentation (props in, markup out — Task 7).
+ * presentation (props in, markup out — Task 7). Once the report has
+ * arrived, also mounts `SharePanel` underneath it (Task 10) — the opt-in
+ * that lets her publish this exact report to anyone with the link, and take
+ * it back. Sharing is never offered while the report is still loading or
+ * absent: there is nothing to share yet.
  *
  * Fetches on mount with `useAlive`, NOT a `useRef` latch paired with a
  * per-invocation `cancelled` flag — that exact combination is a known
@@ -48,7 +53,16 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
       });
   }, [kind, atomId, alive]);
 
-  if (state === "done" && report) return <ReportView report={report} />;
+  if (state === "done" && report) {
+    return (
+      <>
+        <ReportView report={report} />
+        <div className="mx-auto w-full max-w-[640px] px-6 pb-14">
+          <SharePanel kind={kind} atomId={atomId} />
+        </div>
+      </>
+    );
+  }
   if (state === "quiet") return null;
 
   const verb = kind === "reading" ? "读" : "写";
