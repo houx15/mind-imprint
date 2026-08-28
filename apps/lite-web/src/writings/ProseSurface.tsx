@@ -39,11 +39,15 @@ function splitOnHighlight(
 export function ProseSurface({
   value,
   onChange,
+  onBlur,
   highlight,
   placeholder,
 }: {
   value: string;
   onChange: (next: string) => void;
+  /** Fired when she leaves the page — the host's cue to flush an autosave
+   *  rather than wait out its idle timer. */
+  onBlur?: () => void;
   /** A literal substring of `value` to mark in the layer behind the textarea. */
   highlight?: string | null;
   placeholder?: string;
@@ -97,6 +101,7 @@ export function ProseSurface({
       <textarea
         value={value}
         onChange={(e) => onChange(e.target.value)}
+        onBlur={onBlur}
         onScroll={syncScroll}
         placeholder={placeholder}
         spellCheck={false}

@@ -13,6 +13,7 @@ import {
 } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import type { Writing } from "../api/writings";
+import { EditableTitle } from "./EditableTitle";
 import { MindMap } from "./MindMap";
 
 /**
@@ -43,6 +44,7 @@ export function PlanningView({
   writing,
   messages,
   outline,
+  onRenamed,
   onMessages,
   onOutline,
   onDone,
@@ -51,6 +53,9 @@ export function PlanningView({
   writing: Writing;
   messages: LiteMessage[];
   outline: WritingOutlineItem[];
+  /** The title is editable in every step, 结构 included — this is how the new
+   *  one reaches the rest of the room. */
+  onRenamed?: (next: Writing) => void;
   onMessages: (next: LiteMessage[]) => void;
   onOutline: (next: WritingOutlineItem[]) => void;
   /** Leaves planning for 段落. */
@@ -186,7 +191,7 @@ export function PlanningView({
           <button type="button" onClick={onBack} className="w-fit text-mk-small text-mk-muted hover:text-mk-accent-700">
             ← 我的写作
           </button>
-          <h1 className="truncate text-mk-h3 text-mk-ink">{writing.title || "还没起名字的写作"}</h1>
+          <EditableTitle writingId={writing.id} title={writing.title} onRenamed={onRenamed} />
         </div>
         <div className="flex items-center gap-3">
           <span className="text-mk-small text-mk-muted">先想清楚，再动笔</span>

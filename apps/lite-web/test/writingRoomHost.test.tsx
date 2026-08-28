@@ -75,6 +75,7 @@ function emptyRoutes(over: Partial<Record<string, unknown>> = {}): Record<string
     [key("GET", base("/outline"))]: { body: { outline: [] } },
     [key("GET", base("/snippets"))]: { body: { snippets: [] } },
     [key("GET", base("/draft"))]: { body: { body: "", updatedAt: null } },
+    [key("GET", base("/comments"))]: { body: { comments: [] } },
     // 印记 speaks first, in both faces of the room.
     [key("POST", base("/opening"))]: { body: { reply: "先说说你自己更倾向哪一边？", generated: true } },
   };
@@ -380,8 +381,15 @@ describe("段落 stage — the 铁律 pressure point", () => {
 });
 
 describe("成稿 stage", () => {
-  it("composes from her snippets, edits, requests feedback, and finishes", async () => {
+  it("lands her on her own assembled text, edits, requests feedback, and finishes", async () => {
     routes = { ...emptyRoutes({ stage: "draft" }) };
+    routes[key("GET", base("/snippets"))] = {
+      body: {
+        snippets: [
+          { id: "s1", outlineId: "o1", outlineHeading: "开头", position: 0, text: "夏天路上晒得受不了。", updatedAt: "" },
+        ],
+      },
+    };
     routes[key("POST", base("/compose"))] = { body: { body: "拼合出的初稿。", updatedAt: "2026-08-26T00:00:00Z" } };
     routes[key("PUT", base("/draft"))] = { body: { body: "拼合出的初稿，改过。", updatedAt: "2026-08-26T00:01:00Z" } };
     // POST /review now answers a structured Comment (Task 5/10), not
@@ -404,8 +412,10 @@ describe("成稿 stage", () => {
     render(<WritingRoomHost writingId={WID} />);
     await screen.findByRole("heading", { name: "成稿" });
 
-    fireEvent.click(screen.getByRole("button", { name: "从段落拼出初稿" }));
+    // 从段落拼出初稿 is no longer a prerequisite she has to find and press:
+    // the draft is assembled the moment she opens 成稿.
     const textarea = await screen.findByDisplayValue("拼合出的初稿。");
+    expect(screen.queryByRole("button", { name: "从段落拼出初稿" })).toBeNull();
     fireEvent.change(textarea, { target: { value: "拼合出的初稿，改过。" } });
     fireEvent.blur(textarea);
     await waitFor(() => expect(calls.some((c) => c.method === "PUT" && c.url === base("/draft"))).toBe(true));
@@ -415,6 +425,53 @@ describe("成稿 stage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "完成这篇" }));
     expect(await screen.findByText("已完成")).toBeTruthy();
+  });
+});
+
+describe("the title is hers", () => {
+  /**
+   * What sits in the h1 today is her raw idea sentence, carried from the
+   * landing box — a note to self, not a title, and until now the one line of
+   * the room she could not change.
+   */
+  it("edits on click, saves on blur, and keeps the new name on screen", async () => {
+    routes = { ...emptyRoutes(inRoom()) };
+    routes[key("PATCH", base(""))] = { body: writing(inRoom({ title: "行道树该谁来养" })) };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "段落" });
+
+    fireEvent.click(screen.getByRole("button", { name: "该不该把上学时间往后推？" }));
+    const box = screen.getByLabelText("标题");
+    fireEvent.change(box, { target: { value: "行道树该谁来养" } });
+    fireEvent.blur(box);
+
+    await waitFor(() => {
+      const patch = calls.find((c) => c.method === "PATCH" && c.url === base(""));
+      expect(patch?.body).toEqual({ title: "行道树该谁来养" });
+    });
+    expect(await screen.findByRole("heading", { name: "行道树该谁来养" })).toBeTruthy();
+  });
+
+  it("is editable while planning too, not only in the room", async () => {
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByPlaceholderText("说说你的想法");
+
+    fireEvent.click(screen.getByRole("button", { name: "该不该把上学时间往后推？" }));
+    expect(screen.getByLabelText("标题")).toBeTruthy();
+  });
+
+  it("does not send a blank title the server would reject", async () => {
+    routes = { ...emptyRoutes(inRoom()) };
+    render(<WritingRoomHost writingId={WID} />);
+    await screen.findByRole("heading", { name: "段落" });
+
+    fireEvent.click(screen.getByRole("button", { name: "该不该把上学时间往后推？" }));
+    const box = screen.getByLabelText("标题");
+    fireEvent.change(box, { target: { value: "   " } });
+    fireEvent.blur(box);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: "该不该把上学时间往后推？" })).toBeTruthy());
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
   });
 });
 
