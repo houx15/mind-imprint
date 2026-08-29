@@ -279,6 +279,80 @@ func quotedLinesCiteArticle(content string, blocks []Block) bool {
 	return false
 }
 
+// quoteIsArticleText reports whether s appears literally inside SOME
+// paragraph — the broad form of the check validateReadingPicks makes against
+// one declared paragraph. It exists for one decision only: does this string
+// belong to the article, and therefore have to reach the transcript behind a
+// `> ` prefix? That question must be answered by looking at the article, not
+// by trusting a `type` field the client sent along with the text.
+func quoteIsArticleText(s string, blocks []Block) bool {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return false
+	}
+	for _, blk := range blocks {
+		if strings.Contains(blk.Text, s) {
+			return true
+		}
+	}
+	return false
+}
+
+// composeCardAnswerMessage turns her tap into the one thing the transcript
+// stores: a student message whose every line of ARTICLE text carries a `> `
+// prefix, and whose own-words half carries none.
+//
+// 🚨 This is R4's third enforcement point, and the reason it is a named
+// function with its own test rather than three lines inside the handler.
+// On 2026-08-29 the same invariant was broken in ReadingCoachPanel.send():
+// it prefixed only the FIRST line of a drag-selected quote. SplitBlocks
+// splits the article on blank lines only, so a hard-wrapped paragraph (a PDF
+// paste, a poem, a stretch of dialogue) is ONE block containing newlines —
+// the article's later lines landed in a role='student' row with no prefix,
+// sailed through report_facts.go's stripQuotedLines, and became eligible to
+// be printed under her name on a shareable picture. Card options ARE article
+// sentences, so they are that same landmine's second chance: every line gets
+// the prefix, including the card's own question (印记's words, not hers —
+// they must not count as her prose either).
+//
+// `own` is whatever is genuinely hers this turn — a short_text answer, or
+// anything she typed alongside the tap. It is deliberately left bare: those
+// words SHOULD reach her corpus, and prefixing them would silently erase her
+// from her own report.
+func composeCardAnswerMessage(prompt, quote, own string) string {
+	lines := make([]string, 0, 8)
+	if p := strings.TrimSpace(prompt); p != "" {
+		// Every line here too, and for the same reason: the prompt arrives from
+		// the client, a card's question may quote a sentence, and a question
+		// that wrapped onto a second line would otherwise put that sentence in
+		// the transcript bare. There is no string on this path allowed to reach
+		// a role='student' row with an unprefixed line except hers.
+		for i, line := range strings.Split(p, "\n") {
+			if i == 0 {
+				lines = append(lines, "> 【印记问】"+line)
+				continue
+			}
+			lines = append(lines, "> "+line)
+		}
+	}
+	if q := strings.TrimSpace(quote); q != "" {
+		// Every line, unconditionally — an internal "\n" inside one quote is
+		// the whole reason this loop exists.
+		for _, line := range strings.Split(q, "\n") {
+			lines = append(lines, "> "+line)
+		}
+	}
+	if o := strings.TrimSpace(own); o != "" {
+		if len(lines) > 0 {
+			// The same blank-line separation ReadingCoachPanel.send() uses
+			// between a quote block and what she typed under it.
+			lines = append(lines, "")
+		}
+		lines = append(lines, o)
+	}
+	return strings.Join(lines, "\n")
+}
+
 func buildReadingCoachPrompt(
 	title string,
 	blocks []Block,
@@ -564,6 +638,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Text  string        `json:"text"`
 		Picks []readingPick `json:"picks"`
+		// CardAnswer is set when this turn IS a tap on the card 印记 wrote into
+		// its last reply. It is not a substitute for `text` — she may tap and
+		// type in the same turn — and it never arrives as free-floating words:
+		// the choice is checked against the article before it is allowed near
+		// the transcript.
+		CardAnswer *coachCardAnswer `json:"cardAnswer"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
@@ -582,6 +662,50 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	picks := validateReadingPicks(req.Picks, blocks)
+
+	// A tapped answer becomes a REAL turn: one student message, written into
+	// the same transcript everything else reads. Anything less and her answer
+	// is invisible — buildReadingCoachPrompt would not see it next turn, and a
+	// refresh would show 印记 asking a question she had already answered.
+	//
+	// studentContent is what actually gets stored and what the model is shown,
+	// deliberately the same string: what the coach reads this turn is exactly
+	// what the next turn will read back out of 【你们刚才聊的】.
+	studentContent := studentText
+	var studentPayload []byte
+	// An answer with nothing in it is not a turn: composing on the prompt alone
+	// would store a student message that is only 印记's own question.
+	if ca := req.CardAnswer; ca != nil && (strings.TrimSpace(ca.Choice) != "" || studentText != "") {
+		choice := strings.TrimSpace(ca.Choice)
+		answer := &coachCardAnswer{
+			Type:    strings.TrimSpace(ca.Type),
+			Prompt:  strings.TrimSpace(ca.Prompt),
+			Choice:  choice,
+			BlockID: strings.TrimSpace(ca.BlockID),
+		}
+		quote, own := "", studentText
+		switch {
+		// 🚨 Classified by CHECKING, never by the declared type. A client that
+		// mislabels an article sentence as short_text would otherwise drop the
+		// article's words, unprefixed, into the corpus of "her own words".
+		case quoteIsArticleText(choice, blocks):
+			quote = choice
+			// Tapping a sentence IS pointing at it. Fed through the same
+			// validator as a drag-selection so it earns the same standing:
+			// the coach sees it under 【她在文章里点出来的句子】, and a hunt step
+			// may settle on it (hasHuntPickEvidence).
+			picks = append(picks, validateReadingPicks(
+				[]readingPick{{BlockID: answer.BlockID, Quote: choice}}, blocks)...)
+		case choice != "" && own != "":
+			own = choice + "\n\n" + own
+		case choice != "":
+			own = choice
+		}
+		if content := composeCardAnswerMessage(answer.Prompt, quote, own); content != "" {
+			studentContent = content
+			studentPayload = coachCardAnswerPayload(answer)
+		}
+	}
 
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
@@ -622,7 +746,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentText)},
+			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentContent)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)
@@ -686,9 +810,15 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if studentText != "" {
+	// 🚨 studentContent, not studentText: a PURE tap types nothing, and the old
+	// `studentText != ""` gate wrote no student row at all. Her answer would
+	// have been missing from the next turn's context and gone after a refresh.
+	// The tap's payload rides along so the room can re-render the card she
+	// already answered instead of one still waiting for her.
+	if studentContent != "" {
 		if _, err := qtx.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
-			AtomID: at.ID, Seq: seq, Role: "student", Content: studentText,
+			AtomID: at.ID, Seq: seq, Role: "student", Content: studentContent,
+			Payload: studentPayload,
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return

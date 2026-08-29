@@ -252,6 +252,44 @@ func coachCardClauseEnds(body string, end int) bool {
 // which a card the model wrote on the spot never will.
 type coachMessagePayload struct {
 	Card *coachCard `json:"card,omitempty"`
+	// Answer is the other half of the envelope: on HER side of the transcript,
+	// what she tapped. The words themselves are already in `content` (as `> `
+	// lines when they are the article's), but a reader of the content alone
+	// cannot tell 「她点了卡片上的第二个选项」 apart from 「她引用了一句然后打字」.
+	// Storing the structured answer is what lets the room re-render the card
+	// she already answered after a refresh, instead of showing a live card
+	// waiting for a tap she has made.
+	Answer *coachCardAnswer `json:"answer,omitempty"`
+}
+
+// coachCardAnswer is her answer to a chat card: which card it was, what it
+// asked, and what she chose. `Choice` is ARTICLE TEXT for choose_span and
+// pick_in_article, and HER OWN words for short_text — which is exactly why
+// nothing downstream is allowed to trust this field's `Type` to tell the two
+// apart. See composeCardAnswerMessage: what goes into the transcript is
+// classified by CHECKING the choice against the article, not by believing
+// the type the client declared.
+type coachCardAnswer struct {
+	Type    string `json:"type,omitempty"`
+	Prompt  string `json:"prompt,omitempty"`
+	Choice  string `json:"choice,omitempty"`
+	BlockID string `json:"blockId,omitempty"`
+}
+
+// coachCardAnswerPayload renders her answer into the jsonb column's bytes,
+// the mirror of coachCardPayload. Nil answer → nil bytes → SQL NULL.
+func coachCardAnswerPayload(a *coachCardAnswer) []byte {
+	if a == nil {
+		return nil
+	}
+	b, err := json.Marshal(coachMessagePayload{Answer: a})
+	if err != nil {
+		// Same reasoning as coachCardPayload: a struct of strings cannot fail
+		// to marshal, and if it somehow did, her turn still stands — the words
+		// are in `content`, which is the part the next turn actually reads.
+		return nil
+	}
+	return b
 }
 
 // coachCardPayload renders a card into the jsonb column's bytes. A nil card

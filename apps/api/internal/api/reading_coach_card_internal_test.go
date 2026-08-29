@@ -758,3 +758,155 @@ func TestReadingCoachSystem_CardRulings(t *testing.T) {
 		}
 	}
 }
+
+// TestCardAnswerQuotesEveryLine —— 这条测试存在的理由是一次已经发生过的事故。
+//
+// 2026-08-29：ReadingCoachPanel 只给引用的**第一行**加了 `> `。SplitBlocks 只按
+// 空行切段，所以一段硬换行的原文（PDF 粘贴、诗、对白）是**一个带换行的 block**；
+// 多行引用的后几行进了 role='student' 的行里、身上没有前缀，穿过
+// stripQuotedLines，成了可以印在她署名的图片上的「她自己的话」。
+// 卡片选项就是文章原句 —— 同一颗地雷的第二次机会。
+func TestCardAnswerQuotesEveryLine(t *testing.T) {
+	// 一段硬换行的原文 —— SplitBlocks 只按空行切，所以这是「一个 block 里带换行」
+	quote := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+	got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "")
+	for _, line := range strings.Split(quote, "\n") {
+		if !strings.Contains(got, "> "+line) {
+			t.Fatalf("line not quoted: %q\nfull message:\n%s", line, got)
+		}
+	}
+}
+
+func TestComposeCardAnswerMessage(t *testing.T) {
+	quote := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+
+	t.Run("文章的每一行都被 stripQuotedLines 拿走", func(t *testing.T) {
+		// R4 的真实执行点：报告语料只留 stripQuotedLines 之后剩下的东西。
+		// 引用的任何一行漏进这里，就是可以印在她署名的图片上的原文。
+		got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "")
+		if left := stripQuotedLines(got); left != "" {
+			t.Fatalf("article text survived into her own corpus: %q", left)
+		}
+	})
+
+	t.Run("卡片的问题也不是她的话", func(t *testing.T) {
+		// 提问是 印记 写的。它跟原文一样不能算进「她自己的话」。
+		got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "")
+		if !strings.Contains(got, "> 【印记问】哪一句你读着最不服气？") {
+			t.Fatalf("the card's question is not quoted:\n%s", got)
+		}
+	})
+
+	t.Run("她自己写的那句不加前缀", func(t *testing.T) {
+		// 反方向同样要命：给她的话加上 `> `，等于把她从她自己的报告里抹掉。
+		got := composeCardAnswerMessage("你读着最不服气的是哪一句？", "", "我觉得作者只算了成本，没算住在那儿的人。")
+		if strings.Contains(got, "> 我觉得") {
+			t.Fatalf("her own words were quoted away:\n%s", got)
+		}
+		if stripQuotedLines(got) != "我觉得作者只算了成本，没算住在那儿的人。" {
+			t.Fatalf("her own words did not survive: %q", stripQuotedLines(got))
+		}
+	})
+
+	t.Run("既点了又打字：原文进引用，她的话留下", func(t *testing.T) {
+		got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "这句话把人当成了温度计。")
+		for _, line := range strings.Split(quote, "\n") {
+			if !strings.Contains(got, "> "+line) {
+				t.Fatalf("line not quoted: %q\n%s", line, got)
+			}
+		}
+		if stripQuotedLines(got) != "这句话把人当成了温度计。" {
+			t.Fatalf("her own words did not survive: %q", stripQuotedLines(got))
+		}
+	})
+
+	t.Run("什么都没有就是空字符串", func(t *testing.T) {
+		// 空内容不写行 —— 一条空的 student 消息比没有更糟。
+		if got := composeCardAnswerMessage("", "", ""); got != "" {
+			t.Fatalf("want empty, got %q", got)
+		}
+	})
+
+	t.Run("点了就是指了：合成出来的消息认得出来", func(t *testing.T) {
+		// hunt 步的 F3 守门人靠 `> ` 行回读文章。她点卡片选项也是「指」，
+		// 合成的消息必须过得了这一关，否则她指了却推不动这一步。
+		blocks := []Block{{ID: "b1", Text: quote}}
+		got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, "")
+		if !quotedLinesCiteArticle(got, blocks) {
+			t.Fatalf("a tapped answer does not read as pointing:\n%s", got)
+		}
+	})
+}
+
+// TestQuoteIsArticleText —— 「这段字是不是文章的」这个判断必须去看文章，
+// 不能信客户端捎来的 type 字段。
+func TestQuoteIsArticleText(t *testing.T) {
+	blocks := []Block{
+		{ID: "b1", Text: "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"},
+		{ID: "b2", Text: "树冠能挡掉一部分直射。"},
+	}
+	t.Run("跨行的原句也是原句", func(t *testing.T) {
+		if !quoteIsArticleText("为主，\n白天吸热", blocks) {
+			t.Fatal("a quote spanning a hard line break was not recognized as article text")
+		}
+	})
+	t.Run("她自己的话不是原句", func(t *testing.T) {
+		if quoteIsArticleText("我觉得作者只算了成本。", blocks) {
+			t.Fatal("her own sentence was mistaken for the article's")
+		}
+	})
+	t.Run("空的不算", func(t *testing.T) {
+		if quoteIsArticleText("   ", blocks) {
+			t.Fatal("blank counted as article text")
+		}
+	})
+}
+
+// TestCoachCardAnswerPayload —— 她的答案跟着那条 student 消息一起存下来，
+// 这样刷新之后房间知道那张卡片她已经答过了。
+func TestCoachCardAnswerPayload(t *testing.T) {
+	if coachCardAnswerPayload(nil) != nil {
+		t.Fatal("a nil answer must store SQL NULL, not an empty shell")
+	}
+	raw := coachCardAnswerPayload(&coachCardAnswer{
+		Type:    coachCardChooseSpan,
+		Prompt:  "哪一句你读着最不服气？",
+		Choice:  "白天吸热、夜里放热。",
+		BlockID: "b1",
+	})
+	var back map[string]any
+	if err := json.Unmarshal(raw, &back); err != nil {
+		t.Fatalf("payload is not JSON: %v (%s)", err, raw)
+	}
+	if _, hasCard := back["card"]; hasCard {
+		t.Errorf("an answer payload must not carry a card key: %s", raw)
+	}
+	answer, isObject := back["answer"].(map[string]any)
+	if !isObject {
+		t.Fatalf("payload[\"answer\"] is %T, want a JSON object", back["answer"])
+	}
+	if answer["choice"] != "白天吸热、夜里放热。" || answer["blockId"] != "b1" {
+		t.Errorf("the answer did not survive: %+v", answer)
+	}
+}
+
+// TestCardAnswerQuotesEveryPromptLine —— 提问本身也可能换行。
+// `prompt` 是客户端捎上来的，卡片的问题里完全可能引一句原文；问题折到第二行，
+// 那一行就会**不带前缀**落进 role='student' 的行里 —— 和 2026-08-29 那次
+// 一模一样的形状，只是换了个字段。这条路上除了她自己的话，
+// 没有任何一行可以裸着进 transcript。
+func TestCardAnswerQuotesEveryPromptLine(t *testing.T) {
+	prompt := "作者说「城市地表以沥青和混凝土为主，\n白天吸热、夜里放热」——你服气吗？"
+	got := composeCardAnswerMessage(prompt, "", "服气一半。")
+	for _, line := range strings.Split(got, "\n") {
+		if strings.TrimSpace(line) == "" || line == "服气一半。" {
+			continue
+		}
+		if !strings.HasPrefix(line, "> ") {
+			t.Fatalf("prompt line reached the transcript bare: %q\nfull message:\n%s", line, got)
+		}
+	}
+	if stripQuotedLines(got) != "服气一半。" {
+		t.Fatalf("only her own words may survive stripQuotedLines, got %q", stripQuotedLines(got))
+	}
+}
