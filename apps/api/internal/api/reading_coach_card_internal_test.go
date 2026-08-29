@@ -547,6 +547,93 @@ func TestValidateCoachCard(t *testing.T) {
 			t.Fatalf("one option left after dedupe is no choice at all, got %+v", got)
 		}
 	})
+
+	// —— 包含式去重比的是「会活到最后的那批」（Task 5c (1)）——
+	// 拿整个未截断的候选池当参照会两头落空：短的因为「池子里有更完整的那条」
+	// 被丢掉，而那条更完整的排在截断线之后，根本没被走到。她看到的卡片上两条都没有。
+
+	t.Run("包含它的那条排在截断线之后：不能两条都消失", func(t *testing.T) {
+		wide := []Block{{ID: "b1", Text: "夜里放热。城市地表以沥青为主。建筑密集阻碍散热。空调外机排热到室外。绿地和水面能降温。白天吸热、夜里放热。"}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "夜里放热"}, // A：被最后那条包含
+				{BlockID: "b1", Quote: "城市地表以沥青为主"},
+				{BlockID: "b1", Quote: "建筑密集阻碍散热"},
+				{BlockID: "b1", Quote: "空调外机排热到室外"},
+				{BlockID: "b1", Quote: "绿地和水面能降温"},
+				{BlockID: "b1", Quote: "白天吸热、夜里放热"}, // G：包含 A，排在第 6 位
+			},
+		}, wide)
+		if got == nil || len(got.Options) != 4 {
+			t.Fatalf("expected 4 options, got %+v", got)
+		}
+		var sawShort, sawLong bool
+		for _, o := range got.Options {
+			if o.Quote == "夜里放热" {
+				sawShort = true
+			}
+			if o.Quote == "白天吸热、夜里放热" {
+				sawLong = true
+			}
+		}
+		if !sawShort && !sawLong {
+			t.Fatalf("A 和 G 一起消失了：丢掉短的那条理由指向了卡片上不存在的东西，got %+v", got.Options)
+		}
+		if !sawLong {
+			t.Fatalf("留的应该是更完整的那条，got %+v", got.Options)
+		}
+	})
+
+	// —— 破折号和省略号也是边界（Task 5c (2)）——
+	// `——` / `……` 在中学生读的说明文里很常见；不认它们，破折号后面起头的那一句
+	// 会被静默误杀，而误杀看起来就像 印记 这一轮没想出卡片。
+
+	t.Run("破折号后面起头的句子通过", func(t *testing.T) {
+		dash := []Block{{ID: "d1", Text: "他说了一件事——城市在夜里更热。夏天尤其明显。"}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "d1", Quote: "城市在夜里更热。"},
+				{BlockID: "d1", Quote: "夏天尤其明显。"},
+			},
+		}, dash)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("破折号后面那一句被误杀了，got %+v", got)
+		}
+	})
+
+	t.Run("省略号后面起头的句子通过", func(t *testing.T) {
+		dots := []Block{{ID: "e1", Text: "他数了很久……城市在夜里更热。冬天也一样。"}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "e1", Quote: "城市在夜里更热。"},
+				{BlockID: "e1", Quote: "冬天也一样。"},
+			},
+		}, dots)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("省略号后面那一句被误杀了，got %+v", got)
+		}
+	})
+
+	t.Run("段里有破折号也不放行从词中间截的窗口", func(t *testing.T) {
+		dash := []Block{{ID: "d1", Text: "他说了一件事——城市地表以沥青和混凝土为主，白天吸热。"}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "d1", Quote: "表以沥青和混凝土"},
+				{BlockID: "d1", Quote: "沥青和混凝土为"},
+			},
+		}, dash)
+		if got != nil {
+			t.Fatalf("破折号不该把从句中间截的窗口一起放行，got %+v", got)
+		}
+	})
 }
 
 // TestParseReadingCoachReply_Card — the wiring, from the model's JSON to the

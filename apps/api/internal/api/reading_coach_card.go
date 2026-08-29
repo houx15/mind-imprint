@@ -111,15 +111,23 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	// （「白天吸热、夜里放热」和「夜里放热」）边界规则合并不掉，但摆在同一张
 	// 卡片上就是一组套娃 —— 「挑一句」这件事当场变得莫名其妙。留长的那个：
 	// 它信息更完整，短的那半句她在长的里面照样读得到。
-	out := make([]coachCardOption, 0, coachCardMaxOptions)
-	for i, o := range kept {
-		if coachCardIsSwallowed(o.Quote, kept, i) {
+	//
+	// 🚨 比较的对象必须是**会活到最后的那批**，不是原始候选池。拿整个未截断的
+	// 候选池当参照会这样翻车：候选 `[A, B, C, D, E, G]`，A 短、G 长且包含 A、
+	// G 排在最后 —— A 因为「池子里有更完整的 G」被丢掉，然后 B–E 填满 4 个名额、
+	// 循环收工，G 根本没被走到。她拿到的卡片上 A 和 G **都没有**，而丢掉 A 的
+	// 那条理由（「更完整的那句她照样读得到」）指的正是那张卡片上不存在的 G。
+	// 所以这里改成边扫边攒：只跟已经进了 out 的比，长的**就地顶掉**短的那个位置
+	// （不是排到队尾 —— 排到队尾照样会被截断切掉，等于白留），最后再截到 4。
+	out := make([]coachCardOption, 0, len(kept))
+	for _, o := range kept {
+		if coachCardIsSwallowedBy(o.Quote, out) {
 			continue
 		}
-		out = append(out, o)
-		if len(out) == coachCardMaxOptions {
-			break
-		}
+		out = coachCardPlace(out, o)
+	}
+	if len(out) > coachCardMaxOptions {
+		out = out[:coachCardMaxOptions]
 	}
 	if len(out) < coachCardMinOptions {
 		return nil
@@ -127,26 +135,58 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	return &coachCard{Type: c.Type, Prompt: prompt, Options: out}
 }
 
-// coachCardIsSwallowed —— quote 是不是 kept 里**另一个**选项的子串。
-// 相等的两条在这之前已经被 seen 去掉了，所以这里只认真子串（更长的那个）。
-func coachCardIsSwallowed(quote string, kept []coachCardOption, self int) bool {
-	for j := range kept {
-		if j == self {
-			continue
-		}
-		if len(kept[j].Quote) > len(quote) && strings.Contains(kept[j].Quote, quote) {
+// coachCardSwallows —— outer 是不是把 inner 整个吞掉了。相等的两条在这之前
+// 已经被 seen 去掉了，所以这里只认真子串（严格更长的那个）。
+func coachCardSwallows(outer, inner string) bool {
+	return len(outer) > len(inner) && strings.Contains(outer, inner)
+}
+
+// coachCardIsSwallowedBy —— quote 是不是 out 里某一条的真子串。参照系是 out
+// （已经站住脚的那批），不是原始候选池：理由见 validateCoachCard 里的那段。
+func coachCardIsSwallowedBy(quote string, out []coachCardOption) bool {
+	for _, e := range out {
+		if coachCardSwallows(e.Quote, quote) {
 			return true
 		}
 	}
 	return false
 }
 
+// coachCardPlace —— 把 o 放进 out，并顶掉 out 里被 o 包含的那些。
+// **顶替是就地的**：长的接手第一条被它吞掉的那个位置，顺序不变。排到队尾就会被
+// 后面的截断切掉，那样「留长的」这条规则留下来的东西根本到不了卡片上。
+func coachCardPlace(out []coachCardOption, o coachCardOption) []coachCardOption {
+	next := make([]coachCardOption, 0, len(out)+1)
+	placed := false
+	for _, e := range out {
+		if coachCardSwallows(o.Quote, e.Quote) {
+			if !placed {
+				next = append(next, o)
+				placed = true
+			}
+			continue
+		}
+		next = append(next, e)
+	}
+	if !placed {
+		next = append(next, o)
+	}
+	return next
+}
+
 // coachCardIsBoundary —— 从句边界字符。两套标点都要有：正文可能是中文，也可能
 // 是英文（或者中英混排的一段）。
+//
+// 破折号和省略号也在里面：中学生读的说明文 / 科普 / 新闻里，`——` 和 `……`
+// 一篇通常至少出现一处（`他说了一件事——城市在夜里更热。`）。少了它们，破折号
+// 后面起头的那一句就被判成「从句子中间截的」，而误杀是**静默的**：选项被丢 →
+// 存活不足 2 → 整张卡片消失，屏幕上看起来就像 印记 这一轮没想出卡片。成对出现的
+// `——` / `……` 不用单独处理：撞到第一个就已经是边界了。
 func coachCardIsBoundary(r rune) bool {
 	switch r {
 	case '，', '。', '！', '？', '；', '：', '、', '\n',
-		',', '.', '!', '?', ';', ':':
+		',', '.', '!', '?', ';', ':',
+		'—', '…':
 		return true
 	}
 	return false
