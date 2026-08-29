@@ -293,9 +293,8 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
       body: JSON.stringify({ routineKey: "zh-scan-focus-lens", routineName: "扫读定位透镜", tasks: [huntTask] }),
     });
   });
-  // 带读 has to already be STARTED for the hint to render — ReadingCoachPanel
-  // shows the 开始 invitation, not the task rail's hint, until `messages` is
-  // non-empty.
+  // 带读 has to already be STARTED for the room to render its log —
+  // ReadingCoachPanel shows the 开始 invitation until `messages` is non-empty.
   await page.route("**/api/v1/readings/*/messages", async (route) => {
     if (route.request().method() !== "GET") return route.continue();
     await route.fulfill({
@@ -330,8 +329,12 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
 
   await startReading(page, titled("找一找走查"));
 
-  // The hint names the gesture: pointing, not typing.
-  await expect(page.getByText("在文章里点出那一句")).toBeVisible();
+  // R4 (4): the panel no longer carries a pointing instruction of its own —
+  // that line belongs to the pick_in_article card, so it is collected when the
+  // card is answered instead of lingering above the composer. What must be on
+  // screen here is the coach's own turn; the gesture is proved by the chip.
+  await expect(page.getByText("先看看这句是不是点名了国家。")).toBeVisible();
+  await expect(page.getByText("在文章里点出那一句")).toHaveCount(0);
 
   const quote = "组件价格在这十年里下降了八成以上";
   await selectQuoteInBlock(page, "b2", quote);

@@ -292,7 +292,9 @@ func TestValidateCoachCard(t *testing.T) {
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "b2", Quote: "建筑密集阻碍了夜间散热。"},
-				{BlockID: "b2", Quote: "空调外机把热量排到室外。"},
+				// R4：两条都取自 b2 的时候，这张卡片就是「b2 被剁开」——
+				// 换成另一段的一句，被测的性质（引文带着句号）一个字没变。
+				{BlockID: "b1", Quote: "白天吸热、夜里放热。"},
 			},
 		}, blocks)
 		if got == nil || len(got.Options) != 2 {
@@ -306,7 +308,8 @@ func TestValidateCoachCard(t *testing.T) {
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "b2", Quote: "建筑密集阻碍了夜间散热"},
-				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+				// R4：同上，换一段取第二条；被测的性质（引文不带句号）不变。
+				{BlockID: "b1", Quote: "白天吸热、夜里放热"},
 			},
 		}, blocks)
 		if got == nil || len(got.Options) != 2 {
@@ -361,13 +364,18 @@ func TestValidateCoachCard(t *testing.T) {
 
 	t.Run("换行也是边界", func(t *testing.T) {
 		// block 文本里带换行时，换行两边各自是一句话 —— 不许因为「前一个字不是标点」误杀。
-		nl := []Block{{ID: "n1", Text: "城市越来越热\n夜里也降不下来\n空调开得更久"}}
+		// R4：原来这两条都取自同一个 block，那正是「把一段剁开」。拆成两段之后，
+		// 换行仍然被两头各考了一次：n1 那条前面紧挨着换行，n2 那条后面紧挨着换行。
+		nl := []Block{
+			{ID: "n1", Text: "城市越来越热\n夜里也降不下来"},
+			{ID: "n2", Text: "空调开得更久\n电费也更高"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "n1", Quote: "夜里也降不下来"},
-				{BlockID: "n1", Quote: "空调开得更久"},
+				{BlockID: "n2", Quote: "空调开得更久"},
 			},
 		}, nl)
 		if got == nil || len(got.Options) != 2 {
@@ -376,14 +384,19 @@ func TestValidateCoachCard(t *testing.T) {
 	})
 
 	t.Run("半角标点也是边界", func(t *testing.T) {
-		en := []Block{{ID: "e1", Text: "Cities absorb heat by day. They release it at night, slowly."}}
+		// R4：两条都取自 e1 就是「把一段剁开」；第二段照样是英文，半角标点仍然
+		// 被考到两次（e2 那条也跟在一个 ". " 后面）。
+		en := []Block{
+			{ID: "e1", Text: "Cities absorb heat by day. They release it at night, slowly."},
+			{ID: "e2", Text: "Parks are cooler. Rooftops stay hot until dawn."},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "pick one",
 			Options: []coachCardOption{
-				{BlockID: "e1", Quote: "Cities absorb heat by day."},
 				// 句号后面隔着一个空格 —— 空格本身不是边界字符，但它也不该挡住这一句
 				{BlockID: "e1", Quote: "They release it at night"},
+				{BlockID: "e2", Quote: "Rooftops stay hot until dawn."},
 			},
 		}, en)
 		if got == nil || len(got.Options) != 2 {
@@ -393,13 +406,18 @@ func TestValidateCoachCard(t *testing.T) {
 
 	t.Run("同一句话在段里出现两次时按合格的那一次算", func(t *testing.T) {
 		// 第一次出现是从词中间切的，第二次出现落在边界上 —— 有一次合格就算合格。
-		dup := []Block{{ID: "d1", Text: "夜里放热的地表让城市更热。夜里放热，是热岛的根。"}}
+		// R4：被测的是 d1 里那句出现两次的话；陪跑的第二条换到另一段去，
+		// 免得整张卡片就是 d1 本身。
+		dup := []Block{
+			{ID: "d1", Text: "夜里放热的地表让城市更热。夜里放热，是热岛的根。"},
+			{ID: "d2", Text: "绿地和水面能把这股热压下去一点。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "d1", Quote: "夜里放热"},
-				{BlockID: "d1", Quote: "是热岛的根"},
+				{BlockID: "d2", Quote: "绿地和水面能把这股热压下去一点。"},
 			},
 		}, dup)
 		if got == nil || len(got.Options) != 2 {
@@ -414,13 +432,17 @@ func TestValidateCoachCard(t *testing.T) {
 	// 印记 这一轮没想出卡片。
 
 	t.Run("中文引号包住的整句通过", func(t *testing.T) {
-		q := []Block{{ID: "q1", Text: "他说：“城市在夜里更热。”这句话有数据支撑。"}}
+		// R4：被测的是引号包住的那一句；陪跑的一条换到 q2，整张卡片才不是 q1 自己。
+		q := []Block{
+			{ID: "q1", Text: "他说：“城市在夜里更热。”这句话有数据支撑。"},
+			{ID: "q2", Text: "气象站的记录也是这么写的。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "q1", Quote: "城市在夜里更热。"},
-				{BlockID: "q1", Quote: "这句话有数据支撑。"},
+				{BlockID: "q2", Quote: "气象站的记录也是这么写的。"},
 			},
 		}, q)
 		if got == nil || len(got.Options) != 2 {
@@ -429,13 +451,17 @@ func TestValidateCoachCard(t *testing.T) {
 	})
 
 	t.Run("括号包住的整句通过", func(t *testing.T) {
-		p := []Block{{ID: "p1", Text: "夜里的温度更高。（数据来自城区的气象站。）后来又测了一次。"}}
+		// R4：同上，陪跑的一条换到 p2。
+		p := []Block{
+			{ID: "p1", Text: "夜里的温度更高。（数据来自城区的气象站。）后来又测了一次。"},
+			{ID: "p2", Text: "第二次的结果差不多。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "p1", Quote: "数据来自城区的气象站。"},
-				{BlockID: "p1", Quote: "后来又测了一次。"},
+				{BlockID: "p2", Quote: "第二次的结果差不多。"},
 			},
 		}, p)
 		if got == nil || len(got.Options) != 2 {
@@ -444,14 +470,18 @@ func TestValidateCoachCard(t *testing.T) {
 	})
 
 	t.Run("单引号包住的整句通过", func(t *testing.T) {
-		s := []Block{{ID: "s1", Text: "她问：‘城市为什么在夜里更热’，没人答得上来。"}}
+		// R4：同上，陪跑的一条换到 s2。
+		s := []Block{
+			{ID: "s1", Text: "她问：‘城市为什么在夜里更热’，没人答得上来。"},
+			{ID: "s2", Text: "这个问题后来被写进了课本。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				// 收尾的 ’ 也要跳过：它后面那个 ，才是真正的边界。
 				{BlockID: "s1", Quote: "城市为什么在夜里更热"},
-				{BlockID: "s1", Quote: "没人答得上来"},
+				{BlockID: "s2", Quote: "这个问题后来被写进了课本。"},
 			},
 		}, s)
 		if got == nil || len(got.Options) != 2 {
@@ -460,13 +490,17 @@ func TestValidateCoachCard(t *testing.T) {
 	})
 
 	t.Run("英文引号包住的整句通过", func(t *testing.T) {
-		e := []Block{{ID: "e2", Text: `He said, "Cities are hotter at night." Nobody disagreed.`}}
+		// R4：同上，陪跑的一条换到 e3。
+		e := []Block{
+			{ID: "e2", Text: `He said, "Cities are hotter at night." Nobody disagreed.`},
+			{ID: "e3", Text: "The data came from the airport station."},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "pick one",
 			Options: []coachCardOption{
 				{BlockID: "e2", Quote: "Cities are hotter at night."},
-				{BlockID: "e2", Quote: "Nobody disagreed."},
+				{BlockID: "e3", Quote: "The data came from the airport station."},
 			},
 		}, e)
 		if got == nil || len(got.Options) != 2 {
@@ -553,13 +587,20 @@ func TestValidateCoachCard(t *testing.T) {
 	// 被丢掉，而那条更完整的排在截断线之后，根本没被走到。她看到的卡片上两条都没有。
 
 	t.Run("包含它的那条排在截断线之后：不能两条都消失", func(t *testing.T) {
-		wide := []Block{{ID: "b1", Text: "夜里放热。城市地表以沥青为主。建筑密集阻碍散热。空调外机排热到室外。绿地和水面能降温。白天吸热、夜里放热。"}}
+		// R4：候选原来全在 b1 里——那本身就是「一段被剁开」的形状，新规则会
+		// 整张丢掉。把其中一条搬进 b2 就够了：A 和 G 仍然同段、仍然是包含关系，
+		// 被测的「顶替 + 截断」一步没变，而 b2 那条必须落在**截断线之前**——
+		// 落在后面的话，最终 4 条又全在 b1，跨段落检查（在截断之后跑）照样毙掉它。
+		wide := []Block{
+			{ID: "b1", Text: "夜里放热。建筑密集阻碍散热。空调外机排热到室外。绿地和水面能降温。白天吸热、夜里放热。"},
+			{ID: "b2", Text: "城市地表以沥青为主。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "b1", Quote: "夜里放热"}, // A：被最后那条包含
-				{BlockID: "b1", Quote: "城市地表以沥青为主"},
+				{BlockID: "b2", Quote: "城市地表以沥青为主"},
 				{BlockID: "b1", Quote: "建筑密集阻碍散热"},
 				{BlockID: "b1", Quote: "空调外机排热到室外"},
 				{BlockID: "b1", Quote: "绿地和水面能降温"},
@@ -591,13 +632,17 @@ func TestValidateCoachCard(t *testing.T) {
 	// 会被静默误杀，而误杀看起来就像 印记 这一轮没想出卡片。
 
 	t.Run("破折号后面起头的句子通过", func(t *testing.T) {
-		dash := []Block{{ID: "d1", Text: "他说了一件事——城市在夜里更热。夏天尤其明显。"}}
+		// R4：被测的是破折号后面起头的那一句；陪跑的一条换到 d2。
+		dash := []Block{
+			{ID: "d1", Text: "他说了一件事——城市在夜里更热。夏天尤其明显。"},
+			{ID: "d2", Text: "冬天的差距要小一些。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "d1", Quote: "城市在夜里更热。"},
-				{BlockID: "d1", Quote: "夏天尤其明显。"},
+				{BlockID: "d2", Quote: "冬天的差距要小一些。"},
 			},
 		}, dash)
 		if got == nil || len(got.Options) != 2 {
@@ -606,13 +651,17 @@ func TestValidateCoachCard(t *testing.T) {
 	})
 
 	t.Run("省略号后面起头的句子通过", func(t *testing.T) {
-		dots := []Block{{ID: "e1", Text: "他数了很久……城市在夜里更热。冬天也一样。"}}
+		// R4：被测的是省略号后面起头的那一句；陪跑的一条换到 e2。
+		dots := []Block{
+			{ID: "e1", Text: "他数了很久……城市在夜里更热。冬天也一样。"},
+			{ID: "e2", Text: "他把这些数字记了整整一年。"},
+		}
 		got := validateCoachCard(&coachCard{
 			Type:   "choose_span",
 			Prompt: "挑一句",
 			Options: []coachCardOption{
 				{BlockID: "e1", Quote: "城市在夜里更热。"},
-				{BlockID: "e1", Quote: "冬天也一样。"},
+				{BlockID: "e2", Quote: "他把这些数字记了整整一年。"},
 			},
 		}, dots)
 		if got == nil || len(got.Options) != 2 {
@@ -632,6 +681,103 @@ func TestValidateCoachCard(t *testing.T) {
 		}, dash)
 		if got != nil {
 			t.Fatalf("破折号不该把从句中间截的窗口一起放行，got %+v", got)
+		}
+	})
+
+	// —— 选项必须跨段落（Task R4 (1)）——
+	// 逐字校验保证她**看**了文章；它保证不了她**读懂**了。真实走查里那张
+	// 「第三段里，哪一句让你最清楚地看到钱去了哪里？」，三个选项就是第三段的
+	// 全部三句、按原文顺序排下来——每一条都过了上面所有的检查，而她一段都不用读，
+	// 因为选项**就是**那一段。这一条是唯一一条看**选项集**的规则。
+
+	t.Run("选项全部来自同一段：整张卡片被丢掉", func(t *testing.T) {
+		// 走查里那张卡的形状：一段被剁成它的全部句子。
+		one := []Block{
+			{ID: "b1", Text: "先说钱去了哪里。"},
+			{ID: "b2", Text: "一部分用来养这套系统本身。另一部分是平台的利润。规则越精细，成本越高。"},
+		}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "哪一句让你最清楚地看到钱去了哪里？",
+			Options: []coachCardOption{
+				{BlockID: "b2", Quote: "一部分用来养这套系统本身。"},
+				{BlockID: "b2", Quote: "另一部分是平台的利润。"},
+				{BlockID: "b2", Quote: "规则越精细，成本越高。"},
+			},
+		}, one)
+		if got != nil {
+			t.Fatalf("三个选项就是第二段本身，她一段都不用读；整张卡片必须丢掉，got %+v", got)
+		}
+	})
+
+	t.Run("选项跨两个段落：通过", func(t *testing.T) {
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "作者是怎么让你相信这笔账划算的？",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "白天吸热、夜里放热"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("两段各取一句正是这条规则要的形状，不许误杀：%+v", got)
+		}
+	})
+
+	t.Run("跨段落判定在截断之后：被切掉第二段就不算跨段", func(t *testing.T) {
+		// 🚨 这一条钉的是**判定的位置**。放在截断之前判，这张卡片会「合法」地
+		// 发出去，而她屏幕上的 4 条全在 b1——正是这条规则要挡的那个东西。
+		wide := []Block{
+			{ID: "b1", Text: "夜里放热。建筑密集阻碍散热。空调外机排热到室外。绿地和水面能降温。"},
+			{ID: "b2", Text: "城市地表以沥青为主。"},
+		}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "夜里放热"},
+				{BlockID: "b1", Quote: "建筑密集阻碍散热"},
+				{BlockID: "b1", Quote: "空调外机排热到室外"},
+				{BlockID: "b1", Quote: "绿地和水面能降温"},
+				// 唯一的第二段落在第 5 位 —— 截断到 4 之后它就不在卡片上了。
+				{BlockID: "b2", Quote: "城市地表以沥青为主"},
+			},
+		}, wide)
+		if got != nil {
+			t.Fatalf("截断把唯一的另一段切掉了，剩下的 4 条就是 b1 本身，got %+v", got)
+		}
+	})
+
+	t.Run("包含式顶替之后仍然跨段落：照常通过", func(t *testing.T) {
+		// 顶替发生在 b1 内部，b2 那条一直站着 —— 跨段落这条不该跟着受牵连。
+		mix := []Block{
+			{ID: "b1", Text: "白天吸热、夜里放热。"},
+			{ID: "b2", Text: "空调外机把热量排到室外。"},
+		}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "夜里放热"},
+				{BlockID: "b1", Quote: "白天吸热、夜里放热"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+			},
+		}, mix)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("expected 2 options, got %+v", got)
+		}
+		if got.Options[0].Quote != "白天吸热、夜里放热" || got.Options[1].BlockID != "b2" {
+			t.Fatalf("顶替之后的选项集变形了：%+v", got.Options)
+		}
+	})
+
+	t.Run("pick_in_article / short_text 不受跨段落约束", func(t *testing.T) {
+		// 这条规则管的是「选项集就是一段话」这件事；没有选项的卡片没有这个问题。
+		for _, typ := range []string{"pick_in_article", "short_text"} {
+			got := validateCoachCard(&coachCard{Type: typ, Prompt: "去文章里点出最站不住的那一句"}, blocks)
+			if got == nil {
+				t.Fatalf("%s 没有 options，跨段落规则不该碰它", typ)
+			}
 		}
 	})
 }

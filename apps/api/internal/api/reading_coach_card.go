@@ -38,6 +38,22 @@ const (
 	// coachCardMinQuoteRunes 一两个字确实也是文章的子串，但那不是「一句话」，
 	// 渲染出来是张废卡。
 	coachCardMinQuoteRunes = 4
+	// coachCardMinBlocks 选项必须来自至少两个不同的段落。
+	//
+	// 🚨 这一条是整个校验器里唯一一条不看单个选项、只看**选项集**的规则，
+	// 而它管的恰恰是这张卡片存在的理由。真实走查里出过这么一张：
+	//
+	//	「第三段里，哪一句让你最清楚地看到钱去了哪里？」
+	//	(A)(B)(C) = 第三段的全部三句，按原文顺序排下来
+	//
+	// 每一条都逐字来自原文、每一条都落在从句边界上、互不包含——校验器全放行了。
+	// 但那三个选项**就是第三段本身**：她不必读第 1、2、4 段，甚至不必读第 3 段，
+	// 扫一眼选项里的名词就能点。这不是「从文章里挑几句让她选」，这是**把一段话
+	// 剁开**。逐字校验保证的是她**看**了文章，保证不了她**读懂**了。
+	//
+	// 跨段落取选项就是那个保证：比较发生在两段之间，她非把两处都读懂不可。
+	// 这同时干掉了「第 X 段里哪一句…」这个本来就最弱的问法。
+	coachCardMinBlocks = 2
 )
 
 // coachCardOption 是卡片上的一个选项：文章里某一段（BlockID）的某一句原话
@@ -64,7 +80,8 @@ type coachCard struct {
 //   - choose_span：每个 Quote 必须是**它自己那个 BlockID** 的字面子串
 //     （挂错段落 = 不算）、**落在从句边界上**（见 coachCardQuoteIsClause）、
 //     去空、去太短、去重（含**包含式**去重：一个选项是另一个的子串就丢掉短的）、
-//     截断到 4 个，存活 < 2 → 整张丢掉；
+//     截断到 4 个，存活 < 2 → 整张丢掉；**存活的选项全部来自同一段 → 整张丢掉**
+//     （见 coachCardMinBlocks）；
 //   - pick_in_article / short_text：忽略并清空 options
 //     （问题本身就是「去文章里找」，给了选项反而把这件事替她做了）。
 func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
@@ -132,7 +149,27 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	if len(out) < coachCardMinOptions {
 		return nil
 	}
+	// 🚨 跨段落这一条必须在**截断之后**判，判的是她屏幕上真正会出现的那几条。
+	// 放在截断之前判会这样漏：候选里第 5 条来自另一段，前 4 条全在同一段——
+	// 截断把那唯一的第二段切掉，卡片照样发出去，而她看到的仍然是「一段话被剁开」。
+	// 规则管的是最终的选项集，那就只能在选项集定下来之后判。
+	if !coachCardSpansBlocks(out) {
+		return nil
+	}
 	return &coachCard{Type: c.Type, Prompt: prompt, Options: out}
+}
+
+// coachCardSpansBlocks —— 这批选项是不是来自至少 coachCardMinBlocks 个不同的
+// 段落。理由见 coachCardMinBlocks：选项全挤在一段里的时候，选项就是那一段。
+func coachCardSpansBlocks(opts []coachCardOption) bool {
+	seen := make(map[string]bool, len(opts))
+	for _, o := range opts {
+		seen[o.BlockID] = true
+		if len(seen) >= coachCardMinBlocks {
+			return true
+		}
+	}
+	return false
 }
 
 // coachCardSwallows —— outer 是不是把 inner 整个吞掉了。相等的两条在这之前

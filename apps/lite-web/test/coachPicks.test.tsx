@@ -142,11 +142,19 @@ describe("ReadingCoachPanel — picks", () => {
     expect(text).toContain("> 但人均排放仍低于多数发达国家。");
   });
 
-  it("shows the hunt hint only while the current step is a hunt", async () => {
+  /**
+   * R4 (4) —— 「点出那一句」这条指令**属于卡片**，不属于面板。
+   *
+   * 面板上原来常驻着一条几乎一模一样的话（「在文章里点出那一句，点了就会出现在
+   * 这里」），它跟着 hunt 这一步走：pick_in_article 卡片开着的时候，同一句话在
+   * 屏幕上下叠着出现两遍；而她答完卡片之后，没有任何一张卡片还在等她点，那条
+   * 指令却还赖在输入框上面。指令跟着卡片走，才会在卡片收走时一起收走。
+   */
+  it("does not carry a pointing instruction of its own when no card is open", async () => {
     const huntTasks: ReadingTask[] = [
       { id: "t1", position: 0, kind: "hunt", label: "找一找", detail: "", blockId: "", status: "pending", completedAt: null },
     ];
-    const { rerender } = render(
+    render(
       <ReadingCoachPanel
         readingId="r1"
         tasks={huntTasks}
@@ -156,21 +164,34 @@ describe("ReadingCoachPanel — picks", () => {
         onFocusBlock={() => {}}
       />,
     );
-    expect(await screen.findByText("在文章里点出那一句，点了就会出现在这里")).toBeTruthy();
+    await screen.findByText("开始吧，我们先看第一段。");
+    // 当前这一步就是 hunt，而这一轮没有卡片 —— 屏幕上不该有任何一句在要她点。
+    expect(screen.queryByText(/点出那一句/)).toBeNull();
+  });
 
-    const reflectTasks: ReadingTask[] = [
-      { id: "t1", position: 0, kind: "reflect", label: "联系自己", detail: "", blockId: "", status: "pending", completedAt: null },
+  it("leaves the pointing instruction to the pick_in_article card, exactly once", async () => {
+    const huntTasks: ReadingTask[] = [
+      { id: "t1", position: 0, kind: "hunt", label: "找一找", detail: "", blockId: "", status: "pending", completedAt: null },
     ];
-    rerender(
+    render(
       <ReadingCoachPanel
         readingId="r1"
-        tasks={reflectTasks}
-        initialMessages={STARTED_MESSAGES}
+        tasks={huntTasks}
+        initialMessages={[
+          ...STARTED_MESSAGES,
+          {
+            seq: 2,
+            role: "ai",
+            content: "来，找一句。",
+            createdAt: "",
+            payload: { card: { type: "pick_in_article", prompt: "哪一句让你改了主意？" } },
+          },
+        ]}
         slot={baseSlot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
       />,
     );
-    expect(screen.queryByText("在文章里点出那一句，点了就会出现在这里")).toBeNull();
+    expect(await screen.findAllByText(/点出那一句/)).toHaveLength(1);
   });
 });

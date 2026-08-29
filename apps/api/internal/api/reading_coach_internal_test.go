@@ -147,10 +147,30 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// No two near-identical cards in a row: same options, one word changed,
 		// reads as 「你答错了，再选一次」 even with no ✓ and no ✗.
 		"不要连着出两张几乎一样的卡片",
+		// R4 (3): the guard above is about the OPTIONS, and the live walk slipped
+		// straight past it — 「哪一句最能看出钱流向了谁」 followed by 「哪一句让你最
+		// 清楚地看到钱去了哪里」 carried different option sets, so nothing fired,
+		// and she was asked the same question twice. The ruling is about what the
+		// question ASKS, so it has to be its own line.
+		"上一张卡片问过的那件事，这一张就换一件事问",
+		// R4 (1) 🚨 the structural guarantee, the prompt half. The validator drops
+		// an all-one-paragraph option set, and that drop is SILENT (fewer than two
+		// survivors → the whole card vanishes → it reads as 「模型这轮没给卡片」).
+		// So the prompt must ASK for cross-paragraph options, or the guarantee is
+		// bought by quietly losing cards.
+		"choose_span 的选项必须跨段落取：至少来自两个不同的段落",
+		"存活的选项全部来自同一段，整张卡片会被丢掉",
 		// Never scold her for a thing she was pointed at the wrong half of the
-		// screen for. The banned phrases are pinned by their literal text.
+		// screen for.
 		"不要训她",
-		"别急着往下走",
+		// R4 (2): this used to be a literal blocklist (「还没做完」/「别急着往下走」/
+		// 「第一步还没做完」) and the model routed around it by dropping one
+		// character — 「读完第4段了，那这一步还没完」. A blocklist is the wrong
+		// instrument: it enumerates phrasings, and phrasings are infinite. The
+		// rule is now positive and about the ACT — do not comment on the fact
+		// that she has not done it — with worked examples of what to say instead.
+		"不要去评论「她还没做到」这件事本身",
+		"点完它会出现在下面",
 		// text-heavy without a card was the original complaint; the cap alone
 		// never fixed it.
 		"没有卡片的那一轮，话要更短，不是更长",
@@ -164,6 +184,12 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 	}
 	if strings.Contains(readingCoachSystem, "120 个字") {
 		t.Error("the 120-字 cap is the mechanical cause of the AI voice; it must be gone")
+	}
+	// R4 (2): the blocklist itself must be gone, not merely joined by a positive
+	// rule. Left in place it teaches the model to hunt for a phrasing that is not
+	// on the list, which is exactly what the live walk caught it doing.
+	if strings.Contains(readingCoachSystem, "绝对不要说「还没做完」") {
+		t.Error("the literal blocklist is the wrong instrument; the positive rule replaces it")
 	}
 }
 

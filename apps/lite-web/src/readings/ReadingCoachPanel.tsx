@@ -82,10 +82,6 @@ export function ReadingCoachPanel({
   // Everything settled → the walk is over. Derived from the plan rather than
   // remembered from the last turn's flag, so a reload lands in the same state.
   const finished = tasks.length > 0 && tasks.every((t) => t.status !== "pending");
-  // 找一找 (hunt): the current step only settles when she POINTS at a
-  // sentence, not when she describes one — the hint says so, right above
-  // wherever her quote chips are about to appear.
-  const hunting = tasks.find((t) => t.status === "pending")?.kind === "hunt";
 
   // Which card each 印记 message carried, and which of them she has already
   // answered. Derived from the transcript rather than remembered in a state of
@@ -403,10 +399,13 @@ export function ReadingCoachPanel({
         </div>
       )}
 
+      {/* R4 (4)：这里曾经常驻一条面板提示「在文章里点出那一句，点了就会出现在
+          这里」。它跟 pick_in_article 卡片自己的脚注「回文章里点出那一句，点完
+          它就会出现在对话里」几乎一字不差，而且**上下叠着**——同一句话说了两遍。
+          更糟的是它跟着 hunt 这一步走、不跟着卡片走：她答完卡片、屏幕上一张
+          敞开的卡片都没有了，这条指令还赖在输入框上面，指着一个此刻没人要她做
+          的动作。留卡片上那句（它属于那张卡，卡片答完就跟着收走），面板这句去掉。 */}
       <div className="shrink-0 flex flex-col gap-2">
-        {hunting && !slot.locked && (
-          <p className="text-mk-small text-mk-muted">在文章里点出那一句，点了就会出现在这里</p>
-        )}
         {slot.quotes.length > 0 && (
           <div className="flex flex-wrap items-center gap-1.5">
             {slot.quotes.map((q) => (
