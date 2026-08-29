@@ -45,3 +45,58 @@ func TestEveryRoutineHasConnectAndEndsInHunt(t *testing.T) {
 		}
 	}
 }
+
+// TestFocusBlockLabel — 「精读重点段落第 X 段」 must carry the REAL paragraph
+// number. The failure modes worth naming are the two that would send her
+// looking for a paragraph that does not exist: 「第 0 段」 from an unset
+// ordinal, and a literal X left in the template.
+func TestFocusBlockLabel(t *testing.T) {
+	if got := focusBlockLabel(3); got != "精读重点段落第3段" {
+		t.Errorf("focusBlockLabel(3) = %q", got)
+	}
+	for _, ord := range []int{0, -1} {
+		got := focusBlockLabel(ord)
+		if got != "精读重点段落" {
+			t.Errorf("focusBlockLabel(%d) = %q, want the un-numbered fallback", ord, got)
+		}
+		if strings.Contains(got, "第0段") || strings.Contains(got, "第 0 段") ||
+			strings.Contains(got, "X") {
+			t.Errorf("focusBlockLabel(%d) rendered a fake paragraph: %q", ord, got)
+		}
+	}
+}
+
+// TestBuildReadingTasks_FocusLabelCarriesTheParagraphNumber — the label is
+// built where the block is chosen, so the number always matches the blockId
+// on the same row (and the 第N段 the coach prompt prints for it).
+func TestBuildReadingTasks_FocusLabelCarriesTheParagraphNumber(t *testing.T) {
+	blocks := []Block{{ID: "b1"}, {ID: "b2"}, {ID: "b3"}}
+	routine, ok := findReadingRoutine("zh-scan-focus-lens")
+	if !ok {
+		t.Fatal("the default zh routine is gone")
+	}
+	_, kinds, labels, _, blockIDs := buildReadingTasks(
+		routine, readingPlanReply{FocusBlocks: []string{"b3"}}, blocks)
+
+	found := false
+	for i, kind := range kinds {
+		if kind != string(taskFocusBlock) {
+			continue
+		}
+		found = true
+		if blockIDs[i] != "b3" {
+			t.Fatalf("focus step points at %q", blockIDs[i])
+		}
+		if labels[i] != "精读重点段落第3段" {
+			t.Errorf("focus label = %q, want the real paragraph number", labels[i])
+		}
+	}
+	if !found {
+		t.Fatal("no focus step was built")
+	}
+	for _, l := range labels {
+		if strings.Contains(l, "第0段") || strings.Contains(l, "X 段") {
+			t.Errorf("a label rendered a fake paragraph number: %q", l)
+		}
+	}
+}

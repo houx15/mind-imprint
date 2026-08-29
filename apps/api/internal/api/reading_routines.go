@@ -42,6 +42,8 @@ package api
 //   - 第 3 条**完全活着**：routine 的挑选仍然是确定性的，一次模型调用都不烧；
 //     卡片是在一轮本来就要发生的对话里顺手产出的，没有额外的一次调用。
 
+import "fmt"
+
 // readingTaskKind is what a step renders as. Adding a KIND is a code change;
 // adding a ROUTINE is a data change — the same "schema-driven or not" test
 // AGENTS.md applies to the tool cards.
@@ -63,6 +65,31 @@ const (
 	// 打字的答案可以凭印象给，点出来的句子不能。
 	taskHunt readingTaskKind = "hunt"
 )
+
+// focusBlockLabelBase is the 精读 step's label WITHOUT its paragraph number.
+// The number is not known when the library is written — it is whichever
+// paragraph 印记 picked for this article — so the routine holds the base and
+// buildReadingTasks appends 第N段 as the rows are built.
+//
+// 2026-08-29: the product owner read the old labels off a real screen and
+// could not tell what they were asking for（「给了你什么」「回去找一句」）。
+// The names are now plain: 通读全文 / 精读重点段落第N段 / 深入思考 / 总结收获 /
+// 链接经验 / 找出关键句. Where a routine's own step already had a plain, human
+// name (「你信吗」「换成你呢」), it keeps it — the rule is "say it in Chinese a
+// 13-year-old would use", not "make every routine identical".
+const focusBlockLabelBase = "精读重点段落"
+
+// focusBlockLabel stamps the real paragraph number onto the 精读 step.
+//
+// 🚨 ord <= 0 means the paragraph is unknown, and the ONLY correct answer then
+// is a label with no number at all. 「第 0 段」 and a literal X are both worse
+// than saying less: she would go looking for a paragraph that does not exist.
+func focusBlockLabel(ord int) string {
+	if ord <= 0 {
+		return focusBlockLabelBase
+	}
+	return fmt.Sprintf("%s第%d段", focusBlockLabelBase, ord)
+}
 
 type readingRoutineStep struct {
 	Kind   readingTaskKind `json:"kind"`
@@ -91,12 +118,12 @@ var readingRoutines = []readingRoutine{
 		Name:  "通读 → 精读 → 透镜",
 		Blurb: "默认读法。适合说明文、议论文、新闻这类讲道理的文章。",
 		Steps: []readingRoutineStep{
-			{Kind: taskRead, Label: "先通读一遍", Detail: "不查词、不停下来，先知道这篇大概在说什么。"},
-			{Kind: taskFocusBlock, Label: "精读重点段", Detail: "挑出来的这一段值得慢慢看——点开段落工具，把它拆开。"},
-			{Kind: taskLens, Label: "换一个透镜再看", Detail: "用一个角度重新过一遍，看看能不能看出刚才没看见的东西。"},
-			{Kind: taskReflect, Label: "这篇给了你什么", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
-			{Kind: taskConnect, Label: "你见过这件事吗", Detail: "这篇讲的事，你自己身边、新闻里、或者别的书里，有没有碰到过？想到什么说什么，这一步没有标准答案。"},
-			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出最能撑住作者观点的那一句。点出来，我们一起看看它撑不撑得住。"},
+			{Kind: taskRead, Label: "通读全文", Detail: "不查词、不停下来，先知道这篇大概在说什么。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "挑出来的这一段值得慢慢看——点开段落工具，把它拆开。"},
+			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度重新过一遍，看看能不能看出刚才没看见的东西。"},
+			{Kind: taskReflect, Label: "总结收获", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
+			{Kind: taskConnect, Label: "链接经验", Detail: "这篇讲的事，你自己身边、新闻里、或者别的书里，有没有碰到过？想到什么说什么，这一步没有标准答案。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出最能撑住作者观点的那一句。点出来，我们一起看看它撑不撑得住。"},
 		},
 	},
 	{
@@ -105,11 +132,11 @@ var readingRoutines = []readingRoutine{
 		Name:  "跟着故事读",
 		Blurb: "适合记叙文、人物报道、散文——有人、有事、有转折的文章。",
 		Steps: []readingRoutineStep{
-			{Kind: taskRead, Label: "先读完这件事", Detail: "先把故事看完，别急着分析。"},
-			{Kind: taskFocusBlock, Label: "看转折那一段", Detail: "事情在这里变了方向——点开段落工具，看看作者是怎么写的。"},
+			{Kind: taskRead, Label: "通读全文", Detail: "先把故事看完，别急着分析。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "事情在这里变了方向——点开段落工具，看看作者是怎么写的。"},
 			{Kind: taskReflect, Label: "作者想让你有什么感觉", Detail: "他是靠什么让你有这种感觉的？"},
 			{Kind: taskConnect, Label: "换成你呢", Detail: "如果是你在那个位置上，你会怎么做？跟他一样吗？说说你的理由。"},
-			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出你觉得写得最好的那一句——不是最重要的，是最好的。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出你觉得写得最好的那一句——不是最重要的，是最好的。"},
 		},
 	},
 	{
@@ -118,13 +145,13 @@ var readingRoutines = []readingRoutine{
 		Name:  "Close Read",
 		Blurb: "英文文章的默认读法：先看懂，再看它是怎么写的。",
 		Steps: []readingRoutineStep{
-			{Kind: taskRead, Label: "先整体过一遍", Detail: "遇到不认识的词先跳过，先抓大意。"},
-			{Kind: taskFocusBlock, Label: "拆开这一段", Detail: "点开段落工具：翻译、关键单词、语法、写作解析，一样一样看。"},
-			{Kind: taskFocusBlock, Label: "再拆一段", Detail: "第二段。这一次先自己读，读不懂再点工具。"},
-			{Kind: taskLens, Label: "换一个透镜再看", Detail: "用一个角度重新过一遍。"},
+			{Kind: taskRead, Label: "通读全文", Detail: "遇到不认识的词先跳过，先抓大意。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具：翻译、关键单词、语法、写作解析，一样一样看。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "第二段。这一次先自己读，读不懂再点工具。"},
+			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度重新过一遍。"},
 			{Kind: taskReflect, Label: "用你自己的话复述", Detail: "不看原文，用中文把这篇讲一遍。"},
 			{Kind: taskConnect, Label: "你原来是怎么想的", Detail: "读之前你对这件事是什么印象？读完之后变了没有？"},
-			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出你觉得最难、但现在读懂了的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出你觉得最难、但现在读懂了的那一句。"},
 		},
 	},
 	{
@@ -133,12 +160,12 @@ var readingRoutines = []readingRoutine{
 		Name:  "Follow the Argument",
 		Blurb: "适合英文议论文、社论、TOEFL 阅读——作者在说服你的时候用。",
 		Steps: []readingRoutineStep{
-			{Kind: taskRead, Label: "先整体过一遍", Detail: "先找出作者站哪一边。"},
-			{Kind: taskFocusBlock, Label: "拆开他最用力的那一段", Detail: "点开段落工具，看他是怎么把话说重的。"},
-			{Kind: taskLens, Label: "换一个透镜再看", Detail: "用一个角度检查他的论证。"},
+			{Kind: taskRead, Label: "通读全文", Detail: "先找出作者站哪一边。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "点开段落工具，看他是怎么把话说重的。"},
+			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度检查他的论证。"},
 			{Kind: taskReflect, Label: "你信吗", Detail: "哪一步你觉得站得住，哪一步你觉得他跳过去了？"},
 			{Kind: taskConnect, Label: "你站哪边", Detail: "读之前你自己是什么立场？作者动摇你了吗，还是让你更确定了？"},
-			{Kind: taskHunt, Label: "回去找一句", Detail: "在文章里点出作者最没说服你的那一句。"},
+			{Kind: taskHunt, Label: "找出关键句", Detail: "在文章里点出作者最没说服你的那一句。"},
 		},
 	},
 }

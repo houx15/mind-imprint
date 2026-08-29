@@ -33,7 +33,7 @@ func seedReadingHuntTask(t *testing.T, q *sqlc.Queries, id string) {
 		AtomID:    uuid.MustParse(id),
 		Positions: []int32{0},
 		Kinds:     []string{"hunt"},
-		Labels:    []string{"回去找一句"},
+		Labels:    []string{"找出关键句"},
 		Details:   []string{"在文章里点出最能撑住作者观点的那一句。"},
 		BlockIds:  []string{""},
 	}); err != nil {

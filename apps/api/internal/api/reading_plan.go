@@ -186,12 +186,19 @@ func parseReadingPlan(text, lang string) (readingPlanReply, readingRoutine, bool
 // `detail` and say which blocks to focus on. A model that returned steps in a
 // different order, or a kind the routine does not have, is simply ignored —
 // the loop walks the ROUTINE, not the reply.
-func buildReadingTasks(routine readingRoutine, plan readingPlanReply, valid map[string]bool) (
+func buildReadingTasks(routine readingRoutine, plan readingPlanReply, blocks []Block) (
 	positions []int32, kinds, labels, details, blockIDs []string,
 ) {
+	// Ordinal, not just validity: the 精读 step's label now carries 第N段, and
+	// the number has to be the one her screen shows for that paragraph —
+	// counted exactly the way readingBlockTag / readingPickOrdinal count it.
+	ordinal := make(map[string]int, len(blocks))
+	for i, blk := range blocks {
+		ordinal[blk.ID] = i + 1
+	}
 	focus := make([]string, 0, len(plan.FocusBlocks))
 	for _, id := range plan.FocusBlocks {
-		if valid[strings.TrimSpace(id)] {
+		if ordinal[strings.TrimSpace(id)] > 0 {
 			focus = append(focus, strings.TrimSpace(id))
 		}
 	}
@@ -203,11 +210,13 @@ func buildReadingTasks(routine readingRoutine, plan readingPlanReply, valid map[
 			plan.Steps[i].Kind == string(step.Kind) {
 			detail = strings.TrimSpace(plan.Steps[i].Detail)
 		}
+		label := step.Label
 		blockID := ""
 		if step.Kind == taskFocusBlock {
 			if nextFocus < len(focus) {
 				blockID = focus[nextFocus]
 				nextFocus++
+				label = focusBlockLabel(ordinal[blockID])
 			} else {
 				// A focus step with no paragraph behind it is a dead step —
 				// she would be told to read "the highlighted paragraph" with
@@ -217,7 +226,7 @@ func buildReadingTasks(routine readingRoutine, plan readingPlanReply, valid map[
 		}
 		positions = append(positions, pos)
 		kinds = append(kinds, string(step.Kind))
-		labels = append(labels, step.Label)
+		labels = append(labels, label)
 		details = append(details, detail)
 		blockIDs = append(blockIDs, blockID)
 		pos++
@@ -264,11 +273,7 @@ func (a *API) planReadingTasks(
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
 	}
 
-	valid := make(map[string]bool, len(blocks))
-	for _, blk := range blocks {
-		valid[blk.ID] = true
-	}
-	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, valid)
+	positions, kinds, labels, details, blockIDs := buildReadingTasks(routine, plan, blocks)
 	if len(positions) == 0 {
 		slog.Warn("reading plan: routine produced no usable steps", "atom_id", atomID, "routine", routine.Key)
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")

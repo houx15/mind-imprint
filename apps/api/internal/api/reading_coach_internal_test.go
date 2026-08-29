@@ -112,8 +112,8 @@ func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
 func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 	for _, want := range []string{
 		"200 个字", // the raised cap (铁律③ is one QUESTION, not one sentence)
-		"找一找",    // the hunt step's own section
-		"联系你自己",  // the connect step's own section
+		"找出关键句",  // the hunt step's own section, named the way her plan names it
+		"链接经验",   // the connect step's own section, same
 		"lens",   // the lens field is documented in the output contract
 		// The two clauses that let 印记 reach for a little structure — bold ONE
 		// word, a short list for two or three options — and the guard rail that
@@ -131,6 +131,32 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		// states the default and calls out the first turn by name.
 		"带一步的默认方式就是给她一张卡片",
 		"第一轮也一样",
+		// R1's headline ruling, and the correction it encodes. The literal-quote
+		// validator guarantees she must LOOK at the article; it does not
+		// guarantee she understood it. 「哪一句最让你觉得作者在讲『为什么』」 is
+		// answered by scanning four options for 因为/所以 — zero comprehension,
+		// and it passes every check the validator makes. The fix is the SHAPE of
+		// the question, which only the prompt can carry, so the self-check
+		// sentence is pinned verbatim.
+		"5W1H",
+		"出卡片之前先自问一句：这个问题能不能靠扫关键词答出来？能，就换一个。",
+		// 🚨 5W1H and 不能有唯一正解 are TWO rulings that must both hold — shape
+		// vs answer space. Pinning them together is what stops a later edit
+		// "simplifying" one into the other.
+		"不能有唯一正解",
+		// No two near-identical cards in a row: same options, one word changed,
+		// reads as 「你答错了，再选一次」 even with no ✓ and no ✗.
+		"不要连着出两张几乎一样的卡片",
+		// Never scold her for a thing she was pointed at the wrong half of the
+		// screen for. The banned phrases are pinned by their literal text.
+		"不要训她",
+		"别急着往下走",
+		// text-heavy without a card was the original complaint; the cap alone
+		// never fixed it.
+		"没有卡片的那一轮，话要更短，不是更长",
+		// ~12 real replies contained not one **bold** — 「可以用一点排版」 was too
+		// polite a permission to ever be acted on.
+		"每一轮都用一次加粗",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("readingCoachSystem no longer mentions %q", want)
@@ -169,9 +195,9 @@ func TestBuildReadingCoachSystem_NoPlaceholderSurvives(t *testing.T) {
 // identifier the system prompt uses.
 func TestReadingCoachPrompt_TaskLinesCarryKind(t *testing.T) {
 	tasks := []sqlc.ReadingTask{
-		{Status: "pending", Kind: "hunt", Label: "回去找一句", Detail: "在文章里点出一句。"},
-		{Status: "pending", Kind: "connect", Label: "你见过这件事吗", Detail: "想到什么说什么。"},
-		{Status: "pending", Kind: "read", Label: "先通读一遍"},
+		{Status: "pending", Kind: "hunt", Label: "找出关键句", Detail: "在文章里点出一句。"},
+		{Status: "pending", Kind: "connect", Label: "链接经验", Detail: "想到什么说什么。"},
+		{Status: "pending", Kind: "read", Label: "通读全文"},
 	}
 	prompt := buildReadingCoachPrompt("标题", nil, tasks, nil, nil, "")
 	for _, want := range []string{"(hunt)", "(connect)", "(read)"} {

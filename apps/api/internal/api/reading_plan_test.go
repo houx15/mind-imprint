@@ -131,6 +131,16 @@ func TestReadingPlan_GeneratesATaskListFromTheArticle(t *testing.T) {
 	if !strings.Contains(focus.Detail, "第三段") {
 		t.Fatalf("focus detail = %q, want the model's article-specific line", focus.Detail)
 	}
+	// The step's NAME carries the real paragraph number — b3 is the third
+	// block, so this reads 精读重点段落第3段 and never 第0段 or a literal X.
+	if focus.Label != "精读重点段落第3段" {
+		t.Fatalf("focus label = %q, want the label to name the real paragraph", focus.Label)
+	}
+	for _, task := range out.Tasks {
+		if strings.Contains(task.Label, "第0段") || strings.Contains(task.Label, "X 段") {
+			t.Fatalf("a step label shows a paragraph that does not exist: %q", task.Label)
+		}
+	}
 
 	// It persisted: a reload shows the same plan.
 	rec2 := httptest.NewRecorder()
