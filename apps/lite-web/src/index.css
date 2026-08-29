@@ -244,3 +244,36 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 印记 递过来的一张卡（CoachCard）
+ *
+ * It arrives inside a reply that is already being read, so it rises the same
+ * short distance the paragraph bar does (130ms / cubic-bezier(0.2,0,0,1) /
+ * translateY(4px) scale(0.97) → none) rather than announcing itself with a
+ * motion of its own. One vocabulary of movement in this room, not two.
+ *
+ * 🚨 The card carries NO right/wrong state, so there is deliberately nothing
+ * here to style one with — no .is-correct, no flash-on-answer. Her tap is a
+ * choice (铁律②).
+ * ------------------------------------------------------------------------- */
+.mk-coachcard {
+  animation: mk-coachcard-in 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes mk-coachcard-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.97);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-coachcard {
+    animation: none;
+  }
+}
