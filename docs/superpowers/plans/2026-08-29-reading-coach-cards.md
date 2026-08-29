@@ -79,7 +79,26 @@
   - 证据笔记区块（`ReferenceEvidence` / `EvidenceNote` 相关）
   - `TraceSourcePanel` 与「追来源」按钮
   - pro 自己的 chat log、composer、starter row、quote chips —— lite 的对话来自 `ReadingCoachPanel`
-  - `caps` / `RoomCapabilities` 整套 —— lite 房间只服务 lite，`返回` 文案直接写死
+
+  **`caps` / `RoomCapabilities` 整套删掉——但必须穷尽。** `LITE_READING_CAPABILITIES`
+  （`apps/web/src/rooms/capabilities.ts:47-58`）有**九个**字段，不是两个。删掉 caps
+  等于把每一个都写死成 lite 的取值。**逐条对照这张表做，别凭印象**：
+
+  | flag | lite 取值 | 在 lite 房间里的做法 |
+  |---|---|---|
+  | `mode` | `"lite"` | 「返回」文案写死（pro 是「返回工作区」） |
+  | `plan` | `false` | 删掉相关分支 |
+  | `evidenceMap` | `false` | 删掉证据笔记 |
+  | `explorationLeads` | `false` | 删掉相关分支 |
+  | `proposalImpact` | `false` | 删掉相关分支 |
+  | `essayTrack` | `false` | 删掉相关分支 |
+  | `comprehensionCheck` | `true` | **今天没有任何代码消费它**——不要为它加东西 |
+  | `exemplars` | `false` | 删掉相关分支 |
+  | `credibility` | `false` | 删掉相关分支（追来源 / 可信度） |
+
+  做法：在 pro 文件里 `grep -n "caps\."` 把每一处都找出来，逐处按上表判定「保留哪一边」。
+  ⚠️ 漏掉一处 `false` 的分支 = lite 学生突然看见一个 pro 专属界面；漏掉一处 `true` =
+  功能消失。**任务报告里要列出你处理过的每一处 `caps.`**，这是这一步唯一的完整性证据。
 
   **把三个 slot 内联掉**：`renderCoach` 的位置直接渲染 `ReadingCoachPanel`，`renderBlockAside` 的位置直接渲染 `BlockToolsPanel`，`onBlockPick` 直接调本地回调。这三个 slot 存在的唯一理由就是当时不想 fork。
 
