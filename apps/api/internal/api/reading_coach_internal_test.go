@@ -115,6 +115,22 @@ func TestReadingCoachSystemCarriesTheRulings(t *testing.T) {
 		"找一找",    // the hunt step's own section
 		"联系你自己",  // the connect step's own section
 		"lens",   // the lens field is documented in the output contract
+		// The two clauses that let 印记 reach for a little structure — bold ONE
+		// word, a short list for two or three options — and the guard rail that
+		// keeps that permission from undoing 铁律③. Without the second line, a
+		// list of three "options" is three questions on three lines, which is
+		// exactly what the one-question-at-a-time rule forbids; the permission
+		// and its limit are one ruling and must be pinned together.
+		"可以用一点排版，但只用在真正有用的地方",
+		"列表里并排的是**选项**，不是问题",
+		// Task 12's live walk found this one MISSING in behaviour: the card
+		// section merely permitted a card (「有时候…更管用」), so against a real
+		// model the opening turn came back as the very prose the sub-project
+		// was built to replace — a plan, a 通读 instruction, and 「读完告诉我一
+		// 声」. The spec's ruling is that 步骤的指令由卡片承担, so the section now
+		// states the default and calls out the first turn by name.
+		"带一步的默认方式就是给她一张卡片",
+		"第一轮也一样",
 	} {
 		if !strings.Contains(readingCoachSystem, want) {
 			t.Errorf("readingCoachSystem no longer mentions %q", want)
