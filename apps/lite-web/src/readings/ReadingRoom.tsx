@@ -380,7 +380,14 @@ export function ReadingRoom({
   const outcomeBySpanId = useMemo(() => new Map(loop.outcomes.map((o) => [o.id, o])), [loop.outcomes]);
 
   return (
-    <div className="mk-reading-room">
+    // `mk-lite-room` is lite's override hook, and the ONLY way this fork is
+    // allowed to restyle the room: the stylesheet above lives under
+    // `apps/web/`, which lite may not touch (that isolation is the whole
+    // reason the room forked). Every lite rule is therefore written as
+    // `.mk-lite-room .mk-reading-room__x` in `src/index.css` — two classes
+    // beat the shared file's one, so the override wins on specificity rather
+    // than on which stylesheet the bundler happened to emit last.
+    <div className="mk-reading-room mk-lite-room">
       <header className="mk-reading-room__topbar">
         <button type="button" className="mk-reading-room__back" onClick={onBack}>
           <BackIcon />

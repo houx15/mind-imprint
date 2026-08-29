@@ -41,9 +41,6 @@ export function ReadingPlanRail({ tasks }: { tasks: ReadingTask[] }) {
     <div className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-2">
         <h2 className="text-mk-h3 text-mk-ink">带读进度</h2>
-        <span className="text-mk-small tabular-nums text-mk-muted">
-          {settled} / {tasks.length}
-        </span>
       </div>
 
       <ProgressBar done={settled} total={tasks.length} />
@@ -87,16 +84,27 @@ export function ReadingPlanRail({ tasks }: { tasks: ReadingTask[] }) {
   );
 }
 
+/**
+ * Decorative only (铁律②).
+ *
+ * The header above this used to also carry a bare 「{settled} / {total}」, and
+ * `StepIndicator` — 300px to its right, on the same screen — says
+ * 「第 N 步 / 共 M 步」. Two progress numbers at once, and the rail's was the
+ * FIRST thing she read on entering the room, where 「0 / 6」 reads as a score
+ * rather than as a position. The ruling: keep the step indicator, drop the
+ * rail's number.
+ *
+ * So the track is `aria-hidden` with no `progressbar` role: a role carries
+ * `aria-valuenow`/`aria-valuemax`, which would just say 「0 of 6」 out loud —
+ * the same number, only invisible. The step list underneath already shows
+ * exactly which steps are settled, one dot at a time.
+ */
 function ProgressBar({ done, total }: { done: number; total: number }) {
   const pct = total === 0 ? 0 : Math.round((done / total) * 100);
   return (
     <div
       className="h-1.5 w-full overflow-hidden rounded-mk-full"
-      role="progressbar"
-      aria-valuemin={0}
-      aria-valuemax={total}
-      aria-valuenow={done}
-      aria-label="带读进度"
+      aria-hidden="true"
       style={{ background: "color-mix(in srgb, var(--mk-accent-500) 12%, transparent)" }}
     >
       <div

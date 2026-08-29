@@ -177,10 +177,16 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink">
-      <div className="relative z-30 w-[64px] shrink-0">
+      {/* `mk-lite-navslot` / `mk-lite-nav` exist only so `index.css` can fold
+          the rail to 48px below 560px — 64px is 17% of a 375px screen, spent
+          on two icons, on the same screen where the article and the coach
+          column are already out of room. Tailwind can't express it: the width
+          has to lose to `hover:w-[208px]`, and a media-query utility would sit
+          at the same specificity. */}
+      <div className="mk-lite-navslot relative z-30 w-[64px] shrink-0">
         <nav
           className={cx(
-            "group/nav absolute inset-y-0 left-0 flex w-[64px] flex-col gap-1 overflow-hidden p-3",
+            "mk-lite-nav group/nav absolute inset-y-0 left-0 flex w-[64px] flex-col gap-1 overflow-hidden p-3",
             // Folded (64px) is the resting state; hover/keyboard-focus within
             // the rail expands it to 208px and reveals labels. Purely CSS —
             // there is no JS "expanded" state to keep in sync.

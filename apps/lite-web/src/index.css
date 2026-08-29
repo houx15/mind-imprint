@@ -217,7 +217,7 @@
  * carry `!important`. Without it these two lines simply do not render.
  * ------------------------------------------------------------------------ */
 
-.mk-reading-room__article p[data-block-id]:hover {
+.mk-lite-room .mk-reading-room__article p[data-block-id]:hover {
   background: color-mix(in srgb, var(--mk-accent-500) 5%, transparent) !important;
   border-left-color: var(--mk-accent-200) !important;
 }
@@ -226,6 +226,33 @@
  * short distance rather than fading in from nowhere. */
 .mk-blockbar {
   animation: mk-blockbar-in 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* The bar is capped at `100vw - 24px` (see BlockToolbar's inline `maxWidth`),
+ * and on a 375px screen five chips + 豆豆 + 关闭 are wider than that. Scroll
+ * the chips rather than wrapping the pill into two rows: the bar's whole job
+ * is to be a thin thing floating beside a paragraph, and a two-row pill covers
+ * twice as much of the article.
+ *
+ * Only the CHIPS scroll — 豆豆 and 关掉这一栏 sit outside this box and stay
+ * pinned. With the whole pill as the scroller, 关掉这一栏 fell off the right
+ * edge on a phone and could only be reached by dragging the bar sideways.
+ *
+ * The scrollbar itself is hidden: it would be a grey slab across the bottom of
+ * a 34px pill. */
+.mk-blockbar__tools {
+  display: flex;
+  flex: 1 1 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scrollbar-width: none;
+}
+
+.mk-blockbar__tools::-webkit-scrollbar {
+  display: none;
 }
 
 @keyframes mk-blockbar-in {
@@ -360,5 +387,177 @@
   }
   .mk-stepnow__fill {
     transition: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 阅读工作台 · lite 的窄屏覆盖（`.mk-lite-room`）
+ *
+ * 🚨 The reading room's stylesheet is `apps/web/src/studio/reading/
+ * ReadingRoom.css`, and lite may not change one character of it — that
+ * isolation is the entire reason lite forked its own room. So every rule
+ * below is scoped to `.mk-lite-room`, the extra class lite's `ReadingRoom`
+ * puts beside `mk-reading-room`. Two classes (0,2,0) beat the shared file's
+ * one (0,1,0), so these win on specificity and not on stylesheet order —
+ * which matters, because the shared CSS is pulled in through a component
+ * import and the bundler decides where that lands.
+ *
+ * What was actually wrong, at 375px (`.deploy-local/card-eyeball-2026-08-29/
+ * 20-phone-375-top.png`):
+ *
+ *  - the toolbar is one `display:flex` row with `justify-content:
+ *    space-between` and no shrink control, so the 文章 / 阅读成果 tabs were
+ *    squeezed to a few pixels and BROKE PER CHARACTER — 阅/读/成/果 stacked
+ *    into four lines, with the `0` badge (an `inline-grid` with
+ *    `min-width: 20px`, wider than its own line box) landing on top of 果;
+ *  - 「透镜库 · 11」 and 「完成这篇」 were pushed straight out of the pane,
+ *    which is `overflow: hidden` — so on a phone the two things she needs in
+ *    order to change lens or finish the article were simply UNREACHABLE;
+ *  - the hint was sliced off mid-word at the right edge.
+ *
+ * The fix is one idea: below 860px the toolbar is a WRAPPING row of
+ * non-shrinking items. Nothing can be squeezed (so nothing breaks per
+ * character), and anything that does not fit drops to the next line instead
+ * of off the edge (so nothing becomes unreachable) — a phone with a bigger
+ * font or a longer deck count degrades by growing one more row, which is the
+ * failure mode we want. The hint takes a full row of its own at the bottom,
+ * where it has the whole width and reads as one line rather than as a
+ * fragment.
+ * ------------------------------------------------------------------------- */
+
+/* At EVERY width: a tab is one line, and its badge sits beside the label
+   rather than on top of it. These cost nothing on a desktop and are what
+   makes the character-splitting structurally impossible rather than merely
+   unlikely. */
+.mk-lite-room .mk-reading-room__view-tabs {
+  flex: none;
+}
+
+.mk-lite-room .mk-reading-room__view-tabs button {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.mk-lite-room .mk-reading-room__count {
+  flex: none;
+}
+
+.mk-lite-room .mk-reading-room__trace-btn,
+.mk-lite-room .mk-reading-room__finalize-btn {
+  white-space: nowrap;
+}
+
+/* The blank band the paragraph bar lives in.
+ *
+ * The shared file sets `margin: 0 0 20px !important`, and the bar is ~34px
+ * tall, so there is no position in a 20px gutter that does not land on a line
+ * of type. 28px + the ~8px of leading `line-height: 1.95` puts inside each
+ * paragraph box gives a ~44px blank band, which the bar clears — see
+ * `placeBar` in `BlockToolbar.tsx`, which centres itself in exactly this
+ * band. `!important` is not specificity theatre: the shared declaration is
+ * `!important`, so nothing else can beat it. */
+.mk-lite-room .mk-reading-room__article-inner p[data-block-id] {
+  margin-bottom: 28px !important;
+}
+
+@media (max-width: 860px) {
+  .mk-lite-room .mk-reading-room__toolbar {
+    /* `height: 52px` in the shared file; an extra row needs an extra row. */
+    height: auto;
+    min-height: 52px;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    gap: 6px 8px;
+    padding: 8px 12px;
+  }
+
+  /* A row of its own. Left to flow, the tabs fit beside 透镜库 but not beside
+     完成这篇, which then wrapped ALONE to the left of the next line — the red
+     primary button, on its own, as the loudest thing in the pane. Giving the
+     tabs the row keeps the two actions together as a pair. */
+  .mk-lite-room .mk-reading-room__view-tabs {
+    order: 1;
+    flex: 1 0 100%;
+    height: auto;
+  }
+
+  .mk-lite-room .mk-reading-room__view-tabs button {
+    padding: 5px 9px;
+    font-size: 13px;
+  }
+
+  /* The active-tab underline is positioned against the BUTTON, which no
+     longer stretches to a 52px row — pull its inset in to match the tighter
+     padding so it still reads as an underline and not as a stray rule. */
+  .mk-lite-room .mk-reading-room__view-tabs button.is-active::after {
+    right: 7px;
+    bottom: -4px;
+    left: 7px;
+  }
+
+  /* The two actions, kept as a pair and pushed to the right of their row.
+     They are the whole point of the exercise: at 375px they used to be
+     shoved out of a pane whose `overflow` is `hidden`, i.e. unreachable. */
+  .mk-lite-room .mk-reading-room__trace-btn {
+    order: 2;
+    margin-right: 0;
+    margin-left: auto;
+    padding: 5px 10px;
+  }
+
+  .mk-lite-room .mk-reading-room__finalize-btn {
+    order: 3;
+    padding: 6px 11px;
+  }
+
+  /* Its own full-width row, last. `1 0 100%` forces the break; the ellipsis is
+     the honest end of a line that genuinely does not fit, as opposed to the
+     hard slice at the pane edge it used to get. */
+  .mk-lite-room .mk-reading-room__hint {
+    order: 4;
+    flex: 1 0 100%;
+    min-width: 0;
+    overflow: hidden;
+    font-size: 11px;
+    text-overflow: ellipsis;
+  }
+}
+
+/* The article's 40px/24px reading margins are generous on a laptop and
+   expensive on a 375px screen, where they cost ~13% of every line. */
+@media (max-width: 560px) {
+  .mk-lite-room .mk-reading-room__article {
+    padding: 20px 16px 64px;
+  }
+
+  .mk-lite-room .mk-reading-room__topbar {
+    padding: 0 12px;
+  }
+
+  .mk-lite-room .mk-reading-room__workspace {
+    gap: 8px;
+    padding: 8px;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * 导航栏 · 窄屏收窄（`.mk-lite-navslot` / `.mk-lite-nav`）
+ *
+ * The folded rail is 64px, which is 17% of a 375px screen spent on two icons
+ * — and it is spent on the ONE screen (the reading room) whose article, coach
+ * column and paragraph bar are already fighting over the width. Below 560px it
+ * folds to 48px; the hover/focus expansion to 208px is untouched, because
+ * `.hover\:w-\[208px\]:hover` is (0,2,0) and outranks these.
+ * ------------------------------------------------------------------------- */
+@media (max-width: 560px) {
+  .mk-lite-navslot {
+    width: 48px;
+  }
+
+  .mk-lite-nav {
+    width: 48px;
+    padding: 8px;
   }
 }
