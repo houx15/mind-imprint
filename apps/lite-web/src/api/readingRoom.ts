@@ -106,6 +106,11 @@ export function coachCardOf(m: LiteMessage): CoachCardSpec | null {
   const options = Array.isArray(c.options)
     ? c.options.filter((o) => o && typeof o.quote === "string" && o.quote !== "")
     : undefined;
+  // 🚨 A `choose_span` with nothing left to choose is not a card, it is a dead
+  // end: the room would render a question with no way to answer it and no way
+  // out. This function's whole contract is「半张卡片不许当成真卡片渲染」——
+  // filtering the options empty and returning anyway breaks it from inside.
+  if (c.type === "choose_span" && !(options && options.length > 0)) return null;
   return { type: c.type, prompt: c.prompt, ...(options && options.length > 0 ? { options } : {}) };
 }
 

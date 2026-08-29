@@ -115,7 +115,11 @@ export function ReadingCoachPanel({
       answerBySeq.set(open[i]!.seq, answer);
       open.splice(i, 1);
     }
-    return { cardBySeq, answerBySeq, open: open.at(-1) ?? null };
+    // 铁律③ 一次只问一个：只有最新那张还没答的卡片是敞开的，它之前的都收起来
+    // （CoachCard `stale`）。折叠 ≠ 关死——她点一下就能回去答，配对循环上面按
+    // prompt 认卡，就是为了这件事。
+    const stale = new Set(open.slice(0, -1).map((o) => o.seq));
+    return { cardBySeq, answerBySeq, open: open.at(-1) ?? null, stale };
   }, [messages]);
 
   async function turn(
@@ -264,6 +268,7 @@ export function ReadingCoachPanel({
                 // refuses to mint both in one turn, but an OLD card sitting
                 // above a fresh lens could still be tapped.
                 busy={busy || slot.locked}
+                stale={cards.stale.has(m.seq)}
                 onAnswer={send}
               />
             </div>
@@ -272,13 +277,21 @@ export function ReadingCoachPanel({
       }
       continue;
     }
-    if (coachAnswerOf(m)) {
+    const answer = coachAnswerOf(m);
+    if (answer) {
       // Her answer is already on the card above — rendering the stored message
       // too would say the same sentence twice, and say it in the raw `> ` form
       // composeCardAnswerMessage stores it in. What is left after the quoted
       // lines are dropped is whatever she typed alongside the tap, which is
       // hers and belongs in the log.
-      const own = ownWords(m.content);
+      //
+      // 🚨 …except for `short_text`, where her sentence is stored BARE (the
+      // server's `case choice != "": own = choice` — those words have to reach
+      // her corpus unquoted). Dropping `> ` lines alone leaves exactly her
+      // answer standing, and the card above is already showing it: she writes
+      // one sentence, refreshes, and sees it twice. `choice` is therefore
+      // passed in and peeled off the front.
+      const own = ownWords(m.content, answer.choice);
       if (own) chatMessages.push({ id: `c${m.seq}`, role: "student", node: own });
       continue;
     }
@@ -320,7 +333,11 @@ export function ReadingCoachPanel({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col gap-2 pt-1">
-      <div className="mk-scroll min-h-0 flex-1 overflow-y-auto pr-1">
+      {/* `data-coach-log` marks the conversation's own scroll box: a card must
+          render INSIDE it, right under the words 印记 asked it with — the
+          position IS the design claim (Task 8), and a test that only asks
+          「prompt 在某处」 would pass on a rail above the log too. */}
+      <div data-coach-log className="mk-scroll min-h-0 flex-1 overflow-y-auto pr-1">
         <ChatLog messages={chatMessages} thinking={busy} />
         <div ref={endRef} data-scroll-anchor="coach-end" />
       </div>
@@ -390,10 +407,24 @@ export function ReadingCoachPanel({
  * means the log shows her exactly the words that will ever be quoted back to
  * her as hers.
  */
-function ownWords(content: string): string {
-  return content
+function ownWords(content: string, choice = ""): string {
+  const rest = content
     .split("\n")
     .filter((line) => !line.trimStart().startsWith(">"))
     .join("\n")
     .trim();
+  const answered = choice.trim();
+  if (!answered || !rest) return rest;
+  // A `short_text` answer is stored bare, so it survives the `> ` filter and
+  // would be said twice (the card is already showing it). Both stored shapes
+  // are the same shape: `choice`, optionally followed by whatever she typed
+  // alongside the tap after a blank line.
+  if (rest === answered) return "";
+  if (rest.startsWith(answered)) {
+    const tail = rest.slice(answered.length);
+    // Only when `choice` is a whole leading LINE — otherwise a typed sentence
+    // that happens to open with the same words would get its head cut off.
+    if (tail.startsWith("\n")) return tail.trim();
+  }
+  return rest;
 }

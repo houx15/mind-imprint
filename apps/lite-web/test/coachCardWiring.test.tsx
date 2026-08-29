@@ -1,4 +1,4 @@
-import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, cleanup, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { ReadingCoachSlot } from "@lite/readings/ReadingRoom";
 import type { LiteMessage } from "../src/api/readingRoom";
@@ -108,14 +108,33 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
       nudge: "",
       coachCard: CARD,
     });
-    render(panel({ initialMessages: [{ seq: 1, role: "ai", content: "开始吧。", createdAt: "" }] }));
+    const { container } = render(
+      panel({ initialMessages: [{ seq: 1, role: "ai", content: "开始吧。", createdAt: "" }] }),
+    );
 
     fireEvent.change(screen.getByPlaceholderText("读完这一步，跟印记说一声"), { target: { value: "好" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
     expect(await screen.findByText("哪一句最能说明作者的态度？")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeTruthy();
+
+    // 🚨 位置就是 Task 8 的核心设计主张：卡片长在对话里 印记 问它的那个地方，
+    // 不是渲染在日志上方的某条 rail 里。断言「prompt 和按钮存在于某处」对后者
+    // 一样成立——所以这里查的是 (a) 卡片在日志容器内，(b) 它就排在说那句话的
+    // 那条 印记 消息**的下一行**。
+    const log = container.querySelector("[data-coach-log]") as HTMLElement;
+    expect(log).toBeTruthy();
+    const card = log.querySelector(".mk-coachcard") as HTMLElement;
+    expect(card).toBeTruthy();
+    expect(within(log).getByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeTruthy();
+    expect(within(log).getByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeTruthy();
+
+    // ChatBubble renders a card-carrying message with `data-role="system"` ON
+    // the row itself, so that element IS the card's row inside ChatLog.
+    const cardRow = card.closest("[data-role='system']")!;
+    const rows = [...cardRow.parentElement!.children];
+    const spokenRow = rows.find((r) => r !== cardRow && r.textContent?.includes("读完这一段，来回答我一个问题。"));
+    expect(spokenRow, "印记 说的那句话应该和卡片在同一个日志里").toBeTruthy();
+    expect(rows.indexOf(cardRow)).toBe(rows.indexOf(spokenRow!) + 1);
   });
 
   it("restores a card that arrived in an earlier session out of the message payload", () => {
@@ -229,6 +248,99 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
     expect(screen.queryByText(/【印记问】/)).toBeNull();
   });
 
+  /**
+   * 🚨 `short_text` 的 choice 就是她自己写的那句话（服务端 `case choice != "":
+   * own = choice`——那些字必须裸着进她的语料）。卡片已经在显示它了，日志再把
+   * `ownWords()` 活下来的东西渲染一遍，她刷新之后就会看见同一句话两次。
+   *
+   * 在一个主张「你的想法很珍贵」的房间里，这是最不该出现的那种 glitch。
+   */
+  describe("a short_text answer survives a reload exactly ONCE", () => {
+    const HERS = "他只算了成本，没算住在那儿的人。";
+    const SHORT_CARD = { type: "short_text" as const, prompt: "用你自己的话说说，作者漏掉了什么？" };
+
+    function reloaded(content: string): LiteMessage[] {
+      return [
+        { seq: 1, role: "ai", content: "说说你的看法。", createdAt: "", payload: { card: SHORT_CARD } },
+        {
+          seq: 2,
+          role: "student",
+          content,
+          createdAt: "",
+          payload: { answer: { type: "short_text", prompt: SHORT_CARD.prompt, choice: HERS } },
+        },
+      ];
+    }
+
+    it("她写的那一句只出现一次，不是两次", () => {
+      // 服务端存下来的原样：问题在 `> ` 行里，她的句子裸着。
+      render(panel({ initialMessages: reloaded(`> 【印记问】${SHORT_CARD.prompt}\n\n${HERS}`) }));
+
+      expect(screen.getAllByText(HERS)).toHaveLength(1);
+      expect(screen.getByText("你写的")).toBeTruthy();
+    });
+
+    it("她一边写卡片一边又打了字：句子一次，她补的话一次", () => {
+      const typed = "而且他只看了一个城市。";
+      render(panel({ initialMessages: reloaded(`> 【印记问】${SHORT_CARD.prompt}\n\n${HERS}\n\n${typed}`) }));
+
+      expect(screen.getAllByText(HERS)).toHaveLength(1);
+      expect(screen.getAllByText(typed)).toHaveLength(1);
+    });
+  });
+
+  /**
+   * 铁律③ 一次只问一个。触发路径毫不刁钻：印记 给一张卡 → 她不理，直接打字 →
+   * 印记 又给一张。两个同时敞开的提问，她得先猜房间到底要哪一个。
+   *
+   * 裁定是**折叠**旧的，不是置灰：一排死掉的灰色 UI 读起来就是「这是你没做完的
+   * 所有事」，计分板的情绪从后门溜进来了。
+   */
+  describe("only one card is open at a time", () => {
+    const SECOND = {
+      type: "choose_span" as const,
+      prompt: "那你觉得他最想让你相信哪一句？",
+      options: [
+        { blockId: "b3", quote: "减排的速度已经超过了多数人的预期。" },
+        { blockId: "b4", quote: "但代价落在了谁头上，文章没有说。" },
+      ],
+    };
+    const TWO_OPEN: LiteMessage[] = [
+      ...OPENED,
+      { seq: 3, role: "student", content: "我先说点别的。", createdAt: "" },
+      { seq: 4, role: "ai", content: "行，那换一个问题。", createdAt: "", payload: { card: SECOND } },
+    ];
+
+    it("older unanswered cards collapse to their question; only the newest is answerable", () => {
+      render(panel({ initialMessages: TWO_OPEN }));
+
+      // 最新那张完整敞开
+      expect(screen.getByRole("button", { name: "减排的速度已经超过了多数人的预期。" })).toBeTruthy();
+      // 旧的那张只剩问题文字——它的选项不在屏幕上
+      expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
+      // 但 印记 确实问过这句话，记录还在
+      expect(screen.getByText(new RegExp("哪一句最能说明作者的态度？"))).toBeTruthy();
+    });
+
+    it("she can tap the collapsed card open again and answer it — the room never closes it FOR her", async () => {
+      render(panel({ initialMessages: TWO_OPEN }));
+
+      fireEvent.click(screen.getByRole("button", { name: /哪一句最能说明作者的态度？/ }));
+      fireEvent.click(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" }));
+
+      await waitFor(() => expect(postTurn).toHaveBeenCalled());
+      const [, , , cardAnswer] = postTurn.mock.calls[0] as [string, string, unknown, unknown];
+      // 配对循环按 prompt 认卡：答的是旧那张，不是最新那张。
+      expect(cardAnswer).toEqual({
+        type: "choose_span",
+        prompt: "哪一句最能说明作者的态度？",
+        choice: "但人均排放仍低于多数发达国家。",
+        blockId: "b2",
+      });
+    });
+  });
+
   it("routes a pick_in_article card: the sentence she pointed at in the article becomes the answer", async () => {
     const opened: LiteMessage[] = [
       {
@@ -262,6 +374,42 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
     render(panel({ initialMessages: OPENED }));
     fireEvent.click(screen.getByLabelText("发送"));
     expect(postTurn).not.toHaveBeenCalled();
+  });
+
+  /**
+   * `coachCardOf` 声明的不变式是「半张卡片不许当成真卡片渲染」。一个
+   * `choose_span` 如果选项被过滤光了，它就是一个**没法回答**的问题：屏幕上一个
+   * 提问，没有任何作答的路，也没有出口。这不是难看，是死路。
+   */
+  it("a choose_span whose options were all filtered away is not rendered as a card at all", () => {
+    render(
+      panel({
+        initialMessages: [
+          {
+            seq: 1,
+            role: "ai",
+            content: "读完这一段，来回答我一个问题。",
+            createdAt: "",
+            payload: {
+              card: {
+                type: "choose_span",
+                prompt: "哪一句最能说明作者的态度？",
+                // 服务端发来的选项全是空串 → 过滤之后什么都不剩。
+                options: [
+                  { blockId: "b1", quote: "" },
+                  { blockId: "b2", quote: "" },
+                ],
+              },
+            },
+          },
+        ],
+      }),
+    );
+
+    // 印记 说的话还在，但没有卡片——一个没法回答的提问不许上屏。
+    expect(screen.getByText("读完这一段，来回答我一个问题。")).toBeTruthy();
+    expect(screen.queryAllByText("哪一句最能说明作者的态度？")).toHaveLength(0);
+    expect(document.querySelector(".mk-coachcard")).toBeNull();
   });
 
   it("does not answer a card while a lens holds the article", () => {
