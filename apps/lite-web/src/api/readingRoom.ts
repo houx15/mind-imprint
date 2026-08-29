@@ -2,6 +2,7 @@ import type { Anchor, SelectionEval, TakeawayDraft } from "@mind-imprint/contrac
 import { CARD_REGISTRY, SelectionEval as SelectionEvalSchema } from "@mind-imprint/contracts";
 import type { StudioTurnEvent } from "@/api/studioTurn";
 import type { LiteReadingRoomApi } from "../readings/ReadingRoom";
+import type { CoachCardAnswer, CoachCardSpec } from "../readings/CoachCard";
 import type { ReadingOutcome } from "@/studio/reading/readingLoop";
 import { apiFetch } from "./client";
 
@@ -75,7 +76,45 @@ export type LiteAnnotation = {
   createdAt: string;
 };
 
-export type LiteMessage = { seq: number; role: string; content: string; createdAt: string };
+/**
+ * What a chat message carries BESIDES its words (`atom_message.payload`,
+ * migration 0106) — the server's `coachMessagePayload`, verbatim.
+ *
+ * An envelope rather than a bare card, and for the reason the server gives:
+ * a reader holding only the JSON has to be able to tell 「这条消息带了一张卡」
+ * apart from 「这条消息是她对一张卡的作答」. Both halves matter here — without
+ * the second one, a refresh redraws a card still waiting for a tap she has
+ * already made.
+ */
+export type CoachMessagePayload = { card?: CoachCardSpec | null; answer?: CoachCardAnswer | null };
+
+export type LiteMessage = {
+  seq: number;
+  role: string;
+  content: string;
+  createdAt: string;
+  payload?: CoachMessagePayload | null;
+};
+
+/** The card on this message, if it carried one. Shape-checked rather than
+ *  trusted: `payload` is jsonb the client never wrote, and a half-built card
+ *  rendered as a real one is a dead end she cannot get out of. */
+export function coachCardOf(m: LiteMessage): CoachCardSpec | null {
+  const c = m.payload?.card;
+  if (!c || typeof c.type !== "string" || typeof c.prompt !== "string" || !c.prompt) return null;
+  if (c.type !== "choose_span" && c.type !== "pick_in_article" && c.type !== "short_text") return null;
+  const options = Array.isArray(c.options)
+    ? c.options.filter((o) => o && typeof o.quote === "string" && o.quote !== "")
+    : undefined;
+  return { type: c.type, prompt: c.prompt, ...(options && options.length > 0 ? { options } : {}) };
+}
+
+/** Her answer to a card, if this message IS one. */
+export function coachAnswerOf(m: LiteMessage): CoachCardAnswer | null {
+  const a = m.payload?.answer;
+  if (!a || typeof a.choice !== "string" || a.choice === "") return null;
+  return a;
+}
 
 export type ReadingRoomApiOptions = {
   /** Called when a coach turn or a lens summon fails outright. The room's own
@@ -360,6 +399,11 @@ export async function postReadingCoachTurn(
   id: string,
   text: string,
   picks: { blockId: string; quote: string }[] = [],
+  /** Set when this turn IS a tap on the card 印记 wrote into its last reply.
+   *  Sent through UNCHANGED — the server checks `choice` against the article
+   *  as a literal substring to tell 「文章原文」 from 「她自己的话」, so trimming
+   *  a comma here silently deletes the fact that she pointed at anything. */
+  cardAnswer: CoachCardAnswer | null = null,
 ): Promise<{
   reply: string;
   tasks: ReadingTask[];
@@ -373,6 +417,12 @@ export async function postReadingCoachTurn(
   card: LiteCard | null;
   /** Why this lens, in the coach's own words — only meaningful alongside `card`. */
   nudge: string;
+  /** 🚨 NOT `card`. That one is the LENS (a row in atom_card, opened and
+   *  closed); this one is the tappable card 印记 wrote into this very reply
+   *  and which lives only on the message. The server keeps them under two
+   *  keys for exactly this reason — one name would let them overwrite each
+   *  other on any turn that produced both. */
+  coachCard: CoachCardSpec | null;
 }> {
   const raw = await apiFetch<{
     reply: string;
@@ -383,9 +433,10 @@ export async function postReadingCoachTurn(
     finished: boolean;
     card?: LiteCard | null;
     nudge?: string;
+    coachCard?: CoachCardSpec | null;
   }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
     method: "POST",
-    body: JSON.stringify({ text, picks }),
+    body: JSON.stringify({ text, picks, cardAnswer }),
   });
   return {
     reply: raw.reply,
@@ -396,6 +447,9 @@ export async function postReadingCoachTurn(
     finished: Boolean(raw.finished),
     card: raw.card ?? null,
     nudge: raw.nudge ?? "",
+    // Rebuilt through the same shape check the stored payload goes through,
+    // so a live card and a reloaded one can never disagree about what counts.
+    coachCard: coachCardOf({ seq: 0, role: "ai", content: "", createdAt: "", payload: { card: raw.coachCard } }),
   };
 }
 

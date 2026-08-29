@@ -5,8 +5,9 @@ import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import type { ReadingCoachSlot } from "./ReadingRoom";
+import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard";
 import { ApiError } from "../api/client";
-import { postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
+import { coachAnswerOf, coachCardOf, postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 
 /**
@@ -80,16 +81,78 @@ export function ReadingCoachPanel({
   // wherever her quote chips are about to appear.
   const hunting = tasks.find((t) => t.status === "pending")?.kind === "hunt";
 
-  async function turn(text: string, picks: { blockId: string; quote: string }[] = []) {
+  // Which card each 印记 message carried, and which of them she has already
+  // answered. Derived from the transcript rather than remembered in a state of
+  // its own, so a card that arrived three sessions ago comes back exactly as
+  // it was: the transcript IS the storage (atom_message.payload, 0106).
+  //
+  // An answer is paired to the card whose question it repeats, falling back to
+  // the newest still-open card. Prompt-first, because she is free to answer an
+  // older card after a newer one has appeared, and position alone would then
+  // hang her answer on the wrong question.
+  const cards = useMemo(() => {
+    const cardBySeq = new Map<number, CoachCardSpec>();
+    const answerBySeq = new Map<number, CoachCardAnswer>();
+    const open: { seq: number; card: CoachCardSpec }[] = [];
+    for (const m of messages) {
+      if (m.role === "ai") {
+        const card = coachCardOf(m);
+        if (card) {
+          cardBySeq.set(m.seq, card);
+          open.push({ seq: m.seq, card });
+        }
+        continue;
+      }
+      const answer = coachAnswerOf(m);
+      if (!answer || open.length === 0) continue;
+      let i = open.length - 1;
+      for (let k = open.length - 1; k >= 0; k--) {
+        if (open[k]!.card.prompt === answer.prompt) {
+          i = k;
+          break;
+        }
+      }
+      answerBySeq.set(open[i]!.seq, answer);
+      open.splice(i, 1);
+    }
+    return { cardBySeq, answerBySeq, open: open.at(-1) ?? null };
+  }, [messages]);
+
+  async function turn(
+    text: string,
+    picks: { blockId: string; quote: string }[] = [],
+    cardAnswer: CoachCardAnswer | null = null,
+  ) {
     if (busy) return;
     setBusy(true);
     setError(null);
-    if (text) {
-      setMessages((prev) => [...prev, { seq: --localSeq.current, role: "student", content: text, createdAt: "" }]);
-    }
+    // Her side of this turn, shown before the server has spoken. A tap carries
+    // its payload the same way the stored row will, so the optimistic state and
+    // the reloaded state are the SAME state — the card above renders answered
+    // either way, and `content` holds only what is genuinely hers to say.
+    const mine: LiteMessage | null =
+      text || cardAnswer
+        ? {
+            seq: --localSeq.current,
+            role: "student",
+            content: text,
+            createdAt: "",
+            ...(cardAnswer ? { payload: { answer: cardAnswer } } : {}),
+          }
+        : null;
+    if (mine) setMessages((prev) => [...prev, mine]);
     try {
-      const res = await postReadingCoachTurn(readingId, text, picks);
-      setMessages((prev) => [...prev, { seq: --localSeq.current, role: "ai", content: res.reply, createdAt: "" }]);
+      const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer);
+      setMessages((prev) => [
+        ...prev,
+        {
+          seq: --localSeq.current,
+          role: "ai",
+          content: res.reply,
+          createdAt: "",
+          ...(res.coachCard ? { payload: { card: res.coachCard } } : {}),
+        },
+      ]);
       onTasks(res.tasks);
       // The coach names the paragraph this step is about; jumping there is
       // part of leading her, not a separate thing she has to do.
@@ -100,7 +163,10 @@ export function ReadingCoachPanel({
       if (res.card) slot.onCardSummoned?.();
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "印记这次没接上，再试一次。");
-      if (text) setMessages((prev) => prev.slice(0, -1));
+      // By identity, not by position: the failed turn's message is not
+      // necessarily the last one any more once a card answer can add a row of
+      // its own, and slicing the tail off would eat somebody else's turn.
+      if (mine) setMessages((prev) => prev.filter((m) => m !== mine));
       setDraft(text);
     } finally {
       setBusy(false);
@@ -111,13 +177,43 @@ export function ReadingCoachPanel({
    *  front of it. The coach endpoint still takes one text field — the quotes
    *  ride inside it as blockquotes, unchanged — and ALSO takes them as
    *  structured `picks` (one per quote that came from a real paragraph),
-   *  which is what tells "点了" apart from "打字说了". */
-  function send() {
+   *  which is what tells "点了" apart from "打字说了".
+   *
+   *  `tapped` is set when this turn started on a card instead of in the
+   *  composer. It goes through the SAME function on purpose: a tap is a turn
+   *  like any other, and routing it around send() would leave the guard below
+   *  as a trap the next card type walks into. */
+  function send(tapped?: CoachCardAnswer) {
     const text = draft.trim();
+    // pick_in_article is the one card shape that has no button of its own: it
+    // sends her back to the article, and the tap happens on the paragraph.
+    // The quote chip that comes back is her answer — so it is lifted OUT of
+    // the quote block and into `cardAnswer`, and left out of `picks`, because
+    // the server rebuilds both from `choice` (composeCardAnswerMessage +
+    // validateReadingPicks). Sending it twice would put the sentence in the
+    // transcript twice and hand the coach a duplicate pick.
+    let cardAnswer: CoachCardAnswer | null = tapped ?? null;
+    let spent: string | null = null;
+    const open = cards.open;
+    const pointed = slot.quotes[0];
+    if (!cardAnswer && open?.card.type === "pick_in_article" && pointed) {
+      const q = pointed;
+      cardAnswer = {
+        type: "pick_in_article",
+        prompt: open.card.prompt,
+        choice: q.quote,
+        ...(q.blockId ? { blockId: q.blockId } : {}),
+      };
+      spent = q.key;
+    }
     // Pointing counts on its own: a quote chip with nothing typed must still
-    // send. Only refuse when there is truly nothing at all — no text AND no
-    // quote — or while a lens holds the composer locked.
-    if ((!text && slot.quotes.length === 0) || slot.locked) return;
+    // send. So does a tap on a card — she may answer without typing a
+    // character, and this guard is the only thing standing between that tap
+    // and the server, which accepts an empty `text` beside a `cardAnswer`.
+    // Only refuse when there is truly nothing at all — no text AND no quote
+    // AND no answer — or while a lens holds the composer locked.
+    if ((!text && slot.quotes.length === 0 && !cardAnswer) || slot.locked) return;
+    const carried = slot.quotes.filter((q) => q.key !== spent);
     // F1: prefix EVERY line of a quote, not just its first. A drag-selection
     // across a hard-wrapped paragraph (no blank line between its lines —
     // SplitBlocks on the server only splits on "\n\n") returns a quote whose
@@ -127,10 +223,10 @@ export function ReadingCoachPanel({
     // that already start with "> ") could not catch them. See
     // report_facts.go's stripArticleLines for the server-side half of this
     // fix, which also repairs transcripts already stored under this bug.
-    const quoted = slot.quotes
+    const quoted = carried
       .map((q) => q.quote.split("\n").map((line) => `> ${line}`).join("\n"))
       .join("\n");
-    const picks = slot.quotes
+    const picks = carried
       .filter((q) => Boolean(q.blockId))
       .map((q) => ({ blockId: q.blockId as string, quote: q.quote }));
     setDraft("");
@@ -138,26 +234,71 @@ export function ReadingCoachPanel({
     // An empty composer must not leave a bare trailing blank line once the
     // quote block is prepended — quoted alone is already a coherent payload.
     const payload = quoted ? (text ? `${quoted}\n\n${text}` : quoted) : text;
-    void turn(payload, picks);
+    void turn(payload, picks, cardAnswer);
   }
 
-  const chatMessages: ChatMessage[] = useMemo(
-    () =>
-      messages.map((m) => ({
-        id: `c${m.seq}`,
-        role: m.role === "ai" ? "assistant" : "student",
-        node: m.role === "ai" ? <ChatMarkdown text={m.content} /> : m.content,
-      })),
-    [messages],
-  );
+  // Deliberately NOT memoized: every card's props depend on `busy`, on the
+  // lens lock and on `send`, which is rebuilt each render anyway — a useMemo
+  // here would either be a lie or never hit.
+  const chatMessages: ChatMessage[] = [];
+  for (const m of messages) {
+    if (m.role === "ai") {
+      chatMessages.push({ id: `c${m.seq}`, role: "assistant", node: <ChatMarkdown text={m.content} /> });
+      const card = cards.cardBySeq.get(m.seq);
+      if (card) {
+        chatMessages.push({
+          id: `card${m.seq}`,
+          // `system` is the one role ChatBubble renders with NO bubble chrome
+          // — the card brings its own frame and wants the column's full width,
+          // not 85% of it inside a speech bubble. The wrapper undoes that
+          // row's `text-center`, which is meant for 「印记 summoned a card」
+          // one-liners, not for something she reads and answers.
+          role: "system",
+          node: (
+            <div className="text-left">
+              <CoachCard
+                card={card}
+                answered={cards.answerBySeq.get(m.seq) ?? null}
+                // A lens open on the article counts as busy here for the same
+                // reason it locks the composer: 一次只问一个. The server already
+                // refuses to mint both in one turn, but an OLD card sitting
+                // above a fresh lens could still be tapped.
+                busy={busy || slot.locked}
+                onAnswer={send}
+              />
+            </div>
+          ),
+        });
+      }
+      continue;
+    }
+    if (coachAnswerOf(m)) {
+      // Her answer is already on the card above — rendering the stored message
+      // too would say the same sentence twice, and say it in the raw `> ` form
+      // composeCardAnswerMessage stores it in. What is left after the quoted
+      // lines are dropped is whatever she typed alongside the tap, which is
+      // hers and belongs in the log.
+      const own = ownWords(m.content);
+      if (own) chatMessages.push({ id: `c${m.seq}`, role: "student", node: own });
+      continue;
+    }
+    chatMessages.push({ id: `c${m.seq}`, role: "student", node: m.content });
+  }
 
   // Scroll the newest turn into view without dragging the whole page.
   const endRef = useRef<HTMLDivElement | null>(null);
+  // 🚨 `answered` is a dependency in its own right. A card GROWS IN PLACE when
+  // she answers it — the options collapse into her sentence — and her tap adds
+  // no visible message (the words live on the card). So the number of rows in
+  // the log does not change, and neither ChatLog's own count-driven autoscroll
+  // nor a `[messages.length]` effect here would fire: the answered card would
+  // quietly grow off the bottom of the panel.
+  const answeredCards = cards.answerBySeq.size;
   useEffect(() => {
     // Guarded because jsdom has no scrollIntoView, and an autoscroll must
     // never be the thing that takes the conversation down with it.
     endRef.current?.scrollIntoView?.({ behavior: "smooth", block: "nearest" });
-  }, [messages.length]);
+  }, [chatMessages.length, answeredCards]);
 
   if (!started) {
     return (
@@ -181,7 +322,7 @@ export function ReadingCoachPanel({
     <div className="flex min-h-0 flex-1 flex-col gap-2 pt-1">
       <div className="mk-scroll min-h-0 flex-1 overflow-y-auto pr-1">
         <ChatLog messages={chatMessages} thinking={busy} />
-        <div ref={endRef} />
+        <div ref={endRef} data-scroll-anchor="coach-end" />
       </div>
 
       {error && <p className="shrink-0 text-mk-small text-mk-danger">{error}</p>}
@@ -215,7 +356,10 @@ export function ReadingCoachPanel({
         <Composer
           value={draft}
           onChange={setDraft}
-          onSend={send}
+          // Wrapped, NOT passed by reference: Composer calls onSend with its
+          // click/key event, and send()'s first parameter is now a card
+          // answer — handing it a SyntheticEvent would ship one to the server.
+          onSend={() => send()}
           // Composer (shared, apps/web) derives "empty" vs "typing" from
           // `value` alone when `state` is left undefined — it has no way to
           // know a quote chip exists. Left to that default, the send button
@@ -236,4 +380,20 @@ export function ReadingCoachPanel({
       </div>
     </div>
   );
+}
+
+/**
+ * What is HERS in a stored card-answer message. `composeCardAnswerMessage`
+ * puts 印记's question and the article sentence she pointed at behind `> `
+ * prefixes and leaves only her own words bare — which is the same rule
+ * report_facts.go's stripQuotedLines reads the transcript by. Reusing it here
+ * means the log shows her exactly the words that will ever be quoted back to
+ * her as hers.
+ */
+function ownWords(content: string): string {
+  return content
+    .split("\n")
+    .filter((line) => !line.trimStart().startsWith(">"))
+    .join("\n")
+    .trim();
 }
