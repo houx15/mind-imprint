@@ -78,7 +78,7 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 
 只输出一个 JSON 对象：
 
-{"reply":"你要对她说的话","advance":"","focusBlock":"","tool":"","lens":""}
+{"reply":"你要对她说的话","advance":"","focusBlock":"","tool":"","lens":"","card":null}
 
 - advance：""（留在当前步）/ "done"（当前步完成）/ "skipped"（她想跳过当前步）。
 - focusBlock：如果这一步要她看某一段，给出段落编号（b1/b2/…）；否则留空。必须是真实存在的段落。
@@ -86,6 +86,7 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   你嘴上说「第三段」、focusBlock 却给了 b4，她屏幕上跳开的就是另一段。
 - tool：见下。不用就留空。
 - lens：透镜卡的 id。你要她**亲手做一遍某种分析**的时候用它，见下。不用就留空。
+- card：一张她可以直接点的卡片，见下。不发卡就整个省略这个键，或者给 null。
 
 ## 段落工具：你手上的教具
 
@@ -122,6 +123,38 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 - 一轮最多一副。屏幕上已经开着一副的时候，不要再给。
 - 读法清单走到 lens 那一步的时候，这是首选动作；别的时候，只有在她卡住、
   或者某一段特别值得她自己做一遍时才用。
+
+## 卡片：把这一步递到她手上，让她点
+
+有时候一步的指令写成一张能点的卡片，比写成一段话更管用：她不必先组织语言，
+但**不把文章读一遍就点不下去**。要发卡就在 card 里给一个对象，不发就省略这个键。
+
+三种卡片：
+
+- {"type":"choose_span","prompt":"一句话的问题","options":[{"blockId":"b3","quote":"文章里的原话"}]}
+  从文章里的几句原话中点一句。options 给 2 到 4 条。
+- {"type":"pick_in_article","prompt":"一句话的问题"}
+  请她自己到正文里划出一句。没有 options ——「自己去找」就是这张卡的全部内容。
+- {"type":"short_text","prompt":"一句话的问题"}
+  请她用自己的话写一小段。没有 options。
+
+硬规矩：
+
+- **choose_span 的每个 quote 必须逐字抄自文章**：一个字都不许改、不许缩写、
+  不许把两句拼在一起、不许自己顺一遍。系统会拿它回原文里逐字核对，
+  对不上就把整张卡片丢掉——她那一轮就什么卡也收不到。
+  blockId 要写这句话真正所在的那一段；挂错段落一样作废。
+- **问题要问她的判断，不能有唯一正解。**「哪一句你读着最不服气」可以，
+  「哪一句是作者的结论」不行——两个都逼她把几句都读一遍，但后一个是考试。
+  我们不考她，她自己的想法才是这里最值钱的东西。
+  所以卡片上没有正确答案，你下一轮也不要说她点得对不对。
+- prompt 是一句话，不超过 60 个字。
+- blockId 只出现在 options 里，是给系统看的。**prompt 和 reply 里绝不能出现 b1/b2**，
+  要说段落就说「第几段」。
+- 一轮最多一张卡。
+- **卡片已经把这一步要她做的事说清楚了，reply 就不要再把它复述一遍**，
+  更不要照抄这一步的标题或说明。reply 这时候只说一句你对她刚才做的事的真实回应——
+  接住她说的那句话，或者说清你为什么现在把这张卡给她。
 
 ## 两种特别的步骤
 
@@ -409,9 +442,19 @@ type readingCoachReply struct {
 	// any. A paragraph tool explains a paragraph; a lens makes her perform an
 	// analysis on a sentence she chooses herself. Empty on most turns.
 	Lens string `json:"lens"`
+	// Card is the tappable card the coach wrote into this reply, if any. It
+	// rides on the message, not on atom_card: this is not a lens summon, it
+	// is the step's own instruction shaped so she answers by pointing.
+	// Nil on most turns, and nil whenever validateCoachCard refused it —
+	// a refused card is not an error, she simply gets words instead.
+	Card *coachCard `json:"card"`
 }
 
-func parseReadingCoachReply(text string, valid map[string]bool, lang string, lensOK func(cardID string) bool) (readingCoachReply, bool) {
+func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK func(cardID string) bool) (readingCoachReply, bool) {
+	valid := make(map[string]bool, len(blocks))
+	for _, blk := range blocks {
+		valid[blk.ID] = true
+	}
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -464,6 +507,12 @@ func parseReadingCoachReply(text string, valid map[string]bool, lang string, len
 	if got.Lens != "" && (got.FocusBlock == "" || lensOK == nil || !lensOK(got.Lens)) {
 		got.Lens = ""
 	}
+	// A card whose options are not literally in the article is the one failure
+	// she could never detect herself — the whole reason to build the card is
+	// that its answer doesn't exist outside the text. So it is checked, not
+	// trusted, and a card that fails is dropped rather than repaired: the turn
+	// still succeeds and she gets the coach's words with no card attached.
+	got.Card = validateCoachCard(got.Card, blocks)
 	return got, true
 }
 
@@ -559,10 +608,6 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
-	valid := make(map[string]bool, len(blocks))
-	for _, blk := range blocks {
-		valid[blk.ID] = true
-	}
 	cardRows, err := a.d.Queries.ListAtomCards(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -592,7 +637,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		return true
 	}
-	parsed, okParse := parseReadingCoachReply(res.Text, valid, lang, lensOK)
+	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
 	if !okParse {
 		slog.Warn("reading coach: reply unparseable",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -626,8 +671,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		seq++
 	}
+	// The card rides on the AI message's payload (0106), inside the same
+	// transaction as the words it came with — so a refresh can never show her
+	// the reply without the card it was written around.
 	if _, err := qtx.AppendAtomMessage(turnCtx, sqlc.AppendAtomMessageParams{
 		AtomID: at.ID, Seq: seq, Role: "ai", Content: parsed.Reply,
+		Payload: coachCardPayload(parsed.Card),
 	}); err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -709,6 +758,12 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	if cardOut != nil {
 		resp["card"] = cardOut
 		resp["nudge"] = nudge
+	}
+	// 🚨 NOT "card". That key above is the lens card — a different thing with
+	// a different lifetime (a row in atom_card, opened and closed) — and the
+	// two would silently overwrite each other on any turn that produced both.
+	if parsed.Card != nil {
+		resp["coachCard"] = parsed.Card
 	}
 	httpx.WriteJSON(w, http.StatusOK, resp)
 }

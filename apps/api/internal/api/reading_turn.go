@@ -87,10 +87,20 @@ type liteTurnDTO struct {
 }
 
 type liteMessageDTO struct {
-	Seq       int32  `json:"seq"`
-	Role      string `json:"role"`
-	Content   string `json:"content"`
-	CreatedAt string `json:"createdAt"`
+	Seq     int32  `json:"seq"`
+	Role    string `json:"role"`
+	Content string `json:"content"`
+	// Payload is the structured thing this message carried — today, the card
+	// 印记 wrote into a coach turn (atom_message.payload, 0106). Without it
+	// here a card would live exactly as long as the tab: stored, and then
+	// unreachable the moment she refreshes.
+	//
+	// 🚨 json.RawMessage, NOT the raw []byte sqlc gives us. encoding/json
+	// marshals []byte as a BASE64 STRING — no error, no warning, and the
+	// failure surfaces far from here, in the client that can't parse its own
+	// card. Precedent: internal/studio/load.go:106.
+	Payload   json.RawMessage `json:"payload,omitempty"`
+	CreatedAt string          `json:"createdAt"`
 }
 
 // liteListMessagesFor returns the whole transcript, oldest first. The client
@@ -112,6 +122,7 @@ func (a *API) liteListMessagesFor(kind string) http.HandlerFunc {
 		for _, m := range rows {
 			out = append(out, liteMessageDTO{
 				Seq: m.Seq, Role: m.Role, Content: m.Content,
+				Payload:   json.RawMessage(m.Payload),
 				CreatedAt: m.CreatedAt.Format(time.RFC3339),
 			})
 		}

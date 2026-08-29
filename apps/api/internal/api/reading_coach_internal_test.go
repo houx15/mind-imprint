@@ -15,7 +15,7 @@ import (
 )
 
 func TestParseReadingCoachReplyLens(t *testing.T) {
-	valid := map[string]bool{"b1": true, "b2": true}
+	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	allow := func(id string) bool { return id == "craap" }
 
 	cases := []struct {
@@ -34,7 +34,7 @@ func TestParseReadingCoachReplyLens(t *testing.T) {
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got, ok := parseReadingCoachReply(tc.json, valid, "zh", allow)
+			got, ok := parseReadingCoachReply(tc.json, blocks, "zh", allow)
 			if !ok {
 				t.Fatalf("parse failed for %s", tc.json)
 			}
@@ -166,10 +166,10 @@ func TestReadingCoachPrompt_TaskLinesCarryKind(t *testing.T) {
 }
 
 func TestParseReadingCoachReplyLens_NilLensOK(t *testing.T) {
-	valid := map[string]bool{"b1": true, "b2": true}
+	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 
 	got, ok := parseReadingCoachReply(
-		`{"reply":"看这段","advance":"","focusBlock":"b2","lens":"craap"}`, valid, "zh", nil)
+		`{"reply":"看这段","advance":"","focusBlock":"b2","lens":"craap"}`, blocks, "zh", nil)
 	if !ok {
 		t.Fatalf("parse failed")
 	}

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"strings"
 	"unicode/utf8"
 )
@@ -110,4 +111,35 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 		return nil
 	}
 	return &coachCard{Type: c.Type, Prompt: prompt, Options: out}
+}
+
+// coachMessagePayload is what a chat message carries besides its words
+// (`atom_message.payload`, migration 0106). On the AI side that is the card it
+// just wrote. It is an envelope rather than the bare card on purpose: a reader
+// holding only the JSON has to be able to tell 「这条消息带了一张卡」 apart
+// from whatever else a message will carry later (her answer to one).
+//
+// 🚨 Deliberately NOT atom_card: `atom_card_one_open_idx` (0096) permits one
+// open card per atom, so a chat card stored there would deadlock every lens
+// summon — and `card_id` there must resolve in cards.ByID / CARD_REGISTRY,
+// which a card the model wrote on the spot never will.
+type coachMessagePayload struct {
+	Card *coachCard `json:"card,omitempty"`
+}
+
+// coachCardPayload renders a card into the jsonb column's bytes. A nil card
+// gives nil bytes, which the column stores as SQL NULL — that is the whole
+// reason the column is nullable: carrying nothing is the normal case, not one
+// every caller has to build an empty shell for.
+func coachCardPayload(c *coachCard) []byte {
+	if c == nil {
+		return nil
+	}
+	b, err := json.Marshal(coachMessagePayload{Card: c})
+	if err != nil {
+		// A struct of strings cannot fail to marshal; if it somehow did, the
+		// turn is still hers — she loses the card, not the reply.
+		return nil
+	}
+	return b
 }
