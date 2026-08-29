@@ -225,6 +225,187 @@ func TestValidateCoachCard(t *testing.T) {
 			t.Fatalf("input was mutated: %+v", in)
 		}
 	})
+
+	// —— 从句边界（Task 4b）——
+	// ≥4 runes 管的是**长度**，不是「是不是一句话」。一个从句子中间截出来的窗口
+	// 确确实实是原文的子串，但它是靠扫几个字凑出来的；一句话必须被当作一个整体
+	// 读过。下面这一组把「选项是一句话」这件事钉住 —— 反例被丢掉，
+	// 而**正例一个都不许被误杀**：误杀是看不见的（卡片静悄悄消失，
+	// 看起来就像模型这一轮不想出卡片）。
+
+	t.Run("从词中间截出来的窗口被丢掉", func(t *testing.T) {
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				// 真原文子串，但两头都不在标点边界上（「地|表以沥青和混凝土|为主」）
+				{BlockID: "b1", Quote: "表以沥青和混凝土"},
+				{BlockID: "b1", Quote: "白天吸热、夜里放热"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("expected the two clause-aligned options to survive, got %+v", got)
+		}
+		for _, o := range got.Options {
+			if o.Quote == "表以沥青和混凝土" {
+				t.Fatalf("a mid-word window survived: %+v", got.Options)
+			}
+		}
+	})
+
+	t.Run("两头都不在边界上的片段被丢掉", func(t *testing.T) {
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				// 「白天吸|热、夜里|放热」—— 前后都是字，不是标点
+				{BlockID: "b1", Quote: "吸热、夜里"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+			},
+		}, blocks)
+		if got != nil {
+			t.Fatalf("expected nil (only 1 survivor), got %+v", got)
+		}
+	})
+
+	t.Run("同一句话的重叠片段整张卡片被丢掉", func(t *testing.T) {
+		// 三个互不相同的字符串，「按可见文本去重」永远合并不掉它们；
+		// 但没有一个落在从句边界上 —— 存活 0 < 2 → 整张丢掉。
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "表以沥青和混凝土"},
+				{BlockID: "b1", Quote: "以沥青和混凝土为"},
+				{BlockID: "b1", Quote: "沥青和混凝土为主"},
+			},
+		}, blocks)
+		if got != nil {
+			t.Fatalf("expected nil, got %+v", got)
+		}
+	})
+
+	t.Run("正常的完整句子照样通过（带尾部句号）", func(t *testing.T) {
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b2", Quote: "建筑密集阻碍了夜间散热。"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外。"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("模型把句号一起引进来是常态，不许因此丢卡片: %+v", got)
+		}
+	})
+
+	t.Run("正常的完整句子照样通过（不带尾部句号）", func(t *testing.T) {
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b2", Quote: "建筑密集阻碍了夜间散热"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("expected 2 options, got %+v", got)
+		}
+	})
+
+	t.Run("block 开头的第一句通过", func(t *testing.T) {
+		// 「城市地表…」前面没有边界字符 —— 它就在 block 的开头。
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "城市地表以沥青和混凝土为主"},
+				{BlockID: "b2", Quote: "建筑密集阻碍了夜间散热"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("a block's first sentence must pass, got %+v", got)
+		}
+	})
+
+	t.Run("block 结尾的最后一句通过", func(t *testing.T) {
+		// 「…排到室外。」后面已经是 block 的结尾。
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b2", Quote: "空调外机把热量排到室外。"},
+				{BlockID: "b1", Quote: "白天吸热、夜里放热。"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("a block's last sentence must pass, got %+v", got)
+		}
+	})
+
+	t.Run("以顿号分隔的从句通过", func(t *testing.T) {
+		// 「白天吸热、|夜里放热|。」—— 从句也是合法的引用单位。
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "b1", Quote: "夜里放热"},
+				{BlockID: "b2", Quote: "空调外机把热量排到室外"},
+			},
+		}, blocks)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("a 、-delimited clause is a legitimate quote, got %+v", got)
+		}
+	})
+
+	t.Run("换行也是边界", func(t *testing.T) {
+		// block 文本里带换行时，换行两边各自是一句话 —— 不许因为「前一个字不是标点」误杀。
+		nl := []Block{{ID: "n1", Text: "城市越来越热\n夜里也降不下来\n空调开得更久"}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "n1", Quote: "夜里也降不下来"},
+				{BlockID: "n1", Quote: "空调开得更久"},
+			},
+		}, nl)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("a newline must count as a clause boundary, got %+v", got)
+		}
+	})
+
+	t.Run("半角标点也是边界", func(t *testing.T) {
+		en := []Block{{ID: "e1", Text: "Cities absorb heat by day. They release it at night, slowly."}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "pick one",
+			Options: []coachCardOption{
+				{BlockID: "e1", Quote: "Cities absorb heat by day."},
+				// 句号后面隔着一个空格 —— 空格本身不是边界字符，但它也不该挡住这一句
+				{BlockID: "e1", Quote: "They release it at night"},
+			},
+		}, en)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("half-width punctuation must count as a boundary, got %+v", got)
+		}
+	})
+
+	t.Run("同一句话在段里出现两次时按合格的那一次算", func(t *testing.T) {
+		// 第一次出现是从词中间切的，第二次出现落在边界上 —— 有一次合格就算合格。
+		dup := []Block{{ID: "d1", Text: "夜里放热的地表让城市更热。夜里放热，是热岛的根。"}}
+		got := validateCoachCard(&coachCard{
+			Type:   "choose_span",
+			Prompt: "挑一句",
+			Options: []coachCardOption{
+				{BlockID: "d1", Quote: "夜里放热"},
+				{BlockID: "d1", Quote: "是热岛的根"},
+			},
+		}, dup)
+		if got == nil || len(got.Options) != 2 {
+			t.Fatalf("one clause-aligned occurrence is enough, got %+v", got)
+		}
+	})
 }
 
 // TestParseReadingCoachReply_Card — the wiring, from the model's JSON to the

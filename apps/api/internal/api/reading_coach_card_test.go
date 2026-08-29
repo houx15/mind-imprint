@@ -23,12 +23,16 @@ import (
 // A card built out of real sentences from zhArticle's third paragraph (b3)
 // and fifth (b5). The question asks for her judgement and has no right
 // answer — 铁律②: this is a ladder, not an exam.
+//
+// 🚨 b5 的引文是「是把灰色的屋顶改成绿色的」，那个「是」不是笔误：选项必须落在
+// 从句边界上（Task 4b）。少了它就是从「事情，是|把灰色的…」中间切开的一个窗口 ——
+// 确确实实是原文的子串，但不是一句话，会被 validateCoachCard 丢掉。
 const coachTurnWithCard = `{"routineKey":"zh-scan-focus-lens","focusBlocks":["b3"],
   "steps":[{"kind":"read","detail":"先整体读一遍。"}],
   "reply":"你说的这句我接住了。","advance":"","focusBlock":"b3",
   "card":{"type":"choose_span","prompt":"哪一句你读着最不服气？","options":[
     {"blockId":"b3","quote":"城市里的柏油路和水泥墙白天大量吸热"},
-    {"blockId":"b5","quote":"把灰色的屋顶改成绿色的"}]}}`
+    {"blockId":"b5","quote":"是把灰色的屋顶改成绿色的"}]}}`
 
 // The same turn with two sentences the model invented. They read exactly like
 // the real ones — which is the entire reason the validator exists.
