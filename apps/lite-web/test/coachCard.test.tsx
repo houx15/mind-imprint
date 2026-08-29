@@ -45,10 +45,27 @@ const SHORT_TEXT: CoachCardSpec = {
 
 /** Every shape a card can be on screen, for the sweeps that must hold on all
  *  of them at once. */
-const EVERY_SHAPE: { name: string; card: CoachCardSpec; answered?: CoachCardAnswer; stale?: boolean }[] = [
+const EVERY_SHAPE: {
+  name: string;
+  card: CoachCardSpec;
+  answered?: CoachCardAnswer;
+  stale?: boolean;
+  busy?: boolean;
+}[] = [
   { name: "choose_span", card: CHOOSE_SPAN },
   { name: "pick_in_article", card: PICK_IN_ARTICLE },
   { name: "short_text", card: SHORT_TEXT },
+  { name: "这一轮还在飞", card: CHOOSE_SPAN, busy: true },
+  {
+    name: "pick_in_article 已作答",
+    card: PICK_IN_ARTICLE,
+    answered: {
+      type: "pick_in_article",
+      prompt: PICK_IN_ARTICLE.prompt,
+      choice: OPTIONS[0]!.quote,
+      blockId: OPTIONS[0]!.blockId,
+    },
+  },
   {
     name: "choose_span 已作答",
     card: CHOOSE_SPAN,
@@ -234,11 +251,63 @@ describe("CoachCard", () => {
   });
 
   // 🚨 铁律②/⑤：卡片上永远不出现对错。
-  it.each(EVERY_SHAPE)("$name 上没有任何对/错的痕迹（文字 + 属性）", ({ card, answered, stale }) => {
+  it.each(EVERY_SHAPE)("$name 上没有任何对/错的痕迹（文字 + 属性）", ({ card, answered, stale, busy }) => {
     const { container } = render(
-      <CoachCard card={card} onAnswer={vi.fn()} answered={answered} stale={stale} />,
+      <CoachCard card={card} onAnswer={vi.fn()} answered={answered} stale={stale} busy={busy} />,
     );
     sweep(container);
+  });
+
+  /**
+   * 🚨 卡片不许说屏幕的方位。
+   *
+   * 真实走查里第一张卡写死了「在左边文章里点出那一句」——而文章在桌面端排在
+   * 右边、手机上排在下面（`02-first-reply-with-card.png` / `p2-phone-first-card.png`）。
+   * 学生看到的**第一张卡片**把她指去了空白的那一边：她找不到 → 打字说「我读完
+   * 了」→ hunt 判定正确地拒绝推进 → 印记 连着训她两次。
+   *
+   * 布局会随视口变，所以正确的修法不是换一个方位词，而是**一个都不提**。
+   *
+   * ⚠️ 词表里不能有裸的「上」「下」：「点一下」「读一下」全是常用词，会误伤。
+   * 禁的是真的在说方位的那几个。同理只扫**文字和可读属性**，不扫 innerHTML：
+   * markup 里合法地躺着 `text-left`、`border-left-color` 这类 CSS。
+   */
+  const DIRECTIONS = ["左", "右", "上边", "上面", "上方", "下边", "下面", "下方", "底下", "顶部", "旁边"];
+  const DIRECTION_RE = /\b(left|right|above|below|beside|top|bottom)\b/i;
+
+  /** 屏幕上读得到的一切字：文字 + 读屏/悬停能拿到的属性值。 */
+  function readable(container: HTMLElement): string {
+    const parts = [container.textContent ?? ""];
+    for (const el of [container, ...container.querySelectorAll("*")]) {
+      for (const attr of ["aria-label", "title", "placeholder", "alt"]) {
+        const v = el.getAttribute(attr);
+        if (v) parts.push(v);
+      }
+    }
+    return parts.join(" ");
+  }
+
+  it.each(EVERY_SHAPE)("$name 的文案里一个方位词都没有", ({ card, answered, stale, busy }) => {
+    const { container } = render(
+      <CoachCard card={card} onAnswer={vi.fn()} answered={answered} stale={stale} busy={busy} />,
+    );
+    const surface = readable(container);
+    for (const word of DIRECTIONS) {
+      expect(surface.includes(word), `卡片上出现了方位词「${word}」——布局一变它就指错了`).toBe(false);
+    }
+    expect(DIRECTION_RE.test(surface), `卡片上出现了方位词：${surface}`).toBe(false);
+  });
+
+  /**
+   * 产品负责人对着截图说的：*"ai's chat box and task card is not very clear"*。
+   * 一张卡片和一个聊天气泡在同一列里几乎一样重，她分不出「这是在跟我说话」和
+   * 「这是要我动手的东西」。DOM 上先有一个稳定的钩子，样式才有地方挂。
+   */
+  it.each(EVERY_SHAPE)("$name 在 DOM 上认得出自己是一张卡片", ({ card, answered, stale, busy }) => {
+    const { container } = render(
+      <CoachCard card={card} onAnswer={vi.fn()} answered={answered} stale={stale} busy={busy} />,
+    );
+    expect(container.querySelector("[data-coach-card]")).toBeTruthy();
   });
 
   /**

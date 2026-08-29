@@ -35,6 +35,27 @@ import { useEffect, useId, useRef, useState } from "react";
  * 已作答的卡片仍然留在对话里显示她选了什么——那是她说过的话，不该在刷新之后
  * 消失——但**不再可点**：第二次点击只会变成第二条学生消息。
  *
+ * ## 它必须看起来不是一句话（2026-08-29，对着真实截图）
+ *
+ * 产品负责人用真文章走了一遍之后：*"currently in the box ai's chat box and
+ * task card is not very clear. task card. AI avatar is necessary."*
+ * 卡片和 印记 的气泡曾经是同一列里两个几乎一样浅的框，她读不出「这是在跟我
+ * 说话」和「这是要我动手的东西」的差别。现在卡片有左边一条实心竖杠、更实的
+ * 边框底色，和一枚 「动手」 小标签；头像那一半在 `ReadingCoachPanel` 的
+ * `CoachLog` 里（挂在气泡外面）。
+ *
+ * 🚨 `mk-*` 是**裸 CSS 变量**，所以这里每一处半透明都是 `color-mix()`：
+ * `bg-mk-accent-500/30` 这类 Tailwind alpha 语法对它们一个字节的 CSS 都不生成，
+ * 静默变成透明。
+ *
+ * ## 🚨 卡片不许说屏幕的方位
+ *
+ * 这里曾经写死「在**左边**文章里点出那一句」，而文章在桌面端排在**右边**、
+ * 手机上排在**下面**。两次真实走查开头的第一张卡都是 `pick_in_article`，
+ * 所以那是学生看到的**第一件事**，而它把她指去了空白的那一边——她找不到，
+ * 打字说「我读完了」，hunt 判定正确地拒绝推进，印记 连着训了她两次。
+ * 布局本来就随视口变，换一个方位词只是把错误推迟：**一个都不提**。
+ *
  * ## `stale`：一次只问一个（铁律③）
  *
  * 印记 给一张卡 → 她不理，直接打字 → 印记 又给一张。两张都敞开的话，她得先猜
@@ -47,6 +68,11 @@ import { useEffect, useId, useRef, useState } from "react";
  * 🚨 **必须能点开。** 配对循环（ReadingCoachPanel `cards`）特意支持「新卡出现
  * 之后仍然回去答旧卡」，折叠不许把它弄丢；而且**由她选择重新打开，房间不替她
  * 关死**——这条是铁律②。
+ *
+ * `stale` 由 `ReadingCoachPanel` 按「后面还有没有更新的卡片」算，而不是按
+ * 「它是不是最新的那张未答卡片」——后者会让一张早就折起来的旧卡在她答掉当前
+ * 这张的瞬间**自己弹开**，下一条回复到达时又折回去（`05-turn1-card-AFTER-tap.png`
+ * 拍到的那一下抖动）。一旦折起来就保持折着，直到她**主动点开**。
  */
 
 export type CoachCardType = "choose_span" | "pick_in_article" | "short_text";
@@ -116,12 +142,17 @@ export function CoachCard({
     return (
       <button
         type="button"
+        data-coach-card="collapsed"
         aria-expanded={false}
         onClick={() => setReopened(true)}
-        className="mk-coachcard my-1.5 flex w-full flex-col gap-0.5 rounded-mk-lg border border-mk-border px-3 py-2 text-left transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+        className="mk-coachcard my-2 flex w-full flex-col gap-0.5 rounded-mk-lg border border-mk-border px-3 py-2 text-left transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
         style={{
           // mk-* 是裸 CSS 变量，alpha 语法一个字节都不生成：只能 color-mix。
           background: "color-mix(in srgb, var(--mk-accent-50) 35%, var(--mk-surface))",
+          // 收起来的卡片保留那条竖杠，只是调轻：她一眼还认得出这是同一族东西
+          // （一张卡片），而不是日志里又一句话。
+          borderLeftWidth: "3px",
+          borderLeftColor: "color-mix(in srgb, var(--mk-accent-500) 35%, transparent)",
         }}
       >
         <span className="text-mk-small leading-relaxed text-mk-muted">{card.prompt}</span>
@@ -133,14 +164,44 @@ export function CoachCard({
   return (
     <div
       role="group"
+      data-coach-card={done ? "answered" : "open"}
       aria-labelledby={promptId}
-      className="mk-coachcard my-1.5 flex flex-col gap-2 rounded-mk-lg border border-mk-accent-200 p-3"
+      className="mk-coachcard my-2 flex flex-col gap-2 rounded-mk-lg border p-3"
       style={{
         // mk-* 是裸 CSS 变量：`bg-mk-accent-50/60` 这类 alpha 语法一个字节的
         // CSS 都不会生成（静默透明）。半透明只能走 color-mix。
-        background: "color-mix(in srgb, var(--mk-accent-50) 70%, var(--mk-surface))",
+        //
+        // 这一层比气泡重一档，是有意的：真实截图里（`02-first-reply-with-card.png`）
+        // 印记 的话是一个浅色气泡，卡片是**另一个**几乎一样浅的框，两者在同一列
+        // 里分不出轻重，她读不出「这是在跟我说话」和「这是要我动手的东西」的差别。
+        // 答过之后这张卡片退一档：它已经不再要她做什么了，屏幕上最重的那一张
+        // 永远该是**现在轮到的**那一张。
+        background: done
+          ? "color-mix(in srgb, var(--mk-accent-50) 45%, var(--mk-surface))"
+          : "color-mix(in srgb, var(--mk-accent-50) 88%, var(--mk-surface))",
+        borderColor: `color-mix(in srgb, var(--mk-accent-500) ${done ? 20 : 34}%, transparent)`,
+        // 左边那条实心竖杠是这张卡片最便宜、也最管用的身份标记：气泡永远不会有。
+        borderLeftWidth: "3px",
+        borderLeftColor: done
+          ? "color-mix(in srgb, var(--mk-accent-500) 55%, transparent)"
+          : "var(--mk-accent-500)",
+        boxShadow: done ? "none" : "0 1px 3px color-mix(in srgb, var(--mk-accent-700) 10%, transparent)",
       }}
     >
+      {/* 一眼可辨的小标签。它说的是「这一格要你动手」，不是一道题的题号——
+          所以没有编号、没有计数，也永远不会有对错。答完就撤掉：它是一句邀请，
+          不是一枚一直挂在那儿的印章。 */}
+      {!done && (
+        <span
+          className="inline-flex w-fit items-center gap-1 rounded-mk-full px-2 py-0.5 text-mk-caption"
+          style={{
+            background: "color-mix(in srgb, var(--mk-accent-500) 16%, transparent)",
+            color: "var(--mk-accent-700)",
+          }}
+        >
+          动手
+        </span>
+      )}
       <p id={promptId} className="text-mk-body leading-relaxed text-mk-ink">
         {card.prompt}
       </p>
@@ -167,7 +228,13 @@ export function CoachCard({
           <p className="text-mk-small text-mk-faint">点一句就行，怎么想都算你的。</p>
         </>
       ) : card.type === "pick_in_article" ? (
-        <p className="text-mk-small text-mk-faint">在左边文章里点出那一句，点了就会出现在输入框上面。</p>
+        // 🚨 一个方位词都不许有。这里曾经写着「在**左边**文章里点出那一句」，
+        // 而文章在桌面端排在**右边**、手机上排在**下面**——两次真实走查开头的
+        // 第一张卡都是 pick_in_article，所以那是学生看到的第一件事，而它把她
+        // 指去了空白的那一边。她找不到 → 打字说「我读完了」→ hunt 判定正确地
+        // 拒绝推进 → 印记 连着训她两次。
+        // 布局本来就会随视口变，任何写死的方位词迟早都是错的：只说做什么。
+        <p className="text-mk-small text-mk-faint">回文章里点出那一句，点完它就会出现在对话里。</p>
       ) : (
         <div className="flex flex-col gap-2">
           <textarea

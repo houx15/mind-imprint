@@ -418,3 +418,129 @@ describe("ReadingCoachPanel — the card in the conversation", () => {
     expect(postTurn).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * R2 — 对着真实走查的截图（`.deploy-local/card-eyeball-2026-08-29/`）逐条改的
+ * 三件事。全都不是「代码读起来不对」，而是「屏幕上看起来不对」。
+ */
+describe("R2 — 屏幕上看得见的三件事", () => {
+  const WITH_HER: LiteMessage[] = [
+    { seq: 1, role: "ai", content: "我们看第二段。", createdAt: "" },
+    { seq: 2, role: "student", content: "我读完了。", createdAt: "" },
+    { seq: 3, role: "ai", content: "读完这一段，来回答我一个问题。", createdAt: "", payload: { card: CARD } },
+  ];
+
+  /**
+   * 产品负责人对着截图说的：*"currently in the box ai's chat box and task card
+   * is not very clear. task card. AI avatar is necessary."*
+   *
+   * 印记 说的话要一眼认得出是**它在说话**，卡片要一眼认得出是**要她动手的
+   * 东西**。前者靠头像，后者靠 DOM 上一个稳定的钩子撑起来的另一种外观。
+   */
+  it("印记 的每条消息都挂着它的头像，她自己的不挂", () => {
+    const { container } = render(panel({ initialMessages: WITH_HER }));
+    const log = container.querySelector("[data-coach-log]") as HTMLElement;
+
+    const his = [...log.querySelectorAll('[data-chat-row="ai"]')];
+    expect(his.length).toBeGreaterThan(0);
+    for (const row of his) expect(row.querySelector("svg.mk-pebble")).toBeTruthy();
+
+    const hers = [...log.querySelectorAll('[data-chat-row="student"]')];
+    expect(hers.length).toBeGreaterThan(0);
+    for (const row of hers) expect(row.querySelector("svg.mk-pebble")).toBeNull();
+  });
+
+  it("卡片和聊天气泡在 DOM 上分得开——卡片不是一个气泡", () => {
+    const { container } = render(panel({ initialMessages: WITH_HER }));
+    const log = container.querySelector("[data-coach-log]") as HTMLElement;
+
+    const card = log.querySelector("[data-coach-card]") as HTMLElement;
+    expect(card).toBeTruthy();
+    // 卡片没有长在任何一个气泡里：气泡是「谁在说话」，卡片是「该你动手了」。
+    expect(card.closest("[data-role='assistant']")).toBeNull();
+    expect(card.closest("[data-role='student']")).toBeNull();
+    for (const bubble of log.querySelectorAll("[data-role='assistant'],[data-role='student']")) {
+      expect(bubble.querySelector("[data-coach-card]")).toBeNull();
+    }
+  });
+
+  /**
+   * 截图 `05-turn1-card-AFTER-tap.png`：她答掉当前这张，原本折起来的旧卡片
+   * **自己弹开了**（因为它成了「最新的未答卡片」），下一条回复到达时又折回去。
+   *
+   * 折叠状态要按「她是不是已经往下走了」定，不按「是不是最新的未答卡片」定。
+   */
+  it("答掉当前这张之后，早就折起来的旧卡片不会自己弹开", async () => {
+    const SECOND = {
+      type: "choose_span" as const,
+      prompt: "那你觉得他最想让你相信哪一句？",
+      options: [
+        { blockId: "b3", quote: "减排的速度已经超过了多数人的预期。" },
+        { blockId: "b4", quote: "但代价落在了谁头上，文章没有说。" },
+      ],
+    };
+    const two: LiteMessage[] = [
+      ...OPENED,
+      { seq: 3, role: "student", content: "我先说点别的。", createdAt: "" },
+      { seq: 4, role: "ai", content: "行，那换一个问题。", createdAt: "", payload: { card: SECOND } },
+    ];
+    render(panel({ initialMessages: two }));
+
+    expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "减排的速度已经超过了多数人的预期。" }));
+    await waitFor(() => expect(screen.getByText("你选的")).toBeTruthy());
+
+    // 旧那张还是折着的——它没有因为「现在轮到它是最新的未答卡片」就跳出来。
+    expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeNull();
+
+    // 🚨 但门始终开着：她点一下就能回去答（铁律②，房间不替她关死）。
+    fireEvent.click(screen.getByRole("button", { name: /哪一句最能说明作者的态度？/ }));
+    expect(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" })).toBeTruthy();
+  });
+
+  /**
+   * 真实走查里中过一次：coach 返回不可解析 → 502 → catch 把乐观消息移除，而那条
+   * 消息**带着她的 `payload.answer`**。卡片恢复成未答，选项全部回来，没有任何
+   * 地方记得她刚才点的是哪一句——她得自己猜。
+   */
+  describe("一次 502 不许把她点过的答案偷偷取消", () => {
+    it("她选的那一句还在卡片上，并且能一键重试", async () => {
+      postTurn.mockRejectedValueOnce(new Error("boom"));
+      render(panel({ initialMessages: OPENED }));
+
+      fireEvent.click(screen.getByRole("button", { name: "但人均排放仍低于多数发达国家。" }));
+
+      const again = await screen.findByRole("button", { name: "重试" });
+      // 她的选择还在，选项没有全部回来——不用她重新回忆点过什么。
+      expect(screen.getByText("你选的")).toBeTruthy();
+      expect(screen.getByText("“但人均排放仍低于多数发达国家。”")).toBeTruthy();
+      expect(screen.queryByRole("button", { name: "中国的碳排放总量位居世界第一。" })).toBeNull();
+
+      fireEvent.click(again);
+
+      await waitFor(() => expect(postTurn).toHaveBeenCalledTimes(2));
+      const [, , , cardAnswer] = postTurn.mock.calls[1] as [string, string, unknown, unknown];
+      expect(cardAnswer).toEqual({
+        type: "choose_span",
+        prompt: "哪一句最能说明作者的态度？",
+        choice: "但人均排放仍低于多数发达国家。",
+        blockId: "b2",
+      });
+      await waitFor(() => expect(screen.queryByRole("button", { name: "重试" })).toBeNull());
+      expect(screen.getByText("你选的")).toBeTruthy();
+    });
+
+    it("只是打了字的那一轮失败了，字回到输入框里（她还能改）", async () => {
+      postTurn.mockRejectedValueOnce(new Error("boom"));
+      render(panel({ initialMessages: OPENED }));
+
+      const box = screen.getByPlaceholderText("读完这一步，跟印记说一声") as HTMLTextAreaElement;
+      fireEvent.change(box, { target: { value: "我觉得他在替中国说话。" } });
+      fireEvent.click(screen.getByLabelText("发送"));
+
+      await waitFor(() => expect(box.value).toBe("我觉得他在替中国说话。"));
+    });
+  });
+});

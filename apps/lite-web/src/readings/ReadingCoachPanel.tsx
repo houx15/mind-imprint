@@ -1,7 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Play } from "lucide-react";
 import { Button, Icon, Pebble } from "@/ui";
-import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import type { ReadingCoachSlot } from "./ReadingRoom";
 import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard";
@@ -70,6 +69,13 @@ export function ReadingCoachPanel({
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /** 上一轮**带着她的作答**却没送出去的那一份，原样留着好重发。 */
+  const [failed, setFailed] = useState<null | {
+    text: string;
+    picks: { blockId: string; quote: string }[];
+    cardAnswer: CoachCardAnswer;
+    mine: LiteMessage;
+  }>(null);
   const localSeq = useRef(-1);
 
   const started = messages.length > 0;
@@ -94,12 +100,14 @@ export function ReadingCoachPanel({
     const cardBySeq = new Map<number, CoachCardSpec>();
     const answerBySeq = new Map<number, CoachCardAnswer>();
     const open: { seq: number; card: CoachCardSpec }[] = [];
+    let newest: number | null = null;
     for (const m of messages) {
       if (m.role === "ai") {
         const card = coachCardOf(m);
         if (card) {
           cardBySeq.set(m.seq, card);
           open.push({ seq: m.seq, card });
+          newest = m.seq;
         }
         continue;
       }
@@ -115,11 +123,20 @@ export function ReadingCoachPanel({
       answerBySeq.set(open[i]!.seq, answer);
       open.splice(i, 1);
     }
-    // 铁律③ 一次只问一个：只有最新那张还没答的卡片是敞开的，它之前的都收起来
-    // （CoachCard `stale`）。折叠 ≠ 关死——她点一下就能回去答，配对循环上面按
-    // prompt 认卡，就是为了这件事。
-    const stale = new Set(open.slice(0, -1).map((o) => o.seq));
-    return { cardBySeq, answerBySeq, open: open.at(-1) ?? null, stale };
+    // 铁律③ 一次只问一个：只有**对话里最后到达的那张**卡片是敞开的，它之前的
+    // 都收起来（CoachCard `stale`）。折叠 ≠ 关死——她点一下就能回去答，配对循环
+    // 上面按 prompt 认卡，就是为了这件事。
+    //
+    // 🚨 判据是「后面还有没有更新的卡片」，不是「它是不是最新的那张未答卡片」。
+    // 按后者算的话（`open.slice(0, -1)`），她答掉当前这张之后，一张早就折起来的
+    // 旧卡片会因为顶上了「最新未答」的位置而**自己弹开**，下一条回复到达时又折
+    // 回去——真实走查的 `05-turn1-card-AFTER-tap.png` 拍到的就是这一下抖动。
+    // 折叠状态该跟着「她是不是已经往下走了」，而这件事一旦发生就不会倒退。
+    const stale = new Set(open.filter((o) => newest !== null && o.seq < newest).map((o) => o.seq));
+    // 敞开的那张 = 最后到达的那张，且她还没答。她答完之后没有卡片自动接班：
+    // 一张折起来的旧卡片不该在背后悄悄接住她下一次在文章里点的那一句。
+    const last = open.at(-1) ?? null;
+    return { cardBySeq, answerBySeq, open: last && last.seq === newest ? last : null, stale };
   }, [messages]);
 
   async function turn(
@@ -145,6 +162,7 @@ export function ReadingCoachPanel({
           }
         : null;
     if (mine) setMessages((prev) => [...prev, mine]);
+    setFailed(null);
     try {
       const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer);
       setMessages((prev) => [
@@ -166,15 +184,39 @@ export function ReadingCoachPanel({
       // picked it up on its own, so it needs telling.
       if (res.card) slot.onCardSummoned?.();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "印记这次没接上，再试一次。");
-      // By identity, not by position: the failed turn's message is not
-      // necessarily the last one any more once a card answer can add a row of
-      // its own, and slicing the tail off would eat somebody else's turn.
-      if (mine) setMessages((prev) => prev.filter((m) => m !== mine));
-      setDraft(text);
+      setError(err instanceof ApiError ? err.message : "印记这次没接上。");
+      // 🚨 一次 502 不许把她点过的答案偷偷取消掉。
+      //
+      // 这条乐观消息**带着 `payload.answer`**，所以把它撤掉等于把卡片恢复成未答：
+      // 选项全部回来，屏幕上没有任何地方还记得她刚才点的是哪一句，她得自己猜。
+      // 真实走查里中过一次。她的选择是她说过的话，一个服务端的坏心情不该抹掉它。
+      //
+      // 所以带着作答的那一轮**留在原地**（卡片继续显示她选的那一句），失败只表现为
+      // 一行错误 + 一个「重试」——她重发的是同一份东西，不用重新回忆。
+      // 只打了字的那一轮仍然照旧退回输入框：那句话在输入框里她还能改，
+      // 而卡片上的选择改不了。
+      if (mine && cardAnswer) {
+        setFailed({ text, picks, cardAnswer, mine });
+      } else {
+        // By identity, not by position: the failed turn's message is not
+        // necessarily the last one any more once a card answer can add a row of
+        // its own, and slicing the tail off would eat somebody else's turn.
+        if (mine) setMessages((prev) => prev.filter((m) => m !== mine));
+        setDraft(text);
+      }
     } finally {
       setBusy(false);
     }
+  }
+
+  /** 重发上一轮失败的作答，原样。她点过的那一句一直留在卡片上，这里只是把它
+   *  再送一次——先把留着的那条乐观消息撤掉，`turn` 会重新放一条一样的。 */
+  function retryFailed() {
+    const f = failed;
+    if (!f || busy) return;
+    setFailed(null);
+    setMessages((prev) => prev.filter((m) => m !== f.mine));
+    void turn(f.text, f.picks, f.cardAnswer);
   }
 
   /** Her message, with whatever she quoted out of the article carried in
@@ -244,23 +286,20 @@ export function ReadingCoachPanel({
   // Deliberately NOT memoized: every card's props depend on `busy`, on the
   // lens lock and on `send`, which is rebuilt each render anyway — a useMemo
   // here would either be a lie or never hit.
-  const chatMessages: ChatMessage[] = [];
+  const chatMessages: CoachRow[] = [];
   for (const m of messages) {
     if (m.role === "ai") {
       // 印记's turn is markdown; the student's (below) is not. Her literal `*`
       // and `#` are hers to keep. `LiteChatMarkdown` is the shared renderer
       // with accent-coloured bold — see that file for why lite has its own.
-      chatMessages.push({ id: `c${m.seq}`, role: "assistant", node: <LiteChatMarkdown text={m.content} /> });
+      chatMessages.push({ id: `c${m.seq}`, kind: "ai", node: <LiteChatMarkdown text={m.content} /> });
       const card = cards.cardBySeq.get(m.seq);
       if (card) {
         chatMessages.push({
           id: `card${m.seq}`,
-          // `system` is the one role ChatBubble renders with NO bubble chrome
-          // — the card brings its own frame and wants the column's full width,
-          // not 85% of it inside a speech bubble. The wrapper undoes that
-          // row's `text-center`, which is meant for 「印记 summoned a card」
-          // one-liners, not for something she reads and answers.
-          role: "system",
+          // 卡片不是一句话，所以它不进气泡：它自带边框，也要这一列的整个宽度，
+          // 而不是气泡里的 85%。
+          kind: "card",
           node: (
             <div className="text-left">
               <CoachCard
@@ -295,10 +334,10 @@ export function ReadingCoachPanel({
       // one sentence, refreshes, and sees it twice. `choice` is therefore
       // passed in and peeled off the front.
       const own = ownWords(m.content, answer.choice);
-      if (own) chatMessages.push({ id: `c${m.seq}`, role: "student", node: own });
+      if (own) chatMessages.push({ id: `c${m.seq}`, kind: "student", node: own });
       continue;
     }
-    chatMessages.push({ id: `c${m.seq}`, role: "student", node: m.content });
+    chatMessages.push({ id: `c${m.seq}`, kind: "student", node: m.content });
   }
 
   // Scroll the newest turn into view without dragging the whole page.
@@ -341,11 +380,28 @@ export function ReadingCoachPanel({
           position IS the design claim (Task 8), and a test that only asks
           「prompt 在某处」 would pass on a rail above the log too. */}
       <div data-coach-log className="mk-scroll min-h-0 flex-1 overflow-y-auto pr-1">
-        <ChatLog messages={chatMessages} thinking={busy} />
+        <CoachLog rows={chatMessages} thinking={busy} />
         <div ref={endRef} data-scroll-anchor="coach-end" />
       </div>
 
-      {error && <p className="shrink-0 text-mk-small text-mk-danger">{error}</p>}
+      {error && (
+        <div className="shrink-0 flex flex-wrap items-center gap-2">
+          <p className="text-mk-small text-mk-danger">{error}</p>
+          {/* 只有「她的作答没送出去」那一种失败给重试按钮：她点过的那一句还在
+              卡片上，重试送的就是同一份，她不用重新回忆刚才点了什么。
+              只打了字的那一轮，字已经回到输入框里了，再放一个按钮反而是两条路。 */}
+          {failed && (
+            <button
+              type="button"
+              onClick={retryFailed}
+              disabled={busy}
+              className="rounded-mk-full border border-mk-accent-200 px-3 py-0.5 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk hover:bg-mk-accent-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200 disabled:opacity-60"
+            >
+              重试
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="shrink-0 flex flex-col gap-2">
         {hunting && !slot.locked && (
@@ -398,6 +454,78 @@ export function ReadingCoachPanel({
         />
 
       </div>
+    </div>
+  );
+}
+
+/** 日志里的一行：印记 说的一句话、她说的一句话，或者一张卡片。 */
+type CoachRow = { id: string; kind: "ai" | "student" | "card"; node: ReactNode };
+
+// 气泡的圆角是 spec §13 的字面值（印记 的尾巴在起头一侧，她的在另一侧），和
+// `@/studio/ai/ChatLog` 保持一致 —— 这个房间只是把头像挂到了气泡**外面**。
+const AI_RADIUS = "rounded-[4px_13px_13px_13px]";
+const HER_RADIUS = "rounded-[13px_4px_13px_13px]";
+const BUBBLE = "inline-block max-w-[85%] px-4 py-3 text-mk-body text-mk-ink";
+
+/**
+ * CoachLog — 带读 房间自己的对话日志。
+ *
+ * 产品负责人对着真实截图说的：*"currently in the box ai's chat box and task
+ * card is not very clear. task card. AI avatar is necessary."*
+ * （`02-first-reply-with-card.png`：印记 的话是一个浅色气泡，卡片是**另一个**
+ * 几乎一样浅的框，她分不出「这是在跟我说话」和「这是要我动手的东西」。）
+ *
+ * 两件事都要在**气泡之外**发生，所以这里没有复用共享的 `ChatLog`：
+ *
+ *   1. **头像挂在气泡旁边**，不是塞在气泡里。共享 `ChatLog` 的一条消息只有
+ *      「气泡里的内容」这一个插口，头像只能进气泡内部——而 `apps/web` 不归这个
+ *      任务改（改了会波及 pro 的四个房间）。这里是 lite 自己的一列对话，
+ *      多这二十行比去动共享组件安全得多。
+ *   2. **卡片根本不是一个气泡**：它自带边框、要整列宽度，`data-chat-row="card"`
+ *      让它在 DOM 上就和「谁在说话」分得开。
+ *
+ * 其余（圆角、白气泡 + 极淡阴影、思考中的三个点）和共享 `ChatLog` 逐字一致：
+ * 这是同一个 印记，不该在 lite 里换一套长相。
+ */
+function CoachLog({ rows, thinking = false }: { rows: CoachRow[]; thinking?: boolean }) {
+  return (
+    <div className="flex flex-col gap-3">
+      {rows.map((row) =>
+        row.kind === "card" ? (
+          // `data-role="system"` 保留下来：它标的是「这一行不是谁在说话」。
+          <div key={row.id} data-chat-row="card" data-role="system" className="text-left">
+            {row.node}
+          </div>
+        ) : row.kind === "ai" ? (
+          <div key={row.id} data-chat-row="ai" className="flex items-start justify-start gap-2">
+            <span className="mt-0.5 shrink-0">
+              <Pebble state="idle" size={24} />
+            </span>
+            <div data-role="assistant" className={`${BUBBLE} ${AI_RADIUS} bg-mk-surface shadow-mk-xs`}>
+              {row.node}
+            </div>
+          </div>
+        ) : (
+          // 她那一侧不挂头像：房间里只有一个角色需要被认出来。
+          <div key={row.id} data-chat-row="student" className="flex justify-end">
+            <div data-role="student" className={`${BUBBLE} ${HER_RADIUS} bg-mk-accent-50`}>
+              {row.node}
+            </div>
+          </div>
+        ),
+      )}
+      {thinking && (
+        <div data-chat-row="ai" className="flex items-start justify-start gap-2" aria-label="印记正在打字">
+          <span className="mt-0.5 shrink-0">
+            <Pebble state="thinking" size={24} />
+          </span>
+          <div data-role="assistant" className={`${BUBBLE} ${AI_RADIUS} flex items-center gap-1 bg-mk-surface`}>
+            <span className="mk-think-dot" />
+            <span className="mk-think-dot [animation-delay:0.15s]" />
+            <span className="mk-think-dot [animation-delay:0.3s]" />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
