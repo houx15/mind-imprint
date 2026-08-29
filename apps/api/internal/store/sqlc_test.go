@@ -3,14 +3,10 @@ package store_test
 import (
 	"context"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
@@ -164,35 +160,10 @@ func seedTestProject(t *testing.T, ctx context.Context, q *sqlc.Queries) uuid.UU
 func ptr(s string) *string { return &s }
 func ptrInt32(n int32) *int32 { return &n }
 
-// newStoreTestPool spins up a throwaway Postgres, runs all migrations, and
-// returns a connected pool. Lives in the external test package so it cannot
-// use the unexported newTestPool from package store.
+// newStoreTestPool returns a pool onto a fresh, fully migrated database of its
+// own, dropped via t.Cleanup — cloned from the package-wide migrated template
+// held by the single shared container (see testdb_internal_test.go).
 func newStoreTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
-	ctx := context.Background()
-	pg, err := tcpostgres.Run(ctx, "postgres:16-alpine",
-		tcpostgres.WithDatabase("mindimprint"),
-		tcpostgres.WithUsername("test"),
-		tcpostgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("start postgres: %v", err)
-	}
-	t.Cleanup(func() { _ = pg.Terminate(context.Background()) })
-	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("dsn: %v", err)
-	}
-	pool, err := store.NewPool(ctx, dsn)
-	if err != nil {
-		t.Fatalf("pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	if err := store.RunMigrations(ctx, pool); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	return pool
+	return store.NewTestDB(t)
 }

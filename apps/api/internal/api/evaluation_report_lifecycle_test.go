@@ -6,9 +6,9 @@ package api
 // envelope (writeEvalReportEnvelope). Deliberately package `api` (not
 // api_test) so it can reach these unexported symbols directly — same
 // convention as projectcoach_nextstep_test.go / teacher_read_internal_test.go.
-// The testcontainers bootstrap below duplicates api_test's newAPITestPool
-// (that helper lives in the external test package and isn't importable here;
-// maintest_test.go documents the same tradeoff for its own duplication).
+// Its database comes from the package-wide shared fixture in
+// testdb_internal_test.go (one container, migrations once, a cloned database
+// per test).
 
 import (
 	"context"
@@ -19,53 +19,23 @@ import (
 	"strings"
 	"sync"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
-	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// newLifecycleTestPool spins up a throwaway Postgres, runs all migrations
-// (incl. seed), and returns the pool. Container/pool torn down via t.Cleanup.
+// newLifecycleTestPool returns a pool onto a fresh, fully migrated database of
+// its own (cloned from the package's shared migrated template — see
+// testdb_internal_test.go), dropped via t.Cleanup.
 func newLifecycleTestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
 	}
-	ctx := context.Background()
-	pg, err := tcpostgres.Run(ctx, "postgres:16-alpine",
-		tcpostgres.WithDatabase("mindimprint"),
-		tcpostgres.WithUsername("test"),
-		tcpostgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("start postgres: %v", err)
-	}
-	t.Cleanup(func() { _ = pg.Terminate(context.Background()) })
-
-	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("dsn: %v", err)
-	}
-	pool, err := store.NewPool(ctx, dsn)
-	if err != nil {
-		t.Fatalf("pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	if err := store.RunMigrations(ctx, pool); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	return pool
+	return NewTestDB(t)
 }
 
 // lifecycleTestProjectID is the seeded demo project (owned by SeedUserID,

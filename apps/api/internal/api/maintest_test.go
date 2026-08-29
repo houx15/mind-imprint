@@ -16,16 +16,12 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/testcontainers/testcontainers-go"
-	tcpostgres "github.com/testcontainers/testcontainers-go/modules/postgres"
-	"github.com/testcontainers/testcontainers-go/wait"
 
 	. "mindimprint/api/internal/api"
 	"mindimprint/api/internal/auth"
 	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/evalreport"
 	"mindimprint/api/internal/gateway"
-	"mindimprint/api/internal/store"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -99,40 +95,16 @@ func cardsByID() func(id string) (cards.Spec, bool) {
 	return cards.ByID
 }
 
-// newAPITestPool spins up a throwaway Postgres, runs all migrations (incl. seed),
-// and returns the pool. Container/pool torn down via t.Cleanup.
+// newAPITestPool returns a pool onto a fresh, fully migrated database of its
+// own, dropped via t.Cleanup. Backed by the package's single shared container
+// (see testdb_internal_test.go): migrations run once into a template, and each
+// call clones it — same isolation as the old container-per-test, ~100x cheaper.
 func newAPITestPool(t *testing.T) *pgxpool.Pool {
 	t.Helper()
 	if testing.Short() {
 		t.Skip("skipping testcontainers integration in -short mode")
 	}
-	ctx := context.Background()
-	pg, err := tcpostgres.Run(ctx, "postgres:16-alpine",
-		tcpostgres.WithDatabase("mindimprint"),
-		tcpostgres.WithUsername("test"),
-		tcpostgres.WithPassword("test"),
-		testcontainers.WithWaitStrategy(
-			wait.ForLog("database system is ready to accept connections").
-				WithOccurrence(2).WithStartupTimeout(60*time.Second)),
-	)
-	if err != nil {
-		t.Fatalf("start postgres: %v", err)
-	}
-	t.Cleanup(func() { _ = pg.Terminate(context.Background()) })
-
-	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
-		t.Fatalf("dsn: %v", err)
-	}
-	pool, err := store.NewPool(ctx, dsn)
-	if err != nil {
-		t.Fatalf("pool: %v", err)
-	}
-	t.Cleanup(pool.Close)
-	if err := store.RunMigrations(ctx, pool); err != nil {
-		t.Fatalf("migrate: %v", err)
-	}
-	return pool
+	return NewTestDB(t)
 }
 
 // signInSeed creates a live session for the seeded student and returns the
