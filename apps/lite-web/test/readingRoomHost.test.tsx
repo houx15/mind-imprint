@@ -70,9 +70,6 @@ function sourcedRoutes(): Record<string, Route> {
   return {
     [key("GET", `/api/v1/readings/${READING_ID}`)]: { body: READING },
     [key("GET", `/api/v1/readings/${READING_ID}/source`)]: { body: SOURCE },
-    [key("GET", `/api/v1/readings/${READING_ID}/brief`)]: {
-      body: { phaseTag: null, readingReason: "我想弄清这篇有没有回避排放总量", readingFocus: "" },
-    },
     [key("GET", `/api/v1/readings/${READING_ID}/annotations`)]: { body: { annotations: [] } },
     [key("GET", `/api/v1/readings/${READING_ID}/messages`)]: { body: { messages: [] } },
     [key("GET", `/api/v1/readings/${READING_ID}/cards`)]: { body: { cards: [] } },
@@ -108,7 +105,10 @@ describe("ReadingRoomHost", () => {
     // composer's own readTurn prompt, which 带读 replaced — so lite's own room
     // never carried it over. (Pro's bar is untouched; it is live there.)
     expect(screen.queryByText(/你读这篇是为了/)).toBeNull();
-    expect(screen.queryByText(/我想弄清这篇有没有回避排放总量/)).toBeNull();
+    // …and with nothing rendering it, the host no longer FETCHES it either.
+    // The brief outlived its bar by one commit as a round trip on every open
+    // whose answer nothing read; this is what keeps it dead.
+    expect(calls.filter((c) => c.url.endsWith("/brief"))).toHaveLength(0);
     // Never rendered by lite's room at all — these were `caps` branches
     // before it forked away from pro's.
     expect(screen.queryByText("证据笔记")).toBeNull();

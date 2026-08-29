@@ -41,8 +41,11 @@ import { WritingRoomHost } from "./writings/WritingRoomHost";
  * parse/format `window.location.pathname`; a `popstate` listener re-derives
  * the route on Back/Forward and on `navigate`'s synthetic dispatch.
  *
- * `/readings/:id` mounts `ReadingRoomHost` (Task 12), which mounts the REAL
- * `ReadingRoom` from apps/web under `LITE_READING_CAPABILITIES`.
+ * `/readings/:id` mounts `ReadingRoomHost` (Task 12), which mounts lite's OWN
+ * `ReadingRoom` (`./readings/ReadingRoom`). It used to host pro's room under
+ * `LITE_READING_CAPABILITIES`; that room forked into lite on 2026-08-29, so
+ * the pro-only surfaces are no longer switched off by a capability object —
+ * they are not in lite's file at all.
  * `/writings/:id` mounts `WritingRoomHost` (P3 Task 8) — writing has no
  * analogous standalone pro room to host (`WritingBlock`/`WorkspaceContainer`
  * are module-private and cannot mount independently — see the task brief's

@@ -1,25 +1,44 @@
-import { render, screen, cleanup } from "@testing-library/react";
+import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
-import type { MaterialSource, Reference, TakeawayDraft } from "@mind-imprint/contracts";
-import { ReadingRoom, type ReadingRoomApi } from "@/studio/reading/ReadingRoom";
+import type { MaterialSource, TakeawayDraft } from "@mind-imprint/contracts";
+import { ReadingRoom, type LiteReadingRoomApi } from "@lite/readings/ReadingRoom";
 import { FinalizeReadingPanel } from "@/studio/reading/FinalizeReadingPanel";
-import { LITE_READING_CAPABILITIES, PRO_CAPABILITIES } from "@/rooms/capabilities";
 
 /**
- * The capability gates, asserted where they actually live — ON THE RENDERED
- * ROOM, not on the plain-data preset module.
+ * The pro-only reading surfaces, asserted ON LITE'S OWN RENDERED ROOM.
  *
- * Task 10 introduced `RoomCapabilities` and Task 12 mounts the room under the
- * lite preset, but until this file nothing rendered `ReadingRoom` with
- * `capabilities={LITE_READING_CAPABILITIES}` to confirm the gates suppress
- * anything. A JSX refactor that moved 证据笔记 or 追来源 out from behind
- * `caps.*` would have shipped them into the lite product silently, and the
- * lite edition has neither an evidence map nor an exploration graph behind
- * them.
+ * ## Why this file was rewritten (2026-08-29)
  *
- * Each surface is asserted BOTH ways: absent under lite AND present under pro
- * with the same props. A one-sided test would keep passing if the surface
- * simply stopped rendering for everyone.
+ * It used to render **pro's** `ReadingRoom` with `LITE_READING_CAPABILITIES`
+ * to prove that 证据笔记 / 追来源 stay hidden. Once the reading room forked
+ * (`apps/lite-web/src/readings/ReadingRoom.tsx`), lite stopped mounting that
+ * component at all — so every assertion here was about a file the lite
+ * product never renders. It stayed green and guarded nothing, which is worse
+ * than no test: it looks like someone is watching.
+ *
+ * Worse, the two 完成这篇 cases asserted on the *preset constants*
+ * (`LITE_READING_CAPABILITIES.proposalImpact`) rather than on anything the
+ * room does. Lite's room now passes `proposalImpact={false}` /
+ * `credibility={false}` to `FinalizeReadingPanel` as plain literals
+ * (`ReadingRoom.tsx`, the `finalizeOpen` block), and flipping either literal
+ * to `true` could not have failed a constant assertion — a lite student would
+ * have started seeing 新的线索 / 对论点的影响, and 「可信度 · 尚未评估」, a
+ * permanent lie dressed as a state (there is no CRAAP-style producer in lite
+ * to ever fill it in). The only net that caught that was the live e2e walk.
+ *
+ * So: mount LITE's room, click 完成这篇 for real, and assert on the modal that
+ * actually appears.
+ *
+ * ## Why an absence test here is not vacuous
+ *
+ * An absence assertion can pass because the guard works or because nothing
+ * renders at all. Two things keep this honest:
+ *
+ *  - `renders the reading surfaces lite DOES have` proves the room mounted;
+ *  - `the shared panel still HAS all three surfaces …` renders the same
+ *    (still pro-shared) `FinalizeReadingPanel` with the flags on and finds
+ *    every literal this file claims is absent — so the queries are known to
+ *    match when the surface is present.
  */
 
 const SOURCE: MaterialSource = {
@@ -45,29 +64,24 @@ const SOURCE: MaterialSource = {
   lateralJudgment: "",
 };
 
-const REFERENCE = {
-  id: "ref-1",
-  title: "中国的可持续转型",
-  classification: "",
-  author: "",
-  credentials: "",
-  year: "",
-  url: "https://example.org/a",
-  tags: [],
-  collectionId: null,
-  credibility: null,
-  evaluation: "",
-  decision: "undecided",
-  pending: false,
-  searchHints: [],
-  materialId: "atom-1",
-  notes: [],
-  readingStatus: "reading",
-} as unknown as Reference;
+const DRAFT: TakeawayDraft = {
+  record: {
+    findings: ["中国的太阳能装机量在过去十年增长了十倍。"],
+    // Deliberately POPULATED: if the room ever let the 可信度 row through, an
+    // empty verdict would only render 尚未评估 and the 可信度 label would
+    // still be the thing that fails. A filled verdict makes the failure loud
+    // either way.
+    credibility: { verdict: "可信", why: "来自 NASA 与 Nature Sustainability 的交叉印证。" },
+    keyQuotes: [],
+  },
+  suggestedNewLeads: ["中国的碳排放总量为什么仍居第一？"],
+  suggestedProposalImpact: "这篇支持了「转型正在发生」这一半。",
+};
 
-// A fake that satisfies every method the room may reach for. Nothing here is
-// called by a bare render — its job is to make the render legal.
-const API: ReadingRoomApi = {
+// A fake that satisfies every method the room may reach for. Only
+// `getTakeawayDraft` is actually called (by 完成这篇); the rest exist so the
+// render is legal.
+const API: LiteReadingRoomApi = {
   // eslint-disable-next-line require-yield
   async *readTurn() {},
   // eslint-disable-next-line require-yield
@@ -82,81 +96,96 @@ const API: ReadingRoomApi = {
   async getOpenCard() {
     return null;
   },
-  async putReadingBrief() {},
   async getTakeawayDraft() {
-    throw new Error("not used");
+    return DRAFT;
   },
   async postFinalizeReading() {
     return null;
   },
 };
 
-/** Both gated surfaces need their pro-only callbacks present — the gate is
- *  what must hide them, not a missing prop. */
-function renderRoom(capabilities: typeof PRO_CAPABILITIES) {
+function renderLiteRoom() {
   return render(
     <ReadingRoom
-      projectId="atom-1"
-      referenceId="atom-1"
+      readingId="atom-1"
       source={SOURCE}
-      reference={REFERENCE}
-      onSetEvidence={async () => REFERENCE}
-      onSetTriage={async () => REFERENCE}
-      onArchive={async () => REFERENCE}
-      onTraceCitation={async () => []}
-      onTraceSearch={async () => []}
-      onAdoptSource={async () => {}}
       api={API}
       onBack={() => {}}
-      capabilities={capabilities}
+      tasks={[]}
+      onTasks={() => {}}
+      coachMessages={[]}
+      blockTools={[]}
+      blockNotes={[]}
+      onBlockNote={() => {}}
     />,
   );
 }
 
+/**
+ * Opens the real 完成这篇 modal, waits for the draft to land, and returns the
+ * DIALOG — scoping every assertion to it, so the article behind the modal
+ * cannot satisfy (or, with duplicate matches, break) a query about the panel.
+ */
+async function openFinalize(): Promise<HTMLElement> {
+  fireEvent.click(screen.getByRole("button", { name: "完成这篇" }));
+  // 正在整理你的阅读发现… is the loading half of the same modal; wait past it,
+  // otherwise every absence below would pass on an empty panel.
+  await screen.findByText("你的阅读记录 · 只读");
+  return screen.getByRole("dialog", { name: "完成这篇" });
+}
+
 afterEach(cleanup);
 
-describe("ReadingRoom capability gates", () => {
-  it("hides 证据笔记 and 追来源 under the lite preset", () => {
-    renderRoom(LITE_READING_CAPABILITIES);
+describe("lite's reading room does not carry pro's reading surfaces", () => {
+  it("has no 证据笔记 and no 追来源", () => {
+    renderLiteRoom();
+    // Both were `caps.evidenceMap` / `caps.explorationLeads` branches before
+    // the fork; lite's file does not contain either. Re-importing pro's room
+    // into lite, or copying those branches across, fails here.
     expect(screen.queryByText("证据笔记")).toBeNull();
     expect(screen.queryByRole("button", { name: "追来源" })).toBeNull();
   });
 
-  it("still shows both under the pro preset, with the same props", () => {
-    renderRoom(PRO_CAPABILITIES);
-    expect(screen.getByText("证据笔记")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "追来源" })).toBeTruthy();
-  });
-
-  it("keeps the reading surfaces the lite edition DOES have", () => {
-    renderRoom(LITE_READING_CAPABILITIES);
-    // The lens library, the article, and the 阅读成果 tab are the room — a gate
-    // that suppressed those would be a bug, not restraint.
+  it("renders the reading surfaces lite DOES have", () => {
+    renderLiteRoom();
+    // The room mounted — without this the absences above could pass on a
+    // blank page. The lens library, the article, and 阅读成果 are the room.
     expect(screen.getByText(/透镜库/)).toBeTruthy();
     expect(screen.getByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
     expect(screen.getByRole("tab", { name: /阅读成果/ })).toBeTruthy();
   });
 
-  it("drops the proposal-shaped half of 完成这篇 under lite", () => {
-    // 新的线索 / 对论点的影响 are questions about a 立题 the lite edition does
-    // not have. The finalize panel is only mounted on demand, so this asserts
-    // the capability the room passes down rather than the open modal.
-    expect(LITE_READING_CAPABILITIES.proposalImpact).toBe(false);
-    expect(PRO_CAPABILITIES.proposalImpact).toBe(true);
+  it("opens 完成这篇 without 新的线索 / 对论点的影响 — there is no 立题 behind them", async () => {
+    renderLiteRoom();
+    const dialog = await openFinalize();
+
+    // The synthesis half is written against a research proposal lite has no
+    // concept of. What survives is the one box that is hers.
+    expect(within(dialog).queryByText("新的线索")).toBeNull();
+    expect(within(dialog).queryByText("对论点的影响")).toBeNull();
+    expect(within(dialog).getByText("我的收获")).toBeTruthy();
+    // …and the draft's proposal-shaped suggestions never reach a field.
+    expect(within(dialog).queryByDisplayValue("中国的碳排放总量为什么仍居第一？")).toBeNull();
   });
 
-  const DRAFT: TakeawayDraft = {
-    record: {
-      findings: ["中国的太阳能装机量在过去十年增长了十倍。"],
-      credibility: { verdict: "可信", why: "来自 NASA 与 Nature Sustainability 的交叉印证。" },
-      keyQuotes: [],
-    },
-    suggestedNewLeads: [],
-    suggestedProposalImpact: "",
-  };
+  it("opens 完成这篇 without 可信度 — a verdict with no producer is a lie, not a state", async () => {
+    renderLiteRoom();
+    const dialog = await openFinalize();
 
-  function renderFinalizePanel(credibility: boolean) {
-    return render(
+    expect(within(dialog).queryByText("可信度")).toBeNull();
+    // The verdict itself, not just its label: 可信 — 来自 NASA… is in the
+    // draft this room was handed, and must reach no row.
+    expect(within(dialog).queryByText(/来自 NASA/)).toBeNull();
+    // Her own confirmed findings ARE the record half, and they still show.
+    expect(within(dialog).getByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
+  });
+
+  it("the shared panel still HAS all three surfaces when the flags are on", () => {
+    // Anti-vacuity control. `FinalizeReadingPanel` is still shared with pro,
+    // so if a refactor deleted 新的线索 / 对论点的影响 / 可信度 outright, the
+    // three absence tests above would keep passing while pro silently lost
+    // them. This is the line that would go red instead.
+    render(
       <FinalizeReadingPanel
         loading={false}
         draft={DRAFT}
@@ -168,18 +197,12 @@ describe("ReadingRoom capability gates", () => {
         done={false}
         onConfirm={() => {}}
         onClose={() => {}}
-        credibility={credibility}
+        proposalImpact
+        credibility
       />,
     );
-  }
-
-  it("does not show 可信度 in lite — there is no producer for it, so 尚未评估 is a lie", () => {
-    renderFinalizePanel(LITE_READING_CAPABILITIES.credibility);
-    expect(screen.queryByText(/可信度/)).toBeNull();
-  });
-
-  it("still shows 可信度 under pro capabilities", () => {
-    renderFinalizePanel(PRO_CAPABILITIES.credibility);
-    expect(screen.getByText(/可信度/)).toBeTruthy();
+    expect(screen.getByText("新的线索")).toBeTruthy();
+    expect(screen.getByText("对论点的影响")).toBeTruthy();
+    expect(screen.getByText("可信度")).toBeTruthy();
   });
 });

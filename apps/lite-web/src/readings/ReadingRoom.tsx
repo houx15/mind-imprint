@@ -91,8 +91,6 @@ export type LiteReadingRoomProps = {
   source: MaterialSource;
   api: LiteReadingRoomApi;
   onBack: () => void;
-  /** Fired once 完成这篇 has persisted. Optional: nothing consumes it today. */
-  onFinalized?: () => void;
   /** 带读 · the plan the coach is walking her through, and the transcript it
    *  resumes from. Owned by the host (the rail beside the article reads the
    *  same list), passed down because the conversation lives in here now. */
@@ -149,7 +147,6 @@ export function ReadingRoom({
   source,
   api,
   onBack,
-  onFinalized,
   tasks,
   onTasks,
   coachMessages,
@@ -205,7 +202,10 @@ export function ReadingRoom({
         proposalImpact: finalizeImpact.trim(),
       });
       setFinalizeDone(true);
-      onFinalized?.();
+      // No `onFinalized` callback: the fork briefly grew one, and nothing ever
+      // consumed it — pro's room has no such prop either. A finished reading
+      // is re-read from the server the next time `/readings/:id` opens, which
+      // is where the terminal 已完成 surface lives.
       // Briefly show the ✓, then close the modal so she lands back on the
       // reading conversation instead of having to hunt for a 关闭 button.
       window.setTimeout(() => setFinalizeOpen(false), 900);

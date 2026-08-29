@@ -82,20 +82,25 @@ async function startReading(page: Page, title: string, body: string): Promise<st
  * its own, so a literal that does not exist in the product is indistinguishable
  * from one that is correctly absent — it reads as coverage while guarding
  * nothing. This list carried 「追踪来源」 for one commit; the real string is
- * 「追来源」 and the longer form appears nowhere in apps/web/src. Every literal
- * below has been grepped and rendered:
+ * 「追来源」 and the longer form appears nowhere in apps/web/src.
  *
- *   证据笔记      ReadingRoom.tsx           (gated on caps.evidenceMap)
- *   追来源        ReadingRoom.tsx           (gated on caps.explorationLeads)
- *   新的线索      FinalizeReadingPanel.tsx  (gated on caps.proposalImpact)
- *   对论点的影响  FinalizeReadingPanel.tsx  (gated on caps.proposalImpact)
+ * Since the 2026-08-29 fork none of the four is behind a `caps.*` flag on the
+ * lite path — lite's own `readings/ReadingRoom.tsx` does not contain the
+ * first two at all, and passes `proposalImpact={false}` / `credibility={false}`
+ * as literals to the (still shared) `FinalizeReadingPanel`. Where each one
+ * still lives, and therefore what this list is watching for regressing back
+ * into lite:
  *
- * Only the last two are load-bearing HERE: the first two are ALSO gated on
- * callbacks `ReadingRoomHost` never passes, so they would stay absent even
- * under PRO_CAPABILITIES. The real guard for those lives at the unit level, in
- * apps/lite-web/test/readingRoomCapabilities.test.tsx, which supplies the
- * callbacks and asserts both surfaces PRESENT under PRO_CAPABILITIES and
- * absent under lite. These two lines are belt-and-braces on top of it.
+ *   证据笔记      apps/web  ReadingRoom.tsx           (pro's room only)
+ *   追来源        apps/web  ReadingRoom.tsx           (pro's room only)
+ *   新的线索      apps/web  FinalizeReadingPanel.tsx  (prop proposalImpact)
+ *   对论点的影响  apps/web  FinalizeReadingPanel.tsx  (prop proposalImpact)
+ *
+ * Only the last two are reachable from lite at all, since that panel is shared
+ * — the first two would need someone to import pro's room back into lite. The
+ * unit-level guard is apps/lite-web/test/readingRoomCapabilities.test.tsx,
+ * which renders LITE's room, opens 完成这篇, and asserts on the rendered modal.
+ * These four lines are belt-and-braces on top of it.
  */
 async function expectNoProjectSurfaces(page: Page): Promise<void> {
   await expect(page.getByText("证据笔记")).toHaveCount(0);

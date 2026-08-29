@@ -1,22 +1,30 @@
-import type { Anchor, ReadingBrief, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
+import type { Anchor, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
 import { CARD_REGISTRY, SelectionEval as SelectionEvalSchema } from "@mind-imprint/contracts";
 import type { StudioTurnEvent } from "@/api/studioTurn";
-import type { ReadingRoomApi } from "@/studio/reading/ReadingRoom";
+import type { LiteReadingRoomApi } from "../readings/ReadingRoom";
 import type { ReadingOutcome } from "@/studio/reading/readingLoop";
 import { apiFetch } from "./client";
 
 /**
- * api/readingRoom.ts — the injected `api` object `ReadingRoom` (apps/web) runs
- * on, backed entirely by the lite `/api/v1/readings/{id}/…` endpoints.
+ * api/readingRoom.ts — the injected `api` object lite's OWN `ReadingRoom`
+ * (`../readings/ReadingRoom`) runs on, backed entirely by the lite
+ * `/api/v1/readings/{id}/…` endpoints.
+ *
+ * It satisfies `LiteReadingRoomApi`, not pro's `ReadingRoomApi`: the fork
+ * (2026-08-29) existed to stop lite depending on a file pro renders, and a
+ * type import is that dependency just as much as a JSX one. The two shapes
+ * differ by exactly one method — pro's `putReadingBrief`, which fed the
+ * 「你读这篇是为了」 bar lite's room does not carry.
  *
  * Two shape mismatches to be deliberate about, because they are the whole job
  * of this file:
  *
  * 1. **`{id}` is ALWAYS the atom id.** Every method keeps pro's parameter
  *    positions (`projectId`, `materialId`, `rid`) so the room needs no
- *    special-casing, and every one of them is IGNORED — the reading id is
- *    closed over at construction. A lite reading has no project and no
- *    reference row; the atom IS the addressing unit.
+ *    special-casing (`useReadingLoop` is still pro's), and every one of them
+ *    is IGNORED — the reading id is closed over at construction. A lite
+ *    reading has no project and no reference row; the atom IS the addressing
+ *    unit.
  *
  * 2. **Pro streams SSE, lite answers one JSON body.** `readTurn` /
  *    `summonCard` / `submitProjectCard` are declared as
@@ -67,12 +75,6 @@ export type LiteAnnotation = {
   createdAt: string;
 };
 
-export type LiteBrief = {
-  phaseTag: string | null;
-  readingReason: string;
-  readingFocus: string;
-};
-
 export type LiteMessage = { seq: number; role: string; content: string; createdAt: string };
 
 export type ReadingRoomApiOptions = {
@@ -85,7 +87,7 @@ const base = (id: string) => `/api/v1/readings/${encodeURIComponent(id)}`;
 
 // --- the api object ---------------------------------------------------------
 
-export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOptions = {}): ReadingRoomApi {
+export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOptions = {}): LiteReadingRoomApi {
   const root = base(readingId);
 
   /** One JSON turn → the SSE event sequence the room's loop expects.
@@ -202,18 +204,7 @@ export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOpti
       };
     },
 
-    // --- the three brief/takeaway calls the room drives directly ---------
-    async putReadingBrief(_projectId, _rid, brief: ReadingBrief) {
-      await apiFetch<LiteBrief>(`${root}/brief`, {
-        method: "PUT",
-        body: JSON.stringify({
-          phaseTag: brief.phaseTag === "" ? null : brief.phaseTag,
-          readingReason: brief.readingReason,
-          readingFocus: brief.readingFocus,
-        }),
-      });
-    },
-
+    // --- the two takeaway calls the room drives directly -----------------
     async getTakeawayDraft(_projectId, _rid): Promise<TakeawayDraft> {
       // Assembled DETERMINISTICALLY from her own confirmed cards — no model
       // call, nothing re-guessed. That is what the pro endpoint's `record`
@@ -264,10 +255,6 @@ export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOpti
 }
 
 // --- reads the host needs before it can mount the room ---------------------
-
-export async function getReadingBrief(id: string): Promise<LiteBrief> {
-  return apiFetch<LiteBrief>(`${base(id)}/brief`);
-}
 
 export async function listReadingAnnotations(id: string): Promise<LiteAnnotation[]> {
   const raw = await apiFetch<{ annotations: LiteAnnotation[] }>(`${base(id)}/annotations`);

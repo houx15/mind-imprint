@@ -14,7 +14,6 @@ import {
 import { isFinished as isFinishedReading, shortDay } from "./ReadingHistoryPanel";
 import {
   createReadingRoomApi,
-  getReadingBrief,
   getReadingPlan,
   listReadingBlockNotes,
   listReadingBlockTools,
@@ -23,7 +22,6 @@ import {
   listReadingMessages,
   toReadingOutcomes,
   type LiteAnnotation,
-  type LiteBrief,
   type LiteCard,
   type LiteMessage,
   type ReadingBlockNote,
@@ -70,7 +68,6 @@ type LoadState =
       phase: "ready";
       reading: Reading;
       source: ReadingSource;
-      brief: LiteBrief;
       annotations: LiteAnnotation[];
       messages: LiteMessage[];
       cards: LiteCard[];
@@ -122,12 +119,12 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // The rest is decoration around the article — a failure on any of it
         // must not keep her out of the room, so each degrades to its empty
         // value rather than failing the load.
-        const [brief, annotations, messages, cards, loadedPlan, tools, notes] = await Promise.all([
-          // Still loaded, no longer rendered: the 「你读这篇是为了」 bar it fed
-          // was not carried over in the fork (it was write-only in lite). Left
-          // in place rather than ripped out, so the task that puts the
-          // current-step indicator in that slot can decide.
-          getReadingBrief(readingId).catch(() => EMPTY_BRIEF),
+        // No brief fetch here: the 「你读这篇是为了」 bar it fed was write-only
+        // in lite and did not survive the fork, so `GET /brief` was a round
+        // trip on every open whose answer nothing read. The current-step
+        // indicator that lands in that slot is built from the PLAN, not from
+        // the brief.
+        const [annotations, messages, cards, loadedPlan, tools, notes] = await Promise.all([
           listReadingAnnotations(readingId).catch(() => [] as LiteAnnotation[]),
           listReadingMessages(readingId).catch(() => [] as LiteMessage[]),
           listReadingCards(readingId).catch(() => [] as LiteCard[]),
@@ -139,7 +136,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
           setPlan(loadedPlan);
           setBlockTools(tools.tools);
           setBlockNotes(notes);
-          setState({ phase: "ready", reading, source, brief, annotations, messages, cards });
+          setState({ phase: "ready", reading, source, annotations, messages, cards });
         }
       } catch (err) {
         if (cancelled) return;
@@ -259,8 +256,6 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     </div>
   );
 }
-
-const EMPTY_BRIEF: LiteBrief = { phaseTag: null, readingReason: "", readingFocus: "" };
 
 function Centered({ children }: { children: React.ReactNode }) {
   return (
