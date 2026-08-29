@@ -56,6 +56,7 @@ const REPORT: LiteReport = {
   moments: [{ quote: "碳排放全球第一", where: "写论证的时候" }],
   keep: { label: "我的收获", text: "来源要溯源" },
   gains: ["用 CRAAP 检查了来源"],
+  lensNotes: [{ lens: "信源辨识卡 CRAAP / CRRAAB", quote: "这份报告由国家能源局发布。", finding: "来源可核实。" }],
 };
 
 beforeEach(() => {
@@ -90,12 +91,13 @@ describe("getReport", () => {
     expect(calls[0]!.url).toBe("/api/v1/writings/atom-2/report");
   });
 
-  it("defaults absent moments/gains (omitempty on the wire) to empty arrays", async () => {
-    const { moments, gains, ...rest } = REPORT;
+  it("defaults absent moments/gains/lensNotes (omitempty on the wire) to empty arrays", async () => {
+    const { moments, gains, lensNotes, ...rest } = REPORT;
     routes[key("GET", "/api/v1/readings/atom-1/report")] = { body: { report: rest } };
     const result = await getReport("reading", "atom-1");
     expect(result?.moments).toEqual([]);
     expect(result?.gains).toEqual([]);
+    expect(result?.lensNotes).toEqual([]);
   });
 });
 

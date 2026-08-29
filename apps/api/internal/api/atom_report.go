@@ -39,6 +39,8 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 
+	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/cards"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -73,6 +75,23 @@ type reportKeep struct {
 	Text  string `json:"text"`
 }
 
+// reportLensNote is what her 透镜 work produced: for each lens she
+// submitted, the sentence SHE picked out of the article and the 发现 the
+// room drew from it. Deterministic — assembled from atom_card rows, never
+// asked of a model. This is a DIFFERENT kind of thing from `moments`: a
+// moment is a sentence of hers picked out by the MODEL as noteworthy prose;
+// a lens note is HER sentence-picking itself — the selecting is the
+// thinking (see this feature's own rationale) — paired with the room's
+// already-recorded 发现 on that exact card. Nothing here is re-asked of a
+// model at report time: the quote is a literal value already on the card's
+// anchors row, and the finding already went through agent.EvaluateSelection
+// when she submitted the card.
+type reportLensNote struct {
+	Lens    string `json:"lens"`    // the card's display name, from the registry
+	Quote   string `json:"quote"`   // the sentence she picked, from the article
+	Finding string `json:"finding"` // the 发现 recorded on that card
+}
+
 // liteReportDTO is the stored+served shape, matching the design spec's
 // LiteReport v1 type field-for-field. Moments/Gains use omitempty: a section
 // that produced nothing is ABSENT, never an empty array — "a thin session
@@ -88,6 +107,10 @@ type liteReportDTO struct {
 	Moments     []reportMoment `json:"moments,omitempty"`
 	Keep        *reportKeep    `json:"keep"`
 	Gains       []string       `json:"gains,omitempty"`
+	// LensNotes is reading-kind only (nil on every writing report — a
+	// writing room has no lens cards to draw one from). Reports generated
+	// before this field existed simply lack it on re-serve; no backfill.
+	LensNotes []reportLensNote `json:"lensNotes,omitempty"`
 }
 
 // --- validation (R4) -----------------------------------------------------
@@ -134,6 +157,63 @@ func dedupeMomentsAgainstKeep(moments []reportMoment, keep *reportKeep) []report
 			continue
 		}
 		out = append(out, m)
+	}
+	return out
+}
+
+// studentAnchorQuote is the server-side mirror of readingRoom.ts's
+// studentAnchorOf (apps/lite-web/src/api/readingRoom.ts): the anchor whose
+// author is "student" — the sentence SHE picked out of the article — never
+// anchors[0], which is the AI's own grounding example (summonReadingLens,
+// reading_lens.go) and must never be quoted back to her as if it were her
+// own pick.
+func studentAnchorQuote(anchorsJSON []byte) string {
+	if len(anchorsJSON) == 0 {
+		return ""
+	}
+	var anchors []agent.Anchor
+	if json.Unmarshal(anchorsJSON, &anchors) != nil {
+		return ""
+	}
+	for _, an := range anchors {
+		if an.Author == "student" {
+			return strings.TrimSpace(an.Quote)
+		}
+	}
+	return ""
+}
+
+// buildReadingLensNotes assembles LensNotes from every SUBMITTED atom_card:
+// her picked sentence (studentAnchorQuote) paired with the 发现 the room
+// drew from it (framework_fill.finding — selectionEvalDTO's wire shape,
+// readeval.go). An unknown card id is skipped rather than printed as a raw
+// id — cards.ByID (the registry, the same lookup summonReadingLens uses) is
+// the single source of display names. A card that yields neither a quote
+// nor a finding is skipped too: nothing to show. Submission order is
+// preserved — ListAtomCards already returns rows in creation order, and this
+// function does no reordering of its own.
+func buildReadingLensNotes(atomCards []sqlc.AtomCard) []reportLensNote {
+	out := make([]reportLensNote, 0, len(atomCards))
+	for _, card := range atomCards {
+		if card.Status != "submitted" {
+			continue
+		}
+		spec, ok := cards.ByID(card.CardID)
+		if !ok {
+			continue
+		}
+		quote := studentAnchorQuote(card.Anchors)
+		var finding string
+		if len(card.FrameworkFill) > 0 {
+			var ev selectionEvalDTO
+			if json.Unmarshal(card.FrameworkFill, &ev) == nil {
+				finding = strings.TrimSpace(ev.Finding)
+			}
+		}
+		if quote == "" && finding == "" {
+			continue
+		}
+		out = append(out, reportLensNote{Lens: spec.Name, Quote: quote, Finding: finding})
 	}
 	return out
 }
@@ -411,9 +491,12 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		finishedAt = rd.FinishedAt.Time.Format(time.RFC3339)
 	}
 
+	lensNotes := buildReadingLensNotes(cards)
+
 	return liteReportDTO{
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
+		LensNotes: lensNotes,
 	}, nil
 }
 

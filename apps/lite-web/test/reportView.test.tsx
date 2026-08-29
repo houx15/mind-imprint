@@ -23,6 +23,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     moments: [],
     keep: null,
     gains: [],
+    lensNotes: [],
     ...over,
   };
 }
@@ -44,6 +45,7 @@ describe("ReportView", () => {
     // placeholders, no stray section labels for absent content.
     expect(screen.queryByText("金句")).toBeNull();
     expect(screen.queryByText("这次的收获")).toBeNull();
+    expect(screen.queryByText("我用透镜查到的")).toBeNull();
     expect(screen.queryByText(/暂无/)).toBeNull();
 
     // no heading in the tree is empty — a "composed" page never leaves a
@@ -116,6 +118,50 @@ describe("ReportView", () => {
 
     expect(screen.getByText("我的收获")).toBeTruthy();
     expect(screen.getByText(/光看一个国家的排放总量，会漏掉发展阶段这个变量。/)).toBeTruthy();
+  });
+
+  it("shows each 透镜 note with the lens name, HER picked sentence honestly labelled, and the 发现", () => {
+    const withLensNotes = report({
+      lensNotes: [
+        { lens: "信源辨识卡 CRAAP / CRRAAB", quote: "这份报告由国家能源局发布。", finding: "这句话可以在官网核实来源。" },
+        { lens: "让步段 · 以退为进", quote: "反对者认为发展阶段应该被纳入考量。", finding: "她选中了对方最强的一点。" },
+      ],
+    });
+
+    render(<ReportView report={withLensNotes} />);
+
+    expect(screen.getByText("我用透镜查到的")).toBeTruthy();
+    expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeTruthy();
+    expect(screen.getByText("让步段 · 以退为进")).toBeTruthy();
+    expect(screen.getAllByText("我选的句子：").length).toBe(2);
+    expect(screen.getByText(/这份报告由国家能源局发布。/)).toBeTruthy();
+    expect(screen.getByText("这句话可以在官网核实来源。")).toBeTruthy();
+    expect(screen.getByText(/反对者认为发展阶段应该被纳入考量。/)).toBeTruthy();
+    expect(screen.getByText("她选中了对方最强的一点。")).toBeTruthy();
+  });
+
+  it("renders nothing for 我用透镜查到的 when lensNotes is empty — no heading, no empty state", () => {
+    const noLensNotes = report({ lensNotes: [] });
+    render(<ReportView report={noLensNotes} />);
+    expect(screen.queryByText("我用透镜查到的")).toBeNull();
+  });
+
+  it("never dresses a lens note as a 金句 pull-quote — separate visual treatment, no shared blockquote", () => {
+    const mixed = report({
+      moments: [{ quote: "这是一句金句。", where: "第 1 段" }],
+      lensNotes: [{ lens: "信源辨识卡 CRAAP / CRRAAB", quote: "这是她选的句子。", finding: "这是发现。" }],
+    });
+
+    const { container } = render(<ReportView report={mixed} />);
+
+    // exactly one blockquote — the 金句's — the lens note is NOT one.
+    const quotes = container.querySelectorAll("blockquote");
+    expect(quotes.length).toBe(1);
+    expect(quotes[0]?.textContent).toContain("这是一句金句。");
+    // the lens note's own text is present, but outside any blockquote.
+    for (const bq of quotes) {
+      expect(bq.textContent).not.toContain("这是她选的句子。");
+    }
   });
 
   it("renders 2-4 gain lines when present", () => {

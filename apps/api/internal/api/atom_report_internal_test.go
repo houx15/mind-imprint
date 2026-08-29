@@ -6,6 +6,10 @@ package api
 import (
 	"strings"
 	"testing"
+
+	"github.com/google/uuid"
+
+	"mindimprint/api/internal/store/sqlc"
 )
 
 func TestValidateMoments(t *testing.T) {
@@ -66,6 +70,75 @@ func TestReportDedupesMomentsAgainstKeep(t *testing.T) {
 // habit it's supposed to forbid. Precedent for pinning a prompt clause this
 // way: TestReadingCoachSystemCarriesTheRulings in
 // reading_coach_internal_test.go.
+// TestBuildReadingLensNotes covers the four behaviours the lens-notes
+// builder must have (see this feature's task doc): it picks the STUDENT
+// anchor's quote — never the AI's own grounding example — pairs it with
+// framework_fill.finding, skips any card that isn't 'submitted', skips a
+// card whose id the registry doesn't know (rather than printing the raw
+// id), and preserves the rows' own order.
+func TestBuildReadingLensNotes(t *testing.T) {
+	atomID := uuid.New()
+
+	craapNote := sqlc.AtomCard{
+		ID: uuid.New(), AtomID: atomID, CardID: "craap", Status: "submitted",
+		Anchors: []byte(`[
+			{"author":"ai","quote":"AI 挑的例句，不该出现"},
+			{"author":"student","quote":"她自己选的句子一"}
+		]`),
+		FrameworkFill: []byte(`{"finding":"发现一"}`),
+	}
+	unsubmitted := sqlc.AtomCard{
+		ID: uuid.New(), AtomID: atomID, CardID: "sift", Status: "proposed",
+		Anchors:       []byte(`[{"author":"student","quote":"还没提交，不该出现"}]`),
+		FrameworkFill: []byte(`{"finding":"还没提交，不该出现"}`),
+	}
+	unknownID := sqlc.AtomCard{
+		ID: uuid.New(), AtomID: atomID, CardID: "not_a_real_card", Status: "submitted",
+		Anchors:       []byte(`[{"author":"student","quote":"未知卡片，不该出现"}]`),
+		FrameworkFill: []byte(`{"finding":"未知卡片，不该出现"}`),
+	}
+	concessionNote := sqlc.AtomCard{
+		ID: uuid.New(), AtomID: atomID, CardID: "concession", Status: "submitted",
+		Anchors:       []byte(`[{"author":"student","quote":"她自己选的句子二"}]`),
+		FrameworkFill: []byte(`{"finding":"发现二"}`),
+	}
+	empty := sqlc.AtomCard{
+		// submitted, known id, but neither a student anchor nor a finding —
+		// nothing to show, must be skipped.
+		ID: uuid.New(), AtomID: atomID, CardID: "sift", Status: "submitted",
+		Anchors:       []byte(`[]`),
+		FrameworkFill: []byte(`{}`),
+	}
+
+	got := buildReadingLensNotes([]sqlc.AtomCard{craapNote, unsubmitted, unknownID, concessionNote, empty})
+
+	if len(got) != 2 {
+		t.Fatalf("got %d lens notes, want 2: %+v", len(got), got)
+	}
+
+	if got[0].Quote != "她自己选的句子一" {
+		t.Errorf("note 0 quote = %q, want the STUDENT anchor, not the AI example", got[0].Quote)
+	}
+	if got[0].Finding != "发现一" {
+		t.Errorf("note 0 finding = %q, want %q", got[0].Finding, "发现一")
+	}
+	if got[0].Lens != "信源辨识卡 CRAAP / CRRAAB" {
+		t.Errorf("note 0 lens = %q, want the craap card's registry display name", got[0].Lens)
+	}
+
+	// Order: craapNote comes before concessionNote in the input, and the
+	// unsubmitted/unknown/empty rows between them must not shift that.
+	if got[1].Quote != "她自己选的句子二" {
+		t.Errorf("note 1 quote = %q, want the second submitted card's student pick, in order", got[1].Quote)
+	}
+	if got[1].Finding != "发现二" {
+		t.Errorf("note 1 finding = %q, want %q", got[1].Finding, "发现二")
+	}
+	if got[1].Lens != "让步段 · 以退为进" {
+		t.Errorf("note 1 lens = %q, want the concession card's registry display name", got[1].Lens)
+	}
+}
+
 func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
 	if !strings.Contains(liteReportSystem, "用\"你\"称呼她本人") {
 		t.Error("liteReportSystem must explicitly instruct gains to address her as 你, not describe her in third person")

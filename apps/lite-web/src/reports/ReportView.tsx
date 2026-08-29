@@ -75,6 +75,7 @@ export function ReportView({ report }: { report: LiteReport }) {
 
       <StatsRow stats={report.stats} />
       <Moments moments={report.moments} />
+      <LensNotes notes={report.lensNotes} />
       <Keep keep={report.keep} />
       <Gains gains={report.gains} />
     </article>
@@ -144,6 +145,45 @@ function Moments({ moments }: { moments: LiteReport["moments"] }) {
             </blockquote>
           );
         })}
+      </div>
+    </section>
+  );
+}
+
+/** 我用透镜查到的 — what her 透镜 work produced: for each lens card she
+ *  submitted, the sentence SHE picked out of the article, plus the 发现 the
+ *  room drew from it. This is a DIFFERENT kind of thing from 金句 above —
+ *  a 金句 is a sentence of hers the MODEL picked out as noteworthy prose;
+ *  a lens note is her own act of picking a sentence out of the ARTICLE,
+ *  which is real work and real thinking even though the words themselves
+ *  are the article's, not hers. So the labels here are deliberately
+ *  explicit about whose words are whose ("我选的句子" — a sentence from the
+ *  article, chosen by her), and the visual treatment is deliberately NOT
+ *  the 金句 pull-quote (no giant quotation mark, no full-bleed macaron
+ *  card) — a plain bordered card per lens, so the two sections never read
+ *  as the same kind of content in different clothes. */
+function LensNotes({ notes }: { notes: LiteReport["lensNotes"] }) {
+  if (notes.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <span className="text-mk-label text-mk-faint">我用透镜查到的</span>
+      <div className="flex flex-col gap-3">
+        {notes.map((n, i) => (
+          <div key={`${n.lens}-${i}`} className="rounded-mk-lg border border-mk-border bg-mk-surface p-5">
+            <span
+              className="w-fit rounded-mk-full px-2.5 py-0.5 text-mk-caption"
+              style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
+            >
+              {n.lens}
+            </span>
+            {n.quote && (
+              <p className="mt-3 text-mk-body-lg text-mk-ink">
+                <span className="text-mk-small text-mk-muted">我选的句子：</span>「{n.quote}」
+              </p>
+            )}
+            {n.finding && <p className="mt-2 text-mk-body text-mk-muted">{n.finding}</p>}
+          </div>
+        ))}
       </div>
     </section>
   );
