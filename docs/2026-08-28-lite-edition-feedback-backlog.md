@@ -321,18 +321,38 @@ outcome and the design must look right when it happens.
 
 - [x] **「看报告」 is a dead label** — fixed with C+D: both placeholder lines are
       deleted and the label now leads to a real report.
-- [ ] **The reading's own output is still partly stranded** *(partly absorbed by C+D)*.
-      The report now surfaces her takeaway and her 金句, so the loop no longer
-      dead-ends. But the **lens findings** (`atom_card.framework_fill.finding`) and
-      the **key quotes** (her chosen `anchors[].quote`) are still unreachable after
-      finishing. They cannot be 金句 — R4 forbids it, since the finding is AI prose
-      and the quote is the article's — but they are real work she did and could have
-      their own clearly-labelled section. Left open deliberately rather than
-      smuggled into a section whose whole promise is "her own words".
+- [x] **The reading's own output is no longer stranded.** The report now carries
+      「我用透镜查到的」: for each submitted lens, the sentence **she picked out of the
+      article** and the 发现 the room drew from it, in a section visually distinct
+      from 金句 so neither is mistaken for the other.
+      🚨 **Ruling that unblocked this (product owner, 2026-08-29):** I had kept these
+      off the report by over-applying 铁律① — "AI never writes her prose" governs
+      **her essay**, not what a report may show her about her reading. *"this
+      principle is only related with her written essay."* **A sentence she selected
+      is her work; the selecting is the thinking.** Degraded/canned findings are
+      excluded — `framework_fill.degraded` exists precisely so a report can drop the
+      ones no model ever read.
 
 - [x] **可信度 shows 尚未评估 in lite** — fixed with sub-project A (Task 11): gated off by a
       new `credibility` capability, so pro — which does produce a verdict — keeps the field.
-- [ ] **The 我的写作 drawer never got the shelf redesign.** It still uses the old
-      two-section layout with the 11px 「还没写完 · N」 label — the exact thing that
-      was called out and fixed for 我的阅读 on 2026-08-28 (`57524de5`). Missing there:
-      filter chips, the unread dot, time sorting, and the `?limit=` cap.
+- [x] **The 我的写作 drawer got the shelf redesign** — filter chips, the unfinished
+      dot, recency sort and a `?limit=` cap, mirroring 我的阅读. Required surfacing
+      `atom.last_activity_at` on `writingDTO` first: it was always maintained for
+      writing atoms but never exposed, so the drawer had nothing honest to sort by
+      (and the landing's 「继续写」 shortcut had been picking by `updated_at`, which
+      does not move while she is actually drafting — so it often opened the wrong
+      piece).
+
+---
+
+## Found while closing the backlog — PRO side, out of scope here
+
+- [ ] **`readingOutcomesFromCards` (pro) surfaces degraded findings.**
+      `apps/api/internal/api/reading_takeaway.go:70-73` unmarshals `framework_fill`
+      into `selectionEvalDTO` — which carries `Degraded` — but appends `ev.Finding`
+      unconditionally. So when a lens evaluation degrades, `agent.fallbackEval`'s
+      canned 「你选了这句作为证据。」 can surface in pro's reading takeaway as if it
+      were real analysis. Same class as the bug fixed on the lite report
+      (`0fa6229e`); `reading_lens.go`'s own comment calls the degraded path
+      "a COMMON path, not a rare one". Confirmed, deliberately left untouched —
+      it is pro code and this backlog is the lite edition's.
