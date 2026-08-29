@@ -115,6 +115,31 @@ describe("ReadingRoomHost", () => {
     expect(screen.queryByRole("button", { name: "追来源" })).toBeNull();
   });
 
+  it("shows where she is in the plan INSIDE the coach column, not only in the lg-only rail", async () => {
+    // `ReadingPlanRail` hangs in an `lg:`-gated aside, so on a narrow screen it
+    // is not on the page at all. The step indicator stands where pro keeps
+    // 「你读这篇是为了」 — in the coach column, which survives every breakpoint.
+    routes[key("GET", `/api/v1/readings/${READING_ID}/plan`)] = {
+      body: {
+        routineKey: "close_read",
+        routineName: "精读",
+        tasks: [
+          { id: "t1", position: 1, kind: "read", label: "先通读一遍", detail: "", blockId: "", status: "done", completedAt: "2026-08-29T00:00:00Z" },
+          { id: "t2", position: 2, kind: "lens", label: "找出作者最想让你信的那一句", detail: "", blockId: "", status: "pending", completedAt: null },
+          { id: "t3", position: 3, kind: "reflect", label: "这个证据够吗？", detail: "", blockId: "", status: "pending", completedAt: null },
+        ],
+      },
+    };
+
+    render(<ReadingRoomHost readingId={READING_ID} />);
+
+    const position = await screen.findByText("第 2 步 / 共 3 步");
+    expect(position.closest("aside")).toBeNull();
+    expect(position.closest(".mk-reading-room__coach")).toBeTruthy();
+    // The step's own label, so she knows what 印记 is asking of her right now.
+    expect(screen.getAllByText("找出作者最想让你信的那一句").length).toBeGreaterThan(0);
+  });
+
   it("restores the persisted transcript instead of greeting her again", async () => {
     routes[key("GET", `/api/v1/readings/${READING_ID}/messages`)] = {
       body: {

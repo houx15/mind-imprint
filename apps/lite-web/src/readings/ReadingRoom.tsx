@@ -13,6 +13,7 @@ import "@/studio/reading/ReadingRoom.css";
 import type { LiteMessage, ReadingBlockNote, ReadingBlockTool, ReadingTask } from "../api/readingRoom";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
+import { StepIndicator } from "./StepIndicator";
 
 /**
  * ReadingRoom (lite) — lite's OWN reading room.
@@ -38,7 +39,7 @@ import { ReadingCoachPanel } from "./ReadingCoachPanel";
  *  - **The brief bar is gone.** 「你读这篇是为了」 was write-only in lite (it
  *    fed only the room composer's own `readTurn` prompt, which 带读 replaced),
  *    and the 阶段 dropdown beside it was already lite-hidden. The slot it left
- *    is where the current-step indicator lands next.
+ *    left is now held by `StepIndicator`, which answers 「我现在在第几步」.
  *
  * The leaf components (Annotate, HangingCard, LensLibrary, ReadingOutcomes,
  * FinalizeReadingPanel, useReadingLoop, the stylesheet) are still IMPORTED
@@ -395,6 +396,11 @@ export function ReadingRoom({
 
       <main className="mk-reading-room__workspace">
         <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          {/* The slot pro fills with 「你读这篇是为了」. Here it answers 「我
+              现在在第几步」 instead — and because ReadingPlanRail hangs in an
+              `lg:`-gated aside, on a narrow screen this is the ONLY place she
+              can see that. */}
+          <StepIndicator tasks={tasks} />
           {/* ONE 印记. Same character, same `atom_message` table, one thread on
               screen instead of two. */}
           <ReadingCoachPanel

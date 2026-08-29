@@ -277,3 +277,88 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 当前这一步（StepIndicator）
+ *
+ * Sits where pro's 「你读这篇是为了」 bar sits, at the top of the coach column,
+ * and answers a different question: 我现在在第几步. It moves for two reasons
+ * and no others —
+ *
+ *   1. the bar arrives with the room, and
+ *   2. the LABEL is replaced when 印记 moves her on, so the change is seen
+ *      rather than silently swapped underneath her.
+ *
+ * Both use the room's one vocabulary of movement (130ms /
+ * cubic-bezier(0.2, 0, 0, 1) / translateY(4px) → none), the same as
+ * `.mk-blockbar` and `.mk-coachcard`. The dot breathes slowly (2.6s) to say
+ * 「这一步是活的」 — deliberately slow enough to read as breathing, not as a
+ * notification demanding a tap.
+ *
+ * `mk-*` are BARE CSS VARIABLES: every tint below is `color-mix()`, never a
+ * Tailwind alpha modifier (which would emit no CSS at all).
+ * ------------------------------------------------------------------------- */
+.mk-stepnow {
+  animation: mk-stepnow-in 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.mk-stepnow__label {
+  animation: mk-stepnow-in 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes mk-stepnow-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mk-stepnow__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  align-self: center;
+  border-radius: 999px;
+  background: var(--mk-accent-500);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-accent-500) 45%, transparent);
+  animation: mk-stepnow-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes mk-stepnow-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-accent-500) 42%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--mk-accent-500) 0%, transparent);
+  }
+}
+
+.mk-stepnow__track {
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mk-accent-500) 14%, transparent);
+  overflow: hidden;
+}
+
+.mk-stepnow__fill {
+  height: 100%;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--mk-accent-500) 62%, transparent);
+  transition: width 260ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-stepnow,
+  .mk-stepnow__label,
+  .mk-stepnow__dot {
+    animation: none;
+  }
+  .mk-stepnow__fill {
+    transition: none;
+  }
+}
