@@ -94,7 +94,7 @@ describe("ReadingRoomHost", () => {
     render(<ReadingRoomHost readingId={READING_ID} />);
 
     expect(await screen.findByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
-    // The room's own chrome, not a lite re-implementation.
+    // The room's own chrome — rendered by lite's own ReadingRoom since the fork.
     expect(screen.getByRole("tab", { name: /阅读成果/ })).toBeTruthy();
     // ONE 印记. The room's coach column carries the 带读 invitation, and the
     // room's own chat log and composer are not ALSO on the page — two AI chat
@@ -104,9 +104,13 @@ describe("ReadingRoomHost", () => {
     expect(screen.queryByRole("button", { name: "这条来源可信吗？" })).toBeNull();
     // 「这篇用在哪个阶段」 names PROJECT phases; a lite reading has no project.
     expect(screen.queryByLabelText("这篇材料用在哪个阶段")).toBeNull();
-    // The persisted brief seeds the banner rather than an empty template.
-    expect(screen.getByText(/我想弄清这篇有没有回避排放总量/)).toBeTruthy();
-    // Gated off by LITE_READING_CAPABILITIES.
+    // 「你读这篇是为了」 was write-only in lite — it fed only the room
+    // composer's own readTurn prompt, which 带读 replaced — so lite's own room
+    // never carried it over. (Pro's bar is untouched; it is live there.)
+    expect(screen.queryByText(/你读这篇是为了/)).toBeNull();
+    expect(screen.queryByText(/我想弄清这篇有没有回避排放总量/)).toBeNull();
+    // Never rendered by lite's room at all — these were `caps` branches
+    // before it forked away from pro's.
     expect(screen.queryByText("证据笔记")).toBeNull();
     expect(screen.queryByRole("button", { name: "追来源" })).toBeNull();
   });

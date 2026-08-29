@@ -4,7 +4,7 @@ import { Button, Icon, Pebble } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
 import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
-import type { ReadingCoachSlot } from "@/studio/reading/ReadingRoom";
+import type { ReadingCoachSlot } from "./ReadingRoom";
 import { ApiError } from "../api/client";
 import { postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";

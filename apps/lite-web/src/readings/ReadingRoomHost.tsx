@@ -1,9 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Anchor, MaterialSource, PhaseTag } from "@mind-imprint/contracts";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import type { Anchor, MaterialSource } from "@mind-imprint/contracts";
 import { Button, Input, Textarea } from "@/ui";
-import { ReadingRoom } from "@/studio/reading/ReadingRoom";
-import type { ChatMessage } from "@/studio/reading/readingLoop";
-import { LITE_READING_CAPABILITIES } from "@/rooms/capabilities";
+import { ReadingRoom } from "./ReadingRoom";
 import { ApiError } from "../api/client";
 import {
   getReading,
@@ -35,23 +33,22 @@ import {
 } from "../api/readingRoom";
 import { ReportPanel } from "../reports/ReportPanel";
 import { useHeartbeat } from "../shared/useHeartbeat";
-import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanRail } from "./ReadingPlanRail";
 import { ReadingQuestions } from "./ReadingQuestions";
-import { BlockToolsPanel } from "./BlockToolsPanel";
 import { liteRoutePath, navigate } from "../routing";
 
 /**
- * ReadingRoomHost — mounts the REAL `ReadingRoom` (apps/web) for one lite
+ * ReadingRoomHost — mounts lite's own `ReadingRoom` (`./ReadingRoom`) for one
  * reading. Nothing here re-implements the room: the host's whole job is to
  * load what the room needs, assemble its props, and hand it an `api` object
  * bound to `/api/v1/readings/{id}/…`.
  *
  * Three decisions worth knowing about:
  *
- *  - **`capabilities={LITE_READING_CAPABILITIES}`** is what removes 证据笔记
- *    and 追踪来源 — not a fork of the component. The lite edition has neither
- *    an evidence map nor an exploration graph behind those surfaces.
+ *  - **The room is lite's own file now.** 证据笔记 and 追踪来源 are gone
+ *    because that file never renders them — not because a `capabilities`
+ *    object switches them off. The lite edition has neither an evidence map
+ *    nor an exploration graph behind those surfaces.
  *
  *  - **A reading with no article is not an error.** `createReading` and
  *    `putReadingSource` are two calls, so a dropped connection between them
@@ -59,10 +56,9 @@ import { liteRoutePath, navigate } from "../routing";
  *    still listed in 过往的阅读, so opening it must offer the paste box again
  *    rather than dead-ending on 「加载失败」.
  *
- *  - **The transcript is restored, not replayed.** `initialMessages` seeds the
- *    room's chat log from `GET /messages` so a reload resumes the conversation
- *    instead of greeting her as if nothing had happened. `demoMode` stays off —
- *    every write path is live.
+ *  - **The transcript is restored, not replayed.** `coachMessages` seeds the
+ *    conversation from `GET /messages` so a reload resumes it instead of
+ *    greeting her as if nothing had happened.
  */
 
 type LoadState =
@@ -90,23 +86,6 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
   const [plan, setPlan] = useState<ReadingPlan | null>(null);
   const [blockTools, setBlockTools] = useState<ReadingBlockTool[]>([]);
   const [blockNotes, setBlockNotes] = useState<ReadingBlockNote[]>([]);
-  // The paragraph whose tool bar is open, together with what the bar pins
-  // itself to: the paragraph element, and the x her pointer went down at.
-  const [blockAnchor, setBlockAnchor] = useState<{ id: string; el: HTMLElement; x: number } | null>(null);
-  // Set when the coach chose a tool for this turn; consumed once by the panel.
-  const [autoTool, setAutoTool] = useState<string | null>(null);
-
-  // Where the last pointer press landed. `onReferenceBlock` hands over a block
-  // id and nothing else, and "near my mouse" needs the mouse — so the position
-  // is captured on the way down rather than threaded through pro's primitive.
-  const pointerX = useRef(0);
-  useEffect(() => {
-    const onDown = (e: PointerEvent) => {
-      pointerX.current = e.clientX;
-    };
-    window.addEventListener("pointerdown", onDown, true);
-    return () => window.removeEventListener("pointerdown", onDown, true);
-  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +123,10 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // must not keep her out of the room, so each degrades to its empty
         // value rather than failing the load.
         const [brief, annotations, messages, cards, loadedPlan, tools, notes] = await Promise.all([
+          // Still loaded, no longer rendered: the 「你读这篇是为了」 bar it fed
+          // was not carried over in the fork (it was write-only in lite). Left
+          // in place rather than ripped out, so the task that puts the
+          // current-step indicator in that slot can decide.
           getReadingBrief(readingId).catch(() => EMPTY_BRIEF),
           listReadingAnnotations(readingId).catch(() => [] as LiteAnnotation[]),
           listReadingMessages(readingId).catch(() => [] as LiteMessage[]),
@@ -184,11 +167,6 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     return toMaterialSource(readingId, state.reading, state.source, state.annotations);
   }, [state, readingId]);
 
-  const initialMessages = useMemo(
-    () => (state.phase === "ready" ? toChatMessages(state.messages) : []),
-    [state],
-  );
-
   // Her confirmed findings, rebuilt from the card rows. Without this a reload
   // resets 阅读成果 to 0 and drops the highlights off the article — the work is
   // still in the database, it just stops being visible, which is worse than
@@ -223,44 +201,6 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     );
   }
 
-  /**
-   * Scroll the article to a paragraph 印记 singled out.
-   *
-   * Reaches for the DOM rather than a prop because `data-block-id` is already
-   * on every paragraph (Annotate renders it, and ReadingRoom's own
-   * `locateBlock` uses exactly this) — threading a second imperative handle
-   * out of the room would be a bigger change to a shared component than the
-   * one behaviour needs.
-   */
-  const focusBlock = (blockId: string, tool?: string) => {
-    const el = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
-    el?.scrollIntoView({ behavior: "smooth", block: "center" });
-    if (el) {
-      // No pointer to be near — 印记 opened this one — so the bar sits over
-      // the paragraph's own left edge rather than wherever she last clicked.
-      setBlockAnchor({ id: blockId, el, x: el.getBoundingClientRect().left + 140 });
-    }
-    // 印记 reaching for a tool is it teaching, not a suggestion she has to act
-    // on — so the panel opens with that tool already running rather than
-    // showing her a row of buttons and hoping she presses the right one.
-    setAutoTool(tool ?? null);
-  };
-
-  /**
-   * Her own click on a paragraph. Toggles, so a second click on the paragraph
-   * she is already looking at puts the bar away instead of re-opening it.
-   */
-  const pickBlock = (blockId: string) => {
-    setAutoTool(null);
-    if (blockAnchor?.id === blockId) {
-      setBlockAnchor(null);
-      return;
-    }
-    const el = document.querySelector<HTMLElement>(`[data-block-id="${blockId}"]`);
-    if (!el) return;
-    setBlockAnchor({ id: blockId, el, x: pointerX.current });
-  };
-
   return (
     <div className="relative flex h-full">
       {aiError && (
@@ -277,9 +217,9 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
       )}
 
       {/* 带读进度. STATUS ONLY — the conversation that used to live here moved
-          into the room's own coach column (renderCoach below), because two AI
-          chat boxes on one screen read as two AIs. Nothing in this rail is
-          clickable: 印记 moves her between steps. */}
+          into the room's own coach column, because two AI chat boxes on one
+          screen read as two AIs. Nothing in this rail is clickable: 印记 moves
+          her between steps. */}
       <aside className="hidden w-[262px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-paper p-4 lg:flex">
         <ReadingPlanRail tasks={plan?.tasks ?? []} />
       </aside>
@@ -287,75 +227,33 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
       <div className="min-w-0 flex-1">
 
       <ReadingRoom
-        // A lite reading has no project and no reference row — the atom id is
-        // the only addressing unit, and the api object ignores both anyway.
-        projectId={readingId}
-        referenceId={readingId}
-        // 段落工具 (0101). Hung under each paragraph through ReadingRoom's own
-        // optional seam rather than by forking the room: pro passes nothing
-        // and renders exactly what it renders today.
-        //
-        // A small button rather than a click on the paragraph itself, because
-        // clicking a paragraph ALREADY means "quote this one" in this room —
-        // overloading that gesture would break a working one to add a new one.
-        renderBlockAside={(blockId) => {
-          if (blockTools.length === 0 || blockAnchor?.id !== blockId) return null;
-          return (
-            <BlockToolsPanel
-              readingId={readingId}
-              blockId={blockId}
-              anchorEl={blockAnchor.el}
-              pointerX={blockAnchor.x}
-              tools={blockTools}
-              notes={blockNotes}
-              onNote={(note) =>
-                setBlockNotes((prev) => [
-                  ...prev.filter((n) => !(n.blockId === note.blockId && n.tool === note.tool)),
-                  note,
-                ])
-              }
-              autoTool={autoTool}
-              onAutoToolConsumed={() => setAutoTool(null)}
-              onClose={() => {
-                setBlockAnchor(null);
-                setAutoTool(null);
-              }}
-            />
-          );
-        }}
-        // 点一段 → 工具栏浮在她手边。In pro this gesture quotes the paragraph
-        // into the composer; in lite the composer belongs to 带读 and this is
-        // the better thing to spend the click on.
-        onBlockPick={pickBlock}
-        // ONE 印记. The room's own chat log and composer step aside for the
-        // 带读 conversation — same character, same `atom_message` table, one
-        // thread on screen instead of two.
-        renderCoach={(slot) => (
-          <ReadingCoachPanel
-            readingId={readingId}
-            tasks={plan?.tasks ?? []}
-            initialMessages={state.messages}
-            slot={slot}
-            onTasks={(tasks: ReadingTask[]) =>
-              setPlan((prev) => ({
-                routineKey: prev?.routineKey ?? "",
-                routineName: prev?.routineName ?? "",
-                tasks,
-              }))
-            }
-            onFocusBlock={focusBlock}
-          />
-        )}
+        readingId={readingId}
         source={source!}
-        phaseTag={(state.brief.phaseTag as PhaseTag | null) ?? null}
-        readingReason={state.brief.readingReason}
-        readingFocus={state.brief.readingFocus}
-        bib={state.source.sourceUrl ? { url: state.source.sourceUrl } : null}
-        initialMessages={initialMessages.length > 0 ? initialMessages : undefined}
-        initialOutcomes={initialOutcomes.length > 0 ? initialOutcomes : undefined}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
-        capabilities={LITE_READING_CAPABILITIES}
+        // 带读. The plan is loaded here because the rail beside the article
+        // reads the same list; the conversation that advances it lives inside
+        // the room.
+        tasks={plan?.tasks ?? []}
+        onTasks={(tasks: ReadingTask[]) =>
+          setPlan((prev) => ({
+            routineKey: prev?.routineKey ?? "",
+            routineName: prev?.routineName ?? "",
+            tasks,
+          }))
+        }
+        coachMessages={state.messages}
+        initialOutcomes={initialOutcomes.length > 0 ? initialOutcomes : undefined}
+        // 段落工具 (0101). Loaded here (one fetch per reading), rendered under
+        // whichever paragraph is open inside the room.
+        blockTools={blockTools}
+        blockNotes={blockNotes}
+        onBlockNote={(note) =>
+          setBlockNotes((prev) => [
+            ...prev.filter((n) => !(n.blockId === note.blockId && n.tool === note.tool)),
+            note,
+          ])
+        }
       />
       </div>
     </div>
@@ -535,13 +433,4 @@ function toAnchor(a: LiteAnnotation): Anchor | null {
     question: "",
     answer: a.note,
   };
-}
-
-/** The persisted transcript → the room's chat log, oldest first. */
-export function toChatMessages(messages: LiteMessage[]): ChatMessage[] {
-  return messages.map((m) =>
-    m.role === "student"
-      ? { id: `m${m.seq}`, role: "student", kind: "text", body: m.content }
-      : { id: `m${m.seq}`, role: "assistant", kind: "text", body: m.content },
-  );
 }

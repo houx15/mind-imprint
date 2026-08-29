@@ -1,6 +1,6 @@
 import { render, screen, fireEvent, waitFor, cleanup } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import type { ReadingCoachSlot } from "@/studio/reading/ReadingRoom";
+import type { ReadingCoachSlot } from "@lite/readings/ReadingRoom";
 import type { ReadingTask } from "../src/api/readingRoom";
 
 /**
