@@ -28,7 +28,7 @@ func (q *Queries) AddAtomActiveSeconds(ctx context.Context, arg AddAtomActiveSec
 const appendAtomBlockMessage = `-- name: AppendAtomBlockMessage :one
 INSERT INTO atom_message (atom_id, seq, role, content, block_id)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, atom_id, seq, role, content, created_at, block_id
+RETURNING id, atom_id, seq, role, content, created_at, block_id, payload
 `
 
 type AppendAtomBlockMessageParams struct {
@@ -39,6 +39,8 @@ type AppendAtomBlockMessageParams struct {
 	BlockID *string   `json:"block_id"`
 }
 
+// 没有 payload：聊天卡片长在房间自己那条主线程上（block_id IS NULL），段落
+// 子对话不发卡。真需要时再加参数，而不是先摆一个永远传 NULL 的洞在这里。
 func (q *Queries) AppendAtomBlockMessage(ctx context.Context, arg AppendAtomBlockMessageParams) (AtomMessage, error) {
 	row := q.db.QueryRow(ctx, appendAtomBlockMessage,
 		arg.AtomID,
@@ -56,14 +58,15 @@ func (q *Queries) AppendAtomBlockMessage(ctx context.Context, arg AppendAtomBloc
 		&i.Content,
 		&i.CreatedAt,
 		&i.BlockID,
+		&i.Payload,
 	)
 	return i, err
 }
 
 const appendAtomMessage = `-- name: AppendAtomMessage :one
-INSERT INTO atom_message (atom_id, seq, role, content)
-VALUES ($1, $2, $3, $4)
-RETURNING id, atom_id, seq, role, content, created_at, block_id
+INSERT INTO atom_message (atom_id, seq, role, content, payload)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, atom_id, seq, role, content, created_at, block_id, payload
 `
 
 type AppendAtomMessageParams struct {
@@ -71,14 +74,19 @@ type AppendAtomMessageParams struct {
 	Seq     int32     `json:"seq"`
 	Role    string    `json:"role"`
 	Content string    `json:"content"`
+	Payload []byte    `json:"payload"`
 }
 
+// payload (0106) 是这条消息随身带的结构化东西：AI 侧是它现场写的那张聊天卡片，
+// 学生侧是她在卡片上的回答。绝大多数消息只有 content，payload 传 NULL——它可空
+// 正是为了让「这条消息什么也没带」是默认状态，而不是每个调用方都要构造一个空壳。
 func (q *Queries) AppendAtomMessage(ctx context.Context, arg AppendAtomMessageParams) (AtomMessage, error) {
 	row := q.db.QueryRow(ctx, appendAtomMessage,
 		arg.AtomID,
 		arg.Seq,
 		arg.Role,
 		arg.Content,
+		arg.Payload,
 	)
 	var i AtomMessage
 	err := row.Scan(
@@ -89,6 +97,7 @@ func (q *Queries) AppendAtomMessage(ctx context.Context, arg AppendAtomMessagePa
 		&i.Content,
 		&i.CreatedAt,
 		&i.BlockID,
+		&i.Payload,
 	)
 	return i, err
 }
@@ -343,7 +352,7 @@ func (q *Queries) ListAtomAnnotations(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listAtomBlockMessages = `-- name: ListAtomBlockMessages :many
-SELECT id, atom_id, seq, role, content, created_at, block_id FROM atom_message
+SELECT id, atom_id, seq, role, content, created_at, block_id, payload FROM atom_message
 WHERE atom_id = $1 AND block_id = $2
 ORDER BY seq
 `
@@ -370,6 +379,7 @@ func (q *Queries) ListAtomBlockMessages(ctx context.Context, arg ListAtomBlockMe
 			&i.Content,
 			&i.CreatedAt,
 			&i.BlockID,
+			&i.Payload,
 		); err != nil {
 			return nil, err
 		}
@@ -419,7 +429,7 @@ func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCa
 }
 
 const listAtomMessages = `-- name: ListAtomMessages :many
-SELECT id, atom_id, seq, role, content, created_at, block_id FROM atom_message WHERE atom_id = $1 AND block_id IS NULL ORDER BY seq
+SELECT id, atom_id, seq, role, content, created_at, block_id, payload FROM atom_message WHERE atom_id = $1 AND block_id IS NULL ORDER BY seq
 `
 
 // The room's OWN thread only. The `block_id IS NULL` filter is the whole safety
@@ -444,6 +454,7 @@ func (q *Queries) ListAtomMessages(ctx context.Context, atomID uuid.UUID) ([]Ato
 			&i.Content,
 			&i.CreatedAt,
 			&i.BlockID,
+			&i.Payload,
 		); err != nil {
 			return nil, err
 		}

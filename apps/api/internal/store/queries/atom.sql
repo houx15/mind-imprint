@@ -27,8 +27,11 @@ SELECT (
 )::bigint AS n;
 
 -- name: AppendAtomMessage :one
-INSERT INTO atom_message (atom_id, seq, role, content)
-VALUES ($1, $2, $3, $4)
+-- payload (0106) 是这条消息随身带的结构化东西：AI 侧是它现场写的那张聊天卡片，
+-- 学生侧是她在卡片上的回答。绝大多数消息只有 content，payload 传 NULL——它可空
+-- 正是为了让「这条消息什么也没带」是默认状态，而不是每个调用方都要构造一个空壳。
+INSERT INTO atom_message (atom_id, seq, role, content, payload)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: ListAtomMessages :many
@@ -45,6 +48,8 @@ WHERE atom_id = $1 AND block_id = $2
 ORDER BY seq;
 
 -- name: AppendAtomBlockMessage :one
+-- 没有 payload：聊天卡片长在房间自己那条主线程上（block_id IS NULL），段落
+-- 子对话不发卡。真需要时再加参数，而不是先摆一个永远传 NULL 的洞在这里。
 INSERT INTO atom_message (atom_id, seq, role, content, block_id)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
