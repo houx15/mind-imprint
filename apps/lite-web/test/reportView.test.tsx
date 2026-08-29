@@ -164,6 +164,27 @@ describe("ReportView", () => {
     }
   });
 
+  it("renders a lens note with an empty finding cleanly — no orphaned label, no dangling colon", () => {
+    // Mirrors a degraded evaluate call server-side: buildReadingLensNotes
+    // drops the canned fallback finding but keeps her quote (atom_report.go).
+    const degraded = report({
+      lensNotes: [{ lens: "信源辨识卡 CRAAP / CRRAAB", quote: "她自己选的句子", finding: "" }],
+    });
+
+    const { container } = render(<ReportView report={degraded} />);
+
+    expect(screen.getByText("我用透镜查到的")).toBeTruthy();
+    expect(screen.getByText("信源辨识卡 CRAAP / CRRAAB")).toBeTruthy();
+    expect(screen.getByText("我选的句子：")).toBeTruthy();
+    expect(screen.getByText(/她自己选的句子/)).toBeTruthy();
+    // No dangling label/paragraph left over for the absent finding: the
+    // note's card renders exactly one <p> (the quote), not a second empty
+    // one for the finding it doesn't have.
+    const cards = container.querySelectorAll(".rounded-mk-lg.border.border-mk-border.bg-mk-surface");
+    expect(cards.length).toBe(1);
+    expect(cards[0]?.querySelectorAll("p").length).toBe(1);
+  });
+
   it("renders 2-4 gain lines when present", () => {
     const withGains = report({
       gains: ["找到了两处可以追溯到原始数据的来源", "写出了一个带反例的论证段"],

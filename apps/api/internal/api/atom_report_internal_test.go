@@ -139,6 +139,38 @@ func TestBuildReadingLensNotes(t *testing.T) {
 	}
 }
 
+// TestBuildReadingLensNotesDropsDegradedFinding is the fix for the finding
+// raised on 47d1c7c4's review: ev.Degraded (selectionEvalDTO, readeval.go)
+// means agent.fallbackEval minted the finding, not a model that actually
+// read her sentence — "你选了这句作为证据。" is the REAL canned string
+// fallbackEval sets (reading_eval.go), used verbatim here so this test
+// fails if that string ever drifts silently. A degraded card must keep her
+// quote (her pick is her work regardless of whether the model said anything
+// useful) but drop the canned finding — never present it as the room's
+// genuine 发现.
+func TestBuildReadingLensNotesDropsDegradedFinding(t *testing.T) {
+	atomID := uuid.New()
+	const cannedFinding = "你选了这句作为证据。" // agent.fallbackEval's exact canned text
+
+	degraded := sqlc.AtomCard{
+		ID: uuid.New(), AtomID: atomID, CardID: "craap", Status: "submitted",
+		Anchors:       []byte(`[{"author":"student","quote":"她自己选的句子"}]`),
+		FrameworkFill: []byte(`{"finding":"` + cannedFinding + `","degraded":true}`),
+	}
+
+	got := buildReadingLensNotes([]sqlc.AtomCard{degraded})
+
+	if len(got) != 1 {
+		t.Fatalf("got %d lens notes, want 1 (the quote must survive a degraded finding): %+v", len(got), got)
+	}
+	if got[0].Quote != "她自己选的句子" {
+		t.Errorf("quote = %q, want her pick kept even though the finding degraded", got[0].Quote)
+	}
+	if got[0].Finding != "" {
+		t.Errorf("finding = %q, want empty — the canned fallback text must never be shown as a genuine 发现", got[0].Finding)
+	}
+}
+
 func TestLiteReportSystemAddressesHerDirectly(t *testing.T) {
 	if !strings.Contains(liteReportSystem, "用\"你\"称呼她本人") {
 		t.Error("liteReportSystem must explicitly instruct gains to address her as 你, not describe her in third person")

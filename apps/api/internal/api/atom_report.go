@@ -188,10 +188,18 @@ func studentAnchorQuote(anchorsJSON []byte) string {
 // drew from it (framework_fill.finding — selectionEvalDTO's wire shape,
 // readeval.go). An unknown card id is skipped rather than printed as a raw
 // id — cards.ByID (the registry, the same lookup summonReadingLens uses) is
-// the single source of display names. A card that yields neither a quote
-// nor a finding is skipped too: nothing to show. Submission order is
-// preserved — ListAtomCards already returns rows in creation order, and this
-// function does no reordering of its own.
+// the single source of display names.
+//
+// ev.Degraded (selectionEvalDTO's own doc comment names this exact consumer)
+// means NO model ever produced this finding — agent.fallbackEval's canned
+// "你选了这句作为证据。", not a genuine reading of her sentence. A degraded
+// card's finding is dropped, never shown as if the room had actually read
+// her pick; her quote is kept regardless — the sentence she chose is her
+// work whether or not the model managed to say anything useful about it,
+// which is the whole reason this section exists. A card that ends up with
+// neither a quote nor a finding is skipped: nothing to show. Submission
+// order is preserved — ListAtomCards already returns rows in creation
+// order, and this function does no reordering of its own.
 func buildReadingLensNotes(atomCards []sqlc.AtomCard) []reportLensNote {
 	out := make([]reportLensNote, 0, len(atomCards))
 	for _, card := range atomCards {
@@ -206,7 +214,7 @@ func buildReadingLensNotes(atomCards []sqlc.AtomCard) []reportLensNote {
 		var finding string
 		if len(card.FrameworkFill) > 0 {
 			var ev selectionEvalDTO
-			if json.Unmarshal(card.FrameworkFill, &ev) == nil {
+			if json.Unmarshal(card.FrameworkFill, &ev) == nil && !ev.Degraded {
 				finding = strings.TrimSpace(ev.Finding)
 			}
 		}
