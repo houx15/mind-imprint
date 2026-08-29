@@ -63,7 +63,8 @@ type coachCard struct {
 //   - Prompt 去空白后非空，且 ≤ 60 runes；
 //   - choose_span：每个 Quote 必须是**它自己那个 BlockID** 的字面子串
 //     （挂错段落 = 不算）、**落在从句边界上**（见 coachCardQuoteIsClause）、
-//     去空、去太短、去重、截断到 4 个，存活 < 2 → 整张丢掉；
+//     去空、去太短、去重（含**包含式**去重：一个选项是另一个的子串就丢掉短的）、
+//     截断到 4 个，存活 < 2 → 整张丢掉；
 //   - pick_in_article / short_text：忽略并清空 options
 //     （问题本身就是「去文章里找」，给了选项反而把这件事替她做了）。
 func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
@@ -88,7 +89,7 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 		byID[b.ID] = b.Text
 	}
 	seen := make(map[string]bool, len(c.Options))
-	out := make([]coachCardOption, 0, coachCardMaxOptions)
+	kept := make([]coachCardOption, 0, len(c.Options))
 	for _, o := range c.Options {
 		q := strings.TrimSpace(o.Quote)
 		if q == "" || utf8.RuneCountInString(q) < coachCardMinQuoteRunes {
@@ -104,7 +105,18 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 			continue
 		}
 		seen[q] = true
-		out = append(out, coachCardOption{BlockID: o.BlockID, Quote: q})
+		kept = append(kept, coachCardOption{BlockID: o.BlockID, Quote: q})
+	}
+	// 包含式去重，在截断到 4 之前跑：两个各自都落在合法边界上的重叠片段
+	// （「白天吸热、夜里放热」和「夜里放热」）边界规则合并不掉，但摆在同一张
+	// 卡片上就是一组套娃 —— 「挑一句」这件事当场变得莫名其妙。留长的那个：
+	// 它信息更完整，短的那半句她在长的里面照样读得到。
+	out := make([]coachCardOption, 0, coachCardMaxOptions)
+	for i, o := range kept {
+		if coachCardIsSwallowed(o.Quote, kept, i) {
+			continue
+		}
+		out = append(out, o)
 		if len(out) == coachCardMaxOptions {
 			break
 		}
@@ -115,12 +127,46 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	return &coachCard{Type: c.Type, Prompt: prompt, Options: out}
 }
 
+// coachCardIsSwallowed —— quote 是不是 kept 里**另一个**选项的子串。
+// 相等的两条在这之前已经被 seen 去掉了，所以这里只认真子串（更长的那个）。
+func coachCardIsSwallowed(quote string, kept []coachCardOption, self int) bool {
+	for j := range kept {
+		if j == self {
+			continue
+		}
+		if len(kept[j].Quote) > len(quote) && strings.Contains(kept[j].Quote, quote) {
+			return true
+		}
+	}
+	return false
+}
+
 // coachCardIsBoundary —— 从句边界字符。两套标点都要有：正文可能是中文，也可能
 // 是英文（或者中英混排的一段）。
 func coachCardIsBoundary(r rune) bool {
 	switch r {
 	case '，', '。', '！', '？', '；', '：', '、', '\n',
 		',', '.', '!', '?', ';', ':':
+		return true
+	}
+	return false
+}
+
+// coachCardIsSkippable —— 找边界的路上可以跳过不计的字符：空白，以及成对的
+// 引号 / 括号。
+//
+// 为什么引号必须跳过：`他说：“城市在夜里更热。”` 里那一句的边界标点（`：`）
+// 落在引号**外面**，引号本身不是边界字符。不跳过它，这一整类正常引文——中文
+// 「“ ”」「‘ ’」「「 」」「『 』」、括号、英文 `" '`——全都会被误杀，而误杀是
+// 静默的：选项被丢 → 存活不足 2 → 整张卡片消失，屏幕上看起来就像 印记 这一轮
+// 没想出卡片。跳过引号并不放宽「一句话」这件事：引号里从句子中间切的窗口，
+// 跳过引号之后撞到的仍然是一个汉字，照样过不了。
+func coachCardIsSkippable(r rune) bool {
+	if unicode.IsSpace(r) {
+		return true
+	}
+	switch r {
+	case '“', '”', '‘', '’', '「', '」', '『', '』', '（', '）', '(', ')', '"', '\'':
 		return true
 	}
 	return false
@@ -139,7 +185,8 @@ func coachCardIsBoundary(r rune) bool {
 //     （模型经常把句号一起引进来，那是正常引用，不是毛病）。
 //
 // 🚨 故意往**松**了收：同一句话在段里出现多次时，只要**有一次**落在边界上就算数；
-// 边界字符和引文之间夹着的空白（英文 "…day. They…" 的那个空格）跳过不计。
+// 边界字符和引文之间夹着的空白（英文 "…day. They…" 的那个空格）跳过不计，
+// 成对的引号 / 括号（`他说：“…”` 的那对引号）同样跳过不计（见 coachCardIsSkippable）。
 // 收得过紧是看不见的 —— 误杀的卡片不报错、不打日志，看起来就像模型这一轮
 // 没想出卡片；宁可放过一个窗口，也不能让正常的句子静悄悄消失。
 func coachCardQuoteIsClause(body, quote string) bool {
@@ -170,7 +217,7 @@ func coachCardClauseStarts(body string, start int) bool {
 		if coachCardIsBoundary(r) {
 			return true
 		}
-		if !unicode.IsSpace(r) {
+		if !coachCardIsSkippable(r) {
 			return false
 		}
 		start -= size
@@ -185,7 +232,7 @@ func coachCardClauseEnds(body string, end int) bool {
 		if coachCardIsBoundary(r) {
 			return true
 		}
-		if !unicode.IsSpace(r) {
+		if !coachCardIsSkippable(r) {
 			return false
 		}
 		end += size
