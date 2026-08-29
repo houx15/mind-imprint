@@ -416,6 +416,32 @@ capability flag（`capabilities.ts:47-58` 那个没人用的 `comprehensionCheck
 今天根本没有任何步骤界面**。当前步指示器因此不只是「搬个位置」，它是小屏上的第一个
 步骤界面。
 
+## 印记 说话可以有结构
+
+产品负责人 2026-08-29：
+
+> *"we use md instead of plain text to render AI's output. bold texts can also be
+> rendered the accent color. and AI can give bullet points, titles, etc."*
+
+**先纠正一个前提：markdown 已经在渲染了。** `ReadingCoachPanel.tsx:144-152` 把每条 AI
+消息交给 `@/studio/ai/ChatMarkdown`，它支持加粗、有序/无序列表、标题、引用、行内代码、
+链接。那段平铺的散文之所以看着像纯文本，是因为**模型没用 markdown**，不是渲染不了。
+
+所以只有两件事要做：
+
+1. **强调色的加粗。** `ChatMarkdown.tsx:24` 现在是 `text-mk-ink`。
+   🚨 那个文件**与 pro 共享**（四个 pro 房间都在用），改它等于改掉 pro 每一个聊天气泡
+   ——违反全局约束。lite 建自己的 `LiteChatMarkdown.tsx`，只改 `strong` 一项。
+   （这正是分家换来的东西：一个纯 lite 的视觉决定，不再需要动 pro。）
+2. **prompt 里允许结构**，措辞要克制：加粗**一个**关键词、用短列表并列两三个选项就够了；
+   一句话说得清就别加结构；标题基本用不上——这是对话不是文档。
+   🚨 **和铁律③不冲突**：列表可以并列几个**选项**，但问题仍然只能有一个，不许用列表
+   塞三个问题进去。
+   ⚠️ 卡片接手步骤指令之后，回复本来就该更短——这一条不要把它又撑回去。
+
+学生那一侧**继续是纯文本**：她打的 `*` 或 `#` 绝不能被当成标记吃掉
+（`ChatMarkdown.tsx:19-21` 的既有裁定）。
+
 ## 不在本期
 
 - `multi_choice` / `order_spans` 两种卡型。
