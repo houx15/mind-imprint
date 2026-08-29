@@ -3,10 +3,10 @@ import { apiFetch } from "./client";
 // api/writings.ts — the lite shell's 写作 CRUD client. Shapes read straight
 // off the Go handlers (apps/api/internal/api/writings.go), not guessed:
 // `writingDTO` (id/title/lang/stage/targetWords/status/createdAt/updatedAt/
-// finishedAt) and createWriting's `{"id": "..."}` 201 body. Mirrors
-// api/readings.ts's shape; the room-specific calls (turn/outline/snippets/
-// compose/cards/summon) live in api/writingRoom.ts instead, matching the
-// reading split (readings.ts vs readingRoom.ts).
+// lastActivityAt/finishedAt) and createWriting's `{"id": "..."}` 201 body.
+// Mirrors api/readings.ts's shape; the room-specific calls (turn/outline/
+// snippets/compose/cards/summon) live in api/writingRoom.ts instead, matching
+// the reading split (readings.ts vs readingRoom.ts).
 
 export interface Writing {
   id: string;
@@ -28,7 +28,14 @@ export interface Writing {
    *  still show any stage; see writing_stage.go's file comment). */
   status: string;
   createdAt: string;
+  /** `writing.updated_at` — rename / stage change / target-words only. NOT
+   *  "when she last worked on this". */
   updatedAt: string;
+  /** `atom.last_activity_at` — the last time she wrote anything into this
+   *  writing (a turn, an outline edit, a snippet, a draft save). This is
+   *  what 上次改到 means and what 「你有 N 篇还没写完」 orders by. Mirrors
+   *  readings.ts's `Reading.lastActivityAt` exactly. */
+  lastActivityAt: string;
   finishedAt: string | null;
 }
 
@@ -38,9 +45,17 @@ export function isWritingFinished(w: Writing): boolean {
   return w.status === "finished" || Boolean(w.finishedAt);
 }
 
-/** GET /api/v1/writings — 我的写作, newest-ordered by the server. */
-export async function listWritings(): Promise<Writing[]> {
-  const raw = await apiFetch<{ writings: Writing[] }>("/api/v1/writings");
+/**
+ * GET /api/v1/writings — 我的写作.
+ *
+ * Mirrors listReadings (readings.ts): the server orders by when each writing
+ * last MATTERED (finished → when she finished it; still open →
+ * `lastActivityAt`) and cuts to `limit`, so this is genuinely the most
+ * recent N rather than the first N of everything.
+ */
+export async function listWritings(limit?: number): Promise<Writing[]> {
+  const query = limit ? `?limit=${encodeURIComponent(String(limit))}` : "";
+  const raw = await apiFetch<{ writings: Writing[] }>(`/api/v1/writings${query}`);
   return raw.writings;
 }
 

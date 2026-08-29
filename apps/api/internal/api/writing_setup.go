@@ -114,7 +114,7 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }
 
 // writingOpeningSystem is the coach's opening line. It is the single most

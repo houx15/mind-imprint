@@ -275,7 +275,7 @@ func (q *Queries) ListWritingSnippets(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listWritingsByUser = `-- name: ListWritingsByUser :many
-SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, a.created_at AS atom_created_at
+SELECT w.atom_id, w.title, w.lang, w.stage, w.target_words, w.status, w.updated_at, w.finished_at, w.structure_key, w.setup_at, a.created_at AS atom_created_at, a.last_activity_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'
@@ -283,23 +283,30 @@ ORDER BY a.created_at DESC
 `
 
 type ListWritingsByUserRow struct {
-	AtomID        uuid.UUID          `json:"atom_id"`
-	Title         string             `json:"title"`
-	Lang          string             `json:"lang"`
-	Stage         string             `json:"stage"`
-	TargetWords   *int32             `json:"target_words"`
-	Status        string             `json:"status"`
-	UpdatedAt     time.Time          `json:"updated_at"`
-	FinishedAt    pgtype.Timestamptz `json:"finished_at"`
-	StructureKey  string             `json:"structure_key"`
-	SetupAt       pgtype.Timestamptz `json:"setup_at"`
-	AtomCreatedAt time.Time          `json:"atom_created_at"`
+	AtomID         uuid.UUID          `json:"atom_id"`
+	Title          string             `json:"title"`
+	Lang           string             `json:"lang"`
+	Stage          string             `json:"stage"`
+	TargetWords    *int32             `json:"target_words"`
+	Status         string             `json:"status"`
+	UpdatedAt      time.Time          `json:"updated_at"`
+	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
+	StructureKey   string             `json:"structure_key"`
+	SetupAt        pgtype.Timestamptz `json:"setup_at"`
+	AtomCreatedAt  time.Time          `json:"atom_created_at"`
+	LastActivityAt time.Time          `json:"last_activity_at"`
 }
 
 // The list the 写作 tab shows. Joins atom for ownership + creation order,
 // same shape as ListReadingsByUser — atom_created_at rides along so the API
 // layer can fill writingDTO.createdAt without an N+1 GetAtom per row (the
 // writing table itself has no created_at column; only atom does).
+//
+// last_activity_at rides along the same way (0098's atom.last_activity_at,
+// bumped by loadOwnedAtom on every non-GET against an open atom of EITHER
+// kind) so writingDTO can carry a real "when did she last touch this" the
+// same way readingDTO does — writing.updated_at only moves on rename/stage
+// changes/target-words, never on a turn or a snippet edit.
 func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]ListWritingsByUserRow, error) {
 	rows, err := q.db.Query(ctx, listWritingsByUser, userID)
 	if err != nil {
@@ -321,6 +328,7 @@ func (q *Queries) ListWritingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.StructureKey,
 			&i.SetupAt,
 			&i.AtomCreatedAt,
+			&i.LastActivityAt,
 		); err != nil {
 			return nil, err
 		}

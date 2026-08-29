@@ -7,7 +7,7 @@ import { navigate, writingPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
 import { WRITING_IDEA_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
-import { WritingHistoryPanel } from "./WritingHistoryPanel";
+import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
 
 /**
  * WritingsLanding — 写作 tab's front door. Same skeleton as ReadingsLanding
@@ -46,6 +46,14 @@ export function WritingsLanding() {
   const [history, setHistory] = useState<Writing[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
+  // Which chip the drawer opens on. 我的写作 wants everything; the 还没写完
+  // notice wants the ones it just counted. Mirrors ReadingsLanding.
+  const [panelFilter, setPanelFilter] = useState<WritingFilter>("all");
+
+  function openPanel(filter: WritingFilter) {
+    setPanelFilter(filter);
+    setPanelOpen(true);
+  }
 
   useEffect(() => {
     let cancelled = false;
@@ -101,20 +109,13 @@ export function WritingsLanding() {
     void start(topic.idea, topic.lang);
   }
 
-  function openMostRecentUnfinished() {
-    const next = (history ?? [])
-      .filter((w) => !isWritingFinished(w))
-      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))[0];
-    if (next) navigate(writingPath(next.id));
-  }
-
   return (
     <div className="relative min-h-full overflow-hidden">
       <div className="relative mx-auto flex w-full max-w-[760px] flex-col px-4 pb-20 pt-5 sm:px-6">
         <div className="flex justify-end">
           <button
             type="button"
-            onClick={() => setPanelOpen(true)}
+            onClick={() => openPanel("all")}
             className="flex items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 text-mk-small text-mk-secondary shadow-mk-xs transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
           >
             <Icon icon={Library} size={15} />
@@ -136,7 +137,10 @@ export function WritingsLanding() {
           {unfinishedCount > 0 && (
             <button
               type="button"
-              onClick={openMostRecentUnfinished}
+              // Opens the SHELF, not a writing — same fix ReadingsLanding
+              // already carries: a count's only honest offer is the list
+              // behind it, not a guess at which one she meant.
+              onClick={() => openPanel("open")}
               className="group flex items-center gap-1.5 rounded-mk-full px-3 py-1 text-mk-small text-mk-accent-700 transition-colors duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
               style={{ background: "color-mix(in srgb, var(--mk-accent-500) 10%, transparent)" }}
             >
@@ -208,6 +212,7 @@ export function WritingsLanding() {
 
       <WritingHistoryPanel
         open={panelOpen}
+        initialFilter={panelFilter}
         onClose={() => setPanelOpen(false)}
         writings={history}
         error={historyError}

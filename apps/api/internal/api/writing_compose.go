@@ -333,5 +333,5 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }

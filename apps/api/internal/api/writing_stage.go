@@ -119,7 +119,7 @@ func (a *API) setWritingStage(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }
 
 // setWritingTargetWords is PUT /api/v1/writings/{id}/target-words. No stage
@@ -153,5 +153,5 @@ func (a *API) setWritingTargetWords(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }

@@ -3,6 +3,8 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,16 +31,26 @@ type writingDTO struct {
 	SetupAt      *string `json:"setupAt"`
 	Status       string  `json:"status"`
 	CreatedAt    string  `json:"createdAt"`
-	UpdatedAt    string  `json:"updatedAt"`
-	FinishedAt   *string `json:"finishedAt"`
+	// UpdatedAt is writing.updated_at: rename / stage change / target-words
+	// only. It is NOT "when she last worked on this" — see LastActivityAt.
+	UpdatedAt string `json:"updatedAt"`
+	// LastActivityAt is atom.last_activity_at (0098): the last time she wrote
+	// ANYTHING into this writing — a turn, an outline edit, a snippet, a draft
+	// save. This is what 上次改到 means and what 「你有 N 篇还没写完」 orders
+	// by. Mirrors readingDTO.LastActivityAt exactly (readings.go); before this
+	// field existed the writing shelf had nothing honest to sort by, since an
+	// hour spent drafting moved neither updated_at nor created_at.
+	LastActivityAt string  `json:"lastActivityAt"`
+	FinishedAt     *string `json:"finishedAt"`
 }
 
-func writingDTOOf(wr sqlc.Writing, createdAt time.Time) writingDTO {
+func writingDTOOf(wr sqlc.Writing, createdAt, lastActivityAt time.Time) writingDTO {
 	out := writingDTO{
 		ID: wr.AtomID.String(), Title: wr.Title, Lang: wr.Lang, Stage: wr.Stage,
 		TargetWords: wr.TargetWords, StructureKey: wr.StructureKey, Status: wr.Status,
-		CreatedAt: createdAt.Format(time.RFC3339),
-		UpdatedAt: wr.UpdatedAt.Format(time.RFC3339),
+		CreatedAt:      createdAt.Format(time.RFC3339),
+		UpdatedAt:      wr.UpdatedAt.Format(time.RFC3339),
+		LastActivityAt: lastActivityAt.Format(time.RFC3339),
 	}
 	if wr.SetupAt.Valid {
 		s := wr.SetupAt.Time.Format(time.RFC3339)
@@ -49,6 +61,44 @@ func writingDTOOf(wr sqlc.Writing, createdAt time.Time) writingDTO {
 		out.FinishedAt = &s
 	}
 	return out
+}
+
+// writingListDefaultLimit / writingListMaxLimit bound 我的写作. Mirrors
+// readingListDefaultLimit / readingListMaxLimit (readings.go) exactly — same
+// reasoning, same numbers: generous enough for one student, capped so a
+// hand-crafted `?limit=100000` cannot ask the API to serialize her whole
+// writing history.
+const (
+	writingListDefaultLimit = 50
+	writingListMaxLimit     = 200
+)
+
+// writingListLimit reads `?limit=`, mirroring readingListLimit. Anything
+// missing, unparseable, or ≤0 takes the default.
+func writingListLimit(r *http.Request) int {
+	raw := strings.TrimSpace(r.URL.Query().Get("limit"))
+	if raw == "" {
+		return writingListDefaultLimit
+	}
+	n, err := strconv.Atoi(raw)
+	if err != nil || n <= 0 {
+		return writingListDefaultLimit
+	}
+	if n > writingListMaxLimit {
+		return writingListMaxLimit
+	}
+	return n
+}
+
+// writingRecency is when this writing last mattered: the moment she finished
+// it, or — while still open — the last time she wrote anything into it.
+// Mirrors readingRecency (readings.go) exactly; RFC3339 sorts correctly as a
+// string, which is why these stay formatted.
+func writingRecency(d writingDTO) string {
+	if d.FinishedAt != nil && *d.FinishedAt != "" {
+		return *d.FinishedAt
+	}
+	return d.LastActivityAt
 }
 
 // loadOwnedWritingAtom is loadOwnedAtom (readings.go) curried to "writing" —
@@ -164,9 +214,19 @@ func (a *API) listWritings(w http.ResponseWriter, r *http.Request) {
 			TargetWords: row.TargetWords, StructureKey: row.StructureKey, SetupAt: row.SetupAt,
 			Status:    row.Status,
 			UpdatedAt: row.UpdatedAt, FinishedAt: row.FinishedAt,
-		}, row.AtomCreatedAt))
+		}, row.AtomCreatedAt, row.LastActivityAt))
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"writings": out})
+	// 我的写作 is a shelf, not an archive — same ordering + cut as listReadings
+	// (readings.go): most recent by when each writing last mattered (finished
+	// → when she finished it; still open → when she last touched it), capped
+	// to `limit`. See listReadings's comment for why the sort lives here
+	// rather than in the query's ORDER BY (which is atom.created_at).
+	sort.SliceStable(out, func(i, j int) bool { return writingRecency(out[i]) > writingRecency(out[j]) })
+	total := len(out)
+	if n := writingListLimit(r); n < len(out) {
+		out = out[:n]
+	}
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{"writings": out, "total": total})
 }
 
 func (a *API) getWriting(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +239,7 @@ func (a *API) getWriting(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }
 
 // renameWriting is PATCH /writings/{id}: the only field this task's PATCH
@@ -214,5 +274,5 @@ func (a *API) renameWriting(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt))
+	httpx.WriteJSON(w, http.StatusOK, writingDTOOf(wr, at.CreatedAt, at.LastActivityAt))
 }

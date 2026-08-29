@@ -15,7 +15,13 @@ SELECT * FROM writing WHERE atom_id = $1;
 -- same shape as ListReadingsByUser — atom_created_at rides along so the API
 -- layer can fill writingDTO.createdAt without an N+1 GetAtom per row (the
 -- writing table itself has no created_at column; only atom does).
-SELECT w.*, a.created_at AS atom_created_at
+--
+-- last_activity_at rides along the same way (0098's atom.last_activity_at,
+-- bumped by loadOwnedAtom on every non-GET against an open atom of EITHER
+-- kind) so writingDTO can carry a real "when did she last touch this" the
+-- same way readingDTO does — writing.updated_at only moves on rename/stage
+-- changes/target-words, never on a turn or a snippet edit.
+SELECT w.*, a.created_at AS atom_created_at, a.last_activity_at
 FROM writing w
 JOIN atom a ON a.id = w.atom_id
 WHERE a.user_id = $1 AND a.kind = 'writing'

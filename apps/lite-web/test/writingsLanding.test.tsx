@@ -1,4 +1,4 @@
-import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/react";
+import { render, screen, waitFor, cleanup, fireEvent, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { WritingsLanding } from "@lite/writings/WritingsLanding";
 import { WRITING_TOPICS } from "@lite/writings/topics";
@@ -39,7 +39,7 @@ function stubFetch() {
 }
 
 function writing(over: Partial<Record<string, unknown>> = {}) {
-  return {
+  const row = {
     id: "w1",
     title: "该不该把上学时间往后推？",
     lang: "zh",
@@ -51,6 +51,11 @@ function writing(over: Partial<Record<string, unknown>> = {}) {
     finishedAt: null,
     ...over,
   } as Record<string, unknown>;
+  // lastActivityAt is what "last touched" actually means now (atom.
+  // last_activity_at); updatedAt only moves on rename/stage/target-words. A
+  // fixture that doesn't care about the distinction gets them equal.
+  if (row.lastActivityAt === undefined) row.lastActivityAt = row.updatedAt;
+  return row;
 }
 
 beforeEach(() => {
@@ -143,12 +148,39 @@ describe("the unfinished notice and 我的写作", () => {
     expect(await screen.findByText("你有 2 篇还没写完")).toBeInTheDocument();
   });
 
+  it("says nothing when everything is finished", async () => {
+    routes[key("GET", "/api/v1/writings")] = {
+      body: { writings: [writing({ id: "c", status: "finished", finishedAt: "2026-08-23T00:00:00Z" })] },
+    };
+    render(<WritingsLanding />);
+    await screen.findByRole("heading", { level: 1 });
+    expect(screen.queryByText(/还没写完/)).toBeNull();
+  });
+
+  // The notice opens the SHELF, not a writing — same fix ReadingsLanding
+  // already carries: a count's only honest offer is the list behind it.
+  it("opens the shelf from the notice instead of picking a writing for her", async () => {
+    routes[key("GET", "/api/v1/writings")] = {
+      body: {
+        writings: [
+          writing({ id: "older", title: "先写的那篇", lastActivityAt: "2026-08-24T00:00:00Z" }),
+          writing({ id: "newer", title: "后写的那篇", lastActivityAt: "2026-08-25T00:00:00Z" }),
+        ],
+      },
+    };
+    render(<WritingsLanding />);
+    fireEvent.click(await screen.findByText("你有 2 篇还没写完"));
+
+    expect(await screen.findByRole("dialog")).toBeTruthy();
+    expect(window.location.pathname).toBe("/writings");
+  });
+
   it("opens 我的写作 with unfinished above finished, and routes both", async () => {
     routes[key("GET", "/api/v1/writings")] = {
       body: {
         writings: [
           writing({ id: "done-1", title: "写完的那篇", status: "finished", finishedAt: "2026-08-23T00:00:00Z" }),
-          writing({ id: "open-1", title: "没写完的那篇", updatedAt: "2026-08-25T00:00:00Z" }),
+          writing({ id: "open-1", title: "没写完的那篇", lastActivityAt: "2026-08-25T00:00:00Z" }),
         ],
       },
     };
@@ -156,16 +188,86 @@ describe("the unfinished notice and 我的写作", () => {
     fireEvent.click(await screen.findByRole("button", { name: /我的写作/ }));
 
     const dialog = await screen.findByRole("dialog");
+    // The old fixed sections' 11px label is gone — chips replaced them.
+    expect(dialog).not.toHaveTextContent("还没写完 · ");
+    expect(dialog).toHaveTextContent("全部");
     expect(dialog).toHaveTextContent("还没写完");
     expect(dialog).toHaveTextContent("已完成");
+    // Unfinished offers 继续, finished offers 看报告.
     expect(dialog).toHaveTextContent("继续");
     expect(dialog).toHaveTextContent("看报告");
 
+    // Order: the unfinished row precedes the finished one in the DOM.
     const text = dialog.textContent ?? "";
     expect(text.indexOf("没写完的那篇")).toBeLessThan(text.indexOf("写完的那篇"));
 
     fireEvent.click(screen.getByText("写完的那篇"));
     expect(window.location.pathname).toBe("/writings/done-1");
+  });
+
+  it("filters to 还没写完 via the chip, and shows the dot only on unfinished rows", async () => {
+    routes[key("GET", "/api/v1/writings")] = {
+      body: {
+        writings: [
+          writing({ id: "done-1", title: "写完的那篇", status: "finished", finishedAt: "2026-08-23T00:00:00Z" }),
+          writing({ id: "open-1", title: "没写完的那篇", lastActivityAt: "2026-08-25T00:00:00Z" }),
+        ],
+      },
+    };
+    render(<WritingsLanding />);
+    fireEvent.click(await screen.findByRole("button", { name: /我的写作/ }));
+    const dialog = await screen.findByRole("dialog");
+
+    // The chip is the button with aria-pressed; an unfinished ROW also
+    // matches /还没写完/ by name because its dot's aria-label folds into the
+    // row's own accessible name, so the chip has to be picked out from the
+    // candidates rather than matched by name alone.
+    const chip = within(dialog)
+      .getAllByRole("button", { name: /还没写完/ })
+      .find((el) => el.hasAttribute("aria-pressed"))!;
+    fireEvent.click(chip);
+    expect(dialog).toHaveTextContent("没写完的那篇");
+    expect(screen.queryByText("写完的那篇")).toBeNull();
+    expect(screen.getAllByLabelText("还没写完")).toHaveLength(1);
+  });
+
+  it("opens the notice onto 还没写完 and 我的写作 onto everything", async () => {
+    routes[key("GET", "/api/v1/writings")] = {
+      body: {
+        writings: [
+          writing({ id: "done-1", title: "写完的那篇", status: "finished", finishedAt: "2026-08-23T00:00:00Z" }),
+          writing({ id: "open-1", title: "没写完的那篇", lastActivityAt: "2026-08-25T00:00:00Z" }),
+        ],
+      },
+    };
+    render(<WritingsLanding />);
+
+    fireEvent.click(await screen.findByText("你有 1 篇还没写完"));
+    const dialog = await screen.findByRole("dialog");
+    expect(dialog).toHaveTextContent("没写完的那篇");
+    expect(screen.queryByText("写完的那篇")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "关闭" }));
+    fireEvent.click(screen.getByRole("button", { name: /我的写作/ }));
+    expect(await screen.findByText("写完的那篇")).toBeTruthy();
+    expect(screen.getByText("没写完的那篇")).toBeTruthy();
+  });
+
+  it("sorts the shelf by when each writing last mattered, not by creation", async () => {
+    routes[key("GET", "/api/v1/writings")] = {
+      body: {
+        writings: [
+          // Created LAST and finished long ago; opened first and drafted all week.
+          writing({ id: "b", title: "上周写完的", status: "finished", finishedAt: "2026-08-19T00:00:00Z" }),
+          writing({ id: "a", title: "这周一直在写的", lastActivityAt: "2026-08-27T00:00:00Z" }),
+        ],
+      },
+    };
+    render(<WritingsLanding />);
+    fireEvent.click(await screen.findByRole("button", { name: /我的写作/ }));
+
+    const text = (await screen.findByRole("dialog")).textContent ?? "";
+    expect(text.indexOf("这周一直在写的")).toBeLessThan(text.indexOf("上周写完的"));
   });
 });
 
