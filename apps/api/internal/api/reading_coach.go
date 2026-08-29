@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"strings"
 	"time"
+	"unicode/utf8"
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/gateway"
@@ -285,8 +286,12 @@ func quotedLinesCiteArticle(content string, blocks []Block) bool {
 // belong to the article, and therefore have to reach the transcript behind a
 // `> ` prefix? That question must be answered by looking at the article, not
 // by trusting a `type` field the client sent along with the text.
+//
+// It normalizes CRLF for the same reason SplitBlocks does: the article it is
+// compared against is already LF-only, so a quote that kept its "\r\n" would
+// fail this test on line endings alone and be filed as her own words.
 func quoteIsArticleText(s string, blocks []Block) bool {
-	s = strings.TrimSpace(s)
+	s = normalizeCardAnswerText(s)
 	if s == "" {
 		return false
 	}
@@ -296,6 +301,68 @@ func quoteIsArticleText(s string, blocks []Block) bool {
 		}
 	}
 	return false
+}
+
+// normalizeCardAnswerText brings a client-sent string onto the SAME line
+// endings SplitBlocks (reading_blocks.go) already normalized the article to.
+// Without it a quote carrying CRLF — a Windows browser, a PDF paste — can
+// never be a literal substring of any block, so it fails every "are these the
+// article's words?" test and lands in the transcript bare.
+func normalizeCardAnswerText(s string) string {
+	return strings.TrimSpace(strings.ReplaceAll(s, "\r\n", "\n"))
+}
+
+// cardAnswerChoiceParts classifies her tapped choice against the ARTICLE and
+// splits it into the two halves composeCardAnswerMessage keeps apart: `quote`
+// (the article's words, every line of which reaches the transcript behind a
+// `> `) and `own` (hers, left bare). It also returns the picks the tap earns.
+//
+// 🚨 Classified by CHECKING, never by the declared type. A client that
+// mislabels an article sentence as short_text would otherwise drop the
+// article's words, unprefixed, into the corpus of "her own words".
+func cardAnswerChoiceParts(choice, blockID string, blocks []Block) (quote, own string, picks []readingPick) {
+	choice = normalizeCardAnswerText(choice)
+	if choice == "" {
+		return "", "", nil
+	}
+	if !quoteIsArticleText(choice, blocks) {
+		// Not the article's words WHOLE — which is not the same as "none of it
+		// is the article's". composeCardAnswerMessage classifies this half line
+		// by line; a cross-paragraph selection lands here (a block never
+		// contains a blank line) and still reaches the transcript quoted.
+		return "", choice, nil
+	}
+	// Tapping a sentence IS pointing at it. Fed through the same validator as
+	// a drag-selection so it earns the same standing: the coach sees it under
+	// 【她在文章里点出来的句子】, and a hunt step may settle on it
+	// (hasHuntPickEvidence).
+	//
+	// 🚨 …but only above the same floor card OPTIONS have to clear
+	// (coachCardMinQuoteRunes). Two characters are a substring of the article
+	// too, and promoting a two-character short_text answer into `picks` would
+	// let a hunt step settle on words she never pointed at — exactly what F3
+	// of the system prompt refuses ("她只是说…却没有点 → 那不是点的").
+	if utf8.RuneCountInString(choice) < coachCardMinQuoteRunes {
+		return choice, "", nil
+	}
+	return choice, "", validateReadingPicks([]readingPick{{BlockID: blockID, Quote: choice}}, blocks)
+}
+
+// dedupeReadingPicks drops a pick that repeats one already in the list — same
+// paragraph, same sentence. Two paths produce picks in one turn (the panel
+// inlines every drag-selection, and the tapped choice is promoted here), and
+// 【她在文章里点出来的句子】 would otherwise show her one sentence twice.
+func dedupeReadingPicks(picks []readingPick) []readingPick {
+	seen := make(map[readingPick]bool, len(picks))
+	out := make([]readingPick, 0, len(picks))
+	for _, p := range picks {
+		if seen[p] {
+			continue
+		}
+		seen[p] = true
+		out = append(out, p)
+	}
+	return out
 }
 
 // composeCardAnswerMessage turns her tap into the one thing the transcript
@@ -315,42 +382,74 @@ func quoteIsArticleText(s string, blocks []Block) bool {
 // the prefix, including the card's own question (印记's words, not hers —
 // they must not count as her prose either).
 //
-// `own` is whatever is genuinely hers this turn — a short_text answer, or
-// anything she typed alongside the tap. It is deliberately left bare: those
-// words SHOULD reach her corpus, and prefixing them would silently erase her
-// from her own report.
-func composeCardAnswerMessage(prompt, quote, own string) string {
+// `own` is whatever is CLAIMED to be hers this turn — a short_text answer, or
+// anything she typed alongside the tap. Claimed, not trusted: it is classified
+// LINE BY LINE against the article, and only the lines that are not the
+// article's reach the transcript bare.
+//
+// 🚨 Per line, because the classification upstream is whole-string, and a
+// whole-string test is all-or-nothing: a selection that spans a blank line
+// (blocks never contain one) or that carried CRLF matches NO block, so under
+// the old rule EVERY line of it landed bare. Line by line is exactly the test
+// stripArticleLines (atom_report.go) makes when the report is built — moved to
+// write time, so it no longer depends on the source row still being there.
+// That second net degrades to a no-op when the source is gone; this one
+// cannot. A line of her own prose that happens to be a literal substring of
+// the article is prefixed too, the same trade stripArticleLines already makes
+// and for the same reason: a coincidental drop costs her nothing a report
+// needs, a false keep is the leak this code exists to close.
+func composeCardAnswerMessage(prompt, quote, own string, blocks ...Block) string {
 	lines := make([]string, 0, 8)
-	if p := strings.TrimSpace(prompt); p != "" {
-		// Every line here too, and for the same reason: the prompt arrives from
-		// the client, a card's question may quote a sentence, and a question
-		// that wrapped onto a second line would otherwise put that sentence in
-		// the transcript bare. There is no string on this path allowed to reach
-		// a role='student' row with an unprefixed line except hers.
-		for i, line := range strings.Split(p, "\n") {
-			if i == 0 {
-				lines = append(lines, "> 【印记问】"+line)
-				continue
-			}
-			lines = append(lines, "> "+line)
-		}
+	// 印记's own question, on ONE line. The prompt arrives from the client and
+	// a card's question may quote a sentence; folded onto a second line, that
+	// sentence would be a `> ` line that reads back as HER pointing at the
+	// article (quotedLinesCiteArticle → hasHuntPickEvidence), letting a hunt
+	// step settle on 印记's words. Behind 【印记问】 on a single line it can
+	// never be a literal substring of any paragraph.
+	if p := collapseCardPrompt(prompt); p != "" {
+		lines = append(lines, "> 【印记问】"+p)
 	}
-	if q := strings.TrimSpace(quote); q != "" {
+	if q := normalizeCardAnswerText(quote); q != "" {
 		// Every line, unconditionally — an internal "\n" inside one quote is
 		// the whole reason this loop exists.
 		for _, line := range strings.Split(q, "\n") {
 			lines = append(lines, "> "+line)
 		}
 	}
-	if o := strings.TrimSpace(own); o != "" {
+	if o := normalizeCardAnswerText(own); o != "" {
 		if len(lines) > 0 {
 			// The same blank-line separation ReadingCoachPanel.send() uses
 			// between a quote block and what she typed under it.
 			lines = append(lines, "")
 		}
-		lines = append(lines, o)
+		for _, line := range strings.Split(o, "\n") {
+			if quoteIsArticleText(line, blocks) {
+				lines = append(lines, "> "+line)
+				continue
+			}
+			lines = append(lines, line)
+		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// collapseCardPrompt readies the client-sent card question for the one `> `
+// line it is allowed: newlines folded into spaces, and anything longer than
+// the cap validateCoachCard holds 印记's OWN cards to dropped outright. A
+// prompt over 60 runes did not come from a card this coach wrote, and the
+// transcript is not the place to find out what it did come from.
+func collapseCardPrompt(prompt string) string {
+	parts := make([]string, 0, 2)
+	for _, line := range strings.Split(normalizeCardAnswerText(prompt), "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			parts = append(parts, line)
+		}
+	}
+	p := strings.Join(parts, " ")
+	if p == "" || utf8.RuneCountInString(p) > coachCardPromptMaxRunes {
+		return ""
+	}
+	return p
 }
 
 func buildReadingCoachPrompt(
@@ -675,33 +774,27 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	var studentPayload []byte
 	// An answer with nothing in it is not a turn: composing on the prompt alone
 	// would store a student message that is only 印记's own question.
-	if ca := req.CardAnswer; ca != nil && (strings.TrimSpace(ca.Choice) != "" || studentText != "") {
-		choice := strings.TrimSpace(ca.Choice)
+	if ca := req.CardAnswer; ca != nil && (normalizeCardAnswerText(ca.Choice) != "" || studentText != "") {
 		answer := &coachCardAnswer{
-			Type:    strings.TrimSpace(ca.Type),
-			Prompt:  strings.TrimSpace(ca.Prompt),
-			Choice:  choice,
+			Type: strings.TrimSpace(ca.Type),
+			// The client's own copy of 印记's question, held to the same cap
+			// validateCoachCard holds the card to — so what is stored is what
+			// the room will re-render, and neither can be an essay.
+			Prompt:  collapseCardPrompt(ca.Prompt),
+			Choice:  normalizeCardAnswerText(ca.Choice),
 			BlockID: strings.TrimSpace(ca.BlockID),
 		}
-		quote, own := "", studentText
-		switch {
-		// 🚨 Classified by CHECKING, never by the declared type. A client that
-		// mislabels an article sentence as short_text would otherwise drop the
-		// article's words, unprefixed, into the corpus of "her own words".
-		case quoteIsArticleText(choice, blocks):
-			quote = choice
-			// Tapping a sentence IS pointing at it. Fed through the same
-			// validator as a drag-selection so it earns the same standing:
-			// the coach sees it under 【她在文章里点出来的句子】, and a hunt step
-			// may settle on it (hasHuntPickEvidence).
-			picks = append(picks, validateReadingPicks(
-				[]readingPick{{BlockID: answer.BlockID, Quote: choice}}, blocks)...)
-		case choice != "" && own != "":
-			own = choice + "\n\n" + own
-		case choice != "":
-			own = choice
+		quote, ownFromChoice, pointed := cardAnswerChoiceParts(answer.Choice, answer.BlockID, blocks)
+		picks = dedupeReadingPicks(append(picks, pointed...))
+		own := studentText
+		if ownFromChoice != "" {
+			if own != "" {
+				own = ownFromChoice + "\n\n" + own
+			} else {
+				own = ownFromChoice
+			}
 		}
-		if content := composeCardAnswerMessage(answer.Prompt, quote, own); content != "" {
+		if content := composeCardAnswerMessage(answer.Prompt, quote, own, blocks...); content != "" {
 			studentContent = content
 			studentPayload = coachCardAnswerPayload(answer)
 		}

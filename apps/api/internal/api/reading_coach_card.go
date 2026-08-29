@@ -282,6 +282,12 @@ func coachCardAnswerPayload(a *coachCardAnswer) []byte {
 	if a == nil {
 		return nil
 	}
+	// 每个字段都是 omitempty，所以一个空壳 answer 会 marshal 成
+	// `{"answer":{}}` —— 一条她普通打字的消息就此被重渲染逻辑当成「卡片回答」，
+	// 屏幕上凭空多出一张她从没答过的卡。至少要有 type 或 choice 才叫答案。
+	if strings.TrimSpace(a.Type) == "" && strings.TrimSpace(a.Choice) == "" {
+		return nil
+	}
 	b, err := json.Marshal(coachMessagePayload{Answer: a})
 	if err != nil {
 		// Same reasoning as coachCardPayload: a struct of strings cannot fail

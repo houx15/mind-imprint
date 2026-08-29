@@ -836,6 +836,202 @@ func TestComposeCardAnswerMessage(t *testing.T) {
 			t.Fatalf("a tapped answer does not read as pointing:\n%s", got)
 		}
 	})
+
+	// 🚨 这一条是这次改动的核心断言。判定过去是「整段一刀切」：整个字符串
+	// 匹配不上某个 block，**所有行**就都裸着落进 role='student' 的行里。
+	// 一条消息里既有文章原文的行、又有她自己写的行时，那就是原文裸奔。
+	t.Run("按行判定：文章的行带前缀，她自己的行裸着", func(t *testing.T) {
+		art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+		art2 := "树冠能挡掉一部分直射，也能把水汽送回空气里。"
+		blocks := []Block{{ID: "b1", Text: art1}, {ID: "b2", Text: art2}}
+		hers := "我觉得作者只算了成本，没算住在那儿的人。"
+		// 跨段落的选择整段匹配不上（block 按构造不含空行），于是它落到
+		// 「她自己的话」那一半 —— 混着她真正写的那句一起。
+		own := art1 + "\n\n" + art2 + "\n\n" + hers
+		got := composeCardAnswerMessage("", "", own, blocks...)
+		for _, line := range append(strings.Split(art1, "\n"), art2) {
+			if !strings.Contains(got, "> "+line) {
+				t.Fatalf("article line reached the transcript bare: %q\nfull message:\n%s", line, got)
+			}
+		}
+		if left := stripQuotedLines(got); left != hers {
+			t.Fatalf("only her own words may survive stripQuotedLines, got %q", left)
+		}
+	})
+
+	t.Run("她的话即使夹在原文中间也不会被前缀掉", func(t *testing.T) {
+		art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+		blocks := []Block{{ID: "b1", Text: art1}}
+		hers := "我觉得作者只算了成本。"
+		got := composeCardAnswerMessage("", "", "白天吸热、夜里放热。\n"+hers, blocks...)
+		if !strings.Contains(got, "\n"+hers) && !strings.HasPrefix(got, hers) {
+			t.Fatalf("her own line was quoted away:\n%s", got)
+		}
+		if left := stripQuotedLines(got); left != hers {
+			t.Fatalf("her own words did not survive: %q", left)
+		}
+	})
+}
+
+// TestCardAnswerChoiceParts —— 「她点的这句是文章的还是她自己的」这个判断，
+// 以及它带来的 pick。判错的代价是文章原文裸着进 role='student' 的行。
+func TestCardAnswerChoiceParts(t *testing.T) {
+	art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+	art2 := "树冠能挡掉一部分直射，也能把水汽送回空气里。"
+	blocks := []Block{{ID: "b1", Text: art1}, {ID: "b2", Text: art2}}
+
+	// (1) SplitBlocks 把正文归一成 LF，判定器却不归一化 —— 带 \r\n 的多行引用
+	// 于是永远匹配不上：两行原文全部裸着落地，而且她点了却不算点。
+	t.Run("CRLF 的多行选择仍然是文章原文，而且算点了", func(t *testing.T) {
+		choice := strings.ReplaceAll(art1, "\n", "\r\n")
+		quote, own, picks := cardAnswerChoiceParts(choice, "b1", blocks)
+		if own != "" {
+			t.Fatalf("CRLF quote was mistaken for her own words: %q", own)
+		}
+		if quote == "" {
+			t.Fatal("CRLF quote was not recognized as article text")
+		}
+		if len(picks) == 0 {
+			t.Fatal("she pointed, but the hunt step will never settle on it")
+		}
+		got := composeCardAnswerMessage("", quote, "", blocks...)
+		for _, line := range strings.Split(art1, "\n") {
+			if !strings.Contains(got, "> "+line) {
+				t.Fatalf("article line reached the transcript bare: %q\n%s", line, got)
+			}
+		}
+		if left := stripQuotedLines(got); left != "" {
+			t.Fatalf("article text survived into her own corpus: %q", left)
+		}
+	})
+
+	// (2) block 按构造永远不含空行，所以任何跨段落的选择整段一律判成
+	// 「她自己的话」—— 一个 `> ` 都没有。按行判定才接得住。
+	t.Run("跨段落的选择：每一行原文都带前缀", func(t *testing.T) {
+		quote, own, _ := cardAnswerChoiceParts(art1+"\n\n"+art2, "b1", blocks)
+		got := composeCardAnswerMessage("", quote, own, blocks...)
+		for _, line := range append(strings.Split(art1, "\n"), art2) {
+			if !strings.Contains(got, "> "+line) {
+				t.Fatalf("article line reached the transcript bare: %q\n%s", line, got)
+			}
+		}
+		if left := stripQuotedLines(got); left != "" {
+			t.Fatalf("article text survived into her own corpus: %q", left)
+		}
+	})
+
+	// (3) 「这算点了」没有长度下限：两个字碰巧是文章的子串，就被提升成 pick，
+	// hasHuntPickEvidence 于是认为她指了 —— 正是系统 prompt F3 那条要防的事。
+	t.Run("两个字的回答不会被提升进 picks", func(t *testing.T) {
+		_, _, picks := cardAnswerChoiceParts("吸热", "b1", blocks)
+		if len(picks) != 0 {
+			t.Fatalf("a two-character answer counted as pointing at the article: %+v", picks)
+		}
+	})
+
+	t.Run("她自己写的一段是她的话", func(t *testing.T) {
+		hers := "我觉得作者只算了成本，没算住在那儿的人。"
+		quote, own, picks := cardAnswerChoiceParts(hers, "b1", blocks)
+		if quote != "" || own != hers || len(picks) != 0 {
+			t.Fatalf("her own sentence was mistaken for the article's: quote=%q own=%q picks=%+v", quote, own, picks)
+		}
+	})
+}
+
+// TestCardAnswerDedupesPicks —— 同一句可以两条路一起到：面板把每个划选内联进
+// picks，点中的那句又被提升一次。不去重，【她在文章里点出来的句子】就列两遍。
+func TestCardAnswerDedupesPicks(t *testing.T) {
+	p := readingPick{BlockID: "b1", Quote: "白天吸热、夜里放热。"}
+	got := dedupeReadingPicks([]readingPick{p, p, {BlockID: "b2", Quote: "树冠能挡掉一部分直射"}})
+	if len(got) != 2 {
+		t.Fatalf("duplicate pick survived: %+v", got)
+	}
+	if got[0] != p {
+		t.Fatalf("dedupe reordered the picks: %+v", got)
+	}
+}
+
+// TestCardAnswerPromptIsNotHerPointing —— prompt 是没校验的客户端输入。
+// 它每行都会被 `> ` 掉，所以不泄漏语料；但一条正好等于文章句子的 prompt 会让
+// quotedLinesCiteArticle 为真 —— 下一轮的 hasHuntPickEvidence 就会把 印记
+// 自己的问题读成「她点过了」。
+func TestCardAnswerPromptIsNotHerPointing(t *testing.T) {
+	art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+	blocks := []Block{{ID: "b1", Text: art1}}
+
+	t.Run("印记 自己的问题不算她指了文章", func(t *testing.T) {
+		// 折行之后，第二行**正好**是文章里的一句话 —— 探针 K 的形状。
+		prompt := "这一句你服气吗：\n白天吸热、夜里放热。"
+		got := composeCardAnswerMessage(prompt, "", "服气一半。", blocks...)
+		if quotedLinesCiteArticle(got, blocks) {
+			t.Fatalf("the coach's own question reads as her pointing at the article:\n%s", got)
+		}
+		if left := stripQuotedLines(got); left != "服气一半。" {
+			t.Fatalf("only her own words may survive stripQuotedLines, got %q", left)
+		}
+	})
+
+	t.Run("超长的 prompt 是编出来的，丢掉", func(t *testing.T) {
+		// validateCoachCard 卡在 60 runes；点击回答这条路上一个字都没校验。
+		long := strings.Repeat("很", coachCardPromptMaxRunes+1)
+		got := composeCardAnswerMessage(long, "", "服气一半。", blocks...)
+		if strings.Contains(got, long) {
+			t.Fatalf("an over-long client-sent prompt reached the transcript:\n%s", got)
+		}
+		if got != "服气一半。" {
+			t.Fatalf("her own words are the whole message, got %q", got)
+		}
+	})
+}
+
+// TestCardAnswerPayloadIgnoresEmptyAnswer —— `{"answer":{}}`（字段都是
+// omitempty）会让重渲染逻辑把一条普通打字消息当成卡片回答。
+func TestCardAnswerPayloadIgnoresEmptyAnswer(t *testing.T) {
+	if raw := coachCardAnswerPayload(&coachCardAnswer{}); raw != nil {
+		t.Fatalf("an empty answer must store SQL NULL, got %s", raw)
+	}
+	if raw := coachCardAnswerPayload(&coachCardAnswer{BlockID: "b1"}); raw != nil {
+		t.Fatalf("an answer with neither type nor choice is not an answer, got %s", raw)
+	}
+	if coachCardAnswerPayload(&coachCardAnswer{Type: coachCardShortText, Prompt: "你怎么看？"}) == nil {
+		t.Fatal("a short_text card answered by typing must still be stored")
+	}
+}
+
+// TestCardAnswerSurvivesWithoutTheSecondNet —— 最狠的一条。
+//
+// 第二道网 stripArticleLines 自己的注释就写着：源数据行没了的时候它退化成
+// no-op（atom_report.go）。所以第一道网必须自己站得住 —— 把合成出来的消息
+// 只喂给 stripQuotedLines，文章原文一个字都不许活下来。
+func TestCardAnswerSurvivesWithoutTheSecondNet(t *testing.T) {
+	art1 := "城市地表以沥青和混凝土为主，\n白天吸热、夜里放热。"
+	art2 := "树冠能挡掉一部分直射，也能把水汽送回空气里。"
+	blocks := []Block{{ID: "b1", Text: art1}, {ID: "b2", Text: art2}}
+	hers := "我觉得作者只算了成本，没算住在那儿的人。"
+
+	// handler 的拼法：跨段落的选择 + 她同一轮打的字。
+	quote, ownFromChoice, _ := cardAnswerChoiceParts(art1+"\n\n"+art2, "b1", blocks)
+	own := hers
+	if ownFromChoice != "" {
+		own = ownFromChoice + "\n\n" + hers
+	}
+	got := composeCardAnswerMessage("哪一句你读着最不服气？", quote, own, blocks...)
+
+	left := stripQuotedLines(got)
+	if left != hers {
+		t.Fatalf("net 1 alone let something through: %q", left)
+	}
+	for _, blk := range blocks {
+		for _, line := range strings.Split(blk.Text, "\n") {
+			if strings.Contains(left, line) {
+				t.Fatalf("article text survived net 1 alone: %q\nfull message:\n%s", line, got)
+			}
+		}
+	}
+	// 第二道网退化成 no-op（blocks == nil）时结果必须一样。
+	if after := stripArticleLines(left, nil); after != hers {
+		t.Fatalf("with the second net degraded the corpus changed: %q", after)
+	}
 }
 
 // TestQuoteIsArticleText —— 「这段字是不是文章的」这个判断必须去看文章，
