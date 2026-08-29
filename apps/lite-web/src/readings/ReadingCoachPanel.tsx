@@ -3,9 +3,9 @@ import { Play } from "lucide-react";
 import { Button, Icon, Pebble } from "@/ui";
 import { ChatLog, type ChatMessage } from "@/studio/ai/ChatLog";
 import { Composer } from "@/studio/ai/Composer";
-import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import type { ReadingCoachSlot } from "./ReadingRoom";
 import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard";
+import { LiteChatMarkdown } from "./LiteChatMarkdown";
 import { ApiError } from "../api/client";
 import { coachAnswerOf, coachCardOf, postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
@@ -247,7 +247,10 @@ export function ReadingCoachPanel({
   const chatMessages: ChatMessage[] = [];
   for (const m of messages) {
     if (m.role === "ai") {
-      chatMessages.push({ id: `c${m.seq}`, role: "assistant", node: <ChatMarkdown text={m.content} /> });
+      // 印记's turn is markdown; the student's (below) is not. Her literal `*`
+      // and `#` are hers to keep. `LiteChatMarkdown` is the shared renderer
+      // with accent-coloured bold — see that file for why lite has its own.
+      chatMessages.push({ id: `c${m.seq}`, role: "assistant", node: <LiteChatMarkdown text={m.content} /> });
       const card = cards.cardBySeq.get(m.seq);
       if (card) {
         chatMessages.push({
