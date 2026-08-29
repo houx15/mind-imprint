@@ -126,7 +126,26 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   // own paragraph carries the bare text with no quote marks at all. Matching
   // WITH the quote marks lands on the Keep section specifically.
   await expect(report.getByText(`“${takeaway}”`)).toBeVisible();
-  await expect(report.getByText("专注时长")).toBeVisible();
+  // 统计 — assert the RULE, not one tile.
+  //
+  // This line used to read `expect(report.getByText("专注时长")).toBeVisible()`
+  // and it has been stale since `bc99a23f` ("report drops zero stats"), which
+  // landed 55 minutes after this file was written: `StatsRow` now filters out
+  // every stat whose value is 0, because four coloured zeros read as a broken
+  // page rather than as a record. This walk produces exactly that report —
+  // it never talks to 印记 (和印记聊了 0 轮), never leaves a note (笔记 0 条),
+  // never runs a 带读 step (读完 0 步), and finishes far inside the heartbeat's
+  // 60-second cadence with an empty event trail behind the fallback estimate
+  // (专注时长 0 分钟) — so the whole row is correctly absent.
+  //
+  // NOT a reading-room regression: the fork changed no stat, no heartbeat and
+  // no report code, and every other assertion about this report still passes.
+  //
+  // What is worth pinning end to end is the rule itself, which until now had
+  // unit coverage only: no zero reaches the page. Written against the value +
+  // unit pair so it holds whether or not a slower run happens to earn its
+  // first minute.
+  await expect(report.getByText(/^0(分钟|轮|条|步)$/)).toHaveCount(0);
 
   // ── Step 3: turn sharing on — the link and the QR appear ────────────────
   await page.getByRole("button", { name: "生成分享链接" }).click();
