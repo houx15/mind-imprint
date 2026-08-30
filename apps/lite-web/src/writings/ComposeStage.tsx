@@ -5,17 +5,19 @@ import { countWords } from "@/workspace/blocks/wordcount";
 import { ApiError } from "../api/client";
 import { ProseSurface } from "./ProseSurface";
 import { CommentPanel } from "./CommentPanel";
+import { NamePieceModal } from "./NamePieceModal";
 import {
   composeWritingDraft,
   putWritingDraft,
   reviewWritingDraft,
   listWritingComments,
   finishWriting,
+  suggestWritingTitles,
   type Comment,
   type WritingDraft,
   type WritingSnippet,
 } from "../api/writingRoom";
-import type { Writing } from "../api/writings";
+import { renameWriting, type Writing } from "../api/writings";
 
 /**
  * ComposeStage — 成稿, as a page rather than a box.
@@ -60,6 +62,7 @@ export function ComposeStage({
   snippets,
   onDraftChange,
   onFinished,
+  onRenamed,
 }: {
   writingId: string;
   draft: WritingDraft;
@@ -68,6 +71,9 @@ export function ComposeStage({
   snippets: WritingSnippet[];
   onDraftChange: (next: WritingDraft) => void;
   onFinished: (writing: Writing) => void;
+  /** Lifted so the room header's `EditableTitle` shows the new name the
+   *  moment she settles on one at 完成这篇, rather than at the next load. */
+  onRenamed?: (writing: Writing) => void;
 }) {
   const [body, setBody] = useState(draft.body);
   const [composing, setComposing] = useState(false);
@@ -78,6 +84,19 @@ export function ComposeStage({
   const [highlight, setHighlight] = useState<string | null>(null);
   const [confirmingReassemble, setConfirmingReassemble] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  /**
+   * 印记's title candidates, or `null` when the naming dialog is closed.
+   *
+   * `null` vs `[]` carries real meaning here and the two must not be
+   * collapsed: `null` is "not asking" (she already named the piece, or the
+   * suggestion call failed and we went straight through), while `[]` is
+   * "asking, with nothing to suggest" — she pressed 完成这篇 on an empty
+   * draft, so there was nothing to draw a name from and the dialog shows a
+   * plain box.
+   */
+  const [titleIdeas, setTitleIdeas] = useState<string[] | null>(null);
+  const [naming, setNaming] = useState(false);
+  const [nameError, setNameError] = useState<string | null>(null);
 
   /**
    * The body as of the last assembly — the ONLY thing that makes re-pulling
@@ -252,19 +271,89 @@ export function ComposeStage({
     }
   }
 
+  /**
+   * 完成这篇, in two steps — because finishing is the moment the title stops
+   * being private.
+   *
+   * Up to here the title has very likely still been her raw 「我想写：…」
+   * sentence (createWriting stores it as the initial title, up to 200
+   * characters of it). The instant she finishes, that string is the report's
+   * hero, the exported poster's headline and what a stranger reads through
+   * the share link. So we ask her to name the piece first — ONCE, and only
+   * if she never renamed it herself.
+   *
+   * `suggestWritingTitles` is what decides, on the server, by comparing the
+   * title against her stored opening turn. When she has already named it,
+   * that call makes NO model call and returns immediately, so this detour is
+   * invisible to anyone who used the header's editable title.
+   *
+   * A failure here must never cost her the finish: if asking for names blows
+   * up (provider down, timeout), we go straight through to `doFinish` rather
+   * than showing an error over a piece she just completed. A missing title
+   * prompt is a small loss; a 完成这篇 that refuses to work is a real one.
+   */
   async function finish() {
     setFinishing(true);
     setError(null);
     try {
       // Finishing on an unsaved body would freeze the piece — and its report —
       // on the version before her last edits, with nothing on screen saying so.
+      // Also true of the naming step below: the titles are drawn from the
+      // draft the SERVER holds.
       if (!(await flush())) return;
+      let ideas: string[] | null = null;
+      try {
+        const res = await suggestWritingTitles(writingId);
+        if (res.needsName) ideas = res.ideas;
+      } catch {
+        // See the doc comment: never block finishing on this.
+      }
+      if (ideas !== null) {
+        setTitleIdeas(ideas);
+        setFinishing(false);
+        return;
+      }
+      await doFinish();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "完成失败，请重试。");
+      setFinishing(false);
+    }
+  }
+
+  /** The finish itself, after the naming question is settled one way or the
+   *  other. Separate from `finish` so the dialog's two buttons can both reach
+   *  it without re-running the flush and the naming check. */
+  async function doFinish() {
+    setFinishing(true);
+    setError(null);
+    try {
       onFinished(await finishWriting(writingId));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "完成失败，请重试。");
-    } finally {
       setFinishing(false);
     }
+  }
+
+  /** 就叫这个，完成 — save the name she settled on, then finish.
+   *
+   *  If the rename fails the piece is NOT finished: unlike the suggestion
+   *  call above, this is her own words being dropped, and silently finishing
+   *  under the old placeholder title would be the exact outcome this whole
+   *  flow exists to prevent. She sees why and can try again. */
+  async function nameThenFinish(title: string) {
+    if (!title) return;
+    setNaming(true);
+    setNameError(null);
+    try {
+      onRenamed?.(await renameWriting(writingId, title));
+    } catch (err) {
+      setNameError(err instanceof ApiError ? err.message : "名字没存上，请重试。");
+      setNaming(false);
+      return;
+    }
+    setNaming(false);
+    setTitleIdeas(null);
+    await doFinish();
   }
 
   return (
@@ -372,6 +461,26 @@ export function ComposeStage({
           </p>
         </div>
       </Modal>
+
+      {titleIdeas !== null && (
+        <NamePieceModal
+          ideas={titleIdeas}
+          saving={naming || finishing}
+          error={nameError}
+          onName={(t) => void nameThenFinish(t)}
+          onKeep={() => {
+            setTitleIdeas(null);
+            void doFinish();
+          }}
+          // Closing the dialog is NOT the same as 用原来的: she asked to back
+          // out of finishing altogether, so nothing is saved and nothing is
+          // finished. 完成这篇 is still there when she wants it.
+          onClose={() => {
+            setTitleIdeas(null);
+            setNameError(null);
+          }}
+        />
+      )}
     </div>
   );
 }

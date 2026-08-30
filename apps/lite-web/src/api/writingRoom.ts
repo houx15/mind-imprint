@@ -392,6 +392,31 @@ export async function finishWriting(id: string): Promise<Writing> {
   return apiFetch<Writing>(`${base(id)}/finish`, { method: "POST" });
 }
 
+/** What `suggestWritingTitles` answers — writing_title.go's own wire shape.
+ *
+ *  `needsName` false means she already renamed the piece herself, and the
+ *  server did NO model call to tell us so: it is two queries and an equality
+ *  check, so the common case costs nothing and 完成这篇 goes straight through.
+ *  `ideas` is then empty and must not be shown.
+ *
+ *  When `needsName` is true, `ideas` may STILL be empty — she pressed 完成这篇
+ *  on a draft with nothing in it, so there was nothing to name from. The
+ *  dialog then offers a plain box rather than an error. */
+export type TitleIdeas = { needsName: boolean; ideas: string[] };
+
+/**
+ * Asks whether this piece still needs a name, and if so what it could be
+ * called — POST /title-ideas (writing_title.go).
+ *
+ * The server never applies any of these: it returns candidates, and the
+ * client saves whichever one SHE picks through `renameWriting`. See that
+ * file's header for why that separation is the whole point.
+ */
+export async function suggestWritingTitles(id: string): Promise<TitleIdeas> {
+  const raw = await apiFetch<Partial<TitleIdeas>>(`${base(id)}/title-ideas`, { method: "POST" });
+  return { needsName: raw.needsName === true, ideas: raw.ideas ?? [] };
+}
+
 /*
  * The writing room has NO 工具卡 (2026-08-27). listWritingCards /
  * activateWritingCard / skipWritingCard / submitWritingCard /

@@ -81,6 +81,7 @@ function draftOf(body: string): WritingDraft {
 function renderStage(over: { draft?: WritingDraft; snippets?: WritingSnippet[] } = {}) {
   const onDraftChange = vi.fn();
   const onFinished = vi.fn();
+  const onRenamed = vi.fn();
   const utils = render(
     <ComposeStage
       writingId={WID}
@@ -88,9 +89,10 @@ function renderStage(over: { draft?: WritingDraft; snippets?: WritingSnippet[] }
       snippets={over.snippets ?? [SNIPPET]}
       onDraftChange={onDraftChange}
       onFinished={onFinished}
+      onRenamed={onRenamed}
     />,
   );
-  return { ...utils, onDraftChange, onFinished };
+  return { ...utils, onDraftChange, onFinished, onRenamed };
 }
 
 const page = () => screen.getByRole("textbox") as HTMLTextAreaElement;
@@ -316,5 +318,132 @@ describe("the page itself", () => {
     // One textbox on this screen: the page. The rail is read-only, so 段落 and
     // 成稿 can never disagree about which copy is current.
     expect(screen.getAllByRole("textbox")).toHaveLength(1);
+  });
+});
+
+/**
+ * 给这篇起个名字 — the last moment before the title becomes public.
+ *
+ * The title starts life as her raw 「我想写：…」 sentence, and at 完成这篇 it
+ * becomes the report's hero, the exported poster's headline, and what a
+ * stranger reads through the share link. This is a real branching flow with
+ * four exits, and every one of them is invisible in a screenshot — exactly
+ * what a logic test is for.
+ */
+describe("naming the piece at 完成这篇", () => {
+  const RENAME_URL = `/api/v1/writings/${WID}`;
+  const finishClick = () => fireEvent.click(screen.getByRole("button", { name: "完成这篇" }));
+  const dialog = () => screen.findByRole("dialog");
+
+  beforeEach(() => {
+    routes[key("POST", base("/finish"))] = { body: { id: WID, title: "转弯中的国家", stage: "finished" } };
+    routes[key("POST", base("/title-ideas"))] = {
+      body: { needsName: true, ideas: ["转弯中的国家", "总量第一，人均第五十"] },
+    };
+    routes[key("PATCH", RENAME_URL)] = { body: { id: WID, title: "转弯中的国家", stage: "draft" } };
+  });
+
+  it("asks for a name before finishing, and finishes with the one she picks", async () => {
+    const { onFinished, onRenamed } = renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+    await dialog();
+
+    // The suggestions are offers: tapping one fills the box, nothing is saved
+    // until she presses the button.
+    fireEvent.click(screen.getByRole("button", { name: "总量第一，人均第五十" }));
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+
+    fireEvent.click(screen.getByRole("button", { name: "就叫这个，完成" }));
+
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+    const rename = calls.find((c) => c.method === "PATCH" && c.url === RENAME_URL);
+    expect(rename?.body).toEqual({ title: "总量第一，人均第五十" });
+    // The header's EditableTitle must see it immediately, not at the next load.
+    expect(onRenamed).toHaveBeenCalled();
+  });
+
+  it("she can type her own name over the suggestions", async () => {
+    const { onFinished } = renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+    const box = within(await dialog()).getByLabelText("这篇文章叫") as HTMLInputElement;
+    // Pre-filled with the first suggestion, so the fast path still produces a
+    // real title — but it is an editable box, not a picker.
+    expect(box.value).toBe("转弯中的国家");
+
+    fireEvent.change(box, { target: { value: "看方向盘，不是看车道" } });
+    fireEvent.click(screen.getByRole("button", { name: "就叫这个，完成" }));
+
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+    expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ title: "看方向盘，不是看车道" });
+  });
+
+  // 铁律②: this is a question, not a gate.
+  it("用原来的 finishes without renaming anything", async () => {
+    const { onFinished, onRenamed } = renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+    await dialog();
+    fireEvent.click(screen.getByRole("button", { name: "用原来的" }));
+
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+    expect(calls.some((c) => c.method === "PATCH")).toBe(false);
+    expect(onRenamed).not.toHaveBeenCalled();
+  });
+
+  it("never asks a student who already named her piece", async () => {
+    routes[key("POST", base("/title-ideas"))] = { body: { needsName: false, ideas: [] } };
+    const { onFinished } = renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  // A failure asking for names must never cost her the finish — a missing
+  // title prompt is a small loss, a 完成这篇 that refuses to work is a real one.
+  it("finishes anyway when the suggestion call fails", async () => {
+    routes[key("POST", base("/title-ideas"))] = {
+      status: 503,
+      body: { error: { code: "model_unavailable", message: "AI 暂时不可用" } },
+    };
+    const { onFinished } = renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+
+    await waitFor(() => expect(onFinished).toHaveBeenCalled());
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  // The opposite ruling to the one above, and deliberately so: this is HER
+  // chosen name being dropped. Finishing under the placeholder anyway is the
+  // exact outcome this whole flow exists to prevent.
+  it("does not finish when saving the name fails", async () => {
+    routes[key("PATCH", RENAME_URL)] = {
+      status: 500,
+      body: { error: { code: "save_failed", message: "名字没存上，请重试。" } },
+    };
+    const { onFinished } = renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+    await dialog();
+    fireEvent.click(screen.getByRole("button", { name: "就叫这个，完成" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("名字没存上，请重试。");
+    expect(onFinished).not.toHaveBeenCalled();
+    expect(calls.some((c) => c.url === base("/finish"))).toBe(false);
+  });
+
+  // needsName true with an empty ideas list is a real state, not a bug: she
+  // pressed 完成这篇 with nothing written, so there was nothing to name from.
+  it("still offers the box when there is nothing to suggest", async () => {
+    routes[key("POST", base("/title-ideas"))] = { body: { needsName: true, ideas: [] } };
+    renderStage({ draft: draftOf("我写完的正文。") });
+
+    finishClick();
+    const box = within(await dialog()).getByLabelText("这篇文章叫") as HTMLInputElement;
+    expect(box.value).toBe("");
   });
 });

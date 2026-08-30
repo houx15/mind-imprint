@@ -466,6 +466,10 @@ function StagePanel({
           onFinished={(w) =>
             setState((s) => ({ phase: "finished", writing: w, draft: s.phase === "ready" ? s.draft : EMPTY_DRAFT }))
           }
+          // Naming the piece at 完成这篇 renames it for real, so the header's
+          // EditableTitle must see it immediately — the same lift PlanningView
+          // and the room header already do for a rename typed in place.
+          onRenamed={(w) => setState((s) => (s.phase === "ready" ? { ...s, writing: w } : s))}
         />
       );
     // 'outline' (结构) never reaches here: it takes the WHOLE screen as
