@@ -192,5 +192,13 @@ func (a *API) getPublicReport(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows -> plain 404, no detail
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, map[string]any{"report": json.RawMessage(row.Report)})
+	// The share link is the case this MATTERS for: without `piece` the viewer
+	// gets a page of statistics and no way to the article at all, which is the
+	// one thing they opened the link to read. See reportWithPiece — it fills
+	// the field in from her draft for any report stored before it existed, and
+	// leaves everything else in the blob untouched, so the payload's key set
+	// (pinned by TestPublicPayloadCarriesNothingExtra) is unchanged.
+	httpx.WriteJSON(w, http.StatusOK, map[string]any{
+		"report": json.RawMessage(a.reportWithPiece(r.Context(), row.AtomID, row.Report)),
+	})
 }

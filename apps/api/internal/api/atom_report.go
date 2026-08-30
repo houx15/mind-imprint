@@ -808,6 +808,78 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 
 // --- the generator (Task 5 depends on this exact signature) ---------------
 
+// reportWithPiece fills in a writing report's `piece` at SERVE time when the
+// stored blob does not carry one.
+//
+// ## Why this has to exist
+//
+// A report is generated ONCE and stored as a JSON blob, then re-served
+// verbatim forever — and `piece` was added to that blob after reports already
+// existed. "No backfill, the section is simply absent" was fine while the
+// piece was one section at the foot of the page. It stopped being fine the
+// moment the piece became THE PAGE: with no `piece`, `PublicReportPage` sees
+// `hasArticle === false` and opens the record, so every writing finished
+// before that deploy shares as a page of statistics with the article missing
+// entirely. Checked on production: 2 of 2 writing reports had no `piece`, i.e.
+// the article page was live and unreachable for every existing piece.
+//
+// ## Why read-time rather than a backfill migration
+//
+// The same reasoning as `statLabels.ts` resolving stat wording on the client:
+// the blob is the RECORD of a generation, and anything derivable from data
+// that still exists should be derived rather than frozen. The draft is a live
+// row (`writing_draft`) that nothing rewrites after 完成这篇, so reading it
+// here yields exactly the text the generator would have stored — and it
+// self-heals every old report at once, with no migration to run and nothing
+// to re-run if it is added to again.
+//
+// ## Failure posture
+//
+// Every error path returns `stored` unchanged. A report that cannot be
+// hydrated must still be served: losing the article section is a smaller harm
+// than 500-ing on a link someone was sent. Nothing here can substitute the
+// wrong atom's prose either — the draft is looked up by this report's own
+// `atom_id`.
+func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []byte) []byte {
+	var fields map[string]json.RawMessage
+	if json.Unmarshal(stored, &fields) != nil {
+		return stored
+	}
+	// Kind comes off the blob itself rather than a second query — it is
+	// written by the generator and is the same value `atom.kind` holds.
+	var kind string
+	if raw, ok := fields["kind"]; !ok || json.Unmarshal(raw, &kind) != nil || kind != "writing" {
+		return stored
+	}
+	// Already carries one: leave the stored text alone. A report generated
+	// after the field shipped is authoritative, and re-reading the draft over
+	// it would be a second source of truth for the same words.
+	if raw, ok := fields["piece"]; ok {
+		var piece string
+		if json.Unmarshal(raw, &piece) == nil && strings.TrimSpace(piece) != "" {
+			return stored
+		}
+	}
+	draft, err := a.d.Queries.GetWritingDraft(ctx, atomID)
+	if err != nil {
+		return stored
+	}
+	body := strings.TrimSpace(draft.Body)
+	if body == "" {
+		return stored
+	}
+	encoded, err := json.Marshal(body)
+	if err != nil {
+		return stored
+	}
+	fields["piece"] = encoded
+	out, err := json.Marshal(fields)
+	if err != nil {
+		return stored
+	}
+	return out
+}
+
 // ensureAtomReport returns the atom's report, generating and storing it on
 // first call. The bool is false when the atom is not finished: no report,
 // no generation, nothing stamped. Both the GET handler below and Task 5's
@@ -964,7 +1036,10 @@ func (a *API) getAtomReportFor(kind string) http.HandlerFunc {
 		// which pins its exact key set.
 		shared := row.ShareToken != nil && *row.ShareToken != ""
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{
-			"report":     json.RawMessage(row.Report),
+			// See reportWithPiece: a writing report stored before `piece`
+			// existed gets it filled in from her draft here, so her own
+			// finished screen opens on the article like a fresh one does.
+			"report":     json.RawMessage(a.reportWithPiece(ctx, at.ID, row.Report)),
 			"shared":     shared,
 			"shareToken": row.ShareToken,
 			// The star she gave this reading's EXPERIENCE (0107), so the
