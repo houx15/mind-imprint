@@ -2,6 +2,8 @@ import type { ReactElement } from "react";
 import { LiteApp } from "./LiteApp";
 import { PublicReportPage } from "./reports/PublicReportPage";
 import { parseLiteRoute } from "./routing";
+import { EcoRoot } from "./eco/EcoApp";
+import { isEcoPath } from "./eco/route";
 
 /**
  * The public report viewer (`/s/:token`) and the authenticated shell
@@ -24,6 +26,14 @@ import { parseLiteRoute } from "./routing";
  * `#root` DOM element (and would be unsafe to trigger twice even with one).
  */
 export function rootElementFor(pathname: string): ReactElement {
+  // `/eco/*` — the ecosystem prototype (世界 / 我的树 / PBL / 个人主页). It is a
+  // THIRD disjoint app: pure static frontend on mock data, no API and no
+  // session, so it is decided here for the same reason the share viewer is —
+  // `LiteApp` should never have to reason about a route it does not own.
+  // Delete this branch and the `eco/` directory together when the prototype
+  // has done its job.
+  if (isEcoPath(pathname)) return <EcoRoot />;
+
   const route = parseLiteRoute(pathname);
   // `view` is only the STARTING page — `PublicReportPage` owns it from there,
   // because this function runs once from `main.tsx`'s module-scope render and
