@@ -48,28 +48,53 @@ export function ReadingQuestions({ readingId }: { readingId: string }) {
   if (!questions || questions.length === 0) return null;
 
   return (
-    <div className="flex flex-col gap-3">
-      <h2 className="text-mk-label text-mk-faint">读完这篇，还能往下想</h2>
-      <div className="flex flex-col gap-3">
-        {questions.map((q) => (
-          <div
-            key={q.id}
-            className="rounded-mk-md border border-mk-border bg-mk-surface p-4 shadow-mk-sm"
-          >
-            <p className="text-mk-body-lg text-mk-ink">{q.text}</p>
-            <p className="mt-2 text-mk-small text-mk-muted">从这句想到的：{q.anchorQuote}</p>
-            <div className="mt-3">
-              <Button variant="secondary" onClick={() => writeAbout(q.text)}>
-                <Icon icon={PenLine} size={14} />
-                去写一写
-              </Button>
+    // Bubbles, at the size of an invitation.
+    //
+    // This section used to be an 11px label over 16px cards in a single
+    // stacked column — "the text fonts is too small […] several bubbles
+    // jumping". So: a real heading, question text at the report's own
+    // pull-quote size, macaron fill per card, a speech-bubble tail, and each
+    // card bobbing on its own phase (`--i`, read by `.mk-rq-bubble` in
+    // index.css — in unison they would read as the page loading, not as
+    // bubbles). Reduced motion stops all of it.
+    <div className="flex flex-col gap-4 pt-2">
+      <h2 className="text-mk-h1 text-mk-ink">读完这篇，还能往下想</h2>
+      <div className="mk-rq-bubbles">
+        {questions.map((q, i) => {
+          const { bg, fg } = MACARON[i % MACARON.length] ?? MACARON[0]!;
+          return (
+            <div
+              key={q.id}
+              className="mk-rq-bubble p-6"
+              style={{ background: bg, ["--i" as string]: i } as React.CSSProperties}
+            >
+              <p className="text-mk-report-quote text-mk-ink">{q.text}</p>
+              <p className="mt-3 text-mk-body text-mk-muted">从这句想到的：{q.anchorQuote}</p>
+              <div className="mt-4">
+                <Button variant="secondary" onClick={() => writeAbout(q.text)}>
+                  <Icon icon={PenLine} size={15} />
+                  去写一写
+                </Button>
+              </div>
+              <span className="mk-rq-bubble__tail" aria-hidden="true" style={{ background: bg }} />
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
 }
+
+/** The same macaron cycle the report uses, so a finished reading reads as one
+ *  page rather than two designs meeting at a seam. Bare `var(--mk-…)` in an
+ *  inline style, never a Tailwind alpha class — `mk-*` are bare custom
+ *  properties and `bg-mk-peach-bg/40` emits no CSS at all. */
+const MACARON = [
+  { bg: "var(--mk-lake-bg)", fg: "var(--mk-lake-fg)" },
+  { bg: "var(--mk-butter-bg)", fg: "var(--mk-butter-fg)" },
+  { bg: "var(--mk-taro-bg)", fg: "var(--mk-taro-fg)" },
+  { bg: "var(--mk-peach-bg)", fg: "var(--mk-peach-fg)" },
+] as const;
 
 /** Read-and-clear on the other side (`WritingsLanding`) — this key is a
  *  one-shot handoff for THIS arrival, not a standing preference. */

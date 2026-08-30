@@ -304,7 +304,7 @@ function FinishedReadingPanel({
   const day = shortDay(reading.finishedAt ?? reading.updatedAt);
   return (
     <div className="flex w-full flex-col pb-14">
-      <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center gap-3 px-5 pt-8 sm:px-8">
+      <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-8">
         <Button variant="secondary" onClick={onBack}>
           回到阅读
         </Button>
@@ -329,7 +329,7 @@ function FinishedReadingPanel({
         // rendering both would print her 收获 twice on every finished reading.
         fallback={
           takeaway.trim() ? (
-            <div className="mx-auto w-full max-w-[1180px] px-5 py-8 sm:px-8">
+            <div className="mk-rp-measure py-8">
               <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
                 <h2 className="text-mk-label text-mk-faint">我的收获</h2>
                 <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{takeaway}</p>
@@ -339,7 +339,7 @@ function FinishedReadingPanel({
         }
       />
 
-      <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-8">
+      <div className="mk-rp-measure">
         <ReadingQuestions readingId={reading.id} />
       </div>
     </div>

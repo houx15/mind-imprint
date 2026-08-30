@@ -97,10 +97,10 @@ export function ReportView({ report }: { report: LiteReport }) {
   const stats = report.stats.filter((stat) => stat.value !== 0);
 
   return (
-    <article className="mk-rp mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-5 py-8 sm:px-8 sm:py-12">
+    <article className="mk-rp mk-rp-measure flex flex-col gap-8 py-8 sm:py-12">
       <Hero kindLabel={kindLabel} title={report.title} name={report.studentName} date={date} />
       <StatStrip stats={stats} />
-      <Keep keep={report.keep} name={report.studentName} />
+      <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
@@ -127,7 +127,7 @@ function Hero({
       <div className="mk-rp-hero__glow" aria-hidden="true" />
       <div className="relative flex flex-col gap-4">
         <span className="mk-rp-chip w-fit rounded-mk-full px-3 py-1 text-mk-label">{kindLabel}</span>
-        <h1 className="max-w-[22ch] text-mk-display leading-tight text-mk-ink sm:text-[42px]">{title}</h1>
+        <h1 className="max-w-[22ch] text-mk-display text-mk-ink sm:text-mk-report-hero">{title}</h1>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-mk-body text-mk-muted">
           <span className="mk-rp-name text-mk-h3 text-mk-ink">{name}</span>
           {date && <span>{date}</span>}
@@ -152,10 +152,10 @@ function StatStrip({ stats }: { stats: ReportStat[] }) {
             className="mk-rp-stat mk-rp-rise rounded-mk-lg px-4 py-4 sm:px-5 sm:py-5"
             style={{ background: bg, ...rise(i + 1) }}
           >
-            {/* No `block` utility here: `.mk-rp-stat__value` is a baseline
-                flex row, which is what keeps a four-digit value and its unit
-                on one line. */}
-            <span className="mk-rp-stat__value leading-none" style={{ color: fg }}>
+            {/* `.mk-rp-stat__value` is the baseline flex row that keeps a
+                four-digit value and its unit on one line; the SIZE comes from
+                the `mk-report-stat` token, not from that class. */}
+            <span className="mk-rp-stat__value text-mk-report-stat" style={{ color: fg }}>
               {stat.value.toLocaleString("zh-CN")}
               {stat.unit && <span className="text-mk-h3">{stat.unit}</span>}
             </span>
@@ -169,18 +169,30 @@ function StatStrip({ stats }: { stats: ReportStat[] }) {
   );
 }
 
-/** 我的收获, verbatim and hers — the one thing she'd take away, given the
- *  biggest type on the page. Attributed via the server-supplied `label`,
- *  never presented as the AI's summary of her. */
-function Keep({ keep, name }: { keep: LiteReport["keep"]; name: string }) {
+/** 我的收获 — the one thing worth taking away, given the biggest type on the
+ *  page.
+ *
+ *  Two sources, and the difference is stated on screen every time. `student`
+ *  is her own takeaway, verbatim, signed with her name. `coach` is 印记's
+ *  summary of the session, written because she left no takeaway — 完成这篇
+ *  stopped asking for one, so `coach` is the normal case now and `student` is
+ *  the legacy path.
+ *
+ *  The attribution line is not decoration and is never conditional on space:
+ *  a generated paragraph printed under a student's name, on a page she can
+ *  publish to anyone, is the one dishonest thing this card could do. */
+function Keep({ keep, name, kind }: { keep: LiteReport["keep"]; name: string; kind: LiteReport["kind"] }) {
   if (!keep) return null;
+  const byStudent = keep.source === "student";
   return (
     <section className="mk-rp-keep mk-rp-rise relative overflow-hidden rounded-mk-lg px-6 py-8 sm:px-10 sm:py-10" style={rise(2)}>
       <h2 className="text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
         {keep.label}
       </h2>
-      <p className="mk-rp-keep__text mt-4 whitespace-pre-wrap text-mk-ink">{keep.text}</p>
-      <p className="mt-4 text-mk-small text-mk-muted">—— {name}</p>
+      <p className="mt-4 whitespace-pre-wrap text-mk-report-lede text-mk-ink">{keep.text}</p>
+      <p className="mt-4 text-mk-small text-mk-muted">
+        {byStudent ? `—— ${name}` : `印记根据你这次${kind === "reading" ? "阅读" : "写作"}整理`}
+      </p>
     </section>
   );
 }
@@ -205,7 +217,7 @@ function Moments({ moments }: { moments: LiteReport["moments"] }) {
               <span aria-hidden="true" className="mk-rp-moment__mark" style={{ color: fg }}>
                 “
               </span>
-              <p className="mk-rp-moment__text text-mk-ink">{m.quote}</p>
+              <p className="text-mk-report-quote text-mk-ink">{m.quote}</p>
               <footer className="mt-4 text-mk-small" style={{ color: fg }}>
                 来自：{m.where}
               </footer>
@@ -339,7 +351,7 @@ function Gains({ gains }: { gains: LiteReport["gains"] }) {
               className="mk-rp-gain mk-rp-rise flex items-start gap-3 rounded-mk-lg p-5"
               style={{ background: bg, ...rise(i + 6) }}
             >
-              <span aria-hidden="true" className="mk-rp-gain__no" style={{ color: fg }}>
+              <span aria-hidden="true" className="mk-rp-gain__no text-mk-report-numeral" style={{ color: fg }}>
                 {i + 1}
               </span>
               <span className="text-mk-body-lg text-mk-ink">{g}</span>

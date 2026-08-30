@@ -1135,10 +1135,24 @@
 
 /* Auto-fit, not a breakpoint ladder: seven stat tiles across a laptop, two
  * across a phone, and it still works for three stats or nine. */
+/* Two hard columns on a phone, auto-fit above it.
+ *
+ * Pure `auto-fit, minmax(162px, …)` looked right on the public share page
+ * (390px, no chrome) and collapsed to ONE tile per row on the signed-in page,
+ * where the 88px nav rail leaves ~262px of content — 162×2 + gap doesn't fit,
+ * so auto-fit honestly drops to a single column and the strip becomes a
+ * seven-storey tower. auto-fit measures the container, and this component has
+ * two very different containers. */
 .mk-rp-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(162px, 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 12px;
+}
+
+@media (min-width: 640px) {
+  .mk-rp-stats {
+    grid-template-columns: repeat(auto-fit, minmax(162px, 1fr));
+  }
 }
 
 .mk-rp-stat {
@@ -1159,19 +1173,16 @@
  * two unrelated facts stacked — `字` sitting alone above `读了`. Baseline
  * flex with nowrap is what keeps 「3,428 字」 a single quantity; the size
  * steps up only once there is room for it. */
+/* Layout only — the SIZE is the `mk-report-stat` token (lite's own
+ * tailwind.config.ts). Baseline flex with nowrap is what keeps 「3,428 字」 one
+ * quantity instead of letting the unit wrap onto its own line. */
 .mk-rp-stat__value {
   display: flex;
   align-items: baseline;
   gap: 2px;
   flex-wrap: nowrap;
-  font-size: 29px;
-  font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.02em;
-}
-
-@media (min-width: 1200px) {
-  .mk-rp-stat__value { font-size: 33px; }
 }
 
 /* Hero band. The gradient is painted with color-mix over the macaron tokens
@@ -1231,16 +1242,6 @@
   box-shadow: var(--mk-shadow-sm);
 }
 
-.mk-rp-keep__text {
-  font-size: 22px;
-  line-height: 1.75;
-  font-weight: 600;
-}
-
-@media (min-width: 640px) {
-  .mk-rp-keep__text { font-size: 26px; }
-}
-
 /* 金句 cards, auto-fit so two or three sit side by side instead of stacking
  * into a ribbon of whitespace on a wide screen. */
 .mk-rp-moments {
@@ -1257,6 +1258,8 @@
   transform: translateY(-2px);
 }
 
+/* A decorative glyph, not type: it carries no text meaning (aria-hidden) and
+ * has no token, the way a rule or an icon has none. */
 .mk-rp-moment__mark {
   position: absolute;
   left: 12px;
@@ -1264,12 +1267,6 @@
   font-size: 52px;
   line-height: 1;
   opacity: 0.55;
-}
-
-.mk-rp-moment__text {
-  font-size: 19px;
-  line-height: 1.75;
-  font-weight: 600;
 }
 
 /* 我的笔记 + 我用透镜查到的, side by side on a wide screen. When only one of
@@ -1310,10 +1307,8 @@
   gap: 12px;
 }
 
+/* Size comes from `mk-report-numeral`; this only sets the treatment. */
 .mk-rp-gain__no {
-  font-size: 26px;
-  font-weight: 700;
-  line-height: 1.1;
   font-variant-numeric: tabular-nums;
   opacity: 0.6;
 }
@@ -1349,5 +1344,172 @@
   .mk-rp-stat:hover,
   .mk-rp-moment:hover {
     transform: none;
+  }
+}
+
+/* ── 报告页 · 顶部动作条 (导出/分享) ────────────────────────────────────────
+ * Two big buttons at the head of the report, not a text link at its foot.
+ * Layout and treatment only; the labels' SIZE comes from type tokens. */
+.mk-rp-actions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+}
+
+.mk-rp-action {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 16px 20px;
+  text-align: left;
+  border-radius: var(--mk-radius-lg);
+  border: 1px solid var(--mk-border);
+  background: var(--mk-surface);
+  color: var(--mk-ink);
+  transition: transform 200ms cubic-bezier(.2, 0, 0, 1), box-shadow 200ms cubic-bezier(.2, 0, 0, 1),
+    border-color 200ms ease-out;
+}
+
+.mk-rp-action:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--mk-accent-500) 34%, var(--mk-border));
+  box-shadow: var(--mk-shadow-md);
+}
+
+.mk-rp-action:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.mk-rp-action--primary {
+  border-color: transparent;
+  background: linear-gradient(
+    135deg,
+    var(--mk-accent-500) 0%,
+    color-mix(in srgb, var(--mk-accent-500) 78%, var(--mk-berry)) 100%
+  );
+  color: #fff;
+}
+
+/* The icon chip. On the primary button it sits on white-over-gradient; on the
+ * secondary it takes the accent wash. */
+.mk-rp-action__icon {
+  display: grid;
+  place-items: center;
+  width: 46px;
+  height: 46px;
+  flex: none;
+  border-radius: var(--mk-radius-md);
+  background: color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface));
+  color: var(--mk-accent-700);
+}
+
+.mk-rp-action--primary .mk-rp-action__icon {
+  background: rgba(255, 255, 255, 0.22);
+  color: #fff;
+}
+
+/* "A link is live right now" — the state she cannot otherwise see from the
+ * top of the page. */
+.mk-rp-action__dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: var(--mk-success);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-success) 55%, transparent);
+  animation: mk-rp-dot 2.2s ease-out infinite;
+}
+
+@keyframes mk-rp-dot {
+  0% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-success) 50%, transparent); }
+  70% { box-shadow: 0 0 0 7px color-mix(in srgb, var(--mk-success) 0%, transparent); }
+  100% { box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-success) 0%, transparent); }
+}
+
+/* ── 报告页 · 读完这篇，还能往下想 ──────────────────────────────────────────
+ * Questions grown from the finished reading, as bubbles that bob. The brief
+ * was literal: "several bubbles jumping". Each card floats on its own phase
+ * (`--i`, set per card) so the group never pulses in unison — in unison it
+ * reads as the page loading, not as bubbles. */
+.mk-rq-bubbles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+  align-items: start;
+}
+
+.mk-rq-bubble {
+  position: relative;
+  border-radius: var(--mk-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--mk-ink) 6%, transparent);
+  animation: mk-rq-float 3.6s ease-in-out infinite alternate;
+  animation-delay: calc(var(--i, 0) * 420ms);
+  transition: transform 200ms cubic-bezier(.2, 0, 0, 1), box-shadow 200ms cubic-bezier(.2, 0, 0, 1);
+}
+
+.mk-rq-bubble:hover {
+  box-shadow: var(--mk-shadow-md);
+}
+
+@keyframes mk-rq-float {
+  from { transform: translateY(0); }
+  to { transform: translateY(-9px); }
+}
+
+/* The little tail that makes a card read as a speech bubble. */
+.mk-rq-bubble__tail {
+  position: absolute;
+  left: 26px;
+  bottom: -9px;
+  width: 18px;
+  height: 18px;
+  transform: rotate(45deg);
+  border-right: 1px solid color-mix(in srgb, var(--mk-ink) 6%, transparent);
+  border-bottom: 1px solid color-mix(in srgb, var(--mk-ink) 6%, transparent);
+}
+
+/* ── 报告页 · 五颗星 ────────────────────────────────────────────────────── */
+.mk-rp-stars {
+  border-radius: var(--mk-radius-lg);
+  border: 1px solid color-mix(in srgb, var(--mk-accent-500) 22%, var(--mk-border));
+  background: linear-gradient(
+    135deg,
+    color-mix(in srgb, var(--mk-accent-500) 10%, var(--mk-surface)) 0%,
+    var(--mk-surface) 68%
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-rp-action,
+  .mk-rq-bubble {
+    transition: none;
+  }
+  .mk-rp-action:hover:not(:disabled) {
+    transform: none;
+  }
+  .mk-rp-action__dot,
+  .mk-rq-bubble {
+    animation: none;
+  }
+}
+
+/* The report's page measure, in one place.
+ *
+ * 1180px and its gutters were repeated across five components (the report, the
+ * action bar, the stars row, the loading line, the public page's footer) as
+ * `max-w-[1180px] px-5 sm:px-8`. Five copies of a number is five chances for
+ * one of them to drift and leave a block visibly out of alignment with the
+ * rest of the page — which is the same class of problem the type tokens fixed.
+ * Anything that must line up with the report's left edge wears this class. */
+.mk-rp-measure {
+  width: 100%;
+  max-width: 1180px;
+  margin-inline: auto;
+  padding-inline: 20px;
+}
+
+@media (min-width: 640px) {
+  .mk-rp-measure {
+    padding-inline: 32px;
   }
 }

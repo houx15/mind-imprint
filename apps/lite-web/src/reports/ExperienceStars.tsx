@@ -55,19 +55,28 @@ export function ExperienceStars({ atomId, initial }: { atomId: string; initial: 
   const shown = hover || rating || 0;
 
   return (
+    // Given its own card, its own accent, and stars big enough to aim at: the
+    // brief was "make the stars a more visible place", and the old treatment —
+    // 26px outlines in a plain bordered box under a share panel — was where you
+    // put something you don't really want answered.
+    // Ask on the left, stars on the right at ≥720px — a full-width card with
+    // everything stacked in its left third left half the card empty, which
+    // reads as an unfinished block rather than a question.
     <section
-      className="rounded-mk-md border border-mk-border bg-mk-surface px-5 py-4"
+      className="mk-rp-stars flex flex-col gap-4 px-6 py-6 sm:px-8 sm:py-7 md:flex-row md:items-center md:justify-between md:gap-8"
       aria-labelledby="mk-stars-title"
     >
-      <h3 id="mk-stars-title" className="text-mk-body font-semibold text-mk-ink">
-        这次阅读，你觉得怎么样？
-      </h3>
-      <p className="mt-1 text-mk-small text-mk-muted">
-        你在评的是这次带读，不是你自己。说给我们听，好让下一次更好。
-      </p>
+      <div className="min-w-0">
+        <h3 id="mk-stars-title" className="text-mk-h2 text-mk-ink">
+          这次阅读，你觉得怎么样？
+        </h3>
+        <p className="mt-1.5 text-mk-body text-mk-muted">
+          你在评的是这次带读，不是你自己。说给我们听，好让下一次更好。
+        </p>
+      </div>
 
       <div
-        className="mt-3 flex items-center gap-1"
+        className="flex flex-none items-center gap-1.5"
         onPointerLeave={() => setHover(0)}
         role="radiogroup"
         aria-label="这次阅读的体验"
@@ -90,25 +99,28 @@ export function ExperienceStars({ atomId, initial }: { atomId: string; initial: 
         ))}
 
         {rating !== null && !failed && (
-          <span className="ml-2 text-mk-small text-mk-muted">谢谢你告诉我们。</span>
+          <span className="ml-3 text-mk-body text-mk-muted">谢谢你告诉我们。</span>
+        )}
+
+        {/* Inside the star row, not after it: on the wide layout this section
+            is a flex ROW, so a sibling paragraph would land to the right of
+            the stars instead of under them. */}
+        {failed && (
+          <span className="ml-3 text-mk-small text-mk-danger">这一下没存上，再点一次试试。</span>
         )}
       </div>
-
-      {failed && (
-        <p className="mt-2 text-mk-small text-mk-danger">这一下没存上，再点一次试试。</p>
-      )}
     </section>
   );
 }
 
 function Star({ filled }: { filled: boolean }) {
   return (
-    <svg width="26" height="26" viewBox="0 0 24 24" aria-hidden="true" className="mk-stars__icon">
+    <svg width="38" height="38" viewBox="0 0 24 24" aria-hidden="true" className="mk-stars__icon">
       <path
         d="M12 3.6l2.47 5.01 5.53.8-4 3.9.94 5.5L12 16.2l-4.94 2.6.94-5.5-4-3.9 5.53-.8z"
         fill={filled ? "var(--mk-accent-500)" : "transparent"}
         stroke={filled ? "var(--mk-accent-500)" : "var(--mk-border)"}
-        strokeWidth="1.5"
+        strokeWidth="1.4"
         strokeLinejoin="round"
       />
     </svg>

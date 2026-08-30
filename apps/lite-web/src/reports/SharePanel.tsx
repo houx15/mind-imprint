@@ -64,12 +64,19 @@ export function SharePanel({
   kind,
   atomId,
   initialShareToken = null,
+  onSharedChange,
 }: {
   kind: AtomKind;
   atomId: string;
   /** F2: a token already minted server-side, e.g. from a previous sitting —
    *  when present, the panel starts at {phase:"on"} instead of "off". */
   initialShareToken?: string | null;
+  /** Fired with the token whenever a link starts being live, and with `null`
+   *  when it stops. The parent keeps it as the authoritative `initialShareToken`
+   *  so a panel that is unmounted and remounted (the action bar toggles it) never
+   *  reopens holding a token she has already revoked. Only ever called for a
+   *  CONFIRMED server outcome, never for the optimistic in-flight phases. */
+  onSharedChange?: (token: string | null) => void;
 }) {
   const [state, setState] = useState<ShareState>(() =>
     initialShareToken ? { phase: "on", url: buildShareUrl(initialShareToken), qr: null } : { phase: "off" },
@@ -111,6 +118,7 @@ export function SharePanel({
         qr = null; // link still works without the image
       }
       setState({ phase: "on", url, qr });
+      onSharedChange?.(token);
     } catch {
       setState({ phase: "off" });
       setError("刚才没能生成链接，你可以再试一次。");
@@ -125,6 +133,7 @@ export function SharePanel({
       await unshareReport(kind, atomId);
       setCopied(false);
       setState({ phase: "off" });
+      onSharedChange?.(null);
     } catch {
       setState({ phase: "on", url: state.url, qr: state.qr });
       setError("刚才没能停止分享，你可以再试一次。");

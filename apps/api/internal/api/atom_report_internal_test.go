@@ -63,6 +63,39 @@ func TestBuildReadingNotesCaps(t *testing.T) {
 	}
 }
 
+// cleanKeepSummary guards the report's biggest card against a model that
+// ignores "3-4 句". Short text passes through untouched; long text is cut on a
+// sentence boundary when there is one, and marked with an ellipsis when there
+// isn't, so a truncation never masquerades as the end of a thought.
+func TestCleanKeepSummary(t *testing.T) {
+	if got := cleanKeepSummary("  你把装机量和发电量分开了。  "); got != "你把装机量和发电量分开了。" {
+		t.Errorf("short summary should pass through trimmed, got %q", got)
+	}
+	if got := cleanKeepSummary("   "); got != "" {
+		t.Errorf("blank summary must be empty (the caller renders no card), got %q", got)
+	}
+
+	// Long, WITH sentence ends past the halfway mark: cut on the last one.
+	sentence := strings.Repeat("你注意到了这里的差别。", 40) // 11 runes each, far over the cap
+	got := cleanKeepSummary(sentence)
+	if len([]rune(got)) > maxKeepRunes {
+		t.Fatalf("over the cap: %d runes", len([]rune(got)))
+	}
+	if !strings.HasSuffix(got, "。") {
+		t.Errorf("should have cut on a sentence end, got tail %q", got[len(got)-12:])
+	}
+
+	// Long, with NO sentence end at all: hard cut, visibly marked.
+	noStops := strings.Repeat("字", maxKeepRunes+50)
+	got = cleanKeepSummary(noStops)
+	if !strings.HasSuffix(got, "…") {
+		t.Errorf("a hard cut must be visible, got tail %q", got[len(got)-6:])
+	}
+	if len([]rune(got)) != maxKeepRunes+1 { // +1 for the ellipsis
+		t.Errorf("hard cut length = %d runes, want %d", len([]rune(got)), maxKeepRunes+1)
+	}
+}
+
 // 用了透镜 N 个 counts SUBMITTED cards only — a card she summoned and walked
 // away from is not a lens she used, and counting it inflates her own record.
 func TestCountSubmittedCards(t *testing.T) {

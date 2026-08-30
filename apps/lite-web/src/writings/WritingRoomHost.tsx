@@ -512,7 +512,7 @@ function FinishedWritingPanel({
     // Same shape as FinishedReadingPanel — read its comment for why the title
     // and the wide report are not both wrapped in a 680px column any more.
     <div className="flex w-full flex-col pb-14">
-      <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center gap-3 px-5 pt-8 sm:px-8">
+      <div className="mk-rp-measure flex flex-wrap items-center gap-3 pt-8">
         <Button variant="secondary" onClick={onBack}>
           回到写作
         </Button>
@@ -532,7 +532,7 @@ function FinishedWritingPanel({
           draft is the artifact. It keeps the room's own reading measure —
           65ch — rather than stretching to the report's full 1180px, because
           this is body prose and a 1180px line is unreadable. */}
-      <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-8">
+      <div className="mk-rp-measure">
         <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
           <h2 className="text-mk-label text-mk-faint">成稿</h2>
           <p className="mt-3 max-w-[65ch] whitespace-pre-wrap text-mk-body-lg text-mk-ink">

@@ -7,6 +7,7 @@ import { exportPoster } from "./exportPoster";
 import { ReportPoster } from "./ReportPoster";
 import { ReportView } from "./ReportView";
 import { SharePanel } from "./SharePanel";
+import { ReportActions } from "./ReportActions";
 import { ExperienceStars } from "./ExperienceStars";
 
 /**
@@ -80,6 +81,7 @@ export function ReportPanel({
   const [rating, setRating] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
   const [exporting, setExporting] = useState(false);
+  const [shareOpen, setShareOpen] = useState(false);
   const alive = useAlive();
 
   useEffect(() => {
@@ -133,26 +135,44 @@ export function ReportPanel({
   if (state === "done" && report) {
     return (
       <>
+        {/* 导出图片 / 分享链接 lead the page. They used to be a small text
+            button and a full share panel stacked below the very bottom of a
+            long report — "export and share link, should be put at the top,
+            big icons." The gutters match `ReportView`'s own 1180px measure so
+            the bar lines up with the report's left edge. */}
+        <div className="mk-rp-measure pt-6">
+          <ReportActions
+            exporting={exporting}
+            onExport={handleExport}
+            shareOpen={shareOpen}
+            shared={shareToken !== null}
+            onToggleShare={() => setShareOpen((v) => !v)}
+          />
+          {shareOpen && (
+            <div className="mt-4">
+              <SharePanel
+                kind={kind}
+                atomId={atomId}
+                initialShareToken={shareToken}
+                // Keeps the action bar's "already published" dot honest after a
+                // mint or a revoke, without giving two components two copies of
+                // the same state machine.
+                onSharedChange={setShareToken}
+              />
+            </div>
+          )}
+        </div>
+
         <ReportView report={report} />
-        {/* Same 1180px measure and gutters as `ReportView` itself, so the
-            export button, the share panel and the stars line up with the
-            report's own left edge instead of sitting in a narrower column
-            under a wide page. */}
-        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 px-5 pb-4 sm:px-8">
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={exporting}
-            className="w-fit rounded-mk-full px-4 py-2 text-mk-small text-white disabled:cursor-not-allowed disabled:opacity-60"
-            style={{ background: "var(--mk-accent-500)" }}
-          >
-            {exporting ? "生成图片中…" : "导出图片"}
-          </button>
-          <SharePanel kind={kind} atomId={atomId} initialShareToken={shareToken} />
-          {/* The five stars, at the very bottom — she reads the report first,
-              then says how the session felt. Reading only for now: the writing
-              room has no endpoint for it yet, and a scorer that silently drops
-              her answer is worse than not asking. */}
+
+        <div className="mk-rp-measure flex flex-col gap-5 pb-4">
+          {/* The five stars come AFTER the report — she reads it, then says how
+              the session felt; asking first would be asking about something she
+              hasn't seen. With sharing moved to the top this is now the last
+              thing on the page rather than the fourth, and it is styled to be
+              found. Reading only: the writing room has no endpoint for it yet,
+              and a scorer that silently drops her answer is worse than not
+              asking. */}
           {kind === "reading" && <ExperienceStars atomId={atomId} initial={rating} />}
         </div>
       </>
@@ -165,7 +185,7 @@ export function ReportPanel({
   // no longer wrap this panel in a padded column, so an unwrapped <p> would
   // sit flush against the window edge.
   return (
-    <div className="mx-auto w-full max-w-[1180px] px-5 py-10 sm:px-8">
+    <div className="mk-rp-measure py-10">
       <p className="text-mk-small text-mk-muted">
         印记正在把这次{verb}的东西整理成一份报告，稍等一下。
       </p>

@@ -349,7 +349,11 @@ describe("ReadingRoomHost", () => {
     render(<ReadingRoomHost readingId={READING_ID} />);
 
     expect(await screen.findByText("已完成")).toBeTruthy();
-    expect(screen.getByText("作者把「装机量」当成了「实际发电量」。")).toBeTruthy();
+    // `find`, not `get`: 我的收获 is no longer rendered by the panel itself. It
+    // is `ReportPanel`'s `fallback`, shown only once the report fetch has
+    // resolved to "no report" — so it lands a tick after 已完成, and a
+    // synchronous get here raced that resolution.
+    expect(await screen.findByText("作者把「装机量」当成了「实际发电量」。")).toBeTruthy();
     // Nothing that could change the reading is on the page.
     expect(screen.queryByRole("tab")).toBeNull();
     expect(screen.queryByText(/完成这次阅读/)).toBeNull();

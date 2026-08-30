@@ -18,7 +18,17 @@ export type AtomKind = "reading" | "writing";
 
 export type ReportStat = { key: string; label: string; value: number; unit: string };
 export type ReportMoment = { quote: string; where: string };
-export type ReportKeep = { label: string; text: string };
+/** `reportKeep` — apps/api/internal/api/atom_report.go. The report's 我的收获
+ *  card. `source` says WHO WROTE `text`: `"student"` when it is her own
+ *  takeaway verbatim, `"coach"` when 印记 wrote it from her session because
+ *  she left none (完成这篇 stopped asking for one, so `"coach"` is now the
+ *  normal case). The two get different attribution lines and the line is
+ *  never omitted — a generated paragraph must never read as her own words.
+ *
+ *  A report stored before `source` existed decodes it as absent; `?? "student"`
+ *  in `normalizeReport` is the correct default, since back then a keep could
+ *  only ever have been her own takeaway. */
+export type ReportKeep = { label: string; text: string; source: "student" | "coach" };
 
 /** `reportLensNote` — apps/api/internal/api/atom_report.go. What her 透镜
  *  work produced: the sentence SHE picked out of the article, and the 发现
@@ -49,11 +59,12 @@ export type LiteReport = {
 /** Raw wire shape of `LiteReport`, before the `?? []` defaulting below —
  *  `moments`/`gains`/`lensNotes`/`notes` are `omitempty` on the Go side, so
  *  they may be absent (a report generated before `notes` existed lacks it). */
-type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes" | "notes"> & {
+type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes" | "notes" | "keep"> & {
   moments?: ReportMoment[];
   gains?: string[];
   lensNotes?: ReportLensNote[];
   notes?: ReportNote[];
+  keep?: { label: string; text: string; source?: "student" | "coach" } | null;
 };
 
 function normalizeReport(raw: RawLiteReport): LiteReport {
@@ -63,6 +74,9 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     gains: raw.gains ?? [],
     lensNotes: raw.lensNotes ?? [],
     notes: raw.notes ?? [],
+    // See `ReportKeep`: a keep with no source predates the field and can only
+    // have been her own takeaway.
+    keep: raw.keep ? { ...raw.keep, source: raw.keep.source ?? "student" } : null,
   };
 }
 

@@ -54,7 +54,7 @@ const REPORT: LiteReport = {
   finishedAt: "2026-08-29T03:00:00Z",
   stats: [{ key: "focusMinutes", label: "专注时长", value: 12, unit: "分钟" }],
   moments: [{ quote: "碳排放全球第一", where: "写论证的时候" }],
-  keep: { label: "我的收获", text: "来源要溯源" },
+  keep: { label: "我的收获", text: "来源要溯源", source: "student" },
   gains: ["用 CRAAP 检查了来源"],
   lensNotes: [{ lens: "信源辨识卡 CRAAP / CRRAAB", quote: "这份报告由国家能源局发布。", finding: "来源可核实。" }],
   notes: [],

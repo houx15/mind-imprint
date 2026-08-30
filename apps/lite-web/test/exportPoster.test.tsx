@@ -244,7 +244,7 @@ describe("ReportPanel → 导出图片", () => {
       render(<ReportPanel kind="reading" atomId="atom-1" />);
       await screen.findByText(thinReport().title);
 
-      fireEvent.click(screen.getByRole("button", { name: "导出图片" }));
+      fireEvent.click(screen.getByRole("button", { name: /^导出图片/ }));
 
       await waitFor(() => expect(toPng).toHaveBeenCalledTimes(1));
       // this is the assertion that actually guards the detached-mount
@@ -269,12 +269,12 @@ describe("ReportPanel → 导出图片", () => {
       await screen.findByText(thinReport().title);
       const bodyChildrenBeforeExport = document.body.children.length;
 
-      fireEvent.click(screen.getByRole("button", { name: "导出图片" }));
+      fireEvent.click(screen.getByRole("button", { name: /^导出图片/ }));
       await waitFor(() => expect(toPng).toHaveBeenCalledTimes(1));
 
       // the button's own label returns from "生成图片中…" once the
       // `finally` has run and `setExporting(false)` has landed.
-      await screen.findByRole("button", { name: "导出图片" });
+      await screen.findByRole("button", { name: /^导出图片/ });
 
       expect(document.body.children.length).toBe(bodyChildrenBeforeExport);
       expect(document.body.querySelector('div[style*="left: -99999px"]')).toBeNull();
@@ -293,9 +293,9 @@ describe("ReportPanel → 导出图片", () => {
       await screen.findByText(thinReport().title);
       const bodyChildrenBeforeExport = document.body.children.length;
 
-      fireEvent.click(screen.getByRole("button", { name: "导出图片" }));
+      fireEvent.click(screen.getByRole("button", { name: /^导出图片/ }));
       await waitFor(() => expect(toPng).toHaveBeenCalledTimes(1));
-      await screen.findByRole("button", { name: "导出图片" });
+      await screen.findByRole("button", { name: /^导出图片/ });
 
       expect(document.body.children.length).toBe(bodyChildrenBeforeExport);
       expect(document.body.querySelector('div[style*="left: -99999px"]')).toBeNull();
@@ -321,7 +321,7 @@ describe("ReportPanel → 导出图片", () => {
 
       render(<ReportPanel kind="reading" atomId="atom-1" />);
       await screen.findByText(thinReport().title);
-      const button = screen.getByRole("button", { name: "导出图片" });
+      const button = screen.getByRole("button", { name: /^导出图片/ });
 
       fireEvent.click(button);
       // the button is disabled synchronously (React flushes the
@@ -334,7 +334,7 @@ describe("ReportPanel → 导出图片", () => {
 
       resolveToPng("data:image/png;base64,stub");
       await waitFor(() => expect(toPng).toHaveBeenCalledTimes(1));
-      await screen.findByRole("button", { name: "导出图片" });
+      await screen.findByRole("button", { name: /^导出图片/ });
 
       expect(toPng).toHaveBeenCalledTimes(1);
     } finally {

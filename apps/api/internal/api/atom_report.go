@@ -16,11 +16,17 @@ package api
 // The deterministic half (stats, the corpus, the time estimate) comes
 // straight from report_facts.go — that file's doc comment is R4's
 // enforcement point and this file must never widen what it feeds the model.
-// The one model call returns only `moments` and `gains`: `keep` is NEVER
-// asked of the model — for a reading it is her `reading_takeaway.text`
-// verbatim (she wrote it; it *is* "one thing to take away"), and for a
-// writing it is null. That ruling removes an entire validation surface: R4
-// holds for `keep` by construction, not by checking.
+// The one model call returns `moments`, `gains` and `summary`.
+//
+// `keep` — the report's loudest card, 我的收获 — prefers HER OWN takeaway,
+// copied verbatim, and falls back to the model's `summary` only when she left
+// none. That fallback exists because 完成这篇 stopped asking for a takeaway at
+// all, which left the card empty on every new reading. `keep.Source` records
+// which of the two it is, and the client renders a different attribution line
+// for each — so a generated paragraph is never printed as her own words. R4
+// is untouched by this: R4 governs 金句 on the exported picture, which still
+// come only from `moments`, still validated as literal substrings of a
+// hers-only corpus.
 //
 // Best-effort prose: if the model call errors, or nothing survives
 // validateMoments, the report is still built and stored from the
@@ -67,13 +73,35 @@ type reportMoment struct {
 	Where string `json:"where"`
 }
 
-// reportKeep is 「这次最值得记住的」 — deterministic, never model output. See
-// the file comment: for a reading it is her takeaway verbatim; a writing has
-// none (its 金句 carry that weight instead).
+// reportKeep is 我的收获 — the report's loudest card. Her own takeaway when she
+// left one, otherwise the model's `summary`. See Source below and the file
+// comment.
 type reportKeep struct {
 	Label string `json:"label"`
 	Text  string `json:"text"`
+	// Source is WHO WROTE Text: "student" when it is her own takeaway copied
+	// verbatim, "coach" when 印记 wrote it from her session because she never
+	// left one.
+	//
+	// 完成这篇 stopped asking for a takeaway (the finalize form is gone), so
+	// on a new reading `keep` was simply absent and the report's loudest card
+	// never rendered — the product owner's report on the redesign was "there
+	// is no 我的收获 part. we should generate a summary from students'
+	// interactions." This field is how that generated paragraph fills the
+	// same slot WITHOUT quietly turning into words she never said: the client
+	// renders a different attribution line per source and must never omit it.
+	//
+	// Reports stored before this field existed decode it as "" — the client
+	// treats an absent source as "student", which is correct for every one of
+	// them, since back then a keep could only ever be her own takeaway.
+	Source string `json:"source"`
 }
+
+// keepSourceStudent / keepSourceCoach — the two values of reportKeep.Source.
+const (
+	keepSourceStudent = "student"
+	keepSourceCoach   = "coach"
+)
 
 // reportLensNote is what her 透镜 work produced: for each lens she
 // submitted, the sentence SHE picked out of the article and the 发现 the
@@ -264,6 +292,38 @@ func cleanGains(gains []string) []string {
 	return out
 }
 
+// maxKeepRunes caps the generated 我的收获 paragraph. It is the largest type
+// on the report and it sits in a fixed-height card on the exported picture;
+// a model that ignores "3-4 句" and writes an essay must not be able to blow
+// either layout out. Runes, not bytes — this text is Chinese.
+const maxKeepRunes = 220
+
+// cleanKeepSummary trims the model's 我的收获 paragraph and truncates it at
+// maxKeepRunes on a sentence boundary where one is available, so a cut never
+// lands mid-clause. Returns "" for anything blank, which the caller treats as
+// "no keep at all" rather than an empty card.
+func cleanKeepSummary(s string) string {
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	runes := []rune(s)
+	if len(runes) <= maxKeepRunes {
+		return s
+	}
+	cut := runes[:maxKeepRunes]
+	// Prefer the last sentence end inside the window; fall back to a hard cut
+	// with an ellipsis so the truncation is visible rather than pretending the
+	// paragraph simply ended there.
+	for i := len(cut) - 1; i >= maxKeepRunes/2; i-- {
+		switch cut[i] {
+		case '。', '！', '？':
+			return string(cut[:i+1])
+		}
+	}
+	return string(cut) + "…"
+}
+
 // --- the one model call ---------------------------------------------------
 
 // liteReportSystem — 印记 writing to the student about her own session. No
@@ -277,7 +337,7 @@ const liteReportSystem = `你是"印记"。学生刚完成了一次阅读或写�
 给你的材料是她自己写下的所有文字：她的收获、她的批注、她和你聊天时说的话、她
 记下的笔记或写的段落。除了这些材料里的原句，别的话都不算她说的。
 
-你要做两件事：
+你要做三件事：
 
 1. moments：从材料里挑出最多 3 句她自己的原话——**逐字复制**，不要改写、不要
    翻译、不要加标点、不要把两句拼成一句。配一句极短的说明，交代这是她在做什么
@@ -291,8 +351,16 @@ const liteReportSystem = `你是"印记"。学生刚完成了一次阅读或写�
    抓住了……""你把问题从……推进到了……""你调整了……"；绝不要用第三人称去描述
    这件事，那是写给别人看的评语，不是说给她本人听的话。
 
+3. summary：一段 3-4 句的话，写"这次她最值得带走的是什么"。这一段会被放在报告
+   最显眼的位置，标题就是「我的收获」——所以它要像**她自己会写下的那种收获**：
+   不是流水账（"你先读了第一段，然后……"），而是**一个想法**：她这次弄明白了
+   什么、原来以为什么、现在改成怎么看、下次遇到同类东西要注意哪一点。全部用
+   "你"直接对她说，具体到能说出名字（哪个概念、哪一步、哪句话），不要空话、不
+   要打分、不要和别人比。**不要和 gains 里的句子重复**——gains 是几条并列的、
+   短的事实，summary 是一段有转折、有结论的话。材料太薄写不出来就留空字符串。
+
 只输出一个 JSON 对象：
-{"moments":[{"quote":"...","where":"..."}],"gains":["你...","你..."]}
+{"moments":[{"quote":"...","where":"..."}],"gains":["你...","你..."],"summary":"你..."}
 
 不要输出对象以外的任何文字或代码块标记。`
 
@@ -321,6 +389,7 @@ func buildReportPrompt(kind, title string, corpus reportCorpus) string {
 type reportModelReply struct {
 	Moments []reportMoment `json:"moments"`
 	Gains   []string       `json:"gains"`
+	Summary string         `json:"summary"`
 }
 
 // parseReportReply decodes the model's JSON object, tolerating the same
@@ -349,23 +418,35 @@ func parseReportReply(text string) (reportModelReply, bool) {
 	return got, true
 }
 
-// generateReportProse is the ONE flagship call this whole file makes: it
-// asks for moments+gains together (one editorial judgment over one corpus,
+// reportProse is what the one model call yields. A struct rather than three
+// return values: the third one (Summary) arrived after two callers were
+// already destructuring the pair, and a bare `(nil, nil, "")` on five failure
+// paths reads as noise next to a named zero value.
+type reportProse struct {
+	Moments []reportMoment
+	Gains   []string
+	// Summary is the 我的收获 paragraph, used ONLY when she left no takeaway
+	// of her own — see buildReadingReportDTO.
+	Summary string
+}
+
+// generateReportProse is the ONE flagship call this whole file makes: it asks
+// for moments+gains+summary together (one editorial judgment over one corpus,
 // not three calls for three fields) and is best-effort throughout — every
-// failure path returns (nil, nil) rather than an error, because a report is
-// never blocked on prose (see the file comment).
-func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID, kind, title string, corpus reportCorpus) ([]reportMoment, []string) {
+// failure path returns the zero value rather than an error, because a report
+// is never blocked on prose (see the file comment).
+func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID, kind, title string, corpus reportCorpus) reportProse {
 	if strings.TrimSpace(corpus.Text) == "" {
 		// Nothing of hers to quote or reflect on — a real, if rare, state
 		// (a reading finished on takeaway alone, with no notes/chat/cards).
 		// Calling the model over an empty corpus would only earn a made-up
 		// reply that could never survive validateMoments anyway.
-		return nil, nil
+		return reportProse{}
 	}
 	resolved, ok := a.resolveEval(ctx)
 	if !ok {
 		slog.Warn("lite report: no provider resolved", "atom_id", atomID, "kind", kind)
-		return nil, nil
+		return reportProse{}
 	}
 	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
@@ -376,14 +457,18 @@ func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID,
 	a.recordLiteLLMCall(ctx, userID, atomID, "lite_report", resolved, res.Usage)
 	if cerr != nil {
 		slog.Warn("lite report: provider call failed", "err", cerr, "atom_id", atomID)
-		return nil, nil
+		return reportProse{}
 	}
 	reply, okParse := parseReportReply(res.Text)
 	if !okParse {
 		slog.Warn("lite report: unparseable reply", "atom_id", atomID)
-		return nil, nil
+		return reportProse{}
 	}
-	return validateMoments(reply.Moments, corpus.Text), cleanGains(reply.Gains)
+	return reportProse{
+		Moments: validateMoments(reply.Moments, corpus.Text),
+		Gains:   cleanGains(reply.Gains),
+		Summary: cleanKeepSummary(reply.Summary),
+	}
 }
 
 // --- the deterministic half: stats + the time estimate --------------------
@@ -545,25 +630,39 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	stats := []reportStat{
 		{Key: "focusMinutes", Label: "专注时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
 		{Key: "wordsRead", Label: "读了", Value: countWordsForLang(src.Body, rd.Lang), Unit: "字"},
-		{Key: "chatTurns", Label: "和印记聊了", Value: countStudentMessages(msgs), Unit: "轮"},
+		// 「AI 教练对话轮数」 and 「完成阅读任务」 are the product owner's own
+		// wording, replacing 「和印记聊了 N 轮」 and 「读完 N 步」: the first
+		// assumed the reader already knows who 印记 is, and the second read as
+		// an unfinished sentence on a tile. Both carry an empty unit — the
+		// label already names the quantity, and "17 轮 / AI 教练对话轮数"
+		// stutters.
+		{Key: "chatTurns", Label: "AI 教练对话轮数", Value: countStudentMessages(msgs)},
 		{Key: "highlights", Label: "划线", Value: len(notes), Unit: "处"},
 		{Key: "notes", Label: "笔记", Value: countAnnotationsWithNote(notes), Unit: "条"},
 		{Key: "lenses", Label: "用了透镜", Value: countSubmittedCards(cards), Unit: "个"},
-		{Key: "stepsDone", Label: "读完", Value: countDoneReadingTasks(tasks), Unit: "步"},
+		{Key: "stepsDone", Label: "完成阅读任务", Value: countDoneReadingTasks(tasks)},
 	}
 
 	var keep *reportKeep
 	if text := strings.TrimSpace(takeaway.Text); text != "" {
-		keep = &reportKeep{Label: "我的收获", Text: text}
+		keep = &reportKeep{Label: "我的收获", Text: text, Source: keepSourceStudent}
 	}
 
-	moments, gains := a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
+	prose := a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
 	// F4: the takeaway stays IN the corpus (see this function's caller
 	// context and dedupeMomentsAgainstKeep's own doc comment for why), so
 	// strip it back out of moments here, after generation, rather than
 	// before — otherwise a thin reading finished on takeaway alone would
 	// hand the model an empty corpus and lose `gains` too.
-	moments = dedupeMomentsAgainstKeep(moments, keep)
+	moments := dedupeMomentsAgainstKeep(prose.Moments, keep)
+	gains := prose.Gains
+
+	// Her own words win; the model's summary only fills a slot she left empty.
+	// 完成这篇 no longer asks for a takeaway, so on a new reading this branch
+	// is the NORMAL one and the student branch above is the legacy path.
+	if keep == nil && prose.Summary != "" {
+		keep = &reportKeep{Label: "我的收获", Text: prose.Summary, Source: keepSourceCoach}
+	}
 
 	finishedAt := ""
 	if rd.FinishedAt.Valid {
@@ -648,25 +747,30 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	stats := []reportStat{
 		{Key: "words", Label: "写了", Value: countWordsForLang(draft.Body, wr.Lang), Unit: "字"},
 		{Key: "focusMinutes", Label: "专注时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
-		{Key: "chatTurns", Label: "和印记聊了", Value: countStudentMessages(msgs), Unit: "轮"},
+		{Key: "chatTurns", Label: "AI 教练对话轮数", Value: countStudentMessages(msgs)},
 		{Key: "outline", Label: "搭了提纲", Value: len(outline), Unit: "条"},
 		{Key: "snippets", Label: "改了", Value: len(snippets), Unit: "段"},
 		{Key: "comments", Label: "印记读了", Value: len(comments), Unit: "遍"},
 	}
 
-	moments, gains := a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)
+	prose := a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)
+
+	// A writing has no takeaway field at all, so its 我的收获 is always the
+	// model's summary or nothing — which is why this card was simply missing
+	// from every writing report before now.
+	var keep *reportKeep
+	if prose.Summary != "" {
+		keep = &reportKeep{Label: "我的收获", Text: prose.Summary, Source: keepSourceCoach}
+	}
 
 	finishedAt := ""
 	if wr.FinishedAt.Valid {
 		finishedAt = wr.FinishedAt.Time.Format(time.RFC3339)
 	}
 
-	// keep is always nil for a writing — see the file comment: a writing has
-	// no single deterministic "one thing to take away" the way a reading's
-	// takeaway is; its 金句 carry that weight instead.
 	return liteReportDTO{
 		Version: 1, Kind: "writing", Title: wr.Title, StudentName: studentName,
-		FinishedAt: finishedAt, Stats: stats, Moments: moments, Keep: nil, Gains: gains,
+		FinishedAt: finishedAt, Stats: stats, Moments: prose.Moments, Keep: keep, Gains: prose.Gains,
 	}, nil
 }
 

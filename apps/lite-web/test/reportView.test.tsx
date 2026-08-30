@@ -113,13 +113,41 @@ describe("ReportView", () => {
 
   it("shows her own 收获, attributed as hers", () => {
     const withKeep = report({
-      keep: { label: "我的收获", text: "光看一个国家的排放总量，会漏掉发展阶段这个变量。" },
+      keep: { label: "我的收获", text: "光看一个国家的排放总量，会漏掉发展阶段这个变量。", source: "student" },
     });
 
     render(<ReportView report={withKeep} />);
 
     expect(screen.getByText("我的收获")).toBeTruthy();
     expect(screen.getByText(/光看一个国家的排放总量，会漏掉发展阶段这个变量。/)).toBeTruthy();
+    expect(screen.getByText("—— Phoebe")).toBeTruthy();
+  });
+
+  // 完成这篇 stopped asking for a takeaway, so 我的收获 is now usually written
+  // by 印记 from her session. The one thing that must never happen: that
+  // paragraph appearing under her name as if she had written it.
+  it("says out loud when 我的收获 was written by 印记, not by her", () => {
+    const generated = report({
+      keep: { label: "我的收获", text: "你一开始把装机量当成了发电量，后来自己发现了这两件事的差别。", source: "coach" },
+    });
+
+    render(<ReportView report={generated} />);
+
+    expect(screen.getByText("我的收获")).toBeTruthy();
+    expect(screen.getByText("印记根据你这次阅读整理")).toBeTruthy();
+    // never signed with her name
+    expect(screen.queryByText("—— Phoebe")).toBeNull();
+  });
+
+  it("names the right activity in the 印记-written attribution on a writing report", () => {
+    const generated = report({
+      kind: "writing",
+      keep: { label: "我的收获", text: "你把论点从一句口号，改成了一句可以被反驳的话。", source: "coach" },
+    });
+
+    render(<ReportView report={generated} />);
+
+    expect(screen.getByText("印记根据你这次写作整理")).toBeTruthy();
   });
 
   it("shows each 透镜 note with the lens name, HER picked sentence honestly labelled, and the 发现", () => {
@@ -236,8 +264,11 @@ describe("ReportView", () => {
     const { container } = render(
       <ReportView report={report({ stats: [{ key: "d", label: "专注时长", value: 12, unit: "分钟" }] })} />,
     );
+    // `.mk-rp-measure` is where the 1180px and the gutters live — one CSS rule
+    // shared by the report, the action bar, the stars and the public footer, so
+    // none of them can drift out of alignment with the others.
     const root = container.querySelector(".mk-rp");
-    expect(root?.className).toContain("max-w-[1180px]");
+    expect(root?.className).toContain("mk-rp-measure");
     // and the stats are a grid strip, not a wrapping flex row
     expect(container.querySelectorAll(".mk-rp-stats").length).toBe(1);
   });
@@ -261,7 +292,7 @@ describe("ReportView", () => {
         { key: "sources", label: "查证的来源", value: 3, unit: "个" },
       ],
       moments: [{ quote: "证据比立场更早出现在她的段落里。", where: "第 2 段" }],
-      keep: { label: "我的收获", text: "溯源比我想的更花时间，但也更让人信服。" },
+      keep: { label: "我的收获", text: "溯源比我想的更花时间，但也更让人信服。", source: "student" },
       gains: ["用 CRAAP 溯源到了一手数据", "写完了让步段"],
     });
 
