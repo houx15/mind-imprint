@@ -812,12 +812,28 @@
   }
 }
 
-/* One hairline of accent along the top of 印记's pane — the same instrument
-   vocabulary as the dial, at a tenth of the volume. Purely decorative, and
-   inside an `overflow: hidden` rounded pane, so it cannot be clicked or read. */
+/* 🚨 The pane needs vertical padding of its own now.
+ *
+ * `StepIndicator` used to sit at the top of this column, and it was doing an
+ * unadvertised second job: keeping the conversation off the pane's own border.
+ * With it gone the first 印记 bubble's rounded top corner landed ON the top
+ * border — and the composer's rounded bottom corner on the bottom one — which
+ * reads as two boxes colliding with the frame rather than sitting inside it.
+ * (Reported as 「ai box top overlaps with the borderline is very strange」.)
+ *
+ * The padding shrinks the flex column, so the scroll box's own edge is 12px
+ * inside the frame: a message scrolling up is now cut by clean empty space
+ * instead of by the border it was sharing a pixel with. */
 .mk-lite-room .mk-reading-room__coach {
   position: relative;
+  padding-top: 12px;
+  padding-bottom: 12px;
 }
+
+/* One hairline of accent along the top of 印记's pane — the same instrument
+   vocabulary as the dial, at a tenth of the volume. Purely decorative, and
+   inside an `overflow: hidden` rounded pane, so it cannot be clicked or read.
+   It sits ABOVE the padding, so nothing scrolls through it. */
 
 .mk-lite-room .mk-reading-room__coach::before {
   content: "";

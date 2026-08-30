@@ -194,6 +194,17 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
     expect(coach).toBeGreaterThan(article);
   });
 
+  it("印记那一栏自己带上下内边距，对话框不会压在面板边框上", () => {
+    // `StepIndicator` used to sit at the top of this column and, without ever
+    // advertising it, kept the conversation off the pane's own border. With it
+    // gone the first bubble's rounded corner landed ON the top border and the
+    // composer's on the bottom one — 「ai box top overlaps with the borderline
+    // is very strange」. The padding is what holds them apart now.
+    const coach = ruleBody(".mk-lite-room .mk-reading-room__coach");
+    expect(coach).toMatch(/padding-top\s*:\s*\d+px/);
+    expect(coach).toMatch(/padding-bottom\s*:\s*\d+px/);
+  });
+
   it("进度盘挂在房间自己身上，不会飘到导航栏上面去", () => {
     // `.mk-plandial` is `position: absolute`; without a positioned ancestor it
     // resolves against the viewport and lands on top of the app's nav rail.
