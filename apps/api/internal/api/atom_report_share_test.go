@@ -178,18 +178,26 @@ func TestPublicPayloadCarriesNothingExtra(t *testing.T) {
 		t.Fatalf("payload[\"report\"] is not an object: %#v", payload["report"])
 	}
 
-	want := []string{"version", "kind", "title", "studentName", "finishedAt", "stats", "moments", "keep", "gains"}
+	// What this test is actually for: the PUBLIC payload must never leak the
+	// authenticated envelope's own fields (shared/shareToken/rating). So the
+	// check is an allow-list of report fields, not an exact-length match —
+	// the report's `omitempty` sections (moments, gains, lensNotes, notes)
+	// appear or not depending on how thin the fixture session is, and pinning
+	// the count made adding a legitimate report field look like a leak.
+	allowed := map[string]bool{
+		"version": true, "kind": true, "title": true, "studentName": true,
+		"finishedAt": true, "stats": true, "moments": true, "keep": true,
+		"gains": true, "lensNotes": true, "notes": true,
+	}
 	got := keysOf(report)
-	if len(got) != len(want) {
-		t.Fatalf("report keys = %v, want exactly %v", got, want)
-	}
-	wantSet := map[string]bool{}
-	for _, k := range want {
-		wantSet[k] = true
-	}
 	for _, k := range got {
-		if !wantSet[k] {
-			t.Fatalf("report carries an extra field %q it must not — full key set %v", k, got)
+		if !allowed[k] {
+			t.Fatalf("report carries a field %q it must not — full key set %v", k, got)
+		}
+	}
+	for _, required := range []string{"version", "kind", "title", "studentName", "finishedAt", "stats", "keep"} {
+		if _, ok := report[required]; !ok {
+			t.Fatalf("report is missing always-present field %q — full key set %v", required, got)
 		}
 	}
 }

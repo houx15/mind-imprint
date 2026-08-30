@@ -1116,3 +1116,238 @@
     transition: none;
   }
 }
+
+/* ── 报告页 · mk-rp ────────────────────────────────────────────────────────
+ *
+ * The end-of-session report (`ReportView.tsx`). Wide, colourful, data-plenty
+ * — see that file's header for the layout law these rules serve.
+ *
+ * Everything here is layout, gradient and motion. COLOUR PER ITEM stays in
+ * the component as inline `style={{ background: var(--mk-…-bg) }}`, because
+ * the macaron palette cycles per index and a stylesheet cannot know an
+ * item's position. Do not add per-hue classes here; they would drift from
+ * `macaron()`.
+ *
+ * Every animation has a `prefers-reduced-motion` escape at the foot of this
+ * block. A report is something a student may open dozens of times; motion
+ * that cannot be turned off becomes noise.
+ */
+
+/* Auto-fit, not a breakpoint ladder: seven stat tiles across a laptop, two
+ * across a phone, and it still works for three stats or nine. */
+.mk-rp-stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(162px, 1fr));
+  gap: 12px;
+}
+
+.mk-rp-stat {
+  border: 1px solid color-mix(in srgb, var(--mk-ink) 6%, transparent);
+  transition: transform 220ms cubic-bezier(.2, 0, 0, 1), box-shadow 220ms cubic-bezier(.2, 0, 0, 1);
+}
+
+.mk-rp-stat:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--mk-shadow-md);
+}
+
+/* The numerals are the loudest thing on the strip, so they get their own
+ * size rather than a type token — and tabular figures, so a row of tiles
+ * does not jitter its baseline between 8 and 1180. */
+/* The numeral and its unit are ONE line, always. A four-digit stat (读了
+ * 3,428 字) wrapped its unit onto a second line and the tile then read as
+ * two unrelated facts stacked — `字` sitting alone above `读了`. Baseline
+ * flex with nowrap is what keeps 「3,428 字」 a single quantity; the size
+ * steps up only once there is room for it. */
+.mk-rp-stat__value {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  flex-wrap: nowrap;
+  font-size: 29px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+@media (min-width: 1200px) {
+  .mk-rp-stat__value { font-size: 33px; }
+}
+
+/* Hero band. The gradient is painted with color-mix over the macaron tokens
+ * rather than Tailwind alpha utilities — `mk-*` are bare custom properties,
+ * so `bg-mk-peach/40` would emit no CSS at all. */
+.mk-rp-hero {
+  border: 1px solid color-mix(in srgb, var(--mk-accent-500) 16%, var(--mk-border));
+  background:
+    radial-gradient(120% 140% at 8% 0%, color-mix(in srgb, var(--mk-peach) 55%, transparent) 0%, transparent 58%),
+    radial-gradient(110% 130% at 95% 10%, color-mix(in srgb, var(--mk-lake) 48%, transparent) 0%, transparent 62%),
+    linear-gradient(135deg, color-mix(in srgb, var(--mk-accent-500) 10%, var(--mk-surface)) 0%, var(--mk-surface) 62%);
+}
+
+/* A slow sweep across the band — the only continuously moving thing on the
+ * page, kept faint enough to read as light rather than as an animation. */
+.mk-rp-hero__glow {
+  position: absolute;
+  inset: -40%;
+  pointer-events: none;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--mk-accent-500) 22%, transparent) 40deg,
+    transparent 110deg,
+    transparent 360deg
+  );
+  animation: mk-rp-sweep 14s linear infinite;
+  /* Blurred, or the conic gradient's leading edge cuts a hard diagonal across
+   * the band and reads as a rendering artifact rather than as light. */
+  filter: blur(48px);
+  opacity: 0.65;
+}
+
+@keyframes mk-rp-sweep {
+  to { transform: rotate(360deg); }
+}
+
+.mk-rp-chip {
+  background: color-mix(in srgb, var(--mk-accent-500) 14%, var(--mk-surface));
+  color: var(--mk-accent-700);
+  border: 1px solid color-mix(in srgb, var(--mk-accent-500) 24%, transparent);
+}
+
+.mk-rp-name {
+  font-weight: 700;
+}
+
+/* 我的收获 — the loudest card on the page after the hero, because it is the
+ * one sentence she'd take away. */
+.mk-rp-keep {
+  border: 1px solid color-mix(in srgb, var(--mk-accent-500) 26%, var(--mk-border));
+  background: linear-gradient(
+    140deg,
+    color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface)) 0%,
+    var(--mk-surface) 70%
+  );
+  box-shadow: var(--mk-shadow-sm);
+}
+
+.mk-rp-keep__text {
+  font-size: 22px;
+  line-height: 1.75;
+  font-weight: 600;
+}
+
+@media (min-width: 640px) {
+  .mk-rp-keep__text { font-size: 26px; }
+}
+
+/* 金句 cards, auto-fit so two or three sit side by side instead of stacking
+ * into a ribbon of whitespace on a wide screen. */
+.mk-rp-moments {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 14px;
+}
+
+.mk-rp-moment {
+  transition: transform 220ms cubic-bezier(.2, 0, 0, 1);
+}
+
+.mk-rp-moment:hover {
+  transform: translateY(-2px);
+}
+
+.mk-rp-moment__mark {
+  position: absolute;
+  left: 12px;
+  top: 2px;
+  font-size: 52px;
+  line-height: 1;
+  opacity: 0.55;
+}
+
+.mk-rp-moment__text {
+  font-size: 19px;
+  line-height: 1.75;
+  font-weight: 600;
+}
+
+/* 我的笔记 + 我用透镜查到的, side by side on a wide screen. When only one of
+ * the two has content it simply fills the row — no placeholder column. */
+.mk-rp-columns {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 28px;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .mk-rp-columns {
+    grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  }
+}
+
+.mk-rp-card {
+  background: var(--mk-surface);
+  border: 1px solid var(--mk-border);
+  transition: border-color 200ms ease-out, box-shadow 200ms ease-out;
+}
+
+.mk-rp-card:hover {
+  border-color: color-mix(in srgb, var(--mk-accent-500) 30%, var(--mk-border));
+  box-shadow: var(--mk-shadow-sm);
+}
+
+/* The 原文 rail: the article's words, visibly subordinate to her note above
+ * them. The left border colour is set inline, from the same macaron cycle. */
+.mk-rp-source {
+  border-left: 2px solid var(--mk-border);
+}
+
+.mk-rp-gains {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.mk-rp-gain__no {
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.1;
+  font-variant-numeric: tabular-nums;
+  opacity: 0.6;
+}
+
+.mk-rp-title__rule {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--mk-border), transparent);
+}
+
+/* Entrance stagger. `--i` is set per block in the component; the delay is
+ * capped by how few blocks a report has, so no reader ever waits on it. */
+.mk-rp-rise {
+  animation: mk-rp-rise 520ms cubic-bezier(.2, 0, 0, 1) both;
+  animation-delay: calc(var(--i, 0) * 45ms);
+}
+
+@keyframes mk-rp-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-rp-rise,
+  .mk-rp-hero__glow {
+    animation: none;
+  }
+  .mk-rp-stat,
+  .mk-rp-moment,
+  .mk-rp-card {
+    transition: none;
+  }
+  .mk-rp-stat:hover,
+  .mk-rp-moment:hover {
+    transform: none;
+  }
+}

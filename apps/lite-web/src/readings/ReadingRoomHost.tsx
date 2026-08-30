@@ -272,8 +272,25 @@ function Centered({ children }: { children: React.ReactNode }) {
  * READ-ONLY BY CONSTRUCTION. There is no room here, so there is no way to
  * summon another lens, write another note, or re-finish it: the state is
  * terminal and the surface has nothing that could change it. What she gets
- * instead is the thing the reading produced — 我的收获, in her own words —
- * and, below it via `ReportPanel`, the end-of-session report.
+ * instead is the report, which now leads the page and carries its own wide
+ * hero (title, her name, the date) — so this panel deliberately keeps only a
+ * thin bar above it: back, the 已完成 chip, the day.
+ *
+ * Two blocks that used to live here are gone on purpose, and both were
+ * duplicates of the report rather than losses:
+ *   - the big `<h1>` title — the report's hero states it at display size, and
+ *     two titles stacked 40px apart read as a rendering bug.
+ *   - the 我的收获 card — `ReportView`'s own 我的收获 renders the SAME
+ *     `reading_takeaway.text` verbatim (server-side it is `keep`, copied, not
+ *     summarised), as the largest card on the page.
+ * `takeaway` therefore no longer renders here; it stays a prop because the
+ * loader already has it and the tests pin that a reading without one shows no
+ * 我的收获 anywhere.
+ *
+ * The report is deliberately NOT wrapped in this panel's own max-width:
+ * `ReportView` is self-contained (its own 1180px, its own gutters) because
+ * `PublicReportPage` mounts it with no chrome at all, and a second wrapper
+ * here would double the padding and cap the width twice.
  */
 function FinishedReadingPanel({
   reading,
@@ -286,40 +303,44 @@ function FinishedReadingPanel({
 }) {
   const day = shortDay(reading.finishedAt ?? reading.updatedAt);
   return (
-    <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 py-14">
-      <div className="flex flex-col gap-3">
+    <div className="flex w-full flex-col pb-14">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center gap-3 px-5 pt-8 sm:px-8">
+        <Button variant="secondary" onClick={onBack}>
+          回到阅读
+        </Button>
         <span
-          className="w-fit rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
+          className="rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
           style={{ background: "var(--mk-success-bg)" }}
         >
           已完成
         </span>
-        <h1 className="text-mk-display text-mk-ink">{reading.title}</h1>
-        {day && <p className="text-mk-small text-mk-muted">完成于 {day}</p>}
+        {day && <span className="text-mk-small text-mk-muted">完成于 {day}</span>}
+        {/* A breadcrumb, not a heading: the report's hero states the title at
+            display size, so this is the small line that keeps the page named
+            when the report is still loading or failed to load. */}
+        <span className="min-w-0 truncate text-mk-small text-mk-muted">{reading.title}</span>
       </div>
 
-      {/* The REPORT is what a finished reading produces now, so it leads.
-          我的收获 used to sit above it as the headline — a textarea she filled
-          in on a finalize form. That form is gone (完成这篇 finishes and lands
-          here), so this block renders only for readings that actually have
-          one: older readings, and anyone who wrote a 收获 through the still-live
-          PUT /takeaway. An empty box saying 「这次阅读没有留下收获记录」 would
-          now be reporting a form we stopped asking her to fill. */}
-      <ReportPanel kind="reading" atomId={reading.id} />
+      <ReportPanel
+        kind="reading"
+        atomId={reading.id}
+        // Only when there is no report: the report's own 我的收获 renders this
+        // exact text (server-side `keep` is the takeaway, copied verbatim), so
+        // rendering both would print her 收获 twice on every finished reading.
+        fallback={
+          takeaway.trim() ? (
+            <div className="mx-auto w-full max-w-[1180px] px-5 py-8 sm:px-8">
+              <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
+                <h2 className="text-mk-label text-mk-faint">我的收获</h2>
+                <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{takeaway}</p>
+              </div>
+            </div>
+          ) : null
+        }
+      />
 
-      {takeaway.trim() && (
-        <div className="rounded-mk-md border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
-          <h2 className="text-mk-label text-mk-faint">我的收获</h2>
-          <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{takeaway}</p>
-        </div>
-      )}
-
-      <ReadingQuestions readingId={reading.id} />
-
-      <div>
-        <Button variant="secondary" onClick={onBack}>
-          回到阅读
-        </Button>
+      <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-8">
+        <ReadingQuestions readingId={reading.id} />
       </div>
     </div>
   );

@@ -24,6 +24,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     keep: null,
     gains: [],
     lensNotes: [],
+    notes: [],
     ...over,
   };
 }
@@ -73,7 +74,8 @@ describe("ReportView", () => {
     expect(screen.queryByText("笔记")).toBeNull();
     expect(screen.queryByText("读完")).toBeNull();
     // no row, no wrapper, no gap left behind for an empty stats section.
-    expect(container.querySelectorAll(".flex-wrap").length).toBe(0);
+    expect(container.querySelectorAll(".mk-rp-stats").length).toBe(0);
+    expect(container.querySelectorAll(".mk-rp-stat").length).toBe(0);
   });
 
   it("renders only the non-zero stats from a mixed set", () => {
@@ -180,9 +182,64 @@ describe("ReportView", () => {
     // No dangling label/paragraph left over for the absent finding: the
     // note's card renders exactly one <p> (the quote), not a second empty
     // one for the finding it doesn't have.
-    const cards = container.querySelectorAll(".rounded-mk-lg.border.border-mk-border.bg-mk-surface");
+    const cards = container.querySelectorAll(".mk-rp-card");
     expect(cards.length).toBe(1);
     expect(cards[0]?.querySelectorAll("p").length).toBe(1);
+  });
+
+  it("shows 我的笔记 — her note, and the article sentence it hangs off, each labelled for whose words it is", () => {
+    const withNotes = report({
+      notes: [
+        { quote: "2023 年中国的可再生能源装机量居世界第一。", note: "这个第一是装机量，不是发电量，别混了。" },
+        { quote: "碳排放总量仍在增长。", note: "和上一段的说法有点矛盾，得回去查。" },
+      ],
+    });
+
+    render(<ReportView report={withNotes} />);
+
+    expect(screen.getByText("我的笔记")).toBeTruthy();
+    expect(screen.getByText("这个第一是装机量，不是发电量，别混了。")).toBeTruthy();
+    expect(screen.getByText("和上一段的说法有点矛盾，得回去查。")).toBeTruthy();
+    // R4: the article's sentence is present but carries the 原文 label. If
+    // this label ever disappears, the article's words are sitting unmarked
+    // under her name on a page she can publish to anyone.
+    expect(screen.getAllByText("原文").length).toBe(2);
+    expect(screen.getByText(/2023 年中国的可再生能源装机量居世界第一。/)).toBeTruthy();
+  });
+
+  it("renders no 我的笔记 section when she left none — no heading, no empty card", () => {
+    const { container } = render(<ReportView report={report({ notes: [] })} />);
+    expect(screen.queryByText("我的笔记")).toBeNull();
+    expect(container.querySelectorAll(".mk-rp-card").length).toBe(0);
+  });
+
+  it("keeps a note's own words out of any blockquote — 我的笔记 is not dressed as a 金句", () => {
+    const mixed = report({
+      moments: [{ quote: "这是一句金句。", where: "第 1 段" }],
+      notes: [{ quote: "这是原文的句子。", note: "这是我写的批注。" }],
+    });
+
+    const { container } = render(<ReportView report={mixed} />);
+
+    const quotes = container.querySelectorAll("blockquote");
+    expect(quotes.length).toBe(1);
+    for (const bq of quotes) {
+      expect(bq.textContent).not.toContain("这是我写的批注。");
+      expect(bq.textContent).not.toContain("这是原文的句子。");
+    }
+  });
+
+  it("lays the report out wide, not as a phone column", () => {
+    // The redesign's whole premise ("make it a wide screen … thing"). A
+    // 640px cap here is the exact regression that produced the complaint,
+    // and it is invisible to every content assertion above.
+    const { container } = render(
+      <ReportView report={report({ stats: [{ key: "d", label: "专注时长", value: 12, unit: "分钟" }] })} />,
+    );
+    const root = container.querySelector(".mk-rp");
+    expect(root?.className).toContain("max-w-[1180px]");
+    // and the stats are a grid strip, not a wrapping flex row
+    expect(container.querySelectorAll(".mk-rp-stats").length).toBe(1);
   });
 
   it("renders 2-4 gain lines when present", () => {

@@ -1,32 +1,61 @@
-import type { LiteReport } from "@lite/api/reports";
+import type { LiteReport, ReportStat } from "@lite/api/reports";
 
 /**
- * ReportView — the report itself, as a warm poster rather than a dashboard.
+ * ReportView — a wide, colourful record of one session, not a column of prose.
  *
- * Pure presentation: props in, markup out. No fetching, no share controls,
- * no export button — Task 10 wraps this with the room chrome and share
- * controls, Task 12 mounts this exact component on a public page that runs
- * with NO session at all. Neither caller should need to know anything about
- * this component's internals beyond `<ReportView report={LiteReport} />`.
+ * ## Why it looks like this
  *
- * Every section below is independently optional and renders `null` when its
- * data is absent — no empty headings, no "暂无" placeholders, no skeleton
- * rows. A student who wrote two sentences gets one stat and nothing else,
- * and the page still reads as composed rather than broken. This is the case
- * to look at first; it is the one nobody notices when it ships broken.
+ * The first version of this file was a 640px column of stacked text sections.
+ * The product owner's verdict on it was blunt: "is that a real report? do
+ * people will have any intent to share it??? make it a wide screen colorful,
+ * data-plenty, keypoints shining thing." So the layout law here is:
  *
- * 铁律②: this is a RECORD of what she did, never a verdict on it, and never
- * a comparison to anyone else. No score, no grade, no rank, no streak, no
- * badge — the copy here is deliberately free of that vocabulary, and a test
- * asserts it stays that way.
+ *   - **Wide.** Up to 1180px, laid out in a real grid. A report is read on a
+ *     laptop and screenshotted; a phone-width column wastes the whole screen.
+ *   - **Data-plenty.** The stat strip is auto-fit, so seven facts land as a
+ *     wide band on a laptop and a 2-up grid on a phone with no breakpoint
+ *     list to maintain.
+ *   - **Keypoints shining.** 我的收获 and 金句 get the largest type and the
+ *     strongest colour on the page. Everything else is support.
  *
- * Colour comes from the fixed "macaron" `mk-` tokens (`--mk-peach` …
- * `--mk-berry`, each with a paired `-bg`/`-fg`). Every one of those is read
- * as `var(--mk-…)` in an inline `style`, never as a Tailwind class with `/NN`
- * alpha — `mk-*` are bare CSS custom properties, so `bg-mk-peach-bg/30`
- * would emit no CSS at all and silently ship an invisible card. The palette
- * cycles per item via `macaron()` below so a multi-stat, multi-quote report
- * reads as colourful without any one section drowning in a single hue.
+ * Pure presentation: props in, markup out. No fetching, no share controls, no
+ * export button — `ReportPanel` wraps this with the room chrome, and
+ * `PublicReportPage` mounts this exact component with NO session at all.
+ *
+ * ## The rules that outlive any redesign
+ *
+ * Every section is independently optional and renders `null` when its data is
+ * absent — no empty headings, no 「暂无」 placeholders, no skeleton rows. A
+ * student who wrote two sentences gets one stat and nothing else, and the page
+ * still reads as composed rather than broken. That is the case to look at
+ * first; it is the one nobody notices when it ships broken.
+ *
+ * 铁律②: this is a RECORD of what she did, never a verdict on it, and never a
+ * comparison to anyone else. No score, no grade, no rank, no streak, no badge
+ * — the copy here is deliberately free of that vocabulary, and a test asserts
+ * it stays that way.
+ *
+ * R4 / whose words are whose: three sections quote text, and each one labels
+ * its source out loud, because two of them are NOT hers. 金句 are her own
+ * sentences (the server validates every one as a literal substring of a
+ * hers-only corpus). 我的笔记 pairs the ARTICLE's sentence (`note.quote`,
+ * labelled 原文) with HER note. 我用透镜查到的 pairs the ARTICLE's sentence she
+ * picked (labelled 我选的句子) with the room's 发现. Merging any of those pairs
+ * into one undifferentiated quote would put the article's words under her name
+ * — never do it, on this page or on the exported picture.
+ *
+ * ## Colour
+ *
+ * The fixed "macaron" `mk-` tokens (`--mk-peach` … `--mk-berry`, each with a
+ * paired `-bg`/`-fg`), cycled per item by `macaron()` so a multi-stat,
+ * multi-quote report reads as colourful without any one section drowning in a
+ * single hue. Every one is read as `var(--mk-…)` in an inline `style`, never
+ * as a Tailwind class with `/NN` alpha — `mk-*` are bare CSS custom
+ * properties, so `bg-mk-peach-bg/30` emits no CSS at all and would silently
+ * ship an invisible card.
+ *
+ * Motion and the heavier gradients live in `.mk-rp-*` rules in
+ * `apps/lite-web/src/index.css`, each with a `prefers-reduced-motion` escape.
  */
 
 const MACARON = [
@@ -53,93 +82,131 @@ function formatDate(iso: string): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+/** Entrance stagger. Each animated block reads `--i` off its own style and
+ *  multiplies it into its delay (see `.mk-rp-rise` in index.css), so a long
+ *  report cascades in instead of popping as one slab. */
+function rise(i: number): React.CSSProperties {
+  return { ["--i" as string]: i } as React.CSSProperties;
+}
+
 export function ReportView({ report }: { report: LiteReport }) {
   const kindLabel = report.kind === "reading" ? "一次阅读的记录" : "一次写作的记录";
   const date = formatDate(report.finishedAt);
+  // A stat of 0 is absence, not a fact worth stating — a wall of coloured
+  // zeros reads as a broken page, not as a record.
+  const stats = report.stats.filter((stat) => stat.value !== 0);
 
   return (
-    <article className="mx-auto flex w-full max-w-[640px] flex-col gap-9 px-6 py-14">
-      <header className="flex flex-col gap-3">
-        <span
-          className="w-fit rounded-mk-full px-2.5 py-1 text-mk-label"
-          style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
-        >
-          {kindLabel}
-        </span>
-        <h1 className="text-mk-display text-mk-ink">{report.title}</h1>
-        <p className="text-mk-small text-mk-muted">
-          {report.studentName}
-          {date && ` · ${date}`}
-        </p>
-      </header>
-
-      <StatsRow stats={report.stats} />
+    <article className="mk-rp mx-auto flex w-full max-w-[1180px] flex-col gap-8 px-5 py-8 sm:px-8 sm:py-12">
+      <Hero kindLabel={kindLabel} title={report.title} name={report.studentName} date={date} />
+      <StatStrip stats={stats} />
+      <Keep keep={report.keep} name={report.studentName} />
       <Moments moments={report.moments} />
-      <LensNotes notes={report.lensNotes} />
-      <Keep keep={report.keep} />
+      <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
     </article>
   );
 }
 
-function StatsRow({ stats }: { stats: LiteReport["stats"] }) {
-  // A stat of 0 is absence, not a fact worth stating — four coloured zeros
-  // read as a broken page, not as a record. Same "absent rather than empty"
-  // rule every other section here already follows: no row, no wrapper, no
-  // gap when nothing survives.
-  const nonZero = stats.filter((stat) => stat.value !== 0);
-  if (nonZero.length === 0) return null;
+/** The band across the top: the title at display size, her name and the date
+ *  under it, over a slow-moving gradient. This is the part that gets
+ *  screenshotted, so it carries the identity and nothing operational. */
+function Hero({
+  kindLabel,
+  title,
+  name,
+  date,
+}: {
+  kindLabel: string;
+  title: string;
+  name: string;
+  date: string;
+}) {
   return (
-    <div className="flex flex-wrap gap-4">
-      {nonZero.map((stat, i) => {
+    <header className="mk-rp-hero mk-rp-rise relative overflow-hidden rounded-mk-lg px-6 py-9 sm:px-10 sm:py-12" style={rise(0)}>
+      <div className="mk-rp-hero__glow" aria-hidden="true" />
+      <div className="relative flex flex-col gap-4">
+        <span className="mk-rp-chip w-fit rounded-mk-full px-3 py-1 text-mk-label">{kindLabel}</span>
+        <h1 className="max-w-[22ch] text-mk-display leading-tight text-mk-ink sm:text-[42px]">{title}</h1>
+        <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-mk-body text-mk-muted">
+          <span className="mk-rp-name text-mk-h3 text-mk-ink">{name}</span>
+          {date && <span>{date}</span>}
+        </p>
+      </div>
+    </header>
+  );
+}
+
+/** The wide band of numerals. `auto-fit` rather than a breakpoint ladder: the
+ *  same rule lays seven tiles across a laptop and two across a phone, and it
+ *  keeps working when a report carries three stats or nine. */
+function StatStrip({ stats }: { stats: ReportStat[] }) {
+  if (stats.length === 0) return null;
+  return (
+    <section className="mk-rp-stats" aria-label="这次的数据">
+      {stats.map((stat, i) => {
         const { bg, fg } = macaron(i);
         return (
           <div
             key={stat.key}
-            className="flex min-w-[120px] flex-1 flex-col gap-1 rounded-mk-lg px-5 py-4"
-            style={{ background: bg }}
+            className="mk-rp-stat mk-rp-rise rounded-mk-lg px-4 py-4 sm:px-5 sm:py-5"
+            style={{ background: bg, ...rise(i + 1) }}
           >
-            <span className="text-mk-display leading-none" style={{ color: fg }}>
-              {stat.value}
-              {stat.unit && <span className="ml-0.5 text-mk-h3">{stat.unit}</span>}
+            {/* No `block` utility here: `.mk-rp-stat__value` is a baseline
+                flex row, which is what keeps a four-digit value and its unit
+                on one line. */}
+            <span className="mk-rp-stat__value leading-none" style={{ color: fg }}>
+              {stat.value.toLocaleString("zh-CN")}
+              {stat.unit && <span className="text-mk-h3">{stat.unit}</span>}
             </span>
-            <span className="text-mk-label" style={{ color: fg }}>
+            <span className="mt-2 block text-mk-label" style={{ color: fg }}>
               {stat.label}
             </span>
           </div>
         );
       })}
-    </div>
+    </section>
   );
 }
 
-/** 金句 — pull-quotes with room to breathe, not shrunk into a bullet list.
- *  Each carries its own small "来自：{where}" attribution underneath. */
+/** 我的收获, verbatim and hers — the one thing she'd take away, given the
+ *  biggest type on the page. Attributed via the server-supplied `label`,
+ *  never presented as the AI's summary of her. */
+function Keep({ keep, name }: { keep: LiteReport["keep"]; name: string }) {
+  if (!keep) return null;
+  return (
+    <section className="mk-rp-keep mk-rp-rise relative overflow-hidden rounded-mk-lg px-6 py-8 sm:px-10 sm:py-10" style={rise(2)}>
+      <h2 className="text-mk-label" style={{ color: "var(--mk-accent-700)" }}>
+        {keep.label}
+      </h2>
+      <p className="mk-rp-keep__text mt-4 whitespace-pre-wrap text-mk-ink">{keep.text}</p>
+      <p className="mt-4 text-mk-small text-mk-muted">—— {name}</p>
+    </section>
+  );
+}
+
+/** 金句 — her own sentences, pulled out and given room. Auto-fit cards so two
+ *  or three sit side by side on a wide screen instead of stacking into a
+ *  ribbon of whitespace. Each carries its own 来自 attribution. */
 function Moments({ moments }: { moments: LiteReport["moments"] }) {
   if (moments.length === 0) return null;
   return (
-    <section className="flex flex-col gap-5">
-      <span className="text-mk-label text-mk-faint">金句</span>
-      <div className="flex flex-col gap-4">
+    <section className="flex flex-col gap-4">
+      <SectionTitle>金句</SectionTitle>
+      <div className="mk-rp-moments">
         {moments.map((m, i) => {
           const { bg, fg } = macaron(i + 2);
           return (
             <blockquote
               key={`${m.where}-${i}`}
-              className="relative rounded-mk-lg py-6 pl-9 pr-6"
-              style={{ background: bg }}
+              className="mk-rp-moment mk-rp-rise relative overflow-hidden rounded-mk-lg py-7 pl-10 pr-6"
+              style={{ background: bg, ...rise(i + 3) }}
             >
-              <span
-                aria-hidden="true"
-                className="absolute left-3 top-2 text-[38px] leading-none"
-                style={{ color: fg }}
-              >
+              <span aria-hidden="true" className="mk-rp-moment__mark" style={{ color: fg }}>
                 “
               </span>
-              <p className="text-mk-h2 text-mk-ink" style={{ lineHeight: 1.7 }}>
-                {m.quote}
-              </p>
-              <footer className="mt-3 text-mk-small" style={{ color: fg }}>
+              <p className="mk-rp-moment__text text-mk-ink">{m.quote}</p>
+              <footer className="mt-4 text-mk-small" style={{ color: fg }}>
                 来自：{m.where}
               </footer>
             </blockquote>
@@ -150,73 +217,147 @@ function Moments({ moments }: { moments: LiteReport["moments"] }) {
   );
 }
 
-/** 我用透镜查到的 — what her 透镜 work produced: for each lens card she
- *  submitted, the sentence SHE picked out of the article, plus the 发现 the
- *  room drew from it. This is a DIFFERENT kind of thing from 金句 above —
- *  a 金句 is a sentence of hers the MODEL picked out as noteworthy prose;
- *  a lens note is her own act of picking a sentence out of the ARTICLE,
- *  which is real work and real thinking even though the words themselves
- *  are the article's, not hers. So the labels here are deliberately
- *  explicit about whose words are whose ("我选的句子" — a sentence from the
- *  article, chosen by her), and the visual treatment is deliberately NOT
- *  the 金句 pull-quote (no giant quotation mark, no full-bleed macaron
- *  card) — a plain bordered card per lens, so the two sections never read
- *  as the same kind of content in different clothes. */
-function LensNotes({ notes }: { notes: LiteReport["lensNotes"] }) {
+/** The two evidence columns, side by side on a wide screen: what she wrote in
+ *  the margins, and what her 透镜 work turned up. Both are lists of quote+prose
+ *  pairs, so pairing them in one grid is what makes the page read as a spread
+ *  rather than an endless scroll — and when only one of the two has content,
+ *  the grid collapses to a single full-width column on its own. */
+function NotesAndLenses({
+  notes,
+  lensNotes,
+}: {
+  notes: LiteReport["notes"];
+  lensNotes: LiteReport["lensNotes"];
+}) {
+  if (notes.length === 0 && lensNotes.length === 0) return null;
+  return (
+    <div className="mk-rp-columns">
+      <MyNotes notes={notes} />
+      <LensNotes notes={lensNotes} />
+    </div>
+  );
+}
+
+/** 我的笔记 — every margin note she left, each hanging off the article
+ *  sentence it was about.
+ *
+ *  Whose words are whose is the entire design of this card: the article's
+ *  sentence sits in a muted, indented rail under the label 原文, and HER note
+ *  is the black, full-size text above it. If you ever find yourself tempted to
+ *  drop the 原文 label or to promote the quote to the same weight as her note,
+ *  read this file's R4 paragraph again. */
+function MyNotes({ notes }: { notes: LiteReport["notes"] }) {
   if (notes.length === 0) return null;
   return (
     <section className="flex flex-col gap-4">
-      <span className="text-mk-label text-mk-faint">我用透镜查到的</span>
+      <SectionTitle>我的笔记</SectionTitle>
       <div className="flex flex-col gap-3">
-        {notes.map((n, i) => (
-          <div key={`${n.lens}-${i}`} className="rounded-mk-lg border border-mk-border bg-mk-surface p-5">
-            <span
-              className="w-fit rounded-mk-full px-2.5 py-0.5 text-mk-caption"
-              style={{ background: "var(--mk-accent-50)", color: "var(--mk-accent-700)" }}
+        {notes.map((n, i) => {
+          const { fg } = macaron(i);
+          return (
+            <div
+              key={`${n.quote}-${i}`}
+              className="mk-rp-card mk-rp-rise rounded-mk-lg p-5"
+              style={rise(i + 4)}
             >
-              {n.lens}
-            </span>
-            {n.quote && (
-              <p className="mt-3 text-mk-body-lg text-mk-ink">
-                <span className="text-mk-small text-mk-muted">我选的句子：</span>「{n.quote}」
-              </p>
-            )}
-            {n.finding && <p className="mt-2 text-mk-body text-mk-muted">{n.finding}</p>}
-          </div>
-        ))}
+              <p className="text-mk-body-lg text-mk-ink">{n.note}</p>
+              {n.quote && (
+                <p className="mk-rp-source mt-3 pl-3 text-mk-small text-mk-muted" style={{ borderColor: fg }}>
+                  <span className="mr-1.5 text-mk-label" style={{ color: fg }}>
+                    原文
+                  </span>
+                  {n.quote}
+                </p>
+              )}
+            </div>
+          );
+        })}
       </div>
     </section>
   );
 }
 
-/** Her own 收获, verbatim — quoted and attributed as hers via the
- *  server-supplied `label` (e.g. "我的收获"), never presented as the AI's
- *  summary of her. Same card idiom as the finished-reading panel's own
- *  「我的收获」 block, so the two surfaces read as one visual language. */
-function Keep({ keep }: { keep: LiteReport["keep"] }) {
-  if (!keep) return null;
+/** 我用透镜查到的 — what her 透镜 work produced: for each lens card she
+ *  submitted, the sentence SHE picked out of the article, plus the 发现 the
+ *  room drew from it.
+ *
+ *  A DIFFERENT kind of thing from 金句 above — a 金句 is a sentence of hers the
+ *  MODEL picked out as noteworthy prose; a lens note is her own act of picking
+ *  a sentence out of the ARTICLE, which is real work and real thinking even
+ *  though the words themselves are the article's. Hence the explicit
+ *  「我选的句子」 label, and hence the deliberately plain card: no giant
+ *  quotation mark, no full-bleed macaron, so the two sections never read as
+ *  the same content in different clothes. */
+function LensNotes({ notes }: { notes: LiteReport["lensNotes"] }) {
+  if (notes.length === 0) return null;
   return (
-    <section className="rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
-      <h2 className="text-mk-label text-mk-faint">{keep.label}</h2>
-      <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">“{keep.text}”</p>
+    <section className="flex flex-col gap-4">
+      <SectionTitle>我用透镜查到的</SectionTitle>
+      <div className="flex flex-col gap-3">
+        {notes.map((n, i) => {
+          const { bg, fg } = macaron(i + 4);
+          return (
+            <div
+              key={`${n.lens}-${i}`}
+              className="mk-rp-card mk-rp-rise rounded-mk-lg p-5"
+              style={rise(i + 5)}
+            >
+              <span
+                className="w-fit rounded-mk-full px-2.5 py-0.5 text-mk-caption"
+                style={{ background: bg, color: fg }}
+              >
+                {n.lens}
+              </span>
+              {n.quote && (
+                <p className="mt-3 text-mk-body-lg text-mk-ink">
+                  <span className="text-mk-small text-mk-muted">我选的句子：</span>「{n.quote}」
+                </p>
+              )}
+              {n.finding && <p className="mt-2 text-mk-body text-mk-muted">{n.finding}</p>}
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }
 
-/** 2–4 short gain lines. Plain, unstyled short lines — not a table, not a
- *  checklist, not a progress bar. */
+/** 这次的收获 — 2–4 short lines, as numbered coloured cards across the foot of
+ *  the page. Numbered for reading order only; deliberately NOT a checklist, a
+ *  progress bar, or anything that could be read as a tally out of some total. */
 function Gains({ gains }: { gains: LiteReport["gains"] }) {
   if (gains.length === 0) return null;
   return (
-    <section className="flex flex-col gap-3">
-      <span className="text-mk-label text-mk-faint">这次的收获</span>
-      <ul className="flex flex-col gap-2.5">
-        {gains.map((g, i) => (
-          <li key={i} className="text-mk-body-lg text-mk-ink">
-            {g}
-          </li>
-        ))}
+    <section className="flex flex-col gap-4">
+      <SectionTitle>这次的收获</SectionTitle>
+      <ul className="mk-rp-gains">
+        {gains.map((g, i) => {
+          const { bg, fg } = macaron(i + 1);
+          return (
+            <li
+              key={i}
+              className="mk-rp-gain mk-rp-rise flex items-start gap-3 rounded-mk-lg p-5"
+              style={{ background: bg, ...rise(i + 6) }}
+            >
+              <span aria-hidden="true" className="mk-rp-gain__no" style={{ color: fg }}>
+                {i + 1}
+              </span>
+              <span className="text-mk-body-lg text-mk-ink">{g}</span>
+            </li>
+          );
+        })}
       </ul>
     </section>
+  );
+}
+
+/** One section heading, rendered as a real `<h2>` with a hairline running off
+ *  to the right — the page's only repeated chrome. */
+function SectionTitle({ children }: { children: React.ReactNode }) {
+  return (
+    <h2 className="mk-rp-title flex items-center gap-3 text-mk-label text-mk-faint">
+      <span>{children}</span>
+      <span aria-hidden="true" className="mk-rp-title__rule" />
+    </h2>
   );
 }

@@ -25,6 +25,12 @@ export type ReportKeep = { label: string; text: string };
  *  the room drew from it. Reading-kind only (absent on a writing report). */
 export type ReportLensNote = { lens: string; quote: string; finding: string };
 
+/** `reportNote` — apps/api/internal/api/atom_report.go. One margin note:
+ *  `quote` is the ARTICLE's sentence she marked, `note` is HERS. The two are
+ *  labelled separately wherever they render and must never be merged into one
+ *  string — that distinction is R4's whole point. Reading-kind only. */
+export type ReportNote = { quote: string; note: string };
+
 /** `liteReportDTO` — apps/api/internal/api/atom_report.go. */
 export type LiteReport = {
   version: 1;
@@ -37,19 +43,27 @@ export type LiteReport = {
   keep: ReportKeep | null;
   gains: string[];
   lensNotes: ReportLensNote[];
+  notes: ReportNote[];
 };
 
 /** Raw wire shape of `LiteReport`, before the `?? []` defaulting below —
- *  `moments`/`gains`/`lensNotes` are `omitempty` on the Go side, so they may
- *  be absent (a report generated before `lensNotes` existed always lacks it). */
-type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes"> & {
+ *  `moments`/`gains`/`lensNotes`/`notes` are `omitempty` on the Go side, so
+ *  they may be absent (a report generated before `notes` existed lacks it). */
+type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes" | "notes"> & {
   moments?: ReportMoment[];
   gains?: string[];
   lensNotes?: ReportLensNote[];
+  notes?: ReportNote[];
 };
 
 function normalizeReport(raw: RawLiteReport): LiteReport {
-  return { ...raw, moments: raw.moments ?? [], gains: raw.gains ?? [], lensNotes: raw.lensNotes ?? [] };
+  return {
+    ...raw,
+    moments: raw.moments ?? [],
+    gains: raw.gains ?? [],
+    lensNotes: raw.lensNotes ?? [],
+    notes: raw.notes ?? [],
+  };
 }
 
 const pathSegment: Record<AtomKind, string> = { reading: "readings", writing: "writings" };

@@ -80,6 +80,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     keep: null,
     gains: [],
     lensNotes: [],
+    notes: [],
     ...over,
   };
 }

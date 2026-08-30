@@ -62,7 +62,7 @@ export function PublicReportPage({ token }: { token: string }) {
     return (
       <div className="min-h-full w-full bg-mk-paper">
         <ReportView report={report} />
-        <footer className="mx-auto w-full max-w-[640px] px-6 pb-10 text-mk-small text-mk-faint">
+        <footer className="mx-auto w-full max-w-[1180px] px-5 pb-10 text-mk-small text-mk-faint sm:px-8">
           来自思维印记
         </footer>
       </div>

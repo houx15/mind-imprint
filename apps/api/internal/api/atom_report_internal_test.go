@@ -28,6 +28,55 @@ func TestValidateMoments(t *testing.T) {
 	}
 }
 
+// TestBuildReadingNotes — 我的笔记 on the report. Three rules, each of which
+// has a way of quietly breaking: a bare highlight is not a note, the cap is
+// real, and both halves of a note survive intact (the article's sentence AND
+// hers — see reportNote's doc comment on why conflating them is an R4 leak).
+func TestBuildReadingNotes(t *testing.T) {
+	got := buildReadingNotes([]sqlc.AtomAnnotation{
+		{Quote: "第一段的句子。", Note: "  这里作者偷换了概念。  "},
+		{Quote: "第二段的句子。", Note: "   "}, // a bare highlight — not a note
+		{Quote: "第三段的句子。", Note: "这条要回去查。"},
+	})
+	if len(got) != 2 {
+		t.Fatalf("kept %d notes, want 2: %+v", len(got), got)
+	}
+	if got[0].Note != "这里作者偷换了概念。" {
+		t.Errorf("note not trimmed: %q", got[0].Note)
+	}
+	if got[0].Quote != "第一段的句子。" {
+		t.Errorf("the article sentence must travel WITH her note, labelled: %q", got[0].Quote)
+	}
+	if got[1].Note != "这条要回去查。" {
+		t.Errorf("second note = %q", got[1].Note)
+	}
+}
+
+// A reader who marked up the whole article gets a poster, not a transcript.
+func TestBuildReadingNotesCaps(t *testing.T) {
+	var many []sqlc.AtomAnnotation
+	for i := 0; i < maxReportNotes+7; i++ {
+		many = append(many, sqlc.AtomAnnotation{Quote: "原文", Note: "笔记"})
+	}
+	if got := buildReadingNotes(many); len(got) != maxReportNotes {
+		t.Fatalf("kept %d, want the cap %d", len(got), maxReportNotes)
+	}
+}
+
+// 用了透镜 N 个 counts SUBMITTED cards only — a card she summoned and walked
+// away from is not a lens she used, and counting it inflates her own record.
+func TestCountSubmittedCards(t *testing.T) {
+	got := countSubmittedCards([]sqlc.AtomCard{
+		{Status: "submitted"},
+		{Status: "draft"},
+		{Status: "submitted"},
+		{Status: "abandoned"},
+	})
+	if got != 2 {
+		t.Fatalf("countSubmittedCards = %d, want 2", got)
+	}
+}
+
 // TestReportDedupesMomentsAgainstKeep is F4: her 收获 is already rendered verbatim
 // as `keep`, so a moment that is the SAME sentence (or a substring of it)
 // must be dropped — otherwise the same line prints twice on one report. A

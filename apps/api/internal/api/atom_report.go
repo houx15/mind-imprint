@@ -92,6 +92,21 @@ type reportLensNote struct {
 	Finding string `json:"finding"` // the 发现 recorded on that card
 }
 
+// reportNote is one of HER reading notes: the sentence she marked in the
+// article, and what she wrote next to it.
+//
+// R4 boundary, and the reason the two fields are named this bluntly: Quote
+// is the ARTICLE's words (atom_annotation.quote — the passage she
+// highlighted) and Note is HERS. They are never conflated. This struct is
+// safe on the report PAGE, where the client labels each half for whose
+// words it is; it must never feed the 金句 corpus, and buildReadingCorpus
+// (report_facts.go) already excludes annotation.quote for exactly this
+// reason. The exported picture keeps quoting `moments` only.
+type reportNote struct {
+	Quote string `json:"quote"`
+	Note  string `json:"note"`
+}
+
 // liteReportDTO is the stored+served shape, matching the design spec's
 // LiteReport v1 type field-for-field. Moments/Gains use omitempty: a section
 // that produced nothing is ABSENT, never an empty array — "a thin session
@@ -111,6 +126,11 @@ type liteReportDTO struct {
 	// writing room has no lens cards to draw one from). Reports generated
 	// before this field existed simply lack it on re-serve; no backfill.
 	LensNotes []reportLensNote `json:"lensNotes,omitempty"`
+	// Notes is reading-kind only: her own margin notes, asked for by name
+	// ("my reading notes"). Same no-backfill rule as LensNotes — a report
+	// generated before this field existed re-serves without it, and the
+	// client renders the section as absent rather than empty.
+	Notes []reportNote `json:"notes,omitempty"`
 }
 
 // --- validation (R4) -----------------------------------------------------
@@ -409,6 +429,46 @@ func countAnnotationsWithNote(notes []sqlc.AtomAnnotation) int {
 	return n
 }
 
+// countSubmittedCards is 用了透镜 N 个 — only SUBMITTED cards count. A card
+// she summoned and abandoned is not a lens she used, and printing it as one
+// would inflate the record; this is the same status filter buildReadingCorpus
+// and buildReadingLensNotes already apply.
+func countSubmittedCards(cards []sqlc.AtomCard) int {
+	n := 0
+	for _, c := range cards {
+		if c.Status == "submitted" {
+			n++
+		}
+	}
+	return n
+}
+
+// buildReadingNotes is 我的笔记: every annotation that carries an actual note,
+// paired with the article sentence it hangs off, oldest first (the order
+// ListAtomAnnotations already returns, which is the order she read in).
+//
+// Capped at maxReportNotes: the report is a poster, not a transcript. A bare
+// highlight with no note is skipped — the same rule countAnnotationsWithNote
+// counts by, so the tile and the section can never disagree about what a
+// 笔记 is.
+func buildReadingNotes(notes []sqlc.AtomAnnotation) []reportNote {
+	out := make([]reportNote, 0, len(notes))
+	for _, n := range notes {
+		note := strings.TrimSpace(n.Note)
+		if note == "" {
+			continue
+		}
+		out = append(out, reportNote{Quote: strings.TrimSpace(n.Quote), Note: note})
+		if len(out) == maxReportNotes {
+			break
+		}
+	}
+	return out
+}
+
+// maxReportNotes caps 我的笔记 — see buildReadingNotes.
+const maxReportNotes = 12
+
 func countDoneReadingTasks(tasks []sqlc.ReadingTask) int {
 	n := 0
 	for _, t := range tasks {
@@ -474,10 +534,21 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		stamps = append(stamps, c.CreatedAt)
 	}
 
+	// Seven facts, not four. The report is meant to read as a record of a
+	// real session — a wide strip of numbers she recognises — and every one
+	// of these is already sitting in the rows loaded above, so none of them
+	// costs a query or a model call. Order is the render order: time first
+	// (the thing she feels), then volume, then the marks she left.
+	//
+	// A zero is dropped client-side, so a thin session still shows a short
+	// honest strip rather than a wall of noughts.
 	stats := []reportStat{
 		{Key: "focusMinutes", Label: "专注时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
+		{Key: "wordsRead", Label: "读了", Value: countWordsForLang(src.Body, rd.Lang), Unit: "字"},
 		{Key: "chatTurns", Label: "和印记聊了", Value: countStudentMessages(msgs), Unit: "轮"},
+		{Key: "highlights", Label: "划线", Value: len(notes), Unit: "处"},
 		{Key: "notes", Label: "笔记", Value: countAnnotationsWithNote(notes), Unit: "条"},
+		{Key: "lenses", Label: "用了透镜", Value: countSubmittedCards(cards), Unit: "个"},
 		{Key: "stepsDone", Label: "读完", Value: countDoneReadingTasks(tasks), Unit: "步"},
 	}
 
@@ -504,7 +575,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	return liteReportDTO{
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
-		LensNotes: lensNotes,
+		LensNotes: lensNotes, Notes: buildReadingNotes(notes),
 	}, nil
 }
 
@@ -578,7 +649,9 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		{Key: "words", Label: "写了", Value: countWordsForLang(draft.Body, wr.Lang), Unit: "字"},
 		{Key: "focusMinutes", Label: "专注时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
 		{Key: "chatTurns", Label: "和印记聊了", Value: countStudentMessages(msgs), Unit: "轮"},
+		{Key: "outline", Label: "搭了提纲", Value: len(outline), Unit: "条"},
 		{Key: "snippets", Label: "改了", Value: len(snippets), Unit: "段"},
+		{Key: "comments", Label: "印记读了", Value: len(comments), Unit: "遍"},
 	}
 
 	moments, gains := a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)

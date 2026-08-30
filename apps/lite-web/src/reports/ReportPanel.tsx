@@ -60,7 +60,21 @@ import { ExperienceStars } from "./ExperienceStars";
  * exact same quiet treatment, since neither case is something she can act
  * on from here.
  */
-export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }) {
+export function ReportPanel({
+  kind,
+  atomId,
+  fallback,
+}: {
+  kind: AtomKind;
+  atomId: string;
+  /** Rendered INSTEAD of the report when there is no report to render (a
+   *  failed fetch, or an atom the generator declined). The report now carries
+   *  content the host used to render itself — a reading's 我的收获 is the
+   *  report's own `keep`, verbatim — so without this the quiet state would
+   *  silently drop her own words off the page rather than merely omitting a
+   *  summary. Hosts pass the same content in its pre-report form. */
+  fallback?: React.ReactNode;
+}) {
   const [report, setReport] = useState<LiteReport | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
   const [rating, setRating] = useState<number | null>(null);
@@ -120,7 +134,11 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
     return (
       <>
         <ReportView report={report} />
-        <div className="mx-auto flex w-full max-w-[640px] flex-col gap-4 px-6 pb-14">
+        {/* Same 1180px measure and gutters as `ReportView` itself, so the
+            export button, the share panel and the stars line up with the
+            report's own left edge instead of sitting in a narrower column
+            under a wide page. */}
+        <div className="mx-auto flex w-full max-w-[1180px] flex-col gap-5 px-5 pb-4 sm:px-8">
           <button
             type="button"
             onClick={handleExport}
@@ -140,12 +158,17 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
       </>
     );
   }
-  if (state === "quiet") return null;
+  if (state === "quiet") return <>{fallback ?? null}</>;
 
   const verb = kind === "reading" ? "读" : "写";
+  // Carries the same gutters as the report it is standing in for — the hosts
+  // no longer wrap this panel in a padded column, so an unwrapped <p> would
+  // sit flush against the window edge.
   return (
-    <p className="text-mk-small text-mk-muted">
-      印记正在把这次{verb}的东西整理成一份报告，稍等一下。
-    </p>
+    <div className="mx-auto w-full max-w-[1180px] px-5 py-10 sm:px-8">
+      <p className="text-mk-small text-mk-muted">
+        印记正在把这次{verb}的东西整理成一份报告，稍等一下。
+      </p>
+    </div>
   );
 }

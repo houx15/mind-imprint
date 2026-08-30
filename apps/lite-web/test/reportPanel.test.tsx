@@ -51,6 +51,7 @@ const REPORT: LiteReport = {
   keep: null,
   gains: [],
   lensNotes: [],
+  notes: [],
 };
 
 beforeEach(() => {

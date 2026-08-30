@@ -509,28 +509,36 @@ function FinishedWritingPanel({
   onBack: () => void;
 }) {
   return (
-    <div className="mx-auto flex w-full max-w-[680px] flex-col gap-6 px-6 py-14">
-      <div className="flex flex-col gap-3">
+    // Same shape as FinishedReadingPanel — read its comment for why the title
+    // and the wide report are not both wrapped in a 680px column any more.
+    <div className="flex w-full flex-col pb-14">
+      <div className="mx-auto flex w-full max-w-[1180px] flex-wrap items-center gap-3 px-5 pt-8 sm:px-8">
+        <Button variant="secondary" onClick={onBack}>
+          回到写作
+        </Button>
         <span
-          className="w-fit rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
+          className="rounded-mk-full px-2.5 py-1 text-mk-label text-mk-success"
           style={{ background: "var(--mk-success-bg)" }}
         >
           已完成
         </span>
-        <h1 className="text-mk-display text-mk-ink">{writing.title}</h1>
-      </div>
-
-      <div className="rounded-mk-md border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
-        <h2 className="text-mk-label text-mk-faint">成稿</h2>
-        <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{draft.body || "这篇没有留下正文。"}</p>
+        {/* Breadcrumb, not a heading — the report's hero states the title. */}
+        <span className="min-w-0 truncate text-mk-small text-mk-muted">{writing.title}</span>
       </div>
 
       <ReportPanel kind="writing" atomId={writing.id} />
 
-      <div>
-        <Button variant="secondary" onClick={onBack}>
-          回到写作
-        </Button>
+      {/* 成稿 sits BELOW the report: the report is the record of the work, the
+          draft is the artifact. It keeps the room's own reading measure —
+          65ch — rather than stretching to the report's full 1180px, because
+          this is body prose and a 1180px line is unreadable. */}
+      <div className="mx-auto w-full max-w-[1180px] px-5 sm:px-8">
+        <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
+          <h2 className="text-mk-label text-mk-faint">成稿</h2>
+          <p className="mt-3 max-w-[65ch] whitespace-pre-wrap text-mk-body-lg text-mk-ink">
+            {draft.body || "这篇没有留下正文。"}
+          </p>
+        </div>
       </div>
     </div>
   );

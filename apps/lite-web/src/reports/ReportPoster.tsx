@@ -55,6 +55,10 @@ const MACARON = [
   { bg: "#E6EEF9", fg: "#3C5A86" }, // mist
 ] as const;
 
+/** How many stat tiles fit on one row of a 1080-wide picture. See the
+ *  `slice` in the component for why exceeding it is not merely ugly. */
+const MAX_POSTER_STATS = 4;
+
 function macaron(i: number) {
   // `i % MACARON.length` is always a valid index into a non-empty literal
   // array — the `?? MACARON[0]` only satisfies noUncheckedIndexedAccess.
@@ -74,10 +78,18 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     const date = formatDate(report.finishedAt);
     // At most three 金句 — "given real space", not shrunk to fit more in.
     const moments = report.moments.slice(0, 3);
-    // Same "absent rather than empty" rule as ReportView's StatsRow: a stat
+    // Same "absent rather than empty" rule as ReportView's StatStrip: a stat
     // of 0 is absence, not a fact worth putting in the picture she sends to
     // a parent. No row at all when nothing survives.
-    const stats = report.stats.filter((stat) => stat.value !== 0);
+    //
+    // Capped at MAX_POSTER_STATS, unlike the page, which shows every one. The
+    // page can grow downwards; this is a fixed 1080×1440 box, and the server
+    // now sends seven reading stats — enough to wrap the strip onto a second
+    // row and push the 金句 off the bottom edge, silently, with `overflow:
+    // hidden` swallowing the evidence. The first four are the first four the
+    // server emits (time, volume, conversation, marks), which is the order
+    // that survives a crop best.
+    const stats = report.stats.filter((stat) => stat.value !== 0).slice(0, MAX_POSTER_STATS);
 
     return (
       <div
@@ -95,7 +107,13 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
           flexDirection: "column",
           gap: 44,
           padding: 76,
-          background: PAPER,
+          // Layered radial washes over paper rather than a separate banner
+          // element: same warm light as the page's own hero, with zero effect
+          // on layout inside a box whose height is fixed and whose overflow is
+          // hidden. Explicit hex, no `var()` and no `color-mix()` — see the
+          // file comment on why this rasterization context takes literals.
+          background: `radial-gradient(90% 60% at 6% 0%, #FDE7D3 0%, rgba(253,231,211,0) 60%),
+            radial-gradient(80% 55% at 96% 4%, #E0F0EC 0%, rgba(224,240,236,0) 62%), ${PAPER}`,
           fontFamily: FONT_STACK,
         }}
       >
