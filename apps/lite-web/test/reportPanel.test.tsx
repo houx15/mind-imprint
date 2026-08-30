@@ -66,7 +66,7 @@ describe("ReportPanel", () => {
 
     expect(await screen.findByText("中国是否让地球变得更可持续？")).toBeTruthy();
     expect(screen.getByText("12")).toBeTruthy();
-    expect(screen.getByText("专注时长")).toBeTruthy();
+    expect(screen.getByText("阅读时长")).toBeTruthy();
   });
 
   it("says something honest while the report is being written", async () => {

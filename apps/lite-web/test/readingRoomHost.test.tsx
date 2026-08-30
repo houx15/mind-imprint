@@ -389,7 +389,7 @@ describe("ReadingRoomHost", () => {
     };
     render(<ReadingRoomHost readingId={READING_ID} />);
 
-    expect(await screen.findByText("专注时长")).toBeTruthy();
+    expect(await screen.findByText("阅读时长")).toBeTruthy();
     expect(screen.getByText("9")).toBeTruthy();
     expect(screen.queryByText(/报告还在路上/)).toBeNull();
   });

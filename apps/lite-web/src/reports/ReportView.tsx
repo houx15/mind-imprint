@@ -1,4 +1,5 @@
 import type { LiteReport, ReportStat } from "@lite/api/reports";
+import { displayStat } from "./statLabels";
 
 /**
  * ReportView — a wide, colourful record of one session, not a column of prose.
@@ -89,16 +90,40 @@ function rise(i: number): React.CSSProperties {
   return { ["--i" as string]: i } as React.CSSProperties;
 }
 
-export function ReportView({ report }: { report: LiteReport }) {
+export function ReportView({
+  report,
+  actions,
+  sharePanel,
+}: {
+  report: LiteReport;
+  /** 导出/分享 icon buttons, pinned in the hero's upper-right corner. Omitted
+   *  entirely on the public share page: a visitor is not the owner and must
+   *  never be shown controls over someone else's report. */
+  actions?: React.ReactNode;
+  /** Rendered directly under the hero, so the panel the share icon opens
+   *  appears next to the icon that opened it rather than at the far end of a
+   *  long page. */
+  sharePanel?: React.ReactNode;
+}) {
   const kindLabel = report.kind === "reading" ? "一次阅读的记录" : "一次写作的记录";
   const date = formatDate(report.finishedAt);
   // A stat of 0 is absence, not a fact worth stating — a wall of coloured
   // zeros reads as a broken page, not as a record.
-  const stats = report.stats.filter((stat) => stat.value !== 0);
+  // Labels resolved client-side from `stat.key` — a stored report keeps the
+  // wording it was generated with, and this is what lets a rename reach every
+  // report already in the database. See statLabels.ts.
+  const stats = report.stats.filter((stat) => stat.value !== 0).map(displayStat);
 
   return (
     <article className="mk-rp mk-rp-measure flex flex-col gap-8 py-8 sm:py-12">
-      <Hero kindLabel={kindLabel} title={report.title} name={report.studentName} date={date} />
+      <Hero
+        kindLabel={kindLabel}
+        title={report.title}
+        name={report.studentName}
+        date={date}
+        actions={actions}
+      />
+      {sharePanel}
       <StatStrip stats={stats} />
       <Keep keep={report.keep} name={report.studentName} kind={report.kind} />
       <Moments moments={report.moments} />
@@ -116,17 +141,22 @@ function Hero({
   title,
   name,
   date,
+  actions,
 }: {
   kindLabel: string;
   title: string;
   name: string;
   date: string;
+  actions?: React.ReactNode;
 }) {
   return (
     <header className="mk-rp-hero mk-rp-rise relative overflow-hidden rounded-mk-lg px-6 py-9 sm:px-10 sm:py-12" style={rise(0)}>
       <div className="mk-rp-hero__glow" aria-hidden="true" />
+      {actions && <div className="absolute right-4 top-4 z-10 sm:right-5 sm:top-5">{actions}</div>}
       <div className="relative flex flex-col gap-4">
         <span className="mk-rp-chip w-fit rounded-mk-full px-3 py-1 text-mk-label">{kindLabel}</span>
+        {/* No right inset needed: the icons sit ABOVE this line, level with the
+            chip, in the hero's own top padding. */}
         <h1 className="max-w-[22ch] text-mk-display text-mk-ink sm:text-mk-report-hero">{title}</h1>
         <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-mk-body text-mk-muted">
           <span className="mk-rp-name text-mk-h3 text-mk-ink">{name}</span>

@@ -1,5 +1,6 @@
 import { forwardRef } from "react";
 import type { LiteReport } from "@lite/api/reports";
+import { displayStat } from "./statLabels";
 
 /**
  * ReportPoster — the picture she can send someone, not a shrunk copy of
@@ -10,15 +11,24 @@ import type { LiteReport } from "@lite/api/reports";
  * and up to three 金句 given real room — and nothing else: no kind label,
  * no brand mark, no share chrome, no 收获 list. Restraint is the point.
  *
- * ## Offscreen, not hidden
+ * ## Offscreen, not hidden — and the offset goes on the WRAPPER
  *
- * The root node itself carries `position:fixed; left:-99999px` — it is
- * ALWAYS rendered this way, since this component only ever exists to be
- * rasterized by `exportPoster`, never to be seen on the page. That is
- * deliberately not `display:none`: a `display:none` node has no layout box
- * at all, so html-to-image (which walks real geometry) would rasterize it
- * to a blank image. `position:fixed` off past the left edge keeps a real,
- * measured 1080×1440 box that just never enters the visible viewport.
+ * 🚨 This component renders TWO elements: an outer wrapper that carries
+ * `position:fixed; left:-99999px`, and the poster itself, which is
+ * `position:static` and is what the ref (and therefore `exportPoster`) points
+ * at. Do not collapse them back into one node.
+ *
+ * The offscreen offset used to live on the rasterized node itself, and it
+ * produced a correctly-sized, **completely blank** PNG. html-to-image works by
+ * cloning the node, inlining its computed style, and dropping the clone into
+ * an SVG `<foreignObject>` sized to the node — so `left:-99999px` came along
+ * for the ride and positioned the clone 99999px outside its own viewport.
+ * Nothing painted, `toPng` resolved successfully, and the browser downloaded
+ * a blank sheet. A wrapper keeps the page-level offset off the clone.
+ *
+ * The offset is still `position:fixed`, not `display:none`: a `display:none`
+ * node has no layout box, and html-to-image walks real geometry, so that
+ * would rasterize blank too — for a different reason.
  *
  * ## System fonts, explicit colours
  *
@@ -89,16 +99,22 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     // hidden` swallowing the evidence. The first four are the first four the
     // server emits (time, volume, conversation, marks), which is the order
     // that survives a crop best.
-    const stats = report.stats.filter((stat) => stat.value !== 0).slice(0, MAX_POSTER_STATS);
+    // Same client-side label resolution as the page — a stored report carries
+    // whatever wording it was generated with (see statLabels.ts).
+    const stats = report.stats
+      .filter((stat) => stat.value !== 0)
+      .slice(0, MAX_POSTER_STATS)
+      .map(displayStat);
 
     return (
+      // The wrapper holds the offscreen offset; the poster below is static and
+      // is what gets rasterized. See this file's "Offscreen" section — merging
+      // these two nodes is what produced a blank PNG.
+      <div aria-hidden="true" style={{ position: "fixed", left: -99999, top: 0 }}>
       <div
         ref={ref}
-        aria-hidden="true"
         style={{
-          position: "fixed",
-          left: -99999,
-          top: 0,
+          position: "static",
           width: 1080,
           height: 1440,
           overflow: "hidden",
@@ -153,11 +169,24 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
                     gap: 8,
                   }}
                 >
-                  <span style={{ fontSize: 54, lineHeight: 1, fontWeight: 700, color: fg }}>
-                    {stat.value}
-                    {stat.unit && (
-                      <span style={{ fontSize: 26, marginLeft: 4, fontWeight: 500 }}>{stat.unit}</span>
-                    )}
+                  {/* Baseline flex with nowrap, and grouped digits — the same
+                      two fixes the page's own tiles needed. Without them
+                      「3428 字」 rendered as a bare 3428 with 字 dropped onto a
+                      second line, reading as two unrelated facts stacked. */}
+                  <span
+                    style={{
+                      display: "flex",
+                      alignItems: "baseline",
+                      gap: 4,
+                      flexWrap: "nowrap",
+                      fontSize: 54,
+                      lineHeight: 1,
+                      fontWeight: 700,
+                      color: fg,
+                    }}
+                  >
+                    {stat.value.toLocaleString("zh-CN")}
+                    {stat.unit && <span style={{ fontSize: 26, fontWeight: 500 }}>{stat.unit}</span>}
                   </span>
                   <span style={{ fontSize: 24, color: fg }}>{stat.label}</span>
                 </div>
@@ -203,6 +232,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
             })}
           </div>
         )}
+      </div>
       </div>
     );
   },

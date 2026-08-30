@@ -135,35 +135,38 @@ export function ReportPanel({
   if (state === "done" && report) {
     return (
       <>
-        {/* 导出图片 / 分享链接 lead the page. They used to be a small text
-            button and a full share panel stacked below the very bottom of a
-            long report — "export and share link, should be put at the top,
-            big icons." The gutters match `ReportView`'s own 1180px measure so
-            the bar lines up with the report's left edge. */}
-        <div className="mk-rp-measure pt-6">
-          <ReportActions
-            exporting={exporting}
-            onExport={handleExport}
-            shareOpen={shareOpen}
-            shared={shareToken !== null}
-            onToggleShare={() => setShareOpen((v) => !v)}
-          />
-          {shareOpen && (
-            <div className="mt-4">
+        {/* 导出 / 分享 are two small icons in the report's own upper-right
+            corner, handed to `ReportView` as slots; the share panel drops in
+            right under the hero so it opens next to the icon that opened it.
+            `PublicReportPage` mounts the same `ReportView` with NEITHER slot,
+            which is what keeps a visitor from ever seeing controls over
+            someone else's report. */}
+        <ReportView
+          report={report}
+          actions={
+            <ReportActions
+              exporting={exporting}
+              onExport={handleExport}
+              shareOpen={shareOpen}
+              shared={shareToken !== null}
+              onToggleShare={() => setShareOpen((v) => !v)}
+            />
+          }
+          sharePanel={
+            shareOpen ? (
               <SharePanel
                 kind={kind}
                 atomId={atomId}
                 initialShareToken={shareToken}
-                // Keeps the action bar's "already published" dot honest after a
-                // mint or a revoke, without giving two components two copies of
-                // the same state machine.
+                // Keeps the share icon's "already published" dot honest after a
+                // mint or a revoke, and keeps `initialShareToken` valid across
+                // the unmount/remount this toggle causes — without giving two
+                // components two copies of the same state machine.
                 onSharedChange={setShareToken}
               />
-            </div>
-          )}
-        </div>
-
-        <ReportView report={report} />
+            ) : null
+          }
+        />
 
         <div className="mk-rp-measure flex flex-col gap-5 pb-4">
           {/* The five stars come AFTER the report — she reads it, then says how

@@ -135,7 +135,7 @@ describe("ReportPoster", () => {
     expect(screen.getByText(/Phoebe/)).toBeTruthy();
     expect(screen.getByText(/2026年8月29日/)).toBeTruthy();
     expect(screen.getByText("12")).toBeTruthy();
-    expect(screen.getByText("专注时长")).toBeTruthy();
+    expect(screen.getByText("阅读时长")).toBeTruthy();
     expect(screen.getByText("860")).toBeTruthy();
 
     // at most three 金句, even though four were supplied.
@@ -158,7 +158,7 @@ describe("ReportPoster", () => {
 
     render(<ReportPoster report={allZero} />);
 
-    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("阅读时长")).toBeNull();
     expect(screen.queryByText("和印记聊了")).toBeNull();
   });
 
@@ -173,26 +173,56 @@ describe("ReportPoster", () => {
 
     render(<ReportPoster report={mixed} />);
 
-    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("阅读时长")).toBeNull();
     expect(screen.getByText("860")).toBeTruthy();
-    expect(screen.getByText("阅读字数")).toBeTruthy();
+    expect(screen.getByText("读了")).toBeTruthy();
   });
 
-  it("is rendered offscreen (fixed + off-canvas), never display:none", () => {
-    const { container } = render(<ReportPoster report={report()} />);
-    const posterNode = container.firstElementChild as HTMLElement;
+  // 🚨 The bug this pins produced a correctly-sized, COMPLETELY BLANK PNG that
+  // downloaded successfully — every other test here passed while it shipped.
+  // html-to-image clones the rasterized node, inlines its computed style, and
+  // drops the clone into an SVG <foreignObject> sized to that node. When the
+  // offscreen `left:-99999px` lived on the rasterized node itself, it came
+  // along and pushed the clone outside its own viewport. The offset therefore
+  // belongs on the WRAPPER, and the rasterized node must be static.
+  it("keeps the offscreen offset on the wrapper, OFF the node that gets rasterized", () => {
+    let rasterized: HTMLElement | null = null;
+    const { container } = render(
+      <ReportPoster
+        report={report()}
+        ref={(el) => {
+          rasterized = el;
+        }}
+      />,
+    );
+    const wrapper = container.firstElementChild as HTMLElement;
+    const node = rasterized as unknown as HTMLElement;
 
-    expect(posterNode.style.position).toBe("fixed");
-    expect(posterNode.style.left).toBe("-99999px");
-    expect(posterNode.style.display).not.toBe("none");
+    expect(wrapper.style.position).toBe("fixed");
+    expect(wrapper.style.left).toBe("-99999px");
+    expect(node).not.toBe(wrapper);
+    expect(node.style.position).toBe("static");
+    expect(node.style.left).toBe("");
+    // and never display:none — a node with no layout box rasterizes blank too,
+    // for a different reason.
+    expect(wrapper.style.display).not.toBe("none");
+    expect(node.style.display).not.toBe("none");
   });
 
   it("uses the system font stack only, no web font", () => {
-    const { container } = render(<ReportPoster report={report()} />);
-    const posterNode = container.firstElementChild as HTMLElement;
+    let rasterized: HTMLElement | null = null;
+    render(
+      <ReportPoster
+        report={report()}
+        ref={(el) => {
+          rasterized = el;
+        }}
+      />,
+    );
+    const node = rasterized as unknown as HTMLElement;
 
-    expect(posterNode.style.fontFamily).toContain("PingFang SC");
-    expect(posterNode.style.fontFamily).toContain("Microsoft YaHei");
+    expect(node.style.fontFamily).toContain("PingFang SC");
+    expect(node.style.fontFamily).toContain("Microsoft YaHei");
   });
 });
 

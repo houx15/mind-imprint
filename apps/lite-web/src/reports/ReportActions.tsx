@@ -2,25 +2,28 @@ import { Download, Link2 } from "lucide-react";
 import { Icon } from "@/ui";
 
 /**
- * ReportActions — 导出图片 and 分享链接, as two big buttons at the TOP of the
- * report.
+ * ReportActions — 导出图片 and 分享链接, as two SMALL icon buttons in the
+ * report's upper-right corner.
  *
- * They used to be a small text button and a whole share panel stacked under
- * the very bottom of a long page, which is where you put something you would
- * rather nobody used. The product owner's instruction: "export and share link,
- * should be put at the top, big icons." A report exists to be shown to
- * someone; the two ways of doing that belong where she lands.
+ * They started life at the very bottom of a long page (a text button under a
+ * share panel — where you put something you'd rather nobody used), then
+ * overshot into two large full-width cards at the top. The instruction that
+ * settled it: "small icons on the right upper corner." Two icon buttons, no
+ * labels, sitting where a document's controls live.
  *
- * 分享 is a TOGGLE, not the act of sharing. It opens `SharePanel` underneath,
- * which is where the real consequence is stated and the real button lives —
- * publishing a minor's schoolwork to a public URL is never one click from
- * arriving on a page. The toggle's own label reflects what the panel is
- * currently doing (分享 / 收起分享), and `aria-expanded` carries the same fact
- * to a screen reader.
+ * **Icon-only, but never nameless.** Each carries an `aria-label` AND a
+ * `title`, so a screen reader announces it and a mouse gets a tooltip. An
+ * unlabelled icon button is a guess for everyone who isn't the person who
+ * drew it.
  *
- * `shared` drives the small live dot: a report that is ALREADY published needs
- * to say so at a glance, before she scrolls anywhere, because the state she
- * cannot see is the one that matters.
+ * 分享 is a TOGGLE, not the act of sharing. It opens `SharePanel` below,
+ * which is where the real consequence is stated and the real 生成分享链接
+ * button lives — publishing a minor's schoolwork to a public URL is never one
+ * click from arriving on a page. `aria-expanded` carries that fact.
+ *
+ * `shared` drives a small live dot on the share icon: a report that is
+ * ALREADY published needs to say so at a glance, because the state she cannot
+ * see is the one that matters.
  */
 export function ReportActions({
   exporting,
@@ -42,35 +45,23 @@ export function ReportActions({
         type="button"
         onClick={onExport}
         disabled={exporting}
-        className="mk-rp-action mk-rp-action--primary"
+        className="mk-rp-action"
+        aria-label={exporting ? "导出图片，生成中" : "导出图片"}
+        title={exporting ? "生成图片中…" : "导出图片"}
       >
-        <span className="mk-rp-action__icon" aria-hidden="true">
-          <Icon icon={Download} size={22} />
-        </span>
-        <span className="flex flex-col items-start">
-          <span className="text-mk-h3">{exporting ? "生成图片中…" : "导出图片"}</span>
-          <span className="text-mk-small opacity-80">存成一张图，发给谁都行</span>
-        </span>
+        <Icon icon={Download} size={17} />
       </button>
 
       <button
         type="button"
         onClick={onToggleShare}
         aria-expanded={shareOpen}
-        className="mk-rp-action"
+        aria-label={shared ? "分享链接，已经在分享中" : "分享链接"}
+        title={shared ? "分享链接（正在分享）" : "分享链接"}
+        className={`mk-rp-action ${shareOpen ? "mk-rp-action--on" : ""}`}
       >
-        <span className="mk-rp-action__icon" aria-hidden="true">
-          <Icon icon={Link2} size={22} />
-        </span>
-        <span className="flex flex-col items-start">
-          <span className="flex items-center gap-2 text-mk-h3">
-            {shareOpen ? "收起分享" : "分享链接"}
-            {shared && <span className="mk-rp-action__dot" aria-hidden="true" />}
-          </span>
-          <span className="text-mk-small text-mk-muted">
-            {shared ? "链接已经在用，可以随时收回" : "生成一个链接，不用登录也能打开"}
-          </span>
-        </span>
+        <Icon icon={Link2} size={17} />
+        {shared && <span className="mk-rp-action__dot" aria-hidden="true" />}
       </button>
     </div>
   );

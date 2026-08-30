@@ -1350,68 +1350,54 @@
 /* ── 报告页 · 顶部动作条 (导出/分享) ────────────────────────────────────────
  * Two big buttons at the head of the report, not a text link at its foot.
  * Layout and treatment only; the labels' SIZE comes from type tokens. */
+/* Two small icon buttons in the hero's upper-right corner. They sit ON the
+ * hero's gradient, so the surface is translucent white rather than
+ * `--mk-surface` — an opaque chip would punch two flat holes in the band. */
 .mk-rp-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-  gap: 12px;
+  display: flex;
+  gap: 8px;
 }
 
 .mk-rp-action {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 16px 20px;
-  text-align: left;
-  border-radius: var(--mk-radius-lg);
-  border: 1px solid var(--mk-border);
-  background: var(--mk-surface);
-  color: var(--mk-ink);
-  transition: transform 200ms cubic-bezier(.2, 0, 0, 1), box-shadow 200ms cubic-bezier(.2, 0, 0, 1),
-    border-color 200ms ease-out;
-}
-
-.mk-rp-action:hover:not(:disabled) {
-  transform: translateY(-2px);
-  border-color: color-mix(in srgb, var(--mk-accent-500) 34%, var(--mk-border));
-  box-shadow: var(--mk-shadow-md);
-}
-
-.mk-rp-action:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.mk-rp-action--primary {
-  border-color: transparent;
-  background: linear-gradient(
-    135deg,
-    var(--mk-accent-500) 0%,
-    color-mix(in srgb, var(--mk-accent-500) 78%, var(--mk-berry)) 100%
-  );
-  color: #fff;
-}
-
-/* The icon chip. On the primary button it sits on white-over-gradient; on the
- * secondary it takes the accent wash. */
-.mk-rp-action__icon {
+  position: relative;
   display: grid;
   place-items: center;
-  width: 46px;
-  height: 46px;
-  flex: none;
+  width: 34px;
+  height: 34px;
   border-radius: var(--mk-radius-md);
-  background: color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface));
+  border: 1px solid color-mix(in srgb, var(--mk-ink) 8%, transparent);
+  background: color-mix(in srgb, var(--mk-surface) 72%, transparent);
+  color: var(--mk-secondary);
+  backdrop-filter: blur(6px);
+  transition: background 180ms ease-out, color 180ms ease-out, border-color 180ms ease-out;
+}
+
+.mk-rp-action:hover:not(:disabled),
+.mk-rp-action:focus-visible {
+  background: var(--mk-surface);
+  border-color: color-mix(in srgb, var(--mk-accent-500) 36%, transparent);
   color: var(--mk-accent-700);
 }
 
-.mk-rp-action--primary .mk-rp-action__icon {
-  background: rgba(255, 255, 255, 0.22);
-  color: #fff;
+.mk-rp-action:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
-/* "A link is live right now" — the state she cannot otherwise see from the
- * top of the page. */
+/* The share panel is open — the icon stays lit so the open panel below has a
+ * visible owner. */
+.mk-rp-action--on {
+  background: var(--mk-surface);
+  border-color: color-mix(in srgb, var(--mk-accent-500) 44%, transparent);
+  color: var(--mk-accent-700);
+}
+
+/* "A link is live right now" — the state she cannot otherwise see without
+ * opening the panel. Pinned to the icon's corner. */
 .mk-rp-action__dot {
+  position: absolute;
+  top: -3px;
+  right: -3px;
   width: 8px;
   height: 8px;
   border-radius: 999px;
@@ -1483,9 +1469,6 @@
   .mk-rp-action,
   .mk-rq-bubble {
     transition: none;
-  }
-  .mk-rp-action:hover:not(:disabled) {
-    transform: none;
   }
   .mk-rp-action__dot,
   .mk-rq-bubble {

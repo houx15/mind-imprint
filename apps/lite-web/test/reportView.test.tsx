@@ -69,7 +69,7 @@ describe("ReportView", () => {
 
     const { container } = render(<ReportView report={allZero} />);
 
-    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("阅读时长")).toBeNull();
     expect(screen.queryByText("和印记聊了")).toBeNull();
     expect(screen.queryByText("笔记")).toBeNull();
     expect(screen.queryByText("读完")).toBeNull();
@@ -89,10 +89,43 @@ describe("ReportView", () => {
 
     render(<ReportView report={mixed} />);
 
-    expect(screen.queryByText("专注时长")).toBeNull();
+    expect(screen.queryByText("阅读时长")).toBeNull();
     expect(screen.queryByText("笔记")).toBeNull();
     expect(screen.getByText("860")).toBeTruthy();
-    expect(screen.getByText("阅读字数")).toBeTruthy();
+    expect(screen.getByText("读了")).toBeTruthy();
+  });
+
+  // 🚨 A report is generated ONCE and stored as a JSON blob, then re-served
+  // verbatim forever — so a label changed on the server reaches only readings
+  // finished after the deploy. Every already-finished reading kept showing
+  // 「和印记聊了 1 轮 / 读完 1 步」 after that rename. Labels are resolved from
+  // `stat.key` on the client precisely so wording can change without a
+  // migration; if this test goes red because someone read `stat.label`
+  // directly again, the bug is back.
+  it("re-labels a stored stat from its key, ignoring the wording the server stored", () => {
+    const stored = report({
+      stats: [
+        { key: "chatTurns", label: "和印记聊了", value: 12, unit: "轮" },
+        { key: "stepsDone", label: "读完", value: 4, unit: "步" },
+        { key: "focusMinutes", label: "专注时长", value: 19, unit: "分钟" },
+      ],
+    });
+
+    render(<ReportView report={stored} />);
+
+    expect(screen.getByText("AI 对话轮数")).toBeTruthy();
+    expect(screen.getByText("阅读任务完成数")).toBeTruthy();
+    expect(screen.getByText("阅读时长")).toBeTruthy();
+    expect(screen.queryByText("和印记聊了")).toBeNull();
+    expect(screen.queryByText("读完")).toBeNull();
+    expect(screen.queryByText("专注时长")).toBeNull();
+    // …and the stored unit is cleared where the new label already names the
+    // quantity: 「12 轮 / AI 对话轮数」 stutters.
+    expect(document.body.textContent).not.toContain("12轮");
+    // an unknown key still renders, with whatever the server sent
+    cleanup();
+    render(<ReportView report={report({ stats: [{ key: "brandNew", label: "服务端新加的", value: 3, unit: "个" }] })} />);
+    expect(screen.getByText("服务端新加的")).toBeTruthy();
   });
 
   it("shows each 金句 and where it came from", () => {

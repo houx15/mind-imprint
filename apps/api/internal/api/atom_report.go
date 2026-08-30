@@ -628,7 +628,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	// A zero is dropped client-side, so a thin session still shows a short
 	// honest strip rather than a wall of noughts.
 	stats := []reportStat{
-		{Key: "focusMinutes", Label: "专注时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
+		{Key: "focusMinutes", Label: "阅读时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
 		{Key: "wordsRead", Label: "读了", Value: countWordsForLang(src.Body, rd.Lang), Unit: "字"},
 		// 「AI 教练对话轮数」 and 「完成阅读任务」 are the product owner's own
 		// wording, replacing 「和印记聊了 N 轮」 and 「读完 N 步」: the first
@@ -636,11 +636,11 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		// an unfinished sentence on a tile. Both carry an empty unit — the
 		// label already names the quantity, and "17 轮 / AI 教练对话轮数"
 		// stutters.
-		{Key: "chatTurns", Label: "AI 教练对话轮数", Value: countStudentMessages(msgs)},
+		{Key: "chatTurns", Label: "AI 对话轮数", Value: countStudentMessages(msgs)},
 		{Key: "highlights", Label: "划线", Value: len(notes), Unit: "处"},
 		{Key: "notes", Label: "笔记", Value: countAnnotationsWithNote(notes), Unit: "条"},
 		{Key: "lenses", Label: "用了透镜", Value: countSubmittedCards(cards), Unit: "个"},
-		{Key: "stepsDone", Label: "完成阅读任务", Value: countDoneReadingTasks(tasks)},
+		{Key: "stepsDone", Label: "阅读任务完成数", Value: countDoneReadingTasks(tasks)},
 	}
 
 	var keep *reportKeep
@@ -746,8 +746,8 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 
 	stats := []reportStat{
 		{Key: "words", Label: "写了", Value: countWordsForLang(draft.Body, wr.Lang), Unit: "字"},
-		{Key: "focusMinutes", Label: "专注时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
-		{Key: "chatTurns", Label: "AI 教练对话轮数", Value: countStudentMessages(msgs)},
+		{Key: "focusMinutes", Label: "阅读时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
+		{Key: "chatTurns", Label: "AI 对话轮数", Value: countStudentMessages(msgs)},
 		{Key: "outline", Label: "搭了提纲", Value: len(outline), Unit: "条"},
 		{Key: "snippets", Label: "改了", Value: len(snippets), Unit: "段"},
 		{Key: "comments", Label: "印记读了", Value: len(comments), Unit: "遍"},
