@@ -23,7 +23,14 @@ export type LiteRoute =
   // mounts `PublicReportPage` directly for `tab === "share"`, `LiteApp`
   // otherwise. See that module's own comment for why the choice lives there
   // instead of as an early return inside `LiteApp`.
-  | { tab: "share"; token: string };
+  //
+  // `view` splits the shared link into two REAL pages, because a shared
+  // writing is an article first: `/s/:token` is her piece, set like an
+  // article and nothing else; `/s/:token/record` is 这一篇是怎么写出来的 —
+  // the stats, 金句 and 收获. They were one long scroll once, which made the
+  // article read as the preamble to a dashboard. A reading has no article, so
+  // its `/s/:token` renders the record directly and `view` is ignored.
+  | { tab: "share"; token: string; view: "article" | "record" };
 
 /** Parse a browser pathname into a lite route. Unknown paths fall back to the
  * readings tab (the lite shell's landing surface), so a stale or hand-typed
@@ -35,7 +42,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
     .replace(/^\/+/, "")
     .replace(/\/+$/, "");
   const segments = cleaned.length === 0 ? [] : cleaned.split("/").map(decodeSegment);
-  const [first, second] = segments;
+  const [first, second, third] = segments;
 
   switch (first) {
     case undefined:
@@ -51,7 +58,12 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       // to fetch — so it falls through to the readings default like any
       // other unrecognized path, rather than producing a route with an empty
       // token.
-      return second ? { tab: "share", token: second } : { tab: "readings" };
+      //
+      // Only the exact segment `record` opens the record; anything else after
+      // the token is a typo or a stale deep link and lands on the article,
+      // which is the page the link was sent for. Never a dead end.
+      if (!second) return { tab: "readings" };
+      return { tab: "share", token: second, view: third === "record" ? "record" : "article" };
     default:
       return { tab: "readings" };
   }
@@ -68,7 +80,9 @@ export function liteRoutePath(route: LiteRoute): string {
     case "settings":
       return "/settings";
     case "share":
-      return `/s/${encodeSegment(route.token)}`;
+      return route.view === "record"
+        ? `/s/${encodeSegment(route.token)}/record`
+        : `/s/${encodeSegment(route.token)}`;
   }
 }
 

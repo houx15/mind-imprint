@@ -40,10 +40,39 @@ const reportType = {
   "mk-report-numeral": ["26px", { lineHeight: "1.1", fontWeight: "700" }],
   /** 我写的 — her finished piece, read start to finish rather than glanced at.
    *  Body weight and generous leading, matching `PROSE_TYPOGRAPHY`'s 17px/1.9
-   *  in the writing room: the same prose, so it should read the same way on
-   *  the page someone opens from a QR code as it did while she wrote it. */
-  "mk-report-piece": ["17px", { lineHeight: "1.9", fontWeight: "400" }],
+   *  in the writing room.
+   *
+   *  🚨 NOT the writing room's 17px/1.9. This is the read-it-through size, and
+   *  it is set the way a newspaper or a good blog sets long-form: bigger than
+   *  chrome, with air between the lines. 19px at 2.0 gives roughly 33 Chinese
+   *  characters a line at this measure — the band CJK body text is actually
+   *  comfortable in. The composition surface stays at 17px because writing and
+   *  reading are different jobs. */
+  "mk-report-piece": ["19px", { lineHeight: "2", fontWeight: "400" }],
+  /** An article's own title, on the page that presents her piece as an
+   *  article. Distinct from `mk-report-hero`: that one sits inside the
+   *  report's coloured masthead and is built to be screenshotted, this one is
+   *  just type on a page — 「don't make the title a block」 — so it is set in
+   *  the same serif as the prose it belongs to. */
+  "mk-report-title": ["34px", { lineHeight: "1.35", fontWeight: "700" }],
 } as const;
+
+/**
+ * The reading face for her finished piece — the ONE place in either app that
+ * sets long-form prose someone reads start to finish.
+ *
+ * Serif, because that is what long-form reading looks like everywhere it is
+ * done well, and because it separates HER ARTICLE from the product's UI at a
+ * glance: everything else on the page is the interface talking, this is her.
+ *
+ * The stack is ordered for CJK first, then Latin, then the generic — a
+ * Chinese essay must not fall back to a Latin serif rendering Chinese in the
+ * system sans (which is what a bare `Georgia, serif` does). Songti SC ships on
+ * macOS/iOS and SimSun on Windows, so the common cases are covered without a
+ * webfont; Noto/Source Han are named first for anyone who has them.
+ */
+const pieceSerif =
+  '"Noto Serif SC", "Source Han Serif SC", "Songti SC", "SimSun", "Georgia", "Times New Roman", serif';
 
 export default {
   ...base,
@@ -56,6 +85,10 @@ export default {
       fontSize: {
         ...(base.theme?.extend?.fontSize ?? {}),
         ...reportType,
+      },
+      fontFamily: {
+        ...(base.theme?.extend?.fontFamily ?? {}),
+        "mk-piece": [pieceSerif],
       },
     },
   },

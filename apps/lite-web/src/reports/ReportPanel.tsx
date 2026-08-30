@@ -6,6 +6,7 @@ import { useAlive } from "../shared/useAlive";
 import { exportPoster } from "./exportPoster";
 import { ReportPoster } from "./ReportPoster";
 import { ReportView } from "./ReportView";
+import { ArticleView } from "./ArticleView";
 import { SharePanel } from "./SharePanel";
 import { ReportActions } from "./ReportActions";
 import { ExperienceStars } from "./ExperienceStars";
@@ -82,6 +83,19 @@ export function ReportPanel({
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
   const [exporting, setExporting] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  /**
+   * Which of her two pages is showing: the article, or the record of writing
+   * it. Starts on the article — that is the piece she just finished, and the
+   * thing she'd want to look at (and send) first.
+   *
+   * In-app this is component state rather than a URL, unlike the public share
+   * link (`/s/:token` vs `/s/:token/record`, real pushState). A shared page
+   * has to be linkable to be shared at all; this one is reached by finishing
+   * a writing, and both pages carry an explicit way to the other. Browser
+   * Back therefore leaves the room rather than stepping between the two —
+   * worth promoting to a real route if that ever bites.
+   */
+  const [page, setPage] = useState<"article" | "record">("article");
   const alive = useAlive();
 
   useEffect(() => {
@@ -133,39 +147,57 @@ export function ReportPanel({
   }
 
   if (state === "done" && report) {
+    // Her own two pages, the same split a shared link gets: the article she
+    // wrote, and 这一篇是怎么写出来的 behind it ("make the report a new page").
+    // A reading has no article and goes straight to the record; so does a
+    // writing finished before `piece` existed (no backfill).
+    const hasArticle = report.kind === "writing" && report.piece.trim() !== "";
+    const actions = (
+      <ReportActions
+        exporting={exporting}
+        onExport={handleExport}
+        shareOpen={shareOpen}
+        shared={shareToken !== null}
+        onToggleShare={() => setShareOpen((v) => !v)}
+      />
+    );
+    const sharePanel = shareOpen ? (
+      <SharePanel
+        kind={kind}
+        atomId={atomId}
+        initialShareToken={shareToken}
+        // Keeps the share icon's "already published" dot honest after a mint
+        // or a revoke, and keeps `initialShareToken` valid across the
+        // unmount/remount this toggle causes — without giving two components
+        // two copies of the same state machine.
+        onSharedChange={setShareToken}
+      />
+    ) : null;
+
+    if (hasArticle && page === "article") {
+      return (
+        <ArticleView
+          report={report}
+          actions={actions}
+          sharePanel={sharePanel}
+          onOpenRecord={() => setPage("record")}
+        />
+      );
+    }
+
     return (
       <>
         {/* 导出 / 分享 are two small icons in the report's own upper-right
             corner, handed to `ReportView` as slots; the share panel drops in
             right under the hero so it opens next to the icon that opened it.
-            `PublicReportPage` mounts the same `ReportView` with NEITHER slot,
-            which is what keeps a visitor from ever seeing controls over
-            someone else's report. */}
+            `PublicReportPage` mounts the same views with NEITHER slot, which
+            is what keeps a visitor from ever seeing controls over someone
+            else's work. */}
         <ReportView
           report={report}
-          actions={
-            <ReportActions
-              exporting={exporting}
-              onExport={handleExport}
-              shareOpen={shareOpen}
-              shared={shareToken !== null}
-              onToggleShare={() => setShareOpen((v) => !v)}
-            />
-          }
-          sharePanel={
-            shareOpen ? (
-              <SharePanel
-                kind={kind}
-                atomId={atomId}
-                initialShareToken={shareToken}
-                // Keeps the share icon's "already published" dot honest after a
-                // mint or a revoke, and keeps `initialShareToken` valid across
-                // the unmount/remount this toggle causes — without giving two
-                // components two copies of the same state machine.
-                onSharedChange={setShareToken}
-              />
-            ) : null
-          }
+          onBackToArticle={hasArticle ? () => setPage("article") : undefined}
+          actions={actions}
+          sharePanel={sharePanel}
         />
 
         <div className="mk-rp-measure flex flex-col gap-5 pb-4">

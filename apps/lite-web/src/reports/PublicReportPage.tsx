@@ -2,6 +2,8 @@ import { useEffect, useState } from "react";
 import { getPublicReport, PublicReportNotFoundError, type LiteReport } from "@lite/api/reports";
 import { useAlive } from "@lite/shared/useAlive";
 import { ReportView } from "./ReportView";
+import { ArticleView } from "./ArticleView";
+import { liteRoutePath, navigate, parseLiteRoute } from "@lite/routing";
 
 /**
  * PublicReportPage — what a shared report link actually opens, for someone
@@ -38,10 +40,37 @@ import { ReportView } from "./ReportView";
  * the first's cleanup marks its own closure cancelled, so the one real
  * response never lands anywhere.
  */
-export function PublicReportPage({ token }: { token: string }) {
+export function PublicReportPage({ token, view }: { token: string; view: "article" | "record" }) {
   const [state, setState] = useState<"loading" | "done" | "not_found" | "failed">("loading");
   const [report, setReport] = useState<LiteReport | null>(null);
   const alive = useAlive();
+
+  /**
+   * Which of the two pages is showing.
+   *
+   * 🚨 This has to live in state here, seeded from the prop — it cannot just
+   * BE the prop. `rootElementFor` runs exactly once, from `main.tsx`'s
+   * module-scope render, so a `pushState` between `/s/:token` and
+   * `/s/:token/record` would change the URL and re-render nothing at all.
+   * `LiteApp` has its own popstate listener for the same reason; the share
+   * route is mounted outside it, so it needs its own.
+   *
+   * Listening to `popstate` (which `navigate` dispatches synthetically, and
+   * which the browser fires on a real Back) rather than tracking the clicks
+   * means the browser's own Back button moves between the article and the
+   * record correctly, instead of jumping the reader out of the shared link
+   * entirely.
+   */
+  const [currentView, setCurrentView] = useState<"article" | "record">(view);
+  useEffect(() => setCurrentView(view), [view]);
+  useEffect(() => {
+    const onPop = () => {
+      const route = parseLiteRoute(window.location.pathname);
+      if (route.tab === "share") setCurrentView(route.view);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, []);
 
   useEffect(() => {
     setState("loading");
@@ -59,9 +88,36 @@ export function PublicReportPage({ token }: { token: string }) {
   }, [token, alive]);
 
   if (state === "done" && report) {
+    // Two REAL pages behind one link. `/s/:token` is her article; appending
+    // `/record` opens 这一篇是怎么写出来的. Navigation is a genuine pushState
+    // (routing.ts's `navigate`), so a reader can send either page on, and the
+    // browser's own Back works between them — which a view-state toggle in
+    // this component would have quietly broken.
+    //
+    // A reading has no article: it goes straight to the record, and passes no
+    // way back to one. So does a writing report generated before `piece`
+    // existed (no backfill) — `hasArticle` is what keeps that case off a door
+    // to an empty room.
+    const hasArticle = report.kind === "writing" && report.piece.trim() !== "";
+    const body =
+      hasArticle && currentView === "article" ? (
+        <ArticleView
+          report={report}
+          onOpenRecord={() => navigate(liteRoutePath({ tab: "share", token, view: "record" }))}
+        />
+      ) : (
+        <ReportView
+          report={report}
+          onBackToArticle={
+            hasArticle
+              ? () => navigate(liteRoutePath({ tab: "share", token, view: "article" }))
+              : undefined
+          }
+        />
+      );
     return (
       <div className="min-h-full w-full bg-mk-paper">
-        <ReportView report={report} />
+        {body}
         <footer className="mk-rp-measure pb-10 text-mk-small text-mk-faint">
           来自思维印记
         </footer>

@@ -13,8 +13,18 @@ describe("parseLiteRoute", () => {
   it("round-trips a writing path", () =>
     expect(parseLiteRoute(writingPath("xyz"))).toEqual({ tab: "writings", writingId: "xyz" }));
 
+  // A shared link is two pages: the article at `/s/:token`, and the record of
+  // writing it at `/s/:token/record`. The bare token defaults to the article
+  // — that is what the link was sent for.
   it("reads a share token", () =>
-    expect(parseLiteRoute("/s/abc")).toEqual({ tab: "share", token: "abc" }));
+    expect(parseLiteRoute("/s/abc")).toEqual({ tab: "share", token: "abc", view: "article" }));
+  it("reads the record sub-page", () =>
+    expect(parseLiteRoute("/s/abc/record")).toEqual({ tab: "share", token: "abc", view: "record" }));
+  // Anything else after the token is a typo or a stale deep link. It lands on
+  // the article rather than dead-ending — same "never a dead end" rule the
+  // unknown-path fallback follows.
+  it("falls back to the article for an unknown sub-page", () =>
+    expect(parseLiteRoute("/s/abc/whatever")).toEqual({ tab: "share", token: "abc", view: "article" }));
   // A bare `/s` with no token has nothing to fetch — it must fall back to
   // the readings default like any other malformed path, NOT produce
   // `{tab:"share", token: undefined}`. Named here so dropping the `second ?`
@@ -22,8 +32,15 @@ describe("parseLiteRoute", () => {
   it("does not treat a bare /s as a share route", () =>
     expect(parseLiteRoute("/s")).toEqual({ tab: "readings" }));
   it("round-trips a share path", () =>
-    expect(parseLiteRoute(liteRoutePath({ tab: "share", token: "abc" }))).toEqual({
+    expect(parseLiteRoute(liteRoutePath({ tab: "share", token: "abc", view: "article" }))).toEqual({
       tab: "share",
       token: "abc",
+      view: "article",
+    }));
+  it("round-trips the record path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "share", token: "abc", view: "record" }))).toEqual({
+      tab: "share",
+      token: "abc",
+      view: "record",
     }));
 });

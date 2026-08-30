@@ -78,6 +78,17 @@ export function SharePanel({
    *  CONFIRMED server outcome, never for the optimistic in-flight phases. */
   onSharedChange?: (token: string | null) => void;
 }) {
+  /**
+   * What the link actually opens, in her words.
+   *
+   * On a writing the shared page LEADS WITH HER PIECE and carries the record
+   * underneath (see `ReportView`'s `Piece`), so calling the link 「这份报告」
+   * described the wrong thing — she is sending someone her article. The
+   * copy has to match what the reader will see, or 分享 reads as a chore
+   * rather than as something she'd want to do.
+   */
+  const shared = kind === "writing" ? "这篇文章" : "这份报告";
+
   const [state, setState] = useState<ShareState>(() =>
     initialShareToken ? { phase: "on", url: buildShareUrl(initialShareToken), qr: null } : { phase: "off" },
   );
@@ -155,7 +166,7 @@ export function SharePanel({
     return (
       <section className="flex flex-col gap-4 rounded-mk-lg border border-mk-border bg-mk-surface p-6">
         <p className="text-mk-small text-mk-muted">
-          这份报告现在任何拿到链接的人都能打开，不用登录。想收回的时候，点下面的「停止分享」就会立刻失效。
+          {shared}现在任何拿到链接的人都能打开，不用登录。想收回的时候，点下面的「停止分享」就会立刻失效。
         </p>
 
         <div className="flex items-center gap-2">
@@ -177,7 +188,7 @@ export function SharePanel({
         {state.qr && (
           <img
             src={state.qr}
-            alt="分享二维码，扫码可以直接打开这份报告"
+            alt={`分享二维码，扫码可以直接打开${shared}`}
             className="h-32 w-32 self-start rounded-mk-sm border border-mk-border"
           />
         )}
@@ -204,7 +215,7 @@ export function SharePanel({
   return (
     <section className="flex flex-col gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-6">
       <p className="text-mk-small text-mk-muted">
-        分享之后，任何拿到这个链接的人都能打开这份报告，不用登录也能看——如果你想收回，随时点「停止分享」就会立刻失效。
+        分享之后，任何拿到这个链接的人都能打开{shared}，不用登录也能看——如果你想收回，随时点「停止分享」就会立刻失效。
       </p>
       <button
         type="button"

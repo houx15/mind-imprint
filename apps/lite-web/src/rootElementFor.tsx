@@ -25,5 +25,12 @@ import { parseLiteRoute } from "./routing";
  */
 export function rootElementFor(pathname: string): ReactElement {
   const route = parseLiteRoute(pathname);
-  return route.tab === "share" ? <PublicReportPage token={route.token} /> : <LiteApp />;
+  // `view` is only the STARTING page — `PublicReportPage` owns it from there,
+  // because this function runs once from `main.tsx`'s module-scope render and
+  // never again. See that component's `currentView` comment.
+  return route.tab === "share" ? (
+    <PublicReportPage token={route.token} view={route.view} />
+  ) : (
+    <LiteApp />
+  );
 }
