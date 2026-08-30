@@ -14,6 +14,7 @@ import type { LiteMessage, ReadingBlockNote, ReadingBlockTool, ReadingTask } fro
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
+import { StepIndicator } from "./StepIndicator";
 
 /**
  * ReadingRoom (lite) — lite's OWN reading room.
@@ -39,13 +40,16 @@ import { ReadingPlanDial } from "./ReadingPlanDial";
  *  - **The brief bar is gone.** 「你读这篇是为了」 was write-only in lite (it
  *    fed only the room composer's own `readTurn` prompt, which 带读 replaced),
  *    and the 阶段 dropdown beside it was already lite-hidden. Nothing took the
- *    slot: 「我现在在第几步」 is answered by `ReadingPlanDial`, which floats.
+ *    slot: 「我现在在第几步」 is answered by `StepIndicator` (the row) and
+ *    `ReadingPlanDial` (the floating plan).
  *
  * The 2026-08-30 redesign then moved the two columns and folded the third:
  * the article is on the LEFT, 印记 on the RIGHT and wider, and the step list
  * that used to occupy a 262px column of its own is a hover-to-expand dial in
- * the corner. Everything in this file below the imports is that layout; the
- * widths themselves are `.mk-lite-room` rules in `src/index.css`.
+ * the corner. The current-step ROW stayed (asked back the same day) — the dial
+ * is the plan, the row is the present tense. Everything in this file below the
+ * imports is that layout; the widths themselves are `.mk-lite-room` rules in
+ * `src/index.css`.
  *
  * The leaf components (Annotate, HangingCard, LensLibrary, ReadingOutcomes,
  * FinalizeReadingPanel, useReadingLoop, the stylesheet) are still IMPORTED
@@ -572,6 +576,10 @@ export function ReadingRoom({
             The section is second in the DOM as well as second on screen, so
             reading order and tab order agree with the layout. */}
         <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          {/* 我现在在第几步 — the present tense, always visible. The DIAL is the
+              plan (every step, one hover away); this row is the one step she
+              is on. Deliberately two surfaces, deliberately different jobs. */}
+          <StepIndicator tasks={tasks} />
           {/* ONE 印记. Same character, same `atom_message` table, one thread on
               screen instead of two. */}
           <ReadingCoachPanel

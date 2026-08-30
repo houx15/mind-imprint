@@ -115,11 +115,13 @@ describe("ReadingRoomHost", () => {
     expect(screen.queryByRole("button", { name: "追来源" })).toBeNull();
   });
 
-  it("shows where she is in the plan on the floating dial, at every width", async () => {
-    // Both step surfaces this replaced could vanish: `ReadingPlanRail` hung in
-    // an `lg:`-gated aside (absent on a phone), and `StepIndicator` sat inside
-    // the coach column. The dial floats over the room itself, so there is one
-    // step surface and every breakpoint has it.
+  it("shows where she is on BOTH step surfaces, and they agree", async () => {
+    // Two surfaces on purpose, with different jobs: the DIAL is the plan (every
+    // step, folded into a corner, one hover away) and the ROW at the top of
+    // 印记's column is the present tense (the one step she is on, always
+    // visible). What must never happen is the two pointing at different steps —
+    // they derive from the same first-`pending` rule, and this is what holds
+    // that together.
     routes[key("GET", `/api/v1/readings/${READING_ID}/plan`)] = {
       body: {
         routineKey: "close_read",
@@ -134,20 +136,27 @@ describe("ReadingRoomHost", () => {
 
     render(<ReadingRoomHost readingId={READING_ID} />);
 
-    // Folded, the position is the disc's accessible name — the numbers are on
-    // screen as a shape (2/3 inside the ring), and as a sentence to anyone who
-    // cannot see the shape.
-    const disc = await screen.findByRole("button", { name: "带读进度 · 第 2 步 / 共 3 步" });
+    // The ROW, in the coach column, without touching anything: the step's own
+    // label so she knows what 印记 is asking of her right now.
+    const row = await screen.findByText("第 2 步 / 共 3 步");
+    expect(row.closest(".mk-reading-room__coach")).toBeTruthy();
+    expect(screen.getByText("找出作者最想让你信的那一句")).toBeTruthy();
+
+    // The DIAL, folded: the same position, carried as the disc's accessible
+    // name — the numbers are on screen as a shape (2/3 inside the ring) and as
+    // a sentence to anyone who cannot see the shape.
+    const disc = screen.getByRole("button", { name: "带读进度 · 第 2 步 / 共 3 步" });
     expect(disc.closest("aside")).toBeNull();
     expect(disc.closest(".mk-reading-room")).toBeTruthy();
 
-    // Expanded, the whole plan — including the step's own label, so she knows
-    // what 印记 is asking of her right now.
+    // Expanded, the whole plan.
     // `pointerover`, not `pointerenter`: React synthesizes enter/leave from
     // the over/out pair and never subscribes to the non-bubbling events.
     fireEvent.pointerOver(disc.parentElement!);
-    expect(screen.getByText("第 2 步 / 共 3 步")).toBeTruthy();
-    expect(screen.getAllByText("找出作者最想让你信的那一句").length).toBeGreaterThan(0);
+    // Two now — the row and the panel — and that is the point: both say the
+    // same sentence because both derive it the same way.
+    expect(screen.getAllByText("第 2 步 / 共 3 步")).toHaveLength(2);
+    expect(screen.getAllByText("这个证据够吗？")).toHaveLength(1);
   });
 
   it("restores the persisted transcript instead of greeting her again", async () => {

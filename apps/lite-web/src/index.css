@@ -306,6 +306,64 @@
 }
 
 /* ---------------------------------------------------------------------------
+ * 当前这一步（StepIndicator）
+ *
+ * The row at the top of 印记's column. It moves for exactly two reasons —
+ * the row arrives with the room, and the LABEL is replaced when 印记 moves her
+ * on, so the change is seen rather than silently swapped underneath her. The
+ * dot breathes slowly (2.6s) to say 「这一步是活的」, deliberately slow enough
+ * to read as breathing rather than as a notification demanding a tap.
+ *
+ * It no longer carries a filled track: the dial's ring is the progress meter
+ * now, and two meters saying one thing is how 「0 / 6」 started reading as a
+ * score.
+ * ------------------------------------------------------------------------- */
+.mk-stepnow,
+.mk-stepnow__label {
+  animation: mk-stepnow-in 130ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+@keyframes mk-stepnow-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.mk-stepnow__dot {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  align-self: center;
+  border-radius: 999px;
+  background: var(--mk-accent-500);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-accent-500) 45%, transparent);
+  animation: mk-stepnow-breathe 2.6s ease-in-out infinite;
+}
+
+@keyframes mk-stepnow-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-accent-500) 42%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 5px color-mix(in srgb, var(--mk-accent-500) 0%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-stepnow,
+  .mk-stepnow__label,
+  .mk-stepnow__dot {
+    animation: none;
+  }
+}
+
+/* ---------------------------------------------------------------------------
  * 带读进度 · 悬浮进度盘（`ReadingPlanDial`）
  *
  * The step list used to be a 262px column that was there on a laptop and
@@ -826,8 +884,12 @@
  * instead of by the border it was sharing a pixel with. */
 .mk-lite-room .mk-reading-room__coach {
   position: relative;
-  padding-top: 12px;
-  padding-bottom: 12px;
+  /* Horizontal too, and for the same reason: the scroll box and the composer
+     were both laid out flush to the frame (measured: the pane's padding was
+     `12px 0`, so the composer's box ran 705→1427 inside a 704→1428 pane).
+     18px is what stops 印记's column reading as text jammed into a border. */
+  padding: 12px 18px;
+  gap: 10px;
 }
 
 /* One hairline of accent along the top of 印记's pane — the same instrument
