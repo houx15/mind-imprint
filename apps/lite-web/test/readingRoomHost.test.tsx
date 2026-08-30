@@ -115,10 +115,11 @@ describe("ReadingRoomHost", () => {
     expect(screen.queryByRole("button", { name: "追来源" })).toBeNull();
   });
 
-  it("shows where she is in the plan INSIDE the coach column, not only in the lg-only rail", async () => {
-    // `ReadingPlanRail` hangs in an `lg:`-gated aside, so on a narrow screen it
-    // is not on the page at all. The step indicator stands where pro keeps
-    // 「你读这篇是为了」 — in the coach column, which survives every breakpoint.
+  it("shows where she is in the plan on the floating dial, at every width", async () => {
+    // Both step surfaces this replaced could vanish: `ReadingPlanRail` hung in
+    // an `lg:`-gated aside (absent on a phone), and `StepIndicator` sat inside
+    // the coach column. The dial floats over the room itself, so there is one
+    // step surface and every breakpoint has it.
     routes[key("GET", `/api/v1/readings/${READING_ID}/plan`)] = {
       body: {
         routineKey: "close_read",
@@ -133,10 +134,19 @@ describe("ReadingRoomHost", () => {
 
     render(<ReadingRoomHost readingId={READING_ID} />);
 
-    const position = await screen.findByText("第 2 步 / 共 3 步");
-    expect(position.closest("aside")).toBeNull();
-    expect(position.closest(".mk-reading-room__coach")).toBeTruthy();
-    // The step's own label, so she knows what 印记 is asking of her right now.
+    // Folded, the position is the disc's accessible name — the numbers are on
+    // screen as a shape (2/3 inside the ring), and as a sentence to anyone who
+    // cannot see the shape.
+    const disc = await screen.findByRole("button", { name: "带读进度 · 第 2 步 / 共 3 步" });
+    expect(disc.closest("aside")).toBeNull();
+    expect(disc.closest(".mk-reading-room")).toBeTruthy();
+
+    // Expanded, the whole plan — including the step's own label, so she knows
+    // what 印记 is asking of her right now.
+    // `pointerover`, not `pointerenter`: React synthesizes enter/leave from
+    // the over/out pair and never subscribes to the non-bubbling events.
+    fireEvent.pointerOver(disc.parentElement!);
+    expect(screen.getByText("第 2 步 / 共 3 步")).toBeTruthy();
     expect(screen.getAllByText("找出作者最想让你信的那一句").length).toBeGreaterThan(0);
   });
 

@@ -13,7 +13,7 @@ import "@/studio/reading/ReadingRoom.css";
 import type { LiteMessage, ReadingBlockNote, ReadingBlockTool, ReadingTask } from "../api/readingRoom";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
-import { StepIndicator } from "./StepIndicator";
+import { ReadingPlanDial } from "./ReadingPlanDial";
 
 /**
  * ReadingRoom (lite) — lite's OWN reading room.
@@ -38,8 +38,14 @@ import { StepIndicator } from "./StepIndicator";
  *  - **`demoMode` is gone.** Lite never enabled it; every write path is live.
  *  - **The brief bar is gone.** 「你读这篇是为了」 was write-only in lite (it
  *    fed only the room composer's own `readTurn` prompt, which 带读 replaced),
- *    and the 阶段 dropdown beside it was already lite-hidden. The slot it left
- *    left is now held by `StepIndicator`, which answers 「我现在在第几步」.
+ *    and the 阶段 dropdown beside it was already lite-hidden. Nothing took the
+ *    slot: 「我现在在第几步」 is answered by `ReadingPlanDial`, which floats.
+ *
+ * The 2026-08-30 redesign then moved the two columns and folded the third:
+ * the article is on the LEFT, 印记 on the RIGHT and wider, and the step list
+ * that used to occupy a 262px column of its own is a hover-to-expand dial in
+ * the corner. Everything in this file below the imports is that layout; the
+ * widths themselves are `.mk-lite-room` rules in `src/index.css`.
  *
  * The leaf components (Annotate, HangingCard, LensLibrary, ReadingOutcomes,
  * FinalizeReadingPanel, useReadingLoop, the stylesheet) are still IMPORTED
@@ -139,8 +145,8 @@ function BackIcon() {
   );
 }
 
-// The focused reading surface: 带读 on the left, the article on the right with
-// 文章 | 阅读成果 view-tabs. The article enters select-mode once a card is
+// The focused reading surface: the article on the left with 文章 | 阅读成果
+// view-tabs, 带读 on the right. The article enters select-mode once a card is
 // `active`; the hanging card renders from the loop's live status/eval; every
 // confirmed finding accumulates in 阅读成果.
 export function ReadingRoom({
@@ -402,32 +408,6 @@ export function ReadingRoom({
       </header>
 
       <main className="mk-reading-room__workspace">
-        <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
-          {/* The slot pro fills with 「你读这篇是为了」. Here it answers 「我
-              现在在第几步」 instead — and because ReadingPlanRail hangs in an
-              `lg:`-gated aside, on a narrow screen this is the ONLY place she
-              can see that. */}
-          <StepIndicator tasks={tasks} />
-          {/* ONE 印记. Same character, same `atom_message` table, one thread on
-              screen instead of two. */}
-          <ReadingCoachPanel
-            readingId={readingId}
-            tasks={tasks}
-            initialMessages={coachMessages}
-            slot={{
-              locked: busyOrCarded,
-              quotes: quoted,
-              removeQuote: removeQuoted,
-              clearQuotes: () => setQuoted([]),
-              // Narrow re-check, not a reload: nothing here unmounts the
-              // room, so her transcript/draft/scroll position survive.
-              onCardSummoned: () => void loop.refetchOpenCard(),
-            }}
-            onTasks={onTasks}
-            onFocusBlock={focusBlock}
-          />
-        </section>
-
         <section className="mk-reading-room__reading" aria-label="阅读材料区">
           <div className="mk-reading-room__toolbar">
             <div className="mk-reading-room__view-tabs" role="tablist" aria-label="右侧视图">
@@ -585,7 +565,38 @@ export function ReadingRoom({
             </div>
           )}
         </section>
+
+        {/* 印记, on the RIGHT and wider than the article now — the 262px step
+            rail that used to eat the left edge of this screen folded into
+            `ReadingPlanDial` below, and this is what the width was freed for.
+            The section is second in the DOM as well as second on screen, so
+            reading order and tab order agree with the layout. */}
+        <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          {/* ONE 印记. Same character, same `atom_message` table, one thread on
+              screen instead of two. */}
+          <ReadingCoachPanel
+            readingId={readingId}
+            tasks={tasks}
+            initialMessages={coachMessages}
+            slot={{
+              locked: busyOrCarded,
+              quotes: quoted,
+              removeQuote: removeQuoted,
+              clearQuotes: () => setQuoted([]),
+              // Narrow re-check, not a reload: nothing here unmounts the
+              // room, so her transcript/draft/scroll position survive.
+              onCardSummoned: () => void loop.refetchOpenCard(),
+            }}
+            onTasks={onTasks}
+            onFocusBlock={focusBlock}
+          />
+        </section>
       </main>
+
+      {/* 带读进度 · folded. Floats over the room's bottom-left corner at every
+          width — unlike the rail it replaces, which hung in an `lg:`-gated
+          aside and simply was not there on a phone. */}
+      <ReadingPlanDial tasks={tasks} />
 
       {libraryOpen && (
         <LensLibrary

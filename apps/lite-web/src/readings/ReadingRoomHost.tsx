@@ -31,7 +31,6 @@ import {
 } from "../api/readingRoom";
 import { ReportPanel } from "../reports/ReportPanel";
 import { useHeartbeat } from "../shared/useHeartbeat";
-import { ReadingPlanRail } from "./ReadingPlanRail";
 import { ReadingQuestions } from "./ReadingQuestions";
 import { liteRoutePath, navigate } from "../routing";
 
@@ -121,9 +120,9 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         // value rather than failing the load.
         // No brief fetch here: the 「你读这篇是为了」 bar it fed was write-only
         // in lite and did not survive the fork, so `GET /brief` was a round
-        // trip on every open whose answer nothing read. The current-step
-        // indicator that lands in that slot is built from the PLAN, not from
-        // the brief.
+        // trip on every open whose answer nothing read. The step surface that
+        // answers 「我现在在第几步」 (the floating dial) is built from the
+        // PLAN, not from the brief.
         const [annotations, messages, cards, loadedPlan, tools, notes] = await Promise.all([
           listReadingAnnotations(readingId).catch(() => [] as LiteAnnotation[]),
           listReadingMessages(readingId).catch(() => [] as LiteMessage[]),
@@ -213,14 +212,10 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         </div>
       )}
 
-      {/* 带读进度. STATUS ONLY — the conversation that used to live here moved
-          into the room's own coach column, because two AI chat boxes on one
-          screen read as two AIs. Nothing in this rail is clickable: 印记 moves
-          her between steps. */}
-      <aside className="hidden w-[262px] shrink-0 flex-col overflow-y-auto border-r border-mk-border bg-mk-paper p-4 lg:flex">
-        <ReadingPlanRail tasks={plan?.tasks ?? []} />
-      </aside>
-
+      {/* No step column any more. 带读进度 folded into `ReadingPlanDial`, which
+          the room floats over its own bottom-left corner — so the 262px this
+          aside used to hold went to the article and to 印记, and the step list
+          stopped being `lg:`-only (it was absent on a phone entirely). */}
       <div className="min-w-0 flex-1">
 
       <ReadingRoom
@@ -228,9 +223,9 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         source={source!}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
-        // 带读. The plan is loaded here because the rail beside the article
-        // reads the same list; the conversation that advances it lives inside
-        // the room.
+        // 带读. The plan is loaded here because the floating dial and the
+        // conversation both read the same list; the conversation that advances
+        // it lives inside the room.
         tasks={plan?.tasks ?? []}
         onTasks={(tasks: ReadingTask[]) =>
           setPlan((prev) => ({

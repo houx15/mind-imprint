@@ -61,18 +61,22 @@ test("带读: 印记 plans the route and leads, and she administrates none of it
 
   await start.click();
 
-  // The plan turn is a real model call on the chaperone tier.
-  await expect(page.getByText("带读进度")).toBeVisible({ timeout: 120_000 });
+  // The plan turn is a real model call on the chaperone tier. The plan lands
+  // on the floating dial, which is FOLDED — 3/5 in a ring in the corner — so
+  // what proves the plan arrived is the disc appearing, not the list.
+  const dial = page.locator(".mk-plandial__disc");
+  await expect(dial).toBeVisible({ timeout: 120_000 });
+  // Folded, it says where she is only to a screen reader.
+  await expect(dial).toHaveAttribute("aria-label", /带读进度 · 第 \d+ 步 \/ 共 \d+ 步/);
 
-  // A route of more than a couple of steps, and a first instruction to act on.
-  // Scoped to the progress card, not a bare `ol` — an unscoped list selector
-  // would stay green off any other list in the room if this one disappeared,
-  // which is exactly the regression the next three assertions are for.
-  const progress = page
-    .locator("div")
-    .filter({ has: page.getByText("带读进度") })
-    .filter({ has: page.locator("ol") })
-    .last();
+  // Hover unfolds it. A route of more than a couple of steps, and a first
+  // instruction to act on. Scoped to the panel, not a bare `ol` — an unscoped
+  // list selector would stay green off any other list in the room if this one
+  // disappeared, which is exactly the regression the next three assertions
+  // are for.
+  await dial.hover();
+  const progress = page.locator(".mk-plandial__panel");
+  await expect(progress.getByText("带读进度")).toBeVisible();
   const steps = progress.locator("ol > li");
   expect(await steps.count()).toBeGreaterThan(2);
 

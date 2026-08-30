@@ -4,7 +4,6 @@ import { render, screen, cleanup } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import type { MaterialSource } from "@mind-imprint/contracts";
 import { ReadingRoom, type LiteReadingRoomApi } from "@lite/readings/ReadingRoom";
-import { ReadingPlanRail } from "@lite/readings/ReadingPlanRail";
 import { placeBar } from "@lite/readings/BlockToolbar";
 import type { ReadingTask } from "@lite/api/readingRoom";
 
@@ -84,14 +83,14 @@ const API = {
   },
 } as unknown as LiteReadingRoomApi;
 
-function renderRoom() {
+function renderRoom(tasks: ReadingTask[] = []) {
   return render(
     <ReadingRoom
       readingId="atom-1"
       source={SOURCE}
       api={API}
       onBack={() => {}}
-      tasks={[]}
+      tasks={tasks}
       onTasks={() => {}}
       coachMessages={[]}
       blockTools={[]}
@@ -158,7 +157,7 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
   });
 
   it("窄屏下工具条换行而不是把按钮推出屏幕", () => {
-    const narrow = mediaBlock("max-width: 860px");
+    const narrow = mediaBlock("max-width: 1360px");
     expect(narrow).toContain(".mk-lite-room .mk-reading-room__toolbar");
     const toolbar = ruleBody(".mk-lite-room .mk-reading-room__toolbar", narrow);
     // Wrapping is what makes reachability structural rather than a lucky fit:
@@ -168,6 +167,71 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
     expect(toolbar).toMatch(/height\s*:\s*auto/);
     // The hint gets a row of its own instead of being sliced mid-word.
     expect(ruleBody(".mk-lite-room .mk-reading-room__hint", narrow)).toMatch(/flex\s*:\s*1\s+0\s+100%/);
+  });
+
+  // ── 2026-08-30 · 文章在左，印记在右，进度盘悬浮 ──────────────────────────
+  it("文章在 DOM 里排在印记前面，不是靠 CSS order 换位置", () => {
+    const { container } = renderRoom();
+    const panes = [...container.querySelectorAll(".mk-reading-room__reading, .mk-reading-room__coach")];
+    // Reading order and tab order have to agree with the layout: flipping the
+    // columns with `order` alone would leave a screen reader and a keyboard
+    // walking the page right-to-left.
+    expect(panes.map((el) => el.className)).toEqual([
+      "mk-reading-room__reading",
+      "mk-reading-room__coach",
+    ]);
+    // Both selectors must be scoped by the CSS check above, so the grid is
+    // asserted here rather than in a second stylesheet crawl.
+    expect(ruleBody(".mk-lite-room .mk-reading-room__workspace")).toMatch(/grid-template-columns/);
+  });
+
+  it("印记那一栏比文章宽——这就是收掉 262px 侧栏换来的东西", () => {
+    const cols = ruleBody(".mk-lite-room .mk-reading-room__workspace").match(
+      /grid-template-columns:\s*minmax\([^,]+,\s*([\d.]+)fr\)\s*minmax\([^,]+,\s*([\d.]+)fr\)/,
+    );
+    expect(cols, "workspace 的两列写法变了").toBeTruthy();
+    const [article, coach] = [Number(cols![1]), Number(cols![2])];
+    expect(coach).toBeGreaterThan(article);
+  });
+
+  it("进度盘挂在房间自己身上，不会飘到导航栏上面去", () => {
+    // `.mk-plandial` is `position: absolute`; without a positioned ancestor it
+    // resolves against the viewport and lands on top of the app's nav rail.
+    expect(ruleBody(".mk-lite-room.mk-reading-room")).toMatch(/position\s*:\s*relative/);
+  });
+
+  it("进度盘的动效能被 prefers-reduced-motion 关掉", () => {
+    // The stylesheet has several reduce blocks (one per animated component),
+    // so this takes the one that names the dial rather than the first one.
+    const reduced = CSS.split("@media (prefers-reduced-motion: reduce)")
+      .slice(1)
+      .find((b) => b.includes(".mk-plandial"));
+    expect(reduced, "进度盘完全没有 reduce 分支").toBeTruthy();
+    for (const cls of ["__sweep", "__halo", "__scan", "__step"]) {
+      expect(reduced, `${cls} 没有被 reduce 关掉`).toContain(`.mk-plandial${cls}`);
+    }
+  });
+
+  it("有计划的时候房间里就有进度盘，而且不受断点限制", () => {
+    const { container } = renderRoom([
+      {
+        id: "t1",
+        position: 1,
+        kind: "read",
+        label: "先通读一遍",
+        detail: "",
+        blockId: "",
+        status: "pending",
+        completedAt: null,
+      },
+    ]);
+    const dial = container.querySelector(".mk-plandial");
+    expect(dial).toBeTruthy();
+    // The rail it replaced hung in an `lg:`-gated aside, i.e. it was simply
+    // absent on a phone. Nothing in this subtree may be responsively hidden.
+    const classes = [...dial!.querySelectorAll("*")].flatMap((el) => [...el.classList]);
+    expect(classes.filter((c) => c === "hidden" || /^(sm|md|lg|xl|2xl):/.test(c))).toEqual([]);
+    expect(container.querySelector("aside")).toBeNull();
   });
 
   /** The declarations of the first rule with exactly this selector. */
@@ -199,44 +263,6 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
     }
     throw new Error(`@media (${query}) 没有闭合`);
   }
-});
-
-describe("屏幕上只有一处进度数字", () => {
-  const task = (id: string, label: string, status: ReadingTask["status"], detail = ""): ReadingTask => ({
-    id,
-    position: 0,
-    kind: "read",
-    label,
-    detail,
-    blockId: "",
-    status,
-    completedAt: null,
-  });
-  const TASKS: ReadingTask[] = [
-    task("t1", "先读一遍", "done"),
-    task("t2", "换一个透镜再看", "pending", "在第四段找一句"),
-    task("t3", "自己说一遍", "pending"),
-  ];
-
-  it("rail 头上不再有 N / M——那是她进房间第一眼看到的分数", () => {
-    const { container } = render(<ReadingPlanRail tasks={TASKS} />);
-    expect(screen.getByText("带读进度")).toBeTruthy();
-    // Not a text query for one literal: any `数字 / 数字` anywhere in the rail
-    // is the thing that reads as a score, whatever its wording.
-    expect(container.textContent ?? "").not.toMatch(/\d\s*\/\s*\d/);
-    // …and not through the accessibility tree either. The bar used to be a
-    // `progressbar` with aria-valuenow/aria-valuemax, i.e. 「0 of 3」 read out
-    // loud — the same number, only invisible.
-    expect(container.querySelector("[role='progressbar']")).toBeNull();
-    expect(container.querySelector("[aria-valuenow]")).toBeNull();
-  });
-
-  it("rail 仍然是标题 + 步骤清单", () => {
-    // The ruling dropped the number, not the rail.
-    const { container } = render(<ReadingPlanRail tasks={TASKS} />);
-    expect(container.querySelectorAll("ol > li")).toHaveLength(3);
-    expect(screen.getByText("换一个透镜再看")).toBeTruthy();
-  });
 });
 
 describe("段落工具条永远不压在正文上", () => {

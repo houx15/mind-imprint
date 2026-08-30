@@ -36,7 +36,7 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
  *
  * Where the strings come from: the landing page from
  * apps/lite-web/src/readings/ReadingsLanding.tsx, the card from
- * readings/CoachCard.tsx, the step bar from readings/StepIndicator.tsx, the
+ * readings/CoachCard.tsx, the step dial from readings/ReadingPlanDial.tsx, the
  * room's chrome from readings/ReadingRoom.tsx.
  *
  * 🚨 SLOW ON PURPOSE. Every leg below is a real flagship call (40–70s each on
@@ -94,7 +94,7 @@ const TAPPABLE = "点一句就行，怎么想都算你的。";
  * NOT in the list, on purpose:
  *  - the ✕ on a quote chip (U+2715, ReadingCoachPanel) — that is 取消引用, a
  *    control, not a verdict;
- *  - the lucide `Check` icon on a SETTLED step in ReadingPlanRail — that is
+ *  - the lucide `Check` icon on a SETTLED step in ReadingPlanDial — that is
  *    progress through a plan, and it is an SVG with no text to scan anyway;
  *  - the word 正确 alone, which 印记 may legitimately use about the ARTICLE's
  *    claims (「作者这么说不一定正确」). 正确答案 is the exam word, and it is
@@ -194,23 +194,26 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   await startReading(page, ARTICLE_TITLE);
   await expect(page.locator("p[data-block-id]")).toHaveCount(4);
 
-  // ── 「你读这篇是为了」 is gone, and the step bar takes its place ───────────
-  // Pro fills that slot at the top of the coach column with a brief bar; lite
-  // does not have one at all (it was write-only here). Before 印记 has
-  // planned there is no position to report either, so the bar is absent too —
-  // 「第 0 步 / 共 0 步」 would be worse than the quiet.
+  // ── 「你读这篇是为了」 is gone, and nothing stands in that slot ────────────
+  // Pro fills the top of the coach column with a brief bar; lite does not have
+  // one at all (it was write-only here). Where she is in the plan lives on the
+  // floating dial instead — and before 印记 has planned there is no position
+  // to report, so the dial is not drawn either: 「第 0 步 / 共 0 步」, or an
+  // empty ring, would be worse than the quiet.
   await expect(page.getByText("你读这篇是为了")).toHaveCount(0);
-  const stepBar = page.getByText(/^(第 \d+ 步 \/ 共 \d+ 步|带读走完了 · 共 \d+ 步)$/);
-  await expect(stepBar).toHaveCount(0);
+  const dial = page.locator(".mk-plandial__disc");
+  await expect(dial).toHaveCount(0);
 
   // ── 开始: one live model call plans the route AND leads her into step one ──
   await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(assistantTurns(page)).toHaveCount(1, { timeout: 180_000 });
   await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0);
 
-  // Now she can see where she is — and this is the ONLY step surface on a
-  // narrow screen (ReadingPlanRail hangs in an `lg:`-gated aside).
-  await expect(stepBar).toBeVisible();
+  // Now she can see where she is — one step surface, present at every width
+  // (the rail this replaced hung in an `lg:`-gated aside, i.e. it was simply
+  // absent on a phone).
+  await expect(dial).toBeVisible();
+  await expect(dial).toHaveAttribute("aria-label", /带读进度 · (第 \d+ 步 \/ 共 \d+ 步|带读走完了)/);
   await expect(page.getByText("你读这篇是为了")).toHaveCount(0);
 
   // ── the first reply carries a CARD, not three lines of prose ──────────────
@@ -340,7 +343,7 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   // Answered means answered: the options do not come back waiting for a tap
   // she has already made.
   await expect(restored.locator("ul > li > button")).toHaveCount(0);
-  await expect(stepBar).toBeVisible();
+  await expect(page.locator(".mk-plandial__disc")).toBeVisible();
   await expectNothingReadsAsRightOrWrong(page, "after reload");
 
   // ── a lens still summons, with chat cards on screen ───────────────────────

@@ -20,9 +20,9 @@ import type { LiteMessage } from "../api/readingRoom";
  *   > stages themselves, but the AI directs these.
  *
  * So there are no 做完了 / 跳过 buttons here. She reads and she answers; the
- * coach decides whether that counted and says what is next. The steps live in
- * the rail beside the article (ReadingPlanRail) as **progress she can see**
- * rather than controls she operates.
+ * coach decides whether that counted and says what is next. The steps live on
+ * the floating dial in the room's corner (ReadingPlanDial) as **progress she
+ * can see** rather than controls she operates.
  *
  * Skipping did not disappear. It moved into language: she says 这步跳过吧, and
  * the coach records it (铁律④) without arguing. A student who wants out of a
