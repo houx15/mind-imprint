@@ -108,6 +108,11 @@ function ProseSection({
 }) {
   const script = MODE_SCRIPTS[modeId][section.id];
   const [handled, setHandled] = useState<number[]>([]);
+  // 🚨 整理式 reads what she wrote. With an empty box it has nothing to read,
+  // and printing 「读完了。第 1 句和第 3 句说的是同一件事」 over a blank textarea is
+  // exactly the canned-plausible-answer failure the codebase has a rule about
+  // ([AI errors must surface, never fake]). Say the true thing instead.
+  const tooEarlyToTidy = modeId === "tidy" && section.value.trim().length < 30;
 
   return (
     <div className="space-y-4">
@@ -136,7 +141,13 @@ function ProseSection({
             </span>
             <Sys>{workModeById(modeId).short}</Sys>
           </div>
-          <p className="mt-2.5 text-mk-body-lg leading-[1.85] text-mk-ink">{script.lead}</p>
+          <p className="mt-2.5 text-mk-body-lg leading-[1.85] text-mk-ink">
+            {tooEarlyToTidy
+              ? section.value.trim().length === 0
+                ? "你还没写。整理式是你先写、我再挑毛病——先写几句，哪怕写得很烂，我再看。"
+                : "才几个字，还看不出哪里啰嗦。再写几句我就能帮上忙了。"
+              : script.lead}
+          </p>
 
           {/* ── ask ─────────────────────────────────────────────────────── */}
           {modeId === "ask" ? (
@@ -177,7 +188,7 @@ function ProseSection({
           ) : null}
 
           {/* ── tidy ────────────────────────────────────────────────────── */}
-          {modeId === "tidy" ? (
+          {modeId === "tidy" && !tooEarlyToTidy ? (
             <ul className="mt-4 space-y-2">
               {script.items.map((s, i) => {
                 const done = handled.includes(i);

@@ -46,7 +46,9 @@ export function NewProject() {
     useEco();
   const d = state.draft;
   const [stage, setStage] = useState<Stage>(d.track ? "name" : "pick");
-  const [talking, setTalking] = useState(false);
+  // Which door she came through — the hub's 「先和印记聊聊」 sets this, so that
+  // button lands on the chat entrance rather than on the track grid.
+  const [talking, setTalking] = useState(state.newProjectMode === "talk");
 
   function choose(track: TrackId, title = "") {
     draftTrack(track, title);
@@ -90,9 +92,8 @@ export function NewProject() {
                   <Sys>印记 · 读了你的树</Sys>
                 </div>
                 <p className="mt-2.5 text-mk-body-lg leading-[1.9] text-mk-ink">
-                  我不猜你想做什么，我看你已经做过什么。你的树上有{" "}
-                  <span className="font-mono font-bold">{KEYWORDS.length}</span> 个词，
-                  其中三个已经走完了「读到 → 写下来」这一圈。下面这三个提议就是从那三个词来的——
+                  我不猜你想做什么，我看你已经做过什么。你树上的词里，有三个已经走完了
+                  「读到 → 写下来」这一圈。下面这三个提议就是从那三个词来的——
                   <strong className="font-semibold">选一个，或者告诉我都不对。</strong>
                 </p>
                 {state.kept.length > 0 ? (

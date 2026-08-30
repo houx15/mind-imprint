@@ -14,7 +14,7 @@ import { Btn, Empty, Panel, Sys } from "../ui";
  * she wrote — which is what the tree quotes as evidence.
  */
 export function ReadingDetail({ id }: { id: string }) {
-  const { openCoach } = useEco();
+  const { openCoach, hpPickAndCompose } = useEco();
   const r = readingById(id);
 
   if (!r) {
@@ -119,7 +119,15 @@ export function ReadingDetail({ id }: { id: string }) {
         <Btn variant="outline" iconStart={<MessageCircle size={16} strokeWidth={1.8} />} onClick={() => openCoach("reading")}>
           和印记聊这一篇
         </Btn>
-        <Btn variant="quiet" onClick={() => go({ name: "homepage" })}>
+        <Btn
+          variant="quiet"
+          onClick={() => {
+            // Pick it, THEN go — dropping her on step 1 of the studio with no
+            // record of what she asked for reads as the button doing nothing.
+            hpPickAndCompose("readings", r.id);
+            go({ name: "homepage" });
+          }}
+        >
           把它放上我的主页
         </Btn>
       </div>

@@ -216,14 +216,17 @@ export function ProjectRoom({ id, stepId }: { id: string; stepId?: string }) {
             disabled={summary.trim().length < 4}
             onClick={() => {
               publishProject(project.id, summary.trim());
-              go({ name: "page", handle: "zhiyao" });
+              // Only send her to the page if there IS one. Publishing into a
+              // homepage that hasn't been built yet used to land her on
+              // 「这个主页还没建好」, which reads as the publish having failed.
+              if (state.homepage.published) go({ name: "page", handle: "zhiyao" });
             }}
           >
             发布这个项目
           </Btn>
           {!state.homepage.published ? (
             <p className="mt-2 text-mk-small text-mk-muted">
-              你的主页还没建好，发布后它会等在那里，主页一建好就会显示出来。
+              你的主页还没建好。这个项目会先挑好、等在那里——主页一发布，它就在上面了。
             </p>
           ) : null}
         </Panel>

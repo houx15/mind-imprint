@@ -131,6 +131,7 @@ const PLANS: Record<TrackId, Omit<ProjectStep, "id" | "done">[]> = {
     },
     {
       kind: "design",
+      tool: "survey",
       title: "设计问卷：8 题以内",
       why: "题目越多，认真填的人越少。八题是一个初中生愿意填完的上限。",
       minutes: 40,

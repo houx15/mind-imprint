@@ -88,6 +88,8 @@ export interface EcoState {
   homepage: HomepageState;
   projects: Project[];
   draft: DraftProject;
+  /** How `/eco/projects/new` opens — set by whichever door she came through. */
+  newProjectMode: "pick" | "talk";
   /** Toasts — the prototype's only feedback channel for "that worked". */
   toast: string | null;
 }
@@ -124,6 +126,7 @@ function initialState(): EcoState {
     },
     projects: SEED_PROJECTS.map((p) => ({ ...p, steps: p.steps.map((s) => ({ ...s })) })),
     draft: { ...EMPTY_DRAFT, why: { ...EMPTY_DRAFT.why } },
+    newProjectMode: "pick",
     toast: null,
   };
 }
@@ -174,6 +177,9 @@ interface EcoApi {
   hpPick: (sectionId: string, itemId: string) => void;
   hpPublish: () => void;
   hpShare: () => void;
+  /** Pick an item into a homepage section AND jump to that section's editor —
+   *  the 「把它放上我的主页」 action from a reading or a writing. */
+  hpPickAndCompose: (sectionId: string, itemId: string) => void;
   /** Projects */
   draftTrack: (t: TrackId, title?: string) => void;
   draftWhy: (rung: "who" | "cost" | "mine", value: string) => void;
@@ -185,6 +191,7 @@ interface EcoApi {
   draftRemoveStep: (id: string) => void;
   draftAddStep: (step: ProjectStep) => void;
   createProject: () => string;
+  setNewProjectMode: (m: "pick" | "talk") => void;
   toggleStep: (projectId: string, stepId: string) => void;
   publishProject: (projectId: string, summary: string) => void;
   toast: (msg: string) => void;
@@ -307,6 +314,30 @@ export function EcoProvider({ children }: { children: ReactNode }) {
         toast("你的主页已经发布了");
       },
       hpShare: () => patch((s) => ({ ...s, homepage: { ...s.homepage, shared: true } })),
+      hpPickAndCompose: (sectionId, itemId) => {
+        patch((s) => ({
+          ...s,
+          homepage: {
+            ...s.homepage,
+            // Step 3 is 写内容. Landing her on step 1 with no record of what she
+            // wanted to add — which is what the old 「放上我的主页」 did — reads
+            // as the button having done nothing.
+            step: Math.max(s.homepage.step, 3),
+            sections: s.homepage.sections.map((sec) =>
+              sec.id === sectionId
+                ? {
+                    ...sec,
+                    enabled: true,
+                    picked: sec.picked?.includes(itemId)
+                      ? sec.picked
+                      : [...(sec.picked ?? []), itemId],
+                  }
+                : sec,
+            ),
+          },
+        }));
+        toast("已经挑上你的主页了，可以再调整");
+      },
 
       draftTrack: (track, title) =>
         patch((s) => ({
@@ -345,7 +376,15 @@ export function EcoProvider({ children }: { children: ReactNode }) {
       draftRemoveStep: (id) =>
         patch((s) => ({ ...s, draft: { ...s.draft, steps: s.draft.steps.filter((x) => x.id !== id) } })),
       draftAddStep: (step) =>
-        patch((s) => ({ ...s, draft: { ...s.draft, steps: [...s.draft.steps, step] } })),
+        patch((s) => {
+          // Insert before the publish step — appending after 发布 produces a
+          // plan that finishes and then keeps going, which reads as a bug.
+          const steps = [...s.draft.steps];
+          const at = steps.findIndex((x) => x.kind === "publish");
+          if (at === -1) steps.push(step);
+          else steps.splice(at, 0, step);
+          return { ...s, draft: { ...s.draft, steps } };
+        }),
       createProject: () => {
         const id = `p-${Date.now().toString(36)}`;
         setState((s) => {
@@ -364,6 +403,7 @@ export function EcoProvider({ children }: { children: ReactNode }) {
         });
         return id;
       },
+      setNewProjectMode: (newProjectMode) => patch((s) => ({ ...s, newProjectMode })),
       toggleStep: (projectId, stepId) =>
         patch((s) => ({
           ...s,
@@ -374,13 +414,35 @@ export function EcoProvider({ children }: { children: ReactNode }) {
           ),
         })),
       publishProject: (projectId, summary) => {
+        // 🚨 Publishing must ALSO place the project on her page, because the
+        // toast and the step copy both promise exactly that. The page renders
+        // only what she picked (principle 03 — she curates), so publishing
+        // picks it FOR her; she can still unpick it in the studio. Saying
+        // "它现在在你的主页上" while doing nothing was the one place this
+        // prototype told a student something untrue.
         patch((s) => ({
           ...s,
           projects: s.projects.map((p) =>
             p.id === projectId ? { ...p, status: "published" as const, summary } : p,
           ),
+          homepage: {
+            ...s.homepage,
+            sections: s.homepage.sections.map((sec) =>
+              sec.id === "projects"
+                ? {
+                    ...sec,
+                    enabled: true,
+                    picked: sec.picked?.includes(projectId)
+                      ? sec.picked
+                      : [...(sec.picked ?? []), projectId],
+                  }
+                : sec,
+            ),
+          },
         }));
-        toast("项目已发布，它现在在你的主页上");
+        toast(
+          "项目已发布，它现在在你的主页上",
+        );
       },
       toast,
     };

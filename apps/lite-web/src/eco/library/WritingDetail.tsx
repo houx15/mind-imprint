@@ -9,7 +9,7 @@ import { Btn, Empty, Sys } from "../ui";
  *  her writing sits at the same level as what she reads. That equivalence is
  *  the point; it is not a stylistic accident. */
 export function WritingDetail({ id }: { id: string }) {
-  const { openCoach } = useEco();
+  const { openCoach, hpPickAndCompose } = useEco();
   const w = writingById(id);
 
   if (!w) {
@@ -82,7 +82,13 @@ export function WritingDetail({ id }: { id: string }) {
         <Btn variant="outline" iconStart={<MessageCircle size={16} strokeWidth={1.8} />} onClick={() => openCoach("writing")}>
           让印记看看这一篇
         </Btn>
-        <Btn variant="quiet" onClick={() => go({ name: "homepage" })}>
+        <Btn
+          variant="quiet"
+          onClick={() => {
+            hpPickAndCompose("writings", w.id);
+            go({ name: "homepage" });
+          }}
+        >
           把它放上我的主页
         </Btn>
       </div>

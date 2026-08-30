@@ -21,7 +21,7 @@ import { Btn, Panel, SectionHead, Sys, cx } from "../ui";
  * five cards.
  */
 export function ProjectsHub() {
-  const { state, openCoach } = useEco();
+  const { state, setNewProjectMode } = useEco();
   const unlocked = state.homepage.published;
   const running = state.projects.filter((p) => p.status !== "published");
   const published = state.projects.filter((p) => p.status === "published");
@@ -33,7 +33,17 @@ export function ProjectsHub() {
         title="做一个真的东西"
         sub="从你自己在乎的问题出发，做出一件能交给别人看的东西。"
         right={
-          <Btn variant="outline" iconStart={<MessageCircle size={16} strokeWidth={1.8} />} onClick={() => openCoach("projects")}>
+          <Btn
+            variant="outline"
+            iconStart={<MessageCircle size={16} strokeWidth={1.8} />}
+            onClick={() => {
+              // Not the coach drawer: the REAL chat entrance lives on the
+              // new-project screen, where 印记 reads her tree and proposes
+              // three projects sourced from actual keywords.
+              setNewProjectMode("talk");
+              go({ name: "project-new" });
+            }}
+          >
             先和印记聊聊
           </Btn>
         }
@@ -121,7 +131,10 @@ export function ProjectsHub() {
             <button
               type="button"
               disabled={!unlocked}
-              onClick={() => go({ name: "project-new" })}
+              onClick={() => {
+                setNewProjectMode("pick");
+                go({ name: "project-new" });
+              }}
               className={cx(
                 "flex h-full w-full flex-col rounded-mk-lg border bg-mk-surface p-5 text-left transition-all",
                 "duration-[160ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",

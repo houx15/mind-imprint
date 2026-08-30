@@ -135,6 +135,11 @@ export type StepKind = "learn" | "research" | "design" | "make" | "document" | "
 export interface ProjectStep {
   id: string;
   kind: StepKind;
+  /** Which instrument the step's workspace opens. Defaults to `kind`, but a
+   *  step's TYPE and its TOOL are not the same thing: 设计问卷 is a `design`
+   *  step whose tool is the questionnaire builder, while 去发出去收回 30 份 is a
+   *  `research` step whose tool is a working log. */
+  tool?: StepKind | "survey";
   title: string;
   /** Why this step exists — the plan explains itself, it is not a checklist. */
   why: string;

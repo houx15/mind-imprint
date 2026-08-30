@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Info, Languages } from "lucide-react";
 import { useEco } from "../store";
 import {
@@ -13,6 +13,7 @@ import {
 import type { NewsItem } from "../data/types";
 import { ViewSwitch } from "../home/ViewSwitch";
 import { Chip, Panel, Sys, cx } from "../ui";
+import { useFitScale } from "../fit";
 import { Planet } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
 
@@ -50,6 +51,10 @@ export function WorldView() {
   const { state, setDate, setLang, setDomainFilter, discover } = useEco();
   const [openId, setOpenId] = useState<string | null>(null);
   const [note, setNote] = useState<"politics" | "selection" | null>(null);
+  const fieldRef = useRef<HTMLDivElement>(null);
+  // Planets are fixed pixel sizes on a stage that shrinks. Without this, a
+  // 700px-tall window overlaps planet 1's title with planet 5.
+  const scale = useFitScale(fieldRef, 520, 0.66);
 
   const items = useMemo(() => newsForDate(state.date), [state.date]);
   const lit = items.filter((n) => state.discovered.includes(n.id)).length;
@@ -60,8 +65,17 @@ export function WorldView() {
     setOpenId(item.id);
   }
 
+  const matching = state.domainFilter
+    ? items.filter((n) => n.domain === state.domainFilter)
+    : items;
+
   return (
-    <div className="eco-sky eco-stars relative flex min-h-full flex-col">
+    // `h-full` + `overflow-hidden`: the star map is a STAGE, not a document.
+    // It used to be `min-h-full`, which pushed the console (including the two
+    // transparency chips the spec requires to be visible) below the fold at
+    // 800px with no scroll cue, and left a band of cream paper under the sky
+    // where the scroll container out-ran the background.
+    <div className="eco-sky eco-stars relative flex h-full min-h-[600px] flex-col overflow-hidden">
       {/* ── top bar ─────────────────────────────────────────────────────── */}
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
         <div className="min-w-0">
@@ -102,7 +116,7 @@ export function WorldView() {
       </header>
 
       {/* ── the field ───────────────────────────────────────────────────── */}
-      <div className="relative z-10 min-h-[560px] flex-1">
+      <div ref={fieldRef} className="relative z-10 min-h-[300px] flex-1">
         {/* Orbit rings. Purely atmospheric: they give the field a centre. */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
@@ -129,7 +143,7 @@ export function WorldView() {
               key={item.id}
               item={item}
               lang={state.lang}
-              slot={slot}
+              slot={{ ...slot, size: Math.round(slot.size * scale) }}
               discovered={state.discovered.includes(item.id)}
               kept={state.kept.includes(item.id)}
               dimmed={dimmed}
@@ -140,7 +154,26 @@ export function WorldView() {
 
         {/* An invitation, not an instruction — it fades once she has opened
             one, because by then she knows. */}
-        {lit === 0 ? (
+        {matching.length === 0 ? (
+          <div className="absolute inset-0 z-20 flex items-center justify-center">
+            <Panel tone="dark" className="eco-in max-w-[42ch] p-6 text-center">
+              <Sys tone="dark">这一天没有这个领域</Sys>
+              <p className="mt-2 text-mk-body-lg leading-[1.85] text-[#E6DDD2]">
+                {state.lang === "zh"
+                  ? "每天只有五条，所以不是每个领域每天都会出现。换一天，或者看全部。"
+                  : "Only five a day, so not every field appears every day. Try another day, or view all."}
+              </p>
+              <div className="mt-4 flex justify-center gap-2">
+                <Chip tone="dark" active onClick={() => setDomainFilter(null)}>
+                  看全部领域
+                </Chip>
+              </div>
+            </Panel>
+          </div>
+        ) : lit === 0 && scale > 0.9 ? (
+          // Only on a stage tall enough to have room for it. On a short window
+          // the planets sit close to their labels and this line lands on top of
+          // them — and it is the most disposable element on the screen.
           <p
             className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-center text-mk-small"
             style={{ color: "#8E8175" }}
@@ -151,7 +184,7 @@ export function WorldView() {
       </div>
 
       {/* ── bottom console ──────────────────────────────────────────────── */}
-      <footer className="relative z-20 px-7 pb-6">
+      <footer className="relative z-20 shrink-0 px-7 pb-6">
         <div className="eco-scanline mb-4" />
 
         <div className="flex flex-wrap items-end justify-between gap-5">
@@ -255,8 +288,20 @@ export function WorldView() {
         </div>
 
         {note ? (
-          <Panel tone="dark" className="eco-in mt-4 max-w-[76ch] p-5">
-            <Sys tone="dark">{note === "politics" ? "为什么这里没有政治" : "五条是怎么挑的"}</Sys>
+          <Panel
+            tone="dark"
+            className="eco-in absolute bottom-full right-7 z-30 mb-2 max-w-[70ch] p-5"
+          >
+            <div className="flex items-start justify-between gap-4">
+              <Sys tone="dark">{note === "politics" ? "为什么这里没有政治" : "五条是怎么挑的"}</Sys>
+              <button
+                type="button"
+                onClick={() => setNote(null)}
+                className="eco-mono shrink-0 text-[#8E8175] hover:text-[#E6DDD2] focus-visible:outline-none"
+              >
+                关闭
+              </button>
+            </div>
             <p className="mt-2 text-mk-body-lg leading-[1.85] text-[#E6DDD2]">
               {(note === "politics" ? POLITICS_NOTE : SELECTION_NOTE)[state.lang]}
             </p>

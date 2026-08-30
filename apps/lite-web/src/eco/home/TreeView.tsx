@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { BookOpen, Hexagon, MessageCircle, PenLine } from "lucide-react";
 import { useEco } from "../store";
 import {
@@ -14,6 +14,7 @@ import { STUDENT } from "../data/library";
 import { go } from "../route";
 import type { FieldId, Keyword } from "../data/types";
 import { Sys, cx } from "../ui";
+import { useFitScale } from "../fit";
 import { ViewSwitch } from "./ViewSwitch";
 import { KeywordDrawer } from "./KeywordDrawer";
 
@@ -54,12 +55,29 @@ export function TreeView() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [hoverField, setHoverField] = useState<FieldId | null>(null);
 
+  const stageRef = useRef<HTMLDivElement>(null);
+  // Callouts are fixed pixel size on a stage that scales with the viewport.
+  // Without this they collide on any short window — which is what made this
+  // screen unreadable at 700px tall.
+  const scale = useFitScale(stageRef, 792, 0.74);
+
   const stop = state.growth;
   const visible = useMemo(() => KEYWORDS.filter((k) => k.bornAt <= stop), [stop]);
   const maturity = 0.42 + (stop / 3) * 0.58;
-  const grown = state.grownKeywords;
+  // Words she kept from 世界 are collected NOW, so they exist only at the
+  // present stop. Showing them while the replay is rewound put a keyword on a
+  // tree that also claimed to have zero keywords.
+  const grown = stop === GROWTH_STOPS.length - 1 ? state.grownKeywords : [];
   const shining = visible.filter((k) => k.shining);
   const openKw = openId ? (keywordById(openId) ?? null) : null;
+
+  // ONE count, used by the header, the field index and the caption. Three
+  // places computing it independently is how the screen came to show 17 / 16 / 0
+  // at the same time.
+  const countFor = (fieldId?: FieldId) =>
+    (fieldId ? visible.filter((k) => k.field === fieldId) : visible).length +
+    (fieldId ? grown.filter((g) => g.field === fieldId) : grown).length;
+  const total = countFor();
 
   return (
     <div className="relative min-h-full">
@@ -75,9 +93,7 @@ export function TreeView() {
         <div className="flex items-center gap-5">
           <span className="text-right">
             <Sys>关键词</Sys>
-            <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">
-              {visible.length + grown.length}
-            </span>
+            <span className="block font-mono text-mk-h2 tabular-nums text-mk-ink">{total}</span>
           </span>
           <span className="h-8 w-px" style={{ background: "var(--mk-border)" }} />
           <span className="text-right">
@@ -127,11 +143,38 @@ export function TreeView() {
           })}
         </div>
         <p className="text-mk-small text-mk-muted">
-          {stop === 3
-            ? `现在：${visible.length + grown.length} 个词，${shining.length} 个高光时刻。`
-            : `${GROWTH_STOPS[stop]?.sub ?? ""} —— 那时候树上只有 ${visible.length} 个词。`}
+          {stop === GROWTH_STOPS.length - 1
+            ? `现在：${total} 个词，${shining.length} 个高光时刻。`
+            : `${GROWTH_STOPS[stop]?.sub ?? ""} —— 那时候树上有 ${total} 个词。`}
         </p>
       </div>
+
+      {/* ── field index (chip row, below xl) ───────────────────────────────────────────────── */}
+      {/* Below xl there is no room for the floating column, so the same index
+          becomes a chip row under the replay — it is the key to the colour
+          coding and used to vanish entirely on a laptop. */}
+      <div className="mb-2 flex flex-wrap gap-1.5 px-7 xl:hidden">
+        {FIELDS.map((f, i) => (
+          <button
+            key={f.id}
+            type="button"
+            onMouseEnter={() => setHoverField(f.id)}
+            onMouseLeave={() => setHoverField(null)}
+            onFocus={() => setHoverField(f.id)}
+            onBlur={() => setHoverField(null)}
+            className="inline-flex items-center gap-1.5 rounded-mk-full border border-mk-border bg-mk-surface
+                       px-2.5 py-1 text-mk-small text-mk-secondary transition-colors duration-[120ms]
+                       hover:border-mk-accent-200 focus-visible:outline-none focus-visible:ring-2
+                       focus-visible:ring-mk-accent-200"
+          >
+            <span className="h-1.5 w-1.5 rotate-45" style={{ background: f.hue }} />
+            <span className="eco-mono text-mk-faint">{String(i + 1).padStart(2, "0")}</span>
+            {f.label}
+            <span className="font-mono text-[11px] tabular-nums text-mk-faint">{countFor(f.id)}</span>
+          </button>
+        ))}
+      </div>
+
 
       {/* ── the structure ─────────────────────────────────────────────── */}
       <div className="px-7 pb-28 pt-2">
@@ -139,6 +182,7 @@ export function TreeView() {
             picture of yourself you must scroll to see is a document, not a
             picture. */}
         <div
+          ref={stageRef}
           className="relative mx-auto"
           style={{
             aspectRatio: "1000 / 780",
@@ -319,27 +363,39 @@ export function TreeView() {
               maturity={maturity}
               index={i}
               dim={hoverField !== null && hoverField !== k.field}
+              scale={scale}
               onOpen={() => setOpenId(k.id)}
               onHoverField={setHoverField}
             />
           ))}
 
+          {/* Kept-from-世界 words get their own lane low on the trunk, so a new
+              arrival can never land on top of an existing keyword. */}
           {grown.map((g, i) => {
             const f = fieldById(g.field as FieldId);
-            const p = pointOnBranch(f.id, 0.16 + i * 0.07, i % 2 === 0 ? 30 : -30);
+            const p = pointOnBranch(f.id, 0.1, i % 2 === 0 ? 44 : -44);
             return (
-              <Annotation key={g.id} x={p.x} y={p.y} hue={f.hue} meta="NEW · 来自世界" name={g.text} fresh />
+              <Annotation
+                key={g.id}
+                x={p.x}
+                y={p.y + i * 34}
+                hue={f.hue}
+                meta="NEW · 来自世界"
+                name={g.text}
+                fresh
+                scale={scale}
+              />
             );
           })}
         </div>
       </div>
 
-      {/* ── field index ───────────────────────────────────────────────── */}
+      {/* ── field index (floating column, xl and up) ─────────────────── */}
       <div className="pointer-events-auto absolute left-7 top-[188px] hidden w-[176px] xl:block">
         <Sys className="mb-2 block">主枝 · INDEX</Sys>
         <ul>
           {FIELDS.map((f, i) => {
-            const n = visible.filter((k) => k.field === f.id).length;
+            const n = countFor(f.id);
             return (
               <li key={f.id}>
                 <button
@@ -392,6 +448,7 @@ function Node({
   maturity,
   index,
   dim,
+  scale,
   onOpen,
   onHoverField,
 }: {
@@ -399,6 +456,7 @@ function Node({
   maturity: number;
   index: number;
   dim: boolean;
+  scale: number;
   onOpen: () => void;
   onHoverField: (f: FieldId | null) => void;
 }) {
@@ -417,6 +475,7 @@ function Node({
       shining={Boolean(kw.shining)}
       strong={kw.strength >= 4}
       dim={dim}
+      scale={scale}
       delay={index * 40}
       title={kw.note}
       onClick={onOpen}
@@ -441,6 +500,7 @@ function Annotation({
   strong = false,
   fresh = false,
   dim = false,
+  scale = 1,
   delay = 0,
   title,
   onClick,
@@ -455,6 +515,9 @@ function Annotation({
   strong?: boolean;
   fresh?: boolean;
   dim?: boolean;
+  /** Stage-fit factor — see `useFitScale`. Shrinks the callout so a short
+   *  window does not turn the model into overlapping text. */
+  scale?: number;
   delay?: number;
   title?: string;
   onClick?: () => void;
@@ -498,7 +561,7 @@ function Annotation({
         style={{
           top: -0.5,
           [left ? "right" : "left"]: 6,
-          width: 14,
+          width: 14 * scale,
           height: 1,
           background: `color-mix(in srgb, ${hue} 70%, transparent)`,
         }}
@@ -525,13 +588,14 @@ function Annotation({
           onHover?.(false);
         }}
         className={cx(
-          "absolute whitespace-nowrap px-2.5 py-1.5 text-left transition-all duration-[160ms] ease-mk",
+          "absolute whitespace-nowrap text-left transition-all duration-[160ms] ease-mk",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
           onClick ? "cursor-pointer" : "cursor-default",
         )}
         style={{
-          top: -19,
-          [left ? "right" : "left"]: 20,
+          padding: `${6 * scale}px ${10 * scale}px`,
+          top: -19 * scale,
+          [left ? "right" : "left"]: 20 * scale,
           // Square corners, one coloured edge on the leader side. An
           // annotation, not a bubble.
           borderRadius: 2,
@@ -541,13 +605,20 @@ function Annotation({
           backdropFilter: "blur(2px)",
         }}
       >
-        <span className="eco-mono block" style={{ color: fresh || shining ? hue : "var(--mk-faint)" }}>
+        <span
+          className="eco-mono block"
+          style={{
+            color: fresh || shining ? hue : "var(--mk-faint)",
+            fontSize: 10 * scale,
+            letterSpacing: `${0.14 * scale}em`,
+          }}
+        >
           {shining ? "✳ " : ""}
           {meta}
         </span>
         <span
           className="mt-0.5 block leading-tight text-mk-ink"
-          style={{ fontSize: strong ? 15 : 13.5, fontWeight: strong ? 700 : 500 }}
+          style={{ fontSize: (strong ? 15 : 13.5) * scale, fontWeight: strong ? 700 : 500 }}
         >
           {name}
         </span>

@@ -379,7 +379,7 @@ export const KEYWORDS: Keyword[] = [
     strength: 4,
     bornAt: 3,
     note: "读到 → 试了 → 写下来。三步都走完的词，在你的树上只有两个，这是其中一个。",
-    at: { t: 0.62, spread: -26 },
+    at: { t: 0.60, spread: -40 },
     sources: [
       {
         kind: "reading",
@@ -429,7 +429,7 @@ export const KEYWORDS: Keyword[] = [
     strength: 3,
     bornAt: 2,
     note: "你写过三篇「我做了什么、结果怎样」。这个习惯比任何一篇文章都重要。",
-    at: { t: 0.32, spread: 26 },
+    at: { t: 0.30, spread: 40 },
     sources: [
       { kind: "writing", id: "w-three-seconds", label: "我决定在小组讨论里闭嘴三秒", date: "2026-08-22" },
       { kind: "writing", id: "w-letters", label: "如果一百年后只剩我的聊天记录", date: "2026-08-14" },

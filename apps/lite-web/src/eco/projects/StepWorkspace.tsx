@@ -69,7 +69,7 @@ export function StepWorkspace({ project, step }: { project: Project; step: Proje
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div>
-          <Instrument kind={step.kind} title={step.title} />
+          <Instrument kind={step.tool ?? step.kind} title={step.title} />
         </div>
 
         <aside className="space-y-4">
@@ -127,17 +127,19 @@ const COACH_LINE: Record<ProjectStep["kind"], string> = {
   publish: "写你真的做出了什么，不要写你本来想做什么。半成品也可以发布——说清楚它是半成品就行。",
 };
 
-/** One instrument per step kind. */
-function Instrument({ kind, title }: { kind: ProjectStep["kind"]; title: string }) {
+/** One instrument per step. Keyed off `tool` when the step names one, else its
+ *  kind — see `ProjectStep.tool`. */
+function Instrument({ kind, title }: { kind: NonNullable<ProjectStep["tool"]>; title: string }) {
   switch (kind) {
     case "learn":
       return <LearnCard title={title} />;
-    case "research":
+    case "survey":
       return <SurveyBuilder />;
     case "design":
       return <ThreeDirections />;
     case "test":
       return <TestLog />;
+    case "research":
     case "make":
     case "document":
     case "publish":

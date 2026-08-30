@@ -142,10 +142,16 @@ export function Btn({
   iconStart?: ReactNode;
 }) {
   const dark = tone === "dark";
+  // A disabled PRIMARY at 45% opacity still reads as a solid coral button, so
+  // students click it and conclude the app froze. Disabled state overrides the
+  // fill outright (same treatment as pro's `Button`).
   const base =
     "inline-flex items-center justify-center gap-2 rounded-mk-sm font-medium transition-all " +
-    "duration-[140ms] ease-mk focus-visible:outline-none focus-visible:ring-2 disabled:opacity-45 " +
+    "duration-[140ms] ease-mk focus-visible:outline-none focus-visible:ring-2 " +
     "disabled:cursor-not-allowed";
+  const off = dark
+    ? "disabled:!bg-[rgba(240,233,224,.1)] disabled:!text-[#7C7166] disabled:!border-transparent disabled:!shadow-none"
+    : "disabled:!bg-[#F0E9E1] disabled:!text-[#B8ADA2] disabled:!border-transparent disabled:!shadow-none";
   const sizing = size === "sm" ? "px-3 py-1.5 text-mk-small" : "px-[18px] py-[10px] text-mk-body";
   const styles: Record<string, string> = {
     primary: dark
@@ -163,7 +169,7 @@ export function Btn({
       type="button"
       disabled={disabled}
       onClick={onClick}
-      className={cx(base, sizing, styles[variant], className)}
+      className={cx(base, sizing, styles[variant], off, className)}
     >
       {iconStart}
       {children}
