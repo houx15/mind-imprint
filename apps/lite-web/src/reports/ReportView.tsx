@@ -112,7 +112,7 @@ export function ReportView({
   // Labels resolved client-side from `stat.key` — a stored report keeps the
   // wording it was generated with, and this is what lets a rename reach every
   // report already in the database. See statLabels.ts.
-  const stats = report.stats.filter((stat) => stat.value !== 0).map(displayStat);
+  const stats = report.stats.filter((stat) => stat.value !== 0).map((stat) => displayStat(stat, report.kind));
 
   return (
     <article className="mk-rp mk-rp-measure flex flex-col gap-8 py-8 sm:py-12">
@@ -129,6 +129,7 @@ export function ReportView({
       <Moments moments={report.moments} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
+      <Piece piece={report.piece} name={report.studentName} />
     </article>
   );
 }
@@ -389,6 +390,58 @@ function Gains({ gains }: { gains: LiteReport["gains"] }) {
           );
         })}
       </ul>
+    </section>
+  );
+}
+
+/** 我写的 — the finished piece itself, in full.
+ *
+ *  Writing reports only, and LAST on the page on purpose. Everything above it
+ *  is the shining, screenshot-able half — the numbers, the 收获, the 金句 —
+ *  and this is the long thing you scroll down to actually read. Putting the
+ *  essay higher would push all of that below the fold on the one screen that
+ *  decides whether the link is worth sending on.
+ *
+ *  It exists because of what the share link is for: someone scanning the QR
+ *  came to read what she wrote, and before this they could only read numbers
+ *  about it. `PublicReportPage` mounts this same component with no session,
+ *  so the piece travels with the link automatically — sharing is already the
+ *  opt-in, and revoking the link takes this down with everything else.
+ *
+ *  Whose words: unmixed, entirely hers (印记 never authors her prose), so
+ *  unlike 我的笔记 there is no second origin to separate out — but it is still
+ *  labelled and signed rather than left to float, because a wall of prose on
+ *  a shareable page should never be anonymous.
+ *
+ *  Paragraphs are split on blank lines and rendered as real `<p>`s rather than
+ *  one `whitespace-pre-wrap` block: this is the only place on the report that
+ *  carries long-form prose, and it should read like a page, with space between
+ *  paragraphs, not like a pasted textarea. `\r\n` is handled because a draft
+ *  can arrive from a Windows paste. */
+function Piece({ piece, name }: { piece: LiteReport["piece"]; name: string }) {
+  const paragraphs = piece
+    .split(/\n\s*\n/)
+    .map((p) => p.replace(/\r/g, "").trim())
+    .filter((p) => p !== "");
+  if (paragraphs.length === 0) return null;
+  return (
+    <section className="flex flex-col gap-4">
+      <SectionTitle>我写的</SectionTitle>
+      <div className="mk-rp-card mk-rp-rise rounded-mk-lg px-6 py-8 sm:px-10 sm:py-10" style={rise(7)}>
+        {/* 68ch, CENTRED. The measure is the same one `ProseSurface` holds her
+            to while writing — prose set the full 1180px of this page would be
+            unreadable — but left-aligning that column inside a card this wide
+            leaves half the card empty and reads as a broken layout rather than
+            a deliberate one. `mx-auto` is what makes it a page. */}
+        <div className="mx-auto flex max-w-[68ch] flex-col gap-5">
+          {paragraphs.map((p, i) => (
+            <p key={i} className="whitespace-pre-wrap text-mk-report-piece text-mk-ink">
+              {p}
+            </p>
+          ))}
+          <p className="mt-3 text-mk-small text-mk-muted">—— {name}</p>
+        </div>
+      </div>
     </section>
   );
 }

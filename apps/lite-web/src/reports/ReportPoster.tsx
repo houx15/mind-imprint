@@ -104,7 +104,7 @@ export const ReportPoster = forwardRef<HTMLDivElement, { report: LiteReport }>(
     const stats = report.stats
       .filter((stat) => stat.value !== 0)
       .slice(0, MAX_POSTER_STATS)
-      .map(displayStat);
+      .map((stat) => displayStat(stat, report.kind));
 
     return (
       // The wrapper holds the offscreen offset; the poster below is static and

@@ -54,16 +54,23 @@ export type LiteReport = {
   gains: string[];
   lensNotes: ReportLensNote[];
   notes: ReportNote[];
+  /** The finished piece, in full, HER OWN words — writing-kind only, and
+   *  `""` on a writing report generated before the field existed (no
+   *  backfill, same as `notes`/`lensNotes`). This is what makes a scanned
+   *  share link open the thing she actually wrote, not only the numbers
+   *  about it. */
+  piece: string;
 };
 
 /** Raw wire shape of `LiteReport`, before the `?? []` defaulting below —
  *  `moments`/`gains`/`lensNotes`/`notes` are `omitempty` on the Go side, so
  *  they may be absent (a report generated before `notes` existed lacks it). */
-type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes" | "notes" | "keep"> & {
+type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes" | "notes" | "keep" | "piece"> & {
   moments?: ReportMoment[];
   gains?: string[];
   lensNotes?: ReportLensNote[];
   notes?: ReportNote[];
+  piece?: string;
   keep?: { label: string; text: string; source?: "student" | "coach" } | null;
 };
 
@@ -74,6 +81,7 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     gains: raw.gains ?? [],
     lensNotes: raw.lensNotes ?? [],
     notes: raw.notes ?? [],
+    piece: raw.piece ?? "",
     // See `ReportKeep`: a keep with no source predates the field and can only
     // have been her own takeaway.
     keep: raw.keep ? { ...raw.keep, source: raw.keep.source ?? "student" } : null,

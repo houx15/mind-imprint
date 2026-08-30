@@ -159,6 +159,30 @@ type liteReportDTO struct {
 	// generated before this field existed re-serves without it, and the
 	// client renders the section as absent rather than empty.
 	Notes []reportNote `json:"notes,omitempty"`
+	// Piece is writing-kind only: the finished draft, in full, HER OWN words.
+	//
+	// It exists because of what the share link is FOR — "if students agree to
+	// share, can scan a code to view their writings". Before this, a parent
+	// who scanned the QR on a writing report got the stats, the 金句 and the
+	// 收获 but could not read the thing she wrote, which is the one thing
+	// they opened the link for.
+	//
+	// R4 is not at risk here and it is worth saying why: every other quoting
+	// section on this report pairs words of two different origins (the
+	// article's sentence beside her note), so each half must be labelled.
+	// This field is unmixed — it is the draft body verbatim, nothing of the
+	// article's and nothing of 印记's, since 印记 never authors her prose
+	// (铁律①) — and the client still labels it 「我写的」 rather than letting
+	// it float unattributed.
+	//
+	// Deliberately NOT fed to the 金句 corpus: `buildWritingCorpus` already
+	// draws on the draft, and the corpus is a validation input, not a
+	// presentation one.
+	//
+	// Same no-backfill rule as the two fields above: a writing report
+	// generated before this existed re-serves without it, and the section is
+	// simply absent.
+	Piece string `json:"piece,omitempty"`
 }
 
 // --- validation (R4) -----------------------------------------------------
@@ -746,7 +770,12 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 
 	stats := []reportStat{
 		{Key: "words", Label: "写了", Value: countWordsForLang(draft.Body, wr.Lang), Unit: "字"},
-		{Key: "focusMinutes", Label: "阅读时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
+		// 写作时长, not 阅读时长 — this is the writing report. The client
+		// resolves stat labels from `Key` anyway (statLabels.ts, so that a
+		// rename reaches reports already stored), and it carries the same
+		// per-kind override; this string is what a fresh blob stores and what
+		// anything reading the blob directly would see.
+		{Key: "focusMinutes", Label: "写作时长", Value: reportFocusMinutes(at.ActiveSeconds, stamps), Unit: "分钟"},
 		{Key: "chatTurns", Label: "AI 对话轮数", Value: countStudentMessages(msgs)},
 		{Key: "outline", Label: "搭了提纲", Value: len(outline), Unit: "条"},
 		{Key: "snippets", Label: "改了", Value: len(snippets), Unit: "段"},
@@ -771,6 +800,9 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	return liteReportDTO{
 		Version: 1, Kind: "writing", Title: wr.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Stats: stats, Moments: prose.Moments, Keep: keep, Gains: prose.Gains,
+		// See `Piece`. Trimmed so a draft of nothing but whitespace stores as
+		// "" and the section is absent rather than an empty bordered slab.
+		Piece: strings.TrimSpace(draft.Body),
 	}, nil
 }
 

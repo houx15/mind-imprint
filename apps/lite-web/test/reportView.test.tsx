@@ -25,6 +25,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     gains: [],
     lensNotes: [],
     notes: [],
+    piece: "",
     ...over,
   };
 }
@@ -315,6 +316,51 @@ describe("ReportView", () => {
 
     expect(screen.getByText("找到了两处可以追溯到原始数据的来源")).toBeTruthy();
     expect(screen.getByText("写出了一个带反例的论证段")).toBeTruthy();
+  });
+
+  // 我写的 — the whole point of the share link on a writing report. Someone
+  // scanning the QR came to READ what she wrote; before this they got the
+  // numbers about it and nothing else. Two invariants, both invisible on a
+  // green page: the piece is present at all, and its blank-line paragraphs
+  // survive as separate paragraphs instead of collapsing into one slab.
+  it("renders her finished piece, paragraph breaks intact", () => {
+    const withPiece = report({
+      kind: "writing",
+      piece: "中国的碳排放总量确实是世界第一。\n\n但把人均和增速放在一起看，结论就没那么干脆了。",
+    });
+
+    render(<ReportView report={withPiece} />);
+
+    expect(screen.getByText("我写的")).toBeTruthy();
+    expect(screen.getByText("中国的碳排放总量确实是世界第一。")).toBeTruthy();
+    expect(screen.getByText("但把人均和增速放在一起看，结论就没那么干脆了。")).toBeTruthy();
+  });
+
+  // Same "absent, never empty" law every other section on this page obeys —
+  // and it is load-bearing here twice over: a reading report has no piece at
+  // all, and a writing report generated before the field existed re-serves
+  // with `piece: ""` forever (no backfill).
+  it("omits 我写的 entirely when there is no piece", () => {
+    render(<ReportView report={report({ kind: "writing", piece: "   \n\n  " })} />);
+    expect(screen.queryByText("我写的")).toBeNull();
+
+    cleanup();
+    render(<ReportView report={report({ kind: "reading" })} />);
+    expect(screen.queryByText("我写的")).toBeNull();
+  });
+
+  // The other half of the focusMinutes fix (statLabels.test.ts pins the pure
+  // function): the same key, resolved through the report's own kind.
+  it("calls the minutes 写作时长 on a writing report", () => {
+    const stored = report({
+      kind: "writing",
+      stats: [{ key: "focusMinutes", label: "阅读时长", value: 21, unit: "分钟" }],
+    });
+
+    render(<ReportView report={stored} />);
+
+    expect(screen.getByText("写作时长")).toBeTruthy();
+    expect(screen.queryByText("阅读时长")).toBeNull();
   });
 
   it("never renders a score, grade, rank or comparison", () => {

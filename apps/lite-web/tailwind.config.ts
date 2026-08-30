@@ -38,6 +38,11 @@ const reportType = {
   "mk-report-quote": ["19px", { lineHeight: "1.75", fontWeight: "600" }],
   /** Decorative numerals: a gain's index, a quote mark. */
   "mk-report-numeral": ["26px", { lineHeight: "1.1", fontWeight: "700" }],
+  /** 我写的 — her finished piece, read start to finish rather than glanced at.
+   *  Body weight and generous leading, matching `PROSE_TYPOGRAPHY`'s 17px/1.9
+   *  in the writing room: the same prose, so it should read the same way on
+   *  the page someone opens from a QR code as it did while she wrote it. */
+  "mk-report-piece": ["17px", { lineHeight: "1.9", fontWeight: "400" }],
 } as const;
 
 export default {

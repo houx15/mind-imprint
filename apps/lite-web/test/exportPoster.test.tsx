@@ -81,6 +81,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     gains: [],
     lensNotes: [],
     notes: [],
+    piece: "",
     ...over,
   };
 }

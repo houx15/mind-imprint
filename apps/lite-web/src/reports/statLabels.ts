@@ -1,4 +1,4 @@
-import type { ReportStat } from "@lite/api/reports";
+import type { AtomKind, ReportStat } from "@lite/api/reports";
 
 /**
  * statLabels — the wording of a stat tile, resolved on the CLIENT from
@@ -42,9 +42,40 @@ const STAT_DISPLAY: Record<string, { label: string; unit?: string }> = {
   comments: { label: "印记读了", unit: "遍" },
 };
 
-/** The stat as it should read on screen. Never mutates the input. */
-export function displayStat(stat: ReportStat): ReportStat {
-  const over = STAT_DISPLAY[stat.key];
+/**
+ * Overrides that apply to ONE kind of report only, layered over the table
+ * above.
+ *
+ * `focusMinutes` is the single key both rooms emit, and 「阅读时长」 — the
+ * wording the server writes and the only one this file used to carry — is
+ * simply false on a writing report, where it stands over the minutes she
+ * spent WRITING. It was wrong on the page, on the exported picture, and on
+ * the link she sends someone.
+ *
+ * A per-kind layer rather than a second key: the value means the same thing
+ * in both rooms (minutes of attention on this atom), so it is one stat with
+ * two names. `buildReadingReport` / `buildWritingReport` (atom_report.go) keep
+ * emitting the same key, and every writing report ALREADY in the database
+ * picks the corrected wording up on re-serve — which is the whole reason
+ * labels resolve here instead of being trusted from the stored blob.
+ */
+const STAT_DISPLAY_BY_KIND: Record<AtomKind, Record<string, { label: string; unit?: string }>> = {
+  reading: {},
+  writing: {
+    focusMinutes: { label: "写作时长", unit: "分钟" },
+  },
+};
+
+/**
+ * The stat as it should read on screen. Never mutates the input.
+ *
+ * 🚨 `kind` is a required second parameter, so never call this as
+ * `stats.map(displayStat)`: `Array.prototype.map` hands its callback
+ * `(value, index, array)`, which would pass the INDEX as the kind. Both
+ * call sites pass it explicitly for that reason.
+ */
+export function displayStat(stat: ReportStat, kind: AtomKind): ReportStat {
+  const over = STAT_DISPLAY_BY_KIND[kind][stat.key] ?? STAT_DISPLAY[stat.key];
   if (!over) return stat;
   return { ...stat, label: over.label, unit: over.unit ?? stat.unit };
 }
