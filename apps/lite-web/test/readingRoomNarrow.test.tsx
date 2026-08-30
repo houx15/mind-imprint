@@ -75,10 +75,7 @@ const API = {
   async skipCard() {
     return null;
   },
-  async getTakeawayDraft() {
-    throw new Error("not used");
-  },
-  async postFinalizeReading() {
+  async finishReading() {
     return null;
   },
 } as unknown as LiteReadingRoomApi;
@@ -90,6 +87,7 @@ function renderRoom(tasks: ReadingTask[] = []) {
       source={SOURCE}
       api={API}
       onBack={() => {}}
+      onFinished={() => {}}
       tasks={tasks}
       onTasks={() => {}}
       coachMessages={[]}

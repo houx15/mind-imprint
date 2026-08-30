@@ -2,7 +2,7 @@ import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { StudioTurnEvent } from "@/api/studioTurn";
 import { ReadingRoomHost } from "@lite/readings/ReadingRoomHost";
-import { createReadingRoomApi } from "@lite/api/readingRoom";
+import { createReadingRoomApi, putReadingRating } from "@lite/api/readingRoom";
 
 /**
  * ReadingRoomHost — the mount point, driven through a stubbed `fetch` so the
@@ -396,7 +396,13 @@ describe("ReadingRoomHost", () => {
     };
     render(<ReadingRoomHost readingId={READING_ID} />); // no takeaway route → 404
     expect(await screen.findByText("已完成")).toBeTruthy();
-    expect(screen.getByText("这次阅读没有留下收获记录。")).toBeTruthy();
+    // A missing takeaway is now the NORMAL case, not a degraded one: 完成这篇
+    // stopped asking for one. So the panel says nothing about it rather than
+    // reporting 「这次阅读没有留下收获记录」 — that line described a form we no
+    // longer ask her to fill, and it read as something having gone wrong.
+    expect(screen.queryByText("我的收获")).toBeNull();
+    expect(screen.queryByText(/没有留下收获记录/)).toBeNull();
+    expect(screen.getByText(READING.title)).toBeTruthy();
   });
 });
 
@@ -512,59 +518,26 @@ describe("createReadingRoomApi", () => {
     expect(open).toMatchObject({ cardInstanceId: "c-open", cardId: "sift", status: "active" });
   });
 
-  it("writes her 收获 before finishing, because finish refuses an empty takeaway", async () => {
-    routes[key("PUT", `/api/v1/readings/${READING_ID}/takeaway`)] = { body: { text: "总量与人均是两件事。" } };
+  it("完成这篇 is ONE call now — no takeaway PUT, because there is no form", async () => {
     routes[key("POST", `/api/v1/readings/${READING_ID}/finish`)] = { body: { ...READING, status: "finished" } };
     const api = createReadingRoomApi(READING_ID);
-    await api.postFinalizeReading("p", "r", { newLeads: [], proposalImpact: "总量与人均是两件事。" });
+    await api.finishReading();
+    // It used to PUT the takeaway she had just typed into a finalize form and
+    // only then finish, because finish refused an empty takeaway. The form and
+    // the gate are both gone; a stray PUT here would be writing a field
+    // nothing asked her for.
     expect(calls.map((c) => `${c.method} ${c.url}`)).toEqual([
-      `PUT /api/v1/readings/${READING_ID}/takeaway`,
       `POST /api/v1/readings/${READING_ID}/finish`,
     ]);
   });
 
-  it("assembles the takeaway draft from her own confirmed cards, with no model call", async () => {
-    routes[key("GET", `/api/v1/readings/${READING_ID}/cards`)] = {
-      body: {
-        cards: [
-          {
-            id: "c1",
-            cardId: "craap",
-            status: "submitted",
-            anchors: [
-              // The AI's example is stored FIRST; hers is the one that counts.
-              { quote: "中国的太阳能装机量在过去十年增长了十倍。", author: "ai" },
-              { quote: "碳排放总量仍居全球第一", author: "student" },
-            ],
-            framework: { finding: "这句给出了与全文乐观基调相反的事实。" },
-          },
-          // 铁律①: a submitted card carrying ONLY the AI's example contributes
-          // no key quote — quoting the AI's sentence back to her as her own
-          // evidence is worse than leaving it out.
-          {
-            id: "c3",
-            cardId: "corroborate",
-            status: "submitted",
-            anchors: [{ quote: "中国的太阳能装机量在过去十年增长了十倍。", author: "ai" }],
-            framework: { finding: "AI 的示范句。" },
-          },
-          { id: "c2", cardId: "sift", status: "skipped", anchors: [], framework: {} },
-        ],
-      },
-    };
-    routes[key("GET", `/api/v1/readings/${READING_ID}/takeaway`)] = { body: { text: "先记到这里。" } };
-    const api = createReadingRoomApi(READING_ID);
-    const draft = await api.getTakeawayDraft("p", "r");
-    expect(draft.record.findings).toEqual([
-      "这句给出了与全文乐观基调相反的事实。",
-      "AI 的示范句。",
-    ]);
-    expect(draft.record.keyQuotes).toEqual([
-      { quote: "碳排放总量仍居全球第一", why: "这句给出了与全文乐观基调相反的事实。" },
-    ]);
-    // No verdict is invented on her behalf, and lite has no proposal to feed.
-    expect(draft.record.credibility).toEqual({ verdict: "", why: "" });
-    expect(draft.suggestedNewLeads).toEqual([]);
-    expect(draft.suggestedProposalImpact).toBe("先记到这里。");
+  it("她给这次体验打的星，走她自己的端点", async () => {
+    routes[key("PUT", `/api/v1/readings/${READING_ID}/rating`)] = { body: { rating: 4 } };
+    expect(await putReadingRating(READING_ID, 4)).toBe(4);
+    expect(calls[0]).toMatchObject({
+      method: "PUT",
+      url: `/api/v1/readings/${READING_ID}/rating`,
+      body: { rating: 4 },
+    });
   });
 });

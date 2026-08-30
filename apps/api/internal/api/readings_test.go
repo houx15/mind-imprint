@@ -186,19 +186,29 @@ func TestEditionGate_LiteBlocksDeepProjectRoutes(t *testing.T) {
 	}
 }
 
-// 「我的收获」是这次阅读的产出。空着就完成，等于没读——所以 finish 以它为门槛。
-func TestFinishReading_RequiresTakeaway(t *testing.T) {
+// 完成这篇不再问她要一段总结。
+//
+// 这条测试原来叫 TestFinishReading_RequiresTakeaway，钉的是相反的行为：空着
+// 完成 → 400 missing_takeaway。那道门槛在当时是对的——一次阅读留下的全部记录
+// 就是那一个输入框，空着完成等于没读。现在不是了：带读把她走过的每一步、她
+// 指出的每一句、每张透镜的结论都落成了行，报告就是从这些生成的。
+//
+//	> we have give abundant steps for the reading. so we don't need to ask
+//	> student to enter the form again.
+func TestFinishReading_NeedsNoTakeaway(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
 	id := createReadingAtom(t, h, cookie)
 
 	rec := httptest.NewRecorder()
 	h.ServeHTTP(rec, withCookie(httptest.NewRequest("POST",
 		"/api/v1/readings/"+id+"/finish", strings.NewReader("{}")), cookie))
-	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("finish without takeaway = %d, want 400; body=%s", rec.Code, rec.Body)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("finish without takeaway = %d, want 200; body=%s", rec.Code, rec.Body)
 	}
-	if !strings.Contains(rec.Body.String(), "missing_takeaway") {
-		t.Fatalf("want missing_takeaway, got %s", rec.Body)
+	// …and it really is finished, not merely un-refused: the whole point is
+	// that she lands on the report next.
+	if !strings.Contains(rec.Body.String(), `"status":"finished"`) {
+		t.Fatalf("reading did not come back finished — got %s", rec.Body)
 	}
 }
 

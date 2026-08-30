@@ -124,7 +124,7 @@ func (q *Queries) CountAtomEvidence(ctx context.Context, atomID uuid.UUID) (int6
 }
 
 const createAtom = `-- name: CreateAtom :one
-INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds
+INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating
 `
 
 type CreateAtomParams struct {
@@ -142,6 +142,7 @@ func (q *Queries) CreateAtom(ctx context.Context, arg CreateAtomParams) (Atom, e
 		&i.CreatedAt,
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
+		&i.ExperienceRating,
 	)
 	return i, err
 }
@@ -242,7 +243,7 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 }
 
 const getAtom = `-- name: GetAtom :one
-SELECT id, kind, user_id, created_at, last_activity_at, active_seconds FROM atom WHERE id = $1
+SELECT id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating FROM atom WHERE id = $1
 `
 
 func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
@@ -255,6 +256,7 @@ func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.CreatedAt,
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
+		&i.ExperienceRating,
 	)
 	return i, err
 }
@@ -513,6 +515,32 @@ func (q *Queries) SetAtomCardFramework(ctx context.Context, arg SetAtomCardFrame
 	return i, err
 }
 
+const setAtomExperienceRating = `-- name: SetAtomExperienceRating :one
+UPDATE atom SET experience_rating = $2 WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating
+`
+
+type SetAtomExperienceRatingParams struct {
+	ID               uuid.UUID `json:"id"`
+	ExperienceRating *int16    `json:"experience_rating"`
+}
+
+// 她给这次阅读体验打的星（0107）。方向是她评我们，不是我们评她。
+// 只在这里写：范围由 CHECK 兜底，调用方仍要先挡一次，好给出人话的错误。
+func (q *Queries) SetAtomExperienceRating(ctx context.Context, arg SetAtomExperienceRatingParams) (Atom, error) {
+	row := q.db.QueryRow(ctx, setAtomExperienceRating, arg.ID, arg.ExperienceRating)
+	var i Atom
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.UserID,
+		&i.CreatedAt,
+		&i.LastActivityAt,
+		&i.ActiveSeconds,
+		&i.ExperienceRating,
+	)
+	return i, err
+}
+
 const setAtomReportShare = `-- name: SetAtomReportShare :one
 UPDATE atom_report
 SET share_token = $1,
@@ -590,7 +618,7 @@ func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) 
 }
 
 const touchAtom = `-- name: TouchAtom :one
-UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds
+UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating
 `
 
 // Bumps last_activity_at (0098). Called from the ONE write chokepoint every
@@ -609,6 +637,7 @@ func (q *Queries) TouchAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.CreatedAt,
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
+		&i.ExperienceRating,
 	)
 	return i, err
 }

@@ -65,12 +65,25 @@ function atomBase(kind: AtomKind, id: string): string {
  *  share she already made instead of the panel always starting closed. The
  *  PUBLIC payload (`getPublicReport`) never carries these two fields — see
  *  atom_report_share.go's file comment and TestPublicPayloadCarriesNothingExtra. */
-type RawReportEnvelope = { report: RawLiteReport | null; shared?: boolean; shareToken?: string | null };
+type RawReportEnvelope = {
+  report: RawLiteReport | null;
+  shared?: boolean;
+  shareToken?: string | null;
+  /** 她给这次体验打的星（1–5），没打过就是 null。绝不会是 0——「没说」和
+   *  「给了最低分」必须分得开。 */
+  rating?: number | null;
+};
 
 /** F2: `report` plus whether this report is already shared and, if so, with
  *  which token — read by `ReportPanel` to hand `SharePanel` its starting
  *  state on mount, rather than always starting at {phase:"off"}. */
-export type ReportEnvelope = { report: LiteReport | null; shareToken: string | null };
+export type ReportEnvelope = {
+  report: LiteReport | null;
+  shareToken: string | null;
+  /** The star she already gave, so the scorer at the foot of the report opens
+   *  filled in instead of asking her again every time. */
+  rating: number | null;
+};
 
 /**
  * `null` means the atom is not finished yet — a normal, expected state (the
@@ -88,6 +101,7 @@ export async function getReportEnvelope(kind: AtomKind, id: string): Promise<Rep
   return {
     report: raw.report ? normalizeReport(raw.report) : null,
     shareToken: raw.shareToken ?? null,
+    rating: raw.rating ?? null,
   };
 }
 

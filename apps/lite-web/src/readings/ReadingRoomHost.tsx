@@ -223,6 +223,12 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         source={source!}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
+        // 完成这篇 lands her on the report. Re-running the load is what does
+        // it: `getReading` now answers `finished`, and the branch above swaps
+        // the room for `FinishedReadingPanel` — so 「a finished reading shows
+        // its report」 has ONE implementation, whether she just finished it or
+        // opened it a week later.
+        onFinished={() => setReloadKey((k) => k + 1)}
         // 带读. The plan is loaded here because the floating dial and the
         // conversation both read the same list; the conversation that advances
         // it lives inside the room.
@@ -292,16 +298,23 @@ function FinishedReadingPanel({
         {day && <p className="text-mk-small text-mk-muted">完成于 {day}</p>}
       </div>
 
-      <div className="rounded-mk-md border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
-        <h2 className="text-mk-label text-mk-faint">我的收获</h2>
-        <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">
-          {takeaway.trim() || "这次阅读没有留下收获记录。"}
-        </p>
-      </div>
+      {/* The REPORT is what a finished reading produces now, so it leads.
+          我的收获 used to sit above it as the headline — a textarea she filled
+          in on a finalize form. That form is gone (完成这篇 finishes and lands
+          here), so this block renders only for readings that actually have
+          one: older readings, and anyone who wrote a 收获 through the still-live
+          PUT /takeaway. An empty box saying 「这次阅读没有留下收获记录」 would
+          now be reporting a form we stopped asking her to fill. */}
+      <ReportPanel kind="reading" atomId={reading.id} />
+
+      {takeaway.trim() && (
+        <div className="rounded-mk-md border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
+          <h2 className="text-mk-label text-mk-faint">我的收获</h2>
+          <p className="mt-3 whitespace-pre-wrap text-mk-body-lg text-mk-ink">{takeaway}</p>
+        </div>
+      )}
 
       <ReadingQuestions readingId={reading.id} />
-
-      <ReportPanel kind="reading" atomId={reading.id} />
 
       <div>
         <Button variant="secondary" onClick={onBack}>

@@ -21,12 +21,13 @@ type ActivityLogEntry struct {
 }
 
 type Atom struct {
-	ID             uuid.UUID `json:"id"`
-	Kind           string    `json:"kind"`
-	UserID         uuid.UUID `json:"user_id"`
-	CreatedAt      time.Time `json:"created_at"`
-	LastActivityAt time.Time `json:"last_activity_at"`
-	ActiveSeconds  int32     `json:"active_seconds"`
+	ID               uuid.UUID `json:"id"`
+	Kind             string    `json:"kind"`
+	UserID           uuid.UUID `json:"user_id"`
+	CreatedAt        time.Time `json:"created_at"`
+	LastActivityAt   time.Time `json:"last_activity_at"`
+	ActiveSeconds    int32     `json:"active_seconds"`
+	ExperienceRating *int16    `json:"experience_rating"`
 }
 
 type AtomAnnotation struct {

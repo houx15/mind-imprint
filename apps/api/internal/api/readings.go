@@ -392,16 +392,13 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, a.readingDTOOf(rd, hasSrc, at.CreatedAt, at.LastActivityAt))
 }
 
-// finishReading marks the reading finished, gated on a non-empty takeaway.
-// Named finishReading, not finishProject — that name is already the pro
-// side's terminal (project_finish.go), and internal/api is one shared
-// package.
+// finishReading marks the reading finished. Named finishReading, not
+// finishProject — that name is already the pro side's terminal
+// (project_finish.go), and internal/api is one shared package.
 //
-// The gate is the point: 「我的收获」 is what a reading produces. Finishing
-// with it empty would record a hollow completion — nothing was actually
-// taken away — so the endpoint refuses with 400 missing_takeaway before any
-// state changes. Unlike finishProject there is no async report to generate,
-// so this is a plain synchronous flip.
+// It used to be gated on a non-empty takeaway; see the body for why that gate
+// is gone. Unlike finishProject there is no async report to generate, so this
+// is a plain synchronous flip.
 //
 // Idempotent, and idempotent means NO-OP, not "do it again": SetReadingFinished
 // carries `AND status <> 'finished'`, so a second POST answers 200 with the
@@ -417,15 +414,23 @@ func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	tk, err := a.d.Queries.GetReadingTakeaway(r.Context(), at.ID)
-	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if strings.TrimSpace(tk.Text) == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("missing_takeaway", "先写下你的收获，再完成这次阅读。", nil))
-		return
-	}
+	// 🚨 There is no longer a takeaway gate here, and that is deliberate.
+	//
+	// It used to refuse a finish with an empty takeaway — 「先写下你的收获，再
+	// 完成这次阅读」 — because at the time the only record a reading left was
+	// that one textarea, and finishing with it blank meant finishing with
+	// nothing. That stopped being true: 带读 walks her through a planned
+	// route, every step is recorded, her picked sentences and lens findings
+	// are rows, and the report is generated from all of it.
+	//
+	//   > we have give abundant steps for the reading. so we don't need to
+	//   > ask student to enter the form again.
+	//
+	// So 完成这篇 now finishes and lands on the report. The gate's purpose —
+	// don't let a reading be marked done with nothing behind it — is served
+	// by the whole record, which is far more than a form ever collected.
+	// A takeaway she DID write (older readings, and PUT /takeaway is still
+	// live) is still stored and still shown.
 	if err := a.d.Queries.SetReadingFinished(r.Context(), at.ID); err != nil {
 		httpx.WriteError(w, r, err)
 		return

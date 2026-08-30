@@ -758,6 +758,14 @@ func (a *API) getAtomReportFor(kind string) http.HandlerFunc {
 			"report":     json.RawMessage(row.Report),
 			"shared":     shared,
 			"shareToken": row.ShareToken,
+			// The star she gave this reading's EXPERIENCE (0107), so the
+			// scorer at the foot of the report comes back filled in rather
+			// than asking her again every time she opens it. `null` when she
+			// has not answered — never 0, which would read as one star.
+			//
+			// AUTHENTICATED payload only. getPublicReport must never carry
+			// this: it is private feedback about us, addressed to us.
+			"rating": at.ExperienceRating,
 		})
 	}
 }

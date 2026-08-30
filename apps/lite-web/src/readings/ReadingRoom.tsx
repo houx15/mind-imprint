@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { Anchor, AnnotateState, MaterialSource, SelectionEval, TakeawayDraft } from "@mind-imprint/contracts";
+import type { Anchor, AnnotateState, MaterialSource, SelectionEval } from "@mind-imprint/contracts";
+import { Button } from "@/ui";
 import { Annotate } from "@/primitives/annotate";
 import { anchorToSpan } from "@/studio/material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "@/studio/reading/HangingCard";
@@ -7,7 +8,6 @@ import { ConfirmedFindingCard } from "@/studio/reading/ConfirmedFindingCard";
 import { READING_DECK_IDS } from "@/studio/reading/readingDeck";
 import { LensLibrary } from "@/studio/reading/LensLibrary";
 import { ReadingOutcomes } from "@/studio/reading/ReadingOutcomes";
-import { FinalizeReadingPanel } from "@/studio/reading/FinalizeReadingPanel";
 import { useReadingLoop, type ReadingLoopApi, type ReadingOutcome } from "@/studio/reading/readingLoop";
 import "@/studio/reading/ReadingRoom.css";
 import type { LiteMessage, ReadingBlockNote, ReadingBlockTool, ReadingTask } from "../api/readingRoom";
@@ -52,8 +52,8 @@ import { StepIndicator } from "./StepIndicator";
  * `src/index.css`.
  *
  * The leaf components (Annotate, HangingCard, LensLibrary, ReadingOutcomes,
- * FinalizeReadingPanel, useReadingLoop, the stylesheet) are still IMPORTED
- * from `apps/web` — the fork copied the composition, not the parts.
+ * useReadingLoop, the stylesheet) are still IMPORTED from `apps/web` — the
+ * fork copied the composition, not the parts.
  */
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -78,21 +78,10 @@ type ReadingRoomCard = {
   pickHint?: string | null;
 };
 
-/**
- * The loop's own slice plus the two takeaway calls the room drives directly.
- *
- * The pro parameter positions (`projectId`, `rid`) are kept because
- * `useReadingLoop` still has pro's signature — see the `readingId` note at the
- * call site below. `createReadingRoomApi` closes over the reading id and
- * ignores both.
- */
+/** The loop's own slice, plus the one call the room drives directly. */
 export type LiteReadingRoomApi = ReadingLoopApi & {
-  getTakeawayDraft(projectId: string, rid: string): Promise<TakeawayDraft>;
-  postFinalizeReading(
-    projectId: string,
-    rid: string,
-    body: { newLeads: string[]; proposalImpact: string },
-  ): Promise<unknown>;
+  /** 完成这篇. One call, no form — see `finishReading` below. */
+  finishReading(): Promise<unknown>;
 };
 
 export type LiteReadingRoomProps = {
@@ -102,6 +91,9 @@ export type LiteReadingRoomProps = {
   source: MaterialSource;
   api: LiteReadingRoomApi;
   onBack: () => void;
+  /** 完成这篇 succeeded. The host re-reads the reading and swaps the room for
+   *  the report — one owner for "a finished reading shows its report". */
+  onFinished: () => void;
   /** 带读 · the plan the coach is walking her through, and the transcript it
    *  resumes from. Owned by the host (the rail beside the article reads the
    *  same list), passed down because the conversation lives in here now. */
@@ -158,6 +150,7 @@ export function ReadingRoom({
   source,
   api,
   onBack,
+  onFinished,
   tasks,
   onTasks,
   coachMessages,
@@ -166,64 +159,49 @@ export function ReadingRoom({
   blockNotes,
   onBlockNote,
 }: LiteReadingRoomProps) {
-  // DEBT (next task): `useReadingLoop` still carries pro's signature and wants
-  // a projectId; `getTakeawayDraft`/`postFinalizeReading` still want a
-  // (projectId, rid) pair. It lives under apps/web, which this task may not
-  // touch, so the reading id is passed into both positions — the lite api
-  // object ignores them anyway.
+  // DEBT: `useReadingLoop` still carries pro's signature and wants a
+  // projectId. It lives under apps/web, which lite may not touch, so the
+  // reading id is passed in that position — the lite api object ignores it.
   const loop = useReadingLoop(readingId, source, api, undefined, initialOutcomes);
 
   const [rightView, setRightView] = useState<"article" | "trace">("article");
 
-  // 完成这篇: the finalize panel. draft holds the assembled record (read-only)
-  // + seeded synthesis suggestions; impact is her own 我的收获.
-  const [finalizeOpen, setFinalizeOpen] = useState(false);
-  const [finalizeLoading, setFinalizeLoading] = useState(false);
-  const [finalizeDraft, setFinalizeDraft] = useState<TakeawayDraft | null>(null);
-  const [finalizeLeads, setFinalizeLeads] = useState("");
-  const [finalizeImpact, setFinalizeImpact] = useState("");
-  const [finalizeSaving, setFinalizeSaving] = useState(false);
-  const [finalizeDone, setFinalizeDone] = useState(false);
+  /**
+   * 完成这篇 — one confirm, then the report.
+   *
+   * There used to be a form here: 我的收获 + 新的线索, seeded from an assembled
+   * draft, saved, and only then finished. It is gone.
+   *
+   *   > we have give abundant steps for the reading. so we don't need to ask
+   *   > student to enter the form again. we should jump to the reading report
+   *   > page.
+   *
+   * What is left is one confirm, and it stays for a reason the form was NOT
+   * needed for: finishing is terminal — no more lenses, no more notes, no way
+   * back — so it may not be one stray click on a button that sits in the
+   * toolbar the whole time she is reading. It asks nothing of her; it only
+   * makes sure she meant it.
+   */
+  const [confirmFinish, setConfirmFinish] = useState(false);
+  const [finishing, setFinishing] = useState(false);
+  const [finishError, setFinishError] = useState<string | null>(null);
 
-  async function openFinalize() {
-    setFinalizeOpen(true);
-    setFinalizeDone(false);
-    setFinalizeLoading(true);
+  async function finishReading() {
+    if (finishing) return;
+    setFinishing(true);
+    setFinishError(null);
     try {
-      const draftResult = await api.getTakeawayDraft(readingId, readingId);
-      setFinalizeDraft(draftResult);
-      setFinalizeLeads(draftResult.suggestedNewLeads.join("\n"));
-      setFinalizeImpact(draftResult.suggestedProposalImpact);
+      await api.finishReading();
+      setConfirmFinish(false);
+      // The host re-reads the reading, sees `finished`, and swaps the room for
+      // the report. Doing it through the host rather than navigating keeps one
+      // owner of that decision — `/readings/:id` already routes a finished
+      // reading to its terminal surface, and this makes the two agree.
+      onFinished();
     } catch {
-      setFinalizeDraft(null);
+      setFinishError("这次没能完成，再试一下。");
     } finally {
-      setFinalizeLoading(false);
-    }
-  }
-
-  async function confirmFinalize() {
-    if (finalizeSaving) return;
-    setFinalizeSaving(true);
-    try {
-      await api.postFinalizeReading(readingId, readingId, {
-        newLeads: finalizeLeads
-          .split("\n")
-          .map((s) => s.trim())
-          .filter(Boolean),
-        proposalImpact: finalizeImpact.trim(),
-      });
-      setFinalizeDone(true);
-      // No `onFinalized` callback: the fork briefly grew one, and nothing ever
-      // consumed it — pro's room has no such prop either. A finished reading
-      // is re-read from the server the next time `/readings/:id` opens, which
-      // is where the terminal 已完成 surface lives.
-      // Briefly show the ✓, then close the modal so she lands back on the
-      // reading conversation instead of having to hunt for a 关闭 button.
-      window.setTimeout(() => setFinalizeOpen(false), 900);
-    } catch {
-      // keep the panel open so she can retry — never silently discard her edits
-    } finally {
-      setFinalizeSaving(false);
+      setFinishing(false);
     }
   }
 
@@ -459,7 +437,7 @@ export function ReadingRoom({
             <button
               type="button"
               className="mk-reading-room__finalize-btn"
-              onClick={() => void openFinalize()}
+              onClick={() => setConfirmFinish(true)}
             >
               完成这篇
             </button>
@@ -616,24 +594,25 @@ export function ReadingRoom({
         />
       )}
 
-      {finalizeOpen && (
-        <FinalizeReadingPanel
-          loading={finalizeLoading}
-          draft={finalizeDraft}
-          leadsText={finalizeLeads}
-          onLeadsChange={setFinalizeLeads}
-          impactText={finalizeImpact}
-          onImpactChange={setFinalizeImpact}
-          saving={finalizeSaving}
-          done={finalizeDone}
-          onConfirm={() => void confirmFinalize()}
-          onClose={() => setFinalizeOpen(false)}
-          // Both were `caps.proposalImpact` / `caps.credibility`, both false in
-          // lite: there is no 立题 for 新的线索 to feed, and no CRAAP-style
-          // producer behind a 可信度 verdict.
-          proposalImpact={false}
-          credibility={false}
-        />
+      {confirmFinish && (
+        <div className="mk-finishask" role="dialog" aria-modal="true" aria-label="完成这篇">
+          <div className="mk-finishask__card">
+            <h2 className="text-mk-h3 text-mk-ink">完成这篇？</h2>
+            <p className="mt-2 text-mk-body leading-relaxed text-mk-secondary">
+              完成之后这篇就不能再改了——透镜、批注、对话都会停在这里。
+              你走过的每一步会变成一份阅读报告。
+            </p>
+            {finishError && <p className="mt-3 text-mk-small text-mk-danger">{finishError}</p>}
+            <div className="mt-5 flex justify-end gap-2">
+              <Button variant="ghost" onClick={() => setConfirmFinish(false)} disabled={finishing}>
+                再读一会儿
+              </Button>
+              <Button onClick={() => void finishReading()} loading={finishing}>
+                完成，看报告
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

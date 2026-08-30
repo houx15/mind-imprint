@@ -140,3 +140,8 @@ SELECT * FROM atom_report WHERE share_token = $1;
 
 -- name: AddAtomActiveSeconds :exec
 UPDATE atom SET active_seconds = active_seconds + $2 WHERE id = $1;
+
+-- name: SetAtomExperienceRating :one
+-- 她给这次阅读体验打的星（0107）。方向是她评我们，不是我们评她。
+-- 只在这里写：范围由 CHECK 兜底，调用方仍要先挡一次，好给出人话的错误。
+UPDATE atom SET experience_rating = $2 WHERE id = $1 RETURNING *;

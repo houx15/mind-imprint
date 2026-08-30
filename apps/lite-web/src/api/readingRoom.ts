@@ -248,54 +248,32 @@ export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOpti
       };
     },
 
-    // --- the two takeaway calls the room drives directly -----------------
-    async getTakeawayDraft(_projectId, _rid): Promise<TakeawayDraft> {
-      // Assembled DETERMINISTICALLY from her own confirmed cards — no model
-      // call, nothing re-guessed. That is what the pro endpoint's `record`
-      // half is too; lite just assembles it from atom_card instead of from a
-      // reference's card_instances.
-      const [{ cards }, takeaway] = await Promise.all([
-        apiFetch<{ cards: LiteCard[] }>(`${root}/cards`),
-        apiFetch<{ text: string }>(`${root}/takeaway`),
-      ]);
-      const submitted = cards.filter((c) => c.status === "submitted");
-      const findings = submitted.map((c) => c.framework?.finding ?? "").filter(Boolean);
-      // HER sentence only — never anchors[0], which on a card missing the
-      // student anchor is the AI's example. See studentAnchorOf: quoting the
-      // AI's sentence back to her as a key quote of her own is the same
-      // 铁律① leak toReadingOutcomes had.
-      const keyQuotes = submitted
-        .map((c) => ({ quote: studentAnchorOf(c)?.quote ?? "", why: c.framework?.finding ?? "" }))
-        .filter((q) => q.quote);
-      return {
-        record: {
-          findings,
-          // No credibility verdict in lite: there is no producer for one, and
-          // 设计铁律① says we never invent a judgment on the student's behalf.
-          credibility: { verdict: "", why: "" },
-          keyQuotes,
-        },
-        // A lite reading has no proposal to feed leads into — the room hides
-        // the field (capabilities.proposalImpact === false).
-        suggestedNewLeads: [],
-        // Seeded with whatever 收获 she has already written, never with a
-        // model's guess at it.
-        suggestedProposalImpact: takeaway.text ?? "",
-      };
-    },
-
-    async postFinalizeReading(_projectId, _rid, body) {
-      // Two steps, in this order: her 收获 must be persisted BEFORE finish,
-      // because the finish endpoint refuses an empty takeaway (400
-      // missing_takeaway) — that gate is what stops a reading being marked
-      // done with nothing written.
-      await apiFetch<{ text: string }>(`${root}/takeaway`, {
-        method: "PUT",
-        body: JSON.stringify({ text: body.proposalImpact }),
-      });
+    // --- 完成这篇 --------------------------------------------------------
+    //
+    // ONE call now. It used to be two — PUT the 收获 she had just typed into
+    // a finalize form, THEN POST finish, in that order, because finish
+    // refused an empty takeaway. Both the form and the gate are gone:
+    //
+    //   > we have give abundant steps for the reading. so we don't need to
+    //   > ask student to enter the form again. we should jump to the reading
+    //   > report page.
+    //
+    // `getTakeawayDraft` went with them — it existed only to seed that form's
+    // fields. Nothing assembles a draft any more; the report is generated
+    // server-side from the whole record.
+    async finishReading() {
       return apiFetch<unknown>(`${root}/finish`, { method: "POST" });
     },
   };
+}
+
+/** 她给这次阅读体验打的星（1–5）。她评我们，不是我们评她。 */
+export async function putReadingRating(id: string, rating: number): Promise<number | null> {
+  const r = await apiFetch<{ rating: number | null }>(`${base(id)}/rating`, {
+    method: "PUT",
+    body: JSON.stringify({ rating }),
+  });
+  return r.rating ?? null;
 }
 
 // --- reads the host needs before it can mount the room ---------------------

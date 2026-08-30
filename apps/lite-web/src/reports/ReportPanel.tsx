@@ -7,6 +7,7 @@ import { exportPoster } from "./exportPoster";
 import { ReportPoster } from "./ReportPoster";
 import { ReportView } from "./ReportView";
 import { SharePanel } from "./SharePanel";
+import { ExperienceStars } from "./ExperienceStars";
 
 /**
  * ReportPanel — the thing `FinishedReadingPanel` / `FinishedWritingPanel`
@@ -62,6 +63,7 @@ import { SharePanel } from "./SharePanel";
 export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }) {
   const [report, setReport] = useState<LiteReport | null>(null);
   const [shareToken, setShareToken] = useState<string | null>(null);
+  const [rating, setRating] = useState<number | null>(null);
   const [state, setState] = useState<"loading" | "done" | "quiet">("loading");
   const [exporting, setExporting] = useState(false);
   const alive = useAlive();
@@ -70,11 +72,13 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
     setState("loading");
     setReport(null);
     setShareToken(null);
+    setRating(null);
     getReportEnvelope(kind, atomId)
       .then((env) => {
         if (!alive.current) return;
         setReport(env.report);
         setShareToken(env.shareToken);
+        setRating(env.rating);
         setState(env.report ? "done" : "quiet");
       })
       .catch(() => {
@@ -127,6 +131,11 @@ export function ReportPanel({ kind, atomId }: { kind: AtomKind; atomId: string }
             {exporting ? "生成图片中…" : "导出图片"}
           </button>
           <SharePanel kind={kind} atomId={atomId} initialShareToken={shareToken} />
+          {/* The five stars, at the very bottom — she reads the report first,
+              then says how the session felt. Reading only for now: the writing
+              room has no endpoint for it yet, and a scorer that silently drops
+              her answer is worse than not asking. */}
+          {kind === "reading" && <ExperienceStars atomId={atomId} initial={rating} />}
         </div>
       </>
     );

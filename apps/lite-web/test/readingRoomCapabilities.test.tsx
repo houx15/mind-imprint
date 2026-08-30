@@ -1,8 +1,7 @@
-import { render, screen, cleanup, fireEvent, within } from "@testing-library/react";
-import { afterEach, describe, expect, it } from "vitest";
-import type { MaterialSource, TakeawayDraft } from "@mind-imprint/contracts";
+import { render, screen, cleanup, fireEvent, waitFor, within } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import type { MaterialSource } from "@mind-imprint/contracts";
 import { ReadingRoom, type LiteReadingRoomApi } from "@lite/readings/ReadingRoom";
-import { FinalizeReadingPanel } from "@/studio/reading/FinalizeReadingPanel";
 
 /**
  * The pro-only reading surfaces, asserted ON LITE'S OWN RENDERED ROOM.
@@ -64,22 +63,9 @@ const SOURCE: MaterialSource = {
   lateralJudgment: "",
 };
 
-const DRAFT: TakeawayDraft = {
-  record: {
-    findings: ["中国的太阳能装机量在过去十年增长了十倍。"],
-    // Deliberately POPULATED: if the room ever let the 可信度 row through, an
-    // empty verdict would only render 尚未评估 and the 可信度 label would
-    // still be the thing that fails. A filled verdict makes the failure loud
-    // either way.
-    credibility: { verdict: "可信", why: "来自 NASA 与 Nature Sustainability 的交叉印证。" },
-    keyQuotes: [],
-  },
-  suggestedNewLeads: ["中国的碳排放总量为什么仍居第一？"],
-  suggestedProposalImpact: "这篇支持了「转型正在发生」这一半。",
-};
 
 // A fake that satisfies every method the room may reach for. Only
-// `getTakeawayDraft` is actually called (by 完成这篇); the rest exist so the
+// `finishReading` is actually called (by 完成这篇); the rest exist so the
 // render is legal.
 const API: LiteReadingRoomApi = {
   // eslint-disable-next-line require-yield
@@ -96,13 +82,14 @@ const API: LiteReadingRoomApi = {
   async getOpenCard() {
     return null;
   },
-  async getTakeawayDraft() {
-    return DRAFT;
-  },
-  async postFinalizeReading() {
+  async finishReading() {
+    finished += 1;
     return null;
   },
 };
+
+/** How many times 完成这篇 actually reached the server. */
+let finished = 0;
 
 function renderLiteRoom() {
   return render(
@@ -111,6 +98,9 @@ function renderLiteRoom() {
       source={SOURCE}
       api={API}
       onBack={() => {}}
+      onFinished={() => {
+        landedOnReport += 1;
+      }}
       tasks={[]}
       onTasks={() => {}}
       coachMessages={[]}
@@ -121,18 +111,19 @@ function renderLiteRoom() {
   );
 }
 
-/**
- * Opens the real 完成这篇 modal, waits for the draft to land, and returns the
- * DIALOG — scoping every assertion to it, so the article behind the modal
- * cannot satisfy (or, with duplicate matches, break) a query about the panel.
- */
-async function openFinalize(): Promise<HTMLElement> {
+/** 完成这篇 opens a confirm, not a form. Returns that dialog. */
+function openFinishAsk(): HTMLElement {
   fireEvent.click(screen.getByRole("button", { name: "完成这篇" }));
-  // 正在整理你的阅读发现… is the loading half of the same modal; wait past it,
-  // otherwise every absence below would pass on an empty panel.
-  await screen.findByText("你的阅读记录 · 只读");
   return screen.getByRole("dialog", { name: "完成这篇" });
 }
+
+/** How many times the room told the host to go to the report. */
+let landedOnReport = 0;
+
+beforeEach(() => {
+  finished = 0;
+  landedOnReport = 0;
+});
 
 afterEach(cleanup);
 
@@ -155,54 +146,46 @@ describe("lite's reading room does not carry pro's reading surfaces", () => {
     expect(screen.getByRole("tab", { name: /阅读成果/ })).toBeTruthy();
   });
 
-  it("opens 完成这篇 without 新的线索 / 对论点的影响 — there is no 立题 behind them", async () => {
+  it("完成这篇 asks one question and collects NOTHING", async () => {
     renderLiteRoom();
-    const dialog = await openFinalize();
+    const dialog = openFinishAsk();
 
-    // The synthesis half is written against a research proposal lite has no
-    // concept of. What survives is the one box that is hers.
-    expect(within(dialog).queryByText("新的线索")).toBeNull();
-    expect(within(dialog).queryByText("对论点的影响")).toBeNull();
-    expect(within(dialog).getByText("我的收获")).toBeTruthy();
-    // …and the draft's proposal-shaped suggestions never reach a field.
-    expect(within(dialog).queryByDisplayValue("中国的碳排放总量为什么仍居第一？")).toBeNull();
+    // The form is gone. It used to want 我的收获 (and, behind pro's flags,
+    // 新的线索 / 对论点的影响 / 可信度) before it would let her finish:
+    //
+    //   > we have give abundant steps for the reading. so we don't need to
+    //   > ask student to enter the form again.
+    //
+    // So the strongest thing to assert is not "those fields are hidden" but
+    // "there is no field at all" — a shape a future edit cannot half-restore.
+    expect(within(dialog).queryAllByRole("textbox")).toHaveLength(0);
+    for (const gone of ["我的收获", "新的线索", "对论点的影响", "可信度", "你的阅读记录 · 只读"]) {
+      expect(within(dialog).queryByText(gone), gone).toBeNull();
+    }
   });
 
-  it("opens 完成这篇 without 可信度 — a verdict with no producer is a lie, not a state", async () => {
+  it("完成这篇 confirms first — it is terminal, and the button sits there all session", async () => {
     renderLiteRoom();
-    const dialog = await openFinalize();
+    const dialog = openFinishAsk();
 
-    expect(within(dialog).queryByText("可信度")).toBeNull();
-    // The verdict itself, not just its label: 可信 — 来自 NASA… is in the
-    // draft this room was handed, and must reach no row.
-    expect(within(dialog).queryByText(/来自 NASA/)).toBeNull();
-    // Her own confirmed findings ARE the record half, and they still show.
-    expect(within(dialog).getByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
+    // Nothing has happened yet: opening the ask must not finish anything.
+    expect(finished).toBe(0);
+    expect(landedOnReport).toBe(0);
+
+    // And she can back out.
+    fireEvent.click(within(dialog).getByRole("button", { name: "再读一会儿" }));
+    expect(screen.queryByRole("dialog", { name: "完成这篇" })).toBeNull();
+    expect(finished).toBe(0);
   });
 
-  it("the shared panel still HAS all three surfaces when the flags are on", () => {
-    // Anti-vacuity control. `FinalizeReadingPanel` is still shared with pro,
-    // so if a refactor deleted 新的线索 / 对论点的影响 / 可信度 outright, the
-    // three absence tests above would keep passing while pro silently lost
-    // them. This is the line that would go red instead.
-    render(
-      <FinalizeReadingPanel
-        loading={false}
-        draft={DRAFT}
-        leadsText=""
-        onLeadsChange={() => {}}
-        impactText=""
-        onImpactChange={() => {}}
-        saving={false}
-        done={false}
-        onConfirm={() => {}}
-        onClose={() => {}}
-        proposalImpact
-        credibility
-      />,
-    );
-    expect(screen.getByText("新的线索")).toBeTruthy();
-    expect(screen.getByText("对论点的影响")).toBeTruthy();
-    expect(screen.getByText("可信度")).toBeTruthy();
+  it("确认之后：完成，然后交给宿主换成报告", async () => {
+    renderLiteRoom();
+    const dialog = openFinishAsk();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "完成，看报告" }));
+    await waitFor(() => expect(finished).toBe(1));
+    // The room does not navigate itself: it tells the host, which re-reads the
+    // reading and swaps in the report. One owner for that decision.
+    await waitFor(() => expect(landedOnReport).toBe(1));
   });
 });
