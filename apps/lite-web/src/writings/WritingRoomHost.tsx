@@ -248,7 +248,13 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
   if (state.phase === "loading") return <Centered>正在打开这次写作…</Centered>;
   if (state.phase === "error") return <Centered>{state.message}</Centered>;
   if (state.phase === "finished") {
-    return <FinishedWritingPanel writing={state.writing} draft={state.draft} onBack={() => navigate(liteRoutePath({ tab: "writings" }))} />;
+    return (
+      <FinishedWritingPanel
+        writing={state.writing}
+        onBack={() => navigate(liteRoutePath({ tab: "writings" }))}
+        onRenamed={(w) => setState((s) => (s.phase === "finished" ? { ...s, writing: w } : s))}
+      />
+    );
   }
 
   const { writing } = state;
@@ -505,12 +511,12 @@ function Centered({ children }: { children: ReactNode }) {
  */
 function FinishedWritingPanel({
   writing,
-  draft,
   onBack,
+  onRenamed,
 }: {
   writing: Writing;
-  draft: WritingDraft;
   onBack: () => void;
+  onRenamed: (next: Writing) => void;
 }) {
   return (
     // Same shape as FinishedReadingPanel — read its comment for why the title
@@ -526,24 +532,22 @@ function FinishedWritingPanel({
         >
           已完成
         </span>
-        {/* Breadcrumb, not a heading — the report's hero states the title. */}
-        <span className="min-w-0 truncate text-mk-small text-mk-muted">{writing.title}</span>
+        {/* Still renameable after finishing, and that is not a leftover.
+            给这篇起个名字 only asks at 完成这篇, so every piece finished before
+            that flow shipped is still carrying her raw 「我想写：…」 sentence —
+            and it is now the headline of a page she can hand to anyone. The
+            server refreshes a report's title from this row on every read
+            (`reportWithPiece`), so a rename here reaches the article, the
+            report and the share link at once. */}
+        <EditableTitle writingId={writing.id} title={writing.title} onRenamed={onRenamed} />
       </div>
 
+      {/* The piece itself is the FIRST page `ReportPanel` shows now
+          (`ArticleView`), set as an article. There used to be a second copy
+          of the draft below the report, in a bordered card — that is exactly
+          the shape 「don't use card for articles」 rejected, and it is now
+          redundant as well as wrong, so it is gone. */}
       <ReportPanel kind="writing" atomId={writing.id} />
-
-      {/* 成稿 sits BELOW the report: the report is the record of the work, the
-          draft is the artifact. It keeps the room's own reading measure —
-          65ch — rather than stretching to the report's full 1180px, because
-          this is body prose and a 1180px line is unreadable. */}
-      <div className="mk-rp-measure">
-        <div className="rounded-mk-lg border border-mk-border bg-mk-surface p-6 shadow-mk-sm">
-          <h2 className="text-mk-label text-mk-faint">成稿</h2>
-          <p className="mt-3 max-w-[65ch] whitespace-pre-wrap text-mk-body-lg text-mk-ink">
-            {draft.body || "这篇没有留下正文。"}
-          </p>
-        </div>
-      </div>
     </div>
   );
 }

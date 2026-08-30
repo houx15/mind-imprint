@@ -34,6 +34,7 @@ package api
 // stats and her own 收获 — a report must never be blocked on prose.
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -840,6 +841,18 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 // than 500-ing on a link someone was sent. Nothing here can substitute the
 // wrong atom's prose either — the draft is looked up by this report's own
 // `atom_id`.
+// hasNonEmptyString reports whether the field is present AND decodes to a
+// string with something in it. A stored `""` (or `"   "`) counts as ABSENT:
+// treating it as present is what would let a blank field pin itself forever.
+func hasNonEmptyString(fields map[string]json.RawMessage, key string) bool {
+	raw, ok := fields[key]
+	if !ok {
+		return false
+	}
+	var s string
+	return json.Unmarshal(raw, &s) == nil && strings.TrimSpace(s) != ""
+}
+
 func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []byte) []byte {
 	var fields map[string]json.RawMessage
 	if json.Unmarshal(stored, &fields) != nil {
@@ -851,33 +864,70 @@ func (a *API) reportWithPiece(ctx context.Context, atomID uuid.UUID, stored []by
 	if raw, ok := fields["kind"]; !ok || json.Unmarshal(raw, &kind) != nil || kind != "writing" {
 		return stored
 	}
-	// Already carries one: leave the stored text alone. A report generated
-	// after the field shipped is authoritative, and re-reading the draft over
-	// it would be a second source of truth for the same words.
-	if raw, ok := fields["piece"]; ok {
-		var piece string
-		if json.Unmarshal(raw, &piece) == nil && strings.TrimSpace(piece) != "" {
-			return stored
-		}
+	// Both live rows, read unconditionally: the title is always needed (see
+	// mergeLiveWritingFields) and the draft is needed whenever the blob has no
+	// piece, which for now is every report that already existed. Two indexed
+	// single-row lookups on a page that is already one round trip.
+	//
+	// A failed lookup is not an error here — it contributes nothing and the
+	// corresponding field keeps whatever the blob holds.
+	draftBody := ""
+	if draft, err := a.d.Queries.GetWritingDraft(ctx, atomID); err == nil {
+		draftBody = draft.Body
 	}
-	draft, err := a.d.Queries.GetWritingDraft(ctx, atomID)
-	if err != nil {
+	title := ""
+	if wr, err := a.d.Queries.GetWriting(ctx, atomID); err == nil {
+		title = wr.Title
+	}
+
+	if !mergeLiveWritingFields(fields, draftBody, title) {
 		return stored
 	}
-	body := strings.TrimSpace(draft.Body)
-	if body == "" {
-		return stored
-	}
-	encoded, err := json.Marshal(body)
-	if err != nil {
-		return stored
-	}
-	fields["piece"] = encoded
 	out, err := json.Marshal(fields)
 	if err != nil {
 		return stored
 	}
 	return out
+}
+
+// mergeLiveWritingFields folds the live draft and title into a decoded report
+// blob, reporting whether anything changed. Split out from the I/O above so
+// the two rules — which differ, deliberately — can be tested without a
+// database.
+//
+// **piece: only when missing.** A report generated after the field shipped is
+// authoritative, and reading the draft over it would make two sources of truth
+// for the same words. A stored `""` counts as missing.
+//
+// **title: always.** Here the live row IS the truth: she can still rename a
+// finished writing, and 给这篇起个名字 only asks at 完成这篇 — so a piece
+// finished before that flow shipped still carries her raw 「我想写：…」 sentence
+// in its blob, where a rename would never reach it. A live production example
+// was a shared article whose headline was six lines of note-to-self. PATCH
+// /writings/{id} writes that row and nothing else does, so refreshing from it
+// lands a rename on the article, the report, the poster and the share link at
+// once.
+//
+// 🚨 Do not "tidy" these two into one rule. They are asymmetric on purpose.
+func mergeLiveWritingFields(fields map[string]json.RawMessage, draftBody, title string) bool {
+	changed := false
+	if body := strings.TrimSpace(draftBody); body != "" && !hasNonEmptyString(fields, "piece") {
+		if encoded, err := json.Marshal(body); err == nil {
+			fields["piece"] = encoded
+			changed = true
+		}
+	}
+	if t := strings.TrimSpace(title); t != "" {
+		if encoded, err := json.Marshal(t); err == nil {
+			// Not a change if it already says exactly this — a no-op rewrite
+			// would re-marshal the whole blob on every read for nothing.
+			if !bytes.Equal(fields["title"], encoded) {
+				fields["title"] = encoded
+				changed = true
+			}
+		}
+	}
+	return changed
 }
 
 // ensureAtomReport returns the atom's report, generating and storing it on

@@ -254,10 +254,35 @@ describe("loading the room", () => {
     render(<WritingRoomHost writingId={WID} />);
 
     expect(await screen.findByText("已完成")).toBeTruthy();
-    expect(screen.getByText("这是我的成稿。")).toBeTruthy();
     expect(screen.queryByRole("navigation", { name: "写作三步" })).toBeNull();
-    expect(screen.queryByRole("textbox")).toBeNull();
     expect(calls.some((c) => c.url.endsWith("/outline"))).toBe(false);
+    // The piece is no longer duplicated here in a bordered 成稿 card: it is the
+    // first page `ReportPanel` shows, set as an article ("don't use card for
+    // articles"). This panel is down to the breadcrumb row plus that panel.
+    expect(screen.queryByText("这是我的成稿。")).toBeNull();
+  });
+
+  // Renaming stays available AFTER finishing, and that is deliberate:
+  // 给这篇起个名字 only asks at 完成这篇, so every piece finished before that
+  // flow shipped still carries her raw 「我想写：…」 sentence — as the headline
+  // of a page she can hand to anyone. Production had exactly that.
+  it("still lets her rename a finished piece", async () => {
+    routes[key("GET", base(""))] = {
+      body: writing({ status: "finished", finishedAt: "2026-08-25T00:00:00Z", title: "我想写一篇关于课间用手机的论证文，因为…" }),
+    };
+    routes[key("GET", base("/draft"))] = { body: { body: "这是我的成稿。", updatedAt: "2026-08-25T00:00:00Z" } };
+    routes[key("PATCH", `/api/v1/writings/${WID}`)] = { body: writing({ status: "finished", title: "课间十分钟" }) };
+    render(<WritingRoomHost writingId={WID} />);
+
+    await screen.findByText("已完成");
+    fireEvent.click(screen.getByText("我想写一篇关于课间用手机的论证文，因为…"));
+    const box = screen.getByRole("textbox") as HTMLInputElement;
+    fireEvent.change(box, { target: { value: "课间十分钟" } });
+    fireEvent.blur(box);
+
+    await waitFor(() =>
+      expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ title: "课间十分钟" }),
+    );
   });
 });
 

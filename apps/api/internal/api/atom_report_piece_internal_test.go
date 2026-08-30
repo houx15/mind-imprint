@@ -5,120 +5,165 @@ import (
 	"testing"
 )
 
-// reportWithPiece's PURE decisions — the branches that must not touch the
-// database, pinned without one.
+// The read-time hydration of a stored writing report.
 //
-// Why this file exists at all: "no backfill, the section is simply absent" was
-// a reasonable call while the piece was one section at the foot of the report.
-// When the piece became the page it silently switched the article page OFF for
-// every writing that already existed — production had 2 of 2 writing reports
-// with no `piece`, so every share link opened a page of statistics with no way
-// to the article. The failure was invisible: nothing errored, nothing logged,
-// the tests were green, and the page looked deliberate.
+// Why this exists: a report is generated ONCE and stored as a JSON blob, then
+// re-served verbatim forever. "No backfill, the section is simply absent" was
+// a fine call while `piece` was one section at the foot of the page. When the
+// piece BECAME the page, that decision silently switched the article page off
+// for every writing that already existed — production had 2 of 2 writing
+// reports with no `piece`, so every share link opened a page of statistics
+// with no way to the article at all. Nothing errored, nothing logged, the
+// tests were green, and the page looked deliberate.
 //
-// `a` is a nil-free zero API here on purpose: every case below must return
-// BEFORE the draft lookup, so reaching the query would panic and fail loudly
-// rather than pass by accident.
-func TestReportWithPieceLeavesBlobAloneWithoutTouchingTheDatabase(t *testing.T) {
-	a := &API{}
+// The two rules below are ASYMMETRIC on purpose, which is the thing most
+// likely to get "tidied" into one and quietly broken.
 
+// piece: only when the blob has none. A report generated after the field
+// shipped is authoritative — reading the draft over it would make two sources
+// of truth for the same words.
+func TestMergeLiveWritingFieldsFillsPieceOnlyWhenMissing(t *testing.T) {
 	cases := []struct {
-		name   string
-		stored string
+		name      string
+		stored    string
+		draftBody string
+		want      string // expected piece afterwards
 	}{
 		{
-			// A reading has no piece and never will; it must not even look.
-			name:   "reading report",
-			stored: `{"version":1,"kind":"reading","title":"读了一篇"}`,
+			name:      "absent — filled from the draft",
+			stored:    `{"kind":"writing","title":"t"}`,
+			draftBody: "我写完的正文。",
+			want:      "我写完的正文。",
 		},
 		{
-			// Already generated with one — the stored text is authoritative,
-			// and re-reading the draft over it would be a second source of
-			// truth for the same words.
-			name:   "writing that already carries a piece",
-			stored: `{"version":1,"kind":"writing","piece":"我写的正文。"}`,
+			// A stored "" (or "   ") counts as ABSENT — treating it as present
+			// is what would let a blank field pin itself forever.
+			name:      "blank — treated as absent",
+			stored:    `{"kind":"writing","title":"t","piece":"   "}`,
+			draftBody: "我写完的正文。",
+			want:      "我写完的正文。",
 		},
 		{
-			name:   "not an object",
-			stored: `["nope"]`,
+			name:      "already present — the blob wins",
+			stored:    `{"kind":"writing","title":"t","piece":"报告里存着的正文。"}`,
+			draftBody: "草稿里现在的正文。",
+			want:      "报告里存着的正文。",
 		},
 		{
-			name:   "no kind at all",
-			stored: `{"version":1,"title":"没有 kind"}`,
-		},
-		{
-			name:   "kind is not a string",
-			stored: `{"version":1,"kind":7}`,
+			name:      "no draft to draw on — left absent, not blanked",
+			stored:    `{"kind":"writing","title":"t","piece":"报告里存着的正文。"}`,
+			draftBody: "   ",
+			want:      "报告里存着的正文。",
 		},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			got := a.reportWithPiece(t.Context(), [16]byte{}, []byte(tc.stored))
-			if string(got) != tc.stored {
-				t.Fatalf("blob was rewritten:\n got %s\nwant %s", got, tc.stored)
+			fields := decode(t, tc.stored)
+			mergeLiveWritingFields(fields, tc.draftBody, "t")
+			if got := str(t, fields["piece"]); got != tc.want {
+				t.Fatalf("piece = %q, want %q", got, tc.want)
 			}
 		})
 	}
 }
 
-// A whitespace-only stored piece counts as ABSENT, not as "already has one" —
-// otherwise a report that stored "" (or "  ") would be treated as authoritative
-// and would never pick her draft up. This case must fall THROUGH to the draft
-// lookup, which is what the panic proves.
-func TestReportWithPieceTreatsBlankStoredPieceAsMissing(t *testing.T) {
-	a := &API{}
-	defer func() {
-		if recover() == nil {
-			t.Fatal("expected the draft lookup to be reached for a blank stored piece")
-		}
-	}()
-	//nolint:errcheck // the panic IS the assertion
-	_ = a.reportWithPiece(t.Context(), [16]byte{}, []byte(`{"kind":"writing","piece":"   "}`))
+// title: ALWAYS from the live row. She can still rename a finished writing,
+// and 给这篇起个名字 only asks at 完成这篇 — so a piece finished before that
+// flow shipped still carries her raw 「我想写：…」 sentence in its blob, where a
+// rename would never reach it.
+func TestMergeLiveWritingFieldsAlwaysTakesTheLiveTitle(t *testing.T) {
+	fields := decode(t, `{"kind":"writing","title":"我想写一篇论证文，说说学校该不该允许学生课间用手机——我自己观察到…"}`)
+
+	changed := mergeLiveWritingFields(fields, "", "课间十分钟")
+
+	if !changed {
+		t.Fatal("a renamed title must report a change")
+	}
+	if got := str(t, fields["title"]); got != "课间十分钟" {
+		t.Fatalf("title = %q", got)
+	}
 }
 
-// The hydrated blob must keep every other field byte-for-byte — the public
-// payload's key set is pinned elsewhere (TestPublicPayloadCarriesNothingExtra)
-// and this function must never add, drop or reshape anything but `piece`.
-func TestReportWithPiecePreservesEveryOtherField(t *testing.T) {
-	stored := `{"version":1,"kind":"writing","title":"转弯中的国家","studentName":"Phoebe",` +
-		`"stats":[{"key":"words","label":"写了","value":842,"unit":"字"}],"keep":null}`
+// …but an empty live title never blanks a stored one: a row we could not read
+// (or a writing with no title at all) must not erase the report's headline.
+func TestMergeLiveWritingFieldsNeverBlanksTheTitle(t *testing.T) {
+	fields := decode(t, `{"kind":"writing","title":"转弯中的国家"}`)
 
-	var before, after map[string]any
-	if err := json.Unmarshal([]byte(stored), &before); err != nil {
-		t.Fatal(err)
+	if mergeLiveWritingFields(fields, "", "   ") {
+		t.Fatal("an empty live title must not count as a change")
 	}
-	// Simulate what the function produces once a draft is found, by running
-	// the same marshal path on the same map. (The DB half is covered by the
-	// handler tests; what is checked here is that nothing else moves.)
-	var fields map[string]json.RawMessage
-	if err := json.Unmarshal([]byte(stored), &fields); err != nil {
-		t.Fatal(err)
+	if got := str(t, fields["title"]); got != "转弯中的国家" {
+		t.Fatalf("title = %q", got)
 	}
-	encoded, err := json.Marshal("我写完的正文。")
-	if err != nil {
-		t.Fatal(err)
-	}
-	fields["piece"] = encoded
-	out, err := json.Marshal(fields)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if err := json.Unmarshal(out, &after); err != nil {
-		t.Fatal(err)
-	}
+}
 
-	if after["piece"] != "我写完的正文。" {
-		t.Fatalf("piece = %v", after["piece"])
+// An unchanged title is not a change — otherwise every read of every report
+// would re-marshal the whole blob for nothing.
+func TestMergeLiveWritingFieldsIsANoOpWhenNothingDiffers(t *testing.T) {
+	fields := decode(t, `{"kind":"writing","title":"转弯中的国家","piece":"正文。"}`)
+
+	if mergeLiveWritingFields(fields, "正文。", "转弯中的国家") {
+		t.Fatal("identical live values must not report a change")
 	}
-	delete(after, "piece")
-	if len(after) != len(before) {
-		t.Fatalf("key set changed: got %d keys, want %d", len(after), len(before))
+}
+
+// Nothing but `piece` and `title` may move. The public payload's key set is
+// pinned elsewhere (TestPublicPayloadCarriesNothingExtra) and this must never
+// add, drop or reshape another field.
+func TestMergeLiveWritingFieldsTouchesNothingElse(t *testing.T) {
+	stored := `{"version":1,"kind":"writing","title":"旧标题","studentName":"Phoebe",` +
+		`"stats":[{"key":"words","label":"写了","value":842,"unit":"字"}],"keep":null,"gains":["一"]}`
+	before := decode(t, stored)
+	after := decode(t, stored)
+
+	mergeLiveWritingFields(after, "正文。", "新标题")
+
+	if len(after) != len(before)+1 { // +1 for the added piece
+		t.Fatalf("key count = %d, want %d", len(after), len(before)+1)
 	}
 	for k, v := range before {
-		gotJSON, _ := json.Marshal(after[k])
-		wantJSON, _ := json.Marshal(v)
-		if string(gotJSON) != string(wantJSON) {
-			t.Fatalf("field %q changed: got %s, want %s", k, gotJSON, wantJSON)
+		if k == "title" || k == "piece" {
+			continue
+		}
+		if string(after[k]) != string(v) {
+			t.Fatalf("field %q changed: got %s, want %s", k, after[k], v)
 		}
 	}
+}
+
+// The kind gate, on the real entry point: a reading has no piece and no
+// writing row, and must return byte-identical without any lookup at all. `a`
+// is a zero API on purpose — reaching the database would panic and fail
+// loudly rather than pass by accident.
+func TestReportWithPieceIgnoresAnythingThatIsNotAWriting(t *testing.T) {
+	a := &API{}
+	for _, stored := range []string{
+		`{"version":1,"kind":"reading","title":"读了一篇"}`,
+		`["not an object"]`,
+		`{"version":1,"title":"没有 kind"}`,
+		`{"version":1,"kind":7}`,
+	} {
+		got := a.reportWithPiece(t.Context(), [16]byte{}, []byte(stored))
+		if string(got) != stored {
+			t.Fatalf("blob was rewritten:\n got %s\nwant %s", got, stored)
+		}
+	}
+}
+
+func decode(t *testing.T, s string) map[string]json.RawMessage {
+	t.Helper()
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(s), &fields); err != nil {
+		t.Fatal(err)
+	}
+	return fields
+}
+
+func str(t *testing.T, raw json.RawMessage) string {
+	t.Helper()
+	var s string
+	if err := json.Unmarshal(raw, &s); err != nil {
+		t.Fatalf("not a string: %s", raw)
+	}
+	return s
 }
