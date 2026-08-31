@@ -26,6 +26,7 @@ import type {
   Branch,
   CardEntry,
   CardValue,
+  Cover,
   HomepageSection,
   Lang,
   PlanStep,
@@ -269,7 +270,7 @@ function finishCard(p: Project, cardId: string, values: Record<string, CardValue
  *  2026-08-31, and lost `status`; a v2 blob restored into v3 code renders a
  *  project with no plan and no phase. The version guard is the primary
  *  defence and `sane()` below is the belt. */
-const STORAGE_KEY = "mk-eco-proto-v5";
+const STORAGE_KEY = "mk-eco-proto-v6";
 
 /**
  * The personal page.
@@ -404,9 +405,9 @@ interface EcoApi {
   setDate: (d: string) => void;
   discover: (id: string) => void;
   keep: (newsId: string, keyword: string, field: string) => void;
-  /** Take a story back out of 待读. The keyword it seeded STAYS on the tree —
-   *  she did collect it, and the model records what happened, not what she
-   *  currently wants to be true (铁律④). */
+  /** Un-keep a story. The keyword it seeded STAYS on the tree — she did
+   *  collect it, and the model records what happened, not what she currently
+   *  wants to be true (铁律④). */
   unkeep: (newsId: string) => void;
   setGrowth: (n: number) => void;
   openCoach: (surface: CoachSurface, seed?: string) => void;
@@ -487,6 +488,8 @@ interface EcoApi {
 
   /** Free talk inside a project. */
   sayInProject: (projectId: string, text: string) => void;
+  /** 换封面. */
+  setCover: (projectId: string, cover: Cover) => void;
   publishProject: (projectId: string, summary: string) => void;
   toast: (msg: string) => void;
 }
@@ -562,14 +565,15 @@ export function EcoProvider({ children }: { children: ReactNode }) {
                 ],
               },
         );
-        // Two things happen, and the toast names the one she asked for. The
-        // keyword growing is a consequence of collecting, not a separate
-        // action she chose — 收藏 is the verb on the button.
-        toast(`已收藏到阅读室的「待读」·「${keyword}」也长到了你的兴趣树上`);
+        // 🚨 This used to say 「已收藏到阅读室的「待读」」. The reading room is
+        // not in this prototype, so that sentence named a place she could
+        // not go — a false state claim, which is the one class of defect
+        // this product cannot afford. It now promises only what happens.
+        toast(`已收藏 ·「${keyword}」长到了你的兴趣树上`);
       },
       unkeep: (newsId) => {
         patch((s) => ({ ...s, kept: s.kept.filter((k) => k !== newsId) }));
-        toast("已经从待读里移走了");
+        toast("已经取消收藏了");
       },
       setGrowth: (growth) => patch((s) => ({ ...s, growth })),
       openCoach,
@@ -1085,6 +1089,9 @@ export function EcoProvider({ children }: { children: ReactNode }) {
             };
           }),
         ),
+
+      setCover: (projectId, cover) =>
+        patch((s) => mapProject(s, projectId, (p) => ({ ...p, cover }))),
 
       publishProject: (projectId, summary) => {
         // 🚨 Publishing must ALSO place the project on her page, because the

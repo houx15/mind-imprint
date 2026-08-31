@@ -499,6 +499,13 @@ export interface ArtifactState {
   };
 }
 
+export interface Cover {
+  /** Index into `COVER_ARTS` — a gradient. */
+  art: number;
+  /** One glyph, drawn large. */
+  glyph: string;
+}
+
 /** Where a project is in its own life. Explicit rather than derived: the
  *  sub-states of "not started yet" (clarify → choose a road → agree a plan)
  *  are exactly the ones a derivation gets wrong. */
@@ -526,7 +533,10 @@ export interface Project {
    *  `field` indexes into the spec's `fields`. */
   ask: { cardId: string; field: number } | null;
   artifacts: Record<string, ArtifactState>;
-  cover: string;
+  /** 封面. Hers to set — a project she picked a face for is a project she
+   *  owns, and the shelf of them is the only place her work looks like a body
+   *  of work rather than a list of rows. */
+  cover: Cover;
   summary?: string;
   startedAt: string;
 }

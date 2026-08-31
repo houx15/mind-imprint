@@ -42,11 +42,11 @@ export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: ()
       case "question":
         openCoach("tree", seed.text);
         break;
+      // 阅读室和写作间是 lite 里已经做好的真实页面，不在这个原型里。带着这条
+      // 线索去问印记，比跳进一个不存在的房间强。
       case "reading":
-        go(seed.ref ? { name: "readings", id: seed.ref } : { name: "readings" });
-        break;
       case "writing":
-        go({ name: "writings" });
+        openCoach("tree", seed.text);
         break;
       case "project":
         go({ name: "project-new" });
@@ -212,14 +212,10 @@ const KIND_LABEL: Record<KeywordSource["kind"], { label: string; hue: string }> 
 
 function SourceRow({ source, onNavigate }: { source: KeywordSource; onNavigate: () => void }) {
   const meta = KIND_LABEL[source.kind];
+  // Only projects live in this prototype; readings and writings are shown as
+  // evidence but do not navigate anywhere here.
   const target =
-    source.kind === "reading"
-      ? { name: "readings" as const, id: source.id }
-      : source.kind === "writing"
-        ? { name: "writings" as const, id: source.id }
-        : source.kind === "project"
-          ? { name: "project" as const, id: source.id }
-          : null;
+    source.kind === "project" ? { name: "project" as const, id: source.id } : null;
 
   return (
     <li>

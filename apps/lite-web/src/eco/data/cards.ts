@@ -387,7 +387,7 @@ export const CARDS: Record<string, CardSpec> = {
     reason: "你挑的四个参考里有一条共同的线。我们把它写成一份说明书，这样我做出来的东西你才有资格说「不对」。",
     teaches: "把喜欢变成规格。挑一个参考，先用自己的话描述它，再把这段描述当成给 AI 的约束——这是专业的人真正在用的做法。含糊的指令换来的是含糊的东西。",
     payoff:
-      "这份说明书会变成我的约束。特别是你禁止的那几条——有了它们，你才有资格对我做出来的东西说「不对」，而不是只能说「再改改」。",
+      "这份说明书会变成我的约束。特别是你禁止的那几条——有了它们，你才有资格对我做出来的东西说「不对」，并且说得出哪里不对。",
     glyph: "◈",
     hue: "var(--mk-taro)",
     minutes: 18,
@@ -446,7 +446,7 @@ export const CARDS: Record<string, CardSpec> = {
     kind: "frame",
     surface: "panel",
     reason: "你最喜欢的那个参考，我想请你把它拆开——不然你学到的只是它的外表。",
-    teaches: "任何好东西都有骨架。把它的部分依次写出来、写出每一部分在干什么，你才拿得走它的做法，而不是它的样子。",
+    teaches: "任何好东西都有骨架。把它的部分依次写出来、写出每一部分在干什么，你拿走的才是它的做法。",
     payoff:
       "你拆出来的那个结构，我会照着搭。这比任何形容词都管用：你说得出别人是怎么搭的，我就能搭一个你认得出的。",
     glyph: "▤",
@@ -756,7 +756,7 @@ export const CARDS: Record<string, CardSpec> = {
     reason: "你收到了数据。在算平均数之前，先说清楚这些数据是谁给的。",
     teaches: "结论的适用范围由样本决定，不由样本量决定。写下你问了谁、谁没被问到、以及这件事让你的结论只能说到哪一步。",
     payoff:
-      "「谁没被问到」这一栏会原样写进报告。说清楚适用范围的报告更有说服力，而不是更弱。",
+      "「谁没被问到」这一栏会原样写进报告。说清楚适用范围的报告更有说服力。",
     method: "survey-wording",
     glyph: "◐",
     hue: "var(--mk-mist)",
@@ -1047,7 +1047,7 @@ export function refeed(cardId: string, values: Record<string, CardValue>): strin
     case "talk": {
       const said = asText(values.said).trim();
       return said.length > 2
-        ? `他说的是「${trim(said, 40)}」。把原话记下来而不是记你的总结，这一点做得对——条件里往往藏着下一版的答案。`
+        ? `他说的是「${trim(said, 40)}」。你记的是原话，不是你的总结——这一点做得对——条件里往往藏着下一版的答案。`
         : `想清楚了再去，这比空手去强很多。谈完回来把最后一栏填上，包括被拒绝的话。`;
     }
     default:

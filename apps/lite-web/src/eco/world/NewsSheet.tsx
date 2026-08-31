@@ -164,31 +164,23 @@ export function NewsSheet({ item, onClose }: { item: NewsItem | null; onClose: (
         </p>
 
         <div className="mt-4 space-y-2.5">
-          {/* Reading is the primary move and gets the full width to say so. */}
+          {/* 🚨 阅读 used to be the full-width primary here and it opened the
+              prototype's own reading room. That room was dropped — it is
+              already built for real in lite, and a rougher copy of a shipped
+              screen invites feedback on a design nobody intends to build. So
+              this sheet now offers only what the prototype can actually
+              honour: take the question to 印记, or keep it for later. */}
           <Exit
             primary
-            icon={<BookOpen size={18} strokeWidth={1.8} />}
-            title="阅读"
-            sub={
-              related
-                ? `《${related.title}》· 约 ${related.minutes} 分钟`
-                : "去阅读室挑一篇相关的"
-            }
+            icon={<MessageCircle size={18} strokeWidth={1.8} />}
+            title="与 AI 讨论"
+            sub="带着第一个问题去问"
             onClick={() => {
               onClose();
-              go(related ? { name: "readings", id: related.id } : { name: "readings" });
+              openCoach("world", item.hook.zh);
             }}
           />
           <div className="grid grid-cols-2 gap-2.5">
-            <Exit
-              icon={<MessageCircle size={17} strokeWidth={1.8} />}
-              title="与 AI 讨论"
-              sub="带着第一个问题去问"
-              onClick={() => {
-                onClose();
-                openCoach("world", item.hook.zh);
-              }}
-            />
             <Exit
               icon={
                 kept ? (
@@ -198,7 +190,7 @@ export function NewsSheet({ item, onClose }: { item: NewsItem | null; onClose: (
                 )
               }
               title={kept ? "已收藏" : "先收藏"}
-              sub={kept ? "在阅读室的「待读」里" : "放进阅读室的待读清单"}
+              sub={kept ? "已经长到你的兴趣树上" : "留着以后读，顺带长到树上"}
               disabled={kept}
               onClick={() => keep(item.id, seedKeyword, field.id)}
             />

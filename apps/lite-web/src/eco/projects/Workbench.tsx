@@ -9,6 +9,7 @@ import { go } from "../route";
 import type { Project, StageRef, ThreadItem } from "../data/types";
 import { Bold, Btn, Empty, Field, Panel, Sys, cx } from "../ui";
 import { CardSurface } from "./CardSurface";
+import { CoverArt, CoverPicker } from "./CoverPicker";
 import { Planner } from "./panels/Planner";
 import { Roads } from "./panels/Roads";
 import { Overview } from "./panels/Overview";
@@ -129,13 +130,18 @@ function Room({ project, cardId }: { project: Project; cardId?: string }) {
           >
             项目
           </Btn>
-          <div className="mt-2 flex items-center gap-2">
-            <span className="h-2 w-2 rounded-mk-full" style={{ background: t.hue }} />
-            <Sys>
-              {t.label} · {project.startedAt}
-            </Sys>
+          <div className="mt-2 flex items-start gap-3">
+            <CoverArt cover={project.cover} size="sm" />
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center justify-between gap-2">
+                <Sys>
+                  {t.label} · {project.startedAt}
+                </Sys>
+                <CoverPicker project={project} />
+              </div>
+              <h1 className="mt-0.5 text-mk-h1 text-mk-ink">{project.title}</h1>
+            </div>
           </div>
-          <h1 className="mt-1 text-mk-h1 text-mk-ink">{project.title}</h1>
           {project.phase === "run" && steps.length > 0 ? (
             <p className="mt-1.5 text-mk-small text-mk-muted">
               第 <span className="font-mono tabular-nums">{Math.min(project.at + 1, steps.length)}</span>{" "}

@@ -1,4 +1,4 @@
-import type { Project, TrackId } from "./types";
+import type { Cover, Project, TrackId } from "./types";
 import { GARDEN_APPROACHES, planById, planForTrack } from "./plan";
 
 /**
@@ -90,6 +90,40 @@ export const TRACKS: {
     examples: ["办一次展览", "拍一支两分钟的片子", "写一封会被真的寄出去的信"],
   },
 ];
+
+
+/* ── 封面 ─────────────────────────────────────────────────────────────────
+ * Eight grounds and a set of glyphs. Deliberately not an image upload: a
+ * student who has to find a picture before her project looks like a project
+ * has been given a chore, and the shelf stops being uniform the moment one
+ * card is a blurry photo. A gradient and a glyph she picked in four seconds
+ * gets the same result — the shelf reads as HERS — with none of that.
+ * ---------------------------------------------------------------------- */
+
+export const COVER_ARTS: { from: string; to: string; ink: string }[] = [
+  { from: "#E8695E", to: "#B8412F", ink: "#FFF6F2" },
+  { from: "#5FA97E", to: "#2F6B4A", ink: "#F2FBF5" },
+  { from: "#4E7EA6", to: "#26496B", ink: "#F0F7FD" },
+  { from: "#E0A63A", to: "#A9701A", ink: "#FFFAF0" },
+  { from: "#9B7BC4", to: "#5E4189", ink: "#F9F5FF" },
+  { from: "#3F8E8A", to: "#1D5754", ink: "#EFFBFA" },
+  { from: "#C4657F", to: "#87334A", ink: "#FFF3F6" },
+  { from: "#5A5F73", to: "#2B2F3D", ink: "#F4F5F8" },
+];
+
+export const COVER_GLYPHS = [
+  "◈", "◉", "✳", "◇", "❋", "⌘", "☺", "▲",
+  "✧", "◐", "⬡", "✦", "❖", "◎", "✿", "⌂",
+];
+
+/** A cover for a new project. Varied by creation order so a fresh shelf does
+ *  not come out eight identical red squares. */
+export function defaultCover(seed: number): Cover {
+  return {
+    art: seed % COVER_ARTS.length,
+    glyph: COVER_GLYPHS[seed % COVER_GLYPHS.length]!,
+  };
+}
 
 export function trackById(id: TrackId) {
   return TRACKS.find((t) => t.id === id) ?? TRACKS[0]!;
@@ -310,7 +344,7 @@ export function firstProject(id: string): Project {
     at: 0,
     ask: null,
     artifacts: {},
-    cover: "var(--mk-mist)",
+    cover: { art: 2, glyph: "⌘" },
     startedAt: new Date().toISOString().slice(0, 10),
   };
 }
@@ -352,7 +386,7 @@ export function problemProject(id: string, problem: string): Project {
     at: 0,
     ask: null,
     artifacts: {},
-    cover: "var(--mk-lake)",
+    cover: { art: 5, glyph: "⬡" },
     startedAt: new Date().toISOString().slice(0, 10),
   };
 }
@@ -387,7 +421,7 @@ export const SEED_PROJECTS: Project[] = [
     at: 8,
     ask: null,
     artifacts: {},
-    cover: "var(--mk-taro)",
+    cover: { art: 4, glyph: "◇" },
     startedAt: "2026-06-12",
     summary:
       "做了三版。第一版好看但他看不清；第二版能看清但装不下他的药；第三版用红色胶带分格，丑，但他现在自己会拿。我学到的是：给别人做的东西，好不好看由我说了不算。",
@@ -466,7 +500,7 @@ export const SEED_PROJECTS: Project[] = [
     at: 1,
     ask: null,
     artifacts: {},
-    cover: "var(--mk-matcha)",
+    cover: { art: 1, glyph: "◎" },
     startedAt: "2026-08-20",
     // 🚨 A seed project's thread must contain an invitation for every card the
     // rail shows as 待开. The first version stopped at 动机三问 while the rail
@@ -517,7 +551,7 @@ export function trackProject(id: string, track: TrackId, title: string, intent: 
     at: 0,
     ask: null,
     artifacts: {},
-    cover: trackById(track).hue,
+    cover: defaultCover(Date.now()),
     startedAt: new Date().toISOString().slice(0, 10),
   };
 }

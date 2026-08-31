@@ -2,8 +2,11 @@
  * eco/route — the prototype's URL model.
  *
  * Same shape as lite's own `routing.ts` (root-relative paths, History API, no
- * router library) but rooted at `/eco` so the prototype cannot collide with
- * the real `/readings` and `/writings` routes. Everything the prototype owns
+ * router library) but rooted at `/eco`.
+ *
+ * 🚨 There are deliberately no `readings` / `writings` routes: both rooms are
+ * already built for real in lite, and a rougher prototype copy of a shipped
+ * screen invites feedback on a design nobody intends to build. Everything the prototype owns
  * lives under that prefix, which is also why mounting it is a one-line change
  * in `rootElementFor.tsx`.
  *
@@ -16,8 +19,6 @@ export const ECO_PREFIX = "/eco";
 
 export type EcoRoute =
   | { name: "home"; view: "world" | "tree" }
-  | { name: "readings"; id?: string }
-  | { name: "writings"; id?: string }
   | { name: "projects" }
   | { name: "project-new" }
   | { name: "project"; id: string; cardId?: string }
@@ -45,10 +46,6 @@ export function parseEcoRoute(pathname: string): EcoRoute {
     case "tree":
     case "me":
       return { name: "home", view: "tree" };
-    case "readings":
-      return b ? { name: "readings", id: b } : { name: "readings" };
-    case "writings":
-      return b ? { name: "writings", id: b } : { name: "writings" };
     case "projects":
       if (!b) return { name: "projects" };
       if (b === "new") return { name: "project-new" };
@@ -67,10 +64,6 @@ export function ecoPath(route: EcoRoute): string {
   switch (route.name) {
     case "home":
       return route.view === "tree" ? `${ECO_PREFIX}/tree` : `${ECO_PREFIX}/world`;
-    case "readings":
-      return route.id ? `${ECO_PREFIX}/readings/${enc(route.id)}` : `${ECO_PREFIX}/readings`;
-    case "writings":
-      return route.id ? `${ECO_PREFIX}/writings/${enc(route.id)}` : `${ECO_PREFIX}/writings`;
     case "projects":
       return `${ECO_PREFIX}/projects`;
     case "project-new":

@@ -1,21 +1,10 @@
 import { useEffect, useState } from "react";
-import {
-  BookOpen,
-  Compass,
-  Hexagon,
-  MessageCircle,
-  PenLine,
-  User,
-} from "lucide-react";
+import { Compass, Hexagon, MessageCircle, User } from "lucide-react";
 import { EcoProvider, useEco } from "./store";
 import { ecoPath, go, parseEcoRoute, type EcoRoute } from "./route";
 import { CoachDrawer } from "./coach/CoachDrawer";
 import { WorldView } from "./world/WorldView";
 import { TreeView } from "./home/TreeView";
-import { ReadingsView } from "./library/ReadingsView";
-import { ReadingDetail } from "./library/ReadingDetail";
-import { WritingsView } from "./library/WritingsView";
-import { WritingDetail } from "./library/WritingDetail";
 import { ProjectsHub } from "./projects/ProjectsHub";
 import { NewProject } from "./projects/NewProject";
 import { Workbench } from "./projects/Workbench";
@@ -40,8 +29,6 @@ import "./eco.css";
 
 const TABS = [
   { key: "home", label: "首页", sub: "世界 · 我的地图", icon: Compass },
-  { key: "readings", label: "阅读", sub: "读过的", icon: BookOpen },
-  { key: "writings", label: "写作", sub: "写过的", icon: PenLine },
   { key: "projects", label: "项目", sub: "做出来", icon: Hexagon },
   { key: "me", label: "我的主页", sub: "对外的那一页", icon: User },
 ] as const;
@@ -73,26 +60,16 @@ function Shell({ route }: { route: EcoRoute }) {
   const activeTab: string =
     route.name === "home"
       ? "home"
-      : route.name === "readings"
-        ? "readings"
-        : route.name === "writings"
-          ? "writings"
-          : route.name === "projects" || route.name === "project" || route.name === "project-new"
-            ? "projects"
-            : route.name === "homepage"
-              ? "projects"
-              : "me";
+      : route.name === "projects" || route.name === "project" || route.name === "project-new"
+        ? "projects"
+        : route.name === "homepage"
+          ? "projects"
+          : "me";
 
   function goTab(key: string) {
     switch (key) {
       case "home":
         go({ name: "home", view: "world" });
-        break;
-      case "readings":
-        go({ name: "readings" });
-        break;
-      case "writings":
-        go({ name: "writings" });
         break;
       case "projects":
         go({ name: "projects" });
@@ -202,10 +179,6 @@ function Surface({ route }: { route: EcoRoute }) {
   switch (route.name) {
     case "home":
       return route.view === "world" ? <WorldView /> : <TreeView />;
-    case "readings":
-      return route.id ? <ReadingDetail id={route.id} /> : <ReadingsView />;
-    case "writings":
-      return route.id ? <WritingDetail id={route.id} /> : <WritingsView />;
     case "projects":
       return <ProjectsHub />;
     case "project-new":
@@ -223,10 +196,6 @@ function surfaceFor(route: EcoRoute) {
   switch (route.name) {
     case "home":
       return route.view === "world" ? ("world" as const) : ("tree" as const);
-    case "readings":
-      return "reading" as const;
-    case "writings":
-      return "writing" as const;
     case "homepage":
       return "homepage" as const;
     case "project":

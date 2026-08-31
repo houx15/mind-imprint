@@ -20,7 +20,7 @@ export const PAGE_EXAMPLES: PageExample[] = [
   {
     id: "ex-victor",
     name: "Bret Victor",
-    who: "界面研究者 · 他想让计算living在纸和墙上，而不是屏幕里",
+    who: "界面研究者 · 他想让计算长在纸和墙上",
     url: "worrydream.com",
     shape: "essay",
     swatch: ["#FFFFFF", "#33302E"],
@@ -45,7 +45,7 @@ export const PAGE_EXAMPLES: PageExample[] = [
       "「花园」里每篇都标了成熟度：种子 / 生长中 / 常青，还能筛选。没想清楚的东西是**故意**发出来的。",
       "所有插图都是她自己画的，视觉系统就是她的手，不需要另外做一套品牌。",
     ],
-    steal: "标注每件东西的完成度。把半成品标成半成品，你就可以现在发布，而不是永远不发。",
+    steal: "标注每件东西的完成度。把半成品标成半成品，你今天就可以发布。",
   },
   {
     id: "ex-evans",
