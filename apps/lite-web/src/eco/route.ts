@@ -20,7 +20,7 @@ export type EcoRoute =
   | { name: "writings"; id?: string }
   | { name: "projects" }
   | { name: "project-new" }
-  | { name: "project"; id: string; stepId?: string }
+  | { name: "project"; id: string; cardId?: string }
   | { name: "homepage" }
   | { name: "page"; handle: string };
 
@@ -52,8 +52,8 @@ export function parseEcoRoute(pathname: string): EcoRoute {
     case "projects":
       if (!b) return { name: "projects" };
       if (b === "new") return { name: "project-new" };
-      // `/eco/projects/:id/step/:stepId`
-      return c === "step" && d ? { name: "project", id: b, stepId: d } : { name: "project", id: b };
+      // `/eco/projects/:id/card/:cardId`
+      return c === "card" && d ? { name: "project", id: b, cardId: d } : { name: "project", id: b };
     case "homepage":
       return { name: "homepage" };
     case "p":
@@ -76,8 +76,8 @@ export function ecoPath(route: EcoRoute): string {
     case "project-new":
       return `${ECO_PREFIX}/projects/new`;
     case "project":
-      return route.stepId
-        ? `${ECO_PREFIX}/projects/${enc(route.id)}/step/${enc(route.stepId)}`
+      return route.cardId
+        ? `${ECO_PREFIX}/projects/${enc(route.id)}/card/${enc(route.cardId)}`
         : `${ECO_PREFIX}/projects/${enc(route.id)}`;
     case "homepage":
       return `${ECO_PREFIX}/homepage`;

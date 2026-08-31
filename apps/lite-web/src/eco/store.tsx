@@ -11,17 +11,19 @@ import {
 import type { CoachMessage, CoachSurface } from "./data/coach";
 import { OPENERS, coachReply } from "./data/coach";
 import { DEFAULT_SECTIONS } from "./data/homepage";
-import { SEED_PROJECTS, planFor } from "./data/projects";
+import { SEED_PROJECTS, openingThread, trackById } from "./data/projects";
+import { cardsForTrack, refeed } from "./data/cards";
 import { TODAY } from "./data/news";
 import type {
+  CardEntry,
+  CardValue,
   Domain,
   HomepageSection,
   Lang,
   Project,
-  ProjectStep,
   StyleId,
+  ThreadItem,
   TrackId,
-  WorkMode,
 } from "./data/types";
 
 /**
@@ -45,29 +47,62 @@ import type {
  * access, and the prototype must render correctly with no stored value.
  */
 
-const STORAGE_KEY = "mk-eco-proto-v1";
 
-export interface HomepageState {
-  /** Index into HOMEPAGE_STEPS. */
-  step: number;
-  exampleId: string | null;
-  sections: HomepageSection[];
-  mode: WorkMode | null;
-  style: StyleId | null;
-  published: boolean;
-  /** Reached the share step at least once — unlocks the other tracks. */
-  shared: boolean;
+/* ── project helpers ──────────────────────────────────────────────────────
+ * Two tiny reducers, extracted because every project action needs them and
+ * inlining `projects.map(p => p.id === id ? ... : p)` five times is how the
+ * card list and the thread drift out of sync.
+ * ---------------------------------------------------------------------- */
+
+function mapProject(s: EcoState, id: string, fn: (p: Project) => Project): EcoState {
+  return { ...s, projects: s.projects.map((p) => (p.id === id ? fn(p) : p)) };
 }
 
+/** Update a card entry, creating it if 印记 never formally summoned it —
+ *  which happens when she opens a card herself from the rail. */
+function upsertCard(
+  cards: CardEntry[],
+  cardId: string,
+  fn: (c: CardEntry) => CardEntry,
+): CardEntry[] {
+  return cards.some((c) => c.cardId === cardId)
+    ? cards.map((c) => (c.cardId === cardId ? fn(c) : c))
+    : [...cards, fn({ cardId, status: "open", values: {} })];
+}
+
+/** 🚨 Bump this whenever a persisted shape changes. `Project` grew `cards` and
+ *  `thread` and lost `steps` on 2026-08-31; a v1 blob restored into v2 code
+ *  crashed the hub on first render. The version guard is the primary defence
+ *  and `sane()` below is the belt. */
+const STORAGE_KEY = "mk-eco-proto-v2";
+
+/**
+ * The personal page.
+ *
+ * Shrank on 2026-08-31 with the six-step wizard: `step`, `exampleId`, `mode`
+ * and `shared` all existed to drive a walkthrough that no longer exists (the
+ * teaching moved into the card library, where every track can reach it). What
+ * is left is what the published page actually renders.
+ */
+export interface HomepageState {
+  sections: HomepageSection[];
+  style: StyleId | null;
+  published: boolean;
+}
+
+/**
+ * A project being started.
+ *
+ * Deliberately thin. v1's draft carried the whole why-ladder and a generated
+ * step list, which meant a student answered three hard questions BEFORE the
+ * project existed — and if she bailed, all of it evaporated. Now the door
+ * asks for a track and one sentence; the why is the first card INSIDE the
+ * project, where the answers are kept.
+ */
 export interface DraftProject {
   track: TrackId | null;
   title: string;
-  why: { who: string; cost: string; mine: string };
-  /** Which rung of the why-ladder she is on (0..2), 3 = done. */
-  whyStep: number;
-  /** Rungs 印记 has already pushed back on once, so it never nags twice. */
-  probed: string[];
-  steps: ProjectStep[];
+  intent: string;
 }
 
 export interface EcoState {
@@ -94,14 +129,7 @@ export interface EcoState {
   toast: string | null;
 }
 
-const EMPTY_DRAFT: DraftProject = {
-  track: null,
-  title: "",
-  why: { who: "", cost: "", mine: "" },
-  whyStep: 0,
-  probed: [],
-  steps: [],
-};
+const EMPTY_DRAFT: DraftProject = { track: null, title: "", intent: "" };
 
 function initialState(): EcoState {
   return {
@@ -116,16 +144,16 @@ function initialState(): EcoState {
     coachSurface: "world",
     coachLog: [],
     homepage: {
-      step: 0,
-      exampleId: null,
       sections: DEFAULT_SECTIONS.map((s) => ({ ...s, picked: s.picked ? [...s.picked] : undefined })),
-      mode: null,
       style: null,
       published: false,
-      shared: false,
     },
-    projects: SEED_PROJECTS.map((p) => ({ ...p, steps: p.steps.map((s) => ({ ...s })) })),
-    draft: { ...EMPTY_DRAFT, why: { ...EMPTY_DRAFT.why } },
+    projects: SEED_PROJECTS.map((p) => ({
+      ...p,
+      thread: p.thread.map((t) => ({ ...t })),
+      cards: p.cards.map((c) => ({ ...c, values: { ...c.values } })),
+    })),
+    draft: { ...EMPTY_DRAFT },
     newProjectMode: "pick",
     toast: null,
   };
@@ -144,7 +172,12 @@ function load(): EcoState {
       ...saved,
       homepage: { ...base.homepage, ...(saved.homepage ?? {}) },
       draft: { ...base.draft, ...(saved.draft ?? {}) },
-      projects: saved.projects?.length ? saved.projects : base.projects,
+      // Only accept stored projects that still match the current shape. The
+      // merge below claimed old blobs "must never crash the app"; it did not
+      // actually check, and a v1 project (no `cards`) took the whole hub down.
+      projects: saved.projects?.length && saved.projects.every(sane)
+        ? saved.projects
+        : base.projects,
       // The coach log is intentionally NOT restored: re-reading a stale
       // conversation on load reads as the app talking to itself.
       coachLog: [],
@@ -156,43 +189,53 @@ function load(): EcoState {
   }
 }
 
+/** Does this look like a `Project` this build can render? */
+function sane(p: unknown): p is Project {
+  const c = p as Partial<Project> | null;
+  return Boolean(c && Array.isArray(c.cards) && Array.isArray(c.thread) && typeof c.id === "string");
+}
+
 interface EcoApi {
   state: EcoState;
   setLang: (l: Lang) => void;
   setDate: (d: string) => void;
   discover: (id: string) => void;
   keep: (newsId: string, keyword: string, field: string) => void;
+  /** Take a story back out of 待读. The keyword it seeded STAYS on the tree —
+   *  she did collect it, and the model records what happened, not what she
+   *  currently wants to be true (铁律④). */
+  unkeep: (newsId: string) => void;
   setDomainFilter: (d: Domain | null) => void;
   setGrowth: (n: number) => void;
   openCoach: (surface: CoachSurface, seed?: string) => void;
   closeCoach: () => void;
   say: (text: string) => void;
-  /** Homepage studio */
-  hpGo: (step: number) => void;
-  hpPickExample: (id: string) => void;
+  /** 我的主页 */
   hpSetSections: (s: HomepageSection[]) => void;
-  hpSetMode: (m: WorkMode) => void;
   hpSetStyle: (s: StyleId) => void;
   hpWrite: (sectionId: string, value: string) => void;
   hpPick: (sectionId: string, itemId: string) => void;
   hpPublish: () => void;
-  hpShare: () => void;
   /** Pick an item into a homepage section AND jump to that section's editor —
    *  the 「把它放上我的主页」 action from a reading or a writing. */
   hpPickAndCompose: (sectionId: string, itemId: string) => void;
-  /** Projects */
+  /** Projects — the workbench */
   draftTrack: (t: TrackId, title?: string) => void;
-  draftWhy: (rung: "who" | "cost" | "mine", value: string) => void;
-  draftWhyNext: () => void;
-  draftWhyBack: () => void;
-  draftProbe: (rung: string) => void;
-  draftPlan: () => void;
-  draftMoveStep: (id: string, dir: -1 | 1) => void;
-  draftRemoveStep: (id: string) => void;
-  draftAddStep: (step: ProjectStep) => void;
+  draftIntent: (v: string) => void;
+  draftTitle: (v: string) => void;
   createProject: () => string;
   setNewProjectMode: (m: "pick" | "talk") => void;
-  toggleStep: (projectId: string, stepId: string) => void;
+  /** She accepted the invitation and opened the card (铁律②: HER call). */
+  openCardEntry: (projectId: string, cardId: string) => void;
+  /** Autosave while she works. Does not change status. */
+  saveCard: (projectId: string, cardId: string, values: Record<string, CardValue>) => void;
+  /** 提交 — the card comes back into the conversation and 印记 summons the
+   *  next one. This is the whole loop, in one function. */
+  submitCard: (projectId: string, cardId: string, values: Record<string, CardValue>) => void;
+  /** 现在不做. The invitation stays in the rail; 印记 does not nag. */
+  skipCard: (projectId: string, cardId: string) => void;
+  /** Free talk inside a project. */
+  sayInProject: (projectId: string, text: string) => void;
   publishProject: (projectId: string, summary: string) => void;
   toast: (msg: string) => void;
 }
@@ -261,7 +304,14 @@ export function EcoProvider({ children }: { children: ReactNode }) {
                 ],
               },
         );
-        toast(`「${keyword}」已经长到你的树上了`);
+        // Two things happen, and the toast names the one she asked for. The
+        // keyword growing is a consequence of collecting, not a separate
+        // action she chose — 收藏 is the verb on the button.
+        toast(`已收藏到阅读室的「待读」·「${keyword}」也长到了你的兴趣树上`);
+      },
+      unkeep: (newsId) => {
+        patch((s) => ({ ...s, kept: s.kept.filter((k) => k !== newsId) }));
+        toast("已经从待读里移走了");
       },
       setDomainFilter: (domainFilter) => patch((s) => ({ ...s, domainFilter })),
       setGrowth: (growth) => patch((s) => ({ ...s, growth })),
@@ -277,10 +327,7 @@ export function EcoProvider({ children }: { children: ReactNode }) {
           ],
         })),
 
-      hpGo: (step) => patch((s) => ({ ...s, homepage: { ...s.homepage, step } })),
-      hpPickExample: (exampleId) => patch((s) => ({ ...s, homepage: { ...s.homepage, exampleId } })),
       hpSetSections: (sections) => patch((s) => ({ ...s, homepage: { ...s.homepage, sections } })),
-      hpSetMode: (mode) => patch((s) => ({ ...s, homepage: { ...s.homepage, mode } })),
       hpSetStyle: (style) => patch((s) => ({ ...s, homepage: { ...s.homepage, style } })),
       hpWrite: (sectionId, value) =>
         patch((s) => ({
@@ -310,19 +357,14 @@ export function EcoProvider({ children }: { children: ReactNode }) {
           },
         })),
       hpPublish: () => {
-        patch((s) => ({ ...s, homepage: { ...s.homepage, published: true, step: 4 } }));
+        patch((s) => ({ ...s, homepage: { ...s.homepage, published: true } }));
         toast("你的主页已经发布了");
       },
-      hpShare: () => patch((s) => ({ ...s, homepage: { ...s.homepage, shared: true } })),
       hpPickAndCompose: (sectionId, itemId) => {
         patch((s) => ({
           ...s,
           homepage: {
             ...s.homepage,
-            // Step 3 is 写内容. Landing her on step 1 with no record of what she
-            // wanted to add — which is what the old 「放上我的主页」 did — reads
-            // as the button having done nothing.
-            step: Math.max(s.homepage.step, 3),
             sections: s.homepage.sections.map((sec) =>
               sec.id === sectionId
                 ? {
@@ -340,79 +382,129 @@ export function EcoProvider({ children }: { children: ReactNode }) {
       },
 
       draftTrack: (track, title) =>
-        patch((s) => ({
-          ...s,
-          draft: { ...EMPTY_DRAFT, why: { who: "", cost: "", mine: "" }, track, title: title ?? "" },
-        })),
-      draftWhy: (rung, value) =>
-        patch((s) => ({ ...s, draft: { ...s.draft, why: { ...s.draft.why, [rung]: value } } })),
-      draftWhyNext: () =>
-        patch((s) => ({ ...s, draft: { ...s.draft, whyStep: Math.min(3, s.draft.whyStep + 1) } })),
-      draftWhyBack: () =>
-        patch((s) => ({ ...s, draft: { ...s.draft, whyStep: Math.max(0, s.draft.whyStep - 1) } })),
-      draftProbe: (rung) =>
-        patch((s) =>
-          s.draft.probed.includes(rung)
-            ? s
-            : { ...s, draft: { ...s.draft, probed: [...s.draft.probed, rung] } },
-        ),
-      draftPlan: () =>
-        patch((s) => ({
-          ...s,
-          draft: { ...s.draft, steps: s.draft.track ? planFor(s.draft.track) : [] },
-        })),
-      draftMoveStep: (id, dir) =>
-        patch((s) => {
-          const steps = [...s.draft.steps];
-          const i = steps.findIndex((x) => x.id === id);
-          const j = i + dir;
-          if (i < 0 || j < 0 || j >= steps.length) return s;
-          const a = steps[i]!;
-          const b = steps[j]!;
-          steps[i] = b;
-          steps[j] = a;
-          return { ...s, draft: { ...s.draft, steps } };
-        }),
-      draftRemoveStep: (id) =>
-        patch((s) => ({ ...s, draft: { ...s.draft, steps: s.draft.steps.filter((x) => x.id !== id) } })),
-      draftAddStep: (step) =>
-        patch((s) => {
-          // Insert before the publish step — appending after 发布 produces a
-          // plan that finishes and then keeps going, which reads as a bug.
-          const steps = [...s.draft.steps];
-          const at = steps.findIndex((x) => x.kind === "publish");
-          if (at === -1) steps.push(step);
-          else steps.splice(at, 0, step);
-          return { ...s, draft: { ...s.draft, steps } };
-        }),
+        patch((s) => ({ ...s, draft: { ...EMPTY_DRAFT, track, title: title ?? "" } })),
+      draftTitle: (title) => patch((s) => ({ ...s, draft: { ...s.draft, title } })),
+      draftIntent: (intent) => patch((s) => ({ ...s, draft: { ...s.draft, intent } })),
       createProject: () => {
         const id = `p-${Date.now().toString(36)}`;
         setState((s) => {
           if (!s.draft.track) return s;
+          const seq = cardsForTrack(s.draft.track);
+          // Every track's sequence is a non-empty literal, so index 0 exists.
+          const first = seq[0]!;
           const project: Project = {
             id,
             track: s.draft.track,
-            title: s.draft.title || "未命名项目",
+            title: s.draft.title.trim() || "未命名项目",
+            intent: s.draft.intent.trim(),
             status: "running",
-            cover: "var(--mk-lake)",
+            cover: trackById(s.draft.track).hue,
             startedAt: new Date().toISOString().slice(0, 10),
-            motivation: { ...s.draft.why },
-            steps: s.draft.steps.map((x) => ({ ...x })),
+            // A project is born WITH its first card already on the table. An
+            // empty room with a "开始" button is where v1 lost people.
+            thread: openingThread(s.draft.track, first),
+            cards: [{ cardId: first, status: "invited", values: {} }],
           };
-          return { ...s, projects: [project, ...s.projects], draft: { ...EMPTY_DRAFT, why: { who: "", cost: "", mine: "" } } };
+          return { ...s, projects: [project, ...s.projects], draft: { ...EMPTY_DRAFT } };
         });
         return id;
       },
       setNewProjectMode: (newProjectMode) => patch((s) => ({ ...s, newProjectMode })),
-      toggleStep: (projectId, stepId) =>
-        patch((s) => ({
-          ...s,
-          projects: s.projects.map((p) =>
-            p.id !== projectId
-              ? p
-              : { ...p, steps: p.steps.map((st) => (st.id === stepId ? { ...st, done: !st.done } : st)) },
-          ),
-        })),
+
+      openCardEntry: (projectId, cardId) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => ({
+            ...p,
+            cards: upsertCard(p.cards, cardId, (c) =>
+              // Reopening a finished card must not un-finish it — she is
+              // allowed to go back and read what she wrote.
+              c.status === "done" ? c : { ...c, status: "open" },
+            ),
+          })),
+        ),
+
+      saveCard: (projectId, cardId, values) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => ({
+            ...p,
+            cards: upsertCard(p.cards, cardId, (c) => ({ ...c, values })),
+          })),
+        ),
+
+      submitCard: (projectId, cardId, values) => {
+        patch((s) =>
+          mapProject(s, projectId, (p) => {
+            const cards = upsertCard(p.cards, cardId, (c) => ({
+              ...c,
+              status: "done" as const,
+              values,
+              doneAt: new Date().toISOString().slice(0, 10),
+            }));
+            const thread: ThreadItem[] = [
+              ...p.thread,
+              { id: `r-${Date.now()}`, kind: "say", role: "coach", text: refeed(cardId, values) },
+            ];
+            // 印记 summons the next card in the track's sequence. This is
+            // orchestration, not authorship — no confirmation gate (AGENTS.md:
+            // 铁律 govern her prose, not the system's own steps). What she
+            // confirms is OPENING it.
+            const next = cardsForTrack(p.track).find((cid) => !cards.some((c) => c.cardId === cid));
+            if (!next) {
+              return {
+                ...p,
+                cards,
+                thread: [
+                  ...thread,
+                  {
+                    id: `d-${Date.now() + 1}`,
+                    kind: "say",
+                    role: "coach",
+                    text: "这条赛道的卡你都过完了。剩下的部分没有卡片能替你走——去把东西做完，随时回来问我。",
+                  },
+                ],
+              };
+            }
+            return {
+              ...p,
+              cards: [...cards, { cardId: next, status: "invited" as const, values: {} }],
+              thread: [...thread, { id: `c-${Date.now() + 1}`, kind: "card", cardId: next }],
+            };
+          }),
+        );
+        toast("这张卡已经收进项目材料里了");
+      },
+
+      skipCard: (projectId, cardId) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => ({
+            ...p,
+            thread: [
+              ...p.thread,
+              {
+                id: `s-${Date.now()}`,
+                kind: "say",
+                role: "coach",
+                // 印记 does not nag and does not sulk. The card stays in the
+                // rail; that is the whole consequence of saying no (铁律②).
+                text: "行，先不做。它留在右边的材料栏里，你什么时候想做都可以点开。",
+              },
+            ],
+            cards: p.cards.map((c) => (c.cardId === cardId ? { ...c, status: "invited" as const } : c)),
+          })),
+        ),
+
+      sayInProject: (projectId, text) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => ({
+            ...p,
+            thread: [
+              ...p.thread,
+              { id: `u-${Date.now()}`, kind: "say", role: "student", text },
+              { id: `a-${Date.now() + 1}`, kind: "say", role: "coach", text: coachReply(text).text },
+            ],
+          })),
+        ),
+
       publishProject: (projectId, summary) => {
         // 🚨 Publishing must ALSO place the project on her page, because the
         // toast and the step copy both promise exactly that. The page renders

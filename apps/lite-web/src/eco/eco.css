@@ -38,15 +38,25 @@
 
 .eco-sky {
   /* Warm near-black, not blue-black: this product's night still has paper in
-     it. Three soft nebulae in accent/taro/lake keep it from reading flat. */
-  background-color: #17130f;
+     it. Three soft nebulae in accent/taro/lake keep it from reading flat.
+     2026-08-31: taken two stops DARKER. The planets are the only light source
+     on this screen, and at the old #17130F with 0.14 nebulae the ground was
+     bright enough to compete with them. Deep ground, bright objects. */
+  background-color: #0A0806;
   background-image:
-    radial-gradient(900px 620px at 18% 14%, rgba(234, 81, 64, 0.14), transparent 62%),
-    radial-gradient(760px 560px at 84% 74%, rgba(180, 155, 216, 0.13), transparent 60%),
-    radial-gradient(680px 520px at 62% 18%, rgba(111, 191, 176, 0.1), transparent 58%);
+    radial-gradient(900px 620px at 18% 14%, rgba(234, 81, 64, 0.085), transparent 62%),
+    radial-gradient(760px 560px at 84% 74%, rgba(180, 155, 216, 0.075), transparent 60%),
+    radial-gradient(680px 520px at 62% 18%, rgba(111, 191, 176, 0.06), transparent 58%),
+    /* a vignette, so the edges fall away and the centre holds the eye */
+    radial-gradient(1200px 900px at 50% 46%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
   color: #F0E9E0;
   position: relative;
   isolation: isolate;
+  /* 🚨 Required. The star layers below are absolutely positioned at
+     `inset: -20%`, and on a SCROLLING page an un-clipped overflow like that
+     grows the scroll container — which showed up as a 320px band of cream
+     paper under the sky once this view stopped being a locked stage. */
+  overflow: hidden;
 }
 
 /* Star field: two tiled dot layers at different densities, drifting at
@@ -112,26 +122,61 @@
   }
 }
 
-/* A planet drifts. Three phases so five planets never move in lockstep. */
-.eco-drift {
-  animation: eco-float-a 17s ease-in-out infinite;
-}
-.eco-drift-1 { animation: eco-float-b 21s ease-in-out infinite; }
-.eco-drift-2 { animation: eco-float-c 25s ease-in-out infinite; }
-.eco-drift-3 { animation: eco-float-a 19s ease-in-out infinite reverse; }
-.eco-drift-4 { animation: eco-float-b 27s ease-in-out infinite reverse; }
+/* A planet drifts. Five phases, five periods, so the group never falls into
+   lockstep — the moment two planets move together the field reads as a
+   carousel instead of a sky.
+   2026-08-31: amplitudes roughly tripled (was ±14px, now ±40px on a slow
+   figure-eight). At the old amplitude the motion was technically present and
+   perceptually absent; a student watching for three seconds saw a still
+   image. */
+.eco-drift   { animation: eco-float-a 26s ease-in-out infinite; }
+.eco-drift-1 { animation: eco-float-b 31s ease-in-out infinite; }
+.eco-drift-2 { animation: eco-float-c 23s ease-in-out infinite; }
+.eco-drift-3 { animation: eco-float-a 35s ease-in-out infinite reverse; }
+.eco-drift-4 { animation: eco-float-b 28s ease-in-out infinite reverse; }
 
 @keyframes eco-float-a {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(10px, -14px, 0); }
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(26px, -22px, 0); }
+  50%  { transform: translate3d(6px, -40px, 0); }
+  75%  { transform: translate3d(-22px, -16px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
 }
 @keyframes eco-float-b {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(-13px, -9px, 0); }
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(-30px, -12px, 0); }
+  50%  { transform: translate3d(-14px, 26px, 0); }
+  75%  { transform: translate3d(18px, 14px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
 }
 @keyframes eco-float-c {
-  0%, 100% { transform: translate3d(0, 0, 0); }
-  50% { transform: translate3d(8px, 12px, 0); }
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(20px, 24px, 0); }
+  50%  { transform: translate3d(-8px, 34px, 0); }
+  75%  { transform: translate3d(-24px, 10px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* Each sphere also turns. A band of light sweeps its surface on a period of
+   its own, which is what makes a circle read as a BODY rather than a dot —
+   and it is the cheapest possible way to say "this thing is alive". */
+.eco-planet-spin::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  overflow: hidden;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(255, 255, 255, 0.16) 40deg,
+    transparent 96deg,
+    transparent 240deg,
+    rgba(0, 0, 0, 0.22) 300deg,
+    transparent 360deg
+  );
+  animation: eco-spin 44s linear infinite;
+  pointer-events: none;
 }
 
 /* The body of a planet: a lit sphere. The highlight sits up-left so all five
@@ -177,6 +222,77 @@
   0% { transform: scale(0.9); }
   55% { transform: scale(1.07); }
   100% { transform: scale(1); }
+}
+
+/* --- 我的兴趣树 · dark grove -------------------------------------------- */
+
+/* 2026-08-31: the tree moved off paper and onto its own night.
+ *
+ * Why it is still an SVG and not a generated image: the keyword nodes are
+ * anchored by `pointOnBranch()` to the exact Bézier curves drawn here. A
+ * raster tree — however beautiful — has branches the maths knows nothing
+ * about, so every node would float in empty space next to a painted twig.
+ * The picture has to BE the data structure. So instead of importing a glow,
+ * we build one: luminous gradient strokes, an SVG bloom filter, and drifting
+ * motes of light.
+ */
+.eco-grove {
+  background-color: #0B0907;
+  background-image:
+    radial-gradient(900px 700px at 50% 78%, rgba(234, 81, 64, 0.1), transparent 66%),
+    radial-gradient(760px 640px at 26% 30%, rgba(111, 191, 176, 0.075), transparent 62%),
+    radial-gradient(700px 600px at 76% 26%, rgba(180, 155, 216, 0.08), transparent 62%),
+    radial-gradient(1200px 900px at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.6) 100%);
+  color: #EFE7DC;
+  position: relative;
+  isolation: isolate;
+  /* Same reason as `.eco-sky` — see the note there. */
+  overflow: hidden;
+}
+
+/* Motes: two tiled dot layers rising slowly through the canopy. Same trick as
+   the star field, moving the other way — outward the sky falls, inward the
+   light rises. */
+.eco-motes::before,
+.eco-motes::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  pointer-events: none;
+  z-index: 0;
+}
+.eco-motes::before {
+  background-image:
+    radial-gradient(1.6px 1.6px at 24% 36%, rgba(255, 226, 186, 0.5), transparent 60%),
+    radial-gradient(1.2px 1.2px at 71% 18%, rgba(198, 236, 224, 0.42), transparent 60%),
+    radial-gradient(1.8px 1.8px at 47% 78%, rgba(255, 226, 186, 0.34), transparent 60%),
+    radial-gradient(1.1px 1.1px at 86% 58%, rgba(214, 200, 240, 0.4), transparent 60%);
+  background-size: 320px 280px;
+  animation: eco-mote-rise 120s linear infinite;
+}
+.eco-motes::after {
+  background-image:
+    radial-gradient(1px 1px at 58% 44%, rgba(255, 240, 220, 0.3), transparent 60%),
+    radial-gradient(1px 1px at 17% 88%, rgba(255, 240, 220, 0.24), transparent 60%);
+  background-size: 176px 158px;
+  animation: eco-mote-rise 200s linear infinite reverse;
+  opacity: 0.7;
+}
+@keyframes eco-mote-rise {
+  to { background-position: 40px -280px; }
+}
+
+/* A keyword node on the dark tree: a soft translucent bead of its field's
+   colour, breathing at a period set per node so the canopy shimmers rather
+   than pulsing as one. */
+.eco-bead {
+  border-radius: 999px;
+  animation: eco-bead-breathe var(--bead-period, 6s) ease-in-out infinite;
+  animation-delay: var(--bead-delay, 0s);
+}
+@keyframes eco-bead-breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.07); filter: brightness(1.25); }
 }
 
 /* --- 我的家 · paper ground --------------------------------------------- */
@@ -309,6 +425,10 @@
 @media (prefers-reduced-motion: reduce) {
   .eco-stars::before,
   .eco-stars::after,
+  .eco-motes::before,
+  .eco-motes::after,
+  .eco-bead,
+  .eco-planet-spin::before,
   .eco-orbit,
   .eco-drift,
   .eco-drift-1,

@@ -1,21 +1,30 @@
-import type { Project, ProjectStep, StepKind, TrackId } from "./types";
+import type { Project, ThreadItem, TrackId } from "./types";
 
 /**
- * PBL — tracks, the why-ladder, and the plan the AI lays out.
+ * PBL — tracks, entry doors, and the seed projects.
  *
- * ## Two rulings this file encodes
+ * ## The rewrite (2026-08-31)
+ * v1 was a **plan with checkboxes**: pick a track, the system emitted six
+ * steps, you ticked them off. It looked like project management and taught
+ * project management. It was not agentic in any sense that matters — nothing
+ * ever happened between the student and the AI; the AI's entire contribution
+ * arrived in one burst at the start and then sat there.
  *
- * 1. **动机先于计划。** The why-ladder (`WHY_LADDER`) is three questions deep
- *    and the UI spends real time on it, because a project a student cannot say
- *    why she is doing dies at step three. The answers become a 动机卡 pinned
- *    to the project header and resurfaced later ("你当初说…").
+ * v2 is a **workbench**. A project is a running conversation with 印记 in
+ * which it summons 工具卡 (see `data/cards.ts`) — real working surfaces with
+ * real fields — and what she puts in them comes back into the conversation.
+ * The unit of progress is a card that came back, not a box that got ticked.
  *
- * 2. **排计划是系统的确定性动作。** Generating the step list from a track is
- *    something the system just DOES — per AGENTS.md, 铁律①/② govern the
- *    student's own writing (AI never authors her body text), not orchestration.
- *    So there is no "confirm the AI may plan for you" gate. She can reorder,
- *    edit, delete and add steps afterwards, which is a usability choice, not a
- *    consent ritual.
+ * ## What replaced the plan
+ *  - `TRACK_CARDS` in `data/cards.ts` — the sequence 印记 works through.
+ *  - `OPENERS` here — what 印记 says when a project opens, per track.
+ *  - `VARIANTS` here — the three options the 三个版本 card puts in front of
+ *    her. They have to be genuinely different or the card teaches nothing.
+ *
+ * ## 排计划 is still a system action, not a consent ritual
+ * 印记 deciding which card comes next is orchestration, and per AGENTS.md
+ * 铁律 govern the student's own prose, not orchestration. What SHE confirms is
+ * opening a card — the card never opens itself (铁律②).
  */
 
 export const TRACKS: {
@@ -47,7 +56,7 @@ export const TRACKS: {
     hue: "var(--mk-mist)",
     glyph: "⌘",
     ends: "一个能分享出去的网址",
-    examples: ["一个整理本地老照片的站", "「你家的东西修得好吗」自查工具", "我们班的读书地图"],
+    examples: ["我自己的个人主页", "一个整理本地老照片的站", "我们班的读书地图"],
   },
   {
     id: "game",
@@ -85,182 +94,306 @@ export function trackById(id: TrackId) {
   return TRACKS.find((t) => t.id === id) ?? TRACKS[0]!;
 }
 
-export const STEP_META: Record<StepKind, { label: string; glyph: string; hue: string }> = {
-  learn: { label: "学", glyph: "◐", hue: "var(--mk-mist)" },
-  research: { label: "查", glyph: "◎", hue: "var(--mk-matcha)" },
-  design: { label: "设计", glyph: "◇", hue: "var(--mk-taro)" },
-  make: { label: "做", glyph: "▣", hue: "var(--mk-peach)" },
-  document: { label: "记录", glyph: "✎", hue: "var(--mk-butter)" },
-  test: { label: "试", glyph: "⟳", hue: "var(--mk-berry)" },
-  publish: { label: "发布", glyph: "▲", hue: "var(--mk-accent-400)" },
+/**
+ * What 印记 says when a project opens.
+ *
+ * Short, and it ends by summoning the first card with a reason. Note what it
+ * does NOT do: no plan, no timeline, no "here are your six steps". The first
+ * thing that happens in a project is a question about why.
+ */
+export const OPENERS: Record<TrackId, string> = {
+  website:
+    "好，开工。做网站这件事，最容易犯的错是先想它长什么样——那样做出来的一定是你见过的东西的平均值。\n\n我们从别的地方开始。",
+  design:
+    "好。设计这条路上，「为谁做」不是客套话，它决定了后面每一个决定。\n\n先把这个说清楚，我们再谈样子。",
+  game:
+    "游戏这条路有个特点：你想讲的道理，最后是靠规则讲出来的，不是靠文字。\n\n所以先说说，你想让玩的人明白什么。",
+  survey:
+    "调查这条路，最贵的错误发生在最前面：问卷发出去就收不回来了。\n\n所以我们会花不少时间在「怎么问」上。先从头开始。",
+  other:
+    "不在那四条里，很好——那说明是你自己的题目。\n\n那我们就得先把它说清楚，我才知道能给你什么。",
 };
 
-/** The three-rung why-ladder. Order matters: outward (谁), then stakes (代价),
- *  then inward (你). Asking "你为什么在乎" first gets a shrug; asking it third,
- *  after she has already named a person and a cost, gets an answer. */
-export const WHY_LADDER: { id: "who" | "cost" | "mine"; q: string; hint: string; probe: string }[] = [
-  {
-    id: "who",
-    q: "这个东西做出来，谁会用它？",
-    hint: "说一个具体的人，不是「大家」。一个名字最好。",
-    probe: "「所有人」等于没有人。你脑子里其实有一个具体的人——他叫什么？他多大？他在什么时候会需要这个？",
-  },
-  {
-    id: "cost",
-    q: "如果没人做这件事，会怎样？",
-    hint: "写下真实的代价。如果想不出代价，这个项目可能还没找到。",
-    probe: "「会有点可惜」不是代价。谁会多花时间？谁会被误解？什么东西会被扔掉？说一件具体会发生的事。",
-  },
-  {
-    id: "mine",
-    q: "别人也能做这件事。为什么是你？",
-    hint: "你身上的什么，让你比别人更适合做这个。可以很小。",
-    probe: "不用说你有多厉害。说一件你经历过、别人没经历过的事——那就是理由。",
-  },
-];
-
-/** Plan templates per track. `why` is what makes this a plan and not a
- *  checklist: every step says what it is for. */
-const PLANS: Record<TrackId, Omit<ProjectStep, "id" | "done">[]> = {
-  survey: [
-    {
-      kind: "learn",
-      title: "先学：一份问卷怎么才不会骗自己",
-      why: "问题的问法会决定答案。学会三件事：别用引导性提问、别让人回忆太久、留一个开放题。",
-      minutes: 25,
-    },
-    {
-      kind: "design",
-      tool: "survey",
-      title: "设计问卷：8 题以内",
-      why: "题目越多，认真填的人越少。八题是一个初中生愿意填完的上限。",
-      minutes: 40,
-    },
-    {
-      kind: "research",
-      title: "去发出去，收回至少 30 份",
-      why: "30 是一个能开始看出趋势的最小数字。不到 30，你的结论只是巧合。",
-      minutes: 90,
-    },
-    {
-      kind: "document",
-      title: "把数据画成三张图",
-      why: "别人不会读你的表格。三张图 = 三个结论，多了就没人记得住。",
-      minutes: 50,
-    },
-    {
-      kind: "make",
-      title: "写报告：结论放最前面",
-      why: "报告不是侦探小说。先说你发现了什么，再说你怎么发现的。",
-      minutes: 70,
-    },
-    {
-      kind: "test",
-      title: "找一个没参与的人读一遍",
-      why: "你已经知道太多了，看不出哪里读不懂。找一个局外人，只问一句：你觉得我在说什么？",
-      minutes: 20,
-    },
-    { kind: "publish", title: "发布到我的主页", why: "做完了要有人看得见。它会出现在你的主页上。", minutes: 15 },
-  ],
+/**
+ * The three options the 三个版本 card puts in front of her.
+ *
+ * 🚨 They must be genuinely, structurally different. Three variations on one
+ * idea teach a student that choosing is cosmetic, which is the opposite of
+ * this card's whole point.
+ */
+export const VARIANTS: Record<TrackId, { key: string; name: string; shape: string; body: string[] }[]> = {
   website: [
-    { kind: "learn", title: "先学：一页网站需要哪几块", why: "结构先定，内容才有地方放。看三个真实的例子，抄结构不抄内容。", minutes: 25 },
-    { kind: "research", title: "查：已经有人做过吗？做成什么样？", why: "找到三个做过的人，你才知道自己的那一版为什么值得存在。", minutes: 35 },
-    { kind: "design", title: "画出这一页的样子（纸上就行）", why: "先在纸上排，能省掉一半改代码的时间。", minutes: 40 },
-    { kind: "make", title: "把它做出来", why: "做的过程会推翻一部分设计，这是正常的。", minutes: 120 },
-    { kind: "test", title: "让三个人在你面前打开它", why: "不要问「好看吗」。看他们第一眼点了哪里，那才是真话。", minutes: 30 },
-    { kind: "document", title: "写一段：我为什么做成这样", why: "别人会问。写下来，你自己也会更清楚。", minutes: 25 },
-    { kind: "publish", title: "发布 + 放到我的主页", why: "拿到网址，贴到主页上。", minutes: 15 },
+    {
+      key: "A",
+      name: "一句话开场",
+      shape: "长页 · 无导航",
+      body: [
+        "整个第一屏只有一句话：你是谁、你在想什么。",
+        "往下滚是三件你做过的事，每件配一句「我为什么做它」。",
+        "结尾放联系方式。没有导航栏，因为只有一页。",
+      ],
+    },
+    {
+      key: "B",
+      name: "索引式",
+      shape: "密 · 像一份目录",
+      body: [
+        "首页是一张列表：日期 + 标题 + 一句话，一屏能看到十几条。",
+        "顶部一行小字说明这里是什么。",
+        "点进去才是正文。密度优先，像一个人的档案柜。",
+      ],
+    },
+    {
+      key: "C",
+      name: "一个作品打头",
+      shape: "图先行",
+      body: [
+        "开头直接是你最好的一件作品，占满一屏，不解释。",
+        "往下才是「这是谁做的」。",
+        "其余作品做成小图排在最后，点开看。",
+      ],
+    },
   ],
   design: [
-    { kind: "research", title: "去看那个人真的怎么用", why: "设计的第一步不是画，是看。你会发现你以为的问题不是问题。", minutes: 60 },
-    { kind: "learn", title: "先学：一个「好用」的东西满足什么", why: "可见性、反馈、容错——三个词，够你判断你自己的设计了。", minutes: 30 },
-    { kind: "design", title: "出三个方向，不是一个", why: "只有一个方案时，你会爱上它，看不见问题。三个才有得比。", minutes: 60 },
-    { kind: "make", title: "做一个能拿在手里的粗模型", why: "纸板、泡沫、乐高都行。能拿在手里，问题会自己跳出来。", minutes: 80 },
-    { kind: "test", title: "给那个真实的人试", why: "别解释怎么用。他不会用的地方，就是你要改的地方。", minutes: 40 },
-    { kind: "document", title: "记录：改了什么，为什么改", why: "改动的理由比成品更值钱，那是你的思考过程。", minutes: 30 },
-    { kind: "publish", title: "发布到我的主页", why: "把粗模型的照片一起放上去。过程也是作品。", minutes: 15 },
+    {
+      key: "A",
+      name: "改造现有的",
+      shape: "低成本 · 快",
+      body: ["不做新东西，在现有的东西上加一层。", "好处：明天就能试。", "坏处：受限于原来的形状。"],
+    },
+    {
+      key: "B",
+      name: "从零做一个",
+      shape: "彻底 · 慢",
+      body: ["完全重新设计。", "好处：能解决根子上的问题。", "坏处：你可能做不完。"],
+    },
+    {
+      key: "C",
+      name: "只改流程不改东西",
+      shape: "不做实物",
+      body: ["东西不动，改的是人怎么用它——顺序、提示、谁先谁后。", "好处：几乎零成本。", "坏处：别人不觉得你做了东西。"],
+    },
   ],
   game: [
-    { kind: "learn", title: "先学：规则怎么教会一个道理", why: "好的教育游戏里，你不是被告知道理，你是被规则逼着体验到它。", minutes: 30 },
-    { kind: "design", title: "写下核心规则（三条以内）", why: "三条以内的规则，别人五分钟就能上手。多了就只有你一个人会玩。", minutes: 45 },
-    { kind: "make", title: "做纸原型", why: "纸和笔就能测规则。先别碰电脑。", minutes: 60 },
-    { kind: "test", title: "找两个人玩一局，你不许解释", why: "你一开口解释，测试就失效了。忍住。", minutes: 40 },
-    { kind: "design", title: "改规则，再玩一局", why: "第一版规则一定有漏洞。改一次比想十次有用。", minutes: 45 },
-    { kind: "document", title: "写规则说明书", why: "能写清楚规则，才算真的做完了。", minutes: 30 },
-    { kind: "publish", title: "发布到我的主页", why: "把规则和一局的照片放上去，别人可以照着玩。", minutes: 15 },
+    {
+      key: "A",
+      name: "卡牌",
+      shape: "纸 · 3–6 人",
+      body: ["一副牌，一条规则。", "好处：改规则只要改一句话。", "坏处：要有人陪你玩。"],
+    },
+    {
+      key: "B",
+      name: "一个人的小程序",
+      shape: "屏幕 · 单人",
+      body: ["点击就能玩，一局两分钟。", "好处：能发给任何人。", "坏处：做起来比纸慢十倍。"],
+    },
+    {
+      key: "C",
+      name: "现实里的一次活动",
+      shape: "真人 · 一次性",
+      body: ["在教室里真的玩一次，你当主持。", "好处：反应最真实。", "坏处：只能玩一次，要录下来。"],
+    },
+  ],
+  survey: [
+    {
+      key: "A",
+      name: "全年级问卷",
+      shape: "广 · 浅",
+      body: ["10 道题，尽量多人填。", "好处：能说「多少比例」。", "坏处：说不出原因。"],
+    },
+    {
+      key: "B",
+      name: "十个人的深访",
+      shape: "窄 · 深",
+      body: ["找 10 个人，每人聊 15 分钟。", "好处：能说出原因和故事。", "坏处：不能说「大家都」。"],
+    },
+    {
+      key: "C",
+      name: "去数，不去问",
+      shape: "观察 · 不问人",
+      body: ["直接去数真实发生的事，不依赖别人的记忆。", "好处：绕过了所有问卷偏差。", "坏处：只能测到看得见的东西。"],
+    },
   ],
   other: [
-    { kind: "research", title: "先说清楚你到底想做什么", why: "「其他」意味着还没有现成的路。第一步是把它说成一句话。", minutes: 30 },
-    { kind: "learn", title: "找到做过类似事的人", why: "无论多特别，总有人做过一半。找到他们能省掉几周。", minutes: 40 },
-    { kind: "design", title: "定义「做完了」是什么样", why: "没有终点的项目会一直拖。写下一个可以被检查的完成标准。", minutes: 30 },
-    { kind: "make", title: "做出第一个版本", why: "先做出来，再变好。", minutes: 120 },
-    { kind: "test", title: "给真实的人看", why: "在你自己房间里成立的东西，不一定在外面成立。", minutes: 40 },
-    { kind: "document", title: "记录过程", why: "「其他」类的项目，过程往往比成果更值得说。", minutes: 30 },
-    { kind: "publish", title: "发布到我的主页", why: "做完了要有人看得见。", minutes: 15 },
+    {
+      key: "A",
+      name: "做小做完",
+      shape: "一周",
+      body: ["把范围压到最小，一周内彻底做完一版。", "好处：你会真的做完。", "坏处：野心要收起来。"],
+    },
+    {
+      key: "B",
+      name: "做一个片段",
+      shape: "样片",
+      body: ["不做整个，只做最关键的一小段，做到最好。", "好处：能展示水平。", "坏处：不是完整的东西。"],
+    },
+    {
+      key: "C",
+      name: "先做记录",
+      shape: "过程即作品",
+      body: ["把做的过程本身做成作品。", "好处：过程一定有。", "坏处：需要你写得住。"],
+    },
   ],
 };
 
-/** Build a fresh plan for a track. Ids are stable within a plan so reordering
- *  and editing in the store can address steps. */
-export function planFor(track: TrackId): ProjectStep[] {
-  return PLANS[track].map((s, i) => ({ ...s, id: `${track}-s${i + 1}`, done: false }));
+export function variantsFor(track: TrackId) {
+  return VARIANTS[track];
 }
 
-/** Total planned time, humanised — the plan tells her what she is signing up
- *  for before she starts, which is the honest thing to do. */
-export function planHours(steps: ProjectStep[]): string {
-  const total = steps.reduce((sum, s) => sum + s.minutes, 0);
-  return `${Math.round((total / 60) * 10) / 10} 小时`;
-}
-
-/** 印记's proposal when she chooses 「先和印记聊聊」 instead of picking a track.
- *  It reads HER TREE — that is the whole point of having a tree. */
+/** Read off her tree — the hub proposes projects that have evidence behind
+ *  them, so a proposal is never a generic prompt. */
 export const TRACK_PROPOSALS: {
-  fromKeyword: string;
   track: TrackId;
   title: string;
-  pitch: string;
+  from: string;
+  why: string;
 }[] = [
   {
-    fromKeyword: "修理权",
     track: "survey",
-    title: "我们年级到底扔掉了多少还能修的东西",
-    pitch:
-      "你的树上「修理权」这个词有三个来源，还写过一篇《被设计成修不好的东西》。你已经有观点了，缺的是证据——去数一数你们年级一学期扔了多少还能修的东西，这个数字会让你那篇文章变得不可反驳。",
+    title: "我们年级有多少东西是「修不好」被扔的",
+    from: "修理权 · 谁替我们做了决定",
+    why: "你在这条线上有三个来源，还写过一篇。缺的正好是数据。",
   },
   {
-    fromKeyword: "留白与沉默",
-    track: "game",
-    title: "三秒沉默：一个逼人闭嘴的讨论游戏",
-    pitch:
-      "你读了「多等三秒」，还真的在小组里试了一次，写下了发生什么。这是完整的一圈。把它做成规则，别人也能试——你已经知道它有用，现在让二十个人知道。",
+    track: "design",
+    title: "重新设计学校里一个真的很难用的东西",
+    from: "设计的伦理",
+    why: "你已经看到「为最少数人设计」这一招。它需要一个真实的对象来验证。",
   },
   {
-    fromKeyword: "普通人的历史",
     track: "website",
-    title: "一个收集家里旧物件故事的站",
-    pitch:
-      "「普通人的历史」是你树上来源最多的词之一。你说过历史由琐碎的句子铺成——那就去收一百个句子。一个网站可以让别人替你收。",
+    title: "我自己的个人主页",
+    from: "把想法做出来",
+    why: "你读过写过的东西已经够摆一页了。做这一页会顺带教会你怎么给 AI 下指令。",
+  },
+  {
+    track: "game",
+    title: "一个关于「让步」的辩论卡牌",
+    from: "让步段",
+    why: "你会写让步段了。把它变成规则，玩过的人也会。",
   },
 ];
 
-/** The already-published project, so the personal page and the tree have
- *  something real to point at from the first screen. */
+/**
+ * Seed projects. One finished, one mid-flight — the hub has to show both
+ * states or a new student cannot tell what "done" looks like here.
+ */
 export const SEED_PROJECTS: Project[] = [
   {
     id: "p-lamp",
     track: "design",
-    title: "让那盏台灯能被修好",
+    title: "让爷爷看得清的药盒",
+    intent: "我想做一个我爷爷真的能用的药盒，不是那种好看但他看不清的。",
     status: "published",
-    cover: "var(--mk-peach)",
-    startedAt: "2026-07-02",
+    cover: "var(--mk-taro)",
+    startedAt: "2026-06-12",
     summary:
-      "家里的台灯被胶封死，修灯师傅说拆开就废了。我把它拆了（废了），量了尺寸，重新画了一版用三颗同规格螺丝的外壳，3D 打印出来装回去。现在它能亮，也能再拆。",
-    motivation: {
-      who: "我爸。那盏灯是他用了十年的，他不肯扔，一直放在阳台。",
-      cost: "它会一直放在阳台上，直到某天被当成垃圾扔掉。而且我会一直以为「修不好」是技术问题。",
-      mine: "我拆过它，我知道里面是什么样。而且我是唯一一个在乎那盏灯的人。",
-    },
-    steps: planFor("design").map((s, i) => ({ ...s, done: i < 7 })),
+      "做了三版。第一版好看但他看不清；第二版能看清但装不下他的药；第三版用红色胶带分格，丑，但他现在自己会拿。我学到的是：给别人做的东西，好不好看由我说了不算。",
+    // This one models a student who SKIPPED cards and went straight to
+    // building. The rail will show six cards she never opened, and that is the
+    // truthful picture — the sequence is 印记's suggestion, not a gate.
+    thread: [
+      { id: "t1", kind: "say", role: "coach", text: OPENERS.design },
+      { id: "t2", kind: "card", cardId: "motive" },
+      {
+        id: "t3",
+        kind: "say",
+        role: "coach",
+        text: "记下了。这个项目是为我爷爷做的，不做的代价是他上周吃错了一次。\n\n下一张我想请你先把要问清楚的事拆开。",
+      },
+      { id: "t4", kind: "say", role: "student", text: "我不想拆了，我想先做一个给他看。" },
+      {
+        id: "t5",
+        kind: "say",
+        role: "coach",
+        text: "行。那就跳过前面几张，直接做——不过做之前先定一件事：什么结果算失败。做完再定标准的人，永远都会成功。",
+      },
+      { id: "t6", kind: "card", cardId: "proto" },
+      {
+        id: "t7",
+        kind: "say",
+        role: "coach",
+        text: "他没问，但他把周三的撕下来贴到了周一上。这一条比「成功了」有用得多——你按他的顺序改了，说明你把他当用户，不是当评委。",
+      },
+      { id: "t8", kind: "card", cardId: "ship" },
+    ],
+    cards: [
+      {
+        cardId: "motive",
+        status: "done",
+        doneAt: "2026-06-12",
+        values: {
+          who: "我爷爷。78 岁，看不清小字，每天四种药。",
+          cost: "他上周吃错了一次。我妈现在每天要打两个电话确认。",
+          mine: "只有我知道他其实看得清红色，看不清蓝色。",
+        },
+      },
+      {
+        cardId: "proto",
+        status: "done",
+        doneAt: "2026-06-24",
+        values: {
+          smallest: "一张纸做的标签，只做周一到周三。",
+          who: "爷爷",
+          fail: "他还是要问我「今天吃哪个」——那就是失败。",
+          result: "他没问。但他把周三的撕下来贴到了周一上，因为他觉得顺序反了。我按他的顺序改了。",
+        },
+      },
+      {
+        cardId: "ship",
+        status: "done",
+        doneAt: "2026-07-02",
+        values: {
+          made: "做了三版，最后一版最丑但他在用。",
+          unfinished: "只做了一周的量，一个月的还没做。",
+          learned: "第一版我花了两小时排版。应该先给他看一张纸的。",
+        },
+      },
+    ],
+  },
+  {
+    id: "p-wait",
+    track: "survey",
+    title: "同学在讨论里平均等几秒",
+    intent: "我想知道我们班的人到底给别人留多少时间。",
+    status: "running",
+    cover: "var(--mk-matcha)",
+    startedAt: "2026-08-20",
+    // 🚨 A seed project's thread must contain an invitation for every card the
+    // rail shows as 待开. The first version stopped at 动机三问 while the rail
+    // already listed 问题清单 as available — so the conversation looked stalled
+    // next to a rail that had moved on.
+    thread: [
+      { id: "t1", kind: "say", role: "coach", text: OPENERS.survey },
+      { id: "t2", kind: "card", cardId: "motive" },
+      {
+        id: "t3",
+        kind: "say",
+        role: "coach",
+        text: "记下了。这个项目是为我们班每次讨论都不说话的那四个人做的，不做的代价是他们的想法一直没被听到。\n\n我把这三句钉在上面了。到第三周你想放弃的时候，回来读一遍——多数时候管用。",
+      },
+      { id: "t4", kind: "card", cardId: "questions" },
+    ],
+    cards: [
+      {
+        cardId: "motive",
+        status: "done",
+        doneAt: "2026-08-20",
+        values: {
+          who: "我们班每次讨论都不说话的那四个人。",
+          cost: "他们的想法一直没被听到，久了大家默认他们没想法。",
+          mine: "我自己就是被抢过话的那个，我知道那三秒有多长。",
+        },
+      },
+      { cardId: "questions", status: "invited", values: {} },
+    ],
   },
 ];
+
+/** Opening thread for a new project. */
+export function openingThread(track: TrackId, firstCard: string): ThreadItem[] {
+  return [
+    { id: "t-open", kind: "say", role: "coach", text: OPENERS[track] },
+    { id: "t-first", kind: "card", cardId: firstCard },
+  ];
+}

@@ -64,13 +64,13 @@ export function Planet({
         aria-label={
           discovered
             ? `${item.title[lang]} — ${meta[lang === "zh" ? "zh" : "en"]}`
-            : `未点亮的 ${meta.zh} 行星，点击打开`
+            : `还没看过的 ${meta.zh} 行星，点击打开`
         }
       >
         {/* the sphere */}
         <span
           className={cx(
-            "eco-planet-body block",
+            "eco-planet-body eco-planet-spin block overflow-hidden",
             !discovered && "eco-veil",
             discovered && "eco-lit",
           )}
@@ -124,8 +124,11 @@ export function Planet({
           className="absolute left-1/2 block w-[220px] -translate-x-1/2 text-center"
           style={{ top: "calc(100% + 10px)" }}
         >
+          {/* The editorial weight (0.85) used to print here. It told a student
+              nothing she could act on — a bare decimal with no scale and no
+              units. The field name is what actually helps her choose. */}
           <span className="eco-mono block" style={{ color: "#8E8175" }}>
-            {lang === "zh" ? meta.zh : meta.en} · {item.weight.toFixed(2)}
+            {lang === "zh" ? meta.zh : meta.en}
           </span>
           <span
             className="mt-1 block text-mk-small leading-snug"
@@ -134,7 +137,7 @@ export function Planet({
               fontWeight: discovered ? 600 : 400,
             }}
           >
-            {discovered ? item.title[lang] : "未点亮"}
+            {discovered ? item.title[lang] : "还没看过"}
           </span>
         </span>
 

@@ -1,4 +1,4 @@
-import { BookOpen, Hexagon, MessageCircle, Sprout, X } from "lucide-react";
+import { BookOpen, Bookmark, BookmarkCheck, MessageCircle, X } from "lucide-react";
 import { useEco } from "../store";
 import { DOMAIN_META } from "../data/news";
 import { READINGS } from "../data/library";
@@ -8,15 +8,26 @@ import type { NewsItem } from "../data/types";
 import { Drawer, Sys } from "../ui";
 
 /**
- * A planet, opened.
+ * A planet, opened. **A read-first journey.**
  *
- * The panel's order is the argument: **the question first**, then what
- * happened, then where it came from. A summary-first layout would let her
- * decide she is done before the question ever lands.
+ * The order of this panel is the argument, and it changed on 2026-08-31:
  *
- * Four exits, and they are the whole ecosystem in miniature — this is the
- * screen that proves the world is not a reading app with a starfield:
- *   读这篇 → 阅读   ·  问印记 → 对话  ·  收进我的树 → 关键词模型  ·  做成项目 → PBL
+ *   导读 → 这条新闻本身 → 来源 → 三个问题 → 开始探索
+ *
+ * 导读 comes first because it is the only line on the panel written FOR HER —
+ * one sentence in the second person telling her what to watch for. Then the
+ * story. Then the questions, which is where the panel earns its keep: the
+ * point of a news planet is not that she knows a fact, it is that she leaves
+ * holding a question she wants to chase.
+ *
+ * Every question is a BUTTON. Clicking one carries it straight into 印记 as
+ * her opening line, so the distance between "that's interesting" and
+ * "I'm working on it" is one click.
+ *
+ * Three exits, not four. 「做成项目」 was removed: a project has to come from
+ * something she has actually chewed on, and offering it thirty seconds after
+ * a headline taught the opposite lesson. Projects begin from 我的兴趣树, where
+ * there is evidence behind the interest.
  */
 export function NewsSheet({ item, onClose }: { item: NewsItem | null; onClose: () => void }) {
   const { state, keep, openCoach } = useEco();
@@ -28,11 +39,13 @@ export function NewsSheet({ item, onClose }: { item: NewsItem | null; onClose: (
   const related = READINGS.find((r) => r.keywords.some((k) => item.keywords.includes(k)));
   const field = FIELDS.find((f) => f.id === (related?.field ?? "society")) ?? FIELDS[0]!;
   /** Every news item carries at least one keyword; the fallback keeps the
-   *  「收进我的树」 label honest if that ever stops being true. */
+   *  收藏 copy honest if that ever stops being true. */
   const seedKeyword = item.keywords[0] ?? "新发现";
+  /** The whisper question plus the two that survive the article. */
+  const questions = [item.hook, ...item.hooks];
 
   return (
-    <Drawer open onClose={onClose} tone="dark" width={560} label={item.title[lang]}>
+    <Drawer open onClose={onClose} tone="dark" width={600} label={item.title[lang]}>
       <div className="flex items-center justify-between px-6 pt-5">
         <div className="flex items-center gap-2.5">
           <span className="h-2.5 w-2.5 rounded-mk-full" style={{ background: meta.hue }} />
@@ -52,14 +65,22 @@ export function NewsSheet({ item, onClose }: { item: NewsItem | null; onClose: (
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
-        {/* the hook, largest thing on the panel */}
-        <p className="mt-5 text-[24px] font-semibold leading-[1.55] text-[#F7F1E9]">
-          {item.hook[lang]}
-        </p>
+        {/* ── 导读 — the largest thing on the panel ────────────────────── */}
+        <div
+          className="mt-5 rounded-mk-lg p-5"
+          style={{
+            background: `color-mix(in srgb, ${meta.hue} 13%, rgba(240,233,224,.04))`,
+            border: `1px solid color-mix(in srgb, ${meta.hue} 30%, transparent)`,
+          }}
+        >
+          <Sys tone="dark">导读</Sys>
+          <p className="mt-2 text-[22px] font-semibold leading-[1.6] text-[#F7F1E9]">
+            {item.lead[lang]}
+          </p>
+        </div>
 
-        <div className="eco-scanline my-5" />
-
-        <h3 className="text-mk-h2 text-[#EFE7DC]">{item.title[lang]}</h3>
+        {/* ── the story itself ─────────────────────────────────────────── */}
+        <h3 className="mt-6 text-mk-h2 text-[#EFE7DC]">{item.title[lang]}</h3>
         <p className="mt-3 text-mk-body-lg leading-[1.9] text-[#CDC1B4]">{item.summary[lang]}</p>
 
         {/* the other language, always available inline — she is in an
@@ -79,63 +100,109 @@ export function NewsSheet({ item, onClose }: { item: NewsItem | null; onClose: (
 
         <div className="mt-5 flex flex-wrap items-center gap-x-5 gap-y-2">
           <Sys tone="dark">来源 {item.source}</Sys>
-          <Sys tone="dark">编辑权重 {item.weight.toFixed(2)}</Sys>
+          <div className="flex flex-wrap gap-1.5">
+            {item.keywords.map((k) => (
+              <span
+                key={k}
+                className="rounded-mk-full px-2.5 py-1 text-mk-small"
+                style={{ background: "rgba(240,233,224,.07)", color: "#C6B9AA" }}
+              >
+                {k}
+              </span>
+            ))}
+          </div>
         </div>
 
-        <div className="mt-3 flex flex-wrap gap-1.5">
-          {item.keywords.map((k) => (
-            <span
-              key={k}
-              className="rounded-mk-full px-2.5 py-1 text-mk-small"
-              style={{ background: "rgba(240,233,224,.07)", color: "#C6B9AA" }}
-            >
-              {k}
-            </span>
-          ))}
-        </div>
-
-        {/* ── four exits ────────────────────────────────────────────────── */}
+        {/* ── the questions ───────────────────────────────────────────── */}
         <div className="eco-scanline my-6" />
-        <Sys tone="dark" className="mb-3 block">
-          你可以拿它做什么
-        </Sys>
+        <Sys tone="dark">带着这些问题去读</Sys>
+        <p className="mt-1.5 text-mk-small text-[#8E8175]">
+          点任何一个，直接把它拿去和印记聊。
+        </p>
+        <ul className="mt-3 space-y-2">
+          {questions.map((q, i) => (
+            <li key={q.zh}>
+              <button
+                type="button"
+                onClick={() => {
+                  onClose();
+                  openCoach("world", q.zh);
+                }}
+                className="group flex w-full items-start gap-3 rounded-mk-lg p-3.5 text-left
+                           transition-colors duration-[140ms] ease-mk hover:bg-[rgba(240,233,224,.1)]
+                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
+                style={{
+                  border: "1px solid rgba(240,233,224,.15)",
+                  background: "rgba(240,233,224,.035)",
+                }}
+              >
+                <span
+                  className="eco-mono mt-1 shrink-0"
+                  style={{ color: meta.hue, letterSpacing: 0 }}
+                >
+                  Q{i + 1}
+                </span>
+                <span className="min-w-0 flex-1 text-mk-body-lg leading-[1.75] text-[#EDE4D9]">
+                  {q[lang]}
+                </span>
+                <MessageCircle
+                  size={15}
+                  strokeWidth={1.8}
+                  className="mt-1 shrink-0 opacity-0 transition-opacity group-hover:opacity-70"
+                  color="#C6B9AA"
+                />
+              </button>
+            </li>
+          ))}
+        </ul>
 
-        <div className="grid grid-cols-2 gap-2.5">
+        {/* ── 开始探索 ─────────────────────────────────────────────────── */}
+        <div className="eco-scanline my-6" />
+        <h4 className="text-[20px] font-semibold text-[#F5EFE7]">开始探索</h4>
+        <p className="mt-1 text-mk-small text-[#8E8175]">
+          先读一篇把它读懂，再决定要不要往下走。
+        </p>
+
+        <div className="mt-4 space-y-2.5">
+          {/* Reading is the primary move and gets the full width to say so. */}
           <Exit
-            icon={<BookOpen size={17} strokeWidth={1.8} />}
-            title="读这篇"
-            sub={related ? `《${related.title}》· ${related.minutes} 分钟` : "去阅读室找一篇"}
+            primary
+            icon={<BookOpen size={18} strokeWidth={1.8} />}
+            title="阅读"
+            sub={
+              related
+                ? `《${related.title}》· 约 ${related.minutes} 分钟`
+                : "去阅读室挑一篇相关的"
+            }
             onClick={() => {
               onClose();
               go(related ? { name: "readings", id: related.id } : { name: "readings" });
             }}
           />
-          <Exit
-            icon={<MessageCircle size={17} strokeWidth={1.8} />}
-            title="问印记"
-            sub="带着这个问题去问"
-            onClick={() => {
-              onClose();
-              openCoach("world", item.hook.zh);
-            }}
-          />
-          <Exit
-            icon={<Sprout size={17} strokeWidth={1.8} />}
-            title={kept ? "已经在你的树上" : "收进我的树"}
-            sub={kept ? `长在「${field.label}」这根枝上` : `会长成关键词「${seedKeyword}」`}
-            disabled={kept}
-            onClick={() => keep(item.id, seedKeyword, field.id)}
-          />
-          <Exit
-            icon={<Hexagon size={17} strokeWidth={1.8} />}
-            title="做成项目"
-            sub="从这条新闻开一个 PBL"
-            onClick={() => {
-              if (!kept) keep(item.id, seedKeyword, field.id);
-              onClose();
-              go({ name: "project-new" });
-            }}
-          />
+          <div className="grid grid-cols-2 gap-2.5">
+            <Exit
+              icon={<MessageCircle size={17} strokeWidth={1.8} />}
+              title="与 AI 讨论"
+              sub="带着第一个问题去问"
+              onClick={() => {
+                onClose();
+                openCoach("world", item.hook.zh);
+              }}
+            />
+            <Exit
+              icon={
+                kept ? (
+                  <BookmarkCheck size={17} strokeWidth={1.8} />
+                ) : (
+                  <Bookmark size={17} strokeWidth={1.8} />
+                )
+              }
+              title={kept ? "已收藏" : "先收藏"}
+              sub={kept ? "在阅读室的「待读」里" : "放进阅读室的待读清单"}
+              disabled={kept}
+              onClick={() => keep(item.id, seedKeyword, field.id)}
+            />
+          </div>
         </div>
       </div>
     </Drawer>
@@ -148,31 +215,42 @@ function Exit({
   sub,
   onClick,
   disabled,
+  primary,
 }: {
   icon: React.ReactNode;
   title: string;
   sub: string;
   onClick: () => void;
   disabled?: boolean;
+  primary?: boolean;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
       disabled={disabled}
-      className="flex items-start gap-3 rounded-mk-md p-3.5 text-left transition-all duration-[140ms] ease-mk
-                 hover:bg-[rgba(240,233,224,.1)] disabled:cursor-default disabled:opacity-55
+      className="flex w-full items-center gap-3 rounded-mk-md p-3.5 text-left transition-all duration-[140ms]
+                 ease-mk hover:bg-[rgba(240,233,224,.12)] disabled:cursor-default disabled:opacity-55
                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-      style={{ border: "1px solid rgba(240,233,224,.15)", background: "rgba(240,233,224,.04)" }}
+      style={{
+        border: primary
+          ? "1px solid rgba(240,233,224,.42)"
+          : "1px solid rgba(240,233,224,.15)",
+        background: primary ? "rgba(240,233,224,.11)" : "rgba(240,233,224,.04)",
+      }}
     >
-      <span className="mt-0.5 shrink-0" style={{ color: "#E0D4C4" }}>
+      <span className="shrink-0" style={{ color: "#E0D4C4" }}>
         {icon}
       </span>
       <span className="min-w-0">
-        <span className="block text-mk-body font-semibold text-[#F0E9E0]">{title}</span>
+        <span
+          className="block font-semibold text-[#F0E9E0]"
+          style={{ fontSize: primary ? 17 : 15 }}
+        >
+          {title}
+        </span>
         <span className="mt-0.5 block text-mk-small leading-snug text-[#9A8E80]">{sub}</span>
       </span>
     </button>
   );
 }
-

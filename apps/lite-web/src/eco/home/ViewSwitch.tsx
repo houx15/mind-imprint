@@ -2,10 +2,10 @@ import { go } from "../route";
 import { cx } from "../ui";
 
 /**
- * 世界 ⇄ 我的家 — the one control the whole product hangs off.
+ * 世界 ⇄ 我的地图 — the one control the whole product hangs off.
  *
  * It is a two-state pill rather than two tabs because the two views are not
- * peers in a list; they are two sides of the same thing (向外 / 向内). The
+ * peers in a list; they are two sides of the same thing (向外探索 / 向内看自己). The
  * knob slides, the labels stay legible in both states, and the pill styles
  * itself for whichever ground it is sitting on.
  */
@@ -35,8 +35,8 @@ export function ViewSwitch({ view }: { view: "world" | "tree" }) {
       />
       {(
         [
-          { key: "world", label: "世界", sub: "向外" },
-          { key: "tree", label: "我的家", sub: "向内" },
+          { key: "world", label: "世界", sub: "探索" },
+          { key: "tree", label: "我的", sub: "地图" },
         ] as const
       ).map((t) => {
         const active = view === t.key;

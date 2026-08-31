@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { Info, Languages } from "lucide-react";
+import { ChevronDown, Info, Languages } from "lucide-react";
 import { useEco } from "../store";
 import {
   DOMAIN_META,
@@ -18,10 +18,11 @@ import { Planet } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
 
 /**
- * 世界 · the news star map.
+ * 世界 · 今日探索地图.
  *
  * ## The five rules this screen is built on
- * 1. **Exactly five.** Not a feed. Five things worth knowing, ranked.
+ * 1. **Exactly five, and each node is ONE story.** Not a category, not a
+ *    feed. Five things worth knowing, ranked.
  * 2. **Undiscovered until opened.** A veiled planet shows only its field
  *    glyph; opening it lights it. Discovery is the verb, not consumption.
  * 3. **The hook comes before the headline.** Hovering whispers the QUESTION;
@@ -30,8 +31,16 @@ import { NewsSheet } from "./NewsSheet";
  *    data level, and the chip that says so opens a real explanation. A
  *    filtered set presented as "everything" is a lie by layout.
  * 5. **No streaks, no leaderboards, no badges.** The counter reads
- *    「你点亮了 2 / 5」and resets with the day. Nothing here rewards coming
+ *    「已浏览 2 / 5」and resets with the day. Nothing here rewards coming
  *    back tomorrow (铁律②).
+ *
+ * ## Why the page scrolls now (2026-08-31)
+ * It used to be a locked stage — `h-full overflow-hidden` — which meant the
+ * map had to hold everything, and everything it could not hold was simply
+ * gone. It is now a **document with a stage at the top**: the map fills the
+ * first screen, and below it sit the day's five as a readable ledger, the
+ * timeline, and the transparency notes. Scrolling is the second gear: look
+ * first, then read the list. Nothing important lives only in the stage.
  *
  * Planet positions are hand-placed per rank rather than laid out by an
  * algorithm: five objects on a stage is a composition, and a composition
@@ -58,7 +67,7 @@ export function WorldView() {
 
   const items = useMemo(() => newsForDate(state.date), [state.date]);
   const lit = items.filter((n) => state.discovered.includes(n.id)).length;
-  const open = openId ? items.find((n) => n.id === openId) ?? null : null;
+  const open = openId ? (items.find((n) => n.id === openId) ?? null) : null;
 
   function onOpen(item: NewsItem) {
     discover(item.id);
@@ -70,16 +79,11 @@ export function WorldView() {
     : items;
 
   return (
-    // `h-full` + `overflow-hidden`: the star map is a STAGE, not a document.
-    // It used to be `min-h-full`, which pushed the console (including the two
-    // transparency chips the spec requires to be visible) below the fold at
-    // 800px with no scroll cue, and left a band of cream paper under the sky
-    // where the scroll container out-ran the background.
-    <div className="eco-sky eco-stars relative flex h-full min-h-[600px] flex-col overflow-hidden">
+    <div className="eco-sky eco-stars relative min-h-full">
       {/* ── top bar ─────────────────────────────────────────────────────── */}
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
         <div className="min-w-0">
-          <Sys tone="dark">今日星图 · SIGNAL MAP</Sys>
+          <Sys tone="dark">今日探索地图 · EXPLORATION MAP</Sys>
           <p className="mt-1 text-mk-h2 text-[#F5EFE7]">
             {labelForDate(state.date, state.lang)}
             <span className="ml-3 font-mono text-mk-small font-normal text-[#8E8175]">
@@ -107,7 +111,7 @@ export function WorldView() {
             className="rounded-mk-full px-3 py-1.5 text-mk-small"
             style={{ border: "1px solid rgba(240,233,224,.18)", color: "#D8CCBD" }}
           >
-            你点亮了{" "}
+            已浏览{" "}
             <span className="font-mono font-bold text-[#F5EFE7]">
               {lit} / {items.length}
             </span>
@@ -115,8 +119,14 @@ export function WorldView() {
         </div>
       </header>
 
-      {/* ── the field ───────────────────────────────────────────────────── */}
-      <div ref={fieldRef} className="relative z-10 min-h-[300px] flex-1">
+      {/* ── the stage ───────────────────────────────────────────────────── */}
+      {/* Height-capped rather than flex-filled: the page scrolls now, so the
+          map takes the first screen and hands the rest to the ledger below. */}
+      <div
+        ref={fieldRef}
+        className="relative z-10"
+        style={{ height: "min(620px, calc(100vh - 210px))", minHeight: 380 }}
+      >
         {/* Orbit rings. Purely atmospheric: they give the field a centre. */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
@@ -152,8 +162,6 @@ export function WorldView() {
           );
         })}
 
-        {/* An invitation, not an instruction — it fades once she has opened
-            one, because by then she knows. */}
         {matching.length === 0 ? (
           <div className="absolute inset-0 z-20 flex items-center justify-center">
             <Panel tone="dark" className="eco-in max-w-[42ch] p-6 text-center">
@@ -171,27 +179,100 @@ export function WorldView() {
             </Panel>
           </div>
         ) : lit === 0 && scale > 0.9 ? (
-          // Only on a stage tall enough to have room for it. On a short window
-          // the planets sit close to their labels and this line lands on top of
-          // them — and it is the most disposable element on the screen.
           <p
             className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-center text-mk-small"
             style={{ color: "#8E8175" }}
           >
-            五颗行星在等你点亮。把光标移上去，它会先给你一个问题。
+            五颗行星在等你。把光标移上去，它会先给你一个问题。
           </p>
         ) : null}
       </div>
 
+      {/* ── scroll cue ──────────────────────────────────────────────────── */}
+      <div className="relative z-20 flex items-center gap-3 px-7 pt-2">
+        <div className="eco-scanline flex-1" />
+        <span className="flex items-center gap-1.5 text-mk-small" style={{ color: "#8E8175" }}>
+          往下是今天这五条的清单
+          <ChevronDown size={14} strokeWidth={1.8} />
+        </span>
+        <div className="eco-scanline flex-1" />
+      </div>
+
+      {/* ── the ledger ──────────────────────────────────────────────────── */}
+      {/* The same five, as text. Not a duplicate: the map is for LOOKING (what
+          is big, what field, what have I opened), the ledger is for READING
+          (导读 first, then the headline). A student who does not enjoy hunting
+          on a starfield still gets the day. */}
+      <section className="relative z-10 px-7 pt-6">
+        <Sys tone="dark">今天这五条 · TODAY&apos;S FIVE</Sys>
+        <ul className="mt-3 space-y-2">
+          {items.map((item, i) => {
+            const meta = DOMAIN_META[item.domain];
+            const seen = state.discovered.includes(item.id);
+            const dimmed = state.domainFilter !== null && state.domainFilter !== item.domain;
+            return (
+              <li key={item.id} style={{ opacity: dimmed ? 0.35 : 1, transition: "opacity 220ms" }}>
+                <button
+                  type="button"
+                  onClick={() => onOpen(item)}
+                  className="eco-in group flex w-full items-start gap-4 rounded-mk-lg p-4 text-left
+                             transition-colors duration-[140ms] ease-mk hover:bg-[rgba(240,233,224,.07)]
+                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
+                  style={{
+                    border: "1px solid rgba(240,233,224,.12)",
+                    background: "rgba(240,233,224,.03)",
+                    ["--i" as string]: i,
+                  }}
+                >
+                  <span
+                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-mk-full
+                               font-mono text-[15px] font-bold"
+                    style={{
+                      background: `color-mix(in srgb, ${meta.hue} 26%, transparent)`,
+                      color: "#F0E9E0",
+                      border: `1px solid color-mix(in srgb, ${meta.hue} 46%, transparent)`,
+                    }}
+                  >
+                    {item.rank}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                      <span className="eco-mono" style={{ color: meta.hue }}>
+                        {state.lang === "zh" ? meta.zh : meta.en}
+                      </span>
+                      <span className="eco-mono" style={{ color: "#7C7166" }}>
+                        {item.source}
+                      </span>
+                      {seen ? (
+                        <span className="eco-mono" style={{ color: "#6FBFB0", letterSpacing: 0 }}>
+                          已浏览
+                        </span>
+                      ) : null}
+                    </span>
+                    {/* 导读 leads — it is the line written for HER. */}
+                    <span className="mt-1.5 block text-mk-body-lg font-semibold leading-[1.7] text-[#F2EBE1]">
+                      {item.lead[state.lang]}
+                    </span>
+                    <span className="mt-1 block text-mk-small leading-[1.75] text-[#9A8E80]">
+                      {item.title[state.lang]}
+                    </span>
+                  </span>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+      </section>
+
       {/* ── bottom console ──────────────────────────────────────────────── */}
-      <footer className="relative z-20 shrink-0 px-7 pb-6">
-        <div className="eco-scanline mb-4" />
+      <footer className="relative z-20 px-7 pb-10 pt-8">
+        <div className="eco-scanline mb-5" />
 
         <div className="flex flex-wrap items-end justify-between gap-5">
           {/* date rail */}
           <div>
             <Sys tone="dark" className="mb-2 block">
-              换一天，换一批
+              时间轴
             </Sys>
             <div className="flex items-center gap-1.5">
               {NEWS_DATES.map((d, i) => {
@@ -288,10 +369,7 @@ export function WorldView() {
         </div>
 
         {note ? (
-          <Panel
-            tone="dark"
-            className="eco-in absolute bottom-full right-7 z-30 mb-2 max-w-[70ch] p-5"
-          >
+          <Panel tone="dark" className="eco-in mt-4 max-w-[70ch] p-5">
             <div className="flex items-start justify-between gap-4">
               <Sys tone="dark">{note === "politics" ? "为什么这里没有政治" : "五条是怎么挑的"}</Sys>
               <button

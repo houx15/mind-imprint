@@ -1,7 +1,8 @@
 import { useState } from "react";
-import { Clock, MessageCircle } from "lucide-react";
+import { Bookmark, Clock, MessageCircle, X } from "lucide-react";
 import { useEco } from "../store";
 import { READINGS } from "../data/library";
+import { DOMAIN_META, newsById } from "../data/news";
 import { FIELDS, fieldById } from "../data/tree";
 import { go } from "../route";
 import type { FieldId } from "../data/types";
@@ -19,13 +20,106 @@ import { Btn, Chip, SectionHead, Sys, cx } from "../ui";
  * Anything beyond that belongs in the real room, not here.
  */
 export function ReadingsView() {
-  const { openCoach } = useEco();
+  const { state, openCoach, unkeep } = useEco();
   const [field, setField] = useState<FieldId | null>(null);
   const list = field ? READINGS.filter((r) => r.field === field) : READINGS;
   const totalMin = READINGS.reduce((s, r) => s + r.minutes, 0);
+  // 待读 — everything she pressed 先收藏 on in 世界. It sits ABOVE the shelf
+  // because a to-read box below what you have already read is a box you never
+  // look at. Empty by default, and it says so plainly rather than hiding.
+  const toRead = state.kept.map(newsById).filter((n): n is NonNullable<typeof n> => Boolean(n));
 
   return (
     <div className="mx-auto max-w-[1080px] px-8 py-8">
+      {/* ── 待读 ─────────────────────────────────────────────────────── */}
+      <section className="mb-9">
+        <div className="flex flex-wrap items-baseline justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <Bookmark size={16} strokeWidth={1.9} className="text-mk-accent-700" />
+            <h2 className="text-mk-h2 text-mk-ink">待读</h2>
+            <span className="font-mono text-mk-body tabular-nums text-mk-muted">
+              {toRead.length}
+            </span>
+          </div>
+          <p className="text-mk-small text-mk-muted">
+            在「世界」里按了「先收藏」的，都会掉进这里。
+          </p>
+        </div>
+
+        {toRead.length === 0 ? (
+          <div
+            className="mt-3 rounded-mk-lg border border-dashed p-5"
+            style={{ borderColor: "var(--mk-input-border)" }}
+          >
+            <p className="text-mk-body leading-[1.85] text-mk-muted">
+              还没有收藏。去
+              <button
+                type="button"
+                onClick={() => go({ name: "home", view: "world" })}
+                className="mx-1 font-semibold text-mk-accent-700 underline underline-offset-2
+                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+              >
+                今日探索地图
+              </button>
+              看看，遇到不想现在读的，先收藏起来。
+            </p>
+          </div>
+        ) : (
+          <ul className="mt-3 grid gap-2.5 md:grid-cols-2">
+            {toRead.map((n, i) => {
+              const meta = DOMAIN_META[n.domain];
+              return (
+                <li key={n.id} className="eco-in" style={{ ["--i" as string]: i }}>
+                  <div
+                    className="flex h-full items-start gap-3 rounded-mk-lg border p-4"
+                    style={{
+                      borderColor: `color-mix(in srgb, ${meta.hue} 40%, transparent)`,
+                      background: `color-mix(in srgb, ${meta.hue} 8%, var(--mk-surface))`,
+                    }}
+                  >
+                    <span
+                      className="mt-1 h-2 w-2 shrink-0 rounded-mk-full"
+                      style={{ background: meta.hue }}
+                    />
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-wrap items-center gap-x-2.5">
+                        <Sys>{meta.zh}</Sys>
+                        <Sys>{n.source}</Sys>
+                        <Sys>{n.date}</Sys>
+                      </div>
+                      <p className="mt-1.5 text-mk-body font-semibold leading-[1.7] text-mk-ink">
+                        {n.lead.zh}
+                      </p>
+                      <p className="mt-1 text-mk-small leading-[1.7] text-mk-muted">{n.title.zh}</p>
+                      <div className="mt-2.5 flex flex-wrap gap-2">
+                        <Btn
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openCoach("reading", n.hook.zh)}
+                        >
+                          和印记聊这条
+                        </Btn>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => unkeep(n.id)}
+                      className="shrink-0 rounded-mk-full p-1.5 text-mk-faint transition-colors
+                                 duration-[120ms] hover:bg-mk-accent-50 hover:text-mk-secondary
+                                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+                      aria-label="从待读里移走"
+                      title="从待读里移走"
+                    >
+                      <X size={14} strokeWidth={2} />
+                    </button>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </section>
+
       <SectionHead
         index="我读过的 · READING SHELF"
         title="过往的阅读"

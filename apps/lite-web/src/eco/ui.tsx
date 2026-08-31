@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 /**
  * eco/ui — the prototype's own small primitive set.
@@ -41,32 +41,6 @@ export function Sys({
       )}
     >
       {children}
-    </span>
-  );
-}
-
-/** A labelled numeric readout: `强度 0.82`. Reads as instrumentation, which is
- *  exactly the register we want for anything the system inferred. */
-export function Readout({
-  label,
-  value,
-  tone = "light",
-}: {
-  label: string;
-  value: string;
-  tone?: Tone;
-}) {
-  return (
-    <span className="inline-flex items-baseline gap-1.5">
-      <Sys tone={tone}>{label}</Sys>
-      <span
-        className={cx(
-          "font-mono text-mk-small tabular-nums",
-          tone === "dark" ? "text-[#F0E9E0]" : "text-mk-ink",
-        )}
-      >
-        {value}
-      </span>
     </span>
   );
 }
@@ -131,6 +105,7 @@ export function Btn({
   disabled,
   className,
   iconStart,
+  type = "button",
 }: {
   children: ReactNode;
   onClick?: () => void;
@@ -140,6 +115,10 @@ export function Btn({
   disabled?: boolean;
   className?: string;
   iconStart?: ReactNode;
+  /** `submit` so a Btn can close a form — the project composer submits on
+   *  Enter, and a form whose button is `type="button"` silently does nothing
+   *  when you press it. */
+  type?: "button" | "submit";
 }) {
   const dark = tone === "dark";
   // A disabled PRIMARY at 45% opacity still reads as a solid coral button, so
@@ -166,7 +145,8 @@ export function Btn({
   };
   return (
     <button
-      type="button"
+      // eslint-disable-next-line react/button-has-type
+      type={type}
       disabled={disabled}
       onClick={onClick}
       className={cx(base, sizing, styles[variant], off, className)}
@@ -293,66 +273,6 @@ export function SectionHead({
   );
 }
 
-/** The wizard rail: numbered steps, current one open, past ones clickable. */
-export function StepRail({
-  steps,
-  current,
-  onGo,
-  reachable,
-}: {
-  steps: readonly { id: string; label: string; sub: string }[];
-  current: number;
-  onGo: (i: number) => void;
-  /** Highest index she may jump to. */
-  reachable: number;
-}) {
-  return (
-    <ol className="flex flex-wrap items-center gap-1">
-      {steps.map((s, i) => {
-        const state = i === current ? "now" : i < current ? "done" : "todo";
-        const can = i <= reachable;
-        return (
-          <li key={s.id} className="flex items-center">
-            <button
-              type="button"
-              disabled={!can}
-              onClick={() => can && onGo(i)}
-              className={cx(
-                "flex items-center gap-2 rounded-mk-full py-1.5 pl-1.5 pr-3 transition-colors duration-[120ms] ease-mk",
-                can ? "hover:bg-mk-accent-50" : "cursor-not-allowed opacity-45",
-              )}
-            >
-              <span
-                className={cx(
-                  "flex h-6 w-6 items-center justify-center rounded-mk-full font-mono text-[11px] font-bold",
-                  state === "now"
-                    ? "bg-mk-accent text-white"
-                    : state === "done"
-                      ? "bg-mk-ink text-white"
-                      : "border border-mk-border bg-mk-surface text-mk-muted",
-                )}
-              >
-                {state === "done" ? "✓" : i + 1}
-              </span>
-              <span
-                className={cx(
-                  "whitespace-nowrap text-mk-small",
-                  state === "now" ? "font-semibold text-mk-ink" : "text-mk-secondary",
-                )}
-              >
-                {s.label}
-              </span>
-            </button>
-            {i < steps.length - 1 ? (
-              <span className="mx-0.5 h-px w-4 shrink-0 bg-mk-border" aria-hidden />
-            ) : null}
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
 /** A labelled textarea that keeps the hint visible while she types — the hint
  *  IS the teaching, so it must not vanish on focus the way a placeholder does. */
 export function Field({
@@ -416,6 +336,60 @@ export function Bold({ text, className }: { text: string; className?: string }) 
         ),
       )}
     </>
+  );
+}
+
+/**
+ * A `?` that explains a number.
+ *
+ * Every readout in this product claims something about the student — 「关键词
+ * 16」 is a statement about who she is. A number with no definition next to it
+ * is either taken on faith or ignored, and neither is what we want, so any
+ * figure that is DERIVED (rather than counted off the screen) carries one of
+ * these saying exactly what went into it.
+ *
+ * Hover and focus both open it, and the body is real prose, not a label.
+ */
+export function Hint({ text, tone = "light" }: { text: string; tone?: Tone }) {
+  const [open, setOpen] = useState(false);
+  const dark = tone === "dark";
+  return (
+    <span className="relative inline-flex">
+      <button
+        type="button"
+        aria-label="这个数字是什么"
+        onMouseEnter={() => setOpen(true)}
+        onMouseLeave={() => setOpen(false)}
+        onFocus={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+        onClick={() => setOpen((v) => !v)}
+        className="flex h-[15px] w-[15px] items-center justify-center rounded-mk-full text-[10px]
+                   font-bold leading-none transition-colors duration-[120ms]
+                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+        style={{
+          border: dark ? "1px solid rgba(240,233,224,.34)" : "1px solid var(--mk-input-border)",
+          color: dark ? "#B6A99A" : "var(--mk-muted)",
+        }}
+      >
+        ?
+      </button>
+      {open ? (
+        <span
+          role="tooltip"
+          className="eco-in absolute right-0 top-[22px] z-50 block w-[268px] rounded-mk-md p-3 text-left
+                     text-mk-small font-normal normal-case leading-[1.75]"
+          style={{
+            letterSpacing: 0,
+            background: dark ? "rgba(28,23,19,.97)" : "var(--mk-surface)",
+            border: dark ? "1px solid rgba(240,233,224,.18)" : "1px solid var(--mk-border)",
+            color: dark ? "#DCD2C6" : "var(--mk-secondary)",
+            boxShadow: "0 20px 46px rgba(0,0,0,.34)",
+          }}
+        >
+          {text}
+        </span>
+      ) : null}
+    </span>
   );
 }
 

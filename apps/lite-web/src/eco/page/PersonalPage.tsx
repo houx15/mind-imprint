@@ -2,6 +2,7 @@ import { useEco } from "../store";
 import { styleById } from "../data/homepage";
 import { READINGS, STUDENT, WRITINGS } from "../data/library";
 import { trackById } from "../data/projects";
+import { motiveOf } from "../data/cards";
 import { go } from "../route";
 import { Btn, Empty, cx } from "../ui";
 
@@ -147,9 +148,9 @@ export function PersonalPage({ handle, preview = false }: { handle: string; prev
                             {p.summary}
                           </p>
                         ) : null}
-                        {p.motivation?.who ? (
+                        {motiveOf(p)?.who ? (
                           <p className="mt-2.5 text-[13px] leading-[1.8]" style={{ opacity: 0.62 }}>
-                            为什么做它：为了{p.motivation.who}
+                            为什么做它：为了{motiveOf(p)?.who}
                           </p>
                         ) : null}
                       </li>

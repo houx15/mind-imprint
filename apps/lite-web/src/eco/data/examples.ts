@@ -108,36 +108,3 @@ export const PAGE_EXAMPLES: PageExample[] = [
     steal: "少即是自信。一种字体、一个主色、四五个导航词。页面安静，作品才响亮。",
   },
 ];
-
-/** The synthesis. Shown after the gallery, as the thing she is meant to keep. */
-export const PAGE_PRINCIPLES: { n: string; title: string; body: string }[] = [
-  {
-    n: "01",
-    title: "用一句话说清楚：你是谁，你着迷于什么",
-    body: "不是头衔，是一个承诺。「我是初二学生」谁都能写；「我想知道普通人的日常怎么变成历史」只有你会写。",
-  },
-  {
-    n: "02",
-    title: "让人直接点开你的作品，而不是读你对作品的介绍",
-    body: "能读的就放全文，能玩的就放进去玩。一段「我做了一个关于……的项目」抵不上一个能点开的东西。",
-  },
-  {
-    n: "03",
-    title: "你自己挑出最好的五件，放在最显眼的地方",
-    body: "访客只给你 30 秒。你不挑，他们就随便点一个，然后以为那就是你的水平。",
-  },
-  {
-    n: "04",
-    title: "标注它的完成度",
-    body: "种子 / 生长中 / 完成。说清楚它是半成品，你就可以现在发布——而不是永远等着它完美。",
-  },
-  {
-    n: "05",
-    title: "少一点：一种字体、一个主色、四五个导航词",
-    body: "页面安静，作品才响亮。加东西很容易，删东西才需要判断。",
-  },
-];
-
-/** The one thing every good page has, said plainly. */
-export const WEIRD_DETAIL_NOTE =
-  "还有一件事：上面六个页面，每一个都有一个**奇怪的私人细节**——Sloan 显示自己小说在图书馆的排队人数，Case 从头到尾管作品叫「shtuff」，Victor 用一句「你永远不知道谁还醒着」结尾。正是那个细节，让页面变成「某个人的页面」，而不是一个模板。你的那个细节是什么？";

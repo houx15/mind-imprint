@@ -1,149 +1,201 @@
-import { BookOpen, Hexagon, MessageCircle, PenLine, Sparkles, X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useEco } from "../store";
 import { fieldById } from "../data/tree";
+import { DIG_META, digFor, type DigSeed } from "../data/dig";
+import { READINGS } from "../data/library";
 import { go } from "../route";
 import type { Keyword, KeywordSource } from "../data/types";
 import { Drawer, Sys, cx } from "../ui";
 
 /**
- * A keyword, opened.
+ * A keyword, opened. Three sections, in this order:
  *
- * ## Why 来源 is the second section and not a footnote
+ *   摘要 · 相关活动 · 继续深挖
+ *
+ * ## Why 相关活动 comes second and is not a footnote
  * The question a student actually has in front of a generated model of herself
  * is **「你凭什么这么说我？」**. So the drawer answers it immediately: what the
- * keyword is (one line, 印记's read), then every trace it was built from —
+ * keyword is (印记's one-line read), then every trace it was built from —
  * clickable, dated, and where possible carrying HER OWN SENTENCE. A model that
- * cannot show its evidence is a horoscope.
+ * cannot show its evidence is a horoscope. The old copy explained this in a
+ * sentence above the list ("这个词不是猜的…"); the list makes the point better
+ * than the sentence did, so the sentence is gone.
  *
- * ## Why the four exits repeat 世界's four exits
- * Same four verbs everywhere (读 / 写 / 做 / 聊) means she never has to learn
- * a second vocabulary. What changes is the object: in 世界 they act on a news
- * item, here they act on a part of herself.
+ * ## Why 继续深挖 is bubbles and not four verbs
+ * It used to end with 再读一篇 / 写一篇 / 做个项目 / 问印记 — the same four on
+ * every keyword. Four empty verbs after a real observation teach a student
+ * that the model has an opinion about her and no idea what to do about it.
+ * Now every keyword carries four CONCRETE seeds from `data/dig.ts`: a question
+ * she cannot answer yet, a specific next reading, a piece she could write, and
+ * a project that could actually exist. Clicking one carries its text where it
+ * belongs.
  */
 export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: () => void }) {
   const { openCoach } = useEco();
   if (!kw) return null;
   const f = fieldById(kw.field);
+  const seeds = digFor(kw.id);
+
+  function follow(seed: DigSeed) {
+    onClose();
+    switch (seed.kind) {
+      case "question":
+        openCoach("tree", seed.text);
+        break;
+      case "reading":
+        go(seed.ref ? { name: "readings", id: seed.ref } : { name: "readings" });
+        break;
+      case "writing":
+        go({ name: "writings" });
+        break;
+      case "project":
+        go({ name: "project-new" });
+        break;
+    }
+  }
 
   return (
-    <Drawer open onClose={onClose} width={520} label={kw.text}>
+    <Drawer open onClose={onClose} tone="dark" width={560} label={kw.text}>
       <div className="flex items-start justify-between gap-4 px-6 pt-5">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="h-2.5 w-2.5 rounded-mk-full" style={{ background: f.hue }} />
-            <Sys>{f.label} · KEYWORD</Sys>
+            <span
+              className="h-2.5 w-2.5 rounded-mk-full"
+              style={{ background: f.hue, boxShadow: `0 0 12px ${f.hue}` }}
+            />
+            <Sys tone="dark">{f.label} · KEYWORD</Sys>
           </div>
-          <h2 className="mt-1.5 text-mk-h1 text-mk-ink">{kw.text}</h2>
-          <p className="mt-0.5 font-mono text-mk-small text-mk-faint">{kw.en}</p>
+          <h2 className="mt-1.5 text-mk-h1 text-[#F5EFE7]">{kw.text}</h2>
+          <p className="mt-0.5 font-mono text-mk-small text-[#7C7166]">{kw.en}</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-mk-full p-2 transition-colors duration-[120ms] hover:bg-mk-accent-50
-                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
+          className="rounded-mk-full p-2 transition-colors duration-[120ms] hover:bg-[rgba(240,233,224,.1)]
+                     focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
           aria-label="关闭"
         >
-          <X size={18} strokeWidth={1.8} />
+          <X size={18} strokeWidth={1.8} color="#C6B9AA" />
         </button>
       </div>
 
       <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-6">
         <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-2">
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys>强度</Sys>
-            <span className="font-mono text-mk-small tabular-nums text-mk-ink">
+            <Sys tone="dark">强度</Sys>
+            <span className="font-mono text-mk-small tabular-nums text-[#F0E9E0]">
               {kw.strength} / 5
             </span>
           </span>
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys>来源</Sys>
-            <span className="font-mono text-mk-small tabular-nums text-mk-ink">
+            <Sys tone="dark">来源</Sys>
+            <span className="font-mono text-mk-small tabular-nums text-[#F0E9E0]">
               {kw.sources.length}
             </span>
           </span>
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys>出现于</Sys>
-            <span className="font-mono text-mk-small text-mk-ink">
+            <Sys tone="dark">出现于</Sys>
+            <span className="font-mono text-mk-small text-[#F0E9E0]">
               {["三月", "五月", "七月", "本月"][kw.bornAt]}
             </span>
           </span>
         </div>
 
-        {/* 印记's read */}
+        {/* ── 摘要 ─────────────────────────────────────────────────────── */}
         <div
           className="mt-5 rounded-mk-md p-4"
-          style={{ background: `color-mix(in srgb, ${f.hue} 12%, var(--mk-surface))` }}
+          style={{
+            background: `color-mix(in srgb, ${f.hue} 12%, rgba(240,233,224,.04))`,
+            border: `1px solid color-mix(in srgb, ${f.hue} 26%, transparent)`,
+          }}
         >
-          <Sys>印记 看见的</Sys>
-          <p className="mt-1.5 text-mk-body-lg leading-[1.85] text-mk-ink">{kw.note}</p>
+          <Sys tone="dark">摘要</Sys>
+          <p className="mt-1.5 text-mk-body-lg leading-[1.85] text-[#F0E9E0]">{kw.note}</p>
         </div>
 
-        {/* 高光时刻 */}
         {kw.shining ? (
           <div
-            className="mt-4 rounded-mk-md border p-4"
-            style={{ borderColor: "var(--mk-butter)", background: "var(--mk-butter-bg)" }}
+            className="mt-4 rounded-mk-md p-4"
+            style={{
+              border: "1px solid rgba(201,150,43,.4)",
+              background: "rgba(201,150,43,.1)",
+            }}
           >
             <div className="flex items-center gap-2">
-              <Sparkles size={15} strokeWidth={2} color="#C9962B" />
-              <Sys className="!text-[#8A6320]">高光时刻 · {kw.shining.date}</Sys>
+              <Sparkles size={15} strokeWidth={2} color="#E5B65A" />
+              <Sys tone="dark" className="!text-[#E5B65A]">
+                做得最好的一次 · {kw.shining.date}
+              </Sys>
             </div>
-            <p className="mt-2 text-mk-h3 text-[#6B4D14]">{kw.shining.title}</p>
-            <p className="mt-1.5 text-mk-body leading-[1.85] text-[#7A5A1D]">{kw.shining.body}</p>
+            <p className="mt-2 text-mk-h3 text-[#F5E7C8]">{kw.shining.title}</p>
+            <p className="mt-1.5 text-mk-body leading-[1.85] text-[#DBCBA6]">{kw.shining.body}</p>
           </div>
         ) : null}
 
-        {/* sources — the evidence */}
-        <h3 className="mt-6 text-mk-h3 text-mk-ink">它是从哪来的</h3>
-        <p className="mt-1 text-mk-small text-mk-muted">
-          这个词不是猜的。下面每一条都是你做过的事，点开可以回去看。
-        </p>
+        {/* ── 相关活动 ─────────────────────────────────────────────────── */}
+        <h3 className="mt-7 text-mk-h3 text-[#EFE7DC]">相关活动</h3>
         <ul className="mt-3 space-y-2">
           {kw.sources.map((s) => (
             <SourceRow key={`${s.kind}-${s.id}`} source={s} onNavigate={onClose} />
           ))}
         </ul>
 
-        {/* four exits */}
-        <hr className="eco-hair my-6" />
-        <Sys className="mb-3 block">从这里继续</Sys>
-        <div className="grid grid-cols-2 gap-2.5">
-          <Next
-            icon={<BookOpen size={16} strokeWidth={1.8} />}
-            label="再读一篇"
-            sub="让它多一个来源"
-            onClick={() => {
-              onClose();
-              go({ name: "readings" });
-            }}
-          />
-          <Next
-            icon={<PenLine size={16} strokeWidth={1.8} />}
-            label="写一篇"
-            sub="写过的词会长得最快"
-            onClick={() => {
-              onClose();
-              go({ name: "writings" });
-            }}
-          />
-          <Next
-            icon={<Hexagon size={16} strokeWidth={1.8} />}
-            label="做个项目"
-            sub="把它变成一件真东西"
-            onClick={() => {
-              onClose();
-              go({ name: "project-new" });
-            }}
-          />
-          <Next
-            icon={<MessageCircle size={16} strokeWidth={1.8} />}
-            label="问印记"
-            sub={`聊聊「${kw.text}」`}
-            onClick={() => {
-              onClose();
-              openCoach("tree", kw.text);
-            }}
-          />
+        {/* ── 继续深挖 ─────────────────────────────────────────────────── */}
+        <div className="eco-scanline my-7" />
+        <h3 className="text-mk-h3 text-[#EFE7DC]">继续深挖</h3>
+        <p className="mt-1 text-mk-small text-[#8E8175]">
+          点一个，它会带着这句话去到该去的地方。
+        </p>
+        <div className="mt-3.5 flex flex-wrap gap-2.5">
+          {seeds.map((seed, i) => {
+            const meta = DIG_META[seed.kind];
+            const related =
+              seed.kind === "reading" && seed.ref
+                ? READINGS.find((r) => r.id === seed.ref)
+                : undefined;
+            return (
+              <button
+                key={seed.text}
+                type="button"
+                onClick={() => follow(seed)}
+                className="eco-in group max-w-full text-left transition-all duration-[160ms] ease-mk
+                           hover:-translate-y-0.5 focus-visible:outline-none focus-visible:ring-2
+                           focus-visible:ring-[#8A7F72]"
+                style={{
+                  ["--i" as string]: i,
+                  // A bubble: fully round ends, so it reads as something to
+                  // pick up rather than a row in a list.
+                  borderRadius: 20,
+                  padding: "12px 18px",
+                  border: `1px solid color-mix(in srgb, ${meta.hue} 46%, transparent)`,
+                  background: `color-mix(in srgb, ${meta.hue} 13%, rgba(240,233,224,.03))`,
+                  boxShadow: `0 0 0 0 ${meta.hue}`,
+                }}
+              >
+                <span className="flex items-center gap-1.5">
+                  <span
+                    className="eco-mono"
+                    style={{ color: meta.hue, letterSpacing: "0.1em" }}
+                  >
+                    {meta.glyph} {meta.label}
+                  </span>
+                  {related ? (
+                    <span className="eco-mono text-[#7C7166]" style={{ letterSpacing: 0 }}>
+                      {related.minutes} 分钟
+                    </span>
+                  ) : null}
+                </span>
+                <span className="mt-1.5 block max-w-[46ch] text-mk-body leading-[1.7] text-[#EDE4D9]">
+                  {seed.text}
+                </span>
+                {seed.why ? (
+                  <span className="mt-1.5 block max-w-[46ch] text-mk-small leading-[1.7] text-[#8E8175]">
+                    {seed.why}
+                  </span>
+                ) : null}
+              </button>
+            );
+          })}
         </div>
       </div>
     </Drawer>
@@ -180,62 +232,41 @@ function SourceRow({ source, onNavigate }: { source: KeywordSource; onNavigate: 
           go(target);
         }}
         className={cx(
-          "w-full rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left transition-colors",
-          "duration-[120ms] ease-mk focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
-          target ? "hover:border-mk-accent-200 hover:bg-mk-accent-50" : "cursor-default",
+          "w-full rounded-mk-md p-3 text-left transition-colors duration-[120ms] ease-mk",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]",
+          target ? "hover:bg-[rgba(240,233,224,.1)]" : "cursor-default",
         )}
+        style={{
+          border: "1px solid rgba(240,233,224,.13)",
+          background: "rgba(240,233,224,.035)",
+        }}
       >
         <span className="flex items-center gap-2">
           <span
             className="eco-mono rounded-mk-full px-2 py-0.5"
-            style={{ background: `color-mix(in srgb, ${meta.hue} 26%, transparent)`, color: "var(--mk-secondary)", letterSpacing: 0 }}
+            style={{
+              background: `color-mix(in srgb, ${meta.hue} 26%, transparent)`,
+              color: "#E0D6C9",
+              letterSpacing: 0,
+            }}
           >
             {meta.label}
           </span>
-          <span className="min-w-0 flex-1 truncate text-mk-body font-medium text-mk-ink">
+          <span className="min-w-0 flex-1 truncate text-mk-body font-medium text-[#F0E9E0]">
             {source.label}
           </span>
-          <span className="font-mono text-[11px] text-mk-faint">{source.date}</span>
+          <span className="font-mono text-[11px] text-[#7C7166]">{source.date}</span>
         </span>
         {source.evidence ? (
           <span
-            className="mt-2 block border-l-2 pl-3 text-mk-small italic leading-[1.75] text-mk-secondary"
+            className="mt-2 block border-l-2 pl-3 text-mk-small italic leading-[1.75] text-[#C0B4A6]"
             style={{ borderColor: meta.hue }}
           >
             「{source.evidence}」
-            <span className="mt-1 block not-italic text-[11px] text-mk-faint">你自己写的</span>
+            <span className="mt-1 block not-italic text-[11px] text-[#7C7166]">你自己写的</span>
           </span>
         ) : null}
       </button>
     </li>
   );
 }
-
-function Next({
-  icon,
-  label,
-  sub,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sub: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-start gap-2.5 rounded-mk-md border border-mk-border bg-mk-surface p-3 text-left
-                 transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:bg-mk-accent-50
-                 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
-    >
-      <span className="mt-0.5 shrink-0 text-mk-accent-700">{icon}</span>
-      <span className="min-w-0">
-        <span className="block text-mk-body font-semibold text-mk-ink">{label}</span>
-        <span className="mt-0.5 block text-mk-small leading-snug text-mk-muted">{sub}</span>
-      </span>
-    </button>
-  );
-}
-

@@ -18,8 +18,8 @@ import { WritingsView } from "./library/WritingsView";
 import { WritingDetail } from "./library/WritingDetail";
 import { ProjectsHub } from "./projects/ProjectsHub";
 import { NewProject } from "./projects/NewProject";
-import { ProjectRoom } from "./projects/ProjectRoom";
-import { HomepageStudio } from "./projects/HomepageStudio";
+import { Workbench } from "./projects/Workbench";
+import { PageStudio } from "./projects/PageStudio";
 import { PersonalPage } from "./page/PersonalPage";
 import { cx } from "./ui";
 import "./eco.css";
@@ -39,11 +39,11 @@ import "./eco.css";
  */
 
 const TABS = [
-  { key: "home", label: "首页", sub: "世界 · 我的家", icon: Compass },
+  { key: "home", label: "首页", sub: "世界 · 我的地图", icon: Compass },
   { key: "readings", label: "阅读", sub: "读过的", icon: BookOpen },
   { key: "writings", label: "写作", sub: "写过的", icon: PenLine },
   { key: "projects", label: "项目", sub: "做出来", icon: Hexagon },
-  { key: "me", label: "我的主页", sub: "我的家门牌", icon: User },
+  { key: "me", label: "我的主页", sub: "对外的那一页", icon: User },
 ] as const;
 
 export function EcoRoot() {
@@ -66,7 +66,9 @@ export function EcoRoot() {
 
 function Shell({ route }: { route: EcoRoute }) {
   const { state, openCoach } = useEco();
-  const dark = route.name === "home" && route.view === "world";
+  // Both home views now paint their own dark ground, so neither wants the
+  // paper texture behind it.
+  const dark = route.name === "home";
 
   const activeTab: string =
     route.name === "home"
@@ -209,9 +211,9 @@ function Surface({ route }: { route: EcoRoute }) {
     case "project-new":
       return <NewProject />;
     case "project":
-      return <ProjectRoom id={route.id} stepId={route.stepId} />;
+      return <Workbench id={route.id} cardId={route.cardId} />;
     case "homepage":
-      return <HomepageStudio />;
+      return <PageStudio />;
     case "page":
       return <PersonalPage handle={route.handle} />;
   }
@@ -228,7 +230,7 @@ function surfaceFor(route: EcoRoute) {
     case "homepage":
       return "homepage" as const;
     case "project":
-      return route.stepId ? ("step" as const) : ("projects" as const);
+      return route.cardId ? ("step" as const) : ("projects" as const);
     default:
       return "projects" as const;
   }

@@ -61,6 +61,14 @@ export const NEWS: NewsItem[] = [
   // ── 2026-08-30 ────────────────────────────────────────────────────────────
   {
     id: "n-0830-1",
+    lead: {
+      zh: "读的时候盯住一件事：他们是怎么知道旧数字错了 7% 的——重新测，还是重新算？",
+      en: "Watch one thing as you read: how did they find the old number was 7% off - new measurements, or new maths?",
+    },
+    hooks: [
+      { zh: "7% 听上去很小。你怎么判断一个百分比是「小」还是「要命」？", en: "7% sounds small. How do you decide whether a percentage is small or serious?" },
+      { zh: "如果这个修正是对的，谁最先需要改计划？", en: "If this correction holds, who has to change their plan first?" },
+    ],
     date: "2026-08-30",
     rank: 1,
     domain: "environment",
@@ -82,6 +90,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0830-2",
+    lead: {
+      zh: "注意「重放两百遍」这个数字是怎么数出来的——他们在小鼠身上量的，不是人。",
+      en: "Notice how the two-hundred-replays figure was counted - measured in mice, not people.",
+    },
+    hooks: [
+      { zh: "小鼠的海马体和你的一样吗？这一步跨得有多大？", en: "Is a mouse hippocampus like yours? How big is that leap?" },
+      { zh: "如果睡眠在整理记忆，你今天的复习安排该怎么改？", en: "If sleep is what files memory, how should today's study plan change?" },
+    ],
     date: "2026-08-30",
     rank: 2,
     domain: "science",
@@ -103,6 +119,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0830-3",
+    lead: {
+      zh: "读的时候把两个数字放在一起看：准确率差 1.4%，能耗差 18 倍。",
+      en: "Hold two numbers side by side as you read: 1.4% of accuracy, eighteen times the energy.",
+    },
+    hooks: [
+      { zh: "在什么任务上，1.4% 的差距会要人命？在什么任务上完全无所谓？", en: "For what task would 1.4% be fatal? For what task would it not matter at all?" },
+      { zh: "「够用就好」这句话，什么时候是智慧，什么时候是偷懒？", en: "When is good enough wisdom, and when is it laziness?" },
+    ],
     date: "2026-08-30",
     rank: 3,
     domain: "tech",
@@ -124,6 +148,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0830-4",
+    lead: {
+      zh: "留意她给出的理由，而不是这件事本身有多浪漫。",
+      en: "Pay attention to her reason, not to how romantic the gesture sounds.",
+    },
+    hooks: [
+      { zh: "你保存过自己的草稿吗？为什么保存，或者为什么不？", en: "Do you keep your own drafts? Why, or why not?" },
+      { zh: "如果一本「删掉的书」比原著厚，说明写作的大部分工作是什么？", en: "If the book of deletions is thicker, what does that say most of writing actually is?" },
+    ],
     date: "2026-08-30",
     rank: 4,
     domain: "culture",
@@ -145,6 +177,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0830-5",
+    lead: {
+      zh: "注意这句：它不是生命，是生命需要的原料。这两句差在哪里？",
+      en: "Note the line: it is not life, it is an ingredient life needs. Where is the difference?",
+    },
+    hooks: [
+      { zh: "十八年前的数据还能出新发现，那「数据」到底属于谁？", en: "New findings from eighteen-year-old data - so who does data belong to?" },
+      { zh: "要多少种「原料」凑齐，才够说一句「可能有生命」？", en: "How many ingredients must line up before anyone may say possibly life?" },
+    ],
     date: "2026-08-30",
     rank: 5,
     domain: "space",
@@ -168,6 +208,14 @@ export const NEWS: NewsItem[] = [
   // ── 2026-08-29 ────────────────────────────────────────────────────────────
   {
     id: "n-0829-1",
+    lead: {
+      zh: "读的时候找一句话：两组孩子的屏幕时间几乎一样。这句话推翻了什么？",
+      en: "Find one sentence as you read: both groups used screens about equally. What does that sentence overturn?",
+    },
+    hooks: [
+      { zh: "大人常说的因果，和数据说的因果，为什么会差这么远？", en: "Why is the cause adults name so far from the cause the data names?" },
+      { zh: "八年的跟踪研究，比一次问卷强在哪里？", en: "What does eight years of follow-up buy that one survey cannot?" },
+    ],
     date: "2026-08-29",
     rank: 1,
     domain: "health",
@@ -189,6 +237,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0829-2",
+    lead: {
+      zh: "留意最后一句给出的面积：4 平方公里。它是这条新闻的刹车。",
+      en: "Note the area in the last line: four square kilometres. That number is the brake on this story.",
+    },
+    hooks: [
+      { zh: "一个例外能推翻一个规律吗？需要几个才够？", en: "Can one exception overturn a rule? How many would it take?" },
+      { zh: "如果这片珊瑚活下来了，其他珊瑚的处境有变好吗？", en: "If this reef survives, has anything improved for the others?" },
+    ],
     date: "2026-08-29",
     rank: 2,
     domain: "environment",
@@ -210,6 +266,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0829-3",
+    lead: {
+      zh: "这是一次「复现」——先想清楚复现和新发现，哪个更难。",
+      en: "This is a replication. Decide first which is harder: replicating, or discovering.",
+    },
+    hooks: [
+      { zh: "0.9 秒到 3.5 秒，为什么老师做不到？", en: "From 0.9 to 3.5 seconds - why is that so hard for a teacher to do?" },
+      { zh: "学生敢说「我不确定」，为什么算一个好结果？", en: "Why does I'm not sure count as a good outcome?" },
+    ],
     date: "2026-08-29",
     rank: 3,
     domain: "education",
@@ -231,6 +295,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0829-4",
+    lead: {
+      zh: "盯住 31% 这个数字：它是「有人修了」，还是「东西容易坏」？",
+      en: "Watch the 31%: does it mean people repaired things, or that things broke?",
+    },
+    hooks: [
+      { zh: "贵 12% 换来「能自己修」，你会买吗？为什么？", en: "12% more for repairability - would you buy it? Why?" },
+      { zh: "「故意设计成修不好」，公司为什么要这么做？", en: "Why would a company deliberately design something unfixable?" },
+    ],
     date: "2026-08-29",
     rank: 4,
     domain: "tech",
@@ -252,6 +324,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0829-5",
+    lead: {
+      zh: "注意排在最前面的词：钱、天气、你吃了吗。想一想我们平时讲的历史是谁的历史。",
+      en: "Note the most frequent words: money, weather, have you eaten. Then ask whose history we usually tell.",
+    },
+    hooks: [
+      { zh: "普通人的信件算不算史料？谁来决定什么值得存档？", en: "Do ordinary letters count as historical sources? Who decides what gets archived?" },
+      { zh: "如果历史书里只有大事，我们会误解什么？", en: "If history books hold only big events, what do we misunderstand?" },
+    ],
     date: "2026-08-29",
     rank: 5,
     domain: "culture",
@@ -275,6 +355,14 @@ export const NEWS: NewsItem[] = [
   // ── 2026-08-28 ────────────────────────────────────────────────────────────
   {
     id: "n-0828-1",
+    lead: {
+      zh: "读的时候记住这条线索：它当年是因为「毒性」被放弃的，不是因为「没用」。",
+      en: "Hold this thread as you read: it was dropped for toxicity, not for being useless.",
+    },
+    hooks: [
+      { zh: "失败的实验记录该由谁保存？为什么现在很少有人发表失败？", en: "Who should keep failed experiments? Why does almost nobody publish failure?" },
+      { zh: "「六十年前是错的，现在是对的」——变的是化合物，还是我们？", en: "Wrong sixty years ago, right today - did the compound change, or did we?" },
+    ],
     date: "2026-08-28",
     rank: 1,
     domain: "science",
@@ -296,6 +384,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0828-2",
+    lead: {
+      zh: "最重要的一句在最后：能参加试验的公司本来就有余裕。",
+      en: "The most important line is last: the companies able to volunteer already had slack.",
+    },
+    hooks: [
+      { zh: "这叫「选择性偏差」。你能再举一个身边的例子吗？", en: "This is selection bias. Can you name another example from your own life?" },
+      { zh: "离职率降了 57%，对谁是好消息？对谁不是？", en: "Turnover fell 57%. Good news for whom - and not for whom?" },
+    ],
     date: "2026-08-28",
     rank: 2,
     domain: "economy",
@@ -317,6 +413,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0828-3",
+    lead: {
+      zh: "注意报道里的「可能」两个字出现了几次。",
+      en: "Count how many times the word possible appears in the report.",
+    },
+    hooks: [
+      { zh: "雷达看不到水，只看到信号。中间隔了几层推理？", en: "Radar does not see water, only a signal. How many inferences sit in between?" },
+      { zh: "标题和论文，哪一个更容易把「可能」说成「发现」？", en: "Which is more likely to turn possible into found - the headline or the paper?" },
+    ],
     date: "2026-08-28",
     rank: 3,
     domain: "space",
@@ -338,6 +442,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0828-4",
+    lead: {
+      zh: "这条研究把「孤独」重新定义了一次。留意它用什么替换了「社交次数」。",
+      en: "This study redefines loneliness. Notice what it puts in place of how often you socialise.",
+    },
+    hooks: [
+      { zh: "1.2 万人的自评数据，可靠在哪里，不可靠在哪里？", en: "Twelve thousand self-reports - where are they reliable, where not?" },
+      { zh: "如果关键是「说真话的人」，学校能做什么？", en: "If the key is having one honest listener, what could a school do?" },
+    ],
     date: "2026-08-28",
     rank: 4,
     domain: "health",
@@ -359,6 +471,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0828-5",
+    lead: {
+      zh: "留意「溢出效应」这个词——它解释的是结果，还是只是给结果起了个名字？",
+      en: "Note the phrase spillover effect - does it explain the result, or just name it?",
+    },
+    hooks: [
+      { zh: "为最少数人设计，为什么常常对所有人更好？举一个你用过的例子。", en: "Why does designing for the fewest often serve everyone? Name one you have used." },
+      { zh: "如果这条规律成立，学校里哪件事最该重新设计？", en: "If this pattern holds, what at school most needs redesigning?" },
+    ],
     date: "2026-08-28",
     rank: 5,
     domain: "tech",
@@ -382,6 +502,14 @@ export const NEWS: NewsItem[] = [
   // ── 2026-08-27 ────────────────────────────────────────────────────────────
   {
     id: "n-0827-1",
+    lead: {
+      zh: "这条新闻里有一次交换：可靠性换速度。先找到交换的两端。",
+      en: "There is a trade in this story: reliability for speed. Find both ends of it first.",
+    },
+    hooks: [
+      { zh: "11% 降到 2.4%，还剩 2.4% 是错的。你会怎么用它？", en: "From 11% to 2.4% - 2.4% is still wrong. How would you use it?" },
+      { zh: "「给出处」为什么会让模型更准？它多做了什么？", en: "Why does citing make a model more accurate? What extra work is it doing?" },
+    ],
     date: "2026-08-27",
     rank: 1,
     domain: "tech",
@@ -403,6 +531,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0827-2",
+    lead: {
+      zh: "注意两个原因是并列写的：湿地退化，和城市灯光。它们一样重要吗？",
+      en: "Two causes are listed side by side: wetland loss and city light. Are they equally weighted?",
+    },
+    hooks: [
+      { zh: "卫星追踪能证明「因为」吗，还是只能证明「同时」？", en: "Can satellite tracking prove because, or only at the same time?" },
+      { zh: "340 公里对一只鸟意味着什么？你怎么把这个数字变得可感？", en: "What is 340 km to a bird? How would you make that number felt?" },
+    ],
     date: "2026-08-27",
     rank: 2,
     domain: "environment",
@@ -424,6 +560,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0827-3",
+    lead: {
+      zh: "留意「全部可逆」这四个字——它是这项工作的核心原则。",
+      en: "Note the words all of it reversible - that is the core principle of the work.",
+    },
+    hooks: [
+      { zh: "为什么修复的原则是「可逆」？换到你的作业上呢？", en: "Why must restoration be reversible? What is the equivalent in your own work?" },
+      { zh: "十一年里 97% 的时间在检测和等待，这算工作吗？", en: "Ninety-seven percent of eleven years was analysis and waiting. Is that work?" },
+    ],
     date: "2026-08-27",
     rank: 3,
     domain: "culture",
@@ -445,6 +589,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0827-4",
+    lead: {
+      zh: "注意这句：少数派的反对不是被压过去，而是让决策变慢。",
+      en: "Note this: the dissenters are not outvoted, they slow the decision down.",
+    },
+    hooks: [
+      { zh: "把这个机制放到你的小组作业里，会发生什么？", en: "Drop this mechanism into your group project - what happens?" },
+      { zh: "蚂蚁没有开会。「投票」这个词，是描述还是比喻？", en: "Ants hold no meetings. Is vote description, or metaphor?" },
+    ],
     date: "2026-08-27",
     rank: 4,
     domain: "science",
@@ -466,6 +618,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0827-5",
+    lead: {
+      zh: "差距只出现在一个动作上：回头看。读的时候留意这个限定条件。",
+      en: "The gap appears at exactly one move: going back. Watch for that qualifier.",
+    },
+    hooks: [
+      { zh: "你上一次在屏幕上「往回翻」是什么时候？", en: "When did you last scroll back to re-read something on a screen?" },
+      { zh: "如果差距只在长文本上，那结论能说成「纸更好」吗？", en: "If the gap only appears in long texts, may the finding be reported as paper is better?" },
+    ],
     date: "2026-08-27",
     rank: 5,
     domain: "education",
@@ -489,6 +649,14 @@ export const NEWS: NewsItem[] = [
   // ── 2026-08-26 ────────────────────────────────────────────────────────────
   {
     id: "n-0826-1",
+    lead: {
+      zh: "注意这句：不是更努力，是更省。这两者在测什么？",
+      en: "Note the line: not harder, cheaper. What is each of those measuring?",
+    },
+    hooks: [
+      { zh: "如果差异在成年后变小，那这个优势值多少？", en: "If the gap narrows in adulthood, what is the advantage actually worth?" },
+      { zh: "脑成像看到的「激活更低」，能直接说成「更聪明」吗？", en: "Can less activation on a scan be reported as smarter?" },
+    ],
     date: "2026-08-26",
     rank: 1,
     domain: "science",
@@ -510,6 +678,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0826-2",
+    lead: {
+      zh: "两个数字要一起读：太阳能 51%，电网只跟上三分之一。",
+      en: "Read two numbers together: solar at 51%, grid build-out at a third of the pace.",
+    },
+    hooks: [
+      { zh: "瓶颈从「发电」挪到了「送电」。谁会最先感觉到？", en: "The bottleneck moved from generating to delivering. Who feels it first?" },
+      { zh: "一条好消息里藏着一条坏消息，标题该怎么写才诚实？", en: "Good news wrapped around bad news - what headline would be honest?" },
+    ],
     date: "2026-08-26",
     rank: 2,
     domain: "environment",
@@ -531,6 +707,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0826-3",
+    lead: {
+      zh: "这条研究只测了一个指标：血糖。别把结论扩大到别的地方。",
+      en: "This study measured one thing: blood sugar. Do not stretch the conclusion further.",
+    },
+    hooks: [
+      { zh: "同样的总量，换个分布就不同——你的学习时间是怎么分布的？", en: "Same total, different spacing, different result. How is your study time spaced?" },
+      { zh: "只测一个指标的研究，能说「更健康」吗？", en: "May a study of one marker claim healthier?" },
+    ],
     date: "2026-08-26",
     rank: 3,
     domain: "health",
@@ -552,6 +736,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0826-4",
+    lead: {
+      zh: "数据来自五万名普通人的肉眼记录。先想清楚这算不算数据。",
+      en: "The data are fifty thousand naked-eye reports. Decide first whether that counts as data.",
+    },
+    hooks: [
+      { zh: "肉眼观测怎么才能变可靠？需要加什么条件？", en: "What would make naked-eye observation reliable? What conditions must be added?" },
+      { zh: "看不见星星，会少掉什么？这个损失怎么算？", en: "What is lost when the stars go? How would you even price that?" },
+    ],
     date: "2026-08-26",
     rank: 4,
     domain: "space",
@@ -573,6 +765,14 @@ export const NEWS: NewsItem[] = [
   },
   {
     id: "n-0826-5",
+    lead: {
+      zh: "意外在品类上：不是衣服，是童书。想想为什么是它。",
+      en: "The surprise is the category: not clothes, children's books. Ask why that one.",
+    },
+    hooks: [
+      { zh: "「用三年就闲置」——还有哪些东西符合这个描述？", en: "Idle after three years - what else fits that description?" },
+      { zh: "如果按「可转手性」设计，一件东西会长成什么样？", en: "If you designed for resale, what shape would the object take?" },
+    ],
     date: "2026-08-26",
     rank: 5,
     domain: "economy",
