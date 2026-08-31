@@ -41,7 +41,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 开局 ─────────────────────────────────────────────────────────── */
   frame: {
     id: "frame",
-    title: "把问题问准",
+    title: "问题界定",
+    kind: "plan",
     reason: "你带来的是一个真问题。在我提任何办法之前，先把它问准——否则我们会花三周解决一个不存在的问题。",
     teaches:
       "一个问题被描述得越具体，能走的路就越多。「大家常迷路」只能得到一个笼统的答案；「周末下午来找人的客人，总在东三门那个岔路口停下来」能直接告诉你该把东西放在哪儿。",
@@ -84,7 +85,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   keywords: {
     id: "keywords",
-    title: "先写三个词",
+    title: "关键词定义",
+    kind: "frame",
     reason: "在你去看别人的东西之前，先把你现在想要的样子写下来。看完十个再回来对一次。",
     teaches:
       "这三个词不是拿来用的，是拿来对照的。看完一圈回来，发现它们剩下几个——那才是你真的想要的。只看不写的人，看完一圈只会拿到最后一个的模仿版。",
@@ -121,7 +123,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   recon: {
     id: "recon",
-    title: "实地踏勘",
+    title: "实地调研",
+    kind: "research",
     reason: "这一步只能你去。我没去过你们那个地方，网上也没有它的图。",
     teaches:
       "现场会告诉你两件坐在屋里想不出来的事：人具体在哪几个位置犹豫，以及站在一个点上能不能看见下一个点。这两个事实会直接决定后面所有的设计。",
@@ -178,7 +181,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   talk: {
     id: "talk",
-    title: "去谈一次",
+    title: "沟通提纲",
+    kind: "plan",
     reason: "东西做得再好，放不上去就等于没做。这一步我替不了你，但我能陪你想清楚再去。",
     teaches:
       "谈判不是把你的方案说一遍。先想对方在担心什么，再想你能给他什么——这两步想完再开口的人，拿到的同意率完全不一样。可撤销的方案（先试三个）比不可撤销的好批。",
@@ -223,7 +227,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 开局 ─────────────────────────────────────────────────────────────── */
   motive: {
     id: "motive",
-    title: "动机三问",
+    title: "立项分析",
+    kind: "plan",
     reason: "在排任何计划之前，我想先弄清楚这件事为什么值得你花时间。",
     teaches: "一个你说不出「为谁、为什么」的项目，通常死在第三周。先把它说出来，后面每次想放弃的时候可以回来看。",
     payoff:
@@ -259,7 +264,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 看世界 ───────────────────────────────────────────────────────────── */
   sweep: {
     id: "sweep",
-    title: "参考搜集",
+    title: "案例调研",
+    kind: "research",
     reason: "你说要做得「好看一点」。我们先把「好看」拆成你说得出口的东西，不然我做出来的会是互联网的平均值。",
     teaches: "你不能想要一个你说不出名字的东西。看很多个，每个只挑一处你真的喜欢的地方，写具体——「排版很好」不算，「标题比正文大四倍，正文一行只有 60 个字符」才算。",
     payoff:
@@ -292,7 +298,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   style: {
     id: "style",
-    title: "命名风格",
+    title: "风格定义",
+    kind: "frame",
     reason: "你挑的四个参考里有一条共同的线。我们把它写成一份说明书，这样我做出来的东西你才有资格说「不对」。",
     teaches: "把喜欢变成规格。挑一个参考，先用自己的话描述它，再把这段描述当成给 AI 的约束——这是专业的人真正在用的做法。含糊的指令换来的是含糊的东西。",
     payoff:
@@ -351,7 +358,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   teardown: {
     id: "teardown",
-    title: "拆一个作品",
+    title: "结构拆解",
+    kind: "frame",
     reason: "你最喜欢的那个参考，我想请你把它拆开——不然你学到的只是它的外表。",
     teaches: "任何好东西都有骨架。把它的部分依次写出来、写出每一部分在干什么，你才拿得走它的做法，而不是它的样子。",
     payoff:
@@ -385,7 +393,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 组织 ─────────────────────────────────────────────────────────────── */
   inventory: {
     id: "inventory",
-    title: "内容清单",
+    title: "内容盘点",
+    kind: "plan",
     reason: "在讨论它长什么样之前：你手上现在真的有什么？",
     teaches: "先看你有什么，再决定结构。反过来做，你会先做出一个漂亮的空壳，然后花三周去填它。",
     payoff:
@@ -417,7 +426,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   command: {
     id: "command",
-    title: "明确指令",
+    title: "提示词设计",
+    kind: "frame",
     reason: "接下来我要动手了。你先把要求写清楚——写得越具体，我做出来的越接近你脑子里的东西。",
     teaches: "AI 在明确的指令下才好用。明确 = 三件事：① 一个直接的例子（像谁），② 内容的结构（按什么顺序放什么），③ 你想怎么和 AI 配合。少一件，你拿到的就是它的默认口味。",
     payoff:
@@ -469,7 +479,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 动手 ─────────────────────────────────────────────────────────────── */
   variants: {
     id: "variants",
-    title: "三个版本",
+    title: "方案对比",
+    kind: "decide",
     reason: "我按你的指令做了三版。它们都是可以的，但都不对——请你告诉我各拿走哪一块。",
     teaches: "让 AI 给选项，不要让它给答案。三个版本摆在一起，你才看得出你真正在意什么；而「A 的结构 + B 的开头 + C 都不要」这句话，只有你说得出来。",
     payoff:
@@ -502,7 +513,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   proto: {
     id: "proto",
-    title: "最小可用版本",
+    title: "原型测试",
+    kind: "review",
     reason: "在你把它做完美之前——先做一个丑的、能用的，拿去给一个真人试。",
     teaches: "最小版本不是「做一半」，是「小而完整」。定义清楚：什么算做完，谁来试，什么结果算失败。写下失败标准的人，才不会自己骗自己。",
     payoff:
@@ -540,7 +552,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 查证 ─────────────────────────────────────────────────────────────── */
   questions: {
     id: "questions",
-    title: "问题清单",
+    title: "问题拆解",
+    kind: "frame",
     reason: "你的题目现在还太大。我们把它拆成能一条一条去查的问题。",
     teaches: "把一个笼统的兴趣拆成可回答的问题，并且分清哪些是「查得到的事实」、哪些是「要你判断的」、哪些是「要你设计的」。混在一起问，就会用查资料代替思考。",
     payoff:
@@ -571,7 +584,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   sources: {
     id: "sources",
-    title: "找证据",
+    title: "来源核查",
+    kind: "question",
     reason: "你刚才说了一个数字，但没说它是谁量的。我们把来源补上。",
     teaches: "查资料不是找一个支持你的链接。每一条来源要写清楚：谁做的、什么时候、它能证明什么、以及它不能证明什么。最后一栏是分水岭。",
     payoff:
@@ -604,7 +618,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   clinic: {
     id: "clinic",
-    title: "问卷体检",
+    title: "问卷诊断",
+    kind: "question",
     reason: "在你把问卷发出去之前——发出去就收不回来了，我们先逐条检查一遍。",
     teaches: "问题的问法会决定答案。逐条对着几种常见的坏问法检查：一句话问了两件事、用词在引导、「同意/不同意」式提问、要人回忆太久、选项顺序有偏。",
     payoff:
@@ -643,7 +658,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   sample: {
     id: "sample",
-    title: "样本与偏差",
+    title: "样本与范围",
+    kind: "question",
     reason: "你收到了数据。在算平均数之前，先说清楚这些数据是谁给的。",
     teaches: "结论的适用范围由样本决定，不由样本量决定。写下你问了谁、谁没被问到、以及这件事让你的结论只能说到哪一步。",
     payoff:
@@ -672,7 +688,8 @@ export const CARDS: Record<string, CardSpec> = {
   /* ── 改与发 ───────────────────────────────────────────────────────────── */
   critique: {
     id: "critique",
-    title: "批评会",
+    title: "同伴评审",
+    kind: "review",
     reason: "第一版出来了。按规矩来：先说好的，再说不行的，每一条都要指到具体的地方。",
     teaches: "善意、具体、有用——这三条是给别人提意见的规矩，也是给自己提意见的。顺序也是规矩：先 warm 后 cool。改稿次数是作品的一部分。",
     payoff:
@@ -716,7 +733,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   tradeoff: {
     id: "tradeoff",
-    title: "取舍",
+    title: "权衡分析",
+    kind: "decide",
     reason: "你想要的两件事现在打架了。这一步不能绕过去。",
     teaches: "做东西就是不断放弃。写清楚你放弃了什么、代价是谁承担——一个说得出取舍的人，作品才有立场。",
     payoff:
@@ -739,7 +757,8 @@ export const CARDS: Record<string, CardSpec> = {
 
   ship: {
     id: "ship",
-    title: "发布前检查",
+    title: "发布前自查",
+    kind: "reflect",
     reason: "最后一步。半成品可以发布，但要说清楚它是半成品。",
     teaches: "诚实地发布：说清楚哪里做完了、哪里没有、你从中学到什么。把没做完的部分写出来的人，得到的是真的反馈。",
     payoff:

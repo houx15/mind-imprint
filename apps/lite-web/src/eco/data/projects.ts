@@ -325,7 +325,7 @@ export function firstProject(id: string): Project {
 export const HOMEPAGE_KICKOFF =
   "做一个个人主页，三年前是要学 HTML、学 CSS、还要租服务器的事。现在不一样了：**代码我可以写**。\n\n" +
   "但有一件事我替不了你——这一页上放什么、为什么是这些、别人看完记住你哪一点。这是判断，判断是你的。这个项目真正在练的也是这个。\n\n" +
-  "我按我的经验排了一条路，七步。**你先看一遍，不同意的地方直接改**，然后我们再开工。";
+  "我按我的经验拟了一份计划。**你先看一遍顺序**，不同意的地方直接改。\n\n每一步具体做什么、我们各自负责哪一半，到那一步我再说清楚。";
 
 /** The problem she brings. Prefilled with the worked example — see the note
  *  on the door itself about why the prototype only has roads for this one. */

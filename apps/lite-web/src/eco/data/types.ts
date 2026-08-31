@@ -185,9 +185,33 @@ export interface CardField {
   optional?: boolean;
 }
 
+/**
+ * 工具分类.
+ *
+ * The card library had grown to nineteen instruments with no way to see that
+ * it *was* a library. Naming the kinds does three things: it makes the toolbox
+ * finite and legible, it gives 印记 a vocabulary for saying which KIND of move
+ * it is asking for, and — the part that outlives this product — 「质疑工具」 is
+ * something a student can go on using elsewhere.
+ *
+ * 🚨 A category is only worth having if it is visible AT THE MOMENT OF USE.
+ * A taxonomy that lives on a settings page is a taxonomy nobody reads, so the
+ * label prints on the card itself and in the toolbox list, and nowhere else.
+ */
+export type ToolKind =
+  | "plan"
+  | "research"
+  | "frame"
+  | "decide"
+  | "question"
+  | "review"
+  | "reflect";
+
 export interface CardSpec {
   id: string;
   title: string;
+  /** Which kind of move this is. */
+  kind: ToolKind;
   /** One line, in 印记's voice, saying WHY it is offering this card right now.
    *  Never summon a card without showing the reason — an unexplained card is
    *  an ambush, and this product's whole claim is that the student can see
@@ -253,32 +277,30 @@ export type StageRef =
 export interface PlanStep {
   id: string;
   title: string;
-  /** One line: what actually happens here. Editable — it is her plan. */
+  /** One line: what actually happens here. Editable — it is her plan.
+   *  🚨 This is ALL the plan screen shows per step. The goal and the split of
+   *  work belong at the step itself, where they are actionable; putting them
+   *  on the plan turned a route into a wall of specification, and a student
+   *  reviewing seven of those is not reviewing, she is skimming. */
   blurb: string;
+  /** 这一步的目标 — what this step is for, stated when it opens. */
+  goal: string;
   /** What she has to bring. Concrete, not "参与". */
   youBring: string;
   /** What 印记 does. In a project it may genuinely build things. */
   iBring: string;
   /** The judgement that stays hers at this step. Every step has one. */
   decide: string;
-  /** Her own timing, written when she reviews the plan. Empty until then —
-   *  印记 deliberately does NOT pre-fill it: a schedule you did not write is
-   *  a schedule you will not keep. */
-  when: string;
+  /** What she reports back when her half is done — the handover that closes
+   *  the split. Without it 「你来做 X」 is an assignment; with it, it is a
+   *  division of labour with a meeting point. */
+  then: string;
   opens: StageRef | null;
   /** She switched it off. Kept rather than deleted — 过程即数据: declining a
    *  step is a record, not an absence. */
   off?: boolean;
   /** She wrote this step herself. */
   mine?: boolean;
-  /** What 印记 SAYS when this step opens, before the panel appears.
-   *
-   *  A panel that arrives unannounced reads as the software demanding
-   *  something. A sentence first — *now I need you to go and do X, because Y*
-   *  — makes the same panel read as a colleague asking. Same pixels, opposite
-   *  experience, one line of copy. Generated generically for tracks with no
-   *  hand-written journey. */
-  says?: string;
 }
 
 /* ─── approaches, branches, decisions ─────────────────────────────────

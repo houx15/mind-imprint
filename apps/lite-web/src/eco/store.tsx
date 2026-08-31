@@ -144,16 +144,11 @@ function enterStep(p: Project, index: number): Project {
     };
   }
 
-  // 🚨 印记 SAYS what it needs before the panel arrives.
-  //
-  // A card that appears unannounced reads as the software demanding something;
-  // the same card after 「接下来我需要你……，因为……」 reads as a colleague
-  // asking. Identical pixels, opposite experience, one line of copy. The
-  // divider alone was not enough — it labels the step, it does not address her.
+  // 🚨 The step item is 印记 briefing her, not a divider: it renders the goal,
+  // the split of work and the decision that stays hers (`StepIntro`). A panel
+  // that arrives unannounced reads as the software demanding something; the
+  // same panel after a briefing reads as a colleague handing over.
   const thread: ThreadItem[] = [...p.thread, { id: uid("st"), kind: "step", stepId: step.id }];
-  if (step.says) {
-    thread.push({ id: uid("say"), kind: "say", role: "coach", text: step.says });
-  }
 
   // Hoisted: narrowing on `step.opens` does not survive into the `.some()`
   // callback below, and the optional chain there would silently match a card
@@ -188,7 +183,7 @@ function enterStep(p: Project, index: number): Project {
  *  2026-08-31, and lost `status`; a v2 blob restored into v3 code renders a
  *  project with no plan and no phase. The version guard is the primary
  *  defence and `sane()` below is the belt. */
-const STORAGE_KEY = "mk-eco-proto-v3";
+const STORAGE_KEY = "mk-eco-proto-v4";
 
 /**
  * The personal page.
@@ -647,11 +642,12 @@ export function EcoProvider({ children }: { children: ReactNode }) {
               {
                 id: uid("mine"),
                 title: "我自己加的一步",
-                blurb: "写清楚这一步要发生什么。",
+                blurb: "写清楚这一步要做什么。",
+                goal: "",
                 youBring: "",
                 iBring: "",
+                then: "",
                 decide: "",
-                when: "",
                 opens: null,
                 mine: true,
               },
@@ -671,7 +667,7 @@ export function EcoProvider({ children }: { children: ReactNode }) {
                   id: uid("go"),
                   kind: "say",
                   role: "coach",
-                  text: `计划算数了。${activeSteps(proj.plan).length} 步，按你排的顺序走。\n\n中间任何一步你都可以说「这条不对」——改计划比硬走完一个错的计划便宜得多。`,
+                  text: `好，${activeSteps(proj.plan).length} 步，按这个顺序走。\n\n每一步开始的时候我会说清楚目标和分工。中间任何一步你都可以说「这条不对」——改计划比硬走完一个错的计划便宜得多。`,
                 },
               ],
             };
@@ -726,7 +722,7 @@ export function EcoProvider({ children }: { children: ReactNode }) {
                   id: uid("plan"),
                   kind: "say",
                   role: "coach",
-                  text: `记下了。你的理由是「${why.trim().slice(0, 40)}」——这句我会一直留着，做到一半你怀疑自己的时候可以回来看。\n\n那按这条路，我排了一份计划。**先看一遍再说开不开工**：不同意的步骤直接改掉、关掉，或者加一步我没想到的。\n\n还有一件事只有你能做：**给每一步写上时间**。我不替你排——你自己排的时间，你才会当真。`,
+                  text: `记下了。你的理由是「${why.trim().slice(0, 40)}」——这句我会一直留着，做到一半你怀疑自己的时候可以回来看。\n\n按这条路，我拟了一份计划。**先看一遍顺序**：不同意的步骤直接改掉、关掉，或者加一步我没想到的。每一步具体做什么，到那一步我再详细说。`,
                 },
               ],
             };

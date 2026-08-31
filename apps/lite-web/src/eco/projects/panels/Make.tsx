@@ -31,11 +31,13 @@ import { FormSurface } from "./FormSurface";
  * resolves instantly would quietly contradict the plan the student just
  * agreed to.
  */
+/** Chinese, and descriptive. The English enum names leaked out of the data
+ *  model onto the screen, where they said nothing to a student. */
 const KIND_TAG: Record<string, string> = {
-  options: "OPTIONS",
-  draft: "DRAFT",
-  build: "BUILD",
-  form: "FORM",
+  options: "方案对比",
+  draft: "内容初稿",
+  build: "页面构建",
+  form: "问卷调研",
 };
 
 export function Make({ project, artifactId }: { project: Project; artifactId: string }) {
@@ -72,7 +74,7 @@ export function Make({ project, artifactId }: { project: Project; artifactId: st
   return (
     <div className="h-full overflow-y-auto px-6 py-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
-        <Sys>印记做的 · 你来判断</Sys>
+        <Sys>印记的产出 · 需要你确认</Sys>
         <span className="eco-mono text-mk-faint">{KIND_TAG[spec.kind]}</span>
       </div>
       <h2 className="mb-4 mt-1 text-mk-h1 text-mk-ink">{spec.title}</h2>
@@ -111,7 +113,7 @@ function Idle({ spec, onRun }: { spec: ArtifactSpec; onRun: () => void }) {
         className="mt-4 rounded-mk-lg border p-4"
         style={{ borderColor: "var(--mk-border)", background: "var(--mk-paper)" }}
       >
-        <Sys>我要做的</Sys>
+        <Sys>我接下来会做</Sys>
         <ul className="mt-2 space-y-1">
           {spec.steps.map((s) => (
             <li key={s} className="flex gap-2 text-mk-small leading-[1.75] text-mk-secondary">
@@ -122,7 +124,7 @@ function Idle({ spec, onRun }: { spec: ArtifactSpec; onRun: () => void }) {
         </ul>
       </div>
       <Btn className="mt-4" iconStart={<Play size={15} strokeWidth={2} />} onClick={onRun}>
-        让印记开工
+        让印记开始
       </Btn>
     </div>
   );
@@ -154,7 +156,7 @@ function Working({ spec, line }: { spec: ArtifactSpec; line: number }) {
         })}
       </ol>
       <p className="mt-5 text-mk-small leading-[1.8] text-mk-muted">
-        这一步是我的活。做完你只需要做一件事：看，然后告诉我哪里不对。
+        这一步由我完成。做完之后你只需要做一件事：查看，然后指出哪里不对。
       </p>
     </div>
   );
@@ -243,10 +245,10 @@ function Options({ project, spec }: { project: Project; spec: ArtifactSpec }) {
             )
           }
         >
-          就用这版
+          选择这一版
         </Btn>
         {!ready ? (
-          <p className="mt-2 text-mk-small text-mk-muted">挑一版 + 写清楚理由，才能往下走。</p>
+          <p className="mt-2 text-mk-small text-mk-muted">请选择一个方案并说明理由后继续。</p>
         ) : null}
       </div>
     </div>
@@ -342,7 +344,7 @@ function Draft({ project, spec }: { project: Project; spec: ArtifactSpec }) {
         <p className="mt-2 text-mk-body text-mk-secondary">
           现在改过 <span className="font-mono tabular-nums text-mk-ink">{changed}</span> / {total} 块。
           {changed === 0
-            ? "一块都没改的话，这一页上说话的人是我。"
+            ? "一处都不改的话，这一页上说话的人是我。"
             : changed < 3
               ? "还有几块是我的句子。"
               : "这样差不多是你在说话了。"}
@@ -359,11 +361,11 @@ function Draft({ project, spec }: { project: Project; spec: ArtifactSpec }) {
             )
           }
         >
-          就用这一版内容
+          确认这一版内容
         </Btn>
         {changed === 0 ? (
           <p className="mt-2 text-mk-small text-mk-muted">
-            至少改一块。这一页上留着我的句子，别人读到的就是我。
+            至少修改一处。这一页上留着我的句子，读者读到的就是我。
           </p>
         ) : null}
       </div>
@@ -434,7 +436,7 @@ function Build({ project, spec }: { project: Project; spec: ArtifactSpec }) {
         className="mt-4 rounded-mk-lg border p-4"
         style={{ borderColor: "var(--mk-butter)", background: "var(--mk-butter-bg)" }}
       >
-        <Sys className="!text-[#8A6320]">我知道还不对的地方</Sys>
+        <Sys className="!text-[#8A6320]">我已知的问题</Sys>
         <ul className="mt-2 space-y-1.5">
           {round.admits.map((a) => (
             <li key={a} className="flex gap-2 text-mk-body leading-[1.8] text-[#6B4D14]">
@@ -472,15 +474,15 @@ function Build({ project, spec }: { project: Project; spec: ArtifactSpec }) {
                 setNote("");
               }}
             >
-              让印记改一版
+              请印记修改
             </Btn>
           </>
         ) : null}
 
         <div className={cx("border-mk-border", last ? "" : "mt-5 border-t pt-5")}>
           <Field
-            label="它可以了吗？说说为什么"
-            hint="「什么程度算做完」是这一步里属于你的判断。"
+            label="这一版可以定稿了吗？请说明理由"
+            hint="「什么程度算完成」是这一步里属于你的判断。"
             value={why}
             onChange={setWhy}
             rows={2}
@@ -495,15 +497,15 @@ function Build({ project, spec }: { project: Project; spec: ArtifactSpec }) {
               settleArtifact(
                 project.id,
                 spec.id,
-                `你验收了第 ${idx + 1} 版。你写的是「${why.trim().slice(0, 40)}」。\n\n${
+                `你确认了第 ${idx + 1} 版。你写的是「${why.trim().slice(0, 40)}」。\n\n${
                   (st?.notes.length ?? 0) > 0
-                    ? `中间你提了 ${st?.notes.length} 条具体的意见，每一条我都改了。这些意见会留在项目材料里。`
-                    : "你一轮就收了。可以，只要那是你看过之后的判断。"
+                    ? `过程中你提了 ${st?.notes.length} 条具体意见，每一条我都改了。这些意见会留在项目成果里。`
+                    : "你一轮就定稿了。可以，只要那是你看过之后的判断。"
                 }`,
               )
             }
           >
-            这一版可以了
+            确认这一版
           </Btn>
         </div>
       </div>

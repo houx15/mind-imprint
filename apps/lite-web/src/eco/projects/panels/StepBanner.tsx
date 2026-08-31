@@ -54,28 +54,23 @@ export function StepBanner({
             第 {index + 1} / {steps.length} 步
           </Sys>
           <span className="text-mk-body font-semibold text-mk-ink">{step.title}</span>
-          {step.when ? (
-            <span className="eco-mono text-mk-muted" style={{ letterSpacing: 0 }}>
-              你排的时间：{step.when}
-            </span>
-          ) : null}
         </div>
       ) : (
-        <Sys className="!text-mk-accent-700">你自己提前打开的</Sys>
+        <Sys className="!text-mk-accent-700">计划之外，你自己打开的</Sys>
       )}
 
       {step?.decide ? (
         <p className="mt-2 flex items-start gap-2 text-mk-body leading-[1.8] text-mk-ink">
           <Target size={14} strokeWidth={2} className="mt-1 shrink-0 text-mk-accent-700" />
           <span>
-            <span className="text-mk-muted">这一步你判断：</span>
+            <span className="text-mk-muted">决策要点 · </span>
             {step.decide}
           </span>
         </p>
       ) : null}
 
       <p className="mt-2.5 border-t border-mk-accent-200 pt-2.5 text-mk-body leading-[1.85] text-mk-ink">
-        <span className="text-mk-accent-700">填完它会发生什么 · </span>
+        <span className="text-mk-accent-700">这一步的作用 · </span>
         {payoff}
       </p>
     </div>

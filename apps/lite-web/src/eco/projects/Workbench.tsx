@@ -3,7 +3,7 @@ import { ArrowLeft, ArrowUp, Check, Globe, PanelRightClose, X } from "lucide-rea
 import { useEco } from "../store";
 import { asText, cardById, motiveOf } from "../data/cards";
 import { artifactById } from "../data/artifacts";
-import { activeSteps } from "../data/plan";
+import { TOOL_KINDS, activeSteps } from "../data/plan";
 import { trackById } from "../data/projects";
 import { go } from "../route";
 import type { Project, StageRef, ThreadItem } from "../data/types";
@@ -14,6 +14,7 @@ import { Roads } from "./panels/Roads";
 import { Overview } from "./panels/Overview";
 import { Make } from "./panels/Make";
 import { BranchTalk } from "./panels/BranchTalk";
+import { StepIntro } from "./panels/StepIntro";
 
 /**
  * 项目工作台 — the agentic room.
@@ -315,19 +316,11 @@ function Turn({
 }) {
   const { openCardEntry, skipCard } = useEco();
 
+  // A step opening is 印记 briefing her: the goal, who does what, and the
+  // judgement that stays hers. It used to be a hairline divider with a label,
+  // which told her where she was and nothing about what to do.
   if (item.kind === "step") {
-    const step = project.plan.find((s) => s.id === item.stepId);
-    const index = activeSteps(project.plan).findIndex((s) => s.id === item.stepId);
-    if (!step) return null;
-    return (
-      <div className="flex items-center gap-3 py-1">
-        <span className="h-px flex-1" style={{ background: "var(--mk-border)" }} />
-        <span className="eco-mono shrink-0 text-mk-accent-700">
-          第 {index + 1} 步 · {step.title}
-        </span>
-        <span className="h-px flex-1" style={{ background: "var(--mk-border)" }} />
-      </div>
-    );
+    return <StepIntro project={project} stepId={item.stepId} />;
   }
 
   if (item.kind === "say") {
@@ -371,12 +364,12 @@ function Turn({
       <Offer
         glyph="◗"
         hue="#4E7EA6"
-        kicker="印记做的"
+        kicker="印记的产出"
         title={spec.title}
         body={spec.ask}
         done={st?.status === "settled"}
-        doneLabel="已验收"
-        primary={st?.status === "settled" ? "回去看看" : "打开看看"}
+        doneLabel="已确认"
+        primary={st?.status === "settled" ? "回去看看" : "打开查看"}
         onPrimary={() => onOpen({ kind: "make", artifactId: item.artifactId })}
       />
     );
@@ -391,7 +384,7 @@ function Turn({
     <Offer
       glyph={spec.glyph}
       hue={spec.hue}
-      kicker={`工具卡 · 约 ${spec.minutes} 分钟`}
+      kicker={`${TOOL_KINDS[spec.kind].label} · 约 ${spec.minutes} 分钟`}
       title={spec.title}
       body={spec.reason}
       done={done}

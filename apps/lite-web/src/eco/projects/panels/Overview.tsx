@@ -1,11 +1,11 @@
 import { useState } from "react";
 import { Check, Info } from "lucide-react";
 import { useEco } from "../../store";
-import { activeSteps } from "../../data/plan";
-import { asRows, asText, cardById, filledRows } from "../../data/cards";
+import { TOOL_KINDS, activeSteps } from "../../data/plan";
+import { CARDS, asRows, asText, cardById, filledRows } from "../../data/cards";
 import { artifactById } from "../../data/artifacts";
 import { METHODS, PBL_COVENANT } from "../../data/method";
-import type { CardEntry, PlanStep, Project, StageRef } from "../../data/types";
+import type { CardEntry, PlanStep, Project, StageRef, ToolKind } from "../../data/types";
 import { Sys, cx } from "../../ui";
 
 /**
@@ -37,9 +37,9 @@ export function Overview({
       <div className="mb-4 flex gap-1 rounded-mk-full p-1" style={{ background: "var(--mk-paper)" }}>
         {(
           [
-            ["plan", "路线"],
-            ["stuff", "材料"],
-            ["who", "分工"],
+            ["plan", "计划"],
+            ["stuff", "成果"],
+            ["who", "方法"],
           ] as const
         ).map(([k, label]) => (
           <button
@@ -62,7 +62,7 @@ export function Overview({
       ) : tab === "stuff" ? (
         <Stuff project={project} onOpen={onOpen} />
       ) : (
-        <Who />
+        <Who project={project} onOpen={onOpen} />
       )}
     </div>
   );
@@ -85,7 +85,7 @@ function PlanRail({
       {project.decision ? <DecisionCard project={project} /> : null}
 
       <Sys className="mb-2 block">
-        路线 · 第 {Math.min(project.at + 1, steps.length)} / {steps.length} 步
+        项目计划 · 第 {Math.min(project.at + 1, steps.length)} / {steps.length} 步
       </Sys>
       <ol className="relative space-y-1">
         {steps.map((s, i) => {
@@ -133,13 +133,12 @@ function PlanRail({
                     >
                       {s.title}
                     </span>
-                    <span className="mt-0.5 flex flex-wrap items-center gap-x-2 text-[11px] text-mk-faint">
-                      {s.when ? <span>{s.when}</span> : null}
-                      {now ? <span className="text-mk-accent-700">当前</span> : null}
-                    </span>
+                    {now ? (
+                      <span className="mt-0.5 block text-[11px] text-mk-accent-700">进行中</span>
+                    ) : null}
                     {now && s.decide ? (
                       <span className="mt-1.5 block text-[11px] leading-[1.6] text-mk-accent-700">
-                        这一步你判断：{s.decide}
+                        决策要点 · {s.decide}
                       </span>
                     ) : null}
                   </span>
@@ -163,18 +162,18 @@ function DecisionCard({ project }: { project: Project }) {
       className="mb-4 rounded-mk-md border p-3.5"
       style={{ borderColor: "var(--mk-butter)", background: "var(--mk-butter-bg)" }}
     >
-      <Sys className="!text-[#8A6320]">你选的路 · {project.decision.at}</Sys>
+      <Sys className="!text-[#8A6320]">已选方案 · {project.decision.at}</Sys>
       <p className="mt-1 text-mk-body font-semibold text-[#6B4D14]">{road.name}</p>
       {/* Label, not a sentence stem: her reason very often already starts with
           「因为」, and 「因为：因为它错了可以改」 reads as the product not having
           looked at what she wrote. */}
       <p className="mt-1 text-mk-small leading-[1.75] text-[#6B4D14]">
-        <span className="eco-mono block text-[#8A6320]">你写的理由</span>
+        <span className="eco-mono block text-[#8A6320]">选择理由</span>
         {project.decision.why}
       </p>
       <p className="mt-1.5 border-t pt-1.5 text-[11px] leading-[1.7] text-[#8A6320]"
          style={{ borderColor: "color-mix(in srgb, var(--mk-butter) 60%, transparent)" }}>
-        你知道放弃了：{project.decision.gaveUp}
+        放弃了：{project.decision.gaveUp}
       </p>
     </div>
   );
@@ -187,7 +186,7 @@ function Stuff({ project, onOpen }: { project: Project; onOpen: (ref: StageRef) 
   if (cards.length === 0 && makes.length === 0) {
     return (
       <p className="text-mk-body leading-[1.85] text-mk-muted">
-        还没有材料。每填完一张卡、每验收一次我做的东西，它就会留在这儿。
+        还没有成果。每完成一张工具卡、每确认一次我的产出，它都会留在这里。
       </p>
     );
   }
@@ -196,7 +195,7 @@ function Stuff({ project, onOpen }: { project: Project; onOpen: (ref: StageRef) 
     <div className="space-y-4">
       {cards.length > 0 ? (
         <div>
-          <Sys className="mb-2 block">你写的</Sys>
+          <Sys className="mb-2 block">你完成的</Sys>
           <ul className="space-y-1.5">
             {cards.map((c) => {
               const spec = cardById(c.cardId);
@@ -230,7 +229,7 @@ function Stuff({ project, onOpen }: { project: Project; onOpen: (ref: StageRef) 
 
       {makes.length > 0 ? (
         <div>
-          <Sys className="mb-2 block">印记做的，你验收过的</Sys>
+          <Sys className="mb-2 block">印记的产出，你已确认的</Sys>
           <ul className="space-y-1.5">
             {makes.map(([id, st]) => {
               const spec = artifactById(id);
@@ -249,7 +248,7 @@ function Stuff({ project, onOpen }: { project: Project; onOpen: (ref: StageRef) 
                     <span className="mt-1 block text-mk-small leading-[1.7] text-mk-muted">
                       {opt ? `你选了「${opt.name}」` : null}
                       {st.notes.length > 0 ? `你提了 ${st.notes.length} 条意见` : null}
-                      {!opt && st.notes.length === 0 ? "已验收" : null}
+                      {!opt && st.notes.length === 0 ? "已确认" : null}
                     </span>
                     {st.why ? (
                       <span className="mt-1 block border-l-2 border-mk-accent-200 pl-2 text-mk-small leading-[1.7] text-mk-secondary">
@@ -267,7 +266,29 @@ function Stuff({ project, onOpen }: { project: Project; onOpen: (ref: StageRef) 
   );
 }
 
-function Who() {
+/**
+ * 方法 — the covenant, the toolbox, and where the practices come from.
+ *
+ * ## Why the toolbox is worth a tab
+ * The card library had grown to nineteen instruments and a student had no way
+ * to see that it *was* a library — cards simply arrived, one at a time,
+ * forever. Grouping them by kind does three things: it makes the toolbox
+ * finite (there is an end to this), it gives 印记 a vocabulary for saying
+ * which KIND of move it is asking for, and — the part that outlives this
+ * product — 「质疑工具」 is a category a student can go on using elsewhere.
+ *
+ * 🚨 The grouping is derived from `CardSpec.kind`, so a new card lands in its
+ * drawer with no change here. A taxonomy maintained in two places is a
+ * taxonomy that will disagree with itself.
+ */
+function Who({ project, onOpen }: { project: Project; onOpen: (ref: StageRef) => void }) {
+  const inTrack = new Set(project.plan.flatMap((s) => (s.opens?.kind === "card" ? [s.opens.cardId] : [])));
+  const byKind = Object.keys(TOOL_KINDS).map((k) => ({
+    kind: k as ToolKind,
+    meta: TOOL_KINDS[k as ToolKind],
+    cards: Object.values(CARDS).filter((c) => c.kind === k),
+  }));
+
   return (
     <div className="space-y-4">
       <div
@@ -299,22 +320,86 @@ function Who() {
         </p>
       </div>
 
-      {METHODS.map((m) => (
-        <details key={m.id} className="rounded-mk-md border border-mk-border p-3.5">
-          <summary className="cursor-pointer text-mk-body font-semibold text-mk-ink">
-            {m.label}
-          </summary>
-          <p className="mt-1 text-mk-small text-mk-muted">{m.from}</p>
-          <ul className="mt-2 space-y-1">
-            {m.points.map((pt) => (
-              <li key={pt} className="text-mk-small leading-[1.75] text-mk-secondary">
-                · {pt}
-              </li>
-            ))}
-          </ul>
-          <p className="mt-2 text-mk-small leading-[1.75] text-mk-faint">{m.why}</p>
-        </details>
-      ))}
+      {/* ── the toolbox ──────────────────────────────────────────────── */}
+      <div>
+        <Sys className="mb-1 block">工具箱</Sys>
+        <p className="mb-2.5 text-mk-small leading-[1.75] text-mk-muted">
+          这个项目会用到的在下面标了出来。其余的随时可以自己打开。
+        </p>
+        <div className="space-y-2">
+          {byKind.map(({ kind, meta, cards }) => (
+            <details key={kind} className="rounded-mk-md border border-mk-border p-3">
+              <summary className="cursor-pointer">
+                <span className="inline-flex items-center gap-2">
+                  <span
+                    className="h-2.5 w-2.5 shrink-0 rounded-mk-full"
+                    style={{ background: meta.hue }}
+                  />
+                  <span className="text-mk-body font-semibold text-mk-ink">{meta.label}</span>
+                  <span className="font-mono text-mk-small text-mk-faint">{cards.length}</span>
+                </span>
+              </summary>
+              <p className="mt-1.5 pl-[18px] text-mk-small leading-[1.7] text-mk-muted">
+                {meta.blurb}
+              </p>
+              <ul className="mt-2 space-y-1 pl-[18px]">
+                {cards.map((c) => {
+                  const used = project.cards.some((e) => e.cardId === c.id && e.status === "done");
+                  return (
+                    <li key={c.id}>
+                      <button
+                        type="button"
+                        onClick={() => onOpen({ kind: "card", cardId: c.id })}
+                        className="flex w-full items-center gap-2 rounded-mk-sm px-1.5 py-1 text-left
+                                   transition-colors duration-[120ms] hover:bg-mk-accent-50
+                                   focus-visible:outline-none focus-visible:ring-2
+                                   focus-visible:ring-mk-accent-200"
+                      >
+                        <span className="text-[12px]">{c.glyph}</span>
+                        <span
+                          className={cx(
+                            "min-w-0 flex-1 truncate text-mk-small",
+                            used ? "font-semibold text-mk-ink" : "text-mk-secondary",
+                          )}
+                        >
+                          {c.title}
+                        </span>
+                        {used ? (
+                          <Check size={12} strokeWidth={2.6} color="var(--mk-success)" />
+                        ) : inTrack.has(c.id) ? (
+                          <span className="eco-mono text-mk-faint" style={{ letterSpacing: 0 }}>
+                            计划内
+                          </span>
+                        ) : null}
+                      </button>
+                    </li>
+                  );
+                })}
+              </ul>
+            </details>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Sys className="mb-2 block">方法出处</Sys>
+        {METHODS.map((m) => (
+          <details key={m.id} className="mb-2 rounded-mk-md border border-mk-border p-3.5">
+            <summary className="cursor-pointer text-mk-body font-semibold text-mk-ink">
+              {m.label}
+            </summary>
+            <p className="mt-1 text-mk-small text-mk-muted">{m.from}</p>
+            <ul className="mt-2 space-y-1">
+              {m.points.map((pt) => (
+                <li key={pt} className="text-mk-small leading-[1.75] text-mk-secondary">
+                  · {pt}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-2 text-mk-small leading-[1.75] text-mk-faint">{m.why}</p>
+          </details>
+        ))}
+      </div>
     </div>
   );
 }

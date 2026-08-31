@@ -1,120 +1,161 @@
-import type { Approach, PlanStep, TrackId } from "./types";
+import type { Approach, PlanStep, ToolKind, TrackId } from "./types";
 import { cardById, cardsForTrack } from "./cards";
 
 /**
- * 计划 — what 印记 proposes before anything is built.
+ * 项目计划 — what 印记 proposes before anything is built.
  *
- * ## Why this file exists (2026-08-31)
- * The workbench went straight from "hello" to the first 工具卡. That is not
- * how an agentic tool behaves and it is not how a person with judgement
- * works either: Codex, Cowork and every competent collaborator put a PLAN in
- * front of you first, and wait. The plan is the artefact that lets a student
- * disagree before three weeks are spent, and it is the only place where the
- * division of labour can be argued about instead of assumed.
+ * ## Why this file exists
+ * The workbench used to go straight from "hello" to the first 工具卡. That is
+ * not how an agentic tool behaves and not how a competent collaborator works
+ * either: a plan goes in front of you first, and it waits. The plan is the
+ * artefact that lets a student disagree before three weeks are spent.
  *
- * ## The three things a step must name
- *   - **你带来** — what she has to bring. Concrete. Not 「参与讨论」.
- *   - **印记做** — what the AI actually does. In a project it may build:
- *     write the code, draw the layout, generate the options.
- *   - **你判断** — the judgement that stays hers. **Every step has one.** If a
- *     step cannot name a decision she owns, the honest thing is to let 印记 do
- *     it silently rather than seat her in front of it and call it learning.
+ * ## What the plan screen shows, and what it deliberately does not
+ * Per step: **a number, a name, one line.** That is all.
  *
- * `when` is left EMPTY on purpose. 印记 does not pre-fill the timeline — she
- * writes it during the review, because a schedule you did not write is a
- * schedule you will not keep, and because writing it is the moment a student
- * finds out her plan has nine steps and two free afternoons in it.
+ * 🚨 An earlier version printed 你带来 / 印记做 / 决策要点 on every node, plus a
+ * field for scheduling each step. It turned a route into a wall of
+ * specification — seven of those is not something a student reviews, it is
+ * something she skims — and the scheduling in particular was ceremony: asking a
+ * thirteen-year-old to date seven steps before she knows what any of them
+ * involve produces seven guesses, not a plan she owns.
+ *
+ * The detail moved to **the step itself**, where it is actionable, as
+ * `goal` + the split of work below.
+ *
+ * ## 分工方案 — the three lines every step must be able to fill
+ *   - **印记做** (`iBring`) — what the AI does. In a project it may genuinely
+ *     build: write the code, draw the layout, assemble the list.
+ *   - **你来做** (`youBring`) — her half. Concrete, never 「参与讨论」.
+ *   - **然后** (`then`) — what she hands back, which is what turns an
+ *     assignment into a division of labour with a meeting point.
+ *
+ * And `decide`: the judgement that stays hers. **Every step has one.** If a
+ * step cannot name a decision she owns, the honest thing is to let 印记 do it
+ * silently rather than seat her in front of it and call it learning.
  */
 
+/** 工具分类 — the label a student sees on every instrument. */
+export const TOOL_KINDS: Record<ToolKind, { label: string; blurb: string; hue: string }> = {
+  plan: {
+    label: "计划工具",
+    blurb: "确定做什么、为谁做、按什么顺序做。",
+    hue: "var(--mk-accent-400)",
+  },
+  research: {
+    label: "调研工具",
+    blurb: "去现场、去问人、去看别人已经做过的。",
+    hue: "var(--mk-lake)",
+  },
+  frame: {
+    label: "框架工具",
+    blurb: "把模糊的想法变成一份别人能执行的说明。",
+    hue: "var(--mk-taro)",
+  },
+  decide: {
+    label: "决策工具",
+    blurb: "在几个都说得通的选项之间做出选择，并说明理由。",
+    hue: "var(--mk-butter)",
+  },
+  question: {
+    label: "质疑工具",
+    blurb: "检查一个说法、一份数据、一道题目站不站得住。",
+    hue: "var(--mk-berry)",
+  },
+  review: {
+    label: "审查工具",
+    blurb: "在交出去之前，找出自己作品里的问题。",
+    hue: "var(--mk-matcha)",
+  },
+  reflect: {
+    label: "反思工具",
+    blurb: "回头看这一段做了什么、学到了什么、还差什么。",
+    hue: "var(--mk-peach)",
+  },
+};
+
 /* ── the personal page ────────────────────────────────────────────────────
- * The journey the product proposes first. Note the order: she names the look
- * she wants BEFORE she goes looking at other people's pages. That is
- * deliberate — coming back to three words you wrote an hour ago and finding
- * two of them gone is the cheapest lesson in this whole sequence.
+ * The journey the product proposes first. Note the order: she names the style
+ * she wants BEFORE she looks at other people's pages. That is deliberate —
+ * coming back to three words you wrote an hour ago and finding two of them
+ * gone is the cheapest lesson in this whole sequence.
  * ---------------------------------------------------------------------- */
 const HOMEPAGE: PlanStep[] = [
   {
     id: "hp-why",
-    title: "说清楚这一页是给谁看的",
-    says:
-      "我们从头开始。**这一步我需要你填一张卡**——三个问题，大概十二分钟。\n\n为什么先问这个：一个说不出「为谁做」的主页，最后长出来的一定是一份简历模板。你写的这三句我会一直留着。",
-    blurb: "一个具体的人会打开它。是谁、什么时候、他想找到什么。",
-    youBring: "一个具体的人，不是「大家」",
-    iBring: "追问到你说得出名字为止",
-    decide: "这一页是为谁存在的",
-    when: "",
+    title: "受众分析",
+    blurb: "确定这个页面写给谁看。",
+    goal: "找到一个具体的读者。页面上的每一个决定，最后都要回到这个人身上。",
+    youBring: "想象一个真实的读者：他会在什么时候打开这一页，你希望他看完是什么感受",
+    iBring: "追问到你说得出一个具体的人为止",
+    then: "把这个人写下来给我，之后我做的每一版都会按他来判断",
+    decide: "这一页为谁存在",
     opens: { kind: "card", cardId: "motive" },
   },
   {
     id: "hp-words",
-    title: "先用三个词说出你想要的样子",
-    says:
-      "下一步**我需要你写三个词**，说清楚你想要的样子。\n\n注意顺序：先写，再去看别人的。看完回来对一次，你会发现有几个词换掉了——那一刻比你现在写得多准要值钱得多。",
-    blurb: "在看任何别人的东西之前写下来。看完再回来对一次。",
-    youBring: "三个词，和你不想要的那一种",
-    iBring: "把词记下来，之后每一步都拿它对照",
-    decide: "你到底想要什么感觉",
-    when: "",
+    title: "关键词定义",
+    blurb: "用三个词定义你想要的页面风格。",
+    goal: "先说出你以为自己想要什么，再去看别人的。看完回来对一次，你会发现有几个词换掉了。",
+    youBring: "三个描述风格的词，和一个你明确不想要的样子",
+    iBring: "把这三个词记下来，之后每一版都拿它对照",
+    then: "案例调研做完之后回来，把变化的那几个词改掉",
+    decide: "你想要的到底是什么感觉",
     opens: { kind: "card", cardId: "keywords" },
   },
   {
     id: "hp-look",
-    title: "去看十个真人的主页",
-    says:
-      "现在轮到你出门看东西了。**我需要你收至少四个参考**，每个只挑一处你真的喜欢的地方。\n\n写具体：「排版很好」我照着做不出来，「正文一行 60 个字符」我能。",
-    blurb: "每个只挑一处你真的喜欢的地方，写到「一眼能验证」。",
-    youBring: "至少四个参考，和一个反例",
+    title: "案例调研",
+    blurb: "找几个你最喜欢的个人网站，说说你为什么喜欢。",
+    goal: "把「好看」拆成你说得出口、我做得出来的东西。",
+    youBring: "至少四个你真的喜欢的例子，每个写清楚你喜欢它哪一处",
     iBring: "给你一份可以直接打开的名单",
-    decide: "哪些是你真的想要的，哪些只是好看",
-    when: "",
+    then: "把这四处具体的地方写给我，我按它们来做方案",
+    decide: "哪些是你真正想要的，哪些只是当下觉得好看",
     opens: { kind: "card", cardId: "sweep" },
   },
   {
     id: "hp-style",
-    title: "印记给三个方案，你选一个并说清为什么",
-    says:
-      "材料够了。**这一步换我动手**：我按你的三个词和四个参考做三版，你挑一版，然后写清楚为什么不要另外两版。\n\n我不替你挑。你写的那条理由，是我后面每一步的依据。",
-    blurb: "三个方案是三种不同的做法，不是三种配色。挑一个，写下理由。",
-    youBring: "一个选择 + 你选它的理由",
-    iBring: "按你的三个词和四个参考，做三版真能看的方案",
-    decide: "哪一版，以及为什么不是另外两版",
-    when: "",
+    title: "方案对比与选择",
+    blurb: "印记提供三个方案，你选择一个并说明理由。",
+    goal: "在三个都说得通的方案之间做一次有理由的选择。理由会成为后面所有工作的依据。",
+    youBring: "一个选择，和你为什么不选另外两个",
+    iBring: "按你的关键词和案例，做三版方向不同的方案",
+    then: "把你的理由写下来，我后面每一步都按它执行",
+    decide: "选哪一版，以及为什么不是另外两版",
     opens: { kind: "make", artifactId: "hp-style" },
   },
   {
     id: "hp-content",
-    title: "定这一页上放什么",
-    says:
-      "接下来定内容。**我先从你读过、写过、做过的东西里拟一版**，你来删改。\n\n先说清楚：拟出来的句子是我写的。你不改，别人在你主页上读到的就是我。",
-    blurb: "印记从你读过、写过、做过的东西里拟一版。你删、你改、你加。",
-    youBring: "删掉不该在的，补上只有你知道的",
-    iBring: "从你自己的库里草拟每一块的内容",
-    decide: "别人看完这一页，该记住你哪一点",
-    when: "",
+    title: "内容规划",
+    blurb: "确定这个页面上呈现哪些内容。",
+    goal: "让这一页上的每一句话都是你自己的话。",
+    youBring: "删掉不该在的，改掉不像你的，补上只有你知道的",
+    iBring: "从你读过、写过、做过的东西里草拟每一块的内容",
+    then: "把改过的版本交回来，改过的句子我原样使用",
+    decide: "读者看完这一页，应该记住你哪一点",
     opens: { kind: "make", artifactId: "hp-content" },
   },
   {
     id: "hp-build",
-    title: "印记开工，你验收",
-    says:
-      "该我干活了。**这一步我要做久一点**——把整一页写出来。\n\n做完你只需要做一件事：看，然后告诉我哪里不对。说得越具体我改得越准。",
-    blurb: "这一步印记要做很久。做完你看，然后给具体的反馈，改到你认可为止。",
-    youBring: "具体的反馈——「第二屏的字太小」，不是「感觉怪怪的」",
-    iBring: "写代码、排版、出图，一轮一轮改",
+    title: "页面构建与验收",
+    blurb: "印记完成开发，你逐轮提出修改意见。",
+    goal: "把方案变成一个真的能打开的页面，并由你决定什么程度算完成。",
+    youBring: "具体的修改意见——「第二屏的字太小」这种，我能直接执行",
+    iBring: "写代码、排版、出图，按你的意见一轮一轮改",
+    then: "确认它可以了，并说明你的判断标准",
     decide: "什么程度算做完了",
-    when: "",
     opens: { kind: "make", artifactId: "hp-build" },
   },
   {
     id: "hp-ship",
-    title: "发布，并说清楚你放弃了什么",
-    says:
-      "最后一步。**我需要你写一段发布说明**，把这一版里你自己知道还不够好的地方写出来。\n\n写清楚哪儿不够好的人，收到的才是真的反馈。",
-    blurb: "把网址发出去之前，先写下这一版里你知道还不够好的地方。",
-    youBring: "一段诚实的说明",
+    title: "发布与复盘",
+    blurb: "发布页面，并记录这一版的已知不足。",
+    goal: "把作品交出去，同时诚实地记下它现在还差什么。",
+    youBring: "一段说明：做出了什么、哪里还不够、下一版想改什么",
     iBring: "把它挂到你的主页地址上",
-    decide: "现在发，还是再改一轮",
-    when: "",
+    then: "发布，并把这段说明一起发出去",
+    decide: "现在发布，还是再改一轮",
     opens: { kind: "card", cardId: "ship" },
   },
 ];
@@ -123,86 +164,79 @@ const HOMEPAGE: PlanStep[] = [
 const GARDEN_MAP: PlanStep[] = [
   {
     id: "gd-recon",
-    title: "走一遍花园，把它画下来",
-    says:
-      "第一步只能你去。**我需要你带着纸和手机，把整个园子走一遍**，走完所有岔路。\n\n为什么是你：我没去过你们那个地方，电子地图上也没有它的小路。这张图没人能替你画。",
-    blurb: "带纸和手机去。走完所有的岔路，记下你自己在哪里犹豫了。",
-    youBring: "一张你自己画的图，和你迷路的那几个位置",
-    iBring: "给你一张踏勘清单，回来帮你把手画的图整理成能用的底图",
+    title: "实地调研",
+    blurb: "走一遍花园，记录路线和容易走错的位置。",
+    goal: "拿到一份现场才有的资料：人具体在哪几个位置会犹豫。",
+    youBring: "一张你自己画的图，和你标出来的迷路位置",
+    iBring: "给你一份踏勘清单，回来帮你把手画的图整理成底图",
+    then: "把图和迷路位置带回来，后面每一步我都用它",
     decide: "哪些岔路是真的会让人走错的",
-    when: "",
     opens: { kind: "card", cardId: "recon" },
   },
   {
     id: "gd-ask",
-    title: "去问住户，收一份真的回答",
-    says:
-      "你自己的观察有了，但那是一个人的。**这一步我们去问真人**——我先拟一份问卷，你改完，它就真的发进业主群。\n\n我拟的题里有两道我自己写坏了，我会标出来。你别原样发。",
-    blurb: "你一个人的观察是一个样本。问卷发出去，你才有资格说「不止我一个」。",
-    youBring: "把我写坏的题改掉，和一句你自己写的邀请",
-    iBring: "按你标的迷路点拟一份问卷，并且标出我自己写坏的那几道",
-    decide: "哪些题该问，哪些题问了也没用",
-    when: "",
+    title: "问卷调研",
+    blurb: "向住户收集真实回答，验证你的观察。",
+    goal: "把「我觉得」变成「我问过」。一个人的观察是一个样本。",
+    youBring: "改掉我写坏的题目，再写一句你自己的邀请",
+    iBring: "按你标的位置拟一份问卷，并标出我自己写得有问题的题目",
+    then: "问卷发出去，收回来的答案我们一起看",
+    decide: "哪些题该问，哪些题问了也拿不到有用的答案",
     opens: { kind: "make", artifactId: "gd-ask" },
   },
   {
     id: "gd-points",
-    title: "定几个点，定在哪儿",
-    says:
-      "数据回来了。**现在定点数**——我按你的图和你收的答案算三种密度，你挑一个数字。\n\n这个数字决定你要走多少趟、印多少张码。所以它是你的。",
-    blurb: "点太少没用，点太多没人贴。印记给三种密度，你挑一种。",
-    youBring: "一个数字，和你为什么选它",
-    iBring: "按你的图和收回来的答案算三种方案，每种都写清楚代价",
-    decide: "在「够用」和「做得完」之间，你站哪儿",
-    when: "",
+    title: "标记点规划",
+    blurb: "确定标记点的数量和位置。",
+    goal: "在「够用」和「你做得完」之间定一个数字。",
+    youBring: "一个数字，和你选它的理由",
+    iBring: "按你的图和收回来的答案，算三种密度并写清楚各自的代价",
+    then: "定下数字之后，我按它来做页面上的编号",
+    decide: "覆盖多少，维护多少",
     opens: { kind: "make", artifactId: "gd-points" },
   },
   {
     id: "gd-build",
-    title: "印记做这个网页",
-    says:
-      "该我干活了。**我来写这个网页**：扫码打开先说「你在几号点」，下面才是整张图。\n\n做完你在手机上真的扫一次，然后告诉我哪里不对。",
-    blurb: "扫码就打开，一眼看到「你在这里」。这一步印记做，你验收。",
-    youBring: "在手机上真的试一次，然后说哪里不对",
-    iBring: "写这个页面：地图、定位、每个点的编号",
-    decide: "老人和小孩能不能一眼看懂",
-    when: "",
+    title: "页面开发",
+    blurb: "印记开发扫码页面，你在手机上验收。",
+    goal: "做出一个扫码就能用的页面，并由你确认它对老人和小孩也成立。",
+    youBring: "在手机上真的扫一次，然后说清楚哪里不对",
+    iBring: "写这个页面：地图、当前位置、每个点的编号",
+    then: "确认它可以了，我出最终版和二维码",
+    decide: "第一眼看不懂的人，能不能自己走出去",
     opens: { kind: "make", artifactId: "gd-build" },
   },
   {
     id: "gd-test",
-    title: "印几张二维码，去现场试",
-    says:
-      "页面能看了，但没被真的人用过。**这一步我需要你只印三张码，找一个不认识花园的人走一次。**\n\n出门之前先定「什么算失败」——做完再定标准的人永远都会成功。",
-    blurb: "先只做三个点。找一个不认识花园的人，让他从 A 走到 B。",
-    youBring: "一个真的会迷路的人，和一次真的测试",
-    iBring: "帮你把「什么算失败」在测试前定下来",
+    title: "原型测试",
+    blurb: "先印三张二维码，找一个不认识花园的人实地走一次。",
+    goal: "在做完整版之前，先知道它会不会失败。",
+    youBring: "一个真的不认识花园的人，和一次真的测试",
+    iBring: "帮你在测试之前先把「什么算失败」定下来",
+    then: "把测试结果带回来，包括他卡住的地方",
     decide: "这次测试算成功还是失败",
-    when: "",
     opens: { kind: "card", cardId: "proto" },
   },
   {
     id: "gd-talk",
-    title: "去找物业谈一次",
-    says:
-      "东西做好了，但贴不上去就等于没做。**这一步我需要你去找物业谈一次。**\n\n谈之前我们先想清楚他会担心什么、你能给他什么。这两步想完再开口，同意率完全不一样。",
-    blurb: "东西再好，贴不上去就等于没做。这一步只有你能做。",
-    youBring: "一次真的对话，和对方真的说了什么",
-    iBring: "陪你想清楚他会担心什么、你能给他什么",
+    title: "沟通与协调",
+    blurb: "和物业沟通，取得张贴许可。",
+    goal: "拿到许可。东西做得再好，贴不上去等于没做。",
+    youBring: "一次真的对话，和对方的原话",
+    iBring: "陪你把对方的顾虑和你能给的条件列清楚",
+    then: "把他提的条件带回来，我按条件改最终版",
     decide: "他提的条件，哪些你接受",
-    when: "",
     opens: { kind: "card", cardId: "talk" },
   },
   {
     id: "gd-ship",
-    title: "改完，交付",
-    says:
-      "最后一步。**按他给的条件改一版，然后写一段交付说明**——包括还有什么没做完。",
-    blurb: "按物业的条件改一版，贴上去，写清楚还有什么没做完。",
-    youBring: "一段诚实的说明",
+    title: "修订与交付",
+    blurb: "按沟通结果修订，完成交付。",
+    goal: "把东西真的装到园子里，并写清楚还有什么没做完。",
+    youBring: "一段交付说明，包括已知不足",
     iBring: "出最终版的页面和二维码",
-    decide: "现在交，还是再改一轮",
-    when: "",
+    then: "交付，并把说明一起交出去",
+    decide: "现在交付，还是再改一轮",
     opens: { kind: "card", cardId: "ship" },
   },
 ];
@@ -211,62 +245,57 @@ const GARDEN_MAP: PlanStep[] = [
 const GARDEN_SIGNS: PlanStep[] = [
   {
     id: "gs-recon",
-    title: "走一遍花园，把它画下来",
-    says:
-      "第一步只能你去。**我需要你把园子走一遍并画下来**，重点标人在哪几个路口犹豫。\n\n牌子立在哪里，取决于人在哪里犹豫。",
-    blurb: "标牌立在哪里，取决于人在哪里犹豫。所以先去看人在哪里犹豫。",
-    youBring: "一张你自己画的图，和你迷路的那几个位置",
-    iBring: "给你一张踏勘清单，回来帮你整理",
+    title: "实地调研",
+    blurb: "走一遍花园，找出人们真正会犹豫的路口。",
+    goal: "标牌立在哪里，取决于人在哪里犹豫。所以先去看人在哪里犹豫。",
+    youBring: "一张你自己画的图，和你标出来的迷路位置",
+    iBring: "给你一份踏勘清单，回来帮你整理",
+    then: "把犹豫的位置带回来，它就是标牌的位置清单",
     decide: "哪几个路口是真的需要标牌的",
-    when: "",
     opens: { kind: "card", cardId: "recon" },
   },
   {
     id: "gs-sign",
-    title: "定标牌怎么标",
-    says:
-      "**这一步我做三版给你看**：编号、地名、箭头加距离。三种写法教给路人的东西不一样。\n\n挑一种，然后回答一个问题：你想解决「这一次」，还是「以后」。",
-    blurb: "编号？地名？还是箭头加距离？三种标法教会人的东西不一样。",
-    youBring: "一个选择 + 理由",
-    iBring: "把三种标法各做一版给你看",
-    decide: "你要人记住位置，还是只要他这一次找到路",
-    when: "",
+    title: "标识方案设计",
+    blurb: "在三种标识写法之间做出选择。",
+    goal: "决定这些牌子是帮人走完这一次，还是让人记住这个园子。",
+    youBring: "一个选择，和你的理由",
+    iBring: "把编号、地名、箭头加距离三种写法各做一版",
+    then: "定下写法之后，我出可以直接打印的图纸",
+    decide: "解决「这一次」，还是解决「以后」",
     opens: { kind: "make", artifactId: "gs-signs" },
   },
   {
     id: "gs-test",
-    title: "做三块，贴上去试",
-    says:
-      "**先做三块纸的贴上去**，找一个不认识花园的人走一次。\n\n纸是可以扔的。等纸的那版没问题了，再做正式的。",
-    blurb: "先做三块纸的。找一个不认识花园的人走一次。",
-    youBring: "一个真的会迷路的人，和一次真的测试",
-    iBring: "帮你在测试前定下「什么算失败」",
+    title: "原型测试",
+    blurb: "先做三块纸质标牌贴上去试。",
+    goal: "在做成实物之前先犯错。纸是可以扔的。",
+    youBring: "一个不认识花园的人，和一次真的测试",
+    iBring: "帮你在测试之前先把「什么算失败」定下来",
+    then: "把测试结果带回来",
     decide: "这次测试算成功还是失败",
-    when: "",
     opens: { kind: "card", cardId: "proto" },
   },
   {
     id: "gs-talk",
-    title: "去找物业谈一次",
-    says:
-      "**这一步我需要你去找物业谈一次。**在公共空间立东西，绕不开管这片地的人。",
-    blurb: "在公共空间立东西，绕不开管这片地的人。",
-    youBring: "一次真的对话",
-    iBring: "陪你想清楚他会担心什么",
+    title: "沟通与协调",
+    blurb: "和物业沟通，取得安装许可。",
+    goal: "在公共空间立东西，绕不开管这片地的人。",
+    youBring: "一次真的对话，和对方的原话",
+    iBring: "陪你把对方的顾虑和你能给的条件列清楚",
+    then: "把条件带回来，我按条件改图纸",
     decide: "他提的条件，哪些你接受",
-    when: "",
     opens: { kind: "card", cardId: "talk" },
   },
   {
     id: "gs-ship",
-    title: "做完，交付",
-    says:
-      "最后一步。**按条件改一版，写一段交付说明**，包括还有什么没做完。",
-    blurb: "按条件改一版，装上去，写清楚还有什么没做完。",
-    youBring: "一段诚实的说明",
-    iBring: "出最终版的图纸",
-    decide: "现在交，还是再改一轮",
-    when: "",
+    title: "修订与交付",
+    blurb: "按沟通结果修订，完成交付。",
+    goal: "把标牌装上去，并写清楚还有什么没做完。",
+    youBring: "一段交付说明，包括已知不足",
+    iBring: "出最终版图纸",
+    then: "交付，并把说明一起交出去",
+    decide: "现在交付，还是再改一轮",
     opens: { kind: "card", cardId: "ship" },
   },
 ];
@@ -297,14 +326,12 @@ export function planForTrack(track: TrackId): PlanStep[] {
     return {
       id: `s-${cid}`,
       title: spec?.title ?? cid,
-      says: spec
-        ? `**这一步我需要你填一张卡**：《${spec.title}》，大概 ${spec.minutes} 分钟。\n\n${spec.reason}`
-        : undefined,
-      blurb: spec?.reason ?? "",
+      blurb: spec?.teaches.split("。")[0] ?? "",
+      goal: spec?.reason ?? "",
       youBring: "把这张卡填完",
-      iBring: "在你填之前先说清楚为什么是这一张",
+      iBring: "在你动手之前，先说清楚为什么是这一张",
+      then: "填完交回来，我按你写的继续",
       decide: spec?.teaches.split("。")[0] ?? "这一步该怎么走",
-      when: "",
       opens: { kind: "card" as const, cardId: cid },
     };
   });
