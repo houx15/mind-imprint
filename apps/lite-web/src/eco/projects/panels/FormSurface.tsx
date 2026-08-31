@@ -121,7 +121,7 @@ export function FormSurface({ project, spec }: { project: Project; spec: Artifac
             value={invite}
             onChange={(v) => setInvite(project.id, spec.id, v)}
             rows={3}
-            placeholder="例如：大家好，我是 8 号楼的知瑶，初二。我在做一个花园里的指路地图，想先搞清楚大家一般在哪儿会迷路。三个问题，一分钟。"
+            placeholder="例如：大家好，我是 8 号楼的知遥，初二。我在做一个花园里的指路地图，想先搞清楚大家一般在哪儿会迷路。三个问题，一分钟。"
           />
         </div>
       </div>

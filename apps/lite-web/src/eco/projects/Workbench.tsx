@@ -212,7 +212,10 @@ function Room({ project, cardId }: { project: Project; cardId?: string }) {
               <Btn
                 className="mt-3"
                 variant="outline"
-                onClick={() => go({ name: "page", handle: "zhiyao" })}
+                // In-shell, not `/eco/p/:handle`: that one is the visitor's
+                // view and takes her navigation away, which strands her on a
+                // page with no way back into her own project.
+                onClick={() => go({ name: "homepage" })}
               >
                 去我的主页看看
               </Btn>

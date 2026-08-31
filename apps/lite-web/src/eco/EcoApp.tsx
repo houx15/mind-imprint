@@ -8,7 +8,7 @@ import { TreeView } from "./home/TreeView";
 import { ProjectsHub } from "./projects/ProjectsHub";
 import { NewProject } from "./projects/NewProject";
 import { Workbench } from "./projects/Workbench";
-import { PageStudio } from "./projects/PageStudio";
+import { MyPage } from "./page/MyPage";
 import { PersonalPage } from "./page/PersonalPage";
 import { cx } from "./ui";
 import "./eco.css";
@@ -62,9 +62,7 @@ function Shell({ route }: { route: EcoRoute }) {
       ? "home"
       : route.name === "projects" || route.name === "project" || route.name === "project-new"
         ? "projects"
-        : route.name === "homepage"
-          ? "projects"
-          : "me";
+        : "me";
 
   function goTab(key: string) {
     switch (key) {
@@ -75,7 +73,12 @@ function Shell({ route }: { route: EcoRoute }) {
         go({ name: "projects" });
         break;
       case "me":
-        go(state.homepage.published ? { name: "page", handle: "zhiyao" } : { name: "homepage" });
+        // 🚨 Always her site, inside the shell. The tab's own subtitle says
+        // 对外的那一页, and a tab that sometimes opens a page and sometimes
+        // opens a builder makes the student learn a rule instead of a place.
+        // `MyPage` carries its own empty state; `/eco/p/:handle` is the same
+        // page with her navigation taken away, for a visitor.
+        go({ name: "homepage" });
         break;
     }
   }
@@ -186,7 +189,7 @@ function Surface({ route }: { route: EcoRoute }) {
     case "project":
       return <Workbench id={route.id} cardId={route.cardId} />;
     case "homepage":
-      return <PageStudio />;
+      return <MyPage />;
     case "page":
       return <PersonalPage handle={route.handle} />;
   }

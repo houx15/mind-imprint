@@ -401,8 +401,13 @@ export interface ArtifactOption {
 export interface BuildRound {
   /** What changed since the last round, in 印记's words. */
   changed: string;
-  headline: string;
-  lines: string[];
+  /** 🚨 A sketch of the deliverable, for builds that have no renderer — the
+   *  garden map, the signs. The homepage build OMITS both, because
+   *  `site/BuiltSite.tsx` renders the real page: a second description of the
+   *  same screen here would be a second source of truth, and one of the two
+   *  would quietly go stale. */
+  headline?: string;
+  lines?: string[];
   /** Problems 印记 names about its own work, unprompted. */
   admits: string[];
 }

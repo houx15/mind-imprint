@@ -1,7 +1,9 @@
 import { useEffect, useState } from "react";
-import { Check, Loader, Play, Send } from "lucide-react";
+import { Check, Loader, Monitor, Play, Send, Smartphone } from "lucide-react";
 import { useEco } from "../../store";
 import { ARTIFACTS, artifactById } from "../../data/artifacts";
+import { buildSite, siteTheme } from "../../data/site";
+import { BuiltSite } from "../../site/BuiltSite";
 import type { ArtifactOption, ArtifactSpec, Project } from "../../data/types";
 import { Bold, Btn, Field, Sys, cx } from "../../ui";
 import { StepBanner, stepIdFor } from "./StepBanner";
@@ -399,37 +401,49 @@ function Build({ project, spec }: { project: Project; spec: ArtifactSpec }) {
         <span className="text-mk-small text-mk-secondary">{round.changed}</span>
       </div>
 
-      {/* the thing itself */}
-      <div
-        className="mt-3 overflow-hidden rounded-mk-lg border border-mk-border shadow-mk-sm"
-        style={{ background: paint.paper }}
-      >
+      {/* 🚨 The thing itself — the real site, not a sketch of it.
+          This used to be four lines of text in a fake browser frame, and a
+          project whose deliverable is never actually seen teaches that the
+          deliverable does not matter. `BuiltSite` here is the same component
+          that serves `/eco/p/:handle`, so what she signs off on IS what a
+          visitor gets. `stage` carries 印记's own admissions into the pixels:
+          at 第 1 版 the headline really is too big on a phone. */}
+      {spec.id === "hp-build" ? (
+        <SitePreview project={project} stage={(idx + 1) as 1 | 2 | 3} />
+      ) : (
+        /* Every other build — the garden map, the signs — is still described
+           rather than rendered. Those deliverables live outside a browser. */
         <div
-          className="flex items-center gap-1.5 px-3 py-2"
-          style={{ borderBottom: `1px solid color-mix(in srgb, ${paint.ink} 12%, transparent)` }}
+          className="mt-3 overflow-hidden rounded-mk-lg border border-mk-border shadow-mk-sm"
+          style={{ background: paint.paper }}
         >
-          {["#E8695E", "#E5B94E", "#5FA97E"].map((c) => (
-            <span key={c} className="h-2.5 w-2.5 rounded-mk-full" style={{ background: c }} />
-          ))}
-          <span className="eco-mono ml-2" style={{ color: paint.ink, opacity: 0.45 }}>
-            预览
-          </span>
-        </div>
-        <div className="px-7 py-8" style={{ color: paint.ink, fontFamily: paint.font }}>
-          <p className="text-[22px] font-bold leading-[1.35]">{round.headline}</p>
-          <span
-            className="mt-3 block h-[3px] w-10 rounded-mk-full"
-            style={{ background: paint.accent }}
-          />
-          <ul className="mt-4 space-y-2">
-            {round.lines.map((l) => (
-              <li key={l} className="text-[14px] leading-[1.85]" style={{ opacity: 0.86 }}>
-                {l}
-              </li>
+          <div
+            className="flex items-center gap-1.5 px-3 py-2"
+            style={{ borderBottom: `1px solid color-mix(in srgb, ${paint.ink} 12%, transparent)` }}
+          >
+            {["#E8695E", "#E5B94E", "#5FA97E"].map((c) => (
+              <span key={c} className="h-2.5 w-2.5 rounded-mk-full" style={{ background: c }} />
             ))}
-          </ul>
+            <span className="eco-mono ml-2" style={{ color: paint.ink, opacity: 0.45 }}>
+              预览
+            </span>
+          </div>
+          <div className="px-7 py-8" style={{ color: paint.ink, fontFamily: paint.font }}>
+            <p className="text-[22px] font-bold leading-[1.35]">{round.headline ?? spec.title}</p>
+            <span
+              className="mt-3 block h-[3px] w-10 rounded-mk-full"
+              style={{ background: paint.accent }}
+            />
+            <ul className="mt-4 space-y-2">
+              {(round.lines ?? []).map((l) => (
+                <li key={l} className="text-[14px] leading-[1.85]" style={{ opacity: 0.86 }}>
+                  {l}
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* 印记 names what is wrong with its own work */}
       <div
@@ -520,6 +534,76 @@ function Build({ project, spec }: { project: Project; spec: ArtifactSpec }) {
  * thing genuinely looks like the version she picked two steps ago. If a
  * preview ignored her choice, the choice would have been a quiz question.
  */
+/**
+ * 网站预览 — the real page, in a frame.
+ *
+ * ## Why there is a 手机 toggle here and nowhere else
+ * 印记's first round admits 「手机上第一屏那句话会断成三行」. If she cannot look
+ * at the phone, that admission is a sentence she has to take on faith, and the
+ * feedback she writes back is a guess. With the toggle it is something she
+ * checks. The narrow layout is a PROP rather than a media query for the same
+ * reason: a `md:` breakpoint inside this frame would read the real window and
+ * lay the phone preview out as a desktop.
+ */
+function SitePreview({ project, stage }: { project: Project; stage: 1 | 2 | 3 }) {
+  const { state } = useEco();
+  const [phone, setPhone] = useState(false);
+  const site = buildSite({ projects: state.projects, sections: state.homepage.sections });
+  const theme = siteTheme(state.projects, state.homepage.style);
+
+  return (
+    <div className="mt-3 overflow-hidden rounded-mk-lg border border-mk-border shadow-mk-sm">
+      <div className="flex items-center gap-2 border-b border-mk-border bg-mk-paper px-3 py-2">
+        {["#E8695E", "#E5B94E", "#5FA97E"].map((c) => (
+          <span key={c} className="h-2.5 w-2.5 rounded-mk-full" style={{ background: c }} />
+        ))}
+        <span
+          className="ml-1.5 truncate rounded-mk-full bg-mk-surface px-2.5 py-0.5 text-[11px] text-mk-muted"
+          style={{ fontFamily: 'ui-monospace,"SF Mono",monospace' }}
+        >
+          {site.domain}
+        </span>
+        <span className="ml-auto flex items-center gap-1">
+          {[
+            { on: !phone, label: "电脑", icon: <Monitor size={13} strokeWidth={1.9} /> },
+            { on: phone, label: "手机", icon: <Smartphone size={13} strokeWidth={1.9} /> },
+          ].map((t) => (
+            <button
+              key={t.label}
+              type="button"
+              aria-pressed={t.on}
+              onClick={() => setPhone(t.label === "手机")}
+              className={cx(
+                "flex items-center gap-1 rounded-mk-sm px-2 py-1 text-[12px] transition-colors",
+                "duration-[120ms] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200",
+                t.on ? "bg-mk-surface text-mk-ink" : "text-mk-muted hover:text-mk-secondary",
+              )}
+            >
+              {t.icon}
+              {t.label}
+            </button>
+          ))}
+        </span>
+      </div>
+
+      <div
+        // 🚨 `items-start`: without it the phone frame is a stretched flex
+        // item, and its `overflow-hidden` (there for the rounded corners) then
+        // CLIPS the page at the frame's height — the preview showed the first
+        // screen and nothing below it could ever be reached.
+        className={cx(
+          "max-h-[520px] overflow-y-auto",
+          phone && "flex items-start justify-center bg-mk-paper py-5",
+        )}
+      >
+        <div className={cx(phone && "w-[390px] overflow-hidden rounded-mk-md shadow-mk-md")}>
+          <BuiltSite site={site} theme={theme} stage={stage} narrow={phone} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function paintOf(project: Project): {
   paper: string;
   ink: string;
