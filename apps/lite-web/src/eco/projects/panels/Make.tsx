@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Check, Loader, Monitor, Play, Send, Smartphone } from "lucide-react";
 import { useEco } from "../../store";
 import { ARTIFACTS, artifactById } from "../../data/artifacts";
-import { buildSite, siteTheme } from "../../data/site";
+import { buildSite, siteStyle } from "../../data/site";
 import { BuiltSite } from "../../site/BuiltSite";
 import type { ArtifactOption, ArtifactSpec, Project } from "../../data/types";
 import { Bold, Btn, Field, Sys, cx } from "../../ui";
@@ -549,7 +549,7 @@ function SitePreview({ project, stage }: { project: Project; stage: 1 | 2 | 3 })
   const { state } = useEco();
   const [phone, setPhone] = useState(false);
   const site = buildSite({ projects: state.projects, sections: state.homepage.sections });
-  const theme = siteTheme(state.projects, state.homepage.style);
+  const { layout, theme } = siteStyle(state.projects, state.homepage.style);
 
   return (
     <div className="mt-3 overflow-hidden rounded-mk-lg border border-mk-border shadow-mk-sm">
@@ -597,7 +597,7 @@ function SitePreview({ project, stage }: { project: Project; stage: 1 | 2 | 3 })
         )}
       >
         <div className={cx(phone && "w-[390px] overflow-hidden rounded-mk-md shadow-mk-md")}>
-          <BuiltSite site={site} theme={theme} stage={stage} narrow={phone} />
+          <BuiltSite site={site} theme={theme} layout={layout} stage={stage} narrow={phone} />
         </div>
       </div>
     </div>

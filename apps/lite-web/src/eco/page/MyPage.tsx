@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ArrowUpRight, Monitor, Smartphone } from "lucide-react";
 import { useEco } from "../store";
-import { buildSite, siteTheme } from "../data/site";
+import { buildSite, siteStyle } from "../data/site";
 import { BuiltSite } from "../site/BuiltSite";
 import { isLive } from "./PersonalPage";
 import { ecoPath, go } from "../route";
@@ -22,7 +22,7 @@ export function MyPage() {
 
   const live = isLive(state.homepage.published, state.projects);
   const site = buildSite({ projects: state.projects, sections: state.homepage.sections });
-  const theme = siteTheme(state.projects, state.homepage.style);
+  const { layout, theme } = siteStyle(state.projects, state.homepage.style);
 
   if (!live && !demo) {
     return (
@@ -84,7 +84,7 @@ export function MyPage() {
 
       <div className={cx("mx-auto", phone ? "max-w-[420px] px-4 py-6" : "")}>
         <div className={cx(phone && "overflow-hidden rounded-mk-lg border border-mk-border shadow-mk-md")}>
-          <BuiltSite site={site} theme={theme} narrow={phone} />
+          <BuiltSite site={site} theme={theme} layout={layout} narrow={phone} />
         </div>
       </div>
     </div>

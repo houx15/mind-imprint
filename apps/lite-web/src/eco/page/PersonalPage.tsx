@@ -1,5 +1,5 @@
 import { useEco } from "../store";
-import { buildSite, siteTheme } from "../data/site";
+import { buildSite, siteStyle } from "../data/site";
 import { BuiltSite } from "../site/BuiltSite";
 import { go } from "../route";
 import { Btn, Empty } from "../ui";
@@ -30,10 +30,12 @@ export function PersonalPage({ handle }: { handle: string }) {
     );
   }
 
+  const { layout, theme } = siteStyle(state.projects, state.homepage.style);
   return (
     <BuiltSite
       site={buildSite({ projects: state.projects, sections: state.homepage.sections })}
-      theme={siteTheme(state.projects, state.homepage.style)}
+      theme={theme}
+      layout={layout}
     />
   );
 }
