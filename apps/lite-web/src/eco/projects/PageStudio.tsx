@@ -195,7 +195,7 @@ function SectionEditor({
   section: HomepageSection;
   onWrite: (v: string) => void;
   onPick: (itemId: string) => void;
-  projects: { id: string; title: string; status: string }[];
+  projects: { id: string; title: string; phase: string }[];
 }) {
   if (!section.picker) {
     return (
@@ -219,7 +219,7 @@ function SectionEditor({
         : projects.map((p) => ({
             id: p.id,
             title: p.title,
-            sub: p.status === "published" ? "已发布" : "在做",
+            sub: p.phase === "published" ? "已发布" : "在做",
           }));
   const picked = section.picked ?? [];
 

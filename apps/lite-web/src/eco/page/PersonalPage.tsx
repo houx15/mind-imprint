@@ -137,7 +137,7 @@ export function PersonalPage({ handle, preview = false }: { handle: string; prev
                         <div className="flex items-baseline justify-between gap-3">
                           <h3 className="text-[19px] font-bold leading-snug">{p.title}</h3>
                           <span className="pg-chip shrink-0 rounded-full px-2.5 py-0.5 text-[11px]">
-                            {p.status === "published" ? "已完成" : "进行中"}
+                            {p.phase === "published" ? "已完成" : "进行中"}
                           </span>
                         </div>
                         <p className="mt-1 text-[12px] tracking-wide" style={{ opacity: 0.55 }}>

@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { ChevronDown, Info, Languages } from "lucide-react";
+import { Info, Languages } from "lucide-react";
 import { useEco } from "../store";
 import {
   DOMAIN_META,
@@ -23,10 +23,12 @@ import { NewsSheet } from "./NewsSheet";
  * ## The five rules this screen is built on
  * 1. **Exactly five, and each node is ONE story.** Not a category, not a
  *    feed. Five things worth knowing, ranked.
- * 2. **Undiscovered until opened.** A veiled planet shows only its field
- *    glyph; opening it lights it. Discovery is the verb, not consumption.
- * 3. **The hook comes before the headline.** Hovering whispers the QUESTION;
- *    the title is secondary. A question is what makes a 13-year-old lean in.
+ * 2. **A bubble says what it is.** The headline sits inside the glass. A
+ *    field of five unlabelled circles asks a student to click blind, and the
+ *    thing it "reveals" is only what she should have been told up front.
+ * 3. **The hook is what stays held back.** Hovering a bubble raises the
+ *    QUESTION the story puts to her. A question is what makes a 13-year-old
+ *    lean in; the headline is only what stops her guessing.
  * 4. **The omission is stated.** Politics and conflict are filtered at the
  *    data level, and the chip that says so opens a real explanation. A
  *    filtered set presented as "everything" is a lie by layout.
@@ -34,13 +36,16 @@ import { NewsSheet } from "./NewsSheet";
  *    「已浏览 2 / 5」and resets with the day. Nothing here rewards coming
  *    back tomorrow (铁律②).
  *
- * ## Why the page scrolls now (2026-08-31)
- * It used to be a locked stage — `h-full overflow-hidden` — which meant the
- * map had to hold everything, and everything it could not hold was simply
- * gone. It is now a **document with a stage at the top**: the map fills the
- * first screen, and below it sit the day's five as a readable ledger, the
- * timeline, and the transparency notes. Scrolling is the second gear: look
- * first, then read the list. Nothing important lives only in the stage.
+ * ## The list under the stage is gone (2026-08-31)
+ * There was a 「今天这五条」 ledger below the map: the same five stories as
+ * text. It existed because the old planets were unlabelled, so the map alone
+ * could not tell a student what the day held — the list was a workaround for
+ * the bubbles not talking. Now that each bubble carries its headline, the
+ * list is a second copy of the screen above it, and a screen that says
+ * everything twice teaches that neither copy is the real one.
+ *
+ * The page still scrolls: below the stage sit the timeline and the
+ * transparency notes, which are console, not content.
  *
  * Planet positions are hand-placed per rank rather than laid out by an
  * algorithm: five objects on a stage is a composition, and a composition
@@ -48,12 +53,19 @@ import { NewsSheet } from "./NewsSheet";
  */
 
 /** Hand-placed stage positions, keyed by rank (1 = most important). */
+/** Hand-placed stage positions, keyed by rank (1 = most important).
+ *
+ *  Sizes roughly doubled when the headline moved inside the glass: a bubble is
+ *  now a place to READ, and 88px of circle cannot hold a 20-character Chinese
+ *  headline at any type size a 13-year-old should be asked to read. The slots
+ *  were re-spread to match — the closest pair (1 and 4) clears by ~60px at
+ *  1100px wide, which is enough for the ±40px drift underneath them. */
 const SLOTS: Record<number, { x: string; y: string; size: number; drift: string }> = {
-  1: { x: "31%", y: "44%", size: 172, drift: "eco-drift" },
-  2: { x: "63%", y: "26%", size: 132, drift: "eco-drift-1" },
-  3: { x: "73%", y: "64%", size: 116, drift: "eco-drift-2" },
-  4: { x: "14%", y: "72%", size: 100, drift: "eco-drift-3" },
-  5: { x: "50%", y: "72%", size: 88, drift: "eco-drift-4" },
+  1: { x: "27%", y: "41%", size: 236, drift: "eco-drift" },
+  2: { x: "61%", y: "24%", size: 200, drift: "eco-drift-1" },
+  3: { x: "79%", y: "63%", size: 178, drift: "eco-drift-2" },
+  4: { x: "11%", y: "80%", size: 158, drift: "eco-drift-3" },
+  5: { x: "46%", y: "77%", size: 150, drift: "eco-drift-4" },
 };
 
 export function WorldView() {
@@ -63,7 +75,7 @@ export function WorldView() {
   const fieldRef = useRef<HTMLDivElement>(null);
   // Planets are fixed pixel sizes on a stage that shrinks. Without this, a
   // 700px-tall window overlaps planet 1's title with planet 5.
-  const scale = useFitScale(fieldRef, 520, 0.66);
+  const scale = useFitScale(fieldRef, 640, 0.58);
 
   const items = useMemo(() => newsForDate(state.date), [state.date]);
   const lit = items.filter((n) => state.discovered.includes(n.id)).length;
@@ -120,12 +132,12 @@ export function WorldView() {
       </header>
 
       {/* ── the stage ───────────────────────────────────────────────────── */}
-      {/* Height-capped rather than flex-filled: the page scrolls now, so the
-          map takes the first screen and hands the rest to the ledger below. */}
+      {/* Height-capped rather than flex-filled: the console below it is real
+          content, and a stage that fills the viewport pushes it off-screen. */}
       <div
         ref={fieldRef}
         className="relative z-10"
-        style={{ height: "min(620px, calc(100vh - 210px))", minHeight: 380 }}
+        style={{ height: "min(760px, calc(100vh - 200px))", minHeight: 440 }}
       >
         {/* Orbit rings. Purely atmospheric: they give the field a centre. */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
@@ -183,86 +195,10 @@ export function WorldView() {
             className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-center text-mk-small"
             style={{ color: "#8E8175" }}
           >
-            五颗行星在等你。把光标移上去，它会先给你一个问题。
+            五个泡泡，五条今天值得知道的事。把光标移上去，它会先问你一个问题。
           </p>
         ) : null}
       </div>
-
-      {/* ── scroll cue ──────────────────────────────────────────────────── */}
-      <div className="relative z-20 flex items-center gap-3 px-7 pt-2">
-        <div className="eco-scanline flex-1" />
-        <span className="flex items-center gap-1.5 text-mk-small" style={{ color: "#8E8175" }}>
-          往下是今天这五条的清单
-          <ChevronDown size={14} strokeWidth={1.8} />
-        </span>
-        <div className="eco-scanline flex-1" />
-      </div>
-
-      {/* ── the ledger ──────────────────────────────────────────────────── */}
-      {/* The same five, as text. Not a duplicate: the map is for LOOKING (what
-          is big, what field, what have I opened), the ledger is for READING
-          (导读 first, then the headline). A student who does not enjoy hunting
-          on a starfield still gets the day. */}
-      <section className="relative z-10 px-7 pt-6">
-        <Sys tone="dark">今天这五条 · TODAY&apos;S FIVE</Sys>
-        <ul className="mt-3 space-y-2">
-          {items.map((item, i) => {
-            const meta = DOMAIN_META[item.domain];
-            const seen = state.discovered.includes(item.id);
-            const dimmed = state.domainFilter !== null && state.domainFilter !== item.domain;
-            return (
-              <li key={item.id} style={{ opacity: dimmed ? 0.35 : 1, transition: "opacity 220ms" }}>
-                <button
-                  type="button"
-                  onClick={() => onOpen(item)}
-                  className="eco-in group flex w-full items-start gap-4 rounded-mk-lg p-4 text-left
-                             transition-colors duration-[140ms] ease-mk hover:bg-[rgba(240,233,224,.07)]
-                             focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-                  style={{
-                    border: "1px solid rgba(240,233,224,.12)",
-                    background: "rgba(240,233,224,.03)",
-                    ["--i" as string]: i,
-                  }}
-                >
-                  <span
-                    className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-mk-full
-                               font-mono text-[15px] font-bold"
-                    style={{
-                      background: `color-mix(in srgb, ${meta.hue} 26%, transparent)`,
-                      color: "#F0E9E0",
-                      border: `1px solid color-mix(in srgb, ${meta.hue} 46%, transparent)`,
-                    }}
-                  >
-                    {item.rank}
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
-                      <span className="eco-mono" style={{ color: meta.hue }}>
-                        {state.lang === "zh" ? meta.zh : meta.en}
-                      </span>
-                      <span className="eco-mono" style={{ color: "#7C7166" }}>
-                        {item.source}
-                      </span>
-                      {seen ? (
-                        <span className="eco-mono" style={{ color: "#6FBFB0", letterSpacing: 0 }}>
-                          已浏览
-                        </span>
-                      ) : null}
-                    </span>
-                    {/* 导读 leads — it is the line written for HER. */}
-                    <span className="mt-1.5 block text-mk-body-lg font-semibold leading-[1.7] text-[#F2EBE1]">
-                      {item.lead[state.lang]}
-                    </span>
-                    <span className="mt-1 block text-mk-small leading-[1.75] text-[#9A8E80]">
-                      {item.title[state.lang]}
-                    </span>
-                  </span>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-      </section>
 
       {/* ── bottom console ──────────────────────────────────────────────── */}
       <footer className="relative z-20 px-7 pb-10 pt-8">

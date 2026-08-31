@@ -2,7 +2,7 @@ import { useState } from "react";
 import { ArrowLeft, ArrowRight, MessageCircle, Sparkles } from "lucide-react";
 import { useEco } from "../store";
 import { TRACKS, TRACK_PROPOSALS, trackById } from "../data/projects";
-import { cardById, cardsForTrack } from "../data/cards";
+import { planForTrack } from "../data/plan";
 import { KEYWORDS } from "../data/tree";
 import { go } from "../route";
 import type { TrackId } from "../data/types";
@@ -186,10 +186,10 @@ export function NewProject() {
                 </span>
                 {on ? (
                   <span className="mt-3 block border-t border-mk-accent-200 pt-2.5">
-                    <Sys className="!text-mk-accent-700">印记会陪你走这几张卡</Sys>
+                    <Sys className="!text-mk-accent-700">印记会先提一份这样的计划</Sys>
                     <span className="mt-1 block text-mk-small leading-[1.8] text-mk-secondary">
-                      {cardsForTrack(t.id)
-                        .map((c) => cardById(c)?.title ?? c)
+                      {planForTrack(t.id)
+                        .map((st) => st.title)
                         .join(" · ")}
                     </span>
                   </span>
@@ -205,7 +205,7 @@ export function NewProject() {
         <Panel className="eco-in mt-7 p-6">
           <Sys>② 你想干嘛</Sys>
           <p className="mt-1 max-w-[60ch] text-mk-body leading-[1.85] text-mk-secondary">
-            现在写得糙没关系，进去第一张卡就是把它问清楚。
+            现在写得糙没关系，进去第一步就是把它问清楚。
           </p>
           <div className="mt-4 grid gap-4 md:grid-cols-2">
             <Field
@@ -235,7 +235,7 @@ export function NewProject() {
             </Btn>
             <span className="flex items-center gap-1.5 text-mk-small text-mk-muted">
               <MessageCircle size={13} strokeWidth={1.9} />
-              进去以后印记会先问你三个问题：为谁做、不做会怎样、为什么是你。
+              进去以后印记先给一份计划。你改完、排上时间、同意了，才开工。
             </span>
           </div>
         </Panel>

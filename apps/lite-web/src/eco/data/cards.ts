@@ -1,4 +1,4 @@
-import type { CardEntry, CardRow, CardSpec, CardValue, Project, TrackId } from "./types";
+import type { CardRow, CardSpec, CardValue, Project, TrackId } from "./types";
 
 /**
  * 工具卡库 — the instruments 印记 can summon inside a project.
@@ -38,6 +38,180 @@ import type { CardEntry, CardRow, CardSpec, CardValue, Project, TrackId } from "
  */
 
 export const CARDS: Record<string, CardSpec> = {
+  /* ── 开局 ─────────────────────────────────────────────────────────── */
+  frame: {
+    id: "frame",
+    title: "把问题问准",
+    reason: "你带来的是一个真问题。在我提任何办法之前，先把它问准——否则我们会花三周解决一个不存在的问题。",
+    teaches:
+      "一个问题被描述得越具体，能走的路就越多。「大家常迷路」只能得到一个笼统的答案；「周末下午来找人的客人，总在东三门那个岔路口停下来」能直接告诉你该把东西放在哪儿。",
+    glyph: "◉",
+    hue: "var(--mk-accent-400)",
+    minutes: 15,
+    fields: [
+      {
+        id: "who",
+        kind: "textarea",
+        label: "谁碰到了这个问题？",
+        hint: "一类具体的人，不是「大家」。你见过的那几个最好。",
+        placeholder: "例如：来我们小区找人的客人，和刚搬进来不到一个月的住户。",
+      },
+      {
+        id: "when",
+        kind: "textarea",
+        label: "它具体在什么时候、什么地方发生？",
+        hint: "时间、地点、频率。具体到你能画出来。",
+        placeholder: "例如：周末下午最多。东三门进来第二个岔路口，树很高，两边看上去一模一样。",
+      },
+      {
+        id: "now",
+        kind: "textarea",
+        label: "现在人们怎么应付？",
+        hint: "已经存在的土办法。它们为什么不够用，就是你的入口。",
+        placeholder: "例如：打电话，然后在电话里描述自己旁边的树。对方也听不懂。",
+      },
+      {
+        id: "seen",
+        kind: "textarea",
+        label: "你自己亲眼看到过几次？",
+        hint: "这一栏是在问证据。一次也行，但得是真的。",
+        placeholder: "例如：上个月有两次。一次是快递员，一次是我同学的妈妈。",
+      },
+    ],
+  },
+
+  keywords: {
+    id: "keywords",
+    title: "先写三个词",
+    reason: "在你去看别人的东西之前，先把你现在想要的样子写下来。看完十个再回来对一次。",
+    teaches:
+      "这三个词不是拿来用的，是拿来对照的。看完一圈回来，发现它们剩下几个——那才是你真的想要的。只看不写的人，看完一圈只会拿到最后一个的模仿版。",
+    glyph: "✲",
+    hue: "var(--mk-butter)",
+    minutes: 8,
+    fields: [
+      {
+        id: "words",
+        kind: "text",
+        label: "三个词",
+        hint: "用逗号分开。可以是感觉（安静、锐利），也可以是东西（旧书、实验室）。",
+        placeholder: "安静，密，像一份手写的笔记",
+      },
+      {
+        id: "not",
+        kind: "textarea",
+        label: "一个你明确不想要的样子",
+        hint: "写完它，你就有了一条底线。",
+        placeholder: "例如：那种一进去就有个大头像和一句英文格言的。",
+      },
+      {
+        id: "after",
+        kind: "textarea",
+        label: "（看完十个再回来填）这三个词还剩几个？",
+        hint: "没变也行，写「都在」。变了就写新的。",
+        placeholder: "例如：「安静」还在，「密」换成了「留白很多」。",
+        optional: true,
+      },
+    ],
+  },
+
+  recon: {
+    id: "recon",
+    title: "实地踏勘",
+    reason: "这一步只能你去。我没去过你们那个地方，网上也没有它的图。",
+    teaches:
+      "现场会告诉你两件坐在屋里想不出来的事：人具体在哪几个位置犹豫，以及站在一个点上能不能看见下一个点。这两个事实会直接决定后面所有的设计。",
+    glyph: "⌖",
+    hue: "var(--mk-lake)",
+    minutes: 45,
+    fields: [
+      {
+        id: "paths",
+        kind: "rows",
+        label: "你走了哪几条路",
+        rowsLabel: "路段",
+        min: 3,
+        hint: "每条路写它的两头，以及走的时候看见什么。",
+        columns: [
+          { id: "from", label: "从哪里到哪里", placeholder: "东三门 → 中心亭" },
+          { id: "mark", label: "路上能认出来的东西", placeholder: "具体到能写在图上", wide: true },
+        ],
+      },
+      {
+        id: "lost",
+        kind: "rows",
+        label: "你（或别人）在哪里犹豫了",
+        rowsLabel: "迷路点",
+        min: 2,
+        hint: "这一栏是整张卡最值钱的。你停下来的位置，就是东西该放的位置。",
+        columns: [
+          { id: "where", label: "在哪儿", placeholder: "第二个岔路口" },
+          { id: "why", label: "为什么在这儿犹豫", placeholder: "两边看上去一模一样", wide: true },
+        ],
+      },
+      {
+        id: "sight",
+        kind: "choice",
+        label: "站在一个岔路口，能看见下一个吗？",
+        hint: "这一题决定你需要多少个点。",
+        options: [
+          { id: "yes", label: "基本能", blurb: "那点可以少一些" },
+          { id: "some", label: "有几段不能", blurb: "那几段就是重点" },
+          { id: "no", label: "基本看不见", blurb: "那你需要的不只是标记" },
+        ],
+      },
+      {
+        id: "drawn",
+        kind: "textarea",
+        label: "你画的那张图，描述一下",
+        hint: "手画的就行。把它拍下来，在这里写清楚它长什么样。",
+        placeholder: "例如：一个横着的长方形，三个门在上边，中间一个圆形的中心亭，六条小路从亭子散出去。",
+      },
+    ],
+  },
+
+  talk: {
+    id: "talk",
+    title: "去谈一次",
+    reason: "东西做得再好，放不上去就等于没做。这一步我替不了你，但我能陪你想清楚再去。",
+    teaches:
+      "谈判不是把你的方案说一遍。先想对方在担心什么，再想你能给他什么——这两步想完再开口的人，拿到的同意率完全不一样。可撤销的方案（先试三个）比不可撤销的好批。",
+    glyph: "◑",
+    hue: "var(--mk-peach)",
+    minutes: 30,
+    fields: [
+      {
+        id: "who",
+        kind: "text",
+        label: "你要找谁",
+        hint: "一个具体的人或一个具体的职位。",
+        placeholder: "例如：物业服务中心前台的张阿姨，或者直接找物业经理",
+      },
+      {
+        id: "fear",
+        kind: "textarea",
+        label: "他最可能担心什么？",
+        hint: "至少写两条。想不出来，说明你还没把他当人看。",
+        placeholder: "例如：贴上去撕不下来；有人投诉不好看；出了事算谁的。",
+      },
+      {
+        id: "offer",
+        kind: "textarea",
+        label: "你能给他什么？",
+        hint: "一个可撤销的小方案，通常比一个完美的大方案好批。",
+        placeholder: "例如：先只贴三个点，用可撕的胶，一个月后我自己来揭。",
+      },
+      {
+        id: "said",
+        kind: "textarea",
+        label: "（谈完再填）他真的说了什么？",
+        hint: "原话，不是你的总结。拒绝也写下来——拒绝的理由里有下一版的答案。",
+        placeholder: "例如：「贴可以，但不能贴在墙上，只能放在树牌上。而且得让我先看一眼。」",
+        optional: true,
+      },
+    ],
+  },
+
   /* ── 开局 ─────────────────────────────────────────────────────────────── */
   motive: {
     id: "motive",
@@ -334,6 +508,7 @@ export const CARDS: Record<string, CardSpec> = {
         kind: "textarea",
         label: "试完了，真实发生了什么",
         hint: "试之前可以先空着。回来填的时候，写你没料到的那部分。",
+        optional: true,
       },
     ],
   },
@@ -571,7 +746,7 @@ export function cardById(id: string): CardSpec | undefined {
  * instruct, instruct before you build, build before you polish.
  */
 export const TRACK_CARDS: Record<TrackId, string[]> = {
-  website: ["motive", "sweep", "teardown", "style", "inventory", "command", "variants", "proto", "critique", "ship"],
+  website: ["motive", "keywords", "sweep", "teardown", "style", "inventory", "command", "variants", "proto", "critique", "ship"],
   design: ["motive", "questions", "sweep", "style", "variants", "proto", "critique", "tradeoff", "ship"],
   game: ["motive", "questions", "sweep", "variants", "proto", "critique", "tradeoff", "ship"],
   survey: ["motive", "questions", "clinic", "sources", "sample", "proto", "critique", "ship"],
@@ -621,9 +796,9 @@ export function cardAnswered(spec: CardSpec, values: Record<string, CardValue>):
       case "choice":
         return asText(v).length > 0;
       default:
-        // `result` on 最小可用版本 is filled AFTER she runs the test, so a
-        // trailing optional field must not block the card.
-        return f.id === "result" ? true : asText(v).trim().length >= 2;
+        // Fields she can only fill after being somewhere (a test result, what
+        // the officer actually said) must not block the card from coming back.
+        return f.optional ? true : asText(v).trim().length >= 2;
     }
   });
 }
@@ -689,6 +864,34 @@ export function refeed(cardId: string, values: Record<string, CardValue>): strin
       return `你说得出放弃了什么，也说得出代价由谁承担。这就是有立场。`;
     case "ship":
       return `写完了。你把没做完的部分也写出来了——这样你收到的才是真的反馈。`;
+    case "frame": {
+      const seen = asText(values.seen).trim();
+      return `清楚了。最重要的是最后一栏：你亲眼看到过——${firstClause(seen)}。
+
+这说明它不是你想象出来的问题。接下来我给你几条不同的路，选哪条由你定。`;
+    }
+    case "keywords": {
+      const words = asText(values.words).trim();
+      const after = asText(values.after).trim();
+      return after.length > 1
+        ? `你回来改了。这一栏写的是「${trim(after, 34)}」——看完一圈能说出自己哪个词变了，比一开始写得多准有用得多。`
+        : `记下了：${trim(words, 30)}。现在去看别人的——看完回来把最后一栏填上，那一栏才是这张卡的意义。`;
+    }
+    case "recon": {
+      const lost = filledRows(asRows(values.lost));
+      const sight = asText(values.sight);
+      const tail =
+        sight === "no"
+          ? "\n\n你选了「基本看不见下一个点」——这条很重要，它意味着光有标记不够，人在两个标记之间会怕。"
+          : "";
+      return `你真的去走了。${lost.length} 个迷路点——这份清单坐在屋里是写不出来的。${tail}\n\n我接下来的每一步都会用它。`;
+    }
+    case "talk": {
+      const said = asText(values.said).trim();
+      return said.length > 2
+        ? `他说的是「${trim(said, 40)}」。把原话记下来而不是记你的总结，这一点做得对——条件里往往藏着下一版的答案。`
+        : `想清楚了再去，这比空手去强很多。谈完回来把最后一栏填上，包括被拒绝的话。`;
+    }
     default:
       return `收到了。`;
   }
@@ -719,14 +922,5 @@ export function motiveOf(p: Project): { who: string; cost: string; mine: string 
     who: asText(entry.values.who),
     cost: asText(entry.values.cost),
     mine: asText(entry.values.mine),
-  };
-}
-
-/** Cards done / cards in the track. Used by the rail and the hub. */
-export function cardProgress(cards: CardEntry[], track: TrackId): { done: number; total: number } {
-  const seq = cardsForTrack(track);
-  return {
-    done: cards.filter((c) => c.status === "done" && seq.includes(c.cardId)).length,
-    total: seq.length,
   };
 }

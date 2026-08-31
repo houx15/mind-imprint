@@ -157,70 +157,61 @@
   100% { transform: translate3d(0, 0, 0); }
 }
 
-/* Each sphere also turns. A band of light sweeps its surface on a period of
-   its own, which is what makes a circle read as a BODY rather than a dot —
-   and it is the cheapest possible way to say "this thing is alive". */
-.eco-planet-spin::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  border-radius: 999px;
-  overflow: hidden;
-  background: conic-gradient(
-    from 0deg,
-    transparent 0deg,
-    rgba(255, 255, 255, 0.16) 40deg,
-    transparent 96deg,
-    transparent 240deg,
-    rgba(0, 0, 0, 0.22) 300deg,
-    transparent 360deg
-  );
-  animation: eco-spin 44s linear infinite;
-  pointer-events: none;
-}
-
-/* The body of a planet: a lit sphere. The highlight sits up-left so all five
-   share one light source — that single detail is most of why they read as
-   objects rather than as circles. */
-.eco-planet-body {
-  border-radius: 999px;
+/* A news bubble: glass, not paint.
+ *
+ * 2026-08-31 — the sphere used to be opaque, with its headline set on the sky
+ * underneath it. The headline moved INSIDE (see world/Planet.tsx for why), and
+ * an opaque body cannot carry text: whatever colour makes a good planet makes
+ * a bad page. So the body became glass — a rim of the field's hue, a wash that
+ * fades toward the middle, and a specular highlight up-left so all five share
+ * one light source. That last detail is most of why they read as objects
+ * rather than as circles.
+ *
+ * The inline `background` / `borderColor` / `boxShadow` come from the
+ * component because they are per-field; everything shape-like lives here. */
+.eco-bubble {
   position: relative;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  backdrop-filter: blur(3px);
   transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), box-shadow 320ms cubic-bezier(0.2, 0, 0, 1);
 }
-.eco-planet-body::after {
+
+/* the specular highlight — one light source, up and to the left */
+.eco-bubble::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: 999px;
-  background: radial-gradient(circle at 32% 28%, rgba(255, 255, 255, 0.42), transparent 52%);
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.4), transparent 40%),
+    radial-gradient(circle at 72% 82%, rgba(255, 255, 255, 0.1), transparent 34%);
   pointer-events: none;
 }
-.eco-planet:hover .eco-planet-body,
-.eco-planet:focus-visible .eco-planet-body {
-  transform: scale(1.09);
+
+/* A bubble breathes. Slower and smaller than the drift it rides on, so the
+   two never beat against each other into a visible rhythm. */
+.eco-bubble {
+  animation: eco-breathe 9s ease-in-out infinite;
+}
+@keyframes eco-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.028); }
 }
 
-/* Undiscovered: veiled, low contrast, a slow shimmer that says "there is
-   something here" without demanding to be clicked. Still recognisably ITS colour — the field is how she tells the
-   — the field is how she tells the five apart before she opens any of them, so
-   desaturating to grey would take away the only information an unopened planet
-   carries. */
-.eco-veil {
-  filter: saturate(0.62) brightness(0.78);
-  animation: eco-veil-pulse 5.5s ease-in-out infinite;
-}
-@keyframes eco-veil-pulse {
-  0%, 100% { opacity: 0.62; }
-  50% { opacity: 0.86; }
+.eco-planet:hover .eco-bubble,
+.eco-planet:focus-visible .eco-bubble {
+  transform: scale(1.06);
+  animation-play-state: paused;
 }
 
-/* A planet that has just been lit. */
-.eco-lit {
-  animation: eco-lit-pop 620ms cubic-bezier(0.2, 0, 0, 1) both;
+/* Already read: lit from the inside, once. */
+.eco-bubble-lit {
+  animation: eco-lit-pop 620ms cubic-bezier(0.2, 0, 0, 1) both, eco-breathe 9s ease-in-out 620ms infinite;
 }
 @keyframes eco-lit-pop {
   0% { transform: scale(0.9); }
-  55% { transform: scale(1.07); }
+  55% { transform: scale(1.06); }
   100% { transform: scale(1); }
 }
 
@@ -428,18 +419,17 @@
   .eco-motes::before,
   .eco-motes::after,
   .eco-bead,
-  .eco-planet-spin::before,
+  .eco-bubble,
+  .eco-bubble-lit,
   .eco-orbit,
   .eco-drift,
   .eco-drift-1,
   .eco-drift-2,
   .eco-drift-3,
   .eco-drift-4,
-  .eco-veil,
   .eco-shine {
     animation: none;
   }
-  .eco-veil { opacity: 0.75; }
   .eco-branch { animation: none; stroke-dashoffset: 0; }
   .eco-in,
   .eco-sheet-in,
@@ -450,4 +440,13 @@
     opacity: 1;
     transform: none;
   }
+}
+
+/* A working indicator. Reuses the orbit's rotation keyframe — one definition
+   of "turn once", used by the sky's rings and by 印记's own busy spinner. */
+.eco-spin {
+  animation: eco-spin 1.1s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eco-spin { animation: none; }
 }

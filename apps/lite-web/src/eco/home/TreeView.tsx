@@ -80,7 +80,7 @@ export function TreeView() {
   // 成果数 — finished things, not activity. Readings + writings + projects she
   // actually published. A project still in progress is not a 成果, and calling
   // it one would be the same lie as a streak counter.
-  const published = state.projects.filter((p) => p.status === "published").length;
+  const published = state.projects.filter((p) => p.phase === "published").length;
   const outputs = READINGS.length + WRITINGS.length + published;
 
   return (

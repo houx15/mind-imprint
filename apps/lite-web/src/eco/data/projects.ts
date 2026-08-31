@@ -1,4 +1,5 @@
-import type { Project, ThreadItem, TrackId } from "./types";
+import type { Project, TrackId } from "./types";
+import { GARDEN_APPROACHES, planById, planForTrack } from "./plan";
 
 /**
  * PBL — tracks, entry doors, and the seed projects.
@@ -274,6 +275,98 @@ export const TRACK_PROPOSALS: {
   },
 ];
 
+
+/* ── the two doors ────────────────────────────────────────────────────────
+ *
+ * A project starts one of two ways, and they are genuinely different.
+ *
+ * **① 做你自己的主页.** The road is already known, so 印记 goes straight to a
+ * plan. This is the one the empty hub offers, with one button and nothing
+ * else on the screen: a student with no projects does not need five kinds to
+ * choose between, she needs somewhere to start.
+ *
+ * **② 我发现了一个真问题.** The road is NOT known. 印记 clarifies first
+ * (`frame`), then proposes roads and stops — she picks one, with a reason.
+ * This is the door that makes the product's claim true, so it gets the
+ * expensive machinery: approaches, branch conversations, a recorded decision.
+ * ---------------------------------------------------------------------- */
+
+/** The personal page, which the empty hub proposes. */
+export function firstProject(id: string): Project {
+  return {
+    id,
+    track: "website",
+    title: "我自己的主页",
+    intent: "",
+    phase: "plan",
+    thread: [
+      { id: "k1", kind: "say", role: "coach", text: HOMEPAGE_KICKOFF },
+    ],
+    cards: [],
+    approaches: [],
+    branches: [],
+    decision: null,
+    plan: planById("homepage"),
+    at: 0,
+    artifacts: {},
+    cover: "var(--mk-mist)",
+    startedAt: new Date().toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * 印记's opening on the personal page.
+ *
+ * It says the true thing about what changed — the code stopped being the hard
+ * part — and then names what did not change, which is the whole reason the
+ * student is here. No plan yet: the plan is the next screen, and she gets to
+ * argue with it.
+ */
+export const HOMEPAGE_KICKOFF =
+  "做一个个人主页，三年前是要学 HTML、学 CSS、还要租服务器的事。现在不一样了：**代码我可以写**。\n\n" +
+  "但有一件事我替不了你——这一页上放什么、为什么是这些、别人看完记住你哪一点。这是判断，判断是你的。这个项目真正在练的也是这个。\n\n" +
+  "我按我的经验排了一条路，七步。**你先看一遍，不同意的地方直接改**，然后我们再开工。";
+
+/** The problem she brings. Prefilled with the worked example — see the note
+ *  on the door itself about why the prototype only has roads for this one. */
+export const EXAMPLE_PROBLEM =
+  "我们小区的花园特别大，里面的小路很窄，电子地图上根本不显示。树又高，路也不直，来找人的人经常在里面迷路，互相打电话也说不清自己在哪儿。";
+
+export function problemProject(id: string, problem: string): Project {
+  return {
+    id,
+    track: "other",
+    title: "让人在花园里不迷路",
+    intent: problem,
+    phase: "frame",
+    thread: [
+      { id: "k1", kind: "say", role: "coach", text: PROBLEM_KICKOFF },
+      { id: "k2", kind: "card", cardId: "frame" },
+    ],
+    cards: [{ cardId: "frame", status: "invited", values: {} }],
+    approaches: GARDEN_APPROACHES,
+    branches: [],
+    decision: null,
+    plan: [],
+    at: 0,
+    artifacts: {},
+    cover: "var(--mk-lake)",
+    startedAt: new Date().toISOString().slice(0, 10),
+  };
+}
+
+/**
+ * 印记's opening when she brings a real problem.
+ *
+ * It confirms the problem is real, and then does the one thing that matters:
+ * it does NOT propose a solution yet. A student who is handed an answer in
+ * the first thirty seconds has been given a task, not a project.
+ */
+export const PROBLEM_KICKOFF =
+  "这是个真问题——而且是那种**不解决就一直存在**的问题，不是作业题。\n\n" +
+  "我先不给办法。给早了，我们会花三周去解决一个其实不存在的问题。\n\n" +
+  "先把它问准，四个问题。填完我给你几条不同的路，**选哪条由你定**。";
+
 /**
  * Seed projects. One finished, one mid-flight — the hub has to show both
  * states or a new student cannot tell what "done" looks like here.
@@ -284,7 +377,13 @@ export const SEED_PROJECTS: Project[] = [
     track: "design",
     title: "让爷爷看得清的药盒",
     intent: "我想做一个我爷爷真的能用的药盒，不是那种好看但他看不清的。",
-    status: "published",
+    phase: "published",
+    approaches: [],
+    branches: [],
+    decision: null,
+    plan: planForTrack("design"),
+    at: 8,
+    artifacts: {},
     cover: "var(--mk-taro)",
     startedAt: "2026-06-12",
     summary:
@@ -356,7 +455,13 @@ export const SEED_PROJECTS: Project[] = [
     track: "survey",
     title: "同学在讨论里平均等几秒",
     intent: "我想知道我们班的人到底给别人留多少时间。",
-    status: "running",
+    phase: "run",
+    approaches: [],
+    branches: [],
+    decision: null,
+    plan: planForTrack("survey"),
+    at: 1,
+    artifacts: {},
     cover: "var(--mk-matcha)",
     startedAt: "2026-08-20",
     // 🚨 A seed project's thread must contain an invitation for every card the
@@ -390,10 +495,24 @@ export const SEED_PROJECTS: Project[] = [
   },
 ];
 
-/** Opening thread for a new project. */
-export function openingThread(track: TrackId, firstCard: string): ThreadItem[] {
-  return [
-    { id: "t-open", kind: "say", role: "coach", text: OPENERS[track] },
-    { id: "t-first", kind: "card", cardId: firstCard },
-  ];
+/** A blank project of a plain track — the 「开新项目」 door. It still gets a
+ *  plan (derived from the track's cards) so no project skips the planner. */
+export function trackProject(id: string, track: TrackId, title: string, intent: string): Project {
+  return {
+    id,
+    track,
+    title: title.trim() || "未命名项目",
+    intent: intent.trim(),
+    phase: "plan",
+    thread: [{ id: "t-open", kind: "say", role: "coach", text: OPENERS[track] }],
+    cards: [],
+    approaches: [],
+    branches: [],
+    decision: null,
+    plan: planForTrack(track),
+    at: 0,
+    artifacts: {},
+    cover: trackById(track).hue,
+    startedAt: new Date().toISOString().slice(0, 10),
+  };
 }

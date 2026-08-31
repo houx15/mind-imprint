@@ -4,16 +4,29 @@ import type { Lang, NewsItem } from "../data/types";
 import { cx } from "../ui";
 
 /**
- * A news planet.
+ * A news bubble.
  *
- * Three states, and the order they reveal in is the whole design:
- *  - **veiled** — she has not opened it. Only the field glyph and a colour.
- *    No title. It is a thing seen from far away.
- *  - **hovered** — the HOOK QUESTION appears. Not the headline. The question
- *    is the invitation; a headline would let her decide she already knows.
- *  - **discovered** — lit, titled, and marked. It stays that way for the day.
+ * ## Why the headline is INSIDE it (2026-08-31)
+ * v1 was an opaque planet with its title set underneath, and the title only
+ * appeared once she had opened it — discovery as a reveal. Two things were
+ * wrong with that. A label under a drifting sphere is a second object that has
+ * to be kept clear of the next sphere's label, which is why the stage could
+ * only hold five small planets and needed a scrolling list underneath to be
+ * readable at all. And a sky of five unlabelled circles asks a student to
+ * click blind: the "reveal" she is being offered is the answer to *what is
+ * this*, which is not a question worth making her ask.
  *
- * `dimmed` is the field filter: non-matching planets recede rather than
+ * So a bubble carries its own headline now, and the stage stands on its own.
+ * What is still held back is the thing worth holding back — the HOOK, the
+ * question the story puts to her, which surfaces on hover.
+ *
+ * ## Three states
+ *  - **unread** — glass: translucent, the field's colour in the rim, the
+ *    headline legible but quiet.
+ *  - **hovered** — the hook question rises above it.
+ *  - **read** — lit from inside, and marked. It stays that way for the day.
+ *
+ * `dimmed` is the field filter: non-matching bubbles recede rather than
  * disappearing, so the filter never makes the sky feel broken.
  */
 export function Planet({
@@ -36,6 +49,11 @@ export function Planet({
   const [hover, setHover] = useState(false);
   const meta = DOMAIN_META[item.domain];
   const showHook = hover && !dimmed;
+  // The headline has to survive a 150px bubble on a short window as well as a
+  // 240px one. Scaling the type with the sphere keeps the text block the same
+  // fraction of the circle at every size, which is what stops it spilling past
+  // the rim when `useFitScale` shrinks the stage.
+  const titleSize = Math.max(11, Math.round(slot.size * 0.062));
 
   return (
     <div
@@ -44,14 +62,11 @@ export function Planet({
         left: slot.x,
         top: slot.y,
         transform: "translate(-50%,-50%)",
-        opacity: dimmed ? 0.24 : 1,
+        opacity: dimmed ? 0.22 : 1,
         transition: "opacity 260ms cubic-bezier(.2,0,0,1)",
         zIndex: hover ? 15 : 10,
       }}
     >
-      {/* The button's box is EXACTLY the sphere. The rank tick and the label
-          are positioned against it, so they can never drift the way they do
-          when a wide label block is part of the flow inside the button. */}
       <button
         type="button"
         onClick={onOpen}
@@ -61,44 +76,63 @@ export function Planet({
         onBlur={() => setHover(false)}
         className="eco-planet group relative block cursor-pointer focus-visible:outline-none"
         style={{ width: slot.size, height: slot.size }}
-        aria-label={
-          discovered
-            ? `${item.title[lang]} — ${meta[lang === "zh" ? "zh" : "en"]}`
-            : `还没看过的 ${meta.zh} 行星，点击打开`
-        }
+        aria-label={`${item.title[lang]} — ${lang === "zh" ? meta.zh : meta.en}${discovered ? "，已浏览" : ""}`}
       >
-        {/* the sphere */}
+        {/* the bubble */}
         <span
-          className={cx(
-            "eco-planet-body eco-planet-spin block overflow-hidden",
-            !discovered && "eco-veil",
-            discovered && "eco-lit",
-          )}
+          className={cx("eco-bubble block", discovered && "eco-bubble-lit")}
           style={{
             width: slot.size,
             height: slot.size,
-            background: `radial-gradient(circle at 34% 30%, color-mix(in srgb, ${meta.hue} 88%, #FFFFFF), ${meta.hue} 58%, color-mix(in srgb, ${meta.hue} 62%, #17130F))`,
+            // Glass, not paint: a wash of the field's hue strongest at the rim,
+            // so the middle stays clear enough to set text on.
+            background: `radial-gradient(circle at 50% 52%,
+                 color-mix(in srgb, ${meta.hue} ${discovered ? 24 : 13}%, transparent) 0%,
+                 color-mix(in srgb, ${meta.hue} ${discovered ? 32 : 19}%, transparent) 58%,
+                 color-mix(in srgb, ${meta.hue} ${discovered ? 60 : 38}%, transparent) 100%)`,
+            borderColor: `color-mix(in srgb, ${meta.hue} ${discovered ? 78 : 46}%, transparent)`,
             boxShadow: discovered
-              ? `0 0 0 1px rgba(255,255,255,.16), 0 18px 46px color-mix(in srgb, ${meta.hue} 34%, transparent), 0 0 70px color-mix(in srgb, ${meta.hue} 26%, transparent)`
-              : "0 0 0 1px rgba(255,255,255,.08), 0 12px 30px rgba(0,0,0,.4)",
+              ? `inset 0 0 40px color-mix(in srgb, ${meta.hue} 28%, transparent),
+                 0 18px 54px color-mix(in srgb, ${meta.hue} 30%, transparent),
+                 0 0 78px color-mix(in srgb, ${meta.hue} 22%, transparent)`
+              : "inset 0 0 34px rgba(255,255,255,.06), 0 14px 40px rgba(0,0,0,.44)",
           }}
+        />
+
+        {/* the headline, inside the glass */}
+        <span
+          className="pointer-events-none absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2
+                     flex-col items-center text-center"
+          style={{ width: slot.size * 0.74 }}
         >
           <span
-            className="absolute inset-0 flex items-center justify-center font-mono font-bold"
-            style={{
-              fontSize: Math.round(slot.size * 0.26),
-              color: "rgba(23,19,15,.5)",
-              textShadow: "0 1px 0 rgba(255,255,255,.28)",
-            }}
-            aria-hidden
+            className="eco-mono mb-1 flex items-center gap-1.5"
+            style={{ color: `color-mix(in srgb, ${meta.hue} 58%, #FFFFFF)` }}
           >
-            {meta.glyph}
+            <span aria-hidden>{meta.glyph}</span>
+            {lang === "zh" ? meta.zh : meta.en}
+          </span>
+          <span
+            className="block"
+            style={{
+              fontSize: titleSize,
+              lineHeight: 1.45,
+              fontWeight: discovered ? 700 : 600,
+              color: discovered ? "#FBF7F1" : "#D9CEC1",
+              textShadow: "0 1px 10px rgba(10,8,6,.8)",
+              display: "-webkit-box",
+              WebkitLineClamp: 4,
+              WebkitBoxOrient: "vertical",
+              overflow: "hidden",
+            }}
+          >
+            {item.title[lang]}
           </span>
         </span>
 
         {/* rank tick — a tiny instrument reading on the rim */}
         <span
-          className="eco-mono absolute -right-1 -top-1 flex h-6 w-6 items-center justify-center rounded-mk-full"
+          className="eco-mono absolute right-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full"
           style={{
             background: "#17130F",
             border: "1px solid rgba(240,233,224,.28)",
@@ -109,45 +143,33 @@ export function Planet({
           {item.rank}
         </span>
 
+        {discovered ? (
+          <span
+            className="eco-mono absolute bottom-[6%] left-1/2 -translate-x-1/2 rounded-mk-full px-2 py-0.5"
+            style={{ background: "rgba(23,19,15,.62)", color: "#8FCFC1", letterSpacing: 0 }}
+          >
+            已浏览
+          </span>
+        ) : null}
+
         {kept ? (
           <span
-            className="absolute -left-1 -top-1 flex h-6 w-6 items-center justify-center rounded-mk-full text-[12px]"
+            className="absolute left-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full text-[12px]"
             style={{ background: "var(--mk-matcha)", color: "#17130F" }}
-            title="已收进你的树"
+            title="已收进待读"
           >
             ✓
           </span>
         ) : null}
 
-        {/* label under the sphere */}
-        <span
-          className="absolute left-1/2 block w-[220px] -translate-x-1/2 text-center"
-          style={{ top: "calc(100% + 10px)" }}
-        >
-          {/* The editorial weight (0.85) used to print here. It told a student
-              nothing she could act on — a bare decimal with no scale and no
-              units. The field name is what actually helps her choose. */}
-          <span className="eco-mono block" style={{ color: "#8E8175" }}>
-            {lang === "zh" ? meta.zh : meta.en}
-          </span>
-          <span
-            className="mt-1 block text-mk-small leading-snug"
-            style={{
-              color: discovered ? "#F0E9E0" : "#6E6459",
-              fontWeight: discovered ? 600 : 400,
-            }}
-          >
-            {discovered ? item.title[lang] : "还没看过"}
-          </span>
-        </span>
-
-        {/* the hook — appears on hover, above everything */}
+        {/* the hook — appears on hover, above everything. It is the one thing
+            still held back: the question the story puts to her. */}
         {showHook ? (
           <span
-            className="eco-in pointer-events-none absolute left-1/2 z-30 w-[290px] -translate-x-1/2 rounded-mk-lg p-4 text-left"
+            className="eco-in pointer-events-none absolute left-1/2 z-30 w-[300px] -translate-x-1/2 rounded-mk-lg p-4 text-left"
             style={{
-              bottom: `calc(100% + 14px)`,
-              background: "rgba(28,23,19,.94)",
+              bottom: "calc(100% + 12px)",
+              background: "rgba(28,23,19,.95)",
               border: "1px solid rgba(240,233,224,.18)",
               boxShadow: "0 26px 60px rgba(0,0,0,.5)",
               backdropFilter: "blur(12px)",
@@ -162,8 +184,8 @@ export function Planet({
             >
               {item.hook[lang]}
             </span>
-            <span className="mt-2.5 block text-mk-small" style={{ color: "#9A8E80" }}>
-              {discovered ? item.title[lang] : "点开看看它是什么"}
+            <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "#9A8E80" }}>
+              {item.lead[lang]}
             </span>
           </span>
         ) : null}

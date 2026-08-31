@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Check, Copy, Plus, Trash2 } from "lucide-react";
+import { Check, Copy, Plus, Trash2 } from "lucide-react";
 import { useEco } from "../store";
 import {
   asList,
@@ -12,7 +12,6 @@ import {
 import { methodById } from "../data/method";
 import { variantsFor } from "../data/projects";
 import { PAGE_EXAMPLES } from "../data/examples";
-import { go } from "../route";
 import type { CardRow, CardValue, Project } from "../data/types";
 import { Btn, Empty, Panel, Sys, cx } from "../ui";
 
@@ -37,7 +36,18 @@ import { Btn, Empty, Panel, Sys, cx } from "../ui";
  * card goes back into the conversation and 印记 responds to what she actually
  * wrote. That is the loop, so it needs a deliberate act.
  */
-export function CardSurface({ project, cardId }: { project: Project; cardId: string }) {
+export function CardSurface({
+  project,
+  cardId,
+  onDone,
+}: {
+  project: Project;
+  cardId: string;
+  /** Close the stage. The card no longer owns a route of its own — it is one
+   *  of four things the workbench panel can hold, so leaving it is the
+   *  panel's business, not a navigation. */
+  onDone: () => void;
+}) {
   const { openCardEntry, saveCard, submitCard } = useEco();
   const spec = cardById(cardId);
   const entry = project.cards.find((c) => c.cardId === cardId);
@@ -56,12 +66,8 @@ export function CardSurface({ project, cardId }: { project: Project; cardId: str
 
   if (!spec) {
     return (
-      <div className="mx-auto max-w-[720px] px-8 py-16">
-        <Empty
-          title="找不到这张卡"
-          body="它可能已经被换掉了。"
-          action={<Btn onClick={() => go({ name: "project", id: project.id })}>回工作台</Btn>}
-        />
+      <div className="px-6 py-10">
+        <Empty title="找不到这张卡" body="它可能已经被换掉了。" action={<Btn onClick={onDone}>收起</Btn>} />
       </div>
     );
   }
@@ -75,19 +81,10 @@ export function CardSurface({ project, cardId }: { project: Project; cardId: str
   const method = spec.method ? methodById(spec.method) : undefined;
 
   return (
-    <div className="mx-auto max-w-[860px] px-8 py-8">
-      <Btn
-        variant="quiet"
-        size="sm"
-        iconStart={<ArrowLeft size={15} />}
-        onClick={() => go({ name: "project", id: project.id })}
-      >
-        回工作台
-      </Btn>
-
+    <div className="h-full overflow-y-auto px-6 py-5">
       {/* ── card head ─────────────────────────────────────────────────── */}
       <div
-        className="mt-4 rounded-mk-lg border p-6"
+        className="rounded-mk-lg border p-5"
         style={{
           borderColor: `color-mix(in srgb, ${spec.hue} 46%, transparent)`,
           background: `color-mix(in srgb, ${spec.hue} 9%, var(--mk-surface))`,
@@ -266,13 +263,13 @@ export function CardSurface({ project, cardId }: { project: Project; cardId: str
           disabled={!answered}
           onClick={() => {
             submitCard(project.id, cardId, values);
-            go({ name: "project", id: project.id });
+            onDone();
           }}
         >
           {done ? "重新提交" : "提交给印记"}
         </Btn>
-        <Btn variant="quiet" onClick={() => go({ name: "project", id: project.id })}>
-          先存着，回工作台
+        <Btn variant="quiet" onClick={onDone}>
+          先存着，收起
         </Btn>
         {!answered ? (
           <span className="text-mk-small text-mk-muted">
