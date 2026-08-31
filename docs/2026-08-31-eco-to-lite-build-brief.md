@@ -1,252 +1,199 @@
-# Building the /eco prototype into real lite features — handoff brief
+# /eco prototype — what exists, where it is, and the principles behind it
 
-> For the **next session**. A previous session built the `/eco` prototype to a
-> settled state; this is everything it hands over: what the prototype is, what it
-> is not, what already exists in the real codebase, which mistakes will make you
-> reimplement a working system, and where to cut the first slice.
+> Handoff for the next session. The `/eco` prototype is a **UI and
+> interaction-rules** prototype: entirely front-end, `sessionStorage` for state,
+> no API, no model calls, mocked data, scripted AI replies.
 >
-> **Read these three before touching any code:**
-> 1. This file.
-> 2. `docs/2026-08-30-ecosystem-prototype-spec.md` — the prototype spec, with nine
->    rounds of revisions (v1–v9). Each round records why the design is what it is
->    and why the previous version was rejected.
-> 3. `docs/2026-08-31-pbl-tool-model.md` — when a tool runs inside the chat and
->    when it earns the right-hand panel.
->
-> Every hard constraint in `AGENTS.md` still applies. This file only adds what
-> `AGENTS.md` does not cover.
+> It lives on the **`worktree-reading-cards`** branch, under
+> `apps/lite-web/src/eco/`. It is not on main, and work continues on this branch.
 
 ---
 
-## 0 · Where the prototype lives
+## 1 · What exists, and where
 
-`/eco` exists **only on the `worktree-reading-cards` branch**. There is no
-`apps/lite-web/src/eco/` on `origin/main`.
+### Documents
 
-```
-git fetch origin
-git checkout worktree-reading-cards
-```
-
-The product owner has decided the build continues **on this branch** — it does
-not need to be merged to main first.
-
----
-
-## 1 · What the prototype is, and is not
-
-`apps/lite-web/src/eco/` is roughly **15,600 lines and entirely front-end**:
-state in `sessionStorage` (`store.tsx`, key `mk-eco-proto-v6`), no API, no model
-calls, waiting faked with timers, branch replies scripted, news invented.
-
-**What it settles is shape, behaviour and copy** — all three have been through
-nine review rounds. It is **not** an implementation to port.
-
-### Do not port
-
-| Not this | Because |
+| Path | What it holds |
 |---|---|
-| The `sessionStorage` model in `store.tsx` | Real state belongs in Postgres, via Go |
-| `data/news.ts` (816 lines of invented news) | Where news comes from is unresolved — see §6 |
-| The timer theatre in `Make.tsx` | Real streaming replaces it |
-| The scripted branch replies in `data/plan.ts` | Real model calls replace them |
-| `projects/PageStudio.tsx` | The old six-step homepage wizard; already unreachable in the prototype, awaiting a decision to delete |
-| The 「先看看做完的样子」 toggle in `page/MyPage.tsx` | Demo-only affordance |
+| `docs/2026-08-30-ecosystem-prototype-spec.md` | The spec, revisions v1–v9. Each round records what changed and **why the previous version was rejected** — the rejections are the useful part |
+| `docs/2026-08-31-pbl-tool-model.md` | When a tool runs inside the chat vs. when it opens the right-hand panel |
+| `AGENTS.md` | Standing project rules; still fully in force |
 
-### Do keep
+### The app shell
 
-- **The copy.** Two of the nine rounds were spent on it — one purging invented
-  jargon, one after the page was rejected for not reading like a personal site.
-  Rewriting the copy throws those reviews away.
-- **The three site layouts** (`site/Essay.tsx`, `Ledger.tsx`, `Magazine.tsx`) and
-  the drawn `Banner` in `site/parts.tsx`. They were built against six real
-  personal sites and can move into the real implementation nearly as-is.
-- **The interaction order**: one question at a time; 印记 states what it guessed
-  before handing work over; nothing settles without a written reason.
+| Path | What it is |
+|---|---|
+| `eco/EcoApp.tsx` | Left rail, one surface in the middle, 印记 as a drawer. Three tabs: 首页 / 项目 / 我的主页 |
+| `eco/route.ts` | Root-relative paths + History API, no router library |
+| `eco/store.tsx` | All state and every action. `sessionStorage`, key `mk-eco-proto-v6` |
+| `eco/ui.tsx` | The prototype's own small UI kit (`Btn`, `Panel`, `Field`, `Sys`, `Empty`, `cx`) |
 
----
+### 世界 — news as planets
 
-## 2 · Five surfaces, very different costs
+| Path | What it is |
+|---|---|
+| `eco/world/WorldView.tsx` | One locked screen; date axis top-left; a single ⓘ for the selection/politics/prototype notes |
+| `eco/world/Planet.tsx` | A floating bubble with the headline inside it |
+| `eco/world/NewsSheet.tsx` | The sheet behind a planet: 导读, headline, hook question, exits |
+| `eco/data/news.ts` | The invented news (816 lines). Bilingual, dated, five per day |
 
-| Surface | Directory | The hard part |
-|---|---|---|
-| 世界 (news planets) | `world/` | **Where the news comes from is unresolved** — likely the most expensive piece |
-| 我的树 (keyword growth) | `home/` | Data already exists in lite (readings, writings); mostly projection and layout |
-| 项目 (the PBL workbench) | `projects/` | **The core**, and where most of the genuinely new work is |
-| 我的主页 / the built site | `page/`, `site/` | The deliverable — see §4 for the architecture call |
-| 印记 drawer | `coach/` | Reuses the existing coach; cheapest |
+### 我的树 — her interests, grown
 
----
+| Path | What it is |
+|---|---|
+| `eco/home/TreeView.tsx` | Six branches, keywords as leaves, a growth axis that replays 起点 → 现在 |
+| `eco/home/KeywordDrawer.tsx` | One keyword: where it came from, 印记's read of it, where to dig |
+| `eco/home/ViewSwitch.tsx` | 世界 ⇄ 我的树 |
+| `eco/data/tree.ts` | Fields, branch geometry, growth stops |
+| `eco/data/library.ts` | The student (林知遥) and her readings and writings |
+| `eco/data/dig.ts` | What a keyword offers next |
 
-## 3 · What the real codebase already has (the prototype knows none of this)
+### 项目 — the PBL workbench (the core)
 
-**This section is the main reason this file exists.** Follow the prototype
-literally and you will reimplement several systems that already work.
+| Path | What it is |
+|---|---|
+| `eco/projects/ProjectsHub.tsx` | First run (one button) → switcher: 开始新项目 composer with category bubbles, and 我的项目 shelf |
+| `eco/projects/Workbench.tsx` | The room: chat left, panel right, publish at the end |
+| `eco/projects/CardSurface.tsx` | Renders a 工具卡 from its spec — schema-driven, no per-card code |
+| `eco/projects/CoverPicker.tsx` | Project covers: 8 grounds × 16 glyphs |
+| `eco/projects/NewProject.tsx` | The other door: pick a track, or talk it through |
+| `eco/projects/panels/Planner.tsx` | The plan: number + name + one line, then 准备好了吗 · 开始 |
+| `eco/projects/panels/StepIntro.tsx` | A step's goal, its 分工方案, and the decision it asks of her |
+| `eco/projects/panels/Roads.tsx` | Two or more approaches, each a hook |
+| `eco/projects/panels/BranchTalk.tsx` | Digging into one approach, then bringing back a reason |
+| `eco/projects/panels/Make.tsx` | 印记's outputs: options / draft / build, each gated on a written reason |
+| `eco/projects/panels/FormSurface.tsx` | The questionnaire: 印记 flags its own bad questions; she rewrites the invitation |
+| `eco/projects/panels/Overview.tsx` | 计划 / 成果 / 方法 tabs |
+| `eco/data/cards.ts` | 20 tool specs, in 7 categories |
+| `eco/data/artifacts.ts` | What 印记 produces, with its guesses and its own admitted faults |
+| `eco/data/plan.ts` | Tool categories, the three plans, approaches, branch scripts |
+| `eco/data/projects.ts` | Tracks, seed projects, covers |
+| `eco/data/types.ts` | Every shape in the prototype, heavily commented |
 
-### 3.1 `summon_card` already exists server-side
+### 我的主页 — the site she builds
 
-`apps/api/internal/api/summoncard.go`, plus `agent/prompt.go`,
-`agent/orchestrator.go`, `agent/messages.go`. The decision layer — the system
-prompt offering the model a `summon_card` tool, the model calling it with a
-stated reason — is implemented. **Do not build a second one.**
+| Path | What it is |
+|---|---|
+| `eco/page/MyPage.tsx` | Her own view, in the shell: public link, 电脑/手机 toggle |
+| `eco/page/PersonalPage.tsx` | `/eco/p/:handle` — the visitor's view, no navigation |
+| `eco/site/BuiltSite.tsx` | Picks the layout from the 方案 she chose |
+| `eco/site/Essay.tsx` | 方案 A — no nav, one enormous serif sentence, a mono metadata table |
+| `eco/site/Ledger.tsx` | 方案 B — dark monospace, one date-sorted index |
+| `eco/site/Magazine.tsx` | 方案 C — banner, nav, post cards, sidebar (the classic blog shape) |
+| `eco/site/parts.tsx` | Shared pieces, including `Banner`, the site's own drawn artwork |
+| `eco/data/site.ts` | The site's content model and where each field comes from |
 
-### 3.2 lite's reading room already runs the whole card loop
+### 印记
 
-`apps/lite-web/src/readings/CoachCard.tsx`, `ReadingCoachPanel.tsx`, and
-`api/readingRoom.ts` (`postReadingCoachTurn`, `listReadingCards`, `coachCardOf`,
-`coachAnswerOf`).
+| Path | What it is |
+|---|---|
+| `eco/coach/CoachDrawer.tsx` | The drawer any surface can call |
+| `eco/data/coach.ts` | Its voice and its openers |
+| `eco/data/method.ts` | What it will and will not do, stated to the student |
 
-**summon → render → submit → feed back into the conversation** is live in lite
-today. The project room should copy that seam rather than invent a parallel one.
+### Dead weight
 
-### 3.3 🚨 The prototype's card model and the shipped one are different
-
-**This is the first decision to make, before any code.**
-
-Shipped: **34 JSON specs** in `packages/contracts/cards/`, mirrored exactly in
-`apps/api/internal/cards/specs/`. The schema is rich — `primitive`,
-`target_type`, `params`, `completion`, `graph_effects`, `observe`, `rubric_dims`,
-`disclosure_tier`, `trigger_condition`, `trigger_keywords`.
-
-Prototype: **20 cards invented in `data/cards.ts`**, with a much thinner shape —
-`kind`, `surface`, `payoff`, and `fields` drawn from
-`text | textarea | choice | multi | rows`.
-
-Shipped `placement` values are `reading`, `reading-toolkit`, `cross-cutting` and
-`status`. **There is no `project` placement.**
-
-So the prototype's cards are *not* a matter of adding a few JSON files. Two
-routes:
-
-- **(a)** Map the 20 onto the existing primitives (`annotate`, `matrix`, `sort`,
-  `compare`, `graph`); drop what will not map. Smallest change, sacrifices some
-  of the prototype's interactions.
-- **(b)** Add a `form`-style primitive (exactly the prototype's field vocabulary)
-  and a `placement: "project"`. Larger change, but all 20 come across intact.
-
-**(b) is the better fit** — the prototype's field primitives are precisely what
-`AGENTS.md` means by "a new card is a new JSON file and never new renderer code".
-But this is a product decision: **ask, do not pick one and start**.
-
-Related: `surface: chat | panel` — whether a tool is asked inside the chat or
-opens the right-hand panel — is a prototype invention with no server-side
-equivalent. It is the central conclusion of
-`docs/2026-08-31-pbl-tool-model.md` and worth preserving.
-
-### 3.4 Card JSON is mirrored in two places
-
-`packages/contracts/cards/` and `apps/api/internal/cards/specs/` must change
-together. Edit one and the other end goes quietly out of sync.
+`eco/projects/PageStudio.tsx` — the old six-step homepage wizard. No entry point
+any more; the 我的主页 tab goes straight to the site. Delete when you like.
 
 ---
 
-## 4 · One architectural recommendation: how the built site is produced
+## 2 · Design principles
 
-In the prototype, 印记 "building the site" is fake — `site/BuiltSite.tsx` is a
-React component. For the real thing there are two routes, and the second is
-strongly preferred:
+Settled across nine rounds. Where an implementation detail collides with one of
+these, the principle wins.
 
-- ❌ **Have the model emit HTML/CSS.** Attractive, but: each round of her
-  feedback becomes an unreviewable code diff; the layout breaks unpredictably;
-  the injection surface is wide; tokens are expensive.
-- ✅ **Structured content plus fixed templates.** The model fills the
-  `SiteContent` model in `data/site.ts` (name, one-line role, post blurbs,
-  project descriptions, site stats…) and picks a layout; rendering stays with the
-  finished `Essay` / `Ledger` / `Magazine` components.
+**On the conversation**
 
-The second route lands exactly where this product needs it: **each round of her
-feedback becomes a concrete change to a content model**, so "here is what changed
-in this version" can be shown line by line — which is the whole design intent of
-the three build rounds (see spec §v8 D: 印记's admissions have to become visible
-pixels).
+- **One question at a time.** Five textareas in a panel is the same five
+  questions asked at once, which is what this rule exists to prevent.
+- **One task at a time.** A question that is just prose is asked **in the chat**.
+  A panel has to be earned — only front-end tools, documents, web pages and
+  designs open it. The test: does the finished thing become an object she points
+  at later, or just answers she gave once?
+- **The toolset is open.** A tool is a spec, so 印记 can mint a new one mid-project.
+  A fixed list of steps the AI must follow is the thing being avoided.
 
-**Publishing**: lite already has a public-link mechanism (`/s/:token` — see how
-`apps/lite-web/src/rootElementFor.tsx` mounts `PublicReportPage` outside
-`LiteApp`). Build `/p/:handle` on that pattern rather than inventing another.
+**On who decides**
 
----
-
-## 5 · Suggested slices
-
-Each ships independently. **S1–S4 is the demo spine**; S5 and S6 can wait.
-
-| Slice | Content | Notes |
-|---|---|---|
-| **S1** | Project data model + room shell, **no AI yet** | Create a project, generate a plan from a template, persist the chat log, open/close the right panel. Real DB, real routing |
-| **S2** | Cards inside the project room | Reuse the seam from §3.2 — **blocked on the §3.3 decision** |
-| **S3** | 印记's outputs: the `options` and `draft` kinds | The two cheap ones first; make "nothing settles without a reason" real |
-| **S4** | The built site | `SiteContent` + three templates + a published URL (see §4) |
-| **S5** | The questionnaire artifact | Needs real recipients and real replies; heaviest, and cuttable |
-| **S6** | Tree + world | Independent of the project flow; can run in parallel or later |
-
----
-
-## 6 · Questions for the product owner — do not guess
-
-1. **Does the /eco 项目 flow fall under `docs/2026-08-09-all-statuses.md`?** That
-   document is the single source of truth for the **writing project** lifecycle;
-   /eco's PBL project is a different one. `AGENTS.md` requires any plan touching
-   the writing-project flow to be validated against it clause by clause.
-   **Settle whether this counts before designing any state machine.**
-2. **Where does the news on the 世界 surface come from?** A real feed, human
-   curation, or an editor tool? The cost differs by an order of magnitude.
-3. **Which of the 20 prototype cards are really existing specs?** `craap` and
-   `concession` clearly overlap. Reuse those instead of building duplicates.
-4. **Delete `PageStudio.tsx`?** It has no entry point in the prototype any more.
-5. **Route (a) or (b) in §3.3.**
-
----
-
-## 7 · Gates, for every slice
-
-```
-# front-end
-cd apps/lite-web && npx tsc --noEmit && npx vitest run
-
-# back-end (both flags matter — they are scar tissue)
-cd apps/api && CGO_ENABLED=0 go test ./... -timeout 1800s
-```
-
-And one gate that is not automated but matters more:
-
-> **Look at the UI in a real browser. Take a Playwright screenshot, then
-> actually look at the image.** The lesson from 2026-08-30: lite had 344 green
-> tests sitting on top of an exported report PNG that was completely blank.
-> "Logic tests only, no assertion per rendered element" is a hard rule — see
-> `AGENTS.md`.
-
----
-
-## 8 · The rules most easily broken
-
-- **The client never calls a model directly.** Keys live server-side only; every
-  call records tier, tokens and cost.
-- **lite must never break pro.** Shared Go packages, `queries/`, `migrations/`,
-  the sqlc directories — the classic way to destroy pro code from a lite task is
-  to **create a file that already exists**.
-- **AI failures must surface.** Never return a plausible canned sentence. If a
-  model call or a parse fails, say it failed.
-- **No `不是…而是` antithesis in copy**, Chinese or English. Positive
-  declaratives only.
-- **The scope of 铁律 (important).** "The AI never writes it for her" governs
-  **the student's own body text only**. On the project side the product owner
-  explicitly revised this: **印记 may do the work — write the code, lay out the
-  page, generate the images — while the judgement stays hers.** Do not re-apply
-  "the AI must not produce anything" to the artifact layer; that layer *is* the
+- **印记 never decides.** It offers two or more approaches. Each is a hook that
+  opens its own branch of conversation; she digs, comes back, and **decides with
+  a reason**.
+- **Nothing settles without a written reason.** Every 收下 / 定稿 button stays
+  disabled until she writes why. The moment 「就用这个」 works on its own, this is
+  a machine that generates and a student who approves.
+- **印记 may do the work; the judgement stays hers.** It writes the code, lays
+  out the page, generates the images. 铁律's 「不代写」 governs **the student's own
+  body text only** — do not re-apply it to the artifact layer, which *is* the
   design.
+- **印记 names what it guessed**, and admits what is still wrong with its own
+  work. A handover that hides its assumptions can only be accepted, never
+  reviewed.
+
+**On the plan**
+
+- Show the steps, then 准备好了吗 · 开始. Do not front-load every detail.
+- **No per-step scheduling.** Asking a student to put a date on each step was
+  tried and cut.
+- Each step states its **goal**, its **分工方案** (what 印记 does, what she does,
+  what she brings back), and the **decision** it asks of her.
+
+**On the site she builds**
+
+- **It is hers, not ours.** Nothing in `site/` may import the app's UI kit
+  (`Btn`, `Panel`, any `mk-*` token). The first version did, and it read as a
+  product screen instead of a person's website.
+- **Her style choice must change the page**, not just the palette. Three options
+  described three different pages; rendering one layout in three colourways made
+  the decision she justified invisible.
+- **Real personal-site furniture**: an identity block, section names people
+  actually use (文章 / 项目 / 关于), a post list with a real meta row, 站点信息,
+  and a footer that is just © name · built with X. No rubric labels over her own
+  paragraphs.
+- **The banner is the site's own artwork**, never a crop of one of her projects —
+  those do different jobs.
+
+**On copy**
+
+- Plain words. No invented jargon (「你排的时间：本周」, 「印记做的 · 你来判断」
+  were all cut); academic register where a term is needed.
+- **No `不是…而是` antithesis**, Chinese or English. Positive declaratives.
+- **No false state claims.** Never name a room she cannot reach or a state that
+  did not happen.
+- **No manipulation**: no streaks, leaderboards, badges or push. Tools trigger
+  automatically, but she confirms opening them.
 
 ---
 
-## 9 · First message to paste into the new session
+## 3 · Work principles
 
-> I want to build the `/eco` prototype into real lite features. The prototype is
-> on the `worktree-reading-cards` branch under `apps/lite-web/src/eco/` (it does
-> not exist on main), and we are building on that branch.
+- **Look at the UI in a real browser.** Take a Playwright screenshot and actually
+  look at the image. In 2026-08-30 lite had 344 green tests sitting on top of an
+  exported report PNG that was completely blank.
+- **Logic tests only** — pure functions, reducers, normalizers, permission
+  checks. No assertion per rendered element; they break on every honest redesign
+  and catch nothing.
+- **AI failures surface.** Never a plausible canned sentence when a model call or
+  a parse fails.
+- **Do not port the mock plumbing** — the `sessionStorage` store, the timer
+  theatre in `Make.tsx`, the scripted replies in `data/plan.ts`, the invented
+  news. Those exist so the design could be settled without a backend.
+- **Documents are written in English**, filenames `YYYY-MM-DD-<kebab>.md`.
+  Chinese stays for product and UI strings.
+- **The client never calls a model directly**; keys are server-side only.
+
+---
+
+## 4 · First message for the new session
+
+> I want to build the `/eco` prototype into lite. It is on the
+> `worktree-reading-cards` branch under `apps/lite-web/src/eco/` (not on main),
+> and we build on that branch. It is a UI and interaction-rules prototype —
+> front-end only, mocked data, scripted AI.
 >
-> Read `docs/2026-08-31-eco-to-lite-build-brief.md` first, then the two documents
-> it points to. Then do **one thing**: produce an implementation plan for S1
-> (project data model + room shell, no AI yet). In the plan, answer the five
-> questions in §6 of the brief explicitly — for the ones that need my decision,
-> list them and ask me rather than picking one and proceeding.
+> Read `docs/2026-08-31-eco-to-lite-build-brief.md`, then the two documents it
+> points to. Then tell me how you would bring the 项目 room into lite for real,
+> and what you would build first. Flag anything that needs my decision instead of
+> choosing it yourself.
 >
 > Do not write code yet.
