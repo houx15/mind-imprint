@@ -86,11 +86,11 @@ const HOMEPAGE: PlanStep[] = [
     title: "受众分析",
     blurb: "确定这个页面写给谁看。",
     goal: "找到一个具体的读者。页面上的每一个决定，最后都要回到这个人身上。",
-    youBring: "想象一个真实的读者：他会在什么时候打开这一页，你希望他看完是什么感受",
+    youBring: "把一个真实的读者做成一张人物卡：他是谁、什么时候打开、想找到什么",
     iBring: "追问到你说得出一个具体的人为止",
     then: "把这个人写下来给我，之后我做的每一版都会按他来判断",
     decide: "这一页为谁存在",
-    opens: { kind: "card", cardId: "motive" },
+    opens: { kind: "card", cardId: "persona" },
   },
   {
     id: "hp-words",

@@ -104,14 +104,45 @@ export function branchPath(field: FieldId): string {
   return `M ${p0[0]} ${p0[1]} C ${p1[0]} ${p1[1]}, ${p2[0]} ${p2[1]}, ${p3[0]} ${p3[1]}`;
 }
 
-/** The growth replay. Index 3 is 现在; a keyword with `bornAt: 2` appears at
- *  the third stop and stays. */
+/**
+ * The growth replay.
+ *
+ * 🚨 **The stops are RELATIVE to when she started, never absolute months.**
+ * The first version read 三月 / 五月 / 七月 / 现在, which is fine for a student
+ * who happens to have started in March and meaningless — worse, quietly false
+ * — for everyone else. A student on her second day would be shown a five-month
+ * growth story that is not hers.
+ *
+ * Relative buckets survive both ends of the range: someone three weeks in has
+ * 起点 and 现在 and nothing between (see `stopsFor`, which drops the buckets
+ * that hold nothing), and someone two years in still has five labels rather
+ * than twenty-four months of dots.
+ *
+ * Index 3 is 现在; a keyword with `bornAt: 2` appears at the third stop and
+ * stays.
+ */
 export const GROWTH_STOPS = [
-  { label: "三月", sub: "刚开始", month: "2026-03" },
-  { label: "五月", sub: "读得多起来", month: "2026-05" },
-  { label: "七月", sub: "开始写", month: "2026-07" },
-  { label: "现在", sub: "8月30日", month: "2026-08" },
+  { label: "起点", sub: "刚开始的时候" },
+  { label: "半年前", sub: "读得多起来" },
+  { label: "近两个月", sub: "开始写" },
+  { label: "现在", sub: "今天" },
 ];
+
+/**
+ * The stops worth showing, given what actually exists.
+ *
+ * A stop that holds no keywords is a dot she can press to see the same tree
+ * she is already looking at. 现在 is always kept — there is always a present —
+ * so a brand-new student gets a single label rather than a scrubber with
+ * nothing to scrub.
+ */
+export function stopsFor(keywords: Keyword[]): number[] {
+  const last = GROWTH_STOPS.length - 1;
+  const live = GROWTH_STOPS.map((_, i) => i).filter(
+    (i) => i === last || keywords.some((k) => k.bornAt <= i),
+  );
+  return live;
+}
 
 export const KEYWORDS: Keyword[] = [
   // ── 科学与自然 ───────────────────────────────────────────────────────────
@@ -121,7 +152,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Exception vs. representative",
     field: "science",
     strength: 5,
-    bornAt: 3,
+    bornAt: 0,
     note: "你现在会先问「这个例子能代表多少」。这是统计思维的入口，也是你写议论文最锋利的一手。",
     at: { t: 0.46, spread: -56 },
     sources: [
@@ -153,7 +184,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Climate & ocean",
     field: "science",
     strength: 3,
-    bornAt: 2,
+    bornAt: 0,
     note: "三次阅读都落在这里。它还没长成你的主问题，但它一直在。",
     at: { t: 0.42, spread: 30 },
     sources: [
@@ -168,7 +199,7 @@ export const KEYWORDS: Keyword[] = [
     en: "How memory forms",
     field: "science",
     strength: 2,
-    bornAt: 3,
+    bornAt: 0,
     note: "你读完就改了自己的作息。知识变成行动的次数，比知识本身值钱。",
     at: { t: 0.88, spread: 28 },
     sources: [
@@ -189,7 +220,7 @@ export const KEYWORDS: Keyword[] = [
     en: "History of ordinary people",
     field: "humanities",
     strength: 4,
-    bornAt: 2,
+    bornAt: 1,
     note: "你反复回到同一个念头：大事件之外，谁在记录日常。这可能是你的长期问题。",
     at: { t: 0.48, spread: 48 },
     sources: [
@@ -216,7 +247,7 @@ export const KEYWORDS: Keyword[] = [
     en: "The hook opening",
     field: "humanities",
     strength: 3,
-    bornAt: 3,
+    bornAt: 1,
     note: "你用过一次就用顺了：先甩一个具体的数字，再问一句。这是你自己的招式了。",
     at: { t: 0.38, spread: -28 },
     sources: [
@@ -235,7 +266,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Concession",
     field: "humanities",
     strength: 4,
-    bornAt: 3,
+    bornAt: 1,
     note: "「我承认……可是……」——你会主动写对方的道理了。会让步的人才有说服力。",
     at: { t: 0.90, spread: -32 },
     sources: [
@@ -261,7 +292,7 @@ export const KEYWORDS: Keyword[] = [
     en: "A sense of scale",
     field: "society",
     strength: 3,
-    bornAt: 3,
+    bornAt: 1,
     note: "4 平方公里 vs 34.4 万平方公里。你开始用「多大」去衡量一件事值不值得高兴。",
     at: { t: 0.6, spread: -24 },
     sources: [
@@ -275,7 +306,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Who decided for us",
     field: "society",
     strength: 2,
-    bornAt: 3,
+    bornAt: 2,
     note: "从一盏修不好的台灯开始的问题。它可以长很大。",
     at: { t: 0.78, spread: 28 },
     sources: [
@@ -297,7 +328,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Right to repair",
     field: "making",
     strength: 4,
-    bornAt: 3,
+    bornAt: 2,
     note: "你从一件小事（家里的台灯）走到了一个真实的公共议题。这条路很值钱。",
     at: { t: 0.63, spread: 36 },
     sources: [
@@ -312,7 +343,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Design ethics",
     field: "making",
     strength: 3,
-    bornAt: 3,
+    bornAt: 2,
     note: "「为最少数人设计」和「故意让它坏」是同一枚硬币的两面，你两面都看到了。",
     at: { t: 0.76, spread: -30 },
     sources: [
@@ -332,7 +363,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Shipping it",
     field: "making",
     strength: 1,
-    bornAt: 3,
+    bornAt: 2,
     note: "刚冒头。等你的第一个项目发布，它会长起来。",
     at: { t: 0.26, spread: -28 },
     sources: [{ kind: "project", id: "p-homepage", label: "建一个属于我的主页", date: "2026-08-30" }],
@@ -345,7 +376,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Restraint",
     field: "arts",
     strength: 2,
-    bornAt: 3,
+    bornAt: 2,
     note: "修画只补 3%。你把它记下来了，还用在了自己的文章上——你删掉了两段。",
     at: { t: 0.72, spread: 28 },
     sources: [
@@ -364,7 +395,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Craft & time",
     field: "arts",
     strength: 1,
-    bornAt: 2,
+    bornAt: 3,
     note: "只有一次来源。想让它长大，再读一篇同方向的就够了。",
     at: { t: 0.30, spread: -26 },
     sources: [{ kind: "reading", id: "r-restore", label: "修了十一年，只补了 3%", date: "2026-08-05" }],
@@ -427,7 +458,7 @@ export const KEYWORDS: Keyword[] = [
     en: "Watching myself",
     field: "self",
     strength: 3,
-    bornAt: 2,
+    bornAt: 3,
     note: "你写过三篇「我做了什么、结果怎样」。这个习惯比任何一篇文章都重要。",
     at: { t: 0.30, spread: 40 },
     sources: [

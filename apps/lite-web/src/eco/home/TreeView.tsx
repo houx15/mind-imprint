@@ -1,9 +1,9 @@
 import { useMemo, useRef, useState } from "react";
-import { BookOpen, Hexagon, MessageCircle, PenLine } from "lucide-react";
 import { useEco } from "../store";
 import {
   FIELDS,
   GROWTH_STOPS,
+  stopsFor,
   KEYWORDS,
   branchPath,
   fieldById,
@@ -51,7 +51,7 @@ import { KeywordDrawer } from "./KeywordDrawer";
  * built from). Nothing rewards frequency (铁律②).
  */
 export function TreeView() {
-  const { state, setGrowth, openCoach } = useEco();
+  const { state, setGrowth } = useEco();
   const [openId, setOpenId] = useState<string | null>(null);
   const [hoverField, setHoverField] = useState<FieldId | null>(null);
 
@@ -62,6 +62,9 @@ export function TreeView() {
 
   const stop = state.growth;
   const visible = useMemo(() => KEYWORDS.filter((k) => k.bornAt <= stop), [stop]);
+  // Only the stops that actually hold something. A dot that shows the tree she
+  // is already looking at is a control that does nothing.
+  const liveStops = useMemo(() => stopsFor(KEYWORDS), []);
   const maturity = 0.42 + (stop / 3) * 0.58;
   // Words she kept from 世界 are collected NOW, so they exist only at the
   // present stop. Showing them while the replay is rewound put a keyword on a
@@ -92,6 +95,63 @@ export function TreeView() {
             {STUDENT.name}
             <span className="ml-2 text-mk-body font-normal text-[#9A8E80]">{STUDENT.grade}</span>
           </h1>
+
+          {/* The growth axis, top-left under the name — same position and
+              behaviour as the world's date axis, because it answers the same
+              shape of question: 「我在看哪个时候」.
+
+              🚨 Only the stops that hold something (`stopsFor`). With one stop
+              there is nothing to scrub, so it becomes a sentence about what
+              makes the tree grow instead of a scrubber that does nothing. */}
+          {liveStops.length > 1 ? (
+            <div className="mt-3 flex items-center">
+              {liveStops.map((si, i) => {
+                const st = GROWTH_STOPS[si]!;
+                const active = si === stop;
+                return (
+                  <div key={st.label} className="flex items-center">
+                    <button
+                      type="button"
+                      onClick={() => setGrowth(si)}
+                      aria-pressed={active}
+                      className="group flex flex-col items-center gap-1.5 px-2.5 py-1 focus-visible:outline-none"
+                      title={st.sub}
+                    >
+                      <span
+                        className="h-2 w-2 transition-all duration-[200ms] ease-mk"
+                        style={{
+                          background: active ? "var(--mk-accent-400)" : "rgba(240,233,224,.32)",
+                          transform: active ? "rotate(45deg) scale(1.5)" : "rotate(45deg)",
+                          boxShadow: active ? "0 0 12px var(--mk-accent-400)" : "none",
+                        }}
+                      />
+                      <span
+                        className={cx(
+                          "whitespace-nowrap text-mk-small transition-colors duration-[160ms]",
+                          active ? "font-semibold text-[#F5EFE7]" : "text-[#8E8175]",
+                        )}
+                      >
+                        {st.label}
+                      </span>
+                    </button>
+                    {i < liveStops.length - 1 ? (
+                      <span
+                        className="mb-5 h-px w-6 shrink-0"
+                        style={{ background: "rgba(240,233,224,.18)" }}
+                      />
+                    ) : null}
+                  </div>
+                );
+              })}
+              <span className="mb-5 ml-3 text-mk-small text-[#8E8175]">
+                {stop === GROWTH_STOPS.length - 1 ? `${total} 个关键词` : `那时候 ${total} 个`}
+              </span>
+            </div>
+          ) : (
+            <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-[#8E8175]">
+              你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。
+            </p>
+          )}
         </div>
         <ViewSwitch view="tree" />
         <div className="flex items-center gap-5">
@@ -118,57 +178,6 @@ export function TreeView() {
           </span>
         </div>
       </header>
-
-      {/* ── timeline ──────────────────────────────────────────────────── */}
-      <div className="relative z-20 mt-5 flex flex-wrap items-center gap-4 px-7">
-        <Sys tone="dark">时间轴</Sys>
-        <div className="flex items-center">
-          {GROWTH_STOPS.map((s, i) => {
-            const active = i === stop;
-            const past = i < stop;
-            return (
-              <div key={s.label} className="flex items-center">
-                <button
-                  type="button"
-                  onClick={() => setGrowth(i)}
-                  className="group flex flex-col items-center gap-1.5 px-3 py-1 focus-visible:outline-none"
-                  aria-pressed={active}
-                >
-                  <span
-                    className="h-2 w-2 transition-all duration-[200ms] ease-mk"
-                    style={{
-                      background: active
-                        ? "var(--mk-accent-400)"
-                        : past
-                          ? "rgba(240,233,224,.5)"
-                          : "transparent",
-                      border: active || past ? "none" : "1px solid rgba(240,233,224,.3)",
-                      transform: active ? "rotate(45deg) scale(1.5)" : "rotate(45deg)",
-                      boxShadow: active ? "0 0 12px var(--mk-accent-400)" : "none",
-                    }}
-                  />
-                  <span
-                    className={cx(
-                      "whitespace-nowrap text-mk-small transition-colors duration-[160ms]",
-                      active ? "font-semibold text-[#F5EFE7]" : "text-[#9A8E80]",
-                    )}
-                  >
-                    {s.label}
-                  </span>
-                </button>
-                {i < GROWTH_STOPS.length - 1 ? (
-                  <span className="h-px w-8 shrink-0" style={{ background: "rgba(240,233,224,.18)" }} />
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-        <p className="text-mk-small text-[#9A8E80]">
-          {stop === GROWTH_STOPS.length - 1
-            ? `现在：${total} 个关键词。`
-            : `${GROWTH_STOPS[stop]?.sub ?? ""} —— 那时候树上有 ${total} 个词。`}
-        </p>
-      </div>
 
       {/* ── field index (chip row, below xl) ───────────────────────────── */}
       <div className="relative z-20 mb-2 mt-3 flex flex-wrap gap-1.5 px-7 xl:hidden">
@@ -197,7 +206,7 @@ export function TreeView() {
       </div>
 
       {/* ── the structure ─────────────────────────────────────────────── */}
-      <div className="relative z-10 px-7 pb-28 pt-2">
+      <div className="relative z-10 px-7 pb-10 pt-2">
         {/* Height-first, width derived. The model has to fit ON SCREEN: a
             picture of yourself you must scroll to see is a document, not a
             picture. */}
@@ -284,29 +293,6 @@ export function TreeView() {
             );
           })}
         </ul>
-      </div>
-
-      {/* ── action dock ───────────────────────────────────────────────── */}
-      <div className="fixed bottom-6 left-1/2 z-30 -translate-x-1/2">
-        <div
-          className="flex items-center gap-1 rounded-mk-full p-1.5"
-          style={{
-            background: "rgba(28,23,19,.86)",
-            border: "1px solid rgba(240,233,224,.16)",
-            backdropFilter: "blur(14px)",
-            boxShadow: "0 24px 60px rgba(0,0,0,.5)",
-          }}
-        >
-          <Dock icon={<BookOpen size={17} strokeWidth={1.8} />} label="读" sub="找一篇" onClick={() => go({ name: "readings" })} />
-          <Dock icon={<PenLine size={17} strokeWidth={1.8} />} label="写" sub="写一篇" onClick={() => go({ name: "writings" })} />
-          <Dock icon={<Hexagon size={17} strokeWidth={1.8} />} label="做" sub="开项目" onClick={() => go({ name: "projects" })} />
-          <Dock
-            icon={<MessageCircle size={17} strokeWidth={1.8} />}
-            label="聊"
-            sub="问印记"
-            onClick={() => openCoach("tree")}
-          />
-        </div>
       </div>
 
       <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} />
@@ -767,33 +753,5 @@ function Bead({
         </span>
       </button>
     </div>
-  );
-}
-
-function Dock({
-  icon,
-  label,
-  sub,
-  onClick,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  sub: string;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="flex items-center gap-2.5 rounded-mk-full px-4 py-2 transition-colors duration-[120ms] ease-mk
-                 hover:bg-[rgba(240,233,224,.1)] focus-visible:outline-none focus-visible:ring-2
-                 focus-visible:ring-[#8A7F72]"
-    >
-      <span style={{ color: "var(--mk-accent-300)" }}>{icon}</span>
-      <span className="text-left">
-        <span className="block text-mk-body font-semibold leading-tight text-[#F0E9E0]">{label}</span>
-        <span className="block text-[11px] leading-tight text-[#8A7F72]">{sub}</span>
-      </span>
-    </button>
   );
 }

@@ -212,6 +212,20 @@ export interface CardSpec {
   title: string;
   /** Which kind of move this is. */
   kind: ToolKind;
+  /**
+   * Where this tool is used.
+   *
+   * 🚨 **`chat` is the default and the panel has to earn its place.** A tool
+   * whose input is prose does not need a working surface — it needs 印记 to ask
+   * one question and wait for the answer, which is 铁律③ (一次只问一个) applied
+   * to tools rather than only to conversation. Five textareas in a sidebar is
+   * the same five questions asked all at once, which is the thing the law
+   * exists to prevent, and it is boring in a way a conversation is not.
+   *
+   * `panel` is for input a chat line cannot hold: a table of references, a set
+   * of options to compare side by side, a figure you assemble and look at.
+   */
+  surface: "chat" | "panel";
   /** One line, in 印记's voice, saying WHY it is offering this card right now.
    *  Never summon a card without showing the reason — an unexplained card is
    *  an ambush, and this product's whole claim is that the student can see
@@ -508,6 +522,9 @@ export interface Project {
   plan: PlanStep[];
   /** Index into the ACTIVE (non-`off`) steps. */
   at: number;
+  /** The question 印记 is waiting on, when the current tool runs in chat.
+   *  `field` indexes into the spec's `fields`. */
+  ask: { cardId: string; field: number } | null;
   artifacts: Record<string, ArtifactState>;
   cover: string;
   summary?: string;

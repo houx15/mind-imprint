@@ -2,8 +2,6 @@ import { useMemo, useRef, useState } from "react";
 import { Info, Languages } from "lucide-react";
 import { useEco } from "../store";
 import {
-  DOMAIN_META,
-  DOMAIN_ORDER,
   NEWS_DATES,
   POLITICS_NOTE,
   SELECTION_NOTE,
@@ -12,7 +10,7 @@ import {
 } from "../data/news";
 import type { NewsItem } from "../data/types";
 import { ViewSwitch } from "../home/ViewSwitch";
-import { Chip, Panel, Sys, cx } from "../ui";
+import { Panel, Sys, cx } from "../ui";
 import { useFitScale } from "../fit";
 import { Planet } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
@@ -30,29 +28,36 @@ import { NewsSheet } from "./NewsSheet";
  *    QUESTION the story puts to her. A question is what makes a 13-year-old
  *    lean in; the headline is only what stops her guessing.
  * 4. **The omission is stated.** Politics and conflict are filtered at the
- *    data level, and the chip that says so opens a real explanation. A
- *    filtered set presented as "everything" is a lie by layout.
+ *    data level, and the ⓘ in the header says so in full. A filtered set
+ *    presented as "everything" is a lie by layout.
  * 5. **No streaks, no leaderboards, no badges.** The counter reads
  *    「已浏览 2 / 5」and resets with the day. Nothing here rewards coming
  *    back tomorrow (铁律②).
  *
- * ## The list under the stage is gone (2026-08-31)
- * There was a 「今天这五条」 ledger below the map: the same five stories as
- * text. It existed because the old planets were unlabelled, so the map alone
- * could not tell a student what the day held — the list was a workaround for
- * the bubbles not talking. Now that each bubble carries its headline, the
- * list is a second copy of the screen above it, and a screen that says
- * everything twice teaches that neither copy is the real one.
+ * ## One screen (2026-08-31, second pass)
+ * Everything below the stage is gone: the 「今天这五条」 ledger (a second copy
+ * of the map, and a screen that says everything twice teaches that neither
+ * copy is the real one), the eight domain filter chips, and the row of
+ * honesty chips.
  *
- * The page still scrolls: below the stage sit the timeline and the
- * transparency notes, which are console, not content.
+ * The map is the screen now. **A field of five things does not need a
+ * filter** — filtering five items into two is a control that costs more
+ * attention than it saves, and it existed because the console had room, not
+ * because anyone needed it.
+ *
+ * The date moved up: a short axis under the title, top-left, where it reads
+ * as *which day am I looking at* rather than as a row of buttons.
+ *
+ * 🚨 The transparency did NOT go with the clutter. Both notes and the
+ * prototype-data disclosure moved into one ⓘ beside the counter. The rule is
+ * that the omission is stated somewhere a student can find, not that it
+ * occupies a quarter of the screen.
  *
  * Planet positions are hand-placed per rank rather than laid out by an
  * algorithm: five objects on a stage is a composition, and a composition
  * beats a distribution every time.
  */
 
-/** Hand-placed stage positions, keyed by rank (1 = most important). */
 /** Hand-placed stage positions, keyed by rank (1 = most important).
  *
  *  Sizes roughly doubled when the headline moved inside the glass: a bubble is
@@ -69,9 +74,9 @@ const SLOTS: Record<number, { x: string; y: string; size: number; drift: string 
 };
 
 export function WorldView() {
-  const { state, setDate, setLang, setDomainFilter, discover } = useEco();
+  const { state, setDate, setLang, discover } = useEco();
   const [openId, setOpenId] = useState<string | null>(null);
-  const [note, setNote] = useState<"politics" | "selection" | null>(null);
+  const [note, setNote] = useState<string | null>(null);
   const fieldRef = useRef<HTMLDivElement>(null);
   // Planets are fixed pixel sizes on a stage that shrinks. Without this, a
   // 700px-tall window overlaps planet 1's title with planet 5.
@@ -86,22 +91,57 @@ export function WorldView() {
     setOpenId(item.id);
   }
 
-  const matching = state.domainFilter
-    ? items.filter((n) => n.domain === state.domainFilter)
-    : items;
-
   return (
-    <div className="eco-sky eco-stars relative min-h-full">
+    <div className="eco-sky eco-stars relative flex h-full flex-col overflow-hidden">
       {/* ── top bar ─────────────────────────────────────────────────────── */}
-      <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
+      <header className="relative z-20 flex flex-wrap items-start justify-between gap-4 px-7 pt-5">
         <div className="min-w-0">
           <Sys tone="dark">今日探索地图 · EXPLORATION MAP</Sys>
           <p className="mt-1 text-mk-h2 text-[#F5EFE7]">
             {labelForDate(state.date, state.lang)}
-            <span className="ml-3 font-mono text-mk-small font-normal text-[#8E8175]">
-              {state.date}
-            </span>
           </p>
+          {/* The date axis. Top-left, under the title, because the question it
+              answers is 「我在看哪一天」 — which belongs beside the day, not in
+              a console at the far end of the page. */}
+          <div className="mt-3 flex items-center">
+            {NEWS_DATES.map((d, i) => {
+              const active = d === state.date;
+              return (
+                <div key={d} className="flex items-center">
+                  <button
+                    type="button"
+                    onClick={() => setDate(d)}
+                    aria-pressed={active}
+                    className="group flex flex-col items-center gap-1.5 px-2.5 py-1 focus-visible:outline-none"
+                    title={d}
+                  >
+                    <span
+                      className="h-2 w-2 transition-all duration-[200ms] ease-mk"
+                      style={{
+                        background: active ? "var(--mk-accent-400)" : "rgba(240,233,224,.32)",
+                        transform: active ? "rotate(45deg) scale(1.5)" : "rotate(45deg)",
+                        boxShadow: active ? "0 0 12px var(--mk-accent-400)" : "none",
+                      }}
+                    />
+                    <span
+                      className={cx(
+                        "whitespace-nowrap text-mk-small transition-colors duration-[160ms]",
+                        active ? "font-semibold text-[#F5EFE7]" : "text-[#8E8175]",
+                      )}
+                    >
+                      {i === 0 ? "今天" : labelForDate(d, state.lang)}
+                    </span>
+                  </button>
+                  {i < NEWS_DATES.length - 1 ? (
+                    <span
+                      className="mb-5 h-px w-6 shrink-0"
+                      style={{ background: "rgba(240,233,224,.18)" }}
+                    />
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
         </div>
 
         <ViewSwitch view="world" />
@@ -128,17 +168,27 @@ export function WorldView() {
               {lit} / {items.length}
             </span>
           </div>
+          {/* One button for everything this screen owes the student about how
+              the five were chosen and what is missing. */}
+          <button
+            type="button"
+            onClick={() => setNote(note ? null : "selection")}
+            aria-label="这五条是怎么来的"
+            title="这五条是怎么来的"
+            className="flex h-[34px] w-[34px] items-center justify-center rounded-mk-full transition-colors
+                       duration-[120ms] ease-mk hover:bg-[rgba(240,233,224,.1)] focus-visible:outline-none
+                       focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
+            style={{ border: "1px solid rgba(240,233,224,.18)", color: "#D8CCBD" }}
+          >
+            <Info size={15} strokeWidth={1.8} />
+          </button>
         </div>
       </header>
 
       {/* ── the stage ───────────────────────────────────────────────────── */}
-      {/* Height-capped rather than flex-filled: the console below it is real
-          content, and a stage that fills the viewport pushes it off-screen. */}
-      <div
-        ref={fieldRef}
-        className="relative z-10"
-        style={{ height: "min(760px, calc(100vh - 200px))", minHeight: 440 }}
-      >
+      {/* Flex-filled: nothing sits below it any more, so the map takes the
+          whole remaining screen. */}
+      <div ref={fieldRef} className="relative z-10 min-h-0 flex-1">
         {/* Orbit rings. Purely atmospheric: they give the field a centre. */}
         <div className="pointer-events-none absolute inset-0 overflow-hidden">
           <div
@@ -159,7 +209,6 @@ export function WorldView() {
           // Every item has rank 1..5 by construction; fall back to the
           // smallest slot rather than crashing on unexpected data.
           const slot = SLOTS[item.rank] ?? SLOTS[5]!;
-          const dimmed = state.domainFilter !== null && state.domainFilter !== item.domain;
           return (
             <Planet
               key={item.id}
@@ -168,31 +217,15 @@ export function WorldView() {
               slot={{ ...slot, size: Math.round(slot.size * scale) }}
               discovered={state.discovered.includes(item.id)}
               kept={state.kept.includes(item.id)}
-              dimmed={dimmed}
+              dimmed={false}
               onOpen={() => onOpen(item)}
             />
           );
         })}
 
-        {matching.length === 0 ? (
-          <div className="absolute inset-0 z-20 flex items-center justify-center">
-            <Panel tone="dark" className="eco-in max-w-[42ch] p-6 text-center">
-              <Sys tone="dark">这一天没有这个领域</Sys>
-              <p className="mt-2 text-mk-body-lg leading-[1.85] text-[#E6DDD2]">
-                {state.lang === "zh"
-                  ? "每天只有五条，所以不是每个领域每天都会出现。换一天，或者看全部。"
-                  : "Only five a day, so not every field appears every day. Try another day, or view all."}
-              </p>
-              <div className="mt-4 flex justify-center gap-2">
-                <Chip tone="dark" active onClick={() => setDomainFilter(null)}>
-                  看全部领域
-                </Chip>
-              </div>
-            </Panel>
-          </div>
-        ) : lit === 0 && scale > 0.9 ? (
+        {lit === 0 && scale > 0.9 ? (
           <p
-            className="pointer-events-none absolute bottom-1 left-1/2 -translate-x-1/2 text-center text-mk-small"
+            className="pointer-events-none absolute bottom-2 left-1/2 -translate-x-1/2 text-center text-mk-small"
             style={{ color: "#8E8175" }}
           >
             五个泡泡，五条今天值得知道的事。把光标移上去，它会先问你一个问题。
@@ -200,114 +233,12 @@ export function WorldView() {
         ) : null}
       </div>
 
-      {/* ── bottom console ──────────────────────────────────────────────── */}
-      <footer className="relative z-20 px-7 pb-10 pt-8">
-        <div className="eco-scanline mb-5" />
-
-        <div className="flex flex-wrap items-end justify-between gap-5">
-          {/* date rail */}
-          <div>
-            <Sys tone="dark" className="mb-2 block">
-              时间轴
-            </Sys>
-            <div className="flex items-center gap-1.5">
-              {NEWS_DATES.map((d, i) => {
-                const active = d === state.date;
-                return (
-                  <button
-                    key={d}
-                    type="button"
-                    onClick={() => setDate(d)}
-                    className={cx(
-                      "group relative rounded-mk-md px-3 py-2 text-left transition-all duration-[160ms] ease-mk",
-                      "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]",
-                    )}
-                    style={{
-                      background: active ? "rgba(240,233,224,.94)" : "rgba(240,233,224,.05)",
-                      border: active
-                        ? "1px solid transparent"
-                        : "1px solid rgba(240,233,224,.14)",
-                      color: active ? "#17130F" : "#B6A99A",
-                    }}
-                  >
-                    <span className="eco-mono block opacity-70">{i === 0 ? "TODAY" : `D-${i}`}</span>
-                    <span className="mt-0.5 block whitespace-nowrap text-mk-small font-semibold">
-                      {labelForDate(d, state.lang)}
-                    </span>
-                    {/* tick marks under the rail — a scale, not just buttons */}
-                    <span
-                      aria-hidden
-                      className="absolute -bottom-2 left-1/2 h-1.5 w-px -translate-x-1/2"
-                      style={{ background: active ? "var(--mk-accent-400)" : "rgba(240,233,224,.2)" }}
-                    />
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* filters + honesty chips */}
-          <div className="flex max-w-full flex-col items-start gap-2.5">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <Chip
-                tone="dark"
-                active={state.domainFilter === null}
-                onClick={() => setDomainFilter(null)}
-              >
-                全部领域
-              </Chip>
-              {DOMAIN_ORDER.map((d) => (
-                <Chip
-                  key={d}
-                  tone="dark"
-                  hue={DOMAIN_META[d].hue}
-                  active={state.domainFilter === d}
-                  onClick={() => setDomainFilter(state.domainFilter === d ? null : d)}
-                >
-                  {state.lang === "zh" ? DOMAIN_META[d].zh : DOMAIN_META[d].en}
-                </Chip>
-              ))}
-            </div>
-            <div className="flex flex-wrap items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setNote(note === "politics" ? null : "politics")}
-                className="inline-flex items-center gap-1.5 rounded-mk-full px-3 py-1.5 text-mk-small
-                           transition-colors duration-[120ms] ease-mk hover:bg-[rgba(240,233,224,.1)]
-                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-                style={{ border: "1px dashed rgba(240,233,224,.26)", color: "#B6A99A" }}
-              >
-                <Info size={13} strokeWidth={1.8} />
-                已过滤：政治与冲突
-              </button>
-              <button
-                type="button"
-                onClick={() => setNote(note === "selection" ? null : "selection")}
-                className="inline-flex items-center gap-1.5 rounded-mk-full px-3 py-1.5 text-mk-small
-                           transition-colors duration-[120ms] ease-mk hover:bg-[rgba(240,233,224,.1)]
-                           focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
-                style={{ border: "1px dashed rgba(240,233,224,.26)", color: "#B6A99A" }}
-              >
-                <Info size={13} strokeWidth={1.8} />
-                为什么是这五条
-              </button>
-              {/* Honesty about the data itself. Remove ONLY when the items
-                  become real reporting — see data/news.ts. */}
-              <span
-                className="eco-mono rounded-mk-full px-2.5 py-1.5"
-                style={{ border: "1px solid rgba(240,233,224,.14)", color: "#7C7166" }}
-                title="这些新闻是为原型写的示例内容，不是真实报道"
-              >
-                原型数据
-              </span>
-            </div>
-          </div>
-        </div>
-
-        {note ? (
-          <Panel tone="dark" className="eco-in mt-4 max-w-[70ch] p-5">
+      {/* ── how the five were chosen ───────────────────────────────────── */}
+      {note ? (
+        <div className="pointer-events-none absolute inset-0 z-30 flex items-end justify-center px-7 pb-7">
+          <Panel tone="dark" className="eco-in pointer-events-auto max-w-[74ch] p-5">
             <div className="flex items-start justify-between gap-4">
-              <Sys tone="dark">{note === "politics" ? "为什么这里没有政治" : "五条是怎么挑的"}</Sys>
+              <Sys tone="dark">这五条是怎么来的</Sys>
               <button
                 type="button"
                 onClick={() => setNote(null)}
@@ -316,12 +247,22 @@ export function WorldView() {
                 关闭
               </button>
             </div>
-            <p className="mt-2 text-mk-body-lg leading-[1.85] text-[#E6DDD2]">
-              {(note === "politics" ? POLITICS_NOTE : SELECTION_NOTE)[state.lang]}
+            <p className="mt-2 text-mk-body leading-[1.85] text-[#E6DDD2]">
+              {SELECTION_NOTE[state.lang]}
+            </p>
+            <p className="mt-3 border-t pt-3 text-mk-body leading-[1.85] text-[#E6DDD2]"
+               style={{ borderColor: "rgba(240,233,224,.14)" }}>
+              {POLITICS_NOTE[state.lang]}
+            </p>
+            {/* Honesty about the data itself. Remove ONLY when the items become
+                real reporting — see data/news.ts. */}
+            <p className="mt-3 border-t pt-3 text-mk-small leading-[1.8] text-[#9A8E80]"
+               style={{ borderColor: "rgba(240,233,224,.14)" }}>
+              原型说明：这些新闻是为原型写的示例内容，不是真实报道。
             </p>
           </Panel>
-        ) : null}
-      </footer>
+        </div>
+      ) : null}
 
       <NewsSheet item={open} onClose={() => setOpenId(null)} />
     </div>

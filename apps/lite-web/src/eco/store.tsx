@@ -19,14 +19,13 @@ import {
 } from "./data/projects";
 import { activeSteps, branchReply, planById } from "./data/plan";
 import { artifactById } from "./data/artifacts";
-import { refeed } from "./data/cards";
+import { cardById, refeed } from "./data/cards";
 import { TODAY } from "./data/news";
 import type {
   ArtifactState,
   Branch,
   CardEntry,
   CardValue,
-  Domain,
   HomepageSection,
   Lang,
   PlanStep,
@@ -117,6 +116,32 @@ const FRESH_FORM: NonNullable<ArtifactState["form"]> = {
 };
 
 /**
+ * The prompt for one field of a chat tool.
+ *
+ * 🚨 One question, then stop. This is 铁律③ applied to tools: five textareas in
+ * a sidebar is the same five questions asked at once, which is exactly what
+ * the law exists to prevent — and it is boring in a way a conversation is not.
+ */
+function askText(cardId: string, field: number): string {
+  const spec = cardById(cardId);
+  const f = spec?.fields[field];
+  if (!spec || !f) return "";
+  const head = field === 0 ? `**${spec.title}**\n\n${spec.reason}\n\n` : "";
+  const hint = f.hint ? `\n\n${f.hint}` : "";
+  // Plain text: `Bold` renders `**` only, so any other markdown marker
+  // prints its own underscores at a student.
+  const eg = f.placeholder ? `\n\n例如：${f.placeholder.replace(/^例如：/, "")}` : "";
+  return `${head}${f.label}${hint}${eg}`;
+}
+
+/** Put the next question on the table, or return null when the tool is done. */
+function nextAsk(cardId: string, field: number): { cardId: string; field: number } | null {
+  const spec = cardById(cardId);
+  if (!spec) return null;
+  return field < spec.fields.length ? { cardId, field } : null;
+}
+
+/**
  * Walk the project onto plan step `index` and put whatever it opens on the
  * table.
  *
@@ -157,13 +182,30 @@ function enterStep(p: Project, index: number): Project {
 
   if (opens?.kind === "card") {
     const cid = opens.cardId;
+    const cards = p.cards.some((c) => c.cardId === cid)
+      ? p.cards
+      : [...p.cards, { cardId: cid, status: "invited" as const, values: {} }];
+
+    // A chat tool has no panel to open, so there is nothing to confirm: 印记
+    // simply asks the first question and waits. 铁律② governs opening a
+    // WORKING SURFACE, not asking a question.
+    if (cardById(cid)?.surface === "chat") {
+      return {
+        ...p,
+        at: index,
+        ask: { cardId: cid, field: 0 },
+        cards: cards.map((c) => (c.cardId === cid ? { ...c, status: "open" as const } : c)),
+        thread: [
+          ...thread,
+          { id: uid("q"), kind: "say", role: "coach", text: askText(cid, 0) },
+        ],
+      };
+    }
     return {
       ...p,
       at: index,
       thread: [...thread, { id: uid("c"), kind: "card", cardId: cid }],
-      cards: p.cards.some((c) => c.cardId === cid)
-        ? p.cards
-        : [...p.cards, { cardId: cid, status: "invited", values: {} }],
+      cards,
     };
   }
   if (opens?.kind === "make") {
@@ -178,12 +220,56 @@ function enterStep(p: Project, index: number): Project {
   return { ...p, at: index, thread };
 }
 
+/**
+ * A finished tool goes back into the conversation and the plan moves on.
+ *
+ * Shared by the panel path (提交) and the chat path (her last answer), because
+ * the two must produce identical state — a card filled in chat has to appear
+ * in 成果 exactly like one filled in a panel, or 过程即数据 quietly stops being
+ * true for half the tools.
+ */
+function finishCard(p: Project, cardId: string, values: Record<string, CardValue>): Project {
+  const cards = upsertCard(p.cards, cardId, (c) => ({
+    ...c,
+    status: "done" as const,
+    values,
+    doneAt: new Date().toISOString().slice(0, 10),
+  }));
+  const fed: Project = {
+    ...p,
+    cards,
+    ask: null,
+    thread: [
+      ...p.thread,
+      { id: uid("r"), kind: "say", role: "coach", text: refeed(cardId, values) },
+    ],
+  };
+  // 问题界定 is the one tool that does not advance a plan — there is no plan
+  // yet. It hands over to 选路 instead.
+  if (p.phase === "frame" && cardId === "frame") {
+    return {
+      ...fed,
+      phase: "choose",
+      thread: [
+        ...fed.thread,
+        {
+          id: uid("roads"),
+          kind: "say",
+          role: "coach",
+          text: `我想到 ${p.approaches.length} 条路。它们不是同一件事的两种做法——一条做在屏幕上，随时能改；一条做在现实里，装上去就很难动。\n\n**我不替你选。** 右边那两张卡你都可以点开单独问，问完把你想清楚的那一句写下来，再决定。`,
+        },
+      ],
+    };
+  }
+  return enterStep(fed, fed.at + 1);
+}
+
 /** 🚨 Bump this whenever a persisted shape changes. `Project` grew `plan`,
  *  `phase`, `approaches`, `branches`, `decision` and `artifacts` on
  *  2026-08-31, and lost `status`; a v2 blob restored into v3 code renders a
  *  project with no plan and no phase. The version guard is the primary
  *  defence and `sane()` below is the belt. */
-const STORAGE_KEY = "mk-eco-proto-v4";
+const STORAGE_KEY = "mk-eco-proto-v5";
 
 /**
  * The personal page.
@@ -220,7 +306,6 @@ export interface EcoState {
   date: string;
   discovered: string[];
   kept: string[];
-  domainFilter: Domain | null;
   /** 我的树 */
   growth: number;
   grownKeywords: { id: string; text: string; field: string; from: string }[];
@@ -255,7 +340,6 @@ function initialState(): EcoState {
     date: TODAY,
     discovered: [],
     kept: [],
-    domainFilter: null,
     growth: 3,
     grownKeywords: [],
     coachOpen: false,
@@ -324,7 +408,6 @@ interface EcoApi {
    *  she did collect it, and the model records what happened, not what she
    *  currently wants to be true (铁律④). */
   unkeep: (newsId: string) => void;
-  setDomainFilter: (d: Domain | null) => void;
   setGrowth: (n: number) => void;
   openCoach: (surface: CoachSurface, seed?: string) => void;
   closeCoach: () => void;
@@ -488,7 +571,6 @@ export function EcoProvider({ children }: { children: ReactNode }) {
         patch((s) => ({ ...s, kept: s.kept.filter((k) => k !== newsId) }));
         toast("已经从待读里移走了");
       },
-      setDomainFilter: (domainFilter) => patch((s) => ({ ...s, domainFilter })),
       setGrowth: (growth) => patch((s) => ({ ...s, growth })),
       openCoach,
       closeCoach: () => patch((s) => ({ ...s, coachOpen: false })),
@@ -753,42 +835,7 @@ export function EcoProvider({ children }: { children: ReactNode }) {
         ),
 
       submitCard: (projectId, cardId, values) => {
-        patch((s) =>
-          mapProject(s, projectId, (p) => {
-            const cards = upsertCard(p.cards, cardId, (c) => ({
-              ...c,
-              status: "done" as const,
-              values,
-              doneAt: new Date().toISOString().slice(0, 10),
-            }));
-            const fed: Project = {
-              ...p,
-              cards,
-              thread: [
-                ...p.thread,
-                { id: uid("r"), kind: "say", role: "coach", text: refeed(cardId, values) },
-              ],
-            };
-            // 问题澄清 is the one card that does not advance a plan — there is
-            // no plan yet. It hands over to 选路 instead.
-            if (p.phase === "frame" && cardId === "frame") {
-              return {
-                ...fed,
-                phase: "choose",
-                thread: [
-                  ...fed.thread,
-                  {
-                    id: uid("roads"),
-                    kind: "say",
-                    role: "coach",
-                    text: `我想到 ${p.approaches.length} 条路。它们不是同一件事的两种做法——一条做在屏幕上，随时能改；一条做在现实里，装上去就很难动。\n\n**我不替你选。** 右边那两张卡你都可以点开单独问，问完把你想清楚的那一句写下来，再决定。`,
-                  },
-                ],
-              };
-            }
-            return enterStep(fed, fed.at + 1);
-          }),
-        );
+        patch((s) => mapProject(s, projectId, (p) => finishCard(p, cardId, values)));
         toast("这张卡已经收进项目材料里了");
       },
 
@@ -991,14 +1038,52 @@ export function EcoProvider({ children }: { children: ReactNode }) {
 
       sayInProject: (projectId, text) =>
         patch((s) =>
-          mapProject(s, projectId, (p) => ({
-            ...p,
-            thread: [
-              ...p.thread,
-              { id: uid("u"), kind: "say", role: "student", text },
-              { id: uid("a"), kind: "say", role: "coach", text: coachReply(text).text },
-            ],
-          })),
+          mapProject(s, projectId, (p) => {
+            const said: ThreadItem = { id: uid("u"), kind: "say", role: "student", text };
+
+            // 🚨 When a chat tool is mid-question, her message IS the answer.
+            // Falling through to the generic coach reply here would drop what
+            // she wrote on the floor and ask the same question again.
+            if (p.ask) {
+              const spec = cardById(p.ask.cardId);
+              const field = spec?.fields[p.ask.field];
+              if (spec && field) {
+                const entry = p.cards.find((c) => c.cardId === p.ask?.cardId);
+                const values = { ...(entry?.values ?? {}), [field.id]: text };
+                const withAnswer: Project = {
+                  ...p,
+                  thread: [...p.thread, said],
+                  cards: upsertCard(p.cards, spec.id, (c) => ({ ...c, values })),
+                };
+                const next = nextAsk(spec.id, p.ask.field + 1);
+                if (next) {
+                  return {
+                    ...withAnswer,
+                    ask: next,
+                    thread: [
+                      ...withAnswer.thread,
+                      {
+                        id: uid("q"),
+                        kind: "say",
+                        role: "coach",
+                        text: askText(next.cardId, next.field),
+                      },
+                    ],
+                  };
+                }
+                return finishCard(withAnswer, spec.id, values);
+              }
+            }
+
+            return {
+              ...p,
+              thread: [
+                ...p.thread,
+                said,
+                { id: uid("a"), kind: "say", role: "coach", text: coachReply(text).text },
+              ],
+            };
+          }),
         ),
 
       publishProject: (projectId, summary) => {
