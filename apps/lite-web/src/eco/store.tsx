@@ -107,6 +107,15 @@ function upsertBranch(
 
 const FRESH_ARTIFACT: ArtifactState = { status: "idle", round: 0, notes: [] };
 
+/** Annotated, not inferred: a bare `cut: []` widens to `never[]` and every
+ *  push into it fails to compile. */
+const FRESH_FORM: NonNullable<ArtifactState["form"]> = {
+  edits: {},
+  cut: [],
+  invite: "",
+  sent: false,
+};
+
 /**
  * Walk the project onto plan step `index` and put whatever it opens on the
  * table.
@@ -135,7 +144,16 @@ function enterStep(p: Project, index: number): Project {
     };
   }
 
+  // 🚨 印记 SAYS what it needs before the panel arrives.
+  //
+  // A card that appears unannounced reads as the software demanding something;
+  // the same card after 「接下来我需要你……，因为……」 reads as a colleague
+  // asking. Identical pixels, opposite experience, one line of copy. The
+  // divider alone was not enough — it labels the step, it does not address her.
   const thread: ThreadItem[] = [...p.thread, { id: uid("st"), kind: "step", stepId: step.id }];
+  if (step.says) {
+    thread.push({ id: uid("say"), kind: "say", role: "coach", text: step.says });
+  }
 
   // Hoisted: narrowing on `step.opens` does not survive into the `.some()`
   // callback below, and the optional chain there would silently match a card
@@ -333,6 +351,10 @@ interface EcoApi {
   startProblemProject: (problem: string) => string;
   /** Put the sample projects on the hub. Prototype furniture, labelled. */
   loadSamples: () => void;
+  /** Back to a first visit. Prototype furniture: the empty 项目 screen is a
+   *  designed surface, and without this the only way to see it again is a
+   *  browser tab that has never opened the prototype. */
+  resetPrototype: () => void;
   draftTrack: (t: TrackId, title?: string) => void;
   draftIntent: (v: string) => void;
   draftTitle: (v: string) => void;
@@ -374,6 +396,14 @@ interface EcoApi {
   setArtifactBlock: (projectId: string, artifactId: string, blockId: string, text: string) => void;
   /** A round of concrete feedback on something 印记 built. */
   noteBuild: (projectId: string, artifactId: string, text: string) => void;
+  /** `form` — she rewrites one of 印记's draft questions. */
+  editFormQ: (projectId: string, artifactId: string, qId: string, q: string) => void;
+  /** `form` — she cuts a question, or puts it back. */
+  cutFormQ: (projectId: string, artifactId: string, qId: string) => void;
+  /** `form` — the invitation, in her words. */
+  setInvite: (projectId: string, artifactId: string, invite: string) => void;
+  /** `form` — it goes out. Real people, her name on it. */
+  sendForm: (projectId: string, artifactId: string) => void;
   /** She is done judging it. Feeds back into the thread and advances the plan. */
   settleArtifact: (projectId: string, artifactId: string, summary: string) => void;
 
@@ -548,6 +578,14 @@ export function EcoProvider({ children }: { children: ReactNode }) {
           ],
         }));
         toast("示例项目已经放上来了");
+      },
+      resetPrototype: () => {
+        try {
+          window.sessionStorage.removeItem(STORAGE_KEY);
+        } catch {
+          // Storage blocked. Clearing state below is what actually matters.
+        }
+        setState(initialState());
       },
 
       draftTrack: (track, title) =>
@@ -862,6 +900,81 @@ export function EcoProvider({ children }: { children: ReactNode }) {
             };
           }),
         ),
+      editFormQ: (projectId, artifactId, qId, q) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => {
+            const cur = p.artifacts[artifactId] ?? FRESH_ARTIFACT;
+            const form = cur.form ?? FRESH_FORM;
+            return {
+              ...p,
+              artifacts: {
+                ...p.artifacts,
+                [artifactId]: { ...cur, form: { ...form, edits: { ...form.edits, [qId]: q } } },
+              },
+            };
+          }),
+        ),
+      cutFormQ: (projectId, artifactId, qId) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => {
+            const cur = p.artifacts[artifactId] ?? FRESH_ARTIFACT;
+            const form = cur.form ?? FRESH_FORM;
+            return {
+              ...p,
+              artifacts: {
+                ...p.artifacts,
+                [artifactId]: {
+                  ...cur,
+                  form: {
+                    ...form,
+                    cut: form.cut.includes(qId)
+                      ? form.cut.filter((c) => c !== qId)
+                      : [...form.cut, qId],
+                  },
+                },
+              },
+            };
+          }),
+        ),
+      setInvite: (projectId, artifactId, invite) =>
+        patch((s) =>
+          mapProject(s, projectId, (p) => {
+            const cur = p.artifacts[artifactId] ?? FRESH_ARTIFACT;
+            const form = cur.form ?? FRESH_FORM;
+            return {
+              ...p,
+              artifacts: { ...p.artifacts, [artifactId]: { ...cur, form: { ...form, invite } } },
+            };
+          }),
+        ),
+      sendForm: (projectId, artifactId) => {
+        patch((s) =>
+          mapProject(s, projectId, (p) => {
+            const cur = p.artifacts[artifactId] ?? FRESH_ARTIFACT;
+            const form = cur.form ?? FRESH_FORM;
+            const spec = artifactById(artifactId);
+            const kept = (spec?.form?.questions.length ?? 0) - form.cut.length;
+            return {
+              ...p,
+              artifacts: {
+                ...p.artifacts,
+                [artifactId]: { ...cur, form: { ...form, sent: true } },
+              },
+              thread: [
+                ...p.thread,
+                {
+                  id: uid("sent"),
+                  kind: "say",
+                  role: "coach",
+                  // The counts are 印记's; the reading of them stays hers.
+                  text: `发出去了。${kept} 道题，用的是你写的那句邀请。\n\n接下来的事我控制不了——**要等真的有人填**。回来的答案会直接决定你把点定在哪儿。`,
+                },
+              ],
+            };
+          }),
+        );
+        toast("问卷发出去了");
+      },
       settleArtifact: (projectId, artifactId, summary) => {
         patch((s) =>
           mapProject(s, projectId, (p) => {

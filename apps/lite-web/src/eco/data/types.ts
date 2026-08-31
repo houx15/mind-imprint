@@ -195,6 +195,15 @@ export interface CardSpec {
   reason: string;
   /** What the card teaches, in the second person. */
   teaches: string;
+  /** 🚨 What HAPPENS to what she writes here — the concrete downstream use.
+   *
+   *  This is the difference between a form and a chore. A student filling in
+   *  four boxes because a screen asked her to is doing homework; a student who
+   *  knows that box three becomes the thing 印记 checks its own work against
+   *  is doing a project. It is printed on the panel above the fields, every
+   *  time, and it must name a REAL consequence in this project — never
+   *  「这会帮助你思考」. */
+  payoff: string;
   /** Key into `METHODS` — the named practice this card comes from. */
   method?: string;
   glyph: string;
@@ -262,6 +271,14 @@ export interface PlanStep {
   off?: boolean;
   /** She wrote this step herself. */
   mine?: boolean;
+  /** What 印记 SAYS when this step opens, before the panel appears.
+   *
+   *  A panel that arrives unannounced reads as the software demanding
+   *  something. A sentence first — *now I need you to go and do X, because Y*
+   *  — makes the same panel read as a colleague asking. Same pixels, opposite
+   *  experience, one line of copy. Generated generically for tracks with no
+   *  hand-written journey. */
+  says?: string;
 }
 
 /* ─── approaches, branches, decisions ─────────────────────────────────
@@ -331,7 +348,7 @@ export interface Decision {
  * consumers, and that is the whole design.
  * ------------------------------------------------------------------------ */
 
-export type ArtifactKind = "options" | "draft" | "build";
+export type ArtifactKind = "options" | "draft" | "build" | "form";
 
 export interface ArtifactOption {
   id: string;
@@ -354,10 +371,49 @@ export interface BuildRound {
   admits: string[];
 }
 
+/* ── the form ──────────────────────────────────────────────────────────
+ *
+ * 印记 drafts a questionnaire, she fixes it, and then it goes to real people.
+ *
+ * Two things make this worth building rather than faking. First, **印记 flags
+ * its own bad questions** — it writes five and then says *this one asks two
+ * things at once, and this one tells the reader which answer I want*. Marking
+ * your own draft is the single most teachable move an AI can make here, and it
+ * turns the review from politeness into work.
+ *
+ * Second, **it actually gets sent.** The moment a form has a link and a
+ * message with her name on it, every question in it stops being an exercise:
+ * someone she knows is going to read it. That is the whole reason the form
+ * step exists rather than another textarea.
+ * ------------------------------------------------------------------------ */
+
+export interface FormQuestion {
+  id: string;
+  q: string;
+  kind: "choice" | "text" | "scale";
+  options?: string[];
+  /** Why 印记 thinks its own draft of this question is defective. Present on
+   *  the ones she has to act on; absent on the ones it stands behind. */
+  flag?: string;
+  /** The named failure mode, from the Pew list in `data/method.ts`. */
+  fault?: string;
+}
+
+/** One answer that came back. Mocked in the prototype — see `data/types.ts`
+ *  on the news items for the honesty rule these follow too. */
+export interface FormReply {
+  id: string;
+  who: string;
+  answers: { qId: string; a: string }[];
+}
+
 export interface ArtifactSpec {
   id: string;
   kind: ArtifactKind;
   title: string;
+  /** 🚨 Why finishing this matters — the concrete downstream use, same
+   *  contract as `CardSpec.payoff`. Printed above the work, every time. */
+  payoff: string;
   /** 印记's framing on handover: what it did, and what it GUESSED. Naming
    *  the guesses is what makes review possible instead of polite. */
   note: string;
@@ -368,6 +424,20 @@ export interface ArtifactSpec {
   options?: ArtifactOption[];
   blocks?: { id: string; label: string; hint: string; text: string }[];
   rounds?: BuildRound[];
+  /** `form` */
+  form?: {
+    /** Who this goes to, in her words. Shown before she can send. */
+    audience: string;
+    questions: FormQuestion[];
+    /** 印记's draft of the invitation. She must rewrite it — a message in the
+     *  AI's voice, sent under her name, to people who know her, is the one
+     *  place in this project where 印记 writing for her would be a lie. */
+    inviteDraft: string;
+    replies: FormReply[];
+    /** What 印记 noticed in the replies. It reports COUNTS and surprises; the
+     *  reading of them is hers. */
+    readout: string[];
+  };
 }
 
 export interface ArtifactState {
@@ -381,6 +451,16 @@ export interface ArtifactState {
   /** `build` — which round is on screen, and every note she has filed. */
   round: number;
   notes: { round: number; text: string }[];
+  /** `form` — her edits to 印记's draft, and whether it went out. */
+  form?: {
+    /** question id → her wording. Absent = 印记's wording still stands. */
+    edits: Record<string, string>;
+    /** Questions she cut. */
+    cut: string[];
+    /** The invitation, in her words. */
+    invite: string;
+    sent: boolean;
+  };
 }
 
 /** Where a project is in its own life. Explicit rather than derived: the

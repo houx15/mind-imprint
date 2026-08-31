@@ -14,6 +14,7 @@ import { variantsFor } from "../data/projects";
 import { PAGE_EXAMPLES } from "../data/examples";
 import type { CardRow, CardValue, Project } from "../data/types";
 import { Btn, Empty, Panel, Sys, cx } from "../ui";
+import { StepBanner, stepIdFor } from "./panels/StepBanner";
 
 /**
  * 工具卡工作面 — the schema-driven card renderer.
@@ -82,6 +83,14 @@ export function CardSurface({
 
   return (
     <div className="h-full overflow-y-auto px-6 py-5">
+      {/* 你在哪一步 · 这一步你判断 · 填完会发生什么. Above the card head,
+          because 「我在哪儿、为什么」 is the question she asks first. */}
+      <StepBanner
+        project={project}
+        payoff={spec.payoff}
+        stepId={stepIdFor(project, { kind: "card", id: cardId })}
+      />
+
       {/* ── card head ─────────────────────────────────────────────────── */}
       <div
         className="rounded-mk-lg border p-5"

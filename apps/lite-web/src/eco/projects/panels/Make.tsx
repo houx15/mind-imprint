@@ -4,6 +4,8 @@ import { useEco } from "../../store";
 import { ARTIFACTS, artifactById } from "../../data/artifacts";
 import type { ArtifactOption, ArtifactSpec, Project } from "../../data/types";
 import { Bold, Btn, Field, Sys, cx } from "../../ui";
+import { StepBanner, stepIdFor } from "./StepBanner";
+import { FormSurface } from "./FormSurface";
 
 /**
  * 印记做的东西 — the stage where the AI hands work over.
@@ -29,6 +31,13 @@ import { Bold, Btn, Field, Sys, cx } from "../../ui";
  * resolves instantly would quietly contradict the plan the student just
  * agreed to.
  */
+const KIND_TAG: Record<string, string> = {
+  options: "OPTIONS",
+  draft: "DRAFT",
+  build: "BUILD",
+  form: "FORM",
+};
+
 export function Make({ project, artifactId }: { project: Project; artifactId: string }) {
   const { runArtifact, artifactReady } = useEco();
   const spec = artifactById(artifactId);
@@ -64,9 +73,16 @@ export function Make({ project, artifactId }: { project: Project; artifactId: st
     <div className="h-full overflow-y-auto px-6 py-5">
       <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
         <Sys>印记做的 · 你来判断</Sys>
-        <span className="eco-mono text-mk-faint">{spec.kind === "build" ? "BUILD" : spec.kind === "options" ? "OPTIONS" : "DRAFT"}</span>
+        <span className="eco-mono text-mk-faint">{KIND_TAG[spec.kind]}</span>
       </div>
-      <h2 className="mt-1 text-mk-h1 text-mk-ink">{spec.title}</h2>
+      <h2 className="mb-4 mt-1 text-mk-h1 text-mk-ink">{spec.title}</h2>
+
+      {/* 你在哪一步 · 这一步你判断 · 填完会发生什么 — above the work, always. */}
+      <StepBanner
+        project={project}
+        payoff={spec.payoff}
+        stepId={stepIdFor(project, { kind: "make", id: artifactId })}
+      />
 
       {!st || st.status === "idle" ? (
         <Idle spec={spec} onRun={() => runArtifact(project.id, artifactId)} />
@@ -76,6 +92,8 @@ export function Make({ project, artifactId }: { project: Project; artifactId: st
         <Options project={project} spec={spec} />
       ) : spec.kind === "draft" ? (
         <Draft project={project} spec={spec} />
+      ) : spec.kind === "form" ? (
+        <FormSurface project={project} spec={spec} />
       ) : (
         <Build project={project} spec={spec} />
       )}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowRight, Globe, Lightbulb, Plus } from "lucide-react";
+import { ArrowRight, Globe, Lightbulb, Plus, RotateCcw } from "lucide-react";
 import { useEco } from "../store";
 import { EXAMPLE_PROBLEM, TRACKS, trackById } from "../data/projects";
 import { activeSteps } from "../data/plan";
@@ -276,11 +276,11 @@ function ProblemDoor({ value, onChange }: { value: string; onChange: (v: string)
 /* ── shared bits ──────────────────────────────────────────────────────── */
 
 function Doors() {
-  const { startFirstProject, setNewProjectMode } = useEco();
-  const { state } = useEco();
+  const { state, startFirstProject, setNewProjectMode, resetPrototype } = useEco();
   const hasPage = state.projects.some((p) => p.track === "website");
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex flex-wrap gap-2">
       {!hasPage ? (
         <Btn
           variant="outline"
@@ -298,6 +298,18 @@ function Doors() {
       >
         开新项目
       </Btn>
+      </div>
+      <button
+        type="button"
+        onClick={resetPrototype}
+        className="flex items-center gap-1 text-mk-small text-mk-faint underline decoration-dotted
+                   underline-offset-4 transition-colors hover:text-mk-muted
+                   focus-visible:outline-none"
+        title="清空这个原型的全部数据，回到第一次进来的样子"
+      >
+        <RotateCcw size={12} strokeWidth={1.9} />
+        原型：清空，回到第一次进来的样子
+      </button>
     </div>
   );
 }
