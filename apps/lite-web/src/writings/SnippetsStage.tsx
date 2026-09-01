@@ -6,6 +6,7 @@ import { useAlive } from "../shared/useAlive";
 import { GuideBox } from "./GuideBox";
 import { CommentPanel } from "./CommentPanel";
 import { DeepenDrawer } from "./DeepenDrawer";
+import { apiErrorText } from "../api/errorText";
 import {
   putWritingSnippet,
   guideWritingBlock,
@@ -191,7 +192,7 @@ export function SnippetsStage({
       .catch((err: unknown) => {
         // Surfaced, never masked: 「卡住了？」 still works per block, and
         // saying so is more useful than a page that silently teaches nothing.
-        if (alive.current) setBatchError(err instanceof ApiError ? err.message : "这次没能把引导算出来，点某一块的「卡住了？」也可以。");
+        if (alive.current) setBatchError(apiErrorText(err));
       })
       .finally(() => {
         if (alive.current) setBatching(false);
@@ -406,7 +407,7 @@ function SnippetBlock({
         saved.find((s) => (slot.outlineId ? s.outlineId === slot.outlineId : s.position === slot.position)) ?? null
       );
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "保存这一段失败，请重试。");
+      setError(apiErrorText(err));
       return null;
     } finally {
       setSaving(false);
@@ -433,7 +434,7 @@ function SnippetBlock({
       if (!row) return; // save() already surfaced why.
       onCommented(await commentOnWritingSnippet(writingId, row.id));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "印记这次没看成，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setCommenting(false);
     }
@@ -474,7 +475,7 @@ function SnippetBlock({
       onGuide(await guideWritingBlock(writingId, slot.outlineId));
       setCollapsed(false);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "这次没问出问题来，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setGuiding(false);
     }

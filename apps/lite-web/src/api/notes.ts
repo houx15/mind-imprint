@@ -27,7 +27,7 @@ export interface NoteKindMeta {
 }
 
 /** 界面上的说法。四种是她带回来的材料，办法是「想办法」时用的。 */
-const OBSERVATION: NoteKindMeta = { kind: "observation", label: "看到的", hue: "#3B82F6" };
+const OBSERVATION: NoteKindMeta = { kind: "observation", label: "观察结论", hue: "#3B82F6" };
 
 export const NOTE_KINDS: NoteKindMeta[] = [
   OBSERVATION,

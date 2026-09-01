@@ -33,6 +33,7 @@ import { ReportPanel } from "../reports/ReportPanel";
 import { useHeartbeat } from "../shared/useHeartbeat";
 import { ReadingQuestions } from "./ReadingQuestions";
 import { liteRoutePath, navigate } from "../routing";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * ReadingRoomHost — mounts lite's own `ReadingRoom` (`./ReadingRoom`) for one
@@ -141,7 +142,7 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
         if (cancelled) return;
         setState({
           phase: "error",
-          message: err instanceof ApiError ? err.message : "这次阅读暂时打不开，刷新一下再试试。",
+          message: apiErrorText(err),
         });
       }
     })();
@@ -374,7 +375,7 @@ function PasteSourcePanel({
       await putReadingSource(reading.id, { title: title.trim(), text });
       onSaved();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "保存失败，请重试。");
+      setError(apiErrorText(err));
       setSaving(false);
     }
   }

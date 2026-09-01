@@ -30,6 +30,7 @@ import { WritingSetupModal } from "./WritingSetupModal";
 import { PlanningView } from "./PlanningView";
 import { SnippetsStage } from "./SnippetsStage";
 import { ComposeStage } from "./ComposeStage";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * WritingRoomHost — the 写作 room.
@@ -113,7 +114,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         if (cancelled) return;
         setState({
           phase: "error",
-          message: err instanceof ApiError ? err.message : "这次写作暂时打不开，刷新一下再试试。",
+          message: apiErrorText(err),
         });
       }
     })();
@@ -179,7 +180,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         if (!alive.current) return;
         // USER RULE: an AI failure is surfaced, never masked by a canned
         // greeting. She can still type — the room is usable, just not greeted.
-        setRoomError(err instanceof ApiError ? err.message : "印记这次没接上，你可以直接开始说。");
+        setRoomError(apiErrorText(err));
       })
       .finally(() => {
         if (alive.current) setOpening(false);
@@ -204,7 +205,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         const next = await setWritingStage(writingId, stage);
         setState((s) => (s.phase === "ready" ? { ...s, writing: next } : s));
       } catch (err) {
-        setRoomError(err instanceof ApiError ? err.message : "切换阶段失败，请重试。");
+        setRoomError(apiErrorText(err));
       }
     },
     [state.phase, writingId],
@@ -227,7 +228,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
         );
       }
     } catch (err) {
-      setRoomError(err instanceof ApiError ? err.message : "印记暂时没接上，请重试。");
+      setRoomError(apiErrorText(err));
       setState((s) => (s.phase === "ready" ? { ...s, messages: s.messages.filter((m) => m !== optimistic) } : s));
       setDraftText(text);
     } finally {
@@ -241,7 +242,7 @@ export function WritingRoomHost({ writingId }: { writingId: string }) {
       const wr = await setWritingTargetWords(writingId, next);
       setState((s) => (s.phase === "ready" ? { ...s, writing: wr } : s));
     } catch (err) {
-      setRoomError(err instanceof ApiError ? err.message : "改目标字数失败，请重试。");
+      setRoomError(apiErrorText(err));
     }
   }
 

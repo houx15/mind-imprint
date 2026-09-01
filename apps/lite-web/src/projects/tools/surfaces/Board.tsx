@@ -1,3 +1,4 @@
+import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Icon } from "@/ui";
@@ -47,8 +48,8 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     try {
       const made = await createNotes(projectId, [{ kind, body }]);
       setNotes((prev) => [...prev, ...made]);
-    } catch {
-      setError("这张没贴上去，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -57,9 +58,9 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     setNotes((prev) => prev.map((n) => (n.id === noteId ? { ...n, cluster } : n)));
     try {
       await updateNote(projectId, noteId, { cluster });
-    } catch {
+    } catch (err) {
       setNotes(before);
-      setError("没挪过去，再试一次。");
+      setError(apiErrorText(err));
     }
   }
 
@@ -67,8 +68,8 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     try {
       const got = await updateNote(projectId, noteId, { body });
       setNotes((prev) => prev.map((n) => (n.id === got.id ? got : n)));
-    } catch {
-      setError("没改成，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 

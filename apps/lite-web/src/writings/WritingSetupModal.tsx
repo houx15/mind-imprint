@@ -3,6 +3,7 @@ import { Button } from "@/ui";
 import { ApiError } from "../api/client";
 import { setWritingSetup } from "../api/writingRoom";
 import type { Writing } from "../api/writings";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * WritingSetupModal — the first thing she sees on opening a new writing.
@@ -52,7 +53,7 @@ export function WritingSetupModal({
       const next = await setWritingSetup(writing.id, { lang, targetWords, note: note.trim() });
       onDone(next);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "保存失败，请重试。");
+      setError(apiErrorText(err));
       setSaving(false);
     }
   }

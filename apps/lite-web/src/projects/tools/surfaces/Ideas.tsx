@@ -1,3 +1,4 @@
+import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Icon } from "@/ui";
@@ -44,8 +45,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     try {
       const made = await createNotes(projectId, [{ kind: "idea", body }]);
       setIdeas((prev) => [...prev, ...made]);
-    } catch {
-      setError("没记下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -62,8 +63,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       setIdeas((prev) => [...prev.filter((i) => !merging.includes(i.id)), ...made]);
       setMerging([]);
       if (picked && merging.includes(picked)) setPicked(null);
-    } catch {
-      setError("没合上，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 

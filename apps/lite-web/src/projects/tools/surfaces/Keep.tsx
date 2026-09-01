@@ -1,3 +1,4 @@
+import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useState } from "react";
 import { MessageCircle, Plus } from "lucide-react";
 import { Icon } from "@/ui";
@@ -53,8 +54,8 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
     try {
       const made = await addKeepEntry(projectId, { kind, body, stage });
       setEntries((prev) => [made, ...prev]);
-    } catch {
-      setError("没记下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -68,8 +69,8 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
         { entryId: entry.id, sessionId },
         `我想说说这一条：${entry.body}`,
       );
-    } catch {
-      setError("没开起来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 

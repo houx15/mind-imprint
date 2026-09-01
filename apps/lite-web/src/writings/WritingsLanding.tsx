@@ -8,6 +8,7 @@ import { PromptTile } from "../shared/PromptTile";
 import { WRITING_IDEA_KEY } from "../readings/ReadingQuestions";
 import { WRITING_TOPICS, type WritingTopic } from "./topics";
 import { WritingHistoryPanel, type WritingFilter } from "./WritingHistoryPanel";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * WritingsLanding — 写作 tab's front door. Same skeleton as ReadingsLanding
@@ -100,7 +101,7 @@ export function WritingsLanding() {
       const { id } = await createWriting({ idea: trimmed, lang });
       navigate(writingPath(id));
     } catch (err) {
-      setStartError(err instanceof ApiError ? err.message : "开始写作失败，请重试。");
+      setStartError(apiErrorText(err));
       setStarting(false);
     }
   }

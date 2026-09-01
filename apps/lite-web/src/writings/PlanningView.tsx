@@ -16,6 +16,7 @@ import type { Writing } from "../api/writings";
 import { useAlive } from "../shared/useAlive";
 import { EditableTitle } from "./EditableTitle";
 import { MindMap } from "./MindMap";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * PlanningView — 结构, as a full-screen planning conversation.
@@ -111,7 +112,7 @@ export function PlanningView({
       })
       .catch((err: unknown) => {
         if (!alive.current) return;
-        setError(err instanceof ApiError ? err.message : "印记这次没接上，你可以直接开始说。");
+        setError(apiErrorText(err));
       })
       .finally(() => {
         if (alive.current) setOpening(false);
@@ -146,7 +147,7 @@ export function PlanningView({
       onOutline(turn.outline);
       setJustAdded(turn.addedIds);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "印记暂时没接上，请重试。");
+      setError(apiErrorText(err));
       onMessages(messages);
       setDraft(text);
     } finally {
@@ -164,7 +165,7 @@ export function PlanningView({
       onOutline(await putWritingOutline(writing.id, next));
       setJustAdded([]);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "改这张图失败，请重试。");
+      setError(apiErrorText(err));
     }
   }
 

@@ -11,6 +11,7 @@ import {
 } from "../../../api/reframe";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
+import { apiErrorText } from "../../../api/errorText";
 
 /**
  * Reframe —— 把问题说清楚。
@@ -96,8 +97,8 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         setStep(step + 1);
         setValue(STEPS[step + 1] ? got[STEPS[step + 1]!.field] : "");
       }
-    } catch {
-      setError("没记下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -108,7 +109,7 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
       const line = `${reframeSentence(got)} 我们可以怎样${got.hmw.replace(/^我们可以怎样/, "")}`;
       onFinish({ reframeId: got.id }, line);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "还差点东西。");
+      setError(apiErrorText(err));
     }
   }
 

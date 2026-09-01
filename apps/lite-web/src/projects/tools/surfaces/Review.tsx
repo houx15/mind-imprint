@@ -20,6 +20,7 @@ import {
 } from "../../../api/review";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
+import { apiErrorText } from "../../../api/errorText";
 
 /**
  * Review —— 审一遍印记交出来的东西。
@@ -71,8 +72,8 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       setSelection("");
       window.getSelection()?.removeAllRanges();
       await loadPlan();
-    } catch {
-      setError("这一句没问出去，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -80,8 +81,8 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     try {
       const got = await answerMark(projectId, id, answer);
       setPlan((p) => ({ ...p, marks: p.marks.map((m) => (m.id === got.id ? got : m)) }));
-    } catch {
-      setError("没记下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -92,8 +93,8 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         ...p,
         dimensions: p.dimensions.map((d) => (d.id === got.id ? got : d)),
       }));
-    } catch {
-      setError("没记下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 
@@ -107,7 +108,7 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         `我审完了《${artifact.title || "这一份"}》，${word}。因为${verdictWhy.trim()}`,
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : "没定下来，再试一次。");
+      setError(apiErrorText(err));
     }
   }
 

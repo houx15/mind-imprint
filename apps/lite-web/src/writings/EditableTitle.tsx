@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { ApiError } from "../api/client";
 import { renameWriting, type Writing } from "../api/writings";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * EditableTitle — the h1, as something she owns.
@@ -68,7 +69,7 @@ export function EditableTitle({
       onRenamed?.(saved);
     } catch (err) {
       setValue(title);
-      setError(err instanceof ApiError ? err.message : "改名字没成功，再试一次。");
+      setError(apiErrorText(err));
     }
   }
 

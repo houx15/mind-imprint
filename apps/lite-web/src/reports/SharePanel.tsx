@@ -1,3 +1,4 @@
+import { apiErrorText } from "../api/errorText";
 import { useEffect, useState } from "react";
 import QRCode from "qrcode";
 import { shareReport, unshareReport, type AtomKind } from "../api/reports";
@@ -130,9 +131,9 @@ export function SharePanel({
       }
       setState({ phase: "on", url, qr });
       onSharedChange?.(token);
-    } catch {
+    } catch (err) {
       setState({ phase: "off" });
-      setError("刚才没能生成链接，你可以再试一次。");
+      setError(apiErrorText(err));
     }
   }
 
@@ -145,9 +146,9 @@ export function SharePanel({
       setCopied(false);
       setState({ phase: "off" });
       onSharedChange?.(null);
-    } catch {
+    } catch (err) {
       setState({ phase: "on", url: state.url, qr: state.qr });
-      setError("刚才没能停止分享，你可以再试一次。");
+      setError(apiErrorText(err));
     }
   }
 

@@ -5,6 +5,7 @@ import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
 import { explainReadingBlock, type ReadingBlockNote, type ReadingBlockTool } from "../api/readingRoom";
 import { BlockToolbar } from "./BlockToolbar";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * BlockToolsPanel — 点开一段，把它拆给她看。
@@ -100,7 +101,7 @@ export function BlockToolsPanel({
       onNote({ blockId: note.blockId, tool: note.tool, body: note.body });
       setOpen(tool.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "这次没讲出来，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(null);
     }

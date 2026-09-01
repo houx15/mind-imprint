@@ -17,6 +17,7 @@ import {
 } from "../../../api/tree";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
+import { apiErrorText } from "../../../api/errorText";
 
 /**
  * Structure —— 先看结构。
@@ -68,7 +69,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       await moveNode(projectId, node.id, { parentId: target.id, ordinal: node.ordinal });
       await reload();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "挪不过去。");
+      setError(apiErrorText(e));
     }
   }
 

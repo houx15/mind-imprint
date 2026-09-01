@@ -18,6 +18,7 @@ import {
   type WritingSnippet,
 } from "../api/writingRoom";
 import { renameWriting, type Writing } from "../api/writings";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * ComposeStage — 成稿, as a page rather than a box.
@@ -193,7 +194,7 @@ export function ComposeStage({
       return true;
     } catch (err) {
       savedRef.current = previous;
-      setError(err instanceof ApiError ? err.message : "保存失败，请重试。");
+      setError(apiErrorText(err));
       return false;
     } finally {
       setSaving(false);
@@ -237,7 +238,7 @@ export function ComposeStage({
       setHighlight(null);
       onDraftChange(next);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "拼合失败，请重试。");
+      setError(apiErrorText(err));
     } finally {
       setComposing(false);
     }
@@ -265,7 +266,7 @@ export function ComposeStage({
       setComment(await reviewWritingDraft(writingId));
       setHighlight(null);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "这次体检没成功，请重试。");
+      setError(apiErrorText(err));
     } finally {
       setReviewing(false);
     }
@@ -315,7 +316,7 @@ export function ComposeStage({
       }
       await doFinish();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "完成失败，请重试。");
+      setError(apiErrorText(err));
       setFinishing(false);
     }
   }
@@ -329,7 +330,7 @@ export function ComposeStage({
     try {
       onFinished(await finishWriting(writingId));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "完成失败，请重试。");
+      setError(apiErrorText(err));
       setFinishing(false);
     }
   }
@@ -347,7 +348,7 @@ export function ComposeStage({
     try {
       onRenamed?.(await renameWriting(writingId, title));
     } catch (err) {
-      setNameError(err instanceof ApiError ? err.message : "名字没存上，请重试。");
+      setNameError(apiErrorText(err));
       setNaming(false);
       return;
     }

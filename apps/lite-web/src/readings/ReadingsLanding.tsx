@@ -14,6 +14,7 @@ import { navigate, readingPath } from "../routing";
 import { PromptTile } from "../shared/PromptTile";
 import { RECOMMENDED_READINGS, type RecommendedReading } from "./recommendations";
 import { ReadingHistoryPanel, isFinished, type ReadingFilter } from "./ReadingHistoryPanel";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * ReadingsLanding — the lite edition's front door.
@@ -144,7 +145,7 @@ export function ReadingsLanding() {
       setPendingId(null);
       navigate(readingPath(id));
     } catch (err) {
-      setStartError(err instanceof ApiError ? err.message : "开始阅读失败，请重试。");
+      setStartError(apiErrorText(err));
       setStarting(false);
     }
   }
@@ -164,7 +165,7 @@ export function ReadingsLanding() {
       setPendingId(null);
       navigate(readingPath(id));
     } catch (err) {
-      setStartError(err instanceof ApiError ? err.message : "上传失败，请重试。");
+      setStartError(apiErrorText(err));
       setStarting(false);
     }
   }
@@ -200,7 +201,7 @@ export function ReadingsLanding() {
       setPendingId(null);
       navigate(readingPath(id));
     } catch (err) {
-      setStartError(err instanceof ApiError ? err.message : "开始阅读失败，请重试。");
+      setStartError(apiErrorText(err));
       setStarting(false);
     }
   }

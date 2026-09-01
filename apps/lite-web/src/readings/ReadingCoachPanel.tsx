@@ -8,6 +8,7 @@ import { LiteChatMarkdown } from "./LiteChatMarkdown";
 import { ApiError } from "../api/client";
 import { coachAnswerOf, coachCardOf, postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * ReadingCoachPanel — 带读: 印记 leads, she doesn't manage stages.
@@ -180,7 +181,7 @@ export function ReadingCoachPanel({
       // picked it up on its own, so it needs telling.
       if (res.card) slot.onCardSummoned?.();
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "印记这次没接上。");
+      setError(apiErrorText(err));
       // 🚨 一次 502 不许把她点过的答案偷偷取消掉。
       //
       // 这条乐观消息**带着 `payload.answer`**，所以把它撤掉等于把卡片恢复成未答：

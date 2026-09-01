@@ -330,7 +330,7 @@ describe("talk first", () => {
     fireEvent.change(screen.getByPlaceholderText("想到什么，跟印记说说"), { target: { value: "在吗" } });
     fireEvent.click(screen.getByLabelText("发送"));
 
-    expect(await screen.findByText("印记暂时没接上，请重试。")).toBeTruthy();
+    expect(await screen.findByText(/印记暂时没接上，请重试。/)).toBeTruthy();
   });
 });
 

@@ -13,6 +13,7 @@ import {
 } from "../../../api/split";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
+import { apiErrorText } from "../../../api/errorText";
 
 /**
  * Split —— 这一步里，哪几格你做，哪几格印记做。
@@ -59,7 +60,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       const got = await reassign(projectId, s.id, owner, why);
       setSubs((prev) => prev.map((x) => (x.id === got.id ? got : x)));
     } catch (e) {
-      setError(e instanceof Error ? e.message : "没改成。");
+      setError(apiErrorText(e));
     }
   }
 
@@ -67,8 +68,8 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     try {
       const got = await confirmSubstep(projectId, s.id);
       setSubs((prev) => prev.map((x) => (x.id === got.id ? got : x)));
-    } catch {
-      setError("没定下来。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 

@@ -31,6 +31,7 @@ import {
 import { navigate } from "../routing";
 import { WorkPanel } from "./WorkPanel";
 import { ToolInvite } from "./tools/ToolInvite";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * ProjectRoom — the workbench.
@@ -84,7 +85,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         setTools(ts);
         await refreshThread(null);
       } catch (err) {
-        if (!cancelled) setError(err instanceof ApiError ? err.message : "这个项目没打开，刷新试试。");
+        if (!cancelled) setError(apiErrorText(err));
       }
     }
     void boot();
@@ -106,7 +107,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       if (res.toolId) setTools(await listTools(projectId));
     } catch (err) {
       // 印记 failing is surfaced, never smoothed into a plausible sentence.
-      setError(err instanceof ApiError ? err.message : "印记没接上，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(false);
     }
@@ -127,7 +128,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setActiveSession(s.id);
       await refreshThread(s.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "这一层没开起来。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(false);
     }
@@ -149,7 +150,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setSessions((prev) => prev.map((s) => (s.id === closed.id ? closed : s)));
       await goTo(current.parentId);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "没收起来，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(false);
     }
@@ -180,7 +181,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
       if (got.kind === "thinking") setOpenTool(got.id);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "这件工具没打开。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(false);
     }
@@ -192,7 +193,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       const got = await resolveTool(projectId, t.id, { status: "declined", note });
       setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "没记下来，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(false);
     }
@@ -217,7 +218,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       }
       setPlan(await getPlan(projectId));
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "结果没送回去，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setBusy(false);
     }

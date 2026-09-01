@@ -153,7 +153,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
 
   // 2 · 用真界面打开一件：点邀请卡上的「打开」。
   await page.getByTestId("tool-invite-board").first().getByRole("button", { name: "打开" }).click();
-  await expect(page.getByRole("heading", { name: "便签板" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "头脑风暴" })).toBeVisible();
 
   // 其余几件通过端点接受——这条 walk 要看的是八块界面，不是同一个点击重复八遍。
   const open = await (await page.request.get(api + "/tools")).json();
@@ -164,7 +164,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   }
   await page.reload();
   await expect(page.getByRole("heading", { name: "计划" })).toBeVisible();
-  await openTool(page, "便签板");
+  await openTool(page, "头脑风暴");
   await expect(page.getByText("把看到的、听到的、猜的、想问的都摊开", { exact: false })).toBeVisible();
   await page.getByPlaceholder("写一条，回车贴上去").fill("中午十二点半，第三个桶已经满了");
   await page.keyboard.press("Enter");
@@ -174,14 +174,14 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("阿姨说「每天都这样」")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-2-board.png", fullPage: true });
 
-  // 3 · 把问题说清楚：一次只问一句。
-  await openTool(page, "把问题说清楚");
+  // 3 · 问题识别：一次只问一句。
+  await openTool(page, "问题识别");
   await expect(page.getByText("这件事里，具体是谁？")).toBeVisible();
   await expect(page.getByText("落到一个具体的人", { exact: false })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-3-reframe.png", fullPage: true });
 
-  // 4 · 想办法：先多想几个。
-  await openTool(page, "想办法");
+  // 4 · 解决方案：先多想几个。
+  await openTool(page, "解决方案");
   await expect(page.getByText("先多想几个，别急着挑第一个。")).toBeVisible();
   for (const idea of ["让同学自己选饭量", "把剩饭称一称贴出来", "问阿姨能不能少做一点"]) {
     await page.getByPlaceholder("一个办法，回车记下").fill(idea);
@@ -189,14 +189,14 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   }
   await page.screenshot({ path: "e2e/.shots/tools-4-ideas.png", fullPage: true });
 
-  // 5 · 审一遍：划出来的句子高亮在原文里。
-  await openTool(page, "审一遍");
+  // 5 · 审核助手：划出来的句子高亮在原文里。
+  await openTool(page, "审核助手");
   await expect(page.getByText("我猜剩的主要是米饭", { exact: false })).toBeVisible();
   await expect(page.getByText("「大概一半」是你数出来的，还是估的？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-5-review.png", fullPage: true });
 
-  // 6 · 做决定：一段一段解锁。
-  await openTool(page, "做决定");
+  // 6 · 理性决策：一段一段解锁。
+  await openTool(page, "理性决策");
   await expect(page.getByText("你在定什么？")).toBeVisible();
   await page.getByPlaceholder("比如：这个建议先给食堂还是先发在班群里").fill(
     "这份建议先给食堂，还是先发在班群里",
@@ -205,8 +205,8 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("有哪些选择")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-6-decide.png", fullPage: true });
 
-  // 7 · 先看结构：缩进就是层级。
-  await openTool(page, "先看结构");
+  // 7 · 结构审查：缩进就是层级。
+  await openTool(page, "结构审查");
   for (const block of ["我看到了什么", "这说明什么", "我建议怎么做"]) {
     await page.getByPlaceholder("再分一块出来").fill(block);
     await page.keyboard.press("Enter");
@@ -215,7 +215,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.screenshot({ path: "e2e/.shots/tools-7-structure.png", fullPage: true });
 
   // 8 · 分工：印记领了几格，在她还能改的时候说出来。
-  await openTool(page, "分工");
+  await openTool(page, "分工设计");
   await expect(page.getByText("3 格里，印记领了 1 格。")).toBeVisible();
   await expect(page.getByText("重复的活，我来快一些")).toBeVisible();
   await page.getByRole("button", { name: "改成你做" }).first().click();
@@ -255,15 +255,15 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   ).toBe(200);
 
   // 9 · 复盘：问题从真的发生过的事里长出来。
-  await openTool(page, "复盘");
-  // 做决定时写下的那句「什么会让我改主意」，在这里被原样问了回来。
+  await openTool(page, "项目复盘");
+  // 理性决策时写下的那句「什么会让我改主意」，在这里被原样问了回来。
   await expect(page.getByText("食堂说他们早就试过了", { exact: false })).toBeVisible();
   await expect(page.getByText("第二段把我的话改成了它自己的说法", { exact: false })).toBeVisible();
   await expect(page.getByText("这些问题是从你这个项目里发生过的事写出来的。")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-9-lookback.png", fullPage: true });
 
-  // 10 · 上线之后：彩色的四步圈。
-  await openTool(page, "上线之后");
+  // 10 · 长期迭代：彩色的四步圈。
+  await openTool(page, "长期迭代");
   await expect(page.getByRole("button", { name: "读出意思" })).toBeVisible();
   await page.getByPlaceholder("比如：这周有 12 个人打开过").fill("这周有 12 个人打开过");
   await page.keyboard.press("Enter");

@@ -7,6 +7,7 @@ import { ChatMarkdown } from "@/studio/ai/ChatMarkdown";
 import { ApiError } from "../api/client";
 import { getWritingBlockThread, postWritingBlockDeepen } from "../api/writingRoom";
 import type { LiteMessage } from "../api/readingRoom";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * DeepenDrawer — 深入一层, the side conversation about ONE block.
@@ -122,7 +123,7 @@ export function DeepenDrawer({
       // Her turn IS persisted server-side before the model is ever called
       // (writing_deepen.go), so rolling the bubble back locally would show
       // her something the reload will contradict. Keep it, say what failed.
-      setError(err instanceof ApiError ? err.message : "印记暂时没接上，再说一次试试。");
+      setError(apiErrorText(err));
     } finally {
       setSending(false);
     }

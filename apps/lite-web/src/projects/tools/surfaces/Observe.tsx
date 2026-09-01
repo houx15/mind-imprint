@@ -1,3 +1,4 @@
+import { apiErrorText } from "../../../api/errorText";
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Icon } from "@/ui";
@@ -43,8 +44,8 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
       const summary = `我出去看了一趟，带回来 ${filled.length} 条：` +
         filled.map((i) => i.body.trim()).join("；");
       onFinish({ brought: filled.length }, summary);
-    } catch {
-      setError("没存下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 

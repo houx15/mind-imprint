@@ -5,6 +5,7 @@ import type { LiteReadingRoomApi } from "../readings/ReadingRoom";
 import type { CoachCardAnswer, CoachCardSpec } from "../readings/CoachCard";
 import type { ReadingOutcome } from "@/studio/reading/readingLoop";
 import { apiFetch } from "./client";
+import { apiErrorText } from "./errorText";
 
 /**
  * api/readingRoom.ts — the injected `api` object lite's OWN `ReadingRoom`
@@ -173,7 +174,7 @@ export function createReadingRoomApi(readingId: string, opts: ReadingRoomApiOpti
     try {
       turn = await apiFetch<LiteTurn>(path, { method: "POST", body: JSON.stringify(body) });
     } catch (err) {
-      const message = err instanceof Error ? err.message : "AI 暂时没接上，请重试。";
+      const message = apiErrorText(err);
       opts.onAiError?.(message);
       yield { type: "error", code: "ai_dialogue_failed", message };
       yield { type: "done" };

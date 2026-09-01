@@ -39,16 +39,16 @@ type Tool struct {
 // 阶段一拆成了三件（出去看看 / 便签板 / 把问题说清楚 / 想办法），因为它们是
 // 四个不同的时刻，合成一件就又变回了一条固定的流程。
 var registry = map[string]Tool{
-	"observe":   {Name: "observe", Kind: KindWorld, Label: "出去看看"},
-	"board":     {Name: "board", Kind: KindThinking, Label: "便签板"},
-	"reframe":   {Name: "reframe", Kind: KindThinking, Label: "把问题说清楚"},
-	"ideas":     {Name: "ideas", Kind: KindThinking, Label: "想办法"},
-	"review":    {Name: "review", Kind: KindThinking, Label: "审一遍"},
-	"decide":    {Name: "decide", Kind: KindThinking, Label: "做决定"},
-	"structure": {Name: "structure", Kind: KindThinking, Label: "先看结构"},
-	"split":     {Name: "split", Kind: KindThinking, Label: "分工"},
-	"lookback":  {Name: "lookback", Kind: KindThinking, Label: "复盘"},
-	"keep":      {Name: "keep", Kind: KindThinking, Label: "上线之后"},
+	"observe":   {Name: "observe", Kind: KindWorld, Label: "观察日记"},
+	"board":     {Name: "board", Kind: KindThinking, Label: "头脑风暴"},
+	"reframe":   {Name: "reframe", Kind: KindThinking, Label: "问题识别"},
+	"ideas":     {Name: "ideas", Kind: KindThinking, Label: "解决方案"},
+	"review":    {Name: "review", Kind: KindThinking, Label: "审核助手"},
+	"decide":    {Name: "decide", Kind: KindThinking, Label: "理性决策"},
+	"structure": {Name: "structure", Kind: KindThinking, Label: "结构审查"},
+	"split":     {Name: "split", Kind: KindThinking, Label: "分工设计"},
+	"lookback":  {Name: "lookback", Kind: KindThinking, Label: "项目复盘"},
+	"keep":      {Name: "keep", Kind: KindThinking, Label: "长期迭代"},
 }
 
 // LookupTool 返回已知工具的定义。

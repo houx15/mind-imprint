@@ -501,7 +501,9 @@ describe("createReadingRoomApi", () => {
     const seen: string[] = [];
     const api = createReadingRoomApi(READING_ID, { onAiError: (m) => seen.push(m) });
     const events = await drain(api.readTurn("p", "m", { student_text: "x", focused_spans: [] }));
-    expect(seen).toEqual(["AI 暂时没接上，请重试。"]);
+    // 服务端自己那句话原样带出来，外面裹一层「后台错误：」——产品负责人
+    // 2026-09-02：所有接口错误都照实说。
+    expect(seen).toEqual(["后台错误：AI 暂时没接上，请重试。"]);
     // Never an `intervention` — a fabricated sentence would read as a real
     // answer and she would keep talking to nothing.
     expect(events.some((e) => e.type === "intervention")).toBe(false);

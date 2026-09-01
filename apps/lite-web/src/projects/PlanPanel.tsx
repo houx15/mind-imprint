@@ -1,3 +1,4 @@
+import { apiErrorText } from "../api/errorText";
 import { useState } from "react";
 import {
   PLAN_RESOLUTIONS,
@@ -173,8 +174,8 @@ function PlanCheck({
     setError(null);
     try {
       await onResolve(change.id, choice, reason.trim());
-    } catch {
-      setError("没保存上，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
       setSaving(false);
     }
   }

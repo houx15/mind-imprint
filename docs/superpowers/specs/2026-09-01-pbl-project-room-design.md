@@ -163,16 +163,16 @@ different moments and collapsing them would restore the fixed step-chain.
 
 | Tool | 界面 | Kind | Stage |
 |---|---|---|---|
-| `observe` | 出去看看 | world | ① |
-| `board` | 便签板 | thinking | ① |
-| `reframe` | 把问题说清楚 | thinking | ① |
-| `ideas` | 想办法 | thinking | ① |
-| `review` | 审一遍 | thinking | ② |
-| `decide` | 做决定 | thinking | ③ |
-| `structure` | 先看结构 | thinking | ④ |
-| `split` | 分工 | thinking | ⑤ |
-| `lookback` | 复盘 | thinking | ⑥ |
-| `keep` | 上线之后 | thinking | ⑦ |
+| `observe` | 观察日记 | world | ① |
+| `board` | 头脑风暴 | thinking | ① |
+| `reframe` | 问题识别 | thinking | ① |
+| `ideas` | 解决方案 | thinking | ① |
+| `review` | 审核助手 | thinking | ② |
+| `decide` | 理性决策 | thinking | ③ |
+| `structure` | 结构审查 | thinking | ④ |
+| `split` | 分工设计 | thinking | ⑤ |
+| `lookback` | 项目复盘 | thinking | ⑥ |
+| `keep` | 长期迭代 | thinking | ⑦ |
 
 **The two kinds are data, not vocabulary.** `thinking` finishes at the screen;
 `world` means she leaves and comes back days later. Two code paths branch on it:
@@ -184,10 +184,16 @@ guesses, and half its guesses are nagging.
 sentence), and what is still missing before it can be finished. Those three are
 the owner's "clear / motivated / willing to take part" turned into code.
 
-**Language rule, binding:** in-product text names what the student is doing,
-never the method it comes from. 「把问题说清楚」, never "reframe"; 「先看结构」,
-never "information architecture". A test in `internal/pbl/tools_test.go` guards
-the labels.
+**Language rule, binding:** in-product text is plain and academic — it names the
+work, never the machinery. The tool names above are the owner's own (2026-09-02);
+an earlier, more colloquial set (出去看看 / 便签板 / 做决定…) was replaced by
+them. A test in `internal/pbl/tools_test.go` guards the labels against jargon.
+
+**Errors are never dressed up.** Owner, 2026-09-02: *"please treat all api error
+this way, be honest ok?"* Every failure reaches the student as
+`后台错误：<what the server actually said>` via `apiErrorText`. A friendly
+「再试一次」 conflates two different situations — a request she can fix, and a bug
+in our code she cannot — and hides the only part anyone could debug from.
 
 **⚠️ Stage ③ (做决定) was an empty heading in the owner's document.** The design
 built — options → what matters here → wins and hurts → choose, plus 「what would

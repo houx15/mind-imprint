@@ -1,3 +1,4 @@
+import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useState } from "react";
 import {
   answerLookback,
@@ -27,8 +28,8 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
   const reload = useCallback(async () => {
     try {
       setPrompts(await getLookback(projectId));
-    } catch {
-      setError("没打开，刷新试试。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }, [projectId]);
 
@@ -40,8 +41,8 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
     try {
       const got = await answerLookback(projectId, id, answer);
       setPrompts((prev) => prev.map((p) => (p.id === got.id ? got : p)));
-    } catch {
-      setError("没记下来，再试一次。");
+    } catch (err) {
+      setError(apiErrorText(err));
     }
   }
 

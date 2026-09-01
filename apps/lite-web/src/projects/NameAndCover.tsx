@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ApiError } from "../api/client";
 import { PROJECT_KIND_LABELS, updateProject, type Project } from "../api/projects";
 import { COVER_GLYPHS, COVER_GROUNDS, groundById, resolveCover } from "./covers";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * NameAndCover — the modal that opens the moment a project exists.
@@ -54,7 +55,7 @@ export function NameAndCover({
       });
       onDone(updated);
     } catch (err) {
-      setError(err instanceof ApiError ? err.message : "没保存上，再试一次。");
+      setError(apiErrorText(err));
       setSaving(false);
     }
   }

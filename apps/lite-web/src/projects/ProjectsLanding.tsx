@@ -13,6 +13,7 @@ import {
 import { navigate, projectPath } from "../routing";
 import { NameAndCover } from "./NameAndCover";
 import { ProjectCard } from "./ProjectCard";
+import { apiErrorText } from "../api/errorText";
 
 /**
  * ProjectsLanding — the 项目 tab's front door.
@@ -54,7 +55,7 @@ export function ProjectsLanding() {
       .catch((err) => {
         if (!cancelled) {
           setProjects([]);
-          setLoadError(err instanceof ApiError ? err.message : "项目列表没加载出来，刷新试试。");
+          setLoadError(apiErrorText(err));
         }
       });
     return () => {
@@ -78,7 +79,7 @@ export function ProjectsLanding() {
     } catch (err) {
       // 印记 failing to read her idea is surfaced, never smoothed over into a
       // project with a guessed type.
-      setError(err instanceof ApiError ? err.message : "没能开始这个项目，再试一次。");
+      setError(apiErrorText(err));
     } finally {
       setCreating(false);
     }

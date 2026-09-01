@@ -130,7 +130,7 @@ describe("the paste box", () => {
 
     fireEvent.change(await screen.findByLabelText("文章正文或链接"), { target: { value: "一段正文。" } });
     fireEvent.click(screen.getByRole("button", { name: "开始阅读" }));
-    await screen.findByText("服务器开小差了");
+    await screen.findByText(/服务器开小差了/);
 
     routes[key("PUT", "/api/v1/readings/new-3/source")] = { body: { title: "", sourceUrl: "", blocks: [] } };
     fireEvent.click(screen.getByRole("button", { name: "开始阅读" }));
@@ -171,7 +171,8 @@ describe("the paste box", () => {
     fireEvent.change(screen.getByLabelText("上传 DOCX / PDF"), {
       target: { files: [new File(["x"], "photo.png", { type: "image/png" })] },
     });
-    expect(await screen.findByText("只支持 PDF 或 Word 文档。")).toBeInTheDocument();
+    // 服务端说的那句话要原样到她眼前；外面裹了「后台错误：」，所以用包含匹配。
+    expect(await screen.findByText(/只支持 PDF 或 Word 文档。/)).toBeInTheDocument();
   });
 });
 
