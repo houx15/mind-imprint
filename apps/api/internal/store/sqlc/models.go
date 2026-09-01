@@ -434,6 +434,17 @@ type OutlineNode struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type PblProject struct {
+	AtomID      uuid.UUID `json:"atom_id"`
+	Idea        string    `json:"idea"`
+	Kind        string    `json:"kind"`
+	Name        string    `json:"name"`
+	CoverGround string    `json:"cover_ground"`
+	CoverGlyph  string    `json:"cover_glyph"`
+	Status      string    `json:"status"`
+	UpdatedAt   time.Time `json:"updated_at"`
+}
+
 type PlanItem struct {
 	ID            uuid.UUID   `json:"id"`
 	ProjectID     uuid.UUID   `json:"project_id"`
