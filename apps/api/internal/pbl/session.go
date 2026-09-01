@@ -20,7 +20,9 @@ import (
 // in their trigger, the act she performs, and what they write back. The
 // conversation carrying them is identical, which is why this is one table with
 // a kind rather than five tables.
-var SessionKinds = []string{"free", "observation", "reframe", "brainstorm", "plan_check"}
+// 0111 又加了两种：审阅时点开一句话开的那条线，和上线之后每一轮维护。
+var SessionKinds = []string{"free", "observation", "reframe", "brainstorm",
+	"plan_check", "review", "keeping"}
 
 func IsSessionKind(s string) bool {
 	for _, k := range SessionKinds {
@@ -91,6 +93,10 @@ var requiredFields = map[string][]string{
 	"reframe":     {"frame"},                // a new frame, parallel frames, or the old one kept with a reason
 	"brainstorm":  {"next_bet"},             // the point is a bet, never a "final solution"
 	"plan_check":  {"resolution", "reason"}, // what she decided, and why
+	// 审阅里点开的那条线：她可以问完就走，收起时的一句话本身就是记录。
+	"review": {},
+	// 上线之后的一轮：数据说明了什么。没有这一句，这一轮就只是又看了一次后台。
+	"keeping": {"reading"},
 }
 
 // RequiredWriteBack reports which fields `kind` must produce to close.

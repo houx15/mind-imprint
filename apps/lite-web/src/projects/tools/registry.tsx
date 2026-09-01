@@ -4,6 +4,7 @@ import { Board } from "./surfaces/Board";
 import { Ideas } from "./surfaces/Ideas";
 import { Observe } from "./surfaces/Observe";
 import { Reframe } from "./surfaces/Reframe";
+import { Review } from "./surfaces/Review";
 
 /**
  * registry.tsx —— 工具名 → 界面。
@@ -47,6 +48,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   board: Board,
   reframe: Reframe,
   ideas: Ideas,
+  review: Review,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {

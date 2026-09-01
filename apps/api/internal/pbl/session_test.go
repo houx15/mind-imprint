@@ -38,18 +38,20 @@ func TestChildDepth(t *testing.T) {
 	}
 }
 
-// The Go list and 0109's CHECK must name the same five kinds.
+// Go 这边的列表和数据库的 CHECK 必须一字不差。0109 定了五种；0111 又加了两
+// 种——审阅里点开一句话开出来的那条线，和上线之后的每一轮维护。
 func TestSessionKindsMatchSchema(t *testing.T) {
 	want := map[string]bool{
 		"free": true, "observation": true, "reframe": true,
 		"brainstorm": true, "plan_check": true,
+		"review": true, "keeping": true,
 	}
 	if len(SessionKinds) != len(want) {
 		t.Fatalf("SessionKinds = %v", SessionKinds)
 	}
 	for _, k := range SessionKinds {
 		if !want[k] {
-			t.Fatalf("%q is in SessionKinds but not in 0109's CHECK", k)
+			t.Fatalf("%q is in SessionKinds but not in the migration's CHECK", k)
 		}
 	}
 	if IsSessionKind("retro") {

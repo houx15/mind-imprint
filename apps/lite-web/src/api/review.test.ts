@@ -1,0 +1,92 @@
+import { describe, expect, it } from "vitest";
+import { reviewTodo, splitByMarks, type ReviewMark } from "./review";
+
+function mark(id: string, quote: string, extra: Partial<ReviewMark> = {}): ReviewMark {
+  return {
+    id,
+    part: "",
+    partNote: "",
+    quote,
+    question: "这句站得住吗？",
+    answer: "",
+    sessionId: null,
+    ordinal: 0,
+    mine: false,
+    ...extra,
+  };
+}
+
+const TEXT = "中国的碳排放总量全球第一。人均排放低于美国。这两句都对。";
+
+describe("splitByMarks", () => {
+  it("keeps the highlight inside the original sentence", () => {
+    const segs = splitByMarks(TEXT, [mark("m1", "人均排放低于美国。")]);
+    expect(segs.map((s) => s.text).join("")).toBe(TEXT);
+    expect(segs.find((s) => s.mark)?.text).toBe("人均排放低于美国。");
+  });
+
+  // 划线的顺序不该取决于服务端返回的顺序。
+  it("orders segments by position in the text, not by input order", () => {
+    const segs = splitByMarks(TEXT, [mark("late", "这两句都对。"), mark("early", "中国的碳排放总量全球第一。")]);
+    const marked = segs.filter((s) => s.mark).map((s) => s.mark!.id);
+    expect(marked).toEqual(["early", "late"]);
+    expect(segs.map((s) => s.text).join("")).toBe(TEXT);
+  });
+
+  // 🚨 两条线叠在同一句上时，把文字切碎会让两条都读不通。原文必须原样拼回来。
+  it("drops an overlapping mark rather than shredding the text", () => {
+    const segs = splitByMarks(TEXT, [
+      mark("wide", "人均排放低于美国。这两句都对。"),
+      mark("inner", "这两句都对。"),
+    ]);
+    expect(segs.map((s) => s.text).join("")).toBe(TEXT);
+    expect(segs.filter((s) => s.mark)).toHaveLength(1);
+  });
+
+  // 印记划的句子可能来自另一段。找不到就当没划，不能把文字弄丢。
+  it("ignores a quote that is not in this paragraph", () => {
+    const segs = splitByMarks(TEXT, [mark("elsewhere", "完全不在这一段里的一句话")]);
+    expect(segs).toHaveLength(1);
+    expect(segs[0]?.mark).toBeNull();
+    expect(segs[0]?.text).toBe(TEXT);
+  });
+
+  it("returns the text unchanged when nothing is marked", () => {
+    expect(splitByMarks(TEXT, []).map((s) => s.text).join("")).toBe(TEXT);
+  });
+
+  // 空引用不该把每个字之间都插一个空高亮。
+  it("ignores an empty quote", () => {
+    const segs = splitByMarks(TEXT, [mark("blank", "   ")]);
+    expect(segs).toHaveLength(1);
+    expect(segs[0]?.mark).toBeNull();
+  });
+});
+
+describe("reviewTodo", () => {
+  // 她自己选中问出来的那些不算作业——她问是为了看懂，不是为了交答案。
+  it("does not ask her to answer her own questions", () => {
+    const todo = reviewTodo({
+      marks: [mark("hers", "x", { mine: true }), mark("his", "y", { answer: "站得住" })],
+      dimensions: [],
+    });
+    expect(todo).toBe("");
+  });
+
+  it("counts unanswered marks and dimensions separately", () => {
+    const todo = reviewTodo({
+      marks: [mark("a", "x"), mark("b", "y")],
+      dimensions: [{ id: "d", prompt: "来源可靠吗", why: "", answer: "", ordinal: 0 }],
+    });
+    expect(todo).toBe("2 句话没回答，1 个方面没说");
+  });
+
+  it("is empty once everything is answered", () => {
+    expect(
+      reviewTodo({
+        marks: [mark("a", "x", { answer: "对" })],
+        dimensions: [{ id: "d", prompt: "来源可靠吗", why: "", answer: "查过了", ordinal: 0 }],
+      }),
+    ).toBe("");
+  });
+});
