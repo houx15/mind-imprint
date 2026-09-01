@@ -265,6 +265,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/pbl/projects/{id}/sessions", liteOnly(a.listPblSessions))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/sessions/{sid}/close", liteOnly(a.closePblSession))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/thread", liteOnly(a.getPblThread))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/turn", liteOnly(a.postPblTurn))
 	// 活的任务清单 + Plan Check。结构性变更只进 changes，进不了 plan。
 	mux.Handle("GET /api/v1/pbl/projects/{id}/plan", liteOnly(a.getPblPlan))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan", liteOnly(a.proposePblPlan))
