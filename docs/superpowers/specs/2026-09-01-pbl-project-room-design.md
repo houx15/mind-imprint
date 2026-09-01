@@ -219,12 +219,79 @@ The prototype opened a branch only off an approach. The brief is wider:
 > ask students to think deeply, students can generate a new chatting branch to
 > think deeply.
 
-So the anchor is polymorphic — `approach | hook | step | artifact` — and any
-印记 message may carry a hook question that opens a branch when tapped. She can
-also open one unprompted, from anywhere.
+So the anchor is polymorphic — `approach | hook | step | artifact | free` — and
+any 印记 message may carry a hook question that opens a branch when tapped. She
+can also open one unprompted, from anywhere.
 
 A branch does not close without a `takeaway`. Without one the digging was just
 reading, and nothing comes back to the main thread.
+
+### 10.1 · How the conversation is stored
+
+Checked against the schema on 2026-09-01 rather than assumed.
+
+**`atom_message` carries it, and `pbl_thread_item` is not needed.** The
+precedent already exists: migration 0102 added `block_id` for the writing
+room's per-block sub-agent, where `NULL` means the room's own thread and a set
+value means a side conversation. Branches are the same shape:
+
+- `atom_message.branch_id uuid REFERENCES pbl_branch(id)` — `NULL` is the
+  project's main thread, set is one branch.
+- `CHECK (block_id IS NULL OR branch_id IS NULL)` — two nullable scope columns
+  on one table need to say out loud that they are mutually exclusive.
+- `payload` (0106) carries the items that are not prose: a step divider, an
+  artifact handover, a handoff card. `role='system'` covers them.
+- `pbl_branch` holds what belongs to the branch rather than to any message: the
+  anchor, the question that opened it, and the `takeaway` that closes it.
+
+**Seq stays in one space per atom**, as 0102 established. Both readings stay
+correct: the main thread is `WHERE branch_id IS NULL ORDER BY seq`, one branch
+is `WHERE branch_id = $1 ORDER BY seq`. Interleaving does not corrupt either,
+because gaps in a filtered sequence are still ordered.
+
+### 10.2 · 🚨 The seq race becomes reachable here
+
+`NextAtomMessageSeq` is `SELECT COALESCE(MAX(seq),0)+1 FROM atom_message WHERE
+atom_id = $1`, run inside the turn's transaction. There is no `FOR UPDATE`
+anywhere in `queries/`. Under READ COMMITTED two concurrent transactions both
+read the same max and both insert it; `atom_message_seq_idx` (UNIQUE) rejects
+one, and that turn dies **after** the model call was already paid for, losing
+the student's message.
+
+Today this is close to unreachable: one room holds one conversation, and the
+composer is disabled while a turn is in flight. **Branches make concurrent
+conversations on one atom the designed behaviour** — digging in a side thread
+while the main one is mid-stream is the entire point — so the race stops being
+theoretical.
+
+The fix is local and does not change the schema: take a row lock on the atom
+(`SELECT id FROM atom WHERE id = $1 FOR UPDATE`) at the top of the append
+transaction, so appends to one project serialize. Appends are not
+high-frequency; this costs nothing that matters. Belt and braces, retry once on
+a unique violation.
+
+This must land with the branch work in S2, not after it.
+
+### 10.3 · What the model sees
+
+A branch exists so thinking can go deep without dragging the whole project
+through it, which makes context assembly part of the design:
+
+- **In a branch:** that branch's turns, plus the anchor it hangs off and the
+  project's aim. Not the main thread's full history, and not sibling branches.
+- **In the main thread:** the main thread's turns, plus the **takeaways** of
+  closed branches. Never every turn of every branch.
+
+When a branch closes, its takeaway is appended to the main thread as a message
+with `branch_id IS NULL` and a payload marking where it came from. That is what
+makes the branch matter: the next main-thread turn can see what she concluded
+without seeing her working.
+
+### 10.4 · Open question: do branches nest?
+
+Can she open a branch from inside a branch? The brief does not say. Not built,
+and nothing here forecloses it — a nullable `pbl_branch.parent_branch_id`
+added later leaves both queries above correct. Flagged rather than guessed.
 
 ## 11 · Images
 
@@ -337,9 +404,9 @@ exists, and pro owns `project`.
 | `pbl_plan_revision` | what changed, why, when — the plan's own history |
 | `pbl_approach` | one road 印记 proposed: shape, how, **costs**, needs |
 | `pbl_decision` | chosen approach + `why` + `gave_up` |
-| `pbl_thread_item` | the main conversation: says / step / make / handoff — **only if `atom_message` cannot carry it** |
-| `pbl_branch` | a think-deeply thread: polymorphic anchor + `takeaway` |
-| `pbl_branch_turn` | messages inside one branch |
+| ~~`pbl_thread_item`~~ | **Dropped.** `atom_message` + `payload` carries it — see §10.1 |
+| `pbl_branch` | a think-deeply thread: anchor kind + ref, the question, `takeaway`, closed_at |
+| ~~`pbl_branch_turn`~~ | **Dropped.** `atom_message.branch_id` carries it — see §10.1 |
 | `pbl_artifact` | kind, payload (text/JSON only — binaries live in OSS as a key, §11), `guessed[]`, `admits[]`, verdict, `why` |
 | `pbl_tool_instance` | a summoned tool, its reason, its result (§13) |
 | `pbl_site` | her website: content, layout, publish token, revoked_at |
