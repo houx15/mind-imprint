@@ -610,6 +610,22 @@ report PNG that was completely blank.
 
 The method layer (§6) lands into S2 and S3 when the owner's design arrives.
 
+### Status, 2026-09-01
+
+| | |
+|---|---|
+| S1 | ✅ shipped — landing, kanban, type detection, name-and-cover, dark theme |
+| S2 | ✅ shipped — sessions, versioned plan, Plan Check, router, the turn, the room |
+| S3 | ✅ backend — artifacts with the disclosure and reason gates, plus the `summon_tool` endpoint and `pbl_tool_instance`. **Frontend 占位**: per-kind artifact rendering waits on the interaction design |
+| S4 | not started — images |
+| S5 | not started — her website |
+| S6 | not started — 复盘 and `keeping` |
+
+What the room deliberately does **not** have: the brainstorming room, the
+reframe card and the research hint. They are named as 占位 at the foot of
+`ProjectRoom.tsx`, and they arrive as new `atom_message.payload` kinds plus a
+panel view — nothing built has to be undone to admit them.
+
 ## 21 · Open questions
 
 1. **The method layer and the two tool kinds.** Owner, 1–7 days. Everything is

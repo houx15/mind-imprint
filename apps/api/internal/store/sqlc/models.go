@@ -435,6 +435,21 @@ type OutlineNode struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type PblArtifact struct {
+	ID        uuid.UUID          `json:"id"`
+	AtomID    uuid.UUID          `json:"atom_id"`
+	SessionID pgtype.UUID        `json:"session_id"`
+	Kind      string             `json:"kind"`
+	Title     string             `json:"title"`
+	Payload   []byte             `json:"payload"`
+	Guessed   []byte             `json:"guessed"`
+	Admits    []byte             `json:"admits"`
+	Verdict   *string            `json:"verdict"`
+	Why       string             `json:"why"`
+	SettledAt pgtype.Timestamptz `json:"settled_at"`
+	CreatedAt time.Time          `json:"created_at"`
+}
+
 type PblDecision struct {
 	ID        uuid.UUID   `json:"id"`
 	AtomID    uuid.UUID   `json:"atom_id"`
@@ -508,6 +523,17 @@ type PblSession struct {
 	Writeback  []byte             `json:"writeback"`
 	ClosedAt   pgtype.Timestamptz `json:"closed_at"`
 	CreatedAt  time.Time          `json:"created_at"`
+}
+
+type PblToolInstance struct {
+	ID        uuid.UUID   `json:"id"`
+	AtomID    uuid.UUID   `json:"atom_id"`
+	SessionID pgtype.UUID `json:"session_id"`
+	Tool      string      `json:"tool"`
+	Reason    string      `json:"reason"`
+	Result    []byte      `json:"result"`
+	Status    string      `json:"status"`
+	CreatedAt time.Time   `json:"created_at"`
 }
 
 type PlanItem struct {

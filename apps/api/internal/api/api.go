@@ -273,6 +273,14 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/plan/steps/{sid}", liteOnly(a.setPblStepStatus))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes", liteOnly(a.stagePblChange))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes/{cid}/resolve", liteOnly(a.resolvePblChange))
+	// 成果：交出来要说清楚猜了什么、哪里不对；落地要说得出理由。
+	mux.Handle("GET /api/v1/pbl/projects/{id}/artifacts", liteOnly(a.listPblArtifacts))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts", liteOnly(a.handOverPblArtifact))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/settle", liteOnly(a.settlePblArtifact))
+	// 工具：端点留着，交互延后（spec §13）。
+	mux.Handle("GET /api/v1/pbl/projects/{id}/tools", liteOnly(a.listPblTools))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tools", liteOnly(a.summonPblTool))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/resolve", liteOnly(a.resolvePblTool))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
