@@ -6,6 +6,7 @@ import { Ideas } from "./surfaces/Ideas";
 import { Observe } from "./surfaces/Observe";
 import { Reframe } from "./surfaces/Reframe";
 import { Review } from "./surfaces/Review";
+import { Split } from "./surfaces/Split";
 import { Structure } from "./surfaces/Structure";
 
 /**
@@ -53,6 +54,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   review: Review,
   decide: Decide,
   structure: Structure,
+  split: Split,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {
