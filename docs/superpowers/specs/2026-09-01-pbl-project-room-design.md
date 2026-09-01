@@ -154,6 +154,50 @@ Nothing in this build hard-codes a sequence of methods. The step loop asks the
 method layer what fits; until the layer lands, that call site returns the
 prototype's behaviour.
 
+### 6.0 · Built on 2026-09-01/02 — the method layer is no longer pending
+
+The owner's detailed design landed as `docs/2026-09-01-pbl-detail.md`, and all
+seven stages are now built. This section's "pending" framing is superseded by
+what follows; the seven methods became **ten tools**, because stage one is four
+different moments and collapsing them would restore the fixed step-chain.
+
+| Tool | 界面 | Kind | Stage |
+|---|---|---|---|
+| `observe` | 出去看看 | world | ① |
+| `board` | 便签板 | thinking | ① |
+| `reframe` | 把问题说清楚 | thinking | ① |
+| `ideas` | 想办法 | thinking | ① |
+| `review` | 审一遍 | thinking | ② |
+| `decide` | 做决定 | thinking | ③ |
+| `structure` | 先看结构 | thinking | ④ |
+| `split` | 分工 | thinking | ⑤ |
+| `lookback` | 复盘 | thinking | ⑥ |
+| `keep` | 上线之后 | thinking | ⑦ |
+
+**The two kinds are data, not vocabulary.** `thinking` finishes at the screen;
+`world` means she leaves and comes back days later. Two code paths branch on it:
+印记 stops talking after a `world` tool, and an unresolved `world` tool is normal
+where an unresolved `thinking` tool is abandonment. Without the distinction 印记
+guesses, and half its guesses are nagging.
+
+**Every surface shares one frame** (`ToolFrame`): what to do, why now (印记's own
+sentence), and what is still missing before it can be finished. Those three are
+the owner's "clear / motivated / willing to take part" turned into code.
+
+**Language rule, binding:** in-product text names what the student is doing,
+never the method it comes from. 「把问题说清楚」, never "reframe"; 「先看结构」,
+never "information architecture". A test in `internal/pbl/tools_test.go` guards
+the labels.
+
+**⚠️ Stage ③ (做决定) was an empty heading in the owner's document.** The design
+built — options → what matters here → wins and hurts → choose, plus 「what would
+change my mind」 — is mine and awaits her review. The last field is the load-
+bearing one: it is what makes a decision reviewable in stage ⑥, and 复盘 asks it
+back by name.
+
+**Still 占位:** photo / voice / drawing capture on 出去看看 (needs OSS, S4);
+per-kind artifact rendering beyond documents and images.
+
 ### 6.1 · What arrived on 2026-09-01
 
 Two design documents, written with Codex:
