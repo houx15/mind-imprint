@@ -10,6 +10,7 @@ import {
   PROJECT_STATUS_LABELS,
   type Project,
 } from "../api/projects";
+import { navigate, projectPath } from "../routing";
 import { NameAndCover } from "./NameAndCover";
 import { ProjectCard } from "./ProjectCard";
 
@@ -86,6 +87,9 @@ export function ProjectsLanding() {
   function handleNamed(updated: Project) {
     setProjects((prev) => (prev ?? []).map((p) => (p.id === updated.id ? updated : p)));
     setNaming(null);
+    // Straight into the room. She came here to start something, and landing
+    // back on the board would make her find the thing she just made.
+    navigate(projectPath(updated.id));
   }
 
   return (
@@ -163,7 +167,11 @@ export function ProjectsLanding() {
                   </header>
                   <div className="flex flex-col gap-2">
                     {columns[status].map((p) => (
-                      <ProjectCard key={p.id} project={p} onOpen={setNaming} />
+                      // Tapping a card goes INTO the project. The naming modal
+                      // opens once, right after creation — reopening it on
+                      // every visit would make renaming the main thing a card
+                      // does, which it is not.
+                      <ProjectCard key={p.id} project={p} onOpen={(x) => navigate(projectPath(x.id))} />
                     ))}
                   </div>
                 </section>

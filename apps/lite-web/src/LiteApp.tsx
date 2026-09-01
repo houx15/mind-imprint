@@ -12,6 +12,7 @@ import { resolveEditionDecision } from "@/shell/edition/editionRouting";
 import { EditionRedirectNotice } from "@/shell/edition/EditionRedirectNotice";
 import { liteRoutePath, navigate, parseLiteRoute, settingsPath, type LiteRoute } from "./routing";
 import { getMe, signin, signout, signup, setAccent, setBackground, type MeUser } from "./api/auth";
+import { ProjectRoom } from "./projects/ProjectRoom";
 import { ProjectsLanding } from "./projects/ProjectsLanding";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
@@ -274,10 +275,11 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             <WritingsLanding />
           )
         ) : route.tab === "projects" ? (
-          // S1 has the landing only. `/projects/:id` opens the workbench in
-          // S2; until then a deep link lands on the board rather than a blank
-          // screen, which is also what a stale link should do.
-          <ProjectsLanding />
+          route.projectId ? (
+            <ProjectRoom key={route.projectId} projectId={route.projectId} />
+          ) : (
+            <ProjectsLanding />
+          )
         ) : route.tab === "readings" && route.readingId ? (
           <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (
