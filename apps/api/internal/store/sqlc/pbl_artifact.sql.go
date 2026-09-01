@@ -13,6 +13,36 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const acceptPblTool = `-- name: AcceptPblTool :one
+UPDATE pbl_tool_instance
+SET status = 'accepted', accepted_at = now()
+WHERE id = $1 AND status = 'summoned'
+RETURNING id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note
+`
+
+// 她答应了。对于 thinking 工具这几乎是一瞬间的事；对于 world 工具，她可能
+// 就此离开几天——所以这个中间状态必须存得下来，否则「在做」和「放弃了」
+// 只能靠猜。
+func (q *Queries) AcceptPblTool(ctx context.Context, id uuid.UUID) (PblToolInstance, error) {
+	row := q.db.QueryRow(ctx, acceptPblTool, id)
+	var i PblToolInstance
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.SessionID,
+		&i.Tool,
+		&i.Reason,
+		&i.Result,
+		&i.Status,
+		&i.CreatedAt,
+		&i.Kind,
+		&i.AcceptedAt,
+		&i.ResolvedAt,
+		&i.StudentNote,
+	)
+	return i, err
+}
+
 const createPblArtifact = `-- name: CreatePblArtifact :one
 
 INSERT INTO pbl_artifact (atom_id, session_id, kind, title, payload, guessed, admits)
@@ -103,21 +133,25 @@ func (q *Queries) GetPblArtifact(ctx context.Context, id uuid.UUID) (GetPblArtif
 }
 
 const getPblTool = `-- name: GetPblTool :one
-SELECT t.id, t.atom_id, t.session_id, t.tool, t.reason, t.result, t.status, t.created_at, a.user_id
+SELECT t.id, t.atom_id, t.session_id, t.tool, t.reason, t.result, t.status, t.created_at, t.kind, t.accepted_at, t.resolved_at, t.student_note, a.user_id
 FROM pbl_tool_instance t JOIN atom a ON a.id = t.atom_id
 WHERE t.id = $1
 `
 
 type GetPblToolRow struct {
-	ID        uuid.UUID   `json:"id"`
-	AtomID    uuid.UUID   `json:"atom_id"`
-	SessionID pgtype.UUID `json:"session_id"`
-	Tool      string      `json:"tool"`
-	Reason    string      `json:"reason"`
-	Result    []byte      `json:"result"`
-	Status    string      `json:"status"`
-	CreatedAt time.Time   `json:"created_at"`
-	UserID    uuid.UUID   `json:"user_id"`
+	ID          uuid.UUID          `json:"id"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	SessionID   pgtype.UUID        `json:"session_id"`
+	Tool        string             `json:"tool"`
+	Reason      string             `json:"reason"`
+	Result      []byte             `json:"result"`
+	Status      string             `json:"status"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Kind        string             `json:"kind"`
+	AcceptedAt  pgtype.Timestamptz `json:"accepted_at"`
+	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+	StudentNote string             `json:"student_note"`
+	UserID      uuid.UUID          `json:"user_id"`
 }
 
 func (q *Queries) GetPblTool(ctx context.Context, id uuid.UUID) (GetPblToolRow, error) {
@@ -132,9 +166,53 @@ func (q *Queries) GetPblTool(ctx context.Context, id uuid.UUID) (GetPblToolRow, 
 		&i.Result,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Kind,
+		&i.AcceptedAt,
+		&i.ResolvedAt,
+		&i.StudentNote,
 		&i.UserID,
 	)
 	return i, err
+}
+
+const listOpenPblTools = `-- name: ListOpenPblTools :many
+SELECT id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note FROM pbl_tool_instance
+WHERE atom_id = $1 AND status IN ('summoned', 'accepted')
+ORDER BY created_at
+`
+
+// 还没了结的：刚递出的，和她答应了正在做的。
+func (q *Queries) ListOpenPblTools(ctx context.Context, atomID uuid.UUID) ([]PblToolInstance, error) {
+	rows, err := q.db.Query(ctx, listOpenPblTools, atomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PblToolInstance
+	for rows.Next() {
+		var i PblToolInstance
+		if err := rows.Scan(
+			&i.ID,
+			&i.AtomID,
+			&i.SessionID,
+			&i.Tool,
+			&i.Reason,
+			&i.Result,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Kind,
+			&i.AcceptedAt,
+			&i.ResolvedAt,
+			&i.StudentNote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listPblArtifacts = `-- name: ListPblArtifacts :many
@@ -175,7 +253,7 @@ func (q *Queries) ListPblArtifacts(ctx context.Context, atomID uuid.UUID) ([]Pbl
 }
 
 const listPblTools = `-- name: ListPblTools :many
-SELECT id, atom_id, session_id, tool, reason, result, status, created_at FROM pbl_tool_instance WHERE atom_id = $1 ORDER BY created_at
+SELECT id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note FROM pbl_tool_instance WHERE atom_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListPblTools(ctx context.Context, atomID uuid.UUID) ([]PblToolInstance, error) {
@@ -196,6 +274,10 @@ func (q *Queries) ListPblTools(ctx context.Context, atomID uuid.UUID) ([]PblTool
 			&i.Result,
 			&i.Status,
 			&i.CreatedAt,
+			&i.Kind,
+			&i.AcceptedAt,
+			&i.ResolvedAt,
+			&i.StudentNote,
 		); err != nil {
 			return nil, err
 		}
@@ -209,20 +291,26 @@ func (q *Queries) ListPblTools(ctx context.Context, atomID uuid.UUID) ([]PblTool
 
 const resolvePblTool = `-- name: ResolvePblTool :one
 UPDATE pbl_tool_instance
-SET status = $2, result = $3
-WHERE id = $1 AND status = 'summoned'
-RETURNING id, atom_id, session_id, tool, reason, result, status, created_at
+SET status = $2, result = $3, student_note = $4, resolved_at = now()
+WHERE id = $1 AND status IN ('summoned', 'accepted')
+RETURNING id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note
 `
 
 type ResolvePblToolParams struct {
-	ID     uuid.UUID `json:"id"`
-	Status string    `json:"status"`
-	Result []byte    `json:"result"`
+	ID          uuid.UUID `json:"id"`
+	Status      string    `json:"status"`
+	Result      []byte    `json:"result"`
+	StudentNote string    `json:"student_note"`
 }
 
 // declined 也是一个结果：她可以不打开（铁律②），而这件事本身要留痕。
 func (q *Queries) ResolvePblTool(ctx context.Context, arg ResolvePblToolParams) (PblToolInstance, error) {
-	row := q.db.QueryRow(ctx, resolvePblTool, arg.ID, arg.Status, arg.Result)
+	row := q.db.QueryRow(ctx, resolvePblTool,
+		arg.ID,
+		arg.Status,
+		arg.Result,
+		arg.StudentNote,
+	)
 	var i PblToolInstance
 	err := row.Scan(
 		&i.ID,
@@ -233,6 +321,10 @@ func (q *Queries) ResolvePblTool(ctx context.Context, arg ResolvePblToolParams) 
 		&i.Result,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Kind,
+		&i.AcceptedAt,
+		&i.ResolvedAt,
+		&i.StudentNote,
 	)
 	return i, err
 }
@@ -272,9 +364,9 @@ func (q *Queries) SettlePblArtifact(ctx context.Context, arg SettlePblArtifactPa
 }
 
 const summonPblTool = `-- name: SummonPblTool :one
-INSERT INTO pbl_tool_instance (atom_id, session_id, tool, reason)
-VALUES ($1, $2, $3, $4)
-RETURNING id, atom_id, session_id, tool, reason, result, status, created_at
+INSERT INTO pbl_tool_instance (atom_id, session_id, tool, reason, kind)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note
 `
 
 type SummonPblToolParams struct {
@@ -282,6 +374,7 @@ type SummonPblToolParams struct {
 	SessionID pgtype.UUID `json:"session_id"`
 	Tool      string      `json:"tool"`
 	Reason    string      `json:"reason"`
+	Kind      string      `json:"kind"`
 }
 
 func (q *Queries) SummonPblTool(ctx context.Context, arg SummonPblToolParams) (PblToolInstance, error) {
@@ -290,6 +383,7 @@ func (q *Queries) SummonPblTool(ctx context.Context, arg SummonPblToolParams) (P
 		arg.SessionID,
 		arg.Tool,
 		arg.Reason,
+		arg.Kind,
 	)
 	var i PblToolInstance
 	err := row.Scan(
@@ -301,6 +395,10 @@ func (q *Queries) SummonPblTool(ctx context.Context, arg SummonPblToolParams) (P
 		&i.Result,
 		&i.Status,
 		&i.CreatedAt,
+		&i.Kind,
+		&i.AcceptedAt,
+		&i.ResolvedAt,
+		&i.StudentNote,
 	)
 	return i, err
 }

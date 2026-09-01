@@ -22,8 +22,15 @@ import {
   type SessionKind,
   type ThreadMessage,
 } from "../api/projectRoom";
+import {
+  acceptTool,
+  listTools,
+  resolveTool,
+  type ToolInstance,
+} from "../api/tools";
 import { navigate } from "../routing";
-import { PlanPanel } from "./PlanPanel";
+import { WorkPanel } from "./WorkPanel";
+import { ToolInvite } from "./tools/ToolInvite";
 
 /**
  * ProjectRoom — the workbench.
@@ -43,6 +50,8 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [thread, setThread] = useState<ThreadMessage[]>([]);
   const [plan, setPlan] = useState<PlanState>({ plan: null, pending: [] });
+  const [tools, setTools] = useState<ToolInstance[]>([]);
+  const [openTool, setOpenTool] = useState<string | null>(null);
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
@@ -62,15 +71,17 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     let cancelled = false;
     async function boot() {
       try {
-        const [projects, ss, pl] = await Promise.all([
+        const [projects, ss, pl, ts] = await Promise.all([
           listProjects(),
           listSessions(projectId),
           getPlan(projectId),
+          listTools(projectId),
         ]);
         if (cancelled) return;
         setProject(projects.find((p) => p.id === projectId) ?? null);
         setSessions(ss);
         setPlan(pl);
+        setTools(ts);
         await refreshThread(null);
       } catch (err) {
         if (!cancelled) setError(err instanceof ApiError ? err.message : "这个项目没打开，刷新试试。");
@@ -153,6 +164,66 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     setPlan(await getPlan(projectId));
   }
 
+  /* ── 工具 ─────────────────────────────────────────────────────────────
+   *
+   * 打开一件当场做的工具，右边就切过去；打开一件出门做的，什么也不弹——她
+   * 要走了，弹一个面板给她看没有意义。
+   */
+
+  async function openToolInstance(t: ToolInstance) {
+    setBusy(true);
+    setError(null);
+    try {
+      const got = await acceptTool(projectId, t.id);
+      setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
+      if (got.kind === "thinking") setOpenTool(got.id);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "这件工具没打开。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function declineToolInstance(t: ToolInstance, note: string) {
+    setBusy(true);
+    try {
+      const got = await resolveTool(projectId, t.id, { status: "declined", note });
+      setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "没记下来，再试一次。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /**
+   * 收工。
+   *
+   * 结果落库，然后把她那句话当成她的发言送回对话——因为那本来就是她的话。
+   * 印记接着往下说，工具就不是一个做完就沉底的表单，而是对话的一部分。
+   */
+  async function finishToolInstance(t: ToolInstance, result: unknown, summary: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      const got = await resolveTool(projectId, t.id, { status: "done", result });
+      setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
+      setOpenTool(null);
+      if (summary.trim()) {
+        await postTurn(projectId, summary.trim(), activeSession ?? undefined);
+        await refreshThread(activeSession);
+      }
+      setPlan(await getPlan(projectId));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "结果没送回去，再试一次。");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  // 刚递出来、她还没表态的。
+  const invites = tools.filter((t) => t.status === "summoned");
+
   return (
     <div className="flex h-full min-h-0">
       {/* ── conversation ─────────────────────────────────────────────── */}
@@ -186,6 +257,16 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             )}
             {thread.map((m) => (
               <Message key={m.seq} m={m} onDig={(k, q) => void dig(k, q, String(m.seq))} busy={busy} />
+            ))}
+            {/* 递到手边的工具。放在对话末尾，因为它是印记刚说的话的一部分。 */}
+            {invites.map((t) => (
+              <ToolInvite
+                key={t.id}
+                tool={t}
+                busy={busy}
+                onOpen={() => void openToolInstance(t)}
+                onDecline={(note) => void declineToolInstance(t, note)}
+              />
             ))}
           </div>
         </div>
@@ -230,7 +311,18 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
 
       {/* ── panel ────────────────────────────────────────────────────── */}
       <aside className="hidden w-[360px] shrink-0 border-l border-mk-border lg:block">
-        <PlanPanel plan={plan.plan} pending={plan.pending} onResolve={onResolve} onApprove={onApprove} />
+        <WorkPanel
+          projectId={projectId}
+          plan={plan}
+          tools={tools}
+          openTool={openTool}
+          busy={busy}
+          onSelectTool={setOpenTool}
+          onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
+          onBackFromAway={(t) => setOpenTool(t.id)}
+          onResolve={onResolve}
+          onApprove={onApprove}
+        />
       </aside>
     </div>
   );

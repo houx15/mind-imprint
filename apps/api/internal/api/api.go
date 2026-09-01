@@ -280,6 +280,7 @@ func (a *API) Handler() http.Handler {
 	// 工具：端点留着，交互延后（spec §13）。
 	mux.Handle("GET /api/v1/pbl/projects/{id}/tools", liteOnly(a.listPblTools))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools", liteOnly(a.summonPblTool))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/accept", liteOnly(a.acceptPblTool))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/resolve", liteOnly(a.resolvePblTool))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。

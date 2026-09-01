@@ -451,14 +451,60 @@ type PblArtifact struct {
 }
 
 type PblDecision struct {
+	ID        uuid.UUID          `json:"id"`
+	AtomID    uuid.UUID          `json:"atom_id"`
+	SessionID pgtype.UUID        `json:"session_id"`
+	Subject   string             `json:"subject"`
+	Choice    string             `json:"choice"`
+	Why       string             `json:"why"`
+	GaveUp    string             `json:"gave_up"`
+	CreatedAt time.Time          `json:"created_at"`
+	Flip      string             `json:"flip"`
+	SettledAt pgtype.Timestamptz `json:"settled_at"`
+}
+
+type PblDecisionCriterion struct {
+	ID         uuid.UUID `json:"id"`
+	DecisionID uuid.UUID `json:"decision_id"`
+	Label      string    `json:"label"`
+	Author     string    `json:"author"`
+	Ordinal    int32     `json:"ordinal"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type PblDecisionOption struct {
+	ID         uuid.UUID `json:"id"`
+	DecisionID uuid.UUID `json:"decision_id"`
+	Label      string    `json:"label"`
+	Wins       string    `json:"wins"`
+	Hurts      string    `json:"hurts"`
+	Author     string    `json:"author"`
+	Ordinal    int32     `json:"ordinal"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type PblKeepEntry struct {
 	ID        uuid.UUID   `json:"id"`
 	AtomID    uuid.UUID   `json:"atom_id"`
+	Kind      string      `json:"kind"`
+	Body      string      `json:"body"`
+	Stage     string      `json:"stage"`
 	SessionID pgtype.UUID `json:"session_id"`
-	Subject   string      `json:"subject"`
-	Choice    string      `json:"choice"`
-	Why       string      `json:"why"`
-	GaveUp    string      `json:"gave_up"`
 	CreatedAt time.Time   `json:"created_at"`
+}
+
+type PblNote struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	Kind      string    `json:"kind"`
+	Body      string    `json:"body"`
+	Author    string    `json:"author"`
+	Edited    bool      `json:"edited"`
+	Cluster   string    `json:"cluster"`
+	X         float32   `json:"x"`
+	Y         float32   `json:"y"`
+	Archived  bool      `json:"archived"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type PblPendingChange struct {
@@ -510,6 +556,52 @@ type PblProject struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
+type PblReframe struct {
+	ID          uuid.UUID          `json:"id"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	Who         string             `json:"who"`
+	Needs       string             `json:"needs"`
+	Why         string             `json:"why"`
+	Hmw         string             `json:"hmw"`
+	Supersedes  pgtype.UUID        `json:"supersedes"`
+	ConfirmedAt pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt   time.Time          `json:"created_at"`
+}
+
+type PblReview struct {
+	ID         uuid.UUID `json:"id"`
+	AtomID     uuid.UUID `json:"atom_id"`
+	Prompt     string    `json:"prompt"`
+	AnchorKind string    `json:"anchor_kind"`
+	AnchorRef  string    `json:"anchor_ref"`
+	Answer     string    `json:"answer"`
+	Ordinal    int32     `json:"ordinal"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type PblReviewDimension struct {
+	ID         uuid.UUID `json:"id"`
+	ArtifactID uuid.UUID `json:"artifact_id"`
+	Prompt     string    `json:"prompt"`
+	Why        string    `json:"why"`
+	Answer     string    `json:"answer"`
+	Ordinal    int32     `json:"ordinal"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
+type PblReviewMark struct {
+	ID         uuid.UUID   `json:"id"`
+	ArtifactID uuid.UUID   `json:"artifact_id"`
+	Part       string      `json:"part"`
+	PartNote   string      `json:"part_note"`
+	Quote      string      `json:"quote"`
+	Question   string      `json:"question"`
+	Answer     string      `json:"answer"`
+	SessionID  pgtype.UUID `json:"session_id"`
+	Ordinal    int32       `json:"ordinal"`
+	CreatedAt  time.Time   `json:"created_at"`
+}
+
 type PblSession struct {
 	ID         uuid.UUID          `json:"id"`
 	AtomID     uuid.UUID          `json:"atom_id"`
@@ -525,14 +617,55 @@ type PblSession struct {
 	CreatedAt  time.Time          `json:"created_at"`
 }
 
+type PblSubstep struct {
+	ID            uuid.UUID          `json:"id"`
+	StepID        uuid.UUID          `json:"step_id"`
+	Ordinal       int32              `json:"ordinal"`
+	Title         string             `json:"title"`
+	Owner         string             `json:"owner"`
+	Reason        string             `json:"reason"`
+	StudentOwner  *string            `json:"student_owner"`
+	StudentReason string             `json:"student_reason"`
+	Status        string             `json:"status"`
+	ConfirmedAt   pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt     time.Time          `json:"created_at"`
+}
+
 type PblToolInstance struct {
+	ID          uuid.UUID          `json:"id"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	SessionID   pgtype.UUID        `json:"session_id"`
+	Tool        string             `json:"tool"`
+	Reason      string             `json:"reason"`
+	Result      []byte             `json:"result"`
+	Status      string             `json:"status"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Kind        string             `json:"kind"`
+	AcceptedAt  pgtype.Timestamptz `json:"accepted_at"`
+	ResolvedAt  pgtype.Timestamptz `json:"resolved_at"`
+	StudentNote string             `json:"student_note"`
+}
+
+type PblTreeCheck struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	Tree      string    `json:"tree"`
+	Question  string    `json:"question"`
+	Answer    string    `json:"answer"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type PblTreeNode struct {
 	ID        uuid.UUID   `json:"id"`
 	AtomID    uuid.UUID   `json:"atom_id"`
-	SessionID pgtype.UUID `json:"session_id"`
-	Tool      string      `json:"tool"`
-	Reason    string      `json:"reason"`
-	Result    []byte      `json:"result"`
-	Status    string      `json:"status"`
+	Tree      string      `json:"tree"`
+	ParentID  pgtype.UUID `json:"parent_id"`
+	Depth     int16       `json:"depth"`
+	Ordinal   int32       `json:"ordinal"`
+	Title     string      `json:"title"`
+	Body      string      `json:"body"`
+	Author    string      `json:"author"`
+	Edited    bool        `json:"edited"`
 	CreatedAt time.Time   `json:"created_at"`
 }
 

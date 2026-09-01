@@ -10,6 +10,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -209,22 +210,49 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, toPblArtifactDTO(out))
 }
 
-/* ── tools: endpoint retained, interaction deferred ─────────────────────── */
+/* ── 工具 ────────────────────────────────────────────────────────────────
+ *
+ * 一件工具的一生：印记递出来（summoned）→ 她打开（accepted）→ 有了结果
+ * （done），或者她不用（declined）。
+ *
+ * 🚨 accepted 这一档是给 world 工具留的。她答应"出去看看"之后可能几天不回
+ * 来；没有这一档，「正在做」和「已完成」就只能二选一，印记只好去猜——猜错
+ * 的那一半就是催她。
+ */
 
 type pblToolDTO struct {
-	ID        string          `json:"id"`
-	Tool      string          `json:"tool"`
-	Reason    string          `json:"reason"`
-	Status    string          `json:"status"`
-	Result    json.RawMessage `json:"result,omitempty"`
-	CreatedAt string          `json:"createdAt"`
+	ID         string          `json:"id"`
+	Tool       string          `json:"tool"`
+	Kind       string          `json:"kind"`
+	Label      string          `json:"label"`
+	Reason     string          `json:"reason"`
+	Status     string          `json:"status"`
+	Result     json.RawMessage `json:"result,omitempty"`
+	Note       string          `json:"note"`
+	AcceptedAt *string         `json:"acceptedAt"`
+	ResolvedAt *string         `json:"resolvedAt"`
+	CreatedAt  string          `json:"createdAt"`
 }
 
 func toPblToolDTO(t sqlc.PblToolInstance) pblToolDTO {
-	return pblToolDTO{
-		ID: t.ID.String(), Tool: t.Tool, Reason: t.Reason, Status: t.Status,
+	out := pblToolDTO{
+		ID: t.ID.String(), Tool: t.Tool, Kind: t.Kind, Label: t.Tool,
+		Reason: t.Reason, Status: t.Status, Note: t.StudentNote,
 		Result: json.RawMessage(t.Result), CreatedAt: t.CreatedAt.Format(time.RFC3339),
 	}
+	// 表里有就用表里的名字；表外的工具就用它自己的名字，界面照样能显示。
+	if def, ok := pbl.LookupTool(t.Tool); ok {
+		out.Label = def.Label
+	}
+	if t.AcceptedAt.Valid {
+		s := t.AcceptedAt.Time.Format(time.RFC3339)
+		out.AcceptedAt = &s
+	}
+	if t.ResolvedAt.Valid {
+		s := t.ResolvedAt.Time.Format(time.RFC3339)
+		out.ResolvedAt = &s
+	}
+	return out
 }
 
 func (a *API) listPblTools(w http.ResponseWriter, r *http.Request) {
@@ -255,6 +283,7 @@ func (a *API) summonPblTool(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Tool      string `json:"tool"`
+		Kind      string `json:"kind"`
 		Reason    string `json:"reason"`
 		SessionID string `json:"sessionId"`
 	}
@@ -291,13 +320,43 @@ func (a *API) summonPblTool(w http.ResponseWriter, r *http.Request) {
 	}
 
 	row, err := a.d.Queries.SummonPblTool(r.Context(), sqlc.SummonPblToolParams{
-		AtomID: atomID, SessionID: sess, Tool: tool, Reason: strings.TrimSpace(req.Reason),
+		AtomID: atomID, SessionID: sess, Tool: tool,
+		Reason: strings.TrimSpace(req.Reason),
+		// 已知工具以工具箱为准，表外的才听请求的（internal/pbl/tools.go）。
+		Kind: pbl.ResolveToolKind(tool, strings.TrimSpace(req.Kind)),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, toPblToolDTO(row))
+}
+
+// acceptPblTool —— 她打开了这件工具。
+//
+// 单独一个端点而不是 resolve 的一种状态，因为它回答的是另一个问题：不是
+// 「结果是什么」，而是「她现在在做吗」。world 工具最需要这个区分。
+func (a *API) acceptPblTool(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	tid, err := uuid.Parse(r.PathValue("tid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这件工具不存在"))
+		return
+	}
+	row, err := a.d.Queries.GetPblTool(r.Context(), tid)
+	if err != nil || row.AtomID != atomID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这件工具不存在"))
+		return
+	}
+	out, err := a.d.Queries.AcceptPblTool(r.Context(), tid)
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("not_open", "这件工具不是刚递出来的状态", nil))
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPblToolDTO(out))
 }
 
 // resolvePblTool records what came of a summoned tool.
@@ -323,6 +382,7 @@ func (a *API) resolvePblTool(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Status string          `json:"status"`
 		Result json.RawMessage `json:"result"`
+		Note   string          `json:"note"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
@@ -333,8 +393,11 @@ func (a *API) resolvePblTool(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_status", "不认识这个结果", nil))
 		return
 	}
+	// 🚨 拒绝不要理由。理由字段是留给她想说的时候用的，不是门槛——
+	// 如果拒绝比接受更费事，那就不是一个真的选择（铁律②）。
 	out, err := a.d.Queries.ResolvePblTool(r.Context(), sqlc.ResolvePblToolParams{
 		ID: tid, Status: status, Result: req.Result,
+		StudentNote: strings.TrimSpace(req.Note),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("already_resolved", "这件已经有结果了", nil))

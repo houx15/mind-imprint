@@ -1,0 +1,163 @@
+import { useState } from "react";
+import type { PlanResolution, PlanState } from "../api/projectRoom";
+import type { ToolInstance } from "../api/tools";
+import { awayTools } from "../api/tools";
+import { PlanPanel } from "./PlanPanel";
+import { AwayCard } from "./tools/ToolInvite";
+import { TOOL_TASKS, surfaceFor } from "./tools/registry";
+import { ToolFrame } from "./tools/ToolFrame";
+
+/**
+ * WorkPanel —— 右边这一栏。
+ *
+ * 左边是对话，右边是正在做的东西。计划一直在，工具打开时盖在它上面——盖住而
+ * 不是并排，因为一次做一件事；标签页留在顶上，她随时看得见自己还能回到计划。
+ *
+ * 出门做的事单独一档，永远显示在计划那一页上：她需要看见"我还欠着一趟观察"，
+ * 但那不该出现在待办清单里被催（铁律②）。
+ */
+export function WorkPanel({
+  projectId,
+  plan,
+  tools,
+  openTool,
+  onSelectTool,
+  onFinishTool,
+  onBackFromAway,
+  onResolve,
+  onApprove,
+  busy,
+}: {
+  projectId: string;
+  plan: PlanState;
+  tools: ToolInstance[];
+  /** 当前打开的工具 id；null = 看计划。 */
+  openTool: string | null;
+  onSelectTool: (id: string | null) => void;
+  onFinishTool: (tool: ToolInstance, result: unknown, summary: string) => void;
+  onBackFromAway: (tool: ToolInstance) => void;
+  onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
+  onApprove: (versionId: string) => Promise<void>;
+  busy?: boolean;
+}) {
+  // 标签页只给当场做的工具。出门的那些不占标签——她人不在，一个空着的标签
+  // 页只会像一件没做完的事。
+  const openThinking = tools.filter((t) => t.kind === "thinking" && t.status === "accepted");
+  const away = awayTools(tools);
+  // 🚨 打开的可以是任何一件已接受的工具，包括出门回来要汇报的那件——所以这里
+  // 查的是全部 tools，不是 openThinking。少了这一句，「我回来了」按下去没反应。
+  const active = tools.find((t) => t.id === openTool && t.status === "accepted") ?? null;
+
+  return (
+    <div className="flex h-full flex-col">
+      {openThinking.length > 0 && (
+        <nav className="flex shrink-0 gap-1 overflow-x-auto border-b border-mk-border px-3 py-2">
+          <Tab label="计划" on={!active} onClick={() => onSelectTool(null)} />
+          {openThinking.map((t) => (
+            <Tab
+              key={t.id}
+              label={t.label}
+              on={active?.id === t.id}
+              onClick={() => onSelectTool(t.id)}
+            />
+          ))}
+        </nav>
+      )}
+
+      <div className="min-h-0 flex-1">
+        {active ? (
+          <ToolSurface
+            projectId={projectId}
+            tool={active}
+            onFinish={(result, summary) => onFinishTool(active, result, summary)}
+            onClose={() => onSelectTool(null)}
+          />
+        ) : (
+          <div className="flex h-full flex-col">
+            {away.length > 0 && (
+              <div className="shrink-0 space-y-2 border-b border-mk-border px-3 py-3">
+                <p className="text-mk-small text-mk-muted">你出门在做的事</p>
+                {away.map((t) => (
+                  <AwayCard key={t.id} tool={t} onBack={() => onBackFromAway(t)} busy={busy} />
+                ))}
+              </div>
+            )}
+            <div className="min-h-0 flex-1">
+              <PlanPanel
+                plan={plan.plan}
+                pending={plan.pending}
+                onResolve={onResolve}
+                onApprove={onApprove}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function Tab({ label, on, onClick }: { label: string; on: boolean; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="shrink-0 whitespace-nowrap rounded-mk-full px-3 py-1 text-mk-small"
+      style={
+        on
+          ? { background: "var(--mk-accent-500)", color: "#fff" }
+          : { color: "var(--mk-secondary)" }
+      }
+    >
+      {label}
+    </button>
+  );
+}
+
+/** 有专门界面的用专门界面；没有的退回到一张朴素卡片，不白屏。 */
+function ToolSurface(props: {
+  projectId: string;
+  tool: ToolInstance;
+  onFinish: (result: unknown, summary: string) => void;
+  onClose: () => void;
+}) {
+  const Surface = surfaceFor(props.tool.tool);
+  if (Surface) return <Surface {...props} />;
+  return <PlainSurface {...props} />;
+}
+
+/**
+ * 工具箱里没有的工具。
+ *
+ * 印记可以召出一件我们还没画界面的工具——名字是自由字符串就是为了这个。她
+ * 在这里自己写做完的结果，一样进过程记录。
+ */
+function PlainSurface({
+  tool,
+  onFinish,
+  onClose,
+}: {
+  tool: ToolInstance;
+  onFinish: (result: unknown, summary: string) => void;
+  onClose: () => void;
+}) {
+  const [text, setText] = useState("");
+  return (
+    <ToolFrame
+      title={tool.label}
+      task={TOOL_TASKS[tool.tool] ?? "做完之后，写一句你的结论"}
+      why={tool.reason}
+      todo={text.trim() ? "" : "一句你的结论"}
+      onFinish={() => onFinish({ text: text.trim() }, text.trim())}
+      onClose={onClose}
+    >
+      <textarea
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        rows={8}
+        placeholder="做完之后，写一句你的结论"
+        className="w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+      />
+    </ToolFrame>
+  );
+}
