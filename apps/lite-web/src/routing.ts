@@ -11,6 +11,11 @@
 export type LiteRoute =
   | { tab: "readings"; readingId?: string }
   | { tab: "writings"; writingId?: string }
+  // 项目 (PBL). The frontend path is `/projects` even though the API lives at
+  // `/api/v1/pbl/projects` — the `pbl` prefix exists to keep lite's endpoints
+  // clear of pro's `/api/v1/projects`, and a student's URL bar has no such
+  // collision to avoid.
+  | { tab: "projects"; projectId?: string }
   // 设置 is a route, not a rail tab: it is reached from the account button at
   // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
   // active tab. Keeping it in the same union is what lets Back leave settings
@@ -51,6 +56,8 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "readings", readingId: second } : { tab: "readings" };
     case "writings":
       return second ? { tab: "writings", writingId: second } : { tab: "writings" };
+    case "projects":
+      return second ? { tab: "projects", projectId: second } : { tab: "projects" };
     case "settings":
       return { tab: "settings" };
     case "s":
@@ -77,6 +84,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.readingId ? `/readings/${encodeSegment(route.readingId)}` : "/readings";
     case "writings":
       return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
+    case "projects":
+      return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
     case "settings":
       return "/settings";
     case "share":
@@ -101,6 +110,12 @@ export function readingPath(id: string): string {
  * `createWriting` to route into it, and by `parseLiteRoute`'s inverse. */
 export function writingPath(id: string): string {
   return `/writings/${encodeSegment(id)}`;
+}
+
+/** The canonical path for a single project — used by the landing page after
+ * `createProject` (and after she names it) to route into it. */
+export function projectPath(id: string): string {
+  return `/projects/${encodeSegment(id)}`;
 }
 
 /** Push a new root-relative path onto the History stack and dispatch a
