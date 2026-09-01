@@ -137,3 +137,43 @@ Routes: `GET …/plan`, `POST …/plan/approve`, `PATCH …/plan/steps/{sid}`, `
 ### Deferred to S3, deliberately
 
 The concrete interaction — brainstorming room, reframe card, research hint — is the owner's design and not yet made. This slice builds the substrate those surfaces will sit on, and stops there. The frontend in S2 is only what is needed to see a thread and a plan.
+
+---
+
+## What actually happened (2026-09-01, executed inline)
+
+All six tasks done, full Go suite green (`internal/api` re-run uncached, 37.8s).
+
+**1 · The seq race was far worse than "theoretical".** Built the test red-first
+and ran it with the lock off: **8 of 12 concurrent appends failed**. Under
+concurrency the collision is the common outcome, not a corner case — and in
+production the losing turn dies after its model call is paid for, so the thing
+that vanishes is the student's message. `LockAtom` is now wired into all eight
+`NextAtomMessageSeq` call sites, including the reading and writing rooms where
+it is currently unreachable. The `lock bool` parameter in the test is kept
+deliberately: flip it to see the failure again.
+
+**2 · The depth cap is a `CHECK` on a stored `depth`,** not a recursive walk of
+the parent chain. Turns a per-insert cost that grows with depth into a constant,
+and makes a bad row impossible rather than merely unlikely.
+
+**3 · One test failure was the S1 design working.** `TestPblSession_RejectsForeignParent`
+needs a *second* project, and a second project consults the classifier — with a
+nil provider it 502s. Her first project is the website by rule and skips the
+model entirely, which is exactly what S1 intended.
+
+**4 · `pgtype.UUID` ≠ `google/uuid`, again.** The generated params take
+`pgtype.UUID`; `uuid.NullUUID` does not compile. Same trap the memory file
+already warns about.
+
+**5 · Plan version numbers take the same lock as seq** — also read-then-insert,
+so also raceable.
+
+## Not built, deliberately
+
+**The S2 frontend.** The plan said "only what is needed to see a thread and a
+plan", but the concrete interaction — brainstorming room, reframe card,
+research hint — is the product owner's design and is not made yet. A throwaway
+UI built against a pending design is work that gets deleted. The substrate is
+complete and every invariant is enforced server-side, so whatever the
+interaction turns out to be, it sits on rules that already hold.
