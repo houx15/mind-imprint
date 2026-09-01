@@ -98,6 +98,13 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if note != "" {
+		// 串行化这颗原子的 seq 分配。NextAtomMessageSeq 是先读后插，
+		// 并发下两笔事务会读到同一个 MAX——唯一索引保住的是数据，代价是
+		// 其中一轮直接失败，而那一轮的模型钱已经花掉了。见 queries/atom.sql。
+		if _, err := qtx.LockAtom(r.Context(), at.ID); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
 		seq, err := qtx.NextAtomMessageSeq(r.Context(), at.ID)
 		if err != nil {
 			httpx.WriteError(w, r, err)
@@ -307,6 +314,13 @@ func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 串行化这颗原子的 seq 分配。NextAtomMessageSeq 是先读后插，
+	// 并发下两笔事务会读到同一个 MAX——唯一索引保住的是数据，代价是
+	// 其中一轮直接失败，而那一轮的模型钱已经花掉了。见 queries/atom.sql。
+	if _, err := qtx.LockAtom(turnCtx, at.ID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
 	seq, err := qtx.NextAtomMessageSeq(turnCtx, at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)

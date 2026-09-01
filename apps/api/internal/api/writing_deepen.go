@@ -174,6 +174,12 @@ func (a *API) appendBlockMessage(ctx context.Context, atomID uuid.UUID, blockID 
 	defer func() { _ = tx.Rollback(ctx) }()
 	qtx := a.d.Queries.WithTx(tx)
 
+	// 串行化这颗原子的 seq 分配。NextAtomMessageSeq 是先读后插，
+	// 并发下两笔事务会读到同一个 MAX——唯一索引保住的是数据，代价是
+	// 其中一轮直接失败，而那一轮的模型钱已经花掉了。见 queries/atom.sql。
+	if _, err := qtx.LockAtom(ctx, atomID); err != nil {
+		return sqlc.AtomMessage{}, err
+	}
 	next, err := qtx.NextAtomMessageSeq(ctx, atomID)
 	if err != nil {
 		return sqlc.AtomMessage{}, err
