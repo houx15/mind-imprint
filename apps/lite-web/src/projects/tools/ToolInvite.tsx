@@ -54,7 +54,12 @@ export function ToolInvite({
   }
 
   return (
-    <div className="mt-2 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5">
+    <div
+      // e2e 靠它找到这张卡。按文字找会随着文案改动而碎，而这张卡上每一句话
+      // 都是会改的。
+      data-testid={`tool-invite-${tool.tool}`}
+      className="mt-2 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5"
+    >
       <div className="flex items-start gap-2">
         <Icon
           icon={away ? Footprints : PanelRight}

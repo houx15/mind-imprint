@@ -12,10 +12,15 @@ import { expect, test, type Page } from "@playwright/test";
  * 那一步。
  */
 
+// 🚨 重跑帮不上忙：这条 walk 的第一步就是"手边有几张还没打开的邀请卡"，而第一
+// 次跑完它们就都打开了。所以关掉重试，让失败报出真正的原因。
+test.describe.configure({ retries: 0 });
+
 const TOOLS: { tool: string; reason: string }[] = [
   { tool: "board", reason: "你刚一口气说了三件不太一样的事，先摊开看看" },
   { tool: "reframe", reason: "「大家」是谁？先落到一个你真的见过的人身上" },
   { tool: "ideas", reason: "现在只有一个办法，太早了" },
+  { tool: "review", reason: "我写了一版，你先看看哪里不对" },
   { tool: "decide", reason: "这两条路走下去很不一样，值得停一下" },
   { tool: "structure", reason: "动手写之前，先看看整体分成几块" },
   { tool: "split", reason: "这一步有几格其实该你自己做" },
@@ -25,6 +30,13 @@ const TOOLS: { tool: string; reason: string }[] = [
 ];
 
 async function makeProject(page: Page): Promise<string> {
+  // 重跑时复用已经建好的那个：第二个项目要走分类模型，而这条 walk 没有 key。
+  const existing = await (await page.request.get("/api/v1/pbl/projects")).json();
+  if (Array.isArray(existing) && existing.length > 0) {
+    await page.goto(`/projects/${existing[0].id}`);
+    await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
+    return existing[0].id as string;
+  }
   await page.goto("/projects");
   await page.getByPlaceholder("比如：", { exact: false }).fill(
     "我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。",
@@ -44,8 +56,15 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   const id = await makeProject(page);
   const api = `/api/v1/pbl/projects/${id}`;
 
-  // 印记 递工具走的就是这条路。
+  // 印记 递工具走的就是这条路。重跑时不重复递——同一件工具递两次，界面上就
+  // 真的会出现两张邀请卡，那是对的行为，只是会把这条 walk 的定位搞乱。
+  const already = new Set<string>(
+    ((await (await page.request.get(api + "/tools")).json()) as { tool: string }[]).map(
+      (t) => t.tool,
+    ),
+  );
   for (const t of TOOLS) {
+    if (already.has(t.tool)) continue;
     const res = await page.request.post(api + "/tools", { data: t });
     expect(res.status(), `summon ${t.tool}`).toBe(201);
   }
@@ -130,11 +149,23 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.screenshot({ path: "e2e/.shots/tools-1-invites.png", fullPage: true });
 
   // 出门做的那件长得不一样：不弹面板，只把事情交给她。
-  await expect(page.getByText("这件要离开屏幕做，回来再说。")).toBeVisible();
+  await expect(page.getByText("这件要离开屏幕做，回来再说。").first()).toBeVisible();
 
-  // 2 · 便签板：贴几张，归一堆。
+  // 2 · 用真界面打开一件：点邀请卡上的「打开」。
+  await page.getByTestId("tool-invite-board").first().getByRole("button", { name: "打开" }).click();
+  await expect(page.getByRole("heading", { name: "便签板" })).toBeVisible();
+
+  // 其余几件通过端点接受——这条 walk 要看的是八块界面，不是同一个点击重复八遍。
+  const open = await (await page.request.get(api + "/tools")).json();
+  for (const t of open) {
+    if (t.status === "summoned" && t.kind === "thinking") {
+      expect((await page.request.post(`${api}/tools/${t.id}/accept`)).status()).toBe(200);
+    }
+  }
+  await page.reload();
+  await expect(page.getByRole("heading", { name: "计划" })).toBeVisible();
   await openTool(page, "便签板");
-  await expect(page.getByText("把看到的、听到的、猜的、想问的都摊到板上")).toBeVisible();
+  await expect(page.getByText("把看到的、听到的、猜的、想问的都摊开", { exact: false })).toBeVisible();
   await page.getByPlaceholder("写一条，回车贴上去").fill("中午十二点半，第三个桶已经满了");
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "别人说的" }).first().click();
@@ -191,8 +222,43 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("改成「你做」，为什么？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-8-split.png", fullPage: true });
 
+  // 复盘之前，先让项目里真的发生两件事：一个定下来的决定，和一份被退回去的
+  // 东西。不然复盘只会问那两句兜底的话，而"从真事里长出来"正是它的全部意义。
+  // （放在审阅之后：成果一旦定了，就不在待审的那一摞里了。）
+  expect(
+    (
+      await page.request.post(`${api}/artifacts/${aid}/settle`, {
+        data: { verdict: "revise", why: "第二段把我的话改成了它自己的说法" },
+      })
+    ).status(),
+  ).toBe(200);
+  const d = await (
+    await page.request.post(api + "/decisions", {
+      data: {
+        subject: "这份建议先给食堂，还是先发在班群里",
+        options: [{ label: "先给食堂", author: "yinji" }, { label: "先发班群" }],
+        criteria: [{ label: "这周之内能有回应" }],
+      },
+    })
+  ).json();
+  expect(
+    (
+      await page.request.post(`${api}/decisions/${d.id}/settle`, {
+        data: {
+          choice: "先给食堂",
+          why: "他们能直接改菜量",
+          gaveUp: "班群里能更快听到同学怎么说",
+          flip: "食堂说他们早就试过了",
+        },
+      })
+    ).status(),
+  ).toBe(200);
+
   // 9 · 复盘：问题从真的发生过的事里长出来。
   await openTool(page, "复盘");
+  // 做决定时写下的那句「什么会让我改主意」，在这里被原样问了回来。
+  await expect(page.getByText("食堂说他们早就试过了", { exact: false })).toBeVisible();
+  await expect(page.getByText("第二段把我的话改成了它自己的说法", { exact: false })).toBeVisible();
   await expect(page.getByText("这些问题是从你这个项目里发生过的事写出来的。")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-9-lookback.png", fullPage: true });
 
@@ -203,40 +269,34 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "想一想这条" })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-10-keep.png", fullPage: true });
-});
 
-test("工具: 深色，和手机上", async ({ page }) => {
-  const id = await makeProject(page);
-  await page.request.post(`/api/v1/pbl/projects/${id}/tools`, {
-    data: { tool: "board", reason: "你刚一口气说了三件不太一样的事，先摊开看看" },
-  });
-
-  // 深色。BackgroundProvider 把这些变量写成行内样式，所以主题必须在首屏之前
-  // 生效，而且 --mk-paper 那几个要 !important——不然就是浅底浅字。
-  await page.emulateMedia({ colorScheme: "dark" });
+  // 11 · 深色。
+  //
+  // 🚨 深色是**主动选的**，不跟系统走：CSS 里只有 :root[data-theme="dark"]，
+  // 没有 prefers-color-scheme。所以这里存偏好，和以后那个开关做的事一样；
+  // 用 emulateMedia 拍出来的会是一张浅色图，而且测试照样绿。
+  await page.evaluate(() => localStorage.setItem("mk-theme", "dark"));
   await page.reload();
+  // 主题要在首屏之前生效（main.tsx 的 bootTheme），不然卡片会先画一遍浅色。
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
   await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
-  await openTool(page, "便签板");
-  await page.getByPlaceholder("写一条，回车贴上去").fill("中午十二点半，第三个桶已经满了");
-  await page.keyboard.press("Enter");
-  await page.screenshot({ path: "e2e/.shots/tools-dark-board.png", fullPage: true });
+  await page.screenshot({ path: "e2e/.shots/tools-11-dark.png", fullPage: true });
 
-  // 手机：右边这一栏在 lg 以下是收起来的，所以这里看的是对话和那叠邀请卡。
-  await page.emulateMedia({ colorScheme: "light" });
+  // 12 · 手机。右边这一栏在 lg 以下收起来，所以这里看的是对话和那叠邀请卡。
+  await page.evaluate(() => localStorage.removeItem("mk-theme"));
   await page.setViewportSize({ width: 390, height: 844 });
   await page.reload();
-  await expect(page.getByText("你刚一口气说了三件不太一样的事", { exact: false })).toBeVisible();
-  await page.screenshot({ path: "e2e/.shots/tools-phone-invite.png", fullPage: true });
+  await expect(page.getByText("你说的都是猜的，先去看三天中午")).toBeVisible();
+  await page.screenshot({ path: "e2e/.shots/tools-12-phone.png", fullPage: true });
 });
 
-/** 打开一件工具：点邀请卡上的「打开」，再切到它的标签页。 */
+/**
+ * 切到这件工具的标签页。
+ *
+ * 「打开」那个动作在第 1 步用真界面走过一次了；剩下八件在那之前已经通过端点
+ * 接受，因为这条 walk 要看的是**八块界面长什么样**，不是把同一个点击重复八遍。
+ */
 async function openTool(page: Page, label: string) {
-  const invite = page.locator("div").filter({ hasText: new RegExp(`^${label}`) });
-  const openButton = invite.getByRole("button", { name: "打开" }).first();
-  if (await openButton.isVisible().catch(() => false)) {
-    await openButton.click();
-  } else {
-    await page.getByRole("button", { name: label, exact: true }).first().click();
-  }
+  await page.getByRole("button", { name: label, exact: true }).first().click();
   await expect(page.getByRole("heading", { name: label })).toBeVisible();
 }
