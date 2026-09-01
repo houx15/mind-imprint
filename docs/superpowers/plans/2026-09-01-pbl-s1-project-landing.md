@@ -1329,3 +1329,58 @@ git commit -m "feat(theme): 暖色的暗色主题，两个版本共用"
 **Type consistency.** `ProjectKind` and `ProjectStatus` are declared once each on both sides — `pbl.ProjectKinds` / `projectStatuses` in Go, `PROJECT_STATUSES` in TS — and both mirror the CHECK constraints in 0108. `projectDTO`'s field names match `Project`'s exactly.
 
 **Known unknowns, flagged as verification steps rather than guesses.** Tasks 1, 4 and 5 each open with a `grep` for the real helper names (`newTestDeps`, the lite HTTP harness, `timeLayout`, `httpx.WriteJSON`) because those were not read while writing this plan. Reconcile against what exists; do not add a second helper.
+
+---
+
+## What actually happened (2026-09-01, executed inline)
+
+All eight tasks are done and pushed. Where execution departed from the plan is
+the useful part.
+
+**1 · The plan's routes and handler names were WRONG and would have broken pro.**
+`/api/v1/projects` is already a pro route (`api.go:88`), `a.createProject` and
+`a.listProjects` already exist as methods, and `edition_test.go` asserts a lite
+student gets **404** on that path. Everything moved to `/api/v1/pbl/projects`
+with `createPblProject` / `listPblProjects` / `patchPblProject`. Caught by the
+grep-first steps, which is what they were for.
+
+**2 · The plan's test helpers do not exist.** The real harness is
+`liteHandler(t) → (handler, cookie, *sqlc.Queries, *pgxpool.Pool)` plus
+`SeedUserID`, `SeedSchoolID`, `createStudent`, `signInAs(t, pool, userID)` and
+`withCookie`. Tests live in package `api_test` and need the dot-import
+`. "mindimprint/api/internal/api"` to see the exported seed ids.
+
+**3 · `httpx` has no `ErrBadGateway`.** The codebase uses
+`httpx.ErrAIDialogueFailed(reason)` (502) when a model reply cannot be
+understood. `httpx.ErrNotFound` takes only a message. There is no `timeLayout`
+constant — DTOs format with `time.RFC3339`.
+
+**4 · `recordLiteLLMCall` needed a one-line fix.** It hardcoded
+`AtomID: pgtype.UUID{…, Valid: true}`, but classification happens BEFORE the
+project exists. `llm_call.atom_id` has been nullable since 0094, so `uuid.Nil`
+now records as NULL; otherwise the row fails its foreign key and vanishes into
+a swallowed warning, losing the cost of a call that was really made.
+
+**5 · Covers use string ids, not the prototype's array index.** An index in a
+database column is a promise never to reorder the array.
+
+**6 · Two defects found by LOOKING at screenshots, invisible to any unit test.**
+The cover fallback existed in two places, so an uncovered project rendered
+coral on the board and blue in the modal and changed colour the moment she
+saved (now one `resolveCover`, with a regression test). And on a phone the
+开始 button wrapped into two stacked characters.
+
+**7 · Dark theme hit two real traps.** `!important` is required on `--mk-paper`
+and the accent ramp, because `BackgroundProvider` / `AccentProvider` write
+those vars as inline styles and inline beats any stylesheet rule — without it
+dark mode is light-on-light. And the theme must be applied before first paint;
+flipping `data-theme` at runtime left cards painting light colours while the
+vars already read dark. Both documented at the block itself.
+
+**8 · A false test failure worth remembering.** `go test ./...` run beside a
+live e2e stack reported 7 packages FAILED at exactly **1980s** — that is
+`-timeout 1800s` firing under Docker contention, not an assertion. All passed
+in seconds when run alone. Read the duration before believing a failure.
+
+Verified at the end: 23/23 Go packages (`internal/api` re-run uncached, 44.9s),
+390 lite unit tests, and a live Playwright walk against a real API and Postgres.
