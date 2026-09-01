@@ -283,6 +283,13 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.updatePblNote))
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.archivePblNote))
 
+	mux.Handle("GET /api/v1/pbl/projects/{id}/tree", liteOnly(a.getPblTree))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tree", liteOnly(a.createPblTreeNode))
+	mux.Handle("PATCH /api/v1/pbl/projects/{id}/tree/{nid}", liteOnly(a.updatePblTreeNode))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tree/{nid}/move", liteOnly(a.movePblTreeNode))
+	mux.Handle("DELETE /api/v1/pbl/projects/{id}/tree/{nid}", liteOnly(a.deletePblTreeNode))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/tree-checks", liteOnly(a.answerPblTreeCheck))
+
 	mux.Handle("GET /api/v1/pbl/projects/{id}/decisions", liteOnly(a.listPblDecisions))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions", liteOnly(a.openPblDecision))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions/{did}/options", liteOnly(a.addPblDecisionOption))
