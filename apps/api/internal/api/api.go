@@ -283,6 +283,11 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.updatePblNote))
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.archivePblNote))
 
+	mux.Handle("GET /api/v1/pbl/projects/{id}/reframes", liteOnly(a.listPblReframes))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/reframes", liteOnly(a.createPblReframe))
+	mux.Handle("PATCH /api/v1/pbl/projects/{id}/reframes/{rid}", liteOnly(a.updatePblReframe))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/reframes/{rid}/confirm", liteOnly(a.confirmPblReframe))
+
 	mux.Handle("GET /api/v1/pbl/projects/{id}/tools", liteOnly(a.listPblTools))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools", liteOnly(a.summonPblTool))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/accept", liteOnly(a.acceptPblTool))

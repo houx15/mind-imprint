@@ -1,0 +1,79 @@
+import { apiFetch } from "./client";
+
+// api/reframe.ts —— 把问题说清楚。形状读自 apps/api/internal/api/pbl_reframe.go。
+
+const base = (id: string) => `/api/v1/pbl/projects/${id}`;
+
+export interface Reframe {
+  id: string;
+  who: string;
+  needs: string;
+  why: string;
+  hmw: string;
+  /** 它替掉的上一版。留着旧的，她之后才看得见"我当时以为问题是这个"。 */
+  supersedes: string | null;
+  confirmedAt: string | null;
+  createdAt: string;
+}
+
+export function listReframes(projectId: string): Promise<Reframe[]> {
+  return apiFetch<Reframe[]>(`${base(projectId)}/reframes`);
+}
+
+export function createReframe(
+  projectId: string,
+  body: { who?: string; needs?: string; why?: string; hmw?: string; supersedes?: string },
+): Promise<Reframe> {
+  return apiFetch<Reframe>(`${base(projectId)}/reframes`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+export function updateReframe(
+  projectId: string,
+  id: string,
+  patch: { who?: string; needs?: string; why?: string; hmw?: string },
+): Promise<Reframe> {
+  return apiFetch<Reframe>(`${base(projectId)}/reframes/${id}`, {
+    method: "PATCH",
+    body: JSON.stringify(patch),
+  });
+}
+
+export function confirmReframe(projectId: string, id: string): Promise<Reframe> {
+  return apiFetch<Reframe>(`${base(projectId)}/reframes/${id}/confirm`, { method: "POST" });
+}
+
+/**
+ * 当前这一版：已确认、而且没有被后来的版本替掉。
+ *
+ * 前端也算一遍（后端有 CurrentPblReframe），因为界面上要同时拿到"现在这版"和
+ * "上一版"来对照，而对照正是重新框定问题时最该看见的东西。
+ */
+export function currentReframe(all: Reframe[]): Reframe | null {
+  // 🚨 只有**已确认**的那一版才算替掉了上一版。写到一半的草稿一开局就指向了
+  // 当前这版（界面一打开就建了它），如果让它也算数，"现在的问题"会在她刚开
+  // 始改写的那一刻凭空消失——而那正是最需要看见上一版的时候。
+  const superseded = new Set(
+    all.filter((r) => r.confirmedAt).map((r) => r.supersedes).filter(Boolean) as string[],
+  );
+  const live = all.filter((r) => r.confirmedAt && !superseded.has(r.id));
+  return live.length ? (live[live.length - 1] ?? null) : null;
+}
+
+/** 还没定下来的那一版，如果有。同一时刻最多只该有一版在写。 */
+export function draftReframe(all: Reframe[]): Reframe | null {
+  const drafts = all.filter((r) => !r.confirmedAt);
+  return drafts.length ? (drafts[drafts.length - 1] ?? null) : null;
+}
+
+/** 拼成一句人话，给她看的。 */
+export function reframeSentence(r: {
+  who: string;
+  needs: string;
+  why: string;
+}): string {
+  if (!r.who && !r.needs && !r.why) return "";
+  return `${r.who || "……"} 需要 ${r.needs || "……"}，因为 ${r.why || "……"}。`;
+}
