@@ -56,14 +56,15 @@ type AtomCard struct {
 }
 
 type AtomMessage struct {
-	ID        uuid.UUID `json:"id"`
-	AtomID    uuid.UUID `json:"atom_id"`
-	Seq       int32     `json:"seq"`
-	Role      string    `json:"role"`
-	Content   string    `json:"content"`
-	CreatedAt time.Time `json:"created_at"`
-	BlockID   *string   `json:"block_id"`
-	Payload   []byte    `json:"payload"`
+	ID        uuid.UUID   `json:"id"`
+	AtomID    uuid.UUID   `json:"atom_id"`
+	Seq       int32       `json:"seq"`
+	Role      string      `json:"role"`
+	Content   string      `json:"content"`
+	CreatedAt time.Time   `json:"created_at"`
+	BlockID   *string     `json:"block_id"`
+	Payload   []byte      `json:"payload"`
+	SessionID pgtype.UUID `json:"session_id"`
 }
 
 type AtomReport struct {
@@ -434,6 +435,55 @@ type OutlineNode struct {
 	UpdatedAt time.Time `json:"updated_at"`
 }
 
+type PblDecision struct {
+	ID        uuid.UUID   `json:"id"`
+	AtomID    uuid.UUID   `json:"atom_id"`
+	SessionID pgtype.UUID `json:"session_id"`
+	Subject   string      `json:"subject"`
+	Choice    string      `json:"choice"`
+	Why       string      `json:"why"`
+	GaveUp    string      `json:"gave_up"`
+	CreatedAt time.Time   `json:"created_at"`
+}
+
+type PblPendingChange struct {
+	ID         uuid.UUID          `json:"id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	Kind       string             `json:"kind"`
+	Diff       []byte             `json:"diff"`
+	Evidence   string             `json:"evidence"`
+	Resolution *string            `json:"resolution"`
+	Reason     string             `json:"reason"`
+	ResolvedAt pgtype.Timestamptz `json:"resolved_at"`
+	CreatedAt  time.Time          `json:"created_at"`
+}
+
+type PblPlanStep struct {
+	ID        uuid.UUID `json:"id"`
+	VersionID uuid.UUID `json:"version_id"`
+	Ordinal   int32     `json:"ordinal"`
+	Title     string    `json:"title"`
+	Blurb     string    `json:"blurb"`
+	Goal      string    `json:"goal"`
+	YouBring  string    `json:"you_bring"`
+	IBring    string    `json:"i_bring"`
+	Decide    string    `json:"decide"`
+	ThenBring string    `json:"then_bring"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type PblPlanVersion struct {
+	ID         uuid.UUID          `json:"id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	Version    int32              `json:"version"`
+	Summary    string             `json:"summary"`
+	Reason     string             `json:"reason"`
+	DecidedBy  string             `json:"decided_by"`
+	ApprovedAt pgtype.Timestamptz `json:"approved_at"`
+	CreatedAt  time.Time          `json:"created_at"`
+}
+
 type PblProject struct {
 	AtomID      uuid.UUID `json:"atom_id"`
 	Idea        string    `json:"idea"`
@@ -443,6 +493,21 @@ type PblProject struct {
 	CoverGlyph  string    `json:"cover_glyph"`
 	Status      string    `json:"status"`
 	UpdatedAt   time.Time `json:"updated_at"`
+}
+
+type PblSession struct {
+	ID         uuid.UUID          `json:"id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	Kind       string             `json:"kind"`
+	ParentID   pgtype.UUID        `json:"parent_id"`
+	Depth      int16              `json:"depth"`
+	AnchorKind string             `json:"anchor_kind"`
+	AnchorRef  string             `json:"anchor_ref"`
+	Question   string             `json:"question"`
+	Takeaway   string             `json:"takeaway"`
+	Writeback  []byte             `json:"writeback"`
+	ClosedAt   pgtype.Timestamptz `json:"closed_at"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 type PlanItem struct {

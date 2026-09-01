@@ -28,7 +28,7 @@ func (q *Queries) AddAtomActiveSeconds(ctx context.Context, arg AddAtomActiveSec
 const appendAtomBlockMessage = `-- name: AppendAtomBlockMessage :one
 INSERT INTO atom_message (atom_id, seq, role, content, block_id)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, atom_id, seq, role, content, created_at, block_id, payload
+RETURNING id, atom_id, seq, role, content, created_at, block_id, payload, session_id
 `
 
 type AppendAtomBlockMessageParams struct {
@@ -59,6 +59,7 @@ func (q *Queries) AppendAtomBlockMessage(ctx context.Context, arg AppendAtomBloc
 		&i.CreatedAt,
 		&i.BlockID,
 		&i.Payload,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -66,7 +67,7 @@ func (q *Queries) AppendAtomBlockMessage(ctx context.Context, arg AppendAtomBloc
 const appendAtomMessage = `-- name: AppendAtomMessage :one
 INSERT INTO atom_message (atom_id, seq, role, content, payload)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, atom_id, seq, role, content, created_at, block_id, payload
+RETURNING id, atom_id, seq, role, content, created_at, block_id, payload, session_id
 `
 
 type AppendAtomMessageParams struct {
@@ -98,6 +99,7 @@ func (q *Queries) AppendAtomMessage(ctx context.Context, arg AppendAtomMessagePa
 		&i.CreatedAt,
 		&i.BlockID,
 		&i.Payload,
+		&i.SessionID,
 	)
 	return i, err
 }
@@ -354,7 +356,7 @@ func (q *Queries) ListAtomAnnotations(ctx context.Context, atomID uuid.UUID) ([]
 }
 
 const listAtomBlockMessages = `-- name: ListAtomBlockMessages :many
-SELECT id, atom_id, seq, role, content, created_at, block_id, payload FROM atom_message
+SELECT id, atom_id, seq, role, content, created_at, block_id, payload, session_id FROM atom_message
 WHERE atom_id = $1 AND block_id = $2
 ORDER BY seq
 `
@@ -382,6 +384,7 @@ func (q *Queries) ListAtomBlockMessages(ctx context.Context, arg ListAtomBlockMe
 			&i.CreatedAt,
 			&i.BlockID,
 			&i.Payload,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}
@@ -431,7 +434,7 @@ func (q *Queries) ListAtomCards(ctx context.Context, atomID uuid.UUID) ([]AtomCa
 }
 
 const listAtomMessages = `-- name: ListAtomMessages :many
-SELECT id, atom_id, seq, role, content, created_at, block_id, payload FROM atom_message WHERE atom_id = $1 AND block_id IS NULL ORDER BY seq
+SELECT id, atom_id, seq, role, content, created_at, block_id, payload, session_id FROM atom_message WHERE atom_id = $1 AND block_id IS NULL ORDER BY seq
 `
 
 // The room's OWN thread only. The `block_id IS NULL` filter is the whole safety
@@ -457,6 +460,7 @@ func (q *Queries) ListAtomMessages(ctx context.Context, atomID uuid.UUID) ([]Ato
 			&i.CreatedAt,
 			&i.BlockID,
 			&i.Payload,
+			&i.SessionID,
 		); err != nil {
 			return nil, err
 		}
@@ -468,13 +472,40 @@ func (q *Queries) ListAtomMessages(ctx context.Context, atomID uuid.UUID) ([]Ato
 	return items, nil
 }
 
+const lockAtom = `-- name: LockAtom :one
+SELECT id FROM atom WHERE id = $1 FOR UPDATE
+`
+
+// Serialize everything that allocates a seq for one atom.
+//
+// 🚨 Take this FIRST, in the same transaction, before NextAtomMessageSeq.
+//
+// Why it exists (2026-09-01, PBL S2): NextAtomMessageSeq is a read followed by
+// a separate insert. Under READ COMMITTED two concurrent transactions read the
+// same MAX and both insert it; the unique index rejects one, and that turn dies
+// **after its model call has already been paid for**, losing the student's
+// message. The index protects the DATA and does nothing for the student.
+//
+// This was close to unreachable while one room held one conversation and the
+// composer was disabled mid-turn. PBL sessions make two live conversations on
+// one atom the DESIGNED behaviour (spec §10.2), so it stopped being theoretical.
+// Appends are nowhere near frequent enough for the lock to cost anything.
+func (q *Queries) LockAtom(ctx context.Context, id uuid.UUID) (uuid.UUID, error) {
+	row := q.db.QueryRow(ctx, lockAtom, id)
+	err := row.Scan(&id)
+	return id, err
+}
+
 const nextAtomMessageSeq = `-- name: NextAtomMessageSeq :one
 SELECT COALESCE(MAX(seq), 0)::int + 1 AS next FROM atom_message WHERE atom_id = $1
 `
 
-// The next free seq for this atom. Callers append inside the same transaction
-// as this read, so the (atom_id, seq) unique index — not this read — is the
-// real guard against a concurrent double-append.
+// The next free seq for this atom.
+//
+// 🚨 Callers MUST hold LockAtom (above) in the same transaction. Without it
+// this read races: the (atom_id, seq) unique index keeps the data correct by
+// failing one of the two turns, which is not an acceptable outcome for the
+// student whose message is the one that disappears.
 func (q *Queries) NextAtomMessageSeq(ctx context.Context, atomID uuid.UUID) (int32, error) {
 	row := q.db.QueryRow(ctx, nextAtomMessageSeq, atomID)
 	var next int32

@@ -54,10 +54,30 @@ INSERT INTO atom_message (atom_id, seq, role, content, block_id)
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
+-- name: LockAtom :one
+-- Serialize everything that allocates a seq for one atom.
+--
+-- 🚨 Take this FIRST, in the same transaction, before NextAtomMessageSeq.
+--
+-- Why it exists (2026-09-01, PBL S2): NextAtomMessageSeq is a read followed by
+-- a separate insert. Under READ COMMITTED two concurrent transactions read the
+-- same MAX and both insert it; the unique index rejects one, and that turn dies
+-- **after its model call has already been paid for**, losing the student's
+-- message. The index protects the DATA and does nothing for the student.
+--
+-- This was close to unreachable while one room held one conversation and the
+-- composer was disabled mid-turn. PBL sessions make two live conversations on
+-- one atom the DESIGNED behaviour (spec §10.2), so it stopped being theoretical.
+-- Appends are nowhere near frequent enough for the lock to cost anything.
+SELECT id FROM atom WHERE id = $1 FOR UPDATE;
+
 -- name: NextAtomMessageSeq :one
--- The next free seq for this atom. Callers append inside the same transaction
--- as this read, so the (atom_id, seq) unique index — not this read — is the
--- real guard against a concurrent double-append.
+-- The next free seq for this atom.
+--
+-- 🚨 Callers MUST hold LockAtom (above) in the same transaction. Without it
+-- this read races: the (atom_id, seq) unique index keeps the data correct by
+-- failing one of the two turns, which is not an acceptable outcome for the
+-- student whose message is the one that disappears.
 SELECT COALESCE(MAX(seq), 0)::int + 1 AS next FROM atom_message WHERE atom_id = $1;
 
 -- name: CreateAtomCard :one
