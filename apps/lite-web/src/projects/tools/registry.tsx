@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { ToolInstance } from "../../api/tools";
 import { Board } from "./surfaces/Board";
+import { Decide } from "./surfaces/Decide";
 import { Ideas } from "./surfaces/Ideas";
 import { Observe } from "./surfaces/Observe";
 import { Reframe } from "./surfaces/Reframe";
@@ -49,6 +50,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   reframe: Reframe,
   ideas: Ideas,
   review: Review,
+  decide: Decide,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {
