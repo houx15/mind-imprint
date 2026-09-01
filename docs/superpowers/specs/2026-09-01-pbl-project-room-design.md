@@ -3,13 +3,15 @@
 > 2026-09-01 · The first of three sub-projects taking `/eco` into lite for real.
 > Order agreed with the product owner: **项目 → 兴趣树 → 探索宇宙**.
 >
-> Revision 2, same day, after the product owner's eight-point review. The
-> changes are recorded in §17 so the reasons survive.
+> **Revision 3**, same day. R2 followed the owner's eight-point review (§22);
+> R3 folds in the two Codex design documents and is recorded in §23.
 >
 > Source material: `docs/2026-08-31-eco-to-lite-build-brief.md`,
 > `docs/2026-08-30-ecosystem-prototype-spec.md` (revisions v1–v9),
-> `docs/2026-08-31-pbl-tool-model.md`, and the product owner's own words in
-> `docs/2026-09-01-eco-lite-original-intent-verbatim.md`.
+> `docs/2026-08-31-pbl-tool-model.md`, the owner's own words in
+> `docs/2026-09-01-eco-lite-original-intent-verbatim.md`, and — binding on
+> §9/§10/§12 — `docs/02-project-conception-and-dynamic-planning-design.md` and
+> `docs/03-agent-loop-and-thinking-session-protocols.md`.
 >
 > Scope check: this is a new lite surface, not the writing-project flow, so the
 > `docs/2026-08-09-all-statuses.md` consistency gate in AGENTS.md does not apply.
@@ -152,6 +154,38 @@ Nothing in this build hard-codes a sequence of methods. The step loop asks the
 method layer what fits; until the layer lands, that call site returns the
 prototype's behaviour.
 
+### 6.1 · What arrived on 2026-09-01
+
+Two design documents, written with Codex:
+
+- `docs/02-project-conception-and-dynamic-planning-design.md` — how a project
+  starts from a photo, a complaint, an interest, a question or a ready-made
+  solution, and how the plan keeps changing afterwards.
+- `docs/03-agent-loop-and-thinking-session-protocols.md` — the agent's behaviour
+  protocol: context layers, the per-turn decision order, four session contracts,
+  Plan Check, and the failure modes to design against.
+
+They settle much of what this section was waiting for, and they are now binding
+on §9 (the graded plan model), §10 (sessions, their contracts, the router) and
+§12 (the gates). Two things to note about how they landed:
+
+**The 「student status → default action」 routing table** in doc 02 §四 replaces
+「method #1」 as I had framed it. There is no single idea-to-plan procedure;
+there are nine entry states, and 印记 continues from wherever she already is. A
+student who arrives with a finished solution is not walked back through design
+thinking, and a student with nothing is not asked to pick a topic.
+
+**Still not designed, and the owner says so:** the concrete interaction — the
+brainstorming room, the reframe card, the research hint. Doc 03 §十二 does give
+the shared primitives (one-sentence cards with source and certainty marks, a
+few choices at a time, a compare tray, drag-to-merge, the plan diff, undo by
+saying so in the conversation), which is enough to build the substrate against.
+
+⚠️ **Those primitives may already be the answer to §13.** A card that holds one
+sentence, carries 看到 / 猜到 / 资料显示 / 我现在猜的, and can be dragged and
+merged is a different object from a panel of labelled input fields. The rejected
+thing was the form, not the card.
+
 ## 7 · Orchestration
 
 A new package, `apps/api/internal/pbl`.
@@ -179,9 +213,11 @@ closed list, and each one is a deliberate product decision.
 
 | Tool | Effect |
 |---|---|
-| `open_branch` | suggest a think-deeply thread off any anchor (§10) |
-| `revise_plan` | add, reorder, drop or rewrite steps **mid-flight** (§9) |
-| `set_step_status` | move the living tasklist forward |
+| `open_session` | propose a session off any anchor — untyped, or one of the four kinds (§10.4) |
+| `close_session` | write back its result; refused without one (§10.4) |
+| `revise_plan` | progress and **local** changes only — applied, announced in a line, undoable (§9.1) |
+| `propose_plan_change` | a **structural** change: lands in `pending_plan_changes`, never on the live plan (§9.1) |
+| `set_step_status` | move the living tasklist through its seven states (§9.3) |
 | `generate_image` | DashScope 通义万相 → OSS (§11) |
 | `write_html` | delegate to a sub-agent that returns a static page |
 | `write_document` | delegate to a sub-agent that returns a draft, report or **spec** |
@@ -200,31 +236,85 @@ just a question gets asked one at a time.
 ## 9 · The plan is a living tasklist
 
 Cowork's shape, and a correction to the prototype: the plan is not approved once
-and then frozen. It is an ongoing tasklist with per-step status that 印记 can
-revise as the project teaches them both something.
+and then frozen. It is an ongoing tasklist with per-step status that 印记 revises
+as the project teaches them both something.
 
 What survives from the prototype unchanged: **nothing runs before she has
 approved the first plan**, and every step names what she has to **decide**.
 
-What changes: after approval, `revise_plan` may add, drop, reorder or rewrite
-steps. Every revision is recorded with its reason and shown as a change to the
-list she already agreed to, never as a silent replacement. 过程即数据 — a plan
-that changed three times is a more honest record than one that never did.
+### 9.1 · Changes are graded, not all-or-nothing
 
-## 10 · Hook questions and branches
+Revised 2026-09-01 against `docs/03-agent-loop-and-thinking-session-protocols.md`
+§十.1. An earlier draft of this spec said 印记 revises freely as long as it gives
+a reason. That is right for small changes and wrong for large ones, and the
+grading is the part that matters:
 
-The prototype opened a branch only off an approach. The brief is wider:
+| Grade | Example | What happens |
+|---|---|---|
+| **Progress** | a step finishes, a file is produced | applied silently, no interruption |
+| **Local** | one step splits in two, order shifts | applied, announced in one line, **undoable** |
+| **Structural** | the question, the people, the solution, the success criteria or the scope changes | **must go through Plan Check** and get her decision |
+| **Fork** | two directions are both worth keeping | 印记 proposes a branch; she decides |
+
+The failure this prevents has a name — 隐形重规划: 印记 quietly swapping the
+project's goal because new information arrived. So an unconfirmed structural
+change lands in `pending_plan_changes` and **never overwrites the live plan**.
+
+### 9.2 · Plans are versioned
+
+`v0.1`, `v0.2`. A version records a change in *understanding or decision*, never
+a task ticking over. Old versions, the evidence behind each change, and her
+reasons stay readable — a rejected direction that leaves no trace is a lesson
+thrown away.
+
+### 9.3 · Step status
+
+Seven, from the same doc: `已确定 / 暂定 / 等待调查结果 / 等待学生决定 / 已完成 /
+已修改 / 已取消`. The two waiting states carry most of the value: they let the
+board say *why* nothing is moving, which is the thing a stuck student cannot
+usually articulate.
+
+### 9.4 · Plan Check
+
+The surface a structural change goes through. It shows four things and nothing
+else: **what we just learned**, **what 印记 proposes to change** (as a diff —
+新增 / 修改 / 删除 / 暂缓, never a re-display of the whole plan), **why**, each
+item tied to concrete evidence, and **what she has to decide**.
+
+Her options are always: accept · accept with edits · keep the current plan · try
+both · decide later and gather more evidence first. 「Keep the current plan」 is
+a first-class outcome, recorded with her reason — not a failure to engage.
+
+## 10 · Sessions — hook questions, digging, and the named modes
+
+> **Renamed 2026-09-01.** This was 「branches」. `docs/03-...` already uses
+> 分支 / branch for a **project fork** (两个方向都值得保留), which is a different
+> object, and two meanings on one word would have collided in the schema.
+> A think-deeply side thread is now a **session**, and 「branch」 is left to mean
+> the fork.
+>
+> The rename is also a simplification, not a workaround: a free-form dig *is* a
+> lightweight Thinking Session. So there is one object — `pbl_session` — with a
+> `kind`. A dig is an untyped session; 观察日记 / Reframe / 头脑风暴 / Plan Check
+> are typed ones with a contract. One router, one write-back path, one place a
+> student learns the interaction.
+
+The prototype opened a side thread only off an approach. The brief is wider:
 
 > whenever need think, design, review, make decisions, provide hook questions,
 > ask students to think deeply, students can generate a new chatting branch to
 > think deeply.
 
 So the anchor is polymorphic — `approach | hook | step | artifact | free` — and
-any 印记 message may carry a hook question that opens a branch when tapped. She
-can also open one unprompted, from anywhere.
+any 印记 message may carry a hook question that opens a session when tapped. She
+can also open one unprompted, from anywhere, and 印记 may propose one when the
+router fires (§10.5).
 
-A branch does not close without a `takeaway`. Without one the digging was just
-reading, and nothing comes back to the main thread.
+**A session does not close without a write-back.** For an untyped dig that is a
+`takeaway`; for a typed one it is that kind's contract (§10.5). Without it the
+digging was just reading, and nothing comes back to the thread that spawned it.
+This is the rule that prevents 方法论表演 — completing the ritual while the
+project's question, plan and evidence stay exactly as they were.
 
 ### 10.1 · How the conversation is stored
 
@@ -233,21 +323,34 @@ Checked against the schema on 2026-09-01 rather than assumed.
 **`atom_message` carries it, and `pbl_thread_item` is not needed.** The
 precedent already exists: migration 0102 added `block_id` for the writing
 room's per-block sub-agent, where `NULL` means the room's own thread and a set
-value means a side conversation. Branches are the same shape:
+value means a side conversation. Sessions are the same shape:
 
-- `atom_message.branch_id uuid REFERENCES pbl_branch(id)` — `NULL` is the
-  project's main thread, set is one branch.
-- `CHECK (block_id IS NULL OR branch_id IS NULL)` — two nullable scope columns
+- `atom_message.session_id uuid REFERENCES pbl_session(id)` — `NULL` is the
+  project's main thread, set is one session.
+- `CHECK (block_id IS NULL OR session_id IS NULL)` — two nullable scope columns
   on one table need to say out loud that they are mutually exclusive.
 - `payload` (0106) carries the items that are not prose: a step divider, an
-  artifact handover, a handoff card. `role='system'` covers them.
-- `pbl_branch` holds what belongs to the branch rather than to any message: the
-  anchor, the question that opened it, and the `takeaway` that closes it.
+  artifact handover, a handoff card, a plan diff. `role='system'` covers them.
+- `pbl_session` holds what belongs to the session rather than to any message:
+  its `kind`, its anchor, the question that opened it, its `parent_id`, and the
+  `takeaway` that closes it.
 
 **Seq stays in one space per atom**, as 0102 established. Both readings stay
-correct: the main thread is `WHERE branch_id IS NULL ORDER BY seq`, one branch
-is `WHERE branch_id = $1 ORDER BY seq`. Interleaving does not corrupt either,
+correct: the main thread is `WHERE session_id IS NULL ORDER BY seq`, one session
+is `WHERE session_id = $1 ORDER BY seq`. Interleaving does not corrupt either,
 because gaps in a filtered sequence are still ordered.
+
+**Nesting: one nullable self-reference.** `pbl_session.parent_id` →
+`pbl_session.id`. Product-owner decision, 2026-09-01: sessions nest, and
+recording the parent is enough. Three constraints make that safe rather than
+merely cheap:
+
+- **A depth cap of 3.** Context assembly walks the parent chain every turn; an
+  uncapped chain is a cost that stays invisible until someone nests eight deep.
+- **A child's takeaway returns to its PARENT**, not to the main thread. Skipping
+  a level delivers a conclusion without the context that produced it.
+- **Reject a parent that does not exist or that would exceed the cap.** For a
+  tree built one node at a time, that is the whole cycle-prevention story.
 
 ### 10.2 · 🚨 The seq race becomes reachable here
 
@@ -259,7 +362,7 @@ one, and that turn dies **after** the model call was already paid for, losing
 the student's message.
 
 Today this is close to unreachable: one room holds one conversation, and the
-composer is disabled while a turn is in flight. **Branches make concurrent
+composer is disabled while a turn is in flight. **Sessions make concurrent
 conversations on one atom the designed behaviour** — digging in a side thread
 while the main one is mid-stream is the entire point — so the race stops being
 theoretical.
@@ -270,28 +373,63 @@ transaction, so appends to one project serialize. Appends are not
 high-frequency; this costs nothing that matters. Belt and braces, retry once on
 a unique violation.
 
-This must land with the branch work in S2, not after it.
+This must land with the session work in S2, not after it.
 
 ### 10.3 · What the model sees
 
-A branch exists so thinking can go deep without dragging the whole project
+A session exists so thinking can go deep without dragging the whole project
 through it, which makes context assembly part of the design:
 
-- **In a branch:** that branch's turns, plus the anchor it hangs off and the
-  project's aim. Not the main thread's full history, and not sibling branches.
-- **In the main thread:** the main thread's turns, plus the **takeaways** of
-  closed branches. Never every turn of every branch.
+- **Inside a session:** that session's turns, its anchor, its parent's takeaway
+  if it has a parent, and the project's aim. Not the main thread's full
+  history, and not sibling sessions.
+- **In the main thread:** the main thread's turns, plus the **write-backs** of
+  closed sessions. Never every turn of every session.
 
-When a branch closes, its takeaway is appended to the main thread as a message
-with `branch_id IS NULL` and a payload marking where it came from. That is what
-makes the branch matter: the next main-thread turn can see what she concluded
-without seeing her working.
+When a session closes, its write-back is appended to its **parent** thread —
+the main thread for a top-level session, the parent session for a nested one —
+as a message with a payload marking where it came from. That is what makes a
+session matter: the next turn sees what she concluded without seeing her
+working.
 
-### 10.4 · Open question: do branches nest?
+### 10.4 · Session kinds and their contracts
 
-Can she open a branch from inside a branch? The brief does not say. Not built,
-and nothing here forecloses it — a nullable `pbl_branch.parent_branch_id`
-added later leaves both queries above correct. Flagged rather than guessed.
+From `docs/03-agent-loop-and-thinking-session-protocols.md` §十三. Each kind
+declares what triggers it, what she does, what 印记 does, and — the part that
+makes it real — **what it writes back**.
+
+| kind | Trigger | Her core act | Writes back |
+|---|---|---|---|
+| `free` | she taps a hook, or opens one herself | dig | a `takeaway` |
+| `observation` | no direction, or time to return to reality | capture, correct, decide whether to open it up | observations, guesses, a 线头 |
+| `reframe` | a contradiction, a question that is too big, an answer already baked into the question | judge which frame is worth taking | frame, people, needs, HMW, open unknowns |
+| `brainstorm` | several directions are needed | propose, transform, compare, choose | idea cards, criteria, a Next Bet |
+| `plan_check` | the plan's structure is about to change | accept / edit / keep / fork | a new plan version, or a recorded decision to keep |
+
+Every kind's minimum exit includes **「she kept the current understanding, and
+here is her reason」**. A session that changes nothing is a valid session; a
+session that records nothing is not.
+
+### 10.5 · The router
+
+`docs/03` calls this the per-turn decision order, and it is ours to build. Each
+turn, in order:
+
+1. Is there a safety, privacy or permission problem? Handle the boundary first.
+2. Can we advance something she has already decided? Then do real work.
+3. Is a decision missing that would change what happens next? Ask only that.
+4. Is there a signal that needs structured thinking? Propose the fitting session.
+5. Did the plan's structure change? Prepare a Plan Check.
+6. Otherwise carry on with the current step.
+
+The order exists to stop 印记 delaying action because it could always ask one
+more question. Two rules ride along: never two high-load sessions back to back,
+and a proposal she declined does not return without a new reason.
+
+**A trigger is not an interruption.** 印记 names the specific reason and offers
+the choice — *「我们原来以为…，但刚才四个人都没有看到地图。要用两分钟重新看一下
+问题吗？」* If she says no, the project continues and the unresolved
+contradiction is recorded in the plan rather than dropped.
 
 ## 11 · Images
 
@@ -315,11 +453,16 @@ decoration. These live in the handlers, and the endpoint refuses:
 
 1. An artifact does not settle without a `why`.
 2. A decision needs both `why` and `gave_up`.
-3. A branch does not close without a `takeaway`.
+3. A session does not close without its write-back (§10.4).
 4. A plan step with an empty `decide` is rejected at validation and regenerated.
    A step where she decides nothing is a step she should not sit through.
 5. Nothing runs before she has approved the first plan.
 6. A plan revision is rejected without a stated reason.
+7. 🚨 **A structural change cannot reach the live plan.** `propose_plan_change`
+   writes to `pending_plan_changes` only; the live plan moves when a Plan Check
+   records her decision. This is 隐形重规划 made impossible rather than merely
+   discouraged — it is the one gate that keeps the plan hers.
+8. A session nests at most 3 deep, and its parent must exist (§10.1).
 
 ## 13 · Tools: endpoint retained, interaction deferred
 
@@ -405,8 +548,11 @@ exists, and pro owns `project`.
 | `pbl_approach` | one road 印记 proposed: shape, how, **costs**, needs |
 | `pbl_decision` | chosen approach + `why` + `gave_up` |
 | ~~`pbl_thread_item`~~ | **Dropped.** `atom_message` + `payload` carries it — see §10.1 |
-| `pbl_branch` | a think-deeply thread: anchor kind + ref, the question, `takeaway`, closed_at |
-| ~~`pbl_branch_turn`~~ | **Dropped.** `atom_message.branch_id` carries it — see §10.1 |
+| `pbl_session` | kind, anchor kind + ref, the question, `parent_id`, `takeaway`, closed_at |
+| ~~`pbl_branch_turn`~~ | **Dropped.** `atom_message.session_id` carries it — see §10.1 |
+| `pbl_plan_version` | version number, what changed, why, whose decision |
+| `pbl_pending_change` | a proposed structural change awaiting Plan Check — never applied to the live plan (§9.1) |
+| `pbl_decision` | what she accepted, edited, kept or deferred, and her reason |
 | `pbl_artifact` | kind, payload (text/JSON only — binaries live in OSS as a key, §11), `guessed[]`, `admits[]`, verdict, `why` |
 | `pbl_tool_instance` | a summoned tool, its reason, its result (§13) |
 | `pbl_site` | her website: content, layout, publish token, revoked_at |
@@ -442,7 +588,7 @@ emits no CSS at all. Use `color-mix` or `linear-gradient`.
 ## 19 · Testing
 
 Logic tests only: plan validation, plan-revision rules, status transitions, gate
-enforcement, artifact settle rules, branch closure, publish-token issue and
+enforcement, artifact settle rules, session write-back, publish-token issue and
 revoke, cost accounting, and the request normalizers. No
 assertion-per-rendered-element suites — they break on every honest redesign and
 catch nothing.
@@ -456,7 +602,7 @@ report PNG that was completely blank.
 | | |
 |---|---|
 | S1 | tables · the kanban landing · big input box · type detection · name-and-cover modal · dark-theme tokens |
-| S2 | the living tasklist · step loop · chat · hook questions · branches with takeaways |
+| S2 | the living tasklist (versioned, graded, `pending_plan_changes`) · step loop · chat · the seq fix · sessions (nestable, write-back enforced) · the router · Plan Check |
 | S3 | sub-agent production · artifacts · the settle-with-a-reason gate · `handoff_tool` · `summon_tool` endpoint |
 | S4 | images — DashScope → OSS |
 | S5 | her website · research and teaching content · renderer · preview → modify → online · revoke |
@@ -500,3 +646,36 @@ The product owner's eight-point review, and what each point moved:
    with the owner's distinction: we help her maintain, we are not the backend
    for her outputs.
 8. **A kanban across projects, one page, not a sidebar** → §2.
+
+## 23 · What changed in revision 3
+
+Folding in `docs/02-…` and `docs/03-…`, plus two product-owner answers.
+
+1. **Sessions nest, and the parent is enough** (owner, 2026-09-01):
+   `pbl_session.parent_id`, with a depth cap of 3, a write-back that returns to
+   the PARENT rather than the main thread, and validation that the parent
+   exists. §10.1.
+2. **「branch」 was overloaded and is now split.** Doc 03 uses it for a project
+   fork; this spec used it for a think-deeply side chat. The side chat became a
+   **session**, and 「branch」 keeps the fork meaning. §10.
+3. **A dig and a Thinking Session are the same object.** One `pbl_session` with
+   a `kind` — untyped for a free dig, typed for 观察日记 / Reframe / 头脑风暴 /
+   Plan Check. One router, one write-back path, one interaction to learn. §10.4.
+4. **The plan model is graded, versioned, and staged.** Progress applies
+   silently, local changes apply with a line and an undo, structural changes go
+   through Plan Check, and a fork proposes a branch. Unconfirmed structural
+   changes live in `pending_plan_changes` and never touch the live plan. Seven
+   step statuses, not four. §9.
+5. **The router is ours to build.** The owner's read was that the agent loop is
+   already realised; what exists is the turn loop, tool-calling and refeed. The
+   per-turn decision order, the session router, the write-back contracts and
+   Plan Check do not exist. Confirmed with the owner and added to S2. §10.5.
+6. **「Method #1」 was the wrong frame.** Doc 02 §四 has nine entry states, not
+   one idea-to-plan procedure. 印记 continues from wherever the student already
+   is — a student holding a finished solution is not walked back through design
+   thinking. §6.1.
+7. **Two new gates**: a structural change cannot reach the live plan, and a
+   session nests at most 3 deep. §12.7, §12.8.
+
+Still open: the concrete interaction for the brainstorming room, the reframe
+card and the research hint — the owner's, and not blocking the substrate.
