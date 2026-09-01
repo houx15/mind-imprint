@@ -265,6 +265,13 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/pbl/projects/{id}/sessions", liteOnly(a.listPblSessions))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/sessions/{sid}/close", liteOnly(a.closePblSession))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/thread", liteOnly(a.getPblThread))
+	// 活的任务清单 + Plan Check。结构性变更只进 changes，进不了 plan。
+	mux.Handle("GET /api/v1/pbl/projects/{id}/plan", liteOnly(a.getPblPlan))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/plan", liteOnly(a.proposePblPlan))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/approve", liteOnly(a.approvePblPlan))
+	mux.Handle("PATCH /api/v1/pbl/projects/{id}/plan/steps/{sid}", liteOnly(a.setPblStepStatus))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes", liteOnly(a.stagePblChange))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/plan/changes/{cid}/resolve", liteOnly(a.resolvePblChange))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
