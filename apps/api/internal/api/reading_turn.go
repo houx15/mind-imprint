@@ -545,9 +545,14 @@ func (a *API) recordLiteLLMCall(ctx context.Context, userID, atomID uuid.UUID, p
 		slog.Warn("lite llm_call: unpriced model — cost recorded as 0",
 			"provider", resolved.Provider, "model", resolved.Model)
 	}
+	// uuid.Nil means "this call belongs to no atom yet" — the 项目 room
+	// classifies what she typed BEFORE the project exists, and that call still
+	// costs money. llm_call.atom_id has been nullable since 0094, so record it
+	// as NULL rather than as an all-zeros uuid, which would fail the foreign
+	// key and lose the row to the swallowed warning below.
 	if _, err := a.d.Queries.RecordAtomLLMCall(ctx, sqlc.RecordAtomLLMCallParams{
 		UserID:  userID,
-		AtomID:  pgtype.UUID{Bytes: atomID, Valid: true},
+		AtomID:  pgtype.UUID{Bytes: atomID, Valid: atomID != uuid.Nil},
 		Surface: "lite", Purpose: purpose,
 		Provider: resolved.Provider, Model: resolved.Model, Tier: resolved.Tier,
 		PromptTokens: int32(usage.InputTokens), CompletionTokens: int32(usage.OutputTokens),

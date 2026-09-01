@@ -252,6 +252,15 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 	mux.Handle("PUT /api/v1/readings/{id}/rating", liteOnly(a.putReadingRating()))
 
+	// 轻量版（lite edition）· PBL 项目原子。{id} 一律是 atom id。
+	//
+	// 🚨 路径带 /pbl/ 前缀，不是 /api/v1/projects——那条是 pro 的（见上方
+	// proOnly 那一段），而且 edition_test.go 有一条测试明确要求轻量版访问它
+	// 得到 404。两边同名会让其中一边静默失效。
+	mux.Handle("POST /api/v1/pbl/projects", liteOnly(a.createPblProject))
+	mux.Handle("GET /api/v1/pbl/projects", liteOnly(a.listPblProjects))
+	mux.Handle("PATCH /api/v1/pbl/projects/{id}", liteOnly(a.patchPblProject))
+
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
 	mux.Handle("POST /api/v1/writings", liteOnly(a.createWriting))
