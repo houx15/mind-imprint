@@ -25,6 +25,9 @@ type pblTurnDTO struct {
 	Reply    string `json:"reply"`
 	Hook     string `json:"hook,omitempty"`
 	HookKind string `json:"hookKind,omitempty"`
+	// 这一轮印记递了一件工具。前端拿到就去刷新工具列表。
+	Tool   string  `json:"tool,omitempty"`
+	ToolID *string `json:"toolId,omitempty"`
 }
 
 // pblHookPayload rides on the AI message so the hook survives a refresh.
@@ -159,9 +162,31 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	httpx.WriteJSON(w, http.StatusOK, pblTurnDTO{
-		Reply: out.Reply, Hook: out.Hook, HookKind: out.HookKind,
-	})
+	// 印记 offering a tool.
+	//
+	// 落在对话之外（pbl_tool_instance），不在消息里，因为一件工具有自己的一生：
+	// 递出 → 她打开或者不用 → 有结果。塞进消息的 payload 里，"她后来到底用了
+	// 没有"就无处可存。
+	//
+	// 🚨 递失败不让这一轮失败。她该看见的是印记刚说的话；一件没递成的工具，
+	// 下一轮还可以再递。
+	dto := pblTurnDTO{Reply: out.Reply, Hook: out.Hook, HookKind: out.HookKind}
+	if out.Tool != "" {
+		tool, terr := a.d.Queries.SummonPblTool(r.Context(), sqlc.SummonPblToolParams{
+			AtomID: atomID, SessionID: scope, Tool: out.Tool, Reason: out.ToolReason,
+			Kind: pbl.ResolveToolKind(out.Tool, ""),
+		})
+		if terr != nil {
+			slog.Warn("pbl turn: could not record the tool 印记 offered",
+				"err", terr, "atom_id", atomID, "tool", out.Tool,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+		} else {
+			id := tool.ID.String()
+			dto.ToolID = &id
+			dto.Tool = tool.Tool
+		}
+	}
+	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
 // buildPblCoachInput assembles the turn's context per spec §10.3.

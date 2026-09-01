@@ -99,9 +99,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     setBusy(true);
     setError(null);
     try {
-      await postTurn(projectId, text, activeSession ?? undefined);
+      const res = await postTurn(projectId, text, activeSession ?? undefined);
       setDraft("");
       await refreshThread(activeSession);
+      // 印记递了一件工具就把列表拉一遍，那张邀请卡才会出现在对话末尾。
+      if (res.toolId) setTools(await listTools(projectId));
     } catch (err) {
       // 印记 failing is surfaced, never smoothed into a plausible sentence.
       setError(err instanceof ApiError ? err.message : "印记没接上，再试一次。");

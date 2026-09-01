@@ -43,6 +43,9 @@ export interface TurnResult {
   reply: string;
   hook?: string;
   hookKind?: SessionKind;
+  /** 这一轮印记递了一件工具。有值就去刷新工具列表。 */
+  tool?: string;
+  toolId?: string;
 }
 
 export function postTurn(projectId: string, text: string, sessionId?: string): Promise<TurnResult> {

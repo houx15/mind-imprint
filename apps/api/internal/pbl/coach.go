@@ -55,6 +55,32 @@ type CoachOutput struct {
 	Hook string
 	// HookKind is the session kind the hook would open.
 	HookKind string
+	// Tool is a tool 印记 offers her this turn, or "". At most one, and it is
+	// an OFFER: she opens it or she does not (铁律②).
+	Tool string
+	// ToolReason is why this tool, right now, in 印记's own words. A tool with
+	// no reason is an ambush, so the server refuses to record one without it.
+	ToolReason string
+}
+
+// toolCatalogue renders the toolbox for the prompt.
+//
+// 🚨 派生自 registry，不手写第二份。手写的目录一定会和工具箱漂移，而漂移的
+// 那一天，印记会开始召一件界面上不存在的工具。
+func toolCatalogue() string {
+	var b strings.Builder
+	for _, name := range ToolNames() {
+		t, ok := LookupTool(name)
+		if !ok {
+			continue
+		}
+		where := "当场和他一起做完"
+		if t.Kind == KindWorld {
+			where = "他要离开屏幕去做，几天后才回来"
+		}
+		fmt.Fprintf(&b, "  %s（%s）—— %s\n", t.Name, t.Label, where)
+	}
+	return b.String()
 }
 
 // recentWindow bounds how much thread goes into the prompt.
@@ -81,8 +107,18 @@ const coachSystem = `你是「印记」，正在和一个中学生一起做他�
 答案写进去的问题——就给一个钩子。他点开就进一条支线，单独想这一个。
 没有就不给。为了显得深刻而挂一个钩子，比不挂更糟。
 
+什么时候递一件工具：
+你手边有这些东西可以递给他，一次最多递一件。递的时候要说清楚**为什么是现在**，
+用你自己的话，指着他刚说过的具体的事。没有理由的工具是伏击。
+他可以不用——那也是他的选择，不要劝。
+
+` + "%s" + `
+
+大部分时候一件也不递。为了显得有内容而递一件，比不递更糟。
+
 只返回一个 JSON 对象：
-{"reply": "你要说的话", "hook": "钩子问题，没有就空字符串", "hook_kind": "free"}
+{"reply": "你要说的话", "hook": "钩子问题，没有就空字符串", "hook_kind": "free",
+ "tool": "工具名，不递就空字符串", "tool_reason": "为什么是现在"}
 
 hook_kind 只能是 free / reframe / brainstorm / observation。
 只回 JSON，不要代码块以外的任何字。`
@@ -114,7 +150,8 @@ func buildCoachContext(in CoachInput) string {
 	if in.SessionKind != "" {
 		fmt.Fprintf(&b, "\n【你们现在在一条支线里】要单独想清楚的是：%s\n",
 			strings.TrimSpace(in.SessionQuestion))
-		b.WriteString("在支线里不要拉回整个项目，就把这一个问题想透。这里不要再给钩子。\n")
+		b.WriteString("在支线里不要拉回整个项目，就把这一个问题想透。" +
+			"这里不要再给钩子，也不要递工具——支线就是为了想一件事。\n")
 	}
 	tail := in.Recent
 	if len(tail) > recentWindow {
@@ -146,9 +183,11 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 		return CoachOutput{}, errNoReply
 	}
 	var out struct {
-		Reply    string `json:"reply"`
-		Hook     string `json:"hook"`
-		HookKind string `json:"hook_kind"`
+		Reply      string `json:"reply"`
+		Hook       string `json:"hook"`
+		HookKind   string `json:"hook_kind"`
+		Tool       string `json:"tool"`
+		ToolReason string `json:"tool_reason"`
 	}
 	if err := json.Unmarshal([]byte(s[start:end+1]), &out); err != nil {
 		return CoachOutput{}, fmt.Errorf("pbl: %w", err)
@@ -164,7 +203,17 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 		// structural change, which is a different trigger entirely.
 		hook, kind = "", ""
 	}
-	return CoachOutput{Reply: reply, Hook: hook, HookKind: kind}, nil
+	// 🚨 没有理由就当没递。一件说不出为什么的工具，对她是一次打断；而且服务端
+	// 本来就会拒绝落库，与其让它半路失败，不如在这里就当它没发生。
+	tool := strings.TrimSpace(out.Tool)
+	reason := strings.TrimSpace(out.ToolReason)
+	if tool == "" || reason == "" {
+		tool, reason = "", ""
+	}
+	return CoachOutput{
+		Reply: reply, Hook: hook, HookKind: kind,
+		Tool: tool, ToolReason: reason,
+	}, nil
 }
 
 const maxCoachAttempts = 2
@@ -174,7 +223,7 @@ const maxCoachAttempts = 2
 func Coach(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in CoachInput) (CoachOutput, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: coachSystem},
+			{Role: gateway.RoleSystem, Content: fmt.Sprintf(coachSystem, toolCatalogue())},
 			{Role: gateway.RoleUser, Content: buildCoachContext(in)},
 		},
 		MaxTokens: 1200,
