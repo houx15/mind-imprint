@@ -260,6 +260,11 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects", liteOnly(a.createPblProject))
 	mux.Handle("GET /api/v1/pbl/projects", liteOnly(a.listPblProjects))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}", liteOnly(a.patchPblProject))
+	// 深挖 / 思考模式。{sid} 是 session id。
+	mux.Handle("POST /api/v1/pbl/projects/{id}/sessions", liteOnly(a.openPblSession))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/sessions", liteOnly(a.listPblSessions))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/sessions/{sid}/close", liteOnly(a.closePblSession))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/thread", liteOnly(a.getPblThread))
 
 	// 轻量版（lite edition）· 写作原子。{id} 一律是 atom id。
 	mux.Handle("GET /api/v1/writings", liteOnly(a.listWritings))
