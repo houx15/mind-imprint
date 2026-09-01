@@ -68,9 +68,9 @@ func TestPblTurn_ToolTheCoachOffersReachesHer(t *testing.T) {
 		t.Fatal("递出来却没有理由——没有理由的工具是伏击")
 	}
 	if got.Kind != "thinking" {
-		t.Fatalf("kind = %q, want thinking（便签板是当场做完的）", got.Kind)
+		t.Fatalf("kind = %q, want thinking（头脑风暴是当场做完的）", got.Kind)
 	}
-	if got.Label != "便签板" {
+	if got.Label != "头脑风暴" {
 		t.Fatalf("label = %q —— 界面上要显示给她看的名字", got.Label)
 	}
 }
@@ -119,9 +119,9 @@ func TestPblTurn_WorldToolKeepsItsKind(t *testing.T) {
 	}
 	_ = json.Unmarshal(rec.Body.Bytes(), &tools)
 	if len(tools) != 1 || tools[0].Kind != "world" {
-		t.Fatalf("出去看看应该是 world：%+v", tools)
+		t.Fatalf("观察日记应该是 world：%+v", tools)
 	}
-	if tools[0].Label != "出去看看" {
+	if tools[0].Label != "观察日记" {
 		t.Fatalf("label = %q", tools[0].Label)
 	}
 }
