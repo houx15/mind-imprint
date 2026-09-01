@@ -34,6 +34,64 @@
   --mk-ease:cubic-bezier(.2,0,0,1);
   --mk-fast:120ms; --mk-base:200ms; --mk-slow:320ms;
 }
+/* ---------------------------------------------------------------------------
+ * 暗色主题。两个版本共用（apps/lite-web/src/index.css imports this file）。
+ *
+ * 🚨 加法，且默认不生效。没有 [data-theme="dark"] 这个属性时，上面那份 :root
+ * 就是唯一的定义——所以 pro 的每一个界面，在她没有主动打开暗色之前，渲染出来
+ * 和今天一模一样。轻量版绝不能改变 pro 的渲染方式，这一条就是那条规则在
+ * 样式层的兑现方式。
+ *
+ * 只重新定义颜色。圆角、阴影、缓动、时长不动——它们和明暗无关，在这里再写
+ * 一遍只会多出一份会悄悄过期的真相。
+ *
+ * 为什么是暖的黑：这个产品的亮色是暖纸，那么它的暗色就该是暖夜——带一点红棕
+ * 的近黑，不是那种到处都是的蓝灰石板色。主色仍然是朱砂：暗色里改的是这条色阶
+ * 的亮端（浅色在暗底上会炸开），不是它的色相。
+ * ------------------------------------------------------------------------- */
+:root[data-theme="dark"] {
+  /* neutrals — 暖夜
+   *
+   * 🚨 --mk-paper 和整条 accent 色阶带 !important，其余不带。
+   *
+   * 为什么必须带：`BackgroundProvider` 和 `AccentProvider`（apps/web/src/ui/）
+   * 是用 el.style.setProperty() 把这十个变量写成 ROOT 元素的行内样式的，而行内
+   * 样式赢过任何样式表规则——包括这一块。不带 !important 的话，暗色主题下页面
+   * 底色会被学生自己选的浅色配色刷回去，而 --mk-ink 已经变成浅色了：结果是浅字
+   * 压浅底，整页读不了。这一条是截图看出来的，不是测试。
+   *
+   * 这等于定了一条规则：暗色模式下，主题说了算，每人自选的配色让位。
+   * 「暗色下也保留她自己的配色」需要给每个 preset 配一份暗色值，那要动 pro 的
+   * 共享组件，留给后面单独做。
+   */
+  --mk-paper:#1A1614 !important; --mk-surface:#231E1B; --mk-border:#382F2A;
+  --mk-muted:#9A8E85; --mk-secondary:#BEB2A8; --mk-faint:#6E635C;
+  --mk-ink:#F0E9E3; --mk-input-border:#443933;
+  /* accent — 同一个朱砂，亮端压暗：浅色在暗底上会炸开 */
+  --mk-accent-50:#2E1B17 !important; --mk-accent-100:#41211B !important; --mk-accent-200:#6B3227 !important;
+  --mk-accent-300:#94402F !important; --mk-accent-400:#C15340 !important; --mk-accent-500:#EA5140 !important;
+  --mk-accent-600:#F0705F !important; --mk-accent-700:#F59180 !important; --mk-accent-800:#FAB4A6 !important;
+  --mk-accent:var(--mk-accent-500) !important;
+  /* macaron — 色相不变，-bg 变成暗底上的一层薄色，-fg 提亮到能读 */
+  --mk-peach:#E0A063;  --mk-peach-bg:#3A2A1B;  --mk-peach-fg:#F3C695;
+  --mk-butter:#DCBB5B; --mk-butter-bg:#372F1A; --mk-butter-fg:#EEDA96;
+  --mk-matcha:#96B681; --mk-matcha-bg:#25311E; --mk-matcha-fg:#BFD8AC;
+  --mk-lake:#64AC9E;   --mk-lake-bg:#1B2E2A;   --mk-lake-fg:#93D2C4;
+  --mk-mist:#7398C2;   --mk-mist-bg:#1E2833;   --mk-mist-fg:#A6C4E4;
+  --mk-taro:#A18BC4;   --mk-taro-bg:#292036;   --mk-taro-fg:#C7B4E2;
+  --mk-berry:#D1889A;  --mk-berry-bg:#341F26;  --mk-berry-fg:#EFAFBE;
+  /* semantic */
+  --mk-success:#6FB88C; --mk-success-bg:#1F2F24;
+  --mk-warning:#DFAE55; --mk-warning-bg:#332916;
+  --mk-danger:#E4645F;  --mk-danger-bg:#361D1C;
+  --mk-info:#6B9BD1;    --mk-info-bg:#1D2733;
+  /* 阴影在暗底上不再是「一层灰」，而是更实的黑，否则卡片会糊成一片 */
+  --mk-shadow-xs:0 1px 2px rgba(0,0,0,.34);
+  --mk-shadow-sm:0 2px 8px rgba(0,0,0,.40);
+  --mk-shadow-md:0 6px 18px rgba(0,0,0,.46);
+  --mk-shadow-lg:0 16px 40px rgba(0,0,0,.56);
+}
+
 body { background: var(--mk-paper); color: var(--mk-ink);
   font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Segoe UI",system-ui,sans-serif; }
 

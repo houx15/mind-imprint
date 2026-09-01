@@ -1,7 +1,14 @@
 import React from "react";
 import { createRoot } from "react-dom/client";
 import { rootElementFor } from "./rootElementFor";
+import { bootTheme } from "./shared/theme";
 import "./index.css";
+
+// Before the first render, so a dark-theme student never sees a white flash.
+// A no-op unless she has actually chosen dark — the attribute is absent by
+// default and the bare `:root` palette applies, which is why adding the theme
+// changes nothing for anyone who has not asked for it.
+bootTheme();
 
 // `rootElementFor` decides, per path, between the public report viewer
 // (`/s/:token`) and the authenticated `LiteApp` shell — see its own doc
