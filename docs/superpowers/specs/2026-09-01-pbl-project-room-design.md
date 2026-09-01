@@ -309,18 +309,35 @@ deleted rather than ported.
 
 ## 16 · Data model
 
-New tables, all prefixed `pbl_`. The prefix is deliberate: the sharpest way a
-lite change breaks pro is by **creating** a name that already exists, and pro
-owns `project`.
+**A project is an atom.** Lite already has a substrate: `atom` carries
+identity, ownership, `last_activity_at`, `active_seconds` and the heartbeat,
+and both `reading` and `writing` are detail tables keyed by `atom_id`. A
+project is the third one, `atom.kind = 'project'`.
+
+This is worth more than tidiness. It inherits, already built and tested: the
+`recordLiteLLMCall` metering path (`llm_call.atom_id`, migration 0094),
+`loadOwnedAtom`'s ownership check, activity and heartbeat, `atom_message` for
+the main conversation, and `atom_report` when evaluation arrives. A root table
+of its own would be a second substrate standing beside an identical one, and
+the second one would be the untested one. `atom` is lite-only (migration 0092),
+so widening its `kind` does not reach pro.
+
+Consequence: **`pbl_thread_item` may not be needed.** S2 should first check
+whether `atom_message` plus a payload column carries thread items — the
+precedent is migration 0106's `coach_card_payload`.
+
+The remaining tables are prefixed `pbl_`. The prefix is deliberate: the
+sharpest way a lite change breaks pro is by **creating** a name that already
+exists, and pro owns `project`.
 
 | Table | Holds |
 |---|---|
-| `pbl_project` | idea text, type, name, cover, **status** (§3), owner, timestamps |
+| `pbl_project` | keyed by `atom_id` — idea text, type, name, cover, **status** (§3) |
 | `pbl_plan_step` | ordinal, title, blurb, goal, you_bring, i_bring, **decide**, then, **status**, off, mine |
 | `pbl_plan_revision` | what changed, why, when — the plan's own history |
 | `pbl_approach` | one road 印记 proposed: shape, how, **costs**, needs |
 | `pbl_decision` | chosen approach + `why` + `gave_up` |
-| `pbl_thread_item` | the main conversation: says / step / make / handoff |
+| `pbl_thread_item` | the main conversation: says / step / make / handoff — **only if `atom_message` cannot carry it** |
 | `pbl_branch` | a think-deeply thread: polymorphic anchor + `takeaway` |
 | `pbl_branch_turn` | messages inside one branch |
 | `pbl_artifact` | kind, payload (text/JSON only — binaries live in OSS as a key, §11), `guessed[]`, `admits[]`, verdict, `why` |
