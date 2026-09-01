@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, PenLine } from "lucide-react";
+import { BookOpen, Hammer, PenLine } from "lucide-react";
 import { Icon, Pebble, Settings, ACCENT_PRESETS, AccentProvider, type AccentId, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
@@ -12,6 +12,7 @@ import { resolveEditionDecision } from "@/shell/edition/editionRouting";
 import { EditionRedirectNotice } from "@/shell/edition/EditionRedirectNotice";
 import { liteRoutePath, navigate, parseLiteRoute, settingsPath, type LiteRoute } from "./routing";
 import { getMe, signin, signout, signup, setAccent, setBackground, type MeUser } from "./api/auth";
+import { ProjectsLanding } from "./projects/ProjectsLanding";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
@@ -53,11 +54,12 @@ import { WritingRoomHost } from "./writings/WritingRoomHost";
  * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
  */
 
-type LiteTab = "readings" | "writings";
+type LiteTab = "readings" | "writings" | "projects";
 
 const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
+  { key: "projects", label: "项目", icon: Hammer },
 ];
 
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -65,7 +67,16 @@ function cx(...parts: Array<string | false | null | undefined>): string {
 }
 
 function tabPath(tab: LiteTab): string {
-  return liteRoutePath(tab === "readings" ? { tab: "readings" } : { tab: "writings" });
+  // Explicit per tab rather than a cast: `LiteRoute` carries optional id
+  // fields per tab, so a blanket `{ tab }` would not narrow.
+  switch (tab) {
+    case "readings":
+      return liteRoutePath({ tab: "readings" });
+    case "writings":
+      return liteRoutePath({ tab: "writings" });
+    case "projects":
+      return liteRoutePath({ tab: "projects" });
+  }
 }
 
 /** Coerce the server's avatar_color into a known accent preset id (else
@@ -262,6 +273,11 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <WritingsLanding />
           )
+        ) : route.tab === "projects" ? (
+          // S1 has the landing only. `/projects/:id` opens the workbench in
+          // S2; until then a deep link lands on the board rather than a blank
+          // screen, which is also what a stale link should do.
+          <ProjectsLanding />
         ) : route.tab === "readings" && route.readingId ? (
           <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (
