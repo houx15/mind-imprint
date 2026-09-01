@@ -3,6 +3,8 @@ import type { ToolInstance } from "../../api/tools";
 import { Board } from "./surfaces/Board";
 import { Decide } from "./surfaces/Decide";
 import { Ideas } from "./surfaces/Ideas";
+import { Keep } from "./surfaces/Keep";
+import { Lookback } from "./surfaces/Lookback";
 import { Observe } from "./surfaces/Observe";
 import { Reframe } from "./surfaces/Reframe";
 import { Review } from "./surfaces/Review";
@@ -55,6 +57,8 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   decide: Decide,
   structure: Structure,
   split: Split,
+  lookback: Lookback,
+  keep: Keep,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {

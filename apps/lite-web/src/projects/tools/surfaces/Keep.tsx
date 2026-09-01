@@ -1,0 +1,191 @@
+import { useCallback, useEffect, useState } from "react";
+import { MessageCircle, Plus } from "lucide-react";
+import { Icon } from "@/ui";
+import {
+  KEEP_KINDS,
+  KEEP_STAGES,
+  addKeepEntry,
+  keepStage,
+  listKeepEntries,
+  openKeepSession,
+  type KeepEntry,
+  type KeepKind,
+  type KeepStage,
+} from "../../../api/lookback";
+import { ToolFrame } from "../ToolFrame";
+import type { ToolSurfaceProps } from "../registry";
+
+/**
+ * Keep —— 上线之后。
+ *
+ * 产品负责人 2026-09-01：东西放出去之后还有事情发生，而那些事情才是真的。
+ * 「we can use a colorful diagram to teach students about the step」——上面那
+ * 条彩色的圈就是这个：放出去 → 看数据 → 读出意思 → 改一件事 → 再放出去。
+ *
+ * 🚨 每一条数据旁边都有「想一想这条」。按下去会给这个项目开**一轮新的思考**
+ * （「one project may have several sessions」）。这一下就是维持和归档的分界：
+ * 数字看过就算了，那是归档；数字让她重新想一遍，这个项目还活着。
+ *
+ * 我们不替她保管成品——网站活在她自己的世界里。我们保管的是她从成品那里学到
+ * 的东西。
+ */
+export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
+  const [entries, setEntries] = useState<KeepEntry[]>([]);
+  const [kind, setKind] = useState<KeepKind>("stat");
+  const [stage, setStage] = useState<KeepStage>("observe");
+  const [draft, setDraft] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const reload = useCallback(async () => {
+    setEntries(await listKeepEntries(projectId));
+  }, [projectId]);
+
+  useEffect(() => {
+    void reload();
+  }, [reload]);
+
+  const at = keepStage(entries);
+
+  async function add() {
+    const body = draft.trim();
+    if (!body) return;
+    setDraft("");
+    try {
+      const made = await addKeepEntry(projectId, { kind, body, stage });
+      setEntries((prev) => [made, ...prev]);
+    } catch {
+      setError("没记下来，再试一次。");
+    }
+  }
+
+  async function think(entry: KeepEntry) {
+    try {
+      const { sessionId } = await openKeepSession(projectId, entry.id);
+      setEntries((prev) =>
+        prev.map((e) => (e.id === entry.id ? { ...e, sessionId } : e)),
+      );
+      onFinish(
+        { entryId: entry.id, sessionId },
+        `我想说说这一条：${entry.body}`,
+      );
+    } catch {
+      setError("没开起来，再试一次。");
+    }
+  }
+
+  return (
+    <ToolFrame
+      title={tool.label}
+      task="东西放出去之后发生了什么，记下来，再想想它说明什么"
+      why={tool.reason}
+      todo={entries.length === 0 ? "先记一条真实发生的事" : ""}
+      finishLabel="先到这里"
+      onFinish={() => onFinish({ entries: entries.length }, `我记了 ${entries.length} 条上线之后的事。`)}
+      onClose={onClose}
+    >
+      {error && (
+        <p className="mb-2 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+          {error}
+        </p>
+      )}
+
+      {/* 循环。她现在停在哪一步。 */}
+      <div className="flex items-stretch gap-1">
+        {KEEP_STAGES.map((s, i) => (
+          <div key={s.stage} className="flex min-w-0 flex-1 items-stretch">
+            <button
+              type="button"
+              onClick={() => setStage(s.stage)}
+              className="min-w-0 flex-1 rounded-mk-md px-1.5 py-2 text-center"
+              style={{
+                background:
+                  stage === s.stage
+                    ? s.hue
+                    : `color-mix(in srgb, ${s.hue} 14%, transparent)`,
+                color: stage === s.stage ? "#fff" : "var(--mk-ink)",
+                outline: at === s.stage ? `2px solid ${s.hue}` : undefined,
+              }}
+            >
+              <span className="block truncate text-mk-small">{s.label}</span>
+            </button>
+            {i < KEEP_STAGES.length - 1 && (
+              <span className="self-center px-0.5 text-mk-faint">›</span>
+            )}
+          </div>
+        ))}
+      </div>
+      <p className="mt-1.5 text-mk-small text-mk-muted">
+        {KEEP_STAGES.find((s) => s.stage === stage)?.hint}
+        {at === "ship" && entries.length > 0 && " · 改完了就再放出去一次"}
+      </p>
+
+      {/* 记一条 */}
+      <div className="mt-3">
+        <div className="flex flex-wrap gap-1">
+          {KEEP_KINDS.map((k) => (
+            <button
+              key={k.kind}
+              type="button"
+              onClick={() => setKind(k.kind)}
+              className="rounded-mk-full px-2.5 py-1 text-mk-small"
+              style={
+                kind === k.kind
+                  ? { background: "var(--mk-accent-500)", color: "#fff" }
+                  : { border: "1px solid var(--mk-border)", color: "var(--mk-secondary)" }
+              }
+            >
+              {k.label}
+            </button>
+          ))}
+        </div>
+        <div className="mt-2 flex items-end gap-2">
+          <input
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && void add()}
+            placeholder={kind === "stat" ? "比如：这周有 12 个人打开过" : "写一条"}
+            className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+          />
+          <button
+            type="button"
+            onClick={() => void add()}
+            disabled={!draft.trim()}
+            aria-label="记下来"
+            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
+            style={{ background: "var(--mk-accent-500)" }}
+          >
+            <Icon icon={Plus} size={15} />
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 space-y-2">
+        {entries.map((e) => {
+          const meta = KEEP_STAGES.find((s) => s.stage === e.stage);
+          return (
+            <div
+              key={e.id}
+              className="rounded-mk-md px-3 py-2"
+              style={{ borderLeft: `3px solid ${meta?.hue ?? "var(--mk-border)"}`,
+                       background: "var(--mk-paper)" }}
+            >
+              <p className="text-mk-small text-mk-ink">{e.body}</p>
+              <div className="mt-1.5 flex items-center gap-2">
+                <span className="text-mk-small text-mk-faint">{meta?.label}</span>
+                <button
+                  type="button"
+                  onClick={() => void think(e)}
+                  className="flex items-center gap-1 text-mk-small"
+                  style={{ color: "var(--mk-accent-500)" }}
+                >
+                  <Icon icon={MessageCircle} size={12} />
+                  {e.sessionId ? "回到那一轮" : "想一想这条"}
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </ToolFrame>
+  );
+}
