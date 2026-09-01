@@ -230,7 +230,16 @@ reading, and nothing comes back to the main thread.
 
 Aliyun DashScope (通义万相). Same account as ECS, OSS and CDN, so no new vendor
 and no new region, and it holds the China-first rule. Server-side key only.
-Output goes through the existing OSS presigned path and is served from CDN.
+
+🚨 **The generated image goes to OSS. The database stores the object key and
+nothing else.** No bytes, no base64, no data URI, in any column — not in
+`pbl_artifact.payload`, not anywhere. The endpoint's job is: call DashScope,
+put the result through the existing OSS upload path, record the key, return the
+CDN URL. Image bytes in Postgres would bloat every row read that touches an
+artifact, break the report and export paths that already assume small rows, and
+put binaries in the backup stream.
+
+The same rule holds for anything else binary this surface ever produces.
 
 ## 12 · Gates, enforced on the server
 
@@ -314,7 +323,7 @@ owns `project`.
 | `pbl_thread_item` | the main conversation: says / step / make / handoff |
 | `pbl_branch` | a think-deeply thread: polymorphic anchor + `takeaway` |
 | `pbl_branch_turn` | messages inside one branch |
-| `pbl_artifact` | kind, payload, `guessed[]`, `admits[]`, verdict, `why` |
+| `pbl_artifact` | kind, payload (text/JSON only — binaries live in OSS as a key, §11), `guessed[]`, `admits[]`, verdict, `why` |
 | `pbl_tool_instance` | a summoned tool, its reason, its result (§13) |
 | `pbl_site` | her website: content, layout, publish token, revoked_at |
 | `pbl_review` | 复盘: what she concluded, what she would do differently |
