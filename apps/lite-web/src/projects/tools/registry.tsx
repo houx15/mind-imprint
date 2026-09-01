@@ -1,5 +1,7 @@
 import type { ComponentType } from "react";
 import type { ToolInstance } from "../../api/tools";
+import { Board } from "./surfaces/Board";
+import { Observe } from "./surfaces/Observe";
 
 /**
  * registry.tsx —— 工具名 → 界面。
@@ -38,7 +40,10 @@ export interface ToolSurfaceProps {
  *
  * 每一刀往这里加一行，改的是自己的界面文件，不动别人的。
  */
-export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {};
+export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
+  observe: Observe,
+  board: Board,
+};
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {
   return TOOL_SURFACES[tool] ?? null;
