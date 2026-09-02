@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/pbl"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // pbl_refeed.go —— 把她在工具里做出来的东西，交回给印记。
@@ -43,7 +44,7 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 	if rs, err := a.d.Queries.ListPblReframes(ctx, atomID); err == nil {
 		for _, x := range rs {
 			if x.ConfirmedAt.Valid {
-				add("她把问题定成了：" + x.Who + " 需要 " + x.Needs + "，因为 " + x.Why)
+				add("她把问题定成了：" + x.Who + "需要" + x.Needs + "，因为" + trimBecause(x.Why))
 				if strings.TrimSpace(x.Hmw) != "" {
 					add("她的「我们可以怎样」：" + x.Hmw)
 				}
@@ -117,7 +118,76 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 	return out
 }
 
+// trimBecause 去掉她答案开头自带的「因为」。
+//
+// 问的是「为什么这对他重要？」，中文里几乎必然答成「因为…」，模板再补一个
+// 就成了「因为 因为课间只有十分钟」——界面上和喂给印记的那句都是这样。
+func trimBecause(s string) string {
+	t := strings.TrimLeft(strings.TrimSpace(s), "，,、 \t")
+	t = strings.TrimPrefix(t, "因为")
+	return strings.TrimLeft(t, "，,：: \t")
+}
+
 // attachPblToolWork 把上面收集到的东西挂进这一轮的 CoachInput。
 func (a *API) attachPblToolWork(r *http.Request, atomID uuid.UUID, in *pbl.CoachInput) {
 	in.ToolWork = a.gatherPblToolWork(r, atomID)
+	in.ToolsUsed = a.pblToolsUsed(r, atomID)
+}
+
+// pblToolsUsed 列出她已经做完的工具，按界面上的名字。
+//
+// 🚨 prompt 里的工具目录不带状态，所以印记看不出哪件已经做过了。2026-09-02
+// 线上实测：她做完「观察日记」，下一轮印记又把「观察日记」递了一次。
+func (a *API) pblToolsUsed(r *http.Request, atomID uuid.UUID) []string {
+	rows, err := a.d.Queries.ListPblTools(r.Context(), atomID)
+	if err != nil {
+		return nil
+	}
+	seen := map[string]bool{}
+	var out []string
+	for _, t := range rows {
+		if t.Status != "done" || seen[t.Tool] {
+			continue
+		}
+		seen[t.Tool] = true
+		label := t.Tool
+		if def, ok := pbl.LookupTool(t.Tool); ok {
+			label = def.Label
+		}
+		out = append(out, label)
+	}
+	return out
+}
+
+// lastPblToolEvent 描述她刚做完的那件工具——这一轮她没打字，就靠这一句。
+//
+// 只说工具名和**她自己写下的那句话**。她在工具里产出的完整内容已经由
+// gatherPblToolWork 送进去了，这里不重复。
+func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID) string {
+	rows, err := a.d.Queries.ListPblTools(r.Context(), atomID)
+	if err != nil {
+		return ""
+	}
+	var last *sqlc.PblToolInstance
+	for i := range rows {
+		t := rows[i]
+		if t.Status != "done" || !t.ResolvedAt.Valid {
+			continue
+		}
+		if last == nil || t.ResolvedAt.Time.After(last.ResolvedAt.Time) {
+			last = &rows[i]
+		}
+	}
+	if last == nil {
+		return ""
+	}
+	label := last.Tool
+	if def, ok := pbl.LookupTool(last.Tool); ok {
+		label = def.Label
+	}
+	line := "她做完了「" + label + "」"
+	if note := strings.TrimSpace(last.StudentNote); note != "" {
+		line += "，她写下的是：" + note
+	}
+	return line + "。"
 }

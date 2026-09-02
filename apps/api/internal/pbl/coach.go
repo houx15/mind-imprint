@@ -54,6 +54,20 @@ type CoachInput struct {
 	// spec §10.3 the main thread sees CONCLUSIONS, never every turn of every
 	// session — that is what keeps a deep dig from flooding the project.
 	WriteBacks []string
+	// JustHappened describes the event that triggered this turn when she did
+	// not type anything — she finished a tool, or closed a dig.
+	//
+	// 🚨 少了这一句，这一轮的对话就**停在印记自己的上一句话上**，而模型接着
+	// 一段以自己结尾的对话往下写，最可能的续写就是把那句话再说一遍。2026-09-02
+	// 实测：她做完「观察日记」带回两条观察，印记一字不差地重复了上一句
+	// 「能不能先花几天时间观察一下课间？」，并且把她刚做完的那件工具又递了
+	// 一次。她那边看到的就是「我做的事它根本没看见」。
+	JustHappened string
+	// ToolsUsed are the tools she has already finished in this project.
+	//
+	// 🚨 工具目录本身不带状态，所以印记无从知道哪件已经做过了，于是会把做完的
+	// 那件再递一次。
+	ToolsUsed []string
 }
 
 // CoachOutput is one turn's result.
@@ -207,6 +221,11 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
 
 hook_kind 只能是 free / reframe / brainstorm / observation。
 
+🚨 tool_reason **是印记说给她本人看的一句话**，会原样印在工具卡上。所以用
+「你」称呼她，不要用「他」「她」「这个学生」——上文这份说明里用的是第三人称，
+那是写给你看的，不是她该读到的。写成「你刚说没仔细看过，先去看三天中午」，
+不要写成「他需要从观察事实开始」。
+
 produce 不做就是 null。要做就写成 {"kind": "…", "payload": {…}}，payload 的
 形状按 kind：
 
@@ -291,6 +310,19 @@ func buildCoachContext(in CoachInput) string {
 			}
 			fmt.Fprintf(&b, "%s：%s\n", who, strings.TrimSpace(t.Content))
 		}
+	}
+	// 已经做过的工具。目录本身不带状态，不说它就会被重复递出来。
+	if len(in.ToolsUsed) > 0 {
+		fmt.Fprintf(&b, "\n【已经做完的工具】%s\n"+
+			"这几件不要再递了。\n", strings.Join(in.ToolsUsed, "、"))
+	}
+	// 🚨 这一段必须在最后，而且必须存在：她没打字的那一轮，上面的对话是以
+	// 印记自己的话结尾的，模型顺着写下去最可能的就是把那句重说一遍。
+	if e := strings.TrimSpace(in.JustHappened); e != "" {
+		fmt.Fprintf(&b, "\n【她刚做完这件事】%s\n", e)
+		b.WriteString("她这一轮没有打字——她是刚做完上面这件事回来的。\n" +
+			"接着这件事往下说：指着她带回来的其中一句具体的话，" +
+			"然后往前走一步。不要重复你上一句，也不要再把这件事请她做一遍。\n")
 	}
 	return b.String()
 }

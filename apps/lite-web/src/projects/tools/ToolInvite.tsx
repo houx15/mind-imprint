@@ -86,7 +86,7 @@ export function ToolInvite({
           className="rounded-mk-full px-3.5 py-1.5 text-mk-small text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >
-          {away ? "好的" : "开始任务"}
+          {away ? "接受任务" : "开始任务"}
         </button>
         <button
           type="button"
@@ -123,6 +123,11 @@ export function AwayCard({
         <div className="min-w-0">
           <p className="text-mk-small font-semibold text-mk-ink">{tool.label}</p>
           <p className="mt-1 text-mk-small text-mk-muted">{tool.reason}</p>
+          {/* 🚨 这一句原来只印在邀请卡上，她一答应就没了——而这张卡正是她几天
+              后回来时唯一还能看到的东西。要她做的事必须一直留在上面。 */}
+          <p className="mt-1 text-mk-small text-mk-faint">
+            请在合适的地方完成这项任务，完成后回来记录结果
+          </p>
         </div>
       </div>
       <button
@@ -131,7 +136,9 @@ export function AwayCard({
         onClick={onBack}
         className="mt-2.5 w-full rounded-mk-full border border-mk-border py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
       >
-        已完成
+        {/* 🚨「已完成」是个状态词，印在一个还没做完的任务上，读起来像是这件事
+            已经结束了。按钮要写她按下去会发生什么。 */}
+        记录结果
       </button>
     </div>
   );

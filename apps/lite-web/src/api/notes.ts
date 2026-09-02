@@ -26,14 +26,22 @@ export interface NoteKindMeta {
   hue: string;
 }
 
-/** 界面上的说法。四种是她带回来的材料，办法是「想办法」时用的。 */
-const OBSERVATION: NoteKindMeta = { kind: "observation", label: "观察结论", hue: "#3B82F6" };
+/**
+ * 界面上的说法。四种是她带回来的材料，办法是「想办法」时用的。
+ *
+ * 🚨 标签必须和 kind 说的是同一件事。2026-09-02 线上实测：`observation` 挂着
+ * 「观察结论」、`quote` 挂着「实际观察」——两个最要紧的类型是错位的。她把数出
+ * 来的人数存成了 quote，把同桌的原话存成了 observation，回灌给印记的那句话于是
+ * 变成「她记下的别人的原话：走廊上我数了 23 个人」。而且整套标签里根本没有
+ * 「原话」这一档，她想记下同学真说了什么就无处可放。
+ */
+const OBSERVATION: NoteKindMeta = { kind: "observation", label: "实际观察", hue: "#3B82F6" };
 
 export const NOTE_KINDS: NoteKindMeta[] = [
   OBSERVATION,
-  { kind: "quote", label: "实际观察", hue: "#8B5CF6" },
-  { kind: "assumption", label: "推论", hue: "#F59E0B" },
-  { kind: "question", label: "提出的问题", hue: "#EF4444" },
+  { kind: "quote", label: "别人的原话", hue: "#8B5CF6" },
+  { kind: "assumption", label: "我的推论", hue: "#F59E0B" },
+  { kind: "question", label: "我的问题", hue: "#EF4444" },
   { kind: "idea", label: "解决方案", hue: "#10B981" },
 ];
 

@@ -2,8 +2,9 @@ import { apiErrorText } from "../../../api/errorText";
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import { Icon } from "@/ui";
-import { NOTE_KINDS, createNotes, type NoteKind } from "../../../api/notes";
+import { NOTE_KINDS, createNotes, listNotes, moveNote, type NoteKind } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
+import { boardSpot } from "../boardLayout";
 import type { ToolSurfaceProps } from "../registry";
 
 /**
@@ -37,10 +38,24 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
 
   async function finish() {
     try {
-      await createNotes(
+      const made = await createNotes(
         projectId,
         filled.map((i) => ({ kind: i.kind, body: i.body.trim() })),
       );
+      // 🚨 带回来的便签要各占一格。createNotes 不给坐标，于是它们全落在
+      // (0,0)——2026-09-02 线上实测：带回两条，板上看起来只有一张，另一张
+      // 严丝合缝压在下面，她既看不见也拖不出来。板子上手动加的那条走的是
+      // Board.add()，它会派位子；这条路原来没有。
+      const existing = await listNotes(projectId);
+      let seat = Math.max(0, existing.length - made.length);
+      for (const n of made) {
+        const spot = boardSpot(seat++);
+        try {
+          await moveNote(projectId, n.id, spot.x, spot.y);
+        } catch {
+          // 位子没排上不该让整件事失败——便签本身已经存下来了。
+        }
+      }
       // 便签已经贴在板上了，印记看得见。不用我们再替她复述一遍。
       onFinish({ brought: filled.length }, "");
     } catch (err) {

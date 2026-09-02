@@ -354,7 +354,7 @@ describe("naming the piece at 完成这篇", () => {
     fireEvent.click(screen.getByRole("button", { name: "总量第一，人均第五十" }));
     expect(calls.some((c) => c.method === "PATCH")).toBe(false);
 
-    fireEvent.click(screen.getByRole("button", { name: "就叫这个，完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认并完成" }));
 
     await waitFor(() => expect(onFinished).toHaveBeenCalled());
     const rename = calls.find((c) => c.method === "PATCH" && c.url === RENAME_URL);
@@ -373,7 +373,7 @@ describe("naming the piece at 完成这篇", () => {
     expect(box.value).toBe("转弯中的国家");
 
     fireEvent.change(box, { target: { value: "看方向盘，不是看车道" } });
-    fireEvent.click(screen.getByRole("button", { name: "就叫这个，完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认并完成" }));
 
     await waitFor(() => expect(onFinished).toHaveBeenCalled());
     expect(calls.find((c) => c.method === "PATCH")?.body).toEqual({ title: "看方向盘，不是看车道" });
@@ -429,7 +429,7 @@ describe("naming the piece at 完成这篇", () => {
 
     finishClick();
     await dialog();
-    fireEvent.click(screen.getByRole("button", { name: "就叫这个，完成" }));
+    fireEvent.click(screen.getByRole("button", { name: "确认并完成" }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent("名字没存上，请重试。");
     expect(onFinished).not.toHaveBeenCalled();

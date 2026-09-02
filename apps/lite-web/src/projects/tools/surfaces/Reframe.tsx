@@ -32,13 +32,13 @@ const STEPS = [
   },
   {
     field: "needs" as const,
-    ask: "他需要什么？",
-    hint: "说他要的那个东西，先不说你打算怎么给。",
+    ask: "这个人需要什么？",
+    hint: "说这个人要的那个东西，先不说你打算怎么给。",
     placeholder: "比如：知道菜还剩不剩",
   },
   {
     field: "why" as const,
-    ask: "为什么这对他重要？",
+    ask: "为什么这对这个人重要？",
     hint: "如果没有会怎样？答得出这个，问题才站得住。",
     placeholder: "比如：白跑一趟就只能买面包",
   },
@@ -46,7 +46,7 @@ const STEPS = [
     field: "hmw" as const,
     ask: "那么，我们可以怎样……？",
     hint: "写成一个还没有答案的问句。太具体就变成方案了。",
-    placeholder: "比如：我们可以怎样让他在出门前就知道还剩什么",
+    placeholder: "比如：我们可以怎样让这个人在出门前就知道还剩什么",
   },
 ];
 

@@ -99,7 +99,13 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	opening := len(in.Recent) == 0
 	if studentText != "" {
 		in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
-	} else if len(in.Recent) == 0 && !scope.Valid {
+	} else if len(in.Recent) > 0 {
+		// 🚨 她没打字，是刚做完一件工具回来。不说清楚"刚发生了什么"，这一轮的
+		// 上文就以印记自己的话结尾，模型会把那句话原样再说一遍，并且把她刚做完
+		// 的工具再递一次（2026-09-02 线上实测）。
+		in.JustHappened = a.lastPblToolEvent(r, atomID)
+	}
+	if studentText == "" && len(in.Recent) == 0 && !scope.Valid {
 		// 支线里允许空文本：印记要为这条支线开个头，而它的上文来自主线。
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入内容", nil))
 		return

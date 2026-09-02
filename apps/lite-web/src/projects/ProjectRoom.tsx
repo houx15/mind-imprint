@@ -78,6 +78,19 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     [projectId],
   );
 
+  /**
+   * 对话滚到最新的一句。
+   *
+   * 🚨 房间原来根本没有滚动这回事：一个聊了十几轮的项目打开时停在 scrollTop=0，
+   * 她看到的是自己最开始那句话，得往下拖一千多像素才找得到进度——连印记刚递
+   * 给她的那张邀请卡也在那下面（2026-09-02 线上实测：2111px 的对话停在顶部）。
+   */
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread, pending, thinking, tools]);
+
   useEffect(() => {
     let cancelled = false;
     async function boot() {
@@ -154,6 +167,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       await refreshThread(activeSession);
       // 印记递了一件工具就把列表拉一遍，那张邀请卡才会出现在对话末尾。
       if (res.toolId) setTools(await listTools(projectId));
+      // 🚨 印记也可能在这一轮**出了一份计划**。不拉一遍，右边那栏会一直写着
+      // 「计划待生成」，而计划其实已经存好了——2026-09-02 线上实测：印记在
+      // 对话里说「就按你定下来的问题来安排」，面板纹丝不动，她只有刷新整页
+      // 才看得见。计划、决定、结构、分工都从这一条路上来。
+      setPlan(await getPlan(projectId));
     } catch (err) {
       // 印记 failing is surfaced, never smoothed into a plausible sentence.
       setError(apiErrorText(err));
@@ -342,7 +360,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           <Breadcrumb trail={trail} onGo={(id) => void goTo(id)} />
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mx-auto flex max-w-[640px] flex-col gap-4">
             {thread.length === 0 && !thinking && (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
@@ -418,6 +436,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              // 🚨 回车原来只是插一个换行：她打完一句按回车，什么也没发生，
+              // 光标掉到第二行。Shift+回车 留给真的要换行的时候。
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
               rows={2}
               disabled={busy}
               placeholder="请输入"
