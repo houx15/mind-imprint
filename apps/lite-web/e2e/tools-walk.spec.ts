@@ -231,7 +231,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
     await page.getByPlaceholder("加一块").fill(block);
     await page.keyboard.press("Enter");
   }
-  await expect(page.getByText("拖着挪位置，点一下选中，Delete 删掉，双击改字。")).toBeVisible();
+  await expect(page.getByText("拖到另一块上面就挂到它下面", { exact: false })).toBeVisible();
   await expect(page.getByText("这个框架是否覆盖了所有应当呈现的内容？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-7-structure.png", fullPage: true });
 

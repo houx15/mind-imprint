@@ -111,12 +111,18 @@ export function splitByMarks(
   return out;
 }
 
-/** 还差什么才算审完：印记划的句子要答，该看的方面要答。她自己问的不算作业。 */
-export function reviewTodo(plan: ReviewPlan): string {
-  const marks = plan.marks.filter((m) => !m.mine && !m.answer.trim()).length;
-  const dims = plan.dimensions.filter((d) => !d.answer.trim()).length;
-  if (marks && dims) return `${marks} 句话没回答，${dims} 个方面没说`;
-  if (marks) return `还有 ${marks} 句话没回答`;
-  if (dims) return `还有 ${dims} 个方面没说`;
-  return "";
+/**
+ * 还差什么才算审完。
+ *
+ * 🚨 只差一样：**她的判断**。
+ *
+ * 原来这里数的是"还有几句没回答、几个方面没说"，要她把印记划出来的每一句、
+ * 列出来的每一个方面全部填完才准点完成。那是一张作业卷子，而
+ * 「form-like things」正是产品负责人 2026-09-01 明确否掉的东西。
+ *
+ * 划出来的句子和该看的方面是**参考框架**，帮她看得更细。她扫一眼就看出问题
+ * 在哪、直接写下结论，这是审得好，不是审得不完整。
+ */
+export function reviewTodo(hasComments: boolean, verdictWhy: string): string {
+  return hasComments || verdictWhy.trim() ? "" : "结论";
 }

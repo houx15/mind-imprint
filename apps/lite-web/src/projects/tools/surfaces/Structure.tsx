@@ -9,6 +9,7 @@ import {
   createNode,
   deleteNode,
   getTree,
+  moveNode,
   outline,
   treeTodo,
   updateNode,
@@ -98,6 +99,48 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
     return () => window.removeEventListener("keydown", onKey);
   }, [picked, editing, projectId, reload]);
 
+  /** id 的所有后代。挂到自己的后代下面会做出一个环，那棵树就再也画不出来了。 */
+  const descendantsOf = useCallback(
+    (id: string) => {
+      const out = new Set<string>([id]);
+      let grew = true;
+      while (grew) {
+        grew = false;
+        for (const n of state.nodes) {
+          if (n.parentId && out.has(n.parentId) && !out.has(n.id)) {
+            out.add(n.id);
+            grew = true;
+          }
+        }
+      }
+      return out;
+    },
+    [state.nodes],
+  );
+
+  /**
+   * 松手的地方压在谁身上。
+   *
+   * 返回 undefined = 没压在任何人身上，这一下只是挪位置。
+   * 返回 null = 压在空白的最外层，挂回顶层。
+   * 返回 id = 挂到那一块下面。
+   */
+  function dropTarget(id: string, at: { x: number; y: number }): string | null | undefined {
+    const cx = at.x + NODE_W / 2;
+    const cy = at.y + NODE_H / 2;
+    const banned = descendantsOf(id);
+    for (const n of state.nodes) {
+      if (banned.has(n.id)) continue;
+      const p = layout.get(n.id);
+      if (!p) continue;
+      if (cx >= p.x && cx <= p.x + NODE_W && cy >= p.y && cy <= p.y + NODE_H) {
+        // 三层封顶，和「加一块」那边同一条线。
+        return n.depth < 2 ? n.id : undefined;
+      }
+    }
+    return undefined;
+  }
+
   function startDrag(id: string, e: React.PointerEvent) {
     if (editing) return;
     const canvas = canvasRef.current;
@@ -124,6 +167,22 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       window.removeEventListener("pointerup", onUp);
       if (!moved) {
         setPicked((p) => (p === id ? null : id));
+        return;
+      }
+      // 🚨 拖到另一块上面 = 挂到它下面。
+      //
+      // 以前拖动只改 x/y，parentId 一个字没动——于是连线还指着原来的父节点，
+      // 她越整理，图越乱：位置说的是一回事，线说的是另一回事。而「改结构」正是
+      // 这一屏存在的理由（设计文档：让学生看见、**修改**）。moveNode 这个函数
+      // 写好了很久，一次也没被调用过。
+      const onto = dropTarget(id, last);
+      if (onto !== undefined) {
+        void moveNode(projectId, id, { parentId: onto ?? "" })
+          .then(reload)
+          .catch(async (err) => {
+            setError(apiErrorText(err));
+            await reload();
+          });
         return;
       }
       void updateNode(projectId, id, { x: last.x, y: last.y }).catch((err) =>
@@ -275,7 +334,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       </div>
 
       <p className="mt-1.5 text-mk-small text-mk-faint">
-        拖着挪位置，点一下选中，Delete 删掉，双击改字。
+        拖着挪位置，拖到另一块上面就挂到它下面，点一下选中，Delete 删掉，双击改字。
       </p>
 
       <div className="mt-2 flex items-end gap-2">

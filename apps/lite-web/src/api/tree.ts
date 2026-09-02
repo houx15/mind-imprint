@@ -134,19 +134,6 @@ export function outline(nodes: TreeNode[]): TreeNode[] {
   return out;
 }
 
-/** 上一条同层或更浅的节点——「缩进」就是挂到它下面去。 */
-export function indentTarget(ordered: TreeNode[], nodeId: string): TreeNode | null {
-  const i = ordered.findIndex((n) => n.id === nodeId);
-  if (i <= 0) return null;
-  const me = ordered[i]!;
-  for (let j = i - 1; j >= 0; j--) {
-    const candidate = ordered[j]!;
-    if (candidate.depth === me.depth) return candidate;
-    if (candidate.depth < me.depth) return null;
-  }
-  return null;
-}
-
 /**
  * 还差什么。
  *

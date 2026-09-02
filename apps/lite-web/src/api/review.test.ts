@@ -64,29 +64,15 @@ describe("splitByMarks", () => {
 });
 
 describe("reviewTodo", () => {
-  // 她自己选中问出来的那些不算作业——她问是为了看懂，不是为了交答案。
-  it("does not ask her to answer her own questions", () => {
-    const todo = reviewTodo({
-      marks: [mark("hers", "x", { mine: true }), mark("his", "y", { answer: "站得住" })],
-      dimensions: [],
-    });
-    expect(todo).toBe("");
-  });
-
-  it("counts unanswered marks and dimensions separately", () => {
-    const todo = reviewTodo({
-      marks: [mark("a", "x"), mark("b", "y")],
-      dimensions: [{ id: "d", prompt: "来源可靠吗", why: "", answer: "", ordinal: 0 }],
-    });
-    expect(todo).toBe("2 句话没回答，1 个方面没说");
-  });
-
-  it("is empty once everything is answered", () => {
-    expect(
-      reviewTodo({
-        marks: [mark("a", "x", { answer: "对" })],
-        dimensions: [{ id: "d", prompt: "来源可靠吗", why: "", answer: "查过了", ordinal: 0 }],
-      }),
-    ).toBe("");
+  // 🚨 审核这件事的产出只有一个：她的判断。
+  //
+  // 原来这里要她把印记划出来的每一句、列出来的每一个方面全填完才准点完成
+  // （「还有 3 句话没回答，2 个方面没说」）——那是一张作业卷子，而
+  // 「form-like things」正是产品负责人 2026-09-01 明确否掉的东西。
+  it("只差她的判断，不数还有几格没填", () => {
+    expect(reviewTodo(false, "")).toBe("结论");
+    expect(reviewTodo(false, "第二段站不住")).toBe("");
+    // 留了意见本身就是判断：结论只会是「执行修改」。
+    expect(reviewTodo(true, "")).toBe("");
   });
 });

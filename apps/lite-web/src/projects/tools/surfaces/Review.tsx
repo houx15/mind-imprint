@@ -119,7 +119,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
     () => (artifact?.payload.body ?? "").split(/\n{2,}/).filter((p) => p.trim()),
     [artifact],
   );
-  const marksTodo = reviewTodo(plan);
+
 
   /**
    * 她有没有留下意见。
@@ -133,7 +133,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
 
   const todo = !artifact
     ? "暂时没有需要审核的内容"
-    : marksTodo || (hasComments || verdictWhy.trim() ? "" : "结论");
+    : reviewTodo(hasComments, verdictWhy);
 
   return (
     <ToolFrame
@@ -345,8 +345,18 @@ function MarkRow({
   return (
     <div className="rounded-mk-md border border-mk-border px-3 py-2">
       <button type="button" onClick={onToggle} className="block w-full text-left">
+        {/* 🚨 这是哪一部分、这一部分该注意什么。
+            设计文档要的是「explanations for each part so that we know what we
+            should care about in each part」——这两个字段一直在库里、在 DTO 里，
+            前端一次也没渲染过。少了它，她面对的是一串没有出处的问句。 */}
+        {mark.part && (
+          <p className="text-mk-label uppercase text-mk-faint">{mark.part}</p>
+        )}
+        {mark.partNote && (
+          <p className="text-mk-small text-mk-secondary">{mark.partNote}</p>
+        )}
         {mark.quote && (
-          <p className="text-mk-small text-mk-muted">「{mark.quote}」</p>
+          <p className="mt-0.5 text-mk-small text-mk-muted">「{mark.quote}」</p>
         )}
         <p className="mt-0.5 text-mk-small text-mk-ink">{mark.question}</p>
         {mark.mine && <p className="mt-0.5 text-mk-small text-mk-faint">你提的问题</p>}

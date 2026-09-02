@@ -53,9 +53,18 @@ export function answerLookback(
   });
 }
 
+/**
+ * 还差什么才算复盘过。
+ *
+ * 🚨 一条都没写才算没做。
+ *
+ * 原来要八问全答才准点完成，底下挂着「还有 5 问没答」。八个输入框加一个进度
+ * 计数，就是一份作业——而她敷衍着填满八格，比认真写透两格差得多。复盘本来
+ * 就是隔几天回来慢慢写的，答过的都留着（服务端只生成一次）。
+ */
 export function lookbackTodo(prompts: LookbackPrompt[]): string {
-  const left = prompts.filter((p) => !p.answer.trim()).length;
-  return left ? `还有 ${left} 问没答` : "";
+  if (prompts.length === 0) return "";
+  return prompts.some((p) => p.answer.trim()) ? "" : "至少写下一条";
 }
 
 /* ── 上线之后 ───────────────────────────────────────────────────────────── */

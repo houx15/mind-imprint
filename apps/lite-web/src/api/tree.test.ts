@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { indentTarget, outline, treeTodo, type TreeNode } from "./tree";
+import { outline, treeTodo, type TreeNode } from "./tree";
 
 function node(id: string, parentId: string | null, depth: number, ordinal: number): TreeNode {
   return {
@@ -57,36 +57,6 @@ describe("outline", () => {
   });
 });
 
-describe("indentTarget", () => {
-  // 缩进 = 挂到上面那条同层的下面。
-  it("is the previous sibling at the same depth", () => {
-    const ordered = [node("a", null, 0, 0), node("b", null, 0, 1)];
-    expect(indentTarget(ordered, "b")?.id).toBe("a");
-  });
-
-  // 第一条没有可以缩进去的地方。
-  it("is null for the first node", () => {
-    const ordered = [node("a", null, 0, 0)];
-    expect(indentTarget(ordered, "a")).toBeNull();
-  });
-
-  // 上一条比自己浅（是自己的父节点），缩进就没有意义了。
-  it("is null when the previous node is the parent", () => {
-    const ordered = [node("a", null, 0, 0), node("a1", "a", 1, 0)];
-    expect(indentTarget(ordered, "a1")).toBeNull();
-  });
-
-  // 跨过更深的子孙，找到上一条真正的同层。
-  it("skips over deeper descendants to find the real previous sibling", () => {
-    const ordered = [
-      node("a", null, 0, 0),
-      node("a1", "a", 1, 0),
-      node("a1x", "a1", 2, 0),
-      node("b", null, 0, 1),
-    ];
-    expect(indentTarget(ordered, "b")?.id).toBe("a");
-  });
-});
 
 describe("treeTodo", () => {
   it("says when there is nothing to review yet", () => {
