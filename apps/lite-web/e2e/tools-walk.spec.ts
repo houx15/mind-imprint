@@ -287,8 +287,13 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
 
   // 10 · 长期迭代：彩色的四步圈。
   await openTool(page, "长期迭代");
+  // 先讲清为什么值得做，再要数据。
+  await expect(page.getByText("东西做出来只是开始", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "数据分析" })).toBeVisible();
-  await page.getByPlaceholder("停留时长、点击率、留存率…").fill("这周有 12 个人打开过");
+  // 常见指标点开能看见它是什么。
+  await page.getByRole("button", { name: "留存率" }).click();
+  await expect(page.getByText("上次来过的人，这次还回来的比例。")).toBeVisible();
+  await page.getByPlaceholder("这周的一个数字，以及它是从哪看到的").fill("这周有 12 个人打开过");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "深入讨论" })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-10-keep.png", fullPage: true });

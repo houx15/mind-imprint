@@ -81,10 +81,23 @@ export const KEEP_STAGES: { stage: KeepStage; label: string; hint: string; hue: 
   { stage: "change", label: "产品迭代", hint: "形成迭代方案，并把它做出来", hue: "#8B5CF6" },
 ];
 
-export const KEEP_KINDS: { kind: KeepKind; label: string }[] = [
-  { kind: "stat", label: "产品数据" },
-  { kind: "feedback", label: "访谈 / 调查结果" },
-  { kind: "thought", label: "我的灵感" },
+export const KEEP_KINDS: { kind: KeepKind; label: string; placeholder: string }[] = [
+  { kind: "stat", label: "产品数据", placeholder: "这周的一个数字，以及它是从哪看到的" },
+  { kind: "feedback", label: "访谈 / 调查结果", placeholder: "针对谁的访谈，ta 表达了什么？" },
+  { kind: "thought", label: "我的灵感", placeholder: "你的灵感是什么，为什么？" },
+];
+
+/**
+ * 常见的几个产品数据，点开看它是什么。
+ *
+ * 产品负责人 2026-09-02：「停留时长、点击率、留存率(with each can click to see
+ * what are they)」。直接甩三个词给一个中学生，等于没说——她多半会跳过这一档，
+ * 而这一档恰恰是"用数据说话"这件事的入口。
+ */
+export const KEEP_METRICS: { name: string; what: string }[] = [
+  { name: "停留时长", what: "一个人打开之后待了多久。太短通常说明他没找到想看的东西。" },
+  { name: "点击率", what: "看到入口的人里，有多少真的点进来了。" },
+  { name: "留存率", what: "上次来过的人，这次还回来的比例。" },
 ];
 
 export function listKeepEntries(projectId: string): Promise<KeepEntry[]> {

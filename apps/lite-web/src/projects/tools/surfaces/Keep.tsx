@@ -4,6 +4,7 @@ import { MessageCircle, Plus } from "lucide-react";
 import { Icon } from "@/ui";
 import {
   KEEP_KINDS,
+  KEEP_METRICS,
   KEEP_STAGES,
   addKeepEntry,
   keepStage,
@@ -35,6 +36,7 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
   const [kind, setKind] = useState<KeepKind>("stat");
   const [stage, setStage] = useState<KeepStage>("observe");
   const [draft, setDraft] = useState("");
+  const [metric, setMetric] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -87,6 +89,19 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
         </p>
       )}
 
+      {/* 🚨 先说清这件事为什么值得做，再请她交数据（产品负责人 2026-09-02：
+          「we should explain to students why iterate and collect data is
+          important, then invite students to give back data and we discuss
+          together」）。上来就要数据，她只会觉得又是一项作业。 */}
+      <div className="rounded-mk-md px-3 py-2.5" style={{ background: "var(--mk-paper)" }}>
+        <p className="text-mk-small text-mk-ink">
+          东西做出来只是开始。真正让它变好的，是放出去之后你能看见什么、又据此改了什么。
+        </p>
+        <p className="mt-1 text-mk-small text-mk-secondary">
+          把你观察到的带回来，我们一起看它说明了什么。
+        </p>
+      </div>
+
       {/* 循环。她现在停在哪一步。 */}
       <div className="flex items-stretch gap-1">
         {KEEP_STAGES.map((s, i) => (
@@ -136,12 +151,47 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
             </button>
           ))}
         </div>
+        {kind === "stat" && (
+          <div className="mt-2">
+            <div className="flex flex-wrap gap-1">
+              {KEEP_METRICS.map((m) => (
+                <button
+                  key={m.name}
+                  type="button"
+                  onClick={() => {
+                    if (metric === m.name) {
+                      setDraft(`${m.name}：`);
+                      setMetric(null);
+                    } else {
+                      setMetric(m.name);
+                    }
+                  }}
+                  className="rounded-mk-full border border-mk-border px-2.5 py-0.5 text-mk-small"
+                  style={
+                    metric === m.name
+                      ? { borderColor: "var(--mk-accent-500)", color: "var(--mk-ink)" }
+                      : { color: "var(--mk-secondary)" }
+                  }
+                >
+                  {m.name}
+                </button>
+              ))}
+            </div>
+            {metric && (
+              <p className="mt-1.5 text-mk-small text-mk-muted">
+                {KEEP_METRICS.find((m) => m.name === metric)?.what}
+                <span className="ml-1 text-mk-faint">再点一下就填进去。</span>
+              </p>
+            )}
+          </div>
+        )}
+
         <div className="mt-2 flex items-end gap-2">
           <input
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void add()}
-            placeholder={kind === "stat" ? "停留时长、点击率、留存率…" : "针对谁的访谈，ta 表达了什么？"}
+            placeholder={KEEP_KINDS.find((k) => k.kind === kind)?.placeholder ?? "写一条"}
             className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
           />
           <button
