@@ -19,6 +19,19 @@ SELECT * FROM pbl_plan_version
 WHERE atom_id = $1 AND approved_at IS NOT NULL
 ORDER BY version DESC LIMIT 1;
 
+-- name: GetPblShownPlan :one
+-- 面板上该显示的那一版：优先已批准的最新一版；一版都没批准过就显示最新的
+-- 提案，让她能看见、能审、能按下确认。
+--
+-- 🚨 只有 GetPblLivePlan 的时候，印记提的计划是**看不见**的：她批准之前它不是
+-- 「当前计划」，而面板只问当前计划，于是那一版停在库里，她永远等在「计划待
+-- 生成」上，也就永远没有机会批准它。看得见和生效是两件事——生效仍然只认
+-- approved_at（spec §12.5），这条查询只管让她看见。
+SELECT * FROM pbl_plan_version
+WHERE atom_id = $1
+ORDER BY (approved_at IS NOT NULL) DESC, version DESC
+LIMIT 1;
+
 -- name: ApprovePblPlanVersion :one
 UPDATE pbl_plan_version SET approved_at = now()
 WHERE id = $1 AND approved_at IS NULL

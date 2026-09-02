@@ -72,6 +72,43 @@ type CoachOutput struct {
 	// ToolReason is why this tool, right now, in 印记's own words. A tool with
 	// no reason is an ambush, so the server refuses to record one without it.
 	ToolReason string
+	// Produce is a thing 印记 makes this turn, or nil.
+	//
+	// 🚨 2026-09-02 之前这一格不存在，于是印记**没有任何办法**做出计划、决定、
+	// 成果、分工、结构。审核助手 / 理性决策 / 分工建议 / 结构审查 / 计划这五块
+	// 界面因此永远是空的，按钮永远是灰的，而其中三块还写着「到对话里请印记给
+	// 一个」——让学生去求一件印记结构上做不到的事。端点、客户端函数、表全都
+	// 写好了，链子断在这一格上。
+	//
+	// 和 tool 一样只有一格、一次一件：多做几件就是一次把五张卡拍在她面前。
+	Produce *Produced
+}
+
+// Produced is one thing 印记 makes: 用哪种、内容是什么。
+//
+// Payload 在这里不解释，由 api 层按 Kind 分派给对应的创建逻辑——那边本来就有
+// 各自的校验（比如"每一步都要说清楚这一步你判断什么"），不该在这儿抄第二份。
+type Produced struct {
+	Kind    string
+	Payload json.RawMessage
+}
+
+// ProduceKinds 是印记能做的东西，也是 prompt 里那份目录的来源。
+var ProduceKinds = []struct{ Kind, About string }{
+	{"plan", "一份计划：每一步写清楚这一步做什么、你带什么、我带什么、**她判断什么**、做完交回什么"},
+	{"decision", "一个要她拿主意的选择：一句话说清在选什么，再给两到四个选项，每个选项写明它意味着什么"},
+	{"artifact", "一份你写出来交给她审的东西：草稿、方案、或一个网址"},
+	{"substeps", "某一步的分工：拆成几件小事，每件写清楚谁做、为什么是他做"},
+	{"structure", "一份结构：一棵两到三层的提纲，让她看得见整件东西的形状"},
+}
+
+func IsProduceKind(k string) bool {
+	for _, x := range ProduceKinds {
+		if x.Kind == k {
+			return true
+		}
+	}
+	return false
 }
 
 // toolCatalogue renders the toolbox for the prompt.
@@ -141,14 +178,60 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
 递之前先想清楚这一刻他卡在哪，然后用一句话说明为什么现在需要它。
 他可以不用，不用劝。大多数时候一件也不用递。
 
+【你自己动手做的东西】
+有些东西该由你做出来，交给他看、由他判断——这不是替他做作业，是把一个具体的
+东西摆到他面前，好让他有得可判。他要写的正文永远是他自己写。
+
+你能做的：
+
+` + "%s" + `
+
+什么时候做：
+
+- 他把要做的事说清楚了，还没有计划 → 出一份计划。**每一步都要写清楚这一步
+  他判断什么**；一步他什么都不用判断，那一步就不该占他的时间。
+- 谈到一个岔路口，往哪边走会影响后面 → 给他一个选择，把选项和各自意味着什么
+  摆开，由他定。不要替他选。
+- 他需要一份东西才能往下走（一版方案、一份草稿） → 你写出来交给他审，并且
+  老实说清楚你猜了什么、这一版你自己觉得哪里还不对。
+- 某一步要好几个人一起做 → 给这一步的分工，每件小事写清楚谁做、为什么是他做。
+- 要做的东西大到看不见形状 → 给一份结构，两三层就够。
+
+一轮最多做一件。大多数轮次一件也不做——先把话聊清楚。
+
 【输出】
 只返回一个 JSON 对象，不要别的字：
 {"reply": "你说的话", "hook": "钩子问题，没有就空字符串", "hook_kind": "free",
- "tool": "工具名，不递就空字符串", "tool_reason": "为什么是现在"}
+ "tool": "工具名，不递就空字符串", "tool_reason": "为什么是现在",
+ "produce": null}
 
-hook_kind 只能是 free / reframe / brainstorm / observation。`
+hook_kind 只能是 free / reframe / brainstorm / observation。
+
+produce 不做就是 null。要做就写成 {"kind": "…", "payload": {…}}，payload 的
+形状按 kind：
+
+plan:      {"summary": "一句话概括这版计划", "reason": "为什么是这样安排",
+            "steps": [{"title": "", "blurb": "", "goal": "", "youBring": "",
+                       "iBring": "", "decide": "他在这一步判断什么", "thenBring": ""}]}
+decision:  {"subject": "在选什么", "options": [{"label": "", "description": "它意味着什么"}]}
+artifact:  {"kind": "draft|spec|site", "title": "", "body": "正文，site 时留空",
+            "url": "网址，只有 site 用", "guessed": ["我猜了什么"], "admits": ["这一版哪里还不对"]}
+substeps:  {"stepTitle": "这是计划里哪一步", "items": [{"title": "", "owner": "yinji|student|both", "why": "为什么是他做"}]}
+structure: {"nodes": [{"title": "", "body": "", "children": [{"title": "", "body": ""}]}]}`
 
 var errNoReply = errors.New("pbl: coach produced no reply")
+
+// produceCatalogue 把印记能做的东西渲染进 prompt。
+//
+// 🚨 和 toolCatalogue 一样派生自那份表，不手写第二份——手写的目录一定会漂移，
+// 而漂移的那天，印记会开始做一件服务端认不出的东西。
+func produceCatalogue() string {
+	var b strings.Builder
+	for _, k := range ProduceKinds {
+		fmt.Fprintf(&b, "  %s —— %s\n", k.Kind, k.About)
+	}
+	return b.String()
+}
 
 // buildCoachContext renders the project state the turn reasons over.
 func buildCoachContext(in CoachInput) string {
@@ -230,6 +313,10 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 		HookKind   string `json:"hook_kind"`
 		Tool       string `json:"tool"`
 		ToolReason string `json:"tool_reason"`
+		Produce    *struct {
+			Kind    string          `json:"kind"`
+			Payload json.RawMessage `json:"payload"`
+		} `json:"produce"`
 	}
 	if err := json.Unmarshal([]byte(s[start:end+1]), &out); err != nil {
 		return CoachOutput{}, fmt.Errorf("pbl: %w", err)
@@ -252,9 +339,18 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 	if tool == "" || reason == "" {
 		tool, reason = "", ""
 	}
+	// 🚨 认不出的 kind、空 payload，一律当作没做——半个产出比没有产出更糟：
+	// 界面会为它腾出位置，然后摆一块空白。
+	var produced *Produced
+	if p := out.Produce; p != nil {
+		k := strings.TrimSpace(strings.ToLower(p.Kind))
+		if IsProduceKind(k) && len(p.Payload) > 0 {
+			produced = &Produced{Kind: k, Payload: p.Payload}
+		}
+	}
 	return CoachOutput{
 		Reply: reply, Hook: hook, HookKind: kind,
-		Tool: tool, ToolReason: reason,
+		Tool: tool, ToolReason: reason, Produce: produced,
 	}, nil
 }
 
@@ -282,7 +378,7 @@ func backoffBeforeRetry(ctx context.Context, attempt int) {
 func Coach(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in CoachInput) (CoachOutput, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: fmt.Sprintf(coachSystem, toolCatalogue())},
+			{Role: gateway.RoleSystem, Content: fmt.Sprintf(coachSystem, toolCatalogue(), produceCatalogue())},
 			{Role: gateway.RoleUser, Content: buildCoachContext(in)},
 		},
 		// 🚨 推理模型（deepseek-reasoner）会先花掉一大截 completion token 想事情，

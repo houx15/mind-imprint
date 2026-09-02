@@ -213,6 +213,21 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	// 🚨 递失败不让这一轮失败。她该看见的是印记刚说的话；一件没递成的工具，
 	// 下一轮还可以再递。
 	dto := pblTurnDTO{Reply: out.Reply, Hook: out.Hook, HookKind: out.HookKind}
+
+	// 印记这一轮做出来的东西：一份计划、一个要她拿主意的选择、一份交给她审的
+	// 成果、某一步的分工、一份结构（见 pbl_produce.go）。
+	//
+	// 🚨 和递工具一样，落在这一轮提交之后，失败也不让这一轮失败：她该看见的
+	// 回话已经写进去了，产出没落上是我们的问题，不该把她那一轮也拖没。下一轮
+	// 印记还可以再做一次。
+	if out.Produce != nil {
+		if perr := a.applyPblProduce(r.Context(), atomID, scope, out.Produce); perr != nil {
+			slog.Warn("pbl turn: 印记 made something we could not record",
+				"err", perr, "atom_id", atomID, "kind", out.Produce.Kind,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+		}
+	}
+
 	if out.Tool != "" {
 		tool, terr := a.d.Queries.SummonPblTool(r.Context(), sqlc.SummonPblToolParams{
 			AtomID: atomID, SessionID: scope, Tool: out.Tool, Reason: out.ToolReason,

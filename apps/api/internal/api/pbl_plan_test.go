@@ -57,8 +57,19 @@ func seedApprovedPlan(t *testing.T, h http.Handler, c *http.Cookie) string {
 	return pid
 }
 
-// Nothing runs before she approves: an unapproved version is not the plan.
-func TestPblPlan_NothingRunsBeforeApproval(t *testing.T) {
+// Nothing RUNS before she approves — but she has to be able to SEE it.
+//
+// 🚨 2026-09-02 改过一次，因为原来那条断言把产品堵死了。
+//
+// 原来 GET /plan 只回已批准的那一版，未批准的一律当作 null。可她**只能从这块
+// 面板上按下确认**——看不见就永远不能批准，于是印记提的计划停在库里，她永远等
+// 在「计划待生成」上。PlanPanel 那边本来就写好了"还没确认"的那一支（请审核计划
+// 并确认 / 审核完成，开始！），它一直没有东西可显示。
+//
+// 「看得见」和「生效」是两件事，这条测试现在盯的是后者：未批准的那一版照常
+// 送到她眼前，但 approvedAt 必须是 null——所有拿计划去做事的地方（分工挂在哪
+// 一步、印记的上下文、步骤状态）走的都是 GetPblLivePlan，那条查询没有变。
+func TestPblPlan_ProposalIsVisibleButNotInForce(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
 	pid := newProjectViaAPI(t, h, cookie)
 
@@ -68,8 +79,12 @@ func TestPblPlan_NothingRunsBeforeApproval(t *testing.T) {
 	if rec := pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/plan", twoStepPlan); rec.Code != http.StatusCreated {
 		t.Fatalf("propose = %d; body=%s", rec.Code, rec.Body)
 	}
-	if got := pblGetPlan(t, h, cookie, pid)["plan"]; got != nil {
-		t.Fatalf("an unapproved version showed as the live plan: %v", got)
+	shown, _ := pblGetPlan(t, h, cookie, pid)["plan"].(map[string]any)
+	if shown == nil {
+		t.Fatal("印记提的计划她根本看不见——那她也就永远没法批准它")
+	}
+	if shown["approvedAt"] != nil {
+		t.Fatalf("未批准的一版自己生效了：%v", shown["approvedAt"])
 	}
 }
 

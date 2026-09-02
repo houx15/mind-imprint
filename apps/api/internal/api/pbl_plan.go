@@ -69,10 +69,15 @@ func (a *API) getPblPlan(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	v, err := a.d.Queries.GetPblLivePlan(r.Context(), atomID)
+	// 🚨 面板要显示的是"她该看的那一版"，不是"正在生效的那一版"。
+	//
+	// 只问 GetPblLivePlan 的时候，印记提的计划是看不见的：她批准之前它不算
+	// 当前计划，于是那一版停在库里，她永远等在「计划待生成」上，也就永远没有
+	// 机会按下确认。看得见和生效是两件事——approvedAt 仍然照实报给前端，
+	// PlanPanel 那边本来就有"还没确认"的那一支（请审核计划并确认）。
+	v, err := a.d.Queries.GetPblShownPlan(r.Context(), atomID)
 	if err != nil {
-		// No approved plan yet is a normal state, not an error: she has not
-		// agreed to anything, so nothing runs.
+		// 一版都还没有是正常状态，不是错误：她还什么都没答应，所以什么都不跑。
 		httpx.WriteJSON(w, http.StatusOK, map[string]any{"plan": nil, "pending": []pblChangeDTO{}})
 		return
 	}
