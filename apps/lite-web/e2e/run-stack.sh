@@ -16,6 +16,9 @@ REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PG_CONTAINER="${E2E_PG_CONTAINER:-mindimprint-lite-e2e-pg}"
 PG_PORT="${E2E_PG_PORT:-55433}"
 WEB_PORT="${E2E_WEB_PORT:-5174}"
+# 8080 常被别的项目占着（本机上就有）。杀掉别人的服务不是我们该做的事，
+# 换一个端口就行。
+API_PORT="${E2E_API_PORT:-8080}"
 DB_URL="postgres://postgres:postgres@localhost:${PG_PORT}/mindimprint?sslmode=disable"
 API_PID=""
 WEB_PID=""
@@ -43,7 +46,7 @@ cleanup() {
     kill "$API_PID" 2>/dev/null || true
   fi
   kill_port_listener "$WEB_PORT"
-  kill_port_listener 8080
+  kill_port_listener "$API_PORT"
   docker rm -f "$PG_CONTAINER" >/dev/null 2>&1
 }
 trap cleanup EXIT INT TERM
@@ -70,18 +73,18 @@ until docker exec "$PG_CONTAINER" pg_isready -U postgres >/dev/null 2>&1; do sle
 echo "==> Applying migrations + seed"
 ( cd "$REPO/apps/api" && DATABASE_URL="$DB_URL" go run ./cmd/api -migrate-up )
 
-echo "==> Checking port 8080 is free"
-check_port_free 8080
+echo "==> Checking port ${API_PORT} is free"
+check_port_free "$API_PORT"
 
-echo "==> Starting API on :8080"
-( cd "$REPO/apps/api" && DATABASE_URL="$DB_URL" COOKIE_SECURE=false CORS_ORIGINS="http://localhost:${WEB_PORT}" go run ./cmd/api ) &
+echo "==> Starting API on :${API_PORT}"
+( cd "$REPO/apps/api" && PORT="$API_PORT" DATABASE_URL="$DB_URL" COOKIE_SECURE=false CORS_ORIGINS="http://localhost:${WEB_PORT}" go run ./cmd/api ) &
 API_PID=$!
 _wait_iters=0
-until curl -sf http://localhost:8080/healthz >/dev/null 2>&1; do
+until curl -sf "http://localhost:${API_PORT}/healthz" >/dev/null 2>&1; do
   sleep 0.5
   _wait_iters=$((_wait_iters + 1))
   if [ "$_wait_iters" -ge 120 ]; then
-    echo "FATAL: API never became ready on :8080 after 60s"
+    echo "FATAL: API never became ready on :${API_PORT} after 60s"
     exit 1
   fi
 done
@@ -90,7 +93,7 @@ echo "==> Checking port ${WEB_PORT} is free"
 check_port_free "$WEB_PORT"
 
 echo "==> Starting the lite dev server on :${WEB_PORT}"
-( cd "$REPO" && pnpm --filter @mind-imprint/lite-web dev --port "$WEB_PORT" --strictPort ) &
+( cd "$REPO" && VITE_E2E_API_PORT="$API_PORT" pnpm --filter @mind-imprint/lite-web dev --port "$WEB_PORT" --strictPort ) &
 WEB_PID=$!
 _wait_iters=0
 until curl -sf "http://localhost:${WEB_PORT}" >/dev/null 2>&1; do

@@ -17,5 +17,13 @@ export default defineConfig({
     ],
   },
   optimizeDeps: { exclude: ["@mind-imprint/web", "@mind-imprint/contracts"] },
-  server: { proxy: { "/api": { target: "http://localhost:8080", changeOrigin: true } } },
+  // 端口可被 e2e 覆盖：这台机器上 8080 常被别的项目占着。
+  server: {
+    proxy: {
+      "/api": {
+        target: `http://localhost:${process.env.VITE_E2E_API_PORT ?? "8080"}`,
+        changeOrigin: true,
+      },
+    },
+  },
 });
