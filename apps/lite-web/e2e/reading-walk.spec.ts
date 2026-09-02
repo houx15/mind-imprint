@@ -214,32 +214,21 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   await expect(page.getByText("这里只说了组件价格，没说并网和运维。")).toBeVisible();
   await expect(page.getByText("批注", { exact: true })).toBeVisible();
 
-  // ── 完成这篇 → 我的收获 → 确认归纳 ─────────────────────────────────────────
+  // ── 完成这篇 → 一次确认 → 报告 ────────────────────────────────────────────
+  //
+  // 🚨 这里原来是一张归纳表（我的收获 + 只读的阅读记录 + 确认归纳）。它被删掉了，
+  // ReadingRoom.tsx 里留着产品负责人的原话：「we have give abundant steps for the
+  // reading. so we don't need to ask student to enter the form again.」
+  // 这条 walk 一直没跟上，于是从那次简化起就红着。
   await page.getByRole("button", { name: "完成这篇" }).click();
   const finalize = page.getByRole("dialog", { name: "完成这篇" });
-  await expect(finalize.getByRole("heading", { name: "把这篇的阅读成果归纳一下" })).toBeVisible();
-  await expect(finalize.getByText("你的阅读记录 · 只读")).toBeVisible();
-  // The synthesis half is HERS in lite: 我的收获, with no proposal behind it.
-  await expect(finalize.getByText("我的收获")).toBeVisible();
-  await expect(finalize.getByText("新的线索")).toHaveCount(0);
-  await expect(finalize.getByText("对论点的影响")).toHaveCount(0);
-  // Task 11 hid this row (LITE_READING_CAPABILITIES.credibility = false):
-  // lite has no CRAAP-style verdict producer, so it could only ever read
-  // 尚未评估 — a permanent false "not yet" rather than an honest absence.
-  // `credibility` DEFAULTS TRUE on FinalizeReadingPanel, so dropping the
-  // `credibility={caps.credibility}` wiring in ReadingRoom.tsx would bring
-  // this row back silently; this is the only test on the real render tree
-  // that would notice (the unit tests render the panel directly with an
-  // explicit prop, bypassing the app wiring entirely).
-  await expect(finalize.getByText("可信度", { exact: true })).toHaveCount(0);
-
-  const takeaway = "增长是真的，但把它外推到下一个十年之前，得先问储能解决了没有。";
-  const takeawayBox = finalize.locator("textarea");
-  await expect(takeawayBox).toHaveCount(1);
-  await takeawayBox.fill(takeaway);
-  await finalize.getByRole("button", { name: "确认归纳" }).click();
-  await expect(finalize.getByText("已归纳 ✓")).toBeVisible({ timeout: 30_000 });
-  await expect(finalize).toBeHidden({ timeout: 15_000 });
+  // 完成之后不能再改，所以这一步要她确认一次——但只有确认，没有表格。
+  await expect(finalize.getByRole("heading", { name: "完成这篇？" })).toBeVisible();
+  await expect(
+    finalize.getByText("完成之后这篇就不能再改了", { exact: false }),
+  ).toBeVisible();
+  await finalize.getByRole("button", { name: "完成，看报告" }).click();
+  await expect(finalize).toBeHidden({ timeout: 30_000 });
 
   // ── it is 已完成 afterwards, and it does NOT reopen as a live room ────────
   // D2 fix (Task 18): the room's back button used to read 「返回工作区」 in the
@@ -253,7 +242,12 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // 「返回工作区」 — it would pass on exactly the regression it exists to
   // catch. Same trap apps/web/e2e/helpers.ts already documents for 登录 vs
   // 退出登录. Do not drop the flag.
-  await page.getByRole("button", { name: "返回", exact: true }).click();
+  //
+  // 标签后来从「返回」变成了「回到阅读」——说的正是这条断言一直在守的那件事：
+  // lite 的学生没有「工作区」，只有「我的阅读」。walk 没跟上，于是它红着，
+  // 而它红的理由恰恰是文案变对了。
+  await expect(page.getByRole("button", { name: "返回工作区" })).toHaveCount(0);
+  await page.getByRole("button", { name: "回到阅读", exact: true }).click();
   await expect(page).toHaveURL(/\/readings$/);
   await expectGreeting(page);
 
@@ -266,9 +260,15 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
 
   await expect(page).toHaveURL(new RegExp(`/readings/${id}$`));
   await expect(page.getByText("已完成", { exact: true })).toBeVisible();
-  await expect(page.getByRole("heading", { name: ARTICLE_TITLE })).toBeVisible();
-  await expect(page.getByText("我的收获")).toBeVisible();
-  await expect(page.getByText(takeaway)).toBeVisible();
+  // 🚨 第一次打开这份报告就是在生成它——一次旗舰模型调用，几十秒。标题在报告
+  // 里面，所以要先等报告落下来，否则断言等到的是一块还在生成的空位。
+  const report = page.locator("article");
+  await expect(report).toBeVisible({ timeout: 150_000 });
+  await expect(report.getByRole("heading", { name: ARTICLE_TITLE })).toBeVisible();
+  // 🚨 她不再手打一句「我的收获」——那张归纳表被删掉了（见上面）。报告里有
+  // 什么由印记从她这次真读过的东西里写，内容不可预测，所以只压在必然在的
+  // 那一块上。
+  await expect(report.getByRole("region", { name: "这次的数据" })).toBeVisible();
   await expect(page.getByRole("button", { name: "回到阅读" })).toBeVisible();
   // Terminal means terminal: no room, so nothing that could summon a lens.
   await expect(page.locator(".mk-reading-room")).toHaveCount(0);
@@ -335,7 +335,10 @@ test("the coach answers for real, and a failure would be said out loud", async (
   // pass the whole turn by.
   await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(assistantTurns).toHaveCount(1, { timeout: 180_000 });
-  await expect(thinking).toHaveCount(0);
+  // 🚨 打字气泡要等这一轮真的结束才收——而回话是边流边渲的，行出现的时候这
+  // 一轮往往还在跑。旗舰模型一轮 54 秒到 1 分 26 秒都见过（2026-09-02 的日志），
+  // 默认那 15 秒根本不够，这条断言于是在"模型慢"和"这一轮卡住了"之间分不清。
+  await expect(thinking).toHaveCount(0, { timeout: 180_000 });
 
   await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("第四段说边际收益会递减，这个推论站得住吗？");
   await page.getByRole("button", { name: "发送" }).click();
@@ -344,7 +347,7 @@ test("the coach answers for real, and a failure would be said out loud", async (
   // A second live model call. The assertion is on the REPLY being real rather
   // than on an exact count, so a turn that also opens a paragraph tool passes.
   await expect(assistantTurns).toHaveCount(2, { timeout: 180_000 });
-  await expect(thinking).toHaveCount(0);
+  await expect(thinking).toHaveCount(0, { timeout: 180_000 });
   const reply = (await assistantTurns.nth(1).innerText()).trim();
   expect(reply.length).toBeGreaterThan(10);
   // She is being LED, not answered: 印记 must not hand back the article's own

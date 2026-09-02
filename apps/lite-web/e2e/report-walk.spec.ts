@@ -61,7 +61,7 @@ async function startReading(page: Page, title: string): Promise<void> {
 }
 
 /**
- * `完成这篇` → `我的收获` → `确认归纳`, the same finishing sequence
+ * `完成这篇` → 一次确认，the same finishing sequence
  * reading-walk.spec.ts drives. Returns once the room shows the terminal
  * 已完成 surface — the report generator has not necessarily run yet at that
  * point, only the reading itself is finished.
@@ -76,14 +76,16 @@ async function startReading(page: Page, title: string): Promise<void> {
  * assertion makes ("a cold load of the same URL is the same terminal
  * surface").
  */
-async function finishReading(page: Page, takeaway: string): Promise<void> {
+async function finishReading(page: Page): Promise<void> {
   await page.getByRole("button", { name: "完成这篇" }).click();
   const finalize = page.getByRole("dialog", { name: "完成这篇" });
-  await expect(finalize.getByRole("heading", { name: "把这篇的阅读成果归纳一下" })).toBeVisible();
-  await finalize.locator("textarea").fill(takeaway);
-  await finalize.getByRole("button", { name: "确认归纳" }).click();
-  await expect(finalize.getByText("已归纳 ✓")).toBeVisible({ timeout: 30_000 });
-  await expect(finalize).toBeHidden({ timeout: 15_000 });
+  // 完成之后不能再改，所以这一步要她确认一次——但只有确认，没有表格。
+  await expect(finalize.getByRole("heading", { name: "完成这篇？" })).toBeVisible();
+  await expect(
+    finalize.getByText("完成之后这篇就不能再改了", { exact: false }),
+  ).toBeVisible();
+  await finalize.getByRole("button", { name: "完成，看报告" }).click();
+  await expect(finalize).toBeHidden({ timeout: 30_000 });
 
   await page.reload();
   await expect(page.getByText("已完成", { exact: true })).toBeVisible({ timeout: 30_000 });
@@ -95,10 +97,8 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   baseURL,
 }) => {
   const title = titled("报告走查用的一篇");
-  const takeaway = "增长是真的，但把它外推到下一个十年之前，得先问储能解决了没有。";
-
   await startReading(page, title);
-  await finishReading(page, takeaway);
+  await finishReading(page);
 
   // ── Step 2: the report appears where the old placeholder used to be ─────
   // The pre-redesign copy this sub-project replaced never appears again.
@@ -116,16 +116,11 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   await expect(report).toBeVisible({ timeout: 150_000 });
   await expect(report.getByText("一次阅读的记录")).toBeVisible();
   await expect(report.getByRole("heading", { name: title })).toBeVisible();
-  await expect(report.getByText("我的收获")).toBeVisible();
-  // `report.getByText(takeaway)` alone is ambiguous here: the takeaway is a
-  // literal substring of her own corpus, so the model may ALSO have quoted
-  // it back verbatim as a 金句 — a real, legitimate double-appearance, not a
-  // bug. `Keep` is the only place that wraps it in full-width curly quotes
-  // as part of the same text node (`ReportView.tsx`'s `“{keep.text}”`); the
-  // 金句 blockquote's opening quote is a separate `aria-hidden` span, so its
-  // own paragraph carries the bare text with no quote marks at all. Matching
-  // WITH the quote marks lands on the Keep section specifically.
-  await expect(report.getByText(`“${takeaway}”`)).toBeVisible();
+  // 🚨 这条 walk 开一篇就直接完成，没有任何带读往来，所以报告里只有页眉和
+  // 这次的数据——没有「我的收获」，也没有金句。以前有，是因为那张归纳表逼她
+  // 手打一句；表删掉之后，这份报告诚实地薄。断言只压在必然在的那几样上。
+  // 「这次的数据」是这一块的 aria-label，不是页面上的字——getByText 找不到它。
+  await expect(report.getByRole("region", { name: "这次的数据" })).toBeVisible();
   // 统计 — assert the RULE, not one tile.
   //
   // This line used to read `expect(report.getByText("专注时长")).toBeVisible()`
@@ -148,8 +143,17 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   await expect(report.getByText(/^0(分钟|轮|条|步)$/)).toHaveCount(0);
 
   // ── Step 3: turn sharing on — the link and the QR appear ────────────────
+  //
+  // 🚨 两步，不是一步。右上角那个「分享链接」只是把 SharePanel 展开；
+  // 真正会把一个未成年人的作业发到公网上的那个按钮在面板里面
+  // （ReportActions.tsx：「publishing a minor's schoolwork to a public URL is
+  // never one click from arriving on a page」）。这条 walk 一直只点第一个，
+  // 然后等一个还没出现的按钮——从加这道门起就红着。
+  await page.getByRole("button", { name: "分享链接", exact: true }).click();
   await page.getByRole("button", { name: "生成分享链接" }).click();
-  const linkInput = page.getByLabel("分享链接");
+  // 「分享链接」现在有两个：右上角那个展开面板的按钮，和面板里这个只读输入框。
+  // 按角色区分，别让断言落在按钮上。
+  const linkInput = page.getByRole("textbox", { name: "分享链接" });
   await expect(linkInput).toBeVisible({ timeout: 15_000 });
   const shareUrl = await linkInput.inputValue();
   expect(shareUrl).toMatch(/\/s\/[0-9a-f]+$/);
@@ -169,7 +173,8 @@ test("a finished reading's report: appears, is shared with a stranger, revoked, 
   const strangerReport = strangerPage.locator("article");
   await expect(strangerReport).toBeVisible({ timeout: 30_000 });
   await expect(strangerReport.getByRole("heading", { name: title })).toBeVisible();
-  await expect(strangerReport.getByText(`“${takeaway}”`)).toBeVisible();
+  // 陌生人看到的是同一份报告：页眉和标题都对得上。
+  await expect(strangerReport.getByText("一次阅读的记录")).toBeVisible();
   // No sign-in screen: this page has no login control at all.
   await expect(strangerPage.getByPlaceholder(/邮箱|密码/)).toHaveCount(0);
   await expect(strangerPage.getByRole("button", { name: /登录|登陆/ })).toHaveCount(0);
