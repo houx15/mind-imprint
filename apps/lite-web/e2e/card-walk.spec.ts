@@ -169,6 +169,15 @@ async function findChooseSpanCard(page: Page): Promise<Locator> {
     await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("我读完了，接着来吧。");
     await page.getByRole("button", { name: "发送" }).click();
     await expect(assistantTurns(page)).toHaveCount(before + 1, { timeout: 180_000 });
+    // 🚨 等这一轮真的说完再推下一句。
+    //
+    // 回话是边流边渲的：行一出现计数就 +1，可印记还在打字，发送键这时是
+    // disabled。上一版没等，于是下一圈的点击撞在一个按不动的按钮上，15 秒后
+    // 超时——看起来像"第三轮没来"，其实是我们没让它把话说完。
+    // 今天日志里一轮 41 秒到 1 分 22 秒都有，所以预算给到和这一轮同一档。
+    await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0, {
+      timeout: 180_000,
+    });
   }
   expect(
     await tappable.count(),
@@ -207,7 +216,9 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   // ── 开始: one live model call plans the route AND leads her into step one ──
   await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(assistantTurns(page)).toHaveCount(1, { timeout: 180_000 });
-  await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0);
+  await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0, {
+    timeout: 180_000,
+  });
 
   // Now she can see where she is — one step surface, present at every width
   // (the rail this replaced hung in an `lg:`-gated aside, i.e. it was simply
@@ -302,7 +313,9 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   // Any reply is then necessarily downstream of it.
   const replies = await assistantTurns(page).count();
   await expect(assistantTurns(page)).toHaveCount(replies + 1, { timeout: 180_000 });
-  await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0);
+  await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0, {
+    timeout: 180_000,
+  });
   const reply = (await assistantTurns(page).last().innerText()).trim();
   expect(reply.length).toBeGreaterThan(10);
   // Internal block ids are for the model's eyes; she has never seen a "b2".
