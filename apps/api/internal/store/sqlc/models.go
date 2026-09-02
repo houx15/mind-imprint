@@ -351,6 +351,18 @@ type GraphNode struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type InterestKeyword struct {
+	ID          uuid.UUID `json:"id"`
+	UserID      uuid.UUID `json:"user_id"`
+	TextZh      string    `json:"text_zh"`
+	TextEn      string    `json:"text_en"`
+	Norm        string    `json:"norm"`
+	Field       string    `json:"field"`
+	Strength    int32     `json:"strength"`
+	Note        string    `json:"note"`
+	FirstSeenAt time.Time `json:"first_seen_at"`
+}
+
 type Intervention struct {
 	ID                 uuid.UUID   `json:"id"`
 	ProjectID          uuid.UUID   `json:"project_id"`
@@ -362,6 +374,24 @@ type Intervention struct {
 	Level              *string     `json:"level"`
 	OutputCheckVerdict *string     `json:"output_check_verdict"`
 	CreatedAt          time.Time   `json:"created_at"`
+}
+
+type KeywordDiscipline struct {
+	KeywordID    uuid.UUID `json:"keyword_id"`
+	DisciplineID string    `json:"discipline_id"`
+	Confidence   float32   `json:"confidence"`
+	How          string    `json:"how"`
+	Rationale    string    `json:"rationale"`
+}
+
+type KeywordSource struct {
+	ID         uuid.UUID   `json:"id"`
+	KeywordID  uuid.UUID   `json:"keyword_id"`
+	Kind       string      `json:"kind"`
+	RefID      pgtype.UUID `json:"ref_id"`
+	Label      string      `json:"label"`
+	Evidence   string      `json:"evidence"`
+	HappenedAt time.Time   `json:"happened_at"`
 }
 
 type LlmCall struct {
