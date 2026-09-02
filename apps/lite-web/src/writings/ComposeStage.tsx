@@ -335,7 +335,7 @@ export function ComposeStage({
     }
   }
 
-  /** 就叫这个，完成 — save the name she settled on, then finish.
+  /** 确认并完成 — save the name she settled on, then finish.
    *
    *  If the rename fails the piece is NOT finished: unlike the suggestion
    *  call above, this is her own words being dropped, and silently finishing

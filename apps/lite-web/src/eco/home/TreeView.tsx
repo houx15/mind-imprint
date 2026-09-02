@@ -4,13 +4,12 @@ import {
   FIELDS,
   GROWTH_STOPS,
   stopsFor,
-  KEYWORDS,
   branchPath,
   fieldById,
-  keywordById,
   pointOnBranch,
 } from "../data/tree";
-import { READINGS, STUDENT, WRITINGS } from "../data/library";
+import { STUDENT } from "../data/library";
+import { outputCount, useInterestTree } from "./useInterestTree";
 import { go } from "../route";
 import type { FieldId, Keyword } from "../data/types";
 import { Hint, Sys, cx } from "../ui";
@@ -60,21 +59,29 @@ export function TreeView() {
   // Without this they collide on any short window.
   const scale = useFitScale(stageRef, 792, 0.74);
 
+  // 真数据。没有 mock 兜底——一棵回退到示例词的树，会把十六个不属于她的词
+  // 挂在一张标着「这就是你的模型」的图上，而她看不出来。见 useInterestTree。
+  const live = useInterestTree();
+  const all = live.keywords;
+
   const stop = state.growth;
-  const visible = useMemo(() => KEYWORDS.filter((k) => k.bornAt <= stop), [stop]);
+  const visible = useMemo(() => all.filter((k) => k.bornAt <= stop), [all, stop]);
   // Only the stops that actually hold something. A dot that shows the tree she
   // is already looking at is a control that does nothing.
-  const liveStops = useMemo(() => stopsFor(KEYWORDS), []);
+  const liveStops = useMemo(() => stopsFor(all), [all]);
   const maturity = 0.42 + (stop / 3) * 0.58;
   // Words she kept from 世界 are collected NOW, so they exist only at the
   // present stop. Showing them while the replay is rewound put a keyword on a
   // tree that also claimed to have zero keywords.
   const grown = stop === GROWTH_STOPS.length - 1 ? state.grownKeywords : [];
-  const openKw = openId ? (keywordById(openId) ?? null) : null;
+  const openKw = openId ? (all.find((k) => k.id === openId) ?? null) : null;
 
   // ONE count, used by the header, the field index and the caption. Three
   // places computing it independently is how the screen came to show 17 / 16 / 0
   // at the same time.
+  // 读不到数据时，一切计数都是「不知道」，不是 0。写 0 等于替她断言她什么都
+  // 没有——而这个界面最不能撒的谎，就是关于她自己有什么。
+  const known = live.status === "ready" || live.status === "empty";
   const countFor = (fieldId?: FieldId) =>
     (fieldId ? visible.filter((k) => k.field === fieldId) : visible).length +
     (fieldId ? grown.filter((g) => g.field === fieldId) : grown).length;
@@ -83,8 +90,9 @@ export function TreeView() {
   // 成果数 — finished things, not activity. Readings + writings + projects she
   // actually published. A project still in progress is not a 成果, and calling
   // it one would be the same lie as a streak counter.
-  const published = state.projects.filter((p) => p.phase === "published").length;
-  const outputs = READINGS.length + WRITINGS.length + published;
+  // 从她的词自己的来源里数，按 (类型, id) 去重：一篇阅读长出三个词，它仍然是
+  // 一件事。原来这里数的是 mock 书架的长度，那个数字和树上的词毫无关系。
+  const outputs = outputCount(all);
 
   return (
     <div className="eco-grove eco-motes relative min-h-full">
@@ -148,9 +156,13 @@ export function TreeView() {
               </span>
             </div>
           ) : (
-            <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-[#8E8175]">
-              你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。
-            </p>
+            // 只在真的读到了「她还没有词」时才说这句。读取失败时说「你的树刚
+            // 开始长」，是在替她断言一件我们并不知道的事。
+            known && (
+              <p className="mt-3 max-w-[46ch] text-mk-small leading-[1.8] text-[#8E8175]">
+                你的树刚开始长。每读完一篇、写完一篇、做完一个项目，它就会多一个词。
+              </p>
+            )
           )}
         </div>
         <ViewSwitch view="tree" />
@@ -163,7 +175,9 @@ export function TreeView() {
                 text="根据你读过、收藏过、写过、做过的东西自动生成的兴趣关键词。每一个都可以点开，看它到底是从哪几件事来的。"
               />
             </span>
-            <span className="block font-mono text-mk-h2 tabular-nums text-[#F5EFE7]">{total}</span>
+            <span className="block font-mono text-mk-h2 tabular-nums text-[#F5EFE7]">
+              {live.status === "ready" || live.status === "empty" ? total : "—"}
+            </span>
           </span>
           <span className="h-8 w-px" style={{ background: "rgba(240,233,224,.2)" }} />
           <span className="text-right">
@@ -174,7 +188,9 @@ export function TreeView() {
                 text="你已经完成的阅读、写作和已发布项目的总数。没做完的不算——这个数字只数你真的做出来的东西。"
               />
             </span>
-            <span className="block font-mono text-mk-h2 tabular-nums text-[#F5EFE7]">{outputs}</span>
+            <span className="block font-mono text-mk-h2 tabular-nums text-[#F5EFE7]">
+              {live.status === "ready" || live.status === "empty" ? outputs : "—"}
+            </span>
           </span>
         </div>
       </header>
@@ -200,7 +216,9 @@ export function TreeView() {
             />
             <span className="eco-mono text-[#7C7166]">{String(i + 1).padStart(2, "0")}</span>
             {f.label}
-            <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">{countFor(f.id)}</span>
+            <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
+              {known ? countFor(f.id) : "—"}
+            </span>
           </button>
         ))}
       </div>
@@ -221,6 +239,10 @@ export function TreeView() {
           }}
         >
           <TreeSvg maturity={maturity} hoverField={hoverField} />
+
+          {/* 四个状态，说清楚是哪一个。绝不用示例关键词填满一棵空树——那会把
+              十六个不属于她的词挂在一张写着「这就是你的模型」的图上。 */}
+          <TreeState status={live.status} error={live.error} onRetry={live.reload} />
 
           {/* keyword beads */}
           {visible.map((k, i) => (
@@ -287,7 +309,9 @@ export function TreeView() {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-mk-small text-[#C0B4A6]">{f.label}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">{n}</span>
+                  <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
+                    {known ? n : "—"}
+                  </span>
                 </button>
               </li>
             );
@@ -752,6 +776,79 @@ function Bead({
           {name}
         </span>
       </button>
+    </div>
+  );
+}
+
+/**
+ * TreeState —— 树的四个状态里，除了「有树」之外的那三个。
+ *
+ * 它盖在树的上面，而不是替换整屏：底下那张空枝仍然看得见，所以「你的树还没长
+ * 出东西」是一句关于一棵**存在的**树的话，不是一片白。
+ *
+ * 文案按 AGENTS.md「界面文案怎么写」：标签是名词，报错是动词+失败再接后台原话，
+ * 请她做事用「请」+ 祈使句，不铺垫、不替她减压。
+ */
+function TreeState({
+  status,
+  error,
+  onRetry,
+}: {
+  status: "loading" | "error" | "empty" | "ready";
+  error: string;
+  onRetry: () => void;
+}) {
+  if (status === "ready") return null;
+
+  return (
+    <div className="absolute inset-0 z-30 flex items-center justify-center px-6">
+      <div
+        className="max-w-[420px] rounded-[18px] border px-6 py-5 text-center backdrop-blur-sm"
+        style={{
+          borderColor: "rgba(245,239,231,0.14)",
+          background: "rgba(20,16,12,0.72)",
+        }}
+      >
+        {status === "loading" && (
+          <>
+            <Sys tone="dark">处理中 · GROWING</Sys>
+            <p className="mt-2 text-mk-body text-[#F5EFE7]">正在读取你的兴趣树</p>
+            {/* 服务端会先把已完成、还没采过的阅读与写作补采一遍（最多三个，
+                并行），所以第一次打开可能要几秒。说出来，别让她以为卡住了。 */}
+            <p className="mt-1 text-mk-small text-[#9A8E80]">
+              正在从你最近完成的阅读与写作里提取关键词，需要几秒。
+            </p>
+          </>
+        )}
+
+        {status === "error" && (
+          <>
+            <Sys tone="dark">读取失败 · ERROR</Sys>
+            <p className="mt-2 text-mk-body text-[#F5EFE7]">兴趣树读取失败</p>
+            {/* 后台原话原样给出：她和我们看到的是同一句（界面文案 §8）。 */}
+            <p className="mt-1 break-words text-mk-small text-[#9A8E80]">{error}</p>
+            <button
+              type="button"
+              onClick={onRetry}
+              className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[#F5EFE7] transition hover:opacity-80"
+              style={{ borderColor: "rgba(245,239,231,0.3)" }}
+            >
+              重试
+            </button>
+          </>
+        )}
+
+        {status === "empty" && (
+          <>
+            <Sys tone="dark">空 · NO KEYWORDS YET</Sys>
+            <p className="mt-2 text-mk-body text-[#F5EFE7]">这棵树还没有关键词</p>
+            <p className="mt-1 text-mk-small text-[#9A8E80]">
+              关键词由你完成的阅读、写作与项目自动生成。完成一篇后回到这里，
+              它会长出来。
+            </p>
+          </>
+        )}
+      </div>
     </div>
   );
 }

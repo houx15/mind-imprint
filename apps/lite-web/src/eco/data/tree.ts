@@ -20,6 +20,9 @@ import type { Field, FieldId, Keyword } from "./types";
  */
 
 export const FIELDS: Field[] = [
+  // 树冠。数学与形式从树干最顶上出来（树干自身的路径止于 y=292），所以它读起来
+  // 是这棵树的主梢，而不是硬塞进一个为六根枝设计的布局里的第七根。
+  { id: "formal", label: "数学与形式", en: "Mathematics & Formal", hue: "var(--mk-gold)", angle: -90 },
   { id: "science", label: "科学与自然", en: "Science & Nature", hue: "var(--mk-lake)", angle: -62 },
   { id: "humanities", label: "人文与写作", en: "Humanities & Writing", hue: "var(--mk-peach)", angle: -118 },
   { id: "making", label: "技术与创造", en: "Making & Tech", hue: "var(--mk-mist)", angle: -28 },
@@ -44,6 +47,13 @@ type Pt = [number, number];
  *  the geometry helpers below would otherwise be littered with impossible
  *  undefined checks. */
 export const BRANCH_CURVES: Record<FieldId, [Pt, Pt, Pt, Pt]> = {
+  // 树冠：从树干顶端起，几乎笔直向上，带一点点右倾——完全垂直会读成桅杆。
+  formal: [
+    [500, 306],
+    [506, 248],
+    [524, 186],
+    [548, 102],
+  ],
   humanities: [
     [500, 352],
     [400, 300],

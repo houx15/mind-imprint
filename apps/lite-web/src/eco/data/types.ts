@@ -60,8 +60,20 @@ export interface NewsItem {
   keywords: string[];
 }
 
-/** The six main fields = the tree's main branches. */
+/** The seven main fields = the tree's main branches.
+ *
+ *  `formal`（数学与形式）is the seventh, added 2026-09-02 with the real
+ *  discipline table: the original six had NO HOME FOR MATHEMATICS, which for a
+ *  product serving IB / A-Level / AP students is a hole, not an omission —
+ *  统计推断, 微积分, 逻辑, 离散数学 had nowhere to land. It is drawn as the
+ *  crown: it leaves the trunk at its very top (y≈306, where the trunk's own
+ *  path ends at y=292), so it reads as the leader rather than as a seventh
+ *  branch crowded into a layout designed for six.
+ *
+ *  Must stay in sync with `FIELD_IDS` in packages/contracts/src/discipline.ts
+ *  and the CHECK constraint on `interest_keyword.field` (migration 0116). */
 export type FieldId =
+  | "formal"
   | "humanities"
   | "science"
   | "society"
