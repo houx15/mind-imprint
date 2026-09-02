@@ -107,7 +107,7 @@ func (a *API) proposePblSubsteps(w http.ResponseWriter, r *http.Request) {
 		} `json:"substeps"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if len(req.Substeps) == 0 {
@@ -175,7 +175,7 @@ func (a *API) reassignPblSubstep(w http.ResponseWriter, r *http.Request) {
 		Reason string `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	owner := strings.TrimSpace(req.Owner)
@@ -221,7 +221,7 @@ func (a *API) setPblSubstepStatus(w http.ResponseWriter, r *http.Request) {
 		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	status := strings.TrimSpace(req.Status)

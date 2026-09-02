@@ -87,7 +87,7 @@ export function shareOfWork(substeps: Substep[]): { yinji: number; total: number
 }
 
 export function splitTodo(substeps: Substep[]): string {
-  if (substeps.length === 0) return "还没有分工";
+  if (substeps.length === 0) return "无分工";
   const unconfirmed = substeps.filter((s) => !s.confirmedAt).length;
   return unconfirmed ? `还有 ${unconfirmed} 格没定` : "";
 }

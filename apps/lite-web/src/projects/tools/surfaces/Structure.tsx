@@ -58,7 +58,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       await createNode(projectId, { title, ordinal: state.nodes.length });
       await reload();
     } catch {
-      fail("没加上，再试一次。")();
+      fail("添加失败")();
     }
   }
 
@@ -83,7 +83,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       });
       await reload();
     } catch {
-      fail("挪不出来。")();
+      fail("修改失败")();
     }
   }
 
@@ -92,7 +92,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       await updateNode(projectId, node.id, { title });
       await reload();
     } catch {
-      fail("没改成。")();
+      fail("修改失败")();
     }
   }
 
@@ -101,7 +101,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       await updateNode(projectId, node.id, { body });
       await reload();
     } catch {
-      fail("没记下。")();
+      fail("记录失败")();
     }
   }
 
@@ -110,7 +110,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       await deleteNode(projectId, node.id);
       await reload();
     } catch {
-      fail("没删掉。")();
+      fail("删除失败")();
     }
   }
 
@@ -119,7 +119,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       await answerCheck(projectId, question, answer);
       await reload();
     } catch {
-      fail("没记下。")();
+      fail("记录失败")();
     }
   }
 
@@ -128,10 +128,10 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
   return (
     <ToolFrame
       title={tool.label}
-      task="先把整体分成几块，再看这个分法对不对"
+      task="从完整性、连贯性等角度审查整体结构是否合理"
       why={tool.reason}
       todo={todo}
-      finishLabel="结构就这样"
+      finishLabel="没有问题"
       onFinish={() =>
         onFinish({ nodes: state.nodes.length }, "")
       }
@@ -183,7 +183,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       {/* 三个问题 */}
       {state.nodes.length >= 3 && (
         <div className="mt-4 space-y-2 border-t border-mk-border pt-3">
-          <p className="text-mk-small text-mk-muted">看着这张图，想三件事</p>
+          <p className="text-mk-small text-mk-muted">建议的三个问题</p>
           {CHECK_QUESTIONS.map((q) => (
             <CheckRow
               key={q.question}
@@ -306,7 +306,7 @@ function CheckRow({
         onChange={(e) => setText(e.target.value)}
         onBlur={() => text.trim() !== value.trim() && onSave(text.trim())}
         rows={2}
-        placeholder="一句"
+        placeholder="想到什么都可以写在这里"
         className="mt-1.5 w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-surface px-2 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
       />
     </div>

@@ -138,7 +138,7 @@ func (a *API) createPblTreeNode(w http.ResponseWriter, r *http.Request) {
 		Ordinal  int32  `json:"ordinal"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	title := strings.TrimSpace(req.Title)
@@ -195,7 +195,7 @@ func (a *API) updatePblTreeNode(w http.ResponseWriter, r *http.Request) {
 		Body  *string `json:"body"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	title, body := node.Title, node.Body
@@ -233,7 +233,7 @@ func (a *API) movePblTreeNode(w http.ResponseWriter, r *http.Request) {
 		Ordinal  int32  `json:"ordinal"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if strings.TrimSpace(req.ParentID) == node.ID.String() {
@@ -313,7 +313,7 @@ func (a *API) answerPblTreeCheck(w http.ResponseWriter, r *http.Request) {
 		Answer   string `json:"answer"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	q := strings.TrimSpace(req.Question)

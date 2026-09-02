@@ -73,7 +73,7 @@ export function NameAndCover({
         <p className="text-mk-label uppercase text-mk-muted">
           {kindLabel(project.kind)}
         </p>
-        <h2 className="mt-2 text-mk-body-lg font-semibold text-mk-ink">给它起个名字</h2>
+        <h2 className="mt-2 text-mk-body-lg font-semibold text-mk-ink">项目名</h2>
         <p className="mt-1 text-mk-small text-mk-secondary">「{project.idea}」</p>
 
         <input
@@ -152,7 +152,7 @@ export function NameAndCover({
             className="rounded-mk-full px-5 py-2 text-mk-body font-semibold text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-40"
             style={{ background: "var(--mk-accent-500)" }}
           >
-            {saving ? "保存中…" : "就这样"}
+            {saving ? "保存中…" : "确认"}
           </button>
         </div>
       </div>

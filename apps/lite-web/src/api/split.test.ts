@@ -45,7 +45,7 @@ describe("shareOfWork", () => {
 
 describe("splitTodo", () => {
   it("says when there is no card yet", () => {
-    expect(splitTodo([])).toBe("还没有分工");
+    expect(splitTodo([])).toBe("无分工");
   });
 
   it("counts the cells she has not settled", () => {

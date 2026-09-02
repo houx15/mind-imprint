@@ -122,8 +122,8 @@ export const SESSION_REQUIRED_FIELD: Record<SessionKind, string | null> = {
 
 export const SESSION_WRITEBACK_PROMPT: Record<SessionKind, string> = {
   free: "这一层，你想明白了什么？",
-  observation: "你真的看见了什么？",
-  reframe: "现在你觉得这个问题该怎么问？",
+  observation: "你去看了之后，看到了什么？",
+  reframe: "现在这个问题，你会怎么重新说一遍？",
   brainstorm: "下一步先试哪个？",
   plan_check: "你决定怎么办？",
 };
@@ -137,13 +137,13 @@ export const STEP_STATUSES = [
 export type StepStatus = (typeof STEP_STATUSES)[number];
 
 export const STEP_STATUS_LABELS: Record<StepStatus, string> = {
-  settled: "定了",
-  tentative: "暂定",
-  awaiting_evidence: "等结果",
-  awaiting_decision: "等你定",
-  done: "做完了",
-  revised: "改过了",
-  cancelled: "不做了",
+  settled: "已确定",
+  tentative: "暂时确定",
+  awaiting_evidence: "处理中",
+  awaiting_decision: "需要确定",
+  done: "已完成",
+  revised: "已修改",
+  cancelled: "跳过",
 };
 
 /** The two waiting states are the reason this vocabulary exists: they let the

@@ -52,16 +52,16 @@ export interface KeepEntry {
 
 /** 循环里的四步。颜色是为了让她一眼看出自己停在哪一步。 */
 export const KEEP_STAGES: { stage: KeepStage; label: string; hint: string; hue: string }[] = [
-  { stage: "ship", label: "放出去", hint: "东西到了真实的人手里", hue: "#3B82F6" },
-  { stage: "observe", label: "看数据", hint: "发生了什么，先只记事实", hue: "#10B981" },
-  { stage: "interpret", label: "读出意思", hint: "这些说明了什么", hue: "#F59E0B" },
-  { stage: "change", label: "改一件事", hint: "只改一件，才知道是它起的作用", hue: "#8B5CF6" },
+  { stage: "ship", label: "发布上线", hint: "让真实用户开始使用你的成果", hue: "#3B82F6" },
+  { stage: "observe", label: "收集数据", hint: "整理访谈、问卷、后台数据，拿到真实反馈", hue: "#10B981" },
+  { stage: "interpret", label: "数据分析", hint: "从这些数据里提取对成果有用的洞察", hue: "#F59E0B" },
+  { stage: "change", label: "产品迭代", hint: "形成迭代方案，并把它做出来", hue: "#8B5CF6" },
 ];
 
 export const KEEP_KINDS: { kind: KeepKind; label: string }[] = [
-  { kind: "stat", label: "数字" },
-  { kind: "feedback", label: "别人说的" },
-  { kind: "thought", label: "我的想法" },
+  { kind: "stat", label: "产品数据" },
+  { kind: "feedback", label: "访谈 / 调查结果" },
+  { kind: "thought", label: "我的灵感" },
 ];
 
 export function listKeepEntries(projectId: string): Promise<KeepEntry[]> {

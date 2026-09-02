@@ -151,10 +151,10 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.screenshot({ path: "e2e/.shots/tools-1-invites.png", fullPage: true });
 
   // 出门做的那件长得不一样：不弹面板，只把事情交给她。
-  await expect(page.getByText("这件要离开屏幕做，回来再说。").first()).toBeVisible();
+  await expect(page.getByText("请在合适的地方完成这项任务").first()).toBeVisible();
 
   // 2 · 用真界面打开一件：点邀请卡上的「打开」。
-  await page.getByTestId("tool-invite-board").first().getByRole("button", { name: "打开" }).click();
+  await page.getByTestId("tool-invite-board").first().getByRole("button", { name: "开始任务" }).click();
   await expect(page.getByRole("heading", { name: "头脑风暴" })).toBeVisible();
 
   // 其余几件通过端点接受——这条 walk 要看的是八块界面，不是同一个点击重复八遍。
@@ -170,7 +170,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("再把有关系的挪到一起", { exact: false })).toBeVisible();
   await page.getByPlaceholder("写一条，回车贴上去").fill("中午十二点半，第三个桶已经满了");
   await page.keyboard.press("Enter");
-  await page.getByRole("button", { name: "别人说的" }).first().click();
+  await page.getByRole("button", { name: "实际观察" }).first().click();
   await page.getByPlaceholder("写一条，回车贴上去").fill("阿姨说「每天都这样」");
   await page.keyboard.press("Enter");
   await page.getByPlaceholder("写一条，回车贴上去").fill("我猜是米饭剩得最多");
@@ -223,11 +223,11 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
     await page.getByPlaceholder("再分一块出来").fill(block);
     await page.keyboard.press("Enter");
   }
-  await expect(page.getByText("想说的都在里面了吗？")).toBeVisible();
+  await expect(page.getByText("这个框架是否覆盖了所有应当呈现的内容？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-7-structure.png", fullPage: true });
 
   // 8 · 分工：印记领了几格，在她还能改的时候说出来。
-  await openTool(page, "分工设计");
+  await openTool(page, "分工建议");
   await expect(page.getByText("3 格里，印记领了 1 格。")).toBeVisible();
   await expect(page.getByText("重复的活，我来快一些")).toBeVisible();
   await page.getByRole("button", { name: "改成你做" }).first().click();
@@ -271,15 +271,15 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   // 理性决策时写下的那句「什么会让我改主意」，在这里被原样问了回来。
   await expect(page.getByText("食堂说他们早就试过了", { exact: false })).toBeVisible();
   await expect(page.getByText("第二段把我的话改成了它自己的说法", { exact: false })).toBeVisible();
-  await expect(page.getByText("这些问题是从你这个项目里发生过的事写出来的。")).toBeVisible();
+  await expect(page.getByText("请根据你的真实项目体验和感受来回答")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-9-lookback.png", fullPage: true });
 
   // 10 · 长期迭代：彩色的四步圈。
   await openTool(page, "长期迭代");
-  await expect(page.getByRole("button", { name: "读出意思" })).toBeVisible();
-  await page.getByPlaceholder("比如：这周有 12 个人打开过").fill("这周有 12 个人打开过");
+  await expect(page.getByRole("button", { name: "数据分析" })).toBeVisible();
+  await page.getByPlaceholder("停留时长、点击率、留存率…").fill("这周有 12 个人打开过");
   await page.keyboard.press("Enter");
-  await expect(page.getByRole("button", { name: "想一想这条" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "深入讨论" })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-10-keep.png", fullPage: true });
 
   // 11 · 深色。

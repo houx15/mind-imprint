@@ -169,7 +169,7 @@ func (a *API) openPblDecision(w http.ResponseWriter, r *http.Request) {
 		} `json:"criteria"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	subject := strings.TrimSpace(req.Subject)
@@ -253,7 +253,7 @@ func (a *API) addPblDecisionOption(w http.ResponseWriter, r *http.Request) {
 		Author string `json:"author"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if strings.TrimSpace(req.Label) == "" {
@@ -306,7 +306,7 @@ func (a *API) updatePblDecisionOption(w http.ResponseWriter, r *http.Request) {
 		Hurts *string `json:"hurts"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	label, wins, hurts := row.Label, row.Wins, row.Hurts
@@ -347,7 +347,7 @@ func (a *API) addPblDecisionCriterion(w http.ResponseWriter, r *http.Request) {
 		Author string `json:"author"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if strings.TrimSpace(req.Label) == "" {
@@ -414,7 +414,7 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 		Flip   string `json:"flip"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 

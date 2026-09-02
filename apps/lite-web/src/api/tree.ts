@@ -34,18 +34,18 @@ export interface TreeState {
 export const CHECK_QUESTIONS: { question: CheckQuestion; ask: string; hint: string }[] = [
   {
     question: "covers",
-    ask: "想说的都在里面了吗？",
-    hint: "有没有哪一块你其实很想说，但这张图上找不到位置。",
+    ask: "这个框架是否覆盖了所有应当呈现的内容？",
+    hint: "思考是否所有主要内容都会被这个框架涵盖",
   },
   {
     question: "coherent",
-    ask: "从头讲到尾，顺得下来吗？",
-    hint: "试着照这个顺序讲一遍。卡住的那个地方就是问题。",
+    ask: "这个框架的逻辑顺序是否合理？",
+    hint: "检查各部分之间的逻辑关系，想象如果是你来介绍这个框架，是否连贯、舒服",
   },
   {
     question: "better",
-    ask: "有没有更好的分法？",
-    hint: "现在这个分法是想出来的，还是因为大家都这么分？",
+    ask: "你有更好的建议吗",
+    hint: "",
   },
 ];
 

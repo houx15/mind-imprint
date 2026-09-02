@@ -188,7 +188,7 @@ func (a *API) answerPblLookback(w http.ResponseWriter, r *http.Request) {
 		Answer string `json:"answer"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	out, err := a.d.Queries.AnswerPblReviewPrompt(r.Context(), sqlc.AnswerPblReviewPromptParams{

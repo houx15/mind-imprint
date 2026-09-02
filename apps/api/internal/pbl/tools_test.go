@@ -41,8 +41,11 @@ func TestWaitsForStudent(t *testing.T) {
 // 界面上出现的字里不该有方法论名字（产品负责人 2026-09-01：plain language,
 // no jargon）。这条人眼很难一直盯住，加一件新工具时最容易破。
 func TestToolLabels_NoJargon(t *testing.T) {
-	jargon := []string{"HMW", "Reframe", "reframe", "矩阵", "范式", "架构",
-		"发散", "收敛", "复用", "赋能", "闭环", "抓手"}
+	// 产品负责人 2026-09-02 把工具名定成了这套偏书面的说法（观察日记 / 问题识别
+	// / 理性决策…），所以"结构""方案"这类词是要的。这里守的是真正的行话和
+	// 咨询腔——那些词一出现，学生就知道这不是给她看的。
+	jargon := []string{"HMW", "Reframe", "reframe", "矩阵", "范式",
+		"发散", "收敛", "复用", "赋能", "闭环", "抓手", "颗粒度", "心智"}
 	for _, name := range pbl.ToolNames() {
 		tool, ok := pbl.LookupTool(name)
 		if !ok {

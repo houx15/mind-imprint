@@ -8,7 +8,7 @@ import { TOOL_TASKS } from "./registry";
  * ToolInvite —— 印记把一件工具递到对话里。
  *
  * 邀请，不是弹窗（铁律②）。她可以不打开，而且**不打开必须和打开一样容易**：
- * 「先不用」是一次点击，不问理由。如果拒绝比接受费事，那就不是一个真的选择。
+ * 「跳过」是一次点击，不问理由。如果拒绝比接受费事，那就不是一个真的选择。
  *
  * world 工具（出门做的事）长得不一样：打开它不会跳出一个面板，而是把事情
  * 交给她，然后让开。
@@ -32,12 +32,12 @@ export function ToolInvite({
   if (declining) {
     return (
       <div className="mt-2 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5">
-        <p className="text-mk-small text-mk-secondary">想说一句为什么吗？不想说也行。</p>
+        <p className="text-mk-small text-mk-secondary">请阐述原因</p>
         <div className="mt-2 flex items-end gap-2">
           <input
             value={note}
             onChange={(e) => setNote(e.target.value)}
-            placeholder="现在不想用它，因为…"
+            placeholder="跳过的原因"
             className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
           />
           <button
@@ -46,7 +46,7 @@ export function ToolInvite({
             onClick={() => onDecline(note.trim())}
             className="shrink-0 rounded-mk-full border border-mk-border px-3 py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
           >
-            好
+            确认
           </button>
         </div>
       </div>
@@ -74,7 +74,7 @@ export function ToolInvite({
           {/* 印记自己的话，不是模板。 */}
           <p className="mt-1 text-mk-small text-mk-muted">{tool.reason}</p>
           {away && (
-            <p className="mt-1 text-mk-small text-mk-faint">这件要离开屏幕做，回来再说。</p>
+            <p className="mt-1 text-mk-small text-mk-faint">请在合适的地方完成这项任务，完成后回来继续项目</p>
           )}
         </div>
       </div>
@@ -86,7 +86,7 @@ export function ToolInvite({
           className="rounded-mk-full px-3.5 py-1.5 text-mk-small text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >
-          {away ? "我去" : "打开"}
+          {away ? "好的" : "开始任务"}
         </button>
         <button
           type="button"
@@ -94,7 +94,7 @@ export function ToolInvite({
           onClick={() => setDeclining(true)}
           className="rounded-mk-full border border-mk-border px-3.5 py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
         >
-          先不用
+          跳过
         </button>
       </div>
     </div>
@@ -131,7 +131,7 @@ export function AwayCard({
         onClick={onBack}
         className="mt-2.5 w-full rounded-mk-full border border-mk-border py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
       >
-        我回来了
+        已完成
       </button>
     </div>
   );

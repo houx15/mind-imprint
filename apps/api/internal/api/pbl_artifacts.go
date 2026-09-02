@@ -105,7 +105,7 @@ func (a *API) handOverPblArtifact(w http.ResponseWriter, r *http.Request) {
 		SessionID string          `json:"sessionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	kind := strings.TrimSpace(req.Kind)
@@ -184,7 +184,7 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 		Why     string `json:"why"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	verdict := strings.TrimSpace(req.Verdict)
@@ -289,7 +289,7 @@ func (a *API) summonPblTool(w http.ResponseWriter, r *http.Request) {
 		SessionID string `json:"sessionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	tool := strings.TrimSpace(req.Tool)
@@ -432,7 +432,7 @@ func (a *API) resolvePblTool(w http.ResponseWriter, r *http.Request) {
 		Note   string          `json:"note"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	status := strings.TrimSpace(req.Status)

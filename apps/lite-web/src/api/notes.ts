@@ -31,10 +31,10 @@ const OBSERVATION: NoteKindMeta = { kind: "observation", label: "观察结论", 
 
 export const NOTE_KINDS: NoteKindMeta[] = [
   OBSERVATION,
-  { kind: "quote", label: "别人说的", hue: "#8B5CF6" },
-  { kind: "assumption", label: "我猜的", hue: "#F59E0B" },
-  { kind: "question", label: "想问的", hue: "#EF4444" },
-  { kind: "idea", label: "办法", hue: "#10B981" },
+  { kind: "quote", label: "实际观察", hue: "#8B5CF6" },
+  { kind: "assumption", label: "推论", hue: "#F59E0B" },
+  { kind: "question", label: "提出的问题", hue: "#EF4444" },
+  { kind: "idea", label: "解决方案", hue: "#10B981" },
 ];
 
 export function noteKindMeta(kind: NoteKind): NoteKindMeta {

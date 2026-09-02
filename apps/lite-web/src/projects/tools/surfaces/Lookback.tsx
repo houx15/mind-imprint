@@ -51,10 +51,10 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
   return (
     <ToolFrame
       title={tool.label}
-      task="回头看这个项目，你是怎么走到这儿的"
+      task="回顾项目落地全流程"
       why={tool.reason}
       todo={lookbackTodo(prompts)}
-      finishLabel="复盘完了"
+      finishLabel="完成"
       onFinish={() =>
         onFinish({ answered }, "")
       }
@@ -78,7 +78,7 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
 
       {prompts.length > 0 && (
         <p className="mt-3 text-mk-small text-mk-faint">
-          这些问题是从你这个项目里发生过的事写出来的。
+          请根据你的真实项目体验和感受来回答
         </p>
       )}
     </ToolFrame>

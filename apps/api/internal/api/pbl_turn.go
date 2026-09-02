@@ -59,7 +59,7 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		SessionID string `json:"sessionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	// 空文本 = 她没说话，是刚发生了一件事（用完一件工具）要印记接一句。

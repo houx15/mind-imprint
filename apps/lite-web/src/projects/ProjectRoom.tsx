@@ -317,7 +317,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
 
             {/* 印记正在想。她刚说完话，对面要有反应。 */}
             {thinking && (
-              <div className="flex items-start gap-2" aria-label="印记正在想">
+              <div className="flex items-start gap-2" aria-label="思考中">
                 <span className="mt-0.5 shrink-0">
                   <Pebble state="thinking" size={24} />
                 </span>
@@ -363,7 +363,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
               onChange={(e) => setDraft(e.target.value)}
               rows={2}
               disabled={busy}
-              placeholder={current ? "就想这一个问题" : "跟印记说"}
+              placeholder="请输入"
               className="flex-1 resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
             />
             <button

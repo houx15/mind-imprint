@@ -84,7 +84,7 @@ func (a *API) createPblNote(w http.ResponseWriter, r *http.Request) {
 		} `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if len(req.Notes) == 0 {
@@ -156,7 +156,7 @@ func (a *API) updatePblNote(w http.ResponseWriter, r *http.Request) {
 		Y       *float32 `json:"y"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	body, kind, cluster := note.Body, note.Kind, note.Cluster
@@ -217,7 +217,7 @@ func (a *API) clusterPblNotes(w http.ResponseWriter, r *http.Request) {
 		Cluster string   `json:"cluster"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if len(req.IDs) == 0 {

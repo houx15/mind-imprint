@@ -26,7 +26,7 @@ export function ToolFrame({
   children,
   onFinish,
   onClose,
-  finishLabel = "做完了",
+  finishLabel = "完成",
   busy,
 }: {
   title: string;

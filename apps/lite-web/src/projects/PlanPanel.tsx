@@ -44,7 +44,7 @@ export function PlanPanel({
           <h2 className="text-mk-body font-semibold text-mk-ink">计划</h2>
         </header>
         <p className="px-5 py-4 text-mk-small text-mk-muted">
-          还没有计划。先把要做的事聊清楚，印记会拟一版给你看。
+          计划待生成
         </p>
       </div>
     );
@@ -73,14 +73,14 @@ export function PlanPanel({
       {unapproved && (
         // Nothing runs before she has read it and said so.
         <footer className="border-t border-mk-border px-5 py-4">
-          <p className="text-mk-small text-mk-secondary">看一遍。改哪儿都行，你说了算。</p>
+          <p className="text-mk-small text-mk-secondary">请审核计划并确认，或提出修改意见</p>
           <button
             type="button"
             onClick={() => void onApprove(plan.versionId)}
             className="mt-3 w-full rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white"
             style={{ background: "var(--mk-accent-500)" }}
           >
-            准备好了 · 开始
+            审核完成，开始！
           </button>
         </footer>
       )}
@@ -123,7 +123,7 @@ function StepRow({ step }: { step: PlanStep }) {
 
       {open && (
         <div className="border-t border-mk-border px-3 py-3 text-mk-small">
-          {step.goal && <Line label="这一步要干嘛" value={step.goal} />}
+          {step.goal && <Line label="内容" value={step.goal} />}
           {step.iBring && <Line label="印记做" value={step.iBring} />}
           {step.youBring && <Line label="你做" value={step.youBring} />}
           {/* Always shown, never optional: a step where she decides nothing is
@@ -188,7 +188,7 @@ function PlanCheck({
       </header>
 
       <div className="flex-1 overflow-y-auto px-5 py-4">
-        <p className="text-mk-label uppercase text-mk-faint">印记想改的</p>
+        <p className="text-mk-label uppercase text-mk-faint">修改建议</p>
         <ul className="mt-2 flex flex-col gap-1.5">
           {diffLines.map((d, i) => (
             <li key={i} className="text-mk-small">
@@ -201,7 +201,7 @@ function PlanCheck({
           )}
         </ul>
 
-        <p className="mt-6 text-mk-label uppercase text-mk-faint">你怎么定</p>
+        <p className="mt-6 text-mk-label uppercase text-mk-faint">决策时刻</p>
         <div className="mt-2 flex flex-col gap-1.5">
           {PLAN_RESOLUTIONS.map((r) => (
             <button
@@ -227,7 +227,7 @@ function PlanCheck({
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           rows={3}
-          placeholder="为什么这么定？"
+          placeholder="原因"
           className="mt-4 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-paper px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
         {error && (
@@ -245,7 +245,7 @@ function PlanCheck({
           className="w-full rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >
-          {saving ? "记下来…" : "就这么定"}
+          {saving ? "记下来…" : "确认选择"}
         </button>
       </footer>
     </div>
@@ -257,11 +257,11 @@ function diffLabel(k: string): string {
     case "add":
       return "新增";
     case "remove":
-      return "删掉";
+      return "删除";
     case "modify":
-      return "改成";
+      return "修改";
     case "defer":
-      return "先放着";
+      return "暂定";
     default:
       return k;
   }

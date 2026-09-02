@@ -68,7 +68,7 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 		Idea string `json:"idea"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	idea := strings.TrimSpace(req.Idea)
@@ -179,7 +179,7 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 		Status      *string `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 
@@ -227,4 +227,14 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 		CreatedAt:      row.AtomCreatedAt.Format(time.RFC3339),
 		LastActivityAt: row.LastActivityAt.Format(time.RFC3339),
 	})
+}
+
+// errBadJSON —— 请求体解不开时给的那句话。
+//
+// 产品负责人 2026-09-02：「尽可能给出详细报错信息，方便 debug」。而且
+// apiErrorText 现在会把后端原话原样显示给学生，所以「请求格式不对」这五个字
+// 是她和我们同时能看到的**全部**信息——等于什么都没说。解码器自己知道是哪一
+// 行、哪个字段坏了，带上它。
+func errBadJSON(err error) error {
+	return httpx.ErrBadRequest("bad_json", "请求格式错误："+err.Error(), nil)
 }

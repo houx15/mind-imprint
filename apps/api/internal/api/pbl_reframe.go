@@ -88,7 +88,7 @@ func (a *API) createPblReframe(w http.ResponseWriter, r *http.Request) {
 		Supersedes string `json:"supersedes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 
@@ -159,7 +159,7 @@ func (a *API) updatePblReframe(w http.ResponseWriter, r *http.Request) {
 		HMW   *string `json:"hmw"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	who, needs, why, hmw := cur.Who, cur.Needs, cur.Why, cur.Hmw

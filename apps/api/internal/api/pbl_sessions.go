@@ -88,7 +88,7 @@ func (a *API) openPblSession(w http.ResponseWriter, r *http.Request) {
 		Question   string  `json:"question"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	kind := strings.TrimSpace(req.Kind)
@@ -172,7 +172,7 @@ func (a *API) closePblSession(w http.ResponseWriter, r *http.Request) {
 		WriteBack map[string]string `json:"writeBack"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 

@@ -133,7 +133,7 @@ func (a *API) proposePblPlan(w http.ResponseWriter, r *http.Request) {
 		Steps   []pblProposeStepReq `json:"steps"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if len(req.Steps) == 0 {
@@ -209,7 +209,7 @@ func (a *API) approvePblPlan(w http.ResponseWriter, r *http.Request) {
 		VersionID string `json:"versionId"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	vid, err := uuid.Parse(strings.TrimSpace(req.VersionID))
@@ -268,7 +268,7 @@ func (a *API) setPblStepStatus(w http.ResponseWriter, r *http.Request) {
 		Status string `json:"status"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	status := strings.TrimSpace(req.Status)
@@ -303,7 +303,7 @@ func (a *API) stagePblChange(w http.ResponseWriter, r *http.Request) {
 		Fork     bool              `json:"keepsBothDirections"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	kind := strings.TrimSpace(req.Kind)
@@ -366,7 +366,7 @@ func (a *API) resolvePblChange(w http.ResponseWriter, r *http.Request) {
 		Reason     string `json:"reason"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	res := strings.TrimSpace(req.Resolution)

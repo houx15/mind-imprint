@@ -116,15 +116,15 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   const marksTodo = reviewTodo(plan);
   const todo = !artifact
     ? "现在没有要审的东西"
-    : marksTodo || (verdictWhy.trim() ? "" : "一句你的结论");
+    : marksTodo || (verdictWhy.trim() ? "" : "结论");
 
   return (
     <ToolFrame
       title={tool.label}
-      task="一段一段看过去。不同意的地方，说出来"
+      task="参考审核框架，进行深度审核"
       why={tool.reason}
       todo={todo}
-      finishLabel="收下"
+      finishLabel="完成审核"
       onFinish={() => void finish("kept")}
       onClose={onClose}
     >
@@ -135,7 +135,7 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       )}
 
       {!artifact && (
-        <p className="text-mk-small text-mk-muted">印记还没有交出什么要你审的东西。</p>
+        <p className="text-mk-small text-mk-muted">暂时没有需要审核的内容</p>
       )}
 
       {artifact && (
@@ -165,12 +165,12 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
             <p className="text-mk-small text-mk-muted">印记说：</p>
             {artifact.guessed.map((g, i) => (
               <p key={`g${i}`} className="mt-0.5 text-mk-small text-mk-secondary">
-                我猜了：{g}
+                猜测内容：{g}
               </p>
             ))}
             {artifact.admits.map((x, i) => (
               <p key={`a${i}`} className="mt-0.5 text-mk-small text-mk-secondary">
-                这版还不对的地方：{x}
+                可能出错：{x}
               </p>
             ))}
           </div>
@@ -246,7 +246,7 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
           {/* 该看的几个方面 */}
           {plan.dimensions.length > 0 && (
             <div className="mt-4 space-y-2 border-t border-mk-border pt-3">
-              <p className="text-mk-small text-mk-muted">看这种东西，这几点绕不开</p>
+              <p className="text-mk-small text-mk-muted">审核要点建议</p>
               {plan.dimensions.map((d) => (
                 <div key={d.id} className="rounded-mk-md border border-mk-border px-3 py-2">
                   <p className="text-mk-small text-mk-ink">{d.prompt}</p>
@@ -259,7 +259,7 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
 
           {/* 结论 */}
           <div className="mt-4 border-t border-mk-border pt-3">
-            <label className="text-mk-small text-mk-secondary">你的结论，一句话</label>
+            <label className="text-mk-small text-mk-secondary">结论</label>
             <textarea
               value={verdictWhy}
               onChange={(e) => setVerdictWhy(e.target.value)}
@@ -311,7 +311,7 @@ function MarkRow({
           <p className="text-mk-small text-mk-muted">「{mark.quote}」</p>
         )}
         <p className="mt-0.5 text-mk-small text-mk-ink">{mark.question}</p>
-        {mark.mine && <p className="mt-0.5 text-mk-small text-mk-faint">你问的</p>}
+        {mark.mine && <p className="mt-0.5 text-mk-small text-mk-faint">你提的问题</p>}
       </button>
       {open && <AnswerBox value={mark.answer} onSave={onSave} />}
       {!open && mark.answer && (
@@ -330,7 +330,7 @@ function AnswerBox({ value, onSave }: { value: string; onSave: (v: string) => vo
       onChange={(e) => setText(e.target.value)}
       onBlur={() => text.trim() !== value.trim() && onSave(text.trim())}
       rows={2}
-      placeholder="写下你的看法"
+      placeholder="你的想法"
       className="mt-1.5 w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-surface px-2 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
     />
   );

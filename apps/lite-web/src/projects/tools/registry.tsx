@@ -33,12 +33,12 @@ export const TOOL_TASKS: Record<string, string> = {
   board: "把看到的、听到的、猜的、想问的都摊到板上",
   reframe: "说清楚谁需要什么，为什么",
   ideas: "多想几个办法，再挑一个先试",
-  review: "一段一段看过去，不同意就说出来",
-  decide: "摆开选项，说清这里什么最重要",
-  structure: "先看整体骨架，再动手写",
-  split: "这件事哪几步你做，哪几步印记做",
-  lookback: "回头看这个项目，你是怎么走到这儿的",
-  keep: "上线之后拿回来的数据，说明了什么",
+  review: "AI 可能出错，需要对它产出的内容做一次深度审核",
+  decide: "深入思考 AI 提供的多个选项，做出合理的决策",
+  structure: "审查整体结构是否合理",
+  split: "你和 AI 的分工",
+  lookback: "一起复盘项目过程吧！",
+  keep: "持续观察成果落地后的反馈，进一步迭代你的成果！",
 };
 
 export interface ToolSurfaceProps {

@@ -81,7 +81,7 @@ func (a *API) createPblKeepEntry(w http.ResponseWriter, r *http.Request) {
 		Stage string `json:"stage"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	kind := strings.TrimSpace(req.Kind)

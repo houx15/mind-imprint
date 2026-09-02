@@ -76,10 +76,10 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   return (
     <ToolFrame
       title={tool.label}
-      task="这一步分成几格，看看哪几格该你自己做"
+      task="你和 AI 的分工"
       why={tool.reason}
       todo={splitTodo(subs)}
-      finishLabel="就这么分"
+      finishLabel="方案无误，开始执行"
       onFinish={() =>
         onFinish({ stepId, mine: share.total - share.yinji, total: share.total }, "")
       }

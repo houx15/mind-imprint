@@ -23,7 +23,7 @@ import type { ToolSurfaceProps } from "../registry";
  * 「we can use a colorful diagram to teach students about the step」——上面那
  * 条彩色的圈就是这个：放出去 → 看数据 → 读出意思 → 改一件事 → 再放出去。
  *
- * 🚨 每一条数据旁边都有「想一想这条」。按下去会给这个项目开**一轮新的思考**
+ * 🚨 每一条数据旁边都有「深入讨论」。按下去会给这个项目开**一轮新的思考**
  * （「one project may have several sessions」）。这一下就是维持和归档的分界：
  * 数字看过就算了，那是归档；数字让她重新想一遍，这个项目还活着。
  *
@@ -74,10 +74,10 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
   return (
     <ToolFrame
       title={tool.label}
-      task="东西放出去之后发生了什么，记下来，再想想它说明什么"
+      task="收集数据 - 思考原因 - 进行优化，是产品不断变好的关键"
       why={tool.reason}
-      todo={entries.length === 0 ? "先记一条真实发生的事" : ""}
-      finishLabel="先到这里"
+      todo={entries.length === 0 ? "记录关于产品的实际反馈 / 使用情况" : ""}
+      finishLabel="完成"
       onFinish={() => onFinish({ entries: entries.length }, "")}
       onClose={onClose}
     >
@@ -114,7 +114,7 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
       </div>
       <p className="mt-1.5 text-mk-small text-mk-muted">
         {KEEP_STAGES.find((s) => s.stage === stage)?.hint}
-        {at === "ship" && entries.length > 0 && " · 改完了就再放出去一次"}
+        {at === "ship" && entries.length > 0 && " · 再次发布，持续收集反馈"}
       </p>
 
       {/* 记一条 */}
@@ -141,7 +141,7 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
             value={draft}
             onChange={(e) => setDraft(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && void add()}
-            placeholder={kind === "stat" ? "比如：这周有 12 个人打开过" : "写一条"}
+            placeholder={kind === "stat" ? "停留时长、点击率、留存率…" : "针对谁的访谈，ta 表达了什么？"}
             className="flex-1 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
           />
           <button
@@ -177,7 +177,7 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
                   style={{ color: "var(--mk-accent-500)" }}
                 >
                   <Icon icon={MessageCircle} size={12} />
-                  {e.sessionId ? "回到那一轮" : "想一想这条"}
+                  {e.sessionId ? "继续讨论" : "深入讨论"}
                 </button>
               </div>
             </div>

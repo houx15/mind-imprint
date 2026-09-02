@@ -107,10 +107,10 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   return (
     <ToolFrame
       title={tool.label}
-      task="摆开选项，说清这件事上什么最重要，再选"
+      task="针对每个选项的原因及可能后果进行深入思考，再做出决定"
       why={tool.reason}
       todo={todo}
-      finishLabel="就这么定"
+      finishLabel="确认选择"
       onFinish={() => void finish()}
       onClose={onClose}
     >

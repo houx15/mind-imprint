@@ -114,7 +114,7 @@ export function ProjectsLanding() {
                 below `sm`. */}
             <div className="flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
               <span className="order-2 text-mk-small text-mk-muted sm:order-1">
-                {creating ? "印记在读你写的这段话…" : "写完按开始，印记会先跟你聊清楚要做什么。"}
+                {creating ? "处理中" : "写完按开始，印记会先跟你聊清楚要做什么。"}
               </span>
               <button
                 type="button"

@@ -143,7 +143,7 @@ func (a *API) createPblReviewPlan(w http.ResponseWriter, r *http.Request) {
 		} `json:"dimensions"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	if len(req.Marks) == 0 && len(req.Dimensions) == 0 {
@@ -196,7 +196,7 @@ func (a *API) askPblReviewMark(w http.ResponseWriter, r *http.Request) {
 		Question string `json:"question"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	quote := strings.TrimSpace(req.Quote)
@@ -259,7 +259,7 @@ func (a *API) answerPblReviewMark(w http.ResponseWriter, r *http.Request) {
 		Answer string `json:"answer"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	out, err := a.d.Queries.AnswerPblReviewMark(r.Context(), sqlc.AnswerPblReviewMarkParams{
@@ -292,7 +292,7 @@ func (a *API) answerPblReviewDimension(w http.ResponseWriter, r *http.Request) {
 		Answer string `json:"answer"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
 	out, err := a.d.Queries.AnswerPblReviewDimension(r.Context(), sqlc.AnswerPblReviewDimensionParams{

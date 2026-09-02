@@ -48,7 +48,7 @@ var registry = map[string]Tool{
 	"review":    {Name: "review", Kind: KindThinking, Label: "审核助手"},
 	"decide":    {Name: "decide", Kind: KindThinking, Label: "理性决策"},
 	"structure": {Name: "structure", Kind: KindThinking, Label: "结构审查"},
-	"split":     {Name: "split", Kind: KindThinking, Label: "分工设计"},
+	"split":     {Name: "split", Kind: KindThinking, Label: "分工建议"},
 	"lookback":  {Name: "lookback", Kind: KindThinking, Label: "项目复盘"},
 	"keep":      {Name: "keep", Kind: KindThinking, Label: "长期迭代"},
 }
