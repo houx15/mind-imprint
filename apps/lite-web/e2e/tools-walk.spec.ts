@@ -227,12 +227,13 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("为什么不选别的")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-6-decide.png", fullPage: true });
 
-  // 7 · 结构审查：缩进就是层级。
+  // 7 · 结构审查：一张能拖的图。
   await openTool(page, "结构审查");
   for (const block of ["我看到了什么", "这说明什么", "我建议怎么做"]) {
-    await page.getByPlaceholder("再分一块出来").fill(block);
+    await page.getByPlaceholder("加一块").fill(block);
     await page.keyboard.press("Enter");
   }
+  await expect(page.getByText("拖着挪位置，点一下选中，Delete 删掉，双击改字。")).toBeVisible();
   await expect(page.getByText("这个框架是否覆盖了所有应当呈现的内容？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-7-structure.png", fullPage: true });
 

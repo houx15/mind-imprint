@@ -669,6 +669,8 @@ type PblTreeNode struct {
 	Author    string      `json:"author"`
 	Edited    bool        `json:"edited"`
 	CreatedAt time.Time   `json:"created_at"`
+	X         float32     `json:"x"`
+	Y         float32     `json:"y"`
 }
 
 type PlanItem struct {

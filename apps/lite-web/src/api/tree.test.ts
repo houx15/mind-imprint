@@ -12,6 +12,8 @@ function node(id: string, parentId: string | null, depth: number, ordinal: numbe
     body: "",
     author: "student",
     edited: false,
+    x: 0,
+    y: 0,
   };
 }
 
@@ -87,38 +89,15 @@ describe("indentTarget", () => {
 });
 
 describe("treeTodo", () => {
-  const three = [node("a", null, 0, 0), node("b", null, 0, 1), node("c", null, 0, 2)];
-
-  it("asks for a few blocks first", () => {
-    expect(treeTodo({ tree: "main", nodes: [node("a", null, 0, 0)], checks: [] })).toBe(
-      "至少先分出三块",
-    );
+  it("says when there is nothing to review yet", () => {
+    expect(treeTodo({ tree: "main", nodes: [], checks: [] })).toBe("暂时没有需要审查的结构");
   });
 
-  it("counts the questions still unanswered", () => {
+  // 🚨 三个问题是思考框架，不是必答题。做成门槛，一次审视就变成一份问卷
+  // （产品负责人 2026-09-02）。
+  it("never blocks her on the three questions", () => {
     expect(
-      treeTodo({ tree: "main", nodes: three, checks: [{ question: "covers", answer: "都在" }] }),
-    ).toBe("还有 2 个问题没想");
-  });
-
-  // 空白不算答过。
-  it("does not count a whitespace answer", () => {
-    expect(
-      treeTodo({ tree: "main", nodes: three, checks: [{ question: "covers", answer: "  " }] }),
-    ).toBe("还有 3 个问题没想");
-  });
-
-  it("is empty once all three are answered", () => {
-    expect(
-      treeTodo({
-        tree: "main",
-        nodes: three,
-        checks: [
-          { question: "covers", answer: "都在" },
-          { question: "coherent", answer: "顺" },
-          { question: "better", answer: "想过了" },
-        ],
-      }),
+      treeTodo({ tree: "main", nodes: [node("a", null, 0, 0)], checks: [] }),
     ).toBe("");
   });
 });

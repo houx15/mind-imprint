@@ -15,6 +15,9 @@ export interface TreeNode {
   body: string;
   author: "student" | "yinji";
   edited: boolean;
+  /** 她把这一块摆在哪。0,0 = 还没摆过，界面按层级自动铺。 */
+  x: number;
+  y: number;
 }
 
 export type CheckQuestion = "covers" | "coherent" | "better";
@@ -66,7 +69,7 @@ export function createNode(
 export function updateNode(
   projectId: string,
   nodeId: string,
-  patch: { title?: string; body?: string },
+  patch: { title?: string; body?: string; x?: number; y?: number },
 ): Promise<TreeNode> {
   return apiFetch<TreeNode>(`${base(projectId)}/tree/${nodeId}`, {
     method: "PATCH",
@@ -144,10 +147,35 @@ export function indentTarget(ordered: TreeNode[], nodeId: string): TreeNode | nu
   return null;
 }
 
+/**
+ * 还差什么。
+ *
+ * 🚨 只剩"有没有结构"这一件事。结构由印记提（所以"至少三块"不会发生），
+ * 三个问题是思考框架而不是作业——产品负责人 2026-09-02：「we don'''t require
+ * student to answer textual question, but only to provide a thinking frame」。
+ * 把它们做成必答门槛，等于把一次审视变成一份问卷。
+ */
 export function treeTodo(state: TreeState): string {
-  if (state.nodes.length < 3) return "至少先分出三块";
-  const unanswered = CHECK_QUESTIONS.filter(
-    (q) => !state.checks.find((c) => c.question === q.question && c.answer.trim()),
-  ).length;
-  return unanswered ? `还有 ${unanswered} 个问题没想` : "";
+  return state.nodes.length === 0 ? "暂时没有需要审查的结构" : "";
+}
+
+/**
+ * 自动铺一遍：层级决定列，同层的依次往下排。
+ *
+ * 只用在还没摆过的节点上（x=y=0）。她一拖，位置就成了她的——一张图的形状本身
+ * 就是她的思考痕迹，不该每次打开被重排。
+ */
+export function autoLayout(nodes: TreeNode[]): Map<string, { x: number; y: number }> {
+  const out = new Map<string, { x: number; y: number }>();
+  const perDepth = new Map<number, number>();
+  for (const n of outline(nodes)) {
+    if (n.x !== 0 || n.y !== 0) {
+      out.set(n.id, { x: n.x, y: n.y });
+      continue;
+    }
+    const row = perDepth.get(n.depth) ?? 0;
+    perDepth.set(n.depth, row + 1);
+    out.set(n.id, { x: 16 + n.depth * 190, y: 16 + row * 74 });
+  }
+  return out;
 }

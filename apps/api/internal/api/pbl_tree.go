@@ -38,12 +38,15 @@ type pblNodeDTO struct {
 	Body     string  `json:"body"`
 	Author   string  `json:"author"`
 	Edited   bool    `json:"edited"`
+	X        float32 `json:"x"`
+	Y        float32 `json:"y"`
 }
 
 func toPblNodeDTO(n sqlc.PblTreeNode) pblNodeDTO {
 	out := pblNodeDTO{
 		ID: n.ID.String(), Tree: n.Tree, Depth: n.Depth, Ordinal: n.Ordinal,
 		Title: n.Title, Body: n.Body, Author: n.Author, Edited: n.Edited,
+		X: n.X, Y: n.Y,
 	}
 	if n.ParentID.Valid {
 		s := uuid.UUID(n.ParentID.Bytes).String()
@@ -191,8 +194,10 @@ func (a *API) updatePblTreeNode(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Title *string `json:"title"`
-		Body  *string `json:"body"`
+		Title *string  `json:"title"`
+		Body  *string  `json:"body"`
+		X     *float32 `json:"x"`
+		Y     *float32 `json:"y"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -215,6 +220,17 @@ func (a *API) updatePblTreeNode(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	// 位置单独一条 UPDATE：挪动是整理，不该被记成"她改了印记写的那一块"。
+	if req.X != nil && req.Y != nil {
+		moved, merr := a.d.Queries.PositionPblTreeNode(r.Context(), sqlc.PositionPblTreeNodeParams{
+			ID: node.ID, X: *req.X, Y: *req.Y,
+		})
+		if merr != nil {
+			httpx.WriteError(w, r, merr)
+			return
+		}
+		row = moved
 	}
 	httpx.WriteJSON(w, http.StatusOK, toPblNodeDTO(row))
 }

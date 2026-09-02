@@ -28,6 +28,11 @@ SET parent_id = $2, depth = $3, ordinal = $4
 WHERE id = $1
 RETURNING *;
 
+-- name: PositionPblTreeNode :one
+-- 只挪位置，不碰 edited：把印记摆的那张图重新排一下是"整理"，改掉它的字才是
+-- "纠正"。和便签板同一条道理（queries/pbl_note.sql · SetPblNoteCluster）。
+UPDATE pbl_tree_node SET x = $2, y = $3 WHERE id = $1 RETURNING *;
+
 -- name: DeletePblTreeNode :exec
 DELETE FROM pbl_tree_node WHERE id = $1;
 

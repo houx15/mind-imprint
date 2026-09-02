@@ -50,7 +50,7 @@ const createPblTreeNode = `-- name: CreatePblTreeNode :one
 
 INSERT INTO pbl_tree_node (atom_id, tree, parent_id, depth, ordinal, title, body, author)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at
+RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at, x, y
 `
 
 type CreatePblTreeNodeParams struct {
@@ -89,6 +89,8 @@ func (q *Queries) CreatePblTreeNode(ctx context.Context, arg CreatePblTreeNodePa
 		&i.Author,
 		&i.Edited,
 		&i.CreatedAt,
+		&i.X,
+		&i.Y,
 	)
 	return i, err
 }
@@ -103,7 +105,7 @@ func (q *Queries) DeletePblTreeNode(ctx context.Context, id uuid.UUID) error {
 }
 
 const getPblTreeNode = `-- name: GetPblTreeNode :one
-SELECT n.id, n.atom_id, n.tree, n.parent_id, n.depth, n.ordinal, n.title, n.body, n.author, n.edited, n.created_at, a.user_id
+SELECT n.id, n.atom_id, n.tree, n.parent_id, n.depth, n.ordinal, n.title, n.body, n.author, n.edited, n.created_at, n.x, n.y, a.user_id
 FROM pbl_tree_node n JOIN atom a ON a.id = n.atom_id
 WHERE n.id = $1
 `
@@ -120,6 +122,8 @@ type GetPblTreeNodeRow struct {
 	Author    string      `json:"author"`
 	Edited    bool        `json:"edited"`
 	CreatedAt time.Time   `json:"created_at"`
+	X         float32     `json:"x"`
+	Y         float32     `json:"y"`
 	UserID    uuid.UUID   `json:"user_id"`
 }
 
@@ -138,6 +142,8 @@ func (q *Queries) GetPblTreeNode(ctx context.Context, id uuid.UUID) (GetPblTreeN
 		&i.Author,
 		&i.Edited,
 		&i.CreatedAt,
+		&i.X,
+		&i.Y,
 		&i.UserID,
 	)
 	return i, err
@@ -180,7 +186,7 @@ func (q *Queries) ListPblTreeChecks(ctx context.Context, arg ListPblTreeChecksPa
 }
 
 const listPblTreeNodes = `-- name: ListPblTreeNodes :many
-SELECT id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at FROM pbl_tree_node
+SELECT id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at, x, y FROM pbl_tree_node
 WHERE atom_id = $1 AND tree = $2
 ORDER BY depth, ordinal, created_at
 `
@@ -211,6 +217,8 @@ func (q *Queries) ListPblTreeNodes(ctx context.Context, arg ListPblTreeNodesPara
 			&i.Author,
 			&i.Edited,
 			&i.CreatedAt,
+			&i.X,
+			&i.Y,
 		); err != nil {
 			return nil, err
 		}
@@ -226,7 +234,7 @@ const movePblTreeNode = `-- name: MovePblTreeNode :one
 UPDATE pbl_tree_node
 SET parent_id = $2, depth = $3, ordinal = $4
 WHERE id = $1
-RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at
+RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at, x, y
 `
 
 type MovePblTreeNodeParams struct {
@@ -257,6 +265,41 @@ func (q *Queries) MovePblTreeNode(ctx context.Context, arg MovePblTreeNodeParams
 		&i.Author,
 		&i.Edited,
 		&i.CreatedAt,
+		&i.X,
+		&i.Y,
+	)
+	return i, err
+}
+
+const positionPblTreeNode = `-- name: PositionPblTreeNode :one
+UPDATE pbl_tree_node SET x = $2, y = $3 WHERE id = $1 RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at, x, y
+`
+
+type PositionPblTreeNodeParams struct {
+	ID uuid.UUID `json:"id"`
+	X  float32   `json:"x"`
+	Y  float32   `json:"y"`
+}
+
+// 只挪位置，不碰 edited：把印记摆的那张图重新排一下是"整理"，改掉它的字才是
+// "纠正"。和便签板同一条道理（queries/pbl_note.sql · SetPblNoteCluster）。
+func (q *Queries) PositionPblTreeNode(ctx context.Context, arg PositionPblTreeNodeParams) (PblTreeNode, error) {
+	row := q.db.QueryRow(ctx, positionPblTreeNode, arg.ID, arg.X, arg.Y)
+	var i PblTreeNode
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Tree,
+		&i.ParentID,
+		&i.Depth,
+		&i.Ordinal,
+		&i.Title,
+		&i.Body,
+		&i.Author,
+		&i.Edited,
+		&i.CreatedAt,
+		&i.X,
+		&i.Y,
 	)
 	return i, err
 }
@@ -265,7 +308,7 @@ const updatePblTreeNode = `-- name: UpdatePblTreeNode :one
 UPDATE pbl_tree_node
 SET title = $2, body = $3, edited = (edited OR author = 'yinji')
 WHERE id = $1
-RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at
+RETURNING id, atom_id, tree, parent_id, depth, ordinal, title, body, author, edited, created_at, x, y
 `
 
 type UpdatePblTreeNodeParams struct {
@@ -289,6 +332,8 @@ func (q *Queries) UpdatePblTreeNode(ctx context.Context, arg UpdatePblTreeNodePa
 		&i.Author,
 		&i.Edited,
 		&i.CreatedAt,
+		&i.X,
+		&i.Y,
 	)
 	return i, err
 }
