@@ -75,3 +75,32 @@ INSERT INTO keyword_discipline (keyword_id, discipline_id, confidence, how, rati
 VALUES ($1, $2, 1.0, 'student', $3)
 ON CONFLICT (keyword_id, discipline_id) DO UPDATE SET
   confidence = 1.0, how = 'student', rationale = EXCLUDED.rationale;
+
+-- name: ListUnharvestedFinishedAtoms :many
+-- 她已经完成、但采集器还没跑过的 atom。
+--
+-- 「完成」在三种 atom 上是三件事：阅读与写作是 status='finished'，项目是走到了
+-- 复盘（'review' 及其之后）。没完成的东西不该长词 —— 一篇读了三段就关掉的文章
+-- 说不出她关心什么。
+SELECT a.id, a.kind
+FROM atom a
+LEFT JOIN reading     r ON r.atom_id = a.id
+LEFT JOIN writing     w ON w.atom_id = a.id
+LEFT JOIN pbl_project p ON p.atom_id = a.id
+WHERE a.user_id = $1
+  AND a.interest_harvested_at IS NULL
+  AND (
+    (a.kind = 'reading' AND r.status = 'finished')
+    OR (a.kind = 'writing' AND w.status = 'finished')
+    OR (a.kind = 'project' AND p.status IN ('review', 'keeping', 'archived'))
+  )
+ORDER BY a.last_activity_at DESC
+LIMIT $2;
+
+-- name: MarkAtomInterestHarvested :exec
+-- 「尝试过一次，无论结果如何」。零个词也要盖章，否则一篇薄阅读会被反复重采。
+UPDATE atom SET interest_harvested_at = now()
+WHERE id = $1 AND interest_harvested_at IS NULL;
+
+-- name: GetAtomInterestHarvestedAt :one
+SELECT interest_harvested_at FROM atom WHERE id = $1;

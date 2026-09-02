@@ -64,7 +64,17 @@ CREATE TABLE keyword_discipline (
 CREATE INDEX interest_keyword_user_idx ON interest_keyword (user_id);
 CREATE INDEX keyword_source_keyword_idx ON keyword_source (keyword_id);
 
+-- 采集在哪一刻对这个 atom 跑过。
+--
+-- 语义是「尝试过一次，无论结果如何」，不是「长出过词」—— 一篇很薄的阅读完全
+-- 可能一个词都采不出来，而那个结果和「从没采过」在 interest_keyword 里长得一
+-- 模一样。按「有没有长出词」来判断，就会对同一篇薄阅读每次打开都重发一次旗舰
+-- 调用，永远采不到东西，永远重来。这条教训来自 reading.questions_at（迁移
+-- 0104），代价一样，解法一样。
+ALTER TABLE atom ADD COLUMN interest_harvested_at timestamptz;
+
 -- +goose Down
+ALTER TABLE atom DROP COLUMN interest_harvested_at;
 DROP TABLE keyword_discipline;
 DROP TABLE keyword_source;
 DROP TABLE interest_keyword;

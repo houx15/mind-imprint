@@ -126,7 +126,7 @@ func (q *Queries) CountAtomEvidence(ctx context.Context, atomID uuid.UUID) (int6
 }
 
 const createAtom = `-- name: CreateAtom :one
-INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating
+INSERT INTO atom (kind, user_id) VALUES ($1, $2) RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at
 `
 
 type CreateAtomParams struct {
@@ -145,6 +145,7 @@ func (q *Queries) CreateAtom(ctx context.Context, arg CreateAtomParams) (Atom, e
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
 		&i.ExperienceRating,
+		&i.InterestHarvestedAt,
 	)
 	return i, err
 }
@@ -245,7 +246,7 @@ func (q *Queries) CreateAtomCard(ctx context.Context, arg CreateAtomCardParams) 
 }
 
 const getAtom = `-- name: GetAtom :one
-SELECT id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating FROM atom WHERE id = $1
+SELECT id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at FROM atom WHERE id = $1
 `
 
 func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
@@ -259,6 +260,7 @@ func (q *Queries) GetAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
 		&i.ExperienceRating,
+		&i.InterestHarvestedAt,
 	)
 	return i, err
 }
@@ -547,7 +549,7 @@ func (q *Queries) SetAtomCardFramework(ctx context.Context, arg SetAtomCardFrame
 }
 
 const setAtomExperienceRating = `-- name: SetAtomExperienceRating :one
-UPDATE atom SET experience_rating = $2 WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating
+UPDATE atom SET experience_rating = $2 WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at
 `
 
 type SetAtomExperienceRatingParams struct {
@@ -568,6 +570,7 @@ func (q *Queries) SetAtomExperienceRating(ctx context.Context, arg SetAtomExperi
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
 		&i.ExperienceRating,
+		&i.InterestHarvestedAt,
 	)
 	return i, err
 }
@@ -649,7 +652,7 @@ func (q *Queries) SubmitAtomCard(ctx context.Context, arg SubmitAtomCardParams) 
 }
 
 const touchAtom = `-- name: TouchAtom :one
-UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating
+UPDATE atom SET last_activity_at = now() WHERE id = $1 RETURNING id, kind, user_id, created_at, last_activity_at, active_seconds, experience_rating, interest_harvested_at
 `
 
 // Bumps last_activity_at (0098). Called from the ONE write chokepoint every
@@ -669,6 +672,7 @@ func (q *Queries) TouchAtom(ctx context.Context, id uuid.UUID) (Atom, error) {
 		&i.LastActivityAt,
 		&i.ActiveSeconds,
 		&i.ExperienceRating,
+		&i.InterestHarvestedAt,
 	)
 	return i, err
 }

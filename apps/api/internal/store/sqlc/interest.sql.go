@@ -51,6 +51,17 @@ func (q *Queries) CountKeywordSources(ctx context.Context, keywordID uuid.UUID) 
 	return count, err
 }
 
+const getAtomInterestHarvestedAt = `-- name: GetAtomInterestHarvestedAt :one
+SELECT interest_harvested_at FROM atom WHERE id = $1
+`
+
+func (q *Queries) GetAtomInterestHarvestedAt(ctx context.Context, id uuid.UUID) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getAtomInterestHarvestedAt, id)
+	var interest_harvested_at pgtype.Timestamptz
+	err := row.Scan(&interest_harvested_at)
+	return interest_harvested_at, err
+}
+
 const listInterestKeywords = `-- name: ListInterestKeywords :many
 SELECT id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at FROM interest_keyword
 WHERE user_id = $1
@@ -203,6 +214,69 @@ func (q *Queries) ListRoutedKeywordsForUser(ctx context.Context, userID uuid.UUI
 	return items, nil
 }
 
+const listUnharvestedFinishedAtoms = `-- name: ListUnharvestedFinishedAtoms :many
+SELECT a.id, a.kind
+FROM atom a
+LEFT JOIN reading     r ON r.atom_id = a.id
+LEFT JOIN writing     w ON w.atom_id = a.id
+LEFT JOIN pbl_project p ON p.atom_id = a.id
+WHERE a.user_id = $1
+  AND a.interest_harvested_at IS NULL
+  AND (
+    (a.kind = 'reading' AND r.status = 'finished')
+    OR (a.kind = 'writing' AND w.status = 'finished')
+    OR (a.kind = 'project' AND p.status IN ('review', 'keeping', 'archived'))
+  )
+ORDER BY a.last_activity_at DESC
+LIMIT $2
+`
+
+type ListUnharvestedFinishedAtomsParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	Limit  int32     `json:"limit"`
+}
+
+type ListUnharvestedFinishedAtomsRow struct {
+	ID   uuid.UUID `json:"id"`
+	Kind string    `json:"kind"`
+}
+
+// 她已经完成、但采集器还没跑过的 atom。
+//
+// 「完成」在三种 atom 上是三件事：阅读与写作是 status='finished'，项目是走到了
+// 复盘（'review' 及其之后）。没完成的东西不该长词 —— 一篇读了三段就关掉的文章
+// 说不出她关心什么。
+func (q *Queries) ListUnharvestedFinishedAtoms(ctx context.Context, arg ListUnharvestedFinishedAtomsParams) ([]ListUnharvestedFinishedAtomsRow, error) {
+	rows, err := q.db.Query(ctx, listUnharvestedFinishedAtoms, arg.UserID, arg.Limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnharvestedFinishedAtomsRow
+	for rows.Next() {
+		var i ListUnharvestedFinishedAtomsRow
+		if err := rows.Scan(&i.ID, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markAtomInterestHarvested = `-- name: MarkAtomInterestHarvested :exec
+UPDATE atom SET interest_harvested_at = now()
+WHERE id = $1 AND interest_harvested_at IS NULL
+`
+
+// 「尝试过一次，无论结果如何」。零个词也要盖章，否则一篇薄阅读会被反复重采。
+func (q *Queries) MarkAtomInterestHarvested(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markAtomInterestHarvested, id)
+	return err
+}
+
 const recountKeywordStrength = `-- name: RecountKeywordStrength :exec
 UPDATE interest_keyword SET strength = $2 WHERE id = $1
 `
@@ -304,9 +378,8 @@ type UpsertKeywordDisciplineParams struct {
 	Rationale    string    `json:"rationale"`
 }
 
-// 同一条边重算时按 how 分优先级：她自己改过的（student）绝不被后来的模型判定
-// 覆盖掉。优先级在 Go 侧算好后作为 $5 传进来比较，避免把这套顺序抄成 SQL 里
-// 第二份真相。
+// 重算一条边时，她自己改过的（how='student'）绝不被后来的模型判定覆盖掉 ——
+// 这就是 DO UPDATE 上那个 WHERE 的全部作用。
 func (q *Queries) UpsertKeywordDiscipline(ctx context.Context, arg UpsertKeywordDisciplineParams) error {
 	_, err := q.db.Exec(ctx, upsertKeywordDiscipline,
 		arg.KeywordID,
