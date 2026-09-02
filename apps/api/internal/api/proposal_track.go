@@ -157,8 +157,20 @@ func (a *API) route(ctx context.Context, class string) (gateway.Resolved, bool) 
 	if r, err := a.routeE(ctx, class); err == nil {
 		return r, true
 	}
-	// One retry on dialogue: it is the class most likely to be configured in a
-	// partially-set-up environment, so a dev box with a single key still answers.
+	// 🚨 assess never falls back. 过程评估走旗舰模型绝不降级 — the catalog refuses
+	// a non-flagship binding at boot, and it would be absurd for this helper to
+	// hand back at runtime what the catalog refused at startup. The pre-class
+	// resolveEval DID fall through to the chaperone here; that was a hole, and
+	// it was invisible because in practice every class shares one key, so the
+	// path only opens in the one situation where it does real damage — a
+	// half-configured environment quietly grading a student's process on the
+	// cheap model.
+	if class == gateway.ClassAssess {
+		return gateway.Resolved{}, false
+	}
+	// Every other class retries on dialogue: it is the class most likely to be
+	// configured in a partially-set-up environment, so a dev box with a single
+	// key still answers.
 	if class != gateway.ClassDialogue {
 		if r, err := a.routeE(ctx, gateway.ClassDialogue); err == nil {
 			return r, true
