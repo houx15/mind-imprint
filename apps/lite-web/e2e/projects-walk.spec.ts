@@ -79,6 +79,6 @@ test("项目: empty state → create → name and cover → room → board", asy
   await page.screenshot({ path: "e2e/.shots/projects-8-dark-board.png", fullPage: true });
 
   await page.getByText("我们学校每天剩好多饭").first().click();
-  await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
+  await expect(page.getByPlaceholder("请输入")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/projects-9-dark-room.png", fullPage: true });
 });

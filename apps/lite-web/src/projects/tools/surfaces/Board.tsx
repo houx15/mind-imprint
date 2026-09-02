@@ -60,7 +60,10 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const reload = useCallback(async () => {
     const loaded = await listNotes(projectId);
     setNotes(loaded);
-    seatRef.current = loaded.length;
+    // 🚨 只涨不跌。reload 是异步的：StrictMode 的二次挂载（或者任何一次晚到的
+    // 刷新）会在她已经贴了几张之后才 resolve，把座位号打回去——于是后面几张又
+    // 从 0 开始，直接压在前几张身上。
+    seatRef.current = Math.max(seatRef.current, loaded.length);
   }, [projectId]);
 
   useEffect(() => {

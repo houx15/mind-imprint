@@ -68,7 +68,11 @@ type LookbackQuestion struct {
 
 const lookbackSystem = `你在帮一个中学生复盘他刚做完的项目。
 
-你的任务：按下面六段，每段写 1 到 2 个**具体**的问题。
+你的任务：按下面六段，**每段写一个**具体的问题。
+
+只有当这个项目里确实有两件分开问才说得清的事时，某一段才可以写第二个。
+总数不要超过八个——十几个问题摆在她面前，她会开始敷衍，而复盘一敷衍就什么都
+不剩了。
 
 六段：
 %s
@@ -89,7 +93,7 @@ const lookbackSystem = `你在帮一个中学生复盘他刚做完的项目。
 {"questions": [{"section": "what", "prompt": "……"}, ...]}
 
 section 只能是 what / how / moment / praise / improve / with_ai。
-每一段至少一问。`
+每一段一问，总共不超过八问。`
 
 func lookbackSectionList() string {
 	var b strings.Builder
@@ -188,9 +192,19 @@ func parseLookback(raw string) ([]LookbackQuestion, error) {
 		}
 		bySection[sec] = append(bySection[sec], prompt)
 	}
+	// 🚨 上限在代码里兜住，不只写在 prompt 里。十几个问题摆在她面前，她会开始
+	// 敷衍，而复盘一敷衍就什么都不剩了——这条不能只靠模型听话。
+	const perSection, total = 2, 8
 	qs := []LookbackQuestion{}
 	for _, s := range ReviewSections {
-		for _, p := range bySection[s.Key] {
+		ps := bySection[s.Key]
+		if len(ps) > perSection {
+			ps = ps[:perSection]
+		}
+		for _, p := range ps {
+			if len(qs) >= total {
+				break
+			}
 			qs = append(qs, LookbackQuestion{Section: s.Key, Prompt: p})
 		}
 	}

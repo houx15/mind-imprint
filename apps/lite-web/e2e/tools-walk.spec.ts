@@ -36,7 +36,7 @@ async function makeProject(page: Page): Promise<string> {
   const existing = await (await page.request.get("/api/v1/pbl/projects")).json();
   if (Array.isArray(existing) && existing.length > 0) {
     await page.goto(`/projects/${existing[0].id}`);
-    await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
+    await expect(page.getByPlaceholder("请输入")).toBeVisible();
     return existing[0].id as string;
   }
   await page.goto("/projects");
@@ -144,7 +144,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   ).toBe(200);
 
   await page.reload();
-  await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
+  await expect(page.getByPlaceholder("请输入")).toBeVisible();
 
   // 1 · 对话末尾的那一叠邀请：每一张都写着为什么是现在。
   await expect(page.getByText("你刚一口气说了三件不太一样的事", { exact: false })).toBeVisible();
@@ -208,22 +208,20 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.screenshot({ path: "e2e/.shots/tools-5-review.png", fullPage: true });
 
   // 6 · 理性决策：印记摆出几条路，她选一条，再答两个小问题。
-  expect(
-    (
-      await page.request.post(api + "/decisions", {
-        data: {
-          subject: "这份建议先给食堂，还是先发在班群里",
-          options: [
-            { label: "先给食堂", description: "他们能直接改菜量，但要等排期" },
-            { label: "先发班群", description: "当天就有反馈，但改不了任何事" },
-          ],
-        },
-      })
-    ).status(),
-  ).toBe(201);
+  const decisionRes = await page.request.post(api + "/decisions", {
+    data: {
+      subject: "这份建议先给食堂，还是先发在班群里",
+      options: [
+        { label: "先给食堂", description: "他们能直接改菜量，但要等排期" },
+        { label: "先发班群", description: "当天就有反馈，但改不了任何事" },
+      ],
+    },
+  });
+  expect(decisionRes.status()).toBe(201);
+  const decisionId = (await decisionRes.json()).id as string;
   await openTool(page, "理性决策");
   await expect(page.getByText("他们能直接改菜量，但要等排期")).toBeVisible();
-  await page.getByText("先给食堂").click();
+  await page.getByRole("button", { name: /^先给食堂/ }).click();
   await expect(page.getByText("为什么不选别的")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-6-decide.png", fullPage: true });
 
@@ -246,7 +244,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.screenshot({ path: "e2e/.shots/tools-8-split.png", fullPage: true });
 
   // 复盘之前，先让项目里真的发生两件事：一个定下来的决定，和一份被退回去的
-  // 东西。不然复盘只会问那两句兜底的话，而"从真事里长出来"正是它的全部意义。
+  // 东西——复盘的问题是印记按这些事写出来的。
   // （放在审阅之后：成果一旦定了，就不在待审的那一摞里了。）
   expect(
     (
@@ -255,33 +253,23 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
       })
     ).status(),
   ).toBe(200);
-  const d = await (
-    await page.request.post(api + "/decisions", {
-      data: {
-        subject: "这份建议先给食堂，还是先发在班群里",
-        options: [{ label: "先给食堂", author: "yinji" }, { label: "先发班群" }],
-        criteria: [{ label: "这周之内能有回应" }],
-      },
-    })
-  ).json();
   expect(
     (
-      await page.request.post(`${api}/decisions/${d.id}/settle`, {
+      await page.request.post(`${api}/decisions/${decisionId}/settle`, {
         data: {
           choice: "先给食堂",
-          why: "他们能直接改菜量",
-          gaveUp: "班群里能更快听到同学怎么说",
-          flip: "食堂说他们早就试过了",
+          why: "只有他们能真的把菜量改了",
+          whyNot: "班群反馈快，但同学说了也改不了食堂的量",
         },
       })
     ).status(),
   ).toBe(200);
 
-  // 9 · 复盘：问题从真的发生过的事里长出来。
+  // 9 · 复盘：六段骨架，段里的问题由印记按真发生过的事现写。
+  //     问题的内容来自真实模型，不可预测，所以这里只确认骨架立起来了。
   await openTool(page, "项目复盘");
-  // 理性决策时写下的那句「什么会让我改主意」，在这里被原样问了回来。
-  await expect(page.getByText("食堂说他们早就试过了", { exact: false })).toBeVisible();
-  await expect(page.getByText("第二段把我的话改成了它自己的说法", { exact: false })).toBeVisible();
+  await expect(page.getByText("做了什么")).toBeVisible({ timeout: 120_000 });
+  await expect(page.getByText("和 AI 的协作")).toBeVisible();
   await expect(page.getByText("请根据你的真实项目体验和感受来回答")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-9-lookback.png", fullPage: true });
 
@@ -307,7 +295,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.reload();
   // 主题要在首屏之前生效（main.tsx 的 bootTheme），不然卡片会先画一遍浅色。
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
+  await expect(page.getByPlaceholder("请输入")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-11-dark.png", fullPage: true });
 
   // 12 · 手机。右边这一栏在 lg 以下收起来，所以这里看的是对话和那叠邀请卡。

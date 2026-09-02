@@ -113,7 +113,7 @@ function PromptRow({
         onChange={(e) => setText(e.target.value)}
         onBlur={() => text.trim() !== prompt.answer.trim() && onSave(text.trim())}
         rows={3}
-        placeholder="想到什么写什么，不用写得好看"
+        placeholder="写下你的真实想法"
         className="mt-2 w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-surface px-2 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
       />
     </div>
