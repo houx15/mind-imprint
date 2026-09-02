@@ -20,26 +20,43 @@
 
 - **providers** —— 一条通道：`kind`（线上协议）、`baseUrl`、**key 的环境变量名**（密钥本身永远不进这个文件）、关思考用哪个字段、默认 body 片段。
 - **models** —— 一个可绑定的模型：属于哪个 provider、上线用的模型名、`flagship`（能否服务评估）、`capabilities`、`priceUsd`。
-- **lanes** —— 三条通道对应产品里的三种角色：`chat`（陪练）、`fastChat`（状态路由）、`eval`（旗舰审阅 / 评估）。
+- **能力档（catalog 里仍叫 `lanes`）** —— 一次调用**需要多少智力**：`reflex`（一个标签）、
+  `dialogue`（学生当场看得见的一轮）、`compose`（从已陈述的输入派生 schema 产物）、
+  `review`（判学生的成果）、`assess`（过程评估，绝不降级）、`digest`（长输入短输出），
+  外加预留的 `search` / `multimodal`。每一档带着自己的推理要求与延迟预算。
+  旧的 `chat` / `fastChat` / `eval` 保留为别名（→ dialogue / reflex / assess）。
+  为什么从三条变成六档，以及全部 67 个调用点各归哪一档：见
+  `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
 
 派生关系是单向的：价格表由目录生成，evalbench 由同一份目录解析，mux 按 `kind`（协议）分发而不是按厂商名——**所以新增一个 OpenAI 兼容厂商是加一段 JSON，不是写一个 Go adapter**。
 
 ## 怎么换模型
 
 ```bash
-# 只动陪练这条 lane，评估不动
-MODEL_CHAT=dashscope/qwen3.8-max ./api
+# 只动陪练这一档，评估不动
+MODEL_DIALOGUE=dashscope/qwen3.8-max ./api
 
-# 看目录 + 当前绑定（不需要数据库）
+# 看八个档 + 各自的绑定、推理要求、延迟预算（不需要数据库）
 ./api --print-models
 ```
 
-三条 lane 相互独立，是刻意的：一次只动一条，测出来的速度和成本才能归因到那个模型。三个变量为空时用 `models.json` 里的绑定。
+每档一个变量，是刻意的：一次只动一条，测出来的速度和成本才能归因到那个模型。变量为空时用 `models.json` 里的绑定。
+
+**重新绑定不靠感觉，靠实测：**
+
+```bash
+DASHSCOPE_API_KEY=… go run ./cmd/routebench -out report.md
+```
+
+routebench 是一件**与运行系统分开**的工具——不连数据库、不被 `cmd/api` 引用（有测试守着），
+用真实生产 prompt 跑候选模型，测结构合法性（喂真实解析函数）/ 延迟 / token / 判官质量，
+输出一份推荐绑定。**改 `models.json` 的是人。** 见 `apps/api/cmd/routebench/README.md`。
 
 **写错会在启动时失败，不会跑一周才发现**：
 - id 不在目录里 → 报错并列出所有合法 id
-- `MODEL_EVAL` 指向非 `flagship` 模型 → 拒绝启动（评估走旗舰模型绝不降级）
-- lane 绑定了图像 / embedding 模型 → 拒绝启动并说明原因
+- `MODEL_ASSESS` 指向非 `flagship` 模型 → 拒绝启动（过程评估绝不降级）
+- 要求关思考的档（reflex / dialogue / digest）绑了 `thinkingOffUnsupported` 的模型 → 拒绝启动
+- 档绑定了图像 / embedding 模型 → 拒绝启动并说明原因
 
 ## 默认走阿里云 DashScope（百炼）
 
