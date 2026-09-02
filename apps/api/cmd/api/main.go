@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/joho/godotenv"
+
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/api"
 	"mindimprint/api/internal/cards"
@@ -38,16 +40,44 @@ func buildVoice(cfg config.Config) api.VoiceService {
 	})
 }
 
+// modelEnvOnlyConfig builds the subset of config that model routing reads,
+// straight from the environment. It exists so `--print-models` answers "which
+// model would serve each lane?" on a laptop with no DATABASE_URL set.
+func modelEnvOnlyConfig() config.Config {
+	_ = godotenv.Load(".env.local")
+	return config.Config{
+		PAIKey:        os.Getenv("PAI_API_KEY"),
+		DeepSeekKey:   os.Getenv("DEEPSEEK_API_KEY"),
+		AnthropicKey:  os.Getenv("ANTHROPIC_API_KEY"),
+		ZAIKey:        os.Getenv("ZAI_API_KEY"),
+		ModelChat:     os.Getenv("MODEL_CHAT"),
+		ModelFastChat: os.Getenv("MODEL_FAST_CHAT"),
+		ModelEval:     os.Getenv("MODEL_EVAL"),
+	}
+}
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, nil)))
 
 	migrateUp := flag.Bool("migrate-up", false, "run database migrations then exit")
+	printModels := flag.Bool("print-models", false, "print the model catalog and the active lane bindings, then exit")
 	flag.Parse()
 
 	cfg, err := config.Load()
 	if err != nil {
+		// --print-models is a diagnostic about model routing, so it must work
+		// without a database. Fall back to the env-only fields it actually reads.
+		if *printModels {
+			fmt.Print(gateway.DescribeBindings(modelEnvOnlyConfig()))
+			return
+		}
 		fmt.Fprintf(os.Stderr, "config: %v\n", err)
 		os.Exit(1)
+	}
+
+	if *printModels {
+		fmt.Print(gateway.DescribeBindings(cfg))
+		return
 	}
 
 	ctx := context.Background()
@@ -126,18 +156,38 @@ func main() {
 
 	// No global timeout on the HTTP client: streaming is governed by request ctx.
 	httpClient := &http.Client{}
+	// Dispatch is by wire protocol (Resolved.Kind), so every OpenAI-compatible
+	// vendor in the catalog shares one adapter. The vendor-named entries remain
+	// for pre-catalog Resolved values that carry no Kind.
 	provider := gateway.NewMuxProvider(map[string]gateway.Provider{
-		"deepseek":  gateway.NewDeepSeekProvider(httpClient),
-		"anthropic": gateway.NewAnthropicProvider(httpClient),
-		"glm":       gateway.NewGLMProvider(httpClient),
+		gateway.KindOpenAICompatible: gateway.NewCatalogProvider(httpClient),
+		gateway.KindAnthropic:        gateway.NewAnthropicProvider(httpClient),
+		"deepseek":                   gateway.NewDeepSeekProvider(httpClient),
+		"glm":                        gateway.NewGLMProvider(httpClient),
 	})
+
+	// A bad MODEL_* override or a malformed catalog fails here, at boot, rather
+	// than at a student's first turn.
+	resolvers, err := gateway.NewResolvers(cfg)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "model catalog: %v\n", err)
+		pool.Close()
+		os.Exit(1)
+	}
+	for _, lane := range []string{gateway.LaneChat, gateway.LaneFastChat, gateway.LaneEval} {
+		if b, ok := resolvers.Bindings[lane]; ok {
+			log.Printf("lane %s → %s (provider=%s tier=%s)", lane, b.ModelID, b.Provider, b.Tier)
+		} else {
+			log.Printf("lane %s → UNRESOLVED (no provider key configured)", lane)
+		}
+	}
 
 	apiHandler := api.New(api.Deps{
 		Queries:          queries,
 		Provider:         provider,
-		ChatResolver:     gateway.NewKeyResolver(cfg),
-		FastChatResolver: gateway.NewFastChaperoneResolver(cfg), // fast per-status studio router
-		EvalResolver:     gateway.NewEvalKeyResolver(cfg),       // flagship (course step render)
+		ChatResolver:     resolvers.Chat,
+		FastChatResolver: resolvers.FastChat, // fast per-status studio router
+		EvalResolver:     resolvers.Eval,     // flagship (course step render)
 		Catalog:          catalog,
 		SpecByID:         specByID,
 		Pool:             pool,

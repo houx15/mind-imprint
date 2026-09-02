@@ -1,0 +1,284 @@
+package gateway
+
+import (
+	"context"
+	"strings"
+	"testing"
+
+	"mindimprint/api/internal/config"
+)
+
+// The embedded catalog is what production boots from; a broken one must fail
+// here rather than in a deploy.
+func TestEmbeddedCatalogIsValid(t *testing.T) {
+	cat, err := DefaultCatalog()
+	if err != nil {
+		t.Fatalf("embedded catalog invalid: %v", err)
+	}
+	if cat.Version == "" {
+		t.Fatal("catalog declares no version")
+	}
+	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
+		if _, ok := cat.Lanes[lane]; !ok {
+			t.Errorf("lane %q unbound", lane)
+		}
+	}
+}
+
+// Every model must name a provider that exists and, if priced, price both
+// directions — an unpriced-in/priced-out row would meter costs wrong.
+func TestEmbeddedCatalogModelsAreCoherent(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	for _, id := range cat.ModelIDs() {
+		m := cat.Models[id]
+		if _, ok := cat.Providers[m.Provider]; !ok {
+			t.Errorf("%s: unknown provider %q", id, m.Provider)
+		}
+		if m.Price != nil && (m.Price.InputPerMillion <= 0 || m.Price.OutputPerMillion <= 0) {
+			t.Errorf("%s: priced model must price both directions, got %+v", id, *m.Price)
+		}
+	}
+}
+
+func onlyKey(name, value string) KeyLookup {
+	return func(env string) string {
+		if env == name {
+			return value
+		}
+		return ""
+	}
+}
+
+// The default binding must reach PAI, and it must keep serving deepseek-v4-pro
+// so switching the platform onto the aggregator does not change the model.
+func TestLanesDefaultToPAIDeepSeek(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	keys := onlyKey("PAI_API_KEY", "sk-pai")
+	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
+		r, err := cat.Resolve(lane, "", keys)
+		if err != nil {
+			t.Fatalf("lane %s: %v", lane, err)
+		}
+		if r.Provider != "pai" || r.Model != "deepseek-v4-pro" {
+			t.Errorf("lane %s = %s/%s, want pai/deepseek-v4-pro", lane, r.Provider, r.Model)
+		}
+		if r.Kind != KindOpenAICompatible {
+			t.Errorf("lane %s kind = %q", lane, r.Kind)
+		}
+		if r.APIKey != "sk-pai" {
+			t.Errorf("lane %s: key not wired", lane)
+		}
+	}
+}
+
+// Tiers are what gate reasoning, so they must survive the move to the catalog.
+func TestLaneTiersArePreserved(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	keys := onlyKey("PAI_API_KEY", "sk-pai")
+	want := map[string]string{LaneChat: "chaperone", LaneFastChat: "chaperone", LaneEval: "flagship"}
+	for lane, tier := range want {
+		r, err := cat.Resolve(lane, "", keys)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if r.Tier != tier {
+			t.Errorf("lane %s tier = %q, want %q", lane, r.Tier, tier)
+		}
+	}
+}
+
+// With no PAI key, the same wire model must still be reachable directly — this
+// is what keeps local dev, CI, and a PAI outage working.
+func TestFallbackPrefersSameModelOnAnotherProvider(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	r, err := cat.Resolve(LaneChat, "", onlyKey("DEEPSEEK_API_KEY", "sk-ds"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Provider != "deepseek" || r.Model != "deepseek-v4-pro" {
+		t.Fatalf("fallback = %s/%s, want deepseek/deepseek-v4-pro", r.Provider, r.Model)
+	}
+	// The direct route uses a DIFFERENT thinking knob than PAI. Getting this
+	// wrong silently re-enables reasoning on the chaperone lane.
+	if _, ok := r.Policy.ThinkingOff["thinking"]; !ok {
+		t.Errorf("direct deepseek must disable thinking via `thinking`, got %#v", r.Policy.ThinkingOff)
+	}
+}
+
+func TestFallbackToAnthropicWhenOnlyKeyPresent(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	r, err := cat.Resolve(LaneChat, "", onlyKey("ANTHROPIC_API_KEY", "sk-a"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.Provider != "anthropic" || r.Kind != KindAnthropic {
+		t.Fatalf("fallback = %s (kind %s), want anthropic", r.Provider, r.Kind)
+	}
+}
+
+func TestResolveErrorsWhenNoKeyConfigured(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	if _, err := cat.Resolve(LaneChat, "", func(string) string { return "" }); err == nil {
+		t.Fatal("want errNoProvider when nothing is configured")
+	}
+}
+
+// The swap this whole change exists for: one lane moves, the others hold still.
+func TestOverrideMovesOnlyTheNamedLane(t *testing.T) {
+	cfg := config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen3.8-max"}
+	rs, err := NewResolvers(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	chat, err := rs.Chat(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if chat.Model != "qwen3.8-max" {
+		t.Errorf("chat model = %q, want qwen3.8-max", chat.Model)
+	}
+	eval, err := rs.Eval(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if eval.Model != "deepseek-v4-pro" {
+		t.Errorf("eval model = %q — an override on one lane must not move another", eval.Model)
+	}
+}
+
+// A typo must stop the boot, not serve the wrong model for a week.
+func TestUnknownOverrideFailsAtBoot(t *testing.T) {
+	_, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen-3.8-max"})
+	if err == nil {
+		t.Fatal("want boot error for a model id that is not in the catalog")
+	}
+	if !strings.Contains(err.Error(), "not a catalog model") {
+		t.Errorf("error should name the problem and list known ids, got: %v", err)
+	}
+}
+
+// 评估走旗舰模型绝不降级.
+func TestEvalLaneRejectsNonFlagshipOverride(t *testing.T) {
+	_, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelEval: "pai/qwen3.7-flash"})
+	if err == nil {
+		t.Fatal("eval lane must refuse a non-flagship model")
+	}
+	// The same model is fine on the chaperone lane.
+	if _, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen3.7-flash"}); err != nil {
+		t.Fatalf("chat lane may take a non-flagship model: %v", err)
+	}
+}
+
+// Binding an image or embedding model to a chat lane fails at boot with the
+// reason, rather than at the first student turn with a wire error.
+func TestLaneRejectsNonChatModel(t *testing.T) {
+	_, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen-image-3.0"})
+	if err == nil {
+		t.Fatal("a chat lane must refuse an image model")
+	}
+	if !strings.Contains(err.Error(), "not a chat model") {
+		t.Errorf("error should say why, got: %v", err)
+	}
+}
+
+// Missing keys must not stop the service booting — the lane simply errors per
+// call, as it did before the catalog.
+func TestNewResolversBootsWithNoKeys(t *testing.T) {
+	rs, err := NewResolvers(config.Config{})
+	if err != nil {
+		t.Fatalf("no keys must not be a boot failure: %v", err)
+	}
+	if len(rs.Bindings) != 0 {
+		t.Errorf("no keys ⇒ no bindings, got %v", rs.Bindings)
+	}
+	if _, err := rs.Chat(context.Background()); err == nil {
+		t.Error("want a per-call error when no key is configured")
+	}
+}
+
+// A brand-new model the vendor shipped this morning must be benchmarkable
+// without a catalog edit first.
+func TestResolveDirectAcceptsUndeclaredModel(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	r, err := cat.ResolveDirect("pai", "qwen9-not-yet-catalogued", FlagshipTierName, onlyKey("PAI_API_KEY", "sk-pai"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.BaseURL != cat.Providers["pai"].BaseURL {
+		t.Error("undeclared model must inherit its provider's route")
+	}
+	if _, ok := r.Policy.ThinkingOff["enable_thinking"]; !ok {
+		t.Error("undeclared model must inherit its provider's thinking policy")
+	}
+	if _, priced := LookupTokenPrice(r.Provider, r.Model); priced {
+		t.Error("an undeclared model must be unpriced, not priced by accident")
+	}
+}
+
+func TestResolveDirectRejectsUnknownProviderAndMissingKey(t *testing.T) {
+	cat, _ := DefaultCatalog()
+	if _, err := cat.ResolveDirect("nope", "m", "flagship", OSEnvKeyLookup); err == nil {
+		t.Error("want error for unknown provider")
+	}
+	if _, err := cat.ResolveDirect("pai", "qwen3.8-max", "flagship", func(string) string { return "" }); err == nil {
+		t.Error("want error when the provider's key is absent")
+	}
+}
+
+// FlagshipTierName mirrors evalbench's tier constant without importing it.
+const FlagshipTierName = "flagship"
+
+func TestCatalogValidationRejectsBrokenCatalogs(t *testing.T) {
+	cases := map[string]string{
+		"unknown provider kind": `{"providers":{"p":{"kind":"carrier-pigeon","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
+			"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
+		"lane binds unknown model": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
+			"lanes":{"chat":{"model":"p/ghost","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
+		"eval lane not flagship": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m"}},
+			"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
+		"model names unknown provider": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"q/m":{"provider":"q","model":"m","flagship":true}},
+			"lanes":{"chat":{"model":"q/m","tier":"chaperone"},"fastChat":{"model":"q/m","tier":"chaperone"},"eval":{"model":"q/m","tier":"flagship"}}}`,
+		"lane binds a non-chat model": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m","flagship":true,"capabilities":["image"]}},
+			"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
+		"missing lane": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
+			"lanes":{"chat":{"model":"p/m","tier":"chaperone"}}}`,
+	}
+	for name, body := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := ParseCatalog([]byte(body)); err == nil {
+				t.Fatalf("want validation error for %s", name)
+			}
+		})
+	}
+}
+
+func TestModelPolicyMergePrefersModelOverProvider(t *testing.T) {
+	body := `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K",
+			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort","bodyExtra":{"top_p":0.9}}},
+		"models":{"p/m":{"provider":"p","model":"m","flagship":true,
+			"thinkingOff":{"thinking":{"type":"disabled"}},"bodyExtra":{"seed":7}}},
+		"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`
+	cat, err := ParseCatalog([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	pol := cat.policyFor(cat.Models["p/m"])
+	if _, ok := pol.ThinkingOff["thinking"]; !ok {
+		t.Error("model thinkingOff must win over the provider's")
+	}
+	if _, ok := pol.ThinkingOff["enable_thinking"]; ok {
+		t.Error("model thinkingOff must REPLACE the provider's, not merge into it")
+	}
+	if pol.ReasoningEffortKey != "reasoning_effort" {
+		t.Error("unset model fields must inherit from the provider")
+	}
+	if pol.BodyExtra["top_p"] != 0.9 || pol.BodyExtra["seed"] != float64(7) {
+		t.Errorf("bodyExtra must merge key-by-key, got %#v", pol.BodyExtra)
+	}
+}

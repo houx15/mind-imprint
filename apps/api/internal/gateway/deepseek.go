@@ -7,6 +7,16 @@ import (
 
 // DeepSeekProvider streams from an OpenAI-compatible /chat/completions endpoint
 // (stream:true). Request field-mapping and tool format match the TS openaiAdapter.
+//
+// SUPERSEDED by CatalogProvider, which takes the same knobs from models.json
+// instead of hardcoding them. Nothing in production reaches this adapter any
+// more: every Resolved now comes from the catalog and carries a Kind, so the mux
+// routes it to CatalogProvider. It is kept because its tests cover the shared
+// transport (stream reassembly, incomplete-[DONE], non-leaking HTTP errors).
+//
+// Do not route new work here — a hand-built Resolved{Provider: "deepseek"} would
+// get this hardcoded body rather than the catalog's policy, which is exactly the
+// drift the catalog exists to end.
 type DeepSeekProvider struct {
 	http *http.Client
 }

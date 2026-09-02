@@ -35,7 +35,7 @@
 | 前端 `apps/web` | React + Vite + TypeScript + Tailwind —— 纯渲染 + API 客户端，不持有密钥、不直连模型 |
 | 后端 `apps/api` | **Go**（`net/http` + `pgx`/`sqlc` + `goose` + `river`）—— 智能网关（系统 prompt / `summon_card` / refeed / turn loop 都在服务端）、数据服务、鉴权、异步评估。唯一持有密钥、唯一访问 DB 与模型的单元 |
 | 存储 | **PostgreSQL** —— `users`（含 `school_id`）/ `sessions` / `schools` / `classes` / `enrollments`（用户↔班级）/ `task` / `message`（旧任务面留存，不再有新写入）/ `card_instance` / `evaluation`（**暂定**）。无 `process_node` 表（过程树由 `parent_node_id` 投影）；`project` 面每次真实 LLM 调用（陪练 / 锚点生成 / 课程渲染）都记一行 `llm_call`（档位 + token + 成本），`llm_usage` 视图三路 UNION（`llm_call` + 冻结的 `message`/`evaluation`）供组织成本汇总 |
-| 模型 | China-first：默认 **DeepSeek**，Anthropic 可选。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；评估走旗舰模型**绝不降级** |
+| 模型 | China-first。**模型目录 `apps/api/internal/gateway/models.json` 是「哪条通道跑哪个模型」的单一真相源**（go:embed）：providers（通道 + base URL + key 的 env 变量名 + thinking 开关）× models（价格 + capabilities）× lanes（chat / fastChat / eval）。默认全部走**阿里云 PAI 聚合端点**——一把 key 直达 Qwen / DeepSeek / GLM / Kimi，便于横向比能力、速度、成本。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；评估走旗舰模型**绝不降级**（`eval` lane 只接受 `flagship: true`，启动即校验） |
 
 **三层解耦（核心心智模型：工具卡 = tool-use 循环里「由人来执行的工具」）：**
 决策层（用不用 / 用哪张，**服务端**）→ `summon_card(card_id, reason, nudge_text)` 单函数接线 → Card Runtime（schema 驱动渲染 + 三视觉态 + 事件采集 + 标准信封落库）→ 回灌陪练 → 所有标准信封长成过程树 + rubric 评估。卡 JSON 为单一共享真相源：前端构建期 import，Go `go:embed` 同一批文件。
@@ -46,6 +46,8 @@
 
 - **客户端绝不直连模型。** 所有 LLM 调用走后端网关，记录档位 + token + 成本；API key 只在服务端。
 - **卡 spec 单一真相源在 registry。** 决策层目录从它派生，不手写第二份（避免 `trigger_condition` 漂移）。
+- **换模型 = 改一个环境变量，不改代码；新增模型 / 新增 OpenAI 兼容厂商 = 改 `models.json`，不写 Go。** 三条 lane 各自独立：`MODEL_CHAT` / `MODEL_FAST_CHAT` / `MODEL_EVAL` 指向目录里的 model id（如 `pai/qwen3.8-max`），只动一条、其余不变，测出来的速度与成本才可归因。写错 id、或给 `MODEL_EVAL` 指了非旗舰模型，**启动即失败**，不会悄悄跑一周。`api --print-models` 打印目录与当前绑定。
+- **thinking 开关是「按通道」的数据，不是写死在 adapter 里的代码。** 同一个模型换条路，关思考的字段就不一样：直连 DeepSeek 认 `thinking:{"type":"disabled"}`，**同一模型经 PAI 时这个字段被静默忽略**，认的是 `enable_thinking:false`（2026-09-02 实测）。写错不会报错，只会让陪练悄悄恢复满额推理（每轮 4,000–7,000 completion tokens、40–66s）。故 `thinkingOff` 写在 `models.json` 的 provider 上；换通道后必须跑 `LIVE_LLM=1 go test ./internal/gateway -run TestLive` 验证 reasoning token 真的归零。
 - **新增卡 = 新增一份 JSON 配置，不改渲染器代码。** 这是 schema 驱动是否成立的验证标准；用现有字段原语（`text` / `textarea` / `single_choice` / `multi_choice` / `rating` / `repeatable_group` / `link_check`）拼，除非真需要全新交互才加原语。
 - **标准信封结构一旦定下不要随意改**——它是过程树、使用计数、评估的共同地基。后端按「边界校验」存储：Go 只校验信封外层（`status` 枚举、id、`field_values` 为对象、`event_trace` 为数组），内层深结构真相仍归 `packages/contracts` 的 Zod 契约。
 - **组织不变式：每个账号必属于某个学校；学生/教师还属于 ≥1 个班级，不存在「无组织账号」。** 注册必须携带有效班级 join code；建号（`school_id` 取自 `class.school_id`）与 `enrollments` 在同一事务内完成，否则整体失败。**结构归属（学校/班级）与「会员/付费权益」是两回事**：付费权益暂不建表，由后端 `HasEntitlement(ctx,user)` 接缝（当前恒 true）在消耗 token 的端点前判定，未来接订阅/代币模型。

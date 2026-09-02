@@ -1,0 +1,246 @@
+{
+  "version": "gateway-models-v1",
+
+  "_comment": [
+    "Single source of truth for WHICH model serves each lane, what it costs, and",
+    "how to steer its reasoning. Adding a vendor or a model is a JSON edit — no Go.",
+    "",
+    "Secrets never live here: a provider names the ENV VAR that carries its key.",
+    "",
+    "Lane bindings are overridable at boot without a rebuild:",
+    "  MODEL_CHAT=pai/qwen3.8-max  MODEL_FAST_CHAT=...  MODEL_EVAL=...",
+    "Run `api --print-models` to dump the catalog and the active bindings.",
+    "",
+    "thinkingOff is the body fragment that forces reasoning OFF. It is per-PROVIDER",
+    "because the same model answers to a different knob depending on how it is",
+    "reached — measured live 2026-09-02 against the PAI aggregator:",
+    "  direct DeepSeek : {\"thinking\":{\"type\":\"disabled\"}}  works",
+    "  via PAI         : that fragment is SILENTLY IGNORED (reasoning keeps running);",
+    "                    the honored knob is {\"enable_thinking\":false}.",
+    "Getting this wrong costs nothing at boot and everything at runtime: the",
+    "chaperone lane would quietly resume full reasoning (4,000-7,000 completion",
+    "tokens/turn, 40-66s) — the exact regression documented on NewChatResolver."
+  ],
+
+  "providers": {
+    "pai": {
+      "kind": "openai_compatible",
+      "label": "Aliyun PAI (multi-vendor aggregator: Qwen / DeepSeek / GLM / Kimi)",
+      "baseUrl": "https://cn-beijing.pai-token.aliyuncs.com/v1",
+      "apiKeyEnv": "PAI_API_KEY",
+      "defaultModel": "pai/deepseek-v4-pro",
+      "thinkingOff": { "enable_thinking": false },
+      "reasoningEffortKey": "reasoning_effort"
+    },
+    "deepseek": {
+      "kind": "openai_compatible",
+      "label": "DeepSeek (direct)",
+      "baseUrl": "https://api.deepseek.com/v1",
+      "apiKeyEnv": "DEEPSEEK_API_KEY",
+      "defaultModel": "deepseek/deepseek-v4-pro",
+      "thinkingOff": { "thinking": { "type": "disabled" } },
+      "reasoningEffortKey": "reasoning_effort"
+    },
+    "glm": {
+      "kind": "openai_compatible",
+      "label": "Zhipu GLM (direct)",
+      "baseUrl": "https://open.bigmodel.cn/api/paas/v4",
+      "apiKeyEnv": "ZAI_API_KEY",
+      "defaultModel": "glm/glm-5.3-flash",
+      "thinkingOffUnsupported": true,
+      "reasoningEffortKey": "reasoning_effort",
+      "defaultTemperature": 1.0,
+      "bodyExtra": {
+        "top_p": 0.95,
+        "thinking": { "type": "enabled", "clear_thinking": false }
+      },
+      "bodyExtraWithTools": { "tool_stream": true }
+    },
+    "anthropic": {
+      "kind": "anthropic",
+      "label": "Anthropic (direct)",
+      "baseUrl": "https://api.anthropic.com/v1",
+      "apiKeyEnv": "ANTHROPIC_API_KEY",
+      "defaultModel": "anthropic/claude-3-5-sonnet-latest"
+    }
+  },
+
+  "_capabilityComment": [
+    "capabilities defaults to [\"chat\", \"tools\"] when omitted. A lane binds only a",
+    "chat model — boot fails otherwise, so MODEL_CHAT=pai/qwen-image-3.0 cannot",
+    "become a runtime mystery.",
+    "",
+    "The image / video / embedding / rerank rows are catalog metadata, not yet",
+    "callable: they answer on other endpoints (/images/generations, /embeddings,",
+    "/rerank) and each needs its own provider kind when a feature calls for it.",
+    "They are listed because ONE PAI key reaches all of them — so the coding and",
+    "image work later is a JSON edit plus an adapter, not another vendor survey."
+  ],
+
+  "_priceComment": [
+    "priceUsd is cache-miss USD per 1M tokens. A model with priceUsd omitted is",
+    "UNPRICED: llm_call records a NULL/zero cost rather than a wrong number, and",
+    "--print-models flags it. The PAI rows below are deliberately unpriced — PAI",
+    "bills in CNY at its own rates, and guessing them would silently corrupt every",
+    "cost comparison the catalog exists to make. Fill them in from the PAI console."
+  ],
+
+  "models": {
+    "pai/deepseek-v4-pro": {
+      "provider": "pai",
+      "model": "deepseek-v4-pro",
+      "label": "DeepSeek V4 Pro via PAI",
+      "flagship": true
+    },
+    "pai/deepseek-v4-flash": {
+      "provider": "pai",
+      "model": "deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash via PAI"
+    },
+    "pai/qwen3.8-max": {
+      "provider": "pai",
+      "model": "qwen3.8-max",
+      "label": "Qwen 3.8 Max via PAI",
+      "flagship": true
+    },
+    "pai/qwen3.7-max": {
+      "provider": "pai",
+      "model": "qwen3.7-max",
+      "label": "Qwen 3.7 Max via PAI",
+      "flagship": true
+    },
+    "pai/qwen3.7-plus": {
+      "provider": "pai",
+      "model": "qwen3.7-plus",
+      "label": "Qwen 3.7 Plus via PAI"
+    },
+    "pai/qwen3.7-flash": {
+      "provider": "pai",
+      "model": "qwen3.7-flash",
+      "label": "Qwen 3.7 Flash via PAI"
+    },
+    "pai/glm-5.2": {
+      "provider": "pai",
+      "model": "glm-5.2",
+      "label": "GLM 5.2 via PAI",
+      "flagship": true
+    },
+    "pai/glm-5.1": {
+      "provider": "pai",
+      "model": "glm-5.1",
+      "label": "GLM 5.1 via PAI"
+    },
+    "pai/kimi-k2.6": {
+      "provider": "pai",
+      "model": "kimi-k2.6",
+      "label": "Kimi K2.6 via PAI",
+      "flagship": true
+    },
+    "pai/kimi-k2.7-code": {
+      "provider": "pai",
+      "model": "kimi-k2.7-code",
+      "label": "Kimi K2.7 Code via PAI",
+      "flagship": true,
+      "capabilities": ["chat", "tools", "coding"]
+    },
+    "pai/qwen3.5-omni-plus": {
+      "provider": "pai",
+      "model": "qwen3.5-omni-plus",
+      "label": "Qwen 3.5 Omni Plus via PAI (multi-modal input)",
+      "capabilities": ["chat", "tools", "vision"]
+    },
+    "pai/qwen3.5-omni-flash": {
+      "provider": "pai",
+      "model": "qwen3.5-omni-flash",
+      "label": "Qwen 3.5 Omni Flash via PAI (multi-modal input)",
+      "capabilities": ["chat", "tools", "vision"]
+    },
+
+    "pai/qwen-image-3.0-pro": {
+      "provider": "pai",
+      "model": "qwen-image-3.0-pro",
+      "label": "Qwen Image 3.0 Pro via PAI",
+      "capabilities": ["image"]
+    },
+    "pai/qwen-image-3.0": {
+      "provider": "pai",
+      "model": "qwen-image-3.0",
+      "label": "Qwen Image 3.0 via PAI",
+      "capabilities": ["image"]
+    },
+    "pai/wan3.0-video": {
+      "provider": "pai",
+      "model": "wan3.0-video",
+      "label": "Wan 3.0 Video via PAI",
+      "capabilities": ["video"]
+    },
+    "pai/text-embedding-v4": {
+      "provider": "pai",
+      "model": "text-embedding-v4",
+      "label": "Text Embedding v4 via PAI",
+      "capabilities": ["embedding"]
+    },
+    "pai/qwen3-vl-embedding": {
+      "provider": "pai",
+      "model": "qwen3-vl-embedding",
+      "label": "Qwen3 VL Embedding via PAI (multi-modal embedding)",
+      "capabilities": ["embedding", "vision"]
+    },
+    "pai/qwen3-rerank": {
+      "provider": "pai",
+      "model": "qwen3-rerank",
+      "label": "Qwen3 Rerank via PAI",
+      "capabilities": ["rerank"]
+    },
+
+    "deepseek/deepseek-v4-pro": {
+      "provider": "deepseek",
+      "model": "deepseek-v4-pro",
+      "label": "DeepSeek V4 Pro (direct)",
+      "flagship": true,
+      "priceUsd": { "inputPerMillion": 0.435, "outputPerMillion": 0.87 }
+    },
+    "deepseek/deepseek-v4-flash": {
+      "provider": "deepseek",
+      "model": "deepseek-v4-flash",
+      "label": "DeepSeek V4 Flash (direct)",
+      "priceUsd": { "inputPerMillion": 0.14, "outputPerMillion": 0.28 }
+    },
+    "glm/glm-5.3-flash": {
+      "provider": "glm",
+      "model": "glm-5.3-flash",
+      "label": "GLM 5.3 Flash (direct)",
+      "defaultReasoningEffort": "max"
+    },
+    "anthropic/claude-3-5-sonnet-latest": {
+      "provider": "anthropic",
+      "model": "claude-3-5-sonnet-latest",
+      "label": "Claude 3.5 Sonnet (direct)",
+      "flagship": true,
+      "priceUsd": { "inputPerMillion": 3.0, "outputPerMillion": 15.0 }
+    }
+  },
+
+  "_laneComment": [
+    "chat      — chaperone: coach turns, writing turns, card grounding (降级 allowed)",
+    "fastChat  — chaperone: the per-status studio router's short prompts",
+    "eval      — flagship: framework review, 整稿体检, 证据地图, evaluation, reading router.",
+    "            评估走旗舰模型绝不降级 — a model bound here MUST be flagship:true,",
+    "            enforced at boot so an override typo cannot quietly downgrade it.",
+    "",
+    "All three route through PAI so one key and one bill cover every vendor; PAI",
+    "serves deepseek-v4-pro, so this preserves today's model exactly."
+  ],
+  "lanes": {
+    "chat": { "model": "pai/deepseek-v4-pro", "tier": "chaperone" },
+    "fastChat": { "model": "pai/deepseek-v4-pro", "tier": "chaperone" },
+    "eval": { "model": "pai/deepseek-v4-pro", "tier": "flagship" }
+  },
+
+  "_fallbackComment": [
+    "Tried in order when a lane's bound model has no key in the environment. Keeps",
+    "local dev and CI working with whichever single key is present, and lets prod",
+    "survive a PAI outage by dropping back to the direct vendor endpoints."
+  ],
+  "fallbackProviders": ["pai", "deepseek", "anthropic"]
+}

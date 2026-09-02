@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -35,9 +34,8 @@ func NewRuntime(c Config) (*Runtime, error) {
 	return &Runtime{
 		profiles: c.Models,
 		provider: gateway.NewMuxProvider(map[string]gateway.Provider{
-			"deepseek":  gateway.NewDeepSeekProvider(client),
-			"anthropic": gateway.NewAnthropicProvider(client),
-			"glm":       gateway.NewGLMProvider(client),
+			gateway.KindOpenAICompatible: gateway.NewCatalogProvider(client),
+			gateway.KindAnthropic:        gateway.NewAnthropicProvider(client),
 		}),
 		candidateTimeout:  timeoutDuration(c.Timeouts.CandidateSeconds, defaultCandidateCallTimeout),
 		comparatorTimeout: timeoutDuration(c.Timeouts.ComparatorSeconds, defaultComparatorCallTimeout),
@@ -51,26 +49,33 @@ func timeoutDuration(seconds int, fallback time.Duration) time.Duration {
 	return time.Duration(seconds) * time.Second
 }
 
+// Resolve turns an experiment's model profile into a gateway.Resolved using the
+// SHARED gateway catalog — the same base URLs, key env vars and reasoning
+// policy production uses. Benchmarking a model that behaves differently from
+// the served one would make the numbers worthless, so there is deliberately no
+// second provider table here.
+//
+// A profile names {provider, model} from models.json, so an experiment can list
+// any catalog provider (including the PAI aggregator, where one key reaches
+// Qwen, DeepSeek, GLM and Kimi for a like-for-like comparison).
 func (r *Runtime) Resolve(profileID string) (gateway.Resolved, ModelProfile, error) {
 	p, ok := r.profiles[profileID]
 	if !ok {
 		return gateway.Resolved{}, ModelProfile{}, fmt.Errorf("evalbench: unknown model profile %q", profileID)
 	}
-	var baseURL, key string
-	switch p.Provider {
-	case "deepseek":
-		baseURL, key = "https://api.deepseek.com/v1", os.Getenv("DEEPSEEK_API_KEY")
-	case "anthropic":
-		baseURL, key = "https://api.anthropic.com/v1", os.Getenv("ANTHROPIC_API_KEY")
-	case "glm":
-		baseURL, key = "https://open.bigmodel.cn/api/paas/v4", os.Getenv("ZAI_API_KEY")
-	default:
-		return gateway.Resolved{}, ModelProfile{}, fmt.Errorf("evalbench: unsupported provider %q", p.Provider)
+	cat, err := gateway.DefaultCatalog()
+	if err != nil {
+		return gateway.Resolved{}, ModelProfile{}, err
 	}
-	if key == "" {
-		return gateway.Resolved{}, ModelProfile{}, fmt.Errorf("evalbench: missing API key for provider %q", p.Provider)
+	resolved, err := cat.ResolveDirect(p.Provider, p.Model, FlagshipTier, gateway.OSEnvKeyLookup)
+	if err != nil {
+		return gateway.Resolved{}, ModelProfile{}, fmt.Errorf("evalbench: %w", err)
 	}
-	return gateway.Resolved{Provider: p.Provider, BaseURL: baseURL, Model: p.Model, APIKey: key, Tier: FlagshipTier, DefaultReasoningEffort: p.ReasoningEffort}, p, nil
+	// An experiment may pin an effort the catalog does not default to.
+	if p.ReasoningEffort != "" {
+		resolved.DefaultReasoningEffort = p.ReasoningEffort
+	}
+	return resolved, p, nil
 }
 
 func (r *Runtime) Observed(purpose string, recorder *CallRecorder) gateway.Provider {

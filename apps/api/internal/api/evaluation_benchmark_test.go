@@ -120,9 +120,13 @@ func TestReportGenerationBenchmark(t *testing.T) {
 	pool := newLifecycleTestPool(t)
 	q := sqlc.New(pool)
 	provider := gateway.NewMuxProvider(map[string]gateway.Provider{
-		"deepseek": gateway.NewDeepSeekProvider(&http.Client{}),
+		gateway.KindOpenAICompatible: gateway.NewCatalogProvider(&http.Client{}),
 	})
-	resolver := gateway.NewEvalKeyResolver(config.Config{DeepSeekKey: key})
+	resolvers, err := gateway.NewResolvers(config.Config{DeepSeekKey: key})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resolver := resolvers.Eval
 	a := &API{d: Deps{Queries: q, Pool: pool, Provider: provider, EvalResolver: resolver}}
 	ctx := context.Background()
 

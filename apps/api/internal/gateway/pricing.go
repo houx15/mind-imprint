@@ -18,18 +18,36 @@ type TokenPriceUSD struct {
 	OutputPerMillionUSD float64
 }
 
-// priceTable maps "provider/model" → per-1M-token USD prices (input, output).
-// Unpriced models yield ok=false so callers persist a NULL cost rather than a
-// wrong number. Update when adding a model.
-var priceTable = map[string]TokenPriceUSD{
-	// Both tiers name deepseek-v4-pro. The v4-flash row is kept (priced) so any
-	// call that ever resolves flash still meters correctly — flash was measured
-	// for the chaperone but reverted (see NewKeyResolver). Cache-miss prices per
-	// DeepSeek's published USD table (the conservative choice — cannot
-	// under-report spend).
-	"deepseek/deepseek-v4-flash":         {InputPerMillionUSD: 0.14, OutputPerMillionUSD: 0.28},
-	"deepseek/deepseek-v4-pro":           {InputPerMillionUSD: 0.435, OutputPerMillionUSD: 0.87},
-	"anthropic/claude-3-5-sonnet-latest": {InputPerMillionUSD: 3.00, OutputPerMillionUSD: 15.00},
+// priceTable maps "provider/model" (the wire pair recorded on every llm_call
+// row) → per-1M-token USD prices. It is DERIVED from the embedded catalog so
+// rates cannot drift away from the models the resolvers actually serve: pricing
+// a model is an edit to its models.json entry, in the same place its route and
+// reasoning policy live.
+//
+// A model with no priceUsd is absent here and yields ok=false, so callers
+// persist NULL/zero rather than a wrong number. Cache-miss rates are the
+// conservative choice — they cannot under-report spend.
+var priceTable = buildPriceTable()
+
+func buildPriceTable() map[string]TokenPriceUSD {
+	out := map[string]TokenPriceUSD{}
+	cat, err := DefaultCatalog()
+	if err != nil {
+		// A broken catalog is reported at boot by DefaultCatalog; here it simply
+		// means every model is unpriced, which records no cost rather than a wrong one.
+		return out
+	}
+	for _, id := range cat.ModelIDs() {
+		m := cat.Models[id]
+		if m.Price == nil {
+			continue
+		}
+		out[m.Provider+"/"+m.Model] = TokenPriceUSD{
+			InputPerMillionUSD:  m.Price.InputPerMillion,
+			OutputPerMillionUSD: m.Price.OutputPerMillion,
+		}
+	}
+	return out
 }
 
 // LookupTokenPrice returns the shared USD rate for a provider/model pair. It

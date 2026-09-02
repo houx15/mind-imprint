@@ -25,6 +25,21 @@ type Config struct {
 	// ZAIKey is the Zhipu AI / GLM provider key (server-side only). It is
 	// intentionally not used by the default resolvers.
 	ZAIKey string `env:"ZAI_API_KEY"`
+	// PAIKey is the Aliyun PAI key (server-side only). PAI is an aggregator: one
+	// key reaches Qwen, DeepSeek, GLM and Kimi — which is what makes swapping a
+	// model for an ability/speed/cost comparison a one-line change.
+	PAIKey string `env:"PAI_API_KEY"`
+
+	// ModelChat / ModelFastChat / ModelEval override a lane's catalog binding by
+	// naming a model id from gateway/models.json (e.g. "pai/qwen3.8-max"). Empty
+	// keeps the catalog default. Each lane is independent, so one model can be
+	// swapped and measured while the others hold still. An unknown id — or a
+	// non-flagship model on ModelEval — fails at boot, not mid-session.
+	//
+	// Run `api --print-models` to see the catalog and what each lane resolves to.
+	ModelChat     string `env:"MODEL_CHAT"`
+	ModelFastChat string `env:"MODEL_FAST_CHAT"`
+	ModelEval     string `env:"MODEL_EVAL"`
 	// CookieSecure sets the Secure flag on the session cookie. Default true;
 	// set COOKIE_SECURE=false for local http dev so the browser sends it.
 	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`

@@ -9,6 +9,11 @@ import (
 // GLMProvider streams GLM Chat Completions through Zhipu's OpenAI-compatible
 // endpoint. The current integration targets GLM-5.3-Flash and its required
 // thinking-on policy.
+//
+// SUPERSEDED by CatalogProvider — the glm provider entry in models.json carries
+// the same policy as data (thinkingOffUnsupported, the enabled-thinking
+// bodyExtra, top_p, tool_stream). Kept for its transport coverage; see the note
+// on DeepSeekProvider.
 type GLMProvider struct {
 	http *http.Client
 }

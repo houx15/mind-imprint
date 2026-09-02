@@ -3,120 +3,175 @@ package gateway
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sort"
+	"strings"
 
 	"mindimprint/api/internal/config"
 )
 
-// KeyResolver resolves, per request, which provider/model/key to use. Today it
-// returns the platform env secret (DeepSeek preferred, Anthropic optional). The
-// seam exists so future per-org billing can resolve the caller's school key
-// without changing the rest of the gateway.
+// KeyResolver resolves, per request, which provider/model/key to use. The seam
+// exists so future per-org billing can resolve the caller's school key without
+// changing the rest of the gateway.
 type KeyResolver func(ctx context.Context) (Resolved, error)
 
 // errNoProvider is the client-safe configuration error (no secret).
 var errNoProvider = errors.New("no LLM provider configured")
 
-// NewKeyResolver builds a platform-env resolver. DeepSeek is the default chat
-// provider; Anthropic is used only when DeepSeek is absent.
+// Resolvers holds one resolver per lane, already bound to the catalog and to
+// this process's env overrides.
+type Resolvers struct {
+	Chat     KeyResolver
+	FastChat KeyResolver
+	Eval     KeyResolver
+	// Bindings records which catalog model each lane resolved to, for
+	// --print-models and boot logging. Absent for a lane with no key.
+	Bindings map[string]Resolved
+}
+
+// configKeyLookup prefers the typed config field for a known provider env var
+// and falls back to the process environment. The fallback is what keeps
+// "new provider = one JSON entry" true: a brand-new vendor's key works from the
+// environment before anyone adds a config field for it.
+func configKeyLookup(cfg config.Config) KeyLookup {
+	typed := map[string]string{
+		"PAI_API_KEY":       cfg.PAIKey,
+		"DEEPSEEK_API_KEY":  cfg.DeepSeekKey,
+		"ANTHROPIC_API_KEY": cfg.AnthropicKey,
+		"ZAI_API_KEY":       cfg.ZAIKey,
+	}
+	return func(envVar string) string {
+		if v, ok := typed[envVar]; ok {
+			return v
+		}
+		return OSEnvKeyLookup(envVar)
+	}
+}
+
+// NewResolvers binds all three lanes from the embedded catalog, applying the
+// per-lane MODEL_CHAT / MODEL_FAST_CHAT / MODEL_EVAL overrides.
 //
-// The chaperone tier runs deepseek-v4-pro. We measured deepseek-v4-flash here
-// (cheaper, non-reasoning) hoping to cut coach latency — but it was a NET
-// REGRESSION on the orchestrator's JSON-envelope turn: without the reasoning
-// model's "reason silently, emit compact JSON" discipline, flash poured volume
-// into the visible output (4,000–7,000 completion tokens/turn vs v4-pro's
-// 600–1,100), pushing turns to 40–66s (vs ~20s) and, on the worst runaway,
-// truncating the envelope mid-JSON so it fell back to the canned line. v4-pro
-// is both faster in wall-clock AND better-formed for this task, so the
-// chaperone stays on it. The real latency lever is SSE-streaming the narrate
-// (perceived first-token latency), not the model tier.
-func NewKeyResolver(cfg config.Config) KeyResolver {
-	return func(_ context.Context) (Resolved, error) {
+// A model swap is therefore one env var and a restart — no rebuild, no code
+// edit — which is the whole point: comparing models on ability, speed and cost
+// requires changing one lane at a time and leaving the others fixed.
+//
+// A bad override fails HERE, at boot, rather than at the first student turn.
+// Missing keys do not fail: a lane with no usable key returns errNoProvider per
+// call, exactly as before, so the service still boots for non-LLM work.
+func NewResolvers(cfg config.Config) (Resolvers, error) {
+	cat, err := DefaultCatalog()
+	if err != nil {
+		return Resolvers{}, err
+	}
+	keys := configKeyLookup(cfg)
+	overrides := map[string]string{
+		LaneChat:     cfg.ModelChat,
+		LaneFastChat: cfg.ModelFastChat,
+		LaneEval:     cfg.ModelEval,
+	}
+
+	out := Resolvers{Bindings: map[string]Resolved{}}
+	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
+		r, err := cat.Resolve(lane, overrides[lane], keys)
 		switch {
-		case cfg.DeepSeekKey != "":
-			return Resolved{
-				Provider: "deepseek",
-				BaseURL:  "https://api.deepseek.com/v1",
-				Model:    "deepseek-v4-pro",
-				APIKey:   cfg.DeepSeekKey,
-				Tier:     "chaperone",
-			}, nil
-		case cfg.AnthropicKey != "":
-			return Resolved{
-				Provider: "anthropic",
-				BaseURL:  "https://api.anthropic.com/v1",
-				Model:    "claude-3-5-sonnet-latest",
-				APIKey:   cfg.AnthropicKey,
-				Tier:     "chaperone",
-			}, nil
+		case err == nil:
+			out.Bindings[lane] = r
+		case errors.Is(err, errNoProvider):
+			// No key for this lane in this environment — resolve-time error.
 		default:
-			return Resolved{}, errNoProvider
+			// A typo'd override or a broken catalog: refuse to boot.
+			return Resolvers{}, err
 		}
+		out.set(lane, laneResolver(cat, lane, overrides[lane], keys))
+	}
+	return out, nil
+}
+
+func (rs *Resolvers) set(lane string, r KeyResolver) {
+	switch lane {
+	case LaneChat:
+		rs.Chat = r
+	case LaneFastChat:
+		rs.FastChat = r
+	case LaneEval:
+		rs.Eval = r
 	}
 }
 
-// NewFastChaperoneResolver builds the FAST chaperone resolver for the
-// status-router studio turns. The flash regression documented on NewKeyResolver
-// was measured against the ONE mega-orchestrator prompt (a large JSON contract
-// the non-reasoning model drifted off). The status-router redesign
-// (docs/superpowers/specs/2026-08-09-status-router-studio-redesign.md) shrinks
-// each turn to a ≤6-line prompt with 2-4 tools, which is squarely in flash's
-// competence — so the per-status conversational turn runs on deepseek-v4-flash
-// (cheaper + lower-latency). Evaluation is unaffected (NewEvalKeyResolver stays
-// flagship; 评估绝不降级). If flash still under-performs on the small prompts,
-// swap the model here for v4-pro with request-level thinking disabled.
-func NewFastChaperoneResolver(cfg config.Config) KeyResolver {
+// laneResolver resolves on every call rather than caching, so a key rotated
+// into the environment takes effect without a restart and so the seam stays
+// per-request for future per-org billing.
+func laneResolver(cat *Catalog, lane, override string, keys KeyLookup) KeyResolver {
 	return func(_ context.Context) (Resolved, error) {
-		switch {
-		case cfg.DeepSeekKey != "":
-			return Resolved{
-				Provider: "deepseek",
-				BaseURL:  "https://api.deepseek.com/v1",
-				// Per the product owner's model-routing decision (2026-08-10): the
-				// coach/guide side runs deepseek-v4-pro with request-level thinking
-				// DISABLED (see buildBody's tier gate) — chosen over v4-flash. Only
-				// the reviewer seam (EvalResolver, flagship) keeps reasoning on.
-				Model:  "deepseek-v4-pro",
-				APIKey: cfg.DeepSeekKey,
-				Tier:   "chaperone",
-			}, nil
-		case cfg.AnthropicKey != "":
-			return Resolved{
-				Provider: "anthropic",
-				BaseURL:  "https://api.anthropic.com/v1",
-				Model:    "claude-3-5-sonnet-latest",
-				APIKey:   cfg.AnthropicKey,
-				Tier:     "chaperone",
-			}, nil
-		default:
-			return Resolved{}, errNoProvider
-		}
+		return cat.Resolve(lane, override, keys)
 	}
 }
 
-// NewEvalKeyResolver builds the FLAGSHIP resolver for evaluation — never
-// downgraded (评估走旗舰模型绝不降级). DeepSeek's v4-pro is the China-first
-// default; Anthropic is the fallback. Same seam shape as NewKeyResolver.
-func NewEvalKeyResolver(cfg config.Config) KeyResolver {
-	return func(_ context.Context) (Resolved, error) {
-		switch {
-		case cfg.DeepSeekKey != "":
-			return Resolved{
-				Provider: "deepseek",
-				BaseURL:  "https://api.deepseek.com/v1",
-				Model:    "deepseek-v4-pro",
-				APIKey:   cfg.DeepSeekKey,
-				Tier:     "flagship",
-			}, nil
-		case cfg.AnthropicKey != "":
-			return Resolved{
-				Provider: "anthropic",
-				BaseURL:  "https://api.anthropic.com/v1",
-				Model:    "claude-3-5-sonnet-latest",
-				APIKey:   cfg.AnthropicKey,
-				Tier:     "flagship",
-			}, nil
-		default:
-			return Resolved{}, errNoProvider
-		}
+// DescribeBindings renders the active lane→model bindings and the full catalog
+// for `api --print-models`. It prints no secrets — only which env var each
+// provider reads and whether that var is currently set.
+func DescribeBindings(cfg config.Config) string {
+	var b strings.Builder
+	cat, err := DefaultCatalog()
+	if err != nil {
+		fmt.Fprintf(&b, "catalog: %v\n", err)
+		return b.String()
 	}
+	keys := configKeyLookup(cfg)
+
+	fmt.Fprintf(&b, "catalog %s\n\nACTIVE LANES\n", cat.Version)
+	overrides := map[string]string{
+		LaneChat:     cfg.ModelChat,
+		LaneFastChat: cfg.ModelFastChat,
+		LaneEval:     cfg.ModelEval,
+	}
+	envVar := map[string]string{
+		LaneChat:     "MODEL_CHAT",
+		LaneFastChat: "MODEL_FAST_CHAT",
+		LaneEval:     "MODEL_EVAL",
+	}
+	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
+		spec := cat.Lanes[lane]
+		src := "catalog default"
+		if overrides[lane] != "" {
+			src = envVar[lane] + " override"
+		}
+		r, err := cat.Resolve(lane, overrides[lane], keys)
+		if err != nil {
+			fmt.Fprintf(&b, "  %-9s %-28s tier=%-9s UNRESOLVED (%v)\n", lane, spec.Model, spec.Tier, err)
+			continue
+		}
+		fmt.Fprintf(&b, "  %-9s %-28s tier=%-9s via %s (%s)\n", lane, r.ModelID, r.Tier, r.Provider, src)
+	}
+
+	fmt.Fprintf(&b, "\nPROVIDERS\n")
+	pids := make([]string, 0, len(cat.Providers))
+	for id := range cat.Providers {
+		pids = append(pids, id)
+	}
+	sort.Strings(pids)
+	for _, id := range pids {
+		p := cat.Providers[id]
+		state := "NO KEY"
+		if keys(p.APIKeyEnv) != "" {
+			state = "key set"
+		}
+		fmt.Fprintf(&b, "  %-10s %-18s %-8s %s\n", id, p.APIKeyEnv, state, p.BaseURL)
+	}
+
+	fmt.Fprintf(&b, "\nMODELS (bind with MODEL_CHAT / MODEL_FAST_CHAT / MODEL_EVAL)\n")
+	for _, id := range cat.ModelIDs() {
+		m := cat.Models[id]
+		price := "UNPRICED — set priceUsd in models.json to compare cost"
+		if m.Price != nil {
+			price = fmt.Sprintf("$%.3f in / $%.3f out per 1M", m.Price.InputPerMillion, m.Price.OutputPerMillion)
+		}
+		flag := " "
+		if m.Flagship {
+			flag = "*"
+		}
+		fmt.Fprintf(&b, "  %s %-28s %s\n", flag, id, price)
+	}
+	fmt.Fprintf(&b, "\n  * = flagship-eligible (the eval lane accepts only these)\n")
+	return b.String()
 }
