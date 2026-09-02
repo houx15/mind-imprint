@@ -13,12 +13,15 @@
     "so rather than pretending they were never considered.",
     "",
     "judgeModel must be flagship and must not appear as a candidate: a model",
-    "grading its own homework is not a measurement."
+    "grading its own homework is not a measurement. 2026-09-03: the first run",
+    "had qwen3.8-max as both, so on the assess class it went unjudged and then",
+    "WON the recommendation on token count alone — a winner with no quality",
+    "score at all. qwen3.7-max is flagship and appears in no candidate list."
   ],
 
   "samples": 3,
   "timeoutSeconds": 300,
-  "judgeModel": "dashscope/qwen3.8-max",
+  "judgeModel": "dashscope/qwen3.7-max",
 
   "candidates": {
     "reflex": [

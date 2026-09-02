@@ -142,6 +142,21 @@ func loadConfig(path string) (routebench.Config, error) {
 	if cfg.Samples < 1 {
 		cfg.Samples = 3
 	}
+	// 🚨 A judge that is also a candidate cannot score itself, so that
+	// candidate reaches the recommendation with NO quality score — and then
+	// wins on token count alone, which is exactly a cheap answer beating a good
+	// one. This happened on 2026-09-03 with qwen3.8-max in both roles, and the
+	// rule had been written down in the README the whole time. A rule that only
+	// lives in a README gets broken; this one now stops the run.
+	for class, models := range cfg.Candidates {
+		for _, m := range models {
+			if m == cfg.JudgeModel {
+				return cfg, fmt.Errorf("judgeModel %q is also a candidate for class %q — "+
+					"it cannot grade its own homework, and would reach the recommendation unscored",
+					cfg.JudgeModel, class)
+			}
+		}
+	}
 	return cfg, nil
 }
 
