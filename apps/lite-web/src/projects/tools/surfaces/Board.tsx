@@ -50,9 +50,17 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  // 🚨 下一张便签落在第几个位子，用 ref 同步地取，不看 notes.length。
+  //
+  // notes.length 来自这一帧的闭包：她连着敲三次回车，三次 add 拿到的都是同一个
+  // 长度，三张便签会摞在同一个位置上——e2e 里就是这么撞出来的（后一张挡住了
+  // 前一张，点不中）。座位号必须在 await 之前就定下来。
+  const seatRef = useRef(0);
 
   const reload = useCallback(async () => {
-    setNotes(await listNotes(projectId));
+    const loaded = await listNotes(projectId);
+    setNotes(loaded);
+    seatRef.current = loaded.length;
   }, [projectId]);
 
   useEffect(() => {
@@ -64,9 +72,10 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     if (!body) return;
     setDraft("");
     try {
+      const seat = seatRef.current++;
       const [made] = await createNotes(projectId, [{ kind, body }]);
       if (!made) return;
-      const spot = nextSpot(notes.length);
+      const spot = nextSpot(seat);
       const placed = await moveNote(projectId, made.id, spot.x, spot.y);
       setNotes((prev) => [...prev, placed]);
     } catch (err) {

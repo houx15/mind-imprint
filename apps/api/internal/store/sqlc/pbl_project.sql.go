@@ -27,13 +27,14 @@ func (q *Queries) CountPblProjectsByUser(ctx context.Context, userID uuid.UUID) 
 
 const createPblProject = `-- name: CreatePblProject :one
 
-INSERT INTO pbl_project (atom_id, idea, kind) VALUES ($1, $2, $3) RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at
+INSERT INTO pbl_project (atom_id, idea, kind, name) VALUES ($1, $2, $3, $4) RETURNING atom_id, idea, kind, name, cover_ground, cover_glyph, status, updated_at
 `
 
 type CreatePblProjectParams struct {
 	AtomID uuid.UUID `json:"atom_id"`
 	Idea   string    `json:"idea"`
 	Kind   string    `json:"kind"`
+	Name   string    `json:"name"`
 }
 
 // PBL 项目。atom 是身份，这里是细节——和 reading.sql / writing_atom.sql 同构。
@@ -41,7 +42,12 @@ type CreatePblProjectParams struct {
 // 🚨 每个查询名都带 Pbl 前缀。queries/project.sql 是 pro 的项目，两者共用
 // 一个 sqlc 包，重名会直接覆盖掉 pro 的方法。
 func (q *Queries) CreatePblProject(ctx context.Context, arg CreatePblProjectParams) (PblProject, error) {
-	row := q.db.QueryRow(ctx, createPblProject, arg.AtomID, arg.Idea, arg.Kind)
+	row := q.db.QueryRow(ctx, createPblProject,
+		arg.AtomID,
+		arg.Idea,
+		arg.Kind,
+		arg.Name,
+	)
 	var i PblProject
 	err := row.Scan(
 		&i.AtomID,

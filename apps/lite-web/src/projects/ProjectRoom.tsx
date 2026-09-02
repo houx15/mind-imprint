@@ -58,6 +58,12 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   const [busy, setBusy] = useState(false);
   // 印记正在想。和 busy 分开：busy 只是"别重复点"，这个是要显示给她看的。
   const [thinking, setThinking] = useState(false);
+  // 🚨 她刚发出去、还没落库的那句话。
+  //
+  // 消息是模型答完之后才和印记的回复一起写库的（一个事务，半条消息的对话是
+  // 读不通的）。可那意味着等待的十几秒里，她自己说的话在屏幕上根本不存在——
+  // 只有三个点在转。先在本地把它显示出来。
+  const [pending, setPending] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const trail = useMemo(() => sessionTrail(sessions, activeSession), [sessions, activeSession]);
@@ -98,6 +104,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         // 只在空线程时补。turn 的两条消息是在模型成功之后同一个事务里写的，
         // 所以模型失败时线程仍然是空的，刷新一次会自动再试，不会重复。
         if (msgs.length === 0 && mine?.idea.trim()) {
+          setPending(mine.idea.trim());
           setThinking(true);
           try {
             await postTurn(projectId, mine.idea.trim());
@@ -107,7 +114,10 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           } catch (err) {
             if (!cancelled) setError(apiErrorText(err));
           } finally {
-            if (!cancelled) setThinking(false);
+            if (!cancelled) {
+              setThinking(false);
+              setPending(null);
+            }
           }
         }
       } catch (err) {
@@ -125,6 +135,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     if (!text || busy) return;
     setBusy(true);
     setThinking(true);
+    setPending(text);
     setError(null);
     try {
       const res = await postTurn(projectId, text, activeSession ?? undefined);
@@ -138,6 +149,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     } finally {
       setBusy(false);
       setThinking(false);
+      setPending(null);
     }
   }
 
@@ -294,6 +306,15 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             {thread.map((m) => (
               <Message key={m.seq} m={m} onDig={(k, q) => void dig(k, q, String(m.seq))} busy={busy} />
             ))}
+            {/* 她刚发出去的那句。落库之前就先显示，别让她对着三个点等。 */}
+            {pending && (
+              <div className="flex justify-end">
+                <div className="inline-block max-w-[85%] rounded-[13px_4px_13px_13px] bg-mk-accent-50 px-4 py-3 text-mk-body text-mk-ink">
+                  {pending}
+                </div>
+              </div>
+            )}
+
             {/* 印记正在想。她刚说完话，对面要有反应。 */}
             {thinking && (
               <div className="flex items-start gap-2" aria-label="印记正在想">

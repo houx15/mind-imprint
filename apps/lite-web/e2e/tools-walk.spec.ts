@@ -29,26 +29,28 @@ const TOOLS: { tool: string; reason: string }[] = [
   { tool: "observe", reason: "你说的都是猜的，先去看三天中午" },
 ];
 
+const IDEA = "我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。";
+
 async function makeProject(page: Page): Promise<string> {
-  // 重跑时复用已经建好的那个：第二个项目要走分类模型，而这条 walk 没有 key。
+  // 重跑时复用已经建好的那个：这条 walk 只需要一个项目。
   const existing = await (await page.request.get("/api/v1/pbl/projects")).json();
   if (Array.isArray(existing) && existing.length > 0) {
     await page.goto(`/projects/${existing[0].id}`);
-    await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
+    await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
     return existing[0].id as string;
   }
   await page.goto("/projects");
-  await page.getByPlaceholder("比如：", { exact: false }).fill(
-    "我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。",
-  );
+  await page.getByPlaceholder("比如：", { exact: false }).fill(IDEA);
+  // 不再弹命名窗（产品负责人 2026-09-02）：写完那句话直接进房间，而那句话
+  // 就是她对印记说的第一句。
   await page.getByRole("button", { name: "开始" }).click();
-  await expect(page.getByRole("heading", { name: "给它起个名字" })).toBeVisible();
-  await page.getByPlaceholder("你想叫它什么").fill("剩饭去哪了");
-  await page.getByRole("button", { name: "就这样" }).click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
   const id = page.url().split("/").pop()!;
-  // 🚨 等项目自己的名字出现，别等输入框——输入框在数据到达之前就画出来了。
-  await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
+  // 🚨 等她那句话真的出现在对话里——这是"第一轮跑通了"唯一诚实的信号。
+  // 这一轮要真的调模型，所以给足时间。
+  await expect(page.getByText("我想弄明白这些饭最后去哪了", { exact: false }).first()).toBeVisible({
+    timeout: 90_000,
+  });
   return id;
 }
 
@@ -142,7 +144,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   ).toBe(200);
 
   await page.reload();
-  await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
+  await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
 
   // 1 · 对话末尾的那一叠邀请：每一张都写着为什么是现在。
   await expect(page.getByText("你刚一口气说了三件不太一样的事", { exact: false })).toBeVisible();
@@ -289,7 +291,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.reload();
   // 主题要在首屏之前生效（main.tsx 的 bootTheme），不然卡片会先画一遍浅色。
   await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
-  await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
+  await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-11-dark.png", fullPage: true });
 
   // 12 · 手机。右边这一栏在 lg 以下收起来，所以这里看的是对话和那叠邀请卡。

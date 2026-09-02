@@ -4,7 +4,7 @@
 -- 一个 sqlc 包，重名会直接覆盖掉 pro 的方法。
 
 -- name: CreatePblProject :one
-INSERT INTO pbl_project (atom_id, idea, kind) VALUES ($1, $2, $3) RETURNING *;
+INSERT INTO pbl_project (atom_id, idea, kind, name) VALUES ($1, $2, $3, $4) RETURNING *;
 
 -- name: GetPblProject :one
 -- user_id 随行，patch 端点靠它做归属校验，省一次 GetAtom。

@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -104,6 +105,8 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 	}
 	p, err := qtx.CreatePblProject(r.Context(), sqlc.CreatePblProjectParams{
 		AtomID: at.ID, Idea: idea, Kind: kind,
+		// 先给个名字，她随时能改。整句原文顶在页头上会把房间挤没。
+		Name: pbl.DefaultProjectName(idea),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

@@ -1,5 +1,7 @@
 package pbl
 
+import "strings"
+
 // tools.go —— 工具箱。
 //
 // 产品负责人 2026-09-01 给了七个阶段（docs/2026-09-01-pbl-detail.md）。它们在
@@ -84,4 +86,33 @@ func ToolNames() []string {
 		"observe", "board", "reframe", "ideas", "review",
 		"decide", "structure", "split", "lookback", "keep",
 	}
+}
+
+// DefaultProjectName —— 刚建出来的项目先有个名字。
+//
+// 产品负责人 2026-09-02：「we should let students modify the project'''s title
+// when the question is fully defined. or we by default gives one.」
+//
+// 取她那句话的第一小节（到第一个标点为止），最多 14 个字。整句原文太长，顶在
+// 页头上会把整个房间挤没；而完全没有名字，看板上就只能显示一大段话。
+//
+// 这只是个起名的起点，不是判断——她随时能改，改完 idea 仍然原样留着。
+func DefaultProjectName(idea string) string {
+	const maxRunes = 14
+	trimmed := strings.TrimSpace(idea)
+	if trimmed == "" {
+		return "新项目"
+	}
+	cut := strings.IndexAny(trimmed, "，。！？；,.!?;\n")
+	if cut > 0 {
+		trimmed = trimmed[:cut]
+	}
+	rs := []rune(strings.TrimSpace(trimmed))
+	if len(rs) > maxRunes {
+		return string(rs[:maxRunes]) + "…"
+	}
+	if len(rs) == 0 {
+		return "新项目"
+	}
+	return string(rs)
 }
