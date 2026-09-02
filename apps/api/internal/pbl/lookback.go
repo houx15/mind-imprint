@@ -142,7 +142,7 @@ func GenerateLookback(
 ) ([]LookbackQuestion, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{{
-			Role: gateway.RoleSystem,
+			Role:    gateway.RoleSystem,
 			Content: fmt.Sprintf(lookbackSystem, lookbackSectionList(), buildLookbackContext(in)),
 		}},
 		MaxTokens: 16384,
@@ -150,6 +150,9 @@ func GenerateLookback(
 	var usage gateway.ChatUsage
 	var lastErr error
 	for attempt := 0; attempt < maxCoachAttempts; attempt++ {
+		if attempt > 0 {
+			backoffBeforeRetry(ctx, attempt-1)
+		}
 		res, err := gateway.Collect(ctx, prov, resolved, req)
 		usage = res.Usage
 		if err != nil {

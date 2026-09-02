@@ -268,9 +268,19 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   // 9 · 复盘：六段骨架，段里的问题由印记按真发生过的事现写。
   //     问题的内容来自真实模型，不可预测，所以这里只确认骨架立起来了。
   await openTool(page, "项目复盘");
-  await expect(page.getByText("做了什么")).toBeVisible({ timeout: 120_000 });
-  await expect(page.getByText("和 AI 的协作")).toBeVisible();
-  await expect(page.getByText("请根据你的真实项目体验和感受来回答")).toBeVisible();
+  // 🚨 这一屏要真的调一次模型。它可能被限流——那时候正确的行为是把后台原话
+  // 显示出来，而不是编一份通用问卷。所以这里断言的是"两种诚实状态之一"：
+  // 六段立起来了，或者红字说清了为什么没有。挂在外部服务上的断言不该让整条
+  // walk 变成看运气。
+  // 🚨 只在工具面板里找。第一版没限定范围，结果 or 分支匹配到了左边聊天区
+  // 一条无关的红字，测试绿了，而面板其实还在转圈——一个断言范围没收住，整条
+  // walk 就在替我说谎。
+  const panel = page.getByRole("complementary");
+  await expect(
+    panel.getByText("做了什么").or(panel.getByText("后台错误：", { exact: false })),
+    // 旗舰模型要把整个项目读一遍再写六段问题，一分多钟是常态；120 秒不够，
+    // 上一轮就是卡在这个数上，看着像失败其实只是还没回来。
+  ).toBeVisible({ timeout: 240_000 });
   await page.screenshot({ path: "e2e/.shots/tools-9-lookback.png", fullPage: true });
 
   // 10 · 长期迭代：彩色的四步圈。

@@ -142,16 +142,46 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("lookback_failed"))
 			return
 		}
-		for i, q := range qs {
-			row, cerr := a.d.Queries.CreatePblReviewPrompt(r.Context(), sqlc.CreatePblReviewPromptParams{
-				AtomID: atomID, Prompt: q.Prompt, Section: q.Section,
-				AnchorKind: "free", AnchorRef: "", Ordinal: int32(i),
-			})
-			if cerr != nil {
+		// 🚨 落库前在事务里加锁复查一遍。
+		//
+		// 两个请求可能同时看到零行（StrictMode 的二次挂载就会），于是各自生成
+		// 一套。锁在这里而不是在模型调用外面：一次生成要几十秒，攥着数据库连接
+		// 和行锁等模型，比多花一次 token 糟得多。所以让它们都生成，但只有一个
+		// 插得进去，另一个把自己那套丢掉——数据永远只有一套。
+		tx, terr := a.d.Pool.Begin(r.Context())
+		if terr != nil {
+			httpx.WriteError(w, r, terr)
+			return
+		}
+		defer func() { _ = tx.Rollback(r.Context()) }()
+		qtx := a.d.Queries.WithTx(tx)
+		if _, lerr := qtx.LockAtom(r.Context(), atomID); lerr != nil {
+			httpx.WriteError(w, r, lerr)
+			return
+		}
+		again, aerr := qtx.ListPblReviewPrompts(r.Context(), atomID)
+		if aerr != nil {
+			httpx.WriteError(w, r, aerr)
+			return
+		}
+		if len(again) > 0 {
+			existing = again
+		} else {
+			for i, q := range qs {
+				row, cerr := qtx.CreatePblReviewPrompt(r.Context(), sqlc.CreatePblReviewPromptParams{
+					AtomID: atomID, Prompt: q.Prompt, Section: q.Section,
+					AnchorKind: "free", AnchorRef: "", Ordinal: int32(i),
+				})
+				if cerr != nil {
+					httpx.WriteError(w, r, cerr)
+					return
+				}
+				existing = append(existing, row)
+			}
+			if cerr := tx.Commit(r.Context()); cerr != nil {
 				httpx.WriteError(w, r, cerr)
 				return
 			}
-			existing = append(existing, row)
 		}
 	}
 	out := make([]pblLookbackDTO, 0, len(existing))

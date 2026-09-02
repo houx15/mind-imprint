@@ -91,7 +91,11 @@ func streamOpenAICompatible(ctx context.Context, client *http.Client, r Resolved
 
 	resp, err := client.Do(httpReq)
 	if err != nil {
-		return nil, errStreamFailed
+		// 🚨 把连接层的错因带上。它不含密钥（密钥在 header 里，不在 error 里），
+		// 而少了它，服务端日志里"provider stream failed"这一句分不清是连不上、
+		// 被限流、还是请求被取消——2026-09-02 排查复盘挂住时就卡在这里。
+		// 客户端看到的仍是固定的错误码，不受影响。
+		return nil, fmt.Errorf("%w: %s transport: %v", errStreamFailed, provider, err)
 	}
 	if resp.StatusCode != http.StatusOK {
 		_, _ = io.Copy(io.Discard, resp.Body)

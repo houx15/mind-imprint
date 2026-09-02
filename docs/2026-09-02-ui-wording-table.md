@@ -14,7 +14,7 @@
 | 页面正中的大标题，一进「项目」就看见 `projects/ProjectsLanding.tsx:101` | 最近想做点什么 |  |
 | 大标题下面那一行说明 `ProjectsLanding.tsx:103` | 一句话就行。想清楚要做什么，是我们一起的第一件事。 |  |
 | 大输入框空着时的灰字示例 `ProjectsLanding.tsx:112` | 比如：我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。 |  |
-| 按下「开始」、后台正在判断项目类型时，输入框左下角 `ProjectsLanding.tsx:122` | 印记在读你写的这段话… |  |
+| 按下「开始」、后台正在判断项目类型时，输入框左下角 `ProjectsLanding.tsx:122` | 印记在读你写的这段话… |处理中  |
 | 平时输入框左下角的提示 `ProjectsLanding.tsx:122` | 写完按开始，印记会先跟你聊清楚要做什么。 |  |
 | 输入框右下角的主按钮 `ProjectsLanding.tsx:131` | 开始 |  |
 | 一个项目都没有时，输入框下面的空状态 `ProjectsLanding.tsx:145` | 你的第一个项目是做一个属于你自己的主页。往后读过的、写过的、做过的，都能放上去。 |  |
@@ -26,11 +26,11 @@
 
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
-| 命名弹窗标题 `NameAndCover.tsx:76` | 给它起个名字 |  |
+| 命名弹窗标题 `NameAndCover.tsx:76` | 给它起个名字 | 项目名 |
 | 命名弹窗标题下面，用书名号引她刚写的那句话 `NameAndCover.tsx:77` | 「{她写的那句话}」 |  |
 | 命名弹窗的名字输入框，空着时的灰字 `NameAndCover.tsx:84` | 你想叫它什么 |  |
 | 命名弹窗左下角，跳过命名的按钮 `NameAndCover.tsx:146` | 以后再说 |  |
-| 命名弹窗右下角的确认按钮 `NameAndCover.tsx:155` | 就这样 |  |
+| 命名弹窗右下角的确认按钮 `NameAndCover.tsx:155` | 就这样 | 确认 |
 | 命名弹窗确认按钮，正在保存时 `NameAndCover.tsx:155` | 保存中… |  |
 
 ---
@@ -41,11 +41,11 @@
 |---|---|---|
 | 房间左上角返回箭头的读屏名字 `projects/ProjectRoom.tsx:266` | 回到项目 |  |
 | 房间顶栏的项目名；项目还没读出来时的占位 `ProjectRoom.tsx:272` | 项目 |  |
-| 进入某一层深挖后，这一层还一句话都没有时（配一颗石子） `ProjectRoom.tsx:286` | 这一层还没开始。把你想到的写下来。 |  |
-| 主对话一句话都还没有时的空状态（配一颗石子） `ProjectRoom.tsx:286` | 印记在这儿。说说你想做的这件事。 |  |
-| 印记正在想时，那三个跳动的点的读屏名字 `ProjectRoom.tsx:296` | 印记正在想 |  |
-| 底部输入框，在某一层深挖里时的灰字 `ProjectRoom.tsx:341` | 就想这一个问题 |  |
-| 底部输入框，在主对话里时的灰字 `ProjectRoom.tsx:341` | 跟印记说 |  |
+| 进入某一层深挖后，这一层还一句话都没有时（配一颗石子） `ProjectRoom.tsx:286` | 这一层还没开始。把你想到的写下来。 | no, always the first sentence is seeded by AI. system should gives AI a context about this branch first so that we can guide student |
+| 主对话一句话都还没有时的空状态（配一颗石子） `ProjectRoom.tsx:286` | 印记在这儿。说说你想做的这件事。 | same as the previous one. student has gives us an input, we always start first |
+| 印记正在想时，那三个跳动的点的读屏名字 `ProjectRoom.tsx:296` | 印记正在想 | 思考中 |
+| 底部输入框，在某一层深挖里时的灰字 `ProjectRoom.tsx:341` | 就想这一个问题 | 请输入 |
+| 底部输入框，在主对话里时的灰字 `ProjectRoom.tsx:341` | 跟印记说 | 请输入 |
 | 底部发送按钮的读屏名字 `ProjectRoom.tsx:348` | 发送 |  |
 | 面包屑最左边，点它回主对话 `ProjectRoom.tsx:381` | 项目 |  |
 | 面包屑上每一层的名字（五种，见 §6） `ProjectRoom.tsx:387` | 见 §6 深挖层名 |  |
@@ -53,8 +53,8 @@
 | 钩子按钮上加粗前缀后面接的那句问题 `ProjectRoom.tsx:458` | （印记生成的那句钩子问题） |  |
 | 深挖收尾条上方，提醒这一层在想什么 `ProjectRoom.tsx:490` | 这一层在想：{印记给的那句问题} |  |
 | 深挖收尾输入框的灰字 · 自由深挖 `api/projectRoom.ts:124` | 这一层，你想明白了什么？ |  |
-| 深挖收尾输入框的灰字 · 去看看 `api/projectRoom.ts:125` | 你真的看见了什么？ |  |
-| 深挖收尾输入框的灰字 · 重新看这个问题 `api/projectRoom.ts:126` | 现在你觉得这个问题该怎么问？ |  |
+| 深挖收尾输入框的灰字 · 去看看 `api/projectRoom.ts:125` | 你真的看见了什么？ | 买看懂 |
+| 深挖收尾输入框的灰字 · 重新看这个问题 `api/projectRoom.ts:126` | 现在你觉得这个问题该怎么问？ | 买看懂 |
 | 深挖收尾输入框的灰字 · 多想几种做法 `api/projectRoom.ts:127` | 下一步先试哪个？ |  |
 | 深挖收尾输入框的灰字 · 一起看计划 `api/projectRoom.ts:128` | 你决定怎么办？ |  |
 | 深挖收尾条右边的按钮 `ProjectRoom.tsx:504` | 收起这一层 |  |
@@ -67,38 +67,38 @@
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
 | 面板顶上标签栏最左边那个标签（有工具打开时才出现） `projects/WorkPanel.tsx:55` | 计划 |  |
-| 计划页上方，她答应了、人还在外面做的那一档的小标题 `WorkPanel.tsx:79` | 你出门在做的事 |  |
-| 还没画界面的工具，退回到朴素卡片时的任务行 `WorkPanel.tsx:148` | 做完之后，写一句你的结论 |  |
-| 朴素卡片底部「还差」提示的内容 `WorkPanel.tsx:150` | 一句你的结论 |  |
-| 朴素卡片正文输入框的灰字 `WorkPanel.tsx:158` | 做完之后，写一句你的结论 |  |
+| 计划页上方，她答应了、人还在外面做的那一档的小标题 `WorkPanel.tsx:79` | 你出门在做的事 | no need for such status, we only show done, processing, plan three status |
+| 还没画界面的工具，退回到朴素卡片时的任务行 `WorkPanel.tsx:148` | 做完之后，写一句你的结论 | 没看懂 |
+| 朴素卡片底部「还差」提示的内容 `WorkPanel.tsx:150` | 一句你的结论 | 没看懂 |
+| 朴素卡片正文输入框的灰字 `WorkPanel.tsx:158` | 做完之后，写一句你的结论 | 没看懂 |
 | 还没有计划时，面板顶栏标题 `projects/PlanPanel.tsx:44` | 计划 |  |
-| 还没有计划时的空状态 `PlanPanel.tsx:47` | 还没有计划。先把要做的事聊清楚，印记会拟一版给你看。 |  |
+| 还没有计划时的空状态 `PlanPanel.tsx:47` | 还没有计划。先把要做的事聊清楚，印记会拟一版给你看。 | 计划待生成 |
 | 有计划时，面板顶栏标题 `PlanPanel.tsx:59` | 计划 |  |
 | 面板顶栏右上角的版本号 `PlanPanel.tsx:60` | v0.{版本号} |  |
 | 顶栏标题下面那一行，印记给这版计划写的一句概括 `PlanPanel.tsx:62` | （印记生成的一句话） |  |
 | 每一步右侧的状态小标签（七种，见 §6） `PlanPanel.tsx:119` | 见 §6 步骤状态 |  |
-| 展开一步之后的第一行小标签 `PlanPanel.tsx:126` | 这一步要干嘛 |  |
-| 展开一步之后的小标签 `PlanPanel.tsx:127` | 印记做 |  |
-| 展开一步之后的小标签 `PlanPanel.tsx:128` | 你做 |  |
-| 展开一步之后必显示的加粗小标签 `PlanPanel.tsx:131` | 你来判断 |  |
-| 展开一步之后的小标签 `PlanPanel.tsx:132` | 做完交回来 |  |
-| 计划还没被她确认时，面板底部那句话 `PlanPanel.tsx:76` | 看一遍。改哪儿都行，你说了算。 |  |
-| 计划还没被她确认时，面板底部的按钮 `PlanPanel.tsx:83` | 准备好了 · 开始 |  |
-| 印记想改计划时，面板整个换成决定页，页首标题 `PlanPanel.tsx:186` | 要不要改计划 |  |
+| 展开一步之后的第一行小标签 `PlanPanel.tsx:126` | 这一步要干嘛 |内容  |
+| 展开一步之后的小标签 `PlanPanel.tsx:127` | 印记做 | no, just name tag |
+| 展开一步之后的小标签 `PlanPanel.tsx:128` | 你做 | no, just name tag |
+| 展开一步之后必显示的加粗小标签 `PlanPanel.tsx:131` | 你来判断 | no, no need |
+| 展开一步之后的小标签 `PlanPanel.tsx:132` | 做完交回来 | no, no need |
+| 计划还没被她确认时，面板底部那句话 `PlanPanel.tsx:76` | 看一遍。改哪儿都行，你说了算。 | 请审核计划并确认，或提出修改意见 |
+| 计划还没被她确认时，面板底部的按钮 `PlanPanel.tsx:83` | 准备好了 · 开始 | 审核完成，开始！ |
+| 印记想改计划时，面板整个换成决定页，页首标题 `PlanPanel.tsx:186` | 要不要改计划 | 没看懂这里 |
 | 决定页标题下面，印记说的改动理由 `PlanPanel.tsx:187` | （印记生成的证据句） |  |
-| 决定页正文上方的小标签 `PlanPanel.tsx:191` | 印记想改的 |  |
+| 决定页正文上方的小标签 `PlanPanel.tsx:191` | 印记想改的 | 修改建议 |
 | 决定页差异行前面的类型标签（四种，见 §6） `PlanPanel.tsx:195` | 见 §6 改动类型 |  |
 | 决定页里印记没列出具体差异时 `PlanPanel.tsx:201` | （没有列出具体差异） |  |
-| 决定页选项区上方的小标签 `PlanPanel.tsx:204` | 你怎么定 |  |
+| 决定页选项区上方的小标签 `PlanPanel.tsx:204` | 你怎么定 | 决策时刻 |
 | 决定页的五个选项（见 §6） `PlanPanel.tsx:218` | 见 §6 计划决定 |  |
-| 决定页底部必填的理由框的灰字 `PlanPanel.tsx:230` | 为什么这么定？ |  |
-| 决定页底部的提交按钮 `PlanPanel.tsx:248` | 就这么定 |  |
+| 决定页底部必填的理由框的灰字 `PlanPanel.tsx:230` | 为什么这么定？ | 原因 |
+| 决定页底部的提交按钮 `PlanPanel.tsx:248` | 就这么定 | 确认选择 |
 | 决定页底部的提交按钮，正在提交时 `PlanPanel.tsx:248` | 记下来… |  |
 | 每一件工具共用的外壳：右上角关闭按钮的读屏名字 `projects/tools/ToolFrame.tsx:57` | 收起 |  |
 | 工具外壳：顶部工具名下面那一行「现在要做什么」（每件工具不同，见 §5） `ToolFrame.tsx:52` | 见 §5 各工具 |  |
 | 工具外壳：任务行下面那块浅底的框，印记为什么这时候递它 `ToolFrame.tsx:71` | （印记生成的一句理由） |  |
 | 工具外壳：底部「做完了」按钮上方，还差什么 `ToolFrame.tsx:78` | 还差：{各工具自己的那句话} |  |
-| 工具外壳：底部按钮的默认字（多数工具会自己覆盖，见 §5） `ToolFrame.tsx:29` | 做完了 |  |
+| 工具外壳：底部按钮的默认字（多数工具会自己覆盖，见 §5） `ToolFrame.tsx:29` | 做完了 | 完成 |
 
 ---
 
@@ -109,16 +109,16 @@
 | 对话末尾那张邀请卡，加粗的工具名（十件，见 §5） `projects/tools/ToolInvite.tsx:71` | 见 §5 各工具名 |  |
 | 工具名后面那一句「这件工具是干什么的」（十件，见 §5） `ToolInvite.tsx:72` | 见 §5 各工具邀请语 |  |
 | 邀请卡第二行，印记为什么现在递它 `ToolInvite.tsx:75` | （印记生成的一句理由） |  |
-| 邀请卡上，出门做的工具才有的那一行 `ToolInvite.tsx:77` | 这件要离开屏幕做，回来再说。 |  |
-| 邀请卡主按钮 · 出门做的工具 `ToolInvite.tsx:89` | 我去 |  |
-| 邀请卡主按钮 · 当场做的工具 `ToolInvite.tsx:89` | 打开 |  |
-| 邀请卡次按钮，不想用它 `ToolInvite.tsx:97` | 先不用 |  |
-| 点了「先不用」之后，卡片换成的那一句 `ToolInvite.tsx:35` | 想说一句为什么吗？不想说也行。 |  |
+| 邀请卡上，出门做的工具才有的那一行 `ToolInvite.tsx:77` | 这件要离开屏幕做，回来再说。 | 请在合适的地方完成这项任务，完成后回来继续项目 |
+| 邀请卡主按钮 · 出门做的工具 `ToolInvite.tsx:89` | 我去 | 好的 |
+| 邀请卡主按钮 · 当场做的工具 `ToolInvite.tsx:89` | 打开 | 开始任务 |
+| 邀请卡次按钮，不想用它 `ToolInvite.tsx:97` | 先不用 | 跳过 - do we provide this option? |
+| 点了「先不用」之后，卡片换成的那一句 `ToolInvite.tsx:35` | 想说一句为什么吗？不想说也行。 | 请阐述原因 |
 | 「先不用」之后的理由输入框灰字 `ToolInvite.tsx:39` | 现在不想用它，因为… |  |
-| 「先不用」之后的确认按钮 `ToolInvite.tsx:49` | 好 |  |
+| 「先不用」之后的确认按钮 `ToolInvite.tsx:49` | 好 | 确认 |
 | 右侧计划页上方「你出门在做的事」里，那张卡上的工具名 `ToolInvite.tsx:124` | 见 §5 各工具名 |  |
 | 出门卡上，印记当初交代的理由 `ToolInvite.tsx:125` | （印记生成的一句理由） |  |
-| 出门卡底部的按钮 `ToolInvite.tsx:134` | 我回来了 |  |
+| 出门卡底部的按钮 `ToolInvite.tsx:134` | 我回来了 | 已完成 |
 
 ---
 
@@ -222,44 +222,48 @@
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
 | 工具名 `apps/api/internal/pbl/tools.go:46` | 审核助手 |  |
-| 邀请卡上工具名后面那一句 `tools/registry.tsx:36` | 一段一段看过去，不同意就说出来 |  |
-| 界面顶部工具名下面那一行 `tools/surfaces/Review.tsx:127` | 一段一段看过去。不同意的地方，说出来 |  |
+| 邀请卡上工具名后面那一句 `tools/registry.tsx:36` | 一段一段看过去，不同意就说出来 | AI可能出错，需要对其产出的内容进行深度审核 |
+| 界面顶部工具名下面那一行 `tools/surfaces/Review.tsx:127` | 一段一段看过去。不同意的地方，说出来 | 参考审核框架，进行深度审核 |
 | 底部「还差」· 没有待审的东西 `Review.tsx:121` | 现在没有要审的东西 |  |
 | 底部「还差」· 划出来的句子和方面都没答 `api/review.ts:118` | {n} 句话没回答，{m} 个方面没说 |  |
 | 底部「还差」· 只剩划出来的句子没答 `api/review.ts:119` | 还有 {n} 句话没回答 |  |
 | 底部「还差」· 只剩方面没答 `api/review.ts:120` | 还有 {n} 个方面没说 |  |
-| 底部「还差」· 都答了但还没写结论 `Review.tsx:122` | 一句你的结论 |  |
-| 底部收工按钮（收下这一份） `Review.tsx:130` | 收下 |  |
-| 印记什么都还没交时的空状态 `Review.tsx:141` | 印记还没有交出什么要你审的东西。 |  |
+| 底部「还差」· 都答了但还没写结论 `Review.tsx:122` | 一句你的结论 | 结论 |
+| 底部收工按钮（收下这一份） `Review.tsx:130` | 收下 | 完成审核 |
+| 印记什么都还没交时的空状态 `Review.tsx:141` | 印记还没有交出什么要你审的东西。 | 无需审核 |
 | 有多份待审时，顶部切换按钮上没标题的那一份 `Review.tsx:160` | 未命名 |  |
 | 正文上方那块浅底框的小标题 `Review.tsx:168` | 印记说： |  |
-| 印记自认猜过的地方，每一条前缀 `Review.tsx:172` | 我猜了：{印记写的} |  |
-| 印记自认还不对的地方，每一条前缀 `Review.tsx:177` | 这版还不对的地方：{印记写的} |  |
-| 成果既不是文档也没有图片时 `Review.tsx:218` | 这件东西没有可以直接看的内容。 |  |
+| 印记自认猜过的地方，每一条前缀 `Review.tsx:172` | 我猜了：{印记写的} | 猜测内容： |
+| 印记自认还不对的地方，每一条前缀 `Review.tsx:177` | 这版还不对的地方：{印记写的} |可能出错：  |
+| 成果既不是文档也没有图片时 `Review.tsx:218` | 这件东西没有可以直接看的内容。 |website can also be reviewed. btw when this situation we won't trigger review  |
 | 她用鼠标选中一段文字后，正文下方冒出来的按钮 `Review.tsx:230` | 问问这一句 |  |
 | 划出来的每条问题上方，被引用的原句 `Review.tsx:314` | 「{原句}」 |  |
-| 她自己问出来的那一条，底下的小字 `Review.tsx:317` | 你问的 |  |
-| 划线问题和方面共用的作答框灰字 `Review.tsx:336` | 写下你的看法 |  |
-| 「该看的几个方面」这一段的小标题 `Review.tsx:252` | 看这种东西，这几点绕不开 |  |
-| 底部结论格的标题 `Review.tsx:265` | 你的结论，一句话 |  |
+| 她自己问出来的那一条，底下的小字 `Review.tsx:317` | 你问的 | 问题： |
+| 划线问题和方面共用的作答框灰字 `Review.tsx:336` | 写下你的看法 | 你的想法： |
+| 「该看的几个方面」这一段的小标题 `Review.tsx:252` | 看这种东西，这几点绕不开 | 审核要点建议： |
+| 底部结论格的标题 `Review.tsx:265` | 你的结论，一句话 |结论：  |
 | 底部结论输入框的灰字 `Review.tsx:270` | 比如：第二段把我的话改成了它自己的说法 |  |
-| 底部结论下方左边的按钮 `Review.tsx:281` | 退回去改 |  |
-| 底部结论下方右边的按钮 `Review.tsx:289` | 不要了 |  |
-| 收工后自动发回对话的那句话 `Review.tsx:108` | 我审完了《{标题}》，{收下了 / 退回去改 / 不要了}。因为{她写的理由} |  |
+| 底部结论下方左边的按钮 `Review.tsx:281` | 退回去改 | whenever students live comments, we only have this option: 执行修改 |
+| 底部结论下方右边的按钮 `Review.tsx:289` | 不要了 | when students live no comments, they can click 审核通过/重新执行任务, with the later one needs explicit direction suggestion  |
+| 收工后自动发回对话的那句话 `Review.tsx:108` | 我审完了《{标题}》，{收下了 / 退回去改 / 不要了}。因为{她写的理由} | 完成xxx的审核，结论：审核通过/需要修改/需要重做，原因：xxx |
 | 上面那句话里成果没有标题时的替代词 `Review.tsx:108` | 这一份 |  |
-| 上面那句话里，选「收下」时填进去的词 `Review.tsx:105` | 收下了 |  |
+| 上面那句话里，选「收下」时填进去的词 `Review.tsx:105` | 收下了 |  审核通过 |
 | 服务端给她自己划的句子配的默认问题 `apps/api/internal/api/pbl_review.go:209` | 这一句是什么意思，为什么这么写？ |  |
 
 ### 5.6 理性决策（decide）
+in this part.
+it happens when AI proposes several thing to decide, that during we use agents sometimes we met askUserQuestion tool.
+
+what we need to do, is to present several options as cards, with title, description, and students can select one to confirm. but when confirm, they need to answer two small questions: why this, and why not others.
 
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
 | 工具名 `apps/api/internal/pbl/tools.go:47` | 理性决策 |  |
-| 邀请卡上工具名后面那一句 `tools/registry.tsx:37` | 摆开选项，说清这里什么最重要 |  |
-| 界面顶部工具名下面那一行 `tools/surfaces/Decide.tsx:114` | 摆开选项，说清这件事上什么最重要，再选 |  |
-| 底部收工按钮 `Decide.tsx:117` | 就这么定 |  |
-| 底部「还差」· 还没写在定什么 `api/decide.ts:116` | 还没开始 |  |
-| 底部「还差」· 选项不足两个 `api/decide.ts:117` | 至少两个选项，一个不叫选 |  |
+| 邀请卡上工具名后面那一句 `tools/registry.tsx:37` | 摆开选项，说清这里什么最重要 | 深入思考AI提供的多个选项，做出合理的决策。 |
+| 界面顶部工具名下面那一行 `tools/surfaces/Decide.tsx:114` | 摆开选项，说清这件事上什么最重要，再选 | 针对每个选项的原因及可能后果进行深入思考，再做出决定 |
+| 底部收工按钮 `Decide.tsx:117` | 就这么定 | 确认选择 |
+| 底部「还差」· 还没写在定什么 `api/decide.ts:116` | 还没开始 | why?? options are proposed by AI, like sometimes we use askuserquestions |
+| 底部「还差」· 选项不足两个 `api/decide.ts:117` | 至少两个选项，一个不叫选 | why?? options are proposed by AI. |
 | 底部「还差」· 还没写什么最重要 `api/decide.ts:118` | 先说清这件事上什么最重要 |  |
 | 底部「还差」· 有选项没写赢在哪疼在哪 `api/decide.ts:120` | 还有 {n} 个选项没说赢在哪、疼在哪 |  |
 | 底部「还差」· 还没选 `api/decide.ts:121` | 选一个 |  |
@@ -300,43 +304,43 @@
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
 | 工具名 `apps/api/internal/pbl/tools.go:48` | 结构审查 |  |
-| 邀请卡上工具名后面那一句 `tools/registry.tsx:38` | 先看整体骨架，再动手写 |  |
-| 界面顶部工具名下面那一行 `tools/surfaces/Structure.tsx:131` | 先把整体分成几块，再看这个分法对不对 |  |
-| 底部「还差」· 不到三块时 `api/tree.ts:148` | 至少先分出三块 |  |
-| 底部「还差」· 三个问题没答完 `api/tree.ts:152` | 还有 {n} 个问题没想 |  |
-| 底部收工按钮 `Structure.tsx:134` | 结构就这样 |  |
-| 每一行左边展开箭头的读屏名字 `Structure.tsx:241` | 这一块要放什么 |  |
+| 邀请卡上工具名后面那一句 `tools/registry.tsx:38` | 先看整体骨架，再动手写 | 审查整体结构是否合理 |
+| 界面顶部工具名下面那一行 `tools/surfaces/Structure.tsx:131` | 先把整体分成几块，再看这个分法对不对 | 从完整性、连贯性等角度审查整体结构是否合理 |
+| 底部「还差」· 不到三块时 `api/tree.ts:148` | 至少先分出三块 | why this? this is AI proposed structure and would never appears this I guess |
+| 底部「还差」· 三个问题没答完 `api/tree.ts:152` | 还有 {n} 个问题没想 | no we don't require student to answer textual question, but only to provide a thinking frame. |
+| 底部收工按钮 `Structure.tsx:134` | 结构就这样 | 没有问题 |
+| 每一行左边展开箭头的读屏名字 `Structure.tsx:241` | 这一块要放什么 |  what are these??? it should be a mindmap, and can directly drag and move and press delete to delete. we don't need so many buttons.... |
 | 每一行悬停出现的左移按钮读屏名字 `Structure.tsx:258` | 提出来 |  |
 | 每一行悬停出现的右移按钮读屏名字 `Structure.tsx:267` | 缩进去 |  |
 | 每一行悬停出现的删除按钮读屏名字 `Structure.tsx:272` | 去掉 |  |
 | 展开一行之后，里面那个输入框的灰字 `Structure.tsx:285` | 这一块要放什么 |  |
 | 大纲下面加一块的输入框灰字 `Structure.tsx:175` | 再分一块出来 |  |
 | 加一块的加号按钮读屏名字 `Structure.tsx:182` | 加一块 |  |
-| 分够三块之后，底下那一段的小标题 `Structure.tsx:193` | 看着这张图，想三件事 |  |
-| 第一问 `api/tree.ts:37` | 想说的都在里面了吗？ |  |
-| 第一问下面的提示 `api/tree.ts:38` | 有没有哪一块你其实很想说，但这张图上找不到位置。 |  |
-| 第二问 `api/tree.ts:41` | 从头讲到尾，顺得下来吗？ |  |
-| 第二问下面的提示 `api/tree.ts:42` | 试着照这个顺序讲一遍。卡住的那个地方就是问题。 |  |
-| 第三问 `api/tree.ts:45` | 有没有更好的分法？ |  |
-| 第三问下面的提示 `api/tree.ts:46` | 现在这个分法是想出来的，还是因为大家都这么分？ |  |
-| 三个问题共用的作答框灰字 `Structure.tsx:316` | 一句 |  |
-| 加一块失败时的兜底报错 `Structure.tsx:61` | 没加上，再试一次。 |  |
-| 往外提一层失败时的兜底报错 `Structure.tsx:86` | 挪不出来。 |  |
-| 改名字失败时的兜底报错 `Structure.tsx:95` | 没改成。 |  |
-| 存内容/存问题答案失败时的兜底报错 `Structure.tsx:104` `Structure.tsx:122` | 没记下。 |  |
-| 删一块失败时的兜底报错 `Structure.tsx:113` | 没删掉。 |  |
-| 收工后自动发回对话的那句话 `Structure.tsx:138` | 我把它分成了 {n} 块：{每一块的名字，用「、」连起来} |  |
+| 分够三块之后，底下那一段的小标题 `Structure.tsx:193` | 看着这张图，想三件事 | 建议的三个问题 |
+| 第一问 `api/tree.ts:37` | 想说的都在里面了吗？ | 这个框架是否覆盖了所有应当呈现的内容？ |
+| 第一问下面的提示 `api/tree.ts:38` | 有没有哪一块你其实很想说，但这张图上找不到位置。 | 思考是否所有主要内容都会被这个框架涵盖 |
+| 第二问 `api/tree.ts:41` | 从头讲到尾，顺得下来吗？ | 这个框架的逻辑顺序是否合理？ |
+| 第二问下面的提示 `api/tree.ts:42` | 试着照这个顺序讲一遍。卡住的那个地方就是问题。 | 检查各部分之间的逻辑关系，想象如果是你来介绍这个框架，是否连贯和舒服 |
+| 第三问 `api/tree.ts:45` | 有没有更好的分法？ | 你有更好的建议吗 |
+| 第三问下面的提示 `api/tree.ts:46` | 现在这个分法是想出来的，还是因为大家都这么分？ | we don't need this here |
+| 三个问题共用的作答框灰字 `Structure.tsx:316` | 一句 | think about it, you can also write down your thoughts here |
+| 加一块失败时的兜底报错 `Structure.tsx:61` | 没加上，再试一次。 | 添加失败 |
+| 往外提一层失败时的兜底报错 `Structure.tsx:86` | 挪不出来。 | 修改失败 |
+| 改名字失败时的兜底报错 `Structure.tsx:95` | 没改成。 | 修改失败: err msg |
+| 存内容/存问题答案失败时的兜底报错 `Structure.tsx:104` `Structure.tsx:122` | 没记下。 | 记录失败: err msg |
+| 删一块失败时的兜底报错 `Structure.tsx:113` | 没删掉。 | 删除失败 |
+| 收工后自动发回对话的那句话 `Structure.tsx:138` | 我把它分成了 {n} 块：{每一块的名字，用「、」连起来} | it should be the full content of the new structure.  |
 
 ### 5.8 分工设计（split）
 
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
-| 工具名 `apps/api/internal/pbl/tools.go:49` | 分工设计 |  |
-| 邀请卡上工具名后面那一句 `tools/registry.tsx:39` | 这件事哪几步你做，哪几步印记做 |  |
-| 界面顶部工具名下面那一行 `tools/surfaces/Split.tsx:79` | 这一步分成几格，看看哪几格该你自己做 |  |
-| 底部「还差」· 印记还没分格 `api/split.ts:90` | 还没有分工 |  |
-| 底部「还差」· 还有格没确认 `api/split.ts:92` | 还有 {n} 格没定 |  |
-| 底部收工按钮 `Split.tsx:82` | 就这么分 |  |
+| 工具名 `apps/api/internal/pbl/tools.go:49` | 分工设计 | 分工建议 |
+| 邀请卡上工具名后面那一句 `tools/registry.tsx:39` | 这件事哪几步你做，哪几步印记做 | we don't need this. delete this sentence |
+| 界面顶部工具名下面那一行 `tools/surfaces/Split.tsx:79` | 这一步分成几格，看看哪几格该你自己做 | 你和AI的分工 |
+| 底部「还差」· 印记还没分格 `api/split.ts:90` | 还没有分工 | 无分工 |
+| 底部「还差」· 还有格没确认 `api/split.ts:92` | 还有 {n} 格没定 | no,no,no, the collaboration plan is proposed by AI and confirmed by students so would never appears this. it is something like a task list, left side is task name, second column is name tags (AI/student's name). third column is why. student can confirm, or chat with AI to modify, need to provide reason. so many of the following texts are not needed. |
+| 底部收工按钮 `Split.tsx:82` | 就这么分 | 方案无误，开始执行 |
 | 这一步还没被分格时的空状态 `Split.tsx:120` | 印记还没给这一步分格。到对话里说一句「这一步怎么分」。 |  |
 | 分格列表上面那一行 · 全部归她时 `Split.tsx:128` | {n} 格都是你自己做。 |  |
 | 分格列表上面那一行 · 印记领了几格时 `Split.tsx:129` | {n} 格里，印记领了 {m} 格。 |  |
@@ -348,20 +352,20 @@
 | 点了改归属之后，必填理由格的标题 `Split.tsx:215` | 改成「{你做 / 印记做 / 一起做}」，为什么？ |  |
 | 必填理由输入框的灰字 `Split.tsx:222` | 比如：这一段我想自己写 |  |
 | 必填理由旁边的确认按钮 `Split.tsx:236` | 改 |  |
-| 收工后自动发回对话的那句话 `Split.tsx:86` | 这一步分了 {n} 格，我自己做 {m} 格。 |  |
+| 收工后自动发回对话的那句话 `Split.tsx:86` | 这一步分了 {n} 格，我自己做 {m} 格。 | it should be the full modified table |
 
 ### 5.9 项目复盘（lookback）
 
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
 | 工具名 `apps/api/internal/pbl/tools.go:50` | 项目复盘 |  |
-| 邀请卡上工具名后面那一句 `tools/registry.tsx:40` | 回头看这个项目，你是怎么走到这儿的 |  |
-| 界面顶部工具名下面那一行 `tools/surfaces/Lookback.tsx:54` | 回头看这个项目，你是怎么走到这儿的 |  |
+| 邀请卡上工具名后面那一句 `tools/registry.tsx:40` | 回头看这个项目，你是怎么走到这儿的 | 一起复盘项目过程吧！ |
+| 界面顶部工具名下面那一行 `tools/surfaces/Lookback.tsx:54` | 回头看这个项目，你是怎么走到这儿的 | 回顾项目落地全流程 |
 | 底部「还差」 `api/lookback.ts:35` | 还有 {n} 问没答 |  |
-| 底部收工按钮 `Lookback.tsx:57` | 复盘完了 |  |
-| 服务端还在生成问题时 `Lookback.tsx:73` | 在整理这个项目发生过的事… |  |
-| 问题列表底下那一行小字 `Lookback.tsx:84` | 这些问题是从你这个项目里发生过的事写出来的。 |  |
-| 每一问上方的来源标签 · 来自她改写过的问题 `Lookback.tsx:93` | 你改写过的问题 |  |
+| 底部收工按钮 `Lookback.tsx:57` | 复盘完了 | 完成 |
+| 服务端还在生成问题时 `Lookback.tsx:73` | 在整理这个项目发生过的事… | I need a beautiful loading state |
+| 问题列表底下那一行小字 `Lookback.tsx:84` | 这些问题是从你这个项目里发生过的事写出来的。 | 请根据你的真实项目体验和感受来回答 |
+| 每一问上方的来源标签 · 来自她改写过的问题 `Lookback.tsx:93` | 你改写过的问题 | if these are the columns in the reflection form, then I think it is awkward. generally the structure of a project reflection is: what (what we have done, what you experienced); how (how do you feel, about the journey, about your result). one of the most impressive thing. some praise towards myself. something that we can make progress later, and how. what you learned from the collaboration with AI. . but we can ask ai to generate concrete questions according to this structure. |
 | 每一问上方的来源标签 · 来自一个决定 `Lookback.tsx:94` | 你做过的一个决定 |  |
 | 每一问上方的来源标签 · 来自被退回的成果 `Lookback.tsx:95` | 你退回去的一份东西 |  |
 | 每一问的作答框灰字 `Lookback.tsx:119` | 想到什么写什么，不用写得好看 |  |
@@ -372,37 +376,37 @@
 | 上面那句里成果没标题时的替代词 `pbl_lookback.go:102` | 印记交的那一份 |  |
 | 服务端一定会问的第一个通用问题 `pbl_lookback.go:114` | 这个项目里，哪一步比你想的难？ |  |
 | 服务端一定会问的第二个通用问题 `pbl_lookback.go:119` | 下次再做这样一件事，你第一件会做什么？ |  |
-| 收工后自动发回对话的那句话 `Lookback.tsx:61` | 我把这个项目回头看了一遍，答了 {n} 问。 |  |
+| 收工后自动发回对话的那句话 `Lookback.tsx:61` | 我把这个项目回头看了一遍，答了 {n} 问。 | 复盘完成！ after this, we generate a project report or a reflection card for students.|
 
 ### 5.10 长期迭代（keep）
 
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
-| 工具名 `apps/api/internal/pbl/tools.go:51` | 长期迭代 |  |
-| 邀请卡上工具名后面那一句 `tools/registry.tsx:41` | 上线之后拿回来的数据，说明了什么 |  |
-| 界面顶部工具名下面那一行 `tools/surfaces/Keep.tsx:80` | 东西放出去之后发生了什么，记下来，再想想它说明什么 |  |
-| 底部「还差」 `Keep.tsx:82` | 先记一条真实发生的事 |  |
-| 底部收工按钮 `Keep.tsx:85` | 先到这里 |  |
-| 顶部那圈四步 · 第一步的名字 `api/lookback.ts:55` | 放出去 |  |
-| 第一步选中时下面那句提示 `api/lookback.ts:55` | 东西到了真实的人手里 |  |
-| 顶部那圈四步 · 第二步的名字 `api/lookback.ts:56` | 看数据 |  |
-| 第二步选中时下面那句提示 `api/lookback.ts:56` | 发生了什么，先只记事实 |  |
-| 顶部那圈四步 · 第三步的名字 `api/lookback.ts:57` | 读出意思 |  |
-| 第三步选中时下面那句提示 `api/lookback.ts:57` | 这些说明了什么 |  |
-| 顶部那圈四步 · 第四步的名字 `api/lookback.ts:58` | 改一件事 |  |
-| 第四步选中时下面那句提示 `api/lookback.ts:58` | 只改一件，才知道是它起的作用 |  |
-| 已经记过东西、又转回「放出去」时，提示后面接的那半句 `Keep.tsx:120` | · 改完了就再放出去一次 |  |
-| 记录类型按钮 · 数字 `api/lookback.ts:62` | 数字 |  |
-| 记录类型按钮 · 别人的反馈 `api/lookback.ts:63` | 别人说的 |  |
-| 记录类型按钮 · 她自己的想法 `api/lookback.ts:64` | 我的想法 |  |
-| 记一条的输入框灰字 · 选了「数字」时 `Keep.tsx:147` | 比如：这周有 12 个人打开过 |  |
-| 记一条的输入框灰字 · 其他类型时 `Keep.tsx:147` | 写一条 |  |
-| 记一条的加号按钮读屏名字 `Keep.tsx:154` | 记下来 |  |
-| 每一条下面的按钮 · 还没为它开过一轮思考 `Keep.tsx:183` | 想一想这条 |  |
-| 每一条下面的按钮 · 已经开过 `Keep.tsx:183` | 回到那一轮 |  |
-| 点「想一想这条」之后发回对话的那句话 `Keep.tsx:70` | 我想说说这一条：{那条记录} |  |
-| 服务端给这一轮新思考定的问题 `apps/api/internal/api/pbl_keep.go:139` | 这条说明了什么？下一步该改哪一件事？ |  |
-| 收工后自动发回对话的那句话 `Keep.tsx:84` | 我记了 {n} 条上线之后的事。 |  |
+| 工具名 `apps/api/internal/pbl/tools.go:51` | 长期迭代 | this part, we should be more clear, we should explain to students why iterate and collect data is important, then invite students to give back data and we discuss together |
+| 邀请卡上工具名后面那一句 `tools/registry.tsx:41` | 上线之后拿回来的数据，说明了什么 | 持续观察成果落地后的反馈，进一步迭代你的成果！ |
+| 界面顶部工具名下面那一行 `tools/surfaces/Keep.tsx:80` | 东西放出去之后发生了什么，记下来，再想想它说明什么 | 收集数据-思考原因-进行优化，是各产品不断变得越来越好的关键。 |
+| 底部「还差」 `Keep.tsx:82` | 先记一条真实发生的事 | 记录关于产品的实际反馈/使用情况 |
+| 底部收工按钮 `Keep.tsx:85` | 先到这里 | 完成 |
+| 顶部那圈四步 · 第一步的名字 `api/lookback.ts:55` | 放出去 | 发布/上线 |
+| 第一步选中时下面那句提示 `api/lookback.ts:55` | 东西到了真实的人手里 | 让真实用户开始使用你的产品 |
+| 顶部那圈四步 · 第二步的名字 `api/lookback.ts:56` | 看数据 | 收集数据 |
+| 第二步选中时下面那句提示 `api/lookback.ts:56` | 发生了什么，先只记事实 | 整理访谈、问卷调查、后台数据等，获得真实反馈 |
+| 顶部那圈四步 · 第三步的名字 `api/lookback.ts:57` | 读出意思 | 数据分析 |
+| 第三步选中时下面那句提示 `api/lookback.ts:57` | 这些说明了什么 | 从上述数据中提取对产品有益的洞察 |
+| 顶部那圈四步 · 第四步的名字 `api/lookback.ts:58` | 改一件事 | 产品迭代 |
+| 第四步选中时下面那句提示 `api/lookback.ts:58` | 只改一件，才知道是它起的作用 |形成产品迭代方案，并落地迭代  |
+| 已经记过东西、又转回「放出去」时，提示后面接的那半句 `Keep.tsx:120` | · 改完了就再放出去一次 | 再次发布，持续收集反馈 |
+| 记录类型按钮 · 数字 `api/lookback.ts:62` | 数字 | 产品数据 |
+| 记录类型按钮 · 别人的反馈 `api/lookback.ts:63` | 别人说的 | 访谈/调查结果 |
+| 记录类型按钮 · 她自己的想法 `api/lookback.ts:64` | 我的想法 | 我的灵感 |
+| 记一条的输入框灰字 · 选了「数字」时 `Keep.tsx:147` | 比如：这周有 12 个人打开过 | 停留时长、点击率、留存率(with each can click to see what are they) |
+| 记一条的输入框灰字 · 其他类型时 `Keep.tsx:147` | 写一条 | 针对谁的访谈，ta表达了什么？ |
+| 记一条的加号按钮读屏名字 `Keep.tsx:154` | 记下来 | 你的灵感是什么，为什么？ |
+| 每一条下面的按钮 · 还没为它开过一轮思考 `Keep.tsx:183` | 想一想这条 | 深入讨论 |
+| 每一条下面的按钮 · 已经开过 `Keep.tsx:183` | 回到那一轮 | 继续讨论 |
+| 点「想一想这条」之后发回对话的那句话 `Keep.tsx:70` | 我想说说这一条：{那条记录} | I didn't understand this  |
+| 服务端给这一轮新思考定的问题 `apps/api/internal/api/pbl_keep.go:139` | 这条说明了什么？下一步该改哪一件事？ | didn't understand this |
+| 收工后自动发回对话的那句话 `Keep.tsx:84` | 我记了 {n} 条上线之后的事。 | didn't understand this |
 
 ---
 
@@ -428,28 +432,28 @@
 | 深挖层的名字 `api/projectRoom.ts:66` | 重新看这个问题 |  |
 | 深挖层的名字 `api/projectRoom.ts:67` | 多想几种做法 |  |
 | 深挖层的名字 `api/projectRoom.ts:68` | 一起看计划 |  |
-| 计划里每一步的状态标签 `api/projectRoom.ts:140` | 定了 |  |
-| 计划里每一步的状态标签 `api/projectRoom.ts:141` | 暂定 |  |
-| 计划里每一步的状态标签（黄色，等着不动） `api/projectRoom.ts:142` | 等结果 |  |
-| 计划里每一步的状态标签（黄色，等着不动） `api/projectRoom.ts:143` | 等你定 |  |
-| 计划里每一步的状态标签 `api/projectRoom.ts:144` | 做完了 |  |
-| 计划里每一步的状态标签 `api/projectRoom.ts:145` | 改过了 |  |
-| 计划里每一步的状态标签 `api/projectRoom.ts:146` | 不做了 |  |
-| 「要不要改计划」页的五个选项 `api/projectRoom.ts:214` | 就这么改 |  |
-| 「要不要改计划」页的五个选项 `api/projectRoom.ts:215` | 改一下再用 |  |
-| 「要不要改计划」页的五个选项 `api/projectRoom.ts:216` | 还是按原来的 |  |
-| 「要不要改计划」页的五个选项 `api/projectRoom.ts:217` | 两条都试试 |  |
-| 「要不要改计划」页的五个选项 `api/projectRoom.ts:218` | 先补证据再说 |  |
+| 计划里每一步的状态标签 `api/projectRoom.ts:140` | 定了 | 已确定 |
+| 计划里每一步的状态标签 `api/projectRoom.ts:141` | 暂定 | 暂时确定 |
+| 计划里每一步的状态标签（黄色，等着不动） `api/projectRoom.ts:142` | 等结果 | 处理中 |
+| 计划里每一步的状态标签（黄色，等着不动） `api/projectRoom.ts:143` | 等你定 | 需要确定 |
+| 计划里每一步的状态标签 `api/projectRoom.ts:144` | 做完了 | 已完成 |
+| 计划里每一步的状态标签 `api/projectRoom.ts:145` | 改过了 | 已修改 |
+| 计划里每一步的状态标签 `api/projectRoom.ts:146` | 不做了 | 跳过 |
+| 「要不要改计划」页的五个选项 `api/projectRoom.ts:214` | 就这么改 | 确认 (this page has five buttons - this is ridiculous. only modify, or confirm) |
+| 「要不要改计划」页的五个选项 `api/projectRoom.ts:215` | 改一下再用 | 等一下！ |
+| 「要不要改计划」页的五个选项 `api/projectRoom.ts:216` | 还是按原来的 | 保持现状 |
+| 「要不要改计划」页的五个选项 `api/projectRoom.ts:217` | 两条都试试 | 保留两者 |
+| 「要不要改计划」页的五个选项 `api/projectRoom.ts:218` | 先补证据再说 | 稍后再改  |
 | 「印记想改的」下面每一行前面的类型标签 `projects/PlanPanel.tsx:258` | 新增 |  |
-| 同上 `PlanPanel.tsx:260` | 删掉 |  |
-| 同上 `PlanPanel.tsx:262` | 改成 |  |
-| 同上 `PlanPanel.tsx:264` | 先放着 |  |
+| 同上 `PlanPanel.tsx:260` | 删掉 | 删除 |
+| 同上 `PlanPanel.tsx:262` | 改成 | 修改 |
+| 同上 `PlanPanel.tsx:264` | 先放着 | 暂定 |
 | 便签种类（便签板五种，观察日记里只出现前四种） `api/notes.ts:30` | 观察结论 |  |
-| 便签种类 `api/notes.ts:34` | 别人说的 |  |
-| 便签种类 `api/notes.ts:35` | 我猜的 |  |
-| 便签种类 `api/notes.ts:36` | 想问的 |  |
-| 便签种类 `api/notes.ts:37` | 办法 |  |
-| 分工归属标签 · 分工设计里每一格右上角 `api/split.ts:24` | 你做 |  |
+| 便签种类 `api/notes.ts:34` | 别人说的 | 实际观察 |
+| 便签种类 `api/notes.ts:35` | 我猜的 | 推论 |
+| 便签种类 `api/notes.ts:36` | 想问的 | 提出的问题 |
+| 便签种类 `api/notes.ts:37` | 办法 | 解决方案 |
+| 分工归属标签 · 分工设计里每一格右上角 `api/split.ts:24` | 你做 | here we don't use these tags.  we use avatars or tags, with names, students name/ AI's name, for both, there are two tags, for only one person is necessary, only one tag. tag should have different colors |
 | 分工归属标签 `api/split.ts:25` | 印记做 |  |
 | 分工归属标签 `api/split.ts:26` | 一起做 |  |
 
@@ -465,16 +469,17 @@
 | 后台没给出任何说明时，填进上面那句的替代词 `api/errorText.ts:22` | 没有更多信息 |  |
 
 ### 7.2 后端消息（会原样出现在上面那句红字里）
+这个部分的大原则：尽可能给出详细报错信息，方便debug
 
 | 出现在哪里 / 什么时候 | 现在的文案 | 改成 |
 |---|---|---|
-| 任何一次请求体格式不对（出现在几乎所有接口） `apps/api/internal/api/pbl_projects.go:66` 等约 20 处 | 请求格式不对 |  |
-| 服务器自己出错（通用 500） `apps/api/internal/httpx/errors.go:151` | 服务器内部错误 |  |
-| 模型没接上或回复读不懂——发一轮对话时（含进房间自动发的第一轮） `httpx/errors.go:162` · `pbl_turn.go:102` | AI 暂时没接上，请重试。 |  |
-| 大输入框空着就按「开始」 `pbl_projects.go:71` | 先写一句你想做什么 |  |
+| 任何一次请求体格式不对（出现在几乎所有接口） `apps/api/internal/api/pbl_projects.go:66` 等约 20 处 | 请求格式不对 | 请求格式错误: {err message} |
+| 服务器自己出错（通用 500） `apps/api/internal/httpx/errors.go:151` | 服务器内部错误 |  服务器内部错误: {err message} |
+| 模型没接上或回复读不懂——发一轮对话时（含进房间自动发的第一轮） `httpx/errors.go:162` · `pbl_turn.go:102` | AI 暂时没接上，请重试。 | AI 响应错误: {err message} |
+| 大输入框空着就按「开始」 `pbl_projects.go:71` | 先写一句你想做什么 | this should be blocked by frontend with the input box empty and 震动 hint that you should write something |
 | 打开一个已经不存在（或不属于她）的项目 `pbl_projects.go:150` 等 3 处 · `pbl_sessions.go:32` | 项目不存在 |  |
-| 把项目改成一个不认识的状态 `pbl_projects.go:179` | 不认识这个状态 |  |
-| 对话输入框是空的就按发送 `pbl_turn.go:67` | 说点什么再发 |  |
+| 把项目改成一个不认识的状态 `pbl_projects.go:179` | 不认识这个状态 | 不合法状态 |
+| 对话输入框是空的就按发送 `pbl_turn.go:67` | 说点什么再发 | 请输入 |
 | 在一个已经不存在的深挖层里说话、看线程、交成果、开决定 `pbl_turn.go:77` · `pbl_sessions.go:157` · `pbl_artifacts.go:127` · `pbl_decide.go:185` 等 | 这一层不存在 |  |
 | 往一个已经收起来的深挖层里说话 `pbl_turn.go:86` | 这一层已经收起来了 |  |
 | 再次收起一个已经收起来的深挖层 `pbl_sessions.go:166` | 这一层已经收起来了 |  |

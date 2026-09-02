@@ -1,5 +1,5 @@
 import { apiErrorText } from "../../../api/errorText";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   answerLookback,
   bySection,
@@ -25,8 +25,13 @@ import type { ToolSurfaceProps } from "../registry";
 export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
   const [prompts, setPrompts] = useState<LookbackPrompt[]>([]);
   const [error, setError] = useState<string | null>(null);
+  // 🚨 只拉一次。StrictMode 会把挂载跑两遍，两次 GET 都会触发一次生成——问题
+  // 翻倍不说，钱也白花一份。服务端另有一道锁兜底，但常见的这一种在这里就该拦住。
+  const asked = useRef(false);
 
   const reload = useCallback(async () => {
+    if (asked.current) return;
+    asked.current = true;
     try {
       setPrompts(await getLookback(projectId));
     } catch (err) {
@@ -68,7 +73,10 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
       )}
 
       {prompts.length === 0 && !error && (
-        <p className="text-mk-small text-mk-muted">印记正在读这个项目发生过的事，为你写复盘问题…</p>
+        <p className="text-mk-small text-mk-muted">
+          印记正在读这个项目发生过的事，为你写复盘问题。这一步要读完整个项目，
+          通常要等一分钟左右。
+        </p>
       )}
 
       {/* 六段。段是骨架：她答完一串零碎的问题，仍然没被带着从"做了什么"

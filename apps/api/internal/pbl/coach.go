@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"time"
 
 	"mindimprint/api/internal/gateway"
 )
@@ -108,9 +109,16 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
 
 一次只说一件事，说完停下来等他。句子短一点，用他自己的词。
 
-【往下推进】
-他说得含糊，就问那件事的一个具体侧面。他说得具体了，就往前走一步：
-这件事对谁有影响？他打算先弄清楚什么？
+【怎么问】
+🚨 **不要给他两个选项让他挑。**「大多是没动过的，还是吃了一半的？」这种问法，
+是把你自己猜的两种可能塞给他，他只能在你的框里选一个——而他真正看到的东西，
+很可能两个都不是。
+
+要问得让他必须**自己描述**。先给一个敞开的邀请（多讲讲那天的情况），再顺着这
+件事的几个侧面往下问：什么时候发生、有多少、都是些什么类型、涉及的是哪些人。
+一次问一个侧面。
+
+他说得具体了，就往前走一步：这件事对谁有影响？他打算先弄清楚什么？
 
 真遇到一个值得单独坐下来想的问题——两句话互相矛盾、一个问题大到没法下手、
 一个已经把答案藏在里面的问题——才给一个钩子。平时不用找。
@@ -228,7 +236,24 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 	}, nil
 }
 
-const maxCoachAttempts = 2
+const maxCoachAttempts = 3
+
+// backoffBeforeRetry 在两次尝试之间等一小会儿。
+//
+// 🚨 上游 503（服务过载）是会自己好的那种错。两次尝试贴着发出去，撞的是同一
+// 波过载——等于只试了一次。2026-09-02 那轮 walk 里连着五个 503，学生看到的是
+// 「AI 暂时没接上」，而其实隔一秒再问就有了。
+//
+// 等待跟着 ctx 走：她把页面关了，就别再等下去。
+func backoffBeforeRetry(ctx context.Context, attempt int) {
+	d := time.Duration(1<<attempt) * time.Second
+	t := time.NewTimer(d)
+	defer t.Stop()
+	select {
+	case <-ctx.Done():
+	case <-t.C:
+	}
+}
 
 // Coach runs one turn. Usage is returned even on failure so the caller meters:
 // a call that produced nothing still cost money.
@@ -249,6 +274,9 @@ func Coach(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved
 	var lastUsage gateway.ChatUsage
 	var lastErr error
 	for attempt := 0; attempt < maxCoachAttempts; attempt++ {
+		if attempt > 0 {
+			backoffBeforeRetry(ctx, attempt-1)
+		}
 		res, err := gateway.Collect(ctx, prov, resolved, req)
 		lastUsage = res.Usage
 		if err != nil {

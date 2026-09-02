@@ -34,8 +34,13 @@ import type { ToolSurfaceProps } from "../registry";
 
 const NODE_W = 168;
 const NODE_H = 56;
-const CANVAS_W = 760;
-const CANVAS_H = 520;
+// 🚨 画布按内容量出来，不写死。
+//
+// 写死 760×520 塞进一栏 360px 的面板里，她看到的是一小扇窗，窗外一片空白——
+// 三个节点的图看着像坏了。下限保证空图时不至于塌成一条缝。
+const MIN_W = 320;
+const MIN_H = 240;
+const PAD = 16;
 
 export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
   const [state, setState] = useState<TreeState>({ tree: "main", nodes: [], checks: [] });
@@ -59,6 +64,15 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
 
   const ordered = useMemo(() => outline(state.nodes), [state.nodes]);
   const layout = useMemo(() => autoLayout(state.nodes), [state.nodes]);
+  const size = useMemo(() => {
+    let w = MIN_W;
+    let h = MIN_H;
+    for (const { x, y } of layout.values()) {
+      w = Math.max(w, x + NODE_W + PAD);
+      h = Math.max(h, y + NODE_H + PAD);
+    }
+    return { w, h };
+  }, [layout]);
   const at = useCallback(
     (id: string) => layout.get(id) ?? { x: 16, y: 16 },
     [layout],
@@ -97,8 +111,8 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
 
     const onMove = (ev: PointerEvent) => {
       moved = true;
-      const x = Math.max(0, Math.min(CANVAS_W - NODE_W, ev.clientX - rect.left - grabX));
-      const y = Math.max(0, Math.min(CANVAS_H - NODE_H, ev.clientY - rect.top - grabY));
+      const x = Math.max(0, Math.min(rect.width - NODE_W, ev.clientX - rect.left - grabX));
+      const y = Math.max(0, Math.min(rect.height - NODE_H, ev.clientY - rect.top - grabY));
       last = { x, y };
       setState((prev) => ({
         ...prev,
@@ -185,8 +199,8 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           ref={canvasRef}
           className="relative"
           style={{
-            width: CANVAS_W,
-            height: CANVAS_H,
+            width: size.w,
+            height: size.h,
             background: "var(--mk-paper)",
             backgroundImage:
               "radial-gradient(color-mix(in srgb, var(--mk-border) 55%, transparent) 1px, transparent 1px)",
@@ -201,7 +215,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
           )}
 
           {/* 连线。画在节点下面。 */}
-          <svg className="pointer-events-none absolute inset-0" width={CANVAS_W} height={CANVAS_H}>
+          <svg className="pointer-events-none absolute inset-0" width={size.w} height={size.h}>
             {state.nodes.map((n) => {
               if (!n.parentId) return null;
               const a = at(n.parentId);
