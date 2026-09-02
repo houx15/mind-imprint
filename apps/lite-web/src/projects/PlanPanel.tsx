@@ -1,7 +1,7 @@
 import { apiErrorText } from "../api/errorText";
 import { useState } from "react";
 import {
-  PLAN_RESOLUTIONS,
+  PLAN_DECISIONS,
   PLAN_RESOLUTION_LABELS,
   STEP_STATUS_LABELS,
   WAITING_STATUSES,
@@ -124,15 +124,32 @@ function StepRow({ step }: { step: PlanStep }) {
       {open && (
         <div className="border-t border-mk-border px-3 py-3 text-mk-small">
           {step.goal && <Line label="内容" value={step.goal} />}
-          {step.iBring && <Line label="印记做" value={step.iBring} />}
-          {step.youBring && <Line label="你做" value={step.youBring} />}
-          {/* Always shown, never optional: a step where she decides nothing is
-              a step she should not sit through. */}
-          <Line label="你来判断" value={step.decide} strong />
-          {step.thenBring && <Line label="做完交回来" value={step.thenBring} />}
+          {/* 谁做这件事用人名标签表示，不用「印记做 / 你做」当行首标签——
+              标签是给东西命名的，「印记做」是在替它讲话（AGENTS.md §界面文案 0）。 */}
+          {step.iBring && <Owned who="印记" value={step.iBring} />}
+          {step.youBring && <Owned who="你" value={step.youBring} />}
         </div>
       )}
     </li>
+  );
+}
+
+/** 一行「谁 · 做什么」。谁用一个带色的名字标签，和分工建议里那套一致。 */
+function Owned({ who, value }: { who: string; value: string }) {
+  const mine = who === "你";
+  return (
+    <div className="mt-1.5 flex items-start gap-2">
+      <span
+        className="mt-0.5 shrink-0 rounded-mk-full px-2 py-0.5 text-mk-small"
+        style={{
+          background: `color-mix(in srgb, ${mine ? "#10B981" : "#8B5CF6"} 16%, transparent)`,
+          color: "var(--mk-ink)",
+        }}
+      >
+        {who}
+      </span>
+      <span className="min-w-0 text-mk-small text-mk-ink">{value}</span>
+    </div>
   );
 }
 
@@ -203,7 +220,7 @@ function PlanCheck({
 
         <p className="mt-6 text-mk-label uppercase text-mk-faint">决策时刻</p>
         <div className="mt-2 flex flex-col gap-1.5">
-          {PLAN_RESOLUTIONS.map((r) => (
+          {PLAN_DECISIONS.map((r) => (
             <button
               key={r}
               type="button"

@@ -30,7 +30,7 @@ import {
 } from "../api/tools";
 import { navigate } from "../routing";
 import { WorkPanel } from "./WorkPanel";
-import { ToolInvite } from "./tools/ToolInvite";
+import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -270,6 +270,9 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
 
   // 刚递出来、她还没表态的。
   const invites = tools.filter((t) => t.status === "summoned");
+  // 她答应了、人出门去做的那几件。留在对话里她当初答应的那个位置，因为那就是
+  // 她记得的地方；右侧面板不为它单开一档（产品负责人 2026-09-02）。
+  const away = tools.filter((t) => t.kind === "world" && t.status === "accepted");
 
   return (
     <div className="flex h-full min-h-0">
@@ -330,6 +333,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             )}
 
             {/* 递到手边的工具。放在对话末尾，因为它是印记刚说的话的一部分。 */}
+            {away.map((t) => (
+              <AwayCard
+                key={t.id}
+                tool={t}
+                busy={busy}
+                onBack={() => setOpenTool(t.id)}
+              />
+            ))}
             {invites.map((t) => (
               <ToolInvite
                 key={t.id}
@@ -390,7 +401,6 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           busy={busy}
           onSelectTool={setOpenTool}
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
-          onBackFromAway={(t) => setOpenTool(t.id)}
           onResolve={onResolve}
           onApprove={onApprove}
         />

@@ -1,9 +1,7 @@
 import { useState } from "react";
 import type { PlanResolution, PlanState } from "../api/projectRoom";
 import type { ToolInstance } from "../api/tools";
-import { awayTools } from "../api/tools";
 import { PlanPanel } from "./PlanPanel";
-import { AwayCard } from "./tools/ToolInvite";
 import { TOOL_TASKS, surfaceFor } from "./tools/registry";
 import { ToolFrame } from "./tools/ToolFrame";
 
@@ -23,7 +21,6 @@ export function WorkPanel({
   openTool,
   onSelectTool,
   onFinishTool,
-  onBackFromAway,
   onResolve,
   onApprove,
   busy,
@@ -35,7 +32,6 @@ export function WorkPanel({
   openTool: string | null;
   onSelectTool: (id: string | null) => void;
   onFinishTool: (tool: ToolInstance, result: unknown, summary: string) => void;
-  onBackFromAway: (tool: ToolInstance) => void;
   onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
   busy?: boolean;
@@ -43,7 +39,6 @@ export function WorkPanel({
   // 标签页只给当场做的工具。出门的那些不占标签——她人不在，一个空着的标签
   // 页只会像一件没做完的事。
   const openThinking = tools.filter((t) => t.kind === "thinking" && t.status === "accepted");
-  const away = awayTools(tools);
   // 🚨 打开的可以是任何一件已接受的工具，包括出门回来要汇报的那件——所以这里
   // 查的是全部 tools，不是 openThinking。少了这一句，「我回来了」按下去没反应。
   const active = tools.find((t) => t.id === openTool && t.status === "accepted") ?? null;
@@ -74,14 +69,9 @@ export function WorkPanel({
           />
         ) : (
           <div className="flex h-full flex-col">
-            {away.length > 0 && (
-              <div className="shrink-0 space-y-2 border-b border-mk-border px-3 py-3">
-                <p className="text-mk-small text-mk-muted">你出门在做的事</p>
-                {away.map((t) => (
-                  <AwayCard key={t.id} tool={t} onBack={() => onBackFromAway(t)} busy={busy} />
-                ))}
-              </div>
-            )}
+            {/* 出门在做的那件事不在这里单开一档（产品负责人 2026-09-02：
+                「we only show done, processing, plan three status」）。它的
+                入口在对话里那张邀请卡上，回来点「已完成」就行。 */}
             <div className="min-h-0 flex-1">
               <PlanPanel
                 plan={plan.plan}

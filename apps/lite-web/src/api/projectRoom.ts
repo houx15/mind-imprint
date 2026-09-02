@@ -209,14 +209,25 @@ export function setStepStatus(projectId: string, stepId: string, status: StepSta
 export const PLAN_RESOLUTIONS = ["accepted", "edited", "kept", "forked", "deferred"] as const;
 export type PlanResolution = (typeof PLAN_RESOLUTIONS)[number];
 
-/** 「保留原计划」 sits among the others as an equal, not as a decline. */
 export const PLAN_RESOLUTION_LABELS: Record<PlanResolution, string> = {
-  accepted: "就这么改",
-  edited: "改一下再用",
-  kept: "还是按原来的",
-  forked: "两条都试试",
-  deferred: "先补证据再说",
+  accepted: "确认",
+  edited: "修改",
+  kept: "保持现状",
+  forked: "保留两者",
+  deferred: "稍后再改",
 };
+
+/**
+ * 界面上真正给她的两个选择。
+ *
+ * 产品负责人 2026-09-02：「this page has five buttons - this is ridiculous.
+ * only modify, or confirm」。五个并列的按钮把一个本来很简单的判断（这版改动
+ * 行不行）变成了一道选择题。
+ *
+ * 另外三个值仍然留在 PLAN_RESOLUTIONS 和数据库的 CHECK 里：历史数据里有它们，
+ * 而且删一个枚举值要一次迁移，换不来任何东西。
+ */
+export const PLAN_DECISIONS: PlanResolution[] = ["accepted", "edited"];
 
 export function resolveChange(
   projectId: string,
