@@ -194,6 +194,9 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
 
   const idea =
     "我想写一篇论证文，说说学校该不该允许学生在课间用手机——我自己观察到很多同学课间刷手机后上课更难集中注意力，但也有人说课间是唯一能自由社交、放松一下的时间。";
+  // 完成这篇时她给这篇起的名字。带上这一轮的后缀，重复跑不会在「我的写作」
+  // 里撞名字。
+  const PIECE_NAME = titled("课间手机该不该禁");
   const id = await startWriting(page, idea);
 
   // ── the 设定 dialog: language, length, and her own words ────────────────
@@ -441,13 +444,32 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await expect(mark).toBeVisible({ timeout: 15_000 });
   await expect(mark).toHaveText(reviewed.comment.points[0].quote);
 
-  // ── 完成这篇 → 已完成, terminal, and the finished draft is what she wrote ─
+  // ── 完成这篇 → 起名字 → 已完成 ────────────────────────────────────────
+  //
+  // 🚨 完成这篇先问名字（NamePieceModal，2026-08-30 上线）：这一栏里放的还是她
+  // 最开始写的那句「我想写…」，而报告、导出的图和发出去的链接上印的都是它。
+  // 这条 walk 一直没跟上——点完按钮就干等 /finish，等 15 秒然后失败。从那天起
+  // 它就没绿过，而它失败的方式看起来像"完成坏了"，其实是走到了一扇没人认识的门。
+  await page.getByRole("button", { name: "完成这篇", exact: true }).click();
+  const nameBox = page.getByPlaceholder("写一个你想让别人看到的名字");
+  await expect(nameBox).toBeVisible({ timeout: 60_000 });
+  await nameBox.fill(PIECE_NAME);
   await Promise.all([
-    page.waitForResponse((r) => r.url().includes("/finish") && r.request().method() === "POST"),
-    page.getByRole("button", { name: "完成这篇", exact: true }).click(),
+    page.waitForResponse(
+      (r) => r.url().includes("/finish") && r.request().method() === "POST",
+      { timeout: 60_000 },
+    ),
+    page.getByRole("button", { name: "确认并完成" }).click(),
   ]);
   await expect(page.getByText("已完成", { exact: true })).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByRole("heading", { name: idea })).toBeVisible();
+  // 起过名字之后，标题就是这个名字，不再是她最初那句「我想写…」。
+  await expect(page.getByRole("heading", { name: PIECE_NAME })).toBeVisible();
+  // 🚨 完成之后先出现的是「印记正在把这次写的东西整理成一份报告，稍等一下。」，
+  // 那是一次真的模型调用。她写的那两段要等报告落下来才显示，所以这里必须等它
+  // 走完——直接断言段落，等到的是那句"稍等一下"，看起来像"完成把她的字弄丢了"。
+  await expect(
+    page.getByText("印记正在把这次写的东西整理成一份报告", { exact: false }),
+  ).toHaveCount(0, { timeout: 300_000 });
   await expect(page.getByText(paragraph1)).toBeVisible();
   await expect(page.getByText(paragraph2)).toBeVisible();
   await expect(page.getByRole("button", { name: "回到写作", exact: true })).toBeVisible();

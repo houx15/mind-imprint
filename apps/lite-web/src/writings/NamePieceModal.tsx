@@ -78,7 +78,7 @@ export function NamePieceModal({
             用原来的
           </Button>
           <Button onClick={() => onName(trimmed)} loading={saving} disabled={trimmed === ""}>
-            就叫这个，完成
+            确认并完成
           </Button>
         </>
       }
