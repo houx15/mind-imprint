@@ -186,7 +186,7 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 	if req.Status != nil {
 		s := strings.TrimSpace(*req.Status)
 		if !pblProjectStatuses[s] {
-			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_status", "不认识这个状态", nil))
+			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_status", "不合法状态", nil))
 			return
 		}
 		p, err := a.d.Queries.SetPblProjectStatus(r.Context(),
@@ -235,6 +235,4 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 // apiErrorText 现在会把后端原话原样显示给学生，所以「请求格式不对」这五个字
 // 是她和我们同时能看到的**全部**信息——等于什么都没说。解码器自己知道是哪一
 // 行、哪个字段坏了，带上它。
-func errBadJSON(err error) error {
-	return httpx.ErrBadRequest("bad_json", "请求格式错误："+err.Error(), nil)
-}
+func errBadJSON(err error) error { return httpx.ErrBadJSON(err) }

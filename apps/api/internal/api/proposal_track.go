@@ -254,7 +254,7 @@ func (a *API) setProposalMode(w http.ResponseWriter, r *http.Request) {
 		Mode string `json:"mode"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	mode := agent.WriteMode(body.Mode)
@@ -300,7 +300,7 @@ func (a *API) setProposalSubQuestions(w http.ResponseWriter, r *http.Request) {
 		SubQuestions []agent.SubQuestion `json:"subQuestions"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	state, err := a.loadTrackState(r.Context(), projectID)
@@ -344,7 +344,7 @@ func (a *API) advanceProposalStep(w http.ResponseWriter, r *http.Request) {
 		To  *int   `json:"to"` // §4 gap G10 · absolute jump to a step (parts overview)
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	state, err := a.loadTrackState(r.Context(), projectID)

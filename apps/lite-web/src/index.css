@@ -1496,3 +1496,30 @@
     padding-inline: 32px;
   }
 }
+
+/* 空着按「开始」时，输入框抖一下。
+ *
+ * 产品负责人 2026-09-02（文案表 §7.2）：「this should be blocked by frontend
+ * with the input box empty and 震动 hint that you should write something」。
+ *
+ * 原来是把按钮置灰。置灰是一堵沉默的墙——她点不动，也没人告诉她为什么点不动，
+ * 更没人指给她看该往哪写。抖一下把注意力送回输入框，那里的灰字已经写着要写
+ * 什么了，不用再加一句红字。 */
+@keyframes mk-shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-6px); }
+  30% { transform: translateX(5px); }
+  45% { transform: translateX(-4px); }
+  60% { transform: translateX(3px); }
+  75% { transform: translateX(-2px); }
+}
+
+.mk-shake {
+  animation: mk-shake 0.4s ease;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-shake {
+    animation: none;
+  }
+}

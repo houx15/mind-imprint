@@ -67,7 +67,7 @@ func (a *API) litePutBrief(w http.ResponseWriter, r *http.Request) {
 		ReadingFocus  string  `json:"readingFocus"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	row, err := a.d.Queries.UpsertReadingBrief(r.Context(), sqlc.UpsertReadingBriefParams{
@@ -123,7 +123,7 @@ func (a *API) litePutTakeaway(w http.ResponseWriter, r *http.Request) {
 		Text string `json:"text"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	row, err := a.d.Queries.UpsertReadingTakeaway(r.Context(), sqlc.UpsertReadingTakeawayParams{
@@ -196,7 +196,7 @@ func (a *API) liteCreateAnnotationFor(kind string) http.HandlerFunc {
 			Note    string          `json:"note"`
 		}
 		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+			httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 			return
 		}
 		blockID := strings.TrimSpace(req.BlockID)

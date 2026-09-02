@@ -33,7 +33,7 @@ func (a *API) submitReflection(w http.ResponseWriter, r *http.Request) {
 		Text string `json:"text"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	if utf8.RuneCountInString(req.Text) < 20 {

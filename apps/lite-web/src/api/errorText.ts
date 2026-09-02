@@ -19,5 +19,15 @@ export function apiErrorText(err: unknown): string {
       : typeof err === "string"
         ? err
         : "";
-  return `后台错误：${detail.trim() || "没有更多信息"}`;
+  // 🚨 details 也要带上。后台早就在往信封里放这一格（httpx.APIError.Details），
+  // 只是这里一直只读 message——最能说明问题的那半截（是哪个上游、什么状态码、
+  // JSON 哪里读不下去）被扔在门口。产品负责人 2026-09-02：「尽可能给出详细
+  // 报错信息，方便 debug」。
+  //
+  // details 按约定只装不含密钥的机器细节；密钥在请求头里，不在这些字符串里。
+  const more =
+    err instanceof ApiError && typeof err.details === "string" && err.details.trim()
+      ? `（${err.details.trim()}）`
+      : "";
+  return `后台错误：${detail.trim() || "没有更多信息"}${more}`;
 }

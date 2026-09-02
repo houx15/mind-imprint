@@ -146,6 +146,21 @@ func ErrOSSUnavailable() *APIError {
 	return &APIError{Status: http.StatusServiceUnavailable, Code: "oss_disabled", Message: "文件存储暂未开启。"}
 }
 
+// ErrBadJSON is the 400 for a request body that will not decode.
+//
+// 解码器自己的话是可以给出去的：它描述的是调用方刚发过来的那段 payload
+// （偏移量、字段名、类型对不上），不含服务端的任何东西。少了它，「请求格式
+// 错误」五个字什么也没说——少写一个字段和写错一个类型长得一模一样。
+//
+// 产品负责人 2026-09-02（文案表 §7.2）：「尽可能给出详细报错信息，方便 debug」。
+func ErrBadJSON(err error) *APIError {
+	msg := "请求格式错误"
+	if err != nil {
+		msg += "：" + err.Error()
+	}
+	return &APIError{Status: http.StatusBadRequest, Code: "bad_json", Message: msg}
+}
+
 // ErrInternal is the generic, client-safe 500. Real detail is logged, never sent.
 func ErrInternal() *APIError {
 	return &APIError{Status: http.StatusInternalServerError, Code: "internal_error", Message: "服务器内部错误"}
@@ -159,7 +174,7 @@ func ErrInternal() *APIError {
 // instead. `reason` is a short, secret-free machine detail (also logged); model
 // API keys live only in headers, never in these error strings.
 func ErrAIDialogueFailed(reason string) *APIError {
-	return &APIError{Status: http.StatusBadGateway, Code: "ai_dialogue_failed", Message: "AI 暂时没接上，请重试。", Details: reason}
+	return &APIError{Status: http.StatusBadGateway, Code: "ai_dialogue_failed", Message: "AI 响应错误", Details: reason}
 }
 
 // WriteJSON marshals v and writes it with the given status. On marshal failure
@@ -198,6 +213,10 @@ func WriteError(w http.ResponseWriter, r *http.Request, err error) {
 			"err", err.Error(),
 		)
 		apiErr = ErrInternal()
+		// 🚨 只给请求编号，不给原始错误。500 底下常是 pgx 的错，里面可能带着
+		// 连接串、表结构、内部主机名——那是不许出服务端的东西。编号足以把她
+		// 屏幕上这一行和上面那条完整日志对上，这才是 debug 真正需要的。
+		apiErr.Details = "请求编号 " + requestIDFromContext(r.Context())
 	}
 	WriteJSON(w, apiErr.Status, errorBody{Error: apiErr})
 }

@@ -36,7 +36,7 @@ func (a *API) submitSelfScore(w http.ResponseWriter, r *http.Request) {
 		} `json:"scores"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	valid := map[string]bool{}

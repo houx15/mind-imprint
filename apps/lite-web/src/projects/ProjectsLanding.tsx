@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Icon } from "@/ui";
 import { ApiError } from "../api/client";
@@ -38,6 +38,8 @@ import { apiErrorText } from "../api/errorText";
  */
 export function ProjectsLanding() {
   const [projects, setProjects] = useState<Project[] | null>(null);
+  const [shake, setShake] = useState(false);
+  const boxRef = useRef<HTMLTextAreaElement>(null);
   const [idea, setIdea] = useState("");
   const [creating, setCreating] = useState(false);
   // 默认看卡片：她多数时候是来找某一个项目接着做。
@@ -68,7 +70,17 @@ export function ProjectsLanding() {
 
   async function handleStart() {
     const text = idea.trim();
-    if (!text || creating) return;
+    if (creating) return;
+    // 🚨 空着就按「开始」：抖一下，把光标送回输入框。
+    //
+    // 原来是把按钮置灰。置灰是一堵沉默的墙——她点不动，没人告诉她为什么，也
+    // 没人指给她看该往哪写。灰字里已经写着要写什么了，抖一下就够，不用再加
+    // 一句红字（产品负责人 2026-09-02，文案表 §7.2）。
+    if (!text) {
+      setShake(true);
+      boxRef.current?.focus();
+      return;
+    }
     setCreating(true);
     setError(null);
     try {
@@ -98,8 +110,14 @@ export function ProjectsLanding() {
             一句话就行。想清楚要做什么，是我们一起的第一件事。
           </p>
 
-          <div className="mt-7 rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-mk-sm focus-within:border-mk-accent-200">
+          <div
+            onAnimationEnd={() => setShake(false)}
+            className={`mt-7 rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-mk-sm focus-within:border-mk-accent-200${
+              shake ? " mk-shake" : ""
+            }`}
+          >
             <textarea
+              ref={boxRef}
               value={idea}
               onChange={(e) => setIdea(e.target.value)}
               rows={4}
@@ -119,7 +137,7 @@ export function ProjectsLanding() {
               <button
                 type="button"
                 onClick={handleStart}
-                disabled={!idea.trim() || creating}
+                disabled={creating}
                 className="order-1 flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-40 sm:order-2"
                 style={{ background: "var(--mk-accent-500)" }}
               >

@@ -257,7 +257,7 @@ func (a *API) createReading(w http.ResponseWriter, r *http.Request) {
 		Lang  string `json:"lang"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	title := strings.TrimSpace(req.Title)
@@ -364,7 +364,7 @@ func (a *API) renameReading(w http.ResponseWriter, r *http.Request) {
 		Title string `json:"title"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	title := strings.TrimSpace(req.Title)

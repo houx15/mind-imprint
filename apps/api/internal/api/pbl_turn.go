@@ -115,7 +115,11 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		// turn while the real failure stays invisible.
 		slog.Warn("pbl turn: model turn failed; surfacing to student",
 			"err", cerr, "atom_id", atomID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+		// 🚨 把网关真正说了什么带给她。gateway 的 error 是按"给客户端看也安全"
+		// 设计的（密钥在请求头里，上游响应体早就丢掉了），所以可以原样显示。
+		// 原来传的是 "model_unavailable" 这种机器码，等于什么都没说——
+		// 2026-09-02 那五个 503 就是这样被藏了一下午。
+		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed(cerr.Error()))
 		return
 	}
 

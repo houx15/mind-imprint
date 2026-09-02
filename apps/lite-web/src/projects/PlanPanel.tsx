@@ -200,7 +200,7 @@ function PlanCheck({
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-mk-border px-5 py-4">
-        <h2 className="text-mk-body font-semibold text-mk-ink">要不要改计划</h2>
+        <h2 className="text-mk-body font-semibold text-mk-ink">计划调整</h2>
         <p className="mt-1 text-mk-small text-mk-secondary">{change.evidence}</p>
       </header>
 

@@ -113,7 +113,7 @@ func (a *API) advanceEssaySubmission(w http.ResponseWriter, r *http.Request) {
 		Dir string `json:"dir"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	state, err := a.loadEssayState(r.Context(), projectID)

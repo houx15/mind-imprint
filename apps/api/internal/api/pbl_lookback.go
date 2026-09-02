@@ -139,7 +139,7 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 			slog.Warn("pbl lookback: could not write the questions; surfacing",
 				"err", qerr, "atom_id", atomID,
 				"request_id", httpx.RequestIDFromContext(r.Context()))
-			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("lookback_failed"))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed(qerr.Error()))
 			return
 		}
 		// 🚨 落库前在事务里加锁复查一遍。

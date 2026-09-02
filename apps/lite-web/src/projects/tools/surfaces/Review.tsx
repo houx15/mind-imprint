@@ -216,14 +216,31 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                 </p>
               ))}
             </div>
-          ) : artifact.payload.url ? (
+          ) : artifact.kind === "image" && artifact.payload.url ? (
             <img
               src={artifact.payload.url}
               alt={artifact.title}
               className="w-full rounded-mk-md"
             />
+          ) : artifact.payload.url ? (
+            /* 网站要点开来看。嵌在这块三百多像素宽的面板里，看到的不是它。 */
+            <a
+              href={artifact.payload.url}
+              target="_blank"
+              rel="noreferrer"
+              className="block rounded-mk-md border border-mk-border px-3 py-2.5"
+            >
+              <p className="text-mk-small text-mk-ink">打开这个网站看看</p>
+              <p className="mt-0.5 truncate text-mk-small text-mk-faint">
+                {artifact.payload.url}
+              </p>
+            </a>
           ) : (
-            <p className="text-mk-small text-mk-muted">这件东西没有可以直接看的内容。</p>
+            /* 走到这里说明这件成果既没有正文也没有链接——那它本来就不该被送来
+               审。照实说，别让她对着一句「没有内容」猜自己该做什么。 */
+            <p className="text-mk-small text-mk-muted">
+              这件成果没有可以打开的内容，回到对话里跟印记说一声。
+            </p>
           )}
 
           {/* 选中就地问 */}

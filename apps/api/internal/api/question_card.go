@@ -44,7 +44,7 @@ func (a *API) postQuestionCardTurn(w http.ResponseWriter, r *http.Request) {
 		} `json:"messages"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	history := make([]agent.ChatTurn, 0, len(body.Messages))
@@ -180,7 +180,7 @@ func (a *API) postQuestionCardCommit(w http.ResponseWriter, r *http.Request) {
 		} `json:"messages"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("validation_failed", "请求格式不对", nil))
+		httpx.WriteError(w, r, httpx.ErrBadJSON(err))
 		return
 	}
 	objective := strings.TrimSpace(body.Objective)

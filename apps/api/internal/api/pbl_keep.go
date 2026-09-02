@@ -136,7 +136,10 @@ func (a *API) openPblKeepSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	question := "这条说明了什么？下一步该改哪一件事？"
+	// 🚨 一次只问一个。原来那句把两个问题塞进一句（说明了什么 + 该改哪件事），
+	// 而它是这一层的题目、会当标题显示——产品负责人 2026-09-02 在文案表上标了
+	// 「didn't understand this」。
+	question := "这条反馈说明了什么"
 	sess, err := a.d.Queries.CreatePblSession(r.Context(), sqlc.CreatePblSessionParams{
 		AtomID: atomID, Kind: "keeping", ParentID: pgtype.UUID{}, Depth: 0,
 		AnchorKind: "free", AnchorRef: entry.ID.String(), Question: question,

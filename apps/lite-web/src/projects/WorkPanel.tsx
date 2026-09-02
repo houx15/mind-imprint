@@ -135,9 +135,9 @@ function PlainSurface({
   return (
     <ToolFrame
       title={tool.label}
-      task={TOOL_TASKS[tool.tool] ?? "做完之后，写一句你的结论"}
+      task={TOOL_TASKS[tool.tool] ?? "把这件事做完，把结果写在下面"}
       why={tool.reason}
-      todo={text.trim() ? "" : "一句你的结论"}
+      todo={text.trim() ? "" : "还没写结果"}
       onFinish={() => onFinish({ text: text.trim() }, text.trim())}
       onClose={onClose}
     >
@@ -145,7 +145,7 @@ function PlainSurface({
         value={text}
         onChange={(e) => setText(e.target.value)}
         rows={8}
-        placeholder="做完之后，写一句你的结论"
+        placeholder="写下你做出来的结果"
         className="w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-body text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
       />
     </ToolFrame>
