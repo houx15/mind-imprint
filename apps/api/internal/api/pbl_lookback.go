@@ -77,11 +77,13 @@ func buildPblLookback(
 		if !d.SettledAt.Valid {
 			continue
 		}
-		if strings.TrimSpace(d.Flip) != "" {
+		// 她当时写下的「为什么不选别的」，现在原样问回去。做那个决定时想清楚
+		// 放掉了什么，到这里才兑现——不然那一句就只是一次填空。
+		if strings.TrimSpace(d.WhyNot) != "" {
 			out = append(out, pblLookbackSeed{
 				prompt: fmt.Sprintf(
-					"关于「%s」你选了「%s」，还说过：如果%s，你会改主意。后来这件事发生了吗？",
-					d.Subject, d.Choice, d.Flip),
+					"关于「%s」你选了「%s」，当时放掉别的方案是因为：%s。现在回头看，这个理由还站得住吗？",
+					d.Subject, d.Choice, d.WhyNot),
 				anchorKind: "decision", anchorRef: d.ID.String(),
 			})
 			continue

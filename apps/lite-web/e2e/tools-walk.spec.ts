@@ -207,14 +207,24 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("「大概一半」是你数出来的，还是估的？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-5-review.png", fullPage: true });
 
-  // 6 · 理性决策：一段一段解锁。
+  // 6 · 理性决策：印记摆出几条路，她选一条，再答两个小问题。
+  expect(
+    (
+      await page.request.post(api + "/decisions", {
+        data: {
+          subject: "这份建议先给食堂，还是先发在班群里",
+          options: [
+            { label: "先给食堂", description: "他们能直接改菜量，但要等排期" },
+            { label: "先发班群", description: "当天就有反馈，但改不了任何事" },
+          ],
+        },
+      })
+    ).status(),
+  ).toBe(201);
   await openTool(page, "理性决策");
-  await expect(page.getByText("你在定什么？")).toBeVisible();
-  await page.getByPlaceholder("比如：这个建议先给食堂还是先发在班群里").fill(
-    "这份建议先给食堂，还是先发在班群里",
-  );
-  await page.getByRole("button", { name: "开始" }).click();
-  await expect(page.getByText("有哪些选择")).toBeVisible();
+  await expect(page.getByText("他们能直接改菜量，但要等排期")).toBeVisible();
+  await page.getByText("先给食堂").click();
+  await expect(page.getByText("为什么不选别的")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-6-decide.png", fullPage: true });
 
   // 7 · 结构审查：缩进就是层级。

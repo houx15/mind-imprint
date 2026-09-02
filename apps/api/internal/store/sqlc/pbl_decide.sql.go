@@ -18,7 +18,7 @@ const createPblDecision = `-- name: CreatePblDecision :one
 
 INSERT INTO pbl_decision (atom_id, session_id, subject, choice, why, gave_up)
 VALUES ($1, $2, $3, '', '', '')
-RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at
+RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
 `
 
 type CreatePblDecisionParams struct {
@@ -48,6 +48,7 @@ func (q *Queries) CreatePblDecision(ctx context.Context, arg CreatePblDecisionPa
 		&i.CreatedAt,
 		&i.Flip,
 		&i.SettledAt,
+		&i.WhyNot,
 	)
 	return i, err
 }
@@ -88,18 +89,17 @@ func (q *Queries) CreatePblDecisionCriterion(ctx context.Context, arg CreatePblD
 
 const createPblDecisionOption = `-- name: CreatePblDecisionOption :one
 
-INSERT INTO pbl_decision_option (decision_id, label, wins, hurts, author, ordinal)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at
+INSERT INTO pbl_decision_option (decision_id, label, description, author, ordinal)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at, description
 `
 
 type CreatePblDecisionOptionParams struct {
-	DecisionID uuid.UUID `json:"decision_id"`
-	Label      string    `json:"label"`
-	Wins       string    `json:"wins"`
-	Hurts      string    `json:"hurts"`
-	Author     string    `json:"author"`
-	Ordinal    int32     `json:"ordinal"`
+	DecisionID  uuid.UUID `json:"decision_id"`
+	Label       string    `json:"label"`
+	Description string    `json:"description"`
+	Author      string    `json:"author"`
+	Ordinal     int32     `json:"ordinal"`
 }
 
 // ── 选项 ───────────────────────────────────────────────────────────────
@@ -107,8 +107,7 @@ func (q *Queries) CreatePblDecisionOption(ctx context.Context, arg CreatePblDeci
 	row := q.db.QueryRow(ctx, createPblDecisionOption,
 		arg.DecisionID,
 		arg.Label,
-		arg.Wins,
-		arg.Hurts,
+		arg.Description,
 		arg.Author,
 		arg.Ordinal,
 	)
@@ -122,6 +121,7 @@ func (q *Queries) CreatePblDecisionOption(ctx context.Context, arg CreatePblDeci
 		&i.Author,
 		&i.Ordinal,
 		&i.CreatedAt,
+		&i.Description,
 	)
 	return i, err
 }
@@ -136,7 +136,7 @@ func (q *Queries) DeletePblDecisionCriterion(ctx context.Context, id uuid.UUID) 
 }
 
 const getPblDecision = `-- name: GetPblDecision :one
-SELECT d.id, d.atom_id, d.session_id, d.subject, d.choice, d.why, d.gave_up, d.created_at, d.flip, d.settled_at, a.user_id
+SELECT d.id, d.atom_id, d.session_id, d.subject, d.choice, d.why, d.gave_up, d.created_at, d.flip, d.settled_at, d.why_not, a.user_id
 FROM pbl_decision d JOIN atom a ON a.id = d.atom_id
 WHERE d.id = $1
 `
@@ -152,6 +152,7 @@ type GetPblDecisionRow struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Flip      string             `json:"flip"`
 	SettledAt pgtype.Timestamptz `json:"settled_at"`
+	WhyNot    string             `json:"why_not"`
 	UserID    uuid.UUID          `json:"user_id"`
 }
 
@@ -169,6 +170,7 @@ func (q *Queries) GetPblDecision(ctx context.Context, id uuid.UUID) (GetPblDecis
 		&i.CreatedAt,
 		&i.Flip,
 		&i.SettledAt,
+		&i.WhyNot,
 		&i.UserID,
 	)
 	return i, err
@@ -212,7 +214,7 @@ func (q *Queries) GetPblDecisionCriterion(ctx context.Context, id uuid.UUID) (Ge
 }
 
 const getPblDecisionOption = `-- name: GetPblDecisionOption :one
-SELECT o.id, o.decision_id, o.label, o.wins, o.hurts, o.author, o.ordinal, o.created_at, a.user_id, d.atom_id, d.settled_at
+SELECT o.id, o.decision_id, o.label, o.wins, o.hurts, o.author, o.ordinal, o.created_at, o.description, a.user_id, d.atom_id, d.settled_at
 FROM pbl_decision_option o
 JOIN pbl_decision d ON d.id = o.decision_id
 JOIN atom a ON a.id = d.atom_id
@@ -220,17 +222,18 @@ WHERE o.id = $1
 `
 
 type GetPblDecisionOptionRow struct {
-	ID         uuid.UUID          `json:"id"`
-	DecisionID uuid.UUID          `json:"decision_id"`
-	Label      string             `json:"label"`
-	Wins       string             `json:"wins"`
-	Hurts      string             `json:"hurts"`
-	Author     string             `json:"author"`
-	Ordinal    int32              `json:"ordinal"`
-	CreatedAt  time.Time          `json:"created_at"`
-	UserID     uuid.UUID          `json:"user_id"`
-	AtomID     uuid.UUID          `json:"atom_id"`
-	SettledAt  pgtype.Timestamptz `json:"settled_at"`
+	ID          uuid.UUID          `json:"id"`
+	DecisionID  uuid.UUID          `json:"decision_id"`
+	Label       string             `json:"label"`
+	Wins        string             `json:"wins"`
+	Hurts       string             `json:"hurts"`
+	Author      string             `json:"author"`
+	Ordinal     int32              `json:"ordinal"`
+	CreatedAt   time.Time          `json:"created_at"`
+	Description string             `json:"description"`
+	UserID      uuid.UUID          `json:"user_id"`
+	AtomID      uuid.UUID          `json:"atom_id"`
+	SettledAt   pgtype.Timestamptz `json:"settled_at"`
 }
 
 func (q *Queries) GetPblDecisionOption(ctx context.Context, id uuid.UUID) (GetPblDecisionOptionRow, error) {
@@ -245,6 +248,7 @@ func (q *Queries) GetPblDecisionOption(ctx context.Context, id uuid.UUID) (GetPb
 		&i.Author,
 		&i.Ordinal,
 		&i.CreatedAt,
+		&i.Description,
 		&i.UserID,
 		&i.AtomID,
 		&i.SettledAt,
@@ -284,7 +288,7 @@ func (q *Queries) ListPblDecisionCriteria(ctx context.Context, decisionID uuid.U
 }
 
 const listPblDecisionOptions = `-- name: ListPblDecisionOptions :many
-SELECT id, decision_id, label, wins, hurts, author, ordinal, created_at FROM pbl_decision_option WHERE decision_id = $1 ORDER BY ordinal, created_at
+SELECT id, decision_id, label, wins, hurts, author, ordinal, created_at, description FROM pbl_decision_option WHERE decision_id = $1 ORDER BY ordinal, created_at
 `
 
 func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UUID) ([]PblDecisionOption, error) {
@@ -305,6 +309,7 @@ func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UU
 			&i.Author,
 			&i.Ordinal,
 			&i.CreatedAt,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -318,28 +323,27 @@ func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UU
 
 const settlePblDecision = `-- name: SettlePblDecision :one
 UPDATE pbl_decision
-SET choice = $2, why = $3, gave_up = $4, flip = $5, settled_at = now()
+SET choice = $2, why = $3, why_not = $4, settled_at = now()
 WHERE id = $1 AND settled_at IS NULL
-RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at
+RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
 `
 
 type SettlePblDecisionParams struct {
 	ID     uuid.UUID `json:"id"`
 	Choice string    `json:"choice"`
 	Why    string    `json:"why"`
-	GaveUp string    `json:"gave_up"`
-	Flip   string    `json:"flip"`
+	WhyNot string    `json:"why_not"`
 }
 
-// choice / why / flip 三样都由 Go 校验非空后才到这里。flip 是关键的一格：
-// 写得出「什么会让我改主意」，这个决定才是可复盘的。
+// choice / why / why_not 三样由 Go 校验非空后才到这里。
+// why_not 是这件工具真正教的东西：选中一个不难，说得出为什么放掉另外几个，
+// 才说明她真的比较过。
 func (q *Queries) SettlePblDecision(ctx context.Context, arg SettlePblDecisionParams) (PblDecision, error) {
 	row := q.db.QueryRow(ctx, settlePblDecision,
 		arg.ID,
 		arg.Choice,
 		arg.Why,
-		arg.GaveUp,
-		arg.Flip,
+		arg.WhyNot,
 	)
 	var i PblDecision
 	err := row.Scan(
@@ -353,38 +357,7 @@ func (q *Queries) SettlePblDecision(ctx context.Context, arg SettlePblDecisionPa
 		&i.CreatedAt,
 		&i.Flip,
 		&i.SettledAt,
-	)
-	return i, err
-}
-
-const updatePblDecisionOption = `-- name: UpdatePblDecisionOption :one
-UPDATE pbl_decision_option SET label = $2, wins = $3, hurts = $4 WHERE id = $1 RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at
-`
-
-type UpdatePblDecisionOptionParams struct {
-	ID    uuid.UUID `json:"id"`
-	Label string    `json:"label"`
-	Wins  string    `json:"wins"`
-	Hurts string    `json:"hurts"`
-}
-
-func (q *Queries) UpdatePblDecisionOption(ctx context.Context, arg UpdatePblDecisionOptionParams) (PblDecisionOption, error) {
-	row := q.db.QueryRow(ctx, updatePblDecisionOption,
-		arg.ID,
-		arg.Label,
-		arg.Wins,
-		arg.Hurts,
-	)
-	var i PblDecisionOption
-	err := row.Scan(
-		&i.ID,
-		&i.DecisionID,
-		&i.Label,
-		&i.Wins,
-		&i.Hurts,
-		&i.Author,
-		&i.Ordinal,
-		&i.CreatedAt,
+		&i.WhyNot,
 	)
 	return i, err
 }

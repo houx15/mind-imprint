@@ -33,14 +33,12 @@ func TestPblLookback_AsksAboutWhatActuallyHappened(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
 	pid := newProjectViaAPI(t, h, cookie)
 
-	// 她做过一个带「什么会让我改主意」的决定。
-	d := openDecisionViaAPI(t, h, cookie, pid)
-	base := "/api/v1/pbl/projects/" + pid + "/decisions/" + d.ID
-	pblPost(t, h, cookie, base+"/options", `{"label":"先给食堂"}`)
-	pblPost(t, h, cookie, base+"/options", `{"label":"先发班群"}`)
-	pblPost(t, h, cookie, base+"/criteria", `{"label":"这周之内能有回应"}`)
-	pblPost(t, h, cookie, base+"/settle", `{"choice":"先给食堂","why":"他们能直接改",
-	  "flip":"食堂说他们早就试过了"}`)
+	// 她做过一个决定，并且说清了为什么不选别的。
+	d := decodeDecision(t, pblPost(t, h, cookie,
+		"/api/v1/pbl/projects/"+pid+"/decisions", twoRoads))
+	pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/decisions/"+d.ID+"/settle",
+		`{"choice":"先给食堂","why":"他们能直接改",
+		  "whyNot":"班群反馈快，但改不了食堂的量"}`)
 
 	// 她退回了一份东西。
 	aid := newArtifactViaAPI(t, h, cookie, pid)
@@ -58,8 +56,8 @@ func TestPblLookback_AsksAboutWhatActuallyHappened(t *testing.T) {
 		case "decision":
 			sawDecision = true
 			// 做决定时写下的那一句，到这里才兑现。
-			if !strings.Contains(p.Prompt, "食堂说他们早就试过了") {
-				t.Fatalf("决定那一问没把「什么会让我改主意」问回来：%q", p.Prompt)
+			if !strings.Contains(p.Prompt, "班群反馈快，但改不了食堂的量") {
+				t.Fatalf("决定那一问没把「为什么不选别的」问回来：%q", p.Prompt)
 			}
 		case "artifact":
 			sawArtifact = true

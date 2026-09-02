@@ -34,12 +34,11 @@ import (
 //  3. 选择、为什么、什么会让我改主意，三样都不能空。
 
 type pblOptionDTO struct {
-	ID      string `json:"id"`
-	Label   string `json:"label"`
-	Wins    string `json:"wins"`
-	Hurts   string `json:"hurts"`
-	Author  string `json:"author"`
-	Ordinal int32  `json:"ordinal"`
+	ID string `json:"id"`
+	// 卡片上的标题和那段说明。两样都是印记写的——选项由它提。
+	Label       string `json:"label"`
+	Description string `json:"description"`
+	Ordinal     int32  `json:"ordinal"`
 }
 
 type pblCriterionDTO struct {
@@ -52,10 +51,10 @@ type pblCriterionDTO struct {
 type pblDecisionDTO struct {
 	ID        string            `json:"id"`
 	Subject   string            `json:"subject"`
-	Choice    string            `json:"choice"`
-	Why       string            `json:"why"`
-	GaveUp    string            `json:"gaveUp"`
-	Flip      string            `json:"flip"`
+	Choice string `json:"choice"`
+	// 为什么选它 / 为什么不选别的——确认时要回答的那两个小问题。
+	Why    string `json:"why"`
+	WhyNot string `json:"whyNot"`
 	SettledAt *string           `json:"settledAt"`
 	Options   []pblOptionDTO    `json:"options"`
 	Criteria  []pblCriterionDTO `json:"criteria"`
@@ -64,8 +63,8 @@ type pblDecisionDTO struct {
 
 func toPblDecisionDTO(d sqlc.PblDecision, opts []sqlc.PblDecisionOption, crit []sqlc.PblDecisionCriterion) pblDecisionDTO {
 	out := pblDecisionDTO{
-		ID: d.ID.String(), Subject: d.Subject, Choice: d.Choice, Why: d.Why,
-		GaveUp: d.GaveUp, Flip: d.Flip,
+		ID: d.ID.String(), Subject: d.Subject, Choice: d.Choice,
+		Why: d.Why, WhyNot: d.WhyNot,
 		Options: make([]pblOptionDTO, 0, len(opts)), Criteria: make([]pblCriterionDTO, 0, len(crit)),
 		CreatedAt: d.CreatedAt.Format(time.RFC3339),
 	}
@@ -75,8 +74,8 @@ func toPblDecisionDTO(d sqlc.PblDecision, opts []sqlc.PblDecisionOption, crit []
 	}
 	for _, o := range opts {
 		out.Options = append(out.Options, pblOptionDTO{
-			ID: o.ID.String(), Label: o.Label, Wins: o.Wins, Hurts: o.Hurts,
-			Author: o.Author, Ordinal: o.Ordinal,
+			ID: o.ID.String(), Label: o.Label, Description: o.Description,
+			Ordinal: o.Ordinal,
 		})
 	}
 	for _, c := range crit {
@@ -102,8 +101,8 @@ func (a *API) loadPblDecisionFull(r *http.Request, id uuid.UUID) (pblDecisionDTO
 	}
 	return toPblDecisionDTO(sqlc.PblDecision{
 		ID: d.ID, AtomID: d.AtomID, SessionID: d.SessionID, Subject: d.Subject,
-		Choice: d.Choice, Why: d.Why, GaveUp: d.GaveUp, Flip: d.Flip,
-		SettledAt: d.SettledAt, CreatedAt: d.CreatedAt,
+		Choice: d.Choice, Why: d.Why, WhyNot: d.WhyNot, GaveUp: d.GaveUp,
+		Flip: d.Flip, SettledAt: d.SettledAt, CreatedAt: d.CreatedAt,
 	}, opts, crit), nil
 }
 
@@ -158,10 +157,8 @@ func (a *API) openPblDecision(w http.ResponseWriter, r *http.Request) {
 		Subject   string `json:"subject"`
 		SessionID string `json:"sessionId"`
 		Options   []struct {
-			Label  string `json:"label"`
-			Wins   string `json:"wins"`
-			Hurts  string `json:"hurts"`
-			Author string `json:"author"`
+			Label       string `json:"label"`
+			Description string `json:"description"`
 		} `json:"options"`
 		Criteria []struct {
 			Label  string `json:"label"`
@@ -206,8 +203,9 @@ func (a *API) openPblDecision(w http.ResponseWriter, r *http.Request) {
 		}
 		if _, err := a.d.Queries.CreatePblDecisionOption(r.Context(), sqlc.CreatePblDecisionOptionParams{
 			DecisionID: d.ID, Label: strings.TrimSpace(o.Label),
-			Wins: strings.TrimSpace(o.Wins), Hurts: strings.TrimSpace(o.Hurts),
-			Author: authorOf(o.Author), Ordinal: int32(i),
+			Description: strings.TrimSpace(o.Description),
+			// 选项是印记提的，所以作者恒为 yinji。
+			Author: "yinji", Ordinal: int32(i),
 		}); err != nil {
 			httpx.WriteError(w, r, err)
 			return
@@ -241,167 +239,6 @@ func authorOf(s string) string {
 	return "student"
 }
 
-func (a *API) addPblDecisionOption(w http.ResponseWriter, r *http.Request) {
-	did, ok := a.loadOwnedPblDecision(w, r)
-	if !ok {
-		return
-	}
-	var req struct {
-		Label  string `json:"label"`
-		Wins   string `json:"wins"`
-		Hurts  string `json:"hurts"`
-		Author string `json:"author"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, errBadJSON(err))
-		return
-	}
-	if strings.TrimSpace(req.Label) == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_label", "这个选项是什么？", nil))
-		return
-	}
-	existing, err := a.d.Queries.ListPblDecisionOptions(r.Context(), did)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := a.d.Queries.CreatePblDecisionOption(r.Context(), sqlc.CreatePblDecisionOptionParams{
-		DecisionID: did, Label: strings.TrimSpace(req.Label),
-		Wins: strings.TrimSpace(req.Wins), Hurts: strings.TrimSpace(req.Hurts),
-		Author: authorOf(req.Author), Ordinal: int32(len(existing)),
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	full, err := a.loadPblDecisionFull(r, did)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusCreated, full)
-}
-
-func (a *API) updatePblDecisionOption(w http.ResponseWriter, r *http.Request) {
-	atomID, ok := a.loadOwnedPblProject(w, r)
-	if !ok {
-		return
-	}
-	oid, err := uuid.Parse(r.PathValue("oid"))
-	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("这个选项不存在"))
-		return
-	}
-	row, err := a.d.Queries.GetPblDecisionOption(r.Context(), oid)
-	if err != nil || row.AtomID != atomID {
-		httpx.WriteError(w, r, httpx.ErrNotFound("这个选项不存在"))
-		return
-	}
-	if row.SettledAt.Valid {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("already_settled", "这个决定已经定了", nil))
-		return
-	}
-	var req struct {
-		Label *string `json:"label"`
-		Wins  *string `json:"wins"`
-		Hurts *string `json:"hurts"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, errBadJSON(err))
-		return
-	}
-	label, wins, hurts := row.Label, row.Wins, row.Hurts
-	if req.Label != nil {
-		label = strings.TrimSpace(*req.Label)
-	}
-	if req.Wins != nil {
-		wins = strings.TrimSpace(*req.Wins)
-	}
-	if req.Hurts != nil {
-		hurts = strings.TrimSpace(*req.Hurts)
-	}
-	if label == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_label", "这个选项是什么？", nil))
-		return
-	}
-	if _, err := a.d.Queries.UpdatePblDecisionOption(r.Context(), sqlc.UpdatePblDecisionOptionParams{
-		ID: oid, Label: label, Wins: wins, Hurts: hurts,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	full, err := a.loadPblDecisionFull(r, row.DecisionID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, full)
-}
-
-func (a *API) addPblDecisionCriterion(w http.ResponseWriter, r *http.Request) {
-	did, ok := a.loadOwnedPblDecision(w, r)
-	if !ok {
-		return
-	}
-	var req struct {
-		Label  string `json:"label"`
-		Author string `json:"author"`
-	}
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		httpx.WriteError(w, r, errBadJSON(err))
-		return
-	}
-	if strings.TrimSpace(req.Label) == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_label", "这一条是什么？", nil))
-		return
-	}
-	existing, err := a.d.Queries.ListPblDecisionCriteria(r.Context(), did)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	if _, err := a.d.Queries.CreatePblDecisionCriterion(r.Context(), sqlc.CreatePblDecisionCriterionParams{
-		DecisionID: did, Label: strings.TrimSpace(req.Label),
-		Author: authorOf(req.Author), Ordinal: int32(len(existing)),
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	full, err := a.loadPblDecisionFull(r, did)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusCreated, full)
-}
-
-func (a *API) deletePblDecisionCriterion(w http.ResponseWriter, r *http.Request) {
-	atomID, ok := a.loadOwnedPblProject(w, r)
-	if !ok {
-		return
-	}
-	cid, err := uuid.Parse(r.PathValue("cid"))
-	if err != nil {
-		httpx.WriteError(w, r, httpx.ErrNotFound("这一条不存在"))
-		return
-	}
-	row, err := a.d.Queries.GetPblDecisionCriterion(r.Context(), cid)
-	if err != nil || row.AtomID != atomID {
-		httpx.WriteError(w, r, httpx.ErrNotFound("这一条不存在"))
-		return
-	}
-	if err := a.d.Queries.DeletePblDecisionCriterion(r.Context(), cid); err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	full, err := a.loadPblDecisionFull(r, row.DecisionID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	httpx.WriteJSON(w, http.StatusOK, full)
-}
-
-// settlePblDecision —— 定下来。三道门槛都在这里。
 func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	did, ok := a.loadOwnedPblDecision(w, r)
 	if !ok {
@@ -410,8 +247,7 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Choice string `json:"choice"`
 		Why    string `json:"why"`
-		GaveUp string `json:"gaveUp"`
-		Flip   string `json:"flip"`
+		WhyNot string `json:"whyNot"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -429,30 +265,19 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 			"至少要有两个选项才谈得上选", nil))
 		return
 	}
-	crit, err := a.d.Queries.ListPblDecisionCriteria(r.Context(), did)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-	// 🚨 最常被跳过的一步。跳过之后，所谓的比较只是在挑一个看起来顺眼的。
-	if len(crit) == 0 {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("no_criteria",
-			"先说清楚这件事上什么最重要", nil))
-		return
-	}
-
-	choice, why, flip := strings.TrimSpace(req.Choice), strings.TrimSpace(req.Why), strings.TrimSpace(req.Flip)
+	choice, why, whyNot := strings.TrimSpace(req.Choice),
+		strings.TrimSpace(req.Why), strings.TrimSpace(req.WhyNot)
 	missing := []string{}
 	if choice == "" {
 		missing = append(missing, "选哪个")
 	}
 	if why == "" {
-		missing = append(missing, "为什么")
+		missing = append(missing, "为什么选它")
 	}
-	// 🚨 这一格是整件事的关键：写得出什么会推翻它，这才是一个判断而不是一次
-	// 表态，复盘的时候也才有东西可以回头看。
-	if flip == "" {
-		missing = append(missing, "什么会让你改主意")
+	// 🚨 这一句是这件工具真正教的东西。选中一个不难；说得出为什么放掉另外几个，
+	// 才说明她真的把它们放在一起比过。
+	if whyNot == "" {
+		missing = append(missing, "为什么不选别的")
 	}
 	if len(missing) > 0 {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("incomplete",
@@ -461,8 +286,7 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := a.d.Queries.SettlePblDecision(r.Context(), sqlc.SettlePblDecisionParams{
-		ID: did, Choice: choice, Why: why,
-		GaveUp: strings.TrimSpace(req.GaveUp), Flip: flip,
+		ID: did, Choice: choice, Why: why, WhyNot: whyNot,
 	}); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("already_settled", "这个决定已经定过了", nil))
 		return

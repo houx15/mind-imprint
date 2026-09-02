@@ -18,25 +18,23 @@ FROM pbl_decision d JOIN atom a ON a.id = d.atom_id
 WHERE d.id = $1;
 
 -- name: SettlePblDecision :one
--- choice / why / flip 三样都由 Go 校验非空后才到这里。flip 是关键的一格：
--- 写得出「什么会让我改主意」，这个决定才是可复盘的。
+-- choice / why / why_not 三样由 Go 校验非空后才到这里。
+-- why_not 是这件工具真正教的东西：选中一个不难，说得出为什么放掉另外几个，
+-- 才说明她真的比较过。
 UPDATE pbl_decision
-SET choice = $2, why = $3, gave_up = $4, flip = $5, settled_at = now()
+SET choice = $2, why = $3, why_not = $4, settled_at = now()
 WHERE id = $1 AND settled_at IS NULL
 RETURNING *;
 
 -- ── 选项 ───────────────────────────────────────────────────────────────
 
 -- name: CreatePblDecisionOption :one
-INSERT INTO pbl_decision_option (decision_id, label, wins, hurts, author, ordinal)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO pbl_decision_option (decision_id, label, description, author, ordinal)
+VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: ListPblDecisionOptions :many
 SELECT * FROM pbl_decision_option WHERE decision_id = $1 ORDER BY ordinal, created_at;
-
--- name: UpdatePblDecisionOption :one
-UPDATE pbl_decision_option SET label = $2, wins = $3, hurts = $4 WHERE id = $1 RETURNING *;
 
 -- name: GetPblDecisionOption :one
 SELECT o.*, a.user_id, d.atom_id, d.settled_at

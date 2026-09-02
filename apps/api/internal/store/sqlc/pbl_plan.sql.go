@@ -230,7 +230,7 @@ func (q *Queries) GetPblPlanStep(ctx context.Context, id uuid.UUID) (GetPblPlanS
 }
 
 const listPblDecisions = `-- name: ListPblDecisions :many
-SELECT id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at FROM pbl_decision WHERE atom_id = $1 ORDER BY created_at
+SELECT id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not FROM pbl_decision WHERE atom_id = $1 ORDER BY created_at
 `
 
 func (q *Queries) ListPblDecisions(ctx context.Context, atomID uuid.UUID) ([]PblDecision, error) {
@@ -253,6 +253,7 @@ func (q *Queries) ListPblDecisions(ctx context.Context, atomID uuid.UUID) ([]Pbl
 			&i.CreatedAt,
 			&i.Flip,
 			&i.SettledAt,
+			&i.WhyNot,
 		); err != nil {
 			return nil, err
 		}
@@ -389,7 +390,7 @@ const recordPblDecision = `-- name: RecordPblDecision :one
 
 INSERT INTO pbl_decision (atom_id, session_id, subject, choice, why, gave_up)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at
+RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
 `
 
 type RecordPblDecisionParams struct {
@@ -423,6 +424,7 @@ func (q *Queries) RecordPblDecision(ctx context.Context, arg RecordPblDecisionPa
 		&i.CreatedAt,
 		&i.Flip,
 		&i.SettledAt,
+		&i.WhyNot,
 	)
 	return i, err
 }

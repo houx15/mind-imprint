@@ -461,6 +461,7 @@ type PblDecision struct {
 	CreatedAt time.Time          `json:"created_at"`
 	Flip      string             `json:"flip"`
 	SettledAt pgtype.Timestamptz `json:"settled_at"`
+	WhyNot    string             `json:"why_not"`
 }
 
 type PblDecisionCriterion struct {
@@ -473,14 +474,15 @@ type PblDecisionCriterion struct {
 }
 
 type PblDecisionOption struct {
-	ID         uuid.UUID `json:"id"`
-	DecisionID uuid.UUID `json:"decision_id"`
-	Label      string    `json:"label"`
-	Wins       string    `json:"wins"`
-	Hurts      string    `json:"hurts"`
-	Author     string    `json:"author"`
-	Ordinal    int32     `json:"ordinal"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID          uuid.UUID `json:"id"`
+	DecisionID  uuid.UUID `json:"decision_id"`
+	Label       string    `json:"label"`
+	Wins        string    `json:"wins"`
+	Hurts       string    `json:"hurts"`
+	Author      string    `json:"author"`
+	Ordinal     int32     `json:"ordinal"`
+	CreatedAt   time.Time `json:"created_at"`
+	Description string    `json:"description"`
 }
 
 type PblKeepEntry struct {
