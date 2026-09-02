@@ -248,7 +248,7 @@ func (a *API) planReadingTasks(
 ) ([]sqlc.ReadingTask, error) {
 	lang := readingLangOf(src.Body)
 
-	resolved, okResolve := a.resolveEval(ctx)
+	resolved, okResolve := a.route(ctx, gateway.ClassCompose)
 	if !okResolve {
 		slog.Warn("reading plan: no provider resolved", "atom_id", atomID)
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")

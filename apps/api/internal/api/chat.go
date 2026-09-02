@@ -209,7 +209,7 @@ func (a *API) postChatTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, err := a.d.ChatResolver(r.Context())
+	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return

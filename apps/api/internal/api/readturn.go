@@ -284,7 +284,10 @@ func (a *API) postReadingTurn(w http.ResponseWriter, r *http.Request) {
 	}
 
 	routeOnce := func() agent.ReadingDecision {
-		d, resolved, usage, _ := agent.RouteReading(r.Context(), a.d.Provider, a.d.EvalResolver, in)
+		// compose, not reflex — see the note at the lite twin in reading_turn.go:
+		// this router also writes the student-facing reply, and thinking-OFF
+		// breaks it.
+		d, resolved, usage, _ := agent.RouteReading(r.Context(), a.d.Provider, a.routeFn(gateway.ClassCompose), in)
 		a.recordReadingLLMCall(r.Context(), store, projectID, "read_router", resolved, usage)
 		return d
 	}

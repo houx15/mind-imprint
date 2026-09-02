@@ -257,8 +257,13 @@ func TestReadingTurn_MetersTheCallAgainstTheAtom(t *testing.T) {
 	if surface != "lite" || purpose != "reading_turn" {
 		t.Fatalf("llm_call = %q/%q, want lite/reading_turn", surface, purpose)
 	}
-	if tier != "flagship" || prompt != 120 || completion != 40 {
-		t.Fatalf("llm_call tier/tokens = %q/%d/%d, want flagship/120/40", tier, prompt, completion)
+	// chaperone, not flagship: the reading router moved to the compose class
+	// (2026-09-02). It was on the flagship lane only because there were three
+	// lanes and none of the other two fit — the router needs a little reasoning
+	// but not the never-downgrade reviewer. What the meter records has to follow
+	// the class, or the cost table stops describing what was actually bought.
+	if tier != "chaperone" || prompt != 120 || completion != 40 {
+		t.Fatalf("llm_call tier/tokens = %q/%d/%d, want chaperone/120/40", tier, prompt, completion)
 	}
 	if !projectNull {
 		t.Fatalf("lite llm_call must leave project_id NULL")

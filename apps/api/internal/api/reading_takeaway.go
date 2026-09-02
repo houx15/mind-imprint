@@ -20,6 +20,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -201,7 +202,7 @@ func (a *API) getTakeawayDraft(w http.ResponseWriter, r *http.Request) {
 	// call here would be phantom bookkeeping for a network call that never
 	// happened. Skip the whole block.
 	if agent.HasRecordContent(record) {
-		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil {
 			l, imp, usage, cerr := agent.ComposeReadingTakeawaySuggestions(r.Context(), a.d.Provider, resolved, in)
 			if usage.InputTokens > 0 || usage.OutputTokens > 0 {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)

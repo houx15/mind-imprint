@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
@@ -126,7 +127,7 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 			httpx.WriteError(w, r, gerr)
 			return
 		}
-		resolved, rok := a.resolveEval(r.Context())
+		resolved, rok := a.route(r.Context(), gateway.ClassAssess)
 		if !rok {
 			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 			return

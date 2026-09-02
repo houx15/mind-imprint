@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 )
 
@@ -91,7 +92,7 @@ func (a *API) generateEssayGuideCard(ctx context.Context, projectID uuid.UUID, s
 	if a.d.Provider == nil {
 		return guideCardDTO{}, false
 	}
-	resolved, ok := a.resolveFast(ctx)
+	resolved, ok := a.route(ctx, gateway.ClassCompose)
 	if !ok {
 		return guideCardDTO{}, false
 	}
@@ -257,8 +258,8 @@ func (a *API) reviseEssayClaim(w http.ResponseWriter, r *http.Request) {
 	// Classify (flagship). Degrade to rephrase on any failure — a model hiccup
 	// must never block the student's own edit.
 	verdict := agent.ClaimRevisionVerdictOut{Kind: "rephrase", Why: "只是措辞调整，材料仍然适用。"}
-	if a.d.Provider != nil && a.d.EvalResolver != nil {
-		if resolved, rerr := a.d.EvalResolver(r.Context()); rerr == nil {
+	if a.d.Provider != nil && true {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassReview); rerr == nil {
 			title := ""
 			if p, perr := a.d.Queries.GetProject(r.Context(), projectID); perr == nil {
 				title = p.Title

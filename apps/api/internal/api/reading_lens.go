@@ -31,6 +31,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -218,15 +219,15 @@ func (a *API) summonReadingLens(
 	// reasoning task — the pro side measured the chaperone tier grounding just
 	// as reliably at a fraction of the latency, with one flagship retry as the
 	// safety net. Same ladder here.
-	groundResolver := a.d.ChatResolver
+	groundResolver := a.routeFn(gateway.ClassCompose)
 	usedChaperone := groundResolver != nil
 	if !usedChaperone {
-		groundResolver = a.d.EvalResolver
+		groundResolver = a.routeFn(gateway.ClassCompose)
 	}
 	anchor, resolved, usage, exampleOK := agent.ProposeCardExample(ctx, a.d.Provider, groundResolver, spec, atomID.String(), blocks)
 	a.recordLiteLLMCall(ctx, userID, atomID, "read_card_example", resolved, usage)
-	if !exampleOK && usedChaperone && a.d.EvalResolver != nil {
-		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(ctx, a.d.Provider, a.d.EvalResolver, spec, atomID.String(), blocks)
+	if !exampleOK && usedChaperone && true {
+		anchor, resolved, usage, exampleOK = agent.ProposeCardExample(ctx, a.d.Provider, a.routeFn(gateway.ClassCompose), spec, atomID.String(), blocks)
 		a.recordLiteLLMCall(ctx, userID, atomID, "read_card_example", resolved, usage)
 	}
 
@@ -352,7 +353,7 @@ func (a *API) liteEvaluateCardSelectionFor(kind string) http.HandlerFunc {
 		evalCtx, cancelEval := detachedModelCtx(r)
 		defer cancelEval()
 
-		eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.d.EvalResolver, spec, dimension, studentSpan)
+		eval, resolved, usage, _ := agent.EvaluateSelection(evalCtx, a.d.Provider, a.routeFn(gateway.ClassReview), spec, dimension, studentSpan)
 		a.recordLiteLLMCall(evalCtx, u.ID, at.ID, evalCardMeteringPurpose(kind), resolved, usage)
 
 		dto := toSelectionEvalDTO(eval)

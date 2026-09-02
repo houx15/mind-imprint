@@ -303,10 +303,10 @@ func (a *API) deepenWritingBlock(w http.ResponseWriter, r *http.Request) {
 	messages = append(messages, blockThreadToChatMessages(prior)...)
 	messages = append(messages, gateway.ChatMessage{Role: gateway.RoleUser, Content: studentText})
 
-	// §model-routing: a good Socratic follow-up on a half-formed argument is
-	// the same hard reasoning guideWritingBlock's flagship call does — resolves
-	// EvalResolver, not writing_turn.go's chaperone ChatResolver.
-	resolved, ok2 := a.resolveEval(turnCtx)
+	// §model-routing · compose, the same class as guideWritingBlock: a good
+	// Socratic follow-up on a half-formed argument is the same work. Not the
+	// ordinary dialogue turn, which only has to respond.
+	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
 	if !ok2 {
 		slog.Warn("writing block deepen: no provider resolved",
 			"atom_id", at.ID, "outline_id", oid, "request_id", httpx.RequestIDFromContext(r.Context()))

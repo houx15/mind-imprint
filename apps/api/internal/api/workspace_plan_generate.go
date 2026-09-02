@@ -196,9 +196,10 @@ func (a *API) regeneratePlan(ctx context.Context, projectID uuid.UUID) ([]planIt
 // provider, a model error, or an unparseable/empty reply it degrades to a small
 // deterministic default board so the button always yields a usable plan.
 func (a *API) generatePlanItems(ctx context.Context, projectID uuid.UUID, prop sqlc.ProjectProposal) []planGenItem {
-	// §model-routing · plan generation is reviewer-tier work → flagship (never
-	// downgrade), falling back to the chaperone.
-	resolved, ok := a.resolveEval(ctx)
+	// §model-routing · compose. Plan generation derives structure from what the
+	// student has already stated — a deterministic system step (AGENTS.md is
+	// explicit that 铁律② does not reach it), not a judgement on her work.
+	resolved, ok := a.route(ctx, gateway.ClassCompose)
 	if !ok {
 		slog.Warn("plan generate: no provider")
 		return defaultPlanItems()

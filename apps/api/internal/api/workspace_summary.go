@@ -110,7 +110,7 @@ func (a *API) postProjectSummary(w http.ResponseWriter, r *http.Request) {
 // returns composed=false (still recording cost when a call was made). Returns
 // the prose plus the resolved model/tier and the composed flag.
 func (a *API) composeReturnSummary(ctx context.Context, projectID uuid.UUID, projection string) (string, string, string, bool) {
-	resolved, rerr := a.d.EvalResolver(ctx)
+	resolved, rerr := a.routeE(ctx, gateway.ClassDigest)
 	if rerr != nil {
 		slog.Warn("summary: no provider", "err", rerr)
 		return "", "", "", false

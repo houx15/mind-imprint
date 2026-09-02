@@ -286,9 +286,9 @@ func (a *API) postWritingOpening(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: an opening greeting is conversational, not evaluative —
-	// the chaperone tier, same as the ordinary coach turn.
-	resolved, rerr := a.d.ChatResolver(turnCtx)
+	// §model-routing · dialogue. An opening greeting is conversational, not
+	// evaluative — the same class as the ordinary coach turn.
+	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
 	if rerr != nil {
 		slog.Warn("writing opening: resolve model failed", "err", rerr,
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

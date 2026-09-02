@@ -434,11 +434,13 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: planning is the hardest reasoning in this room — it has
-	// to hear what she actually said, decide the ONE next question, and judge
-	// where a point is too hollow to leave alone. Flagship, like the guiding
-	// box, not the chaperone the ordinary chat turn uses.
-	resolved, okResolve := a.resolveEval(turnCtx)
+	// §model-routing · compose. Planning is the hardest reasoning in this room:
+	// it has to hear what she actually said, decide the ONE next question, and
+	// judge where a point is too hollow to leave alone. It is not, however, the
+	// never-downgrade reviewer — it derives a plan from what she has already
+	// stated, which is the compose class's whole definition. compose keeps a
+	// reasoning budget rather than none; routebench decides how large.
+	resolved, okResolve := a.route(turnCtx, gateway.ClassCompose)
 	if !okResolve {
 		slog.Warn("writing plan turn: no provider resolved",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

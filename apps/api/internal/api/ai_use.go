@@ -19,6 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -113,7 +114,7 @@ func (a *API) getAIUseDraft(w http.ResponseWriter, r *http.Request) {
 
 	// Seed ONLY when nothing is saved yet AND there is a record to seed from.
 	if usedFor == "" && notUsedFor == "" && hasInteractionRecord(rec) {
-		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil {
 			u, n, usage, cerr := agent.ComposeAIUseSeed(r.Context(), a.d.Provider, resolved, toAIUseRecordView(rec))
 			if resolved.Provider != "" && cerr == nil {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)

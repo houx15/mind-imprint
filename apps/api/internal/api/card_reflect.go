@@ -22,6 +22,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 )
 
@@ -85,7 +86,7 @@ func (a *API) postReflectProjectCard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, err := a.d.ChatResolver(r.Context())
+	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return

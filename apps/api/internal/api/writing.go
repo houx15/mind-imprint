@@ -334,9 +334,10 @@ func (a *API) orderReview(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sk, _ := skills.ByID("writing-project")
-	// §model-routing · whole-draft 整稿体检 is writing-review work → flagship
+	// §model-routing · review. Whole-draft 整稿体检 judges work she has finished:
+	// reviewer tier, reasoning on.
 	// (never downgrade), falling back to the chaperone.
-	resolved, ok := a.resolveEval(r.Context())
+	resolved, ok := a.route(r.Context(), gateway.ClassReview)
 	if !ok {
 		_ = em.ErrorEnvelope("internal_error", "体检失败，请重试")
 		_ = em.Done()

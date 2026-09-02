@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 )
 
@@ -58,7 +59,7 @@ func (a *API) postSearchGuidance(w http.ResponseWriter, r *http.Request) {
 
 	suggestions := []agent.SearchSuggestionOut{}
 	if a.d.Provider != nil {
-		if resolved, rok := a.resolveFast(r.Context()); rok {
+		if resolved, rok := a.route(r.Context(), gateway.ClassCompose); rok {
 			out, usage, gerr := agent.ProposeSearchKeywords(r.Context(), a.d.Provider, resolved, in)
 			a.meterCall(r.Context(), projectID, resolved, "search_guidance", usage)
 			if gerr != nil {

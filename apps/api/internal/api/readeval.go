@@ -15,6 +15,7 @@ import (
 
 	"mindimprint/api/internal/agent"
 	"mindimprint/api/internal/cards"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 )
 
@@ -141,7 +142,7 @@ func (a *API) evaluateProjectCard(w http.ResponseWriter, r *http.Request) {
 
 	spec, _ := cards.ByID(ci.CardID)
 
-	eval, resolved, usage, _ := agent.EvaluateSelection(r.Context(), a.d.Provider, a.d.EvalResolver, spec, body.Dimension, studentSpan)
+	eval, resolved, usage, _ := agent.EvaluateSelection(r.Context(), a.d.Provider, a.routeFn(gateway.ClassReview), spec, body.Dimension, studentSpan)
 	if resolved.Provider != "" {
 		if rerr := store.RecordLLMCall(r.Context(), agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "read_eval",

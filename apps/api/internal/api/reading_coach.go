@@ -875,10 +875,24 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: leading someone through a text — deciding whether what
-	// she just said actually counts as having done this step — is judgement,
-	// not conversation. Flagship, like the planning call.
-	resolved, okResolve := a.resolveEval(turnCtx)
+	// §model-routing · dialogue.
+	//
+	// 🚨 This is the single biggest deliberate downgrade of the 2026-09-02 class
+	// migration, and it is a HYPOTHESIS, not a settled decision. The previous
+	// note here argued flagship: "leading someone through a text — deciding
+	// whether what she just said actually counts as having done this step — is
+	// judgement, not conversation." That reasoning is real. What it was weighed
+	// against, when there were only three lanes, was a chaperone lane that also
+	// served the ordinary chat turn — so "some judgement" could only be bought
+	// by buying the never-downgrade reviewer, full reasoning and all.
+	//
+	// The cost of that: every turn a student waits through in the lite reading
+	// room ran at flagship price with reasoning at max. dialogue is the class
+	// that says "she is watching this land, so it has 4 seconds" — and the
+	// judgement it must still make is what routebench's dialogue judge case
+	// scores. If a chaperone-class model cannot tell "she did the step" from
+	// "she did not", this call goes back up to review and the win is given back.
+	resolved, okResolve := a.route(turnCtx, gateway.ClassDialogue)
 	if !okResolve {
 		slog.Warn("reading coach: no provider resolved",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

@@ -20,6 +20,7 @@ import (
 	"time"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 )
 
@@ -105,7 +106,7 @@ func (a *API) sceneForCourse(w http.ResponseWriter, r *http.Request) {
 		}})
 	}
 
-	resolved, err := a.d.ChatResolver(r.Context()) // chaperone — narration is a light task, not the flagship evaluator
+	resolved, err := a.routeE(r.Context(), gateway.ClassCompose) // chaperone — narration is a light task, not the flagship evaluator
 	if err != nil {
 		slog.Warn("scene: resolver failed, using fallback text", "err", err, "slug", slug,
 			"request_id", httpx.RequestIDFromContext(r.Context()))

@@ -100,6 +100,55 @@ func TestClassReasoningRequirementReachesTheRequestBody(t *testing.T) {
 	}
 }
 
+// A call that asks for a reasoning BUDGET must still get to think, even on a
+// class whose default is off. agent.RouteReading is the case: it asks for "low"
+// because thinking-OFF breaks that router outright — empty replies, no card
+// offers — while full thinking costs 19–49s a turn. Nothing short of a live
+// read-together turn would show the class default silently winning here.
+func TestExplicitReasoningEffortBeatsAClassThatSaysOff(t *testing.T) {
+	body := `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K",
+			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort"}},
+		"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
+		"lanes":{"reflex":{"model":"p/m","tier":"chaperone","reasoning":"off"},
+			"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},
+			"compose":{"model":"p/m","tier":"chaperone","reasoning":"low"},
+			"review":{"model":"p/m","tier":"flagship"},
+			"assess":{"model":"p/m","tier":"flagship"},
+			"digest":{"model":"p/m","tier":"chaperone","reasoning":"off"}}}`
+	cat, err := ParseCatalog([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := cat.Resolve(ClassReflex, "", func(string) string { return "secret" })
+	if err != nil {
+		t.Fatal(err)
+	}
+	got, err := NewCatalogProvider(nil).buildBody(r, ChatRequest{
+		ReasoningEffort: "low",
+		Messages:        []ChatMessage{{Role: RoleUser, Content: "route this turn"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, off := got["enable_thinking"]; off {
+		t.Error("the call asked for a low budget; the class default must not force thinking off")
+	}
+	if got["reasoning_effort"] != "low" {
+		t.Errorf("reasoning_effort = %v, want %q", got["reasoning_effort"], "low")
+	}
+	// DisableThinking stays the explicit override that beats everything.
+	got, err = NewCatalogProvider(nil).buildBody(r, ChatRequest{
+		ReasoningEffort: "low", DisableThinking: true,
+		Messages: []ChatMessage{{Role: RoleUser, Content: "x"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, off := got["enable_thinking"]; !off {
+		t.Error("DisableThinking must still win over an effort request")
+	}
+}
+
 // Fallback must not smuggle in a model the class already rejected. Falling back
 // onto a model that cannot stop thinking turns a 4-second chaperone turn into a
 // 40-second one — a worse outage than the one the fallback is covering for.

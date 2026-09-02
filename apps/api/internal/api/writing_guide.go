@@ -590,11 +590,11 @@ func (a *API) guideWritingBlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: asking a GOOD question about someone's half-formed
-	// argument is the hardest reasoning in this room — harder than the coach
-	// turn, which only has to respond. This is the one place in the writing
-	// scaffold that resolves the flagship.
-	resolved, ok2 := a.resolveEval(turnCtx)
+	// §model-routing · compose. Asking a GOOD question about someone's
+	// half-formed argument is the hardest reasoning in this room — harder than
+	// the dialogue turn, which only has to respond. compose is where that
+	// difference is now spent: a reasoning budget, not the reviewer tier.
+	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
 	if !ok2 {
 		slog.Warn("writing block guide: no provider resolved",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
@@ -740,9 +740,8 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: same reasoning as guideWritingBlock — resolves the
-	// flagship, not the ordinary chat chaperone.
-	resolved, ok2 := a.resolveEval(turnCtx)
+	// §model-routing · compose — same reasoning as guideWritingBlock.
+	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
 	if !ok2 {
 		slog.Warn("writing block guide batch: no provider resolved",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

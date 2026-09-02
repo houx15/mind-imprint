@@ -65,12 +65,27 @@
 
 | class | 调用点 |
 |---|---|
-| `reflex` | `ClassifyMoment` · `ClassifyClaimRevision` · `RouteReading`（pro + lite 阅读轮路由）· `BuildStatusRequest` · `postSuggestPlacement` · 项目类型识别 |
+| `reflex` | `ClassifyMoment` · `ClassifyClaimRevision` · `BuildStatusRequest`（per-status studio router）· `postSuggestPlacement` · 项目类型识别 |
 | `dialogue` | `postCoach` · `postCoachOpening/Start/Advance` · `postChatTurn` · `postCourseAsk` · `postProjectTurn` · `postReadingCoachTurn`（lite）· `postLiteWritingTurn` · `postPblTurn` · `postWritingOpening` · `explainReadingBlock` · `postReflectProjectCard` |
-| `compose` | `ComposeJourney` · `Generate`（锚点）· `ProposeCardExample` · `ProposeSearchKeywords` · `GenerateProposalGuideStep` · `QuestionCardTurn` · `ComposeExplorationGuide` · `ComposeDigQuery` · `ProposeQuestionEdges` · `GenerateCourseScene` · `ComposeAIUseSeed` · `planReadingTasks` · `postWritingPlanTurn` · `suggestWritingTitles` · `generatePlanItems` · `getReadingQuestions` · `guideWritingBlock(s)` · `deepenWritingBlock` · `ComposeReadingTakeawaySuggestions` · `generateEssayGuideCard` · `generateGuideCard` · `summonProjectCard` · `summonReadingLens` |
+| `compose` | `RouteReading`（pro + lite 阅读轮路由）· `ComposeJourney` · `Generate`（锚点）· `ProposeCardExample` · `ProposeSearchKeywords` · `GenerateProposalGuideStep` · `QuestionCardTurn` · `ComposeExplorationGuide` · `ComposeDigQuery` · `ProposeQuestionEdges` · `GenerateCourseScene` · `ComposeAIUseSeed` · `planReadingTasks` · `postWritingPlanTurn` · `suggestWritingTitles` · `generatePlanItems` · `getReadingQuestions` · `guideWritingBlock(s)` · `deepenWritingBlock` · `ComposeReadingTakeawaySuggestions` · `generateEssayGuideCard` · `generateGuideCard` · `summonProjectCard` · `summonReadingLens` |
 | `review` | `ReviewFramework` · `ReviewDraftAnnotations` · `ReviewEvidenceSaturation` · `ReviewExploration` · `ProposeReview` · `ProposeSpotCheck` · `EvaluateSelection`（pro + lite）· `reviewWritingDraft` · `commentOnSnippet` · `reviseEssayClaim` |
 | `assess` | `collectReport`（评估报告）· `generateReportProse` · `getPblLookback` · `ComposeWeekly` |
 | `digest` | `ComposeDigestMerge` · `ComposeReturnSummary` · `maybeCompactBackstop` |
+
+### 三处「归档就是降级」的地方，必须由 routebench 来批准
+
+归档不是纯粹的整理。有几个调用点带着写得很清楚的 `§model-routing` 注释，说明它们**是被
+刻意放在旗舰档上的**；把它们归进新的档，就是在改这些决定。这里逐条列出来，
+**在 routebench 给出证据之前，它们是假设，不是结论**：
+
+| 调用点 | 原来 | 现在 | 原注释怎么说 | 为什么仍然归到这里 |
+|---|---|---|---|---|
+| `postReadingCoachTurn`（lite 阅读陪练） | flagship + max | `dialogue`（关思考） | 「判断她刚说的话算不算做完了这一步，是判断，不是对话。旗舰。」 | 这个判断是真的。但它当时是在**只有三条 lane** 的条件下权衡的：陪练那条 lane 同时服务普通聊天，所以「要一点判断力」只能靠「买下绝不降级的审阅档 + 满额推理」来换。代价是学生在阅读室里等的每一轮都按旗舰价跑。**这是本次最大的一次下调**，由 routebench 的 dialogue 判官用例来判：如果陪练档的模型分不清「她做到了」和「她没做到」，就退回 `review`。 |
+| `postPblTurn` | flagship | `dialogue` | — | 同上，PBL 对话同样是学生当场等的一轮。 |
+| `postWritingPlanTurn` / `guideWritingBlock(s)` / `deepenWritingBlock` / `suggestWritingTitles` / `getReadingQuestions` / `generatePlanItems` | flagship，「绝不降级」 | `compose`（低推理） | 「这个房间里最难的推理」「plan generation is reviewer-tier work → flagship (never downgrade)」 | 「绝不降级」这个承诺只属于**过程评估**；这些调用是从学生**已经陈述过的内容**里派生结构，正是 compose 的定义。它们当年上旗舰是因为中间没有档位。compose 保留一份推理预算（不是零），预算多大由 routebench 定。 |
+
+代码里那 13 条 `§model-routing` 注释已经逐条改写成「属于哪个档 + 为什么」，
+不留下与代码相互矛盾的旧说法。
 
 ## 3 · 结构：档是目录里的数据
 

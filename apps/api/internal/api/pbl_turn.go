@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
@@ -105,7 +106,7 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, rok := a.resolveEval(r.Context())
+	resolved, rok := a.route(r.Context(), gateway.ClassDialogue)
 	if !rok {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return

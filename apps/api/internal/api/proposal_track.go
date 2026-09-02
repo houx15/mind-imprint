@@ -3,6 +3,7 @@ package api
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"log/slog"
 	"net/http"
 	"strings"
@@ -98,40 +99,68 @@ func (a *API) saveTrackState(ctx context.Context, projectID uuid.UUID, state age
 	return a.d.Queries.SetStudioState(ctx, sqlc.SetStudioStateParams{ID: projectID, StudioState: b})
 }
 
-// route resolves one capability class. It is the seam every call site should
-// use: naming a class says how much intelligence this call needs, and the
-// catalog decides which model that means today.
-//
-// The fallback chain is deliberate and narrow. A class with no key falls back
-// to dialogue — the class most likely to be configured in any environment —
-// rather than to nothing, so a partially-configured dev box still answers.
-// ok=false only when nothing at all resolves.
-func (a *API) route(ctx context.Context, class string) (gateway.Resolved, bool) {
+// routeE resolves one capability class, returning the gateway's own error. It
+// is the seam every call site should use: naming a class says how much
+// intelligence this call needs, and the catalog decides which model that means
+// today. See docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md.
+func (a *API) routeE(ctx context.Context, class string) (gateway.Resolved, error) {
 	if a.d.Route != nil {
-		if r, err := a.d.Route(class)(ctx); err == nil {
-			return r, true
-		}
+		return a.d.Route(class)(ctx)
 	}
-	// Pre-class wiring (tests that build Deps by hand, and any caller not yet
-	// passing Route): fall back to the legacy resolver this class aliases.
-	legacy := a.d.ChatResolver
+	// Pre-class wiring: a Deps built by hand (every handler test does this) that
+	// sets only the old lane resolvers. Falling back to the lane this class
+	// aliases keeps those tests meaningful instead of turning them all into
+	// "no provider configured".
+	if legacy := a.legacyResolver(class); legacy != nil {
+		return legacy(ctx)
+	}
+	return gateway.Resolved{}, errors.New("no LLM provider configured")
+}
+
+// legacyResolver maps a class onto the pre-class lane resolver that used to
+// serve it, for a Deps wired before Route existed — which is every handler test
+// in this package.
+//
+// It falls through to ANY resolver that is set, not just the preferred one.
+// Those tests wire exactly one fake resolver, chosen to match the lane the site
+// used before classes; insisting on the preferred lane would hand them "no
+// provider configured" and turn a suite of behaviour tests into a suite of
+// degraded-path tests that still pass. Production always sets Route and never
+// reaches here.
+func (a *API) legacyResolver(class string) gateway.KeyResolver {
+	var order []gateway.KeyResolver
 	switch class {
 	case gateway.ClassAssess, gateway.ClassReview:
-		if a.d.EvalResolver != nil {
-			legacy = a.d.EvalResolver
-		}
+		order = []gateway.KeyResolver{a.d.EvalResolver, a.d.ChatResolver, a.d.FastChatResolver}
 	case gateway.ClassReflex:
-		if a.d.FastChatResolver != nil {
-			legacy = a.d.FastChatResolver
+		order = []gateway.KeyResolver{a.d.FastChatResolver, a.d.ChatResolver, a.d.EvalResolver}
+	default:
+		order = []gateway.KeyResolver{a.d.ChatResolver, a.d.EvalResolver, a.d.FastChatResolver}
+	}
+	for _, r := range order {
+		if r != nil {
+			return r
 		}
 	}
-	if legacy != nil {
-		if r, err := legacy(ctx); err == nil {
-			return r, true
-		}
+	return nil
+}
+
+// routeFn hands a class's resolver to an agent helper that resolves it itself
+// (agent.RouteReading, agent.ProposeCardExample, agent.ComposeJourney …).
+func (a *API) routeFn(class string) gateway.KeyResolver {
+	return func(ctx context.Context) (gateway.Resolved, error) { return a.routeE(ctx, class) }
+}
+
+// route is the tolerant form, for call sites where a missing provider degrades
+// the feature instead of failing the request. ok=false when nothing resolves.
+func (a *API) route(ctx context.Context, class string) (gateway.Resolved, bool) {
+	if r, err := a.routeE(ctx, class); err == nil {
+		return r, true
 	}
-	if a.d.ChatResolver != nil {
-		if r, err := a.d.ChatResolver(ctx); err == nil {
+	// One retry on dialogue: it is the class most likely to be configured in a
+	// partially-set-up environment, so a dev box with a single key still answers.
+	if class != gateway.ClassDialogue {
+		if r, err := a.routeE(ctx, gateway.ClassDialogue); err == nil {
 			return r, true
 		}
 	}
@@ -224,7 +253,7 @@ func (a *API) generateGuideCard(ctx context.Context, projectID uuid.UUID, state 
 	if a.d.Provider == nil {
 		return guideCardDTO{}, false
 	}
-	resolved, ok := a.resolveFast(ctx)
+	resolved, ok := a.route(ctx, gateway.ClassCompose)
 	if !ok {
 		return guideCardDTO{}, false
 	}

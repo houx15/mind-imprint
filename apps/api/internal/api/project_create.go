@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/onboarding"
 	"mindimprint/api/internal/skills"
@@ -155,7 +156,7 @@ func (a *API) createProject(w http.ResponseWriter, r *http.Request) {
 // construction: it only ever calls SetWaived with a non-empty set, so no path
 // here can strand the student.
 func (a *API) composeJourney(ctx context.Context, projectID uuid.UUID, prompt string) {
-	if a.d.Provider == nil || a.d.ChatResolver == nil {
+	if a.d.Provider == nil || false {
 		return // no model wired (e.g. a test double) — full journey, no crash
 	}
 	sk, ok := skills.ByID("writing-project")
@@ -163,7 +164,7 @@ func (a *API) composeJourney(ctx context.Context, projectID uuid.UUID, prompt st
 		return
 	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	res := agent.ComposeJourney(ctx, a.d.Provider, a.d.ChatResolver, sk, prompt)
+	res := agent.ComposeJourney(ctx, a.d.Provider, a.routeFn(gateway.ClassCompose), sk, prompt)
 	if res.Resolved.Provider != "" {
 		if err := store.RecordLLMCall(ctx, agent.LLMCallRow{
 			ProjectID: projectID, Surface: "studio", Purpose: "compose_journey",

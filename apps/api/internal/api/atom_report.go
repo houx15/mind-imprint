@@ -468,7 +468,7 @@ func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID,
 		// reply that could never survive validateMoments anyway.
 		return reportProse{}
 	}
-	resolved, ok := a.resolveEval(ctx)
+	resolved, ok := a.route(ctx, gateway.ClassAssess)
 	if !ok {
 		slog.Warn("lite report: no provider resolved", "atom_id", atomID, "kind", kind)
 		return reportProse{}

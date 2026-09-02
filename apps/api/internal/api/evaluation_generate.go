@@ -117,7 +117,7 @@ func (a *API) runReportGeneration(ctx context.Context, projectID uuid.UUID, repo
 	milestones := a.assembleMilestones(ctx, projectID, p, events)
 
 	// LLM half — four calls, each metered + timed.
-	resolved, ok := a.resolveEval(ctx)
+	resolved, ok := a.route(ctx, gateway.ClassAssess)
 	var rubricRes agent.RubricResult
 	var promptLens evalreport.PromptLens
 	var risks []evalreport.RiskEntry

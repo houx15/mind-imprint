@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -65,7 +66,7 @@ func (a *API) postSuggestPlacement(w http.ResponseWriter, r *http.Request) {
 	leadID := ""
 	reason := ""
 	if len(questions) > 0 && a.d.Provider != nil {
-		if resolved, rok := a.resolveFast(r.Context()); rok {
+		if resolved, rok := a.route(r.Context(), gateway.ClassReflex); rok {
 			out, usage, gerr := agent.SuggestBestQuestion(r.Context(), a.d.Provider, resolved, agent.SuggestPlacementInput{
 				Title: ref.Title, Abstract: ref.Abstract, Journal: ref.Journal, Year: ref.Year, Questions: questions,
 			})

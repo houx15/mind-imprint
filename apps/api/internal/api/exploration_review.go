@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -37,7 +38,7 @@ func (a *API) postExplorationReview(w http.ResponseWriter, r *http.Request) {
 
 	review := ""
 	if a.d.Provider != nil {
-		if resolved, rok := a.resolveEval(r.Context()); rok {
+		if resolved, rok := a.route(r.Context(), gateway.ClassReview); rok {
 			out, usage, verr := agent.ReviewExploration(r.Context(), a.d.Provider, resolved, in)
 			a.meterCall(r.Context(), projectID, resolved, "exploration_review", usage)
 			if verr != nil {

@@ -321,9 +321,11 @@ func (a *API) getReadingQuestions(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: flagship tier, never downgraded — resolveEval falls
-	// back to the chaperone only when EvalResolver itself is unset.
-	resolved, okResolve := a.resolveEval(qCtx)
+	// §model-routing · compose. Deriving the comprehension questions for a text
+	// is structure generation over material already on the page. Only 过程评估
+	// carries the never-downgrade promise; this call never did — it inherited
+	// the flagship lane because there was no middle one.
+	resolved, okResolve := a.route(qCtx, gateway.ClassCompose)
 	if !okResolve {
 		slog.Warn("reading questions: no provider resolved", "atom_id", at.ID)
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))

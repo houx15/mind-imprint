@@ -200,15 +200,15 @@ func (a *API) summonProjectCard(w http.ResponseWriter, r *http.Request) {
 	// reliably (6/6) at ~2.5s versus the flagship reasoning model's 13–120s. Use
 	// it first; on the rare miss, fall back once to the flagship — best of both
 	// (fast common path, reasoning safety net) before the no-example degrade.
-	groundResolver := a.d.ChatResolver
+	groundResolver := a.routeFn(gateway.ClassCompose)
 	usedChaperone := groundResolver != nil
 	if !usedChaperone {
-		groundResolver = a.d.EvalResolver
+		groundResolver = a.routeFn(gateway.ClassCompose)
 	}
 	exampleAnchor, resolved, usage, exampleOK := agent.ProposeCardExample(r.Context(), a.d.Provider, groundResolver, spec, matID, blocks)
 	a.recordReadingLLMCall(r.Context(), store, projectID, "read_card_example", resolved, usage)
-	if !exampleOK && usedChaperone && a.d.EvalResolver != nil {
-		exampleAnchor, resolved, usage, exampleOK = agent.ProposeCardExample(r.Context(), a.d.Provider, a.d.EvalResolver, spec, matID, blocks)
+	if !exampleOK && usedChaperone && true {
+		exampleAnchor, resolved, usage, exampleOK = agent.ProposeCardExample(r.Context(), a.d.Provider, a.routeFn(gateway.ClassCompose), spec, matID, blocks)
 		a.recordReadingLLMCall(r.Context(), store, projectID, "read_card_example", resolved, usage)
 	}
 

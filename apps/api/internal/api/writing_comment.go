@@ -246,11 +246,11 @@ func (a *API) commentOnSnippet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// §model-routing: judging whether an argument holds up is reviewer-tier
+	// §model-routing · review. Judging whether an argument holds up is reviewer
 	// work, the same "faithful, never downgrade" reasoning every other
 	// judgment call in this file's neighbourhood applies — resolves
 	// EvalResolver (flagship), not writing_turn.go's chaperone ChatResolver.
-	resolved, ok2 := a.resolveEval(turnCtx)
+	resolved, ok2 := a.route(turnCtx, gateway.ClassReview)
 	if !ok2 {
 		slog.Warn("writing block comment: no provider resolved",
 			"atom_id", at.ID, "snippet_id", snippet.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

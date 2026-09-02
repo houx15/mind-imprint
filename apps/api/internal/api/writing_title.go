@@ -264,11 +264,12 @@ func (a *API) suggestWritingTitles(w http.ResponseWriter, r *http.Request) {
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
 
-	// §model-routing: flagship, like every other judgment call in this room.
-	// Naming a piece is a reading-comprehension task over her whole draft —
-	// a downgraded model produces generic 作文题 titles, which is exactly the
-	// failure this endpoint exists to avoid.
-	resolved, ok2 := a.resolveEval(turnCtx)
+	// §model-routing · compose. Naming a piece is a reading-comprehension task
+	// over her whole draft, and a model with nothing left to spend produces
+	// generic 作文题 titles — exactly the failure this endpoint exists to avoid.
+	// It derives a name from a draft she has already written, so it is compose,
+	// not review; what it needs is a reasoning budget, not the reviewer tier.
+	resolved, ok2 := a.route(turnCtx, gateway.ClassCompose)
 	if !ok2 {
 		slog.Warn("writing title ideas: no provider resolved",
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

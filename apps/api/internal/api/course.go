@@ -439,7 +439,7 @@ func (a *API) postCourseAsk(w http.ResponseWriter, r *http.Request) {
 	}
 	stepTitle, stepText := courseAskStepDigest(payload.RenderCache, structureStepTitle, body.Ordinal)
 
-	resolved, err := a.d.ChatResolver(r.Context()) // chaperone (mid-tier) — 降级 allowed, per agent-spec §5.3
+	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue) // chaperone (mid-tier) — 降级 allowed, per agent-spec §5.3
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return

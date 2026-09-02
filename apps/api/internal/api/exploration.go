@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/materialize"
 	"mindimprint/api/internal/store/sqlc"
@@ -624,7 +625,7 @@ func (a *API) postExplorationGuide(w http.ResponseWriter, r *http.Request) {
 
 	var directions []agent.GuideDirection
 	if agent.HasGraphContent(in) {
-		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil {
 			ds, usage, cerr := agent.ComposeExplorationGuide(r.Context(), a.d.Provider, resolved, in)
 			if resolved.Provider != "" && cerr == nil {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
@@ -829,8 +830,8 @@ func (a *API) digExploration(w http.ResponseWriter, r *http.Request) {
 	// provider are unaffected, and any failure falls back to the raw text —
 	// dig must never 500 because the refine step didn't work out.
 	searchQuery := query
-	if a.d.ChatResolver != nil {
-		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil && resolved.Provider != "" {
+	if true {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil && resolved.Provider != "" {
 			refined, usage, cerr := agent.ComposeDigQuery(r.Context(), a.d.Provider, resolved, query)
 			if cerr == nil && strings.TrimSpace(refined) != "" {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
@@ -1381,8 +1382,8 @@ func (a *API) proposeQuestionEdges(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var proposals []agent.EdgeProposal
-	if a.d.ChatResolver != nil {
-		if resolved, rerr := a.d.ChatResolver(r.Context()); rerr == nil && resolved.Provider != "" {
+	if true {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassCompose); rerr == nil && resolved.Provider != "" {
 			ps, usage, cerr := agent.ProposeQuestionEdges(r.Context(), a.d.Provider, resolved, in)
 			if cerr == nil {
 				store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)

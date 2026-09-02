@@ -191,7 +191,7 @@ func (a *API) postProjectTurn(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, err := a.d.ChatResolver(r.Context())
+	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -353,7 +353,7 @@ func (a *API) surfaceAnchors(ctx context.Context, store agent.AgentStore, projec
 	if err != nil {
 		return nil, false
 	}
-	gen := agent.NewAnchorGenerator(a.d.Provider, a.d.ChatResolver)
+	gen := agent.NewAnchorGenerator(a.d.Provider, a.routeFn(gateway.ClassCompose))
 	// The guidance fade (spec §3): the scaffold recedes as she repeats a card.
 	// annotate only — compare/SIFT stays L1 (its lateral read is already her
 	// own work, and its generation is additionally constrained below).

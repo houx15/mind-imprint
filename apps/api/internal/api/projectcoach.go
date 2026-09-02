@@ -13,6 +13,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -160,7 +161,7 @@ func (a *API) maybeCompactBackstop(ctx context.Context, projectID uuid.UUID) boo
 		ids = append(ids, m.ID)
 	}
 
-	resolved, rerr := a.d.ChatResolver(ctx)
+	resolved, rerr := a.routeE(ctx, gateway.ClassDigest)
 	if rerr != nil {
 		return false
 	}

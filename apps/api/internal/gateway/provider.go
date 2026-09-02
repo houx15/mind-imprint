@@ -42,9 +42,24 @@ type StreamEvent struct {
 // assess do not. Tier remains the fallback for a Resolved built without a class
 // — hand-built values in tests, and ResolveDirect from the offline workbench —
 // so this change is invisible to every existing caller.
+// Precedence, most specific first:
+//
+//	req.DisableThinking  — this call must not think, whatever the class says
+//	req.ReasoningEffort  — this call asked for a BUDGET, so it must think a little
+//	r.Reasoning          — the capability class's requirement
+//	r.Tier               — pre-class fallback (chaperone ⇒ off)
+//
+// The second rule is load-bearing. agent.RouteReading asks for "low" and its own
+// comment records why: thinking-OFF breaks that router outright (empty replies,
+// stops offering cards), while full thinking costs 19–49s a turn. A class default
+// of "off" silently overruling that request would have re-broken the reading room
+// the same way, and nothing but a live read-together turn would have shown it.
 func wantsThinkingOff(r Resolved, req ChatRequest) bool {
 	if req.DisableThinking {
 		return true
+	}
+	if req.ReasoningEffort != "" {
+		return false
 	}
 	switch r.Reasoning {
 	case ReasoningOff:

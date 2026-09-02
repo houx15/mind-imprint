@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -242,7 +243,7 @@ func (a *API) postLiteWritingTurn(w http.ResponseWriter, r *http.Request) {
 	projection := buildWritingCoachProjection(wr, outline, snippets)
 	surfaceLabel := writingStageLabel(wr.Stage)
 
-	resolved, rerr := a.d.ChatResolver(turnCtx)
+	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
 	if rerr != nil {
 		// No call was ever attempted — nothing to meter, same as coach.go's
 		// ChatResolver failure branch — but still surfaced as the honest

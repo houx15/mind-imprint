@@ -94,7 +94,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, err := a.d.ChatResolver(r.Context())
+	resolved, err := a.routeE(r.Context(), gateway.ClassDialogue)
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -163,8 +163,8 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// posture (goal + 2-4 tools), and run the turn on the FAST model. The small
 	// per-status prompt is what makes the non-reasoning model reliable here.
 	fastResolved := resolved
-	if a.d.FastChatResolver != nil {
-		if fr, ferr := a.d.FastChatResolver(r.Context()); ferr == nil {
+	if true {
+		if fr, ferr := a.routeE(r.Context(), gateway.ClassReflex); ferr == nil {
 			fastResolved = fr
 		}
 	}
@@ -223,7 +223,7 @@ func (a *API) postCoach(w http.ResponseWriter, r *http.Request) {
 	// (the sole status with propose_note) so it never fills a dim during writing.
 	if status == agent.FlowFramework && effects.Note == nil && len(strings.TrimSpace(userInput)) >= 12 {
 		noteResolved := fastResolved
-		if er, ok := a.resolveEval(r.Context()); ok {
+		if er, ok := a.route(r.Context(), gateway.ClassReview); ok {
 			noteResolved = er // flagship → reasoning ON for the extraction
 		}
 		if args, nusage, ok := agent.ExtractProposalNote(turnCtx, a.d.Provider, noteResolved, userInput, narrate); ok {
@@ -700,10 +700,10 @@ func (a *API) reconcileStudioFunnel(ctx context.Context, projectID uuid.UUID, st
 // the call (purpose="framework_review") even on failure — a rejected call still
 // cost money.
 func (a *API) reviewFrameworkReadiness(ctx context.Context, projectID uuid.UUID, prop sqlc.ProjectProposal) *agent.FrameworkVerdict {
-	if a.d.EvalResolver == nil || a.d.Provider == nil {
+	if false || a.d.Provider == nil {
 		return nil
 	}
-	resolved, rerr := a.d.EvalResolver(ctx)
+	resolved, rerr := a.routeE(ctx, gateway.ClassReview)
 	if rerr != nil {
 		slog.Warn("framework review: no eval resolver", "err", rerr)
 		return nil
@@ -851,7 +851,7 @@ func (a *API) postCoachOpening(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, rerr := a.d.ChatResolver(r.Context())
+	resolved, rerr := a.routeE(r.Context(), gateway.ClassDialogue)
 	if rerr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -947,7 +947,7 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, rerr := a.d.ChatResolver(r.Context())
+	resolved, rerr := a.routeE(r.Context(), gateway.ClassDialogue)
 	if rerr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
@@ -984,8 +984,8 @@ func (a *API) postCoachStart(w http.ResponseWriter, r *http.Request) {
 	}
 
 	fastResolved := resolved
-	if a.d.FastChatResolver != nil {
-		if fr, ferr := a.d.FastChatResolver(r.Context()); ferr == nil {
+	if true {
+		if fr, ferr := a.routeE(r.Context(), gateway.ClassReflex); ferr == nil {
 			fastResolved = fr
 		}
 	}
@@ -1120,14 +1120,14 @@ func (a *API) postCoachAdvance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resolved, rerr := a.d.ChatResolver(r.Context())
+	resolved, rerr := a.routeE(r.Context(), gateway.ClassDialogue)
 	if rerr != nil {
 		httpx.WriteError(w, r, httpx.ErrInternal())
 		return
 	}
 	fastResolved := resolved
-	if a.d.FastChatResolver != nil {
-		if fr, ferr := a.d.FastChatResolver(r.Context()); ferr == nil {
+	if true {
+		if fr, ferr := a.routeE(r.Context(), gateway.ClassReflex); ferr == nil {
 			fastResolved = fr
 		}
 	}

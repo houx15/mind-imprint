@@ -61,12 +61,31 @@ func TestReasoningEffortIsSentOnFlagshipOnly(t *testing.T) {
 		t.Errorf("flagship reasoning_effort = %#v, want low", flagship["reasoning_effort"])
 	}
 
-	chap, err := p.buildBody(dashscopeResolved(t, LaneChat), req)
+	// A chaperone-class call that says nothing about reasoning gets thinking off
+	// and no budget: a budget alongside thinking-off is meaningless.
+	silent := ChatRequest{Messages: req.Messages}
+	chap, err := p.buildBody(dashscopeResolved(t, LaneChat), silent)
 	if err != nil {
 		t.Fatal(err)
 	}
 	if _, ok := chap["reasoning_effort"]; ok {
-		t.Error("thinking is already off; a reasoning budget alongside it is meaningless")
+		t.Errorf("thinking is already off; a reasoning budget alongside it is meaningless: %#v", chap)
+	}
+
+	// But a chaperone-class call that ASKS for a budget gets one. Silently
+	// dropping it is the exact failure this catalog exists to prevent: the knob
+	// is accepted, ignored, and the call site's measured reason for setting it
+	// (agent.RouteReading: thinking-OFF breaks the router) is defeated with no
+	// error anywhere.
+	asked, err := p.buildBody(dashscopeResolved(t, LaneChat), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if asked["reasoning_effort"] != "low" {
+		t.Errorf("an explicit budget on a chaperone class must be honored, got %#v", asked)
+	}
+	if _, off := asked["enable_thinking"]; off {
+		t.Error("a call asking for a low budget must not also be told not to think")
 	}
 }
 

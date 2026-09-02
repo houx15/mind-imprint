@@ -318,11 +318,10 @@ func (a *API) explainReadingBlock(w http.ResponseWriter, r *http.Request) {
 	turnCtx, cancel := context.WithTimeout(context.WithoutCancel(r.Context()), 150*time.Second)
 	defer cancel()
 
-	// §model-routing: explaining a paragraph is explanation, not judgement, and
-	// it is the most frequently-clicked call in the room. Chaperone tier —
-	// the flagship is reserved for the planning call that has to decide which
-	// paragraph matters.
-	resolved, rerr := a.d.ChatResolver(turnCtx)
+	// §model-routing · dialogue. Explaining a paragraph is explanation, not
+	// judgement, and it is the most frequently-clicked call in the room —
+	// which is exactly what dialogue's 4-second budget is for.
+	resolved, rerr := a.routeE(turnCtx, gateway.ClassDialogue)
 	if rerr != nil {
 		slog.Warn("reading block explain: resolve model failed", "err", rerr,
 			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))

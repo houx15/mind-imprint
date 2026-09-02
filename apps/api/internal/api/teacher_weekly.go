@@ -23,15 +23,15 @@ import (
 // it is deterministic. Lead and action are "" until the prose is composed; a
 // card with no wording still renders its tag and its evidence (敢于空白).
 type WeeklyCardDTO struct {
-	UserID        string `json:"userId"`
-	DisplayName   string `json:"displayName"`
-	AvatarColor   string `json:"avatarColor"`
-	TagCode       string `json:"tagCode"`
-	TagLabel      string `json:"tagLabel"`
-	Kind          string `json:"kind"`
-	Evidence      string `json:"evidence"`
-	Lead          string `json:"lead"`
-	Action        string `json:"action"`
+	UserID      string `json:"userId"`
+	DisplayName string `json:"displayName"`
+	AvatarColor string `json:"avatarColor"`
+	TagCode     string `json:"tagCode"`
+	TagLabel    string `json:"tagLabel"`
+	Kind        string `json:"kind"`
+	Evidence    string `json:"evidence"`
+	Lead        string `json:"lead"`
+	Action      string `json:"action"`
 	// ReportOverview is the deterministic 综述 teaser from the student's own
 	// report; present only on praise cards that have a report. "" otherwise.
 	ReportOverview string `json:"reportOverview,omitempty"`
@@ -345,7 +345,7 @@ func (a *API) postClassWeeklyProse(w http.ResponseWriter, r *http.Request) {
 // tokens. ok=false means "no prose this time", never an error to the client
 // (a failed composition must never wall the screen).
 func (a *API) composeWeeklyProse(ctx context.Context, r *http.Request, facts agent.WeeklyFacts) (agent.WeeklyProse, bool) {
-	resolved, rerr := a.d.EvalResolver(ctx)
+	resolved, rerr := a.routeE(ctx, gateway.ClassAssess)
 	if rerr != nil {
 		slog.Warn("weekly prose: no provider", "err", rerr)
 		return agent.WeeklyProse{}, false

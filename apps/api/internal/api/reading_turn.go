@@ -352,7 +352,13 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	ordering := readingOrderingGuard(cardRows)
 
 	// 2. 复用 AI 大脑，一行没改.
-	raw, resolved, usage, rerr := agent.RouteReading(turnCtx, a.d.Provider, a.d.EvalResolver, in)
+	// compose, not reflex: the reading router looks like a routing decision but
+	// its JSON also carries the student-facing reply and an example anchor, and
+	// a live A/B (2026-07-30) found thinking-OFF breaks it outright — empty
+	// replies, stops offering cards — while full thinking costs 19–49s a turn.
+	// compose is the class that says "a little reasoning, ~12s"; reflex's 2s
+	// no-thinking budget is a promise this call cannot keep.
+	raw, resolved, usage, rerr := agent.RouteReading(turnCtx, a.d.Provider, a.routeFn(gateway.ClassCompose), in)
 
 	// Meter BEFORE any bail: a call that reached a provider cost money whatever
 	// happens to its reply. A metering failure only warns — it never fails the

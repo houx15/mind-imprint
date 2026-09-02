@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -42,10 +43,10 @@ func annotationDocParam(r *http.Request) string {
 }
 
 func (a *API) runDraftAnnotationReview(ctx context.Context, projectID uuid.UUID, doc, focus string) []draftAnnotationDTO {
-	if a.d.Provider == nil || a.d.EvalResolver == nil {
+	if a.d.Provider == nil || false {
 		return a.listAnnotationDTOs(ctx, projectID, doc)
 	}
-	resolved, rerr := a.d.EvalResolver(ctx)
+	resolved, rerr := a.routeE(ctx, gateway.ClassReview)
 	if rerr != nil {
 		return a.listAnnotationDTOs(ctx, projectID, doc)
 	}

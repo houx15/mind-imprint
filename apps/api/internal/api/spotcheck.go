@@ -86,7 +86,7 @@ func (a *API) orderSpotCheck(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sk, _ := skills.ByID("writing-project")
-	resolved, rerr := a.d.ChatResolver(r.Context())
+	resolved, rerr := a.routeE(r.Context(), gateway.ClassReview)
 	if rerr != nil {
 		_ = em.ErrorEnvelope("internal_error", "体检失败，请重试")
 		_ = em.Done()

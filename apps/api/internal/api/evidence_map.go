@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -302,8 +303,8 @@ func (a *API) reviewSubQuestionSaturation(w http.ResponseWriter, r *http.Request
 	}
 
 	verdict := agent.SubQuestionVerdictOut{Saturated: true, Why: "", Gaps: []string{}}
-	if a.d.Provider != nil && a.d.EvalResolver != nil {
-		if resolved, rerr := a.d.EvalResolver(r.Context()); rerr == nil {
+	if a.d.Provider != nil && true {
+		if resolved, rerr := a.routeE(r.Context(), gateway.ClassReview); rerr == nil {
 			papers := make([]agent.EvidencePaper, 0, len(papersBySubQ[sqID]))
 			for _, ref := range papersBySubQ[sqID] {
 				papers = append(papers, agent.EvidencePaper{

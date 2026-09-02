@@ -173,7 +173,7 @@ func (a *API) postGenerateEvaluationReport(w http.ResponseWriter, r *http.Reques
 //
 // TODAY: emits evalreport.Placeholder — a full, deterministic fixture report,
 // standing in for the real generation algorithm. LATER: this resolves
-// a.d.EvalResolver, calls the real report-generation agent, and records the
+// a.routeFn(gateway.ClassAssess), calls the real report-generation agent, and records the
 // LLM call's cost — keeping this exact signature so both callers are
 // unaffected by the swap.
 func (a *API) generateAndStoreEvaluationReport(ctx context.Context, projectID uuid.UUID) error {

@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/agent"
+	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -75,7 +76,7 @@ func (a *API) postQuestionCardTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("provider_unavailable"))
 		return
 	}
-	resolved, rok := a.resolveFast(r.Context())
+	resolved, rok := a.route(r.Context(), gateway.ClassCompose)
 	if !rok {
 		slog.Warn("question card: no fast resolver", "request_id", httpx.RequestIDFromContext(r.Context()))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
