@@ -2,6 +2,7 @@ import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useState } from "react";
 import {
   answerLookback,
+  bySection,
   getLookback,
   lookbackTodo,
   type LookbackPrompt,
@@ -67,12 +68,21 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
       )}
 
       {prompts.length === 0 && !error && (
-        <p className="text-mk-small text-mk-muted">在整理这个项目发生过的事…</p>
+        <p className="text-mk-small text-mk-muted">印记正在读这个项目发生过的事，为你写复盘问题…</p>
       )}
 
-      <div className="space-y-2">
-        {prompts.map((p) => (
-          <PromptRow key={p.id} prompt={p} onSave={(a) => void save(p.id, a)} />
+      {/* 六段。段是骨架：她答完一串零碎的问题，仍然没被带着从"做了什么"
+          走到"我学到了什么"。 */}
+      <div className="space-y-4">
+        {bySection(prompts).map((g) => (
+          <section key={g.key}>
+            <p className="text-mk-small text-mk-secondary">{g.title}</p>
+            <div className="mt-1.5 space-y-2">
+              {g.prompts.map((p) => (
+                <PromptRow key={p.id} prompt={p} onSave={(a) => void save(p.id, a)} />
+              ))}
+            </div>
+          </section>
         ))}
       </div>
 
@@ -85,14 +95,6 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
   );
 }
 
-/** 这一问从哪来的。让她知道这不是随便问的。 */
-const FROM: Record<LookbackPrompt["anchorKind"], string> = {
-  reframe: "你改写过的问题",
-  decision: "你做过的一个决定",
-  artifact: "你退回去的一份东西",
-  free: "",
-};
-
 function PromptRow({
   prompt,
   onSave,
@@ -102,12 +104,10 @@ function PromptRow({
 }) {
   const [text, setText] = useState(prompt.answer);
   useEffect(() => setText(prompt.answer), [prompt.answer]);
-  const from = FROM[prompt.anchorKind];
 
   return (
     <div className="rounded-mk-md border border-mk-border px-3 py-2.5">
-      {from && <p className="text-mk-small text-mk-faint">{from}</p>}
-      <p className="mt-0.5 text-mk-small text-mk-ink">{prompt.prompt}</p>
+      <p className="text-mk-small text-mk-ink">{prompt.prompt}</p>
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

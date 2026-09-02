@@ -4,17 +4,16 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
 	. "mindimprint/api/internal/api"
 )
 
 type lookbackOut struct {
-	ID         string `json:"id"`
-	Prompt     string `json:"prompt"`
-	AnchorKind string `json:"anchorKind"`
-	Answer     string `json:"answer"`
+	ID      string `json:"id"`
+	Section string `json:"section"`
+	Prompt  string `json:"prompt"`
+	Answer  string `json:"answer"`
 }
 
 func decodeLookback(t *testing.T, rec *httptest.ResponseRecorder) []lookbackOut {
@@ -26,64 +25,55 @@ func decodeLookback(t *testing.T, rec *httptest.ResponseRecorder) []lookbackOut 
 	return out
 }
 
-// 🚨 复盘的问题从这个项目**真的发生过的事**里长出来，不是一张空表。
-// 「it can be a form」——是表单，但问「你学到了什么」的空格，和被否掉的那种
-// 卡片是同一件东西。
-func TestPblLookback_AsksAboutWhatActuallyHappened(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+// 🚨 复盘按六段走，段里的问题由印记按这个项目真发生过的事现写。
+//
+// 产品负责人 2026-09-02 给了骨架，也说清了分工：段是我们定的（做了什么 / 感受
+// 如何 / 印象最深 / 值得肯定 / 还能更好 / 和 AI 的协作），具体问题让 AI 按这个
+// 结构写。两边都不能省——只有段就是空表单，只有问题就没有骨架。
+func TestPblLookback_AsksInSectionsWrittenByYinji(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(`{"questions":[
+	  {"section":"with_ai","prompt":"印记帮你整理数字那一段，你自己还会做吗？"},
+	  {"section":"what","prompt":"你在食堂一共待了几天，看到的和你原来想的一样吗？"},
+	  {"section":"moment","prompt":"哪一刻你觉得这件事真的有意思？"},
+	  {"section":"随便","prompt":"这一条段名不对，应该被丢掉"}
+	]}`))
 	pid := newProjectViaAPI(t, h, cookie)
 
-	// 她做过一个决定，并且说清了为什么不选别的。
-	d := decodeDecision(t, pblPost(t, h, cookie,
-		"/api/v1/pbl/projects/"+pid+"/decisions", twoRoads))
-	pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/decisions/"+d.ID+"/settle",
-		`{"choice":"先给食堂","why":"他们能直接改",
-		  "whyNot":"班群反馈快，但改不了食堂的量"}`)
-
-	// 她退回了一份东西。
-	aid := newArtifactViaAPI(t, h, cookie, pid)
-	pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/artifacts/"+aid+"/settle",
-		`{"verdict":"revise","why":"第二段把我的话改成了它自己的说法"}`)
-
-	got := decodeLookback(t, pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/lookback", ""))
-	if len(got) < 3 {
-		t.Fatalf("只生成了 %d 问：%+v", len(got), got)
+	got := decodeLookback(t, pblReq(t, h, cookie, "GET",
+		"/api/v1/pbl/projects/"+pid+"/lookback", ""))
+	if len(got) != 3 {
+		t.Fatalf("生成了 %d 问，want 3（段名不对的那条要丢掉）：%+v", len(got), got)
 	}
-
-	var sawDecision, sawArtifact bool
-	for _, p := range got {
-		switch p.AnchorKind {
-		case "decision":
-			sawDecision = true
-			// 做决定时写下的那一句，到这里才兑现。
-			if !strings.Contains(p.Prompt, "班群反馈快，但改不了食堂的量") {
-				t.Fatalf("决定那一问没把「为什么不选别的」问回来：%q", p.Prompt)
-			}
-		case "artifact":
-			sawArtifact = true
-			if !strings.Contains(p.Prompt, "第二段把我的话改成了它自己的说法") {
-				t.Fatalf("退回那一问没带上她当时的理由：%q", p.Prompt)
-			}
-		}
+	// 🚨 顺序按六段来，不按模型吐出来的顺序——她走的顺序不该由模型决定。
+	if got[0].Section != "what" || got[1].Section != "moment" || got[2].Section != "with_ai" {
+		t.Fatalf("段的顺序不对：%v / %v / %v", got[0].Section, got[1].Section, got[2].Section)
 	}
-	if !sawDecision {
-		t.Fatal("她做过一个决定，复盘里却没问到")
-	}
-	if !sawArtifact {
-		t.Fatal("她退回过一份东西，复盘里却没问到")
+	if got[0].Prompt == "" {
+		t.Fatal("问题是空的")
 	}
 }
 
-// 🚨 只生成一次。再生成一遍会把她答过的冲掉，而复盘本来就是隔几天回来慢慢
-// 写的。
+// 🚨 写不出问题就报错，不兜底成一份通用问卷。她会照着答完，然后以为自己复盘
+// 过了——那比没有复盘更糟。
+func TestPblLookback_FailureSurfaces(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(`{"questions":[]}`))
+	pid := newProjectViaAPI(t, h, cookie)
+	rec := pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/lookback", "")
+	if rec.Code != http.StatusBadGateway {
+		t.Fatalf("status = %d, want 502; body=%s", rec.Code, rec.Body)
+	}
+}
+
+// 🚨 只生成一次。再生成一遍会把她答过的冲掉，而复盘本来就是隔几天回来慢慢写的。
 func TestPblLookback_GeneratedOnceAndKeepsHerAnswers(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	h, cookie, _, _ := liteHandlerWithProvider(t, pblCoachSaying(`{"questions":[
+	  {"section":"what","prompt":"这个项目你实际做了哪几件事？"}]}`))
 	pid := newProjectViaAPI(t, h, cookie)
 	url := "/api/v1/pbl/projects/" + pid + "/lookback"
 
 	first := decodeLookback(t, pblReq(t, h, cookie, "GET", url, ""))
 	if len(first) == 0 {
-		t.Fatal("一个还没定过什么的项目也该有得问")
+		t.Fatal("一问都没生成")
 	}
 	if rec := pblReq(t, h, cookie, "PATCH", url+"/"+first[0].ID,
 		`{"answer":"最难的是承认第一个问题问错了"}`); rec.Code != http.StatusOK {
@@ -100,7 +90,8 @@ func TestPblLookback_GeneratedOnceAndKeepsHerAnswers(t *testing.T) {
 }
 
 func TestPblLookback_OtherStudentGets404(t *testing.T) {
-	h, cookie, _, pool := liteHandlerWithProvider(t, nil)
+	h, cookie, _, pool := liteHandlerWithProvider(t, pblCoachSaying(`{"questions":[
+	  {"section":"what","prompt":"做了什么？"}]}`))
 	pid := newProjectViaAPI(t, h, cookie)
 
 	otherID := createStudent(t, pool, SeedSchoolID, "other-lookback@demo.local")
@@ -189,7 +180,7 @@ func TestPblKeep_RejectsJunk(t *testing.T) {
 			t.Fatalf("add %s = %d, want 400", body, rec.Code)
 		}
 	}
-	// 认不出的阶段退回"看数据"，而不是报错——阶段是提示，不是门槛。
+	// 认不出的阶段退回"收集数据"，而不是报错——阶段是提示，不是门槛。
 	if rec := pblPost(t, h, cookie, url,
 		`{"kind":"thought","body":"也许该换个标题","stage":"什么阶段"}`); rec.Code != http.StatusCreated {
 		t.Fatalf("unknown stage = %d, want 201", rec.Code)

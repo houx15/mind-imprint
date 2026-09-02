@@ -579,6 +579,7 @@ type PblReview struct {
 	Answer     string    `json:"answer"`
 	Ordinal    int32     `json:"ordinal"`
 	CreatedAt  time.Time `json:"created_at"`
+	Section    string    `json:"section"`
 }
 
 type PblReviewDimension struct {

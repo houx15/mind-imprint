@@ -48,8 +48,8 @@ UPDATE pbl_review_dimension SET answer = $2 WHERE id = $1 RETURNING *;
 -- ── 阶段六：复盘 ───────────────────────────────────────────────────────
 
 -- name: CreatePblReviewPrompt :one
-INSERT INTO pbl_review (atom_id, prompt, anchor_kind, anchor_ref, ordinal)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO pbl_review (atom_id, prompt, section, anchor_kind, anchor_ref, ordinal)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: ListPblReviewPrompts :many

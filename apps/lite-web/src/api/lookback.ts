@@ -5,14 +5,37 @@ import { apiFetch } from "./client";
 
 const base = (id: string) => `/api/v1/pbl/projects/${id}`;
 
+export type ReviewSection = "what" | "how" | "moment" | "praise" | "improve" | "with_ai";
+
+/**
+ * 复盘的六段（产品负责人 2026-09-02）。段是固定的，段里的问题由印记按这个项目
+ * 真发生过的事现写——见 apps/api/internal/pbl/lookback.go。
+ */
+export const REVIEW_SECTIONS: { key: ReviewSection; title: string }[] = [
+  { key: "what", title: "做了什么" },
+  { key: "how", title: "感受如何" },
+  { key: "moment", title: "印象最深的一件事" },
+  { key: "praise", title: "值得肯定的地方" },
+  { key: "improve", title: "还能更好的地方" },
+  { key: "with_ai", title: "和 AI 的协作" },
+];
+
 export interface LookbackPrompt {
   id: string;
+  section: ReviewSection;
   prompt: string;
-  /** 这一问是从哪件真事上长出来的。 */
-  anchorKind: "reframe" | "decision" | "artifact" | "free";
-  anchorRef: string;
   answer: string;
   ordinal: number;
+}
+
+/** 按六段分组，空段不出现。 */
+export function bySection(
+  prompts: LookbackPrompt[],
+): { key: ReviewSection; title: string; prompts: LookbackPrompt[] }[] {
+  return REVIEW_SECTIONS.map((s) => ({
+    ...s,
+    prompts: prompts.filter((p) => p.section === s.key),
+  })).filter((g) => g.prompts.length > 0);
 }
 
 export function getLookback(projectId: string): Promise<LookbackPrompt[]> {

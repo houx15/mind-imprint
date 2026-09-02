@@ -2,13 +2,14 @@ package api
 
 import (
 	"encoding/json"
-	"fmt"
+	"log/slog"
 	"net/http"
 	"strings"
 
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -27,101 +28,83 @@ import (
 // 件事本来就是隔几天回来慢慢写的。
 
 type pblLookbackDTO struct {
-	ID         string `json:"id"`
-	Prompt     string `json:"prompt"`
-	AnchorKind string `json:"anchorKind"`
-	AnchorRef  string `json:"anchorRef"`
-	Answer     string `json:"answer"`
-	Ordinal    int32  `json:"ordinal"`
+	ID string `json:"id"`
+	// 六段之一：what / how / moment / praise / improve / with_ai。
+	Section string `json:"section"`
+	Prompt  string `json:"prompt"`
+	Answer  string `json:"answer"`
+	Ordinal int32  `json:"ordinal"`
 }
 
 func toPblLookbackDTO(p sqlc.PblReview) pblLookbackDTO {
 	return pblLookbackDTO{
-		ID: p.ID.String(), Prompt: p.Prompt, AnchorKind: p.AnchorKind,
-		AnchorRef: p.AnchorRef, Answer: p.Answer, Ordinal: p.Ordinal,
+		ID: p.ID.String(), Section: p.Section, Prompt: p.Prompt,
+		Answer: p.Answer, Ordinal: p.Ordinal,
 	}
 }
 
-type pblLookbackSeed struct {
-	prompt     string
-	anchorKind string
-	anchorRef  string
-}
-
-// buildPblLookback —— 把这个项目发生过的事变成问题。
+// gatherPblLookback 把这个项目真发生过的事收集起来，交给印记去写问题。
 //
-// 顺序是有意的：先问她改过主意的地方（问题被重新框定），再问她做过的判断，
-// 再问她退回去的东西，最后才问下一次。前面三类都指着一件具体的事；只有最后
-// 一问是开放的，而那时候她已经把三件具体的事想过一遍了。
-func buildPblLookback(
-	reframes []sqlc.PblReframe,
-	decisions []sqlc.PblDecision,
-	artifacts []sqlc.PblArtifact,
-) []pblLookbackSeed {
-	out := []pblLookbackSeed{}
-
-	// 她改写过问题——这门课最想让她看见的一件事。
-	for _, r := range reframes {
-		if !r.Supersedes.Valid || r.ConfirmedAt.Valid == false {
-			continue
-		}
-		out = append(out, pblLookbackSeed{
-			prompt: fmt.Sprintf(
-				"你后来把问题改成了「%s 需要 %s」。是什么让你改的？", r.Who, r.Needs),
-			anchorKind: "reframe", anchorRef: r.ID.String(),
-		})
+// 收集在这里做、写在 internal/pbl/lookback.go 做：能拿到什么是数据库的事，
+// 问什么是印记的事。
+func (a *API) gatherPblLookback(r *http.Request, atomID uuid.UUID) (pbl.LookbackInput, error) {
+	in := pbl.LookbackInput{}
+	p, err := a.d.Queries.GetPblProject(r.Context(), atomID)
+	if err != nil {
+		return in, err
 	}
+	in.Idea, in.Name = p.Idea, p.Name
 
-	// 她做过的判断，以及她当时写下的"什么会让我改主意"。
-	for _, d := range decisions {
-		if !d.SettledAt.Valid {
-			continue
+	if v, verr := a.d.Queries.GetPblLivePlan(r.Context(), atomID); verr == nil {
+		if steps, serr := a.d.Queries.ListPblPlanSteps(r.Context(), v.ID); serr == nil {
+			for _, st := range steps {
+				in.Steps = append(in.Steps, st.Title+"（"+st.Status+"）")
+			}
 		}
-		// 她当时写下的「为什么不选别的」，现在原样问回去。做那个决定时想清楚
-		// 放掉了什么，到这里才兑现——不然那一句就只是一次填空。
-		if strings.TrimSpace(d.WhyNot) != "" {
-			out = append(out, pblLookbackSeed{
-				prompt: fmt.Sprintf(
-					"关于「%s」你选了「%s」，当时放掉别的方案是因为：%s。现在回头看，这个理由还站得住吗？",
-					d.Subject, d.Choice, d.WhyNot),
-				anchorKind: "decision", anchorRef: d.ID.String(),
-			})
-			continue
-		}
-		out = append(out, pblLookbackSeed{
-			prompt:     fmt.Sprintf("关于「%s」你选了「%s」。现在还会这么选吗？", d.Subject, d.Choice),
-			anchorKind: "decision", anchorRef: d.ID.String(),
-		})
 	}
-
-	// 她退回去或者不要的东西——她在这里真的行使过判断。
-	for _, a := range artifacts {
-		if a.Verdict == nil || (*a.Verdict != "revise" && *a.Verdict != "dropped") {
-			continue
+	if rs, rerr := a.d.Queries.ListPblReframes(r.Context(), atomID); rerr == nil {
+		for _, x := range rs {
+			if x.ConfirmedAt.Valid {
+				in.Reframes = append(in.Reframes,
+					x.Who+" 需要 "+x.Needs+"，因为 "+x.Why)
+			}
 		}
-		title := a.Title
-		if strings.TrimSpace(title) == "" {
-			title = "印记交的那一份"
+	}
+	if ds, derr := a.d.Queries.ListPblDecisions(r.Context(), atomID); derr == nil {
+		for _, d := range ds {
+			if !d.SettledAt.Valid {
+				continue
+			}
+			line := "关于「" + d.Subject + "」选了「" + d.Choice + "」，因为" + d.Why
+			if strings.TrimSpace(d.WhyNot) != "" {
+				line += "；没选别的是因为" + d.WhyNot
+			}
+			in.Decisions = append(in.Decisions, line)
 		}
-		out = append(out, pblLookbackSeed{
-			prompt: fmt.Sprintf(
-				"你把《%s》退了回去，理由是「%s」。再遇到差不多的东西，你会先看哪里？", title, a.Why),
-			anchorKind: "artifact", anchorRef: a.ID.String(),
-		})
 	}
-
-	// 一个项目可能什么都还没定过。那也要有得问，但仍然是具体的一问。
-	if len(out) == 0 {
-		out = append(out, pblLookbackSeed{
-			prompt:     "这个项目里，哪一步比你想的难？",
-			anchorKind: "free",
-		})
+	if as, aerr := a.d.Queries.ListPblArtifacts(r.Context(), atomID); aerr == nil {
+		for _, x := range as {
+			if x.Verdict == nil {
+				continue
+			}
+			word := map[string]string{"kept": "通过了", "revise": "要求修改", "dropped": "打回重做"}[*x.Verdict]
+			title := x.Title
+			if strings.TrimSpace(title) == "" {
+				title = "印记交的一份东西"
+			}
+			line := "《" + title + "》" + word
+			if strings.TrimSpace(x.Why) != "" {
+				line += "，理由是「" + x.Why + "」"
+			}
+			in.Artifacts = append(in.Artifacts, line)
+		}
 	}
-	out = append(out, pblLookbackSeed{
-		prompt:     "下次再做这样一件事，你第一件会做什么？",
-		anchorKind: "free",
-	})
-	return out
+	if ks, kerr := a.d.Queries.ListPblKeepEntries(r.Context(), atomID); kerr == nil {
+		for _, k := range ks {
+			in.Keeps = append(in.Keeps, k.Body)
+		}
+	}
+	return in, nil
 }
 
 func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
@@ -137,25 +120,32 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 	// 🚨 只生成一次。再生成一遍会把她答过的冲掉，而复盘本来就是隔几天回来
 	// 慢慢写的。
 	if len(existing) == 0 {
-		reframes, rerr := a.d.Queries.ListPblReframes(r.Context(), atomID)
-		if rerr != nil {
-			httpx.WriteError(w, r, rerr)
+		u, _ := UserFromContext(r.Context())
+		in, gerr := a.gatherPblLookback(r, atomID)
+		if gerr != nil {
+			httpx.WriteError(w, r, gerr)
 			return
 		}
-		decisions, derr := a.d.Queries.ListPblDecisions(r.Context(), atomID)
-		if derr != nil {
-			httpx.WriteError(w, r, derr)
+		resolved, rok := a.resolveEval(r.Context())
+		if !rok {
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 			return
 		}
-		artifacts, aerr := a.d.Queries.ListPblArtifacts(r.Context(), atomID)
-		if aerr != nil {
-			httpx.WriteError(w, r, aerr)
+		qs, usage, qerr := pbl.GenerateLookback(r.Context(), a.d.Provider, resolved, in)
+		a.recordLiteLLMCall(r.Context(), u.ID, atomID, "pbl_lookback", resolved, usage)
+		if qerr != nil {
+			// 🚨 不兜底成一份通用问卷。她会照着答完，然后以为自己复盘过了——
+			// 那比没有复盘更糟。
+			slog.Warn("pbl lookback: could not write the questions; surfacing",
+				"err", qerr, "atom_id", atomID,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("lookback_failed"))
 			return
 		}
-		for i, seed := range buildPblLookback(reframes, decisions, artifacts) {
+		for i, q := range qs {
 			row, cerr := a.d.Queries.CreatePblReviewPrompt(r.Context(), sqlc.CreatePblReviewPromptParams{
-				AtomID: atomID, Prompt: seed.prompt,
-				AnchorKind: seed.anchorKind, AnchorRef: seed.anchorRef, Ordinal: int32(i),
+				AtomID: atomID, Prompt: q.Prompt, Section: q.Section,
+				AnchorKind: "free", AnchorRef: "", Ordinal: int32(i),
 			})
 			if cerr != nil {
 				httpx.WriteError(w, r, cerr)

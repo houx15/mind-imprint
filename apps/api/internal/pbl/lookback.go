@@ -1,0 +1,201 @@
+package pbl
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"strings"
+
+	"mindimprint/api/internal/gateway"
+)
+
+// lookback.go —— 复盘的问题，由印记按固定的六段现写。
+//
+// 产品负责人 2026-09-02 给了骨架，也说清了分工：
+//
+//	「generally the structure of a project reflection is: what... how... one of
+//	 the most impressive thing. some praise towards myself. something that we
+//	 can make progress later, and how. what you learned from the collaboration
+//	 with AI. but we can ask ai to generate concrete questions according to
+//	 this structure.」
+//
+// 所以段是我们定的，问题是印记写的。两边都不能省：
+//
+//	只有段，没有具体问题 → 「你学到了什么」这种空格，就是被否掉的那种表单。
+//	只有具体问题，没有段 → 她答完一串零碎的问题，仍然没被带着从"做了什么"
+//	                        走到"我学到了什么"。
+
+// ReviewSections 是复盘的六段，顺序就是她该走的顺序。
+var ReviewSections = []struct {
+	Key   string
+	Title string
+	About string
+}{
+	{"what", "做了什么", "这个项目实际发生了哪些事，她经历了什么"},
+	{"how", "感受如何", "过程里的感受，以及对最后成果的感受"},
+	{"moment", "印象最深的一件事", "整个项目里最记得住的那一下"},
+	{"praise", "值得肯定的地方", "她自己做得好的地方，说具体"},
+	{"improve", "还能更好的地方", "哪里可以做得更好，以及具体怎么做"},
+	{"with_ai", "和 AI 的协作", "从这次和印记一起做里学到了什么"},
+}
+
+func IsReviewSection(s string) bool {
+	for _, x := range ReviewSections {
+		if x.Key == s {
+			return true
+		}
+	}
+	return false
+}
+
+// LookbackInput 是印记写这些问题时能看见的东西：全是这个项目真发生过的事。
+type LookbackInput struct {
+	Idea      string
+	Name      string
+	Steps     []string
+	Reframes  []string
+	Decisions []string
+	Artifacts []string
+	Keeps     []string
+}
+
+// LookbackQuestion 是一段里的一问。
+type LookbackQuestion struct {
+	Section string
+	Prompt  string
+}
+
+const lookbackSystem = `你在帮一个中学生复盘他刚做完的项目。
+
+你的任务：按下面六段，每段写 1 到 2 个**具体**的问题。
+
+六段：
+%s
+
+怎么写才算具体：
+- 指着这个项目里真发生过的事问。他改过一次问题、退回过一份东西、在某一步卡了
+  很久——就问那件事。
+- 不要写「你学到了什么」「有什么收获」这种放到任何项目上都成立的话。那种问题
+  他只会答一句「挺好的」。
+- 一次问一件事，别把两个问题塞进一句。
+- 说人话，短句。不要用「反思」「迭代」「赋能」这类词考他。
+
+下面是这个项目里发生过的事：
+
+%s
+
+只返回一个 JSON 对象，不要别的字：
+{"questions": [{"section": "what", "prompt": "……"}, ...]}
+
+section 只能是 what / how / moment / praise / improve / with_ai。
+每一段至少一问。`
+
+func lookbackSectionList() string {
+	var b strings.Builder
+	for _, s := range ReviewSections {
+		fmt.Fprintf(&b, "  %s（%s）—— %s\n", s.Key, s.Title, s.About)
+	}
+	return b.String()
+}
+
+func buildLookbackContext(in LookbackInput) string {
+	var b strings.Builder
+	if strings.TrimSpace(in.Name) != "" {
+		fmt.Fprintf(&b, "项目：%s\n", in.Name)
+	}
+	fmt.Fprintf(&b, "他一开始是这么说的：%s\n", strings.TrimSpace(in.Idea))
+	section := func(title string, xs []string) {
+		if len(xs) == 0 {
+			return
+		}
+		fmt.Fprintf(&b, "\n%s：\n", title)
+		for _, x := range xs {
+			if t := strings.TrimSpace(x); t != "" {
+				fmt.Fprintf(&b, "  · %s\n", t)
+			}
+		}
+	}
+	section("计划里的步骤", in.Steps)
+	section("他改写过的问题", in.Reframes)
+	section("他做过的决定", in.Decisions)
+	section("印记交给他、他判断过的东西", in.Artifacts)
+	section("上线之后他记下的事", in.Keeps)
+	if len(in.Steps)+len(in.Reframes)+len(in.Decisions)+len(in.Artifacts)+len(in.Keeps) == 0 {
+		b.WriteString("\n（这个项目留下的记录不多，就着他最初那句话问。）\n")
+	}
+	return b.String()
+}
+
+var errNoQuestions = errors.New("pbl: lookback produced no questions")
+
+// GenerateLookback 让印记按六段写出具体的问题。
+//
+// 失败就往上抛，不兜底：一份自动生成的通用问卷比没有复盘更糟——她会照着答完，
+// 然后以为自己复盘过了。
+func GenerateLookback(
+	ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in LookbackInput,
+) ([]LookbackQuestion, gateway.ChatUsage, error) {
+	req := gateway.ChatRequest{
+		Messages: []gateway.ChatMessage{{
+			Role: gateway.RoleSystem,
+			Content: fmt.Sprintf(lookbackSystem, lookbackSectionList(), buildLookbackContext(in)),
+		}},
+		MaxTokens: 16384,
+	}
+	var usage gateway.ChatUsage
+	var lastErr error
+	for attempt := 0; attempt < maxCoachAttempts; attempt++ {
+		res, err := gateway.Collect(ctx, prov, resolved, req)
+		usage = res.Usage
+		if err != nil {
+			lastErr = err
+			continue
+		}
+		qs, perr := parseLookback(res.Text)
+		if perr != nil {
+			lastErr = perr
+			continue
+		}
+		return qs, usage, nil
+	}
+	return nil, usage, lastErr
+}
+
+func parseLookback(raw string) ([]LookbackQuestion, error) {
+	s := strings.TrimSpace(raw)
+	start := strings.Index(s, "{")
+	end := strings.LastIndex(s, "}")
+	if start < 0 || end <= start {
+		return nil, errNoQuestions
+	}
+	var out struct {
+		Questions []struct {
+			Section string `json:"section"`
+			Prompt  string `json:"prompt"`
+		} `json:"questions"`
+	}
+	if err := json.Unmarshal([]byte(s[start:end+1]), &out); err != nil {
+		return nil, fmt.Errorf("pbl: %w", err)
+	}
+	// 按六段的顺序重排：模型的输出顺序不该决定她走的顺序。
+	bySection := map[string][]string{}
+	for _, q := range out.Questions {
+		sec := strings.TrimSpace(strings.ToLower(q.Section))
+		prompt := strings.TrimSpace(q.Prompt)
+		if prompt == "" || !IsReviewSection(sec) {
+			continue
+		}
+		bySection[sec] = append(bySection[sec], prompt)
+	}
+	qs := []LookbackQuestion{}
+	for _, s := range ReviewSections {
+		for _, p := range bySection[s.Key] {
+			qs = append(qs, LookbackQuestion{Section: s.Key, Prompt: p})
+		}
+	}
+	if len(qs) == 0 {
+		return nil, errNoQuestions
+	}
+	return qs, nil
+}
