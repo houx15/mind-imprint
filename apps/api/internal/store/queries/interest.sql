@@ -40,9 +40,8 @@ WHERE k.user_id = $1
 ORDER BY s.happened_at DESC;
 
 -- name: UpsertKeywordDiscipline :exec
--- 同一条边重算时按 how 分优先级：她自己改过的（student）绝不被后来的模型判定
--- 覆盖掉。优先级在 Go 侧算好后作为 $5 传进来比较，避免把这套顺序抄成 SQL 里
--- 第二份真相。
+-- 重算一条边时，她自己改过的（how='student'）绝不被后来的模型判定覆盖掉 ——
+-- 这就是 DO UPDATE 上那个 WHERE 的全部作用。
 INSERT INTO keyword_discipline (keyword_id, discipline_id, confidence, how, rationale)
 VALUES ($1, $2, $3, $4, $5)
 ON CONFLICT (keyword_id, discipline_id) DO UPDATE SET

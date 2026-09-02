@@ -256,6 +256,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/readings/{id}/questions", liteOnly(a.getReadingQuestions))
 	mux.Handle("POST /api/v1/readings/{id}/heartbeat", liteOnly(a.readingHeartbeat))
 	mux.Handle("GET /api/v1/readings/{id}/report", liteOnly(a.getAtomReportFor("reading")))
+
+	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，
+	// 学科由 internal/interest 的三档路由连上，这里只负责读出来。
+	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))
 	mux.Handle("POST /api/v1/readings/{id}/report/share", liteOnly(a.shareReadingReport()))
 	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 	mux.Handle("PUT /api/v1/readings/{id}/rating", liteOnly(a.putReadingRating()))
