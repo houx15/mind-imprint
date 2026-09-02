@@ -299,6 +299,23 @@
     "one lane at a time (MODEL_CHAT first), or speed and cost stop being",
     "attributable to anything."
   ],
+  "_bindingComment": [
+    "2026-09-03 · 这一组绑定来自 routebench 的实测，不是猜的。三档换了，三档留着；",
+    "留下来的理由和换掉的理由一样是数据。完整报告见",
+    "docs/2026-09-03-routing-benchmark-findings.md。",
+    "",
+    "reflex  deepseek-v4-pro -> qwen3.7-flash   300ms vs 1s，3 vs 3 tokens，五个候选结构全对",
+    "compose deepseek-v4-pro -> kimi-k3         6.9s vs 10.8s，191 vs 506 tokens，质量并列",
+    "digest  deepseek-v4-pro -> deepseek-v4-flash  1.6s vs 2.9s，77 vs 98 tokens，两者都 5 分",
+    "",
+    "dialogue 留 deepseek-v4-pro：它是唯一在 lite 阅读陪练上拿 5 分的候选。",
+    "  qwen3.7-plus 均分打平（3.75）却在那一项拿 1——它把学生没做完的一步放过去了，",
+    "  而那正是这个调用当年被放上旗舰的理由。均分会把这种失败藏起来。",
+    "  这一档真正的收益不是换模型，是关思考：同一个模型，从满额推理降到不推理。",
+    "review / assess 留 deepseek-v4-pro：assess 上 kimi-k3 直接空回复、glm-5.3 报 400。",
+    "  review 上所有候选都只有 2 分——它们全都把一份半成品框架判成了 ready。",
+    "  那是 prompt 的问题，换模型解决不了。"
+  ],
   "_classComment": [
     "A class says how much INTELLIGENCE a call needs — not which feature made it.",
     "Two calls on one page can sit in different classes; two unrelated features can",
@@ -317,7 +334,7 @@
   ],
   "lanes": {
     "reflex": {
-      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "model": "dashscope/qwen3.7-flash", "tier": "chaperone",
       "reasoning": "off", "latencyBudgetMs": 2000,
       "label": "反射 — 一个标签或一次路由选择，没有自由文本"
     },
@@ -327,7 +344,7 @@
       "label": "陪练 — 学生当场看得见的对话轮，一次只问一个"
     },
     "compose": {
-      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "model": "dashscope/kimi-k3", "tier": "chaperone",
       "reasoning": "low", "latencyBudgetMs": 12000,
       "label": "结构生成 — 从已陈述的输入派生一个 schema 形状的产物"
     },
@@ -342,7 +359,7 @@
       "label": "过程评估 — rubric 报告 / 回顾 / 周报；绝不降级"
     },
     "digest": {
-      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "model": "dashscope/deepseek-v4-flash", "tier": "chaperone",
       "reasoning": "off", "latencyBudgetMs": 15000,
       "label": "摘要 — 长输入短输出，压缩而不判断"
     },

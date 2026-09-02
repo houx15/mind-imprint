@@ -211,24 +211,40 @@ func onlyKey(name, value string) KeyLookup {
 	}
 }
 
-// The default binding must reach DashScope, and it must keep serving deepseek-v4-pro
-// so switching the platform onto the aggregator does not change the model.
-func TestLanesDefaultToDashScopeDeepSeek(t *testing.T) {
+// Every class must resolve through DashScope with its key wired, and to the
+// model routebench actually chose.
+//
+// The second half is the point. These bindings are measurements, not
+// preferences (docs/2026-09-03-routing-benchmark-findings.md), and the way they
+// rot is somebody re-pointing one during an unrelated change. Naming them here
+// makes that a failed test with a document to read rather than a silent
+// regression in speed, cost, or — on dialogue — in whether the coach notices
+// that a student has not finished a step.
+func TestEveryClassResolvesToTheBenchmarkedModel(t *testing.T) {
 	cat, _ := DefaultCatalog()
 	keys := onlyKey("DASHSCOPE_API_KEY", "sk-dashscope")
-	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
-		r, err := cat.Resolve(lane, "", keys)
+	want := map[string]string{
+		ClassReflex:   "qwen3.7-flash",     // 300ms vs 1s, structurally identical
+		ClassDialogue: "deepseek-v4-pro",   // the only candidate scoring 5 on the lite reading coach
+		ClassCompose:  "kimi-k3",           // 6.9s / 191 tokens vs 10.8s / 506, quality tied
+		ClassReview:   "deepseek-v4-pro",   // every candidate scored 2; do not swap on noise
+		ClassAssess:   "deepseek-v4-pro",   // kimi-k3 returns nothing here, glm-5.3 returns 400
+		ClassDigest:   "deepseek-v4-flash", // 1.6s / 77 tokens, tied at 5/5
+	}
+	for class, model := range want {
+		r, err := cat.Resolve(class, "", keys)
 		if err != nil {
-			t.Fatalf("lane %s: %v", lane, err)
+			t.Fatalf("class %s: %v", class, err)
 		}
-		if r.Provider != "dashscope" || r.Model != "deepseek-v4-pro" {
-			t.Errorf("lane %s = %s/%s, want dashscope/deepseek-v4-pro", lane, r.Provider, r.Model)
+		if r.Provider != "dashscope" || r.Model != model {
+			t.Errorf("class %s = %s/%s, want dashscope/%s — if this is deliberate, re-run routebench and update the findings doc",
+				class, r.Provider, r.Model, model)
 		}
 		if r.Kind != KindOpenAICompatible {
-			t.Errorf("lane %s kind = %q", lane, r.Kind)
+			t.Errorf("class %s kind = %q", class, r.Kind)
 		}
 		if r.APIKey != "sk-dashscope" {
-			t.Errorf("lane %s: key not wired", lane)
+			t.Errorf("class %s: key not wired", class)
 		}
 	}
 }

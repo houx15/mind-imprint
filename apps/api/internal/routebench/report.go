@@ -19,16 +19,39 @@ type Recommendation struct {
 	Rejected []string
 }
 
+// qualityFirst names the classes where being right matters more than being
+// cheap, so the winner is the highest scorer rather than the cheapest one
+// inside a band.
+//
+// 🚨 This distinction was missing from the first version and it produced a
+// visibly wrong answer on 2026-09-03: on `review`, every candidate scored 2,
+// so the band admitted all of them and the cheapest won — which was glm-5.3,
+// answering in 4.6s with ZERO reasoning tokens on a class whose entire purpose
+// is to reason. "Cheapest among equally mediocre" is the right rule for a
+// classifier and the wrong rule for a reviewer.
+func qualityFirst(class string) bool {
+	return class == gateway.ClassReview || class == gateway.ClassAssess
+}
+
 // Recommend picks a model per class under one rule, applied in order:
 //
 //  1. anything that failed a call, or whose output the production parser
 //     rejected even once, is out. Structural failure is not a tradeoff — it is
 //     a student seeing an error.
-//  2. anything scoring below the best judge score by more than one full point
-//     is out. A one-point band is wide enough to absorb judge noise and narrow
-//     enough to exclude a model that is actually worse at the job.
-//  3. of what remains, the cheapest — fewest output tokens, reasoning included.
-//     Then the fastest, as a tiebreak.
+//
+//  2. anything whose WORST case is more than one point below the best model's
+//     worst case is out.
+//
+//     The worst case, not the mean, because a mean hides the failure that
+//     matters. On 2026-09-03 qwen3.7-plus tied deepseek-v4-pro on the dialogue
+//     mean (3.75 each) while scoring 1 on the lite reading coach — it waved a
+//     student past a step she had not finished. Averaged against three good
+//     turns that reads as "as good as the incumbent". It is not: three of four
+//     student-facing surfaces working is a broken product, not a 75% one.
+//
+//  3. of what remains: on review/assess the HIGHEST quality wins; everywhere
+//     else the cheapest — fewest output tokens, reasoning included — then the
+//     fastest as a tiebreak.
 //
 // Cost is ranked by TOKENS, not money, because every DashScope model in the
 // catalog is UNPRICED. Recording an invented price would defeat the one thing
@@ -51,6 +74,7 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			out, think    int
 			total         time.Duration
 			judgeSum      float64
+			judgeMin      float64
 			judgeN        int
 			hardFail      []string
 			cases, judged int
@@ -78,23 +102,26 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			}
 			if r.Judge > 0 {
 				a.judgeSum += r.Judge
+				if a.judged == 0 || r.Judge < a.judgeMin {
+					a.judgeMin = r.Judge
+				}
 				a.judged++
 			}
 		}
 
-		best := 0.0
+		// The bar is the best model's WORST case — see Recommend's note on why
+		// a mean is the wrong summary for a product with several surfaces.
+		bestWorst := 0.0
 		for _, a := range am {
-			if a.judged > 0 && len(a.hardFail) == 0 {
-				if m := a.judgeSum / float64(a.judged); m > best {
-					best = m
-				}
+			if a.judged > 0 && len(a.hardFail) == 0 && a.judgeMin > bestWorst {
+				bestWorst = a.judgeMin
 			}
 		}
 
 		type cand struct {
-			id    string
-			a     *agg
-			judge float64
+			id         string
+			a          *agg
+			judge, min float64
 		}
 		var ok []cand
 		var rejected []string
@@ -108,17 +135,28 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			if a.judged > 0 {
 				j = a.judgeSum / float64(a.judged)
 			}
-			if best > 0 && a.judged > 0 && j < best-1.0 {
-				rejected = append(rejected, fmt.Sprintf("%s — 质量 %.1f，比最好的 %.1f 低超过一分", id, j, best))
+			if bestWorst > 0 && a.judged > 0 && a.judgeMin < bestWorst-1.0 {
+				rejected = append(rejected, fmt.Sprintf("%s — 最差一项 %.0f 分，比最好的最差项 %.0f 低超过一分（均分 %.1f 把这一项藏起来了）",
+					id, a.judgeMin, bestWorst, j))
 				continue
 			}
-			ok = append(ok, cand{id, a, j})
+			ok = append(ok, cand{id, a, j, a.judgeMin})
 		}
 		if len(ok) == 0 {
 			out = append(out, Recommendation{Class: class, ModelID: "", Why: "没有候选通过", Rejected: rejected})
 			continue
 		}
 		sort.Slice(ok, func(i, j int) bool {
+			if qualityFirst(class) {
+				// Being right beats being cheap here. Quality, then worst case,
+				// then cost only as a tiebreak between equals.
+				if ok[i].judge != ok[j].judge {
+					return ok[i].judge > ok[j].judge
+				}
+				if ok[i].min != ok[j].min {
+					return ok[i].min > ok[j].min
+				}
+			}
 			oi, oj := ok[i].a.out+ok[i].a.think, ok[j].a.out+ok[j].a.think
 			if oi != oj {
 				return oi < oj
@@ -126,8 +164,8 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			return ok[i].a.total < ok[j].a.total
 		})
 		w := ok[0]
-		why := fmt.Sprintf("结构 100%%，质量 %.1f，输出 %d tokens（其中推理 %d），p50 %s",
-			w.judge, w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
+		why := fmt.Sprintf("结构 100%%，质量 %.1f（最差一项 %.0f），输出 %d tokens（其中推理 %d），p50 %s",
+			w.judge, w.min, w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
 		if w.a.judged == 0 {
 			why = fmt.Sprintf("结构 100%%（此档无判官用例），输出 %d tokens（其中推理 %d），p50 %s",
 				w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
