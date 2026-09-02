@@ -167,10 +167,17 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setSessions((prev) => [...prev, s]);
       setActiveSession(s.id);
       await refreshThread(s.id);
+      // 🚨 支线由印记先开口（产品负责人 2026-09-02）。空文本的一轮：她还没说
+      // 话，是这条支线刚开，印记要接住她上面说的那件事，把这一层要看什么讲
+      // 清楚。让她一进来面对一个空房间，等于把"深挖"变成了又一个输入框。
+      setThinking(true);
+      await postTurn(projectId, "", s.id);
+      await refreshThread(s.id);
     } catch (err) {
       setError(apiErrorText(err));
     } finally {
       setBusy(false);
+      setThinking(false);
     }
   }
 
@@ -301,9 +308,9 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             {thread.length === 0 && !thinking && (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
                 <Pebble state="idle" size={44} />
-                <p className="text-mk-body text-mk-secondary">
-                  {current ? "这一层还没开始。把你想到的写下来。" : "印记在这儿。说说你想做的这件事。"}
-                </p>
+                {/* 印记永远先开口（D1），所以这一屏只在那一轮没成功时才出现。
+                    上面的红字会说明原因，这里不再假装是在邀请她开始。 */}
+                <p className="text-mk-body text-mk-secondary">对话还没有开始</p>
               </div>
             )}
             {thread.map((m) => (

@@ -96,8 +96,9 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	if studentText != "" {
 		in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
-	} else if len(in.Recent) == 0 {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "说点什么再发", nil))
+	} else if len(in.Recent) == 0 && !scope.Valid {
+		// 支线里允许空文本：印记要为这条支线开个头，而它的上文来自主线。
+		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入内容", nil))
 		return
 	}
 
@@ -228,6 +229,18 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 		rows, err = a.d.Queries.ListPblSessionMessages(r.Context(), sqlc.ListPblSessionMessagesParams{
 			AtomID: atomID, SessionID: scope,
 		})
+		// 🚨 一条刚开的支线里一句话都没有。这时候只给印记一个孤零零的问题，
+		// 它只能干巴巴地把那个问题再问一遍——而这条支线本来就是从她刚说的某
+		// 句话上长出来的。
+		//
+		// 产品负责人 2026-09-02：「system should gives AI a context about this
+		// branch first so that we can guide student」。所以把主线最后几轮一起
+		// 带上，印记才说得出"你刚才说 X，我们单独看看这一点"。
+		if err == nil && len(rows) == 0 {
+			if parent, perr := a.d.Queries.ListPblMainThread(r.Context(), atomID); perr == nil {
+				rows = parent
+			}
+		}
 	} else {
 		rows, err = a.d.Queries.ListPblMainThread(r.Context(), atomID)
 		if err == nil {

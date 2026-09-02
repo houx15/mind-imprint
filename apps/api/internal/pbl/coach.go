@@ -159,6 +159,11 @@ func buildCoachContext(in CoachInput) string {
 			strings.TrimSpace(in.SessionQuestion))
 		b.WriteString("在支线里不要拉回整个项目，就把这一个问题想透。" +
 			"这里不要再给钩子，也不要递工具——支线就是为了想一件事。\n")
+		if len(in.Recent) == 0 || in.Recent[len(in.Recent)-1].Role != "student" {
+			b.WriteString("这条支线刚开，由你先说第一句：接住他上面说的那件具体的事，" +
+				"说清楚这一层要一起看的是什么，然后问他一个问题。" +
+				"不要把上面那个问题原样重复一遍。\n")
+		}
 	}
 	tail := in.Recent
 	if len(tail) > recentWindow {
