@@ -40,6 +40,16 @@ type CoachInput struct {
 	SessionKind string
 	// SessionQuestion is the question that opened the session.
 	SessionQuestion string
+	// ToolWork is what she actually produced in the tools: the problem she
+	// reframed, the notes she wrote on the board, the option she settled on,
+	// the artifact she sent back for revision.
+	//
+	// 🚨 少了这一项，工具就白做了。她在便签板上摆十五分钟，回到对话，而印记
+	// 收到的 prompt 和上一轮一模一样——它没看见任何一张便签，只能接着聊上一轮
+	// 那件事。学生那边的感受很直接：这个东西没在听我说话。
+	//
+	// 这是 AGENTS.md 主线里的「回灌陪练」那个箭头（见 api/pbl_refeed.go）。
+	ToolWork []string
 	// WriteBacks are the conclusions of closed sessions on this thread. Per
 	// spec §10.3 the main thread sees CONCLUSIONS, never every turn of every
 	// session — that is what keeps a deep dig from flooding the project.
@@ -154,6 +164,18 @@ func buildCoachContext(in CoachInput) string {
 		}
 	} else {
 		b.WriteString("还没有计划——你们还在把这件事聊清楚。\n")
+	}
+	// 🚨 她在工具里真做出来的东西。这一段是整个 prompt 里最该被用上的部分：
+	// 她写下的句子在这儿，印记就能指着其中一句往下说，而不是把她刚做完的事
+	// 再问一遍。
+	if len(in.ToolWork) > 0 {
+		b.WriteString("\n【他在工具里已经做出来的东西】\n")
+		for _, w := range in.ToolWork {
+			fmt.Fprintf(&b, "  · %s\n", strings.TrimSpace(w))
+		}
+		b.WriteString("这些是他自己写下的原话。接着往下说的时候，" +
+			"指着其中具体的一句说，不要笼统地夸他「做得不错」，" +
+			"更不要把他刚做完的事再问一遍。\n")
 	}
 	// Conclusions of closed digs, never their working.
 	if len(in.WriteBacks) > 0 {

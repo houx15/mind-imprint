@@ -96,7 +96,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       task="先多想几个办法，再挑一个先试"
       why={tool.reason}
       todo={todo}
-      finishLabel="就先试这个"
+      finishLabel="确认选择"
       onFinish={finish}
       onClose={onClose}
     >

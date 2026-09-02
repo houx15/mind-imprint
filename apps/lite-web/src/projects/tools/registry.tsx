@@ -46,6 +46,15 @@ export interface ToolSurfaceProps {
   tool: ToolInstance;
   /** 收工：把结果写回对话，面板回到计划。 */
   onFinish: (result: unknown, summary: string) => void;
+  /**
+   * 把她送进一条已经开好的支线，印记在那儿先开口。
+   *
+   * 🚨 有两个地方的服务端**特意**为她开了一条支线并把 id 返回了，而前端把 id
+   * 扔了：审核里点「问问这一句」，和长期迭代里点「深入讨论」。结果是她向 AI
+   * 提了一个问题，产品把这个问题原样变成一个要她自己填的输入框——那是教她
+   * 「这里的 AI 是假的」最快的办法。
+   */
+  onOpenSession: (sessionId: string) => void;
   onClose: () => void;
 }
 

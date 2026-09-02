@@ -2,7 +2,7 @@ import { useState } from "react";
 import type { PlanResolution, PlanState } from "../api/projectRoom";
 import type { ToolInstance } from "../api/tools";
 import { PlanPanel } from "./PlanPanel";
-import { TOOL_TASKS, surfaceFor } from "./tools/registry";
+import { TOOL_TASKS, surfaceFor, type ToolSurfaceProps } from "./tools/registry";
 import { ToolFrame } from "./tools/ToolFrame";
 
 /**
@@ -21,6 +21,7 @@ export function WorkPanel({
   openTool,
   onSelectTool,
   onFinishTool,
+  onOpenSession,
   onResolve,
   onApprove,
   busy,
@@ -32,6 +33,8 @@ export function WorkPanel({
   openTool: string | null;
   onSelectTool: (id: string | null) => void;
   onFinishTool: (tool: ToolInstance, result: unknown, summary: string) => void;
+  /** 工具把她送进一条支线（服务端已经开好）。 */
+  onOpenSession: (sessionId: string) => void;
   onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
   busy?: boolean;
@@ -65,6 +68,7 @@ export function WorkPanel({
             projectId={projectId}
             tool={active}
             onFinish={(result, summary) => onFinishTool(active, result, summary)}
+            onOpenSession={onOpenSession}
             onClose={() => onSelectTool(null)}
           />
         ) : (
@@ -105,12 +109,7 @@ function Tab({ label, on, onClick }: { label: string; on: boolean; onClick: () =
 }
 
 /** 有专门界面的用专门界面；没有的退回到一张朴素卡片，不白屏。 */
-function ToolSurface(props: {
-  projectId: string;
-  tool: ToolInstance;
-  onFinish: (result: unknown, summary: string) => void;
-  onClose: () => void;
-}) {
+function ToolSurface(props: ToolSurfaceProps) {
   const Surface = surfaceFor(props.tool.tool);
   if (Surface) return <Surface {...props} />;
   return <PlainSurface {...props} />;
@@ -122,15 +121,7 @@ function ToolSurface(props: {
  * 印记可以召出一件我们还没画界面的工具——名字是自由字符串就是为了这个。她
  * 在这里自己写做完的结果，一样进过程记录。
  */
-function PlainSurface({
-  tool,
-  onFinish,
-  onClose,
-}: {
-  tool: ToolInstance;
-  onFinish: (result: unknown, summary: string) => void;
-  onClose: () => void;
-}) {
+function PlainSurface({ tool, onFinish, onClose }: ToolSurfaceProps) {
   const [text, setText] = useState("");
   return (
     <ToolFrame

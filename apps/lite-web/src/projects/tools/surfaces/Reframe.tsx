@@ -122,7 +122,7 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
       task="一次说一句，把这件事到底是谁的问题说清楚"
       why={tool.reason}
       todo={done ? "" : `还有 ${STEPS.length - filled} 句没说`}
-      finishLabel="就这么定"
+      finishLabel="确认选择"
       onFinish={() => void finish()}
       onClose={onClose}
     >

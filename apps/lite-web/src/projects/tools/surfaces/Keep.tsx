@@ -31,7 +31,7 @@ import type { ToolSurfaceProps } from "../registry";
  * 我们不替她保管成品——网站活在她自己的世界里。我们保管的是她从成品那里学到
  * 的东西。
  */
-export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
+export function Keep({ projectId, tool, onFinish, onOpenSession, onClose }: ToolSurfaceProps) {
   const [entries, setEntries] = useState<KeepEntry[]>([]);
   const [kind, setKind] = useState<KeepKind>("stat");
   const [stage, setStage] = useState<KeepStage>("observe");
@@ -67,7 +67,13 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
       setEntries((prev) =>
         prev.map((e) => (e.id === entry.id ? { ...e, sessionId } : e)),
       );
-      onFinish({ entryId: entry.id, sessionId }, "");
+      // 🚨 进那条支线，而不是收工。
+      //
+      // 以前这里走的是 onFinish：工具被标成 done，从标签页里消失，而且再也
+      // 打不开——同时那条支线一次也没被进去过，孤零零躺在库里。设计文档写的
+      // 是「一个项目可以有好几条 session」，做出来的却是"点一下，这个工具就
+      // 永远没了"。正好相反。
+      onOpenSession(sessionId);
     } catch (err) {
       setError(apiErrorText(err));
     }

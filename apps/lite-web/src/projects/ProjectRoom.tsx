@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, CornerDownRight, Send } from "lucide-react";
 import { Icon, Pebble } from "@/ui";
 import { ApiError } from "../api/client";
@@ -54,6 +54,8 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   const [tools, setTools] = useState<ToolInstance[]>([]);
   const [openTool, setOpenTool] = useState<string | null>(null);
   const [activeSession, setActiveSession] = useState<string | null>(null);
+  // 开场那一轮发过没有。见下面 seeded.current 那一处。
+  const seeded = useRef(false);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
   // 印记正在想。和 busy 分开：busy 只是"别重复点"，这个是要显示给她看的。
@@ -103,7 +105,16 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         //
         // 只在空线程时补。turn 的两条消息是在模型成功之后同一个事务里写的，
         // 所以模型失败时线程仍然是空的，刷新一次会自动再试，不会重复。
-        if (msgs.length === 0 && mine?.idea.trim()) {
+        // 🚨 开场那一轮只发一次。
+        //
+        // 判空条件是"线程是空的"，可两个请求可以同时看到空线程：StrictMode
+        // 会把挂载跑两遍，而 cancelled 只拦得住 setState，拦不住已经飞出去的
+        // POST。两个都写一条"她说的话"+一条印记的回话，她就会在屏幕上看见
+        // 自己那句话出现两遍、三遍——2026-09-02 的手机截图上正是三遍。
+        //
+        // 和复盘那条竞态是同一回事，也用同一个办法：一个同步的 ref 闸。
+        if (msgs.length === 0 && mine?.idea.trim() && !seeded.current) {
+          seeded.current = true;
           setPending(mine.idea.trim());
           setThinking(true);
           try {
@@ -173,6 +184,34 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setThinking(true);
       await postTurn(projectId, "", s.id);
       await refreshThread(s.id);
+    } catch (err) {
+      setError(apiErrorText(err));
+    } finally {
+      setBusy(false);
+      setThinking(false);
+    }
+  }
+
+  /**
+   * 进入一条**已经存在**的支线（服务端开的），印记先开口。
+   *
+   * 和 dig 的区别只有一个：那边由前端开支线，这边支线已经开好了——审核的
+   * 「问问这一句」和长期迭代的「深入讨论」都是服务端在一个请求里连支线一起
+   * 建好的，前端要做的只是把她带过去。
+   */
+  async function enterSession(sessionId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      // 支线是服务端刚建的，本地这份列表里还没有它，面包屑会找不到路。
+      setSessions(await listSessions(projectId));
+      setActiveSession(sessionId);
+      // 面板让开：她要去聊了，不是还在填这一屏。
+      setOpenTool(null);
+      await refreshThread(sessionId);
+      setThinking(true);
+      await postTurn(projectId, "", sessionId);
+      await refreshThread(sessionId);
     } catch (err) {
       setError(apiErrorText(err));
     } finally {
@@ -399,7 +438,18 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       </section>
 
       {/* ── panel ────────────────────────────────────────────────────── */}
-      <aside className="hidden w-[360px] shrink-0 border-l border-mk-border lg:block">
+      {/* 🚨 窄屏上工具面板要盖在对话上，不能直接消失。
+          原来只有 `hidden … lg:block` 一条规则，没有任何兜底：在 1024px 以下
+          按「开始任务」，服务端把工具接受了，openTool 也设上了，而屏幕上什么
+          都不会出现——没有面板，也没有一句话说明。她只会认为这东西坏了。
+          现在窄屏是一层浮层（工具打开时才铺上来），宽屏还是右边那一栏。 */}
+      <aside
+        className={`${
+          openTool
+            ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
+            : "hidden"
+        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:w-[360px] lg:border-l lg:bg-transparent`}
+      >
         <WorkPanel
           projectId={projectId}
           plan={plan}
@@ -408,6 +458,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           busy={busy}
           onSelectTool={setOpenTool}
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
+          onOpenSession={(sid) => void enterSession(sid)}
           onResolve={onResolve}
           onApprove={onApprove}
         />

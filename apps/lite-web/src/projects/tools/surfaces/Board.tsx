@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Plus, Trash2 } from "lucide-react";
 import { Icon } from "@/ui";
 import { apiErrorText } from "../../../api/errorText";
@@ -33,7 +33,12 @@ import type { ToolSurfaceProps } from "../registry";
 
 const NOTE_W = 148;
 const NOTE_H = 88;
-const BOARD_H = 460;
+// 板子的最小高度。真实高度按便签量长出来——见 boardH。
+//
+// 🚨 2026-09-02：原来这是**固定**高度，配 overflow-hidden。每行两张、行距
+// 102px，第 9 张落在 y=420，底边 508 > 460——被裁掉，拖不着，也找不回来。
+// 一块"贴到第九张就开始吃便签"的头脑风暴板。
+const BOARD_MIN_H = 460;
 
 /** 新便签落在哪：沿网格铺开，之后她自己挪。 */
 function nextSpot(n: number): { x: number; y: number } {
@@ -50,6 +55,12 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
+  // 🚨 板子按最低那张便签长。固定高度 + overflow-hidden 会把第 9 张之后的
+  // 便签裁掉，而且拖不着、找不回——一块吃便签的头脑风暴板。外层容器负责滚动。
+  const boardH = useMemo(
+    () => notes.reduce((h, n) => Math.max(h, n.y + NOTE_H + 12), BOARD_MIN_H),
+    [notes],
+  );
   // 🚨 下一张便签落在第几个位子，用 ref 同步地取，不看 notes.length。
   //
   // notes.length 来自这一帧的闭包：她连着敲三次回车，三次 add 拿到的都是同一个
@@ -105,7 +116,7 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
     const onMove = (ev: PointerEvent) => {
       moved = true;
       const x = Math.max(0, Math.min(rect.width - NOTE_W, ev.clientX - rect.left - grabX));
-      const y = Math.max(0, Math.min(BOARD_H - NOTE_H, ev.clientY - rect.top - grabY));
+      const y = Math.max(0, Math.min(boardH - NOTE_H, ev.clientY - rect.top - grabY));
       last = { x, y };
       setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, x, y } : n)));
     };
@@ -226,11 +237,12 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         </button>
       </div>
 
+      <div className="mt-3 max-h-[460px] overflow-y-auto rounded-mk-md border border-mk-border">
       <div
         ref={boardRef}
-        className="relative mt-3 overflow-hidden rounded-mk-md border border-mk-border"
+        className="relative"
         style={{
-          height: BOARD_H,
+          height: boardH,
           background: "var(--mk-paper)",
           backgroundImage:
             "radial-gradient(color-mix(in srgb, var(--mk-border) 60%, transparent) 1px, transparent 1px)",
@@ -339,7 +351,7 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               className="shrink-0 rounded-mk-full px-2.5 py-0.5 text-mk-small text-white disabled:opacity-40"
               style={{ background: "var(--mk-accent-500)" }}
             >
-              就叫这个
+              确认
             </button>
           </div>
         )}
@@ -373,6 +385,7 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           </div>
         )}
       </div>
+      </div>
 
       <p className="mt-1.5 text-mk-small text-mk-faint">拖着挪位置，点一下选中，双击改字。</p>
 
@@ -388,7 +401,7 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           value={seen}
           onChange={(e) => setSeen(e.target.value)}
           rows={3}
-          placeholder="一句话就够"
+          placeholder="写下你看出来的东西"
           className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
         />
       </div>

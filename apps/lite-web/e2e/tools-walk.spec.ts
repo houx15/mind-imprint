@@ -182,7 +182,7 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("选了 2 张")).toBeVisible();
   await page.getByRole("button", { name: "归成一堆" }).click();
   await page.getByPlaceholder("这几张是一回事，因为……").fill("打饭那一会儿");
-  await page.getByRole("button", { name: "就叫这个" }).click();
+  await page.getByRole("button", { name: "确认", exact: true }).click();
   await expect(page.getByText("已经归了 1 堆", { exact: false })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-2-board.png", fullPage: true });
 

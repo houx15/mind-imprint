@@ -94,6 +94,9 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// 这一轮是不是"开场那一轮"：进来的时候这条线上还一句话都没有。
+	// 下面拿到锁之后要用它再确认一次（见 openingRaced）。
+	opening := len(in.Recent) == 0
 	if studentText != "" {
 		in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
 	} else if len(in.Recent) == 0 && !scope.Valid {
@@ -147,6 +150,30 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	if _, err := qtx.LockAtom(r.Context(), atomID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
+	}
+	// 🚨 开场那一轮只准落库一次。
+	//
+	// 前端在"线程是空的"时会把她写的那句话当第一轮发出去。可这一轮要等模型，
+	// 好几十秒；这期间她刷新一下页面、或者 StrictMode 把挂载跑两遍，新的那次
+	// 看到的线程**仍然是空的**（第一轮还没提交），于是又发一遍。她就会在屏幕
+	// 上看见自己那句话出现两遍、三遍，每遍下面跟着一段不一样的回话。
+	//
+	// 客户端的闸拦不住这个——跨页面刷新的两次请求互相看不见。只有在锁里再看
+	// 一眼才作数：拿到锁之后线程已经不空了，说明别人先落库了，这一轮就丢掉。
+	// 模型的钱已经花了（也照常记账），但不能让她看见重复的自己。
+	if opening {
+		raced, rerr := qtx.CountPblThreadMessages(r.Context(), sqlc.CountPblThreadMessagesParams{
+			AtomID: atomID, SessionID: scope,
+		})
+		if rerr != nil {
+			httpx.WriteError(w, r, rerr)
+			return
+		}
+		if raced > 0 {
+			_ = tx.Rollback(r.Context())
+			httpx.WriteJSON(w, http.StatusOK, pblTurnDTO{Reply: ""})
+			return
+		}
 	}
 	next, err := qtx.NextAtomMessageSeq(r.Context(), atomID)
 	if err != nil {
@@ -218,6 +245,8 @@ func (a *API) buildPblCoachInput(r *http.Request, atomID uuid.UUID, scope pgtype
 		Idea: p.Idea, Kind: p.Kind,
 		SessionKind: sessionKind, SessionQuestion: sessionQuestion,
 	}
+	// 🚨 她在工具里做出来的东西，每一轮都要重新交给印记（见 pbl_refeed.go）。
+	a.attachPblToolWork(r, atomID, &in)
 
 	// The live plan, if she has approved one.
 	if v, err := a.d.Queries.GetPblLivePlan(r.Context(), atomID); err == nil {

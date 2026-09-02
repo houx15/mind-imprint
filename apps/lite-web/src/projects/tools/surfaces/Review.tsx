@@ -36,7 +36,7 @@ import { apiErrorText } from "../../../api/errorText";
  * 印记自己写的"我猜了什么 / 哪里还不对"钉在最上面。她要审的是一份**承认了自己
  * 弱点**的东西，不是一份看起来什么都对的东西。
  */
-export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
+export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: ToolSurfaceProps) {
   const [artifacts, setArtifacts] = useState<Artifact[]>([]);
   const [pickedId, setPickedId] = useState<string | null>(null);
   const [plan, setPlan] = useState<ReviewPlan>({ marks: [], dimensions: [] });
@@ -68,10 +68,16 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     const quote = selection.trim();
     if (!artifact || !quote) return;
     try {
-      await askAbout(projectId, artifact.id, quote);
+      // 🚨 服务端在这一个请求里连支线一起开好了，并把 id 返回来。
+      //
+      // 以前这里把 id 扔了，只刷新一下划线列表——于是她选中一句话、点「问问
+      // 这一句」，得到的是一张写着服务端默认问题的卡片和一个空输入框。她向
+      // AI 提了个问题，产品把这个问题原样退回来让她自己答。那是教她"这里的
+      // AI 是假的"最快的办法。
+      const { sessionId } = await askAbout(projectId, artifact.id, quote);
       setSelection("");
       window.getSelection()?.removeAllRanges();
-      await loadPlan();
+      onOpenSession(sessionId);
     } catch (err) {
       setError(apiErrorText(err));
     }

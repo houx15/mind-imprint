@@ -49,3 +49,14 @@ ORDER BY seq;
 SELECT * FROM atom_message
 WHERE atom_id = $1 AND session_id IS NULL AND block_id IS NULL
 ORDER BY seq;
+
+-- name: CountPblThreadMessages :one
+-- 这条线上已经有几句话。开场那一轮要在锁里用它确认自己没被别人抢先落库——
+-- 见 api/pbl_turn.go 的 opening 分支。
+--
+-- IS NOT DISTINCT FROM 让一句 SQL 同时管住两种线：主线（session_id 为 NULL）
+-- 和支线（session_id = 某个 id）。写成 = 的话，主线那一边永远算出 0。
+SELECT count(*) FROM atom_message
+WHERE atom_id = $1
+  AND block_id IS NULL
+  AND session_id IS NOT DISTINCT FROM $2;
