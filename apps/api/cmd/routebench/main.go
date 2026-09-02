@@ -91,19 +91,32 @@ func main() {
 
 	started := time.Now()
 	ctx := context.Background()
+	write := func(results []routebench.Result) {
+		md := routebench.Markdown(results, cat, cfg, started)
+		if *outPath == "" {
+			return
+		}
+		if werr := os.WriteFile(*outPath, []byte(md), 0o644); werr != nil {
+			fmt.Fprintf(os.Stderr, "write report: %v\n", werr)
+		}
+	}
+	// Checkpoint after every case. A full run is minutes of PAID calls; on
+	// 2026-09-03 one was killed inside the assess class, which spends ~100
+	// seconds a call, after every other class had already been measured — and
+	// all of it was lost because the report was written only at the end.
+	rn.OnProgress = write
+
 	fmt.Fprintf(os.Stderr, "routebench: %d cases, n=%d\n", len(cases), cfg.Samples)
 	results := rn.Run(ctx, cases)
 	fmt.Fprintf(os.Stderr, "\njudging with %s …\n", cfg.JudgeModel)
 	rn.Judge(ctx, cases, results)
 
-	md := routebench.Markdown(results, cat, cfg, started)
 	if *outPath == "" {
-		fmt.Print(md)
-	} else if werr := os.WriteFile(*outPath, []byte(md), 0o644); werr != nil {
-		log.Fatalf("write report: %v", werr)
-	} else {
-		fmt.Fprintf(os.Stderr, "\nwrote %s (%s)\n", *outPath, time.Since(started).Round(time.Second))
+		fmt.Print(routebench.Markdown(results, cat, cfg, started))
+		return
 	}
+	write(results)
+	fmt.Fprintf(os.Stderr, "\nwrote %s (%s)\n", *outPath, time.Since(started).Round(time.Second))
 }
 
 // allCases gathers the cases from the packages that own the prompts. Adding a

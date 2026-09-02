@@ -200,6 +200,9 @@ type Runner struct {
 	Cfg      Config
 	// Log receives progress lines. A run takes minutes; silence looks like a hang.
 	Log func(format string, args ...any)
+	// OnProgress, when set, receives the results so far after each case, so the
+	// caller can checkpoint a partial report. See Run.
+	OnProgress func([]Result)
 }
 
 func (rn *Runner) logf(format string, args ...any) {
@@ -209,6 +212,13 @@ func (rn *Runner) logf(format string, args ...any) {
 }
 
 // Run executes the whole experiment and returns one Result per (case × model).
+//
+// OnProgress is called after every case with everything measured so far. A full
+// run is minutes of PAID calls, and on 2026-09-03 one was killed inside the
+// assess class — which spends 100 seconds a call — after every other class had
+// already been measured. All of it was lost, because the report was only
+// written at the end. Handing the caller partial results lets it checkpoint,
+// so an interrupted run costs the remaining calls rather than all of them.
 func (rn *Runner) Run(ctx context.Context, cases []benchcase.Case) []Result {
 	var out []Result
 	for _, c := range cases {
@@ -217,6 +227,9 @@ func (rn *Runner) Run(ctx context.Context, cases []benchcase.Case) []Result {
 		}
 		for _, modelID := range rn.candidates(c.Class) {
 			out = append(out, rn.runCell(ctx, c, modelID))
+		}
+		if rn.OnProgress != nil {
+			rn.OnProgress(out)
 		}
 	}
 	return out
