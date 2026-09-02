@@ -18,10 +18,123 @@ func TestEmbeddedCatalogIsValid(t *testing.T) {
 	if cat.Version == "" {
 		t.Fatal("catalog declares no version")
 	}
-	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
-		if _, ok := cat.Lanes[lane]; !ok {
-			t.Errorf("lane %q unbound", lane)
+	for _, class := range activeClasses {
+		spec, ok := cat.Lanes[class]
+		if !ok {
+			t.Errorf("class %q unbound", class)
+			continue
 		}
+		if spec.Label == "" {
+			t.Errorf("class %q has no label — --print-models would show a blank column", class)
+		}
+		if spec.LatencyBudgetMs <= 0 {
+			t.Errorf("class %q states no latency budget, so routebench has nothing to score against", class)
+		}
+	}
+	// The legacy lane names must keep resolving, because call sites migrate to
+	// For(class) one class at a time rather than in a single 67-site commit.
+	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
+		if _, ok := cat.Lanes[ResolveClass(lane)]; !ok {
+			t.Errorf("legacy lane %q no longer aliases a bound class", lane)
+		}
+	}
+}
+
+// The whole point of a class is that it carries its reasoning requirement to
+// the wire. A chaperone-tier class that says nothing must keep the old
+// tier-driven behaviour, or every not-yet-migrated call site changes cost
+// silently the moment classes land.
+func TestClassReasoningRequirementReachesTheRequestBody(t *testing.T) {
+	body := `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K",
+			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort"}},
+		"models":{"p/m":{"provider":"p","model":"m","flagship":true,"defaultReasoningEffort":"high"}},
+		"lanes":{"reflex":{"model":"p/m","tier":"chaperone","reasoning":"off"},
+			"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},
+			"compose":{"model":"p/m","tier":"chaperone","reasoning":"low"},
+			"review":{"model":"p/m","tier":"flagship","reasoning":"default"},
+			"assess":{"model":"p/m","tier":"flagship","reasoning":"max"},
+			"digest":{"model":"p/m","tier":"chaperone","reasoning":"off"}}}`
+	cat, err := ParseCatalog([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	keys := func(string) string { return "secret" }
+	prov := NewCatalogProvider(nil)
+
+	cases := []struct {
+		class     string
+		wantOff   bool
+		wantEfort string
+	}{
+		{ClassDialogue, true, ""},
+		{ClassCompose, false, "low"},
+		// review says "default": the class has no opinion, so the MODEL's own
+		// defaultReasoningEffort is what survives.
+		{ClassReview, false, "high"},
+		{ClassAssess, false, "max"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.class, func(t *testing.T) {
+			r, err := cat.Resolve(tc.class, "", keys)
+			if err != nil {
+				t.Fatal(err)
+			}
+			got, err := prov.buildBody(r, ChatRequest{Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}}})
+			if err != nil {
+				t.Fatal(err)
+			}
+			_, off := got["enable_thinking"]
+			if off != tc.wantOff {
+				t.Errorf("thinking-off present = %v, want %v (body: %#v)", off, tc.wantOff, got)
+			}
+			if tc.wantEfort == "" {
+				if _, ok := got["reasoning_effort"]; ok {
+					t.Errorf("thinking is off; a reasoning budget alongside it is meaningless: %#v", got)
+				}
+				return
+			}
+			if got["reasoning_effort"] != tc.wantEfort {
+				t.Errorf("reasoning_effort = %v, want %q", got["reasoning_effort"], tc.wantEfort)
+			}
+		})
+	}
+}
+
+// Fallback must not smuggle in a model the class already rejected. Falling back
+// onto a model that cannot stop thinking turns a 4-second chaperone turn into a
+// 40-second one — a worse outage than the one the fallback is covering for.
+func TestFallbackSkipsModelsThatViolateTheClassRequirement(t *testing.T) {
+	body := `{"providers":{
+			"a":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"KA","thinkingOff":{"enable_thinking":false}},
+			"b":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"KB","defaultModel":"b/always","thinkingOff":{"enable_thinking":false}}},
+		"models":{
+			"a/m":{"provider":"a","model":"m","flagship":true},
+			"b/always":{"provider":"b","model":"always","flagship":true,"thinkingOffUnsupported":true}},
+		"lanes":{"reflex":{"model":"a/m","tier":"chaperone","reasoning":"off"},
+			"dialogue":{"model":"a/m","tier":"chaperone","reasoning":"off"},
+			"compose":{"model":"a/m","tier":"chaperone"},
+			"review":{"model":"a/m","tier":"flagship"},
+			"assess":{"model":"a/m","tier":"flagship"},
+			"digest":{"model":"a/m","tier":"chaperone","reasoning":"off"}},
+		"fallbackProviders":["b"]}`
+	cat, err := ParseCatalog([]byte(body))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Only provider b has a key, so the bound model is unreachable and fallback
+	// is the only path left.
+	onlyB := func(env string) string {
+		if env == "KB" {
+			return "secret"
+		}
+		return ""
+	}
+	if r, err := cat.Resolve(ClassDialogue, "", onlyB); err == nil {
+		t.Errorf("dialogue fell back onto %q, which cannot stop reasoning", r.ModelID)
+	}
+	// compose states no reasoning requirement, so the same fallback is fine.
+	if _, err := cat.Resolve(ClassCompose, "", onlyB); err != nil {
+		t.Errorf("compose has no reasoning requirement and should still fall back: %v", err)
 	}
 }
 
@@ -232,22 +345,32 @@ func TestCatalogValidationRejectsBrokenCatalogs(t *testing.T) {
 	cases := map[string]string{
 		"unknown provider kind": `{"providers":{"p":{"kind":"carrier-pigeon","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
-			"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
 		"lane binds unknown model": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
-			"lanes":{"chat":{"model":"p/ghost","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
-		"eval lane not flagship": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/ghost","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+		"assess class not flagship": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m"}},
-			"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
 		"model names unknown provider": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"q/m":{"provider":"q","model":"m","flagship":true}},
-			"lanes":{"chat":{"model":"q/m","tier":"chaperone"},"fastChat":{"model":"q/m","tier":"chaperone"},"eval":{"model":"q/m","tier":"flagship"}}}`,
+			"lanes":{"reflex":{"model":"q/m","tier":"chaperone"},"dialogue":{"model":"q/m","tier":"chaperone"},"compose":{"model":"q/m","tier":"chaperone"},"review":{"model":"q/m","tier":"flagship"},"assess":{"model":"q/m","tier":"flagship"},"digest":{"model":"q/m","tier":"chaperone"}}}`,
 		"lane binds a non-chat model": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true,"capabilities":["image"]}},
-			"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`,
-		"missing lane": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+		"missing class": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
-			"lanes":{"chat":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"dialogue":{"model":"p/m","tier":"chaperone"}}}`,
+		// A class that must not reason, bound to a model that cannot stop. Today
+		// this combination is caught only by a live test — or, on GLM-5.3 which
+		// returns 400 rather than ignoring the field, by every student turn
+		// erroring out. It has to fail at boot.
+		"reasoning-off class on a model that always thinks": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m","flagship":true,"thinkingOffUnsupported":true}},
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+		"unknown reasoning requirement": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
+			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"ponder"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -263,7 +386,7 @@ func TestModelPolicyMergePrefersModelOverProvider(t *testing.T) {
 			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort","bodyExtra":{"top_p":0.9}}},
 		"models":{"p/m":{"provider":"p","model":"m","flagship":true,
 			"thinkingOff":{"thinking":{"type":"disabled"}},"bodyExtra":{"seed":7}}},
-		"lanes":{"chat":{"model":"p/m","tier":"chaperone"},"fastChat":{"model":"p/m","tier":"chaperone"},"eval":{"model":"p/m","tier":"flagship"}}}`
+		"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`
 	cat, err := ParseCatalog([]byte(body))
 	if err != nil {
 		t.Fatal(err)
@@ -280,5 +403,54 @@ func TestModelPolicyMergePrefersModelOverProvider(t *testing.T) {
 	}
 	if pol.BodyExtra["top_p"] != 0.9 || pol.BodyExtra["seed"] != float64(7) {
 		t.Errorf("bodyExtra must merge key-by-key, got %#v", pol.BodyExtra)
+	}
+}
+
+// A wrong class override must stop the boot, not serve the wrong model for a
+// week. These are the ones that would otherwise be silent: a non-flagship model
+// on 评估, and a model that cannot stop thinking on a class that must not think.
+func TestClassOverrideFailsTheBootWhenItViolatesTheClass(t *testing.T) {
+	withClass := func(class, model string) config.Config {
+		return config.Config{DashScopeKey: "secret", ModelClass: map[string]string{class: model}}
+	}
+	cases := map[string]config.Config{
+		"assess downgraded off flagship":         withClass(ClassAssess, "dashscope/qwen3.7-plus"),
+		"dialogue on a model that always thinks": withClass(ClassDialogue, "dashscope/glm-5.3"),
+		"typo'd model id":                        withClass(ClassCompose, "dashscope/qwen-does-not-exist"),
+		"image model on a chat class":            withClass(ClassCompose, "dashscope/qwen-image-3.0"),
+	}
+	for name, cfg := range cases {
+		t.Run(name, func(t *testing.T) {
+			if _, err := NewResolvers(cfg); err == nil {
+				t.Fatal("want a boot error")
+			}
+		})
+	}
+}
+
+// The class variable must beat the legacy lane variable it replaced, so a
+// half-migrated deployment resolves to the more specific instruction rather
+// than to whichever happened to be read last.
+func TestClassOverrideBeatsTheLegacyLaneVariable(t *testing.T) {
+	cfg := config.Config{
+		DashScopeKey: "secret",
+		ModelChat:    "dashscope/qwen3.7-max",
+		ModelClass:   map[string]string{ClassDialogue: "dashscope/kimi-k3"},
+	}
+	rs, err := NewResolvers(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	r, err := rs.For(ClassDialogue)(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if r.ModelID != "dashscope/kimi-k3" {
+		t.Errorf("dialogue resolved to %q, want the class override to win", r.ModelID)
+	}
+	// The legacy alias must point at the same place, not at MODEL_CHAT.
+	lr, lerr := rs.Chat(context.Background())
+	if lerr != nil || lr.ModelID != r.ModelID {
+		t.Errorf("legacy chat alias resolved to %q (err %v), want %q", lr.ModelID, lerr, r.ModelID)
 	}
 }

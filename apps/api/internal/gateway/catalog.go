@@ -17,13 +17,95 @@ import (
 //go:embed models.json
 var modelsJSON []byte
 
-// Lane names. A lane is a role in the product, not a model: the same model may
-// serve several lanes, and swapping one lane must not disturb the others.
+// Capability classes. A class says how much INTELLIGENCE a call needs — not
+// which product feature made it. Two calls on the same page can sit in
+// different classes; two unrelated features can share one.
+//
+// The boundaries are drawn where they change the model choice. reflex and
+// dialogue both stop reasoning, but reflex can run the cheapest flash model and
+// dialogue cannot — Chinese fluency is something the student feels directly.
+// compose and review both emit structured results, but compose derives from
+// what the student ALREADY said (deterministic system work, explicitly outside
+// 铁律② per AGENTS.md) while review passes judgement on what she did not say.
+// assess is separate from review for exactly one reason: it must never be
+// downgraded, and merging the two would let a downgrade experiment reach 评估.
 const (
-	LaneChat     = "chat"     // chaperone — coach/writing turns, card grounding
-	LaneFastChat = "fastChat" // chaperone — per-status studio router
-	LaneEval     = "eval"     // flagship — review/评估; never downgraded
+	ClassReflex   = "reflex"   // one label or one routing choice; no free text
+	ClassDialogue = "dialogue" // a turn the student sees as it lands
+	ClassCompose  = "compose"  // a schema-shaped artifact from stated inputs
+	ClassReview   = "review"   // judges the student's work; being wrong costs
+	ClassAssess   = "assess"   // rubric 评估 / 回顾 / 周报 — never downgraded
+	ClassDigest   = "digest"   // long input, short output; compress, don't judge
+	ClassSearch   = "search"   // reserved: web search, needs the tool loop
+	ClassMultimo  = "multimodal"
 )
+
+// Classes lists every declared class in report order.
+var Classes = []string{
+	ClassReflex, ClassDialogue, ClassCompose,
+	ClassReview, ClassAssess, ClassDigest,
+	ClassSearch, ClassMultimo,
+}
+
+// activeClasses are the classes call sites may bind today. search and
+// multimodal are declared so the catalog carries their intent, but nothing
+// routes to them yet — see the spec's "不在本期".
+var activeClasses = []string{
+	ClassReflex, ClassDialogue, ClassCompose,
+	ClassReview, ClassAssess, ClassDigest,
+}
+
+// Legacy lane names, kept as aliases so MODEL_CHAT / MODEL_FAST_CHAT /
+// MODEL_EVAL and every not-yet-migrated call site keep working while call sites
+// move class by class.
+const (
+	LaneChat     = "chat"     // → dialogue
+	LaneFastChat = "fastChat" // → reflex
+	LaneEval     = "eval"     // → assess
+)
+
+// laneAliases maps a legacy lane name to the class that replaced it.
+var laneAliases = map[string]string{
+	LaneChat:     ClassDialogue,
+	LaneFastChat: ClassReflex,
+	LaneEval:     ClassAssess,
+}
+
+// Reasoning requirements a class may state. The class's requirement overrides
+// the model's defaultReasoningEffort and is itself overridden by an explicit
+// per-request ReasoningEffort.
+const (
+	ReasoningOff     = "off"     // force thinking off; the class cannot afford it
+	ReasoningLow     = "low"     // bounded effort
+	ReasoningHigh    = "high"    //
+	ReasoningMax     = "max"     //
+	ReasoningDefault = "default" // whatever the model does unprompted
+)
+
+func validReasoning(s string) bool {
+	switch s {
+	case "", ReasoningOff, ReasoningLow, ReasoningHigh, ReasoningMax, ReasoningDefault:
+		return true
+	}
+	return false
+}
+
+// ResolveClass maps a legacy lane name onto its class, and passes a class
+// through unchanged.
+func ResolveClass(name string) string {
+	if c, ok := laneAliases[name]; ok {
+		return c
+	}
+	return name
+}
+
+// ClassEnvVar is the per-class model override variable: MODEL_DIALOGUE,
+// MODEL_COMPOSE, and so on. One knob per class is the point — swapping one
+// class at a time is what makes a measured speed or cost difference
+// attributable to that class.
+func ClassEnvVar(class string) string {
+	return "MODEL_" + strings.ToUpper(class)
+}
 
 // Provider kinds — the wire protocol, not the vendor. Several vendors share a
 // kind, which is why adding an OpenAI-compatible vendor needs no Go.
@@ -162,10 +244,20 @@ func (m ModelSpec) caps() []string {
 	return m.Capabilities
 }
 
-// LaneSpec binds a lane to a model at a tier.
+// LaneSpec binds one capability class to a model. Everything except Model
+// describes what the CLASS requires, so re-pointing a class at another model is
+// a one-line edit that carries its requirements with it.
 type LaneSpec struct {
 	Model string `json:"model"`
 	Tier  string `json:"tier"`
+	Label string `json:"label,omitempty"`
+	// Reasoning is this class's requirement — see the Reasoning* constants.
+	// Empty means "default", which keeps pre-class catalogs behaving as before.
+	Reasoning string `json:"reasoning,omitempty"`
+	// LatencyBudgetMs is a TARGET, not a timeout. routebench scores against it
+	// and --print-models shows it; nothing enforces it at runtime, because a
+	// slow answer is better than no answer mid-turn.
+	LatencyBudgetMs int `json:"latencyBudgetMs,omitempty"`
 }
 
 // Catalog is the parsed, validated models.json.
@@ -243,29 +335,49 @@ func (c *Catalog) validate() error {
 			return fmt.Errorf("gateway catalog: model %q has no wire model name", id)
 		}
 	}
-	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
-		spec, ok := c.Lanes[lane]
-		if !ok {
-			return fmt.Errorf("gateway catalog: lane %q is not bound", lane)
+	for _, class := range activeClasses {
+		if _, ok := c.Lanes[class]; !ok {
+			return fmt.Errorf("gateway catalog: class %q is not bound", class)
 		}
+	}
+	for _, class := range sortedKeys(c.Lanes) {
+		spec := c.Lanes[class]
 		m, ok := c.Models[spec.Model]
 		if !ok {
-			return fmt.Errorf("gateway catalog: lane %q binds unknown model %q", lane, spec.Model)
+			return fmt.Errorf("gateway catalog: class %q binds unknown model %q", class, spec.Model)
 		}
 		if spec.Tier == "" {
-			return fmt.Errorf("gateway catalog: lane %q has no tier", lane)
+			return fmt.Errorf("gateway catalog: class %q has no tier", class)
 		}
-		// A lane drives the chat/tool loop. Binding an image, embedding or
+		if !validReasoning(spec.Reasoning) {
+			return fmt.Errorf("gateway catalog: class %q has unknown reasoning %q (want off/low/high/max/default)",
+				class, spec.Reasoning)
+		}
+		// A class drives the chat/tool loop. Binding an image, embedding or
 		// rerank model here would fail obscurely at the first turn; fail at boot
 		// with the reason instead.
 		if !m.Has(CapChat) {
-			return fmt.Errorf("gateway catalog: lane %q binds %q, which is not a chat model (capabilities: %s)",
-				lane, spec.Model, strings.Join(m.caps(), ", "))
+			return fmt.Errorf("gateway catalog: class %q binds %q, which is not a chat model (capabilities: %s)",
+				class, spec.Model, strings.Join(m.caps(), ", "))
 		}
 		// 评估走旗舰模型绝不降级 — enforced here so a catalog edit cannot quietly
 		// downgrade evaluation.
-		if lane == LaneEval && !m.Flagship {
-			return fmt.Errorf("gateway catalog: eval lane model %q is not flagship", spec.Model)
+		if class == ClassAssess && !m.Flagship {
+			return fmt.Errorf("gateway catalog: assess class model %q is not flagship — 评估绝不降级", spec.Model)
+		}
+		// A class that requires thinking OFF cannot be served by a model that
+		// refuses to stop thinking. Today this combination is caught only by a
+		// live test, or — on GLM-5.3, which returns 400 rather than ignoring the
+		// field — by every single student turn erroring out. Catch it at boot.
+		if spec.Reasoning == ReasoningOff && c.policyFor(m).ThinkingOffUnsupported {
+			return fmt.Errorf("gateway catalog: class %q requires reasoning off, but model %q cannot stop reasoning "+
+				"(thinkingOffUnsupported) — pick another model or relax the class to a bounded effort",
+				class, spec.Model)
+		}
+	}
+	for name, class := range laneAliases {
+		if _, ok := c.Lanes[class]; !ok {
+			return fmt.Errorf("gateway catalog: legacy lane %q aliases class %q, which is not bound", name, class)
 		}
 	}
 	for _, p := range c.FallbackProviders {
@@ -274,6 +386,15 @@ func (c *Catalog) validate() error {
 		}
 	}
 	return nil
+}
+
+func sortedKeys[V any](m map[string]V) []string {
+	out := make([]string, 0, len(m))
+	for k := range m {
+		out = append(out, k)
+	}
+	sort.Strings(out)
+	return out
 }
 
 // ModelIDs returns catalog model ids in stable order.
@@ -293,7 +414,7 @@ func (c *Catalog) policyFor(m ModelSpec) ModelPolicy {
 
 // resolveModel builds a Resolved for one catalog model id, or ok=false when its
 // provider has no key in this environment.
-func (c *Catalog) resolveModel(id, tier string, keys KeyLookup) (Resolved, bool) {
+func (c *Catalog) resolveModel(id string, spec LaneSpec, keys KeyLookup) (Resolved, bool) {
 	m, ok := c.Models[id]
 	if !ok {
 		return Resolved{}, false
@@ -303,6 +424,15 @@ func (c *Catalog) resolveModel(id, tier string, keys KeyLookup) (Resolved, bool)
 	if key == "" {
 		return Resolved{}, false
 	}
+	// A bounded-effort class states its own effort; the model's default applies
+	// only where the class has no opinion. "off" is carried in Reasoning rather
+	// than folded into effort, because off and low are different mechanisms
+	// (a thinkingOff body fragment vs a reasoning_effort key).
+	effort := m.DefaultReasoningEffort
+	switch spec.Reasoning {
+	case ReasoningLow, ReasoningHigh, ReasoningMax:
+		effort = spec.Reasoning
+	}
 	return Resolved{
 		Provider:               m.Provider,
 		Kind:                   p.Kind,
@@ -310,8 +440,9 @@ func (c *Catalog) resolveModel(id, tier string, keys KeyLookup) (Resolved, bool)
 		Model:                  m.Model,
 		ModelID:                id,
 		APIKey:                 key,
-		Tier:                   tier,
-		DefaultReasoningEffort: m.DefaultReasoningEffort,
+		Tier:                   spec.Tier,
+		Reasoning:              spec.Reasoning,
+		DefaultReasoningEffort: effort,
 		Policy:                 c.policyFor(m),
 	}, true
 }
@@ -320,7 +451,7 @@ func (c *Catalog) resolveModel(id, tier string, keys KeyLookup) (Resolved, bool)
 // first, then the same wire model under each fallback provider, then that
 // provider's declared default. The eval lane only ever considers flagship models
 // so a fallback cannot downgrade evaluation.
-func (c *Catalog) candidatesFor(lane, modelID string) []string {
+func (c *Catalog) candidatesFor(class, modelID string) []string {
 	out := []string{modelID}
 	seen := map[string]bool{modelID: true}
 	wire := c.Models[modelID].Model
@@ -334,7 +465,15 @@ func (c *Catalog) candidatesFor(lane, modelID string) []string {
 		if !ok {
 			return
 		}
-		if lane == LaneEval && !m.Flagship {
+		if class == ClassAssess && !m.Flagship {
+			return
+		}
+		// A fallback must not violate the class's reasoning requirement either:
+		// falling back onto a model that cannot stop thinking would turn a
+		// 4-second chaperone turn into a 40-second one, or — on GLM-5.3 — into
+		// a hard 400. Skipping it here keeps fallback a smaller change than the
+		// outage it is covering for.
+		if c.Lanes[class].Reasoning == ReasoningOff && c.policyFor(m).ThinkingOffUnsupported {
 			return
 		}
 		seen[id] = true
@@ -412,28 +551,33 @@ func (c *Catalog) ResolveDirect(providerID, wireModel, tier string, keys KeyLook
 // model, or a non-flagship model on the eval lane, is a hard error: a typo must
 // fail loudly at boot rather than quietly serve the wrong model for a week.
 func (c *Catalog) Resolve(lane, override string, keys KeyLookup) (Resolved, error) {
-	spec, ok := c.Lanes[lane]
+	class := ResolveClass(lane)
+	spec, ok := c.Lanes[class]
 	if !ok {
-		return Resolved{}, fmt.Errorf("gateway: unknown lane %q", lane)
+		return Resolved{}, fmt.Errorf("gateway: unknown class %q (known: %s)", lane, strings.Join(activeClasses, ", "))
 	}
 	modelID := spec.Model
 	if override != "" {
 		m, ok := c.Models[override]
 		if !ok {
-			return Resolved{}, fmt.Errorf("gateway: lane %q override %q is not a catalog model (known: %s)",
-				lane, override, strings.Join(c.ModelIDs(), ", "))
+			return Resolved{}, fmt.Errorf("gateway: class %q override %q is not a catalog model (known: %s)",
+				class, override, strings.Join(c.ModelIDs(), ", "))
 		}
 		if !m.Has(CapChat) {
-			return Resolved{}, fmt.Errorf("gateway: lane %q override %q is not a chat model (capabilities: %s)",
-				lane, override, strings.Join(m.caps(), ", "))
+			return Resolved{}, fmt.Errorf("gateway: class %q override %q is not a chat model (capabilities: %s)",
+				class, override, strings.Join(m.caps(), ", "))
 		}
-		if lane == LaneEval && !m.Flagship {
-			return Resolved{}, fmt.Errorf("gateway: lane %q override %q is not flagship — 评估绝不降级", lane, override)
+		if class == ClassAssess && !m.Flagship {
+			return Resolved{}, fmt.Errorf("gateway: class %q override %q is not flagship — 评估绝不降级", class, override)
+		}
+		if spec.Reasoning == ReasoningOff && c.policyFor(m).ThinkingOffUnsupported {
+			return Resolved{}, fmt.Errorf("gateway: class %q requires reasoning off, but override %q cannot stop "+
+				"reasoning (thinkingOffUnsupported)", class, override)
 		}
 		modelID = override
 	}
-	for _, id := range c.candidatesFor(lane, modelID) {
-		if r, ok := c.resolveModel(id, spec.Tier, keys); ok {
+	for _, id := range c.candidatesFor(class, modelID) {
+		if r, ok := c.resolveModel(id, spec, keys); ok {
 			return r, nil
 		}
 	}

@@ -37,6 +37,24 @@ type StreamEvent struct {
 	Incomplete bool // EventDone
 }
 
+// wantsThinkingOff decides whether this call must not reason. The capability
+// class is the authority: reflex, dialogue and digest say "off"; review and
+// assess do not. Tier remains the fallback for a Resolved built without a class
+// — hand-built values in tests, and ResolveDirect from the offline workbench —
+// so this change is invisible to every existing caller.
+func wantsThinkingOff(r Resolved, req ChatRequest) bool {
+	if req.DisableThinking {
+		return true
+	}
+	switch r.Reasoning {
+	case ReasoningOff:
+		return true
+	case "":
+		return r.Tier == "chaperone"
+	}
+	return false
+}
+
 // Resolved is the per-call resolution of which provider/model/key to use. It is
 // built by a KeyResolver from server-side config. APIKey is a secret and must
 // never be logged or echoed.
@@ -50,10 +68,16 @@ type Resolved struct {
 	BaseURL string
 	Model   string // the name put on the wire
 	// ModelID is the catalog id ("dashscope/qwen3.8-max") — for logs and --print-models.
-	ModelID                string
-	APIKey                 string
-	Tier                   string // "chaperone" | "flagship"
-	DefaultReasoningEffort string // model-profile default; request value takes precedence
+	ModelID string
+	APIKey  string
+	Tier    string // "chaperone" | "flagship"
+	// Reasoning is the capability class's requirement — "off" | "low" | "high" |
+	// "max" | "default". It is the authority on whether this call may think.
+	// Empty means the class had no opinion, and the adapters fall back to the
+	// older Tier rule (chaperone ⇒ off), which is what keeps hand-built Resolved
+	// values in tests behaving as they did.
+	Reasoning              string
+	DefaultReasoningEffort string // class requirement, else model-profile default; request value takes precedence
 	// Policy carries the route's reasoning knobs and body defaults from the
 	// catalog. A zero Policy means "adapter defaults", so hand-built Resolved
 	// values in tests behave as before.

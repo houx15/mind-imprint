@@ -41,6 +41,17 @@ type Config struct {
 	ModelChat     string `env:"MODEL_CHAT"`
 	ModelFastChat string `env:"MODEL_FAST_CHAT"`
 	ModelEval     string `env:"MODEL_EVAL"`
+
+	// ModelClass overrides a CAPABILITY CLASS binding: MODEL_REFLEX,
+	// MODEL_DIALOGUE, MODEL_COMPOSE, MODEL_REVIEW, MODEL_ASSESS, MODEL_DIGEST.
+	// Keyed by class name. Left nil outside the real binary; NewResolvers reads
+	// the environment itself when a key is absent, so a test can set a class
+	// override without touching this map.
+	//
+	// A class override beats the legacy lane variable it replaced, so a
+	// half-migrated environment resolves to the more specific instruction rather
+	// than to whichever happened to be read last.
+	ModelClass map[string]string `env:"-"`
 	// CookieSecure sets the Secure flag on the session cookie. Default true;
 	// set COOKIE_SECURE=false for local http dev so the browser sends it.
 	CookieSecure bool `env:"COOKIE_SECURE" envDefault:"true"`

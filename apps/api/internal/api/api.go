@@ -36,11 +36,19 @@ type Fetcher interface {
 
 // Deps are everything the handlers need, wired once at startup.
 type Deps struct {
-	Queries          *sqlc.Queries
-	Provider         gateway.Provider    // the MuxProvider
-	ChatResolver     gateway.KeyResolver // chaperone (turn)
-	FastChatResolver gateway.KeyResolver // fast chaperone (per-status studio router); falls back to ChatResolver when nil
-	EvalResolver     gateway.KeyResolver // flagship (course step render)
+	Queries  *sqlc.Queries
+	Provider gateway.Provider // the MuxProvider
+	// Route returns the resolver for a capability class — how much INTELLIGENCE
+	// this call needs, not which feature made it. See gateway.Class* and
+	// docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md.
+	//
+	// This is the seam call sites should use. The three resolvers below are the
+	// pre-class lanes, kept while call sites migrate class by class; each is an
+	// alias for one class (chat→dialogue, fastChat→reflex, eval→assess).
+	Route            func(class string) gateway.KeyResolver
+	ChatResolver     gateway.KeyResolver // legacy alias → dialogue
+	FastChatResolver gateway.KeyResolver // legacy alias → reflex
+	EvalResolver     gateway.KeyResolver // legacy alias → assess
 	Catalog          []cards.Spec
 	SpecByID         func(id string) (cards.Spec, bool)
 	Pool             TxBeginner   // for multi-statement transactions (signup)

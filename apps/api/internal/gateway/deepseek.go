@@ -46,14 +46,18 @@ func (p *DeepSeekProvider) buildBody(r Resolved, req ChatRequest) map[string]any
 	// attempt regressed the coach's propose_note (misrouted sections), but that was
 	// on the mega-orchestrator; the status-router shrank each turn to a tiny prompt,
 	// and v4-pro (not flash) is the base here — verified live after this change.
-	if r.Tier == "chaperone" || req.DisableThinking {
+	if wantsThinkingOff(r, req) {
 		body["thinking"] = map[string]any{"type": "disabled"}
 	}
 	// A bounded reasoning budget — the middle gear between full thinking and
 	// thinking-off. Set independently of tier (a flagship call can still ask for
 	// "low"); ignored alongside thinking:disabled, which already zeroes it.
-	if req.ReasoningEffort != "" {
-		body["reasoning_effort"] = req.ReasoningEffort
+	effort := req.ReasoningEffort
+	if effort == "" {
+		effort = r.DefaultReasoningEffort
+	}
+	if effort != "" {
+		body["reasoning_effort"] = effort
 	}
 	return body
 }

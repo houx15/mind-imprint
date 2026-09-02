@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"os"
 	"sort"
 	"strings"
 
@@ -18,15 +19,34 @@ type KeyResolver func(ctx context.Context) (Resolved, error)
 // errNoProvider is the client-safe configuration error (no secret).
 var errNoProvider = errors.New("no LLM provider configured")
 
-// Resolvers holds one resolver per lane, already bound to the catalog and to
-// this process's env overrides.
+// Resolvers holds one resolver per capability class, already bound to the
+// catalog and to this process's env overrides.
 type Resolvers struct {
+	byClass map[string]KeyResolver
+
+	// Chat / FastChat / Eval are the legacy lane aliases, kept so call sites can
+	// migrate to For(class) one class at a time instead of in a single 67-site
+	// commit. They point at dialogue / reflex / assess respectively.
 	Chat     KeyResolver
 	FastChat KeyResolver
 	Eval     KeyResolver
-	// Bindings records which catalog model each lane resolved to, for
-	// --print-models and boot logging. Absent for a lane with no key.
+
+	// Bindings records which catalog model each class resolved to, for
+	// --print-models and boot logging. Absent for a class with no key.
 	Bindings map[string]Resolved
+}
+
+// For returns the resolver for a capability class. A legacy lane name resolves
+// through its alias. An unknown name returns a resolver that errors on use
+// rather than nil, so a typo surfaces as a named error at the call rather than
+// as a nil-pointer panic mid-turn.
+func (rs Resolvers) For(class string) KeyResolver {
+	if r, ok := rs.byClass[ResolveClass(class)]; ok {
+		return r
+	}
+	return func(context.Context) (Resolved, error) {
+		return Resolved{}, fmt.Errorf("gateway: no resolver for class %q", class)
+	}
 }
 
 // configKeyLookup prefers the typed config field for a known provider env var
@@ -64,38 +84,53 @@ func NewResolvers(cfg config.Config) (Resolvers, error) {
 		return Resolvers{}, err
 	}
 	keys := configKeyLookup(cfg)
-	overrides := map[string]string{
-		LaneChat:     cfg.ModelChat,
-		LaneFastChat: cfg.ModelFastChat,
-		LaneEval:     cfg.ModelEval,
-	}
+	overrides := classOverrides(cfg)
 
-	out := Resolvers{Bindings: map[string]Resolved{}}
-	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
-		r, err := cat.Resolve(lane, overrides[lane], keys)
+	out := Resolvers{byClass: map[string]KeyResolver{}, Bindings: map[string]Resolved{}}
+	for _, class := range sortedKeys(cat.Lanes) {
+		r, err := cat.Resolve(class, overrides[class], keys)
 		switch {
 		case err == nil:
-			out.Bindings[lane] = r
+			out.Bindings[class] = r
 		case errors.Is(err, errNoProvider):
-			// No key for this lane in this environment — resolve-time error.
+			// No key for this class in this environment — resolve-time error.
 		default:
 			// A typo'd override or a broken catalog: refuse to boot.
 			return Resolvers{}, err
 		}
-		out.set(lane, laneResolver(cat, lane, overrides[lane], keys))
+		out.byClass[class] = laneResolver(cat, class, overrides[class], keys)
 	}
+	out.Chat = out.For(LaneChat)
+	out.FastChat = out.For(LaneFastChat)
+	out.Eval = out.For(LaneEval)
 	return out, nil
 }
 
-func (rs *Resolvers) set(lane string, r KeyResolver) {
-	switch lane {
-	case LaneChat:
-		rs.Chat = r
-	case LaneFastChat:
-		rs.FastChat = r
-	case LaneEval:
-		rs.Eval = r
+// classOverrides collects the per-class MODEL_* variables. Precedence, most
+// specific first: cfg.ModelClass (an injected map, for tests) → MODEL_<CLASS>
+// from the environment → the legacy lane variable this class replaced.
+//
+// The legacy variable coming LAST is what makes a half-migrated deployment
+// behave predictably: an operator who has already set MODEL_DIALOGUE gets it,
+// even with a stale MODEL_CHAT still exported next to it.
+func classOverrides(cfg config.Config) map[string]string {
+	legacy := map[string]string{
+		ClassDialogue: cfg.ModelChat,
+		ClassReflex:   cfg.ModelFastChat,
+		ClassAssess:   cfg.ModelEval,
 	}
+	out := map[string]string{}
+	for _, class := range Classes {
+		switch {
+		case cfg.ModelClass[class] != "":
+			out[class] = cfg.ModelClass[class]
+		case os.Getenv(ClassEnvVar(class)) != "":
+			out[class] = os.Getenv(ClassEnvVar(class))
+		default:
+			out[class] = legacy[class]
+		}
+	}
+	return out
 }
 
 // laneResolver resolves on every call rather than caching, so a key rotated
@@ -119,30 +154,35 @@ func DescribeBindings(cfg config.Config) string {
 	}
 	keys := configKeyLookup(cfg)
 
-	fmt.Fprintf(&b, "catalog %s\n\nACTIVE LANES\n", cat.Version)
-	overrides := map[string]string{
-		LaneChat:     cfg.ModelChat,
-		LaneFastChat: cfg.ModelFastChat,
-		LaneEval:     cfg.ModelEval,
-	}
-	envVar := map[string]string{
-		LaneChat:     "MODEL_CHAT",
-		LaneFastChat: "MODEL_FAST_CHAT",
-		LaneEval:     "MODEL_EVAL",
-	}
-	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
-		spec := cat.Lanes[lane]
-		src := "catalog default"
-		if overrides[lane] != "" {
-			src = envVar[lane] + " override"
-		}
-		r, err := cat.Resolve(lane, overrides[lane], keys)
-		if err != nil {
-			fmt.Fprintf(&b, "  %-9s %-28s tier=%-9s UNRESOLVED (%v)\n", lane, spec.Model, spec.Tier, err)
+	fmt.Fprintf(&b, "catalog %s\n\nCAPABILITY CLASSES\n", cat.Version)
+	overrides := classOverrides(cfg)
+	for _, class := range Classes {
+		spec, bound := cat.Lanes[class]
+		if !bound {
 			continue
 		}
-		fmt.Fprintf(&b, "  %-9s %-28s tier=%-9s via %s (%s)\n", lane, r.ModelID, r.Tier, r.Provider, src)
+		src := "catalog default"
+		if overrides[class] != "" {
+			src = ClassEnvVar(class) + " override"
+		}
+		budget := "—"
+		if spec.LatencyBudgetMs > 0 {
+			budget = fmt.Sprintf("%.1fs", float64(spec.LatencyBudgetMs)/1000)
+		}
+		reserved := ""
+		if class == ClassSearch || class == ClassMultimo {
+			reserved = "  [reserved — nothing routes here yet]"
+		}
+		fmt.Fprintf(&b, "  %-11s think=%-7s budget=%-7s %s%s\n",
+			class, orDefault(spec.Reasoning, "default"), budget, spec.Label, reserved)
+		r, err := cat.Resolve(class, overrides[class], keys)
+		if err != nil {
+			fmt.Fprintf(&b, "  %-11s → %-28s tier=%-9s UNRESOLVED (%v)\n\n", "", spec.Model, spec.Tier, err)
+			continue
+		}
+		fmt.Fprintf(&b, "  %-11s → %-28s tier=%-9s via %s (%s)\n\n", "", r.ModelID, r.Tier, r.Provider, src)
 	}
+	fmt.Fprintf(&b, "  legacy aliases: chat→dialogue  fastChat→reflex  eval→assess\n")
 
 	fmt.Fprintf(&b, "\nPROVIDERS\n")
 	pids := make([]string, 0, len(cat.Providers))
@@ -159,7 +199,7 @@ func DescribeBindings(cfg config.Config) string {
 		fmt.Fprintf(&b, "  %-10s %-18s %-8s %s\n", id, p.APIKeyEnv, state, p.BaseURL)
 	}
 
-	fmt.Fprintf(&b, "\nMODELS (bind with MODEL_CHAT / MODEL_FAST_CHAT / MODEL_EVAL)\n")
+	fmt.Fprintf(&b, "\nMODELS (bind with MODEL_REFLEX / MODEL_DIALOGUE / MODEL_COMPOSE / MODEL_REVIEW / MODEL_ASSESS / MODEL_DIGEST)\n")
 	for _, id := range cat.ModelIDs() {
 		m := cat.Models[id]
 		price := "UNPRICED — set priceUsd in models.json to compare cost"
@@ -172,6 +212,15 @@ func DescribeBindings(cfg config.Config) string {
 		}
 		fmt.Fprintf(&b, "  %s %-28s %s\n", flag, id, price)
 	}
-	fmt.Fprintf(&b, "\n  * = flagship-eligible (the eval lane accepts only these)\n")
+	fmt.Fprintf(&b, "\n  * = flagship-eligible (the assess class accepts only these)\n")
 	return b.String()
+}
+
+// orDefault renders an empty catalog value as the word the catalog means by it,
+// so --print-models never shows a blank column the reader has to interpret.
+func orDefault(v, fallback string) string {
+	if v == "" {
+		return fallback
+	}
+	return v
 }

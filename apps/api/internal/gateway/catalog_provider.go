@@ -45,10 +45,7 @@ func (p *CatalogProvider) buildBody(r Resolved, req ChatRequest) (map[string]any
 		body["temperature"] = *pol.DefaultTemperature
 	}
 
-	// Reasoning off for the chaperone tier (coach, guides, compaction, classify,
-	// search-guidance) and for any call that asks explicitly. The flagship
-	// reviewer/eval seam keeps reasoning on.
-	wantOff := r.Tier == "chaperone" || req.DisableThinking
+	wantOff := wantsThinkingOff(r, req)
 	switch {
 	case !wantOff:
 	case pol.ThinkingOffUnsupported || len(pol.ThinkingOff) == 0:

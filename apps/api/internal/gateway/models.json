@@ -299,10 +299,64 @@
     "one lane at a time (MODEL_CHAT first), or speed and cost stop being",
     "attributable to anything."
   ],
+  "_classComment": [
+    "A class says how much INTELLIGENCE a call needs — not which feature made it.",
+    "Two calls on one page can sit in different classes; two unrelated features can",
+    "share one. reasoning is the class's requirement and overrides the model's",
+    "defaultReasoningEffort; a per-request ReasoningEffort still wins over both.",
+    "latencyBudgetMs is a TARGET that routebench scores against — never a timeout,",
+    "because mid-turn a slow answer beats no answer.",
+    "",
+    "Every class starts bound to the same model the three old lanes used, so",
+    "introducing classes changed ROUTING SHAPE only, not which model serves a",
+    "request. Re-pointing them is what routebench exists to inform — one class at a",
+    "time, or the measured difference stops being attributable to anything.",
+    "",
+    "chat / fastChat / eval survive as aliases (dialogue / reflex / assess), so",
+    "MODEL_CHAT, MODEL_FAST_CHAT and MODEL_EVAL keep working."
+  ],
   "lanes": {
-    "chat": { "model": "dashscope/deepseek-v4-pro", "tier": "chaperone" },
-    "fastChat": { "model": "dashscope/deepseek-v4-pro", "tier": "chaperone" },
-    "eval": { "model": "dashscope/deepseek-v4-pro", "tier": "flagship" }
+    "reflex": {
+      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "reasoning": "off", "latencyBudgetMs": 2000,
+      "label": "反射 — 一个标签或一次路由选择，没有自由文本"
+    },
+    "dialogue": {
+      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "reasoning": "off", "latencyBudgetMs": 4000,
+      "label": "陪练 — 学生当场看得见的对话轮，一次只问一个"
+    },
+    "compose": {
+      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "reasoning": "low", "latencyBudgetMs": 12000,
+      "label": "结构生成 — 从已陈述的输入派生一个 schema 形状的产物"
+    },
+    "review": {
+      "model": "dashscope/deepseek-v4-pro", "tier": "flagship",
+      "reasoning": "default", "latencyBudgetMs": 40000,
+      "label": "审阅 — 读学生的成果并作判断，判错有代价"
+    },
+    "assess": {
+      "model": "dashscope/deepseek-v4-pro", "tier": "flagship",
+      "reasoning": "max", "latencyBudgetMs": 180000,
+      "label": "过程评估 — rubric 报告 / 回顾 / 周报；绝不降级"
+    },
+    "digest": {
+      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
+      "reasoning": "off", "latencyBudgetMs": 15000,
+      "label": "摘要 — 长输入短输出，压缩而不判断"
+    },
+
+    "search": {
+      "model": "dashscope/qwen3.8-max", "tier": "chaperone",
+      "reasoning": "low", "latencyBudgetMs": 20000,
+      "label": "预留 — 联网检索，需要多轮工具循环"
+    },
+    "multimodal": {
+      "model": "dashscope/qwen3.5-omni-plus", "tier": "chaperone",
+      "reasoning": "default", "latencyBudgetMs": 20000,
+      "label": "预留 — 图文输入"
+    }
   },
 
   "_fallbackComment": [

@@ -98,8 +98,50 @@ func (a *API) saveTrackState(ctx context.Context, projectID uuid.UUID, state age
 	return a.d.Queries.SetStudioState(ctx, sqlc.SetStudioStateParams{ID: projectID, StudioState: b})
 }
 
+// route resolves one capability class. It is the seam every call site should
+// use: naming a class says how much intelligence this call needs, and the
+// catalog decides which model that means today.
+//
+// The fallback chain is deliberate and narrow. A class with no key falls back
+// to dialogue — the class most likely to be configured in any environment —
+// rather than to nothing, so a partially-configured dev box still answers.
+// ok=false only when nothing at all resolves.
+func (a *API) route(ctx context.Context, class string) (gateway.Resolved, bool) {
+	if a.d.Route != nil {
+		if r, err := a.d.Route(class)(ctx); err == nil {
+			return r, true
+		}
+	}
+	// Pre-class wiring (tests that build Deps by hand, and any caller not yet
+	// passing Route): fall back to the legacy resolver this class aliases.
+	legacy := a.d.ChatResolver
+	switch class {
+	case gateway.ClassAssess, gateway.ClassReview:
+		if a.d.EvalResolver != nil {
+			legacy = a.d.EvalResolver
+		}
+	case gateway.ClassReflex:
+		if a.d.FastChatResolver != nil {
+			legacy = a.d.FastChatResolver
+		}
+	}
+	if legacy != nil {
+		if r, err := legacy(ctx); err == nil {
+			return r, true
+		}
+	}
+	if a.d.ChatResolver != nil {
+		if r, err := a.d.ChatResolver(ctx); err == nil {
+			return r, true
+		}
+	}
+	return gateway.Resolved{}, false
+}
+
 // resolveFast returns the fast chaperone resolver (falling back to the chaperone
 // when the fast one is unset), plus ok=false when neither resolves.
+//
+// Deprecated: name a capability class with route(ctx, gateway.Class…) instead.
 func (a *API) resolveFast(ctx context.Context) (gateway.Resolved, bool) {
 	if a.d.FastChatResolver != nil {
 		if fr, err := a.d.FastChatResolver(ctx); err == nil {

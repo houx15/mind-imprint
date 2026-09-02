@@ -174,20 +174,26 @@ func main() {
 		pool.Close()
 		os.Exit(1)
 	}
-	for _, lane := range []string{gateway.LaneChat, gateway.LaneFastChat, gateway.LaneEval} {
-		if b, ok := resolvers.Bindings[lane]; ok {
-			log.Printf("lane %s → %s (provider=%s tier=%s)", lane, b.ModelID, b.Provider, b.Tier)
-		} else {
-			log.Printf("lane %s → UNRESOLVED (no provider key configured)", lane)
+	// The boot log is the only place that says which model each capability class
+	// actually landed on. 2026-09-02: a key that never reached the server made
+	// production run the fallback provider for hours while every other signal —
+	// including a green "DEPLOY OK" — said otherwise. This line was what caught it.
+	for _, class := range gateway.Classes {
+		b, ok := resolvers.Bindings[class]
+		if !ok {
+			log.Printf("class %-11s → UNRESOLVED (no provider key configured)", class)
+			continue
 		}
+		log.Printf("class %-11s → %s (provider=%s tier=%s think=%s)", class, b.ModelID, b.Provider, b.Tier, b.Reasoning)
 	}
 
 	apiHandler := api.New(api.Deps{
 		Queries:          queries,
 		Provider:         provider,
-		ChatResolver:     resolvers.Chat,
-		FastChatResolver: resolvers.FastChat, // fast per-status studio router
-		EvalResolver:     resolvers.Eval,     // flagship (course step render)
+		Route:            resolvers.For,
+		ChatResolver:     resolvers.Chat,     // legacy alias → dialogue
+		FastChatResolver: resolvers.FastChat, // legacy alias → reflex
+		EvalResolver:     resolvers.Eval,     // legacy alias → assess
 		Catalog:          catalog,
 		SpecByID:         specByID,
 		Pool:             pool,
