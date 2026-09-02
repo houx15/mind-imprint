@@ -1,0 +1,1783 @@
+[
+  {
+    "id": "statistical-inference",
+    "field": "formal",
+    "zh": "统计推断",
+    "en": "Statistical inference",
+    "asks": "一个样本，能替多少人说话？",
+    "method": "抽样 · 置信区间 · 显著性检验 · 效应量",
+    "exemplar": "4 平方公里的珊瑚，能不能代表一整片海？",
+    "aliases": [
+      "统计",
+      "抽样",
+      "样本",
+      "代表性",
+      "置信区间",
+      "显著性",
+      "统计学",
+      "sampling",
+      "significance",
+      "confidence interval",
+      "statistics"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "MAA-4",
+        "label": "IB 数学 AA · 统计与概率",
+        "level": "HL/SL"
+      },
+      {
+        "board": "ALevel",
+        "code": "9709-S1",
+        "label": "剑桥 A-Level 数学 · 概率与统计 1",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-STAT-U4",
+        "label": "AP Statistics · Unit 4 抽样分布"
+      },
+      {
+        "board": "University",
+        "code": "STAT-101",
+        "label": "大学 · 统计学 / 数据科学"
+      }
+    ]
+  },
+  {
+    "id": "probability",
+    "field": "formal",
+    "zh": "概率",
+    "en": "Probability",
+    "asks": "「有可能」到底是多可能？",
+    "method": "古典概型 · 条件概率 · 贝叶斯更新 · 期望值",
+    "exemplar": "天气预报说 70% 会下雨，它说错了吗？",
+    "aliases": [
+      "概率论",
+      "随机",
+      "条件概率",
+      "贝叶斯",
+      "期望值",
+      "几率",
+      "probability",
+      "bayes",
+      "randomness",
+      "expected value"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "MAA-4.5",
+        "label": "IB 数学 AA · 概率",
+        "level": "HL/SL"
+      },
+      {
+        "board": "ALevel",
+        "code": "9709-P&S",
+        "label": "剑桥 A-Level 数学 · 概率",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-STAT-U3",
+        "label": "AP Statistics · Unit 3 概率与随机变量"
+      },
+      {
+        "board": "University",
+        "code": "MATH-PROB",
+        "label": "大学 · 概率论"
+      }
+    ]
+  },
+  {
+    "id": "calculus",
+    "field": "formal",
+    "zh": "微积分与变化率",
+    "en": "Calculus",
+    "asks": "一件事变化得有多快，怎么量？",
+    "method": "极限 · 导数 · 积分 · 最优化",
+    "exemplar": "感染人数还在涨，但涨得慢下来了——这句话怎么用一个数说清？",
+    "aliases": [
+      "微积分",
+      "导数",
+      "积分",
+      "极限",
+      "变化率",
+      "最优化",
+      "calculus",
+      "derivative",
+      "integral",
+      "rate of change"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "MAA-5",
+        "label": "IB 数学 AA · 微积分",
+        "level": "HL/SL"
+      },
+      {
+        "board": "ALevel",
+        "code": "9709-P1",
+        "label": "剑桥 A-Level 数学 · 纯数 1 微分与积分",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-CALC-AB",
+        "label": "AP Calculus AB"
+      },
+      {
+        "board": "University",
+        "code": "MATH-ANALYSIS",
+        "label": "大学 · 数学分析 / 工科高数"
+      }
+    ]
+  },
+  {
+    "id": "logic-proof",
+    "field": "formal",
+    "zh": "逻辑与证明",
+    "en": "Logic & proof",
+    "asks": "凭什么说这一步一定成立？",
+    "method": "演绎 · 反证法 · 归纳法 · 反例",
+    "exemplar": "「所有天鹅都是白的」——要推翻它，需要几只天鹅？",
+    "aliases": [
+      "逻辑",
+      "证明",
+      "反证",
+      "归纳法",
+      "演绎",
+      "反例",
+      "命题",
+      "logic",
+      "proof",
+      "counterexample",
+      "deduction"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "TOK-REASON",
+        "label": "IB TOK · 理性作为认知方式"
+      },
+      {
+        "board": "ALevel",
+        "code": "9231-FP",
+        "label": "剑桥 A-Level 进阶数学 · 证明与归纳",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "PHIL-LOGIC",
+        "label": "大学 · 数理逻辑 / 哲学逻辑"
+      }
+    ]
+  },
+  {
+    "id": "discrete-networks",
+    "field": "formal",
+    "zh": "离散数学与网络",
+    "en": "Discrete mathematics & networks",
+    "asks": "东西之间的连法，本身能说明什么？",
+    "method": "图论 · 组合计数 · 递推 · 网络中心度",
+    "exemplar": "六个人真的能把世界上任意两个人连起来吗？",
+    "aliases": [
+      "离散数学",
+      "图论",
+      "组合",
+      "网络分析",
+      "拓扑排序",
+      "递推",
+      "graph theory",
+      "combinatorics",
+      "networks",
+      "discrete math"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "MAA-AHL",
+        "label": "IB 数学 AA · 附加高级内容",
+        "level": "HL"
+      },
+      {
+        "board": "ALevel",
+        "code": "9231-DM",
+        "label": "剑桥 A-Level 进阶数学 · 决策数学",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "CS-DISCRETE",
+        "label": "大学 · 离散数学 / 网络科学"
+      }
+    ]
+  },
+  {
+    "id": "modelling",
+    "field": "formal",
+    "zh": "数学建模",
+    "en": "Mathematical modelling",
+    "asks": "现实里的一团乱，怎么写成一个能算的式子？",
+    "method": "变量识别 · 假设与简化 · 拟合 · 灵敏度检验",
+    "exemplar": "学校门口早高峰堵八分钟——哪个变量改一下最有用？",
+    "aliases": [
+      "建模",
+      "数学模型",
+      "拟合",
+      "仿真",
+      "灵敏度",
+      "变量简化",
+      "modelling",
+      "simulation",
+      "curve fitting"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "MAI-5",
+        "label": "IB 数学 AI · 建模与函数",
+        "level": "HL/SL"
+      },
+      {
+        "board": "ALevel",
+        "code": "9709-M",
+        "label": "剑桥 A-Level 数学 · 力学建模",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "APPL-MATH",
+        "label": "大学 · 应用数学 / 运筹学"
+      }
+    ]
+  },
+  {
+    "id": "climate-ocean",
+    "field": "science",
+    "zh": "气候与海洋",
+    "en": "Climate & ocean",
+    "asks": "地球把多余的热和碳藏到哪儿去了？",
+    "method": "碳循环 · 温盐环流 · 代用指标 · 气候情景",
+    "exemplar": "海洋吸走的碳比我们以为的少 7%——这 7% 去了哪里？",
+    "aliases": [
+      "气候",
+      "气候变化",
+      "海洋",
+      "碳循环",
+      "洋流",
+      "全球变暖",
+      "温室效应",
+      "climate",
+      "ocean",
+      "carbon cycle",
+      "global warming"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "ESS-6",
+        "label": "IB 环境系统与社会 · 大气与气候"
+      },
+      {
+        "board": "ALevel",
+        "code": "9700-ENV",
+        "label": "剑桥 A-Level 生物 · 生态与环境",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-ENV-U4",
+        "label": "AP Environmental Science · Unit 4 地球系统"
+      },
+      {
+        "board": "University",
+        "code": "EARTH-CLIM",
+        "label": "大学 · 大气科学 / 海洋学"
+      }
+    ]
+  },
+  {
+    "id": "ecology",
+    "field": "science",
+    "zh": "生态学",
+    "en": "Ecology",
+    "asks": "一个物种少了，整张网会松到什么程度？",
+    "method": "食物网 · 种群动态 · 演替 · 样方调查",
+    "exemplar": "把狼放回黄石公园，河道的形状为什么变了？",
+    "aliases": [
+      "生态",
+      "生态系统",
+      "生物多样性",
+      "食物链",
+      "种群",
+      "环境保护",
+      "栖息地",
+      "ecology",
+      "ecosystem",
+      "biodiversity",
+      "food web"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "BIO-C4",
+        "label": "IB 生物 · 生态与保护"
+      },
+      {
+        "board": "ALevel",
+        "code": "9700-18",
+        "label": "剑桥 A-Level 生物 · 生物多样性与保护",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-BIO-U8",
+        "label": "AP Biology · Unit 8 生态学"
+      },
+      {
+        "board": "University",
+        "code": "BIO-ECOL",
+        "label": "大学 · 生态学 / 环境科学"
+      }
+    ]
+  },
+  {
+    "id": "genetics",
+    "field": "science",
+    "zh": "遗传与进化",
+    "en": "Genetics & evolution",
+    "asks": "一个性状是怎么被传下去、又被改写的？",
+    "method": "孟德尔比例 · 基因表达 · 自然选择 · 系统发生树",
+    "exemplar": "为什么抗生素用得越多，细菌反而越难杀？",
+    "aliases": [
+      "遗传",
+      "基因",
+      "进化",
+      "演化",
+      "DNA",
+      "自然选择",
+      "变异",
+      "遗传学",
+      "genetics",
+      "evolution",
+      "natural selection",
+      "heredity"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "BIO-A3",
+        "label": "IB 生物 · 遗传与进化"
+      },
+      {
+        "board": "ALevel",
+        "code": "9700-16",
+        "label": "剑桥 A-Level 生物 · 遗传与选择",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-BIO-U5",
+        "label": "AP Biology · Unit 5 遗传"
+      },
+      {
+        "board": "University",
+        "code": "BIO-GENET",
+        "label": "大学 · 遗传学 / 进化生物学"
+      }
+    ]
+  },
+  {
+    "id": "neuroscience",
+    "field": "science",
+    "zh": "神经科学",
+    "en": "Neuroscience",
+    "asks": "一段记忆在脑子里，究竟是什么形状？",
+    "method": "神经元与突触 · 可塑性 · 脑成像 · 损伤研究",
+    "exemplar": "为什么睡一觉之后，昨天背的单词反而更牢？",
+    "aliases": [
+      "神经科学",
+      "大脑",
+      "神经元",
+      "记忆机制",
+      "突触",
+      "脑科学",
+      "神经可塑性",
+      "neuroscience",
+      "brain",
+      "neuron",
+      "memory formation"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "BIO-HL-C2",
+        "label": "IB 生物 · 神经生物学",
+        "level": "HL"
+      },
+      {
+        "board": "ALevel",
+        "code": "9700-15",
+        "label": "剑桥 A-Level 生物 · 神经协调",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-PSYCH-U2",
+        "label": "AP Psychology · Unit 2 生物学基础"
+      },
+      {
+        "board": "University",
+        "code": "NEURO-101",
+        "label": "大学 · 神经科学 / 认知神经科学"
+      }
+    ]
+  },
+  {
+    "id": "matter-energy",
+    "field": "science",
+    "zh": "物质与能量",
+    "en": "Matter & energy",
+    "asks": "能量从一种样子变成另一种，路上丢了什么？",
+    "method": "守恒定律 · 热力学 · 键能 · 反应速率",
+    "exemplar": "手机充一次电的能量，够把一杯水烧开吗？",
+    "aliases": [
+      "物理",
+      "化学",
+      "能量守恒",
+      "热力学",
+      "化学反应",
+      "熵",
+      "分子",
+      "thermodynamics",
+      "energy conservation",
+      "chemistry",
+      "physics"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "PHY-B",
+        "label": "IB 物理 · 能量的转移"
+      },
+      {
+        "board": "ALevel",
+        "code": "9702-14",
+        "label": "剑桥 A-Level 物理 · 热力学",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-CHEM-U6",
+        "label": "AP Chemistry · Unit 6 热化学"
+      },
+      {
+        "board": "University",
+        "code": "PHYS-CHEM",
+        "label": "大学 · 物理学 / 物理化学"
+      }
+    ]
+  },
+  {
+    "id": "astronomy",
+    "field": "science",
+    "zh": "天文与宇宙学",
+    "en": "Astronomy & cosmology",
+    "asks": "我们凭什么谈论一个去不了的地方？",
+    "method": "光谱分析 · 红移 · 标准烛光 · 系外行星凌星法",
+    "exemplar": "一颗行星在几十光年外，为什么我们敢说它上面可能有水？",
+    "aliases": [
+      "天文",
+      "宇宙",
+      "星系",
+      "系外行星",
+      "红移",
+      "宇宙学",
+      "望远镜",
+      "恒星",
+      "astronomy",
+      "cosmology",
+      "exoplanet",
+      "universe"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "PHY-D",
+        "label": "IB 物理 · 空间、时间与引力"
+      },
+      {
+        "board": "ALevel",
+        "code": "9702-25",
+        "label": "剑桥 A-Level 物理 · 天体物理",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "ASTRO-101",
+        "label": "大学 · 天文学 / 天体物理"
+      }
+    ]
+  },
+  {
+    "id": "algorithms",
+    "field": "making",
+    "zh": "算法与计算",
+    "en": "Algorithms & computation",
+    "asks": "同一件事，为什么有的做法快一万倍？",
+    "method": "复杂度分析 · 分治 · 动态规划 · 数据结构选型",
+    "exemplar": "搜索框刚打两个字就出结果，它凭什么这么快？",
+    "aliases": [
+      "算法",
+      "编程",
+      "数据结构",
+      "复杂度",
+      "计算机科学",
+      "代码",
+      "递归",
+      "algorithm",
+      "data structure",
+      "complexity",
+      "programming"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "CS-A",
+        "label": "IB 计算机科学 · 抽象与设计"
+      },
+      {
+        "board": "ALevel",
+        "code": "9618-11",
+        "label": "剑桥 A-Level 计算机 · 算法设计",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-CSA",
+        "label": "AP Computer Science A"
+      },
+      {
+        "board": "University",
+        "code": "CS-ALGO",
+        "label": "大学 · 计算机科学"
+      }
+    ]
+  },
+  {
+    "id": "ai-ml",
+    "field": "making",
+    "zh": "人工智能与机器学习",
+    "en": "AI & machine learning",
+    "asks": "一台没被教过规则的机器，怎么学会分辨？",
+    "method": "训练与验证 · 特征与表示 · 过拟合 · 偏差审计",
+    "exemplar": "模型说这张片子有问题——我该信它几分？",
+    "aliases": [
+      "人工智能",
+      "机器学习",
+      "深度学习",
+      "神经网络",
+      "大模型",
+      "训练数据",
+      "算法偏见",
+      "artificial intelligence",
+      "machine learning",
+      "deep learning",
+      "AI"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "CS-D",
+        "label": "IB 计算机科学 · 机器学习案例研究"
+      },
+      {
+        "board": "ALevel",
+        "code": "9618-AI",
+        "label": "剑桥 A-Level 计算机 · 人工智能导论",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "CS-ML",
+        "label": "大学 · 人工智能 / 数据科学"
+      }
+    ]
+  },
+  {
+    "id": "materials",
+    "field": "making",
+    "zh": "材料科学",
+    "en": "Materials science",
+    "asks": "一样东西为什么会断、会锈、会老？",
+    "method": "晶体结构 · 应力应变 · 失效分析 · 生命周期评估",
+    "exemplar": "同样一把椅子，木头的和塑料的谁先坏？为什么？",
+    "aliases": [
+      "材料",
+      "材料科学",
+      "金属",
+      "高分子",
+      "复合材料",
+      "腐蚀",
+      "强度",
+      "materials science",
+      "polymer",
+      "alloy",
+      "corrosion"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "CHEM-S",
+        "label": "IB 化学 · 结构与性质"
+      },
+      {
+        "board": "ALevel",
+        "code": "9701-19",
+        "label": "剑桥 A-Level 化学 · 高分子与材料",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "MSE-101",
+        "label": "大学 · 材料科学与工程"
+      }
+    ]
+  },
+  {
+    "id": "engineering-design",
+    "field": "making",
+    "zh": "工程设计",
+    "en": "Engineering design",
+    "asks": "一个能用的东西，怎么从想法走到真的立在那儿？",
+    "method": "需求拆解 · 约束与取舍 · 原型迭代 · 失效模式分析",
+    "exemplar": "校门口的雨棚要挡雨、要不挡光、还要不能被风掀翻——先满足哪个？",
+    "aliases": [
+      "工程",
+      "机械",
+      "结构设计",
+      "原型",
+      "迭代设计",
+      "工程制图",
+      "约束条件",
+      "engineering",
+      "prototype",
+      "structural design",
+      "CAD"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "DT-4",
+        "label": "IB 设计技术 · 最终产品的开发"
+      },
+      {
+        "board": "ALevel",
+        "code": "9705-DT",
+        "label": "剑桥 A-Level 设计与技术 · 产品设计",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "ENG-DESIGN",
+        "label": "大学 · 机械工程 / 土木工程"
+      }
+    ]
+  },
+  {
+    "id": "energy-systems",
+    "field": "making",
+    "zh": "能源系统",
+    "en": "Energy systems",
+    "asks": "把整座城市的电换成另一种来源，卡在哪一步？",
+    "method": "能量密度 · 电网调峰 · 全生命周期排放 · 度电成本",
+    "exemplar": "太阳能便宜了，为什么晚上的电还是烧煤的？",
+    "aliases": [
+      "能源",
+      "电网",
+      "可再生能源",
+      "储能",
+      "光伏",
+      "核能",
+      "碳排放核算",
+      "energy systems",
+      "renewable energy",
+      "grid",
+      "battery storage"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "ESS-7",
+        "label": "IB 环境系统与社会 · 能源资源"
+      },
+      {
+        "board": "ALevel",
+        "code": "9702-ENERGY",
+        "label": "剑桥 A-Level 物理 · 能量资源",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-ENV-U6",
+        "label": "AP Environmental Science · Unit 6 能源"
+      },
+      {
+        "board": "University",
+        "code": "ENERGY-ENG",
+        "label": "大学 · 能源工程 / 电气工程"
+      }
+    ]
+  },
+  {
+    "id": "interaction-design",
+    "field": "making",
+    "zh": "交互设计",
+    "en": "Interaction design",
+    "asks": "为什么有的东西不用教就会用？",
+    "method": "可供性 · 心智模型 · 可用性测试 · 信息架构",
+    "exemplar": "同一个门，为什么有人推、有人拉，还总弄反？",
+    "aliases": [
+      "交互",
+      "用户体验",
+      "UX",
+      "界面设计",
+      "可用性",
+      "信息架构",
+      "人机交互",
+      "interaction design",
+      "usability",
+      "user experience",
+      "HCI"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "DT-2",
+        "label": "IB 设计技术 · 以人为本的设计"
+      },
+      {
+        "board": "ALevel",
+        "code": "9479-HCI",
+        "label": "剑桥 A-Level 数字媒体 · 人机界面",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "HCI-101",
+        "label": "大学 · 人机交互 / 工业设计"
+      }
+    ]
+  },
+  {
+    "id": "economics",
+    "field": "society",
+    "zh": "经济学",
+    "en": "Economics",
+    "asks": "东西的价格，到底是谁定的？",
+    "method": "供需分析 · 边际思维 · 机会成本 · 弹性",
+    "exemplar": "房租涨了，是因为房子少了，还是因为钱多了？",
+    "aliases": [
+      "经济",
+      "经济学",
+      "供需",
+      "市场",
+      "通货膨胀",
+      "机会成本",
+      "价格",
+      "economics",
+      "supply and demand",
+      "inflation",
+      "market"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "ECON-2",
+        "label": "IB 经济学 · 微观经济学"
+      },
+      {
+        "board": "ALevel",
+        "code": "9708-2",
+        "label": "剑桥 A-Level 经济 · 价格机制",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-MICRO",
+        "label": "AP Microeconomics"
+      },
+      {
+        "board": "University",
+        "code": "ECON-101",
+        "label": "大学 · 经济学"
+      }
+    ]
+  },
+  {
+    "id": "sociology",
+    "field": "society",
+    "zh": "社会学",
+    "en": "Sociology",
+    "asks": "一个人的选择，有多少其实不是他自己做的？",
+    "method": "社会结构 · 阶层与流动 · 田野观察 · 问卷抽样",
+    "exemplar": "同一所学校里，为什么有些孩子从来不举手？",
+    "aliases": [
+      "社会学",
+      "社会结构",
+      "阶层",
+      "群体行为",
+      "社会流动",
+      "不平等",
+      "社会规范",
+      "sociology",
+      "social class",
+      "inequality",
+      "social norms"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "GP-1",
+        "label": "IB 全球政治 · 权力、主权与国际关系"
+      },
+      {
+        "board": "ALevel",
+        "code": "9699-1",
+        "label": "剑桥 A-Level 社会学 · 社会化与身份",
+        "level": "AS"
+      },
+      {
+        "board": "University",
+        "code": "SOC-101",
+        "label": "大学 · 社会学"
+      }
+    ]
+  },
+  {
+    "id": "political-economy",
+    "field": "society",
+    "zh": "政治经济与制度",
+    "en": "Political economy & institutions",
+    "asks": "规则是谁写的，又为谁服务？",
+    "method": "制度分析 · 集体行动 · 公共选择 · 政策评估",
+    "exemplar": "一条规定明明大家都嫌麻烦，为什么它还在？",
+    "aliases": [
+      "制度",
+      "公共政策",
+      "治理",
+      "集体行动",
+      "政治经济学",
+      "公共选择",
+      "政策评估",
+      "political economy",
+      "institutions",
+      "public policy",
+      "governance"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "GP-2",
+        "label": "IB 全球政治 · 人权与发展"
+      },
+      {
+        "board": "ALevel",
+        "code": "9389-GOV",
+        "label": "剑桥 A-Level 历史 · 政府与政治",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-GOV",
+        "label": "AP Comparative Government & Politics"
+      },
+      {
+        "board": "University",
+        "code": "POLSCI-101",
+        "label": "大学 · 政治学 / 公共管理"
+      }
+    ]
+  },
+  {
+    "id": "anthropology",
+    "field": "society",
+    "zh": "人类学",
+    "en": "Anthropology",
+    "asks": "在别人看来天经地义的事，为什么我们觉得奇怪？",
+    "method": "参与式观察 · 民族志 · 文化相对主义 · 深描",
+    "exemplar": "为什么有的地方吃饭不说话，有的地方不说话就是没礼貌？",
+    "aliases": [
+      "人类学",
+      "民族志",
+      "田野调查",
+      "文化差异",
+      "习俗",
+      "文化相对主义",
+      "仪式",
+      "anthropology",
+      "ethnography",
+      "fieldwork",
+      "culture"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "SCA-1",
+        "label": "IB 社会与文化人类学 · 核心概念"
+      },
+      {
+        "board": "ALevel",
+        "code": "9699-3",
+        "label": "剑桥 A-Level 社会学 · 文化与身份",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "ANTHRO-101",
+        "label": "大学 · 人类学 / 民俗学"
+      }
+    ]
+  },
+  {
+    "id": "geography-urban",
+    "field": "society",
+    "zh": "地理与城市",
+    "en": "Geography & urban studies",
+    "asks": "一个地方长成现在这样，是被什么决定的？",
+    "method": "空间分析 · 地图与 GIS · 城市形态 · 人口流动",
+    "exemplar": "为什么小区门口有便利店，走五百米就一家也没有？",
+    "aliases": [
+      "地理",
+      "城市",
+      "城市规划",
+      "空间分布",
+      "人口迁移",
+      "GIS",
+      "区位",
+      "geography",
+      "urban planning",
+      "spatial analysis",
+      "migration"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "GEO-3",
+        "label": "IB 地理 · 城市环境"
+      },
+      {
+        "board": "ALevel",
+        "code": "9696-2",
+        "label": "剑桥 A-Level 地理 · 人文地理",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-HUG",
+        "label": "AP Human Geography"
+      },
+      {
+        "board": "University",
+        "code": "GEOG-URBAN",
+        "label": "大学 · 地理学 / 城乡规划"
+      }
+    ]
+  },
+  {
+    "id": "public-health",
+    "field": "society",
+    "zh": "公共卫生",
+    "en": "Public health",
+    "asks": "怎么让一群人比昨天更少生病？",
+    "method": "流行病学 · 对照研究 · 干预设计 · 健康公平",
+    "exemplar": "洗手这件小事，为什么曾经把产妇死亡率砍掉一大半？",
+    "aliases": [
+      "公共卫生",
+      "流行病学",
+      "疫情",
+      "疾病预防",
+      "健康公平",
+      "疫苗",
+      "传染病",
+      "public health",
+      "epidemiology",
+      "vaccination",
+      "disease prevention"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "SEHS-2",
+        "label": "IB 运动、锻炼与健康科学 · 健康与表现"
+      },
+      {
+        "board": "ALevel",
+        "code": "9700-HEALTH",
+        "label": "剑桥 A-Level 生物 · 传染病与免疫",
+        "level": "AS"
+      },
+      {
+        "board": "University",
+        "code": "PUBH-101",
+        "label": "大学 · 公共卫生 / 预防医学"
+      }
+    ]
+  },
+  {
+    "id": "history",
+    "field": "humanities",
+    "zh": "历史学",
+    "en": "History",
+    "asks": "同一件事，为什么两本书写得不一样？",
+    "method": "一手与二手史料 · 史料批判 · 因果与偶然 · 史观比较",
+    "exemplar": "教科书说这场战争「爆发」了——是谁点的火？",
+    "aliases": [
+      "历史",
+      "史料",
+      "史学",
+      "编年",
+      "史观",
+      "历史解释",
+      "档案",
+      "history",
+      "historiography",
+      "primary source",
+      "archive"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "HIST-1",
+        "label": "IB 历史 · 规定专题与史料评析"
+      },
+      {
+        "board": "ALevel",
+        "code": "9489-1",
+        "label": "剑桥 A-Level 历史 · 史料分析",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-WHIST",
+        "label": "AP World History: Modern"
+      },
+      {
+        "board": "University",
+        "code": "HIST-101",
+        "label": "大学 · 历史学"
+      }
+    ]
+  },
+  {
+    "id": "philosophy",
+    "field": "humanities",
+    "zh": "哲学",
+    "en": "Philosophy",
+    "asks": "我凭什么认为我知道这件事？",
+    "method": "概念澄清 · 论证重构 · 思想实验 · 反例检验",
+    "exemplar": "如果换掉大脑里的每一个细胞，你还是你吗？",
+    "aliases": [
+      "哲学",
+      "认识论",
+      "形而上学",
+      "思想实验",
+      "概念分析",
+      "知识论",
+      "philosophy",
+      "epistemology",
+      "thought experiment",
+      "metaphysics"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "TOK-CORE",
+        "label": "IB TOK · 知识与认知者"
+      },
+      {
+        "board": "ALevel",
+        "code": "9774-PHIL",
+        "label": "剑桥 A-Level 哲学 · 认识论",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "PHIL-101",
+        "label": "大学 · 哲学"
+      }
+    ]
+  },
+  {
+    "id": "linguistics",
+    "field": "humanities",
+    "zh": "语言学",
+    "en": "Linguistics",
+    "asks": "语言的规则，是谁教给我们的？",
+    "method": "音系 · 句法树 · 语义与语用 · 语料库分析",
+    "exemplar": "小孩没人教语法，为什么两岁就不会说错语序？",
+    "aliases": [
+      "语言学",
+      "语法",
+      "句法",
+      "语义",
+      "语用",
+      "母语习得",
+      "语料库",
+      "音系",
+      "linguistics",
+      "syntax",
+      "semantics",
+      "language acquisition"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "LANGLIT-1",
+        "label": "IB 语言与文学 · 语言在语境中"
+      },
+      {
+        "board": "ALevel",
+        "code": "9093-3",
+        "label": "剑桥 A-Level 英语语言 · 语言变迁",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "LING-101",
+        "label": "大学 · 语言学 / 应用语言学"
+      }
+    ]
+  },
+  {
+    "id": "literary-criticism",
+    "field": "humanities",
+    "zh": "文学批评",
+    "en": "Literary criticism",
+    "asks": "一段文字，为什么让人心里一沉？",
+    "method": "细读 · 叙事视角 · 意象与母题 · 互文",
+    "exemplar": "作者只写了「她把伞收了」，读者为什么知道她生气了？",
+    "aliases": [
+      "文学",
+      "文学批评",
+      "细读",
+      "叙事视角",
+      "意象",
+      "文本分析",
+      "母题",
+      "literary criticism",
+      "close reading",
+      "narrative voice",
+      "literature"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "LIT-2",
+        "label": "IB 文学 · 作品比较分析"
+      },
+      {
+        "board": "ALevel",
+        "code": "9695-4",
+        "label": "剑桥 A-Level 英语文学 · 文本比较",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-ENGLIT",
+        "label": "AP English Literature & Composition"
+      },
+      {
+        "board": "University",
+        "code": "LIT-101",
+        "label": "大学 · 文学 / 比较文学"
+      }
+    ]
+  },
+  {
+    "id": "rhetoric-argument",
+    "field": "humanities",
+    "zh": "修辞与论证",
+    "en": "Rhetoric & argument",
+    "asks": "这段话到底哪里说服了我？",
+    "method": "主张与理由 · 让步与反驳 · 证据类型 · 谬误识别",
+    "exemplar": "「大家都在用」——这算理由吗？",
+    "aliases": [
+      "论证",
+      "修辞",
+      "说服",
+      "反驳",
+      "让步",
+      "逻辑谬误",
+      "议论文",
+      "立论",
+      "rhetoric",
+      "argumentation",
+      "fallacy",
+      "persuasion"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "EE-ARG",
+        "label": "IB 拓展论文 · 论证与结构"
+      },
+      {
+        "board": "ALevel",
+        "code": "9093-2",
+        "label": "剑桥 A-Level 英语语言 · 议论与说服",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-ENGLANG",
+        "label": "AP English Language & Composition"
+      },
+      {
+        "board": "University",
+        "code": "WRIT-ARG",
+        "label": "大学 · 学术写作 / 修辞学"
+      }
+    ]
+  },
+  {
+    "id": "media-literacy",
+    "field": "humanities",
+    "zh": "媒介素养",
+    "en": "Media literacy",
+    "asks": "这条消息，是谁想让我看到的？",
+    "method": "溯源 · 交叉验证 · 框架分析 · 利益相关方识别",
+    "exemplar": "同一份数据，两家媒体做出的标题为什么方向相反？",
+    "aliases": [
+      "媒介素养",
+      "信息素养",
+      "事实核查",
+      "信源",
+      "框架效应",
+      "假新闻",
+      "溯源",
+      "media literacy",
+      "fact checking",
+      "source credibility",
+      "framing"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "TOK-KNOW",
+        "label": "IB TOK · 知识与技术"
+      },
+      {
+        "board": "ALevel",
+        "code": "9607-2",
+        "label": "剑桥 A-Level 媒体研究 · 媒体语言与再现",
+        "level": "AS"
+      },
+      {
+        "board": "University",
+        "code": "COMM-MEDIA",
+        "label": "大学 · 新闻传播 / 媒体研究"
+      }
+    ]
+  },
+  {
+    "id": "art-history",
+    "field": "arts",
+    "zh": "艺术史",
+    "en": "Art history",
+    "asks": "一幅画为什么在那个年代才可能被画出来？",
+    "method": "图像志 · 风格分期 · 赞助与语境 · 形式分析",
+    "exemplar": "印象派当年被骂「没画完」，后来怎么成了经典？",
+    "aliases": [
+      "艺术史",
+      "美术史",
+      "画派",
+      "图像志",
+      "风格分析",
+      "赞助人",
+      "文艺复兴",
+      "art history",
+      "iconography",
+      "art movement"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "VA-2",
+        "label": "IB 视觉艺术 · 比较研究"
+      },
+      {
+        "board": "ALevel",
+        "code": "9479-ART",
+        "label": "剑桥 A-Level 艺术与设计 · personal investigation",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-ARTHIST",
+        "label": "AP Art History"
+      },
+      {
+        "board": "University",
+        "code": "ARTH-101",
+        "label": "大学 · 艺术史 / 博物馆学"
+      }
+    ]
+  },
+  {
+    "id": "music-theory",
+    "field": "arts",
+    "zh": "音乐理论",
+    "en": "Music theory",
+    "asks": "为什么这几个音放在一起会让人想哭？",
+    "method": "和声进行 · 曲式分析 · 节奏与织体 · 调性与色彩",
+    "exemplar": "同一段旋律换成小调，为什么整首歌就变了性格？",
+    "aliases": [
+      "音乐",
+      "乐理",
+      "和声",
+      "曲式",
+      "调性",
+      "节奏",
+      "作曲",
+      "music theory",
+      "harmony",
+      "composition",
+      "tonality"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "MUS-1",
+        "label": "IB 音乐 · 探索音乐语境"
+      },
+      {
+        "board": "ALevel",
+        "code": "9483-MUS",
+        "label": "剑桥 A-Level 音乐 · 分析与创作",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-MUSTH",
+        "label": "AP Music Theory"
+      },
+      {
+        "board": "University",
+        "code": "MUS-THEORY",
+        "label": "大学 · 音乐学 / 作曲"
+      }
+    ]
+  },
+  {
+    "id": "film-narrative",
+    "field": "arts",
+    "zh": "影像叙事",
+    "en": "Film & narrative",
+    "asks": "镜头怎么在你没察觉的时候替你做判断？",
+    "method": "镜头语言 · 剪辑节奏 · 场面调度 · 声画关系",
+    "exemplar": "同一场对话，机位低一点，那个人为什么就变可怕了？",
+    "aliases": [
+      "电影",
+      "影视",
+      "镜头语言",
+      "剪辑",
+      "分镜",
+      "场面调度",
+      "纪录片",
+      "film studies",
+      "cinematography",
+      "editing",
+      "montage"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "FILM-2",
+        "label": "IB 电影 · 比较研究与创作"
+      },
+      {
+        "board": "ALevel",
+        "code": "9607-4",
+        "label": "剑桥 A-Level 媒体研究 · 影视制作",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "FILM-101",
+        "label": "大学 · 影视制作 / 电影学"
+      }
+    ]
+  },
+  {
+    "id": "visual-design",
+    "field": "arts",
+    "zh": "视觉设计",
+    "en": "Visual design",
+    "asks": "为什么有的页面一眼就知道先看哪里？",
+    "method": "视觉层级 · 网格与留白 · 字体排印 · 色彩对比",
+    "exemplar": "同样的内容，换个字号和间距，为什么就显得可信了？",
+    "aliases": [
+      "平面设计",
+      "视觉设计",
+      "排版",
+      "字体",
+      "配色",
+      "视觉层级",
+      "海报",
+      "visual design",
+      "typography",
+      "layout",
+      "graphic design"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "VA-3",
+        "label": "IB 视觉艺术 · 展览"
+      },
+      {
+        "board": "ALevel",
+        "code": "9479-GD",
+        "label": "剑桥 A-Level 艺术与设计 · 平面传达",
+        "level": "A2"
+      },
+      {
+        "board": "AP",
+        "code": "AP-2DART",
+        "label": "AP Art & Design: 2-D Design"
+      },
+      {
+        "board": "University",
+        "code": "DESIGN-VIS",
+        "label": "大学 · 视觉传达设计"
+      }
+    ]
+  },
+  {
+    "id": "performance",
+    "field": "arts",
+    "zh": "表演与剧场",
+    "en": "Performance & theatre",
+    "asks": "同样的台词，怎么说才让人相信？",
+    "method": "角色动机 · 节奏与停顿 · 身体与空间 · 观演关系",
+    "exemplar": "演员一句话都不说，观众为什么就知道她在撒谎？",
+    "aliases": [
+      "戏剧",
+      "表演",
+      "剧场",
+      "舞台",
+      "台词",
+      "肢体表达",
+      "排练",
+      "theatre",
+      "performance",
+      "drama",
+      "stagecraft"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "THEATRE-1",
+        "label": "IB 戏剧 · 导演探索"
+      },
+      {
+        "board": "ALevel",
+        "code": "9482-DRA",
+        "label": "剑桥 A-Level 戏剧 · 表演与阐释",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "THEATRE-101",
+        "label": "大学 · 戏剧影视表演 / 舞台艺术"
+      }
+    ]
+  },
+  {
+    "id": "creative-writing",
+    "field": "arts",
+    "zh": "创意写作",
+    "en": "Creative writing",
+    "asks": "怎么让读者自己走到你想让他到的地方？",
+    "method": "场景与概要 · 视角选择 · 细节筛选 · 修改与删削",
+    "exemplar": "把「他很难过」删掉，改写成什么，读者反而更难过？",
+    "aliases": [
+      "创意写作",
+      "小说",
+      "散文",
+      "诗歌",
+      "虚构写作",
+      "叙事技巧",
+      "文学创作",
+      "creative writing",
+      "fiction",
+      "poetry",
+      "storytelling"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "LANGLIT-4",
+        "label": "IB 语言与文学 · 个人口头与创作"
+      },
+      {
+        "board": "ALevel",
+        "code": "9093-4",
+        "label": "剑桥 A-Level 英语语言 · 写作技艺",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "CRWR-101",
+        "label": "大学 · 创意写作 / 中文写作"
+      }
+    ]
+  },
+  {
+    "id": "cognitive-psychology",
+    "field": "self",
+    "zh": "认知心理学",
+    "en": "Cognitive psychology",
+    "asks": "我为什么会这样想，而且没察觉？",
+    "method": "注意与工作记忆 · 启发式与偏差 · 双系统 · 实验范式",
+    "exemplar": "为什么先看到的那个数字，会悄悄影响我后面所有的估计？",
+    "aliases": [
+      "认知心理学",
+      "认知偏差",
+      "注意力",
+      "工作记忆",
+      "启发式",
+      "决策心理",
+      "锚定效应",
+      "cognitive psychology",
+      "cognitive bias",
+      "heuristics",
+      "attention"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "PSY-1",
+        "label": "IB 心理学 · 生物、认知与社会学取向"
+      },
+      {
+        "board": "ALevel",
+        "code": "9990-1",
+        "label": "剑桥 A-Level 心理学 · 认知取向",
+        "level": "AS"
+      },
+      {
+        "board": "AP",
+        "code": "AP-PSYCH-U5",
+        "label": "AP Psychology · Unit 5 认知心理学"
+      },
+      {
+        "board": "University",
+        "code": "PSY-COG",
+        "label": "大学 · 心理学 / 认知科学"
+      }
+    ]
+  },
+  {
+    "id": "developmental-psychology",
+    "field": "self",
+    "zh": "发展心理学",
+    "en": "Developmental psychology",
+    "asks": "人是怎么一步步变成现在这个样子的？",
+    "method": "阶段理论 · 纵向追踪 · 依恋研究 · 先天与后天",
+    "exemplar": "小时候被怎么对待，会一直影响到多久以后？",
+    "aliases": [
+      "发展心理学",
+      "儿童发展",
+      "依恋",
+      "青春期",
+      "先天后天",
+      "成长阶段",
+      "developmental psychology",
+      "attachment",
+      "adolescence",
+      "nature nurture"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "PSY-3",
+        "label": "IB 心理学 · 发展心理学选修"
+      },
+      {
+        "board": "ALevel",
+        "code": "9990-3",
+        "label": "剑桥 A-Level 心理学 · 儿童心理学",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "PSY-DEV",
+        "label": "大学 · 发展与教育心理学"
+      }
+    ]
+  },
+  {
+    "id": "ethics",
+    "field": "self",
+    "zh": "伦理学",
+    "en": "Ethics",
+    "asks": "都说得通的两件事，该选哪一个？",
+    "method": "后果论与义务论 · 权衡与代价 · 道德两难 · 立场一致性检验",
+    "exemplar": "为了救五个人去撞一个人，这笔账能这么算吗？",
+    "aliases": [
+      "伦理",
+      "伦理学",
+      "道德",
+      "价值判断",
+      "两难",
+      "责任",
+      "公平正义",
+      "ethics",
+      "moral philosophy",
+      "dilemma",
+      "justice"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "TOK-ETH",
+        "label": "IB TOK · 知识与伦理"
+      },
+      {
+        "board": "ALevel",
+        "code": "9774-ETH",
+        "label": "剑桥 A-Level 哲学 · 伦理学",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "PHIL-ETH",
+        "label": "大学 · 伦理学 / 应用伦理"
+      }
+    ]
+  },
+  {
+    "id": "education-learning",
+    "field": "self",
+    "zh": "学习科学",
+    "en": "Learning sciences",
+    "asks": "为什么努力了很久，还是没记住？",
+    "method": "间隔重复 · 提取练习 · 认知负荷 · 刻意练习",
+    "exemplar": "抄十遍和自己默一遍，哪个更管用？差多少？",
+    "aliases": [
+      "学习科学",
+      "记忆方法",
+      "间隔重复",
+      "刻意练习",
+      "认知负荷",
+      "元认知",
+      "学习策略",
+      "learning sciences",
+      "spaced repetition",
+      "retrieval practice",
+      "metacognition"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "ATL",
+        "label": "IB 学习方法 ATL · 思考与自我管理技能"
+      },
+      {
+        "board": "ALevel",
+        "code": "9990-EDU",
+        "label": "剑桥 A-Level 心理学 · 教育心理学",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "EDU-LEARN",
+        "label": "大学 · 教育学 / 学习科学"
+      }
+    ]
+  },
+  {
+    "id": "wellbeing",
+    "field": "self",
+    "zh": "身心健康",
+    "en": "Wellbeing",
+    "asks": "怎么知道自己是累了，还是不想干了？",
+    "method": "睡眠与节律 · 压力反应 · 情绪标注 · 运动与恢复",
+    "exemplar": "熬夜赶完的作业，第二天为什么看着像别人写的？",
+    "aliases": [
+      "身心健康",
+      "睡眠",
+      "压力管理",
+      "情绪调节",
+      "运动健康",
+      "心理健康",
+      "作息",
+      "wellbeing",
+      "sleep",
+      "stress management",
+      "emotion regulation"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "SEHS-3",
+        "label": "IB 运动、锻炼与健康科学 · 训练与恢复"
+      },
+      {
+        "board": "ALevel",
+        "code": "9396-PE",
+        "label": "剑桥 A-Level 体育 · 运动生理与心理",
+        "level": "A2"
+      },
+      {
+        "board": "University",
+        "code": "HEALTH-WELL",
+        "label": "大学 · 运动科学 / 健康心理学"
+      }
+    ]
+  },
+  {
+    "id": "career-futures",
+    "field": "self",
+    "zh": "职业与未来",
+    "en": "Careers & futures",
+    "asks": "我现在做的事，会通到什么样的日子？",
+    "method": "技能迁移 · 行业结构分析 · 信息访谈 · 情景规划",
+    "exemplar": "十年后还存在的工作，和现在的哪门课有关系？",
+    "aliases": [
+      "职业规划",
+      "生涯",
+      "专业选择",
+      "行业分析",
+      "技能迁移",
+      "未来趋势",
+      "实习",
+      "career planning",
+      "future of work",
+      "informational interview"
+    ],
+    "syllabus": [
+      {
+        "board": "IB",
+        "code": "CAS",
+        "label": "IB CAS · 创造、行动与服务的反思"
+      },
+      {
+        "board": "ALevel",
+        "code": "9239-GP",
+        "label": "剑桥 A-Level 全球视野 · 研究与反思",
+        "level": "AS"
+      },
+      {
+        "board": "University",
+        "code": "CAREER-DEV",
+        "label": "大学 · 生涯发展 / 跨学科通识"
+      }
+    ]
+  }
+]
