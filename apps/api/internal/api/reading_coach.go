@@ -1074,6 +1074,18 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		"tool":          parsed.Tool,
 		"finished":      next == nil,
 	}
+	// The model's thinking for this turn, shown FOLDED next to the reply so she
+	// can open it if she wants to see how the thing asking her questions got to
+	// this one. Absent whenever the class this call routes to has thinking off,
+	// and the client then renders no fold at all — an empty fold reads as "it
+	// did not think" when the truth is "there was nothing to read".
+	//
+	// Never persisted: it is not written into the transcript this turn is saved
+	// into, so a refresh loses it. The model's scratch work is not her record;
+	// the process tree is.
+	if t := strings.TrimSpace(res.Reasoning); t != "" {
+		resp["thinking"] = t
+	}
 	if cardOut != nil {
 		resp["card"] = cardOut
 		resp["nudge"] = nudge

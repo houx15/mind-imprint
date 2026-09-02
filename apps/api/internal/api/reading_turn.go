@@ -84,6 +84,16 @@ type liteTurnDTO struct {
 	Card       *cardDTO `json:"card"`
 	Nudge      string   `json:"nudge"`
 	HintCardID *string  `json:"hintCardId"`
+	// Thinking is the model's reasoning for this turn, shown FOLDED under the
+	// reply. Empty whenever the class this call routes to has thinking off, or
+	// the route emits none — the client renders no fold at all rather than an
+	// empty one, because an empty fold reads as "it did not think" when the
+	// truth is "there was nothing to read".
+	//
+	// Not persisted: it is absent from the transcript this turn is saved into,
+	// so a refresh loses it. That is deliberate — the model's scratch work is
+	// not the student's record.
+	Thinking string `json:"thinking,omitempty"`
 }
 
 type liteMessageDTO struct {
@@ -514,6 +524,7 @@ func (a *API) postLiteReadingTurn(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, liteTurnDTO{
 		Reply: reply, Decision: decision.Decision, Card: card,
 		Nudge: decision.Reason, HintCardID: hintCardID,
+		Thinking: decision.Thinking,
 	})
 }
 

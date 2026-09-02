@@ -17,6 +17,10 @@ func Collect(ctx context.Context, p Provider, r Resolved, req ChatRequest) (Chat
 		switch ev.Kind {
 		case EventTextDelta:
 			res.Text += ev.TextDelta
+		case EventReasoningDelta:
+			// Kept apart from Text so no existing caller's reply body changes.
+			// Callers that want to show the fold read Reasoning explicitly.
+			res.Reasoning += ev.TextDelta
 		case EventToolUse:
 			if ev.ToolUse != nil {
 				res.ToolCalls = append(res.ToolCalls, ToolCall{ID: ev.ToolUse.ID, Name: ev.ToolUse.Name})

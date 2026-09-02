@@ -112,12 +112,20 @@ func streamOpenAICompatible(ctx context.Context, client *http.Client, r Resolved
 	return out, nil
 }
 
-// openAIChunk is one OpenAI-compatible streamed delta frame. reasoning_content
-// is intentionally omitted: the gateway never emits or persists chain-of-thought.
+// openAIChunk is one OpenAI-compatible streamed delta frame.
+//
+// reasoning_content is now read. It used to be dropped on the floor, on the
+// rule that the gateway never surfaces chain-of-thought. The product owner
+// asked for the opposite (2026-09-02): show the thinking, folded, the way other
+// tools do. Reading it here does not decide where it goes — it is emitted as a
+// distinct event kind that a caller must opt into, and no existing caller does.
 type openAIChunk struct {
 	Choices []struct {
 		Delta struct {
-			Content   string `json:"content"`
+			Content string `json:"content"`
+			// ReasoningContent is what DeepSeek/Qwen/GLM/Kimi all call the
+			// thinking stream on this wire format.
+			ReasoningContent string `json:"reasoning_content"`
 			ToolCalls []struct {
 				Index    int    `json:"index"`
 				ID       string `json:"id"`
@@ -201,6 +209,14 @@ func consumeOpenAICompatible(ctx context.Context, body io.Reader, out chan<- Str
 			}
 		}
 		for _, ch := range chunk.Choices {
+			// Reasoning is emitted on its own kind, never merged into the text
+			// stream. Merging them would put chain-of-thought into every
+			// existing caller's reply body — including the ones that persist it
+			// and the ones that show it to a student mid-sentence.
+			if ch.Delta.ReasoningContent != "" &&
+				!emit(StreamEvent{Kind: EventReasoningDelta, TextDelta: ch.Delta.ReasoningContent}) {
+				return
+			}
 			if ch.Delta.Content != "" && !emit(StreamEvent{Kind: EventTextDelta, TextDelta: ch.Delta.Content}) {
 				return
 			}

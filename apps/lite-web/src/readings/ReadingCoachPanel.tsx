@@ -5,6 +5,7 @@ import { Composer } from "@/studio/ai/Composer";
 import type { ReadingCoachSlot } from "./ReadingRoom";
 import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard";
 import { LiteChatMarkdown } from "./LiteChatMarkdown";
+import { ThinkingFold } from "./ThinkingFold";
 import { ApiError } from "../api/client";
 import { coachAnswerOf, coachCardOf, postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
@@ -78,6 +79,12 @@ export function ReadingCoachPanel({
     mine: LiteMessage;
   }>(null);
   const localSeq = useRef(-1);
+  /** 这一轮的思考过程，按 seq 存在内存里。
+   *
+   *  刻意不写进 messages：思考过程**不入库**（服务端也不写进 transcript），
+   *  所以刷新之后它就没有了。把它塞进消息记录会让人以为它是被保存的，
+   *  于是有人开始拿它当过程证据用——模型的草稿不是她的记录，过程树才是。 */
+  const [thinkingBySeq, setThinkingBySeq] = useState<Record<number, string>>({});
 
   const started = messages.length > 0;
   // Everything settled → the walk is over. Derived from the plan rather than
@@ -162,10 +169,12 @@ export function ReadingCoachPanel({
     setFailed(null);
     try {
       const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer);
+      const seq = --localSeq.current;
+      if (res.thinking) setThinkingBySeq((prev) => ({ ...prev, [seq]: res.thinking }));
       setMessages((prev) => [
         ...prev,
         {
-          seq: --localSeq.current,
+          seq,
           role: "ai",
           content: res.reply,
           createdAt: "",
@@ -289,7 +298,16 @@ export function ReadingCoachPanel({
       // 印记's turn is markdown; the student's (below) is not. Her literal `*`
       // and `#` are hers to keep. `LiteChatMarkdown` is the shared renderer
       // with accent-coloured bold — see that file for why lite has its own.
-      chatMessages.push({ id: `c${m.seq}`, kind: "ai", node: <LiteChatMarkdown text={m.content} /> });
+      chatMessages.push({
+        id: `c${m.seq}`,
+        kind: "ai",
+        node: (
+          <>
+            <LiteChatMarkdown text={m.content} />
+            <ThinkingFold text={thinkingBySeq[m.seq] ?? ""} />
+          </>
+        ),
+      });
       const card = cards.cardBySeq.get(m.seq);
       if (card) {
         chatMessages.push({

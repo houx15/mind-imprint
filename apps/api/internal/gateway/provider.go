@@ -13,6 +13,15 @@ const (
 	EventToolUse
 	EventUsage
 	EventDone
+	// EventReasoningDelta carries the model's thinking, kept on its own kind so
+	// it can never leak into a reply body by accident. A consumer that does not
+	// know about it ignores it — which is what every consumer written before
+	// 2026-09-02 does, and why adding this changed no behaviour.
+	//
+	// Thinking is NOT persisted. It is shown, folded, for the turn it belongs
+	// to and then it is gone: it is the model's scratch work, not the student's
+	// record, and the process tree is the student's record.
+	EventReasoningDelta
 )
 
 // StreamToolUse is a fully-reassembled tool call. ArgsJSON is the raw JSON

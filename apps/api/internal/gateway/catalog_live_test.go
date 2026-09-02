@@ -96,6 +96,46 @@ func TestLiveChaperoneLaneActuallyStopsReasoning(t *testing.T) {
 	}
 }
 
+// Reasoning content must actually arrive, and must arrive SEPARATELY from the
+// reply. This cannot be checked offline: whether a route emits
+// reasoning_content at all, and under what key, is a property of the upstream —
+// the same thing that made thinkingOff per-provider data. A silently-empty
+// Reasoning field would render as a fold that is always empty, which reads as
+// "the model didn't think" rather than "we failed to read it".
+func TestLiveReasoningContentIsCapturedApartFromTheReply(t *testing.T) {
+	cfg := liveConfig(t)
+	rs, err := NewResolvers(cfg)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// review: flagship, reasoning on — the class where a fold has something in it.
+	r, err := rs.For(ClassReview)(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	res, elapsed := liveCollect(t, r, ChatRequest{
+		MaxTokens: 800,
+		Messages: []ChatMessage{
+			{Role: RoleSystem, Content: "你是一位助教。"},
+			{Role: RoleUser, Content: "一个班有23人，每人带2支笔，另有5支备用笔，总共多少支？先想清楚，再只回答数字。"},
+		},
+	})
+	t.Logf("review lane %s: %v, reply=%q reasoning=%d chars", r.ModelID, elapsed.Round(time.Millisecond), res.Text, len([]rune(res.Reasoning)))
+
+	if res.Usage.ReasoningTokens == nil || *res.Usage.ReasoningTokens == 0 {
+		t.Skip("this route reported no reasoning tokens, so there is no thinking to capture")
+	}
+	if res.Reasoning == "" {
+		t.Error("usage says the model reasoned, but no reasoning_content was captured — the fold would always be empty")
+	}
+	if res.Text == "" {
+		t.Error("no visible reply came back")
+	}
+	if res.Text != "" && res.Reasoning != "" && res.Text == res.Reasoning {
+		t.Error("reasoning leaked into the reply body — they must stay separate")
+	}
+}
+
 // Tool calling must survive the route, since the whole card/tool loop depends
 // on it.
 func TestLiveToolCallingWorksThroughTheCatalogRoute(t *testing.T) {

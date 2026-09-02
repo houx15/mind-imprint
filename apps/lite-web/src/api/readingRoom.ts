@@ -407,6 +407,14 @@ export async function postReadingCoachTurn(
    *  keys for exactly this reason — one name would let them overwrite each
    *  other on any turn that produced both. */
   coachCard: CoachCardSpec | null;
+  /** The model's thinking for this turn, to be shown FOLDED next to the reply.
+   *  Empty whenever the capability class this call routes to has thinking off —
+   *  the panel then renders no fold at all, because an empty fold reads as
+   *  「它没有想」 when the truth is 「没有可读的东西」.
+   *
+   *  Never stored: it is absent from the transcript, so a refresh loses it.
+   *  The model's scratch work is not her record; the process tree is. */
+  thinking: string;
 }> {
   const raw = await apiFetch<{
     reply: string;
@@ -418,6 +426,7 @@ export async function postReadingCoachTurn(
     card?: LiteCard | null;
     nudge?: string;
     coachCard?: CoachCardSpec | null;
+    thinking?: string;
   }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
     method: "POST",
     body: JSON.stringify({ text, picks, cardAnswer }),
@@ -434,6 +443,7 @@ export async function postReadingCoachTurn(
     // Rebuilt through the same shape check the stored payload goes through,
     // so a live card and a reloaded one can never disagree about what counts.
     coachCard: coachCardOf({ seq: 0, role: "ai", content: "", createdAt: "", payload: { card: raw.coachCard } }),
+    thinking: raw.thinking ?? "",
   };
 }
 

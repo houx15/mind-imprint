@@ -34,14 +34,22 @@ type ReadingRouteInput struct {
 }
 
 type ReadingDecision struct {
-	Decision       string   // "respond" | "hint" | "summon"
+	Decision       string // "respond" | "hint" | "summon"
 	CardID         string
-	Reason         string   // student-facing nudge text
-	Reply          string   // ALWAYS-present short conversational answer, grounded in the article
-	ExampleBlockID string   // summon only
-	ExampleQuote   string   // summon only; must be verbatim from the block
+	Reason         string // student-facing nudge text
+	Reply          string // ALWAYS-present short conversational answer, grounded in the article
+	ExampleBlockID string // summon only
+	ExampleQuote   string // summon only; must be verbatim from the block
 	ExampleWhy     string
 	FollowupPlan   []string // <=2 secondary card ids, queued not shown
+	// Thinking is the model's reasoning for this turn, when the route emitted
+	// any. It exists to be shown FOLDED next to the reply — the student can
+	// open it if she wants to see how the thing that is asking her questions
+	// arrived at this one.
+	//
+	// It is never persisted and never fed back into a later turn: it is the
+	// model's scratch work, and the student's record is the process tree.
+	Thinking string
 }
 
 // routerReply is the model's raw JSON contract (snake_case on the wire).
@@ -109,6 +117,7 @@ func RouteReading(ctx context.Context, p gateway.Provider, resolver gateway.KeyR
 			Decision: reply.Decision, CardID: reply.CardID, Reason: reply.Reason, Reply: reply.Reply,
 			ExampleBlockID: reply.ExampleBlockID, ExampleQuote: reply.ExampleQuote,
 			ExampleWhy: reply.ExampleWhy, FollowupPlan: reply.FollowupPlan,
+			Thinking: res.Reasoning,
 		}
 		switch d.Decision {
 		case "respond", "hint", "summon":

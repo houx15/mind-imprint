@@ -83,7 +83,16 @@ type ChatUsage struct {
 // ChatResult mirrors TS ChatResult (the accumulated, non-streamed shape; useful
 // for tests and any non-streaming caller).
 type ChatResult struct {
-	Text       string     `json:"text"`
+	Text string `json:"text"`
+	// Reasoning is the model's thinking for this turn, when the route emitted
+	// any. It is deliberately NOT part of Text: every caller that persists a
+	// reply, checks it against enforcement rules, or shows it to a student
+	// reads Text, and none of them should suddenly be handling chain-of-thought.
+	//
+	// It is not persisted anywhere. It is shown, folded, for the turn it
+	// belongs to and then it is gone — the model's scratch work is not the
+	// student's record; the process tree is.
+	Reasoning  string     `json:"reasoning,omitempty"`
 	ToolCalls  []ToolCall `json:"toolCalls,omitempty"`
 	StopReason StopReason `json:"stopReason,omitempty"`
 	Usage      ChatUsage  `json:"usage"`
