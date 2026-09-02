@@ -32,7 +32,7 @@ export function ToolInvite({
   if (declining) {
     return (
       <div className="mt-2 rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5">
-        <p className="text-mk-small text-mk-secondary">请阐述原因</p>
+        <p className="text-mk-small text-mk-secondary">请阐述原因（可不填）</p>
         <div className="mt-2 flex items-end gap-2">
           <input
             value={note}
