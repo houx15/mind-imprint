@@ -11,7 +11,6 @@ import {
   type Project,
 } from "../api/projects";
 import { navigate, projectPath } from "../routing";
-import { NameAndCover } from "./NameAndCover";
 import { ProjectCard } from "./ProjectCard";
 import { apiErrorText } from "../api/errorText";
 
@@ -44,7 +43,6 @@ export function ProjectsLanding() {
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** Set once a project exists on the server and she has yet to name it. */
-  const [naming, setNaming] = useState<Project | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +73,10 @@ export function ProjectsLanding() {
       const created = await createProject(text);
       setProjects((prev) => [created, ...(prev ?? [])]);
       setIdea("");
-      setNaming(created);
+      // 直接进房间。产品负责人 2026-09-02：名字等问题想清楚了再改，别在她刚
+      // 写下一句话、还什么都没想明白的时候拦住她要一个名字。她写的那句话进去
+      // 就是她对印记说的第一句话。
+      navigate(projectPath(created.id));
     } catch (err) {
       // 印记 failing to read her idea is surfaced, never smoothed over into a
       // project with a guessed type.
@@ -83,14 +84,6 @@ export function ProjectsLanding() {
     } finally {
       setCreating(false);
     }
-  }
-
-  function handleNamed(updated: Project) {
-    setProjects((prev) => (prev ?? []).map((p) => (p.id === updated.id ? updated : p)));
-    setNaming(null);
-    // Straight into the room. She came here to start something, and landing
-    // back on the board would make her find the thing she just made.
-    navigate(projectPath(updated.id));
   }
 
   return (
@@ -182,7 +175,6 @@ export function ProjectsLanding() {
         )}
       </div>
 
-      {naming && <NameAndCover project={naming} onDone={handleNamed} onClose={() => setNaming(null)} />}
     </div>
   );
 }

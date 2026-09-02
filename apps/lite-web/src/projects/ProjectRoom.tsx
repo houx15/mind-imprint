@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, CornerDownRight, Send } from "lucide-react";
-import { Icon } from "@/ui";
+import { Icon, Pebble } from "@/ui";
 import { ApiError } from "../api/client";
 import { listProjects, projectTitle, type Project } from "../api/projects";
 import {
@@ -56,6 +56,8 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   const [activeSession, setActiveSession] = useState<string | null>(null);
   const [draft, setDraft] = useState("");
   const [busy, setBusy] = useState(false);
+  // 印记正在想。和 busy 分开：busy 只是"别重复点"，这个是要显示给她看的。
+  const [thinking, setThinking] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const trail = useMemo(() => sessionTrail(sessions, activeSession), [sessions, activeSession]);
@@ -79,11 +81,35 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           listTools(projectId),
         ]);
         if (cancelled) return;
-        setProject(projects.find((p) => p.id === projectId) ?? null);
+        const mine = projects.find((p) => p.id === projectId) ?? null;
+        setProject(mine);
         setSessions(ss);
         setPlan(pl);
         setTools(ts);
-        await refreshThread(null);
+        const msgs = await getThread(projectId);
+        if (cancelled) return;
+        setThread(msgs);
+
+        // 🚨 她在大输入框里写的那句话，就是她对印记说的第一句话。
+        //
+        // 以前建完项目就把她扔进一个空房间，印记一声不吭——她刚说完一件事，
+        // 对面没有任何反应。这里补上：线程是空的就把那句话当作第一轮发出去。
+        //
+        // 只在空线程时补。turn 的两条消息是在模型成功之后同一个事务里写的，
+        // 所以模型失败时线程仍然是空的，刷新一次会自动再试，不会重复。
+        if (msgs.length === 0 && mine?.idea.trim()) {
+          setThinking(true);
+          try {
+            await postTurn(projectId, mine.idea.trim());
+            if (cancelled) return;
+            setThread(await getThread(projectId));
+            setTools(await listTools(projectId));
+          } catch (err) {
+            if (!cancelled) setError(apiErrorText(err));
+          } finally {
+            if (!cancelled) setThinking(false);
+          }
+        }
       } catch (err) {
         if (!cancelled) setError(apiErrorText(err));
       }
@@ -98,6 +124,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     const text = draft.trim();
     if (!text || busy) return;
     setBusy(true);
+    setThinking(true);
     setError(null);
     try {
       const res = await postTurn(projectId, text, activeSession ?? undefined);
@@ -110,6 +137,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setError(apiErrorText(err));
     } finally {
       setBusy(false);
+      setThinking(false);
     }
   }
 
@@ -251,16 +279,31 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
 
         <div className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mx-auto flex max-w-[640px] flex-col gap-4">
-            {thread.length === 0 && (
-              <p className="text-mk-small text-mk-muted">
-                {current
-                  ? "这一层还没说话。把你想到的写下来。"
-                  : "说说你想做的这件事——现在知道什么，还不确定什么。"}
-              </p>
+            {thread.length === 0 && !thinking && (
+              <div className="flex flex-col items-center gap-3 py-10 text-center">
+                <Pebble state="idle" size={44} />
+                <p className="text-mk-body text-mk-secondary">
+                  {current ? "这一层还没开始。把你想到的写下来。" : "印记在这儿。说说你想做的这件事。"}
+                </p>
+              </div>
             )}
             {thread.map((m) => (
               <Message key={m.seq} m={m} onDig={(k, q) => void dig(k, q, String(m.seq))} busy={busy} />
             ))}
+            {/* 印记正在想。她刚说完话，对面要有反应。 */}
+            {thinking && (
+              <div className="flex items-start gap-2" aria-label="印记正在想">
+                <span className="mt-0.5 shrink-0">
+                  <Pebble state="thinking" size={24} />
+                </span>
+                <div className="inline-flex items-center gap-1 rounded-[4px_13px_13px_13px] bg-mk-surface px-4 py-3 shadow-mk-xs">
+                  <span className="mk-think-dot" />
+                  <span className="mk-think-dot [animation-delay:0.15s]" />
+                  <span className="mk-think-dot [animation-delay:0.3s]" />
+                </div>
+              </div>
+            )}
+
             {/* 递到手边的工具。放在对话末尾，因为它是印记刚说的话的一部分。 */}
             {invites.map((t) => (
               <ToolInvite
@@ -376,17 +419,26 @@ function Message({
   const mine = m.role === "student";
   const hook = m.payload?.kind === "hook" ? m.payload : null;
 
+  // 🚨 形状和 token 跟阅读室一模一样（ReadingCoachPanel 的 BUBBLE / AI_RADIUS /
+  // HER_RADIUS）。之前这里自己写了一套：印记说的话没有头像也没有框，看上去
+  // 不像有人在说话。同一个印记在三个房间里应该长成同一个样子。
+  if (mine) {
+    return (
+      <div className="flex justify-end">
+        <div className="inline-block max-w-[85%] rounded-[13px_4px_13px_13px] bg-mk-accent-50 px-4 py-3 text-mk-body text-mk-ink">
+          {m.content}
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={mine ? "flex justify-end" : ""}>
-      <div className={mine ? "max-w-[85%]" : ""}>
-        <div
-          className={
-            mine
-              ? "rounded-mk-lg px-3 py-2 text-mk-body text-white"
-              : "text-mk-prose text-mk-ink"
-          }
-          style={mine ? { background: "var(--mk-accent-500)" } : undefined}
-        >
+    <div className="flex items-start justify-start gap-2">
+      <span className="mt-0.5 shrink-0">
+        <Pebble state="idle" size={24} />
+      </span>
+      <div className="min-w-0">
+        <div className="inline-block max-w-[85%] rounded-[4px_13px_13px_13px] bg-mk-surface px-4 py-3 text-mk-body text-mk-ink shadow-mk-xs">
           {m.content}
         </div>
         {hook && (

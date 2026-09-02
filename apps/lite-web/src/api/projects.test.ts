@@ -5,7 +5,7 @@ import {
   PROJECT_STATUSES,
   PROJECT_STATUS_LABELS,
   PROJECT_KINDS,
-  PROJECT_KIND_LABELS,
+  kindLabel,
   type Project,
 } from "./projects";
 
@@ -69,7 +69,12 @@ describe("labels cover the closed sets", () => {
   });
 
   it("labels every kind", () => {
-    for (const k of PROJECT_KINDS) expect(PROJECT_KIND_LABELS[k]).toBeTruthy();
-    expect(Object.keys(PROJECT_KIND_LABELS).sort()).toEqual([...PROJECT_KINDS].sort());
+    // 类别现在就是这几个中文本身，显示时原样出来。
+    for (const k of PROJECT_KINDS) expect(kindLabel(k)).toBe(k);
+    // 分类器时代的英文值还认得，不改写历史数据。
+    expect(kindLabel("website")).toBe("网站搭建");
+    // 还没定类别时不显示任何标签。
+    expect(kindLabel("")).toBe("");
+    expect(kindLabel("   ")).toBe("");
   });
 });

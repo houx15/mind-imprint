@@ -1,4 +1,4 @@
-import { PROJECT_KIND_LABELS, projectTitle, type Project } from "../api/projects";
+import { kindLabel, projectTitle, type Project } from "../api/projects";
 import { resolveCover } from "./covers";
 
 /**
@@ -50,7 +50,7 @@ export function ProjectCard({ project, onOpen }: { project: Project; onOpen: (p:
           {title}
         </span>
         <span className="text-mk-label text-mk-muted">
-          {PROJECT_KIND_LABELS[project.kind] ?? project.kind}
+          {kindLabel(project.kind)}
         </span>
       </span>
     </button>

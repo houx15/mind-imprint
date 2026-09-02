@@ -2,7 +2,6 @@ package api
 
 import (
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -10,7 +9,6 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -77,40 +75,17 @@ func (a *API) createPblProject(w http.ResponseWriter, r *http.Request) {
 		idea = string([]rune(idea)[:maxPblIdeaRunes])
 	}
 
-	// How many she already has decides whether this one is the website project.
-	// Counted before the insert so this project is not its own predecessor.
-	existing, err := a.d.Queries.CountPblProjectsByUser(r.Context(), u.ID)
-	if err != nil {
-		httpx.WriteError(w, r, err)
-		return
-	}
-
-	// A first project is her homepage whatever she wrote, so skip the model
-	// call entirely — the answer cannot change the outcome, and spending a
-	// token to be overruled is waste.
-	detected := "website"
-	if existing > 0 {
-		resolved, ok := a.resolveEval(r.Context())
-		if !ok {
-			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-			return
-		}
-		kind, usage, derr := pbl.DetectKind(r.Context(), a.d.Provider, resolved, idea)
-		// Meter BEFORE any bail: a call that yielded nothing still cost money.
-		// The project has no atom yet, so this one is recorded against no atom
-		// (llm_call.atom_id is nullable — see recordLiteLLMCall).
-		a.recordLiteLLMCall(r.Context(), u.ID, uuid.Nil, "pbl_classify", resolved, usage)
-		if derr != nil {
-			// Surface it. A silent fallback would hang a wrong label on her
-			// project and hide a broken classifier behind a plausible answer.
-			slog.Warn("pbl: classify failed; surfacing to student",
-				"err", derr, "request_id", httpx.RequestIDFromContext(r.Context()))
-			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("classify_failed"))
-			return
-		}
-		detected = kind
-	}
-	kind := pbl.ResolveKind(existing, detected)
+	// 🚨 建项目不再判类别，也不再调模型。
+	//
+	// 产品负责人 2026-09-02：「neither should we decide the category of a project
+	// then.」——她刚写下一句话，自己都还没想清楚要做什么；机器先替她归好类，
+	// 是把一个还没有答案的问题伪造成有答案。类别默认空着（迁移 0112），等她
+	// 自己定。
+	//
+	// 顺带修掉一个真 bug：原来这里的分类调用 MaxTokens=200，推理模型光是想事情
+	// 就超了，于是她建项目时经常直接撞上一句"接口错误"。现在这条路径一次模型
+	// 调用都没有，建项目不可能因为模型而失败。
+	kind := ""
 
 	// atom + pbl_project in ONE transaction: an atom with no project row is an
 	// identity nothing can render, exactly as in createReading.

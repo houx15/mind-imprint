@@ -13,25 +13,51 @@ import { apiFetch } from "./client";
 export const PROJECT_STATUSES = ["talking", "running", "review", "keeping", "archived"] as const;
 export type ProjectStatus = (typeof PROJECT_STATUSES)[number];
 
+// 产品负责人 2026-09-02 定的说法。原来那套（在聊 / 在做 / 在养着 / 收起来了）
+// 太口语，读起来不像一个正经的项目状态。
 export const PROJECT_STATUS_LABELS: Record<ProjectStatus, string> = {
-  talking: "在聊",
-  running: "在做",
-  review: "复盘",
-  keeping: "在养着",
-  archived: "收起来了",
+  talking: "构思中",
+  running: "进行中",
+  review: "待复盘",
+  keeping: "已落地",
+  archived: "已归档",
 };
 
-/** Mirrors pbl_project's kind CHECK, and pbl.ProjectKinds in Go. */
-export const PROJECT_KINDS = ["website", "research", "design", "making", "investigation"] as const;
+/**
+ * 项目类别。
+ *
+ * 🚨 由她自己选，不由 AI 判（产品负责人 2026-09-02）。刚建出来的项目类别是
+ * 空的——那不是缺数据，是她还没想好。
+ *
+ * 存的就是这里的中文本身（迁移 0112 把 kind 放开成自由字符串），所以加一个
+ * 类别就是这张单子上多一行，不用改数据库、也不用发一次版。
+ */
+export const PROJECT_KINDS = [
+  "网站搭建",
+  "内容设计",
+  "田野调查",
+  "数据分析",
+  "产品原型",
+  "活动策划",
+  "研究写作",
+] as const;
 export type ProjectKind = (typeof PROJECT_KINDS)[number];
 
-export const PROJECT_KIND_LABELS: Record<ProjectKind, string> = {
-  website: "做个网站",
-  research: "弄明白一个问题",
-  design: "做个设计",
-  making: "动手做出来",
-  investigation: "去真实世界里看看",
+/** 分类器时代留下的英文值，照旧显示，不改写历史数据。 */
+const LEGACY_KIND_LABELS: Record<string, string> = {
+  website: "网站搭建",
+  research: "研究写作",
+  design: "内容设计",
+  making: "产品原型",
+  investigation: "田野调查",
 };
+
+/** 界面上显示的类别名。空 = 还没定。 */
+export function kindLabel(kind: string): string {
+  const k = kind.trim();
+  if (!k) return "";
+  return LEGACY_KIND_LABELS[k] ?? k;
+}
 
 export interface Project {
   id: string;
@@ -39,7 +65,8 @@ export interface Project {
    *  she names the project, and kept afterwards — it is the only record of how
    *  she first put it. */
   idea: string;
-  kind: ProjectKind;
+  /** 她选的类别；空 = 还没定。自由字符串，见 PROJECT_KINDS。 */
+  kind: string;
   name: string;
   coverGround: string;
   coverGlyph: string;

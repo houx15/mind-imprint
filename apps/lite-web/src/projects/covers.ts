@@ -1,4 +1,3 @@
-import type { ProjectKind } from "../api/projects";
 
 /**
  * Project covers — a ground and a glyph, two taps.
@@ -58,7 +57,7 @@ export function groundById(id: string): CoverGround {
  * saved. Neither fallback was wrong; having two was.
  */
 export function resolveCover(
-  kind: ProjectKind,
+  kind: string,
   ground: string,
   glyph: string,
 ): { ground: CoverGround; glyph: string } {
@@ -69,25 +68,35 @@ export function resolveCover(
   };
 }
 
-/** Each kind opens on a different ground, so a board of several projects does
- *  not arrive as eight identical squares. She overrides it in one tap; the
- *  point is that choosing is easier against something than against nothing. */
-const KIND_GROUND: Record<ProjectKind, string> = {
-  website: "lake",
-  research: "taro",
-  design: "coral",
-  making: "amber",
-  investigation: "matcha",
+/**
+ * 不同类别开在不同底色上，一板项目才不会是八个一模一样的方块。她一下就能改；
+ * 有个起点，只是让"选一个"比对着空白容易。
+ *
+ * 类别现在是自由字符串（迁移 0112），所以这里认识的就给它的底色，不认识的
+ * 按名字稳定地散开——同一个名字每次都得到同一个底色，不会刷新一次换一种。
+ */
+const KIND_COVER: Record<string, { ground: string; glyph: string }> = {
+  网站搭建: { ground: "lake", glyph: "⌂" },
+  内容设计: { ground: "coral", glyph: "❋" },
+  田野调查: { ground: "matcha", glyph: "◐" },
+  数据分析: { ground: "taro", glyph: "◉" },
+  产品原型: { ground: "amber", glyph: "▲" },
+  活动策划: { ground: "coral", glyph: "✦" },
+  研究写作: { ground: "taro", glyph: "◉" },
+  // 分类器时代的英文值，照旧认得。
+  website: { ground: "lake", glyph: "⌂" },
+  research: { ground: "taro", glyph: "◉" },
+  design: { ground: "coral", glyph: "❋" },
+  making: { ground: "amber", glyph: "▲" },
+  investigation: { ground: "matcha", glyph: "◐" },
 };
 
-const KIND_GLYPH: Record<ProjectKind, string> = {
-  website: "⌂",
-  research: "◉",
-  design: "❋",
-  making: "▲",
-  investigation: "◐",
-};
-
-export function defaultCover(kind: ProjectKind): { ground: string; glyph: string } {
-  return { ground: KIND_GROUND[kind], glyph: KIND_GLYPH[kind] };
+export function defaultCover(kind: string): { ground: string; glyph: string } {
+  const known = KIND_COVER[kind.trim()];
+  if (known) return known;
+  // 还没定类别，或者是一个我们没见过的名字：按名字取一个稳定的底色。
+  let h = 0;
+  for (const ch of kind) h = (h * 31 + ch.codePointAt(0)!) % 100000;
+  const ground = COVER_GROUNDS[h % COVER_GROUNDS.length]!;
+  return { ground: ground.id, glyph: "◇" };
 }

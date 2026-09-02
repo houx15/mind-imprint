@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { ApiError } from "../api/client";
-import { PROJECT_KIND_LABELS, updateProject, type Project } from "../api/projects";
+import { kindLabel, updateProject, type Project } from "../api/projects";
 import { COVER_GLYPHS, COVER_GROUNDS, groundById, resolveCover } from "./covers";
 import { apiErrorText } from "../api/errorText";
 
@@ -71,7 +71,7 @@ export function NameAndCover({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="text-mk-label uppercase text-mk-muted">
-          {PROJECT_KIND_LABELS[project.kind] ?? project.kind}
+          {kindLabel(project.kind)}
         </p>
         <h2 className="mt-2 text-mk-body-lg font-semibold text-mk-ink">给它起个名字</h2>
         <p className="mt-1 text-mk-small text-mk-secondary">「{project.idea}」</p>
