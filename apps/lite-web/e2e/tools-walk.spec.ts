@@ -238,10 +238,10 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
 
   // 8 · 分工：印记领了几格，在她还能改的时候说出来。
   await openTool(page, "分工建议");
-  await expect(page.getByText("3 格里，印记领了 1 格。")).toBeVisible();
+  await expect(page.getByText("共 3 项，其中 1 项由印记完成。")).toBeVisible();
   await expect(page.getByText("重复的活，我来快一些")).toBeVisible();
-  await page.getByRole("button", { name: "改成你做" }).first().click();
-  await expect(page.getByText("改成「你做」，为什么？")).toBeVisible();
+  // 名字标签：两个人一起做的那一格挂两个。
+  await expect(page.getByRole("cell").filter({ hasText: "印记" }).first()).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-8-split.png", fullPage: true });
 
   // 复盘之前，先让项目里真的发生两件事：一个定下来的决定，和一份被退回去的

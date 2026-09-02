@@ -48,11 +48,8 @@ describe("splitTodo", () => {
     expect(splitTodo([])).toBe("无分工");
   });
 
-  it("counts the cells she has not settled", () => {
-    expect(splitTodo([sub("a", "yinji"), sub("b", "yinji", "student")])).toBe("还有 1 格没定");
-  });
-
-  it("is empty once every cell is settled", () => {
-    expect(splitTodo([sub("a", "yinji", "student")])).toBe("");
+  // 方案由印记整份提出、她整份确认，所以"还有几格没定"这种中间状态不存在。
+  it("has nothing left to ask once a plan exists", () => {
+    expect(splitTodo([sub("a", "yinji"), sub("b", "yinji", "student")])).toBe("");
   });
 });

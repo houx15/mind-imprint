@@ -20,12 +20,6 @@ export interface Substep {
   ordinal: number;
 }
 
-export const OWNER_LABELS: Record<Owner, string> = {
-  student: "你做",
-  yinji: "印记做",
-  both: "一起做",
-};
-
 export function listSubsteps(projectId: string, stepId: string): Promise<Substep[]> {
   return apiFetch<Substep[]>(`${base(projectId)}/steps/${stepId}/substeps`);
 }
@@ -87,7 +81,7 @@ export function shareOfWork(substeps: Substep[]): { yinji: number; total: number
 }
 
 export function splitTodo(substeps: Substep[]): string {
-  if (substeps.length === 0) return "无分工";
-  const unconfirmed = substeps.filter((s) => !s.confirmedAt).length;
-  return unconfirmed ? `还有 ${unconfirmed} 格没定` : "";
+  // 方案由印记提、她整份确认，所以"还有 n 格没定"这种状态根本不存在
+  // （产品负责人 2026-09-02）。只剩"有没有方案"这一件事。
+  return substeps.length === 0 ? "无分工" : "";
 }
