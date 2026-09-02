@@ -234,10 +234,12 @@ func Coach(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved
 			{Role: gateway.RoleUser, Content: buildCoachContext(in)},
 		},
 		// 🚨 推理模型（deepseek-reasoner）会先花掉一大截 completion token 想事情，
-		// 之后才吐出可见内容。1200 会被想事情吃光，返回空 content → 解析失败 →
-		// 她看到一句"接口错误"。3000 是这个仓库里其它推理调用一致的留量。
-		// 见 [[llm-reasoning-model-budgets]] 和 internal/agent/reading_router.go。
-		MaxTokens: 3000,
+		// 之后才吐出可见内容。原来是 1200，被想事情吃光，返回空 content →
+		// 解析失败 → 她看到一句"接口错误"。
+		//
+		// 16384 是产品负责人 2026-09-02 定的：对话是这个产品的主干，不该在这里
+		// 省。见 [[llm-reasoning-model-budgets]]。
+		MaxTokens: 16384,
 	}
 	var lastUsage gateway.ChatUsage
 	var lastErr error

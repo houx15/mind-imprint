@@ -24,6 +24,12 @@ SET body = $2, kind = $3, cluster = $4,
 WHERE id = $1
 RETURNING *;
 
+-- name: SetPblNoteCluster :one
+-- 🚨 只改归属，不碰 edited。把印记写的便签归进一堆、或者挪个位置，都是"整理"；
+-- 只有改掉它的字才是"纠正"。两件事在过程记录里的分量完全不同，混起来会让
+-- 每一次整理都看着像一次纠正。
+UPDATE pbl_note SET cluster = $2 WHERE id = $1 RETURNING *;
+
 -- name: MovePblNote :one
 UPDATE pbl_note SET x = $2, y = $3 WHERE id = $1 RETURNING *;
 

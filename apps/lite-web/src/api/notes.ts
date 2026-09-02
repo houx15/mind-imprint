@@ -66,27 +66,31 @@ export function updateNote(
   });
 }
 
-export function archiveNote(projectId: string, noteId: string): Promise<Note> {
-  return apiFetch<Note>(`${base(projectId)}/notes/${noteId}`, { method: "DELETE" });
+/**
+ * 把选中的几张归成一堆。
+ *
+ * 一个端点，不是循环调 PATCH：归堆是一次决定（"这几张是一回事"），不是三次
+ * 各自独立的修改。传空字符串就是把它们从堆里拿出来。
+ */
+export function clusterNotes(
+  projectId: string,
+  ids: string[],
+  cluster: string,
+): Promise<Note[]> {
+  return apiFetch<Note[]>(`${base(projectId)}/notes/cluster`, {
+    method: "POST",
+    body: JSON.stringify({ ids, cluster }),
+  });
 }
 
-/**
- * 按堆分组，未归类的排在最前。
- *
- * 把哪些放一起，就是从一堆零散东西里看出线索的那一步——所以分组是这块板上
- * 唯一真正要她动脑的操作，未归类的那一列要一直显眼地在最前面。
- */
-export function groupByCluster(notes: Note[]): { cluster: string; notes: Note[] }[] {
-  const groups = new Map<string, Note[]>();
-  for (const n of notes) {
-    const key = n.cluster.trim();
-    const list = groups.get(key);
-    if (list) list.push(n);
-    else groups.set(key, [n]);
-  }
-  const named = [...groups.entries()]
-    .filter(([c]) => c !== "")
-    .sort((a, b) => a[0].localeCompare(b[0], "zh"))
-    .map(([cluster, notes]) => ({ cluster, notes }));
-  return [{ cluster: "", notes: groups.get("") ?? [] }, ...named];
+/** 挪到板上的某个位置。 */
+export function moveNote(projectId: string, noteId: string, x: number, y: number): Promise<Note> {
+  return apiFetch<Note>(`${base(projectId)}/notes/${noteId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ x, y }),
+  });
+}
+
+export function archiveNote(projectId: string, noteId: string): Promise<Note> {
+  return apiFetch<Note>(`${base(projectId)}/notes/${noteId}`, { method: "DELETE" });
 }

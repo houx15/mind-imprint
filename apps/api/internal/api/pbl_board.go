@@ -149,9 +149,11 @@ func (a *API) updatePblNote(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	var req struct {
-		Body    *string `json:"body"`
-		Kind    *string `json:"kind"`
-		Cluster *string `json:"cluster"`
+		Body    *string  `json:"body"`
+		Kind    *string  `json:"kind"`
+		Cluster *string  `json:"cluster"`
+		X       *float32 `json:"x"`
+		Y       *float32 `json:"y"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
@@ -182,7 +184,69 @@ func (a *API) updatePblNote(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+
+	// 位置单独走一条 UPDATE，不并进上面那条。
+	//
+	// 🚨 UpdatePblNote 带着 edited = (edited OR author='yinji')：她把印记写的
+	// 便签**挪了个地方**，不该被记成"她改了它"。挪动是整理，改字才是纠正，两
+	// 件事在过程记录里的分量完全不同。
+	if req.X != nil && req.Y != nil {
+		moved, merr := a.d.Queries.MovePblNote(r.Context(), sqlc.MovePblNoteParams{
+			ID: note.ID, X: *req.X, Y: *req.Y,
+		})
+		if merr != nil {
+			httpx.WriteError(w, r, merr)
+			return
+		}
+		row = moved
+	}
 	httpx.WriteJSON(w, http.StatusOK, toPblNoteDTO(row))
+}
+
+// clusterPblNotes —— 把选中的几张归成一堆。
+//
+// 这是这块板上唯一真正要动脑的动作，所以它是一个端点，不是前端循环调 PATCH：
+// 归堆是一次决定（"这几张是一回事"），不是三次独立的修改。
+func (a *API) clusterPblNotes(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		IDs     []string `json:"ids"`
+		Cluster string   `json:"cluster"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
+		return
+	}
+	if len(req.IDs) == 0 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("empty", "没选中便签", nil))
+		return
+	}
+	cluster := strings.TrimSpace(req.Cluster)
+	out := make([]pblNoteDTO, 0, len(req.IDs))
+	for _, raw := range req.IDs {
+		nid, perr := uuid.Parse(strings.TrimSpace(raw))
+		if perr != nil {
+			httpx.WriteError(w, r, httpx.ErrNotFound("这张便签不存在"))
+			return
+		}
+		note, gerr := a.d.Queries.GetPblNote(r.Context(), nid)
+		if gerr != nil || note.AtomID != atomID {
+			httpx.WriteError(w, r, httpx.ErrNotFound("这张便签不存在"))
+			return
+		}
+		row, uerr := a.d.Queries.SetPblNoteCluster(r.Context(), sqlc.SetPblNoteClusterParams{
+			ID: nid, Cluster: cluster,
+		})
+		if uerr != nil {
+			httpx.WriteError(w, r, uerr)
+			return
+		}
+		out = append(out, toPblNoteDTO(row))
+	}
+	httpx.WriteJSON(w, http.StatusOK, out)
 }
 
 // archivePblNote —— 拿下来。不是删除：她拿下过什么，也是过程的一部分。

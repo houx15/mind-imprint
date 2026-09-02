@@ -282,6 +282,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/notes", liteOnly(a.createPblNote))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.updatePblNote))
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.archivePblNote))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/notes/cluster", liteOnly(a.clusterPblNotes))
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/lookback", liteOnly(a.getPblLookback))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/lookback/{lid}", liteOnly(a.answerPblLookback))

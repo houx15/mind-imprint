@@ -220,6 +220,37 @@ func (q *Queries) MovePblNote(ctx context.Context, arg MovePblNoteParams) (PblNo
 	return i, err
 }
 
+const setPblNoteCluster = `-- name: SetPblNoteCluster :one
+UPDATE pbl_note SET cluster = $2 WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at
+`
+
+type SetPblNoteClusterParams struct {
+	ID      uuid.UUID `json:"id"`
+	Cluster string    `json:"cluster"`
+}
+
+// 🚨 只改归属，不碰 edited。把印记写的便签归进一堆、或者挪个位置，都是"整理"；
+// 只有改掉它的字才是"纠正"。两件事在过程记录里的分量完全不同，混起来会让
+// 每一次整理都看着像一次纠正。
+func (q *Queries) SetPblNoteCluster(ctx context.Context, arg SetPblNoteClusterParams) (PblNote, error) {
+	row := q.db.QueryRow(ctx, setPblNoteCluster, arg.ID, arg.Cluster)
+	var i PblNote
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Kind,
+		&i.Body,
+		&i.Author,
+		&i.Edited,
+		&i.Cluster,
+		&i.X,
+		&i.Y,
+		&i.Archived,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const updatePblNote = `-- name: UpdatePblNote :one
 UPDATE pbl_note
 SET body = $2, kind = $3, cluster = $4,

@@ -165,13 +165,23 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await page.reload();
   await expect(page.getByRole("heading", { name: "计划" })).toBeVisible();
   await openTool(page, "头脑风暴");
-  await expect(page.getByText("把看到的、听到的、猜的、想问的都摊开", { exact: false })).toBeVisible();
+  await expect(page.getByText("再把有关系的挪到一起", { exact: false })).toBeVisible();
   await page.getByPlaceholder("写一条，回车贴上去").fill("中午十二点半，第三个桶已经满了");
   await page.keyboard.press("Enter");
   await page.getByRole("button", { name: "别人说的" }).first().click();
   await page.getByPlaceholder("写一条，回车贴上去").fill("阿姨说「每天都这样」");
   await page.keyboard.press("Enter");
+  await page.getByPlaceholder("写一条，回车贴上去").fill("我猜是米饭剩得最多");
+  await page.keyboard.press("Enter");
   await expect(page.getByText("阿姨说「每天都这样」")).toBeVisible();
+  // 板上摆得动：点两张，归成一堆。
+  await page.getByText("阿姨说「每天都这样」").click();
+  await page.getByText("中午十二点半，第三个桶已经满了").click();
+  await expect(page.getByText("选了 2 张")).toBeVisible();
+  await page.getByRole("button", { name: "归成一堆" }).click();
+  await page.getByPlaceholder("这几张是一回事，因为……").fill("打饭那一会儿");
+  await page.getByRole("button", { name: "就叫这个" }).click();
+  await expect(page.getByText("已经归了 1 堆", { exact: false })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-2-board.png", fullPage: true });
 
   // 3 · 问题识别：一次只问一句。
