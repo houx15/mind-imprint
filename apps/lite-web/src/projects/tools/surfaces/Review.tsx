@@ -114,9 +114,20 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     [artifact],
   );
   const marksTodo = reviewTodo(plan);
+
+  /**
+   * 她有没有留下意见。
+   *
+   * 产品负责人 2026-09-02：留了意见，结论就只有一个——执行修改；没留意见，才谈
+   * 得上审核通过或者重新执行。所以这一行决定底下出现哪几个按钮。
+   */
+  const hasComments =
+    plan.marks.some((m) => m.answer.trim()) ||
+    plan.dimensions.some((d) => d.answer.trim());
+
   const todo = !artifact
-    ? "现在没有要审的东西"
-    : marksTodo || (verdictWhy.trim() ? "" : "结论");
+    ? "暂时没有需要审核的内容"
+    : marksTodo || (hasComments || verdictWhy.trim() ? "" : "结论");
 
   return (
     <ToolFrame
@@ -124,8 +135,8 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       task="参考审核框架，进行深度审核"
       why={tool.reason}
       todo={todo}
-      finishLabel="完成审核"
-      onFinish={() => void finish("kept")}
+      finishLabel={hasComments ? "执行修改" : "审核通过"}
+      onFinish={() => void finish(hasComments ? "revise" : "kept")}
       onClose={onClose}
     >
       {error && (
@@ -257,35 +268,39 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
             </div>
           )}
 
-          {/* 结论 */}
+          {/* 结论。三档的门槛不一样，见 pbl_artifacts.go 里那段注释。 */}
           <div className="mt-4 border-t border-mk-border pt-3">
-            <label className="text-mk-small text-mk-secondary">结论</label>
-            <textarea
-              value={verdictWhy}
-              onChange={(e) => setVerdictWhy(e.target.value)}
-              rows={2}
-              placeholder="比如：第二段把我的话改成了它自己的说法"
-              className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
-            />
-            {/* 退回和收下一样正当，所以它们摆在一起，费的力气也一样。 */}
-            <div className="mt-2 flex gap-2">
-              <button
-                type="button"
-                disabled={!verdictWhy.trim()}
-                onClick={() => void finish("revise")}
-                className="flex-1 rounded-mk-full border border-mk-border py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
-              >
-                退回去改
-              </button>
-              <button
-                type="button"
-                disabled={!verdictWhy.trim()}
-                onClick={() => void finish("dropped")}
-                className="flex-1 rounded-mk-full border border-mk-border py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
-              >
-                不要了
-              </button>
-            </div>
+            {hasComments ? (
+              <p className="text-mk-small text-mk-muted">
+                你已经留下了意见，印记会照着改。底下点「执行修改」。
+              </p>
+            ) : (
+              <>
+                <p className="text-mk-small text-mk-muted">
+                  你没有留下修改意见。可以直接通过，也可以让它重做。
+                </p>
+                <label className="mt-3 block text-mk-small text-mk-secondary">
+                  重做的方向
+                </label>
+                <textarea
+                  value={verdictWhy}
+                  onChange={(e) => setVerdictWhy(e.target.value)}
+                  rows={2}
+                  placeholder="要重做的话，请说清楚往哪个方向"
+                  className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+                />
+                {/* 🚨 重做必须给方向：不说清往哪儿改，印记只能再猜一遍，
+                    她会拿到第二份同样不对的东西。 */}
+                <button
+                  type="button"
+                  disabled={!verdictWhy.trim()}
+                  onClick={() => void finish("dropped")}
+                  className="mt-2 w-full rounded-mk-full border border-mk-border py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
+                >
+                  重新执行任务
+                </button>
+              </>
+            )}
           </div>
         </>
       )}

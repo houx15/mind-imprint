@@ -46,30 +46,55 @@ func TestPblArtifact_RequiresDisclosure(t *testing.T) {
 	}
 }
 
-// 🚨 Nothing settles without a reason. The moment 「就用这个」 works on its own,
-// this is a machine that generates and a student who approves.
-func TestPblArtifact_SettleNeedsAReason(t *testing.T) {
+// 🚨 理由只在「重新执行任务」这一档必填（产品负责人 2026-09-02）。
+//
+// 三档的门槛不一样，是有道理的：她没有意见时硬要她写一句，就是逼她编；她留了
+// 意见时，那些意见本身就是给印记的指令；只有推倒重来必须说清方向——否则印记
+// 只能再猜一遍，她会拿到第二份同样不对的东西。
+func TestPblArtifact_OnlyRedoNeedsADirection(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	pid := newProjectViaAPI(t, h, cookie)
+
+	// 每一档都要一件新的成果：一件只定得了一次。
+	settle := func(body string) int {
+		rec := pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/artifacts", handOver)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("handover = %d; body=%s", rec.Code, rec.Body)
+		}
+		aid := artifactID(t, rec.Body.String())
+		return pblPost(t, h, cookie,
+			"/api/v1/pbl/projects/"+pid+"/artifacts/"+aid+"/settle", body).Code
+	}
+
+	if got := settle(`{"verdict":"kept"}`); got != http.StatusOK {
+		t.Fatalf("审核通过 = %d, want 200 —— 没有意见时不该逼她编一句", got)
+	}
+	if got := settle(`{"verdict":"revise"}`); got != http.StatusOK {
+		t.Fatalf("执行修改 = %d, want 200 —— 她的意见已经逐条留在审核里了", got)
+	}
+	if got := settle(`{"verdict":"dropped","why":"   "}`); got != http.StatusBadRequest {
+		t.Fatalf("没给方向的重做 = %d, want 400", got)
+	}
+	if got := settle(`{"verdict":"dropped","why":"这次只写食堂那一段，别扯到全校"}`); got != http.StatusOK {
+		t.Fatalf("给了方向的重做 = %d, want 200", got)
+	}
+	if got := settle(`{"verdict":"perfect","why":"好"}`); got != http.StatusBadRequest {
+		t.Fatalf("unknown verdict = %d, want 400", got)
+	}
+}
+
+// 一件成果只定一次。
+func TestPblArtifact_SettlesOnlyOnce(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
 	pid := newProjectViaAPI(t, h, cookie)
 	rec := pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/artifacts", handOver)
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("handover = %d; body=%s", rec.Code, rec.Body)
-	}
 	aid := artifactID(t, rec.Body.String())
 	url := "/api/v1/pbl/projects/" + pid + "/artifacts/" + aid + "/settle"
 
-	if rec := pblPost(t, h, cookie, url, `{"verdict":"kept","why":"   "}`); rec.Code != http.StatusBadRequest {
-		t.Fatalf("reasonless settle = %d, want 400", rec.Code)
+	if rec := pblPost(t, h, cookie, url, `{"verdict":"kept"}`); rec.Code != http.StatusOK {
+		t.Fatalf("first settle = %d; body=%s", rec.Code, rec.Body)
 	}
-	if rec := pblPost(t, h, cookie, url, `{"verdict":"perfect","why":"好"}`); rec.Code != http.StatusBadRequest {
-		t.Fatalf("unknown verdict = %d, want 400", rec.Code)
-	}
-	// 退回 is as legitimate as 收下 — both cost her the same sentence.
-	if rec := pblPost(t, h, cookie, url,
-		`{"verdict":"revise","why":"第二段把我的话改成了它自己的说法"}`); rec.Code != http.StatusOK {
-		t.Fatalf("settle with a reason = %d; body=%s", rec.Code, rec.Body)
-	}
-	if rec := pblPost(t, h, cookie, url, `{"verdict":"kept","why":"再来一次"}`); rec.Code != http.StatusBadRequest {
+	if rec := pblPost(t, h, cookie, url, `{"verdict":"revise"}`); rec.Code != http.StatusBadRequest {
 		t.Fatalf("second settle = %d, want 400", rec.Code)
 	}
 }

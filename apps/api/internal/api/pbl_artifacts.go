@@ -194,10 +194,16 @@ func (a *API) settlePblArtifact(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_verdict", "不认识这个判断", nil))
 		return
 	}
-	// The whole design in one condition.
-	if strings.TrimSpace(req.Why) == "" {
+	// 🚨 理由只在「重新执行任务」这一档是必填的（产品负责人 2026-09-02）。
+	//
+	// 三档的差别是有道理的：
+	//   审核通过  —— 她没有意见，硬要她写一句就是逼她编。
+	//   执行修改  —— 她的意见已经逐条写在划线和审核要点里了，那些就是指令。
+	//   重新执行  —— 推倒重来，如果不说清往哪个方向重做，印记只能再猜一遍，
+	//                而她会拿到第二份同样不对的东西。
+	if verdict == "dropped" && strings.TrimSpace(req.Why) == "" {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("no_reason",
-			"写一句为什么——收下也好，退回也好，都要说得出理由", nil))
+			"重新执行需要一个明确的方向，否则只会再做出一份一样的东西", nil))
 		return
 	}
 
