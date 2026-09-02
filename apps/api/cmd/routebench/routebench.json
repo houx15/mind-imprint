@@ -1,0 +1,63 @@
+{
+  "_comment": [
+    "The experiment. Editing this file and re-running is how the routing strategy",
+    "gets revised — next quarter, or against models that do not exist yet.",
+    "",
+    "Candidates per class are chosen to answer a specific question, not to sweep:",
+    "a sweep of 20 models x 8 cases x 3 samples is 480 calls and answers nothing",
+    "you could not get from 6. Each list below is 'the incumbent, plus the ones",
+    "that could plausibly beat it on THIS class's constraint'.",
+    "",
+    "reflex/dialogue/digest want thinking OFF, so glm-5.3* and kimi-k2.7-code are",
+    "absent by construction — the catalog refuses them there, and the report says",
+    "so rather than pretending they were never considered.",
+    "",
+    "judgeModel must be flagship and must not appear as a candidate: a model",
+    "grading its own homework is not a measurement."
+  ],
+
+  "samples": 3,
+  "timeoutSeconds": 300,
+  "judgeModel": "dashscope/qwen3.8-max",
+
+  "candidates": {
+    "reflex": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/deepseek-v4-flash",
+      "dashscope/qwen3.8-flash",
+      "dashscope/qwen3.7-flash",
+      "dashscope/kimi-k2.6"
+    ],
+    "dialogue": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/deepseek-v4-flash",
+      "dashscope/qwen3.8-flash",
+      "dashscope/qwen3.7-plus",
+      "dashscope/kimi-k3"
+    ],
+    "compose": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/qwen3.7-plus",
+      "dashscope/kimi-k3",
+      "dashscope/glm-5.2"
+    ],
+    "review": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/kimi-k3",
+      "dashscope/glm-5.3"
+    ],
+    "assess": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/kimi-k3",
+      "dashscope/glm-5.3"
+    ],
+    "digest": [
+      "dashscope/deepseek-v4-flash",
+      "dashscope/qwen3.8-flash",
+      "dashscope/deepseek-v4-pro"
+    ]
+  }
+}
