@@ -35,7 +35,7 @@ type Resolvers struct {
 // environment before anyone adds a config field for it.
 func configKeyLookup(cfg config.Config) KeyLookup {
 	typed := map[string]string{
-		"PAI_API_KEY":       cfg.PAIKey,
+		"DASHSCOPE_API_KEY": cfg.DashScopeKey,
 		"DEEPSEEK_API_KEY":  cfg.DeepSeekKey,
 		"ANTHROPIC_API_KEY": cfg.AnthropicKey,
 		"ZAI_API_KEY":       cfg.ZAIKey,

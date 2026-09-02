@@ -45,7 +45,7 @@ services:
       DATABASE_URL: postgres://mindimprint:${POSTGRES_PASSWORD}@db:5432/mindimprint?sslmode=disable
       CORS_ORIGINS: ${CORS_ORIGINS}
       COOKIE_SECURE: "true"
-      PAI_API_KEY: ${PAI_API_KEY:-}
+      DASHSCOPE_API_KEY: ${DASHSCOPE_API_KEY:-}
       DEEPSEEK_API_KEY: ${DEEPSEEK_API_KEY}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       MODEL_CHAT: ${MODEL_CHAT:-}

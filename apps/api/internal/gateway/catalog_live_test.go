@@ -19,17 +19,32 @@ import (
 // perfectly valid response — just a slow, expensive one. Only a live call with
 // the reasoning-token count in hand can tell the difference.
 //
-//	LIVE_LLM=1 PAI_API_KEY=... go test ./internal/gateway -run TestLive -v
+//	LIVE_LLM=1 DASHSCOPE_API_KEY=... go test ./internal/gateway -run TestLive -v
 func liveConfig(t *testing.T) config.Config {
 	t.Helper()
 	if os.Getenv("LIVE_LLM") != "1" {
 		t.Skip("set LIVE_LLM=1 to run live provider checks")
 	}
-	key := os.Getenv("PAI_API_KEY")
+	key := os.Getenv("DASHSCOPE_API_KEY")
 	if key == "" {
-		t.Skip("PAI_API_KEY not set")
+		t.Skip("DASHSCOPE_API_KEY not set")
 	}
-	return config.Config{PAIKey: key}
+	// 🚨 The lane overrides have to come through, or this harness silently tests
+	// the catalog default no matter what you asked for. It read only the key
+	// once, so
+	//
+	//	LIVE_LLM=1 MODEL_CHAT=dashscope/kimi-k3 go test ./internal/gateway -run TestLive -v
+	//
+	// printed a reassuring PASS for deepseek-v4-pro and never called Kimi at all.
+	// Comparing models is the entire reason this file exists, and every such
+	// comparison would have been a measurement of the same model twice.
+	// (Also pass -count=1: a cached PASS looks identical to a fresh one.)
+	return config.Config{
+		DashScopeKey:  key,
+		ModelChat:     os.Getenv("MODEL_CHAT"),
+		ModelFastChat: os.Getenv("MODEL_FAST_CHAT"),
+		ModelEval:     os.Getenv("MODEL_EVAL"),
+	}
 }
 
 func liveCollect(t *testing.T, r Resolved, req ChatRequest) (ChatResult, time.Duration) {

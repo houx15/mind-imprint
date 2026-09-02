@@ -8,27 +8,30 @@
     "Secrets never live here: a provider names the ENV VAR that carries its key.",
     "",
     "Lane bindings are overridable at boot without a rebuild:",
-    "  MODEL_CHAT=pai/qwen3.8-max  MODEL_FAST_CHAT=...  MODEL_EVAL=...",
+    "  MODEL_CHAT=dashscope/qwen3.8-max  MODEL_FAST_CHAT=...  MODEL_EVAL=...",
     "Run `api --print-models` to dump the catalog and the active bindings.",
     "",
     "thinkingOff is the body fragment that forces reasoning OFF. It is per-PROVIDER",
     "because the same model answers to a different knob depending on how it is",
-    "reached — measured live 2026-09-02 against the PAI aggregator:",
+    "reached — measured live against each endpoint:",
     "  direct DeepSeek : {\"thinking\":{\"type\":\"disabled\"}}  works",
-    "  via PAI         : that fragment is SILENTLY IGNORED (reasoning keeps running);",
-    "                    the honored knob is {\"enable_thinking\":false}.",
+    "  via DashScope   : that fragment is ignored; the honored knob is",
+    "                    {\"enable_thinking\":false}. Measured 2026-09-02 on",
+    "                    qwen3.8-max: ON = 53 completion tokens of which 47",
+    "                    reasoning, with reasoning_content set; OFF = 3 completion",
+    "                    tokens, no reasoning_content, same correct answer.",
     "Getting this wrong costs nothing at boot and everything at runtime: the",
     "chaperone lane would quietly resume full reasoning (4,000-7,000 completion",
     "tokens/turn, 40-66s) — the exact regression documented on NewChatResolver."
   ],
 
   "providers": {
-    "pai": {
+    "dashscope": {
       "kind": "openai_compatible",
-      "label": "Aliyun PAI (multi-vendor aggregator: Qwen / DeepSeek / GLM / Kimi)",
-      "baseUrl": "https://cn-beijing.pai-token.aliyuncs.com/v1",
-      "apiKeyEnv": "PAI_API_KEY",
-      "defaultModel": "pai/deepseek-v4-pro",
+      "label": "Aliyun DashScope / Bailian (multi-vendor: Qwen / DeepSeek / GLM / Kimi)",
+      "baseUrl": "https://llm-wjdjxs6f0x41w996.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
+      "apiKeyEnv": "DASHSCOPE_API_KEY",
+      "defaultModel": "dashscope/deepseek-v4-pro",
       "thinkingOff": { "enable_thinking": false },
       "reasoningEffortKey": "reasoning_effort"
     },
@@ -67,129 +70,191 @@
 
   "_capabilityComment": [
     "capabilities defaults to [\"chat\", \"tools\"] when omitted. A lane binds only a",
-    "chat model — boot fails otherwise, so MODEL_CHAT=pai/qwen-image-3.0 cannot",
-    "become a runtime mystery.",
+    "chat model — boot fails otherwise, so MODEL_CHAT=dashscope/qwen-image-3.0-pro",
+    "cannot become a runtime mystery.",
     "",
-    "The image / video / embedding / rerank rows are catalog metadata, not yet",
-    "callable: they answer on other endpoints (/images/generations, /embeddings,",
-    "/rerank) and each needs its own provider kind when a feature calls for it.",
-    "They are listed because ONE PAI key reaches all of them — so the coding and",
-    "image work later is a JSON edit plus an adapter, not another vendor survey."
+    "The image / embedding / rerank rows are catalog metadata, not yet callable:",
+    "they answer on other endpoints (/images/generations, /embeddings, /rerank) and",
+    "each needs its own provider kind when a feature calls for it. They are listed",
+    "because ONE DashScope key reaches all of them — so the image and multi-modal",
+    "work later is a JSON edit plus an adapter, not another vendor survey.",
+    "",
+    "🚨 Every dashscope wire name below was checked against this workspace's own",
+    "GET /models on 2026-09-02. Names that PAI served but DashScope does not",
+    "(wan3.0-video, qwen3-vl-embedding, text-embedding-v4, qwen3-rerank) were",
+    "dropped rather than carried over: a catalog that names a model the channel",
+    "cannot serve is exactly the silent lie this file exists to prevent.",
+    "",
+    "Two names surprise: GLM 5.3 answers to \"ZHIPU/GLM-5.3\" (the bare",
+    "\"glm-5.3\" is access-denied, and \"glm-5.3-flash\" is a 404 — the flash is",
+    "\"ZHIPU/GLM-5.3-Flash\"). Both need the product ACTIVATED in the Bailian",
+    "console first; before activation every call is a 400 that reads like a bad",
+    "request rather than a billing setting."
+  ],
+
+  "_reasoningComment": [
+    "Measured 2026-09-02 with internal/gateway/probe_reasoning.py (median of 3 —",
+    "single samples swing by a third and will invent a control that is not there):",
+    "",
+    "  model              default  off   verdict",
+    "  deepseek-v4-pro       106    0    off works; effort: no effect",
+    "  deepseek-v4-flash      89    0    off works; effort: no effect",
+    "  qwen3.8-max            61    0    off works; effort rises 63->86",
+    "  qwen3.7-max           347    0    off works; effort rises 65->408",
+    "  kimi-k3                50    0    off works; effort rises 44->51",
+    "  kimi-k2.6               0    0    never reasons by default",
+    "  kimi-k2.7-code         59   61    🚨 off IGNORED — see below",
+    "  glm-5.2               253    0    off works; effort: no effect",
+    "  glm-5.1               195    0    off works; effort: no effect",
+    "  ZHIPU/GLM-5.3          49  ERR    🚨 refuses to stop — see below",
+    "",
+    "🚨 GLM 5.3 (and its Flash) answer enable_thinking:false with an outright",
+    "error: 「该模型始终思考，不支持关闭思考；请使用 low、high 或 max」. So they",
+    "carry thinkingOffUnsupported + defaultReasoningEffort:low — which makes a",
+    "chaperone turn send the effort knob instead of the rejected one. Without",
+    "that, every chaperone turn on GLM 5.3 would be a hard 400.",
+    "",
+    "🚨 kimi-k2.7-code ACCEPTS enable_thinking:false and reasons anyway (59",
+    "tokens default, 61 with the knob). That is the silent-and-expensive case, so",
+    "it is marked thinkingOffUnsupported too: better to send nothing and know it",
+    "always reasons than to send a field that buys us a comforting lie."
   ],
 
   "_priceComment": [
     "priceUsd is cache-miss USD per 1M tokens. A model with priceUsd omitted is",
     "UNPRICED: llm_call records a NULL/zero cost rather than a wrong number, and",
-    "--print-models flags it. The PAI rows below are deliberately unpriced — PAI",
-    "bills in CNY at its own rates, and guessing them would silently corrupt every",
-    "cost comparison the catalog exists to make. Fill them in from the PAI console."
+    "--print-models flags it. The DashScope rows below are deliberately unpriced —",
+    "Aliyun bills in CNY at its own rates, and guessing them would silently corrupt",
+    "every cost comparison the catalog exists to make. Fill them in from the",
+    "Bailian console before drawing any cost conclusion from llm_usage."
   ],
 
   "models": {
-    "pai/deepseek-v4-pro": {
-      "provider": "pai",
+    "dashscope/deepseek-v4-pro": {
+      "provider": "dashscope",
       "model": "deepseek-v4-pro",
-      "label": "DeepSeek V4 Pro via PAI",
+      "label": "DeepSeek V4 Pro via DashScope",
       "flagship": true
     },
-    "pai/deepseek-v4-flash": {
-      "provider": "pai",
+    "dashscope/deepseek-v4-flash": {
+      "provider": "dashscope",
       "model": "deepseek-v4-flash",
-      "label": "DeepSeek V4 Flash via PAI"
+      "label": "DeepSeek V4 Flash via DashScope"
     },
-    "pai/qwen3.8-max": {
-      "provider": "pai",
+    "dashscope/qwen3.8-max": {
+      "provider": "dashscope",
       "model": "qwen3.8-max",
-      "label": "Qwen 3.8 Max via PAI",
+      "label": "Qwen 3.8 Max via DashScope",
       "flagship": true
     },
-    "pai/qwen3.7-max": {
-      "provider": "pai",
+    "dashscope/qwen3.8-flash": {
+      "provider": "dashscope",
+      "model": "qwen3.8-flash",
+      "label": "Qwen 3.8 Flash via DashScope"
+    },
+    "dashscope/qwen3.7-max": {
+      "provider": "dashscope",
       "model": "qwen3.7-max",
-      "label": "Qwen 3.7 Max via PAI",
+      "label": "Qwen 3.7 Max via DashScope",
       "flagship": true
     },
-    "pai/qwen3.7-plus": {
-      "provider": "pai",
+    "dashscope/qwen3.7-plus": {
+      "provider": "dashscope",
       "model": "qwen3.7-plus",
-      "label": "Qwen 3.7 Plus via PAI"
+      "label": "Qwen 3.7 Plus via DashScope"
     },
-    "pai/qwen3.7-flash": {
-      "provider": "pai",
+    "dashscope/qwen3.7-flash": {
+      "provider": "dashscope",
       "model": "qwen3.7-flash",
-      "label": "Qwen 3.7 Flash via PAI"
+      "label": "Qwen 3.7 Flash via DashScope"
     },
-    "pai/glm-5.2": {
-      "provider": "pai",
-      "model": "glm-5.2",
-      "label": "GLM 5.2 via PAI",
-      "flagship": true
-    },
-    "pai/glm-5.1": {
-      "provider": "pai",
-      "model": "glm-5.1",
-      "label": "GLM 5.1 via PAI"
-    },
-    "pai/kimi-k2.6": {
-      "provider": "pai",
-      "model": "kimi-k2.6",
-      "label": "Kimi K2.6 via PAI",
-      "flagship": true
-    },
-    "pai/kimi-k2.7-code": {
-      "provider": "pai",
-      "model": "kimi-k2.7-code",
-      "label": "Kimi K2.7 Code via PAI",
+    "dashscope/glm-5.3": {
+      "provider": "dashscope",
+      "model": "ZHIPU/GLM-5.3",
+      "label": "GLM 5.3 via DashScope",
       "flagship": true,
-      "capabilities": ["chat", "tools", "coding"]
+      "thinkingOffUnsupported": true,
+      "defaultReasoningEffort": "low"
     },
-    "pai/qwen3.5-omni-plus": {
-      "provider": "pai",
+    "dashscope/glm-5.3-flash": {
+      "provider": "dashscope",
+      "model": "ZHIPU/GLM-5.3-Flash",
+      "label": "GLM 5.3 Flash via DashScope",
+      "thinkingOffUnsupported": true,
+      "defaultReasoningEffort": "low"
+    },
+    "dashscope/glm-5.2": {
+      "provider": "dashscope",
+      "model": "glm-5.2",
+      "label": "GLM 5.2 via DashScope",
+      "flagship": true
+    },
+    "dashscope/glm-5.1": {
+      "provider": "dashscope",
+      "model": "glm-5.1",
+      "label": "GLM 5.1 via DashScope"
+    },
+    "dashscope/kimi-k3": {
+      "provider": "dashscope",
+      "model": "kimi-k3",
+      "label": "Kimi K3 via DashScope",
+      "flagship": true
+    },
+    "dashscope/kimi-k2.6": {
+      "provider": "dashscope",
+      "model": "kimi-k2.6",
+      "label": "Kimi K2.6 via DashScope",
+      "flagship": true
+    },
+    "dashscope/kimi-k2.7-code": {
+      "provider": "dashscope",
+      "model": "kimi-k2.7-code",
+      "label": "Kimi K2.7 Code via DashScope",
+      "flagship": true,
+      "capabilities": ["chat", "tools", "coding"],
+      "thinkingOffUnsupported": true
+    },
+    "dashscope/qwen3.5-omni-plus": {
+      "provider": "dashscope",
       "model": "qwen3.5-omni-plus",
-      "label": "Qwen 3.5 Omni Plus via PAI (multi-modal input)",
+      "label": "Qwen 3.5 Omni Plus via DashScope (multi-modal input)",
       "capabilities": ["chat", "tools", "vision"]
     },
-    "pai/qwen3.5-omni-flash": {
-      "provider": "pai",
+    "dashscope/qwen3.5-omni-flash": {
+      "provider": "dashscope",
       "model": "qwen3.5-omni-flash",
-      "label": "Qwen 3.5 Omni Flash via PAI (multi-modal input)",
+      "label": "Qwen 3.5 Omni Flash via DashScope (multi-modal input)",
       "capabilities": ["chat", "tools", "vision"]
     },
 
-    "pai/qwen-image-3.0-pro": {
-      "provider": "pai",
+    "dashscope/qwen-image-3.0-pro": {
+      "provider": "dashscope",
       "model": "qwen-image-3.0-pro",
-      "label": "Qwen Image 3.0 Pro via PAI",
+      "label": "Qwen Image 3.0 Pro via DashScope",
       "capabilities": ["image"]
     },
-    "pai/qwen-image-3.0": {
-      "provider": "pai",
+    "dashscope/qwen-image-3.0": {
+      "provider": "dashscope",
       "model": "qwen-image-3.0",
-      "label": "Qwen Image 3.0 via PAI",
+      "label": "Qwen Image 3.0 via DashScope",
       "capabilities": ["image"]
     },
-    "pai/wan3.0-video": {
-      "provider": "pai",
-      "model": "wan3.0-video",
-      "label": "Wan 3.0 Video via PAI",
-      "capabilities": ["video"]
+    "dashscope/qwen-image-edit-max": {
+      "provider": "dashscope",
+      "model": "qwen-image-edit-max",
+      "label": "Qwen Image Edit Max via DashScope",
+      "capabilities": ["image"]
     },
-    "pai/text-embedding-v4": {
-      "provider": "pai",
-      "model": "text-embedding-v4",
-      "label": "Text Embedding v4 via PAI",
+    "dashscope/qwen3.7-text-embedding": {
+      "provider": "dashscope",
+      "model": "qwen3.7-text-embedding",
+      "label": "Qwen 3.7 Text Embedding via DashScope",
       "capabilities": ["embedding"]
     },
-    "pai/qwen3-vl-embedding": {
-      "provider": "pai",
-      "model": "qwen3-vl-embedding",
-      "label": "Qwen3 VL Embedding via PAI (multi-modal embedding)",
-      "capabilities": ["embedding", "vision"]
-    },
-    "pai/qwen3-rerank": {
-      "provider": "pai",
-      "model": "qwen3-rerank",
-      "label": "Qwen3 Rerank via PAI",
+    "dashscope/qwen3.7-text-rerank": {
+      "provider": "dashscope",
+      "model": "qwen3.7-text-rerank",
+      "label": "Qwen 3.7 Text Rerank via DashScope",
       "capabilities": ["rerank"]
     },
 
@@ -228,19 +293,22 @@
     "            评估走旗舰模型绝不降级 — a model bound here MUST be flagship:true,",
     "            enforced at boot so an override typo cannot quietly downgrade it.",
     "",
-    "All three route through PAI so one key and one bill cover every vendor; PAI",
-    "serves deepseek-v4-pro, so this preserves today's model exactly."
+    "All three route through DashScope so one key and one bill cover every vendor;",
+    "DashScope serves deepseek-v4-pro, so this preserves today's model exactly —",
+    "the switch off DeepSeek-direct is a pure ROUTING change. Try a different model",
+    "one lane at a time (MODEL_CHAT first), or speed and cost stop being",
+    "attributable to anything."
   ],
   "lanes": {
-    "chat": { "model": "pai/deepseek-v4-pro", "tier": "chaperone" },
-    "fastChat": { "model": "pai/deepseek-v4-pro", "tier": "chaperone" },
-    "eval": { "model": "pai/deepseek-v4-pro", "tier": "flagship" }
+    "chat": { "model": "dashscope/deepseek-v4-pro", "tier": "chaperone" },
+    "fastChat": { "model": "dashscope/deepseek-v4-pro", "tier": "chaperone" },
+    "eval": { "model": "dashscope/deepseek-v4-pro", "tier": "flagship" }
   },
 
   "_fallbackComment": [
     "Tried in order when a lane's bound model has no key in the environment. Keeps",
     "local dev and CI working with whichever single key is present, and lets prod",
-    "survive a PAI outage by dropping back to the direct vendor endpoints."
+    "survive a DashScope outage by dropping back to the direct vendor endpoints."
   ],
-  "fallbackProviders": ["pai", "deepseek", "anthropic"]
+  "fallbackProviders": ["dashscope", "deepseek", "anthropic"]
 }

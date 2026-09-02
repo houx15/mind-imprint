@@ -46,7 +46,7 @@ func buildVoice(cfg config.Config) api.VoiceService {
 func modelEnvOnlyConfig() config.Config {
 	_ = godotenv.Load(".env.local")
 	return config.Config{
-		PAIKey:        os.Getenv("PAI_API_KEY"),
+		DashScopeKey:  os.Getenv("DASHSCOPE_API_KEY"),
 		DeepSeekKey:   os.Getenv("DEEPSEEK_API_KEY"),
 		AnthropicKey:  os.Getenv("ANTHROPIC_API_KEY"),
 		ZAIKey:        os.Getenv("ZAI_API_KEY"),

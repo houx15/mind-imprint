@@ -25,13 +25,14 @@ type Config struct {
 	// ZAIKey is the Zhipu AI / GLM provider key (server-side only). It is
 	// intentionally not used by the default resolvers.
 	ZAIKey string `env:"ZAI_API_KEY"`
-	// PAIKey is the Aliyun PAI key (server-side only). PAI is an aggregator: one
-	// key reaches Qwen, DeepSeek, GLM and Kimi — which is what makes swapping a
-	// model for an ability/speed/cost comparison a one-line change.
-	PAIKey string `env:"PAI_API_KEY"`
+	// DashScopeKey is the Aliyun DashScope / Bailian key (server-side only).
+	// DashScope is an aggregator: one key reaches Qwen, DeepSeek, GLM and Kimi —
+	// which is what makes swapping a model for an ability/speed/cost comparison a
+	// one-line change.
+	DashScopeKey string `env:"DASHSCOPE_API_KEY"`
 
 	// ModelChat / ModelFastChat / ModelEval override a lane's catalog binding by
-	// naming a model id from gateway/models.json (e.g. "pai/qwen3.8-max"). Empty
+	// naming a model id from gateway/models.json (e.g. "dashscope/qwen3.8-max"). Empty
 	// keeps the catalog default. Each lane is independent, so one model can be
 	// swapped and measured while the others hold still. An unknown id — or a
 	// non-flagship model on ModelEval — fails at boot, not mid-session.

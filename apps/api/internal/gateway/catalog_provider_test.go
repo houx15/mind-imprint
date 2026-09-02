@@ -4,40 +4,40 @@ import (
 	"testing"
 )
 
-func paiResolved(t *testing.T, lane string) Resolved {
+func dashscopeResolved(t *testing.T, lane string) Resolved {
 	t.Helper()
 	cat, _ := DefaultCatalog()
-	r, err := cat.Resolve(lane, "", onlyKey("PAI_API_KEY", "sk-pai"))
+	r, err := cat.Resolve(lane, "", onlyKey("DASHSCOPE_API_KEY", "sk-dashscope"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	return r
 }
 
-// The regression this refactor exists to prevent: through PAI, the body that
+// The regression this refactor exists to prevent: through DashScope, the body that
 // works directly against DeepSeek (`thinking:{type:disabled}`) is silently
 // ignored and reasoning keeps running — 4,000-7,000 completion tokens and
-// 40-66s per chaperone turn. The chaperone body must carry PAI's own knob.
-func TestChaperoneTurnDisablesThinkingWithTheKnobPAIHonors(t *testing.T) {
+// 40-66s per chaperone turn. The chaperone body must carry DashScope's own knob.
+func TestChaperoneTurnDisablesThinkingWithTheKnobDashScopeHonors(t *testing.T) {
 	p := NewCatalogProvider(nil)
-	body, err := p.buildBody(paiResolved(t, LaneChat), ChatRequest{
+	body, err := p.buildBody(dashscopeResolved(t, LaneChat), ChatRequest{
 		Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}},
 	})
 	if err != nil {
 		t.Fatal(err)
 	}
 	if body["enable_thinking"] != false {
-		t.Errorf("chaperone via PAI must send enable_thinking:false, got %#v", body["enable_thinking"])
+		t.Errorf("chaperone via DashScope must send enable_thinking:false, got %#v", body["enable_thinking"])
 	}
 	if _, ok := body["thinking"]; ok {
-		t.Error("must not send the direct-DeepSeek knob through PAI — it is ignored there")
+		t.Error("must not send the direct-DeepSeek knob through DashScope — it is ignored there")
 	}
 }
 
 // The flagship reviewer/eval seam keeps reasoning on.
 func TestFlagshipTurnKeepsThinking(t *testing.T) {
 	p := NewCatalogProvider(nil)
-	body, err := p.buildBody(paiResolved(t, LaneEval), ChatRequest{
+	body, err := p.buildBody(dashscopeResolved(t, LaneEval), ChatRequest{
 		Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}},
 	})
 	if err != nil {
@@ -53,7 +53,7 @@ func TestReasoningEffortIsSentOnFlagshipOnly(t *testing.T) {
 	p := NewCatalogProvider(nil)
 	req := ChatRequest{Messages: []ChatMessage{{Role: RoleUser, Content: "hi"}}, ReasoningEffort: "low"}
 
-	flagship, err := p.buildBody(paiResolved(t, LaneEval), req)
+	flagship, err := p.buildBody(dashscopeResolved(t, LaneEval), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -61,7 +61,7 @@ func TestReasoningEffortIsSentOnFlagshipOnly(t *testing.T) {
 		t.Errorf("flagship reasoning_effort = %#v, want low", flagship["reasoning_effort"])
 	}
 
-	chap, err := p.buildBody(paiResolved(t, LaneChat), req)
+	chap, err := p.buildBody(dashscopeResolved(t, LaneChat), req)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -158,11 +158,11 @@ func TestMuxDispatchesOnKind(t *testing.T) {
 	ant := NewStubProvider([]StreamEvent{{Kind: EventTextDelta, TextDelta: "ant"}, {Kind: EventDone}})
 	m := NewMuxProvider(map[string]Provider{KindOpenAICompatible: oai, KindAnthropic: ant})
 
-	res, err := Collect(t.Context(), m, Resolved{Provider: "pai", Kind: KindOpenAICompatible}, ChatRequest{})
+	res, err := Collect(t.Context(), m, Resolved{Provider: "dashscope", Kind: KindOpenAICompatible}, ChatRequest{})
 	if err != nil || res.Text != "oai" {
 		t.Fatalf("kind dispatch: got %q err=%v", res.Text, err)
 	}
-	if _, err := m.Stream(t.Context(), Resolved{Provider: "pai", Kind: "unknown"}, ChatRequest{}); err == nil {
+	if _, err := m.Stream(t.Context(), Resolved{Provider: "dashscope", Kind: "unknown"}, ChatRequest{}); err == nil {
 		t.Fatal("want an error for an unregistered kind")
 	}
 }

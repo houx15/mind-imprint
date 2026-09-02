@@ -49,23 +49,23 @@ func onlyKey(name, value string) KeyLookup {
 	}
 }
 
-// The default binding must reach PAI, and it must keep serving deepseek-v4-pro
+// The default binding must reach DashScope, and it must keep serving deepseek-v4-pro
 // so switching the platform onto the aggregator does not change the model.
-func TestLanesDefaultToPAIDeepSeek(t *testing.T) {
+func TestLanesDefaultToDashScopeDeepSeek(t *testing.T) {
 	cat, _ := DefaultCatalog()
-	keys := onlyKey("PAI_API_KEY", "sk-pai")
+	keys := onlyKey("DASHSCOPE_API_KEY", "sk-dashscope")
 	for _, lane := range []string{LaneChat, LaneFastChat, LaneEval} {
 		r, err := cat.Resolve(lane, "", keys)
 		if err != nil {
 			t.Fatalf("lane %s: %v", lane, err)
 		}
-		if r.Provider != "pai" || r.Model != "deepseek-v4-pro" {
-			t.Errorf("lane %s = %s/%s, want pai/deepseek-v4-pro", lane, r.Provider, r.Model)
+		if r.Provider != "dashscope" || r.Model != "deepseek-v4-pro" {
+			t.Errorf("lane %s = %s/%s, want dashscope/deepseek-v4-pro", lane, r.Provider, r.Model)
 		}
 		if r.Kind != KindOpenAICompatible {
 			t.Errorf("lane %s kind = %q", lane, r.Kind)
 		}
-		if r.APIKey != "sk-pai" {
+		if r.APIKey != "sk-dashscope" {
 			t.Errorf("lane %s: key not wired", lane)
 		}
 	}
@@ -74,7 +74,7 @@ func TestLanesDefaultToPAIDeepSeek(t *testing.T) {
 // Tiers are what gate reasoning, so they must survive the move to the catalog.
 func TestLaneTiersArePreserved(t *testing.T) {
 	cat, _ := DefaultCatalog()
-	keys := onlyKey("PAI_API_KEY", "sk-pai")
+	keys := onlyKey("DASHSCOPE_API_KEY", "sk-dashscope")
 	want := map[string]string{LaneChat: "chaperone", LaneFastChat: "chaperone", LaneEval: "flagship"}
 	for lane, tier := range want {
 		r, err := cat.Resolve(lane, "", keys)
@@ -87,8 +87,8 @@ func TestLaneTiersArePreserved(t *testing.T) {
 	}
 }
 
-// With no PAI key, the same wire model must still be reachable directly — this
-// is what keeps local dev, CI, and a PAI outage working.
+// With no DashScope key, the same wire model must still be reachable directly — this
+// is what keeps local dev, CI, and a DashScope outage working.
 func TestFallbackPrefersSameModelOnAnotherProvider(t *testing.T) {
 	cat, _ := DefaultCatalog()
 	r, err := cat.Resolve(LaneChat, "", onlyKey("DEEPSEEK_API_KEY", "sk-ds"))
@@ -98,7 +98,7 @@ func TestFallbackPrefersSameModelOnAnotherProvider(t *testing.T) {
 	if r.Provider != "deepseek" || r.Model != "deepseek-v4-pro" {
 		t.Fatalf("fallback = %s/%s, want deepseek/deepseek-v4-pro", r.Provider, r.Model)
 	}
-	// The direct route uses a DIFFERENT thinking knob than PAI. Getting this
+	// The direct route uses a DIFFERENT thinking knob than DashScope. Getting this
 	// wrong silently re-enables reasoning on the chaperone lane.
 	if _, ok := r.Policy.ThinkingOff["thinking"]; !ok {
 		t.Errorf("direct deepseek must disable thinking via `thinking`, got %#v", r.Policy.ThinkingOff)
@@ -125,7 +125,7 @@ func TestResolveErrorsWhenNoKeyConfigured(t *testing.T) {
 
 // The swap this whole change exists for: one lane moves, the others hold still.
 func TestOverrideMovesOnlyTheNamedLane(t *testing.T) {
-	cfg := config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen3.8-max"}
+	cfg := config.Config{DashScopeKey: "sk-dashscope", ModelChat: "dashscope/qwen3.8-max"}
 	rs, err := NewResolvers(cfg)
 	if err != nil {
 		t.Fatal(err)
@@ -148,7 +148,7 @@ func TestOverrideMovesOnlyTheNamedLane(t *testing.T) {
 
 // A typo must stop the boot, not serve the wrong model for a week.
 func TestUnknownOverrideFailsAtBoot(t *testing.T) {
-	_, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen-3.8-max"})
+	_, err := NewResolvers(config.Config{DashScopeKey: "sk-dashscope", ModelChat: "dashscope/qwen-3.8-max"})
 	if err == nil {
 		t.Fatal("want boot error for a model id that is not in the catalog")
 	}
@@ -159,12 +159,12 @@ func TestUnknownOverrideFailsAtBoot(t *testing.T) {
 
 // 评估走旗舰模型绝不降级.
 func TestEvalLaneRejectsNonFlagshipOverride(t *testing.T) {
-	_, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelEval: "pai/qwen3.7-flash"})
+	_, err := NewResolvers(config.Config{DashScopeKey: "sk-dashscope", ModelEval: "dashscope/qwen3.7-flash"})
 	if err == nil {
 		t.Fatal("eval lane must refuse a non-flagship model")
 	}
 	// The same model is fine on the chaperone lane.
-	if _, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen3.7-flash"}); err != nil {
+	if _, err := NewResolvers(config.Config{DashScopeKey: "sk-dashscope", ModelChat: "dashscope/qwen3.7-flash"}); err != nil {
 		t.Fatalf("chat lane may take a non-flagship model: %v", err)
 	}
 }
@@ -172,7 +172,7 @@ func TestEvalLaneRejectsNonFlagshipOverride(t *testing.T) {
 // Binding an image or embedding model to a chat lane fails at boot with the
 // reason, rather than at the first student turn with a wire error.
 func TestLaneRejectsNonChatModel(t *testing.T) {
-	_, err := NewResolvers(config.Config{PAIKey: "sk-pai", ModelChat: "pai/qwen-image-3.0"})
+	_, err := NewResolvers(config.Config{DashScopeKey: "sk-dashscope", ModelChat: "dashscope/qwen-image-3.0"})
 	if err == nil {
 		t.Fatal("a chat lane must refuse an image model")
 	}
@@ -200,11 +200,11 @@ func TestNewResolversBootsWithNoKeys(t *testing.T) {
 // without a catalog edit first.
 func TestResolveDirectAcceptsUndeclaredModel(t *testing.T) {
 	cat, _ := DefaultCatalog()
-	r, err := cat.ResolveDirect("pai", "qwen9-not-yet-catalogued", FlagshipTierName, onlyKey("PAI_API_KEY", "sk-pai"))
+	r, err := cat.ResolveDirect("dashscope", "qwen9-not-yet-catalogued", FlagshipTierName, onlyKey("DASHSCOPE_API_KEY", "sk-dashscope"))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if r.BaseURL != cat.Providers["pai"].BaseURL {
+	if r.BaseURL != cat.Providers["dashscope"].BaseURL {
 		t.Error("undeclared model must inherit its provider's route")
 	}
 	if _, ok := r.Policy.ThinkingOff["enable_thinking"]; !ok {
@@ -220,7 +220,7 @@ func TestResolveDirectRejectsUnknownProviderAndMissingKey(t *testing.T) {
 	if _, err := cat.ResolveDirect("nope", "m", "flagship", OSEnvKeyLookup); err == nil {
 		t.Error("want error for unknown provider")
 	}
-	if _, err := cat.ResolveDirect("pai", "qwen3.8-max", "flagship", func(string) string { return "" }); err == nil {
+	if _, err := cat.ResolveDirect("dashscope", "qwen3.8-max", "flagship", func(string) string { return "" }); err == nil {
 		t.Error("want error when the provider's key is absent")
 	}
 }

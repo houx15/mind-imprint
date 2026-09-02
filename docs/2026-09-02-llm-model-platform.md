@@ -28,7 +28,7 @@
 
 ```bash
 # 只动陪练这条 lane，评估不动
-MODEL_CHAT=pai/qwen3.8-max ./api
+MODEL_CHAT=dashscope/qwen3.8-max ./api
 
 # 看目录 + 当前绑定（不需要数据库）
 ./api --print-models
@@ -41,42 +41,83 @@ MODEL_CHAT=pai/qwen3.8-max ./api
 - `MODEL_EVAL` 指向非 `flagship` 模型 → 拒绝启动（评估走旗舰模型绝不降级）
 - lane 绑定了图像 / embedding 模型 → 拒绝启动并说明原因
 
-## 默认走阿里云 PAI
+## 默认走阿里云 DashScope（百炼）
 
-PAI 是聚合端点：**一把 key 直达 33 个模型**——Qwen（含 omni 多模态）、DeepSeek、GLM、Kimi（含 code）、图像、视频、embedding、rerank。这正是横向比模型需要的形状：一个账号、一份账单、同一套 OpenAI 兼容协议。
+DashScope 是聚合端点：**一把 key 直达 250 个模型**——Qwen（含 omni 多模态）、DeepSeek、GLM、Kimi（含 code）、图像、视频、embedding、rerank。这正是横向比模型需要的形状：一个账号、一份账单、同一套 OpenAI 兼容协议。
 
-PAI 上就有 `deepseek-v4-pro`，所以默认绑定它——**切换到聚合端点不改变实际服务的模型**。
+DashScope 上就有 `deepseek-v4-pro`，所以默认绑定它——**切换到聚合端点不改变实际服务的模型**。
 
-迁移是渐进的，不是一刀切：`PAI_API_KEY` 为空时，lane 会回退到直连厂商端点（优先找同一个模型的另一条路，找不到再用该 provider 的默认模型）。所以**加上这把 key 才是真正把流量切到 PAI 的那一步**，出问题去掉即可回退。
+迁移是渐进的，不是一刀切：`DASHSCOPE_API_KEY` 为空时，lane 会回退到直连厂商端点（优先找同一个模型的另一条路，找不到再用该 provider 的默认模型）。所以**加上这把 key 才是真正把流量切到 DashScope 的那一步**，出问题去掉即可回退。
 
 ## 一个不加测试就一定会踩的坑
 
 同一个模型换一条路，关思考的字段不一样。2026-09-02 实测：
 
-| 请求字段 | 直连 DeepSeek | 经 PAI |
+| 请求字段 | 直连 DeepSeek | 经 DashScope |
 |---|---|---|
 | `thinking: {"type":"disabled"}` | 生效 | **静默忽略**（照样推理） |
-| `reasoning_effort: "low"` | 生效 | deepseek / glm 忽略，qwen 生效 |
-| `enable_thinking: false` | — | **生效**（三家都生效） |
+| `enable_thinking: false` | — | **生效**（deepseek / qwen / kimi / glm-5.1、5.2 都生效） |
 
-危险的地方在于**它不报错**：请求 200，响应完全正常，只是慢了一个数量级、贵了一个数量级。如果只是把 base URL 指向 PAI 而不动 body，陪练那条 lane 会悄悄恢复满额推理——正是 `keyresolver.go` 里记录过的那次回归（每轮 4,000–7,000 completion tokens、40–66s，最坏的一次 JSON 信封被截断）。
+`enable_thinking:false` 在 qwen3.8-max 上的实测：开着 = 53 completion tokens（其中 47 推理），
+关掉 = 3 tokens、没有 `reasoning_content`、答案一样对。
+
+危险的地方在于**它不报错**：请求 200，响应完全正常，只是慢了一个数量级、贵了一个数量级。如果只是把 base URL 指向 DashScope 而不动 body，陪练那条 lane 会悄悄恢复满额推理——正是 `keyresolver.go` 里记录过的那次回归（每轮 4,000–7,000 completion tokens、40–66s，最坏的一次 JSON 信封被截断）。
 
 所以 `thinkingOff` 是写在 provider 上的**数据**，不是写在 adapter 里的代码。换通道后必须实测验证：
 
 ```bash
-LIVE_LLM=1 PAI_API_KEY=... go test ./internal/gateway -run TestLive -v
+LIVE_LLM=1 DASHSCOPE_API_KEY=... go test ./internal/gateway -run TestLive -v
 ```
 
 这两个 live 测试断言的是单元测试看不见的东西：陪练 lane 回来的 **reasoning token 必须是 0**，以及流式 tool call 的参数分片必须能重新拼成 JSON。已验证通过：陪练 lane 2.0s、零推理 token；tool call 正常。
 
-## 待办：PAI 的价格
+## 每个模型能不能关推理 / 能不能调档
 
-PAI 按人民币计价，费率我没有可靠来源，**所以目录里 PAI 那些模型的 `priceUsd` 是空的**——宁可记成本为空，也不能编一个数字，否则这个目录存在的意义（比成本）当场就废了。`--print-models` 会把它们标成 `UNPRICED`。
+「关思考」这件事**不只按通道分，还按模型分**。用
+`internal/gateway/probe_reasoning.py` 实测（每档取 3 次的中位数——单次采样会上下
+浮动三分之一，足以凭空造出一个并不存在的「档位控制」）：
 
-从 PAI 控制台拿到费率后，填进 `models.json` 对应模型的 `priceUsd` 即可，`llm_call` 的成本记录会自动跟上。
+| 模型 | 默认推理 tokens | `enable_thinking:false` | 档位 low→high |
+|---|---|---|---|
+| `deepseek-v4-pro` | 106 | 归零 | 无差别 |
+| `deepseek-v4-flash` | 89 | 归零 | 无差别 |
+| `qwen3.8-max` | 61 | 归零 | 63→86 有效 |
+| `qwen3.7-max` | 347 | 归零 | 65→408 有效 |
+| `kimi-k3` | 50 | 归零 | 44→51 有效 |
+| `kimi-k2.6` | 0 | 本来就不推理 | — |
+| `kimi-k2.7-code` | 59 | 🚨 **静默忽略**（61） | 无差别 |
+| `glm-5.2` | 253 | 归零 | 无差别 |
+| `glm-5.1` | 195 | 归零 | 无差别 |
+| `ZHIPU/GLM-5.3` | 49 | 🚨 **直接报错** | 只能靠档位 |
+
+两个坑，都已经写进 `models.json`：
+
+**GLM 5.3（含 Flash）拒绝关思考**，返回
+「该模型始终思考，不支持关闭思考；请使用 low、high 或 max」。所以它带
+`thinkingOffUnsupported` + `defaultReasoningEffort: low`——陪练那条 lane 于是改发
+档位字段，而不是发一个会被 400 掉的字段。不这么标，GLM 5.3 上的每一轮陪练都是硬报错。
+
+**`kimi-k2.7-code` 接受 `enable_thinking:false` 然后照样推理**。这是「慢且贵且不报错」
+那一类，所以同样标成 `thinkingOffUnsupported`：宁可什么都不发、明确知道它一直在推理，
+也不要发一个只买来一句安慰的字段。它因此**不能绑到陪练 lane**——live 测试会当场红。
+
+名字上还有两个意外：GLM 5.3 认的是 `ZHIPU/GLM-5.3`（裸 `glm-5.3` 是 access denied，
+`glm-5.3-flash` 是 404，Flash 的真名是 `ZHIPU/GLM-5.3-Flash`）；而且**要先在百炼控制台
+开通**，开通前每一次调用都是一个读起来像参数错误的 400。
+
+## 待办：DashScope 的价格
+
+DashScope 按人民币计价，费率我没有可靠来源，**所以目录里 DashScope 那些模型的 `priceUsd` 是空的**——宁可记成本为空，也不能编一个数字，否则这个目录存在的意义（比成本）当场就废了。`--print-models` 会把它们标成 `UNPRICED`。
+
+从百炼控制台拿到费率后，填进 `models.json` 对应模型的 `priceUsd` 即可，`llm_call` 的成本记录会自动跟上。
 
 ## 后面的多模态 / 编码
 
-目录里已经登记了 `pai/kimi-k2.7-code`（编码）、`pai/qwen3.5-omni-plus|flash`（多模态输入）、`pai/qwen-image-3.0*`、`pai/wan3.0-video`、embedding 与 rerank，并用 `capabilities` 标注。
+目录里已经登记了 `dashscope/kimi-k2.7-code`（编码）、`dashscope/qwen3.5-omni-plus|flash`（多模态输入）、`dashscope/qwen-image-3.0*`、`dashscope/qwen-image-edit-max`、embedding 与 rerank，并用 `capabilities` 标注。
+
+登记之前每个名字都对着这个 workspace 自己的 `GET /models` 核过一遍。PAI 有、DashScope
+没有的那几个（`wan3.0-video`、`qwen3-vl-embedding`、`text-embedding-v4`、`qwen3-rerank`）
+**没有顺手搬过来**——目录里写着一个通道根本供不出来的模型，正是这份文件存在的意义要防的那种谎。
+（embedding / rerank 在 DashScope 的真名是 `qwen3.7-text-embedding` 和 `qwen3.7-text-rerank`。）
 
 其中 chat 类的（coding / omni）**现在就能绑定**到 lane 上。图像 / 视频 / embedding / rerank 走的是别的端点（`/images/generations`、`/embeddings`、`/rerank`），需要各自的 provider `kind` —— 到时候是加一个 adapter，而不是重新调研一遍厂商。lane 只接受 chat 模型，绑错了启动就失败。
