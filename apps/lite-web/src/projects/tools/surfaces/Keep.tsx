@@ -65,10 +65,7 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
       setEntries((prev) =>
         prev.map((e) => (e.id === entry.id ? { ...e, sessionId } : e)),
       );
-      onFinish(
-        { entryId: entry.id, sessionId },
-        `我想说说这一条：${entry.body}`,
-      );
+      onFinish({ entryId: entry.id, sessionId }, "");
     } catch (err) {
       setError(apiErrorText(err));
     }
@@ -81,7 +78,7 @@ export function Keep({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
       why={tool.reason}
       todo={entries.length === 0 ? "先记一条真实发生的事" : ""}
       finishLabel="先到这里"
-      onFinish={() => onFinish({ entries: entries.length }, `我记了 ${entries.length} 条上线之后的事。`)}
+      onFinish={() => onFinish({ entries: entries.length }, "")}
       onClose={onClose}
     >
       {error && (

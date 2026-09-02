@@ -95,12 +95,8 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       "还差点东西。",
     );
     if (d) {
-      onFinish(
-        { decisionId: d.id },
-        `关于「${d.subject}」我定了：${d.choice}。因为${d.why}。` +
-          (d.gaveUp ? `放弃了${d.gaveUp}。` : "") +
-          `如果${d.flip}，我会改主意。`,
-      );
+      // 她写的"为什么选它"是她的话；其余几栏印记自己去读。
+      onFinish({ decisionId: d.id }, d.why);
     }
   }
 

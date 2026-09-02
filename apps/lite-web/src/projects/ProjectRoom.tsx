@@ -233,22 +233,26 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
    * 结果落库，然后把她那句话当成她的发言送回对话——因为那本来就是她的话。
    * 印记接着往下说，工具就不是一个做完就沉底的表单，而是对话的一部分。
    */
-  async function finishToolInstance(t: ToolInstance, result: unknown, summary: string) {
+  async function finishToolInstance(t: ToolInstance, result: unknown, note: string) {
     setBusy(true);
     setError(null);
     try {
-      const got = await resolveTool(projectId, t.id, { status: "done", result });
+      // note 只放她自己写下的那句话，一个字不改。剩下的（贴了几张便签、分了
+      // 几块）印记自己去看，不用我们替她讲一遍。
+      const got = await resolveTool(projectId, t.id, { status: "done", result, note: note.trim() });
       setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
       setOpenTool(null);
-      if (summary.trim()) {
-        await postTurn(projectId, summary.trim(), activeSession ?? undefined);
-        await refreshThread(activeSession);
-      }
+      await refreshThread(activeSession);
+      // 空文本的一轮：她没说话，是刚做完一件事，印记该接一句。
+      setThinking(true);
+      await postTurn(projectId, "", activeSession ?? undefined);
+      await refreshThread(activeSession);
       setPlan(await getPlan(projectId));
     } catch (err) {
       setError(apiErrorText(err));
     } finally {
       setBusy(false);
+      setThinking(false);
     }
   }
 

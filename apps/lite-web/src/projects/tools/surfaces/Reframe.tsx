@@ -106,8 +106,8 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
     if (!row) return;
     try {
       const got = await confirmReframe(projectId, row.id);
-      const line = `${reframeSentence(got)} 我们可以怎样${got.hmw.replace(/^我们可以怎样/, "")}`;
-      onFinish({ reframeId: got.id }, line);
+      // 她自己写的那句「我们可以怎样……」，原样带走，不拼接、不做正则修补。
+      onFinish({ reframeId: got.id }, got.hmw);
     } catch (err) {
       setError(apiErrorText(err));
     }

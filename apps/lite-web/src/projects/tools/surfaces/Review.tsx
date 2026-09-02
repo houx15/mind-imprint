@@ -102,11 +102,8 @@ export function Review({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     if (!artifact) return;
     try {
       await settleArtifact(projectId, artifact.id, verdict, verdictWhy.trim());
-      const word = verdict === "kept" ? "收下了" : verdict === "revise" ? "退回去改" : "不要了";
-      onFinish(
-        { artifactId: artifact.id, verdict },
-        `我审完了《${artifact.title || "这一份"}》，${word}。因为${verdictWhy.trim()}`,
-      );
+      // 她写的结论就是她的话，原样带走。
+      onFinish({ artifactId: artifact.id, verdict }, verdictWhy.trim());
     } catch (err) {
       setError(apiErrorText(err));
     }

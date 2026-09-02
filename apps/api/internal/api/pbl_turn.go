@@ -62,11 +62,10 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_json", "请求格式不对", nil))
 		return
 	}
+	// 空文本 = 她没说话，是刚发生了一件事（用完一件工具）要印记接一句。
+	// 允许，但只在对话里已经有东西的时候——对着一个空房间凭空说一句，是印记
+	// 在自言自语。
 	studentText := strings.TrimSpace(req.Text)
-	if studentText == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "说点什么再发", nil))
-		return
-	}
 
 	// Which thread is this? NULL = the project's main thread.
 	var scope pgtype.UUID
@@ -95,7 +94,12 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
+	if studentText != "" {
+		in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
+	} else if len(in.Recent) == 0 {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "说点什么再发", nil))
+		return
+	}
 
 	resolved, rok := a.resolveEval(r.Context())
 	if !rok {
@@ -144,14 +148,20 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if _, err := qtx.AppendPblSessionMessage(r.Context(), sqlc.AppendPblSessionMessageParams{
-		AtomID: atomID, Seq: next, Role: "student", Content: studentText, SessionID: scope,
-	}); err != nil {
-		httpx.WriteError(w, r, err)
-		return
+	// studentText 为空 = 她没说话，是刚发生了一件事（用完一件工具、收起一层）
+	// 要印记接一句。这时候只写印记那条，不要凭空造一条"她说的话"。
+	aiSeq := next
+	if studentText != "" {
+		if _, err := qtx.AppendPblSessionMessage(r.Context(), sqlc.AppendPblSessionMessageParams{
+			AtomID: atomID, Seq: next, Role: "student", Content: studentText, SessionID: scope,
+		}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		aiSeq = next + 1
 	}
 	if _, err := qtx.AppendPblSessionMessage(r.Context(), sqlc.AppendPblSessionMessageParams{
-		AtomID: atomID, Seq: next + 1, Role: "ai", Content: out.Reply,
+		AtomID: atomID, Seq: aiSeq, Role: "ai", Content: out.Reply,
 		Payload: payload, SessionID: scope,
 	}); err != nil {
 		httpx.WriteError(w, r, err)

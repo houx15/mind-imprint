@@ -133,14 +133,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
       todo={todo}
       finishLabel="结构就这样"
       onFinish={() =>
-        onFinish(
-          { nodes: state.nodes.length },
-          `我把它分成了 ${ordered.filter((n) => n.depth === 0).length} 块：` +
-            ordered
-              .filter((n) => n.depth === 0)
-              .map((n) => n.title)
-              .join("、"),
-        )
+        onFinish({ nodes: state.nodes.length }, "")
       }
       onClose={onClose}
     >

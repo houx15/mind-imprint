@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"strings"
 	"time"
@@ -359,6 +360,52 @@ func (a *API) acceptPblTool(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, toPblToolDTO(out))
 }
 
+// appendPblToolRecord 在对话里留一条"她用完了这件工具"的痕迹。
+//
+// role=system：界面上它是一条灰色的记录，不是一个气泡——因为没有人说过这句话，
+// 是这件事发生了。她自己写的那句（如果有）原样跟在后面，一个字不改。
+//
+// 失败不影响这次请求：工具结果已经落库，少一条痕迹远好过整件事回滚。
+func (a *API) appendPblToolRecord(r *http.Request, atomID uuid.UUID, sess pgtype.UUID, tool, note string) {
+	label := tool
+	if def, ok := pbl.LookupTool(tool); ok {
+		label = def.Label
+	}
+	line := "用完了「" + label + "」"
+	if note != "" {
+		line += "：" + note
+	}
+	warn := func(err error) {
+		slog.Warn("pbl: could not record the finished tool",
+			"err", err, "atom_id", atomID, "tool", tool)
+	}
+	tx, err := a.d.Pool.Begin(r.Context())
+	if err != nil {
+		warn(err)
+		return
+	}
+	defer func() { _ = tx.Rollback(r.Context()) }()
+	qtx := a.d.Queries.WithTx(tx)
+	if _, err := qtx.LockAtom(r.Context(), atomID); err != nil {
+		warn(err)
+		return
+	}
+	next, err := qtx.NextAtomMessageSeq(r.Context(), atomID)
+	if err != nil {
+		warn(err)
+		return
+	}
+	if _, err := qtx.AppendPblSessionMessage(r.Context(), sqlc.AppendPblSessionMessageParams{
+		AtomID: atomID, Seq: next, Role: "system", Content: line, SessionID: sess,
+	}); err != nil {
+		warn(err)
+		return
+	}
+	if err := tx.Commit(r.Context()); err != nil {
+		warn(err)
+	}
+}
+
 // resolvePblTool records what came of a summoned tool.
 //
 // `declined` is a first-class status: 铁律② says the tool triggers
@@ -395,13 +442,25 @@ func (a *API) resolvePblTool(w http.ResponseWriter, r *http.Request) {
 	}
 	// 🚨 拒绝不要理由。理由字段是留给她想说的时候用的，不是门槛——
 	// 如果拒绝比接受更费事，那就不是一个真的选择（铁律②）。
+	note := strings.TrimSpace(req.Note)
 	out, err := a.d.Queries.ResolvePblTool(r.Context(), sqlc.ResolvePblToolParams{
-		ID: tid, Status: status, Result: req.Result,
-		StudentNote: strings.TrimSpace(req.Note),
+		ID: tid, Status: status, Result: req.Result, StudentNote: note,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("already_resolved", "这件已经有结果了", nil))
 		return
+	}
+
+	// 用完一件工具，对话里留一条记录。
+	//
+	// 原来是前端把结果拼成一句「我想了 4 个办法，先试这个：X。因为Y」，当成她
+	// 说的话发回对话。换成一条记录，理由很实在：那种拼出来的句子读着像表单输出，
+	// 不像一个初中生说的话。她自己写的那句原样带上，没写就只留"用完了"。
+	//
+	// （这不是铁律问题。铁律管的是不替她写正文——产品负责人 2026-09-02 纠正过
+	// 我一次，别再把那条往外扩。）
+	if status == "done" {
+		a.appendPblToolRecord(r, atomID, row.SessionID, out.Tool, note)
 	}
 	httpx.WriteJSON(w, http.StatusOK, toPblToolDTO(out))
 }

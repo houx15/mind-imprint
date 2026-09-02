@@ -16,8 +16,34 @@ WHERE p.atom_id = $1;
 -- 看板一次读全部：一个学生的项目是十几个的量级，不分页。按最近活跃降序，
 -- 前端再按 status 分列——于是「看板」和「时间线」是同一份数据的两种画法，
 -- 换视图不用换请求。
-SELECT p.*, a.created_at AS atom_created_at, a.last_activity_at
-FROM pbl_project p JOIN atom a ON a.id = p.atom_id
+-- 卡片上要显示"现在走到哪一步"，所以顺带把当前计划里第一件还没做完的事捞出来。
+-- 用 LATERAL 而不是在 Go 里循环查：一个学生十几个项目，那就是十几次往返。
+SELECT p.*, a.created_at AS atom_created_at, a.last_activity_at,
+       -- 🚨 COALESCE 不能省：这几个都是 LEFT JOIN 出来的，项目还没有计划时是
+       -- NULL，而 sqlc 只看 pbl_plan_step.title 的 NOT NULL，会生成成 string，
+       -- 于是"还没有计划"这个最常见的情况一扫描就炸。
+       COALESCE(step.title, '')::text AS current_step,
+       COALESCE(done.n, 0)::int AS steps_done,
+       COALESCE(total.n, 0)::int AS steps_total
+FROM pbl_project p
+JOIN atom a ON a.id = p.atom_id
+LEFT JOIN LATERAL (
+  SELECT v.id FROM pbl_plan_version v
+  WHERE v.atom_id = p.atom_id AND v.approved_at IS NOT NULL
+  ORDER BY v.version DESC LIMIT 1
+) live ON true
+LEFT JOIN LATERAL (
+  SELECT s.title FROM pbl_plan_step s
+  WHERE s.version_id = live.id AND s.status NOT IN ('done', 'cancelled')
+  ORDER BY s.ordinal LIMIT 1
+) step ON true
+LEFT JOIN LATERAL (
+  SELECT count(*) AS n FROM pbl_plan_step s
+  WHERE s.version_id = live.id AND s.status = 'done'
+) done ON true
+LEFT JOIN LATERAL (
+  SELECT count(*) AS n FROM pbl_plan_step s WHERE s.version_id = live.id
+) total ON true
 WHERE a.user_id = $1 AND a.kind = 'project'
 ORDER BY a.last_activity_at DESC;
 

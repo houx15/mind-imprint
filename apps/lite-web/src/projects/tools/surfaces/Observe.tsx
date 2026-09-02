@@ -41,9 +41,8 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         projectId,
         filled.map((i) => ({ kind: i.kind, body: i.body.trim() })),
       );
-      const summary = `我出去看了一趟，带回来 ${filled.length} 条：` +
-        filled.map((i) => i.body.trim()).join("；");
-      onFinish({ brought: filled.length }, summary);
+      // 便签已经贴在板上了，印记看得见。不用我们再替她复述一遍。
+      onFinish({ brought: filled.length }, "");
     } catch (err) {
       setError(apiErrorText(err));
     }

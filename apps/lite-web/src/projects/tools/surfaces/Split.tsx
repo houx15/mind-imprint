@@ -81,10 +81,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       todo={splitTodo(subs)}
       finishLabel="就这么分"
       onFinish={() =>
-        onFinish(
-          { stepId, mine: share.total - share.yinji, total: share.total },
-          `这一步分了 ${share.total} 格，我自己做 ${share.total - share.yinji} 格。`,
-        )
+        onFinish({ stepId, mine: share.total - share.yinji, total: share.total }, "")
       }
       onClose={onClose}
     >

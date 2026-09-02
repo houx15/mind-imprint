@@ -86,10 +86,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   function finish() {
     const one = ideas.find((i) => i.id === picked);
     if (!one) return;
-    onFinish(
-      { count: ideas.length, picked: one.id },
-      `我想了 ${ideas.length} 个办法，先试这个：${one.body}。因为${why.trim()}`,
-    );
+    // 她写的是"为什么先试它"，回传的就是这一句。
+    onFinish({ count: ideas.length, picked: one.id, idea: one.body }, why.trim());
   }
 
   return (

@@ -56,10 +56,7 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
       todo={lookbackTodo(prompts)}
       finishLabel="复盘完了"
       onFinish={() =>
-        onFinish(
-          { answered },
-          `我把这个项目回头看了一遍，答了 ${answered} 问。`,
-        )
+        onFinish({ answered }, "")
       }
       onClose={onClose}
     >
