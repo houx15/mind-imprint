@@ -286,6 +286,13 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   await expect(composer).toHaveValue("");
   const bubblesBefore = await page.locator('[data-role="student"]').count();
   const turnsBefore = turns.length;
+  // 🚨 基线要在她点之前取，理由和 findChooseSpanCard 里那条一模一样：回话是
+  // 边流边渲的，第一行一出现计数就 +1。点完之后再数，数到的往往已经把这一轮
+  // 算进去了，于是下面那句就在等一轮**永远不会来**的回话——印记这时正等着她，
+  // 而不是在打字。2026-09-02 就是这样红的：她点完，印记回了话并递出一张
+  // pick_in_article 的卡（发送键随之变灰，因为这一步要她回文章里点一句），而
+  // walk 还在等第三轮，180 秒后超时，报出来像是"模型没回"。
+  const repliesBefore = await assistantTurns(page).count();
   const chosen = optionTexts[0]!;
   await options.first().click();
 
@@ -311,8 +318,7 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   // tapped is stored as her turn, `> `-prefixed line by line, and that stored
   // transcript is what the next prompt is built from (readingCoachTurnsWindow).
   // Any reply is then necessarily downstream of it.
-  const replies = await assistantTurns(page).count();
-  await expect(assistantTurns(page)).toHaveCount(replies + 1, { timeout: 180_000 });
+  await expect(assistantTurns(page)).toHaveCount(repliesBefore + 1, { timeout: 180_000 });
   await expect(page.locator('[aria-label="印记正在打字"]')).toHaveCount(0, {
     timeout: 180_000,
   });
