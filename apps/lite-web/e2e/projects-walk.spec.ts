@@ -26,36 +26,26 @@ test("项目: empty state → create → name and cover → room → board", asy
   await page.screenshot({ path: "e2e/.shots/projects-2-typed.png", fullPage: true });
   await page.getByRole("button", { name: "开始" }).click();
 
-  // 3 · The modal opens on the project the server just made.
-  await expect(page.getByRole("heading", { name: "给它起个名字" })).toBeVisible();
-  // Her own sentence is quoted back; the name field is EMPTY on purpose.
-  await expect(page.getByPlaceholder("你想叫它什么")).toHaveValue("");
-  await page.screenshot({ path: "e2e/.shots/projects-3-modal.png", fullPage: true });
-
-  // 4 · Name it, pick a different ground, confirm.
-  await page.getByPlaceholder("你想叫它什么").fill("剩饭去哪了");
-  await page.getByRole("button", { name: "matcha" }).click();
-  await page.screenshot({ path: "e2e/.shots/projects-4-modal-filled.png", fullPage: true });
-  await page.getByRole("button", { name: "就这样" }).click();
-
-  // 5 · Naming drops her straight INTO the room — she came here to start
-  // something, not to find it again on a board.
+  // 3 · 不再弹命名窗（产品负责人 2026-09-02）：她写完那句话就直接进房间，
+  //     而那句话就是她对印记说的第一句。名字先由服务端给一个短的，她随时改。
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
-  await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
-  // 🚨 Wait for the project's own NAME, not just the composer. The composer and
-  // 「还没有计划」 both render in the room's INITIAL state, before any data has
-  // arrived — asserting on them screenshotted a half-loaded room whose header
-  // still said the fallback 「项目」. The name only appears once the load
-  // resolved, so it is the honest signal that the room is actually up.
-  await expect(page.getByRole("heading", { name: "计划" })).toBeVisible();
-  await expect(page.locator("header").getByText("剩饭去哪了")).toBeVisible();
-  await page.screenshot({ path: "e2e/.shots/projects-5-room.png", fullPage: true });
+  // 🚨 等她那句话真的出现在对话里——房间的输入框在数据到达之前就画出来了，
+  // 等它等于什么都没等。这一轮要真的调模型，所以给足时间。
+  await expect(
+    page.getByText("我想弄明白这些饭最后去哪了", { exact: false }).first(),
+  ).toBeVisible({ timeout: 90_000 });
+  await page.screenshot({ path: "e2e/.shots/projects-3-room.png", fullPage: true });
 
-  // 6 · Back to the board, with her project on it.
+  // 4 · 回到项目列表，卡片上有她刚开的这个。
   await page.getByRole("button", { name: "回到项目" }).click();
-  await expect(page.getByText("剩饭去哪了")).toBeVisible();
-  await expect(page.getByRole("heading", { name: "在聊" })).toBeVisible();
-  await page.screenshot({ path: "e2e/.shots/projects-6-board.png", fullPage: true });
+  await expect(page.getByText("我们学校每天剩好多饭").first()).toBeVisible();
+  await page.screenshot({ path: "e2e/.shots/projects-4-cards.png", fullPage: true });
+
+  // 5 · 按状态看——看板现在是一个视图，不是默认那一个。
+  await page.getByRole("button", { name: "按状态" }).click();
+  await expect(page.getByRole("heading", { name: "构思中" })).toBeVisible();
+  await page.screenshot({ path: "e2e/.shots/projects-5-board.png", fullPage: true });
+  await page.getByRole("button", { name: "全部" }).click();
 
   // 7 · Phone width — the columns scroll, the page does not.
   await page.setViewportSize({ width: 390, height: 844 });
@@ -71,7 +61,7 @@ test("项目: empty state → create → name and cover → room → board", asy
   await page.setViewportSize({ width: 1280, height: 720 });
   await page.evaluate(() => localStorage.setItem("mk-theme", "dark"));
   await page.reload();
-  await expect(page.getByText("剩饭去哪了")).toBeVisible();
+  await expect(page.getByText("我们学校每天剩好多饭").first()).toBeVisible();
 
   // 🚨 Asserted, not just screenshotted: this exact pair was silently WRONG
   // once — with the theme flipped at runtime the tokens read dark at :root
@@ -79,7 +69,7 @@ test("项目: empty state → create → name and cover → room → board", asy
   // unreadable, and no test would have noticed. It is correct only when the
   // theme is applied before first paint, which is what bootTheme does.
   const dark = await page.evaluate(() => {
-    const card = document.querySelector("section button") as HTMLElement | null;
+    const card = document.querySelector('[class*="grid"] button') as HTMLElement | null;
     return card
       ? { bg: getComputedStyle(card).backgroundColor, fg: getComputedStyle(card).color }
       : null;
@@ -88,7 +78,7 @@ test("项目: empty state → create → name and cover → room → board", asy
   expect(dark?.fg, "its text must take the dark ink token").toBe("rgb(240, 233, 227)");
   await page.screenshot({ path: "e2e/.shots/projects-8-dark-board.png", fullPage: true });
 
-  await page.getByText("剩饭去哪了").click();
+  await page.getByText("我们学校每天剩好多饭").first().click();
   await expect(page.getByPlaceholder("跟印记说")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/projects-9-dark-room.png", fullPage: true });
 });

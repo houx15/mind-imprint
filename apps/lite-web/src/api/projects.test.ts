@@ -20,6 +20,9 @@ function p(id: string, over: Partial<Project> = {}): Project {
     status: "talking",
     createdAt: "2026-09-01T00:00:00Z",
     lastActivityAt: "2026-09-01T00:00:00Z",
+    currentStep: "",
+    stepsDone: 0,
+    stepsTotal: 0,
     ...over,
   };
 }

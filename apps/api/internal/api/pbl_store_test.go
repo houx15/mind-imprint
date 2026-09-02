@@ -51,22 +51,27 @@ func TestPblProject_RoundTrip(t *testing.T) {
 	}
 }
 
-func TestPblProject_RejectsUnknownKindAndStatus(t *testing.T) {
+// 状态仍然是一张封闭的表；类别不再是（迁移 0112）。
+func TestPblProject_StatusIsClosedButKindIsHers(t *testing.T) {
 	_, _, q, _ := liteHandler(t)
 
 	at, err := q.CreateAtom(t.Context(), sqlc.CreateAtomParams{Kind: "project", UserID: SeedUserID})
 	if err != nil {
 		t.Fatalf("CreateAtom: %v", err)
 	}
+	// 类别是她自己写的字，数据库不再评判——加一个类别不该需要一次迁移。
 	if _, err := q.CreatePblProject(t.Context(), sqlc.CreatePblProjectParams{
-		AtomID: at.ID, Idea: "x", Kind: "podcast",
-	}); err == nil {
-		t.Fatal("expected the kind CHECK to reject \"podcast\"")
+		AtomID: at.ID, Idea: "x", Kind: "播客", Name: "n",
+	}); err != nil {
+		t.Fatalf("类别应该是自由字符串：%v", err)
 	}
 
-	// A real project, then an unknown status against it.
+	at2, err := q.CreateAtom(t.Context(), sqlc.CreateAtomParams{Kind: "project", UserID: SeedUserID})
+	if err != nil {
+		t.Fatalf("CreateAtom: %v", err)
+	}
 	ok, err := q.CreatePblProject(t.Context(), sqlc.CreatePblProjectParams{
-		AtomID: at.ID, Idea: "x", Kind: "design",
+		AtomID: at2.ID, Idea: "x", Kind: "内容设计", Name: "n",
 	})
 	if err != nil {
 		t.Fatalf("CreatePblProject: %v", err)

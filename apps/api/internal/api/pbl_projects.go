@@ -36,6 +36,10 @@ type pblProjectDTO struct {
 	Status         string `json:"status"`
 	CreatedAt      string `json:"createdAt"`
 	LastActivityAt string `json:"lastActivityAt"`
+	// 卡片上要显示"现在走到哪一步"。没有计划时 currentStep 是空串。
+	CurrentStep string `json:"currentStep"`
+	StepsDone   int32  `json:"stepsDone"`
+	StepsTotal  int32  `json:"stepsTotal"`
 }
 
 // pblProjectStatuses mirrors pbl_project's status CHECK (0108). Validated here
@@ -140,6 +144,9 @@ func (a *API) listPblProjects(w http.ResponseWriter, r *http.Request) {
 			CoverGround: p.CoverGround, CoverGlyph: p.CoverGlyph, Status: p.Status,
 			CreatedAt:      p.AtomCreatedAt.Format(time.RFC3339),
 			LastActivityAt: p.LastActivityAt.Format(time.RFC3339),
+			CurrentStep:    p.CurrentStep,
+			StepsDone:      p.StepsDone,
+			StepsTotal:     p.StepsTotal,
 		})
 	}
 	httpx.WriteJSON(w, http.StatusOK, out)

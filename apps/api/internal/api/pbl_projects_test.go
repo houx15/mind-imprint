@@ -51,62 +51,52 @@ func TestCreatePblProject_RejectsEmptyIdea(t *testing.T) {
 	}
 }
 
-// spec §4 — 第一个项目就是她自己的主页，不管她在框里写了什么。
+// 🚨 建项目不调模型，也不判类别。
 //
-// Provider is nil here on purpose: if the handler consulted the model for a
-// first project, this test would fail with a nil-provider panic or a 502. Its
-// passing is the proof that we do not spend a token to be overruled.
-func TestCreatePblProject_FirstIsWebsiteWithoutAModelCall(t *testing.T) {
+// 产品负责人 2026-09-02：「neither should we decide the category of a project
+// then.」她刚写下一句话，自己都还没想清楚要做什么。
+//
+// Provider 传 nil 是这条测试的全部力量：只要 handler 还去问模型，这里就会
+// panic 或者 502。它通过，就证明这条路径一次模型调用都没有——顺带也保证她
+// 建项目时不可能再撞上"接口错误"。
+func TestCreatePblProject_NoModelCallAndNoCategory(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
 	rec := postPblProject(t, h, cookie, "我想弄明白我们学校的剩饭到底去哪了")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body)
 	}
 	got := decodePblProject(t, rec)
-	if got["kind"] != "website" {
-		t.Fatalf("kind = %v, want \"website\" for a first project", got["kind"])
+	if got["kind"] != "" {
+		t.Fatalf("kind = %v, want \"\" —— 类别由她自己选", got["kind"])
 	}
 	if got["status"] != "talking" {
 		t.Fatalf("status = %v, want \"talking\"", got["status"])
 	}
-	if got["name"] != "" {
-		t.Fatalf("name = %v, want empty — she names it in the modal", got["name"])
+	// 名字先给一个短的，页头才放得下；她随时能改。
+	name, _ := got["name"].(string)
+	if name == "" {
+		t.Fatal("新项目应该先有一个名字")
 	}
+	if len([]rune(name)) > 15 {
+		t.Fatalf("name = %q，太长，页头会被挤没", name)
+	}
+	// 🚨 她原来那句话一个字不改地留着——那是过程记录里唯一的"起点"。
 	if got["idea"] != "我想弄明白我们学校的剩饭到底去哪了" {
 		t.Fatalf("idea = %v, want it echoed back verbatim", got["idea"])
 	}
 }
 
-// 第二个项目起，才轮到分类器说话。
-func TestCreatePblProject_SecondUsesClassifier(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, classifyStub(`{"kind":"investigation"}`))
-
-	if rec := postPblProject(t, h, cookie, "先做个主页"); rec.Code != http.StatusCreated {
-		t.Fatalf("first create = %d; body=%s", rec.Code, rec.Body)
-	}
-	rec := postPblProject(t, h, cookie, "我想去问问食堂阿姨每天剩多少")
-	if rec.Code != http.StatusCreated {
-		t.Fatalf("second create = %d, want 201; body=%s", rec.Code, rec.Body)
-	}
-	if got := decodePblProject(t, rec); got["kind"] != "investigation" {
-		t.Fatalf("kind = %v, want \"investigation\" from the classifier", got["kind"])
-	}
-}
-
-// 判不出来就报错。绝不静默兜底成一个看起来合理的类型——那会给她的项目挂上
-// 一个错的、看不见的标签，并且把坏掉的分类器藏起来。
-func TestCreatePblProject_ClassifyFailureSurfaces(t *testing.T) {
-	h, cookie, _, _ := liteHandlerWithProvider(t, classifyStub(`{"kind":"podcast"}`))
-
-	if rec := postPblProject(t, h, cookie, "先做个主页"); rec.Code != http.StatusCreated {
-		t.Fatalf("first create = %d; body=%s", rec.Code, rec.Body)
-	}
-	rec := postPblProject(t, h, cookie, "我想做个播客")
-	if rec.Code != http.StatusBadGateway {
-		t.Fatalf("status = %d, want 502; body=%s", rec.Code, rec.Body)
-	}
-	if strings.Contains(rec.Body.String(), "research") {
-		t.Fatalf("a fallback kind leaked into the error body: %s", rec.Body)
+// 第二个、第三个项目也一样，不问模型。
+func TestCreatePblProject_StillNoModelOnLaterProjects(t *testing.T) {
+	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	for i, idea := range []string{"先做个主页", "我想去问问食堂阿姨每天剩多少"} {
+		rec := postPblProject(t, h, cookie, idea)
+		if rec.Code != http.StatusCreated {
+			t.Fatalf("create #%d = %d; body=%s", i+1, rec.Code, rec.Body)
+		}
+		if got := decodePblProject(t, rec); got["kind"] != "" {
+			t.Fatalf("create #%d kind = %v, want empty", i+1, got["kind"])
+		}
 	}
 }
 

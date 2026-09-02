@@ -73,6 +73,10 @@ export interface Project {
   status: ProjectStatus;
   createdAt: string;
   lastActivityAt: string;
+  /** 现在走到的那一步。没有计划时是空串。 */
+  currentStep: string;
+  stepsDone: number;
+  stepsTotal: number;
 }
 
 export function listProjects(): Promise<Project[]> {

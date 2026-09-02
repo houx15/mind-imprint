@@ -40,6 +40,8 @@ export function ProjectsLanding() {
   const [projects, setProjects] = useState<Project[] | null>(null);
   const [idea, setIdea] = useState("");
   const [creating, setCreating] = useState(false);
+  // 默认看卡片：她多数时候是来找某一个项目接着做。
+  const [view, setView] = useState<"cards" | "board">("cards");
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   /** Set once a project exists on the server and she has yet to name it. */
@@ -148,29 +150,64 @@ export function ProjectsLanding() {
         )}
 
         {projects !== null && projects.length > 0 && (
-          // Columns scroll on the x axis together; the PAGE never does.
-          <div className="mt-16 -mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
-            <div className="flex min-w-[880px] gap-4">
-              {PROJECT_STATUSES.map((status) => (
-                <section key={status} className="flex w-full min-w-[168px] flex-col gap-3">
-                  <header className="flex items-baseline justify-between border-b border-mk-border pb-2">
-                    <h2 className="text-mk-label uppercase text-mk-secondary">
-                      {PROJECT_STATUS_LABELS[status]}
-                    </h2>
-                    <span className="text-mk-small text-mk-faint">{columns[status].length}</span>
-                  </header>
-                  <div className="flex flex-col gap-2">
-                    {columns[status].map((p) => (
-                      // Tapping a card goes INTO the project. The naming modal
-                      // opens once, right after creation — reopening it on
-                      // every visit would make renaming the main thing a card
-                      // does, which it is not.
-                      <ProjectCard key={p.id} project={p} onOpen={(x) => navigate(projectPath(x.id))} />
-                    ))}
-                  </div>
-                </section>
+          <div className="mt-16">
+            {/* 视图切换。看板不再是唯一的画法——产品负责人 2026-09-02：
+                「make kanban a new view please」。默认是卡片：她多数时候是来
+                找某一个项目接着做，不是来看它们分布在哪几档。 */}
+            <div className="mb-4 flex items-center gap-1">
+              {(["cards", "board"] as const).map((v) => (
+                <button
+                  key={v}
+                  type="button"
+                  onClick={() => setView(v)}
+                  className="rounded-mk-full px-3 py-1 text-mk-small"
+                  style={
+                    view === v
+                      ? { background: "var(--mk-accent-500)", color: "#fff" }
+                      : { color: "var(--mk-secondary)" }
+                  }
+                >
+                  {v === "cards" ? "全部" : "按状态"}
+                </button>
               ))}
+              <span className="ml-auto text-mk-small text-mk-faint">
+                {projects.length} 个项目
+              </span>
             </div>
+
+            {view === "cards" ? (
+              // 最近动过的排最前——服务端已经按 last_activity_at 倒序给了。
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                {projects.map((p) => (
+                  <ProjectCard key={p.id} project={p} onOpen={(x) => navigate(projectPath(x.id))} />
+                ))}
+              </div>
+            ) : (
+              // 列一起横向滚动；页面本身永远不横滚。
+              <div className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
+                <div className="flex min-w-[1180px] gap-4">
+                  {PROJECT_STATUSES.map((status) => (
+                    <section key={status} className="flex w-full min-w-[228px] flex-col gap-3">
+                      <header className="flex items-baseline justify-between border-b border-mk-border pb-2">
+                        <h2 className="text-mk-label text-mk-secondary">
+                          {PROJECT_STATUS_LABELS[status]}
+                        </h2>
+                        <span className="text-mk-small text-mk-faint">{columns[status].length}</span>
+                      </header>
+                      <div className="flex flex-col gap-3">
+                        {columns[status].map((p) => (
+                          <ProjectCard
+                            key={p.id}
+                            project={p}
+                            onOpen={(x) => navigate(projectPath(x.id))}
+                          />
+                        ))}
+                      </div>
+                    </section>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
