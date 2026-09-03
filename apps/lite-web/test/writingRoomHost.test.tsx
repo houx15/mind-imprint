@@ -398,7 +398,7 @@ describe("段落 stage — the 铁律 pressure point", () => {
     await screen.findByRole("heading", { name: "段落" });
 
     const draftBox = screen.getByPlaceholderText("写这一段……") as HTMLTextAreaElement;
-    fireEvent.click(screen.getByRole("button", { name: "卡住了？" }));
+    fireEvent.click(screen.getByRole("button", { name: "获取引导" }));
 
     expect(await screen.findByText("支持禁手机的老师最常说的一句话是什么？")).toBeTruthy();
     // Guidance must not become content.
