@@ -209,7 +209,7 @@ func parseLookback(raw string) ([]LookbackQuestion, error) {
 			continue
 		}
 		bySection[sec] = append(bySection[sec],
-			parsed{prompt: prompt, evidence: strings.TrimSpace(q.Evidence)})
+			parsed{prompt: prompt, evidence: cleanEvidence(q.Evidence)})
 	}
 	// 🚨 上限在代码里兜住，不只写在 prompt 里。十几个问题摆在她面前，她会开始
 	// 敷衍，而复盘一敷衍就什么都不剩了——这条不能只靠模型听话。
@@ -233,4 +233,28 @@ func parseLookback(raw string) ([]LookbackQuestion, error) {
 		return nil, errNoQuestions
 	}
 	return qs, nil
+}
+
+// cleanEvidence 去掉抄回来那一行前面的项目符号。
+//
+// 🚨 上文里每一行都以「  · 」开头（buildLookbackContext 那样排的），模型「原样
+// 抄回」时会把这个符号一起抄走，于是她看到的是「当时你写的是：· 午休想安静
+// 待着的同学…」——一个凭空冒出来的圆点，会让她以为这句话不是自己写的。
+//
+// 只削前缀，不动内容：这一行必须仍然是她当初写下的那句话。
+func cleanEvidence(s string) string {
+	t := strings.TrimSpace(s)
+	for {
+		trimmed := strings.TrimLeft(t, " \t")
+		if cut := strings.TrimPrefix(trimmed, "·"); cut != trimmed {
+			t = cut
+			continue
+		}
+		if cut := strings.TrimPrefix(trimmed, "-"); cut != trimmed {
+			t = cut
+			continue
+		}
+		break
+	}
+	return strings.TrimSpace(t)
 }

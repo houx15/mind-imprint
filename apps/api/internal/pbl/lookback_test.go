@@ -61,3 +61,21 @@ func TestLookbackSystem_AsksForTheEvidenceLine(t *testing.T) {
 		t.Fatal("没要求原样抄回那一行——改写过的出处她认不出是自己写的")
 	}
 }
+
+// 🚨 上文里每一行都以「  · 」开头，模型「原样抄回」时会把圆点一起抄走。
+// 她看到的于是是「当时你写的是：· 午休想安静待着的同学…」——一个凭空冒出来的
+// 符号，会让她以为这句话不是自己写的。2026-09-03 线上第一次生成就是这样。
+func TestParseLookback_StripsTheBulletTheModelCopiedAlong(t *testing.T) {
+	qs, err := parseLookback(`{"questions":[{"section":"moment","prompt":"当时你怎么想的？",
+	  "evidence":"  · 午休想安静待着的同学 需要 一个待得住的地方"}]}`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if strings.HasPrefix(qs[0].Evidence, "·") || strings.HasPrefix(qs[0].Evidence, " ") {
+		t.Fatalf("圆点没削掉：%q", qs[0].Evidence)
+	}
+	// 只削前缀，内容一个字都不能少。
+	if !strings.HasPrefix(qs[0].Evidence, "午休想安静待着的同学") {
+		t.Fatalf("削过头了：%q", qs[0].Evidence)
+	}
+}
