@@ -11,14 +11,43 @@ export type ReviewSection = "what" | "how" | "moment" | "praise" | "improve" | "
  * 复盘的六段（产品负责人 2026-09-02）。段是固定的，段里的问题由印记按这个项目
  * 真发生过的事现写——见 apps/api/internal/pbl/lookback.go。
  */
-export const REVIEW_SECTIONS: { key: ReviewSection; title: string }[] = [
-  { key: "what", title: "做了什么" },
-  { key: "how", title: "感受如何" },
-  { key: "moment", title: "印象最深的一件事" },
-  { key: "praise", title: "值得肯定的地方" },
-  { key: "improve", title: "还能更好的地方" },
-  { key: "with_ai", title: "和 AI 的协作" },
+export const REVIEW_SECTIONS: { key: ReviewSection; title: string; hue: string }[] = [
+  { key: "what", title: "做了什么", hue: "#3B82F6" },
+  { key: "how", title: "感受如何", hue: "#8B5CF6" },
+  { key: "moment", title: "印象最深的一件事", hue: "#F59E0B" },
+  { key: "praise", title: "值得肯定的地方", hue: "#10B981" },
+  { key: "improve", title: "还能更好的地方", hue: "#EF4444" },
+  { key: "with_ai", title: "和 AI 的协作", hue: "#06B6D4" },
 ];
+
+/**
+ * 「感受如何」那一段的几个词。
+ *
+ * 🚨 产品负责人 2026-09-03：「not just typing texts, but different hints,
+ * clickable or draggable or selectable」。六段全是空白文本框，最难下笔的就是
+ * 感受这一段——问一个中学生"你感觉如何"，她面对的是一个空框和一个不知道该
+ * 多正式的期待。点一个词起头，她接着往下写就容易多了。
+ *
+ * 用的是真实的过程感受，不是"很有收获"这种交差话——铁律④要的是真信号。
+ */
+export const FEELING_WORDS = [
+  "比想象中顺",
+  "中间卡住过",
+  "一开始没头绪",
+  "比想象中难",
+  "出乎意料",
+  "有点枯燥",
+  "越做越有意思",
+  "时间不够用",
+] as const;
+
+/** 一段答完了几题。段头上那个 n/m 用它。 */
+export function sectionProgress(prompts: LookbackPrompt[]): { done: number; total: number } {
+  return {
+    done: prompts.filter((p) => p.answer.trim() !== "").length,
+    total: prompts.length,
+  };
+}
 
 export interface LookbackPrompt {
   id: string;
@@ -31,7 +60,7 @@ export interface LookbackPrompt {
 /** 按六段分组，空段不出现。 */
 export function bySection(
   prompts: LookbackPrompt[],
-): { key: ReviewSection; title: string; prompts: LookbackPrompt[] }[] {
+): { key: ReviewSection; title: string; hue: string; prompts: LookbackPrompt[] }[] {
   return REVIEW_SECTIONS.map((s) => ({
     ...s,
     prompts: prompts.filter((p) => p.section === s.key),

@@ -4,8 +4,11 @@ import { Icon } from "@/ui";
 import { apiErrorText } from "../../../api/errorText";
 import {
   decisionTodo,
+  joinWhyNot,
   listDecisions,
   openDecisionOf,
+  optionHue,
+  optionTag,
   settleDecision,
   type Decision,
 } from "../../../api/decide";
@@ -34,7 +37,9 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   const [ready, setReady] = useState(false);
   const [choice, setChoice] = useState("");
   const [why, setWhy] = useState("");
-  const [whyNot, setWhyNot] = useState("");
+  // 🚨 放掉的每一条分开答。一个大框只会得到「其他的都不太合适」，而
+  // "为什么放掉另外那两条" 才是这件工具真正教的东西。
+  const [dropped, setDropped] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
 
   const boot = useCallback(async () => {
@@ -51,6 +56,14 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     void boot();
   }, [boot]);
 
+  const whyNot = decision
+    ? joinWhyNot(
+        decision.options
+          .filter((o) => o.label !== choice)
+          .map((o) => ({ label: o.label, why: dropped[o.id] ?? "" })),
+      )
+    : "";
+
   async function finish() {
     if (!decision) return;
     try {
@@ -66,6 +79,12 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   }
 
   const todo = decisionTodo(decision, { choice, why, whyNot });
+  const chosenIndex = decision?.options.findIndex((o) => o.label === choice) ?? -1;
+  const chosenHue = optionHue(chosenIndex < 0 ? 0 : chosenIndex);
+  const answeredDrops = decision
+    ? decision.options.filter((o) => o.label !== choice && (dropped[o.id] ?? "").trim() !== "")
+        .length
+    : 0;
 
   return (
     <ToolFrame
@@ -93,35 +112,52 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         <>
           <p className="text-mk-body text-mk-ink">{decision.subject}</p>
 
+          <p className="mt-1 text-mk-small text-mk-muted">
+            {choice ? "选好了。下面把放掉的那几条也交代清楚。" : "点一张卡片选中它。"}
+          </p>
+
           <div className="mt-3 space-y-2">
-            {decision.options.map((o) => {
+            {decision.options.map((o, i) => {
               const on = choice === o.label;
+              const hue = optionHue(i);
+              // 选中一张之后，别的暗下去——她要看见的是"我挑了这条，放掉了那些"。
+              const faded = choice !== "" && !on;
               return (
                 <button
                   key={o.id}
                   type="button"
                   onClick={() => setChoice(on ? "" : o.label)}
-                  className="block w-full rounded-mk-md border px-3 py-2.5 text-left"
+                  className="block w-full rounded-mk-md border px-3 py-2.5 text-left transition-opacity"
                   style={{
-                    borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)",
-                    background: on
-                      ? "color-mix(in srgb, var(--mk-accent-500) 8%, transparent)"
-                      : "transparent",
+                    borderColor: on ? hue : "var(--mk-border)",
+                    borderLeft: `4px solid ${hue}`,
+                    background: on ? `color-mix(in srgb, ${hue} 12%, transparent)` : "transparent",
+                    opacity: faded ? 0.55 : 1,
                   }}
                 >
-                  <span className="flex items-start justify-between gap-2">
-                    <span className="text-mk-small font-semibold text-mk-ink">{o.label}</span>
+                  <span className="flex items-start gap-2">
+                    <span
+                      className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
+                      style={{ background: hue, color: "#fff" }}
+                    >
+                      {optionTag(i)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block text-mk-small font-semibold text-mk-ink">
+                        {o.label}
+                      </span>
+                      {o.description && (
+                        <span className="mt-1 block text-mk-small text-mk-secondary">
+                          {o.description}
+                        </span>
+                      )}
+                    </span>
                     {on && (
-                      <span className="mt-0.5 shrink-0" style={{ color: "var(--mk-accent-500)" }}>
+                      <span className="mt-0.5 shrink-0" style={{ color: hue }}>
                         <Icon icon={Check} size={15} />
                       </span>
                     )}
                   </span>
-                  {o.description && (
-                    <span className="mt-1 block text-mk-small text-mk-secondary">
-                      {o.description}
-                    </span>
-                  )}
                 </button>
               );
             })}
@@ -129,9 +165,15 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
 
           {/* 两个小问题。选完才出现——先比较，再解释。 */}
           {choice && (
-            <div className="mt-4 space-y-3 border-t border-mk-border pt-3">
+            <div className="mt-5 space-y-4 border-t border-mk-border pt-4">
               <div>
-                <label className="text-mk-small text-mk-secondary">为什么选它</label>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-3.5 w-1 rounded-mk-full"
+                    style={{ background: chosenHue }}
+                  />
+                  <label className="text-mk-body font-semibold text-mk-ink">为什么选它</label>
+                </div>
                 <textarea
                   value={why}
                   onChange={(e) => setWhy(e.target.value)}
@@ -140,15 +182,52 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
               </div>
+
+              {/* 🚨 放掉的每一条各答一次，而不是一个大框。
+                  一个大框得到的是「其他的都不太合适」；一张一张摆在面前，她才会
+                  真的想起每一条当初为什么看起来可行。 */}
               <div>
-                <label className="text-mk-small text-mk-secondary">为什么不选别的</label>
-                <textarea
-                  value={whyNot}
-                  onChange={(e) => setWhyNot(e.target.value)}
-                  rows={2}
-                  placeholder="另外几个方案，你分别是因为什么放掉的"
-                  className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
-                />
+                <div className="flex items-center gap-2">
+                  <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "#94A3B8" }} />
+                  <label className="text-mk-body font-semibold text-mk-ink">
+                    放掉的（{answeredDrops}/{decision.options.length - 1}）
+                  </label>
+                </div>
+                <p className="mt-0.5 text-mk-small text-mk-muted">
+                  一条一条说：它当初看起来可行，你是因为什么放下它的。
+                </p>
+                <div className="mt-2 space-y-2">
+                  {decision.options.map((o, i) =>
+                    o.label === choice ? null : (
+                      <div
+                        key={o.id}
+                        className="rounded-mk-md border px-3 py-2"
+                        style={{
+                          borderColor: "var(--mk-border)",
+                          borderLeft: `4px solid ${optionHue(i)}`,
+                        }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <span
+                            className="flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
+                            style={{ background: optionHue(i), color: "#fff" }}
+                          >
+                            {optionTag(i)}
+                          </span>
+                          <span className="text-mk-small text-mk-secondary">{o.label}</span>
+                        </div>
+                        <input
+                          value={dropped[o.id] ?? ""}
+                          onChange={(e) =>
+                            setDropped((prev) => ({ ...prev, [o.id]: e.target.value }))
+                          }
+                          placeholder="放掉它的原因"
+                          className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+                        />
+                      </div>
+                    ),
+                  )}
+                </div>
               </div>
             </div>
           )}
