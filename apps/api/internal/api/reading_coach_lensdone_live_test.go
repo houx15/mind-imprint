@@ -42,9 +42,13 @@ import (
 	"mindimprint/api/internal/store/sqlc"
 )
 
-// liveDialogue resolves the SAME class postReadingCoachTurn uses. Anything
-// else would be testing a model production never asks.
-func liveDialogue(t *testing.T) (gateway.Provider, gateway.Resolved) {
+// liveClass resolves the SAME capability class production uses for a given
+// call. Anything else would be testing a model production never asks.
+//
+// Shared by every live prompt test in this package (see also
+// writing_english_live_test.go) so none of them can quietly drift onto a
+// different model than the one a student actually gets.
+func liveClass(t *testing.T, class string) (gateway.Provider, gateway.Resolved) {
 	t.Helper()
 	if os.Getenv("LIVE_LLM") != "1" {
 		t.Skip("set LIVE_LLM=1 to run live prompt checks")
@@ -66,9 +70,9 @@ func liveDialogue(t *testing.T) (gateway.Provider, gateway.Resolved) {
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Minute)
 	defer cancel()
-	r, rerr := rs.For(gateway.ClassDialogue)(ctx)
+	r, rerr := rs.For(class)(ctx)
 	if rerr != nil {
-		t.Skipf("dialogue class has no provider here: %v", rerr)
+		t.Skipf("class %s has no provider here: %v", class, rerr)
 	}
 	p := gateway.NewMuxProvider(map[string]gateway.Provider{
 		gateway.KindOpenAICompatible: gateway.NewCatalogProvider(&http.Client{}),
@@ -96,7 +100,7 @@ func liveLensDoneBlocks() []Block {
 // two times out of three is not shippable: the third student gets 「AI 响应
 // 错误」 the moment she finishes a lens.
 func TestLiveLensDoneReplyParses(t *testing.T) {
-	prov, r := liveDialogue(t)
+	prov, r := liveClass(t, gateway.ClassDialogue)
 	blocks := liveLensDoneBlocks()
 	done := &readingLensDone{
 		CardName: "溯源体检",

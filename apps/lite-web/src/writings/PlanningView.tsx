@@ -69,6 +69,8 @@ export function PlanningView({
   const [opening, setOpening] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [justAdded, setJustAdded] = useState<string[]>([]);
+  /** 印记 已经说过这份计划够开始写了 —— 见下面那块邀请的注释。 */
+  const [planReady, setPlanReady] = useState(false);
   // Seq numbers for optimistic local turns. Real rows come back from the
   // server on the next load; these only need to be unique and negative so
   // they can never collide with a persisted seq.
@@ -146,6 +148,9 @@ export function PlanningView({
       onMessages([...withStudent, { seq: --localSeq.current, role: "ai", content: turn.reply, createdAt: "" }]);
       onOutline(turn.outline);
       setJustAdded(turn.addedIds);
+      // 一旦 印记 说过「够写了」，就一直算数：她可能想再补一条理由再走，那不
+      // 该把邀请收回去。只有 false → true，没有反向。
+      if (turn.ready) setPlanReady(true);
     } catch (err) {
       setError(apiErrorText(err));
       onMessages(messages);
@@ -231,6 +236,46 @@ export function PlanningView({
       <div className={hasMap ? "grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_minmax(440px,44%)]" : "flex min-h-0 flex-1 justify-center"}>
         <div className={hasMap ? "flex min-h-0 flex-col" : "flex min-h-0 w-full max-w-[720px] flex-col"}>
           <ChatLog messages={chatMessages} thinking={sending || opening} className="mk-scroll min-h-0 flex-1 px-5 py-4" />
+          {/*
+            印记 判断这份计划够写了 → 屏幕上出现一条真的邀请。
+
+            🚨 这是「永远不会带领学生真正开启写作吗？」的答案。产品负责人的原话：
+            「until student click the logic is good, ai never auto triggers and
+            guides students to start writing.」——她说得准：「去写」从第一秒就
+            在页眉里可点，从来不是关卡；但**没有任何一刻有人提议过它**。
+            于是一个已经想清楚的学生会继续回答下一个问题，一直到自己放弃。
+
+            服务端现在有了说这句话的通道（`writingPlanReply.Ready`，
+            writing_plan.go），这里是它落地的地方：在她眼睛所在的位置（对话流
+            的末尾，输入框正上方），而不是页眉里那颗一直都在的按钮。
+
+            ⚠️ 它**不替她走**。结构不是关卡，反向也不是：把她推进段落，是同一个
+            错误的镜像。这里只是把邀请说出口，按不按仍然是她的事——而且页眉那颗
+            「去写」一直都在，随时可以不理这块直接走。
+          */}
+          {planReady && (
+            <div className="shrink-0 px-5 pb-3">
+              <div
+                className="flex flex-col gap-2 rounded-mk-lg border p-3"
+                style={{
+                  // mk-* 是裸 CSS 变量：Tailwind 的 alpha 语法对它们一个字节的
+                  // CSS 都不生成，半透明只能走 color-mix。
+                  background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
+                  borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+                }}
+              >
+                <p className="text-mk-label text-mk-accent-700">计划已可开始写作</p>
+                <p className="text-mk-small leading-relaxed text-mk-ink">
+                  这份思路已经够撑起一篇。开头与结尾可以等主体写出来之后再定。
+                </p>
+                <div className="flex justify-end">
+                  <Button onClick={onDone} iconEnd={<Icon icon={ArrowRight} size={14} />}>
+                    开始写作
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           <div className="shrink-0 px-5 pb-5">
             <Composer
               value={draft}

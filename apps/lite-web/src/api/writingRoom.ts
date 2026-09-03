@@ -192,12 +192,22 @@ export async function postWritingOpening(id: string): Promise<{ reply: string; g
 export async function postWritingPlanTurn(
   id: string,
   text: string,
-): Promise<{ reply: string; outline: WritingOutlineItem[]; addedIds: string[] }> {
-  const raw = await apiFetch<{ reply: string; outline: WritingOutlineItem[]; addedIds: string[] }>(
-    `${base(id)}/plan/turn`,
-    { method: "POST", body: JSON.stringify({ text }) },
-  );
-  return { reply: raw.reply, outline: raw.outline ?? [], addedIds: raw.addedIds ?? [] };
+): Promise<{ reply: string; outline: WritingOutlineItem[]; addedIds: string[]; ready: boolean }> {
+  const raw = await apiFetch<{
+    reply: string;
+    outline: WritingOutlineItem[];
+    addedIds: string[];
+    /** 印记 judges the plan is enough to start writing on — see
+     *  `writingPlanReply.Ready` (writing_plan.go). Absent on a server that
+     *  predates the field, which correctly reads as "not yet". */
+    ready?: boolean;
+  }>(`${base(id)}/plan/turn`, { method: "POST", body: JSON.stringify({ text }) });
+  return {
+    reply: raw.reply,
+    outline: raw.outline ?? [],
+    addedIds: raw.addedIds ?? [],
+    ready: raw.ready ?? false,
+  };
 }
 
 /**

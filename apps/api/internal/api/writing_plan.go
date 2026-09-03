@@ -152,7 +152,7 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
 
 只输出一个 JSON 对象：
 
-{"reply":"你要对她说的话","add":[{"parentId":"","text":"节点文字","role":"这块是什么"}]}
+{"reply":"你要对她说的话","add":[{"parentId":"","text":"节点文字","role":"这块是什么"}],"ready":false}
 
 - reply：不超过 200 字，一次一个问题。
 - add：这一轮要往图上加的节点，**0 到 %d 个**；没有就给空数组。
@@ -160,6 +160,33 @@ const writingPlanSystem = `你是「印记」，正在陪一个中学生**规划
   最上层不止中心论点：开头、结尾也都是最上层的块，按它们在文章里的先后排。
 - text：**她自己的话的精简**，不超过 30 字。
 - role：一句大白话说这块是什么（「中心论点」「一条理由」「她自己的经历」「反方会说的话」）。不要用生僻术语。
+- ready：这份计划够不够开始写了。见下面那一节。
+
+## ready：什么时候该请她去写
+
+**这是你唯一能把她送进写作的方式。** 「去写」那颗按钮她自己一直点得到，但在你
+说话之前，屏幕上没有任何东西告诉她**现在可以了**——于是有的学生会一直回答你的
+问题，一直到她自己放弃。规划不是关卡，也不该变成一条走不完的走廊。
+
+ready 给 true，当下面几件事都成立：
+- 这篇要说的**那一句话**已经定下来了；
+- 支撑它的**分论点有两条以上**，而且不是同一条说了两遍；
+- 至少有一条底下挂着她自己的材料（一件她见过的事、一个例子、一组数据）。
+
+或者，她自己说想开始写了——**这时候直接给 true，一个字都不要劝**。
+
+🚨 **判据满足了就给 true，哪怕你手上还有别的可以教。** 永远都有别的可以教——
+再补一条理由、再深一层、再讲一个方法——而「总还能再想一点」正是学生走不出这一
+步的唯一原因。判据是一条线，不是一个理想状态：过了线，这一轮就该请她去写。
+想教的那件事留到她真的写出段落之后再说，那时候你说的话才有她自己的文字可以对着。
+
+ready 给 true 的那一轮，reply 里要做两件事：说一句这份计划现在为什么站得住
+（具体到她写的东西，不要说「很完整」这种空话），然后请她开始写。这一轮**不要
+再问问题**——一个问号都不要有，问了她就会继续答，这一步就又没走出去。
+也可以不加节点。
+
+其余每一轮都给 false。开头和结尾还没想好**不算缺**——那两块要等主体有了再谈，
+不该拿来拦着她。
 
 不要输出对象以外的任何文字或代码块标记。`
 
@@ -247,6 +274,28 @@ type writingPlanAdd struct {
 type writingPlanReply struct {
 	Reply string           `json:"reply"`
 	Add   []writingPlanAdd `json:"add"`
+	// Ready is 印记 saying THE PLAN IS ENOUGH — she can start writing now.
+	//
+	// ## Why this field exists (2026-09-04)
+	//
+	// The product owner, on 「永远不会带领学生真正开启写作吗？」:
+	//
+	//	> until student click the logic is good, ai never auto triggers and
+	//	> guides students to start writing.
+	//
+	// Which was exactly right. 「去写」 has always been available from the
+	// first render and is never gated — but nothing ever PROPOSED it. The
+	// system prompt already told 印记 「有时候答案是什么都不缺，让她去写」 and
+	// 「她想去写了，就让她去写」, and it had no way to say so: the reply
+	// carried a sentence and a list of nodes, nothing else. So the judgement
+	// was made and then thrown away every single turn, and a student who had
+	// finished planning just kept being asked one more question.
+	//
+	// This is the channel for that judgement. It does not move her — 结构 is
+	// not a gate in either direction, and shoving her into 段落 would be the
+	// mirror of the bug. It puts a real invitation on screen at the moment
+	// 印记 thinks the plan will hold.
+	Ready bool `json:"ready"`
 }
 
 // parseWritingPlanReply decodes and clamps. Anything it cannot validate is
@@ -293,6 +342,54 @@ func parseWritingPlanReply(text string) (writingPlanReply, bool) {
 	}
 	got.Add = kept
 	return got, true
+}
+
+// planLooksReady answers, from the SHAPE of the map alone, whether this plan
+// can carry a piece: a top-level block, at least two distinct sub-points, and
+// at least one of them with her own material hanging under it.
+//
+// ## 🚨 Why this is computed and not left to the model
+//
+// The prompt states these three criteria and asks for `ready`. Measured
+// against the live model (TestLiveWritingPlanSignalsReady, 2026-09-04) that
+// worked reliably for one of the two cases and was a coin-flip for the other:
+// on a plan that plainly met every criterion, the model kept choosing to teach
+// one more method and end on a question — 「你打算这样承认了再反驳，还是直接
+// 驳？」 — which is good teaching, and also exactly the behaviour the product
+// owner reported as the bug:
+//
+//	> until student click the logic is good, ai never auto triggers and
+//	> guides students to start writing.
+//
+// There is ALWAYS one more thing worth teaching. That is precisely why a model
+// asked to judge 「够了吗」 keeps answering not yet, and why the floor has to be
+// structural. Same lesson as enforceLensDoneTurn (reading_coach.go): a 「必须」
+// that lives only in prose is a 「必须」 the model gets to overrule.
+//
+// The model's own `ready` is OR-ed on top rather than replaced, because it
+// catches the case no shape can: she says 「我想开始写了」 over a three-node
+// map, and the prompt's answer to that is to agree without arguing.
+//
+// Depth convention is writingPlanMaxDepth's: 0 = top-level blocks (opening,
+// thesis, landing), 1 = 分论点, 2 = 论据. Openings and closings are deliberately
+// NOT required — they are decided after the middle exists, so demanding them
+// would hold her at exactly the step this function exists to release.
+func planLooksReady(rows []sqlc.WritingOutline) bool {
+	var top, points, material int
+	for _, r := range rows {
+		if strings.TrimSpace(r.Text) == "" {
+			continue
+		}
+		switch r.Depth {
+		case 0:
+			top++
+		case 1:
+			points++
+		default:
+			material++
+		}
+	}
+	return top >= 1 && points >= 2 && material >= 1
 }
 
 // rootInsertPosition decides where a NEW top-level (depth-0) node lands
@@ -552,5 +649,9 @@ func (a *API) postWritingPlanTurn(w http.ResponseWriter, r *http.Request) {
 		"reply":    parsed.Reply,
 		"outline":  out,
 		"addedIds": added,
+		// See writingPlanReply.Ready and planLooksReady: the one thing the
+		// planning room could never say before, which is 「这份计划够写了」.
+		// The structural floor is COMPUTED; the model can only add to it.
+		"ready": parsed.Ready || planLooksReady(live),
 	})
 }

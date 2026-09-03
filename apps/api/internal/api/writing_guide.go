@@ -222,6 +222,9 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	for _, m := range vocab.For(writingGuideAppliesTo(block.Role), wr.Lang) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "：" + m.Definition + "\n")
 	}
+	// See writingMethodFamiliesLine: an English piece can now be helped with
+	// vocabulary / sentence craft / narrative, not only with argument frames.
+	b.WriteString(writingMethodFamiliesLine(wr))
 	return b.String()
 }
 
@@ -288,6 +291,7 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 	for _, m := range vocab.ForLang(wr.Lang) {
 		b.WriteString("- id=" + m.ID + " · " + m.Label() + "（" + m.AppliesTo + "）：" + m.Definition + "\n")
 	}
+	b.WriteString(writingMethodFamiliesLine(wr))
 	return b.String()
 }
 

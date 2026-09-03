@@ -163,7 +163,7 @@
       "formal_name": "",
       "applies_to": "body",
       "lang": "en",
-      "definition": "English concessive frames — admit the opposing point, then limit it.",
+      "definition": "英文里的让步句式：先承认对方那一点成立，再把它的适用范围收窄。",
       "examples": [],
       "patterns": [
         { "label": "Admit then limit", "frame": "While it is true that ___, this does not mean ___." },
@@ -176,7 +176,7 @@
       "formal_name": "",
       "applies_to": "any",
       "lang": "en",
-      "definition": "English hedging frames — state how strongly the claim is meant.",
+      "definition": "英文里的限定句式：把话说到多满，自己先讲清楚，读者才知道该信几分。",
       "examples": [],
       "patterns": [
         { "label": "Degree", "frame": "To a large extent, ___ — though ___." },
@@ -189,11 +189,139 @@
       "formal_name": "",
       "applies_to": "body",
       "lang": "en",
-      "definition": "English frames for bringing a source in and saying what it shows.",
+      "definition": "英文里引材料的句式：先把来源交代清楚，再说它到底说明了什么。",
       "examples": [],
       "patterns": [
         { "label": "Cite a study", "frame": "A 2019 study of ___ found that ___." },
         { "label": "Say what it shows", "frame": "This suggests that ___, because ___." }
+      ]
+    },
+    {
+      "id": "en_word_precision",
+      "name": "Choosing the exact word",
+      "formal_name": "",
+      "applies_to": "any",
+      "lang": "en",
+      "definition": "把笼统的词换成准确的词。动词和名词最能带信息，形容词最不能——读者是靠动词看见画面的。",
+      "examples": [
+        { "topic": "南极科考", "text": "笼统：The team went across the ice and it was very hard.  准确：The team hauled their sledges across the ice, breaking through a crust that gave way every third step." }
+      ],
+      "patterns": [
+        { "label": "Let the verb carry it", "frame": "Replace was very ___ with one verb that shows it: ___." },
+        { "label": "Name the thing exactly", "frame": "not ___ (a category), but ___ (the specific one)" }
+      ]
+    },
+    {
+      "id": "en_word_register",
+      "name": "Keeping one register",
+      "formal_name": "",
+      "applies_to": "any",
+      "lang": "en",
+      "definition": "整篇的用词分寸要一致。一句学术、一句口语混在一起，读者会觉得作者自己也没想清楚这是写给谁看的。",
+      "examples": [
+        { "topic": "外卖配送费", "text": "跳档：Platforms take a cut, which is honestly kind of sketchy, and this raises questions of transparency.  一致：Platforms take a share they do not disclose, which makes the arrangement difficult to audit." }
+      ],
+      "patterns": [
+        { "label": "A neutral verb for a claim", "frame": "___ suggests / indicates / points to ___." },
+        { "label": "Name the actor instead of a vague one", "frame": "___ (who exactly) does ___ (what exactly)." }
+      ]
+    },
+    {
+      "id": "en_sentence_variety",
+      "name": "Mixing long and short",
+      "formal_name": "",
+      "applies_to": "any",
+      "lang": "en",
+      "definition": "一段里句子长度要有变化。连着三个等长的句子读起来像念清单；在一串长句之后放一个短句，那个短句就成了重音。",
+      "examples": [
+        { "topic": "横渡英吉利海峡", "text": "She had trained for two winters in water that never rose above twelve degrees, swimming before dawn so that the cold would stop being a surprise. Then the tide turned. Six hours of work went backwards in forty minutes." }
+      ],
+      "patterns": [
+        { "label": "Long, long, then short", "frame": "___ , and ___ . ___ . (the last one three to five words)" }
+      ]
+    },
+    {
+      "id": "en_sentence_opener",
+      "name": "Starting with a subordinate clause",
+      "formal_name": "",
+      "applies_to": "any",
+      "lang": "en",
+      "definition": "把从句放到句首，先交代让步、原因或时间，再说主句。每一句都从主语开头的那种单调感，就是这样打破的。",
+      "examples": [],
+      "patterns": [
+        { "label": "Concession first", "frame": "Although ___ , ___ ." },
+        { "label": "Cause first", "frame": "Because ___ , ___ ." },
+        { "label": "Time first", "frame": "By the time ___ , ___ ." }
+      ]
+    },
+    {
+      "id": "en_sentence_appositive",
+      "name": "Naming with an appositive",
+      "formal_name": "",
+      "applies_to": "any",
+      "lang": "en",
+      "definition": "在名词后面用逗号接一个短语，把身份或背景补进去，不必另起一句。这是英文里最省字的一种交代方式。",
+      "examples": [],
+      "patterns": [
+        { "label": "Identify in passing", "frame": "___ , a ___ , ___ ." },
+        { "label": "Add the telling detail", "frame": "___ , who ___ , ___ ." }
+      ]
+    },
+    {
+      "id": "en_sentence_parallel",
+      "name": "Putting items in parallel",
+      "formal_name": "",
+      "applies_to": "any",
+      "lang": "en",
+      "definition": "并列的几项要用同样的语法形状：三个动词就都用动词，三个名词就都用名词。形状一致，读者才看得出它们是同一层的东西。",
+      "examples": [],
+      "patterns": [
+        { "label": "Three of a kind", "frame": "___ , ___ , and ___ . (same part of speech, same shape)" },
+        { "label": "Not only, but also", "frame": "not only ___ but also ___" }
+      ]
+    },
+    {
+      "id": "en_story_scene",
+      "name": "Opening inside a moment",
+      "formal_name": "",
+      "applies_to": "opening",
+      "lang": "en",
+      "definition": "记叙文从一个具体时刻开始，不要从背景交代开始。先让读者看见一个画面，背景在后面一点一点补进去。",
+      "examples": [
+        { "topic": "五台山朝圣", "text": "At four in the morning the stone steps were still wet, and the woman ahead of me stopped every three steps to press her forehead against them." }
+      ],
+      "patterns": [
+        { "label": "Time and place, then one action", "frame": "At ___ , ___ was ___ ." }
+      ]
+    },
+    {
+      "id": "en_story_turn",
+      "name": "The turn",
+      "formal_name": "",
+      "applies_to": "body",
+      "lang": "en",
+      "definition": "一条故事线要有一个转折点：某一刻之后，你看这件事的方式和之前不一样了。没有这个点，故事就只是一串按时间排下来的事。",
+      "examples": [
+        { "topic": "横渡英吉利海峡", "text": "For six hours the swim had been about the cold. When the tide turned, it stopped being about the cold and started being about whether she could accept losing ground she had already won." }
+      ],
+      "patterns": [
+        { "label": "Name the moment", "frame": "It was not until ___ that ___ ." },
+        { "label": "Before and after", "frame": "Until then, ___ . After that, ___ ." }
+      ]
+    },
+    {
+      "id": "en_story_landing",
+      "name": "Landing the meaning",
+      "formal_name": "",
+      "applies_to": "closing",
+      "lang": "en",
+      "definition": "结尾说出这件事让你明白了什么，但不要写成一句道理。回到开头那个具体画面，让读者自己看出变化。",
+      "examples": [
+        { "topic": "五台山朝圣", "text": "I still do not know what she was asking for. I know that I counted her steps for two hours and forgot to count my own." }
+      ],
+      "patterns": [
+        { "label": "Return to the image", "frame": "I still ___ . I know that ___ ." },
+        { "label": "Say what changed, not what it means", "frame": "Before ___ , I ___ . Now ___ ." }
       ]
     }
   ]

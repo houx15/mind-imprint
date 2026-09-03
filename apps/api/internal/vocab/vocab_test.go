@@ -57,21 +57,28 @@ func TestLoad_EveryMethodIsUsable(t *testing.T) {
 // ONLY where no curriculum term exists — which is a short, deliberate list, not
 // "whatever someone forgot to fill in".
 func TestEveryMethodHasAStudentFacingName(t *testing.T) {
+	// Named exceptions, for CHINESE entries only — a 语文 method without a
+	// curriculum term is rare enough that each one should be argued for by
+	// name rather than waved through.
 	formalMayBeEmpty := map[string]bool{
 		// 「最后提个建议」has no 语文 term of its own.
 		"closing_scope": true,
-		// The English entries' name IS what an English writer reads; there is
-		// no second, more formal English label to reveal.
-		"en_concession": true,
-		"en_qualify":    true,
-		"en_evidence":   true,
 	}
+	// The English half is a RULE, not a list: an `en` entry's `name` already
+	// IS what an English writer reads ("Naming with an appositive"), and there
+	// is no second, more formal English label to reveal on a card. This used
+	// to be three ids written out by hand, which meant every new English
+	// method failed this test for a reason that was never a defect — and the
+	// 2026-09-04 batch (vocabulary / sentence formats / story line) added nine
+	// at once. Encoding the reason instead of the instances is what keeps the
+	// test about the invariant.
 	for _, m := range All() {
 		if m.Name == "" {
 			t.Errorf("method %q has no student-facing name", m.ID)
 		}
-		if m.FormalName == "" && !formalMayBeEmpty[m.ID] {
-			t.Errorf("method %q has an empty formal_name; only %v are allowed to", m.ID, formalMayBeEmpty)
+		mayBeEmpty := formalMayBeEmpty[m.ID] || m.Lang == "en"
+		if m.FormalName == "" && !mayBeEmpty {
+			t.Errorf("method %q has an empty formal_name; only lang=en entries and %v are allowed to", m.ID, formalMayBeEmpty)
 		}
 		if formalMayBeEmpty[m.ID] && m.FormalName != "" {
 			t.Errorf("method %q now has formal_name %q — update the exception list rather than leaving it stale", m.ID, m.FormalName)
@@ -188,5 +195,78 @@ func TestEmbeddedCopyMatchesSourceOfTruth(t *testing.T) {
 	}
 	if !bytes.Equal(sourceOfTruth, methodsJSON) {
 		t.Fatal("apps/api/internal/vocab/methods.json has drifted from packages/contracts/vocab/methods.json — copy the source of truth over the embedded file and rerun")
+	}
+}
+
+// TestEnglishPieceGetsVocabSentenceAndStoryMethods pins the 2026-09-04 ask,
+// verbatim from the product owner:
+//
+//	> currently english directions for snippets, they write with not enough
+//	> guidance, english should have methods about vocab, sentence formats,
+//	> and also story line.
+//
+// Before that batch, every English-only entry was an ARGUMENT frame
+// (concession / qualify / evidence). A student writing an English narrative —
+// or any student stuck on a sentence rather than on a claim — was offered
+// nothing that spoke to what she was actually doing. That is what "not enough
+// guidance" meant, and no test could have caught it, because nothing was
+// broken: the library simply had a hole shaped like two thirds of English
+// writing.
+//
+// Asserted by id rather than by counting: the point is not "there are more
+// methods now", it is that each of the three kinds of help is reachable, at a
+// position where it makes sense.
+func TestEnglishPieceGetsVocabSentenceAndStoryMethods(t *testing.T) {
+	families := map[string][]string{
+		"vocabulary":      {"en_word_precision", "en_word_register"},
+		"sentence format": {"en_sentence_variety", "en_sentence_opener", "en_sentence_appositive", "en_sentence_parallel"},
+		"story line":      {"en_story_scene", "en_story_turn", "en_story_landing"},
+	}
+	for family, ids := range families {
+		for _, id := range ids {
+			m, ok := ByID(id)
+			if !ok {
+				t.Errorf("%s: method %q is gone", family, id)
+				continue
+			}
+			if m.Lang != "en" {
+				t.Errorf("%s: %q has lang %q — these carry English wording and must never reach a Chinese piece", family, id, m.Lang)
+			}
+			if len(m.Examples) == 0 && len(m.Patterns) == 0 {
+				t.Errorf("%s: %q teaches nothing", family, id)
+			}
+		}
+	}
+
+	// A story line needs all three of its beats, each where it belongs — an
+	// arc with no turn is just events in the order they happened.
+	for _, tc := range []struct{ id, pos string }{
+		{"en_story_scene", "opening"},
+		{"en_story_turn", "body"},
+		{"en_story_landing", "closing"},
+	} {
+		var found bool
+		for _, m := range For(tc.pos, "en") {
+			if m.ID == tc.id {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("For(%q, \"en\") does not offer %q", tc.pos, tc.id)
+		}
+	}
+
+	// 🚨 And none of it leaks the other way. TestFor_NeverOffersEnglishWording
+	// ToAChinesePiece covers that generally; naming the new families here means
+	// a future edit that retags one of them "any" fails with the reason
+	// attached, rather than as a count mismatch somewhere else.
+	for _, m := range ForLang("zh") {
+		for family, ids := range families {
+			for _, id := range ids {
+				if m.ID == id {
+					t.Errorf("%s: %q reached a Chinese piece", family, id)
+				}
+			}
+		}
 	}
 }

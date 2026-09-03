@@ -136,3 +136,36 @@ func writingLangLine(wr sqlc.Writing) string {
 	}
 	return "写作语言：中文。跟她说话和文章内容都用中文。\n"
 }
+
+// writingMethodFamiliesLine tells the guide prompts that an English piece has
+// three families of help beyond argument frames — and that a student stuck on
+// a SENTENCE is not helped by being handed a method about claims.
+//
+// ## Why a line in the prompt and not just entries in the library
+//
+// The 2026-09-04 additions (en_word_*, en_sentence_*, en_story_*) gave the
+// library the material. But the model picks 1–3 ids out of 25 for an English
+// piece, and the twelve it had before this batch were ALL about argument
+// (concession / qualify / evidence, plus the structural Chinese-name entries).
+// Left to a bare list, the obvious pull is to keep choosing what it always
+// chose. The product owner's report was exactly that the guidance did not
+// speak to what she was doing:
+//
+//	> currently english directions for snippets, they write with not enough
+//	> guidance, english should have methods about vocab, sentence formats,
+//	> and also story line.
+//
+// So the prompt names the three families and, more importantly, says WHEN each
+// one is the right answer. Empty for a Chinese piece: the entries it can see
+// are all usable there, and there is no imbalance to correct.
+func writingMethodFamiliesLine(wr sqlc.Writing) string {
+	if wr.Lang != langEnglish {
+		return ""
+	}
+	return "\n【挑方法的时候】这篇是英文的，方法库里有四类，别只盯着讲道理那一类：\n" +
+		"- 论证类（en_concession / en_qualify / en_evidence，以及中文名的那些结构方法）：她在为一个主张找支撑时用。\n" +
+		"- 词汇类（en_word_*）：她写出来的意思对，但用词笼统、书面口语混着来时用。\n" +
+		"- 句式类（en_sentence_*）：她一段里每句都一样长、都从主语开头时用。这是英文写作最常见的卡点，也最容易看出进步。\n" +
+		"- 故事线（en_story_*）：这一块是记叙、是她自己的经历、或者需要一个转折时用。\n" +
+		"判断依据是**她这一块实际卡在哪**，不是这篇文章的体裁：一段议论里也会有句式问题。\n"
+}
