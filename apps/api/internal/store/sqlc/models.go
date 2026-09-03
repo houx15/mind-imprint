@@ -635,6 +635,19 @@ type PblPendingChange struct {
 	CreatedAt  time.Time          `json:"created_at"`
 }
 
+type PblPersona struct {
+	ID          uuid.UUID `json:"id"`
+	AtomID      uuid.UUID `json:"atom_id"`
+	Label       string    `json:"label"`
+	WhyKnows    string    `json:"why_knows"`
+	Wants       string    `json:"wants"`
+	Feeling     string    `json:"feeling"`
+	Keywords    []byte    `json:"keywords"`
+	PortraitKey string    `json:"portrait_key"`
+	Chosen      bool      `json:"chosen"`
+	CreatedAt   time.Time `json:"created_at"`
+}
+
 type PblPlanStep struct {
 	ID        uuid.UUID `json:"id"`
 	VersionID uuid.UUID `json:"version_id"`

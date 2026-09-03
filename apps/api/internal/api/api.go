@@ -38,6 +38,10 @@ type Fetcher interface {
 type Deps struct {
 	Queries  *sqlc.Queries
 	Provider gateway.Provider // the MuxProvider
+	// Drawer generates images. Separate from Provider because generating an
+	// image is not a stream — see internal/gateway/images.go. Nil falls back to
+	// the real HTTP drawer, so only tests need to set it.
+	Drawer gateway.Drawer
 	// Route returns the resolver for a capability class — how much INTELLIGENCE
 	// this call needs, not which feature made it. See gateway.Class* and
 	// docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md.
@@ -311,6 +315,11 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts", liteOnly(a.handOverPblArtifact))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/settle", liteOnly(a.settlePblArtifact))
 	// 工具：端点留着，交互延后（spec §13）。
+	// 主页项目第一关：她的页面给谁看。见 internal/api/pbl_personas.go。
+	mux.Handle("GET /api/v1/pbl/projects/{id}/personas", liteOnly(a.listPblPersonas))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/personas/generate", liteOnly(a.generatePblPersonas))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/personas/{pid}/portrait", liteOnly(a.drawPblPersonaPortrait))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/personas/{pid}/choose", liteOnly(a.choosePblPersona))
 	// 主页项目第二关：她自己找到的那几个个人网站。见 internal/api/pbl_sites.go。
 	mux.Handle("GET /api/v1/pbl/projects/{id}/sites", liteOnly(a.listPblSiteRefs))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/sites", liteOnly(a.addPblSiteRef))

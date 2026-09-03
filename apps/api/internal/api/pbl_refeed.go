@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"net/http"
 	"sort"
 	"strconv"
@@ -39,6 +40,36 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 	add := func(s string) {
 		if t := strings.TrimSpace(s); t != "" {
 			out = append(out, t)
+		}
+	}
+
+	// 主页项目第一关：她留下的那个读者，和她留下的关键词。
+	//
+	// 这一关的产出是后面每一关的输入（结构对着关键词检查、配色从关键词派生），
+	// 所以它必须回到印记那儿——不然第三关它会重新问一遍「你想给谁看」。
+	if ps, err := a.d.Queries.ListPblPersonas(ctx, atomID); err == nil {
+		for _, p := range ps {
+			if !p.Chosen {
+				continue
+			}
+			line := "她定下的读者是：" + p.Label
+			if strings.TrimSpace(p.WhyKnows) != "" {
+				line += "（" + p.WhyKnows + "）"
+			}
+			if strings.TrimSpace(p.Wants) != "" {
+				line += "；他想看到：" + p.Wants
+			}
+			if strings.TrimSpace(p.Feeling) != "" {
+				line += "；这一页该给他的感觉：" + p.Feeling
+			}
+			add(line)
+			var kws []string
+			if len(p.Keywords) > 0 {
+				_ = json.Unmarshal(p.Keywords, &kws)
+			}
+			if len(kws) > 0 {
+				add("她留下的关键词：" + strings.Join(kws, "、"))
+			}
 		}
 	}
 
