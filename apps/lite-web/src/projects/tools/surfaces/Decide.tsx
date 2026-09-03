@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useState } from "react";
-import { Check } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Check, GripVertical } from "lucide-react";
 import { Icon } from "@/ui";
 import { apiErrorText } from "../../../api/errorText";
 import {
@@ -14,7 +14,9 @@ import {
   settleDecision,
   type Decision,
 } from "../../../api/decide";
-import { ToolFrame } from "../ToolFrame";
+import { Stage } from "../board/Stage";
+import { DragGhost } from "../board/DragGhost";
+import { useZoneDrag } from "../board/useZoneDrag";
 import type { ToolSurfaceProps } from "../registry";
 
 /**
@@ -54,18 +56,21 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   const [mineWhy, setMineWhy] = useState("");
 
   /**
-   * 把一条路往上/往下挪一格。
+   * 把一条路拖到另一条前面。
    *
-   * 🚨 只挑一个不需要把它们放在一起比——读到顺眼的那张就点了。排成一列才需要，
-   * 而这个序本身就是她比过的证据。用 ↑↓ 不用拖：三五张卡就在眼前，点一下最直接，
-   * 触屏也不会误触。
+   * 🚨 上一版是 ↑↓ 两个小箭头，注释里我写着「三五张卡就在眼前，点一下最直接」。
+   * 产品负责人 2026-09-03 推翻了这个判断（「not just typing texts, but ...
+   * draggable」，附四张图，其中一张写着「把最主要的障碍拖到最左」）。她是对的：
+   * ↑↓ 是在**操作一个列表**，拖是在**把几条路摆在一起比**，而"摆在一起比过了"
+   * 正是这件工具要留下的证据。
    */
-  async function move(index: number, delta: number) {
-    if (!decision) return;
-    const order = decision.options.map((o) => o.id);
-    const to = index + delta;
-    if (to < 0 || to >= order.length) return;
-    [order[index], order[to]] = [order[to]!, order[index]!];
+  async function reorder(fromId: string, toId: string) {
+    if (!decision || fromId === toId) return;
+    const order = ordered.map((o) => o.id);
+    const from = order.indexOf(fromId);
+    const to = order.indexOf(toId);
+    if (from < 0 || to < 0) return;
+    order.splice(to, 0, ...order.splice(from, 1));
     try {
       setDecision(await rankOptions(projectId, decision.id, order));
     } catch (err) {
@@ -143,12 +148,35 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         .length
     : 0;
 
+  /**
+   * 刚刚真的拖过一次。
+   *
+   * 🚨 选中走 onClick，不走 useZoneDrag 的 onTap。onTap 那条路在 e2e 里点不亮
+   * （拖动排序是好的，紧接着的一次点击选不中任何东西），而 onClick 是这块界面
+   * 一直用的、验过的那条。真拖过之后浏览器不会在原来那张卡上再发一次 click
+   * （mouseup 落在别的元素上），这个 ref 只兜住"在同一张卡上小幅挪了一下"
+   * 那一种：那是一次排序，不该顺手把它选中。
+   */
+  const justDragged = useRef(false);
+
+  // 拖着一张卡去插到另一张前面。选定之后不再排：那时候要她做的是解释，不是继续比。
+  const drag = useZoneDrag({
+    onDrop: (id, zone) => {
+      justDragged.current = true;
+      window.setTimeout(() => (justDragged.current = false), 0);
+      if (!zone || choice) return;
+      void reorder(id, zone.replace("opt:", ""));
+    },
+  });
+  const draggedOption = drag.drag ? ordered.find((o) => o.id === drag.drag!.id) : null;
+
   return (
-    <ToolFrame
+    <Stage
       title={tool.label}
       task="针对每个选项的原因及可能后果进行深入思考，再做出决定"
       why={tool.reason}
       todo={todo}
+      insight={choice ? `已确定：${choice}` : undefined}
       finishLabel="确认选择"
       onFinish={() => void finish()}
       onClose={onClose}
@@ -218,10 +246,25 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
             ))}
 
           <p className="mt-1 text-mk-small text-mk-muted">
-            {choice ? "请说明未选择其他方案的原因。" : "请按你的排序调整顺序，然后选择一个方案。"}
+            {choice ? "请说明未选择其他方案的原因。" : "请拖动卡片排出顺序，然后选择一个方案。"}
           </p>
 
-          <div className="mt-3 space-y-2">
+          {/* 一条从左到右的轴。没有它，横着排的三张卡只是三张卡；有了它，
+              左右的位置才是一句话。图上那句是「越往左越关键」。 */}
+          {!choice && ordered.length > 1 && (
+            <div className="mt-3 flex items-center gap-2 text-mk-small text-mk-faint">
+              <span style={{ color: "var(--mk-accent-500)" }}>越往左，你越觉得该走这条</span>
+              <span
+                className="h-px flex-1"
+                style={{
+                  background:
+                    "linear-gradient(to right, var(--mk-accent-200), color-mix(in srgb, var(--mk-border) 80%, transparent))",
+                }}
+              />
+            </div>
+          )}
+
+          <div className="mt-2 grid gap-2 md:grid-cols-3">
             {ordered.map((o, i) => {
               const on = choice === o.label;
               const t = optionTone(i);
@@ -231,13 +274,23 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                 <button
                   key={o.id}
                   type="button"
-                  onClick={() => setChoice(on ? "" : o.label)}
-                  className="block w-full rounded-mk-md border px-3 py-2.5 text-left transition-opacity"
+                  ref={drag.zoneRef(`opt:${o.id}`)}
+                  // 🚨 拖和选是同一个手势的两半（useZoneDrag 的 onDrop / onTap）。
+                  // 分成"拖把手 + 点正文"在触屏上两个都不好按，而这块板上她做得
+                  // 最多的两件事就是这两件。
+                  onPointerDown={(e) => !choice && drag.start(o.id, e)}
+                  onClick={() => {
+                    if (justDragged.current) return;
+                    setChoice(on ? "" : o.label);
+                  }}
+                  className="block h-full w-full rounded-mk-md border px-3 py-2.5 text-left transition-opacity"
                   // 🚨 整张卡染上这条路自己的淡底，不挂左侧色条。
                   style={{
-                    borderColor: on ? t.solid : "transparent",
+                    borderColor: on ? t.solid : drag.drag?.over === `opt:${o.id}` ? t.solid : "transparent",
                     background: t.bg,
-                    opacity: faded ? 0.5 : 1,
+                    cursor: choice ? "pointer" : "grab",
+                    touchAction: "none",
+                    opacity: faded ? 0.5 : drag.drag?.id === o.id ? 0.35 : 1,
                     boxShadow: on ? `0 0 0 2px color-mix(in srgb, ${t.solid} 32%, transparent)` : undefined,
                   }}
                 >
@@ -264,35 +317,15 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                         </span>
                       )}
                     </span>
-                    {/* 排位：把这条路往上或往下挪一格。选定之后不再显示——
-                        那时候要她做的是解释，不是继续排。 */}
+                    {/* 抓手。一直在，不靠 hover 才出现——触屏上没有 hover，
+                        而她第一次看见这三张卡时最需要知道的就是"这个能拿起来"。 */}
                     {!choice && ordered.length > 1 && (
-                      <span className="flex shrink-0 flex-col">
-                        <button
-                          type="button"
-                          aria-label="往上挪"
-                          disabled={i === 0}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void move(i, -1);
-                          }}
-                          className="px-1 text-mk-small text-mk-secondary disabled:opacity-30"
-                        >
-                          ↑
-                        </button>
-                        <button
-                          type="button"
-                          aria-label="往下挪"
-                          disabled={i === ordered.length - 1}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            void move(i, 1);
-                          }}
-                          className="px-1 text-mk-small text-mk-secondary disabled:opacity-30"
-                        >
-                          ↓
-                        </button>
-                      </span>
+                      <Icon
+                        icon={GripVertical}
+                        size={14}
+                        className="mt-0.5 shrink-0 opacity-40"
+                        style={{ color: t.solid }}
+                      />
                     )}
                     {on && (
                       <span className="mt-0.5 shrink-0" style={{ color: t.solid }}>
@@ -394,6 +427,19 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
           )}
         </>
       )}
-    </ToolFrame>
+      <DragGhost drag={drag.drag}>
+        {draggedOption && (
+          <div
+            className="rounded-mk-md px-3 py-2.5 text-mk-small font-semibold"
+            style={{
+              background: optionTone(ordered.indexOf(draggedOption)).bg,
+              color: optionTone(ordered.indexOf(draggedOption)).fg,
+            }}
+          >
+            {draggedOption.label}
+          </div>
+        )}
+      </DragGhost>
+    </Stage>
   );
 }

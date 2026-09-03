@@ -250,6 +250,12 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
 
   // 5 · 审核助手：划出来的句子高亮在原文里。
   await openTool(page, "审核助手");
+  // 🚨 这一段在 main 上断的是「我猜剩的主要是米饭」——而 2026-09-03 的「先自己
+  // 找，再对答案」正是**故意把它盖住**的。断言等于在要求那次改动不要发生。
+  // 现在断两头：先盖住，点开之后才露出来。
+  await expect(page.getByText("暂未显示", { exact: false })).toBeVisible();
+  await expect(page.getByText("我猜剩的主要是米饭")).toHaveCount(0);
+  await page.getByRole("button", { name: "显示印记的标注" }).click();
   await expect(page.getByText("我猜剩的主要是米饭", { exact: false })).toBeVisible();
   await expect(page.getByText("「大概一半」是你数出来的，还是估的？")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-5-review.png", fullPage: true });
@@ -268,8 +274,29 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   const decisionId = (await decisionRes.json()).id as string;
   await openTool(page, "理性决策");
   await expect(page.getByText("他们能直接改菜量，但要等排期")).toBeVisible();
-  await page.getByRole("button", { name: /^先给食堂/ }).click();
-  await expect(page.getByText("为什么不选别的")).toBeVisible();
+
+  // 先排序：把第二条拖到第一条前面。这个序本身就是她比过的证据，所以断在
+  // studentRank 上，不断在卡片的先后顺序上——后者换个 CSS 就能骗过去。
+  await page
+    .getByRole("button", { name: /先发班群/ })
+    .dragTo(page.getByRole("button", { name: /先给食堂/ }));
+  await expect
+    .poll(async () => {
+      const rows = await (await page.request.get(api + "/decisions")).json();
+      const d = (rows as { id: string; options: { label: string; studentRank: number }[] }[]).find(
+        (x) => x.id === decisionId,
+      );
+      const top = [...(d?.options ?? [])].sort(
+        (a, b) => (a.studentRank || 99) - (b.studentRank || 99),
+      )[0];
+      return top?.label;
+    })
+    .toBe("先发班群");
+
+  await page.getByRole("button", { name: /先给食堂/ }).click();
+  // 选完之后才出现的那两个小问题。断"未选择其他方案的原因"——那一句才是这件
+  // 工具真正教的东西（选中一个不难，说得出放掉了什么才算比过）。
+  await expect(page.getByText("请说明未选择其他方案的原因。")).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-6-decide.png", fullPage: true });
 
   // 7 · 结构审查：一张能拖的图。
