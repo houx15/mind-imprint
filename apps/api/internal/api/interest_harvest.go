@@ -131,6 +131,12 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 		return // 她什么也没留下，没有可采的
 	}
 
+	// gateway.Collect 对 nil provider 会 panic。这一路今天走不到（跑到这里时
+	// provider 总是装好的），但它和 harvestQuiz 是同一个形状，而那一路在测试里
+	// 真的会拿到 nil —— 两处用同一个守卫，省得下一个人踩。
+	if a.d.Provider == nil {
+		return
+	}
 	resolved, ok := a.route(ctx, gateway.ClassCompose)
 	if !ok {
 		slog.Warn("interest harvest: no provider resolved", "atom_id", atomID)
@@ -153,6 +159,13 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 		// 不长词，也不编词。见 memory: ai-errors-must-surface-never-fake。
 		slog.Warn("interest harvest: unparseable reply", "err", perr, "atom_id", atomID)
 		return
+	}
+	// 🚨 evidence 必须真的出自她写下的字，而不是出自 prompt 的脚手架。
+	// 见 interest.KeepGrounded —— 这条是真模型实测抓出来的。
+	before := len(hs)
+	hs = interest.KeepGrounded(hs, body)
+	if n := before - len(hs); n > 0 {
+		slog.Warn("interest harvest: dropped ungrounded keywords", "dropped", n, "atom_id", atomID)
 	}
 	a.plantKeywords(ctx, userID, kind, atomID, title, hs)
 }

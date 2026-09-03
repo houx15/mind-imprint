@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from "react";
-import { useEco } from "../store";
+import type { MeUser } from "../api/auth";
 import {
   FIELDS,
   GROWTH_STOPS,
@@ -7,15 +7,15 @@ import {
   branchPath,
   fieldById,
   pointOnBranch,
-} from "../data/tree";
-import { STUDENT } from "../data/library";
+} from "./geometry";
 import { outputCount, useInterestTree } from "./useInterestTree";
-import { go } from "../route";
-import type { FieldId, Keyword } from "../data/types";
-import { Hint, Sys, cx } from "../ui";
-import { useFitScale } from "./../fit";
-import { ViewSwitch } from "./ViewSwitch";
+import type { FieldId, Keyword } from "./types";
+import { Hint, Sys, cx } from "./ui";
+import { useFitScale } from "./useFitScale";
 import { KeywordDrawer } from "./KeywordDrawer";
+import { useQuizTaken } from "./quiz/useQuizStatus";
+import { liteRoutePath, navigate } from "../routing";
+import "./tree.css";
 
 /**
  * 我的兴趣树 · the keyword model, as a lit structure on a dark ground.
@@ -49,8 +49,11 @@ import { KeywordDrawer } from "./KeywordDrawer";
  * many words the model holds) and 成果数 (how many finished things they were
  * built from). Nothing rewards frequency (铁律②).
  */
-export function TreeView() {
-  const { state, setGrowth } = useEco();
+export function TreeView({ user }: { user: MeUser }) {
+  // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
+  // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
+  // 回放拖到了哪一格，把它提升到全局只会让一个纯展示的选择跨页面存活。
+  const [stop, setStop] = useState(GROWTH_STOPS.length - 1);
   const [openId, setOpenId] = useState<string | null>(null);
   const [hoverField, setHoverField] = useState<FieldId | null>(null);
 
@@ -64,16 +67,17 @@ export function TreeView() {
   const live = useInterestTree();
   const all = live.keywords;
 
-  const stop = state.growth;
+  // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。
+  const quizTaken = useQuizTaken();
+  const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
+  // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
+  const [inviteField, setInviteField] = useState<FieldId | null>(null);
+
   const visible = useMemo(() => all.filter((k) => k.bornAt <= stop), [all, stop]);
   // Only the stops that actually hold something. A dot that shows the tree she
   // is already looking at is a control that does nothing.
   const liveStops = useMemo(() => stopsFor(all), [all]);
   const maturity = 0.42 + (stop / 3) * 0.58;
-  // Words she kept from 世界 are collected NOW, so they exist only at the
-  // present stop. Showing them while the replay is rewound put a keyword on a
-  // tree that also claimed to have zero keywords.
-  const grown = stop === GROWTH_STOPS.length - 1 ? state.grownKeywords : [];
   const openKw = openId ? (all.find((k) => k.id === openId) ?? null) : null;
 
   // ONE count, used by the header, the field index and the caption. Three
@@ -83,8 +87,7 @@ export function TreeView() {
   // 没有——而这个界面最不能撒的谎，就是关于她自己有什么。
   const known = live.status === "ready" || live.status === "empty";
   const countFor = (fieldId?: FieldId) =>
-    (fieldId ? visible.filter((k) => k.field === fieldId) : visible).length +
-    (fieldId ? grown.filter((g) => g.field === fieldId) : grown).length;
+    (fieldId ? visible.filter((k) => k.field === fieldId) : visible).length;
   const total = countFor();
 
   // 成果数 — finished things, not activity. Readings + writings + projects she
@@ -95,13 +98,17 @@ export function TreeView() {
   const outputs = outputCount(all);
 
   return (
-    <div className="eco-grove eco-motes relative min-h-full">
+    <div className="tree-grove tree-motes relative min-h-full">
       <header className="relative z-20 flex flex-wrap items-center justify-between gap-4 px-7 pt-6">
         <div className="min-w-0">
           <Sys tone="dark">我的兴趣树 · INTEREST TREE</Sys>
           <h1 className="mt-1 text-mk-h1 text-[#F5EFE7]">
-            {STUDENT.name}
-            <span className="ml-2 text-mk-body font-normal text-[#9A8E80]">{STUDENT.grade}</span>
+            {user.display_name}
+            {user.classes[0] ? (
+              <span className="ml-2 text-mk-body font-normal text-[#9A8E80]">
+                {user.classes[0].name}
+              </span>
+            ) : null}
           </h1>
 
           {/* The growth axis, top-left under the name — same position and
@@ -120,7 +127,7 @@ export function TreeView() {
                   <div key={st.label} className="flex items-center">
                     <button
                       type="button"
-                      onClick={() => setGrowth(si)}
+                      onClick={() => setStop(si)}
                       aria-pressed={active}
                       className="group flex flex-col items-center gap-1.5 px-2.5 py-1 focus-visible:outline-none"
                       title={st.sub}
@@ -165,8 +172,22 @@ export function TreeView() {
             )
           )}
         </div>
-        <ViewSwitch view="tree" />
         <div className="flex items-center gap-5">
+          {/* 兴趣测试的常驻入口。树不空时也留着，因为**重做是再长几个词**
+              （服务端给同一个词再添一条来源，强度上升），不是清空重来。
+              和空树上那条邀请一样，状态未知（null）时不显示。 */}
+          {quizTaken !== null ? (
+            <button
+              type="button"
+              onClick={openQuiz}
+              className="rounded-full border px-3.5 py-1.5 text-mk-small transition-colors duration-[120ms]
+                         hover:bg-[rgba(240,233,224,.1)] focus-visible:outline-none
+                         focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
+              style={{ borderColor: "rgba(85,230,255,.42)", color: "#9fdcf0" }}
+            >
+              {quizTaken ? "再做一次兴趣测试" : "兴趣测试"}
+            </button>
+          ) : null}
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
               <Sys tone="dark">关键词</Sys>
@@ -205,6 +226,9 @@ export function TreeView() {
             onMouseLeave={() => setHoverField(null)}
             onFocus={() => setHoverField(f.id)}
             onBlur={() => setHoverField(null)}
+            // 窄屏走的是这一行 chip，空枝邀请在这里也要能点开 —— 只给宽屏那一列
+            // 加上，等于让小屏幕的学生永远碰不到这个入口。
+            onClick={() => (known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
             className="inline-flex items-center gap-1.5 rounded-mk-full px-2.5 py-1 text-mk-small
                        transition-colors duration-[120ms] hover:bg-[rgba(240,233,224,.1)]
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
@@ -214,7 +238,7 @@ export function TreeView() {
               className="h-1.5 w-1.5 rotate-45"
               style={{ background: f.hue, boxShadow: `0 0 8px ${f.hue}` }}
             />
-            <span className="eco-mono text-[#7C7166]">{String(i + 1).padStart(2, "0")}</span>
+            <span className="tree-mono text-[#7C7166]">{String(i + 1).padStart(2, "0")}</span>
             {f.label}
             <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
               {known ? countFor(f.id) : "—"}
@@ -242,7 +266,13 @@ export function TreeView() {
 
           {/* 四个状态，说清楚是哪一个。绝不用示例关键词填满一棵空树——那会把
               十六个不属于她的词挂在一张写着「这就是你的模型」的图上。 */}
-          <TreeState status={live.status} error={live.error} onRetry={live.reload} />
+          <TreeState
+            status={live.status}
+            error={live.error}
+            onRetry={live.reload}
+            quizTaken={quizTaken}
+            onStartQuiz={openQuiz}
+          />
 
           {/* keyword beads */}
           {visible.map((k, i) => (
@@ -258,25 +288,10 @@ export function TreeView() {
             />
           ))}
 
-          {/* Kept-from-世界 words get their own lane low on the trunk, so a new
-              arrival can never land on top of an existing keyword. */}
-          {grown.map((g, i) => {
-            const f = fieldById(g.field as FieldId);
-            const p = pointOnBranch(f.id, 0.1, i % 2 === 0 ? 44 : -44);
-            return (
-              <Bead
-                key={g.id}
-                x={p.x}
-                y={p.y + i * 34}
-                hue={f.hue}
-                meta="新收藏"
-                name={g.text}
-                strength={2}
-                fresh
-                scale={scale}
-              />
-            );
-          })}
+          {/* 原型在这里还有一条「从世界收藏来的词」的独立轨道。它没有跟过来：
+              那些词住在 EcoProvider 的内存里，刷新即消失。P4 之后，从新闻星图
+              收藏一条会走 `plantKeywords` 的同一条路（`kind='news'`），于是它
+              就是树上一个真正的关键词，而不是另开一条轨道。 */}
         </div>
       </div>
 
@@ -296,6 +311,9 @@ export function TreeView() {
                   onMouseLeave={() => setHoverField(null)}
                   onFocus={() => setHoverField(f.id)}
                   onBlur={() => setHoverField(null)}
+                  // 🚨 只有**空枝**可以点开。有词的枝上，那个数字自己说完了话；
+                  // 空枝上，那个 0 什么也没说 —— 它该变成一句邀请。
+                  onClick={() => (known && n === 0 ? setInviteField(f.id) : undefined)}
                   className="flex w-full items-center gap-2 border-b px-1 py-2 text-left transition-colors
                              duration-[120ms] hover:bg-[rgba(240,233,224,.07)] focus-visible:outline-none
                              focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
@@ -305,13 +323,19 @@ export function TreeView() {
                     className="h-1.5 w-1.5 shrink-0 rotate-45"
                     style={{ background: f.hue, boxShadow: `0 0 8px ${f.hue}` }}
                   />
-                  <span className="eco-mono shrink-0 text-[#7C7166]">
+                  <span className="tree-mono shrink-0 text-[#7C7166]">
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-mk-small text-[#C0B4A6]">{f.label}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
-                    {known ? n : "—"}
-                  </span>
+                  {known && n === 0 ? (
+                    <span className="shrink-0 text-[11px]" style={{ color: "var(--mk-accent-400)" }}>
+                      还没有
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
+                      {known ? n : "—"}
+                    </span>
+                  )}
                 </button>
               </li>
             );
@@ -320,6 +344,12 @@ export function TreeView() {
       </div>
 
       <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} />
+      <BranchInvite
+        field={inviteField}
+        onClose={() => setInviteField(null)}
+        onExplore={() => navigate(liteRoutePath({ tab: "explore" }))}
+        onQuiz={openQuiz}
+      />
     </div>
   );
 }
@@ -350,7 +380,7 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
           return (
             <linearGradient
               key={f.id}
-              id={`eco-br-${f.id}`}
+              id={`tree-br-${f.id}`}
               gradientUnits="userSpaceOnUse"
               x1={500}
               y1={480}
@@ -363,19 +393,19 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
             </linearGradient>
           );
         })}
-        <linearGradient id="eco-spine" x1="0" y1="1" x2="0" y2="0">
+        <linearGradient id="tree-spine" x1="0" y1="1" x2="0" y2="0">
           <stop offset="0%" stopColor="#FFE9CF" stopOpacity="0.5" />
           <stop offset="55%" stopColor="#FFD9B0" stopOpacity="0.3" />
           <stop offset="100%" stopColor="#FFD9B0" stopOpacity="0.05" />
         </linearGradient>
-        <radialGradient id="eco-canopy" cx="50%" cy="46%" r="52%">
+        <radialGradient id="tree-canopy" cx="50%" cy="46%" r="52%">
           <stop offset="0%" stopColor="#FFC9A0" stopOpacity="0.16" />
           <stop offset="60%" stopColor="#FFB98C" stopOpacity="0.05" />
           <stop offset="100%" stopColor="#FFB98C" stopOpacity="0" />
         </radialGradient>
         {/* The bloom. `stdDeviation` is deliberately large: this is a halo
             around the strokes, not a soft edge on them. */}
-        <filter id="eco-bloom" x="-30%" y="-30%" width="160%" height="160%">
+        <filter id="tree-bloom" x="-30%" y="-30%" width="160%" height="160%">
           <feGaussianBlur stdDeviation="7" result="blur" />
           <feMerge>
             <feMergeNode in="blur" />
@@ -386,8 +416,8 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
       </defs>
 
       {/* canopy glow */}
-      <ellipse cx="500" cy="360" rx="480" ry="310" fill="url(#eco-canopy)" />
-      <ellipse cx="500" cy="470" rx="250" ry="230" fill="url(#eco-canopy)" />
+      <ellipse cx="500" cy="360" rx="480" ry="310" fill="url(#tree-canopy)" />
+      <ellipse cx="500" cy="470" rx="250" ry="230" fill="url(#tree-canopy)" />
 
       {/* growth rings, centred on the origin */}
       {[210, 340, 470, 600].map((r, i) => (
@@ -459,7 +489,7 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
                     strokeOpacity="0.6"
                     strokeWidth="1.6"
                     strokeLinecap="round"
-                    filter="url(#eco-bloom)"
+                    filter="url(#tree-bloom)"
                   />
                   {/* a spark at the twig's end — light caught on a leaf */}
                   <circle cx={b.x} cy={b.y} r="1.8" fill={f.hue} fillOpacity="0.8" />
@@ -491,7 +521,7 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
               fill="none"
               pathLength={1}
               strokeDasharray={`${Math.min(0.14, maturity)} 1`}
-              filter="url(#eco-bloom)"
+              filter="url(#tree-bloom)"
               style={{ transition: "stroke-width 200ms" }}
             />
             <path
@@ -507,16 +537,16 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
             />
             <path
               d={branchPath(f.id)}
-              stroke={`url(#eco-br-${f.id})`}
+              stroke={`url(#tree-br-${f.id})`}
               strokeWidth={hoverField === f.id ? 5 : 3}
               strokeLinecap="round"
               fill="none"
               pathLength={1}
               strokeDasharray={`${maturity} 1`}
-              filter="url(#eco-bloom)"
+              filter="url(#tree-bloom)"
               style={{ transition: "stroke-width 200ms" }}
             />
-            <circle cx={tip.x} cy={tip.y} r="3.5" fill={f.hue} filter="url(#eco-bloom)" />
+            <circle cx={tip.x} cy={tip.y} r="3.5" fill={f.hue} filter="url(#tree-bloom)" />
             <text
               x={tip.x + (left ? -20 : 20)}
               y={tip.y - 34}
@@ -554,8 +584,8 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
           "C 501 350, 503 402, 506 470 " +
           "C 512 566, 514 660, 524 748 Z"
         }
-        fill="url(#eco-spine)"
-        filter="url(#eco-bloom)"
+        fill="url(#tree-spine)"
+        filter="url(#tree-bloom)"
       />
       <path
         d="M 500 748 C 497 640, 503 560, 500 470 C 498 400, 502 350, 500 292"
@@ -569,17 +599,17 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
         <path
           key={side}
           d={`M 500 690 C ${500 + side * 14} 712, ${500 + side * 30} 730, ${500 + side * 44} 748`}
-          stroke="url(#eco-spine)"
+          stroke="url(#tree-spine)"
           strokeWidth="5"
           strokeLinecap="round"
           fill="none"
-          filter="url(#eco-bloom)"
+          filter="url(#tree-bloom)"
         />
       ))}
 
       {/* the origin */}
       <circle cx="500" cy="742" r="17" fill="#0B0907" stroke="#F0E9E0" strokeOpacity="0.26" />
-      <circle cx="500" cy="742" r="4" fill="var(--mk-accent-400)" filter="url(#eco-bloom)" />
+      <circle cx="500" cy="742" r="4" fill="var(--mk-accent-400)" filter="url(#tree-bloom)" />
       <text
         x="500"
         y="712"
@@ -684,7 +714,7 @@ function Bead({
 
   return (
     <div
-      className="eco-node absolute"
+      className="tree-node absolute"
       style={{
         left: `${x / 10}%`,
         top: `${y / 7.8}%`,
@@ -699,7 +729,7 @@ function Bead({
       {/* the bead */}
       <span
         aria-hidden
-        className="eco-bead absolute block"
+        className="tree-bead absolute block"
         style={{
           left: -d / 2,
           top: -d / 2,
@@ -756,7 +786,7 @@ function Bead({
         }}
       >
         <span
-          className="eco-mono block"
+          className="tree-mono block"
           style={{
             color: fresh ? hue : "#8A7F72",
             fontSize: 9.5 * scale,
@@ -793,10 +823,15 @@ function TreeState({
   status,
   error,
   onRetry,
+  quizTaken,
+  onStartQuiz,
 }: {
   status: "loading" | "error" | "empty" | "ready";
   error: string;
   onRetry: () => void;
+  /** null = 还不知道她做过没有。 */
+  quizTaken: boolean | null;
+  onStartQuiz: () => void;
 }) {
   if (status === "ready") return null;
 
@@ -846,9 +881,121 @@ function TreeState({
               关键词由你完成的阅读、写作与项目自动生成。完成一篇后回到这里，
               它会长出来。
             </p>
+            {/* 🚨 空树上那条邀请。**只在明确知道她没做过时出现** —— 读不到
+                状态（null）时不显示，因为在一个上个月已经做过的学生面前每次
+                都闪一下「来做个测试」，比不显示糟。
+                这也是产品负责人要的那条：第一次看见这棵树时邀请她做测试。 */}
+            {quizTaken === false ? (
+              <>
+                <div className="my-4 h-px" style={{ background: "rgba(245,239,231,0.14)" }} />
+                <p className="text-mk-small leading-[1.8] text-[#C0B4A6]">
+                  也可以先做一次兴趣测试，五分钟，树上会长出第一批词。
+                </p>
+                <button
+                  type="button"
+                  onClick={onStartQuiz}
+                  className="mt-3 rounded-full px-5 py-2 text-mk-body font-semibold text-[#04121d] transition hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg,#55e6ff,#1ca5dc)" }}
+                >
+                  开始兴趣测试
+                </button>
+              </>
+            ) : null}
           </>
         )}
       </div>
     </div>
   );
 }
+
+/**
+ * 空枝邀请 —— 「你的树上还没有这根枝」。
+ *
+ * 一根没有词的枝上，那个 `0` 什么也没说。它其实是这张图上**最有用的一条
+ * 信息**：她还没走过的方向。所以点开它不是显示「暂无数据」，而是问一句这根枝
+ * 上会长出什么，再给两个真的入口。
+ *
+ * 🚨 这里**不劝她**。文案说的是这根枝研究什么、以及从哪能碰到它，不说「快去
+ * 试试吧」——一根空枝不是一个缺口，一个学生没有义务把七根枝都长满。
+ */
+function BranchInvite({
+  field,
+  onClose,
+  onExplore,
+  onQuiz,
+}: {
+  field: FieldId | null;
+  onClose: () => void;
+  onExplore: () => void;
+  onQuiz: () => void;
+}) {
+  if (!field) return null;
+  const f = fieldById(field);
+  const blurb = BRANCH_BLURB[field];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6" role="dialog" aria-label={f.label}>
+      <button
+        type="button"
+        aria-label="关闭"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ background: "rgba(10,8,6,.62)" }}
+      />
+      <div
+        className="tree-in relative w-full max-w-[460px] rounded-[18px] p-6"
+        style={{ background: "#1C1713", border: `1px solid color-mix(in srgb, ${f.hue} 38%, transparent)` }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2.5 w-2.5 rotate-45"
+            style={{ background: f.hue, boxShadow: `0 0 12px ${f.hue}` }}
+          />
+          <Sys tone="dark">{f.en}</Sys>
+        </div>
+        <h2 className="mt-1.5 text-mk-h2 text-[#F5EFE7]">你的树上还没有{f.label}这根枝</h2>
+        <p className="mt-3 text-mk-body leading-[1.9] text-[#C0B4A6]">{blurb}</p>
+        <p className="mt-3 text-mk-small leading-[1.85] text-[#8E8175]">
+          关键词只从你真的做完的事情上长出来，所以这根枝空着，只是说明你还没往这边走过。
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={onExplore}
+            className="rounded-mk-full px-4 py-2 text-mk-small font-semibold text-[#17130F] transition hover:opacity-90"
+            style={{ background: f.hue }}
+          >
+            去今日探索地图看看
+          </button>
+          <button
+            type="button"
+            onClick={onQuiz}
+            className="rounded-mk-full border px-4 py-2 text-mk-small text-[#F0E9E0] transition hover:opacity-80"
+            style={{ borderColor: "rgba(240,233,224,.3)" }}
+          >
+            做一次兴趣测试
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-mk-full px-4 py-2 text-mk-small text-[#8E8175] transition hover:text-[#C0B4A6]"
+          >
+            先不用
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 每根主枝一句「它研究什么」。写的是这门学问在问什么，不是一句招徕。 */
+const BRANCH_BLURB: Record<FieldId, string> = {
+  formal: "数学与形式问的是：一句话为什么一定成立？一个样本凭什么替一群人说话？统计、概率、逻辑、建模都在这根枝上。",
+  science: "科学与自然问的是：这件事到底怎么发生的？从气候与海洋到神经科学、天文，都在追同一个「为什么」。",
+  making: "技术与创造问的是：这东西能不能做出来、做得更好？算法、材料、工程设计、能源系统都在这里。",
+  society: "社会与世界问的是：人和人凑在一起之后会发生什么？经济、社会学、地理与城市、公共卫生都在这根枝上。",
+  humanities: "人文与写作问的是：这段话为什么这样打动人、这个说法站不站得住？历史、哲学、修辞与论证、媒介素养都在这里。",
+  arts: "艺术与表达问的是：怎么把一个感觉准确地交出去？影像叙事、视觉设计、音乐理论、创意写作都在这根枝上。",
+  self: "自我与成长问的是：我是怎么变成现在这样的、又怎么学得更好？认知与发展心理学、伦理学、学习科学都在这里。",
+};

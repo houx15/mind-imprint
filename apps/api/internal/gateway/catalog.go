@@ -123,19 +123,74 @@ type ModelPolicy struct {
 	// ThinkingOff is merged into the body to force reasoning off. Empty means
 	// this route has no such knob.
 	ThinkingOff map[string]any `json:"thinkingOff,omitempty"`
-	// ThinkingOffUnsupported marks a model that cannot stop reasoning at all. An
-	// explicit DisableThinking request against it is an error rather than a
-	// silently-ignored field.
+	// ThinkingOffUnsupported marks a model that rejects the thinking-off knob.
+	// It does NOT mean the model always reasons — see MinReasoningEffort.
 	ThinkingOffUnsupported bool `json:"thinkingOffUnsupported,omitempty"`
+	// MinReasoningEffort is the lowest effort this route accepts, and stands in
+	// for "off" on models that refuse the thinking-off knob.
+	//
+	// 🚨 This field exists because treating ThinkingOffUnsupported as "cannot
+	// stop reasoning" was wrong, and the mistake cost glm-5.3 three whole
+	// classes. DashScope's own 400 says what to do instead:
+	//
+	//	code 1210: 该模型始终思考，不支持关闭思考；请使用 low、high 或 max。
+	//
+	// Measured 2026-09-03: ZHIPU/GLM-5.3 with reasoning_effort:"low" returns
+	// ZERO reasoning tokens and a normal reply. That is thinking-off in every
+	// sense the capability classes care about — reached through a different
+	// knob, which is exactly the kind of per-route difference this struct is
+	// data rather than code in order to absorb.
+	MinReasoningEffort string `json:"minReasoningEffort,omitempty"`
+	// RequiresUserMessage marks a route that rejects a system-only message list.
+	//
+	// 🚨 Measured 2026-09-03: ZHIPU/GLM-5.3 answers `messages 参数非法` (400,
+	// code 1214) to a request carrying only a system message, while every other
+	// model in the catalog accepts it. internal/pbl.GenerateLookback sends
+	// exactly that shape, so pointing MODEL_ASSESS at a GLM model would have
+	// 400'd in production — breaking the catalog's whole promise that swapping a
+	// model is an env var and not a code change.
+	RequiresUserMessage bool `json:"requiresUserMessage,omitempty"`
 	// ReasoningEffortKey is the body key carrying a bounded effort ("low"/"max").
 	// Empty means the route ignores effort, so we do not send it.
 	ReasoningEffortKey string `json:"reasoningEffortKey,omitempty"`
+	// ReasoningEffortAliases translates OUR vocabulary (off/low/high/max) into
+	// the words this particular model accepts.
+	//
+	// 🚨 reasoning_effort is not one enum. Measured across the catalog on
+	// 2026-09-03 with a 400/ok probe per (model, value):
+	//
+	//	qwen3.7-max/-plus/-flash, kimi-k2.6   max → 400,   xhigh → ok
+	//	ZHIPU/GLM-5.3                         xhigh → 400, max   → ok
+	//	qwen3.8-*, deepseek-v4-*, kimi-k3, glm-5.2   both ok
+	//
+	// This cost an entire benchmark round: the assess class sends "max", the
+	// judge was qwen3.7-max, so EVERY judge call 400'd and the run produced a
+	// recommendation table with no quality data behind it. Re-derive the matrix
+	// with cmd/routebench rather than assuming a new model shares a vocabulary
+	// with its own siblings — qwen3.7 and qwen3.8 do not.
+	ReasoningEffortAliases map[string]string `json:"reasoningEffortAliases,omitempty"`
 	// BodyExtra is merged into every request; BodyExtraWithTools only when the
 	// turn carries tools.
 	BodyExtra          map[string]any `json:"bodyExtra,omitempty"`
 	BodyExtraWithTools map[string]any `json:"bodyExtraWithTools,omitempty"`
 	// DefaultTemperature applies when the request does not set one.
 	DefaultTemperature *float64 `json:"defaultTemperature,omitempty"`
+	// SearchSupported marks a route that accepts enable_search / search_options.
+	// Declared on the provider, because it is the channel that offers the
+	// feature, not the model.
+	SearchSupported bool `json:"searchSupported,omitempty"`
+}
+
+// canStopReasoning reports whether this route can be made to answer without
+// reasoning — either by the thinking-off knob, or by dropping to the lowest
+// effort the route accepts.
+//
+// The distinction matters: "rejects enable_thinking:false" and "always burns a
+// reasoning budget" are different properties, and conflating them excluded
+// glm-5.3 from reflex/dialogue/digest for a whole benchmark round on a
+// constraint it does not actually have.
+func canStopReasoning(p ModelPolicy) bool {
+	return !p.ThinkingOffUnsupported || p.MinReasoningEffort != ""
 }
 
 // merge overlays non-zero fields of over onto p. Model-level policy wins over
@@ -148,8 +203,27 @@ func (p ModelPolicy) merge(over ModelPolicy) ModelPolicy {
 	if over.ThinkingOffUnsupported {
 		out.ThinkingOffUnsupported = true
 	}
+	if over.MinReasoningEffort != "" {
+		out.MinReasoningEffort = over.MinReasoningEffort
+	}
+	if over.RequiresUserMessage {
+		out.RequiresUserMessage = true
+	}
+	if over.SearchSupported {
+		out.SearchSupported = true
+	}
 	if over.ReasoningEffortKey != "" {
 		out.ReasoningEffortKey = over.ReasoningEffortKey
+	}
+	if len(over.ReasoningEffortAliases) > 0 {
+		merged := make(map[string]string, len(out.ReasoningEffortAliases)+len(over.ReasoningEffortAliases))
+		for k, v := range out.ReasoningEffortAliases {
+			merged[k] = v
+		}
+		for k, v := range over.ReasoningEffortAliases {
+			merged[k] = v
+		}
+		out.ReasoningEffortAliases = merged
 	}
 	if len(over.BodyExtra) > 0 {
 		out.BodyExtra = mergeMaps(out.BodyExtra, over.BodyExtra)
@@ -365,13 +439,13 @@ func (c *Catalog) validate() error {
 		if class == ClassAssess && !m.Flagship {
 			return fmt.Errorf("gateway catalog: assess class model %q is not flagship — 评估绝不降级", spec.Model)
 		}
-		// A class that requires thinking OFF cannot be served by a model that
-		// refuses to stop thinking. Today this combination is caught only by a
-		// live test, or — on GLM-5.3, which returns 400 rather than ignoring the
-		// field — by every single student turn erroring out. Catch it at boot.
-		if spec.Reasoning == ReasoningOff && c.policyFor(m).ThinkingOffUnsupported {
+		// A class that requires thinking OFF cannot be served by a model that has
+		// no way to stop reasoning at all. Caught at boot rather than by every
+		// student turn erroring out.
+		if spec.Reasoning == ReasoningOff && !canStopReasoning(c.policyFor(m)) {
 			return fmt.Errorf("gateway catalog: class %q requires reasoning off, but model %q cannot stop reasoning "+
-				"(thinkingOffUnsupported) — pick another model or relax the class to a bounded effort",
+				"(thinkingOffUnsupported, and no minReasoningEffort to stand in for off) — "+
+				"pick another model or relax the class to a bounded effort",
 				class, spec.Model)
 		}
 	}
@@ -469,11 +543,10 @@ func (c *Catalog) candidatesFor(class, modelID string) []string {
 			return
 		}
 		// A fallback must not violate the class's reasoning requirement either:
-		// falling back onto a model that cannot stop thinking would turn a
-		// 4-second chaperone turn into a 40-second one, or — on GLM-5.3 — into
-		// a hard 400. Skipping it here keeps fallback a smaller change than the
-		// outage it is covering for.
-		if c.Lanes[class].Reasoning == ReasoningOff && c.policyFor(m).ThinkingOffUnsupported {
+		// falling back onto a model with no way to stop thinking would turn a
+		// 4-second chaperone turn into a 40-second one. Skipping it here keeps
+		// fallback a smaller change than the outage it is covering for.
+		if c.Lanes[class].Reasoning == ReasoningOff && !canStopReasoning(c.policyFor(m)) {
 			return
 		}
 		seen[id] = true
@@ -570,9 +643,9 @@ func (c *Catalog) Resolve(lane, override string, keys KeyLookup) (Resolved, erro
 		if class == ClassAssess && !m.Flagship {
 			return Resolved{}, fmt.Errorf("gateway: class %q override %q is not flagship — 评估绝不降级", class, override)
 		}
-		if spec.Reasoning == ReasoningOff && c.policyFor(m).ThinkingOffUnsupported {
+		if spec.Reasoning == ReasoningOff && !canStopReasoning(c.policyFor(m)) {
 			return Resolved{}, fmt.Errorf("gateway: class %q requires reasoning off, but override %q cannot stop "+
-				"reasoning (thinkingOffUnsupported)", class, override)
+				"reasoning (thinkingOffUnsupported, and no minReasoningEffort to stand in for off)", class, override)
 		}
 		modelID = override
 	}

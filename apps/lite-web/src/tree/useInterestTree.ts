@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchInterestTree, type InterestField, type InterestTree } from "../../api/interest";
-import { toTreeKeywords } from "../data/liveTree";
-import type { Keyword } from "../data/types";
+import { fetchInterestTree, type InterestField, type InterestTree } from "../api/interest";
+import { toTreeKeywords } from "./liveTree";
+import type { Keyword } from "./types";
 
 /**
  * useInterestTree — 那棵树的真数据。

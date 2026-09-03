@@ -298,3 +298,52 @@ func TestParseHarvestEmptyIsNotAnError(t *testing.T) {
 		t.Fatalf("got %+v, err %v", got, err)
 	}
 }
+
+/* ── KeepGrounded ───────────────────────────────────────────────────────── */
+
+// 🚨 这一组守的是 2026-09-03 由**真模型实测**抓出来的一个 bug：模型把 prompt 里
+// 的脚手架文字（「她喜欢的是：《进击的巨人》里的利威尔」）当作她的原话返回。
+// 它长度合格、语义通顺、能过解析器的每一道检查 —— 然后被挂在她树上，标签写着
+// 「你自己写的」。那是一句她无从反驳的谎话。
+func TestKeepGroundedDropsPromptScaffoldingQuotedBackAsHerWords(t *testing.T) {
+	own := "《进击的巨人》里的利威尔\n他经历了很多痛苦，但在关键时刻依然保持理智，做出自己的选择。"
+	got := KeepGrounded([]Harvested{
+		{TextZh: "苦难中的选择力", Evidence: "他经历了很多痛苦，但在关键时刻依然保持理智，做出自己的选择。"},
+		{TextZh: "角色为何动人", Evidence: "她喜欢的是：《进击的巨人》里的利威尔"},
+	}, own)
+
+	if len(got) != 1 {
+		t.Fatalf("留下了 %d 个，want 1：%+v", len(got), got)
+	}
+	if got[0].TextZh != "苦难中的选择力" {
+		t.Errorf("留错了：%q", got[0].TextZh)
+	}
+}
+
+func TestKeepGroundedAcceptsWhatSheActuallyTyped(t *testing.T) {
+	// 作品名也是她敲进去的，摘它是合法的。
+	own := "《进击的巨人》里的利威尔\n他在关键时刻依然保持理智。"
+	got := KeepGrounded([]Harvested{{Evidence: "《进击的巨人》里的利威尔"}}, own)
+	if len(got) != 1 {
+		t.Error("她自己敲的作品名被当成不是她的了")
+	}
+}
+
+func TestKeepGroundedIgnoresRewrappedWhitespace(t *testing.T) {
+	// 模型经常重新换行，那不算转述。
+	own := "我读到面积那一段才反应过来，\n四平方公里其实很小。"
+	got := KeepGrounded([]Harvested{
+		{Evidence: "我读到面积那一段才反应过来， 四平方公里其实很小。"},
+	}, own)
+	if len(got) != 1 {
+		t.Error("只是换行不同就被判成不是原话了")
+	}
+}
+
+func TestKeepGroundedDropsParaphrase(t *testing.T) {
+	own := "我读到面积那一段才反应过来，四平方公里其实很小。"
+	got := KeepGrounded([]Harvested{{Evidence: "她意识到取样面积很小"}}, own)
+	if len(got) != 0 {
+		t.Errorf("转述被当成了原话：%+v", got)
+	}
+}

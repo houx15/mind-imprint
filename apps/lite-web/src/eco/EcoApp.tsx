@@ -3,8 +3,6 @@ import { Compass, Hexagon, MessageCircle, User } from "lucide-react";
 import { EcoProvider, useEco } from "./store";
 import { ecoPath, go, parseEcoRoute, type EcoRoute } from "./route";
 import { CoachDrawer } from "./coach/CoachDrawer";
-import { WorldView } from "./world/WorldView";
-import { TreeView } from "./home/TreeView";
 import { ProjectsHub } from "./projects/ProjectsHub";
 import { NewProject } from "./projects/NewProject";
 import { Workbench } from "./projects/Workbench";
@@ -181,7 +179,9 @@ function Shell({ route }: { route: EcoRoute }) {
 function Surface({ route }: { route: EcoRoute }) {
   switch (route.name) {
     case "home":
-      return route.view === "world" ? <WorldView /> : <TreeView />;
+      // 世界和树**都已经不在原型里了**：它们是 lite 的真页面 `/explore` 与
+      // `/tree`。原型现在只剩项目工作台和个人主页两块还在设计中的东西。
+      return <MovedOut />;
     case "projects":
       return <ProjectsHub />;
     case "project-new":
@@ -193,6 +193,43 @@ function Surface({ route }: { route: EcoRoute }) {
     case "page":
       return <PersonalPage handle={route.handle} />;
   }
+}
+
+/**
+ * 首页那两屏搬走之后留下的路牌。
+ *
+ * 不做静默跳转：一个学生（或者我们自己）手敲 `/eco` 进来，应该被告诉这里发生了
+ * 什么，而不是莫名其妙地出现在另一个地址。
+ */
+function MovedOut() {
+  return (
+    <div className="flex h-full items-center justify-center p-10">
+      <div className="max-w-[420px] rounded-mk-lg border border-dashed border-mk-border p-8 text-center">
+        <p className="text-mk-h3 text-mk-ink">这两屏已经做成真页面了</p>
+        <p className="mx-auto mt-2 max-w-[34ch] text-mk-body leading-[1.85] text-mk-secondary">
+          今日探索地图在 <code>/explore</code>，我的兴趣树在 <code>/tree</code>，
+          都在 lite 的主导航里。这个原型只剩项目工作台和个人主页。
+        </p>
+        <div className="mt-5 flex justify-center gap-2.5">
+          <button
+            type="button"
+            onClick={() => window.location.assign("/explore")}
+            className="rounded-mk-full px-4 py-2 text-mk-body text-white"
+            style={{ background: "linear-gradient(140deg,var(--mk-accent-400),var(--mk-accent-600))" }}
+          >
+            去探索地图
+          </button>
+          <button
+            type="button"
+            onClick={() => window.location.assign("/tree")}
+            className="rounded-mk-full border border-mk-border px-4 py-2 text-mk-body text-mk-ink"
+          >
+            去我的树
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function surfaceFor(route: EcoRoute) {

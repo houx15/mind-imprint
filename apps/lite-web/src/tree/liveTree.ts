@@ -1,4 +1,4 @@
-import type { InterestKeyword as ApiKeyword, InterestTree } from "../../api/interest";
+import type { InterestKeyword as ApiKeyword, InterestTree } from "../api/interest";
 import type { FieldId, Keyword, KeywordSource } from "./types";
 
 /**

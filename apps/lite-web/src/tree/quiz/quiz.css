@@ -1,0 +1,323 @@
+/* ===========================================================================
+ * quiz.css — 觉醒协议的视觉层。
+ *
+ * 这一屏**故意和产品其他地方不一样**。整个 lite 是暖纸 + 暖夜；这里是冷蓝的
+ * 科幻界面。理由不是花哨：这是一个学生在还不知道自己喜欢什么的时候走进来的
+ * 地方，它的任务是让她愿意花五分钟。一个和作业界面长得一样的问卷做不到这件事。
+ *
+ * 调色板取自 `docs/reference/explore_interest.html`。它是这套设计里唯一冷色的
+ * 一屏，走出去（结果页的「回到我的树」）就换回暖色 —— 那个温差本身就是叙事：
+ * 你从外面的系统回到自己的树。
+ *
+ * 🚨 `mk-*` 是裸 CSS 变量，任何 Tailwind 透明度修饰都不会生成 CSS
+ * （memory: tailwind-mk-token-alpha-trap）。这个文件里索性一个 mk token 都不用，
+ * 全是自己的变量与字面 rgba。
+ * ======================================================================== */
+
+.awk {
+  --ink: #e8f3ff;
+  --muted: #9bb0c6;
+  --panel: rgba(9, 19, 34, 0.9);
+  --panel-soft: rgba(13, 28, 47, 0.76);
+  --line: rgba(130, 225, 255, 0.22);
+  --cyan: #55e6ff;
+  --cyan-2: #1ca5dc;
+  --amber: #ffcd70;
+  --purple: #9e8cff;
+  --green: #62e6ad;
+  --danger: #ff7189;
+
+  position: relative;
+  isolation: isolate;
+  min-height: 100%;
+  width: 100%;
+  overflow-y: auto;
+  color: var(--ink);
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif;
+  background:
+    radial-gradient(circle at 77% 12%, rgba(52, 205, 255, 0.15), transparent 28%),
+    radial-gradient(circle at 15% 80%, rgba(130, 92, 255, 0.13), transparent 33%),
+    linear-gradient(145deg, #06111f 0%, #02070f 56%, #071422 100%);
+}
+
+/* 细扫描线。压得很低，是质感不是图案。 */
+.awk::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(120, 200, 255, 0.045) 0px,
+    rgba(120, 200, 255, 0.045) 1px,
+    transparent 1px,
+    transparent 3px
+  );
+}
+
+.awk > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* --- 排版 ---------------------------------------------------------------- */
+
+.awk-eyebrow {
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--cyan);
+  font-weight: 600;
+}
+
+.awk-dim {
+  color: var(--muted);
+}
+
+/* --- 顶栏 ---------------------------------------------------------------- */
+
+.awk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  padding: 6px 14px;
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 11px;
+  letter-spacing: 0.12em;
+  color: var(--muted);
+}
+
+.awk-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--green);
+  box-shadow: 0 0 10px var(--green);
+  animation: awk-blink 2.4s ease-in-out infinite;
+}
+
+@keyframes awk-blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+}
+
+/* --- 面板 ---------------------------------------------------------------- */
+
+.awk-panel {
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--panel);
+  box-shadow: 0 22px 60px rgba(0, 0, 0, 0.38);
+}
+
+.awk-soft {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+}
+
+/* --- 按钮 ---------------------------------------------------------------- */
+
+.awk-primary {
+  border: 0;
+  border-radius: 999px;
+  padding: 13px 30px;
+  font-weight: 600;
+  color: #04121d;
+  background: linear-gradient(135deg, var(--cyan) 0%, var(--cyan-2) 100%);
+  box-shadow: 0 12px 32px rgba(28, 165, 220, 0.32);
+  cursor: pointer;
+  transition: transform 160ms cubic-bezier(0.2, 0, 0, 1), box-shadow 160ms;
+}
+.awk-primary:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 16px 38px rgba(28, 165, 220, 0.42);
+}
+.awk-primary:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+
+.awk-ghost {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 12px 24px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  transition: color 140ms, border-color 140ms;
+}
+.awk-ghost:hover {
+  color: var(--ink);
+  border-color: rgba(130, 225, 255, 0.45);
+}
+
+/* --- 选项卡 -------------------------------------------------------------- */
+
+.awk-card {
+  display: block;
+  width: 100%;
+  text-align: left;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: var(--panel-soft);
+  padding: 16px 18px;
+  cursor: pointer;
+  transition: border-color 160ms, background 160ms, transform 160ms cubic-bezier(0.2, 0, 0, 1);
+}
+.awk-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(130, 225, 255, 0.5);
+}
+.awk-card[aria-pressed="true"],
+.awk-card[data-on="true"] {
+  border-color: var(--cyan);
+  background: rgba(28, 165, 220, 0.16);
+  box-shadow: 0 0 0 1px var(--cyan) inset;
+}
+.awk-card[data-wrong="true"] {
+  border-color: var(--danger);
+  background: rgba(255, 113, 137, 0.12);
+}
+
+.awk-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  border-radius: 8px;
+  border: 1px solid var(--line);
+  font-family: ui-monospace, "SF Mono", monospace;
+  font-size: 12px;
+  color: var(--cyan);
+}
+
+/* --- 输入 ---------------------------------------------------------------- */
+
+.awk-input,
+.awk-textarea {
+  width: 100%;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(4, 12, 22, 0.7);
+  color: var(--ink);
+  padding: 12px 14px;
+  outline: none;
+  transition: border-color 140ms, box-shadow 140ms;
+}
+.awk-input::placeholder,
+.awk-textarea::placeholder {
+  color: rgba(155, 176, 198, 0.55);
+}
+.awk-input:focus,
+.awk-textarea:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(85, 230, 255, 0.16);
+}
+.awk-textarea {
+  min-height: 108px;
+  resize: vertical;
+  line-height: 1.75;
+}
+
+/* --- 中枢的话 ------------------------------------------------------------ */
+
+.awk-bubble {
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  border-left: 3px solid var(--cyan);
+  background: rgba(28, 165, 220, 0.1);
+  padding: 14px 16px;
+  line-height: 1.85;
+}
+
+/* --- 开场的轨道 ---------------------------------------------------------- */
+
+.awk-orbit {
+  position: relative;
+  width: 210px;
+  height: 210px;
+  margin: 0 auto;
+}
+.awk-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  border: 1px solid rgba(130, 225, 255, 0.28);
+  animation: awk-spin 18s linear infinite;
+}
+.awk-ring:nth-child(2) {
+  inset: 26px;
+  border-color: rgba(158, 140, 255, 0.28);
+  animation-duration: 26s;
+  animation-direction: reverse;
+}
+.awk-ring:nth-child(3) {
+  inset: 54px;
+  border-color: rgba(255, 205, 112, 0.24);
+  animation-duration: 34s;
+}
+.awk-core {
+  position: absolute;
+  inset: 82px;
+  border-radius: 999px;
+  background: radial-gradient(circle, var(--cyan) 0%, rgba(28, 165, 220, 0.15) 70%, transparent 72%);
+  box-shadow: 0 0 42px rgba(85, 230, 255, 0.45);
+  animation: awk-pulse 3.6s ease-in-out infinite;
+}
+@keyframes awk-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes awk-pulse {
+  0%, 100% { transform: scale(1); opacity: 0.9; }
+  50% { transform: scale(1.08); opacity: 1; }
+}
+
+/* --- 进度 ---------------------------------------------------------------- */
+
+.awk-meter {
+  display: inline-flex;
+  gap: 6px;
+}
+.awk-meter span {
+  width: 26px;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(130, 225, 255, 0.22);
+}
+.awk-meter span[data-on="true"] {
+  background: var(--cyan);
+  box-shadow: 0 0 10px var(--cyan);
+}
+
+/* --- 入场 ---------------------------------------------------------------- */
+
+.awk-in {
+  animation: awk-in 420ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: calc(var(--i, 0) * 60ms);
+}
+@keyframes awk-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .awk-ring,
+  .awk-core,
+  .awk-dot {
+    animation: none !important;
+  }
+  .awk-in {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}

@@ -353,15 +353,29 @@ type GraphNode struct {
 }
 
 type InterestKeyword struct {
-	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
-	TextZh      string    `json:"text_zh"`
-	TextEn      string    `json:"text_en"`
-	Norm        string    `json:"norm"`
-	Field       string    `json:"field"`
-	Strength    int32     `json:"strength"`
-	Note        string    `json:"note"`
-	FirstSeenAt time.Time `json:"first_seen_at"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	TextZh      string             `json:"text_zh"`
+	TextEn      string             `json:"text_en"`
+	Norm        string             `json:"norm"`
+	Field       string             `json:"field"`
+	Strength    int32              `json:"strength"`
+	Note        string             `json:"note"`
+	FirstSeenAt time.Time          `json:"first_seen_at"`
+	DigAt       pgtype.Timestamptz `json:"dig_at"`
+}
+
+type InterestQuiz struct {
+	ID                uuid.UUID          `json:"id"`
+	UserID            uuid.UUID          `json:"user_id"`
+	Navigator         string             `json:"navigator"`
+	AnchorWork        string             `json:"anchor_work"`
+	AnchorReason      string             `json:"anchor_reason"`
+	Hook              string             `json:"hook"`
+	ChallengeChoice   string             `json:"challenge_choice"`
+	ChallengeAttempts int32              `json:"challenge_attempts"`
+	CreatedAt         time.Time          `json:"created_at"`
+	FinishedAt        pgtype.Timestamptz `json:"finished_at"`
 }
 
 type Intervention struct {
@@ -375,6 +389,14 @@ type Intervention struct {
 	Level              *string     `json:"level"`
 	OutputCheckVerdict *string     `json:"output_check_verdict"`
 	CreatedAt          time.Time   `json:"created_at"`
+}
+
+type KeywordDig struct {
+	KeywordID uuid.UUID `json:"keyword_id"`
+	Kind      string    `json:"kind"`
+	Text      string    `json:"text"`
+	Why       string    `json:"why"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type KeywordDiscipline struct {
@@ -454,6 +476,36 @@ type Message struct {
 	CostEstimate     pgtype.Numeric `json:"cost_estimate"`
 	CreatedAt        time.Time      `json:"created_at"`
 	Source           *string        `json:"source"`
+}
+
+type NewsDay struct {
+	Day         pgtype.Date `json:"day"`
+	AttemptedAt time.Time   `json:"attempted_at"`
+	PlanetCount int32       `json:"planet_count"`
+	Note        string      `json:"note"`
+}
+
+type NewsPlanet struct {
+	ID           uuid.UUID          `json:"id"`
+	Day          pgtype.Date        `json:"day"`
+	Rank         int32              `json:"rank"`
+	TitleZh      string             `json:"title_zh"`
+	TitleEn      string             `json:"title_en"`
+	Summary      string             `json:"summary"`
+	Hook         string             `json:"hook"`
+	Url          string             `json:"url"`
+	SourceName   string             `json:"source_name"`
+	Field        string             `json:"field"`
+	DisciplineID string             `json:"discipline_id"`
+	Keyword      string             `json:"keyword"`
+	PublishedAt  pgtype.Timestamptz `json:"published_at"`
+	CreatedAt    time.Time          `json:"created_at"`
+}
+
+type NewsSaved struct {
+	UserID   uuid.UUID `json:"user_id"`
+	PlanetID uuid.UUID `json:"planet_id"`
+	SavedAt  time.Time `json:"saved_at"`
 }
 
 type OutlineNode struct {

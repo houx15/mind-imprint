@@ -138,3 +138,38 @@ func ParseHarvestReply(raw string) ([]Harvested, error) {
 	}
 	return out, nil
 }
+
+// KeepGrounded 丢掉那些 evidence **并非真的出自她所写内容**的关键词。
+//
+// # 它挡的是哪一件事（2026-09-03 由真模型实测发现）
+//
+// 解析器只检查 evidence 的长度，检查不了它的**出处**。一次真实调用里，模型把
+// prompt 里我自己写的那句脚手架文字
+//
+//	「她喜欢的是：《进击的巨人》里的利威尔」
+//
+// 当作她的原话返回了。它长度合格、语义通顺、能过解析器的每一道检查 —— 然后被
+// 挂在她的树上，标签写着「你自己写的」。**那是一句谎话，而且是她无从反驳的
+// 那种。**
+//
+// 靠改 prompt 去劝模型不要这么干是不够的：那是在期望模型守规矩，而不是让规矩
+// 成立。所以这里改成一条**可验证的不变量**：evidence 必须逐字出现在她真的写下
+// 的文字里，否则这个词不落库。
+//
+// corpus 是她自己写的全部内容（阅读的收获与批注、写作的正文、测试里她填的两栏）。
+// 比对前把空白折叠掉：模型经常重新换行，那不该算作转述。
+func KeepGrounded(hs []Harvested, corpus string) []Harvested {
+	flat := foldSpace(corpus)
+	out := make([]Harvested, 0, len(hs))
+	for _, h := range hs {
+		if strings.Contains(flat, foldSpace(h.Evidence)) {
+			out = append(out, h)
+		}
+	}
+	return out
+}
+
+// foldSpace 把所有连续空白（含换行）折成一个空格，便于逐字比对。
+func foldSpace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}

@@ -1,0 +1,31 @@
+{
+  "_comment": [
+    "PROFILE OF WHAT IS BOUND TODAY — not a comparison.",
+    "",
+    "One candidate per class: whatever models.json currently binds. This answers",
+    "'what does a turn cost and how long does the student wait', which is a",
+    "different question from 'which model should serve this class' and needs its",
+    "own run — a comparison run buries the incumbent among rivals.",
+    "",
+    "Re-run this after every re-binding. It is cheap: one call per case.",
+    "",
+    "⚠ The token counts here are per CALL, not per student session. The reading",
+    "room's read-together turn consults the model once (readturn.go:53, a compose",
+    "call); its coach turn is a separate endpoint and a separate dialogue call. So",
+    "add up the call sites a session actually visits — do not assume a turn costs",
+    "one of each class."
+  ],
+
+  "samples": 3,
+  "timeoutSeconds": 300,
+  "judgeModel": "",
+
+  "candidates": {
+    "reflex": ["dashscope/qwen3.7-flash"],
+    "dialogue": ["dashscope/deepseek-v4-pro"],
+    "compose": ["dashscope/glm-5.3"],
+    "review": ["dashscope/deepseek-v4-pro"],
+    "digest": ["dashscope/deepseek-v4-flash"],
+    "assess": ["dashscope/deepseek-v4-pro"]
+  }
+}

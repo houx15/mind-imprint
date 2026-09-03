@@ -1,6 +1,5 @@
 {
   "version": "gateway-models-v1",
-
   "_comment": [
     "Single source of truth for WHICH model serves each lane, what it costs, and",
     "how to steer its reasoning. Adding a vendor or a model is a JSON edit — no Go.",
@@ -24,7 +23,6 @@
     "chaperone lane would quietly resume full reasoning (4,000-7,000 completion",
     "tokens/turn, 40-66s) — the exact regression documented on NewChatResolver."
   ],
-
   "providers": {
     "dashscope": {
       "kind": "openai_compatible",
@@ -32,8 +30,11 @@
       "baseUrl": "https://llm-wjdjxs6f0x41w996.cn-beijing.maas.aliyuncs.com/compatible-mode/v1",
       "apiKeyEnv": "DASHSCOPE_API_KEY",
       "defaultModel": "dashscope/deepseek-v4-pro",
-      "thinkingOff": { "enable_thinking": false },
-      "reasoningEffortKey": "reasoning_effort"
+      "thinkingOff": {
+        "enable_thinking": false
+      },
+      "reasoningEffortKey": "reasoning_effort",
+      "searchSupported": true
     },
     "deepseek": {
       "kind": "openai_compatible",
@@ -41,7 +42,11 @@
       "baseUrl": "https://api.deepseek.com/v1",
       "apiKeyEnv": "DEEPSEEK_API_KEY",
       "defaultModel": "deepseek/deepseek-v4-pro",
-      "thinkingOff": { "thinking": { "type": "disabled" } },
+      "thinkingOff": {
+        "thinking": {
+          "type": "disabled"
+        }
+      },
       "reasoningEffortKey": "reasoning_effort"
     },
     "glm": {
@@ -55,9 +60,14 @@
       "defaultTemperature": 1.0,
       "bodyExtra": {
         "top_p": 0.95,
-        "thinking": { "type": "enabled", "clear_thinking": false }
+        "thinking": {
+          "type": "enabled",
+          "clear_thinking": false
+        }
       },
-      "bodyExtraWithTools": { "tool_stream": true }
+      "bodyExtraWithTools": {
+        "tool_stream": true
+      }
     },
     "anthropic": {
       "kind": "anthropic",
@@ -67,7 +77,6 @@
       "defaultModel": "anthropic/claude-3-5-sonnet-latest"
     }
   },
-
   "_capabilityComment": [
     "capabilities defaults to [\"chat\", \"tools\"] when omitted. A lane binds only a",
     "chat model — boot fails otherwise, so MODEL_CHAT=dashscope/qwen-image-3.0-pro",
@@ -91,7 +100,6 @@
     "console first; before activation every call is a 400 that reads like a bad",
     "request rather than a billing setting."
   ],
-
   "_reasoningComment": [
     "Measured 2026-09-02 with internal/gateway/probe_reasoning.py (median of 3 —",
     "single samples swing by a third and will invent a control that is not there):",
@@ -119,7 +127,6 @@
     "it is marked thinkingOffUnsupported too: better to send nothing and know it",
     "always reasons than to send a field that buys us a comforting lie."
   ],
-
   "_priceComment": [
     "priceUsd is cache-miss USD per 1M tokens. A model with priceUsd omitted is",
     "UNPRICED: llm_call records a NULL/zero cost rather than a wrong number, and",
@@ -128,7 +135,6 @@
     "every cost comparison the catalog exists to make. Fill them in from the",
     "Bailian console before drawing any cost conclusion from llm_usage."
   ],
-
   "models": {
     "dashscope/deepseek-v4-pro": {
       "provider": "dashscope",
@@ -156,17 +162,26 @@
       "provider": "dashscope",
       "model": "qwen3.7-max",
       "label": "Qwen 3.7 Max via DashScope",
-      "flagship": true
+      "flagship": true,
+      "reasoningEffortAliases": {
+        "max": "xhigh"
+      }
     },
     "dashscope/qwen3.7-plus": {
       "provider": "dashscope",
       "model": "qwen3.7-plus",
-      "label": "Qwen 3.7 Plus via DashScope"
+      "label": "Qwen 3.7 Plus via DashScope",
+      "reasoningEffortAliases": {
+        "max": "xhigh"
+      }
     },
     "dashscope/qwen3.7-flash": {
       "provider": "dashscope",
       "model": "qwen3.7-flash",
-      "label": "Qwen 3.7 Flash via DashScope"
+      "label": "Qwen 3.7 Flash via DashScope",
+      "reasoningEffortAliases": {
+        "max": "xhigh"
+      }
     },
     "dashscope/glm-5.3": {
       "provider": "dashscope",
@@ -174,14 +189,18 @@
       "label": "GLM 5.3 via DashScope",
       "flagship": true,
       "thinkingOffUnsupported": true,
-      "defaultReasoningEffort": "low"
+      "defaultReasoningEffort": "low",
+      "minReasoningEffort": "low",
+      "requiresUserMessage": true
     },
     "dashscope/glm-5.3-flash": {
       "provider": "dashscope",
       "model": "ZHIPU/GLM-5.3-Flash",
       "label": "GLM 5.3 Flash via DashScope",
       "thinkingOffUnsupported": true,
-      "defaultReasoningEffort": "low"
+      "defaultReasoningEffort": "low",
+      "minReasoningEffort": "low",
+      "requiresUserMessage": true
     },
     "dashscope/glm-5.2": {
       "provider": "dashscope",
@@ -204,72 +223,101 @@
       "provider": "dashscope",
       "model": "kimi-k2.6",
       "label": "Kimi K2.6 via DashScope",
-      "flagship": true
+      "flagship": true,
+      "reasoningEffortAliases": {
+        "max": "xhigh"
+      }
     },
     "dashscope/kimi-k2.7-code": {
       "provider": "dashscope",
       "model": "kimi-k2.7-code",
       "label": "Kimi K2.7 Code via DashScope",
       "flagship": true,
-      "capabilities": ["chat", "tools", "coding"],
+      "capabilities": [
+        "chat",
+        "tools",
+        "coding"
+      ],
       "thinkingOffUnsupported": true
     },
     "dashscope/qwen3.5-omni-plus": {
       "provider": "dashscope",
       "model": "qwen3.5-omni-plus",
       "label": "Qwen 3.5 Omni Plus via DashScope (multi-modal input)",
-      "capabilities": ["chat", "tools", "vision"]
+      "capabilities": [
+        "chat",
+        "tools",
+        "vision"
+      ]
     },
     "dashscope/qwen3.5-omni-flash": {
       "provider": "dashscope",
       "model": "qwen3.5-omni-flash",
       "label": "Qwen 3.5 Omni Flash via DashScope (multi-modal input)",
-      "capabilities": ["chat", "tools", "vision"]
+      "capabilities": [
+        "chat",
+        "tools",
+        "vision"
+      ]
     },
-
     "dashscope/qwen-image-3.0-pro": {
       "provider": "dashscope",
       "model": "qwen-image-3.0-pro",
       "label": "Qwen Image 3.0 Pro via DashScope",
-      "capabilities": ["image"]
+      "capabilities": [
+        "image"
+      ]
     },
     "dashscope/qwen-image-3.0": {
       "provider": "dashscope",
       "model": "qwen-image-3.0",
       "label": "Qwen Image 3.0 via DashScope",
-      "capabilities": ["image"]
+      "capabilities": [
+        "image"
+      ]
     },
     "dashscope/qwen-image-edit-max": {
       "provider": "dashscope",
       "model": "qwen-image-edit-max",
       "label": "Qwen Image Edit Max via DashScope",
-      "capabilities": ["image"]
+      "capabilities": [
+        "image"
+      ]
     },
     "dashscope/qwen3.7-text-embedding": {
       "provider": "dashscope",
       "model": "qwen3.7-text-embedding",
       "label": "Qwen 3.7 Text Embedding via DashScope",
-      "capabilities": ["embedding"]
+      "capabilities": [
+        "embedding"
+      ]
     },
     "dashscope/qwen3.7-text-rerank": {
       "provider": "dashscope",
       "model": "qwen3.7-text-rerank",
       "label": "Qwen 3.7 Text Rerank via DashScope",
-      "capabilities": ["rerank"]
+      "capabilities": [
+        "rerank"
+      ]
     },
-
     "deepseek/deepseek-v4-pro": {
       "provider": "deepseek",
       "model": "deepseek-v4-pro",
       "label": "DeepSeek V4 Pro (direct)",
       "flagship": true,
-      "priceUsd": { "inputPerMillion": 0.435, "outputPerMillion": 0.87 }
+      "priceUsd": {
+        "inputPerMillion": 0.435,
+        "outputPerMillion": 0.87
+      }
     },
     "deepseek/deepseek-v4-flash": {
       "provider": "deepseek",
       "model": "deepseek-v4-flash",
       "label": "DeepSeek V4 Flash (direct)",
-      "priceUsd": { "inputPerMillion": 0.14, "outputPerMillion": 0.28 }
+      "priceUsd": {
+        "inputPerMillion": 0.14,
+        "outputPerMillion": 0.28
+      }
     },
     "glm/glm-5.3-flash": {
       "provider": "glm",
@@ -282,10 +330,12 @@
       "model": "claude-3-5-sonnet-latest",
       "label": "Claude 3.5 Sonnet (direct)",
       "flagship": true,
-      "priceUsd": { "inputPerMillion": 3.0, "outputPerMillion": 15.0 }
+      "priceUsd": {
+        "inputPerMillion": 3.0,
+        "outputPerMillion": 15.0
+      }
     }
   },
-
   "_laneComment": [
     "chat      — chaperone: coach turns, writing turns, card grounding (降级 allowed)",
     "fastChat  — chaperone: the per-status studio router's short prompts",
@@ -334,52 +384,70 @@
   ],
   "lanes": {
     "reflex": {
-      "model": "dashscope/qwen3.7-flash", "tier": "chaperone",
-      "reasoning": "off", "latencyBudgetMs": 2000,
+      "model": "dashscope/qwen3.7-flash",
+      "tier": "chaperone",
+      "reasoning": "off",
+      "latencyBudgetMs": 2000,
       "label": "反射 — 一个标签或一次路由选择，没有自由文本"
     },
     "dialogue": {
-      "model": "dashscope/deepseek-v4-pro", "tier": "chaperone",
-      "reasoning": "off", "latencyBudgetMs": 4000,
+      "model": "dashscope/deepseek-v4-pro",
+      "tier": "chaperone",
+      "reasoning": "off",
+      "latencyBudgetMs": 4000,
       "label": "陪练 — 学生当场看得见的对话轮，一次只问一个"
     },
     "compose": {
-      "model": "dashscope/kimi-k3", "tier": "chaperone",
-      "reasoning": "low", "latencyBudgetMs": 12000,
+      "model": "dashscope/glm-5.3",
+      "tier": "chaperone",
+      "reasoning": "low",
+      "latencyBudgetMs": 12000,
       "label": "结构生成 — 从已陈述的输入派生一个 schema 形状的产物"
     },
     "review": {
-      "model": "dashscope/deepseek-v4-pro", "tier": "flagship",
-      "reasoning": "default", "latencyBudgetMs": 40000,
+      "model": "dashscope/deepseek-v4-pro",
+      "tier": "flagship",
+      "reasoning": "default",
+      "latencyBudgetMs": 40000,
       "label": "审阅 — 读学生的成果并作判断，判错有代价"
     },
     "assess": {
-      "model": "dashscope/deepseek-v4-pro", "tier": "flagship",
-      "reasoning": "max", "latencyBudgetMs": 180000,
+      "model": "dashscope/deepseek-v4-pro",
+      "tier": "flagship",
+      "reasoning": "max",
+      "latencyBudgetMs": 180000,
       "label": "过程评估 — rubric 报告 / 回顾 / 周报；绝不降级"
     },
     "digest": {
-      "model": "dashscope/deepseek-v4-flash", "tier": "chaperone",
-      "reasoning": "off", "latencyBudgetMs": 15000,
+      "model": "dashscope/deepseek-v4-flash",
+      "tier": "chaperone",
+      "reasoning": "off",
+      "latencyBudgetMs": 15000,
       "label": "摘要 — 长输入短输出，压缩而不判断"
     },
-
     "search": {
-      "model": "dashscope/qwen3.8-max", "tier": "chaperone",
-      "reasoning": "low", "latencyBudgetMs": 20000,
+      "model": "dashscope/qwen3.8-max",
+      "tier": "chaperone",
+      "reasoning": "low",
+      "latencyBudgetMs": 20000,
       "label": "预留 — 联网检索，需要多轮工具循环"
     },
     "multimodal": {
-      "model": "dashscope/qwen3.5-omni-plus", "tier": "chaperone",
-      "reasoning": "default", "latencyBudgetMs": 20000,
+      "model": "dashscope/qwen3.5-omni-plus",
+      "tier": "chaperone",
+      "reasoning": "default",
+      "latencyBudgetMs": 20000,
       "label": "预留 — 图文输入"
     }
   },
-
   "_fallbackComment": [
     "Tried in order when a lane's bound model has no key in the environment. Keeps",
     "local dev and CI working with whichever single key is present, and lets prod",
     "survive a DashScope outage by dropping back to the direct vendor endpoints."
   ],
-  "fallbackProviders": ["dashscope", "deepseek", "anthropic"]
+  "fallbackProviders": [
+    "dashscope",
+    "deepseek",
+    "anthropic"
+  ]
 }

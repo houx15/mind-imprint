@@ -40,6 +40,20 @@ func (q *Queries) AddKeywordSource(ctx context.Context, arg AddKeywordSourcePara
 	return err
 }
 
+const countFinishedInterestQuizzes = `-- name: CountFinishedInterestQuizzes :one
+SELECT count(*) FROM interest_quiz
+WHERE user_id = $1 AND finished_at IS NOT NULL
+`
+
+// 她做完过几次。**只数做完的**：一次中途退出的作答不算「做过了」，所以那条
+// 邀请还会再出现 —— 一个在第三屏关掉页面的学生，不该从此再也见不到入口。
+func (q *Queries) CountFinishedInterestQuizzes(ctx context.Context, userID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countFinishedInterestQuizzes, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countKeywordSources = `-- name: CountKeywordSources :one
 SELECT count(*) FROM keyword_source WHERE keyword_id = $1
 `
@@ -49,6 +63,58 @@ func (q *Queries) CountKeywordSources(ctx context.Context, keywordID uuid.UUID) 
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const finishInterestQuiz = `-- name: FinishInterestQuiz :one
+UPDATE interest_quiz SET
+  navigator          = $3,
+  anchor_work        = $4,
+  anchor_reason      = $5,
+  hook               = $6,
+  challenge_choice   = $7,
+  challenge_attempts = $8,
+  finished_at        = now()
+WHERE id = $1 AND user_id = $2
+RETURNING id, user_id, navigator, anchor_work, anchor_reason, hook, challenge_choice, challenge_attempts, created_at, finished_at
+`
+
+type FinishInterestQuizParams struct {
+	ID                uuid.UUID `json:"id"`
+	UserID            uuid.UUID `json:"user_id"`
+	Navigator         string    `json:"navigator"`
+	AnchorWork        string    `json:"anchor_work"`
+	AnchorReason      string    `json:"anchor_reason"`
+	Hook              string    `json:"hook"`
+	ChallengeChoice   string    `json:"challenge_choice"`
+	ChallengeAttempts int32     `json:"challenge_attempts"`
+}
+
+// 收一次作答。用 user_id 一起匹配，所以一个人改不了别人的那一行。
+func (q *Queries) FinishInterestQuiz(ctx context.Context, arg FinishInterestQuizParams) (InterestQuiz, error) {
+	row := q.db.QueryRow(ctx, finishInterestQuiz,
+		arg.ID,
+		arg.UserID,
+		arg.Navigator,
+		arg.AnchorWork,
+		arg.AnchorReason,
+		arg.Hook,
+		arg.ChallengeChoice,
+		arg.ChallengeAttempts,
+	)
+	var i InterestQuiz
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Navigator,
+		&i.AnchorWork,
+		&i.AnchorReason,
+		&i.Hook,
+		&i.ChallengeChoice,
+		&i.ChallengeAttempts,
+		&i.CreatedAt,
+		&i.FinishedAt,
+	)
+	return i, err
 }
 
 const getAtomInterestHarvestedAt = `-- name: GetAtomInterestHarvestedAt :one
@@ -62,8 +128,74 @@ func (q *Queries) GetAtomInterestHarvestedAt(ctx context.Context, id uuid.UUID) 
 	return interest_harvested_at, err
 }
 
+const getInterestKeywordForUser = `-- name: GetInterestKeywordForUser :one
+
+SELECT id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at, dig_at FROM interest_keyword WHERE id = $1 AND user_id = $2
+`
+
+type GetInterestKeywordForUserParams struct {
+	ID     uuid.UUID `json:"id"`
+	UserID uuid.UUID `json:"user_id"`
+}
+
+// ── 继续深挖 ─────────────────────────────────────────────────────────────
+func (q *Queries) GetInterestKeywordForUser(ctx context.Context, arg GetInterestKeywordForUserParams) (InterestKeyword, error) {
+	row := q.db.QueryRow(ctx, getInterestKeywordForUser, arg.ID, arg.UserID)
+	var i InterestKeyword
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.TextZh,
+		&i.TextEn,
+		&i.Norm,
+		&i.Field,
+		&i.Strength,
+		&i.Note,
+		&i.FirstSeenAt,
+		&i.DigAt,
+	)
+	return i, err
+}
+
+const getKeywordDigAt = `-- name: GetKeywordDigAt :one
+SELECT dig_at FROM interest_keyword WHERE id = $1
+`
+
+func (q *Queries) GetKeywordDigAt(ctx context.Context, id uuid.UUID) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getKeywordDigAt, id)
+	var dig_at pgtype.Timestamptz
+	err := row.Scan(&dig_at)
+	return dig_at, err
+}
+
+const latestFinishedInterestQuiz = `-- name: LatestFinishedInterestQuiz :one
+SELECT id, user_id, navigator, anchor_work, anchor_reason, hook, challenge_choice, challenge_attempts, created_at, finished_at FROM interest_quiz
+WHERE user_id = $1 AND finished_at IS NOT NULL
+ORDER BY finished_at DESC
+LIMIT 1
+`
+
+// 她最近做完的那一次。结果页重新打开时读它。
+func (q *Queries) LatestFinishedInterestQuiz(ctx context.Context, userID uuid.UUID) (InterestQuiz, error) {
+	row := q.db.QueryRow(ctx, latestFinishedInterestQuiz, userID)
+	var i InterestQuiz
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Navigator,
+		&i.AnchorWork,
+		&i.AnchorReason,
+		&i.Hook,
+		&i.ChallengeChoice,
+		&i.ChallengeAttempts,
+		&i.CreatedAt,
+		&i.FinishedAt,
+	)
+	return i, err
+}
+
 const listInterestKeywords = `-- name: ListInterestKeywords :many
-SELECT id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at FROM interest_keyword
+SELECT id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at, dig_at FROM interest_keyword
 WHERE user_id = $1
 ORDER BY strength DESC, first_seen_at ASC
 `
@@ -87,6 +219,38 @@ func (q *Queries) ListInterestKeywords(ctx context.Context, userID uuid.UUID) ([
 			&i.Strength,
 			&i.Note,
 			&i.FirstSeenAt,
+			&i.DigAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKeywordDig = `-- name: ListKeywordDig :many
+SELECT keyword_id, kind, text, why, created_at FROM keyword_dig WHERE keyword_id = $1 ORDER BY
+  CASE kind WHEN 'think' THEN 1 WHEN 'read' THEN 2 WHEN 'write' THEN 3 ELSE 4 END
+`
+
+func (q *Queries) ListKeywordDig(ctx context.Context, keywordID uuid.UUID) ([]KeywordDig, error) {
+	rows, err := q.db.Query(ctx, listKeywordDig, keywordID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []KeywordDig
+	for rows.Next() {
+		var i KeywordDig
+		if err := rows.Scan(
+			&i.KeywordID,
+			&i.Kind,
+			&i.Text,
+			&i.Why,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -124,6 +288,35 @@ func (q *Queries) ListKeywordDisciplinesForUser(ctx context.Context, userID uuid
 			return nil, err
 		}
 		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listKeywordEvidence = `-- name: ListKeywordEvidence :many
+SELECT evidence FROM keyword_source
+WHERE keyword_id = $1 AND evidence <> ''
+ORDER BY happened_at DESC
+LIMIT 8
+`
+
+// 这个词上她留下的每一句原话。**这是深挖调用唯一真正重要的输入** —— 没有它们，
+// 模型只能围着一个词泛泛地想，而那正是原型那四个空动词的来源。
+func (q *Queries) ListKeywordEvidence(ctx context.Context, keywordID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listKeywordEvidence, keywordID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var evidence string
+		if err := rows.Scan(&evidence); err != nil {
+			return nil, err
+		}
+		items = append(items, evidence)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err
@@ -277,6 +470,16 @@ func (q *Queries) MarkAtomInterestHarvested(ctx context.Context, id uuid.UUID) e
 	return err
 }
 
+const markKeywordDigged = `-- name: MarkKeywordDigged :exec
+UPDATE interest_keyword SET dig_at = now() WHERE id = $1
+`
+
+// 盖章在生成之前。见迁移 0119。
+func (q *Queries) MarkKeywordDigged(ctx context.Context, id uuid.UUID) error {
+	_, err := q.db.Exec(ctx, markKeywordDigged, id)
+	return err
+}
+
 const recountKeywordStrength = `-- name: RecountKeywordStrength :exec
 UPDATE interest_keyword SET strength = $2 WHERE id = $1
 `
@@ -310,6 +513,33 @@ func (q *Queries) SetKeywordDisciplineByStudent(ctx context.Context, arg SetKeyw
 	return err
 }
 
+const startInterestQuiz = `-- name: StartInterestQuiz :one
+
+INSERT INTO interest_quiz (user_id) VALUES ($1)
+RETURNING id, user_id, navigator, anchor_work, anchor_reason, hook, challenge_choice, challenge_attempts, created_at, finished_at
+`
+
+// ── 觉醒协议 · 兴趣测试 ───────────────────────────────────────────────────
+// 开一次作答。**先落库再做题**：这样一次中途退出的作答也留下一行（finished_at
+// 为空），而「她走到哪一屏就走开了」本身就是数据（铁律④）。
+func (q *Queries) StartInterestQuiz(ctx context.Context, userID uuid.UUID) (InterestQuiz, error) {
+	row := q.db.QueryRow(ctx, startInterestQuiz, userID)
+	var i InterestQuiz
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Navigator,
+		&i.AnchorWork,
+		&i.AnchorReason,
+		&i.Hook,
+		&i.ChallengeChoice,
+		&i.ChallengeAttempts,
+		&i.CreatedAt,
+		&i.FinishedAt,
+	)
+	return i, err
+}
+
 const upsertInterestKeyword = `-- name: UpsertInterestKeyword :one
 
 INSERT INTO interest_keyword (user_id, text_zh, text_en, norm, field, note)
@@ -317,7 +547,7 @@ VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (user_id, norm) DO UPDATE SET
   text_en = CASE WHEN interest_keyword.text_en = '' THEN EXCLUDED.text_en ELSE interest_keyword.text_en END,
   note    = CASE WHEN interest_keyword.note    = '' THEN EXCLUDED.note    ELSE interest_keyword.note    END
-RETURNING id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at
+RETURNING id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at, dig_at
 `
 
 type UpsertInterestKeywordParams struct {
@@ -356,8 +586,31 @@ func (q *Queries) UpsertInterestKeyword(ctx context.Context, arg UpsertInterestK
 		&i.Strength,
 		&i.Note,
 		&i.FirstSeenAt,
+		&i.DigAt,
 	)
 	return i, err
+}
+
+const upsertKeywordDig = `-- name: UpsertKeywordDig :exec
+INSERT INTO keyword_dig (keyword_id, kind, text, why) VALUES ($1,$2,$3,$4)
+ON CONFLICT (keyword_id, kind) DO UPDATE SET text = EXCLUDED.text, why = EXCLUDED.why
+`
+
+type UpsertKeywordDigParams struct {
+	KeywordID uuid.UUID `json:"keyword_id"`
+	Kind      string    `json:"kind"`
+	Text      string    `json:"text"`
+	Why       string    `json:"why"`
+}
+
+func (q *Queries) UpsertKeywordDig(ctx context.Context, arg UpsertKeywordDigParams) error {
+	_, err := q.db.Exec(ctx, upsertKeywordDig,
+		arg.KeywordID,
+		arg.Kind,
+		arg.Text,
+		arg.Why,
+	)
+	return err
 }
 
 const upsertKeywordDiscipline = `-- name: UpsertKeywordDiscipline :exec

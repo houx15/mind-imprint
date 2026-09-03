@@ -98,9 +98,9 @@ func streamOpenAICompatible(ctx context.Context, client *http.Client, r Resolved
 		return nil, fmt.Errorf("%w: %s transport: %v", errStreamFailed, provider, err)
 	}
 	if resp.StatusCode != http.StatusOK {
-		_, _ = io.Copy(io.Discard, resp.Body)
+		detail := readErrorBody(resp.StatusCode, resp.Body)
 		_ = resp.Body.Close()
-		return nil, fmt.Errorf("%w: %s http %d", errStreamFailed, provider, resp.StatusCode)
+		return nil, fmt.Errorf("%w: %s http %d%s", errStreamFailed, provider, resp.StatusCode, detail)
 	}
 
 	out := make(chan StreamEvent)
@@ -126,7 +126,7 @@ type openAIChunk struct {
 			// ReasoningContent is what DeepSeek/Qwen/GLM/Kimi all call the
 			// thinking stream on this wire format.
 			ReasoningContent string `json:"reasoning_content"`
-			ToolCalls []struct {
+			ToolCalls        []struct {
 				Index    int    `json:"index"`
 				ID       string `json:"id"`
 				Function struct {
@@ -257,4 +257,39 @@ func consumeOpenAICompatible(ctx context.Context, body io.Reader, out chan<- Str
 		}
 	}
 	emit(StreamEvent{Kind: EventDone, StopReason: stop, Incomplete: !completed})
+}
+
+// readErrorBody returns a bounded, single-line prefix of a non-200 response body
+// so the error carries the provider's own words.
+//
+// 🚨 We used to io.Discard this, and it cost a wrong conclusion. On 2026-09-03
+// routebench recorded `dashscope http 400` for glm-5.3 and I wrote the model off
+// as broken on that class. The body said, all along:
+//
+//	{"code":"1210","message":"该模型始终思考，不支持关闭思考；请使用 low、high 或 max。"}
+//
+// — a documented, actionable rule about ONE request field, thrown away by us.
+// AGENTS.md §界面文案 8 already required 动词+失败 plus 后台原话; this is where the
+// 后台原话 has to survive to make that possible.
+//
+// Safe to include: the API key travels in the Authorization header, never in a
+// response body. The cap keeps a verbose HTML error page out of the logs.
+func readErrorBody(status int, r io.Reader) string {
+	// 🚨 Never echo the body of an auth failure. 401/403 is the one case where a
+	// provider plausibly quotes the credential back at us ("Incorrect API key
+	// provided: sk-…"), and AGENTS.md forbids a key reaching a thrown error. It
+	// is also the one case where the body adds nothing: the fix for 401 is the
+	// key, and the status already said that.
+	if status == http.StatusUnauthorized || status == http.StatusForbidden {
+		return ""
+	}
+	b, err := io.ReadAll(io.LimitReader(r, 2048))
+	if err != nil || len(b) == 0 {
+		return ""
+	}
+	s := strings.Join(strings.Fields(string(b)), " ")
+	if len(s) > 500 {
+		s = s[:500] + "…"
+	}
+	return ": " + s
 }

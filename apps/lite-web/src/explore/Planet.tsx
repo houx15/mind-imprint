@@ -1,7 +1,10 @@
 import { useState } from "react";
-import { DOMAIN_META } from "../data/news";
-import type { Lang, NewsItem } from "../data/types";
-import { cx } from "../ui";
+import type { ExplorePlanet } from "../api/explore";
+import { fieldById } from "../tree/geometry";
+import type { FieldId } from "../tree/types";
+import { cx } from "../tree/ui";
+
+export type Lang = "zh" | "en";
 
 /**
  * A news bubble.
@@ -28,6 +31,12 @@ import { cx } from "../ui";
  *
  * `dimmed` is the field filter: non-matching bubbles recede rather than
  * disappearing, so the filter never makes the sky feel broken.
+ *
+ * ## 颜色 = 它会长在树的哪根枝上（2026-09-03）
+ * 原型按八个「领域」（科技 / 科学 / 环境 …）上色，那套分类只活在这一屏里。
+ * 现在按**七根主枝**上色，和兴趣树用同一套颜色 —— 于是一颗蓝色的星球和树上
+ * 那根蓝色的枝是同一件事，收藏它就是往那根枝上加一个词。一屏一套配色是装饰，
+ * 两屏一套配色是语言。
  */
 export function Planet({
   item,
@@ -38,7 +47,7 @@ export function Planet({
   dimmed,
   onOpen,
 }: {
-  item: NewsItem;
+  item: ExplorePlanet;
   lang: Lang;
   slot: { x: string; y: string; size: number; drift: string };
   discovered: boolean;
@@ -47,7 +56,7 @@ export function Planet({
   onOpen: () => void;
 }) {
   const [hover, setHover] = useState(false);
-  const meta = DOMAIN_META[item.domain];
+  const meta = fieldById(item.field as FieldId);
   const showHook = hover && !dimmed;
   // The headline has to survive a 150px bubble on a short window as well as a
   // 240px one. Scaling the type with the sphere keeps the text block the same
@@ -74,13 +83,13 @@ export function Planet({
         onMouseLeave={() => setHover(false)}
         onFocus={() => setHover(true)}
         onBlur={() => setHover(false)}
-        className="eco-planet group relative block cursor-pointer focus-visible:outline-none"
+        className="exp-planet group relative block cursor-pointer focus-visible:outline-none"
         style={{ width: slot.size, height: slot.size }}
-        aria-label={`${item.title[lang]} — ${lang === "zh" ? meta.zh : meta.en}${discovered ? "，已浏览" : ""}`}
+        aria-label={`${item.titleZh} — ${meta.label}${discovered ? "，已浏览" : ""}`}
       >
         {/* the bubble */}
         <span
-          className={cx("eco-bubble block", discovered && "eco-bubble-lit")}
+          className={cx("exp-bubble block", discovered && "exp-bubble-lit")}
           style={{
             width: slot.size,
             height: slot.size,
@@ -106,11 +115,10 @@ export function Planet({
           style={{ width: slot.size * 0.74 }}
         >
           <span
-            className="eco-mono mb-1 flex items-center gap-1.5"
+            className="exp-mono mb-1 flex items-center gap-1.5"
             style={{ color: `color-mix(in srgb, ${meta.hue} 58%, #FFFFFF)` }}
           >
-            <span aria-hidden>{meta.glyph}</span>
-            {lang === "zh" ? meta.zh : meta.en}
+            {lang === "zh" ? meta.label : meta.en}
           </span>
           <span
             className="block"
@@ -126,13 +134,13 @@ export function Planet({
               overflow: "hidden",
             }}
           >
-            {item.title[lang]}
+            {lang === "zh" ? item.titleZh : item.titleEn || item.titleZh}
           </span>
         </span>
 
         {/* rank tick — a tiny instrument reading on the rim */}
         <span
-          className="eco-mono absolute right-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full"
+          className="exp-mono absolute right-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full"
           style={{
             background: "#17130F",
             border: "1px solid rgba(240,233,224,.28)",
@@ -145,7 +153,7 @@ export function Planet({
 
         {discovered ? (
           <span
-            className="eco-mono absolute bottom-[6%] left-1/2 -translate-x-1/2 rounded-mk-full px-2 py-0.5"
+            className="exp-mono absolute bottom-[6%] left-1/2 -translate-x-1/2 rounded-mk-full px-2 py-0.5"
             style={{ background: "rgba(23,19,15,.62)", color: "#8FCFC1", letterSpacing: 0 }}
           >
             已浏览
@@ -166,7 +174,7 @@ export function Planet({
             still held back: the question the story puts to her. */}
         {showHook ? (
           <span
-            className="eco-in pointer-events-none absolute left-1/2 z-30 w-[300px] -translate-x-1/2 rounded-mk-lg p-4 text-left"
+            className="exp-in pointer-events-none absolute left-1/2 z-30 w-[300px] -translate-x-1/2 rounded-mk-lg p-4 text-left"
             style={{
               bottom: "calc(100% + 12px)",
               background: "rgba(28,23,19,.95)",
@@ -175,18 +183,20 @@ export function Planet({
               backdropFilter: "blur(12px)",
             }}
           >
-            <span className="eco-mono block" style={{ color: "#8E8175" }}>
+            <span className="exp-mono block" style={{ color: "#8E8175" }}>
               它想问你
             </span>
             <span
               className="mt-1.5 block text-mk-body-lg font-semibold leading-[1.6]"
               style={{ color: "#F5EFE7" }}
             >
-              {item.hook[lang]}
+              {item.hook}
             </span>
-            <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "#9A8E80" }}>
-              {item.lead[lang]}
-            </span>
+            {item.discipline ? (
+              <span className="mt-2.5 block text-mk-small leading-[1.7]" style={{ color: "#9A8E80" }}>
+                {item.discipline.zh} · {item.discipline.asks}
+              </span>
+            ) : null}
           </span>
         ) : null}
       </button>

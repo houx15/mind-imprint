@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Hammer, PenLine } from "lucide-react";
+import { BookOpen, Compass, Hammer, PenLine, Sprout } from "lucide-react";
 import { Icon, Pebble, Settings, ACCENT_PRESETS, AccentProvider, type AccentId, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
@@ -18,6 +18,9 @@ import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
+import { TreeView } from "./tree/TreeView";
+import { ExploreView } from "./explore/ExploreView";
+import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -55,12 +58,16 @@ import { WritingRoomHost } from "./writings/WritingRoomHost";
  * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
  */
 
-type LiteTab = "readings" | "writings" | "projects";
+type LiteTab = "explore" | "readings" | "writings" | "projects" | "tree";
 
+// 我的树排在最后，是因为这条轨的顺序本身在说一句话：**读 → 写 → 做 → 树因此
+// 长出来。** 树不是第四件要做的事，它是前三件的结果，所以它站在它们后面。
 const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
+  { key: "explore", label: "探索", icon: Compass },
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
   { key: "projects", label: "项目", icon: Hammer },
+  { key: "tree", label: "我的树", icon: Sprout },
 ];
 
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -77,6 +84,10 @@ function tabPath(tab: LiteTab): string {
       return liteRoutePath({ tab: "writings" });
     case "projects":
       return liteRoutePath({ tab: "projects" });
+    case "tree":
+      return liteRoutePath({ tab: "tree" });
+    case "explore":
+      return liteRoutePath({ tab: "explore" });
   }
 }
 
@@ -187,6 +198,22 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
     "whitespace-nowrap text-mk-body opacity-0 transition-opacity duration-200 ease-mk " +
     "group-hover/nav:opacity-100 group-focus-within/nav:opacity-100 motion-reduce:transition-none";
 
+  // 觉醒协议**满屏渲染，不带导航轨**。它是一个连续的七屏叙事，旁边杵着一条
+  // 「阅读 / 写作 / 项目」的导航栏会把它降级成「一个开着的表单」——而这一屏的
+  // 全部任务就是让一个还不知道自己喜欢什么的学生愿意花五分钟。
+  //
+  // 放在这里（所有 hook 之后）而不是 `rootElementFor`：它需要已登录的 `user`，
+  // 而且做完之后要能原地回到树上，不该是一次整页跳转。
+  if (route.tab === "tree" && route.quiz) {
+    return (
+      <div className="h-full w-full overflow-hidden">
+        <AwakeningQuiz
+          onExit={() => navigate(liteRoutePath({ tab: "tree" }))}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink">
       {/* `mk-lite-navslot` / `mk-lite-nav` exist only so `index.css` can fold
@@ -274,6 +301,10 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <WritingsLanding />
           )
+        ) : route.tab === "explore" ? (
+          <ExploreView />
+        ) : route.tab === "tree" ? (
+          <TreeView user={user} />
         ) : route.tab === "projects" ? (
           route.projectId ? (
             <ProjectSurface key={route.projectId} projectId={route.projectId} />

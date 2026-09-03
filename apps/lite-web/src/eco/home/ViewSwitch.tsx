@@ -46,7 +46,17 @@ export function ViewSwitch({ view }: { view: "world" | "tree" }) {
             type="button"
             role="tab"
             aria-selected={active}
-            onClick={() => go({ name: "home", view: t.key })}
+            onClick={() => {
+              // 🚨 「我的」现在离开原型：兴趣树是 lite 的真页面 `/tree`。
+              // 必须整页跳转，不能 pushState —— `rootElementFor` 只在
+              // `main.tsx` 的模块作用域里跑过一次，`/eco/*` 与 lite 壳是两个
+              // 互不相识的应用，pushState 只会换掉地址栏而什么都不挂载。
+              if (t.key === "tree") {
+                window.location.assign("/tree");
+                return;
+              }
+              go({ name: "home", view: "world" });
+            }}
             className={cx(
               "relative z-10 flex w-[118px] shrink-0 items-center justify-center gap-1.5 whitespace-nowrap",
               "rounded-mk-full px-3 py-2",

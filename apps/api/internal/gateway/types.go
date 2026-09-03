@@ -70,6 +70,22 @@ type ChatRequest struct {
 	Temperature     *float64       `json:"temperature,omitempty"`
 	DisableThinking bool           `json:"disableThinking,omitempty"`
 	ResponseFormat  ResponseFormat `json:"responseFormat,omitempty"`
+	// EnableSearch lets the model reach the live web for THIS call. Off by
+	// default and opt-in per call, never per class: whether a turn needs the
+	// internet is a property of the question asked, not of how much intelligence
+	// the call needs.
+	//
+	// It costs tokens (the search results enter the prompt) and latency, so a
+	// coaching turn that only needs to ask the next question must not pay for it.
+	// ForcedSearch removes the model's discretion to skip searching — use it when
+	// the call exists BECAUSE something must be looked up.
+	//
+	// Measured 2026-09-03: on this endpoint the reply cites its sources in prose
+	// but the response carries no machine-readable search_results. So this is the
+	// right tool for "陪练需要一个事实"; it cannot hand 溯源体检 a list of URLs to
+	// CRAAP-check — that still needs internal/websearch.
+	EnableSearch bool `json:"enableSearch,omitempty"`
+	ForcedSearch bool `json:"forcedSearch,omitempty"`
 }
 
 // ChatUsage mirrors provider usage. ReasoningTokens is optional because only

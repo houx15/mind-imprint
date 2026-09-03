@@ -56,4 +56,44 @@ describe("parseLiteRoute", () => {
       tab: "page",
       token: "abc",
     }));
+
+  // 我的树 (兴趣树). It is a REAL lite route, not the `/eco/tree` prototype
+  // path — a student reaches it from the rail, and the prototype's own switch
+  // hard-navigates here. Pinned so a future edit to `parseLiteRoute` cannot
+  // quietly send `/tree` back to the readings default, which would look like
+  // "the tab does nothing" rather than like a bug.
+  it("knows the tree tab", () => expect(parseLiteRoute("/tree")).toEqual({ tab: "tree" }));
+  it("tolerates a trailing slash on the tree tab", () =>
+    expect(parseLiteRoute("/tree/")).toEqual({ tab: "tree" }));
+  it("round-trips the tree path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "tree" }))).toEqual({ tab: "tree" }));
+  // `/eco/tree` belongs to the prototype shell and must NOT be swallowed by
+  // the lite route table: `rootElementFor` hands every `/eco/*` path to
+  // `EcoRoot` before `parseLiteRoute` ever sees it, and a lite parse that
+  // claimed it would be a silent takeover.
+  it("does not claim the prototype's tree path", () =>
+    expect(parseLiteRoute("/eco/tree")).toEqual({ tab: "readings" }));
+
+  // 觉醒协议是 tree 这条 tab 下的一屏，不是自己的顶层 tab。
+  it("knows the quiz sub-page", () =>
+    expect(parseLiteRoute("/tree/quiz")).toEqual({ tab: "tree", quiz: true }));
+  it("round-trips the quiz path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "tree", quiz: true }))).toEqual({
+      tab: "tree",
+      quiz: true,
+    }));
+  // 一个手敲错的子路径不该把她丢回阅读室——她要去的是树，那就给她树。
+  it("falls back to the tree itself for an unknown sub-page", () =>
+    expect(parseLiteRoute("/tree/whatever")).toEqual({ tab: "tree" }));
+  it("the bare tree path carries no quiz flag", () =>
+    expect(liteRoutePath({ tab: "tree" })).toBe("/tree"));
+
+  // 探索 (今日新闻星图). 排在 rail 的第一格，但 `/` 仍然落在阅读 —— 见
+  // LiteApp 的注释：一屏可能生成失败的星图不该是每个学生的落地页。
+  it("knows the explore tab", () =>
+    expect(parseLiteRoute("/explore")).toEqual({ tab: "explore" }));
+  it("round-trips the explore path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "explore" }))).toEqual({ tab: "explore" }));
+  it("still lands on readings at the root", () =>
+    expect(parseLiteRoute("/")).toEqual({ tab: "readings" }));
 });

@@ -223,13 +223,16 @@ func onlyKey(name, value string) KeyLookup {
 func TestEveryClassResolvesToTheBenchmarkedModel(t *testing.T) {
 	cat, _ := DefaultCatalog()
 	keys := onlyKey("DASHSCOPE_API_KEY", "sk-dashscope")
+	// Round 2 (2026-09-03) re-measured every class with a working judge, after
+	// three tooling bugs were fixed that had kept glm-5.3 and qwen3.8-max out of
+	// contention. See docs/2026-09-03-routing-benchmark-findings.md.
 	want := map[string]string{
-		ClassReflex:   "qwen3.7-flash",     // 300ms vs 1s, structurally identical
-		ClassDialogue: "deepseek-v4-pro",   // the only candidate scoring 5 on the lite reading coach
-		ClassCompose:  "kimi-k3",           // 6.9s / 191 tokens vs 10.8s / 506, quality tied
-		ClassReview:   "deepseek-v4-pro",   // every candidate scored 2; do not swap on noise
-		ClassAssess:   "deepseek-v4-pro",   // kimi-k3 returns nothing here, glm-5.3 returns 400
-		ClassDigest:   "deepseek-v4-flash", // 1.6s / 77 tokens, tied at 5/5
+		ClassReflex:   "qwen3.7-flash",     // 200ms vs glm-5.3's 1.5s, both structurally perfect
+		ClassDialogue: "deepseek-v4-pro",   // worst case 3 on the lite reading coach; every rival scored 1-2
+		ClassCompose:  "ZHIPU/GLM-5.3",     // all three tied at 4; 4.1s vs kimi-k3's 10.3s decides it
+		ClassReview:   "deepseek-v4-pro",   // every candidate still scored 2 — a tie is not evidence to move
+		ClassAssess:   "deepseek-v4-pro",   // 评估绝不降级
+		ClassDigest:   "deepseek-v4-flash", // 1.4s vs 2.3s, tied at 5/5
 	}
 	for class, model := range want {
 		r, err := cat.Resolve(class, "", keys)
@@ -479,10 +482,15 @@ func TestClassOverrideFailsTheBootWhenItViolatesTheClass(t *testing.T) {
 		return config.Config{DashScopeKey: "secret", ModelClass: map[string]string{class: model}}
 	}
 	cases := map[string]config.Config{
-		"assess downgraded off flagship":         withClass(ClassAssess, "dashscope/qwen3.7-plus"),
-		"dialogue on a model that always thinks": withClass(ClassDialogue, "dashscope/glm-5.3"),
-		"typo'd model id":                        withClass(ClassCompose, "dashscope/qwen-does-not-exist"),
-		"image model on a chat class":            withClass(ClassCompose, "dashscope/qwen-image-3.0"),
+		"assess downgraded off flagship": withClass(ClassAssess, "dashscope/qwen3.7-plus"),
+		// kimi-k2.7-code rejects the thinking-off knob AND has no floor effort to
+		// stand in for it, so it genuinely cannot serve a reasoning-off class.
+		// This case used to name glm-5.3, which was wrong: measured 2026-09-03,
+		// glm-5.3 at reasoning_effort:"low" returns zero reasoning tokens, so it
+		// serves dialogue fine — it just gets there by a different knob.
+		"dialogue on a model that cannot stop reasoning": withClass(ClassDialogue, "dashscope/kimi-k2.7-code"),
+		"typo'd model id":             withClass(ClassCompose, "dashscope/qwen-does-not-exist"),
+		"image model on a chat class": withClass(ClassCompose, "dashscope/qwen-image-3.0"),
 	}
 	for name, cfg := range cases {
 		t.Run(name, func(t *testing.T) {

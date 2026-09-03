@@ -260,6 +260,18 @@ func (a *API) Handler() http.Handler {
 	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，
 	// 学科由 internal/interest 的三档路由连上，这里只负责读出来。
 	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))
+	// 觉醒协议 —— 冷启动的兴趣测试。开与交是两次请求，所以一次中途退出
+	// 也留下痕迹（见 interest_quiz.go 顶部）。
+	mux.Handle("GET /api/v1/interest/quiz", liteOnly(a.getInterestQuizStatus))
+	mux.Handle("POST /api/v1/interest/quiz", liteOnly(a.startInterestQuiz))
+	mux.Handle("PUT /api/v1/interest/quiz/{id}", liteOnly(a.finishInterestQuiz))
+	// 今日新闻星图。生成是惰性的（第一个打开的人触发，advisory lock 保证
+	// 一天只抓一次、只调一次模型）——见 explore.go 顶部。
+	mux.Handle("GET /api/v1/explore/today", liteOnly(a.getExploreToday))
+	mux.Handle("POST /api/v1/explore/planets/{id}/save", liteOnly(a.savePlanet))
+	// 继续深挖：一个关键词后面的四颗种子（想一想 / 去读 / 去写 / 去做）。
+	// 惰性生成 + 缓存 —— 每次打开都换一批建议的教练，说明它对你没有看法。
+	mux.Handle("GET /api/v1/interest/keywords/{id}/dig", liteOnly(a.getKeywordDig))
 	mux.Handle("POST /api/v1/readings/{id}/report/share", liteOnly(a.shareReadingReport()))
 	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 	mux.Handle("PUT /api/v1/readings/{id}/rating", liteOnly(a.putReadingRating()))
