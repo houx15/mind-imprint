@@ -353,15 +353,16 @@ type GraphNode struct {
 }
 
 type InterestKeyword struct {
-	ID          uuid.UUID `json:"id"`
-	UserID      uuid.UUID `json:"user_id"`
-	TextZh      string    `json:"text_zh"`
-	TextEn      string    `json:"text_en"`
-	Norm        string    `json:"norm"`
-	Field       string    `json:"field"`
-	Strength    int32     `json:"strength"`
-	Note        string    `json:"note"`
-	FirstSeenAt time.Time `json:"first_seen_at"`
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	TextZh      string             `json:"text_zh"`
+	TextEn      string             `json:"text_en"`
+	Norm        string             `json:"norm"`
+	Field       string             `json:"field"`
+	Strength    int32              `json:"strength"`
+	Note        string             `json:"note"`
+	FirstSeenAt time.Time          `json:"first_seen_at"`
+	DigAt       pgtype.Timestamptz `json:"dig_at"`
 }
 
 type InterestQuiz struct {
@@ -388,6 +389,14 @@ type Intervention struct {
 	Level              *string     `json:"level"`
 	OutputCheckVerdict *string     `json:"output_check_verdict"`
 	CreatedAt          time.Time   `json:"created_at"`
+}
+
+type KeywordDig struct {
+	KeywordID uuid.UUID `json:"keyword_id"`
+	Kind      string    `json:"kind"`
+	Text      string    `json:"text"`
+	Why       string    `json:"why"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type KeywordDiscipline struct {

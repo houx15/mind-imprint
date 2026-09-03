@@ -2,6 +2,7 @@ import { Sparkles, X } from "lucide-react";
 import { GROWTH_STOPS, fieldById } from "./geometry";
 import type { Keyword, KeywordSource } from "./types";
 import { Drawer, Sys, cx } from "./ui";
+import { DigSection } from "./DigSection";
 import { liteRoutePath, navigate } from "../routing";
 
 /**
@@ -21,11 +22,11 @@ import { liteRoutePath, navigate } from "../routing";
  * `/projects/:id` 都是真页面，所以每一条来源现在**真的能点回去**。这正是这次
  * 搬家的意义：证据从「一句声称」变成「一条路」。
  *
- * ## 继续深挖去哪了
- * 原型的第三节是四个具体的深挖种子（想一想 / 去读 / 去写 / 去做），它们是按
- * mock 关键词的 id 手写在 `eco/data/dig.ts` 里的，对真关键词（uuid）一个都命
- * 不中。与其在一个真的观察后面摆四个空动词，不如先不摆——那一节是 P5 的活，
- * 要由模型按她这个词的真实来源现生成。
+ * ## 继续深挖（P5，2026-09-03 补上）
+ * 原型的第三节是按 mock 关键词 id 手写在 `eco/data/dig.ts` 里的四颗种子，对真
+ * 关键词（uuid）一个都命不中，所以搬家时没跟过来。现在它回来了，并且是**按她
+ * 在这个词上留下的原话现生成**的（`DigSection` → `GET /interest/keywords/:id/dig`），
+ * 其中三颗能一键变成 lite 里一个真的房间。
  */
 export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: () => void }) {
   if (!kw) return null;
@@ -116,6 +117,9 @@ export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: ()
             <SourceRow key={`${s.kind}-${s.id}`} source={s} onNavigate={onClose} />
           ))}
         </ul>
+
+        {/* ── 继续深挖 ─────────────────────────────────────────────────── */}
+        <DigSection keywordId={kw.id} />
       </div>
     </Drawer>
   );

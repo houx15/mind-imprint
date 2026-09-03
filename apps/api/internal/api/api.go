@@ -269,6 +269,9 @@ func (a *API) Handler() http.Handler {
 	// 一天只抓一次、只调一次模型）——见 explore.go 顶部。
 	mux.Handle("GET /api/v1/explore/today", liteOnly(a.getExploreToday))
 	mux.Handle("POST /api/v1/explore/planets/{id}/save", liteOnly(a.savePlanet))
+	// 继续深挖：一个关键词后面的四颗种子（想一想 / 去读 / 去写 / 去做）。
+	// 惰性生成 + 缓存 —— 每次打开都换一批建议的教练，说明它对你没有看法。
+	mux.Handle("GET /api/v1/interest/keywords/{id}/dig", liteOnly(a.getKeywordDig))
 	mux.Handle("POST /api/v1/readings/{id}/report/share", liteOnly(a.shareReadingReport()))
 	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 	mux.Handle("PUT /api/v1/readings/{id}/rating", liteOnly(a.putReadingRating()))

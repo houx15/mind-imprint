@@ -70,6 +70,8 @@ export function TreeView({ user }: { user: MeUser }) {
   // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。
   const quizTaken = useQuizTaken();
   const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
+  // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
+  const [inviteField, setInviteField] = useState<FieldId | null>(null);
 
   const visible = useMemo(() => all.filter((k) => k.bornAt <= stop), [all, stop]);
   // Only the stops that actually hold something. A dot that shows the tree she
@@ -224,6 +226,9 @@ export function TreeView({ user }: { user: MeUser }) {
             onMouseLeave={() => setHoverField(null)}
             onFocus={() => setHoverField(f.id)}
             onBlur={() => setHoverField(null)}
+            // 窄屏走的是这一行 chip，空枝邀请在这里也要能点开 —— 只给宽屏那一列
+            // 加上，等于让小屏幕的学生永远碰不到这个入口。
+            onClick={() => (known && countFor(f.id) === 0 ? setInviteField(f.id) : undefined)}
             className="inline-flex items-center gap-1.5 rounded-mk-full px-2.5 py-1 text-mk-small
                        transition-colors duration-[120ms] hover:bg-[rgba(240,233,224,.1)]
                        focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
@@ -306,6 +311,9 @@ export function TreeView({ user }: { user: MeUser }) {
                   onMouseLeave={() => setHoverField(null)}
                   onFocus={() => setHoverField(f.id)}
                   onBlur={() => setHoverField(null)}
+                  // 🚨 只有**空枝**可以点开。有词的枝上，那个数字自己说完了话；
+                  // 空枝上，那个 0 什么也没说 —— 它该变成一句邀请。
+                  onClick={() => (known && n === 0 ? setInviteField(f.id) : undefined)}
                   className="flex w-full items-center gap-2 border-b px-1 py-2 text-left transition-colors
                              duration-[120ms] hover:bg-[rgba(240,233,224,.07)] focus-visible:outline-none
                              focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
@@ -319,9 +327,15 @@ export function TreeView({ user }: { user: MeUser }) {
                     {String(i + 1).padStart(2, "0")}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-mk-small text-[#C0B4A6]">{f.label}</span>
-                  <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
-                    {known ? n : "—"}
-                  </span>
+                  {known && n === 0 ? (
+                    <span className="shrink-0 text-[11px]" style={{ color: "var(--mk-accent-400)" }}>
+                      还没有
+                    </span>
+                  ) : (
+                    <span className="font-mono text-[11px] tabular-nums text-[#7C7166]">
+                      {known ? n : "—"}
+                    </span>
+                  )}
                 </button>
               </li>
             );
@@ -330,6 +344,12 @@ export function TreeView({ user }: { user: MeUser }) {
       </div>
 
       <KeywordDrawer kw={openKw} onClose={() => setOpenId(null)} />
+      <BranchInvite
+        field={inviteField}
+        onClose={() => setInviteField(null)}
+        onExplore={() => navigate(liteRoutePath({ tab: "explore" }))}
+        onQuiz={openQuiz}
+      />
     </div>
   );
 }
@@ -887,3 +907,95 @@ function TreeState({
     </div>
   );
 }
+
+/**
+ * 空枝邀请 —— 「你的树上还没有这根枝」。
+ *
+ * 一根没有词的枝上，那个 `0` 什么也没说。它其实是这张图上**最有用的一条
+ * 信息**：她还没走过的方向。所以点开它不是显示「暂无数据」，而是问一句这根枝
+ * 上会长出什么，再给两个真的入口。
+ *
+ * 🚨 这里**不劝她**。文案说的是这根枝研究什么、以及从哪能碰到它，不说「快去
+ * 试试吧」——一根空枝不是一个缺口，一个学生没有义务把七根枝都长满。
+ */
+function BranchInvite({
+  field,
+  onClose,
+  onExplore,
+  onQuiz,
+}: {
+  field: FieldId | null;
+  onClose: () => void;
+  onExplore: () => void;
+  onQuiz: () => void;
+}) {
+  if (!field) return null;
+  const f = fieldById(field);
+  const blurb = BRANCH_BLURB[field];
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-6" role="dialog" aria-label={f.label}>
+      <button
+        type="button"
+        aria-label="关闭"
+        onClick={onClose}
+        className="absolute inset-0 cursor-default"
+        style={{ background: "rgba(10,8,6,.62)" }}
+      />
+      <div
+        className="tree-in relative w-full max-w-[460px] rounded-[18px] p-6"
+        style={{ background: "#1C1713", border: `1px solid color-mix(in srgb, ${f.hue} 38%, transparent)` }}
+      >
+        <div className="flex items-center gap-2">
+          <span
+            className="h-2.5 w-2.5 rotate-45"
+            style={{ background: f.hue, boxShadow: `0 0 12px ${f.hue}` }}
+          />
+          <Sys tone="dark">{f.en}</Sys>
+        </div>
+        <h2 className="mt-1.5 text-mk-h2 text-[#F5EFE7]">你的树上还没有{f.label}这根枝</h2>
+        <p className="mt-3 text-mk-body leading-[1.9] text-[#C0B4A6]">{blurb}</p>
+        <p className="mt-3 text-mk-small leading-[1.85] text-[#8E8175]">
+          关键词只从你真的做完的事情上长出来，所以这根枝空着，只是说明你还没往这边走过。
+        </p>
+
+        <div className="mt-5 flex flex-wrap gap-2.5">
+          <button
+            type="button"
+            onClick={onExplore}
+            className="rounded-mk-full px-4 py-2 text-mk-small font-semibold text-[#17130F] transition hover:opacity-90"
+            style={{ background: f.hue }}
+          >
+            去今日探索地图看看
+          </button>
+          <button
+            type="button"
+            onClick={onQuiz}
+            className="rounded-mk-full border px-4 py-2 text-mk-small text-[#F0E9E0] transition hover:opacity-80"
+            style={{ borderColor: "rgba(240,233,224,.3)" }}
+          >
+            做一次兴趣测试
+          </button>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-mk-full px-4 py-2 text-mk-small text-[#8E8175] transition hover:text-[#C0B4A6]"
+          >
+            先不用
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** 每根主枝一句「它研究什么」。写的是这门学问在问什么，不是一句招徕。 */
+const BRANCH_BLURB: Record<FieldId, string> = {
+  formal: "数学与形式问的是：一句话为什么一定成立？一个样本凭什么替一群人说话？统计、概率、逻辑、建模都在这根枝上。",
+  science: "科学与自然问的是：这件事到底怎么发生的？从气候与海洋到神经科学、天文，都在追同一个「为什么」。",
+  making: "技术与创造问的是：这东西能不能做出来、做得更好？算法、材料、工程设计、能源系统都在这里。",
+  society: "社会与世界问的是：人和人凑在一起之后会发生什么？经济、社会学、地理与城市、公共卫生都在这根枝上。",
+  humanities: "人文与写作问的是：这段话为什么这样打动人、这个说法站不站得住？历史、哲学、修辞与论证、媒介素养都在这里。",
+  arts: "艺术与表达问的是：怎么把一个感觉准确地交出去？影像叙事、视觉设计、音乐理论、创意写作都在这根枝上。",
+  self: "自我与成长问的是：我是怎么变成现在这样的、又怎么学得更好？认知与发展心理学、伦理学、学习科学都在这里。",
+};

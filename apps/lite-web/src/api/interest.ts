@@ -123,3 +123,42 @@ function normalize(raw: RawTree): InterestTree {
 export async function fetchInterestTree(): Promise<InterestTree> {
   return normalize(await apiFetch<RawTree>("/api/v1/interest/tree"));
 }
+
+/* ── 继续深挖 ───────────────────────────────────────────────────────────── */
+
+export type DigKind = "think" | "read" | "write" | "make";
+
+export interface DigSeed {
+  kind: DigKind;
+  /** 会被当作标题 / 立意直接送进创建接口，所以它是一句能独立成立的话。 */
+  text: string;
+  /** 一句「为什么是你」，把这颗种子和她这个词的来源连起来。 */
+  why: string;
+}
+
+export interface KeywordDig {
+  keywordId: string;
+  seeds: DigSeed[];
+  /**
+   * 生成失败时的后台原话。**有 note 就一定没有种子** —— 服务端绝不摆四个通用
+   * 动词顶上，界面也不许自己补。
+   */
+  note: string;
+}
+
+/**
+ * 取这个关键词的四颗种子。
+ *
+ * ⏳ 第一次会慢：服务端要发一次调用，用**她在这个词上留下的原话**生成。生成
+ * 一次就存着 —— 每次打开都换一批建议的教练，说明它对你没有看法。
+ */
+export async function fetchKeywordDig(keywordId: string): Promise<KeywordDig> {
+  const raw = await apiFetch<Partial<KeywordDig>>(
+    `/api/v1/interest/keywords/${encodeURIComponent(keywordId)}/dig`,
+  );
+  return {
+    keywordId: raw.keywordId ?? keywordId,
+    seeds: (raw.seeds ?? []).filter((s): s is DigSeed => Boolean(s?.kind && s?.text)),
+    note: raw.note ?? "",
+  };
+}

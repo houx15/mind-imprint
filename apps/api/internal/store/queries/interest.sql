@@ -138,3 +138,31 @@ SELECT * FROM interest_quiz
 WHERE user_id = $1 AND finished_at IS NOT NULL
 ORDER BY finished_at DESC
 LIMIT 1;
+
+/* ── 继续深挖 ───────────────────────────────────────────────────────────── */
+
+-- name: GetInterestKeywordForUser :one
+SELECT * FROM interest_keyword WHERE id = $1 AND user_id = $2;
+
+-- 这个词上她留下的每一句原话。**这是深挖调用唯一真正重要的输入** —— 没有它们，
+-- 模型只能围着一个词泛泛地想，而那正是原型那四个空动词的来源。
+-- name: ListKeywordEvidence :many
+SELECT evidence FROM keyword_source
+WHERE keyword_id = $1 AND evidence <> ''
+ORDER BY happened_at DESC
+LIMIT 8;
+
+-- name: ListKeywordDig :many
+SELECT * FROM keyword_dig WHERE keyword_id = $1 ORDER BY
+  CASE kind WHEN 'think' THEN 1 WHEN 'read' THEN 2 WHEN 'write' THEN 3 ELSE 4 END;
+
+-- name: UpsertKeywordDig :exec
+INSERT INTO keyword_dig (keyword_id, kind, text, why) VALUES ($1,$2,$3,$4)
+ON CONFLICT (keyword_id, kind) DO UPDATE SET text = EXCLUDED.text, why = EXCLUDED.why;
+
+-- 盖章在生成之前。见迁移 0119。
+-- name: MarkKeywordDigged :exec
+UPDATE interest_keyword SET dig_at = now() WHERE id = $1;
+
+-- name: GetKeywordDigAt :one
+SELECT dig_at FROM interest_keyword WHERE id = $1;
