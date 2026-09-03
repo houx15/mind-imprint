@@ -38,8 +38,9 @@ async function makeProject(page: Page): Promise<string> {
   await page.goto("/projects");
   await openSiteGate(page);
 
-  // 🚨 复用已有项目时要跳过主页项目：它打开的是 SiteStudio，不是这条 walk 要
-  // 的那个工作台（`ProjectSurface` 按 kind 分派）。
+  // 复用已有项目时跳过主页项目：它的房间和别的项目是同一个，但计划是预置的
+  // 五步路线、工具箱里多三件只有它才有的（见 internal/pbl/website.go），
+  // 这条 walk 要的是一个普通项目。
   const all = await (await page.request.get("/api/v1/pbl/projects")).json();
   const existing = Array.isArray(all)
     ? all.filter((p: { kind?: string }) => p.kind !== "website")

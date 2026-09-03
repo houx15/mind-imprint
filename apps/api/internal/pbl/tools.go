@@ -77,6 +77,9 @@ var registry = map[string]Tool{
 	"persona": {Name: "persona", Kind: KindThinking, Label: "受众画像", Only: "website"},
 	"sites":   {Name: "sites", Kind: KindThinking, Label: "站点采集", Only: "website"},
 	"look":    {Name: "look", Kind: KindThinking, Label: "视觉基调", Only: "website"},
+	// 上线那一下。她随时可以自己打开它——发布不是终点（spec §4：项目发布后
+	// 进 keeping，她随时能回来改）。
+	"ship": {Name: "ship", Kind: KindThinking, Label: "上线", Only: "website"},
 }
 
 // ToolNeeds 返回这件工具的界面读的那种产出，没有就是空。
@@ -119,7 +122,7 @@ func ToolNames() []string {
 	return []string{
 		"observe", "board", "reframe", "ideas", "review",
 		"decide", "structure", "split", "lookback", "keep",
-		"persona", "sites", "look",
+		"persona", "sites", "look", "ship",
 	}
 }
 

@@ -9,6 +9,7 @@ import { Observe } from "./surfaces/Observe";
 import { Reframe } from "./surfaces/Reframe";
 import { Review } from "./surfaces/Review";
 import { Split } from "./surfaces/Split";
+import { Ship } from "./surfaces/Ship";
 import { Structure } from "./surfaces/Structure";
 
 /**
@@ -39,6 +40,8 @@ export const TOOL_TASKS: Record<string, string> = {
   split: "你和 AI 的分工",
   lookback: "一起复盘项目过程吧！",
   keep: "持续观察成果落地后的反馈，进一步迭代你的成果！",
+  // 主页项目那几件。见 apps/api/internal/pbl/website.go 的五关路线。
+  ship: "看一遍这一页，确认之后放出去",
 };
 
 export interface ToolSurfaceProps {
@@ -80,6 +83,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   split: Split,
   lookback: Lookback,
   keep: Keep,
+  ship: Ship,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {

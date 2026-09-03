@@ -1,14 +1,27 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * 主页 walk — spec §4 那道门，和 S5 她真正做出来的那一页。
+ * 主页 walk — spec §4 那道门，以及主页项目**在项目房间里**这件事。
  *
  * 这个文件存在是为了**被看**。2026-08-30 的教训是 344 条绿测试压在一张全白的
  * 导出图上，所以这里真正的产出是 `e2e/.shots/` 里那几张图，不是断言。
  *
- * 一次模型调用都没有：写字、挑版式、发布，全是纯数据路径。
+ * ## 这一版改了什么
+ *
+ * 上一版走的是 `SiteStudio`：三步、九个带 label 的输入框、三张版式卡。产品负责
+ * 人 2026-09-03 否掉了它（"don't let students enter forms"；"you make it an
+ * independent thing which is not related with pbl"），那个工作面已经退役。
+ *
+ * 主页项目现在开的是普通的项目房间。所以这条 walk 断言的是**房间里的东西真的
+ * 在**：印记、那份五步的任务清单、材料清单、上线那一屏。
+ *
+ * ## 为什么中间要用 API 塞一次内容
+ *
+ * 第一到四关（受众、看真站、定调子、生成）每一关都要真的模型调用。这条 walk 是
+ * 纯数据路径的那一条，跑得快、每次 CI 都跑，所以它跳过那四关，直接把「印记摆好
+ * 了她的话」这个状态塞进去，再验后面那半程。模型那半程归 `LIVE_LLM=1` 的实测。
  */
-test("主页: 门 → 挑版式 → 写内容 → 发布 → 访客看到的那一页 → 门开了", async ({
+test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访客看到的那一页 → 门开了", async ({
   page,
   browser,
 }) => {
@@ -25,70 +38,77 @@ test("主页: 门 → 挑版式 → 写内容 → 发布 → 访客看到的那�
   await expect(page.getByPlaceholder("比如：", { exact: false })).toHaveCount(0);
   await page.screenshot({ path: "e2e/.shots/home-1-gate.png", fullPage: true });
 
-  /* 2 · 进主页项目。默认落在「内容」——先写字，再挑版式。 */
+  /* 2 · 进主页项目。开的是项目房间，不是一个独立工作面。 */
   await page.getByRole("button", { name: /做我的主页/ }).click();
   await expect(page.getByRole("heading", { name: "我自己的主页" })).toBeVisible();
-  await expect(page.getByText("这是别人会看到的样子")).toBeVisible();
 
-  /* 3 · 写内容。左边写，右边就是别人会看到的那一页。 */
-  await page
-    .getByPlaceholder("一件还能修的东西，是谁决定它该被扔的？")
-    .fill("一件还能修的东西，是谁决定它该被扔的？");
-  await page.getByPlaceholder("读 IB 的高二学生 · 在拆东西").fill("读 IB 的高二学生 · 在拆东西");
+  // 🚨 这一组断言就是这次改动本身：退役掉的那九个 label 一个都不该再出现。
+  for (const field of ["首屏那句话", "开场一段", "页头几个词", "选它的理由"]) {
+    await expect(page.getByText(field, { exact: true })).toHaveCount(0);
+  }
 
-  // 「开场一段」「关于」「现在」三个框没有 placeholder，按标签定位它们后面那个框。
-  const fieldAfter = (label: string) =>
-    page.locator(`xpath=//label[normalize-space(text())="${label}"]/following::textarea[1]`);
-  await fieldAfter("开场一段").fill(
-    "我在拆家里所有还能拆的东西，然后写为什么它们修不好。这一页放我做过的、写过的，和我最近在想的问题。",
-  );
-  await fieldAfter("关于").fill(
-    "我读高二，在 IB。三年前家里一盏灯坏了，售后说只能整只换，我第一次意识到「修不好」有时候是被设计成这样的。",
-  );
-  await fieldAfter("现在").fill("在把这一页做出来。");
+  /* 3 · 预置的五步路线。她进来就看见一份真的任务清单，并且要自己审一遍。 */
+  for (const step of [
+    "想清楚给谁看",
+    "去看真的个人网站",
+    "给网站定调子",
+    "我来生成，你来分工",
+    "逐处审改，然后上线",
+  ]) {
+    await expect(page.getByText(step, { exact: false }).first()).toBeVisible();
+  }
+  await page.screenshot({ path: "e2e/.shots/home-2-seeded-routine.png", fullPage: true });
 
-  await page.screenshot({ path: "e2e/.shots/home-4-words-and-live-preview.png", fullPage: true });
-  await page.getByRole("button", { name: "保存" }).click();
-  await expect(page.getByText("已保存")).toBeVisible();
+  await page.getByRole("button", { name: /审核完成/ }).click();
 
-  /* 4 · 挑版式。三张预览里装的是她刚写的那些话。 */
-  await page.getByRole("button", { name: "样子", exact: true }).click();
-  await expect(page.getByText("三个版式是三个不一样的页面", { exact: false })).toBeVisible();
-  // 🚨 这一张是这次改动的重点之一：原型在这一步给的是三条灰色骨架，她要为一个
-  // 自己没见过的东西写理由。现在这三张卡片里是三个真的页面，而且装着她的字。
-  await page.screenshot({ path: "e2e/.shots/home-2-three-real-layouts.png", fullPage: true });
+  /* 4 · 上线那一屏。她从材料清单点开——发布不是终点，这一行永远在。 */
+  await page.getByRole("button", { name: /我的主页/ }).click();
+  await expect(page.getByRole("heading", { name: "上线" })).toBeVisible();
+  // 页面上还没有她自己的字，所以服务端不让发，界面也说清楚缺什么。
+  await expect(page.getByText("还缺你自己的话")).toBeVisible();
+  await expect(page.getByRole("button", { name: "上线", exact: true })).toBeDisabled();
+  await page.screenshot({ path: "e2e/.shots/home-3-ship-blocked.png", fullPage: true });
 
-  // 没写理由，确认不生效——服务端那一道也拦着。
-  await page.getByText("索引式", { exact: true }).click();
-  await expect(page.getByText("写完理由才能确认。")).toBeVisible();
-  await page.screenshot({ path: "e2e/.shots/home-3-needs-a-reason.png", fullPage: true });
-
-  await page
-    .getByPlaceholder("比如：我做的东西比写的字多", { exact: false })
-    .fill("我做的东西比写的字多，索引式一屏能看到十几条；另外两版一屏只放得下一件。");
-  await page.getByRole("button", { name: "确认" }).click();
-
-  /* 5 · 发布。 */
-  // 🚨 页签和按钮都叫「发布」。`.first()` 命中的是页签，只会切一下视图——
-  // 于是这条 walk 曾经「点了发布」却什么都没发生。用 testid 点真正那一个。
-  await page.getByRole("button", { name: "发布", exact: true }).first().click();
-  await page.getByTestId("site-publish").click();
-  await expect(page.getByRole("heading", { name: "已经在线上了" })).toBeVisible({
-    timeout: 30_000,
+  /* 5 · 站在第四关结束的那个状态上：印记已经把她说过的话摆好了。
+     真实路径是 site_content 产出（要模型）；这里直接塞，理由见文件头。 */
+  const seeded = await page.request.put("/api/v1/pbl/site/content", {
+    data: {
+      headline: "一件还能修的东西，是谁决定它该被扔的？",
+      role: "读 IB 的高二学生 · 在拆东西",
+      lead: "我在拆家里所有还能拆的东西，然后写为什么它们修不好。",
+      about: [
+        "我读高二，在 IB。三年前家里一盏灯坏了，售后说只能整只换，我第一次意识到「修不好」有时候是被设计成这样的。",
+      ],
+      now: "在把这一页做出来。",
+      nowList: [],
+      tags: [],
+      motto: [],
+      contact: "",
+      blurbs: {},
+    },
   });
+  expect(seeded.ok()).toBeTruthy();
+
+  /* 6 · 上线。 */
+  await page.reload();
+  await page.getByRole("button", { name: /我的主页/ }).click();
+  await expect(page.getByText("还缺你自己的话")).toHaveCount(0);
+  await page.screenshot({ path: "e2e/.shots/home-4-ship-ready.png", fullPage: true });
+
+  await page.getByRole("button", { name: "上线", exact: true }).click();
+  await expect(page.getByText("已上线")).toBeVisible({ timeout: 30_000 });
+  const url = await page.getByRole("link", { name: /\/p\// }).getAttribute("href");
+  expect(url).toContain("/p/");
   await page.screenshot({ path: "e2e/.shots/home-5-published.png", fullPage: true });
 
-  const url = await page.locator('input[readonly]').inputValue();
-  expect(url).toContain("/p/");
-
-  /* 6 · 访客那一面：完全没有 session。
-     🚨 这一张是整次改动最要紧的证据。原型走到这里得到的是林知遥的页面——页头
-     「林知遥 · 初二学生」压着她自己写的那一行，关于是别人的自传。 */
+  /* 7 · 访客那一面：完全没有 session。
+     🚨 这一张是整条线最要紧的证据。原型走到这里得到的是林知遥的页面——页头
+     「林知遥 · 初二学生」压着她自己写的那一行，关于是别人的自传。那份原型
+     （`src/eco/`）已经连同它的假学生一起删掉了。 */
   const visitor = await browser.newContext({ storageState: { cookies: [], origins: [] } });
   const guest = await visitor.newPage();
-  await guest.goto(url);
+  await guest.goto(url!);
   await expect(guest.getByText("一件还能修的东西，是谁决定它该被扔的？")).toBeVisible();
-  // 原型那些人的痕迹，一个都不该在。
   for (const ghost of ["林知遥", "zhiyao", "初二", "213"]) {
     await expect(guest.getByText(ghost, { exact: false })).toHaveCount(0);
   }
@@ -98,7 +118,7 @@ test("主页: 门 → 挑版式 → 写内容 → 发布 → 访客看到的那�
   await guest.screenshot({ path: "e2e/.shots/home-7-visitor-phone.png", fullPage: true });
   await visitor.close();
 
-  /* 7 · 门开了。 */
+  /* 8 · 门开了。 */
   await page.goto("/projects");
   await expect(page.getByRole("heading", { name: "最近想做点什么" })).toBeVisible();
   await expect(page.getByPlaceholder("比如：", { exact: false })).toBeVisible();

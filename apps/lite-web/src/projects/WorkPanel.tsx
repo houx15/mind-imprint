@@ -129,7 +129,12 @@ export function WorkPanel({
             )}
 
             {/* 下半截：材料。她攒下来的东西，点一下回去看。 */}
-            <MaterialsList projectId={projectId} tools={tools} onOpen={onOpenMaterial} />
+            <MaterialsList
+              projectId={projectId}
+              projectKind={projectKind}
+              tools={tools}
+              onOpen={onOpenMaterial}
+            />
           </div>
         )}
       </div>
@@ -146,10 +151,12 @@ export function WorkPanel({
  */
 function MaterialsList({
   projectId,
+  projectKind,
   tools,
   onOpen,
 }: {
   projectId: string;
+  projectKind: string;
   tools: Tool[];
   /** 开这件工具：把它交给房间，房间负责放进列表并选中。 */
   onOpen: (tool: Tool) => void;
@@ -159,11 +166,11 @@ function MaterialsList({
 
   const reload = useCallback(async () => {
     try {
-      setItems(await listMaterials(projectId));
+      setItems(await listMaterials(projectId, projectKind));
     } catch (err) {
       setError(apiErrorText(err));
     }
-  }, [projectId]);
+  }, [projectId, projectKind]);
 
   useEffect(() => {
     void reload();

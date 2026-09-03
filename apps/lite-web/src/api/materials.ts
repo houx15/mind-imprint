@@ -1,4 +1,5 @@
 import { listArtifacts } from "./artifacts";
+import { getSite } from "./site";
 import { listDecisions } from "./decide";
 import { listNotes } from "./notes";
 import { currentReframe, listReframes, reframeSentence } from "./reframe";
@@ -37,7 +38,11 @@ export interface Material {
  * 用 allSettled 而不是 all：其中一个端点出错不该让整张清单空掉——她仍然该看见
  * 别的几样。取不到的那一样按"还没有"显示。
  */
-export async function listMaterials(projectId: string): Promise<Material[]> {
+export async function listMaterials(
+  projectId: string,
+  /** 项目类别。主页项目多一行「我的主页」——见下面那一段。 */
+  projectKind = "",
+): Promise<Material[]> {
   const [notes, reframes, artifacts, tree, decisions] = await Promise.allSettled([
     listNotes(projectId),
     listReframes(projectId),
@@ -59,7 +64,33 @@ export async function listMaterials(projectId: string): Promise<Material[]> {
   const decs = ok(decisions, []);
   const unsettled = decs.filter((d) => !d.settledAt);
 
+  // 🚨 主页项目那一行：她随时点得开的「我的主页」。
+  //
+  // 发布不是终点（spec §4：上线之后项目进 keeping，她随时能回来改），所以上线
+  // 那一屏不能只在印记递给她的那一刻存在。SiteStudio 被退役之后，这一行就是她
+  // 自己回到那一页的入口。
+  //
+  // count 恒为 1：这一行永远点得开。别的几行是「攒了多少」，这一行是一个地方。
+  const websiteRow: Material[] = [];
+  if (projectKind === "website") {
+    const site = await getSite().catch(() => null);
+    websiteRow.push({
+      tool: "ship",
+      label: "我的主页",
+      hue: "var(--mk-gold)",
+      count: 1,
+      detail: site
+        ? site.published
+          ? "已上线"
+          : site.missing.length
+            ? `还缺 ${site.missing.length} 处你自己的话`
+            : "待上线"
+        : "",
+    });
+  }
+
   return [
+    ...websiteRow,
     {
       tool: "board",
       label: "便签板",

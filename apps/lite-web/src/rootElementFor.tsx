@@ -3,8 +3,6 @@ import { LiteApp } from "./LiteApp";
 import { PublicReportPage } from "./reports/PublicReportPage";
 import { PublicSitePage } from "./site/PublicSitePage";
 import { parseLiteRoute } from "./routing";
-import { EcoRoot } from "./eco/EcoApp";
-import { isEcoPath } from "./eco/route";
 
 /**
  * The public report viewer (`/s/:token`) and the authenticated shell
@@ -27,14 +25,9 @@ import { isEcoPath } from "./eco/route";
  * `#root` DOM element (and would be unsafe to trigger twice even with one).
  */
 export function rootElementFor(pathname: string): ReactElement {
-  // `/eco/*` — the ecosystem prototype (世界 / 我的树 / PBL / 个人主页). It is a
-  // THIRD disjoint app: pure static frontend on mock data, no API and no
-  // session, so it is decided here for the same reason the share viewer is —
-  // `LiteApp` should never have to reason about a route it does not own.
-  // Delete this branch and the `eco/` directory together when the prototype
-  // has done its job.
-  if (isEcoPath(pathname)) return <EcoRoot />;
-
+  // `/eco/*` 那一支和 `eco/` 目录一起删掉了（2026-09-03）。原型的活干完了，
+  // 而它留下来的那份 `STUDENT = { name: "林知遥" }` 是主页项目最严重的缺陷的
+  // 来源——一个还在仓库里的假学生，迟早会再被谁 import 一次。
   const route = parseLiteRoute(pathname);
   // `view` is only the STARTING page — `PublicReportPage` owns it from there,
   // because this function runs once from `main.tsx`'s module-scope render and
