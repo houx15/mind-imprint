@@ -198,7 +198,15 @@ func (a *API) getPublicReport(w http.ResponseWriter, r *http.Request) {
 	// the field in from her draft for any report stored before it existed, and
 	// leaves everything else in the blob untouched, so the payload's key set
 	// (pinned by TestPublicPayloadCarriesNothingExtra) is unchanged.
+	// The two-phase generator's bookkeeping (prosePending / proseClaimedAt)
+	// is stripped here, not merely left unrendered. A visitor cannot act on
+	// either one: the polling that clears `prosePending` is the OWNER's
+	// report page re-asking an authenticated endpoint, and a public page that
+	// saw the flag could only either poll an endpoint that never changes for
+	// it, or render a "still working" state that never resolves. Keeping the
+	// public key set exactly what it was before the split is also what
+	// TestPublicPayloadCarriesNothingExtra is for.
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"report": json.RawMessage(a.reportWithPiece(r.Context(), row.AtomID, row.Report)),
+		"report": json.RawMessage(stripProseBookkeeping(a.reportWithPiece(r.Context(), row.AtomID, row.Report))),
 	})
 }

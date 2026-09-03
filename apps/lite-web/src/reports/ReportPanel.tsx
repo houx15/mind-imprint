@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { createRoot } from "react-dom/client";
 import { flushSync } from "react-dom";
+import { Pebble } from "@/ui";
 import { getReportEnvelope, type AtomKind, type LiteReport } from "../api/reports";
 import { useAlive } from "../shared/useAlive";
 import { exportPoster } from "./exportPoster";
@@ -110,6 +111,40 @@ export function ReportPanel({
         setShareToken(env.shareToken);
         setRating(env.rating);
         setState(env.report ? "done" : "quiet");
+        /**
+         * 🚨 The second fetch is what PAYS for the prose, and she is already
+         * reading her report while it runs.
+         *
+         * The server splits report generation in two (see ensureAtomReport):
+         * the first request stores and returns everything deterministic —
+         * stats, her notes, her lens notes, her own 收获 — and flags
+         * `prosePending`; the model call happens on the NEXT request. That
+         * call is `assess`-class (`reasoning: "max"`, a 180s budget) and it
+         * used to run inline, which is why 「印记正在把这次读的东西整理成一份
+         * 报告，稍等一下。」 was the whole screen for up to two and a half
+         * minutes — and why, past the 150s request cap, it produced no report
+         * at all.
+         *
+         * So this is deliberately NOT a poll loop. It is one follow-up
+         * request whose answer arrives when it arrives; nothing on screen is
+         * blocked on it, and if it fails the report she already has stays
+         * exactly as it is (the next time she opens the report, the server
+         * tries the prose again).
+         */
+        if (env.report?.prosePending) {
+          getReportEnvelope(kind, atomId)
+            .then((withProse) => {
+              // Only ever ADD prose to a report already on screen. A null
+              // report here would mean something odd happened server-side,
+              // and replacing a good report with nothing is strictly worse
+              // than leaving hers alone.
+              if (!alive.current || !withProse.report) return;
+              setReport(withProse.report);
+            })
+            .catch(() => {
+              /* Her report is already on screen — see above. */
+            });
+        }
       })
       .catch(() => {
         if (!alive.current) return;
@@ -215,15 +250,32 @@ export function ReportPanel({
   }
   if (state === "quiet") return <>{fallback ?? null}</>;
 
-  const verb = kind === "reading" ? "读" : "写";
-  // Carries the same gutters as the report it is standing in for — the hosts
-  // no longer wrap this panel in a padded column, so an unwrapped <p> would
-  // sit flush against the window edge.
+  /**
+   * 报告加载中。
+   *
+   * 🚨 这里原本只有一行静态灰字（「印记正在把这次读的东西整理成一份报告，
+   * 稍等一下。」），同事试用报的两条——「报告没有loading状态」和那句话
+   * 「it never finishes」——说的是同一块屏幕：没有任何东西在动，所以她无法
+   * 分辨「在跑」和「卡死了」，而当时那一等确实可以长到两分半。
+   *
+   * 服务端拆成两段之后这一段只有毫秒级（见上面那个 effect），但它仍然要有
+   * 一个**在动**的东西：一次网络抖动下，一行不动的字和一个死掉的页面长得
+   * 一模一样。
+   *
+   * 文案按 AGENTS.md §界面文案怎么写：状态用「处理中」这类成对词，不写成
+   * 印记 在跟她说话。
+   */
   return (
-    <div className="mk-rp-measure py-10">
-      <p className="text-mk-small text-mk-muted">
-        印记正在把这次{verb}的东西整理成一份报告，稍等一下。
-      </p>
+    <div className="mk-rp-measure flex items-center gap-2 py-10" role="status" aria-live="polite">
+      <span className="shrink-0">
+        <Pebble state="thinking" size={22} />
+      </span>
+      <span className="flex items-center gap-1" aria-hidden="true">
+        <span className="mk-think-dot" />
+        <span className="mk-think-dot [animation-delay:0.15s]" />
+        <span className="mk-think-dot [animation-delay:0.3s]" />
+      </span>
+      <p className="text-mk-small text-mk-muted">报告处理中</p>
     </div>
   );
 }

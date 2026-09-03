@@ -184,6 +184,30 @@ type liteReportDTO struct {
 	// generated before this existed re-serves without it, and the section is
 	// simply absent.
 	Piece string `json:"piece,omitempty"`
+	// ProsePending says the DETERMINISTIC half of this report is stored and
+	// serveable, and the one model call (moments / gains / summary) has not
+	// run yet. The client renders everything else immediately and asks again;
+	// the next request is what generates the prose. See ensureAtomReport's
+	// two-phase comment.
+	//
+	// 🚨 `omitempty`, and the polarity is deliberately PENDING rather than
+	// READY. Every report stored before this field existed already has its
+	// prose, and decodes this as `false` — i.e. "not pending", complete,
+	// which is correct. A `proseReady` field would have decoded those same
+	// blobs as `false` too and left the client polling finished reports
+	// forever.
+	ProsePending bool `json:"prosePending,omitempty"`
+	// ProseClaimedAt is bookkeeping, never rendered: the RFC3339 instant at
+	// which some request took the lease on generating this report's prose,
+	// so a second concurrent reader does not buy the same flagship call. See
+	// claimReportProse.
+	//
+	// It is written onto the STORED BYTES by patchReportClaim rather than by
+	// re-marshalling this struct, and it is absent from the completed report
+	// this builder produces (`omitempty`, and phase 2 marshals a fresh DTO) —
+	// a finished report carries neither flag. Declared here anyway so the
+	// field is discoverable from the shape rather than only from the patcher.
+	ProseClaimedAt string `json:"proseClaimedAt,omitempty"`
 }
 
 // --- validation (R4) -----------------------------------------------------
@@ -594,7 +618,7 @@ func countDoneReadingTasks(tasks []sqlc.ReadingTask) int {
 // buildReadingReportDTO assembles the full report for a FINISHED reading.
 // Called only from inside ensureAtomReport's transaction, on qtx, once the
 // re-check under the lock has confirmed no report exists yet.
-func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID, at sqlc.Atom, studentName string) (liteReportDTO, error) {
+func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID, at sqlc.Atom, studentName string, wantProse bool) (liteReportDTO, error) {
 	rd, err := qtx.GetReading(ctx, at.ID)
 	if err != nil {
 		return liteReportDTO{}, err
@@ -673,7 +697,13 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		keep = &reportKeep{Label: "我的收获", Text: text, Source: keepSourceStudent}
 	}
 
-	prose := a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
+	// Phase 1 skips this entirely — see ensureAtomReport. The deterministic
+	// half above is everything she actually did; the prose is editorial gloss
+	// on top of it, and it must never be what she waits for.
+	var prose reportProse
+	if wantProse {
+		prose = a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
+	}
 	// F4: the takeaway stays IN the corpus (see this function's caller
 	// context and dedupeMomentsAgainstKeep's own doc comment for why), so
 	// strip it back out of moments here, after generation, rather than
@@ -730,7 +760,7 @@ func (a *API) writingAllMessages(ctx context.Context, qtx *sqlc.Queries, atomID 
 	return all, nil
 }
 
-func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID, at sqlc.Atom, studentName string) (liteReportDTO, error) {
+func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, userID uuid.UUID, at sqlc.Atom, studentName string, wantProse bool) (liteReportDTO, error) {
 	wr, err := qtx.GetWriting(ctx, at.ID)
 	if err != nil {
 		return liteReportDTO{}, err
@@ -783,7 +813,11 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		{Key: "comments", Label: "印记读了", Value: len(comments), Unit: "遍"},
 	}
 
-	prose := a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)
+	// See buildReadingReportDTO's twin comment: phase 1 stores without prose.
+	var prose reportProse
+	if wantProse {
+		prose = a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)
+	}
 
 	// A writing has no takeaway field at all, so its 我的收获 is always the
 	// model's summary or nothing — which is why this card was simply missing
@@ -936,6 +970,44 @@ func mergeLiveWritingFields(fields map[string]json.RawMessage, draftBody, title 
 // share handler go through here, so there is exactly one generator — see
 // the file comment.
 //
+// ## TWO PHASES (2026-09-03) — why this is not one call any more
+//
+// Reported from the colleague trial as two bugs that are one bug:
+// 「报告没有loading状态」 and 「印记正在把这次读的东西整理成一份报告，稍等
+// 一下。— it never finishes」.
+//
+// generateReportProse routes to gateway.ClassAssess, and that class is
+// `reasoning: "max"` with a latencyBudgetMs of 180000 (models.json). It is
+// bound that way on purpose — 过程评估绝不降级 — and the routing spec itself
+// files `assess` as 「异步」. But lite serves it INLINE inside a GET, and the
+// enclosing request is capped at liteModelWorkTimeout = 150s. So:
+//
+//   - the student sat on one static grey sentence, with no spinner and no
+//     progress, for 60–150 seconds (production's last lite_report call burned
+//     5,976 completion tokens);
+//   - and on a big session the 150s cap fires BEFORE the 180s the class is
+//     allowed, which killed the whole transaction — so the report was not
+//     merely late, it was never stored at all. "It never finishes" was
+//     literally true.
+//
+// P4 (river + workers) is the sanctioned answer and is not built. The house
+// pattern in the meantime is LAZY, not fire-and-forget: this repo has no
+// fire-and-forget precedent, and the interest-harvest work deliberately
+// declined to introduce one (it tops up on open instead). So:
+//
+//	phase 1 — no model call at all. Build the deterministic half (stats, her
+//	          notes, her lens notes, her own 收获, the piece), store it with
+//	          ProsePending, and return. Milliseconds.
+//	phase 2 — a LATER request sees ProsePending on the stored row and runs
+//	          the one model call, then upserts the enriched report.
+//
+// She is therefore never waiting on a blank screen: her real report is on
+// screen immediately and the two prose sections fill in behind it. And a
+// prose call that times out now costs only the prose — the report itself is
+// already committed, which is what this file's own header always promised
+// ("a report must never be blocked on prose") and what the inline version
+// quietly failed to deliver.
+//
 // ctx is expected to already be detached from the caller's request (see
 // detachedModelCtx, reading_lens.go): once the model call is under way it
 // must run to completion even if she navigates away mid-call.
@@ -952,10 +1024,15 @@ func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, ki
 		return sqlc.AtomReport{}, false, nil
 	}
 
-	// Cheap pre-check outside any transaction: after the first generation
+	// Cheap pre-check outside any transaction: after both phases have run
 	// this is the only cost, for every reopen, forever.
 	if row, err := a.d.Queries.GetAtomReport(ctx, atomID); err == nil {
-		return row, true, nil
+		if !reportProsePending(row.Report) {
+			return row, true, nil
+		}
+		// Phase 2. The deterministic half is already hers to read; this is
+		// the follow-up request that pays for the prose.
+		return a.enrichAtomReportProse(ctx, userID, atomID, kind, row)
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		return sqlc.AtomReport{}, false, err
 	}
@@ -995,18 +1072,16 @@ func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, ki
 		return sqlc.AtomReport{}, false, err
 	}
 
-	var report liteReportDTO
-	switch kind {
-	case "reading":
-		report, err = a.buildReadingReportDTO(ctx, qtx, userID, at, name)
-	case "writing":
-		report, err = a.buildWritingReportDTO(ctx, qtx, userID, at, name)
-	default:
-		err = errUnknownAtomKind(kind)
-	}
+	// Phase 1: wantProse=false. No provider call happens inside this
+	// transaction — which is also what lets the advisory lock be held for
+	// milliseconds instead of minutes. The old shape kept a Postgres
+	// transaction open across a 150-second flagship call, so a second reader
+	// blocked on the lock for the whole of it.
+	report, err := a.buildAtomReportDTO(ctx, qtx, userID, at, kind, name, false)
 	if err != nil {
 		return sqlc.AtomReport{}, false, err
 	}
+	report.ProsePending = true
 
 	raw, merr := json.Marshal(report)
 	if merr != nil {
@@ -1018,6 +1093,250 @@ func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, ki
 	}
 	if err := tx.Commit(ctx); err != nil {
 		return sqlc.AtomReport{}, false, err
+	}
+	return row, true, nil
+}
+
+// buildAtomReportDTO dispatches on kind. Extracted so phase 1 and phase 2
+// cannot drift into building two subtly different reports — the only thing
+// that differs between them is `wantProse`.
+func (a *API) buildAtomReportDTO(
+	ctx context.Context,
+	qtx *sqlc.Queries,
+	userID uuid.UUID,
+	at sqlc.Atom,
+	kind, studentName string,
+	wantProse bool,
+) (liteReportDTO, error) {
+	switch kind {
+	case "reading":
+		return a.buildReadingReportDTO(ctx, qtx, userID, at, studentName, wantProse)
+	case "writing":
+		return a.buildWritingReportDTO(ctx, qtx, userID, at, studentName, wantProse)
+	default:
+		return liteReportDTO{}, errUnknownAtomKind(kind)
+	}
+}
+
+// reportProsePending reads the one field phase 2 keys off, without decoding
+// the whole envelope. A blob that fails to parse is treated as COMPLETE: a
+// report we cannot read is not a report we should spend a flagship call
+// trying to improve, and every report stored before this field existed
+// already has its prose.
+func reportProsePending(raw []byte) bool {
+	return reportProseProbe(raw).ProsePending
+}
+
+// proseClaimLease bounds how long one request's claim on a report's prose
+// blocks another's. It has to exceed the longest the model call can take —
+// the request ctx caps that at liteModelWorkTimeout (150s) — with enough
+// headroom that a claim never expires while its own call is still running.
+// It must also stay SHORT enough that a crashed process only delays the
+// prose by one reopen, rather than leaving the report pending forever.
+const proseClaimLease = 4 * time.Minute
+
+// reportProseProbe decodes only the two bookkeeping fields, so neither
+// pending-checking nor claim-checking has to parse (or risk reshaping) the
+// whole stored envelope.
+func reportProseProbe(raw []byte) struct {
+	ProsePending   bool   `json:"prosePending"`
+	ProseClaimedAt string `json:"proseClaimedAt"`
+} {
+	var probe struct {
+		ProsePending   bool   `json:"prosePending"`
+		ProseClaimedAt string `json:"proseClaimedAt"`
+	}
+	_ = json.Unmarshal(raw, &probe)
+	return probe
+}
+
+// claimReportProse takes the lease described in enrichAtomReportProse, in
+// one short transaction. Returns false — with no error — whenever somebody
+// else already holds it, or the prose has landed in the meantime.
+//
+// 🚨 The claim is written by patching the STORED bytes, not by re-marshalling
+// a decoded DTO. Re-marshalling would silently rewrite every report through
+// whatever the current struct happens to look like, quietly dropping fields
+// that a newer build had added and an older one has not learned — the report
+// is a stored blob and this function has no business reshaping it.
+func (a *API) claimReportProse(ctx context.Context, atomID uuid.UUID, kind string, stored sqlc.AtomReport) (bool, error) {
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return false, err
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", atomID.String()+":report"); err != nil {
+		return false, err
+	}
+	qtx := a.d.Queries.WithTx(tx)
+	row, err := qtx.GetAtomReport(ctx, atomID)
+	if err != nil {
+		return false, err
+	}
+	probe := reportProseProbe(row.Report)
+	if !probe.ProsePending {
+		// Another reader finished the prose while this one was getting here.
+		return false, nil
+	}
+	if at, perr := time.Parse(time.RFC3339, probe.ProseClaimedAt); perr == nil && time.Since(at) < proseClaimLease {
+		// A live claim. Somebody else is paying for this call right now.
+		return false, nil
+	}
+
+	patched, err := patchReportClaim(row.Report, time.Now().UTC().Format(time.RFC3339))
+	if err != nil {
+		return false, err
+	}
+	if _, err := qtx.UpsertAtomReport(ctx, sqlc.UpsertAtomReportParams{AtomID: atomID, Kind: kind, Report: patched}); err != nil {
+		return false, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// stripProseBookkeeping removes the two-phase generator's internal fields
+// from an envelope about to be served to someone who is NOT the owner. See
+// getPublicReport for why a visitor must never see them.
+//
+// Leaves everything else byte-identical, and returns the input unchanged if
+// it does not parse — a payload we cannot read is one we must not reshape.
+func stripProseBookkeeping(raw []byte) []byte {
+	var obj map[string]json.RawMessage
+	if json.Unmarshal(raw, &obj) != nil {
+		return raw
+	}
+	if _, pending := obj["prosePending"]; !pending {
+		if _, claimed := obj["proseClaimedAt"]; !claimed {
+			// The overwhelmingly common case (a completed report): don't
+			// re-marshal at all, so the bytes she shared stay the bytes we
+			// serve.
+			return raw
+		}
+	}
+	delete(obj, "prosePending")
+	delete(obj, "proseClaimedAt")
+	out, err := json.Marshal(obj)
+	if err != nil {
+		return raw
+	}
+	return out
+}
+
+// patchReportClaim sets `proseClaimedAt` on the stored envelope while leaving
+// every other key byte-identical — see claimReportProse's 🚨.
+func patchReportClaim(raw []byte, stamp string) ([]byte, error) {
+	var obj map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &obj); err != nil {
+		return nil, err
+	}
+	v, err := json.Marshal(stamp)
+	if err != nil {
+		return nil, err
+	}
+	obj["proseClaimedAt"] = v
+	return json.Marshal(obj)
+}
+
+// enrichAtomReportProse is PHASE 2: the stored report is already serveable,
+// and this is the request that pays for its prose. See ensureAtomReport.
+//
+// 🚨 It returns the report either way. A failed or timed-out model call
+// leaves the deterministic report exactly as it was and hands it straight
+// back — the student reads her stats, her notes and her own 收获, and the
+// next time she opens the report the prose is attempted again. Nothing about
+// this path may ever be able to turn a stored report into an error.
+//
+// The provider call happens OUTSIDE any transaction, on purpose: phase 1's
+// mistake was holding a Postgres transaction (and its advisory lock) across
+// a call that can run for minutes. Here the lock is taken only for the write
+// at the end, after the model has already answered.
+func (a *API) enrichAtomReportProse(
+	ctx context.Context,
+	userID, atomID uuid.UUID,
+	kind string,
+	stored sqlc.AtomReport,
+) (sqlc.AtomReport, bool, error) {
+	// 🚨 One charge, even with two readers, WITHOUT holding a transaction
+	// across the model call.
+	//
+	// Phase 1's lock is transaction-scoped (pg_advisory_xact_lock), which is
+	// right for a write that takes milliseconds and wrong here: this call can
+	// run for 150 seconds, and a transaction held open that long is what made
+	// a second reader block for the whole of it. But dropping the lock
+	// entirely lets two concurrent opens each buy their own flagship call —
+	// the double-charge shape this codebase has already had to close twice.
+	//
+	// So the work is CLAIMED in a short transaction of its own, before the
+	// model call, by stamping the stored report. A second reader that sees a
+	// live claim serves the report it already has (the deterministic half is
+	// complete and hers to read) and picks the prose up on a later open.
+	//
+	// The claim is a LEASE, not a flag: a process that dies mid-call must not
+	// leave the report pending forever, so a claim older than
+	// proseClaimLease is ignored and re-taken.
+	claimed, err := a.claimReportProse(ctx, atomID, kind, stored)
+	if err != nil || !claimed {
+		return stored, true, nil
+	}
+
+	at, err := a.d.Queries.GetAtom(ctx, atomID)
+	if err != nil {
+		// Serve what we have. See the 🚨 above.
+		return stored, true, nil
+	}
+	name, err := a.studentDisplayName(ctx, a.d.Queries, userID)
+	if err != nil {
+		return stored, true, nil
+	}
+
+	report, err := a.buildAtomReportDTO(ctx, a.d.Queries, userID, at, kind, name, true)
+	if err != nil {
+		slog.Warn("lite report: prose phase failed to rebuild", "err", err, "atom_id", atomID)
+		return stored, true, nil
+	}
+	// The model declined, timed out, or produced nothing that survived
+	// validateMoments. Leave the row pending so the NEXT open tries again,
+	// rather than stamping an empty prose section as final.
+	//
+	// `keep` is the exception worth naming: on a session where she left no
+	// takeaway of her own, `keep` comes from prose.Summary, so a report whose
+	// prose never lands keeps an empty 我的收获 — which is the same state it
+	// had before this two-phase split, not a new loss.
+	if len(report.Moments) == 0 && len(report.Gains) == 0 {
+		return stored, true, nil
+	}
+
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return stored, true, nil
+	}
+	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
+	if _, err := tx.Exec(ctx, "SELECT pg_advisory_xact_lock(hashtext($1))", atomID.String()+":report"); err != nil {
+		return stored, true, nil
+	}
+	qtx := a.d.Queries.WithTx(tx)
+	// Re-read under the lock: a concurrent reader may have already finished
+	// phase 2 while this one was talking to the provider. Its prose is as
+	// good as ours and it is already committed — do not overwrite it.
+	if row, rerr := qtx.GetAtomReport(ctx, atomID); rerr == nil && !reportProsePending(row.Report) {
+		if cerr := tx.Commit(ctx); cerr != nil {
+			return stored, true, nil
+		}
+		return row, true, nil
+	}
+
+	raw, merr := json.Marshal(report)
+	if merr != nil {
+		return stored, true, nil
+	}
+	row, err := qtx.UpsertAtomReport(ctx, sqlc.UpsertAtomReportParams{AtomID: atomID, Kind: kind, Report: raw})
+	if err != nil {
+		return stored, true, nil
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return stored, true, nil
 	}
 	return row, true, nil
 }

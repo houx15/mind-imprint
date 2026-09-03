@@ -119,17 +119,121 @@ func TestReportUnfinishedGeneratesNothing(t *testing.T) {
 	}
 }
 
-// TestReportChargesOnce — two concurrent first-opens of a finished reading's
-// report cost exactly one provider call. The advisory lock in
-// ensureAtomReport is what makes the loser block before it reaches the
-// provider; without it both requests read an empty atom_report, both
-// generate, and both charge.
+// TestReportFirstOpenCostsNothing — the FIRST open of a finished reading's
+// report makes no provider call at all, and still returns a real report.
+//
+// This is the 2026-09-03 two-phase split (see ensureAtomReport). The bug it
+// fixes was reported as 「印记正在把这次读的东西整理成一份报告，稍等一下。—
+// it never finishes」: the one model call is an `assess`-class call, i.e.
+// `reasoning: "max"` with a 180s latency budget, and it used to run INSIDE
+// this GET, whose own ctx is capped at 150s. So she waited up to two and a
+// half minutes on a static grey sentence and, on a long session, the cap
+// fired first and killed the transaction — no report was ever stored.
+//
+// What is pinned here is the property that makes the waiting stop: the
+// deterministic half is committed and served without ever reaching a
+// provider.
+func TestReportFirstOpenCostsNothing(t *testing.T) {
+	prov := &countingProvider{inner: reportStubProvider()}
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	id := createReadingAtomHTTP(t, h, cookie, "关于气候变化的一篇")
+	putReadingTakeawayHTTP(t, h, cookie, id, "我觉得应该多看数据来源，而不是只看结论")
+	finishReadingHTTP(t, h, cookie, id)
+
+	rec := getReadingReportHTTP(h, cookie, id)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("first open = %d, want 200; body=%s", rec.Code, rec.Body)
+	}
+	if n := prov.count(); n != 0 {
+		t.Fatalf("first open called the model %d times, want 0 — she must not wait on it", n)
+	}
+
+	var out struct {
+		Report struct {
+			Stats []struct {
+				Key string `json:"key"`
+			} `json:"stats"`
+			Keep         *struct{ Text string } `json:"keep"`
+			ProsePending bool                   `json:"prosePending"`
+		} `json:"report"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, rec.Body)
+	}
+	// A real report, not a placeholder: this is the whole point of phase 1.
+	if len(out.Report.Stats) == 0 {
+		t.Errorf("phase 1 must carry her stats — body=%s", rec.Body)
+	}
+	// Her OWN takeaway needs no model, so 我的收获 is populated on the very
+	// first open.
+	if out.Report.Keep == nil || out.Report.Keep.Text == "" {
+		t.Errorf("phase 1 must carry her own 收获 — body=%s", rec.Body)
+	}
+	if !out.Report.ProsePending {
+		t.Errorf("phase 1 must flag prosePending so the client asks again — body=%s", rec.Body)
+	}
+}
+
+// TestReportSecondOpenAddsProseOnce — the follow-up request is what pays for
+// the prose, and it pays exactly once: a third open serves the stored,
+// completed report without going near the provider.
+func TestReportSecondOpenAddsProseOnce(t *testing.T) {
+	prov := &countingProvider{inner: reportStubProvider()}
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	id := createReadingAtomHTTP(t, h, cookie, "关于气候变化的一篇")
+	putReadingTakeawayHTTP(t, h, cookie, id, "我觉得应该多看数据来源，而不是只看结论")
+	finishReadingHTTP(t, h, cookie, id)
+
+	if rec := getReadingReportHTTP(h, cookie, id); rec.Code != http.StatusOK {
+		t.Fatalf("first open = %d; body=%s", rec.Code, rec.Body)
+	}
+	second := getReadingReportHTTP(h, cookie, id)
+	if second.Code != http.StatusOK {
+		t.Fatalf("second open = %d; body=%s", second.Code, second.Body)
+	}
+	if n := prov.count(); n != 1 {
+		t.Fatalf("model called %d times across two opens, want 1", n)
+	}
+
+	var out struct {
+		Report struct {
+			ProsePending bool `json:"prosePending"`
+		} `json:"report"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, second.Body)
+	}
+	if out.Report.ProsePending {
+		t.Errorf("after the prose lands the report must stop asking to be re-fetched — body=%s", second.Body)
+	}
+
+	// 🚨 The idempotency that matters for cost: reopening a finished report
+	// forever after is free.
+	if rec := getReadingReportHTTP(h, cookie, id); rec.Code != http.StatusOK {
+		t.Fatalf("third open = %d; body=%s", rec.Code, rec.Body)
+	}
+	if n := prov.count(); n != 1 {
+		t.Fatalf("model called %d times across three opens, want 1", n)
+	}
+}
+
+// TestReportChargesOnce — two concurrent opens of a finished reading's
+// report whose prose is still pending cost exactly one provider call. The
+// advisory lock plus the re-read under it are what make the loser drop its
+// own generation rather than overwrite the winner's.
 func TestReportChargesOnce(t *testing.T) {
 	prov := &countingProvider{inner: reportStubProvider(), delay: 250 * time.Millisecond}
 	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
 	id := createReadingAtomHTTP(t, h, cookie, "关于气候变化的一篇")
 	putReadingTakeawayHTTP(t, h, cookie, id, "我觉得应该多看数据来源，而不是只看结论")
 	finishReadingHTTP(t, h, cookie, id)
+	// Phase 1 first, so both racers below are phase-2 requests — that is the
+	// path with a model call in it, and therefore the only one that can
+	// double-charge. (Phase 1 cannot: it makes no provider call at all, which
+	// TestReportFirstOpenCostsNothing pins separately.)
+	if rec := getReadingReportHTTP(h, cookie, id); rec.Code != http.StatusOK {
+		t.Fatalf("phase 1 = %d; body=%s", rec.Code, rec.Body)
+	}
 
 	var wg sync.WaitGroup
 	recs := make([]*httptest.ResponseRecorder, 2)

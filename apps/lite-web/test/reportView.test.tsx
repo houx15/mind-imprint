@@ -26,6 +26,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     lensNotes: [],
     notes: [],
     piece: "",
+    prosePending: false,
     ...over,
   };
 }
