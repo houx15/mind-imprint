@@ -469,6 +469,36 @@ type Message struct {
 	Source           *string        `json:"source"`
 }
 
+type NewsDay struct {
+	Day         pgtype.Date `json:"day"`
+	AttemptedAt time.Time   `json:"attempted_at"`
+	PlanetCount int32       `json:"planet_count"`
+	Note        string      `json:"note"`
+}
+
+type NewsPlanet struct {
+	ID           uuid.UUID          `json:"id"`
+	Day          pgtype.Date        `json:"day"`
+	Rank         int32              `json:"rank"`
+	TitleZh      string             `json:"title_zh"`
+	TitleEn      string             `json:"title_en"`
+	Summary      string             `json:"summary"`
+	Hook         string             `json:"hook"`
+	Url          string             `json:"url"`
+	SourceName   string             `json:"source_name"`
+	Field        string             `json:"field"`
+	DisciplineID string             `json:"discipline_id"`
+	Keyword      string             `json:"keyword"`
+	PublishedAt  pgtype.Timestamptz `json:"published_at"`
+	CreatedAt    time.Time          `json:"created_at"`
+}
+
+type NewsSaved struct {
+	UserID   uuid.UUID `json:"user_id"`
+	PlanetID uuid.UUID `json:"planet_id"`
+	SavedAt  time.Time `json:"saved_at"`
+}
+
 type OutlineNode struct {
 	ID        uuid.UUID `json:"id"`
 	ProjectID uuid.UUID `json:"project_id"`

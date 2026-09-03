@@ -1,0 +1,229 @@
+/* ===========================================================================
+ * explore.css — 今日新闻星图这一页的视觉层。
+ *
+ * 从 `eco/eco.css` 搬出来，只搬这一页用到的规则，类名 `eco-` → `exp-`。
+ * 和 `tree/tree.css` 同一个理由：`eco/` 的文件头写着「原型做完就连同这个目录
+ * 一起删掉」，而 `/explore` 现在是学生真的会打开的页面。
+ *
+ * 🚨 `mk-*` 是裸 CSS 变量，任何 Tailwind 透明度修饰都不会生成 CSS
+ * （memory: tailwind-mk-token-alpha-trap）。这里全用字面 rgba 或 color-mix。
+ * ======================================================================== */
+
+/* 七根主枝的颜色。和 tree.css 里那七个必须一致 —— **一颗星球的颜色就是它会
+ * 长在树的哪根枝上**，两屏用同一套颜色，这件事才说得通。 */
+.exp-sky {
+  --mk-lake: #6aa9d8;   /* 科学与自然 */
+  --mk-peach: #f0a380;  /* 人文与写作 */
+  --mk-mist: #8fb8c9;   /* 技术与创造 */
+  --mk-matcha: #93c088; /* 社会与世界 */
+  --mk-taro: #b49ad4;   /* 艺术与表达 */
+  --mk-berry: #e08fa8;  /* 自我与成长 */
+  --mk-gold: #e5c065;   /* 数学与形式 */
+}
+
+.exp-mono {
+  font-family: ui-monospace, "SF Mono", "PingFang SC", monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* --- 世界 · the sky ----------------------------------------------------- */
+
+.exp-sky {
+  /* Warm near-black, not blue-black: this product's night still has paper in
+     it. Three soft nebulae in accent/taro/lake keep it from reading flat.
+     2026-08-31: taken two stops DARKER. The planets are the only light source
+     on this screen, and at the old #17130F with 0.14 nebulae the ground was
+     bright enough to compete with them. Deep ground, bright objects. */
+  background-color: #0A0806;
+  background-image:
+    radial-gradient(900px 620px at 18% 14%, rgba(234, 81, 64, 0.085), transparent 62%),
+    radial-gradient(760px 560px at 84% 74%, rgba(180, 155, 216, 0.075), transparent 60%),
+    radial-gradient(680px 520px at 62% 18%, rgba(111, 191, 176, 0.06), transparent 58%),
+    /* a vignette, so the edges fall away and the centre holds the eye */
+    radial-gradient(1200px 900px at 50% 46%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+  color: #F0E9E0;
+  position: relative;
+  isolation: isolate;
+  /* 🚨 Required. The star layers below are absolutely positioned at
+     `inset: -20%`, and on a SCROLLING page an un-clipped overflow like that
+     grows the scroll container — which showed up as a 320px band of cream
+     paper under the sky once this view stopped being a locked stage. */
+  overflow: hidden;
+}
+
+/* Star field: two tiled dot layers at different densities, drifting at
+   different speeds. Pure CSS — no canvas, no per-star DOM node. */
+.exp-stars::before,
+.exp-stars::after {
+  content: "";
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+.exp-stars::before {
+  background-image:
+    radial-gradient(1.4px 1.4px at 20% 30%, rgba(255, 248, 236, 0.75), transparent 60%),
+    radial-gradient(1.2px 1.2px at 68% 12%, rgba(255, 248, 236, 0.5), transparent 60%),
+    radial-gradient(1.6px 1.6px at 42% 74%, rgba(255, 248, 236, 0.62), transparent 60%),
+    radial-gradient(1.1px 1.1px at 88% 52%, rgba(255, 248, 236, 0.45), transparent 60%),
+    radial-gradient(1.3px 1.3px at 12% 62%, rgba(255, 248, 236, 0.55), transparent 60%);
+  background-size: 340px 300px;
+  animation: exp-star-drift 190s linear infinite;
+}
+
+.exp-stars::after {
+  background-image:
+    radial-gradient(1px 1px at 55% 40%, rgba(255, 240, 220, 0.4), transparent 60%),
+    radial-gradient(1px 1px at 15% 85%, rgba(255, 240, 220, 0.32), transparent 60%),
+    radial-gradient(1px 1px at 78% 68%, rgba(255, 240, 220, 0.36), transparent 60%);
+  background-size: 190px 170px;
+  animation: exp-star-drift 320s linear infinite reverse;
+  opacity: 0.7;
+}
+
+@keyframes exp-star-drift {
+  to {
+    background-position: 340px 300px;
+  }
+}
+
+/* Orbit rings. Dashed, barely there, rotating once every few minutes — they
+   give the field a centre without drawing attention to themselves. */
+.exp-orbit {
+  position: absolute;
+  border-radius: 999px;
+  border: 1px dashed rgba(240, 233, 224, 0.13);
+  pointer-events: none;
+  animation: exp-spin 240s linear infinite;
+}
+.exp-orbit-2 {
+  animation-duration: 380s;
+  animation-direction: reverse;
+  border-color: rgba(240, 233, 224, 0.09);
+}
+.exp-orbit-3 {
+  animation-duration: 520s;
+  border-color: rgba(240, 233, 224, 0.07);
+}
+
+@keyframes exp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* A planet drifts. Five phases, five periods, so the group never falls into
+   lockstep — the moment two planets move together the field reads as a
+   carousel instead of a sky.
+   2026-08-31: amplitudes roughly tripled (was ±14px, now ±40px on a slow
+   figure-eight). At the old amplitude the motion was technically present and
+   perceptually absent; a student watching for three seconds saw a still
+   image. */
+.exp-drift   { animation: exp-float-a 26s ease-in-out infinite; }
+.exp-drift-1 { animation: exp-float-b 31s ease-in-out infinite; }
+.exp-drift-2 { animation: exp-float-c 23s ease-in-out infinite; }
+.exp-drift-3 { animation: exp-float-a 35s ease-in-out infinite reverse; }
+.exp-drift-4 { animation: exp-float-b 28s ease-in-out infinite reverse; }
+
+@keyframes exp-float-a {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(26px, -22px, 0); }
+  50%  { transform: translate3d(6px, -40px, 0); }
+  75%  { transform: translate3d(-22px, -16px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@keyframes exp-float-b {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(-30px, -12px, 0); }
+  50%  { transform: translate3d(-14px, 26px, 0); }
+  75%  { transform: translate3d(18px, 14px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+@keyframes exp-float-c {
+  0%   { transform: translate3d(0, 0, 0); }
+  25%  { transform: translate3d(20px, 24px, 0); }
+  50%  { transform: translate3d(-8px, 34px, 0); }
+  75%  { transform: translate3d(-24px, 10px, 0); }
+  100% { transform: translate3d(0, 0, 0); }
+}
+
+/* A news bubble: glass, not paint.
+ *
+ * 2026-08-31 — the sphere used to be opaque, with its headline set on the sky
+ * underneath it. The headline moved INSIDE (see world/Planet.tsx for why), and
+ * an opaque body cannot carry text: whatever colour makes a good planet makes
+ * a bad page. So the body became glass — a rim of the field's hue, a wash that
+ * fades toward the middle, and a specular highlight up-left so all five share
+ * one light source. That last detail is most of why they read as objects
+ * rather than as circles.
+ *
+ * The inline `background` / `borderColor` / `boxShadow` come from the
+ * component because they are per-field; everything shape-like lives here. */
+.exp-bubble {
+  position: relative;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  backdrop-filter: blur(3px);
+  transition: transform 320ms cubic-bezier(0.2, 0, 0, 1), box-shadow 320ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+/* the specular highlight — one light source, up and to the left */
+.exp-bubble::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 30% 24%, rgba(255, 255, 255, 0.4), transparent 40%),
+    radial-gradient(circle at 72% 82%, rgba(255, 255, 255, 0.1), transparent 34%);
+  pointer-events: none;
+}
+
+/* A bubble breathes. Slower and smaller than the drift it rides on, so the
+   two never beat against each other into a visible rhythm. */
+.exp-bubble {
+  animation: exp-breathe 9s ease-in-out infinite;
+}
+@keyframes exp-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.028); }
+}
+
+.exp-planet:hover .exp-bubble,
+.exp-planet:focus-visible .exp-bubble {
+  transform: scale(1.06);
+  animation-play-state: paused;
+}
+
+/* Already read: lit from the inside, once. */
+.exp-bubble-lit {
+  animation: exp-lit-pop 620ms cubic-bezier(0.2, 0, 0, 1) both, exp-breathe 9s ease-in-out 620ms infinite;
+}
+@keyframes exp-lit-pop {
+  0% { transform: scale(0.9); }
+  55% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* --- 我的兴趣树 · dark grove -------------------------------------------- */
+
+
+/* 全局 reset 会把动画时长压到约 0ms，那会让星球停在第一帧。钉住终态。 */
+@media (prefers-reduced-motion: reduce) {
+  .exp-stars::before,
+  .exp-stars::after,
+  .exp-orbit,
+  .exp-drift,
+  .exp-drift-1,
+  .exp-drift-2,
+  .exp-drift-3,
+  .exp-drift-4 {
+    animation: none !important;
+  }
+}

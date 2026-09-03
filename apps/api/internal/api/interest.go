@@ -183,6 +183,13 @@ func (a *API) routeKeywords(
 func (a *API) routeByModel(
 	ctx context.Context, userID uuid.UUID, k sqlc.InterestKeyword, evidence string,
 ) []interest.Route {
+	// 🚨 gateway.Collect 对 nil provider 直接 panic，而这条路径**只有在前两档
+	// 都没命中时才走到** —— 所以它躲过了很久：别名命中的词根本不到这里。一次
+	// panic 的代价是她那次请求整个挂掉（收藏一颗星、交一次卷）。
+	// 第三处同样的守卫（另两处：interest_harvest.go、interest_quiz.go）。
+	if a.d.Provider == nil {
+		return nil
+	}
 	// ClassReflex 的定义就是「一次路由选择，没有自由文本」——正是这件事。
 	resolved, ok := a.route(ctx, gateway.ClassReflex)
 	if !ok {

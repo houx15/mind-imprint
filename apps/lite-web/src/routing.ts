@@ -1,7 +1,7 @@
 // routing — the lite shell's tiny, dependency-free URL model. Mirrors
 // apps/web/src/shell/routing.ts in shape (root-relative paths, no router
-// library, History API driven) but with the lite tab vocabulary: 阅读
-// (readings) · 写作 (writings) · 项目 (projects) · 我的树 (tree) — no 课程,
+// library, History API driven) but with the lite tab vocabulary: 探索
+// (explore) · 阅读 (readings) · 写作 (writings) · 项目 (projects) · 我的树 (tree) — no 课程,
 // and none of pro's project lifecycle.
 //
 // Design notes (same reasoning as the pro shell's routing.ts):
@@ -10,6 +10,9 @@
 //    `parseLiteRoute` on load/popstate and `navigate` to push new paths.
 
 export type LiteRoute =
+  // 探索 (今日新闻星图). 每天五颗星，从十二个科学源抓来、模型选出。排在阅读
+  // 前面，因为它是那条链子的起点：找到 → 读 → 写 → 做。
+  | { tab: "explore" }
   | { tab: "readings"; readingId?: string }
   | { tab: "writings"; writingId?: string }
   // 项目 (PBL). The frontend path is `/projects` even though the API lives at
@@ -70,6 +73,8 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "projects", projectId: second } : { tab: "projects" };
     case "tree":
       return second === "quiz" ? { tab: "tree", quiz: true } : { tab: "tree" };
+    case "explore":
+      return { tab: "explore" };
     case "settings":
       return { tab: "settings" };
     case "s":
@@ -100,6 +105,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
     case "tree":
       return route.quiz ? "/tree/quiz" : "/tree";
+    case "explore":
+      return "/explore";
     case "settings":
       return "/settings";
     case "share":

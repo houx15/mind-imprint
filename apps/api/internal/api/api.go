@@ -265,6 +265,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/interest/quiz", liteOnly(a.getInterestQuizStatus))
 	mux.Handle("POST /api/v1/interest/quiz", liteOnly(a.startInterestQuiz))
 	mux.Handle("PUT /api/v1/interest/quiz/{id}", liteOnly(a.finishInterestQuiz))
+	// 今日新闻星图。生成是惰性的（第一个打开的人触发，advisory lock 保证
+	// 一天只抓一次、只调一次模型）——见 explore.go 顶部。
+	mux.Handle("GET /api/v1/explore/today", liteOnly(a.getExploreToday))
+	mux.Handle("POST /api/v1/explore/planets/{id}/save", liteOnly(a.savePlanet))
 	mux.Handle("POST /api/v1/readings/{id}/report/share", liteOnly(a.shareReadingReport()))
 	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 	mux.Handle("PUT /api/v1/readings/{id}/rating", liteOnly(a.putReadingRating()))

@@ -74,4 +74,13 @@ describe("parseLiteRoute", () => {
     expect(parseLiteRoute("/tree/whatever")).toEqual({ tab: "tree" }));
   it("the bare tree path carries no quiz flag", () =>
     expect(liteRoutePath({ tab: "tree" })).toBe("/tree"));
+
+  // 探索 (今日新闻星图). 排在 rail 的第一格，但 `/` 仍然落在阅读 —— 见
+  // LiteApp 的注释：一屏可能生成失败的星图不该是每个学生的落地页。
+  it("knows the explore tab", () =>
+    expect(parseLiteRoute("/explore")).toEqual({ tab: "explore" }));
+  it("round-trips the explore path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "explore" }))).toEqual({ tab: "explore" }));
+  it("still lands on readings at the root", () =>
+    expect(parseLiteRoute("/")).toEqual({ tab: "readings" }));
 });
