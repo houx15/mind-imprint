@@ -496,7 +496,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           openTool
             ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
             : "hidden"
-        } relative shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
+        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
           // 铺开时占满整个房间；对话让位，因为这时候她在读东西，不在说话。
           openTool && wideTool
             ? "lg:fixed lg:inset-0 lg:z-40 lg:w-full lg:border-l-0 lg:bg-mk-surface"
@@ -506,11 +506,16 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
         // 浮层，行内 width 会盖过 w-full，把浮层压成一条。
         style={desktop && !(openTool && wideTool) ? { width: paneWidth } : undefined}
       >
-        {/* 拖这条缝改宽度。铺开的时候没有缝可拖——那时候它已经占满了。 */}
-        {!(openTool && wideTool) && (
-          <PaneResizer onResize={setPaneWidth} onDoubleClick={() => setPaneWidth(PANE_DEFAULT)} />
-        )}
-        <WorkPanel
+        {/* 🚨 定位上下文放在这一层，不放 aside 上。
+            aside 在「铺开」那一档要用 lg:fixed，而 Tailwind 生成的顺序里
+            relative 排在 fixed 后面——给 aside 加 lg:relative 会反过来把
+            lg:fixed 压掉，铺开就失效了。包一层就没有这个冲突。 */}
+        <div className="relative h-full">
+          {/* 拖这条缝改宽度。铺开的时候没有缝可拖——那时候它已经占满了。 */}
+          {!(openTool && wideTool) && (
+            <PaneResizer onResize={setPaneWidth} onDoubleClick={() => setPaneWidth(PANE_DEFAULT)} />
+          )}
+          <WorkPanel
           projectId={projectId}
           projectKind={project?.kind ?? ""}
           wide={wideTool}
@@ -526,8 +531,9 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
           onOpenSession={(sid) => void enterSession(sid)}
           onResolve={onResolve}
-          onApprove={onApprove}
-        />
+            onApprove={onApprove}
+          />
+        </div>
       </aside>
     </div>
   );
