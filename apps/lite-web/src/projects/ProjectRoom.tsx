@@ -532,6 +532,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           onOpenSession={(sid) => void enterSession(sid)}
           onResolve={onResolve}
             onApprove={onApprove}
+            onToolsChanged={() => void listTools(projectId).then(setTools)}
           />
         </div>
       </aside>
