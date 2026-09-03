@@ -17,6 +17,8 @@ export interface Note {
   cluster: string;
   /** 她带回来的那张照片在 OSS 里的 key，空 = 没有照片。 */
   imageKey: string;
+  /** 这条便签放进了结构里的哪一块。null = 还在板上。 */
+  treeNodeId: string | null;
   x: number;
   y: number;
   createdAt: string;
@@ -143,4 +145,21 @@ export function moveNote(projectId: string, noteId: string, x: number, y: number
 
 export function archiveNote(projectId: string, noteId: string): Promise<Note> {
   return apiFetch<Note>(`${base(projectId)}/notes/${noteId}`, { method: "DELETE" });
+}
+
+/**
+ * 把一条便签放进结构里的某一块，或者拿回来（nodeId 给 null）。
+ *
+ * 🚨 「这个分法盖全了吗」以前是个没法回答的问题。她把材料一条一条放进去之后，
+ * **放不进去的那几条就是没盖到的地方**——那几条是她亲手收集的，比任何自评都硬。
+ */
+export function placeNote(
+  projectId: string,
+  noteId: string,
+  nodeId: string | null,
+): Promise<Note> {
+  return apiFetch<Note>(`${base(projectId)}/notes/${noteId}/place`, {
+    method: "POST",
+    body: JSON.stringify({ nodeId }),
+  });
 }

@@ -17,6 +17,7 @@ import {
   type TreeState,
 } from "../../../api/tree";
 import { ToolFrame } from "../ToolFrame";
+import { listNotes, noteKindMeta, placeNote, type Note } from "../../../api/notes";
 import type { ToolSurfaceProps } from "../registry";
 
 /**
@@ -51,6 +52,37 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
   const [draft, setDraft] = useState("");
   const [error, setError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLDivElement>(null);
+  // 她自己攒下来的材料。放进节点的、和放不进去的。
+  const [notes, setNotes] = useState<Note[]>([]);
+  // 正拿在手上准备放的那一条。
+  const [holding, setHolding] = useState<string | null>(null);
+
+  const loadNotes = useCallback(async () => {
+    try {
+      setNotes(await listNotes(projectId));
+    } catch {
+      // 材料拉不到，这张图照样能审——只是少了那把尺子。
+    }
+  }, [projectId]);
+  useEffect(() => {
+    void loadNotes();
+  }, [loadNotes]);
+
+  /**
+   * 把手上那条材料放进一块，或者从结构里拿回来。
+   *
+   * 🚨 「这个分法盖全了吗」以前只能靠她盯着提纲想「大概全了吧」。材料一条条放
+   * 进去之后，答案就在剩下的那几条里——放不进去的，就是这个结构没盖到的地方。
+   */
+  async function place(noteId: string, nodeId: string | null) {
+    try {
+      const got = await placeNote(projectId, noteId, nodeId);
+      setNotes((prev) => prev.map((n) => (n.id === got.id ? got : n)));
+      setHolding(null);
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
 
   const reload = useCallback(async () => {
     try {
@@ -302,7 +334,15 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
             return (
               <div
                 key={n.id}
-                onPointerDown={(e) => startDrag(n.id, e)}
+                onPointerDown={(e) => {
+                  // 手上拿着一条材料时，点一块就是放进去——这一下比拖更稳，
+                  // 尤其在这么小的画布上。
+                  if (holding) {
+                    void place(holding, n.id);
+                    return;
+                  }
+                  startDrag(n.id, e);
+                }}
                 onDoubleClick={() => setEditing(n.id)}
                 className="absolute select-none rounded-mk-md border px-2.5 py-2 shadow-mk-xs"
                 style={{
@@ -339,6 +379,12 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                   <p className="break-words text-mk-small">{n.title}</p>
                 )}
                 {n.body && <p className="mt-0.5 text-mk-small text-mk-muted">{n.body}</p>}
+                {/* 这一块底下压着几条材料。 */}
+                {notes.filter((x) => x.treeNodeId === n.id).length > 0 && (
+                  <p className="mt-0.5 text-mk-small" style={{ color: depthTone(n.depth).solid }}>
+                    材料 {notes.filter((x) => x.treeNodeId === n.id).length}
+                  </p>
+                )}
               </div>
             );
           })}
@@ -347,6 +393,55 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
 
       <p className="mt-1.5 text-mk-small text-mk-faint">
         拖着挪位置，拖到另一块上面就挂到它下面，点一下选中，Delete 删掉，双击改字。
+      </p>
+
+      {/* 🚨 材料托盘。这是「盖全了吗」的那把尺子：
+          她自己攒的观察、原话、推论、问题，一条一条放进结构里；
+          **放不进去的那几条就是这个结构没盖到的地方**。
+          那几条是她亲手收集的，比任何自评都硬。 */}
+      {notes.length > 0 && (
+        <div className="mt-3 border-t border-mk-border pt-3">
+          <div className="flex items-baseline justify-between">
+            <p className="text-mk-body font-semibold text-mk-ink">放不进去的材料</p>
+            <p className="text-mk-small text-mk-muted">
+              已放进 {notes.filter((n) => n.treeNodeId).length} / {notes.length}
+            </p>
+          </div>
+          <p className="mt-0.5 text-mk-small text-mk-muted">
+            {holding
+              ? "请点结构里的一块，把它放进去。"
+              : "请点一条材料，再点它该属于的那一块。剩下的就是这个结构没盖到的地方。"}
+          </p>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {notes
+              .filter((n) => !n.treeNodeId)
+              .map((n) => {
+                const meta = noteKindMeta(n.kind);
+                const on = holding === n.id;
+                return (
+                  <button
+                    key={n.id}
+                    type="button"
+                    onClick={() => setHolding(on ? null : n.id)}
+                    className="max-w-[220px] truncate rounded-mk-md px-2 py-1 text-mk-small"
+                    style={{
+                      background: `color-mix(in srgb, ${meta.hue} ${on ? 30 : 14}%, var(--mk-surface))`,
+                      outline: on ? `2px solid ${meta.hue}` : undefined,
+                    }}
+                  >
+                    {n.body}
+                  </button>
+                );
+              })}
+            {notes.every((n) => n.treeNodeId) && (
+              <p className="text-mk-small" style={{ color: "var(--mk-success)" }}>
+                材料都放进去了。
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+      <p className="hidden">
       </p>
 
       <div className="mt-2 flex items-end gap-2">

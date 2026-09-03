@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/store/sqlc"
@@ -44,16 +45,76 @@ type pblNoteDTO struct {
 	// 🚨 给的是 key，不是 URL。URL 是签出来的、会过期，塞进 DTO 就成了一条
 	// 第二天必然失效的链接。前端拿 key 去换一个签好的 GET（/oss/resolve-url）。
 	ImageKey  string  `json:"imageKey"`
+	// 这条便签放进了结构里的哪一块。null = 还在板上，没放进去。
+	// 🚨 放不进去的那几条，就是这个结构没盖到的地方——「盖全了吗」的答案。
+	TreeNodeID *string `json:"treeNodeId"`
 	CreatedAt string  `json:"createdAt"`
 }
 
 func toPblNoteDTO(n sqlc.PblNote) pblNoteDTO {
-	return pblNoteDTO{
+	out := pblNoteDTO{
 		ID: n.ID.String(), Kind: n.Kind, Body: n.Body, Author: n.Author,
 		Edited: n.Edited, Cluster: n.Cluster, X: n.X, Y: n.Y,
 		ImageKey:  n.ImageKey,
 		CreatedAt: n.CreatedAt.Format(time.RFC3339),
 	}
+	if n.TreeNodeID.Valid {
+		id := uuid.UUID(n.TreeNodeID.Bytes).String()
+		out.TreeNodeID = &id
+	}
+	return out
+}
+
+// placePblNote —— 把一条便签放进结构里的某一块，或者拿回来。
+//
+// 🚨 「这个分法盖全了吗」一直是个没法回答的问题：她只能盯着提纲想「大概全了吧」。
+// 把她自己攒的材料一条一条拖进节点里，答案就看得见了——**放不进去的那几条就是
+// 没盖到的地方**。那几条是她亲手收集的，比任何自评都硬。
+func (a *API) placePblNote(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	nid, err := uuid.Parse(r.PathValue("nid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条便签不存在"))
+		return
+	}
+	note, err := a.d.Queries.GetPblNote(r.Context(), nid)
+	if err != nil || note.AtomID != atomID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条便签不存在"))
+		return
+	}
+	var req struct {
+		// null / 空 = 从结构里拿回来，放回板上。
+		NodeID *string `json:"nodeId"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	node := pgtype.UUID{}
+	if req.NodeID != nil && strings.TrimSpace(*req.NodeID) != "" {
+		id, perr := uuid.Parse(strings.TrimSpace(*req.NodeID))
+		if perr != nil {
+			httpx.WriteError(w, r, httpx.ErrNotFound("这一块不存在"))
+			return
+		}
+		// 只能放进**这个项目自己的**结构：别的项目的节点不该在这里被引用。
+		n, gerr := a.d.Queries.GetPblTreeNode(r.Context(), id)
+		if gerr != nil || n.AtomID != atomID {
+			httpx.WriteError(w, r, httpx.ErrNotFound("这一块不存在"))
+			return
+		}
+		node = pgtype.UUID{Bytes: id, Valid: true}
+	}
+	out, err := a.d.Queries.PlacePblNote(r.Context(),
+		sqlc.PlacePblNoteParams{ID: nid, TreeNodeID: node})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPblNoteDTO(out))
 }
 
 func (a *API) listPblNotes(w http.ResponseWriter, r *http.Request) {

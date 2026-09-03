@@ -10,10 +10,11 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const archivePblNote = `-- name: ArchivePblNote :one
-UPDATE pbl_note SET archived = true WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key
+UPDATE pbl_note SET archived = true WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id
 `
 
 func (q *Queries) ArchivePblNote(ctx context.Context, id uuid.UUID) (PblNote, error) {
@@ -32,6 +33,7 @@ func (q *Queries) ArchivePblNote(ctx context.Context, id uuid.UUID) (PblNote, er
 		&i.Archived,
 		&i.CreatedAt,
 		&i.ImageKey,
+		&i.TreeNodeID,
 	)
 	return i, err
 }
@@ -72,7 +74,7 @@ const createPblNote = `-- name: CreatePblNote :one
 
 INSERT INTO pbl_note (atom_id, kind, body, author, cluster, x, y, image_key)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key
+RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id
 `
 
 type CreatePblNoteParams struct {
@@ -112,30 +114,32 @@ func (q *Queries) CreatePblNote(ctx context.Context, arg CreatePblNoteParams) (P
 		&i.Archived,
 		&i.CreatedAt,
 		&i.ImageKey,
+		&i.TreeNodeID,
 	)
 	return i, err
 }
 
 const getPblNote = `-- name: GetPblNote :one
-SELECT n.id, n.atom_id, n.kind, n.body, n.author, n.edited, n.cluster, n.x, n.y, n.archived, n.created_at, n.image_key, a.user_id
+SELECT n.id, n.atom_id, n.kind, n.body, n.author, n.edited, n.cluster, n.x, n.y, n.archived, n.created_at, n.image_key, n.tree_node_id, a.user_id
 FROM pbl_note n JOIN atom a ON a.id = n.atom_id
 WHERE n.id = $1
 `
 
 type GetPblNoteRow struct {
-	ID        uuid.UUID `json:"id"`
-	AtomID    uuid.UUID `json:"atom_id"`
-	Kind      string    `json:"kind"`
-	Body      string    `json:"body"`
-	Author    string    `json:"author"`
-	Edited    bool      `json:"edited"`
-	Cluster   string    `json:"cluster"`
-	X         float32   `json:"x"`
-	Y         float32   `json:"y"`
-	Archived  bool      `json:"archived"`
-	CreatedAt time.Time `json:"created_at"`
-	ImageKey  string    `json:"image_key"`
-	UserID    uuid.UUID `json:"user_id"`
+	ID         uuid.UUID   `json:"id"`
+	AtomID     uuid.UUID   `json:"atom_id"`
+	Kind       string      `json:"kind"`
+	Body       string      `json:"body"`
+	Author     string      `json:"author"`
+	Edited     bool        `json:"edited"`
+	Cluster    string      `json:"cluster"`
+	X          float32     `json:"x"`
+	Y          float32     `json:"y"`
+	Archived   bool        `json:"archived"`
+	CreatedAt  time.Time   `json:"created_at"`
+	ImageKey   string      `json:"image_key"`
+	TreeNodeID pgtype.UUID `json:"tree_node_id"`
+	UserID     uuid.UUID   `json:"user_id"`
 }
 
 func (q *Queries) GetPblNote(ctx context.Context, id uuid.UUID) (GetPblNoteRow, error) {
@@ -154,13 +158,14 @@ func (q *Queries) GetPblNote(ctx context.Context, id uuid.UUID) (GetPblNoteRow, 
 		&i.Archived,
 		&i.CreatedAt,
 		&i.ImageKey,
+		&i.TreeNodeID,
 		&i.UserID,
 	)
 	return i, err
 }
 
 const listPblNotes = `-- name: ListPblNotes :many
-SELECT id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key FROM pbl_note
+SELECT id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id FROM pbl_note
 WHERE atom_id = $1 AND archived = false
 ORDER BY created_at
 `
@@ -187,6 +192,7 @@ func (q *Queries) ListPblNotes(ctx context.Context, atomID uuid.UUID) ([]PblNote
 			&i.Archived,
 			&i.CreatedAt,
 			&i.ImageKey,
+			&i.TreeNodeID,
 		); err != nil {
 			return nil, err
 		}
@@ -199,7 +205,7 @@ func (q *Queries) ListPblNotes(ctx context.Context, atomID uuid.UUID) ([]PblNote
 }
 
 const movePblNote = `-- name: MovePblNote :one
-UPDATE pbl_note SET x = $2, y = $3 WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key
+UPDATE pbl_note SET x = $2, y = $3 WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id
 `
 
 type MovePblNoteParams struct {
@@ -224,12 +230,45 @@ func (q *Queries) MovePblNote(ctx context.Context, arg MovePblNoteParams) (PblNo
 		&i.Archived,
 		&i.CreatedAt,
 		&i.ImageKey,
+		&i.TreeNodeID,
+	)
+	return i, err
+}
+
+const placePblNote = `-- name: PlacePblNote :one
+UPDATE pbl_note SET tree_node_id = $2 WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id
+`
+
+type PlacePblNoteParams struct {
+	ID         uuid.UUID   `json:"id"`
+	TreeNodeID pgtype.UUID `json:"tree_node_id"`
+}
+
+// 把一条便签放进结构里的某一块；node 给 NULL 就是从结构里拿回来。
+// 见 migration 0125：放不进去的那几条，就是这个结构没盖到的地方。
+func (q *Queries) PlacePblNote(ctx context.Context, arg PlacePblNoteParams) (PblNote, error) {
+	row := q.db.QueryRow(ctx, placePblNote, arg.ID, arg.TreeNodeID)
+	var i PblNote
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Kind,
+		&i.Body,
+		&i.Author,
+		&i.Edited,
+		&i.Cluster,
+		&i.X,
+		&i.Y,
+		&i.Archived,
+		&i.CreatedAt,
+		&i.ImageKey,
+		&i.TreeNodeID,
 	)
 	return i, err
 }
 
 const setPblNoteCluster = `-- name: SetPblNoteCluster :one
-UPDATE pbl_note SET cluster = $2 WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key
+UPDATE pbl_note SET cluster = $2 WHERE id = $1 RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id
 `
 
 type SetPblNoteClusterParams struct {
@@ -256,6 +295,7 @@ func (q *Queries) SetPblNoteCluster(ctx context.Context, arg SetPblNoteClusterPa
 		&i.Archived,
 		&i.CreatedAt,
 		&i.ImageKey,
+		&i.TreeNodeID,
 	)
 	return i, err
 }
@@ -265,7 +305,7 @@ UPDATE pbl_note
 SET body = $2, kind = $3, cluster = $4,
     edited = (edited OR author = 'yinji')
 WHERE id = $1
-RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key
+RETURNING id, atom_id, kind, body, author, edited, cluster, x, y, archived, created_at, image_key, tree_node_id
 `
 
 type UpdatePblNoteParams struct {
@@ -298,6 +338,7 @@ func (q *Queries) UpdatePblNote(ctx context.Context, arg UpdatePblNoteParams) (P
 		&i.Archived,
 		&i.CreatedAt,
 		&i.ImageKey,
+		&i.TreeNodeID,
 	)
 	return i, err
 }

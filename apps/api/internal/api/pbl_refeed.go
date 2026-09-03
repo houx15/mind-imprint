@@ -3,6 +3,7 @@ package api
 import (
 	"net/http"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/google/uuid"
@@ -200,6 +201,33 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 					}
 				}
 			}
+		}
+	}
+
+	// 🚨 结构盖没盖全，答案在「放不进去的那几条」里。
+	//
+	// 「这个分法盖全了吗」以前是个没法回答的问题：她只能盯着提纲想「大概全了吧」。
+	// 她把材料一条一条拖进节点之后，剩下的那几条就是没盖到的地方——而那几条是
+	// 她亲手收集的，比任何自评都硬。
+	if ns, err := a.d.Queries.ListPblNotes(ctx, atomID); err == nil {
+		var placed, loose int
+		var looseBodies []string
+		for _, n := range ns {
+			if n.Author != "student" {
+				continue
+			}
+			if n.TreeNodeID.Valid {
+				placed++
+				continue
+			}
+			loose++
+			if len(looseBodies) < 5 {
+				looseBodies = append(looseBodies, strings.TrimSpace(n.Body))
+			}
+		}
+		if placed > 0 && loose > 0 {
+			add("她把材料往结构里放，还有 " + strconv.Itoa(loose) +
+				" 条放不进去：" + strings.Join(looseBodies, "；"))
 		}
 	}
 

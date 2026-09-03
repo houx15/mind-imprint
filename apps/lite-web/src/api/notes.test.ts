@@ -10,6 +10,7 @@ function note(id: string, cluster: string): Note {
     edited: false,
     cluster,
     imageKey: "",
+    treeNodeId: null,
     x: 0,
     y: 0,
     createdAt: "2026-09-01T00:00:00Z",

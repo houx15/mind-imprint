@@ -41,3 +41,8 @@ SELECT kind, count(*) AS n
 FROM pbl_note
 WHERE atom_id = $1 AND archived = false
 GROUP BY kind;
+
+-- name: PlacePblNote :one
+-- 把一条便签放进结构里的某一块；node 给 NULL 就是从结构里拿回来。
+-- 见 migration 0125：放不进去的那几条，就是这个结构没盖到的地方。
+UPDATE pbl_note SET tree_node_id = $2 WHERE id = $1 RETURNING *;
