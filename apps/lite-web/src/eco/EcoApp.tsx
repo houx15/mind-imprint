@@ -4,7 +4,6 @@ import { EcoProvider, useEco } from "./store";
 import { ecoPath, go, parseEcoRoute, type EcoRoute } from "./route";
 import { CoachDrawer } from "./coach/CoachDrawer";
 import { WorldView } from "./world/WorldView";
-import { TreeView } from "./home/TreeView";
 import { ProjectsHub } from "./projects/ProjectsHub";
 import { NewProject } from "./projects/NewProject";
 import { Workbench } from "./projects/Workbench";
@@ -181,7 +180,10 @@ function Shell({ route }: { route: EcoRoute }) {
 function Surface({ route }: { route: EcoRoute }) {
   switch (route.name) {
     case "home":
-      return route.view === "world" ? <WorldView /> : <TreeView />;
+      // 我的树已经不在原型里了——它是 lite 的真页面 `/tree`（`src/tree/`）。
+      // 这里只剩世界；`view === "tree"` 由 `ViewSwitch` 直接整页跳过去，跳不
+      // 过去时（手敲 `/eco/tree`）退回世界，而不是渲染一个已经不存在的组件。
+      return <WorldView />;
     case "projects":
       return <ProjectsHub />;
     case "project-new":

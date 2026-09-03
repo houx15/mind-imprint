@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Hammer, PenLine } from "lucide-react";
+import { BookOpen, Hammer, PenLine, Sprout } from "lucide-react";
 import { Icon, Pebble, Settings, ACCENT_PRESETS, AccentProvider, type AccentId, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
@@ -18,6 +18,7 @@ import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
+import { TreeView } from "./tree/TreeView";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -55,12 +56,15 @@ import { WritingRoomHost } from "./writings/WritingRoomHost";
  * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
  */
 
-type LiteTab = "readings" | "writings" | "projects";
+type LiteTab = "readings" | "writings" | "projects" | "tree";
 
+// 我的树排在最后，是因为这条轨的顺序本身在说一句话：**读 → 写 → 做 → 树因此
+// 长出来。** 树不是第四件要做的事，它是前三件的结果，所以它站在它们后面。
 const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
   { key: "projects", label: "项目", icon: Hammer },
+  { key: "tree", label: "我的树", icon: Sprout },
 ];
 
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -77,6 +81,8 @@ function tabPath(tab: LiteTab): string {
       return liteRoutePath({ tab: "writings" });
     case "projects":
       return liteRoutePath({ tab: "projects" });
+    case "tree":
+      return liteRoutePath({ tab: "tree" });
   }
 }
 
@@ -274,6 +280,8 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <WritingsLanding />
           )
+        ) : route.tab === "tree" ? (
+          <TreeView user={user} />
         ) : route.tab === "projects" ? (
           route.projectId ? (
             <ProjectRoom key={route.projectId} projectId={route.projectId} />

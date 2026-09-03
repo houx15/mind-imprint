@@ -43,4 +43,21 @@ describe("parseLiteRoute", () => {
       token: "abc",
       view: "record",
     }));
+
+  // 我的树 (兴趣树). It is a REAL lite route, not the `/eco/tree` prototype
+  // path — a student reaches it from the rail, and the prototype's own switch
+  // hard-navigates here. Pinned so a future edit to `parseLiteRoute` cannot
+  // quietly send `/tree` back to the readings default, which would look like
+  // "the tab does nothing" rather than like a bug.
+  it("knows the tree tab", () => expect(parseLiteRoute("/tree")).toEqual({ tab: "tree" }));
+  it("tolerates a trailing slash on the tree tab", () =>
+    expect(parseLiteRoute("/tree/")).toEqual({ tab: "tree" }));
+  it("round-trips the tree path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "tree" }))).toEqual({ tab: "tree" }));
+  // `/eco/tree` belongs to the prototype shell and must NOT be swallowed by
+  // the lite route table: `rootElementFor` hands every `/eco/*` path to
+  // `EcoRoot` before `parseLiteRoute` ever sees it, and a lite parse that
+  // claimed it would be a silent takeover.
+  it("does not claim the prototype's tree path", () =>
+    expect(parseLiteRoute("/eco/tree")).toEqual({ tab: "readings" }));
 });

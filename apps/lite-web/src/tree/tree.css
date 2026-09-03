@@ -1,0 +1,190 @@
+/* ===========================================================================
+ * tree.css — 兴趣树这一页的视觉层。
+ *
+ * 从 `eco/eco.css` 里搬出来的，只搬这一页真正用到的规则，并且把类名从 `eco-`
+ * 换成 `tree-`。原因不是洁癖：`eco/` 的文件头上写着「原型做完就连同这个目录
+ * 一起删掉」，而 `/tree` 现在是学生真的会打开的页面。一个会被删掉的样式表不能
+ * 是生产页面的样式来源。
+ *
+ * 🚨 继承自 lite 的 index.css 的硬规则：`mk-*` 是**裸 CSS 变量**，所以任何
+ * Tailwind 的透明度修饰（`bg-mk-accent/40`）都**不会生成任何 CSS**。下面每一个
+ * 半透明色都是 `color-mix()` 或字面 rgba。如果你发现自己在 `mk-` token 后面
+ * 打了一个斜杠，停下。（见 memory: tailwind-mk-token-alpha-trap）
+ *
+ * 科技感在这里不是霓虹青。它是：发丝线、点阵、等宽系统标签、数字读数、缓慢
+ * 漂移、错峰入场。底色始终是暖的。
+ * ======================================================================== */
+
+/* --- 主枝的七种颜色 -------------------------------------------------------
+ *
+ * 🚨 这七个必须定义在这里。原型最初直接引用了 `--mk-mist` / `--mk-matcha` /
+ * `--mk-taro` / `--mk-berry` 四个 token，而它们在 lite 的 index.css 里**根本
+ * 不存在**——六根主枝里有四根一直在用一个无效颜色渲染，浏览器悄悄回退，没有
+ * 任何报错。这是那类只有人眼能发现的 bug（见 memory:
+ * test-logic-not-endless-frontend）。
+ *
+ * 定义在这一页自己的作用域里，而不是加进 lite 的全局 token：主枝配色是这张图
+ * 的内部语言，别的界面没有「学科主枝」这个概念，不该被迫认识这七个名字。
+ *
+ * 暖底马卡龙，不是赛博霓虹。
+ * ------------------------------------------------------------------------ */
+
+.tree-grove {
+  --mk-lake: #6aa9d8;   /* 科学与自然 */
+  --mk-peach: #f0a380;  /* 人文与写作 */
+  --mk-mist: #8fb8c9;   /* 技术与创造 */
+  --mk-matcha: #93c088; /* 社会与世界 */
+  --mk-taro: #b49ad4;   /* 艺术与表达 */
+  --mk-berry: #e08fa8;  /* 自我与成长 */
+  --mk-gold: #e5c065;   /* 数学与形式 —— 树冠 */
+}
+
+/* --- 系统字 -------------------------------------------------------------- */
+
+.tree-mono {
+  font-family: ui-monospace, "SF Mono", "PingFang SC", monospace;
+  font-size: 10px;
+  line-height: 1.4;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+/* --- 树的夜 --------------------------------------------------------------
+ *
+ * 这棵树发光，关键词是挂在结构上的半透明光珠。之所以仍然是 SVG 而不是一张画：
+ * 每一颗珠子都由 `pointOnBranch()` 放在 SVG 画的那条贝塞尔曲线上。一张画出来
+ * 的树，它的枝是数学不认识的，珠子就会飘在细枝旁边而不是挂在枝上，于是整个
+ * 主张——**这张图就是你的模型**——会悄悄退化成装饰。所以这层光是搭出来的，
+ * 不是导入的。
+ * ------------------------------------------------------------------------ */
+.tree-grove {
+  background-color: #0B0907;
+  background-image:
+    radial-gradient(900px 700px at 50% 78%, rgba(234, 81, 64, 0.1), transparent 66%),
+    radial-gradient(760px 640px at 26% 30%, rgba(111, 191, 176, 0.075), transparent 62%),
+    radial-gradient(700px 600px at 76% 26%, rgba(180, 155, 216, 0.08), transparent 62%),
+    radial-gradient(1200px 900px at 50% 50%, transparent 38%, rgba(0, 0, 0, 0.6) 100%);
+  color: #EFE7DC;
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+/* 光尘：两层缓慢上升的点阵。和星空是同一个手法、相反的方向——向外时天在落，
+   向内时光在升。 */
+.tree-motes::before,
+.tree-motes::after {
+  content: "";
+  position: absolute;
+  inset: -25%;
+  pointer-events: none;
+  z-index: 0;
+}
+.tree-motes::before {
+  background-image:
+    radial-gradient(1.6px 1.6px at 24% 36%, rgba(255, 226, 186, 0.5), transparent 60%),
+    radial-gradient(1.2px 1.2px at 71% 18%, rgba(198, 236, 224, 0.42), transparent 60%),
+    radial-gradient(1.8px 1.8px at 47% 78%, rgba(255, 226, 186, 0.34), transparent 60%),
+    radial-gradient(1.1px 1.1px at 86% 58%, rgba(214, 200, 240, 0.4), transparent 60%);
+  background-size: 320px 280px;
+  animation: tree-mote-rise 120s linear infinite;
+}
+.tree-motes::after {
+  background-image:
+    radial-gradient(1px 1px at 58% 44%, rgba(255, 240, 220, 0.3), transparent 60%),
+    radial-gradient(1px 1px at 17% 88%, rgba(255, 240, 220, 0.24), transparent 60%);
+  background-size: 176px 158px;
+  animation: tree-mote-rise 200s linear infinite reverse;
+  opacity: 0.7;
+}
+@keyframes tree-mote-rise {
+  to { background-position: 40px -280px; }
+}
+
+/* 树上的一个关键词：一颗它所属主枝颜色的半透明光珠，每颗的呼吸周期不同，
+   于是树冠是在闪烁而不是整体在搏动。 */
+.tree-bead {
+  border-radius: 999px;
+  animation: tree-bead-breathe var(--bead-period, 6s) ease-in-out infinite;
+  animation-delay: var(--bead-delay, 0s);
+}
+@keyframes tree-bead-breathe {
+  0%, 100% { transform: scale(1); filter: brightness(1); }
+  50% { transform: scale(1.07); filter: brightness(1.25); }
+}
+
+/* 一个关键词落到它的枝上。 */
+.tree-node {
+  animation: tree-node-in 460ms cubic-bezier(0.2, 0, 0, 1) both;
+  transition: transform 200ms cubic-bezier(0.2, 0, 0, 1);
+}
+.tree-node:hover {
+  transform: translateY(-2px);
+}
+@keyframes tree-node-in {
+  from { opacity: 0; transform: scale(0.86); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 高光时刻 —— 一颗会呼吸而不是会闪的金星。 */
+.tree-shine {
+  animation: tree-shine 3.4s ease-in-out infinite;
+  transform-box: fill-box;
+  transform-origin: center;
+}
+@keyframes tree-shine {
+  0%, 100% { opacity: 0.68; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.16); }
+}
+
+/* 错峰入场。在每个子元素上设 `--i`。 */
+.tree-in {
+  animation: tree-in 420ms cubic-bezier(0.2, 0, 0, 1) both;
+  animation-delay: calc(var(--i, 0) * 55ms);
+}
+@keyframes tree-in {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: none; }
+}
+
+/* 暗底上做分节线的一道细扫描线。 */
+.tree-scanline {
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(240, 233, 224, 0.28) 18%,
+    rgba(240, 233, 224, 0.28) 82%,
+    transparent
+  );
+}
+
+/* @/index.css 里的全局 reset 会把动画时长压到约 0ms，那会让珠子停在入场动画的
+   第一帧上。这里显式钉住终态。 */
+@media (prefers-reduced-motion: reduce) {
+  .tree-motes::before,
+  .tree-motes::after,
+  .tree-bead,
+  .tree-shine {
+    animation: none !important;
+  }
+  .tree-in,
+  .tree-node {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
+  }
+}
+
+/* 抽屉像一份正在被写出来的读数一样到达。 */
+.tree-sheet-in {
+  animation: tree-sheet-in 320ms cubic-bezier(0.2, 0, 0, 1) both;
+}
+@keyframes tree-sheet-in {
+  from { opacity: 0; transform: translateX(22px); }
+  to { opacity: 1; transform: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tree-sheet-in { animation: none !important; opacity: 1 !important; transform: none !important; }
+}

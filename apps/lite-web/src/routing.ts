@@ -1,7 +1,8 @@
 // routing — the lite shell's tiny, dependency-free URL model. Mirrors
 // apps/web/src/shell/routing.ts in shape (root-relative paths, no router
 // library, History API driven) but with the lite tab vocabulary: 阅读
-// (readings) and 写作 (writings) — no 首页/课程/我, no project lifecycle.
+// (readings) · 写作 (writings) · 项目 (projects) · 我的树 (tree) — no 课程,
+// and none of pro's project lifecycle.
 //
 // Design notes (same reasoning as the pro shell's routing.ts):
 //  - Paths are ALWAYS root-relative ("/…"), never absolute URLs.
@@ -16,6 +17,12 @@ export type LiteRoute =
   // clear of pro's `/api/v1/projects`, and a student's URL bar has no such
   // collision to avoid.
   | { tab: "projects"; projectId?: string }
+  // 我的树 (兴趣树). Her keyword model, grown from what she actually finished —
+  // 阅读 / 写作 / 项目. A real tab, not a prototype surface: it reads
+  // `GET /api/v1/interest/tree` and renders nothing when that fails, because a
+  // tree that falls back to sample words hangs sixteen keywords that are not
+  // hers on a picture captioned 「这就是你的模型」.
+  | { tab: "tree" }
   // 设置 is a route, not a rail tab: it is reached from the account button at
   // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
   // active tab. Keeping it in the same union is what lets Back leave settings
@@ -58,6 +65,8 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "writings", writingId: second } : { tab: "writings" };
     case "projects":
       return second ? { tab: "projects", projectId: second } : { tab: "projects" };
+    case "tree":
+      return { tab: "tree" };
     case "settings":
       return { tab: "settings" };
     case "s":
@@ -86,6 +95,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
     case "projects":
       return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
+    case "tree":
+      return "/tree";
     case "settings":
       return "/settings";
     case "share":

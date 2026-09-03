@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { InterestKeyword, InterestTree } from "../../api/interest";
+import type { InterestKeyword, InterestTree } from "../api/interest";
 import { bornAtFor, hashString, placeOnBranch, toTreeKeywords } from "./liveTree";
 
 // liveTree.test.ts —— 位置算法的守卫。

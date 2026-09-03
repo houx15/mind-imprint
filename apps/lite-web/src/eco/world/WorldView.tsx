@@ -11,7 +11,7 @@ import {
 import type { NewsItem } from "../data/types";
 import { ViewSwitch } from "../home/ViewSwitch";
 import { Panel, Sys, cx } from "../ui";
-import { useFitScale } from "../fit";
+import { useFitScale } from "../../tree/useFitScale";
 import { Planet } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
 
