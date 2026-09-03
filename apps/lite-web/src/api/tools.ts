@@ -31,6 +31,15 @@ export function listTools(projectId: string): Promise<ToolInstance[]> {
   return apiFetch<ToolInstance[]>(`${base(projectId)}/tools`);
 }
 
+/**
+ * 她自己从材料清单点开的工具，理由固定这一句。
+ *
+ * 🚨 服务端拒绝没有理由的工具（对的：一件说不出为什么的工具对她是一次打断），
+ * 所以浏览也得给个理由。但这一句同时是个标记：**这不是一件待办**。
+ * 她回头看一眼便签板，不该在"进行中"里多出一条任务——看东西不是任务。
+ */
+export const SELF_OPENED = "你自己打开的";
+
 export function summonTool(
   projectId: string,
   body: { tool: string; reason: string; kind?: ToolKind; sessionId?: string },
