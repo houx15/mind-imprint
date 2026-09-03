@@ -87,7 +87,7 @@ const SLOTS: Slot[] = [
     hint: "他们真正需要的东西",
     tone: "peach",
     icon: Heart,
-    empty: "他要的那个东西，不是你打算怎么给",
+    empty: "他要的那个东西。先不说你打算怎么给",
   },
   {
     key: "why",
