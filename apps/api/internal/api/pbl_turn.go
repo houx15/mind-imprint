@@ -234,6 +234,16 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// 🚨 一件点开是空的工具，比不递这件工具糟得多——见 pbl_tool_gate.go。
+	// 这一句必须排在 applyPblProduce 之后：印记这一轮做出来的东西已经落库了，
+	// 所以这里问的是"她现在点进去有没有东西"，而不是"模型说它做了没有"。
+	if out.Tool != "" && !a.pblToolHasContent(r.Context(), atomID, out.Tool) {
+		slog.Warn("pbl turn: 印记 offered a tool whose surface would be blank; dropping it",
+			"atom_id", atomID, "tool", out.Tool, "needs", pbl.ToolNeeds(out.Tool),
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		out.Tool, out.ToolReason = "", ""
+	}
+
 	if out.Tool != "" {
 		tool, terr := a.d.Queries.SummonPblTool(r.Context(), sqlc.SummonPblToolParams{
 			AtomID: atomID, SessionID: scope, Tool: out.Tool, Reason: out.ToolReason,

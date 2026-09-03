@@ -478,6 +478,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       >
         <WorkPanel
           projectId={projectId}
+          projectKind={project?.kind ?? ""}
           plan={plan}
           tools={tools}
           openTool={openTool}

@@ -4,9 +4,9 @@ import { MessageCircle, Plus } from "lucide-react";
 import { Icon } from "@/ui";
 import {
   KEEP_KINDS,
-  KEEP_METRICS,
   KEEP_STAGES,
   addKeepEntry,
+  keepMetricsFor,
   keepStage,
   listKeepEntries,
   openKeepSession,
@@ -31,7 +31,14 @@ import type { ToolSurfaceProps } from "../registry";
  * 我们不替她保管成品——网站活在她自己的世界里。我们保管的是她从成品那里学到
  * 的东西。
  */
-export function Keep({ projectId, tool, onFinish, onOpenSession, onClose }: ToolSurfaceProps) {
+export function Keep({
+  projectId,
+  projectKind,
+  tool,
+  onFinish,
+  onOpenSession,
+  onClose,
+}: ToolSurfaceProps) {
   const [entries, setEntries] = useState<KeepEntry[]>([]);
   const [kind, setKind] = useState<KeepKind>("stat");
   const [stage, setStage] = useState<KeepStage>("observe");
@@ -48,6 +55,9 @@ export function Keep({ projectId, tool, onFinish, onOpenSession, onClose }: Tool
   }, [reload]);
 
   const at = keepStage(entries);
+  // 🚨 该看哪几种数据跟着项目类别走。写死的「点击率」问的是一个走廊上的项目
+  // 量不出来的东西，等于告诉她这一步跟她无关。见 api/lookback.ts。
+  const metrics = keepMetricsFor(projectKind);
 
   async function add() {
     const body = draft.trim();
@@ -160,7 +170,7 @@ export function Keep({ projectId, tool, onFinish, onOpenSession, onClose }: Tool
         {kind === "stat" && (
           <div className="mt-2">
             <div className="flex flex-wrap gap-1">
-              {KEEP_METRICS.map((m) => (
+              {metrics.map((m) => (
                 <button
                   key={m.name}
                   type="button"
@@ -185,7 +195,7 @@ export function Keep({ projectId, tool, onFinish, onOpenSession, onClose }: Tool
             </div>
             {metric && (
               <p className="mt-1.5 text-mk-small text-mk-muted">
-                {KEEP_METRICS.find((m) => m.name === metric)?.what}
+                {metrics.find((m) => m.name === metric)?.what}
                 <span className="ml-1 text-mk-faint">再点一下就填进去。</span>
               </p>
             )}

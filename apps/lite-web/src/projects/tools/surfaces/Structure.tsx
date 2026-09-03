@@ -269,7 +269,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
         >
           {state.nodes.length === 0 && (
             <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-              还没有结构。到对话里请印记先给一个，再在这里审。
+              还没有结构。印记给出提纲后，会在这里让你审核。
             </p>
           )}
 

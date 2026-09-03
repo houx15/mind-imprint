@@ -16,6 +16,7 @@ import { ToolFrame } from "./tools/ToolFrame";
  */
 export function WorkPanel({
   projectId,
+  projectKind,
   plan,
   tools,
   openTool,
@@ -27,6 +28,7 @@ export function WorkPanel({
   busy,
 }: {
   projectId: string;
+  projectKind: string;
   plan: PlanState;
   tools: ToolInstance[];
   /** 当前打开的工具 id；null = 看计划。 */
@@ -66,6 +68,7 @@ export function WorkPanel({
         {active ? (
           <ToolSurface
             projectId={projectId}
+            projectKind={projectKind}
             tool={active}
             onFinish={(result, summary) => onFinishTool(active, result, summary)}
             onOpenSession={onOpenSession}

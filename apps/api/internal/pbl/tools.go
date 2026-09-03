@@ -34,6 +34,18 @@ type Tool struct {
 	Name  string
 	Kind  string
 	Label string
+	// Needs 是这件工具的界面**读**的那种产出（ProduceKinds 里的一个）。
+	//
+	// 🚨 这四件工具的界面本身是空的——理性决策摆的是印记做的那个选择，结构
+	// 审查摆的是印记给的那棵提纲，分工建议摆的是印记拆的那几件小事，审核助手
+	// 摆的是印记交上来的那份东西。工具是「审」的地方，不是无中生有的地方。
+	//
+	// 所以递这几件而不同时做出对应的东西，她打开看到的是一块白板加一句「到
+	// 对话里请印记先给一个」——她刚照着印记说的点进来，却被打发回去求印记再
+	// 做一遍。2026-09-02 线上实测三件全是这样。
+	//
+	// 空 = 这件工具自己就有内容（观察日记、便签板、复盘…），随时可以递。
+	Needs string
 }
 
 // registry —— 七个阶段展开成的工具。
@@ -45,12 +57,20 @@ var registry = map[string]Tool{
 	"board":     {Name: "board", Kind: KindThinking, Label: "头脑风暴"},
 	"reframe":   {Name: "reframe", Kind: KindThinking, Label: "问题识别"},
 	"ideas":     {Name: "ideas", Kind: KindThinking, Label: "解决方案"},
-	"review":    {Name: "review", Kind: KindThinking, Label: "审核助手"},
-	"decide":    {Name: "decide", Kind: KindThinking, Label: "理性决策"},
-	"structure": {Name: "structure", Kind: KindThinking, Label: "结构审查"},
-	"split":     {Name: "split", Kind: KindThinking, Label: "分工建议"},
+	"review":    {Name: "review", Kind: KindThinking, Label: "审核助手", Needs: "artifact"},
+	"decide":    {Name: "decide", Kind: KindThinking, Label: "理性决策", Needs: "decision"},
+	"structure": {Name: "structure", Kind: KindThinking, Label: "结构审查", Needs: "structure"},
+	"split":     {Name: "split", Kind: KindThinking, Label: "分工建议", Needs: "substeps"},
 	"lookback":  {Name: "lookback", Kind: KindThinking, Label: "项目复盘"},
 	"keep":      {Name: "keep", Kind: KindThinking, Label: "长期迭代"},
+}
+
+// ToolNeeds 返回这件工具的界面读的那种产出，没有就是空。
+//
+// 表外的名字一律没有依赖——我们不知道它的界面长什么样，那就退回到朴素卡片，
+// 她自己在上面写结果，不会开出一块白板。
+func ToolNeeds(name string) string {
+	return registry[name].Needs
 }
 
 // LookupTool 返回已知工具的定义。

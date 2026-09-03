@@ -152,7 +152,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
 
       {subs.length === 0 ? (
         <p className="mt-2 text-mk-small text-mk-muted">
-          这一步还没有分工方案。到对话里请印记给一个。
+          这一步还没有分工方案。印记提出分工后，会在这里让你审核。
         </p>
       ) : (
         <>

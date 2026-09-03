@@ -96,18 +96,66 @@ export const KEEP_KINDS: { kind: KeepKind; label: string; placeholder: string }[
   { kind: "thought", label: "我的灵感", placeholder: "你的灵感是什么，为什么？" },
 ];
 
+export interface KeepMetric {
+  name: string;
+  what: string;
+}
+
 /**
- * 常见的几个产品数据，点开看它是什么。
+ * 每个项目都用得上的三种取数方式。
+ *
+ * 不管她做的是一个网站、一场活动还是一次调查，「有多少人用过」「问一批人」
+ * 「找几个人聊」这三件事都成立，而且都是真正的专业词（AGENTS.md 界面文案 6）。
+ */
+const KEEP_METRICS_ANY: KeepMetric[] = [
+  { name: "使用人数", what: "一段时间里真正用过它的有多少人。先有这个数，别的比例才有意义。" },
+  { name: "问卷调查", what: "同一组问题发给一批人，看回答的分布。人数够了，个别意见才不会盖过整体。" },
+  { name: "访谈记录", what: "找几个用过的人当面聊：他当时想做什么、卡在哪一步、最后怎么解决的。" },
+];
+
+/**
+ * 只有屏幕上的东西才量得出来的三个。
  *
  * 产品负责人 2026-09-02：「停留时长、点击率、留存率(with each can click to see
  * what are they)」。直接甩三个词给一个中学生，等于没说——她多半会跳过这一档，
  * 而这一档恰恰是"用数据说话"这件事的入口。
  */
-export const KEEP_METRICS: { name: string; what: string }[] = [
+const KEEP_METRICS_SCREEN: KeepMetric[] = [
   { name: "停留时长", what: "一个人打开之后待了多久。太短通常说明他没找到想看的东西。" },
   { name: "点击率", what: "看到入口的人里，有多少真的点进来了。" },
   { name: "留存率", what: "上次来过的人，这次还回来的比例。" },
 ];
+
+/**
+ * 现场做的事，量的是现场发生了什么。
+ */
+const KEEP_METRICS_SCENE: KeepMetric[] = [
+  { name: "参与率", what: "在场的人里，实际参加进来的比例。" },
+  { name: "现场计数", what: "同一个时间、同一个位置数三天，数出来的才是常态，不是那一天。" },
+];
+
+/** 屏幕上的项目——这几类才有点击率、留存率可言。 */
+const SCREEN_KINDS = new Set(["网站搭建", "产品原型", "内容设计", "website", "making", "design"]);
+/** 线下发生的项目。 */
+const SCENE_KINDS = new Set(["田野调查", "活动策划", "investigation"]);
+
+/**
+ * 这个项目该看哪几种数据。
+ *
+ * 🚨 原来这里是写死的三个：停留时长 / 点击率 / 留存率。2026-09-02 线上实测走
+ * 的是一个走廊上的项目——她要改的是课间十分钟，界面却请她填「点击率」。一个
+ * 量不出来的指标不只是没用，它在教她「这一步跟我的项目无关」，而这一步恰恰是
+ * 整个长期迭代的入口。
+ *
+ * 类别还没定（刚建的项目 kind 是空的）就只给通用那三种——问卷、访谈、人数对
+ * 任何项目都成立，不会闹笑话。
+ */
+export function keepMetricsFor(kind: string): KeepMetric[] {
+  const k = kind.trim();
+  if (SCREEN_KINDS.has(k)) return [...KEEP_METRICS_SCREEN, ...KEEP_METRICS_ANY];
+  if (SCENE_KINDS.has(k)) return [...KEEP_METRICS_SCENE, ...KEEP_METRICS_ANY];
+  return KEEP_METRICS_ANY;
+}
 
 export function listKeepEntries(projectId: string): Promise<KeepEntry[]> {
   return apiFetch<KeepEntry[]>(`${base(projectId)}/keep`);
