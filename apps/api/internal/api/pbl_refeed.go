@@ -2,6 +2,7 @@ package api
 
 import (
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -109,6 +110,26 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 			}
 			// 🚨 她当初写下的翻盘条件。这一句是复盘阶段唯一能回头对照的东西：
 			// 「你当时说出现 X 就改主意，现在 X 发生了吗」。不带上，那句话就白写了。
+			// 🚨 她把几条路排出来的顺序。只挑一个不需要比较，排成一列才需要——
+			// 这个序本身就是她比过的证据。
+			if os, oerr := a.d.Queries.ListPblDecisionOptions(ctx, d.ID); oerr == nil {
+				ranked := make([]sqlc.PblDecisionOption, 0, len(os))
+				for _, o := range os {
+					if o.StudentRank > 0 {
+						ranked = append(ranked, o)
+					}
+				}
+				if len(ranked) > 1 {
+					sort.Slice(ranked, func(i, j int) bool {
+						return ranked[i].StudentRank < ranked[j].StudentRank
+					})
+					labels := make([]string, 0, len(ranked))
+					for _, o := range ranked {
+						labels = append(labels, strings.TrimSpace(o.Label))
+					}
+					line += "；她把这几条排成：" + strings.Join(labels, " > ")
+				}
+			}
 			// 🚨 她自己加的那条路。「这些都不对，我要的是另一样」和「在给定的
 			// 选项里挑一个」是两件事，后者印记看不出区别，前者是她判断力的证据。
 			if os, oerr := a.d.Queries.ListPblDecisionOptions(ctx, d.ID); oerr == nil {

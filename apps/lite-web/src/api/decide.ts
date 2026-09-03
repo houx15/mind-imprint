@@ -15,6 +15,8 @@ export interface DecisionOption {
   description: string;
   /** 谁提的这条路。她自己加的那条是「这些都不对，我要的是另一样」。 */
   author: "yinji" | "student";
+  /** 她排的名次，1 是第一。0 = 还没排过。 */
+  studentRank: number;
   ordinal: number;
 }
 
@@ -66,6 +68,22 @@ export function addOption(
   return apiFetch<Decision>(`${base(projectId)}/decisions/${decisionId}/options`, {
     method: "POST",
     body: JSON.stringify(body),
+  });
+}
+
+/**
+ * 她把几条路排出来的顺序，按名次从高到低。
+ *
+ * 🚨 一次收全部：名次是个整体，逐条发会在中途留下两个第一名。
+ */
+export function rankOptions(
+  projectId: string,
+  decisionId: string,
+  order: string[],
+): Promise<Decision> {
+  return apiFetch<Decision>(`${base(projectId)}/decisions/${decisionId}/rank`, {
+    method: "POST",
+    body: JSON.stringify({ order }),
   });
 }
 

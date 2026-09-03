@@ -40,15 +40,19 @@ type pblOptionDTO struct {
 	// 🚨 谁提的这条路。印记提的是默认，她自己加的那条是另一回事——
 	// 「这些都不对，我要的是另一样」是她判断力的证据（铁律④），界面和回灌
 	// 都要认得出来。
-	Author  string `json:"author"`
-	Ordinal int32  `json:"ordinal"`
+	Author string `json:"author"`
+	// 她排的名次，1 是第一。0 = 还没排过。
+	StudentRank int32 `json:"studentRank"`
+	Ordinal     int32 `json:"ordinal"`
 }
 
 type pblCriterionDTO struct {
 	ID      string `json:"id"`
 	Label   string `json:"label"`
-	Author  string `json:"author"`
-	Ordinal int32  `json:"ordinal"`
+	Author string `json:"author"`
+	// 她排的名次，1 是第一。0 = 还没排过。
+	StudentRank int32 `json:"studentRank"`
+	Ordinal     int32 `json:"ordinal"`
 }
 
 type pblDecisionDTO struct {
@@ -80,7 +84,7 @@ func toPblDecisionDTO(d sqlc.PblDecision, opts []sqlc.PblDecisionOption, crit []
 	for _, o := range opts {
 		out.Options = append(out.Options, pblOptionDTO{
 			ID: o.ID.String(), Label: o.Label, Description: o.Description,
-			Author: o.Author, Ordinal: o.Ordinal,
+			Author: o.Author, StudentRank: o.StudentRank, Ordinal: o.Ordinal,
 		})
 	}
 	for _, c := range crit {
@@ -165,6 +169,56 @@ func (a *API) addPblDecisionOption(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, dto)
+}
+
+// rankPblDecisionOptions —— 她把几条路排出来的顺序。
+//
+// 🚨 只挑一个不需要把它们放在一起比：读到顺眼的那张就点了。排成一列才需要——
+// 「B 比 C 好在哪」是一个她必须真的想过才答得出的问题。名次也让后面那句
+// 「输给第一名的地方」问得具体，而不是一句泛泛的「为什么不选别的」。
+//
+// 一次收全部：名次是个整体，逐条发会在中途留下两个第一名。
+func (a *API) rankPblDecisionOptions(w http.ResponseWriter, r *http.Request) {
+	did, ok := a.loadOwnedPblDecision(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		// 按名次从高到低排好的选项 id。
+		Order []string `json:"order"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	opts, err := a.d.Queries.ListPblDecisionOptions(r.Context(), did)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	belongs := map[uuid.UUID]bool{}
+	for _, o := range opts {
+		belongs[o.ID] = true
+	}
+	for i, raw := range req.Order {
+		oid, perr := uuid.Parse(strings.TrimSpace(raw))
+		// 不属于这个决定的 id 一律不认——排序不该成为改别人数据的一条路。
+		if perr != nil || !belongs[oid] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_option", "这个选项不在这个决定里", nil))
+			return
+		}
+		if _, err := a.d.Queries.RankPblDecisionOption(r.Context(),
+			sqlc.RankPblDecisionOptionParams{ID: oid, StudentRank: int32(i + 1)}); err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+	}
+	dto, err := a.loadPblDecisionFull(r, did)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, dto)
 }
 
 // loadOwnedPblDecision —— 别人的决定和不存在的决定，对外长得一样。

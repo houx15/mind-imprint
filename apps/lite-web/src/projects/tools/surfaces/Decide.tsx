@@ -5,6 +5,7 @@ import { apiErrorText } from "../../../api/errorText";
 import {
   addOption,
   decisionTodo,
+  rankOptions,
   joinWhyNot,
   listDecisions,
   openDecisionOf,
@@ -51,6 +52,26 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   const [adding, setAdding] = useState(false);
   const [mineLabel, setMineLabel] = useState("");
   const [mineWhy, setMineWhy] = useState("");
+
+  /**
+   * 把一条路往上/往下挪一格。
+   *
+   * 🚨 只挑一个不需要把它们放在一起比——读到顺眼的那张就点了。排成一列才需要，
+   * 而这个序本身就是她比过的证据。用 ↑↓ 不用拖：三五张卡就在眼前，点一下最直接，
+   * 触屏也不会误触。
+   */
+  async function move(index: number, delta: number) {
+    if (!decision) return;
+    const order = decision.options.map((o) => o.id);
+    const to = index + delta;
+    if (to < 0 || to >= order.length) return;
+    [order[index], order[to]] = [order[to]!, order[index]!];
+    try {
+      setDecision(await rankOptions(projectId, decision.id, order));
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
   const [error, setError] = useState<string | null>(null);
 
   const boot = useCallback(async () => {
@@ -106,6 +127,15 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   }
 
   const todo = decisionTodo(decision, { choice, why, whyNot });
+  // 排过就按名次显示，没排过就按印记给的顺序。
+  const ordered = decision
+    ? [...decision.options].sort((a, b) => {
+        if (a.studentRank && b.studentRank) return a.studentRank - b.studentRank;
+        if (a.studentRank) return -1;
+        if (b.studentRank) return 1;
+        return a.ordinal - b.ordinal;
+      })
+    : [];
   const chosenIndex = decision?.options.findIndex((o) => o.label === choice) ?? -1;
   const chosenTone = optionTone(chosenIndex < 0 ? 0 : chosenIndex);
   const answeredDrops = decision
@@ -188,11 +218,11 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
             ))}
 
           <p className="mt-1 text-mk-small text-mk-muted">
-            {choice ? "请说明未选择其他方案的原因。" : "请选择一个方案。"}
+            {choice ? "请说明未选择其他方案的原因。" : "请按你的排序调整顺序，然后选择一个方案。"}
           </p>
 
           <div className="mt-3 space-y-2">
-            {decision.options.map((o, i) => {
+            {ordered.map((o, i) => {
               const on = choice === o.label;
               const t = optionTone(i);
               // 选中一张之后，别的暗下去——她要看见的是"我挑了这条，放掉了那些"。
@@ -234,6 +264,36 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                         </span>
                       )}
                     </span>
+                    {/* 排位：把这条路往上或往下挪一格。选定之后不再显示——
+                        那时候要她做的是解释，不是继续排。 */}
+                    {!choice && ordered.length > 1 && (
+                      <span className="flex shrink-0 flex-col">
+                        <button
+                          type="button"
+                          aria-label="往上挪"
+                          disabled={i === 0}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void move(i, -1);
+                          }}
+                          className="px-1 text-mk-small text-mk-secondary disabled:opacity-30"
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          aria-label="往下挪"
+                          disabled={i === ordered.length - 1}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void move(i, 1);
+                          }}
+                          className="px-1 text-mk-small text-mk-secondary disabled:opacity-30"
+                        >
+                          ↓
+                        </button>
+                      </span>
+                    )}
                     {on && (
                       <span className="mt-0.5 shrink-0" style={{ color: t.solid }}>
                         <Icon icon={Check} size={15} />
@@ -296,10 +356,10 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   </label>
                 </div>
                 <p className="mt-0.5 text-mk-small text-mk-muted">
-                  请逐项说明放弃该方案的原因。
+                  请逐项说明它输给「{choice}」的地方。
                 </p>
                 <div className="mt-2 space-y-2">
-                  {decision.options.map((o, i) =>
+                  {ordered.map((o, i) =>
                     o.label === choice ? null : (
                       <div
                         key={o.id}

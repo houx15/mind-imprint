@@ -36,6 +36,19 @@ describe("joinWhyNot", () => {
 
 // 选项的颜色和编号要稳定：上面选中的那张、下面「放掉的」那张，是靠这两样认出
 // 彼此的。循环也不能越界——印记给几个选项由它自己定。
+// 🚨 「输给第一名的地方」比「为什么不选别的」问得具体得多，而它只有在她真的
+// 排过序之后才问得出来。排序本身就是她把几条路放在一起比过的证据。
+describe("joinWhyNot keeps working with a ranked list", () => {
+  it("still pairs each rejected option with its own reason", () => {
+    expect(
+      joinWhyNot([
+        { label: "教室走廊", why: "课间只有十分钟" },
+        { label: "校门口", why: "老师要额外批准" },
+      ]),
+    ).toBe("教室走廊：课间只有十分钟；校门口：老师要额外批准");
+  });
+});
+
 describe("optionTone / optionTag", () => {
   it("gives the same option the same colour and letter every time", () => {
     expect(optionTone(0)).toEqual(optionTone(0));
