@@ -1,0 +1,69 @@
+{
+  "_comment": [
+    "ROUND 2 (2026-09-03) — one question: are glm-5.3 and qwen3.8-max actually",
+    "worse, or were they never given a fair run?",
+    "",
+    "The answer turned out to be 'never given a fair run', three times over, and",
+    "every fault was ours:",
+    "",
+    "  1. qwen3.8-max was BOTH a candidate and the judge in round 1. On `assess`",
+    "     it came back with no quality score and then won on token count.",
+    "",
+    "  2. glm-5.3 was banned from reflex/dialogue/digest by a catalog rule that",
+    "     read 'rejects enable_thinking:false' as 'always reasons'. It is not the",
+    "     same thing: at reasoning_effort:low it returns ZERO reasoning tokens.",
+    "",
+    "  3. glm-5.3's http 400 on `assess` was never about reasoning at all — the",
+    "     lookback call sends a system message and nothing else, and ZHIPU/GLM-5.3",
+    "     answers `messages 参数非法` to that shape. Our own request bug.",
+    "",
+    "And the first attempt at this round was itself void: the judge was",
+    "qwen3.7-max, the assess class sends reasoning_effort 'max', and that model",
+    "rejects the word 'max' (it wants 'xhigh'). Every judge call 400'd and the",
+    "report still printed a recommendation. routebench now refuses to recommend a",
+    "judged class with no quality data.",
+    "",
+    "So glm-5.3 is now a candidate in every class it is eligible for, which is",
+    "all of them. It is the fastest model in the catalog by a wide margin on",
+    "compose and review (2.6-4.1s, 100% structural) — the open question is",
+    "whether it can hold judgement at that speed, and only the judge answers that."
+  ],
+
+  "samples": 3,
+  "timeoutSeconds": 300,
+  "judgeModel": "dashscope/qwen3.7-max",
+
+  "candidates": {
+    "reflex": [
+      "dashscope/qwen3.7-flash",
+      "dashscope/glm-5.3-flash",
+      "dashscope/glm-5.3"
+    ],
+    "dialogue": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/glm-5.3",
+      "dashscope/glm-5.2"
+    ],
+    "compose": [
+      "dashscope/kimi-k3",
+      "dashscope/glm-5.3",
+      "dashscope/qwen3.8-max"
+    ],
+    "review": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/glm-5.3",
+      "dashscope/glm-5.2"
+    ],
+    "digest": [
+      "dashscope/deepseek-v4-flash",
+      "dashscope/glm-5.3"
+    ],
+    "assess": [
+      "dashscope/deepseek-v4-pro",
+      "dashscope/qwen3.8-max",
+      "dashscope/glm-5.3"
+    ]
+  }
+}

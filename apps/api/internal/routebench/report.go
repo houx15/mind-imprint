@@ -49,9 +49,10 @@ func qualityFirst(class string) bool {
 //     turns that reads as "as good as the incumbent". It is not: three of four
 //     student-facing surfaces working is a broken product, not a 75% one.
 //
-//  3. of what remains: on review/assess the HIGHEST quality wins; everywhere
-//     else the cheapest — fewest output tokens, reasoning included — then the
-//     fastest as a tiebreak.
+//  3. of what remains, ranked in the owner's stated order (2026-09-03):
+//     PERFORMANCE > SPEED > COST. Worst-case quality first, then mean quality,
+//     then p50 latency, and only then token count. Cost is the last word, never
+//     the first: it may break a tie and may not override a difference.
 //
 // Cost is ranked by TOKENS, not money, because every DashScope model in the
 // catalog is UNPRICED. Recording an invented price would defeat the one thing
@@ -146,26 +147,72 @@ func Recommend(results []Result, cat *gateway.Catalog) []Recommendation {
 			out = append(out, Recommendation{Class: class, ModelID: "", Why: "没有候选通过", Rejected: rejected})
 			continue
 		}
+		// 🚨 A judged class with no surviving quality score must not produce a
+		// recommendation. On 2026-09-03 the judge model 400'd on every single
+		// call (it was qwen3.7-max, and the assess class sends reasoning_effort
+		// "max", which that model rejects). The run still emitted a full table —
+		// ranking on token count alone and crowning the model that thought least,
+		// on classes whose entire purpose is thinking. A missing measurement has
+		// to read as missing, never as a tie.
+		anyJudged := false
+		for _, c := range ok {
+			if c.a.judged > 0 {
+				anyJudged = true
+			}
+		}
+		if judgeAttempted(rs) && !anyJudged {
+			out = append(out, Recommendation{
+				Class:    class,
+				ModelID:  "",
+				Why:      "**判官在这一档全部失败，没有质量数据——不做推荐。** 先修判官再重跑；按 token 排出来的名次在这里没有意义。",
+				Rejected: append(rejected, judgeFailures(rs)...),
+			})
+			continue
+		}
+		// Cost breaks a TIE in quality. It never overrides a difference in it.
+		//
+		// 🚨 Third time this rule needed sharpening, each time after it produced
+		// a visibly wrong answer. The band above filters out candidates more than
+		// a point below the best worst case — but a filter is not a preference,
+		// and on 2026-09-03 that gap let `dialogue` recommend qwen3.8-max (worst
+		// case 2) over deepseek-v4-pro (worst case 3) purely on token count. The
+		// worse model was inside the band, so cost decided. That is precisely the
+		// failure the worst-case rule was introduced to prevent.
 		sort.Slice(ok, func(i, j int) bool {
-			if qualityFirst(class) {
-				// Being right beats being cheap here. Quality, then worst case,
-				// then cost only as a tiebreak between equals.
-				if ok[i].judge != ok[j].judge {
-					return ok[i].judge > ok[j].judge
-				}
-				if ok[i].min != ok[j].min {
-					return ok[i].min > ok[j].min
-				}
+			if ok[i].min != ok[j].min {
+				return ok[i].min > ok[j].min
 			}
-			oi, oj := ok[i].a.out+ok[i].a.think, ok[j].a.out+ok[j].a.think
-			if oi != oj {
-				return oi < oj
+			if ok[i].judge != ok[j].judge {
+				return ok[i].judge > ok[j].judge
 			}
-			return ok[i].a.total < ok[j].a.total
+			// Owner's ordering, 2026-09-03: performance > speed > cost. Speed
+			// outranks cost because the student waits through it and never sees
+			// the token bill; a class only reaches this line when quality is
+			// already tied, so nothing is being bought with her experience.
+			if ok[i].a.total != ok[j].a.total {
+				return ok[i].a.total < ok[j].a.total
+			}
+			return ok[i].a.out+ok[i].a.think < ok[j].a.out+ok[j].a.think
 		})
 		w := ok[0]
+		// On a class where being right dominates, a TIE is not evidence to move.
+		// Every candidate scoring the same 2 on `review` means the prompt is
+		// broken, not that the cheapest one earned the binding — and switching on
+		// cost there would hand a reasoning class to whichever model reasons
+		// least, which is how glm-5.3 (zero reasoning tokens) kept winning it.
+		if qualityFirst(class) {
+			for _, c := range ok {
+				if c.id == cat.Lanes[class].Model && c.min == w.min && c.judge == w.judge {
+					w = c
+					break
+				}
+			}
+		}
 		why := fmt.Sprintf("结构 100%%，质量 %.1f（最差一项 %.0f），输出 %d tokens（其中推理 %d），p50 %s",
 			w.judge, w.min, w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
+		if qualityFirst(class) && w.id == cat.Lanes[class].Model && len(ok) > 1 {
+			why += "  · 与其他候选质量并列，没有换绑的依据，保持不变"
+		}
 		if w.a.judged == 0 {
 			why = fmt.Sprintf("结构 100%%（此档无判官用例），输出 %d tokens（其中推理 %d），p50 %s",
 				w.a.out, w.a.think, w.a.total.Round(100*time.Millisecond))
@@ -274,16 +321,46 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 // firstError surfaces the first thing that went wrong in a cell — a failed call
 // or a parser rejection — because "valid 67%" without the reason is a number
 // nobody can act on.
+//
+// The call-failure budget is deliberately generous. It used to be 70 characters,
+// which cut a DashScope error off inside the word "message" and left a cell that
+// said only "http 400" — the reader is then back to guessing, which is the exact
+// failure this function exists to prevent.
 func firstError(r Result) string {
 	for _, s := range r.Samples {
 		if s.Err != "" {
-			return "调用失败：" + truncate(s.Err, 70)
+			return "调用失败：" + truncate(s.Err, 400)
 		}
 	}
 	for _, s := range r.Samples {
 		if s.ValidErr != "" && s.ValidErr != "n/a" {
-			return "结构不合格：" + truncate(s.ValidErr, 70)
+			return "结构不合格：" + truncate(s.ValidErr, 200)
 		}
 	}
 	return ""
+}
+
+// judgeAttempted reports whether this class has judged cases at all — inferred
+// from a judge verdict having been recorded, successful or not.
+func judgeAttempted(rs []Result) bool {
+	for _, r := range rs {
+		if r.Judge > 0 || strings.HasPrefix(r.JudgeWhy, "judge call failed") {
+			return true
+		}
+	}
+	return false
+}
+
+// judgeFailures surfaces the judge's own error so the reader can fix the tool
+// rather than wonder why a column is empty.
+func judgeFailures(rs []Result) []string {
+	seen := map[string]bool{}
+	var out []string
+	for _, r := range rs {
+		if r.Judge == 0 && strings.HasPrefix(r.JudgeWhy, "judge call failed") && !seen[r.JudgeWhy] {
+			seen[r.JudgeWhy] = true
+			out = append(out, r.JudgeWhy)
+		}
+	}
+	return out
 }

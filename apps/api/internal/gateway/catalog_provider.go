@@ -45,9 +45,34 @@ func (p *CatalogProvider) buildBody(r Resolved, req ChatRequest) (map[string]any
 		body["temperature"] = *pol.DefaultTemperature
 	}
 
+	if pol.RequiresUserMessage {
+		ensureUserMessage(body)
+	}
+
+	if req.EnableSearch {
+		// A route that cannot search must say so rather than silently answering
+		// from training data — a confidently stale fact is worse than an error,
+		// because nothing downstream can tell it was never looked up.
+		if !pol.SearchSupported {
+			return nil, fmt.Errorf("%w: %s cannot search the web", errStreamFailed, r.Model)
+		}
+		body["enable_search"] = true
+		if req.ForcedSearch {
+			body["search_options"] = map[string]any{"forced_search": true}
+		}
+	}
+
 	wantOff := wantsThinkingOff(r, req)
 	switch {
 	case !wantOff:
+	case pol.ThinkingOffUnsupported && pol.MinReasoningEffort != "" && pol.ReasoningEffortKey != "":
+		// The route rejects the thinking-off knob but accepts a floor effort, and
+		// that floor IS off in every way a capability class cares about: measured
+		// 2026-09-03, ZHIPU/GLM-5.3 at reasoning_effort:"low" returns zero
+		// reasoning tokens. DashScope's own 400 tells you to do this —
+		// "该模型始终思考，不支持关闭思考；请使用 low、high 或 max。"
+		body[pol.ReasoningEffortKey] = effortWord(pol, pol.MinReasoningEffort)
+		return body, nil
 	case pol.ThinkingOffUnsupported || len(pol.ThinkingOff) == 0:
 		// An explicit request to stop reasoning on a model that cannot is an
 		// error, not a silently-dropped field — the caller asked for a property
@@ -74,7 +99,7 @@ func (p *CatalogProvider) buildBody(r Resolved, req ChatRequest) (map[string]any
 			effort = r.DefaultReasoningEffort
 		}
 		if effort != "" {
-			body[pol.ReasoningEffortKey] = effort
+			body[pol.ReasoningEffortKey] = effortWord(pol, effort)
 		}
 	}
 	return body, nil
@@ -92,4 +117,37 @@ func (p *CatalogProvider) Stream(ctx context.Context, r Resolved, req ChatReques
 		name = KindOpenAICompatible
 	}
 	return streamOpenAICompatible(ctx, p.http, r, body, name)
+}
+
+// ensureUserMessage appends a minimal user turn when a request carries only
+// system messages, for routes that reject that shape.
+//
+// 🚨 Do not "simplify" this by rewriting the system message into a user message.
+// The system role is what makes a long instruction prompt binding on most of
+// these models; demoting it to a user turn changes the answer everywhere, to fix
+// a constraint that exists on exactly one route. Appending is the smaller lie.
+//
+// Only routes that set requiresUserMessage take this path, so every other model
+// sees byte-identical requests to the ones the benchmark scored.
+func ensureUserMessage(body map[string]any) {
+	msgs, ok := body["messages"].([]map[string]any)
+	if !ok {
+		return
+	}
+	for _, m := range msgs {
+		if m["role"] != RoleSystem {
+			return
+		}
+	}
+	body["messages"] = append(msgs, map[string]any{"role": RoleUser, "content": "请开始。"})
+}
+
+// effortWord translates our reasoning vocabulary into the word this route
+// accepts. See ModelPolicy.ReasoningEffortAliases for the measured matrix and
+// what assuming one shared enum cost.
+func effortWord(pol ModelPolicy, effort string) string {
+	if w, ok := pol.ReasoningEffortAliases[effort]; ok {
+		return w
+	}
+	return effort
 }
