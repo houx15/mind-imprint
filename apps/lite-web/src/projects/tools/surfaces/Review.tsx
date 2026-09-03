@@ -149,6 +149,11 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   const { wide } = useWidePane();
   // 划出来的句子在正文里的编号，1 开始。正文里的角标和下面那条问题靠它对上。
   const parts = useMemo(() => splitIntoParts(paragraphs, plan.marks), [paragraphs, plan.marks]);
+  // 战绩：划出来的句子 + 该看的几个方面，一起算。两样都是"她做过的判断"。
+  const scored = useMemo(() => {
+    const all = [...plan.marks, ...plan.dimensions];
+    return { done: all.filter((x) => x.answer.trim() !== "").length, total: all.length };
+  }, [plan.marks, plan.dimensions]);
 
   /** 一段正文，划出来的地方高亮 + 角标。分段渲染和整篇渲染共用这一段。 */
   function renderParagraphs(list: string[]) {
@@ -241,6 +246,36 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
             </div>
           )}
 
+          {/* 🚨 审了几处，一眼看得见。
+              产品负责人 2026-09-03：「gamification, interaction!」——审一份文档
+              本来是件没有反馈的事：读完了也不知道自己审得算不算数。给它一个
+              进度和一个终点，她才有理由把四处都答完，而不是划到底点通过。 */}
+          {scored.total > 0 && (
+            <div
+              className="mb-3 flex items-center gap-3 rounded-mk-md px-3 py-2.5"
+              style={{
+                background:
+                  scored.done === scored.total
+                    ? "color-mix(in srgb, #10B981 12%, transparent)"
+                    : "var(--mk-paper)",
+              }}
+            >
+              <Ring done={scored.done} total={scored.total} />
+              <div className="min-w-0">
+                <p className="text-mk-small font-semibold text-mk-ink">
+                  {scored.done === scored.total
+                    ? "全部审过了"
+                    : `审了 ${scored.done} / ${scored.total} 处`}
+                </p>
+                <p className="text-mk-small text-mk-muted">
+                  {scored.done === scored.total
+                    ? "可以下结论了：通过，或者让它重做。"
+                    : "印记在每一部分埋了一个问题。答一个，那一处就变绿。"}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* 印记先承认自己的弱点。她要审的是这个，不是一份看起来什么都对的东西。
               🚨 原来这一块是一列灰色小字，每行前面还顶着「猜测内容：」「可能出错：」
               ——最该被看见的两件事，长得和旁边的说明文字一模一样。产品负责人
@@ -287,8 +322,18 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                         </span>
                         <p className="text-mk-body font-semibold text-mk-ink">{part.name}</p>
                         {at.total > 0 && (
-                          <span className="text-mk-small text-mk-faint">
-                            {at.done}/{at.total}
+                          <span
+                            className="rounded-mk-full px-1.5 text-[11px] font-semibold"
+                            style={
+                              at.done === at.total
+                                ? {
+                                    background: "color-mix(in srgb, #10B981 18%, transparent)",
+                                    color: "#10B981",
+                                  }
+                                : { background: "var(--mk-paper)", color: "var(--mk-faint)" }
+                            }
+                          >
+                            {at.done === at.total ? "这一部分审过了" : `${at.done}/${at.total}`}
                           </span>
                         )}
                       </div>
@@ -565,5 +610,44 @@ function AnswerBox({ value, onSave }: { value: string; onSave: (v: string) => vo
       placeholder="你的想法"
       className="mt-1.5 w-full resize-none rounded-mk-sm border border-mk-input-border bg-mk-surface px-2 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
     />
+  );
+}
+
+/**
+ * Ring —— 审到哪儿了。
+ *
+ * 一个数字说不出"还差多少"，一个圈说得出。用 SVG 画，不引库：一条底环加一条
+ * 按比例截断的弧。
+ */
+function Ring({ done, total }: { done: number; total: number }) {
+  const r = 15;
+  const c = 2 * Math.PI * r;
+  const pct = total === 0 ? 0 : done / total;
+  const full = done === total;
+  return (
+    <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0 -rotate-90">
+      <circle cx="19" cy="19" r={r} fill="none" stroke="var(--mk-border)" strokeWidth="4" />
+      <circle
+        cx="19"
+        cy="19"
+        r={r}
+        fill="none"
+        stroke={full ? "#10B981" : "var(--mk-accent-500)"}
+        strokeWidth="4"
+        strokeLinecap="round"
+        strokeDasharray={`${c * pct} ${c}`}
+        style={{ transition: "stroke-dasharray 240ms ease" }}
+      />
+      <text
+        x="19"
+        y="19"
+        textAnchor="middle"
+        dominantBaseline="central"
+        className="rotate-90 text-[11px] font-semibold"
+        style={{ transformOrigin: "19px 19px", fill: "var(--mk-ink)" }}
+      >
+        {done}
+      </text>
+    </svg>
   );
 }
