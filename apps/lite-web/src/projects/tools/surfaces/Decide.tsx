@@ -3,6 +3,7 @@ import { Check } from "lucide-react";
 import { Icon } from "@/ui";
 import { apiErrorText } from "../../../api/errorText";
 import {
+  addOption,
   decisionTodo,
   joinWhyNot,
   listDecisions,
@@ -46,6 +47,10 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   //
   // 不设成门槛：一个决定不写翻盘条件也仍然是个决定，硬拦只会逼出一句应付的话。
   const [flip, setFlip] = useState("");
+  // 她自己要加的那条路。
+  const [adding, setAdding] = useState(false);
+  const [mineLabel, setMineLabel] = useState("");
+  const [mineWhy, setMineWhy] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const boot = useCallback(async () => {
@@ -85,6 +90,21 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
     }
   }
 
+  async function addMine() {
+    if (!decision || !mineLabel.trim()) return;
+    try {
+      setDecision(await addOption(projectId, decision.id, {
+        label: mineLabel.trim(),
+        description: mineWhy.trim(),
+      }));
+      setAdding(false);
+      setMineLabel("");
+      setMineWhy("");
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
+
   const todo = decisionTodo(decision, { choice, why, whyNot });
   const chosenIndex = decision?.options.findIndex((o) => o.label === choice) ?? -1;
   const chosenTone = optionTone(chosenIndex < 0 ? 0 : chosenIndex);
@@ -118,6 +138,54 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
       {decision && (
         <>
           <p className="text-mk-body text-mk-ink">{decision.subject}</p>
+
+          {/* 🚨 印记给的这几条不是全集。「在别人摆好的选项里挑一个」和「决定」
+              是两回事——后者包含「这些都不对，我要的是另一样」。 */}
+          {!choice &&
+            (adding ? (
+              <div className="mt-2 rounded-mk-md border border-dashed border-mk-border px-3 py-2.5">
+                <input
+                  autoFocus
+                  value={mineLabel}
+                  onChange={(e) => setMineLabel(e.target.value)}
+                  placeholder="这条路叫什么"
+                  className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+                />
+                <input
+                  value={mineWhy}
+                  onChange={(e) => setMineWhy(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && void addMine()}
+                  placeholder="它意味着什么"
+                  className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+                />
+                <div className="mt-2 flex gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void addMine()}
+                    disabled={!mineLabel.trim()}
+                    className="rounded-mk-full px-3 py-1 text-mk-small disabled:opacity-40"
+                    style={{ background: "var(--mk-accent-500)", color: "var(--mk-surface)" }}
+                  >
+                    添加方案
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdding(false)}
+                    className="text-mk-small text-mk-secondary"
+                  >
+                    取消
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setAdding(true)}
+                className="mt-2 w-full rounded-mk-md border border-dashed border-mk-border py-2 text-mk-small text-mk-secondary"
+              >
+                都不合适，我有别的方案
+              </button>
+            ))}
 
           <p className="mt-1 text-mk-small text-mk-muted">
             {choice ? "请说明未选择其他方案的原因。" : "请选择一个方案。"}

@@ -108,6 +108,62 @@ func (a *API) loadPblDecisionFull(r *http.Request, id uuid.UUID) (pblDecisionDTO
 	}, opts, crit), nil
 }
 
+// addPblDecisionOption —— 她自己往里加一条路。
+//
+// 🚨 印记给的三条不是全集。「在别人摆好的选项里挑一个」和「决定」是两回事——
+// 后者包含「这些都不对，我要的是另一样」。`pbl_decision_option.author` 的 CHECK
+// 本来就允许 student，只是 openPblDecision 把它写死成了 yinji，于是这条路一直
+// 关着（铁律①：她判断，不是她挑）。
+//
+// 已经拍板的决定不能再加：那是在改一件已经做完的事。
+func (a *API) addPblDecisionOption(w http.ResponseWriter, r *http.Request) {
+	did, ok := a.loadOwnedPblDecision(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Label       string `json:"label"`
+		Description string `json:"description"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	label := strings.TrimSpace(req.Label)
+	if label == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_label", "这条路叫什么？", nil))
+		return
+	}
+	d, err := a.d.Queries.GetPblDecision(r.Context(), did)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if d.SettledAt.Valid {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("settled",
+			"这个决定已经定了，不能再加选项", nil))
+		return
+	}
+	opts, err := a.d.Queries.ListPblDecisionOptions(r.Context(), did)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if _, err := a.d.Queries.CreatePblDecisionOption(r.Context(), sqlc.CreatePblDecisionOptionParams{
+		DecisionID: did, Label: label, Description: strings.TrimSpace(req.Description),
+		Author: "student", Ordinal: int32(len(opts)),
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	dto, err := a.loadPblDecisionFull(r, did)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, dto)
+}
+
 // loadOwnedPblDecision —— 别人的决定和不存在的决定，对外长得一样。
 func (a *API) loadOwnedPblDecision(w http.ResponseWriter, r *http.Request) (uuid.UUID, bool) {
 	atomID, ok := a.loadOwnedPblProject(w, r)

@@ -50,6 +50,23 @@ export function openDecision(
   });
 }
 
+/**
+ * 她自己往里加一条路。
+ *
+ * 🚨 印记给的三条不是全集。「在别人摆好的选项里挑一个」和「决定」是两回事——
+ * 后者包含「这些都不对，我要的是另一样」。
+ */
+export function addOption(
+  projectId: string,
+  decisionId: string,
+  body: { label: string; description: string },
+): Promise<Decision> {
+  return apiFetch<Decision>(`${base(projectId)}/decisions/${decisionId}/options`, {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 export function settleDecision(
   projectId: string,
   decisionId: string,

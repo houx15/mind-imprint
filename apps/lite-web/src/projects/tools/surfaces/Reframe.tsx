@@ -13,6 +13,7 @@ import { ToolFrame } from "../ToolFrame";
 import { tone, type ToneName } from "../../../shared/tone";
 import type { ToolSurfaceProps } from "../registry";
 import { apiErrorText } from "../../../api/errorText";
+import { createNotes } from "../../../api/notes";
 
 /**
  * Reframe —— 把问题说清楚。
@@ -74,6 +75,8 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
+  // 她刚判成「方案」、已经存进便签的那句话。
+  const [parked, setParked] = useState("");
 
   const previous = currentReframe(all);
 
@@ -108,6 +111,29 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
     if (!row) return;
     setStep(i);
     setValue(row[STEPS[i]!.field]);
+  }
+
+  /**
+   * 她写在「需要什么」里的，到底是需求还是方案。
+   *
+   * 🚨 这是问题识别里最常见的一次走偏：「他需要一个报名接龙」——那不是需求，
+   * 那是她想到的第一个做法。一旦写进去，后面所有事都绕着这个还没被验证的做法
+   * 转，而真正的需求（他要的是"拿出来之前就知道卖不卖得掉"）从此不再被追问。
+   *
+   * 所以在这一步拦一下，让她自己分。分错也不罚：判成方案的那句话原样存成一条
+   * 「解决方案」便签，头脑风暴那边接着用——她想到的东西一个字都不丢。
+   */
+  async function sortAsSolution() {
+    if (!row) return;
+    const text = value.trim();
+    if (!text) return;
+    try {
+      await createNotes(projectId, [{ kind: "idea", body: text }]);
+      setParked(text);
+      setValue("");
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
   }
 
   async function next() {
@@ -234,7 +260,19 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
               style={{ borderColor: tone(current.tone).solid }}
             >
               <p className="text-mk-body font-semibold text-mk-ink">{current.ask}</p>
-              <p className="mt-1 text-mk-small text-mk-muted">{current.hint}</p>
+              <p className="mt-1 text-mk-small text-mk-muted">
+                {current.field === "needs" && parked
+                  ? "刚才那一句已经存成解决方案。这里写他缺的那个东西——那个做法是为了满足什么？"
+                  : current.hint}
+              </p>
+              {current.field === "needs" && parked && (
+                <p
+                  className="mt-1.5 rounded-mk-sm px-2 py-1 text-mk-small"
+                  style={{ background: tone("matcha").bg, color: tone("matcha").fg }}
+                >
+                  已存到解决方案：{parked}
+                </p>
+              )}
               <textarea
                 value={value}
                 onChange={(e) => setValue(e.target.value)}
@@ -242,7 +280,37 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 placeholder={current.placeholder}
                 className="mt-2 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-3 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
               />
-              {step < STEPS.length - 1 && (
+              {/* 🚨 「需要什么」这一步先分一次：需求，还是方案。
+                  「他需要一个报名接龙」不是需求，是她想到的第一个做法——一旦
+                  写进去，后面所有事都绕着这个还没验证的做法转，真正的需求从此
+                  不再被追问。分错不罚：判成方案的那句话原样存成一条便签。 */}
+              {current.field === "needs" && value.trim() && (
+                <div className="mt-2">
+                  <p className="text-mk-small text-mk-muted">
+                    这一句是他缺的东西，还是你想到的做法？
+                  </p>
+                  <div className="mt-1.5 flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => void next()}
+                      className="flex-1 rounded-mk-md px-3 py-2 text-mk-small"
+                      style={{ background: tone(current.tone).bg, color: tone(current.tone).fg }}
+                    >
+                      这是他缺的东西
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => void sortAsSolution()}
+                      className="flex-1 rounded-mk-md px-3 py-2 text-mk-small"
+                      style={{ background: tone("matcha").bg, color: tone("matcha").fg }}
+                    >
+                      这是一个做法
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {step < STEPS.length - 1 && current.field !== "needs" && (
                 <button
                   type="button"
                   onClick={() => void next()}

@@ -339,6 +339,7 @@ func (a *API) Handler() http.Handler {
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/decisions", liteOnly(a.listPblDecisions))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions", liteOnly(a.openPblDecision))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions/{did}/options", liteOnly(a.addPblDecisionOption))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/decisions/{did}/settle", liteOnly(a.settlePblDecision))
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/artifacts/{aid}/review", liteOnly(a.getPblReview))
