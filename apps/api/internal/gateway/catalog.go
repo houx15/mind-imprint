@@ -36,6 +36,10 @@ const (
 	ClassReview   = "review"   // judges the student's work; being wrong costs
 	ClassAssess   = "assess"   // rubric 评估 / 回顾 / 周报 — never downgraded
 	ClassDigest   = "digest"   // long input, short output; compress, don't judge
+	// ClassDraw generates an image. It is the one class that does NOT drive the
+	// chat loop — it answers on /images/generations (see images.go), so validate()
+	// checks it for the image capability instead of chat.
+	ClassDraw     = "draw"
 	ClassSearch   = "search"   // reserved: web search, needs the tool loop
 	ClassMultimo  = "multimodal"
 )
@@ -44,6 +48,7 @@ const (
 var Classes = []string{
 	ClassReflex, ClassDialogue, ClassCompose,
 	ClassReview, ClassAssess, ClassDigest,
+	ClassDraw,
 	ClassSearch, ClassMultimo,
 }
 
@@ -53,6 +58,7 @@ var Classes = []string{
 var activeClasses = []string{
 	ClassReflex, ClassDialogue, ClassCompose,
 	ClassReview, ClassAssess, ClassDigest,
+	ClassDraw,
 }
 
 // Legacy lane names, kept as aliases so MODEL_CHAT / MODEL_FAST_CHAT /
@@ -112,6 +118,12 @@ func ClassEnvVar(class string) string {
 const (
 	KindOpenAICompatible = "openai_compatible"
 	KindAnthropic        = "anthropic"
+	// KindDashScopeImage is the画图 route: DashScope's native multimodal
+	// generation endpoint. It is NOT a chat protocol — no /chat/completions, no
+	// streaming — so nothing but the draw class may route to it. 2026-09-04 实测：
+	// 聊天那个 maas 聚合口 404s on /images/generations even though its GET /models
+	// lists qwen-image-3.0. See images.go's file header.
+	KindDashScopeImage = "dashscope_image"
 )
 
 // ModelPolicy is how a model's reasoning and body defaults are steered. It is
@@ -388,7 +400,7 @@ func (c *Catalog) validate() error {
 	}
 	for id, p := range c.Providers {
 		switch p.Kind {
-		case KindOpenAICompatible, KindAnthropic:
+		case KindOpenAICompatible, KindAnthropic, KindDashScopeImage:
 		default:
 			return fmt.Errorf("gateway catalog: provider %q has unknown kind %q", id, p.Kind)
 		}
@@ -427,10 +439,18 @@ func (c *Catalog) validate() error {
 			return fmt.Errorf("gateway catalog: class %q has unknown reasoning %q (want off/low/high/max/default)",
 				class, spec.Reasoning)
 		}
-		// A class drives the chat/tool loop. Binding an image, embedding or
-		// rerank model here would fail obscurely at the first turn; fail at boot
-		// with the reason instead.
-		if !m.Has(CapChat) {
+		// 🚨 draw 是唯一一个不跑对话循环的档：它答在 /images/generations 上
+		// （见 images.go）。所以它查的是画图能力，而给它绑一个聊天模型同样是
+		// 启动即失败——不然第一次生成头图才发现，而那时错的是学生的那一屏。
+		if class == ClassDraw {
+			if !m.Has(CapImage) {
+				return fmt.Errorf("gateway catalog: draw class binds %q, which is not an image model (capabilities: %s)",
+					spec.Model, strings.Join(m.caps(), ", "))
+			}
+		} else if !m.Has(CapChat) {
+			// A class drives the chat/tool loop. Binding an image, embedding or
+			// rerank model here would fail obscurely at the first turn; fail at boot
+			// with the reason instead.
 			return fmt.Errorf("gateway catalog: class %q binds %q, which is not a chat model (capabilities: %s)",
 				class, spec.Model, strings.Join(m.caps(), ", "))
 		}

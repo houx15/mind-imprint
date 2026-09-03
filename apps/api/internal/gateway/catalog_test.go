@@ -47,13 +47,13 @@ func TestEmbeddedCatalogIsValid(t *testing.T) {
 func TestClassReasoningRequirementReachesTheRequestBody(t *testing.T) {
 	body := `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K",
 			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort"}},
-		"models":{"p/m":{"provider":"p","model":"m","flagship":true,"defaultReasoningEffort":"high"}},
+		"models":{"p/m":{"provider":"p","model":"m","flagship":true,"defaultReasoningEffort":"high"},"p/img":{"provider":"p","model":"img","capabilities":["image"]}},
 		"lanes":{"reflex":{"model":"p/m","tier":"chaperone","reasoning":"off"},
 			"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},
 			"compose":{"model":"p/m","tier":"chaperone","reasoning":"low"},
 			"review":{"model":"p/m","tier":"flagship","reasoning":"default"},
 			"assess":{"model":"p/m","tier":"flagship","reasoning":"max"},
-			"digest":{"model":"p/m","tier":"chaperone","reasoning":"off"}}}`
+			"digest":{"model":"p/m","tier":"chaperone","reasoning":"off"},"draw":{"model":"p/img","tier":"chaperone","reasoning":"default"}}}`
 	cat, err := ParseCatalog([]byte(body))
 	if err != nil {
 		t.Fatal(err)
@@ -108,13 +108,13 @@ func TestClassReasoningRequirementReachesTheRequestBody(t *testing.T) {
 func TestExplicitReasoningEffortBeatsAClassThatSaysOff(t *testing.T) {
 	body := `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K",
 			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort"}},
-		"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
+		"models":{"p/m":{"provider":"p","model":"m","flagship":true},"p/img":{"provider":"p","model":"img","capabilities":["image"]}},
 		"lanes":{"reflex":{"model":"p/m","tier":"chaperone","reasoning":"off"},
 			"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},
 			"compose":{"model":"p/m","tier":"chaperone","reasoning":"low"},
 			"review":{"model":"p/m","tier":"flagship"},
 			"assess":{"model":"p/m","tier":"flagship"},
-			"digest":{"model":"p/m","tier":"chaperone","reasoning":"off"}}}`
+			"digest":{"model":"p/m","tier":"chaperone","reasoning":"off"},"draw":{"model":"p/img","tier":"chaperone","reasoning":"default"}}}`
 	cat, err := ParseCatalog([]byte(body))
 	if err != nil {
 		t.Fatal(err)
@@ -158,13 +158,14 @@ func TestFallbackSkipsModelsThatViolateTheClassRequirement(t *testing.T) {
 			"b":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"KB","defaultModel":"b/always","thinkingOff":{"enable_thinking":false}}},
 		"models":{
 			"a/m":{"provider":"a","model":"m","flagship":true},
+			"a/img":{"provider":"a","model":"img","capabilities":["image"]},
 			"b/always":{"provider":"b","model":"always","flagship":true,"thinkingOffUnsupported":true}},
 		"lanes":{"reflex":{"model":"a/m","tier":"chaperone","reasoning":"off"},
 			"dialogue":{"model":"a/m","tier":"chaperone","reasoning":"off"},
 			"compose":{"model":"a/m","tier":"chaperone"},
 			"review":{"model":"a/m","tier":"flagship"},
 			"assess":{"model":"a/m","tier":"flagship"},
-			"digest":{"model":"a/m","tier":"chaperone","reasoning":"off"}},
+			"digest":{"model":"a/m","tier":"chaperone","reasoning":"off"},"draw":{"model":"a/img","tier":"chaperone"}},
 		"fallbackProviders":["b"]}`
 	cat, err := ParseCatalog([]byte(body))
 	if err != nil {
@@ -413,19 +414,19 @@ func TestCatalogValidationRejectsBrokenCatalogs(t *testing.T) {
 	cases := map[string]string{
 		"unknown provider kind": `{"providers":{"p":{"kind":"carrier-pigeon","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
-			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`,
 		"lane binds unknown model": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
-			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/ghost","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/ghost","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`,
 		"assess class not flagship": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m"}},
-			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`,
 		"model names unknown provider": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"q/m":{"provider":"q","model":"m","flagship":true}},
 			"lanes":{"reflex":{"model":"q/m","tier":"chaperone"},"dialogue":{"model":"q/m","tier":"chaperone"},"compose":{"model":"q/m","tier":"chaperone"},"review":{"model":"q/m","tier":"flagship"},"assess":{"model":"q/m","tier":"flagship"},"digest":{"model":"q/m","tier":"chaperone"}}}`,
 		"lane binds a non-chat model": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true,"capabilities":["image"]}},
-			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`,
 		"missing class": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
 			"lanes":{"dialogue":{"model":"p/m","tier":"chaperone"}}}`,
@@ -435,10 +436,10 @@ func TestCatalogValidationRejectsBrokenCatalogs(t *testing.T) {
 		// erroring out. It has to fail at boot.
 		"reasoning-off class on a model that always thinks": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true,"thinkingOffUnsupported":true}},
-			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"off"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`,
 		"unknown reasoning requirement": `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K"}},
 			"models":{"p/m":{"provider":"p","model":"m","flagship":true}},
-			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"ponder"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`,
+			"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone","reasoning":"ponder"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`,
 	}
 	for name, body := range cases {
 		t.Run(name, func(t *testing.T) {
@@ -453,8 +454,9 @@ func TestModelPolicyMergePrefersModelOverProvider(t *testing.T) {
 	body := `{"providers":{"p":{"kind":"openai_compatible","baseUrl":"u","apiKeyEnv":"K",
 			"thinkingOff":{"enable_thinking":false},"reasoningEffortKey":"reasoning_effort","bodyExtra":{"top_p":0.9}}},
 		"models":{"p/m":{"provider":"p","model":"m","flagship":true,
-			"thinkingOff":{"thinking":{"type":"disabled"}},"bodyExtra":{"seed":7}}},
-		"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"}}}`
+			"thinkingOff":{"thinking":{"type":"disabled"}},"bodyExtra":{"seed":7}},
+			"p/img":{"provider":"p","model":"img","capabilities":["image"]}},
+		"lanes":{"reflex":{"model":"p/m","tier":"chaperone"},"dialogue":{"model":"p/m","tier":"chaperone"},"compose":{"model":"p/m","tier":"chaperone"},"review":{"model":"p/m","tier":"flagship"},"assess":{"model":"p/m","tier":"flagship"},"digest":{"model":"p/m","tier":"chaperone"},"draw":{"model":"p/img","tier":"chaperone"}}}`
 	cat, err := ParseCatalog([]byte(body))
 	if err != nil {
 		t.Fatal(err)

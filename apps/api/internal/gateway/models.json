@@ -36,6 +36,12 @@
       "reasoningEffortKey": "reasoning_effort",
       "searchSupported": true
     },
+    "dashscope_image": {
+      "kind": "dashscope_image",
+      "label": "Aliyun DashScope 原生多模态生成口 —— 只画图，不聊天",
+      "baseUrl": "https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation",
+      "apiKeyEnv": "DASHSCOPE_API_KEY"
+    },
     "deepseek": {
       "kind": "openai_compatible",
       "label": "DeepSeek (direct)",
@@ -261,7 +267,7 @@
       ]
     },
     "dashscope/qwen-image-3.0-pro": {
-      "provider": "dashscope",
+      "provider": "dashscope_image",
       "model": "qwen-image-3.0-pro",
       "label": "Qwen Image 3.0 Pro via DashScope",
       "capabilities": [
@@ -269,7 +275,7 @@
       ]
     },
     "dashscope/qwen-image-3.0": {
-      "provider": "dashscope",
+      "provider": "dashscope_image",
       "model": "qwen-image-3.0",
       "label": "Qwen Image 3.0 via DashScope",
       "capabilities": [
@@ -277,7 +283,7 @@
       ]
     },
     "dashscope/qwen-image-edit-max": {
-      "provider": "dashscope",
+      "provider": "dashscope_image",
       "model": "qwen-image-edit-max",
       "label": "Qwen Image Edit Max via DashScope",
       "capabilities": [
@@ -424,6 +430,13 @@
       "reasoning": "off",
       "latencyBudgetMs": 15000,
       "label": "摘要 — 长输入短输出，压缩而不判断"
+    },
+    "draw": {
+      "model": "dashscope/qwen-image-3.0",
+      "tier": "chaperone",
+      "reasoning": "default",
+      "latencyBudgetMs": 90000,
+      "label": "画图 — 受众画像与头图；答在 /images/generations，不是对话口"
     },
     "search": {
       "model": "dashscope/qwen3.8-max",
