@@ -67,6 +67,8 @@ export interface Project {
   idea: string;
   /** 她选的类别；空 = 还没定。自由字符串，见 PROJECT_KINDS。 */
   kind: string;
+  /** 便签板的坐标视图开着没有。见 migration 0122。 */
+  boardAxes: boolean;
   name: string;
   coverGround: string;
   coverGlyph: string;
@@ -128,4 +130,17 @@ export function groupByStatus(projects: Project[]): Record<ProjectStatus, Projec
     if (p.status in out) out[p.status].push(p);
   }
   return out;
+}
+
+/**
+ * 开/关便签板的坐标视图。
+ *
+ * 🚨 这一位存在服务端而不是本地：印记要靠它判断板上的 x/y 是不是一句判断。
+ * 没开过坐标视图的板子，位置是系统派的座位，读成「她觉得这条不要紧」是在编造。
+ */
+export function setBoardAxes(projectId: string, on: boolean): Promise<Project> {
+  return apiFetch<Project>(`/api/v1/pbl/projects/${projectId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ boardAxes: on }),
+  });
 }

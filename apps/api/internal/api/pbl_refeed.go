@@ -52,6 +52,15 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 板子按坐标摆过，位置就是一句判断。
+	//
+	// 没开过坐标视图的板子，x/y 是 boardSpot() 派的座位，把它读成「她认为这条
+	// 不要紧」是在编造——所以先看这一位（migration 0122）。
+	axes := false
+	if p, err := a.d.Queries.GetPblProject(ctx, atomID); err == nil {
+		axes = p.BoardAxes
+	}
+
 	// 便签板上她自己写的东西。原样带上——印记要能指着其中某一张说话，
 	// 「你写的那条『中午十二点半剩得最多』」比「你贴了 7 张便签」有用一万倍。
 	if ns, err := a.d.Queries.ListPblNotes(ctx, atomID); err == nil {
@@ -66,6 +75,12 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 			// 在对话里等于没发生过。闭环（产品负责人 2026-09-03）。
 			if strings.TrimSpace(n.ImageKey) != "" {
 				body += "（她还拍了一张照片）"
+			}
+			// 她摆在哪个角上。轴见 Board.tsx：横 = 有多确定，纵 = 有多要紧。
+			if axes {
+				if q := boardQuadrant(n.X, n.Y); q != "" {
+					body += "（她摆在「" + q + "」那一角）"
+				}
 			}
 			byKind[n.Kind] = append(byKind[n.Kind], body)
 		}
@@ -341,4 +356,25 @@ func (a *API) lastPblToolEvent(r *http.Request, atomID uuid.UUID) string {
 		line += "，她写下的是：" + note
 	}
 	return line + "。"
+}
+
+// boardQuadrant 把便签在坐标板上的位置读成一句话。
+//
+// 板子是 0–1 的相对坐标（Board.tsx 在坐标视图下按比例存）：
+// 横轴左「我确定」→ 右「我在猜」，纵轴上「很要紧」→ 下「关系不大」。
+//
+// 🚨 「又要紧、又没把握」那一角是这块板真正的产出——那几条正是她接下来该去
+// 弄清楚的。所以四个角都要说得出名字，不能只报坐标。
+func boardQuadrant(x, y float32) string {
+	sure, big := x < 0.5, y < 0.5
+	switch {
+	case !sure && big:
+		return "很要紧，但我在猜"
+	case sure && big:
+		return "很要紧，而且我确定"
+	case !sure && !big:
+		return "关系不大，也只是猜的"
+	default:
+		return "关系不大，但我确定"
+	}
 }

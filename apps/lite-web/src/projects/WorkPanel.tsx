@@ -21,6 +21,8 @@ import { WidePaneProvider } from "./tools/wide";
 export function WorkPanel({
   projectId,
   projectKind,
+  boardAxes,
+  onSetBoardAxes,
   wide,
   onToggleWide,
   plan,
@@ -36,6 +38,8 @@ export function WorkPanel({
 }: {
   projectId: string;
   projectKind: string;
+  boardAxes: boolean;
+  onSetBoardAxes: (on: boolean) => Promise<void>;
   /** 工具是不是铺开占满了整个房间。 */
   wide: boolean;
   onToggleWide: () => void;
@@ -78,6 +82,8 @@ export function WorkPanel({
             <ToolSurface
               projectId={projectId}
               projectKind={projectKind}
+              boardAxes={boardAxes}
+              onSetBoardAxes={onSetBoardAxes}
               tool={active}
               onFinish={(result, summary) => onFinishTool(active, result, summary)}
               onOpenSession={onOpenSession}

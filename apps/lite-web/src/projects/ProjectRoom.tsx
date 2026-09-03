@@ -30,6 +30,7 @@ import {
 } from "../api/tools";
 import { navigate } from "../routing";
 import { WorkPanel } from "./WorkPanel";
+import { setBoardAxes } from "../api/projects";
 import { PaneResizer } from "./PaneResizer";
 import { PANE_DEFAULT, usePaneWidth } from "./usePaneWidth";
 import { AwayCard, ToolInvite } from "./tools/ToolInvite";
@@ -518,6 +519,11 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           <WorkPanel
           projectId={projectId}
           projectKind={project?.kind ?? ""}
+          boardAxes={project?.boardAxes ?? false}
+          onSetBoardAxes={async (on) => {
+            const got = await setBoardAxes(projectId, on);
+            setProject((prev) => (prev ? { ...prev, boardAxes: got.boardAxes } : prev));
+          }}
           wide={wideTool}
           onToggleWide={() => setWideTool((w) => !w)}
           plan={plan}

@@ -640,6 +640,7 @@ type PblProject struct {
 	CoverGlyph  string    `json:"cover_glyph"`
 	Status      string    `json:"status"`
 	UpdatedAt   time.Time `json:"updated_at"`
+	BoardAxes   bool      `json:"board_axes"`
 }
 
 type PblReframe struct {

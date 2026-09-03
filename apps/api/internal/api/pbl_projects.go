@@ -34,6 +34,8 @@ type pblProjectDTO struct {
 	CoverGround    string `json:"coverGround"`
 	CoverGlyph     string `json:"coverGlyph"`
 	Status         string `json:"status"`
+	// 便签板的坐标视图开着没有。
+	BoardAxes      bool   `json:"boardAxes"`
 	CreatedAt      string `json:"createdAt"`
 	LastActivityAt string `json:"lastActivityAt"`
 	// 卡片上要显示"现在走到哪一步"。没有计划时 currentStep 是空串。
@@ -163,6 +165,7 @@ func (a *API) listPblProjects(w http.ResponseWriter, r *http.Request) {
 		out = append(out, pblProjectDTO{
 			ID: p.AtomID.String(), Idea: p.Idea, Kind: p.Kind, Name: p.Name,
 			CoverGround: p.CoverGround, CoverGlyph: p.CoverGlyph, Status: p.Status,
+			BoardAxes:      p.BoardAxes,
 			CreatedAt:      p.AtomCreatedAt.Format(time.RFC3339),
 			LastActivityAt: p.LastActivityAt.Format(time.RFC3339),
 			CurrentStep:    p.CurrentStep,
@@ -198,6 +201,9 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 		CoverGround *string `json:"coverGround"`
 		CoverGlyph  *string `json:"coverGlyph"`
 		Status      *string `json:"status"`
+		// 坐标视图开着没有。见 migration 0122：板上的位置只有在她按坐标摆过
+		// 之后才是一句判断。
+		BoardAxes *bool `json:"boardAxes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -217,6 +223,16 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row.Status = p.Status
+	}
+
+	if req.BoardAxes != nil {
+		p, err := a.d.Queries.SetPblBoardAxes(r.Context(),
+			sqlc.SetPblBoardAxesParams{AtomID: id, BoardAxes: *req.BoardAxes})
+		if err != nil {
+			httpx.WriteError(w, r, err)
+			return
+		}
+		row.BoardAxes = p.BoardAxes
 	}
 
 	if req.Name != nil || req.CoverGround != nil || req.CoverGlyph != nil {
@@ -245,6 +261,7 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 	httpx.WriteJSON(w, http.StatusOK, pblProjectDTO{
 		ID: row.AtomID.String(), Idea: row.Idea, Kind: row.Kind, Name: row.Name,
 		CoverGround: row.CoverGround, CoverGlyph: row.CoverGlyph, Status: row.Status,
+		BoardAxes:      row.BoardAxes,
 		CreatedAt:      row.AtomCreatedAt.Format(time.RFC3339),
 		LastActivityAt: row.LastActivityAt.Format(time.RFC3339),
 	})

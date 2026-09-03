@@ -56,6 +56,10 @@ WHERE a.user_id = $1 AND a.kind = 'project';
 UPDATE pbl_project SET name = $2, cover_ground = $3, cover_glyph = $4, updated_at = now()
 WHERE atom_id = $1 RETURNING *;
 
+-- name: SetPblBoardAxes :one
+UPDATE pbl_project SET board_axes = $2, updated_at = now()
+WHERE atom_id = $1 RETURNING *;
+
 -- name: SetPblProjectStatus :one
 UPDATE pbl_project SET status = $2, updated_at = now()
 WHERE atom_id = $1 RETURNING *;

@@ -43,7 +43,30 @@ import type { ToolSurfaceProps } from "../registry";
 const BOARD_MIN_H = 460;
 
 
-export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
+/**
+ * 坐标视图的两根轴。
+ *
+ * 🚨 横轴是「有多确定」，纵轴是「有多要紧」——这两件事最容易被当成一件。
+ * 拆开之后，右上角（很要紧、但我在猜）就自己浮出来了，那几条正是她接下来该去
+ * 弄清楚的东西。这块板真正的产出是那一角，不是一堆摆整齐的纸。
+ *
+ * 轴写死在这里，不进库：换一对轴是产品决定，不是每个项目各自的数据。
+ */
+const AXIS = {
+  xLeft: "我确定",
+  xRight: "我在猜",
+  yTop: "很要紧",
+  yBottom: "关系不大",
+} as const;
+
+export function Board({
+  projectId,
+  boardAxes,
+  onSetBoardAxes,
+  tool,
+  onFinish,
+  onClose,
+}: ToolSurfaceProps) {
   const [notes, setNotes] = useState<Note[]>([]);
   const [kind, setKind] = useState<NoteKind>("observation");
   const [draft, setDraft] = useState("");
@@ -100,20 +123,64 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
    * 没挪动就是一次点击，用来选中。两个动作合在一个手势里，是因为对她来说
    * 「碰一下这张纸」本来就是一件事。
    */
+  /** 板子当前能放纸的范围。坐标视图下存的是 0–1，渲染时乘回来。 */
+  function span() {
+    const rect = boardRef.current?.getBoundingClientRect();
+    return {
+      w: Math.max(1, (rect?.width ?? NOTE_W * 2) - NOTE_W),
+      h: Math.max(1, boardH - NOTE_H),
+    };
+  }
+
+  /** 存进库的值 → 屏幕上的像素。 */
+  function toPx(n: Note) {
+    if (!boardAxes) return { x: n.x, y: n.y };
+    const s = span();
+    return { x: n.x * s.w, y: n.y * s.h };
+  }
+
+  /**
+   * 开/关坐标视图。
+   *
+   * 🚨 两种模式下 x/y 的单位不一样（像素 vs 0–1），所以切换时要把现有的便签
+   * 换算一遍——不换算，纸会全部堆到左上角或者飞出板外。
+   */
+  async function toggleAxes() {
+    const on = !boardAxes;
+    const s = span();
+    try {
+      for (const n of notes) {
+        const next = on
+          ? { x: Math.min(1, n.x / s.w), y: Math.min(1, n.y / s.h) }
+          : { x: n.x * s.w, y: n.y * s.h };
+        setNotes((prev) => prev.map((m) => (m.id === n.id ? { ...m, ...next } : m)));
+        await moveNote(projectId, n.id, next.x, next.y);
+      }
+      await onSetBoardAxes(on);
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
+
   function startDrag(note: Note, e: React.PointerEvent) {
     if (editing) return;
     const board = boardRef.current;
     if (!board) return;
     const rect = board.getBoundingClientRect();
-    const grabX = e.clientX - rect.left - note.x;
-    const grabY = e.clientY - rect.top - note.y;
+    const at = toPx(note);
+    const grabX = e.clientX - rect.left - at.x;
+    const grabY = e.clientY - rect.top - at.y;
     let moved = false;
     let last = { x: note.x, y: note.y };
 
     const onMove = (ev: PointerEvent) => {
       moved = true;
-      const x = Math.max(0, Math.min(rect.width - NOTE_W, ev.clientX - rect.left - grabX));
-      const y = Math.max(0, Math.min(boardH - NOTE_H, ev.clientY - rect.top - grabY));
+      const px = Math.max(0, Math.min(rect.width - NOTE_W, ev.clientX - rect.left - grabX));
+      const py = Math.max(0, Math.min(boardH - NOTE_H, ev.clientY - rect.top - grabY));
+      // 坐标视图下存相对值：位置是一句判断，不该跟着面板宽度变。
+      const s2 = span();
+      const x = boardAxes ? px / s2.w : px;
+      const y = boardAxes ? py / s2.h : py;
       last = { x, y };
       setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, x, y } : n)));
     };
@@ -247,6 +314,39 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           touchAction: "none",
         }}
       >
+        {/* 坐标底。两条线 + 四个角的标签，压在便签下面。 */}
+        {boardAxes && (
+          <div className="pointer-events-none absolute inset-0">
+            <div
+              className="absolute left-0 right-0 top-1/2"
+              style={{ borderTop: "1px dashed var(--mk-border)" }}
+            />
+            <div
+              className="absolute bottom-0 top-0 left-1/2"
+              style={{ borderLeft: "1px dashed var(--mk-border)" }}
+            />
+            <span className="absolute left-1.5 top-1/2 -translate-y-1/2 text-mk-small text-mk-faint">
+              {AXIS.xLeft}
+            </span>
+            <span className="absolute right-1.5 top-1/2 -translate-y-1/2 text-mk-small text-mk-faint">
+              {AXIS.xRight}
+            </span>
+            <span className="absolute left-1/2 top-1 -translate-x-1/2 text-mk-small text-mk-faint">
+              {AXIS.yTop}
+            </span>
+            <span className="absolute bottom-1 left-1/2 -translate-x-1/2 text-mk-small text-mk-faint">
+              {AXIS.yBottom}
+            </span>
+            {/* 右上角是这块板真正的产出：又要紧、又没把握的那几条。 */}
+            <span
+              className="absolute right-2 top-5 rounded-mk-md px-2 py-0.5 text-mk-small"
+              style={{ background: "var(--mk-warning-bg)", color: "var(--mk-ink)" }}
+            >
+              先去弄清楚这一角
+            </span>
+          </div>
+        )}
+
         {notes.length === 0 && (
           <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
             板上还什么都没有。先把你想到的一条一条贴上来。
@@ -263,8 +363,8 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               onDoubleClick={() => setEditing(n.id)}
               className="group absolute select-none rounded-mk-md px-2.5 py-2 shadow-mk-xs"
               style={{
-                left: n.x,
-                top: n.y,
+                left: toPx(n).x,
+                top: toPx(n).y,
                 width: NOTE_W,
                 minHeight: NOTE_H,
                 cursor: editing === n.id ? "text" : "grab",
@@ -385,7 +485,22 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       </div>
       </div>
 
-      <p className="mt-1.5 text-mk-small text-mk-faint">拖着挪位置，点一下选中，双击改字。</p>
+      {/* 坐标视图的开关。 */}
+      <div className="mt-1.5 flex items-center justify-between gap-2">
+        <p className="text-mk-small text-mk-faint">拖着挪位置，点一下选中，双击改字。</p>
+        <button
+          type="button"
+          onClick={() => void toggleAxes()}
+          className="shrink-0 rounded-mk-full border border-mk-border px-2.5 py-0.5 text-mk-small"
+          style={
+            boardAxes
+              ? { background: "var(--mk-accent-500)", color: "var(--mk-surface)", borderColor: "transparent" }
+              : { color: "var(--mk-secondary)" }
+          }
+        >
+          坐标视图
+        </button>
+      </div>
 
       {clusters.length > 0 && (
         <p className="mt-1 text-mk-small text-mk-muted">

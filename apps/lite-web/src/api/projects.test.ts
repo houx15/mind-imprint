@@ -14,6 +14,7 @@ function p(id: string, over: Partial<Project> = {}): Project {
     id,
     idea: "我想弄明白我们学校的剩饭到底去哪了",
     kind: "research",
+    boardAxes: false,
     name: "",
     coverGround: "",
     coverGlyph: "",
