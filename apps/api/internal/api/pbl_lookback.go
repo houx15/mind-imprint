@@ -34,13 +34,16 @@ type pblLookbackDTO struct {
 	Section string `json:"section"`
 	Prompt  string `json:"prompt"`
 	Answer  string `json:"answer"`
-	Ordinal int32  `json:"ordinal"`
+	// Evidence 是这一问冲着的那件事——她当初写下的原话。空 = 这一问是冲着她
+	// 本人问的（「感受如何」那一段）。
+	Evidence string `json:"evidence"`
+	Ordinal  int32  `json:"ordinal"`
 }
 
 func toPblLookbackDTO(p sqlc.PblReview) pblLookbackDTO {
 	return pblLookbackDTO{
 		ID: p.ID.String(), Section: p.Section, Prompt: p.Prompt,
-		Answer: p.Answer, Ordinal: p.Ordinal,
+		Answer: p.Answer, Evidence: p.AnchorRef, Ordinal: p.Ordinal,
 	}
 }
 
@@ -171,7 +174,10 @@ func (a *API) getPblLookback(w http.ResponseWriter, r *http.Request) {
 			for i, q := range qs {
 				row, cerr := qtx.CreatePblReviewPrompt(r.Context(), sqlc.CreatePblReviewPromptParams{
 					AtomID: atomID, Prompt: q.Prompt, Section: q.Section,
-					AnchorKind: "free", AnchorRef: "", Ordinal: int32(i),
+					// 🚨 这一问是冲着哪件事去的。原来这里恒是 free/""——两列白摆着，
+					// 而复盘因此变回了一张放到任何项目上都成立的感想表。
+					AnchorKind: anchorKindOf(q.Evidence), AnchorRef: q.Evidence,
+					Ordinal:    int32(i),
 				})
 				if cerr != nil {
 					httpx.WriteError(w, r, cerr)
@@ -222,4 +228,15 @@ func (a *API) answerPblLookback(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, toPblLookbackDTO(out))
+}
+
+// anchorKindOf 说这一问有没有落在一件真事上。
+//
+// evidence 空 = 这一问是冲着她本人问的（「感受如何」那一段就该这样），不是
+// 冲着某件事——那仍然是合法的一问，只是没有可摆出来的出处。
+func anchorKindOf(evidence string) string {
+	if strings.TrimSpace(evidence) == "" {
+		return "free"
+	}
+	return "evidence"
 }

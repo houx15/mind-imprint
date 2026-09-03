@@ -186,6 +186,19 @@ function PromptRow({
         background: done ? DONE.bg : "transparent",
       }}
     >
+      {/* 🚨 她当初写下的那句话，钉在问题上面。
+          复盘最容易变成一张感想表：问题看着都对，落到哪个项目上都成立，她于是
+          答「挺好的」。摆出出处，她答的就不再是"我有什么收获"，而是"我现在怎么
+          看我当时写的这句话"——那是两件事。 */}
+      {prompt.evidence && (
+        <p
+          className="mb-1.5 rounded-mk-sm px-2 py-1 text-mk-small"
+          style={{ background: "var(--mk-paper)", color: "var(--mk-secondary)" }}
+        >
+          当时你写的是：{prompt.evidence}
+        </p>
+      )}
+
       <div className="flex items-start gap-2">
         {/* 答过的打勾，没答的留一个空圈。扫一眼就知道还剩哪几题。 */}
         <span

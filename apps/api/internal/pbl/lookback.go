@@ -64,6 +64,15 @@ type LookbackInput struct {
 type LookbackQuestion struct {
 	Section string
 	Prompt  string
+	// Evidence 是这一问是冲着哪件事去的——从上文里原样抄回来的那一行。
+	//
+	// 🚨 复盘最容易变成一张感想表：问题看着都对，落到哪个项目上都成立，她于是
+	// 答「挺好的」。把她当初写下的那句话摆在问题上面，她答的就不再是"我有什么
+	// 收获"，而是"我现在怎么看我当时写的这句话"——那是两件事。
+	//
+	// 存的是原文而不是某条记录的 id：这一行就是要给她看的东西，多绕一层 id
+	// 只会让它在某次改表之后指向空。
+	Evidence string
 }
 
 const lookbackSystem = `你在帮一个中学生复盘他刚做完的项目。
@@ -85,12 +94,16 @@ const lookbackSystem = `你在帮一个中学生复盘他刚做完的项目。
 - 一次问一件事，别把两个问题塞进一句。
 - 说人话，短句。不要用「反思」「迭代」「赋能」这类词考他。
 
+🚨 每一问都要带上 evidence：**从下面这些事里原样抄回你冲着问的那一行**，
+一个字都别改。抄不出对应的一行，就说明这一问不是冲着这个项目问的，那就重写。
+只有「感受如何」这一段可以没有 evidence（那一问是冲着他本人，不是冲着某件事）。
+
 下面是这个项目里发生过的事：
 
 %s
 
 只返回一个 JSON 对象，不要别的字：
-{"questions": [{"section": "what", "prompt": "……"}, ...]}
+{"questions": [{"section": "what", "prompt": "……", "evidence": "原样抄回的那一行"}, ...]}
 
 section 只能是 what / how / moment / praise / improve / with_ai。
 每一段一问，总共不超过八问。`
@@ -178,22 +191,25 @@ func parseLookback(raw string) ([]LookbackQuestion, error) {
 	}
 	var out struct {
 		Questions []struct {
-			Section string `json:"section"`
-			Prompt  string `json:"prompt"`
+			Section  string `json:"section"`
+			Prompt   string `json:"prompt"`
+			Evidence string `json:"evidence"`
 		} `json:"questions"`
 	}
 	if err := json.Unmarshal([]byte(s[start:end+1]), &out); err != nil {
 		return nil, fmt.Errorf("pbl: %w", err)
 	}
 	// 按六段的顺序重排：模型的输出顺序不该决定她走的顺序。
-	bySection := map[string][]string{}
+	type parsed struct{ prompt, evidence string }
+	bySection := map[string][]parsed{}
 	for _, q := range out.Questions {
 		sec := strings.TrimSpace(strings.ToLower(q.Section))
 		prompt := strings.TrimSpace(q.Prompt)
 		if prompt == "" || !IsReviewSection(sec) {
 			continue
 		}
-		bySection[sec] = append(bySection[sec], prompt)
+		bySection[sec] = append(bySection[sec],
+			parsed{prompt: prompt, evidence: strings.TrimSpace(q.Evidence)})
 	}
 	// 🚨 上限在代码里兜住，不只写在 prompt 里。十几个问题摆在她面前，她会开始
 	// 敷衍，而复盘一敷衍就什么都不剩了——这条不能只靠模型听话。
@@ -208,7 +224,9 @@ func parseLookback(raw string) ([]LookbackQuestion, error) {
 			if len(qs) >= total {
 				break
 			}
-			qs = append(qs, LookbackQuestion{Section: s.Key, Prompt: p})
+			qs = append(qs, LookbackQuestion{
+				Section: s.Key, Prompt: p.prompt, Evidence: p.evidence,
+			})
 		}
 	}
 	if len(qs) == 0 {

@@ -55,6 +55,8 @@ export interface LookbackPrompt {
   section: ReviewSection;
   prompt: string;
   answer: string;
+  /** 这一问冲着的那件事——她当初写下的原话。空 = 冲着她本人问的。 */
+  evidence: string;
   ordinal: number;
 }
 
