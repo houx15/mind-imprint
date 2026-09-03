@@ -160,6 +160,13 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 		slog.Warn("interest harvest: unparseable reply", "err", perr, "atom_id", atomID)
 		return
 	}
+	// 🚨 evidence 必须真的出自她写下的字，而不是出自 prompt 的脚手架。
+	// 见 interest.KeepGrounded —— 这条是真模型实测抓出来的。
+	before := len(hs)
+	hs = interest.KeepGrounded(hs, body)
+	if n := before - len(hs); n > 0 {
+		slog.Warn("interest harvest: dropped ungrounded keywords", "dropped", n, "atom_id", atomID)
+	}
 	a.plantKeywords(ctx, userID, kind, atomID, title, hs)
 }
 

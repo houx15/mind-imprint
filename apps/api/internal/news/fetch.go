@@ -112,8 +112,10 @@ func (f *Fetcher) FetchAll(ctx context.Context, window time.Duration) []Item {
 	pool = Dedupe(pool)
 	pool = FreshWithin(pool, now, window)
 	pool = dropPolitical(pool)
+	// 先按新鲜度排，**再按来源轮转铺开**。只排新鲜度的话，当天发得最勤的那个源
+	// 会整块占住送进 prompt 的前 40 条 —— 实测过一次：五颗星全部来自 Phys.org。
 	SortByPublished(pool)
-	return pool
+	return InterleaveBySource(pool)
 }
 
 func dropPolitical(items []Item) []Item {

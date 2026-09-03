@@ -154,9 +154,15 @@ func (a Attempt) ShouldHarvest() bool {
 // （ParseHarvestReply）。测试如果有自己的一套 prompt，两边对「什么算一个好
 // 关键词」的看法迟早会分叉，而分叉的结果是同一棵树上挂着两种质量的词。
 func (a Attempt) BuildQuizPrompt() (system, user string) {
+	// 🚨 把「她写的」和「我写的」分得死死的。实测过一次失败：脚手架那一行
+	// （原来写作「她说她喜欢的是：X」）被模型当成她的原话摘了回来。围栏 + 明确
+	// 指令降低这件事发生的概率，而 KeepGrounded 是真正兜住它的那道闸。
 	var b strings.Builder
-	fmt.Fprintf(&b, "她说她喜欢的是：%s\n\n", a.Work)
-	fmt.Fprintf(&b, "她自己写的、最吸引她的地方：\n%s\n", a.Reason)
+	b.WriteString("以下围栏内是她**自己输入**的全部文字，evidence 只能从围栏内逐字摘录：\n")
+	b.WriteString("<<<她写的\n")
+	fmt.Fprintf(&b, "%s\n", a.Work)
+	fmt.Fprintf(&b, "%s\n", a.Reason)
+	b.WriteString("她写的>>>\n")
 	if lenses := HookLenses(a.Hook); len(lenses) > 0 {
 		names := make([]string, 0, len(lenses))
 		for _, d := range lenses {
@@ -172,6 +178,12 @@ func (a Attempt) BuildQuizPrompt() (system, user string) {
 
 // QuizSourceLabel 是这条来源在抽屉里显示的名字。
 const QuizSourceLabel = "觉醒协议 · 兴趣测试"
+
+// OwnWords 是她在这次作答里**自己敲进去的全部文字**，用作 KeepGrounded 的
+// 比对语料。选项不算：那些是我写的句子，她只是点了一下。
+func (a Attempt) OwnWords() string {
+	return a.Work + "\n" + a.Reason
+}
 
 func truncRunes(s string, max int) string {
 	r := []rune(s)

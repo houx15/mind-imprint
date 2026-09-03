@@ -192,3 +192,48 @@ func SortByPublished(items []Item) {
 		return a.After(b)
 	})
 }
+
+/* ── 铺开来源 ───────────────────────────────────────────────────────────── */
+
+// InterleaveBySource 按来源轮转重排：每个源出一条，再每个源出第二条，依此类推。
+// 每个源内部保持原有顺序（调用方已按新鲜度排过）。
+//
+// # 为什么需要它（2026-09-03 实测发现）
+//
+// 单纯按发布时间排序，会把当天发得最勤的那个源整块顶到前面。第一次真模型实测
+// 里，五颗星**全部来自 Phys.org**，四颗落在同一根主枝上 —— 因为送进 prompt 的
+// 前 40 条候选里，Phys.org 占了一大片。
+//
+// prompt 里已经写了「五条尽量分布在不同领域」，但那是在**求模型**做一件我们
+// 本来就可以保证的事。一个「今天值得知道的五条」如果五条来自同一个网站，它就
+// 不是今日星图，是那个网站的日报。所以铺开这件事在数据层做掉。
+func InterleaveBySource(items []Item) []Item {
+	if len(items) == 0 {
+		return items
+	}
+	// 保持来源第一次出现的顺序 —— 调用方按可信度排过 Sources。
+	order := make([]string, 0, 8)
+	buckets := map[string][]Item{}
+	for _, it := range items {
+		if _, ok := buckets[it.Source]; !ok {
+			order = append(order, it.Source)
+		}
+		buckets[it.Source] = append(buckets[it.Source], it)
+	}
+
+	out := make([]Item, 0, len(items))
+	for round := 0; len(out) < len(items); round++ {
+		progressed := false
+		for _, src := range order {
+			b := buckets[src]
+			if round < len(b) {
+				out = append(out, b[round])
+				progressed = true
+			}
+		}
+		if !progressed {
+			break // 防御：不该发生，但绝不允许这里转成死循环
+		}
+	}
+	return out
+}

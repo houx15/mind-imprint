@@ -392,3 +392,59 @@ func TestParseSelectReplyErrorsOnGarbage(t *testing.T) {
 		}
 	}
 }
+
+/* ── 铺开来源 ───────────────────────────────────────────────────────────── */
+
+// 🚨 2026-09-03 真模型实测发现的问题：五颗星全部来自 Phys.org，四颗同一根主枝。
+// 「今天值得知道的五条」如果五条来自同一个网站，它就不是今日星图，是那个网站的
+// 日报。prompt 里求模型分散是不够的 —— 这件事在数据层就能保证。
+func TestInterleaveBySourceSpreadsTheTopOfThePool(t *testing.T) {
+	var items []Item
+	for i := 0; i < 8; i++ {
+		items = append(items, Item{Title: "phys", Source: "Phys.org"})
+	}
+	items = append(items,
+		Item{Title: "nature", Source: "Nature"},
+		Item{Title: "quanta", Source: "Quanta Magazine"},
+		Item{Title: "arxiv", Source: "arXiv"},
+	)
+
+	got := InterleaveBySource(items)
+	if len(got) != len(items) {
+		t.Fatalf("轮转后条数变了：%d → %d", len(items), len(got))
+	}
+	// 前四条必须来自四个不同的源 —— 这正是模型看到的那一段。
+	seen := map[string]bool{}
+	for _, it := range got[:4] {
+		seen[it.Source] = true
+	}
+	if len(seen) != 4 {
+		t.Errorf("前四条只覆盖了 %d 个源：%v", len(seen), seen)
+	}
+}
+
+func TestInterleaveBySourceKeepsEachSourcesOwnOrder(t *testing.T) {
+	got := InterleaveBySource([]Item{
+		{Title: "n1", Source: "Nature"}, {Title: "n2", Source: "Nature"},
+		{Title: "p1", Source: "Phys.org"},
+	})
+	// Nature 的两条相对顺序不能被打乱（调用方已按新鲜度排过）。
+	var order []string
+	for _, it := range got {
+		if it.Source == "Nature" {
+			order = append(order, it.Title)
+		}
+	}
+	if len(order) != 2 || order[0] != "n1" || order[1] != "n2" {
+		t.Errorf("源内顺序被打乱了：%v", order)
+	}
+}
+
+func TestInterleaveBySourceHandlesEmptyAndSingle(t *testing.T) {
+	if got := InterleaveBySource(nil); len(got) != 0 {
+		t.Error("空输入应该给空输出")
+	}
+	if got := InterleaveBySource([]Item{{Title: "a", Source: "X"}}); len(got) != 1 {
+		t.Error("单条输入被弄丢了")
+	}
+}

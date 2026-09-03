@@ -262,6 +262,14 @@ func (a *API) harvestQuiz(
 		slog.Warn("interest quiz: unparseable reply", "err", perr, "quiz_id", quizID)
 		return nil, true
 	}
+	// 🚨 evidence 必须真的出自她敲进去的字。实测抓到过一次：模型把 prompt 里
+	// 我自己写的脚手架文字当成她的原话返回，长度合格、语义通顺、能过解析器，
+	// 然后挂在她树上标着「你自己写的」。见 interest.KeepGrounded。
+	before := len(hs)
+	hs = interest.KeepGrounded(hs, att.OwnWords())
+	if n := before - len(hs); n > 0 {
+		slog.Warn("interest quiz: dropped ungrounded keywords", "dropped", n, "quiz_id", quizID)
+	}
 	// 🚨 ref_id 用这一行作答的 id，不是 uuid.Nil。keyword_source 的
 	// UNIQUE (keyword_id, kind, ref_id) 会因此允许**下一次作答给同一个词再添
 	// 一条来源**（强度上升）；用 Nil 的话第二次重做会撞进唯一约束，一个词都
