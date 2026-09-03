@@ -131,32 +131,65 @@ func trimBecause(s string) string {
 // attachPblToolWork 把上面收集到的东西挂进这一轮的 CoachInput。
 func (a *API) attachPblToolWork(r *http.Request, atomID uuid.UUID, in *pbl.CoachInput) {
 	in.ToolWork = a.gatherPblToolWork(r, atomID)
-	in.ToolsUsed = a.pblToolsUsed(r, atomID)
+	in.ToolsUsed, in.ToolsOffered = a.pblToolState(r, atomID)
 }
 
-// pblToolsUsed 列出她已经做完的工具，按界面上的名字。
+// pblToolState 列出她已经做完的工具，和已经递过、她还没做的那些。
 //
-// 🚨 prompt 里的工具目录不带状态，所以印记看不出哪件已经做过了。2026-09-02
-// 线上实测：她做完「观察日记」，下一轮印记又把「观察日记」递了一次。
-func (a *API) pblToolsUsed(r *http.Request, atomID uuid.UUID) []string {
+// 🚨 prompt 里的工具目录不带状态，所以印记看不出哪件已经在她桌上了。两种都会
+// 出事，而且是同一种出事：
+//
+//   - 做完的又递一遍——2026-09-02 实测，她做完「观察日记」，下一轮印记又递了
+//     「观察日记」。
+//   - 递过还没做的又递一遍——2026-09-03 实测，屏幕上并排两张「头脑风暴」，
+//     理由还各写各的。
+//
+// 已经 done 的优先：一件既做过又有新一张挂着的工具，对印记来说"做过了"是更
+// 要紧的那条信息。
+func (a *API) pblToolState(r *http.Request, atomID uuid.UUID) (used, offered []string) {
 	rows, err := a.d.Queries.ListPblTools(r.Context(), atomID)
 	if err != nil {
-		return nil
+		return nil, nil
 	}
-	seen := map[string]bool{}
-	var out []string
+	label := func(name string) string {
+		if def, ok := pbl.LookupTool(name); ok {
+			return def.Label
+		}
+		return name
+	}
+	done := map[string]bool{}
 	for _, t := range rows {
-		if t.Status != "done" || seen[t.Tool] {
+		if t.Status == "done" && !done[t.Tool] {
+			done[t.Tool] = true
+			used = append(used, label(t.Tool))
+		}
+	}
+	open := map[string]bool{}
+	for _, t := range rows {
+		if t.Status == "done" || t.Status == "skipped" || done[t.Tool] || open[t.Tool] {
 			continue
 		}
-		seen[t.Tool] = true
-		label := t.Tool
-		if def, ok := pbl.LookupTool(t.Tool); ok {
-			label = def.Label
-		}
-		out = append(out, label)
+		open[t.Tool] = true
+		offered = append(offered, label(t.Tool))
 	}
-	return out
+	return used, offered
+}
+
+// pblToolAlreadyOnHerScreen 说的是：这件工具已经递过、她还没做完吗。
+//
+// prompt 里说了不要重复递，但 prompt 是请求。这是保证：同一件工具在她屏幕上
+// 只会有一张卡。
+func (a *API) pblToolAlreadyOnHerScreen(r *http.Request, atomID uuid.UUID, tool string) bool {
+	rows, err := a.d.Queries.ListPblTools(r.Context(), atomID)
+	if err != nil {
+		return false
+	}
+	for _, t := range rows {
+		if t.Tool == tool && t.Status != "done" && t.Status != "skipped" {
+			return true
+		}
+	}
+	return false
 }
 
 // lastPblToolEvent 描述她刚做完的那件工具——这一轮她没打字，就靠这一句。

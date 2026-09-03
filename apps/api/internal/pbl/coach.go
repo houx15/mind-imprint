@@ -68,6 +68,14 @@ type CoachInput struct {
 	// 🚨 工具目录本身不带状态，所以印记无从知道哪件已经做过了，于是会把做完的
 	// 那件再递一次。
 	ToolsUsed []string
+	// ToolsOffered are the tools already sitting on her screen, offered but not
+	// yet finished.
+	//
+	// 🚨 递过但她还没做的，和做完的一样不能再递。2026-09-03 线上实测：印记递了
+	// 「头脑风暴」，那张卡因为前端没刷新没显示出来，下一轮印记又递了一遍——
+	// 屏幕上并排两张一模一样的邀请卡，理由还各写各的。前端那个 bug 已经修了，
+	// 但印记这边也得知道"这件已经在她桌上了"。
+	ToolsOffered []string
 }
 
 // CoachOutput is one turn's result.
@@ -363,6 +371,13 @@ func buildCoachContext(in CoachInput) string {
 	if len(in.ToolsUsed) > 0 {
 		fmt.Fprintf(&b, "\n【已经做完的工具】%s\n"+
 			"这几件不要再递了。\n", strings.Join(in.ToolsUsed, "、"))
+	}
+	// 递过、她还没做完的。这几件已经在她屏幕上摆着了。
+	if len(in.ToolsOffered) > 0 {
+		fmt.Fprintf(&b, "\n【已经递过、她还没做的工具】%s\n"+
+			"这几张卡已经在她屏幕上摆着了，不要再递一遍——"+
+			"她看到的会是两张一模一样的卡。她想做自然会点。\n",
+			strings.Join(in.ToolsOffered, "、"))
 	}
 	// 🚨 这一段必须在最后，而且必须存在：她没打字的那一轮，上面的对话是以
 	// 印记自己的话结尾的，模型顺着写下去最可能的就是把那句重说一遍。

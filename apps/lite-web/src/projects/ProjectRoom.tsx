@@ -165,8 +165,12 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       const res = await postTurn(projectId, text, activeSession ?? undefined);
       setDraft("");
       await refreshThread(activeSession);
-      // 印记递了一件工具就把列表拉一遍，那张邀请卡才会出现在对话末尾。
-      if (res.toolId) setTools(await listTools(projectId));
+      // 工具列表无条件拉一遍，那张邀请卡才会出现在对话末尾。
+      //
+      // 🚨 原来是 `if (res.toolId)`。这一轮**没递新工具**不代表工具列表没变：
+      // 服务端会把一件点开是空的工具挡掉，也会有别处改了状态。少拉这一次，
+      // 屏幕上留着的就是一份过期的清单。
+      setTools(await listTools(projectId));
       // 🚨 印记也可能在这一轮**出了一份计划**。不拉一遍，右边那栏会一直写着
       // 「计划待生成」，而计划其实已经存好了——2026-09-02 线上实测：印记在
       // 对话里说「就按你定下来的问题来安排」，面板纹丝不动，她只有刷新整页
@@ -323,6 +327,17 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setThinking(true);
       await postTurn(projectId, "", activeSession ?? undefined);
       await refreshThread(activeSession);
+      // 🚨 印记在这一轮递的工具也要拉一遍。
+      //
+      // 少了这一句，**她刚做完一件工具、印记顺势递出的下一件，是看不见的**——
+      // 而那正是印记最常递工具的时刻。2026-09-03 线上实测：做完「观察日记」，
+      // 印记递了「头脑风暴」，对话里什么都没出现；她只好自己打字，于是下一轮
+      // 印记又递了一次「头脑风暴」，这才两张一起冒出来。做完「头脑风暴」之后
+      // 递的「问题识别」同样要刷新整页才看得见。
+      //
+      // 无条件拉：这一轮还可能把某件工具关掉（见服务端那道空界面闸），
+      // 只在"递了新的"时候拉，关掉的那件就永远留在屏幕上。
+      setTools(await listTools(projectId));
       setPlan(await getPlan(projectId));
     } catch (err) {
       setError(apiErrorText(err));

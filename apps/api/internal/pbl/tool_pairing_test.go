@@ -92,3 +92,35 @@ func TestCoachSystem_LimitIsOneQuestionNotOneAction(t *testing.T) {
 		t.Error("没写清楚工具和它的产出要同一轮一起给")
 	}
 }
+
+// 🚨 已经递过、她还没做的工具，和做完的一样不能再递。
+//
+// 2026-09-03 线上实测：她屏幕上并排两张「头脑风暴」，理由各写各的。印记不知道
+// 第一张还挂着，因为 prompt 里的工具目录不带状态。
+func TestBuildCoachContext_SaysWhichToolsAreAlreadyOnHerScreen(t *testing.T) {
+	ctx := buildCoachContext(CoachInput{
+		Idea:         "下课没人去操场",
+		ToolsUsed:    []string{"观察日记"},
+		ToolsOffered: []string{"头脑风暴"},
+	})
+	if !strings.Contains(ctx, "已经递过、她还没做的工具") ||
+		!strings.Contains(ctx, "头脑风暴") {
+		t.Fatalf("没告诉印记哪几张卡还挂在她屏幕上：\n%s", ctx)
+	}
+	if !strings.Contains(ctx, "不要再递一遍") {
+		t.Fatalf("没说清楚挂着的那张不要再递：\n%s", ctx)
+	}
+	// 做完的那一段还在，两段互不干扰。
+	if !strings.Contains(ctx, "已经做完的工具") || !strings.Contains(ctx, "观察日记") {
+		t.Fatalf("做完的那一段丢了：\n%s", ctx)
+	}
+}
+
+// 一张卡都没挂着的时候不该出现这一段——凭空多一句"这几张已经在她屏幕上"，
+// 只会让印记不敢递工具。
+func TestBuildCoachContext_NoOfferedSectionWhenHerScreenIsClear(t *testing.T) {
+	ctx := buildCoachContext(CoachInput{Idea: "下课没人去操场"})
+	if strings.Contains(ctx, "已经递过、她还没做的工具") {
+		t.Fatalf("没有挂着的卡却出现了那一段：\n%s", ctx)
+	}
+}
