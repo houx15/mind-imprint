@@ -97,16 +97,56 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
   }, [reload]);
 
   const ordered = useMemo(() => outline(state.nodes), [state.nodes]);
-  const layout = useMemo(() => autoLayout(state.nodes), [state.nodes]);
+
+  /**
+   * 每一块量出来的真实高度。
+   *
+   * 🚨 块高是 minHeight，标题加说明一换行就撑起来；而自动排版原来按固定行距往
+   * 下排，于是长的那几块被后一块盖住半句。量一遍再排，形状才是真的。
+   *
+   * ResizeObserver 而不是渲染后读一次：字号、面板宽度、她双击改字都会改变高度。
+   */
+  const [heights, setHeights] = useState<Map<string, number>>(new Map());
+  const obs = useRef<ResizeObserver | null>(null);
+  if (!obs.current && typeof ResizeObserver !== "undefined") {
+    obs.current = new ResizeObserver((entries) => {
+      setHeights((prev) => {
+        let changed = false;
+        const next = new Map(prev);
+        for (const e of entries) {
+          const id = (e.target as HTMLElement).dataset.nodeId;
+          if (!id) continue;
+          const h = Math.round(e.contentRect.height);
+          // 只在真的变了的时候 setState，否则观察→重排→再观察会自己转起来。
+          if (next.get(id) !== h) {
+            next.set(id, h);
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    });
+  }
+  const measure = useCallback((el: HTMLDivElement | null) => {
+    if (el) obs.current?.observe(el);
+  }, []);
+  useEffect(() => () => obs.current?.disconnect(), []);
+
+  const layout = useMemo(() => autoLayout(state.nodes, heights), [state.nodes, heights]);
+  /** 这一块占多高：量到了用量到的，没量到按最矮的算。 */
+  const hOf = useCallback(
+    (id: string) => Math.max(NODE_H, heights.get(id) ?? NODE_H),
+    [heights],
+  );
   const size = useMemo(() => {
     let w = MIN_W;
     let h = MIN_H;
-    for (const { x, y } of layout.values()) {
+    for (const [id, { x, y }] of layout) {
       w = Math.max(w, x + NODE_W + PAD);
-      h = Math.max(h, y + NODE_H + PAD);
+      h = Math.max(h, y + hOf(id) + PAD);
     }
     return { w, h };
-  }, [layout]);
+  }, [layout, hOf]);
   const at = useCallback(
     (id: string) => layout.get(id) ?? { x: 16, y: 16 },
     [layout],
@@ -315,10 +355,14 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
               // 连线跟着子节点的颜色走：同一支的线是同一个色，图才看得出分叉。
               // 曲线而不是直线——直角折线在这么小的画布上会糊成一团。
               const mx = (a.x + NODE_W + b.x) / 2;
+              // 线接在两块各自的**腰**上。用固定 NODE_H 算，高的那几块线会从
+              // 肩膀上斜着穿出去——线上那几道斜杠就是这么来的。
+              const ay = a.y + hOf(n.parentId) / 2;
+              const by = b.y + hOf(n.id) / 2;
               return (
                 <path
                   key={n.id}
-                  d={`M ${a.x + NODE_W} ${a.y + NODE_H / 2} C ${mx} ${a.y + NODE_H / 2}, ${mx} ${b.y + NODE_H / 2}, ${b.x} ${b.y + NODE_H / 2}`}
+                  d={`M ${a.x + NODE_W} ${ay} C ${mx} ${ay}, ${mx} ${by}, ${b.x} ${by}`}
                   fill="none"
                   stroke={depthTone(n.depth).solid}
                   strokeOpacity={0.5}
@@ -334,6 +378,8 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
             return (
               <div
                 key={n.id}
+                ref={measure}
+                data-node-id={n.id}
                 onPointerDown={(e) => {
                   // 手上拿着一条材料时，点一块就是放进去——这一下比拖更稳，
                   // 尤其在这么小的画布上。

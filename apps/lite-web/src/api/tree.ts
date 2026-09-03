@@ -153,17 +153,35 @@ export function treeTodo(state: TreeState): string {
  * 只用在还没摆过的节点上（x=y=0）。她一拖，位置就成了她的——一张图的形状本身
  * 就是她的思考痕迹，不该每次打开被重排。
  */
-export function autoLayout(nodes: TreeNode[]): Map<string, { x: number; y: number }> {
+export const NODE_MIN_H = 56;
+/** 两块之间留的空。 */
+const ROW_GAP = 18;
+/** 列距。 */
+const COL_W = 190;
+
+export function autoLayout(
+  nodes: TreeNode[],
+  /**
+   * 每一块**量出来的**真实高度。给不出来的按 NODE_MIN_H 算。
+   *
+   * 🚨 原来是按固定行距 74px 往下排的，而块高是 minHeight:56——标题加说明一换行
+   * 就撑到九十多、一百多，直接盖住下一块。线上那棵 15 个节点的树，有三处文字被
+   * 后一块压掉了半句，还有两处叠在一起。一件让她「看结构有没有漏」的工具，自己
+   * 先把内容遮住了。
+   */
+  heights?: Map<string, number>,
+): Map<string, { x: number; y: number }> {
   const out = new Map<string, { x: number; y: number }>();
-  const perDepth = new Map<number, number>();
+  // 每一列下一块从哪儿开始。按真实高度累加，不按行号乘固定行距。
+  const nextY = new Map<number, number>();
   for (const n of outline(nodes)) {
     if (n.x !== 0 || n.y !== 0) {
       out.set(n.id, { x: n.x, y: n.y });
       continue;
     }
-    const row = perDepth.get(n.depth) ?? 0;
-    perDepth.set(n.depth, row + 1);
-    out.set(n.id, { x: 16 + n.depth * 190, y: 16 + row * 74 });
+    const y = nextY.get(n.depth) ?? 16;
+    out.set(n.id, { x: 16 + n.depth * COL_W, y });
+    nextY.set(n.depth, y + Math.max(NODE_MIN_H, heights?.get(n.id) ?? NODE_MIN_H) + ROW_GAP);
   }
   return out;
 }
