@@ -52,8 +52,8 @@ export const philosophy: {
       en: "AI is already in children's hands. They use it to look things up, draft, and find a way in — the question is whether school helps them learn to use it in a way that actually grows their thinking.",
     },
     {
-      zh: "我们把这件事叫做「AI 原生学习」(AI-Native Learning)。在这样的学习里,孩子练的是带着 AI 一起解决真实问题的能力,同时守住自己的判断力。该被看重的东西,慢慢从「交出了什么答案」,挪向「他是怎么想到这里的」。",
-      en: "We call this AI-Native Learning. In it, a child practices solving real problems alongside AI while keeping their own judgment — and what deserves attention slowly shifts from the answer handed in toward how the child got there.",
+      zh: "我们把这件事叫做「AI 原生学习」(AI-Native Learning)。在这样的学习里,孩子练的是带着 AI 一起解决真实问题的能力,同时守住自己的判断力。该被看重的东西,从「交出了什么答案」转向「他是怎么想到这里的」。",
+      en: "We call this AI-Native Learning. In it, a child practices solving real problems alongside AI while keeping their own judgment — and what deserves attention shifts from the answer handed in to how the child got there.",
     },
     {
       zh: "这不是加一门课、买一套工具就能完成的转变。它关乎课堂怎么设计、老师怎么带、学生的成长怎么被看见。我们愿意陪着认同这件事的学校,一步步把它落到日常里。",

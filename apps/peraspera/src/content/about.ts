@@ -55,7 +55,7 @@ export const founders: Founder[] = [
       en: "CEO · Co-founder · Head of the Education Research Institute",
     },
     bio: {
-      zh: "多年联合国 ESG 与气候课程、IB 课程辅导经验。她创立了「思维印记」这套方法——在真实国际课堂里长出来的三十多门批判性思维课，以及产品背后的过程评估标准。",
+      zh: "多年联合国 ESG 与气候课程、IB 课程辅导经验。她创立了「思维印记」这套方法——在真实国际课堂里开发出的三十多门批判性思维课，以及产品背后的过程评估标准。",
       en: "Years of experience with UN ESG and climate programs, and with IB coaching. She created the Mind Imprint approach — 30-plus critical-thinking courses grown in real international classrooms, and the process-assessment rubric behind the product.",
     },
     photoSlot: { zh: "照片位", en: "Photo placeholder" },

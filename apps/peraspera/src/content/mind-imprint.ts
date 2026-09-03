@@ -30,7 +30,7 @@ export const hero: { eyebrow: Bilingual; title: Bilingual; sub: Bilingual } = {
     en: "Our core product: one AI education product that carries a whole way of learning — courses, workbenches, and an assessment that sees the thinking process.",
   },
   sub: {
-    zh: "孩子带着自己真实的任务进来，和 AI 一起把它想清楚、做出来；这一路他是怎么想的，都被记录下来，慢慢长成一份只给他自己看的成长记录。",
+    zh: "孩子带着自己真实的任务进来，和 AI 一起把它想清楚、做出来；这一路他是怎么想的，都被记录下来，形成一份只给他自己看的成长记录。",
     en: "A child brings in a real task and works it through with AI — thinking it out, building it up — and the whole way they got there is recorded, growing into a record made just for them.",
   },
 };
@@ -87,7 +87,7 @@ export const courses: {
     {
       name: { zh: "思辨", en: "Critical thinking" },
       body: {
-        zh: "练怎么提问、怎么核实一个说法、怎么把论证搭起来再改扎实。这条线从三十多门在真实国际课堂里带过的课里，一点点长出来。",
+        zh: "练怎么提问、怎么核实一个说法、怎么把论证搭起来再改扎实。这条线来自三十多门在真实国际课堂里带过的课。",
         en: "Practicing how to ask, how to check a claim, and how to build an argument and revise it until it holds. This thread grew out of 30-plus courses proven in real international classrooms.",
       },
     },
@@ -181,7 +181,7 @@ export const miIntro: { eyebrow: Bilingual; title: Bilingual; body: Bilingual[] 
 
 /** Caption shown under the interface mockup. */
 export const miShotCaption: Bilingual = {
-  zh: "思维印记的工作区与评估界面——左边和 AI 一次一步地把问题想深，右边的过程树记录每一步，最后长成一份只给学生本人看的思维印记。",
+  zh: "思维印记的工作区与评估界面——左边和 AI 一次一步地把问题想深，右边的过程树记录每一步，最后形成一份只给学生本人看的思维印记。",
   en: "The mind-imprint workspace and assessment screen — on the left, thinking a question through with AI one step at a time; on the right, a process tree recording every step; and finally an imprint seen only by the student.",
 };
 
