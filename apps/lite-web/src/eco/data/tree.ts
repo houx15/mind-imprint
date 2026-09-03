@@ -60,7 +60,7 @@ export const KEYWORDS: Keyword[] = [
     field: "science",
     strength: 3,
     bornAt: 0,
-    note: "三次阅读都落在这里。它还没长成你的主问题，但它一直在。",
+    note: "三次阅读都落在这里。它还没成为你的主问题，但它一直在。",
     at: { t: 0.42, spread: 30 },
     sources: [
       { kind: "reading", id: "r-coral", label: "红海北端那片不白化的珊瑚", date: "2026-08-29" },

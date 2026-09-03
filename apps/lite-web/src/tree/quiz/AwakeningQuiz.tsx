@@ -236,7 +236,7 @@ function World({
       <div className="awk-eyebrow">序章 01 / 世界的暗面</div>
       <h2 className="mt-2 text-mk-h1">完成任务，不等于真正成长</h2>
       <p className="mt-3 leading-[1.9] text-[#c6d7e8]">
-        90% 的人选择把任务完全交给 AI。他们复制、提交，却渐渐失去了提问、判断与负责的能力。
+        90% 的人选择把任务完全交给 AI。他们复制、提交，逐步失去了提问、判断与负责的能力。
         系统称他们为「被托管者」。
       </p>
 

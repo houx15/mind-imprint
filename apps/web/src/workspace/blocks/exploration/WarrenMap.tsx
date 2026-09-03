@@ -594,7 +594,7 @@ function WarrenMapInner({
         )}
         {helpOpen && (
           <div className="absolute left-0 top-full z-30 mt-1 w-72 rounded-mk border border-mk-border bg-mk-surface p-3 text-[12px] leading-relaxed text-mk-ink shadow-[0_12px_32px_rgba(28,35,51,0.18)]">
-            「兔子洞」= 你顺着一个问题往下追的过程。每个问题就是一个洞口，钻进去能看到你为它挖到的文献。点开一个问题往下挖，这张图就会慢慢长出来。
+            「兔子洞」= 你顺着一个问题往下追的过程。每个问题就是一个洞口，钻进去能看到你为它挖到的文献。点开一个问题往下挖，这张图就会逐步展开。
           </div>
         )}
       </div>

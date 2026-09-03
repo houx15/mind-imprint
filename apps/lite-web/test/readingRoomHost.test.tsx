@@ -96,7 +96,7 @@ describe("ReadingRoomHost", () => {
     // ONE 印记. The room's coach column carries the 带读 invitation, and the
     // room's own chat log and composer are not ALSO on the page — two AI chat
     // boxes side by side is what this replaced.
-    expect(screen.getByText("让我来带你详细读一遍这篇文章吧。")).toBeTruthy();
+    expect(screen.getByText("让我来带你详细读一遍这篇文章。")).toBeTruthy();
     expect(screen.queryByPlaceholderText(/说说你对哪一句有疑问/)).toBeNull();
     expect(screen.queryByRole("button", { name: "这条来源可信吗？" })).toBeNull();
     // 「这篇用在哪个阶段」 names PROJECT phases; a lite reading has no project.

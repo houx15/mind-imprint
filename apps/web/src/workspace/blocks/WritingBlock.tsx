@@ -1348,7 +1348,7 @@ function OutlinePane({ projectId, title, doc }: { projectId: string; title: stri
       {!nodes.some((n) => n.depth >= 1 && n.text.trim() !== "") && (
         <div className="mx-8 mb-3 rounded-mk-md border border-mk-accent bg-mk-accent-50 px-4 py-3">
           <p className="text-[13.5px] leading-relaxed text-mk-ink">
-            <strong>先想清楚这篇论文的结构。</strong>你打算从哪几个角度、用哪几个子问题来回答你的主问题？把每个角度写成主问题下的一条分支（回车加一条、Tab 缩进为子级）——这些角度就会长成你论文的主体段落。想不清楚，就问问右边的印记。
+            <strong>先想清楚这篇论文的结构。</strong>你打算从哪几个角度、用哪几个子问题来回答你的主问题？把每个角度写成主问题下的一条分支（回车加一条、Tab 缩进为子级）——这些角度就会成为你论文的主体段落。想不清楚，就问问右边的印记。
           </p>
         </div>
       )}

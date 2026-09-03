@@ -261,10 +261,10 @@ function Shelf() {
         onClick={resetPrototype}
         className="flex items-center gap-1 text-mk-small text-mk-faint underline decoration-dotted
                    underline-offset-4 transition-colors hover:text-mk-muted focus-visible:outline-none"
-        title="清空这个原型的全部数据，回到第一次进来的样子"
+        title="清空这个原型的全部数据，恢复初始状态"
       >
         <RotateCcw size={12} strokeWidth={1.9} />
-        原型：清空，回到第一次进来的样子
+        原型：清空数据，恢复初始状态
       </button>
     </>
   );

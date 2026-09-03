@@ -375,9 +375,9 @@ export function ReadingCoachPanel({
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
         <Pebble state="idle" size={52} />
         <div className="flex flex-col gap-1.5">
-          <p className="text-mk-h2 text-mk-ink">让我来带你详细读一遍这篇文章吧。</p>
+          <p className="text-mk-h2 text-mk-ink">让我来带你详细读一遍这篇文章。</p>
           <p className="text-mk-body leading-relaxed text-mk-muted">
-            我先看看这篇，排一条路线，然后一步一步带你走。中途想跳过哪一步，说一声就行。
+            我先看一遍，排一条阅读路线，然后逐步带你读。想跳过哪一步，随时告诉我。
           </p>
         </div>
         <Button onClick={() => void turn("")} loading={busy} iconStart={<Icon icon={Play} size={14} />}>

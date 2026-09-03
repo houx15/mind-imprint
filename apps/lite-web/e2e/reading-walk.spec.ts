@@ -172,7 +172,7 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   // ONE 印记. The coach column carries the 带读 invitation, and the room's own
   // chat log, composer and starter row are NOT also on the page — two AI chat
   // boxes side by side is exactly what this replaced.
-  await expect(page.getByText("让我来带你详细读一遍这篇文章吧。")).toBeVisible();
+  await expect(page.getByText("让我来带你详细读一遍这篇文章。")).toBeVisible();
   await expect(page.getByPlaceholder("说说你对哪一句有疑问…")).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "换一个视角，再读一遍" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "这条来源可信吗？" })).toHaveCount(0);

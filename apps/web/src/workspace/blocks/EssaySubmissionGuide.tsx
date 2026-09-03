@@ -105,7 +105,7 @@ export function EssaySubmissionView({
       <div className="border-b border-mk-border bg-mk-accent-50 px-8 py-4">
         <div className="mx-auto max-w-[70ch]">
           {header}
-          <p className="text-[14px] leading-relaxed text-mk-ink">{step.card?.prompt ?? "通读全文、润色语言与衔接。让印记像老师一样通篇体检，你据此修改，满意后完成整篇论文。"}</p>
+          <p className="text-[14px] leading-relaxed text-mk-ink">{step.card?.prompt ?? "通读全文、润色语言与衔接。请印记通篇审阅，你据此修改，满意后完成整篇论文。"}</p>
           <div className="mt-3 flex items-center gap-3">
             <button type="button" onClick={onGoToDraft} className="rounded-mk-md border border-mk-border px-3 py-1.5 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">去正文里润色 / 通篇体检</button>
             <button type="button" onClick={onRequestFinish} className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">完成整篇论文</button>

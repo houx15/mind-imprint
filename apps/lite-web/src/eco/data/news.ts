@@ -771,7 +771,7 @@ export const NEWS: NewsItem[] = [
     },
     hooks: [
       { zh: "「用三年就闲置」——还有哪些东西符合这个描述？", en: "Idle after three years - what else fits that description?" },
-      { zh: "如果按「可转手性」设计，一件东西会长成什么样？", en: "If you designed for resale, what shape would the object take?" },
+      { zh: "如果按「可转手性」设计，一件东西会变成什么样？", en: "If you designed for resale, what shape would the object take?" },
     ],
     date: "2026-08-26",
     rank: 5,
@@ -788,7 +788,7 @@ export const NEWS: NewsItem[] = [
       en: "Not clothes — children's books. Parents resell what goes idle after three years, and publishers have begun designing bindings for resale.",
     },
     hook: {
-      zh: "当「转手」变成设计目标，一件东西会长成什么样？",
+      zh: "当「转手」变成设计目标，一件东西会变成什么样？",
       en: "When resale becomes a design goal, what shape does an object take?",
     },
   },

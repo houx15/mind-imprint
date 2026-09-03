@@ -408,7 +408,7 @@ export function ComposeStage({
             onChange={onBodyChange}
             onBlur={() => void flush()}
             highlight={highlight}
-            placeholder="从哪儿开始都行。先把你最想说的那句话写下来，剩下的会跟着它长出来。"
+            placeholder="请先写下你最想说的那句话，再围绕它展开。"
           />
         </div>
 

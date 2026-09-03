@@ -496,7 +496,7 @@ function Build({ project, spec }: { project: Project; spec: ArtifactSpec }) {
         <div className={cx("border-mk-border", last ? "" : "mt-5 border-t pt-5")}>
           <Field
             label="这一版可以定稿了吗？请说明理由"
-            hint="「什么程度算完成」是这一步里属于你的判断。"
+            hint="「什么程度算完成」由你判断。"
             value={why}
             onChange={setWhy}
             rows={2}

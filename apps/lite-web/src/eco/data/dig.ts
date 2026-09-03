@@ -328,7 +328,7 @@ export const DIG: Record<string, DigSeed[]> = {
     },
     {
       kind: "project",
-      text: "记录你做某件事的完整用时一个月，做成一张时间的形状图",
+      text: "记录你做某件事的完整用时一个月，做成一张用时分布图",
       why: "手艺与时间这条线，需要你自己的时间数据才站得住。",
     },
   ],

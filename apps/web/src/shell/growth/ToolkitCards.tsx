@@ -314,7 +314,7 @@ export function ToolkitCards({ onOpenCourse }: { onOpenCourse?: (courseId: strin
 
       {visibleGroups.length === 0 ? (
         <div className="rounded-mk-md border border-dashed border-mk-border bg-mk-paper px-4 py-10 text-center text-mk-body text-mk-muted">
-          {statusFilter === "practiced" ? "这里还没有你练习过的卡片——去课程里遇到第一张吧。" : "没有匹配的卡片。"}
+          {statusFilter === "practiced" ? "暂无练习过的卡片。请前往课程，练习第一张。" : "没有匹配的卡片。"}
         </div>
       ) : (
         visibleGroups.map((g) => (

@@ -304,7 +304,7 @@ function LookStep({
   return (
     <div className="mt-8">
       <p className="text-mk-body text-mk-secondary">
-        三个版式是三个不一样的页面。下面是用你自己的内容画出来的样子，挑一个。
+        三个版式是三个不一样的页面。下面是用你自己的内容渲染的效果，请挑一个。
       </p>
 
       <div className="mt-6 grid gap-5 lg:grid-cols-3">
@@ -519,7 +519,7 @@ function WordsStep({
       {/* 右边是真的那一页，随她敲字变。 */}
       <div className="mt-10 min-w-0 flex-1 lg:mt-0">
         <div className="sticky top-6">
-          <p className="mb-2 text-mk-small text-mk-faint">这是别人会看到的样子</p>
+          <p className="mb-2 text-mk-small text-mk-faint">这是别人会看到的效果</p>
           <PreviewBox narrow={narrow}>
             <BuiltSite site={site} layout={layout} narrow={narrow} editing />
           </PreviewBox>

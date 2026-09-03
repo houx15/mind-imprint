@@ -664,7 +664,7 @@ export function ReadingBlock({
               <div className="shrink-0 border-b border-mk-border bg-mk-surface p-4">
                 <h3 className="text-[15px] font-bold text-mk-ink">开始一段文献探索</h3>
                 <p className="mt-1.5 text-[13px] leading-relaxed text-mk-muted">
-                  顺着你的研究问题去检索、阅读、给材料做证据笔记，慢慢搭起你的证据地图。准备好了就开始吧。
+                  顺着你的研究问题去检索、阅读、给材料做证据笔记，逐步搭起你的证据地图。准备好了就开始。
                 </p>
                 <button
                   type="button"

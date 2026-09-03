@@ -37,7 +37,7 @@ export function MyPage() {
                   are being asked to build. This shows the finished thing with
                   a ribbon saying it is not hers yet. */}
               <Btn variant="outline" onClick={() => setDemo(true)}>
-                先看看做完的样子
+                查看示例页面
               </Btn>
             </span>
           }
@@ -56,7 +56,7 @@ export function MyPage() {
           </>
         ) : (
           <span className="text-mk-small text-mk-muted">
-            样例 · 这是做完之后的样子，还不是你的页面
+            样例 · 这是完成后的效果，还不是你的页面
           </span>
         )}
 

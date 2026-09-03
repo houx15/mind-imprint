@@ -106,7 +106,7 @@ export const project: ProtoProject = {
 export const PROPOSAL_DIMS: { key: keyof Proposal; label: string; hint: string }[] = [
   { key: "objective", label: "目标", hint: "想回答什么问题？想学会做什么？" },
   { key: "reason", label: "缘由", hint: "为什么是这个题？关联的学科、兴趣、未来" },
-  { key: "activities", label: "活动与时间", hint: "打算怎么做——之后会长成你的计划" },
+  { key: "activities", label: "活动与时间", hint: "打算怎么做——之后会成为你的计划" },
   { key: "resources", label: "资源", hint: "需要哪些书 / 期刊 / 数据 / 工具" },
 ];
 
@@ -122,7 +122,7 @@ export const formingChat: ChatMsg[] = [
   },
   {
     role: "ai",
-    text: "这个「既…又…」的矛盾，正是一篇好文章的种子。那你现在心里，更偏向哪一边？还是真的没定？",
+    text: "这个「既…又…」的矛盾正是一篇好文章的起点。那你现在更偏向哪一边？还是确实没定？",
   },
   {
     role: "student",
@@ -363,7 +363,7 @@ export const reflectionPrompts: { label: string; q: string; anchor?: "goal" }[] 
 // The "你的思维印记" mirror — AI-assembled from the whole process, shown ONLY
 // as support for the student's own reflection (not a grade, not a verdict).
 export const mirrorSections: { title: string; body: string }[] = [
-  { title: "你的论点是怎么长出来的", body: "你从「中国让地球更可持续」这个通俗判断出发，一路把它复杂化成「取决于用什么尺度」。真正的转折点，是你在写作里撞上「碳排放总量第一」这个反例。" },
+  { title: "你的论点是怎么形成的", body: "你从「中国让地球更可持续」这个通俗判断出发，一路把它复杂化成「取决于用什么尺度」。真正的转折点，是你在写作里撞上「碳排放总量第一」这个反例。" },
   { title: "阅读怎样喂养了写作", body: "读 NASA / Chen (2019) 时你做了溯源，把「NASA 数据」从转述追到一手；这条判断后来直接进了你的正方段，也让你对「变绿≠更可持续」一直保持警惕。" },
   { title: "哪里你自己想通，哪里靠印记", body: "溯源和让步段是你自己发现的；引言那句「似乎可以说更可持续」，是印记提醒你别把话说满、把判断留到结论。" },
   { title: "你召唤过的思维卡", body: "这一程你召唤了 SIFT 溯源、让步段两张卡；CRAAP 五维那次你跳过了——跳过也被记下了。" },
