@@ -518,14 +518,21 @@ export function Board({
           </div>
         )}
 
+        {/* 🚨 原来是 `left-1/2 -translate-x-1/2`：绝对定位从中线起算，可用宽度
+            只剩画布的一半。选中两张时这一行有 8 个孩子，挤不下就逐个缩到
+            min-content——「互相矛盾」被排成了一列四个字，一个字一行。
+            改成 inset-x + mx-auto 拿到整幅宽度，并允许换行；每个孩子
+            nowrap + 不许收缩，宁可多占一行也不许再拆字。 */}
         {picked.length > 0 && !naming && (
-          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 items-center gap-2 rounded-mk-full border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
-            <span className="text-mk-small text-mk-secondary">选了 {picked.length} 张</span>
+          <div className="absolute inset-x-2 bottom-2 mx-auto flex w-fit max-w-full flex-wrap items-center justify-center gap-x-2 gap-y-1 rounded-mk-lg border border-mk-border bg-mk-surface px-3 py-1.5 shadow-mk-xs">
+            <span className="shrink-0 whitespace-nowrap text-mk-small text-mk-secondary">
+              选了 {picked.length} 张
+            </span>
             <button
               type="button"
               onClick={() => setNaming(true)}
               disabled={picked.length < 2}
-              className="rounded-mk-full px-2.5 py-0.5 text-mk-small text-white disabled:opacity-40"
+              className="shrink-0 whitespace-nowrap rounded-mk-full px-2.5 py-0.5 text-mk-small text-white disabled:opacity-40"
               style={{ background: "var(--mk-accent-500)" }}
             >
               归成一堆
@@ -537,7 +544,7 @@ export function Board({
                   key={r.relation}
                   type="button"
                   onClick={() => void link(r.relation)}
-                  className="rounded-mk-full px-2 py-0.5 text-mk-small"
+                  className="shrink-0 whitespace-nowrap rounded-mk-full px-2 py-0.5 text-mk-small"
                   style={{
                     background: `color-mix(in srgb, ${r.hue} 18%, transparent)`,
                     color: "var(--mk-ink)",
@@ -549,14 +556,14 @@ export function Board({
             <button
               type="button"
               onClick={() => void regroup("")}
-              className="text-mk-small text-mk-secondary"
+              className="shrink-0 whitespace-nowrap text-mk-small text-mk-secondary"
             >
               拆开
             </button>
             <button
               type="button"
               onClick={() => setPicked([])}
-              className="text-mk-small text-mk-faint"
+              className="shrink-0 whitespace-nowrap text-mk-small text-mk-faint"
             >
               取消
             </button>

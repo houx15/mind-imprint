@@ -130,8 +130,12 @@ export function ProjectsLanding() {
         {siteReady ? (
           <div className="mx-auto w-full max-w-[720px]">
             <h1 className="text-center text-mk-display text-mk-ink">最近想做点什么</h1>
+            {/* 🚨 原来写的是「一句话就行。想清楚要做什么，是我们一起的第一
+                件事。」——「一句话就行」正是文案第 7 条点名要删的那种替她减压
+                的话（它先假设了她怕）。改成先说这件事为什么值得做（第 5 条），
+                再请她做（第 3 条）。 */}
             <p className="mt-3 text-center text-mk-body text-mk-secondary">
-              一句话就行。想清楚要做什么，是我们一起的第一件事。
+              项目从一个真实的问题开始。请描述你想弄明白或想改变的那件事。
             </p>
 
             <div
@@ -156,7 +160,9 @@ export function ProjectsLanding() {
                   below `sm`. */}
               <div className="flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
                 <span className="order-2 text-mk-small text-mk-muted sm:order-1">
-                  {creating ? "处理中" : "写完按开始，印记会先跟你聊清楚要做什么。"}
+                  {/* 界面负责给东西命名，不替印记说话（第 0 条）：这里说的是
+                      按下去会发生什么，不是印记在跟她搭话。 */}
+                  {creating ? "处理中" : "开始后，先和印记确定这个项目要解决什么"}
                 </span>
                 <button
                   type="button"

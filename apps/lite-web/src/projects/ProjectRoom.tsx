@@ -35,6 +35,7 @@ import { PaneResizer } from "./PaneResizer";
 import { PANE_DEFAULT, usePaneWidth } from "./usePaneWidth";
 import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
+import { Says } from "./Says";
 
 /**
  * ProjectRoom — the workbench.
@@ -606,7 +607,7 @@ function Message({
     return (
       <div className="flex justify-end">
         <div className="inline-block max-w-[85%] rounded-[13px_4px_13px_13px] bg-mk-accent-50 px-4 py-3 text-mk-body text-mk-ink">
-          {m.content}
+          <Says content={m.content} />
         </div>
       </div>
     );
@@ -619,7 +620,7 @@ function Message({
       </span>
       <div className="min-w-0">
         <div className="inline-block max-w-[85%] rounded-[4px_13px_13px_13px] bg-mk-surface px-4 py-3 text-mk-body text-mk-ink shadow-mk-xs">
-          {m.content}
+          <Says content={m.content} />
         </div>
         {hook && (
           // A hook is an invitation, never an interruption: she taps it or she
