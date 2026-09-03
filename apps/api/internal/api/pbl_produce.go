@@ -182,6 +182,26 @@ func (a *API) produceArtifact(
 		URL     string   `json:"url"`
 		Guessed []string `json:"guessed"`
 		Admits  []string `json:"admits"`
+		// 🚨 交东西的同时说清楚每一部分该看什么。
+		//
+		// createPblReviewPlan 那个端点的注释写的就是「印记交东西时，连着说清楚
+		// 每一部分该看什么」——可 produce 的 payload 里一直没有这两格，于是模型
+		// 无从填，审核那一屏永远 marks: 0 / dimensions: 0。表、端点、前端的
+		// splitByMarks/MarkRow/AnswerBox 全都写好了，链子又断在模型这一头。
+		//
+		// 少了它们，「审核助手」就只剩"读一段文字，然后点通过"——而
+		// docs/2026-09-01-pbl-detail.md 要的是划出来的句子带着问题、几个必须
+		// 留意的方面。没有这些，她不知道该看什么，通过就成了走过场。
+		Marks []struct {
+			Part     string `json:"part"`
+			PartNote string `json:"partNote"`
+			Quote    string `json:"quote"`
+			Question string `json:"question"`
+		} `json:"marks"`
+		Dimensions []struct {
+			Prompt string `json:"prompt"`
+			Why    string `json:"why"`
+		} `json:"dimensions"`
 	}
 	if err := json.Unmarshal(raw, &in); err != nil {
 		return err
@@ -209,12 +229,48 @@ func (a *API) produceArtifact(
 	if err != nil {
 		return err
 	}
-	_, err = a.d.Queries.CreatePblArtifact(ctx, sqlc.CreatePblArtifactParams{
+	art, err := a.d.Queries.CreatePblArtifact(ctx, sqlc.CreatePblArtifactParams{
 		AtomID: atomID, SessionID: scope, Kind: kind,
 		Title: strings.TrimSpace(in.Title), Payload: payload,
 		Guessed: guessed, Admits: admits,
 	})
-	return err
+	if err != nil {
+		return err
+	}
+
+	// 划出来的句子。没带问题的一条只是在把字标黄，跳过它——和
+	// createPblReviewPlan 那道校验同一条理由。
+	//
+	// 这几条落不上不该让整份成果作废：她手里有东西可审，比"审得很讲究"要紧。
+	var ord int32
+	for _, m := range in.Marks {
+		q := strings.TrimSpace(m.Question)
+		if q == "" {
+			continue
+		}
+		if _, merr := a.d.Queries.CreatePblReviewMark(ctx, sqlc.CreatePblReviewMarkParams{
+			ArtifactID: art.ID, Part: strings.TrimSpace(m.Part),
+			PartNote: strings.TrimSpace(m.PartNote), Quote: strings.TrimSpace(m.Quote),
+			Question: q, Ordinal: ord,
+		}); merr != nil {
+			return merr
+		}
+		ord++
+	}
+	ord = 0
+	for _, d := range in.Dimensions {
+		prompt := strings.TrimSpace(d.Prompt)
+		if prompt == "" {
+			continue
+		}
+		if _, derr := a.d.Queries.CreatePblReviewDimension(ctx, sqlc.CreatePblReviewDimensionParams{
+			ArtifactID: art.ID, Prompt: prompt, Why: strings.TrimSpace(d.Why), Ordinal: ord,
+		}); derr != nil {
+			return derr
+		}
+		ord++
+	}
+	return nil
 }
 
 // nonNil 让空切片编码成 []，不是 null——前端读的是数组。
