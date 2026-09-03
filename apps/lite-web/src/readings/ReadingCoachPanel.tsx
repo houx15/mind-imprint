@@ -7,7 +7,13 @@ import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard
 import { LiteChatMarkdown } from "./LiteChatMarkdown";
 import { ThinkingFold } from "./ThinkingFold";
 import { ApiError } from "../api/client";
-import { coachAnswerOf, coachCardOf, postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
+import {
+  coachAnswerOf,
+  coachCardOf,
+  postReadingCoachTurn,
+  type ReadingLensDone,
+  type ReadingTask,
+} from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { apiErrorText } from "../api/errorText";
 
@@ -56,6 +62,8 @@ export function ReadingCoachPanel({
   slot,
   onTasks,
   onFocusBlock,
+  lensDone,
+  onLensDoneSent,
 }: {
   readingId: string;
   tasks: ReadingTask[];
@@ -66,6 +74,15 @@ export function ReadingCoachPanel({
   onTasks: (next: ReadingTask[]) => void;
   /** `tool` is set when 印记 reached for a paragraph tool this turn. */
   onFocusBlock: (blockId: string, tool?: string) => void;
+  /** A lens the room just watched her finish. Non-null for exactly as long as
+   *  it takes this panel to turn it into one coach turn; the room clears it
+   *  through `onLensDoneSent`. See the effect below. */
+  lensDone: ReadingLensDone | null;
+  /** Called once the turn for `lensDone` has been ATTEMPTED — success or
+   *  failure. Failure must still clear it: a lens she finished is not worth
+   *  retrying forever against a server that is down, and the outcome itself is
+   *  already saved either way. */
+  onLensDoneSent: () => void;
 }) {
   const [messages, setMessages] = useState<LiteMessage[]>(initialMessages);
   const [draft, setDraft] = useState("");
@@ -147,6 +164,7 @@ export function ReadingCoachPanel({
     text: string,
     picks: { blockId: string; quote: string }[] = [],
     cardAnswer: CoachCardAnswer | null = null,
+    finishedLens: ReadingLensDone | null = null,
   ) {
     if (busy) return;
     setBusy(true);
@@ -168,7 +186,7 @@ export function ReadingCoachPanel({
     if (mine) setMessages((prev) => [...prev, mine]);
     setFailed(null);
     try {
-      const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer);
+      const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer, finishedLens);
       const seq = --localSeq.current;
       if (res.thinking) setThinkingBySeq((prev) => ({ ...prev, [seq]: res.thinking }));
       setMessages((prev) => [
@@ -214,6 +232,47 @@ export function ReadingCoachPanel({
       setBusy(false);
     }
   }
+
+  /**
+   * 她把一副透镜做完了 → 印记 必须回应它，并且推进这一步。
+   *
+   * 透镜循环是和 pro 共用的（`apps/web/src/studio/reading/readingLoop.ts`），
+   * 它的 `confirm()` 把「已保存」写进 `loop.messages`——而 lite 从来不渲染
+   * 那个数组（lite 渲染的是这个面板，同一张 `atom_message` 表上的另一条线）。
+   * 于是「透镜应用完毕之后，没有响应，没有推进到下一步」：确实一个字都没有，
+   * 因为根本没有一轮被送出去。房间现在盯着 `loop.outcomes` 长出新的一条，
+   * 把它交给这里，这里把它变成一轮真的对话。
+   *
+   * 🚨 `text` 是空的，`lensDone` 不是。服务端靠这一点分辨这一轮不是「她刚点了
+   * 开始」——空文本那条分支会让 印记 从头介绍一遍读法清单，这正是 PBL 房间
+   * 踩过的那颗雷（做完工具之后的空轮让 印记 原话重复、还把刚做完的工具又召
+   * 唤了一遍）。见 `reading_coach.go` 的 `readingLensDone`。
+   *
+   * 🚨 用 `sentRef` 记住「这一条已经送过了」，而不是只依赖 `lensDone` 变 null：
+   * StrictMode 会把这个 effect 跑两遍（挂载 → 清理 → 再挂载），而 `busy` 在
+   * 第一遍的 `await` 之前就已经是 true 了——但第二遍是在同一个 render 的
+   * 闭包里跑的，读到的 `busy` 还是旧值 false。没有这个 ref 就是两次
+   * 旗舰调用、两条回复。（`useAlive` 的注释讲的是同一族陷阱的另一半。）
+   */
+  const lensSentRef = useRef<ReadingLensDone | null>(null);
+  useEffect(() => {
+    if (!lensDone) {
+      lensSentRef.current = null;
+      return;
+    }
+    if (lensSentRef.current === lensDone) return;
+    // 🚨 上一轮还在飞的时候不要标记成「送过了」。`turn` 开头的 `if (busy)`
+    // 会直接返回，而如果这里已经调了 `onLensDoneSent`，这副她真的做完了的
+    // 透镜就被静默丢掉了——她动了手，屏幕上却依然什么都没有，正是这次要修的
+    // 那个 bug 的另一条路径。`busy` 进依赖，这一轮落地之后再送。
+    if (busy) return;
+    lensSentRef.current = lensDone;
+    void turn("", [], null, lensDone).finally(onLensDoneSent);
+    // `turn` 和 `onLensDoneSent` 每次 render 都会重建，挂进依赖只会让这个
+    // effect 每次 render 都重跑；真正的触发条件只有「来了一条新的 lensDone」
+    // 和「刚腾出手」，而重复发送由上面的 ref 把住。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lensDone, busy]);
 
   /** 重发上一轮失败的作答，原样。她点过的那一句一直留在卡片上，这里只是把它
    *  再送一次——先把留着的那条乐观消息撤掉，`turn` 会重新放一条一样的。 */

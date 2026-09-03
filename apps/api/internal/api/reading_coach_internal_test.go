@@ -85,7 +85,7 @@ func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
 	}
 
 	withPicks := buildReadingCoachPrompt("标题", blocks, nil, nil,
-		[]readingPick{{BlockID: "b2", Quote: "但人均排放仍低于多数发达国家。"}}, "")
+		[]readingPick{{BlockID: "b2", Quote: "但人均排放仍低于多数发达国家。"}}, "", nil)
 	if !strings.Contains(withPicks, "【她在文章里点出来的句子】") {
 		t.Fatalf("missing picks section:\n%s", withPicks)
 	}
@@ -99,7 +99,7 @@ func TestReadingCoachPrompt_RendersPicksAsOrdinalsNeverBlockIDs(t *testing.T) {
 		t.Errorf("picks section leaks the block id:\n%s", withPicks[i:])
 	}
 
-	noPicks := buildReadingCoachPrompt("标题", blocks, nil, nil, nil, "")
+	noPicks := buildReadingCoachPrompt("标题", blocks, nil, nil, nil, "", nil)
 	if strings.Contains(noPicks, "【她在文章里点出来的句子】") {
 		t.Errorf("picks section must be omitted when no picks survive:\n%s", noPicks)
 	}
@@ -225,7 +225,7 @@ func TestReadingCoachPrompt_TaskLinesCarryKind(t *testing.T) {
 		{Status: "pending", Kind: "connect", Label: "链接经验", Detail: "想到什么说什么。"},
 		{Status: "pending", Kind: "read", Label: "通读全文"},
 	}
-	prompt := buildReadingCoachPrompt("标题", nil, tasks, nil, nil, "")
+	prompt := buildReadingCoachPrompt("标题", nil, tasks, nil, nil, "", nil)
 	for _, want := range []string{"(hunt)", "(connect)", "(read)"} {
 		if !strings.Contains(prompt, want) {
 			t.Errorf("task listing missing kind marker %q:\n%s", want, prompt)

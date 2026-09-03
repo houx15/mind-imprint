@@ -10,7 +10,13 @@ import { LensLibrary } from "@/studio/reading/LensLibrary";
 import { ReadingOutcomes } from "@/studio/reading/ReadingOutcomes";
 import { useReadingLoop, type ReadingLoopApi, type ReadingOutcome } from "@/studio/reading/readingLoop";
 import "@/studio/reading/ReadingRoom.css";
-import type { LiteMessage, ReadingBlockNote, ReadingBlockTool, ReadingTask } from "../api/readingRoom";
+import type {
+  LiteMessage,
+  ReadingBlockNote,
+  ReadingBlockTool,
+  ReadingLensDone,
+  ReadingTask,
+} from "../api/readingRoom";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
@@ -346,10 +352,32 @@ export function ReadingRoom({
     setBlockAnchor({ id: blockId, el, x: pointerX.current });
   }
 
+  /**
+   * 印记 划过的示例句子，一旦划出来就留在文章上。
+   *
+   * 🚨 这是「ai划的示例句子消失」的修法。示例句原本只活在 `loop.exampleAnchor`
+   * 里，而那是一个纯内存的值，两处都会把它抹掉：
+   *
+   *  - 共用的 `clearCard()`（`apps/web/src/studio/reading/readingLoop.ts`）在
+   *    她确认或跳过之后把 `exampleAnchor` 置 null；
+   *  - 服务端 `submitProjectCard` 用**她自己的**那条 anchor 覆盖了 atom_card
+   *    行上的 `anchors`，所以连重新加载都救不回来。
+   *
+   * 于是那句「印记 当着她的面示范的那一句」在她做完之后就没了——而它恰恰是
+   * 她之后回头对照「示范 vs 我自己找的」时唯一的参照。这里按 anchor id 累积，
+   * 只增不减：透镜退场是 `card` 的事，不是那条划痕的事。
+   */
+  const [shownExamples, setShownExamples] = useState<Anchor[]>([]);
+  useEffect(() => {
+    const a = loop.exampleAnchor;
+    if (!a) return;
+    setShownExamples((prev) => (prev.some((p) => p.id === a.id) ? prev : [...prev, a]));
+  }, [loop.exampleAnchor]);
+
   // The article's own spans = the source's persisted anchors, the confirmed
   // outcomes' spans (so findings stay highlighted after the card retires —
-  // the process tree "grows"), plus (once the loop has them) the AI's live
-  // example anchor and the student's own live pick.
+  // the process tree "grows"), plus every example 印记 has drawn this session
+  // and the student's own live pick.
   const spans = useMemo(() => {
     const extra: Anchor[] = [];
     for (const o of loop.outcomes) {
@@ -358,10 +386,36 @@ export function ReadingRoom({
         quote: o.quote, dimension: o.cardId, author: "student", question: "", answer: o.finding,
       });
     }
-    if (loop.exampleAnchor) extra.push(loop.exampleAnchor);
+    // 全部示例，不只是「当前这一副透镜的」——见 `shownExamples`。
+    extra.push(...shownExamples);
     if (loop.studentAnchor) extra.push(loop.studentAnchor);
     return [...source.anchors, ...extra].map(anchorToSpan).filter((s): s is AnnotateSpan => s !== null);
-  }, [source.anchors, source.id, loop.outcomes, loop.exampleAnchor, loop.studentAnchor]);
+  }, [source.anchors, source.id, loop.outcomes, shownExamples, loop.studentAnchor]);
+
+  /**
+   * 她刚做完的那副透镜，等着交给 印记。
+   *
+   * 由 `loop.outcomes` 长出新的一条推导，而不是去改共用的 `confirm()`：
+   * 那个函数是 pro 也在用的（[[lite-must-not-break-pro]]），而「又多了一条
+   * 成果」这件事在 lite 这边看得一样清楚。
+   *
+   * 🚨 `seenOutcomesRef` 用挂载时的条数初始化。`loop.outcomes` 在恢复一次读到
+   * 一半的阅读时**本来就是非空的**，不这样做的话，每次她重新打开这篇文章，
+   * 房间都会拿上次的成果再买一轮旗舰调用。
+   */
+  const [pendingLens, setPendingLens] = useState<ReadingLensDone | null>(null);
+  const seenOutcomesRef = useRef<number | null>(null);
+  useEffect(() => {
+    if (seenOutcomesRef.current === null) {
+      seenOutcomesRef.current = loop.outcomes.length;
+      return;
+    }
+    if (loop.outcomes.length <= seenOutcomesRef.current) return;
+    seenOutcomesRef.current = loop.outcomes.length;
+    const o = loop.outcomes[loop.outcomes.length - 1];
+    if (!o || !o.quote.trim()) return;
+    setPendingLens({ cardName: o.cardName, quote: o.quote, finding: o.finding });
+  }, [loop.outcomes]);
 
   // Confirmed findings, keyed by span id — clicking a finding's highlight shows
   // its full 透镜卡 recap (verdict + checks) rather than a bare note.
@@ -575,6 +629,10 @@ export function ReadingRoom({
             }}
             onTasks={onTasks}
             onFocusBlock={focusBlock}
+            // 她做完的透镜交给 印记：一轮真的回应 + 一次真的推进。见
+            // `pendingLens` 上面的注释。
+            lensDone={pendingLens}
+            onLensDoneSent={() => setPendingLens(null)}
           />
         </section>
       </main>

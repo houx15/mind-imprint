@@ -65,6 +65,8 @@ function panel(props: {
       slot={props.slot ?? baseSlot()}
       onTasks={() => {}}
       onFocusBlock={() => {}}
+      lensDone={null}
+      onLensDoneSent={() => {}}
     />
   );
 }

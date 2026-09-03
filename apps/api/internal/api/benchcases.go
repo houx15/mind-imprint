@@ -53,7 +53,7 @@ func readingCoachCase() benchcase.Case {
 			Messages: []gateway.ChatMessage{
 				{Role: gateway.RoleSystem, Content: buildReadingCoachSystem(lang)},
 				{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(
-					"中国的能源转型：投入与结果", blocks, tasks, msgs, picks, student)},
+					"中国的能源转型：投入与结果", blocks, tasks, msgs, picks, student, nil)},
 			},
 		},
 		// The real parser, with the same ordering guard production applies. An

@@ -63,6 +63,8 @@ describe("ReadingCoachPanel — picks", () => {
         slot={slot}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
       />,
     );
 
@@ -91,6 +93,8 @@ describe("ReadingCoachPanel — picks", () => {
         slot={slot}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
       />,
     );
 
@@ -125,6 +129,8 @@ describe("ReadingCoachPanel — picks", () => {
         slot={slot}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
       />,
     );
 
@@ -162,6 +168,8 @@ describe("ReadingCoachPanel — picks", () => {
         slot={baseSlot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
       />,
     );
     await screen.findByText("开始吧，我们先看第一段。");
@@ -190,6 +198,8 @@ describe("ReadingCoachPanel — picks", () => {
         slot={baseSlot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
       />,
     );
     expect(await screen.findAllByText(/点出那一句/)).toHaveLength(1);

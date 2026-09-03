@@ -147,6 +147,24 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 - 读法清单走到 lens 那一步的时候，这是首选动作；别的时候，只有在她卡住、
   或者某一段特别值得她自己做一遍时才用。
 
+### 她刚做完一副透镜的那一轮
+
+prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交作业**，不是她在闲聊。
+她刚刚自己在文章里找了一句、做了一遍分析，屏幕上那副透镜已经收起来了。
+这一轮你必须做三件事，而且**只做这三件**：
+
+1. 说出她选的那一句**哪里选得准**——具体到那一句本身，别说「很好」「不错」这种
+   谁都能说的话。她要是选偏了，就说清楚偏在哪，但仍然承认她动手做了。
+2. 把这次的发现接回**这篇文章要回答的问题**上：这一句让我们对这篇的判断有了
+   什么变化。这是透镜存在的理由，不是装饰。
+3. 领她进下一步。当前这一步已经用这副透镜做完了，就在 advance 里给 "done"。
+
+绝对不要：
+- **不要再给一副透镜，也不要给卡片**（lens、card 都留空）。她刚做完一件事，
+  紧接着又被塞一件，等于这次动手没有被看见。
+- 不要重复你上一轮说过的话。她已经读过了。
+- 不要问她「感觉怎么样」。看她做了什么，然后往下走。
+
 ## 卡片：把这一步递到她手上，让她点
 
 **带一步的默认方式就是给她一张卡片。** 一步的指令写成一段散文、末尾缀一句
@@ -503,6 +521,54 @@ func collapseCardPrompt(prompt string) string {
 	return p
 }
 
+// readingLensDone is what she just finished doing with a lens, when this turn
+// is the room reporting a completed one rather than her saying something.
+//
+// ## Why this exists (2026-09-03, colleague trial)
+//
+// Reported as 「透镜应用完毕之后，没有响应，没有推进到下一步。没有和透镜选句
+// 打通」. It was all three, and none of them were the model's fault:
+//
+// The lens loop is shared with pro (apps/web/src/studio/reading/readingLoop.ts).
+// Its confirm() saved the outcome, appended a canned confirmation line to
+// loop.messages, and called clearCard(). But lite does not RENDER
+// loop.messages — it renders ReadingCoachPanel, a different thread over the
+// same atom_message table. So the one acknowledgement the loop produced went
+// into an array nothing on screen reads, no turn was ever posted, and 印记
+// therefore never reacted and never advanced the step. From the student's side
+// the lens just vanished.
+//
+// 🚨 The fix could NOT be an empty-text turn. That is the exact shape that bit
+// the PBL room (an empty-text turn after finishing a tool made 印记 repeat
+// itself verbatim AND re-summon the tool she had just done), and this builder
+// has the same landmine at the bottom: studentText == "" prints 「她刚点了
+// 「开始」，还没说话」, which would make 印记 re-introduce the whole reading
+// plan the moment she finished a lens. So a completed lens arrives as its own
+// labelled section, and it SUPPRESSES that fallback line.
+//
+// Nothing here is re-asked of a model: Quote is the sentence she picked and
+// Finding is the evaluation agent.EvaluateSelection already returned when she
+// submitted the card — the same two values reportLensNote reads at report
+// time.
+type readingLensDone struct {
+	// CardName is the lens's display name (「溯源体检」), not its id: this
+	// string is for the model to say back to her.
+	CardName string `json:"cardName"`
+	// Quote is the sentence SHE found in the article. The selecting is the
+	// thinking, so this is the part 印记 must respond to specifically.
+	Quote string `json:"quote"`
+	// Finding is what the room already concluded from her pick — 印记's OWN
+	// prior words, never presented to it as something she said.
+	Finding string `json:"finding"`
+}
+
+// clean reports whether this outcome carries enough to be worth a turn. A
+// lens with no quote is not a completed lens, and refeeding one would spend a
+// flagship call to say "nice work" about nothing.
+func (l *readingLensDone) clean() bool {
+	return l != nil && strings.TrimSpace(l.Quote) != ""
+}
+
 func buildReadingCoachPrompt(
 	title string,
 	blocks []Block,
@@ -510,6 +576,7 @@ func buildReadingCoachPrompt(
 	msgs []sqlc.AtomMessage,
 	picks []readingPick,
 	studentText string,
+	lensDone *readingLensDone,
 ) string {
 	var b strings.Builder
 	if t := strings.TrimSpace(title); t != "" {
@@ -606,8 +673,28 @@ func buildReadingCoachPrompt(
 		}
 	}
 
+	// A completed lens is HER WORK, so it gets its own section rather than
+	// being folded into 【她刚刚说的】 — the finding is 印记's own earlier
+	// evaluation and must never read as a sentence she uttered.
+	if lensDone.clean() {
+		b.WriteString("\n【她刚做完一副透镜】\n")
+		if n := strings.TrimSpace(lensDone.CardName); n != "" {
+			b.WriteString("透镜：" + n + "\n")
+		}
+		b.WriteString("她自己在文章里找的那一句：「" + strings.TrimSpace(lensDone.Quote) + "」\n")
+		if f := strings.TrimSpace(lensDone.Finding); f != "" {
+			b.WriteString("你当时对这一句的复核（这是你自己的话，不是她说的）：" + f + "\n")
+		}
+	}
+
 	if studentText != "" {
 		b.WriteString("\n【她刚刚说的】\n" + studentText + "\n")
+	} else if lensDone.clean() {
+		// 🚨 NOT the 「她刚点了「开始」」 line below. She did not press 开始 —
+		// she just finished a lens, and telling the model otherwise makes it
+		// re-introduce the reading plan from the top (the PBL repeat-itself
+		// bug, in this room). See readingLensDone's own comment.
+		b.WriteString("\n【她刚刚说的】\n（这一轮她没打字——她是把透镜做完了。按「她刚做完一副透镜」那一节的三件事回应她。）\n")
 	} else {
 		b.WriteString("\n【她刚刚说的】\n（她刚点了「开始」，还没说话。介绍一下你排的读法，然后领她进第一步。）\n")
 	}
@@ -794,12 +881,24 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// the choice is checked against the article before it is allowed near
 		// the transcript.
 		CardAnswer *coachCardAnswer `json:"cardAnswer"`
+		// LensDone is set when the ROOM is reporting that she finished a lens,
+		// rather than her saying something. Carries no authority of its own:
+		// it only ever lands in the prompt (see readingLensDone), never in the
+		// transcript, and never marks a step done by itself — 印记 still
+		// decides `advance`.
+		LensDone *readingLensDone `json:"lensDone"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	studentText := strings.TrimSpace(req.Text)
+	// Trimmed here so `clean()` and every prompt read below agree, and so a
+	// client sending whitespace cannot buy a turn.
+	lensDone := req.LensDone
+	if !lensDone.clean() {
+		lensDone = nil
+	}
 
 	src, err := a.d.Queries.GetReadingSource(r.Context(), at.ID)
 	if err != nil {
@@ -904,7 +1003,7 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentContent)},
+			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentContent, lensDone)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)
