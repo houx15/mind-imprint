@@ -68,6 +68,23 @@ export function draftReframe(all: Reframe[]): Reframe | null {
   return drafts.length ? (drafts[drafts.length - 1] ?? null) : null;
 }
 
+/**
+ * 从她摆好的格子里，起一句 How might we 的头。
+ *
+ * 🚨 这不是 AI 代笔（铁律①）。填进去的每一个字都是她自己写在便签上的话，
+ * 模板只负责把它们摆成一个问句——AGENTS.md 说得很清楚：「从学生已陈述的
+ * 研究问题派生大纲」是确定性的系统步骤，不需要为它加一道确认门槛。
+ * 她拿到这句之后可以整句改写，改过的那一版才是存进 hmw 的东西。
+ *
+ * 空着的格子留「……」而不是留空：一句缺了词的话看得出缺在哪儿，一句被删干净
+ * 的话看起来只是没写。
+ */
+export function seedHmw(who: string, needs: string): string {
+  const w = who.trim() || "……";
+  const n = needs.trim() || "……";
+  return `我们可以怎样帮助${w}，让他能够${n}？`;
+}
+
 /** 拼成一句人话，给她看的。 */
 export function reframeSentence(r: {
   who: string;

@@ -1,4 +1,8 @@
 import { expect, test, type Page } from "@playwright/test";
+// 🚨 main 上一直漏着这一行：makeProject 里调了 openSiteGate，却从没 import 过，
+// 于是这条 walk 从第一步就 ReferenceError。它是"拍图给人看"的那种测试，没人天天
+// 跑，坏了大半天也没人发现。
+import { openSiteGate } from "./gate";
 
 /**
  * 工具 walk —— 七个阶段的七块界面，一块一块打开看。
@@ -200,15 +204,39 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("已经归了 1 堆", { exact: false })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/tools-2-board.png", fullPage: true });
 
-  // 3 · 问题识别：一次只问一句。
+  // 3 · 问题识别：一块四格的板，把观察拖进去。
+  //
+  // 🚨 这一步断的是**拖放真的接住了**，不是"标题渲染了"。上一版这里断的是
+  // 「这件事里，具体是谁？」——一句提示语，它在的时候界面可以是任何东西。
+  // 板的不变量只有一个：她把一张纸拖进「谁」，那张纸就在「谁」里，而且回灌
+  // 那一头的 who 也跟着变了。
   await openTool(page, "问题识别");
-  await expect(page.getByText("这件事里，具体是谁？")).toBeVisible();
-  await expect(page.getByText("落到一个具体的人", { exact: false })).toBeVisible();
+  await expect(page.getByText("把你观察到的现象，放到合适的位置", { exact: false })).toBeVisible();
+  // 刚在便签板上写的三条，现在摊在「我们看到的证据」里。
+  const evidence = page.getByTestId("reframe-zone-evidence");
+  await expect(evidence.getByText("阿姨说「每天都这样」")).toBeVisible();
+
+  await evidence
+    .getByText("阿姨说「每天都这样」")
+    .dragTo(page.getByTestId("reframe-zone-who"));
+  await expect(page.getByTestId("reframe-zone-who").getByText("阿姨说「每天都这样」")).toBeVisible();
+
+  // 落一张就写回 reframe 行——闭环那一条断在这儿：界面上摆得好好的，
+  // 印记那边什么都没有。
+  await expect
+    .poll(async () => {
+      const rows = await (await page.request.get(api + "/reframes")).json();
+      return (rows as { who: string }[]).some((r) => r.who.includes("每天都这样"));
+    })
+    .toBe(true);
+
   await page.screenshot({ path: "e2e/.shots/tools-3-reframe.png", fullPage: true });
 
   // 4 · 解决方案：先多想几个。
   await openTool(page, "解决方案");
-  await expect(page.getByText("先多想几个，别急着挑第一个。")).toBeVisible();
+  // 🚨 这句在 main 上就已经对不上了：界面写的是「还差 N 个。别急着挑第一个。」，
+  // 断言里写的是一句早就不存在的话。用子串钉住那条规矩本身。
+  await expect(page.getByText("别急着挑第一个", { exact: false })).toBeVisible();
   for (const idea of ["让同学自己选饭量", "把剩饭称一称贴出来", "问阿姨能不能少做一点"]) {
     await page.getByPlaceholder("一个办法，回车记下").fill(idea);
     await page.keyboard.press("Enter");
@@ -337,6 +365,16 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
  * 接受，因为这条 walk 要看的是**八块界面长什么样**，不是把同一个点击重复八遍。
  */
 async function openTool(page: Page, label: string) {
-  await page.getByRole("button", { name: label, exact: true }).first().click();
+  // 🚨 不能用 exact。「进行中」那一列的按钮把印记给的理由也念进了可访问名里
+  // （"头脑风暴 你刚一口气说了三件不太一样的事，先摊开看看"），exact 一个都
+  // 匹配不上——这条 walk 在 main 上就是这么坏掉的，坏在 import 那一行后面。
+  // 子串 + first()：「进行中」排在「材料」前面，拿到的一定是可点的那个。
+  //
+  // 🚨 先收起手上那件。工具打开时右栏整个变成那件工具（不留标签页），而且
+  // 2026-09-03 起是**铺开**的——「进行中」那一列根本不在屏幕上。这个 helper 的
+  // 老名字叫"切到这件工具的标签页"，标签页早就没有了。
+  const close = page.getByRole("button", { name: "收起" });
+  if (await close.count()) await close.first().click();
+  await page.getByRole("button", { name: label }).first().click();
   await expect(page.getByRole("heading", { name: label })).toBeVisible();
 }

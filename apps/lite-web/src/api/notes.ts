@@ -19,6 +19,15 @@ export interface Note {
   imageKey: string;
   /** 这条便签放进了结构里的哪一块。null = 还在板上。 */
   treeNodeId: string | null;
+  /**
+   * 她把这张纸摆进了问题陈述的哪一格：谁 / 需要什么 / 为什么。
+   * 空 = 还在「我们看到的证据」那一堆里，没被判过。
+   *
+   * 🚨 和 cluster 是两回事。cluster 是板上的归堆（"这几张是一回事"），这一个是
+   * 问题陈述里的角色（"这条是在说谁"）。共用一列会让她在问题识别里摆一下，
+   * 就把自己在板上归的堆悄悄擦掉。见 migration 0129。
+   */
+  reframeSlot: string;
   x: number;
   y: number;
   /** 她挑出来先试的那条办法（只有 kind='idea' 谈得上），和为什么先试它。 */
@@ -191,6 +200,23 @@ export function placeNote(
   return apiFetch<Note>(`${base(projectId)}/notes/${noteId}/place`, {
     method: "POST",
     body: JSON.stringify({ nodeId }),
+  });
+}
+
+/**
+ * 摆进问题陈述的某一格，或者拿回证据堆（slot 给 ""）。
+ *
+ * 🚨 单独一个端点，不走通用的 PATCH。那一条会连着写 cluster，而摆格子不该碰
+ * 她在便签板上归的堆——那是关于同一张纸的另一句判断。见 migration 0129。
+ */
+export function setNoteReframeSlot(
+  projectId: string,
+  noteId: string,
+  slot: string,
+): Promise<Note> {
+  return apiFetch<Note>(`${base(projectId)}/notes/${noteId}/reframe-slot`, {
+    method: "POST",
+    body: JSON.stringify({ slot }),
   });
 }
 

@@ -48,6 +48,12 @@ type pblNoteDTO struct {
 	// 这条便签放进了结构里的哪一块。null = 还在板上，没放进去。
 	// 🚨 放不进去的那几条，就是这个结构没盖到的地方——「盖全了吗」的答案。
 	TreeNodeID *string `json:"treeNodeId"`
+	// 她把这张纸摆进了问题陈述的哪一格：谁 / 需要什么 / 为什么。空 = 还在
+	// 「我们看到的证据」那一堆里，没被判过。
+	//
+	// 🚨 和 Cluster 是两回事，别合并。cluster 是板上的归堆（"这几张是一回事"），
+	// 这一列是问题陈述里的角色（"这条是在说谁"）。见 migration 0129。
+	ReframeSlot string `json:"reframeSlot"`
 	// 她挑出来先试的那条办法（只对 kind='idea' 有意义），和为什么先试它。
 	//
 	// 🚨 一定要往外给。这一列上一次就是「存进去了、DTO 没往外给」——界面和回灌
@@ -64,6 +70,10 @@ func toPblNoteDTO(n sqlc.PblNote) pblNoteDTO {
 		ID: n.ID.String(), Kind: n.Kind, Body: n.Body, Author: n.Author,
 		Edited: n.Edited, Cluster: n.Cluster, X: n.X, Y: n.Y,
 		ImageKey:  n.ImageKey,
+		// 🚨 往外给。这一处漏掉的话，界面每次打开都是一块空板——她摆过的三格
+		// 全在库里躺着，谁也读不到。flip / option.author / substep 三次都是
+		// 这么坏的：存进去了，DTO 没给。
+		ReframeSlot: n.ReframeSlot,
 		Picked:    n.PickedAt.Valid,
 		PickWhy:   n.PickWhy,
 		Dragged:   n.Dragged,
@@ -169,6 +179,54 @@ func (a *API) placePblNote(w http.ResponseWriter, r *http.Request) {
 	}
 	out, err := a.d.Queries.PlacePblNote(r.Context(),
 		sqlc.PlacePblNoteParams{ID: nid, TreeNodeID: node})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPblNoteDTO(out))
+}
+
+// pblReframeSlots —— 问题陈述板上的三格。空串是第四个合法值：拿回证据堆。
+//
+// 🚨 名字用中文原词，和界面上写的一模一样。这一列会被念给印记听（回灌里
+// 「她把这条判成了『需要什么』」），一个 who/needs/why 的英文枚举到那儿还得
+// 翻一次，而每一次翻译都是一次可以漂移的机会。
+var pblReframeSlots = map[string]bool{"谁": true, "需要什么": true, "为什么": true, "": true}
+
+// setPblNoteReframeSlot —— 她把一张纸摆进了问题陈述的某一格，或者拿回证据堆。
+//
+// 🚨 单独一个端点，不塞进 PATCH /notes/{nid}。那一条通用 PATCH 会连着改
+// body/kind/cluster，而摆格子**不该碰 cluster**——她在便签板上归的堆是另一句
+// 判断，不能被这一下悄悄擦掉。见 migration 0129。
+func (a *API) setPblNoteReframeSlot(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	nid, err := uuid.Parse(r.PathValue("nid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条便签不存在"))
+		return
+	}
+	note, err := a.d.Queries.GetPblNote(r.Context(), nid)
+	if err != nil || note.AtomID != atomID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条便签不存在"))
+		return
+	}
+	var req struct {
+		Slot string `json:"slot"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	slot := strings.TrimSpace(req.Slot)
+	if !pblReframeSlots[slot] {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("invalid_slot", "这一格不存在", nil))
+		return
+	}
+	out, err := a.d.Queries.SetPblNoteReframeSlot(r.Context(),
+		sqlc.SetPblNoteReframeSlotParams{ID: nid, ReframeSlot: slot})
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return

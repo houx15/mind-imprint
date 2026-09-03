@@ -11,6 +11,7 @@ function note(id: string, cluster: string): Note {
     cluster,
     imageKey: "",
     treeNodeId: null,
+    reframeSlot: "",
     x: 0,
     y: 0,
     picked: false,

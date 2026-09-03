@@ -544,7 +544,15 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           openTool={openTool}
           busy={busy}
           onSelectTool={(id) => {
-            if (!id) setWideTool(false);
+            // 🚨 打开一件工具就铺开，不用她再点一次「铺开」。产品负责人
+            // 2026-09-03：「whenever we want students interact something, make
+            // it wide, because we are transiting our focus. don't be mean on
+            // using the right wide interactive panel.」
+            //
+            // 焦点确实转移了：这一刻她在动手摆一块板，不在跟印记说话。默认给
+            // 那一栏 360px、等她自己发现右上角有个按钮，等于把每件工具的第一眼
+            // 都放在一条比手机还窄的柱子里。要说话时按一下就还原。
+            setWideTool(Boolean(id));
             setOpenTool(id);
           }}
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
