@@ -128,9 +128,29 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         </button>
       </div>
 
-      <p className="mt-2 text-mk-small text-mk-muted">
-        {enough ? `${ideas.length} 个办法。挑一个先试。` : "先多想几个，别急着挑第一个。"}
-      </p>
+      {/* 🚨 「想满四个才让挑」原来只是一行字，她看不见自己还差几个——按钮是灰的，
+          原因写在别处。四个格子亮起来，规矩就成了看得见的东西。 */}
+      <div className="mt-3 flex items-center gap-2">
+        <div className="flex gap-1">
+          {Array.from({ length: Math.max(ENOUGH, ideas.length) }, (_, i) => (
+            <span
+              key={i}
+              className="h-2 w-6 rounded-mk-full"
+              style={{
+                background:
+                  i < ideas.length
+                    ? "#10B981"
+                    : "color-mix(in srgb, #10B981 18%, transparent)",
+              }}
+            />
+          ))}
+        </div>
+        <p className="text-mk-small text-mk-muted">
+          {enough
+            ? `${ideas.length} 个办法。挑一个先试。`
+            : `还差 ${ENOUGH - ideas.length} 个。别急着挑第一个。`}
+        </p>
+      </div>
 
       <div className="mt-2 space-y-1.5">
         {ideas.map((i) => (
@@ -138,11 +158,16 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
             key={i.id}
             className="rounded-mk-md border px-3 py-2"
             style={{
-              borderColor:
-                picked === i.id ? "var(--mk-accent-500)" : "var(--mk-border)",
-              background:
-                merging.includes(i.id)
-                  ? "color-mix(in srgb, #10B981 12%, transparent)"
+              borderColor: picked === i.id ? "#10B981" : "var(--mk-border)",
+              borderLeft: `4px solid ${picked === i.id ? "#10B981" : "color-mix(in srgb, #10B981 35%, transparent)"}`,
+              background: merging.includes(i.id)
+                ? "color-mix(in srgb, #F59E0B 12%, transparent)"
+                : picked === i.id
+                  ? "color-mix(in srgb, #10B981 8%, transparent)"
+                  : undefined,
+              boxShadow:
+                picked === i.id
+                  ? "0 0 0 2px color-mix(in srgb, #10B981 30%, transparent)"
                   : undefined,
             }}
           >
@@ -153,7 +178,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                 onClick={() => setPicked(picked === i.id ? null : i.id)}
                 disabled={!enough}
                 className="text-mk-small disabled:opacity-40"
-                style={{ color: picked === i.id ? "var(--mk-accent-500)" : "var(--mk-secondary)" }}
+                style={{ color: picked === i.id ? "#10B981" : "var(--mk-secondary)" }}
               >
                 {picked === i.id ? "✓ 先试这个" : "先试这个"}
               </button>
@@ -173,7 +198,8 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         <button
           type="button"
           onClick={() => void merge()}
-          className="mt-2 w-full rounded-mk-md border border-dashed border-mk-border py-2 text-mk-small text-mk-secondary"
+          className="mt-2 w-full rounded-mk-md border border-dashed py-2 text-mk-small"
+          style={{ borderColor: "#F59E0B", color: "#F59E0B" }}
         >
           把这两个合成一个
         </button>

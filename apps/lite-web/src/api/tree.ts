@@ -166,3 +166,19 @@ export function autoLayout(nodes: TreeNode[]): Map<string, { x: number; y: numbe
   }
   return out;
 }
+
+/**
+ * 每一层一个颜色。
+ *
+ * 🚨 产品负责人 2026-09-03：「colorful, interactive」。这张图本来就能拖、能删、
+ * 能双击改字，缺的是"看得见形状"——十几个一模一样的灰盒子连成一片，她看不出
+ * 哪些是同一层的、哪一支特别深。而这件工具要她判断的恰恰是形状：盖全了吗、
+ * 顺得下来吗、有没有更好的分法。
+ *
+ * 层数不会很深（服务端最多三层），越深越淡。
+ */
+const DEPTH_HUES = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B"];
+
+export function depthHue(depth: number): string {
+  return DEPTH_HUES[Math.min(Math.max(depth, 0), DEPTH_HUES.length - 1)] as string;
+}

@@ -8,6 +8,7 @@ import {
   autoLayout,
   createNode,
   deleteNode,
+  depthHue,
   getTree,
   moveNode,
   outline,
@@ -279,14 +280,16 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
               if (!n.parentId) return null;
               const a = at(n.parentId);
               const b = at(n.id);
+              // 连线跟着子节点的颜色走：同一支的线是同一个色，图才看得出分叉。
+              // 曲线而不是直线——直角折线在这么小的画布上会糊成一团。
+              const mx = (a.x + NODE_W + b.x) / 2;
               return (
-                <line
+                <path
                   key={n.id}
-                  x1={a.x + NODE_W}
-                  y1={a.y + NODE_H / 2}
-                  x2={b.x}
-                  y2={b.y + NODE_H / 2}
-                  stroke="var(--mk-border)"
+                  d={`M ${a.x + NODE_W} ${a.y + NODE_H / 2} C ${mx} ${a.y + NODE_H / 2}, ${mx} ${b.y + NODE_H / 2}, ${b.x} ${b.y + NODE_H / 2}`}
+                  fill="none"
+                  stroke={depthHue(n.depth)}
+                  strokeOpacity={0.5}
                   strokeWidth={1.5}
                 />
               );
@@ -308,7 +311,13 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                   width: NODE_W,
                   minHeight: NODE_H,
                   cursor: editing === n.id ? "text" : "grab",
-                  borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)",
+                  borderColor: on ? depthHue(n.depth) : "var(--mk-border)",
+                  // 左边一条该层的色带；选中时整块染上同一个色。
+                  borderLeft: `4px solid ${depthHue(n.depth)}`,
+                  background: on
+                    ? `color-mix(in srgb, ${depthHue(n.depth)} 10%, var(--mk-surface))`
+                    : "var(--mk-surface)",
+                  boxShadow: on ? `0 0 0 2px color-mix(in srgb, ${depthHue(n.depth)} 35%, transparent)` : undefined,
                 }}
               >
                 {editing === n.id ? (
