@@ -292,11 +292,14 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 	for _, id := range order {
 		rs := byCase[id]
 		fmt.Fprintf(&b, "### `%s`\n\n档：`%s` · 调用点：`%s`\n\n", id, rs[0].Class, rs[0].Site)
-		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 出 tokens | 其中推理 | 结构 | 质量 | 备注 |\n")
-		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---|\n")
+		// 入 tokens is here because cost is (in x in_price + out x out_price), and a
+		// report that prints only the output half cannot be converted to money no
+		// matter what prices you later fill in.
+		fmt.Fprintf(&b, "| 模型 | 首字 | 总时长 | 入 tokens | 出 tokens | 其中推理 | 结构 | 质量 | 备注 |\n")
+		fmt.Fprintf(&b, "|---|---:|---:|---:|---:|---:|---:|---:|---|\n")
 		for _, r := range rs {
 			if r.Skipped != "" {
-				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
+				fmt.Fprintf(&b, "| `%s` | — | — | — | — | — | — | — | 目录拒绝：%s |\n", r.ModelID, r.Skipped)
 				continue
 			}
 			judge := "—"
@@ -307,11 +310,11 @@ func Markdown(results []Result, cat *gateway.Catalog, cfg Config, started time.T
 			if e := firstError(r); e != "" {
 				note = e + "  " + note
 			}
-			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %s | %s | %s |\n",
+			fmt.Fprintf(&b, "| `%s` | %s | %s | %d | %d | %d | %s | %s | %s |\n",
 				r.ModelID,
 				r.P50TTFT().Round(100*time.Millisecond),
 				r.P50Total().Round(100*time.Millisecond),
-				r.MedOut(), r.MedReasoning(), pct(r.ValidRate()), judge, note)
+				r.MedIn(), r.MedOut(), r.MedReasoning(), pct(r.ValidRate()), judge, note)
 		}
 		b.WriteString("\n")
 	}
