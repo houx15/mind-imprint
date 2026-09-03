@@ -60,6 +60,7 @@ func TestPblRefeed_StructureReachesTheCoach(t *testing.T) {
 	var tree struct {
 		Nodes []struct {
 			Title string `json:"title"`
+			Depth int16  `json:"depth"`
 		} `json:"nodes"`
 	}
 	if err := json.Unmarshal(rec.Body.Bytes(), &tree); err != nil {
@@ -67,6 +68,22 @@ func TestPblRefeed_StructureReachesTheCoach(t *testing.T) {
 	}
 	if len(tree.Nodes) != 2 {
 		t.Fatalf("结构没落库，后面的断言无从谈起：%+v", tree.Nodes)
+	}
+
+	// 🚨 depth 必须真的写进去。produceStructure 一直**算**着 depth（用来在第三层
+	// 打住），却从来没存过——印记建的每个节点都是 0。界面拿 depth 决定列和配色，
+	// 于是十五个节点全挤在同一列、全是同一个颜色，「分层配色」从没生效过。
+	//
+	// 这条断言原来只看 title，所以这个 bug 一路上了线。
+	byTitle := map[string]int16{}
+	for _, n := range tree.Nodes {
+		byTitle[n.Title] = n.Depth
+	}
+	if d := byTitle["开场怎么说"]; d != 0 {
+		t.Fatalf("顶层那块的 depth 应该是 0，实际 %d", d)
+	}
+	if d := byTitle["先说钱去哪了"]; d != 1 {
+		t.Fatalf("子节点的 depth 应该是 1，实际 %d——算了但没存", d)
 	}
 
 	// 下一轮：印记收到的上文里必须有那份结构。

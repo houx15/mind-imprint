@@ -377,8 +377,14 @@ func (a *API) produceStructure(ctx context.Context, atomID uuid.UUID, raw json.R
 			if title == "" {
 				continue
 			}
+			// 🚨 depth 一定要写进去。这个函数一直**算**着 depth（用来在第三层
+			// 打住），却从来没把它存下来——印记建的每一个节点 Depth 都是 0。
+			// 界面拿 depth 决定列（x = 16 + depth*190）和配色，于是那棵树十五个
+			// 节点全挤在同一列、全是同一个颜色，连线缩成一截短斜杠。
+			//
+			// 「分层配色」这件事从来没在生产上生效过。又一次「算了但没存」。
 			row, err := a.d.Queries.CreatePblTreeNode(ctx, sqlc.CreatePblTreeNodeParams{
-				AtomID: atomID, Tree: "main", ParentID: parent,
+				AtomID: atomID, Tree: "main", ParentID: parent, Depth: int16(depth),
 				Title: title, Body: strings.TrimSpace(n.Body),
 				Author: "yinji", Ordinal: int32(i),
 			})
