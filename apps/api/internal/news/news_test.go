@@ -1,6 +1,7 @@
 package news
 
 import (
+	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -127,6 +128,7 @@ func TestIsPoliticalCatchesTheRealThing(t *testing.T) {
 		"New sanctions target the chip industry",
 		"总统宣布新一轮制裁",
 		"议会通过弹劾动议",
+		"军事入侵进入第三周",
 	} {
 		if !IsPolitical(s, "") {
 			t.Errorf("没挡住：%q", s)
@@ -147,6 +149,11 @@ func TestIsPoliticalDoesNotEatScience(t *testing.T) {
 		"The award-winning telescope opens its eye",
 		"全球变暖让珊瑚越过了临界点",
 		"预警系统提前 12 秒发出警报",
+		// 🚨 中文的「入侵」几乎总是**生物入侵** —— 生态学核心话题。实测被误杀过。
+		"蓝蟹入侵亚得里亚海，研究者放了几千只小章鱼",
+		"入侵物种如何改变一片海草床",
+		// 科学界的联署与抗议是科学政策新闻。
+		"上千名科学家联署抗议经费削减",
 	} {
 		if IsPolitical(s, "") {
 			t.Errorf("误伤了一条科学新闻：%q", s)
@@ -254,16 +261,22 @@ func TestSortByPublishedPutsNewestFirstAndZeroLast(t *testing.T) {
 
 /* ── 选星 ───────────────────────────────────────────────────────────────── */
 
+// candidates 造 n 条**标题各不相同**的候选。标题必须可区分：回查就是按标题
+// 认人的，全叫 "story" 的话第一条会永远赢。
 func candidates(n int) []Item {
 	out := make([]Item, n)
 	for i := range out {
-		out[i] = Item{Title: "story", Link: "https://x/", Source: "Nature"}
+		out[i] = Item{
+			Title:  fmt.Sprintf("Story number %s about topic %s", itoa(i), itoa(i)),
+			Link:   "https://x/" + itoa(i),
+			Source: "Nature",
+		}
 	}
 	return out
 }
 
 func TestBuildSelectPromptCarriesTheWholeDisciplineTable(t *testing.T) {
-	_, user := BuildSelectPrompt(candidates(3))
+	_, user, _ := BuildSelectPrompt(candidates(3))
 	// 主枝本身是待判定的，所以候选学科给全表 —— 限定候选等于替模型先做了那个
 	// 判断。抽查两条分属不同主枝的。
 	for _, id := range []string{"statistical-inference", "climate-ocean", "media-literacy"} {
@@ -274,7 +287,7 @@ func TestBuildSelectPromptCarriesTheWholeDisciplineTable(t *testing.T) {
 }
 
 func TestBuildSelectPromptCapsTheCandidates(t *testing.T) {
-	_, user := BuildSelectPrompt(candidates(200))
+	_, user, _ := BuildSelectPrompt(candidates(200))
 	if strings.Contains(user, "[40]") {
 		t.Error("候选没有被截到 40 条 —— 模型在第四十条之后就开始敷衍，而每条都在花钱")
 	}
@@ -282,7 +295,7 @@ func TestBuildSelectPromptCapsTheCandidates(t *testing.T) {
 
 func TestParseSelectReplyHappyPath(t *testing.T) {
 	raw := "```json\n" + `{"planets":[
-		{"index":1,"titleZh":"深海珊瑚在 30 度水里活下来了","titleEn":"Corals survive",
+		{"index":1,"titleZh":"深海珊瑚在 30 度水里活下来了","titleEn":"Story number 1 about topic 1",
 		 "summary":"红海北端一片珊瑚没有白化。","hook":"四平方公里，能代表一整片海吗？",
 		 "field":"science","disciplineId":"climate-ocean","keyword":"样本代表性"}]}` + "\n```"
 	got, err := ParseSelectReply(raw, candidates(3))
@@ -294,17 +307,51 @@ func TestParseSelectReplyHappyPath(t *testing.T) {
 	}
 }
 
-func TestParseSelectReplyDropsOutOfRangeIndex(t *testing.T) {
-	raw := `{"planets":[{"index":99,"titleZh":"x","hook":"y？","field":"science"}]}`
+// 🚨 2026-09-03 实测抓到的 bug：模型描述了五条真实新闻，却把它们一律编号成
+// 0,1,2,3,4 —— 下标指向的候选和它自己写的标题毫不相干。后果是每颗星球挂着一篇
+// **无关文章**的链接与出处。所以下标不再被信任，改按 titleEn 回查。
+func TestParseSelectReplyIgnoresTheModelsIndexAndAnchorsByTitle(t *testing.T) {
+	cs := candidates(6)
+	// 模型说的是 4 号，却把 index 写成 0。
+	raw := `{"planets":[{"index":0,"titleZh":"标题","titleEn":"Story number 4 about topic 4",` +
+		`"hook":"为什么？","field":"science","keyword":"k"}]}`
+	got, err := ParseSelectReply(raw, cs)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if got[0].Index != 4 {
+		t.Fatalf("回查到 %d，应该是 4 —— 下标被信任了", got[0].Index)
+	}
+}
+
+// 认不出来就丢掉这颗星。四颗真的星，好过五颗里有一颗指向随机文章。
+func TestParseSelectReplyDropsAPlanetItCannotAnchor(t *testing.T) {
+	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Something entirely unrelated wombat",` +
+		`"hook":"y？","field":"science"}]}`
 	if _, err := ParseSelectReply(raw, candidates(3)); err == nil {
-		t.Error("指向不存在候选的星球被留下了")
+		t.Error("认不出候选的星球被留下了 —— 它会挂一个错误的链接")
+	}
+}
+
+func TestParseSelectReplyAnchorsATruncatedTitle(t *testing.T) {
+	// 模型经常把长标题截短或去掉副标题，那仍然是同一条新闻。
+	cs := []Item{{Title: "Blue Crabs Have Taken Over the Adriatic Sea, and Italian Researchers Released Octopuses"}}
+	raw := `{"planets":[{"index":0,"titleZh":"蓝蟹入侵","titleEn":"Blue Crabs Have Taken Over the Adriatic Sea",` +
+		`"hook":"为什么？","field":"science"}]}`
+	got, err := ParseSelectReply(raw, cs)
+	if err != nil {
+		t.Fatalf("被截短的标题没能回查到：%v", err)
+	}
+	if got[0].Index != 0 {
+		t.Errorf("回查到 %d", got[0].Index)
 	}
 }
 
 func TestParseSelectReplyNeedsAHook(t *testing.T) {
 	// 一颗没有钩子的星球是一条只能被记住、不能被追问的新闻 —— 这一屏的全部
 	// 意义就是那个问题。
-	raw := `{"planets":[{"index":0,"titleZh":"x","hook":"","field":"science"}]}`
+	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
+		`"hook":"","field":"science"}]}`
 	if _, err := ParseSelectReply(raw, candidates(3)); err == nil {
 		t.Error("没有钩子的星球被留下了")
 	}
@@ -312,7 +359,8 @@ func TestParseSelectReplyNeedsAHook(t *testing.T) {
 
 func TestParseSelectReplyKeepsThePlanetButDropsABadDiscipline(t *testing.T) {
 	// 学科连错比没连上糟；但为了一条连错的边扔掉一条好新闻更糟。
-	raw := `{"planets":[{"index":0,"titleZh":"x","hook":"y？","field":"science","disciplineId":"astrology"}]}`
+	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
+		`"hook":"y？","field":"science","disciplineId":"astrology"}]}`
 	got, err := ParseSelectReply(raw, candidates(3))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -326,7 +374,8 @@ func TestParseSelectReplyKeepsThePlanetButDropsABadDiscipline(t *testing.T) {
 }
 
 func TestParseSelectReplyDropsUnknownField(t *testing.T) {
-	raw := `{"planets":[{"index":0,"titleZh":"x","hook":"y？","field":"magic"}]}`
+	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
+		`"hook":"y？","field":"magic"}]}`
 	if _, err := ParseSelectReply(raw, candidates(3)); err == nil {
 		t.Error("野主枝被留下了")
 	}
@@ -367,7 +416,9 @@ func TestParseSelectReplyDedupesIndexAndCapsAtFive(t *testing.T) {
 func fmtPlanet(b *strings.Builder, idx int) {
 	b.WriteString(`{"index":`)
 	b.WriteString(itoa(idx))
-	b.WriteString(`,"titleZh":"标题","titleEn":"t","summary":"s","hook":"为什么？",`)
+	// titleEn 必须能回查到 candidates(n) 里的那一条 —— 下标已经不被信任了。
+	b.WriteString(`,"titleZh":"标题","titleEn":"Story number ` + itoa(idx) + ` about topic ` + itoa(idx) + `",`)
+	b.WriteString(`"summary":"s","hook":"为什么？",`)
 	b.WriteString(`"field":"science","disciplineId":"climate-ocean","keyword":"关键词"}`)
 }
 
@@ -446,5 +497,32 @@ func TestInterleaveBySourceHandlesEmptyAndSingle(t *testing.T) {
 	}
 	if got := InterleaveBySource([]Item{{Title: "a", Source: "X"}}); len(got) != 1 {
 		t.Error("单条输入被弄丢了")
+	}
+}
+
+// 🚨 2026-09-03 实测漏过的一条："Venice Biennale President Defends Russia
+// Inclusion" —— 英文原标题里一个信号词都没有，抓取那一层挡不住。但模型的中文
+// 重写把它说破了（关键词「文化制裁边界」）。所以产物要再过一遍同一道闸。
+func TestParseSelectReplyDropsPoliticsTheEnglishTitleHid(t *testing.T) {
+	cs := []Item{{Title: "Venice Biennale President Defends Russia Inclusion in New Interview"}}
+	raw := `{"planets":[{"index":0,"titleZh":"威尼斯双年展主席坚持邀请俄罗斯",` +
+		`"titleEn":"Venice Biennale President Defends Russia Inclusion in New Interview",` +
+		`"summary":"主席在采访中为邀请俄罗斯辩护。","hook":"文化和政治能分开吗？",` +
+		`"field":"society","disciplineId":"political-economy","keyword":"文化制裁边界"}]}`
+	if _, err := ParseSelectReply(raw, cs); err == nil {
+		t.Error("一条政治新闻通过了输出侧的过滤")
+	}
+}
+
+func TestParseSelectReplyKeepsScienceThatMerelySoundsLoud(t *testing.T) {
+	// 输出侧那道闸不能比入口那道更凶：气候、预警一类的词必须活下来。
+	cs := []Item{{Title: "Global warming pushed the reef past its threshold"}}
+	raw := `{"planets":[{"index":0,"titleZh":"全球变暖让珊瑚越过临界点",` +
+		`"titleEn":"Global warming pushed the reef past its threshold",` +
+		`"summary":"预警系统记录到温度越过阈值。","hook":"临界点是怎么定出来的？",` +
+		`"field":"science","disciplineId":"climate-ocean","keyword":"临界点判定"}]}`
+	got, err := ParseSelectReply(raw, cs)
+	if err != nil || len(got) != 1 {
+		t.Errorf("一条气候新闻被输出侧的政治过滤误伤了：%v", err)
 	}
 }

@@ -50,7 +50,8 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
 
 挑的标准，按重要性排：
 - **能引出一个她可以自己追问的问题**。一条只能被记住、不能被追问的新闻不要。
-- 五条尽量分布在不同领域，不要五条都是天文。
+- **五条必须落在至少三根不同的主枝上**（见下面 field 的七选一）。候选里本来就
+  有人文、社会、艺术、心理类的条目，请真的用上它们 —— 五条全是自然科学不合格。
 - 具体的发现优于综述，有数字、有方法、有争议的优于「科学家表示」。
 - 不要政治、战争、灾难报道。不要健康建议类的软文。
 
@@ -61,7 +62,9 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
 - summary：两句话。第一句发生了什么，第二句为什么这值得知道。不超过 80 字。
 - hook：**一个她能追问的问题**，不是一句感叹。以问号结尾。
   好：「四平方公里的珊瑚，能代表一整片海吗？」。差：「是不是很神奇？」
-- field：七选一 —— formal / science / making / society / humanities / arts / self
+- field：七选一 —— formal（数学与形式）/ science（科学与自然）/ making（技术与创造）
+  / society（社会与世界）/ humanities（人文与写作）/ arts（艺术与表达）/ self（自我与成长）
+  按**这条新闻在问什么**判，不是按它发在哪个网站。
 - disciplineId：从候选学科 id 里选一个最贴的。
 - keyword：4-10 字的中文，是**她会关心的问题或方法**，不是话题标签。
   好：「样本代表性」「耐热机制」。差：「珊瑚」「气候」。
@@ -69,12 +72,18 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
 只输出一个 JSON 对象，不要任何解释：
 {"planets":[{"index":0,"titleZh":"","titleEn":"","summary":"","hook":"","field":"","disciplineId":"","keyword":""}]}`
 
-// BuildSelectPrompt 拼出选星用的 system 与 user 两段。
+// BuildSelectPrompt 拼出选星用的 system 与 user 两段，**并把真正写进 prompt 的
+// 那批候选一起返回**。
+//
+// 🚨 第三个返回值不是为了方便：候选在这里会被截到 maxCandidates，而
+// `ParseSelectReply` 要按下标回查链接与出处。调用方如果把**完整的池子**传给解析器，
+// 下标的含义就和 prompt 里的不一样了。让这个函数交出它实际描述过的那个切片，
+// 这一整类错位就不可能发生。
 //
 // 候选学科**全表都给**（42 条，只给 id 与中文名，不给方法与考纲）：这一步和
 // 关键词路由不同 —— 路由时我们已经知道那个词属于哪根枝，所以只给同枝六门；
 // 这里主枝本身就是待判定的，限定候选等于替模型先做了那个判断。
-func BuildSelectPrompt(items []Item) (system, user string) {
+func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
 	if len(items) > maxCandidates {
 		items = items[:maxCandidates]
 	}
@@ -90,7 +99,7 @@ func BuildSelectPrompt(items []Item) (system, user string) {
 			fmt.Fprintf(&b, "    %s\n", truncRunes(s, 220))
 		}
 	}
-	return selectSystemPrompt, b.String()
+	return selectSystemPrompt, b.String(), items
 }
 
 type selectReply struct {
@@ -115,7 +124,9 @@ type selectReply struct {
 //  2. index 越界 → 丢。模型偶尔会指一个不存在的候选。
 //  3. titleZh 或 hook 为空 → 丢。一颗没有钩子的星球是一条只能被记住的新闻。
 //  4. field 不是七根主枝之一 → 丢。
-//  5. disciplineId 不在学科表里 → **不丢这颗星，只清空这条边**。学科连错比
+//  5. 模型自己写出来的中文里带政治信号 → 丢。抓取那一层看的是英文原标题，
+//     漏得掉；中文重写漏不掉。
+//  6. disciplineId 不在学科表里 → **不丢这颗星，只清空这条边**。学科连错比
 //     没连上糟，但为了一条连错的边扔掉一条好新闻更糟。
 //  6. 同一个 index 重复 → 只留第一个。
 //  7. 超过五颗 → 截断。
@@ -132,21 +143,39 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 	out := make([]Planet, 0, PlanetCount)
 	seen := map[int]bool{}
 	for _, p := range rep.Planets {
-		if p.Index < 0 || p.Index >= len(candidates) || seen[p.Index] {
-			continue
-		}
 		zh := strings.TrimSpace(p.TitleZh)
 		hook := strings.TrimSpace(p.Hook)
 		if zh == "" || hook == "" || !disciplines.IsField(p.Field) {
+			continue
+		}
+		// 🚨 **不信任模型给的下标。** 2026-09-03 实测：模型描述了五条真实存在的
+		// 新闻，却把它们一律编号成 0,1,2,3,4 —— 下标指向的候选和它自己写的标题
+		// 毫不相干。后果是每颗星球挂着一篇**无关文章**的链接与出处，而学生点
+		// 「读原文」就落在那篇上。
+		//
+		// 所以按 titleEn（prompt 要求填原标题）回查真正的那一条；查不到就
+		// **丢掉这颗星**。四颗真的星，好过五颗里有一颗指向随机文章。
+		idx := anchorByTitle(p.TitleEn, candidates)
+		if idx < 0 || seen[idx] {
+			continue
+		}
+		// 🚨 **对模型自己的产物再过一遍政治过滤。** 抓取那一层看的是英文原标题，
+		// 而一条政治新闻的英文标题可能一个信号词都不含 —— 实测漏过一条
+		// "Venice Biennale President Defends Russia Inclusion"，它的中文改写却是
+		// 「文化制裁边界」，制裁两个字明明白白。
+		//
+		// 模型的中文重写常常比英文原标题更直白地暴露这条新闻在谈什么，所以这里
+		// 是第二道、也是更灵敏的一道闸。
+		if IsPolitical(zh+" "+p.Keyword, p.Summary+" "+hook) {
 			continue
 		}
 		did := strings.TrimSpace(p.DisciplineID)
 		if _, ok := disciplines.ByID(did); !ok {
 			did = ""
 		}
-		seen[p.Index] = true
+		seen[idx] = true
 		out = append(out, Planet{
-			Index:        p.Index,
+			Index:        idx,
 			TitleZh:      zh,
 			TitleEn:      strings.TrimSpace(p.TitleEn),
 			Summary:      strings.TrimSpace(p.Summary),
@@ -186,4 +215,76 @@ func truncRunes(s string, max int) string {
 		return s
 	}
 	return string(r[:max])
+}
+
+
+/* ── 按标题回查候选 ─────────────────────────────────────────────────────── */
+
+// titleMatchThreshold 是判定「同一条新闻」所需的词重合度。
+//
+// 0.5：模型经常把长标题截短或去掉副标题，所以不能要求全等；但低于一半重合就
+// 已经是两条不同的新闻了。宁可丢掉一颗星，也不要挂错一个链接。
+const titleMatchThreshold = 0.5
+
+// anchorByTitle 在候选里找出模型实际描述的那一条，返回它的下标；找不到返回 -1。
+//
+// 先试归一化后的完全相等与包含（最常见的情形：模型原样抄了标题，或者截短了
+// 它）；都不中时退到词集合的重合度。
+func anchorByTitle(titleEn string, candidates []Item) int {
+	want := normalizeTitle(titleEn)
+	if want == "" {
+		return -1
+	}
+	// 一轮：归一化相等或互相包含。
+	for i, c := range candidates {
+		got := normalizeTitle(c.Title)
+		if got == "" {
+			continue
+		}
+		if got == want || strings.Contains(got, want) || strings.Contains(want, got) {
+			return i
+		}
+	}
+	// 二轮：词重合度最高的那条，且要过阈值。
+	best, bestScore := -1, 0.0
+	wantWords := wordSet(titleEn)
+	if len(wantWords) == 0 {
+		return -1
+	}
+	for i, c := range candidates {
+		if sc := overlap(wantWords, wordSet(c.Title)); sc > bestScore {
+			best, bestScore = i, sc
+		}
+	}
+	if bestScore < titleMatchThreshold {
+		return -1
+	}
+	return best
+}
+
+func wordSet(s string) map[string]bool {
+	out := map[string]bool{}
+	for _, w := range strings.Fields(strings.ToLower(s)) {
+		w = strings.Trim(w, ".,:;!?\"'()[]—-")
+		// 一两个字母的词（a / of / in）不承载信息，只会把重合度虚抬上去。
+		if len([]rune(w)) > 2 {
+			out[w] = true
+		}
+	}
+	return out
+}
+
+// overlap 是 |A∩B| / |A| —— 以模型给的标题为分母，因为它常常是候选标题的一个
+// 截断版本，用并集当分母会把这种正确匹配压到阈值以下。
+func overlap(a, b map[string]bool) float64 {
+	if len(a) == 0 {
+		return 0
+	}
+	n := 0
+	for w := range a {
+		if b[w] {
+			n++
+		}
+	}
+	return float64(n) / float64(len(a))
 }

@@ -26,27 +26,65 @@ type Source struct {
 	Timeout time.Duration
 }
 
-// Sources 是每天去抓的源。
+// Sources 是每天去抓的源，按主枝分组。
 //
-// 🚨 **不收的三个，以及为什么不收：**
+// # 🚨 为什么它必须覆盖七根主枝，而不只是科学
+//
+// 第一版只有科学源，于是第一次真模型实测里**五颗星全落在科学上**。prompt 里
+// 写着「五条尽量分布在不同领域」，但候选池里根本没有别的领域 —— 那是在求模型
+// 做一件它做不到的事。一屏「今天值得知道的五条」如果永远是五条科学新闻，它就
+// 不是探索地图，是科学日报。所以 2026-09-03 补进了人文 / 社会 / 艺术 / 自我
+// 四组源，并把科学源的 Cap 调低。
+//
+// # 不收的这些，以及为什么
+//
 //   - Science (AAAS) 403、EurekAlert 403 —— 站点反爬返回 JS 挑战页。
 //   - NASA 429 —— 对这个 IP 限流，三条 URL 都试过。
+//   - The Conversation —— 25 秒超时、零字节（2026-09-03 实测）。
+//   - Public Domain Review —— 最新一条五周前，过不了 StaleAfter。
 //
-// 反爬是对方明确表达的意愿。**不做绕过反爬的事**，而下面这些源已经足够撑起
-// 一天五颗星。
+// 反爬是对方明确表达的意愿。**不做绕过反爬的事。**
 var Sources = []Source{
-	{Name: "Nature", URL: "https://www.nature.com/nature.rss", Field: "science", Cap: 8, Timeout: 12 * time.Second},
-	{Name: "Nature Climate Change", URL: "https://www.nature.com/nclimate.rss", Field: "science", Cap: 4, Timeout: 12 * time.Second},
-	{Name: "Nature Ecology & Evolution", URL: "https://www.nature.com/natecolevol.rss", Field: "science", Cap: 4, Timeout: 12 * time.Second},
-	{Name: "Quanta Magazine", URL: "https://api.quantamagazine.org/feed/", Field: "formal", Cap: 6, Timeout: 20 * time.Second},
-	{Name: "arXiv · 天体物理", URL: "http://export.arxiv.org/rss/astro-ph", Field: "science", Cap: 5, Timeout: 15 * time.Second},
-	{Name: "Phys.org", URL: "https://phys.org/rss-feed/", Field: "science", Cap: 8, Timeout: 12 * time.Second},
-	{Name: "ScienceDaily", URL: "https://www.sciencedaily.com/rss/all.xml", Field: "science", Cap: 8, Timeout: 12 * time.Second},
-	{Name: "NOAA", URL: "https://www.noaa.gov/rss.xml", Field: "science", Cap: 4, Timeout: 12 * time.Second},
-	{Name: "ESA", URL: "https://www.esa.int/rssfeed/science", Field: "science", Cap: 4, Timeout: 12 * time.Second},
-	{Name: "MIT Technology Review", URL: "https://www.technologyreview.com/feed/", Field: "making", Cap: 6, Timeout: 12 * time.Second},
-	{Name: "Ars Technica · 科学", URL: "https://feeds.arstechnica.com/arstechnica/science", Field: "making", Cap: 6, Timeout: 12 * time.Second},
-	{Name: "New Scientist", URL: "https://www.newscientist.com/feed/home/", Field: "science", Cap: 6, Timeout: 12 * time.Second},
+	// ── 科学与自然 ───────────────────────────────────────────────────────
+	// 🚨 Cap 比第一版调低了（Nature 8→6、Phys.org 8→5、ScienceDaily 8→5）。
+	// 不是因为它们不好，是因为**十二个源里九个偏科学**时，候选池会被科学淹没，
+	// 而这一屏该给的是七根主枝上的五颗星，不是五条科学日报。
+	{Name: "Nature", URL: "https://www.nature.com/nature.rss", Field: "science", Cap: 6, Timeout: 12 * time.Second},
+	{Name: "Nature Climate Change", URL: "https://www.nature.com/nclimate.rss", Field: "science", Cap: 3, Timeout: 12 * time.Second},
+	{Name: "Nature Ecology & Evolution", URL: "https://www.nature.com/natecolevol.rss", Field: "science", Cap: 3, Timeout: 12 * time.Second},
+	{Name: "arXiv · 天体物理", URL: "http://export.arxiv.org/rss/astro-ph", Field: "science", Cap: 4, Timeout: 15 * time.Second},
+	{Name: "Phys.org", URL: "https://phys.org/rss-feed/", Field: "science", Cap: 5, Timeout: 12 * time.Second},
+	{Name: "ScienceDaily", URL: "https://www.sciencedaily.com/rss/all.xml", Field: "science", Cap: 5, Timeout: 12 * time.Second},
+	{Name: "NOAA", URL: "https://www.noaa.gov/rss.xml", Field: "science", Cap: 3, Timeout: 12 * time.Second},
+	{Name: "ESA", URL: "https://www.esa.int/rssfeed/science", Field: "science", Cap: 3, Timeout: 12 * time.Second},
+	{Name: "New Scientist", URL: "https://www.newscientist.com/feed/home/", Field: "science", Cap: 4, Timeout: 12 * time.Second},
+
+	// ── 数学与形式 ───────────────────────────────────────────────────────
+	{Name: "Quanta Magazine", URL: "https://api.quantamagazine.org/feed/", Field: "formal", Cap: 5, Timeout: 20 * time.Second},
+
+	// ── 技术与创造 ───────────────────────────────────────────────────────
+	{Name: "MIT Technology Review", URL: "https://www.technologyreview.com/feed/", Field: "making", Cap: 5, Timeout: 12 * time.Second},
+	{Name: "Ars Technica · 科学", URL: "https://feeds.arstechnica.com/arstechnica/science", Field: "making", Cap: 4, Timeout: 12 * time.Second},
+
+	// ── 人文与写作 ───────────────────────────────────────────────────────
+	// 2026-09-03 加的一批。第一次真模型实测里五颗星全落在科学上，因为源清单
+	// 本身就只有科学 —— prompt 里求模型「分布在不同领域」，而候选池里根本没有
+	// 别的领域，那是在求它做一件做不到的事。
+	{Name: "Aeon", URL: "https://aeon.co/feed.rss", Field: "humanities", Cap: 4, Timeout: 12 * time.Second},
+	{Name: "JSTOR Daily", URL: "https://daily.jstor.org/feed/", Field: "humanities", Cap: 4, Timeout: 15 * time.Second},
+	{Name: "Smithsonian", URL: "https://www.smithsonianmag.com/rss/latest_articles/", Field: "humanities", Cap: 4, Timeout: 12 * time.Second},
+
+	// ── 社会与世界 ───────────────────────────────────────────────────────
+	{Name: "Nature Human Behaviour", URL: "https://www.nature.com/nathumbehav.rss", Field: "society", Cap: 4, Timeout: 12 * time.Second},
+	{Name: "Our World in Data", URL: "https://ourworldindata.org/atom.xml", Field: "society", Cap: 3, Timeout: 12 * time.Second},
+	{Name: "Nature Sustainability", URL: "https://www.nature.com/natsustain.rss", Field: "society", Cap: 3, Timeout: 12 * time.Second},
+
+	// ── 艺术与表达 ───────────────────────────────────────────────────────
+	{Name: "Colossal", URL: "https://www.thisiscolossal.com/feed/", Field: "arts", Cap: 4, Timeout: 12 * time.Second},
+	{Name: "Hyperallergic", URL: "https://hyperallergic.com/feed/", Field: "arts", Cap: 4, Timeout: 15 * time.Second},
+
+	// ── 自我与成长 ───────────────────────────────────────────────────────
+	{Name: "Psyche", URL: "https://psyche.co/feed", Field: "self", Cap: 4, Timeout: 12 * time.Second},
 }
 
 // StaleAfter 是一个源多久没有新条目就当它死了。

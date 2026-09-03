@@ -273,7 +273,9 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	if len(pool) < news.PlanetCount {
 		return nil, fmt.Sprintf("抓取失败：今天只凑到 %d 条候选，不足 %d 条。", len(pool), news.PlanetCount)
 	}
-	system, user := news.BuildSelectPrompt(pool)
+	// 🚨 用 BuildSelectPrompt 交回来的那批候选去解析，**不是完整的 pool**：
+	// prompt 里只描述了前 maxCandidates 条，下标必须按同一个切片解释。
+	system, user, candidates := news.BuildSelectPrompt(pool)
 	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
@@ -285,13 +287,13 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	if cerr != nil {
 		return nil, "生成失败：" + cerr.Error()
 	}
-	picked, perr := news.ParseSelectReply(res.Text, pool)
+	picked, perr := news.ParseSelectReply(res.Text, candidates)
 	if perr != nil {
 		return nil, "生成失败：" + perr.Error()
 	}
 	out := make([]plannedPlanet, 0, len(picked))
 	for _, p := range picked {
-		out = append(out, plannedPlanet{Planet: p, candidates: pool})
+		out = append(out, plannedPlanet{Planet: p, candidates: candidates})
 	}
 	return out, ""
 }

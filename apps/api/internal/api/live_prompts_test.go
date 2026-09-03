@@ -191,10 +191,10 @@ func TestLivePromptStarmap(t *testing.T) {
 		t.Fatalf("候选池只有 %d 条，凑不满 %d 颗星", len(pool), news.PlanetCount)
 	}
 
-	system, user := news.BuildSelectPrompt(pool)
+	system, user, candidates := news.BuildSelectPrompt(pool)
 	raw := liveAsk(t, rs, gateway.ClassDigest, system, user)
 
-	planets, err := news.ParseSelectReply(raw, pool)
+	planets, err := news.ParseSelectReply(raw, candidates)
 	if err != nil {
 		t.Fatalf("解析失败 —— 今天不会有星图：%v\n原始回复：\n%s", err, raw)
 	}
@@ -203,12 +203,22 @@ func TestLivePromptStarmap(t *testing.T) {
 	}
 	fields := map[string]int{}
 	for _, p := range planets {
-		src := pool[p.Index]
+		src := candidates[p.Index]
 		fields[p.Field]++
 		t.Logf("  [%s] %s", p.Field, p.TitleZh)
 		t.Logf("        钩子：%s", p.Hook)
 		t.Logf("        摘要：%s", p.Summary)
 		t.Logf("        关键词：%s | 学科：%s | 来源：%s", p.Keyword, p.DisciplineID, src.Source)
+		// 🚨 模型返回的 index 决定这颗星挂哪个链接、哪个出处。如果 index 和它
+		// 自己描述的那条对不上，学生点「读原文」会落到一篇毫不相干的文章上。
+		// prompt 要求 titleEn 填原标题，所以这里能对得上号。
+		t.Logf("        [%d] 候选原标题：%s", p.Index, src.Title)
+		t.Logf("            模型 titleEn：%s", p.TitleEn)
+		// 🚨 回查之后，这两个必须是同一条新闻。对不上就说明 anchorByTitle 放行了
+		// 一个错误匹配，而学生点「读原文」会落到一篇无关文章上。
+		if overlapRatio(p.TitleEn, src.Title) < 0.5 {
+			t.Errorf("星球挂错了候选：\n  模型说的是 %q\n  挂上去的是 %q", p.TitleEn, src.Title)
+		}
 		// 钩子必须是个问题 —— 它是这一屏存在的理由。
 		if !strings.HasSuffix(p.Hook, "？") && !strings.HasSuffix(p.Hook, "?") {
 			t.Errorf("钩子不是一个问句：%q", p.Hook)
@@ -226,4 +236,31 @@ func TestLivePromptStarmap(t *testing.T) {
 		t.Errorf("五颗星全落在一根主枝上：%v", fields)
 	}
 	t.Logf("主枝分布：%v", fields)
+}
+
+
+// overlapRatio 复刻 news 包里的词重合度，用来在测试侧独立验证回查结果 ——
+// 用被测代码自己的函数去验它自己，等于什么都没验。
+func overlapRatio(a, b string) float64 {
+	set := func(s string) map[string]bool {
+		out := map[string]bool{}
+		for _, w := range strings.Fields(strings.ToLower(s)) {
+			w = strings.Trim(w, ".,:;!?\"'()[]—-")
+			if len([]rune(w)) > 2 {
+				out[w] = true
+			}
+		}
+		return out
+	}
+	x, y := set(a), set(b)
+	if len(x) == 0 {
+		return 0
+	}
+	n := 0
+	for w := range x {
+		if y[w] {
+			n++
+		}
+	}
+	return float64(n) / float64(len(x))
 }
