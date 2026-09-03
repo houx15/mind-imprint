@@ -364,6 +364,19 @@ type InterestKeyword struct {
 	FirstSeenAt time.Time `json:"first_seen_at"`
 }
 
+type InterestQuiz struct {
+	ID                uuid.UUID          `json:"id"`
+	UserID            uuid.UUID          `json:"user_id"`
+	Navigator         string             `json:"navigator"`
+	AnchorWork        string             `json:"anchor_work"`
+	AnchorReason      string             `json:"anchor_reason"`
+	Hook              string             `json:"hook"`
+	ChallengeChoice   string             `json:"challenge_choice"`
+	ChallengeAttempts int32              `json:"challenge_attempts"`
+	CreatedAt         time.Time          `json:"created_at"`
+	FinishedAt        pgtype.Timestamptz `json:"finished_at"`
+}
+
 type Intervention struct {
 	ID                 uuid.UUID   `json:"id"`
 	ProjectID          uuid.UUID   `json:"project_id"`

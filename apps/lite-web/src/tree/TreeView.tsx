@@ -13,6 +13,8 @@ import type { FieldId, Keyword } from "./types";
 import { Hint, Sys, cx } from "./ui";
 import { useFitScale } from "./useFitScale";
 import { KeywordDrawer } from "./KeywordDrawer";
+import { useQuizTaken } from "./quiz/useQuizStatus";
+import { liteRoutePath, navigate } from "../routing";
 import "./tree.css";
 
 /**
@@ -64,6 +66,10 @@ export function TreeView({ user }: { user: MeUser }) {
   // 挂在一张标着「这就是你的模型」的图上，而她看不出来。见 useInterestTree。
   const live = useInterestTree();
   const all = live.keywords;
+
+  // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。
+  const quizTaken = useQuizTaken();
+  const openQuiz = () => navigate(liteRoutePath({ tab: "tree", quiz: true }));
 
   const visible = useMemo(() => all.filter((k) => k.bornAt <= stop), [all, stop]);
   // Only the stops that actually hold something. A dot that shows the tree she
@@ -165,6 +171,21 @@ export function TreeView({ user }: { user: MeUser }) {
           )}
         </div>
         <div className="flex items-center gap-5">
+          {/* 兴趣测试的常驻入口。树不空时也留着，因为**重做是再长几个词**
+              （服务端给同一个词再添一条来源，强度上升），不是清空重来。
+              和空树上那条邀请一样，状态未知（null）时不显示。 */}
+          {quizTaken !== null ? (
+            <button
+              type="button"
+              onClick={openQuiz}
+              className="rounded-full border px-3.5 py-1.5 text-mk-small transition-colors duration-[120ms]
+                         hover:bg-[rgba(240,233,224,.1)] focus-visible:outline-none
+                         focus-visible:ring-2 focus-visible:ring-[#8A7F72]"
+              style={{ borderColor: "rgba(85,230,255,.42)", color: "#9fdcf0" }}
+            >
+              {quizTaken ? "再做一次兴趣测试" : "兴趣测试"}
+            </button>
+          ) : null}
           <span className="text-right">
             <span className="flex items-center justify-end gap-1.5">
               <Sys tone="dark">关键词</Sys>
@@ -240,7 +261,13 @@ export function TreeView({ user }: { user: MeUser }) {
 
           {/* 四个状态，说清楚是哪一个。绝不用示例关键词填满一棵空树——那会把
               十六个不属于她的词挂在一张写着「这就是你的模型」的图上。 */}
-          <TreeState status={live.status} error={live.error} onRetry={live.reload} />
+          <TreeState
+            status={live.status}
+            error={live.error}
+            onRetry={live.reload}
+            quizTaken={quizTaken}
+            onStartQuiz={openQuiz}
+          />
 
           {/* keyword beads */}
           {visible.map((k, i) => (
@@ -776,10 +803,15 @@ function TreeState({
   status,
   error,
   onRetry,
+  quizTaken,
+  onStartQuiz,
 }: {
   status: "loading" | "error" | "empty" | "ready";
   error: string;
   onRetry: () => void;
+  /** null = 还不知道她做过没有。 */
+  quizTaken: boolean | null;
+  onStartQuiz: () => void;
 }) {
   if (status === "ready") return null;
 
@@ -829,6 +861,26 @@ function TreeState({
               关键词由你完成的阅读、写作与项目自动生成。完成一篇后回到这里，
               它会长出来。
             </p>
+            {/* 🚨 空树上那条邀请。**只在明确知道她没做过时出现** —— 读不到
+                状态（null）时不显示，因为在一个上个月已经做过的学生面前每次
+                都闪一下「来做个测试」，比不显示糟。
+                这也是产品负责人要的那条：第一次看见这棵树时邀请她做测试。 */}
+            {quizTaken === false ? (
+              <>
+                <div className="my-4 h-px" style={{ background: "rgba(245,239,231,0.14)" }} />
+                <p className="text-mk-small leading-[1.8] text-[#C0B4A6]">
+                  也可以先做一次兴趣测试，五分钟，树上会长出第一批词。
+                </p>
+                <button
+                  type="button"
+                  onClick={onStartQuiz}
+                  className="mt-3 rounded-full px-5 py-2 text-mk-body font-semibold text-[#04121d] transition hover:opacity-90"
+                  style={{ background: "linear-gradient(135deg,#55e6ff,#1ca5dc)" }}
+                >
+                  开始兴趣测试
+                </button>
+              </>
+            ) : null}
           </>
         )}
       </div>

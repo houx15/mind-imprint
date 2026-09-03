@@ -22,7 +22,10 @@ export type LiteRoute =
   // `GET /api/v1/interest/tree` and renders nothing when that fails, because a
   // tree that falls back to sample words hangs sixteen keywords that are not
   // hers on a picture captioned 「这就是你的模型」.
-  | { tab: "tree" }
+  // `quiz` 打开觉醒协议（兴趣测试），`/tree/quiz`。它是**同一条 tab 下的一屏**
+  // 而不是自己的顶层 tab：入口在树上，做完了回到树上，导航栏里不该多出一格
+  // 只在冷启动时有意义的东西。
+  | { tab: "tree"; quiz?: boolean }
   // 设置 is a route, not a rail tab: it is reached from the account button at
   // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
   // active tab. Keeping it in the same union is what lets Back leave settings
@@ -66,7 +69,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
     case "projects":
       return second ? { tab: "projects", projectId: second } : { tab: "projects" };
     case "tree":
-      return { tab: "tree" };
+      return second === "quiz" ? { tab: "tree", quiz: true } : { tab: "tree" };
     case "settings":
       return { tab: "settings" };
     case "s":
@@ -96,7 +99,7 @@ export function liteRoutePath(route: LiteRoute): string {
     case "projects":
       return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
     case "tree":
-      return "/tree";
+      return route.quiz ? "/tree/quiz" : "/tree";
     case "settings":
       return "/settings";
     case "share":

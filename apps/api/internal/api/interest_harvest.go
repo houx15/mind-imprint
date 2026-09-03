@@ -131,6 +131,12 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 		return // 她什么也没留下，没有可采的
 	}
 
+	// gateway.Collect 对 nil provider 会 panic。这一路今天走不到（跑到这里时
+	// provider 总是装好的），但它和 harvestQuiz 是同一个形状，而那一路在测试里
+	// 真的会拿到 nil —— 两处用同一个守卫，省得下一个人踩。
+	if a.d.Provider == nil {
+		return
+	}
 	resolved, ok := a.route(ctx, gateway.ClassCompose)
 	if !ok {
 		slog.Warn("interest harvest: no provider resolved", "atom_id", atomID)

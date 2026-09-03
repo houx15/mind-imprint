@@ -60,4 +60,18 @@ describe("parseLiteRoute", () => {
   // claimed it would be a silent takeover.
   it("does not claim the prototype's tree path", () =>
     expect(parseLiteRoute("/eco/tree")).toEqual({ tab: "readings" }));
+
+  // 觉醒协议是 tree 这条 tab 下的一屏，不是自己的顶层 tab。
+  it("knows the quiz sub-page", () =>
+    expect(parseLiteRoute("/tree/quiz")).toEqual({ tab: "tree", quiz: true }));
+  it("round-trips the quiz path", () =>
+    expect(parseLiteRoute(liteRoutePath({ tab: "tree", quiz: true }))).toEqual({
+      tab: "tree",
+      quiz: true,
+    }));
+  // 一个手敲错的子路径不该把她丢回阅读室——她要去的是树，那就给她树。
+  it("falls back to the tree itself for an unknown sub-page", () =>
+    expect(parseLiteRoute("/tree/whatever")).toEqual({ tab: "tree" }));
+  it("the bare tree path carries no quiz flag", () =>
+    expect(liteRoutePath({ tab: "tree" })).toBe("/tree"));
 });

@@ -19,6 +19,7 @@ import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
 import { TreeView } from "./tree/TreeView";
+import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 
 /**
  * LiteApp — the lite edition's shell: a left icon-rail with two tabs (阅读 /
@@ -192,6 +193,22 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
   const labelCls =
     "whitespace-nowrap text-mk-body opacity-0 transition-opacity duration-200 ease-mk " +
     "group-hover/nav:opacity-100 group-focus-within/nav:opacity-100 motion-reduce:transition-none";
+
+  // 觉醒协议**满屏渲染，不带导航轨**。它是一个连续的七屏叙事，旁边杵着一条
+  // 「阅读 / 写作 / 项目」的导航栏会把它降级成「一个开着的表单」——而这一屏的
+  // 全部任务就是让一个还不知道自己喜欢什么的学生愿意花五分钟。
+  //
+  // 放在这里（所有 hook 之后）而不是 `rootElementFor`：它需要已登录的 `user`，
+  // 而且做完之后要能原地回到树上，不该是一次整页跳转。
+  if (route.tab === "tree" && route.quiz) {
+    return (
+      <div className="h-full w-full overflow-hidden">
+        <AwakeningQuiz
+          onExit={() => navigate(liteRoutePath({ tab: "tree" }))}
+        />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-full w-full overflow-hidden bg-mk-paper text-mk-ink">

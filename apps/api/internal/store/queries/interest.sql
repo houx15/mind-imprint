@@ -104,3 +104,37 @@ WHERE id = $1 AND interest_harvested_at IS NULL;
 
 -- name: GetAtomInterestHarvestedAt :one
 SELECT interest_harvested_at FROM atom WHERE id = $1;
+
+/* ── 觉醒协议 · 兴趣测试 ─────────────────────────────────────────────────── */
+
+-- 开一次作答。**先落库再做题**：这样一次中途退出的作答也留下一行（finished_at
+-- 为空），而「她走到哪一屏就走开了」本身就是数据（铁律④）。
+-- name: StartInterestQuiz :one
+INSERT INTO interest_quiz (user_id) VALUES ($1)
+RETURNING *;
+
+-- 收一次作答。用 user_id 一起匹配，所以一个人改不了别人的那一行。
+-- name: FinishInterestQuiz :one
+UPDATE interest_quiz SET
+  navigator          = $3,
+  anchor_work        = $4,
+  anchor_reason      = $5,
+  hook               = $6,
+  challenge_choice   = $7,
+  challenge_attempts = $8,
+  finished_at        = now()
+WHERE id = $1 AND user_id = $2
+RETURNING *;
+
+-- 她做完过几次。**只数做完的**：一次中途退出的作答不算「做过了」，所以那条
+-- 邀请还会再出现 —— 一个在第三屏关掉页面的学生，不该从此再也见不到入口。
+-- name: CountFinishedInterestQuizzes :one
+SELECT count(*) FROM interest_quiz
+WHERE user_id = $1 AND finished_at IS NOT NULL;
+
+-- 她最近做完的那一次。结果页重新打开时读它。
+-- name: LatestFinishedInterestQuiz :one
+SELECT * FROM interest_quiz
+WHERE user_id = $1 AND finished_at IS NOT NULL
+ORDER BY finished_at DESC
+LIMIT 1;
