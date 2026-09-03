@@ -62,5 +62,5 @@ UPDATE pbl_note SET tree_node_id = $2 WHERE id = $1 RETURNING *;
 
 -- name: SetPblNoteReframeSlot :one
 -- 她把这张纸摆进了问题陈述的哪一格（谁 / 需要什么 / 为什么），空 = 拿回证据堆。
--- 🚨 不碰 cluster，也不碰 edited：摆格子是一句判断，不是一次改写。见 migration 0129。
+-- 🚨 不碰 cluster，也不碰 edited：摆格子是一句判断，不是一次改写。见 migration 0132。
 UPDATE pbl_note SET reframe_slot = $2 WHERE id = $1 RETURNING *;

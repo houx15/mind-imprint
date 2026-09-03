@@ -25,7 +25,7 @@ export interface Note {
    *
    * 🚨 和 cluster 是两回事。cluster 是板上的归堆（"这几张是一回事"），这一个是
    * 问题陈述里的角色（"这条是在说谁"）。共用一列会让她在问题识别里摆一下，
-   * 就把自己在板上归的堆悄悄擦掉。见 migration 0129。
+   * 就把自己在板上归的堆悄悄擦掉。见 migration 0132。
    */
   reframeSlot: string;
   x: number;
@@ -207,7 +207,7 @@ export function placeNote(
  * 摆进问题陈述的某一格，或者拿回证据堆（slot 给 ""）。
  *
  * 🚨 单独一个端点，不走通用的 PATCH。那一条会连着写 cluster，而摆格子不该碰
- * 她在便签板上归的堆——那是关于同一张纸的另一句判断。见 migration 0129。
+ * 她在便签板上归的堆——那是关于同一张纸的另一句判断。见 migration 0132。
  */
 export function setNoteReframeSlot(
   projectId: string,

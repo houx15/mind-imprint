@@ -52,7 +52,7 @@ type pblNoteDTO struct {
 	// 「我们看到的证据」那一堆里，没被判过。
 	//
 	// 🚨 和 Cluster 是两回事，别合并。cluster 是板上的归堆（"这几张是一回事"），
-	// 这一列是问题陈述里的角色（"这条是在说谁"）。见 migration 0129。
+	// 这一列是问题陈述里的角色（"这条是在说谁"）。见 migration 0132。
 	ReframeSlot string `json:"reframeSlot"`
 	// 她挑出来先试的那条办法（只对 kind='idea' 有意义），和为什么先试它。
 	//
@@ -197,7 +197,7 @@ var pblReframeSlots = map[string]bool{"谁": true, "需要什么": true, "为什
 //
 // 🚨 单独一个端点，不塞进 PATCH /notes/{nid}。那一条通用 PATCH 会连着改
 // body/kind/cluster，而摆格子**不该碰 cluster**——她在便签板上归的堆是另一句
-// 判断，不能被这一下悄悄擦掉。见 migration 0129。
+// 判断，不能被这一下悄悄擦掉。见 migration 0132。
 func (a *API) setPblNoteReframeSlot(w http.ResponseWriter, r *http.Request) {
 	atomID, ok := a.loadOwnedPblProject(w, r)
 	if !ok {
