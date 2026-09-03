@@ -88,7 +88,7 @@ export async function listMaterials(projectId: string): Promise<Material[]> {
       count: arts.length,
       detail: arts.length
         ? waiting.length
-          ? `${waiting.length} 份待审`
+          ? `${waiting.length} 份待审核`
           : `${arts.length} 份已审`
         : "",
     },

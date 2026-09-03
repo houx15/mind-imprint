@@ -84,9 +84,9 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
         <div className="flex items-center gap-3">
           <Progress size={44} label="印记正在写复盘问题" />
           <div className="min-w-0">
-            <p className="text-mk-small text-mk-ink">印记正在读这个项目发生过的事。</p>
+            <p className="text-mk-small text-mk-ink">处理中</p>
             <p className="mt-0.5 text-mk-small text-mk-muted">
-              要读完整个项目才写得出问题，通常一分钟左右。
+              正在读取项目记录并生成复盘问题，约需一分钟。
             </p>
           </div>
         </div>
@@ -98,7 +98,7 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
           <Progress done={answered} total={prompts.length} size={44} />
           <div className="min-w-0">
             <p className="text-mk-small text-mk-ink">
-              {answered === prompts.length ? "六段都写完了" : "已回答 " + answered + " 段"}
+              {answered === prompts.length ? "已全部完成" : "已回答 " + answered + " 段"}
             </p>
             <p className="mt-0.5 text-mk-small text-mk-muted">
               请根据你的真实项目体验和感受来回答

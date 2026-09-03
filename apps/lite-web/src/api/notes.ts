@@ -61,23 +61,23 @@ export const NOTE_KINDS: NoteKindMeta[] = [
 export const NOTE_KIND_HINTS: Record<NoteKind, { placeholder: string; how: string }> = {
   observation: {
     placeholder: "中午 12:30，三班门口有 6 个人在等",
-    how: "只写你亲眼看到的。带上时间、地点、数字，别写结论。",
+    how: "请只记录亲眼所见，包含时间、地点、数量，不写结论。",
   },
   quote: {
     placeholder: "他说：这个我肯定不会用",
-    how: "照抄别人说的那句话，一个字都别改。你概括过的就不是原话了。",
+    how: "请照抄对方原话，不做改动。概括过的内容不算原话。",
   },
   assumption: {
     placeholder: "我猜大家其实是嫌远",
-    how: "你从看到的事情里推出来的。标成推论，是为了记得它还没被证实。",
+    how: "由所见事实推导得出。标为推论，表示它尚未被证实。",
   },
   question: {
     placeholder: "为什么只有中午排队，晚上不排？",
-    how: "看完之后你答不上来的那件事。",
+    how: "观察后仍无法回答的问题。",
   },
   idea: {
     placeholder: "在门口贴一张排队人数的牌子",
-    how: "你想到的做法。",
+    how: "你提出的做法。",
   },
 };
 

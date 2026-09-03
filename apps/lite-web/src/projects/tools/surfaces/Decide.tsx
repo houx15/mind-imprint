@@ -113,7 +113,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
           <p className="text-mk-body text-mk-ink">{decision.subject}</p>
 
           <p className="mt-1 text-mk-small text-mk-muted">
-            {choice ? "选好了。下面把放掉的那几条也交代清楚。" : "点一张卡片选中它。"}
+            {choice ? "请说明未选择其他方案的原因。" : "请选择一个方案。"}
           </p>
 
           <div className="mt-3 space-y-2">
@@ -173,13 +173,13 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                     className="h-3.5 w-1 rounded-mk-full"
                     style={{ background: chosenTone.solid }}
                   />
-                  <label className="text-mk-body font-semibold text-mk-ink">为什么选它</label>
+                  <label className="text-mk-body font-semibold text-mk-ink">选择原因</label>
                 </div>
                 <textarea
                   value={why}
                   onChange={(e) => setWhy(e.target.value)}
                   rows={2}
-                  placeholder="它解决了什么，或者它比别的好在哪里"
+                  placeholder="请说明它解决了什么，或它比其他方案好在哪里"
                   className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
               </div>
@@ -191,11 +191,11 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                 <div className="flex items-center gap-2">
                   <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "var(--mk-border)" }} />
                   <label className="text-mk-body font-semibold text-mk-ink">
-                    放掉的（{answeredDrops}/{decision.options.length - 1}）
+                    未选方案（{answeredDrops}/{decision.options.length - 1}）
                   </label>
                 </div>
                 <p className="mt-0.5 text-mk-small text-mk-muted">
-                  一条一条说：它当初看起来可行，你是因为什么放下它的。
+                  请逐项说明放弃该方案的原因。
                 </p>
                 <div className="mt-2 space-y-2">
                   {decision.options.map((o, i) =>
@@ -221,7 +221,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                           onChange={(e) =>
                             setDropped((prev) => ({ ...prev, [o.id]: e.target.value }))
                           }
-                          placeholder="放掉它的原因"
+                          placeholder="放弃原因"
                           className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                         />
                       </div>

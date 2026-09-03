@@ -260,7 +260,7 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                   disabled={!value.trim() || value.trim() === row.hmw}
                   className="mt-2 rounded-mk-full border border-mk-border px-4 py-1.5 text-mk-small text-mk-secondary disabled:opacity-40"
                 >
-                  记下来
+                  确认记录
                 </button>
               )}
             </div>

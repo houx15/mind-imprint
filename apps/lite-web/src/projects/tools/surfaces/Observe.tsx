@@ -103,7 +103,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
   return (
     <ToolFrame
       title={tool.label}
-      task="回来了。把你看到的、听到的，一条一条记下来"
+      task="请逐条记录你看到的和听到的内容"
       why={tool.reason}
       todo={filled.length === 0 ? "至少带回来一条" : ""}
       finishLabel="贴到板上"
@@ -143,8 +143,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
           className="mb-3 rounded-mk-md px-3 py-2 text-mk-small"
           style={{ background: "var(--mk-warning-bg)", color: "var(--mk-ink)" }}
         >
-          你带回来的全是推论。再补一条你亲眼看到的事，或者一句别人的原话——
-          推论要站得住，得先有东西撑着它。
+          当前记录全部为推论。推论需要事实支撑，请补充一条实际观察或一句原话。
         </p>
       )}
 
@@ -206,12 +205,12 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 />
                 <button
                   type="button"
-                  aria-label="换一张"
+                  aria-label="重新选择"
                   onClick={() => set(i, { imageKey: "", preview: "" })}
                   className="absolute right-1.5 top-1.5 rounded-mk-full px-2 py-0.5 text-mk-small"
                   style={{ background: "var(--mk-surface)", color: "var(--mk-secondary)" }}
                 >
-                  换一张
+                  重新选择
                 </button>
               </div>
             ) : (
@@ -219,7 +218,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 className="mt-1.5 flex cursor-pointer items-center justify-center gap-1.5 rounded-mk-sm border border-dashed border-mk-border py-1.5 text-mk-small text-mk-secondary"
               >
                 <Icon icon={uploading === i ? Loader2 : Camera} size={14} />
-                {uploading === i ? "上传中" : "加一张照片"}
+                {uploading === i ? "上传中" : "添加照片"}
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/webp"

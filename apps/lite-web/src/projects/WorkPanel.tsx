@@ -136,7 +136,7 @@ export function WorkPanel({
  *
  * 点一行就回到那件东西所在的工具里。她自己开的工具也要有理由（服务端拒绝
  * 没有理由的工具，这是对的：一件说不出为什么的工具对她是一次打断），所以
- * 这里如实写「你自己打开的」，不编一个像印记说的理由。
+ * 这里如实写「由你打开」，不编一个像印记说的理由。
  */
 function MaterialsList({
   projectId,
@@ -180,7 +180,7 @@ function MaterialsList({
       // 是 null。2026-09-03 线上实测撞到的。
       const offered = tools.find((t) => t.tool === m.tool && t.status === "summoned");
       const summoned =
-        offered ?? (await summonTool(projectId, { tool: m.tool, reason: "你自己打开的" }));
+        offered ?? (await summonTool(projectId, { tool: m.tool, reason: SELF_OPENED }));
       const got = await acceptTool(projectId, summoned.id);
       // 🚨 把这件工具直接交给房间，而不是"通知它去重拉一遍"。重拉是异步的，
       // 而选中是同步的——先选中、后到货，右栏照样是空的。
@@ -224,7 +224,7 @@ function MaterialsList({
                 </span>
                 {/* 有东西就说清是什么；还没有就照实说，不留一行没来由的标题。 */}
                 <span className="block truncate text-mk-small text-mk-muted">
-                  {m.detail || "还没有"}
+                  {m.detail || "暂无"}
                 </span>
               </span>
             </button>

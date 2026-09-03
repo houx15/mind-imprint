@@ -77,8 +77,8 @@ export function decisionTodo(
 ): string {
   if (!d) return "暂时没有需要决策的内容";
   if (!draft.choice.trim()) return "请选择一个方案";
-  if (!draft.why.trim()) return "为什么选它";
-  if (!draft.whyNot.trim()) return "为什么不选别的";
+  if (!draft.why.trim()) return "选择原因";
+  if (!draft.whyNot.trim()) return "未选方案的原因";
   return "";
 }
 

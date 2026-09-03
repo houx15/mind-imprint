@@ -121,7 +121,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           type="button"
           onClick={() => void add()}
           disabled={!draft.trim()}
-          aria-label="记下来"
+          aria-label="添加"
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-mk-full text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >

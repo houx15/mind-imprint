@@ -291,7 +291,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                             value={why}
                             onChange={(e) => setWhy(e.target.value)}
                             onKeyDown={(e) => e.key === "Enter" && void move()}
-                            placeholder="为什么改成这样"
+                            placeholder="修改原因"
                             className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2 py-1 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                           />
                           <div className="mt-1 flex gap-2">
@@ -322,7 +322,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           </div>
 
           <p className="mt-2 text-mk-small text-mk-faint">
-            点名字那一栏就能换人，换完请说明理由。
+            请在负责人一栏调整分工，并说明修改原因。
           </p>
         </>
       )}

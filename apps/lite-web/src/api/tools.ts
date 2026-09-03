@@ -38,7 +38,7 @@ export function listTools(projectId: string): Promise<ToolInstance[]> {
  * 所以浏览也得给个理由。但这一句同时是个标记：**这不是一件待办**。
  * 她回头看一眼便签板，不该在"进行中"里多出一条任务——看东西不是任务。
  */
-export const SELF_OPENED = "你自己打开的";
+export const SELF_OPENED = "由你打开";
 
 export function summonTool(
   projectId: string,

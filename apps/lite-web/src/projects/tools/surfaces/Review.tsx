@@ -318,13 +318,13 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               <div className="min-w-0">
                 <p className="text-mk-small font-semibold text-mk-ink">
                   {scored.done === scored.total
-                    ? "全部审过了"
-                    : `审了 ${scored.done} / ${scored.total} 处`}
+                    ? "已全部审核"
+                    : `已审 ${scored.done} / ${scored.total} 处`}
                 </p>
                 <p className="text-mk-small text-mk-muted">
                   {scored.done === scored.total
-                    ? "可以下结论了：通过，或者让它重做。"
-                    : "印记在每一部分埋了一个问题。答一个，那一处就变绿。"}
+                    ? "请下结论：审核通过，或重新执行任务。"
+                    : "每一部分附有一个审核问题，请逐项回答。"}
                 </p>
               </div>
             </div>
@@ -341,21 +341,21 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           {!revealed && (artifact.admits.length > 0 || artifact.guessed.length > 0) && (
             <div className="mb-4 rounded-mk-md px-3 py-2.5" style={{ background: tone("mist").bg }}>
               <p className="text-mk-small font-semibold" style={{ color: tone("mist").fg }}>
-                先自己找一遍
+                自查
               </p>
               <p className="mt-0.5 text-mk-small text-mk-ink">
-                印记写这一版时，自己标出了 {artifact.admits.length} 处没把握的地方。
-                先别看它说的——在下面的正文里选中一句，说说哪里不对。
+                印记标注了 {artifact.admits.length} 处存疑内容，暂未显示。
+                请先自行审核：在正文中选中句子，标出你认为有问题的地方。
               </p>
               <div className="mt-2 flex items-center gap-2">
-                <span className="text-mk-small text-mk-muted">你已经标了 {mySpots.length} 处</span>
+                <span className="text-mk-small text-mk-muted">已标出 {mySpots.length} 处</span>
                 <button
                   type="button"
                   onClick={reveal}
                   className="rounded-mk-full px-3 py-1 text-mk-small"
                   style={{ background: tone("mist").solid, color: "var(--mk-surface)" }}
                 >
-                  对答案
+                  显示印记的标注
                 </button>
               </div>
             </div>
@@ -364,10 +364,10 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           {revealed && mySpots.length > 0 && (
             <div className="mb-3 rounded-mk-md px-3 py-2.5" style={{ background: DONE.bg }}>
               <p className="text-mk-small font-semibold" style={{ color: DONE.fg }}>
-                你找出 {mySpots.length} 处，印记自己承认 {artifact.admits.length} 处
+                你标出 {mySpots.length} 处 · 印记标注 {artifact.admits.length} 处
               </p>
               <p className="mt-0.5 text-mk-small text-mk-ink">
-                两边对照着看：有没有你标了、而它一个字没提的？那几处最值得拿去跟它说。
+                请对照两份标注。你标出而印记未提及的内容，需要向印记确认。
               </p>
             </div>
           )}
@@ -377,13 +377,13 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
             <Callout
               t={tone("peach")}
               title="印记的猜测"
-              blurb="这一版是踩着这些假设写的。假设不成立，下面的东西就不成立。"
+              blurb="印记写这一版时依据的假设。假设不成立，结论也不成立。"
               items={artifact.guessed}
             />
             <Callout
               t={tone("berry")}
-              title="印记觉得可能不对的地方"
-              blurb="印记自己也没把握的地方，先从这里看起。"
+              title="印记存疑的地方"
+              blurb="印记自己没有把握的内容，请优先审核。"
               items={artifact.admits}
             />
           </div>
@@ -427,7 +427,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                                 : { background: "var(--mk-paper)", color: "var(--mk-faint)" }
                             }
                           >
-                            {at.done === at.total ? "这一部分审过了" : `${at.done}/${at.total}`}
+                            {at.done === at.total ? "已审核" : `${at.done}/${at.total}`}
                           </span>
                         )}
                       </div>
@@ -440,7 +440,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                           color: tone("mist").fg,
                         }}
                       >
-                        这一部分要看的：{part.note}
+                        审核要点：{part.note}
                       </p>
                     )}
                     <div className="space-y-2">{renderParagraphs(part.paragraphs)}</div>
@@ -498,7 +498,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                 value={spotWhy}
                 onChange={(e) => setSpotWhy(e.target.value)}
                 onKeyDown={(e) => e.key === "Enter" && void spot()}
-                placeholder="这里哪儿不对"
+                placeholder="请说明问题"
                 className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
               />
               <div className="mt-2 flex gap-2">
@@ -509,7 +509,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                   className="rounded-mk-full px-3 py-1 text-mk-small disabled:opacity-40"
                   style={{ background: TODO.solid, color: "var(--mk-surface)" }}
                 >
-                  记下来
+                  确认标记
                 </button>
                 <button
                   type="button"
@@ -537,7 +537,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                 className="flex flex-1 items-center justify-center gap-1.5 rounded-mk-full py-2 text-mk-small"
                 style={{ background: TODO.solid, color: "var(--mk-surface)" }}
               >
-                这里有问题
+                标出问题
               </button>
             </div>
           )}
@@ -563,7 +563,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               <div className="flex items-center gap-2">
                 <span className="h-3.5 w-1 rounded-mk-full" style={{ background: TODO.solid }} />
                 <p className="text-mk-body font-semibold text-mk-ink">
-                  划出来的句子（{plan.marks.filter((m) => m.answer.trim()).length}/
+                  印记的标注（{plan.marks.filter((m) => m.answer.trim()).length}/
                   {plan.marks.length}）
                 </p>
               </div>
@@ -607,12 +607,12 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           <div className="mt-4 border-t border-mk-border pt-3">
             {hasComments ? (
               <p className="text-mk-small text-mk-muted">
-                你已经留下了意见，印记会照着改。底下点「执行修改」。
+                你已留下修改意见。请点击「执行修改」。
               </p>
             ) : (
               <>
                 <p className="text-mk-small text-mk-muted">
-                  你没有留下修改意见。可以直接通过，也可以让它重做。
+                  你未留下修改意见。可以审核通过，也可以要求重新执行。
                 </p>
                 <label className="mt-3 block text-mk-small text-mk-secondary">
                   重做的方向
@@ -621,7 +621,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                   value={verdictWhy}
                   onChange={(e) => setVerdictWhy(e.target.value)}
                   rows={2}
-                  placeholder="要重做的话，请说清楚往哪个方向"
+                  placeholder="请说明重新执行的方向"
                   className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
                 {/* 🚨 重做必须给方向：不说清往哪儿改，印记只能再猜一遍，
