@@ -63,28 +63,28 @@ export async function listMaterials(projectId: string): Promise<Material[]> {
     {
       tool: "board",
       label: "便签板",
-      hue: "#3B82F6",
+      hue: "var(--mk-mist)",
       count: stickies.length,
       detail: stickies.length ? `${stickies.length} 张便签` : "",
     },
     {
       tool: "reframe",
       label: "问题陈述",
-      hue: "#8B5CF6",
+      hue: "var(--mk-taro)",
       count: current ? 1 : 0,
       detail: current ? reframeSentence(current) : "",
     },
     {
       tool: "ideas",
       label: "解决方案",
-      hue: "#10B981",
+      hue: "var(--mk-matcha)",
       count: ideas.length,
       detail: ideas.length ? `${ideas.length} 个办法` : "",
     },
     {
       tool: "review",
       label: "成果",
-      hue: "#F59E0B",
+      hue: "var(--mk-peach)",
       count: arts.length,
       detail: arts.length
         ? waiting.length
@@ -95,14 +95,14 @@ export async function listMaterials(projectId: string): Promise<Material[]> {
     {
       tool: "structure",
       label: "结构",
-      hue: "#06B6D4",
+      hue: "var(--mk-lake)",
       count: nodes.length,
       detail: nodes.length ? `${nodes.length} 个节点` : "",
     },
     {
       tool: "decide",
       label: "决定",
-      hue: "#EF4444",
+      hue: "var(--mk-berry)",
       count: decs.length,
       detail: decs.length
         ? unsettled.length

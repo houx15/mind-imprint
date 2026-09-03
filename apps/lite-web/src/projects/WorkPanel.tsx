@@ -106,7 +106,7 @@ export function WorkPanel({
                       type="button"
                       onClick={() => onSelectTool(t.id)}
                       className="block w-full rounded-mk-md border border-mk-border px-3 py-2 text-left"
-                      style={{ borderLeft: "4px solid var(--mk-accent-500)" }}
+                      style={{ background: "var(--mk-accent-50)", borderColor: "transparent" }}
                     >
                       <span className="block text-mk-small font-medium text-mk-ink">{t.label}</span>
                       {t.reason && (
@@ -202,11 +202,11 @@ function MaterialsList({
               onClick={() => void open(m)}
               className="flex w-full items-center gap-2 rounded-mk-md px-2 py-1.5 text-left hover:bg-mk-paper"
             >
+              {/* 🚨 一个小圆点，不是一条竖色带。六行各挂一条色带就是一排栅栏
+                  ——产品负责人 2026-09-03 明确说了不要。 */}
               <span
-                className="h-6 w-1 shrink-0 rounded-mk-full"
-                style={{
-                  background: empty ? "var(--mk-border)" : m.hue,
-                }}
+                className="h-2 w-2 shrink-0 rounded-mk-full"
+                style={{ background: empty ? "var(--mk-border)" : m.hue }}
               />
               <span className="min-w-0 flex-1">
                 <span

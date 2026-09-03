@@ -30,8 +30,8 @@ import type { ToolSurfaceProps } from "../registry";
  * 就并排挂两个标签。
  */
 
-const YINJI_HUE = "#8B5CF6";
-const STUDENT_HUE = "#10B981";
+const YINJI_HUE = "var(--mk-taro)";
+const STUDENT_HUE = "var(--mk-matcha)";
 
 function NameTag({ name, hue }: { name: string; hue: string }) {
   return (

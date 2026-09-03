@@ -8,7 +8,7 @@ import {
   autoLayout,
   createNode,
   deleteNode,
-  depthHue,
+  depthTone,
   getTree,
   moveNode,
   outline,
@@ -288,7 +288,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                   key={n.id}
                   d={`M ${a.x + NODE_W} ${a.y + NODE_H / 2} C ${mx} ${a.y + NODE_H / 2}, ${mx} ${b.y + NODE_H / 2}, ${b.x} ${b.y + NODE_H / 2}`}
                   fill="none"
-                  stroke={depthHue(n.depth)}
+                  stroke={depthTone(n.depth).solid}
                   strokeOpacity={0.5}
                   strokeWidth={1.5}
                 />
@@ -304,20 +304,23 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                 key={n.id}
                 onPointerDown={(e) => startDrag(n.id, e)}
                 onDoubleClick={() => setEditing(n.id)}
-                className="absolute select-none rounded-mk-md border bg-mk-surface px-2.5 py-2 shadow-mk-xs"
+                className="absolute select-none rounded-mk-md border px-2.5 py-2 shadow-mk-xs"
                 style={{
                   left: pos.x,
                   top: pos.y,
                   width: NODE_W,
                   minHeight: NODE_H,
                   cursor: editing === n.id ? "text" : "grab",
-                  borderColor: on ? depthHue(n.depth) : "var(--mk-border)",
-                  // 左边一条该层的色带；选中时整块染上同一个色。
-                  borderLeft: `4px solid ${depthHue(n.depth)}`,
-                  background: on
-                    ? `color-mix(in srgb, ${depthHue(n.depth)} 10%, var(--mk-surface))`
-                    : "var(--mk-surface)",
-                  boxShadow: on ? `0 0 0 2px color-mix(in srgb, ${depthHue(n.depth)} 35%, transparent)` : undefined,
+                  // 🚨 整块淡底表示"第几层"，不用左侧色条。
+                  // 产品负责人 2026-09-03：「I hate left color bar designs,
+                  // especially when we have a huge list of that」——一张图上
+                  // 十几个节点各挂一条竖带，看着就是一排栅栏。
+                  borderColor: on ? depthTone(n.depth).solid : "var(--mk-border)",
+                  background: depthTone(n.depth).bg,
+                  color: depthTone(n.depth).fg,
+                  boxShadow: on
+                    ? `0 0 0 2px color-mix(in srgb, ${depthTone(n.depth).solid} 35%, transparent)`
+                    : undefined,
                 }}
               >
                 {editing === n.id ? (
@@ -333,7 +336,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                     className="w-full rounded-mk-sm border border-mk-input-border bg-mk-surface px-1.5 py-0.5 text-mk-small text-mk-ink outline-none"
                   />
                 ) : (
-                  <p className="break-words text-mk-small text-mk-ink">{n.title}</p>
+                  <p className="break-words text-mk-small">{n.title}</p>
                 )}
                 {n.body && <p className="mt-0.5 text-mk-small text-mk-muted">{n.body}</p>}
               </div>

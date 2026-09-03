@@ -11,6 +11,7 @@ import {
   sectionProgress,
   type LookbackPrompt,
 } from "../../../api/lookback";
+import { DONE, tone, type ToneName } from "../../../shared/tone";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
 
@@ -116,20 +117,20 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
           const at = sectionProgress(g.prompts);
           return (
             <section key={g.key}>
-              <div className="flex items-center gap-2">
-                <span
-                  className="h-4 w-1 rounded-mk-full"
-                  style={{ background: g.hue }}
-                />
-                <p className="text-mk-body font-semibold text-mk-ink">{g.title}</p>
+              {/* 🚨 段头用这一段的淡底整块托一下，不用左侧色条——六段各挂一条
+                  竖带，滚下来就是一排栅栏。 */}
+              <div
+                className="flex items-center gap-2 rounded-mk-md px-2.5 py-1.5"
+                style={{ background: tone(g.hue).bg }}
+              >
+                <p className="text-mk-body font-semibold" style={{ color: tone(g.hue).fg }}>
+                  {g.title}
+                </p>
                 <span
                   className="rounded-mk-full px-1.5 text-[11px] font-semibold"
                   style={{
-                    background:
-                      at.done === at.total
-                        ? `color-mix(in srgb, ${g.hue} 18%, transparent)`
-                        : "var(--mk-paper)",
-                    color: at.done === at.total ? g.hue : "var(--mk-faint)",
+                    background: "var(--mk-surface)",
+                    color: at.done === at.total ? DONE.solid : "var(--mk-faint)",
                   }}
                 >
                   {at.done}/{at.total}
@@ -162,7 +163,7 @@ function PromptRow({
   onSave,
 }: {
   prompt: LookbackPrompt;
-  hue: string;
+  hue: ToneName;
   /** 点一下就填进去的几个词。空数组 = 这一段不给词。 */
   words: string[];
   onSave: (answer: string) => void;
@@ -182,8 +183,8 @@ function PromptRow({
     <div
       className="rounded-mk-md border px-3 py-2.5"
       style={{
-        borderColor: done ? `color-mix(in srgb, ${hue} 45%, transparent)` : "var(--mk-border)",
-        background: done ? `color-mix(in srgb, ${hue} 6%, transparent)` : "transparent",
+        borderColor: done ? DONE.solid : "var(--mk-border)",
+        background: done ? DONE.bg : "transparent",
       }}
     >
       <div className="flex items-start gap-2">
@@ -191,9 +192,9 @@ function PromptRow({
         <span
           className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full"
           style={{
-            background: done ? hue : "transparent",
+            background: done ? DONE.solid : "transparent",
             border: done ? "none" : "1.5px solid var(--mk-border)",
-            color: "#fff",
+            color: "var(--mk-surface)",
           }}
         >
           {done && <Icon icon={Check} size={11} />}
@@ -215,7 +216,7 @@ function PromptRow({
                 className="rounded-mk-full px-2 py-0.5 text-mk-small"
                 style={
                   on
-                    ? { background: hue, color: "#fff" }
+                    ? { background: tone(hue).solid, color: "var(--mk-surface)" }
                     : { border: "1px solid var(--mk-border)", color: "var(--mk-secondary)" }
                 }
               >

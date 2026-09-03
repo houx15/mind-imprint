@@ -7,7 +7,7 @@ import {
   joinWhyNot,
   listDecisions,
   openDecisionOf,
-  optionHue,
+  optionTone,
   optionTag,
   settleDecision,
   type Decision,
@@ -80,7 +80,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
 
   const todo = decisionTodo(decision, { choice, why, whyNot });
   const chosenIndex = decision?.options.findIndex((o) => o.label === choice) ?? -1;
-  const chosenHue = optionHue(chosenIndex < 0 ? 0 : chosenIndex);
+  const chosenTone = optionTone(chosenIndex < 0 ? 0 : chosenIndex);
   const answeredDrops = decision
     ? decision.options.filter((o) => o.label !== choice && (dropped[o.id] ?? "").trim() !== "")
         .length
@@ -119,7 +119,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
           <div className="mt-3 space-y-2">
             {decision.options.map((o, i) => {
               const on = choice === o.label;
-              const hue = optionHue(i);
+              const t = optionTone(i);
               // 选中一张之后，别的暗下去——她要看见的是"我挑了这条，放掉了那些"。
               const faded = choice !== "" && !on;
               return (
@@ -128,22 +128,23 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   type="button"
                   onClick={() => setChoice(on ? "" : o.label)}
                   className="block w-full rounded-mk-md border px-3 py-2.5 text-left transition-opacity"
+                  // 🚨 整张卡染上这条路自己的淡底，不挂左侧色条。
                   style={{
-                    borderColor: on ? hue : "var(--mk-border)",
-                    borderLeft: `4px solid ${hue}`,
-                    background: on ? `color-mix(in srgb, ${hue} 12%, transparent)` : "transparent",
-                    opacity: faded ? 0.55 : 1,
+                    borderColor: on ? t.solid : "transparent",
+                    background: t.bg,
+                    opacity: faded ? 0.5 : 1,
+                    boxShadow: on ? `0 0 0 2px color-mix(in srgb, ${t.solid} 32%, transparent)` : undefined,
                   }}
                 >
                   <span className="flex items-start gap-2">
                     <span
                       className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
-                      style={{ background: hue, color: "#fff" }}
+                      style={{ background: t.solid, color: "var(--mk-surface)" }}
                     >
                       {optionTag(i)}
                     </span>
                     <span className="min-w-0 flex-1">
-                      <span className="block text-mk-small font-semibold text-mk-ink">
+                      <span className="block text-mk-small font-semibold" style={{ color: t.fg }}>
                         {o.label}
                       </span>
                       {o.description && (
@@ -153,7 +154,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                       )}
                     </span>
                     {on && (
-                      <span className="mt-0.5 shrink-0" style={{ color: hue }}>
+                      <span className="mt-0.5 shrink-0" style={{ color: t.solid }}>
                         <Icon icon={Check} size={15} />
                       </span>
                     )}
@@ -170,7 +171,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                 <div className="flex items-center gap-2">
                   <span
                     className="h-3.5 w-1 rounded-mk-full"
-                    style={{ background: chosenHue }}
+                    style={{ background: chosenTone.solid }}
                   />
                   <label className="text-mk-body font-semibold text-mk-ink">为什么选它</label>
                 </div>
@@ -188,7 +189,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   真的想起每一条当初为什么看起来可行。 */}
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "#94A3B8" }} />
+                  <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "var(--mk-border)" }} />
                   <label className="text-mk-body font-semibold text-mk-ink">
                     放掉的（{answeredDrops}/{decision.options.length - 1}）
                   </label>
@@ -202,19 +203,18 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                       <div
                         key={o.id}
                         className="rounded-mk-md border px-3 py-2"
-                        style={{
-                          borderColor: "var(--mk-border)",
-                          borderLeft: `4px solid ${optionHue(i)}`,
-                        }}
+                        style={{ borderColor: "transparent", background: optionTone(i).bg }}
                       >
                         <div className="flex items-center gap-2">
                           <span
                             className="flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
-                            style={{ background: optionHue(i), color: "#fff" }}
+                            style={{ background: optionTone(i).solid, color: "var(--mk-surface)" }}
                           >
                             {optionTag(i)}
                           </span>
-                          <span className="text-mk-small text-mk-secondary">{o.label}</span>
+                          <span className="text-mk-small" style={{ color: optionTone(i).fg }}>
+                            {o.label}
+                          </span>
                         </div>
                         <input
                           value={dropped[o.id] ?? ""}

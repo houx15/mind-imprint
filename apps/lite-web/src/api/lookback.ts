@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import type { ToneName } from "../shared/tone";
 
 // api/lookback.ts —— 复盘，和上线之后。
 // 形状读自 apps/api/internal/api/pbl_lookback.go 和 pbl_keep.go。
@@ -11,13 +12,13 @@ export type ReviewSection = "what" | "how" | "moment" | "praise" | "improve" | "
  * 复盘的六段（产品负责人 2026-09-02）。段是固定的，段里的问题由印记按这个项目
  * 真发生过的事现写——见 apps/api/internal/pbl/lookback.go。
  */
-export const REVIEW_SECTIONS: { key: ReviewSection; title: string; hue: string }[] = [
-  { key: "what", title: "做了什么", hue: "#3B82F6" },
-  { key: "how", title: "感受如何", hue: "#8B5CF6" },
-  { key: "moment", title: "印象最深的一件事", hue: "#F59E0B" },
-  { key: "praise", title: "值得肯定的地方", hue: "#10B981" },
-  { key: "improve", title: "还能更好的地方", hue: "#EF4444" },
-  { key: "with_ai", title: "和 AI 的协作", hue: "#06B6D4" },
+export const REVIEW_SECTIONS: { key: ReviewSection; title: string; hue: ToneName }[] = [
+  { key: "what", title: "做了什么", hue: "mist" },
+  { key: "how", title: "感受如何", hue: "taro" },
+  { key: "moment", title: "印象最深的一件事", hue: "peach" },
+  { key: "praise", title: "值得肯定的地方", hue: "matcha" },
+  { key: "improve", title: "还能更好的地方", hue: "berry" },
+  { key: "with_ai", title: "和 AI 的协作", hue: "lake" },
 ];
 
 /**
@@ -60,7 +61,7 @@ export interface LookbackPrompt {
 /** 按六段分组，空段不出现。 */
 export function bySection(
   prompts: LookbackPrompt[],
-): { key: ReviewSection; title: string; hue: string; prompts: LookbackPrompt[] }[] {
+): { key: ReviewSection; title: string; hue: ToneName; prompts: LookbackPrompt[] }[] {
   return REVIEW_SECTIONS.map((s) => ({
     ...s,
     prompts: prompts.filter((p) => p.section === s.key),
@@ -113,10 +114,10 @@ export interface KeepEntry {
 
 /** 循环里的四步。颜色是为了让她一眼看出自己停在哪一步。 */
 export const KEEP_STAGES: { stage: KeepStage; label: string; hint: string; hue: string }[] = [
-  { stage: "ship", label: "发布上线", hint: "让真实用户开始使用你的成果", hue: "#3B82F6" },
-  { stage: "observe", label: "收集数据", hint: "整理访谈、问卷、后台数据，拿到真实反馈", hue: "#10B981" },
-  { stage: "interpret", label: "数据分析", hint: "从这些数据里提取对成果有用的洞察", hue: "#F59E0B" },
-  { stage: "change", label: "产品迭代", hint: "形成迭代方案，并把它做出来", hue: "#8B5CF6" },
+  { stage: "ship", label: "发布上线", hint: "让真实用户开始使用你的成果", hue: "var(--mk-mist)" },
+  { stage: "observe", label: "收集数据", hint: "整理访谈、问卷、后台数据，拿到真实反馈", hue: "var(--mk-matcha)" },
+  { stage: "interpret", label: "数据分析", hint: "从这些数据里提取对成果有用的洞察", hue: "var(--mk-peach)" },
+  { stage: "change", label: "产品迭代", hint: "形成迭代方案，并把它做出来", hue: "var(--mk-taro)" },
 ];
 
 export const KEEP_KINDS: { kind: KeepKind; label: string; placeholder: string }[] = [

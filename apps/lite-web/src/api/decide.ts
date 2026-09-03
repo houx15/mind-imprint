@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import { toneAt, type Tone } from "../shared/tone";
 
 // api/decide.ts —— 理性决策。形状读自 apps/api/internal/api/pbl_decide.go。
 
@@ -92,10 +93,8 @@ export function decisionTodo(
  * 五个色相循环，和便签板同一套（见 api/notes.ts），学生在两块界面上看到的是
  * 同一种视觉语言。
  */
-const OPTION_HUES = ["#3B82F6", "#8B5CF6", "#F59E0B", "#10B981", "#EF4444"];
-
-export function optionHue(index: number): string {
-  return OPTION_HUES[index % OPTION_HUES.length] as string;
+export function optionTone(index: number): Tone {
+  return toneAt(index);
 }
 
 /** 选项的编号：A、B、C…… 比「选项 1」短，也比原文标签好指。 */

@@ -268,7 +268,6 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                 minHeight: NOTE_H,
                 cursor: editing === n.id ? "text" : "grab",
                 background: `color-mix(in srgb, ${meta.hue} 14%, var(--mk-surface))`,
-                borderLeft: `3px solid ${meta.hue}`,
                 outline: on ? "2px solid var(--mk-accent-500)" : undefined,
                 outlineOffset: 1,
               }}

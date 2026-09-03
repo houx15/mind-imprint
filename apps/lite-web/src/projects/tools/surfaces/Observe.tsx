@@ -112,10 +112,7 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
       {filled.length > 0 && filled.every((i) => i.kind === "assumption") && (
         <p
           className="mb-3 rounded-mk-md px-3 py-2 text-mk-small"
-          style={{
-            background: "color-mix(in srgb, #F59E0B 10%, transparent)",
-            borderLeft: "3px solid #F59E0B",
-          }}
+          style={{ background: "var(--mk-warning-bg)", color: "var(--mk-ink)" }}
         >
           你带回来的全是推论。再补一条你亲眼看到的事，或者一句别人的原话——
           推论要站得住，得先有东西撑着它。
@@ -126,8 +123,12 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         {items.map((it, i) => (
           <div
             key={i}
-            className="rounded-mk-md border border-mk-border p-2"
-            style={{ borderLeft: `4px solid ${noteKindMeta(it.kind).hue}` }}
+            className="rounded-mk-md border p-2"
+            // 整块淡底带出这一类的颜色，不挂左侧色条。
+            style={{
+              borderColor: "transparent",
+              background: `color-mix(in srgb, ${noteKindMeta(it.kind).hue} 12%, var(--mk-surface))`,
+            }}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex flex-wrap gap-1">

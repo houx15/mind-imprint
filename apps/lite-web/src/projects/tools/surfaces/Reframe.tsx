@@ -10,6 +10,7 @@ import {
   type Reframe as ReframeRow,
 } from "../../../api/reframe";
 import { ToolFrame } from "../ToolFrame";
+import { tone, type ToneName } from "../../../shared/tone";
 import type { ToolSurfaceProps } from "../registry";
 import { apiErrorText } from "../../../api/errorText";
 
@@ -34,7 +35,7 @@ import { apiErrorText } from "../../../api/errorText";
 const STEPS = [
   {
     field: "who" as const,
-    hue: "#3B82F6",
+    tone: "mist" as const,
     slot: "谁",
     ask: "这件事里，具体是谁？",
     hint: "落到一个具体的人。「大家」「学生」太大了，想一个你真的见过的。",
@@ -42,7 +43,7 @@ const STEPS = [
   },
   {
     field: "needs" as const,
-    hue: "#10B981",
+    tone: "matcha" as const,
     slot: "需要什么",
     ask: "这个人需要什么？",
     hint: "说这个人要的那个东西，先不说你打算怎么给。",
@@ -50,7 +51,7 @@ const STEPS = [
   },
   {
     field: "why" as const,
-    hue: "#F59E0B",
+    tone: "peach" as const,
     slot: "为什么",
     ask: "为什么这对这个人重要？",
     hint: "如果没有会怎样？答得出这个，问题才站得住。",
@@ -58,7 +59,7 @@ const STEPS = [
   },
   {
     field: "hmw" as const,
-    hue: "#8B5CF6",
+    tone: "taro" as const,
     slot: "我们可以怎样",
     ask: "那么，我们可以怎样……？",
     hint: "写成一个还没有答案的问句。太具体就变成方案了。",
@@ -199,9 +200,9 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 className="h-1.5 flex-1 rounded-mk-full"
                 style={{
                   background: row[s.field].trim()
-                    ? s.hue
+                    ? tone(s.tone).solid
                     : i === step
-                      ? `color-mix(in srgb, ${s.hue} 40%, transparent)`
+                      ? tone(s.tone).bg
                       : "var(--mk-border)",
                 }}
                 aria-label={s.slot}
@@ -217,8 +218,8 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 key={s.field}
                 type="button"
                 onClick={() => go(i)}
-                className="block w-full rounded-mk-md border border-mk-border px-3 py-2 text-left"
-                style={{ borderLeft: `4px solid ${s.hue}` }}
+                className="block w-full rounded-mk-md border px-3 py-2 text-left"
+                style={{ borderColor: "transparent", background: tone(s.tone).bg }}
               >
                 <span className="text-mk-small text-mk-muted">{s.ask}</span>
                 <span className="mt-0.5 block text-mk-small text-mk-ink">{row[s.field] || "——"}</span>
@@ -228,8 +229,10 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
 
           {/* 正在问的这一句 */}
           {current && (
-            <div className="mt-3 rounded-mk-md border border-mk-border px-3 py-2.5"
-                 style={{ borderLeft: `4px solid ${current.hue}` }}>
+            <div
+              className="mt-3 rounded-mk-md border px-3 py-2.5"
+              style={{ borderColor: tone(current.tone).solid }}
+            >
               <p className="text-mk-body font-semibold text-mk-ink">{current.ask}</p>
               <p className="mt-1 text-mk-small text-mk-muted">{current.hint}</p>
               <textarea
@@ -245,7 +248,7 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                   onClick={() => void next()}
                   disabled={!value.trim()}
                   className="mt-2 rounded-mk-full px-4 py-1.5 text-mk-small text-white disabled:opacity-40"
-                  style={{ background: current.hue }}
+                  style={{ background: tone(current.tone).solid }}
                 >
                   下一句
                 </button>
@@ -280,7 +283,7 @@ function Slot({
   text,
   onGo,
 }: {
-  step: { hue: string; slot: string };
+  step: { tone: ToneName; slot: string };
   text: string;
   onGo: () => void;
 }) {
@@ -293,13 +296,13 @@ function Slot({
       style={
         filled
           ? {
-              background: `color-mix(in srgb, ${step.hue} 16%, transparent)`,
-              boxShadow: `inset 0 -2px 0 ${step.hue}`,
-              color: "var(--mk-ink)",
+              background: tone(step.tone).bg,
+              boxShadow: `inset 0 -2px 0 ${tone(step.tone).solid}`,
+              color: tone(step.tone).fg,
             }
           : {
-              border: `1px dashed ${step.hue}`,
-              color: step.hue,
+              border: `1px dashed ${tone(step.tone).solid}`,
+              color: tone(step.tone).fg,
             }
       }
     >

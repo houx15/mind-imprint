@@ -142,7 +142,7 @@ function Owned({ who, value }: { who: string; value: string }) {
       <span
         className="mt-0.5 shrink-0 rounded-mk-full px-2 py-0.5 text-mk-small"
         style={{
-          background: `color-mix(in srgb, ${mine ? "#10B981" : "#8B5CF6"} 16%, transparent)`,
+          background: mine ? "var(--mk-matcha-bg)" : "var(--mk-taro-bg)",
           color: "var(--mk-ink)",
         }}
       >

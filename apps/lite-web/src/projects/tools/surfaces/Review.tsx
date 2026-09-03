@@ -21,6 +21,7 @@ import {
 } from "../../../api/review";
 import { ToolFrame } from "../ToolFrame";
 import { useWidePane } from "../wide";
+import { DONE, TODO, tone } from "../../../shared/tone";
 import type { ToolSurfaceProps } from "../registry";
 import { apiErrorText } from "../../../api/errorText";
 
@@ -172,20 +173,20 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               className="cursor-pointer rounded-mk-sm px-0.5"
               style={{
                 background: seg.mark.answer.trim()
-                  ? "color-mix(in srgb, #10B981 22%, transparent)"
-                  : "color-mix(in srgb, #F59E0B 28%, transparent)",
+                  ? DONE.bg
+                  : TODO.bg,
                 color: "var(--mk-ink)",
                 boxShadow: seg.mark.answer.trim()
-                  ? "inset 0 -2px 0 #10B981"
-                  : "inset 0 -2px 0 #F59E0B",
+                  ? `inset 0 -2px 0 ${DONE.solid}`
+                  : `inset 0 -2px 0 ${TODO.solid}`,
               }}
             >
               {seg.text}
               <sup
                 className="ml-0.5 rounded-mk-full px-1 text-[10px] font-semibold"
                 style={{
-                  background: seg.mark.answer.trim() ? "#10B981" : "#F59E0B",
-                  color: "#fff",
+                  background: seg.mark.answer.trim() ? DONE.solid : TODO.solid,
+                  color: "var(--mk-surface)",
                 }}
               >
                 {markNo.get(seg.mark.id) ?? "?"}
@@ -255,9 +256,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               className="mb-3 flex items-center gap-3 rounded-mk-md px-3 py-2.5"
               style={{
                 background:
-                  scored.done === scored.total
-                    ? "color-mix(in srgb, #10B981 12%, transparent)"
-                    : "var(--mk-paper)",
+                  scored.done === scored.total ? DONE.bg : "var(--mk-paper)",
               }}
             >
               <Ring done={scored.done} total={scored.total} />
@@ -282,13 +281,13 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               2026-09-03：「critical points are highlighted, or put in a colored box」。 */}
           <div className="mb-4 space-y-2">
             <Callout
-              tone="#F59E0B"
+              t={tone("peach")}
               title="印记的猜测"
               blurb="这一版是踩着这些假设写的。假设不成立，下面的东西就不成立。"
               items={artifact.guessed}
             />
             <Callout
-              tone="#EF4444"
+              t={tone("berry")}
               title="印记觉得可能不对的地方"
               blurb="印记自己也没把握的地方，先从这里看起。"
               items={artifact.admits}
@@ -314,8 +313,8 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                         <span
                           className="flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
                           style={{
-                            background: at.total > 0 && at.done === at.total ? "#10B981" : "#F59E0B",
-                            color: "#fff",
+                            background: at.total > 0 && at.done === at.total ? DONE.solid : TODO.solid,
+                            color: "var(--mk-surface)",
                           }}
                         >
                           {pi + 1}
@@ -327,8 +326,8 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                             style={
                               at.done === at.total
                                 ? {
-                                    background: "color-mix(in srgb, #10B981 18%, transparent)",
-                                    color: "#10B981",
+                                    background: DONE.bg,
+                                    color: DONE.solid,
                                   }
                                 : { background: "var(--mk-paper)", color: "var(--mk-faint)" }
                             }
@@ -342,8 +341,8 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                       <p
                         className="mb-2 rounded-mk-md px-3 py-2 text-mk-small text-mk-ink"
                         style={{
-                          background: "color-mix(in srgb, #3B82F6 8%, transparent)",
-                          borderLeft: "3px solid #3B82F6",
+                          background: tone("mist").bg,
+                          color: tone("mist").fg,
                         }}
                       >
                         这一部分要看的：{part.note}
@@ -415,7 +414,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
           {!isDocument(artifact) && plan.marks.length > 0 && (
             <div className="mt-5 space-y-2 border-t border-mk-border pt-4">
               <div className="flex items-center gap-2">
-                <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "#F59E0B" }} />
+                <span className="h-3.5 w-1 rounded-mk-full" style={{ background: TODO.solid }} />
                 <p className="text-mk-body font-semibold text-mk-ink">
                   划出来的句子（{plan.marks.filter((m) => m.answer.trim()).length}/
                   {plan.marks.length}）
@@ -509,31 +508,27 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
  * 这里的 tone 是写死的十六进制，所以直接兑就行。
  */
 function Callout({
-  tone,
+  t,
   title,
   blurb,
   items,
 }: {
-  tone: string;
+  t: { solid: string; bg: string; fg: string };
   title: string;
   blurb: string;
   items: string[];
 }) {
   if (items.length === 0) return null;
   return (
-    <div
-      className="rounded-mk-md px-3 py-2.5"
-      style={{
-        background: `color-mix(in srgb, ${tone} 10%, transparent)`,
-        borderLeft: `3px solid ${tone}`,
-      }}
-    >
-      <p className="text-mk-small font-semibold text-mk-ink">{title}</p>
+    <div className="rounded-mk-md px-3 py-2.5" style={{ background: t.bg }}>
+      <p className="text-mk-small font-semibold" style={{ color: t.fg }}>
+        {title}
+      </p>
       <p className="mt-0.5 text-mk-small text-mk-muted">{blurb}</p>
       <ul className="mt-1.5 space-y-1">
         {items.map((x, i) => (
           <li key={i} className="flex gap-1.5 text-mk-small text-mk-ink">
-            <span style={{ color: tone }}>·</span>
+            <span style={{ color: t.solid }}>·</span>
             <span>{x}</span>
           </li>
         ))}
@@ -561,14 +556,14 @@ function MarkRow({
     <div
       className="rounded-mk-md border px-3 py-2"
       style={{
-        borderColor: done ? "color-mix(in srgb, #10B981 45%, transparent)" : "var(--mk-border)",
-        background: done ? "color-mix(in srgb, #10B981 6%, transparent)" : "transparent",
+        borderColor: done ? DONE.solid : "var(--mk-border)",
+        background: done ? DONE.bg : "transparent",
       }}
     >
       <button type="button" onClick={onToggle} className="flex w-full gap-2 text-left">
         <span
           className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
-          style={{ background: done ? "#10B981" : "#F59E0B", color: "#fff" }}
+          style={{ background: done ? DONE.solid : TODO.solid, color: "var(--mk-surface)" }}
         >
           {no}
         </span>
@@ -632,7 +627,7 @@ function Ring({ done, total }: { done: number; total: number }) {
         cy="19"
         r={r}
         fill="none"
-        stroke={full ? "#10B981" : "var(--mk-accent-500)"}
+        stroke={full ? "var(--mk-success)" : "var(--mk-accent-500)"}
         strokeWidth="4"
         strokeLinecap="round"
         strokeDasharray={`${c * pct} ${c}`}

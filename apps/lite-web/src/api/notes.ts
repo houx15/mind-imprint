@@ -35,14 +35,14 @@ export interface NoteKindMeta {
  * 变成「她记下的别人的原话：走廊上我数了 23 个人」。而且整套标签里根本没有
  * 「原话」这一档，她想记下同学真说了什么就无处可放。
  */
-const OBSERVATION: NoteKindMeta = { kind: "observation", label: "实际观察", hue: "#3B82F6" };
+const OBSERVATION: NoteKindMeta = { kind: "observation", label: "实际观察", hue: "var(--mk-mist)" };
 
 export const NOTE_KINDS: NoteKindMeta[] = [
   OBSERVATION,
-  { kind: "quote", label: "别人的原话", hue: "#8B5CF6" },
-  { kind: "assumption", label: "我的推论", hue: "#F59E0B" },
-  { kind: "question", label: "我的问题", hue: "#EF4444" },
-  { kind: "idea", label: "解决方案", hue: "#10B981" },
+  { kind: "quote", label: "别人的原话", hue: "var(--mk-taro)" },
+  { kind: "assumption", label: "我的推论", hue: "var(--mk-peach)" },
+  { kind: "question", label: "我的问题", hue: "var(--mk-berry)" },
+  { kind: "idea", label: "解决方案", hue: "var(--mk-matcha)" },
 ];
 
 /**

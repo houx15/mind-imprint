@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { joinWhyNot, optionHue, optionTag } from "./decide";
+import { joinWhyNot, optionTag, optionTone } from "./decide";
 
 // 🚨 「为什么放掉别的」是这件工具真正教的东西，所以她是一条一条分开答的，
 // 而后端存的是一个字符串。拼错了，回灌给印记的就是一句认不出谁是谁的话。
@@ -36,20 +36,23 @@ describe("joinWhyNot", () => {
 
 // 选项的颜色和编号要稳定：上面选中的那张、下面「放掉的」那张，是靠这两样认出
 // 彼此的。循环也不能越界——印记给几个选项由它自己定。
-describe("optionHue / optionTag", () => {
+describe("optionTone / optionTag", () => {
   it("gives the same option the same colour and letter every time", () => {
-    expect(optionHue(0)).toBe(optionHue(0));
+    expect(optionTone(0)).toEqual(optionTone(0));
     expect(optionTag(0)).toBe("A");
     expect(optionTag(2)).toBe("C");
   });
 
-  it("wraps instead of running off the end", () => {
-    expect(optionHue(99)).toMatch(/^#[0-9A-Fa-f]{6}$/);
+  // 🚨 颜色必须是设计令牌，不是手写的十六进制——写死的颜色不跟暗色模式走。
+  it("hands out design tokens, never a literal colour", () => {
+    for (const v of Object.values(optionTone(99))) {
+      expect(v).toMatch(/^var\(--mk-[a-z0-9-]+\)$/);
+    }
     expect(optionTag(26)).toBe("A");
   });
 
   it("never gives two of the first five options the same colour", () => {
-    const hues = [0, 1, 2, 3, 4].map(optionHue);
-    expect(new Set(hues).size).toBe(5);
+    const solids = [0, 1, 2, 3, 4].map((i) => optionTone(i).solid);
+    expect(new Set(solids).size).toBe(5);
   });
 });

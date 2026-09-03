@@ -4,6 +4,7 @@ import { Plus } from "lucide-react";
 import { Icon } from "@/ui";
 import { archiveNote, createNotes, listNotes, type Note } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
+import { DONE, tone } from "../../../shared/tone";
 import type { ToolSurfaceProps } from "../registry";
 
 /**
@@ -137,10 +138,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               key={i}
               className="h-2 w-6 rounded-mk-full"
               style={{
-                background:
-                  i < ideas.length
-                    ? "#10B981"
-                    : "color-mix(in srgb, #10B981 18%, transparent)",
+                background: i < ideas.length ? DONE.solid : DONE.bg,
               }}
             />
           ))}
@@ -158,16 +156,15 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
             key={i.id}
             className="rounded-mk-md border px-3 py-2"
             style={{
-              borderColor: picked === i.id ? "#10B981" : "var(--mk-border)",
-              borderLeft: `4px solid ${picked === i.id ? "#10B981" : "color-mix(in srgb, #10B981 35%, transparent)"}`,
+              borderColor: picked === i.id ? DONE.solid : "var(--mk-border)",
               background: merging.includes(i.id)
-                ? "color-mix(in srgb, #F59E0B 12%, transparent)"
+                ? tone("peach").bg
                 : picked === i.id
-                  ? "color-mix(in srgb, #10B981 8%, transparent)"
+                  ? DONE.bg
                   : undefined,
               boxShadow:
                 picked === i.id
-                  ? "0 0 0 2px color-mix(in srgb, #10B981 30%, transparent)"
+                  ? `0 0 0 2px color-mix(in srgb, ${DONE.solid} 30%, transparent)`
                   : undefined,
             }}
           >
@@ -178,7 +175,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                 onClick={() => setPicked(picked === i.id ? null : i.id)}
                 disabled={!enough}
                 className="text-mk-small disabled:opacity-40"
-                style={{ color: picked === i.id ? "#10B981" : "var(--mk-secondary)" }}
+                style={{ color: picked === i.id ? DONE.solid : "var(--mk-secondary)" }}
               >
                 {picked === i.id ? "✓ 先试这个" : "先试这个"}
               </button>
@@ -199,7 +196,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           type="button"
           onClick={() => void merge()}
           className="mt-2 w-full rounded-mk-md border border-dashed py-2 text-mk-small"
-          style={{ borderColor: "#F59E0B", color: "#F59E0B" }}
+          style={{ borderColor: tone("peach").solid, color: tone("peach").fg }}
         >
           把这两个合成一个
         </button>

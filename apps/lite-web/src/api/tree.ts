@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import { tone, type Tone, type ToneName } from "../shared/tone";
 
 // api/tree.ts —— 结构图。形状读自 apps/api/internal/api/pbl_tree.go。
 
@@ -177,8 +178,8 @@ export function autoLayout(nodes: TreeNode[]): Map<string, { x: number; y: numbe
  *
  * 层数不会很深（服务端最多三层），越深越淡。
  */
-const DEPTH_HUES = ["#3B82F6", "#8B5CF6", "#10B981", "#F59E0B"];
+const DEPTH_TONES: ToneName[] = ["mist", "taro", "matcha", "peach"];
 
-export function depthHue(depth: number): string {
-  return DEPTH_HUES[Math.min(Math.max(depth, 0), DEPTH_HUES.length - 1)] as string;
+export function depthTone(depth: number): Tone {
+  return tone(DEPTH_TONES[Math.min(Math.max(depth, 0), DEPTH_TONES.length - 1)] as ToneName);
 }

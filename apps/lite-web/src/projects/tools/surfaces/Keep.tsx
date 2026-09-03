@@ -230,8 +230,9 @@ export function Keep({
             <div
               key={e.id}
               className="rounded-mk-md px-3 py-2"
-              style={{ borderLeft: `3px solid ${meta?.hue ?? "var(--mk-border)"}`,
-                       background: "var(--mk-paper)" }}
+              style={{
+                background: `color-mix(in srgb, ${meta?.hue ?? "var(--mk-border)"} 12%, var(--mk-surface))`,
+              }}
             >
               <p className="text-mk-small text-mk-ink">{e.body}</p>
               <div className="mt-1.5 flex items-center gap-2">
