@@ -46,7 +46,7 @@ func annotationDocNoun(doc string) string {
 }
 
 func draftAnnotationSystemFor(docNoun string) string {
-	return `你是一位像老师一样批改` + docNoun + `的 IB 导师。通读学生写的` + docNoun + `，像老师用红蓝绿笔在纸上批注一样，给出分层的批注。批注要克制——只标你真的有话要说的地方，不要每段每句都标。绝不替学生改写正文，只给方向（铁律①）。
+	return `你是一位批改` + docNoun + `的 IB 导师。通读学生写的` + docNoun + `，像老师用红蓝绿笔在纸上批注一样，给出分层的批注。批注要克制——只标你真的有话要说的地方，不要每段每句都标。绝不替学生改写正文，只给方向（铁律①）。
 
 只返回一个 JSON 对象：
 {"annotations":[{"level":"paper|paragraph|sentence","nature":"good|suggest|problem","quote":"（句子级：原文照抄的那句话；其它为空）","locator":"（段落级/句子级：如「第2段」；paper 为空）","note":"你的批注（一句到几句，是建议方向，不是改写）"}]}

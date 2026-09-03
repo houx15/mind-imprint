@@ -23,7 +23,7 @@ import (
 
 // summaryFallback is returned (NOT persisted) when composition fails, so a
 // later open retries instead of caching canned text.
-const summaryFallback = "欢迎回来——接着上次的思路继续吧。"
+const summaryFallback = "欢迎回来。我们接着上次的思路继续。"
 
 // getProjectSummary returns the stored re-entry summary, or JSON null when none
 // has been composed. Never calls a model.
