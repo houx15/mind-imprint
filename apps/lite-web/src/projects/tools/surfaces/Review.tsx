@@ -18,6 +18,8 @@ import {
   type ReviewPlan,
   splitIntoParts,
   partProgress,
+  SPOT_QUESTION,
+  spotProblem,
 } from "../../../api/review";
 import { ToolFrame } from "../ToolFrame";
 import { useWidePane } from "../wide";
@@ -46,6 +48,15 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   const [plan, setPlan] = useState<ReviewPlan>({ marks: [], dimensions: [] });
   const [openMark, setOpenMark] = useState<string | null>(null);
   const [selection, setSelection] = useState("");
+  // 🚨 「找茬」这一轮：印记承认的那几处先盖住，她自己先找。
+  //
+  // 产品负责人 2026-09-03：「review games … gamification, interaction!」。
+  // 审一份东西最省力的走法是从头读到尾然后点通过；而这件工具真正要教的是
+  // 铁律①那一条——她判断 AI，不是反过来。所以把顺序倒过来：先让她找，再对答案。
+  // 「你找出了印记自己都没提的一处」是这件事最好的时刻，也只有先藏起来才可能发生。
+  const [spotting, setSpotting] = useState("");   // 正在写理由的那一段引文
+  const [spotWhy, setSpotWhy] = useState("");
+  const [revealed, setRevealed] = useState(false);
   const [verdictWhy, setVerdictWhy] = useState("");
   const [error, setError] = useState<string | null>(null);
 
@@ -151,6 +162,49 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   const { wide } = useWidePane();
   // 划出来的句子在正文里的编号，1 开始。正文里的角标和下面那条问题靠它对上。
   const parts = useMemo(() => splitIntoParts(paragraphs, plan.marks), [paragraphs, plan.marks]);
+
+  // 她自己找出来的那几处（question 是那句固定标签）。
+  const mySpots = useMemo(
+    () => plan.marks.filter((m) => m.mine && m.question === SPOT_QUESTION),
+    [plan.marks],
+  );
+
+  // 揭晓与否是"这个人看到哪儿了"，不是项目数据——存本地就够，也不该同步给别人。
+  const revealKey = artifact ? `pbl:revealed:${artifact.id}` : "";
+  useEffect(() => {
+    if (!revealKey) return;
+    try {
+      setRevealed(window.localStorage.getItem(revealKey) === "1");
+    } catch {
+      // 无痕窗口读不到就当没揭晓过，不该因此崩掉整屏。
+      setRevealed(false);
+    }
+  }, [revealKey]);
+
+  function reveal() {
+    setRevealed(true);
+    try {
+      window.localStorage.setItem(revealKey, "1");
+    } catch {
+      /* 记不住就只这一次有效 */
+    }
+  }
+
+  async function spot() {
+    if (!artifact) return;
+    const quote = spotting.trim();
+    const why = spotWhy.trim();
+    if (!quote || !why) return;
+    try {
+      await spotProblem(projectId, artifact.id, quote, why);
+      setSpotting("");
+      setSpotWhy("");
+      setSelection("");
+      await loadPlan();
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
   // 战绩：划出来的句子 + 该看的几个方面，一起算。两样都是"她做过的判断"。
   const scored = useMemo(() => {
     const all = [...plan.marks, ...plan.dimensions];
@@ -280,6 +334,45 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               🚨 原来这一块是一列灰色小字，每行前面还顶着「猜测内容：」「可能出错：」
               ——最该被看见的两件事，长得和旁边的说明文字一模一样。产品负责人
               2026-09-03：「critical points are highlighted, or put in a colored box」。 */}
+          {/* 🚨 找茬：印记承认的那几处先盖住。
+              审一份东西最省力的走法是从头读到尾然后点通过。把顺序倒过来——先让
+              她找，再对答案——「你找出了印记自己都没提的一处」这个时刻才可能发生，
+              而那正是铁律①要的：她判断 AI。 */}
+          {!revealed && (artifact.admits.length > 0 || artifact.guessed.length > 0) && (
+            <div className="mb-4 rounded-mk-md px-3 py-2.5" style={{ background: tone("mist").bg }}>
+              <p className="text-mk-small font-semibold" style={{ color: tone("mist").fg }}>
+                先自己找一遍
+              </p>
+              <p className="mt-0.5 text-mk-small text-mk-ink">
+                印记写这一版时，自己标出了 {artifact.admits.length} 处没把握的地方。
+                先别看它说的——在下面的正文里选中一句，说说哪里不对。
+              </p>
+              <div className="mt-2 flex items-center gap-2">
+                <span className="text-mk-small text-mk-muted">你已经标了 {mySpots.length} 处</span>
+                <button
+                  type="button"
+                  onClick={reveal}
+                  className="rounded-mk-full px-3 py-1 text-mk-small"
+                  style={{ background: tone("mist").solid, color: "var(--mk-surface)" }}
+                >
+                  对答案
+                </button>
+              </div>
+            </div>
+          )}
+
+          {revealed && mySpots.length > 0 && (
+            <div className="mb-3 rounded-mk-md px-3 py-2.5" style={{ background: DONE.bg }}>
+              <p className="text-mk-small font-semibold" style={{ color: DONE.fg }}>
+                你找出 {mySpots.length} 处，印记自己承认 {artifact.admits.length} 处
+              </p>
+              <p className="mt-0.5 text-mk-small text-mk-ink">
+                两边对照着看：有没有你标了、而它一个字没提的？那几处最值得拿去跟它说。
+              </p>
+            </div>
+          )}
+
+          {revealed && (
           <div className="mb-4 space-y-2">
             <Callout
               t={tone("peach")}
@@ -294,6 +387,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               items={artifact.admits}
             />
           </div>
+          )}
 
           {/* 正文：一部分一部分地进去，而不是摊开一整篇。
               🚨 产品负责人 2026-09-03：「we must go into texts, instead of
@@ -395,13 +489,65 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
             </p>
           )}
 
+          {/* 她划出来的那一处：写一句哪里不对。 */}
+          {spotting && (
+            <div className="mt-2 rounded-mk-md px-3 py-2.5" style={{ background: TODO.bg }}>
+              <p className="text-mk-small text-mk-muted">「{spotting}」</p>
+              <input
+                autoFocus
+                value={spotWhy}
+                onChange={(e) => setSpotWhy(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void spot()}
+                placeholder="这里哪儿不对"
+                className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void spot()}
+                  disabled={!spotWhy.trim()}
+                  className="rounded-mk-full px-3 py-1 text-mk-small disabled:opacity-40"
+                  style={{ background: TODO.solid, color: "var(--mk-surface)" }}
+                >
+                  记下来
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSpotting("");
+                    setSpotWhy("");
+                  }}
+                  className="text-mk-small text-mk-secondary"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          )}
+
+          {/* 选中一段之后能做两件事：自己标一处，或者问印记。 */}
+          {selection.trim() && !spotting && (
+            <div className="mt-2 flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setSpotting(selection.trim());
+                  setSpotWhy("");
+                }}
+                className="flex flex-1 items-center justify-center gap-1.5 rounded-mk-full py-2 text-mk-small"
+                style={{ background: TODO.solid, color: "var(--mk-surface)" }}
+              >
+                这里有问题
+              </button>
+            </div>
+          )}
+
           {/* 选中就地问 */}
-          {selection.trim() && (
+          {selection.trim() && !spotting && (
             <button
               type="button"
               onClick={() => void ask()}
-              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-mk-full py-2 text-mk-small text-white"
-              style={{ background: "var(--mk-accent-500)" }}
+              className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-mk-full border border-mk-border py-2 text-mk-small text-mk-secondary"
             >
               <Icon icon={MessageSquareQuote} size={14} />
               问问这一句

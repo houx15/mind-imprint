@@ -63,6 +63,33 @@ export function askAbout(
   );
 }
 
+/**
+ * 她自己标出来的那一处，question 固定是这一句。
+ *
+ * 🚨 必须和服务端的 `pblSpotQuestion` 一字不差（apps/api/internal/api/
+ * pbl_review.go）——界面靠它把「她找的」和「印记划的」分开。
+ */
+export const SPOT_QUESTION = "你标出来的地方";
+
+/**
+ * 「找茬」：她自己划出一处觉得有问题的地方，写一句哪里不对。
+ *
+ * 🚨 和 askAbout 的区别是**不开会话线**。这一轮她在自己判断，不是在问印记——
+ * 每划一处就把印记拉进来，她会顺着印记的话走，而这件事整个的意思恰恰是让她
+ * 先于印记看出问题（铁律①）。想问，旁边一直有「问问这一句」。
+ */
+export function spotProblem(
+  projectId: string,
+  artifactId: string,
+  quote: string,
+  why: string,
+): Promise<ReviewMark> {
+  return apiFetch<ReviewMark>(`${base(projectId)}/artifacts/${artifactId}/spot`, {
+    method: "POST",
+    body: JSON.stringify({ quote, why }),
+  });
+}
+
 export function answerMark(projectId: string, markId: string, answer: string): Promise<ReviewMark> {
   return apiFetch<ReviewMark>(`${base(projectId)}/marks/${markId}`, {
     method: "PATCH",

@@ -128,8 +128,8 @@ func (q *Queries) CreatePblReviewDimension(ctx context.Context, arg CreatePblRev
 const createPblReviewMark = `-- name: CreatePblReviewMark :one
 
 
-INSERT INTO pbl_review_mark (artifact_id, part, part_note, quote, question, ordinal)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO pbl_review_mark (artifact_id, part, part_note, quote, question, ordinal, answer)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, artifact_id, part, part_note, quote, question, answer, session_id, ordinal, created_at
 `
 
@@ -140,6 +140,7 @@ type CreatePblReviewMarkParams struct {
 	Quote      string    `json:"quote"`
 	Question   string    `json:"question"`
 	Ordinal    int32     `json:"ordinal"`
+	Answer     string    `json:"answer"`
 }
 
 // 审阅印记交出来的东西（阶段二），以及项目结束时的复盘（阶段六）。
@@ -152,6 +153,7 @@ func (q *Queries) CreatePblReviewMark(ctx context.Context, arg CreatePblReviewMa
 		arg.Quote,
 		arg.Question,
 		arg.Ordinal,
+		arg.Answer,
 	)
 	var i PblReviewMark
 	err := row.Scan(
