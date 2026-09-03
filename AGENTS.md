@@ -39,7 +39,7 @@
 | 前端 `apps/web` | React + Vite + TypeScript + Tailwind —— 纯渲染 + API 客户端，不持有密钥、不直连模型 |
 | 后端 `apps/api` | **Go**（`net/http` + `pgx`/`sqlc` + `goose` + `river`）—— 智能网关（系统 prompt / `summon_card` / refeed / turn loop 都在服务端）、数据服务、鉴权、异步评估。唯一持有密钥、唯一访问 DB 与模型的单元 |
 | 存储 | **PostgreSQL** —— `users`（含 `school_id`）/ `sessions` / `schools` / `classes` / `enrollments`（用户↔班级）/ `task` / `message`（旧任务面留存，不再有新写入）/ `card_instance` / `evaluation`（**暂定**）。无 `process_node` 表（过程树由 `parent_node_id` 投影）；`project` 面每次真实 LLM 调用（陪练 / 锚点生成 / 课程渲染）都记一行 `llm_call`（档位 + token + 成本），`llm_usage` 视图三路 UNION（`llm_call` + 冻结的 `message`/`evaluation`）供组织成本汇总 |
-| 模型 | China-first。**模型目录 `apps/api/internal/gateway/models.json` 是「哪条通道跑哪个模型」的单一真相源**（go:embed）：providers（通道 + base URL + key 的 env 变量名 + thinking 开关）× models（价格 + capabilities）× **能力档**（reflex / dialogue / compose / review / assess / digest，外加预留的 search / multimodal）。默认全部走**阿里云 DashScope（百炼）聚合端点**——一把 key 直达 Qwen / DeepSeek / GLM / Kimi，便于横向比能力、速度、成本。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；过程评估走旗舰模型**绝不降级**（`assess` 档只接受 `flagship: true`，启动即校验） |
+| 模型 | China-first。**模型目录 `apps/api/internal/gateway/models.json` 是「哪条通道跑哪个模型」的单一真相源**（go:embed）：providers（通道 + base URL + key 的 env 变量名 + thinking 开关）× models（价格 + capabilities）× **能力档**（reflex / dialogue / compose / review / assess / digest / draw，外加预留的 search / multimodal）。默认全部走**阿里云 DashScope（百炼）聚合端点**——一把 key 直达 Qwen / DeepSeek / GLM / Kimi，便于横向比能力、速度、成本。**平台持有 key**（服务端 env），经 `keyResolver` 接缝预留未来按组织计费。陪练走中档模型可降级；过程评估走旗舰模型**绝不降级**（`assess` 档只接受 `flagship: true`，启动即校验） |
 
 **三层解耦（核心心智模型：工具卡 = tool-use 循环里「由人来执行的工具」）：**
 决策层（用不用 / 用哪张，**服务端**）→ `summon_card(card_id, reason, nudge_text)` 单函数接线 → Card Runtime（schema 驱动渲染 + 三视觉态 + 事件采集 + 标准信封落库）→ 回灌陪练 → 所有标准信封长成过程树 + rubric 评估。卡 JSON 为单一共享真相源：前端构建期 import，Go `go:embed` 同一批文件。
@@ -50,9 +50,23 @@
 
 - **客户端绝不直连模型。** 所有 LLM 调用走后端网关，记录档位 + token + 成本；API key 只在服务端。
 - **卡 spec 单一真相源在 registry。** 决策层目录从它派生，不手写第二份（避免 `trigger_condition` 漂移）。
-- **每次 LLM 调用都要声明自己属于哪个「能力档」，而不是挑一条 lane。** 档说的是**这次调用需要多少智力**，不是它属于哪个功能：`reflex`（一个标签）/ `dialogue`（学生当场看得见的一轮）/ `compose`（从已陈述的输入派生一个 schema 产物）/ `review`（判学生的成果）/ `assess`（过程评估，绝不降级）/ `digest`（长输入短输出）。调用点写 `a.routeE(ctx, gateway.ClassDialogue)`，由目录决定这今天意味着哪个模型。全清单与归属见 `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
+- **每次 LLM 调用都要声明自己属于哪个「能力档」，而不是挑一条 lane。** 档说的是**这次调用需要多少智力**，不是它属于哪个功能：`reflex`（一个标签）/ `dialogue`（学生当场看得见的一轮）/ `compose`（从已陈述的输入派生一个 schema 产物）/ `review`（判学生的成果）/ `assess`（过程评估，绝不降级）/ `digest`（长输入短输出）/ `draw`（生成一张图）。调用点写 `a.routeE(ctx, gateway.ClassDialogue)`，由目录决定这今天意味着哪个模型。全清单与归属见 `docs/superpowers/specs/2026-09-02-llm-routing-taxonomy-design.md`。
 - **换模型 = 改一个环境变量，不改代码；新增模型 / 新增 OpenAI 兼容厂商 = 改 `models.json`，不写 Go。** 每档一个变量（`MODEL_DIALOGUE` / `MODEL_COMPOSE` / …）指向目录里的 model id（如 `dashscope/qwen3.8-max`），只动一条、其余不变，测出来的速度与成本才可归因。旧的 `MODEL_CHAT` / `MODEL_FAST_CHAT` / `MODEL_EVAL` 仍作为别名生效（→ dialogue / reflex / assess）。写错 id、给 `assess` 指了非旗舰模型、或给一个要求关思考的档绑了停不下来思考的模型，**启动即失败**，不会悄悄跑一周。`api --print-models` 打印目录与当前绑定。
 - **重新绑定要有实测撑着，不能凭感觉。** `go run ./cmd/routebench` 是一件**与运行系统分开**的工具（不连数据库、不被 `cmd/api` 引用、有测试守着这条线），用真实 prompt 跑候选模型，测结构合法性 / 延迟 / token / 判官质量，输出一份推荐绑定。改 `models.json` 的是人。见 `apps/api/cmd/routebench/README.md`。
+- **🚨 `draw` 档不走对话口，它的端点是实测出来的，不是照文档推的。** 2026-09-04
+  实测：聊天走的那个 DashScope maas 聚合口**画不了图**——`/images/generations`
+  在两个主机上都是 404，尽管它的 `GET /models` 里就列着 `qwen-image-3.0`；
+  拿图像模型打 `/chat/completions` 是 400。图要走 DashScope 原生的
+  `/api/v1/services/aigc/multimodal-generation/generation`，请求体是
+  `input.messages[].content[]`（一个**数组**，给字符串会 400），回包读
+  `output.choices[].message.content[].image`。所以 `models.json` 里有一个独立的
+  provider（`dashscope_image`，另一个主机、另一种 wire shape），三个图像模型挂在
+  它上面，`validate()` 对 `draw` 档查的是画图能力而不是聊天能力。
+  **那个图片地址带签名会过期**，调用点必须马上取下来存进我们自己的 OSS
+  （`internal/api/pbl_draw.go`），绝不把它存进数据库。换模型或换通道之后跑
+  `LIVE_LLM=1 go test ./internal/gateway -run TestLiveDraw` —— 这条第一次跑就抓到
+  了目录注释里那句写错的端点。
+
 - **thinking 开关是「按通道」的数据，不是写死在 adapter 里的代码。** 同一个模型换条路，关思考的字段就不一样：直连 DeepSeek 认 `thinking:{"type":"disabled"}`，**同一模型经 DashScope 时这个字段被静默忽略**，认的是 `enable_thinking:false`（2026-09-02 实测）。写错不会报错，只会让陪练悄悄恢复满额推理（每轮 4,000–7,000 completion tokens、40–66s）。故 `thinkingOff` 写在 `models.json` 的 provider 上；换通道后必须跑 `LIVE_LLM=1 go test ./internal/gateway -run TestLive` 验证 reasoning token 真的归零。
 - **新增卡 = 新增一份 JSON 配置，不改渲染器代码。** 这是 schema 驱动是否成立的验证标准；用现有字段原语（`text` / `textarea` / `single_choice` / `multi_choice` / `rating` / `repeatable_group` / `link_check`）拼，除非真需要全新交互才加原语。
 - **标准信封结构一旦定下不要随意改**——它是过程树、使用计数、评估的共同地基。后端按「边界校验」存储：Go 只校验信封外层（`status` 枚举、id、`field_values` 为对象、`event_trace` 为数组），内层深结构真相仍归 `packages/contracts` 的 Zod 契约。

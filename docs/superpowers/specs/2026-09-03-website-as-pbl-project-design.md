@@ -78,8 +78,11 @@ adding one is one row in `internal/pbl/tools.go`, one row in
 
 ### `persona` · 受众画像 (stage 1)
 
-`Needs: "persona"` — 印记 must hand over the material in the same turn it offers
-the tool, per the existing pairing rule.
+**No `Needs`** — corrected during the build. The pairing rule exists because
+`decide` / `structure` / `split` / `review` render something 印记 made in the same
+turn, and are blank without it. `persona` generates its own first screen when she
+opens it, so requiring a paired produce would add a failure mode (a tool offered
+without its payload) for no gain. Same for `sites` and `look`.
 
 印记 produces **two or three candidate audiences** from what it already knows
 about her (her real readings, writings, projects): who they are, why they would
@@ -95,9 +98,15 @@ palette from.
 
 ### `sites` · 站点采集 (stage 2)
 
-印记 opens with why real sites beat templates, and three **style examples** —
-the retired `Essay` / `Ledger` / `Magazine` renderers, now study material rather
-than a menu (§7).
+印记 opens with why real sites beat templates, and **six real personal websites**
+as starting points — the ones named in `2026-09-01-pbl-project-room-design.md` §4.
+
+🚨 Corrected during the build: this section originally said the three retired
+renderers would be shown as style examples. They cannot be — a rendered example
+needs content, and the only legitimate content in this product is *hers*. The
+prototype put example content in (林知遥) and thereby made every student's page
+someone else's. Six real links cost nothing and invent no second fake student.
+The three layouts still serve as the typographic bases in stage 3 (§7).
 
 Her action: **paste URLs** of sites she likes. Each paste is fetched server-side
 by the existing `materialize.FetchReadable` and digested (`digest` class) into a
@@ -129,19 +138,41 @@ Her actions: pick a palette, pick a style, pick or regenerate an image.
 ## 5 · Image generation
 
 `models.json` already lists `qwen-image-3.0-pro`, `qwen-image-3.0` and
-`qwen-image-edit-max` with `capabilities: ["image"]`, but they are catalog
-metadata — the gateway has no `/images/generations` path, so nothing can call
-them. Needed in two places now (persona photos, hero image), so it becomes real
-infrastructure:
+`qwen-image-edit-max` with `capabilities: ["image"]`, but they were catalog
+metadata that nothing could call. Needed in two places (persona photos, hero
+image), so it became real infrastructure:
 
-- A `Draw` path in the gateway alongside chat, hitting DashScope's
-  `/images/generations` with the same key.
-- A new capability class, `draw`, bound by `MODEL_DRAW`, validated at boot like
-  every other class. It accepts only models whose `capabilities` include
-  `image`; a wrong binding fails startup rather than failing at the student.
-- Output stored via the existing OSS presigned-upload path, scope-gated, so a
-  generated image is a URL like every other asset. Cost recorded in `llm_call`
-  like every other call.
+- A `Drawer` seam in the gateway alongside `Provider` — generating an image is
+  not a stream, so it is a second path rather than a method on the chat one.
+- A new capability class, `draw`, validated at boot like every other class. It
+  accepts only models whose `capabilities` include `image`; a wrong binding
+  fails startup rather than at the student's screen.
+- Output fetched immediately and stored in our own OSS (`internal/api/pbl_draw.go`).
+  Cost recorded in `llm_call` like every other call.
+
+**🚨 The endpoint was measured, not inferred — and the catalog's own comment was
+wrong.** This spec originally said the image models "answer on
+`/images/generations`", repeating `models.json`'s `_capabilityComment`. The
+first `LIVE_LLM=1` run proved otherwise (2026-09-04):
+
+| Request | Result |
+|---|---|
+| `POST {maas}/compatible-mode/v1/images/generations` | 404, empty body |
+| `POST dashscope.aliyuncs.com/compatible-mode/v1/images/generations` | 404, empty body |
+| `POST {maas}/compatible-mode/v1/chat/completions` with an image model | 400 InvalidParameter |
+| `POST dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation` | **200, returns an image** |
+
+So the chat route's aggregated endpoint cannot draw at all, even though its own
+`GET /models` lists `qwen-image-3.0`. Image generation needs a separate provider
+(`dashscope_image`: different host, different wire shape), an `input.messages[]
+.content[]` **array** body, and a response read from
+`output.choices[].message.content[].image`. That URL is signed and **expires**,
+so it is downloaded and re-stored on the spot; storing it would put a broken
+image on her homepage days later. One live call takes ~69 s, which is why
+persona portraits are one request each rather than three in one.
+
+Had the stub tests been trusted, every generation in production would have been
+a 404 with a green suite above it. This is the rule in `AGENTS.md` doing its job.
 
 **Persona photos are labelled as generated, in the UI, always.** They are
 stand-ins for an imagined reader, and a student should never be unclear about
@@ -225,3 +256,43 @@ Logic only, per `AGENTS.md`:
 - Browser walk (`apps/lite-web/e2e/`), because a green suite over a blank PNG is
   the lesson this repo already paid for: create the project, see the seeded task
   list, walk stages 1–5, publish, screenshot each stage.
+
+
+---
+
+## 11 · What was built, and what the browser walk caught
+
+Built and verified (2026-09-04):
+
+- The website project opens the normal project room. `SiteStudio`,
+  `ProjectSurface` and the dead `src/eco/` prototype are deleted.
+- Defined topic + driving question, and the five-step routine seeded at creation
+  as plan v1, `decided_by = "ai"`, every step `tentative`.
+- A website routine block in the coach prompt, selected by `kind`; the generic
+  moments list and the generic "you cannot draw" prohibition are replaced only
+  for this project kind, and tests pin that other projects are untouched.
+- `site_content` produce + `GroundSiteDraft`: 印记 places her own words on the
+  page, and a line it cannot find verbatim in what she said never lands.
+- Stage 1 `persona`, stage 2 `sites`, stage 3 `look`, plus `ship` for publishing.
+  All four refeed into 印记.
+- The `draw` class, the image adapter, and OSS persistence.
+
+**Two defects the browser walk caught that no unit test would have:**
+
+1. The publish gate still required `layout_why` — a field that no longer exists
+   in any interface. Every page would have been complete and unpublishable, with
+   an error pointing at a deleted input box.
+2. `getPublicSite` hand-builds its site row and did not copy the new `palette` /
+   `hero_key` columns, so **visitors saw the layout's default colours instead of
+   the palette she chose.** Her own preview was correct, which is what made it
+   invisible.
+
+The walk now measures the computed `--st-accent` on the visitor's page rather
+than relying on a screenshot: `#9C3B26` and `#2F5D8A` are indistinguishable at
+thumbnail size, and the difference between them is the whole of "she chose a
+palette".
+
+Not built: stage 2's mindmap hand-off to `structure` and stage 4's `split` card
+are wired in the prompt but have no dedicated verification walk yet; the
+model-driven half of the journey (stages 1–4 end to end with real calls) is
+covered only by the `LIVE_LLM=1` path.
