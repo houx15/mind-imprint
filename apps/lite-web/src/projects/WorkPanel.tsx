@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { apiErrorText } from "../api/errorText";
 import { listMaterials, type Material } from "../api/materials";
-import { summonTool, type ToolInstance as Tool } from "../api/tools";
+import { acceptTool, summonTool, type ToolInstance as Tool } from "../api/tools";
 import type { PlanResolution, PlanState } from "../api/projectRoom";
 import type { ToolInstance } from "../api/tools";
 import { PlanPanel } from "./PlanPanel";
@@ -31,7 +31,7 @@ export function WorkPanel({
   onOpenSession,
   onResolve,
   onApprove,
-  onToolsChanged,
+  onOpenMaterial,
   busy,
 }: {
   projectId: string;
@@ -47,8 +47,8 @@ export function WorkPanel({
   onFinishTool: (tool: ToolInstance, result: unknown, summary: string) => void;
   /** 工具把她送进一条支线（服务端已经开好）。 */
   onOpenSession: (sessionId: string) => void;
-  /** 材料清单自己开了一件工具，让房间把工具列表拉一遍。 */
-  onToolsChanged: () => void;
+  /** 材料清单开了一件工具：房间把它放进列表并选中。 */
+  onOpenMaterial: (tool: ToolInstance) => void;
   onResolve: (changeId: string, resolution: PlanResolution, reason: string) => Promise<void>;
   onApprove: (versionId: string) => Promise<void>;
   busy?: boolean;
@@ -119,12 +119,7 @@ export function WorkPanel({
             )}
 
             {/* 下半截：材料。她攒下来的东西，点一下回去看。 */}
-            <MaterialsList
-              projectId={projectId}
-              tools={tools}
-              onOpen={onSelectTool}
-              onSummoned={onToolsChanged}
-            />
+            <MaterialsList projectId={projectId} tools={tools} onOpen={onOpenMaterial} />
           </div>
         )}
       </div>
@@ -143,12 +138,11 @@ function MaterialsList({
   projectId,
   tools,
   onOpen,
-  onSummoned,
 }: {
   projectId: string;
   tools: Tool[];
-  onOpen: (id: string) => void;
-  onSummoned: () => void;
+  /** 开这件工具：把它交给房间，房间负责放进列表并选中。 */
+  onOpen: (tool: Tool) => void;
 }) {
   const [items, setItems] = useState<Material[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -170,15 +164,20 @@ function MaterialsList({
     // 已经开着的那件优先，不要给同一件工具再造一张卡。
     const live = tools.find((t) => t.tool === m.tool && t.status === "accepted");
     if (live) {
-      onOpen(live.id);
+      onOpen(live);
       return;
     }
-    const offered = tools.find((t) => t.tool === m.tool && t.status === "summoned");
     try {
-      const got =
+      // 🚨 递出来的工具是 summoned，而右栏只认 accepted——所以光召不够，还要
+      // 替她"打开"。第一版漏了这一步：点材料清单毫无反应，因为 active 永远
+      // 是 null。2026-09-03 线上实测撞到的。
+      const offered = tools.find((t) => t.tool === m.tool && t.status === "summoned");
+      const summoned =
         offered ?? (await summonTool(projectId, { tool: m.tool, reason: "你自己打开的" }));
-      onSummoned();
-      onOpen(got.id);
+      const got = await acceptTool(projectId, summoned.id);
+      // 🚨 把这件工具直接交给房间，而不是"通知它去重拉一遍"。重拉是异步的，
+      // 而选中是同步的——先选中、后到货，右栏照样是空的。
+      onOpen(got);
     } catch (err) {
       setError(apiErrorText(err));
     }

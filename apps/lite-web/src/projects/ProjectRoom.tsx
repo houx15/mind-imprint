@@ -532,7 +532,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           onOpenSession={(sid) => void enterSession(sid)}
           onResolve={onResolve}
             onApprove={onApprove}
-            onToolsChanged={() => void listTools(projectId).then(setTools)}
+            onOpenMaterial={(t) => {
+              // 放进列表（已经在里面就替换），再选中。同步做完，右栏立刻有东西。
+              setTools((prev) => {
+                const has = prev.some((x) => x.id === t.id);
+                return has ? prev.map((x) => (x.id === t.id ? t : x)) : [...prev, t];
+              });
+              setOpenTool(t.id);
+            }}
           />
         </div>
       </aside>
