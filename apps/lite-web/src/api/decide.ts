@@ -51,7 +51,7 @@ export function openDecision(
 export function settleDecision(
   projectId: string,
   decisionId: string,
-  body: { choice: string; why: string; whyNot: string },
+  body: { choice: string; why: string; whyNot: string; flip?: string },
 ): Promise<Decision> {
   return apiFetch<Decision>(`${base(projectId)}/decisions/${decisionId}/settle`, {
     method: "POST",

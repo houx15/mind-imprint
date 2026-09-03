@@ -40,6 +40,12 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
   // 🚨 放掉的每一条分开答。一个大框只会得到「其他的都不太合适」，而
   // "为什么放掉另外那两条" 才是这件工具真正教的东西。
   const [dropped, setDropped] = useState<Record<string, string>>({});
+  // 🚨 什么情况会让她改主意。`pbl_decision.flip` 这一列 0111 就加了，0113 把
+  // 界面撤掉之后一直空着——而它是复盘阶段唯一能回头对照的东西：当初写下的那个
+  // 条件，后来到底发生了没有。一个决定因此从一次表态变成一个可以被推翻的假设。
+  //
+  // 不设成门槛：一个决定不写翻盘条件也仍然是个决定，硬拦只会逼出一句应付的话。
+  const [flip, setFlip] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const boot = useCallback(async () => {
@@ -71,6 +77,7 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
         choice: choice.trim(),
         why: why.trim(),
         whyNot: whyNot.trim(),
+        flip: flip.trim(),
       });
       onFinish({ decisionId: got.id, choice: got.choice }, got.why);
     } catch (err) {
@@ -181,6 +188,26 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                   rows={2}
                   placeholder="请说明它解决了什么，或它比其他方案好在哪里"
                   className="mt-1.5 w-full resize-none rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-2 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+                />
+              </div>
+
+              <div>
+                <div className="flex items-center gap-2">
+                  <span
+                    className="h-3.5 w-1 rounded-mk-full"
+                    style={{ background: "var(--mk-warning)" }}
+                  />
+                  <label className="text-mk-body font-semibold text-mk-ink">改主意的条件</label>
+                  <span className="text-mk-small text-mk-faint">选填</span>
+                </div>
+                <p className="mt-0.5 text-mk-small text-mk-muted">
+                  出现什么情况，你会回来改这个决定。复盘时会拿它对照。
+                </p>
+                <input
+                  value={flip}
+                  onChange={(e) => setFlip(e.target.value)}
+                  placeholder="例如：接龙发出去两天还不到 5 个人报名"
+                  className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
                 />
               </div>
 

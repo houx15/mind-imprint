@@ -248,6 +248,12 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 		Choice string `json:"choice"`
 		Why    string `json:"why"`
 		WhyNot string `json:"whyNot"`
+		// Flip 是「什么情况会让你改主意」。
+		//
+		// 🚨 不是必填。一个决定不写翻盘条件也仍然是个决定；把它设成门槛，只会
+		// 逼出一句应付的话。写了才有意义，所以留给她自己决定写不写（铁律④，
+		// 不写也是信号）。
+		Flip string `json:"flip"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -267,6 +273,7 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	}
 	choice, why, whyNot := strings.TrimSpace(req.Choice),
 		strings.TrimSpace(req.Why), strings.TrimSpace(req.WhyNot)
+	flip := strings.TrimSpace(req.Flip)
 	missing := []string{}
 	if choice == "" {
 		missing = append(missing, "选哪个")
@@ -286,7 +293,7 @@ func (a *API) settlePblDecision(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if _, err := a.d.Queries.SettlePblDecision(r.Context(), sqlc.SettlePblDecisionParams{
-		ID: did, Choice: choice, Why: why, WhyNot: whyNot,
+		ID: did, Choice: choice, Why: why, WhyNot: whyNot, Flip: flip,
 	}); err != nil {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("already_settled", "这个决定已经定过了", nil))
 		return

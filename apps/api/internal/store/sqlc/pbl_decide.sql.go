@@ -323,7 +323,7 @@ func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UU
 
 const settlePblDecision = `-- name: SettlePblDecision :one
 UPDATE pbl_decision
-SET choice = $2, why = $3, why_not = $4, settled_at = now()
+SET choice = $2, why = $3, why_not = $4, flip = $5, settled_at = now()
 WHERE id = $1 AND settled_at IS NULL
 RETURNING id, atom_id, session_id, subject, choice, why, gave_up, created_at, flip, settled_at, why_not
 `
@@ -333,17 +333,21 @@ type SettlePblDecisionParams struct {
 	Choice string    `json:"choice"`
 	Why    string    `json:"why"`
 	WhyNot string    `json:"why_not"`
+	Flip   string    `json:"flip"`
 }
 
 // choice / why / why_not 三样由 Go 校验非空后才到这里。
 // why_not 是这件工具真正教的东西：选中一个不难，说得出为什么放掉另外几个，
 // 才说明她真的比较过。
+// flip 是「什么情况会让你改主意」。这一列 0111 就加了，0113 把界面撤掉之后一直
+// 空着——而它是复盘阶段唯一能回头对照的东西：当初写下的那个条件，后来发生了没有。
 func (q *Queries) SettlePblDecision(ctx context.Context, arg SettlePblDecisionParams) (PblDecision, error) {
 	row := q.db.QueryRow(ctx, settlePblDecision,
 		arg.ID,
 		arg.Choice,
 		arg.Why,
 		arg.WhyNot,
+		arg.Flip,
 	)
 	var i PblDecision
 	err := row.Scan(

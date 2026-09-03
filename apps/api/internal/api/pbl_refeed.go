@@ -92,6 +92,11 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 			if strings.TrimSpace(d.WhyNot) != "" {
 				line += "；没选别的是因为" + d.WhyNot
 			}
+			// 🚨 她当初写下的翻盘条件。这一句是复盘阶段唯一能回头对照的东西：
+			// 「你当时说出现 X 就改主意，现在 X 发生了吗」。不带上，那句话就白写了。
+			if f := strings.TrimSpace(d.Flip); f != "" {
+				line += "；她说会让她改主意的情况是：" + f
+			}
 			add(line)
 		}
 	}
