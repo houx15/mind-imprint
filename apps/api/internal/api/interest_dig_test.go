@@ -59,7 +59,7 @@ func TestKeywordDig_NoGenericVerbsWhenGenerationFails(t *testing.T) {
 	}
 }
 
-// 第四次的同一条教训（0104 / 0116 / 0118 / 0119）。章盖在生成之前，语义是
+// 第四次的同一条教训（0104 / 0116 / 0120 / 0121）。章盖在生成之前，语义是
 // 「这个词试过一次」——按产出判断的话，她每次打开这个抽屉都会重发一次调用。
 func TestKeywordDig_StampsEvenWhenNothingWasGenerated(t *testing.T) {
 	h, cookie, _, pool := liteHandler(t)

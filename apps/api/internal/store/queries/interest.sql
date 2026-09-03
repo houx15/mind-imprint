@@ -160,7 +160,7 @@ SELECT * FROM keyword_dig WHERE keyword_id = $1 ORDER BY
 INSERT INTO keyword_dig (keyword_id, kind, text, why) VALUES ($1,$2,$3,$4)
 ON CONFLICT (keyword_id, kind) DO UPDATE SET text = EXCLUDED.text, why = EXCLUDED.why;
 
--- 盖章在生成之前。见迁移 0119。
+-- 盖章在生成之前。见迁移 0121。
 -- name: MarkKeywordDigged :exec
 UPDATE interest_keyword SET dig_at = now() WHERE id = $1;
 

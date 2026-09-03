@@ -20,7 +20,7 @@ package api
 // # 生成一次就存着
 //
 // 每次打开抽屉换一批建议的教练，说明它对你没有看法。所以生成是惰性 + 缓存的，
-// 拿 advisory lock，章**盖在生成之前**（第四次了：0104 / 0116 / 0118 / 0119）。
+// 拿 advisory lock，章**盖在生成之前**（第四次了：0104 / 0116 / 0120 / 0121）。
 
 import (
 	"context"
@@ -132,7 +132,7 @@ func (a *API) ensureKeywordDig(ctx context.Context, kw sqlc.InterestKeyword) str
 		return "生成失败：读取来源失败。"
 	}
 
-	// 🚨 盖章在生成之前。见迁移 0119。
+	// 🚨 盖章在生成之前。见迁移 0121。
 	if err := qtx.MarkKeywordDigged(ctx, kw.ID); err != nil {
 		slog.Warn("dig: stamp failed", "err", err, "keyword_id", kw.ID)
 		return "生成失败：写入失败。"

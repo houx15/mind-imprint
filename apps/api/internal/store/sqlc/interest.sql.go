@@ -474,7 +474,7 @@ const markKeywordDigged = `-- name: MarkKeywordDigged :exec
 UPDATE interest_keyword SET dig_at = now() WHERE id = $1
 `
 
-// 盖章在生成之前。见迁移 0119。
+// 盖章在生成之前。见迁移 0121。
 func (q *Queries) MarkKeywordDigged(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markKeywordDigged, id)
 	return err
