@@ -13,7 +13,6 @@ import {
   answerMark,
   askAbout,
   getReview,
-  reviewTodo,
   splitByMarks,
   type ReviewMark,
   type ReviewPlan,
@@ -131,9 +130,19 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
     plan.marks.some((m) => m.answer.trim()) ||
     plan.dimensions.some((d) => d.answer.trim());
 
-  const todo = !artifact
-    ? "暂时没有需要审核的内容"
-    : reviewTodo(hasComments, verdictWhy);
+  /**
+   * 🚨 有东西可审的时候，什么都不缺。
+   *
+   * 原来这里是 `reviewTodo(hasComments, verdictWhy)`，它在她既没留意见、也没写
+   * 重做方向的时候返回「结论」——而 ToolFrame 的 todo 非空就会把完成按钮禁掉。
+   * 于是「审核通过」这条路被锁死了：她读完觉得没问题、想直接通过，按钮是灰的；
+   * 要解锁，得先去「重做的方向」里编一个理由——那个框问的恰恰是打回重做的理由。
+   * 界面上同时写着「可以直接通过」，而那正是她唯一做不到的事。
+   *
+   * 通过本身就是她的判断，不需要再打一行字来证明；打回重做要给方向，那道门槛
+   * 在下面那个按钮上（disabled={!verdictWhy.trim()}），不该再拦一次整个工具。
+   */
+  const todo = artifact ? "" : "暂时没有需要审核的内容";
 
   return (
     <ToolFrame

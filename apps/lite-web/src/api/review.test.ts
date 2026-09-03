@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reviewTodo, splitByMarks, type ReviewMark } from "./review";
+import { splitByMarks, type ReviewMark } from "./review";
 
 function mark(id: string, quote: string, extra: Partial<ReviewMark> = {}): ReviewMark {
   return {
@@ -60,19 +60,5 @@ describe("splitByMarks", () => {
     const segs = splitByMarks(TEXT, [mark("blank", "   ")]);
     expect(segs).toHaveLength(1);
     expect(segs[0]?.mark).toBeNull();
-  });
-});
-
-describe("reviewTodo", () => {
-  // 🚨 审核这件事的产出只有一个：她的判断。
-  //
-  // 原来这里要她把印记划出来的每一句、列出来的每一个方面全填完才准点完成
-  // （「还有 3 句话没回答，2 个方面没说」）——那是一张作业卷子，而
-  // 「form-like things」正是产品负责人 2026-09-01 明确否掉的东西。
-  it("只差她的判断，不数还有几格没填", () => {
-    expect(reviewTodo(false, "")).toBe("结论");
-    expect(reviewTodo(false, "第二段站不住")).toBe("");
-    // 留了意见本身就是判断：结论只会是「执行修改」。
-    expect(reviewTodo(true, "")).toBe("");
   });
 });
