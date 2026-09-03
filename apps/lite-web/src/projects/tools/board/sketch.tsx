@@ -55,6 +55,79 @@ export function SketchArrow({ color = "var(--mk-accent-500)" }: { color?: string
 }
 
 /**
+ * 圈起来的一堆，外加一条贴着名字的胶带。
+ *
+ * 产品负责人 2026-09-03 图上那两个圈（「减少拿多」「让剩下的有去处」）。为什么
+ * 值得画：归堆这件事本来只有一个堆名，藏在每张纸的角上；圈出来之后「我把这四张
+ * 看成一回事」变成屏幕上看得见的一块，而这句判断正是头脑风暴真正的产出。
+ *
+ * 画的是成员的外接矩形，不是凸包。手绘感靠圆角和笔触给，凸包多算的那点精度
+ * 在一块可以随手挪纸的板上没有意义——她一挪，圈就跟着变了。
+ */
+export function GroupLasso({
+  box,
+  label,
+  color,
+}: {
+  box: { x: number; y: number; w: number; h: number };
+  label: string;
+  color: string;
+}) {
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: "absolute",
+        left: box.x,
+        top: box.y,
+        width: box.w,
+        height: box.h,
+        pointerEvents: "none",
+      }}
+    >
+      <svg
+        width="100%"
+        height="100%"
+        viewBox="0 0 100 100"
+        preserveAspectRatio="none"
+        style={{ position: "absolute", inset: 0 }}
+      >
+        <rect
+          x="1"
+          y="1"
+          width="98"
+          height="98"
+          rx="14"
+          fill="none"
+          stroke={color}
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          vectorEffect="non-scaling-stroke"
+          opacity={0.75}
+        />
+      </svg>
+      {/* 胶带：压在圈的上边缘，稍微歪一点。 */}
+      <span
+        style={{
+          position: "absolute",
+          left: 14,
+          top: -11,
+          transform: "rotate(-1.5deg)",
+          background: `color-mix(in srgb, ${color} 22%, var(--mk-surface))`,
+          color: `color-mix(in srgb, ${color} 70%, var(--mk-ink))`,
+          padding: "1px 10px",
+          borderRadius: 2,
+          fontSize: 12,
+          whiteSpace: "nowrap",
+        }}
+      >
+        {label}
+      </span>
+    </div>
+  );
+}
+
+/**
  * 空区里那圈虚线。
  *
  * 用 SVG 而不是 `border-dashed`：CSS 的虚线四角是死的直角，一眼是个框；

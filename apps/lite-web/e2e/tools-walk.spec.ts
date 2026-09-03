@@ -241,6 +241,11 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
     await page.getByPlaceholder("一个办法，回车记下").fill(idea);
     await page.keyboard.press("Enter");
   }
+  // 拖到一起 = 合并，但先问一句：合并会归档两张纸，一次手滑就没了。
+  // 这里只看它问，不真合——后面几步还要用这几条。
+  await page.getByText("让同学自己选饭量").dragTo(page.getByText("把剩饭称一称贴出来"));
+  await expect(page.getByText("把这两条合成一条？")).toBeVisible();
+  await page.getByRole("button", { name: "取消" }).click();
   await page.screenshot({ path: "e2e/.shots/tools-4-ideas.png", fullPage: true });
 
   // 5 · 审核助手：划出来的句子高亮在原文里。

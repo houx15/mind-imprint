@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { Minimize2, Maximize2, X } from "lucide-react";
+import { Minimize2, Maximize2, Sparkles, X } from "lucide-react";
 import { Icon } from "@/ui";
 import { useWidePane } from "../wide";
 import { MarkerUnderline } from "./sketch";
@@ -35,6 +35,7 @@ export function Stage({
   task,
   why,
   step,
+  badge,
   todo,
   insight,
   children,
@@ -51,6 +52,13 @@ export function Stage({
   why?: string;
   /** 进度。不给就不显示——有些板（比如便签板）本来就没有"第几步"。 */
   step?: { now: number; total: number };
+  /**
+   * 标题右边那枚自定义徽章，画在进度的位置上。
+   *
+   * 有些板的"进度"不是第几步，是别的东西：想法板上是一个倒计时（图上写着
+   * 02:16），它同样在回答铁律②那句「有没有进度和终点」。
+   */
+  badge?: ReactNode;
   /** 还差什么。空 = 齐了，主按钮才亮。 */
   todo?: string;
   /** 底栏左边那句话：她刚刚做出来的东西说明了什么。 */
@@ -79,6 +87,7 @@ export function Stage({
           </div>
 
           <div className="flex shrink-0 items-center gap-2">
+            {badge}
             {step && (
               <span className="rounded-mk-full px-2.5 py-1 text-mk-small tabular-nums"
                 style={{ background: "var(--mk-surface)", color: "var(--mk-secondary)" }}
@@ -118,11 +127,17 @@ export function Stage({
         </p>
 
         {why && (
+          // 印记为什么这时候递这件工具，用它自己的话。
+          //
+          // 🚨 前面带一个火花、宽度只包内容。第一版是一条整行的淡色横条，截图
+          // 上和上面那个输入框长得一模一样——一句"有人在跟你说话"的话，看起来
+          // 像一个空着的输入框。
           <p
-            className="mt-2 rounded-mk-md px-2.5 py-1.5 text-mk-small text-mk-secondary"
+            className="mt-2 inline-flex max-w-full items-start gap-1.5 rounded-mk-md px-2.5 py-1.5 text-mk-small text-mk-secondary"
             style={{ background: "var(--mk-surface)" }}
           >
-            {why}
+            <Icon icon={Sparkles} size={13} className="mt-0.5 shrink-0" style={{ color: "var(--mk-accent-500)" }} />
+            <span>{why}</span>
           </p>
         )}
       </header>
