@@ -363,7 +363,9 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   const away = tools.filter((t) => t.kind === "world" && t.status === "accepted");
 
   return (
-    <div className="flex h-full min-h-0">
+    // relative：铺开的工具面板贴着**房间**铺开，不是贴着整个视口——
+    // 视口的左边还有一条 64px 的导航栏。
+    <div className="relative flex h-full min-h-0">
       {/* ── conversation ─────────────────────────────────────────────── */}
       <section className="flex min-w-0 flex-1 flex-col">
         <header className="flex items-center gap-3 border-b border-mk-border px-5 py-3">
@@ -499,11 +501,20 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           openTool
             ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
             : "hidden"
-        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
+        } shrink-0 border-mk-border lg:z-auto lg:block lg:border-l ${
           // 铺开时占满整个房间；对话让位，因为这时候她在读东西，不在说话。
+          //
+          // 🚨 用 absolute 贴房间，不用 fixed 贴视口：fixed inset-0 从 x=0 起算，
+          // 整个面板滑到左边那条导航栏底下，工具自己的标题被挡掉一截。
+          //
+          // 🚨 背景色不能靠这串字符串的先后顺序定。lg:bg-transparent 和
+          // lg:bg-mk-surface 是同一个变体下的同一条属性，谁赢由 Tailwind 生成
+          // 样式表的顺序决定——线上赢的是 transparent，对话整个透过来压在正文
+          // 上。同理 lg:static / lg:absolute。所以每一档只许出现一个。
+          // 下面那条注释里 relative-压过-fixed 的坑，是同一个坑。
           openTool && wideTool
-            ? "lg:fixed lg:inset-0 lg:z-40 lg:w-full lg:border-l-0 lg:bg-mk-surface"
-            : ""
+            ? "lg:absolute lg:inset-0 lg:z-40 lg:w-full lg:border-l-0 lg:bg-mk-surface"
+            : "lg:static lg:bg-transparent"
         }`}
         // 🚨 宽度只在宽屏上按像素给。窄屏那一档是 `fixed inset-0 w-full` 的整屏
         // 浮层，行内 width 会盖过 w-full，把浮层压成一条。
