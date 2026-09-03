@@ -21,6 +21,7 @@ package api
 // 原型能发布一个一个字都不属于她的页面，因为空的地方全被示例内容填满了。
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -528,6 +529,41 @@ func (a *API) siteGateOpen(r *http.Request, userID uuid.UUID) (bool, error) {
 //
 // 幂等：她已经有一个主页项目时返回原来那个，不建第二个。页面是单数的，项目也
 // 应该是。
+// seedWebsiteRoutine 把那份「建议的路线」落成第 1 版计划。
+//
+// ## 为什么建项目的时候就落，而不是等印记第一轮自己生成
+//
+// 主页项目的题目和路线都是定好的（产品负责人 2026-09-03："with defined topic
+// and suggested routine"）。让模型每次现编一份五步计划，只会得到五份不一样的
+// 路线，而这条路线本身是产品的一部分，不是一次模型输出。
+//
+// 落的是 `decided_by = "ai"`、每步 `tentative` 的**未批准**版本——她进来看见的
+// 是一份真的任务清单，并且仍然要自己审一遍才开始（「请审核计划并确认，或提出
+// 修改意见」）。approvePblPlan 那一刀仍然在她手里，项目也仍然要她批了才 running。
+//
+// 幂等由调用点保证：主页项目一个人只有一个，已存在就早早返回，走不到这里。
+func seedWebsiteRoutine(ctx context.Context, qtx *sqlc.Queries, atomID uuid.UUID) error {
+	v, err := qtx.CreatePblPlanVersion(ctx, sqlc.CreatePblPlanVersionParams{
+		AtomID: atomID, Version: 1,
+		Summary: pbl.RoutineSummary, Reason: pbl.RoutineReason, DecidedBy: "ai",
+	})
+	if err != nil {
+		return err
+	}
+	for i, s := range pbl.WebsiteRoutine() {
+		if _, err := qtx.CreatePblPlanStep(ctx, sqlc.CreatePblPlanStepParams{
+			VersionID: v.ID, Ordinal: int32(i + 1),
+			Title: s.Title, Blurb: s.Blurb, Goal: s.Goal,
+			YouBring: s.YouBring, IBring: s.IBring,
+			Decide: s.Decide, ThenBring: s.ThenBring,
+			Status: "tentative",
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (a *API) startPblSiteProject(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	entitled, err := HasEntitlement(r.Context(), u)
@@ -572,13 +608,19 @@ func (a *API) startPblSiteProject(w http.ResponseWriter, r *http.Request) {
 	// 项目不是她写下的一句话，所以这里写的是这个项目实际是什么。
 	p, err := qtx.CreatePblProject(r.Context(), sqlc.CreatePblProjectParams{
 		AtomID: at.ID,
-		Idea:   "做一个属于我自己的主页：把我读过的、写过的、做过的放在一个地方，给别人看。",
+		// idea 存的是**这个项目要回答的问题**，不是一句施工说明。见
+		// internal/pbl/website.go · WebsiteIdea。
+		Idea: pbl.WebsiteIdea,
 		// 🚨 kind 在这里是强制的，不是判出来的。0112 之后类别归她自己填，
 		// 唯独这一个由 spec §4 定死——这是唯一一个「项目是什么」不需要问的项目。
 		Kind: "website",
-		Name: "我自己的主页",
+		Name: pbl.WebsiteName,
 	})
 	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if err := seedWebsiteRoutine(r.Context(), qtx, at.ID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}

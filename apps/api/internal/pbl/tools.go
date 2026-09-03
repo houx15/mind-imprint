@@ -46,6 +46,13 @@ type Tool struct {
 	//
 	// 空 = 这件工具自己就有内容（观察日记、便签板、复盘…），随时可以递。
 	Needs string
+	// Only 把这件工具限定在某一类项目里，空 = 所有项目都能用。
+	//
+	// 🚨 目录是照着这张表渲染进 prompt 的，所以一件只在主页项目里说得通的工具
+	// （受众画像、站点采集、视觉基调）如果不限定，印记会在一个讲课间垃圾的
+	// 项目里递「受众画像」。工具箱是开放的这件事不变——限定的只是**目录**，
+	// 也就是印记会主动想到什么。
+	Only string
 }
 
 // registry —— 七个阶段展开成的工具。
@@ -63,6 +70,13 @@ var registry = map[string]Tool{
 	"split":     {Name: "split", Kind: KindThinking, Label: "分工建议", Needs: "substeps"},
 	"lookback":  {Name: "lookback", Kind: KindThinking, Label: "项目复盘"},
 	"keep":      {Name: "keep", Kind: KindThinking, Label: "长期迭代"},
+
+	// 主页项目那三件。都没有 Needs：它们自己会去生成第一屏的内容（受众候选、
+	// 站点分析、配色与头图），所以不需要印记同一轮先做一份东西。这也正是它们
+	// 不会变成表单的原因——她打开就有东西可判。
+	"persona": {Name: "persona", Kind: KindThinking, Label: "受众画像", Only: "website"},
+	"sites":   {Name: "sites", Kind: KindThinking, Label: "站点采集", Only: "website"},
+	"look":    {Name: "look", Kind: KindThinking, Label: "视觉基调", Only: "website"},
 }
 
 // ToolNeeds 返回这件工具的界面读的那种产出，没有就是空。
@@ -105,6 +119,7 @@ func ToolNames() []string {
 	return []string{
 		"observe", "board", "reframe", "ideas", "review",
 		"decide", "structure", "split", "lookback", "keep",
+		"persona", "sites", "look",
 	}
 }
 

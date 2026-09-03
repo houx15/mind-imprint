@@ -21,7 +21,9 @@ func BenchCases() []benchcase.Case {
 		Request: gateway.ChatRequest{
 			MaxTokens: 16384,
 			Messages: []gateway.ChatMessage{
-				{Role: gateway.RoleSystem, Content: fmt.Sprintf(coachSystem, toolCatalogue(), produceCatalogue())},
+				// 同一个 builder，不是抄一份：抄的那份会和真实 prompt 漂移，
+				// 而 routebench 的全部价值就在于它测的是真的那一份。
+				{Role: gateway.RoleSystem, Content: coachPrompt(benchTurnInput().Kind)},
 				{Role: gateway.RoleUser, Content: buildCoachContext(benchTurnInput())},
 			},
 		},

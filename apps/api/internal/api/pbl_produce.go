@@ -5,9 +5,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"log/slog"
 	"strings"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/pbl"
@@ -47,8 +49,192 @@ func (a *API) applyPblProduce(
 		return a.produceSubsteps(ctx, atomID, p.Payload)
 	case "structure":
 		return a.produceStructure(ctx, atomID, p.Payload)
+	case "site_content":
+		return a.produceSiteContent(ctx, atomID, p.Payload)
 	}
 	return fmt.Errorf("pbl: unknown produce kind %q", p.Kind)
+}
+
+/* ── 主页内容 ─────────────────────────────────────────────────────────── */
+
+// produceSiteContent —— 第四关「我来生成」：印记把她在这个项目里说过的话摆到
+// 她自己的主页上。
+//
+// ## 这里替掉的是什么
+//
+// 2026-09-03 之前，这些字是她在 `SiteStudio` 的九个带 label 的输入框里敲进去的。
+// 那正是产品负责人否掉的那件事（"don't let students enter forms"）。现在她只是
+// 在对话里回答印记的问题，摆放由印记做——**摆放**，不是撰写。
+//
+// ## 三道闸，一道都不能少
+//
+//  1. 只在主页项目里。别的项目里这个 kind 不该出现，出现了是错，不是特性。
+//  2. `pbl.GroundSiteDraft`：一句话在她自己说过的文字里逐字找不到，就不上页面。
+//     这是铁律①在代码里的那道闸，而不是 prompt 里的一句嘱咐。
+//  3. 合并而不是覆盖：印记这一轮只摆得出她刚说清楚的那部分，覆盖等于把上一轮
+//     已经摆好的东西擦掉。
+//
+// 全被闸掉（她一句话都没说过，而模型编了一整页）时返回错误：这一轮的对话照旧
+// 落库，产出没落上会记进日志，下一轮印记还能再来一次。悄悄写进一页她没说过的
+// 话，比什么都不写糟得多。
+func (a *API) produceSiteContent(ctx context.Context, atomID uuid.UUID, raw json.RawMessage) error {
+	u, ok := UserFromContext(ctx)
+	if !ok {
+		return errors.New("pbl: site_content without a user in context")
+	}
+	proj, err := a.d.Queries.GetPblProject(ctx, atomID)
+	if err != nil {
+		return err
+	}
+	if proj.Kind != "website" {
+		return fmt.Errorf("pbl: site_content in a %q project", proj.Kind)
+	}
+
+	var in pbl.SiteDraft
+	if err := json.Unmarshal(raw, &in); err != nil {
+		return err
+	}
+	own, err := a.studentOwnWords(ctx, atomID)
+	if err != nil {
+		return err
+	}
+	grounded, dropped := pbl.GroundSiteDraft(clampDraft(in), own)
+	if len(dropped) > 0 {
+		slog.Warn("pbl: site_content dropped lines she never said",
+			"atom", atomID, "dropped", len(dropped), "first", dropped[0])
+	}
+
+	row, err := a.d.Queries.GetPblSite(ctx, u.ID)
+	if err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	var current pbl.SiteDraft
+	if len(row.Content) > 0 {
+		_ = json.Unmarshal(row.Content, &current)
+	}
+	merged := mergeSiteDraft(current, grounded)
+	if siteDraftEmpty(merged) {
+		return fmt.Errorf("pbl: site_content grounded to nothing (%d lines dropped)", len(dropped))
+	}
+
+	if _, err := a.d.Queries.EnsurePblSite(ctx, sqlc.EnsurePblSiteParams{
+		UserID: u.ID, AtomID: pgtype.UUID{Bytes: atomID, Valid: true},
+	}); err != nil {
+		return err
+	}
+	blob, err := json.Marshal(merged)
+	if err != nil {
+		return err
+	}
+	_, err = a.d.Queries.SetPblSiteContent(ctx,
+		sqlc.SetPblSiteContentParams{UserID: u.ID, Content: blob})
+	return err
+}
+
+// studentOwnWords 是她在这个项目里**自己敲进去的全部文字**，`GroundSiteDraft`
+// 拿它当语料。
+//
+// 主线加每一条支线：她想清楚一件事往往正是在支线里，把支线漏掉，等于告诉她
+// 「你在那儿说的话不算」。工具里的产出（便签、结构、审核意见）也算她的话——
+// 那些同样是她敲的，而且第二、三关的东西主要落在那里。
+func (a *API) studentOwnWords(ctx context.Context, atomID uuid.UUID) (string, error) {
+	var b strings.Builder
+	add := func(role, content string) {
+		if role == "student" && strings.TrimSpace(content) != "" {
+			b.WriteString(content)
+			b.WriteString("\n")
+		}
+	}
+
+	main, err := a.d.Queries.ListPblMainThread(ctx, atomID)
+	if err != nil {
+		return "", err
+	}
+	for _, m := range main {
+		add(m.Role, m.Content)
+	}
+	sessions, err := a.d.Queries.ListPblSessions(ctx, atomID)
+	if err != nil {
+		return "", err
+	}
+	for _, s := range sessions {
+		rows, err := a.d.Queries.ListPblSessionMessages(ctx,
+			sqlc.ListPblSessionMessagesParams{
+				AtomID: atomID, SessionID: pgtype.UUID{Bytes: s.ID, Valid: true},
+			})
+		if err != nil {
+			return "", err
+		}
+		for _, m := range rows {
+			add(m.Role, m.Content)
+		}
+	}
+	tools, err := a.d.Queries.ListPblTools(ctx, atomID)
+	if err != nil {
+		return "", err
+	}
+	for _, t := range tools {
+		if len(t.Result) > 0 {
+			// 工具结果的形状每件不同，所以这里不解析，整块 JSON 当语料——
+			// 逐字包含只需要她那些字出现过，键名多出来不影响判断。
+			b.Write(t.Result)
+			b.WriteString("\n")
+		}
+		if strings.TrimSpace(t.StudentNote) != "" {
+			b.WriteString(t.StudentNote)
+			b.WriteString("\n")
+		}
+	}
+	return b.String(), nil
+}
+
+// mergeSiteDraft 用 next 里非空的部分盖住 current，空的部分保留 current。
+func mergeSiteDraft(current, next pbl.SiteDraft) pbl.SiteDraft {
+	str := func(a, b string) string {
+		if strings.TrimSpace(b) != "" {
+			return b
+		}
+		return a
+	}
+	list := func(a, b []string) []string {
+		if len(b) > 0 {
+			return b
+		}
+		return a
+	}
+	out := pbl.SiteDraft{
+		Role:     str(current.Role, next.Role),
+		Headline: str(current.Headline, next.Headline),
+		Lead:     str(current.Lead, next.Lead),
+		Now:      str(current.Now, next.Now),
+		Motto:    list(current.Motto, next.Motto),
+		Tags:     list(current.Tags, next.Tags),
+		About:    list(current.About, next.About),
+		NowList:  list(current.NowList, next.NowList),
+		// 联系方式只由她自己在界面上填，产出永远不碰它。
+		Contact: current.Contact,
+		Blurbs:  map[string]string{},
+	}
+	for k, v := range current.Blurbs {
+		out.Blurbs[k] = v
+	}
+	for k, v := range next.Blurbs {
+		if strings.TrimSpace(v) != "" {
+			out.Blurbs[k] = v
+		}
+	}
+	return out
+}
+
+// siteDraftEmpty 报告这一份草稿里她一个字都没有。
+func siteDraftEmpty(d pbl.SiteDraft) bool {
+	if strings.TrimSpace(d.Role+d.Headline+d.Lead+d.Now+d.Contact) != "" {
+		return false
+	}
+	if len(d.Motto)+len(d.Tags)+len(d.About)+len(d.NowList)+len(d.Blurbs) > 0 {
+		return false
+	}
+	return true
 }
 
 /* ── 计划 ──────────────────────────────────────────────────────────────── */

@@ -130,12 +130,19 @@ type Produced struct {
 }
 
 // ProduceKinds 是印记能做的东西，也是 prompt 里那份目录的来源。
-var ProduceKinds = []struct{ Kind, About string }{
-	{"plan", "一份计划：每一步写清楚这一步做什么、你带什么、我带什么、**她判断什么**、做完交回什么"},
-	{"decision", "一个要她拿主意的选择：一句话说清在选什么，再给两到四个选项，每个选项写明它意味着什么"},
-	{"artifact", "一份你写出来交给她审的东西：草稿、方案、或一个网址"},
-	{"substeps", "某一步的分工：拆成几件小事，每件写清楚谁做、为什么是他做"},
-	{"structure", "一份结构：一棵两到三层的提纲，让她看得见整件东西的形状"},
+//
+// Only 和 Tool.Only 同一个意思：限定给某一类项目，空 = 都能用。
+var ProduceKinds = []struct{ Kind, About, Only string }{
+	{Kind: "plan", About: "一份计划：每一步写清楚这一步做什么、你带什么、我带什么、**她判断什么**、做完交回什么"},
+	{Kind: "decision", About: "一个要她拿主意的选择：一句话说清在选什么，再给两到四个选项，每个选项写明它意味着什么"},
+	{Kind: "artifact", About: "一份你写出来交给她审的东西：草稿、方案、或一个网址"},
+	{Kind: "substeps", About: "某一步的分工：拆成几件小事，每件写清楚谁做、为什么是他做"},
+	{Kind: "structure", About: "一份结构：一棵两到三层的提纲，让她看得见整件东西的形状"},
+	{
+		Kind:  "site_content",
+		About: "把她说过的话摆到她主页的各个位置上。**只能摆她的原话**，逐字对不上的那句服务端会丢掉",
+		Only:  "website",
+	},
 }
 
 func IsProduceKind(k string) bool {
@@ -151,11 +158,15 @@ func IsProduceKind(k string) bool {
 //
 // 🚨 派生自 registry，不手写第二份。手写的目录一定会和工具箱漂移，而漂移的
 // 那一天，印记会开始召一件界面上不存在的工具。
-func toolCatalogue() string {
+func toolCatalogue(kind string) string {
 	var b strings.Builder
 	for _, name := range ToolNames() {
 		t, ok := LookupTool(name)
 		if !ok {
+			continue
+		}
+		// 限定给某一类项目的工具，只进那一类项目的目录。见 tools.go · Tool.Only。
+		if t.Only != "" && t.Only != kind {
 			continue
 		}
 		where := "当场和他一起做完"
@@ -182,8 +193,7 @@ const recentWindow = 12
 const coachSystem = `你是「印记」，在陪一个中学生做他自己的项目。
 
 你实际能做的只有两件事：跟他说话，以及在合适的时候把一件工具递到他手边。
-你不能替他判断，不能替他决定，也不要说你能查资料、做图、写网站——你现在还
-做不了这些，说了他一试就知道。项目是他的。
+你不能替他判断，不能替他决定，%s项目是他的。
 
 【语气】
 你是一个对他这件事真的感兴趣的人。他说了一件事，你想知道的是那件事本身：
@@ -228,25 +238,7 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
 一个」——他刚照着你说的点进来，你却让他回来求你再做一遍。要么这一轮 tool 和
 produce 一起给，要么这一轮两个都别给。
 
-【什么时候递哪一件】
-这不是一条要走完的流程，是七个不同的时刻。他到了那个时刻，那件工具才有用；
-没到就递，是打断。
-
-- 他还说不清自己想弄明白什么，或者只有一个模糊的兴趣 → observe。
-- 他一口气说了好几件不太一样的事，或者刚带回来一堆观察 → board。摊开才看得出
-  哪几条其实是一回事。
-- 板上看得出线索了，问题还是一大团 → reframe。收成「谁需要什么，因为什么」，
-  再变成一句「我们可以怎样」。
-- 问题定下来了，往哪走还有好几条路 → ideas。
-- 你写了一份东西要交给他（一版方案、一份草稿、一个网址） → review + artifact，
-  一起给。
-- 走到一个岔路口，往哪边走会影响后面 → decide + decision，一起给。
-- 要做的东西大到看不见形状（一份文档、一个网站、一场活动） → structure +
-  structure，一起给。先看结构，是为了让他知道结构是可以改的——不然他会照着
-  第一版一路做下去，从没想过它可以是别的样子。
-- 进了实施，某一步要好几个人一起做 → split + substeps，一起给。
-- 东西做完了 → lookback。
-- 东西放出去了，真的有人在用了 → keep。
+%s
 
 已经做完的那几件在上文里列着，不要再递。
 
@@ -352,15 +344,48 @@ artifact:  {"kind": "draft|spec|site", "title": "", "body": "正文，site 时�
 substeps:  {"stepTitle": "这是计划里哪一步", "items": [{"title": "", "owner": "yinji|student|both", "why": "为什么是他做"}]}
 structure: {"nodes": [{"title": "", "body": "", "children": [{"title": "", "body": ""}]}]}`
 
+// momentsGeneric —— 通用项目里「什么时候递哪一件」。
+//
+// 抽成一格是因为主页项目要把它整块换掉：那个项目的题目和路线都定好了，这份
+// 临场判断已经在路线里做完了（见 website.go · websiteRoutine）。
+const momentsGeneric = `【什么时候递哪一件】
+这不是一条要走完的流程，是七个不同的时刻。他到了那个时刻，那件工具才有用；
+没到就递，是打断。
+
+- 他还说不清自己想弄明白什么，或者只有一个模糊的兴趣 → observe。
+- 他一口气说了好几件不太一样的事，或者刚带回来一堆观察 → board。摊开才看得出
+  哪几条其实是一回事。
+- 板上看得出线索了，问题还是一大团 → reframe。收成「谁需要什么，因为什么」，
+  再变成一句「我们可以怎样」。
+- 问题定下来了，往哪走还有好几条路 → ideas。
+- 你写了一份东西要交给他（一版方案、一份草稿、一个网址） → review + artifact，
+  一起给。
+- 走到一个岔路口，往哪边走会影响后面 → decide + decision，一起给。
+- 要做的东西大到看不见形状（一份文档、一个网站、一场活动） → structure +
+  structure，一起给。先看结构，是为了让他知道结构是可以改的——不然他会照着
+  第一版一路做下去，从没想过它可以是别的样子。
+- 进了实施，某一步要好几个人一起做 → split + substeps，一起给。
+- 东西做完了 → lookback。
+- 东西放出去了，真的有人在用了 → keep。`
+
+// sprintCoachSystem 只把四格填进系统提示：本事边界、工具目录、什么时候递哪一件、
+// 你自己动手做的东西。填什么由 website.go · coachPrompt 决定。
+func sprintCoachSystem(abilities, tools, moments, produces string) string {
+	return fmt.Sprintf(coachSystem, abilities, tools, moments, produces)
+}
+
 var errNoReply = errors.New("pbl: coach produced no reply")
 
 // produceCatalogue 把印记能做的东西渲染进 prompt。
 //
 // 🚨 和 toolCatalogue 一样派生自那份表，不手写第二份——手写的目录一定会漂移，
 // 而漂移的那天，印记会开始做一件服务端认不出的东西。
-func produceCatalogue() string {
+func produceCatalogue(kind string) string {
 	var b strings.Builder
 	for _, k := range ProduceKinds {
+		if k.Only != "" && k.Only != kind {
+			continue
+		}
 		fmt.Fprintf(&b, "  %s —— %s\n", k.Kind, k.About)
 	}
 	return b.String()
@@ -549,7 +574,7 @@ func backoffBeforeRetry(ctx context.Context, attempt int) {
 func Coach(ctx context.Context, prov gateway.Provider, resolved gateway.Resolved, in CoachInput) (CoachOutput, gateway.ChatUsage, error) {
 	req := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: fmt.Sprintf(coachSystem, toolCatalogue(), produceCatalogue())},
+			{Role: gateway.RoleSystem, Content: coachPrompt(in.Kind)},
 			{Role: gateway.RoleUser, Content: buildCoachContext(in)},
 		},
 		// 🚨 推理模型（deepseek-reasoner）会先花掉一大截 completion token 想事情，

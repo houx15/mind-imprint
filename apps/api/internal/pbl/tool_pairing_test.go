@@ -39,7 +39,7 @@ func TestToolNeeds_ReviewSurfacesDeclareWhatTheyRead(t *testing.T) {
 // 目录必须把这件事说给模型听。派生自 registry，所以加一件要配产出的工具，
 // prompt 自动跟上——手写第二份目录一定会漂移。
 func TestToolCatalogue_MarksTheToolsThatNeedContent(t *testing.T) {
-	cat := toolCatalogue()
+	cat := toolCatalogue("")
 	for tool, kind := range map[string]string{
 		"decide": "decision", "structure": "structure",
 		"split": "substeps", "review": "artifact",
