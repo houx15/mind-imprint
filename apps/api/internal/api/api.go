@@ -289,7 +289,12 @@ func (a *API) Handler() http.Handler {
 	// 的另一半：projects 拒绝的时候，这里是唯一走得通的路。
 	mux.Handle("GET /api/v1/pbl/site", liteOnly(a.getPblSite))
 	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
-	mux.Handle("PUT /api/v1/pbl/site/layout", liteOnly(a.putPblSiteLayout))
+	// 第三关：风格 + 配色 + 头图。取代了旧的 PUT /pbl/site/layout（那一条要她
+	// 写一句理由才落定，是 SiteStudio 那个表单里的一格）。
+	mux.Handle("PUT /api/v1/pbl/site/look", liteOnly(a.putPblSiteLook))
+	mux.Handle("POST /api/v1/pbl/site/palettes", liteOnly(a.generatePblPalettes))
+	mux.Handle("POST /api/v1/pbl/site/hero", liteOnly(a.drawPblSiteHero))
+	mux.Handle("DELETE /api/v1/pbl/site/hero", liteOnly(a.clearPblSiteHero))
 	mux.Handle("POST /api/v1/pbl/site/publish", liteOnly(a.publishPblSite))
 	mux.Handle("DELETE /api/v1/pbl/site/publish", liteOnly(a.revokePblSite))
 	mux.Handle("POST /api/v1/pbl/site/project", liteOnly(a.startPblSiteProject))

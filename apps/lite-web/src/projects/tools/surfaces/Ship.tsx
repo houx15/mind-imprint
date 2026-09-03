@@ -167,7 +167,14 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
             {/* 🚨 narrow 要传下去。它是 prop 而不是媒体查询：`md:` 读到的是
                 真实视口，会把 390px 的手机框排成桌面版——恰好在她检查手机效果
                 的那一刻排错。见 BuiltSite 的文件头。 */}
-            <BuiltSite site={state.content} layout={state.layout} narrow={narrow} editing />
+            <BuiltSite
+              site={state.content}
+              layout={state.layout}
+              palette={state.palette}
+              heroUrl={state.heroUrl}
+              narrow={narrow}
+              editing
+            />
           </div>
         </div>
 

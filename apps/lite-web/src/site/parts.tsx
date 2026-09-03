@@ -19,6 +19,8 @@ export interface LayoutProps {
   /** 她自己在预览 = true；访客打开公开链接 = false。只影响「这里还没写」这类
    *  提示要不要出现，不影响任何内容。 */
   editing: boolean;
+  /** 她第三关生成的头图。空 = 她没要，版式各自决定这时候画什么。 */
+  heroUrl?: string;
 }
 
 export const MONO = {

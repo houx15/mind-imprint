@@ -1,4 +1,4 @@
-import type { SiteLayout, SiteTheme } from "./types";
+import type { SiteLayout, SitePalette, SiteTheme } from "./types";
 
 /**
  * 三个版式，三个真正不一样的页面。
@@ -68,8 +68,20 @@ export const SITE_LAYOUTS: {
   },
 ];
 
-export function themeFor(layout: SiteLayout): SiteTheme {
-  return (SITE_LAYOUTS.find((l) => l.id === layout) ?? SITE_LAYOUTS[0]!).theme;
+/**
+ * 版式自带的那一套颜色，叠上她第三关定下的配色。
+ *
+ * 🚨 字体不叠。她挑的是颜色；字体是版式的一部分（衬线长页 / 等宽密表 / 无衬线
+ * 博客），换掉它，三个版式就真的变成「一个版式换三套配色」了——而 spec §15 存在
+ * 的全部理由就是不要那样。
+ *
+ * 配色不完整（她还没定，或者存进去的是坏值）就整组不用：半套颜色比没有颜色糟，
+ * 因为浏览器会把坏的那一条丢掉，页面变成一半新一半旧。
+ */
+export function themeFor(layout: SiteLayout, palette?: SitePalette | null): SiteTheme {
+  const base = (SITE_LAYOUTS.find((l) => l.id === layout) ?? SITE_LAYOUTS[0]!).theme;
+  if (!palette || !palette.paper || !palette.ink || !palette.accent) return base;
+  return { ...base, paper: palette.paper, ink: palette.ink, accent: palette.accent };
 }
 
 export function layoutName(layout: SiteLayout): string {

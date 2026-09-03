@@ -1,5 +1,5 @@
 import { apiFetch } from "./client";
-import type { SiteContent, SiteDraft, SiteLayout } from "../site/types";
+import type { SiteContent, SiteDraft, SiteLayout, SitePalette } from "../site/types";
 
 /**
  * api/site.ts — 她的主页那一组端点。形状照着
@@ -8,7 +8,10 @@ import type { SiteContent, SiteDraft, SiteLayout } from "../site/types";
 
 export interface SiteState {
   layout: SiteLayout;
-  layoutWhy: string;
+  /** 第三关定下的配色。三个颜色都空 = 还没定。 */
+  palette: SitePalette;
+  /** 第三关生成的头图。空 = 她没要头图。 */
+  heroUrl: string;
   draft: SiteDraft;
   /** 服务端合成好的整页：她写的字 + 她真做过的事。 */
   content: SiteContent;
@@ -32,12 +35,33 @@ export function putSiteContent(draft: SiteDraft): Promise<SiteState> {
   });
 }
 
-/** 挑版式。`why` 为空时服务端返回 400——没有理由，什么都不落定。 */
-export function putSiteLayout(layout: SiteLayout, why: string): Promise<SiteState> {
-  return apiFetch<SiteState>("/api/v1/pbl/site/layout", {
+/**
+ * 第三关：风格 + 配色。
+ *
+ * 🚨 取代了 putSiteLayout。那一条要她**写一句理由**才落定——那是 SiteStudio 那个
+ * 表单里的一格，而整个表单已经退役。理由没有消失，它换了个地方：配色是从她第一
+ * 关留下的关键词派生的，每一组都写着「它为什么配那几个词」。
+ */
+export function putSiteLook(layout: SiteLayout, palette: SitePalette): Promise<SiteState> {
+  return apiFetch<SiteState>("/api/v1/pbl/site/look", {
     method: "PUT",
-    body: JSON.stringify({ layout, why }),
+    body: JSON.stringify({ layout, palette }),
   });
+}
+
+/** 从她的关键词派生三组配色。 */
+export function generatePalettes(): Promise<SitePalette[]> {
+  return apiFetch<SitePalette[]>("/api/v1/pbl/site/palettes", { method: "POST" });
+}
+
+/** 画一张头图。实测一次约 70 秒。 */
+export function drawSiteHero(): Promise<SiteState> {
+  return apiFetch<SiteState>("/api/v1/pbl/site/hero", { method: "POST" });
+}
+
+/** 不要头图了。这是一个合法的选择，不是一件没做完的事。 */
+export function clearSiteHero(): Promise<SiteState> {
+  return apiFetch<SiteState>("/api/v1/pbl/site/hero", { method: "DELETE" });
 }
 
 export function publishSite(): Promise<{ url: string; published: boolean }> {
@@ -54,6 +78,8 @@ export function startSiteProject(): Promise<{ id: string }> {
 }
 
 /** 访客那一面。没有 session 也能读——这是整个轻量版第二个这样的端点。 */
-export function getPublicSite(token: string): Promise<{ layout: SiteLayout; content: SiteContent }> {
+export function getPublicSite(
+  token: string,
+): Promise<{ layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent }> {
   return apiFetch(`/api/v1/public/sites/${encodeURIComponent(token)}`);
 }

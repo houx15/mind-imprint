@@ -16,7 +16,7 @@ import (
 const ensurePblSite = `-- name: EnsurePblSite :one
 INSERT INTO pbl_site (user_id, atom_id) VALUES ($1, $2)
 ON CONFLICT (user_id) DO UPDATE SET atom_id = EXCLUDED.atom_id, updated_at = now()
-RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at
+RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at, palette, hero_key
 `
 
 type EnsurePblSiteParams struct {
@@ -41,13 +41,15 @@ func (q *Queries) EnsurePblSite(ctx context.Context, arg EnsurePblSiteParams) (P
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
 	)
 	return i, err
 }
 
 const getPblSite = `-- name: GetPblSite :one
 
-SELECT user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at FROM pbl_site WHERE user_id = $1
+SELECT user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at, palette, hero_key FROM pbl_site WHERE user_id = $1
 `
 
 // 她的主页（迁移 0117）。一个学生一行。
@@ -67,12 +69,14 @@ func (q *Queries) GetPblSite(ctx context.Context, userID uuid.UUID) (PblSite, er
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
 	)
 	return i, err
 }
 
 const getPblSiteByShareToken = `-- name: GetPblSiteByShareToken :one
-SELECT s.user_id, s.atom_id, s.layout, s.layout_why, s.content, s.share_token, s.published_at, s.created_at, s.updated_at, u.display_name
+SELECT s.user_id, s.atom_id, s.layout, s.layout_why, s.content, s.share_token, s.published_at, s.created_at, s.updated_at, s.palette, s.hero_key, u.display_name
 FROM pbl_site s JOIN users u ON u.id = s.user_id
 WHERE s.share_token = $1 AND s.share_token IS NOT NULL
 `
@@ -87,6 +91,8 @@ type GetPblSiteByShareTokenRow struct {
 	PublishedAt pgtype.Timestamptz `json:"published_at"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+	Palette     []byte             `json:"palette"`
+	HeroKey     string             `json:"hero_key"`
 	DisplayName string             `json:"display_name"`
 }
 
@@ -105,6 +111,8 @@ func (q *Queries) GetPblSiteByShareToken(ctx context.Context, shareToken *string
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
 		&i.DisplayName,
 	)
 	return i, err
@@ -303,7 +311,7 @@ func (q *Queries) ListSiteWritingsByUser(ctx context.Context, userID uuid.UUID) 
 
 const setPblSiteContent = `-- name: SetPblSiteContent :one
 UPDATE pbl_site SET content = $2, updated_at = now()
-WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at
+WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at, palette, hero_key
 `
 
 type SetPblSiteContentParams struct {
@@ -324,25 +332,24 @@ func (q *Queries) SetPblSiteContent(ctx context.Context, arg SetPblSiteContentPa
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
 	)
 	return i, err
 }
 
-const setPblSiteLayout = `-- name: SetPblSiteLayout :one
-UPDATE pbl_site SET layout = $2, layout_why = $3, updated_at = now()
-WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at
+const setPblSiteHero = `-- name: SetPblSiteHero :one
+UPDATE pbl_site SET hero_key = $2, updated_at = now()
+WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at, palette, hero_key
 `
 
-type SetPblSiteLayoutParams struct {
-	UserID    uuid.UUID `json:"user_id"`
-	Layout    string    `json:"layout"`
-	LayoutWhy string    `json:"layout_why"`
+type SetPblSiteHeroParams struct {
+	UserID  uuid.UUID `json:"user_id"`
+	HeroKey string    `json:"hero_key"`
 }
 
-// 版式 + 她写下的理由。理由为空由服务端拦掉（设计原则：没有理由，什么都不落定），
-// 这里不做校验——约束写在 handler 里才能给她一句话，写在这里只会变成 500。
-func (q *Queries) SetPblSiteLayout(ctx context.Context, arg SetPblSiteLayoutParams) (PblSite, error) {
-	row := q.db.QueryRow(ctx, setPblSiteLayout, arg.UserID, arg.Layout, arg.LayoutWhy)
+func (q *Queries) SetPblSiteHero(ctx context.Context, arg SetPblSiteHeroParams) (PblSite, error) {
+	row := q.db.QueryRow(ctx, setPblSiteHero, arg.UserID, arg.HeroKey)
 	var i PblSite
 	err := row.Scan(
 		&i.UserID,
@@ -354,13 +361,50 @@ func (q *Queries) SetPblSiteLayout(ctx context.Context, arg SetPblSiteLayoutPara
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
+	)
+	return i, err
+}
+
+const setPblSiteLook = `-- name: SetPblSiteLook :one
+UPDATE pbl_site SET layout = $2, palette = $3, updated_at = now()
+WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at, palette, hero_key
+`
+
+type SetPblSiteLookParams struct {
+	UserID  uuid.UUID `json:"user_id"`
+	Layout  string    `json:"layout"`
+	Palette []byte    `json:"palette"`
+}
+
+// 第三关：版式（她管它叫「风格」）+ 配色。
+//
+// 🚨 取代了 SetPblSiteLayout。旧的那条要她为版式**写一句理由**才落定，那是
+// SiteStudio 那个表单里的一格。第三关她挑的是一组从自己关键词派生出来的配色，
+// 理由已经在那些关键词里了；再要一段话，就是把这一关重新变回一个输入框。
+func (q *Queries) SetPblSiteLook(ctx context.Context, arg SetPblSiteLookParams) (PblSite, error) {
+	row := q.db.QueryRow(ctx, setPblSiteLook, arg.UserID, arg.Layout, arg.Palette)
+	var i PblSite
+	err := row.Scan(
+		&i.UserID,
+		&i.AtomID,
+		&i.Layout,
+		&i.LayoutWhy,
+		&i.Content,
+		&i.ShareToken,
+		&i.PublishedAt,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
 	)
 	return i, err
 }
 
 const setPblSiteShare = `-- name: SetPblSiteShare :one
 UPDATE pbl_site SET share_token = $2, published_at = $3, updated_at = now()
-WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at
+WHERE user_id = $1 RETURNING user_id, atom_id, layout, layout_why, content, share_token, published_at, created_at, updated_at, palette, hero_key
 `
 
 type SetPblSiteShareParams struct {
@@ -383,6 +427,8 @@ func (q *Queries) SetPblSiteShare(ctx context.Context, arg SetPblSiteShareParams
 		&i.PublishedAt,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Palette,
+		&i.HeroKey,
 	)
 	return i, err
 }

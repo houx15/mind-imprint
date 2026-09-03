@@ -4,6 +4,7 @@ import { Board } from "./surfaces/Board";
 import { Decide } from "./surfaces/Decide";
 import { Ideas } from "./surfaces/Ideas";
 import { Keep } from "./surfaces/Keep";
+import { Look } from "./surfaces/Look";
 import { Lookback } from "./surfaces/Lookback";
 import { Observe } from "./surfaces/Observe";
 import { Persona } from "./surfaces/Persona";
@@ -45,6 +46,7 @@ export const TOOL_TASKS: Record<string, string> = {
   // 主页项目那几件。见 apps/api/internal/pbl/website.go 的五关路线。
   persona: "想清楚这一页给谁看，再定下几个关键词",
   sites: "找三个你真的喜欢的个人网站，看看它们是怎么做的",
+  look: "挑一组配色和一个风格，需要的话生成一张头图",
   ship: "看一遍这一页，确认之后放出去",
 };
 
@@ -90,6 +92,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   ship: Ship,
   sites: Sites,
   persona: Persona,
+  look: Look,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {

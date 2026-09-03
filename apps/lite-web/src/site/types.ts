@@ -25,6 +25,23 @@ export interface SiteTheme {
 
 export type SiteLayout = "essay" | "ledger" | "magazine";
 
+/**
+ * 她第三关定下的配色。
+ *
+ * 三个颜色，不是五个：SiteTheme 只认 paper / ink / accent 三格。字体跟着版式走
+ * ——生成的字体栈只会挑出一个中文缺字的字体。
+ *
+ * 三个颜色都空 = 她还没定，渲染端退回版式自带的那一套。
+ */
+export interface SitePalette {
+  label: string;
+  /** 它为什么配她那几个关键词。她挑的时候读到的就是这一句。 */
+  why: string;
+  paper: string;
+  ink: string;
+  accent: string;
+}
+
 export interface SiteStat {
   label: string;
   value: string;

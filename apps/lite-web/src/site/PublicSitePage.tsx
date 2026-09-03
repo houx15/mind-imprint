@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { getPublicSite } from "../api/site";
 import { BuiltSite } from "./BuiltSite";
 import { themeFor } from "./themes";
-import type { SiteContent, SiteLayout } from "./types";
+import type { SiteContent, SiteLayout, SitePalette } from "./types";
 
 /**
  * `/p/:token` — 她的主页，访客看到的那一面。
@@ -20,7 +20,7 @@ import type { SiteContent, SiteLayout } from "./types";
  */
 export function PublicSitePage({ token }: { token: string }) {
   const [state, setState] = useState<
-    { kind: "loading" } | { kind: "ok"; layout: SiteLayout; content: SiteContent } | { kind: "gone" }
+    { kind: "loading" } | { kind: "ok"; layout: SiteLayout; palette: SitePalette; heroUrl: string; content: SiteContent } | { kind: "gone" }
   >({ kind: "loading" });
 
   useEffect(() => {
@@ -39,7 +39,7 @@ export function PublicSitePage({ token }: { token: string }) {
     getPublicSite(token)
       .then((res) => {
         if (cancelled) return;
-        setState({ kind: "ok", layout: res.layout, content: res.content });
+        setState({ kind: "ok", layout: res.layout, palette: res.palette, heroUrl: res.heroUrl, content: res.content });
         if (res.content.name) document.title = res.content.name;
       })
       // 撤销过的链接和从来不存在的链接，在服务端就是同一个 404；这里也必须是
@@ -77,5 +77,13 @@ export function PublicSitePage({ token }: { token: string }) {
     );
   }
 
-  return <BuiltSite site={state.content} layout={state.layout} editing={false} />;
+  return (
+    <BuiltSite
+      site={state.content}
+      layout={state.layout}
+      palette={state.palette}
+      heroUrl={state.heroUrl}
+      editing={false}
+    />
+  );
 }

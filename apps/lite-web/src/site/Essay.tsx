@@ -13,12 +13,21 @@ import { Blank, Ground, MONO, Plate, cx, hair, mix, type LayoutProps } from "./p
  * 🚨 空的地方是空的。原型在这里有一整套兜底文案，于是一个什么都没填的页面看上
  * 去是满的——那正是「这一页写的是别人」这个 bug 藏身的地方。
  */
-export function Essay({ site, theme, narrow, editing }: LayoutProps) {
+export function Essay({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
   const pad = narrow ? "px-6" : "px-12";
   const h1 = narrow ? "text-[36px] leading-[1.24]" : "text-[62px] leading-[1.1]";
 
   return (
     <Ground theme={theme}>
+      {/* 她第三关生成的头图。这两个版式本来没有头图的位置，
+          所以它只在她真的要了的时候出现，压在最上面一条。 */}
+      {heroUrl ? (
+        <img
+          src={heroUrl}
+          alt=""
+          style={{ height: narrow ? 140 : 220, width: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : null}
       <div className={cx("mx-auto w-full max-w-[880px]", pad)}>
         {/* 报头：一行小字，没有导航。这里放她的名字，不是一个我们编的域名。 */}
         <div

@@ -15,10 +15,17 @@ INSERT INTO pbl_site (user_id, atom_id) VALUES ($1, $2)
 ON CONFLICT (user_id) DO UPDATE SET atom_id = EXCLUDED.atom_id, updated_at = now()
 RETURNING *;
 
--- name: SetPblSiteLayout :one
--- 版式 + 她写下的理由。理由为空由服务端拦掉（设计原则：没有理由，什么都不落定），
--- 这里不做校验——约束写在 handler 里才能给她一句话，写在这里只会变成 500。
-UPDATE pbl_site SET layout = $2, layout_why = $3, updated_at = now()
+-- name: SetPblSiteLook :one
+-- 第三关：版式（她管它叫「风格」）+ 配色。
+--
+-- 🚨 取代了 SetPblSiteLayout。旧的那条要她为版式**写一句理由**才落定，那是
+-- SiteStudio 那个表单里的一格。第三关她挑的是一组从自己关键词派生出来的配色，
+-- 理由已经在那些关键词里了；再要一段话，就是把这一关重新变回一个输入框。
+UPDATE pbl_site SET layout = $2, palette = $3, updated_at = now()
+WHERE user_id = $1 RETURNING *;
+
+-- name: SetPblSiteHero :one
+UPDATE pbl_site SET hero_key = $2, updated_at = now()
 WHERE user_id = $1 RETURNING *;
 
 -- name: SetPblSiteContent :one

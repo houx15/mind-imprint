@@ -2,7 +2,7 @@ import { Essay } from "./Essay";
 import { Ledger } from "./Ledger";
 import { Magazine } from "./Magazine";
 import { themeFor } from "./themes";
-import type { SiteContent, SiteLayout } from "./types";
+import type { SiteContent, SiteLayout, SitePalette } from "./types";
 
 /**
  * 她的网站 — 主页项目真正做出来的那个东西。
@@ -28,16 +28,22 @@ import type { SiteContent, SiteLayout } from "./types";
 export function BuiltSite({
   site,
   layout,
+  palette,
+  heroUrl,
   narrow = false,
   editing = false,
 }: {
   site: SiteContent;
   layout: SiteLayout;
+  /** 她第三关定下的配色。没有就用版式自带的那一套。 */
+  palette?: SitePalette | null;
+  /** 她第三关生成的头图。空 = 她没要头图，那是一个合法的选择。 */
+  heroUrl?: string;
   narrow?: boolean;
   /** 她自己在看 = true（会显示「这里还没写」）；访客 = false。 */
   editing?: boolean;
 }) {
-  const props = { site, theme: themeFor(layout), narrow, editing };
+  const props = { site, theme: themeFor(layout, palette), narrow, editing, heroUrl };
   if (layout === "ledger") return <Ledger {...props} />;
   if (layout === "magazine") return <Magazine {...props} />;
   return <Essay {...props} />;

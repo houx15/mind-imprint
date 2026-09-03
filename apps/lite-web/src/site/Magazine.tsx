@@ -14,7 +14,7 @@ import { Banner, Blank, Ground, MONO, Plate, cx, hair, mix, type LayoutProps } f
  * 某个作品的裁切。两者做的是不同的事：头图在读到第一个字之前说清这是谁的页面，
  * 作品缩略图是列表里的一行。把作品图放上去，页顶就变成了列表的第一行。
  */
-export function Magazine({ site, theme, narrow, editing }: LayoutProps) {
+export function Magazine({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
   const lead = site.projects[0];
   const avatar = site.name.trim().slice(-1) || "·";
 
@@ -22,7 +22,17 @@ export function Magazine({ site, theme, narrow, editing }: LayoutProps) {
     <Ground theme={theme}>
       {/* 头图：这一页自己的画 */}
       <div className="relative">
-        <Banner height={narrow ? 250 : 400} seed={site.seed} />
+        {/* 她自己生成的头图优先；没有就用这一页自己的画（Banner 从她的名字派生，
+            所以每个人的都不一样，而且不讲任何人的具体故事）。 */}
+        {heroUrl ? (
+          <img
+            src={heroUrl}
+            alt=""
+            style={{ height: narrow ? 250 : 400, width: "100%", objectFit: "cover", display: "block" }}
+          />
+        ) : (
+          <Banner height={narrow ? 250 : 400} seed={site.seed} />
+        )}
         <div
           className="absolute inset-0 flex flex-col items-center justify-center px-6 text-center"
           style={{ background: "linear-gradient(180deg,rgba(12,10,20,.18),rgba(12,10,20,.42))" }}

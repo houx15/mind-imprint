@@ -11,7 +11,7 @@ import { Blank, Ground, MONO, cx, hair, mix, type LayoutProps } from "./parts";
  * 它和 `Essay` 是故意相反的两页。如果两个选项都做成了一列带标题的区块，那她写
  * 了理由的那个选择，就退化成了换一次配色。
  */
-export function Ledger({ site, theme, narrow, editing }: LayoutProps) {
+export function Ledger({ site, theme, narrow, editing, heroUrl }: LayoutProps) {
   const pad = narrow ? "px-5" : "px-9";
 
   type Row = { id: string; when: string; kind: string; title: string; blurb: string };
@@ -48,6 +48,15 @@ export function Ledger({ site, theme, narrow, editing }: LayoutProps) {
 
   return (
     <Ground theme={theme}>
+      {/* 她第三关生成的头图。这两个版式本来没有头图的位置，
+          所以它只在她真的要了的时候出现，压在最上面一条。 */}
+      {heroUrl ? (
+        <img
+          src={heroUrl}
+          alt=""
+          style={{ height: narrow ? 140 : 220, width: "100%", objectFit: "cover", display: "block" }}
+        />
+      ) : null}
       <div className={cx("mx-auto w-full max-w-[860px]", pad, narrow ? "py-10" : "py-16")}>
         {/* 顶部一行小字说明这里是什么 */}
         <header style={{ ...MONO }}>

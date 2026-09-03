@@ -39,14 +39,18 @@ import (
 
 // pblSiteDTO 是她自己那一侧看到的东西：页面本身、她的草稿、还缺什么、发布状态。
 type pblSiteDTO struct {
-	Layout    string           `json:"layout"`
-	LayoutWhy string           `json:"layoutWhy"`
-	Draft     pbl.SiteDraft    `json:"draft"`
-	Content   pbl.SiteContent  `json:"content"`
-	Missing   []string         `json:"missing"`
-	Published bool             `json:"published"`
-	URL       string           `json:"url"`
-	ProjectID string           `json:"projectId"`
+	Layout string `json:"layout"`
+	// Palette 是第三关她定下的配色。零值（三个颜色都空）= 还没定，渲染端用
+	// 版式自带的那一套。
+	Palette pbl.Palette `json:"palette"`
+	// HeroURL 是头图。空 = 她没要头图，那是一个合法的选择。
+	HeroURL   string          `json:"heroUrl"`
+	Draft     pbl.SiteDraft   `json:"draft"`
+	Content   pbl.SiteContent `json:"content"`
+	Missing   []string        `json:"missing"`
+	Published bool            `json:"published"`
+	URL       string          `json:"url"`
+	ProjectID string          `json:"projectId"`
 }
 
 const (
@@ -185,9 +189,14 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 	if len(row.Content) > 0 {
 		_ = json.Unmarshal(row.Content, &draft)
 	}
+	var palette pbl.Palette
+	if len(row.Palette) > 0 {
+		_ = json.Unmarshal(row.Palette, &palette)
+	}
 	dto := pblSiteDTO{
 		Layout:    row.Layout,
-		LayoutWhy: row.LayoutWhy,
+		Palette:   palette,
+		HeroURL:   a.signedOrEmpty(row.HeroKey),
 		Draft:     normalizeDraft(draft),
 		Content:   content,
 		Missing:   pbl.SiteMissing(content),
@@ -340,16 +349,19 @@ func clampDraft(d pbl.SiteDraft) pbl.SiteDraft {
 	return d
 }
 
-// PUT /api/v1/pbl/site/layout — 她挑的版式，和她为什么挑它。
+// putPblSiteLook —— 第三关：版式（她管它叫「风格」）和配色。
 //
-// 🚨 没有理由就不落定。这是设计原则里那一条：「每个『就用这个』按钮在她写下理由
-// 之前都不生效。一旦『就用这个』自己能按下去，这就是一台负责生成、而她只负责
-// 点头的机器。」置灰按钮做不到这件事，服务端可以。
-func (a *API) putPblSiteLayout(w http.ResponseWriter, r *http.Request) {
+// 🚨 取代了 PUT /pbl/site/layout。那一条要她**写一句理由**才落定——那是
+// SiteStudio 那个表单里的一格，而产品负责人 2026-09-03 把整个表单否掉了。
+//
+// 理由并没有消失，它换了个地方：这一关的配色是从她第一关留下的关键词派生出来
+// 的，每一组都写着「它为什么配那几个词」。她挑的时候理由已经在屏幕上了，而且
+// 那是一条能被第五关拿去检查的理由——比一段临时写来解锁按钮的话结实得多。
+func (a *API) putPblSiteLook(w http.ResponseWriter, r *http.Request) {
 	u, _ := UserFromContext(r.Context())
 	var req struct {
-		Layout string `json:"layout"`
-		Why    string `json:"why"`
+		Layout  string      `json:"layout"`
+		Palette pbl.Palette `json:"palette"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -360,22 +372,25 @@ func (a *API) putPblSiteLayout(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_layout", "这个版式不存在", nil))
 		return
 	}
-	why := strings.TrimSpace(req.Why)
-	if why == "" {
-		httpx.WriteError(w, r, httpx.ErrBadRequest(
-			"needs_reason", "先写一句你为什么挑这一版。三个版式是三个不一样的页面，理由是这次选择里唯一留得下来的东西。", nil))
+	// 🚨 她提交的颜色同样要验。一个 "warm beige" 存进去之后，浏览器会把整条 CSS
+	// 声明丢掉，而坏掉的是她已经发布出去的那一页。
+	if !pbl.ValidPalette(req.Palette) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_palette",
+			"配色不完整：三个颜色都要是 #RRGGBB", nil))
 		return
-	}
-	if r := []rune(why); len(r) > maxSiteTextRunes {
-		why = string(r[:maxSiteTextRunes])
 	}
 
 	if _, err := a.ensureSite(r, u.ID); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	row, err := a.d.Queries.SetPblSiteLayout(r.Context(),
-		sqlc.SetPblSiteLayoutParams{UserID: u.ID, Layout: layout, LayoutWhy: why})
+	blob, err := json.Marshal(req.Palette)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	row, err := a.d.Queries.SetPblSiteLook(r.Context(),
+		sqlc.SetPblSiteLookParams{UserID: u.ID, Layout: layout, Palette: blob})
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
@@ -498,8 +513,15 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 	// spec §15：不可索引。她是未成年人，链接是给她发给家人和朋友的，不是给
 	// 搜索引擎的。响应头和前端页面里的 meta 各一道。
 	w.Header().Set("X-Robots-Tag", "noindex, nofollow, noarchive")
+	// 配色和头图跟着一起给：访客看到的必须是她定下的那一页，不是版式的默认样子。
+	var palette pbl.Palette
+	if len(site.Palette) > 0 {
+		_ = json.Unmarshal(site.Palette, &palette)
+	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"layout":  row.Layout,
+		"palette": palette,
+		"heroUrl": a.signedOrEmpty(site.HeroKey),
 		"content": content,
 	})
 }

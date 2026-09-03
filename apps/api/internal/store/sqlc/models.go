@@ -759,6 +759,8 @@ type PblSite struct {
 	PublishedAt pgtype.Timestamptz `json:"published_at"`
 	CreatedAt   time.Time          `json:"created_at"`
 	UpdatedAt   time.Time          `json:"updated_at"`
+	Palette     []byte             `json:"palette"`
+	HeroKey     string             `json:"hero_key"`
 }
 
 type PblSiteRef struct {
