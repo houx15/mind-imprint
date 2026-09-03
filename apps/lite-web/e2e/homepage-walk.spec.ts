@@ -40,7 +40,9 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
 
   /* 2 · 进主页项目。开的是项目房间，不是一个独立工作面。 */
   await page.getByRole("button", { name: /做我的主页/ }).click();
-  await expect(page.getByRole("heading", { name: "我自己的主页" })).toBeVisible();
+  await expect(page.getByText("我自己的主页", { exact: false }).first()).toBeVisible();
+  // 驱动问题就印在房间顶上——这是「question-defined project」这件事看得见的证据。
+  await expect(page.getByText("我想让谁，看见我的什么？").first()).toBeVisible();
 
   // 🚨 这一组断言就是这次改动本身：退役掉的那九个 label 一个都不该再出现。
   for (const field of ["首屏那句话", "开场一段", "页头几个词", "选它的理由"]) {
@@ -89,6 +91,22 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
   });
   expect(seeded.ok()).toBeTruthy();
 
+  // 第三关的落点：风格 + 配色。真实路径是「视觉基调」那件工具（配色由模型从她的
+  // 关键词派生），这里直接塞一组合法的，理由同上。发布闸查的就是这一格。
+  const look = await page.request.put("/api/v1/pbl/site/look", {
+    data: {
+      layout: "essay",
+      palette: {
+        label: "车间灯",
+        why: "配「动手」和「不怕拆坏」",
+        paper: "#F5F2EC",
+        ink: "#1E1C19",
+        accent: "#2F5D8A",
+      },
+    },
+  });
+  expect(look.ok()).toBeTruthy();
+
   /* 6 · 上线。 */
   await page.reload();
   await page.getByRole("button", { name: /我的主页/ }).click();
@@ -112,6 +130,16 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
   for (const ghost of ["林知遥", "zhiyao", "初二", "213"]) {
     await expect(guest.getByText(ghost, { exact: false })).toHaveCount(0);
   }
+  // 🚨 她定下的配色必须真的到达访客那一页。
+  //
+  // 这条断言存在是因为肉眼在一张缩略图上分不清 #9C3B26（版式自带的锈红）和
+  // #2F5D8A（她挑的靛蓝）——而这两者的差别，正是「她挑了配色」这件事是真是假。
+  // 量一次计算出来的颜色，比看一眼可靠。
+  const accent = await guest.evaluate(() =>
+    getComputedStyle(document.querySelector(".mk-site")!).getPropertyValue("--st-accent").trim(),
+  );
+  expect(accent.toLowerCase()).toBe("#2f5d8a");
+
   await guest.screenshot({ path: "e2e/.shots/home-6-visitor-page.png", fullPage: true });
 
   await guest.setViewportSize({ width: 390, height: 844 });

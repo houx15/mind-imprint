@@ -179,6 +179,17 @@ func (a *API) ensureSite(r *http.Request, userID uuid.UUID) (sqlc.PblSite, error
 		sqlc.EnsurePblSiteParams{UserID: userID, AtomID: pgtype.UUID{}})
 }
 
+// sitePalette 读这一行里存着的配色。解不开就是零值，而零值不合法
+// （ValidPalette 为假），于是渲染端退回版式自带的那一套、发布闸也拦得住——
+// 一份坏配色不会变成一页半新半旧的东西。
+func sitePalette(row sqlc.PblSite) pbl.Palette {
+	var p pbl.Palette
+	if len(row.Palette) > 0 {
+		_ = json.Unmarshal(row.Palette, &p)
+	}
+	return p
+}
+
 // siteDTO 把一行装成她那一侧要的全部。
 func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, error) {
 	content, err := a.loadSiteContent(r, u.ID, u.DisplayName, row)
@@ -189,13 +200,9 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 	if len(row.Content) > 0 {
 		_ = json.Unmarshal(row.Content, &draft)
 	}
-	var palette pbl.Palette
-	if len(row.Palette) > 0 {
-		_ = json.Unmarshal(row.Palette, &palette)
-	}
 	dto := pblSiteDTO{
 		Layout:    row.Layout,
-		Palette:   palette,
+		Palette:   sitePalette(row),
 		HeroURL:   a.signedOrEmpty(row.HeroKey),
 		Draft:     normalizeDraft(draft),
 		Content:   content,
@@ -435,9 +442,17 @@ func (a *API) publishPblSite(w http.ResponseWriter, r *http.Request) {
 			"这一页还缺你自己写的：" + strings.Join(missing, "、") + "。发出去的是你的主页，得先有你说的话。"))
 		return
 	}
-	// 门槛二：版式得是她选的，而且她写下了为什么。
-	if strings.TrimSpace(row.LayoutWhy) == "" {
-		httpx.WriteError(w, r, httpx.ErrConflict("先挑一个版式，并写一句你为什么挑它。"))
+	// 门槛二：调子得是她定的。
+	//
+	// 🚨 这里原来查的是 `layout_why`——她为版式写下的那一句理由。那一格随
+	// SiteStudio 一起退役了（2026-09-04），而这道闸留着，于是页面上每一个字都齐了
+	// 也发不出去，报错还指着一个界面上已经不存在的输入框。浏览器 walk 抓到的。
+	//
+	// 换成查配色：第三关她挑的那一组，是从她第一关的关键词派生出来的，理由印在
+	// 每一组底下。这仍然是「没有判断就不落定」，只是那个判断换成了一次她看得见
+	// 效果的选择。
+	if !pbl.ValidPalette(sitePalette(row)) {
+		httpx.WriteError(w, r, httpx.ErrConflict("请先在「视觉基调」里定下配色和风格。"))
 		return
 	}
 
@@ -500,9 +515,19 @@ func (a *API) getPublicSite(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// 🚨 手抄字段：每加一列都要记得在这里也抄一遍，而忘记**不会报错**。
+	//
+	// 2026-09-04 的浏览器 walk 抓到的就是这个：第三关加了 palette 和 hero_key，
+	// 这里没抄，于是访客打开她的主页看到的是版式自带的锈红，而不是她挑的靛蓝。
+	// 她那一侧的预览是对的（走的是另一条组装路径），所以这个 bug 只有真的用一个
+	// 无 session 的浏览器打开公开链接才看得见。
+	//
+	// 现在 walk 里量了计算出来的 --st-accent：肉眼在缩略图上分不清 #9C3B26 和
+	// #2F5D8A，而这两者的差别正是「她挑了配色」这件事是真是假。
 	site := sqlc.PblSite{
 		UserID: row.UserID, Layout: row.Layout, LayoutWhy: row.LayoutWhy,
 		Content: row.Content, CreatedAt: row.CreatedAt, UpdatedAt: row.UpdatedAt,
+		Palette: row.Palette, HeroKey: row.HeroKey,
 	}
 	content, err := a.loadSiteContent(r, row.UserID, row.DisplayName, site)
 	if err != nil {
