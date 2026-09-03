@@ -55,6 +55,8 @@ type pblDecisionDTO struct {
 	// 为什么选它 / 为什么不选别的——确认时要回答的那两个小问题。
 	Why    string `json:"why"`
 	WhyNot string `json:"whyNot"`
+	// 什么情况会让她改主意。复盘时拿它对照——当初写下的那个条件，后来发生了没有。
+	Flip      string            `json:"flip"`
 	SettledAt *string           `json:"settledAt"`
 	Options   []pblOptionDTO    `json:"options"`
 	Criteria  []pblCriterionDTO `json:"criteria"`
@@ -64,7 +66,7 @@ type pblDecisionDTO struct {
 func toPblDecisionDTO(d sqlc.PblDecision, opts []sqlc.PblDecisionOption, crit []sqlc.PblDecisionCriterion) pblDecisionDTO {
 	out := pblDecisionDTO{
 		ID: d.ID.String(), Subject: d.Subject, Choice: d.Choice,
-		Why: d.Why, WhyNot: d.WhyNot,
+		Why: d.Why, WhyNot: d.WhyNot, Flip: d.Flip,
 		Options: make([]pblOptionDTO, 0, len(opts)), Criteria: make([]pblCriterionDTO, 0, len(crit)),
 		CreatedAt: d.CreatedAt.Format(time.RFC3339),
 	}

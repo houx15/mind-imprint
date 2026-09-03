@@ -22,6 +22,8 @@ export interface Decision {
   choice: string;
   /** 为什么选它。 */
   why: string;
+  /** 什么情况会让她改主意。复盘时拿它对照。 */
+  flip: string;
   /** 为什么不选别的。这一句才说明她真的比较过。 */
   whyNot: string;
   settledAt: string | null;
