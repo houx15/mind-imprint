@@ -35,10 +35,13 @@ import (
 
 type pblOptionDTO struct {
 	ID string `json:"id"`
-	// 卡片上的标题和那段说明。两样都是印记写的——选项由它提。
 	Label       string `json:"label"`
 	Description string `json:"description"`
-	Ordinal     int32  `json:"ordinal"`
+	// 🚨 谁提的这条路。印记提的是默认，她自己加的那条是另一回事——
+	// 「这些都不对，我要的是另一样」是她判断力的证据（铁律④），界面和回灌
+	// 都要认得出来。
+	Author  string `json:"author"`
+	Ordinal int32  `json:"ordinal"`
 }
 
 type pblCriterionDTO struct {
@@ -77,7 +80,7 @@ func toPblDecisionDTO(d sqlc.PblDecision, opts []sqlc.PblDecisionOption, crit []
 	for _, o := range opts {
 		out.Options = append(out.Options, pblOptionDTO{
 			ID: o.ID.String(), Label: o.Label, Description: o.Description,
-			Ordinal: o.Ordinal,
+			Author: o.Author, Ordinal: o.Ordinal,
 		})
 	}
 	for _, c := range crit {

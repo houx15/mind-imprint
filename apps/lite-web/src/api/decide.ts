@@ -13,6 +13,8 @@ export interface DecisionOption {
   id: string;
   label: string;
   description: string;
+  /** 谁提的这条路。她自己加的那条是「这些都不对，我要的是另一样」。 */
+  author: "yinji" | "student";
   ordinal: number;
 }
 

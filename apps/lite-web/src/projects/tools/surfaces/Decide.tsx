@@ -221,6 +221,12 @@ export function Decide({ projectId, tool, onFinish, onClose }: ToolSurfaceProps)
                     <span className="min-w-0 flex-1">
                       <span className="block text-mk-small font-semibold" style={{ color: t.fg }}>
                         {o.label}
+                        {/* 她自己加的那条要认得出来——那是她的判断，不是印记的提议。 */}
+                        {o.author === "student" && (
+                          <span className="ml-1.5 text-mk-small font-normal text-mk-muted">
+                            你加的
+                          </span>
+                        )}
                       </span>
                       {o.description && (
                         <span className="mt-1 block text-mk-small text-mk-secondary">

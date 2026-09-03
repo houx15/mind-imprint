@@ -109,6 +109,19 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 			}
 			// 🚨 她当初写下的翻盘条件。这一句是复盘阶段唯一能回头对照的东西：
 			// 「你当时说出现 X 就改主意，现在 X 发生了吗」。不带上，那句话就白写了。
+			// 🚨 她自己加的那条路。「这些都不对，我要的是另一样」和「在给定的
+			// 选项里挑一个」是两件事，后者印记看不出区别，前者是她判断力的证据。
+			if os, oerr := a.d.Queries.ListPblDecisionOptions(ctx, d.ID); oerr == nil {
+				var mine []string
+				for _, o := range os {
+					if o.Author == "student" {
+						mine = append(mine, strings.TrimSpace(o.Label))
+					}
+				}
+				if len(mine) > 0 {
+					line += "；这几条是她自己加进去的：" + strings.Join(mine, "、")
+				}
+			}
 			if f := strings.TrimSpace(d.Flip); f != "" {
 				line += "；她说会让她改主意的情况是：" + f
 			}
