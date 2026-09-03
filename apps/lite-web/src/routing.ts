@@ -57,10 +57,19 @@ export type LiteRoute =
   // 的记录，一篇一条、会有很多条；`/p/` 是她这个人的主页，只有一个。
   | { tab: "page"; token: string };
 
-/** Parse a browser pathname into a lite route. Unknown paths fall back to the
- * readings tab (the lite shell's landing surface), so a stale or hand-typed
- * URL never dead-ends. Trailing slashes and `/index.html` are tolerated;
- * segments are URL-decoded. */
+/** Parse a browser pathname into a lite route.
+ *
+ * 🚨 **落地页是探索（今日新闻星图），不是阅读**（2026-09-03 改）。
+ *
+ * 原来 `/` 落在阅读室，因为那时探索地图还是原型、星图还是 mock 数据。现在它是
+ * 真的：每天五颗从二十一个源里挑出来的星，每颗带一个她可以自己追问的问题。
+ * **这才是每天回来看一眼的理由** —— 而阅读室是「我手头有一篇要读」时才去的
+ * 地方，它是任务的入口，不是产品的入口。
+ *
+ * 导航顺序也因此说得通：探索（找到）→ 阅读 → 写作 → 项目 → 我的树（因此长出来）。
+ *
+ * 未知路径同样落到探索，所以一条过期或手敲错的 URL 永远不会死掉。容忍尾部斜杠
+ * 与 `/index.html`；路径段会被 URL 解码。 */
 export function parseLiteRoute(pathname: string): LiteRoute {
   const cleaned = pathname
     .replace(/\/index\.html$/i, "/")
@@ -70,8 +79,11 @@ export function parseLiteRoute(pathname: string): LiteRoute {
   const [first, second, third] = segments;
 
   switch (first) {
+    // `/` 落在探索。星图当天生成失败时它有自己的空状态（说出后台原话 + 重试），
+    // 所以哪怕没出星图，落地页也不是一片莫名其妙的白。
     case undefined:
     case "":
+      return { tab: "explore" };
     case "readings":
       return second ? { tab: "readings", readingId: second } : { tab: "readings" };
     case "writings":
@@ -85,23 +97,23 @@ export function parseLiteRoute(pathname: string): LiteRoute {
     case "settings":
       return { tab: "settings" };
     case "p":
-      // 和 `/s` 同样的道理：没有 token 就不是一条主页链接，落回默认页而不是
+      // 和 `/s` 同样的道理：没有 token 就不是一条主页链接，落回落地页而不是
       // 造出一个 token 为空的路由。
-      if (!second) return { tab: "readings" };
+      if (!second) return { tab: "explore" };
       return { tab: "page", token: second };
     case "s":
       // A malformed `/s` with no token is not a share route — it has nothing
-      // to fetch — so it falls through to the readings default like any
-      // other unrecognized path, rather than producing a route with an empty
-      // token.
+      // to fetch — so it falls through to the default landing surface like
+      // any other unrecognized path, rather than producing a route with an
+      // empty token.
       //
       // Only the exact segment `record` opens the record; anything else after
       // the token is a typo or a stale deep link and lands on the article,
       // which is the page the link was sent for. Never a dead end.
-      if (!second) return { tab: "readings" };
+      if (!second) return { tab: "explore" };
       return { tab: "share", token: second, view: third === "record" ? "record" : "article" };
     default:
-      return { tab: "readings" };
+      return { tab: "explore" };
   }
 }
 

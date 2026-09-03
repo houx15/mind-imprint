@@ -314,12 +314,13 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
         ) : route.tab === "readings" && route.readingId ? (
           <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (
-          // Also covers `route.tab === "share"`: the share route is meant to
-          // be caught by `LiteApp`'s own pre-auth check and never reach this
-          // shell at all (see the comment there). This branch is only a safe
-          // fallback should `LiteShell`'s popstate listener ever pick one up
-          // mid-session — the readings landing, same as any other unknown
-          // path (`parseLiteRoute`'s own default).
+          // 这里只剩两种情况：`/readings`（没带 id），以及理论上不该走到这儿的
+          // `share` / `page` —— 那两条链接由 `rootElementFor` 在登录之前就接走
+          // 了，这个分支只是万一 `LiteShell` 的 popstate 中途捡到一条时的兜底。
+          //
+          // 🚨 注意它**不再是「未知路径的落点」**：落地页与未知路径现在都归探索
+          // （见 `parseLiteRoute` 的注释），`readings` 只有从 `/readings` 进来
+          // 才会出现。
           <ReadingsLanding />
         )}
       </main>

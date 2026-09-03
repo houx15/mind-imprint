@@ -2,7 +2,14 @@ import { describe, expect, it } from "vitest";
 import { liteRoutePath, parseLiteRoute, readingPath, writingPath } from "@lite/routing";
 
 describe("parseLiteRoute", () => {
-  it("defaults to the readings tab", () => expect(parseLiteRoute("/")).toEqual({ tab: "readings" }));
+  // 🚨 落地页是**探索**，不是阅读（2026-09-03 改）。星图接上真数据之后，「每天
+  // 回来看一眼」的理由在探索这一屏，而阅读室是「我手头有一篇要读」时才去的地方。
+  it("lands on the explore map at the root", () =>
+    expect(parseLiteRoute("/")).toEqual({ tab: "explore" }));
+  it("tolerates index.html at the root", () =>
+    expect(parseLiteRoute("/index.html")).toEqual({ tab: "explore" }));
+  it("still opens the readings tab from its own path", () =>
+    expect(parseLiteRoute("/readings")).toEqual({ tab: "readings" }));
   it("reads a reading id", () =>
     expect(parseLiteRoute("/readings/abc-123")).toEqual({ tab: "readings", readingId: "abc-123" }));
   it("knows the writings tab", () => expect(parseLiteRoute("/writings")).toEqual({ tab: "writings" }));
@@ -26,11 +33,11 @@ describe("parseLiteRoute", () => {
   it("falls back to the article for an unknown sub-page", () =>
     expect(parseLiteRoute("/s/abc/whatever")).toEqual({ tab: "share", token: "abc", view: "article" }));
   // A bare `/s` with no token has nothing to fetch — it must fall back to
-  // the readings default like any other malformed path, NOT produce
+  // the default landing surface like any other malformed path, NOT produce
   // `{tab:"share", token: undefined}`. Named here so dropping the `second ?`
   // guard in `parseLiteRoute`'s `"s"` case fails loudly instead of silently.
   it("does not treat a bare /s as a share route", () =>
-    expect(parseLiteRoute("/s")).toEqual({ tab: "readings" }));
+    expect(parseLiteRoute("/s")).toEqual({ tab: "explore" }));
   it("round-trips a share path", () =>
     expect(parseLiteRoute(liteRoutePath({ tab: "share", token: "abc", view: "article" }))).toEqual({
       tab: "share",
@@ -47,10 +54,10 @@ describe("parseLiteRoute", () => {
   // 是一次阅读或写作的记录，会有很多条；`/p/` 是她这个人的主页，只有一个。
   it("reads a personal-page token", () =>
     expect(parseLiteRoute("/p/abc")).toEqual({ tab: "page", token: "abc" }));
-  // 同 `/s`：没有 token 就没有东西可取，落回默认页，而不是造出一个 token 为
+  // 同 `/s`：没有 token 就没有东西可取，落回落地页，而不是造出一个 token 为
   // 空的路由。
   it("does not treat a bare /p as a page route", () =>
-    expect(parseLiteRoute("/p")).toEqual({ tab: "readings" }));
+    expect(parseLiteRoute("/p")).toEqual({ tab: "explore" }));
   it("round-trips a personal-page path", () =>
     expect(parseLiteRoute(liteRoutePath({ tab: "page", token: "abc" }))).toEqual({
       tab: "page",
@@ -72,7 +79,7 @@ describe("parseLiteRoute", () => {
   // `EcoRoot` before `parseLiteRoute` ever sees it, and a lite parse that
   // claimed it would be a silent takeover.
   it("does not claim the prototype's tree path", () =>
-    expect(parseLiteRoute("/eco/tree")).toEqual({ tab: "readings" }));
+    expect(parseLiteRoute("/eco/tree")).toEqual({ tab: "explore" }));
 
   // 觉醒协议是 tree 这条 tab 下的一屏，不是自己的顶层 tab。
   it("knows the quiz sub-page", () =>
@@ -88,12 +95,12 @@ describe("parseLiteRoute", () => {
   it("the bare tree path carries no quiz flag", () =>
     expect(liteRoutePath({ tab: "tree" })).toBe("/tree"));
 
-  // 探索 (今日新闻星图). 排在 rail 的第一格，但 `/` 仍然落在阅读 —— 见
-  // LiteApp 的注释：一屏可能生成失败的星图不该是每个学生的落地页。
+  // 探索 (今日新闻星图) —— rail 的第一格，也是落地页。
   it("knows the explore tab", () =>
     expect(parseLiteRoute("/explore")).toEqual({ tab: "explore" }));
   it("round-trips the explore path", () =>
     expect(parseLiteRoute(liteRoutePath({ tab: "explore" }))).toEqual({ tab: "explore" }));
-  it("still lands on readings at the root", () =>
-    expect(parseLiteRoute("/")).toEqual({ tab: "readings" }));
+  // 一条过期或手敲错的 URL 落到探索，不是死掉。
+  it("falls back to explore for an unknown path", () =>
+    expect(parseLiteRoute("/whatever-this-is")).toEqual({ tab: "explore" }));
 });
