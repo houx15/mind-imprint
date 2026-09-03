@@ -204,6 +204,30 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 她连出来的关系，尤其是矛盾。
+	//
+	// 板上的意义不在单张纸上，在两张纸之间。而**矛盾**那几条最要紧：两条都是她
+	// 亲眼看到的，却互相打架——真正的问题几乎都是从那儿长出来的。印记读到这一句
+	// 才接得上「你这两条对不上，先弄清楚哪一条错了」。
+	if ls, err := a.d.Queries.ListPblNoteLinksWithBodies(ctx, atomID); err == nil {
+		word := map[string]string{
+			"causes": "导致", "contradicts": "和这一条矛盾",
+			"same": "和这一条说的是同一件事", "supports": "撑着这一条",
+		}
+		for _, l := range ls {
+			w := word[l.Relation]
+			if w == "" {
+				continue
+			}
+			line := "她把「" + strings.TrimSpace(l.FromBody) + "」和「" +
+				strings.TrimSpace(l.ToBody) + "」连了起来：" + w
+			if l.Relation == "contradicts" {
+				line += "（这一对是她自己标出来的矛盾）"
+			}
+			add(line)
+		}
+	}
+
 	// 🚨 结构盖没盖全，答案在「放不进去的那几条」里。
 	//
 	// 「这个分法盖全了吗」以前是个没法回答的问题：她只能盯着提纲想「大概全了吧」。

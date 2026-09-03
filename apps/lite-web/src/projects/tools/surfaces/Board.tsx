@@ -9,6 +9,10 @@ import {
   createNotes,
   listNotes,
   moveNote,
+  listNoteLinks,
+  linkNotes,
+  unlinkNotes,
+  NOTE_RELATIONS,
   noteKindMeta,
   updateNote,
   type Note,
@@ -16,6 +20,7 @@ import {
 } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
 import { resolveUrl } from "../../../api/oss";
+import type { NoteLink, NoteRelation } from "../../../api/notes";
 import { NOTE_H, NOTE_W, boardSpot } from "../boardLayout";
 import type { ToolSurfaceProps } from "../registry";
 
@@ -72,6 +77,40 @@ export function Board({
   const [draft, setDraft] = useState("");
   const [seen, setSeen] = useState("");
   const [picked, setPicked] = useState<string[]>([]);
+  // 她连出来的关系。矛盾那几条是这块板最要紧的产出。
+  const [links, setLinks] = useState<NoteLink[]>([]);
+
+  const loadLinks = useCallback(async () => {
+    try {
+      setLinks(await listNoteLinks(projectId));
+    } catch {
+      // 连线拉不到，板子照样能用——只是少了那几根线。
+    }
+  }, [projectId]);
+  useEffect(() => {
+    void loadLinks();
+  }, [loadLinks]);
+
+  /** 把选中的两张连起来，并说清楚是哪一种关系。 */
+  async function link(relation: NoteRelation) {
+    if (picked.length !== 2) return;
+    try {
+      const got = await linkNotes(projectId, picked[0]!, picked[1]!, relation);
+      setLinks((prev) => [...prev.filter((l) => l.id !== got.id), got]);
+      setPicked([]);
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
+
+  async function cutLink(id: string) {
+    try {
+      await unlinkNotes(projectId, id);
+      setLinks((prev) => prev.filter((l) => l.id !== id));
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
   const [editing, setEditing] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const boardRef = useRef<HTMLDivElement>(null);
@@ -347,6 +386,31 @@ export function Board({
           </div>
         )}
 
+        {/* 🚨 她连出来的线，画在便签下面。矛盾那几根用 berry——两条都是她亲眼
+            看到的却互相打架，那正是真正的问题冒出来的地方，不该和别的线一个样。 */}
+        <svg className="pointer-events-none absolute inset-0 h-full w-full">
+          {links.map((l) => {
+            const a = notes.find((n) => n.id === l.fromId);
+            const b = notes.find((n) => n.id === l.toId);
+            if (!a || !b) return null;
+            const pa = toPx(a);
+            const pb = toPx(b);
+            const meta = NOTE_RELATIONS.find((r) => r.relation === l.relation);
+            return (
+              <line
+                key={l.id}
+                x1={pa.x + NOTE_W / 2}
+                y1={pa.y + NOTE_H / 2}
+                x2={pb.x + NOTE_W / 2}
+                y2={pb.y + NOTE_H / 2}
+                stroke={meta?.hue ?? "var(--mk-border)"}
+                strokeWidth={l.relation === "contradicts" ? 2.5 : 1.5}
+                strokeDasharray={l.relation === "contradicts" ? "5 3" : undefined}
+              />
+            );
+          })}
+        </svg>
+
         {notes.length === 0 && (
           <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
             板上还什么都没有。先把你想到的一条一条贴上来。
@@ -466,6 +530,22 @@ export function Board({
             >
               归成一堆
             </button>
+            {/* 🚨 正好选中两张时，才谈得上「它们之间是什么关系」。 */}
+            {picked.length === 2 &&
+              NOTE_RELATIONS.map((r) => (
+                <button
+                  key={r.relation}
+                  type="button"
+                  onClick={() => void link(r.relation)}
+                  className="rounded-mk-full px-2 py-0.5 text-mk-small"
+                  style={{
+                    background: `color-mix(in srgb, ${r.hue} 18%, transparent)`,
+                    color: "var(--mk-ink)",
+                  }}
+                >
+                  {r.label}
+                </button>
+              ))}
             <button
               type="button"
               onClick={() => void regroup("")}
@@ -484,6 +564,44 @@ export function Board({
         )}
       </div>
       </div>
+
+      {/* 🚨 矛盾单独列出来，不只画成一根线。
+          两条都是她亲眼看到的、却互相打架——真正的问题几乎都从那儿长出来，
+          而一根画在图上的虚线太容易被略过。 */}
+      {links.some((l) => l.relation === "contradicts") && (
+        <div
+          className="mt-3 rounded-mk-md px-3 py-2.5"
+          style={{ background: "var(--mk-berry-bg)" }}
+        >
+          <p className="text-mk-small font-semibold" style={{ color: "var(--mk-berry-fg)" }}>
+            对不上的两条
+          </p>
+          <p className="mt-0.5 text-mk-small text-mk-muted">
+            两边都是你看到的，却打架。请先弄清楚这里发生了什么。
+          </p>
+          {links
+            .filter((l) => l.relation === "contradicts")
+            .map((l) => {
+              const a = notes.find((n) => n.id === l.fromId);
+              const b = notes.find((n) => n.id === l.toId);
+              if (!a || !b) return null;
+              return (
+                <div key={l.id} className="mt-1.5 flex items-start gap-2">
+                  <p className="min-w-0 flex-1 text-mk-small text-mk-ink">
+                    {a.body} ↔ {b.body}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => void cutLink(l.id)}
+                    className="shrink-0 text-mk-small text-mk-faint"
+                  >
+                    拆开
+                  </button>
+                </div>
+              );
+            })}
+        </div>
+      )}
 
       {/* 坐标视图的开关。 */}
       <div className="mt-1.5 flex items-center justify-between gap-2">

@@ -605,6 +605,15 @@ type PblNote struct {
 	TreeNodeID pgtype.UUID `json:"tree_node_id"`
 }
 
+type PblNoteLink struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	FromID    uuid.UUID `json:"from_id"`
+	ToID      uuid.UUID `json:"to_id"`
+	Relation  string    `json:"relation"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type PblPendingChange struct {
 	ID         uuid.UUID          `json:"id"`
 	AtomID     uuid.UUID          `json:"atom_id"`

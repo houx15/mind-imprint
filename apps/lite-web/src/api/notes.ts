@@ -163,3 +163,45 @@ export function placeNote(
     body: JSON.stringify({ nodeId }),
   });
 }
+
+/**
+ * 两张便签之间的关系。
+ *
+ * 🚨 板上的意义不在单张纸上，在两张纸之间。四种关系里**矛盾**最要紧：两条都是
+ * 她亲眼看到的却互相打架——真正的问题几乎都是从那儿长出来的。
+ */
+export type NoteRelation = "causes" | "contradicts" | "same" | "supports";
+
+export const NOTE_RELATIONS: { relation: NoteRelation; label: string; hue: string }[] = [
+  { relation: "causes", label: "导致", hue: "var(--mk-mist)" },
+  { relation: "contradicts", label: "互相矛盾", hue: "var(--mk-berry)" },
+  { relation: "same", label: "同一件事", hue: "var(--mk-matcha)" },
+  { relation: "supports", label: "撑着它", hue: "var(--mk-peach)" },
+];
+
+export interface NoteLink {
+  id: string;
+  fromId: string;
+  toId: string;
+  relation: NoteRelation;
+}
+
+export function listNoteLinks(projectId: string): Promise<NoteLink[]> {
+  return apiFetch<NoteLink[]>(`${base(projectId)}/note-links`);
+}
+
+export function linkNotes(
+  projectId: string,
+  fromId: string,
+  toId: string,
+  relation: NoteRelation,
+): Promise<NoteLink> {
+  return apiFetch<NoteLink>(`${base(projectId)}/note-links`, {
+    method: "POST",
+    body: JSON.stringify({ fromId, toId, relation }),
+  });
+}
+
+export function unlinkNotes(projectId: string, linkId: string): Promise<void> {
+  return apiFetch<void>(`${base(projectId)}/note-links/${linkId}`, { method: "DELETE" });
+}
