@@ -1,8 +1,8 @@
 -- 一件任务里的分工（阶段五）。每一格谁做，为什么；她改了也要写为什么。
 
 -- name: CreatePblSubstep :one
-INSERT INTO pbl_substep (step_id, ordinal, title, owner, reason)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO pbl_substep (step_id, ordinal, title, owner, reason, added_by_student)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING *;
 
 -- name: ListPblSubsteps :many

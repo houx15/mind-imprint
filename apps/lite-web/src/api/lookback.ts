@@ -6,6 +6,20 @@ import type { ToneName } from "../shared/tone";
 
 const base = (id: string) => `/api/v1/pbl/projects/${id}`;
 
+/**
+ * 她现在还这么想吗。
+ *
+ * 🚨 「当时没想清楚」必须是可点的一项：在空白框里承认这件事要写一段话，成本
+ * 太高，她于是写「挺好的」。一下点掉，诚实就变便宜了（铁律④）。
+ */
+export type Stance = "" | "still" | "changed" | "unclear";
+
+export const STANCES: { key: Exclude<Stance, "">; label: string }[] = [
+  { key: "still", label: "现在仍这么想" },
+  { key: "changed", label: "现在会改" },
+  { key: "unclear", label: "当时没想清楚" },
+];
+
 export type ReviewSection = "what" | "how" | "moment" | "praise" | "improve" | "with_ai";
 
 /**
@@ -57,6 +71,8 @@ export interface LookbackPrompt {
   answer: string;
   /** 这一问冲着的那件事——她当初写下的原话。空 = 冲着她本人问的。 */
   evidence: string;
+  /** 她现在怎么看当初那句话。空 = 还没表态。 */
+  stance: Stance;
   ordinal: number;
 }
 
@@ -82,6 +98,24 @@ export function answerLookback(
   return apiFetch<LookbackPrompt>(`${base(projectId)}/lookback/${promptId}`, {
     method: "PATCH",
     body: JSON.stringify({ answer }),
+  });
+}
+
+/**
+ * 她对当初那句话现在的看法。
+ *
+ * 🚨 和 answerLookback 分开发：她先点态度、后写字（或者反过来）都不该把另一样
+ * 清掉，所以这一枪只带 stance，服务端也只在带了这一格时才动它。
+ */
+export function setStance(
+  projectId: string,
+  promptId: string,
+  stance: Stance,
+  answer: string,
+): Promise<LookbackPrompt> {
+  return apiFetch<LookbackPrompt>(`${base(projectId)}/lookback/${promptId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ answer, stance }),
   });
 }
 
@@ -224,4 +258,19 @@ export function keepStage(entries: KeepEntry[]): KeepStage {
   const latest = entries[0]!; // 服务端按时间倒序
   if (latest.stage === "change") return "ship";
   return latest.stage;
+}
+
+/**
+ * 她转过几圈了。
+ *
+ * 🚨 迭代的意思是**重复**。一张勾一次就完的清单不是迭代——四个阶段走完一轮，
+ * 下一轮从头再来，圈数才是这件工具真正要她看见的东西。
+ *
+ * 一圈的界线是「产品迭代」那一步：改完一件事，就该回到发布、再看数据。所以每
+ * 出现一条 change，就算走完一圈。
+ *
+ * 纯派生，不进库——阶段和时间本来就都记着了。
+ */
+export function keepLaps(entries: KeepEntry[]): number {
+  return entries.filter((e) => e.stage === "change").length;
 }

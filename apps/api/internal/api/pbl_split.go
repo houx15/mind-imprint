@@ -38,14 +38,17 @@ type pblSubstepDTO struct {
 	// 她改成了什么，以及为什么。null = 她没动。
 	StudentOwner  *string `json:"studentOwner"`
 	StudentReason string  `json:"studentReason"`
-	Status        string  `json:"status"`
-	ConfirmedAt   *string `json:"confirmedAt"`
+	// 这一件是她自己补上的——印记的方案里原本没有。
+	AddedByStudent bool    `json:"addedByStudent"`
+	Status         string  `json:"status"`
+	ConfirmedAt    *string `json:"confirmedAt"`
 }
 
 func toPblSubstepDTO(s sqlc.PblSubstep) pblSubstepDTO {
 	out := pblSubstepDTO{
 		ID: s.ID.String(), Owner: s.Owner, Reason: s.Reason, Title: s.Title,
 		Ordinal: s.Ordinal, StudentReason: s.StudentReason, Status: s.Status,
+		AddedByStudent: s.AddedByStudent,
 	}
 	if s.StudentOwner != nil {
 		out.StudentOwner = s.StudentOwner
@@ -239,4 +242,57 @@ func (a *API) setPblSubstepStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusOK, toPblSubstepDTO(out))
+}
+
+// addPblSubstep —— 她补上印记漏掉的那一件。
+//
+// 🚨 审一份方案不等于逐格同意，先要问它漏了什么。补上的那一件带 added_by_student
+// 标记：回灌时它和印记自己提的那几件必须分得开——「她发现方案里少了一件事」是
+// 这件工具最强的一种信号（铁律④）。
+//
+// 归属默认给她自己：她想起来的那件事，通常也是她要做的那件事；不对就用名字牌
+// 改，那条路已经通了。
+func (a *API) addPblSubstep(w http.ResponseWriter, r *http.Request) {
+	sid, ok := a.loadOwnedPblStep(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Title  string `json:"title"`
+		Owner  string `json:"owner"`
+		Reason string `json:"reason"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	title := strings.TrimSpace(req.Title)
+	if title == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_title", "这一件是做什么？", nil))
+		return
+	}
+	// 和印记提的那几件同一条规矩：说不出为什么归谁，就还没想清楚。
+	reason := strings.TrimSpace(req.Reason)
+	if reason == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_reason", "说清为什么归谁", nil))
+		return
+	}
+	owner := strings.TrimSpace(req.Owner)
+	if !pblSubstepOwners[owner] {
+		owner = "student"
+	}
+	existing, err := a.d.Queries.ListPblSubsteps(r.Context(), sid)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	row, err := a.d.Queries.CreatePblSubstep(r.Context(), sqlc.CreatePblSubstepParams{
+		StepID: sid, Ordinal: int32(len(existing)), Title: title,
+		Owner: owner, Reason: reason, AddedByStudent: true,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, toPblSubstepDTO(row))
 }

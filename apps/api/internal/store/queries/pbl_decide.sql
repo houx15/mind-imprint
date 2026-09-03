@@ -35,6 +35,10 @@ INSERT INTO pbl_decision_option (decision_id, label, description, author, ordina
 VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
+-- name: RankPblDecisionOption :one
+-- 她把几条路排出来的顺序。只挑一个不需要把它们放在一起比；排成一列才需要。
+UPDATE pbl_decision_option SET student_rank = $2 WHERE id = $1 RETURNING *;
+
 -- name: ListPblDecisionOptions :many
 SELECT * FROM pbl_decision_option WHERE decision_id = $1 ORDER BY ordinal, created_at;
 

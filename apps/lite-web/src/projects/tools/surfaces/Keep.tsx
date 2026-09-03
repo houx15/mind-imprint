@@ -7,6 +7,7 @@ import {
   KEEP_STAGES,
   addKeepEntry,
   keepMetricsFor,
+  keepLaps,
   keepStage,
   listKeepEntries,
   openKeepSession,
@@ -55,6 +56,7 @@ export function Keep({
   }, [reload]);
 
   const at = keepStage(entries);
+  const laps = keepLaps(entries);
   // 🚨 该看哪几种数据跟着项目类别走。写死的「点击率」问的是一个走廊上的项目
   // 量不出来的东西，等于告诉她这一步跟她无关。见 api/lookback.ts。
   const metrics = keepMetricsFor(projectKind);
@@ -117,6 +119,23 @@ export function Keep({
           把你观察到的带回来，我们一起看它说明了什么。
         </p>
       </div>
+
+      {/* 🚨 圈数。迭代的意思是重复——一张勾一次就完的清单不是迭代。
+          走完一轮（记下一条「产品迭代」）就多一圈，让"又转了一圈"这件事看得见。 */}
+      {laps > 0 && (
+        <div className="flex items-center gap-2">
+          <span className="text-mk-small text-mk-secondary">已经转过 {laps} 圈</span>
+          <span className="flex gap-1">
+            {Array.from({ length: Math.min(laps, 8) }, (_, i) => (
+              <span
+                key={i}
+                className="h-2 w-2 rounded-mk-full"
+                style={{ background: "var(--mk-accent-500)" }}
+              />
+            ))}
+          </span>
+        </div>
+      )}
 
       {/* 循环。她现在停在哪一步。 */}
       <div className="flex items-stretch gap-1">

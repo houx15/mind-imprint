@@ -3,6 +3,7 @@ import { getMe } from "../../../api/auth";
 import { apiErrorText } from "../../../api/errorText";
 import { getPlan, type PlanStep } from "../../../api/projectRoom";
 import {
+  addSubstep,
   confirmSubstep,
   effectiveOwner,
   listSubsteps,
@@ -118,6 +119,26 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
   // 正在改归属的那一行：她点了另一段轨道，还欠一句理由。
   const [moving, setMoving] = useState<{ id: string; owner: Owner } | null>(null);
   const [why, setWhy] = useState("");
+  // 她要补上的那一件。
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newWhy, setNewWhy] = useState("");
+
+  /** 补一件印记漏掉的。归属默认给她自己——她想起来的，通常也是她要做的。 */
+  async function addOne() {
+    if (!stepId || !newTitle.trim() || !newWhy.trim()) return;
+    try {
+      const got = await addSubstep(projectId, stepId, {
+        title: newTitle.trim(), owner: "student", reason: newWhy.trim(),
+      });
+      setSubs((prev) => [...prev, got]);
+      setAdding(false);
+      setNewTitle("");
+      setNewWhy("");
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
 
   /** 把这一格改判给另一个人。理由是硬的：服务端拒绝没有理由的改动。 */
   async function move() {
@@ -266,6 +287,11 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                       <p className="text-mk-small text-mk-ink">{s.title}</p>
                       {/* 为什么这么分。她要能反对的，正是这一句。 */}
                       <p className="mt-0.5 text-mk-small text-mk-muted">{s.reason}</p>
+                      {s.addedByStudent && (
+                        <p className="mt-0.5 text-mk-small" style={{ color: STUDENT_HUE }}>
+                          你补的
+                        </p>
+                      )}
                       {s.studentOwner && s.studentReason && (
                         <p className="mt-0.5 text-mk-small text-mk-secondary">
                           你改的：{s.studentReason}
@@ -320,6 +346,52 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               </tbody>
             </table>
           </div>
+
+          {/* 🚨 审一份方案不等于逐格同意，先要问它漏了什么。 */}
+          {adding ? (
+            <div className="mt-2 rounded-mk-md border border-dashed border-mk-border px-3 py-2.5">
+              <input
+                autoFocus
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
+                placeholder="这一件是做什么"
+                className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+              />
+              <input
+                value={newWhy}
+                onChange={(e) => setNewWhy(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && void addOne()}
+                placeholder="为什么这一件该有"
+                className="mt-1.5 w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+              />
+              <div className="mt-2 flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => void addOne()}
+                  disabled={!newTitle.trim() || !newWhy.trim()}
+                  className="rounded-mk-full px-3 py-1 text-mk-small disabled:opacity-40"
+                  style={{ background: STUDENT_HUE, color: "var(--mk-surface)" }}
+                >
+                  添加
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAdding(false)}
+                  className="text-mk-small text-mk-secondary"
+                >
+                  取消
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setAdding(true)}
+              className="mt-2 w-full rounded-mk-md border border-dashed border-mk-border py-2 text-mk-small text-mk-secondary"
+            >
+              还少一件事
+            </button>
+          )}
 
           <p className="mt-2 text-mk-small text-mk-faint">
             请在负责人一栏调整分工，并说明修改原因。

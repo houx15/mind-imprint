@@ -91,7 +91,7 @@ const createPblDecisionOption = `-- name: CreatePblDecisionOption :one
 
 INSERT INTO pbl_decision_option (decision_id, label, description, author, ordinal)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at, description
+RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at, description, student_rank
 `
 
 type CreatePblDecisionOptionParams struct {
@@ -122,6 +122,7 @@ func (q *Queries) CreatePblDecisionOption(ctx context.Context, arg CreatePblDeci
 		&i.Ordinal,
 		&i.CreatedAt,
 		&i.Description,
+		&i.StudentRank,
 	)
 	return i, err
 }
@@ -214,7 +215,7 @@ func (q *Queries) GetPblDecisionCriterion(ctx context.Context, id uuid.UUID) (Ge
 }
 
 const getPblDecisionOption = `-- name: GetPblDecisionOption :one
-SELECT o.id, o.decision_id, o.label, o.wins, o.hurts, o.author, o.ordinal, o.created_at, o.description, a.user_id, d.atom_id, d.settled_at
+SELECT o.id, o.decision_id, o.label, o.wins, o.hurts, o.author, o.ordinal, o.created_at, o.description, o.student_rank, a.user_id, d.atom_id, d.settled_at
 FROM pbl_decision_option o
 JOIN pbl_decision d ON d.id = o.decision_id
 JOIN atom a ON a.id = d.atom_id
@@ -231,6 +232,7 @@ type GetPblDecisionOptionRow struct {
 	Ordinal     int32              `json:"ordinal"`
 	CreatedAt   time.Time          `json:"created_at"`
 	Description string             `json:"description"`
+	StudentRank int32              `json:"student_rank"`
 	UserID      uuid.UUID          `json:"user_id"`
 	AtomID      uuid.UUID          `json:"atom_id"`
 	SettledAt   pgtype.Timestamptz `json:"settled_at"`
@@ -249,6 +251,7 @@ func (q *Queries) GetPblDecisionOption(ctx context.Context, id uuid.UUID) (GetPb
 		&i.Ordinal,
 		&i.CreatedAt,
 		&i.Description,
+		&i.StudentRank,
 		&i.UserID,
 		&i.AtomID,
 		&i.SettledAt,
@@ -288,7 +291,7 @@ func (q *Queries) ListPblDecisionCriteria(ctx context.Context, decisionID uuid.U
 }
 
 const listPblDecisionOptions = `-- name: ListPblDecisionOptions :many
-SELECT id, decision_id, label, wins, hurts, author, ordinal, created_at, description FROM pbl_decision_option WHERE decision_id = $1 ORDER BY ordinal, created_at
+SELECT id, decision_id, label, wins, hurts, author, ordinal, created_at, description, student_rank FROM pbl_decision_option WHERE decision_id = $1 ORDER BY ordinal, created_at
 `
 
 func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UUID) ([]PblDecisionOption, error) {
@@ -310,6 +313,7 @@ func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UU
 			&i.Ordinal,
 			&i.CreatedAt,
 			&i.Description,
+			&i.StudentRank,
 		); err != nil {
 			return nil, err
 		}
@@ -319,6 +323,34 @@ func (q *Queries) ListPblDecisionOptions(ctx context.Context, decisionID uuid.UU
 		return nil, err
 	}
 	return items, nil
+}
+
+const rankPblDecisionOption = `-- name: RankPblDecisionOption :one
+UPDATE pbl_decision_option SET student_rank = $2 WHERE id = $1 RETURNING id, decision_id, label, wins, hurts, author, ordinal, created_at, description, student_rank
+`
+
+type RankPblDecisionOptionParams struct {
+	ID          uuid.UUID `json:"id"`
+	StudentRank int32     `json:"student_rank"`
+}
+
+// 她把几条路排出来的顺序。只挑一个不需要把它们放在一起比；排成一列才需要。
+func (q *Queries) RankPblDecisionOption(ctx context.Context, arg RankPblDecisionOptionParams) (PblDecisionOption, error) {
+	row := q.db.QueryRow(ctx, rankPblDecisionOption, arg.ID, arg.StudentRank)
+	var i PblDecisionOption
+	err := row.Scan(
+		&i.ID,
+		&i.DecisionID,
+		&i.Label,
+		&i.Wins,
+		&i.Hurts,
+		&i.Author,
+		&i.Ordinal,
+		&i.CreatedAt,
+		&i.Description,
+		&i.StudentRank,
+	)
+	return i, err
 }
 
 const settlePblDecision = `-- name: SettlePblDecision :one

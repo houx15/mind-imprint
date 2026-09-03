@@ -61,4 +61,6 @@ FROM pbl_review p JOIN atom a ON a.id = p.atom_id
 WHERE p.id = $1;
 
 -- name: AnswerPblReviewPrompt :one
-UPDATE pbl_review SET answer = $2 WHERE id = $1 RETURNING *;
+-- stance 是「现在还这么想吗」。空白框里承认「当时没想清楚」要写一段话，
+-- 成本太高她于是写「挺好的」；一个可点的态度只要一下。
+UPDATE pbl_review SET answer = $2, stance = $3 WHERE id = $1 RETURNING *;

@@ -65,16 +65,19 @@ func (q *Queries) AnswerPblReviewMark(ctx context.Context, arg AnswerPblReviewMa
 }
 
 const answerPblReviewPrompt = `-- name: AnswerPblReviewPrompt :one
-UPDATE pbl_review SET answer = $2 WHERE id = $1 RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section
+UPDATE pbl_review SET answer = $2, stance = $3 WHERE id = $1 RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance
 `
 
 type AnswerPblReviewPromptParams struct {
 	ID     uuid.UUID `json:"id"`
 	Answer string    `json:"answer"`
+	Stance string    `json:"stance"`
 }
 
+// stance 是「现在还这么想吗」。空白框里承认「当时没想清楚」要写一段话，
+// 成本太高她于是写「挺好的」；一个可点的态度只要一下。
 func (q *Queries) AnswerPblReviewPrompt(ctx context.Context, arg AnswerPblReviewPromptParams) (PblReview, error) {
-	row := q.db.QueryRow(ctx, answerPblReviewPrompt, arg.ID, arg.Answer)
+	row := q.db.QueryRow(ctx, answerPblReviewPrompt, arg.ID, arg.Answer, arg.Stance)
 	var i PblReview
 	err := row.Scan(
 		&i.ID,
@@ -86,6 +89,7 @@ func (q *Queries) AnswerPblReviewPrompt(ctx context.Context, arg AnswerPblReview
 		&i.Ordinal,
 		&i.CreatedAt,
 		&i.Section,
+		&i.Stance,
 	)
 	return i, err
 }
@@ -175,7 +179,7 @@ const createPblReviewPrompt = `-- name: CreatePblReviewPrompt :one
 
 INSERT INTO pbl_review (atom_id, prompt, section, anchor_kind, anchor_ref, ordinal)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section
+RETURNING id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance
 `
 
 type CreatePblReviewPromptParams struct {
@@ -208,6 +212,7 @@ func (q *Queries) CreatePblReviewPrompt(ctx context.Context, arg CreatePblReview
 		&i.Ordinal,
 		&i.CreatedAt,
 		&i.Section,
+		&i.Stance,
 	)
 	return i, err
 }
@@ -294,7 +299,7 @@ func (q *Queries) GetPblReviewMark(ctx context.Context, id uuid.UUID) (GetPblRev
 }
 
 const getPblReviewPrompt = `-- name: GetPblReviewPrompt :one
-SELECT p.id, p.atom_id, p.prompt, p.anchor_kind, p.anchor_ref, p.answer, p.ordinal, p.created_at, p.section, a.user_id
+SELECT p.id, p.atom_id, p.prompt, p.anchor_kind, p.anchor_ref, p.answer, p.ordinal, p.created_at, p.section, p.stance, a.user_id
 FROM pbl_review p JOIN atom a ON a.id = p.atom_id
 WHERE p.id = $1
 `
@@ -309,6 +314,7 @@ type GetPblReviewPromptRow struct {
 	Ordinal    int32     `json:"ordinal"`
 	CreatedAt  time.Time `json:"created_at"`
 	Section    string    `json:"section"`
+	Stance     string    `json:"stance"`
 	UserID     uuid.UUID `json:"user_id"`
 }
 
@@ -325,6 +331,7 @@ func (q *Queries) GetPblReviewPrompt(ctx context.Context, id uuid.UUID) (GetPblR
 		&i.Ordinal,
 		&i.CreatedAt,
 		&i.Section,
+		&i.Stance,
 		&i.UserID,
 	)
 	return i, err
@@ -426,7 +433,7 @@ func (q *Queries) ListPblReviewMarks(ctx context.Context, artifactID uuid.UUID) 
 }
 
 const listPblReviewPrompts = `-- name: ListPblReviewPrompts :many
-SELECT id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section FROM pbl_review WHERE atom_id = $1 ORDER BY ordinal, created_at
+SELECT id, atom_id, prompt, anchor_kind, anchor_ref, answer, ordinal, created_at, section, stance FROM pbl_review WHERE atom_id = $1 ORDER BY ordinal, created_at
 `
 
 func (q *Queries) ListPblReviewPrompts(ctx context.Context, atomID uuid.UUID) ([]PblReview, error) {
@@ -448,6 +455,7 @@ func (q *Queries) ListPblReviewPrompts(ctx context.Context, atomID uuid.UUID) ([
 			&i.Ordinal,
 			&i.CreatedAt,
 			&i.Section,
+			&i.Stance,
 		); err != nil {
 			return nil, err
 		}

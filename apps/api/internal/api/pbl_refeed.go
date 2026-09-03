@@ -235,6 +235,10 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 				if moved {
 					line += "，她改的"
 				}
+				// 🚨 她发现方案里少了一件事——审一份方案不等于逐格同意。
+				if x.AddedByStudent {
+					line += "，她补的"
+				}
 				line += "）"
 				if why != "" {
 					line += "，因为" + why
@@ -247,10 +251,27 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 
 	// 🚨 复盘里她写下的答案。整件项目最后的那层意思就在这儿，不回灌等于白写。
 	if ps, err := a.d.Queries.ListPblReviewPrompts(ctx, atomID); err == nil {
+		// 🚨 「现在还这么想吗」比答案本身更要紧：她说「当时没想清楚」，印记
+		// 下一轮就该问那一处到底哪儿没想清楚。
+		stance := map[string]string{
+			"still":   "她说现在仍这么想",
+			"changed": "她说现在会改",
+			"unclear": "她说当时没想清楚",
+		}
 		for _, x := range ps {
-			if ans := strings.TrimSpace(x.Answer); ans != "" {
-				add("复盘时她对「" + strings.TrimSpace(x.Prompt) + "」的回答：" + ans)
+			ans := strings.TrimSpace(x.Answer)
+			st := stance[strings.TrimSpace(x.Stance)]
+			if ans == "" && st == "" {
+				continue
 			}
+			line := "复盘时她对「" + strings.TrimSpace(x.Prompt) + "」"
+			if st != "" {
+				line += "：" + st
+			}
+			if ans != "" {
+				line += "，她写的是：" + ans
+			}
+			add(line)
 		}
 	}
 

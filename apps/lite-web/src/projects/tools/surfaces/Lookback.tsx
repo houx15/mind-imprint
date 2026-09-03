@@ -9,6 +9,8 @@ import {
   getLookback,
   lookbackTodo,
   sectionProgress,
+  setStance,
+  STANCES,
   type LookbackPrompt,
 } from "../../../api/lookback";
 import { DONE, tone, type ToneName } from "../../../shared/tone";
@@ -48,6 +50,15 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
   useEffect(() => {
     void reload();
   }, [reload]);
+
+  async function pickStance(p: LookbackPrompt, key: string) {
+    try {
+      const got = await setStance(projectId, p.id, p.stance === key ? "" : (key as never), p.answer);
+      setPrompts((prev) => prev.map((x) => (x.id === got.id ? got : x)));
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
 
   async function save(id: string, answer: string) {
     try {
@@ -143,6 +154,7 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
                     hue={g.hue}
                     // 「感受如何」最难下笔：给几个词点一下起头。
                     words={g.key === "how" ? [...FEELING_WORDS] : []}
+                    onStance={(k) => void pickStance(p, k)}
                     onSave={(a) => void save(p.id, a)}
                   />
                 ))}
@@ -159,12 +171,14 @@ function PromptRow({
   prompt,
   hue,
   words,
+  onStance,
   onSave,
 }: {
   prompt: LookbackPrompt;
   hue: ToneName;
   /** 点一下就填进去的几个词。空数组 = 这一段不给词。 */
   words: string[];
+  onStance: (key: string) => void;
   onSave: (answer: string) => void;
 }) {
   const [text, setText] = useState(prompt.answer);
@@ -197,6 +211,32 @@ function PromptRow({
         >
           当时你写的是：{prompt.evidence}
         </p>
+      )}
+
+      {/* 🚨 有出处的那几问才谈得上「现在还这么想吗」——没有当初那句话，就没有
+          可以改主意的对象。一下点掉，比在空白框里写一段「我当时没想清楚」便宜
+          得多，而后者她多半不会写，只会写「挺好的」。 */}
+      {prompt.evidence && (
+        <div className="mb-1.5 flex flex-wrap gap-1">
+          {STANCES.map((st) => {
+            const on = prompt.stance === st.key;
+            return (
+              <button
+                key={st.key}
+                type="button"
+                onClick={() => onStance(st.key)}
+                className="rounded-mk-full px-2 py-0.5 text-mk-small"
+                style={
+                  on
+                    ? { background: tone(hue).solid, color: "var(--mk-surface)" }
+                    : { border: "1px solid var(--mk-border)", color: "var(--mk-secondary)" }
+                }
+              >
+                {st.label}
+              </button>
+            );
+          })}
+        </div>
       )}
 
       <div className="flex items-start gap-2">

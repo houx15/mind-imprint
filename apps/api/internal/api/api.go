@@ -326,6 +326,7 @@ func (a *API) Handler() http.Handler {
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/steps/{sid}/substeps", liteOnly(a.listPblSubsteps))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/steps/{sid}/substeps", liteOnly(a.proposePblSubsteps))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/steps/{sid}/substeps/add", liteOnly(a.addPblSubstep))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/substeps/{ssid}/reassign", liteOnly(a.reassignPblSubstep))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/substeps/{ssid}/confirm", liteOnly(a.confirmPblSubstep))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/substeps/{ssid}", liteOnly(a.setPblSubstepStatus))

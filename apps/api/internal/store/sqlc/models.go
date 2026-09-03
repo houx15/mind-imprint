@@ -566,6 +566,7 @@ type PblDecisionOption struct {
 	Ordinal     int32     `json:"ordinal"`
 	CreatedAt   time.Time `json:"created_at"`
 	Description string    `json:"description"`
+	StudentRank int32     `json:"student_rank"`
 }
 
 type PblKeepEntry struct {
@@ -665,6 +666,7 @@ type PblReview struct {
 	Ordinal    int32     `json:"ordinal"`
 	CreatedAt  time.Time `json:"created_at"`
 	Section    string    `json:"section"`
+	Stance     string    `json:"stance"`
 }
 
 type PblReviewDimension struct {
@@ -718,17 +720,18 @@ type PblSite struct {
 }
 
 type PblSubstep struct {
-	ID            uuid.UUID          `json:"id"`
-	StepID        uuid.UUID          `json:"step_id"`
-	Ordinal       int32              `json:"ordinal"`
-	Title         string             `json:"title"`
-	Owner         string             `json:"owner"`
-	Reason        string             `json:"reason"`
-	StudentOwner  *string            `json:"student_owner"`
-	StudentReason string             `json:"student_reason"`
-	Status        string             `json:"status"`
-	ConfirmedAt   pgtype.Timestamptz `json:"confirmed_at"`
-	CreatedAt     time.Time          `json:"created_at"`
+	ID             uuid.UUID          `json:"id"`
+	StepID         uuid.UUID          `json:"step_id"`
+	Ordinal        int32              `json:"ordinal"`
+	Title          string             `json:"title"`
+	Owner          string             `json:"owner"`
+	Reason         string             `json:"reason"`
+	StudentOwner   *string            `json:"student_owner"`
+	StudentReason  string             `json:"student_reason"`
+	Status         string             `json:"status"`
+	ConfirmedAt    pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt      time.Time          `json:"created_at"`
+	AddedByStudent bool               `json:"added_by_student"`
 }
 
 type PblToolInstance struct {

@@ -9,6 +9,7 @@ function sub(id: string, owner: Owner, studentOwner: Owner | null = null): Subst
     reason: "因为这样快",
     studentOwner,
     studentReason: studentOwner ? "我想自己来" : "",
+    addedByStudent: false,
     status: "todo",
     confirmedAt: studentOwner ? "2026-09-01T00:00:00Z" : null,
     ordinal: 0,

@@ -28,6 +28,16 @@ import (
 // 🚨 生成只做一次。第二次打开还重新生成，她答过的东西就会被冲掉——而复盘这
 // 件事本来就是隔几天回来慢慢写的。
 
+// pblStances —— 她对自己当初那句话现在的看法。
+//
+// 🚨 「当时没想清楚」必须是其中一个：在空白框里承认这件事要写一段话，成本太高，
+// 她于是写「挺好的」。一个可点的态度只要一下，诚实因此变便宜（铁律④）。
+var pblStances = map[string]bool{
+	"still":   true, // 现在仍这么想
+	"changed": true, // 现在会改
+	"unclear": true, // 当时没想清楚
+}
+
 type pblLookbackDTO struct {
 	ID string `json:"id"`
 	// 六段之一：what / how / moment / praise / improve / with_ai。
@@ -37,13 +47,15 @@ type pblLookbackDTO struct {
 	// Evidence 是这一问冲着的那件事——她当初写下的原话。空 = 这一问是冲着她
 	// 本人问的（「感受如何」那一段）。
 	Evidence string `json:"evidence"`
-	Ordinal  int32  `json:"ordinal"`
+	// 她现在怎么看当初那句话：still / changed / unclear，空 = 没表态。
+	Stance  string `json:"stance"`
+	Ordinal int32  `json:"ordinal"`
 }
 
 func toPblLookbackDTO(p sqlc.PblReview) pblLookbackDTO {
 	return pblLookbackDTO{
 		ID: p.ID.String(), Section: p.Section, Prompt: p.Prompt,
-		Answer: p.Answer, Evidence: p.AnchorRef, Ordinal: p.Ordinal,
+		Answer: p.Answer, Evidence: p.AnchorRef, Stance: p.Stance, Ordinal: p.Ordinal,
 	}
 }
 
@@ -215,13 +227,26 @@ func (a *API) answerPblLookback(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Answer string `json:"answer"`
+		// 现在还这么想吗：still / changed / unclear。空 = 她没表态。
+		Stance *string `json:"stance"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
 		return
 	}
+	// 只在这一轮带了 stance 时才动它——她先答文字、后点态度（或反过来）都不该
+	// 把另一样清掉。
+	stance := row.Stance
+	if req.Stance != nil {
+		s := strings.TrimSpace(*req.Stance)
+		if s != "" && !pblStances[s] {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_stance", "不认识这种表态", nil))
+			return
+		}
+		stance = s
+	}
 	out, err := a.d.Queries.AnswerPblReviewPrompt(r.Context(), sqlc.AnswerPblReviewPromptParams{
-		ID: lid, Answer: strings.TrimSpace(req.Answer),
+		ID: lid, Answer: strings.TrimSpace(req.Answer), Stance: stance,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

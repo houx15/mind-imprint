@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROJECT_KINDS } from "./projects";
-import { keepMetricsFor } from "./lookback";
+import { keepLaps, keepMetricsFor } from "./lookback";
 
 // 🚨 「长期迭代」请她带回来的数据，必须是她这个项目量得出来的。
 //
@@ -58,5 +58,24 @@ describe("keepMetricsFor", () => {
       const names = keepMetricsFor(kind).map((m) => m.name);
       expect(new Set(names).size).toBe(names.length);
     }
+  });
+});
+
+// 🚨 迭代的意思是重复。一张勾一次就完的清单不是迭代——圈数是这件工具真正要她
+// 看见的东西，所以「走完一圈」的判定不能含糊。
+describe("keepLaps", () => {
+  const e = (stage: string) =>
+    ({ id: stage + Math.random(), kind: "stat", body: "x", stage,
+       sessionId: null, createdAt: "2026-09-01T00:00:00Z" }) as never;
+
+  it("counts a lap each time she finishes 产品迭代", () => {
+    expect(keepLaps([e("ship"), e("observe"), e("interpret"), e("change")])).toBe(1);
+    expect(keepLaps([e("change"), e("ship"), e("change")])).toBe(2);
+  });
+
+  // 还没改过一次东西，就还没转完一圈——记了一堆数据不算迭代。
+  it("is zero until she has actually changed something", () => {
+    expect(keepLaps([e("ship"), e("observe"), e("interpret")])).toBe(0);
+    expect(keepLaps([])).toBe(0);
   });
 });

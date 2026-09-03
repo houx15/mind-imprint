@@ -14,7 +14,7 @@ import (
 )
 
 const confirmPblSubstep = `-- name: ConfirmPblSubstep :one
-UPDATE pbl_substep SET confirmed_at = now() WHERE id = $1 RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at
+UPDATE pbl_substep SET confirmed_at = now() WHERE id = $1 RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at, added_by_student
 `
 
 func (q *Queries) ConfirmPblSubstep(ctx context.Context, id uuid.UUID) (PblSubstep, error) {
@@ -32,23 +32,25 @@ func (q *Queries) ConfirmPblSubstep(ctx context.Context, id uuid.UUID) (PblSubst
 		&i.Status,
 		&i.ConfirmedAt,
 		&i.CreatedAt,
+		&i.AddedByStudent,
 	)
 	return i, err
 }
 
 const createPblSubstep = `-- name: CreatePblSubstep :one
 
-INSERT INTO pbl_substep (step_id, ordinal, title, owner, reason)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at
+INSERT INTO pbl_substep (step_id, ordinal, title, owner, reason, added_by_student)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at, added_by_student
 `
 
 type CreatePblSubstepParams struct {
-	StepID  uuid.UUID `json:"step_id"`
-	Ordinal int32     `json:"ordinal"`
-	Title   string    `json:"title"`
-	Owner   string    `json:"owner"`
-	Reason  string    `json:"reason"`
+	StepID         uuid.UUID `json:"step_id"`
+	Ordinal        int32     `json:"ordinal"`
+	Title          string    `json:"title"`
+	Owner          string    `json:"owner"`
+	Reason         string    `json:"reason"`
+	AddedByStudent bool      `json:"added_by_student"`
 }
 
 // 一件任务里的分工（阶段五）。每一格谁做，为什么；她改了也要写为什么。
@@ -59,6 +61,7 @@ func (q *Queries) CreatePblSubstep(ctx context.Context, arg CreatePblSubstepPara
 		arg.Title,
 		arg.Owner,
 		arg.Reason,
+		arg.AddedByStudent,
 	)
 	var i PblSubstep
 	err := row.Scan(
@@ -73,12 +76,13 @@ func (q *Queries) CreatePblSubstep(ctx context.Context, arg CreatePblSubstepPara
 		&i.Status,
 		&i.ConfirmedAt,
 		&i.CreatedAt,
+		&i.AddedByStudent,
 	)
 	return i, err
 }
 
 const getPblSubstep = `-- name: GetPblSubstep :one
-SELECT s.id, s.step_id, s.ordinal, s.title, s.owner, s.reason, s.student_owner, s.student_reason, s.status, s.confirmed_at, s.created_at, a.user_id, a.id AS atom_id
+SELECT s.id, s.step_id, s.ordinal, s.title, s.owner, s.reason, s.student_owner, s.student_reason, s.status, s.confirmed_at, s.created_at, s.added_by_student, a.user_id, a.id AS atom_id
 FROM pbl_substep s
 JOIN pbl_plan_step st ON st.id = s.step_id
 JOIN pbl_plan_version v ON v.id = st.version_id
@@ -87,19 +91,20 @@ WHERE s.id = $1
 `
 
 type GetPblSubstepRow struct {
-	ID            uuid.UUID          `json:"id"`
-	StepID        uuid.UUID          `json:"step_id"`
-	Ordinal       int32              `json:"ordinal"`
-	Title         string             `json:"title"`
-	Owner         string             `json:"owner"`
-	Reason        string             `json:"reason"`
-	StudentOwner  *string            `json:"student_owner"`
-	StudentReason string             `json:"student_reason"`
-	Status        string             `json:"status"`
-	ConfirmedAt   pgtype.Timestamptz `json:"confirmed_at"`
-	CreatedAt     time.Time          `json:"created_at"`
-	UserID        uuid.UUID          `json:"user_id"`
-	AtomID        uuid.UUID          `json:"atom_id"`
+	ID             uuid.UUID          `json:"id"`
+	StepID         uuid.UUID          `json:"step_id"`
+	Ordinal        int32              `json:"ordinal"`
+	Title          string             `json:"title"`
+	Owner          string             `json:"owner"`
+	Reason         string             `json:"reason"`
+	StudentOwner   *string            `json:"student_owner"`
+	StudentReason  string             `json:"student_reason"`
+	Status         string             `json:"status"`
+	ConfirmedAt    pgtype.Timestamptz `json:"confirmed_at"`
+	CreatedAt      time.Time          `json:"created_at"`
+	AddedByStudent bool               `json:"added_by_student"`
+	UserID         uuid.UUID          `json:"user_id"`
+	AtomID         uuid.UUID          `json:"atom_id"`
 }
 
 func (q *Queries) GetPblSubstep(ctx context.Context, id uuid.UUID) (GetPblSubstepRow, error) {
@@ -117,6 +122,7 @@ func (q *Queries) GetPblSubstep(ctx context.Context, id uuid.UUID) (GetPblSubste
 		&i.Status,
 		&i.ConfirmedAt,
 		&i.CreatedAt,
+		&i.AddedByStudent,
 		&i.UserID,
 		&i.AtomID,
 	)
@@ -124,7 +130,7 @@ func (q *Queries) GetPblSubstep(ctx context.Context, id uuid.UUID) (GetPblSubste
 }
 
 const listPblSubsteps = `-- name: ListPblSubsteps :many
-SELECT id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at FROM pbl_substep WHERE step_id = $1 ORDER BY ordinal, created_at
+SELECT id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at, added_by_student FROM pbl_substep WHERE step_id = $1 ORDER BY ordinal, created_at
 `
 
 func (q *Queries) ListPblSubsteps(ctx context.Context, stepID uuid.UUID) ([]PblSubstep, error) {
@@ -148,6 +154,7 @@ func (q *Queries) ListPblSubsteps(ctx context.Context, stepID uuid.UUID) ([]PblS
 			&i.Status,
 			&i.ConfirmedAt,
 			&i.CreatedAt,
+			&i.AddedByStudent,
 		); err != nil {
 			return nil, err
 		}
@@ -160,7 +167,7 @@ func (q *Queries) ListPblSubsteps(ctx context.Context, stepID uuid.UUID) ([]PblS
 }
 
 const listPblSubstepsForPlan = `-- name: ListPblSubstepsForPlan :many
-SELECT s.id, s.step_id, s.ordinal, s.title, s.owner, s.reason, s.student_owner, s.student_reason, s.status, s.confirmed_at, s.created_at
+SELECT s.id, s.step_id, s.ordinal, s.title, s.owner, s.reason, s.student_owner, s.student_reason, s.status, s.confirmed_at, s.created_at, s.added_by_student
 FROM pbl_substep s
 JOIN pbl_plan_step st ON st.id = s.step_id
 WHERE st.version_id = $1
@@ -189,6 +196,7 @@ func (q *Queries) ListPblSubstepsForPlan(ctx context.Context, versionID uuid.UUI
 			&i.Status,
 			&i.ConfirmedAt,
 			&i.CreatedAt,
+			&i.AddedByStudent,
 		); err != nil {
 			return nil, err
 		}
@@ -204,7 +212,7 @@ const reassignPblSubstep = `-- name: ReassignPblSubstep :one
 UPDATE pbl_substep
 SET student_owner = $2, student_reason = $3, confirmed_at = now()
 WHERE id = $1
-RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at
+RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at, added_by_student
 `
 
 type ReassignPblSubstepParams struct {
@@ -230,12 +238,13 @@ func (q *Queries) ReassignPblSubstep(ctx context.Context, arg ReassignPblSubstep
 		&i.Status,
 		&i.ConfirmedAt,
 		&i.CreatedAt,
+		&i.AddedByStudent,
 	)
 	return i, err
 }
 
 const setPblSubstepStatus = `-- name: SetPblSubstepStatus :one
-UPDATE pbl_substep SET status = $2 WHERE id = $1 RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at
+UPDATE pbl_substep SET status = $2 WHERE id = $1 RETURNING id, step_id, ordinal, title, owner, reason, student_owner, student_reason, status, confirmed_at, created_at, added_by_student
 `
 
 type SetPblSubstepStatusParams struct {
@@ -258,6 +267,7 @@ func (q *Queries) SetPblSubstepStatus(ctx context.Context, arg SetPblSubstepStat
 		&i.Status,
 		&i.ConfirmedAt,
 		&i.CreatedAt,
+		&i.AddedByStudent,
 	)
 	return i, err
 }

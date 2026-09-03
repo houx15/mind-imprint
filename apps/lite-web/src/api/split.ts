@@ -15,6 +15,8 @@ export interface Substep {
   /** 她改成了什么，以及为什么。null = 她没动。 */
   studentOwner: Owner | null;
   studentReason: string;
+  /** 这一件是她自己补上的——印记的方案里原本没有。 */
+  addedByStudent: boolean;
   status: "todo" | "doing" | "done";
   confirmedAt: string | null;
   ordinal: number;
@@ -45,6 +47,22 @@ export function reassign(
   return apiFetch<Substep>(`${base(projectId)}/substeps/${substepId}/reassign`, {
     method: "POST",
     body: JSON.stringify({ owner, reason }),
+  });
+}
+
+/**
+ * 她补上印记漏掉的那一件。
+ *
+ * 🚨 审一份方案不等于逐格同意，先要问它漏了什么。
+ */
+export function addSubstep(
+  projectId: string,
+  stepId: string,
+  body: { title: string; owner: Owner; reason: string },
+): Promise<Substep> {
+  return apiFetch<Substep>(`${base(projectId)}/steps/${stepId}/substeps/add`, {
+    method: "POST",
+    body: JSON.stringify(body),
   });
 }
 
