@@ -137,7 +137,7 @@ var ProduceKinds = []struct{ Kind, About, Only string }{
 	{Kind: "decision", About: "一个要她拿主意的选择：一句话说清在选什么，再给两到四个选项，每个选项写明它意味着什么"},
 	{Kind: "artifact", About: "一份你写出来交给她审的东西：草稿、方案、或一个网址"},
 	{Kind: "substeps", About: "某一步的分工：拆成几件小事，每件写清楚谁做、为什么是他做"},
-	{Kind: "structure", About: "一份结构：一棵两到三层的提纲，让她看得见整件东西的形状"},
+	{Kind: "structure", About: "一份结构：一棵两到三层的提纲，让她看得见整件东西的全貌"},
 	{
 		Kind:  "site_content",
 		About: "把她说过的话摆到她主页的各个位置上。**只能摆她的原话**，逐字对不上的那句服务端会丢掉",
