@@ -61,7 +61,9 @@ export function ToolFrame({
                 onClick={toggle}
                 aria-label={wide ? "还原宽度" : "铺开"}
                 title={wide ? "还原宽度" : "铺开"}
-                className="rounded-mk-full p-1 text-mk-faint hover:text-mk-secondary"
+                // 🚨 窄屏上工具本来就是整屏浮层，铺开没有任何变化——按了没反应的
+                // 按钮比没有按钮更糟。宽屏才给。
+                className="hidden rounded-mk-full p-1 text-mk-faint hover:text-mk-secondary lg:block"
               >
                 <Icon icon={wide ? Minimize2 : Maximize2} size={16} />
               </button>

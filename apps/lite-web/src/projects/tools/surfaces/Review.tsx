@@ -16,6 +16,8 @@ import {
   splitByMarks,
   type ReviewMark,
   type ReviewPlan,
+  splitIntoParts,
+  partProgress,
 } from "../../../api/review";
 import { ToolFrame } from "../ToolFrame";
 import { useWidePane } from "../wide";
@@ -146,6 +148,52 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   const todo = artifact ? "" : "暂时没有需要审核的内容";
   const { wide } = useWidePane();
   // 划出来的句子在正文里的编号，1 开始。正文里的角标和下面那条问题靠它对上。
+  const parts = useMemo(() => splitIntoParts(paragraphs, plan.marks), [paragraphs, plan.marks]);
+
+  /** 一段正文，划出来的地方高亮 + 角标。分段渲染和整篇渲染共用这一段。 */
+  function renderParagraphs(list: string[]) {
+    return list.map((text, i) => (
+      <p
+        key={i}
+        className={
+          wide ? "text-mk-body leading-[1.9] text-mk-ink" : "text-mk-small leading-relaxed text-mk-ink"
+        }
+      >
+        {splitByMarks(text, plan.marks).map((seg, j) =>
+          seg.mark ? (
+            <mark
+              key={j}
+              onClick={() => setOpenMark(openMark === seg.mark!.id ? null : seg.mark!.id)}
+              className="cursor-pointer rounded-mk-sm px-0.5"
+              style={{
+                background: seg.mark.answer.trim()
+                  ? "color-mix(in srgb, #10B981 22%, transparent)"
+                  : "color-mix(in srgb, #F59E0B 28%, transparent)",
+                color: "var(--mk-ink)",
+                boxShadow: seg.mark.answer.trim()
+                  ? "inset 0 -2px 0 #10B981"
+                  : "inset 0 -2px 0 #F59E0B",
+              }}
+            >
+              {seg.text}
+              <sup
+                className="ml-0.5 rounded-mk-full px-1 text-[10px] font-semibold"
+                style={{
+                  background: seg.mark.answer.trim() ? "#10B981" : "#F59E0B",
+                  color: "#fff",
+                }}
+              >
+                {markNo.get(seg.mark.id) ?? "?"}
+              </sup>
+            </mark>
+          ) : (
+            <span key={j}>{seg.text}</span>
+          ),
+        )}
+      </p>
+    ));
+  }
+
   const markNo = useMemo(
     () => new Map(plan.marks.map((m, i) => [m.id, i + 1] as const)),
     [plan.marks],
@@ -212,57 +260,68 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
             />
           </div>
 
-          {/* 正文 */}
+          {/* 正文：一部分一部分地进去，而不是摊开一整篇。
+              🚨 产品负责人 2026-09-03：「we must go into texts, instead of
+              presenting a large text」。一整篇铺在那里，她能做的只有从头划到尾
+              ——那是"读过了"，不是"审过了"。每一部分自带「这一部分要看什么」，
+              以及落在这一部分里的问题，就地答。 */}
           {isDocument(artifact) ? (
             <div
               onMouseUp={() => setSelection(window.getSelection()?.toString() ?? "")}
-              className="space-y-2"
+              className="space-y-5"
             >
-              {paragraphs.map((p, i) => (
-                <p
-                  key={i}
-                  className={
-                    wide
-                      ? "text-mk-body leading-[1.9] text-mk-ink"
-                      : "text-mk-small leading-relaxed text-mk-ink"
-                  }
-                >
-                  {splitByMarks(p, plan.marks).map((seg, j) =>
-                    seg.mark ? (
-                      <mark
-                        key={j}
-                        onClick={() => setOpenMark(openMark === seg.mark!.id ? null : seg.mark!.id)}
-                        className="cursor-pointer rounded-mk-sm px-0.5"
-                        style={{
-                          background: seg.mark.answer.trim()
-                            ? "color-mix(in srgb, #10B981 22%, transparent)"
-                            : "color-mix(in srgb, #F59E0B 28%, transparent)",
-                          color: "var(--mk-ink)",
-                          // 答过的那几句留一道实线底，扫一眼就知道还剩哪几句没答。
-                          boxShadow: seg.mark.answer.trim()
-                            ? "inset 0 -2px 0 #10B981"
-                            : "inset 0 -2px 0 #F59E0B",
-                        }}
-                      >
-                        {seg.text}
-                        {/* 🚨 编号把正文里划出来的那一句和下面那条问题接上。没有它，
-                            她得靠"这句话看着眼熟"来配对。 */}
-                        <sup
-                          className="ml-0.5 rounded-mk-full px-1 text-[10px] font-semibold"
+              {parts.map((part, pi) => {
+                const at = partProgress(part);
+                return (
+                  <section key={pi}>
+                    {part.name && (
+                      <div className="mb-1.5 flex items-center gap-2">
+                        <span
+                          className="flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
                           style={{
-                            background: seg.mark.answer.trim() ? "#10B981" : "#F59E0B",
+                            background: at.total > 0 && at.done === at.total ? "#10B981" : "#F59E0B",
                             color: "#fff",
                           }}
                         >
-                          {markNo.get(seg.mark.id) ?? "?"}
-                        </sup>
-                      </mark>
-                    ) : (
-                      <span key={j}>{seg.text}</span>
-                    ),
-                  )}
-                </p>
-              ))}
+                          {pi + 1}
+                        </span>
+                        <p className="text-mk-body font-semibold text-mk-ink">{part.name}</p>
+                        {at.total > 0 && (
+                          <span className="text-mk-small text-mk-faint">
+                            {at.done}/{at.total}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                    {part.note && (
+                      <p
+                        className="mb-2 rounded-mk-md px-3 py-2 text-mk-small text-mk-ink"
+                        style={{
+                          background: "color-mix(in srgb, #3B82F6 8%, transparent)",
+                          borderLeft: "3px solid #3B82F6",
+                        }}
+                      >
+                        这一部分要看的：{part.note}
+                      </p>
+                    )}
+                    <div className="space-y-2">{renderParagraphs(part.paragraphs)}</div>
+                    {part.marks.length > 0 && (
+                      <div className="mt-2 space-y-2">
+                        {part.marks.map((m) => (
+                          <MarkRow
+                            key={m.id}
+                            no={markNo.get(m.id) ?? 0}
+                            mark={m}
+                            open={openMark === m.id}
+                            onToggle={() => setOpenMark(openMark === m.id ? null : m.id)}
+                            onSave={(a) => void saveMark(m.id, a)}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </section>
+                );
+              })}
             </div>
           ) : artifact.kind === "image" && artifact.payload.url ? (
             <img
@@ -304,8 +363,11 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
             </button>
           )}
 
-          {/* 划出来的句子 */}
-          {plan.marks.length > 0 && (
+          {/* 划出来的句子。
+              🚨 文档已经把每条问题摆在它所属的那一部分里了，这里不能再列一遍
+              ——同一个问题出现两次，她答哪一个都不知道。图片和网站没有可以内联
+              的正文，问题只能集中列在这里。 */}
+          {!isDocument(artifact) && plan.marks.length > 0 && (
             <div className="mt-5 space-y-2 border-t border-mk-border pt-4">
               <div className="flex items-center gap-2">
                 <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "#F59E0B" }} />

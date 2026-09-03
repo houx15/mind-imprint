@@ -30,6 +30,8 @@ import {
 } from "../api/tools";
 import { navigate } from "../routing";
 import { WorkPanel } from "./WorkPanel";
+import { PaneResizer } from "./PaneResizer";
+import { PANE_DEFAULT, usePaneWidth } from "./usePaneWidth";
 import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
 
@@ -51,6 +53,8 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
   // 🚨 把工具铺开占满整个房间（产品负责人 2026-09-03：「需要拉出来，更充分的
   // 视觉空间」）。审核助手要她读一份文档，360px 那一栏读不下去。见 tools/wide.tsx。
   const [wideTool, setWideTool] = useState(false);
+  // 右栏宽度她自己拖（「adjustable like in cowork」）。见 usePaneWidth.ts。
+  const { width: paneWidth, setWidth: setPaneWidth, desktop } = usePaneWidth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [thread, setThread] = useState<ThreadMessage[]>([]);
   const [plan, setPlan] = useState<PlanState>({ plan: null, pending: [] });
@@ -492,13 +496,20 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           openTool
             ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
             : "hidden"
-        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
+        } relative shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
           // 铺开时占满整个房间；对话让位，因为这时候她在读东西，不在说话。
           openTool && wideTool
             ? "lg:fixed lg:inset-0 lg:z-40 lg:w-full lg:border-l-0 lg:bg-mk-surface"
-            : "lg:w-[360px]"
+            : ""
         }`}
+        // 🚨 宽度只在宽屏上按像素给。窄屏那一档是 `fixed inset-0 w-full` 的整屏
+        // 浮层，行内 width 会盖过 w-full，把浮层压成一条。
+        style={desktop && !(openTool && wideTool) ? { width: paneWidth } : undefined}
       >
+        {/* 拖这条缝改宽度。铺开的时候没有缝可拖——那时候它已经占满了。 */}
+        {!(openTool && wideTool) && (
+          <PaneResizer onResize={setPaneWidth} onDoubleClick={() => setPaneWidth(PANE_DEFAULT)} />
+        )}
         <WorkPanel
           projectId={projectId}
           projectKind={project?.kind ?? ""}
