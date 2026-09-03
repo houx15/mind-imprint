@@ -129,7 +129,13 @@ export function setStance(
  * 就是隔几天回来慢慢写的，答过的都留着（服务端只生成一次）。
  */
 export function lookbackTodo(prompts: LookbackPrompt[]): string {
-  if (prompts.length === 0) return "";
+  // 🚨 还没生成出来时也要拦住「完成」。
+  //
+  // 原来这里返回空串——空串的意思是「齐了，可以收工」，于是印记读项目、写问题
+  // 的那两三分钟里，「完成」一直是亮的。她点下去，就把一次一道题都没有的复盘
+  // 交掉了，回灌带给印记的是 answered: 0。整件工具最后一步，恰恰在它还没有内容
+  // 的时候敞着。
+  if (prompts.length === 0) return "复盘问题还在生成";
   return prompts.some((p) => p.answer.trim()) ? "" : "至少写下一条";
 }
 

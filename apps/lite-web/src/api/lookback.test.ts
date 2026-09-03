@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROJECT_KINDS } from "./projects";
-import { keepDelta, keepLaps, keepMetricsFor } from "./lookback";
+import { keepDelta, keepLaps, keepMetricsFor, lookbackTodo, type LookbackPrompt } from "./lookback";
 
 // 🚨 「长期迭代」请她带回来的数据，必须是她这个项目量得出来的。
 //
@@ -98,5 +98,35 @@ describe("keepDelta", () => {
   it("is null on the first record instead of pretending prev was zero", () => {
     expect(keepDelta(e(23, null))).toBeNull();
     expect(keepDelta(e(null, 11))).toBeNull();
+  });
+});
+
+// 🚨 「完成」在复盘问题还没生成出来的那两三分钟里是亮的。
+//
+// lookbackTodo 返回空串的含义是「齐了，可以收工」，而它对空列表也返回空串——
+// 于是印记还在读项目、写问题的时候，她就能把一次一道题都没有的复盘交掉，
+// 回灌带给印记的是 answered: 0。整件工具的最后一步，恰恰在它还没有内容的
+// 时候敞着。线上实测那次生成花了 2 分 44 秒。
+describe("lookbackTodo", () => {
+  const q = (answer: string): LookbackPrompt => ({
+    id: answer || "empty",
+    section: "what",
+    prompt: "当时你为什么这么定？",
+    answer,
+    evidence: "",
+    stance: "",
+    ordinal: 0,
+  });
+
+  it("还没生成出来时拦住完成", () => {
+    expect(lookbackTodo([])).not.toBe("");
+  });
+
+  it("生成出来了、一条没写，还是要拦", () => {
+    expect(lookbackTodo([q(""), q("")])).toBe("至少写下一条");
+  });
+
+  it("写了一条就算复盘过——不要求答满", () => {
+    expect(lookbackTodo([q("我当时想岔了"), q("")])).toBe("");
   });
 });

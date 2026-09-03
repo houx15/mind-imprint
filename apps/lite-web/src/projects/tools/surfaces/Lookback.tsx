@@ -89,15 +89,18 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
         </p>
       )}
 
-      {/* 🚨 这一步要一分钟左右（印记要读完整个项目）。原来这儿只有一行不动的
-          字——而一行不动的字和「卡死了」在屏幕上长得一模一样。 */}
+      {/* 🚨 这一步要两三分钟（印记要读完整个项目，走的是绝不降级的旗舰档）。
+          原来这儿只有一行不动的字——而一行不动的字和「卡死了」在屏幕上长得
+          一模一样。
+          🚨 别写「约需一分钟」：线上实测 2 分 44 秒。给一个到点没兑现的承诺，
+          比不给更像坏了。 */}
       {prompts.length === 0 && !error && (
         <div className="flex items-center gap-3">
           <Progress size={44} label="印记正在写复盘问题" />
           <div className="min-w-0">
             <p className="text-mk-small text-mk-ink">处理中</p>
             <p className="mt-0.5 text-mk-small text-mk-muted">
-              正在读取项目记录并生成复盘问题，约需一分钟。
+              正在读取项目记录并生成复盘问题。项目越长等得越久，通常两到三分钟。
             </p>
           </div>
         </div>
