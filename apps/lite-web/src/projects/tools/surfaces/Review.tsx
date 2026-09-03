@@ -18,6 +18,7 @@ import {
   type ReviewPlan,
 } from "../../../api/review";
 import { ToolFrame } from "../ToolFrame";
+import { useWidePane } from "../wide";
 import type { ToolSurfaceProps } from "../registry";
 import { apiErrorText } from "../../../api/errorText";
 
@@ -143,6 +144,12 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
    * 在下面那个按钮上（disabled={!verdictWhy.trim()}），不该再拦一次整个工具。
    */
   const todo = artifact ? "" : "暂时没有需要审核的内容";
+  const { wide } = useWidePane();
+  // 划出来的句子在正文里的编号，1 开始。正文里的角标和下面那条问题靠它对上。
+  const markNo = useMemo(
+    () => new Map(plan.marks.map((m, i) => [m.id, i + 1] as const)),
+    [plan.marks],
+  );
 
   return (
     <ToolFrame
@@ -186,19 +193,23 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
             </div>
           )}
 
-          {/* 印记先承认自己的弱点。她要审的是这个，不是一份看起来什么都对的东西。 */}
-          <div className="mb-3 rounded-mk-md px-3 py-2" style={{ background: "var(--mk-paper)" }}>
-            <p className="text-mk-small text-mk-muted">印记说：</p>
-            {artifact.guessed.map((g, i) => (
-              <p key={`g${i}`} className="mt-0.5 text-mk-small text-mk-secondary">
-                猜测内容：{g}
-              </p>
-            ))}
-            {artifact.admits.map((x, i) => (
-              <p key={`a${i}`} className="mt-0.5 text-mk-small text-mk-secondary">
-                可能出错：{x}
-              </p>
-            ))}
+          {/* 印记先承认自己的弱点。她要审的是这个，不是一份看起来什么都对的东西。
+              🚨 原来这一块是一列灰色小字，每行前面还顶着「猜测内容：」「可能出错：」
+              ——最该被看见的两件事，长得和旁边的说明文字一模一样。产品负责人
+              2026-09-03：「critical points are highlighted, or put in a colored box」。 */}
+          <div className="mb-4 space-y-2">
+            <Callout
+              tone="#F59E0B"
+              title="印记的猜测"
+              blurb="这一版是踩着这些假设写的。假设不成立，下面的东西就不成立。"
+              items={artifact.guessed}
+            />
+            <Callout
+              tone="#EF4444"
+              title="印记觉得可能不对的地方"
+              blurb="印记自己也没把握的地方，先从这里看起。"
+              items={artifact.admits}
+            />
           </div>
 
           {/* 正文 */}
@@ -208,7 +219,14 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
               className="space-y-2"
             >
               {paragraphs.map((p, i) => (
-                <p key={i} className="text-mk-small leading-relaxed text-mk-ink">
+                <p
+                  key={i}
+                  className={
+                    wide
+                      ? "text-mk-body leading-[1.9] text-mk-ink"
+                      : "text-mk-small leading-relaxed text-mk-ink"
+                  }
+                >
                   {splitByMarks(p, plan.marks).map((seg, j) =>
                     seg.mark ? (
                       <mark
@@ -220,9 +238,24 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                             ? "color-mix(in srgb, #10B981 22%, transparent)"
                             : "color-mix(in srgb, #F59E0B 28%, transparent)",
                           color: "var(--mk-ink)",
+                          // 答过的那几句留一道实线底，扫一眼就知道还剩哪几句没答。
+                          boxShadow: seg.mark.answer.trim()
+                            ? "inset 0 -2px 0 #10B981"
+                            : "inset 0 -2px 0 #F59E0B",
                         }}
                       >
                         {seg.text}
+                        {/* 🚨 编号把正文里划出来的那一句和下面那条问题接上。没有它，
+                            她得靠"这句话看着眼熟"来配对。 */}
+                        <sup
+                          className="ml-0.5 rounded-mk-full px-1 text-[10px] font-semibold"
+                          style={{
+                            background: seg.mark.answer.trim() ? "#10B981" : "#F59E0B",
+                            color: "#fff",
+                          }}
+                        >
+                          {markNo.get(seg.mark.id) ?? "?"}
+                        </sup>
                       </mark>
                     ) : (
                       <span key={j}>{seg.text}</span>
@@ -273,10 +306,18 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
 
           {/* 划出来的句子 */}
           {plan.marks.length > 0 && (
-            <div className="mt-4 space-y-2 border-t border-mk-border pt-3">
+            <div className="mt-5 space-y-2 border-t border-mk-border pt-4">
+              <div className="flex items-center gap-2">
+                <span className="h-3.5 w-1 rounded-mk-full" style={{ background: "#F59E0B" }} />
+                <p className="text-mk-body font-semibold text-mk-ink">
+                  划出来的句子（{plan.marks.filter((m) => m.answer.trim()).length}/
+                  {plan.marks.length}）
+                </p>
+              </div>
               {plan.marks.map((m) => (
                 <MarkRow
                   key={m.id}
+                  no={markNo.get(m.id) ?? 0}
                   mark={m}
                   open={openMark === m.id}
                   onToggle={() => setOpenMark(openMark === m.id ? null : m.id)}
@@ -288,8 +329,17 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
 
           {/* 该看的几个方面 */}
           {plan.dimensions.length > 0 && (
-            <div className="mt-4 space-y-2 border-t border-mk-border pt-3">
-              <p className="text-mk-small text-mk-muted">审核要点建议</p>
+            <div className="mt-5 space-y-2 border-t border-mk-border pt-4">
+              <div className="flex items-center gap-2">
+                <span
+                  className="h-3.5 w-1 rounded-mk-full"
+                  style={{ background: "var(--mk-accent-500)" }}
+                />
+                <p className="text-mk-body font-semibold text-mk-ink">审核要点</p>
+              </div>
+              <p className="text-mk-small text-mk-muted">
+                审这份东西非看不可的几个方面。答完其中任何一条，结论就是「执行修改」。
+              </p>
               {plan.dimensions.map((d) => (
                 <div key={d.id} className="rounded-mk-md border border-mk-border px-3 py-2">
                   <p className="text-mk-small text-mk-ink">{d.prompt}</p>
@@ -340,20 +390,82 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
   );
 }
 
+/**
+ * Callout —— 一件必须被看见的事，放进一个带颜色的盒子。
+ *
+ * 产品负责人 2026-09-03：「critical points are highlighted, or put in a colored
+ * box」。原来印记的猜测和存疑是一列灰色小字，和旁边的说明文字长得一模一样，
+ * 于是最该先读的两件事最容易被跳过。
+ *
+ * 颜色用 color-mix 兑出淡底，不用 Tailwind 的透明度语法——mk 令牌是裸 CSS 变量，
+ * 那套语法一个字节的 CSS 都不会生成（见 [[tailwind-mk-token-alpha-trap]]）。
+ * 这里的 tone 是写死的十六进制，所以直接兑就行。
+ */
+function Callout({
+  tone,
+  title,
+  blurb,
+  items,
+}: {
+  tone: string;
+  title: string;
+  blurb: string;
+  items: string[];
+}) {
+  if (items.length === 0) return null;
+  return (
+    <div
+      className="rounded-mk-md px-3 py-2.5"
+      style={{
+        background: `color-mix(in srgb, ${tone} 10%, transparent)`,
+        borderLeft: `3px solid ${tone}`,
+      }}
+    >
+      <p className="text-mk-small font-semibold text-mk-ink">{title}</p>
+      <p className="mt-0.5 text-mk-small text-mk-muted">{blurb}</p>
+      <ul className="mt-1.5 space-y-1">
+        {items.map((x, i) => (
+          <li key={i} className="flex gap-1.5 text-mk-small text-mk-ink">
+            <span style={{ color: tone }}>·</span>
+            <span>{x}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
 function MarkRow({
+  no,
   mark,
   open,
   onToggle,
   onSave,
 }: {
+  /** 正文里那个角标的号，和这一条对上。 */
+  no: number;
   mark: ReviewMark;
   open: boolean;
   onToggle: () => void;
   onSave: (answer: string) => void;
 }) {
+  const done = mark.answer.trim() !== "";
   return (
-    <div className="rounded-mk-md border border-mk-border px-3 py-2">
-      <button type="button" onClick={onToggle} className="block w-full text-left">
+    <div
+      className="rounded-mk-md border px-3 py-2"
+      style={{
+        borderColor: done ? "color-mix(in srgb, #10B981 45%, transparent)" : "var(--mk-border)",
+        background: done ? "color-mix(in srgb, #10B981 6%, transparent)" : "transparent",
+      }}
+    >
+      <button type="button" onClick={onToggle} className="flex w-full gap-2 text-left">
+        <span
+          className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-mk-full text-[11px] font-semibold"
+          style={{ background: done ? "#10B981" : "#F59E0B", color: "#fff" }}
+        >
+          {no}
+        </span>
+        <span className="min-w-0 flex-1">
         {/* 🚨 这是哪一部分、这一部分该注意什么。
             设计文档要的是「explanations for each part so that we know what we
             should care about in each part」——这两个字段一直在库里、在 DTO 里，
@@ -367,8 +479,9 @@ function MarkRow({
         {mark.quote && (
           <p className="mt-0.5 text-mk-small text-mk-muted">「{mark.quote}」</p>
         )}
-        <p className="mt-0.5 text-mk-small text-mk-ink">{mark.question}</p>
+        <p className="mt-0.5 text-mk-small font-medium text-mk-ink">{mark.question}</p>
         {mark.mine && <p className="mt-0.5 text-mk-small text-mk-faint">你提的问题</p>}
+        </span>
       </button>
       {open && <AnswerBox value={mark.answer} onSave={onSave} />}
       {!open && mark.answer && (

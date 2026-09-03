@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
-import { Check, X } from "lucide-react";
+import { Check, Maximize2, Minimize2, X } from "lucide-react";
 import { Icon } from "@/ui";
+import { useWidePane } from "./wide";
 
 /**
  * ToolFrame —— 每一件工具共用的外壳。
@@ -43,6 +44,7 @@ export function ToolFrame({
   busy?: boolean;
 }) {
   const ready = !todo;
+  const { wide, toggle } = useWidePane();
   return (
     <div className="flex h-full flex-col">
       <header className="border-b border-mk-border px-4 py-3">
@@ -51,14 +53,28 @@ export function ToolFrame({
             <h2 className="text-mk-body font-semibold text-mk-ink">{title}</h2>
             <p className="mt-0.5 text-mk-small text-mk-secondary">{task}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label="收起"
-            className="shrink-0 rounded-mk-full p-1 text-mk-faint hover:text-mk-secondary"
-          >
-            <Icon icon={X} size={16} />
-          </button>
+          <div className="flex shrink-0 items-center gap-0.5">
+            {/* 拉出来看。窄屏本来就是全屏，那时候 toggle 不给，这个按钮就不出现。 */}
+            {toggle && (
+              <button
+                type="button"
+                onClick={toggle}
+                aria-label={wide ? "还原宽度" : "铺开"}
+                title={wide ? "还原宽度" : "铺开"}
+                className="rounded-mk-full p-1 text-mk-faint hover:text-mk-secondary"
+              >
+                <Icon icon={wide ? Minimize2 : Maximize2} size={16} />
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="收起"
+              className="rounded-mk-full p-1 text-mk-faint hover:text-mk-secondary"
+            >
+              <Icon icon={X} size={16} />
+            </button>
+          </div>
         </div>
         {why && (
           // 理由用印记自己的话，不用模板。一句写得具体的理由是她愿意打开的
@@ -72,9 +88,13 @@ export function ToolFrame({
         )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">{children}</div>
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
+        {/* 铺开之后给正文一个阅读宽度。一行拉满 1400px 比挤在 360px 里还难读。 */}
+        <div className={wide ? "mx-auto w-full max-w-[900px]" : ""}>{children}</div>
+      </div>
 
       <footer className="border-t border-mk-border px-4 py-3">
+        <div className={wide ? "mx-auto w-full max-w-[900px]" : ""}>
         {todo && <p className="mb-2 text-mk-small text-mk-muted">还差：{todo}</p>}
         <button
           type="button"
@@ -86,6 +106,7 @@ export function ToolFrame({
           <Icon icon={Check} size={15} />
           {finishLabel}
         </button>
+        </div>
       </footer>
     </div>
   );

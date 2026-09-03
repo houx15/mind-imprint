@@ -48,6 +48,9 @@ import { apiErrorText } from "../api/errorText";
  */
 export function ProjectRoom({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
+  // 🚨 把工具铺开占满整个房间（产品负责人 2026-09-03：「需要拉出来，更充分的
+  // 视觉空间」）。审核助手要她读一份文档，360px 那一栏读不下去。见 tools/wide.tsx。
+  const [wideTool, setWideTool] = useState(false);
   const [sessions, setSessions] = useState<Session[]>([]);
   const [thread, setThread] = useState<ThreadMessage[]>([]);
   const [plan, setPlan] = useState<PlanState>({ plan: null, pending: [] });
@@ -489,16 +492,26 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           openTool
             ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
             : "hidden"
-        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:w-[360px] lg:border-l lg:bg-transparent`}
+        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
+          // 铺开时占满整个房间；对话让位，因为这时候她在读东西，不在说话。
+          openTool && wideTool
+            ? "lg:fixed lg:inset-0 lg:z-40 lg:w-full lg:border-l-0 lg:bg-mk-surface"
+            : "lg:w-[360px]"
+        }`}
       >
         <WorkPanel
           projectId={projectId}
           projectKind={project?.kind ?? ""}
+          wide={wideTool}
+          onToggleWide={() => setWideTool((w) => !w)}
           plan={plan}
           tools={tools}
           openTool={openTool}
           busy={busy}
-          onSelectTool={setOpenTool}
+          onSelectTool={(id) => {
+            if (!id) setWideTool(false);
+            setOpenTool(id);
+          }}
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
           onOpenSession={(sid) => void enterSession(sid)}
           onResolve={onResolve}

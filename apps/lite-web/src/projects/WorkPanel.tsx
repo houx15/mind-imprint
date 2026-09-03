@@ -4,6 +4,7 @@ import type { ToolInstance } from "../api/tools";
 import { PlanPanel } from "./PlanPanel";
 import { TOOL_TASKS, surfaceFor, type ToolSurfaceProps } from "./tools/registry";
 import { ToolFrame } from "./tools/ToolFrame";
+import { WidePaneProvider } from "./tools/wide";
 
 /**
  * WorkPanel —— 右边这一栏。
@@ -17,6 +18,8 @@ import { ToolFrame } from "./tools/ToolFrame";
 export function WorkPanel({
   projectId,
   projectKind,
+  wide,
+  onToggleWide,
   plan,
   tools,
   openTool,
@@ -29,6 +32,9 @@ export function WorkPanel({
 }: {
   projectId: string;
   projectKind: string;
+  /** 工具是不是铺开占满了整个房间。 */
+  wide: boolean;
+  onToggleWide: () => void;
   plan: PlanState;
   tools: ToolInstance[];
   /** 当前打开的工具 id；null = 看计划。 */
@@ -66,14 +72,16 @@ export function WorkPanel({
 
       <div className="min-h-0 flex-1">
         {active ? (
-          <ToolSurface
-            projectId={projectId}
-            projectKind={projectKind}
-            tool={active}
-            onFinish={(result, summary) => onFinishTool(active, result, summary)}
-            onOpenSession={onOpenSession}
-            onClose={() => onSelectTool(null)}
-          />
+          <WidePaneProvider value={{ wide, toggle: onToggleWide }}>
+            <ToolSurface
+              projectId={projectId}
+              projectKind={projectKind}
+              tool={active}
+              onFinish={(result, summary) => onFinishTool(active, result, summary)}
+              onOpenSession={onOpenSession}
+              onClose={() => onSelectTool(null)}
+            />
+          </WidePaneProvider>
         ) : (
           <div className="flex h-full flex-col">
             {/* 出门在做的那件事不在这里单开一档（产品负责人 2026-09-02：
