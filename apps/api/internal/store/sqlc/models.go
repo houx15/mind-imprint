@@ -570,13 +570,19 @@ type PblDecisionOption struct {
 }
 
 type PblKeepEntry struct {
-	ID        uuid.UUID   `json:"id"`
-	AtomID    uuid.UUID   `json:"atom_id"`
-	Kind      string      `json:"kind"`
-	Body      string      `json:"body"`
-	Stage     string      `json:"stage"`
-	SessionID pgtype.UUID `json:"session_id"`
-	CreatedAt time.Time   `json:"created_at"`
+	ID        uuid.UUID      `json:"id"`
+	AtomID    uuid.UUID      `json:"atom_id"`
+	Kind      string         `json:"kind"`
+	Body      string         `json:"body"`
+	Stage     string         `json:"stage"`
+	SessionID pgtype.UUID    `json:"session_id"`
+	CreatedAt time.Time      `json:"created_at"`
+	Metric    string         `json:"metric"`
+	Value     pgtype.Numeric `json:"value"`
+	Prev      pgtype.Numeric `json:"prev"`
+	Unit      string         `json:"unit"`
+	Expect    string         `json:"expect"`
+	Verdict   string         `json:"verdict"`
 }
 
 type PblMissionItem struct {

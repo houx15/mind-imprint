@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,6 +38,14 @@ type pblKeepDTO struct {
 	Kind      string  `json:"kind"`
 	Body      string  `json:"body"`
 	Stage     string  `json:"stage"`
+	// 一个数字、它的单位，和上一次是多少。数字的意思在变化里。
+	Metric string   `json:"metric"`
+	Value  *float64 `json:"value"`
+	Prev   *float64 `json:"prev"`
+	Unit   string   `json:"unit"`
+	// 改这一件事时她的预期，以及后来兑现了没有（'' / met / missed）。
+	Expect    string  `json:"expect"`
+	Verdict   string  `json:"verdict"`
 	SessionID *string `json:"sessionId"`
 	CreatedAt string  `json:"createdAt"`
 }
@@ -44,6 +53,9 @@ type pblKeepDTO struct {
 func toPblKeepDTO(k sqlc.PblKeepEntry) pblKeepDTO {
 	out := pblKeepDTO{
 		ID: k.ID.String(), Kind: k.Kind, Body: k.Body, Stage: k.Stage,
+		Metric: k.Metric, Unit: k.Unit, Expect: k.Expect, Verdict: k.Verdict,
+		Value:     numericToFloat(k.Value),
+		Prev:      numericToFloat(k.Prev),
 		CreatedAt: k.CreatedAt.Format(time.RFC3339),
 	}
 	if k.SessionID.Valid {
@@ -79,6 +91,13 @@ func (a *API) createPblKeepEntry(w http.ResponseWriter, r *http.Request) {
 		Kind  string `json:"kind"`
 		Body  string `json:"body"`
 		Stage string `json:"stage"`
+		// 一个数字，和它的单位。指标名给了才存数——一个没名字的数字过两周
+		// 她自己也认不出是什么。
+		Metric string   `json:"metric"`
+		Value  *float64 `json:"value"`
+		Unit   string   `json:"unit"`
+		// 改这一件事时她的预期。空 = 一次普通的改动，不强求（铁律④）。
+		Expect string `json:"expect"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -98,8 +117,27 @@ func (a *API) createPblKeepEntry(w http.ResponseWriter, r *http.Request) {
 	if !pblKeepStages[stage] {
 		stage = "observe"
 	}
+	// 🚨 上一次是多少，由服务端查，不由她填。
+	//
+	// 一个数字本身不说明任何事：「这周 23 个人用了」是多还是少？只有和上一次比
+	// 才有意思。让她手填上一次，她要么记不得、要么填个印象——那就把「变化」这
+	// 件事变回了感觉。
+	metric := strings.TrimSpace(req.Metric)
+	var value, prev pgtype.Numeric
+	if metric != "" && req.Value != nil {
+		if err := value.Scan(strconv.FormatFloat(*req.Value, 'f', -1, 64)); err != nil {
+			httpx.WriteError(w, r, httpx.ErrBadRequest("bad_value", "这个数字读不出来", nil))
+			return
+		}
+		if last, lerr := a.d.Queries.LastPblKeepMetric(r.Context(),
+			sqlc.LastPblKeepMetricParams{AtomID: atomID, Metric: metric}); lerr == nil {
+			prev = last.Value
+		}
+	}
 	row, err := a.d.Queries.CreatePblKeepEntry(r.Context(), sqlc.CreatePblKeepEntryParams{
 		AtomID: atomID, Kind: kind, Body: body, Stage: stage,
+		Metric: metric, Value: value, Prev: prev,
+		Unit: strings.TrimSpace(req.Unit), Expect: strings.TrimSpace(req.Expect),
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)
@@ -155,4 +193,54 @@ func (a *API) openPblKeepSession(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	httpx.WriteJSON(w, http.StatusCreated, map[string]any{"sessionId": sess.ID.String()})
+}
+
+// numericToFloat 把库里的 numeric 变成 JSON 里的数字；空就是 null。
+//
+// 前端要拿它算差值和画走势，字符串在那边只会被到处 parseFloat 一遍。
+func numericToFloat(n pgtype.Numeric) *float64 {
+	if !n.Valid {
+		return nil
+	}
+	f, err := n.Float64Value()
+	if err != nil || !f.Valid {
+		return nil
+	}
+	v := f.Float64
+	return &v
+}
+
+// settlePblKeepPrediction —— 一次改动的预期后来兑现了没有。
+//
+// 🚨 **没兑现才是最值钱的那一次**：它说明她原来想错了，而那正是迭代要教的东西。
+// 所以这里不庆祝兑现、也不惩罚没兑现，只是记下来，让印记接得上。
+func (a *API) settlePblKeepPrediction(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	kid, err := uuid.Parse(r.PathValue("kid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这一条不存在"))
+		return
+	}
+	var req struct {
+		Verdict string `json:"verdict"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	v := strings.TrimSpace(req.Verdict)
+	if v != "" && v != "met" && v != "missed" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("bad_verdict", "不认识这种结果", nil))
+		return
+	}
+	out, err := a.d.Queries.SettlePblKeepPrediction(r.Context(),
+		sqlc.SettlePblKeepPredictionParams{ID: kid, Verdict: v, AtomID: atomID})
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这一条不存在"))
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPblKeepDTO(out))
 }

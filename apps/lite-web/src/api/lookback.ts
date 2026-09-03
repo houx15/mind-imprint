@@ -143,6 +143,14 @@ export interface KeepEntry {
   kind: KeepKind;
   body: string;
   stage: KeepStage;
+  /** 一个数字、它的单位，和上一次是多少。数字的意思在变化里，不在数值里。 */
+  metric: string;
+  value: number | null;
+  prev: number | null;
+  unit: string;
+  /** 改这一件事时她的预期，以及后来兑现了没有。 */
+  expect: string;
+  verdict: "" | "met" | "missed";
   /** 这条数据长出来的那一轮思考。 */
   sessionId: string | null;
   createdAt: string;
@@ -229,7 +237,15 @@ export function listKeepEntries(projectId: string): Promise<KeepEntry[]> {
 
 export function addKeepEntry(
   projectId: string,
-  body: { kind: KeepKind; body: string; stage: KeepStage },
+  body: {
+    kind: KeepKind;
+    body: string;
+    stage: KeepStage;
+    metric?: string;
+    value?: number;
+    unit?: string;
+    expect?: string;
+  },
 ): Promise<KeepEntry> {
   return apiFetch<KeepEntry>(`${base(projectId)}/keep`, {
     method: "POST",
@@ -273,4 +289,27 @@ export function keepStage(entries: KeepEntry[]): KeepStage {
  */
 export function keepLaps(entries: KeepEntry[]): number {
   return entries.filter((e) => e.stage === "change").length;
+}
+
+/**
+ * 一次改动的预期后来兑现了没有。
+ *
+ * 🚨 **没兑现才是最值钱的那一次**：它说明她原来想错了，而那正是迭代要教的东西。
+ * 所以这里不庆祝兑现、也不惩罚没兑现，只是记下来。
+ */
+export function settlePrediction(
+  projectId: string,
+  entryId: string,
+  verdict: "met" | "missed",
+): Promise<KeepEntry> {
+  return apiFetch<KeepEntry>(`${base(projectId)}/keep/${entryId}/settle`, {
+    method: "POST",
+    body: JSON.stringify({ verdict }),
+  });
+}
+
+/** 变化，不是数值。没有上一次就是 null——那时候界面照实说「首次记录」。 */
+export function keepDelta(e: KeepEntry): number | null {
+  if (e.value === null || e.prev === null) return null;
+  return e.value - e.prev;
 }

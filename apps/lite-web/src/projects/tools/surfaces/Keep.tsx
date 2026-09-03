@@ -7,8 +7,10 @@ import {
   KEEP_STAGES,
   addKeepEntry,
   keepMetricsFor,
+  keepDelta,
   keepLaps,
   keepStage,
+  settlePrediction,
   listKeepEntries,
   openKeepSession,
   type KeepEntry,
@@ -45,6 +47,11 @@ export function Keep({
   const [stage, setStage] = useState<KeepStage>("observe");
   const [draft, setDraft] = useState("");
   const [metric, setMetric] = useState<string | null>(null);
+  // 这一条要记的数字和单位。指标选了才问数——一个没名字的数字过两周她也认不出。
+  const [num, setNum] = useState("");
+  const [unit, setUnit] = useState("");
+  // 改一件事时的预期。空着也能提交：不写预测也是一次改动（铁律④）。
+  const [expect, setExpect] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
@@ -66,8 +73,27 @@ export function Keep({
     if (!body) return;
     setDraft("");
     try {
-      const made = await addKeepEntry(projectId, { kind, body, stage });
+      const made = await addKeepEntry(projectId, {
+        kind, body, stage,
+        metric: metric ?? "",
+        value: num.trim() === "" ? undefined : Number(num),
+        unit: unit.trim(),
+        expect: expect.trim(),
+      });
       setEntries((prev) => [made, ...prev]);
+      setNum("");
+      setUnit("");
+      setExpect("");
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
+
+  /** 那次改动的预期兑现了没有。没兑现是最值钱的一次，所以两个都只是记录。 */
+  async function settle(entry: KeepEntry, verdict: "met" | "missed") {
+    try {
+      const got = await settlePrediction(projectId, entry.id, verdict);
+      setEntries((prev) => prev.map((e) => (e.id === got.id ? got : e)));
     } catch (err) {
       setError(apiErrorText(err));
     }
@@ -221,6 +247,39 @@ export function Keep({
           </div>
         )}
 
+        {/* 🚨 一个数字本身不说明任何事：「23」是多还是少？只有和上一次比才有
+            意思。上一次多少由服务端查——让她手填，填的只会是印象。 */}
+        {kind === "stat" && metric && (
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              value={num}
+              onChange={(e) => setNum(e.target.value)}
+              inputMode="decimal"
+              placeholder="这次的数字"
+              className="w-28 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+            />
+            <input
+              value={unit}
+              onChange={(e) => setUnit(e.target.value)}
+              placeholder="单位"
+              className="w-20 rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+            />
+            <span className="text-mk-small text-mk-muted">{metric}</span>
+          </div>
+        )}
+
+        {/* 一次改动 = 一个可以被推翻的预测。 */}
+        {stage === "change" && (
+          <div className="mt-2">
+            <input
+              value={expect}
+              onChange={(e) => setExpect(e.target.value)}
+              placeholder="你预期这会让哪个数字怎么变（选填）"
+              className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2.5 py-1.5 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+            />
+          </div>
+        )}
+
         <div className="mt-2 flex items-end gap-2">
           <input
             value={draft}
@@ -254,6 +313,72 @@ export function Keep({
               }}
             >
               <p className="text-mk-small text-mk-ink">{e.body}</p>
+
+              {/* 数字连着它的变化一起显示。没有上一次就照实说「首次记录」——
+                  假装它是个结果，就把「看变化」这件事教反了。 */}
+              {e.value !== null && e.metric && (
+                <p className="mt-0.5 text-mk-small">
+                  <span className="text-mk-secondary">
+                    {e.metric} {e.value}
+                    {e.unit}
+                  </span>
+                  {keepDelta(e) === null ? (
+                    <span className="ml-1.5 text-mk-faint">首次记录</span>
+                  ) : (
+                    <span
+                      className="ml-1.5"
+                      style={{
+                        color:
+                          keepDelta(e)! > 0 ? "var(--mk-success)" : "var(--mk-warning)",
+                      }}
+                    >
+                      {keepDelta(e)! > 0 ? "↑" : "↓"} {Math.abs(keepDelta(e)!)}
+                      {e.unit}（上次 {e.prev}
+                      {e.unit}）
+                    </span>
+                  )}
+                </p>
+              )}
+
+              {/* 🚨 一次改动 = 一个可以被推翻的预测。
+                  没兑现才是最值钱的那一次：它说明她原来想错了，而那正是迭代要
+                  教的东西。所以两个按钮一样重，不庆祝也不惩罚。 */}
+              {e.expect && (
+                <div
+                  className="mt-1.5 rounded-mk-sm px-2 py-1.5"
+                  style={{ background: "var(--mk-paper)" }}
+                >
+                  <p className="text-mk-small text-mk-secondary">当时预期：{e.expect}</p>
+                  {e.verdict === "" ? (
+                    <div className="mt-1 flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => void settle(e, "met")}
+                        className="rounded-mk-full border border-mk-border px-2.5 py-0.5 text-mk-small text-mk-secondary"
+                      >
+                        兑现了
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void settle(e, "missed")}
+                        className="rounded-mk-full border border-mk-border px-2.5 py-0.5 text-mk-small text-mk-secondary"
+                      >
+                        没兑现
+                      </button>
+                    </div>
+                  ) : (
+                    <p
+                      className="mt-0.5 text-mk-small"
+                      style={{
+                        color:
+                          e.verdict === "met" ? "var(--mk-success)" : "var(--mk-warning)",
+                      }}
+                    >
+                      {e.verdict === "met" ? "已兑现" : "未兑现——这一条最值得想一想"}
+                    </p>
+                  )}
+                </div>
+              )}
               <div className="mt-1.5 flex items-center gap-2">
                 <span className="text-mk-small text-mk-faint">{meta?.label}</span>
                 <button

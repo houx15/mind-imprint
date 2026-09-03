@@ -368,7 +368,32 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 	// 上线之后她记下来的事。
 	if ks, err := a.d.Queries.ListPblKeepEntries(ctx, atomID); err == nil {
 		for _, k := range ks {
-			add("上线之后她记下：" + k.Body)
+			line := "上线之后她记下：" + strings.TrimSpace(k.Body)
+			// 🚨 带上变化，不只带数值。一个数字本身不说明任何事——「23」是多
+			// 还是少，只有和上一次比才知道。
+			if v := numericToFloat(k.Value); v != nil && strings.TrimSpace(k.Metric) != "" {
+				line += "（" + strings.TrimSpace(k.Metric) + "：" +
+					strconv.FormatFloat(*v, 'f', -1, 64) + strings.TrimSpace(k.Unit)
+				if pv := numericToFloat(k.Prev); pv != nil {
+					line += "，上一次 " + strconv.FormatFloat(*pv, 'f', -1, 64) +
+						strings.TrimSpace(k.Unit)
+				} else {
+					line += "，首次记录"
+				}
+				line += "）"
+			}
+			// 她改一件事时的预期，以及后来兑现没有。没兑现最值钱：那说明她原来
+			// 想错了，而印记该接着问的正是那一句。
+			if e := strings.TrimSpace(k.Expect); e != "" {
+				line += "；她当时预期：" + e
+				switch k.Verdict {
+				case "met":
+					line += "（后来兑现了）"
+				case "missed":
+					line += "（后来没兑现）"
+				}
+			}
+			add(line)
 		}
 	}
 

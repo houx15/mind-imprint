@@ -317,6 +317,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.archivePblNote))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/notes/cluster", liteOnly(a.clusterPblNotes))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/notes/{nid}/place", liteOnly(a.placePblNote))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/keep/{kid}/settle", liteOnly(a.settlePblKeepPrediction))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/note-links", liteOnly(a.listPblNoteLinks))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/note-links", liteOnly(a.createPblNoteLink))
 	mux.Handle("DELETE /api/v1/pbl/projects/{id}/note-links/{lid}", liteOnly(a.deletePblNoteLink))

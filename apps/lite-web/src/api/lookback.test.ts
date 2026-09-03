@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { PROJECT_KINDS } from "./projects";
-import { keepLaps, keepMetricsFor } from "./lookback";
+import { keepDelta, keepLaps, keepMetricsFor } from "./lookback";
 
 // 🚨 「长期迭代」请她带回来的数据，必须是她这个项目量得出来的。
 //
@@ -77,5 +77,26 @@ describe("keepLaps", () => {
   it("is zero until she has actually changed something", () => {
     expect(keepLaps([e("ship"), e("observe"), e("interpret")])).toBe(0);
     expect(keepLaps([])).toBe(0);
+  });
+});
+
+// 🚨 一个数字本身不说明任何事：「23 个人用了」是多还是少？只有和上一次比才有
+// 意思。「数据驱动」落到一个中学生手里，实际内容就是这一件：看变化，不看数值。
+describe("keepDelta", () => {
+  const e = (value: number | null, prev: number | null) =>
+    ({ id: "x", kind: "stat", body: "b", stage: "observe", metric: "使用人数",
+       value, prev, unit: "人", expect: "", verdict: "",
+       sessionId: null, createdAt: "2026-09-01T00:00:00Z" }) as never;
+
+  it("gives the change, not the number", () => {
+    expect(keepDelta(e(23, 11))).toBe(12);
+    expect(keepDelta(e(8, 20))).toBe(-12);
+  });
+
+  // 🚨 第一次记某个指标时没有上一次可比。返回 null，界面照实说「首次记录」——
+  // 拿 0 当上一次，会把第一次记录说成一次巨大的增长。
+  it("is null on the first record instead of pretending prev was zero", () => {
+    expect(keepDelta(e(23, null))).toBeNull();
+    expect(keepDelta(e(null, 11))).toBeNull();
   });
 });

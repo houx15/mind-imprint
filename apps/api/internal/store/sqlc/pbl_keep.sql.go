@@ -15,16 +15,21 @@ import (
 
 const createPblKeepEntry = `-- name: CreatePblKeepEntry :one
 
-INSERT INTO pbl_keep_entry (atom_id, kind, body, stage)
-VALUES ($1, $2, $3, $4)
-RETURNING id, atom_id, kind, body, stage, session_id, created_at
+INSERT INTO pbl_keep_entry (atom_id, kind, body, stage, metric, value, prev, unit, expect)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, atom_id, kind, body, stage, session_id, created_at, metric, value, prev, unit, expect, verdict
 `
 
 type CreatePblKeepEntryParams struct {
-	AtomID uuid.UUID `json:"atom_id"`
-	Kind   string    `json:"kind"`
-	Body   string    `json:"body"`
-	Stage  string    `json:"stage"`
+	AtomID uuid.UUID      `json:"atom_id"`
+	Kind   string         `json:"kind"`
+	Body   string         `json:"body"`
+	Stage  string         `json:"stage"`
+	Metric string         `json:"metric"`
+	Value  pgtype.Numeric `json:"value"`
+	Prev   pgtype.Numeric `json:"prev"`
+	Unit   string         `json:"unit"`
+	Expect string         `json:"expect"`
 }
 
 // 上线之后（阶段七）。数据、反馈、新想法进来，就地开一轮新的思考。
@@ -34,6 +39,11 @@ func (q *Queries) CreatePblKeepEntry(ctx context.Context, arg CreatePblKeepEntry
 		arg.Kind,
 		arg.Body,
 		arg.Stage,
+		arg.Metric,
+		arg.Value,
+		arg.Prev,
+		arg.Unit,
+		arg.Expect,
 	)
 	var i PblKeepEntry
 	err := row.Scan(
@@ -44,25 +54,37 @@ func (q *Queries) CreatePblKeepEntry(ctx context.Context, arg CreatePblKeepEntry
 		&i.Stage,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.Metric,
+		&i.Value,
+		&i.Prev,
+		&i.Unit,
+		&i.Expect,
+		&i.Verdict,
 	)
 	return i, err
 }
 
 const getPblKeepEntry = `-- name: GetPblKeepEntry :one
-SELECT k.id, k.atom_id, k.kind, k.body, k.stage, k.session_id, k.created_at, a.user_id
+SELECT k.id, k.atom_id, k.kind, k.body, k.stage, k.session_id, k.created_at, k.metric, k.value, k.prev, k.unit, k.expect, k.verdict, a.user_id
 FROM pbl_keep_entry k JOIN atom a ON a.id = k.atom_id
 WHERE k.id = $1
 `
 
 type GetPblKeepEntryRow struct {
-	ID        uuid.UUID   `json:"id"`
-	AtomID    uuid.UUID   `json:"atom_id"`
-	Kind      string      `json:"kind"`
-	Body      string      `json:"body"`
-	Stage     string      `json:"stage"`
-	SessionID pgtype.UUID `json:"session_id"`
-	CreatedAt time.Time   `json:"created_at"`
-	UserID    uuid.UUID   `json:"user_id"`
+	ID        uuid.UUID      `json:"id"`
+	AtomID    uuid.UUID      `json:"atom_id"`
+	Kind      string         `json:"kind"`
+	Body      string         `json:"body"`
+	Stage     string         `json:"stage"`
+	SessionID pgtype.UUID    `json:"session_id"`
+	CreatedAt time.Time      `json:"created_at"`
+	Metric    string         `json:"metric"`
+	Value     pgtype.Numeric `json:"value"`
+	Prev      pgtype.Numeric `json:"prev"`
+	Unit      string         `json:"unit"`
+	Expect    string         `json:"expect"`
+	Verdict   string         `json:"verdict"`
+	UserID    uuid.UUID      `json:"user_id"`
 }
 
 func (q *Queries) GetPblKeepEntry(ctx context.Context, id uuid.UUID) (GetPblKeepEntryRow, error) {
@@ -76,13 +98,52 @@ func (q *Queries) GetPblKeepEntry(ctx context.Context, id uuid.UUID) (GetPblKeep
 		&i.Stage,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.Metric,
+		&i.Value,
+		&i.Prev,
+		&i.Unit,
+		&i.Expect,
+		&i.Verdict,
 		&i.UserID,
 	)
 	return i, err
 }
 
+const lastPblKeepMetric = `-- name: LastPblKeepMetric :one
+SELECT id, atom_id, kind, body, stage, session_id, created_at, metric, value, prev, unit, expect, verdict FROM pbl_keep_entry
+WHERE atom_id = $1 AND metric = $2 AND value IS NOT NULL
+ORDER BY created_at DESC LIMIT 1
+`
+
+type LastPblKeepMetricParams struct {
+	AtomID uuid.UUID `json:"atom_id"`
+	Metric string    `json:"metric"`
+}
+
+// 这个指标上一次是多少。她记新一次时用它自动填 prev——数字的意思在变化里。
+func (q *Queries) LastPblKeepMetric(ctx context.Context, arg LastPblKeepMetricParams) (PblKeepEntry, error) {
+	row := q.db.QueryRow(ctx, lastPblKeepMetric, arg.AtomID, arg.Metric)
+	var i PblKeepEntry
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Kind,
+		&i.Body,
+		&i.Stage,
+		&i.SessionID,
+		&i.CreatedAt,
+		&i.Metric,
+		&i.Value,
+		&i.Prev,
+		&i.Unit,
+		&i.Expect,
+		&i.Verdict,
+	)
+	return i, err
+}
+
 const linkPblKeepEntrySession = `-- name: LinkPblKeepEntrySession :one
-UPDATE pbl_keep_entry SET session_id = $2 WHERE id = $1 RETURNING id, atom_id, kind, body, stage, session_id, created_at
+UPDATE pbl_keep_entry SET session_id = $2 WHERE id = $1 RETURNING id, atom_id, kind, body, stage, session_id, created_at, metric, value, prev, unit, expect, verdict
 `
 
 type LinkPblKeepEntrySessionParams struct {
@@ -104,12 +165,18 @@ func (q *Queries) LinkPblKeepEntrySession(ctx context.Context, arg LinkPblKeepEn
 		&i.Stage,
 		&i.SessionID,
 		&i.CreatedAt,
+		&i.Metric,
+		&i.Value,
+		&i.Prev,
+		&i.Unit,
+		&i.Expect,
+		&i.Verdict,
 	)
 	return i, err
 }
 
 const listPblKeepEntries = `-- name: ListPblKeepEntries :many
-SELECT id, atom_id, kind, body, stage, session_id, created_at FROM pbl_keep_entry WHERE atom_id = $1 ORDER BY created_at DESC
+SELECT id, atom_id, kind, body, stage, session_id, created_at, metric, value, prev, unit, expect, verdict FROM pbl_keep_entry WHERE atom_id = $1 ORDER BY created_at DESC
 `
 
 func (q *Queries) ListPblKeepEntries(ctx context.Context, atomID uuid.UUID) ([]PblKeepEntry, error) {
@@ -129,6 +196,12 @@ func (q *Queries) ListPblKeepEntries(ctx context.Context, atomID uuid.UUID) ([]P
 			&i.Stage,
 			&i.SessionID,
 			&i.CreatedAt,
+			&i.Metric,
+			&i.Value,
+			&i.Prev,
+			&i.Unit,
+			&i.Expect,
+			&i.Verdict,
 		); err != nil {
 			return nil, err
 		}
@@ -138,4 +211,36 @@ func (q *Queries) ListPblKeepEntries(ctx context.Context, atomID uuid.UUID) ([]P
 		return nil, err
 	}
 	return items, nil
+}
+
+const settlePblKeepPrediction = `-- name: SettlePblKeepPrediction :one
+UPDATE pbl_keep_entry SET verdict = $2 WHERE id = $1 AND atom_id = $3 RETURNING id, atom_id, kind, body, stage, session_id, created_at, metric, value, prev, unit, expect, verdict
+`
+
+type SettlePblKeepPredictionParams struct {
+	ID      uuid.UUID `json:"id"`
+	Verdict string    `json:"verdict"`
+	AtomID  uuid.UUID `json:"atom_id"`
+}
+
+// 一次改动的预期后来兑现了没有。没兑现才是最值钱的那一次——它说明她原来想错了。
+func (q *Queries) SettlePblKeepPrediction(ctx context.Context, arg SettlePblKeepPredictionParams) (PblKeepEntry, error) {
+	row := q.db.QueryRow(ctx, settlePblKeepPrediction, arg.ID, arg.Verdict, arg.AtomID)
+	var i PblKeepEntry
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Kind,
+		&i.Body,
+		&i.Stage,
+		&i.SessionID,
+		&i.CreatedAt,
+		&i.Metric,
+		&i.Value,
+		&i.Prev,
+		&i.Unit,
+		&i.Expect,
+		&i.Verdict,
+	)
+	return i, err
 }
