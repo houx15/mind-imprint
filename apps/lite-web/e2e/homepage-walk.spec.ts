@@ -12,38 +12,31 @@ test("主页: 门 → 挑版式 → 写内容 → 发布 → 访客看到的那�
   page,
   browser,
 }) => {
+  // 页面崩了的时候，断言只会说「没找到元素」。把浏览器里的真实报错抬到
+  // Playwright 的输出里，省掉一轮猜。
+  page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
+  page.on("console", (m) => {
+    if (m.type() === "error") console.log("CONSOLE ERROR:", m.text());
+  });
+
   /* 1 · 门。她还没有主页，所以这里没有自由输入框。 */
   await page.goto("/projects");
   await expect(page.getByRole("heading", { name: "先做你自己的主页。" })).toBeVisible();
   await expect(page.getByPlaceholder("比如：", { exact: false })).toHaveCount(0);
   await page.screenshot({ path: "e2e/.shots/home-1-gate.png", fullPage: true });
 
-  /* 2 · 进主页项目。三个版式，每一个都真画出来。 */
-  await page.getByRole("button", { name: "开始做我的主页" }).click();
+  /* 2 · 进主页项目。默认落在「内容」——先写字，再挑版式。 */
+  await page.getByRole("button", { name: /做我的主页/ }).click();
   await expect(page.getByRole("heading", { name: "我自己的主页" })).toBeVisible();
-  await expect(page.getByText("三个版式是三个不一样的页面", { exact: false })).toBeVisible();
-  // 🚨 这一张是这次改动的重点之一：原型在这一步给的是三条灰色骨架，她要为一个
-  // 自己没见过的东西写理由。现在这三张卡片里是三个真的页面。
-  await page.screenshot({ path: "e2e/.shots/home-2-three-real-layouts.png", fullPage: true });
-
-  /* 3 · 挑一个。没写理由，确认按钮不生效——服务端那一道也拦着。 */
-  await page.getByText("索引式", { exact: true }).click();
-  await expect(page.getByText("写完理由才能确认。")).toBeVisible();
-  await page.screenshot({ path: "e2e/.shots/home-3-needs-a-reason.png", fullPage: true });
-
-  await page
-    .getByPlaceholder("比如：我做的东西比写的字多", { exact: false })
-    .fill("我做的东西比写的字多，索引式一屏能看到十几条；另外两版一屏只放得下一件。");
-  await page.getByRole("button", { name: "确认" }).click();
-
-  /* 4 · 写内容。左边写，右边就是别人会看到的那一页。 */
   await expect(page.getByText("这是别人会看到的样子")).toBeVisible();
+
+  /* 3 · 写内容。左边写，右边就是别人会看到的那一页。 */
   await page
     .getByPlaceholder("一件还能修的东西，是谁决定它该被扔的？")
     .fill("一件还能修的东西，是谁决定它该被扔的？");
   await page.getByPlaceholder("读 IB 的高二学生 · 在拆东西").fill("读 IB 的高二学生 · 在拆东西");
 
-  // 「开场一段」「关于」两个框没有 placeholder，按标签定位它们后面的那个框。
+  // 「开场一段」「关于」「现在」三个框没有 placeholder，按标签定位它们后面那个框。
   const fieldAfter = (label: string) =>
     page.locator(`xpath=//label[normalize-space(text())="${label}"]/following::textarea[1]`);
   await fieldAfter("开场一段").fill(
@@ -58,8 +51,28 @@ test("主页: 门 → 挑版式 → 写内容 → 发布 → 访客看到的那�
   await page.getByRole("button", { name: "保存" }).click();
   await expect(page.getByText("已保存")).toBeVisible();
 
+  /* 4 · 挑版式。三张预览里装的是她刚写的那些话。 */
+  await page.getByRole("button", { name: "样子", exact: true }).click();
+  await expect(page.getByText("三个版式是三个不一样的页面", { exact: false })).toBeVisible();
+  // 🚨 这一张是这次改动的重点之一：原型在这一步给的是三条灰色骨架，她要为一个
+  // 自己没见过的东西写理由。现在这三张卡片里是三个真的页面，而且装着她的字。
+  await page.screenshot({ path: "e2e/.shots/home-2-three-real-layouts.png", fullPage: true });
+
+  // 没写理由，确认不生效——服务端那一道也拦着。
+  await page.getByText("索引式", { exact: true }).click();
+  await expect(page.getByText("写完理由才能确认。")).toBeVisible();
+  await page.screenshot({ path: "e2e/.shots/home-3-needs-a-reason.png", fullPage: true });
+
+  await page
+    .getByPlaceholder("比如：我做的东西比写的字多", { exact: false })
+    .fill("我做的东西比写的字多，索引式一屏能看到十几条；另外两版一屏只放得下一件。");
+  await page.getByRole("button", { name: "确认" }).click();
+
   /* 5 · 发布。 */
-  await page.getByRole("button", { name: "发布" }).first().click();
+  // 🚨 页签和按钮都叫「发布」。`.first()` 命中的是页签，只会切一下视图——
+  // 于是这条 walk 曾经「点了发布」却什么都没发生。用 testid 点真正那一个。
+  await page.getByRole("button", { name: "发布", exact: true }).first().click();
+  await page.getByTestId("site-publish").click();
   await expect(page.getByRole("heading", { name: "已经在线上了" })).toBeVisible({
     timeout: 30_000,
   });

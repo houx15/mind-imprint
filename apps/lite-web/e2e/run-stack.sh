@@ -15,6 +15,11 @@ set -euo pipefail
 REPO="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 PG_CONTAINER="${E2E_PG_CONTAINER:-mindimprint-lite-e2e-pg}"
 PG_PORT="${E2E_PG_PORT:-55433}"
+# 可覆盖，默认不变。用得上它的场合：机器上已经有别的 postgres 标签（比如
+# postgres:16-alpine），而 registry 拉不动——Docker Desktop 的钥匙串凭据助手坏掉
+# 时，任何一次 pull 都会以 `error getting credentials (-50)` 失败，本地已有的镜像
+# 却照常能跑。
+PG_IMAGE="${E2E_PG_IMAGE:-postgres:16}"
 WEB_PORT="${E2E_WEB_PORT:-5174}"
 # 8080 常被别的项目占着（本机上就有）。杀掉别人的服务不是我们该做的事，
 # 换一个端口就行。
@@ -65,9 +70,9 @@ command -v docker >/dev/null 2>&1 || { echo "FATAL: Docker is required for the t
 [ -f "$REPO/apps/api/.env.local" ] || { echo "FATAL: create apps/api/.env.local (see apps/web/e2e/RUNBOOK.md)."; exit 1; }
 grep -qE '^DEEPSEEK_API_KEY=.+' "$REPO/apps/api/.env.local" || echo "WARN: DEEPSEEK_API_KEY looks empty — the live-lens walk will fail."
 
-echo "==> Booting throwaway Postgres on :${PG_PORT}"
+echo "==> Booting throwaway Postgres on :${PG_PORT} (${PG_IMAGE})"
 docker rm -f "$PG_CONTAINER" >/dev/null 2>&1 || true
-docker run -d --name "$PG_CONTAINER" -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=mindimprint -p "${PG_PORT}:5432" postgres:16 >/dev/null
+docker run -d --name "$PG_CONTAINER" -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=mindimprint -p "${PG_PORT}:5432" "$PG_IMAGE" >/dev/null
 until docker exec "$PG_CONTAINER" pg_isready -U postgres >/dev/null 2>&1; do sleep 0.5; done
 
 echo "==> Applying migrations + seed"

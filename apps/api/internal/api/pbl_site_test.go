@@ -314,3 +314,26 @@ func TestGetSite_TellsHerWhatIsStillMissing(t *testing.T) {
 		t.Errorf("空页面长出了一句 headline：%q", s)
 	}
 }
+
+// 🚨 草稿里的列表永远是 `[]`，绝不是 `null`。
+//
+// Go 的 nil 切片 marshal 出来是 `null`，前端一句 `draft.motto.filter(...)` 就把
+// 整个主页工作面打成白屏。这个 bug 真的发生过，而且 456 条前端单测一条都没响
+// ——是 2026-09-03 的浏览器 walk 抓到的。它是接口形状的约定，所以钉在这里。
+func TestGetSite_ListsAreNeverNull(t *testing.T) {
+	h, cookie, _, _ := liteHandler(t)
+
+	rec := siteReq(t, h, cookie, "GET", "/api/v1/pbl/site", "")
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d; body=%s", rec.Code, rec.Body)
+	}
+	body := rec.Body.String()
+	for _, field := range []string{"motto", "tags", "about", "nowList"} {
+		if strings.Contains(body, `"`+field+`":null`) {
+			t.Errorf("%s 是 null，前端会在 .filter() 上崩掉：%s", field, body)
+		}
+	}
+	if strings.Contains(body, `"blurbs":null`) {
+		t.Errorf("blurbs 是 null：%s", body)
+	}
+}

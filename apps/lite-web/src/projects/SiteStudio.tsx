@@ -13,7 +13,14 @@ import { apiErrorText } from "../api/errorText";
 import { navigate } from "../routing";
 import { BuiltSite } from "../site/BuiltSite";
 import { SITE_LAYOUTS } from "../site/themes";
-import { EMPTY_CONTENT, EMPTY_DRAFT, type SiteContent, type SiteDraft, type SiteLayout } from "../site/types";
+import {
+  EMPTY_CONTENT,
+  EMPTY_DRAFT,
+  normalizeDraft,
+  type SiteContent,
+  type SiteDraft,
+  type SiteLayout,
+} from "../site/types";
 
 /**
  * SiteStudio — 主页项目的工作面。
@@ -37,7 +44,14 @@ import { EMPTY_CONTENT, EMPTY_DRAFT, type SiteContent, type SiteDraft, type Site
 export function SiteStudio({ projectId }: { projectId: string }) {
   const [state, setState] = useState<SiteState | null>(null);
   const [draft, setDraft] = useState<SiteDraft>(EMPTY_DRAFT);
-  const [step, setStep] = useState<"look" | "words" | "ship">("look");
+  // 🚨 先写内容，再挑版式。
+  //
+  // 原型让她在第四步挑版式、第五步才写内容，于是她是在三条灰色骨架之间做选择。
+  // 这一版三个版式都是真页面，但如果她还一个字都没写，那三张预览还是几乎空的
+  // ——她仍然看不见自己的页面，只看得见三个空壳。写在前面，她挑的就是**装着她
+  // 自己的话的那三页**，spec §15 要的「她写了理由的那个选择必须看得见」才真的
+  // 成立。
+  const [step, setStep] = useState<"look" | "words" | "ship">("words");
   const [narrow, setNarrow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -49,9 +63,9 @@ export function SiteStudio({ projectId }: { projectId: string }) {
       .then((s) => {
         if (cancelled) return;
         setState(s);
-        setDraft({ ...EMPTY_DRAFT, ...s.draft, blurbs: s.draft.blurbs ?? {} });
-        // 已经挑过版式的，直接落到写内容那一步——她回来是接着写，不是重挑。
-        if (s.layoutWhy.trim()) setStep(s.published ? "ship" : "words");
+        setDraft(normalizeDraft(s.draft));
+        // 已经发布过的，回来多半是要改或者要那条链接。
+        if (s.published) setStep("ship");
       })
       .catch((err) => {
         if (!cancelled) setError(apiErrorText(err));
@@ -139,8 +153,8 @@ export function SiteStudio({ projectId }: { projectId: string }) {
         <nav className="mt-6 flex items-center gap-1">
           {(
             [
-              ["look", "样子"],
               ["words", "内容"],
+              ["look", "样子"],
               ["ship", "发布"],
             ] as const
           ).map(([id, label]) => (
@@ -657,6 +671,9 @@ function ShipStep({
             </p>
             <button
               type="button"
+              // 顶上的步骤条里也有一个叫「发布」的按钮（那是切页签）。两个同名
+              // 按钮里，只有这一个真的会把页面发出去，所以给它一个稳定的钩子。
+              data-testid="site-publish"
               onClick={onPublish}
               disabled={busy}
               className="mt-4 rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white disabled:opacity-40"

@@ -184,13 +184,10 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 	if len(row.Content) > 0 {
 		_ = json.Unmarshal(row.Content, &draft)
 	}
-	if draft.Blurbs == nil {
-		draft.Blurbs = map[string]string{}
-	}
 	dto := pblSiteDTO{
 		Layout:    row.Layout,
 		LayoutWhy: row.LayoutWhy,
-		Draft:     draft,
+		Draft:     normalizeDraft(draft),
 		Content:   content,
 		Missing:   pbl.SiteMissing(content),
 		Published: row.ShareToken != nil && *row.ShareToken != "",
@@ -205,6 +202,34 @@ func (a *API) siteDTO(r *http.Request, u User, row sqlc.PblSite) (pblSiteDTO, er
 		dto.ProjectID = uuid.UUID(row.AtomID.Bytes).String()
 	}
 	return dto, nil
+}
+
+// normalizeDraft 把草稿里每一个 nil 切片换成空切片。
+//
+// 🚨 Go 的 nil 切片 marshal 出来是 `null`，不是 `[]`。前端拿到 `null` 之后
+// `draft.motto.filter(...)` 直接抛 TypeError，整个工作面白屏——2026-09-03 的浏览
+// 器 walk 抓到的就是这个：`Cannot read properties of null (reading 'filter')`。
+//
+// 修在这一侧而不是只在前端兜：这是**接口的形状**问题。`motto: []string` 承诺的
+// 是一个列表，`null` 不是列表。listPblProjects 里那句「`[]` 是空看板，`null` 是
+// 前端崩溃」讲的是同一件事，只是那次先想到了。
+func normalizeDraft(d pbl.SiteDraft) pbl.SiteDraft {
+	if d.Motto == nil {
+		d.Motto = []string{}
+	}
+	if d.Tags == nil {
+		d.Tags = []string{}
+	}
+	if d.About == nil {
+		d.About = []string{}
+	}
+	if d.NowList == nil {
+		d.NowList = []string{}
+	}
+	if d.Blurbs == nil {
+		d.Blurbs = map[string]string{}
+	}
+	return d
 }
 
 // publicSiteURL — 她的主页在前端的真实地址，`/p/:token`。

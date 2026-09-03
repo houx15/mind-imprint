@@ -124,3 +124,27 @@ export const EMPTY_CONTENT: SiteContent = {
   updated: "",
   seed: 0,
 };
+
+/**
+ * 把服务端来的草稿收成一份「每个列表都真的是列表」的草稿。
+ *
+ * 🚨 Go 的 nil 切片 marshal 成 `null`。服务端现在会补成 `[]`（normalizeDraft），
+ * 但这一层也补一次：一条 `draft.motto.filter(...)` 就能把整个工作面打成白屏，
+ * 而这种崩溃在 jsdom 里看不见——2026-09-03 是浏览器 walk 抓到的。旧数据、别的
+ * 客户端、以后某次改动，都可能再送来一个 null。
+ */
+export function normalizeDraft(d: Partial<SiteDraft> | null | undefined): SiteDraft {
+  const list = (xs: unknown): string[] => (Array.isArray(xs) ? (xs as string[]) : []);
+  return {
+    role: d?.role ?? "",
+    headline: d?.headline ?? "",
+    lead: d?.lead ?? "",
+    now: d?.now ?? "",
+    motto: list(d?.motto),
+    tags: list(d?.tags),
+    about: list(d?.about),
+    nowList: list(d?.nowList),
+    contact: d?.contact ?? "",
+    blurbs: d?.blurbs ?? {},
+  };
+}
