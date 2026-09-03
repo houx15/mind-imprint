@@ -67,6 +67,7 @@ function panel(props: {
       onFocusBlock={() => {}}
       lensDone={null}
       onLensDoneSent={() => {}}
+      onFinish={() => {}}
     />
   );
 }

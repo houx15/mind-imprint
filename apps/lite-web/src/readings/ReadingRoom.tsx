@@ -468,13 +468,25 @@ export function ReadingRoom({
             </div>
             <span className="mk-reading-room__hint">
               <i />
+              {/* 这一行是文章上「现在能做什么」的唯一说明，所以它必须和文章
+                  真正响应的手势对得上。两种状态两种手势：
+
+                  - 透镜敞开（`active`）：点一下就取走光标所在那一句
+                    （Annotate 的 `pickSentence`）。
+                  - 空闲：点一段弹**段落工具条**（`onReferenceBlock`），
+                    而把一句话变成**引用**要靠**划选**（`onReferenceSelection`）。
+
+                  🚨 空闲那一条原本只写了「点一段，看这一段能怎么拆开」，
+                  于是「怎么引用一句话」在整个界面上没有任何地方说过——而
+                  `pick_in_article` 卡片正是在这个状态下要她去指一句。
+                  同事试用报的「选句子的指引不好」就是这个缺口。 */}
               {loop.status === "active"
                 ? "点击 1 句话作答"
                 : loop.status === "proposed"
                   ? "先看示范，再开始选句"
                   : quoted.length > 0
-                    ? `已引用 ${quoted.length} 处 · 可在下方逐条取消`
-                    : "点一段，看这一段能怎么拆开"}
+                    ? `已引用 ${quoted.length} 处 · 可逐条取消`
+                    : "点一段可拆解；划选一句可引用"}
             </span>
             {/* 透镜库 sits in the toolbar rather than a starter row: it acts on
                 the article, which is what this toolbar is for, and
@@ -633,6 +645,11 @@ export function ReadingRoom({
             // `pendingLens` 上面的注释。
             lensDone={pendingLens}
             onLensDoneSent={() => setPendingLens(null)}
+            // 读法走完之后，面板上出现「完成阅读，生成报告」。只有面板看得见
+            // 「每一步都做完了」（它持有 tasks），而确认框和 finish 调用是房间的。
+            // 见面板里那一段注释：在这之前，「全部完成」在屏幕上的全部体现是
+            // 输入框换了句 placeholder，于是线上 23 篇阅读有 17 篇永远停在 active。
+            onFinish={() => setConfirmFinish(true)}
           />
         </section>
       </main>

@@ -84,6 +84,7 @@ describe("ReadingCoachPanel message roles", () => {
         onFocusBlock={() => {}}
         lensDone={null}
         onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
     const strong = container.querySelector("strong");
@@ -105,6 +106,7 @@ describe("ReadingCoachPanel message roles", () => {
         onFocusBlock={() => {}}
         lensDone={null}
         onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
     // Verbatim, asterisks and hash included.

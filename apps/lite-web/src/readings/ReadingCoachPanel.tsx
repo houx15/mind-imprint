@@ -64,6 +64,7 @@ export function ReadingCoachPanel({
   onFocusBlock,
   lensDone,
   onLensDoneSent,
+  onFinish,
 }: {
   readingId: string;
   tasks: ReadingTask[];
@@ -83,6 +84,10 @@ export function ReadingCoachPanel({
    *  retrying forever against a server that is down, and the outcome itself is
    *  already saved either way. */
   onLensDoneSent: () => void;
+  /** Opens the room's 完成这篇 confirmation. Called from the panel because
+   *  「每一步都做完了」 is something only this panel can see (it owns `tasks`),
+   *  while the confirm dialog and the finish call belong to the room. */
+  onFinish: () => void;
 }) {
   const [messages, setMessages] = useState<LiteMessage[]>(initialMessages);
   const [draft, setDraft] = useState("");
@@ -503,6 +508,43 @@ export function ReadingCoachPanel({
                 </button>
               </span>
             ))}
+          </div>
+        )}
+
+        {/*
+          读法走完之后的那一步。
+
+          🚨 同事试用：「全部完成之后没有引导」。在这之前，「每一步都做完了」
+          在屏幕上的全部体现是**输入框的 placeholder 换了一句话**
+          （「读完了，还想聊点什么？」）——而 完成这篇 是文章工具栏上一颗常驻
+          的小按钮，从第一秒起就在那儿，没有任何时刻会指向它。
+
+          线上数据说明了代价：23 篇阅读里 17 篇状态还是 active，
+          lite_report 最后一次触发是 08-31。**没有人走到「完成」**，
+          所以报告那一整条链路在生产里根本没被走通过——报告的两个 bug
+          之所以一直没被发现，也是因为这个。
+
+          文案按 AGENTS.md §界面文案怎么写：标签是名词（「读法已全部完成」，
+          不是「你把这一趟都走完啦」），先说这件事为什么值得做再请她做，
+          按钮写「做什么」。感叹号留给真正的节点——这是其中一个。
+        */}
+        {finished && (
+          <div
+            className="flex flex-col gap-2 rounded-mk-lg border p-3"
+            style={{
+              // mk-* 是裸 CSS 变量，Tailwind 的 alpha 语法对它们一个字节的
+              // CSS 都不生成：半透明只能走 color-mix。
+              background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
+              borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+            }}
+          >
+            <p className="text-mk-label text-mk-accent-700">读法已全部完成</p>
+            <p className="text-mk-small leading-relaxed text-mk-ink">
+              报告会汇总这一篇的阅读时长、划线、笔记与透镜发现。完成后本篇不可再修改。
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={onFinish}>完成阅读，生成报告</Button>
+            </div>
           </div>
         )}
 

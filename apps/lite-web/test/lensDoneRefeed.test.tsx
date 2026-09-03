@@ -51,6 +51,7 @@ function panel(lensDone: ReadingLensDone | null, onLensDoneSent = () => {}) {
       onFocusBlock={() => {}}
       lensDone={lensDone}
       onLensDoneSent={onLensDoneSent}
+      onFinish={() => {}}
     />
   );
 }
