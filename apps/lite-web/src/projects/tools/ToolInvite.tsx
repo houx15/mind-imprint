@@ -1,8 +1,10 @@
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Footprints, PanelRight } from "lucide-react";
 import { Icon } from "@/ui";
 import type { ToolInstance } from "../../api/tools";
 import { TOOL_TASKS } from "./registry";
+import { listMission, tickMission, type MissionItem } from "../../api/mission";
+import { noteKindMeta } from "../../api/notes";
 
 /**
  * ToolInvite —— 印记把一件工具递到对话里。
@@ -108,14 +110,41 @@ export function ToolInvite({
  * 就变成了催促，而催促正是这个产品说自己不做的事。
  */
 export function AwayCard({
+  projectId,
   tool,
   onBack,
   busy,
 }: {
+  projectId: string;
   tool: ToolInstance;
   onBack: () => void;
   busy?: boolean;
 }) {
+  // 🚨 清单要摆在这张卡上，因为这是她几天后回来时唯一还看得到的东西——也是她
+  // 在现场掏出手机时看的那一屏。一条一条点掉，就是那个「简单的观察方法」。
+  const [items, setItems] = useState<MissionItem[]>([]);
+  const load = useCallback(async () => {
+    try {
+      setItems(await listMission(projectId, tool.id));
+    } catch {
+      // 清单拉不到不该让这张卡消失：她仍然知道自己要出门做什么（reason 还在）。
+    }
+  }, [projectId, tool.id]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  async function toggle(m: MissionItem) {
+    try {
+      const got = await tickMission(projectId, m.id, !m.doneAt);
+      setItems((prev) => prev.map((x) => (x.id === got.id ? got : x)));
+    } catch {
+      /* 点不动就是点不动，下一次还能点 */
+    }
+  }
+
+  const done = items.filter((m) => m.doneAt).length;
+
   return (
     <div className="rounded-mk-md border border-mk-border bg-mk-surface px-3 py-2.5">
       <div className="flex items-start gap-2">
@@ -128,6 +157,57 @@ export function AwayCard({
           <p className="mt-1 text-mk-small text-mk-faint">
             请在合适的地方完成这项任务，完成后回来记录结果
           </p>
+
+          {/* 出门清单。在现场点掉一条就够——不用打字。 */}
+          {items.length > 0 && (
+            <div className="mt-2">
+              <p className="text-mk-small text-mk-secondary">
+                这一趟要看的（已完成 {done}/{items.length}）
+              </p>
+              <div className="mt-1 space-y-1">
+                {items.map((m) => {
+                  const meta = m.wantKind ? noteKindMeta(m.wantKind) : null;
+                  const on = !!m.doneAt;
+                  return (
+                    <button
+                      key={m.id}
+                      type="button"
+                      onClick={() => void toggle(m)}
+                      className="flex w-full items-start gap-2 rounded-mk-sm px-2 py-1.5 text-left"
+                      style={{
+                        background: on ? "var(--mk-success-bg)" : "var(--mk-paper)",
+                      }}
+                    >
+                      <span
+                        className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full text-[10px]"
+                        style={{
+                          background: on ? "var(--mk-success)" : "transparent",
+                          border: on ? "none" : "1.5px solid var(--mk-border)",
+                          color: "var(--mk-surface)",
+                        }}
+                      >
+                        {on ? "✓" : ""}
+                      </span>
+                      <span className="min-w-0 flex-1 text-mk-small text-mk-ink">
+                        {m.prompt}
+                        {meta && (
+                          <span
+                            className="ml-1.5 rounded-mk-full px-1.5 text-mk-small"
+                            style={{
+                              background: `color-mix(in srgb, ${meta.hue} 18%, transparent)`,
+                              color: "var(--mk-secondary)",
+                            }}
+                          >
+                            {meta.label}
+                          </span>
+                        )}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
         </div>
       </div>
       <button

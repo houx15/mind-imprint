@@ -275,6 +275,23 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 出门清单：做到了哪几条，**没做到哪几条**。
+	//
+	// 后半句才是这一段存在的理由。她答应去看三件事、回来只做到一件，这件事今天
+	// 在系统里毫无痕迹——而它恰恰是印记下一轮最该接的话（铁律④：跳过也是信号）。
+	// 不是拿来责备她的：没做到常常说明那一条本来就不现实，那也值得说出来。
+	if ms, err := a.d.Queries.ListPblMissionItemsByAtom(ctx, atomID); err == nil && len(ms) > 0 {
+		var missed []string
+		for _, m := range ms {
+			if !m.DoneAt.Valid {
+				missed = append(missed, strings.TrimSpace(m.Prompt))
+			}
+		}
+		if len(missed) > 0 {
+			add("出门清单上她没做到的：" + strings.Join(missed, "；"))
+		}
+	}
+
 	// 上线之后她记下来的事。
 	if ks, err := a.d.Queries.ListPblKeepEntries(ctx, atomID); err == nil {
 		for _, k := range ks {

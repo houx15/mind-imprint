@@ -124,3 +124,49 @@ func TestBuildCoachContext_NoOfferedSectionWhenHerScreenIsClear(t *testing.T) {
 		t.Fatalf("没有挂着的卡却出现了那一段：\n%s", ctx)
 	}
 }
+
+// 🚨 递「观察日记」的那一轮要带一张出门清单。
+//
+// 她带着一句「去看看」出门，回来只会写「大家好像都挺忙的」——那是印象，不是
+// 观察。清单是这件工具缺的 before-state（产品负责人 2026-09-02 说它 boring，
+// 根子在这儿），设计文档要的「a simple observation method」也落在这几条上。
+func TestParseCoachOutput_KeepsTheMissionForObserve(t *testing.T) {
+	out, err := parseCoachOutput(`{"reply":"先去看三天。","tool":"observe",
+	  "tool_reason":"你还没仔细看过，先去看三天中午",
+	  "mission":[{"prompt":"中午 12:30 在走廊数一数站着的人","want_kind":"observation"},
+	             {"prompt":"问一个站着的人为什么不回教室","want_kind":"quote"},
+	             {"prompt":"","want_kind":"observation"}]}`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(out.Mission) != 2 {
+		t.Fatalf("清单没带过来（空的那条该丢掉）：%+v", out.Mission)
+	}
+	if out.Mission[1].WantKind != "quote" {
+		t.Fatalf("要带回哪一类丢了：%+v", out.Mission[1])
+	}
+}
+
+// 清单只属于观察日记。一件当场做完的工具挂一张出门清单，只会让她以为自己还得
+// 出门一趟。
+func TestParseCoachOutput_DropsAMissionOnAnyOtherTool(t *testing.T) {
+	out, err := parseCoachOutput(`{"reply":"摊开看看。","tool":"board",
+	  "tool_reason":"你刚带回来一堆观察",
+	  "mission":[{"prompt":"去走廊数数人","want_kind":"observation"}]}`)
+	if err != nil {
+		t.Fatalf("parse: %v", err)
+	}
+	if len(out.Mission) != 0 {
+		t.Fatalf("头脑风暴不该带出门清单：%+v", out.Mission)
+	}
+}
+
+// prompt 里必须真的把清单要求出去，否则模型不会凭空开始给。
+func TestCoachSystem_AsksForTheMission(t *testing.T) {
+	if !strings.Contains(coachSystem, "mission") {
+		t.Fatal("system prompt 里没有 mission 这一格")
+	}
+	if !strings.Contains(coachSystem, "want_kind") {
+		t.Fatal("没说清楚每一条要带回哪一类——回来那一屏就填不出类别")
+	}
+}

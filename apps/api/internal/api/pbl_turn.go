@@ -267,6 +267,20 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 			id := tool.ID.String()
 			dto.ToolID = &id
 			dto.Tool = tool.Tool
+			// 🚨 出门清单跟着这次「观察日记」落库。落不上不让这一轮失败——她该
+			// 看见的回话已经写进去了，清单没挂上，下一轮印记还能再递一次。
+			for i, m := range out.Mission {
+				if _, merr := a.d.Queries.CreatePblMissionItem(r.Context(),
+					sqlc.CreatePblMissionItemParams{
+						ToolID: tool.ID, Prompt: m.Prompt,
+						WantKind: pblWantKind(m.WantKind), Ordinal: int32(i),
+					}); merr != nil {
+					slog.Warn("pbl turn: could not record a mission item",
+						"err", merr, "atom_id", atomID, "tool_id", tool.ID,
+						"request_id", httpx.RequestIDFromContext(r.Context()))
+					break
+				}
+			}
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, dto)

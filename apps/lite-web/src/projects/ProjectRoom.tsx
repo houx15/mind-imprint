@@ -423,6 +423,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             {away.map((t) => (
               <AwayCard
                 key={t.id}
+                projectId={projectId}
                 tool={t}
                 busy={busy}
                 onBack={() => setOpenTool(t.id)}

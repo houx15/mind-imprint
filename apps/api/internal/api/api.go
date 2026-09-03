@@ -357,6 +357,8 @@ func (a *API) Handler() http.Handler {
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/tools", liteOnly(a.listPblTools))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools", liteOnly(a.summonPblTool))
+	mux.Handle("GET /api/v1/pbl/projects/{id}/tools/{tid}/mission", liteOnly(a.listPblMission))
+	mux.Handle("PATCH /api/v1/pbl/projects/{id}/mission/{mid}", liteOnly(a.tickPblMissionItem))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/accept", liteOnly(a.acceptPblTool))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools/{tid}/resolve", liteOnly(a.resolvePblTool))
 

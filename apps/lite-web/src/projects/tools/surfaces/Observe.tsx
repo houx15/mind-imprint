@@ -1,5 +1,5 @@
 import { apiErrorText } from "../../../api/errorText";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Camera, Loader2, Plus, X } from "lucide-react";
 import { Icon } from "@/ui";
 import {
@@ -14,6 +14,7 @@ import {
 import { ToolFrame } from "../ToolFrame";
 import { boardSpot } from "../boardLayout";
 import { uploadUserImage } from "../../../api/oss";
+import { listMission, type MissionItem } from "../../../api/mission";
 import type { ToolSurfaceProps } from "../registry";
 
 /**
@@ -33,6 +34,8 @@ import type { ToolSurfaceProps } from "../registry";
 interface Brought {
   kind: NoteKind;
   body: string;
+  /** 这一行是从清单上哪一条来的。空 = 她自己加的一行。 */
+  from?: string;
   /** 这一条带回来的照片在 OSS 里的 key，空 = 没拍。 */
   imageKey: string;
   /** 本地预览用的 blob URL。只活在这一次填写里，不进库。 */
@@ -44,6 +47,35 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
   const [error, setError] = useState<string | null>(null);
   // 正在上传的是第几条。同时只让传一张——她一条一条填，不需要并发。
   const [uploading, setUploading] = useState<number | null>(null);
+  // 出门清单。回来时点掉的那几条已经是填好类别的底稿——她不用面对空白框。
+  const [mission, setMission] = useState<MissionItem[]>([]);
+
+  useEffect(() => {
+    let alive = true;
+    void listMission(projectId, tool.id)
+      .then((ms) => {
+        if (!alive || ms.length === 0) return;
+        setMission(ms);
+        // 🚨 只把**点掉的**那几条变成底稿。没做到的那几条不该在这里冒出一个
+        // 空框等她补——她没做到就是没做到，那件事由印记接着问（回灌里有）。
+        const seeded = ms
+          .filter((m) => m.doneAt)
+          .map((m) => ({
+            kind: (m.wantKind || "observation") as NoteKind,
+            body: "",
+            imageKey: "",
+            preview: "",
+            from: m.prompt,
+          }));
+        if (seeded.length > 0) setItems(seeded);
+      })
+      .catch(() => {
+        // 清单拉不到就退回原来的样子：一条空白的记录行，仍然能用。
+      });
+    return () => {
+      alive = false;
+    };
+  }, [projectId, tool.id]);
 
   const filled = items.filter((i) => i.body.trim());
 
@@ -147,6 +179,24 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
         </p>
       )}
 
+      {/* 🚨 没做到的那几条照实摆出来，不催也不空一个框等她补。
+          「第 2 条没做到」是信号，不是过失——常常说明那一条本来就不现实。 */}
+      {mission.some((m) => !m.doneAt) && (
+        <div
+          className="mb-3 rounded-mk-md px-3 py-2"
+          style={{ background: "var(--mk-paper)" }}
+        >
+          <p className="text-mk-small text-mk-secondary">这一趟没做到的：</p>
+          {mission
+            .filter((m) => !m.doneAt)
+            .map((m) => (
+              <p key={m.id} className="mt-0.5 text-mk-small text-mk-muted">
+                {m.prompt}
+              </p>
+            ))}
+        </div>
+      )}
+
       <div className="space-y-2">
         {items.map((it, i) => (
           <div
@@ -190,6 +240,10 @@ export function Observe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
                 </button>
               )}
             </div>
+            {/* 这一行是清单上哪一条——她在现场点掉的那一句，原样摆在上面。 */}
+            {it.from && (
+              <p className="mt-1 text-mk-small text-mk-secondary">{it.from}</p>
+            )}
             {/* 选中哪一类，就说清楚这一类怎么写才算写对了。 */}
             <p className="mt-1.5 text-mk-small text-mk-muted">{NOTE_KIND_HINTS[it.kind].how}</p>
 

@@ -94,6 +94,12 @@ type CoachOutput struct {
 	// ToolReason is why this tool, right now, in 印记's own words. A tool with
 	// no reason is an ambush, so the server refuses to record one without it.
 	ToolReason string
+	// Mission is the checklist she takes out with her — only for 观察日记.
+	//
+	// 🚨 这件工具一直没有 before-state：她带着一段话出门，回来面对几个空白框。
+	// 设计文档要的是「a small real-world mission」加「a simple observation
+	// method」，方法就落在这几条上：把「去看看」拆成几件她在现场做得到的事。
+	Mission []MissionItem
 	// Produce is a thing 印记 makes this turn, or nil.
 	//
 	// 🚨 2026-09-02 之前这一格不存在，于是印记**没有任何办法**做出计划、决定、
@@ -104,6 +110,14 @@ type CoachOutput struct {
 	//
 	// 和 tool 一样只有一格、一次一件：多做几件就是一次把五张卡拍在她面前。
 	Produce *Produced
+}
+
+// MissionItem 是清单上的一条：去看什么，以及要带回哪一类东西。
+type MissionItem struct {
+	Prompt string
+	// WantKind 对齐便签的类别（observation / quote / assumption / question），
+	// 空 = 印记没指定。她点掉这一条回来，便签的类别就是从这儿来的。
+	WantKind string
 }
 
 // Produced is one thing 印记 makes: 用哪种、内容是什么。
@@ -218,8 +232,7 @@ produce 一起给，要么这一轮两个都别给。
 这不是一条要走完的流程，是七个不同的时刻。他到了那个时刻，那件工具才有用；
 没到就递，是打断。
 
-- 他还说不清自己想弄明白什么，或者只有一个模糊的兴趣 → observe。给他一个具体
-  的小任务和一个看的方法：看哪儿、看几次、每次记什么。他带回来的东西才作数。
+- 他还说不清自己想弄明白什么，或者只有一个模糊的兴趣 → observe。
 - 他一口气说了好几件不太一样的事，或者刚带回来一堆观察 → board。摊开才看得出
   哪几条其实是一回事。
 - 板上看得出线索了，问题还是一大团 → reframe。收成「谁需要什么，因为什么」，
@@ -273,9 +286,24 @@ produce 每轮最多做一件。它和递工具**不冲突**：一件要配产�
 只返回一个 JSON 对象，不要别的字：
 {"reply": "你说的话", "hook": "钩子问题，没有就空字符串", "hook_kind": "free",
  "tool": "工具名，不递就空字符串", "tool_reason": "为什么是现在",
- "produce": null}
+ "mission": [], "produce": null}
 
 hook_kind 只能是 free / reframe / brainstorm / observation。
+
+🚨 **递 observe 的那一轮，mission 必须一起给。**
+她带着一句「去看看」出门，回来只会写一句「大家好像都挺忙的」——那不是观察，
+是印象。mission 是她在现场照着做的清单，一条一条点掉：
+
+mission: [{"prompt": "中午 12:30 在走廊数一数站着的人", "want_kind": "observation"},
+          {"prompt": "找一个站着的人问他为什么不回教室，把他的话记下来", "want_kind": "quote"}]
+
+写清单的规矩：
+· 3 到 5 条，每条是他**在现场十分钟内做得到**的一件事，不是一个研究方向。
+· 带上时间、地点、次数——「数一数」「问一个人」「连着看三天中午」。
+· want_kind 说这一条要带回哪一类：observation（他亲眼看到的）/ quote（别人的
+  原话）/ assumption（他的推论）/ question（他答不上来的）。至少要有一条
+  observation 和一条 quote——只带回推论的观察等于没出门。
+· 不递 observe 的轮次，mission 一律留空数组。
 
 🚨 **reply 里只能出现一个问号。**
 两个问题连着抛出来，他只会答最后那个，前面那个就白问了——而前面那个往往才是
@@ -418,6 +446,10 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 		HookKind   string `json:"hook_kind"`
 		Tool       string `json:"tool"`
 		ToolReason string `json:"tool_reason"`
+		Mission    []struct {
+			Prompt   string `json:"prompt"`
+			WantKind string `json:"want_kind"`
+		} `json:"mission"`
 		Produce    *struct {
 			Kind    string          `json:"kind"`
 			Payload json.RawMessage `json:"payload"`
@@ -444,6 +476,20 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 	if tool == "" || reason == "" {
 		tool, reason = "", ""
 	}
+	// 清单只属于观察日记。别的工具带回来的当没看见——一件当场做完的工具挂一张
+	// 出门清单，只会让她以为自己还得出门一趟。
+	var mission []MissionItem
+	if tool == "observe" {
+		for _, m := range out.Mission {
+			prompt := strings.TrimSpace(m.Prompt)
+			if prompt == "" {
+				continue
+			}
+			mission = append(mission, MissionItem{
+				Prompt: prompt, WantKind: strings.TrimSpace(m.WantKind),
+			})
+		}
+	}
 	// 🚨 认不出的 kind、空 payload，一律当作没做——半个产出比没有产出更糟：
 	// 界面会为它腾出位置，然后摆一块空白。
 	var produced *Produced
@@ -455,7 +501,7 @@ func parseCoachOutput(raw string) (CoachOutput, error) {
 	}
 	return CoachOutput{
 		Reply: reply, Hook: hook, HookKind: kind,
-		Tool: tool, ToolReason: reason, Produce: produced,
+		Tool: tool, ToolReason: reason, Mission: mission, Produce: produced,
 	}, nil
 }
 

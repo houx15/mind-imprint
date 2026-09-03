@@ -579,6 +579,16 @@ type PblKeepEntry struct {
 	CreatedAt time.Time   `json:"created_at"`
 }
 
+type PblMissionItem struct {
+	ID        uuid.UUID          `json:"id"`
+	ToolID    uuid.UUID          `json:"tool_id"`
+	Prompt    string             `json:"prompt"`
+	WantKind  string             `json:"want_kind"`
+	Ordinal   int32              `json:"ordinal"`
+	DoneAt    pgtype.Timestamptz `json:"done_at"`
+	CreatedAt time.Time          `json:"created_at"`
+}
+
 type PblNote struct {
 	ID        uuid.UUID `json:"id"`
 	AtomID    uuid.UUID `json:"atom_id"`
