@@ -136,3 +136,89 @@ func TestPblRefeed_HerReviewAnswersReachTheCoach(t *testing.T) {
 		t.Fatalf("她审出来的判断没回到印记那里——环没闭上：\n%s", ctx)
 	}
 }
+
+// 🚨 她把印记派给自己的一件事要回来了——这一句必须回到印记那里。
+//
+// 分工建议的 reassign 端点一直在，服务端也一直强制要理由，但**界面从来没调用
+// 过**（2026-09-03 四个设计 agent 里有一个翻出来的）。于是 refeed 里那个
+// 「她改的」分支永远不会触发：我写了一段读 StudentOwner 的代码，而没有任何东西
+// 能设置它。
+//
+// 界面补上了，这条测试守住后半截：改完之后，印记的上文里要认得出这件事。
+// 铁律④——她把 AI 的活要回来，是这个产品最该记住的一种信号。
+func TestPblRefeed_HerReassignmentReachesTheCoach(t *testing.T) {
+	prov := pblStub(`{"reply":"这一步分一下。","hook":"","hook_kind":"",
+		  "produce":{"kind":"plan","payload":{"summary":"三天试一次",
+		    "reason":"先小范围试","steps":[{"title":"起草文案","blurb":"",
+		    "goal":"","youBring":"","iBring":"","decide":"文案里哪一句最要紧",
+		    "thenBring":""}]}}}`)
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	pid := newProjectViaAPI(t, h, cookie)
+
+	rec := pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/turn", `{"text":"帮我理一下"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn 1 = %d; body=%s", rec.Code, rec.Body)
+	}
+
+	// 拿到计划里的第一步。
+	rec = pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/plan", "")
+	var plan struct {
+		Plan struct {
+			VersionID string `json:"versionId"`
+			Steps     []struct {
+				ID string `json:"id"`
+			} `json:"steps"`
+		} `json:"plan"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &plan); err != nil || len(plan.Plan.Steps) == 0 {
+		t.Fatalf("计划没出来：%v — body=%s", err, rec.Body)
+	}
+	stepID := plan.Plan.Steps[0].ID
+
+	// 🚨 她得先认下这份计划。分工是挂在**生效中**那一版计划上的（refeed 走
+	// GetPblLivePlan），没批准的那一版对印记来说还不存在——这不是测试的绕路，
+	// 真实流程里 Split 那一屏读的也是生效计划。
+	rec = pblReq(t, h, cookie, "POST", "/api/v1/pbl/projects/"+pid+"/plan/approve",
+		`{"versionId":"`+plan.Plan.VersionID+`"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("计划没批准：%d — body=%s", rec.Code, rec.Body)
+	}
+
+	// 印记给了一份分工，第一件归它自己。
+	rec = pblReq(t, h, cookie, "POST",
+		"/api/v1/pbl/projects/"+pid+"/steps/"+stepID+"/substeps",
+		`{"substeps":[{"title":"写第一版文案","owner":"yinji","reason":"我先起个头"}]}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("分工没落库：%d — body=%s", rec.Code, rec.Body)
+	}
+	var subs []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &subs); err != nil || len(subs) != 1 {
+		t.Fatalf("decode substeps: %v — body=%s", err, rec.Body)
+	}
+
+	// 她把它要了回来。
+	rec = pblReq(t, h, cookie, "POST",
+		"/api/v1/pbl/projects/"+pid+"/substeps/"+subs[0].ID+"/reassign",
+		`{"owner":"student","reason":"文案得用我们班自己的说法"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("改判失败：%d — body=%s", rec.Code, rec.Body)
+	}
+
+	// 下一轮，印记要看得见这件事。
+	rec = pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/turn", `{"text":"我来写"}`)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("turn 2 = %d; body=%s", rec.Code, rec.Body)
+	}
+	ctx := lastUserText(prov)
+	if !strings.Contains(ctx, "这一步的分工") {
+		t.Fatalf("分工没回到印记那里——环没闭上：\n%s", ctx)
+	}
+	if !strings.Contains(ctx, "她改的") {
+		t.Fatalf("「她改的」这条信号丢了，而它正是这件工具最要紧的产出：\n%s", ctx)
+	}
+	if !strings.Contains(ctx, "文案得用我们班自己的说法") {
+		t.Fatalf("她给的理由没带上：\n%s", ctx)
+	}
+}
