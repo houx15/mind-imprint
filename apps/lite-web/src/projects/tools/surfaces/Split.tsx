@@ -6,6 +6,7 @@ import {
   confirmSubstep,
   effectiveOwner,
   listSubsteps,
+  reassign,
   shareOfWork,
   type Owner,
   type Substep,
@@ -61,12 +62,75 @@ function Owners({ owner, me }: { owner: Owner; me: string }) {
   );
 }
 
+/**
+ * OwnerTrack —— 名字牌坐在一条三段轨道上：印记 ─ 一起 ─ 她。
+ *
+ * 🚨 名字牌本身就是控件，不是一个装饰。点另一段就换人——这一下把「AI 顺手做掉」
+ * 从默认值变成一个她主动做出的选择，而选择要给理由。
+ *
+ * 用点、不用拖：三段就在眼前，点一下最直接，触屏也不会误触；拖在这里换不来
+ * 任何额外的意思。
+ */
+function OwnerTrack({
+  owner,
+  me,
+  onPick,
+}: {
+  owner: Owner;
+  me: string;
+  onPick: (o: Owner) => void;
+}) {
+  const seats: { owner: Owner; label: string; hue: string }[] = [
+    { owner: "yinji", label: "印记", hue: YINJI_HUE },
+    { owner: "both", label: "一起", hue: "var(--mk-lake)" },
+    { owner: "student", label: me, hue: STUDENT_HUE },
+  ];
+  return (
+    <span className="inline-flex overflow-hidden rounded-mk-full border border-mk-border">
+      {seats.map((s) => {
+        const on = s.owner === owner;
+        return (
+          <button
+            key={s.owner}
+            type="button"
+            onClick={() => onPick(s.owner)}
+            className="px-2 py-0.5 text-mk-small"
+            style={
+              on
+                ? { background: `color-mix(in srgb, ${s.hue} 24%, transparent)`, color: "var(--mk-ink)" }
+                : { color: "var(--mk-faint)" }
+            }
+          >
+            {s.label}
+          </button>
+        );
+      })}
+    </span>
+  );
+}
+
 export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
   const [steps, setSteps] = useState<PlanStep[]>([]);
   const [stepId, setStepId] = useState<string | null>(null);
   const [subs, setSubs] = useState<Substep[]>([]);
   const [me, setMe] = useState("你");
   const [error, setError] = useState<string | null>(null);
+  // 正在改归属的那一行：她点了另一段轨道，还欠一句理由。
+  const [moving, setMoving] = useState<{ id: string; owner: Owner } | null>(null);
+  const [why, setWhy] = useState("");
+
+  /** 把这一格改判给另一个人。理由是硬的：服务端拒绝没有理由的改动。 */
+  async function move() {
+    if (!moving || !why.trim()) return;
+    try {
+      const got = await reassign(projectId, moving.id, moving.owner, why.trim());
+      setSubs((prev) => prev.map((x) => (x.id === got.id ? got : x)));
+      setMoving(null);
+      setWhy("");
+    } catch (err) {
+      setError(apiErrorText(err));
+    }
+  }
 
   useEffect(() => {
     void (async () => {
@@ -156,10 +220,36 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         </p>
       ) : (
         <>
-          {/* 在她还能改的时候，把分工的样子摆出来。 */}
-          <p className="mt-2 text-mk-small text-mk-muted">
-            共 {share.total} 项，其中 {share.yinji} 项由印记完成。
-          </p>
+          {/* 🚨 「我把多少思考外包出去了」要在她按确认之前就是个看得见的量。
+              一条堆叠的比例条，拖名字牌时实时重排。
+              不拦截确认——跳过也是信号（铁律④），这里只是把事实摆出来。 */}
+          <div className="mt-2">
+            <div className="flex h-2 overflow-hidden rounded-mk-full" style={{ background: "var(--mk-paper)" }}>
+              {([
+                { n: share.yinji, hue: YINJI_HUE },
+                { n: share.both, hue: "var(--mk-lake)" },
+                { n: share.student, hue: STUDENT_HUE },
+              ] as const).map((seg, i) =>
+                seg.n > 0 ? (
+                  <span
+                    key={i}
+                    style={{
+                      width: `${(seg.n / Math.max(share.total, 1)) * 100}%`,
+                      background: `color-mix(in srgb, ${seg.hue} 55%, transparent)`,
+                    }}
+                  />
+                ) : null,
+              )}
+            </div>
+            <p className="mt-1.5 text-mk-small text-mk-muted">
+              共 {share.total} 项，其中 {share.yinji} 项由印记完成。
+            </p>
+            {share.total > 0 && share.yinji * 3 >= share.total * 2 && (
+              <p className="mt-1 text-mk-small" style={{ color: "var(--mk-warning)" }}>
+                这一步大部分由印记完成。请确认这是你想要的分工。
+              </p>
+            )}
+          </div>
 
           <div className="mt-2 overflow-hidden rounded-mk-md border border-mk-border">
             <table className="w-full border-collapse text-left">
@@ -183,7 +273,47 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                       )}
                     </td>
                     <td className="px-2.5 py-2">
-                      <Owners owner={effectiveOwner(s)} me={me} />
+                      <OwnerTrack
+                        me={me}
+                        owner={effectiveOwner(s)}
+                        onPick={(o) => {
+                          if (o === effectiveOwner(s)) return;
+                          setMoving({ id: s.id, owner: o });
+                          setWhy("");
+                        }}
+                      />
+                      {/* 换了人就当场说一句为什么。说不出来就不算改——服务端
+                          也是这么要求的，这里只是把那道门槛摆到她眼前。 */}
+                      {moving?.id === s.id && (
+                        <div className="mt-1.5">
+                          <input
+                            autoFocus
+                            value={why}
+                            onChange={(e) => setWhy(e.target.value)}
+                            onKeyDown={(e) => e.key === "Enter" && void move()}
+                            placeholder="为什么改成这样"
+                            className="w-full rounded-mk-md border border-mk-input-border bg-mk-surface px-2 py-1 text-mk-small text-mk-ink outline-none placeholder:text-mk-faint focus:border-mk-accent-200"
+                          />
+                          <div className="mt-1 flex gap-2">
+                            <button
+                              type="button"
+                              onClick={() => void move()}
+                              disabled={!why.trim()}
+                              className="rounded-mk-full px-2.5 py-0.5 text-mk-small disabled:opacity-40"
+                              style={{ background: STUDENT_HUE, color: "var(--mk-surface)" }}
+                            >
+                              确认修改
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setMoving(null)}
+                              className="text-mk-small text-mk-secondary"
+                            >
+                              取消
+                            </button>
+                          </div>
+                        </div>
+                      )}
                     </td>
                   </tr>
                 ))}
@@ -192,7 +322,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
           </div>
 
           <p className="mt-2 text-mk-small text-mk-faint">
-            想调整分工，到左边的对话里跟印记说，并说明理由。
+            点名字那一栏就能换人，换完请说明理由。
           </p>
         </>
       )}

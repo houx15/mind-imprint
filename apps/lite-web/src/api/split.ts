@@ -74,10 +74,22 @@ export function effectiveOwner(s: Substep): Owner {
  * 显示这个数字，是为了让"AI 帮我做了几乎全部"这件事**在她做决定之前**就看得
  * 见。事后统计没有用；她要在还能改的时候看见。
  */
-export function shareOfWork(substeps: Substep[]): { yinji: number; total: number } {
-  const total = substeps.length;
-  const yinji = substeps.filter((s) => effectiveOwner(s) === "yinji").length;
-  return { yinji, total };
+/**
+ * 这一步的活是怎么分的。
+ *
+ * 🚨 三段都要给出来，比例条才画得出。原来只算了印记那一份，于是「一起」和
+ * 「她自己」在界面上分不开——而这两者的差别正是这件工具要她看见的。
+ */
+export function shareOfWork(
+  substeps: Substep[],
+): { yinji: number; both: number; student: number; total: number } {
+  const at = (o: Owner) => substeps.filter((s) => effectiveOwner(s) === o).length;
+  return {
+    yinji: at("yinji"),
+    both: at("both"),
+    student: at("student"),
+    total: substeps.length,
+  };
 }
 
 export function splitTodo(substeps: Substep[]): string {

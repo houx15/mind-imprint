@@ -31,15 +31,30 @@ describe("shareOfWork", () => {
   // 一格拿回来，数字却还说印记领着——那这行字就在骗她。
   it("counts by the owner after her changes", () => {
     const subs = [sub("a", "yinji"), sub("b", "yinji", "student"), sub("c", "student")];
-    expect(shareOfWork(subs)).toEqual({ yinji: 1, total: 3 });
+    expect(shareOfWork(subs)).toEqual({ yinji: 1, both: 0, student: 2, total: 3 });
   });
 
   it("counts 一起做 as not 印记's alone", () => {
-    expect(shareOfWork([sub("a", "both"), sub("b", "yinji")])).toEqual({ yinji: 1, total: 2 });
+    expect(shareOfWork([sub("a", "both"), sub("b", "yinji")])).toEqual({
+      yinji: 1,
+      both: 1,
+      student: 0,
+      total: 2,
+    });
+  });
+
+  // 🚨 三段要分得开。比例条画的就是这三段，而「一起做」和「她自己做」的差别
+  // 正是这件工具要她看见的——把它们并成"非印记"，那条比例条就说不出话了。
+  it("keeps 一起 and 她自己 apart", () => {
+    const subs = [sub("a", "both"), sub("b", "student"), sub("c", "yinji")];
+    const at = shareOfWork(subs);
+    expect(at.both).toBe(1);
+    expect(at.student).toBe(1);
+    expect(at.yinji + at.both + at.student).toBe(at.total);
   });
 
   it("handles an empty card", () => {
-    expect(shareOfWork([])).toEqual({ yinji: 0, total: 0 });
+    expect(shareOfWork([])).toEqual({ yinji: 0, both: 0, student: 0, total: 0 });
   });
 });
 
