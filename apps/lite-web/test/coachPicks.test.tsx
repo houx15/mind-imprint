@@ -63,6 +63,9 @@ describe("ReadingCoachPanel — picks", () => {
         slot={slot}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
 
@@ -91,6 +94,9 @@ describe("ReadingCoachPanel — picks", () => {
         slot={slot}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
 
@@ -125,6 +131,9 @@ describe("ReadingCoachPanel — picks", () => {
         slot={slot}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
 
@@ -143,7 +152,7 @@ describe("ReadingCoachPanel — picks", () => {
   });
 
   /**
-   * R4 (4) —— 「点出那一句」这条指令**属于卡片**，不属于面板。
+   * R4 (4) —— 「划选那一句」这条指令**属于卡片**，不属于面板。
    *
    * 面板上原来常驻着一条几乎一模一样的话（「在文章里点出那一句，点了就会出现在
    * 这里」），它跟着 hunt 这一步走：pick_in_article 卡片开着的时候，同一句话在
@@ -162,11 +171,14 @@ describe("ReadingCoachPanel — picks", () => {
         slot={baseSlot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
     await screen.findByText("开始吧，我们先看第一段。");
     // 当前这一步就是 hunt，而这一轮没有卡片 —— 屏幕上不该有任何一句在要她点。
-    expect(screen.queryByText(/点出那一句/)).toBeNull();
+    expect(screen.queryByText(/划选那一句/)).toBeNull();
   });
 
   it("leaves the pointing instruction to the pick_in_article card, exactly once", async () => {
@@ -190,8 +202,11 @@ describe("ReadingCoachPanel — picks", () => {
         slot={baseSlot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
-    expect(await screen.findAllByText(/点出那一句/)).toHaveLength(1);
+    expect(await screen.findAllByText(/划选那一句/)).toHaveLength(1);
   });
 });

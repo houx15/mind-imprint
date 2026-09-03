@@ -48,8 +48,8 @@ export const mission: {
     en: "Education is moving toward AI-Native Learning.",
   },
   body: {
-    zh: "我们把这次转变叫作 AI 原生学习（AI-Native Learning，简称 ANL）。越来越多的学生开始走进真实的公司里学习、甚至工作，也更早地动手做东西、把想法变成真实的作品。在一个个真实的问题里，他们长出和 AI 一起把事情解决掉的能力。我们相信这就是下一代教育该有的样子，这也是我们存在的理由。",
-    en: "We call this shift AI-Native Learning (ANL). More and more students are starting to learn — and even work — inside real companies, and to build and create earlier, turning ideas into things that actually exist. Working on real problems, they grow the ability to solve them alongside AI. We believe this is what the next generation of education looks like, and it is why we exist.",
+    zh: "我们把这次转变叫作 AI 原生学习（AI-Native Learning，简称 ANL）。越来越多的学生开始走进真实的公司里学习、甚至工作，也更早地动手做东西、把想法变成真实的作品。在一个个真实的问题里，他们练出和 AI 一起把事情解决掉的能力。我们相信这就是下一代教育该有的形态，这也是我们存在的理由。",
+    en: "We call this shift AI-Native Learning (ANL). More and more students are starting to learn — and even work — inside real companies, and to build and create earlier, turning ideas into things that actually exist. Working on real problems, they build the ability to solve them alongside AI. We believe this is what the next generation of education looks like, and it is why we exist.",
   },
 };
 
@@ -93,7 +93,7 @@ export const product: {
     {
       name: { zh: "过程评估", en: "Process assessment" },
       body: {
-        zh: "把孩子这一路是怎么想的记录下来，慢慢长成一份只给他自己看的成长记录。",
+        zh: "把孩子这一路是怎么想的记录下来，形成一份只给他自己看的成长记录。",
         en: "It records how a child got there and grows it into a private record made just for them.",
       },
     },
@@ -172,8 +172,8 @@ export const beliefs: Belief[] = [
   {
     tag: { zh: "能力", en: "Ability" },
     head: {
-      zh: "真正的能力，得自己长出来，也得看得见。",
-      en: "Real ability has to grow from within — and be seen.",
+      zh: "真正的能力，得自己练出来，也得看得见。",
+      en: "Real ability has to be built by the student — and be seen.",
     },
     body: {
       zh: "没有人能替孩子完成一次真实的思考。我们陪着一起练，也把这一路怎么想的记录下来，让成长看得见。",
@@ -216,7 +216,7 @@ export const team: {
   label: { zh: "团队", en: "Team" },
   heading: { zh: "我们是谁", en: "Who we are" },
   intro: {
-    zh: "一位多年深耕国际课程里的思辨教学，一位是连续创业者、常年做 AI 与产品。我们把研究和方法都公开出来。",
+    zh: "一位多年专注国际课程里的思辨教学，一位是连续创业者、常年做 AI 与产品。我们把研究和方法都公开出来。",
     en: "One of us has spent years teaching critical thinking in international classrooms; the other is a serial founder working in AI and product. We publish our research and methods openly.",
   },
   members: [

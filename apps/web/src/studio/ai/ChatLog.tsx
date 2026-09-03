@@ -92,6 +92,15 @@ function ChatBubble({ message }: { message: ChatMessage }) {
           // is accent-tinted and needs no border.
           isStudent ? "bg-mk-accent-50" : "bg-mk-surface shadow-mk-xs",
           isStudent ? STUDENT_RADIUS : ASSISTANT_RADIUS,
+          // 🚨 STUDENT ONLY. Her turn is a raw string (ChatMarkdown is for
+          // 印记's turn — see that file: "student turns stay plain
+          // whitespace-pre-wrap"), and HTML collapses the newlines she typed.
+          // A student who lays out three numbered points with Shift+Enter saw
+          // them come back as one run-on line — reported from the colleague
+          // trial as 「换行的话发送给AI就不换行了」. The AI bubble must NOT get
+          // this: its markdown already emits block elements, and pre-wrap
+          // would turn every source newline into visible blank space.
+          isStudent && "whitespace-pre-wrap",
         )}
       >
         {message.text}

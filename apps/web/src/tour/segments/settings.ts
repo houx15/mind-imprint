@@ -9,7 +9,7 @@ export const settingsSegment: TourSegment = {
       onEnter: (nav) => nav.setTab("me"),
       placement: "center",
       title: "最后一件小事",
-      text: "这些都逛完啦！在「我」这里，你可以把整个界面换成你喜欢的主题色。",
+      text: "引导到这里结束。在「我」这里，你可以把整个界面换成你喜欢的主题色。",
       advance: "next",
     },
     {

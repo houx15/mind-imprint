@@ -379,6 +379,32 @@ export async function generateReadingPlan(id: string): Promise<ReadingPlan> {
  * blockquotes) rather than instead of it, so a server build that hasn't
  * learned about `picks` yet still sees exactly what it always has.
  */
+/**
+ * `readingLensDone` — apps/api/internal/api/reading_coach.go. What she just
+ * finished doing with a lens, sent so 印记 can react to it and advance the
+ * step.
+ *
+ * 🚨 Why the room has to send this at all: the lens loop is shared with pro
+ * (`apps/web/src/studio/reading/readingLoop.ts`), and its `confirm()`
+ * announces the finished outcome by appending a line to `loop.messages` —
+ * an array LITE NEVER RENDERS (lite renders `ReadingCoachPanel`, a different
+ * thread over the same `atom_message` table). So finishing a lens used to
+ * produce exactly nothing on screen: no reply, no advance. Reported as
+ * 「透镜应用完毕之后，没有响应，没有推进到下一步」.
+ *
+ * `finding` is 印记's own earlier evaluation (`agent.EvaluateSelection`),
+ * not her words — the server labels the two separately in the prompt and
+ * must keep doing so.
+ */
+export type ReadingLensDone = {
+  /** The lens's display name, for 印记 to say back to her — never its id. */
+  cardName: string;
+  /** The sentence SHE picked out of the article. */
+  quote: string;
+  /** What the room already concluded from that pick. */
+  finding: string;
+};
+
 export async function postReadingCoachTurn(
   id: string,
   text: string,
@@ -388,6 +414,10 @@ export async function postReadingCoachTurn(
    *  as a literal substring to tell 「文章原文」 from 「她自己的话」, so trimming
    *  a comma here silently deletes the fact that she pointed at anything. */
   cardAnswer: CoachCardAnswer | null = null,
+  /** Set when the ROOM is reporting a finished lens rather than something she
+   *  said — see `ReadingLensDone`. Never both this and `cardAnswer`: a lens
+   *  and a tappable card are two different instruments. */
+  lensDone: ReadingLensDone | null = null,
 ): Promise<{
   reply: string;
   tasks: ReadingTask[];
@@ -429,7 +459,7 @@ export async function postReadingCoachTurn(
     thinking?: string;
   }>(`/api/v1/readings/${encodeURIComponent(id)}/coach`, {
     method: "POST",
-    body: JSON.stringify({ text, picks, cardAnswer }),
+    body: JSON.stringify({ text, picks, cardAnswer, lensDone }),
   });
   return {
     reply: raw.reply,

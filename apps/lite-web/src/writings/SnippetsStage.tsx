@@ -498,7 +498,27 @@ function SnippetBlock({
           <span className="truncate text-mk-small font-semibold text-mk-ink">{slot.heading || "自由段落"}</span>
         </div>
         <div className="flex shrink-0 items-center gap-1.5">
-          {guide !== null && collapsed ? (
+          {/*
+            🚨 自由段落上**不摆**这颗按钮。
+
+            同事试用：「snippet cards: 不是点了卡住了才开始引导的，太离谱了」。
+            有提纲的块早就不是这样了——`guideWritingBlocks` 在进页面时就把
+            整篇每一块的引导批量取回来，「卡住了？」只剩「换一组问题」的意思。
+            但**自由段落**不在那一批里：它没有 outline 行，`guide` 永远是
+            null，所以它一直显示「卡住了？」；而按下去 `regenerate()` 会直接
+            拒绝（它需要 `slot.outlineId`），只回一句让她先去挂到「结构」上。
+
+            也就是说这颗按钮在这里是一句**空头承诺**：长得像「点我给你引导」，
+            点了却告诉她这儿要不到引导。她的读法只会是「引导要点了才来，而且
+            点了还不来」。所以这里换成把条件直接说清楚的一行字——按
+            AGENTS.md §界面文案怎么写：名词开头的状态，加一句「请+祈使」的
+            出路，不留一颗会失败的按钮。
+          */}
+          {!slot.outlineId ? (
+            <span className="text-mk-small text-mk-faint">
+              自由段落 · 请挂到「结构」中的某一块后获取引导
+            </span>
+          ) : guide !== null && collapsed ? (
             <Button variant="secondary" size="sm" onClick={() => setCollapsed(false)}>
               打开引导
             </Button>
@@ -510,7 +530,7 @@ function SnippetBlock({
               loading={guiding}
               iconStart={<Icon icon={HelpCircle} size={14} />}
             >
-              {guide === null ? "卡住了？" : "换一组问题"}
+              {guide === null ? "获取引导" : "换一组问题"}
             </Button>
           )}
           {/* 请印记看看这一段 — the same critique 成稿 gets on the whole piece,

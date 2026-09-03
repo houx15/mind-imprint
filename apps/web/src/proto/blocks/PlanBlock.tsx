@@ -124,7 +124,7 @@ function FormingPhase(props: {
           <div>
             <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-muted-2">先想清楚，再动手</p>
             <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">你想弄清楚的，到底是什么？</h1>
-            <p className="mt-1.5 text-[14px] text-mk-muted">不用急着列提纲。先把念头说出来，计划会自己长出来。</p>
+            <p className="mt-1.5 text-[14px] text-mk-muted">请先说明你的想法，计划会据此生成。</p>
           </div>
           <button type="button" onClick={onToggleLang} className="mt-1 flex flex-none items-center gap-1 rounded-full border border-mk-border bg-mk-surface px-2.5 py-1 text-[12px] font-bold text-mk-muted hover:text-mk-primary" title="印记可用中文或英文引导">
             <span className={lang === "zh" ? "text-mk-primary" : ""}>中</span>
@@ -266,7 +266,7 @@ function DimField({ label, hint, value, filled, onChange }: { label: string; hin
       </span>
       <textarea
         value={value}
-        placeholder="跟印记聊几句，这里会慢慢填上"
+        placeholder="跟印记聊几句，这里会自动填上"
         onChange={(e) => onChange(e.target.value)}
         rows={2}
         className="w-full resize-none rounded-mk border border-mk-border bg-mk-input-bg px-3 py-2 text-[13px] leading-relaxed text-mk-ink outline-none transition placeholder:text-mk-muted-2 focus:border-mk-primary"

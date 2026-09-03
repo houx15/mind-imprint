@@ -947,7 +947,7 @@
     "field": "society",
     "zh": "地理与城市",
     "en": "Geography & urban studies",
-    "asks": "一个地方长成现在这样，是被什么决定的？",
+    "asks": "一个地方变成现在这样，是被什么决定的？",
     "method": "空间分析 · 地图与 GIS · 城市形态 · 人口流动",
     "exemplar": "为什么小区门口有便利店，走五百米就一家也没有？",
     "aliases": [

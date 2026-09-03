@@ -23,7 +23,7 @@ import (
 
 // Demo copy — fixed, restrained, clearly a read-only walkthrough placeholder.
 const (
-	demoCoachReply        = "这是一个只读的演示项目——你看到的是别人走过的完整流程。想亲自试试的话，回到「项目」新建一个自己的项目吧。"
+	demoCoachReply        = "这是一个只读的演示项目——你看到的是别人走过的完整流程。如需亲自体验，请回到「项目」新建一个自己的项目。"
 	demoStudioTurnReply   = "这是演示项目的只读回放。要和印记真正对话，请新建你自己的项目。"
 	demoChatReply         = "这是演示对话的只读回放。想和印记真正聊聊，请新建你自己的项目再来。"
 	demoExplorationReview = "这是演示项目里的探索地图回放——真实项目里，印记会在这里点出哪些来源最相关、哪些偏题、还差哪一块。"

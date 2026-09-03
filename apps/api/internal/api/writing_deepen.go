@@ -71,7 +71,8 @@ func buildDeepenBrief(wr sqlc.Writing, outline []sqlc.WritingOutline, block sqlc
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目：" + t + "\n")
 	}
-	b.WriteString("写作语言：" + wr.Lang + "\n")
+	b.WriteString(writingLangLine(wr))
+	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 
 	b.WriteString("\n【整篇的结构】\n")
 	for _, s := range outline {

@@ -17,7 +17,7 @@ const stations: [string, string, string, string, string, string, string][] = [
   ["01", "研究框架", "Framing", "目标、缘由、活动与时间、资源、可能的反例，五项逐条谈清。卡住时递出提问卡，把题目拆回学生自己的经验。", "Objective, motivation, activities and timeline, resources, likely counter-cases — five items, settled one at a time. When she stalls, the question card takes the prompt apart and connects it to her own experience.", "研究框架", "research framework"],
   ["02", "项目管理", "Planning", "系统据框架生成计划：甘特图排期、看板拆任务、活动日志留痕。中途回来先看这一页，用于复位。", "The framework becomes a plan: a Gantt schedule, a kanban of tasks, an activity log. Coming back after a break, this is the page that re-orients her.", "计划与日志", "plan and log"],
   ["03", "写提案", "Proposal", "九个部分的提案，可以自由写，也可以逐段引导——每段一张卡、一个具体问题、一个可参考的范例。写完拿到分段批注。", "A nine-part proposal, written freely or section by section — each with one card, one specific question and a worked example. It comes back with paragraph-level annotation.", "提案定稿", "proposal locked"],
-  ["04", "阅读与探索", "Reading", "阅读室里做检索与精读：逐篇记来源、论点、证据，标出它服务哪个子问题，长成一张证据地图。教练提检索方向，也提醒哪条线跑偏了。", "Search and close reading in the reading room: source, claim and evidence noted per paper, tagged to the sub-question it serves, growing into an evidence map. The coach suggests directions — and says when a line has drifted.", "证据地图", "evidence map"],
+  ["04", "阅读与探索", "Reading", "阅读室里做检索与精读：逐篇记来源、论点、证据，标出它服务哪个子问题，汇成一张证据地图。教练提检索方向，也提醒哪条线跑偏了。", "Search and close reading in the reading room: source, claim and evidence noted per paper, tagged to the sub-question it serves, growing into an evidence map. The coach suggests directions — and says when a line has drifted.", "证据地图", "evidence map"],
   ["05", "写论文", "Writing", "先定大纲，再逐个论点写：证据、分析、限度、与其他论点的关系。需要时递上 PEE 与论证解剖卡。最后写引言与结论，AI 批注与修改轮流走，直到她说完成。", "Outline first, then claim by claim: evidence, analysis, limits, and how it connects to the rest. PEE and argument-anatomy cards arrive when needed. Introduction and conclusion last, then annotate-and-revise until she calls it done.", "终稿", "final draft"],
   ["06", "复盘", "Review", "左边摊开活动日志、研究框架、提案与终稿，右边是她自己的复盘表。她先写，教练再补。复盘完成，评估报告随之生成。", "The activity log, research framework, proposal and final draft on the left; her own review form on the right. She writes first, the coach adds after. Finishing the review is what generates the assessment.", "思维印记报告", "the imprint report"],
 ];
@@ -77,7 +77,7 @@ const gaps: [string, string, string, string, string, string, string, string][] =
         ratio="16-9"
         caption={t(
           lang,
-          "第一阶段「研究框架」：不写正式开题报告，把五件事逐条聊清楚就行（4 / 5 已聊到）。左边教练正在追问那条自媒体说法的原始来源；右边「活动与时间」已经长成一份三步走的取证计划——先用 CRAAP 追回一手论文，再三条线交叉验证，最后用论证图去撞反例。",
+          "第一阶段「研究框架」：不写正式开题报告，把五件事逐条聊清楚就行（4 / 5 已聊到）。左边教练正在追问那条自媒体说法的原始来源；右边「活动与时间」已经形成一份三步走的取证计划——先用 CRAAP 追回一手论文，再三条线交叉验证，最后用论证图去撞反例。",
           "Stage one, the research framework. No formal proposal document: five things talked through one at a time, four of five so far. On the left, the coach pressing on where that viral claim originally came from. On the right, the activities-and-timeline box has already become a three-step plan for gathering evidence — trace back to the primary paper, cross-check three separate lines, then take the argument map out to look for counter-cases.",
         )}
       />

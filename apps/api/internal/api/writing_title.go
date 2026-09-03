@@ -158,7 +158,7 @@ const writingTitleSystem = `你是「印记」。学生刚写完一篇文章，�
 
 请你读她写完的这篇文章，给出 4 个可以当标题的候选。要求：
 - 每个标题都要短。中文一般不超过 20 个字，英文不超过 8 个词。
-- 必须是从她这篇文章里长出来的——说的是她真正写了的那件事、她真正持的那个立场，不要写成一个泛泛的作文题。
+- 必须来自她这篇文章本身——说的是她真正写了的那件事、她真正持的那个立场，不要写成一个泛泛的作文题。
 - 4 个之间要有区别：可以有的直白概括，有的用她文章里的一个具体形象或一组对比，有的带一点问句。不要 4 个都是同一个句式。
 - 只给名字。不要解释，不要在标题后面加副标题、破折号说明或者任何点评。
 
@@ -172,8 +172,14 @@ const writingTitleSystem = `你是「印记」。学生刚写完一篇文章，�
 // may not state as plainly — but it is labelled 「不是标题」 so it is never
 // echoed straight back as a candidate (validateTitleIdeas drops it anyway if
 // it is).
-func buildWritingTitlePrompt(idea, draft string) string {
+//
+// Takes `wr` for the language rule: a title IS the piece's own words, so an
+// English essay's candidates must be English. This builder had no access to
+// wr.Lang at all, which is half of 「英文的写作，中文的mindmap」 — the same
+// omission, on a different field. See writing_lang.go.
+func buildWritingTitlePrompt(wr sqlc.Writing, idea, draft string) string {
 	var b strings.Builder
+	b.WriteString(writingLangLine(wr))
 	if i := strings.TrimSpace(idea); i != "" {
 		b.WriteString("她最开始说想写的（这是备忘，不是标题）：\n" + i + "\n\n")
 	}
@@ -279,7 +285,7 @@ func (a *API) suggestWritingTitles(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: writingTitleSystem},
-			{Role: gateway.RoleUser, Content: buildWritingTitlePrompt(idea, body)},
+			{Role: gateway.RoleUser, Content: buildWritingTitlePrompt(wr, idea, body)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "title_ideas", resolved, res.Usage)

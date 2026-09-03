@@ -7,7 +7,13 @@ import { CoachCard, type CoachCardAnswer, type CoachCardSpec } from "./CoachCard
 import { LiteChatMarkdown } from "./LiteChatMarkdown";
 import { ThinkingFold } from "./ThinkingFold";
 import { ApiError } from "../api/client";
-import { coachAnswerOf, coachCardOf, postReadingCoachTurn, type ReadingTask } from "../api/readingRoom";
+import {
+  coachAnswerOf,
+  coachCardOf,
+  postReadingCoachTurn,
+  type ReadingLensDone,
+  type ReadingTask,
+} from "../api/readingRoom";
 import type { LiteMessage } from "../api/readingRoom";
 import { apiErrorText } from "../api/errorText";
 
@@ -56,6 +62,9 @@ export function ReadingCoachPanel({
   slot,
   onTasks,
   onFocusBlock,
+  lensDone,
+  onLensDoneSent,
+  onFinish,
 }: {
   readingId: string;
   tasks: ReadingTask[];
@@ -66,6 +75,19 @@ export function ReadingCoachPanel({
   onTasks: (next: ReadingTask[]) => void;
   /** `tool` is set when 印记 reached for a paragraph tool this turn. */
   onFocusBlock: (blockId: string, tool?: string) => void;
+  /** A lens the room just watched her finish. Non-null for exactly as long as
+   *  it takes this panel to turn it into one coach turn; the room clears it
+   *  through `onLensDoneSent`. See the effect below. */
+  lensDone: ReadingLensDone | null;
+  /** Called once the turn for `lensDone` has been ATTEMPTED — success or
+   *  failure. Failure must still clear it: a lens she finished is not worth
+   *  retrying forever against a server that is down, and the outcome itself is
+   *  already saved either way. */
+  onLensDoneSent: () => void;
+  /** Opens the room's 完成这篇 confirmation. Called from the panel because
+   *  「每一步都做完了」 is something only this panel can see (it owns `tasks`),
+   *  while the confirm dialog and the finish call belong to the room. */
+  onFinish: () => void;
 }) {
   const [messages, setMessages] = useState<LiteMessage[]>(initialMessages);
   const [draft, setDraft] = useState("");
@@ -147,6 +169,7 @@ export function ReadingCoachPanel({
     text: string,
     picks: { blockId: string; quote: string }[] = [],
     cardAnswer: CoachCardAnswer | null = null,
+    finishedLens: ReadingLensDone | null = null,
   ) {
     if (busy) return;
     setBusy(true);
@@ -168,7 +191,7 @@ export function ReadingCoachPanel({
     if (mine) setMessages((prev) => [...prev, mine]);
     setFailed(null);
     try {
-      const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer);
+      const res = await postReadingCoachTurn(readingId, text, picks, cardAnswer, finishedLens);
       const seq = --localSeq.current;
       if (res.thinking) setThinkingBySeq((prev) => ({ ...prev, [seq]: res.thinking }));
       setMessages((prev) => [
@@ -214,6 +237,47 @@ export function ReadingCoachPanel({
       setBusy(false);
     }
   }
+
+  /**
+   * 她把一副透镜做完了 → 印记 必须回应它，并且推进这一步。
+   *
+   * 透镜循环是和 pro 共用的（`apps/web/src/studio/reading/readingLoop.ts`），
+   * 它的 `confirm()` 把「已保存」写进 `loop.messages`——而 lite 从来不渲染
+   * 那个数组（lite 渲染的是这个面板，同一张 `atom_message` 表上的另一条线）。
+   * 于是「透镜应用完毕之后，没有响应，没有推进到下一步」：确实一个字都没有，
+   * 因为根本没有一轮被送出去。房间现在盯着 `loop.outcomes` 长出新的一条，
+   * 把它交给这里，这里把它变成一轮真的对话。
+   *
+   * 🚨 `text` 是空的，`lensDone` 不是。服务端靠这一点分辨这一轮不是「她刚点了
+   * 开始」——空文本那条分支会让 印记 从头介绍一遍读法清单，这正是 PBL 房间
+   * 踩过的那颗雷（做完工具之后的空轮让 印记 原话重复、还把刚做完的工具又召
+   * 唤了一遍）。见 `reading_coach.go` 的 `readingLensDone`。
+   *
+   * 🚨 用 `sentRef` 记住「这一条已经送过了」，而不是只依赖 `lensDone` 变 null：
+   * StrictMode 会把这个 effect 跑两遍（挂载 → 清理 → 再挂载），而 `busy` 在
+   * 第一遍的 `await` 之前就已经是 true 了——但第二遍是在同一个 render 的
+   * 闭包里跑的，读到的 `busy` 还是旧值 false。没有这个 ref 就是两次
+   * 旗舰调用、两条回复。（`useAlive` 的注释讲的是同一族陷阱的另一半。）
+   */
+  const lensSentRef = useRef<ReadingLensDone | null>(null);
+  useEffect(() => {
+    if (!lensDone) {
+      lensSentRef.current = null;
+      return;
+    }
+    if (lensSentRef.current === lensDone) return;
+    // 🚨 上一轮还在飞的时候不要标记成「送过了」。`turn` 开头的 `if (busy)`
+    // 会直接返回，而如果这里已经调了 `onLensDoneSent`，这副她真的做完了的
+    // 透镜就被静默丢掉了——她动了手，屏幕上却依然什么都没有，正是这次要修的
+    // 那个 bug 的另一条路径。`busy` 进依赖，这一轮落地之后再送。
+    if (busy) return;
+    lensSentRef.current = lensDone;
+    void turn("", [], null, lensDone).finally(onLensDoneSent);
+    // `turn` 和 `onLensDoneSent` 每次 render 都会重建，挂进依赖只会让这个
+    // effect 每次 render 都重跑；真正的触发条件只有「来了一条新的 lensDone」
+    // 和「刚腾出手」，而重复发送由上面的 ref 把住。
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [lensDone, busy]);
 
   /** 重发上一轮失败的作答，原样。她点过的那一句一直留在卡片上，这里只是把它
    *  再送一次——先把留着的那条乐观消息撤掉，`turn` 会重新放一条一样的。 */
@@ -375,9 +439,9 @@ export function ReadingCoachPanel({
       <div className="flex min-h-0 flex-1 flex-col items-center justify-center gap-4 px-6 text-center">
         <Pebble state="idle" size={52} />
         <div className="flex flex-col gap-1.5">
-          <p className="text-mk-h2 text-mk-ink">让我来带你详细读一遍这篇文章吧。</p>
+          <p className="text-mk-h2 text-mk-ink">让我来带你详细读一遍这篇文章。</p>
           <p className="text-mk-body leading-relaxed text-mk-muted">
-            我先看看这篇，排一条路线，然后一步一步带你走。中途想跳过哪一步，说一声就行。
+            我先看一遍，排一条阅读路线，然后逐步带你读。想跳过哪一步，随时告诉我。
           </p>
         </div>
         <Button onClick={() => void turn("")} loading={busy} iconStart={<Icon icon={Play} size={14} />}>
@@ -444,6 +508,43 @@ export function ReadingCoachPanel({
                 </button>
               </span>
             ))}
+          </div>
+        )}
+
+        {/*
+          读法走完之后的那一步。
+
+          🚨 同事试用：「全部完成之后没有引导」。在这之前，「每一步都做完了」
+          在屏幕上的全部体现是**输入框的 placeholder 换了一句话**
+          （「读完了，还想聊点什么？」）——而 完成这篇 是文章工具栏上一颗常驻
+          的小按钮，从第一秒起就在那儿，没有任何时刻会指向它。
+
+          线上数据说明了代价：23 篇阅读里 17 篇状态还是 active，
+          lite_report 最后一次触发是 08-31。**没有人走到「完成」**，
+          所以报告那一整条链路在生产里根本没被走通过——报告的两个 bug
+          之所以一直没被发现，也是因为这个。
+
+          文案按 AGENTS.md §界面文案怎么写：标签是名词（「读法已全部完成」，
+          不是「你把这一趟都走完啦」），先说这件事为什么值得做再请她做，
+          按钮写「做什么」。感叹号留给真正的节点——这是其中一个。
+        */}
+        {finished && (
+          <div
+            className="flex flex-col gap-2 rounded-mk-lg border p-3"
+            style={{
+              // mk-* 是裸 CSS 变量，Tailwind 的 alpha 语法对它们一个字节的
+              // CSS 都不生成：半透明只能走 color-mix。
+              background: "color-mix(in srgb, var(--mk-accent-50) 80%, var(--mk-surface))",
+              borderColor: "color-mix(in srgb, var(--mk-accent-500) 30%, transparent)",
+            }}
+          >
+            <p className="text-mk-label text-mk-accent-700">读法已全部完成</p>
+            <p className="text-mk-small leading-relaxed text-mk-ink">
+              报告会汇总这一篇的阅读时长、划线、笔记与透镜发现。完成后本篇不可再修改。
+            </p>
+            <div className="flex justify-end">
+              <Button onClick={onFinish}>完成阅读，生成报告</Button>
+            </div>
           </div>
         )}
 
@@ -526,7 +627,12 @@ function CoachLog({ rows, thinking = false }: { rows: CoachRow[]; thinking?: boo
         ) : (
           // 她那一侧不挂头像：房间里只有一个角色需要被认出来。
           <div key={row.id} data-chat-row="student" className="flex justify-end">
-            <div data-role="student" className={`${BUBBLE} ${HER_RADIUS} bg-mk-accent-50`}>
+            {/* 🚨 `whitespace-pre-wrap` 只给她这一侧。她那一轮是原样字符串
+                （印记 那一轮走 LiteChatMarkdown），而 HTML 会把她敲的换行折掉
+                ——同事试用里报的「换行的话发送给AI就不换行了」。印记 那一侧
+                绝对不能加：markdown 已经产出块级元素，pre-wrap 会把源码里每个
+                换行变成看得见的空行。 */}
+            <div data-role="student" className={`${BUBBLE} ${HER_RADIUS} whitespace-pre-wrap bg-mk-accent-50`}>
               {row.node}
             </div>
           </div>

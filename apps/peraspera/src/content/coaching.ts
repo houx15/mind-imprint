@@ -106,7 +106,7 @@ export const whySection: {
 /* ---- 3 · What we offer: a two-month, three-stage journey -------------------- */
 export const offerIntro: { eyebrow: Bilingual; title: Bilingual; sub: Bilingual } = {
   eyebrow: { zh: "我们提供什么", en: "What we offer" },
-  title: { zh: "两个月，三个阶段的旅程。", en: "A two-month journey, in three stages." },
+  title: { zh: "两个月，三个阶段。", en: "Two months, three stages." },
   sub: {
     zh: "我们扎扎实实地把能力练出来,再帮孩子把这些能力讲清楚。",
     en: "We build the ability first, genuinely and step by step, then help your child express it clearly.",
@@ -277,7 +277,7 @@ export const applySection: {
       },
     },
     {
-      title: { zh: "开始两个月的旅程", en: "Begin the two-month journey" },
+      title: { zh: "开始两个月的课程", en: "Begin the two-month program" },
       body: {
         zh: "双方都觉得合适,就正式开始上面说的三个阶段。",
         en: "Once it feels like a good fit on both sides, we begin the three stages above.",

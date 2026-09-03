@@ -82,6 +82,9 @@ describe("ReadingCoachPanel message roles", () => {
         slot={slot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
     const strong = container.querySelector("strong");
@@ -101,6 +104,9 @@ describe("ReadingCoachPanel message roles", () => {
         slot={slot()}
         onTasks={() => {}}
         onFocusBlock={() => {}}
+        lensDone={null}
+        onLensDoneSent={() => {}}
+        onFinish={() => {}}
       />,
     );
     // Verbatim, asterisks and hash included.

@@ -115,7 +115,7 @@ export const modules: AcademyModule[] = [
       { zh: "我们到底能确定到什么程度", en: "How sure can we really be" },
       { zh: "数据与统计怎么看", en: "Reading data and statistics" },
       { zh: "论证与常见的逻辑谬误", en: "Arguments and logical fallacies" },
-      { zh: "语言怎么悄悄影响我们怎么想", en: "How language shapes the way we think" },
+      { zh: "语言如何影响我们的思考方式", en: "How language shapes the way we think" },
     ],
   },
   {

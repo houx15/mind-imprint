@@ -12,7 +12,7 @@ export const coursesSegments: TourSegment[] = [
         onEnter: (nav) => { nav.setTab("courses"); nav.setCoursesSub("courses"); },
         placement: "center",
         title: "先聊聊课程",
-        text: "印记认为，**思辨力**是 AI 时代最重要的能力，而它可以通过系统化的学习和操练一点点长出来。所以我们准备了一系列小课，带你练。",
+        text: "印记认为，**思辨力**是 AI 时代最重要的能力，它可以通过系统化的学习与操练逐步获得。所以我们准备了一系列小课来练它。",
         advance: "next",
       },
     ],
@@ -39,7 +39,7 @@ export const coursesSegments: TourSegment[] = [
         id: "courses-enter-0",
         anchor: '[data-tour="courses-grid"]',
         placement: "top",
-        text: "点开任意一门课的卡片，就能看到它的介绍并开始学习。挑一门你感兴趣的试试吧。",
+        text: "点开任意一门课的卡片，就能看到它的介绍并开始学习。请挑一门你感兴趣的开始。",
         advance: "action",
         // Target the whole card (its wrapping `[data-course-card]` div carries
         // the onClick), not the inner CTA button — so a click anywhere on the
@@ -95,7 +95,7 @@ export const coursesSegments: TourSegment[] = [
         // Deliberately centered — an overview of the whole report before the
         // sub-section spotlights below; no anchor (a centered step ignores it).
         placement: "center",
-        title: "这是一份学习报告的样子",
+        title: "这是一份学习报告的示例",
         text: "每学完一门课，你都会拿到这样一份报告。下面我带你看看它由哪几块组成。",
         advance: "next",
       },
@@ -117,7 +117,7 @@ export const coursesSegments: TourSegment[] = [
         id: "courses-report-example-3",
         anchor: '[data-tour="course-report-cards"]',
         placement: "top",
-        text: "这门课练到的**思维工具卡**会收进这里——它们会在你的图鉴里慢慢集齐。",
+        text: "这门课练到的**思维工具卡**会收进这里——练过的卡都会进你的图鉴，等你集齐。",
         advance: "next",
       },
     ],

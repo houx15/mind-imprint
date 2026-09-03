@@ -55,7 +55,7 @@ test("带读: 印记 plans the route and leads, and she administrates none of it
   await startReading(page, titled("带读走查"));
 
   // The invitation, before anything has been spent.
-  await expect(page.getByText("让我来带你详细读一遍这篇文章吧。")).toBeVisible();
+  await expect(page.getByText("让我来带你详细读一遍这篇文章。")).toBeVisible();
   const start = page.getByRole("button", { name: "开始", exact: true });
   await expect(start).toBeVisible();
 

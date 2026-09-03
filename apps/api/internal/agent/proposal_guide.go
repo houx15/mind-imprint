@@ -84,7 +84,7 @@ func essayGuideBody(in GuideGenInput) string {
 		case "sub:compose":
 			b.WriteString("\n本部分：把已写好的引言、各条论点、比较/综合、反方回应、结论拼成一整篇，读一遍衔接是否顺畅。（这一步是组装，不是重写。）\n")
 		case "sub:polish":
-			b.WriteString("\n本部分：通读全文、润色语言与衔接。让印记像老师一样通篇体检，你据此修改，满意后完成整篇论文。\n")
+			b.WriteString("\n本部分：通读全文、润色语言与衔接。请印记通篇审阅，你据此修改，满意后完成整篇论文。\n")
 		default:
 			fmt.Fprintf(&b, "\n本部分：%s。请针对当前题目引导学生写这一部分。\n", in.Step.Title)
 		}

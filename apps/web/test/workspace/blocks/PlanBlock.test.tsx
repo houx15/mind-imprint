@@ -176,7 +176,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     const editBtns = screen.getAllByRole("button", { name: "编辑" });
     expect(editBtns).toHaveLength(5);
     await userEvent.click(editBtns[0]!);
-    expect(screen.getByPlaceholderText("跟印记聊几句，这里会慢慢填上")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("跟印记聊几句，这里会自动填上")).toBeInTheDocument();
   });
 
   it("Round 3: retitled eyebrow/h1/subtitle read as research-framing, and the old Tier-1 chrome stays gone", async () => {
@@ -186,7 +186,7 @@ describe("PlanBlock · forming coach on the shared AiPanel (Task 5)", () => {
     await screen.findByText("先搭好研究的大框架");
 
     expect(screen.getByText("立项 · 先想清楚再动手")).toBeInTheDocument();
-    expect(screen.getByText("把这几件事聊清楚，计划会据此长出来。")).toBeInTheDocument();
+    expect(screen.getByText("把这几件事聊清楚，计划会据此生成。")).toBeInTheDocument();
 
     // Killed Tier-1 chrome — 印记 cues these instead.
     expect(screen.queryByRole("button", { name: "聊聊计划" })).toBeNull();

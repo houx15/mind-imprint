@@ -216,7 +216,7 @@ export function HomePage({
         <header className="flex items-center justify-between gap-6">
           <div className="flex flex-col gap-2">
             <h1 className="text-mk-display text-mk-ink">你好，{user?.display_name ?? "同学"} 👋</h1>
-            <p className="text-mk-body text-mk-muted">把你手头的写作任务带来，印记陪你一点一点想清楚。</p>
+            <p className="text-mk-body text-mk-muted">把你手头的写作任务带进来，印记与你一起把它想清楚。</p>
           </div>
           <Illustration name="bookLover" tone="vermilion" className="hidden h-[120px] w-[120px] shrink-0 md:block" alt="" />
         </header>

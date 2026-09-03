@@ -136,7 +136,36 @@ export function ReportView({
       <Moments moments={report.moments} />
       <NotesAndLenses notes={report.notes} lensNotes={report.lensNotes} />
       <Gains gains={report.gains} />
+      <ProsePending pending={report.prosePending} />
     </article>
+  );
+}
+
+/**
+ * 金句 和 这次的收获 还在处理中。
+ *
+ * 这两节是报告上唯一需要一次模型调用的部分（`assess` 档，`reasoning: "max"`），
+ * 服务端因此把它们放到**第二个**请求里，先把她真的做过的那些东西（数字、
+ * 她的笔记、她的透镜、她自己写的收获）立刻存下并返回。见
+ * `ensureAtomReport` 的两段式说明。
+ *
+ * 所以这里必须说出来。不说的话，一份还差这两节的报告在她眼里就是一份
+ * **少了两节的报告**——她会以为它就是这样，而不是还没好。
+ *
+ * `Moments` / `Gains` 自己在空数组时返回 null，所以这一条挂在它们后面，
+ * 不去改那两个组件的「有内容才渲染」规则。
+ *
+ * ⚠️ 分享出去的报告永远看不到这个：服务端把 `prosePending` 从公开 payload
+ * 里摘掉了（访客没法去轮询一个需要登录的接口），所以 `PublicReportPage`
+ * 渲染同一个组件时这里恒为 false。
+ */
+function ProsePending({ pending }: { pending: boolean }) {
+  if (!pending) return null;
+  return (
+    <section className="mk-rp-section" role="status" aria-live="polite">
+      <SectionTitle>金句 · 这次的收获</SectionTitle>
+      <p className="text-mk-small text-mk-muted">处理中，稍后刷新可见。</p>
+    </section>
   );
 }
 

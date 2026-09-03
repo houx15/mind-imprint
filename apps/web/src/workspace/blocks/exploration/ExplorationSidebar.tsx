@@ -478,7 +478,7 @@ function QuestionMeta({
       <div className="mt-3">
         <p className="text-[12px] font-bold uppercase tracking-wider text-mk-faint">论文列表</p>
         {papers.length === 0 ? (
-          <p className="mt-1 text-[12px] leading-relaxed text-mk-faint">还没有论文挂在这个问题下面，往下找几篇吧。</p>
+          <p className="mt-1 text-[12px] leading-relaxed text-mk-faint">这个问题下面还没有论文，请继续往下检索。</p>
         ) : (
           <ul className="mt-1.5 flex flex-col gap-1">
             {papers.map((p) => (

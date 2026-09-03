@@ -24,7 +24,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -135,7 +134,7 @@ func (a *API) setWritingSetup(w http.ResponseWriter, r *http.Request) {
 // exactly one thing".
 const writingOpeningSystem = `你是「印记」，一个陪中学生写作的伙伴。学生刚刚打开一次新的写作，下面是她自己写下的题目和她说过的话。
 
-接下来你们要做的是**规划**：一起把这篇要说什么、按什么顺序说，一点一点想清楚。她说的每一点都会长到右边那张图上。现在由你先开口。
+接下来你们要做的是**规划**：一起把这篇要说什么、按什么顺序说，逐步想清楚。她说的每一点都会长到右边那张图上。现在由你先开口。
 
 你的开场要做到三件事，合起来不超过 120 个字：
 
@@ -146,7 +145,7 @@ const writingOpeningSystem = `你是「印记」，一个陪中学生写作的�
 绝对不要做的事：
 - 不要替她写出任何一句可以直接放进文章的话（论点、开头句、段落）。你是陪她想的，不是替她写的。
 - 不要一次问好几个问题。只问一个。
-- 不要现在就列提纲、给结构方案，也不要把「并排说几条」「先承认，再反驳」「比一比」这类方法名当成选项摆给她挑——结构是后面从她自己说的话里长出来的。
+- 不要现在就列提纲、给结构方案，也不要把「并排说几条」「先承认，再反驳」「比一比」这类方法名当成选项摆给她挑——结构要在后面从她自己说的话里得出。
 - 不要说"作为AI"、不要夸她"这个题目很棒"这类空话。
 
 直接说话，不要任何前缀或标题。`
@@ -161,13 +160,9 @@ func buildWritingOpeningPrompt(wr sqlc.Writing, msgs []sqlc.AtomMessage) string 
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目/想法：" + t + "\n")
 	}
-	if wr.Lang == "en" {
-		b.WriteString("这篇用英文写。\n")
-	} else {
-		b.WriteString("这篇用中文写。\n")
-	}
+	b.WriteString(writingLangLine(wr))
 	if wr.TargetWords != nil {
-		b.WriteString("她定的目标篇幅：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字。\n")
+		b.WriteString(writingLengthLine(wr, "她定的目标篇幅"))
 	} else {
 		b.WriteString("她还没定篇幅（这完全没问题，别追问）。\n")
 	}

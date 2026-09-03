@@ -119,7 +119,7 @@ var readingRoutines = []readingRoutine{
 		Blurb: "默认读法。适合说明文、议论文、新闻这类讲道理的文章。",
 		Steps: []readingRoutineStep{
 			{Kind: taskRead, Label: "通读全文", Detail: "不查词、不停下来，先知道这篇大概在说什么。"},
-			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "挑出来的这一段值得慢慢看——点开段落工具，把它拆开。"},
+			{Kind: taskFocusBlock, Label: focusBlockLabelBase, Detail: "这一段值得细读。请打开段落工具，把它拆开。"},
 			{Kind: taskLens, Label: "深入思考", Detail: "用一个角度重新过一遍，看看能不能看出刚才没看见的东西。"},
 			{Kind: taskReflect, Label: "总结收获", Detail: "用你自己的话说：读完之后，你知道了什么以前不知道的？"},
 			{Kind: taskConnect, Label: "链接经验", Detail: "这篇讲的事，你自己身边、新闻里、或者别的书里，有没有碰到过？想到什么说什么，这一步没有标准答案。"},

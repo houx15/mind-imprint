@@ -147,6 +147,24 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
 - 读法清单走到 lens 那一步的时候，这是首选动作；别的时候，只有在她卡住、
   或者某一段特别值得她自己做一遍时才用。
 
+### 她刚做完一副透镜的那一轮
+
+prompt 里出现【她刚做完一副透镜】的时候，这一轮**是她交作业**，不是她在闲聊。
+她刚刚自己在文章里找了一句、做了一遍分析，屏幕上那副透镜已经收起来了。
+这一轮你必须做三件事，而且**只做这三件**：
+
+1. 说出她选的那一句**哪里选得准**——具体到那一句本身，别说「很好」「不错」这种
+   谁都能说的话。她要是选偏了，就说清楚偏在哪，但仍然承认她动手做了。
+2. 把这次的发现接回**这篇文章要回答的问题**上：这一句让我们对这篇的判断有了
+   什么变化。这是透镜存在的理由，不是装饰。
+3. 领她进下一步。当前这一步已经用这副透镜做完了，就在 advance 里给 "done"。
+
+绝对不要：
+- **不要再给一副透镜，也不要给卡片**（lens、card 都留空）。她刚做完一件事，
+  紧接着又被塞一件，等于这次动手没有被看见。
+- 不要重复你上一轮说过的话。她已经读过了。
+- 不要问她「感觉怎么样」。看她做了什么，然后往下走。
+
 ## 卡片：把这一步递到她手上，让她点
 
 **带一步的默认方式就是给她一张卡片。** 一步的指令写成一段散文、末尾缀一句
@@ -177,7 +195,7 @@ const readingCoachSystem = `你是「印记」，正在**带着**一个中学生
   「因为」「所以」就点了，一个字都没读懂；「哪一句提到了数字」同理，扫阿拉伯数字就行；
   「最想xx的那处代价」根本不是一个人会问出口的话。
   🚨 出卡片之前先自问一句：这个问题能不能靠扫关键词答出来？能，就换一个。
-  ⚠️ 这一条和下面那条同时守，不冲突：5W1H 管的是**问题的形状**（问的是内容），
+  ⚠️ 这一条和下面那条同时守，不冲突：5W1H 管的是**问题的形式**（问的是内容），
   「不能有唯一正解」管的是**答案的空间**（站得住的答法有很多种）。
   「作者是如何让你相信这笔账划算的？」两条都满足。
 - **问题要问她的判断，不能有唯一正解。**「哪一句你读着最不服气」可以，
@@ -503,6 +521,54 @@ func collapseCardPrompt(prompt string) string {
 	return p
 }
 
+// readingLensDone is what she just finished doing with a lens, when this turn
+// is the room reporting a completed one rather than her saying something.
+//
+// ## Why this exists (2026-09-03, colleague trial)
+//
+// Reported as 「透镜应用完毕之后，没有响应，没有推进到下一步。没有和透镜选句
+// 打通」. It was all three, and none of them were the model's fault:
+//
+// The lens loop is shared with pro (apps/web/src/studio/reading/readingLoop.ts).
+// Its confirm() saved the outcome, appended a canned confirmation line to
+// loop.messages, and called clearCard(). But lite does not RENDER
+// loop.messages — it renders ReadingCoachPanel, a different thread over the
+// same atom_message table. So the one acknowledgement the loop produced went
+// into an array nothing on screen reads, no turn was ever posted, and 印记
+// therefore never reacted and never advanced the step. From the student's side
+// the lens just vanished.
+//
+// 🚨 The fix could NOT be an empty-text turn. That is the exact shape that bit
+// the PBL room (an empty-text turn after finishing a tool made 印记 repeat
+// itself verbatim AND re-summon the tool she had just done), and this builder
+// has the same landmine at the bottom: studentText == "" prints 「她刚点了
+// 「开始」，还没说话」, which would make 印记 re-introduce the whole reading
+// plan the moment she finished a lens. So a completed lens arrives as its own
+// labelled section, and it SUPPRESSES that fallback line.
+//
+// Nothing here is re-asked of a model: Quote is the sentence she picked and
+// Finding is the evaluation agent.EvaluateSelection already returned when she
+// submitted the card — the same two values reportLensNote reads at report
+// time.
+type readingLensDone struct {
+	// CardName is the lens's display name (「溯源体检」), not its id: this
+	// string is for the model to say back to her.
+	CardName string `json:"cardName"`
+	// Quote is the sentence SHE found in the article. The selecting is the
+	// thinking, so this is the part 印记 must respond to specifically.
+	Quote string `json:"quote"`
+	// Finding is what the room already concluded from her pick — 印记's OWN
+	// prior words, never presented to it as something she said.
+	Finding string `json:"finding"`
+}
+
+// clean reports whether this outcome carries enough to be worth a turn. A
+// lens with no quote is not a completed lens, and refeeding one would spend a
+// flagship call to say "nice work" about nothing.
+func (l *readingLensDone) clean() bool {
+	return l != nil && strings.TrimSpace(l.Quote) != ""
+}
+
 func buildReadingCoachPrompt(
 	title string,
 	blocks []Block,
@@ -510,6 +576,7 @@ func buildReadingCoachPrompt(
 	msgs []sqlc.AtomMessage,
 	picks []readingPick,
 	studentText string,
+	lensDone *readingLensDone,
 ) string {
 	var b strings.Builder
 	if t := strings.TrimSpace(title); t != "" {
@@ -606,8 +673,28 @@ func buildReadingCoachPrompt(
 		}
 	}
 
+	// A completed lens is HER WORK, so it gets its own section rather than
+	// being folded into 【她刚刚说的】 — the finding is 印记's own earlier
+	// evaluation and must never read as a sentence she uttered.
+	if lensDone.clean() {
+		b.WriteString("\n【她刚做完一副透镜】\n")
+		if n := strings.TrimSpace(lensDone.CardName); n != "" {
+			b.WriteString("透镜：" + n + "\n")
+		}
+		b.WriteString("她自己在文章里找的那一句：「" + strings.TrimSpace(lensDone.Quote) + "」\n")
+		if f := strings.TrimSpace(lensDone.Finding); f != "" {
+			b.WriteString("你当时对这一句的复核（这是你自己的话，不是她说的）：" + f + "\n")
+		}
+	}
+
 	if studentText != "" {
 		b.WriteString("\n【她刚刚说的】\n" + studentText + "\n")
+	} else if lensDone.clean() {
+		// 🚨 NOT the 「她刚点了「开始」」 line below. She did not press 开始 —
+		// she just finished a lens, and telling the model otherwise makes it
+		// re-introduce the reading plan from the top (the PBL repeat-itself
+		// bug, in this room). See readingLensDone's own comment.
+		b.WriteString("\n【她刚刚说的】\n（这一轮她没打字——她是把透镜做完了。按「她刚做完一副透镜」那一节的三件事回应她。）\n")
 	} else {
 		b.WriteString("\n【她刚刚说的】\n（她刚点了「开始」，还没说话。介绍一下你排的读法，然后领她进第一步。）\n")
 	}
@@ -764,6 +851,39 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	return got, true
 }
 
+// enforceLensDoneTurn is the code half of the system prompt's 「她刚做完一副
+// 透镜的那一轮」 rule: she just handed something in, so this turn must not
+// hand her something new.
+//
+// 🚨 Why this is code and not only prose. The prompt already says 「lens、card
+// 都留空」. Running the real model three times through the real prompt
+// (TestLiveLensDoneReplyParses, 2026-09-04) gave: 3/3 parsed, 3/3 advanced
+// with "done", the words themselves good — and **2 of 3 attached a card
+// anyway**. Which is not mysterious: the same prompt carries a STRONGER
+// standing default (「带一步的默认方式就是给她一张卡片」), and when two rules
+// collide a model follows the louder one.
+//
+// That is exactly what [[prompt-output-must-be-verifiable-2026-09-03]] is
+// about — a 「必须」 in a prompt has to be checkable in code. So this rule
+// lands here, structurally identical to the parser's own 「已给 lens 就丢卡片」
+// (铁律③): drop the lighter instrument so the thing she just finished is what
+// gets seen.
+//
+// Only `Card` and `Lens` are dropped. `Reply`, `Advance` and `FocusBlock` are
+// precisely what this turn SHOULD carry: catch the sentence she picked, settle
+// the step, walk her to the next one.
+//
+// A pure function rather than four lines inline, so the live test can run the
+// same rule production runs instead of asserting on an approximation of it.
+func enforceLensDoneTurn(got readingCoachReply, lensDone *readingLensDone) readingCoachReply {
+	if lensDone == nil {
+		return got
+	}
+	got.Card = nil
+	got.Lens = ""
+	return got
+}
+
 // postReadingCoachTurn is POST /api/v1/readings/{id}/coach.
 //
 // One guided turn. `text` empty means she pressed 开始 — the coach introduces
@@ -794,12 +914,24 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		// the choice is checked against the article before it is allowed near
 		// the transcript.
 		CardAnswer *coachCardAnswer `json:"cardAnswer"`
+		// LensDone is set when the ROOM is reporting that she finished a lens,
+		// rather than her saying something. Carries no authority of its own:
+		// it only ever lands in the prompt (see readingLensDone), never in the
+		// transcript, and never marks a step done by itself — 印记 still
+		// decides `advance`.
+		LensDone *readingLensDone `json:"lensDone"`
 	}
 	if err := decodeJSON(r, &req); err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
 	studentText := strings.TrimSpace(req.Text)
+	// Trimmed here so `clean()` and every prompt read below agree, and so a
+	// client sending whitespace cannot buy a turn.
+	lensDone := req.LensDone
+	if !lensDone.clean() {
+		lensDone = nil
+	}
 
 	src, err := a.d.Queries.GetReadingSource(r.Context(), at.ID)
 	if err != nil {
@@ -901,12 +1033,13 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	lang := readingLangOf(src.Body)
 	system := buildReadingCoachSystem(lang)
-	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+	chatReq := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentContent)},
+			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentContent, lensDone)},
 		},
-	})
+	}
+	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)
 	if cerr != nil {
 		slog.Warn("reading coach: provider call failed", "err", cerr,
@@ -945,11 +1078,50 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
 	if !okParse {
-		slog.Warn("reading coach: reply unparseable",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
+		// 🚨 ASK ONCE MORE. Measured 2026-09-04 against the live model
+		// (TestLiveLensDoneReplyParses, 6 samples): **1 in 6 replies arrives
+		// truncated** — the model writes a perfectly good reply, gets as far
+		// as the trailing optional key and simply stops:
+		//
+		//	…"advance":"done","focusBlock":"","tool":"","lens":"","card":
+		//
+		// and the provider reports `stop_reason: "stop"`, i.e. a NORMAL
+		// finish. So there is nothing to detect it by other than the parse
+		// failing, and no client cap to raise: max_tokens is 16000 and the
+		// reply was ~100.
+		//
+		// One retry turns a ~17% chance of 「AI 响应错误」 into ~3%. It is not
+		// a workaround for a prompt problem — the reply that came back was
+		// GOOD, it was cut off mid-serialisation — and it is not a fake
+		// answer either ([[ai-errors-must-surface-never-fake]] forbids
+		// inventing a plausible sentence; asking the model again is the
+		// opposite of that). A second failure still surfaces honestly.
+		//
+		// This is a pre-existing defect of every reading-coach turn, not of
+		// the lens-completion turn — it was simply never measured until a
+		// live walk of the lens refeed hit it.
+		slog.Warn("reading coach: reply unparseable, retrying once",
+			"atom_id", at.ID, "stop_reason", res.StopReason,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		res, cerr = gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)
+		if cerr != nil {
+			slog.Warn("reading coach: retry call failed", "err", cerr,
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		parsed, okParse = parseReadingCoachReply(res.Text, blocks, lang, lensOK)
+		if !okParse {
+			slog.Warn("reading coach: reply unparseable after retry",
+				"atom_id", at.ID, "stop_reason", res.StopReason,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
 	}
+
+	parsed = enforceLensDoneTurn(parsed, lensDone)
 
 	// The student turn, the coach turn, and the step advance land together.
 	// Split, a crash between them leaves the transcript saying one thing and

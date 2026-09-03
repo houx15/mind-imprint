@@ -323,7 +323,7 @@ function FormingPhase(props: {
         <header>
           <p className="text-[12px] font-semibold uppercase tracking-[0.18em] text-mk-faint">立项 · 先想清楚再动手</p>
           <h1 className="mt-1 font-sans text-[26px] font-bold leading-tight text-mk-ink">先搭好研究的大框架</h1>
-          <p className="mt-1.5 text-[14px] text-mk-muted">把这几件事聊清楚，计划会据此长出来。</p>
+          <p className="mt-1.5 text-[14px] text-mk-muted">把这几件事聊清楚，计划会据此生成。</p>
         </header>
 
         <div data-tour="forming-proposal" className="flex min-h-0 flex-1 flex-col rounded-mk-lg border border-mk-border bg-mk-surface p-5 shadow-mk-xs">
@@ -428,7 +428,7 @@ function DimField({ label, hint, value, filled, onChange }: { label: string; hin
         <textarea
           ref={taRef}
           value={value}
-          placeholder="跟印记聊几句，这里会慢慢填上"
+          placeholder="跟印记聊几句，这里会自动填上"
           onChange={(e) => onChange(e.target.value)}
           onBlur={() => setEditing(false)}
           rows={3}
@@ -440,7 +440,7 @@ function DimField({ label, hint, value, filled, onChange }: { label: string; hin
           title="双击编辑"
           className="w-full cursor-text whitespace-pre-line rounded-mk-md border border-mk-border bg-mk-paper px-3 py-2 text-[14px] leading-relaxed"
         >
-          {value.trim() ? <span className="text-mk-ink">{value}</span> : <span className="text-mk-faint">跟印记聊几句，这里会慢慢填上</span>}
+          {value.trim() ? <span className="text-mk-ink">{value}</span> : <span className="text-mk-faint">跟印记聊几句，这里会自动填上</span>}
         </div>
       )}
     </div>

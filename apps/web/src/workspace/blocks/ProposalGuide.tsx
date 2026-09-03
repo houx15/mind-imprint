@@ -111,7 +111,7 @@ export function ProposalGuide({
             <h3 className="font-sans text-[15px] font-bold text-mk-ink">写成稿 · 通读与润色</h3>
             <button type="button" onClick={onPrev} className="ml-auto rounded-mk-md px-2 py-1 text-[13px] font-semibold text-mk-muted hover:text-mk-accent">← 上一步</button>
           </div>
-          <p className="text-[14px] leading-relaxed text-mk-ink">下面是把你各部分连起来的<strong>提案成稿</strong>——这才是要交出去的东西，不是一张张卡片。通读一遍，把各部分理顺、衔接补上、语言润色，让它读起来是一篇完整的提案。让印记像老师一样通篇看一遍，你据此修改；满意后点右上角「完成提案」。</p>
+          <p className="text-[14px] leading-relaxed text-mk-ink">下面是把你各部分连起来的<strong>提案成稿</strong>。要交出去的是这份成稿，不是一张张卡片。通读一遍，把各部分理顺、衔接补上、语言润色，让它读起来是一篇完整的提案。请印记通篇审阅，你据此修改；满意后点右上角「完成提案」。</p>
           <div className="mt-3">
             {reviewing ? <ReviewingHint /> : (
               <button type="button" onClick={onDone} className="rounded-mk-md bg-mk-accent px-4 py-1.5 text-[14px] font-bold text-white hover:bg-mk-accent-600">让印记通篇看一遍</button>

@@ -16,7 +16,7 @@ export const projectsSegments: TourSegment[] = [
       {
         id: "projects-intro-1",
         placement: "center",
-        text: "更特别的是：你怎么想、卡在哪、怎么被点拨着走出来，这个**过程**会被记录下来，最后长成一份**过程评估报告**，而不只是看你交出的成品。",
+        text: "更特别的是：你怎么想、卡在哪、怎么被点拨着走出来，这个**过程**会被记录下来，最后形成一份**过程评估报告**，而不只是看你交出的成品。",
         advance: "next",
       },
     ],
@@ -381,7 +381,7 @@ export const projectsSegments: TourSegment[] = [
         // confirmed outcome (`DEMO_READING_OUTCOMES`), so the tab is not empty.
         anchor: '[data-tour="rr-outcomes-tab"]',
         placement: "bottom",
-        text: "读的时候不只是划线——每做完一次透镜练习，确认的结论会沉淀下来。点开「**阅读成果**」这个页签看看。",
+        text: "读的时候不只是划线——每做完一次透镜练习，确认的结论都会记录下来。点开「**阅读成果**」这个页签查看。",
         advance: "action",
         actionEvent: { selector: '[data-tour="rr-outcomes-tab"]', type: "click" },
       },
@@ -429,7 +429,7 @@ export const projectsSegments: TourSegment[] = [
         // P7 cross-seam fix: reframed to point at the SPECIFIC node that just
         // changed, not imply it's the only 已读 node on the map — a research
         // map naturally has a mix of read and unread questions.
-        text: "回到探索图谱——你刚读的这一篇，它所在的问题节点亮起了「**已读**」。地图上本来就会有读过的、也有还没读的，这颗只是刚刚被点亮的那一个，阅读进度就这样自然地长在图上。",
+        text: "回到探索图谱——你刚读的这一篇，它所在的问题节点亮起了「**已读**」。图上同时有已读和未读的节点，阅读进度直接标在图上。",
         advance: "next",
       },
       {
@@ -539,7 +539,7 @@ export const projectsSegments: TourSegment[] = [
         onEnter: (nav) => nav.setWritingView({ doc: "essay", tab: "outline" }),
         anchor: '[data-tour="writing-outline"]',
         placement: "right",
-        text: "「大纲」把你的**主问题拆成一条条可回答的子问题**——每条子问题就长成一段主体论证。先搭好这张骨架，正文才有顺着走的线。",
+        text: "「大纲」把你的**主问题拆成一条条可回答的子问题**——每条子问题对应一段主体论证。先搭好这张骨架，正文才有顺着走的线。",
         advance: "next",
       },
       {
@@ -653,7 +653,7 @@ export const projectsSegments: TourSegment[] = [
         id: "reflection-1",
         anchor: '[data-tour="reflection-prompts"]',
         placement: "top",
-        text: "回顾几个复盘问题，帮你把这个项目里学到的东西沉淀下来，而不是写完就忘。回答完、确认收尾后，项目就进入「完成」状态。",
+        text: "回顾几个复盘问题，把这个项目里学到的东西记录下来，而不是写完就忘。回答完、确认收尾后，项目就进入「完成」状态。",
         advance: "next",
       },
       {
@@ -695,7 +695,7 @@ export const projectsSegments: TourSegment[] = [
         id: "evaluation-report-2",
         anchor: "#s2",
         placement: "right",
-        text: "**综述**用一段话讲清这个项目整体是怎么推进的——资料、写作、和 AI 协作各自的样子，最后给出改进建议和推荐课程。",
+        text: "**综述**用一段话讲清这个项目整体是怎么推进的——资料、写作、和 AI 协作各自的情况，最后给出改进建议和推荐课程。",
         advance: "next",
       },
       {

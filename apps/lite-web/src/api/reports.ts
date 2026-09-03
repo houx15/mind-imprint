@@ -60,12 +60,31 @@ export type LiteReport = {
    *  share link open the thing she actually wrote, not only the numbers
    *  about it. */
   piece: string;
+  /** The deterministic half of this report is stored and complete, and the one
+   *  model call (金句 / 这次的收获 / the generated 我的收获) has not run yet.
+   *
+   *  🚨 This is what stopped 「印记正在把这次读的东西整理成一份报告，稍等一下。」
+   *  from being the only thing on screen for up to two and a half minutes. The
+   *  prose is an `assess`-class call (`reasoning: "max"`, 180s budget) served
+   *  inline; the server now stores and returns everything else first and does
+   *  that call on the FOLLOW-UP request. `ReportPanel` renders the report
+   *  immediately and re-fetches once to collect the prose.
+   *
+   *  Absent on every report stored before the split — which is correct, since
+   *  all of those already have their prose. Never present on a PUBLIC share
+   *  payload (the server strips it: a visitor cannot poll an authenticated
+   *  endpoint). */
+  prosePending: boolean;
 };
 
 /** Raw wire shape of `LiteReport`, before the `?? []` defaulting below —
  *  `moments`/`gains`/`lensNotes`/`notes` are `omitempty` on the Go side, so
  *  they may be absent (a report generated before `notes` existed lacks it). */
-type RawLiteReport = Omit<LiteReport, "moments" | "gains" | "lensNotes" | "notes" | "keep" | "piece"> & {
+type RawLiteReport = Omit<
+  LiteReport,
+  "moments" | "gains" | "lensNotes" | "notes" | "keep" | "piece" | "prosePending"
+> & {
+  prosePending?: boolean;
   moments?: ReportMoment[];
   gains?: string[];
   lensNotes?: ReportLensNote[];
@@ -82,6 +101,7 @@ function normalizeReport(raw: RawLiteReport): LiteReport {
     lensNotes: raw.lensNotes ?? [],
     notes: raw.notes ?? [],
     piece: raw.piece ?? "",
+    prosePending: raw.prosePending ?? false,
     // See `ReportKeep`: a keep with no source predates the field and can only
     // have been her own takeaway.
     keep: raw.keep ? { ...raw.keep, source: raw.keep.source ?? "student" } : null,

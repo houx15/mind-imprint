@@ -29,6 +29,7 @@ function report(over: Partial<LiteReport> = {}): LiteReport {
     lensNotes: [],
     notes: [],
     piece: "中国的碳排放总量确实是世界第一。\n\n但把人均和增速放在一起看，结论就没那么干脆了。",
+    prosePending: false,
     ...over,
   };
 }

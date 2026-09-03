@@ -113,10 +113,17 @@ func buildWritingCoachProjection(wr sqlc.Writing, outline []sqlc.WritingOutline,
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目/想法：" + t + "\n")
 	}
+	// 🚨 The language rule reaches the MAIN coach chat here. It was missing
+	// entirely, which is why 印记 kept discussing an English piece as though
+	// every artifact it produced should be Chinese. See writing_lang.go.
+	b.WriteString(writingLangLine(wr))
+	// 🚨 「约 %d 字」 was hard-coded here too. On an English piece this told the
+	// coach a 500-word essay was 500 Chinese characters — see writing_lang.go
+	// for the advice that came out the other end.
 	if wr.TargetWords != nil {
-		fmt.Fprintf(&b, "目标字数：约 %d 字\n", *wr.TargetWords)
+		b.WriteString(writingLengthLine(wr, "目标篇幅"))
 	} else {
-		b.WriteString("目标字数：还没定\n")
+		b.WriteString("目标篇幅：还没定\n")
 	}
 	if len(outline) > 0 {
 		b.WriteString("已确定的提纲：\n")

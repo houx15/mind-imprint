@@ -46,7 +46,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -163,9 +162,8 @@ func buildWritingCommentPrompt(wr sqlc.Writing, label, text string) string {
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目：" + t + "\n")
 	}
-	if wr.TargetWords != nil {
-		b.WriteString("目标字数：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字（仅供参考）\n")
-	}
+	b.WriteString(writingLangLine(wr))
+	b.WriteString(writingLengthLine(wr, "目标字数"))
 	b.WriteString("\n" + label + "：\n" + text + "\n")
 	return b.String()
 }
