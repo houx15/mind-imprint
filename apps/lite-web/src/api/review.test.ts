@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { reviewTodo, splitByMarks, type ReviewMark } from "./review";
+import { partProgress, splitByMarks, splitIntoParts, type ReviewMark } from "./review";
 
 function mark(id: string, quote: string, extra: Partial<ReviewMark> = {}): ReviewMark {
   return {
@@ -63,16 +63,60 @@ describe("splitByMarks", () => {
   });
 });
 
-describe("reviewTodo", () => {
-  // 🚨 审核这件事的产出只有一个：她的判断。
-  //
-  // 原来这里要她把印记划出来的每一句、列出来的每一个方面全填完才准点完成
-  // （「还有 3 句话没回答，2 个方面没说」）——那是一张作业卷子，而
-  // 「form-like things」正是产品负责人 2026-09-01 明确否掉的东西。
-  it("只差她的判断，不数还有几格没填", () => {
-    expect(reviewTodo(false, "")).toBe("结论");
-    expect(reviewTodo(false, "第二段站不住")).toBe("");
-    // 留了意见本身就是判断：结论只会是「执行修改」。
-    expect(reviewTodo(true, "")).toBe("");
+// 🚨 一整篇摊在那里，她能做的只有从头划到尾——那是"读过了"，不是"审过了"。
+// 产品负责人 2026-09-03：「we must go into texts, instead of presenting a large
+// text」。设计文档要的是「explanations for each part so that we know what we
+// should care about in each part」。
+describe("splitIntoParts", () => {
+  const paras = ["开头这一段。", "中间讲做法。", "结尾收一下。"];
+
+  it("starts a new part where a mark names one", () => {
+    const parts = splitIntoParts(paras, [
+      mark("m1", "开头这一段。", { part: "开头", partNote: "第一句决定别人读不读下去" }),
+      mark("m2", "中间讲做法。", { part: "做法", partNote: "步骤要能照着做" }),
+    ]);
+    expect(parts.map((p) => p.name)).toEqual(["开头", "做法"]);
+    // 没有划线的结尾段跟着它前面那一部分走，不会凭空丢掉。
+    expect(parts[1]?.paragraphs).toEqual(["中间讲做法。", "结尾收一下。"]);
+    expect(parts[0]?.note).toBe("第一句决定别人读不读下去");
+  });
+
+  // 印记没分段的时候不能崩，也不能把每一段拆成一部分。
+  it("falls back to one part when no mark names one", () => {
+    const parts = splitIntoParts(paras, [mark("m1", "中间讲做法。")]);
+    expect(parts).toHaveLength(1);
+    expect(parts[0]?.paragraphs).toEqual(paras);
+    expect(parts[0]?.marks.map((m) => m.id)).toEqual(["m1"]);
+  });
+
+  it("files each mark under the part its sentence lives in", () => {
+    const parts = splitIntoParts(paras, [
+      mark("m1", "开头这一段。", { part: "开头" }),
+      mark("m2", "中间讲做法。", { part: "做法" }),
+      mark("m3", "结尾收一下。", { part: "做法" }),
+    ]);
+    expect(parts[0]?.marks.map((m) => m.id)).toEqual(["m1"]);
+    expect(parts[1]?.marks.map((m) => m.id)).toEqual(["m2", "m3"]);
+  });
+
+  // 🚨 引文在原文里找不到（模型抄错一个字）时，那条问题不能就此消失——
+  // 她仍然该看见印记问了什么。
+  it("keeps a question whose quote does not appear in the text", () => {
+    const parts = splitIntoParts(paras, [mark("lost", "这句原文里没有")]);
+    expect(parts[0]?.marks.map((m) => m.id)).toEqual(["lost"]);
+  });
+
+  it("handles an empty document without throwing", () => {
+    expect(splitIntoParts([], [])).toEqual([]);
+  });
+});
+
+describe("partProgress", () => {
+  it("counts only the answered ones", () => {
+    const parts = splitIntoParts(["一段。"], [
+      mark("a", "一段。", { answer: "答了" }),
+      mark("b", "一段。"),
+    ]);
+    expect(partProgress(parts[0]!)).toEqual({ done: 1, total: 2 });
   });
 });

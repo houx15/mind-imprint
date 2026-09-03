@@ -1,12 +1,17 @@
 import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { Check } from "lucide-react";
+import { Icon } from "@/ui";
 import {
+  FEELING_WORDS,
   answerLookback,
   bySection,
   getLookback,
   lookbackTodo,
+  sectionProgress,
   type LookbackPrompt,
 } from "../../../api/lookback";
+import { DONE, tone, type ToneName } from "../../../shared/tone";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
 
@@ -79,43 +84,149 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
         </p>
       )}
 
-      {/* 六段。段是骨架：她答完一串零碎的问题，仍然没被带着从"做了什么"
-          走到"我学到了什么"。 */}
-      <div className="space-y-4">
-        {bySection(prompts).map((g) => (
-          <section key={g.key}>
-            <p className="text-mk-small text-mk-secondary">{g.title}</p>
-            <div className="mt-1.5 space-y-2">
-              {g.prompts.map((p) => (
-                <PromptRow key={p.id} prompt={p} onSave={(a) => void save(p.id, a)} />
-              ))}
-            </div>
-          </section>
-        ))}
-      </div>
-
+      {/* 整体进度。复盘是六段几十题，没有一条进度她不知道自己走到哪儿了。 */}
       {prompts.length > 0 && (
-        <p className="mt-3 text-mk-small text-mk-faint">
-          请根据你的真实项目体验和感受来回答
-        </p>
+        <div className="mb-4">
+          <div className="flex items-baseline justify-between">
+            <p className="text-mk-small text-mk-secondary">
+              已回答 {answered} / {prompts.length}
+            </p>
+            <p className="text-mk-small text-mk-faint">请根据你的真实项目体验和感受来回答</p>
+          </div>
+          <div
+            className="mt-1.5 h-1.5 w-full overflow-hidden rounded-mk-full"
+            style={{ background: "var(--mk-paper)" }}
+          >
+            <div
+              className="h-full rounded-mk-full transition-[width]"
+              style={{
+                width: `${prompts.length ? (answered / prompts.length) * 100 : 0}%`,
+                background: "var(--mk-accent-500)",
+              }}
+            />
+          </div>
+        </div>
       )}
+
+      {/* 六段。段是骨架：她答完一串零碎的问题，仍然没被带着从"做了什么"
+          走到"我学到了什么"。
+          🚨 每段一个颜色和一条色轨（产品负责人 2026-09-03：「colorful」）。
+          原来六段共用同一号灰字，读下来是一张长表，看不出自己在哪一段。 */}
+      <div className="space-y-5">
+        {bySection(prompts).map((g) => {
+          const at = sectionProgress(g.prompts);
+          return (
+            <section key={g.key}>
+              {/* 🚨 段头用这一段的淡底整块托一下，不用左侧色条——六段各挂一条
+                  竖带，滚下来就是一排栅栏。 */}
+              <div
+                className="flex items-center gap-2 rounded-mk-md px-2.5 py-1.5"
+                style={{ background: tone(g.hue).bg }}
+              >
+                <p className="text-mk-body font-semibold" style={{ color: tone(g.hue).fg }}>
+                  {g.title}
+                </p>
+                <span
+                  className="rounded-mk-full px-1.5 text-[11px] font-semibold"
+                  style={{
+                    background: "var(--mk-surface)",
+                    color: at.done === at.total ? DONE.solid : "var(--mk-faint)",
+                  }}
+                >
+                  {at.done}/{at.total}
+                </span>
+              </div>
+              <div className="mt-2 space-y-2">
+                {g.prompts.map((p) => (
+                  <PromptRow
+                    key={p.id}
+                    prompt={p}
+                    hue={g.hue}
+                    // 「感受如何」最难下笔：给几个词点一下起头。
+                    words={g.key === "how" ? [...FEELING_WORDS] : []}
+                    onSave={(a) => void save(p.id, a)}
+                  />
+                ))}
+              </div>
+            </section>
+          );
+        })}
+      </div>
     </ToolFrame>
   );
 }
 
 function PromptRow({
   prompt,
+  hue,
+  words,
   onSave,
 }: {
   prompt: LookbackPrompt;
+  hue: ToneName;
+  /** 点一下就填进去的几个词。空数组 = 这一段不给词。 */
+  words: string[];
   onSave: (answer: string) => void;
 }) {
   const [text, setText] = useState(prompt.answer);
   useEffect(() => setText(prompt.answer), [prompt.answer]);
+  const done = prompt.answer.trim() !== "";
+
+  /** 点一个词：填进去当开头，她接着往下写。已经在里面就拿掉。 */
+  function toggleWord(w: string) {
+    const next = text.startsWith(w) ? text.slice(w.length).replace(/^[，,。\s]+/, "") : `${w}，${text}`;
+    setText(next);
+    if (next.trim() !== prompt.answer.trim()) onSave(next.trim());
+  }
 
   return (
-    <div className="rounded-mk-md border border-mk-border px-3 py-2.5">
-      <p className="text-mk-small text-mk-ink">{prompt.prompt}</p>
+    <div
+      className="rounded-mk-md border px-3 py-2.5"
+      style={{
+        borderColor: done ? DONE.solid : "var(--mk-border)",
+        background: done ? DONE.bg : "transparent",
+      }}
+    >
+      <div className="flex items-start gap-2">
+        {/* 答过的打勾，没答的留一个空圈。扫一眼就知道还剩哪几题。 */}
+        <span
+          className="mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-mk-full"
+          style={{
+            background: done ? DONE.solid : "transparent",
+            border: done ? "none" : "1.5px solid var(--mk-border)",
+            color: "var(--mk-surface)",
+          }}
+        >
+          {done && <Icon icon={Check} size={11} />}
+        </span>
+        <p className="text-mk-small text-mk-ink">{prompt.prompt}</p>
+      </div>
+
+      {/* 🚨 点一个词起头。问一个中学生"你感觉如何"，她面对的是一个空框和一个
+          不知道该多正式的期待——这几个词是台阶，不是选项。 */}
+      {words.length > 0 && (
+        <div className="mt-2 flex flex-wrap gap-1">
+          {words.map((w) => {
+            const on = text.startsWith(w);
+            return (
+              <button
+                key={w}
+                type="button"
+                onClick={() => toggleWord(w)}
+                className="rounded-mk-full px-2 py-0.5 text-mk-small"
+                style={
+                  on
+                    ? { background: tone(hue).solid, color: "var(--mk-surface)" }
+                    : { border: "1px solid var(--mk-border)", color: "var(--mk-secondary)" }
+                }
+              >
+                {w}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
       <textarea
         value={text}
         onChange={(e) => setText(e.target.value)}

@@ -15,6 +15,7 @@ import {
   type NoteKind,
 } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
+import { NOTE_H, NOTE_W, boardSpot } from "../boardLayout";
 import type { ToolSurfaceProps } from "../registry";
 
 /**
@@ -31,8 +32,8 @@ import type { ToolSurfaceProps } from "../registry";
  * 存下来，不能每次打开重排。
  */
 
-const NOTE_W = 148;
-const NOTE_H = 88;
+// 尺寸与落位从 boardLayout 来——「观察日记」带回来的便签走的是同一份网格。
+// 见 boardLayout.ts。
 // 板子的最小高度。真实高度按便签量长出来——见 boardH。
 //
 // 🚨 2026-09-02：原来这是**固定**高度，配 overflow-hidden。每行两张、行距
@@ -40,11 +41,6 @@ const NOTE_H = 88;
 // 一块"贴到第九张就开始吃便签"的头脑风暴板。
 const BOARD_MIN_H = 460;
 
-/** 新便签落在哪：沿网格铺开，之后她自己挪。 */
-function nextSpot(n: number): { x: number; y: number } {
-  const perRow = 2;
-  return { x: 12 + (n % perRow) * (NOTE_W + 14), y: 12 + Math.floor(n / perRow) * (NOTE_H + 14) };
-}
 
 export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) {
   const [notes, setNotes] = useState<Note[]>([]);
@@ -89,7 +85,7 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       const seat = seatRef.current++;
       const [made] = await createNotes(projectId, [{ kind, body }]);
       if (!made) return;
-      const spot = nextSpot(seat);
+      const spot = boardSpot(seat);
       const placed = await moveNote(projectId, made.id, spot.x, spot.y);
       setNotes((prev) => [...prev, placed]);
     } catch (err) {
@@ -272,7 +268,6 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
                 minHeight: NOTE_H,
                 cursor: editing === n.id ? "text" : "grab",
                 background: `color-mix(in srgb, ${meta.hue} 14%, var(--mk-surface))`,
-                borderLeft: `3px solid ${meta.hue}`,
                 outline: on ? "2px solid var(--mk-accent-500)" : undefined,
                 outlineOffset: 1,
               }}

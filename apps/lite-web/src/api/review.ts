@@ -112,17 +112,69 @@ export function splitByMarks(
 }
 
 /**
- * 还差什么才算审完。
+ * 一段一段地进去看，而不是摊开一整篇。
  *
- * 🚨 只差一样：**她的判断**。
+ * 🚨 产品负责人 2026-09-03：「we must go into texts, instead of presenting a
+ * large text」。一整篇铺在那里，她能做的只有从头划到尾——那是"读过了"，不是
+ * "审过了"。
  *
- * 原来这里数的是"还有几句没回答、几个方面没说"，要她把印记划出来的每一句、
- * 列出来的每一个方面全部填完才准点完成。那是一张作业卷子，而
- * 「form-like things」正是产品负责人 2026-09-01 明确否掉的东西。
+ * docs/2026-09-01-pbl-detail.md 要的是「explanations for each part so that we
+ * know what we should care about in each part」。marks 上的 part / partNote
+ * 两个字段就是为这件事留的：印记交东西时顺手说清楚每一部分该看什么。字段一直
+ * 在库里、在 DTO 里，界面一次也没用过。
  *
- * 划出来的句子和该看的方面是**参考框架**，帮她看得更细。她扫一眼就看出问题
- * 在哪、直接写下结论，这是审得好，不是审得不完整。
+ * 分段的依据是划线在原文里出现的位置：一条划线带了新的 part 名，就从它那一段
+ * 开始算新的一部分。印记没给 part 的时候退回一整段，界面照常能用。
  */
-export function reviewTodo(hasComments: boolean, verdictWhy: string): string {
-  return hasComments || verdictWhy.trim() ? "" : "结论";
+export interface ReviewPart {
+  /** 这一部分叫什么。空 = 印记没分段。 */
+  name: string;
+  /** 这一部分要留意什么。 */
+  note: string;
+  /** 属于这一部分的自然段。 */
+  paragraphs: string[];
+  /** 落在这一部分里的划线。 */
+  marks: ReviewMark[];
+}
+
+export function splitIntoParts(paragraphs: string[], marks: ReviewMark[]): ReviewPart[] {
+  // 每一段里第一条划线（按它在这一段里的位置）决定这一段属于谁。
+  const partOfParagraph = paragraphs.map((text) => {
+    const hits = marks
+      .filter((m) => m.quote.trim() && text.includes(m.quote))
+      .map((m) => ({ m, at: text.indexOf(m.quote) }))
+      .sort((a, b) => a.at - b.at);
+    return hits[0]?.m ?? null;
+  });
+
+  const parts: ReviewPart[] = [];
+  let current: ReviewPart | null = null;
+  paragraphs.forEach((text, i) => {
+    const lead = partOfParagraph[i];
+    const name = lead?.part.trim() ?? "";
+    // 新的一部分：这一段的划线带了一个和当前不同的 part 名。
+    if (current === null || (name !== "" && name !== current.name)) {
+      current = { name, note: lead?.partNote.trim() ?? "", paragraphs: [], marks: [] };
+      parts.push(current);
+    }
+    current.paragraphs.push(text);
+  });
+
+  // 划线归到它所在的那一部分。找不到出处的（原文里没有这句）归到第一部分，
+  // 免得整条问题消失——她仍然该看见印记问了什么。
+  for (const m of marks) {
+    const owner =
+      parts.find((p) => p.paragraphs.some((t) => m.quote.trim() && t.includes(m.quote))) ??
+      parts[0];
+    owner?.marks.push(m);
+  }
+  return parts;
+}
+
+/** 这一部分答完了几条。 */
+export function partProgress(part: ReviewPart): { done: number; total: number } {
+  return {
+    done: part.marks.filter((m) => m.answer.trim() !== "").length,
+    total: part.marks.length,
+  };
 }

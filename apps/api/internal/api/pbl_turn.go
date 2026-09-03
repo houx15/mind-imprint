@@ -100,7 +100,13 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 	opening := len(in.Recent) == 0
 	if studentText != "" {
 		in.Recent = append(in.Recent, pbl.Turn{Role: "student", Content: studentText})
-	} else if len(in.Recent) == 0 && !scope.Valid {
+	} else if len(in.Recent) > 0 {
+		// 🚨 她没打字，是刚做完一件工具回来。不说清楚"刚发生了什么"，这一轮的
+		// 上文就以印记自己的话结尾，模型会把那句话原样再说一遍，并且把她刚做完
+		// 的工具再递一次（2026-09-02 线上实测）。
+		in.JustHappened = a.lastPblToolEvent(r, atomID)
+	}
+	if studentText == "" && len(in.Recent) == 0 && !scope.Valid {
 		// 支线里允许空文本：印记要为这条支线开个头，而它的上文来自主线。
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入内容", nil))
 		return
@@ -227,6 +233,25 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 				"err", perr, "atom_id", atomID, "kind", out.Produce.Kind,
 				"request_id", httpx.RequestIDFromContext(r.Context()))
 		}
+	}
+
+	// 🚨 一件点开是空的工具，比不递这件工具糟得多——见 pbl_tool_gate.go。
+	// 这一句必须排在 applyPblProduce 之后：印记这一轮做出来的东西已经落库了，
+	// 所以这里问的是"她现在点进去有没有东西"，而不是"模型说它做了没有"。
+	// 🚨 同一件工具在她屏幕上只能有一张卡。2026-09-03 线上实测：并排两张
+	// 「头脑风暴」，理由各写各的，她根本不知道该点哪张。
+	if out.Tool != "" && a.pblToolAlreadyOnHerScreen(r, atomID, out.Tool) {
+		slog.Info("pbl turn: 印记 re-offered a tool already on her screen; dropping it",
+			"atom_id", atomID, "tool", out.Tool,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		out.Tool, out.ToolReason = "", ""
+	}
+
+	if out.Tool != "" && !a.pblToolHasContent(r.Context(), atomID, out.Tool) {
+		slog.Warn("pbl turn: 印记 offered a tool whose surface would be blank; dropping it",
+			"atom_id", atomID, "tool", out.Tool, "needs", pbl.ToolNeeds(out.Tool),
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		out.Tool, out.ToolReason = "", ""
 	}
 
 	if out.Tool != "" {

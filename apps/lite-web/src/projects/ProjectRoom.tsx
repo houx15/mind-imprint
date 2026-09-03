@@ -30,6 +30,8 @@ import {
 } from "../api/tools";
 import { navigate } from "../routing";
 import { WorkPanel } from "./WorkPanel";
+import { PaneResizer } from "./PaneResizer";
+import { PANE_DEFAULT, usePaneWidth } from "./usePaneWidth";
 import { AwayCard, ToolInvite } from "./tools/ToolInvite";
 import { apiErrorText } from "../api/errorText";
 
@@ -48,6 +50,11 @@ import { apiErrorText } from "../api/errorText";
  */
 export function ProjectRoom({ projectId }: { projectId: string }) {
   const [project, setProject] = useState<Project | null>(null);
+  // 🚨 把工具铺开占满整个房间（产品负责人 2026-09-03：「需要拉出来，更充分的
+  // 视觉空间」）。审核助手要她读一份文档，360px 那一栏读不下去。见 tools/wide.tsx。
+  const [wideTool, setWideTool] = useState(false);
+  // 右栏宽度她自己拖（「adjustable like in cowork」）。见 usePaneWidth.ts。
+  const { width: paneWidth, setWidth: setPaneWidth, desktop } = usePaneWidth();
   const [sessions, setSessions] = useState<Session[]>([]);
   const [thread, setThread] = useState<ThreadMessage[]>([]);
   const [plan, setPlan] = useState<PlanState>({ plan: null, pending: [] });
@@ -77,6 +84,19 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     },
     [projectId],
   );
+
+  /**
+   * 对话滚到最新的一句。
+   *
+   * 🚨 房间原来根本没有滚动这回事：一个聊了十几轮的项目打开时停在 scrollTop=0，
+   * 她看到的是自己最开始那句话，得往下拖一千多像素才找得到进度——连印记刚递
+   * 给她的那张邀请卡也在那下面（2026-09-02 线上实测：2111px 的对话停在顶部）。
+   */
+  const scrollRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
+  }, [thread, pending, thinking, tools]);
 
   useEffect(() => {
     let cancelled = false;
@@ -152,8 +172,17 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       const res = await postTurn(projectId, text, activeSession ?? undefined);
       setDraft("");
       await refreshThread(activeSession);
-      // 印记递了一件工具就把列表拉一遍，那张邀请卡才会出现在对话末尾。
-      if (res.toolId) setTools(await listTools(projectId));
+      // 工具列表无条件拉一遍，那张邀请卡才会出现在对话末尾。
+      //
+      // 🚨 原来是 `if (res.toolId)`。这一轮**没递新工具**不代表工具列表没变：
+      // 服务端会把一件点开是空的工具挡掉，也会有别处改了状态。少拉这一次，
+      // 屏幕上留着的就是一份过期的清单。
+      setTools(await listTools(projectId));
+      // 🚨 印记也可能在这一轮**出了一份计划**。不拉一遍，右边那栏会一直写着
+      // 「计划待生成」，而计划其实已经存好了——2026-09-02 线上实测：印记在
+      // 对话里说「就按你定下来的问题来安排」，面板纹丝不动，她只有刷新整页
+      // 才看得见。计划、决定、结构、分工都从这一条路上来。
+      setPlan(await getPlan(projectId));
     } catch (err) {
       // 印记 failing is surfaced, never smoothed into a plausible sentence.
       setError(apiErrorText(err));
@@ -305,6 +334,17 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
       setThinking(true);
       await postTurn(projectId, "", activeSession ?? undefined);
       await refreshThread(activeSession);
+      // 🚨 印记在这一轮递的工具也要拉一遍。
+      //
+      // 少了这一句，**她刚做完一件工具、印记顺势递出的下一件，是看不见的**——
+      // 而那正是印记最常递工具的时刻。2026-09-03 线上实测：做完「观察日记」，
+      // 印记递了「头脑风暴」，对话里什么都没出现；她只好自己打字，于是下一轮
+      // 印记又递了一次「头脑风暴」，这才两张一起冒出来。做完「头脑风暴」之后
+      // 递的「问题识别」同样要刷新整页才看得见。
+      //
+      // 无条件拉：这一轮还可能把某件工具关掉（见服务端那道空界面闸），
+      // 只在"递了新的"时候拉，关掉的那件就永远留在屏幕上。
+      setTools(await listTools(projectId));
       setPlan(await getPlan(projectId));
     } catch (err) {
       setError(apiErrorText(err));
@@ -342,7 +382,7 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           <Breadcrumb trail={trail} onGo={(id) => void goTo(id)} />
         )}
 
-        <div className="flex-1 overflow-y-auto px-5 py-4">
+        <div ref={scrollRef} className="flex-1 overflow-y-auto px-5 py-4">
           <div className="mx-auto flex max-w-[640px] flex-col gap-4">
             {thread.length === 0 && !thinking && (
               <div className="flex flex-col items-center gap-3 py-10 text-center">
@@ -418,6 +458,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
             <textarea
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
+              // 🚨 回车原来只是插一个换行：她打完一句按回车，什么也没发生，
+              // 光标掉到第二行。Shift+回车 留给真的要换行的时候。
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+                  e.preventDefault();
+                  void send();
+                }
+              }}
               rows={2}
               disabled={busy}
               placeholder="请输入"
@@ -448,20 +496,45 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
           openTool
             ? "fixed inset-0 z-40 w-full border-l-0 bg-mk-surface"
             : "hidden"
-        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:w-[360px] lg:border-l lg:bg-transparent`}
+        } shrink-0 border-mk-border lg:static lg:z-auto lg:block lg:border-l lg:bg-transparent ${
+          // 铺开时占满整个房间；对话让位，因为这时候她在读东西，不在说话。
+          openTool && wideTool
+            ? "lg:fixed lg:inset-0 lg:z-40 lg:w-full lg:border-l-0 lg:bg-mk-surface"
+            : ""
+        }`}
+        // 🚨 宽度只在宽屏上按像素给。窄屏那一档是 `fixed inset-0 w-full` 的整屏
+        // 浮层，行内 width 会盖过 w-full，把浮层压成一条。
+        style={desktop && !(openTool && wideTool) ? { width: paneWidth } : undefined}
       >
-        <WorkPanel
+        {/* 🚨 定位上下文放在这一层，不放 aside 上。
+            aside 在「铺开」那一档要用 lg:fixed，而 Tailwind 生成的顺序里
+            relative 排在 fixed 后面——给 aside 加 lg:relative 会反过来把
+            lg:fixed 压掉，铺开就失效了。包一层就没有这个冲突。 */}
+        <div className="relative h-full">
+          {/* 拖这条缝改宽度。铺开的时候没有缝可拖——那时候它已经占满了。 */}
+          {!(openTool && wideTool) && (
+            <PaneResizer onResize={setPaneWidth} onDoubleClick={() => setPaneWidth(PANE_DEFAULT)} />
+          )}
+          <WorkPanel
           projectId={projectId}
+          projectKind={project?.kind ?? ""}
+          wide={wideTool}
+          onToggleWide={() => setWideTool((w) => !w)}
           plan={plan}
           tools={tools}
           openTool={openTool}
           busy={busy}
-          onSelectTool={setOpenTool}
+          onSelectTool={(id) => {
+            if (!id) setWideTool(false);
+            setOpenTool(id);
+          }}
           onFinishTool={(t, result, summary) => void finishToolInstance(t, result, summary)}
           onOpenSession={(sid) => void enterSession(sid)}
           onResolve={onResolve}
-          onApprove={onApprove}
-        />
+            onApprove={onApprove}
+            onToolsChanged={() => void listTools(projectId).then(setTools)}
+          />
+        </div>
       </aside>
     </div>
   );

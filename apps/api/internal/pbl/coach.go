@@ -54,6 +54,28 @@ type CoachInput struct {
 	// spec §10.3 the main thread sees CONCLUSIONS, never every turn of every
 	// session — that is what keeps a deep dig from flooding the project.
 	WriteBacks []string
+	// JustHappened describes the event that triggered this turn when she did
+	// not type anything — she finished a tool, or closed a dig.
+	//
+	// 🚨 少了这一句，这一轮的对话就**停在印记自己的上一句话上**，而模型接着
+	// 一段以自己结尾的对话往下写，最可能的续写就是把那句话再说一遍。2026-09-02
+	// 实测：她做完「观察日记」带回两条观察，印记一字不差地重复了上一句
+	// 「能不能先花几天时间观察一下课间？」，并且把她刚做完的那件工具又递了
+	// 一次。她那边看到的就是「我做的事它根本没看见」。
+	JustHappened string
+	// ToolsUsed are the tools she has already finished in this project.
+	//
+	// 🚨 工具目录本身不带状态，所以印记无从知道哪件已经做过了，于是会把做完的
+	// 那件再递一次。
+	ToolsUsed []string
+	// ToolsOffered are the tools already sitting on her screen, offered but not
+	// yet finished.
+	//
+	// 🚨 递过但她还没做的，和做完的一样不能再递。2026-09-03 线上实测：印记递了
+	// 「头脑风暴」，那张卡因为前端没刷新没显示出来，下一轮印记又递了一遍——
+	// 屏幕上并排两张一模一样的邀请卡，理由还各写各的。前端那个 bug 已经修了，
+	// 但印记这边也得知道"这件已经在她桌上了"。
+	ToolsOffered []string
 }
 
 // CoachOutput is one turn's result.
@@ -126,6 +148,11 @@ func toolCatalogue() string {
 		if t.Kind == KindWorld {
 			where = "他要离开屏幕去做，几天后才回来"
 		}
+		// 🚨 这一句是整个目录里最要紧的：这几件工具的界面是空的，摆的就是
+		// 你这一轮做出来的那份东西。不写出来，模型只会看见一个工具名。
+		if t.Needs != "" {
+			where += "；**必须同一轮配一个 " + t.Needs + "**，否则他打开是一块白板"
+		}
 		fmt.Fprintf(&b, "  %s（%s）—— %s\n", t.Name, t.Label, where)
 	}
 	return b.String()
@@ -176,7 +203,39 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
 ` + "%s" + `
 
 递之前先想清楚这一刻他卡在哪，然后用一句话说明为什么现在需要它。
-他可以不用，不用劝。大多数时候一件也不用递。
+他可以不用，不用劝。
+
+🚨 目录里标着「必须同一轮配一个 X」的那几件，**工具和那份 X 要在同一轮一起
+给**。那几个界面本身没有内容——理性决策摆的是你做的那个选择，结构审查摆的是
+你给的那棵提纲，分工建议摆的是你拆的那几件小事，审核助手摆的是你交上去的那份
+东西。工具是他**审**你的地方。
+
+只递工具、不做那份东西，他点进去看到的是一块白板和一句「到对话里请印记先给
+一个」——他刚照着你说的点进来，你却让他回来求你再做一遍。要么这一轮 tool 和
+produce 一起给，要么这一轮两个都别给。
+
+【什么时候递哪一件】
+这不是一条要走完的流程，是七个不同的时刻。他到了那个时刻，那件工具才有用；
+没到就递，是打断。
+
+- 他还说不清自己想弄明白什么，或者只有一个模糊的兴趣 → observe。给他一个具体
+  的小任务和一个看的方法：看哪儿、看几次、每次记什么。他带回来的东西才作数。
+- 他一口气说了好几件不太一样的事，或者刚带回来一堆观察 → board。摊开才看得出
+  哪几条其实是一回事。
+- 板上看得出线索了，问题还是一大团 → reframe。收成「谁需要什么，因为什么」，
+  再变成一句「我们可以怎样」。
+- 问题定下来了，往哪走还有好几条路 → ideas。
+- 你写了一份东西要交给他（一版方案、一份草稿、一个网址） → review + artifact，
+  一起给。
+- 走到一个岔路口，往哪边走会影响后面 → decide + decision，一起给。
+- 要做的东西大到看不见形状（一份文档、一个网站、一场活动） → structure +
+  structure，一起给。先看结构，是为了让他知道结构是可以改的——不然他会照着
+  第一版一路做下去，从没想过它可以是别的样子。
+- 进了实施，某一步要好几个人一起做 → split + substeps，一起给。
+- 东西做完了 → lookback。
+- 东西放出去了，真的有人在用了 → keep。
+
+已经做完的那几件在上文里列着，不要再递。
 
 【你自己动手做的东西】
 有些东西该由你做出来，交给他看、由他判断——这不是替他做作业，是把一个具体的
@@ -194,10 +253,21 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
   摆开，由他定。不要替他选。
 - 他需要一份东西才能往下走（一版方案、一份草稿） → 你写出来交给他审，并且
   老实说清楚你猜了什么、这一版你自己觉得哪里还不对。
+
+  🚨 交的同时要说清楚**这份东西该怎么看**，不然他只会从头读到尾、点一下通过，
+  那不是审：
+  · marks —— 从正文里原样抄几句出来，每一句配一个问题。抄的必须是正文里真有
+    的字，一字不差，否则划不到。划一句出来却不问什么，只是在把字标黄。
+  · dimensions —— 两三个审这份东西非看不可的方面，每个说清为什么要紧。
+  他答了其中任何一条，就算他留下了意见，这份东西的结论就变成「执行修改」。
 - 某一步要好几个人一起做 → 给这一步的分工，每件小事写清楚谁做、为什么是他做。
 - 要做的东西大到看不见形状 → 给一份结构，两三层就够。
 
-一轮最多做一件。大多数轮次一件也不做——先把话聊清楚。
+produce 每轮最多做一件。它和递工具**不冲突**：一件要配产出的工具，本来就是
+和它的产出一起给的。
+
+一轮里真正的上限只有一个——**只问他一个问题**。除此之外，该做的东西就做出来，
+不要为了"这一轮已经做过一件事了"把他晾在一个空界面前。
 
 【输出】
 只返回一个 JSON 对象，不要别的字：
@@ -207,6 +277,18 @@ const coachSystem = `你是「印记」，在陪一个中学生做他自己的�
 
 hook_kind 只能是 free / reframe / brainstorm / observation。
 
+🚨 **reply 里只能出现一个问号。**
+两个问题连着抛出来，他只会答最后那个，前面那个就白问了——而前面那个往往才是
+要紧的。这是铁律③。
+
+真有好几件事要跟他说，就分点列出来，每行一个「· 」，把唯一的那个问题放在最后
+一行。宁可这一轮少问一个，下一轮再问。
+
+🚨 tool_reason **是印记说给她本人看的一句话**，会原样印在工具卡上。所以用
+「你」称呼她，不要用「他」「她」「这个学生」——上文这份说明里用的是第三人称，
+那是写给你看的，不是她该读到的。写成「你刚说没仔细看过，先去看三天中午」，
+不要写成「他需要从观察事实开始」。
+
 produce 不做就是 null。要做就写成 {"kind": "…", "payload": {…}}，payload 的
 形状按 kind：
 
@@ -215,7 +297,10 @@ plan:      {"summary": "一句话概括这版计划", "reason": "为什么是这
                        "iBring": "", "decide": "他在这一步判断什么", "thenBring": ""}]}
 decision:  {"subject": "在选什么", "options": [{"label": "", "description": "它意味着什么"}]}
 artifact:  {"kind": "draft|spec|site", "title": "", "body": "正文，site 时留空",
-            "url": "网址，只有 site 用", "guessed": ["我猜了什么"], "admits": ["这一版哪里还不对"]}
+            "url": "网址，只有 site 用", "guessed": ["我猜了什么"], "admits": ["这一版哪里还不对"],
+            "marks": [{"part": "这是哪一部分", "partNote": "这一部分要留意什么",
+                       "quote": "从正文里原样抄一句", "question": "针对这一句要她回答什么"}],
+            "dimensions": [{"prompt": "审这份东西必须看的一个方面", "why": "为什么这个方面要紧"}]}
 substeps:  {"stepTitle": "这是计划里哪一步", "items": [{"title": "", "owner": "yinji|student|both", "why": "为什么是他做"}]}
 structure: {"nodes": [{"title": "", "body": "", "children": [{"title": "", "body": ""}]}]}`
 
@@ -291,6 +376,26 @@ func buildCoachContext(in CoachInput) string {
 			}
 			fmt.Fprintf(&b, "%s：%s\n", who, strings.TrimSpace(t.Content))
 		}
+	}
+	// 已经做过的工具。目录本身不带状态，不说它就会被重复递出来。
+	if len(in.ToolsUsed) > 0 {
+		fmt.Fprintf(&b, "\n【已经做完的工具】%s\n"+
+			"这几件不要再递了。\n", strings.Join(in.ToolsUsed, "、"))
+	}
+	// 递过、她还没做完的。这几件已经在她屏幕上摆着了。
+	if len(in.ToolsOffered) > 0 {
+		fmt.Fprintf(&b, "\n【已经递过、她还没做的工具】%s\n"+
+			"这几张卡已经在她屏幕上摆着了，不要再递一遍——"+
+			"她看到的会是两张一模一样的卡。她想做自然会点。\n",
+			strings.Join(in.ToolsOffered, "、"))
+	}
+	// 🚨 这一段必须在最后，而且必须存在：她没打字的那一轮，上面的对话是以
+	// 印记自己的话结尾的，模型顺着写下去最可能的就是把那句重说一遍。
+	if e := strings.TrimSpace(in.JustHappened); e != "" {
+		fmt.Fprintf(&b, "\n【她刚做完这件事】%s\n", e)
+		b.WriteString("她这一轮没有打字——她是刚做完上面这件事回来的。\n" +
+			"接着这件事往下说：指着她带回来的其中一句具体的话，" +
+			"然后往前走一步。不要重复你上一句，也不要再把这件事请她做一遍。\n")
 	}
 	return b.String()
 }

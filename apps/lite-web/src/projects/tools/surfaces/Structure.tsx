@@ -8,6 +8,7 @@ import {
   autoLayout,
   createNode,
   deleteNode,
+  depthTone,
   getTree,
   moveNode,
   outline,
@@ -269,7 +270,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
         >
           {state.nodes.length === 0 && (
             <p className="absolute inset-0 flex items-center justify-center px-6 text-center text-mk-small text-mk-faint">
-              还没有结构。到对话里请印记先给一个，再在这里审。
+              还没有结构。印记给出提纲后，会在这里让你审核。
             </p>
           )}
 
@@ -279,14 +280,16 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
               if (!n.parentId) return null;
               const a = at(n.parentId);
               const b = at(n.id);
+              // 连线跟着子节点的颜色走：同一支的线是同一个色，图才看得出分叉。
+              // 曲线而不是直线——直角折线在这么小的画布上会糊成一团。
+              const mx = (a.x + NODE_W + b.x) / 2;
               return (
-                <line
+                <path
                   key={n.id}
-                  x1={a.x + NODE_W}
-                  y1={a.y + NODE_H / 2}
-                  x2={b.x}
-                  y2={b.y + NODE_H / 2}
-                  stroke="var(--mk-border)"
+                  d={`M ${a.x + NODE_W} ${a.y + NODE_H / 2} C ${mx} ${a.y + NODE_H / 2}, ${mx} ${b.y + NODE_H / 2}, ${b.x} ${b.y + NODE_H / 2}`}
+                  fill="none"
+                  stroke={depthTone(n.depth).solid}
+                  strokeOpacity={0.5}
                   strokeWidth={1.5}
                 />
               );
@@ -301,14 +304,23 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                 key={n.id}
                 onPointerDown={(e) => startDrag(n.id, e)}
                 onDoubleClick={() => setEditing(n.id)}
-                className="absolute select-none rounded-mk-md border bg-mk-surface px-2.5 py-2 shadow-mk-xs"
+                className="absolute select-none rounded-mk-md border px-2.5 py-2 shadow-mk-xs"
                 style={{
                   left: pos.x,
                   top: pos.y,
                   width: NODE_W,
                   minHeight: NODE_H,
                   cursor: editing === n.id ? "text" : "grab",
-                  borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)",
+                  // 🚨 整块淡底表示"第几层"，不用左侧色条。
+                  // 产品负责人 2026-09-03：「I hate left color bar designs,
+                  // especially when we have a huge list of that」——一张图上
+                  // 十几个节点各挂一条竖带，看着就是一排栅栏。
+                  borderColor: on ? depthTone(n.depth).solid : "var(--mk-border)",
+                  background: depthTone(n.depth).bg,
+                  color: depthTone(n.depth).fg,
+                  boxShadow: on
+                    ? `0 0 0 2px color-mix(in srgb, ${depthTone(n.depth).solid} 35%, transparent)`
+                    : undefined,
                 }}
               >
                 {editing === n.id ? (
@@ -324,7 +336,7 @@ export function Structure({ projectId, tool, onFinish, onClose }: ToolSurfacePro
                     className="w-full rounded-mk-sm border border-mk-input-border bg-mk-surface px-1.5 py-0.5 text-mk-small text-mk-ink outline-none"
                   />
                 ) : (
-                  <p className="break-words text-mk-small text-mk-ink">{n.title}</p>
+                  <p className="break-words text-mk-small">{n.title}</p>
                 )}
                 {n.body && <p className="mt-0.5 text-mk-small text-mk-muted">{n.body}</p>}
               </div>

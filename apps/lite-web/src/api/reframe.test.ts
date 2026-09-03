@@ -53,18 +53,34 @@ describe("draftReframe", () => {
 });
 
 describe("reframeSentence", () => {
+  // 中文句子里不留西文空格——原来是「阿姨 需要 少剩点」。
   it("reads as one sentence", () => {
     expect(reframeSentence({ who: "阿姨", needs: "少剩点", why: "倒掉可惜" })).toBe(
-      "阿姨 需要 少剩点，因为 倒掉可惜。",
+      "阿姨需要少剩点，因为倒掉可惜。",
     );
   });
 
   // 写到一半也要能读——她是一句一句填的，中间每一步都会看见这句话。
   it("shows blanks for the parts not written yet", () => {
-    expect(reframeSentence({ who: "阿姨", needs: "", why: "" })).toBe("阿姨 需要 ……，因为 ……。");
+    expect(reframeSentence({ who: "阿姨", needs: "", why: "" })).toBe("阿姨需要……，因为……。");
   });
 
   it("is empty before she has written anything", () => {
     expect(reframeSentence({ who: "", needs: "", why: "" })).toBe("");
+  });
+
+  // 🚨 问的是「为什么这对这个人重要？」，中文答案几乎必然以「因为」开头，
+  // 模板再补一个就成了「因为 因为课间只有十分钟」。2026-09-02 线上实测拿到的
+  // 就是这一句，而且它会原样跟着 gatherPblToolWork 喂进印记的 prompt。
+  it("does not stutter when her answer already starts with 因为", () => {
+    expect(
+      reframeSentence({ who: "同桌", needs: "近一点的活动地方", why: "因为课间只有十分钟" }),
+    ).toBe("同桌需要近一点的活动地方，因为课间只有十分钟。");
+  });
+
+  it("also absorbs a leading 因为 with punctuation around it", () => {
+    expect(reframeSentence({ who: "同桌", needs: "近一点", why: "因为，来回要四分钟" })).toBe(
+      "同桌需要近一点，因为来回要四分钟。",
+    );
   });
 });

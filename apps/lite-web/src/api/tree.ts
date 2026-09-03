@@ -1,4 +1,5 @@
 import { apiFetch } from "./client";
+import { tone, type Tone, type ToneName } from "../shared/tone";
 
 // api/tree.ts —— 结构图。形状读自 apps/api/internal/api/pbl_tree.go。
 
@@ -165,4 +166,20 @@ export function autoLayout(nodes: TreeNode[]): Map<string, { x: number; y: numbe
     out.set(n.id, { x: 16 + n.depth * 190, y: 16 + row * 74 });
   }
   return out;
+}
+
+/**
+ * 每一层一个颜色。
+ *
+ * 🚨 产品负责人 2026-09-03：「colorful, interactive」。这张图本来就能拖、能删、
+ * 能双击改字，缺的是"看得见形状"——十几个一模一样的灰盒子连成一片，她看不出
+ * 哪些是同一层的、哪一支特别深。而这件工具要她判断的恰恰是形状：盖全了吗、
+ * 顺得下来吗、有没有更好的分法。
+ *
+ * 层数不会很深（服务端最多三层），越深越淡。
+ */
+const DEPTH_TONES: ToneName[] = ["mist", "taro", "matcha", "peach"];
+
+export function depthTone(depth: number): Tone {
+  return tone(DEPTH_TONES[Math.min(Math.max(depth, 0), DEPTH_TONES.length - 1)] as ToneName);
 }

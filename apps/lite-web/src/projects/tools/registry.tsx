@@ -43,6 +43,9 @@ export const TOOL_TASKS: Record<string, string> = {
 
 export interface ToolSurfaceProps {
   projectId: string;
+  /** 她给这个项目选的类别；空 = 还没定。见 api/projects.ts · PROJECT_KINDS。
+   *  长期迭代用它决定该请她看哪几种数据——走廊上的项目问不出点击率。 */
+  projectKind: string;
   tool: ToolInstance;
   /** 收工：把结果写回对话，面板回到计划。 */
   onFinish: (result: unknown, summary: string) => void;

@@ -30,8 +30,8 @@ import type { ToolSurfaceProps } from "../registry";
  * 就并排挂两个标签。
  */
 
-const YINJI_HUE = "#8B5CF6";
-const STUDENT_HUE = "#10B981";
+const YINJI_HUE = "var(--mk-taro)";
+const STUDENT_HUE = "var(--mk-matcha)";
 
 function NameTag({ name, hue }: { name: string; hue: string }) {
   return (
@@ -152,7 +152,7 @@ export function Split({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
 
       {subs.length === 0 ? (
         <p className="mt-2 text-mk-small text-mk-muted">
-          这一步还没有分工方案。到对话里请印记给一个。
+          这一步还没有分工方案。印记提出分工后，会在这里让你审核。
         </p>
       ) : (
         <>

@@ -75,5 +75,9 @@ export function reframeSentence(r: {
   why: string;
 }): string {
   if (!r.who && !r.needs && !r.why) return "";
-  return `${r.who || "……"} 需要 ${r.needs || "……"}，因为 ${r.why || "……"}。`;
+  // 🚨 问的是「为什么这对他重要？」，所以她的答案几乎总是「因为…」开头，
+  // 模板再补一个「因为」就成了「因为 因为课间只有十分钟」。空格也去掉：
+  // 中文句子里不留西文空格。
+  const why = (r.why || "").replace(/^[，,、\s]*因为[，,：:\s]*/, "");
+  return `${r.who || "……"}需要${r.needs || "……"}，因为${why || "……"}。`;
 }
