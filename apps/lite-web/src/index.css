@@ -1523,3 +1523,150 @@
     animation: none;
   }
 }
+
+/* ---------------------------------------------------------------------------
+ * 进度盘（`Progress`）—— 工具面共用的那一个
+ *
+ * 和 `ReadingPlanDial` 是同一套视觉语言（轨 + 弧 + 绕圈的高光 + 呼吸的光晕），
+ * 但它不悬浮、不展开、尺寸可给：工具面上要的是「摆在标题旁边的一小块仪表」，
+ * 不是屋角那个可以 hover 展开的浮标。共用 CSS 会把两件事绑死，所以这里是自己
+ * 的一份，注释里留下出处。
+ *
+ * 两种状态：
+ *
+ *   已知进度 —— 弧就是百分比，值变了**补间**过去（520ms），所以「又答完一处」
+ *              是被看见的，而不是被悄悄换掉的。
+ *   不知道要多久 —— 没有弧，只剩绕圈的高光。印记读完整个项目要一分钟左右，
+ *              那一分钟里她需要看到「这东西在动」，而不是一行不动的字。
+ *
+ * `mk-*` 是**裸 CSS 变量**：所有透明度一律 `color-mix()`，绝不用 Tailwind 的
+ * alpha 修饰符（那样一个字节的 CSS 都不会生成）。
+ * ------------------------------------------------------------------------- */
+.mk-progress {
+  position: relative;
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: var(--mk-progress-size, 44px);
+  height: var(--mk-progress-size, 44px);
+  border: 1px solid color-mix(in srgb, var(--mk-accent-500) 26%, var(--mk-border));
+  border-radius: 999px;
+  background: radial-gradient(
+    120% 120% at 30% 18%,
+    color-mix(in srgb, var(--mk-accent-500) 12%, var(--mk-surface)) 0%,
+    var(--mk-surface) 74%
+  );
+  line-height: 0;
+}
+
+/* 全部做完了就安静下来：done 之后光晕和高光都停，因为已经没有「在动」的东西
+   可指了。绿色用语义色，不是马卡龙那一组——「完成」是状态，不是类别。 */
+.mk-progress.is-done {
+  border-color: color-mix(in srgb, var(--mk-success) 45%, transparent);
+  background: radial-gradient(
+    120% 120% at 30% 18%,
+    color-mix(in srgb, var(--mk-success) 14%, var(--mk-surface)) 0%,
+    var(--mk-surface) 74%
+  );
+}
+
+.mk-progress__sweep {
+  position: absolute;
+  inset: -1px;
+  border-radius: 999px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    color-mix(in srgb, var(--mk-accent-500) 58%, transparent) 42deg,
+    transparent 84deg
+  );
+  opacity: 0.8;
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  mask: radial-gradient(farthest-side, transparent calc(100% - 3px), #000 calc(100% - 2px));
+  animation: mk-progress-sweep 3.6s linear infinite;
+}
+
+@keyframes mk-progress-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.mk-progress__halo {
+  position: absolute;
+  inset: 0;
+  border-radius: 999px;
+  animation: mk-progress-breathe 2.8s ease-in-out infinite;
+}
+
+@keyframes mk-progress-breathe {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--mk-accent-500) 30%, transparent);
+  }
+  55% {
+    box-shadow: 0 0 0 7px color-mix(in srgb, var(--mk-accent-500) 0%, transparent);
+  }
+}
+
+.mk-progress__ring {
+  position: absolute;
+  inset: 3px;
+  transform: rotate(-90deg);
+}
+
+.mk-progress__ring-track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--mk-accent-500) 16%, transparent);
+  stroke-width: 3;
+}
+
+.mk-progress__ring-fill {
+  fill: none;
+  stroke: var(--mk-accent-500);
+  stroke-width: 3;
+  stroke-linecap: round;
+  /* 🚨 补间的是 dashoffset，不是 dasharray：dasharray 变了会让虚线图案本身
+     重排，看起来像跳了一下。 */
+  transition: stroke-dashoffset 520ms cubic-bezier(0.2, 0, 0, 1);
+}
+
+.mk-progress.is-done .mk-progress__ring-fill {
+  stroke: var(--mk-success);
+}
+
+.mk-progress__count {
+  position: relative;
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+  font-feature-settings: "tnum";
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.mk-progress__count b {
+  font-size: 14px;
+  font-weight: 800;
+  color: var(--mk-accent-700);
+}
+
+.mk-progress.is-done .mk-progress__count b {
+  color: var(--mk-success);
+}
+
+.mk-progress__count i {
+  font-size: 10px;
+  font-style: normal;
+  color: var(--mk-faint);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-progress__sweep,
+  .mk-progress__halo {
+    animation: none;
+  }
+  .mk-progress__ring-fill {
+    transition: none;
+  }
+}

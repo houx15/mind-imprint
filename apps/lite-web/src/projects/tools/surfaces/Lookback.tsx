@@ -12,6 +12,7 @@ import {
   type LookbackPrompt,
 } from "../../../api/lookback";
 import { DONE, tone, type ToneName } from "../../../shared/tone";
+import { Progress } from "../../../shared/Progress";
 import { ToolFrame } from "../ToolFrame";
 import type { ToolSurfaceProps } from "../registry";
 
@@ -77,33 +78,31 @@ export function Lookback({ projectId, tool, onFinish, onClose }: ToolSurfaceProp
         </p>
       )}
 
+      {/* 🚨 这一步要一分钟左右（印记要读完整个项目）。原来这儿只有一行不动的
+          字——而一行不动的字和「卡死了」在屏幕上长得一模一样。 */}
       {prompts.length === 0 && !error && (
-        <p className="text-mk-small text-mk-muted">
-          印记正在读这个项目发生过的事，为你写复盘问题。这一步要读完整个项目，
-          通常要等一分钟左右。
-        </p>
+        <div className="flex items-center gap-3">
+          <Progress size={44} label="印记正在写复盘问题" />
+          <div className="min-w-0">
+            <p className="text-mk-small text-mk-ink">印记正在读这个项目发生过的事。</p>
+            <p className="mt-0.5 text-mk-small text-mk-muted">
+              要读完整个项目才写得出问题，通常一分钟左右。
+            </p>
+          </div>
+        </div>
       )}
 
       {/* 整体进度。复盘是六段几十题，没有一条进度她不知道自己走到哪儿了。 */}
       {prompts.length > 0 && (
-        <div className="mb-4">
-          <div className="flex items-baseline justify-between">
-            <p className="text-mk-small text-mk-secondary">
-              已回答 {answered} / {prompts.length}
+        <div className="mb-4 flex items-center gap-3">
+          <Progress done={answered} total={prompts.length} size={44} />
+          <div className="min-w-0">
+            <p className="text-mk-small text-mk-ink">
+              {answered === prompts.length ? "六段都写完了" : "已回答 " + answered + " 段"}
             </p>
-            <p className="text-mk-small text-mk-faint">请根据你的真实项目体验和感受来回答</p>
-          </div>
-          <div
-            className="mt-1.5 h-1.5 w-full overflow-hidden rounded-mk-full"
-            style={{ background: "var(--mk-paper)" }}
-          >
-            <div
-              className="h-full rounded-mk-full transition-[width]"
-              style={{
-                width: `${prompts.length ? (answered / prompts.length) * 100 : 0}%`,
-                background: "var(--mk-accent-500)",
-              }}
-            />
+            <p className="mt-0.5 text-mk-small text-mk-muted">
+              请根据你的真实项目体验和感受来回答
+            </p>
           </div>
         </div>
       )}
