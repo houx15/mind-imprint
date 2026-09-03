@@ -10,6 +10,7 @@ import { Reframe } from "./surfaces/Reframe";
 import { Review } from "./surfaces/Review";
 import { Split } from "./surfaces/Split";
 import { Ship } from "./surfaces/Ship";
+import { Sites } from "./surfaces/Sites";
 import { Structure } from "./surfaces/Structure";
 
 /**
@@ -41,6 +42,7 @@ export const TOOL_TASKS: Record<string, string> = {
   lookback: "一起复盘项目过程吧！",
   keep: "持续观察成果落地后的反馈，进一步迭代你的成果！",
   // 主页项目那几件。见 apps/api/internal/pbl/website.go 的五关路线。
+  sites: "找三个你真的喜欢的个人网站，看看它们是怎么做的",
   ship: "看一遍这一页，确认之后放出去",
 };
 
@@ -84,6 +86,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   lookback: Lookback,
   keep: Keep,
   ship: Ship,
+  sites: Sites,
 };
 
 export function surfaceFor(tool: string): ComponentType<ToolSurfaceProps> | null {

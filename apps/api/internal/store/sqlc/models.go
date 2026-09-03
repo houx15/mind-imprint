@@ -748,6 +748,18 @@ type PblSite struct {
 	UpdatedAt   time.Time          `json:"updated_at"`
 }
 
+type PblSiteRef struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	Url       string    `json:"url"`
+	Title     string    `json:"title"`
+	What      string    `json:"what"`
+	Structure string    `json:"structure"`
+	Best      string    `json:"best"`
+	SheSaid   string    `json:"she_said"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
 type PblSubstep struct {
 	ID             uuid.UUID          `json:"id"`
 	StepID         uuid.UUID          `json:"step_id"`

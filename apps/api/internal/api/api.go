@@ -311,6 +311,11 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts", liteOnly(a.handOverPblArtifact))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/settle", liteOnly(a.settlePblArtifact))
 	// 工具：端点留着，交互延后（spec §13）。
+	// 主页项目第二关：她自己找到的那几个个人网站。见 internal/api/pbl_sites.go。
+	mux.Handle("GET /api/v1/pbl/projects/{id}/sites", liteOnly(a.listPblSiteRefs))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/sites", liteOnly(a.addPblSiteRef))
+	mux.Handle("PATCH /api/v1/pbl/projects/{id}/sites/{sid}", liteOnly(a.setPblSiteRefSaid))
+	mux.Handle("DELETE /api/v1/pbl/projects/{id}/sites/{sid}", liteOnly(a.deletePblSiteRef))
 	mux.Handle("GET /api/v1/pbl/projects/{id}/notes", liteOnly(a.listPblNotes))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/notes", liteOnly(a.createPblNote))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/notes/{nid}", liteOnly(a.updatePblNote))

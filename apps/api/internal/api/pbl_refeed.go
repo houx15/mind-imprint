@@ -42,6 +42,32 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 主页项目第二关：她自己找到、贴进来的那几个个人网站。
+	//
+	// 不回灌等于这一关白做：她花时间去搜、去挑、去贴，回到对话，而印记收到的
+	// prompt 和上一轮一模一样——它没看见任何一站，只能接着聊上一轮那件事。
+	// 闭环（产品负责人 2026-09-03）：有终点信号、但做出来的东西没回到印记那儿，
+	// 就不算闭环。
+	//
+	// 带上她自己补的那一句，并且和印记读出来的那几句分开说——「她说这一站
+	// ……」和「这一站的结构是……」是两个人说的话，混在一起，印记就会把自己
+	// 读出来的东西当成她的判断复述给她听。
+	if refs, err := a.d.Queries.ListPblSiteRefs(ctx, atomID); err == nil {
+		for _, s := range refs {
+			line := "她贴了一个她喜欢的站：" + s.Title + "（" + s.Url + "）"
+			if strings.TrimSpace(s.Structure) != "" {
+				line += "；它的结构是：" + s.Structure
+			}
+			if strings.TrimSpace(s.Best) != "" {
+				line += "；最值得学的一处：" + s.Best
+			}
+			add(line)
+			if t := strings.TrimSpace(s.SheSaid); t != "" {
+				add("她自己说这一站：" + t)
+			}
+		}
+	}
+
 	// 她改写过的问题。这是阶段一的落点，也是整个项目后面所有事的锚。
 	if rs, err := a.d.Queries.ListPblReframes(ctx, atomID); err == nil {
 		for _, x := range rs {
