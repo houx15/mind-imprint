@@ -851,6 +851,39 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	return got, true
 }
 
+// enforceLensDoneTurn is the code half of the system prompt's 「她刚做完一副
+// 透镜的那一轮」 rule: she just handed something in, so this turn must not
+// hand her something new.
+//
+// 🚨 Why this is code and not only prose. The prompt already says 「lens、card
+// 都留空」. Running the real model three times through the real prompt
+// (TestLiveLensDoneReplyParses, 2026-09-04) gave: 3/3 parsed, 3/3 advanced
+// with "done", the words themselves good — and **2 of 3 attached a card
+// anyway**. Which is not mysterious: the same prompt carries a STRONGER
+// standing default (「带一步的默认方式就是给她一张卡片」), and when two rules
+// collide a model follows the louder one.
+//
+// That is exactly what [[prompt-output-must-be-verifiable-2026-09-03]] is
+// about — a 「必须」 in a prompt has to be checkable in code. So this rule
+// lands here, structurally identical to the parser's own 「已给 lens 就丢卡片」
+// (铁律③): drop the lighter instrument so the thing she just finished is what
+// gets seen.
+//
+// Only `Card` and `Lens` are dropped. `Reply`, `Advance` and `FocusBlock` are
+// precisely what this turn SHOULD carry: catch the sentence she picked, settle
+// the step, walk her to the next one.
+//
+// A pure function rather than four lines inline, so the live test can run the
+// same rule production runs instead of asserting on an approximation of it.
+func enforceLensDoneTurn(got readingCoachReply, lensDone *readingLensDone) readingCoachReply {
+	if lensDone == nil {
+		return got
+	}
+	got.Card = nil
+	got.Lens = ""
+	return got
+}
+
 // postReadingCoachTurn is POST /api/v1/readings/{id}/coach.
 //
 // One guided turn. `text` empty means she pressed 开始 — the coach introduces
@@ -1000,12 +1033,13 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	lang := readingLangOf(src.Body)
 	system := buildReadingCoachSystem(lang)
-	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
+	chatReq := gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},
 			{Role: gateway.RoleUser, Content: buildReadingCoachPrompt(src.Title, blocks, tasks, msgs, picks, studentContent, lensDone)},
 		},
-	})
+	}
+	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)
 	if cerr != nil {
 		slog.Warn("reading coach: provider call failed", "err", cerr,
@@ -1044,11 +1078,50 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
 	if !okParse {
-		slog.Warn("reading coach: reply unparseable",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
-		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
-		return
+		// 🚨 ASK ONCE MORE. Measured 2026-09-04 against the live model
+		// (TestLiveLensDoneReplyParses, 6 samples): **1 in 6 replies arrives
+		// truncated** — the model writes a perfectly good reply, gets as far
+		// as the trailing optional key and simply stops:
+		//
+		//	…"advance":"done","focusBlock":"","tool":"","lens":"","card":
+		//
+		// and the provider reports `stop_reason: "stop"`, i.e. a NORMAL
+		// finish. So there is nothing to detect it by other than the parse
+		// failing, and no client cap to raise: max_tokens is 16000 and the
+		// reply was ~100.
+		//
+		// One retry turns a ~17% chance of 「AI 响应错误」 into ~3%. It is not
+		// a workaround for a prompt problem — the reply that came back was
+		// GOOD, it was cut off mid-serialisation — and it is not a fake
+		// answer either ([[ai-errors-must-surface-never-fake]] forbids
+		// inventing a plausible sentence; asking the model again is the
+		// opposite of that). A second failure still surfaces honestly.
+		//
+		// This is a pre-existing defect of every reading-coach turn, not of
+		// the lens-completion turn — it was simply never measured until a
+		// live walk of the lens refeed hit it.
+		slog.Warn("reading coach: reply unparseable, retrying once",
+			"atom_id", at.ID, "stop_reason", res.StopReason,
+			"request_id", httpx.RequestIDFromContext(r.Context()))
+		res, cerr = gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq)
+		a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, res.Usage)
+		if cerr != nil {
+			slog.Warn("reading coach: retry call failed", "err", cerr,
+				"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
+		parsed, okParse = parseReadingCoachReply(res.Text, blocks, lang, lensOK)
+		if !okParse {
+			slog.Warn("reading coach: reply unparseable after retry",
+				"atom_id", at.ID, "stop_reason", res.StopReason,
+				"request_id", httpx.RequestIDFromContext(r.Context()))
+			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
+			return
+		}
 	}
+
+	parsed = enforceLensDoneTurn(parsed, lensDone)
 
 	// The student turn, the coach turn, and the step advance land together.
 	// Split, a crash between them leaves the transcript saying one thing and

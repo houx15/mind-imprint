@@ -472,6 +472,25 @@ func parseReportReply(text string) (reportModelReply, bool) {
 // already destructuring the pair, and a bare `(nil, nil, "")` on five failure
 // paths reads as noise next to a named zero value.
 type reportProse struct {
+	// Retryable says whether asking again could ever produce more than this
+	// attempt did.
+	//
+	// 🚨 This is what stops `prosePending` getting STUCK. The two-phase
+	// generator re-attempts the prose on a later open only while the report
+	// is still flagged pending, and the first live walk (2026-09-04) found a
+	// session where that flag could never clear: a reading finished with no
+	// takeaway, no notes and nothing she had said, i.e. an EMPTY CORPUS. The
+	// generator correctly declines to call a model over nothing — but
+	// "produced no moments" then looked exactly like "the call failed", so
+	// the report asked to be re-fetched forever and the 处理中 line never
+	// went away.
+	//
+	// false = terminal (nothing to work from, or the model answered and this
+	// is simply what it had to say). true = worth one more try later (no
+	// provider, the call errored, or the reply was unusable) — which is the
+	// case the 150s flagship timeout falls into, and the one worth keeping.
+	Retryable bool
+
 	Moments []reportMoment
 	Gains   []string
 	// Summary is the 我的收获 paragraph, used ONLY when she left no takeaway
@@ -490,12 +509,14 @@ func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID,
 		// (a reading finished on takeaway alone, with no notes/chat/cards).
 		// Calling the model over an empty corpus would only earn a made-up
 		// reply that could never survive validateMoments anyway.
+		//
+		// Terminal: no later attempt can invent material she never produced.
 		return reportProse{}
 	}
 	resolved, ok := a.route(ctx, gateway.ClassAssess)
 	if !ok {
 		slog.Warn("lite report: no provider resolved", "atom_id", atomID, "kind", kind)
-		return reportProse{}
+		return reportProse{Retryable: true}
 	}
 	res, cerr := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
@@ -506,12 +527,14 @@ func (a *API) generateReportProse(ctx context.Context, userID, atomID uuid.UUID,
 	a.recordLiteLLMCall(ctx, userID, atomID, "lite_report", resolved, res.Usage)
 	if cerr != nil {
 		slog.Warn("lite report: provider call failed", "err", cerr, "atom_id", atomID)
-		return reportProse{}
+		// The 150s flagship timeout lands here — exactly the case worth
+		// retrying on her next open rather than stamping as final.
+		return reportProse{Retryable: true}
 	}
 	reply, okParse := parseReportReply(res.Text)
 	if !okParse {
 		slog.Warn("lite report: unparseable reply", "atom_id", atomID)
-		return reportProse{}
+		return reportProse{Retryable: true}
 	}
 	return reportProse{
 		Moments: validateMoments(reply.Moments, corpus.Text),
@@ -704,6 +727,12 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	if wantProse {
 		prose = a.generateReportProse(ctx, userID, at.ID, "reading", rd.Title, corpus)
 	}
+	// The builder owns ProsePending, so phase 1 and phase 2 can never disagree
+	// about it: phase 1 never asked (so the prose is still owed), and phase 2
+	// only leaves it owed when asking again could actually help. See
+	// reportProse.Retryable — this is what stops the flag getting stuck on a
+	// session with nothing to write prose about.
+	prosePending := !wantProse || prose.Retryable
 	// F4: the takeaway stays IN the corpus (see this function's caller
 	// context and dedupeMomentsAgainstKeep's own doc comment for why), so
 	// strip it back out of moments here, after generation, rather than
@@ -730,6 +759,7 @@ func (a *API) buildReadingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		Version: 1, Kind: "reading", Title: rd.Title, StudentName: studentName,
 		FinishedAt: finishedAt, Stats: stats, Moments: moments, Keep: keep, Gains: gains,
 		LensNotes: lensNotes, Notes: buildReadingNotes(notes),
+		ProsePending: prosePending,
 	}, nil
 }
 
@@ -818,6 +848,12 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 	if wantProse {
 		prose = a.generateReportProse(ctx, userID, at.ID, "writing", wr.Title, corpus)
 	}
+	// The builder owns ProsePending, so phase 1 and phase 2 can never disagree
+	// about it: phase 1 never asked (so the prose is still owed), and phase 2
+	// only leaves it owed when asking again could actually help. See
+	// reportProse.Retryable — this is what stops the flag getting stuck on a
+	// session with nothing to write prose about.
+	prosePending := !wantProse || prose.Retryable
 
 	// A writing has no takeaway field at all, so its 我的收获 is always the
 	// model's summary or nothing — which is why this card was simply missing
@@ -837,7 +873,8 @@ func (a *API) buildWritingReportDTO(ctx context.Context, qtx *sqlc.Queries, user
 		FinishedAt: finishedAt, Stats: stats, Moments: prose.Moments, Keep: keep, Gains: prose.Gains,
 		// See `Piece`. Trimmed so a draft of nothing but whitespace stores as
 		// "" and the section is absent rather than an empty bordered slab.
-		Piece: strings.TrimSpace(draft.Body),
+		Piece:        strings.TrimSpace(draft.Body),
+		ProsePending: prosePending,
 	}, nil
 }
 
@@ -1081,7 +1118,8 @@ func (a *API) ensureAtomReport(ctx context.Context, userID, atomID uuid.UUID, ki
 	if err != nil {
 		return sqlc.AtomReport{}, false, err
 	}
-	report.ProsePending = true
+	// ProsePending is set by the builder (wantProse=false ⇒ still owed), not
+	// stamped here — one owner for the flag.
 
 	raw, merr := json.Marshal(report)
 	if merr != nil {
@@ -1296,17 +1334,25 @@ func (a *API) enrichAtomReportProse(
 		slog.Warn("lite report: prose phase failed to rebuild", "err", err, "atom_id", atomID)
 		return stored, true, nil
 	}
-	// The model declined, timed out, or produced nothing that survived
-	// validateMoments. Leave the row pending so the NEXT open tries again,
-	// rather than stamping an empty prose section as final.
+	// 🚨 Whether the flag clears is the BUILDER's answer (report.ProsePending,
+	// from reportProse.Retryable), never "did we get any moments".
 	//
-	// `keep` is the exception worth naming: on a session where she left no
-	// takeaway of her own, `keep` comes from prose.Summary, so a report whose
-	// prose never lands keeps an empty 我的收获 — which is the same state it
-	// had before this two-phase split, not a new loss.
-	if len(report.Moments) == 0 && len(report.Gains) == 0 {
-		return stored, true, nil
-	}
+	// The first live walk (2026-09-04) is why. It finished a reading with no
+	// takeaway, no notes and nothing she had said — an empty corpus — so the
+	// generator correctly made no model call and returned no prose. Keying
+	// the flag off "no moments and no gains" then meant the report stayed
+	// pending forever: every open re-attempted, the client re-fetched every
+	// time, and the 处理中 line never went away on a report that was in fact
+	// as complete as it would ever be.
+	//
+	// A retryable outcome (no provider, a failed call — including the 150s
+	// flagship timeout — or an unusable reply) still leaves the flag up, and
+	// that IS the case worth another try. Either way the enriched report is
+	// stored, so the deterministic half is never lost.
+	//
+	// `keep` is worth naming: on a session where she left no takeaway, `keep`
+	// comes from prose.Summary, so a report whose prose never lands keeps an
+	// empty 我的收获 — the same state it had before this split, not a new loss.
 
 	tx, err := a.d.Pool.Begin(ctx)
 	if err != nil {

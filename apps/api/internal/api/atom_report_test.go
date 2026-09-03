@@ -217,6 +217,51 @@ func TestReportSecondOpenAddsProseOnce(t *testing.T) {
 	}
 }
 
+// TestReportThinSessionStopsAskingToBeRefetched — 🚨 the stuck-flag case,
+// found by the first live walk (2026-09-04) rather than by any test.
+//
+// A reading finished with no takeaway, no notes and nothing she said has an
+// EMPTY CORPUS, so generateReportProse correctly makes no model call at all.
+// The first cut of the two-phase split keyed the pending flag off "did we get
+// any moments or gains", which made that indistinguishable from "the call
+// failed" — so the report stayed `prosePending` forever: every open
+// re-attempted, the client re-fetched every time, and the 处理中 line never
+// went away on a report that was already as complete as it would ever be.
+//
+// The flag now follows reportProse.Retryable: nothing to work from is
+// TERMINAL, and only a genuine failure is worth another try.
+func TestReportThinSessionStopsAskingToBeRefetched(t *testing.T) {
+	prov := &countingProvider{inner: reportStubProvider()}
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	// No takeaway, no notes, no chat — deliberately the thinnest finishable
+	// reading there is.
+	id := createReadingAtomHTTP(t, h, cookie, "关于气候变化的一篇")
+	finishReadingHTTP(t, h, cookie, id)
+
+	if rec := getReadingReportHTTP(h, cookie, id); rec.Code != http.StatusOK {
+		t.Fatalf("phase 1 = %d; body=%s", rec.Code, rec.Body)
+	}
+	second := getReadingReportHTTP(h, cookie, id)
+	if second.Code != http.StatusOK {
+		t.Fatalf("phase 2 = %d; body=%s", second.Code, second.Body)
+	}
+	var out struct {
+		Report struct {
+			ProsePending bool `json:"prosePending"`
+		} `json:"report"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &out); err != nil {
+		t.Fatalf("decode: %v — body=%s", err, second.Body)
+	}
+	if out.Report.ProsePending {
+		t.Fatalf("a report with nothing to write prose about must stop asking to be re-fetched — body=%s", second.Body)
+	}
+	// And it never reached a provider: there was nothing to ask about.
+	if n := prov.count(); n != 0 {
+		t.Errorf("empty corpus called the model %d times, want 0", n)
+	}
+}
+
 // TestReportChargesOnce — two concurrent opens of a finished reading's
 // report whose prose is still pending cost exactly one provider call. The
 // advisory lock plus the re-read under it are what make the loser drop its
