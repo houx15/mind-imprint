@@ -22,6 +22,7 @@ import {
 import { ToolFrame } from "../ToolFrame";
 import { useWidePane } from "../wide";
 import { DONE, TODO, tone } from "../../../shared/tone";
+import { Progress } from "../../../shared/Progress";
 import type { ToolSurfaceProps } from "../registry";
 import { apiErrorText } from "../../../api/errorText";
 
@@ -259,7 +260,7 @@ export function Review({ projectId, tool, onFinish, onOpenSession, onClose }: To
                   scored.done === scored.total ? DONE.bg : "var(--mk-paper)",
               }}
             >
-              <Ring done={scored.done} total={scored.total} />
+              <Progress done={scored.done} total={scored.total} size={44} />
               <div className="min-w-0">
                 <p className="text-mk-small font-semibold text-mk-ink">
                   {scored.done === scored.total
@@ -608,41 +609,3 @@ function AnswerBox({ value, onSave }: { value: string; onSave: (v: string) => vo
   );
 }
 
-/**
- * Ring —— 审到哪儿了。
- *
- * 一个数字说不出"还差多少"，一个圈说得出。用 SVG 画，不引库：一条底环加一条
- * 按比例截断的弧。
- */
-function Ring({ done, total }: { done: number; total: number }) {
-  const r = 15;
-  const c = 2 * Math.PI * r;
-  const pct = total === 0 ? 0 : done / total;
-  const full = done === total;
-  return (
-    <svg width="38" height="38" viewBox="0 0 38 38" className="shrink-0 -rotate-90">
-      <circle cx="19" cy="19" r={r} fill="none" stroke="var(--mk-border)" strokeWidth="4" />
-      <circle
-        cx="19"
-        cy="19"
-        r={r}
-        fill="none"
-        stroke={full ? "var(--mk-success)" : "var(--mk-accent-500)"}
-        strokeWidth="4"
-        strokeLinecap="round"
-        strokeDasharray={`${c * pct} ${c}`}
-        style={{ transition: "stroke-dasharray 240ms ease" }}
-      />
-      <text
-        x="19"
-        y="19"
-        textAnchor="middle"
-        dominantBaseline="central"
-        className="rotate-90 text-[11px] font-semibold"
-        style={{ transformOrigin: "19px 19px", fill: "var(--mk-ink)" }}
-      >
-        {done}
-      </text>
-    </svg>
-  );
-}
