@@ -269,6 +269,15 @@ func (a *API) Handler() http.Handler {
 	// 🚨 路径带 /pbl/ 前缀，不是 /api/v1/projects——那条是 pro 的（见上方
 	// proOnly 那一段），而且 edition_test.go 有一条测试明确要求轻量版访问它
 	// 得到 404。两边同名会让其中一边静默失效。
+	// S5 · 她的主页。/pbl/site 在 /pbl/projects 之前注册，因为它是 §4 那道门
+	// 的另一半：projects 拒绝的时候，这里是唯一走得通的路。
+	mux.Handle("GET /api/v1/pbl/site", liteOnly(a.getPblSite))
+	mux.Handle("PUT /api/v1/pbl/site/content", liteOnly(a.putPblSiteContent))
+	mux.Handle("PUT /api/v1/pbl/site/layout", liteOnly(a.putPblSiteLayout))
+	mux.Handle("POST /api/v1/pbl/site/publish", liteOnly(a.publishPblSite))
+	mux.Handle("DELETE /api/v1/pbl/site/publish", liteOnly(a.revokePblSite))
+	mux.Handle("POST /api/v1/pbl/site/project", liteOnly(a.startPblSiteProject))
+
 	mux.Handle("POST /api/v1/pbl/projects", liteOnly(a.createPblProject))
 	mux.Handle("GET /api/v1/pbl/projects", liteOnly(a.listPblProjects))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}", liteOnly(a.patchPblProject))
@@ -378,6 +387,10 @@ func (a *API) Handler() http.Handler {
 	// link, and anyone with it — no login — can view her report. Do not wrap
 	// this in an auth gate; that would defeat the whole feature.
 	mux.Handle("GET /api/v1/public/reports/{token}", http.HandlerFunc(a.getPublicReport))
+	// 同样公开、同样无 session：她把自己的主页链接发给了谁，谁就能打开。响应
+	// 带 X-Robots-Tag: noindex（spec §15——她是未成年人，链接是给人的，不是给
+	// 搜索引擎的）。
+	mux.Handle("GET /api/v1/public/sites/{token}", http.HandlerFunc(a.getPublicSite))
 
 	mux.Handle("GET /api/v1/courses", protected(a.listCourses))
 	mux.Handle("GET /api/v1/courses/{slug}", protected(a.getCourse))

@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { openSiteGate } from "./gate";
 
 /**
  * 项目 walk — the landing page, the create flow, the board, and the room.
@@ -8,16 +9,23 @@ import { expect, test } from "@playwright/test";
  * this file is the screenshots it drops in `e2e/.shots/`, not the handful of
  * assertions around them. Open them.
  *
- * No model key is needed anywhere in this walk: a student's FIRST project is
- * her homepage by rule (spec §4), so the server skips the classifier, and the
- * walk never sends a turn.
+ * No model key is needed anywhere in this walk: building a project never calls
+ * a model (migration 0112 — the category is hers), and the walk never sends a
+ * turn.
+ *
+ * 🚨 这条 walk 先开门。spec §4 的门自 2026-09-03 起是真的了：主页发布之前，
+ * 自由项目一律 409。所以「一个正在开第二个项目的学生」必然是一个主页已经在线
+ * 上的学生——`openSiteGate` 把她放到那个位置上。门本身由 `homepage-walk.spec.ts`
+ * 从头到尾看一遍。
  */
 test("项目: empty state → create → name and cover → room → board", async ({ page }) => {
+  // 先把主页做完发布——门后面才有「开第二个项目」这件事。
+  await page.goto("/projects");
+  await openSiteGate(page);
   await page.goto("/projects");
 
-  // 1 · The empty state: the box, and one line about the first project.
+  // 1 · The empty state: the box is here because her page is live.
   await expect(page.getByRole("heading", { name: "最近想做点什么" })).toBeVisible();
-  await expect(page.getByText("你的第一个项目是做一个属于你自己的主页", { exact: false })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/projects-1-empty.png", fullPage: true });
 
   // 2 · Write an idea and start.

@@ -11,6 +11,7 @@ import {
   type Project,
 } from "../api/projects";
 import { navigate, projectPath } from "../routing";
+import { getSite, startSiteProject, type SiteState } from "../api/site";
 import { ProjectCard } from "./ProjectCard";
 import { apiErrorText } from "../api/errorText";
 
@@ -46,10 +47,22 @@ export function ProjectsLanding() {
   const [view, setView] = useState<"cards" | "board">("cards");
   const [error, setError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  // spec §4 的门：她的主页发布之前，这里给的是主页那一扇门，不是自由输入框。
+  const [site, setSite] = useState<SiteState | null>(null);
+  const [opening, setOpening] = useState(false);
   /** Set once a project exists on the server and she has yet to name it. */
 
   useEffect(() => {
     let cancelled = false;
+    getSite()
+      .then((s) => {
+        if (!cancelled) setSite(s);
+      })
+      .catch(() => {
+        // 读不到主页状态时按「门关着」处理。反过来（默认门开着）会让她建出一个
+        // 服务端一定会拒掉的项目，那是一次白写的输入。
+        if (!cancelled) setSite(null);
+      });
     listProjects()
       .then((rows) => {
         if (!cancelled) setProjects(rows);
@@ -66,7 +79,8 @@ export function ProjectsLanding() {
   }, []);
 
   const columns = useMemo(() => groupByStatus(projects ?? []), [projects]);
-  const isFirstEver = projects !== null && projects.length === 0;
+  // 门开着 = 她的主页真的在线上。开着没做的主页项目挡不住任何事。
+  const siteReady = site?.published === true;
 
   async function handleStart() {
     const text = idea.trim();
@@ -103,62 +117,105 @@ export function ProjectsLanding() {
   return (
     <div className="relative min-h-full">
       <div className="relative mx-auto flex w-full max-w-[1100px] flex-col px-4 pb-20 pt-16 sm:px-6">
-        {/* ── 1 · the big box ─────────────────────────────────────────── */}
-        <div className="mx-auto w-full max-w-[720px]">
-          <h1 className="text-center text-mk-display text-mk-ink">最近想做点什么</h1>
-          <p className="mt-3 text-center text-mk-body text-mk-secondary">
-            一句话就行。想清楚要做什么，是我们一起的第一件事。
-          </p>
+        {/* ── 1 · 门，或者输入框 ───────────────────────────────────────
+            spec §4：她还没有主页的时候，第一个项目就是做一个。**不是推荐，
+            是第一个项目就是它。** 产品负责人 2026-09-03 把它定成一道完整的门。
 
-          <div
-            onAnimationEnd={() => setShake(false)}
-            className={`mt-7 rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-mk-sm focus-within:border-mk-accent-200${
-              shake ? " mk-shake" : ""
-            }`}
-          >
-            <textarea
-              ref={boxRef}
-              value={idea}
-              onChange={(e) => setIdea(e.target.value)}
-              rows={4}
-              disabled={creating}
-              placeholder="比如：我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。"
-              className="w-full resize-none bg-transparent text-mk-prose text-mk-ink outline-none placeholder:text-mk-faint"
-            />
-            {/* Stacked on a phone. Side by side, the hint wrapped to two lines
-                and squeezed the button until 开始 broke across two lines as
-                「开 / 始」 — a two-character button cannot be allowed to wrap,
-                so the button is nowrap and the row stops competing for width
-                below `sm`. */}
-            <div className="flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-              <span className="order-2 text-mk-small text-mk-muted sm:order-1">
-                {creating ? "处理中" : "写完按开始，印记会先跟你聊清楚要做什么。"}
-              </span>
-              <button
-                type="button"
-                onClick={handleStart}
+            以前这条规则在这一页上只是一句会自己消失的灰字提示，什么都没拦住，
+            所以从来没有人触发过它。现在门关着的时候，这里给的就是那一扇门。
+
+            🚨 看板照常显示。门是在这道输入框上，不在她已经有的东西上——已经
+            建了项目、还没有主页的学生（门上线之前的每一个人）不能因为这次改动
+            就进不去自己的项目。 */}
+        {siteReady ? (
+          <div className="mx-auto w-full max-w-[720px]">
+            <h1 className="text-center text-mk-display text-mk-ink">最近想做点什么</h1>
+            <p className="mt-3 text-center text-mk-body text-mk-secondary">
+              一句话就行。想清楚要做什么，是我们一起的第一件事。
+            </p>
+
+            <div
+              onAnimationEnd={() => setShake(false)}
+              className={`mt-7 rounded-mk-lg border border-mk-border bg-mk-surface p-3 shadow-mk-sm focus-within:border-mk-accent-200${
+                shake ? " mk-shake" : ""
+              }`}
+            >
+              <textarea
+                ref={boxRef}
+                value={idea}
+                onChange={(e) => setIdea(e.target.value)}
+                rows={4}
                 disabled={creating}
-                className="order-1 flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-40 sm:order-2"
-                style={{ background: "var(--mk-accent-500)" }}
-              >
-                开始
-                <Icon icon={ArrowRight} size={15} />
-              </button>
+                placeholder="比如：我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。"
+                className="w-full resize-none bg-transparent text-mk-prose text-mk-ink outline-none placeholder:text-mk-faint"
+              />
+              {/* Stacked on a phone. Side by side, the hint wrapped to two lines
+                  and squeezed the button until 开始 broke across two lines as
+                  「开 / 始」 — a two-character button cannot be allowed to wrap,
+                  so the button is nowrap and the row stops competing for width
+                  below `sm`. */}
+              <div className="flex flex-col items-stretch gap-2 pt-2 sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+                <span className="order-2 text-mk-small text-mk-muted sm:order-1">
+                  {creating ? "处理中" : "写完按开始，印记会先跟你聊清楚要做什么。"}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleStart}
+                  disabled={creating}
+                  className="order-1 flex shrink-0 items-center justify-center gap-1.5 whitespace-nowrap rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-40 sm:order-2"
+                  style={{ background: "var(--mk-accent-500)" }}
+                >
+                  开始
+                  <Icon icon={ArrowRight} size={15} />
+                </button>
+              </div>
             </div>
+
+            {error && (
+              <p className="mt-3 text-center text-mk-small" style={{ color: "var(--mk-danger)" }}>
+                {error}
+              </p>
+            )}
           </div>
-
-          {error && (
-            <p className="mt-3 text-center text-mk-small" style={{ color: "var(--mk-danger)" }}>
-              {error}
+        ) : (
+          <div className="mx-auto w-full max-w-[640px] text-center">
+            <h1 className="text-mk-display text-mk-ink">先做你自己的主页。</h1>
+            <p className="mt-4 text-mk-body text-mk-secondary">
+              往后你读的、写的、做的都要有地方放，那个地方得先存在。它也是你第一次
+              把一件东西真正做到能给别人看。
             </p>
-          )}
+            <button
+              type="button"
+              disabled={opening}
+              onClick={async () => {
+                setOpening(true);
+                setError(null);
+                try {
+                  const p = await startSiteProject();
+                  navigate(projectPath(p.id));
+                } catch (err) {
+                  setError(apiErrorText(err));
+                  setOpening(false);
+                }
+              }}
+              className="mt-8 inline-flex items-center justify-center gap-1.5 rounded-mk-full px-5 py-2.5 text-mk-body font-semibold text-white disabled:opacity-40"
+              style={{ background: "var(--mk-accent-500)" }}
+            >
+              {site?.projectId ? "接着做我的主页" : "开始做我的主页"}
+              <Icon icon={ArrowRight} size={15} />
+            </button>
 
-          {isFirstEver && (
-            <p className="mt-6 text-center text-mk-small text-mk-muted">
-              你的第一个项目是做一个属于你自己的主页。往后读过的、写过的、做过的，都能放上去。
+            <p className="mt-6 text-mk-small text-mk-muted">
+              做完发布之后，这里就能开别的项目了。
             </p>
-          )}
-        </div>
+
+            {error && (
+              <p className="mt-4 text-mk-small" style={{ color: "var(--mk-danger)" }}>
+                {error}
+              </p>
+            )}
+          </div>
+        )}
 
         {/* ── 2 · the board ───────────────────────────────────────────── */}
         {loadError && (

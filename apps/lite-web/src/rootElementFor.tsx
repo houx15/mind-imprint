@@ -1,6 +1,7 @@
 import type { ReactElement } from "react";
 import { LiteApp } from "./LiteApp";
 import { PublicReportPage } from "./reports/PublicReportPage";
+import { PublicSitePage } from "./site/PublicSitePage";
 import { parseLiteRoute } from "./routing";
 import { EcoRoot } from "./eco/EcoApp";
 import { isEcoPath } from "./eco/route";
@@ -38,6 +39,10 @@ export function rootElementFor(pathname: string): ReactElement {
   // `view` is only the STARTING page — `PublicReportPage` owns it from there,
   // because this function runs once from `main.tsx`'s module-scope render and
   // never again. See that component's `currentView` comment.
+  // `/p/:token` — 她的主页，访客那一面。第四个 disjoint app，理由和 `/s/` 完全
+  // 一样：打开它的人没有 session，而且这一页上不该有任何属于这个产品的外壳。
+  if (route.tab === "page") return <PublicSitePage token={route.token} />;
+
   return route.tab === "share" ? (
     <PublicReportPage token={route.token} view={route.view} />
   ) : (

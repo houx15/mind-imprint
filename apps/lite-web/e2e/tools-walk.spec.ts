@@ -33,8 +33,18 @@ const IDEA = "我们学校每天剩好多饭，我想弄明白这些饭最后去
 
 async function makeProject(page: Page): Promise<string> {
   // 重跑时复用已经建好的那个：这条 walk 只需要一个项目。
-  const existing = await (await page.request.get("/api/v1/pbl/projects")).json();
-  if (Array.isArray(existing) && existing.length > 0) {
+  // spec §4 的门：主页发布之前建不了自由项目。这条 walk 要的是一个普通项目的
+  // 房间，所以先把门打开。重复调用是安全的。
+  await page.goto("/projects");
+  await openSiteGate(page);
+
+  // 🚨 复用已有项目时要跳过主页项目：它打开的是 SiteStudio，不是这条 walk 要
+  // 的那个工作台（`ProjectSurface` 按 kind 分派）。
+  const all = await (await page.request.get("/api/v1/pbl/projects")).json();
+  const existing = Array.isArray(all)
+    ? all.filter((p: { kind?: string }) => p.kind !== "website")
+    : [];
+  if (existing.length > 0) {
     await page.goto(`/projects/${existing[0].id}`);
     await expect(page.getByPlaceholder("请输入")).toBeVisible();
     return existing[0].id as string;

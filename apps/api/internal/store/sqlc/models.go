@@ -651,6 +651,18 @@ type PblSession struct {
 	CreatedAt  time.Time          `json:"created_at"`
 }
 
+type PblSite struct {
+	UserID      uuid.UUID          `json:"user_id"`
+	AtomID      pgtype.UUID        `json:"atom_id"`
+	Layout      string             `json:"layout"`
+	LayoutWhy   string             `json:"layout_why"`
+	Content     []byte             `json:"content"`
+	ShareToken  *string            `json:"share_token"`
+	PublishedAt pgtype.Timestamptz `json:"published_at"`
+	CreatedAt   time.Time          `json:"created_at"`
+	UpdatedAt   time.Time          `json:"updated_at"`
+}
+
 type PblSubstep struct {
 	ID            uuid.UUID          `json:"id"`
 	StepID        uuid.UUID          `json:"step_id"`

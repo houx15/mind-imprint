@@ -32,8 +32,14 @@ func sessionID(t *testing.T, rec *httptest.ResponseRecorder) string {
 }
 
 // newProject creates a project over HTTP and returns its id.
+//
+// 🚨 先走一遍 §4 那道门。自 2026-09-03 起，学生的第一个项目就是做她自己的主页，
+// 主页发布之前 POST /pbl/projects 一律 409（见 pbl_site.go 的 siteGateOpen）。
+// 所以「一个有第二个项目的学生」必然是一个主页已经在线上的学生——这些测试要的
+// 就是那个学生，openSiteGate 把她放到那个位置上。
 func newProjectViaAPI(t *testing.T, h http.Handler, c *http.Cookie) string {
 	t.Helper()
+	openSiteGate(t, h, c)
 	rec := postPblProject(t, h, c, "我们学校每天剩好多饭")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create project = %d; body=%s", rec.Code, rec.Body)

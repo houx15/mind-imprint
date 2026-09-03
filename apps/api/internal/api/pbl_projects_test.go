@@ -45,6 +45,7 @@ func decodePblProject(t *testing.T, rec *httptest.ResponseRecorder) map[string]a
 // 空输入框是误点，不是项目。
 func TestCreatePblProject_RejectsEmptyIdea(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
+	openSiteGate(t, h, cookie) // §4：主页发布之前，自由项目一律 409
 	rec := postPblProject(t, h, cookie, "   ")
 	if rec.Code != http.StatusBadRequest {
 		t.Fatalf("status = %d, want 400; body=%s", rec.Code, rec.Body)
@@ -61,6 +62,7 @@ func TestCreatePblProject_RejectsEmptyIdea(t *testing.T) {
 // 建项目时不可能再撞上"接口错误"。
 func TestCreatePblProject_NoModelCallAndNoCategory(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	openSiteGate(t, h, cookie) // §4：主页发布之前，自由项目一律 409
 	rec := postPblProject(t, h, cookie, "我想弄明白我们学校的剩饭到底去哪了")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("status = %d, want 201; body=%s", rec.Code, rec.Body)
@@ -89,6 +91,7 @@ func TestCreatePblProject_NoModelCallAndNoCategory(t *testing.T) {
 // 第二个、第三个项目也一样，不问模型。
 func TestCreatePblProject_StillNoModelOnLaterProjects(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	openSiteGate(t, h, cookie) // §4：主页发布之前，自由项目一律 409
 	for i, idea := range []string{"先做个主页", "我想去问问食堂阿姨每天剩多少"} {
 		rec := postPblProject(t, h, cookie, idea)
 		if rec.Code != http.StatusCreated {
@@ -116,6 +119,7 @@ func TestListPblProjects_EmptyIsArrayNotNull(t *testing.T) {
 // 别人的项目，对她来说应该和不存在没有区别。
 func TestPatchPblProject_OtherStudentGets404(t *testing.T) {
 	h, cookie, _, pool := liteHandlerWithProvider(t, nil)
+	openSiteGate(t, h, cookie) // §4：主页发布之前，自由项目一律 409
 	rec := postPblProject(t, h, cookie, "做一个记录校园植物的网站")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d; body=%s", rec.Code, rec.Body)
@@ -136,6 +140,7 @@ func TestPatchPblProject_OtherStudentGets404(t *testing.T) {
 // 不认识的状态在 handler 就被拦下，不该变成一条 CHECK 约束的 500。
 func TestPatchPblProject_RejectsUnknownStatus(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	openSiteGate(t, h, cookie) // §4：主页发布之前，自由项目一律 409
 	rec := postPblProject(t, h, cookie, "做一个记录校园植物的网站")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d; body=%s", rec.Code, rec.Body)
@@ -153,6 +158,7 @@ func TestPatchPblProject_RejectsUnknownStatus(t *testing.T) {
 // 起名 + 选封面，一次 PATCH 落地。
 func TestPatchPblProject_NameAndCover(t *testing.T) {
 	h, cookie, _, _ := liteHandlerWithProvider(t, nil)
+	openSiteGate(t, h, cookie) // §4：主页发布之前，自由项目一律 409
 	rec := postPblProject(t, h, cookie, "做一个记录校园植物的网站")
 	if rec.Code != http.StatusCreated {
 		t.Fatalf("create = %d; body=%s", rec.Code, rec.Body)

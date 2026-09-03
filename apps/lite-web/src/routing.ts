@@ -35,7 +35,14 @@ export type LiteRoute =
   // the stats, 金句 and 收获. They were one long scroll once, which made the
   // article read as the preamble to a dashboard. A reading has no article, so
   // its `/s/:token` renders the record directly and `view` is ignored.
-  | { tab: "share"; token: string; view: "article" | "record" };
+  | { tab: "share"; token: string; view: "article" | "record" }
+  // `/p/:token` — 她自己的主页，访客那一面。和 `/s/:token` 一样，打开它的人
+  // 没有账号也没有 session（她把链接发给了家人或朋友），所以它同样不经过
+  // `LiteApp`：`rootElementFor.tsx` 自己解析 pathname，直接挂 `PublicSitePage`。
+  //
+  // 为什么是 `/p/` 而不是 `/s/`：这两条链接是两种东西。`/s/` 是一次阅读或写作
+  // 的记录，一篇一条、会有很多条；`/p/` 是她这个人的主页，只有一个。
+  | { tab: "page"; token: string };
 
 /** Parse a browser pathname into a lite route. Unknown paths fall back to the
  * readings tab (the lite shell's landing surface), so a stale or hand-typed
@@ -60,6 +67,11 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "projects", projectId: second } : { tab: "projects" };
     case "settings":
       return { tab: "settings" };
+    case "p":
+      // 和 `/s` 同样的道理：没有 token 就不是一条主页链接，落回默认页而不是
+      // 造出一个 token 为空的路由。
+      if (!second) return { tab: "readings" };
+      return { tab: "page", token: second };
     case "s":
       // A malformed `/s` with no token is not a share route — it has nothing
       // to fetch — so it falls through to the readings default like any
@@ -88,6 +100,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
     case "settings":
       return "/settings";
+    case "page":
+      return `/p/${encodeSegment(route.token)}`;
     case "share":
       return route.view === "record"
         ? `/s/${encodeSegment(route.token)}/record`

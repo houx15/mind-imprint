@@ -12,7 +12,7 @@ import { resolveEditionDecision } from "@/shell/edition/editionRouting";
 import { EditionRedirectNotice } from "@/shell/edition/EditionRedirectNotice";
 import { liteRoutePath, navigate, parseLiteRoute, settingsPath, type LiteRoute } from "./routing";
 import { getMe, signin, signout, signup, setAccent, setBackground, type MeUser } from "./api/auth";
-import { ProjectRoom } from "./projects/ProjectRoom";
+import { ProjectSurface } from "./projects/ProjectSurface";
 import { ProjectsLanding } from "./projects/ProjectsLanding";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
@@ -276,7 +276,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           )
         ) : route.tab === "projects" ? (
           route.projectId ? (
-            <ProjectRoom key={route.projectId} projectId={route.projectId} />
+            <ProjectSurface key={route.projectId} projectId={route.projectId} />
           ) : (
             <ProjectsLanding />
           )
