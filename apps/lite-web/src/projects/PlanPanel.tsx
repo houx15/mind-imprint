@@ -262,7 +262,8 @@ function PlanCheck({
           className="w-full rounded-mk-full px-4 py-2 text-mk-body font-semibold text-white disabled:opacity-40"
           style={{ background: "var(--mk-accent-500)" }}
         >
-          {saving ? "记下来…" : "确认选择"}
+          {/* 状态用「已/待/中」的成对词，不用大白话（文案第 4 条）。 */}
+          {saving ? "处理中" : "确认选择"}
         </button>
       </footer>
     </div>

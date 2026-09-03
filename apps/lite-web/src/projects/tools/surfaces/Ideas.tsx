@@ -2,7 +2,7 @@ import { apiErrorText } from "../../../api/errorText";
 import { useCallback, useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Icon } from "@/ui";
-import { archiveNote, createNotes, listNotes, type Note } from "../../../api/notes";
+import { archiveNote, createNotes, listNotes, pickIdea, type Note } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
 import { DONE, tone } from "../../../shared/tone";
 import type { ToolSurfaceProps } from "../registry";
@@ -84,9 +84,18 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         ? ""
         : "一句为什么先试它";
 
-  function finish() {
+  async function finish() {
     const one = ideas.find((i) => i.id === picked);
     if (!one) return;
+    // 🚨 先落库，再收工。印记从来看不到 onFinish 的 payload——回灌是回头读表的，
+    // 所以「她挑了哪一条」不写进表里就等于没发生。线上就是这么错的：她挑第三条，
+    // 印记照着列表第一条说「你那条点子说……」。
+    try {
+      await pickIdea(projectId, one.id, why.trim());
+    } catch (err) {
+      setError(apiErrorText(err));
+      return;
+    }
     // 她写的是"为什么先试它"，回传的就是这一句。
     onFinish({ count: ideas.length, picked: one.id, idea: one.body }, why.trim());
   }
@@ -98,7 +107,7 @@ export function Ideas({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
       why={tool.reason}
       todo={todo}
       finishLabel="确认选择"
-      onFinish={finish}
+      onFinish={() => void finish()}
       onClose={onClose}
     >
       {error && (

@@ -31,7 +31,20 @@ RETURNING *;
 UPDATE pbl_note SET cluster = $2 WHERE id = $1 RETURNING *;
 
 -- name: MovePblNote :one
-UPDATE pbl_note SET x = $2, y = $3 WHERE id = $1 RETURNING *;
+-- 🚨 dragged 只涨不跌（dragged OR $4）：代码给她排座位（boardSpot）、切换坐标
+-- 视图时的单位换算，走的都是同一条 UPDATE，但那两次不是她的判断。只有真的用
+-- 手拖过的那一次传 true。见 migration 0128。
+UPDATE pbl_note SET x = $2, y = $3, dragged = (dragged OR $4)
+WHERE id = $1 RETURNING *;
+
+-- name: ClearPblIdeaPicks :exec
+-- 「挑一个先试」是单选：挑新的之前先把旧的松开。
+UPDATE pbl_note SET picked_at = NULL, pick_why = ''
+WHERE atom_id = $1 AND kind = 'idea';
+
+-- name: PickPblIdea :one
+UPDATE pbl_note SET picked_at = now(), pick_why = $2
+WHERE id = $1 RETURNING *;
 
 -- name: ArchivePblNote :one
 UPDATE pbl_note SET archived = true WHERE id = $1 RETURNING *;

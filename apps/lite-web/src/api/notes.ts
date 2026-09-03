@@ -21,6 +21,11 @@ export interface Note {
   treeNodeId: string | null;
   x: number;
   y: number;
+  /** 她挑出来先试的那条办法（只有 kind='idea' 谈得上），和为什么先试它。 */
+  picked: boolean;
+  pickWhy: string;
+  /** 她自己拖过这张纸吗。没拖过的，位置是代码排的，不是她的判断。 */
+  dragged: boolean;
   createdAt: string;
 }
 
@@ -135,11 +140,36 @@ export function clusterNotes(
   });
 }
 
-/** 挪到板上的某个位置。 */
-export function moveNote(projectId: string, noteId: string, x: number, y: number): Promise<Note> {
+/**
+ * 挪到板上的某个位置。
+ *
+ * 🚨 dragged 说的是「这一次是她用手拖的」。代码给新便签排座位（boardSpot）、
+ * 切换坐标视图时换算单位，走的都是这条 PATCH，但那两次不是她的判断——传 true
+ * 会让印记把代码排的位置说成她摆的。默认 false，只有拖动那一处传 true。
+ */
+export function moveNote(
+  projectId: string,
+  noteId: string,
+  x: number,
+  y: number,
+  dragged = false,
+): Promise<Note> {
   return apiFetch<Note>(`${base(projectId)}/notes/${noteId}`, {
     method: "PATCH",
-    body: JSON.stringify({ x, y }),
+    body: JSON.stringify({ x, y, dragged }),
+  });
+}
+
+/**
+ * 她挑出来先试的那一条办法，和为什么先试它。
+ *
+ * 🚨 必须落库，不能只放进 onFinish 的 payload——印记从来看不到那个 payload，
+ * 回灌是回头读表的。线上就因此说错过：她挑的是第三条，印记说的是第一条。
+ */
+export function pickIdea(projectId: string, noteId: string, why: string): Promise<Note> {
+  return apiFetch<Note>(`${base(projectId)}/notes/${noteId}/pick`, {
+    method: "POST",
+    body: JSON.stringify({ why }),
   });
 }
 

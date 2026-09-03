@@ -79,10 +79,27 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 				body += "（她还拍了一张照片）"
 			}
 			// 她摆在哪个角上。轴见 Board.tsx：横 = 有多确定，纵 = 有多要紧。
-			if axes {
+			//
+			// 🚨 只说她**自己拖过**的那几张（dragged，migration 0128）。观察日记
+			// 带回来的便签，位置是 boardSpot() 按座位号算的；点子默认 (0,0)，
+			// 而 (0,0) 在坐标视图里恰好是「我确定 + 很要紧」那一角。不看这一位，
+			// 印记就会当着她的面把代码排的座位说成是她的判断——她要么以为自己
+			// 做过这个判断，要么发现印记在编。两种都比不说更糟。
+			if axes && n.Dragged {
 				if q := boardQuadrant(n.X, n.Y); q != "" {
 					body += "（她摆在「" + q + "」那一角）"
 				}
+			}
+			// 她挑出来先试的那一条，和为什么先试它。
+			//
+			// 🚨 不带这一句，印记只能照着列表顺序猜——线上就猜错过：她挑的是第
+			// 三条，印记说的是第一条。
+			if n.PickedAt.Valid {
+				body += "【她挑了这条先试"
+				if w := strings.TrimSpace(n.PickWhy); w != "" {
+					body += "，因为" + w
+				}
+				body += "】"
 			}
 			byKind[n.Kind] = append(byKind[n.Kind], body)
 		}

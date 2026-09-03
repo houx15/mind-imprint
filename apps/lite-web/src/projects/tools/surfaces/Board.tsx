@@ -47,6 +47,14 @@ import type { ToolSurfaceProps } from "../registry";
 // 一块"贴到第九张就开始吃便签"的头脑风暴板。
 const BOARD_MIN_H = 460;
 
+/**
+ * 坐标视图下，上下各留出来的一条。
+ *
+ * 🚨 四个轴标签压在便签下面（它们是底图）。不留这一条，落在 y=0 的便签正好
+ * 盖住「很要紧」——而那一行恰恰是这块板最该被看见的一头。
+ */
+const AXIS_GUTTER = 22;
+
 
 /**
  * 坐标视图的两根轴。
@@ -162,20 +170,26 @@ export function Board({
    * 没挪动就是一次点击，用来选中。两个动作合在一个手势里，是因为对她来说
    * 「碰一下这张纸」本来就是一件事。
    */
-  /** 板子当前能放纸的范围。坐标视图下存的是 0–1，渲染时乘回来。 */
-  function span() {
+  /**
+   * 板子当前能放纸的范围。坐标视图下存的是 0–1，渲染时乘回来。
+   *
+   * 🚨 axes 要显式传进来，不能读 boardAxes：toggleAxes 换算时用的是**新**的模式，
+   * 而那一刻 state 还是旧的。
+   */
+  function span(axes: boolean) {
     const rect = boardRef.current?.getBoundingClientRect();
+    const gutter = axes ? AXIS_GUTTER * 2 : 0;
     return {
       w: Math.max(1, (rect?.width ?? NOTE_W * 2) - NOTE_W),
-      h: Math.max(1, boardH - NOTE_H),
+      h: Math.max(1, boardH - NOTE_H - gutter),
     };
   }
 
   /** 存进库的值 → 屏幕上的像素。 */
   function toPx(n: Note) {
     if (!boardAxes) return { x: n.x, y: n.y };
-    const s = span();
-    return { x: n.x * s.w, y: n.y * s.h };
+    const s = span(true);
+    return { x: n.x * s.w, y: AXIS_GUTTER + n.y * s.h };
   }
 
   /**
@@ -186,12 +200,15 @@ export function Board({
    */
   async function toggleAxes() {
     const on = !boardAxes;
-    const s = span();
+    const s = span(on);
     try {
       for (const n of notes) {
         const next = on
-          ? { x: Math.min(1, n.x / s.w), y: Math.min(1, n.y / s.h) }
-          : { x: n.x * s.w, y: n.y * s.h };
+          ? {
+              x: Math.min(1, n.x / s.w),
+              y: Math.min(1, Math.max(0, (n.y - AXIS_GUTTER) / s.h)),
+            }
+          : { x: n.x * s.w, y: AXIS_GUTTER + n.y * s.h };
         setNotes((prev) => prev.map((m) => (m.id === n.id ? { ...m, ...next } : m)));
         await moveNote(projectId, n.id, next.x, next.y);
       }
@@ -215,11 +232,14 @@ export function Board({
     const onMove = (ev: PointerEvent) => {
       moved = true;
       const px = Math.max(0, Math.min(rect.width - NOTE_W, ev.clientX - rect.left - grabX));
-      const py = Math.max(0, Math.min(boardH - NOTE_H, ev.clientY - rect.top - grabY));
+      // 坐标视图下上下各让开一条，便签不许压住「很要紧 / 关系不大」两个标签。
+      const lo = boardAxes ? AXIS_GUTTER : 0;
+      const hi = boardH - NOTE_H - lo;
+      const py = Math.max(lo, Math.min(hi, ev.clientY - rect.top - grabY));
       // 坐标视图下存相对值：位置是一句判断，不该跟着面板宽度变。
-      const s2 = span();
+      const s2 = span(boardAxes);
       const x = boardAxes ? px / s2.w : px;
-      const y = boardAxes ? py / s2.h : py;
+      const y = boardAxes ? (py - AXIS_GUTTER) / s2.h : py;
       last = { x, y };
       setNotes((prev) => prev.map((n) => (n.id === note.id ? { ...n, x, y } : n)));
     };
@@ -232,7 +252,11 @@ export function Board({
         );
         return;
       }
-      void moveNote(projectId, note.id, last.x, last.y).catch((err) => setError(apiErrorText(err)));
+      // 🚨 这一处、也只有这一处传 dragged=true：她真的用手把这张纸挪到了那儿。
+      // 排座位和坐标换算走的是同一个函数，但那两次不是她的判断。
+      void moveNote(projectId, note.id, last.x, last.y, true).catch((err) =>
+        setError(apiErrorText(err)),
+      );
     };
     window.addEventListener("pointermove", onMove);
     window.addEventListener("pointerup", onUp);

@@ -13,6 +13,9 @@ function note(id: string, cluster: string): Note {
     treeNodeId: null,
     x: 0,
     y: 0,
+    picked: false,
+    pickWhy: "",
+    dragged: false,
     createdAt: "2026-09-01T00:00:00Z",
   };
 }

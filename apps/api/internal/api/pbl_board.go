@@ -48,6 +48,14 @@ type pblNoteDTO struct {
 	// 这条便签放进了结构里的哪一块。null = 还在板上，没放进去。
 	// 🚨 放不进去的那几条，就是这个结构没盖到的地方——「盖全了吗」的答案。
 	TreeNodeID *string `json:"treeNodeId"`
+	// 她挑出来先试的那条办法（只对 kind='idea' 有意义），和为什么先试它。
+	//
+	// 🚨 一定要往外给。这一列上一次就是「存进去了、DTO 没往外给」——界面和回灌
+	// 都读不到，印记只好照着列表第一条瞎说。见 migration 0128。
+	Picked   bool   `json:"picked"`
+	PickWhy  string `json:"pickWhy"`
+	// 她自己拖过这张纸吗。没拖过的，位置是代码排的，不是她的判断。
+	Dragged  bool   `json:"dragged"`
 	CreatedAt string  `json:"createdAt"`
 }
 
@@ -56,6 +64,9 @@ func toPblNoteDTO(n sqlc.PblNote) pblNoteDTO {
 		ID: n.ID.String(), Kind: n.Kind, Body: n.Body, Author: n.Author,
 		Edited: n.Edited, Cluster: n.Cluster, X: n.X, Y: n.Y,
 		ImageKey:  n.ImageKey,
+		Picked:    n.PickedAt.Valid,
+		PickWhy:   n.PickWhy,
+		Dragged:   n.Dragged,
 		CreatedAt: n.CreatedAt.Format(time.RFC3339),
 	}
 	if n.TreeNodeID.Valid {
@@ -70,6 +81,54 @@ func toPblNoteDTO(n sqlc.PblNote) pblNoteDTO {
 // 🚨 「这个分法盖全了吗」一直是个没法回答的问题：她只能盯着提纲想「大概全了吧」。
 // 把她自己攒的材料一条一条拖进节点里，答案就看得见了——**放不进去的那几条就是
 // 没盖到的地方**。那几条是她亲手收集的，比任何自评都硬。
+// pickPblIdea —— 她挑出来先试的那一条办法，以及为什么先试它。
+//
+// 🚨 这个端点存在，是因为「印记从来看不到 onFinish 的 payload」。界面原来把
+// picked 塞进 payload 就当交差了，回灌回头读表时表里没有这一列，印记只好照着
+// 列表第一条说「你那条点子说……」——说的是她没挑的那一条。
+//
+// 有终点信号、但做出来的东西没回到印记那儿，就不算闭环。
+func (a *API) pickPblIdea(w http.ResponseWriter, r *http.Request) {
+	atomID, ok := a.loadOwnedPblProject(w, r)
+	if !ok {
+		return
+	}
+	nid, err := uuid.Parse(r.PathValue("nid"))
+	if err != nil {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条便签不存在"))
+		return
+	}
+	note, err := a.d.Queries.GetPblNote(r.Context(), nid)
+	if err != nil || note.AtomID != atomID {
+		httpx.WriteError(w, r, httpx.ErrNotFound("这条便签不存在"))
+		return
+	}
+	if note.Kind != "idea" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("not_idea", "只有办法才谈得上先试哪一条", nil))
+		return
+	}
+	var req struct {
+		Why string `json:"why"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	// 挑一个先试是单选：先把这个项目里旧的松开，再挑这一条。
+	if err := a.d.Queries.ClearPblIdeaPicks(r.Context(), atomID); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	row, err := a.d.Queries.PickPblIdea(r.Context(), sqlc.PickPblIdeaParams{
+		ID: nid, PickWhy: strings.TrimSpace(req.Why),
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, toPblNoteDTO(row))
+}
+
 func (a *API) placePblNote(w http.ResponseWriter, r *http.Request) {
 	atomID, ok := a.loadOwnedPblProject(w, r)
 	if !ok {
@@ -223,6 +282,8 @@ func (a *API) updatePblNote(w http.ResponseWriter, r *http.Request) {
 		Cluster *string  `json:"cluster"`
 		X       *float32 `json:"x"`
 		Y       *float32 `json:"y"`
+		// 这一次挪动是她用手拖的吗。代码排座位、切换坐标视图时换算单位，都不是。
+		Dragged bool     `json:"dragged"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		httpx.WriteError(w, r, errBadJSON(err))
@@ -261,7 +322,7 @@ func (a *API) updatePblNote(w http.ResponseWriter, r *http.Request) {
 	// 件事在过程记录里的分量完全不同。
 	if req.X != nil && req.Y != nil {
 		moved, merr := a.d.Queries.MovePblNote(r.Context(), sqlc.MovePblNoteParams{
-			ID: note.ID, X: *req.X, Y: *req.Y,
+			ID: note.ID, X: *req.X, Y: *req.Y, Dragged: req.Dragged,
 		})
 		if merr != nil {
 			httpx.WriteError(w, r, merr)

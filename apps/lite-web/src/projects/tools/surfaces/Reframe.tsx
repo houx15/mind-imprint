@@ -166,13 +166,15 @@ export function Reframe({ projectId, tool, onFinish, onClose }: ToolSurfaceProps
   const filled = row ? STEPS.filter((s) => row[s.field].trim()).length : 0;
   const done = filled === STEPS.length;
 
+  // 这里她没有在「选」什么，是在把一句话说完整——按钮要说清楚按下去交出的是
+  // 哪一件东西（文案第 2 条），所以是「确认问题陈述」，不是「确认选择」。
   return (
     <ToolFrame
       title={tool.label}
       task="一次说一句，把这件事到底是谁的问题说清楚"
       why={tool.reason}
       todo={done ? "" : `还有 ${STEPS.length - filled} 句没说`}
-      finishLabel="确认选择"
+      finishLabel="确认问题陈述"
       onFinish={() => void finish()}
       onClose={onClose}
     >

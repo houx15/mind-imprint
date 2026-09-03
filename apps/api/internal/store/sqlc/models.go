@@ -596,19 +596,22 @@ type PblMissionItem struct {
 }
 
 type PblNote struct {
-	ID         uuid.UUID   `json:"id"`
-	AtomID     uuid.UUID   `json:"atom_id"`
-	Kind       string      `json:"kind"`
-	Body       string      `json:"body"`
-	Author     string      `json:"author"`
-	Edited     bool        `json:"edited"`
-	Cluster    string      `json:"cluster"`
-	X          float32     `json:"x"`
-	Y          float32     `json:"y"`
-	Archived   bool        `json:"archived"`
-	CreatedAt  time.Time   `json:"created_at"`
-	ImageKey   string      `json:"image_key"`
-	TreeNodeID pgtype.UUID `json:"tree_node_id"`
+	ID         uuid.UUID          `json:"id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	Kind       string             `json:"kind"`
+	Body       string             `json:"body"`
+	Author     string             `json:"author"`
+	Edited     bool               `json:"edited"`
+	Cluster    string             `json:"cluster"`
+	X          float32            `json:"x"`
+	Y          float32            `json:"y"`
+	Archived   bool               `json:"archived"`
+	CreatedAt  time.Time          `json:"created_at"`
+	ImageKey   string             `json:"image_key"`
+	TreeNodeID pgtype.UUID        `json:"tree_node_id"`
+	PickedAt   pgtype.Timestamptz `json:"picked_at"`
+	PickWhy    string             `json:"pick_why"`
+	Dragged    bool               `json:"dragged"`
 }
 
 type PblNoteLink struct {
