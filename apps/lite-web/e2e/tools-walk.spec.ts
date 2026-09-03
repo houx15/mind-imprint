@@ -53,7 +53,10 @@ async function makeProject(page: Page): Promise<string> {
   await page.getByPlaceholder("比如：", { exact: false }).fill(IDEA);
   // 不再弹命名窗（产品负责人 2026-09-02）：写完那句话直接进房间，而那句话
   // 就是她对印记说的第一句。
-  await page.getByRole("button", { name: "开始" }).click();
+    // 🚨 `exact: true`：看板上的项目卡片本身是个 button，可访问名里带着
+  // 「开始于 2026-09-03」，默认的子串匹配会同时命中它和输入框旁边的「开始」。
+  // 看板一有卡片就撞——homepage-walk 先跑过之后就是这样。
+  await page.getByRole("button", { name: "开始", exact: true }).click();
   await expect(page).toHaveURL(/\/projects\/[0-9a-f-]{36}$/);
   const id = page.url().split("/").pop()!;
   // 🚨 等她那句话真的出现在对话里——这是"第一轮跑通了"唯一诚实的信号。

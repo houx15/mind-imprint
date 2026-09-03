@@ -32,7 +32,10 @@ test("项目: empty state → create → name and cover → room → board", asy
   const box = page.getByPlaceholder("比如：", { exact: false });
   await box.fill("我们学校每天剩好多饭，我想弄明白这些饭最后去哪了，能不能少一点。");
   await page.screenshot({ path: "e2e/.shots/projects-2-typed.png", fullPage: true });
-  await page.getByRole("button", { name: "开始" }).click();
+    // 🚨 `exact: true`：看板上的项目卡片本身是个 button，可访问名里带着
+  // 「开始于 2026-09-03」，默认的子串匹配会同时命中它和输入框旁边的「开始」。
+  // 看板一有卡片就撞——homepage-walk 先跑过之后就是这样。
+  await page.getByRole("button", { name: "开始", exact: true }).click();
 
   // 3 · 不再弹命名窗（产品负责人 2026-09-02）：她写完那句话就直接进房间，
   //     而那句话就是她对印记说的第一句。名字先由服务端给一个短的，她随时改。
