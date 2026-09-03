@@ -60,7 +60,14 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 			if n.Author != "student" {
 				continue
 			}
-			byKind[n.Kind] = append(byKind[n.Kind], n.Body)
+			body := n.Body
+			// 🚨 她拍了照片就说一句。印记看不见那张图（模型这一路没有视觉），
+			// 但"她带回来一张照片"本身就是要接的话——不说，她辛辛苦苦拍的东西
+			// 在对话里等于没发生过。闭环（产品负责人 2026-09-03）。
+			if strings.TrimSpace(n.ImageKey) != "" {
+				body += "（她还拍了一张照片）"
+			}
+			byKind[n.Kind] = append(byKind[n.Kind], body)
 		}
 		for _, k := range []struct{ kind, label string }{
 			{"observation", "她在板上记的实际观察"},

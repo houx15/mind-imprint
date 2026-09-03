@@ -9,6 +9,7 @@ function note(id: string, cluster: string): Note {
     author: "student",
     edited: false,
     cluster,
+    imageKey: "",
     x: 0,
     y: 0,
     createdAt: "2026-09-01T00:00:00Z",

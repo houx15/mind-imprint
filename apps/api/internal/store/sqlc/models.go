@@ -538,6 +538,7 @@ type PblNote struct {
 	Y         float32   `json:"y"`
 	Archived  bool      `json:"archived"`
 	CreatedAt time.Time `json:"created_at"`
+	ImageKey  string    `json:"image_key"`
 }
 
 type PblPendingChange struct {

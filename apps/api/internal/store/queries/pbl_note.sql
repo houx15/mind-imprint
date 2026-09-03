@@ -1,8 +1,8 @@
 -- 便签板。观察、引语、假设、问题、点子共用一张板（阶段一）。
 
 -- name: CreatePblNote :one
-INSERT INTO pbl_note (atom_id, kind, body, author, cluster, x, y)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO pbl_note (atom_id, kind, body, author, cluster, x, y, image_key)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING *;
 
 -- name: ListPblNotes :many

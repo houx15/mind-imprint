@@ -39,6 +39,11 @@ type pblNoteDTO struct {
 	Cluster   string  `json:"cluster"`
 	X         float32 `json:"x"`
 	Y         float32 `json:"y"`
+	// ImageKey 是这条便签带回来的那张照片在 OSS 里的 key，空 = 没有照片。
+	//
+	// 🚨 给的是 key，不是 URL。URL 是签出来的、会过期，塞进 DTO 就成了一条
+	// 第二天必然失效的链接。前端拿 key 去换一个签好的 GET（/oss/resolve-url）。
+	ImageKey  string  `json:"imageKey"`
 	CreatedAt string  `json:"createdAt"`
 }
 
@@ -46,6 +51,7 @@ func toPblNoteDTO(n sqlc.PblNote) pblNoteDTO {
 	return pblNoteDTO{
 		ID: n.ID.String(), Kind: n.Kind, Body: n.Body, Author: n.Author,
 		Edited: n.Edited, Cluster: n.Cluster, X: n.X, Y: n.Y,
+		ImageKey:  n.ImageKey,
 		CreatedAt: n.CreatedAt.Format(time.RFC3339),
 	}
 }
@@ -77,10 +83,11 @@ func (a *API) createPblNote(w http.ResponseWriter, r *http.Request) {
 	}
 	var req struct {
 		Notes []struct {
-			Kind    string `json:"kind"`
-			Body    string `json:"body"`
-			Author  string `json:"author"`
-			Cluster string `json:"cluster"`
+			Kind     string `json:"kind"`
+			Body     string `json:"body"`
+			Author   string `json:"author"`
+			Cluster  string `json:"cluster"`
+			ImageKey string `json:"imageKey"`
 		} `json:"notes"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -109,7 +116,8 @@ func (a *API) createPblNote(w http.ResponseWriter, r *http.Request) {
 		}
 		row, err := a.d.Queries.CreatePblNote(r.Context(), sqlc.CreatePblNoteParams{
 			AtomID: atomID, Kind: kind, Body: body, Author: author,
-			Cluster: strings.TrimSpace(n.Cluster),
+			Cluster:  strings.TrimSpace(n.Cluster),
+			ImageKey: strings.TrimSpace(n.ImageKey),
 		})
 		if err != nil {
 			httpx.WriteError(w, r, err)

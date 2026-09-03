@@ -15,6 +15,7 @@ import {
   type NoteKind,
 } from "../../../api/notes";
 import { ToolFrame } from "../ToolFrame";
+import { resolveUrl } from "../../../api/oss";
 import { NOTE_H, NOTE_W, boardSpot } from "../boardLayout";
 import type { ToolSurfaceProps } from "../registry";
 
@@ -303,6 +304,8 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
               ) : (
                 <p className="mt-0.5 break-words text-mk-small text-mk-ink">{n.body}</p>
               )}
+              {/* 她带回来的那张照片。key 存在库里，URL 现换——签出来的会过期。 */}
+              {n.imageKey && <NotePhoto objectKey={n.imageKey} />}
 
               {n.cluster.trim() && (
                 <span className="mt-1 inline-block rounded-mk-full bg-mk-surface px-1.5 text-mk-small text-mk-secondary">
@@ -401,5 +404,34 @@ export function Board({ projectId, tool, onFinish, onClose }: ToolSurfaceProps) 
         />
       </div>
     </ToolFrame>
+  );
+}
+
+/**
+ * NotePhoto —— 便签上那张照片。
+ *
+ * 🚨 库里存的是 OSS 的 key，不是 URL：签出来的 URL 几分钟就过期。所以这里挂载
+ * 时现换一个签好的 GET，换不到就什么都不显示——一张碎图比没有图更让人以为是
+ * 自己弄丢了东西。
+ */
+function NotePhoto({ objectKey }: { objectKey: string }) {
+  const [url, setUrl] = useState("");
+  useEffect(() => {
+    let alive = true;
+    void resolveUrl(objectKey)
+      .then((u) => alive && setUrl(u))
+      .catch(() => {});
+    return () => {
+      alive = false;
+    };
+  }, [objectKey]);
+  if (!url) return null;
+  return (
+    <img
+      src={url}
+      alt="她拍的"
+      draggable={false}
+      className="mt-1 max-h-24 w-full rounded-mk-sm object-cover"
+    />
   );
 }

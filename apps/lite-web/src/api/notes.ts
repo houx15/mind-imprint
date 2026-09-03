@@ -15,6 +15,8 @@ export interface Note {
   /** 她改过印记写的这张。纠正是最强的过程信号之一。 */
   edited: boolean;
   cluster: string;
+  /** 她带回来的那张照片在 OSS 里的 key，空 = 没有照片。 */
+  imageKey: string;
   x: number;
   y: number;
   createdAt: string;
@@ -89,7 +91,13 @@ export function listNotes(projectId: string): Promise<Note[]> {
 
 export function createNotes(
   projectId: string,
-  notes: { kind: NoteKind; body: string; author?: "student" | "yinji"; cluster?: string }[],
+  notes: {
+    kind: NoteKind;
+    body: string;
+    author?: "student" | "yinji";
+    cluster?: string;
+    imageKey?: string;
+  }[],
 ): Promise<Note[]> {
   return apiFetch<Note[]>(`${base(projectId)}/notes`, {
     method: "POST",
