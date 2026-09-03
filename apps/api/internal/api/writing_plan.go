@@ -170,13 +170,19 @@ func buildWritingPlanPrompt(wr sqlc.Writing, rows []sqlc.WritingOutline, msgs []
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("她一开始说想写的是：" + t + "\n")
 	}
-	if wr.Lang == "en" {
-		b.WriteString("这篇用英文写（但你和她用中文讨论）。\n")
-	} else {
-		b.WriteString("这篇用中文写。\n")
-	}
+	// 🚨 This used to be 「这篇用英文写（但你和她用中文讨论）」 — which had the
+	// coaching/content split right but never said that the OUTLINE NODES are
+	// content. An English piece therefore grew a Chinese mind map, because the
+	// nodes read as part of the discussion. writingLangLine names the nodes
+	// explicitly; see writing_lang.go.
+	b.WriteString(writingLangLine(wr))
+	// 🚨 This line, with the unit hard-coded as 「字」, is where 「500字很短，两个
+	// 都展开容易平」 came from on a 500-WORD English essay: the prompt tells the
+	// model to size her sub-arguments off this number, so a 5x unit error lands
+	// straight in the advice. writingLengthLine derives the unit from wr.Lang.
+	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 	if wr.TargetWords != nil {
-		b.WriteString("目标篇幅：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字（只用来判断要几条分论点，别追着她凑字数）。\n")
+		b.WriteString("（篇幅只用来判断要几条分论点，别追着她凑字数。）\n")
 	}
 
 	b.WriteString("\n【当前的图】\n")

@@ -526,7 +526,12 @@ function CoachLog({ rows, thinking = false }: { rows: CoachRow[]; thinking?: boo
         ) : (
           // 她那一侧不挂头像：房间里只有一个角色需要被认出来。
           <div key={row.id} data-chat-row="student" className="flex justify-end">
-            <div data-role="student" className={`${BUBBLE} ${HER_RADIUS} bg-mk-accent-50`}>
+            {/* 🚨 `whitespace-pre-wrap` 只给她这一侧。她那一轮是原样字符串
+                （印记 那一轮走 LiteChatMarkdown），而 HTML 会把她敲的换行折掉
+                ——同事试用里报的「换行的话发送给AI就不换行了」。印记 那一侧
+                绝对不能加：markdown 已经产出块级元素，pre-wrap 会把源码里每个
+                换行变成看得见的空行。 */}
+            <div data-role="student" className={`${BUBBLE} ${HER_RADIUS} whitespace-pre-wrap bg-mk-accent-50`}>
               {row.node}
             </div>
           </div>

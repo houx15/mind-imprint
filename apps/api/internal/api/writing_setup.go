@@ -24,7 +24,6 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -161,13 +160,9 @@ func buildWritingOpeningPrompt(wr sqlc.Writing, msgs []sqlc.AtomMessage) string 
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目/想法：" + t + "\n")
 	}
-	if wr.Lang == "en" {
-		b.WriteString("这篇用英文写。\n")
-	} else {
-		b.WriteString("这篇用中文写。\n")
-	}
+	b.WriteString(writingLangLine(wr))
 	if wr.TargetWords != nil {
-		b.WriteString("她定的目标篇幅：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字。\n")
+		b.WriteString(writingLengthLine(wr, "她定的目标篇幅"))
 	} else {
 		b.WriteString("她还没定篇幅（这完全没问题，别追问）。\n")
 	}

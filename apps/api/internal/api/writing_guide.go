@@ -34,7 +34,6 @@ import (
 	"encoding/json"
 	"log/slog"
 	"net/http"
-	"strconv"
 	"strings"
 	"time"
 
@@ -160,10 +159,8 @@ func buildWritingGuidePrompt(wr sqlc.Writing, block sqlc.WritingOutline, sibling
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目/想法：" + t + "\n")
 	}
-	b.WriteString("写作语言：" + wr.Lang + "\n")
-	if wr.TargetWords != nil {
-		b.WriteString("目标篇幅：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字\n")
-	}
+	b.WriteString(writingLangLine(wr))
+	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 
 	// There is no template name to report any more: the structure is not
 	// chosen from a library, it is grown out of her own planning conversation
@@ -241,10 +238,8 @@ func buildWritingGuideBatchPrompt(wr sqlc.Writing, blocks []sqlc.WritingOutline,
 	if t := strings.TrimSpace(wr.Title); t != "" {
 		b.WriteString("题目/想法：" + t + "\n")
 	}
-	b.WriteString("写作语言：" + wr.Lang + "\n")
-	if wr.TargetWords != nil {
-		b.WriteString("目标篇幅：约 " + strconv.Itoa(int(*wr.TargetWords)) + " 字\n")
-	}
+	b.WriteString(writingLangLine(wr))
+	b.WriteString(writingLengthLine(wr, "目标篇幅"))
 
 	b.WriteString("\n【整篇的结构，以及每一块的 id、她自己写下的要点、和已经写的段落】\n")
 	for _, s := range blocks {

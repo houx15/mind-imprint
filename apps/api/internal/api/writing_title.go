@@ -172,8 +172,14 @@ const writingTitleSystem = `你是「印记」。学生刚写完一篇文章，�
 // may not state as plainly — but it is labelled 「不是标题」 so it is never
 // echoed straight back as a candidate (validateTitleIdeas drops it anyway if
 // it is).
-func buildWritingTitlePrompt(idea, draft string) string {
+//
+// Takes `wr` for the language rule: a title IS the piece's own words, so an
+// English essay's candidates must be English. This builder had no access to
+// wr.Lang at all, which is half of 「英文的写作，中文的mindmap」 — the same
+// omission, on a different field. See writing_lang.go.
+func buildWritingTitlePrompt(wr sqlc.Writing, idea, draft string) string {
 	var b strings.Builder
+	b.WriteString(writingLangLine(wr))
 	if i := strings.TrimSpace(idea); i != "" {
 		b.WriteString("她最开始说想写的（这是备忘，不是标题）：\n" + i + "\n\n")
 	}
@@ -279,7 +285,7 @@ func (a *API) suggestWritingTitles(w http.ResponseWriter, r *http.Request) {
 	res, cerr := gateway.Collect(turnCtx, a.d.Provider, resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: writingTitleSystem},
-			{Role: gateway.RoleUser, Content: buildWritingTitlePrompt(idea, body)},
+			{Role: gateway.RoleUser, Content: buildWritingTitlePrompt(wr, idea, body)},
 		},
 	})
 	a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "title_ideas", resolved, res.Usage)
