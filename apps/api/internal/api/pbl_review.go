@@ -37,6 +37,12 @@ import (
 // 时要求答完的是印记划的那些，她自己问出来的不算作业。
 const pblAdHocMarkOrdinal = 9999
 
+// pblSpotQuestion 是她自己划出来的那一处的标题。
+//
+// 这张表的 question 是 NOT NULL，而「找茬」划出来的一处本来就没有印记的提问——
+// 有的是她的判断，存在 answer 里。用一句固定的话占住这一格，界面上也读得通。
+const pblSpotQuestion = "你标出来的地方"
+
 type pblMarkDTO struct {
 	ID        string  `json:"id"`
 	Part      string  `json:"part"`
@@ -180,6 +186,53 @@ func (a *API) createPblReviewPlan(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	a.getPblReview(w, r)
+}
+
+// spotPblReviewProblem —— 她在文里划出一处「我觉得这里有问题」。
+//
+// 🚨 和 askPblReviewMark 的区别是**不开会话线**。
+//
+// 「找茬」这一轮她是在**自己判断**，不是在问印记。每划一处就把印记拉进来，
+// 一来打断她自己想，二来她会顺着印记的话走——而这件事整个的意思，恰恰是让她
+// 先于印记看出问题（铁律①：她判断 AI，不是反过来）。想问，旁边一直有「问问
+// 这一句」。
+//
+// 存法：quote 是她划的那一段，answer 是她的理由（那是她的判断），question 用
+// 一句固定的标签——这张表的 question 是 NOT NULL，而她这一处本来就没有"印记的
+// 提问"。ordinal 用 adhoc 那个号，于是它在界面上算「她自己标的」。
+func (a *API) spotPblReviewProblem(w http.ResponseWriter, r *http.Request) {
+	_, aid, ok := a.loadOwnedPblArtifact(w, r)
+	if !ok {
+		return
+	}
+	var req struct {
+		Quote string `json:"quote"`
+		Why   string `json:"why"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		httpx.WriteError(w, r, errBadJSON(err))
+		return
+	}
+	quote := strings.TrimSpace(req.Quote)
+	if quote == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_quote", "没有划出哪一句", nil))
+		return
+	}
+	// 说不出哪里不对，就还不是一处「找到的问题」——那只是一段被涂黄的字。
+	why := strings.TrimSpace(req.Why)
+	if why == "" {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("no_why", "说一句哪里不对", nil))
+		return
+	}
+	mark, err := a.d.Queries.CreatePblReviewMark(r.Context(), sqlc.CreatePblReviewMarkParams{
+		ArtifactID: aid, Quote: quote,
+		Question: pblSpotQuestion, Answer: why, Ordinal: pblAdHocMarkOrdinal,
+	})
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusCreated, toPblMarkDTO(mark))
 }
 
 // askPblReviewMark —— 她在文里选中一段，就地问。

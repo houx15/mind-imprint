@@ -3,8 +3,8 @@
 -- ── 阶段二：划出来的句子 ───────────────────────────────────────────────
 
 -- name: CreatePblReviewMark :one
-INSERT INTO pbl_review_mark (artifact_id, part, part_note, quote, question, ordinal)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO pbl_review_mark (artifact_id, part, part_note, quote, question, ordinal, answer)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 
 -- name: ListPblReviewMarks :many

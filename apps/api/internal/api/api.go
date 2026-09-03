@@ -344,6 +344,7 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/pbl/projects/{id}/artifacts/{aid}/review", liteOnly(a.getPblReview))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/review", liteOnly(a.createPblReviewPlan))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/ask", liteOnly(a.askPblReviewMark))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/artifacts/{aid}/spot", liteOnly(a.spotPblReviewProblem))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/marks/{mid}", liteOnly(a.answerPblReviewMark))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/dimensions/{did}", liteOnly(a.answerPblReviewDimension))
 
