@@ -108,6 +108,112 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 她审成果时答的那些问题。
+	//
+	// 产品负责人 2026-09-03 的闭环原则：「we invoke one interactive tool, it must
+	// have a finish signal and the finished content have to be sent back to AI to
+	// push forward the flow」。
+	//
+	// 原来这里只收了「通过/打回」和一句理由——而审核这件事真正的产出是**她对
+	// 每一处的判断**：印记划出来的那几句她怎么答的、几个方面她怎么看的。少了
+	// 它们，她认认真真审了十分钟，印记只知道"她点了通过"。
+	if as, err := a.d.Queries.ListPblArtifacts(ctx, atomID); err == nil {
+		for _, x := range as {
+			title := strings.TrimSpace(x.Title)
+			if title == "" {
+				title = "我交的一份东西"
+			}
+			if ms, merr := a.d.Queries.ListPblReviewMarks(ctx, x.ID); merr == nil {
+				for _, m := range ms {
+					if ans := strings.TrimSpace(m.Answer); ans != "" {
+						add("审《" + title + "》时，对「" + strings.TrimSpace(m.Question) +
+							"」她答：" + ans)
+					}
+				}
+			}
+			if ds, derr := a.d.Queries.ListPblReviewDimensions(ctx, x.ID); derr == nil {
+				for _, d := range ds {
+					if ans := strings.TrimSpace(d.Answer); ans != "" {
+						add("审《" + title + "》时，关于「" + strings.TrimSpace(d.Prompt) +
+							"」她答：" + ans)
+					}
+				}
+			}
+		}
+	}
+
+	// 🚨 她在结构审查里定下来的形状。
+	//
+	// 这一整棵树以前从来没回到过印记那里：她可以花十分钟把提纲重排一遍，而印记
+	// 下一轮完全不知道这个项目现在长什么样。
+	if ns, err := a.d.Queries.ListPblTreeNodes(ctx, sqlc.ListPblTreeNodesParams{
+		AtomID: atomID, Tree: pblMainTree,
+	}); err == nil && len(ns) > 0 {
+		var b strings.Builder
+		for _, n := range ns {
+			b.WriteString("\n  " + strings.Repeat("\u3000", int(n.Depth)) + strings.TrimSpace(n.Title))
+			if body := strings.TrimSpace(n.Body); body != "" {
+				b.WriteString("：" + body)
+			}
+		}
+		add("她定下来的结构：" + b.String())
+	}
+	// 她对结构那三个问题的回答。
+	if cs, err := a.d.Queries.ListPblTreeChecks(ctx, sqlc.ListPblTreeChecksParams{
+		AtomID: atomID, Tree: pblMainTree,
+	}); err == nil {
+		for _, c := range cs {
+			if ans := strings.TrimSpace(c.Answer); ans != "" {
+				add("看结构时她对「" + strings.TrimSpace(c.Question) + "」的判断：" + ans)
+			}
+		}
+	}
+
+	// 🚨 某一步的分工，她确认过的那一版。
+	if v, err := a.d.Queries.GetPblLivePlan(ctx, atomID); err == nil {
+		if ss, serr := a.d.Queries.ListPblSubstepsForPlan(ctx, v.ID); serr == nil && len(ss) > 0 {
+			who := map[string]string{"yinji": "印记", "student": "她自己", "both": "两个人一起"}
+			var lines []string
+			for _, x := range ss {
+				// 🚨 她改过的那一版才算数，而且"她改过"本身就是信号（铁律④）：
+				// 印记本来派给自己的一件事被她要了过去，那是她的判断在起作用。
+				raw, why, moved := x.Owner, strings.TrimSpace(x.Reason), false
+				if x.StudentOwner != nil && strings.TrimSpace(*x.StudentOwner) != "" {
+					if *x.StudentOwner != x.Owner {
+						moved = true
+					}
+					raw = *x.StudentOwner
+					if sr := strings.TrimSpace(x.StudentReason); sr != "" {
+						why = sr
+					}
+				}
+				owner := who[raw]
+				if owner == "" {
+					owner = raw
+				}
+				line := strings.TrimSpace(x.Title) + "（" + owner
+				if moved {
+					line += "，她改的"
+				}
+				line += "）"
+				if why != "" {
+					line += "，因为" + why
+				}
+				lines = append(lines, line)
+			}
+			add("这一步的分工：" + strings.Join(lines, "；"))
+		}
+	}
+
+	// 🚨 复盘里她写下的答案。整件项目最后的那层意思就在这儿，不回灌等于白写。
+	if ps, err := a.d.Queries.ListPblReviewPrompts(ctx, atomID); err == nil {
+		for _, x := range ps {
+			if ans := strings.TrimSpace(x.Answer); ans != "" {
+				add("复盘时她对「" + strings.TrimSpace(x.Prompt) + "」的回答：" + ans)
+			}
+		}
+	}
+
 	// 上线之后她记下来的事。
 	if ks, err := a.d.Queries.ListPblKeepEntries(ctx, atomID); err == nil {
 		for _, k := range ks {
