@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
-import { Check, Link2, Monitor, RefreshCw, Smartphone } from "lucide-react";
+import { Check, Copy, Link2, Monitor, RefreshCw, Smartphone } from "lucide-react";
+import QRCode from "qrcode";
 import { Icon } from "@/ui";
 import { getSite, publishSite, revokeSite, type SiteState } from "../../../api/site";
 import { apiErrorText } from "../../../api/errorText";
@@ -33,6 +34,8 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
   const [narrow, setNarrow] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [qr, setQr] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
 
   const load = useCallback(async () => {
     try {
@@ -61,6 +64,47 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
     },
     [],
   );
+
+  // 二维码跟着链接走：上线了就有，撤回了就没有。
+  //
+  // 🚨 画不出来不算失败。二维码是这条链接的另一种给法，不是链接本身——画图失败
+  // 时她仍然拿得到那一行地址，所以这里不报错、不挡上线，只是不显示那张图。
+  // 和 SharePanel 对分享报告的处理是同一条。
+  const shareUrl = state?.published ? state.url : "";
+  useEffect(() => {
+    if (!shareUrl) {
+      setQr(null);
+      return;
+    }
+    let cancelled = false;
+    QRCode.toDataURL(shareUrl)
+      .then((img) => {
+        if (!cancelled) setQr(img);
+      })
+      .catch(() => {
+        if (!cancelled) setQr(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [shareUrl]);
+
+  // 撤回之后再上线拿到的是同一条链接，但「已复制」是上一次的事，得清掉。
+  useEffect(() => {
+    setCopied(false);
+  }, [shareUrl]);
+
+  const copyLink = useCallback(async () => {
+    if (!shareUrl) return;
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2000);
+    } catch (err) {
+      // 第 8 条：动词 + 失败，再接后台原话。她和我们看到的是同一句。
+      setError(`复制失败：${err instanceof Error ? err.message : String(err)}`);
+    }
+  }, [shareUrl]);
 
   if (!state) {
     return (
@@ -181,15 +225,37 @@ export function Ship({ tool, onFinish, onClose }: ToolSurfaceProps) {
         <div className="flex flex-wrap items-center gap-3 border-t border-mk-border px-4 py-3">
           {state.published ? (
             <>
-              <a
-                href={state.url}
-                target="_blank"
-                rel="noreferrer"
-                className="flex items-center gap-1.5 text-mk-small text-mk-accent-600"
-              >
-                <Icon icon={Link2} size={14} />
-                {state.url}
-              </a>
+              {/* 🚨 二维码底色写死白色，不跟主题走。深色模式下把黑白反过来，
+                  多数手机的相机就认不出来了——而这张图存在的唯一理由是被扫。 */}
+              {qr ? (
+                <img
+                  src={qr}
+                  alt="二维码"
+                  width={76}
+                  height={76}
+                  className="shrink-0 border border-mk-border"
+                  style={{ background: "#fff", borderRadius: 6, padding: 3 }}
+                />
+              ) : null}
+              <div className="flex min-w-0 flex-col items-start gap-1">
+                <a
+                  href={state.url}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="flex max-w-full items-center gap-1.5 text-mk-small text-mk-accent-600"
+                >
+                  <Icon icon={Link2} size={14} />
+                  <span className="truncate">{state.url}</span>
+                </a>
+                <button
+                  type="button"
+                  onClick={() => void copyLink()}
+                  className="flex items-center gap-1.5 text-mk-small text-mk-muted"
+                >
+                  <Icon icon={copied ? Check : Copy} size={13} />
+                  {copied ? "已复制" : "复制链接"}
+                </button>
+              </div>
               <div className="flex-1" />
               <button
                 type="button"
