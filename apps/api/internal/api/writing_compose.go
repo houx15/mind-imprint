@@ -328,6 +328,7 @@ func (a *API) finishWritingAtom(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	a.EnqueueHarvest(r.Context(), at.ID) // 见 interest_jobs.go
 	wr, err := a.d.Queries.GetWriting(r.Context(), at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)

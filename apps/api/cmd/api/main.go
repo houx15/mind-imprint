@@ -187,7 +187,7 @@ func main() {
 		log.Printf("class %-11s → %s (provider=%s tier=%s think=%s)", class, b.ModelID, b.Provider, b.Tier, b.Reasoning)
 	}
 
-	apiHandler := api.New(api.Deps{
+	theAPI := api.New(api.Deps{
 		Queries:          queries,
 		Provider:         provider,
 		Route:            resolvers.For,
@@ -203,11 +203,29 @@ func main() {
 		Fetcher:          materialize.NewFetcher(),
 		OSS:              ossSvc,
 		OSSAdminKey:      cfg.OSSAdminKey,
-	}).Handler()
+	})
+	apiHandler := theAPI.Handler()
+
+	// 兴趣采集的后台队列。**起不来就只 log**：队列是可降级的子系统（采集慢一
+	// 点、树晚一会儿长），不是正确性不变量；为它拒绝启动会让整个接口下线。
+	// EnqueueHarvest 对 nil client 是一次安静的空操作，扫尾也就不跑，其余照常。
+	riverClient, rerr := api.StartHarvestQueue(ctx, pool, theAPI)
+	if rerr != nil {
+		slog.Error("interest harvest queue failed to start; harvesting is off", "err", rerr)
+	} else {
+		theAPI.AttachRiver(riverClient)
+		slog.Info("interest harvest queue started")
+	}
 
 	srv := httpx.NewServer(cfg, pool, apiHandler)
 
 	if err := httpx.RunServer(srv, func(shutdownCtx context.Context) {
+		if riverClient != nil {
+			// 先停队列再关连接池：一个还在跑的 worker 会用到 pool。
+			if err := riverClient.Stop(shutdownCtx); err != nil {
+				slog.Warn("interest harvest queue did not stop cleanly", "err", err)
+			}
+		}
 		pool.Close()
 	}); err != nil {
 		fmt.Fprintf(os.Stderr, "server: %v\n", err)

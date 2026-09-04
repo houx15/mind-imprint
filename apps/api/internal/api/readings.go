@@ -435,6 +435,9 @@ func (a *API) finishReading(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// 请后台采一次兴趣。一条 INSERT，不等待；失败只 warn，扫尾会捞回来。
+	// 这个动作仍然是一次瞬时翻转 —— 队列存在的意义就在这里。
+	a.EnqueueHarvest(r.Context(), at.ID)
 	rd, err := a.d.Queries.GetReading(r.Context(), at.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)

@@ -199,13 +199,9 @@ func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
 		return
 	}
-	// 惰性采集：把她已完成、还没采过的东西补上关键词，然后才读这棵树。见
-	// interest_harvest.go 顶部关于「为什么不挂在完成那一刻」的说明。用脱离请求
-	// 生命周期的 context，这样她中途切走也不会把已经花掉的调用浪费掉。
-	hCtx, cancel := detachedModelCtx(r)
-	defer cancel()
-	a.harvestPending(hCtx, u.ID)
-
+	// **这是一次纯读。** 采集在后台队列里跑（interest_jobs.go）：完成时入队，
+	// 外加每两分钟一次扫尾。2026-09-04 之前这里挂着一次三到十秒的旗舰调用，
+	// 她盯着自己的树等它长出来。
 	ctx := r.Context()
 
 	keywords, err := a.d.Queries.ListInterestKeywords(ctx, u.ID)

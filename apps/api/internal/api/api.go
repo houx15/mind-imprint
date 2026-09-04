@@ -62,6 +62,10 @@ type Deps struct {
 	Fetcher          Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
 	OSS              *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
 	OSSAdminKey      string       // static bearer secret authorizing the admin upload routes
+	// River enqueues background jobs (interest harvesting). Nil in tests and
+	// when the queue fails to start — every call site must tolerate that; see
+	// interest_jobs.go.
+	River JobEnqueuer
 }
 
 // API holds the handler dependencies.
