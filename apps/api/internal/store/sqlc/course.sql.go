@@ -266,7 +266,7 @@ type GetCourseVisibilityBySlugRow struct {
 }
 
 // 一门课的两道可见性：published/preview（谁能看见草稿），以及 audience（这门
-// 课摆给哪种学生看，见 0122）。一次查回来，因为按 slug 读一门课的每条路径都
+// 课摆给哪种学生看，见 0133）。一次查回来，因为按 slug 读一门课的每条路径都
 // 要同时过这两关——分两次查就一定会有某条路径只过了一关。
 func (q *Queries) GetCourseVisibilityBySlug(ctx context.Context, slug string) (GetCourseVisibilityBySlugRow, error) {
 	row := q.db.QueryRow(ctx, getCourseVisibilityBySlug, slug)
@@ -620,7 +620,7 @@ type UpsertCourseDefinitionRow struct {
 //
 // 🚨 audience 是这份 body 里唯一「省略 = 保留」的字段（其余的省略即清空，见
 // course_definition_admin.go 的注释）。故意的：blurb 被清空，作者一眼看得见；
-// 受众被清空，这门课会**悄悄对所有人可见**，而没有任何一个界面会显示这件事。
+// 受众被清空，这门课对所有人可见，而没有任何一个界面会显示这件事。
 // 传空数组（不是省略）才是「不限受众」。
 func (q *Queries) UpsertCourseDefinition(ctx context.Context, arg UpsertCourseDefinitionParams) (UpsertCourseDefinitionRow, error) {
 	row := q.db.QueryRow(ctx, upsertCourseDefinition,

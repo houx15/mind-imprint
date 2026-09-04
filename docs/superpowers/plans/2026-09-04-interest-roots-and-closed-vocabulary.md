@@ -35,7 +35,7 @@ Spec: `docs/superpowers/specs/2026-09-04-interest-roots-and-closed-vocabulary-de
       不再信模型给的。
 - [ ] `internal/api/interest_harvest.go`：`ClassCompose` 改 `ClassDigest`。
 - [ ] `internal/api/interest_quiz.go`：同一条种词路径，跟着换。
-- [ ] 迁移 `0122_interest_vocabulary.sql`：`how` 的 CHECK 加 `'catalog'`；
+- [ ] 迁移 `0134_interest_vocabulary.sql`：`how` 的 CHECK 加 `'catalog'`；
       `interest_keyword` 加 `interest_id text`；三张表归档 + 清空；
       `atom.interest_harvested_at` 置 NULL。
 - [ ] `queries/interest.sql` 跟着改，跑 sqlc（**pin `@v1.27.0`**）。

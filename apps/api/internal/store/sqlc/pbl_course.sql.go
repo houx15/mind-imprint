@@ -28,7 +28,7 @@ type AssignPblCourseParams struct {
 	Why        string      `json:"why"`
 }
 
-// 项目里的课程指派（migration 0122）。
+// 项目里的课程指派（migration 0133）。
 //
 // 印记在项目里递出一门课，她去上，上完回来写一句「这一课对我这个项目有什么
 // 用」。那一句是闭环的内容本身，回灌读的就是它。

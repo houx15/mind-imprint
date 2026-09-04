@@ -15,7 +15,7 @@ package api
 //
 // # 入队 + 扫尾，两条腿
 //
-// 只入队不够：入队失败、上线之前积压的、以及迁移 0133 清库之后要重采的那一批，
+// 只入队不够：入队失败、上线之前积压的、以及迁移 0134 清库之后要重采的那一批，
 // 都没有人捞。只扫尾也不够：她读完一篇立刻打开树会看不到新词。所以两条都要。
 //
 // 重复入队是安全的、也是便宜的：harvestOneAtom 先取 advisory lock，再在锁里复查
@@ -160,7 +160,7 @@ func RegisterHarvestWorkers(w *river.Workers, a *API) error {
 // HarvestPeriodicJob 是每两分钟一次的扫尾。
 //
 // RunOnStart：服务起来立刻扫一次，这样一次部署之后不用等两分钟才开始消化积压 ——
-// 迁移 0133 清库之后，第一轮扫尾就是把所有人的树重新长出来的起点。
+// 迁移 0134 清库之后，第一轮扫尾就是把所有人的树重新长出来的起点。
 func HarvestPeriodicJob() *river.PeriodicJob {
 	return river.NewPeriodicJob(
 		river.PeriodicInterval(sweepInterval),

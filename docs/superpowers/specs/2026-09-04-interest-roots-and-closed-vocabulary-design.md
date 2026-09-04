@@ -167,7 +167,7 @@ ORDER BY a.last_activity_at DESC
 
 ## 4 · 存量：归档再重采
 
-迁移 `0122`：
+迁移 `0134`：
 
 1. `CREATE TABLE interest_keyword_v1_archive AS SELECT * FROM interest_keyword;`
    `keyword_source` / `keyword_discipline` 同样各存一份。
@@ -257,7 +257,7 @@ ORDER BY a.last_activity_at DESC
 | 期 | 内容 |
 |---|---|
 | B1 | 词表 + Go 包 + 一致性测试。零行为变化 |
-| B2 | 采集换闭表、降 digest、退休 router、`how='catalog'`、迁移 0122 归档重采 |
+| B2 | 采集换闭表、降 digest、退休 router、`how='catalog'`、迁移 0134 归档重采 |
 | B3 | river client + worker + 完成入队 + 周期扫尾；树接口变纯读 |
 | B4 | 树加根：叶子、根系、点击连线、面板 |
 
