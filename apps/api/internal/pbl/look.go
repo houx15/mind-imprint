@@ -103,18 +103,17 @@ var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
 // 没有变化的预览——而没有任何一层报过错。规矩要能在代码里验（memory ·
 // prompt-output-must-be-verifiable-2026-09-03）。
 func ParsePalettes(raw string) ([]Palette, error) {
-	s := strings.TrimSpace(raw)
-	if i := strings.Index(s, "{"); i > 0 {
-		s = s[i:]
-	}
-	if j := strings.LastIndex(s, "}"); j >= 0 && j < len(s)-1 {
-		s = s[:j+1]
-	}
+	// 数括号取出第一个配平的对象。见 jsonwire.go —— 「第一个 { 到最后一个 }」
+	// 在模型前后还写了话的时候会切出一段坏的。
+	s := firstJSONObject(strings.TrimSpace(raw))
 	var out struct {
 		Palettes []Palette `json:"palettes"`
 	}
 	if err := json.Unmarshal([]byte(s), &out); err != nil {
-		return nil, fmt.Errorf("pbl: palettes are not JSON: %w", err)
+		// 🚨 把模型原样回的东西带进错误里（截断）。不带的话，线上只剩一句
+		// 「不是 JSON」，而到底是它写了别的、还是我们切错了范围，无从判断。
+		return nil, fmt.Errorf("pbl: palettes are not JSON: %w；模型回的是：%s",
+			err, clip(raw, 400))
 	}
 
 	kept := make([]Palette, 0, len(out.Palettes))

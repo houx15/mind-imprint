@@ -104,18 +104,14 @@ func GeneratePersonas(
 // 而她照着一个编出来的读者去定整页的调子——错在哪儿她永远看不出来。
 // 见 memory · ai-errors-must-surface-never-fake。
 func ParsePersonas(raw string) ([]PersonaCandidate, error) {
-	s := strings.TrimSpace(raw)
-	if i := strings.Index(s, "{"); i > 0 {
-		s = s[i:]
-	}
-	if j := strings.LastIndex(s, "}"); j >= 0 && j < len(s)-1 {
-		s = s[:j+1]
-	}
+	// 同 ParsePalettes：数括号，见 jsonwire.go。
+	s := firstJSONObject(strings.TrimSpace(raw))
 	var out struct {
 		Personas []PersonaCandidate `json:"personas"`
 	}
 	if err := json.Unmarshal([]byte(s), &out); err != nil {
-		return nil, fmt.Errorf("pbl: personas are not JSON: %w", err)
+		return nil, fmt.Errorf("pbl: personas are not JSON: %w；模型回的是：%s",
+			err, clip(raw, 400))
 	}
 
 	kept := make([]PersonaCandidate, 0, len(out.Personas))
