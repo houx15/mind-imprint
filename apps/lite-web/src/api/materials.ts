@@ -87,6 +87,19 @@ export async function listMaterials(
             : "待上线"
         : "",
     });
+    // 🚨 改一页，改的是两样东西：上面的字，和它长什么样。
+    //
+    // 字那一半她回对话里说给印记（页面上每一句都必须是她的原话，所以这里没有
+    // 输入框，这是设计）。**长什么样那一半原来没有入口**：配色、风格、头图都在
+    // 「视觉基调」里，而那件工具只有印记在第三关递过一次——递完就再也回不去了。
+    // 于是「发布不是终点，她随时能回来改」这句话只对文字成立，对样子不成立。
+    websiteRow.push({
+      tool: "look",
+      label: "视觉基调",
+      hue: "var(--mk-lake)",
+      count: 1,
+      detail: site?.palette?.label ? site.palette.label : "配色与风格",
+    });
   }
 
   return [

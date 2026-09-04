@@ -149,6 +149,9 @@ export function Look({ tool, onFinish, onClose }: ToolSurfaceProps) {
                 <button
                   key={p.label}
                   type="button"
+                  // 配色的名字是模型每次现起的（「旧纸」「工作台」…），按文字找
+                  // 必然不稳。这一格是一个**位置**，和 DropField 的 testId 同理。
+                  data-testid="palette-option"
                   onClick={() => setPickedPalette(p)}
                   className="w-full rounded-mk-lg border p-3 text-left"
                   style={{ borderColor: on ? "var(--mk-accent-500)" : "var(--mk-border)" }}
