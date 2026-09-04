@@ -71,11 +71,17 @@ export function renderScreen(a: Affordances): string {
         .map((b) => `  [${b.i}] ${b.label || "（没有文字的按钮）"}${b.disabled ? "  ←按不动" : ""}`)
         .join("\n")
     : "  （一个按钮都没有）";
+  // 🚨 输入框里的字要么给全，要么明说是省略的。
+  //
+  // 上一版切到 80 字**不加任何记号**，于是学生以为自己打的话被系统截断了，
+  // 一连十几步都在纠结「输入框里的字显示不全，最后停在『低价转给』」，一天就这么
+  // 过去了。她看到的"缺陷"是这条 walk 自己造的。
+  const shown = (v: string) => (v.length <= 400 ? v : `${v.slice(0, 400)}…（还有 ${v.length - 400} 字，没显示完）`);
   const fs = a.fields.length
     ? a.fields
         .map(
           (f) =>
-            `  [${f.i}] ${f.placeholder || "（没有提示文字）"}${f.value ? `  现在写着：${f.value.slice(0, 80)}` : ""}`,
+            `  [${f.i}] ${f.placeholder || "（没有提示文字）"}${f.value ? `  现在写着：${shown(f.value)}` : ""}`,
         )
         .join("\n")
     : "  （没有能写字的地方）";
