@@ -565,6 +565,12 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
                 const has = prev.some((x) => x.id === t.id);
                 return has ? prev.map((x) => (x.id === t.id ? t : x)) : [...prev, t];
               });
+              // 🚨 和上面 onSelectTool 一样要铺开。少了这一行，从材料列表打开的
+              // 工具就挤在 360px 那条柱子里——而「我的主页」正是从这里进去的，
+              // 于是她回头看自己那一页时，整页被压成一条比手机还窄的缝，底下
+              // 「复制链接」「撤回链接」直接被挤出视野。2026-09-04 的浏览器 walk
+              // 拍到的就是这一张。
+              setWideTool(true);
               setOpenTool(t.id);
             }}
           />
