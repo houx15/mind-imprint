@@ -363,8 +363,17 @@ test("工具: 七个阶段的界面各打开一次", async ({ page }) => {
   await expect(page.getByText("东西做出来只是开始", { exact: false })).toBeVisible();
   await expect(page.getByRole("button", { name: "数据分析" })).toBeVisible();
   // 常见指标点开能看见它是什么。
-  await page.getByRole("button", { name: "留存率" }).click();
-  await expect(page.getByText("上次来过的人，这次还回来的比例。")).toBeVisible();
+  //
+  // 🚨 这里问的是「使用人数」而不是「留存率」。指标是按项目类别给的
+  // （`keepMetricsFor`）：留存率只对屏幕上的项目成立，而这条 walk 走的是剩饭
+  // 那个项目，类别还是空的，所以它只该拿到对任何项目都成立的那三个。
+  // 断言写死「留存率」等于要求界面对一个走廊上的项目也请她填点击率——那正是
+  // 2026-09-02 线上实测抓到并改掉的事，测试不该把它请回来。
+  await page.getByRole("button", { name: "使用人数" }).click();
+  await expect(
+    page.getByText("一段时间里真正用过它的有多少人。", { exact: false }),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "留存率" })).toHaveCount(0);
   await page.getByPlaceholder("这周的一个数字，以及它是从哪看到的").fill("这周有 12 个人打开过");
   await page.keyboard.press("Enter");
   await expect(page.getByRole("button", { name: "深入讨论" })).toBeVisible();
