@@ -25,6 +25,15 @@ export type Step = {
   beat: Beat;
   /** 这一下真的按下去了没有，没有的话为什么。 */
   outcome: string;
+  /**
+   * 她卡住 / 看不懂那一刻，屏幕上到底有哪些按钮、灰的还是亮的。
+   *
+   * 🚨 没有这一条就分不清两件事：**产品真的把按钮禁掉了**，还是**这条 walk
+   * 正好在印记那一轮里读了屏**（`busy` 期间邀请卡上的按钮本来就是灰的）。
+   * 2026-09-04 第一次就栽在这上面：记录里写着「开始任务按不动」，截图上那颗
+   * 按钮是可以点的。
+   */
+  buttons?: { label: string; disabled: boolean }[];
   shot?: string;
   ms: number;
 };
@@ -171,6 +180,8 @@ export async function runDay(
   let lastKey = "";
   let sameKeyRuns = 0;
   let note = "";
+  let lastLabel = "";
+  let repeatRun = 0;
 
   const shotDir = path.join(OUT, s.key);
   fs.mkdirSync(shotDir, { recursive: true });
@@ -190,6 +201,16 @@ export async function runDay(
     sameKeyRuns = key === lastKey ? sameKeyRuns + 1 : 0;
     lastKey = key;
     if (sameKeyRuns === 2) note = "你刚才那一下之后，屏幕看起来没有任何变化。";
+    // 🚨 同一颗按钮连按三次以上要点破。
+    //
+    // 这条 walk 给学生的是一个**没有版面的按钮清单**：一张大卡片和一颗小按钮
+    // 在它眼里一样大，所以它会一直点那张卡（`setPicked` 是幂等的，点第二次起
+    // 屏幕就不动了），把一天六十步烧光。真人看得见卡片描了高亮边、确认按钮就在
+    // 底下，不会这样。这是这套方法的天花板，不是产品的缺陷——所以在这里点破，
+    // 而不是把它记成一条结论。
+    if (repeatRun >= 3 && lastLabel) {
+      note = `你已经连着点了 ${repeatRun} 次「${lastLabel}」，屏幕没有变化。这一下没有用，换一个地方点。`;
+    }
 
     const stepStart = Date.now();
     let beat: Beat;
@@ -200,6 +221,11 @@ export async function runDay(
       break;
     }
     note = "";
+
+    const thisLabel =
+      beat.action.kind === "click" ? (screen.buttons[beat.action.button]?.label ?? "") : "";
+    repeatRun = thisLabel && thisLabel === lastLabel ? repeatRun + 1 : 0;
+    lastLabel = thisLabel;
 
     const outcome = await act(page, screen, beat);
     const shot = path.join(shotDir, `d${day}-${String(n).padStart(2, "0")}.png`);
@@ -214,6 +240,7 @@ export async function runDay(
       beat,
       outcome,
       shot: worth ? shot : undefined,
+      buttons: worth ? screen.buttons.map((b) => ({ label: b.label, disabled: b.disabled })) : undefined,
       ms: Date.now() - stepStart,
     });
     recent.push(`${describe(beat, screen)} → ${outcome}`);
@@ -327,7 +354,15 @@ async function act(page: Page, screen: Affordances, beat: Beat): Promise<string>
       await page.waitForTimeout(5_000);
       return "等了五秒";
     }
-    if (a.kind === "stuck" || a.kind === "leave") return a.kind;
+    if (a.kind === "leave") return a.kind;
+    // 🚨 卡住要**停一下再看**。原来 stuck 立刻返回，循环马上重读屏幕——而印记
+    // 那一轮还在跑，`busy` 期间邀请卡上的「开始任务」「跳过」是 disabled 的。
+    // 于是学生一秒看一次，每次都读到"按不动"，据此判定这张卡是坏的，
+    // 记录里就多出一条根本不存在的缺陷。真的学生卡住时会停下来重新看一眼。
+    if (a.kind === "stuck") {
+      await page.waitForTimeout(8_000);
+      return "停下来又看了一遍";
+    }
 
     if (a.kind === "say") {
       const box = page.getByPlaceholder("请输入");
@@ -355,7 +390,7 @@ async function act(page: Page, screen: Affordances, beat: Beat): Promise<string>
       // **一直在飘的**（`exp-drift`，见 ExploreView 的 SLOTS），Playwright 的
       // 可操作性检查里有一条「元素要停稳」，飘着的球永远等不到那一刻，于是
       // 每一次点击都以超时告终。第一次走查里学生因此连点了十几次、最后判定
-      // 「这个页面坏了」——而一个真的学生用手去点一颗慢慢飘的球是点得中的。
+      // 「这个页面坏了」。真的学生点一颗低速移动的球是点得中的。
       // 那是我的问题，不是产品的问题，不能让它冒充成一条结论。
       try {
         await target.click({ timeout: 6_000 });
