@@ -96,7 +96,12 @@ for (const l of logs) {
     if (snags.length) {
       out.push("**她说看不懂的地方：**");
       out.push("");
-      for (const s of snags) out.push(`- 第 ${s.n} 步：${s.beat.snag}`);
+      for (const s of snags) {
+        // 带上那一屏的截图路径：这份报告是要拿去改界面的，光有一句「看不懂」
+        // 不知道改哪儿。
+        const shot = s.shot ? `　（${s.shot}）` : "";
+        out.push(`- 第 ${s.n} 步：${s.beat.snag}${shot}`);
+      }
       out.push("");
     }
 

@@ -113,13 +113,17 @@ async function dayDone(page: Page, day: number): Promise<boolean> {
 
   if (day === 1) {
     // 第一天算到"她真的做完了至少一件工具"。开了房间但一件没做完，就是没到。
+    //
+    // 🚨 判据是 `status === "done"`，不是某个 `finishedAt` 字段——`ToolInstance`
+    // 上根本没有那个字段（见 `src/api/tools.ts`：status/acceptedAt/resolvedAt）。
+    // 第一版写错了名字，于是她第 34 步就做完了受众画像，这一天却一直判"没到"，
+    // 白白又走了十六步。判据写错比走查走不动更糟：它会把一个走通了的产品记成
+    // 走不通。
     const web = projects.find((p) => p.kind === "website");
     if (!web) return false;
     const tools =
-      (await get<{ tool: string; finishedAt?: string | null }[]>(
-        `/api/v1/pbl/projects/${web.id}/tools`,
-      )) ?? [];
-    return tools.some((t) => !!t.finishedAt);
+      (await get<{ tool: string; status?: string }[]>(`/api/v1/pbl/projects/${web.id}/tools`)) ?? [];
+    return tools.some((t) => t.status === "done");
   }
   if (day === 2) return !!site?.published;
   if (day === 3) {
@@ -293,6 +297,28 @@ function describe(b: Beat, s: Affordances): string {
   return a.kind;
 }
 
+/**
+ * 按序号找那个按钮，并且**核对它还是不是原来那一个**。
+ *
+ * 🚨 屏幕是先读下来的，学生想两三秒，这中间界面会变（印记递了一件工具、一块
+ * 面板铺开了），第 9 个按钮就不再是她当时看见的那一个。照序号点下去，记录里
+ * 会写着「按下了发送」而实际按到的是别的东西——整份走查的可信度就没了。
+ *
+ * 所以核对文字：对不上就按文字重新找；找不到就如实说这个按钮没了。
+ */
+async function resolveButton(page: Page, index: number, label: string) {
+  const byIndex = page.locator("button:visible").nth(index);
+  const now = await byIndex
+    .innerText()
+    .then((t) => t.replace(/\s+/g, " ").trim())
+    .catch(() => null);
+  if (now !== null && now === label) return byIndex;
+  if (!label) return null;
+  const byLabel = page.getByRole("button", { name: label, exact: true });
+  if (await byLabel.count()) return byLabel.first();
+  return null;
+}
+
 /** 把学生的决定真的按下去。按不了就把原因还给她——她下一步会换一个做法。 */
 async function act(page: Page, screen: Affordances, beat: Beat): Promise<string> {
   const a = beat.action;
@@ -323,7 +349,8 @@ async function act(page: Page, screen: Affordances, beat: Beat): Promise<string>
       const b = screen.buttons[a.button];
       if (!b) return `没有第 ${a.button} 个按钮`;
       if (b.disabled) return `「${b.label}」按不动`;
-      const target = page.locator("button:visible").nth(a.button);
+      const target = await resolveButton(page, a.button, b.label);
+      if (!target) return `想按的「${b.label}」已经不在屏幕上了`;
       // 🚨 `force: true` 兜底，否则会造出一个假的死路。探索地图上那五颗球是
       // **一直在飘的**（`exp-drift`，见 ExploreView 的 SLOTS），Playwright 的
       // 可操作性检查里有一条「元素要停稳」，飘着的球永远等不到那一刻，于是
@@ -342,7 +369,9 @@ async function act(page: Page, screen: Affordances, beat: Beat): Promise<string>
     if (a.kind === "hover") {
       const b = screen.buttons[a.button];
       if (!b) return `没有第 ${a.button} 个按钮`;
-      await page.locator("button:visible").nth(a.button).hover({ timeout: 6_000, force: true });
+      const h = await resolveButton(page, a.button, b.label);
+      if (!h) return `想看的「${b.label}」已经不在屏幕上了`;
+      await h.hover({ timeout: 6_000, force: true });
       await page.waitForTimeout(1500);
       return `把光标停在「${b.label}」上`;
     }
@@ -350,6 +379,14 @@ async function act(page: Page, screen: Affordances, beat: Beat): Promise<string>
     if (a.kind === "fill") {
       const f = screen.fields[a.field];
       if (!f) return `没有第 ${a.field} 个输入框`;
+      // 🚨 写进对话框就等于要说话。分成「写字」和「按发送」两步的话，学生会
+      // 写完一句、看见屏幕没反应、再去找发送——一轮问答要烧掉三步，五十步的
+      // 一天有三分之一耗在这里，而这不是产品的问题，是这条 walk 的问题。
+      if (f.placeholder.includes("请输入")) {
+        // act 收的是一整个 Beat，不是一个 Action——直接把 Action 传进来会在
+        // `beat.action` 上炸「Cannot read properties of undefined」。
+        return await act(page, screen, { ...beat, action: { kind: "say", text: a.text } });
+      }
       const target = page.locator("input:visible, textarea:visible").nth(a.field);
       await target.fill(a.text, { timeout: 10_000 });
       await page.waitForTimeout(400);
