@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { Icon } from "@/ui";
 import { ApiError } from "../api/client";
@@ -8,11 +8,15 @@ import {
   listProjects,
   PROJECT_STATUSES,
   PROJECT_STATUS_LABELS,
+  updateProject,
   type Project,
+  type ProjectStatus,
 } from "../api/projects";
 import { navigate, projectPath } from "../routing";
 import { getSite, startSiteProject, type SiteState } from "../api/site";
 import { ProjectCard } from "./ProjectCard";
+import { useZoneDrag } from "./tools/board/useZoneDrag";
+import { DragGhost } from "./tools/board/DragGhost";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -50,6 +54,50 @@ export function ProjectsLanding() {
   // spec §4 的门：她的主页发布之前，这里给的是主页那一扇门，不是自由输入框。
   const [site, setSite] = useState<SiteState | null>(null);
   const [opening, setOpening] = useState(false);
+
+  /**
+   * 把一个项目挪到另一列 —— 也就是「这个项目我做完了」这一下。
+   *
+   * 🚨 在这之前，界面上**没有任何一处**能把项目往后推。服务端五档全收
+   * （`pbl_projects.go` 的白名单），审完计划会自动进「进行中」，然后就没有然后
+   * 了：整个 lite 前端只有 `NameAndCover` 调过 `updateProject`，而它只改名字和
+   * 封面。看板画着五列，却只有前两列进得去——她做完了也没办法说做完了。
+   *
+   * 为什么是拖：产品负责人 2026-09-03 那四张图里，拖是主要动词；而且这块看板
+   * 本来就是「哪个项目现在在哪一档」的那张图，把卡片挪过去正是她心里那个动作。
+   *
+   * 先改本地再发请求：她松手那一刻卡片就该在新的一列里。请求失败就退回去，并且
+   * 把后台原话显示出来（第 8 条）。
+   */
+  const justDragged = useRef(false);
+  const move = useCallback(async (id: string, status: ProjectStatus) => {
+    let before: ProjectStatus | undefined;
+    setProjects((prev) => {
+      if (!prev) return prev;
+      before = prev.find((p) => p.id === id)?.status;
+      return prev.map((p) => (p.id === id ? { ...p, status } : p));
+    });
+    try {
+      await updateProject(id, { status });
+    } catch (err) {
+      setError(`移动失败：${apiErrorText(err)}`);
+      setProjects((prev) =>
+        prev && before ? prev.map((p) => (p.id === id ? { ...p, status: before! } : p)) : prev,
+      );
+    }
+  }, []);
+
+  const drag = useZoneDrag({
+    onDrop: (id, zone) => {
+      justDragged.current = true;
+      window.setTimeout(() => (justDragged.current = false), 0);
+      if (!zone) return;
+      const now = projects?.find((p) => p.id === id)?.status;
+      if (now === zone) return;
+      void move(id, zone as ProjectStatus);
+    },
+  });
+
   /** Set once a project exists on the server and she has yet to name it. */
 
   useEffect(() => {
@@ -268,7 +316,17 @@ export function ProjectsLanding() {
               <div className="-mx-4 overflow-x-auto px-4 sm:-mx-6 sm:px-6">
                 <div className="flex min-w-[1180px] gap-4">
                   {PROJECT_STATUSES.map((status) => (
-                    <section key={status} className="flex w-full min-w-[228px] flex-col gap-3">
+                    <section
+                      key={status}
+                      ref={drag.zoneRef(status)}
+                      data-testid={`status-col-${status}`}
+                      className="flex w-full min-w-[228px] flex-col gap-3 rounded-mk-lg p-1"
+                      style={
+                        drag.drag?.over === status
+                          ? { boxShadow: "inset 0 0 0 2px var(--mk-accent-500)" }
+                          : undefined
+                      }
+                    >
                       <header className="flex items-baseline justify-between border-b border-mk-border pb-2">
                         <h2 className="text-mk-label text-mk-secondary">
                           {PROJECT_STATUS_LABELS[status]}
@@ -280,13 +338,31 @@ export function ProjectsLanding() {
                           <ProjectCard
                             key={p.id}
                             project={p}
-                            onOpen={(x) => navigate(projectPath(x.id))}
+                            testId={`project-card-${p.id}`}
+                            dim={drag.drag?.id === p.id}
+                            onPointerDown={(e) => drag.start(p.id, e)}
+                            onOpen={(x) => {
+                              // 🚨 刚拖完那一下不算点击。真拖过之后浏览器不会在
+                              // 原元素上再发 click，这个 ref 兜的是"在同一张卡上
+                              // 小幅挪了一下"——见 memory ·
+                              // interaction-means-a-board（Decide 上吃过一次）。
+                              if (justDragged.current) return;
+                              navigate(projectPath(x.id));
+                            }}
                           />
                         ))}
                       </div>
                     </section>
                   ))}
                 </div>
+                {/* 手里拿着的那张。position: fixed，否则拖出这一列就被
+                    overflow 裁掉了——见 DragGhost 顶上那段。 */}
+                <DragGhost drag={drag.drag}>
+                  {(() => {
+                    const p = projects?.find((x) => x.id === drag.drag?.id);
+                    return p ? <ProjectCard project={p} onOpen={() => undefined} /> : null;
+                  })()}
+                </DragGhost>
               </div>
             )}
           </div>

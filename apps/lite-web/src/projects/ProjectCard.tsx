@@ -27,7 +27,21 @@ function whenLabel(iso: string): string {
   return `${Math.floor(months / 12)} 年前`;
 }
 
-export function ProjectCard({ project, onOpen }: { project: Project; onOpen: (p: Project) => void }) {
+export function ProjectCard({
+  project,
+  onOpen,
+  onPointerDown,
+  testId,
+  dim,
+}: {
+  project: Project;
+  onOpen: (p: Project) => void;
+  /** 看板上把它拖到另一列。列表视图不传，那里没有可拖的去处。 */
+  onPointerDown?: (e: React.PointerEvent) => void;
+  testId?: string;
+  /** 正被拖着：原位留一张淡的，手里那张是 DragGhost。 */
+  dim?: boolean;
+}) {
   // 走 resolveCover，看板和别处不会对同一个还没设封面的项目给出两种颜色。
   const { ground, glyph } = resolveCover(project.kind, project.coverGround, project.coverGlyph);
   const kind = kindLabel(project.kind);
@@ -37,6 +51,11 @@ export function ProjectCard({ project, onOpen }: { project: Project; onOpen: (p:
     <button
       type="button"
       onClick={() => onOpen(project)}
+      onPointerDown={onPointerDown}
+      data-testid={testId}
+      // touchAction: none —— 触屏上不写这一条，系统会先把手势当成滚动，
+      // pointermove 根本不发给我们。见 useZoneDrag 顶上那段。
+      style={onPointerDown ? { touchAction: "none", opacity: dim ? 0.35 : 1 } : undefined}
       className="group flex w-full flex-col gap-3 rounded-mk-lg border border-mk-border bg-mk-surface p-4 text-left shadow-mk-xs transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-mk-accent-200"
     >
       <div className="flex items-start gap-3">
