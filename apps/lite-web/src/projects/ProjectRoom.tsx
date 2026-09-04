@@ -296,7 +296,14 @@ export function ProjectRoom({ projectId }: { projectId: string }) {
     try {
       const got = await acceptTool(projectId, t.id);
       setTools((prev) => prev.map((x) => (x.id === got.id ? got : x)));
-      if (got.kind === "thinking") setOpenTool(got.id);
+      if (got.kind === "thinking") {
+        // 🚨 这条路才是她最常走的那条：印记递过来一张卡，她按「开始任务」。
+        // 铺开原来只加在 onSelectTool（「进行中」那一列）上，于是同一件工具，
+        // 走查里是铺开的、她真用的时候是 360px 那条柱子——2026-09-04 的浏览器
+        // 走查拍到受众画像挤在右边一条缝里，三个人的画像根本摆不下。
+        setWideTool(true);
+        setOpenTool(got.id);
+      }
     } catch (err) {
       setError(apiErrorText(err));
     } finally {
