@@ -45,16 +45,29 @@ const theWordsSheWrote = `{
   "about": ["我在拆家里所有还能拆的东西，然后写为什么它们修不好。"]
 }`
 
-// openSiteGate 走一遍她真实要走的路：写字 → 挑版式并说明理由 → 发布。
+// openSiteGate 走一遍她真实要走的路：写字 → 定版式与配色 → 发布。
 // 走完 §4 那道门才开。
+//
+// 🚨 这个 helper 是整个 PBL 测试面的地基（85 个测试直接或间接走它），所以它
+// 一旦对不上真实路由，红的不是一个测试而是一整片——而且症状是
+// 「挑版式 = 404」，看起来像权限或路由注册坏了，跟真正的原因（第三关改版）
+// 差得很远。2026-09-04 就是这样：
+//
+// 旧的 `PUT /pbl/site/layout` 要她挑一个版式**并写一句理由**，是 SiteStudio
+// 那张表单里的一格。第三关（配色 + 风格 + 头图，全做成判断题）把它换成了
+// `PUT /pbl/site/look`：版式和配色一起定，不再要 `why`。api.go 那一行的注释
+// 写着「取代了旧的 PUT /pbl/site/layout」，但这个 helper 没跟着改。
 func openSiteGate(t *testing.T, h http.Handler, c *http.Cookie) string {
 	t.Helper()
 	if rec := siteReq(t, h, c, "PUT", "/api/v1/pbl/site/content", theWordsSheWrote); rec.Code != http.StatusOK {
 		t.Fatalf("写内容 = %d; body=%s", rec.Code, rec.Body)
 	}
-	if rec := siteReq(t, h, c, "PUT", "/api/v1/pbl/site/layout",
-		`{"layout":"ledger","why":"我做的东西比我写的字多，索引式一屏能看到十几条。"}`); rec.Code != http.StatusOK {
-		t.Fatalf("挑版式 = %d; body=%s", rec.Code, rec.Body)
+	// 三个颜色都必须是 #RRGGBB —— putPblSiteLook 会验（一个 "warm beige" 存进去
+	// 之后浏览器会把整条 CSS 声明丢掉，坏的是她已经发布出去的那一页）。
+	if rec := siteReq(t, h, c, "PUT", "/api/v1/pbl/site/look",
+		`{"layout":"ledger","palette":{"label":"工作台","why":"配「拆东西」这个词",`+
+			`"paper":"#F5F1E8","ink":"#1F1B16","accent":"#B4552D"}}`); rec.Code != http.StatusOK {
+		t.Fatalf("定版式与配色 = %d; body=%s", rec.Code, rec.Body)
 	}
 	rec := siteReq(t, h, c, "POST", "/api/v1/pbl/site/publish", "")
 	if rec.Code != http.StatusOK {
@@ -144,18 +157,38 @@ func TestPublishSite_RefusesAPageWithNoWordsOfHers(t *testing.T) {
 	}
 }
 
-// 挑版式必须写理由。设计原则：「一旦『就用这个』自己能按下去，这就是一台负责
-// 生成、而她只负责点头的机器。」
-func TestSiteLayout_DoesNotSettleWithoutAReason(t *testing.T) {
+// 定版式与配色时，两样都要验得住。
+//
+// ⚠️ 这条测试原本叫 `TestSiteLayout_DoesNotSettleWithoutAReason`，钉的是旧
+// `PUT /pbl/site/layout` 的规矩：**挑版式必须写一句理由**，理由是
+// 「一旦『就用这个』自己能按下去，这就是一台负责生成、而她只负责点头的机器」。
+//
+// 第三关（配色 + 风格 + 头图，全做成判断题）把那一步整个换掉了：新的
+// `PUT /pbl/site/look` 一次定版式和配色，**没有 `why` 这个字段**——api.go 上
+// 那行注释把这次替换写得很清楚。所以「没写理由就不能落定」不再是产品的规矩，
+// 继续断言它就是在钉一条已经被推翻的设计。
+//
+// 留下来的是这个端点真正还担保的两件事，而且第二件正是她自己发现不了的那种：
+// 一个不是 #RRGGBB 的颜色存进去之后，浏览器会把整条 CSS 声明丢掉，坏掉的是
+// 她**已经发布出去**的那一页。
+func TestSiteLook_RefusesAnUnknownLayoutOrABrokenPalette(t *testing.T) {
 	h, cookie, _, _ := liteHandler(t)
+	const goodPalette = `"palette":{"label":"工作台","why":"配「拆东西」这个词",` +
+		`"paper":"#F5F1E8","ink":"#1F1B16","accent":"#B4552D"}`
 
-	rec := siteReq(t, h, cookie, "PUT", "/api/v1/pbl/site/layout", `{"layout":"essay","why":"  "}`)
+	rec := siteReq(t, h, cookie, "PUT", "/api/v1/pbl/site/look", `{"layout":"blog",`+goodPalette+`}`)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("没写理由也选定了版式：status = %d; body=%s", rec.Code, rec.Body)
+		t.Fatalf("不存在的版式被接受了：status = %d; body=%s", rec.Code, rec.Body)
 	}
-	rec = siteReq(t, h, cookie, "PUT", "/api/v1/pbl/site/layout", `{"layout":"blog","why":"随便"}`)
+	rec = siteReq(t, h, cookie, "PUT", "/api/v1/pbl/site/look",
+		`{"layout":"ledger","palette":{"label":"暖","why":"暖","paper":"warm beige","ink":"#1F1B16","accent":"#B4552D"}}`)
 	if rec.Code != http.StatusBadRequest {
-		t.Fatalf("不存在的版式被接受了：status = %d", rec.Code)
+		t.Fatalf("不是 #RRGGBB 的颜色被接受了：status = %d; body=%s", rec.Code, rec.Body)
+	}
+	// 两样都对 → 落定。
+	if rec := siteReq(t, h, cookie, "PUT", "/api/v1/pbl/site/look",
+		`{"layout":"ledger",`+goodPalette+`}`); rec.Code != http.StatusOK {
+		t.Fatalf("版式和配色都合法却没落定：status = %d; body=%s", rec.Code, rec.Body)
 	}
 }
 
@@ -223,12 +256,35 @@ func TestPublicSite_PayloadCarriesNothingExtra(t *testing.T) {
 	rec := siteReq(t, h, nil, "GET", "/api/v1/public/sites/"+tokenOf(url), "")
 	out := decodeSite(t, rec)
 
+	// 🚨 允许清单，不是数个数。
+	//
+	// 这条测试要防的是**漏**，而按 `len(keys) != 2` 写的话，任何一个合法的新
+	// 字段都会让它红——2026-09-04 就是这样：第三关给她的主页加了配色和头图，
+	// 两样都是她自己的、本来就该出现在她公开页上的东西，而这条测试报的是
+	// 「顶层字段变了」，读起来像是漏了什么。
+	//
+	// （同一个教训在 atom_report_share_test.go 里已经吃过一次，那边的注释写着：
+	// 「pinning the count made adding a legitimate report field look like a
+	// leak」。这里照它的形状改。）
+	//
+	// 真正的安全断言是下面那一组 leak 检查：它们钉的是**不该出现的东西**，
+	// 和这一页长出多少个字段无关。
+	allowed := map[string]bool{
+		"content": true, "layout": true,
+		// 第三关：她定的配色和她生成的头图，都是这一页要拿来渲染的。
+		"palette": true, "heroUrl": true,
+	}
 	keys := make([]string, 0, len(out))
 	for k := range out {
 		keys = append(keys, k)
+		if !allowed[k] {
+			t.Errorf("公开载荷多了一个字段 %q —— 多漏一个字段，就是对所有人永远地漏", k)
+		}
 	}
-	if len(keys) != 2 || out["content"] == nil || out["layout"] == nil {
-		t.Fatalf("顶层字段变了：%v —— 公开端点的载荷是被钉住的", keys)
+	for _, required := range []string{"content", "layout"} {
+		if out[required] == nil {
+			t.Fatalf("公开载荷缺了 %q：%v", required, keys)
+		}
 	}
 	body := rec.Body.String()
 	// 账号、学校、token 本身、以及任何能寻址到她别的东西的 id，都不该在里面。

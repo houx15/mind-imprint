@@ -16,6 +16,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -55,6 +56,23 @@ func getExplore(t *testing.T, h http.Handler, cookie *http.Cookie) exploreResp {
 	return out
 }
 
+// appToday 是**这个应用**眼里的今天，和 getExploreToday 用的是同一个定义。
+//
+// 🚨 千万不要在这个文件里写 CURRENT_DATE。那是**数据库会话时区**里的今天，
+// 而 explore.go 用的是 `time.Now().In(time.Local)` —— 学生的今天。生产代码里
+// 一句 CURRENT_DATE 都没有（今天是谁说了算，只有 app 一个出处），所以测试里
+// 出现一句就等于凭空造出了第二个互相矛盾的定义。
+//
+// 两者在一天里的大部分时候是相等的，所以这件事藏得很好：本机 CST（UTC+8）
+// 而库跑在 UTC，于是**只有本地午夜到 UTC 午夜之间那 8 小时**不相等。
+// 2026-09-04 凌晨这一整组测试就是这样变红的 —— 前一晚同一份代码全绿。
+// 一个只在凌晨红、白天自己变绿的测试，比一个一直红的测试坏得多。
+func appToday() time.Time {
+	n := time.Now().In(time.Local)
+	// 和 explore.go 一样：取本地的年月日，再按 UTC 零点封成一个 date。
+	return time.Date(n.Year(), n.Month(), n.Day(), 0, 0, 0, 0, time.UTC)
+}
+
 // seedPlanet 直接写库，绕开抓取与模型 —— 这些测试要验的是读与收藏那一半。
 func seedPlanet(t *testing.T, pool *pgxpool.Pool, rank int, keyword, disciplineID string) string {
 	t.Helper()
@@ -62,18 +80,18 @@ func seedPlanet(t *testing.T, pool *pgxpool.Pool, rank int, keyword, disciplineI
 	err := pool.QueryRow(t.Context(), `
 		INSERT INTO news_planet (day, rank, title_zh, title_en, summary, hook, url,
 		                         source_name, field, discipline_id, keyword, published_at)
-		VALUES (CURRENT_DATE, $1, '深海珊瑚在 30 度水里活下来了', 'Corals survive 30C',
+		VALUES ($4::date, $1, '深海珊瑚在 30 度水里活下来了', 'Corals survive 30C',
 		        '红海北端一片珊瑚在超过白化阈值的水温里没有白化。',
 		        '四平方公里的珊瑚，能代表一整片海吗？',
 		        'https://example.org/coral', 'Nature', 'science', $2, $3, now())
-		RETURNING id::text`, rank, disciplineID, keyword).Scan(&id)
+		RETURNING id::text`, rank, disciplineID, keyword, appToday()).Scan(&id)
 	if err != nil {
 		t.Fatalf("seed planet: %v", err)
 	}
 	// 同时盖上「今天试过了」的章，否则读取时会去触发一次真的生成（会打网络）。
 	if _, err := pool.Exec(t.Context(),
-		`INSERT INTO news_day (day, planet_count) VALUES (CURRENT_DATE, 1)
-		 ON CONFLICT (day) DO NOTHING`); err != nil {
+		`INSERT INTO news_day (day, planet_count) VALUES ($1::date, 1)
+		 ON CONFLICT (day) DO NOTHING`, appToday()); err != nil {
 		t.Fatalf("seed day: %v", err)
 	}
 	return id
@@ -115,7 +133,7 @@ func TestExploreToday_StampsTheDayEvenWhenNothingWasGenerated(t *testing.T) {
 
 	var n int
 	if err := pool.QueryRow(t.Context(),
-		`SELECT count(*) FROM news_day WHERE day = CURRENT_DATE`).Scan(&n); err != nil {
+		`SELECT count(*) FROM news_day WHERE day = $1::date`, appToday()).Scan(&n); err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if n != 1 {
@@ -125,7 +143,7 @@ func TestExploreToday_StampsTheDayEvenWhenNothingWasGenerated(t *testing.T) {
 	// 再打开一次，仍然只有一行（没有第二次尝试）。
 	getExplore(t, h, cookie)
 	if err := pool.QueryRow(t.Context(),
-		`SELECT count(*) FROM news_day WHERE day = CURRENT_DATE`).Scan(&n); err != nil {
+		`SELECT count(*) FROM news_day WHERE day = $1::date`, appToday()).Scan(&n); err != nil {
 		t.Fatalf("count: %v", err)
 	}
 	if n != 1 {
