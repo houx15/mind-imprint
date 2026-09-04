@@ -47,8 +47,21 @@ func (a *API) listCourses(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	// 🚨 受众过滤（migration 0133）。一门标了 pro 的课对一个 lite 学生就是不
+	// 存在——不是灰着、不是"升级可见"，是不在目录里。管理员看全部：他们是作者。
+	//
+	// 过滤放在这里而不是 SQL 里，是因为 ListCourses 还服务着 admin 目录和种子
+	// 校验，把版本塞进那条查询会让它多一个所有调用点都得回答的问题。目录只有
+	// 几十行，一次 Go 侧过滤便宜得多。
+	edition := ""
+	if !isAdmin(r.Context()) {
+		edition = a.callerEdition(r.Context())
+	}
 	out := make([]courseSummaryDTO, 0, len(rows))
 	for _, c := range rows {
+		if !courseVisibleTo(c.Audience, edition) {
+			continue
+		}
 		out = append(out, withCatalogProgress(a.toCourseSummaryDTO(c), progress))
 	}
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{"courses": out})

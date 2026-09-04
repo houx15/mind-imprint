@@ -195,6 +195,7 @@ type Course struct {
 	Category         *string   `json:"category"`
 	Introduction     []byte    `json:"introduction"`
 	FeaturedRank     *int32    `json:"featured_rank"`
+	Audience         []string  `json:"audience"`
 }
 
 type CourseProgress struct {
@@ -531,6 +532,17 @@ type PblArtifact struct {
 	Why       string             `json:"why"`
 	SettledAt pgtype.Timestamptz `json:"settled_at"`
 	CreatedAt time.Time          `json:"created_at"`
+}
+
+type PblCourseAssignment struct {
+	ID         uuid.UUID          `json:"id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	SessionID  pgtype.UUID        `json:"session_id"`
+	CourseSlug string             `json:"course_slug"`
+	Why        string             `json:"why"`
+	Takeaway   string             `json:"takeaway"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 type PblDecision struct {

@@ -34,6 +34,14 @@ import (
 
 var errNoStepForSubsteps = errors.New("pbl: no step matches stepTitle")
 
+// 挑课那三种拒绝。都不是"服务端坏了"，是"印记这一轮没挑成"——所以它们和别的
+// produce 失败一样只进日志，不影响她看见的那句回话。
+var (
+	errNoCourseSlug   = errors.New("pbl: course produce names no slug")
+	errNoCourseReason = errors.New("pbl: course produce gives no reason")
+	errUnknownCourse  = errors.New("pbl: course slug is not in this student's catalogue")
+)
+
 // applyPblProduce 把印记做出来的东西落库。调用点在这一轮提交之后。
 func (a *API) applyPblProduce(
 	ctx context.Context, atomID uuid.UUID, scope pgtype.UUID, p *pbl.Produced,
@@ -51,6 +59,9 @@ func (a *API) applyPblProduce(
 		return a.produceStructure(ctx, atomID, p.Payload)
 	case "site_content":
 		return a.produceSiteContent(ctx, atomID, p.Payload)
+	case "course":
+		// 从课程库里挑一门给她上（见 pbl_course.go）。
+		return a.produceCourse(ctx, atomID, scope, p.Payload)
 	}
 	return fmt.Errorf("pbl: unknown produce kind %q", p.Kind)
 }

@@ -71,6 +71,16 @@ var registry = map[string]Tool{
 	"lookback":  {Name: "lookback", Kind: KindThinking, Label: "项目复盘"},
 	"keep":      {Name: "keep", Kind: KindThinking, Label: "长期迭代"},
 
+	// 去上一课 —— 她卡在一件「没学过所以做不了」的事上（怎么写代码、怎么想
+	// 产品、怎么读一份数据），印记从课程库里挑一门对得上的递给她。
+	//
+	// Needs 是 "course"：这件工具的界面本身是空的，摆的是印记这一轮挑的那门
+	// 课。和另外四件一样，只递工具不挑课，她点进去是一块白板。
+	//
+	// 算 thinking 不算 world：她不出门，就在这个产品里上完，回来接着说——而
+	// 「回来接着说」正是这件事的重点（闭环，产品负责人 2026-09-04）。
+	"course": {Name: "course", Kind: KindThinking, Label: "去上一课", Needs: "course"},
+
 	// 主页项目那三件。都没有 Needs：它们自己会去生成第一屏的内容（受众候选、
 	// 站点分析、配色与头图），所以不需要印记同一轮先做一份东西。这也正是它们
 	// 不会变成表单的原因——她打开就有东西可判。
@@ -121,7 +131,7 @@ func WaitsForStudent(kind string) bool { return kind == KindWorld }
 func ToolNames() []string {
 	return []string{
 		"observe", "board", "reframe", "ideas", "review",
-		"decide", "structure", "split", "lookback", "keep",
+		"decide", "structure", "split", "course", "lookback", "keep",
 		"persona", "sites", "look", "ship",
 	}
 }

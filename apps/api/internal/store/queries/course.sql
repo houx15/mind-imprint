@@ -9,7 +9,7 @@
 -- Preview courses are visible only when include_preview is true (the caller is
 -- an admin). Students (false) see 'published' only.
 SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover,
-       category, introduction, featured_rank
+       category, introduction, featured_rank, audience
 FROM course
 WHERE status = 'published' OR sqlc.arg(include_preview)::bool
 ORDER BY branch, title;
@@ -135,19 +135,31 @@ SELECT course_definition, status FROM course WHERE slug = $1;
 -- name: GetCourseStatusBySlug :one
 SELECT status FROM course WHERE slug = $1;
 
+-- name: GetCourseVisibilityBySlug :one
+-- 一门课的两道可见性：published/preview（谁能看见草稿），以及 audience（这门
+-- 课摆给哪种学生看，见 0133）。一次查回来，因为按 slug 读一门课的每条路径都
+-- 要同时过这两关——分两次查就一定会有某条路径只过了一关。
+SELECT status, audience FROM course WHERE slug = $1;
+
 -- name: UpsertCourseDefinition :one
 -- Course authoring: create/modify a 2.0 course. status is set to 'preview' ONLY
 -- on insert (EXCLUDED is not applied on conflict), so re-posting a definition
 -- never (un)publishes an existing course. structure/render_cache are the empty
 -- object for 2.0 courses (they use course_definition, not the legacy blobs).
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, status, updated_at)
-VALUES (sqlc.arg(slug), sqlc.arg(branch), sqlc.arg(title), sqlc.arg(blurb), sqlc.arg(time_label), sqlc.arg(card_ids), sqlc.arg(step_count), '{}','{}', sqlc.arg(course_definition), sqlc.arg(category), sqlc.arg(introduction),'preview', now())
+--
+-- 🚨 audience 是这份 body 里唯一「省略 = 保留」的字段（其余的省略即清空，见
+-- course_definition_admin.go 的注释）。故意的：blurb 被清空，作者一眼看得见；
+-- 受众被清空，这门课对所有人可见，而没有任何一个界面会显示这件事。
+-- 传空数组（不是省略）才是「不限受众」。
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, audience, status, updated_at)
+VALUES (sqlc.arg(slug), sqlc.arg(branch), sqlc.arg(title), sqlc.arg(blurb), sqlc.arg(time_label), sqlc.arg(card_ids), sqlc.arg(step_count), '{}','{}', sqlc.arg(course_definition), sqlc.arg(category), sqlc.arg(introduction), COALESCE(sqlc.narg(audience)::text[], ARRAY['lite','pro']::text[]),'preview', now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
   step_count = EXCLUDED.step_count,
   course_definition = EXCLUDED.course_definition,
-  category = EXCLUDED.category, introduction = EXCLUDED.introduction, updated_at = now()
+  category = EXCLUDED.category, introduction = EXCLUDED.introduction,
+  audience = COALESCE(sqlc.narg(audience)::text[], course.audience), updated_at = now()
 RETURNING slug, status;
 
 -- name: SetCourseStatusAndCover :exec

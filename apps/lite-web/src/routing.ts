@@ -1,8 +1,11 @@
 // routing — the lite shell's tiny, dependency-free URL model. Mirrors
 // apps/web/src/shell/routing.ts in shape (root-relative paths, no router
 // library, History API driven) but with the lite tab vocabulary: 探索
-// (explore) · 阅读 (readings) · 写作 (writings) · 项目 (projects) · 我的树 (tree) — no 课程,
-// and none of pro's project lifecycle.
+// (explore) · 阅读 (readings) · 写作 (writings) · 项目 (projects) · 课程 (courses) ·
+// 我的树 (tree), and none of pro's project lifecycle.
+//
+// 课程 was added 2026-09-04. It shares pro's paths and pro's player; what a lite
+// student sees is narrowed server-side by course.audience, not here.
 //
 // Design notes (same reasoning as the pro shell's routing.ts):
 //  - Paths are ALWAYS root-relative ("/…"), never absolute URLs.
@@ -20,6 +23,11 @@ export type LiteRoute =
   // clear of pro's `/api/v1/projects`, and a student's URL bar has no such
   // collision to avoid.
   | { tab: "projects"; projectId?: string }
+  // 课程. Same paths as pro (`/courses`, `/courses/:slug`) because it is the
+  // same catalog and the same runtime player — only the audience filter differs,
+  // and that is decided server-side by the school's edition. A course link can
+  // therefore be pasted between the two editions and still resolve.
+  | { tab: "courses"; slug?: string }
   // 我的树 (兴趣树). Her keyword model, grown from what she actually finished —
   // 阅读 / 写作 / 项目. A real tab, not a prototype surface: it reads
   // `GET /api/v1/interest/tree` and renders nothing when that fails, because a
@@ -90,6 +98,8 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "writings", writingId: second } : { tab: "writings" };
     case "projects":
       return second ? { tab: "projects", projectId: second } : { tab: "projects" };
+    case "courses":
+      return second ? { tab: "courses", slug: second } : { tab: "courses" };
     case "tree":
       return second === "quiz" ? { tab: "tree", quiz: true } : { tab: "tree" };
     case "explore":
@@ -127,6 +137,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
     case "projects":
       return route.projectId ? `/projects/${encodeSegment(route.projectId)}` : "/projects";
+    case "courses":
+      return route.slug ? `/courses/${encodeSegment(route.slug)}` : "/courses";
     case "tree":
       return route.quiz ? "/tree/quiz" : "/tree";
     case "explore":
@@ -163,6 +175,12 @@ export function writingPath(id: string): string {
  * `createProject` (and after she names it) to route into it. */
 export function projectPath(id: string): string {
   return `/projects/${encodeSegment(id)}`;
+}
+
+/** The canonical path for a single course. Used by the 项目 room when she opens
+ * a course 印记 assigned, and by `parseLiteRoute`'s inverse. */
+export function coursePath(slug: string): string {
+  return `/courses/${encodeSegment(slug)}`;
 }
 
 /** Push a new root-relative path onto the History stack and dispatch a

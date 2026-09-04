@@ -17,6 +17,15 @@ importers:
       '@mind-imprint/contracts':
         specifier: workspace:*
         version: link:../../packages/contracts
+      '@mind-imprint/course-contract':
+        specifier: workspace:*
+        version: link:../../packages/course-contract
+      '@mind-imprint/course-renderer':
+        specifier: workspace:*
+        version: link:../../packages/course-renderer
+      '@mind-imprint/course-runtime':
+        specifier: workspace:*
+        version: link:../../packages/course-runtime
       '@mind-imprint/web':
         specifier: workspace:*
         version: link:../web

@@ -42,6 +42,11 @@ type courseSummaryDTO struct {
 	Introduction json.RawMessage `json:"introduction"`
 	FeaturedRank *int32          `json:"featuredRank"`
 
+	// 这门课摆给哪种学生看（migration 0133）。空数组 = 不限受众。目录已经按它
+	// 过滤过了，带上它是为了作者端：admin 目录用同一个 DTO，而"这门课标了给谁"
+	// 是作者唯一能看见这件事的地方。
+	Audience []string `json:"audience"`
+
 	// null for a course this student has never opened — the catalog reads that
 	// absence as 未开始, which a zero-valued object could not express.
 	Progress *courseCatalogProgressDTO `json:"progress"`
@@ -64,7 +69,18 @@ func (a *API) toCourseSummaryDTO(r agent.CourseSummaryRow) courseSummaryDTO {
 		Category:     r.Category,
 		Introduction: json.RawMessage(r.Introduction),
 		FeaturedRank: r.FeaturedRank,
+		Audience:     audienceOrEmpty(r.Audience),
 	}
+}
+
+// audienceOrEmpty keeps the wire shape an ARRAY, never null: the contract says
+// `audience` is a list, and a client that has to handle both null and [] will
+// eventually handle only one of them.
+func audienceOrEmpty(in []string) []string {
+	if in == nil {
+		return []string{}
+	}
+	return in
 }
 
 // withCatalogProgress attaches the student's own state to a summary DTO. A slug

@@ -72,6 +72,10 @@ func (a *API) pblToolHasContent(ctx context.Context, atomID uuid.UUID, tool stri
 			AtomID: atomID, Tree: pblMainTree,
 		})
 		return err == nil && len(rows) > 0
+
+	case "course":
+		// 同理：上完的课留在界面上是记录，还没上完的才是要她做的事。
+		return a.pblHasOpenCourse(ctx, atomID)
 	}
 	return true
 }

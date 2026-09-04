@@ -53,6 +53,13 @@ type CourseSummaryRow struct {
 	Category     *string
 	Introduction []byte
 	FeaturedRank *int32
+
+	// Audience is which kinds of student this course is offered to — today the
+	// two editions ("lite" / "pro"), tomorrow whatever else we need to sort by
+	// (migration 0133). EMPTY means "no restriction": every audience sees it.
+	// The catalog filter lives in the API layer (course.go), not here — this
+	// store stays a pure adapter with no opinion on who is asking.
+	Audience []string
 }
 
 // CoursePlayerPayload is what the player needs to render one course:
@@ -144,6 +151,7 @@ func (s *sqlcAgentStore) ListCourses(ctx context.Context, includePreview bool) (
 			TimeLabel: r.TimeLabel, CardIDs: r.CardIds, StepCount: int(r.StepCount),
 			Status: r.Status, Cover: r.Cover,
 			Category: r.Category, Introduction: r.Introduction, FeaturedRank: r.FeaturedRank,
+			Audience: r.Audience,
 		})
 	}
 	return out, nil
@@ -922,6 +930,27 @@ func (s *sqlcAgentStore) CourseStatus(ctx context.Context, slug string) (string,
 	return s.q.GetCourseStatusBySlug(ctx, slug)
 }
 
+// CourseVisibility is the two gates a by-slug course read has to pass: the
+// publish status (a draft is invisible to students) and the audience (a course
+// labelled for one kind of student does not exist for another — migration
+// 0133). Read together in one query so no code path can accidentally check one
+// and forget the other.
+type CourseVisibility struct {
+	Status string
+	// Audience is empty when the course is offered to everyone.
+	Audience []string
+}
+
+// CourseVisibility returns one course's publish status and audience by slug.
+// An unknown slug returns pgx.ErrNoRows.
+func (s *sqlcAgentStore) CourseVisibility(ctx context.Context, slug string) (CourseVisibility, error) {
+	row, err := s.q.GetCourseVisibilityBySlug(ctx, slug)
+	if err != nil {
+		return CourseVisibility{}, err
+	}
+	return CourseVisibility{Status: row.Status, Audience: row.Audience}, nil
+}
+
 // SetCourseDefinition attaches (or replaces) one course's CourseDefinition 2.0
 // document. Separate from UpsertCourse so the legacy content path stays
 // untouched — only the golden 2.0 seed writes this column.
@@ -958,6 +987,11 @@ type UpsertCourseDefinitionInput struct {
 
 	Category     *string
 	Introduction []byte
+	// Audience is which kinds of student this course is offered to (migration
+	// 0133). 🚨 nil means "keep whatever is stored" — the ONE keep-on-omit
+	// field on this input; see queries/course.sql · UpsertCourseDefinition. An
+	// empty (non-nil) slice is an explicit "no restriction" and is stored.
+	Audience []string
 }
 
 // UpsertCourseDefinition creates or modifies one 2.0 course's definition,
@@ -978,6 +1012,7 @@ func (s *sqlcAgentStore) UpsertCourseDefinition(ctx context.Context, in UpsertCo
 		CourseDefinition: in.Definition,
 		Category:         in.Category,
 		Introduction:     in.Introduction,
+		Audience:         in.Audience,
 	})
 	if err != nil {
 		return "", err

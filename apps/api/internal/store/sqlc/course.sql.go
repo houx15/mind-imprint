@@ -256,6 +256,25 @@ func (q *Queries) GetCourseStatusBySlug(ctx context.Context, slug string) (strin
 	return status, err
 }
 
+const getCourseVisibilityBySlug = `-- name: GetCourseVisibilityBySlug :one
+SELECT status, audience FROM course WHERE slug = $1
+`
+
+type GetCourseVisibilityBySlugRow struct {
+	Status   string   `json:"status"`
+	Audience []string `json:"audience"`
+}
+
+// 一门课的两道可见性：published/preview（谁能看见草稿），以及 audience（这门
+// 课摆给哪种学生看，见 0122）。一次查回来，因为按 slug 读一门课的每条路径都
+// 要同时过这两关——分两次查就一定会有某条路径只过了一关。
+func (q *Queries) GetCourseVisibilityBySlug(ctx context.Context, slug string) (GetCourseVisibilityBySlugRow, error) {
+	row := q.db.QueryRow(ctx, getCourseVisibilityBySlug, slug)
+	var i GetCourseVisibilityBySlugRow
+	err := row.Scan(&i.Status, &i.Audience)
+	return i, err
+}
+
 const listCourseHistory = `-- name: ListCourseHistory :many
 SELECT attempt_id, slug, status, completed_count, updated_at, completed_at
 FROM (
@@ -416,7 +435,7 @@ func (q *Queries) ListCourseProgressForUser(ctx context.Context, userID uuid.UUI
 const listCourseRows = `-- name: ListCourseRows :many
 
 SELECT slug, branch, title, blurb, time_label, card_ids, step_count, status, cover,
-       category, introduction, featured_rank
+       category, introduction, featured_rank, audience
 FROM course
 WHERE status = 'published' OR $1::bool
 ORDER BY branch, title
@@ -435,6 +454,7 @@ type ListCourseRowsRow struct {
 	Category     *string  `json:"category"`
 	Introduction []byte   `json:"introduction"`
 	FeaturedRank *int32   `json:"featured_rank"`
+	Audience     []string `json:"audience"`
 }
 
 // Course v2 (migration 0050): the phase-gated runtime (course_session/
@@ -467,6 +487,7 @@ func (q *Queries) ListCourseRows(ctx context.Context, includePreview bool) ([]Li
 			&i.Category,
 			&i.Introduction,
 			&i.FeaturedRank,
+			&i.Audience,
 		); err != nil {
 			return nil, err
 		}
@@ -561,14 +582,15 @@ func (q *Queries) UpsertCourse(ctx context.Context, arg UpsertCourseParams) (Ups
 }
 
 const upsertCourseDefinition = `-- name: UpsertCourseDefinition :one
-INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, status, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, '{}','{}', $8, $9, $10,'preview', now())
+INSERT INTO course (slug, branch, title, blurb, time_label, card_ids, step_count, structure, render_cache, course_definition, category, introduction, audience, status, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, '{}','{}', $8, $9, $10, COALESCE($11::text[], ARRAY['lite','pro']::text[]),'preview', now())
 ON CONFLICT (slug) DO UPDATE SET
   branch = EXCLUDED.branch, title = EXCLUDED.title, blurb = EXCLUDED.blurb,
   time_label = EXCLUDED.time_label, card_ids = EXCLUDED.card_ids,
   step_count = EXCLUDED.step_count,
   course_definition = EXCLUDED.course_definition,
-  category = EXCLUDED.category, introduction = EXCLUDED.introduction, updated_at = now()
+  category = EXCLUDED.category, introduction = EXCLUDED.introduction,
+  audience = COALESCE($11::text[], course.audience), updated_at = now()
 RETURNING slug, status
 `
 
@@ -583,6 +605,7 @@ type UpsertCourseDefinitionParams struct {
 	CourseDefinition []byte   `json:"course_definition"`
 	Category         *string  `json:"category"`
 	Introduction     []byte   `json:"introduction"`
+	Audience         []string `json:"audience"`
 }
 
 type UpsertCourseDefinitionRow struct {
@@ -594,6 +617,11 @@ type UpsertCourseDefinitionRow struct {
 // on insert (EXCLUDED is not applied on conflict), so re-posting a definition
 // never (un)publishes an existing course. structure/render_cache are the empty
 // object for 2.0 courses (they use course_definition, not the legacy blobs).
+//
+// 🚨 audience 是这份 body 里唯一「省略 = 保留」的字段（其余的省略即清空，见
+// course_definition_admin.go 的注释）。故意的：blurb 被清空，作者一眼看得见；
+// 受众被清空，这门课会**悄悄对所有人可见**，而没有任何一个界面会显示这件事。
+// 传空数组（不是省略）才是「不限受众」。
 func (q *Queries) UpsertCourseDefinition(ctx context.Context, arg UpsertCourseDefinitionParams) (UpsertCourseDefinitionRow, error) {
 	row := q.db.QueryRow(ctx, upsertCourseDefinition,
 		arg.Slug,
@@ -606,6 +634,7 @@ func (q *Queries) UpsertCourseDefinition(ctx context.Context, arg UpsertCourseDe
 		arg.CourseDefinition,
 		arg.Category,
 		arg.Introduction,
+		arg.Audience,
 	)
 	var i UpsertCourseDefinitionRow
 	err := row.Scan(&i.Slug, &i.Status)

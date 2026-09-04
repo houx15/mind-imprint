@@ -31,13 +31,16 @@ func (a *API) requireVisibleCourse(w http.ResponseWriter, r *http.Request, slug 
 		return true
 	}
 	store := agent.NewSqlcAgentStore(a.d.Queries, a.d.Pool)
-	status, err := store.CourseStatus(r.Context(), slug)
+	vis, err := store.CourseVisibility(r.Context(), slug)
 	if err != nil {
 		return true // unknown slug / db error → let the downstream handler map it (404 etc.)
 	}
-	if status == "preview" {
+	if vis.Status == "preview" {
 		httpx.WriteError(w, r, httpx.ErrNotFound("课程不存在"))
 		return false
 	}
-	return true
+	// 🚨 第二道闸：受众（migration 0133）。少了它，一门只给 pro 的课虽然不在
+	// lite 的目录里，却仍然能被一条手敲的 /courses/:slug 直接打开——目录之外
+	// 还有课程详情、定义、session、报告一整排按 slug 的读，全都从这里过。
+	return a.requireCourseAudience(w, r, vis.Audience)
 }
