@@ -137,7 +137,7 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 	if a.d.Provider == nil {
 		return
 	}
-	resolved, ok := a.route(ctx, gateway.ClassCompose)
+	resolved, ok := a.route(ctx, gateway.ClassDigest)
 	if !ok {
 		slog.Warn("interest harvest: no provider resolved", "atom_id", atomID)
 		return

@@ -40,6 +40,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/interest"
+	"mindimprint/api/internal/interests"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -206,8 +207,14 @@ func (a *API) finishInterestQuiz(w http.ResponseWriter, r *http.Request) {
 	if hs, ran := a.harvestQuiz(mCtx, u.ID, row.ID, att); ran {
 		out.Harvested = true
 		for _, h := range hs {
+			// 中文名/主枝从词表查，不从模型的回话里读 —— 结果页上显示的那几个
+			// 字，和真正种进树里的那一行，必须是同一个来源。
+			it, ok := interests.ByID(h.InterestID)
+			if !ok {
+				continue
+			}
 			out.Keywords = append(out.Keywords, quizPlantedDTO{
-				TextZh: h.TextZh, TextEn: h.TextEn, Field: h.Field,
+				TextZh: it.Zh, TextEn: it.En, Field: it.Field,
 				Note: h.Note, Evidence: h.Evidence,
 			})
 		}
@@ -237,7 +244,7 @@ func (a *API) harvestQuiz(
 	if a.d.Provider == nil {
 		return nil, false
 	}
-	resolved, ok := a.route(ctx, gateway.ClassCompose)
+	resolved, ok := a.route(ctx, gateway.ClassDigest)
 	if !ok {
 		slog.Warn("interest quiz: no provider resolved", "quiz_id", quizID)
 		return nil, false

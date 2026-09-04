@@ -46,6 +46,33 @@ var politicalTerms = []string{
 	"停火", "军事入侵", "武装冲突", "恐怖袭击", "示威", "骚乱", "镇压", "地缘政治",
 }
 
+// newsBannedInterests 是**不允许出现在每日星图上**的领域 id。
+//
+// 这不是说这些领域不好 —— 它们在词表里，学生完全可以因为自己读了、写了什么而
+// 让「外交」长到自己的树上。这里挡的是另一件事：**一条落在这几个领域上的新闻，
+// 主语就是当下的政治。**
+//
+// 🚨 它替掉的是一道真的救过场的闸。2026-09-03 漏过一条 "Venice Biennale
+// President Defends Russia Inclusion"：英文原标题里一个信号词都没有，是模型
+// 自己写的中文关键词「文化制裁边界」里的「制裁」把它拦下来的。2026-09-04 关键词
+// 改成了闭表 id，那句中文没有了，词表匹配再也看不见这条。领域 id 是同一条信息
+// 的另一种形态，而且比词表匹配更准 —— 它是模型对「这条新闻在讲什么」的判断，
+// 不是一次字符串巧合。
+//
+// 名单保持很短，理由和词表一样：**宁可漏也不要误伤**。这里没有 climate-policy
+// （气候政策正是这个产品最想给学生的东西），没有 law（一桩基因专利的判决是好
+// 新闻），没有 inequality。只有主语就是政治的那几个。
+var newsBannedInterests = map[string]bool{
+	"elections":   true, // 选举
+	"diplomacy":   true, // 外交
+	"war-history": true, // 战争史
+	"refugees":    true, // 难民
+	"punishment":  true, // 惩罚与监狱
+}
+
+// IsBannedNewsInterest 报告这个领域 id 是否不该出现在每日星图上。
+func IsBannedNewsInterest(id string) bool { return newsBannedInterests[id] }
+
 // 🚨 从中文表里**拿掉**过的词，以及为什么 —— 别再加回来：
 //
 //   - 「入侵」：中文里它最常出现在**生物入侵**（入侵物种）里，那是生态学的核心

@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"mindimprint/api/internal/disciplines"
+	"mindimprint/api/internal/interests"
 )
 
 // select.go —— 从候选池里挑五颗星，并把每一颗写成学生看得懂的样子。
@@ -41,8 +42,10 @@ type Planet struct {
 	// Field 是七根主枝之一；DisciplineID 是学科表里的一条。
 	Field        string
 	DisciplineID string
-	// Keyword 是这条新闻的兴趣关键词。她收藏这颗星时，它会被种进树。
-	Keyword string
+	// InterestID 是这条新闻落在领域词表里的哪一条。她收藏这颗星时，它会被
+	// 种进树 —— 所以它必须出自那张闭表，否则收藏一颗星就把表外的词放回树上。
+	// 允许为空：一条挑不出对应领域的新闻仍然是一颗好星，只是收藏它不长词。
+	InterestID string
 }
 
 const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五条科学新闻，并把它们
@@ -66,11 +69,12 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
   / society（社会与世界）/ humanities（人文与写作）/ arts（艺术与表达）/ self（自我与成长）
   按**这条新闻在问什么**判，不是按它发在哪个网站。
 - disciplineId：从候选学科 id 里选一个最贴的。
-- keyword：4-10 字的中文，是**她会关心的问题或方法**，不是话题标签。
-  好：「样本代表性」「耐热机制」。差：「珊瑚」「气候」。
+- interestId：从**候选领域**里选一个 id 原样照抄。它是学生收藏这颗星时会加到
+  她树上的那个词，所以选「这颗星在讲哪个领域」，不是「这条新闻的话题标签」。
+  表里实在没有贴切的就留空字符串 —— 硬凑一个不相干的领域比留空糟得多。
 
 只输出一个 JSON 对象，不要任何解释：
-{"planets":[{"index":0,"titleZh":"","titleEn":"","summary":"","hook":"","field":"","disciplineId":"","keyword":""}]}`
+{"planets":[{"index":0,"titleZh":"","titleEn":"","summary":"","hook":"","field":"","disciplineId":"","interestId":""}]}`
 
 // BuildSelectPrompt 拼出选星用的 system 与 user 两段，**并把真正写进 prompt 的
 // 那批候选一起返回**。
@@ -92,6 +96,8 @@ func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
 	for _, d := range disciplines.All() {
 		fmt.Fprintf(&b, "%s · %s\n", d.ID, d.Zh)
 	}
+	b.WriteString("\n候选领域（中文名 · id）：\n")
+	b.WriteString(interests.PromptList())
 	fmt.Fprintf(&b, "\n今天的候选新闻，共 %d 条。请挑 %d 条：\n\n", len(items), PlanetCount)
 	for i, it := range items {
 		fmt.Fprintf(&b, "[%d] (%s) %s\n", i, it.Source, it.Title)
@@ -111,7 +117,7 @@ type selectReply struct {
 		Hook         string `json:"hook"`
 		Field        string `json:"field"`
 		DisciplineID string `json:"disciplineId"`
-		Keyword      string `json:"keyword"`
+		InterestID   string `json:"interestId"`
 	} `json:"planets"`
 }
 
@@ -166,7 +172,10 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 		//
 		// 模型的中文重写常常比英文原标题更直白地暴露这条新闻在谈什么，所以这里
 		// 是第二道、也是更灵敏的一道闸。
-		if IsPolitical(zh+" "+p.Keyword, p.Summary+" "+hook) {
+		if IsBannedNewsInterest(strings.TrimSpace(p.InterestID)) {
+			continue
+		}
+		if IsPolitical(zh, p.Summary+" "+hook) {
 			continue
 		}
 		did := strings.TrimSpace(p.DisciplineID)
@@ -182,7 +191,7 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 			Hook:         hook,
 			Field:        p.Field,
 			DisciplineID: did,
-			Keyword:      strings.TrimSpace(p.Keyword),
+			InterestID:   keptInterestID(p.InterestID),
 		})
 		if len(out) == PlanetCount {
 			break
@@ -287,4 +296,17 @@ func overlap(a, b map[string]bool) float64 {
 		}
 	}
 	return float64(n) / float64(len(a))
+}
+
+// keptInterestID 挡掉模型编出来的领域 id。
+//
+// 和学科那条边一样的姿态（丢弃规则第 6 条）：**不丢这颗星，只清空这个字段**。
+// 一条挑不出领域的新闻仍然值得出现在星图上，学生只是收藏它的时候不长词。
+// 编一个不存在的 id 进库，换来的是一颗永远种不出东西、也说不出为什么的星。
+func keptInterestID(raw string) string {
+	id := strings.TrimSpace(raw)
+	if id == "" || !interests.Exists(id) {
+		return ""
+	}
+	return id
 }

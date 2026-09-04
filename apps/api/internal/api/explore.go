@@ -34,6 +34,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -44,6 +45,7 @@ import (
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/interest"
+	"mindimprint/api/internal/interests"
 	"mindimprint/api/internal/news"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -63,14 +65,14 @@ type planetDTO struct {
 	TitleEn string `json:"titleEn"`
 	Summary string `json:"summary"`
 	/** 她能自己追问的那个问题。永远非空。 */
-	Hook       string `json:"hook"`
-	URL        string `json:"url"`
-	Source     string `json:"source"`
-	Field      string `json:"field"`
-	Keyword    string `json:"keyword"`
-	Discipline *exploreDisciplineDTO `json:"discipline"`
-	Saved      bool   `json:"saved"`
-	PublishedAt string `json:"publishedAt"`
+	Hook        string                `json:"hook"`
+	URL         string                `json:"url"`
+	Source      string                `json:"source"`
+	Field       string                `json:"field"`
+	Keyword     string                `json:"keyword"`
+	Discipline  *exploreDisciplineDTO `json:"discipline"`
+	Saved       bool                  `json:"saved"`
+	PublishedAt string                `json:"publishedAt"`
 }
 
 type exploreDisciplineDTO struct {
@@ -170,14 +172,12 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// 有关键词才种。没有关键词的星球照样能收藏 —— 收藏这件事本身已经记下了。
-	if p.Keyword != "" && p.Hook != "" {
+	// 有领域才种。挑不出领域的星球照样能收藏 —— 收藏这件事本身已经记下了。
+	if p.InterestID != nil && *p.InterestID != "" && p.Hook != "" {
 		a.plantKeywords(ctx, u.ID, "news", p.ID, p.TitleZh, []interest.Harvested{{
-			TextZh:   p.Keyword,
-			TextEn:   "",
-			Field:    p.Field,
-			Note:     p.Summary,
-			Evidence: p.Hook,
+			InterestID: *p.InterestID,
+			Note:       p.Summary,
+			Evidence:   p.Hook,
 		}})
 	}
 	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true))
@@ -233,7 +233,7 @@ func (a *API) ensureTodayStarmap(ctx context.Context, day pgtype.Date) {
 			Day: day, Rank: int32(i + 1),
 			TitleZh: p.TitleZh, TitleEn: p.TitleEn, Summary: p.Summary, Hook: p.Hook,
 			Url: src.Link, SourceName: src.Source,
-			Field: p.Field, DisciplineID: p.DisciplineID, Keyword: p.Keyword,
+			Field: p.Field, DisciplineID: p.DisciplineID, InterestID: interestIDArg(p.InterestID),
 			PublishedAt: published,
 		}); err != nil {
 			slog.Warn("explore: insert planet failed", "err", err, "rank", i+1)
@@ -304,7 +304,7 @@ func planetToDTO(p sqlc.NewsPlanet, saved bool) planetDTO {
 	dto := planetDTO{
 		ID: p.ID.String(), Rank: int(p.Rank),
 		TitleZh: p.TitleZh, TitleEn: p.TitleEn, Summary: p.Summary, Hook: p.Hook,
-		URL: p.Url, Source: p.SourceName, Field: p.Field, Keyword: p.Keyword,
+		URL: p.Url, Source: p.SourceName, Field: p.Field, Keyword: planetKeywordZh(p.InterestID),
 		Saved: saved,
 	}
 	if p.PublishedAt.Valid {
@@ -315,4 +315,29 @@ func planetToDTO(p sqlc.NewsPlanet, saved bool) planetDTO {
 		dto.Discipline = &exploreDisciplineDTO{ID: d.ID, Zh: d.Zh, En: d.En, Asks: d.Asks}
 	}
 	return dto
+}
+
+// planetKeywordZh 把星球上的领域 id 翻成显示用的中文名。
+//
+// 接口里这个字段仍然叫 keyword，因为前端拿它写「会在你的树上加一个词：「游戏」」
+// —— 学生看的是那个词，不是它的 id。空字符串表示这颗星不长词，前端据此把收藏
+// 按钮置灰。
+func planetKeywordZh(id *string) string {
+	if id == nil || *id == "" {
+		return ""
+	}
+	it, ok := interests.ByID(*id)
+	if !ok {
+		return ""
+	}
+	return it.Zh
+}
+
+// interestIDArg 把空 id 写成 NULL 而不是空字符串，好让「没挑出领域」在库里
+// 只有一种表示。
+func interestIDArg(id string) *string {
+	if strings.TrimSpace(id) == "" {
+		return nil
+	}
+	return &id
 }

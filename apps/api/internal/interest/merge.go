@@ -1,4 +1,4 @@
-// Package interest 是兴趣模型的纯逻辑层 —— 归一化、合并、路由、采集解析。
+// Package interest 是兴趣模型的纯逻辑层 —— 归一化、合并、采集解析。
 //
 // 它**不碰数据库**，也不发 HTTP 请求（模型调用由 internal/api 的胶水层发起，
 // 这里只负责拼 prompt 和解析回话）。分层照抄 internal/pbl：领域逻辑可以在没有
@@ -7,8 +7,11 @@
 // 三件事在这里：
 //
 //	merge.go    她的词怎么算同一个词，强度怎么由来源条数推出来
-//	router.go   词 → 学科的三档路由（别名 / 共现 / 模型）
-//	harvest.go  从一次完成的阅读、写作、项目里采集关键词
+//	harvest.go  从一次完成的阅读、写作、项目里采集领域
+//	quiz.go     冷启动的兴趣测试
+//
+// 曾经还有 router.go —— 词 → 学科的三档路由（别名 / 共现 / 模型）。2026-09-04
+// 删掉了：领域词表自带 disciplines[] 这条静态边，三档都没有调用方了。
 package interest
 
 import "mindimprint/api/internal/disciplines"

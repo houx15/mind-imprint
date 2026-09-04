@@ -136,9 +136,11 @@ func TestBuildQuizPromptCarriesHerOwnWords(t *testing.T) {
 	}.Clean()
 	system, user := a.BuildQuizPrompt()
 
-	// 同一段 system prompt —— 测试和阅读采集必须对「什么算一个好关键词」有
-	// 完全相同的看法，否则同一棵树上会挂着两种质量的词。
-	if system != harvestSystemPrompt {
+	// 同一段 system prompt —— 测试和阅读采集必须对「什么算一个好领域」有完全
+	// 相同的看法，否则同一棵树上会挂着两种质量的词。BuildHarvestPrompt 的
+	// system 与 kind 无关，所以直接比。
+	wantSystem, _ := BuildHarvestPrompt("reading", "", "")
+	if system != wantSystem {
 		t.Error("测试没有复用采集的 system prompt")
 	}
 	if !strings.Contains(user, a.Reason) {
