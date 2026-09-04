@@ -63,6 +63,14 @@ export interface Keyword {
   /** 印记对这个词之于她是什么的一句话。 */
   note: string;
   sources: KeywordSource[];
+  /**
+   * 这个领域扎在哪几门学科上（disciplines.json 的 id）。
+   *
+   * 由领域词表里写好的 `disciplines[]` 决定，服务端查表得到 —— 不是模型判定的，
+   * 所以同一个词在每个学生身上连的是同一批学科。树上点一片叶子，亮起来的就是
+   * 这几条根。
+   */
+  disciplineIds: string[];
   /** 高光时刻——她在这里做得特别好。树上的金星。 */
   shining?: { title: string; body: string; date: string };
   /**
