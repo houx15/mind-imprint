@@ -23,6 +23,18 @@ package api
 // 学生都会再触发一次全量抓取加一次旗舰调用。这条教训第三次出现了
 // （reading.questions_at 0104、atom.interest_harvested_at 0116）。
 //
+// # 🚨 但盖了章不等于这一天到此为止
+//
+// 上一版盖完章就再也不试了，于是**一次失败锁死一整天**：上游一个 503、模型回了
+// 一段不是 JSON 的话，这一天的星图就永远是空的，而界面上那个「重试」按钮按下去
+// 什么都不会发生 —— 请求照发，服务端在第一行 GetNewsDay 就返回了。2026-09-04 的
+// 模拟学生走查里，六次启动撞上两次；对一个四天的营来说，一整天的探索面没了。
+//
+// 所以章改成计次（migration 0133）：失败的那天允许再试，`starmapRetryable` 定
+// 什么时候、还剩几次。成功的那天 planet_count > 0，一次都不会再试。冷却间隔是
+// 为了让它跨过一次短暂的上游故障，不是为了拖住她 —— 所以界面把还要等几秒说出来，
+// 而不是留一个按下去没反应的按钮。
+//
 // # 绝不拿昨天的冒充今天的
 //
 // 生成失败时这一屏是空的，并且说出后台原话。一个显示着昨天五条新闻、标题写着
@@ -53,6 +65,58 @@ import (
 // 72 小时而不是 24：源的时区五花八门，周末很多期刊不发，而一篇周五发的 Nature
 // 论文在周一依然是新闻。窗口太窄的直接后果是周一的星图凑不满五颗。
 const freshWindow = 72 * time.Hour
+
+// 失败之后再试几次、隔多久。
+//
+// 8 次 × 90 秒：抓取加一次 digest 调用是这条路上唯一的开销，一天封顶八次是可以
+// 忽略的钱；而 90 秒足够跨过上游的一次抖动，又不至于让她盯着屏幕干等。两个数
+// 一起是「一整天不会白丢，也不会被一个坏掉的源刷爆」。
+const (
+	maxStarmapAttempts  = 8
+	starmapRetryCoolOff = 90 * time.Second
+)
+
+// clipRunes 截一段模型输出，用来放进日志。
+//
+// 600 字够看出它是写跑题了还是被截断了，又不至于把一整屏候选新闻灌进日志。
+func clipRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return string(r[:n]) + "…"
+}
+
+// starmapRetryable 说的是：这一天还该不该再试一次生成。
+//
+// 纯函数，因为这是这条路上唯一「读代码看不出对错」的判断，而它判错的两种方式
+// 都很贵：判紧了，一整天的探索面没了；判松了，一个坏掉的源会被反复抓。
+//
+// now 由调用方传，测试才不用等 90 秒。
+func starmapRetryable(d sqlc.NewsDay, now time.Time) bool {
+	if d.PlanetCount > 0 {
+		return false // 今天出过星图，这一天就结束了。
+	}
+	if d.Attempts >= maxStarmapAttempts {
+		return false
+	}
+	return now.Sub(d.AttemptedAt) >= starmapRetryCoolOff
+}
+
+// starmapRetryAfter 是「还要等几秒才能再试」。
+//
+// 0 = 现在就能试；-1 = 今天不再试了。界面照这个数决定那个按钮的样子 —— 一个按
+// 下去没反应的按钮，比没有按钮糟得多。
+func starmapRetryAfter(d sqlc.NewsDay, now time.Time) int {
+	if d.PlanetCount > 0 || d.Attempts >= maxStarmapAttempts {
+		return -1
+	}
+	left := starmapRetryCoolOff - now.Sub(d.AttemptedAt)
+	if left <= 0 {
+		return 0
+	}
+	return int(left.Seconds()) + 1
+}
 
 /* ── DTO ────────────────────────────────────────────────────────────────── */
 
@@ -88,6 +152,11 @@ type exploreTodayDTO struct {
 	 * 界面照原样显示（界面文案 §8）—— 绝不用昨天的顶上。
 	 */
 	Note string `json:"note"`
+	/**
+	 * 还要等几秒才能再试一次。0 = 现在就能试，-1 = 今天不再试了。
+	 * 空着的那一屏靠这个数决定「重试」按钮的样子。
+	 */
+	RetryAfter int `json:"retryAfter"`
 }
 
 /* ── 端点 ───────────────────────────────────────────────────────────────── */
@@ -129,10 +198,12 @@ func (a *API) getExploreToday(w http.ResponseWriter, r *http.Request) {
 	for _, p := range rows {
 		out.Planets = append(out.Planets, planetToDTO(p, saved[p.ID]))
 	}
-	// 一屏都没有时，把「为什么」一起给出去。
+	// 一屏都没有时，把「为什么」和「还能不能再试」一起给出去。
 	if len(out.Planets) == 0 {
+		out.RetryAfter = -1
 		if d, err := a.d.Queries.GetNewsDay(ctx, dayOnly); err == nil {
 			out.Note = d.Note
+			out.RetryAfter = starmapRetryAfter(d, time.Now())
 		}
 	}
 	httpx.WriteJSON(w, http.StatusOK, out)
@@ -191,7 +262,7 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 // 只有一次抓取和一次模型调用。
 func (a *API) ensureTodayStarmap(ctx context.Context, day pgtype.Date) {
 	// 先看一眼，绝大多数请求在这里就返回了 —— 不必为了读五行去拿锁。
-	if _, err := a.d.Queries.GetNewsDay(ctx, day); err == nil {
+	if d, err := a.d.Queries.GetNewsDay(ctx, day); err == nil && !starmapRetryable(d, time.Now()) {
 		return
 	}
 
@@ -209,8 +280,9 @@ func (a *API) ensureTodayStarmap(ctx context.Context, day pgtype.Date) {
 	}
 	qtx := a.d.Queries.WithTx(tx)
 
-	// 拿到锁之后**再看一次**：等锁的那个人可能刚刚生成完。
-	if _, err := qtx.GetNewsDay(ctx, day); err == nil {
+	// 拿到锁之后**再看一次**：等锁的那个人可能刚刚生成完，或者刚刚用掉这一轮
+	// 的那次重试。
+	if d, err := qtx.GetNewsDay(ctx, day); err == nil && !starmapRetryable(d, time.Now()) {
 		return
 	}
 	// 🚨 盖章在生成之前。见文件头。
@@ -281,6 +353,10 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 			{Role: gateway.RoleSystem, Content: system},
 			{Role: gateway.RoleUser, Content: user},
 		},
+		// 🚨 这一屏一整天只生成一次，解析失败一次就没有星图了。要得到 JSON 就
+		// 直说要 JSON —— sliceJSONObject 那层容错留着，但它是兜底，不该是第一
+		// 道防线。（DashScope 走 OpenAI 兼容口，认这个字段。）
+		ResponseFormat: gateway.ResponseFormatJSONObject,
 	})
 	// 这次调用不属于任何学生，也不属于任何 atom：它是一天一次的公共开销。
 	a.recordLiteLLMCall(ctx, uuid.Nil, uuid.Nil, "news_starmap", resolved, res.Usage)
@@ -289,6 +365,12 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 	}
 	picked, perr := news.ParseSelectReply(res.Text, candidates)
 	if perr != nil {
+		// 🚨 把模型原样回的那段记下来。上一版只把一句 "unexpected end of JSON
+		// input" 放进响应体，slog 里一个字都没有——线上出了这件事根本查不出模型
+		// 到底写了什么，而这一屏一天只生成一次，错过就要等明天。
+		slog.Warn("explore: could not read the select reply",
+			"err", perr, "model", resolved.ModelID,
+			"reply", clipRunes(res.Text, 600))
 		return nil, "生成失败：" + perr.Error()
 	}
 	out := make([]plannedPlanet, 0, len(picked))

@@ -25,6 +25,8 @@ export interface LiveExplore {
   note: string;
   /** 请求本身失败时的原话。 */
   error: string;
+  /** 还要等几秒才能再试一次生成。0 = 现在就能试，-1 = 今天不再试了。 */
+  retryAfter: number;
   reload: () => void;
   /** 收藏成功后原地更新那一颗，不必重新拉整屏。 */
   applySaved: (p: ExplorePlanet) => void;
@@ -76,6 +78,9 @@ export function useExploreToday(): LiveExplore {
     day: data?.day ?? "",
     planets: data?.planets ?? [],
     note: data?.note ?? "",
+    // 请求本身失败（error）时重试永远可以按：那一次连服务端都没到，没有次数
+    // 可言。只有 empty 那一屏的按钮受服务端的次数限制。
+    retryAfter: error ? 0 : (data?.retryAfter ?? -1),
     error,
     reload,
     applySaved,

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Info, Languages } from "lucide-react";
 import { Sys, cx } from "../tree/ui";
 import { useFitScale } from "../tree/useFitScale";
@@ -223,18 +223,50 @@ function ExploreState({ live }: { live: ReturnType<typeof useExploreToday> }) {
             <p className="mt-1 break-words text-mk-small leading-[1.8] text-[#9A8E80]">
               {live.note || "今天还没有生成。"}
             </p>
-            <button
-              type="button"
-              onClick={live.reload}
-              className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[#F5EFE7] transition hover:opacity-80"
-              style={{ borderColor: "rgba(245,239,231,0.3)" }}
-            >
-              重试
-            </button>
+            {/* 🚨 这个按钮以前是死的：服务端失败一次就把这一天封了，按下去请求
+                照发、结果一模一样。现在按不按得动由服务端的重试次数决定，按不动
+                的时候就不摆按钮，改说还要等多久。 */}
+            <RetryLine retryAfter={live.retryAfter} onRetry={live.reload} />
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * 空星图下面那一行：能重试就给按钮，不能就说清楚为什么。
+ *
+ * `retryAfter` 是服务端算的秒数（0 = 现在就能试，-1 = 今天不再试了）。倒计时
+ * 走完自动把按钮放出来，她不用刷新页面才发现可以再试了。
+ */
+function RetryLine({ retryAfter, onRetry }: { retryAfter: number; onRetry: () => void }) {
+  const [left, setLeft] = useState(retryAfter);
+
+  useEffect(() => setLeft(retryAfter), [retryAfter]);
+  useEffect(() => {
+    if (left <= 0) return;
+    const t = window.setTimeout(() => setLeft(left - 1), 1000);
+    return () => window.clearTimeout(t);
+  }, [left]);
+
+  if (retryAfter < 0) {
+    return (
+      <p className="mt-3 text-mk-small text-[#9A8E80]">今天已经试过多次，不再重试。明天会重新生成。</p>
+    );
+  }
+  if (left > 0) {
+    return <p className="mt-3 text-mk-small text-[#9A8E80]">{left} 秒后可以再试一次。</p>;
+  }
+  return (
+    <button
+      type="button"
+      onClick={onRetry}
+      className="mt-4 rounded-full border px-4 py-1.5 text-mk-small text-[#F5EFE7] transition hover:opacity-80"
+      style={{ borderColor: "rgba(245,239,231,0.3)" }}
+    >
+      重试
+    </button>
   );
 }
 

@@ -22,9 +22,10 @@ import (
 )
 
 type exploreResp struct {
-	Day     string `json:"day"`
-	Note    string `json:"note"`
-	Planets []struct {
+	Day        string `json:"day"`
+	Note       string `json:"note"`
+	RetryAfter int    `json:"retryAfter"`
+	Planets    []struct {
 		ID         string `json:"id"`
 		Rank       int    `json:"rank"`
 		TitleZh    string `json:"titleZh"`
@@ -140,14 +141,44 @@ func TestExploreToday_StampsTheDayEvenWhenNothingWasGenerated(t *testing.T) {
 		t.Fatalf("news_day 里有 %d 行，want 1 —— 零产出的一天必须也盖章", n)
 	}
 
-	// 再打开一次，仍然只有一行（没有第二次尝试）。
+	// 再打开一次，冷却还没过去，所以不该有第二次尝试。
+	//
+	// 🚨 这里看的是 attempts 而不是行数：migration 0133 之后重试是同一行上的
+	// 计次，行数永远是 1，光数行数已经证明不了「没有重抓十二个源」。
 	getExplore(t, h, cookie)
+	var attempts int
 	if err := pool.QueryRow(t.Context(),
-		`SELECT count(*) FROM news_day WHERE day = $1::date`, appToday()).Scan(&n); err != nil {
-		t.Fatalf("count: %v", err)
+		`SELECT attempts FROM news_day WHERE day = $1::date`, appToday()).Scan(&attempts); err != nil {
+		t.Fatalf("attempts: %v", err)
 	}
-	if n != 1 {
-		t.Errorf("第二次打开又试了一次生成：news_day 有 %d 行", n)
+	if attempts != 1 {
+		t.Errorf("冷却期内又试了一次生成：attempts = %d，want 1", attempts)
+	}
+}
+
+// 🚨 失败的那一天必须还能再试。
+//
+// 上一版盖完章就再也不试了，于是上游一次 503 就锁死一整天，界面上那个「重试」
+// 按下去什么都不会发生。这里验的是接口那一半：空星图要带出「还要等几秒」，
+// 界面才有可能诚实。
+func TestExploreToday_SaysWhenTheFailedDayCanBeTriedAgain(t *testing.T) {
+	h, cookie, _, pool := liteHandler(t)
+	got := getExplore(t, h, cookie)
+
+	if len(got.Planets) != 0 {
+		t.Fatalf("没有模型通道却出了 %d 颗星", len(got.Planets))
+	}
+	if got.RetryAfter <= 0 {
+		t.Errorf("失败的一天 retryAfter = %d，want > 0 —— 这一天还没试满，应该说得出等多久", got.RetryAfter)
+	}
+
+	// 试满之后就不再试了，界面据此把那个按钮撤掉，而不是留一个按不动的。
+	if _, err := pool.Exec(t.Context(),
+		`UPDATE news_day SET attempts = 99 WHERE day = $1::date`, appToday()); err != nil {
+		t.Fatalf("update attempts: %v", err)
+	}
+	if got := getExplore(t, h, cookie); got.RetryAfter != -1 {
+		t.Errorf("试满之后 retryAfter = %d，want -1", got.RetryAfter)
 	}
 }
 

@@ -46,6 +46,14 @@ export interface ExploreToday {
    * 照原样显示（界面文案 §8）—— **绝不用昨天的顶上**。
    */
   note: string;
+  /**
+   * 还要等几秒才能再试一次生成。0 = 现在就能试，-1 = 今天不再试了。
+   *
+   * 🚨 空状态里那个「重试」按钮靠这个数决定要不要出现。上一版服务端失败一次
+   * 就锁死一整天，那个按钮按下去什么都不会发生 —— 一个按不动的按钮教她的是
+   * 「这里的按钮不作数」。
+   */
+  retryAfter: number;
 }
 
 function normalizePlanet(p: Partial<ExplorePlanet>): ExplorePlanet {
@@ -72,6 +80,7 @@ export async function fetchToday(): Promise<ExploreToday> {
     day: raw.day ?? "",
     planets: (raw.planets ?? []).map(normalizePlanet),
     note: raw.note ?? "",
+    retryAfter: raw.retryAfter ?? -1,
   };
 }
 

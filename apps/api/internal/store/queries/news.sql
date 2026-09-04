@@ -10,9 +10,13 @@ SELECT * FROM news_day WHERE day = $1;
 -- 盖章。**在生成之前调**：语义是「今天试过一次」，不是「今天出过星图」。
 -- 所有源都挂掉的那天，如果按产出判断，每个打开星图的学生都会再触发一次全量
 -- 抓取 + 一次旗舰调用。
+--
+-- 计次而不是只盖一次章（migration 0133）：一次失败不该锁死一整天。允不允许再试
+-- 由 explore.go 的 starmapRetryable 判定，这里只负责把次数和时间记准。
 -- name: MarkNewsDayAttempted :exec
 INSERT INTO news_day (day) VALUES ($1)
-ON CONFLICT (day) DO NOTHING;
+ON CONFLICT (day) DO UPDATE
+  SET attempts = news_day.attempts + 1, attempted_at = now();
 
 -- name: FinishNewsDay :exec
 UPDATE news_day SET planet_count = $2, note = $3 WHERE day = $1;

@@ -483,6 +483,7 @@ type NewsDay struct {
 	AttemptedAt time.Time   `json:"attempted_at"`
 	PlanetCount int32       `json:"planet_count"`
 	Note        string      `json:"note"`
+	Attempts    int32       `json:"attempts"`
 }
 
 type NewsPlanet struct {
@@ -789,6 +790,14 @@ type PblSubstep struct {
 	ConfirmedAt    pgtype.Timestamptz `json:"confirmed_at"`
 	CreatedAt      time.Time          `json:"created_at"`
 	AddedByStudent bool               `json:"added_by_student"`
+}
+
+type PblToolDrop struct {
+	ID        uuid.UUID `json:"id"`
+	AtomID    uuid.UUID `json:"atom_id"`
+	Tool      string    `json:"tool"`
+	Needs     string    `json:"needs"`
+	CreatedAt time.Time `json:"created_at"`
 }
 
 type PblToolInstance struct {

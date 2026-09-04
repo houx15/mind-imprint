@@ -444,6 +444,46 @@ func TestParseSelectReplyErrorsOnGarbage(t *testing.T) {
 	}
 }
 
+// 🚨 星图一天只生成一次，切错一次就是二十个人一整天看同一行英文报错。
+//
+// 「第一个 { 到最后一个 }」在两种很常见的回法上会切坏：对象前面那段话里有花
+// 括号，或者对象后面跟着的那段话里有。2026-09-04 的模拟学生走查里六次启动撞上
+// 两次。改成数括号之后这两种都该正常读出来。
+func TestParseSelectReplySurvivesProseAroundTheObject(t *testing.T) {
+	body := `{"planets":[
+		{"index":1,"titleZh":"深海珊瑚在 30 度水里活下来了","titleEn":"Story number 1 about topic 1",
+		 "summary":"红海北端一片珊瑚没有白化。","hook":"四平方公里，能代表一整片海吗？",
+		 "field":"science","disciplineId":"climate-ocean","keyword":"样本代表性"}]}`
+
+	for _, c := range []struct{ name, raw string }{
+		{"前面那段话里有花括号", "我按 {field} 这个字段挑的，结果如下：\n" + body},
+		{"后面跟了一段说明", body + "\n\n说明：其中第 {1} 条我不太确定。"},
+		{"围栏加前后都有话", "好的：\n```json\n" + body + "\n```\n就这五条 {以上}。"},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			got, err := ParseSelectReply(c.raw, candidates(3))
+			if err != nil {
+				t.Fatalf("切坏了，今天的星图就没了：%v", err)
+			}
+			if len(got) != 1 || got[0].Keyword != "样本代表性" {
+				t.Fatalf("解析结果不对：%+v", got)
+			}
+		})
+	}
+}
+
+// 被截断和「压根没回 JSON」是两回事，报错要分得开——否则线上只看得到一句
+// "unexpected end of JSON input"，看不出是谁截断的。
+func TestParseSelectReplySaysWhenTheObjectIsTruncated(t *testing.T) {
+	_, err := ParseSelectReply(`{"planets":[{"index":1,"titleZh":"深海珊瑚`, candidates(3))
+	if err == nil {
+		t.Fatal("被截断的回话没有报错")
+	}
+	if !strings.Contains(err.Error(), "截断") {
+		t.Errorf("报错没说是被截断了：%v", err)
+	}
+}
+
 /* ── 铺开来源 ───────────────────────────────────────────────────────────── */
 
 // 🚨 2026-09-03 真模型实测发现的问题：五颗星全部来自 Phys.org，四颗同一根主枝。

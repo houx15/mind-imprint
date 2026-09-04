@@ -29,7 +29,7 @@ func (q *Queries) FinishNewsDay(ctx context.Context, arg FinishNewsDayParams) er
 
 const getNewsDay = `-- name: GetNewsDay :one
 
-SELECT day, attempted_at, planet_count, note FROM news_day WHERE day = $1
+SELECT day, attempted_at, planet_count, note, attempts FROM news_day WHERE day = $1
 `
 
 // news.sql —— 今日新闻星图。
@@ -45,6 +45,7 @@ func (q *Queries) GetNewsDay(ctx context.Context, day pgtype.Date) (NewsDay, err
 		&i.AttemptedAt,
 		&i.PlanetCount,
 		&i.Note,
+		&i.Attempts,
 	)
 	return i, err
 }
@@ -241,12 +242,16 @@ func (q *Queries) ListSavedPlanetIDs(ctx context.Context, userID uuid.UUID) ([]u
 
 const markNewsDayAttempted = `-- name: MarkNewsDayAttempted :exec
 INSERT INTO news_day (day) VALUES ($1)
-ON CONFLICT (day) DO NOTHING
+ON CONFLICT (day) DO UPDATE
+  SET attempts = news_day.attempts + 1, attempted_at = now()
 `
 
 // 盖章。**在生成之前调**：语义是「今天试过一次」，不是「今天出过星图」。
 // 所有源都挂掉的那天，如果按产出判断，每个打开星图的学生都会再触发一次全量
 // 抓取 + 一次旗舰调用。
+//
+// 计次而不是只盖一次章（migration 0133）：一次失败不该锁死一整天。允不允许再试
+// 由 explore.go 的 starmapRetryable 判定，这里只负责把次数和时间记准。
 func (q *Queries) MarkNewsDayAttempted(ctx context.Context, day pgtype.Date) error {
 	_, err := q.db.Exec(ctx, markNewsDayAttempted, day)
 	return err

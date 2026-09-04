@@ -194,19 +194,80 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 	return out, nil
 }
 
-// sliceJSONObject 从模型的回话里切出那个 JSON 对象：去掉代码围栏，取第一个
-// `{` 到最后一个 `}`。没有 schema 强制的 JSON 模式，所以这一层必须容错。
+// sliceJSONObject 从模型的回话里切出那个 JSON 对象。
+//
+// 🚨 **数括号，不是「第一个 { 到最后一个 }」。**
+//
+// 原来那种取法在两种很常见的回法上会切出一段坏的：对象后面还跟着一段话而那段
+// 话里也有花括号；或者对象前面那段话里就有花括号。2026-09-04 的模拟学生走查上，
+// 六次启动撞上两次
+//
+//	生成失败：select reply is not the expected object: unexpected end of JSON input
+//
+// 而那一整天的探索地图就没了——星图一天只生成一次，切错一次就是二十个人一整天
+// 看同一行英文报错。`pbl/jsonwire.go` 已经因为同一个原因换过一次取法，这里是
+// 同一个改动的第二处。
+//
+// 🚨 光数括号还不够：**第一个配平的对象不一定是那个对象。** 模型写「我按
+// {field} 这个字段挑的，结果如下：」，`{field}` 自己就是配平的，取它就等于把
+// 整天的星图押在一句开场白上。所以配平之后再过一道 `json.Valid`——第一个真的
+// 是合法 JSON 的那段才算数。
+//
+// 这不是「容错到什么都能过」：取出来之后照样严格 Unmarshal、照样逐条验（钩子
+// 不能空、field 必须是七根主枝之一、下标要按标题回查）。放宽的只有「从哪儿到
+// 哪儿是那段 JSON」，那本来就不该由模型的排版决定。
 func sliceJSONObject(raw string) ([]byte, error) {
 	s := strings.TrimSpace(raw)
 	s = strings.TrimPrefix(s, "```json")
 	s = strings.TrimPrefix(s, "```")
 	s = strings.TrimSuffix(s, "```")
-	i := strings.Index(s, "{")
-	j := strings.LastIndex(s, "}")
-	if i < 0 || j < i {
-		return nil, fmt.Errorf("reply 里没有 JSON 对象")
+
+	first := ""
+	start, depth, inStr, esc := -1, 0, false, false
+	for i, r := range s {
+		if esc {
+			esc = false
+			continue
+		}
+		switch {
+		case inStr && r == '\\':
+			esc = true
+		case r == '"':
+			inStr = !inStr
+		case inStr:
+			// 字符串里的括号不算数。
+		case r == '{':
+			if depth == 0 {
+				start = i
+			}
+			depth++
+		case r == '}':
+			if depth > 0 {
+				depth--
+				if depth == 0 && start >= 0 {
+					span := s[start : i+1]
+					if json.Valid([]byte(span)) {
+						return []byte(span), nil
+					}
+					// 留着第一段配平但不合法的，实在找不到合法的时候拿它去
+					// Unmarshal——那个报错比「没有 JSON 对象」具体得多。
+					if first == "" {
+						first = span
+					}
+					start = -1
+				}
+			}
+		}
 	}
-	return []byte(s[i : j+1]), nil
+	if first != "" {
+		return []byte(first), nil
+	}
+	if start >= 0 {
+		// 有开头没配平——模型被截断了。这和「压根没回 JSON」是两回事，说清楚，
+		// 否则线上只能看到一句 "unexpected end of JSON input"，看不出是谁截断的。
+		return nil, fmt.Errorf("reply 里的 JSON 对象没有写完（被截断了）")
+	}
+	return nil, fmt.Errorf("reply 里没有 JSON 对象")
 }
 
 func truncRunes(s string, max int) string {
