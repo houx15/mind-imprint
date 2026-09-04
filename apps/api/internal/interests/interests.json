@@ -1,0 +1,2741 @@
+[
+  {
+    "id": "cryptography",
+    "field": "formal",
+    "zh": "密码",
+    "en": "Cryptography",
+    "disciplines": [
+      "logic-proof",
+      "discrete-networks",
+      "algorithms"
+    ]
+  },
+  {
+    "id": "cryptocurrency",
+    "field": "formal",
+    "zh": "加密货币",
+    "en": "Cryptocurrency",
+    "disciplines": [
+      "economics",
+      "discrete-networks",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "gambling",
+    "field": "formal",
+    "zh": "赌博",
+    "en": "Gambling",
+    "disciplines": [
+      "probability",
+      "cognitive-psychology",
+      "economics"
+    ]
+  },
+  {
+    "id": "puzzles",
+    "field": "formal",
+    "zh": "谜题",
+    "en": "Puzzles",
+    "disciplines": [
+      "logic-proof",
+      "discrete-networks",
+      "cognitive-psychology"
+    ]
+  },
+  {
+    "id": "board-games",
+    "field": "formal",
+    "zh": "棋",
+    "en": "Board games",
+    "disciplines": [
+      "logic-proof",
+      "probability",
+      "algorithms"
+    ]
+  },
+  {
+    "id": "polling",
+    "field": "formal",
+    "zh": "民调",
+    "en": "Polling",
+    "disciplines": [
+      "statistical-inference",
+      "sociology",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "insurance",
+    "field": "formal",
+    "zh": "保险",
+    "en": "Insurance",
+    "disciplines": [
+      "probability",
+      "economics",
+      "statistical-inference"
+    ]
+  },
+  {
+    "id": "navigation",
+    "field": "formal",
+    "zh": "导航",
+    "en": "Navigation",
+    "disciplines": [
+      "calculus",
+      "astronomy",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "rankings",
+    "field": "formal",
+    "zh": "排行榜",
+    "en": "Rankings",
+    "disciplines": [
+      "statistical-inference",
+      "sociology",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "symmetry",
+    "field": "formal",
+    "zh": "对称",
+    "en": "Symmetry",
+    "disciplines": [
+      "logic-proof",
+      "visual-design",
+      "matter-energy"
+    ]
+  },
+  {
+    "id": "measurement",
+    "field": "formal",
+    "zh": "计量",
+    "en": "Measurement",
+    "disciplines": [
+      "statistical-inference",
+      "matter-energy",
+      "engineering-design"
+    ]
+  },
+  {
+    "id": "data-visualisation",
+    "field": "formal",
+    "zh": "数据可视化",
+    "en": "Data visualisation",
+    "disciplines": [
+      "statistical-inference",
+      "visual-design",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "optimisation",
+    "field": "formal",
+    "zh": "优化",
+    "en": "Optimisation",
+    "disciplines": [
+      "modelling",
+      "algorithms",
+      "economics"
+    ]
+  },
+  {
+    "id": "game-theory",
+    "field": "formal",
+    "zh": "博弈",
+    "en": "Game theory",
+    "disciplines": [
+      "probability",
+      "economics",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "fractals",
+    "field": "formal",
+    "zh": "分形",
+    "en": "Fractals",
+    "disciplines": [
+      "calculus",
+      "visual-design",
+      "ecology"
+    ]
+  },
+  {
+    "id": "calendars",
+    "field": "formal",
+    "zh": "历法",
+    "en": "Calendars",
+    "disciplines": [
+      "astronomy",
+      "history",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "gacha",
+    "field": "formal",
+    "zh": "抽卡",
+    "en": "Gacha",
+    "disciplines": [
+      "probability",
+      "interaction-design",
+      "cognitive-psychology"
+    ]
+  },
+  {
+    "id": "forecasting",
+    "field": "formal",
+    "zh": "预测",
+    "en": "Forecasting",
+    "disciplines": [
+      "probability",
+      "modelling",
+      "statistical-inference"
+    ]
+  },
+  {
+    "id": "climate",
+    "field": "science",
+    "zh": "气候",
+    "en": "Climate",
+    "disciplines": [
+      "climate-ocean",
+      "energy-systems",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "ocean",
+    "field": "science",
+    "zh": "海洋",
+    "en": "Ocean",
+    "disciplines": [
+      "climate-ocean",
+      "ecology",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "deep-sea",
+    "field": "science",
+    "zh": "深海",
+    "en": "Deep sea",
+    "disciplines": [
+      "climate-ocean",
+      "ecology",
+      "engineering-design"
+    ]
+  },
+  {
+    "id": "polar",
+    "field": "science",
+    "zh": "极地",
+    "en": "Polar regions",
+    "disciplines": [
+      "climate-ocean",
+      "ecology",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "glaciers",
+    "field": "science",
+    "zh": "冰川",
+    "en": "Glaciers",
+    "disciplines": [
+      "climate-ocean",
+      "geography-urban",
+      "ecology"
+    ]
+  },
+  {
+    "id": "deserts",
+    "field": "science",
+    "zh": "沙漠",
+    "en": "Deserts",
+    "disciplines": [
+      "climate-ocean",
+      "ecology",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "forests",
+    "field": "science",
+    "zh": "森林",
+    "en": "Forests",
+    "disciplines": [
+      "ecology",
+      "climate-ocean",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "wetlands",
+    "field": "science",
+    "zh": "湿地",
+    "en": "Wetlands",
+    "disciplines": [
+      "ecology",
+      "climate-ocean",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "caves",
+    "field": "science",
+    "zh": "洞穴",
+    "en": "Caves",
+    "disciplines": [
+      "geography-urban",
+      "ecology",
+      "history"
+    ]
+  },
+  {
+    "id": "earthquakes",
+    "field": "science",
+    "zh": "地震",
+    "en": "Earthquakes",
+    "disciplines": [
+      "matter-energy",
+      "geography-urban",
+      "engineering-design"
+    ]
+  },
+  {
+    "id": "volcanoes",
+    "field": "science",
+    "zh": "火山",
+    "en": "Volcanoes",
+    "disciplines": [
+      "matter-energy",
+      "geography-urban",
+      "ecology"
+    ]
+  },
+  {
+    "id": "weather",
+    "field": "science",
+    "zh": "天气",
+    "en": "Weather",
+    "disciplines": [
+      "climate-ocean",
+      "probability",
+      "modelling"
+    ]
+  },
+  {
+    "id": "astronomy",
+    "field": "science",
+    "zh": "天文",
+    "en": "Astronomy",
+    "disciplines": [
+      "astronomy",
+      "matter-energy",
+      "calculus"
+    ]
+  },
+  {
+    "id": "spaceflight",
+    "field": "science",
+    "zh": "太空探索",
+    "en": "Spaceflight",
+    "disciplines": [
+      "astronomy",
+      "engineering-design",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "dinosaurs",
+    "field": "science",
+    "zh": "恐龙",
+    "en": "Dinosaurs",
+    "disciplines": [
+      "genetics",
+      "ecology",
+      "history"
+    ]
+  },
+  {
+    "id": "fossils",
+    "field": "science",
+    "zh": "化石",
+    "en": "Fossils",
+    "disciplines": [
+      "genetics",
+      "history",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "insects",
+    "field": "science",
+    "zh": "昆虫",
+    "en": "Insects",
+    "disciplines": [
+      "ecology",
+      "genetics",
+      "materials"
+    ]
+  },
+  {
+    "id": "birds",
+    "field": "science",
+    "zh": "鸟类",
+    "en": "Birds",
+    "disciplines": [
+      "ecology",
+      "genetics",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "plants",
+    "field": "science",
+    "zh": "植物",
+    "en": "Plants",
+    "disciplines": [
+      "ecology",
+      "genetics",
+      "materials"
+    ]
+  },
+  {
+    "id": "fungi",
+    "field": "science",
+    "zh": "真菌",
+    "en": "Fungi",
+    "disciplines": [
+      "ecology",
+      "genetics",
+      "public-health"
+    ]
+  },
+  {
+    "id": "microbes",
+    "field": "science",
+    "zh": "微生物",
+    "en": "Microbes",
+    "disciplines": [
+      "genetics",
+      "public-health",
+      "ecology"
+    ]
+  },
+  {
+    "id": "viruses",
+    "field": "science",
+    "zh": "病毒",
+    "en": "Viruses",
+    "disciplines": [
+      "genetics",
+      "public-health",
+      "ecology"
+    ]
+  },
+  {
+    "id": "vaccines",
+    "field": "science",
+    "zh": "疫苗",
+    "en": "Vaccines",
+    "disciplines": [
+      "public-health",
+      "genetics",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "immunity",
+    "field": "science",
+    "zh": "免疫",
+    "en": "Immunity",
+    "disciplines": [
+      "public-health",
+      "genetics",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "medicine",
+    "field": "science",
+    "zh": "药",
+    "en": "Medicine",
+    "disciplines": [
+      "public-health",
+      "genetics",
+      "economics"
+    ]
+  },
+  {
+    "id": "poisons",
+    "field": "science",
+    "zh": "毒物",
+    "en": "Poisons",
+    "disciplines": [
+      "materials",
+      "public-health",
+      "ecology"
+    ]
+  },
+  {
+    "id": "human-body",
+    "field": "science",
+    "zh": "人体",
+    "en": "Human body",
+    "disciplines": [
+      "public-health",
+      "neuroscience",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "brain",
+    "field": "science",
+    "zh": "大脑",
+    "en": "Brain",
+    "disciplines": [
+      "neuroscience",
+      "cognitive-psychology",
+      "ai-ml"
+    ]
+  },
+  {
+    "id": "heredity",
+    "field": "science",
+    "zh": "遗传",
+    "en": "Heredity",
+    "disciplines": [
+      "genetics",
+      "ethics",
+      "public-health"
+    ]
+  },
+  {
+    "id": "evolution",
+    "field": "science",
+    "zh": "进化",
+    "en": "Evolution",
+    "disciplines": [
+      "genetics",
+      "ecology",
+      "philosophy"
+    ]
+  },
+  {
+    "id": "animal-behaviour",
+    "field": "science",
+    "zh": "动物行为",
+    "en": "Animal behaviour",
+    "disciplines": [
+      "ecology",
+      "neuroscience",
+      "cognitive-psychology"
+    ]
+  },
+  {
+    "id": "pets",
+    "field": "science",
+    "zh": "宠物",
+    "en": "Pets",
+    "disciplines": [
+      "ecology",
+      "developmental-psychology",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "breeding",
+    "field": "science",
+    "zh": "育种",
+    "en": "Breeding",
+    "disciplines": [
+      "genetics",
+      "ecology",
+      "economics"
+    ]
+  },
+  {
+    "id": "crops",
+    "field": "science",
+    "zh": "作物",
+    "en": "Crops",
+    "disciplines": [
+      "genetics",
+      "ecology",
+      "economics"
+    ]
+  },
+  {
+    "id": "conservation",
+    "field": "science",
+    "zh": "生态保护",
+    "en": "Conservation",
+    "disciplines": [
+      "ecology",
+      "political-economy",
+      "climate-ocean"
+    ]
+  },
+  {
+    "id": "light",
+    "field": "science",
+    "zh": "光",
+    "en": "Light",
+    "disciplines": [
+      "matter-energy",
+      "visual-design",
+      "astronomy"
+    ]
+  },
+  {
+    "id": "sound",
+    "field": "science",
+    "zh": "声音",
+    "en": "Sound",
+    "disciplines": [
+      "matter-energy",
+      "music-theory",
+      "neuroscience"
+    ]
+  },
+  {
+    "id": "quantum",
+    "field": "science",
+    "zh": "量子",
+    "en": "Quantum",
+    "disciplines": [
+      "matter-energy",
+      "probability",
+      "philosophy"
+    ]
+  },
+  {
+    "id": "relativity",
+    "field": "science",
+    "zh": "相对论",
+    "en": "Relativity",
+    "disciplines": [
+      "matter-energy",
+      "astronomy",
+      "calculus"
+    ]
+  },
+  {
+    "id": "chemistry",
+    "field": "science",
+    "zh": "化学",
+    "en": "Chemistry",
+    "disciplines": [
+      "matter-energy",
+      "materials",
+      "public-health"
+    ]
+  },
+  {
+    "id": "games",
+    "field": "making",
+    "zh": "游戏",
+    "en": "Games",
+    "disciplines": [
+      "interaction-design",
+      "probability",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "programming",
+    "field": "making",
+    "zh": "编程",
+    "en": "Programming",
+    "disciplines": [
+      "algorithms",
+      "engineering-design",
+      "logic-proof"
+    ]
+  },
+  {
+    "id": "artificial-intelligence",
+    "field": "making",
+    "zh": "人工智能",
+    "en": "Artificial intelligence",
+    "disciplines": [
+      "ai-ml",
+      "algorithms",
+      "ethics"
+    ]
+  },
+  {
+    "id": "robots",
+    "field": "making",
+    "zh": "机器人",
+    "en": "Robots",
+    "disciplines": [
+      "engineering-design",
+      "ai-ml",
+      "algorithms"
+    ]
+  },
+  {
+    "id": "drones",
+    "field": "making",
+    "zh": "无人机",
+    "en": "Drones",
+    "disciplines": [
+      "engineering-design",
+      "ai-ml",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "chips",
+    "field": "making",
+    "zh": "芯片",
+    "en": "Chips",
+    "disciplines": [
+      "materials",
+      "engineering-design",
+      "economics"
+    ]
+  },
+  {
+    "id": "phones",
+    "field": "making",
+    "zh": "手机",
+    "en": "Phones",
+    "disciplines": [
+      "interaction-design",
+      "materials",
+      "economics"
+    ]
+  },
+  {
+    "id": "cars",
+    "field": "making",
+    "zh": "汽车",
+    "en": "Cars",
+    "disciplines": [
+      "engineering-design",
+      "energy-systems",
+      "materials"
+    ]
+  },
+  {
+    "id": "electric-vehicles",
+    "field": "making",
+    "zh": "电动车",
+    "en": "Electric vehicles",
+    "disciplines": [
+      "energy-systems",
+      "materials",
+      "economics"
+    ]
+  },
+  {
+    "id": "aircraft",
+    "field": "making",
+    "zh": "飞机",
+    "en": "Aircraft",
+    "disciplines": [
+      "engineering-design",
+      "matter-energy",
+      "materials"
+    ]
+  },
+  {
+    "id": "rockets",
+    "field": "making",
+    "zh": "火箭",
+    "en": "Rockets",
+    "disciplines": [
+      "engineering-design",
+      "astronomy",
+      "matter-energy"
+    ]
+  },
+  {
+    "id": "ships",
+    "field": "making",
+    "zh": "船",
+    "en": "Ships",
+    "disciplines": [
+      "engineering-design",
+      "geography-urban",
+      "history"
+    ]
+  },
+  {
+    "id": "railways",
+    "field": "making",
+    "zh": "铁路",
+    "en": "Railways",
+    "disciplines": [
+      "engineering-design",
+      "geography-urban",
+      "economics"
+    ]
+  },
+  {
+    "id": "bridges",
+    "field": "making",
+    "zh": "桥梁",
+    "en": "Bridges",
+    "disciplines": [
+      "engineering-design",
+      "materials",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "architecture",
+    "field": "making",
+    "zh": "建筑",
+    "en": "Architecture",
+    "disciplines": [
+      "engineering-design",
+      "art-history",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "woodworking",
+    "field": "making",
+    "zh": "木工",
+    "en": "Woodworking",
+    "disciplines": [
+      "materials",
+      "engineering-design",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "tailoring",
+    "field": "making",
+    "zh": "裁缝",
+    "en": "Tailoring",
+    "disciplines": [
+      "materials",
+      "visual-design",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "knitting",
+    "field": "making",
+    "zh": "编织",
+    "en": "Knitting",
+    "disciplines": [
+      "materials",
+      "visual-design",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "ceramics",
+    "field": "making",
+    "zh": "陶艺",
+    "en": "Ceramics",
+    "disciplines": [
+      "materials",
+      "art-history",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "metalwork",
+    "field": "making",
+    "zh": "金工",
+    "en": "Metalwork",
+    "disciplines": [
+      "materials",
+      "engineering-design",
+      "art-history"
+    ]
+  },
+  {
+    "id": "leatherwork",
+    "field": "making",
+    "zh": "皮革",
+    "en": "Leatherwork",
+    "disciplines": [
+      "materials",
+      "visual-design",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "glass",
+    "field": "making",
+    "zh": "玻璃",
+    "en": "Glass",
+    "disciplines": [
+      "materials",
+      "art-history",
+      "matter-energy"
+    ]
+  },
+  {
+    "id": "baking",
+    "field": "making",
+    "zh": "烘焙",
+    "en": "Baking",
+    "disciplines": [
+      "materials",
+      "public-health",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "cooking",
+    "field": "making",
+    "zh": "烹饪",
+    "en": "Cooking",
+    "disciplines": [
+      "anthropology",
+      "public-health",
+      "materials"
+    ]
+  },
+  {
+    "id": "coffee",
+    "field": "making",
+    "zh": "咖啡",
+    "en": "Coffee",
+    "disciplines": [
+      "materials",
+      "economics",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "brewing",
+    "field": "making",
+    "zh": "酿造",
+    "en": "Brewing",
+    "disciplines": [
+      "genetics",
+      "materials",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "perfume",
+    "field": "making",
+    "zh": "香水",
+    "en": "Perfume",
+    "disciplines": [
+      "materials",
+      "neuroscience",
+      "art-history"
+    ]
+  },
+  {
+    "id": "cosmetics",
+    "field": "making",
+    "zh": "化妆品",
+    "en": "Cosmetics",
+    "disciplines": [
+      "materials",
+      "public-health",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "3d-printing",
+    "field": "making",
+    "zh": "3D 打印",
+    "en": "3D printing",
+    "disciplines": [
+      "materials",
+      "engineering-design",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "electronics",
+    "field": "making",
+    "zh": "电子制作",
+    "en": "Electronics",
+    "disciplines": [
+      "engineering-design",
+      "matter-energy",
+      "algorithms"
+    ]
+  },
+  {
+    "id": "repair",
+    "field": "making",
+    "zh": "修理",
+    "en": "Repair",
+    "disciplines": [
+      "engineering-design",
+      "materials",
+      "economics"
+    ]
+  },
+  {
+    "id": "model-making",
+    "field": "making",
+    "zh": "模型制作",
+    "en": "Model making",
+    "disciplines": [
+      "materials",
+      "visual-design",
+      "art-history"
+    ]
+  },
+  {
+    "id": "solar-power",
+    "field": "making",
+    "zh": "太阳能",
+    "en": "Solar power",
+    "disciplines": [
+      "energy-systems",
+      "materials",
+      "economics"
+    ]
+  },
+  {
+    "id": "wind-power",
+    "field": "making",
+    "zh": "风能",
+    "en": "Wind power",
+    "disciplines": [
+      "energy-systems",
+      "engineering-design",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "nuclear-power",
+    "field": "making",
+    "zh": "核能",
+    "en": "Nuclear power",
+    "disciplines": [
+      "energy-systems",
+      "matter-energy",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "batteries",
+    "field": "making",
+    "zh": "电池",
+    "en": "Batteries",
+    "disciplines": [
+      "materials",
+      "energy-systems",
+      "economics"
+    ]
+  },
+  {
+    "id": "recycling",
+    "field": "making",
+    "zh": "回收",
+    "en": "Recycling",
+    "disciplines": [
+      "materials",
+      "energy-systems",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "water-treatment",
+    "field": "making",
+    "zh": "净水",
+    "en": "Water treatment",
+    "disciplines": [
+      "public-health",
+      "materials",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "agricultural-technology",
+    "field": "making",
+    "zh": "农业技术",
+    "en": "Agricultural technology",
+    "disciplines": [
+      "genetics",
+      "engineering-design",
+      "economics"
+    ]
+  },
+  {
+    "id": "assistive-technology",
+    "field": "making",
+    "zh": "辅具",
+    "en": "Assistive technology",
+    "disciplines": [
+      "engineering-design",
+      "public-health",
+      "interaction-design"
+    ]
+  },
+  {
+    "id": "web",
+    "field": "making",
+    "zh": "网页",
+    "en": "The web",
+    "disciplines": [
+      "interaction-design",
+      "visual-design",
+      "algorithms"
+    ]
+  },
+  {
+    "id": "app-design",
+    "field": "making",
+    "zh": "应用设计",
+    "en": "App design",
+    "disciplines": [
+      "interaction-design",
+      "visual-design",
+      "cognitive-psychology"
+    ]
+  },
+  {
+    "id": "open-source",
+    "field": "making",
+    "zh": "开源",
+    "en": "Open source",
+    "disciplines": [
+      "algorithms",
+      "sociology",
+      "economics"
+    ]
+  },
+  {
+    "id": "cybersecurity",
+    "field": "making",
+    "zh": "网络安全",
+    "en": "Cybersecurity",
+    "disciplines": [
+      "algorithms",
+      "logic-proof",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "automation",
+    "field": "making",
+    "zh": "自动化",
+    "en": "Automation",
+    "disciplines": [
+      "ai-ml",
+      "economics",
+      "career-futures"
+    ]
+  },
+  {
+    "id": "finance",
+    "field": "society",
+    "zh": "金融",
+    "en": "Finance",
+    "disciplines": [
+      "economics",
+      "probability",
+      "statistical-inference"
+    ]
+  },
+  {
+    "id": "entrepreneurship",
+    "field": "society",
+    "zh": "创业",
+    "en": "Entrepreneurship",
+    "disciplines": [
+      "economics",
+      "career-futures",
+      "sociology"
+    ]
+  },
+  {
+    "id": "advertising",
+    "field": "society",
+    "zh": "广告",
+    "en": "Advertising",
+    "disciplines": [
+      "media-literacy",
+      "cognitive-psychology",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "brands",
+    "field": "society",
+    "zh": "品牌",
+    "en": "Brands",
+    "disciplines": [
+      "media-literacy",
+      "economics",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "retail",
+    "field": "society",
+    "zh": "零售",
+    "en": "Retail",
+    "disciplines": [
+      "economics",
+      "interaction-design",
+      "sociology"
+    ]
+  },
+  {
+    "id": "logistics",
+    "field": "society",
+    "zh": "物流",
+    "en": "Logistics",
+    "disciplines": [
+      "economics",
+      "discrete-networks",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "supply-chains",
+    "field": "society",
+    "zh": "供应链",
+    "en": "Supply chains",
+    "disciplines": [
+      "economics",
+      "political-economy",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "trade",
+    "field": "society",
+    "zh": "贸易",
+    "en": "Trade",
+    "disciplines": [
+      "economics",
+      "political-economy",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "cities",
+    "field": "society",
+    "zh": "城市",
+    "en": "Cities",
+    "disciplines": [
+      "geography-urban",
+      "sociology",
+      "engineering-design"
+    ]
+  },
+  {
+    "id": "transport",
+    "field": "society",
+    "zh": "交通",
+    "en": "Transport",
+    "disciplines": [
+      "geography-urban",
+      "engineering-design",
+      "economics"
+    ]
+  },
+  {
+    "id": "housing",
+    "field": "society",
+    "zh": "住房",
+    "en": "Housing",
+    "disciplines": [
+      "geography-urban",
+      "economics",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "public-space",
+    "field": "society",
+    "zh": "公共空间",
+    "en": "Public space",
+    "disciplines": [
+      "geography-urban",
+      "visual-design",
+      "sociology"
+    ]
+  },
+  {
+    "id": "migration",
+    "field": "society",
+    "zh": "移民",
+    "en": "Migration",
+    "disciplines": [
+      "anthropology",
+      "geography-urban",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "population",
+    "field": "society",
+    "zh": "人口",
+    "en": "Population",
+    "disciplines": [
+      "statistical-inference",
+      "sociology",
+      "public-health"
+    ]
+  },
+  {
+    "id": "law",
+    "field": "society",
+    "zh": "法律",
+    "en": "Law",
+    "disciplines": [
+      "political-economy",
+      "rhetoric-argument",
+      "ethics"
+    ]
+  },
+  {
+    "id": "forensics",
+    "field": "society",
+    "zh": "刑侦",
+    "en": "Forensics",
+    "disciplines": [
+      "statistical-inference",
+      "public-health",
+      "logic-proof"
+    ]
+  },
+  {
+    "id": "punishment",
+    "field": "society",
+    "zh": "惩罚与监狱",
+    "en": "Punishment",
+    "disciplines": [
+      "political-economy",
+      "sociology",
+      "ethics"
+    ]
+  },
+  {
+    "id": "elections",
+    "field": "society",
+    "zh": "选举",
+    "en": "Elections",
+    "disciplines": [
+      "political-economy",
+      "statistical-inference",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "diplomacy",
+    "field": "society",
+    "zh": "外交",
+    "en": "Diplomacy",
+    "disciplines": [
+      "political-economy",
+      "history",
+      "rhetoric-argument"
+    ]
+  },
+  {
+    "id": "war-history",
+    "field": "society",
+    "zh": "战争史",
+    "en": "History of war",
+    "disciplines": [
+      "history",
+      "political-economy",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "refugees",
+    "field": "society",
+    "zh": "难民",
+    "en": "Refugees",
+    "disciplines": [
+      "political-economy",
+      "anthropology",
+      "public-health"
+    ]
+  },
+  {
+    "id": "inequality",
+    "field": "society",
+    "zh": "不平等",
+    "en": "Inequality",
+    "disciplines": [
+      "economics",
+      "sociology",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "poverty",
+    "field": "society",
+    "zh": "贫困",
+    "en": "Poverty",
+    "disciplines": [
+      "economics",
+      "public-health",
+      "sociology"
+    ]
+  },
+  {
+    "id": "philanthropy",
+    "field": "society",
+    "zh": "慈善",
+    "en": "Philanthropy",
+    "disciplines": [
+      "economics",
+      "ethics",
+      "sociology"
+    ]
+  },
+  {
+    "id": "education-systems",
+    "field": "society",
+    "zh": "教育制度",
+    "en": "Education systems",
+    "disciplines": [
+      "education-learning",
+      "political-economy",
+      "sociology"
+    ]
+  },
+  {
+    "id": "healthcare-systems",
+    "field": "society",
+    "zh": "医疗制度",
+    "en": "Healthcare systems",
+    "disciplines": [
+      "public-health",
+      "economics",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "ageing",
+    "field": "society",
+    "zh": "养老",
+    "en": "Ageing",
+    "disciplines": [
+      "public-health",
+      "sociology",
+      "economics"
+    ]
+  },
+  {
+    "id": "parenting",
+    "field": "society",
+    "zh": "育儿",
+    "en": "Parenting",
+    "disciplines": [
+      "developmental-psychology",
+      "sociology",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "family",
+    "field": "society",
+    "zh": "家庭",
+    "en": "Family",
+    "disciplines": [
+      "sociology",
+      "anthropology",
+      "developmental-psychology"
+    ]
+  },
+  {
+    "id": "gender",
+    "field": "society",
+    "zh": "性别",
+    "en": "Gender",
+    "disciplines": [
+      "sociology",
+      "anthropology",
+      "ethics"
+    ]
+  },
+  {
+    "id": "race",
+    "field": "society",
+    "zh": "族群",
+    "en": "Race and ethnicity",
+    "disciplines": [
+      "sociology",
+      "anthropology",
+      "history"
+    ]
+  },
+  {
+    "id": "religion",
+    "field": "society",
+    "zh": "宗教",
+    "en": "Religion",
+    "disciplines": [
+      "anthropology",
+      "philosophy",
+      "history"
+    ]
+  },
+  {
+    "id": "festivals",
+    "field": "society",
+    "zh": "节日",
+    "en": "Festivals",
+    "disciplines": [
+      "anthropology",
+      "history",
+      "performance"
+    ]
+  },
+  {
+    "id": "food-culture",
+    "field": "society",
+    "zh": "饮食文化",
+    "en": "Food culture",
+    "disciplines": [
+      "anthropology",
+      "public-health",
+      "history"
+    ]
+  },
+  {
+    "id": "dress-history",
+    "field": "society",
+    "zh": "服饰史",
+    "en": "History of dress",
+    "disciplines": [
+      "anthropology",
+      "art-history",
+      "history"
+    ]
+  },
+  {
+    "id": "social-media",
+    "field": "society",
+    "zh": "社交媒体",
+    "en": "Social media",
+    "disciplines": [
+      "media-literacy",
+      "sociology",
+      "interaction-design"
+    ]
+  },
+  {
+    "id": "public-opinion",
+    "field": "society",
+    "zh": "舆论",
+    "en": "Public opinion",
+    "disciplines": [
+      "media-literacy",
+      "statistical-inference",
+      "sociology"
+    ]
+  },
+  {
+    "id": "misinformation",
+    "field": "society",
+    "zh": "假消息",
+    "en": "Misinformation",
+    "disciplines": [
+      "media-literacy",
+      "rhetoric-argument",
+      "statistical-inference"
+    ]
+  },
+  {
+    "id": "privacy",
+    "field": "society",
+    "zh": "隐私",
+    "en": "Privacy",
+    "disciplines": [
+      "political-economy",
+      "ethics",
+      "algorithms"
+    ]
+  },
+  {
+    "id": "labour",
+    "field": "society",
+    "zh": "劳动",
+    "en": "Labour",
+    "disciplines": [
+      "economics",
+      "sociology",
+      "career-futures"
+    ]
+  },
+  {
+    "id": "rural-life",
+    "field": "society",
+    "zh": "乡村",
+    "en": "Rural life",
+    "disciplines": [
+      "geography-urban",
+      "economics",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "tourism",
+    "field": "society",
+    "zh": "旅游",
+    "en": "Tourism",
+    "disciplines": [
+      "geography-urban",
+      "economics",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "sports-industry",
+    "field": "society",
+    "zh": "体育产业",
+    "en": "Sports industry",
+    "disciplines": [
+      "economics",
+      "statistical-inference",
+      "sociology"
+    ]
+  },
+  {
+    "id": "volunteering",
+    "field": "society",
+    "zh": "志愿服务",
+    "en": "Volunteering",
+    "disciplines": [
+      "sociology",
+      "ethics",
+      "career-futures"
+    ]
+  },
+  {
+    "id": "disaster-response",
+    "field": "society",
+    "zh": "灾害应对",
+    "en": "Disaster response",
+    "disciplines": [
+      "public-health",
+      "geography-urban",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "climate-policy",
+    "field": "society",
+    "zh": "气候政策",
+    "en": "Climate policy",
+    "disciplines": [
+      "political-economy",
+      "economics",
+      "climate-ocean"
+    ]
+  },
+  {
+    "id": "science-fiction",
+    "field": "humanities",
+    "zh": "科幻",
+    "en": "Science fiction",
+    "disciplines": [
+      "literary-criticism",
+      "astronomy",
+      "ethics"
+    ]
+  },
+  {
+    "id": "fantasy",
+    "field": "humanities",
+    "zh": "奇幻",
+    "en": "Fantasy",
+    "disciplines": [
+      "literary-criticism",
+      "anthropology",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "mystery-fiction",
+    "field": "humanities",
+    "zh": "推理小说",
+    "en": "Mystery fiction",
+    "disciplines": [
+      "literary-criticism",
+      "logic-proof",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "poetry",
+    "field": "humanities",
+    "zh": "诗",
+    "en": "Poetry",
+    "disciplines": [
+      "literary-criticism",
+      "linguistics",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "mythology",
+    "field": "humanities",
+    "zh": "神话",
+    "en": "Mythology",
+    "disciplines": [
+      "anthropology",
+      "literary-criticism",
+      "history"
+    ]
+  },
+  {
+    "id": "folklore",
+    "field": "humanities",
+    "zh": "民间故事",
+    "en": "Folklore",
+    "disciplines": [
+      "anthropology",
+      "literary-criticism",
+      "history"
+    ]
+  },
+  {
+    "id": "archaeology",
+    "field": "humanities",
+    "zh": "考古",
+    "en": "Archaeology",
+    "disciplines": [
+      "history",
+      "anthropology",
+      "materials"
+    ]
+  },
+  {
+    "id": "ancient-scripts",
+    "field": "humanities",
+    "zh": "古文字",
+    "en": "Ancient scripts",
+    "disciplines": [
+      "linguistics",
+      "history",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "dialects",
+    "field": "humanities",
+    "zh": "方言",
+    "en": "Dialects",
+    "disciplines": [
+      "linguistics",
+      "anthropology",
+      "sociology"
+    ]
+  },
+  {
+    "id": "translation",
+    "field": "humanities",
+    "zh": "翻译",
+    "en": "Translation",
+    "disciplines": [
+      "linguistics",
+      "literary-criticism",
+      "philosophy"
+    ]
+  },
+  {
+    "id": "foreign-languages",
+    "field": "humanities",
+    "zh": "外语",
+    "en": "Foreign languages",
+    "disciplines": [
+      "linguistics",
+      "anthropology",
+      "education-learning"
+    ]
+  },
+  {
+    "id": "etymology",
+    "field": "humanities",
+    "zh": "词源",
+    "en": "Etymology",
+    "disciplines": [
+      "linguistics",
+      "history",
+      "literary-criticism"
+    ]
+  },
+  {
+    "id": "sign-language",
+    "field": "humanities",
+    "zh": "手语",
+    "en": "Sign language",
+    "disciplines": [
+      "linguistics",
+      "neuroscience",
+      "sociology"
+    ]
+  },
+  {
+    "id": "rhetoric",
+    "field": "humanities",
+    "zh": "修辞",
+    "en": "Rhetoric",
+    "disciplines": [
+      "rhetoric-argument",
+      "philosophy",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "debate",
+    "field": "humanities",
+    "zh": "辩论",
+    "en": "Debate",
+    "disciplines": [
+      "rhetoric-argument",
+      "logic-proof",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "fallacies",
+    "field": "humanities",
+    "zh": "逻辑谬误",
+    "en": "Fallacies",
+    "disciplines": [
+      "rhetoric-argument",
+      "logic-proof",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "journalism",
+    "field": "humanities",
+    "zh": "新闻",
+    "en": "Journalism",
+    "disciplines": [
+      "media-literacy",
+      "rhetoric-argument",
+      "political-economy"
+    ]
+  },
+  {
+    "id": "documentary",
+    "field": "humanities",
+    "zh": "纪录片",
+    "en": "Documentary",
+    "disciplines": [
+      "media-literacy",
+      "film-narrative",
+      "history"
+    ]
+  },
+  {
+    "id": "biography",
+    "field": "humanities",
+    "zh": "传记",
+    "en": "Biography",
+    "disciplines": [
+      "history",
+      "literary-criticism",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "nonfiction",
+    "field": "humanities",
+    "zh": "非虚构写作",
+    "en": "Nonfiction writing",
+    "disciplines": [
+      "creative-writing",
+      "literary-criticism",
+      "history"
+    ]
+  },
+  {
+    "id": "philosophy",
+    "field": "humanities",
+    "zh": "哲学",
+    "en": "Philosophy",
+    "disciplines": [
+      "philosophy",
+      "ethics",
+      "logic-proof"
+    ]
+  },
+  {
+    "id": "history-of-ideas",
+    "field": "humanities",
+    "zh": "思想史",
+    "en": "History of ideas",
+    "disciplines": [
+      "history",
+      "philosophy",
+      "literary-criticism"
+    ]
+  },
+  {
+    "id": "empires",
+    "field": "humanities",
+    "zh": "帝国",
+    "en": "Empires",
+    "disciplines": [
+      "history",
+      "political-economy",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "revolutions",
+    "field": "humanities",
+    "zh": "革命",
+    "en": "Revolutions",
+    "disciplines": [
+      "history",
+      "political-economy",
+      "sociology"
+    ]
+  },
+  {
+    "id": "silk-road",
+    "field": "humanities",
+    "zh": "丝绸之路",
+    "en": "The Silk Road",
+    "disciplines": [
+      "history",
+      "geography-urban",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "pirates",
+    "field": "humanities",
+    "zh": "海盗",
+    "en": "Pirates",
+    "disciplines": [
+      "history",
+      "political-economy",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "map-history",
+    "field": "humanities",
+    "zh": "地图史",
+    "en": "History of maps",
+    "disciplines": [
+      "geography-urban",
+      "history",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "museums",
+    "field": "humanities",
+    "zh": "博物馆",
+    "en": "Museums",
+    "disciplines": [
+      "art-history",
+      "history",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "archives",
+    "field": "humanities",
+    "zh": "档案",
+    "en": "Archives",
+    "disciplines": [
+      "history",
+      "media-literacy",
+      "philosophy"
+    ]
+  },
+  {
+    "id": "family-history",
+    "field": "humanities",
+    "zh": "家族史",
+    "en": "Family history",
+    "disciplines": [
+      "history",
+      "anthropology",
+      "genetics"
+    ]
+  },
+  {
+    "id": "oral-history",
+    "field": "humanities",
+    "zh": "口述史",
+    "en": "Oral history",
+    "disciplines": [
+      "history",
+      "anthropology",
+      "linguistics"
+    ]
+  },
+  {
+    "id": "publishing",
+    "field": "humanities",
+    "zh": "出版",
+    "en": "Publishing",
+    "disciplines": [
+      "literary-criticism",
+      "economics",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "censorship",
+    "field": "humanities",
+    "zh": "审查",
+    "en": "Censorship",
+    "disciplines": [
+      "political-economy",
+      "media-literacy",
+      "history"
+    ]
+  },
+  {
+    "id": "traditional-medicine",
+    "field": "humanities",
+    "zh": "传统医学",
+    "en": "Traditional medicine",
+    "disciplines": [
+      "anthropology",
+      "public-health",
+      "history"
+    ]
+  },
+  {
+    "id": "film",
+    "field": "arts",
+    "zh": "电影",
+    "en": "Film",
+    "disciplines": [
+      "film-narrative",
+      "art-history",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "animation",
+    "field": "arts",
+    "zh": "动画",
+    "en": "Animation",
+    "disciplines": [
+      "film-narrative",
+      "visual-design",
+      "art-history"
+    ]
+  },
+  {
+    "id": "comics",
+    "field": "arts",
+    "zh": "漫画",
+    "en": "Comics",
+    "disciplines": [
+      "visual-design",
+      "literary-criticism",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "illustration",
+    "field": "arts",
+    "zh": "插画",
+    "en": "Illustration",
+    "disciplines": [
+      "visual-design",
+      "art-history",
+      "materials"
+    ]
+  },
+  {
+    "id": "photography",
+    "field": "arts",
+    "zh": "摄影",
+    "en": "Photography",
+    "disciplines": [
+      "visual-design",
+      "art-history",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "graphic-design",
+    "field": "arts",
+    "zh": "平面设计",
+    "en": "Graphic design",
+    "disciplines": [
+      "visual-design",
+      "art-history",
+      "media-literacy"
+    ]
+  },
+  {
+    "id": "typography",
+    "field": "arts",
+    "zh": "字体",
+    "en": "Typography",
+    "disciplines": [
+      "visual-design",
+      "linguistics",
+      "art-history"
+    ]
+  },
+  {
+    "id": "painting",
+    "field": "arts",
+    "zh": "绘画",
+    "en": "Painting",
+    "disciplines": [
+      "art-history",
+      "visual-design",
+      "materials"
+    ]
+  },
+  {
+    "id": "sculpture",
+    "field": "arts",
+    "zh": "雕塑",
+    "en": "Sculpture",
+    "disciplines": [
+      "art-history",
+      "materials",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "printmaking",
+    "field": "arts",
+    "zh": "版画",
+    "en": "Printmaking",
+    "disciplines": [
+      "art-history",
+      "materials",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "calligraphy",
+    "field": "arts",
+    "zh": "书法",
+    "en": "Calligraphy",
+    "disciplines": [
+      "art-history",
+      "linguistics",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "street-art",
+    "field": "arts",
+    "zh": "街头艺术",
+    "en": "Street art",
+    "disciplines": [
+      "art-history",
+      "sociology",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "installation-art",
+    "field": "arts",
+    "zh": "装置艺术",
+    "en": "Installation art",
+    "disciplines": [
+      "art-history",
+      "engineering-design",
+      "performance"
+    ]
+  },
+  {
+    "id": "curation",
+    "field": "arts",
+    "zh": "策展",
+    "en": "Curation",
+    "disciplines": [
+      "art-history",
+      "media-literacy",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "fashion",
+    "field": "arts",
+    "zh": "时装",
+    "en": "Fashion",
+    "disciplines": [
+      "visual-design",
+      "materials",
+      "anthropology"
+    ]
+  },
+  {
+    "id": "jewellery",
+    "field": "arts",
+    "zh": "珠宝",
+    "en": "Jewellery",
+    "disciplines": [
+      "materials",
+      "art-history",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "interior-design",
+    "field": "arts",
+    "zh": "室内设计",
+    "en": "Interior design",
+    "disciplines": [
+      "visual-design",
+      "engineering-design",
+      "art-history"
+    ]
+  },
+  {
+    "id": "landscape-design",
+    "field": "arts",
+    "zh": "景观设计",
+    "en": "Landscape design",
+    "disciplines": [
+      "visual-design",
+      "ecology",
+      "geography-urban"
+    ]
+  },
+  {
+    "id": "stage-design",
+    "field": "arts",
+    "zh": "舞台设计",
+    "en": "Stage design",
+    "disciplines": [
+      "performance",
+      "visual-design",
+      "engineering-design"
+    ]
+  },
+  {
+    "id": "lighting",
+    "field": "arts",
+    "zh": "灯光",
+    "en": "Lighting",
+    "disciplines": [
+      "performance",
+      "matter-energy",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "theatre",
+    "field": "arts",
+    "zh": "戏剧",
+    "en": "Theatre",
+    "disciplines": [
+      "performance",
+      "literary-criticism",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "musical-theatre",
+    "field": "arts",
+    "zh": "音乐剧",
+    "en": "Musical theatre",
+    "disciplines": [
+      "performance",
+      "music-theory",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "dance",
+    "field": "arts",
+    "zh": "舞蹈",
+    "en": "Dance",
+    "disciplines": [
+      "performance",
+      "music-theory",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "circus",
+    "field": "arts",
+    "zh": "杂技",
+    "en": "Circus arts",
+    "disciplines": [
+      "performance",
+      "wellbeing",
+      "art-history"
+    ]
+  },
+  {
+    "id": "magic",
+    "field": "arts",
+    "zh": "魔术",
+    "en": "Magic",
+    "disciplines": [
+      "performance",
+      "cognitive-psychology",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "voice-acting",
+    "field": "arts",
+    "zh": "配音",
+    "en": "Voice acting",
+    "disciplines": [
+      "performance",
+      "linguistics",
+      "music-theory"
+    ]
+  },
+  {
+    "id": "classical-music",
+    "field": "arts",
+    "zh": "古典音乐",
+    "en": "Classical music",
+    "disciplines": [
+      "music-theory",
+      "art-history",
+      "history"
+    ]
+  },
+  {
+    "id": "rock-music",
+    "field": "arts",
+    "zh": "摇滚",
+    "en": "Rock music",
+    "disciplines": [
+      "music-theory",
+      "sociology",
+      "art-history"
+    ]
+  },
+  {
+    "id": "hip-hop",
+    "field": "arts",
+    "zh": "说唱",
+    "en": "Hip hop",
+    "disciplines": [
+      "music-theory",
+      "linguistics",
+      "sociology"
+    ]
+  },
+  {
+    "id": "folk-music",
+    "field": "arts",
+    "zh": "民乐",
+    "en": "Folk music",
+    "disciplines": [
+      "music-theory",
+      "anthropology",
+      "history"
+    ]
+  },
+  {
+    "id": "electronic-music",
+    "field": "arts",
+    "zh": "电子音乐",
+    "en": "Electronic music",
+    "disciplines": [
+      "music-theory",
+      "algorithms",
+      "matter-energy"
+    ]
+  },
+  {
+    "id": "composing",
+    "field": "arts",
+    "zh": "作曲",
+    "en": "Composing",
+    "disciplines": [
+      "music-theory",
+      "creative-writing",
+      "art-history"
+    ]
+  },
+  {
+    "id": "instruments",
+    "field": "arts",
+    "zh": "乐器",
+    "en": "Instruments",
+    "disciplines": [
+      "music-theory",
+      "materials",
+      "matter-energy"
+    ]
+  },
+  {
+    "id": "sound-design",
+    "field": "arts",
+    "zh": "声音设计",
+    "en": "Sound design",
+    "disciplines": [
+      "music-theory",
+      "film-narrative",
+      "matter-energy"
+    ]
+  },
+  {
+    "id": "podcasting",
+    "field": "arts",
+    "zh": "播客",
+    "en": "Podcasting",
+    "disciplines": [
+      "media-literacy",
+      "performance",
+      "creative-writing"
+    ]
+  },
+  {
+    "id": "short-video",
+    "field": "arts",
+    "zh": "短视频",
+    "en": "Short video",
+    "disciplines": [
+      "film-narrative",
+      "media-literacy",
+      "interaction-design"
+    ]
+  },
+  {
+    "id": "game-art",
+    "field": "arts",
+    "zh": "游戏美术",
+    "en": "Game art",
+    "disciplines": [
+      "visual-design",
+      "film-narrative",
+      "art-history"
+    ]
+  },
+  {
+    "id": "film-editing",
+    "field": "arts",
+    "zh": "剪辑",
+    "en": "Film editing",
+    "disciplines": [
+      "film-narrative",
+      "media-literacy",
+      "visual-design"
+    ]
+  },
+  {
+    "id": "collage",
+    "field": "arts",
+    "zh": "拼贴",
+    "en": "Collage",
+    "disciplines": [
+      "visual-design",
+      "creative-writing",
+      "art-history"
+    ]
+  },
+  {
+    "id": "sleep",
+    "field": "self",
+    "zh": "睡眠",
+    "en": "Sleep",
+    "disciplines": [
+      "neuroscience",
+      "wellbeing",
+      "cognitive-psychology"
+    ]
+  },
+  {
+    "id": "memory",
+    "field": "self",
+    "zh": "记忆",
+    "en": "Memory",
+    "disciplines": [
+      "cognitive-psychology",
+      "neuroscience",
+      "education-learning"
+    ]
+  },
+  {
+    "id": "focus",
+    "field": "self",
+    "zh": "专注",
+    "en": "Focus",
+    "disciplines": [
+      "cognitive-psychology",
+      "education-learning",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "procrastination",
+    "field": "self",
+    "zh": "拖延",
+    "en": "Procrastination",
+    "disciplines": [
+      "cognitive-psychology",
+      "education-learning",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "habits",
+    "field": "self",
+    "zh": "习惯",
+    "en": "Habits",
+    "disciplines": [
+      "cognitive-psychology",
+      "wellbeing",
+      "education-learning"
+    ]
+  },
+  {
+    "id": "emotions",
+    "field": "self",
+    "zh": "情绪",
+    "en": "Emotions",
+    "disciplines": [
+      "developmental-psychology",
+      "neuroscience",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "anxiety",
+    "field": "self",
+    "zh": "焦虑",
+    "en": "Anxiety",
+    "disciplines": [
+      "wellbeing",
+      "developmental-psychology",
+      "public-health"
+    ]
+  },
+  {
+    "id": "friendship",
+    "field": "self",
+    "zh": "友谊",
+    "en": "Friendship",
+    "disciplines": [
+      "developmental-psychology",
+      "sociology",
+      "ethics"
+    ]
+  },
+  {
+    "id": "romance",
+    "field": "self",
+    "zh": "恋爱",
+    "en": "Romance",
+    "disciplines": [
+      "developmental-psychology",
+      "sociology",
+      "literary-criticism"
+    ]
+  },
+  {
+    "id": "loneliness",
+    "field": "self",
+    "zh": "孤独",
+    "en": "Loneliness",
+    "disciplines": [
+      "developmental-psychology",
+      "sociology",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "confidence",
+    "field": "self",
+    "zh": "自信",
+    "en": "Confidence",
+    "disciplines": [
+      "developmental-psychology",
+      "education-learning",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "persuasion",
+    "field": "self",
+    "zh": "说服",
+    "en": "Persuasion",
+    "disciplines": [
+      "rhetoric-argument",
+      "cognitive-psychology",
+      "sociology"
+    ]
+  },
+  {
+    "id": "leadership",
+    "field": "self",
+    "zh": "领导",
+    "en": "Leadership",
+    "disciplines": [
+      "sociology",
+      "career-futures",
+      "ethics"
+    ]
+  },
+  {
+    "id": "teamwork",
+    "field": "self",
+    "zh": "团队合作",
+    "en": "Teamwork",
+    "disciplines": [
+      "sociology",
+      "career-futures",
+      "education-learning"
+    ]
+  },
+  {
+    "id": "conflict",
+    "field": "self",
+    "zh": "冲突与调解",
+    "en": "Conflict and mediation",
+    "disciplines": [
+      "ethics",
+      "sociology",
+      "rhetoric-argument"
+    ]
+  },
+  {
+    "id": "study-methods",
+    "field": "self",
+    "zh": "学习方法",
+    "en": "Study methods",
+    "disciplines": [
+      "education-learning",
+      "cognitive-psychology",
+      "career-futures"
+    ]
+  },
+  {
+    "id": "exams",
+    "field": "self",
+    "zh": "考试",
+    "en": "Exams",
+    "disciplines": [
+      "education-learning",
+      "statistical-inference",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "time-management",
+    "field": "self",
+    "zh": "时间管理",
+    "en": "Time management",
+    "disciplines": [
+      "education-learning",
+      "career-futures",
+      "wellbeing"
+    ]
+  },
+  {
+    "id": "personal-finance",
+    "field": "self",
+    "zh": "理财",
+    "en": "Personal finance",
+    "disciplines": [
+      "economics",
+      "ethics",
+      "career-futures"
+    ]
+  },
+  {
+    "id": "choosing-a-major",
+    "field": "self",
+    "zh": "选专业",
+    "en": "Choosing a major",
+    "disciplines": [
+      "career-futures",
+      "education-learning",
+      "economics"
+    ]
+  },
+  {
+    "id": "careers",
+    "field": "self",
+    "zh": "职业",
+    "en": "Careers",
+    "disciplines": [
+      "career-futures",
+      "economics",
+      "sociology"
+    ]
+  },
+  {
+    "id": "training",
+    "field": "self",
+    "zh": "运动训练",
+    "en": "Athletic training",
+    "disciplines": [
+      "wellbeing",
+      "public-health",
+      "statistical-inference"
+    ]
+  },
+  {
+    "id": "nutrition",
+    "field": "self",
+    "zh": "营养",
+    "en": "Nutrition",
+    "disciplines": [
+      "public-health",
+      "wellbeing",
+      "genetics"
+    ]
+  },
+  {
+    "id": "meditation",
+    "field": "self",
+    "zh": "冥想",
+    "en": "Meditation",
+    "disciplines": [
+      "wellbeing",
+      "neuroscience",
+      "philosophy"
+    ]
+  },
+  {
+    "id": "purpose",
+    "field": "self",
+    "zh": "志向",
+    "en": "Purpose",
+    "disciplines": [
+      "ethics",
+      "career-futures",
+      "philosophy"
+    ]
+  },
+  {
+    "id": "decision-making",
+    "field": "self",
+    "zh": "决策",
+    "en": "Decision making",
+    "disciplines": [
+      "probability",
+      "cognitive-psychology",
+      "ethics"
+    ]
+  },
+  {
+    "id": "bias",
+    "field": "self",
+    "zh": "偏见",
+    "en": "Bias",
+    "disciplines": [
+      "cognitive-psychology",
+      "statistical-inference",
+      "sociology"
+    ]
+  }
+]
