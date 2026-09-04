@@ -375,7 +375,17 @@ async function act(page: Page, screen: Affordances, beat: Beat): Promise<string>
         return "对话框一直是灰的，打不了字";
       }
       await box.first().fill(a.text);
-      await page.getByRole("button", { name: "发送" }).first().click();
+      // 🚨 填完要等「发送」自己亮起来，不能填完就点。它是
+      // `disabled={!draft.trim() || busy}`——受控 textarea 填进去之后 React 要
+      // 一拍才把 draft 更新上，这一拍里按钮还是灰的，点下去就是 15 秒超时。
+      // 上一版这么写，学生一句话要试三四步才发得出去，一天六十步全耗在这儿。
+      const send = page.getByRole("button", { name: "发送" }).first();
+      try {
+        await expect(send).toBeEnabled({ timeout: 30_000 });
+      } catch {
+        return "字打进去了，但发送一直是灰的";
+      }
+      await send.click();
       await page.waitForTimeout(1500);
       return "话发出去了";
     }
