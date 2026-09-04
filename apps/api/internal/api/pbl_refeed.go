@@ -43,6 +43,34 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 主页项目：这一页现在长什么样，还差哪几处。
+	//
+	// 不给这一段的话，印记是**闭着眼睛**在往页面上摆字：它不知道哪几格已经填了、
+	// 哪几格还空着，也不知道自己上一轮摆的那一句根本没上页面。
+	//
+	// 而它上一轮那句话很可能真的没上去：页面上每一句都必须能在她说过的话里逐字
+	// 找到（`pbl.GroundSiteDraft`），对不上的**静默丢掉**——不报错、不提示。印记
+	// 一润色就被丢，然后它以为放好了，下一轮接着聊别的。2026-09-04 的真浏览器
+	// 走查上，「名字底下那行你是谁」就是这么一直空着的：她原话说的是「我是一个
+	// 在读 IB 的高二学生」，印记摆上去的是改写过的说法，逐字对不上。
+	//
+	// 只在**这个项目就是她的主页项目**时给（site.AtomID == atomID），否则别的
+	// 项目的上下文里会莫名其妙多出一段她主页的状态。
+	if u, ok := UserFromContext(ctx); ok {
+		if row, err := a.ensureSite(r, u.ID); err == nil &&
+			row.AtomID.Valid && uuid.UUID(row.AtomID.Bytes) == atomID {
+			if content, cerr := a.loadSiteContent(r, u.ID, u.DisplayName, row); cerr == nil {
+				if missing := pbl.SiteMissing(content); len(missing) > 0 {
+					add("她的主页上还差这几处：" + strings.Join(missing, "、") +
+						"。放上去的每一句必须是她**说过的原话**，逐字照抄——" +
+						"改写过的句子会被丢掉，页面上不会有任何变化。")
+				} else {
+					add("她的主页该有的几处都填上了，可以让她看一遍再决定要不要上线。")
+				}
+			}
+		}
+	}
+
 	// 主页项目第一关：她留下的那个读者，和她留下的关键词。
 	//
 	// 这一关的产出是后面每一关的输入（结构对着关键词检查、配色从关键词派生），

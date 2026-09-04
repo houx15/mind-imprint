@@ -84,18 +84,36 @@ func GeneratePersonas(
 	if strings.TrimSpace(material) == "" {
 		return nil, gateway.ChatUsage{}, errors.New("pbl: no material to build an audience from")
 	}
-	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
-		MaxTokens: 2048,
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: personaSystem},
-			{Role: gateway.RoleUser, Content: "他做过的事：\n" + strings.TrimSpace(material)},
-		},
-	})
-	if err != nil {
-		return nil, res.Usage, err
+	// 🚨 要一次重试。
+	//
+	// 这一步是她这个项目的**第一件事**，而模型偶尔会回一批用不了的候选（少字段、
+	// 或者干脆给个空数组）。一次失败对她来说就是「生成失败」四个字挡在第一关
+	// 门口。重试一次不解决模型的随机性，但把"第一次就撞上"的概率压下去一个量级。
+	//
+	// 只重一次：两次都不行说明不是抖动（多半是材料太薄），那时候该让她看见那句
+	// 报错，而不是转更久的圈。同一个做法见 AssessReport 的 maxAssessAttempts。
+	var usage gateway.ChatUsage
+	var lastErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
+			MaxTokens: 2048,
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: personaSystem},
+				{Role: gateway.RoleUser, Content: "他做过的事：\n" + strings.TrimSpace(material)},
+			},
+		})
+		usage.InputTokens += res.Usage.InputTokens
+		usage.OutputTokens += res.Usage.OutputTokens
+		if err != nil {
+			return nil, usage, err
+		}
+		out, perr := ParsePersonas(res.Text)
+		if perr == nil {
+			return out, usage, nil
+		}
+		lastErr = perr
 	}
-	out, perr := ParsePersonas(res.Text)
-	return out, res.Usage, perr
+	return nil, usage, lastErr
 }
 
 // ParsePersonas 读模型返回的 JSON。
@@ -136,7 +154,9 @@ func ParsePersonas(raw string) ([]PersonaCandidate, error) {
 		}
 	}
 	if len(kept) == 0 {
-		return nil, errors.New("pbl: no usable persona came back")
+		// 带上原话：一个候选都留不下，可能是模型给了空数组（材料太薄，它老实
+		// 地不编），也可能是字段名不对。两者要做的事完全不同，不带原话分不出来。
+		return nil, fmt.Errorf("pbl: no usable persona came back；模型回的是：%s", clip(raw, 400))
 	}
 	return kept, nil
 }

@@ -80,18 +80,29 @@ func GeneratePalettes(
 	if t := strings.TrimSpace(feeling); t != "" {
 		user += "\n他希望这一页给读者的感觉：" + t
 	}
-	res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
-		MaxTokens: 1024,
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: paletteSystem},
-			{Role: gateway.RoleUser, Content: user},
-		},
-	})
-	if err != nil {
-		return nil, res.Usage, err
+	// 同 GeneratePersonas：重试一次。见那边的注释。
+	var usage gateway.ChatUsage
+	var perr error
+	var out []Palette
+	for attempt := 0; attempt < 2; attempt++ {
+		res, err := gateway.Collect(ctx, prov, resolved, gateway.ChatRequest{
+			MaxTokens: 1024,
+			Messages: []gateway.ChatMessage{
+				{Role: gateway.RoleSystem, Content: paletteSystem},
+				{Role: gateway.RoleUser, Content: user},
+			},
+		})
+		usage.InputTokens += res.Usage.InputTokens
+		usage.OutputTokens += res.Usage.OutputTokens
+		if err != nil {
+			return nil, usage, err
+		}
+		out, perr = ParsePalettes(res.Text)
+		if perr == nil {
+			return out, usage, nil
+		}
 	}
-	out, perr := ParsePalettes(res.Text)
-	return out, res.Usage, perr
+	return nil, usage, perr
 }
 
 var hexColor = regexp.MustCompile(`^#[0-9a-fA-F]{6}$`)
