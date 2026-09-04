@@ -175,6 +175,23 @@ func (q *Queries) GetPblTool(ctx context.Context, id uuid.UUID) (GetPblToolRow, 
 	return i, err
 }
 
+const latestPblToolDrop = `-- name: LatestPblToolDrop :one
+SELECT id, atom_id, tool, needs, created_at FROM pbl_tool_drop WHERE atom_id = $1 ORDER BY created_at DESC LIMIT 1
+`
+
+func (q *Queries) LatestPblToolDrop(ctx context.Context, atomID uuid.UUID) (PblToolDrop, error) {
+	row := q.db.QueryRow(ctx, latestPblToolDrop, atomID)
+	var i PblToolDrop
+	err := row.Scan(
+		&i.ID,
+		&i.AtomID,
+		&i.Tool,
+		&i.Needs,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const listOpenPblTools = `-- name: ListOpenPblTools :many
 SELECT id, atom_id, session_id, tool, reason, result, status, created_at, kind, accepted_at, resolved_at, student_note FROM pbl_tool_instance
 WHERE atom_id = $1 AND status IN ('summoned', 'accepted')
@@ -287,6 +304,25 @@ func (q *Queries) ListPblTools(ctx context.Context, atomID uuid.UUID) ([]PblTool
 		return nil, err
 	}
 	return items, nil
+}
+
+const recordPblToolDrop = `-- name: RecordPblToolDrop :exec
+INSERT INTO pbl_tool_drop (atom_id, tool, needs) VALUES ($1, $2, $3)
+`
+
+type RecordPblToolDropParams struct {
+	AtomID uuid.UUID `json:"atom_id"`
+	Tool   string    `json:"tool"`
+	Needs  string    `json:"needs"`
+}
+
+// 服务端撤掉的那件工具（migration 0134）。
+//
+// 闸撤掉一件工具之后，学生和印记都得知道。这两条查询是那条回路的两端：
+// 撤的时候记一行，下一轮建上下文的时候读最近那一行。
+func (q *Queries) RecordPblToolDrop(ctx context.Context, arg RecordPblToolDropParams) error {
+	_, err := q.db.Exec(ctx, recordPblToolDrop, arg.AtomID, arg.Tool, arg.Needs)
+	return err
 }
 
 const resolvePblTool = `-- name: ResolvePblTool :one

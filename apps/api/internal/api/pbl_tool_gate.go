@@ -2,9 +2,13 @@ package api
 
 import (
 	"context"
+	"log/slog"
+	"net/http"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 
+	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/pbl"
 	"mindimprint/api/internal/store/sqlc"
 )
@@ -78,3 +82,92 @@ func (a *API) pblToolHasContent(ctx context.Context, atomID uuid.UUID, tool stri
 
 // pblMainTree 是结构审查那块界面读的那棵树（前端 getTree 的默认值）。
 const pblMainTree = "main"
+
+// pblToolMissing 把 ToolNeeds 说成她读得懂的一句「缺的是什么」。
+//
+// 撤掉的理由必须说得出具体缺什么，否则那行说明等于「出错了」——她既不知道
+// 发生了什么，也不知道下一步该干嘛。
+func pblToolMissing(needs string) string {
+	switch needs {
+	case "decision":
+		return "可选的方案"
+	case "artifact":
+		return "可审的成果"
+	case "substeps":
+		return "拆好的分工"
+	case "structure":
+		return "一份结构"
+	}
+	return "这件工具要摆的那份东西"
+}
+
+// recordPblToolDrop 记下这次撤销，并在线程里补一行说明。
+//
+// 🚨 两件事都要做，缺一件这个问题就只修了一半：
+//
+//   - 线程里那一行是给**她**的。印记刚说「卡我给你了」，那句话已经落库，改不
+//     动了；能做的是紧接着说清楚它没出现，以及为什么。不说，她会去找一张永远
+//     不存在的卡——2026-09-04 走查里 Marcus 就这么找了三十多步。
+//   - pbl_tool_drop 那一行是给**印记**的。它下一轮的上文里必须出现这件事，
+//     否则它会照原样再说一遍。
+//
+// 两件都失败不让这一轮失败：她该看见的回话已经写进去了。
+func (a *API) recordPblToolDrop(r *http.Request, atomID uuid.UUID, scope pgtype.UUID, tool string) {
+	ctx := r.Context()
+	needs := pbl.ToolNeeds(tool)
+	if err := a.d.Queries.RecordPblToolDrop(ctx, sqlc.RecordPblToolDropParams{
+		AtomID: atomID, Tool: tool, Needs: needs,
+	}); err != nil {
+		slog.Warn("pbl turn: could not record the dropped tool",
+			"err", err, "atom_id", atomID, "tool", tool,
+			"request_id", httpx.RequestIDFromContext(ctx))
+	}
+
+	label := tool
+	if def, ok := pbl.LookupTool(tool); ok {
+		label = def.Label
+	}
+	seq, err := a.d.Queries.NextAtomMessageSeq(ctx, atomID)
+	if err != nil {
+		slog.Warn("pbl turn: could not take a seq for the drop notice",
+			"err", err, "atom_id", atomID, "request_id", httpx.RequestIDFromContext(ctx))
+		return
+	}
+	if _, err := a.d.Queries.AppendPblSessionMessage(ctx, sqlc.AppendPblSessionMessageParams{
+		AtomID: atomID, Seq: seq, Role: "system", SessionID: scope,
+		Content: "「" + label + "」未递出：这一轮没有" + pblToolMissing(needs) +
+			"，工具打开会是空的。印记已收到这条状态。",
+	}); err != nil {
+		slog.Warn("pbl turn: could not append the drop notice",
+			"err", err, "atom_id", atomID, "request_id", httpx.RequestIDFromContext(ctx))
+	}
+}
+
+// pblDroppedToolNote 是下一轮要交给印记的那句话，没有就返回空串。
+//
+// 只报**还没被解决的**那一次：这件工具后来递成了，或者它缺的那份东西现在有了，
+// 就当这件事过去了。不这样收口的话，一次撤销会跟着这个项目到底，印记会被一句
+// 早就不成立的话反复推着去递同一件工具。
+func (a *API) pblDroppedToolNote(r *http.Request, atomID uuid.UUID) string {
+	ctx := r.Context()
+	d, err := a.d.Queries.LatestPblToolDrop(ctx, atomID)
+	if err != nil {
+		return ""
+	}
+	if a.pblToolAlreadyOnHerScreen(r, atomID, d.Tool) {
+		return "" // 后来递成了。
+	}
+	if a.pblToolHasContent(ctx, atomID, d.Tool) {
+		return "" // 缺的那份东西现在有了，这一条不再成立。
+	}
+	label := d.Tool
+	if def, ok := pbl.LookupTool(d.Tool); ok {
+		label = def.Label
+	}
+	what := pblToolMissing(d.Needs)
+	return "「" + label + "」这件工具**没有**出现在她屏幕上。你说过要给她，但同一轮" +
+		"没有做出" + what + "，那个界面打开是一块白板，所以服务端把它撤掉了。" +
+		"她现在找不到这张卡。\n" +
+		"这一轮只有两条路：把" + what + "和这件工具**一起**给（produce 和 tool 同一轮），" +
+		"或者直说这件东西还没有。不要再说你已经把它给她了。"
+}

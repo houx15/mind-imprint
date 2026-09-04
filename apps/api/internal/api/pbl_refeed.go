@@ -516,6 +516,9 @@ func trimBecause(s string) string {
 func (a *API) attachPblToolWork(r *http.Request, atomID uuid.UUID, in *pbl.CoachInput) {
 	in.ToolWork = a.gatherPblToolWork(r, atomID)
 	in.ToolsUsed, in.ToolsOffered = a.pblToolState(r, atomID)
+	// 🚨 上一轮被闸撤掉的那件工具。这是回灌里最容易漏的一条：闸做了正确的事，
+	// 结果没有回到对话里，于是印记接着说一件屏幕上不存在的东西。
+	in.ToolDropped = a.pblDroppedToolNote(r, atomID)
 }
 
 // pblToolState 列出她已经做完的工具，和已经递过、她还没做的那些。

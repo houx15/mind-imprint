@@ -54,3 +54,13 @@ UPDATE pbl_tool_instance
 SET status = $2, result = $3, student_note = $4, resolved_at = now()
 WHERE id = $1 AND status IN ('summoned', 'accepted')
 RETURNING *;
+
+-- 服务端撤掉的那件工具（migration 0134）。
+--
+-- 闸撤掉一件工具之后，学生和印记都得知道。这两条查询是那条回路的两端：
+-- 撤的时候记一行，下一轮建上下文的时候读最近那一行。
+-- name: RecordPblToolDrop :exec
+INSERT INTO pbl_tool_drop (atom_id, tool, needs) VALUES ($1, $2, $3);
+
+-- name: LatestPblToolDrop :one
+SELECT * FROM pbl_tool_drop WHERE atom_id = $1 ORDER BY created_at DESC LIMIT 1;

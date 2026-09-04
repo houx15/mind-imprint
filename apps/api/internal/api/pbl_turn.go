@@ -106,6 +106,14 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		// 的工具再递一次（2026-09-02 线上实测）。
 		in.JustHappened = a.lastPblToolEvent(r, atomID)
 	}
+	// 🚨 她连着答不上来的次数，服务端数，每一轮都算。
+	//
+	// 必须放在把她这一句 append 进去之后：她刚打的那句「我不知道」正是要数进去
+	// 的那一句。见 pbl/stuck.go —— 这是【怎么问】那条禁令唯一的出口，而出口要
+	// 能在代码里验，不能是 prompt 里的一句请求。
+	in.Stuck = pbl.StuckRun(in.Recent)
+	in.AskedForHelp = pbl.AskedForHelp(in.Recent)
+
 	if studentText == "" && len(in.Recent) == 0 && !scope.Valid {
 		// 支线里允许空文本：印记要为这条支线开个头，而它的上文来自主线。
 		httpx.WriteError(w, r, httpx.ErrBadRequest("empty_turn", "请输入内容", nil))
@@ -251,6 +259,16 @@ func (a *API) postPblTurn(w http.ResponseWriter, r *http.Request) {
 		slog.Warn("pbl turn: 印记 offered a tool whose surface would be blank; dropping it",
 			"atom_id", atomID, "tool", out.Tool, "needs", pbl.ToolNeeds(out.Tool),
 			"request_id", httpx.RequestIDFromContext(r.Context()))
+		// 🚨 撤掉之后必须有人知道。
+		//
+		// 撤掉本身是对的，但上一版到此为止：印记刚在回话里说「审核助手我给你
+		// 了」，那句话已经落库了，而卡不会出现。她读到的和她看到的对不上，于是
+		// 她去找；印记下一轮的上文里什么都没变，于是它再说一遍。2026-09-04 的
+		// 走查里，Marcus 在这个循环里耗掉约 35 步。
+		//
+		// 所以两边都告诉：线程里补一行说明（她马上看得见），并记一行给下一轮的
+		// 上下文（印记下一轮知道该补什么）。
+		a.recordPblToolDrop(r, atomID, scope, out.Tool)
 		out.Tool, out.ToolReason = "", ""
 	}
 
