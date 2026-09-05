@@ -33,30 +33,37 @@
 /* --- 世界 · the sky ----------------------------------------------------- */
 
 .exp-sky {
-  /* Warm near-black, not blue-black: this product's night still has paper in
-     it. Three soft nebulae in accent/taro/lake keep it from reading flat.
-     2026-08-31: taken two stops DARKER. The planets are the only light source
-     on this screen, and at the old #17130F with 0.14 nebulae the ground was
-     bright enough to compete with them. Deep ground, bright objects. */
-  background-color: #0A0806;
+  /* 深空。底色仍然偏暖（这个产品的夜里有纸），但**外圈压冷压深**，中心留一点
+     暖 —— 一张四角同色的背景没有远近，而远近就是「探索」这件事的全部体感。
+
+     2026-09-05 重做：上一版三团星云的第一团是 rgba(234,81,64,.085)，在深色底上
+     读出来是一片红棕色的雾，不是星云。现在是五团，按七根主枝的颜色取，铺得更
+     大、更淡、更分散，外加一条斜着的银河带。 */
+  background-color: #070609;
   background-image:
-    radial-gradient(900px 620px at 18% 14%, rgba(234, 81, 64, 0.085), transparent 62%),
-    radial-gradient(760px 560px at 84% 74%, rgba(180, 155, 216, 0.075), transparent 60%),
-    radial-gradient(680px 520px at 62% 18%, rgba(111, 191, 176, 0.06), transparent 58%),
-    /* a vignette, so the edges fall away and the centre holds the eye */
-    radial-gradient(1200px 900px at 50% 46%, transparent 40%, rgba(0, 0, 0, 0.55) 100%);
+    /* 银河带：斜着穿过画面的一条淡雾。它给这片天一个方向，而三个同心圆环给不了。 */
+    linear-gradient(107deg, transparent 30%, rgba(214, 226, 255, 0.045) 44%,
+                    rgba(226, 214, 255, 0.055) 50%, rgba(214, 226, 255, 0.04) 56%, transparent 70%),
+    radial-gradient(820px 640px at 14% 12%, rgba(106, 169, 216, 0.10), transparent 64%),
+    radial-gradient(760px 600px at 88% 78%, rgba(180, 154, 212, 0.095), transparent 62%),
+    radial-gradient(640px 520px at 72% 14%, rgba(111, 191, 176, 0.055), transparent 60%),
+    radial-gradient(700px 560px at 22% 84%, rgba(224, 143, 168, 0.05), transparent 60%),
+    radial-gradient(520px 440px at 50% 46%, rgba(229, 192, 101, 0.045), transparent 62%),
+    /* 暗角。边缘落下去，中间才拿得住眼睛。 */
+    radial-gradient(1300px 980px at 50% 46%, transparent 34%, rgba(0, 0, 0, 0.62) 100%);
   color: #F0E9E0;
   position: relative;
   isolation: isolate;
-  /* 🚨 Required. The star layers below are absolutely positioned at
-     `inset: -20%`, and on a SCROLLING page an un-clipped overflow like that
-     grows the scroll container — which showed up as a 320px band of cream
-     paper under the sky once this view stopped being a locked stage. */
+  /* 🚨 必须有。下面几层星星是 `inset: -20%` 的绝对定位，在一个会滚动的页面上
+     不裁掉会把滚动容器撑大 —— 这一条表现为天空下面多出 320px 的米色纸。 */
   overflow: hidden;
 }
 
-/* Star field: two tiled dot layers at different densities, drifting at
-   different speeds. Pure CSS — no canvas, no per-star DOM node. */
+/* 星场：三层瓦片，密度、大小、速度都不同，交出来是深度。纯 CSS，没有 canvas，
+   也没有一颗星一个 DOM 节点。
+
+   2026-09-05：从两层加到三层，每层的星也加密了。上一版一块 340×300 的瓦片里
+   只有五颗，在 1500px 宽的屏幕上全屏不到二十颗 —— 那不是星空，那是几个亮点。 */
 .exp-stars::before,
 .exp-stars::after {
   content: "";
@@ -66,57 +73,131 @@
   z-index: 0;
 }
 
+/* 近层：大、亮、慢。 */
 .exp-stars::before {
   background-image:
-    radial-gradient(1.4px 1.4px at 20% 30%, rgba(255, 248, 236, 0.75), transparent 60%),
-    radial-gradient(1.2px 1.2px at 68% 12%, rgba(255, 248, 236, 0.5), transparent 60%),
-    radial-gradient(1.6px 1.6px at 42% 74%, rgba(255, 248, 236, 0.62), transparent 60%),
-    radial-gradient(1.1px 1.1px at 88% 52%, rgba(255, 248, 236, 0.45), transparent 60%),
-    radial-gradient(1.3px 1.3px at 12% 62%, rgba(255, 248, 236, 0.55), transparent 60%);
-  background-size: 340px 300px;
+    radial-gradient(1.6px 1.6px at 20% 30%, rgba(255, 250, 240, 0.92), transparent 62%),
+    radial-gradient(1.3px 1.3px at 68% 12%, rgba(226, 240, 255, 0.72), transparent 62%),
+    radial-gradient(1.8px 1.8px at 42% 74%, rgba(255, 250, 240, 0.8), transparent 62%),
+    radial-gradient(1.2px 1.2px at 88% 52%, rgba(255, 236, 214, 0.66), transparent 62%),
+    radial-gradient(1.5px 1.5px at 12% 62%, rgba(255, 250, 240, 0.74), transparent 62%),
+    radial-gradient(1.2px 1.2px at 33% 8%, rgba(214, 232, 255, 0.6), transparent 62%),
+    radial-gradient(1.4px 1.4px at 58% 88%, rgba(255, 250, 240, 0.66), transparent 62%),
+    radial-gradient(1.1px 1.1px at 79% 34%, rgba(255, 240, 220, 0.56), transparent 62%);
+  background-size: 300px 260px;
   animation: exp-star-drift 190s linear infinite;
 }
 
+/* 中层：小、密、反向漂。 */
 .exp-stars::after {
   background-image:
-    radial-gradient(1px 1px at 55% 40%, rgba(255, 240, 220, 0.4), transparent 60%),
-    radial-gradient(1px 1px at 15% 85%, rgba(255, 240, 220, 0.32), transparent 60%),
-    radial-gradient(1px 1px at 78% 68%, rgba(255, 240, 220, 0.36), transparent 60%);
-  background-size: 190px 170px;
-  animation: exp-star-drift 320s linear infinite reverse;
-  opacity: 0.7;
+    radial-gradient(1px 1px at 55% 40%, rgba(255, 244, 228, 0.56), transparent 62%),
+    radial-gradient(1px 1px at 15% 85%, rgba(226, 238, 255, 0.48), transparent 62%),
+    radial-gradient(1px 1px at 78% 68%, rgba(255, 244, 228, 0.5), transparent 62%),
+    radial-gradient(0.9px 0.9px at 36% 22%, rgba(255, 244, 228, 0.42), transparent 62%),
+    radial-gradient(1px 1px at 92% 14%, rgba(214, 232, 255, 0.44), transparent 62%),
+    radial-gradient(0.9px 0.9px at 62% 62%, rgba(255, 244, 228, 0.4), transparent 62%),
+    radial-gradient(1px 1px at 8% 44%, rgba(255, 244, 228, 0.44), transparent 62%);
+  background-size: 165px 145px;
+  animation: exp-star-drift-b 320s linear infinite;
+  opacity: 0.78;
+}
+
+/* 远层：最细最密，整层一起呼吸。这一层负责「还有更远的地方」。 */
+.exp-dust {
+  position: absolute;
+  inset: -20%;
+  pointer-events: none;
+  z-index: 0;
+  background-image:
+    radial-gradient(0.8px 0.8px at 12% 18%, rgba(255, 248, 236, 0.34), transparent 60%),
+    radial-gradient(0.7px 0.7px at 44% 52%, rgba(214, 232, 255, 0.3), transparent 60%),
+    radial-gradient(0.8px 0.8px at 72% 26%, rgba(255, 248, 236, 0.3), transparent 60%),
+    radial-gradient(0.7px 0.7px at 26% 78%, rgba(255, 248, 236, 0.26), transparent 60%),
+    radial-gradient(0.8px 0.8px at 88% 84%, rgba(226, 214, 255, 0.28), transparent 60%),
+    radial-gradient(0.7px 0.7px at 58% 8%, rgba(255, 248, 236, 0.24), transparent 60%);
+  background-size: 96px 84px;
+  animation: exp-twinkle 14s ease-in-out infinite;
 }
 
 @keyframes exp-star-drift {
-  to {
-    background-position: 340px 300px;
-  }
+  to { background-position: 300px 260px; }
+}
+@keyframes exp-star-drift-b {
+  to { background-position: -165px 145px; }
+}
+@keyframes exp-twinkle {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 0.95; }
 }
 
-/* Orbit rings. Dashed, barely there, rotating once every few minutes — they
-   give the field a centre without drawing attention to themselves. */
-.exp-orbit {
+/* --- 未探索区 ----------------------------------------------------------- */
+
+/* 2026-09-05：这里原来有三个旋转的虚线圆环，后来换成一条画在推荐星位置上的
+   椭圆带，最后**两个都删了**。星链自己就把这一层的形状说出来了；再补一条闭合
+   的线，整屏读起来是一张图表的边框，不是一片天。 */
+
+/* 一颗推荐星。远处的东西：小、暗，直到她把光标移上去。 */
+.exp-star {
   position: absolute;
-  border-radius: 999px;
-  border: 1px dashed rgba(240, 233, 224, 0.13);
-  pointer-events: none;
-  animation: exp-spin 240s linear infinite;
-}
-.exp-orbit-2 {
-  animation-duration: 380s;
-  animation-direction: reverse;
-  border-color: rgba(240, 233, 224, 0.09);
-}
-.exp-orbit-3 {
-  animation-duration: 520s;
-  border-color: rgba(240, 233, 224, 0.07);
+  transform: translate(-50%, -50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 6px;
+  background: none;
+  border: 0;
+  cursor: pointer;
+  z-index: 6;
+  transition: filter 0.35s ease;
 }
 
-@keyframes exp-spin {
-  to {
-    transform: rotate(360deg);
-  }
+.exp-star-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--hue);
+  /* 三层光晕：星点本身、一圈近晕、一团远晕。一个纯色圆点是一个 UI 里的小圆点，
+     不是一颗星。 */
+  box-shadow:
+    0 0 4px 0 var(--hue),
+    0 0 12px 2px color-mix(in srgb, var(--hue) 55%, transparent),
+    0 0 30px 8px color-mix(in srgb, var(--hue) 22%, transparent);
+  opacity: 0.72;
+  transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.35s ease;
 }
+
+.exp-star-name {
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  color: rgba(240, 233, 224, 0.62);
+  transition: color 0.35s ease;
+}
+
+.exp-star:hover .exp-star-dot,
+.exp-star:focus-visible .exp-star-dot {
+  transform: scale(1.5);
+  opacity: 1;
+}
+.exp-star:hover .exp-star-name,
+.exp-star:focus-visible .exp-star-name {
+  color: #F5EFE7;
+}
+
+/* 选中的那一颗，以及和它连着的那些。 */
+.exp-star-lit .exp-star-dot { transform: scale(1.5); opacity: 1; }
+.exp-star-lit .exp-star-name { color: #F5EFE7; }
+.exp-star-dim { filter: opacity(0.28); }
+
+/* 星座连线。共用一门学科的两个领域之间那一条 —— 和树根上那条线是同一个关系。 */
+.exp-thread {
+  stroke: rgba(240, 233, 224, 0.16);
+  stroke-width: 1;
+  fill: none;
+}
+.exp-thread-lit { stroke: rgba(245, 239, 231, 0.5); }
 
 /* A planet drifts. Five phases, five periods, so the group never falls into
    lockstep — the moment two planets move together the field reads as a

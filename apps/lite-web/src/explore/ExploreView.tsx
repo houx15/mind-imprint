@@ -1,9 +1,14 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Info, Languages } from "lucide-react";
+import { fieldById } from "../tree/geometry";
 import { Sys, cx } from "../tree/ui";
+import type { LiveTree } from "../tree/useInterestTree";
 import { useFitScale } from "../tree/useFitScale";
 import { Planet, type Lang } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
+import { RecSheet } from "./RecSheet";
+import { recommend } from "./recommend";
+import { PLANET_SLOTS, constellationEdges, placeRecommendations } from "./skyLayout";
 import { useExploreToday } from "./useExploreToday";
 import "./explore.css";
 
@@ -34,18 +39,6 @@ import "./explore.css";
  *   翻看历史是后面的事，摆一个只能停在今天的轴是一个骗人的控件。
  */
 
-/** 手摆的舞台位置，按 rank（1 = 今天最重要的那条）。
- *
- *  五个物体在一块画布上是一次**构图**，而构图永远赢过分布 —— 所以不用算法排。
- *  最近的一对（1 和 4）在 1100px 宽时留出约 60px，够它们各自 ±40px 的漂移。 */
-const SLOTS: Record<number, { x: string; y: string; size: number; drift: string }> = {
-  1: { x: "27%", y: "41%", size: 236, drift: "exp-drift" },
-  2: { x: "61%", y: "24%", size: 200, drift: "exp-drift-1" },
-  3: { x: "79%", y: "63%", size: 178, drift: "exp-drift-2" },
-  4: { x: "11%", y: "80%", size: 158, drift: "exp-drift-3" },
-  5: { x: "46%", y: "77%", size: 150, drift: "exp-drift-4" },
-};
-
 const SELECTION_NOTE =
   "这五条是从十二个科学期刊与科普源（Nature、Quanta、arXiv、Phys.org、ScienceDaily 等）当天的" +
   "六十余条里挑出来的。挑选标准是「能不能引出一个你可以自己追问的问题」，不是热度。";
@@ -54,8 +47,9 @@ const POLITICS_NOTE =
   "选举、战争、制裁一类的新闻在抓取那一层就被过滤掉了，不会出现在这里。" +
   "这不是说它们不重要，是说这个产品没有接住它们的语境。";
 
-export function ExploreView() {
+export function ExploreView({ tree }: { tree: LiveTree }) {
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openRec, setOpenRec] = useState<string | null>(null);
   const [seen, setSeen] = useState<string[]>([]);
   const [lang, setLang] = useState<Lang>("zh");
   const [note, setNote] = useState(false);
@@ -65,6 +59,29 @@ export function ExploreView() {
   const scale = useFitScale(fieldRef, 640, 0.58);
 
   const live = useExploreToday();
+
+  // 「你可能还会感兴趣的」。**纯函数，查闭表算出来的**，不发请求、不花调用 ——
+  // 两个领域共用一门学科是写在 interests.json 里的事实，不需要问模型。
+  const stars = useMemo(() => {
+    const mine = tree.keywords
+      .filter((k) => k.interestId)
+      .map((k) => ({ interestId: k.interestId, zh: k.text, disciplineIds: k.disciplineIds }));
+    return placeRecommendations(recommend(mine, { dismissed: tree.dismissed }));
+  }, [tree.keywords, tree.dismissed]);
+
+  const edges = useMemo(() => constellationEdges(stars), [stars]);
+  const rec = openRec ? (stars.find((s) => s.id === openRec) ?? null) : null;
+
+  // 点开一颗推荐星时，和它连着的那几颗一起亮，其余压暗 —— 和树上点一片叶子
+  // 是同一个动作，因为它说的是同一件事。
+  const litStars = new Set<string>();
+  if (rec) {
+    litStars.add(rec.id);
+    for (const e of edges) {
+      if (e.from.id === rec.id) litStars.add(e.to.id);
+      if (e.to.id === rec.id) litStars.add(e.from.id);
+    }
+  }
   const open = openId ? (live.planets.find((p) => p.id === openId) ?? null) : null;
   const lit = live.planets.filter((p) => seen.includes(p.id)).length;
   const known = live.status === "ready" || live.status === "empty";
@@ -84,7 +101,9 @@ export function ExploreView() {
             {live.day ? formatDay(live.day) : "今天"}
           </p>
           <p className="mt-1.5 max-w-[52ch] text-mk-small leading-[1.8] text-[#9A8E80]">
-            五条今天值得知道的事。把光标移上去，它会先问你一个问题。
+            {stars.length > 0
+              ? `五条今天值得知道的事，外加 ${stars.length} 个你还没走过的领域。`
+              : "五条今天值得知道的事。把光标移上去，它会先问你一个问题。"}
           </p>
         </div>
 
@@ -137,21 +156,70 @@ export function ExploreView() {
           className="relative mx-auto h-full w-full"
           style={{ minHeight: "min(640px, calc(100vh - 260px))", maxWidth: 1180 }}
         >
-          {/* 轨道环：给这片场地一个中心，又不抢注意力。 */}
-          <span className="exp-orbit absolute left-1/2 top-1/2 h-[62%] w-[62%] -translate-x-1/2 -translate-y-1/2" />
-          <span className="exp-orbit exp-orbit-2 absolute left-1/2 top-1/2 h-[86%] w-[86%] -translate-x-1/2 -translate-y-1/2" />
-          <span className="exp-orbit exp-orbit-3 absolute left-1/2 top-1/2 h-[110%] w-[110%] -translate-x-1/2 -translate-y-1/2" />
+          {/* 星座连线。坐标是百分比，所以 viewBox 也用百分比，端点永远和星对齐。 */}
+          {edges.length > 0 ? (
+            <svg
+              className="pointer-events-none absolute inset-0 h-full w-full"
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+              aria-hidden
+            >
+              {edges.map((e) => (
+                <line
+                  key={`${e.from.id}-${e.to.id}`}
+                  x1={e.from.xPct}
+                  y1={e.from.yPct}
+                  x2={e.to.xPct}
+                  y2={e.to.yPct}
+                  vectorEffect="non-scaling-stroke"
+                  className={cx(
+                    "exp-thread",
+                    litStars.has(e.from.id) && litStars.has(e.to.id) && "exp-thread-lit",
+                  )}
+                />
+              ))}
+            </svg>
+          ) : null}
+
+          {stars.map((star) => (
+            <button
+              key={star.id}
+              type="button"
+              onClick={() => setOpenRec(star.id)}
+              className={cx(
+                "exp-star",
+                star.drift,
+                rec && litStars.has(star.id) && "exp-star-lit",
+                rec && !litStars.has(star.id) && "exp-star-dim",
+              )}
+              style={
+                {
+                  left: `${star.xPct}%`,
+                  top: `${star.yPct}%`,
+                  "--hue": fieldById(star.field).hue,
+                } as React.CSSProperties
+              }
+            >
+              <span className="exp-star-dot" />
+              <span className="exp-star-name">{star.zh}</span>
+            </button>
+          ))}
 
           <ExploreState live={live} />
 
           {live.planets.map((p) => {
-            const slot = SLOTS[p.rank] ?? SLOTS[5]!;
+            const slot = PLANET_SLOTS[p.rank] ?? PLANET_SLOTS[5]!;
             return (
               <Planet
                 key={p.id}
                 item={p}
                 lang={lang}
-                slot={{ ...slot, size: Math.round(slot.size * scale) }}
+                slot={{
+                  x: `${slot.xPct}%`,
+                  y: `${slot.yPct}%`,
+                  drift: slot.drift,
+                  size: Math.round(slot.size * scale),
+                }}
                 discovered={seen.includes(p.id)}
                 kept={p.saved}
                 dimmed={false}
@@ -168,6 +236,8 @@ export function ExploreView() {
         onClose={() => setOpenId(null)}
         onSaved={live.applySaved}
       />
+
+      <RecSheet star={rec} onClose={() => setOpenRec(null)} onDismiss={tree.dismiss} />
     </div>
   );
 }
