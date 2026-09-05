@@ -65,6 +65,8 @@ export interface InterestDiscipline {
 
 export interface InterestKeyword {
   id: string;
+  /** interests.json 的 id。探索地图算推荐时靠它排除她已经有的词。 */
+  interestId: string;
   textZh: string;
   textEn: string;
   field: InterestFieldId;
@@ -85,11 +87,14 @@ export interface InterestField {
 export interface InterestTree {
   fields: InterestField[];
   keywords: InterestKeyword[];
+  /** 她按过「不感兴趣」的领域 id。随树一起发出来，见 interest.go。 */
+  dismissed: string[];
 }
 
 interface RawTree {
   fields?: Partial<InterestField>[];
   keywords?: Partial<InterestKeyword>[];
+  dismissed?: string[];
 }
 
 function normalize(raw: RawTree): InterestTree {
@@ -99,8 +104,10 @@ function normalize(raw: RawTree): InterestTree {
       label: f.label ?? "",
       keywordCount: f.keywordCount ?? 0,
     })),
+    dismissed: raw.dismissed ?? [],
     keywords: (raw.keywords ?? []).map((k) => ({
       id: k.id ?? "",
+      interestId: k.interestId ?? "",
       textZh: k.textZh ?? "",
       textEn: k.textEn ?? "",
       field: (k.field ?? "self") as InterestFieldId,
@@ -116,12 +123,26 @@ function normalize(raw: RawTree): InterestTree {
 /**
  * 取她的树。
  *
- * ⏳ 这个请求**可能会慢**：服务端在返回之前会把她已完成、还没采过的东西补采
- * 一遍（最多三个，并行），所以第一次打开一棵积压的树可能要几秒。界面必须给
- * 一个「正在长」的状态，而不是一片空白——见 `interest_harvest.go` 顶部。
+ * 这是一次纯读（2026-09-04 之后）：采集在后台队列里跑，不再挂在这个请求上。
  */
 export async function fetchInterestTree(): Promise<InterestTree> {
   return normalize(await apiFetch<RawTree>("/api/v1/interest/tree"));
+}
+
+/* ── 「不感兴趣」 ───────────────────────────────────────────────────────── */
+
+/** 她在探索地图上拒掉一条推荐。落库，不是只存在这次会话里。 */
+export async function dismissInterest(interestId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/interest/dismiss/${encodeURIComponent(interestId)}`, {
+    method: "POST",
+  });
+}
+
+/** 撤销上一步。按错一下之后，一个再也回不来的词等于让她为一次误触付一辈子。 */
+export async function undismissInterest(interestId: string): Promise<void> {
+  await apiFetch<void>(`/api/v1/interest/dismiss/${encodeURIComponent(interestId)}`, {
+    method: "DELETE",
+  });
 }
 
 /* ── 继续深挖 ───────────────────────────────────────────────────────────── */

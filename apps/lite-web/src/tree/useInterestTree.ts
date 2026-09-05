@@ -1,5 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { fetchInterestTree, type InterestField, type InterestTree } from "../api/interest";
+import {
+  dismissInterest,
+  fetchInterestTree,
+  undismissInterest,
+  type InterestField,
+  type InterestTree,
+} from "../api/interest";
 import { toTreeKeywords } from "./liveTree";
 import type { Keyword } from "./types";
 
@@ -31,6 +37,16 @@ export interface LiveTree {
   error: string;
   /** 她做完兴趣测试之后要重新拉一次。 */
   reload: () => void;
+  /** 她按过「不感兴趣」的领域 id。探索地图算推荐时要减掉这些。 */
+  dismissed: string[];
+  /**
+   * 拒掉一条推荐。**本地先改，再发请求**：这一下是一个「让它消失」的动作，
+   * 等一次往返才消失会让她以为没按上。请求失败就把它放回来，并把后台原话交给
+   * 调用方去显示 —— 静默地当作成功，等于我们记下了一件没发生的事。
+   */
+  dismiss: (interestId: string) => Promise<void>;
+  /** 撤销上一步。 */
+  undismiss: (interestId: string) => Promise<void>;
 }
 
 export function useInterestTree(): LiveTree {
@@ -71,7 +87,46 @@ export function useInterestTree(): LiveTree {
         ? "empty"
         : "ready";
 
-  return { status, keywords, fields: tree?.fields ?? [], error, reload };
+  const dismissed = useMemo(() => tree?.dismissed ?? [], [tree]);
+
+  const dismiss = useCallback(async (interestId: string) => {
+    setTree((t) =>
+      t && !t.dismissed.includes(interestId)
+        ? { ...t, dismissed: [...t.dismissed, interestId] }
+        : t,
+    );
+    try {
+      await dismissInterest(interestId);
+    } catch (e) {
+      setTree((t) => (t ? { ...t, dismissed: t.dismissed.filter((d) => d !== interestId) } : t));
+      throw e;
+    }
+  }, []);
+
+  const undismiss = useCallback(async (interestId: string) => {
+    setTree((t) => (t ? { ...t, dismissed: t.dismissed.filter((d) => d !== interestId) } : t));
+    try {
+      await undismissInterest(interestId);
+    } catch (e) {
+      setTree((t) =>
+        t && !t.dismissed.includes(interestId)
+          ? { ...t, dismissed: [...t.dismissed, interestId] }
+          : t,
+      );
+      throw e;
+    }
+  }, []);
+
+  return {
+    status,
+    keywords,
+    fields: tree?.fields ?? [],
+    error,
+    reload,
+    dismissed,
+    dismiss,
+    undismiss,
+  };
 }
 
 /**

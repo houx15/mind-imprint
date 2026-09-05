@@ -13,6 +13,7 @@ const DAY = 86_400_000;
 function kw(over: Partial<InterestKeyword>): InterestKeyword {
   return {
     id: "k1",
+    interestId: "i1",
     textZh: "词",
     textEn: "w",
     field: "formal",
@@ -26,7 +27,7 @@ function kw(over: Partial<InterestKeyword>): InterestKeyword {
 }
 
 function tree(keywords: InterestKeyword[]): InterestTree {
-  return { fields: [], keywords };
+  return { fields: [], keywords, dismissed: [] };
 }
 
 describe("hashString", () => {

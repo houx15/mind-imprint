@@ -53,6 +53,11 @@ export interface KeywordSource {
 
 export interface Keyword {
   id: string;
+  /**
+   * interests.json 的 id。探索地图算「你可能还会感兴趣的」时靠它排除她已经有的
+   * 词 —— 靠 id，不靠中文名。0134 之前种下、还没被重新采到的行是空串。
+   */
+  interestId: string;
   text: string;
   en: string;
   field: FieldId;

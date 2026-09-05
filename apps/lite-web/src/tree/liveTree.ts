@@ -126,6 +126,7 @@ export function toTreeKeywords(tree: InterestTree, now: number = Date.now()): Ke
     ordered.forEach((k, i) => {
       out.push({
         id: k.id,
+        interestId: k.interestId,
         text: k.textZh,
         en: k.textEn,
         field: field as FieldId,
