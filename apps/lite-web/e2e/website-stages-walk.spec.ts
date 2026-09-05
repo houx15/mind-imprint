@@ -53,10 +53,14 @@ async function openTool(page: Page, name: string, label: string) {
   // 先收起手上那件：工具是铺开的，占满整个房间，不收起来看不见下一张卡。
   const close = page.getByRole("button", { name: "收起" });
   if (await close.count()) await close.first().click();
-  await page
+  const start = page
     .getByTestId(`tool-invite-${name}`)
-    .getByRole("button", { name: /开始任务|接受任务/ })
-    .click();
+    .getByRole("button", { name: /开始任务|接受任务/ });
+  // 🚨 印记那一轮还在跑的时候这颗按钮是 disabled 的（那是对的）。这条 walk 的卡
+  // 是用接口递的，所以现在不容易撞上；journey-1 用真对话递，2026-09-05 就撞上了，
+  // 报的是「element is not enabled」，看上去像这块工作面坏了。两边一起等。
+  await expect(start).toBeEnabled({ timeout: 60_000 });
+  await start.click();
   await expect(page.getByRole("heading", { name: label })).toBeVisible();
 }
 

@@ -39,10 +39,13 @@ export async function readScreen(page: Page): Promise<Affordances> {
   const btn = page.locator("button:visible");
   const buttons = (
     await btn
+      // 选择器是 `button:visible`，所以这里每一个都是 <button>。类型上要说出来：
+      // evaluateAll 给的是 HTMLElement | SVGElement，而 SVGElement 没有 innerText
+      // ——innerText 正是这份走查的地基（只拿她看得见的字），不能让它退化成别的。
       .evaluateAll((els) =>
-        els.map((e) => ({
+        (els as HTMLButtonElement[]).map((e) => ({
           label: (e.innerText || e.getAttribute("aria-label") || "").replace(/\s+/g, " ").trim(),
-          disabled: (e as HTMLButtonElement).disabled,
+          disabled: e.disabled,
         })),
       )
       .catch(() => [] as { label: string; disabled: boolean }[])

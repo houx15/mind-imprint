@@ -74,7 +74,9 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
   await page.getByRole("button", { name: /我的主页/ }).click();
   await expect(page.getByRole("heading", { name: "上线" })).toBeVisible();
   // 页面上还没有她自己的字，所以服务端不让发，界面也说清楚缺什么。
-  await expect(page.getByText("还缺你自己的话")).toBeVisible();
+  // 🚨 按标题找。这是 Ship.tsx 里的一个 <h3>，而房间里印记就在旁边说话——
+  // 不限定角色的话，它复述一句「还缺你自己的话」就会match到两个元素。
+  await expect(page.getByRole("heading", { name: "还缺你自己的话" })).toBeVisible();
   await expect(page.getByRole("button", { name: "上线", exact: true })).toBeDisabled();
   await page.screenshot({ path: "e2e/.shots/home-3-ship-blocked.png", fullPage: true });
 
@@ -117,11 +119,15 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
   /* 6 · 上线。 */
   await page.reload();
   await page.getByRole("button", { name: /我的主页/ }).click();
-  await expect(page.getByText("还缺你自己的话")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "还缺你自己的话" })).toHaveCount(0);
   await page.screenshot({ path: "e2e/.shots/home-4-ship-ready.png", fullPage: true });
 
   await page.getByRole("button", { name: "上线", exact: true }).click();
-  await expect(page.getByText("已上线")).toBeVisible({ timeout: 30_000 });
+  // 🚨 「已上线」是 Ship.tsx 顶栏那个状态字（三个字），而这一整段对话讲的正是
+  // 上线这件事——印记随口一句就会撞上。限定在工具面板里。
+  await expect(
+    page.getByRole("complementary").getByText("已上线", { exact: true }).first(),
+  ).toBeVisible({ timeout: 30_000 });
   const url = await page.getByRole("link", { name: /\/p\// }).getAttribute("href");
   expect(url).toContain("/p/");
   await page.screenshot({ path: "e2e/.shots/home-5-published.png", fullPage: true });

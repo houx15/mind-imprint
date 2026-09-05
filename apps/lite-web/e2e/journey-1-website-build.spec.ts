@@ -70,6 +70,18 @@ async function toolsHanded(page: Page, api: string): Promise<string[]> {
 }
 
 /**
+ * 轮着取 `lines` 里的下一句。
+ *
+ * 空数组是调用方写错了，直接报出来——而不是把一个 `undefined` 当作学生说的话
+ * 发给印记，那样这条 walk 会红在很远的地方，报的还是别的事。
+ */
+function nthLine(lines: string[], i: number): string {
+  const line = lines[i % lines.length];
+  if (line === undefined) throw new Error("waitForTool / tryTool 至少要给一句话");
+  return line;
+}
+
+/**
  * 一直聊到印记把 `want` 这件工具递出来。
  *
  * 🚨 不替它递。`nudges` 是学生自己会说的话——她卡住的时候本来就会追问一句。
@@ -86,7 +98,7 @@ async function waitForTool(
   for (let i = 0; i < maxTurns; i++) {
     if ((await toolsHanded(page, api)).includes(want)) return;
     // 说完一轮就再看一眼。递工具是印记那一轮里的判断，所以每一轮都是一次机会。
-    await say(page, api, lines[i % lines.length]);
+    await say(page, api, nthLine(lines, i));
   }
   if ((await toolsHanded(page, api)).includes(want)) return;
   const msgs = await (await page.request.get(`${api}/thread`)).json();
@@ -118,7 +130,7 @@ async function tryTool(
 ): Promise<boolean> {
   for (let i = 0; i < maxTurns; i++) {
     if ((await toolsHanded(page, api)).includes(want)) return true;
-    await say(page, api, lines[i % lines.length]);
+    await say(page, api, nthLine(lines, i));
   }
   return (await toolsHanded(page, api)).includes(want);
 }
@@ -160,10 +172,15 @@ async function settleSite(page: Page, api: string, nudges: string[]): Promise<vo
 async function openHandedTool(page: Page, name: string, label: string): Promise<void> {
   const close = page.getByRole("button", { name: "收起" });
   if (await close.count()) await close.first().click();
-  await page
+  const start = page
     .getByTestId(`tool-invite-${name}`)
-    .getByRole("button", { name: /开始任务|接受任务/ })
-    .click();
+    .getByRole("button", { name: /开始任务|接受任务/ });
+  // 🚨 先等它能按。印记那一轮还在跑的时候，邀请卡上的「开始任务」本来就是
+  // disabled 的——那是对的，她不该在印记说话说到一半时把卡打开。不等就点，报的是
+  // 「click 超时，element is not enabled」，看上去像这张卡坏了。
+  // 同一个坑 `say()` 那边已经踩过一次（那里等的是输入框）。
+  await expect(start).toBeEnabled({ timeout: 180_000 });
+  await start.click();
   await expect(page.getByRole("heading", { name: label })).toBeVisible();
 }
 
@@ -241,7 +258,11 @@ test("旅程一: 空账号 → 五关走完 → 一页发布出去的主页", as
 
   // 挑第一个人。整张卡就是一个按钮。
   await page.getByText("画像由 AI 生成").first().click();
-  await expect(page.getByText("关键词")).toBeVisible();
+  // 🚨 按标题找，不按文字找。印记那一轮的回话里也会出现「关键词」三个字
+  //（2026-09-05 就撞上了：strict mode 报「resolved to 2 elements」，一个是这个
+  // 标题，一个是它说的「留下的关键词后面几关都要用」）。她说什么是浮动的，
+  // 版面上那个标题不是——断言要挂在不浮动的那一头。
+  await expect(page.getByRole("heading", { name: "关键词" })).toBeVisible();
   await page.getByRole("button", { name: "确认选择" }).click();
   await expect(page.getByText("已确定").first()).toBeVisible({ timeout: 30_000 });
   await page.screenshot({ path: "e2e/.shots/j1-4-persona-settled.png", fullPage: true });

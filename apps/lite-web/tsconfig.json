@@ -15,5 +15,14 @@
     },
     "types": ["vitest/globals", "@testing-library/jest-dom"]
   },
-  "include": ["src", "test"]
+  // 🚨 e2e 也要 typecheck。
+  //
+  // 2026-09-05：这里原来只有 src 和 test，于是 `pnpm typecheck` 绿着，而 e2e 里
+  // 一个 `freshAccount is not defined` 跑完一整轮（11 分钟）才被发现——tsc 一秒
+  // 就能报。同一次加进来立刻还找出一个真 bug：BrowserContext 是 close() 不是
+  // dispose()，写错会在注册失败那条路上抛错的错，把真正的失败盖掉。
+  //
+  // e2e 用 @playwright/test 的 globals，不用 vitest 那套，但两边的 types 放一起
+  // 不冲突（Playwright 的 expect 是 import 进来的，不是全局注入）。
+  "include": ["src", "test", "e2e"]
 }

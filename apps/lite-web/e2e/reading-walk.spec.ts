@@ -103,10 +103,16 @@ async function startReading(page: Page, title: string, body: string): Promise<st
  * These four lines are belt-and-braces on top of it.
  */
 async function expectNoProjectSurfaces(page: Page): Promise<void> {
-  await expect(page.getByText("证据笔记")).toHaveCount(0);
-  await expect(page.getByText("追来源")).toHaveCount(0);
-  await expect(page.getByText("新的线索")).toHaveCount(0);
-  await expect(page.getByText("对论点的影响")).toHaveCount(0);
+  // 🚨 `exact: true`：要求那个元素的**整段文字**就是这几个字。
+  //
+  // 这四条是在阅读室里跑的，而印记就在旁边说话。「新的线索」「对论点的影响」
+  // 正是一个阅读陪练会说出口的话——不加 exact，它在一句话里提到一次，这条断言
+  // 就红，报的是「lite 里冒出了项目面的控件」，而其实什么都没冒出来。
+  // 要挡的那几个控件本身是独立的标签/按钮，整段文字就是这几个字，所以加了
+  // exact 之后该挡的照样挡得住。
+  for (const label of ["证据笔记", "追来源", "新的线索", "对论点的影响"]) {
+    await expect(page.getByText(label, { exact: true })).toHaveCount(0);
+  }
 }
 
 test("the landing page is the front door: greeting, shelf, and one way in", async ({ page }) => {
@@ -190,7 +196,11 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   const source = await page.request
     .get(`/api/v1/readings/${id}/source`)
     .then((r) => r.json() as Promise<{ blocks: { id: string; text: string }[] }>);
+  // 第二段是这篇种子文章里带这句引文的那一段。断言它在，而不是直接下标——
+  // 种子文章哪天改了段落数，这里要报「第二段不见了」，不是一句
+  // 「Cannot read properties of undefined」。
   const block = source.blocks[1];
+  if (!block) throw new Error(`这篇文章没有第二段，只有 ${source.blocks.length} 段`);
   const quote = "组件价格在这十年里下降了八成以上";
   const start = block.text.indexOf(quote);
   expect(start).toBeGreaterThan(-1);
@@ -211,7 +221,9 @@ test("lite reading walk: paste → the real room → 收获 → 完成 → 已�
   const mark = page.locator("p[data-block-id] mark", { hasText: quote });
   await expect(mark).toBeVisible();
   await mark.click();
-  await expect(page.getByText("这里只说了组件价格，没说并网和运维。")).toBeVisible();
+  // .first()：她写的批注会回灌给印记，印记可能把这句话原样引一遍——那时候
+  // 页面上就有两处，而这一条要证明的只是「点开那处高亮，批注显示出来了」。
+  await expect(page.getByText("这里只说了组件价格，没说并网和运维。").first()).toBeVisible();
   await expect(page.getByText("批注", { exact: true })).toBeVisible();
 
   // ── 完成这篇 → 一次确认 → 报告 ────────────────────────────────────────────

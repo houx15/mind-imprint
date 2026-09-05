@@ -359,7 +359,19 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   // Neither is React state — both are rebuilt out of `atom_message.payload`.
   await page.reload();
   await expect(page.locator(".mk-reading-room")).toBeVisible({ timeout: 30_000 });
-  const restored = cardsInLog(page).filter({ hasText: prompt });
+  // 🚨 认卡要认**她的那个答案**，不能只认问题。
+  //
+  // 同一个问题印记是会再问一遍的，而且那样做是对的：2026-09-05 这一轮它看了她
+  // 选的那句，回「现象本身不算重心……把眼睛往第二段和第四段挪一挪」，然后又递了
+  // 一张同题、但换了三个选项的卡。屏幕上于是有两张卡带着同一行问题——一张是她
+  // 答过的，一张是新的。
+  //
+  // 只按问题文字找，这时候会数到 2 而红，报出来像是「卡片重复了」，其实是印记
+  // 在好好教她。这一条要证明的是「她答过的那张卡刷新之后还在」，那就按她选的
+  // 那句话来认——那一句只属于那张卡。
+  const restored = cardsInLog(page)
+    .filter({ hasText: prompt })
+    .filter({ hasText: `“${chosen}”` });
   await expect(restored).toHaveCount(1);
   await expect(restored.getByText("你选的")).toBeVisible();
   await expect(restored.getByText(`“${chosen}”`)).toBeVisible();

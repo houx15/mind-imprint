@@ -212,7 +212,11 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   // compete with the one thing this screen is for; both come back the moment
   // she leaves for 段落, and the length is asserted there instead. ─────────
   await expect(page.getByRole("navigation", { name: STAGE_NAV })).toHaveCount(0);
-  await expect(page.getByText(/已写/)).toHaveCount(0);
+  // 🚨 限定在「不是印记说的话」的范围里数。这一屏右边就是印记的聊天记录，一个
+  // 两字的正则（而且没法加 exact）撞上它说的任何一句带「已写」的话，这条断言就
+  // 假红。2026-09-05 journey-1 就是被同一类写法咬的（getByText("关键词") 同时
+  // 匹配到标题和印记的回话）。
+  await expect(page.locator("main").getByText(/已写/)).toHaveCount(0);
 
   // ── 印记 SPEAKS FIRST. The old room was silent until she typed; this is
   // the assertion that keeps it from going quiet again. One reply, unprompted,
@@ -235,7 +239,11 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
 
   // The map panel does not exist until the map has something on it — an empty
   // panel from the first second is a promise the screen has not kept.
-  await expect(page.getByText("你的思路")).toHaveCount(0);
+  //
+  // 🚨 只在思维导图那块面板（<aside> = complementary）里找。「你的思路」四个字
+  // 正是印记在这一屏最可能说出口的话，不限定范围的话，它一句「先说说你的思路」
+  // 就能让这条断言红掉，而面板其实根本没出现。
+  await expect(page.getByRole("complementary").getByText("你的思路")).toHaveCount(0);
 
   // One planning turn: she states the claim, and it grows onto the canvas.
   const claim = "我最想让读的人相信：课间可以用手机，但要限制时长。";
@@ -267,9 +275,12 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   for (const node of planned.outline) {
     expect(node.text.trim().length).toBeGreaterThan(0);
   }
-  await expect(page.getByText("你的思路")).toBeVisible({ timeout: 15_000 });
+  // 🚨 同上，只在那块面板里找——这一条要证明的是「面板出来了」，而印记嘴里说出
+  // 「你的思路」不算面板出来了。
+  const mapPanel = page.getByRole("complementary");
+  await expect(mapPanel.getByText("你的思路")).toBeVisible({ timeout: 15_000 });
   for (const node of planned.outline) {
-    await expect(page.getByText(node.text, { exact: true }).first()).toBeVisible();
+    await expect(mapPanel.getByText(node.text, { exact: true }).first()).toBeVisible();
   }
 
   // ── 铁律 PROOF #2: a planning turn cannot rewrite or delete her nodes ───
@@ -443,7 +454,11 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await firstPoint.click();
   const mark = page.locator("[data-prose-layer] mark");
   await expect(mark).toBeVisible({ timeout: 15_000 });
-  await expect(mark).toHaveText(reviewed.comment.points[0].quote);
+  // 印记这一轮至少划了一处，否则上面那个 data-comment-point 根本不会存在；
+  // 断言它在，让类型和事实对上。
+  const firstQuote = reviewed.comment.points[0]?.quote;
+  if (!firstQuote) throw new Error("印记的意见里一处引文都没有，前面那颗批注点不该出现");
+  await expect(mark).toHaveText(firstQuote);
 
   // ── 完成这篇 → 起名字 → 已完成 ────────────────────────────────────────
   //

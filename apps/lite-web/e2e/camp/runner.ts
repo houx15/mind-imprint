@@ -303,13 +303,16 @@ export async function runDay(
  * 这一步产品根本没有把人送到。
  */
 function teacher(day: number, level: 1 | 2 | 3): string {
+  // 第一天那句单拎出来，因为它同时是「不认识的天数」的兜底。写成 goal[1] 的话
+  // 兜底本身又是一次可能取空的索引，等于没兜住。
+  const day1 = "今天不是看新闻，是做你自己那一页——先想清楚你想让谁看见你。";
   const goal: Record<number, string> = {
-    1: "今天不是看新闻，是做你自己那一页——先想清楚你想让谁看见你。",
+    1: day1,
     2: "今天要把你的主页做完、发布出去，拿到一个能发给别人的链接。",
     3: "今天开你自己的项目，把你要解决的事说清楚，做出一份计划。",
     4: "今天把项目做完，复盘一次，拿到一份能给别人看的东西。",
   };
-  if (level === 1) return goal[day] ?? goal[1];
+  if (level === 1) return goal[day] ?? day1;
   if (level === 2) return "左边那一栏里有「项目」，你要做的东西在那里面。";
   return "我帮你点到「项目」了，从这里继续。";
 }

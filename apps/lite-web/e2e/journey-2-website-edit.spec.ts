@@ -95,9 +95,13 @@ test("旅程二: 已经发布的主页 → 换一套配色 → 撤回 → 再上
   const gen = await page.request.post(`${api}/personas/generate`);
   expect(gen.ok(), `生成读者失败：${gen.status()} ${await gen.text()}`).toBe(true);
   const people = (await gen.json()) as { id: string; keywords: string[] }[];
-  expect(people.length, "一个候选读者都没生成出来").toBeGreaterThan(0);
-  const pick = await page.request.post(`${api}/personas/${people[0].id}/choose`, {
-    data: { keywords: people[0].keywords },
+  // 取第一个候选并当场断言它在。`expect(people.length).toBeGreaterThan(0)` 读起来
+  // 一样，但类型上挡不住下一行的 people[0]——真出现空数组时报的会是
+  // 「Cannot read properties of undefined」，而不是这句话。
+  const first = people[0];
+  if (!first) throw new Error(`一个候选读者都没生成出来：${JSON.stringify(people)}`);
+  const pick = await page.request.post(`${api}/personas/${first.id}/choose`, {
+    data: { keywords: first.keywords },
   });
   expect(pick.ok(), `定下读者失败：${pick.status()} ${await pick.text()}`).toBe(true);
   await page.reload();

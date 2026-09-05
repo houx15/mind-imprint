@@ -312,9 +312,17 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
     });
   });
 
-  let capturedBody: { text: string; picks: { blockId: string; quote: string }[] } | null = null;
+  // 🚨 装在一个对象里，不用裸的 let。
+  //
+  // 裸 let 只在 route 回调里赋值，TypeScript 的控制流分析看不到那次赋值发生在读
+  // 之前，于是把它收窄回初始值 null，最后 `capturedBody?.picks` 报的是
+  // 「Property 'picks' does not exist on type 'never'」——一句和真实问题毫无关系
+  // 的错。放进对象属性里，`await` 之后的读取不会被收窄成初始值。
+  const captured: { body: { text: string; picks: { blockId: string; quote: string }[] } | null } = {
+    body: null,
+  };
   await page.route("**/api/v1/readings/*/coach", async (route) => {
-    capturedBody = route.request().postDataJSON();
+    captured.body = route.request().postDataJSON();
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -349,7 +357,7 @@ test("a hunt step is answered by clicking a paragraph", async ({ page }) => {
   await page.getByPlaceholder(/读完这一步|还想聊点什么/).fill("这句提到具体国家了吗？");
   await page.getByRole("button", { name: "发送" }).click();
 
-  await expect.poll(() => capturedBody).not.toBeNull();
+  await expect.poll(() => captured.body).not.toBeNull();
   // The structured field, not just the inlined blockquote in `text`.
-  expect(capturedBody?.picks?.[0]).toEqual({ blockId: "b2", quote });
+  expect(captured.body?.picks?.[0]).toEqual({ blockId: "b2", quote });
 });
