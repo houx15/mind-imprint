@@ -64,3 +64,14 @@ INSERT INTO pbl_tool_drop (atom_id, tool, needs) VALUES ($1, $2, $3);
 
 -- name: LatestPblToolDrop :one
 SELECT * FROM pbl_tool_drop WHERE atom_id = $1 ORDER BY created_at DESC LIMIT 1;
+
+-- 这次撤销之后，印记又说过几句话。
+--
+-- 🚨 「撤掉的工具」那条提示只该说一次，不该变成常驻指令。它一直挂在上文里的
+-- 后果是：印记每一轮都被推着去补那件工具的产出，而一轮只能做一件产出
+-- （CoachOutput.Produce 就一个格子），于是她真正在等的那件事——比如把她的原话
+-- 摆上主页——永远排不上号。2026-09-05 journey-1 就是这么死循环的：同一条
+-- 「审核助手未递出」连着六轮。
+-- name: CountPblAiMessagesSince :one
+SELECT count(*) FROM atom_message
+WHERE atom_id = $1 AND role = 'ai' AND created_at > $2;

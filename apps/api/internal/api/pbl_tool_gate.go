@@ -123,6 +123,20 @@ func pblToolMissing(needs string) string {
 func (a *API) recordPblToolDrop(r *http.Request, atomID uuid.UUID, scope pgtype.UUID, tool string) {
 	ctx := r.Context()
 	needs := pbl.ToolNeeds(tool)
+
+	// 🚨 同一件工具连着被撤，只说第一次。
+	//
+	// 2026-09-05 journey-1 实测：印记连着六轮递「审核助手」而每轮都没做出可审的
+	// 成果，于是她的对话里出现了六行一模一样的「审核助手未递出」。第一行是有用
+	// 的说明，后面五行只是噪音，而且看上去像系统坏了。
+	if last, err := a.d.Queries.LatestPblToolDrop(ctx, atomID); err == nil &&
+		last.Tool == tool && a.pblToolDropOutstanding(r, atomID, last.Tool) {
+		slog.Info("pbl turn: same tool dropped again; already on the record",
+			"atom_id", atomID, "tool", tool,
+			"request_id", httpx.RequestIDFromContext(ctx))
+		return
+	}
+
 	if err := a.d.Queries.RecordPblToolDrop(ctx, sqlc.RecordPblToolDropParams{
 		AtomID: atomID, Tool: tool, Needs: needs,
 	}); err != nil {
@@ -151,31 +165,64 @@ func (a *API) recordPblToolDrop(r *http.Request, atomID uuid.UUID, scope pgtype.
 	}
 }
 
+// pblToolDropOutstanding 说的是：那次撤销到现在还没了结吗。
+//
+// 「了结」有两种：这件工具后来真的递成了，或者它缺的那份东西现在有了。
+// 抽出来是因为有两个地方要问这同一件事，而它们各自还有别的条件——去重看的是
+// 「这件事已经在案了吗」，回灌看的还要再加一条「这一轮该不该再提」。
+// 让一个去借另一个的返回值当判据，两者就会互相抵消（第一版就是这么错的：
+// 新鲜度一过，去重那一半跟着失效，六行重复的说明照样写进她的对话）。
+func (a *API) pblToolDropOutstanding(r *http.Request, atomID uuid.UUID, tool string) bool {
+	if a.pblToolAlreadyOnHerScreen(r, atomID, tool) {
+		return false // 后来递成了。
+	}
+	if a.pblToolHasContent(r.Context(), atomID, tool) {
+		return false // 缺的那份东西现在有了，这一条不再成立。
+	}
+	return true
+}
+
 // pblDroppedToolNote 是下一轮要交给印记的那句话，没有就返回空串。
 //
-// 只报**还没被解决的**那一次：这件工具后来递成了，或者它缺的那份东西现在有了，
-// 就当这件事过去了。不这样收口的话，一次撤销会跟着这个项目到底，印记会被一句
-// 早就不成立的话反复推着去递同一件工具。
+// 两道闸：这次撤销还没了结（pblToolDropOutstanding），而且印记还没读到过这一条。
 func (a *API) pblDroppedToolNote(r *http.Request, atomID uuid.UUID) string {
 	ctx := r.Context()
 	d, err := a.d.Queries.LatestPblToolDrop(ctx, atomID)
 	if err != nil {
 		return ""
 	}
-	if a.pblToolAlreadyOnHerScreen(r, atomID, d.Tool) {
-		return "" // 后来递成了。
+	if !a.pblToolDropOutstanding(r, atomID, d.Tool) {
+		return ""
 	}
-	if a.pblToolHasContent(ctx, atomID, d.Tool) {
-		return "" // 缺的那份东西现在有了，这一条不再成立。
+	// 🚨 只说一次，说完就过去。
+	//
+	// 这一条原来是常驻的：只要那件工具的产出一直没落库，它每一轮都挂在上文的
+	// 末尾。而它的原文写着「把可审的成果和这件工具一起给」，是一条命令式的指令，
+	// 位置又靠后——于是印记每一轮都把**唯一那个 produce 格子**用去补这件工具，
+	// 她真正在等的事（把她的原话摆上主页，那也要占同一个格子）永远排不上号。
+	// 2026-09-05 journey-1 就是这么僵住的：连着六轮「审核助手未递出」，印记每轮
+	// 都说「三处都按你的原话放进去了」，而那一页三处一直是空的。
+	//
+	// 修一个循环不该造出另一个。所以：印记之后又说过话了，就说明它已经读到过这
+	// 条，不再重复。
+	if n, err := a.d.Queries.CountPblAiMessagesSince(ctx, sqlc.CountPblAiMessagesSinceParams{
+		AtomID: atomID, CreatedAt: d.CreatedAt,
+	}); err != nil || n > 0 {
+		return ""
 	}
 	label := d.Tool
 	if def, ok := pbl.LookupTool(d.Tool); ok {
 		label = def.Label
 	}
 	what := pblToolMissing(d.Needs)
+	// 🚨 默认那条路是「直说还没有」，不是「补一个产出出来」。
+	//
+	// 这条提示要保住的只有一件事：**别再说一件屏幕上没有的东西已经给她了**。
+	// 至于这一轮该做什么，仍然由她刚说的话决定——不能因为要补这张卡，就把她要的
+	// 事挤掉。
 	return "「" + label + "」这件工具**没有**出现在她屏幕上。你说过要给她，但同一轮" +
 		"没有做出" + what + "，那个界面打开是一块白板，所以服务端把它撤掉了。" +
 		"她现在找不到这张卡。\n" +
-		"这一轮只有两条路：把" + what + "和这件工具**一起**给（produce 和 tool 同一轮），" +
-		"或者直说这件东西还没有。不要再说你已经把它给她了。"
+		"这一轮先做她刚要你做的那件事。这件工具**先别再递**——除非这一轮你真的" +
+		"做得出" + what + "，而且她要的事已经做完了。不管怎样，不要再说你已经把它给她了。"
 }

@@ -43,6 +43,30 @@ func (q *Queries) AcceptPblTool(ctx context.Context, id uuid.UUID) (PblToolInsta
 	return i, err
 }
 
+const countPblAiMessagesSince = `-- name: CountPblAiMessagesSince :one
+SELECT count(*) FROM atom_message
+WHERE atom_id = $1 AND role = 'ai' AND created_at > $2
+`
+
+type CountPblAiMessagesSinceParams struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+// 这次撤销之后，印记又说过几句话。
+//
+// 🚨 「撤掉的工具」那条提示只该说一次，不该变成常驻指令。它一直挂在上文里的
+// 后果是：印记每一轮都被推着去补那件工具的产出，而一轮只能做一件产出
+// （CoachOutput.Produce 就一个格子），于是她真正在等的那件事——比如把她的原话
+// 摆上主页——永远排不上号。2026-09-05 journey-1 就是这么死循环的：同一条
+// 「审核助手未递出」连着六轮。
+func (q *Queries) CountPblAiMessagesSince(ctx context.Context, arg CountPblAiMessagesSinceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countPblAiMessagesSince, arg.AtomID, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createPblArtifact = `-- name: CreatePblArtifact :one
 
 INSERT INTO pbl_artifact (atom_id, session_id, kind, title, payload, guessed, admits)

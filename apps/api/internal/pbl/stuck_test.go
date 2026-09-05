@@ -192,7 +192,10 @@ func TestCoachSystem_HasAWayOutWhenSheCannotAnswer(t *testing.T) {
 	p := sprintCoachSystem("", "  observe（观察日记）—— 他要离开屏幕去做\n", "", "  plan —— 一份计划\n")
 	for _, want := range []string{
 		"【他答不上来的时候】",
-		"这三个你都可以说都不是",
+		// 🚨 「挑一个」和「都不是」必须写在同一个问句里。这一句是 2026-09-05
+		// 真模型实测逼出来的：上一版把出口写成「哪个更接近？都不是的话是什么？」，
+		// 模型照着写了两个问号，破铁律③。
+		"这三个里哪个最接近你想的，或者都不是？",
 		"服务端只认原话", // 🚨 例子不能变成替她填的答案：铁律① + GroundSiteDraft。
 	} {
 		if !strings.Contains(p, want) {

@@ -66,6 +66,26 @@ func (a *API) applyPblProduce(
 	return fmt.Errorf("pbl: unknown produce kind %q", p.Kind)
 }
 
+// pblSiteURL 是这个主页项目对应的那一页的公开地址，还没发布就返回空串。
+//
+// 和 publicSiteURL 的区别只有一个：那一个从请求头里推 origin，这一个手上没有
+// 请求（produce 发生在一轮对话的尾巴上），所以只用配置里的 CORS 源。推不出来
+// 就返回空串，让调用方照常退回——宁可不落这份成果，也不要给她一个点不开的链接。
+func (a *API) pblSiteURL(ctx context.Context, atomID uuid.UUID) string {
+	p, err := a.d.Queries.GetPblProject(ctx, atomID)
+	if err != nil {
+		return ""
+	}
+	row, err := a.d.Queries.GetPblSite(ctx, p.UserID)
+	if err != nil || row.ShareToken == nil || *row.ShareToken == "" {
+		return ""
+	}
+	if len(a.d.CORSOrigins) == 0 {
+		return ""
+	}
+	return strings.TrimRight(a.d.CORSOrigins[0], "/") + "/p/" + *row.ShareToken
+}
+
 /* ── 主页内容 ─────────────────────────────────────────────────────────── */
 
 // produceSiteContent —— 第四关「我来生成」：印记把她在这个项目里说过的话摆到
@@ -408,6 +428,22 @@ func (a *API) produceArtifact(
 		return fmt.Errorf("pbl: unknown artifact kind %q", kind)
 	}
 	body, url := strings.TrimSpace(in.Body), strings.TrimSpace(in.URL)
+	// 🚨 主页那份成果的网址由服务端补，印记补不出来。
+	//
+	// 这里原来是一个死结：主页路线写着「artifact 一起给（kind 用 "site"）」，
+	// payload 说明写着「body：正文，site 时留空」，而这一行又要求 body 和 url 至少
+	// 有一个——可印记**从来没拿到过她那一页的网址**（回灌里只有「还差这几处」，
+	// 没有链接）。于是它照着路线做出来的 site 成果两个字段都是空的，这里退回，
+	// 成果没落库，审核那件工具就被闸撤掉，再回到路线的第五步，无限循环。
+	// 2026-09-05 journey-1 连着六轮卡在这儿。
+	//
+	// 网址是服务端的事实，不是模型该猜的东西，所以在这里补。补不出来（她还没
+	// 发布）就仍然退回——那时候确实没有可看的东西。
+	if kind == "site" && body == "" && url == "" {
+		if u := a.pblSiteURL(ctx, atomID); u != "" {
+			url = u
+		}
+	}
 	if body == "" && url == "" {
 		// 既没有正文也没有链接的成果，到审核那一屏就是一块空白，而她还被要求
 		// 对它下判断。

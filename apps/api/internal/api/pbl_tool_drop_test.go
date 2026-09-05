@@ -134,3 +134,61 @@ func TestPblToolGate_NextTurnPromptCarriesTheDrop(t *testing.T) {
 		t.Errorf("说了有工具被撤，却没说是哪一件：\n%s", last)
 	}
 }
+
+// 🚨 说一次，不要变成常驻指令。
+//
+// 这是 2026-09-05 修一个循环时造出来的另一个循环：那条提示只要工具的产出一直
+// 没落库就每一轮都挂在上文里，而它写的是「把可审的成果和这件工具一起给」。
+// 一轮只能做一件 produce（CoachOutput.Produce 就一个格子），于是印记每轮都拿
+// 那个格子去补这件工具，学生真正在等的事永远排不上号——journey-1 连着六轮
+// 「审核助手未递出」，印记每轮都说「三处都按你的原话放进去了」，而那一页三处
+// 一直是空的。她那边还看到六行一模一样的红字。
+func TestPblToolGate_TheDropNoticeIsSaidOnceNotEveryTurn(t *testing.T) {
+	prov := gateway.NewStubProvider([]gateway.StreamEvent{
+		{Kind: gateway.EventTextDelta, TextDelta: `{"reply":"我把审核助手给你了。",
+		  "hook":"","hook_kind":"","tool":"review","tool_reason":"这一版你自己判断哪里不对"}`},
+		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 30, OutputTokens: 20}},
+		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
+	})
+	h, cookie, _, _ := liteHandlerWithProvider(t, prov)
+	pid := newProjectViaAPI(t, h, cookie)
+
+	// 连着三轮都递 review，而始终没有可审的成果——闸每轮都会撤。
+	for i := 0; i < 3; i++ {
+		if rec := pblPost(t, h, cookie, "/api/v1/pbl/projects/"+pid+"/turn",
+			`{"text":"再给我看看那份东西"}`); rec.Code != http.StatusOK {
+			t.Fatalf("turn %d = %d; body=%s", i, rec.Code, rec.Body)
+		}
+	}
+
+	// 她的对话里那行说明只能有一条。
+	rec := pblReq(t, h, cookie, "GET", "/api/v1/pbl/projects/"+pid+"/thread", "")
+	var msgs []struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &msgs); err != nil {
+		t.Fatalf("decode thread: %v — body=%s", err, rec.Body)
+	}
+	n := 0
+	for _, m := range msgs {
+		if m.Role == "system" && strings.Contains(m.Content, "未递出") {
+			n++
+		}
+	}
+	if n != 1 {
+		t.Errorf("同一件工具连着被撤三轮，线程里出现了 %d 行「未递出」，want 1", n)
+	}
+
+	// 印记那边也一样：第二轮之后上文里不该再挂着这条。挂着的话它会一直拿唯一的
+	// produce 格子去补这张卡。
+	var last string
+	for _, m := range prov.LastRequest.Messages {
+		if m.Role == gateway.RoleUser {
+			last = m.Content
+		}
+	}
+	if strings.Contains(last, "上一轮有一件工具没递出去") {
+		t.Errorf("第三轮的上下文里还挂着那条撤销提示——它会一直占着 produce 那个格子：\n%s", last)
+	}
+}
