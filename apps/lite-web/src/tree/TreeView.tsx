@@ -8,7 +8,7 @@ import {
   fieldById,
   pointOnBranch,
 } from "./geometry";
-import { outputCount, useInterestTree } from "./useInterestTree";
+import { outputCount, type LiveTree } from "./useInterestTree";
 import type { FieldId, Keyword } from "./types";
 import { Hint, Sys, cx } from "./ui";
 import { useFitScale } from "./useFitScale";
@@ -62,7 +62,7 @@ import "./tree.css";
 /** 选中的是一片叶子（领域），还是一条根（学科）。 */
 type Pick = { kind: "leaf" | "discipline"; id: string };
 
-export function TreeView({ user }: { user: MeUser }) {
+export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
   // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
   // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
   // 回放拖到了哪一格，把它提升到全局只会让一个纯展示的选择跨页面存活。
@@ -79,7 +79,9 @@ export function TreeView({ user }: { user: MeUser }) {
 
   // 真数据。没有 mock 兜底——一棵回退到示例词的树，会把十六个不属于她的词
   // 挂在一张标着「这就是你的模型」的图上，而她看不出来。见 useInterestTree。
-  const live = useInterestTree();
+  //
+  // 这棵树**由外面传进来**（`SkyTab`）：探索地图和这一屏在同一个 tab 下，两屏
+  // 各拉一次会在她来回切时各发一次请求，而且推荐算出来的星可能和树上的词对不上。
   const all = live.keywords;
 
   // 觉醒协议（兴趣测试）。三态：null = 还不知道，那时两件事都不做。

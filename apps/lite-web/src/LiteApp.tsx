@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Compass, GraduationCap, Hammer, PenLine, Sprout } from "lucide-react";
+import { BookOpen, Compass, GraduationCap, Globe, Hammer, PenLine } from "lucide-react";
 import { Icon, Pebble, Settings, ACCENT_PRESETS, AccentProvider, type AccentId, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
@@ -18,8 +18,8 @@ import { ReadingsLanding } from "./readings/ReadingsLanding";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
-import { TreeView } from "./tree/TreeView";
-import { ExploreView } from "./explore/ExploreView";
+import { SkyTab } from "./explore/SkyTab";
+import { MySitePage } from "./mysite/MySitePage";
 import { CoursesHost } from "./courses/CoursesHost";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 
@@ -59,10 +59,15 @@ import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
  * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
  */
 
-type LiteTab = "explore" | "readings" | "writings" | "projects" | "courses" | "tree";
+type LiteTab = "explore" | "readings" | "writings" | "projects" | "courses" | "mysite";
 
-// 我的树排在最后，是因为这条轨的顺序本身在说一句话：**读 → 写 → 做 → 树因此
-// 长出来。** 树不是第四件要做的事，它是前三件的结果，所以它站在它们后面。
+// 顺序本身在说一句话：**探索（找到）→ 读 → 写 → 做 → 课程 → 主页（东西放在
+// 那里）。**
+//
+// 2026-09-05：我的树不再单独占一格。它和探索地图是同一件事的两半 —— 树是她已经
+// 有的，地图是她还没走过的 —— 合进「探索」那一格，由顶部切换器换
+// （`explore/SkyTab.tsx`）。腾出来的一格给了「我的主页」：主页发布之后她随时能
+// 回来改，而在这之前，回到那一页的路只有「项目室 → 主页项目 → 侧栏那一行」。
 const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "explore", label: "探索", icon: Compass },
   { key: "readings", label: "阅读", icon: BookOpen },
@@ -70,10 +75,9 @@ const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "projects", label: "项目", icon: Hammer },
   // 课程 sits right after 项目 because that is where it is reached from: 印记
   // hands her a course when the project needs a skill she has not learned yet
-  // (see projects/tools/surfaces/Course.tsx). 我的树 stays last for the reason
-  // above it.
+  // (see projects/tools/surfaces/Course.tsx).
   { key: "courses", label: "课程", icon: GraduationCap },
-  { key: "tree", label: "我的树", icon: Sprout },
+  { key: "mysite", label: "我的主页", icon: Globe },
 ];
 
 function cx(...parts: Array<string | false | null | undefined>): string {
@@ -92,10 +96,10 @@ function tabPath(tab: LiteTab): string {
       return liteRoutePath({ tab: "projects" });
     case "courses":
       return liteRoutePath({ tab: "courses" });
-    case "tree":
-      return liteRoutePath({ tab: "tree" });
     case "explore":
       return liteRoutePath({ tab: "explore" });
+    case "mysite":
+      return liteRoutePath({ tab: "mysite" });
   }
 }
 
@@ -256,7 +260,9 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           </div>
 
           {TABS.map(({ key, label, icon }) => {
-            const active = route.tab === key;
+            // 探索那一格在 `/tree` 上也是选中的：树住在它下面（SkyTab 的第二屏），
+            // 不高亮的话她切到树之后导航上没有任何一格是亮的。
+            const active = route.tab === key || (key === "explore" && route.tab === "tree");
             return (
               <button
                 key={key}
@@ -322,10 +328,18 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             onBackToList={() => navigate(liteRoutePath({ tab: "courses" }))}
             onImmersiveChange={setImmersive}
           />
-        ) : route.tab === "explore" ? (
-          <ExploreView />
-        ) : route.tab === "tree" ? (
-          <TreeView user={user} />
+        ) : route.tab === "explore" || route.tab === "tree" ? (
+          // 一格两屏。URL 仍然是两条（`/explore` / `/tree`），所以深链、后退、
+          // 收藏都还是原来那样；切换器改的就是 URL，不是一个只活在内存里的状态。
+          <SkyTab
+            user={user}
+            surface={route.tab === "tree" ? "tree" : "map"}
+            onSwitch={(next) =>
+              navigate(liteRoutePath(next === "tree" ? { tab: "tree" } : { tab: "explore" }))
+            }
+          />
+        ) : route.tab === "mysite" ? (
+          <MySitePage />
         ) : route.tab === "projects" ? (
           route.projectId ? (
             <ProjectRoom key={route.projectId} projectId={route.projectId} />

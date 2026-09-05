@@ -2,7 +2,12 @@
 // apps/web/src/shell/routing.ts in shape (root-relative paths, no router
 // library, History API driven) but with the lite tab vocabulary: 探索
 // (explore) · 阅读 (readings) · 写作 (writings) · 项目 (projects) · 课程 (courses) ·
-// 我的树 (tree), and none of pro's project lifecycle.
+// 我的主页 (mysite), and none of pro's project lifecycle.
+//
+// 2026-09-05：`tree` 不再是导航上的一格。探索地图与兴趣树合并成同一格里的两屏，
+// 由顶部的切换器换（`explore/SkyTab.tsx`）—— 树是她已经有的，地图是她还没走过
+// 的，分成两格之后学生要自己把这条线接起来。`/tree` 仍然是一条真链接，直接落在
+// 树那一屏。腾出来的那一格给了「我的主页」。
 //
 // 课程 was added 2026-09-04. It shares pro's paths and pro's player; what a lite
 // student sees is narrowed server-side by course.audience, not here.
@@ -37,6 +42,12 @@ export type LiteRoute =
   // 而不是自己的顶层 tab：入口在树上，做完了回到树上，导航栏里不该多出一格
   // 只在冷启动时有意义的东西。
   | { tab: "tree"; quiz?: boolean }
+  // 我的主页。**她自己那一面**，不是 `/p/:token` 那个访客页。
+  //
+  // 2026-09-05 加：主页发布之后项目进 keeping，她随时能回来改，但在这之前回到
+  // 那一页的路只有「项目室 → 主页项目 → 侧栏那一行」。也就是说她必须先想起
+  // 自己的主页是一个项目，才找得到它。
+  | { tab: "mysite" }
   // 设置 is a route, not a rail tab: it is reached from the account button at
   // the foot of the rail, and while it is open neither 阅读 nor 写作 is the
   // active tab. Keeping it in the same union is what lets Back leave settings
@@ -102,6 +113,8 @@ export function parseLiteRoute(pathname: string): LiteRoute {
       return second ? { tab: "courses", slug: second } : { tab: "courses" };
     case "tree":
       return second === "quiz" ? { tab: "tree", quiz: true } : { tab: "tree" };
+    case "site":
+      return { tab: "mysite" };
     case "explore":
       return { tab: "explore" };
     case "settings":
@@ -143,6 +156,8 @@ export function liteRoutePath(route: LiteRoute): string {
       return route.quiz ? "/tree/quiz" : "/tree";
     case "explore":
       return "/explore";
+    case "mysite":
+      return "/site";
     case "settings":
       return "/settings";
     case "page":
