@@ -1,4 +1,5 @@
 import { expect, test } from "@playwright/test";
+import { freshAccount } from "./freshAccount";
 
 /**
  * 主页 walk — spec §4 那道门，以及主页项目**在项目房间里**这件事。
@@ -22,9 +23,15 @@ import { expect, test } from "@playwright/test";
  * 了她的话」这个状态塞进去，再验后面那半程。模型那半程归 `LIVE_LLM=1` 的实测。
  */
 test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访客看到的那一页 → 门开了", async ({
-  page,
   browser,
 }) => {
+  // 🚨 这一条要一个**还没有主页**的账号，所以它自己注册一个，不用套件共用的
+  // 那个种子账号。共用那个一旦被别的 spec 发布过主页，这道门就永远开着，第一
+  // 条断言会红成「先做你自己的主页。找不到」——看上去像门坏了，其实门是好的。
+  // 2026-09-05 `courses-walk` 进来（c 排在 h 前面）就是这么撞的。见 freshAccount.ts。
+  const ctx = await freshAccount(browser, "homepage");
+  const page = await ctx.newPage();
+
   // 页面崩了的时候，断言只会说「没找到元素」。把浏览器里的真实报错抬到
   // Playwright 的输出里，省掉一轮猜。
   page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
@@ -151,4 +158,6 @@ test("主页: 门 → 项目房间（五步清单）→ 上线那一屏 → 访�
   await expect(page.getByRole("heading", { name: "最近想做点什么" })).toBeVisible();
   await expect(page.getByPlaceholder("比如：", { exact: false })).toBeVisible();
   await page.screenshot({ path: "e2e/.shots/home-8-gate-open.png", fullPage: true });
+
+  await ctx.close();
 });

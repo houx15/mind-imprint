@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { freshAccount } from "./freshAccount";
 
 /**
  * 主页项目第一到第三关的工作面 —— 受众画像 / 站点采集 / 视觉基调。
@@ -59,7 +60,15 @@ async function openTool(page: Page, name: string, label: string) {
   await expect(page.getByRole("heading", { name: label })).toBeVisible();
 }
 
-test("主页项目: 受众画像 / 站点采集 / 视觉基调 三块工作面各打开一次", async ({ page }) => {
+test("主页项目: 受众画像 / 站点采集 / 视觉基调 三块工作面各打开一次", async ({ browser }) => {
+  // 🚨 这一条要三件**还没被接下**的工具，所以它自己注册一个账号。
+  //
+  // 共用那个种子账号不行：`journey-2` 会在同一个主页项目上打开「视觉基调」，
+  // 那件工具就变成 accepted，而 accepted 的工具**不再渲染邀请卡**
+  // （ToolInvite 只画没接过的）。下面 openTool 会等一张永远不出现的卡，
+  // 15 秒超时，报出来的样子像是这块工作面坏了。见 freshAccount.ts。
+  const ctx = await freshAccount(browser, "site-stages");
+  const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
   page.on("console", (m) => {
     if (m.type() === "error") console.log("CONSOLE ERROR:", m.text());
@@ -152,4 +161,6 @@ test("主页项目: 受众画像 / 站点采集 / 视觉基调 三块工作面�
   /* 3 · 视觉基调。配色、风格、头图。 */
   await openTool(page, "look", "视觉基调");
   await page.screenshot({ path: "e2e/.shots/site-4-look.png", fullPage: true });
+
+  await ctx.close();
 });

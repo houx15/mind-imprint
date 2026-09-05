@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { freshAccount } from "./freshAccount";
 
 /**
  * 旅程一 · 一个新学生做出他自己的主页 —— **不走捷径**。
@@ -18,10 +19,13 @@ import { expect, test, type Page } from "@playwright/test";
  * 所以这一条从一个**空账号**出发，只做学生做得到的动作：点门、审计划、说话、
  * 在工具里做判断、按完成。接口只用来**看**（轮询状态），不用来改。
  *
- * 🚨 文件名里的 `1` 是顺序，不是编号好看。三条旅程共用同一个栈、同一个库，
- * 而这一条要的是一个**还没有主页**的账号——它必须第一个跑。旅程二和旅程三
- * 都会把主页发布出去（那道门就开了），跑在它前面的话，这一条会停在
- * 「先做你自己的主页。」找不到——看起来像门坏了，其实只是顺序反了。
+ * 🚨 文件名里的 `1` 是顺序，读的时候按这个序读。但**跑起来不再依赖这个序**：
+ * 这一条要的是一个还没有主页的账号，所以它自己注册一个（`freshAccount`）。
+ *
+ * 原来这个前提是靠字母序守的，文件头上写着「它必须第一个跑」。那守不住——
+ * 2026-09-05 `courses-walk.spec.ts` 一进来（c 排在 j 前面），它开了门，这一条
+ * 立刻停在「先做你自己的主页。」找不到，看上去像门坏了，其实门是好的，只是
+ * 已经开了。一条只能靠人记住的规矩，迟早会被下一个新 spec 破掉。
  *
  * ## 它会因为模型不听话而红，这是故意的
  *
@@ -177,7 +181,14 @@ async function finishTool(page: Page, label = "完成"): Promise<void> {
   await done.click();
 }
 
-test("旅程一: 空账号 → 五关走完 → 一页发布出去的主页", async ({ page }) => {
+test("旅程一: 空账号 → 五关走完 → 一页发布出去的主页", async ({ browser }) => {
+  // 🚨 「空账号」是这条旅程的题目，所以它自己注册一个。
+  //
+  // 以前这个前提靠文件名的字母序守着（文件头上写过「它必须第一个跑」），而那是
+  // 一条只能靠人记住的规矩：2026-09-05 `courses-walk.spec.ts` 一进来（c 排在 j
+  // 前面）就把门开了，这条立刻红在第一句断言上。见 freshAccount.ts。
+  const ctx = await freshAccount(browser, "journey1");
+  const page = await ctx.newPage();
   page.on("pageerror", (e) => console.log("PAGEERROR:", e.message));
   page.on("console", (m) => {
     if (m.type() === "error") console.log("CONSOLE ERROR:", m.text());
@@ -407,4 +418,5 @@ test("旅程一: 空账号 → 五关走完 → 一页发布出去的主页", as
   );
   await visitor.screenshot({ path: "e2e/.shots/j1-9-visitor.png", fullPage: true });
   await visitor.close();
+  await ctx.close();
 });

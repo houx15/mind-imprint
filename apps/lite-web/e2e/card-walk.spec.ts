@@ -71,13 +71,17 @@ const BODY_PLACEHOLDER = "贴一个链接，或者把整篇正文粘进来——
 const TITLE_PLACEHOLDER = "给这次阅读起个名字（可留空）";
 const READING_URL = /\/readings\/[0-9a-f-]{36}$/;
 
-/** 「点一句就行，怎么想都算你的。」 is rendered ONLY under an OPEN, unanswered
+/** 「请选择一句。」 is rendered ONLY under an OPEN, unanswered
  *  `choose_span` card (CoachCard.tsx) — it is how the one tappable shape is
  *  told apart on screen from `pick_in_article` (which sends her to the
  *  article) and `short_text` (which gives her a textarea). It disappears the
  *  moment she answers, so it is a finder, never a handle: see the prompt-based
  *  locator in the walk. */
-const TAPPABLE = "点一句就行，怎么想都算你的。";
+// 🚨 这一句必须和 CoachCard.tsx 里那一行一模一样。2026-09-04 那次文案改动
+// （「点一句就行，怎么想都算你的。」→「请选择一句。」）只同步了单元测试，
+// 这里漏了，于是这条 walk 报的是「印记五轮都没递一张能点的卡」——而截图上
+// 那张卡好好地摆着，只是这个过滤器再也匹配不上。
+const TAPPABLE = "请选择一句。";
 
 /**
  * Everything that would turn this into an exam. Scanned over the WHOLE page's
@@ -248,7 +252,7 @@ test("带读 hands her a card, she answers it with one tap, and it survives a re
   const found = await findChooseSpanCard(page);
   const prompt = (await found.locator("p").first().innerText()).trim();
   expect(prompt.length).toBeGreaterThan(0);
-  // The stable handle. `found` is filtered on 「点一句就行」, which is exactly
+  // The stable handle. `found` is filtered on 「请选择一句。」, which is exactly
   // the line that disappears when she answers — using it after the tap would
   // resolve to nothing. The QUESTION stays on the card for good, so it is what
   // the card is held by from here on.

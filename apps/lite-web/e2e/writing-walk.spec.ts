@@ -380,9 +380,10 @@ test("writing walk: 设定 → 印记 opens → planning grows a mind map → �
   await jumpStage(page, "成稿");
   await expect(page.getByRole("heading", { name: "成稿", level: 2 })).toBeVisible();
 
-  const draftBox = page.getByPlaceholder(
-    "从哪儿开始都行。先把你最想说的那句话写下来，剩下的会跟着它长出来。",
-  );
+  // 🚨 和 ComposeStage.tsx 里那一行一模一样。2026-09-03 那次「不写文学腔」的
+  // 清扫把「剩下的会跟着它长出来」改掉了（「长出来」只留给树），单元测试同步了，
+  // 这条 e2e 漏了，于是它在这里报「找不到元素」。
+  const draftBox = page.getByPlaceholder("请先写下你最想说的那句话，再围绕它展开。");
 
   // ── 铁律 PROOF #3. composeSnippetsIntoDraft only trims and joins non-empty
   // snippet text with "\n\n" — no model call, nothing invented. Only two
