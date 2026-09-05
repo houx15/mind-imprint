@@ -20,6 +20,21 @@ export const CourseCategory = z.enum([
 ]);
 export type CourseCategory = z.infer<typeof CourseCategory>;
 
+// Which kinds of student a course is offered to (migration 0133). Today the
+// dimension is the school's edition; the column is a text[] so a third value
+// needs no migration, only an entry here and in course_audience.go.
+//
+// An EMPTY list means "no restriction" — every student sees the course. That
+// direction is deliberate: an untagged course should stay visible, because a
+// missed tag would otherwise remove it from every catalog with no UI saying so.
+export const COURSE_AUDIENCES = [
+  { slug: "lite", label: "轻量版" },
+  { slug: "pro",  label: "完整版" },
+] as const;
+
+export const CourseAudience = z.enum(["lite", "pro"]);
+export type CourseAudience = z.infer<typeof CourseAudience>;
+
 // 学科对标 — curriculum alignment, three tracks (IB / other international /
 // domestic). Each an independent list of short labels.
 export const CourseAlignment = z.object({
@@ -129,6 +144,11 @@ export const CourseSummary = z.object({
   category: CourseCategory.nullable().default(null),
   introduction: CourseIntroduction.nullable().default(null),
   featuredRank: z.number().int().nullable().default(null),
+  // Which student audiences this course is offered to. [] = no restriction.
+  // The catalog endpoint already filters by the caller's edition, so a student
+  // never receives a row they are not allowed to open; this field is here for
+  // the admin listing, where "who is this course for" has to be visible.
+  audience: z.array(CourseAudience).default([]),
   // The AUTHED student's own state on this course, resolved server-side so the
   // catalog is one round trip (it used to fan out a /progress request per card).
   // null = never opened, which is what the card reads as 未开始 — a zero-valued

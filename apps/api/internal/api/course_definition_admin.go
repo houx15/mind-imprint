@@ -44,6 +44,13 @@ type putCourseDefinitionReq struct {
 	CardIDs      []string        `json:"cardIds"`
 	Category     string          `json:"category"`     // one of the 7 slugs, or "" to leave unset
 	Introduction json.RawMessage `json:"introduction"` // schema-driven intro object, or absent
+	// Audience: which kinds of student this course is offered to (migration
+	// 0122). 🚨 The ONE field here whose ABSENCE means "keep what is stored" —
+	// every other field in this envelope overwrites. Deliberate: a wiped blurb
+	// is visible to the author at a glance, a wiped audience silently makes the
+	// course visible to everyone and no screen says so. Send `[]` (not absent)
+	// to mean "no restriction".
+	Audience []string `json:"audience"`
 }
 
 // putCourseDefinitionDoc is the border slice of `definition` this handler
@@ -215,6 +222,12 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	// Audience: unknown values are dropped rather than rejected — the vocabulary
+	// grows in the TS contract, and a generator posting a value we do not know
+	// yet should not lose a whole course upload over a label. An all-unknown
+	// list normalizes to [] ("no restriction"), which is the safe direction.
+	audience := normalizeCourseAudience(body.Audience)
+
 	timeLabel := ""
 	if doc.Course.EstimatedMinutes > 0 {
 		timeLabel = fmt.Sprintf("约 %d 分钟", doc.Course.EstimatedMinutes)
@@ -232,6 +245,7 @@ func (a *API) putCourseDefinition(w http.ResponseWriter, r *http.Request) {
 		StepCount:    courseStepCount(doc),
 		Category:     categoryPtr,
 		Introduction: introBytes,
+		Audience:     audience,
 	})
 	if err != nil {
 		httpx.WriteError(w, r, err)

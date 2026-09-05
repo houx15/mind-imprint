@@ -2,88 +2,40 @@ package api
 
 // interest_harvest.go —— 关键词从她真做过的事情里长出来的那一步。
 //
-// # 为什么采集不发生在「完成」那一刻
+// # 采集在后台跑，不在她的请求里
 //
-// 最直觉的接法是把采集挂在 finishReading / finishWritingAtom 上。没有这么做，
-// 有两个理由：
+// 调度住在 interest_jobs.go：完成时入队 + 每两分钟一次扫尾。这里只负责「采一个
+// atom」这件事本身。
 //
-//  1. finishReading 现在是一次**瞬时翻转**（它自己的注释就这么写的：a plain
-//     synchronous flip）。在上面挂一次三秒的模型调用，会把一个「点一下就好」
-//     的动作变成一次等待，而她点完之后要看的报告本身还要再等一次生成。
-//  2. 这个代码库里**没有** fire-and-forget 的先例。所有 `go func()` 不是 SSE
-//     心跳就是同一个请求里 WaitGroup 汇合的并行取数；没有一处是「handler 返回
-//     之后还在后台跑」。为一个新功能开这个先例，代价是无人观测的 goroutine 和
-//     一类只在生产上出现的 bug。
-//
-// 所以采集是**惰性的**，跟 atom_report 一样：在她打开自己的树时才跑，用 advisory
-// lock 防并发，跑完盖章。代价付在她正盯着那棵树等它长的时候 —— 那是这次等待唯一
-// 说得通的地方。
-//
-// river 的表已经迁移过了，但客户端和 worker 都还没有（P4 才建）。等 river 真的
-// 起来，这一整块应该变成一个入队的任务，采集回到「完成」那一刻，惰性这层就可以
-// 删掉。在那之前，这是不引入新架构的最诚实的做法。
+// 2026-09-04 之前这一段是**惰性**的：她打开树的时候，顺手补采最近三个还没采过
+// 的 atom。当时那么写有两条理由 —— finishReading 是一次瞬时翻转不能挂三秒调用，
+// 而且这个代码库里没有 fire-and-forget 的先例。**队列把两条都解决了**，所以那
+// 层惰性删掉了，GET /interest/tree 现在是一次纯读。
 //
 // # 「尝试过一次」，不是「长出过词」
 //
 // atom.interest_harvested_at 记的是尝试，不是产出。一篇很薄的阅读完全可能一个
 // 词都采不出来，而那个结果和「从没采过」在 interest_keyword 里长得一模一样 ——
-// 按「有没有长出词」判断，就会对同一篇薄阅读每次打开树都重发一次旗舰调用，
-// 永远采不到，永远重来。这条教训直接来自 reading.questions_at（迁移 0104）。
+// 按「有没有长出词」判断，就会对同一篇薄阅读反复重发旗舰调用，永远采不到，
+// 永远重来。这条教训直接来自 reading.questions_at（迁移 0104）。
 
 import (
 	"context"
 	"fmt"
 	"log/slog"
 	"strings"
-	"sync"
 
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/interest"
-	"mindimprint/api/internal/store/sqlc"
 )
-
-// harvestBatch 是一次打开树最多补采几个 atom。
-//
-// 三个，并行跑，所以墙钟时间约等于一次调用。她一口气读完五篇再打开树，会补上
-// 最近的三篇，剩下两篇下次进来时补 —— 用一个上限换「树不会因为一次积压而转半
-// 分钟」，比让她盯着转圈强。
-const harvestBatch = 3
 
 // harvestBodyRuneBudget 限制喂给采集器的文本量。
 //
 // lite 没有压缩层，一篇长文加上她全部批注可以轻松过万字。采集要的是「她关心
 // 什么」，不是通读全文，所以给一个宽裕但有界的预算。
 const harvestBodyRuneBudget = 6000
-
-// harvestPending 把她已完成、但还没采过的 atom 补上关键词。
-//
-// 整个过程是**尽力而为**：任何一步失败都只是少长几个词，绝不冒泡成 HTTP 错误
-// ——她请求的是「看我的树」，不是「跑一次采集」。
-func (a *API) harvestPending(ctx context.Context, userID uuid.UUID) {
-	rows, err := a.d.Queries.ListUnharvestedFinishedAtoms(ctx,
-		sqlc.ListUnharvestedFinishedAtomsParams{UserID: userID, Limit: harvestBatch})
-	if err != nil {
-		slog.Warn("interest harvest: list pending failed", "err", err, "user_id", userID)
-		return
-	}
-	if len(rows) == 0 {
-		return
-	}
-
-	// 并行。同一个请求里 WaitGroup 汇合的并行取数在这个包里是有先例的
-	// （evaluation_generate.go），而三次串行的旗舰调用会让这棵树转十秒。
-	var wg sync.WaitGroup
-	for _, row := range rows {
-		wg.Add(1)
-		go func(atomID uuid.UUID, kind string) {
-			defer wg.Done()
-			a.harvestOneAtom(ctx, userID, atomID, kind)
-		}(row.ID, row.Kind)
-	}
-	wg.Wait()
-}
 
 // harvestOneAtom 采集一个 atom。
 //
@@ -137,7 +89,7 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 	if a.d.Provider == nil {
 		return
 	}
-	resolved, ok := a.route(ctx, gateway.ClassCompose)
+	resolved, ok := a.route(ctx, gateway.ClassDigest)
 	if !ok {
 		slog.Warn("interest harvest: no provider resolved", "atom_id", atomID)
 		return

@@ -195,6 +195,7 @@ type Course struct {
 	Category         *string   `json:"category"`
 	Introduction     []byte    `json:"introduction"`
 	FeaturedRank     *int32    `json:"featured_rank"`
+	Audience         []string  `json:"audience"`
 }
 
 type CourseProgress struct {
@@ -363,6 +364,20 @@ type InterestKeyword struct {
 	Note        string             `json:"note"`
 	FirstSeenAt time.Time          `json:"first_seen_at"`
 	DigAt       pgtype.Timestamptz `json:"dig_at"`
+	InterestID  *string            `json:"interest_id"`
+}
+
+type InterestKeywordV1Archive struct {
+	ID          uuid.UUID          `json:"id"`
+	UserID      uuid.UUID          `json:"user_id"`
+	TextZh      string             `json:"text_zh"`
+	TextEn      string             `json:"text_en"`
+	Norm        string             `json:"norm"`
+	Field       string             `json:"field"`
+	Strength    int32              `json:"strength"`
+	Note        string             `json:"note"`
+	FirstSeenAt time.Time          `json:"first_seen_at"`
+	DigAt       pgtype.Timestamptz `json:"dig_at"`
 }
 
 type InterestQuiz struct {
@@ -407,7 +422,25 @@ type KeywordDiscipline struct {
 	Rationale    string    `json:"rationale"`
 }
 
+type KeywordDisciplineV1Archive struct {
+	KeywordID    uuid.UUID `json:"keyword_id"`
+	DisciplineID string    `json:"discipline_id"`
+	Confidence   float32   `json:"confidence"`
+	How          string    `json:"how"`
+	Rationale    string    `json:"rationale"`
+}
+
 type KeywordSource struct {
+	ID         uuid.UUID   `json:"id"`
+	KeywordID  uuid.UUID   `json:"keyword_id"`
+	Kind       string      `json:"kind"`
+	RefID      pgtype.UUID `json:"ref_id"`
+	Label      string      `json:"label"`
+	Evidence   string      `json:"evidence"`
+	HappenedAt time.Time   `json:"happened_at"`
+}
+
+type KeywordSourceV1Archive struct {
 	ID         uuid.UUID   `json:"id"`
 	KeywordID  uuid.UUID   `json:"keyword_id"`
 	Kind       string      `json:"kind"`
@@ -498,7 +531,7 @@ type NewsPlanet struct {
 	SourceName   string             `json:"source_name"`
 	Field        string             `json:"field"`
 	DisciplineID string             `json:"discipline_id"`
-	Keyword      string             `json:"keyword"`
+	InterestID   *string            `json:"interest_id"`
 	PublishedAt  pgtype.Timestamptz `json:"published_at"`
 	CreatedAt    time.Time          `json:"created_at"`
 }
@@ -532,6 +565,17 @@ type PblArtifact struct {
 	Why       string             `json:"why"`
 	SettledAt pgtype.Timestamptz `json:"settled_at"`
 	CreatedAt time.Time          `json:"created_at"`
+}
+
+type PblCourseAssignment struct {
+	ID         uuid.UUID          `json:"id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	SessionID  pgtype.UUID        `json:"session_id"`
+	CourseSlug string             `json:"course_slug"`
+	Why        string             `json:"why"`
+	Takeaway   string             `json:"takeaway"`
+	FinishedAt pgtype.Timestamptz `json:"finished_at"`
+	CreatedAt  time.Time          `json:"created_at"`
 }
 
 type PblDecision struct {

@@ -1,27 +1,23 @@
 package api
 
-// interest.go —— 兴趣模型的胶水层：把 internal/interest 的纯逻辑接到 Postgres
-// 和网关上，并把她的那棵树读出来。
+// interest.go —— 兴趣模型的胶水层：把 internal/interest 的纯逻辑接到 Postgres 上，
+// 并把她的那棵树读出来。
 //
-// # 事务边界，以及为什么路由发生在事务外面
+// # 一次采集只有一个事务了
 //
-// plantKeywords 分两段：
+// 2026-09-04 之前这里分两段：先在事务里认词、插来源、重算强度，再在事务外跑
+// 三档路由（因为 T3 要发一次模型调用，而横跨模型调用的事务会把行锁按秒攥住）。
 //
-//	第一段（一个事务）  认词 · 插来源 · 按来源条数重算强度
-//	第二段（事务外）    给还没有学科的词跑路由，需要时才发那一次模型调用
-//
-// 拆开是有原因的：T3 档要发一次网络请求，而一个横跨模型调用的事务会把
-// interest_keyword 上的行锁按秒计地攥在手里。第二段的每一步都是单条幂等语句
-// （UpsertKeywordDiscipline 是 upsert），中途失败只是这个词暂时没有学科，
-// 下次采集会再试 —— 而她的词和来源已经稳稳落库了。
+// **路由没有了。** 领域词表自带 disciplines[] 这条静态边，一个词连哪几门学科
+// 是查表得到的，不花调用、不占时间，所以写边和写词现在在同一个事务里完成。
 //
 // # 失败姿态
 //
-// 采集与路由都是**锦上添花**：它们绝不能让学生的那次请求失败，也绝不能凭空
-// 编一个词出来。所以这里所有的错误都是 slog.Warn + 少长一个词，没有一个会
-// 冒泡成 HTTP 错误。见 AGENTS.md 与 memory 里的 ai-errors-must-surface-never-fake：
-// 「不编」和「不吵」在这里并不矛盾 —— 采集失败对学生是不可见的（她本来也没
-// 要求长词），而一个编出来的关键词会以她无从反驳的方式挂在她的树上。
+// 采集是**锦上添花**：它绝不能让学生的那次请求失败，也绝不能凭空编一个词出来。
+// 所以这里所有的错误都是 slog.Warn + 少长一个词，没有一个会冒泡成 HTTP 错误。
+// 见 AGENTS.md 与 memory 里的 ai-errors-must-surface-never-fake：「不编」和
+// 「不吵」在这里并不矛盾 —— 采集失败对学生是不可见的（她本来也没要求长词），
+// 而一个编出来的关键词会以她无从反驳的方式挂在她的树上。
 
 import (
 	"context"
@@ -33,9 +29,9 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/disciplines"
-	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/interest"
+	"mindimprint/api/internal/interests"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -46,6 +42,9 @@ import (
 // refID 是这次完成的 atom（news / quiz 没有 atom，传 uuid.Nil）。同一个
 // (词, 类型, 来源) 只会计一次来源，所以重复调用是安全的 —— 重新打开一篇已经
 // 采集过的阅读不会把强度刷上去。
+//
+// 🔑 **中文名、英文名、主枝全部从词表查表得到**，`Harvested` 里根本没有这三个
+// 字段。模型交出来的只有一个 id，它说不出树上的那几个字。
 func (a *API) plantKeywords(
 	ctx context.Context,
 	userID uuid.UUID,
@@ -66,23 +65,24 @@ func (a *API) plantKeywords(
 	defer func() { _ = tx.Rollback(context.WithoutCancel(ctx)) }()
 	qtx := a.d.Queries.WithTx(tx)
 
-	planted := make([]sqlc.InterestKeyword, 0, len(hs))
 	for _, h := range hs {
-		// 防御性重复一次纯逻辑层的规则：没有原话的词绝不落库。解析器已经挡过
-		// 一遍，但这条是树的地基，值得在写库前再站一个人。
-		if h.Evidence == "" || !disciplines.IsField(h.Field) {
+		// 闭表那条不变量在写库前再站一个人。解析器已经挡过一遍，但这一条和
+		// 「没有原话的词不落库」一样是树的地基，值得重复。
+		it, ok := interests.ByID(h.InterestID)
+		if !ok || h.Evidence == "" {
 			continue
 		}
-		norm := interest.Norm(h.TextZh)
+		norm := interest.Norm(it.Zh)
 		if norm == "" {
 			continue
 		}
 		row, err := qtx.UpsertInterestKeyword(ctx, sqlc.UpsertInterestKeywordParams{
-			UserID: userID, TextZh: h.TextZh, TextEn: h.TextEn,
-			Norm: norm, Field: h.Field, Note: h.Note,
+			UserID: userID, TextZh: it.Zh, TextEn: it.En,
+			Norm: norm, Field: it.Field, Note: h.Note,
+			InterestID: &it.ID,
 		})
 		if err != nil {
-			slog.Warn("interest: upsert keyword failed", "err", err, "keyword", h.TextZh)
+			slog.Warn("interest: upsert keyword failed", "err", err, "interest_id", it.ID)
 			continue
 		}
 		if err := qtx.AddKeywordSource(ctx, sqlc.AddKeywordSourceParams{
@@ -107,113 +107,42 @@ func (a *API) plantKeywords(
 			slog.Warn("interest: recount strength failed", "err", err, "keyword_id", row.ID)
 			continue
 		}
-		planted = append(planted, row)
+		// 词 → 学科的边。查表，不判定。
+		linkCatalogDisciplines(ctx, qtx, row.ID, it)
 	}
 
 	if err := tx.Commit(ctx); err != nil {
 		slog.Warn("interest: commit failed", "err", err, "user_id", userID)
-		return
 	}
-
-	// 第二段：路由。事务已经提交，词和来源不会再因为路由失败而丢。
-	a.routeKeywords(ctx, userID, planted, hs)
 }
 
-// routeKeywords 给还没有学科的词连上学科。
+// linkCatalogDisciplines 把词表里写好的那几条边写进库。
 //
-// 便宜的两档先跑；两档都空了，才为这一个词花一次模型调用。**已经有边的词直接
-// 跳过** —— 一个词路由一次就永久缓存，这就是路由成本是 O(新词) 而不是 O(活动)
-// 的原因。
-func (a *API) routeKeywords(
-	ctx context.Context,
-	userID uuid.UUID,
-	planted []sqlc.InterestKeyword,
-	hs []interest.Harvested,
+// how='catalog' 而不是 'llm'：这条边是人写在 interests.json 里的，比任何一档
+// 模型判定都确定。confidence 恒为 1 —— 一个作者写下的归属没有「有多确定」这
+// 回事，把它写成 0.8 只是在假装这里还有一个概率。
+//
+// UpsertKeywordDiscipline 的 ON CONFLICT 带着 `WHERE how <> 'student'`，所以
+// **她自己在抽屉里改过的边不会被覆盖**。这条保证在路由退休之后仍然成立，因为
+// 它一直住在 SQL 里，不在 Go 里。
+func linkCatalogDisciplines(
+	ctx context.Context, q *sqlc.Queries, keywordID uuid.UUID, it interests.Interest,
 ) {
-	if len(planted) == 0 {
-		return
-	}
-	rows, err := a.d.Queries.ListRoutedKeywordsForUser(ctx, userID)
-	if err != nil {
-		slog.Warn("interest: load routed keywords failed", "err", err, "user_id", userID)
-		return
-	}
-
-	known := make([]interest.Known, 0, len(rows))
-	routed := make(map[uuid.UUID]bool, len(rows))
-	refsOf := make(map[uuid.UUID][]string, len(rows))
-	for _, r := range rows {
-		known = append(known, interest.Known{
-			KeywordNorm: r.Norm, DisciplineIDs: r.DisciplineIds, SourceRefs: r.SourceRefs,
-		})
-		if len(r.DisciplineIds) > 0 {
-			routed[r.ID] = true
-		}
-		refsOf[r.ID] = r.SourceRefs
-	}
-
-	// 采集器给的原话，按词索引 —— T3 的 prompt 少了它就只能猜词面。
-	evidenceOf := make(map[string]string, len(hs))
-	for _, h := range hs {
-		evidenceOf[interest.Norm(h.TextZh)] = h.Evidence
-	}
-
-	for _, k := range planted {
-		if routed[k.ID] {
+	for _, did := range it.Disciplines {
+		if _, ok := disciplines.ByID(did); !ok {
+			// TestEveryDisciplineIDIsReal 守着这件事不该发生；真发生了，
+			// 跳过一条边好过写一个指向空气的 id 进库。
+			slog.Warn("interest: catalog points at unknown discipline",
+				"interest_id", it.ID, "discipline_id", did)
 			continue
 		}
-		routes := interest.RouteCheap(k.TextZh, refsOf[k.ID], known)
-		if routes == nil {
-			// 两档都没命中 —— 现在才值得花那一次调用。
-			routes = a.routeByModel(ctx, userID, k, evidenceOf[k.Norm])
-		}
-		for _, rt := range routes {
-			if err := a.d.Queries.UpsertKeywordDiscipline(ctx, sqlc.UpsertKeywordDisciplineParams{
-				KeywordID: k.ID, DisciplineID: rt.DisciplineID,
-				Confidence: rt.Confidence, How: rt.How, Rationale: rt.Rationale,
-			}); err != nil {
-				slog.Warn("interest: upsert edge failed", "err", err, "keyword_id", k.ID)
-			}
+		if err := q.UpsertKeywordDiscipline(ctx, sqlc.UpsertKeywordDisciplineParams{
+			KeywordID: keywordID, DisciplineID: did,
+			Confidence: 1, How: "catalog", Rationale: "",
+		}); err != nil {
+			slog.Warn("interest: upsert edge failed", "err", err, "keyword_id", keywordID)
 		}
 	}
-}
-
-// routeByModel 是 T3 档。失败一律返回 nil：这个词暂时没有学科，下次采集再试。
-// 绝不返回一个猜的学科 —— 一条编出来的「你的兴趣属于艺术史」比没有边伤害大得多。
-func (a *API) routeByModel(
-	ctx context.Context, userID uuid.UUID, k sqlc.InterestKeyword, evidence string,
-) []interest.Route {
-	// 🚨 gateway.Collect 对 nil provider 直接 panic，而这条路径**只有在前两档
-	// 都没命中时才走到** —— 所以它躲过了很久：别名命中的词根本不到这里。一次
-	// panic 的代价是她那次请求整个挂掉（收藏一颗星、交一次卷）。
-	// 第三处同样的守卫（另两处：interest_harvest.go、interest_quiz.go）。
-	if a.d.Provider == nil {
-		return nil
-	}
-	// ClassReflex 的定义就是「一次路由选择，没有自由文本」——正是这件事。
-	resolved, ok := a.route(ctx, gateway.ClassReflex)
-	if !ok {
-		slog.Warn("interest: no provider resolved for routing", "keyword_id", k.ID)
-		return nil
-	}
-	system, user := interest.BuildRoutePrompt(k.TextZh, evidence, k.Field)
-	res, err := gateway.Collect(ctx, a.d.Provider, resolved, gateway.ChatRequest{
-		Messages: []gateway.ChatMessage{
-			{Role: gateway.RoleSystem, Content: system},
-			{Role: gateway.RoleUser, Content: user},
-		},
-	})
-	a.recordLiteLLMCall(ctx, userID, uuid.Nil, "interest_route", resolved, res.Usage)
-	if err != nil {
-		slog.Warn("interest: routing call failed", "err", err, "keyword_id", k.ID)
-		return nil
-	}
-	routes, perr := interest.ParseRouteReply(res.Text, k.Field)
-	if perr != nil {
-		slog.Warn("interest: unparseable routing reply", "err", perr, "keyword_id", k.ID)
-		return nil
-	}
-	return routes
 }
 
 /* ── 读出那棵树 ─────────────────────────────────────────────────────────── */
@@ -270,13 +199,9 @@ func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
 		return
 	}
-	// 惰性采集：把她已完成、还没采过的东西补上关键词，然后才读这棵树。见
-	// interest_harvest.go 顶部关于「为什么不挂在完成那一刻」的说明。用脱离请求
-	// 生命周期的 context，这样她中途切走也不会把已经花掉的调用浪费掉。
-	hCtx, cancel := detachedModelCtx(r)
-	defer cancel()
-	a.harvestPending(hCtx, u.ID)
-
+	// **这是一次纯读。** 采集在后台队列里跑（interest_jobs.go）：完成时入队，
+	// 外加每两分钟一次扫尾。2026-09-04 之前这里挂着一次三到十秒的旗舰调用，
+	// 她盯着自己的树等它长出来。
 	ctx := r.Context()
 
 	keywords, err := a.d.Queries.ListInterestKeywords(ctx, u.ID)

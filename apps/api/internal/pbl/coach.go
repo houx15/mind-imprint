@@ -98,6 +98,28 @@ type CoachInput struct {
 	// 和 Stuck 分开，因为它**一次就算数**：她已经明说了她要什么，还要她先卡够
 	// 两轮才给，是把一条本来就该听见的话当成噪音。
 	AskedForHelp bool
+	// Courses 是课程库里她这个版本看得见的那些课。
+	//
+	// 🚨 这一格空着，印记就**挑不出课来**——它不知道我们有哪些课，只能瞎编一个
+	// 名字，而服务端会把编出来的 slug 丢掉，她那边看到的是印记说了要给她一课、
+	// 然后什么也没出现。所以 course 这件工具的目录必须是真的库存，不是模型的
+	// 记忆。派生自 /courses 的同一批行（见 api/pbl_course.go）。
+	Courses []CourseOption
+	// CoursesTaken 是她在这个项目里已经上完的课，用它们的标题。
+	//
+	// 和 ToolsUsed 一个道理：目录本身不带状态，不说它就会被重复递。
+	CoursesTaken []string
+}
+
+// CourseOption 是课程目录里的一门课，印记挑课时看到的那一行。
+//
+// 只带四样：怎么点名（Slug）、叫什么、讲什么、要多久。够它判断"这门课对得上
+// 她现在卡住的这件事吗"，又不至于把整个课程库塞进 prompt。
+type CourseOption struct {
+	Slug      string
+	Title     string
+	Blurb     string
+	TimeLabel string
 }
 
 // CoachOutput is one turn's result.
@@ -160,6 +182,7 @@ var ProduceKinds = []struct{ Kind, About, Only string }{
 	{Kind: "artifact", About: "一份你写出来交给她审的东西：草稿、方案、或一个网址"},
 	{Kind: "substeps", About: "某一步的分工：拆成几件小事，每件写清楚谁做、为什么是他做"},
 	{Kind: "structure", About: "一份结构：一棵两到三层的提纲，让她看得见整件东西的全貌"},
+	{Kind: "course", About: "从下面【课程库】里挑一门课给她上：写清楚是哪一门（slug 原样抄），以及这门课对她手上这件事有什么用"},
 	{
 		Kind:  "site_content",
 		About: "把她说过的话摆到她主页的各个位置上。**只能摆她的原话**，逐字对不上的那句服务端会丢掉",
@@ -335,6 +358,15 @@ produce 一起给，要么这一轮两个都别给。
   他答了其中任何一条，就算他留下了意见，这份东西的结论就变成「执行修改」。
 - 某一步要好几个人一起做 → 给这一步的分工，每件小事写清楚谁做、为什么是他做。
 - 要做的东西大到看不清全貌 → 给一份结构，两三层就够。
+- 他卡在一件**没学过所以做不了**的事上（要写代码、要做一份产品方案、要读一组
+  数据、要拍一段片子） → course + course，一起给：从下文【课程库】里挑一门
+  真有的课，说清楚这门课能让他接下来的哪一步走得通。
+
+  🚨 只能挑**下文列出来的**课，slug 一字不差地抄。库里没有对得上的，就不要
+  递这件工具——编一个课名出来，服务端会把它丢掉，他那边看到的是你说要给他
+  一课、然后什么也没出现。
+  🚨 上课不是他项目的一步，是他为了走下一步去补的一件本事。所以递之前先想
+  清楚：他现在到底缺什么、这门课学完他能立刻做成什么。答不上来就先别递。
 
 produce 每轮最多做一件。它和递工具**不冲突**：一件要配产出的工具，本来就是
 和它的产出一起给的。
@@ -402,7 +434,8 @@ artifact:  {"kind": "draft|spec|site", "title": "", "body": "正文，site 时�
                        "quote": "从正文里原样抄一句", "question": "针对这一句要她回答什么"}],
             "dimensions": [{"prompt": "审这份东西必须看的一个方面", "why": "为什么这个方面要紧"}]}
 substeps:  {"stepTitle": "这是计划里哪一步", "items": [{"title": "", "owner": "yinji|student|both", "why": "为什么是他做"}]}
-structure: {"nodes": [{"title": "", "body": "", "children": [{"title": "", "body": ""}]}]}`
+structure: {"nodes": [{"title": "", "body": "", "children": [{"title": "", "body": ""}]}]}
+course:    {"slug": "课程库里那一门的 slug，一字不差", "why": "这门课对他手上这件事有什么用，用「你」跟他说"}`
 
 // momentsGeneric —— 通用项目里「什么时候递哪一件」。
 //
@@ -425,6 +458,8 @@ const momentsGeneric = `【什么时候递哪一件】
   structure，一起给。先看结构，是为了让他知道结构是可以改的——不然他会照着
   第一版一路做下去，从没想过它可以是另一种做法。
 - 进了实施，某一步要好几个人一起做 → split + substeps，一起给。
+- 他要动手了，可是这件事他没学过（写代码、做产品方案、读一组数据、剪一段片子）
+  → course + course，一起给。挑下文【课程库】里真有的那一门。
 - 东西做完了 → lookback。
 - 东西放出去了，真的有人在用了 → keep。`
 
@@ -539,6 +574,29 @@ func buildCoachContext(in CoachInput) string {
 	// 递出去了的那件，其实不在那两份清单里」。
 	if d := strings.TrimSpace(in.ToolDropped); d != "" {
 		fmt.Fprintf(&b, "\n【上一轮有一件工具没递出去】\n%s\n", d)
+	}
+	// 🚨 课程库。印记挑课**只能**从这里挑——它对课程库没有任何记忆，凭空写一个
+	// slug 出来服务端会丢掉，她看到的是"说好的那一课没出现"。
+	//
+	// 库里一门课都没有（这个版本还没上课，或者课程服务挂了）就整段不写：一份
+	// 空目录只会让模型以为"这里有课，只是这次没列出来"，然后照样编一个。
+	if len(in.Courses) > 0 {
+		b.WriteString("\n【课程库】他这个版本能上的课，只能从这几门里挑：\n")
+		for _, c := range in.Courses {
+			line := "  " + c.Slug + " —— 《" + strings.TrimSpace(c.Title) + "》"
+			if t := strings.TrimSpace(c.TimeLabel); t != "" {
+				line += "（" + t + "）"
+			}
+			if bl := strings.TrimSpace(c.Blurb); bl != "" {
+				line += "：" + bl
+			}
+			b.WriteString(line + "\n")
+		}
+		b.WriteString("slug 一字不差地抄。这里没有的课就是没有，不要编。\n")
+	}
+	if len(in.CoursesTaken) > 0 {
+		fmt.Fprintf(&b, "\n【他在这个项目里已经上过的课】%s\n"+
+			"这几门不要再递了。\n", strings.Join(in.CoursesTaken, "、"))
 	}
 	// 🚨 这一段必须在最后，而且必须存在：她没打字的那一轮，上面的对话是以
 	// 印记自己的话结尾的，模型顺着写下去最可能的就是把那句重说一遍。

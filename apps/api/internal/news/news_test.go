@@ -2,6 +2,7 @@ package news
 
 import (
 	"fmt"
+	"mindimprint/api/internal/interests"
 	"strings"
 	"testing"
 	"time"
@@ -297,12 +298,12 @@ func TestParseSelectReplyHappyPath(t *testing.T) {
 	raw := "```json\n" + `{"planets":[
 		{"index":1,"titleZh":"深海珊瑚在 30 度水里活下来了","titleEn":"Story number 1 about topic 1",
 		 "summary":"红海北端一片珊瑚没有白化。","hook":"四平方公里，能代表一整片海吗？",
-		 "field":"science","disciplineId":"climate-ocean","keyword":"样本代表性"}]}` + "\n```"
+		 "field":"science","disciplineId":"climate-ocean","interestId":"climate"}]}` + "\n```"
 	got, err := ParseSelectReply(raw, candidates(3))
 	if err != nil {
 		t.Fatalf("parse: %v", err)
 	}
-	if len(got) != 1 || got[0].Index != 1 || got[0].Keyword != "样本代表性" {
+	if len(got) != 1 || got[0].Index != 1 || got[0].InterestID != "climate" {
 		t.Fatalf("解析结果不对：%+v", got)
 	}
 }
@@ -314,7 +315,7 @@ func TestParseSelectReplyIgnoresTheModelsIndexAndAnchorsByTitle(t *testing.T) {
 	cs := candidates(6)
 	// 模型说的是 4 号，却把 index 写成 0。
 	raw := `{"planets":[{"index":0,"titleZh":"标题","titleEn":"Story number 4 about topic 4",` +
-		`"hook":"为什么？","field":"science","keyword":"k"}]}`
+		`"hook":"为什么？","field":"science","interestId":"climate"}]}`
 	got, err := ParseSelectReply(raw, cs)
 	if err != nil {
 		t.Fatalf("parse: %v", err)
@@ -419,7 +420,7 @@ func fmtPlanet(b *strings.Builder, idx int) {
 	// titleEn 必须能回查到 candidates(n) 里的那一条 —— 下标已经不被信任了。
 	b.WriteString(`,"titleZh":"标题","titleEn":"Story number ` + itoa(idx) + ` about topic ` + itoa(idx) + `",`)
 	b.WriteString(`"summary":"s","hook":"为什么？",`)
-	b.WriteString(`"field":"science","disciplineId":"climate-ocean","keyword":"关键词"}`)
+	b.WriteString(`"field":"science","disciplineId":"climate-ocean","interestId":"climate"}`)
 }
 
 func itoa(n int) string {
@@ -453,7 +454,7 @@ func TestParseSelectReplySurvivesProseAroundTheObject(t *testing.T) {
 	body := `{"planets":[
 		{"index":1,"titleZh":"深海珊瑚在 30 度水里活下来了","titleEn":"Story number 1 about topic 1",
 		 "summary":"红海北端一片珊瑚没有白化。","hook":"四平方公里，能代表一整片海吗？",
-		 "field":"science","disciplineId":"climate-ocean","keyword":"样本代表性"}]}`
+		 "field":"science","disciplineId":"climate-ocean","interestId":"climate"}]}`
 
 	for _, c := range []struct{ name, raw string }{
 		{"前面那段话里有花括号", "我按 {field} 这个字段挑的，结果如下：\n" + body},
@@ -465,7 +466,7 @@ func TestParseSelectReplySurvivesProseAroundTheObject(t *testing.T) {
 			if err != nil {
 				t.Fatalf("切坏了，今天的星图就没了：%v", err)
 			}
-			if len(got) != 1 || got[0].Keyword != "样本代表性" {
+			if len(got) != 1 || got[0].InterestID != "climate" {
 				t.Fatalf("解析结果不对：%+v", got)
 			}
 		})
@@ -541,14 +542,17 @@ func TestInterleaveBySourceHandlesEmptyAndSingle(t *testing.T) {
 }
 
 // 🚨 2026-09-03 实测漏过的一条："Venice Biennale President Defends Russia
-// Inclusion" —— 英文原标题里一个信号词都没有，抓取那一层挡不住。但模型的中文
-// 重写把它说破了（关键词「文化制裁边界」）。所以产物要再过一遍同一道闸。
+// Inclusion" —— 英文原标题里一个信号词都没有，抓取那一层挡不住。
+//
+// 2026-09-04 之前，是模型自己写的中文关键词「文化制裁边界」里的「制裁」把它
+// 拦下来的。关键词改成闭表 id 之后那句中文没有了，现在拦住它的是**模型选的
+// 领域**：一条落在「外交」上的新闻，主语就是当下的政治。
 func TestParseSelectReplyDropsPoliticsTheEnglishTitleHid(t *testing.T) {
 	cs := []Item{{Title: "Venice Biennale President Defends Russia Inclusion in New Interview"}}
 	raw := `{"planets":[{"index":0,"titleZh":"威尼斯双年展主席坚持邀请俄罗斯",` +
 		`"titleEn":"Venice Biennale President Defends Russia Inclusion in New Interview",` +
 		`"summary":"主席在采访中为邀请俄罗斯辩护。","hook":"文化和政治能分开吗？",` +
-		`"field":"society","disciplineId":"political-economy","keyword":"文化制裁边界"}]}`
+		`"field":"society","disciplineId":"political-economy","interestId":"diplomacy"}]}`
 	if _, err := ParseSelectReply(raw, cs); err == nil {
 		t.Error("一条政治新闻通过了输出侧的过滤")
 	}
@@ -560,9 +564,33 @@ func TestParseSelectReplyKeepsScienceThatMerelySoundsLoud(t *testing.T) {
 	raw := `{"planets":[{"index":0,"titleZh":"全球变暖让珊瑚越过临界点",` +
 		`"titleEn":"Global warming pushed the reef past its threshold",` +
 		`"summary":"预警系统记录到温度越过阈值。","hook":"临界点是怎么定出来的？",` +
-		`"field":"science","disciplineId":"climate-ocean","keyword":"临界点判定"}]}`
+		`"field":"science","disciplineId":"climate-ocean","interestId":"climate"}]}`
 	got, err := ParseSelectReply(raw, cs)
 	if err != nil || len(got) != 1 {
 		t.Errorf("一条气候新闻被输出侧的政治过滤误伤了：%v", err)
+	}
+}
+
+// 名单必须短，而且只装主语就是政治的领域。这条守着别人（包括我自己）不要顺手
+// 把气候政策、法律、不平等加进去 —— 那会砍掉这个产品最想给学生的几类新闻。
+func TestBannedNewsInterestsStaysNarrow(t *testing.T) {
+	for _, id := range []string{"climate-policy", "law", "inequality", "public-health", "climate"} {
+		if IsBannedNewsInterest(id) {
+			t.Errorf("%s 不该被挡在星图外", id)
+		}
+	}
+	for _, id := range []string{"elections", "diplomacy", "war-history"} {
+		if !IsBannedNewsInterest(id) {
+			t.Errorf("%s 该被挡在星图外", id)
+		}
+	}
+}
+
+// 名单上的每个 id 都必须真的在词表里，否则它挡的是一个不存在的东西。
+func TestBannedNewsInterestsAreRealIDs(t *testing.T) {
+	for id := range newsBannedInterests {
+		if !interests.Exists(id) {
+			t.Errorf("禁用名单上的 %q 不在领域词表里", id)
+		}
 	}
 }

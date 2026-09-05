@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BookOpen, Compass, Hammer, PenLine, Sprout } from "lucide-react";
+import { BookOpen, Compass, GraduationCap, Hammer, PenLine, Sprout } from "lucide-react";
 import { Icon, Pebble, Settings, ACCENT_PRESETS, AccentProvider, type AccentId, type LucideIcon } from "@/ui";
 // `ui/background` is not re-exported from the ui barrel (only `ui/accent` is),
 // so it is imported from its module directly — the same way pro's StudentApp
@@ -20,6 +20,7 @@ import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
 import { TreeView } from "./tree/TreeView";
 import { ExploreView } from "./explore/ExploreView";
+import { CoursesHost } from "./courses/CoursesHost";
 import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
 
 /**
@@ -58,7 +59,7 @@ import { AwakeningQuiz } from "./tree/quiz/AwakeningQuiz";
  * primitives (`StudioCardSheet`, the chat log/composer) rather than hosted.
  */
 
-type LiteTab = "explore" | "readings" | "writings" | "projects" | "tree";
+type LiteTab = "explore" | "readings" | "writings" | "projects" | "courses" | "tree";
 
 // 我的树排在最后，是因为这条轨的顺序本身在说一句话：**读 → 写 → 做 → 树因此
 // 长出来。** 树不是第四件要做的事，它是前三件的结果，所以它站在它们后面。
@@ -67,6 +68,11 @@ const TABS: { key: LiteTab; label: string; icon: LucideIcon }[] = [
   { key: "readings", label: "阅读", icon: BookOpen },
   { key: "writings", label: "写作", icon: PenLine },
   { key: "projects", label: "项目", icon: Hammer },
+  // 课程 sits right after 项目 because that is where it is reached from: 印记
+  // hands her a course when the project needs a skill she has not learned yet
+  // (see projects/tools/surfaces/Course.tsx). 我的树 stays last for the reason
+  // above it.
+  { key: "courses", label: "课程", icon: GraduationCap },
   { key: "tree", label: "我的树", icon: Sprout },
 ];
 
@@ -84,6 +90,8 @@ function tabPath(tab: LiteTab): string {
       return liteRoutePath({ tab: "writings" });
     case "projects":
       return liteRoutePath({ tab: "projects" });
+    case "courses":
+      return liteRoutePath({ tab: "courses" });
     case "tree":
       return liteRoutePath({ tab: "tree" });
     case "explore":
@@ -183,6 +191,10 @@ export function LiteApp() {
 
 function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
   const [route, setRoute] = useState<LiteRoute>(() => parseLiteRoute(window.location.pathname));
+  // 课程播放器占满整页时收起导航轨。一门课是一段连续的叙事，旁边留一条
+  // 「阅读 / 写作 / 项目」的轨会把它降级成一个开着的面板 —— 和觉醒协议满屏
+  // 渲染是同一条理由。pro 的 shell 在同一个位置做同一件事。
+  const [immersive, setImmersive] = useState(false);
 
   useEffect(() => {
     function onPopState() {
@@ -222,6 +234,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           column are already out of room. Tailwind can't express it: the width
           has to lose to `hover:w-[208px]`, and a media-query utility would sit
           at the same specificity. */}
+      {!immersive && (
       <div className="mk-lite-navslot relative z-30 w-[64px] shrink-0">
         <nav
           className={cx(
@@ -291,6 +304,7 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           </button>
         </nav>
       </div>
+      )}
 
       <main className="min-w-0 flex-1 overflow-y-auto">
         {route.tab === "settings" ? (
@@ -301,6 +315,13 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <WritingsLanding />
           )
+        ) : route.tab === "courses" ? (
+          <CoursesHost
+            slug={route.slug}
+            onOpenCourse={(slug) => navigate(liteRoutePath({ tab: "courses", slug }))}
+            onBackToList={() => navigate(liteRoutePath({ tab: "courses" }))}
+            onImmersiveChange={setImmersive}
+          />
         ) : route.tab === "explore" ? (
           <ExploreView />
         ) : route.tab === "tree" ? (

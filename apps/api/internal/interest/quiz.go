@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"mindimprint/api/internal/disciplines"
+	"mindimprint/api/internal/interests"
 )
 
 // quiz.go —— 觉醒协议（兴趣测试）的纯逻辑。
@@ -150,7 +151,7 @@ func (a Attempt) ShouldHarvest() bool {
 
 // BuildQuizPrompt 拼出这次作答的采集 prompt。
 //
-// 复用 BuildHarvestPrompt：同一段 system prompt、同一套字段要求、同一个解析器
+// 复用采集的 system prompt：同一张候选词表、同一套字段要求、同一个解析器
 // （ParseHarvestReply）。测试如果有自己的一套 prompt，两边对「什么算一个好
 // 关键词」的看法迟早会分叉，而分叉的结果是同一棵树上挂着两种质量的词。
 func (a Attempt) BuildQuizPrompt() (system, user string) {
@@ -173,7 +174,7 @@ func (a Attempt) BuildQuizPrompt() (system, user string) {
 		// 的原话里长出来，所以这里写「倾向」而不是「必须」。
 		fmt.Fprintf(&b, "\n她挑的追问方向偏向：%s。\n", strings.Join(names, " · "))
 	}
-	return harvestSystemPrompt, b.String()
+	return harvestSystemPromptHead + interests.PromptList() + harvestSystemPromptTail, b.String()
 }
 
 // QuizSourceLabel 是这条来源在抽屉里显示的名字。

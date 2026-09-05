@@ -12,6 +12,16 @@ import { outputCount, useInterestTree } from "./useInterestTree";
 import type { FieldId, Keyword } from "./types";
 import { Hint, Sys, cx } from "./ui";
 import { useFitScale } from "./useFitScale";
+import {
+  GROUND_Y,
+  ROOT_NODES,
+  ROOT_NODE_BY_ID,
+  STAGE_H,
+  leafShape,
+  rootPath,
+  subRootPaths,
+  threadPath,
+} from "./roots";
 import { KeywordDrawer } from "./KeywordDrawer";
 import { useQuizTaken } from "./quiz/useQuizStatus";
 import { liteRoutePath, navigate } from "../routing";
@@ -49,6 +59,9 @@ import "./tree.css";
  * many words the model holds) and 成果数 (how many finished things they were
  * built from). Nothing rewards frequency (铁律②).
  */
+/** 选中的是一片叶子（领域），还是一条根（学科）。 */
+type Pick = { kind: "leaf" | "discipline"; id: string };
+
 export function TreeView({ user }: { user: MeUser }) {
   // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
   // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
@@ -56,11 +69,13 @@ export function TreeView({ user }: { user: MeUser }) {
   const [stop, setStop] = useState(GROWTH_STOPS.length - 1);
   const [openId, setOpenId] = useState<string | null>(null);
   const [hoverField, setHoverField] = useState<FieldId | null>(null);
+  // 点一片叶子看它扎在哪几条根上；点一条根看哪几片叶子共用它。连线只在这时出现。
+  const [pick, setPick] = useState<Pick | null>(null);
 
   const stageRef = useRef<HTMLDivElement>(null);
   // Bead labels are fixed pixel size on a stage that scales with the viewport.
   // Without this they collide on any short window.
-  const scale = useFitScale(stageRef, 792, 0.74);
+  const scale = useFitScale(stageRef, 1000, 0.74);
 
   // 真数据。没有 mock 兜底——一棵回退到示例词的树，会把十六个不属于她的词
   // 挂在一张标着「这就是你的模型」的图上，而她看不出来。见 useInterestTree。
@@ -256,13 +271,22 @@ export function TreeView({ user }: { user: MeUser }) {
           ref={stageRef}
           className="relative mx-auto"
           style={{
-            aspectRatio: "1000 / 780",
-            height: "min(792px, calc(100vh - 300px))",
+            // 加了根之后这张图从 780 高变成 1100 —— 树冠那 780 一个像素没动，
+            // 多出来的全在地面（y=748）以下。
+            aspectRatio: `1000 / ${STAGE_H}`,
+            height: "min(1000px, calc(100vh - 232px))",
             width: "auto",
             maxWidth: "1120px",
           }}
         >
-          <TreeSvg maturity={maturity} hoverField={hoverField} />
+          <TreeSvg
+            maturity={maturity}
+            hoverField={hoverField}
+            keywords={visible}
+            pick={pick}
+            onPickDiscipline={(id) => setPick({ kind: "discipline", id })}
+            onClearPick={() => setPick(null)}
+          />
 
           {/* 四个状态，说清楚是哪一个。绝不用示例关键词填满一棵空树——那会把
               十六个不属于她的词挂在一张写着「这就是你的模型」的图上。 */}
@@ -283,7 +307,13 @@ export function TreeView({ user }: { user: MeUser }) {
               index={i}
               dim={hoverField !== null && hoverField !== k.field}
               scale={scale}
-              onOpen={() => setOpenId(k.id)}
+              onOpen={() => {
+                // 点一片叶子做两件事：亮起它的根，并打开抽屉。抽屉里是她的
+                // 原话与来源，根上是学校管这件事叫什么 —— 两半合起来才是
+                // 「这个词为什么在你树上」的完整答案。
+                setPick({ kind: "leaf", id: k.id });
+                setOpenId(k.id);
+              }}
               onHoverField={setHoverField}
             />
           ))}
@@ -362,10 +392,64 @@ export function TreeView({ user }: { user: MeUser }) {
  * front: canopy glow → growth rings → horizon → roots → twigs → branches →
  * trunk → origin.
  */
-function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: FieldId | null }) {
+function TreeSvg({
+  maturity,
+  hoverField,
+  keywords,
+  pick,
+  onPickDiscipline,
+  onClearPick,
+}: {
+  maturity: number;
+  hoverField: FieldId | null;
+  keywords: Keyword[];
+  pick: Pick | null;
+  onPickDiscipline: (id: string) => void;
+  onClearPick: () => void;
+}) {
+  // 这一轮该亮的是哪些叶子、哪些学科、哪些线。三件事一起算，好过在三个地方
+  // 各判断一次「现在选中的是什么」。
+  const litLeaves = new Set<string>();
+  const litDiscs = new Set<string>();
+  const threads: { d: string; hue: string }[] = [];
+  if (pick) {
+    const byId = new Map(keywords.map((k) => [k.id, k]));
+    const involved: Keyword[] =
+      pick.kind === "leaf"
+        ? [byId.get(pick.id)].filter((k): k is Keyword => !!k)
+        : keywords.filter((k) => k.disciplineIds.includes(pick.id));
+    for (const k of involved) {
+      litLeaves.add(k.id);
+      const targets = pick.kind === "leaf" ? k.disciplineIds : [pick.id];
+      const leaf = leafShape(k.field, Math.min(k.at.t, maturity), k.at.spread);
+      for (const did of targets) {
+        const node = ROOT_NODE_BY_ID.get(did);
+        if (!node) continue;
+        litDiscs.add(did);
+        threads.push({
+          d: threadPath({ x: leaf.mx, y: leaf.my }, node),
+          hue: fieldById(node.field).hue,
+        });
+      }
+    }
+  }
+  const dimmed = pick !== null;
+
+  // 一门学科要不要具名，取决于**她的词有没有连过来** —— 学科在那之前只是土里
+  // 的一个位置。sharedDiscs 数的是有几个领域扎在同一条根上：大于一的带一圈环，
+  // 因为「你的游戏和金融，底下是同一根」是这张图最值得一眼看见的东西。
+  const namedDiscs = new Set<string>();
+  const sharedDiscs = new Map<string, number>();
+  for (const k of keywords) {
+    for (const did of k.disciplineIds) {
+      namedDiscs.add(did);
+      sharedDiscs.set(did, (sharedDiscs.get(did) ?? 0) + 1);
+    }
+  }
+
   return (
     <svg
-      viewBox="0 0 1000 780"
+      viewBox={`0 0 1000 ${STAGE_H}`}
       className="absolute inset-0 h-full w-full"
       aria-hidden
       preserveAspectRatio="xMidYMid meet"
@@ -414,6 +498,16 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
           </feMerge>
         </filter>
       </defs>
+
+      {/* 点空白处清除选中。 */}
+      <rect
+        x="0"
+        y="0"
+        width="1000"
+        height={STAGE_H}
+        fill="transparent"
+        onClick={onClearPick}
+      />
 
       {/* canopy glow */}
       <ellipse cx="500" cy="360" rx="480" ry="310" fill="url(#tree-canopy)" />
@@ -607,6 +701,132 @@ function TreeSvg({ maturity, hoverField }: { maturity: number; hoverField: Field
         />
       ))}
 
+      {/* ── 地面以下 ──────────────────────────────────────────────────────
+          树冠是她的（叶子只有她做过一件事才长出来）；根是世界的（42 门学科，
+          固定的、完整的）。这个分工是根系比原来那棵树强的地方：原来没有词就是
+          七根空枝，一个刚注册的学生打开自己的树看到七根什么都没有的线。 */}
+      <line
+        x1="40"
+        y1={GROUND_Y}
+        x2="960"
+        y2={GROUND_Y}
+        stroke="#EFE7DC"
+        strokeOpacity="0.16"
+        strokeWidth="1.5"
+      />
+      {FIELDS.map((f) => (
+        <g key={`root-${f.id}`}>
+          {subRootPaths(f.id).map((d, i) => (
+            <path
+              key={i}
+              d={d}
+              stroke={f.hue}
+              strokeOpacity={dimmed ? 0.08 : 0.2}
+              strokeWidth="1"
+              strokeLinecap="round"
+              fill="none"
+              style={{ transition: "stroke-opacity 200ms" }}
+            />
+          ))}
+          <path
+            d={rootPath(f.id)}
+            stroke={f.hue}
+            strokeOpacity={dimmed ? 0.14 : 0.38}
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            fill="none"
+            style={{ transition: "stroke-opacity 200ms" }}
+          />
+        </g>
+      ))}
+
+      {/* 42 个学科节点。她连过的那些具名并且亮着；其余是暗点 —— 学科在有叶子
+          连到它之前只是土里的一个位置，不是一个她要读的词。 */}
+      {ROOT_NODES.map((n) => {
+        const hue = fieldById(n.field).hue;
+        const named = namedDiscs.has(n.id);
+        const lit = litDiscs.has(n.id);
+        const shared = sharedDiscs.get(n.id) ?? 0;
+        return (
+          <g
+            key={n.id}
+            onClick={() => onPickDiscipline(n.id)}
+            style={{
+              cursor: "pointer",
+              opacity: dimmed ? (lit ? 1 : 0.13) : named ? 0.95 : 0.3,
+              transition: "opacity 200ms",
+            }}
+          >
+            <title>{`${n.zh} · ${n.asks}`}</title>
+            {/* 44px 的命中区。节点本身只有几个像素，直接点它在触摸屏上不可能命中。 */}
+            <circle cx={n.x} cy={n.y} r="22" fill="transparent" />
+            <circle cx={n.x} cy={n.y} r={lit ? 15 : named ? 9 : 5} fill={hue} opacity="0.16" />
+            <circle cx={n.x} cy={n.y} r={named ? 4 : 2.4} fill={hue} />
+            {shared > 1 ? (
+              // 被两个以上领域共用的根带一圈细环，不点也看得出来。
+              <circle cx={n.x} cy={n.y} r="10" fill="none" stroke={hue} strokeWidth="1" opacity="0.5" />
+            ) : null}
+            {named ? (
+              <text
+                x={n.x}
+                y={n.labelBelow ? n.y + 17 : n.y - 11}
+                textAnchor="middle"
+                fontSize="11"
+                fontWeight="500"
+                fill="#EFE7DC"
+                opacity="0.86"
+              >
+                {n.zh}
+              </text>
+            ) : null}
+          </g>
+        );
+      })}
+
+      {/* ── 叶子 ─────────────────────────────────────────────────────────
+          叶柄落在枝那条贝塞尔上，叶尖沿法向伸出去。它们画在 SVG 里而不是 HTML
+          里，理由和光珠当年一样：一片飘在细枝旁边的叶子会把「这张图就是你的
+          模型」悄悄降级成装饰。 */}
+      {keywords.map((k) => {
+        const hue = fieldById(k.field).hue;
+        const leaf = leafShape(k.field, Math.min(k.at.t, maturity), k.at.spread);
+        const on = dimmed ? litLeaves.has(k.id) : hoverField === null || hoverField === k.field;
+        return (
+          <g
+            key={`leaf-${k.id}`}
+            style={{ opacity: on ? 1 : 0.14, transition: "opacity 200ms" }}
+            pointerEvents="none"
+          >
+            <circle cx={leaf.mx} cy={leaf.my} r={22 + k.strength * 2} fill={hue} opacity="0.1" />
+            <path
+              d={leaf.blade}
+              fill={hue}
+              fillOpacity="0.34"
+              stroke={hue}
+              strokeWidth="1.4"
+              strokeLinejoin="round"
+              filter="url(#tree-bloom)"
+            />
+            <path d={leaf.rib} fill="none" stroke="#0B0907" strokeWidth="1" opacity="0.42" />
+          </g>
+        );
+      })}
+
+      {/* 连线**只在点了之后才出现**。四个词乘三门学科等于十二条线穿过树干，
+          常驻的话那是一团乱。线顺着树干往下走，读起来才是「这个词的根扎在
+          那里」，而不是一条从树梢拉到根尖的直线。 */}
+      {threads.map((t, i) => (
+        <path
+          key={i}
+          d={t.d}
+          fill="none"
+          stroke={t.hue}
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.95"
+        />
+      ))}
+
       {/* the origin */}
       <circle cx="500" cy="742" r="17" fill="#0B0907" stroke="#F0E9E0" strokeOpacity="0.26" />
       <circle cx="500" cy="742" r="4" fill="var(--mk-accent-400)" filter="url(#tree-bloom)" />
@@ -644,13 +864,16 @@ function Node({
 }) {
   const f = fieldById(kw.field);
   // A node never sits past the drawn part of its branch — at early growth
-  // stops the branch is short, so the bead slides in with it.
-  const p = pointOnBranch(kw.field, Math.min(kw.at.t, maturity), kw.at.spread);
+  // stops the branch is short, so the leaf slides in with it.
+  //
+  // 标签挂在**叶尖外侧**（leafShape().lx/ly），不再挂在原来光珠的位置上：叶片
+  // 是有长度的，标签压在叶身上会盖掉叶脉。
+  const leaf = leafShape(kw.field, Math.min(kw.at.t, maturity), kw.at.spread);
 
   return (
     <Bead
-      x={p.x}
-      y={p.y}
+      x={leaf.lx}
+      y={leaf.ly}
       hue={f.hue}
       meta={`${kw.sources.length} 个来源`}
       name={kw.text}
@@ -710,14 +933,16 @@ function Bead({
   const [hot, setHot] = useState(false);
   // Labels sit on the outboard side so they never cross the structure.
   const left = x < 500;
-  const d = (17 + strength * 6) * scale;
+  // 标签离叶尖多远。原来这是光珠的直径（跟强度走）；叶子已经把强度画出来了，
+  // 所以这里只是一个固定的呼吸空间。
+  const d = 14 * scale;
 
   return (
     <div
       className="tree-node absolute"
       style={{
-        left: `${x / 10}%`,
-        top: `${y / 7.8}%`,
+        left: `${(x / 1000) * 100}%`,
+        top: `${(y / STAGE_H) * 100}%`,
         width: 0,
         height: 0,
         animationDelay: `${delay}ms`,
@@ -726,27 +951,9 @@ function Bead({
         zIndex: hot ? 20 : 6,
       }}
     >
-      {/* the bead */}
-      <span
-        aria-hidden
-        className="tree-bead absolute block"
-        style={{
-          left: -d / 2,
-          top: -d / 2,
-          width: d,
-          height: d,
-          background: `radial-gradient(circle at 36% 32%, color-mix(in srgb, ${hue} 82%, #FFFFFF), color-mix(in srgb, ${hue} 62%, transparent) 62%, color-mix(in srgb, ${hue} 22%, transparent))`,
-          border: `1px solid color-mix(in srgb, ${hue} 60%, transparent)`,
-          boxShadow: hot
-            ? `0 0 0 2px color-mix(in srgb, ${hue} 40%, transparent), 0 0 34px color-mix(in srgb, ${hue} 70%, transparent)`
-            : `0 0 ${12 + strength * 4}px color-mix(in srgb, ${hue} 46%, transparent)`,
-          // Periods spread by strength so the canopy shimmers instead of
-          // pulsing as one organism.
-          ["--bead-period" as string]: `${5 + strength * 0.9}s`,
-          ["--bead-delay" as string]: `${delay}ms`,
-        }}
-      />
-
+      {/* 这里原来是一颗发光的珠子。2026-09-04 换成了**叶子** —— 叶片画在
+          SVG 里（`leafShape`），因为它的叶柄必须落在枝那条贝塞尔上，而 HTML
+          元素不认识那条曲线。这里只剩下标签，挂在叶尖外面。 */}
       <button
         type="button"
         title={title}

@@ -68,8 +68,8 @@ const reasonText = "他经历了很多痛苦，但在关键时刻依然保持理
 
 func quizStubProvider() gateway.Provider {
 	return gateway.NewStubProvider([]gateway.StreamEvent{
-		{Kind: gateway.EventTextDelta, TextDelta: `{"keywords":[{"zh":"选择与代价","en":"Choice and cost",` +
-			`"field":"self","note":"你在意一个人在最难的时候还能不能自己做主。",` +
+		{Kind: gateway.EventTextDelta, TextDelta: `{"keywords":[{"id":"purpose",` +
+			`"note":"你在意一个人在最难的时候还能不能自己做主。",` +
 			`"evidence":"他经历了很多痛苦，但在关键时刻依然保持理智，做出自己的选择。"}]}`},
 		{Kind: gateway.EventUsage, Usage: &gateway.ChatUsage{InputTokens: 60, OutputTokens: 30}},
 		{Kind: gateway.EventDone, StopReason: gateway.StopStop},
@@ -278,7 +278,7 @@ func TestInterestQuiz_PlantsIntoTheSameTree(t *testing.T) {
 	tree := getTree(t, h, cookie)
 	var found bool
 	for _, k := range tree.Keywords {
-		if k.TextZh != "选择与代价" {
+		if k.TextZh != "志向" {
 			continue
 		}
 		found = true
@@ -304,11 +304,11 @@ func TestInterestQuiz_RetakeAddsASecondSourceAndRaisesStrength(t *testing.T) {
 
 	first := startQuiz(t, h, cookie)
 	finishQuiz(t, h, cookie, first, fullAttempt())
-	strBefore, _ := findKeyword(t, getTree(t, h, cookie), "选择与代价")
+	strBefore, _ := findKeyword(t, getTree(t, h, cookie), "志向")
 
 	second := startQuiz(t, h, cookie)
 	finishQuiz(t, h, cookie, second, fullAttempt())
-	strAfter, srcAfter := findKeyword(t, getTree(t, h, cookie), "选择与代价")
+	strAfter, srcAfter := findKeyword(t, getTree(t, h, cookie), "志向")
 
 	if srcAfter != 2 {
 		t.Fatalf("重做之后来源是 %d 条，want 2 —— 重做没有加上去", srcAfter)

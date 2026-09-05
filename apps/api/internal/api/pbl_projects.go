@@ -223,6 +223,11 @@ func (a *API) patchPblProject(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		row.Status = p.Status
+		// 走到复盘就算完成了，可以采兴趣了 —— 和 ListPendingHarvestAtoms 里对
+		// 「项目算完成」的判断保持同一套状态。见 interest_jobs.go。
+		if s == "review" || s == "keeping" || s == "archived" {
+			a.EnqueueHarvest(r.Context(), id)
+		}
 	}
 
 	if req.BoardAxes != nil {

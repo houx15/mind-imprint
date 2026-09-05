@@ -34,7 +34,7 @@ import (
 // 只收**定下来的**：确认过的改写、挑定的方案、判过的成果、settle 过的决定。
 // 半路上的草稿不进——那些还在变，喂给印记只会让它对着一个她自己都还没想好的
 // 说法发挥。
-func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
+func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID, courseTitles map[string]string) []string {
 	ctx := r.Context()
 	var out []string
 	add := func(s string) {
@@ -467,6 +467,16 @@ func (a *API) gatherPblToolWork(r *http.Request, atomID uuid.UUID) []string {
 		}
 	}
 
+	// 🚨 她在这个项目里上完的课，和她自己写下的「这一课对我的项目有什么用」。
+	//
+	// 产品负责人 2026-09-04：「if trigger course inside pbl parts, it should
+	// also be end-looped, namely the course interaction and finished results go
+	// back to the running project and AI makes responses.」
+	//
+	// 少了这一段，上课就是项目外面的一件事：她学完四十分钟回来，印记还在问上一
+	// 轮那个问题，而她刚补上的那件本事在对话里等于没发生过。见 pbl_course.go。
+	out = append(out, a.gatherPblCourseWork(ctx, atomID, courseTitles)...)
+
 	// 上线之后她记下来的事。
 	if ks, err := a.d.Queries.ListPblKeepEntries(ctx, atomID); err == nil {
 		for _, k := range ks {
@@ -514,11 +524,18 @@ func trimBecause(s string) string {
 
 // attachPblToolWork 把上面收集到的东西挂进这一轮的 CoachInput。
 func (a *API) attachPblToolWork(r *http.Request, atomID uuid.UUID, in *pbl.CoachInput) {
-	in.ToolWork = a.gatherPblToolWork(r, atomID)
+	// 课程库取一次，三处共用（挑课目录、已上过的课名、回灌里那几句）。
+	// 🚨 空着 in.Courses 印记就挑不出课，只会编一个 slug 出来被服务端丢掉。
+	courses, _ := a.listCoursesForCaller(r.Context())
+	titles := courseTitlesBySlug(courses)
+
+	in.ToolWork = a.gatherPblToolWork(r, atomID, titles)
 	in.ToolsUsed, in.ToolsOffered = a.pblToolState(r, atomID)
 	// 🚨 上一轮被闸撤掉的那件工具。这是回灌里最容易漏的一条：闸做了正确的事，
 	// 结果没有回到对话里，于是印记接着说一件屏幕上不存在的东西。
 	in.ToolDropped = a.pblDroppedToolNote(r, atomID)
+	in.Courses = pblCourseOptions(courses)
+	in.CoursesTaken = a.pblCoursesTaken(r.Context(), atomID, titles)
 }
 
 // pblToolState 列出她已经做完的工具，和已经递过、她还没做的那些。

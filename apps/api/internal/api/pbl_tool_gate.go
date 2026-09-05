@@ -76,6 +76,10 @@ func (a *API) pblToolHasContent(ctx context.Context, atomID uuid.UUID, tool stri
 			AtomID: atomID, Tree: pblMainTree,
 		})
 		return err == nil && len(rows) > 0
+
+	case "course":
+		// 同理：上完的课留在界面上是记录，还没上完的才是要她做的事。
+		return a.pblHasOpenCourse(ctx, atomID)
 	}
 	return true
 }
@@ -97,6 +101,10 @@ func pblToolMissing(needs string) string {
 		return "拆好的分工"
 	case "structure":
 		return "一份结构"
+	case "course":
+		// 课是从课程库里挑的，不是印记写出来的——所以缺的那样东西是「挑中的
+		// 那一门」，不是「一份课」。
+		return "挑好的那一门课"
 	}
 	return "这件工具要摆的那份东西"
 }

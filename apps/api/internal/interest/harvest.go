@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"strings"
 
-	"mindimprint/api/internal/disciplines"
+	"mindimprint/api/internal/interests"
 )
 
 // maxPerHarvest 是一次完成最多长出几个词。
@@ -21,40 +21,54 @@ const maxPerHarvest = 3
 // 一个低到不会误伤真短句、又高到能挡住敷衍的门槛。
 const evidenceMinRunes = 4
 
-// Harvested 是采集器从一次完成里读出来的一个候选关键词。
+// Harvested 是采集器从一次完成里读出来的一个候选领域。
+//
+// # 它为什么不带中文名
+//
+// 2026-09-04 之前这里有 TextZh / TextEn / Field 三个字段，由模型填。那意味着
+// **模型在命名她的兴趣**，于是长出来的是「例外与代表性」「一个结论要多少证据」
+// 这种粒度的词，一周之后那棵树没人认得出。
+//
+// 现在模型只能交出一个 InterestID，中文名、英文名、所属主枝全部从
+// internal/interests 查表得到。模型说不出树上的字，它只能从两百多个已经写好的
+// 词里指一个。
 type Harvested struct {
-	TextZh string
-	TextEn string
-	Field  string
-	// Note 是印记对这个词之于她的一句话。
+	// InterestID 指向 interests.json。落库前过 interests.Exists。
+	InterestID string
+	// Note 是印记对这个领域之于她的一句话。
 	Note string
 	// Evidence 是她自己的那句原话。**空的一律丢掉** —— 树的全部说服力都建立在
 	// 「这个词不是猜的，这是你说过的话」上面。
 	Evidence string
 }
 
-const harvestSystemPrompt = `你在读一个中学生刚刚完成的一件事，从里面找出 1-3 个
-「她正在关心的东西」，作为她兴趣树上的关键词。
+// harvestSystemPromptHead 是候选清单之前的那一段。清单由 interests.PromptList()
+// 在 BuildHarvestPrompt 里拼进来，不写死在常量里 —— 词表改了 prompt 要跟着改，
+// 而两份手抄的清单一定会漂。
+const harvestSystemPromptHead = `你在读一个中学生刚刚完成的一件事，判断她正在关心
+哪几个领域。
 
-什么算一个好关键词：
-- 是一个**她关心的问题或方法**，不是文章的话题标签。
-  好：「例外与代表性」「一个结论要多少证据」。
-  差：「珊瑚」「环保」「阅读理解」。
-- 她自己的话里能找到根据。找不到根据就不要写这个词。
+**你只能从下面这张表里选，不能自己造词。** 表里没有的东西，哪怕你觉得更贴切，
+也不要输出 —— 输出了会被丢掉。
+
+`
+
+const harvestSystemPromptTail = `
+怎么算选中一个领域：
+- 她**自己写下的文字**里能找到根据。文章讲了什么不算，她说了什么才算。
+- 是她投入了注意力的方向，不是这篇材料的话题。一篇文章提到游戏，不等于她
+  对游戏感兴趣；她写下「抽卡明明知道是坑我还是想抽」才算。
 
 字段要求：
-- zh 中文关键词，4-10 字；en 对应的英文说法。
-- field 只能是这七个之一：formal（数学与形式）science（科学与自然）
-  making（技术与创造）society（社会与世界）humanities（人文与写作）
-  arts（艺术与表达）self（自我与成长）。
-- note：一句话，对她说，讲这个词在她身上是什么。不超过 40 字。
+- id：**上表里的 id 原样照抄**，不要改写，不要翻译，不要自己发明。
+- note：一句话，对她说，讲这个领域在她身上是什么。不超过 40 字。
 - evidence：**她自己写的原话**，原样摘录，不要改写、不要总结。
-  找不到能作为根据的原话，就不要输出这个词。
+  找不到能作为根据的原话，就不要输出这一条。
 
-宁可只给一个词，也不要凑满三个。
+宁可只给一个，也不要凑满三个。一个都选不出来就返回空数组。
 
 只输出一个 JSON 对象，不要任何解释：
-{"keywords":[{"zh":"","en":"","field":"","note":"","evidence":""}]}`
+{"keywords":[{"id":"","note":"","evidence":""}]}`
 
 // BuildHarvestPrompt 拼出采集用的 system 与 user 两段。
 //
@@ -70,19 +84,19 @@ func BuildHarvestPrompt(kind, title, body string) (system, user string) {
 	if label == "" {
 		label = "她刚完成的一件事"
 	}
+	system = harvestSystemPromptHead + interests.PromptList() + harvestSystemPromptTail
+
 	var b strings.Builder
 	fmt.Fprintf(&b, "下面是%s。\n\n标题：%s\n\n", label, strings.TrimSpace(title))
 	b.WriteString("内容：\n")
 	b.WriteString(strings.TrimSpace(body))
 	b.WriteString("\n")
-	return harvestSystemPrompt, b.String()
+	return system, b.String()
 }
 
 type harvestReply struct {
 	Keywords []struct {
-		Zh       string `json:"zh"`
-		En       string `json:"en"`
-		Field    string `json:"field"`
+		ID       string `json:"id"`
 		Note     string `json:"note"`
 		Evidence string `json:"evidence"`
 	} `json:"keywords"`
@@ -94,11 +108,12 @@ type harvestReply struct {
 //
 //  1. 解析不出 JSON → **报错**，调用方不长任何词。绝不返回一个像样的假关键词
 //     ——「你关心修理权」这种编出来的观察，比没有观察糟得多，而且她无从反驳。
-//  2. zh 为空 → 丢。
-//  3. field 不是七根主枝之一 → 丢。模型偶尔会发明 "magic"、"tech"。
-//  4. evidence 空或太短 → 丢。**这条是树的地基**：没有原话的词是装饰。
-//  5. 同一次里重复的词 → 只留第一个。
-//  6. 超过三个 → 截断。
+//  2. id 不在词表里 → 丢。**这是闭表那条不变量的执行点。** 模型很会造
+//     "esports" "coral-reefs" 这种看起来合理的 id；靠 prompt 劝它不要造是在
+//     期望模型守规矩，而不是让规矩成立。
+//  3. evidence 空或太短 → 丢。**这条是树的地基**：没有原话的词是装饰。
+//  4. 同一次里重复的 id → 只留第一个。
+//  5. 超过三个 → 截断。
 func ParseHarvestReply(raw string) ([]Harvested, error) {
 	body, err := sliceJSONObject(raw)
 	if err != nil {
@@ -112,25 +127,19 @@ func ParseHarvestReply(raw string) ([]Harvested, error) {
 	out := make([]Harvested, 0, maxPerHarvest)
 	seen := map[string]bool{}
 	for _, k := range rep.Keywords {
-		zh := strings.TrimSpace(k.Zh)
+		id := strings.TrimSpace(k.ID)
 		ev := strings.TrimSpace(k.Evidence)
-		if zh == "" || !disciplines.IsField(k.Field) {
+		if !interests.Exists(id) || seen[id] {
 			continue
 		}
 		if len([]rune(ev)) < evidenceMinRunes {
 			continue
 		}
-		n := disciplines.Normalize(zh)
-		if n == "" || seen[n] {
-			continue
-		}
-		seen[n] = true
+		seen[id] = true
 		out = append(out, Harvested{
-			TextZh:   zh,
-			TextEn:   strings.TrimSpace(k.En),
-			Field:    k.Field,
-			Note:     strings.TrimSpace(k.Note),
-			Evidence: ev,
+			InterestID: id,
+			Note:       strings.TrimSpace(k.Note),
+			Evidence:   ev,
 		})
 		if len(out) == maxPerHarvest {
 			break

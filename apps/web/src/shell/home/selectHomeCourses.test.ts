@@ -6,6 +6,7 @@ function c(slug: string, learnedAt: string | null = null): CourseSummary {
   return {
     slug, branch: "A", title: slug, blurb: "", time_label: "", card_ids: [], step_count: 1,
     coverUrl: "", category: null, introduction: null, featuredRank: null,
+    audience: [],
     progress: learnedAt ? { status: "in-progress", completedSteps: 1, updatedAt: learnedAt } : null,
   };
 }

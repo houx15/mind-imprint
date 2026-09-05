@@ -12,6 +12,9 @@
   },
   "dependencies": {
     "@mind-imprint/contracts": "workspace:*",
+    "@mind-imprint/course-contract": "workspace:*",
+    "@mind-imprint/course-renderer": "workspace:*",
+    "@mind-imprint/course-runtime": "workspace:*",
     "@mind-imprint/web": "workspace:*",
     "html-to-image": "^1.11.13",
     "lucide-react": "^1.28.0",

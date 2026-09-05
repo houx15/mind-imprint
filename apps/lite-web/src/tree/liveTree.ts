@@ -133,6 +133,7 @@ export function toTreeKeywords(tree: InterestTree, now: number = Date.now()): Ke
         bornAt: bornAtFor(k.firstSeenAt, earliest, now),
         note: k.note,
         sources: toSources(k),
+        disciplineIds: (k.disciplines ?? []).map((d) => d.id),
         at: places[i]!,
       });
     });

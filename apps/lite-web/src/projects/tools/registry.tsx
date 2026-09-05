@@ -1,6 +1,7 @@
 import type { ComponentType } from "react";
 import type { ToolInstance } from "../../api/tools";
 import { Board } from "./surfaces/Board";
+import { Course } from "./surfaces/Course";
 import { Decide } from "./surfaces/Decide";
 import { Ideas } from "./surfaces/Ideas";
 import { Keep } from "./surfaces/Keep";
@@ -41,6 +42,7 @@ export const TOOL_TASKS: Record<string, string> = {
   decide: "深入思考 AI 提供的多个选项，做出合理的决策",
   structure: "审查整体结构是否合理",
   split: "你和 AI 的分工",
+  course: "上完印记给你的这一课，写下它对你的项目有什么用",
   lookback: "一起复盘项目过程吧！",
   keep: "持续观察成果落地后的反馈，进一步迭代你的成果！",
   // 主页项目那几件。见 apps/api/internal/pbl/website.go 的五关路线。
@@ -87,6 +89,7 @@ export const TOOL_SURFACES: Record<string, ComponentType<ToolSurfaceProps>> = {
   decide: Decide,
   structure: Structure,
   split: Split,
+  course: Course,
   lookback: Lookback,
   keep: Keep,
   ship: Ship,

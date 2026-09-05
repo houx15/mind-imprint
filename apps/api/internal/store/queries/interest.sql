@@ -5,13 +5,18 @@
 -- 写它的路径。一个能直接设强度的接口，迟早会有人拿它把某个词调大。
 
 -- name: UpsertInterestKeyword :one
--- 按 (user_id, norm) 认词。已经存在就只补 text_en/note 里空着的那部分 ——
--- 后来的一次采集不该把她第一次的措辞覆盖掉，但可以把当时缺的补上。
-INSERT INTO interest_keyword (user_id, text_zh, text_en, norm, field, note)
-VALUES ($1, $2, $3, $4, $5, $6)
+-- 按 (user_id, norm) 认词。norm 由词表里的中文名算出来，而中文名在表里唯一
+-- （TestChineseNamesAreUnique 守着），所以 (user_id, norm) 和 (user_id, interest_id)
+-- 是等价的键 —— 沿用前者省掉一次唯一约束的迁移。
+--
+-- 已经存在就只补 note 里空着的那部分，外加**补上 interest_id**：归档之前种下的
+-- 行没有这一列，重新被采到时该认领它。text_zh/text_en/field 一律不改 ——
+-- 它们现在从词表查表得到，不存在「后来的一次采集换了措辞」这回事。
+INSERT INTO interest_keyword (user_id, text_zh, text_en, norm, field, note, interest_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 ON CONFLICT (user_id, norm) DO UPDATE SET
-  text_en = CASE WHEN interest_keyword.text_en = '' THEN EXCLUDED.text_en ELSE interest_keyword.text_en END,
-  note    = CASE WHEN interest_keyword.note    = '' THEN EXCLUDED.note    ELSE interest_keyword.note    END
+  note        = CASE WHEN interest_keyword.note = '' THEN EXCLUDED.note ELSE interest_keyword.note END,
+  interest_id = COALESCE(interest_keyword.interest_id, EXCLUDED.interest_id)
 RETURNING *;
 
 -- name: AddKeywordSource :exec
@@ -56,19 +61,6 @@ JOIN interest_keyword k ON k.id = kd.keyword_id
 WHERE k.user_id = $1
 ORDER BY kd.confidence DESC;
 
--- name: ListRoutedKeywordsForUser :many
--- 路由 T2（共现继承）要的那张表：她已经有哪些词、各连到哪些学科、来源是哪几条。
-SELECT
-  k.id,
-  k.norm,
-  array_remove(array_agg(DISTINCT kd.discipline_id), NULL)::text[] AS discipline_ids,
-  array_remove(array_agg(DISTINCT s.ref_id::text), NULL)::text[]   AS source_refs
-FROM interest_keyword k
-LEFT JOIN keyword_discipline kd ON kd.keyword_id = k.id
-LEFT JOIN keyword_source     s  ON s.keyword_id  = k.id
-WHERE k.user_id = $1
-GROUP BY k.id, k.norm;
-
 -- name: SetKeywordDisciplineByStudent :exec
 -- 她自己在抽屉里改的那一条。how='student' 之后，重算路由不会再动它。
 INSERT INTO keyword_discipline (keyword_id, discipline_id, confidence, how, rationale)
@@ -76,26 +68,44 @@ VALUES ($1, $2, 1.0, 'student', $3)
 ON CONFLICT (keyword_id, discipline_id) DO UPDATE SET
   confidence = 1.0, how = 'student', rationale = EXCLUDED.rationale;
 
--- name: ListUnharvestedFinishedAtoms :many
--- 她已经完成、但采集器还没跑过的 atom。
+-- name: ListPendingHarvestAtoms :many
+-- 扫尾任务要采的那一批 —— **全库的**，不是某一个学生的。
+--
+-- 三道限制，各挡一件事：
+--
+--   window_days  只看最近活动过的学生。没有这道门，一次上线会把历史上每一个
+--                完成过任何东西的账号都跑一遍，钱花在早就不来的人身上。
+--   per_user     每个学生每轮最多几个。一个一口气读了二十篇的学生不能把这一轮
+--                占满，否则其他所有人都要等下一轮。
+--   total        整轮的上限，也就是一轮最多花多少次调用。
 --
 -- 「完成」在三种 atom 上是三件事：阅读与写作是 status='finished'，项目是走到了
 -- 复盘（'review' 及其之后）。没完成的东西不该长词 —— 一篇读了三段就关掉的文章
 -- 说不出她关心什么。
-SELECT a.id, a.kind
-FROM atom a
-LEFT JOIN reading     r ON r.atom_id = a.id
-LEFT JOIN writing     w ON w.atom_id = a.id
-LEFT JOIN pbl_project p ON p.atom_id = a.id
-WHERE a.user_id = $1
-  AND a.interest_harvested_at IS NULL
-  AND (
-    (a.kind = 'reading' AND r.status = 'finished')
-    OR (a.kind = 'writing' AND w.status = 'finished')
-    OR (a.kind = 'project' AND p.status IN ('review', 'keeping', 'archived'))
-  )
-ORDER BY a.last_activity_at DESC
-LIMIT $2;
+WITH pending AS (
+  SELECT
+    a.id, a.kind, a.user_id, a.last_activity_at,
+    row_number() OVER (PARTITION BY a.user_id ORDER BY a.last_activity_at DESC) AS rn
+  FROM atom a
+  LEFT JOIN reading     r ON r.atom_id = a.id
+  LEFT JOIN writing     w ON w.atom_id = a.id
+  LEFT JOIN pbl_project p ON p.atom_id = a.id
+  WHERE a.interest_harvested_at IS NULL
+    AND a.last_activity_at > now() - make_interval(days => sqlc.arg('window_days')::int)
+    AND (
+      (a.kind = 'reading' AND r.status = 'finished')
+      OR (a.kind = 'writing' AND w.status = 'finished')
+      OR (a.kind = 'project' AND p.status IN ('review', 'keeping', 'archived'))
+    )
+)
+SELECT id, kind, user_id FROM pending
+WHERE rn <= sqlc.arg('per_user')::int
+ORDER BY last_activity_at DESC
+LIMIT sqlc.arg('total')::int;
+
+-- name: GetAtomOwnerAndKind :one
+-- 入队时只带了 atom id，worker 要知道它是谁的、是什么。
+SELECT user_id, kind FROM atom WHERE id = $1;
 
 -- name: MarkAtomInterestHarvested :exec
 -- 「尝试过一次，无论结果如何」。零个词也要盖章，否则一篇薄阅读会被反复重采。

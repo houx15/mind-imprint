@@ -62,6 +62,10 @@ type Deps struct {
 	Fetcher          Fetcher      // URL→readable-text seam for student material ingestion (Slice 6b Task 4)
 	OSS              *oss.Service // presigned-URL signer; nil disables /oss/* routes (503)
 	OSSAdminKey      string       // static bearer secret authorizing the admin upload routes
+	// River enqueues background jobs (interest harvesting). Nil in tests and
+	// when the queue fails to start — every call site must tolerate that; see
+	// interest_jobs.go.
+	River JobEnqueuer
 }
 
 // API holds the handler dependencies.
@@ -381,6 +385,10 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/pbl/projects/{id}/reframes", liteOnly(a.createPblReframe))
 	mux.Handle("PATCH /api/v1/pbl/projects/{id}/reframes/{rid}", liteOnly(a.updatePblReframe))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/reframes/{rid}/confirm", liteOnly(a.confirmPblReframe))
+
+	// 去上一课：印记从课程库里挑的课，和她上完之后写回来的那句话（闭环）。
+	mux.Handle("GET /api/v1/pbl/projects/{id}/courses", liteOnly(a.listPblCourses))
+	mux.Handle("POST /api/v1/pbl/projects/{id}/courses/{cid}/finish", liteOnly(a.finishPblCourse))
 
 	mux.Handle("GET /api/v1/pbl/projects/{id}/tools", liteOnly(a.listPblTools))
 	mux.Handle("POST /api/v1/pbl/projects/{id}/tools", liteOnly(a.summonPblTool))

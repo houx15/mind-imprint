@@ -2,6 +2,7 @@ import { listArtifacts } from "./artifacts";
 import { getSite } from "./site";
 import { listDecisions } from "./decide";
 import { listNotes } from "./notes";
+import { listPblCourses } from "./pblCourses";
 import { currentReframe, listReframes, reframeSentence } from "./reframe";
 import { getTree } from "./tree";
 
@@ -43,12 +44,13 @@ export async function listMaterials(
   /** 项目类别。主页项目多一行「我的主页」——见下面那一段。 */
   projectKind = "",
 ): Promise<Material[]> {
-  const [notes, reframes, artifacts, tree, decisions] = await Promise.allSettled([
+  const [notes, reframes, artifacts, tree, decisions, courses] = await Promise.allSettled([
     listNotes(projectId),
     listReframes(projectId),
     listArtifacts(projectId),
     getTree(projectId),
     listDecisions(projectId),
+    listPblCourses(projectId),
   ]);
 
   const ok = <T,>(r: PromiseSettledResult<T>, fallback: T): T =>
@@ -63,6 +65,8 @@ export async function listMaterials(
   const nodes = ok(tree, { tree: "main", nodes: [], checks: [] }).nodes;
   const decs = ok(decisions, []);
   const unsettled = decs.filter((d) => !d.settledAt);
+  const crs = ok(courses, []);
+  const unfinishedCourses = crs.filter((c) => !c.finishedAt);
 
   // 🚨 主页项目那一行：她随时点得开的「我的主页」。
   //
@@ -142,6 +146,17 @@ export async function listMaterials(
       hue: "var(--mk-lake)",
       count: nodes.length,
       detail: nodes.length ? `${nodes.length} 个节点` : "",
+    },
+    {
+      tool: "course",
+      label: "课程",
+      hue: "var(--mk-butter)",
+      count: crs.length,
+      detail: crs.length
+        ? unfinishedCourses.length
+          ? `${unfinishedCourses.length} 门待上`
+          : `${crs.length} 门已上完`
+        : "",
     },
     {
       tool: "decide",

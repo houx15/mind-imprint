@@ -32,6 +32,7 @@ import (
 	"mindimprint/api/internal/config"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/interest"
+	"mindimprint/api/internal/interests"
 	"mindimprint/api/internal/news"
 )
 
@@ -95,7 +96,7 @@ const liveTakeaway = `我本来以为这篇讲的是珊瑚怎么死的，读到�
 func TestLivePromptHarvest(t *testing.T) {
 	rs := liveResolvers(t)
 	system, user := interest.BuildHarvestPrompt("reading", "红海北端那片不白化的珊瑚", liveTakeaway)
-	raw := liveAsk(t, rs, gateway.ClassCompose, system, user)
+	raw := liveAsk(t, rs, gateway.ClassDigest, system, user)
 
 	hs, err := interest.ParseHarvestReply(raw)
 	if err != nil {
@@ -105,7 +106,12 @@ func TestLivePromptHarvest(t *testing.T) {
 		t.Fatalf("解析成功但零个词。原始回复：\n%s", raw)
 	}
 	for _, h := range hs {
-		t.Logf("  %s (%s) — %s", h.TextZh, h.Field, h.Note)
+		it, known := interests.ByID(h.InterestID)
+		if !known {
+			// ParseHarvestReply 已经挡了；这里只是让日志说得出名字。
+			t.Fatalf("解析器放过了一个表外 id：%q", h.InterestID)
+		}
+		t.Logf("  %s (%s / %s) — %s", it.Zh, it.ID, it.Field, h.Note)
 		t.Logf("    evidence: %q", h.Evidence)
 		// 🚨 这是这个文件存在的主要理由。evidence 必须是**逐字摘录**；一个爱
 		// 转述的模型会让每一个词都在落库前被丢掉，而学生只看到「没长出词」。
@@ -126,7 +132,7 @@ func TestLivePromptQuiz(t *testing.T) {
 		Hook:      interest.HookCharacter,
 	}.Clean()
 	system, user := att.BuildQuizPrompt()
-	raw := liveAsk(t, rs, gateway.ClassCompose, system, user)
+	raw := liveAsk(t, rs, gateway.ClassDigest, system, user)
 
 	hs, err := interest.ParseHarvestReply(raw)
 	if err != nil {
@@ -136,7 +142,12 @@ func TestLivePromptQuiz(t *testing.T) {
 		t.Fatalf("零个词。一个学生刚花了五分钟。原始回复：\n%s", raw)
 	}
 	for _, h := range hs {
-		t.Logf("  %s (%s) — %s", h.TextZh, h.Field, h.Note)
+		it, known := interests.ByID(h.InterestID)
+		if !known {
+			// ParseHarvestReply 已经挡了；这里只是让日志说得出名字。
+			t.Fatalf("解析器放过了一个表外 id：%q", h.InterestID)
+		}
+		t.Logf("  %s (%s / %s) — %s", it.Zh, it.ID, it.Field, h.Note)
 		t.Logf("    evidence: %q", h.Evidence)
 		if !strings.Contains(att.Reason, h.Evidence) {
 			t.Errorf("evidence 不是她原话的逐字摘录：%q", h.Evidence)
@@ -155,7 +166,7 @@ func TestLivePromptDig(t *testing.T) {
 			"我读到面积那一段才反应过来，四平方公里其实很小。",
 			"一个避难所不是一个计划。",
 		})
-	raw := liveAsk(t, rs, gateway.ClassCompose, system, user)
+	raw := liveAsk(t, rs, gateway.ClassDigest, system, user)
 
 	seeds, err := interest.ParseDigReply(raw)
 	if err != nil {
@@ -202,13 +213,19 @@ func TestLivePromptStarmap(t *testing.T) {
 		t.Errorf("只挑出 %d 颗，want %d", len(planets), news.PlanetCount)
 	}
 	fields := map[string]int{}
+	withInterest := 0
 	for _, p := range planets {
 		src := candidates[p.Index]
 		fields[p.Field]++
 		t.Logf("  [%s] %s", p.Field, p.TitleZh)
 		t.Logf("        钩子：%s", p.Hook)
 		t.Logf("        摘要：%s", p.Summary)
-		t.Logf("        关键词：%s | 学科：%s | 来源：%s", p.Keyword, p.DisciplineID, src.Source)
+		t.Logf("        领域：%s | 学科：%s | 来源：%s", p.InterestID, p.DisciplineID, src.Source)
+		// 领域是闭表 id，解析器已经把表外的清成空串了。空串合法（这条新闻挑不出
+		// 领域，收藏它不长词），但一个非空却查不到的 id 说明解析器漏了。
+		if p.InterestID != "" && !interests.Exists(p.InterestID) {
+			t.Errorf("星球挂了一个表外的领域 id：%q", p.InterestID)
+		}
 		// 🚨 模型返回的 index 决定这颗星挂哪个链接、哪个出处。如果 index 和它
 		// 自己描述的那条对不上，学生点「读原文」会落到一篇毫不相干的文章上。
 		// prompt 要求 titleEn 填原标题，所以这里能对得上号。
@@ -227,9 +244,14 @@ func TestLivePromptStarmap(t *testing.T) {
 		if n := len([]rune(p.TitleZh)); n > 28 {
 			t.Errorf("标题 %d 字，太长：%q", n, p.TitleZh)
 		}
-		if p.Keyword == "" {
-			t.Errorf("这颗星没有关键词，收藏它不会往树上加任何东西：%q", p.TitleZh)
+		if p.InterestID != "" {
+			withInterest++
 		}
+	}
+	// 空领域是合法的（那颗星收藏了不长词），但**五条全空**说明模型根本没在用
+	// 那张候选表 —— 那时整张星图对树来说是死的。
+	if withInterest < 3 {
+		t.Errorf("五颗星里只有 %d 颗挑出了领域，收藏它们大多不会往树上加东西", withInterest)
 	}
 	// 五条全挤在一根枝上，这一屏就退化成一个学科的日报了。
 	if len(fields) < 2 {
@@ -237,7 +259,6 @@ func TestLivePromptStarmap(t *testing.T) {
 	}
 	t.Logf("主枝分布：%v", fields)
 }
-
 
 // overlapRatio 复刻 news 包里的词重合度，用来在测试侧独立验证回查结果 ——
 // 用被测代码自己的函数去验它自己，等于什么都没验。

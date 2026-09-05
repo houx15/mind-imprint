@@ -316,7 +316,7 @@ type RecordPblToolDropParams struct {
 	Needs  string    `json:"needs"`
 }
 
-// 服务端撤掉的那件工具（migration 0134）。
+// 服务端撤掉的那件工具（migration 0136）。
 //
 // 闸撤掉一件工具之后，学生和印记都得知道。这两条查询是那条回路的两端：
 // 撤的时候记一行，下一轮建上下文的时候读最近那一行。

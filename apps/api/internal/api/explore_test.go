@@ -75,17 +75,17 @@ func appToday() time.Time {
 }
 
 // seedPlanet 直接写库，绕开抓取与模型 —— 这些测试要验的是读与收藏那一半。
-func seedPlanet(t *testing.T, pool *pgxpool.Pool, rank int, keyword, disciplineID string) string {
+func seedPlanet(t *testing.T, pool *pgxpool.Pool, rank int, interestID, disciplineID string) string {
 	t.Helper()
 	var id string
 	err := pool.QueryRow(t.Context(), `
 		INSERT INTO news_planet (day, rank, title_zh, title_en, summary, hook, url,
-		                         source_name, field, discipline_id, keyword, published_at)
+		                         source_name, field, discipline_id, interest_id, published_at)
 		VALUES ($4::date, $1, '深海珊瑚在 30 度水里活下来了', 'Corals survive 30C',
 		        '红海北端一片珊瑚在超过白化阈值的水温里没有白化。',
 		        '四平方公里的珊瑚，能代表一整片海吗？',
 		        'https://example.org/coral', 'Nature', 'science', $2, $3, now())
-		RETURNING id::text`, rank, disciplineID, keyword, appToday()).Scan(&id)
+		RETURNING id::text`, rank, disciplineID, interestID, appToday()).Scan(&id)
 	if err != nil {
 		t.Fatalf("seed planet: %v", err)
 	}
@@ -143,7 +143,7 @@ func TestExploreToday_StampsTheDayEvenWhenNothingWasGenerated(t *testing.T) {
 
 	// 再打开一次，冷却还没过去，所以不该有第二次尝试。
 	//
-	// 🚨 这里看的是 attempts 而不是行数：migration 0133 之后重试是同一行上的
+	// 🚨 这里看的是 attempts 而不是行数：migration 0135 之后重试是同一行上的
 	// 计次，行数永远是 1，光数行数已经证明不了「没有重抓十二个源」。
 	getExplore(t, h, cookie)
 	var attempts int
@@ -186,7 +186,7 @@ func TestExploreToday_SaysWhenTheFailedDayCanBeTriedAgain(t *testing.T) {
 
 func TestExploreToday_ReturnsSeededPlanetsWithTheDisciplineHydrated(t *testing.T) {
 	h, cookie, _, pool := liteHandler(t)
-	seedPlanet(t, pool, 1, "样本代表性", "climate-ocean")
+	seedPlanet(t, pool, 1, "climate", "climate-ocean")
 
 	got := getExplore(t, h, cookie)
 	if len(got.Planets) != 1 {
@@ -212,7 +212,7 @@ func TestExploreToday_DropsAnEdgeToADisciplineThatNoLongerExists(t *testing.T) {
 	// 学科表是内容，会改。指向一个已删除 id 的边要整条跳过，而不是发一个只有
 	// id 的空壳让前端渲染一张没有名字的卡。
 	h, cookie, _, pool := liteHandler(t)
-	seedPlanet(t, pool, 1, "样本代表性", "astrology-of-the-ancients")
+	seedPlanet(t, pool, 1, "climate", "astrology-of-the-ancients")
 
 	got := getExplore(t, h, cookie)
 	if got.Planets[0].Discipline != nil {
@@ -227,7 +227,7 @@ func TestExploreToday_DropsAnEdgeToADisciplineThatNoLongerExists(t *testing.T) {
 
 func TestSavePlanet_PlantsTheKeywordIntoTheSameTree(t *testing.T) {
 	h, cookie, _, pool := liteHandler(t)
-	id := seedPlanet(t, pool, 1, "样本代表性", "climate-ocean")
+	id := seedPlanet(t, pool, 1, "climate", "climate-ocean")
 
 	if rec := savePlanetHTTP(h, cookie, id); rec.Code != http.StatusOK {
 		t.Fatalf("save = %d; body=%s", rec.Code, rec.Body)
@@ -236,7 +236,7 @@ func TestSavePlanet_PlantsTheKeywordIntoTheSameTree(t *testing.T) {
 	tree := getTree(t, h, cookie)
 	var found bool
 	for _, k := range tree.Keywords {
-		if k.TextZh != "样本代表性" {
+		if k.TextZh != "气候" {
 			continue
 		}
 		found = true
@@ -263,7 +263,7 @@ func TestSavePlanet_PlantsTheKeywordIntoTheSameTree(t *testing.T) {
 func TestSavePlanet_IsIdempotent(t *testing.T) {
 	// 连点两下不该把强度刷上去 —— 强度是「几件不同的事」，不是「点了几次」。
 	h, cookie, _, pool := liteHandler(t)
-	id := seedPlanet(t, pool, 1, "样本代表性", "climate-ocean")
+	id := seedPlanet(t, pool, 1, "climate", "climate-ocean")
 
 	for i := 0; i < 3; i++ {
 		if rec := savePlanetHTTP(h, cookie, id); rec.Code != http.StatusOK {
@@ -272,7 +272,7 @@ func TestSavePlanet_IsIdempotent(t *testing.T) {
 	}
 	tree := getTree(t, h, cookie)
 	for _, k := range tree.Keywords {
-		if k.TextZh == "样本代表性" {
+		if k.TextZh == "气候" {
 			if len(k.Sources) != 1 {
 				t.Errorf("收藏三次长出了 %d 条来源", len(k.Sources))
 			}
@@ -301,7 +301,7 @@ func TestSavePlanet_MalformedIDIs400(t *testing.T) {
 func TestExploreToday_IsScopedToTheSignedInStudent(t *testing.T) {
 	// 星图本身是全局的（今天的新闻对每个人一样），但**收藏是她自己的**。
 	h, cookie, _, pool := liteHandler(t)
-	id := seedPlanet(t, pool, 1, "样本代表性", "climate-ocean")
+	id := seedPlanet(t, pool, 1, "climate", "climate-ocean")
 	if rec := savePlanetHTTP(h, cookie, id); rec.Code != http.StatusOK {
 		t.Fatalf("save = %d", rec.Code)
 	}
