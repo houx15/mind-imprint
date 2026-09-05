@@ -268,6 +268,10 @@ func (a *API) Handler() http.Handler {
 	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，
 	// 学科由 internal/interest 的三档路由连上，这里只负责读出来。
 	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))
+	// 「不感兴趣」。探索地图上的推荐是前端查闭表算出来的，不经过后端；只有她
+	// 按下的这一次拒绝要落库 —— 拒绝和完成一样是过程数据（铁律④）。
+	mux.Handle("POST /api/v1/interest/dismiss/{id}", liteOnly(a.dismissInterest))
+	mux.Handle("DELETE /api/v1/interest/dismiss/{id}", liteOnly(a.undismissInterest))
 	// 觉醒协议 —— 冷启动的兴趣测试。开与交是两次请求，所以一次中途退出
 	// 也留下痕迹（见 interest_quiz.go 顶部）。
 	mux.Handle("GET /api/v1/interest/quiz", liteOnly(a.getInterestQuizStatus))

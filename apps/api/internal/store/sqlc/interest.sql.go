@@ -65,6 +65,22 @@ func (q *Queries) CountKeywordSources(ctx context.Context, keywordID uuid.UUID) 
 	return count, err
 }
 
+const dismissInterest = `-- name: DismissInterest :exec
+INSERT INTO interest_dismissal (user_id, interest_id) VALUES ($1, $2)
+ON CONFLICT (user_id, interest_id) DO NOTHING
+`
+
+type DismissInterestParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	InterestID string    `json:"interest_id"`
+}
+
+// 重复按同一条是无害的：她可能在两台设备上各按一次。
+func (q *Queries) DismissInterest(ctx context.Context, arg DismissInterestParams) error {
+	_, err := q.db.Exec(ctx, dismissInterest, arg.UserID, arg.InterestID)
+	return err
+}
+
 const finishInterestQuiz = `-- name: FinishInterestQuiz :one
 UPDATE interest_quiz SET
   navigator          = $3,
@@ -210,6 +226,31 @@ func (q *Queries) LatestFinishedInterestQuiz(ctx context.Context, userID uuid.UU
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const listInterestDismissals = `-- name: ListInterestDismissals :many
+SELECT interest_id FROM interest_dismissal WHERE user_id = $1
+`
+
+// 「不感兴趣」。见迁移 0135。
+func (q *Queries) ListInterestDismissals(ctx context.Context, userID uuid.UUID) ([]string, error) {
+	rows, err := q.db.Query(ctx, listInterestDismissals, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var interest_id string
+		if err := rows.Scan(&interest_id); err != nil {
+			return nil, err
+		}
+		items = append(items, interest_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listInterestKeywords = `-- name: ListInterestKeywords :many
@@ -527,6 +568,20 @@ func (q *Queries) StartInterestQuiz(ctx context.Context, userID uuid.UUID) (Inte
 		&i.FinishedAt,
 	)
 	return i, err
+}
+
+const undismissInterest = `-- name: UndismissInterest :exec
+DELETE FROM interest_dismissal WHERE user_id = $1 AND interest_id = $2
+`
+
+type UndismissInterestParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	InterestID string    `json:"interest_id"`
+}
+
+func (q *Queries) UndismissInterest(ctx context.Context, arg UndismissInterestParams) error {
+	_, err := q.db.Exec(ctx, undismissInterest, arg.UserID, arg.InterestID)
+	return err
 }
 
 const upsertInterestKeyword = `-- name: UpsertInterestKeyword :one

@@ -24,6 +24,9 @@ export const GROUND_Y = 748;
 /** 加了根之后这张图有多高。树冠那 780 一个像素没动。 */
 export const STAGE_H = 1100;
 
+/** 树干中线。所有根从这里出发，连线也朝这里收。 */
+export const TRUNK_X = 500;
+
 export const ROOT_CURVES: Record<FieldId, [Pt, Pt, Pt, Pt]> = {
   // 🚨 浅的那一对（science / humanities）和深的那一对（making / society）之间
   // 要拉开：第一版四根挤在同一个深度带里，靠近树干的那几个学科标签直接叠在
@@ -268,20 +271,35 @@ export function leafShape(field: FieldId, t: number, spread: number): Leaf {
   };
 }
 
+/** 一条线在树干那一带被收拢多少。0 = 直着连过去，1 = 全部挤到树干中线上。 */
+const THREAD_PULL = 0.55;
+
 /**
  * 一片叶子到一个学科节点之间的那条线。
  *
- * **顺着树干往下走**，而不是斜穿过整张图：这条线要读起来像「这个词的根扎在
- * 那里」，而一条从树梢直接拉到根尖的直线读起来只是一条连线。
+ * 上一版把每条线都穿过树干底部的同一个点 `(500, GROUND_Y)`。那样画出来，六条
+ * 线在地面处交成一个结，叶子那一段还是近乎垂直的直线 —— 读起来是「所有词先汇
+ * 到一个总站，再从总站发车」，而不是「这个词扎在那几门学科上」。
+ *
+ * 现在是**一条三次贝塞尔直接从叶子连到学科**，不经过任何公共点。两个控制点各
+ * 自朝树干中线收 `THREAD_PULL`，所以线还是顺着树干往下走（不是斜穿整张图），
+ * 但每条线保留自己的横向车道：收拢的比例一样，起点终点不一样，交出来的就是一
+ * 束平行下垂的线而不是一个结。
+ *
+ * 控制点的纵坐标一个夹在 `from.y` 与地面之间、一个夹在地面与 `to.y` 之间，因此
+ * 整条线的 y 单调向下 —— 不会往回勾出一个圈。`roots.test.ts` 守着这一条。
  */
 export function threadPath(
   from: { x: number; y: number },
   to: { x: number; y: number },
 ): string {
+  const c1x = from.x + (TRUNK_X - from.x) * THREAD_PULL;
+  const c1y = from.y + (GROUND_Y - from.y) * 0.62;
+  const c2x = to.x + (TRUNK_X - to.x) * THREAD_PULL;
+  const c2y = GROUND_Y + (to.y - GROUND_Y) * 0.42;
   return (
     `M ${from.x.toFixed(1)} ${from.y.toFixed(1)} ` +
-    `C ${from.x.toFixed(1)} ${(from.y + 110).toFixed(1)}, 500 ${GROUND_Y - 88}, 500 ${GROUND_Y} ` +
-    `C 500 ${GROUND_Y + 52}, ${to.x.toFixed(1)} ${(to.y - 100).toFixed(1)}, ` +
+    `C ${c1x.toFixed(1)} ${c1y.toFixed(1)}, ${c2x.toFixed(1)} ${c2y.toFixed(1)}, ` +
     `${to.x.toFixed(1)} ${to.y.toFixed(1)}`
   );
 }

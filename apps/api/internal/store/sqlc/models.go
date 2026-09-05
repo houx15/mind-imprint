@@ -353,6 +353,12 @@ type GraphNode struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
+type InterestDismissal struct {
+	UserID     uuid.UUID `json:"user_id"`
+	InterestID string    `json:"interest_id"`
+	CreatedAt  time.Time `json:"created_at"`
+}
+
 type InterestKeyword struct {
 	ID          uuid.UUID          `json:"id"`
 	UserID      uuid.UUID          `json:"user_id"`

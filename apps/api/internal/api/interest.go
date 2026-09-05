@@ -172,7 +172,11 @@ type interestDisciplineDTO struct {
 }
 
 type interestKeywordDTO struct {
-	ID          string                  `json:"id"`
+	ID string `json:"id"`
+	// InterestID 指向 interests.json 的那一条。前端拿它算「你可能还会感兴趣的」：
+	// 排除她已经有的词，靠 id 而不是靠中文名对得上——中文名今天唯一，但那是词表
+	// 的一条测试在守，不是这个接口的保证。
+	InterestID  string                  `json:"interestId"`
 	TextZh      string                  `json:"textZh"`
 	TextEn      string                  `json:"textEn"`
 	Field       string                  `json:"field"`
@@ -219,6 +223,16 @@ func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
+	// 她按过「不感兴趣」的领域，随树一起发出去。推荐算在前端，而算它需要这份
+	// 名单 —— 分成两个请求只会让那一屏先画出一批已经被拒过的星再收回去。
+	dismissed, err := a.d.Queries.ListInterestDismissals(ctx, u.ID)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	if dismissed == nil {
+		dismissed = []string{}
+	}
 
 	srcByKeyword := make(map[uuid.UUID][]interestSourceDTO, len(keywords))
 	for _, s := range sources {
@@ -251,7 +265,8 @@ func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 	for _, k := range keywords {
 		perField[k.Field]++
 		out = append(out, interestKeywordDTO{
-			ID: k.ID.String(), TextZh: k.TextZh, TextEn: k.TextEn, Field: k.Field,
+			ID: k.ID.String(), InterestID: derefString(k.InterestID),
+			TextZh: k.TextZh, TextEn: k.TextEn, Field: k.Field,
 			Strength: k.Strength, Note: k.Note,
 			FirstSeenAt: k.FirstSeenAt.Format(time.RFC3339),
 			Sources:     srcByKeyword[k.ID],
@@ -269,7 +284,62 @@ func (a *API) getInterestTree(w http.ResponseWriter, r *http.Request) {
 	}
 
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
-		"fields":   fields,
-		"keywords": out,
+		"fields":    fields,
+		"keywords":  out,
+		"dismissed": dismissed,
 	})
+}
+
+/* ── 「不感兴趣」 ───────────────────────────────────────────────────────── */
+
+// dismissInterest —— POST /api/v1/interest/dismiss/{id}
+//
+// id 必须在闭表里。挡住表外 id 和挡住采集编出来的 id 是同一条不变量：这张表
+// 只认它自己有的词，从哪个方向进来都一样。
+func (a *API) dismissInterest(w http.ResponseWriter, r *http.Request) {
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
+	id := r.PathValue("id")
+	if !interests.Exists(id) {
+		httpx.WriteError(w, r, httpx.ErrBadRequest("unknown_interest", "没有这个领域。", map[string]any{"id": id}))
+		return
+	}
+	if err := a.d.Queries.DismissInterest(r.Context(), sqlc.DismissInterestParams{
+		UserID: u.ID, InterestID: id,
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// undismissInterest —— DELETE /api/v1/interest/dismiss/{id}
+//
+// 撤销要有：按错一下之后，一个再也回不来的词等于让她为一次误触付一辈子。
+// 这里不校验 id 在不在表里 —— 删一条本来就不存在的记录是无害的。
+func (a *API) undismissInterest(w http.ResponseWriter, r *http.Request) {
+	u, ok := UserFromContext(r.Context())
+	if !ok {
+		httpx.WriteError(w, r, httpx.ErrUnauthorized("未登录"))
+		return
+	}
+	if err := a.d.Queries.UndismissInterest(r.Context(), sqlc.UndismissInterestParams{
+		UserID: u.ID, InterestID: r.PathValue("id"),
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// derefString 把可空的 interest_id 变成一个字符串。空的那种情况是迁移 0134
+// 之前留下的行——它们在归档表里，正常路径上取不到，但列的类型仍然可空。
+func derefString(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { BRANCH_CURVES } from "./geometry";
-import { GROUND_Y, ROOT_NODES, STAGE_H, leafShape, pointOnRoot } from "./roots";
+import { GROUND_Y, ROOT_NODES, STAGE_H, TRUNK_X, leafShape, pointOnRoot, threadPath } from "./roots";
 import type { FieldId } from "./types";
 
 /**
@@ -108,5 +108,101 @@ describe("叶子", () => {
     // 一左一右，中点必须落在叶柄的两侧。
     const stemX = (right.mx + left.mx) / 2;
     expect((right.mx - stemX) * (left.mx - stemX)).toBeLessThan(0);
+  });
+});
+
+describe("叶子连到学科的那条线", () => {
+  /** 把 `M x y C ax ay, bx by, cx cy` 拆回四个点。 */
+  function ctrlPoints(d: string): [number, number][] {
+    const nums = d.match(/-?\d+(\.\d+)?/g)!.map(Number);
+    return [
+      [nums[0]!, nums[1]!],
+      [nums[2]!, nums[3]!],
+      [nums[4]!, nums[5]!],
+      [nums[6]!, nums[7]!],
+    ];
+  }
+
+  function sample(d: string, t: number): { x: number; y: number } {
+    const p = ctrlPoints(d);
+    const u = 1 - t;
+    const at = (i: 0 | 1) =>
+      u * u * u * p[0]![i] + 3 * u * u * t * p[1]![i] + 3 * u * t * t * p[2]![i] + t * t * t * p[3]![i];
+    return { x: at(0), y: at(1) };
+  }
+
+  // 六片叶子在树冠上的大致位置，两片在左、两片在右、两片靠中间。
+  const leaves = [
+    { x: 330, y: 400 },
+    { x: 690, y: 300 },
+    { x: 520, y: 250 },
+    { x: 640, y: 470 },
+    { x: 400, y: 520 },
+    { x: 860, y: 330 },
+  ];
+
+  // 🚨 这个文件里第二条「人眼盯不住」的不变量。上一版把每条线都穿过
+  // `(500, GROUND_Y)`，六条线在地面交成一个结；换成直连之后，唯一能证明
+  // 「不再是一个总站」的办法就是量它们在地面那一层横向散开多少。
+  it("在地面那一层不收敛到同一个点", () => {
+    const groundX: number[] = [];
+    for (const leaf of leaves) {
+      for (const node of ROOT_NODES.slice(0, 8)) {
+        const d = threadPath(leaf, node);
+        // 二分找 y == GROUND_Y 的那个 t。线是单调下降的（下一条测试保证），
+        // 所以二分一定收敛。
+        let lo = 0;
+        let hi = 1;
+        for (let i = 0; i < 40; i += 1) {
+          const mid = (lo + hi) / 2;
+          if (sample(d, mid).y < GROUND_Y) lo = mid;
+          else hi = mid;
+        }
+        groundX.push(sample(d, (lo + hi) / 2).x);
+      }
+    }
+    const spread = Math.max(...groundX) - Math.min(...groundX);
+    expect(spread, "所有线在地面挤到了一起，又变回一个总站了").toBeGreaterThan(200);
+  });
+
+  it("一路向下，不往回勾", () => {
+    for (const leaf of leaves) {
+      for (const node of ROOT_NODES) {
+        const d = threadPath(leaf, node);
+        let prev = -Infinity;
+        for (let i = 0; i <= 24; i += 1) {
+          const y = sample(d, i / 24).y;
+          expect(y, `${node.zh} 那条线在 t=${i / 24} 处往回走了`).toBeGreaterThanOrEqual(prev - 0.01);
+          prev = y;
+        }
+      }
+    }
+  });
+
+  // 线要顺着树干走，不能斜穿整张图 —— 这是上一版唯一做对、必须保住的一件事。
+  it("过地面时贴着树干那一带，不从画框边上横过去", () => {
+    for (const leaf of leaves) {
+      for (const node of ROOT_NODES) {
+        const d = threadPath(leaf, node);
+        let lo = 0;
+        let hi = 1;
+        for (let i = 0; i < 40; i += 1) {
+          const mid = (lo + hi) / 2;
+          if (sample(d, mid).y < GROUND_Y) lo = mid;
+          else hi = mid;
+        }
+        const x = sample(d, (lo + hi) / 2).x;
+        expect(Math.abs(x - TRUNK_X), `${node.zh} 那条线离树干太远了`).toBeLessThan(300);
+      }
+    }
+  });
+
+  it("端点就是叶子和学科本身", () => {
+    const node = ROOT_NODES[10]!;
+    const d = threadPath({ x: 330, y: 400 }, node);
+    const p = ctrlPoints(d);
+    expect(p[0]).toEqual([330, 400]);
+    expect(p[3]![0]).toBeCloseTo(node.x, 0);
+    expect(p[3]![1]).toBeCloseTo(node.y, 0);
   });
 });

@@ -176,3 +176,15 @@ UPDATE interest_keyword SET dig_at = now() WHERE id = $1;
 
 -- name: GetKeywordDigAt :one
 SELECT dig_at FROM interest_keyword WHERE id = $1;
+
+-- 「不感兴趣」。见迁移 0135。
+-- name: ListInterestDismissals :many
+SELECT interest_id FROM interest_dismissal WHERE user_id = $1;
+
+-- 重复按同一条是无害的：她可能在两台设备上各按一次。
+-- name: DismissInterest :exec
+INSERT INTO interest_dismissal (user_id, interest_id) VALUES ($1, $2)
+ON CONFLICT (user_id, interest_id) DO NOTHING;
+
+-- name: UndismissInterest :exec
+DELETE FROM interest_dismissal WHERE user_id = $1 AND interest_id = $2;
