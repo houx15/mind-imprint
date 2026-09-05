@@ -18,7 +18,7 @@ import type { PlacedStar } from "./skyLayout";
  * 2. **一条去处。** 一个不能做任何事的推荐是一句评论。这里和树上的「继续深挖」
  *    走同一条路：`createReading({ title })` / `createWriting({ idea })`，然后
  *    走进那个房间。
- * 3. **不感兴趣。** 这一屏唯一的负反馈。它落库（迁移 0135），不是只存在这次
+ * 3. **不感兴趣。** 这一屏唯一的负反馈。它落库（迁移 0137），不是只存在这次
  *    会话里 —— 她拒绝了什么和她做了什么一样是过程数据。
  */
 export function RecSheet({

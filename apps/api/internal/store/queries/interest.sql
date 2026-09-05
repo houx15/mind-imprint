@@ -177,7 +177,7 @@ UPDATE interest_keyword SET dig_at = now() WHERE id = $1;
 -- name: GetKeywordDigAt :one
 SELECT dig_at FROM interest_keyword WHERE id = $1;
 
--- 「不感兴趣」。见迁移 0135。
+-- 「不感兴趣」。见迁移 0137。
 -- name: ListInterestDismissals :many
 SELECT interest_id FROM interest_dismissal WHERE user_id = $1;
 

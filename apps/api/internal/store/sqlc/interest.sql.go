@@ -232,7 +232,7 @@ const listInterestDismissals = `-- name: ListInterestDismissals :many
 SELECT interest_id FROM interest_dismissal WHERE user_id = $1
 `
 
-// 「不感兴趣」。见迁移 0135。
+// 「不感兴趣」。见迁移 0137。
 func (q *Queries) ListInterestDismissals(ctx context.Context, userID uuid.UUID) ([]string, error) {
 	rows, err := q.db.Query(ctx, listInterestDismissals, userID)
 	if err != nil {

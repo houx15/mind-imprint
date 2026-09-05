@@ -74,7 +74,7 @@ Owner 一次提出五件，其中三件是同一件事的三面。
 三件事，按这个顺序：为什么给你这个（用她自己的词说）→ 一条去处
 （`createReading` / `createWriting`，和树上「继续深挖」走同一条路）→ 不感兴趣。
 
-「不感兴趣」**落库**（迁移 0135 `interest_dismissal`），不是只存在这次会话里：
+「不感兴趣」**落库**（迁移 0137 `interest_dismissal`），不是只存在这次会话里：
 她拒绝了什么和她做了什么一样是过程数据（铁律④）。有撤销 —— 按错一下之后，一个
 再也回不来的词等于让她为一次误触付一辈子。
 
@@ -132,4 +132,4 @@ Owner 一次提出五件，其中三件是同一件事的三面。
 - `GET /interest/tree` 的 keyword 多一个 `interestId`（推荐要靠它排除她已有的词，
   靠 id 不靠中文名），整体多一个 `dismissed[]`。
 - `POST` / `DELETE /interest/dismiss/{id}`，id 必须在闭表里。
-- 迁移 `0135_interest_dismissal.sql`。
+- 迁移 `0137_interest_dismissal.sql`。
