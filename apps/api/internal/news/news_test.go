@@ -358,6 +358,56 @@ func TestParseSelectReplyNeedsAHook(t *testing.T) {
 	}
 }
 
+func TestParseSelectReplySalvagesATruncatedReply(t *testing.T) {
+	// 🚨 2026-09-07 实测抓到的：钩子改长之后，模型在收尾的 `]}` 之前断掉了。
+	// 五颗完整的星球都在回复里，而整张星图因为少两个字符全丢 —— 星图一天只生成
+	// 一次，所以代价是当天没有探索地图。
+	raw := `{"planets":[` +
+		`{"index":0,"titleZh":"一","titleEn":"Story number 0 about topic 0","summary":"s",` +
+		`"hook":"这个结论撑得住吗？","field":"science"},` +
+		`{"index":1,"titleZh":"二","titleEn":"Story number 1 about topic 1","summary":"s",` +
+		`"hook":"是谁测的？","field":"society"},` +
+		`{"index":2,"titleZh":"三","titleEn":"Story number 2 about topic 2","summary":"s",` +
+		`"hook":"这一步能推多`  // ← 断在这里，第三颗没写完
+
+	got, err := ParseSelectReply(raw, candidates(5))
+	if err != nil {
+		t.Fatalf("整段丢了：%v", err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("捞出 %d 颗，want 2（写完的那两颗）", len(got))
+	}
+	if got[0].TitleZh != "一" || got[1].TitleZh != "二" {
+		t.Errorf("捞出来的不是前两颗：%q / %q", got[0].TitleZh, got[1].TitleZh)
+	}
+}
+
+func TestParseSelectReplyStillFailsOnGarbage(t *testing.T) {
+	// 捞是为了救被截断的回复，不是为了把任何东西都当成星图。压根没有 JSON 时
+	// 仍然要报错 —— 今天没有星图，并且说得出为什么。
+	if _, err := ParseSelectReply("模型今天不想说话。", candidates(3)); err == nil {
+		t.Error("一段散文被当成星图收下了")
+	}
+}
+
+func TestParseSelectReplyDropsAHookThatIsNotAQuestion(t *testing.T) {
+	// 🚨 prompt 要求 hook 是一个问题、以问号结尾。一条只能在 prompt 里写、在
+	// 代码里验不了的规矩会被悄悄破掉（memory: prompt-output-must-be-verifiable），
+	// 而破掉的样子是「它想问你」下面摆着一句陈述句。
+	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
+		`"hook":"这展示了 AI 在数学推理上的潜力。","field":"science"}]}`
+	if _, err := ParseSelectReply(raw, candidates(3)); err == nil {
+		t.Error("一句陈述被当成钩子留下了")
+	}
+
+	// 英文问号照样算数：模型偶尔会用半角。
+	raw = `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +
+		`"hook":"Does it hold?","field":"science"}]}`
+	if _, err := ParseSelectReply(raw, candidates(3)); err != nil {
+		t.Errorf("半角问号被丢了：%v", err)
+	}
+}
+
 func TestParseSelectReplyKeepsThePlanetButDropsABadDiscipline(t *testing.T) {
 	// 学科连错比没连上糟；但为了一条连错的边扔掉一条好新闻更糟。
 	raw := `{"planets":[{"index":0,"titleZh":"x","titleEn":"Story number 0 about topic 0",` +

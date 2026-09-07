@@ -82,8 +82,9 @@ func liveAsk(t *testing.T, rs gateway.Resolvers, class, system, user string) str
 	if err != nil {
 		t.Fatalf("live call failed (%s / %s): %v", class, r.ModelID, err)
 	}
-	t.Logf("%s → %s | %v | in=%d out=%d", class, r.ModelID,
-		time.Since(start).Round(time.Millisecond), res.Usage.InputTokens, res.Usage.OutputTokens)
+	t.Logf("%s → %s | %v | in=%d out=%d | stop=%q", class, r.ModelID,
+		time.Since(start).Round(time.Millisecond), res.Usage.InputTokens, res.Usage.OutputTokens,
+		res.StopReason)
 	return res.Text
 }
 

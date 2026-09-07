@@ -63,8 +63,21 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
   好：「深海珊瑚在 30 度水里活下来了」。差：「研究人员发现珊瑚耐热性新机制」。
 - titleEn：原标题即可。
 - summary：两句话。第一句发生了什么，第二句为什么这值得知道。不超过 80 字。
-- hook：**一个她能追问的问题**，不是一句感叹。以问号结尾。
-  好：「四平方公里的珊瑚，能代表一整片海吗？」。差：「是不是很神奇？」
+- hook：**一个逼她去想的问题**，以问号结尾，可以是两句。它要问的是**这条新闻
+  自己的说法站不站得住**，不是「接下来还能做什么」。四种问法，挑一种：
+  · 这个结论撑得住吗 —— 样本、方法、时间跨度够不够支持它下的判断。
+    「四平方公里的珊瑚，能代表一整片海吗？」
+  · 这里的词是什么意思 —— 标题用的那个词和它实际做到的事是不是一回事。
+    「『验证一个证明』和『发现一个定理』是同一种能力吗？」
+  · 这一步能推多远 —— 从这件事推到那个大结论，中间少了哪一步。
+    「AI 十一天做完了数学家几年的活。这一件事足以说明它比数学家聪明吗？」
+  · 是谁在说、怎么算的 —— 数字是谁测的、按什么口径。
+    「这个『提升 40%』是和什么比出来的？」
+  差的问法有两种，都不要：一是感叹（「是不是很神奇？」），二是把这条新闻当
+  跳板去问下一件事（「那它接下来能不能自己发现新定理？」）—— 后者看着像个
+  问题，其实是在替她跳过眼前这条新闻。
+- hook 的长度：**不超过 45 字**，一到两句。这一条是硬的：一屏五颗星的回复被模型
+  截断过一次，那一整天就没有星图。写得长不会更有力，只会把问题埋在一段话里。
 - field：七选一 —— formal（数学与形式）/ science（科学与自然）/ making（技术与创造）
   / society（社会与世界）/ humanities（人文与写作）/ arts（艺术与表达）/ self（自我与成长）
   按**这条新闻在问什么**判，不是按它发在哪个网站。
@@ -75,6 +88,15 @@ const selectSystemPrompt = `你在为一个中学生挑今天值得知道的五�
 
 只输出一个 JSON 对象，不要任何解释：
 {"planets":[{"index":0,"titleZh":"","titleEn":"","summary":"","hook":"","field":"","disciplineId":"","interestId":""}]}`
+
+// isQuestion —— 这句话是不是一个问题。
+//
+// 判据就是有没有问号（中英文都认）。这是 prompt 里那条「以问号结尾」在代码里
+// 的那一半：一条只能在 prompt 里写、在代码里验不了的规矩，实测下来迟早会被
+// 悄悄破掉，而破掉的样子是「它想问你」下面摆着一句陈述。
+func isQuestion(s string) bool {
+	return strings.ContainsAny(s, "？?")
+}
 
 // BuildSelectPrompt 拼出选星用的 system 与 user 两段，**并把真正写进 prompt 的
 // 那批候选一起返回**。
@@ -129,6 +151,9 @@ type selectReply struct {
 //     编五条新闻（memory: ai-errors-must-surface-never-fake）。
 //  2. index 越界 → 丢。模型偶尔会指一个不存在的候选。
 //  3. titleZh 或 hook 为空 → 丢。一颗没有钩子的星球是一条只能被记住的新闻。
+//     hook 里没有问号也丢：prompt 要求它是一个问题，而「要求」只有能验才算数
+//     （memory: prompt-output-must-be-verifiable）。一句陈述放在「它想问你」
+//     下面，是这一屏唯一的谎。
 //  4. field 不是七根主枝之一 → 丢。
 //  5. 模型自己写出来的中文里带政治信号 → 丢。抓取那一层看的是英文原标题，
 //     漏得掉；中文重写漏不掉。
@@ -137,13 +162,27 @@ type selectReply struct {
 //  6. 同一个 index 重复 → 只留第一个。
 //  7. 超过五颗 → 截断。
 func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
-	body, err := sliceJSONObject(raw)
-	if err != nil {
-		return nil, err
-	}
 	var rep selectReply
-	if err := json.Unmarshal(body, &rep); err != nil {
-		return nil, fmt.Errorf("select reply is not the expected object: %w", err)
+	body, err := sliceJSONObject(raw)
+	switch {
+	case err == nil:
+		if uerr := json.Unmarshal(body, &rep); uerr != nil {
+			return nil, fmt.Errorf("select reply is not the expected object: %w", uerr)
+		}
+	default:
+		// 🚨 回复被截断时，**把写完的那几颗捞出来**，不要整天没有星图。
+		//
+		// 2026-09-07 实测：钩子改成「问这条新闻自己站不站得住」之后，模型写得长
+		// 了不少，五颗星那一回正好在收尾的 `]}` 之前断掉 —— 五颗完整的星球都在
+		// 回复里，而整张星图因为少两个字符全丢了。一天只生成一次，所以这一下的
+		// 代价是**当天没有探索地图**。
+		//
+		// 四颗真的星，好过零颗。
+		salvaged, ok := salvagePlanets(raw)
+		if !ok {
+			return nil, err
+		}
+		rep = salvaged
 	}
 
 	out := make([]Planet, 0, PlanetCount)
@@ -151,7 +190,7 @@ func ParseSelectReply(raw string, candidates []Item) ([]Planet, error) {
 	for _, p := range rep.Planets {
 		zh := strings.TrimSpace(p.TitleZh)
 		hook := strings.TrimSpace(p.Hook)
-		if zh == "" || hook == "" || !disciplines.IsField(p.Field) {
+		if zh == "" || !isQuestion(hook) || !disciplines.IsField(p.Field) {
 			continue
 		}
 		// 🚨 **不信任模型给的下标。** 2026-09-03 实测：模型描述了五条真实存在的
@@ -277,6 +316,44 @@ func sliceJSONObject(raw string) ([]byte, error) {
 		return nil, fmt.Errorf("reply 里的 JSON 对象没有写完（被截断了）")
 	}
 	return nil, fmt.Errorf("reply 里没有 JSON 对象")
+}
+
+// salvagePlanets 从一段没写完的回复里，把已经写完整的星球捞出来。
+//
+// 做法是从 `"planets"` 后面那个 `[` 起，用流式解码一颗一颗地读，读到断掉为止。
+// 逐颗解码是关键：整段 Unmarshal 对截断的输入只会给一个错误，而这里每一颗完整
+// 的对象都是独立可用的。
+func salvagePlanets(raw string) (selectReply, bool) {
+	i := strings.Index(raw, `"planets"`)
+	if i < 0 {
+		return selectReply{}, false
+	}
+	j := strings.Index(raw[i:], "[")
+	if j < 0 {
+		return selectReply{}, false
+	}
+	dec := json.NewDecoder(strings.NewReader(raw[i+j:]))
+	if _, err := dec.Token(); err != nil { // 吃掉 '['
+		return selectReply{}, false
+	}
+	var rep selectReply
+	for dec.More() {
+		var one struct {
+			Index        int    `json:"index"`
+			TitleZh      string `json:"titleZh"`
+			TitleEn      string `json:"titleEn"`
+			Summary      string `json:"summary"`
+			Hook         string `json:"hook"`
+			Field        string `json:"field"`
+			DisciplineID string `json:"disciplineId"`
+			InterestID   string `json:"interestId"`
+		}
+		if err := dec.Decode(&one); err != nil {
+			break // 断在这一颗上，前面那几颗仍然算数。
+		}
+		rep.Planets = append(rep.Planets, one)
+	}
+	return rep, len(rep.Planets) > 0
 }
 
 func truncRunes(s string, max int) string {
