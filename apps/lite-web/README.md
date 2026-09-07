@@ -8,12 +8,16 @@
 这份文件的用途只有一个：**让你在三十秒内定位到你要改的那个文件。**
 产品理念、四条铁律、界面文案的九条规矩在仓库根目录的 `AGENTS.md`，不在这里重复。
 
+> **本项目当前的 LITE 设计约束：永远只运行原型，不在本地尝试运行后端或完整产品。**
+> 新开发内容严格放在 `apps/lite-web/src/eco/`；线上对应页面只用于参考和源码定位。
+> 分支与 Pull Request 流程见本文末尾的「LITE 原型专项协作规则」。
+
 ---
 
 ## 目录
 
 - [先读这一段：三件会咬人的事](#先读这一段三件会咬人的事)
-- [跑起来](#跑起来)
+- [跑原型](#跑原型)
 - [怎么找代码](#怎么找代码)
 - [目录地图](#目录地图)
 - [五个 tab，逐个展开](#五个-tab逐个展开)
@@ -79,20 +83,49 @@ TypeScript 的 switch 穷尽检查会帮你找到剩下的。
 
 ---
 
-## 跑起来
+## 跑原型
+
+### 强制边界
+
+本阶段只运行 `/eco/*` 原型，不运行后端或完整产品：
+
+- 不启动 `apps/api`；
+- 不启动 PostgreSQL、Docker Compose 或生产部署服务；
+- 不运行完整版 `apps/web`；
+- 不运行 LITE 的登录主壳、真实 API 流程或依赖后端的端到端链路；
+- 不为了让原型启动而修改 `apps/lite-web/src/eco/` 以外的产品文件。
+
+### 推荐流程
+
+在仓库根目录安装依赖（仅首次或依赖发生变化时）：
 
 ```bash
-pnpm install                    # 仓库根目录，pnpm workspace
-
-# 需要后端：先在 apps/api 起服务（默认 :8080，vite 会把 /api 代理过去）
-pnpm --filter @mind-imprint/lite-web dev        # → http://localhost:5173
-pnpm --filter @mind-imprint/lite-web test       # vitest，全量
-pnpm --filter @mind-imprint/lite-web typecheck  # tsc --noEmit
-pnpm --filter @mind-imprint/lite-web build      # → dist/
+pnpm install --frozen-lockfile
 ```
 
-在本目录里可以直接 `pnpm dev` / `pnpm test` / `pnpm typecheck` / `pnpm build`。
-后端端口不是 8080 时用 `VITE_E2E_API_PORT` 覆盖代理目标（见 `vite.config.ts`）。
+随后只启动 LITE 前端开发服务器，并访问 `/eco/*` 对应入口：
+
+```bash
+pnpm --filter @mind-imprint/lite-web dev
+```
+
+> 启动前确认当前任务对应的入口仍然存在于 `src/eco/`。如果 `/eco/*` 入口已从 `rootElementFor.tsx` 移除，不要为恢复入口修改范围外文件；先说明并等待确认。
+
+原型只应使用 mock 数据、本地状态和原型内的静态资源。原型运行不需要 `apps/api`、数据库或真实密钥。
+
+### 不运行的命令
+
+除非你明确要求改变本协作边界，否则不要运行以下命令：
+
+```bash
+cd apps/api && make run
+cd apps/api && make migrate-up
+pnpm --filter @mind-imprint/web dev
+pnpm --filter @mind-imprint/lite-web e2e
+pnpm --filter @mind-imprint/lite-web build
+```
+
+上面最后三类命令分别可能启动完整版、访问需要后端的端到端流程，或构建并不等同于原型预览；本阶段不执行。
 
 **环境变量**（构建期烘进 bundle）：
 
@@ -493,6 +526,55 @@ className={wide ? "lg:bg-mk-surface" : "lg:bg-transparent"}
 判断标准只有一条：**在生产环境里，用真数据，亲眼看见它工作。**
 
 ---
+
+## LITE 原型专项协作规则
+
+### 工作范围
+
+- LITE 游戏化设计和原型新增内容只放在 `apps/lite-web/src/eco/`。
+- 可以读取线上 LITE 页面来核对现状，也可以根据你的截图定位对应源码；线上页面只作参考，不直接修改线上内容。
+- 除本 README 与仓库根目录 `AGENTS.md` 的协作规则外，不修改 `src/eco/` 以外的产品代码、样式、素材、配置、文档或部署文件。
+
+### 根据截图定位源码
+
+当你提供线上某个部分的截图时，按以下顺序处理：
+
+1. 先确认截图对应的线上 URL、入口和交互状态；
+2. 读取线上页面，核对截图中的文字、布局、按钮和状态；
+3. 用截图中的独特文案、URL 片段、组件名或数据字段搜索仓库；
+4. 对照 `apps/lite-web/src/` 中的源码，确认页面入口、相关组件、样式和数据来源；
+5. 记录线上现状与 LITE 原型目标的差异；
+6. 只在 `apps/lite-web/src/eco/` 内实现新的设计。
+
+源码定位记录可以使用以下模板：
+
+```text
+截图 / 页面：
+线上 URL：
+页面状态：
+源码入口：
+相关组件：
+相关样式 / 数据：
+线上现状与原型目标的差异：
+本次允许新增或修改的文件：apps/lite-web/src/eco/...
+```
+
+### 分支与 Pull Request
+
+- LITE 工作必须在独立分支上进行；禁止直接在 `main` 上修改或向 `main` 推送。
+- 当前协作分支：`feat/lite-eco-game-design`。
+- 后续如拆分新的设计单元，从最新 `main` 创建 `feat/lite-<topic>` 或 `design/lite-<topic>` 分支。
+- 提交前必须检查：
+
+```bash
+git status
+git diff
+git diff --name-only main...HEAD
+```
+
+- 范围检查必须确认产品文件只位于 `apps/lite-web/src/eco/`；本 README 与根目录 `AGENTS.md` 是协作文档例外。
+- 完成可审阅的设计单元后，推送独立分支并提交 Pull Request，目标为 `main`，请求开发者 **houx15** 审阅并合并。
+- 不自行合并 Pull Request，不绕过 `houx15` 的审阅。
 
 ## 相关文档
 

@@ -184,6 +184,36 @@
 Never modify `CLAUDE.md` or `GEMINI.md` directly - they only import `AGENTS.md`.
 This ensures Claude Code, Codex CLI, and Gemini CLI share the same context consistently.
 
+## LITE 版本专项协作约束（必须遵守）
+
+本节是 `mind-imprint` 仓库中 LITE 版本游戏化设计工作的长期约束。任何后续参与本项目的 Agent 或开发者，都必须先阅读并遵守本节。
+
+### 工作范围
+
+- **所有新增或修改的 LITE 产品设计 / 前端实现内容，严格限定在 `apps/lite-web/src/eco/` 文件夹内。** 当前该目录可能尚未存在；需要开发时再创建。
+- 可以读取、对照线上环境中 LITE 的对应页面与交互，用于理解现状和保持一致；**线上内容只能作为参考，不得把新开发内容写到线上环境或仓库其他目录。**
+- 用户明确允许新增 `apps/lite-web/README.md` 作为 LITE 原型协作说明文档；除该文档与本 `AGENTS.md` 中记录协作规则外，不修改 `apps/lite-web/src/eco/` 以外的产品代码、样式、素材、配置、文档或部署文件；不扩展到后端、数据库、API、`apps/web`、`apps/site`、`packages`、`deploy` 等范围。
+- 本阶段只做 LITE 游戏化设计及其在上述目录内的落地，不顺手修复或重构其他模块。
+
+### 分支与合并流程
+
+- **禁止直接在 `main` 上开展 LITE 工作，也禁止直接向 `main` 推送。** 开始任何 LITE 工作前，必须从最新 `main` 创建独立分支；推荐命名为 `feat/lite-<topic>` 或 `design/lite-<topic>`。
+- **永远只运行 `apps/lite-web/src/eco/` 原型。禁止在本地尝试运行后端、数据库、Docker Compose、完整版 `apps/web` 或完整产品；除非用户明确改变本条约束。**
+- 每次提交前检查 `git status` 和 `git diff`，确认变更只涉及允许范围（协作规则文件的必要更新除外）。
+- 完成一个可审阅的设计单元后，推送该独立分支并提交 Pull Request，目标分支为 `main`，请求仓库开发者 **`houx15`** 审阅并合并。
+- 不自行合并 Pull Request，不绕过 `houx15` 的审阅；如发现需要修改范围或目标分支，先停下并说明。
+- PR 描述必须明确：设计目标、改动文件、线上对应参考、验证方式，以及确认未触及范围外文件。
+
+### 执行前检查清单
+
+1. 先确认当前分支不是 `main`，并确认工作区已有变更不属于他人未完成工作。
+2. 先读取 `apps/lite-web/src/eco/` 现有代码；如目录尚未创建，先确认线上对应部分和本地仓库结构，再在该目录内新增。
+3. 设计或实现过程中只新增 / 修改允许范围内的文件。
+4. 提交前执行范围检查：`git diff --name-only main...HEAD`；发现范围外产品文件立即停止并报告。
+5. 通过 Pull Request 请 `houx15` 合并，等待审阅结果，不直接合并。
+
+> 规则记录例外：本节写入根目录 `AGENTS.md`，是为了让 Claude Code、Codex CLI、Gemini CLI 及后续 Agent 持续读取；它不属于 LITE 产品设计 / 实现范围。
+
 ## Project Structure
 
 - `apps/web/` - 前端 SPA（React + Vite）
