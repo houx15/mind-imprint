@@ -29,6 +29,7 @@ import (
 
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/interest"
+	"mindimprint/api/internal/store/sqlc"
 )
 
 // harvestBodyRuneBudget 限制喂给采集器的文本量。
@@ -119,7 +120,68 @@ func (a *API) harvestOneAtom(ctx context.Context, userID, atomID uuid.UUID, kind
 	if n := before - len(hs); n > 0 {
 		slog.Warn("interest harvest: dropped ungrounded keywords", "dropped", n, "atom_id", atomID)
 	}
-	a.plantKeywords(ctx, userID, kind, atomID, title, hs)
+	a.landHarvest(ctx, userID, kind, atomID, title, hs)
+}
+
+// landHarvest 决定采出来的这几个词往哪去：直接种，还是先摆成候选等她认。
+//
+// 🚨 **阅读和写作只提候选，不直接种**（2026-09-07，迁移 0140）。这棵树的说法是
+// 「这就是你的模型」，而一个她没点过头的模型只是我们对她的记录。她读完会看到
+// 报告，候选词就摆在报告上，认不认由她。
+//
+// 两条例外，都不是偷懒：
+//
+//   - **她树上已经有的那个词直接种。** 那是给一个已经认过的词再添一条来源
+//     （强度往上走），不是一个新说法。为一个三个月前就认过的词再问一次同意，
+//     是把同意变成打卡。
+//   - **项目和兴趣测试照旧直接种。** 兴趣测试本身就是她在挑词 —— 那一步已经
+//     是同意了，再问一遍是不认账。
+func (a *API) landHarvest(
+	ctx context.Context,
+	userID uuid.UUID,
+	kind string,
+	atomID uuid.UUID,
+	title string,
+	hs []interest.Harvested,
+) {
+	if kind != "reading" && kind != "writing" {
+		a.plantKeywords(ctx, userID, kind, atomID, title, hs)
+		return
+	}
+
+	have, err := a.d.Queries.ListUserInterestIDs(ctx, userID)
+	if err != nil {
+		// 读不到她已有的词，就当一个都没有：全部走候选。宁可多问一次，也不要
+		// 在她没点头的情况下往树上写。
+		slog.Warn("interest harvest: list existing failed", "err", err, "atom_id", atomID)
+		have = nil
+	}
+	known := make(map[string]bool, len(have))
+	for _, id := range have {
+		if id != nil {
+			known[*id] = true
+		}
+	}
+
+	var grow []interest.Harvested
+	for _, h := range hs {
+		if known[h.InterestID] {
+			grow = append(grow, h)
+			continue
+		}
+		if err := a.d.Queries.ProposeInterest(ctx, sqlc.ProposeInterestParams{
+			UserID:     userID,
+			AtomID:     atomID,
+			InterestID: h.InterestID,
+			Note:       h.Note,
+			Evidence:   h.Evidence,
+		}); err != nil {
+			slog.Warn("interest harvest: propose failed", "err", err, "interest_id", h.InterestID)
+		}
+	}
+	if len(grow) > 0 {
+		a.plantKeywords(ctx, userID, kind, atomID, title, grow)
+	}
 }
 
 // gatherHarvestText 取出这个 atom 里**她自己写的**东西。

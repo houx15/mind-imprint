@@ -11,6 +11,7 @@ import { ArticleView } from "./ArticleView";
 import { SharePanel } from "./SharePanel";
 import { ReportActions } from "./ReportActions";
 import { ExperienceStars } from "./ExperienceStars";
+import { TreeProposals } from "./TreeProposals";
 
 /**
  * ReportPanel — the thing `FinishedReadingPanel` / `FinishedWritingPanel`
@@ -236,6 +237,13 @@ export function ReportPanel({
         />
 
         <div className="mk-rp-measure flex flex-col gap-5 pb-4">
+          {/* 可以加进兴趣树的候选词。**只在她自己这一面**，`PublicReportPage`
+              没有这一节 —— 别人打开这个链接时，能加词的是他，不是她。
+
+              放在报告之后、五颗星之前：她先看完这一篇留下了什么，再决定哪几个
+              词进树。反过来问，是在问一件她还没看到的事。 */}
+          <TreeProposals atomId={atomId} />
+
           {/* The five stars come AFTER the report — she reads it, then says how
               the session felt; asking first would be asking about something she
               hasn't seen. With sharing moved to the top this is now the last
