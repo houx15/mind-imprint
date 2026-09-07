@@ -63,8 +63,10 @@ export interface Keyword {
   field: FieldId;
   /** 1..5。节点大小 + 强度读数。由来源条数推出来，不是等级。 */
   strength: number;
-  /** 第一次出现在哪个成长刻度（GROWTH_STOPS 的下标）。 */
+  /** 第一次出现在哪个成长刻度（`growthStops` 的下标）。 */
   bornAt: number;
+  /** 第一次出现的那一刻（ISO）。抽屉里「什么时候加进来的」显示的就是它。 */
+  firstSeenAt: string;
   /** 印记对这个词之于她是什么的一句话。 */
   note: string;
   sources: KeywordSource[];

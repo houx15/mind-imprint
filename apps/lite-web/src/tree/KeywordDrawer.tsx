@@ -1,5 +1,5 @@
 import { Sparkles, X } from "lucide-react";
-import { GROWTH_STOPS, fieldById } from "./geometry";
+import { fieldById } from "./geometry";
 import type { Keyword, KeywordSource } from "./types";
 import { Drawer, Sys, cx } from "./ui";
 import { DigSection } from "./DigSection";
@@ -31,9 +31,11 @@ import { liteRoutePath, navigate } from "../routing";
 export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: () => void }) {
   if (!kw) return null;
   const f = fieldById(kw.field);
-  // 🚨 用 GROWTH_STOPS 的标签，不是写死的 ["三月","五月","七月","本月"]。那四个
-  // 绝对月份对一个二月开始的学生是错的——刻度本来就是**相对她自己的起点**的。
-  const bornLabel = GROWTH_STOPS[kw.bornAt]?.label ?? GROWTH_STOPS[GROWTH_STOPS.length - 1]!.label;
+  // 🚨 写**它是哪天第一次出现的**，不是成长轴上那一格的名字（2026-09-07）。
+  // 那一格的名字是相对她整段跨度算出来的，随着她继续用还会变 —— 同一个词今天
+  // 写着「4 个月前」，下个月写着「5 个月前」。而「什么时候加进来的」只有一个
+  // 答案，就是这个日期。
+  const bornLabel = kw.firstSeenAt ? kw.firstSeenAt.slice(0, 10) : "不知道";
 
   return (
     <Drawer open onClose={onClose} width={560} label={kw.text}>
@@ -75,7 +77,7 @@ export function KeywordDrawer({ kw, onClose }: { kw: Keyword | null; onClose: ()
             </span>
           </span>
           <span className="inline-flex items-baseline gap-1.5">
-            <Sys tone="dark">出现于</Sys>
+            <Sys tone="dark">第一次出现</Sys>
             <span className="font-mono text-mk-small text-[#F0E9E0]">{bornLabel}</span>
           </span>
         </div>

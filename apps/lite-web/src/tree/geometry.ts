@@ -110,42 +110,18 @@ export function branchPath(field: FieldId): string {
 }
 
 /**
- * The growth replay.
+ * 值得摆出来的那几个刻度。
  *
- * 🚨 **The stops are RELATIVE to when she started, never absolute months.**
- * The first version read 三月 / 五月 / 七月 / 现在, which is fine for a student
- * who happens to have started in March and meaningless — worse, quietly false
- * — for everyone else. A student on her second day would be shown a five-month
- * growth story that is not hers.
+ * 一个什么都不装的刻度，按下去看到的是她眼前这棵一模一样的树 —— 一个不做事的
+ * 控件。最后一个永远留着：总有一个现在。
  *
- * Relative buckets survive both ends of the range: someone three weeks in has
- * 起点 and 现在 and nothing between (see `stopsFor`, which drops the buckets
- * that hold nothing), and someone two years in still has five labels rather
- * than twenty-four months of dots.
- *
- * Index 3 is 现在; a keyword with `bornAt: 2` appears at the third stop and
- * stays.
+ * 刻度本身（有几个、各自写什么）由 `liveTree.growthStops` 按她的真实跨度算，
+ * 不在这里 —— 那需要时间，而这个文件只管几何。
  */
-export const GROWTH_STOPS = [
-  { label: "起点", sub: "刚开始的时候" },
-  { label: "半年前", sub: "读得多起来" },
-  { label: "近两个月", sub: "开始写" },
-  { label: "现在", sub: "今天" },
-];
-
-/**
- * The stops worth showing, given what actually exists.
- *
- * A stop that holds no keywords is a dot she can press to see the same tree
- * she is already looking at. 现在 is always kept — there is always a present —
- * so a brand-new student gets a single label rather than a scrubber with
- * nothing to scrub.
- */
-export function stopsFor(keywords: Keyword[]): number[] {
-  const last = GROWTH_STOPS.length - 1;
-  const live = GROWTH_STOPS.map((_, i) => i).filter(
+export function stopsFor(keywords: Keyword[], stopCount: number): number[] {
+  const last = stopCount - 1;
+  return Array.from({ length: stopCount }, (_, i) => i).filter(
     (i) => i === last || keywords.some((k) => k.bornAt <= i),
   );
-  return live;
 }
 

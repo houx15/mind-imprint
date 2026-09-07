@@ -2,12 +2,12 @@ import { useMemo, useRef, useState } from "react";
 import type { MeUser } from "../api/auth";
 import {
   FIELDS,
-  GROWTH_STOPS,
   stopsFor,
   branchPath,
   fieldById,
   pointOnBranch,
 } from "./geometry";
+import { growthStops } from "./liveTree";
 import { outputCount, type LiveTree } from "./useInterestTree";
 import type { FieldId, Keyword } from "./types";
 import { Hint, Sys, cx } from "./ui";
@@ -66,7 +66,8 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
   // 成长回放的刻度是**这一页的本地状态**。原型里它住在 EcoProvider 的全局
   // store 里，那是因为世界和树共用一个 store；在 lite 里没有别的页面关心她把
   // 回放拖到了哪一格，把它提升到全局只会让一个纯展示的选择跨页面存活。
-  const [stop, setStop] = useState(GROWTH_STOPS.length - 1);
+  // 落在最后一格（现在）。真正有几格由 `growthStops` 按她的跨度算，见下面。
+  const [stop, setStop] = useState(3);
   const [openId, setOpenId] = useState<string | null>(null);
   const [hoverField, setHoverField] = useState<FieldId | null>(null);
   // 点一片叶子看它扎在哪几条根上；点一条根看哪几片叶子共用它。连线只在这时出现。
@@ -90,11 +91,19 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
   // 空枝邀请：点一根还没有词的枝，问的是「这根枝上会长什么」。
   const [inviteField, setInviteField] = useState<FieldId | null>(null);
 
-  const visible = useMemo(() => all.filter((k) => k.bornAt <= stop), [all, stop]);
+  // 🚨 这条轴有几格，是**她的树活了多久**决定的（`growthStops`）：三周以内根本
+  // 不画，之后从两格长到四格。上一版永远是四格，标签写死成「半年前 / 近两个月」，
+  // 对一个上周才开始的学生那六个月不存在。
+  const axis = useMemo(() => growthStops(all), [all]);
+  const lastStop = axis.length - 1;
+  // 刻度数会随数据变（她今天跨过了三个月，轴就从两格变三格），所以选中的那一格
+  // 要夹住，否则会停在一个不存在的下标上，界面看起来是「一格都没选中」。
+  const atStop = Math.min(stop, lastStop);
+  const visible = useMemo(() => all.filter((k) => k.bornAt <= atStop), [all, atStop]);
   // Only the stops that actually hold something. A dot that shows the tree she
   // is already looking at is a control that does nothing.
-  const liveStops = useMemo(() => stopsFor(all), [all]);
-  const maturity = 0.42 + (stop / 3) * 0.58;
+  const liveStops = useMemo(() => stopsFor(all, axis.length), [all, axis.length]);
+  const maturity = 0.42 + (lastStop === 0 ? 1 : atStop / lastStop) * 0.58;
   const openKw = openId ? (all.find((k) => k.id === openId) ?? null) : null;
 
   // ONE count, used by the header, the field index and the caption. Three
@@ -138,8 +147,8 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
           {liveStops.length > 1 ? (
             <div className="mt-3 flex items-center">
               {liveStops.map((si, i) => {
-                const st = GROWTH_STOPS[si]!;
-                const active = si === stop;
+                const st = axis[si]!;
+                const active = si === atStop;
                 return (
                   <div key={st.label} className="flex items-center">
                     <button
@@ -176,7 +185,7 @@ export function TreeView({ user, live }: { user: MeUser; live: LiveTree }) {
                 );
               })}
               <span className="mb-5 ml-3 text-mk-small text-[#8E8175]">
-                {stop === GROWTH_STOPS.length - 1 ? `${total} 个关键词` : `那时候 ${total} 个`}
+                {atStop === lastStop ? `${total} 个关键词` : `那时候 ${total} 个`}
               </span>
             </div>
           ) : (

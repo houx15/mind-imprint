@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { InterestKeyword, InterestTree } from "../api/interest";
-import { bornAtFor, hashString, placeOnBranch, toTreeKeywords } from "./liveTree";
+import {
+  bornAtFor,
+  growthStops,
+  hashString,
+  placeOnBranch,
+  stopCount,
+  toTreeKeywords,
+} from "./liveTree";
 
 // liveTree.test.ts —— 位置算法的守卫。
 //
@@ -27,7 +34,7 @@ function kw(over: Partial<InterestKeyword>): InterestKeyword {
 }
 
 function tree(keywords: InterestKeyword[]): InterestTree {
-  return { fields: [], keywords, dismissed: [] };
+  return { fields: [], keywords };
 }
 
 describe("hashString", () => {
@@ -170,5 +177,88 @@ describe("toTreeKeywords", () => {
     );
     expect(got[0]!.sources[0]!.evidence).toBe("我读到面积那一段才反应过来。");
     expect(got[0]!.sources[0]!.date).toBe("2026-08-29");
+  });
+});
+
+describe("成长回放那条轴", () => {
+  const now = Date.parse("2026-09-07T12:00:00Z");
+
+  /** 一棵最早的词出现在 `daysAgo` 天前的树。 */
+  function aged(daysAgo: number) {
+    return toTreeKeywords(
+      tree([kw({ firstSeenAt: new Date(now - daysAgo * DAY).toISOString() })]),
+      now,
+    );
+  }
+
+  // 🚨 这一条是这个 describe 存在的理由。上一版永远是四格，标签写死成
+  // 「起点 · 半年前 · 近两个月 · 现在」—— 一个上周才开始的学生会看到一条写着
+  // 「半年前」的轴，而那六个月不存在。截图上它看着完全正常。
+  it("轴的长度跟着她的树活了多久走", () => {
+    expect(stopCount(3 * DAY)).toBe(1);
+    expect(stopCount(20 * DAY)).toBe(1);
+    expect(stopCount(30 * DAY)).toBe(2);
+    expect(stopCount(120 * DAY)).toBe(3);
+    expect(stopCount(400 * DAY)).toBe(4);
+  });
+
+  it("刚开始的学生只有一格，界面据此不画这条轴", () => {
+    expect(growthStops(aged(3), now)).toHaveLength(1);
+    expect(growthStops(aged(3), now)[0]!.label).toBe("现在");
+  });
+
+  it("待久了轴就长出来，最多四格", () => {
+    expect(growthStops(aged(30), now)).toHaveLength(2);
+    expect(growthStops(aged(120), now)).toHaveLength(3);
+    expect(growthStops(aged(400), now)).toHaveLength(4);
+    expect(growthStops(aged(4000), now)).toHaveLength(4);
+  });
+
+  it("两头永远是起点和现在", () => {
+    const stops = growthStops(aged(400), now);
+    expect(stops[0]!.label).toBe("起点");
+    expect(stops[stops.length - 1]!.label).toBe("现在");
+  });
+
+  // 中间那几格写的是**离今天多久**，由真实时间算出来。写死的「半年前」正是
+  // 这次要改掉的东西，所以这里钉住：它必须随跨度变。
+  it("中间那几格说的是真的时长，不是写死的词", () => {
+    const half = growthStops(aged(400), now)[1]!.label;
+    const longer = growthStops(aged(1200), now)[1]!.label;
+    expect(half).toMatch(/前$/);
+    expect(longer).toMatch(/前$/);
+    expect(half).not.toBe(longer);
+  });
+
+  it("每一格都挂着它自己那一天，不是一句编出来的情节", () => {
+    for (const st of growthStops(aged(400), now).slice(0, -1)) {
+      expect(st.sub).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+    }
+  });
+
+  it("一个词都没有时不画轴", () => {
+    expect(growthStops([], now)).toHaveLength(1);
+  });
+
+  // bornAt 的上界必须跟着刻度数走：轴只有两格时，一个 bornAt=3 的词永远显示
+  // 不出来 —— 树上少一个词，而没有任何地方会报错。
+  it("每个词的刻度下标都在轴里面", () => {
+    for (const days of [3, 30, 120, 400, 4000]) {
+      const list = toTreeKeywords(
+        tree(
+          [0, 0.3, 0.6, 0.95, 1].map((r, i) =>
+            kw({ id: `k${i}`, firstSeenAt: new Date(now - days * DAY * (1 - r)).toISOString() }),
+          ),
+        ),
+        now,
+      );
+      const stops = growthStops(list, now);
+      for (const k of list) {
+        expect(k.bornAt, `${days} 天的树上「${k.text}」落在第 ${k.bornAt} 格`).toBeLessThan(
+          stops.length,
+        );
+        expect(k.bornAt).toBeGreaterThanOrEqual(0);
+      }
+    }
   });
 });
