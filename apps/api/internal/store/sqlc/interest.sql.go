@@ -65,20 +65,40 @@ func (q *Queries) CountKeywordSources(ctx context.Context, keywordID uuid.UUID) 
 	return count, err
 }
 
-const dismissInterest = `-- name: DismissInterest :exec
-INSERT INTO interest_dismissal (user_id, interest_id) VALUES ($1, $2)
-ON CONFLICT (user_id, interest_id) DO NOTHING
+const decideInterestProposal = `-- name: DecideInterestProposal :one
+UPDATE interest_proposal SET decided_at = now(), accepted = $4
+WHERE user_id = $1 AND atom_id = $2 AND interest_id = $3 AND decided_at IS NULL
+RETURNING user_id, atom_id, interest_id, note, evidence, created_at, decided_at, accepted
 `
 
-type DismissInterestParams struct {
+type DecideInterestProposalParams struct {
 	UserID     uuid.UUID `json:"user_id"`
+	AtomID     uuid.UUID `json:"atom_id"`
 	InterestID string    `json:"interest_id"`
+	Accepted   *bool     `json:"accepted"`
 }
 
-// 重复按同一条是无害的：她可能在两台设备上各按一次。
-func (q *Queries) DismissInterest(ctx context.Context, arg DismissInterestParams) error {
-	_, err := q.db.Exec(ctx, dismissInterest, arg.UserID, arg.InterestID)
-	return err
+// 决定只做一次：已经决定过的行不再改。她按错了要改主意，走的是树上那条路
+// （再读一篇、或者兴趣测试），不是把这一格来回翻。
+func (q *Queries) DecideInterestProposal(ctx context.Context, arg DecideInterestProposalParams) (InterestProposal, error) {
+	row := q.db.QueryRow(ctx, decideInterestProposal,
+		arg.UserID,
+		arg.AtomID,
+		arg.InterestID,
+		arg.Accepted,
+	)
+	var i InterestProposal
+	err := row.Scan(
+		&i.UserID,
+		&i.AtomID,
+		&i.InterestID,
+		&i.Note,
+		&i.Evidence,
+		&i.CreatedAt,
+		&i.DecidedAt,
+		&i.Accepted,
+	)
+	return i, err
 }
 
 const finishInterestQuiz = `-- name: FinishInterestQuiz :one
@@ -191,6 +211,33 @@ func (q *Queries) GetInterestKeywordForUser(ctx context.Context, arg GetInterest
 	return i, err
 }
 
+const getInterestProposal = `-- name: GetInterestProposal :one
+SELECT user_id, atom_id, interest_id, note, evidence, created_at, decided_at, accepted FROM interest_proposal
+WHERE user_id = $1 AND atom_id = $2 AND interest_id = $3
+`
+
+type GetInterestProposalParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	AtomID     uuid.UUID `json:"atom_id"`
+	InterestID string    `json:"interest_id"`
+}
+
+func (q *Queries) GetInterestProposal(ctx context.Context, arg GetInterestProposalParams) (InterestProposal, error) {
+	row := q.db.QueryRow(ctx, getInterestProposal, arg.UserID, arg.AtomID, arg.InterestID)
+	var i InterestProposal
+	err := row.Scan(
+		&i.UserID,
+		&i.AtomID,
+		&i.InterestID,
+		&i.Note,
+		&i.Evidence,
+		&i.CreatedAt,
+		&i.DecidedAt,
+		&i.Accepted,
+	)
+	return i, err
+}
+
 const getKeywordDigAt = `-- name: GetKeywordDigAt :one
 SELECT dig_at FROM interest_keyword WHERE id = $1
 `
@@ -228,31 +275,6 @@ func (q *Queries) LatestFinishedInterestQuiz(ctx context.Context, userID uuid.UU
 	return i, err
 }
 
-const listInterestDismissals = `-- name: ListInterestDismissals :many
-SELECT interest_id FROM interest_dismissal WHERE user_id = $1
-`
-
-// 「不感兴趣」。见迁移 0137。
-func (q *Queries) ListInterestDismissals(ctx context.Context, userID uuid.UUID) ([]string, error) {
-	rows, err := q.db.Query(ctx, listInterestDismissals, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var interest_id string
-		if err := rows.Scan(&interest_id); err != nil {
-			return nil, err
-		}
-		items = append(items, interest_id)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listInterestKeywords = `-- name: ListInterestKeywords :many
 SELECT id, user_id, text_zh, text_en, norm, field, strength, note, first_seen_at, dig_at, interest_id FROM interest_keyword
 WHERE user_id = $1
@@ -280,6 +302,46 @@ func (q *Queries) ListInterestKeywords(ctx context.Context, userID uuid.UUID) ([
 			&i.FirstSeenAt,
 			&i.DigAt,
 			&i.InterestID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listInterestProposals = `-- name: ListInterestProposals :many
+SELECT user_id, atom_id, interest_id, note, evidence, created_at, decided_at, accepted FROM interest_proposal
+WHERE user_id = $1 AND atom_id = $2
+ORDER BY created_at, interest_id
+`
+
+type ListInterestProposalsParams struct {
+	UserID uuid.UUID `json:"user_id"`
+	AtomID uuid.UUID `json:"atom_id"`
+}
+
+func (q *Queries) ListInterestProposals(ctx context.Context, arg ListInterestProposalsParams) ([]InterestProposal, error) {
+	rows, err := q.db.Query(ctx, listInterestProposals, arg.UserID, arg.AtomID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []InterestProposal
+	for rows.Next() {
+		var i InterestProposal
+		if err := rows.Scan(
+			&i.UserID,
+			&i.AtomID,
+			&i.InterestID,
+			&i.Note,
+			&i.Evidence,
+			&i.CreatedAt,
+			&i.DecidedAt,
+			&i.Accepted,
 		); err != nil {
 			return nil, err
 		}
@@ -489,6 +551,35 @@ func (q *Queries) ListPendingHarvestAtoms(ctx context.Context, arg ListPendingHa
 	return items, nil
 }
 
+const listUserInterestIDs = `-- name: ListUserInterestIDs :many
+
+SELECT DISTINCT interest_id FROM interest_keyword
+WHERE user_id = $1 AND interest_id IS NOT NULL AND interest_id <> ''
+`
+
+// ── 候选词：读完一篇之后等她认的那几个（迁移 0140） ───────────────────────
+// 她树上已经有哪些领域。采集出来的词分成两路时用它：已经有的直接添来源，
+// 新的才进候选。
+func (q *Queries) ListUserInterestIDs(ctx context.Context, userID uuid.UUID) ([]*string, error) {
+	rows, err := q.db.Query(ctx, listUserInterestIDs, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []*string
+	for rows.Next() {
+		var interest_id *string
+		if err := rows.Scan(&interest_id); err != nil {
+			return nil, err
+		}
+		items = append(items, interest_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markAtomInterestHarvested = `-- name: MarkAtomInterestHarvested :exec
 UPDATE atom SET interest_harvested_at = now()
 WHERE id = $1 AND interest_harvested_at IS NULL
@@ -507,6 +598,33 @@ UPDATE interest_keyword SET dig_at = now() WHERE id = $1
 // 盖章在生成之前。见迁移 0121。
 func (q *Queries) MarkKeywordDigged(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, markKeywordDigged, id)
+	return err
+}
+
+const proposeInterest = `-- name: ProposeInterest :exec
+INSERT INTO interest_proposal (user_id, atom_id, interest_id, note, evidence)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id, atom_id, interest_id) DO NOTHING
+`
+
+type ProposeInterestParams struct {
+	UserID     uuid.UUID `json:"user_id"`
+	AtomID     uuid.UUID `json:"atom_id"`
+	InterestID string    `json:"interest_id"`
+	Note       string    `json:"note"`
+	Evidence   string    `json:"evidence"`
+}
+
+// 重复提同一个是无害的：采集只跑一次，但重跑一次不该把她已经做过的决定抹掉，
+// 所以冲突时什么也不做。
+func (q *Queries) ProposeInterest(ctx context.Context, arg ProposeInterestParams) error {
+	_, err := q.db.Exec(ctx, proposeInterest,
+		arg.UserID,
+		arg.AtomID,
+		arg.InterestID,
+		arg.Note,
+		arg.Evidence,
+	)
 	return err
 }
 
@@ -568,20 +686,6 @@ func (q *Queries) StartInterestQuiz(ctx context.Context, userID uuid.UUID) (Inte
 		&i.FinishedAt,
 	)
 	return i, err
-}
-
-const undismissInterest = `-- name: UndismissInterest :exec
-DELETE FROM interest_dismissal WHERE user_id = $1 AND interest_id = $2
-`
-
-type UndismissInterestParams struct {
-	UserID     uuid.UUID `json:"user_id"`
-	InterestID string    `json:"interest_id"`
-}
-
-func (q *Queries) UndismissInterest(ctx context.Context, arg UndismissInterestParams) error {
-	_, err := q.db.Exec(ctx, undismissInterest, arg.UserID, arg.InterestID)
-	return err
 }
 
 const upsertInterestKeyword = `-- name: UpsertInterestKeyword :one

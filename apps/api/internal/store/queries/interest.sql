@@ -177,14 +177,33 @@ UPDATE interest_keyword SET dig_at = now() WHERE id = $1;
 -- name: GetKeywordDigAt :one
 SELECT dig_at FROM interest_keyword WHERE id = $1;
 
--- 「不感兴趣」。见迁移 0137。
--- name: ListInterestDismissals :many
-SELECT interest_id FROM interest_dismissal WHERE user_id = $1;
+/* ── 候选词：读完一篇之后等她认的那几个（迁移 0140） ─────────────────────── */
 
--- 重复按同一条是无害的：她可能在两台设备上各按一次。
--- name: DismissInterest :exec
-INSERT INTO interest_dismissal (user_id, interest_id) VALUES ($1, $2)
-ON CONFLICT (user_id, interest_id) DO NOTHING;
+-- 她树上已经有哪些领域。采集出来的词分成两路时用它：已经有的直接添来源，
+-- 新的才进候选。
+-- name: ListUserInterestIDs :many
+SELECT DISTINCT interest_id FROM interest_keyword
+WHERE user_id = $1 AND interest_id IS NOT NULL AND interest_id <> '';
 
--- name: UndismissInterest :exec
-DELETE FROM interest_dismissal WHERE user_id = $1 AND interest_id = $2;
+-- 重复提同一个是无害的：采集只跑一次，但重跑一次不该把她已经做过的决定抹掉，
+-- 所以冲突时什么也不做。
+-- name: ProposeInterest :exec
+INSERT INTO interest_proposal (user_id, atom_id, interest_id, note, evidence)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (user_id, atom_id, interest_id) DO NOTHING;
+
+-- name: ListInterestProposals :many
+SELECT * FROM interest_proposal
+WHERE user_id = $1 AND atom_id = $2
+ORDER BY created_at, interest_id;
+
+-- name: GetInterestProposal :one
+SELECT * FROM interest_proposal
+WHERE user_id = $1 AND atom_id = $2 AND interest_id = $3;
+
+-- 决定只做一次：已经决定过的行不再改。她按错了要改主意，走的是树上那条路
+-- （再读一篇、或者兴趣测试），不是把这一格来回翻。
+-- name: DecideInterestProposal :one
+UPDATE interest_proposal SET decided_at = now(), accepted = $4
+WHERE user_id = $1 AND atom_id = $2 AND interest_id = $3 AND decided_at IS NULL
+RETURNING *;

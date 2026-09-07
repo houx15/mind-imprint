@@ -1,34 +1,45 @@
 import { useState } from "react";
-import { BookmarkCheck, ExternalLink, Loader2, Sprout, X } from "lucide-react";
+import { BookOpen, Clock, ExternalLink, Loader2, X } from "lucide-react";
 import { savePlanet, type ExplorePlanet } from "../api/explore";
+import { putReadingSource } from "../api/readings";
 import { fieldById } from "../tree/geometry";
+import { liteRoutePath, navigate } from "../routing";
 import type { FieldId } from "../tree/types";
 import { Drawer, Sys } from "../tree/ui";
 import type { Lang } from "./Planet";
 
 /**
- * 一颗星球，被打开。**先读，再问，最后才是收藏。**
+ * 一颗星球，被打开。**先读，再问，然后才是去哪读。**
  *
  * 这一面板的顺序就是它的论证：
  *
- *   这条新闻 → 它想问你 → 出处与原文 → 学科透镜 → 收进我的树
+ *   这条新闻 → 它想问你 → 出处 → 学科透镜 → 现在读 / 稍后读
  *
  * 「它想问你」排在新闻本身后面、所有动作前面，因为这一屏的意义不是让她**知道
  * 一件事**，而是让她带着一个**想追下去的问题**离开。标题只是让她不用瞎猜；
  * 问题才是钩子。
  *
- * ## 只有一个动作，不是四个
+ * ## 出口从「收进我的树」换成「去读」（2026-09-07）
  *
- * 原型这里有四个出口（去读 / 去写 / 做项目 / 问印记）。四个动作摆在一条三十秒
- * 前才见到的新闻后面，教的是「什么都可以马上开始」，而那不是真的。现在只有
- * **收进我的树** —— 它是一件轻的、诚实的事：这条新闻在你身上留下了一个词。
- * 项目要从树上长出来，那里有证据撑着。
+ * 原来这里的唯一动作是收藏，而收藏会直接往树上种一个词。产品负责人指出这一步
+ * 来得太早 —— 她看到的只有一个标题和两句摘要，还没读过任何东西，树上就多了一
+ * 个词。词该长在她真的读完之后：读完会有报告，报告上再提出候选词让她自己认。
  *
- * ## 收藏不是书签
+ * 所以现在是两个动作，都落到阅读室的同一篇上（服务端幂等，迁移 0138）：
  *
- * 按下去会往她的兴趣树上种一个真的关键词，evidence 就是上面那个问题 —— 她按下
- * 收藏时看着的就是它。所以**没有「取消收藏」**：那个词来自一件真的发生过的事。
- * 界面必须把这件事说清楚，而不是画一个可以来回切的书签图标。
+ *  - **现在读** —— 原文另开一页，同时进阅读室那一篇。我们先替她试一次抓正文；
+ *    抓不到就是空的，阅读室本来就有粘贴框。
+ *  - **稍后读** —— 只建那一篇，她留在地图上。
+ *
+ * ## 为什么原文要另开一页
+ *
+ *   > we have a link to 读原文, but what I really hope is to read in our platform.
+ *   > but I understand that, on our platform, it is difficult to fetch the original
+ *   > content. then, maybe we can jump to the reading room, and also open a new
+ *   > page, and invite students to paste here?
+ *
+ * 那篇文章在别人的网站上，抓不抓得到不由我们决定。抓到了她就在我们这儿读；
+ * 抓不到，旁边那一页就是她能复制的那份。两种情况下她都已经在阅读室里了。
  */
 export function NewsSheet({
   item,
@@ -41,25 +52,58 @@ export function NewsSheet({
   onClose: () => void;
   onSaved: (p: ExplorePlanet) => void;
 }) {
-  const [saving, setSaving] = useState(false);
+  const [busy, setBusy] = useState<"now" | "later" | null>(null);
   const [error, setError] = useState("");
 
   if (!item) return null;
   const meta = fieldById(item.field as FieldId);
   const title = lang === "zh" ? item.titleZh : item.titleEn || item.titleZh;
 
-  async function save() {
+  /**
+   * 落到阅读室的那一篇。服务端幂等 —— 同一颗星球永远是同一篇，所以「稍后读」
+   * 之后再「现在读」不会多出第二篇。
+   */
+  async function ensureReading(): Promise<string> {
+    if (!item) return "";
+    if (item.readingId) return item.readingId;
+    const saved = await savePlanet(item.id);
+    onSaved(saved);
+    return saved.readingId;
+  }
+
+  async function readNow() {
     if (!item) return;
-    setSaving(true);
+    // 🚨 `window.open` 必须在 await 之前，否则浏览器不认它是点击引起的，
+    // 直接当弹窗拦掉。
+    if (item.url) window.open(item.url, "_blank", "noopener,noreferrer");
+    setBusy("now");
     setError("");
     try {
-      onSaved(await savePlanet(item.id));
+      const id = await ensureReading();
+      if (!id) throw new Error("阅读室没有返回这一篇的编号。");
+      // 替她试一次抓正文。抓不到是**正常结果**，不是错误：阅读室会摆出粘贴框，
+      // 而她要复制的那一页刚刚已经开在旁边了。
+      if (item.url) {
+        await putReadingSource(id, { title: item.titleZh, url: item.url }).catch(() => undefined);
+      }
+      navigate(liteRoutePath({ tab: "readings", readingId: id }));
     } catch (e: unknown) {
-      // 动词 + 失败，再接后台原话（AGENTS.md §8）。绝不静默地当成功 —— 一个
-      // 显示成已收藏、其实没进树的按钮，是这一屏最糟的谎。
+      // 动词 + 失败，再接后台原话（AGENTS.md §8）。
       setError(e instanceof Error ? e.message : String(e));
     } finally {
-      setSaving(false);
+      setBusy(null);
+    }
+  }
+
+  async function readLater() {
+    setBusy("later");
+    setError("");
+    try {
+      await ensureReading();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setBusy(null);
     }
   }
 
@@ -71,9 +115,9 @@ export function NewsSheet({
             className="h-2.5 w-2.5 rounded-mk-full"
             style={{ background: meta.hue, boxShadow: `0 0 12px ${meta.hue}` }}
           />
-          <Sys tone="dark">
-            {meta.label} · NO.{item.rank}
-          </Sys>
+          {/* 主枝名，没有编号。「NO.3」和球上那个角标是同一件事，而它读起来
+              是一个未读计数。 */}
+          <Sys tone="dark">{meta.label}</Sys>
         </div>
         <button
           type="button"
@@ -151,58 +195,66 @@ export function NewsSheet({
           </div>
         ) : null}
 
-        {/* ── 收进我的树 ───────────────────────────────────────────────── */}
+        {/* ── 去读 ─────────────────────────────────────────────────────── */}
         <div className="mt-7">
-          {item.saved ? (
-            <div
-              className="flex items-start gap-2.5 rounded-mk-md p-4"
-              style={{ border: "1px solid rgba(147,192,136,.4)", background: "rgba(147,192,136,.1)" }}
+          <div className="flex flex-wrap gap-2.5">
+            <button
+              type="button"
+              onClick={() => void readNow()}
+              disabled={busy !== null}
+              className="inline-flex items-center gap-2 rounded-mk-full px-5 py-2.5 text-mk-body font-semibold
+                         text-[#17130F] transition hover:opacity-90 disabled:opacity-45"
+              style={{ background: meta.hue }}
             >
-              <BookmarkCheck size={17} strokeWidth={1.9} color="#93C088" className="mt-0.5 shrink-0" />
-              <div>
-                <p className="text-mk-body text-[#EDE4D9]">
-                  已收进你的树{item.keyword ? `：${item.keyword}` : ""}
-                </p>
-                <p className="mt-1 text-mk-small leading-[1.75] text-[#9A8E80]">
-                  上面那个问题成了这个词的来源。你可以在「我的树」里点开它。
-                </p>
-              </div>
-            </div>
-          ) : (
-            <>
+              {busy === "now" ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  处理中
+                </>
+              ) : (
+                <>
+                  <BookOpen size={16} strokeWidth={1.9} />
+                  现在读
+                </>
+              )}
+            </button>
+
+            {item.saved ? null : (
               <button
                 type="button"
-                onClick={save}
-                disabled={saving || !item.keyword}
-                className="inline-flex items-center gap-2 rounded-mk-full px-5 py-2.5 text-mk-body font-semibold
-                           text-[#17130F] transition hover:opacity-90 disabled:opacity-45"
-                style={{ background: meta.hue }}
+                onClick={() => void readLater()}
+                disabled={busy !== null}
+                className="inline-flex items-center gap-2 rounded-mk-full border px-5 py-2.5 text-mk-body
+                           text-[#F0E9E0] transition-colors hover:bg-[rgba(240,233,224,.1)] disabled:opacity-45"
+                style={{ borderColor: "rgba(240,233,224,.28)" }}
               >
-                {saving ? (
+                {busy === "later" ? (
                   <>
                     <Loader2 size={16} className="animate-spin" />
                     处理中
                   </>
                 ) : (
                   <>
-                    <Sprout size={16} strokeWidth={1.9} />
-                    收进我的树
+                    <Clock size={16} strokeWidth={1.9} />
+                    稍后读
                   </>
                 )}
               </button>
-              <p className="mt-2.5 max-w-[52ch] text-mk-small leading-[1.8] text-[#9A8E80]">
-                {item.keyword
-                  ? `会在你的树上加一个词：「${item.keyword}」，并把上面那个问题记为它的来源。收进去之后不能撤销。`
-                  : "这颗星球没有带关键词，暂时不能收进树。"}
-              </p>
-            </>
-          )}
+            )}
+          </div>
+
+          <p className="mt-2.5 max-w-[52ch] text-mk-small leading-[1.8] text-[#9A8E80]">
+            {item.saved
+              ? "这一篇已经在阅读室里了。「现在读」会直接打开它。"
+              : "两个都会在阅读室里建这一篇；「现在读」还会另开一页放原文，让你把正文粘进来。读完之后，报告上会提出可以加进你树里的词。"}
+          </p>
+
           {error ? (
             <p
               className="mt-3 rounded-mk-md p-3 text-mk-small leading-[1.8] text-[#F0D5D9]"
               style={{ background: "rgba(255,113,137,.12)", border: "1px solid rgba(255,113,137,.4)" }}
             >
-              收藏失败：{error}
+              打开失败：{error}
             </p>
           ) : null}
         </div>

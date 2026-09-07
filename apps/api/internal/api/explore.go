@@ -56,7 +56,6 @@ import (
 	"mindimprint/api/internal/disciplines"
 	"mindimprint/api/internal/gateway"
 	"mindimprint/api/internal/httpx"
-	"mindimprint/api/internal/interest"
 	"mindimprint/api/internal/interests"
 	"mindimprint/api/internal/news"
 	"mindimprint/api/internal/store/sqlc"
@@ -137,6 +136,12 @@ type planetDTO struct {
 	Discipline  *exploreDisciplineDTO `json:"discipline"`
 	Saved       bool                  `json:"saved"`
 	PublishedAt string                `json:"publishedAt"`
+	// InterestID 是这颗星落在领域词表里的哪一条。地图靠它和 DisciplineID 把
+	// 五颗星连到她树上已经有的词上（`explore/skyLayout.ts` 的 planetThreads）。
+	InterestID string `json:"interestId"`
+	// ReadingID 是她收下这颗星时落进阅读室的那一篇。空 = 还没收，或者是 0138
+	// 之前收的老行。
+	ReadingID string `json:"readingId"`
 }
 
 type exploreDisciplineDTO struct {
@@ -186,19 +191,25 @@ func (a *API) getExploreToday(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	savedIDs, err := a.d.Queries.ListSavedPlanetIDs(ctx, u.ID)
+	savedIDs, err := a.d.Queries.ListSavedPlanets(ctx, u.ID)
 	if err != nil {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	saved := make(map[uuid.UUID]bool, len(savedIDs))
-	for _, id := range savedIDs {
-		saved[id] = true
+	saved := make(map[uuid.UUID]uuid.UUID, len(savedIDs))
+	for _, s := range savedIDs {
+		var reading uuid.UUID
+		// 可空列在 sqlc 里是 pgtype.UUID，不是 *uuid.UUID —— 两者不能互换。
+		if s.ReadingID.Valid {
+			reading = uuid.UUID(s.ReadingID.Bytes)
+		}
+		saved[s.PlanetID] = reading
 	}
 
 	out := exploreTodayDTO{Day: dayOnly.Time.Format("2006-01-02"), Planets: []planetDTO{}}
 	for _, p := range rows {
-		out.Planets = append(out.Planets, planetToDTO(p, saved[p.ID]))
+		reading, ok := saved[p.ID]
+		out.Planets = append(out.Planets, planetToDTO(p, ok, reading))
 	}
 	// 一屏都没有时，把「为什么」和「还能不能再试」一起给出去。
 	if len(out.Planets) == 0 {
@@ -213,9 +224,16 @@ func (a *API) getExploreToday(w http.ResponseWriter, r *http.Request) {
 
 // savePlanet —— POST /api/v1/explore/planets/{id}/save
 //
-// 收藏 = **把这颗星加到我的树上**。它走 plantKeywords 的同一条路
-// （`kind="news"`），evidence 用这颗星的钩子 —— 那句话是她按下收藏时看着的
-// 那个问题，所以它有资格作为「这个词为什么在你树上」的答案。
+// 收一颗星球 = **把这篇放进阅读室**，不是往树上种一个词（2026-09-07 改，
+// 迁移 0138）。
+//
+// 原来这里直接种词，evidence 用这颗星的钩子。产品负责人指出这一步来得太早：
+// 她在地图上看到的只有一个标题和两句摘要，一个词就上了树。词该长在她真的读完
+// 之后 —— 阅读读完会有报告，报告上再提出候选词让她自己认。
+//
+// 所以这个端点现在只做一件确定的事：建一篇阅读（标题就是这颗星的标题），把
+// 它记在 news_saved 上。「现在读」和「稍后读」调的是同一个端点，差别只在前端
+// 之后跳不跳过去 —— 两个动作落到同一篇上，重复点也不会攒出第二篇。
 func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 	u, ok := UserFromContext(r.Context())
 	if !ok {
@@ -238,20 +256,66 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	if err := a.d.Queries.SavePlanet(ctx, sqlc.SavePlanetParams{UserID: u.ID, PlanetID: id}); err != nil {
+	// 已经收过了就把那一篇原样交回去。**幂等在这里不是洁癖**：她点「稍后读」
+	// 之后再点「现在读」，要落在同一篇上，否则阅读室里会出现两篇同名的。
+	if existing, err := a.d.Queries.GetPlanetSaveReading(ctx, sqlc.GetPlanetSaveReadingParams{
+		UserID: u.ID, PlanetID: id,
+	}); err == nil {
+		var reading uuid.UUID
+		if existing.Valid {
+			reading = uuid.UUID(existing.Bytes)
+		}
+		httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading))
+		return
+	} else if !errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, err)
 		return
 	}
 
-	// 有领域才种。挑不出领域的星球照样能收藏 —— 收藏这件事本身已经记下了。
-	if p.InterestID != nil && *p.InterestID != "" && p.Hook != "" {
-		a.plantKeywords(ctx, u.ID, "news", p.ID, p.TitleZh, []interest.Harvested{{
-			InterestID: *p.InterestID,
-			Note:       p.Summary,
-			Evidence:   p.Hook,
-		}})
+	reading, err := a.mintReadingForPlanet(ctx, u.ID, p)
+	if err != nil {
+		httpx.WriteError(w, r, err)
+		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true))
+	if err := a.d.Queries.SavePlanet(ctx, sqlc.SavePlanetParams{
+		UserID: u.ID, PlanetID: id, ReadingID: pgtype.UUID{Bytes: reading, Valid: true},
+	}); err != nil {
+		httpx.WriteError(w, r, err)
+		return
+	}
+	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading))
+}
+
+// mintReadingForPlanet 为一颗星球建一篇空的阅读。
+//
+// atom + reading 一个事务，理由和 createReading 那边一样：一个没有 reading 行
+// 的 atom 是一个渲染不出来的身份。正文留空 —— 那篇文章在别人的网站上，前端
+// 会把原文另开一页，阅读室里等她粘。
+func (a *API) mintReadingForPlanet(ctx context.Context, userID uuid.UUID, p sqlc.NewsPlanet) (uuid.UUID, error) {
+	tx, err := a.d.Pool.Begin(ctx)
+	if err != nil {
+		return uuid.Nil, err
+	}
+	defer func() { _ = tx.Rollback(ctx) }()
+	qtx := a.d.Queries.WithTx(tx)
+
+	at, err := qtx.CreateAtom(ctx, sqlc.CreateAtomParams{Kind: "reading", UserID: userID})
+	if err != nil {
+		return uuid.Nil, err
+	}
+	title := p.TitleZh
+	if len([]rune(title)) > 200 {
+		title = string([]rune(title)[:200])
+	}
+	if _, err := qtx.CreateReading(ctx, sqlc.CreateReadingParams{
+		AtomID: at.ID, Title: title, Lang: "zh",
+	}); err != nil {
+		return uuid.Nil, err
+	}
+	if err := tx.Commit(ctx); err != nil {
+		return uuid.Nil, err
+	}
+	return at.ID, nil
 }
 
 /* ── 生成 ───────────────────────────────────────────────────────────────── */
@@ -382,12 +446,15 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 
 /* ── 转换 ───────────────────────────────────────────────────────────────── */
 
-func planetToDTO(p sqlc.NewsPlanet, saved bool) planetDTO {
+func planetToDTO(p sqlc.NewsPlanet, saved bool, readingID uuid.UUID) planetDTO {
 	dto := planetDTO{
 		ID: p.ID.String(), Rank: int(p.Rank),
 		TitleZh: p.TitleZh, TitleEn: p.TitleEn, Summary: p.Summary, Hook: p.Hook,
 		URL: p.Url, Source: p.SourceName, Field: p.Field, Keyword: planetKeywordZh(p.InterestID),
-		Saved: saved,
+		Saved: saved, InterestID: derefString(p.InterestID),
+	}
+	if readingID != uuid.Nil {
+		dto.ReadingID = readingID.String()
 	}
 	if p.PublishedAt.Valid {
 		dto.PublishedAt = p.PublishedAt.Time.Format(time.RFC3339)

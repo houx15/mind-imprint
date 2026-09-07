@@ -270,8 +270,6 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))
 	// 「不感兴趣」。探索地图上的推荐是前端查闭表算出来的，不经过后端；只有她
 	// 按下的这一次拒绝要落库 —— 拒绝和完成一样是过程数据（铁律④）。
-	mux.Handle("POST /api/v1/interest/dismiss/{id}", liteOnly(a.dismissInterest))
-	mux.Handle("DELETE /api/v1/interest/dismiss/{id}", liteOnly(a.undismissInterest))
 	// 觉醒协议 —— 冷启动的兴趣测试。开与交是两次请求，所以一次中途退出
 	// 也留下痕迹（见 interest_quiz.go 顶部）。
 	mux.Handle("GET /api/v1/interest/quiz", liteOnly(a.getInterestQuizStatus))
@@ -284,6 +282,11 @@ func (a *API) Handler() http.Handler {
 	// 继续深挖：一个关键词后面的四颗种子（想一想 / 去读 / 去写 / 去做）。
 	// 惰性生成 + 缓存 —— 每次打开都换一批建议的教练，说明它对你没有看法。
 	mux.Handle("GET /api/v1/interest/keywords/{id}/dig", liteOnly(a.getKeywordDig))
+
+	// 读完一篇之后提出来的候选词，摆在报告上等她认（迁移 0140）。
+	mux.Handle("GET /api/v1/interest/proposals/{atomId}", liteOnly(a.getInterestProposals))
+	mux.Handle("POST /api/v1/interest/proposals/{atomId}/{interestId}",
+		liteOnly(a.decideInterestProposal))
 	mux.Handle("POST /api/v1/readings/{id}/report/share", liteOnly(a.shareReadingReport()))
 	mux.Handle("DELETE /api/v1/readings/{id}/report/share", liteOnly(a.revokeReadingReport()))
 	mux.Handle("PUT /api/v1/readings/{id}/rating", liteOnly(a.putReadingRating()))

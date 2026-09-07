@@ -46,6 +46,7 @@ export function Planet({
   kept,
   dimmed,
   onOpen,
+  onHover,
 }: {
   item: ExplorePlanet;
   lang: Lang;
@@ -54,8 +55,18 @@ export function Planet({
   kept: boolean;
   dimmed: boolean;
   onOpen: () => void;
+  /** 悬停上来了没有。地图靠它决定把哪几条连线点亮（2026-09-07）。 */
+  onHover?: (hovering: boolean) => void;
 }) {
   const [hover, setHover] = useState(false);
+  function enter() {
+    setHover(true);
+    onHover?.(true);
+  }
+  function leave() {
+    setHover(false);
+    onHover?.(false);
+  }
   const meta = fieldById(item.field as FieldId);
   const showHook = hover && !dimmed;
   // The headline has to survive a 150px bubble on a short window as well as a
@@ -79,10 +90,10 @@ export function Planet({
       <button
         type="button"
         onClick={onOpen}
-        onMouseEnter={() => setHover(true)}
-        onMouseLeave={() => setHover(false)}
-        onFocus={() => setHover(true)}
-        onBlur={() => setHover(false)}
+        onMouseEnter={enter}
+        onMouseLeave={leave}
+        onFocus={enter}
+        onBlur={leave}
         className="exp-planet group relative block cursor-pointer focus-visible:outline-none"
         style={{ width: slot.size, height: slot.size }}
         aria-label={`${item.titleZh} — ${meta.label}${discovered ? "，已浏览" : ""}`}
@@ -138,18 +149,9 @@ export function Planet({
           </span>
         </span>
 
-        {/* rank tick — a tiny instrument reading on the rim */}
-        <span
-          className="exp-mono absolute right-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full"
-          style={{
-            background: "#17130F",
-            border: "1px solid rgba(240,233,224,.28)",
-            color: "#D8CCBD",
-            letterSpacing: 0,
-          }}
-        >
-          {item.rank}
-        </span>
+        {/* 这里原来有一个 1–5 的角标。删掉了（2026-09-07）：一个圆角框里的小
+            数字挂在球的右上角，读出来是「三条未读消息」，不是「今天第三条」。
+            排序仍然存在 —— 它就是球的大小和位置，不需要再写一个数字。 */}
 
         {discovered ? (
           <span
@@ -164,7 +166,7 @@ export function Planet({
           <span
             className="absolute left-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full text-[12px]"
             style={{ background: "var(--mk-matcha)", color: "#17130F" }}
-            title="已收进待读"
+            title="已经在阅读室里了"
           >
             ✓
           </span>

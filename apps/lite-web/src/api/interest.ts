@@ -87,14 +87,11 @@ export interface InterestField {
 export interface InterestTree {
   fields: InterestField[];
   keywords: InterestKeyword[];
-  /** 她按过「不感兴趣」的领域 id。随树一起发出来，见 interest.go。 */
-  dismissed: string[];
 }
 
 interface RawTree {
   fields?: Partial<InterestField>[];
   keywords?: Partial<InterestKeyword>[];
-  dismissed?: string[];
 }
 
 function normalize(raw: RawTree): InterestTree {
@@ -104,7 +101,6 @@ function normalize(raw: RawTree): InterestTree {
       label: f.label ?? "",
       keywordCount: f.keywordCount ?? 0,
     })),
-    dismissed: raw.dismissed ?? [],
     keywords: (raw.keywords ?? []).map((k) => ({
       id: k.id ?? "",
       interestId: k.interestId ?? "",
@@ -127,22 +123,6 @@ function normalize(raw: RawTree): InterestTree {
  */
 export async function fetchInterestTree(): Promise<InterestTree> {
   return normalize(await apiFetch<RawTree>("/api/v1/interest/tree"));
-}
-
-/* ── 「不感兴趣」 ───────────────────────────────────────────────────────── */
-
-/** 她在探索地图上拒掉一条推荐。落库，不是只存在这次会话里。 */
-export async function dismissInterest(interestId: string): Promise<void> {
-  await apiFetch<void>(`/api/v1/interest/dismiss/${encodeURIComponent(interestId)}`, {
-    method: "POST",
-  });
-}
-
-/** 撤销上一步。按错一下之后，一个再也回不来的词等于让她为一次误触付一辈子。 */
-export async function undismissInterest(interestId: string): Promise<void> {
-  await apiFetch<void>(`/api/v1/interest/dismiss/${encodeURIComponent(interestId)}`, {
-    method: "DELETE",
-  });
 }
 
 /* ── 继续深挖 ───────────────────────────────────────────────────────────── */
@@ -182,4 +162,65 @@ export async function fetchKeywordDig(keywordId: string): Promise<KeywordDig> {
     seeds: (raw.seeds ?? []).filter((s): s is DigSeed => Boolean(s?.kind && s?.text)),
     note: raw.note ?? "",
   };
+}
+
+/* ── 候选词：读完一篇之后等她认的那几个 ─────────────────────────────────── */
+
+export interface InterestProposal {
+  interestId: string;
+  zh: string;
+  en: string;
+  field: InterestFieldId;
+  /** 印记对这个词之于她的一句话。 */
+  note: string;
+  /** 她自己写的、让这个词被提出来的那一句。 */
+  evidence: string;
+  decided: boolean;
+  accepted: boolean;
+}
+
+export interface InterestProposals {
+  proposals: InterestProposal[];
+  /**
+   * 采集还没跑完。**不是**「还有没决定的候选」—— 界面要分清这两件事，否则一篇
+   * 采不出词的阅读会永远转圈。
+   */
+  pending: boolean;
+}
+
+/** GET /api/v1/interest/proposals/{atomId} */
+export async function fetchInterestProposals(atomId: string): Promise<InterestProposals> {
+  const raw = await apiFetch<Partial<InterestProposals>>(
+    `/api/v1/interest/proposals/${encodeURIComponent(atomId)}`,
+  );
+  return {
+    proposals: (raw.proposals ?? []).map((p) => ({
+      interestId: p.interestId ?? "",
+      zh: p.zh ?? "",
+      en: p.en ?? "",
+      field: (p.field ?? "self") as InterestFieldId,
+      note: p.note ?? "",
+      evidence: p.evidence ?? "",
+      decided: p.decided ?? false,
+      accepted: p.accepted ?? false,
+    })),
+    pending: raw.pending ?? false,
+  };
+}
+
+/**
+ * POST /api/v1/interest/proposals/{atomId}/{interestId}
+ *
+ * 认下去会真的往树上种一个词，**没有撤销**。不认也落库 —— 她拒绝了什么和她认下
+ * 了什么一样是过程数据（铁律④）。
+ */
+export async function decideInterestProposal(
+  atomId: string,
+  interestId: string,
+  accept: boolean,
+): Promise<void> {
+  await apiFetch<void>(
+    `/api/v1/interest/proposals/${encodeURIComponent(atomId)}/${encodeURIComponent(interestId)}`,
+    { method: "POST", body: JSON.stringify({ accept }) },
+  );
 }

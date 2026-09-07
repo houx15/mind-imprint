@@ -1,23 +1,35 @@
-import type { Recommendation } from "./recommend";
+import { FIELDS } from "../tree/geometry";
+import type { FieldId } from "../tree/types";
 
 /**
  * skyLayout —— 这片天空上谁站在哪。
  *
- * # 两层深度
+ * # 两层，都是她的
  *
  * 近处是**今天的五颗新闻星**，大、亮、手摆的位置（`PLANET_SLOTS`）—— 五个物体
  * 在一块画布上是一次构图，构图赢过分布，所以不算。
  *
- * 远处是**她还没走过的领域**，小、暗、排在一圈椭圆环上。这一层不能手摆：它有
- * 几颗取决于她树上有什么，今天三颗明天九颗，位置必须算。
+ * 远处是**她树上已经有的词**，小、暗，排在一圈椭圆环上。五颗新闻星向它们连线：
+ * 一条线的意思是「今天这条新闻和你已经在意的这个词扎在同一门学问上」。
  *
- * 两层的大小与亮度差就是「近 / 远」这件事本身：今天的事在眼前，没去过的地方在
- * 更远处等着。
+ * # 这一层原来是推荐，2026-09-07 换掉了
+ *
+ * 上一版这圈星是「你可能还会感兴趣的」—— 从闭表算出来的推荐词。产品负责人打开
+ * 它，读不出那是什么：
+ *
+ *   > I have a point under the five big balls, one is 手机 … is it a recommended
+ *   > keyword? then we don't need to recommend keyword here. we just show how the
+ *   > five dots connected with students' already existed nodes.
+ *
+ * 她是对的，而且理由不止「读不懂」。一颗推荐星是我们对她的一个猜测，它长得和
+ * 她自己的词一模一样，摆在同一圈上 —— 这张图于是同时在说两件事（这是你的 /
+ * 这是我们猜的），却没有任何东西把两者分开。现在这一圈只有一种东西：**她的**。
+ * 点开一颗，是这个词的来历，不是一句「猜你喜欢」。
  *
  * # 环上的位置是挑出来的，不是均分的
  *
  * 环上先取 28 个候选点，再**把撞上新闻星的候选点删掉**，然后在剩下的里等距取。
- * 直接按推荐条数均分整个椭圆，必然会有一颗压在某个 200px 的星球上 —— 那颗星的
+ * 直接按词的条数均分整个椭圆，必然会有一颗压在某个 200px 的星球上 —— 那颗星的
  * 标签就读不出来了。
  *
  * 坐标系是一个 1180×640 的参考画框（`STAGE`），和 CSS 里那块场地的
@@ -46,14 +58,31 @@ function planetDiscs(): { x: number; y: number; r: number }[] {
   }));
 }
 
-/** 一颗推荐星要留多大地方：圆点加它下面那行标签。 */
+/** 一颗词星要留多大地方：圆点加它下面那行标签。 */
 const STAR_HALF_W = 42;
 const STAR_HALF_H = 22;
 
-/** 推荐星离新闻星至少这么远（从星球边缘算起）。 */
+/** 词星离新闻星至少这么远（从星球边缘算起）。 */
 const CLEAR_OF_PLANET = 34;
 
-export interface PlacedStar extends Recommendation {
+/** 环上最多摆几颗。再多就不是一圈星，是一条项链。 */
+export const MAX_WORDS = 12;
+
+/** 她树上的一个词，摆上天之前的样子。 */
+export interface SkyWord {
+  /** 关键词行的 id（uuid）—— 点开抽屉时靠它回查那个词。 */
+  id: string;
+  zh: string;
+  field: FieldId;
+  /** interests.json 的 id。和新闻星的 interestId 对上就是「同一个词」。 */
+  interestId: string;
+  /** 这个词扎在哪几门学科上。连线靠它。 */
+  disciplineIds: string[];
+  /** 1..5。挑哪些词上天时用。 */
+  strength: number;
+}
+
+export interface PlacedWord extends SkyWord {
   /** 参考画框里的坐标。 */
   x: number;
   y: number;
@@ -64,13 +93,22 @@ export interface PlacedStar extends Recommendation {
   drift: string;
 }
 
+/** 今天的一颗新闻星，只留连线要用的那几个字段。 */
+export interface SkyPlanet {
+  id: string;
+  rank: number;
+  /** 这条新闻挂在哪门学科上（可能为空）。 */
+  disciplineId: string;
+  /** 这条新闻落在哪个领域上（可能为空）。 */
+  interestId: string;
+  /** 七根主枝之一 —— 连线最弱的那一档靠它。 */
+  field: FieldId | "";
+}
+
 const DRIFTS = ["exp-drift", "exp-drift-1", "exp-drift-2", "exp-drift-3", "exp-drift-4"];
 
 /**
  * 环上的候选点。从正上方开始顺时针，28 个。
- *
- * 椭圆的半径留出了标签的余量：`rx` 520 加半个标签 42 是 562，画框半宽 590，
- * 两边各剩 28px。
  */
 function ringCandidates(): { x: number; y: number }[] {
   const cx = STAGE.w / 2;
@@ -99,15 +137,47 @@ function collidesWithPlanet(p: { x: number; y: number }): boolean {
 }
 
 /**
- * 把推荐排到环上。
+ * 今天这一屏摆哪几个词。
+ *
+ * 环上装得下十二颗，而她的树上可能有四十个词。挑的顺序是：
+ *
+ *  1. **今天有星球连着的先上。** 这一屏的主语是今天那五条新闻，一个和今天毫无
+ *     关系的词摆上去只是占位。
+ *  2. 然后按强度。强度是来源条数推出来的 —— 她真的花过时间的那些词。
+ *  3. 再按 id，把并列的顺序钉死（同一份数据每次摆在同一处）。
+ */
+export function pickWords(
+  words: readonly SkyWord[],
+  planets: readonly SkyPlanet[],
+  limit: number = MAX_WORDS,
+): SkyWord[] {
+  const linked = new Set<string>();
+  for (const p of planets) {
+    for (const w of words) {
+      if (relatedness(p, w) > 0) linked.add(w.id);
+    }
+  }
+  return [...words]
+    .sort((a, b) => {
+      const la = linked.has(a.id) ? 1 : 0;
+      const lb = linked.has(b.id) ? 1 : 0;
+      if (la !== lb) return lb - la;
+      if (a.strength !== b.strength) return b.strength - a.strength;
+      return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+    })
+    .slice(0, limit);
+}
+
+/**
+ * 把词排到环上。
  *
  * 返回的条数可能少于传进来的：环上放不下就少放几颗。**少放好过压上** ——
- * 一颗压在星球上的推荐等于没有这颗推荐，而且它还毁掉了那颗星球。
+ * 一颗压在星球上的词等于没有这颗词，而且它还毁掉了那颗星球。
  */
-export function placeRecommendations(input: readonly Recommendation[]): PlacedStar[] {
+export function placeWords(input: readonly SkyWord[]): PlacedWord[] {
   if (input.length === 0) return [];
 
-  const recs = chainByKinship(input);
+  const words = byBranch(input);
   const free = ringCandidates().filter((p) => !collidesWithPlanet(p));
   if (free.length === 0) return [];
 
@@ -117,17 +187,17 @@ export function placeRecommendations(input: readonly Recommendation[]): PlacedSt
   // 只按等距挑是不够的：椭圆被星球咬掉几段之后，剩下的空位不是均匀的，等距下标
   // 会挑到两个挨着的点。实测 8 条时前两颗就叠上了 —— 这是 `skyLayout.test.ts`
   // 抓出来的，一张截图上它俩只是「有点近」。
-  const step = free.length / Math.min(recs.length, free.length);
+  const step = free.length / Math.min(words.length, free.length);
   const used = new Set<number>();
-  const out: PlacedStar[] = [];
-  for (let i = 0; i < recs.length; i += 1) {
+  const out: PlacedWord[] = [];
+  for (let i = 0; i < words.length; i += 1) {
     const wanted = Math.floor(i * step);
     let slot: { x: number; y: number } | null = null;
     for (let k = 0; k < free.length; k += 1) {
       const idx = (wanted + k) % free.length;
       if (used.has(idx)) continue;
       const cand = free[idx]!;
-      const placed: PlacedStar = { ...recs[i]!, ...cand, xPct: 0, yPct: 0, drift: "" };
+      const placed: PlacedWord = { ...words[i]!, ...cand, xPct: 0, yPct: 0, drift: "" };
       if (out.some((s) => starsOverlap(s, placed))) continue;
       used.add(idx);
       slot = cand;
@@ -136,7 +206,7 @@ export function placeRecommendations(input: readonly Recommendation[]): PlacedSt
     // 环上再也找不到放得下的位置。少放好过压上。
     if (!slot) break;
     out.push({
-      ...recs[i]!,
+      ...words[i]!,
       x: slot.x,
       y: slot.y,
       xPct: (slot.x / STAGE.w) * 100,
@@ -147,75 +217,92 @@ export function placeRecommendations(input: readonly Recommendation[]): PlacedSt
   return out;
 }
 
-/** 两条推荐共用几门学科。 */
-function kinship(a: Recommendation, b: Recommendation): number {
-  return a.via.filter((d) => b.via.includes(d)).length;
+/**
+ * 环上的顺序：**同一根主枝的词排在一起**。
+ *
+ * 词星的颜色就是它在树上那根枝的颜色，所以同色相邻时这一圈读起来是七段颜色，
+ * 和树上七根枝是同一件事。打散了摆则是一圈彩色的点 —— 好看，但什么也没说。
+ *
+ * 主枝内部按强度，再按 id：同一份数据每次摆在同一处。
+ */
+function byBranch(words: readonly SkyWord[]): SkyWord[] {
+  const order = new Map(FIELDS.map((f, i) => [f.id, i]));
+  return [...words].sort((a, b) => {
+    const fa = order.get(a.field) ?? 99;
+    const fb = order.get(b.field) ?? 99;
+    if (fa !== fb) return fa - fb;
+    if (a.strength !== b.strength) return b.strength - a.strength;
+    return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+  });
 }
 
 /**
- * 把推荐排成一条链：关系近的排在一起。
+ * 一颗新闻星和一个词有多近。0 = 没关系，不连。
  *
- * **摆的顺序决定星座长什么样。** 按分数直接摆上环，关系最近的两颗可能落在环的
- * 两端，那条连线就成了横穿整张图的一条弦 —— 实测第一版就是这样，十二颗星拉出
- * 一把交叉在星球上的长线，读起来是噪音而不是星座。
+ * 三档，全部是查表得到的事实，不是模型判断的：
  *
- * 贪心：从分最高的那条起，每次接上「和刚放下这条共用学科最多」的那一条，同分
- * 按分数、再按 id。这样环上相邻的两颗多半是有关系的，连线就是沿着环的一段短弧。
+ *  3. **同一个领域**（interestId 相同）：今天这条新闻讲的就是这个词。
+ *  2. **同一门学科**：它们扎在同一门学问上 —— 和根系上那条线是同一个关系，
+ *     所以这两屏说的是同一件事。
+ *  1. **同一根主枝**：最弱的一档，但仍然是真的 —— 而且它就是这两屏共用的那套
+ *     颜色，一条连到同色词的线不需要解释。
+ *
+ * 🚨 第三档是实测加的（2026-09-07）。只认「同一门学科」时，实际打开地图**一条
+ * 线都没有**：42 门学科铺得很开，今天五条新闻挂的是 logic-proof / anthropology
+ * / genetics / public-health，而她树上那六个词扎在 energy-systems /
+ * media-studies / statistics 上，一处都不重合。一张承诺「连线是它们和今天的
+ * 关系」却一条线都没有的图，比没有这句话更糟。
  */
-function chainByKinship(recs: readonly Recommendation[]): Recommendation[] {
-  const rest = [...recs];
-  const chain: Recommendation[] = [rest.shift()!];
-  while (rest.length > 0) {
-    const last = chain[chain.length - 1]!;
-    let bestIdx = 0;
-    let bestKey: [number, number, string] = [-1, -1, ""];
-    rest.forEach((r, i) => {
-      const key: [number, number, string] = [kinship(last, r), r.score, r.id];
-      if (
-        key[0] > bestKey[0] ||
-        (key[0] === bestKey[0] && key[1] > bestKey[1]) ||
-        (key[0] === bestKey[0] && key[1] === bestKey[1] && key[2] < bestKey[2])
-      ) {
-        bestKey = key;
-        bestIdx = i;
-      }
-    });
-    chain.push(rest.splice(bestIdx, 1)[0]!);
-  }
-  return chain;
+function relatedness(p: SkyPlanet, w: SkyWord): number {
+  if (p.interestId && p.interestId === w.interestId) return 3;
+  if (p.disciplineId && w.disciplineIds.includes(p.disciplineId)) return 2;
+  if (p.field && p.field === w.field) return 1;
+  return 0;
 }
 
-/** 一条连线最长这么长。超过就不画。 */
-const MAX_EDGE = 230;
+/** 一颗星球最多连几条。 */
+const MAX_THREADS_PER_PLANET = 3;
+
+export interface Thread {
+  planetId: string;
+  /** 起点：这颗星球在参考画框里的圆心。 */
+  from: { x: number; y: number };
+  to: PlacedWord;
+  /** 3 = 同一个领域，2 = 同一门学科，1 = 同一根主枝。线的粗细按它分。 */
+  strength: number;
+}
 
 /**
- * 星座连线：只连**环上相邻、挨得够近、并且真的共用学科**的两颗。
+ * 五颗新闻星连到她的词上。
  *
- * 「关系」是共用学科的条数 —— 和根系上那条线是同一个关系，所以这两屏说的是同一
- * 件事：两个领域连在一起，是因为它们扎在同一门学问上。
+ * **每颗星最多三条。** 一门大学科（经济学挂着 42 条领域）会让一颗星球连上她
+ * 半棵树，那不是一张星图，是一团毛线。三条之内还读得出「今天这条和我在意的
+ * 那几个词有关」，那正是这一屏要说的全部。
  *
- * 只连相邻的两颗，所以最多 n-1 条短弧，连成一条沿着环的链。两两都连的话十二颗
- * 星会拉出四五十条线，那是一张网；连「关系最近的那一颗」而不限相邻，会拉出横穿
- * 整张图的长弦。两种都试过，都不是星座。
+ * 排序：关系强的在前，同强度取**线短的** —— 一条横穿整张图的线即使是真的，
+ * 读起来也是噪音。并列再按 id 定序，同一份数据每次连出同一张图。
  */
-export function constellationEdges(
-  stars: readonly PlacedStar[],
-): { from: PlacedStar; to: PlacedStar; shared: number }[] {
-  const edges: { from: PlacedStar; to: PlacedStar; shared: number }[] = [];
-  for (let i = 0; i + 1 < stars.length; i += 1) {
-    const a = stars[i]!;
-    const b = stars[i + 1]!;
-    const shared = kinship(a, b);
-    if (shared === 0) continue;
-    // 太长的不画。全连上会连成一个闭合的多边形，而那读起来是一张图表的边框，
-    // 不是星座 —— 真实的星座都是断开的几段。
-    if (Math.hypot(a.x - b.x, a.y - b.y) > MAX_EDGE) continue;
-    edges.push({ from: a, to: b, shared });
+export function planetThreads(
+  planets: readonly SkyPlanet[],
+  words: readonly PlacedWord[],
+): Thread[] {
+  const out: Thread[] = [];
+  for (const p of planets) {
+    const slot = PLANET_SLOTS[p.rank] ?? PLANET_SLOTS[5]!;
+    const from = { x: (slot.xPct / 100) * STAGE.w, y: (slot.yPct / 100) * STAGE.h };
+    const scored = words
+      .map((w) => ({ w, s: relatedness(p, w), d: Math.hypot(from.x - w.x, from.y - w.y) }))
+      .filter((c) => c.s > 0)
+      .sort((a, b) => (a.s !== b.s ? b.s - a.s : a.d !== b.d ? a.d - b.d : a.w.id < b.w.id ? -1 : 1))
+      .slice(0, MAX_THREADS_PER_PLANET);
+    for (const c of scored) {
+      out.push({ planetId: p.id, from, to: c.w, strength: c.s });
+    }
   }
-  return edges;
+  return out;
 }
 
-/** 两颗推荐星的标签会不会叠在一起。测试用，也给以后调环参数时用。 */
-export function starsOverlap(a: PlacedStar, b: PlacedStar): boolean {
+/** 两颗词星的标签会不会叠在一起。测试用，也给以后调环参数时用。 */
+export function starsOverlap(a: PlacedWord, b: PlacedWord): boolean {
   return Math.abs(a.x - b.x) < STAR_HALF_W * 2 && Math.abs(a.y - b.y) < STAR_HALF_H * 2;
 }

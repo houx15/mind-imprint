@@ -40,14 +40,18 @@ SELECT DISTINCT day FROM news_planet ORDER BY day DESC LIMIT $1;
 -- name: GetNewsPlanet :one
 SELECT * FROM news_planet WHERE id = $1;
 
--- name: ListSavedPlanetIDs :many
-SELECT planet_id FROM news_saved WHERE user_id = $1;
+-- name: ListSavedPlanets :many
+SELECT planet_id, reading_id FROM news_saved WHERE user_id = $1;
 
--- 收藏是一次动作，不是开关；重复收藏什么也不做（她的树上那个词也因此只会
--- 有一条来自这颗星的来源）。
+-- 收一颗星球是一次动作，不是开关；重复收什么也不做。**第一次收下的那篇阅读
+-- 就是这颗星球的那篇**（迁移 0138）—— 不覆盖，否则她点两次「稍后读」会在阅读
+-- 室里攒下两篇同名的、其中一篇再也找不到。
 -- name: SavePlanet :exec
-INSERT INTO news_saved (user_id, planet_id) VALUES ($1, $2)
+INSERT INTO news_saved (user_id, planet_id, reading_id) VALUES ($1, $2, $3)
 ON CONFLICT (user_id, planet_id) DO NOTHING;
+
+-- name: GetPlanetSaveReading :one
+SELECT reading_id FROM news_saved WHERE user_id = $1 AND planet_id = $2;
 
 -- name: HasSavedPlanet :one
 SELECT EXISTS (SELECT 1 FROM news_saved WHERE user_id = $1 AND planet_id = $2);

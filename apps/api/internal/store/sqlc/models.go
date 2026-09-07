@@ -353,12 +353,6 @@ type GraphNode struct {
 	CreatedAt time.Time `json:"created_at"`
 }
 
-type InterestDismissal struct {
-	UserID     uuid.UUID `json:"user_id"`
-	InterestID string    `json:"interest_id"`
-	CreatedAt  time.Time `json:"created_at"`
-}
-
 type InterestKeyword struct {
 	ID          uuid.UUID          `json:"id"`
 	UserID      uuid.UUID          `json:"user_id"`
@@ -384,6 +378,17 @@ type InterestKeywordV1Archive struct {
 	Note        string             `json:"note"`
 	FirstSeenAt time.Time          `json:"first_seen_at"`
 	DigAt       pgtype.Timestamptz `json:"dig_at"`
+}
+
+type InterestProposal struct {
+	UserID     uuid.UUID          `json:"user_id"`
+	AtomID     uuid.UUID          `json:"atom_id"`
+	InterestID string             `json:"interest_id"`
+	Note       string             `json:"note"`
+	Evidence   string             `json:"evidence"`
+	CreatedAt  time.Time          `json:"created_at"`
+	DecidedAt  pgtype.Timestamptz `json:"decided_at"`
+	Accepted   *bool              `json:"accepted"`
 }
 
 type InterestQuiz struct {
@@ -543,9 +548,10 @@ type NewsPlanet struct {
 }
 
 type NewsSaved struct {
-	UserID   uuid.UUID `json:"user_id"`
-	PlanetID uuid.UUID `json:"planet_id"`
-	SavedAt  time.Time `json:"saved_at"`
+	UserID    uuid.UUID   `json:"user_id"`
+	PlanetID  uuid.UUID   `json:"planet_id"`
+	SavedAt   time.Time   `json:"saved_at"`
+	ReadingID pgtype.UUID `json:"reading_id"`
 }
 
 type OutlineNode struct {

@@ -31,10 +31,15 @@ export interface ExplorePlanet {
   source: string;
   /** 七根主枝之一。星球的颜色 = 它会长在树的哪根枝上。 */
   field: string;
-  /** 她收藏这颗星时，种进树的那个词。 */
+  /** 这颗星落在领域词表里的哪一条（可能为空）。地图靠它把星连到她的词上。 */
+  interestId: string;
+  /** 词表里那个词的中文名。今天只用来说「这颗星讲的是哪个领域」。 */
   keyword: string;
   discipline: ExploreDiscipline | null;
+  /** 收下来了没有 —— 也就是阅读室里有没有这一篇。 */
   saved: boolean;
+  /** 阅读室里的那一篇（迁移 0138）。空 = 还没收。 */
+  readingId: string;
   publishedAt: string;
 }
 
@@ -67,9 +72,11 @@ function normalizePlanet(p: Partial<ExplorePlanet>): ExplorePlanet {
     url: p.url ?? "",
     source: p.source ?? "",
     field: p.field ?? "science",
+    interestId: p.interestId ?? "",
     keyword: p.keyword ?? "",
     discipline: p.discipline ?? null,
     saved: p.saved ?? false,
+    readingId: p.readingId ?? "",
     publishedAt: p.publishedAt ?? "",
   };
 }
@@ -85,10 +92,13 @@ export async function fetchToday(): Promise<ExploreToday> {
 }
 
 /**
- * 收藏一颗星 = **把它加到我的树上**。
+ * 收下一颗星 = **在阅读室里建这一篇**（2026-09-07 改，迁移 0138）。
  *
- * 服务端会用这颗星的钩子作为 evidence 种一个词。这不是一个书签开关：没有
- * 「取消收藏」，因为那个词来自一件真的发生过的事。
+ * 以前这里种的是树上的一个词。现在树只长在她真的读完之后 —— 这一步只负责把
+ * 这条新闻放到她能回来读的地方。服务端幂等：重复调返回的是同一篇，所以
+ * 「稍后读」之后再「现在读」不会攒出两篇同名的。
+ *
+ * 仍然没有「取消」：她确实收下过这一篇，那件事发生过。
  */
 export async function savePlanet(id: string): Promise<ExplorePlanet> {
   return normalizePlanet(

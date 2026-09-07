@@ -1,14 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Info, Languages } from "lucide-react";
 import { fieldById } from "../tree/geometry";
+import { KeywordDrawer } from "../tree/KeywordDrawer";
 import { Sys, cx } from "../tree/ui";
+import type { FieldId } from "../tree/types";
 import type { LiveTree } from "../tree/useInterestTree";
 import { useFitScale } from "../tree/useFitScale";
 import { Planet, type Lang } from "./Planet";
 import { NewsSheet } from "./NewsSheet";
-import { RecSheet } from "./RecSheet";
-import { recommend } from "./recommend";
-import { PLANET_SLOTS, constellationEdges, placeRecommendations } from "./skyLayout";
+import { PLANET_SLOTS, STAGE, type SkyPlanet, pickWords, placeWords, planetThreads } from "./skyLayout";
 import { useExploreToday } from "./useExploreToday";
 import "./explore.css";
 
@@ -27,8 +27,13 @@ import "./explore.css";
  * 4. **省略要被说出来。** 政治与冲突在**抓取那一层**就被过滤掉（见
  *    `internal/news/filter.go`），右上角的 ⓘ 把这件事说全。一个被过滤过的集合
  *    如果摆成「全部」，那是用版面撒谎。
- * 5. **一颗星球的颜色 = 它会长在树的哪根枝上。** 两屏共用同一套七色，所以
- *    收藏一颗蓝色的星球，就是往树上那根蓝色的枝加一个词。
+ * 5. **一颗星球的颜色 = 它属于树的哪根枝。** 两屏共用同一套七色，所以一颗蓝色
+ *    的星球和树上那根蓝色的枝是同一件事。
+ * 6. **外圈是她自己的词，不是我们的猜测**（2026-09-07）。上一版那圈是推荐词，
+ *    和她的词长得一模一样、摆在同一个位置上，于是这张图同时在说两件事却没有
+ *    任何东西把它们分开。现在外圈只有她树上已经有的词，五颗新闻星向它们连线：
+ *    一条线的意思是「今天这条和你已经在意的这个词扎在同一门学问上」。点开一个
+ *    词，打开的是树上那一屏的同一个抽屉。
  *
  * ## 从原型搬过来时改掉的三件事（2026-09-03）
  *
@@ -49,7 +54,9 @@ const POLITICS_NOTE =
 
 export function ExploreView({ tree }: { tree: LiveTree }) {
   const [openId, setOpenId] = useState<string | null>(null);
-  const [openRec, setOpenRec] = useState<string | null>(null);
+  const [openWord, setOpenWord] = useState<string | null>(null);
+  const [hotPlanet, setHotPlanet] = useState<string | null>(null);
+  const [hotWord, setHotWord] = useState<string | null>(null);
   const [seen, setSeen] = useState<string[]>([]);
   const [lang, setLang] = useState<Lang>("zh");
   const [note, setNote] = useState(false);
@@ -60,26 +67,45 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
 
   const live = useExploreToday();
 
-  // 「你可能还会感兴趣的」。**纯函数，查闭表算出来的**，不发请求、不花调用 ——
-  // 两个领域共用一门学科是写在 interests.json 里的事实，不需要问模型。
+  // 外圈是**她树上已经有的词**。挑哪几个、摆在哪，全在 skyLayout 里算 ——
+  // 这一层的条数取决于她有多少词，今天三个明天九个，位置不能手摆。
+  const skyPlanets: SkyPlanet[] = useMemo(
+    () =>
+      live.planets.map((p) => ({
+        id: p.id,
+        rank: p.rank,
+        disciplineId: p.discipline?.id ?? "",
+        interestId: p.interestId,
+        field: p.field as FieldId,
+      })),
+    [live.planets],
+  );
+
   const stars = useMemo(() => {
-    const mine = tree.keywords
-      .filter((k) => k.interestId)
-      .map((k) => ({ interestId: k.interestId, zh: k.text, disciplineIds: k.disciplineIds }));
-    return placeRecommendations(recommend(mine, { dismissed: tree.dismissed }));
-  }, [tree.keywords, tree.dismissed]);
+    const mine = tree.keywords.map((k) => ({
+      id: k.id,
+      zh: k.text,
+      field: k.field,
+      interestId: k.interestId,
+      disciplineIds: k.disciplineIds,
+      strength: k.strength,
+    }));
+    return placeWords(pickWords(mine, skyPlanets));
+  }, [tree.keywords, skyPlanets]);
 
-  const edges = useMemo(() => constellationEdges(stars), [stars]);
-  const rec = openRec ? (stars.find((s) => s.id === openRec) ?? null) : null;
+  const threads = useMemo(() => planetThreads(skyPlanets, stars), [skyPlanets, stars]);
+  const openKw = openWord ? (tree.keywords.find((k) => k.id === openWord) ?? null) : null;
 
-  // 点开一颗推荐星时，和它连着的那几颗一起亮，其余压暗 —— 和树上点一片叶子
-  // 是同一个动作，因为它说的是同一件事。
-  const litStars = new Set<string>();
-  if (rec) {
-    litStars.add(rec.id);
-    for (const e of edges) {
-      if (e.from.id === rec.id) litStars.add(e.to.id);
-      if (e.to.id === rec.id) litStars.add(e.from.id);
+  // 悬停一颗星球，它连着的那几个词一起亮，其余压暗；悬停一个词，反过来。
+  // 静止时所有连线都很淡 —— 这一屏第一眼要读到的是「今天有五条」，不是一张网。
+  const focus = hotPlanet ?? hotWord;
+  const litWords = new Set<string>();
+  const litThreads = new Set<string>();
+  if (focus) {
+    for (const t of threads) {
+      if (t.planetId !== focus && t.to.id !== focus) continue;
+      litWords.add(t.to.id);
+      litThreads.add(`${t.planetId}-${t.to.id}`);
     }
   }
   const open = openId ? (live.planets.find((p) => p.id === openId) ?? null) : null;
@@ -101,9 +127,13 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
             {live.day ? formatDay(live.day) : "今天"}
           </p>
           <p className="mt-1.5 max-w-[52ch] text-mk-small leading-[1.8] text-[#9A8E80]">
-            {stars.length > 0
-              ? `五条今天值得知道的事，外加 ${stars.length} 个你还没走过的领域。`
-              : "五条今天值得知道的事。把光标移上去，它会先问你一个问题。"}
+            {/* 只在真的有线的时候才说有线。一句说明配一张没有线的图，比不写
+                这句更糟。 */}
+            {threads.length > 0
+              ? "五条今天值得知道的事。外圈是你树上的词，连线是它们和今天这五条的关系。"
+              : stars.length > 0
+                ? "五条今天值得知道的事。外圈是你树上的词。"
+                : "五条今天值得知道的事。把光标移上去，它会先问你一个问题。"}
           </p>
         </div>
 
@@ -156,28 +186,35 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
           className="relative mx-auto h-full w-full"
           style={{ minHeight: "min(640px, calc(100vh - 260px))", maxWidth: 1180 }}
         >
-          {/* 星座连线。坐标是百分比，所以 viewBox 也用百分比，端点永远和星对齐。 */}
-          {edges.length > 0 ? (
+          {/* 连线：一颗新闻星到她的一个词。坐标是百分比，所以 viewBox 也用百分比，
+              端点永远和星对齐。
+
+              🚨 `--hue` 直接用 `fieldById(...).hue`，**不要再包一层 `var()`** ——
+              那个值本身就是 `"var(--mk-lake)"`，包成 `var(var(--mk-lake))` 是无效
+              的，而无效的后果是整条线一声不响地不见了。 */}
+          {threads.length > 0 ? (
             <svg
               className="pointer-events-none absolute inset-0 h-full w-full"
               viewBox="0 0 100 100"
               preserveAspectRatio="none"
               aria-hidden
             >
-              {edges.map((e) => (
-                <line
-                  key={`${e.from.id}-${e.to.id}`}
-                  x1={e.from.xPct}
-                  y1={e.from.yPct}
-                  x2={e.to.xPct}
-                  y2={e.to.yPct}
-                  vectorEffect="non-scaling-stroke"
-                  className={cx(
-                    "exp-thread",
-                    litStars.has(e.from.id) && litStars.has(e.to.id) && "exp-thread-lit",
-                  )}
-                />
-              ))}
+              {threads.map((t) => {
+                const key = `${t.planetId}-${t.to.id}`;
+                return (
+                  <line
+                    key={key}
+                    x1={(t.from.x / STAGE.w) * 100}
+                    y1={(t.from.y / STAGE.h) * 100}
+                    x2={t.to.xPct}
+                    y2={t.to.yPct}
+                    vectorEffect="non-scaling-stroke"
+                    strokeWidth={t.strength >= 2 ? 1.4 : 1}
+                    className={cx("exp-thread", litThreads.has(key) && "exp-thread-lit")}
+                    style={{ ["--hue" as string]: fieldById(t.to.field).hue }}
+                  />
+                );
+              })}
             </svg>
           ) : null}
 
@@ -185,12 +222,16 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
             <button
               key={star.id}
               type="button"
-              onClick={() => setOpenRec(star.id)}
+              onClick={() => setOpenWord(star.id)}
+              onMouseEnter={() => setHotWord(star.id)}
+              onMouseLeave={() => setHotWord(null)}
+              onFocus={() => setHotWord(star.id)}
+              onBlur={() => setHotWord(null)}
               className={cx(
                 "exp-star",
                 star.drift,
-                rec && litStars.has(star.id) && "exp-star-lit",
-                rec && !litStars.has(star.id) && "exp-star-dim",
+                focus && litWords.has(star.id) && "exp-star-lit",
+                focus && !litWords.has(star.id) && star.id !== focus && "exp-star-dim",
               )}
               style={
                 {
@@ -224,6 +265,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
                 kept={p.saved}
                 dimmed={false}
                 onOpen={() => onOpen(p.id)}
+                onHover={(on) => setHotPlanet(on ? p.id : null)}
               />
             );
           })}
@@ -237,7 +279,10 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
         onSaved={live.applySaved}
       />
 
-      <RecSheet star={rec} onClose={() => setOpenRec(null)} onDismiss={tree.dismiss} />
+      {/* 点开一个词，看到的是**树上那一屏同一个抽屉** —— 它是什么、什么时候
+          第一次出现、由哪几件事长出来、接下来能挖什么。地图上再写一份「这个词
+          是什么」的面板，等于同一个东西有两个说法，而其中一个迟早会说错。 */}
+      <KeywordDrawer kw={openKw} onClose={() => setOpenWord(null)} />
     </div>
   );
 }
