@@ -15,6 +15,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -35,6 +36,7 @@ type exploreResp struct {
 		Field      string `json:"field"`
 		Keyword    string `json:"keyword"`
 		Saved      bool   `json:"saved"`
+		ReadingID  string `json:"readingId"`
 		Discipline *struct {
 			ID   string `json:"id"`
 			Zh   string `json:"zh"`
@@ -225,60 +227,83 @@ func TestExploreToday_DropsAnEdgeToADisciplineThatNoLongerExists(t *testing.T) {
 
 /* ── 收藏 ───────────────────────────────────────────────────────────────── */
 
-func TestSavePlanet_PlantsTheKeywordIntoTheSameTree(t *testing.T) {
+func TestSavePlanet_PutsTheArticleInTheReadingRoom(t *testing.T) {
+	// 🚨 2026-09-07 改：收一颗星球**不再往树上种词**，它在阅读室里建一篇。
+	//
+	// 产品负责人：她在地图上看到的只有一个标题和两句摘要，还没读过任何东西，
+	// 树上就多了一个词 —— 这一步来得太早。词该长在她真的读完之后（读完的报告
+	// 上会提出候选词让她自己认，见 interest_proposal）。
 	h, cookie, _, pool := liteHandler(t)
 	id := seedPlanet(t, pool, 1, "climate", "climate-ocean")
 
-	if rec := savePlanetHTTP(h, cookie, id); rec.Code != http.StatusOK {
+	rec := savePlanetHTTP(h, cookie, id)
+	if rec.Code != http.StatusOK {
 		t.Fatalf("save = %d; body=%s", rec.Code, rec.Body)
 	}
+	var saved struct {
+		Saved     bool   `json:"saved"`
+		ReadingID string `json:"readingId"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &saved); err != nil {
+		t.Fatalf("save 回包读不出来：%v", err)
+	}
+	if !saved.Saved || saved.ReadingID == "" {
+		t.Fatalf("没有交回那一篇：%+v", saved)
+	}
 
+	// 树上不该因此多出任何词。
 	tree := getTree(t, h, cookie)
-	var found bool
 	for _, k := range tree.Keywords {
-		if k.TextZh != "气候" {
-			continue
+		if k.TextZh == "气候" {
+			t.Fatalf("收一颗星球把词种到树上去了：%+v", k)
 		}
-		found = true
-		if len(k.Sources) != 1 || k.Sources[0].Kind != "news" {
-			t.Errorf("来源不对：%+v", k.Sources)
-			continue
-		}
-		// evidence 是那颗星的钩子 —— 她按下收藏时看着的就是那个问题，所以它
-		// 有资格作为「这个词为什么在你树上」的答案。
-		if k.Sources[0].Evidence != "四平方公里的珊瑚，能代表一整片海吗？" {
-			t.Errorf("evidence 不是那颗星的钩子：%q", k.Sources[0].Evidence)
-		}
-	}
-	if !found {
-		t.Fatalf("收藏的词没有出现在树上：%+v", tree.Keywords)
 	}
 
-	// 收藏之后再读星图，那颗星是已收藏。
-	if got := getExplore(t, h, cookie); !got.Planets[0].Saved {
-		t.Error("收藏后星图上没有显示已收藏")
+	// 那一篇真的在阅读室里，标题就是这颗星的标题。
+	list := httptest.NewRecorder()
+	h.ServeHTTP(list, withCookie(httptest.NewRequest("GET", "/api/v1/readings", nil), cookie))
+	if list.Code != http.StatusOK {
+		t.Fatalf("readings = %d; body=%s", list.Code, list.Body)
+	}
+	if !strings.Contains(list.Body.String(), saved.ReadingID) {
+		t.Errorf("阅读室里没有这一篇：%s", list.Body)
+	}
+
+	// 收下之后再读星图，那颗星是已收下，并且带着同一篇。
+	got := getExplore(t, h, cookie)
+	if !got.Planets[0].Saved {
+		t.Error("收下后星图上没有显示已收下")
+	}
+	if got.Planets[0].ReadingID != saved.ReadingID {
+		t.Errorf("星图上的那一篇和收下时的不是同一篇：%q vs %q",
+			got.Planets[0].ReadingID, saved.ReadingID)
 	}
 }
 
 func TestSavePlanet_IsIdempotent(t *testing.T) {
-	// 连点两下不该把强度刷上去 —— 强度是「几件不同的事」，不是「点了几次」。
+	// 连点两下不该在阅读室里攒出两篇同名的 —— 其中一篇她再也找不到。
+	// 「稍后读」之后再「现在读」走的是同一个端点，所以这条不是洁癖。
 	h, cookie, _, pool := liteHandler(t)
 	id := seedPlanet(t, pool, 1, "climate", "climate-ocean")
 
+	first := ""
 	for i := 0; i < 3; i++ {
-		if rec := savePlanetHTTP(h, cookie, id); rec.Code != http.StatusOK {
+		rec := savePlanetHTTP(h, cookie, id)
+		if rec.Code != http.StatusOK {
 			t.Fatalf("save #%d = %d", i, rec.Code)
 		}
-	}
-	tree := getTree(t, h, cookie)
-	for _, k := range tree.Keywords {
-		if k.TextZh == "气候" {
-			if len(k.Sources) != 1 {
-				t.Errorf("收藏三次长出了 %d 条来源", len(k.Sources))
-			}
-			if k.Strength != 1 {
-				t.Errorf("强度被刷到了 %d", k.Strength)
-			}
+		var saved struct {
+			ReadingID string `json:"readingId"`
+		}
+		if err := json.Unmarshal(rec.Body.Bytes(), &saved); err != nil {
+			t.Fatalf("save #%d 回包读不出来：%v", i, err)
+		}
+		if i == 0 {
+			first = saved.ReadingID
+			continue
+		}
+		if saved.ReadingID != first {
+			t.Fatalf("第 %d 次收下换了一篇：%q vs %q", i, saved.ReadingID, first)
 		}
 	}
 }
