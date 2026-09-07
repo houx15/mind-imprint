@@ -11,15 +11,7 @@
 
 /* 七根主枝的颜色。和 tree.css 里那七个必须一致 —— **一颗星球的颜色就是它会
  * 长在树的哪根枝上**，两屏用同一套颜色，这件事才说得通。 */
-.exp-sky {
-  --mk-lake: #6aa9d8;   /* 科学与自然 */
-  --mk-peach: #f0a380;  /* 人文与写作 */
-  --mk-mist: #8fb8c9;   /* 技术与创造 */
-  --mk-matcha: #93c088; /* 社会与世界 */
-  --mk-taro: #b49ad4;   /* 艺术与表达 */
-  --mk-berry: #e08fa8;  /* 自我与成长 */
-  --mk-gold: #e5c065;   /* 数学与形式 */
-}
+/* 七根主枝的颜色在 `../tree/branchHues.css`（一份定义，三个作用域）。 */
 
 .exp-mono {
   font-family: ui-monospace, "SF Mono", "PingFang SC", monospace;

@@ -1,5 +1,7 @@
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
+import { createPortal } from "react-dom";
+import "./branchHues.css";
 
 /**
  * tree/ui — 这一页要用的三个小原语。
@@ -99,6 +101,16 @@ export function Hint({ text, tone = "light" }: { text: string; tone?: Tone }) {
  * 从右侧滑入的抽屉。Esc 关闭，遮罩点击关闭。
  *
  * 和 `Hint` 一样，是 `eco/ui.tsx` 同名件的一份独立拷贝，理由见文件头。
+ *
+ * 🚨 **挂在 body 上，不留在原地**（2026-09-07）。`position: fixed` 只在没有
+ * 祖先建立层叠上下文时才真的是「相对视口」。探索地图那一屏的根节点带
+ * `isolation: isolate`（`explore.css` 的 `.exp-sky`，星层要靠它才不会漏到别的
+ * 地方去），于是抽屉的 `z-50` 被关在那个上下文里 —— 整棵子树按父级的层级去画，
+ * 结果是抽屉压在顶部切换器（`SkyTab` 的 `z-30`）下面。学生看到的是一块被一条
+ * 药丸横穿的面板。
+ *
+ * 提到 body 上就没有这个问题，而且以后谁在哪一屏加 `isolation` / `transform` /
+ * `filter` 都不会再把抽屉压下去。
  */
 export function Drawer({
   open,
@@ -123,8 +135,12 @@ export function Drawer({
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-50 flex justify-end" role="dialog" aria-label={label}>
+  return createPortal(
+    <div
+      className="mk-branch-hues fixed inset-0 z-50 flex justify-end"
+      role="dialog"
+      aria-label={label}
+    >
       <button
         type="button"
         aria-label="关闭"
@@ -143,6 +159,7 @@ export function Drawer({
       >
         {children}
       </aside>
-    </div>
+    </div>,
+    document.body,
   );
 }

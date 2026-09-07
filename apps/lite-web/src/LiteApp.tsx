@@ -115,6 +115,11 @@ function coerceBackground(value: string | null | undefined): BackgroundId | unde
   return BACKGROUND_PRESETS.some((p) => p.id === value) ? (value as BackgroundId) : undefined;
 }
 
+/** 地址栏当下是不是还停在课程页。用处见 `CoursesHost` 那两个回调上的注释。 */
+function onCoursesPage(): boolean {
+  return parseLiteRoute(window.location.pathname).tab === "courses";
+}
+
 /**
  * SettingsView takes a `SessionStore` it does not read (its parameter is
  * literally destructured as `session: _session`) — the prop is a leftover of
@@ -322,10 +327,25 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
             <WritingsLanding />
           )
         ) : route.tab === "courses" ? (
+          // 🚨 只有当这一格还开着的时候，课程页才有权改 URL（2026-09-07）。
+          //
+          // `CoursesContainer` 在**卸载时**调 `onActiveCourseChange(null)`
+          // （apps/web/.../CoursesContainer.tsx，那句 `return () => …(null)`），
+          // 而这里把它接到了「回到课程目录」上。后果：她在课程页点任意一个别的
+          // tab，导航先把 URL 推到 `/site`，课程页随即卸载、把 `/courses` 又推
+          // 回来 —— 从她那边看是「课程页出不去了」。
+          //
+          // 判据是**地址栏当下的路径**，不是这个闭包里的 `route`：卸载时跑的
+          // 是上一次提交留下的那个回调，它闭包里的 `route` 还停在 courses，
+          // 判不出来。而 `window.location` 在那一刻已经是新的了。
           <CoursesHost
             slug={route.slug}
-            onOpenCourse={(slug) => navigate(liteRoutePath({ tab: "courses", slug }))}
-            onBackToList={() => navigate(liteRoutePath({ tab: "courses" }))}
+            onOpenCourse={(slug) => {
+              if (onCoursesPage()) navigate(liteRoutePath({ tab: "courses", slug }));
+            }}
+            onBackToList={() => {
+              if (onCoursesPage()) navigate(liteRoutePath({ tab: "courses" }));
+            }}
             onImmersiveChange={setImmersive}
           />
         ) : route.tab === "explore" || route.tab === "tree" ? (
