@@ -36,10 +36,15 @@ import { useAlive } from "../shared/useAlive";
  *    摆一个「暂无」的空标题是拿版面说一件不值得说的事。
  *  - 有候选：摆出来等她点。
  *
- * # 轮询会停
+ * # 轮询会停，停下来之后要说实话
  *
- * 最多问 `MAX_POLLS` 次。采集也可能一个词都采不出来（那时 `pending` 会翻成
- * false），但如果队列真的堵住了，一个永远在转的圈比一句「这次没有」糟得多。
+ * 最多问 `MAX_POLLS` 次。采集在后台队列里跑，完成时入队、每两分钟一次扫尾 ——
+ * 也就是说**三十秒问不到是常事**，不是异常。
+ *
+ * 🚨 问完了还没结果时，绝不能继续显示「正在找」：那句话会一直挂在那里，而它
+ * 已经不再为真（没有人还在找，轮询早停了）。这和同事试用报的那条「报告没有
+ * loading 状态 / it never finishes」是同一个形状 —— 一个不动的字和一个死掉的
+ * 页面长得一模一样。所以停下来之后改说「还在整理」，并给一个她按得动的按钮。
  */
 
 /** 隔多久问一次采集跑完了没有。 */
@@ -87,6 +92,12 @@ export function TreeProposals({ atomId }: { atomId: string }) {
     return () => window.clearTimeout(t);
   }, [pending, polls, load]);
 
+  /** 她自己再问一次。轮询停了之后唯一的出口。 */
+  function retry() {
+    setPolls(0);
+    void load();
+  }
+
   async function decide(p: InterestProposal, accept: boolean) {
     setBusy(p.interestId);
     setError("");
@@ -107,9 +118,13 @@ export function TreeProposals({ atomId }: { atomId: string }) {
     }
   }
 
-  if (rows === null && pending) return <PendingLine />;
+  const gaveUp = pending && polls >= MAX_POLLS;
+  if (rows === null && pending) return gaveUp ? <StillWorking onRetry={retry} /> : <PendingLine />;
   const list = rows ?? [];
-  if (list.length === 0) return pending ? <PendingLine /> : null;
+  if (list.length === 0) {
+    if (!pending) return null; // 采完了，这一篇没采出词。正常结果，整节不显示。
+    return gaveUp ? <StillWorking onRetry={retry} /> : <PendingLine />;
+  }
 
   const open = list.filter((p) => !p.decided);
   const taken = list.filter((p) => p.decided && p.accepted);
@@ -199,6 +214,25 @@ export function TreeProposals({ atomId }: { atomId: string }) {
         </p>
       ) : null}
     </section>
+  );
+}
+
+/**
+ * 问过 `MAX_POLLS` 次还没结果。说清楚是「还在跑」而不是「没有」，并且给一个
+ * 按得动的按钮 —— 一个按不动的按钮教她的是「这里的按钮不作数」。
+ */
+function StillWorking({ onRetry }: { onRetry: () => void }) {
+  return (
+    <p className="text-mk-small text-mk-muted">
+      这一篇的词还在整理。
+      <button
+        type="button"
+        onClick={onRetry}
+        className="ml-1 underline underline-offset-4 transition-colors hover:text-mk-secondary"
+      >
+        再看一次
+      </button>
+    </p>
   );
 }
 
