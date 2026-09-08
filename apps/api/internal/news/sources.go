@@ -40,10 +40,23 @@ type Source struct {
 //
 //   - Science (AAAS) 403、EurekAlert 403 —— 站点反爬返回 JS 挑战页。
 //   - NASA 429 —— 对这个 IP 限流，三条 URL 都试过。
-//   - The Conversation —— 25 秒超时、零字节（2026-09-03 实测）。
+//   - The Conversation —— 25 秒超时、零字节（2026-09-03 与 2026-09-08 两次实测）。
 //   - Public Domain Review —— 最新一条五周前，过不了 StaleAfter。
+//   - Yale E360 / Carbon Brief / Mongabay / 知识分子 —— HTTP 错误（2026-09-08）。
+//   - Pew Research / 澎湃 / Hugging Face / BAIR —— 北京出口 25 秒超时（2026-09-08）。
 //
 // 反爬是对方明确表达的意愿。**不做绕过反爬的事。**
+//
+// # arXiv 拿掉了（2026-09-08）
+//
+// `export.arxiv.org/rss/astro-ph` 返回 **HTTP 200、892 字节、零条 item** ——
+// 一个格式完全正确、但一条内容都没有的 feed。换 `rss.arxiv.org`、换子分类
+// （astro-ph.GA）、换 cs.AI，四个组合全都是零条；当天 08:31 到 12:00 UTC
+// 之间反复量过，一次都没有过内容。它每天占一次 HTTP 请求、在日志里留一行
+// 「解析不出任何条目」，而那行错误久了就会教我们忽略所有错误。
+//
+// 这不是解析器的毛病（`Parse` 对它报错是对的），是这个源对我们没有产出。
+// 要让 arXiv 回来，先量出一个真的有条目的时段和 URL，再连着量几天。
 var Sources = []Source{
 	// ── 科学与自然 ───────────────────────────────────────────────────────
 	// 🚨 Cap 比第一版调低了（Nature 8→6、Phys.org 8→5、ScienceDaily 8→5）。
@@ -52,7 +65,6 @@ var Sources = []Source{
 	{Name: "Nature", URL: "https://www.nature.com/nature.rss", Field: "science", Cap: 6, Timeout: 12 * time.Second},
 	{Name: "Nature Climate Change", URL: "https://www.nature.com/nclimate.rss", Field: "science", Cap: 3, Timeout: 12 * time.Second},
 	{Name: "Nature Ecology & Evolution", URL: "https://www.nature.com/natecolevol.rss", Field: "science", Cap: 3, Timeout: 12 * time.Second},
-	{Name: "arXiv · 天体物理", URL: "http://export.arxiv.org/rss/astro-ph", Field: "science", Cap: 4, Timeout: 15 * time.Second},
 	{Name: "Phys.org", URL: "https://phys.org/rss-feed/", Field: "science", Cap: 5, Timeout: 12 * time.Second},
 	{Name: "ScienceDaily", URL: "https://www.sciencedaily.com/rss/all.xml", Field: "science", Cap: 5, Timeout: 12 * time.Second},
 	{Name: "NOAA", URL: "https://www.noaa.gov/rss.xml", Field: "science", Cap: 3, Timeout: 12 * time.Second},
