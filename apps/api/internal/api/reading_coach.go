@@ -772,6 +772,94 @@ type readingCoachReply struct {
 	Card *coachCard `json:"card"`
 }
 
+// tailRunes returns the last n runes of s, for logging a reply we could not
+// read. Rune-safe: cutting UTF-8 by bytes puts a broken character in the log.
+func tailRunes(s string, n int) string {
+	r := []rune(s)
+	if len(r) <= n {
+		return s
+	}
+	return "…" + string(r[len(r)-n:])
+}
+
+// salvageCoachReply reads a coach reply key by key and keeps every field that
+// arrived whole, stopping at the first one that did not.
+//
+// # 🚨 为什么需要它
+//
+// 模型会**在正常收尾的同时**把 JSON 断在半路：provider 报 finish_reason
+// "stop"，completion 只有一两百个 token（上限是 16000），而对象停在
+//
+//	…"advance":"","focusBlock":"","tool":"","lens":"","card":{"type":"choose_span",
+//	"prompt":"作者站哪一边？","options":[{"blockId":"b10","quote":"It shows that the
+//
+// 实测（TestLiveEnglishCoachFirstTurnParses，dashscope/deepseek-v4-pro）：
+// **英文文章的第一轮 6 次里断 3 次**，加上生产那一次重试仍有约四分之一的轮次
+// 直接变成 502。中文文章上同一个毛病只有 1/6（lensdone 那个文件量到的），
+// 差别在于第一轮总会带一张卡片，而卡片的 options 要**逐字引用原文** ——
+// 英文原句是同义中文句的三到五倍 token，尾巴就长得多。
+// 给 provider 加 response_format=json_object 没有用（实测 4/6，没有变好）。
+//
+// 关键的事实是：断点**永远在 reply 后面**。学生要的那句话每一次都是齐的，
+// 被切掉的是那件可有可无的教具。整份丢掉，等于为了一张卡片扔掉一轮好回答。
+//
+// 这不是编一个回答（[[ai-errors-must-surface-never-fake]] 禁的是那件事）——
+// 留下来的每个字都是模型真的发出来的；没到齐的字段当作它没给。reply 自己
+// 断了就仍然算失败，调用点会再问一次，两次都断才报错给她看。
+//
+// 同 `salvagePlanets`（news/select.go）：一天的星图也曾因为同一件事整个丢掉。
+func salvageCoachReply(s string) (readingCoachReply, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	tok, err := dec.Token()
+	if err != nil {
+		return readingCoachReply{}, false
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return readingCoachReply{}, false
+	}
+	var got readingCoachReply
+	for {
+		key, kerr := dec.Token()
+		if kerr != nil {
+			break
+		}
+		if d, isDelim := key.(json.Delim); isDelim && d == '}' {
+			break
+		}
+		name, isStr := key.(string)
+		if !isStr {
+			break
+		}
+		var raw json.RawMessage
+		if verr := dec.Decode(&raw); verr != nil {
+			// 这个字段没写完 —— 后面不会再有完整的东西了。
+			break
+		}
+		// 单个字段类型不对，只丢这一个字段，不牵连整轮。
+		switch name {
+		case "reply":
+			_ = json.Unmarshal(raw, &got.Reply)
+		case "advance":
+			_ = json.Unmarshal(raw, &got.Advance)
+		case "focusBlock":
+			_ = json.Unmarshal(raw, &got.FocusBlock)
+		case "tool":
+			_ = json.Unmarshal(raw, &got.Tool)
+		case "lens":
+			_ = json.Unmarshal(raw, &got.Lens)
+		case "card":
+			var card coachCard
+			if json.Unmarshal(raw, &card) == nil {
+				got.Card = &card
+			}
+		}
+	}
+	if strings.TrimSpace(got.Reply) == "" {
+		return readingCoachReply{}, false
+	}
+	return got, true
+}
+
 func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK func(cardID string) bool) (readingCoachReply, bool) {
 	valid := make(map[string]bool, len(blocks))
 	for _, blk := range blocks {
@@ -789,12 +877,17 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	if i := strings.IndexByte(c, '{'); i > 0 {
 		c = c[i:]
 	}
+	whole := strings.TrimSpace(c)
 	if j := strings.LastIndexByte(c, '}'); j >= 0 && j < len(c)-1 {
 		c = c[:j+1]
 	}
 	var got readingCoachReply
 	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
-		return readingCoachReply{}, false
+		// 🚨 断在半路的回复，把已经到齐的那部分留下来。见 salvageCoachReply。
+		var ok bool
+		if got, ok = salvageCoachReply(whole); !ok {
+			return readingCoachReply{}, false
+		}
 	}
 	got.Reply = strings.TrimSpace(got.Reply)
 	if got.Reply == "" {
@@ -1113,8 +1206,13 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		}
 		parsed, okParse = parseReadingCoachReply(res.Text, blocks, lang, lensOK)
 		if !okParse {
+			// 🚨 把回复的尾巴带上。2026-09-08 排查这条 502 时，日志里有
+			// atom_id、有 stop_reason，唯独没有**模型到底回了什么** —— 而那
+			// 正是唯一能分辨「断在半路」和「答得不对」的东西，只能靠重跑一遍
+			// 实测去猜。尾巴 200 字，够看清断点在哪个字段上。
 			slog.Warn("reading coach: reply unparseable after retry",
 				"atom_id", at.ID, "stop_reason", res.StopReason,
+				"reply_len", len(res.Text), "reply_tail", tailRunes(res.Text, 200),
 				"request_id", httpx.RequestIDFromContext(r.Context()))
 			httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 			return
