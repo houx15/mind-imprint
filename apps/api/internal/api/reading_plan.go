@@ -141,6 +141,64 @@ type readingPlanReply struct {
 	} `json:"steps"`
 }
 
+// salvageReadingPlan 逐个字段读一份坏掉的排读法回复，到齐的留下。
+//
+// # 🚨 实测到的那一份（2026-09-08 线上）
+//
+//	{"routineKey":"en-argument","focusBlocks":["b5","b8"],
+//	 "steps":[{"kind":"read":"detail..."}]}
+//
+// finish_reason "stop"、92 个字符、写完了 —— 不是断在半路，是**写坏了**：
+// steps 里一个冒号该是逗号，detail 干脆留成了占位符。
+//
+// 但坏掉的只有 steps，而 steps 是**可选的调校**：buildReadingTasks 走的是
+// routine 自己的步骤表，模型只能往里填 detail，填不上就用读法库里那一句。
+// 真正的判断 —— 挑哪套读法、精读哪两段 —— 两样都完整到齐了。
+//
+// 整份丢掉，她按下「开始」拿到的是 502，而这一步是进阅读室的唯一那道门。
+// 和 salvageCoachReply 同一条：到齐的留下，没写好的当它没给。
+func salvageReadingPlan(s string) (readingPlanReply, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	tok, err := dec.Token()
+	if err != nil {
+		return readingPlanReply{}, false
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return readingPlanReply{}, false
+	}
+	var got readingPlanReply
+	for {
+		key, kerr := dec.Token()
+		if kerr != nil {
+			break
+		}
+		if d, isDelim := key.(json.Delim); isDelim && d == '}' {
+			break
+		}
+		name, isStr := key.(string)
+		if !isStr {
+			break
+		}
+		var raw json.RawMessage
+		if verr := dec.Decode(&raw); verr != nil {
+			break
+		}
+		switch name {
+		case "routineKey":
+			_ = json.Unmarshal(raw, &got.RoutineKey)
+		case "focusBlocks":
+			_ = json.Unmarshal(raw, &got.FocusBlocks)
+		case "steps":
+			_ = json.Unmarshal(raw, &got.Steps)
+		}
+	}
+	// routineKey 是唯一不能少的东西 —— 没有它就没有读法，也就没有清单。
+	if strings.TrimSpace(got.RoutineKey) == "" {
+		return readingPlanReply{}, false
+	}
+	return got, true
+}
+
 // parseReadingPlan decodes and VALIDATES against the library. The routine key
 // must resolve and match her language; anything else is treated as no plan at
 // all rather than passed through — a routine key that does not resolve would
@@ -158,12 +216,17 @@ func parseReadingPlan(text, lang string) (readingPlanReply, readingRoutine, plan
 	if i := strings.IndexByte(c, '{'); i > 0 {
 		c = c[i:]
 	}
+	whole := strings.TrimSpace(c)
 	if j := strings.LastIndexByte(c, '}'); j >= 0 && j < len(c)-1 {
 		c = c[:j+1]
 	}
 	var got readingPlanReply
 	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
-		return readingPlanReply{}, readingRoutine{}, planRejectUnparseable
+		// 🚨 坏掉的往往只是 steps。见 salvageReadingPlan。
+		var ok bool
+		if got, ok = salvageReadingPlan(whole); !ok {
+			return readingPlanReply{}, readingRoutine{}, planRejectUnparseable
+		}
 	}
 	routine, ok := findReadingRoutine(strings.TrimSpace(got.RoutineKey))
 	if !ok {
