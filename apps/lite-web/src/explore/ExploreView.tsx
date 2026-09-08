@@ -263,6 +263,7 @@ export function ExploreView({ tree }: { tree: LiveTree }) {
                 }}
                 discovered={seen.includes(p.id)}
                 kept={p.saved}
+                finished={p.finished}
                 dimmed={false}
                 onOpen={() => onOpen(p.id)}
                 onHover={(on) => setHotPlanet(on ? p.id : null)}

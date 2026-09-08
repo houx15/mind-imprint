@@ -233,14 +233,21 @@ func (q *Queries) ListRecentNewsDays(ctx context.Context, limit int32) ([]pgtype
 }
 
 const listSavedPlanets = `-- name: ListSavedPlanets :many
-SELECT planet_id, reading_id FROM news_saved WHERE user_id = $1
+SELECT s.planet_id, s.reading_id, COALESCE(r.status, '')::text AS reading_status
+FROM news_saved s
+LEFT JOIN reading r ON r.atom_id = s.reading_id
+WHERE s.user_id = $1
 `
 
 type ListSavedPlanetsRow struct {
-	PlanetID  uuid.UUID   `json:"planet_id"`
-	ReadingID pgtype.UUID `json:"reading_id"`
+	PlanetID      uuid.UUID   `json:"planet_id"`
+	ReadingID     pgtype.UUID `json:"reading_id"`
+	ReadingStatus string      `json:"reading_status"`
 }
 
+// 带上那一篇的状态。地图上「这篇在阅读室里」和「这篇我读完了」是两件事，
+// 而一个不分状态的对勾会把前者说成后者（2026-09-08 产品负责人：点了「现在读」
+// 退出来，那颗星就被标成读完了）。
 func (q *Queries) ListSavedPlanets(ctx context.Context, userID uuid.UUID) ([]ListSavedPlanetsRow, error) {
 	rows, err := q.db.Query(ctx, listSavedPlanets, userID)
 	if err != nil {
@@ -250,7 +257,7 @@ func (q *Queries) ListSavedPlanets(ctx context.Context, userID uuid.UUID) ([]Lis
 	var items []ListSavedPlanetsRow
 	for rows.Next() {
 		var i ListSavedPlanetsRow
-		if err := rows.Scan(&i.PlanetID, &i.ReadingID); err != nil {
+		if err := rows.Scan(&i.PlanetID, &i.ReadingID, &i.ReadingStatus); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

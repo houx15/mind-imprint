@@ -40,6 +40,8 @@ export interface ExplorePlanet {
   saved: boolean;
   /** 阅读室里的那一篇（迁移 0138）。空 = 还没收。 */
   readingId: string;
+  /** 那一篇**真的读完了**。和 saved 分开：在阅读室里 ≠ 读完了。 */
+  finished: boolean;
   publishedAt: string;
 }
 
@@ -76,6 +78,7 @@ function normalizePlanet(p: Partial<ExplorePlanet>): ExplorePlanet {
     keyword: p.keyword ?? "",
     discipline: p.discipline ?? null,
     saved: p.saved ?? false,
+    finished: p.finished ?? false,
     readingId: p.readingId ?? "",
     publishedAt: p.publishedAt ?? "",
   };

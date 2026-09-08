@@ -40,8 +40,14 @@ SELECT DISTINCT day FROM news_planet ORDER BY day DESC LIMIT $1;
 -- name: GetNewsPlanet :one
 SELECT * FROM news_planet WHERE id = $1;
 
+-- 带上那一篇的状态。地图上「这篇在阅读室里」和「这篇我读完了」是两件事，
+-- 而一个不分状态的对勾会把前者说成后者（2026-09-08 产品负责人：点了「现在读」
+-- 退出来，那颗星就被标成读完了）。
 -- name: ListSavedPlanets :many
-SELECT planet_id, reading_id FROM news_saved WHERE user_id = $1;
+SELECT s.planet_id, s.reading_id, COALESCE(r.status, '')::text AS reading_status
+FROM news_saved s
+LEFT JOIN reading r ON r.atom_id = s.reading_id
+WHERE s.user_id = $1;
 
 -- 收一颗星球是一次动作，不是开关；重复收什么也不做。**第一次收下的那篇阅读
 -- 就是这颗星球的那篇**（迁移 0138）—— 不覆盖，否则她点两次「稍后读」会在阅读

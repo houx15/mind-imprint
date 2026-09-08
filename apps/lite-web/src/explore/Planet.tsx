@@ -44,6 +44,7 @@ export function Planet({
   slot,
   discovered,
   kept,
+  finished,
   dimmed,
   onOpen,
   onHover,
@@ -52,7 +53,10 @@ export function Planet({
   lang: Lang;
   slot: { x: string; y: string; size: number; drift: string };
   discovered: boolean;
+  /** 这一篇在她的阅读室里。**不等于她读完了** —— 见下面那个标记。 */
   kept: boolean;
+  /** 这一篇她真的读完了（reading.status = 'finished'）。 */
+  finished: boolean;
   dimmed: boolean;
   onOpen: () => void;
   /** 悬停上来了没有。地图靠它决定把哪几条连线点亮（2026-09-07）。 */
@@ -68,6 +72,14 @@ export function Planet({
     onHover?.(false);
   }
   const meta = fieldById(item.field as FieldId);
+  // 一个标记，按强度取一个：读完了 > 在阅读室 > 只是打开看过。
+  const mark = finished
+    ? { label: "已读完", color: "#8FCFC1" }
+    : kept
+      ? { label: "在阅读室", color: "#E4C36A" }
+      : discovered
+        ? { label: "已浏览", color: "#9A8E80" }
+        : null;
   const showHook = hover && !dimmed;
   // The headline has to survive a 150px bubble on a short window as well as a
   // 240px one. Scaling the type with the sphere keeps the text block the same
@@ -153,22 +165,17 @@ export function Planet({
             数字挂在球的右上角，读出来是「三条未读消息」，不是「今天第三条」。
             排序仍然存在 —— 它就是球的大小和位置，不需要再写一个数字。 */}
 
-        {discovered ? (
+        {/* 🚨 一颗星球上只挂一个标记，挂最强的那个真话。
+            2026-09-08：原来「在阅读室里」是一个绿色对勾，产品负责人点了
+            「现在读」就退出来，读到的是「这条我已经读完了」—— 对勾在任何界面上
+            都是「完成」。三种状态现在分开说，而且「已读完」只在服务端说这一篇
+            status='finished' 的时候才出现。 */}
+        {mark ? (
           <span
             className="exp-mono absolute bottom-[6%] left-1/2 -translate-x-1/2 rounded-mk-full px-2 py-0.5"
-            style={{ background: "rgba(23,19,15,.62)", color: "#8FCFC1", letterSpacing: 0 }}
+            style={{ background: "rgba(23,19,15,.62)", color: mark.color, letterSpacing: 0 }}
           >
-            已浏览
-          </span>
-        ) : null}
-
-        {kept ? (
-          <span
-            className="absolute left-[5%] top-[5%] flex h-6 w-6 items-center justify-center rounded-mk-full text-[12px]"
-            style={{ background: "var(--mk-matcha)", color: "#17130F" }}
-            title="已经在阅读室里了"
-          >
-            ✓
+            {mark.label}
           </span>
         ) : null}
 

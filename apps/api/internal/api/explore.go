@@ -142,6 +142,17 @@ type planetDTO struct {
 	// ReadingID 是她收下这颗星时落进阅读室的那一篇。空 = 还没收，或者是 0138
 	// 之前收的老行。
 	ReadingID string `json:"readingId"`
+	// Finished 说的是那一篇**真的读完了**（reading.status = 'finished'）。
+	// 和 Saved 分开，因为地图上只有一个标记的时候，「在阅读室里」会被读成
+	// 「读完了」—— 2026-09-08 产品负责人点了「现在读」就退出来，星球上出现一个
+	// 绿色对勾，她读到的是「这条我已经读完了」。
+	Finished bool `json:"finished"`
+}
+
+// savedPlanet 是「这颗星她收过」这件事的两半：落在哪一篇，那一篇读完没有。
+type savedPlanet struct {
+	reading  uuid.UUID
+	finished bool
 }
 
 type exploreDisciplineDTO struct {
@@ -196,20 +207,20 @@ func (a *API) getExploreToday(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	saved := make(map[uuid.UUID]uuid.UUID, len(savedIDs))
+	saved := make(map[uuid.UUID]savedPlanet, len(savedIDs))
 	for _, s := range savedIDs {
 		var reading uuid.UUID
 		// 可空列在 sqlc 里是 pgtype.UUID，不是 *uuid.UUID —— 两者不能互换。
 		if s.ReadingID.Valid {
 			reading = uuid.UUID(s.ReadingID.Bytes)
 		}
-		saved[s.PlanetID] = reading
+		saved[s.PlanetID] = savedPlanet{reading: reading, finished: s.ReadingStatus == "finished"}
 	}
 
 	out := exploreTodayDTO{Day: dayOnly.Time.Format("2006-01-02"), Planets: []planetDTO{}}
 	for _, p := range rows {
-		reading, ok := saved[p.ID]
-		out.Planets = append(out.Planets, planetToDTO(p, ok, reading))
+		s, ok := saved[p.ID]
+		out.Planets = append(out.Planets, planetToDTO(p, ok, s.reading, s.finished))
 	}
 	// 一屏都没有时，把「为什么」和「还能不能再试」一起给出去。
 	if len(out.Planets) == 0 {
@@ -262,10 +273,16 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 		UserID: u.ID, PlanetID: id,
 	}); err == nil {
 		var reading uuid.UUID
+		finished := false
 		if existing.Valid {
 			reading = uuid.UUID(existing.Bytes)
+			// 她可能早就读完过这一篇。不查一下就回 finished=false，地图上
+			// 「已读完」会在她再点一次的瞬间掉回「在阅读室」。
+			if rd, rerr := a.d.Queries.GetReading(ctx, reading); rerr == nil {
+				finished = rd.Status == "finished"
+			}
 		}
-		httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading))
+		httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading, finished))
 		return
 	} else if !errors.Is(err, pgx.ErrNoRows) {
 		httpx.WriteError(w, r, err)
@@ -283,7 +300,8 @@ func (a *API) savePlanet(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err)
 		return
 	}
-	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading))
+	// 刚建出来的那一篇，一个字都还没读。
+	httpx.WriteJSON(w, http.StatusOK, planetToDTO(p, true, reading, false))
 }
 
 // mintReadingForPlanet 为一颗星球建一篇空的阅读。
@@ -446,12 +464,12 @@ func (a *API) buildStarmap(ctx context.Context) ([]plannedPlanet, string) {
 
 /* ── 转换 ───────────────────────────────────────────────────────────────── */
 
-func planetToDTO(p sqlc.NewsPlanet, saved bool, readingID uuid.UUID) planetDTO {
+func planetToDTO(p sqlc.NewsPlanet, saved bool, readingID uuid.UUID, finished bool) planetDTO {
 	dto := planetDTO{
 		ID: p.ID.String(), Rank: int(p.Rank),
 		TitleZh: p.TitleZh, TitleEn: p.TitleEn, Summary: p.Summary, Hook: p.Hook,
 		URL: p.Url, Source: p.SourceName, Field: p.Field, Keyword: planetKeywordZh(p.InterestID),
-		Saved: saved, InterestID: derefString(p.InterestID),
+		Saved: saved, Finished: finished, InterestID: derefString(p.InterestID),
 	}
 	if readingID != uuid.Nil {
 		dto.ReadingID = readingID.String()
