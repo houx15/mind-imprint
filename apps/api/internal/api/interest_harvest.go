@@ -219,6 +219,32 @@ func (a *API) gatherHarvestText(ctx context.Context, atomID uuid.UUID, kind stri
 				}
 			}
 		}
+		// 🚨 她在带读里说的话。上面那两样今天**都可能是空的**：归纳表（我的收获）
+		// 已经删掉了，而阅读室至今没有写批注的控件（批注是只读的）。也就是说一次
+		// 正常走完的阅读——读、跟印记聊、完成——采到的是一个空字符串，
+		// harvestOneAtom 于是在调用模型之前就返回，atom 却已经盖了章。结果是
+		// 阅读永远长不出词，而地图上写着「读完之后，报告上会提出可以加进你树里
+		// 的词」。2026-09-08 的全链路走查就是卡在这里。
+		//
+		// 只取 role="student"。印记说的话不是她的话，喂回去采出来的会是印记的
+		// 用词——这正是 `interest.KeepGrounded` 在防的那件事。
+		if msgs, err := a.d.Queries.ListAtomMessages(ctx, atomID); err == nil {
+			var said []string
+			for _, m := range msgs {
+				if m.Role != "student" {
+					continue
+				}
+				if s := strings.TrimSpace(m.Content); s != "" {
+					said = append(said, s)
+				}
+			}
+			if len(said) > 0 {
+				b.WriteString("她在带读里说的话：\n")
+				for _, s := range said {
+					fmt.Fprintf(&b, "- %s\n", s)
+				}
+			}
+		}
 	case "writing":
 		if wr, err := a.d.Queries.GetWriting(ctx, atomID); err == nil {
 			title = wr.Title
