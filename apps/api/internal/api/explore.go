@@ -330,6 +330,22 @@ func (a *API) mintReadingForPlanet(ctx context.Context, userID uuid.UUID, p sqlc
 	}); err != nil {
 		return uuid.Nil, err
 	}
+	// feed 已经把正文给我们了，就在这里落进 reading_source —— 她点开就是一篇
+	// 能读的文章，没有粘贴框那一屏。
+	//
+	// 这和她自己粘进来走的是同一张表、同一个形状（纯文本、空行分段），所以
+	// 阅读室那边什么都不用改：SplitBlocks 照常切块，段落工具条、挂卡片、精读
+	// 段落全都照常。
+	//
+	// 存不进去不算失败：另外两条路（抓原页面 / 她自己粘）还在，回滚整篇反而
+	// 把一篇本来能读的文章弄没了。
+	if body := strings.TrimSpace(p.Body); body != "" {
+		if _, err := qtx.UpsertReadingSource(ctx, sqlc.UpsertReadingSourceParams{
+			AtomID: at.ID, Title: title, Body: body, SourceUrl: nullableText(p.Url),
+		}); err != nil {
+			slog.Warn("explore: 星球正文没能落进阅读室", "err", err, "atom_id", at.ID)
+		}
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return uuid.Nil, err
 	}
@@ -389,6 +405,10 @@ func (a *API) ensureTodayStarmap(ctx context.Context, day pgtype.Date) {
 			Url: src.Link, SourceName: src.Source,
 			Field: p.Field, DisciplineID: p.DisciplineID, InterestID: interestIDArg(p.InterestID),
 			PublishedAt: published,
+			// feed 自己带的正文（迁移 0141）。取正文的第三条路：这一份已经在
+			// 手上了，她点进去就能读，不必再抓一次原页面、也不必让她粘。
+			// 源的 feed 没带正文时是空串，另外两条路照旧。
+			Body: src.Body,
 		}); err != nil {
 			slog.Warn("explore: insert planet failed", "err", err, "rank", i+1)
 		}

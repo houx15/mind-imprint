@@ -77,6 +77,26 @@ func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 	body := strings.TrimSpace(req.Text)
 	srcURL := strings.TrimSpace(req.URL)
 
+	// 🚨 已经有正文了就别再抓一次。
+	//
+	// 从地图进来的那一篇，正文在建的时候就已经放好了（feed 自带，见
+	// mintReadingForPlanet）。而前端在「现在读」之后照样会带着 url 调一次这里 ——
+	// 那一次会去抓原页面，抓到就把好好的正文覆盖成另一份，抓不到（走查里就是
+	// 403/400）就直接报错，把一篇本来能读的文章变成一条红字。
+	//
+	// 只挡「带 url、不带正文」这一种。她**粘**一份新的进来（body 非空）照旧
+	// 覆盖 —— 那是她明确要换掉这一篇，和这条无关。
+	if body == "" && srcURL != "" {
+		if existing, err := a.d.Queries.GetReadingSource(r.Context(), at.ID); err == nil &&
+			len(SplitBlocks(existing.Body)) > 0 {
+			httpx.WriteJSON(w, http.StatusOK, sourceDTO{
+				Title: existing.Title, SourceURL: derefOr(existing.SourceUrl, ""),
+				Blocks: SplitBlocks(existing.Body),
+			})
+			return
+		}
+	}
+
 	// A URL is fetched server-side through the same guarded fetcher the pro
 	// side uses; a pasted body is taken as-is.
 	if body == "" && srcURL != "" {

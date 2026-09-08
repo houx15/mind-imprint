@@ -545,6 +545,8 @@ type NewsPlanet struct {
 	InterestID   *string            `json:"interest_id"`
 	PublishedAt  pgtype.Timestamptz `json:"published_at"`
 	CreatedAt    time.Time          `json:"created_at"`
+	// feed 自带的正文（content:encoded），已清成纯文本、段落之间一个空行。空串 = 这个源的 feed 没带正文。
+	Body string `json:"body"`
 }
 
 type NewsSaved struct {

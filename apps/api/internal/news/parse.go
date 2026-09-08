@@ -22,21 +22,21 @@ type Item struct {
 	// Summary 是 feed 里那段短的（RSS 的 description / Atom 的 summary）。
 	// 它是**给人看的一两句**，长度按源从一百到八千字符不等。
 	Summary string
-	// Body 是 feed 自己带的正文（RSS 的 content:encoded / Atom 的 content）。
+	// Body 是 feed 自己带的正文（RSS 的 content:encoded / Atom 的 content），
+	// 已经清成**和她粘进来的文章一样的形状**：纯文本，段落之间一个空行。
 	//
 	// 🚨 2026-09-08 实测：我们一直只读 description，而**很多源的正文就在
 	// content:encoded 里，被我们整段丢掉**。同一条 JSTOR Daily，description
 	// 192 字符，content:encoded 9694 字符 —— 我们留下 2%。MIT Tech Review
 	// 355 / 5692，Colossal 381 / 3000，都是现有源。
 	//
-	// 它有两种用法，规矩完全不同，别混：
-	//   - **选星时喂给模型**：让它有真材料可判，写得出像样的摘要和钩子。这是
-	//     内部处理。
-	//   - **填进阅读室当正文**：那是转载，要看源的许可。**今天不做** —— 等
-	//     产品负责人对 NC 类许可给出结论之前，这个字段不进任何一张表。
+	// 它就是**取正文的第三条路**，和另外两条并列，产出完全一样：
 	//
-	// 因此在解析处就截断（bodyRuneCap）：我们只留用得上的那一段，不把一整篇
-	// 没有许可的文章拿在手里。
+	//	1. 这里（feed 自己带的）—— 免费、已经在手上、不会被出版方挡
+	//	2. FetchReadable(url) —— 抓原页面，有的站点行、有的 403
+	//	3. 她自己粘进来
+	//
+	// 谁先拿到就用谁的，三条路最后都落进同一张 reading_source。
 	Body      string
 	Published time.Time
 	// Source / Field 由抓取方按源填上，解析器不管。
@@ -46,9 +46,12 @@ type Item struct {
 
 // bodyRuneCap 是 Body 保留多长。
 //
-// 选星的 prompt 每条只用得到几百字（见 BuildSelectPrompt），留 4000 已经绰绰
-// 有余。上限本身也是一条纪律：我们没有转载许可，就不该把整篇文章拿在手里。
-const bodyRuneCap = 4000
+// 这是**给她读的一整篇**，不只是给模型看的摘录，所以要装得下一篇长报道：
+// 实测 Grist 中位数 6900、JSTOR Daily 9694、Hyperallergic 上万。两万字符
+// 装得下这些，又挡得住某些源把整页评论一起塞进 content:encoded。
+//
+// 截断本身也是一条纪律：一颗星球一行，一天五颗，库里不会因此长胖。
+const bodyRuneCap = 20000
 
 /* ── XML 形状 ───────────────────────────────────────────────────────────── */
 
@@ -151,7 +154,7 @@ func fromRSSItems(items []rssItem) []Item {
 			Title:     title,
 			Link:      strings.TrimSpace(it.Link),
 			Summary:   clean(it.Description),
-			Body:      truncRunes(clean(it.Encoded), bodyRuneCap),
+			Body:      truncRunes(cleanArticle(it.Encoded), bodyRuneCap),
 			Published: parseTime(it.PubDate, it.DCDate),
 		})
 	}
@@ -188,7 +191,7 @@ func parseAtom(body []byte) ([]Item, error) {
 			Summary: clean(summary),
 			// Atom 这一侧对应 content:encoded 的是 <content>。summary 为空时
 			// 它已经被当成摘要用了，那时两个字段一样长 —— 不必再分。
-			Body:      truncRunes(clean(e.Content), bodyRuneCap),
+			Body:      truncRunes(cleanArticle(e.Content), bodyRuneCap),
 			Published: parseTime(e.Published, e.Updated),
 		})
 	}
@@ -241,5 +244,49 @@ func clean(s string) string {
 	s = tagRE.ReplaceAllString(s, " ")
 	s = html.UnescapeString(s) // 双重转义的源（WHO）需要第二遍
 	s = spaceRE.ReplaceAllString(s, " ")
+	return strings.TrimSpace(s)
+}
+
+// blockTagRE 是「读到这里要换段」的那些标签。
+//
+// `</p>` `<br>` `</div>` `</li>` `<h1..6>` —— content:encoded 里的正文就是靠
+// 它们分段的。
+var blockTagRE = regexp.MustCompile(`(?i)</(p|div|li|h[1-6]|blockquote|section|article)\s*>|<br\s*/?>`)
+
+// dropRE 是整段扔掉的东西：脚本、样式，以及 WordPress 系源结尾那一堆
+// 「订阅我们」「相关阅读」的图片和 figure 说明。
+var dropRE = regexp.MustCompile(`(?is)<(script|style)\b.*?</(script|style)\s*>`)
+
+// manyNewlinesRE 把三个以上的换行压成一个空行。
+var manyNewlinesRE = regexp.MustCompile(`\n{3,}`)
+
+// inlineSpaceRE 只压**行内**空白，不碰换行 —— 这是它和 spaceRE 的全部区别。
+var inlineSpaceRE = regexp.MustCompile(`[^\S\n]+`)
+
+// cleanArticle 把 content:encoded 那段 HTML 变成**分好段的纯文本**。
+//
+// 🚨 不能用 `clean()`。它把所有空白（换行也算）压成一个空格，交出来的是一整块
+// 没有段落的字。而阅读室整间屋子都建在段落上：`SplitBlocks` 按空行切块，
+// 每一块拿到自己的 `data-block-id`，她点一段才有段落工具条，印记挂卡片、
+// 排精读段落靠的都是块 id。存一整块进去，阅读室就退化成一堵墙 —— 文章在，
+// 但这间屋子的功能全没了。
+//
+// 所以先把块级标签换成换行，再删掉行内标签，最后只压行内空白。
+func cleanArticle(s string) string {
+	s = dropRE.ReplaceAllString(s, "")
+	s = blockTagRE.ReplaceAllString(s, "\n\n")
+	s = html.UnescapeString(s)
+	s = tagRE.ReplaceAllString(s, "")
+	s = html.UnescapeString(s)
+	s = inlineSpaceRE.ReplaceAllString(s, " ")
+
+	// 逐行 trim，再把空段落丢掉：`<p> </p>` 这类空壳在真实的 feed 里到处都是，
+	// 留着会在阅读室里变成一个个点不出东西的空块。
+	lines := strings.Split(s, "\n")
+	kept := make([]string, 0, len(lines))
+	for _, ln := range lines {
+		kept = append(kept, strings.TrimSpace(ln))
+	}
+	s = manyNewlinesRE.ReplaceAllString(strings.Join(kept, "\n"), "\n\n")
 	return strings.TrimSpace(s)
 }
