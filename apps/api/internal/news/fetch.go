@@ -111,6 +111,9 @@ func (f *Fetcher) FetchAll(ctx context.Context, window time.Duration) []Item {
 
 	pool = Dedupe(pool)
 	pool = FreshWithin(pool, now, window)
+	// 只有标题和链接的条目在这里出局。放它过去的代价是模型只能照着标题猜，
+	// 而学生看到的是一句猜出来的摘要。
+	pool = WithReadableSummary(pool)
 	pool = dropPolitical(pool)
 	// 先按新鲜度排，**再按来源轮转铺开**。只排新鲜度的话，当天发得最勤的那个源
 	// 会整块占住送进 prompt 的前 40 条 —— 实测过一次：五颗星全部来自 Phys.org。

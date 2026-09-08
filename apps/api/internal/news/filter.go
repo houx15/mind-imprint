@@ -186,6 +186,44 @@ func Dedupe(items []Item) []Item {
 	return out
 }
 
+/* ── 可读摘要 ───────────────────────────────────────────────────────────── */
+
+// MinSummaryRunes 是一条候选至少要带多少字才算「有可读摘要」。
+//
+// 产品负责人 2026-09-08 定的硬规则：**只有标题和链接的条目直接排除。**
+//
+// 这道线要挡的是「**只有标题和链接**」，不是「摘要写得短」。它越低越好，只要
+// 还能把空条目挡在外面。
+//
+// 🚨 按符文数，中英文的门槛是反过来的：一句 34 个字的中文导语信息量，抵得上
+// 八九十个字符的英文。所以线必须**按中文定**，否则会把中文源整批误杀 ——
+// 而中文源正是这一轮要补的。40 个字：中文是一句完整的导语，英文大约七八个词。
+//
+// 实测的源全都远在线上（Our World in Data 最短 84，Science News Explores 151，
+// Undark 234，对话地球 2317），所以它挡掉的确实只有空条目。
+//
+// 不按字节：一个中文字三个字节，用字节判会让中文轻松过线、英文被砍 —— 和上面
+// 那条正好叠加成双重的错。
+const MinSummaryRunes = 40
+
+// WithReadableSummary 丢掉没有可读摘要的条目。
+//
+// 🚨 逐条，不是逐源。同一个源里有的条目带摘要、有的只有标题（实测见过），
+// 按源一刀切要么放进一堆空条目，要么把整个好源扔掉。
+//
+// 判据用 ExcerptFor 而不是只看 Summary：正文在 content:encoded 里的源，
+// description 可能只有一行，但这条候选一点也不空。
+func WithReadableSummary(items []Item) []Item {
+	out := make([]Item, 0, len(items))
+	for _, it := range items {
+		if len([]rune(ExcerptFor(it, MinSummaryRunes+1))) < MinSummaryRunes {
+			continue
+		}
+		out = append(out, it)
+	}
+	return out
+}
+
 /* ── 新鲜度 ─────────────────────────────────────────────────────────────── */
 
 // FreshWithin 保留 `now` 之前 `window` 之内的条目。
