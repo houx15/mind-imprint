@@ -24,9 +24,11 @@ import (
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"mindimprint/api/internal/httpx"
 	"mindimprint/api/internal/interest"
@@ -129,8 +131,38 @@ func (a *API) getInterestProposals(w http.ResponseWriter, r *http.Request) {
 
 	httpx.WriteJSON(w, http.StatusOK, map[string]any{
 		"proposals": out,
-		"pending":   !stamped.Valid,
+		"pending":   harvestStillRunning(stamped, len(out)),
 	})
+}
+
+// harvestLandingGrace —— 盖了章之后，还要等多久才承认「这一篇真的没有词」。
+const harvestLandingGrace = 90 * time.Second
+
+// harvestStillRunning —— 这一篇的采集跑完了没有。
+//
+// 🚨 光看 `interest_harvested_at` 是不够的：那个章**盖在模型调用之前**
+// （harvestOneAtom 里写着为什么 —— 调用失败也要算尝试过，否则每次打开树都重发
+// 一次调用）。也就是说盖章到词落库之间有一两秒，这段时间里库里的样子是
+// 「采过了，而且一个词都没有」，和「这篇很薄，真的采不出词」一模一样。
+//
+// 2026-09-08 的全链路走查逐毫秒抓到了这件事：
+//
+//	盖章            08:44:58.157
+//	她这一次来问     08:44:58.226   ← 70 毫秒之后
+//	词落库          08:44:59.613   ← 又过了 1.46 秒
+//
+// 报告那一节读到「不 pending 且零条」就整节不显示，而且不再问第二次。于是
+// 「电池」这个词好端端地在库里，她永远看不到，树上也永远不会有它 —— 而地图上
+// 写着「读完之后，报告上会提出可以加进你树里的词」。两次走查都落在这个窗口里，
+// 它不是偶发。
+//
+// 所以：刚盖章不久而且还没有词，就照实说「还在跑」，让她那一页再问一次。过了
+// 这段时间还是零条，那才是真的没有词，那一节按原设计不显示。
+func harvestStillRunning(stamped pgtype.Timestamptz, found int) bool {
+	if !stamped.Valid {
+		return true // 还没人开始采
+	}
+	return found == 0 && time.Since(stamped.Time) < harvestLandingGrace
 }
 
 // decideInterestProposal —— POST /api/v1/interest/proposals/{atomId}/{interestId}
