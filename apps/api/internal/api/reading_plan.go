@@ -145,7 +145,7 @@ type readingPlanReply struct {
 // must resolve and match her language; anything else is treated as no plan at
 // all rather than passed through — a routine key that does not resolve would
 // render as an empty task list she cannot act on.
-func parseReadingPlan(text, lang string) (readingPlanReply, readingRoutine, bool) {
+func parseReadingPlan(text, lang string) (readingPlanReply, readingRoutine, planReject) {
 	c := strings.TrimSpace(text)
 	if strings.HasPrefix(c, "```json") {
 		c = strings.TrimLeft(strings.TrimPrefix(c, "```json"), " \t\r\n")
@@ -163,21 +163,36 @@ func parseReadingPlan(text, lang string) (readingPlanReply, readingRoutine, bool
 	}
 	var got readingPlanReply
 	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
-		return readingPlanReply{}, readingRoutine{}, false
+		return readingPlanReply{}, readingRoutine{}, planRejectUnparseable
 	}
 	routine, ok := findReadingRoutine(strings.TrimSpace(got.RoutineKey))
 	if !ok {
-		return readingPlanReply{}, readingRoutine{}, false
+		return readingPlanReply{}, readingRoutine{}, planRejectUnknownRoutine
 	}
 	want := lang
 	if want != "en" {
 		want = "zh"
 	}
 	if routine.Lang != want {
-		return readingPlanReply{}, readingRoutine{}, false
+		return readingPlanReply{}, readingRoutine{}, planRejectWrongLang
 	}
-	return got, routine, true
+	return got, routine, planOK
 }
+
+// planReject 说的是排读法这一步为什么没成。
+//
+// 🚨 原来这三种（加上「排出来一步都不剩」）共用一个 bool 和一句日志
+// 「unparseable or out-of-library reply」。2026-09-08 线上 4 次里错 3 次，
+// 而同一个 prompt 在本地实测 6 次全过 —— 日志说不出差在哪，只能靠猜。
+// 三种的修法完全不同，所以它们现在各说各的。
+type planReject string
+
+const (
+	planOK                   planReject = ""
+	planRejectUnparseable    planReject = "reply is not usable json"
+	planRejectUnknownRoutine planReject = "routineKey not in the library"
+	planRejectWrongLang      planReject = "routine language does not match the article"
+)
 
 // buildReadingTasks turns the routine plus the model's tuning into the rows to
 // insert.
@@ -264,12 +279,14 @@ func (a *API) planReadingTasks(
 		slog.Warn("reading plan: provider call failed", "err", cerr, "atom_id", atomID)
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
 	}
-	plan, routine, okParse := parseReadingPlan(res.Text, lang)
-	if !okParse {
+	plan, routine, reject := parseReadingPlan(res.Text, lang)
+	if reject != planOK {
 		// No canned fallback routine. A silently-substituted default would be
 		// indistinguishable from a real plan, and she would never know the
 		// coach had not actually looked at her article.
-		slog.Warn("reading plan: unparseable or out-of-library reply", "atom_id", atomID)
+		slog.Warn("reading plan: rejected", "atom_id", atomID, "why", string(reject),
+			"lang", lang, "stop_reason", res.StopReason, "reply_len", len(res.Text),
+			"reply_tail", tailRunes(res.Text, 200))
 		return nil, httpx.ErrAIDialogueFailed("model_unavailable")
 	}
 
