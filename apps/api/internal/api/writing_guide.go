@@ -434,6 +434,63 @@ type writingGuideBatchReply struct {
 	Blocks []writingGuideBatchItem `json:"blocks"`
 }
 
+// salvageWritingGuideBatch 从一份没写完（或写坏了）的批量回复里，把已经到齐的
+// 那几块捞出来。
+//
+// 逐块读，读到第一个读不下去的地方就停：`dec.Token()` 走到 `blocks` 这个键，
+// 然后一个一个 `dec.Decode` 数组里的元素。断点之前的块是模型完整写出来的字，
+// 断点之后的什么都没有 —— 所以这里只留下它真的写过的东西，一个字都不补。
+//
+// 调用方随后对每一块跑和平时一模一样的过滤（问号、方法 id、块 id 必须是这次
+// 真的缺引导的那几块），所以救援不会放宽任何一条校验。
+func salvageWritingGuideBatch(s string) ([]writingGuideBatchItem, bool) {
+	dec := json.NewDecoder(strings.NewReader(s))
+	tok, err := dec.Token()
+	if err != nil {
+		return nil, false
+	}
+	if d, ok := tok.(json.Delim); !ok || d != '{' {
+		return nil, false
+	}
+	for {
+		key, kerr := dec.Token()
+		if kerr != nil {
+			return nil, false
+		}
+		if d, isDelim := key.(json.Delim); isDelim && d == '}' {
+			return nil, false // 整个对象读完了也没见到 blocks
+		}
+		name, isStr := key.(string)
+		if !isStr {
+			return nil, false
+		}
+		if name != "blocks" {
+			// 别的字段整块跳过。跳不过去（它自己就断在这里）就没得救了。
+			var skip json.RawMessage
+			if serr := dec.Decode(&skip); serr != nil {
+				return nil, false
+			}
+			continue
+		}
+		open, oerr := dec.Token()
+		if oerr != nil {
+			return nil, false
+		}
+		if d, isDelim := open.(json.Delim); !isDelim || d != '[' {
+			return nil, false
+		}
+		var items []writingGuideBatchItem
+		for dec.More() {
+			var item writingGuideBatchItem
+			if derr := dec.Decode(&item); derr != nil {
+				break // 这一块断在半路，它和它后面的都当没给
+			}
+			items = append(items, item)
+		}
+		return items, len(items) > 0
+	}
+}
+
 // parseWritingGuideBatch decodes the batch reply and applies, PER BLOCK, the
 // exact same two filters parseWritingGuide applies to a single block: the ？
 // filter on questions (still and only on questions), and the unknown-method-id
@@ -465,7 +522,19 @@ func parseWritingGuideBatch(text string, knownIDs map[uuid.UUID]bool) (map[uuid.
 	}
 	var got writingGuideBatchReply
 	if err := json.Unmarshal([]byte(strings.TrimSpace(c)), &got); err != nil {
-		return nil, false
+		// 🚨 断在半路的回复，不要整批丢掉。这是同一个毛病的第四次
+		// （salvagePlanets 星图 / salvageCoachReply 带读 / salvageReadingPlan
+		// 排读法）：模型 `finish_reason` 报正常，JSON 却停在某一块中间。
+		// 这一批尤其疼 —— 她那一屏上每一块都靠它，整批丢掉的结果是三块全空，
+		// 而先到的那两块本来是好的。
+		//
+		// 到齐的留下，没写完的当没给：没拿到引导的那几块照旧摆「获取引导」，
+		// 那个按钮本来就在。见 memory: model-json-half-arrived-2026-09-08。
+		items, okSalvage := salvageWritingGuideBatch(strings.TrimSpace(text))
+		if !okSalvage {
+			return nil, false
+		}
+		got.Blocks = items
 	}
 
 	out := make(map[uuid.UUID]writingGuideResult, len(got.Blocks))
@@ -767,8 +836,13 @@ func (a *API) guideWritingBlocks(w http.ResponseWriter, r *http.Request) {
 	// what POST /outline/{oid}/guide is for, and only when she asks.
 	guides, okParse := parseWritingGuideBatch(res.Text, missing)
 	if !okParse {
+		// 🚨 把模型到底回了什么记下来。上一版只说一句「unparseable」，而排查一次
+		// 模型回复唯一有用的证据就是它写了什么 —— 2026-09-08 这条 502 就是靠
+		// 补上 reply_tail 才两分钟定位的（同 reading_plan.go）。
 		slog.Warn("writing block guide batch: reply unparseable",
-			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()),
+			"stop_reason", res.StopReason, "reply_len", len(res.Text),
+			"reply_tail", tailRunes(res.Text, 200))
 		httpx.WriteError(w, r, httpx.ErrAIDialogueFailed("model_unavailable"))
 		return
 	}
