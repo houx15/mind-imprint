@@ -34,10 +34,25 @@ func TestLiveFetchAll(t *testing.T) {
 	}
 
 	bySource := map[string]int{}
+	// 每个源的正文情况。2026-09-08 加：`content:encoded` 之前根本没被读过，
+	// 而好几个源的整篇文章就在那里。这一栏让「哪个源真的带正文」是量出来的，
+	// 不是靠记忆。
+	bodyBySource := map[string]int{}
+	withBody := 0
 	for _, it := range pool {
 		bySource[it.Source]++
+		if n := len([]rune(it.Body)); n > 0 {
+			withBody++
+			if n > bodyBySource[it.Source] {
+				bodyBySource[it.Source] = n
+			}
+		}
 		if it.Title == "" {
 			t.Error("有条目没有标题")
+		}
+		// 硬规则：只有标题和链接的条目不该走到这里（WithReadableSummary）。
+		if len([]rune(ExcerptFor(it, MinSummaryRunes+1))) < MinSummaryRunes {
+			t.Errorf("一条没有可读摘要的条目混进了候选池：%q [%s]", it.Title, it.Source)
 		}
 		// 🚨 链接为空是 Atom `,attr` 那个 bug 的症状：不报错，只是每颗星球
 		// 都点不开。
@@ -49,8 +64,9 @@ func TestLiveFetchAll(t *testing.T) {
 		}
 	}
 	for src, n := range bySource {
-		t.Logf("  %-28s %d", src, n)
+		t.Logf("  %-28s %3d 条   正文最长 %d 字", src, n, bodyBySource[src])
 	}
+	t.Logf("带正文的条目：%d / %d", withBody, len(pool))
 	if len(bySource) < 3 {
 		t.Errorf("只有 %d 个源出了东西，太少了", len(bySource))
 	}

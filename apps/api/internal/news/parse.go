@@ -17,14 +17,38 @@ import (
 
 // Item 是一条候选新闻。
 type Item struct {
-	Title     string
-	Link      string
-	Summary   string
+	Title string
+	Link  string
+	// Summary 是 feed 里那段短的（RSS 的 description / Atom 的 summary）。
+	// 它是**给人看的一两句**，长度按源从一百到八千字符不等。
+	Summary string
+	// Body 是 feed 自己带的正文（RSS 的 content:encoded / Atom 的 content）。
+	//
+	// 🚨 2026-09-08 实测：我们一直只读 description，而**很多源的正文就在
+	// content:encoded 里，被我们整段丢掉**。同一条 JSTOR Daily，description
+	// 192 字符，content:encoded 9694 字符 —— 我们留下 2%。MIT Tech Review
+	// 355 / 5692，Colossal 381 / 3000，都是现有源。
+	//
+	// 它有两种用法，规矩完全不同，别混：
+	//   - **选星时喂给模型**：让它有真材料可判，写得出像样的摘要和钩子。这是
+	//     内部处理。
+	//   - **填进阅读室当正文**：那是转载，要看源的许可。**今天不做** —— 等
+	//     产品负责人对 NC 类许可给出结论之前，这个字段不进任何一张表。
+	//
+	// 因此在解析处就截断（bodyRuneCap）：我们只留用得上的那一段，不把一整篇
+	// 没有许可的文章拿在手里。
+	Body      string
 	Published time.Time
 	// Source / Field 由抓取方按源填上，解析器不管。
 	Source string
 	Field  string
 }
+
+// bodyRuneCap 是 Body 保留多长。
+//
+// 选星的 prompt 每条只用得到几百字（见 BuildSelectPrompt），留 4000 已经绰绰
+// 有余。上限本身也是一条纪律：我们没有转载许可，就不该把整篇文章拿在手里。
+const bodyRuneCap = 4000
 
 /* ── XML 形状 ───────────────────────────────────────────────────────────── */
 
@@ -37,13 +61,24 @@ type rssItem struct {
 	Title       string `xml:"title"`
 	Link        string `xml:"link"`
 	Description string `xml:"description"`
-	PubDate     string `xml:"pubDate"`
+	// content:encoded —— WordPress 系的源（Grist / JSTOR Daily / Colossal /
+	// MIT Tech Review / 对话地球 / designboom …）把**整篇正文**放在这里，
+	// description 里只留一句导语。少了这一行，那些源我们每天都在丢掉九成内容。
+	//
+	// 命名空间要写全 URI，不能写 `content:encoded` —— encoding/xml 认的是
+	// 「空间 URI + 本地名」，写前缀会匹配不上，而且**不报错**，只是永远是空串。
+	Encoded string `xml:"http://purl.org/rss/1.0/modules/content/ encoded"`
+	PubDate string `xml:"pubDate"`
 	// RSS 1.0 / RDF 用 dc:date；Nature 的几个源就是这样。
 	DCDate string `xml:"http://purl.org/dc/elements/1.1/ date"`
 }
 
-// rdfFeed —— RSS 1.0（RDF）。arXiv 用的就是这个，`item` 是**根的直接子元素**，
-// 不在 `channel` 里面。按 RSS 2.0 的路径去取会得到零条，而且不报错。
+// rdfFeed —— RSS 1.0（RDF）。`item` 是**根的直接子元素**，不在 `channel` 里面，
+// 按 RSS 2.0 的路径去取会得到零条，而且不报错。
+//
+// Nature 那几个源走的就是这条路（它们的时间也在 dc:date 上）。arXiv 原来也是
+// RDF，2026-09-08 因为常年零条被拿掉了（见 sources.go），但这条分支和它无关，
+// 不能跟着删。
 type rdfFeed struct {
 	XMLName xml.Name  `xml:"RDF"`
 	Items   []rssItem `xml:"item"`
@@ -116,6 +151,7 @@ func fromRSSItems(items []rssItem) []Item {
 			Title:     title,
 			Link:      strings.TrimSpace(it.Link),
 			Summary:   clean(it.Description),
+			Body:      truncRunes(clean(it.Encoded), bodyRuneCap),
 			Published: parseTime(it.PubDate, it.DCDate),
 		})
 	}
@@ -147,9 +183,12 @@ func parseAtom(body []byte) ([]Item, error) {
 			summary = e.Content
 		}
 		out = append(out, Item{
-			Title:     title,
-			Link:      strings.TrimSpace(link),
-			Summary:   clean(summary),
+			Title:   title,
+			Link:    strings.TrimSpace(link),
+			Summary: clean(summary),
+			// Atom 这一侧对应 content:encoded 的是 <content>。summary 为空时
+			// 它已经被当成摘要用了，那时两个字段一样长 —— 不必再分。
+			Body:      truncRunes(clean(e.Content), bodyRuneCap),
 			Published: parseTime(e.Published, e.Updated),
 		})
 	}

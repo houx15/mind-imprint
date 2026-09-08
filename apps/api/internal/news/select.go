@@ -28,6 +28,31 @@ const PlanetCount = 5
 // 敷衍。按新鲜度排完取前 40 条。
 const maxCandidates = 40
 
+// promptExcerptRunes 是每条候选给模型看多少字。
+//
+// 原来是 220 字，而且只取 description —— 对 Grist 那种源，description 只有
+// 120 字符的导语，等于让模型**看着一句话**决定这条值不值得进今天的五颗星，
+// 还要据此写出摘要和钩子。现在 Body 里有 feed 自己带的正文（见 parse.go），
+// 给它 400 字：够判断这篇到底说了什么，又不至于让四十条候选把 prompt 撑爆
+// （220→400 大约让候选那一段长一倍，仍远小于学科表加领域表）。
+const promptExcerptRunes = 400
+
+// ExcerptFor 交出这条候选**最值得给模型看的那一段**：feed 带了正文就用正文，
+// 没带就用摘要。
+//
+// 取长的那个而不是永远取 Body：有些源（IEEE Spectrum 实测 8156 字符）把全文
+// 放在 description 里，Body 反而是空的。
+//
+// 🚨 这是**内部处理**，不是转载。这段字只进 prompt，不落库、不显示给学生。
+// 正文要显示给她，得先过许可那一关，那件事今天没做。
+func ExcerptFor(it Item, runes int) string {
+	best := strings.TrimSpace(it.Summary)
+	if b := strings.TrimSpace(it.Body); len([]rune(b)) > len([]rune(best)) {
+		best = b
+	}
+	return truncRunes(best, runes)
+}
+
 // Planet 是星图上的一颗星。
 type Planet struct {
 	// 候选池里的下标，模型用它指认自己挑了哪条。
@@ -123,8 +148,8 @@ func BuildSelectPrompt(items []Item) (system, user string, candidates []Item) {
 	fmt.Fprintf(&b, "\n今天的候选新闻，共 %d 条。请挑 %d 条：\n\n", len(items), PlanetCount)
 	for i, it := range items {
 		fmt.Fprintf(&b, "[%d] (%s) %s\n", i, it.Source, it.Title)
-		if s := strings.TrimSpace(it.Summary); s != "" {
-			fmt.Fprintf(&b, "    %s\n", truncRunes(s, 220))
+		if s := ExcerptFor(it, promptExcerptRunes); s != "" {
+			fmt.Fprintf(&b, "    %s\n", s)
 		}
 	}
 	return selectSystemPrompt, b.String(), items
