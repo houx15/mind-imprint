@@ -37,7 +37,12 @@ export interface LibraryCardProps {
 }
 
 export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume }: LibraryCardProps) {
-  const [tier, setTier] = useState(defaultTier);
+  // 她手上还开着这一篇时，卡片停在**她打开的那一档**，而不是页面上的默认档。
+  // 否则从阅读室回到书架，这张卡会请她「读这一篇」，点下去开出同一篇文章的
+  // 第二条阅读记录 —— 走查里就是这么发现的。
+  const [tier, setTier] = useState(
+    article.readingId && !article.finished && article.readTier ? article.readTier : defaultTier,
+  );
   const [picking, setPicking] = useState(false);
   const hue = fieldById(article.field as FieldId).hue;
   const level = article.levels.find((l) => l.tier === tier) ?? article.levels[1] ?? article.levels[0];

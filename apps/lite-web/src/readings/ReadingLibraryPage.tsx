@@ -22,9 +22,9 @@ import { LibraryCard } from "./LibraryCard";
  *
  *   搜索   中英标题、推荐语、学科名都算命中。
  *   主枝   兴趣树的七根枝，只列库里真有文章的那几根。
- *   难度   按她能读的档位筛：选「进阶」列出所有有进阶档的文章，并把卡片的默认
- *          档设成进阶。五档每篇都有，所以这个筛子筛的其实是「用哪一档打开」，
- *          它改的是默认选中项，不是文章数量 —— 这一点在标签上写清楚了。
+ *   难度   每篇都有全部五档，所以这一排改的不是有几篇，而是「点开就用哪一档」。
+ *          标签因此叫「默认难度」而不是「难度」。她手上还开着的那几篇不跟着
+ *          动 —— 卡片停在她自己打开的那一档（见 LibraryCard）。
  *
  * 🚨 最外层必须带 `mk-branch-hues`：七根主枝的颜色变量只在那个作用域里有定义
  * （见 tree/branchHues.css），少了它卡片和标签会一声不响地失去全部颜色。
@@ -159,7 +159,10 @@ export function ReadingLibraryPage() {
               <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {visible.map((a) => (
                   <LibraryCard
-                    key={a.slug}
+                    // 🚨 key 带上默认档：卡片的选中档是 useState 的初始值，
+                    // 只在挂载时读一次。不换 key 的话，切「默认难度」这一排
+                    // 按钮会亮，卡片上的字却一个都不动。
+                    key={`${a.slug}:${tier || shelf.tier}`}
                     article={a}
                     defaultTier={tier || shelf.tier}
                     busy={busy}

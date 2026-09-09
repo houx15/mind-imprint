@@ -35,9 +35,19 @@ import type { Browser, BrowserContext } from "@playwright/test";
 const API = (process.env.E2E_API_BASE ?? "").replace(/\/+$/, "");
 const BASE_URL = process.env.E2E_BASE_URL ?? "http://localhost:5174";
 
-// 种子里的 Demo Class（0002_seed.sql）。注册必须带一个有效的班级 join code
-// ——「不存在无组织账号」是组织不变式，不是这里可以绕过的一步。
-const JOIN_CODE = "DEMO-0001";
+// 注册必须带一个有效的班级 join code ——「不存在无组织账号」是组织不变式，
+// 不是这里可以绕过的一步。
+//
+// 默认是种子里的 Demo Class（0002_seed.sql），本地那套一次性 Postgres 用它，
+// 而本地的 globalSetup 会把那所学校翻成 lite。
+//
+// 🚨 线上不是这样：线上的 Demo School 是 **pro**，拿 DEMO-0001 注册出来的账号
+// 打任何一条轻量版的路都回 404 —— 包括 `/api/v1/readings`，看上去像是接口没了。
+// 线上要用轻量版体验班的 `G624-UXFE`（2026-09-09 从线上库里取出来的，在这之前
+// 谁都没记下来过）：
+//
+//   E2E_API_BASE=https://mind-api.uni-robot.cn E2E_JOIN_CODE=G624-UXFE …
+const JOIN_CODE = process.env.E2E_JOIN_CODE ?? "DEMO-0001";
 
 export async function freshAccount(browser: Browser, label: string): Promise<BrowserContext> {
   const tag = `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`;
