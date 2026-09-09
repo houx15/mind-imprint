@@ -2616,25 +2616,44 @@
       position:relative;
       width:clamp(112px,13vw,166px);
       height:clamp(158px,19vw,232px);
-      border:1px solid rgba(85,230,255,.38);
+      overflow:visible;
+      background:transparent;
+      border:0;
       border-radius:16px;
-      overflow:hidden;
-      background:
-        repeating-linear-gradient(135deg, rgba(85,230,255,.12) 0 5px, rgba(3,14,27,.86) 5px 10px),
-        radial-gradient(circle at 50% 42%, rgba(85,230,255,.14), transparent 48%);
-      box-shadow:0 14px 34px rgba(0,0,0,.34), inset 0 0 26px rgba(85,230,255,.05);
-      /* Real two-sided card: the whole card rotates in 3D, while the face
-         sits on the reverse side. This keeps the flip visible in previews. */
-      transform-style:preserve-3d;
-      transform-origin:center center;
       perspective:1200px;
-      transition:border-color .3s, box-shadow .3s;
+      transform:translateZ(0);
+      transition:transform .32s cubic-bezier(.2,.75,.25,1), filter .32s ease;
       will-change:transform;
       isolation:isolate;
     }
+    /* 外壳只负责透视和抬升；真正翻转的是 inner，避免牌面文字被父子
+       transform 叠加吞掉。牌背和牌面是两张独立的实体薄片。 */
+    .deck-card-inner {
+      position:absolute;
+      inset:0;
+      overflow:hidden;
+      border:1px solid rgba(85,230,255,.38);
+      border-radius:16px;
+      background:rgba(3,14,27,.86);
+      box-shadow:0 14px 34px rgba(0,0,0,.34), inset 0 0 26px rgba(85,230,255,.05);
+      transform-style:preserve-3d;
+      transform-origin:center center;
+      will-change:transform;
+    }
+    .deck-card-inner::after {
+      content:"";
+      position:absolute;
+      inset:0;
+      z-index:4;
+      pointer-events:none;
+      border-radius:15px;
+      background:linear-gradient(105deg, transparent 34%, rgba(255,255,255,.34) 48%, transparent 62%);
+      mix-blend-mode:screen;
+      opacity:0;
+      transform:translateX(-120%);
+    }
 
-    .deck-card::before {
-      content:"翻开底牌";
+    .deck-card-back {
       position:absolute;
       inset:11px;
       z-index:3;
@@ -2650,15 +2669,14 @@
       text-orientation:upright;
       text-shadow:0 0 14px rgba(85,230,255,.55);
       background:linear-gradient(180deg, rgba(3,19,34,.12), rgba(3,19,34,.42));
-      opacity:1;
-      transition:opacity .2s ease;
+      backface-visibility:hidden;
+      -webkit-backface-visibility:hidden;
+      pointer-events:none;
     }
-
-    .deck-card::after {
+    .deck-card-back::after {
       content:"✦";
       position:absolute;
       inset:0;
-      z-index:2;
       display:grid;
       place-items:center;
       color:rgba(85,230,255,.72);
@@ -2669,21 +2687,29 @@
     .deck-card .deck-card-face {
       position:absolute;
       inset:0;
-      z-index:1;
+      z-index:5;
       display:grid;
       align-content:center;
       justify-items:center;
       gap:9px;
       padding:18px 12px;
       box-sizing:border-box;
+      border:1px solid rgba(255,255,255,.28);
       border-radius:15px;
-      opacity:1;
-      transform:rotateY(180deg) translateZ(1px);
-      backface-visibility:hidden;
-      -webkit-backface-visibility:hidden;
+      opacity:0;
+      transform:translateZ(2px) scale(.94);
+      /* 牌面是独立前景层，只在牌体翻到正面后显现，完全避开背面裁切。 */
       color:#04111b;
       text-align:center;
       overflow:hidden;
+      pointer-events:none;
+    }
+    .deck-card .deck-card-face::after {
+      content:"";
+      position:absolute;
+      inset:8px;
+      border:1px solid rgba(4,17,27,.2);
+      border-radius:10px;
       pointer-events:none;
     }
 
@@ -2706,25 +2732,30 @@
     }
 
     .deck-card.revealed {
-      transform:translateY(-9px) rotateY(180deg);
-      border-color:var(--cyan);
-      box-shadow:0 18px 40px rgba(85,230,255,.28), 0 0 0 2px rgba(85,230,255,.08);
+      transform:translateY(-9px) translateZ(12px);
+      filter:drop-shadow(0 18px 22px rgba(85,230,255,.18));
     }
-
-    .deck-card.revealed::before,
-    .deck-card.revealed::after {
-      animation:deckFlipBack .9s cubic-bezier(.2,.82,.22,1) both;
+    .deck-card.revealed .deck-card-inner {
+      border-color:var(--cyan);
+      box-shadow:0 20px 46px rgba(85,230,255,.28), 0 0 0 2px rgba(85,230,255,.08), inset 0 0 26px rgba(85,230,255,.08);
+      animation:deckFlipInner 1.22s cubic-bezier(.16,.84,.22,1) both;
+    }
+    .deck-card.revealed .deck-card-back {
+      animation:deckFlipBack 1.22s cubic-bezier(.16,.84,.22,1) both;
+    }
+    .deck-card.revealed .deck-card-inner::after {
+      animation:deckFlipGlint 1.22s cubic-bezier(.16,.84,.22,1) both;
     }
     .deck-card.revealed .deck-card-face {
       opacity:1;
-      transform:rotateY(180deg) translateZ(1px);
+      transform:translateZ(2px) scale(1);
+      transition:opacity .18s ease, transform .24s cubic-bezier(.2,.82,.25,1);
     }
-    /* 底牌入口保持背面朝上；完成一轮后通过 3D rotateY 翻到牌面。 */
-    .deck-card.face-visible::before,
-    .deck-card.face-visible::after { opacity:0; }
+    /* 底牌入口保持背面朝上；完成一轮后通过 inner 的 3D rotateY 翻到牌面。 */
+    .deck-card.face-visible .deck-card-back { visibility:hidden; }
     .deck-card.face-visible .deck-card-face {
       opacity:1;
-      transform:rotateY(180deg) translateZ(1px);
+      transform:translateZ(2px) scale(1);
     }
     .deck-card[data-card="顺"] .deck-card-face { background:linear-gradient(145deg,#d8fbff,#72dff1); }
     .deck-card[data-card="换"] .deck-card-face { background:linear-gradient(145deg,#eee6ff,#9e8cff); }
@@ -2803,8 +2834,8 @@
       width:clamp(86px,10vw,124px);
       height:clamp(122px,15vw,176px);
     }
-    .deck-card-rack .deck-card::before { content:""; inset:9px; }
-    .deck-card-rack .deck-card::after { font-size:26px; }
+    .deck-card-rack .deck-card-back { inset:9px; font-size:0; }
+    .deck-card-rack .deck-card-back::after { font-size:26px; }
     .deck-card-rack .deck-card .deck-card-face { padding:12px 8px; gap:6px; }
     .deck-card-rack .deck-card .deck-card-face b { font-size:clamp(38px,4.5vw,56px); color:#03131c; }
     .deck-card-rack .deck-card .deck-card-face span { font-size:12px; color:#061f2c; }
@@ -2946,31 +2977,43 @@
     #deckStageGame .deck-task { grid-area:task; min-width:0; }
     #deckStageGame .deck-nav { grid-area:nav; margin-top:0; }
     #screenDeck #deckStageResult { align-content:center; }
-    #screenDeck .deck-card.revealed { animation:deckFlipCard .9s cubic-bezier(.2,.82,.22,1) both; }
-    #screenDeck .deck-card.revealed .deck-card-face { animation:deckFlipFace .9s cubic-bezier(.2,.82,.22,1) both; }
-    @keyframes deckFlipCard {
-      0% { transform:translateY(0) rotateY(0deg); }
-      18% { transform:translateY(-4px) rotateY(24deg); }
-      48% { transform:translateY(-18px) rotateY(92deg); }
-      74% { transform:translateY(-13px) rotateY(150deg); }
-      100% { transform:translateY(-9px) rotateY(180deg); }
+    /* 外壳只抬升和承接阴影；inner 才执行完整的实体纸牌翻面。 */
+    #screenDeck .deck-card.revealed { animation:deckLift .22s ease-out both; }
+    #screenDeck .deck-card.revealed .deck-card-inner { animation:deckFlipInner 1.22s cubic-bezier(.16,.84,.22,1) both; }
+    #screenDeck .deck-card.revealed .deck-card-face { opacity:1; transform:translateZ(2px) scale(1); }
+    #screenDeck .deck-card.revealed .deck-card-back { animation:deckFlipBack 1.22s cubic-bezier(.16,.84,.22,1) both; }
+    #screenDeck .deck-card.revealed .deck-card-inner::after { animation:deckFlipGlint 1.22s cubic-bezier(.16,.84,.22,1) both; }
+    @keyframes deckLift {
+      from { transform:translateZ(0); filter:drop-shadow(0 14px 18px rgba(0,0,0,.22)); }
+      to { transform:translateY(-9px) translateZ(12px); filter:drop-shadow(0 22px 24px rgba(85,230,255,.2)); }
     }
-    @keyframes deckFlipFace {
-      0% { opacity:1; transform:rotateY(180deg) translateZ(1px); }
-      46% { opacity:1; transform:rotateY(180deg) translateZ(1px); }
-      52% { opacity:1; transform:rotateY(180deg) translateZ(1px); }
-      100% { opacity:1; transform:rotateY(180deg) translateZ(1px); }
+    @keyframes deckFlipInner {
+      0% { transform:translateY(0) rotateZ(0deg) rotateY(0deg) scale(1); }
+      12% { transform:translateY(-3px) rotateZ(-.7deg) rotateY(12deg) scale(1.015); }
+      28% { transform:translateY(-15px) rotateZ(1deg) rotateY(48deg) scale(1.035); }
+      48% { transform:translateY(-25px) rotateZ(0deg) rotateY(92deg) scaleX(.9) scaleY(1.03); }
+      60% { transform:translateY(-22px) rotateZ(-.4deg) rotateY(118deg) scaleX(.9) scaleY(1.02); }
+      78% { transform:translateY(-14px) rotateZ(.25deg) rotateY(158deg) scaleX(.98); }
+      90% { transform:translateY(-8px) rotateZ(0deg) rotateY(176deg) scale(1.005); }
+      100% { transform:translateY(-7px) rotateZ(0deg) rotateY(180deg) scale(1); }
     }
+    /* 牌面不单独做透明度或 transform 动画，文字始终由同一层稳定绘制。 */
     @keyframes deckFlipBack {
-      0%,46% { opacity:1; }
-      54%,100% { opacity:0; }
+      0%,43% { opacity:1; }
+      52%,100% { opacity:0; }
     }
-    /* 翻牌是本实验的核心反馈，即使系统开启“减少动态”，也保留短促的牌面切换，确保学生能看见“完成实验 → 翻开底牌”的因果。 */
+    @keyframes deckFlipGlint {
+      0%,36% { opacity:0; transform:translateX(-120%); }
+      54% { opacity:.72; transform:translateX(20%); }
+      72%,100% { opacity:0; transform:translateX(120%); }
+    }
+    /* 翻牌是本实验的核心反馈，即使系统开启“减少动态”，也保留短促的实体翻面，牌面文字始终保留。 */
     @media (prefers-reduced-motion: reduce) {
-      #screenDeck .deck-card.revealed { animation-duration:.72s; }
-      #screenDeck .deck-card.revealed .deck-card-face { animation-duration:.72s; }
-      #screenDeck .deck-card.revealed::before,
-      #screenDeck .deck-card.revealed::after { animation-duration:.72s; }
+      /* 仍保留可辨认的翻面过程，但缩短到 0.95 秒；牌面不参与透明度动画。 */
+      #screenDeck .deck-card.revealed { animation-duration:.38s; }
+      #screenDeck .deck-card.revealed .deck-card-inner,
+      #screenDeck .deck-card.revealed .deck-card-back,
+      #screenDeck .deck-card.revealed .deck-card-inner::after { animation-duration:.95s; }
     }
     .rejoin-memory {
       position:relative;
@@ -3017,11 +3060,13 @@
       .deck-card { width:96px; height:136px; }
       .deck-card .deck-card-face b { font-size:42px; }
       .deck-card .deck-card-face span { font-size:12px; }
-      .deck-card::before { font-size:11px; }
+      .deck-card-back { font-size:11px; }
     }
 
     @media (prefers-reduced-motion: reduce) {
-      *, *::before, *::after {
+      *:not(#screenDeck .deck-card):not(#screenDeck .deck-card-inner):not(#screenDeck .deck-card-back),
+      *:not(#screenDeck .deck-card-inner)::before,
+      *:not(#screenDeck .deck-card-inner)::after {
         animation-duration: 1ms !important;
         animation-iteration-count: 1 !important;
         scroll-behavior: auto !important;
@@ -3143,9 +3188,9 @@
           <div class="deck-stage" id="deckStageIntro">
             <div class="deck-intro-copy">你已经很会使用 AI 了。现在把它当成一台需要被观察的机器：<strong>每完成一个实验，就翻开一张底牌。</strong></div>
             <div class="deck-cards" aria-label="三张底牌">
-              <div class="deck-card" data-card="顺"><div class="deck-card-face"><b>顺</b><span>保证顺，不保证真</span></div></div>
-              <div class="deck-card" data-card="换"><div class="deck-card-face"><b>换</b><span>免费是一种交换</span></div></div>
-              <div class="deck-card" data-card="偏"><div class="deck-card-face"><b>偏</b><span>读过谁就更懂谁</span></div></div>
+              <div class="deck-card" data-card="顺"><div class="deck-card-inner"><div class="deck-card-back">翻开底牌</div></div><div class="deck-card-face"><b>顺</b><span>保证顺，不保证真</span></div></div>
+              <div class="deck-card" data-card="换"><div class="deck-card-inner"><div class="deck-card-back">翻开底牌</div></div><div class="deck-card-face"><b>换</b><span>免费是一种交换</span></div></div>
+              <div class="deck-card" data-card="偏"><div class="deck-card-inner"><div class="deck-card-back">翻开底牌</div></div><div class="deck-card-face"><b>偏</b><span>读过谁就更懂谁</span></div></div>
             </div>
             <div class="deck-nav"><span class="helper-text auxiliary">卡牌背面朝上 · 等待你的第一次选择</span><button class="primary-button" id="startDeck" type="button">开始第一局</button></div>
           </div>
@@ -3153,9 +3198,9 @@
             <div class="deck-card-rack">
               <span class="deck-section-label">CURRENT HAND / 三张底牌</span>
               <div class="deck-cards" aria-label="三张底牌">
-                <div class="deck-card" data-card="顺"><div class="deck-card-face"><b>顺</b><span>保证顺，不保证真</span></div></div>
-                <div class="deck-card" data-card="换"><div class="deck-card-face"><b>换</b><span>免费是一种交换</span></div></div>
-                <div class="deck-card" data-card="偏"><div class="deck-card-face"><b>偏</b><span>读过谁就更懂谁</span></div></div>
+                <div class="deck-card" data-card="顺"><div class="deck-card-inner"><div class="deck-card-back">翻开底牌</div></div><div class="deck-card-face"><b>顺</b><span>保证顺，不保证真</span></div></div>
+                <div class="deck-card" data-card="换"><div class="deck-card-inner"><div class="deck-card-back">翻开底牌</div></div><div class="deck-card-face"><b>换</b><span>免费是一种交换</span></div></div>
+                <div class="deck-card" data-card="偏"><div class="deck-card-inner"><div class="deck-card-back">翻开底牌</div></div><div class="deck-card-face"><b>偏</b><span>读过谁就更懂谁</span></div></div>
               </div>
             </div>
             <div class="deck-task"><div class="deck-progress" aria-label="卡牌进度"><i></i><i></i><i></i></div><div class="deck-core" id="deckCore"></div></div>
