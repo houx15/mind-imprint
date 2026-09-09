@@ -129,3 +129,29 @@ RETURNING *;
 -- inserted) so a thin article that legitimately yields nothing never looks,
 -- to the next open, indistinguishable from "never tried".
 UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING *;
+
+-- name: CreateLibraryReading :one
+-- 从分级阅读库开一篇。与 CreateReading 分开写，是因为库里来的这一篇一出生
+-- 就带着来源（哪一篇、哪一档）—— 补一次 UPDATE 就会出现一个短暂的、来源为
+-- 空的窗口，而书架正是靠这两列判断「读过没有」。
+INSERT INTO reading (atom_id, title, lang, library_slug, library_tier)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING *;
+
+-- name: UpsertLibraryReadingSource :one
+-- 库里来的正文连同它的版式（图 + 小标题）一起落库。见迁移 0142 的头注。
+INSERT INTO reading_source (atom_id, title, body, source_url, figures, headings)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (atom_id) DO UPDATE
+  SET title = EXCLUDED.title, body = EXCLUDED.body,
+      source_url = EXCLUDED.source_url, figures = EXCLUDED.figures,
+      headings = EXCLUDED.headings, ingested_at = now()
+RETURNING *;
+
+-- name: ListLibraryReadingsByUser :many
+-- 她在库里读过什么、读到哪一档、读完没有。书架用它划掉读过的，推荐用它选档。
+SELECT r.library_slug, r.library_tier, r.status, r.atom_id
+FROM reading r
+JOIN atom a ON a.id = r.atom_id
+WHERE a.user_id = $1 AND a.kind = 'reading' AND r.library_slug <> ''
+ORDER BY a.created_at DESC;

@@ -265,6 +265,11 @@ func (a *API) Handler() http.Handler {
 	mux.Handle("POST /api/v1/readings/{id}/heartbeat", liteOnly(a.readingHeartbeat))
 	mux.Handle("GET /api/v1/readings/{id}/report", liteOnly(a.getAtomReportFor("reading")))
 
+	// 分级阅读库（0142）。目录是内容，在 internal/library 里 go:embed；这两条
+	// 路只负责「按她的树往下推荐」和「把选中的那一档开成一篇阅读」。
+	mux.Handle("GET /api/v1/library", liteOnly(a.getLibraryShelf))
+	mux.Handle("POST /api/v1/library/{slug}/levels/{tier}", liteOnly(a.startLibraryReading))
+
 	// 兴趣模型（0116）：她的关键词树。词由阅读/写作/项目完成时自动采集，
 	// 学科由 internal/interest 的三档路由连上，这里只负责读出来。
 	mux.Handle("GET /api/v1/interest/tree", liteOnly(a.getInterestTree))

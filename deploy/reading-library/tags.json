@@ -1,0 +1,117 @@
+{
+  "_note": [
+    "每篇文章的中文标题、一句话推荐理由，以及它挂在哪几门学科上。",
+    "",
+    "disciplines 里的 id 必须来自 packages/contracts/disciplines/disciplines.json 的",
+    "闭表（42 门）。这是文章与兴趣树连起来的唯一一根线：她的关键词路由到学科，",
+    "文章也标注学科，推荐就是这两侧在同一张表上取交集。写一个表外的 id，build.py",
+    "直接失败。",
+    "",
+    "第一门学科是主学科，决定这篇文章在书架上的颜色（它所属主枝的颜色）。",
+    "",
+    "reason 是一句话，说这篇里有什么值得读，不做铺垫、不替她减压（见 AGENTS.md",
+    "「界面文案怎么写」）。"
+  ],
+  "articles": {
+    "aid-groups-israel-hamas-war": {
+      "zh_title": "战争中的援助机构",
+      "reason": "物资、通道与安全限制，人道组织在战区实际能做的事。",
+      "disciplines": ["public-health", "political-economy", "ethics"]
+    },
+    "asian-games": {
+      "zh_title": "亚运会上你可能没见过的项目",
+      "reason": "卡巴迪、藤球、武术、库拉什，四套规则各自的说明。",
+      "disciplines": ["anthropology", "performance"]
+    },
+    "barbie-women-in-sports": {
+      "zh_title": "芭比把「体育行业女性」选为年度职业",
+      "reason": "一次玩具公司的选择，对应着女性在职业体育管理岗上的真实比例。",
+      "disciplines": ["sociology", "media-literacy", "career-futures"]
+    },
+    "biden-creates-climate-corps": {
+      "zh_title": "美国气候队",
+      "reason": "一项就业计划如何同时服务气候目标，以及它绕开国会的方式。",
+      "disciplines": ["political-economy", "climate-ocean", "career-futures"]
+    },
+    "ca-laphonza-butler-senate": {
+      "zh_title": "补缺的参议员",
+      "reason": "参议员席位出缺后由州长任命，美国政治制度里的一道具体程序。",
+      "disciplines": ["political-economy", "sociology"]
+    },
+    "dianne-feinstein-obit": {
+      "zh_title": "范士丹的从政履历",
+      "reason": "一份讣闻，从 1978 年市政厅枪击案写到参议院的最后一届任期。",
+      "disciplines": ["political-economy", "history"]
+    },
+    "frank-rubio-longest-us-spaceflight": {
+      "zh_title": "意外延长的 371 天",
+      "reason": "计划半年、实际一年，航天器故障如何改写一次任务。",
+      "disciplines": ["astronomy", "engineering-design", "wellbeing"]
+    },
+    "ga-ai-college-essays": {
+      "zh_title": "AI 该不该帮学生写大学申请文书",
+      "reason": "招生官、教师与学生三方的说法，一道与你直接相关的伦理题。",
+      "disciplines": ["ai-ml", "ethics", "education-learning"]
+    },
+    "golf-champion-autism": {
+      "zh_title": "只打过三轮完整比赛的全国冠军",
+      "reason": "一名十二岁自闭症球员夺冠，报道写了他的训练方式与家庭支持。",
+      "disciplines": ["developmental-psychology", "wellbeing"]
+    },
+    "hamas-israel-war-explainer-20231010": {
+      "zh_title": "以色列与哈马斯冲突：背景说明",
+      "reason": "封锁、控制权与历次战争，读懂新闻标题需要的那条时间线。",
+      "disciplines": ["political-economy", "history", "geography-urban"]
+    },
+    "jose-hernandez-a-million-miles-away-20231012": {
+      "zh_title": "从农场工人到 NASA 航天员",
+      "reason": "一部传记片背后的真实履历，以及电影改写掉的部分。",
+      "disciplines": ["film-narrative", "career-futures", "astronomy"]
+    },
+    "lost-painting-nc-wyeth": {
+      "zh_title": "旧货店里认出的失踪画作",
+      "reason": "一次辨认怎样被证实，艺术品鉴定要走的几道程序。",
+      "disciplines": ["art-history", "visual-design"]
+    },
+    "nasa-osiris-rex-lands-samples-of-asteroid": {
+      "zh_title": "贝努小行星的样本回到地球",
+      "reason": "七年任务、四十亿英里，以及着陆点中途更改的原因。",
+      "disciplines": ["astronomy", "matter-energy", "engineering-design"]
+    },
+    "nc-shell-hunters-hurricane-lee": {
+      "zh_title": "飓风过后的海滩",
+      "reason": "风暴改变海岸线，也把深水贝壳推到了岸上。",
+      "disciplines": ["ecology", "climate-ocean"]
+    },
+    "ny-time-capsule-reveal": {
+      "zh_title": "1829 年的时间胶囊",
+      "reason": "西点军校打开一只铅盒，里面的东西与所有人的预期都不一样。",
+      "disciplines": ["history", "anthropology"]
+    },
+    "oh-earthworks-unesco-site": {
+      "zh_title": "俄亥俄的古代土方工程列入世界遗产",
+      "reason": "两千年前按月亮周期对齐的建筑，和它今天所在的高尔夫球场。",
+      "disciplines": ["anthropology", "history", "astronomy"]
+    },
+    "ring-of-fire-eclipse-2023010": {
+      "zh_title": "日环食的观测条件",
+      "reason": "日环食与日全食的区别，以及安全观测需要的具体装备。",
+      "disciplines": ["astronomy", "matter-energy"]
+    },
+    "scientist-studies-painful-stingers-20231008": {
+      "zh_title": "主动让自己被蜇的科学家",
+      "reason": "一份疼痛分级表怎么建立起来，以及它在取样上的问题。",
+      "disciplines": ["ecology", "neuroscience", "ethics"]
+    },
+    "squirrel-parent-tiktok": {
+      "zh_title": "在阳台上养松鼠的博主",
+      "reason": "几百万播放量的另一面，野生动物救助的边界与争议。",
+      "disciplines": ["media-literacy", "ecology", "ethics"]
+    },
+    "tunisian-beekeepers-battle-extreme-heat-for-bees": {
+      "zh_title": "突尼斯养蜂人与极端高温",
+      "reason": "高温、干旱与蜂群损失，一条从气候连到收入的链条。",
+      "disciplines": ["climate-ocean", "ecology", "economics"]
+    }
+  }
+}

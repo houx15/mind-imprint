@@ -979,6 +979,8 @@ type Reading struct {
 	FinishedAt  pgtype.Timestamptz `json:"finished_at"`
 	RoutineKey  string             `json:"routine_key"`
 	QuestionsAt pgtype.Timestamptz `json:"questions_at"`
+	LibrarySlug string             `json:"library_slug"`
+	LibraryTier int16              `json:"library_tier"`
 }
 
 type ReadingBlockNote struct {
@@ -1015,6 +1017,8 @@ type ReadingSource struct {
 	SourceUrl  *string   `json:"source_url"`
 	Bib        []byte    `json:"bib"`
 	IngestedAt time.Time `json:"ingested_at"`
+	Figures    []byte    `json:"figures"`
+	Headings   []byte    `json:"headings"`
 }
 
 type ReadingTakeaway struct {

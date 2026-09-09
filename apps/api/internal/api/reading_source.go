@@ -52,6 +52,13 @@ type sourceDTO struct {
 	Title     string  `json:"title"`
 	SourceURL string  `json:"sourceUrl"`
 	Blocks    []Block `json:"blocks"`
+	// 版式，只有从分级阅读库开来的那些才有（迁移 0142）。图不在 Blocks 里：
+	// 工具卡挂在段 id 上，一张占了段 id 的图会被当成一段课文引回给学生。每张
+	// 图记着自己跟在哪一段之后（after，空串 = 题图），渲染时插在段与段之间。
+	Figures []figureDTO `json:"figures,omitempty"`
+	// Headings 是要渲染成小标题的段 id。它们仍然是段（SplitBlocks 不认识
+	// Markdown），只是长得不一样。
+	Headings []string `json:"headings,omitempty"`
 }
 
 func (a *API) putReadingSourceLite(w http.ResponseWriter, r *http.Request) {
@@ -145,8 +152,10 @@ func (a *API) getReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 		httpx.WriteError(w, r, err) // pgx.ErrNoRows → 404: nothing pasted yet
 		return
 	}
+	figures, headings := a.readingLayout(row.Figures, row.Headings)
 	httpx.WriteJSON(w, http.StatusOK, sourceDTO{
 		Title: row.Title, SourceURL: derefOr(row.SourceUrl, ""), Blocks: SplitBlocks(row.Body),
+		Figures: figures, Headings: headings,
 	})
 }
 

@@ -13,8 +13,49 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const createLibraryReading = `-- name: CreateLibraryReading :one
+INSERT INTO reading (atom_id, title, lang, library_slug, library_tier)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
+`
+
+type CreateLibraryReadingParams struct {
+	AtomID      uuid.UUID `json:"atom_id"`
+	Title       string    `json:"title"`
+	Lang        string    `json:"lang"`
+	LibrarySlug string    `json:"library_slug"`
+	LibraryTier int16     `json:"library_tier"`
+}
+
+// 从分级阅读库开一篇。与 CreateReading 分开写，是因为库里来的这一篇一出生
+// 就带着来源（哪一篇、哪一档）—— 补一次 UPDATE 就会出现一个短暂的、来源为
+// 空的窗口，而书架正是靠这两列判断「读过没有」。
+func (q *Queries) CreateLibraryReading(ctx context.Context, arg CreateLibraryReadingParams) (Reading, error) {
+	row := q.db.QueryRow(ctx, createLibraryReading,
+		arg.AtomID,
+		arg.Title,
+		arg.Lang,
+		arg.LibrarySlug,
+		arg.LibraryTier,
+	)
+	var i Reading
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Lang,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.FinishedAt,
+		&i.RoutineKey,
+		&i.QuestionsAt,
+		&i.LibrarySlug,
+		&i.LibraryTier,
+	)
+	return i, err
+}
+
 const createReading = `-- name: CreateReading :one
-INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at
+INSERT INTO reading (atom_id, title, lang) VALUES ($1, $2, $3) RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
 `
 
 type CreateReadingParams struct {
@@ -35,12 +76,14 @@ func (q *Queries) CreateReading(ctx context.Context, arg CreateReadingParams) (R
 		&i.FinishedAt,
 		&i.RoutineKey,
 		&i.QuestionsAt,
+		&i.LibrarySlug,
+		&i.LibraryTier,
 	)
 	return i, err
 }
 
 const getReading = `-- name: GetReading :one
-SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at FROM reading WHERE atom_id = $1
+SELECT atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier FROM reading WHERE atom_id = $1
 `
 
 func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, error) {
@@ -55,6 +98,8 @@ func (q *Queries) GetReading(ctx context.Context, atomID uuid.UUID) (Reading, er
 		&i.FinishedAt,
 		&i.RoutineKey,
 		&i.QuestionsAt,
+		&i.LibrarySlug,
+		&i.LibraryTier,
 	)
 	return i, err
 }
@@ -101,7 +146,7 @@ func (q *Queries) GetReadingBrief(ctx context.Context, atomID uuid.UUID) (Readin
 }
 
 const getReadingSource = `-- name: GetReadingSource :one
-SELECT atom_id, title, body, source_url, bib, ingested_at FROM reading_source WHERE atom_id = $1
+SELECT atom_id, title, body, source_url, bib, ingested_at, figures, headings FROM reading_source WHERE atom_id = $1
 `
 
 func (q *Queries) GetReadingSource(ctx context.Context, atomID uuid.UUID) (ReadingSource, error) {
@@ -114,6 +159,8 @@ func (q *Queries) GetReadingSource(ctx context.Context, atomID uuid.UUID) (Readi
 		&i.SourceUrl,
 		&i.Bib,
 		&i.IngestedAt,
+		&i.Figures,
+		&i.Headings,
 	)
 	return i, err
 }
@@ -197,6 +244,47 @@ func (q *Queries) InsertReadingQuestion(ctx context.Context, arg InsertReadingQu
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listLibraryReadingsByUser = `-- name: ListLibraryReadingsByUser :many
+SELECT r.library_slug, r.library_tier, r.status, r.atom_id
+FROM reading r
+JOIN atom a ON a.id = r.atom_id
+WHERE a.user_id = $1 AND a.kind = 'reading' AND r.library_slug <> ''
+ORDER BY a.created_at DESC
+`
+
+type ListLibraryReadingsByUserRow struct {
+	LibrarySlug string    `json:"library_slug"`
+	LibraryTier int16     `json:"library_tier"`
+	Status      string    `json:"status"`
+	AtomID      uuid.UUID `json:"atom_id"`
+}
+
+// 她在库里读过什么、读到哪一档、读完没有。书架用它划掉读过的，推荐用它选档。
+func (q *Queries) ListLibraryReadingsByUser(ctx context.Context, userID uuid.UUID) ([]ListLibraryReadingsByUserRow, error) {
+	rows, err := q.db.Query(ctx, listLibraryReadingsByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLibraryReadingsByUserRow
+	for rows.Next() {
+		var i ListLibraryReadingsByUserRow
+		if err := rows.Scan(
+			&i.LibrarySlug,
+			&i.LibraryTier,
+			&i.Status,
+			&i.AtomID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listReadingBlockNotes = `-- name: ListReadingBlockNotes :many
@@ -297,7 +385,7 @@ func (q *Queries) ListReadingTasks(ctx context.Context, atomID uuid.UUID) ([]Rea
 }
 
 const listReadingsByUser = `-- name: ListReadingsByUser :many
-SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key, r.questions_at,
+SELECT r.atom_id, r.title, r.lang, r.status, r.updated_at, r.finished_at, r.routine_key, r.questions_at, r.library_slug, r.library_tier,
        a.created_at AS atom_created_at,
        a.last_activity_at,
        (s.atom_id IS NOT NULL)::bool AS has_source
@@ -317,6 +405,8 @@ type ListReadingsByUserRow struct {
 	FinishedAt     pgtype.Timestamptz `json:"finished_at"`
 	RoutineKey     string             `json:"routine_key"`
 	QuestionsAt    pgtype.Timestamptz `json:"questions_at"`
+	LibrarySlug    string             `json:"library_slug"`
+	LibraryTier    int16              `json:"library_tier"`
 	AtomCreatedAt  time.Time          `json:"atom_created_at"`
 	LastActivityAt time.Time          `json:"last_activity_at"`
 	HasSource      bool               `json:"has_source"`
@@ -347,6 +437,8 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 			&i.FinishedAt,
 			&i.RoutineKey,
 			&i.QuestionsAt,
+			&i.LibrarySlug,
+			&i.LibraryTier,
 			&i.AtomCreatedAt,
 			&i.LastActivityAt,
 			&i.HasSource,
@@ -362,7 +454,7 @@ func (q *Queries) ListReadingsByUser(ctx context.Context, userID uuid.UUID) ([]L
 }
 
 const markReadingQuestionsGenerated = `-- name: MarkReadingQuestionsGenerated :one
-UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at
+UPDATE reading SET questions_at = now() WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
 `
 
 // Records that a generation ATTEMPT happened, independent of how many
@@ -381,6 +473,8 @@ func (q *Queries) MarkReadingQuestionsGenerated(ctx context.Context, atomID uuid
 		&i.FinishedAt,
 		&i.RoutineKey,
 		&i.QuestionsAt,
+		&i.LibrarySlug,
+		&i.LibraryTier,
 	)
 	return i, err
 }
@@ -478,7 +572,7 @@ func (q *Queries) SetReadingFinished(ctx context.Context, atomID uuid.UUID) erro
 }
 
 const setReadingRoutine = `-- name: SetReadingRoutine :one
-UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at
+UPDATE reading SET routine_key = $2 WHERE atom_id = $1 RETURNING atom_id, title, lang, status, updated_at, finished_at, routine_key, questions_at, library_slug, library_tier
 `
 
 type SetReadingRoutineParams struct {
@@ -500,6 +594,8 @@ func (q *Queries) SetReadingRoutine(ctx context.Context, arg SetReadingRoutinePa
 		&i.FinishedAt,
 		&i.RoutineKey,
 		&i.QuestionsAt,
+		&i.LibrarySlug,
+		&i.LibraryTier,
 	)
 	return i, err
 }
@@ -534,6 +630,49 @@ func (q *Queries) SetReadingTaskStatus(ctx context.Context, arg SetReadingTaskSt
 		&i.BlockID,
 		&i.Status,
 		&i.CompletedAt,
+	)
+	return i, err
+}
+
+const upsertLibraryReadingSource = `-- name: UpsertLibraryReadingSource :one
+INSERT INTO reading_source (atom_id, title, body, source_url, figures, headings)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (atom_id) DO UPDATE
+  SET title = EXCLUDED.title, body = EXCLUDED.body,
+      source_url = EXCLUDED.source_url, figures = EXCLUDED.figures,
+      headings = EXCLUDED.headings, ingested_at = now()
+RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings
+`
+
+type UpsertLibraryReadingSourceParams struct {
+	AtomID    uuid.UUID `json:"atom_id"`
+	Title     string    `json:"title"`
+	Body      string    `json:"body"`
+	SourceUrl *string   `json:"source_url"`
+	Figures   []byte    `json:"figures"`
+	Headings  []byte    `json:"headings"`
+}
+
+// 库里来的正文连同它的版式（图 + 小标题）一起落库。见迁移 0142 的头注。
+func (q *Queries) UpsertLibraryReadingSource(ctx context.Context, arg UpsertLibraryReadingSourceParams) (ReadingSource, error) {
+	row := q.db.QueryRow(ctx, upsertLibraryReadingSource,
+		arg.AtomID,
+		arg.Title,
+		arg.Body,
+		arg.SourceUrl,
+		arg.Figures,
+		arg.Headings,
+	)
+	var i ReadingSource
+	err := row.Scan(
+		&i.AtomID,
+		&i.Title,
+		&i.Body,
+		&i.SourceUrl,
+		&i.Bib,
+		&i.IngestedAt,
+		&i.Figures,
+		&i.Headings,
 	)
 	return i, err
 }
@@ -580,7 +719,7 @@ VALUES ($1, $2, $3, $4)
 ON CONFLICT (atom_id) DO UPDATE
   SET title = EXCLUDED.title, body = EXCLUDED.body,
       source_url = EXCLUDED.source_url, ingested_at = now()
-RETURNING atom_id, title, body, source_url, bib, ingested_at
+RETURNING atom_id, title, body, source_url, bib, ingested_at, figures, headings
 `
 
 type UpsertReadingSourceParams struct {
@@ -605,6 +744,8 @@ func (q *Queries) UpsertReadingSource(ctx context.Context, arg UpsertReadingSour
 		&i.SourceUrl,
 		&i.Bib,
 		&i.IngestedAt,
+		&i.Figures,
+		&i.Headings,
 	)
 	return i, err
 }
