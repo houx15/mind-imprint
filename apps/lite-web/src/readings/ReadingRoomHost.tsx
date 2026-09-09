@@ -10,6 +10,7 @@ import {
   putReadingSource,
   type Reading,
   type ReadingSource,
+  type ReadingFigure,
 } from "../api/readings";
 import { isFinished as isFinishedReading, shortDay } from "./ReadingHistoryPanel";
 import {
@@ -164,6 +165,12 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     return toMaterialSource(readingId, state.reading, state.source, state.annotations);
   }, [state, readingId]);
 
+  // 版式（图 + 小标题）。只有分级阅读库开来的阅读有；粘贴进来的两个都是空的。
+  const layout = useMemo(() => {
+    if (state.phase !== "ready") return { figures: [] as ReadingFigure[], headings: [] as string[] };
+    return { figures: state.source.figures ?? [], headings: state.source.headings ?? [] };
+  }, [state]);
+
   // Her confirmed findings, rebuilt from the card rows. Without this a reload
   // resets 阅读成果 to 0 and drops the highlights off the article — the work is
   // still in the database, it just stops being visible, which is worse than
@@ -222,6 +229,10 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
       <ReadingRoom
         readingId={readingId}
         source={source!}
+        // 版式走自己的两个 prop，不塞进 `MaterialSource` —— 那个类型是 pro 的
+        // 契约，而图和小标题只有轻量版的分级阅读库有。
+        figures={layout.figures}
+        headingBlockIds={layout.headings}
         api={api}
         onBack={() => navigate(liteRoutePath({ tab: "readings" }))}
         // 完成这篇 lands her on the report. Re-running the load is what does

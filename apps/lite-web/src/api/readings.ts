@@ -30,10 +30,28 @@ export interface ReadingBlock {
   text: string;
 }
 
+/** 正文里的一张图。分级阅读库开来的那些才有（见 apps/api/internal/library）。
+ *  `url` 是已经签好的 CDN 链接，有有效期；`after` 是它跟在哪一段之后，空串
+ *  表示题图，站在第一段之前。 */
+export interface ReadingFigure {
+  after: string;
+  url: string;
+  width: number;
+  height: number;
+  caption: string;
+  /** 连标记词一起（"Photo: …" / "Graphic: …"）—— 那个词告诉读者这是照片还是
+   *  编辑部画的图。 */
+  credit: string;
+}
+
 export interface ReadingSource {
   title: string;
   sourceUrl: string;
   blocks: ReadingBlock[];
+  /** 版式。粘贴进来的阅读没有这两项，服务端整个省掉这两个字段。 */
+  figures?: ReadingFigure[];
+  /** 要渲染成小标题的段 id。它们仍然是段（服务端按空行切，不认识 Markdown）。 */
+  headings?: string[];
 }
 
 /**

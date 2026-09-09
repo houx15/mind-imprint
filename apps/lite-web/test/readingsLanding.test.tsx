@@ -2,7 +2,6 @@ import { render, screen, waitFor, cleanup, fireEvent } from "@testing-library/re
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReadingsLanding, asLink, deriveTitle } from "@lite/readings/ReadingsLanding";
 import { splitReadings, isFinished, shortDay } from "@lite/readings/ReadingHistoryPanel";
-import { RECOMMENDED_READINGS } from "@lite/readings/recommendations";
 
 /**
  * ReadingsLanding — the front door, driven through a stubbed `fetch` so the
@@ -59,8 +58,40 @@ function reading(over: Partial<Record<string, unknown>> = {}) {
   return row;
 }
 
+/** 一份最小的书架，形状照抄 Go 的 libraryShelfDTO。 */
+function shelf(over: Record<string, unknown> = {}) {
+  return {
+    tier: 2,
+    fields: [{ id: "science", zh: "科学与自然", field: "science" }],
+    articles: [
+      {
+        slug: "nasa-osiris-rex",
+        title: "NASA probe delivers asteroid samples",
+        zhTitle: "贝努小行星的样本回到地球",
+        reason: "七年任务、四十亿英里，以及着陆点中途更改的原因。",
+        field: "science",
+        tags: [{ id: "astronomy", zh: "天文与宇宙学", field: "science" }],
+        coverUrl: "https://cdn.example/cover.webp?auth_key=x",
+        levels: [
+          { tier: 1, name: "入门", lexile: 430, words: 471, minutes: 4 },
+          { tier: 2, name: "基础", lexile: 710, words: 650, minutes: 5 },
+          { tier: 3, name: "进阶", lexile: 970, words: 783, minutes: 6 },
+          { tier: 4, name: "高阶", lexile: 1130, words: 914, minutes: 7 },
+          { tier: 5, name: "原文", lexile: 0, words: 973, minutes: 7 },
+        ],
+        finished: false,
+      },
+    ],
+    recommended: [{ slug: "nasa-osiris-rex", tier: 3, why: ["天文与宇宙学"] }],
+    ...over,
+  };
+}
+
 beforeEach(() => {
-  routes = { [key("GET", "/api/v1/readings")]: { body: { readings: [] } } };
+  routes = {
+    [key("GET", "/api/v1/readings")]: { body: { readings: [] } },
+    [key("GET", "/api/v1/library")]: { body: shelf() },
+  };
   stubFetch();
   window.history.replaceState(null, "", "/readings");
 });
@@ -176,49 +207,50 @@ describe("the paste box", () => {
   });
 });
 
-describe("今日推荐", () => {
-  it("offers a fixed shelf — no paging, no 'more'", async () => {
+describe("不知道读什么？ —— 分级阅读库的推荐位", () => {
+  it("shows what the server recommended, at the level it recommended", async () => {
     render(<ReadingsLanding />);
     expect(await screen.findByText("不知道读什么？")).toBeInTheDocument();
-    for (const rec of RECOMMENDED_READINGS) {
-      expect(screen.getByText(rec.title)).toBeInTheDocument();
-      expect(screen.getByText(rec.reason)).toBeInTheDocument();
-    }
-    // 铁律②: this is help, not a feed.
-    expect(screen.queryByText(/加载更多|更多推荐|继续读/)).toBeNull();
+    expect(screen.getByText("贝努小行星的样本回到地球")).toBeInTheDocument();
+    expect(screen.getByText("七年任务、四十亿英里，以及着陆点中途更改的原因。")).toBeInTheDocument();
+    // 推荐的是第 3 档，所以卡片上说的是进阶那一档的字数与时长，不是默认的基础档。
+    expect(screen.getByText(/进阶 · 970L · 783 词/)).toBeInTheDocument();
   });
 
-  it("starts a reading with the recommendation's own body and language", async () => {
-    routes[key("POST", "/api/v1/readings")] = { status: 201, body: { id: "rec-1" } };
-    routes[key("PUT", "/api/v1/readings/rec-1/source")] = { body: { title: "", sourceUrl: "", blocks: [] } };
+  // 「因为你关心 X」只在服务端真的给了理由时出现。树是空的时候 why 是空数组，
+  // 那一行必须不在 —— 把补位的推荐说成按她的兴趣挑的，是在骗人。
+  it("names the interest only when the server gave one", async () => {
     render(<ReadingsLanding />);
+    expect(await screen.findByText("因为你关心天文与宇宙学")).toBeInTheDocument();
 
-    const rec = RECOMMENDED_READINGS.find((r) => r.lang === "en")!;
-    fireEvent.click(await screen.findByText(rec.title));
-
-    await waitFor(() => expect(window.location.pathname).toBe("/readings/rec-1"));
-    expect(calls.find((c) => c.method === "POST" && c.url === "/api/v1/readings")?.body).toMatchObject({
-      title: rec.title,
-      lang: "en",
-    });
-    const put = calls.find((c) => c.method === "PUT")!;
-    expect(put.body).toMatchObject({ title: rec.title });
-    expect((put.body as { text: string }).text.length).toBeGreaterThan(200);
+    cleanup();
+    routes[key("GET", "/api/v1/library")] = {
+      body: shelf({ recommended: [{ slug: "nasa-osiris-rex", tier: 2, why: [] }] }),
+    };
+    render(<ReadingsLanding />);
+    await screen.findByText("贝努小行星的样本回到地球");
+    expect(screen.queryByText(/因为你关心/)).toBeNull();
   });
 
-  it("every seeded entry carries a title, a one-line reason and real body text", () => {
-    expect(RECOMMENDED_READINGS.length).toBeGreaterThanOrEqual(3);
-    expect(RECOMMENDED_READINGS.length).toBeLessThanOrEqual(5);
-    for (const rec of RECOMMENDED_READINGS) {
-      expect(rec.title.trim()).not.toBe("");
-      expect(rec.reason.trim()).not.toBe("");
-      if (rec.source.kind === "text") {
-        // more than one paragraph — the server anchors cards per block
-        expect(rec.source.text.split("\n\n").length).toBeGreaterThan(1);
-      } else {
-        expect(rec.source.url).toMatch(/^https?:\/\//);
-      }
-    }
+  it("starts the reading through the library endpoint at the chosen tier", async () => {
+    routes[key("POST", "/api/v1/library/nasa-osiris-rex/levels/3")] = {
+      status: 201,
+      body: { id: "lib-1" },
+    };
+    render(<ReadingsLanding />);
+    fireEvent.click(await screen.findByText("读这一篇"));
+    await waitFor(() => expect(window.location.pathname).toBe("/readings/lib-1"));
+    // 旧书架是「建一篇 + PUT 正文」两步；库里的一篇由服务端一个事务开出来。
+    expect(calls.some((c) => c.method === "POST" && c.url === "/api/v1/readings")).toBe(false);
+  });
+
+  it("keeps the page usable when the shelf itself fails", async () => {
+    routes[key("GET", "/api/v1/library")] = { status: 500, body: { error: { code: "boom", message: "书架挂了" } } };
+    render(<ReadingsLanding />);
+    // 落地页的主入口照常在，报错不占「开始阅读」那一格。
+    expect(await screen.findByPlaceholderText(/贴一个链接/)).toBeInTheDocument();
+    expect(screen.queryByText("不知道读什么？")).toBeNull();
+    expect(screen.queryByText("书架挂了")).toBeNull();
   });
 });
 

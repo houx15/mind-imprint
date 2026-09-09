@@ -17,6 +17,7 @@ import type {
   ReadingLensDone,
   ReadingTask,
 } from "../api/readingRoom";
+import type { ReadingFigure } from "../api/readings";
 import { BlockToolsPanel } from "./BlockToolsPanel";
 import { ReadingCoachPanel } from "./ReadingCoachPanel";
 import { ReadingPlanDial } from "./ReadingPlanDial";
@@ -114,6 +115,11 @@ export type LiteReadingRoomProps = {
   blockTools: ReadingBlockTool[];
   blockNotes: ReadingBlockNote[];
   onBlockNote: (note: ReadingBlockNote) => void;
+  /** 正文里的图（分级阅读库开来的那些才有）。每张跟在自己那一段之后；
+   *  `after` 是空串的那张是题图，摆在第一段之前。 */
+  figures?: ReadingFigure[];
+  /** 要渲染成小标题的段 id。 */
+  headingBlockIds?: string[];
 };
 
 /**
@@ -163,6 +169,8 @@ export function ReadingRoom({
   initialOutcomes,
   blockTools,
   blockNotes,
+  figures,
+  headingBlockIds,
   onBlockNote,
 }: LiteReadingRoomProps) {
   // DEBT: `useReadingLoop` still carries pro's signature and wants a
@@ -421,6 +429,27 @@ export function ReadingRoom({
   // its full 透镜卡 recap (verdict + checks) rather than a bare note.
   const outcomeBySpanId = useMemo(() => new Map(loop.outcomes.map((o) => [o.id, o])), [loop.outcomes]);
 
+  // 图按锚点分组。`after` 为空串的是题图，摆在正文之前；其余的插在自己那一段
+  // 之后。一段可以带不止一张，所以值是数组。
+  //
+  // 锚点指向一个不存在的段（正文换过、库改过版）时，那张图不会消失 —— 它落到
+  // 题图旁边，比在页面上凭空少一张、而且没有任何报错要好。
+  const leadFigure = useMemo(
+    () => (figures ?? []).find((f) => f.after === "") ?? null,
+    [figures],
+  );
+  const figuresAfter = useMemo(() => {
+    const byBlock = new Map<string, ReadingFigure[]>();
+    const known = new Set(source.blocks.map((b) => b.id));
+    for (const f of figures ?? []) {
+      if (f.after === "" || !known.has(f.after)) continue;
+      const list = byBlock.get(f.after);
+      if (list) list.push(f);
+      else byBlock.set(f.after, [f]);
+    }
+    return byBlock;
+  }, [figures, source.blocks]);
+
   return (
     // `mk-lite-room` is lite's override hook, and the ONLY way this fork is
     // allowed to restyle the room: the stylesheet above lives under
@@ -532,9 +561,11 @@ export function ReadingRoom({
                       打开原文 ↗
                     </a>
                   )}
+                  {leadFigure && <ArticleFigure figure={leadFigure} />}
                 </header>
                 <Annotate
                   blocks={source.blocks}
+                  headingBlockIds={headingBlockIds}
                   state={{ material_id: source.id, spans }}
                   activeSpanId={activeSpanId}
                   onSelectSpan={setActiveSpanId}
@@ -596,9 +627,13 @@ export function ReadingRoom({
                           }}
                         />
                       ) : null;
-                    if (!hanging && !aside) return null;
+                    const pictures = (figuresAfter.get(blockId) ?? []).map((f) => (
+                      <ArticleFigure key={f.url} figure={f} />
+                    ));
+                    if (!hanging && !aside && pictures.length === 0) return null;
                     return (
                       <>
+                        {pictures}
                         {hanging}
                         {aside}
                       </>
@@ -690,5 +725,33 @@ export function ReadingRoom({
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * ArticleFigure —— 正文里的一张照片，连同图注与署名。
+ *
+ * 宽高写在标签上，所以浏览器在图到位之前就留好了位置，正文不会在图加载完的
+ * 那一刻往下跳一截。链接是签过名的、有有效期的 —— 签不出来的那些服务端根本
+ * 不会发过来，所以这里不必处理空 url。
+ *
+ * 它不是一段：这张图不带 `data-block-id`，选不中、也不会被工具卡挂上。理由见
+ * apps/api/internal/library 的包注释。
+ */
+function ArticleFigure({ figure }: { figure: ReadingFigure }) {
+  return (
+    <figure className="mk-reading-figure">
+      <img
+        src={figure.url}
+        alt={figure.caption}
+        width={figure.width}
+        height={figure.height}
+        loading="lazy"
+      />
+      <figcaption>
+        {figure.caption}
+        {figure.credit && <span className="mk-reading-figure__credit">{figure.credit}</span>}
+      </figcaption>
+    </figure>
   );
 }

@@ -15,6 +15,7 @@ import { getMe, signin, signout, signup, setAccent, setBackground, type MeUser }
 import { ProjectRoom } from "./projects/ProjectRoom";
 import { ProjectsLanding } from "./projects/ProjectsLanding";
 import { ReadingsLanding } from "./readings/ReadingsLanding";
+import { ReadingLibraryPage } from "./readings/ReadingLibraryPage";
 import { ReadingRoomHost } from "./readings/ReadingRoomHost";
 import { WritingsLanding } from "./writings/WritingsLanding";
 import { WritingRoomHost } from "./writings/WritingRoomHost";
@@ -366,6 +367,10 @@ function LiteShell({ user, onLogout }: { user: MeUser; onLogout: () => void }) {
           ) : (
             <ProjectsLanding />
           )
+        ) : route.tab === "readings" && route.library ? (
+          // 分级阅读库。同一条 tab 下的一屏（`/readings/library`），所以左侧
+          // 导航栏仍然停在「阅读」上。
+          <ReadingLibraryPage />
         ) : route.tab === "readings" && route.readingId ? (
           <ReadingRoomHost key={route.readingId} readingId={route.readingId} />
         ) : (

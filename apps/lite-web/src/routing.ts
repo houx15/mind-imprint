@@ -21,7 +21,12 @@ export type LiteRoute =
   // 探索 (今日新闻星图). 每天五颗星，从十二个科学源抓来、模型选出。排在阅读
   // 前面，因为它是那条链子的起点：找到 → 读 → 写 → 做。
   | { tab: "explore" }
-  | { tab: "readings"; readingId?: string }
+  // 阅读。`library` 打开分级阅读库（`/readings/library`）—— 和觉醒协议在
+  // 「我的树」下的做法一样，它是**同一条 tab 下的一屏**，不是自己的顶层
+  // tab：入口在阅读室的落地页上，挑完一篇就进阅读室，导航栏里不该多出一格。
+  //
+  // 「library」不可能和一个阅读 id 撞车：id 是 UUID。
+  | { tab: "readings"; readingId?: string; library?: boolean }
   | { tab: "writings"; writingId?: string }
   // 项目 (PBL). The frontend path is `/projects` even though the API lives at
   // `/api/v1/pbl/projects` — the `pbl` prefix exists to keep lite's endpoints
@@ -104,6 +109,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
     case "":
       return { tab: "explore" };
     case "readings":
+      if (second === "library") return { tab: "readings", library: true };
       return second ? { tab: "readings", readingId: second } : { tab: "readings" };
     case "writings":
       return second ? { tab: "writings", writingId: second } : { tab: "writings" };
@@ -145,6 +151,7 @@ export function parseLiteRoute(pathname: string): LiteRoute {
 export function liteRoutePath(route: LiteRoute): string {
   switch (route.tab) {
     case "readings":
+      if (route.library) return "/readings/library";
       return route.readingId ? `/readings/${encodeSegment(route.readingId)}` : "/readings";
     case "writings":
       return route.writingId ? `/writings/${encodeSegment(route.writingId)}` : "/writings";
@@ -178,6 +185,11 @@ export function settingsPath(): string {
  * `createReading` to route into it, and by `parseLiteRoute`'s inverse. */
 export function readingPath(id: string): string {
   return `/readings/${encodeSegment(id)}`;
+}
+
+/** 分级阅读库那一屏。 */
+export function readingLibraryPath(): string {
+  return "/readings/library";
 }
 
 /** The canonical path for a single writing — used by the landing page after

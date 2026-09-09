@@ -1670,3 +1670,32 @@
     transition: none;
   }
 }
+
+/* 正文里的照片（分级阅读库）。图不是段落 —— 它没有 data-block-id，选不中、
+   也挂不上工具卡（理由见 apps/api/internal/library 的包注释）。
+
+   宽高由 <img> 标签自己带，所以这里只管把它压进正文的宽度里；比例交给
+   height:auto，图到位的那一刻正文不会往下跳。 */
+.mk-reading-figure {
+  margin: 4px 0 20px;
+}
+.mk-reading-figure img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: var(--mk-radius-sm, 8px);
+  background: var(--mk-border);
+}
+.mk-reading-figure figcaption {
+  margin-top: 7px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--mk-muted);
+}
+/* 署名另起一行，小半号：它说的是这张图从哪来，不是图注的一部分。 */
+.mk-reading-figure__credit {
+  display: block;
+  margin-top: 2px;
+  font-size: 11.5px;
+  color: var(--mk-faint);
+}

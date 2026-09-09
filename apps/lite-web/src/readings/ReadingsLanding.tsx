@@ -10,9 +10,9 @@ import {
   uploadReadingSourceFile,
   type Reading,
 } from "../api/readings";
-import { navigate, readingPath } from "../routing";
-import { PromptTile } from "../shared/PromptTile";
-import { RECOMMENDED_READINGS, type RecommendedReading } from "./recommendations";
+import { navigate, readingPath, readingLibraryPath } from "../routing";
+import { getLibraryShelf, startLibraryReading, type LibraryShelf } from "../api/library";
+import { LibraryCard } from "./LibraryCard";
 import { ReadingHistoryPanel, isFinished, type ReadingFilter } from "./ReadingHistoryPanel";
 import { apiErrorText } from "../api/errorText";
 
@@ -43,9 +43,12 @@ import { apiErrorText } from "../api/errorText";
  * but a single http(s) token is sent as `url` (the server fetches it) rather
  * than stored as a one-line article.
  *
- * 铁律②: 今日推荐 is help for a student who does not know what to read — a
- * fixed shelf of four, no paging, no personalization, no reason to come back
- * and scroll. See recommendations.ts.
+ * 不知道读什么？ is answered by the 分级阅读库 (`GET /api/v1/library`): four
+ * real articles picked from her interest tree, at the level her history
+ * suggests, each with a photograph and its five difficulties. It replaced
+ * four seed texts hardcoded in `recommendations.ts` — those could not be
+ * filtered, searched, or connected to anything she had done. 查看全部 opens
+ * the whole shelf at `/readings/library`.
  *
  * NOTE for Task 14 (verbatim, load-bearing e2e strings):
  *   - greeting: 「Hi，今天要读点什么」 (读 is its own <span>, so match by
@@ -93,6 +96,7 @@ export function ReadingsLanding() {
   // transient network blip left another empty reading behind in 我的阅读.
   const [pendingId, setPendingId] = useState<string | null>(null);
 
+  const [shelf, setShelf] = useState<LibraryShelf | null>(null);
   const [history, setHistory] = useState<Reading[] | null>(null);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -104,6 +108,21 @@ export function ReadingsLanding() {
     setPanelFilter(filter);
     setPanelOpen(true);
   }
+
+  // 书架自己失败时不写 startError：那是「开始阅读」那一格的位置，一条关于
+  // 推荐的报错摆在那里会看起来像是她粘的东西出了问题。书架取不到就不显示，
+  // 页面其余部分照常。
+  useEffect(() => {
+    let cancelled = false;
+    getLibraryShelf()
+      .then((s) => {
+        if (!cancelled) setShelf(s);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -170,36 +189,15 @@ export function ReadingsLanding() {
     }
   }
 
-  async function handleRecommendation(rec: RecommendedReading) {
+  /** 从库里开一篇。服务端已经在开着同一篇同一档时把那一篇还回来，所以这里
+   *  不必再靠标题去猜「是不是同一次阅读」—— 那是旧书架的做法，四篇写死的文章
+   *  才有一个固定的标题可以比。 */
+  async function handleLibraryStart(slug: string, tier: number) {
     if (starting) return;
-    // 开一次就够了。Every tap here used to mint a NEW reading, so opening a
-    // recommendation, reading nothing, backing out and tapping it again left
-    // two 还没读完 rows behind — and four taps left four:
-    //
-    //   > I click a reading, I did nothing, I exit -> this should not be
-    //   > created a separate task, by clicking again and again, I will have a
-    //   > lot of to read things.
-    //
-    // A recommendation is a FIXED article with a fixed title, so an unfinished
-    // reading already carrying that title is the same reading she opened
-    // before — reopen it. (Nothing is deleted: 铁律④ keeps what happened.)
-    const already = (history ?? []).find((r) => !isFinished(r) && r.title === rec.title);
-    if (already) {
-      navigate(readingPath(already.id));
-      return;
-    }
     setStarting(true);
     setStartError(null);
     try {
-      const id = await ensureReading(rec.title, rec.lang);
-      await putReadingSource(
-        id,
-        rec.source.kind === "text"
-          ? { title: rec.title, text: rec.source.text }
-          : { title: rec.title, url: rec.source.url },
-      );
-      setPendingId(null);
-      navigate(readingPath(id));
+      navigate(readingPath(await startLibraryReading(slug, tier)));
     } catch (err) {
       setStartError(apiErrorText(err));
       setStarting(false);
@@ -305,31 +303,47 @@ export function ReadingsLanding() {
           </p>
         )}
 
-        <section className="mt-14">
-          <div className="flex items-center justify-center gap-3">
-            <Hairline />
-            <span className="flex items-center gap-2 text-mk-caption text-mk-muted">
-              <OpenBookMark />
-              不知道读什么？
-            </span>
-            <Hairline />
-          </div>
+        {shelf && shelf.recommended.length > 0 && (
+          <section className="mk-branch-hues mt-14">
+            <div className="flex items-center justify-center gap-3">
+              <Hairline />
+              <span className="flex items-center gap-2 text-mk-caption text-mk-muted">
+                <OpenBookMark />
+                不知道读什么？
+              </span>
+              <Hairline />
+            </div>
 
-          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-            {RECOMMENDED_READINGS.map((rec, i) => (
-              <PromptTile
-                key={rec.id}
-                index={i + 1}
-                tag={rec.genre}
-                title={rec.title}
-                reason={rec.reason}
-                tone={rec.tone}
-                disabled={starting}
-                onPick={() => void handleRecommendation(rec)}
-              />
-            ))}
-          </div>
-        </section>
+            <div className="mt-5 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              {shelf.recommended.map((rec) => {
+                const article = shelf.articles.find((a) => a.slug === rec.slug);
+                if (!article) return null;
+                return (
+                  <LibraryCard
+                    key={rec.slug}
+                    article={article}
+                    defaultTier={rec.tier}
+                    why={rec.why}
+                    busy={starting}
+                    onStart={(slug, tier) => void handleLibraryStart(slug, tier)}
+                    onResume={(id) => navigate(readingPath(id))}
+                  />
+                );
+              })}
+            </div>
+
+            <div className="mt-5 flex justify-center">
+              <button
+                type="button"
+                onClick={() => navigate(readingLibraryPath())}
+                className="flex items-center gap-1.5 rounded-mk-full border border-mk-border bg-mk-surface px-4 py-1.5 text-mk-small text-mk-secondary shadow-mk-xs transition-colors duration-[120ms] ease-mk hover:border-mk-accent-200 hover:text-mk-accent-700"
+              >
+                查看全部 {shelf.articles.length} 篇
+                <Icon icon={ArrowRight} size={14} />
+              </button>
+            </div>
+          </section>
+        )}
       </div>
 
       <ReadingHistoryPanel

@@ -1,6 +1,6 @@
 /**
  * topics.ts — 「不知道写什么？」's seed data, the writing-room sibling of
- * readings/recommendations.ts.
+ * readings/LibraryCard.tsx（阅读那一侧后来换成了真的分级阅读库）。
  *
  * 铁律②: a student who opens 写作 with nothing in mind has nothing to type
  * into the one box. These entries are the answer — a short, FIXED shelf,
@@ -18,11 +18,11 @@ export interface WritingTopic {
   title: string;
   /** One line: why this is worth fifteen minutes. */
   reason: string;
-  /** The only label on the tile, same role as recommendations.ts's `genre`. */
+  /** The only label on the tile: what KIND of writing this is. */
   genre: string;
   lang: "zh" | "en";
-  /** Macaron token name — same shelf-of-different-books treatment as
-   *  recommendations.ts's `tone`. */
+  /** Macaron token name — the shelf reads as different books rather than
+   *  four identical grey boxes. */
   tone: "peach" | "matcha" | "lake" | "taro";
   /** Seeds `createWriting({ idea })` — a real opening sentence, not a title. */
   idea: string;

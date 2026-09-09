@@ -27,6 +27,17 @@ export type AnnotateProps = {
    */
   renderAfterBlock?: (blockId: string) => ReactNode;
   /**
+   * Block ids that are section headings rather than prose (轻量版的分级阅读库
+   * 用它，见 apps/api/internal/library)。
+   *
+   * They stay `<p data-block-id>` on purpose: annotation offsets, tool-card
+   * anchors and sentence segmentation all key off that element, and swapping
+   * the tag for an `<h2>` would quietly change what a span can be made
+   * against. Only the type and the role change. Absent by default — output is
+   * byte-identical to before this prop existed when it is not supplied.
+   */
+  headingBlockIds?: string[];
+  /**
    * "Click a sentence to reference it" (引用原文). When supplied AND
    * `selectMode` is null (i.e. NOT in evidence-pick mode), each block
    * becomes clickable and calls back with the block's id. Absent by
@@ -81,6 +92,7 @@ export function Annotate({
   selectMode,
   onCreateSpan,
   renderAfterBlock,
+  headingBlockIds,
   onReferenceBlock,
   onReferenceSelection,
   referencedBlockIds,
@@ -203,10 +215,14 @@ export function Annotate({
         {blocks.map((block) => {
           const runs = segmentBlock(block.id, block.text, state.spans);
           const referenced = Boolean(referencedBlockIds?.includes(block.id));
+          const heading = Boolean(headingBlockIds?.includes(block.id));
           return (
             <Fragment key={block.id}>
               <p
                 data-block-id={block.id}
+                data-heading={heading ? "" : undefined}
+                role={heading ? "heading" : undefined}
+                aria-level={heading ? 2 : undefined}
                 onClick={
                   selectMode
                     ? (e) => pickSentence(block, e.clientX, e.clientY)
@@ -221,10 +237,11 @@ export function Annotate({
                       : undefined
                 }
                 style={{
-                  fontSize: 15,
-                  lineHeight: 2.1,
+                  fontSize: heading ? 18 : 15,
+                  fontWeight: heading ? 600 : undefined,
+                  lineHeight: heading ? 1.5 : 2.1,
                   color: "var(--mk-ink)",
-                  margin: "0 0 14px",
+                  margin: heading ? "26px 0 10px" : "0 0 14px",
                   padding: referenced ? "2px 10px" : "2px 0",
                   borderLeft: referenced ? "3px solid var(--mk-accent)" : "3px solid transparent",
                   background: referenced ? "var(--mk-accent-50)" : "transparent",
