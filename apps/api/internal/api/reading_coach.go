@@ -1077,12 +1077,25 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	if got.Lens != "" && (got.FocusBlock == "" || lensOK == nil || !lensOK(got.Lens)) {
 		got.Lens = ""
 	}
+	cardType, cardPrompt := "", ""
+	if got.Card != nil {
+		cardType = got.Card.Type
+		cardPrompt = tailRunes(got.Card.Prompt, 60)
+	}
 	// A card whose options are not literally in the article is the one failure
 	// she could never detect herself — the whole reason to build the card is
 	// that its answer doesn't exist outside the text. So it is checked, not
 	// trusted, and a card that fails is dropped rather than repaired: the turn
 	// still succeeds and she gets the coach's words with no card attached.
-	got.Card = validateCoachCard(got.Card, blocks)
+	var cardWhy cardReject
+	got.Card, cardWhy = validateCoachCardWhy(got.Card, blocks)
+	// 🚨 说出为什么。丢掉是对的，静默不是：走查里 印记 连着两轮在说「把这几句
+	// 拖到格子里」而板从来没出现过，日志里一个字都没有，只能靠猜。
+	// 「no card in the reply」不记 —— 大多数轮本来就没有卡片，那不是失败。
+	if cardWhy != cardOK && cardWhy != cardRejectNoCard {
+		slog.Info("reading coach: card dropped", "why", string(cardWhy),
+			"type", cardType, "prompt", cardPrompt)
+	}
 	// 铁律③「一次只问一个」：透镜和卡片都是把这一步交回她手上。两个一起弹到
 	// 屏幕上，她第一件要做的事就变成了「先做哪个」—— 那是我们替她制造的分心。
 	//

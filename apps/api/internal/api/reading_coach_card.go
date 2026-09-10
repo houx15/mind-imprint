@@ -147,33 +147,59 @@ const (
 //     （见 coachCardMinBlocks）；
 //   - pick_in_article / short_text：忽略并清空 options
 //     （问题本身就是「去文章里找」，给了选项反而把这件事替她做了）。
+// cardReject 说的是这张卡片为什么没发出去。
+//
+// 🚨 它存在的理由和 planReject 一模一样（reading_plan.go）：卡片被丢掉是**静默**
+// 的，屏幕上只是少了一张卡，日志里一个字都没有。2026-09-10 的走查里 印记 连着
+// 两轮在说「这张板上有四句话，把它们拖到格子里」而板从来没出现过 —— 查不出为
+// 什么，只能靠猜。丢掉仍然是对的做法，但**丢掉的理由必须说出来**。
+type cardReject string
+
+const (
+	cardOK                cardReject = ""
+	cardRejectNoCard      cardReject = "no card in the reply"
+	cardRejectUnknownType cardReject = "unknown card type"
+	cardRejectPromptLen   cardReject = "prompt empty or over the cap"
+	cardRejectBannedForm  cardReject = "question is one of the banned forms"
+	cardRejectFewWords    cardReject = "fewer than 3 words survived the article check"
+	cardRejectFewOptions  cardReject = "fewer than 2 options survived the article check"
+	cardRejectOneBlock    cardReject = "every surviving option came from one paragraph"
+)
+
+// validateCoachCard 是老签名，调用方只关心「发不发得出去」的时候用它。
 func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
+	card, _ := validateCoachCardWhy(c, blocks)
+	return card
+}
+
+// validateCoachCardWhy 多返回一个「为什么没过」，给日志用。
+func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject) {
 	if c == nil {
-		return nil
+		return nil, cardRejectNoCard
 	}
 	switch c.Type {
 	case coachCardChooseSpan, coachCardPickInArticle, coachCardShortText,
 		coachCardLabelRoles, coachCardWordBank:
 	default:
-		return nil
+		return nil, cardRejectUnknownType
 	}
 	prompt := strings.TrimSpace(c.Prompt)
 	if prompt == "" || utf8.RuneCountInString(prompt) > coachCardPromptMaxRunes {
-		return nil
+		return nil, cardRejectPromptLen
 	}
 	// 🚨 一句一句定义就能打发的问题，整张卡丢掉。见 rejectBannedQuestion。
 	if rejectBannedQuestion(prompt) {
-		return nil
+		return nil, cardRejectBannedForm
 	}
 	if c.Type == coachCardWordBank {
 		words := validateCardWords(c.Words, blocks)
 		if len(words) < coachCardMinWords {
-			return nil
+			return nil, cardRejectFewWords
 		}
-		return &coachCard{Type: c.Type, Prompt: prompt, Words: words}
+		return &coachCard{Type: c.Type, Prompt: prompt, Words: words}, cardOK
 	}
 	if c.Type != coachCardChooseSpan && c.Type != coachCardLabelRoles {
-		return &coachCard{Type: c.Type, Prompt: prompt}
+		return &coachCard{Type: c.Type, Prompt: prompt}, cardOK
 	}
 
 	byID := make(map[string]string, len(blocks))
@@ -222,14 +248,14 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 		out = out[:coachCardMaxOptions]
 	}
 	if len(out) < coachCardMinOptions {
-		return nil
+		return nil, cardRejectFewOptions
 	}
 	// 🚨 跨段落这一条必须在**截断之后**判，判的是她屏幕上真正会出现的那几条。
 	// 放在截断之前判会这样漏：候选里第 5 条来自另一段，前 4 条全在同一段——
 	// 截断把那唯一的第二段切掉，卡片照样发出去，而她看到的仍然是「一段话被剁开」。
 	// 规则管的是最终的选项集，那就只能在选项集定下来之后判。
 	if !coachCardSpansBlocks(out) {
-		return nil
+		return nil, cardRejectOneBlock
 	}
 	card := &coachCard{Type: c.Type, Prompt: prompt, Options: out}
 	if c.Type == coachCardLabelRoles {
@@ -237,7 +263,7 @@ func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 		// 见 coachCardRoleLabels。
 		card.Labels = coachCardRoleLabels
 	}
-	return card
+	return card, cardOK
 }
 
 // validateCardWords 把生词板上那几个词收进「确实在那一段里」的范围。
