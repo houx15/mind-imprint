@@ -151,7 +151,8 @@
     "dashscope/deepseek-v4-flash": {
       "provider": "dashscope",
       "model": "deepseek-v4-flash",
-      "label": "DeepSeek V4 Flash via DashScope"
+      "label": "DeepSeek V4 Flash via DashScope",
+      "streamDropsTail": true
     },
     "dashscope/qwen3.8-max": {
       "provider": "dashscope",

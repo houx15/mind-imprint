@@ -39,9 +39,9 @@ const (
 	// ClassDraw generates an image. It is the one class that does NOT drive the
 	// chat loop — it answers on /images/generations (see images.go), so validate()
 	// checks it for the image capability instead of chat.
-	ClassDraw     = "draw"
-	ClassSearch   = "search"   // reserved: web search, needs the tool loop
-	ClassMultimo  = "multimodal"
+	ClassDraw    = "draw"
+	ClassSearch  = "search" // reserved: web search, needs the tool loop
+	ClassMultimo = "multimodal"
 )
 
 // Classes lists every declared class in report order.
@@ -162,6 +162,27 @@ type ModelPolicy struct {
 	// 400'd in production — breaking the catalog's whole promise that swapping a
 	// model is an env var and not a code change.
 	RequiresUserMessage bool `json:"requiresUserMessage,omitempty"`
+	// StreamDropsTail marks a route whose STREAMING response is missing its last
+	// content chunk, while still reporting finish_reason "stop" and the full
+	// completion_tokens. Nothing in the response says it is short.
+	//
+	// 🚨 Measured 2026-09-11 with raw curl (no Go involved), a sentinel the model
+	// was asked to echo last, temperature 0, 3 runs per variant:
+	//
+	//	dashscope/deepseek-v4-flash   non-stream 3/3 complete, stream 0/3
+	//	dashscope/deepseek-v4-pro     non-stream 3/3,           stream 3/3
+	//	dashscope/qwen3.8-max         non-stream 2/2,           stream 2/2
+	//
+	// Same endpoint, same body, same code path — so this is the model's own
+	// streaming implementation, not the aggregator and not the network. It is
+	// per-route data for the same reason ThinkingOff is: the defect belongs to
+	// (model, route), and the next vendor to have it will not be this one.
+	//
+	// A route carrying this flag is never streamed: the adapter answers a Stream
+	// call with one non-streaming request delivered as a single delta. The reply
+	// arrives at once instead of typing out, which is the cheap half of the
+	// trade — the expensive half was losing the closing `"}` of every JSON reply.
+	StreamDropsTail bool `json:"streamDropsTail,omitempty"`
 	// ReasoningEffortKey is the body key carrying a bounded effort ("low"/"max").
 	// Empty means the route ignores effort, so we do not send it.
 	ReasoningEffortKey string `json:"reasoningEffortKey,omitempty"`
@@ -220,6 +241,9 @@ func (p ModelPolicy) merge(over ModelPolicy) ModelPolicy {
 	}
 	if over.RequiresUserMessage {
 		out.RequiresUserMessage = true
+	}
+	if over.StreamDropsTail {
+		out.StreamDropsTail = true
 	}
 	if over.SearchSupported {
 		out.SearchSupported = true

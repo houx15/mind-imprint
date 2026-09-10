@@ -66,7 +66,8 @@ func (p *CatalogProvider) Complete(ctx context.Context, r Resolved, req ChatRequ
 	if name == "" {
 		name = KindOpenAICompatible
 	}
-	return completeOpenAICompatible(ctx, p.http, r, body, name)
+	res, _, cerr := completeOpenAICompatible(ctx, p.http, r, body, name)
+	return res, cerr
 }
 
 // openAICompletion 是非流式回复的形状。字段与流式那边一一对应，好让两条路产出
@@ -80,6 +81,11 @@ type openAICompletion struct {
 				ID       string `json:"id"`
 				Function struct {
 					Name string `json:"name"`
+					// 🚨 参数要读出来。非流式这一路如果只取 name，
+					// streamViaComplete 发出去的 EventToolUse 就没有参数，而真
+					// 流式是有的 —— 一个「工具被调用了但没带参数」的事件，调用方
+					// 多半会当成一次空调用默默跳过。
+					Arguments string `json:"arguments"`
 				} `json:"function"`
 			} `json:"tool_calls"`
 		} `json:"message"`
@@ -95,7 +101,12 @@ type openAICompletion struct {
 // 以内，所以它只在出事的时候起作用。
 const maxCompletionBytes = 8 << 20
 
-func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolved, body map[string]any, provider string) (ChatResult, error) {
+// completeOpenAICompatible 发一次非流式请求。
+//
+// 第二个返回值是**带参数的**工具调用，只有 streamViaComplete 用得上：ChatResult
+// 里的 ToolCall 不带参数（`Collect` 从流式那一路收上来的也不带，见 collect.go），
+// 两条路必须给调用方一模一样的东西，所以这里不去「顺手补上」它。
+func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolved, body map[string]any, provider string) (ChatResult, []StreamToolUse, error) {
 	// 🚨 显式把 stream 关掉。buildBody 是两条路共用的，而流式那边靠它带上
 	// `stream:true`；漏掉这一行会让上游按 SSE 回，而这里按 JSON 读 —— 症状是
 	// 「解析不出任何东西」，看上去又像模型的错。
@@ -106,7 +117,7 @@ func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolv
 	endpoint := strings.TrimRight(r.BaseURL, "/") + "/chat/completions"
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(payload))
 	if err != nil {
-		return ChatResult{}, errStreamFailed
+		return ChatResult{}, nil, errStreamFailed
 	}
 	httpReq.Header.Set("Authorization", "Bearer "+r.APIKey)
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -116,26 +127,27 @@ func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolv
 	if err != nil {
 		// 带上连接层的错因，理由同 streamOpenAICompatible：少了它，日志里分不清
 		// 是连不上、被限流、还是请求被取消。密钥在 header 里，不会进这句话。
-		return ChatResult{}, fmt.Errorf("%w: %s transport: %v", errStreamFailed, provider, err)
+		return ChatResult{}, nil, fmt.Errorf("%w: %s transport: %v", errStreamFailed, provider, err)
 	}
 	defer func() { _ = resp.Body.Close() }()
 
 	if resp.StatusCode != http.StatusOK {
 		detail := readErrorBody(resp.StatusCode, resp.Body)
-		return ChatResult{}, fmt.Errorf("%w: %s http %d%s", errStreamFailed, provider, resp.StatusCode, detail)
+		return ChatResult{}, nil, fmt.Errorf("%w: %s http %d%s", errStreamFailed, provider, resp.StatusCode, detail)
 	}
 	raw, err := io.ReadAll(io.LimitReader(resp.Body, maxCompletionBytes))
 	if err != nil {
-		return ChatResult{}, fmt.Errorf("%w: %s read: %v", errStreamFailed, provider, err)
+		return ChatResult{}, nil, fmt.Errorf("%w: %s read: %v", errStreamFailed, provider, err)
 	}
 	var out openAICompletion
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return ChatResult{}, fmt.Errorf("%w: %s reply is not JSON: %v", errStreamFailed, provider, err)
+		return ChatResult{}, nil, fmt.Errorf("%w: %s reply is not JSON: %v", errStreamFailed, provider, err)
 	}
 	res := ChatResult{Usage: ChatUsage{
 		InputTokens:  out.Usage.PromptTokens,
 		OutputTokens: out.Usage.CompletionTokens,
 	}}
+	var uses []StreamToolUse
 	if len(out.Choices) > 0 {
 		c := out.Choices[0]
 		res.Text = c.Message.Content
@@ -143,7 +155,47 @@ func completeOpenAICompatible(ctx context.Context, client *http.Client, r Resolv
 		res.StopReason = mapOpenAIFinish(c.FinishReason)
 		for _, tc := range c.Message.ToolCalls {
 			res.ToolCalls = append(res.ToolCalls, ToolCall{ID: tc.ID, Name: tc.Function.Name})
+			uses = append(uses, StreamToolUse{ID: tc.ID, Name: tc.Function.Name, ArgsJSON: tc.Function.Arguments})
 		}
 	}
-	return res, nil
+	return res, uses, nil
+}
+
+// streamViaComplete 把一次非流式请求包装成一个「流」：整份回答作为一个 delta
+// 发出去，随后是用量与收尾。
+//
+// 给的是 Policy.StreamDropsTail 那种通道用的（见 catalog.go 上那个字段）。调用方
+// 拿到的事件序列和真流式一模一样，只是内容一次到齐 —— 它换来的是「不再每次都
+// 少掉最后几个字符」。
+func (p *CatalogProvider) streamViaComplete(ctx context.Context, r Resolved, req ChatRequest) (<-chan StreamEvent, error) {
+	body, berr := p.buildBody(r, req)
+	if berr != nil {
+		return nil, berr
+	}
+	name := r.Provider
+	if name == "" {
+		name = KindOpenAICompatible
+	}
+	res, uses, err := completeOpenAICompatible(ctx, p.http, r, body, name)
+	if err != nil {
+		return nil, err
+	}
+	// 🚨 缓冲开够 + 先填满再 close，所以这里不需要 goroutine，也就不存在
+	// 「调用方没把 channel 读干净就泄漏一个 goroutine」那种事。
+	out := make(chan StreamEvent, len(uses)+4)
+	if res.Reasoning != "" {
+		out <- StreamEvent{Kind: EventReasoningDelta, TextDelta: res.Reasoning}
+	}
+	if res.Text != "" {
+		out <- StreamEvent{Kind: EventTextDelta, TextDelta: res.Text}
+	}
+	for i := range uses {
+		u := uses[i]
+		out <- StreamEvent{Kind: EventToolUse, ToolUse: &u}
+	}
+	usage := res.Usage
+	out <- StreamEvent{Kind: EventUsage, Usage: &usage}
+	out <- StreamEvent{Kind: EventDone, StopReason: res.StopReason}
+	close(out)
+	return out, nil
 }

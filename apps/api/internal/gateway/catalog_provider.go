@@ -107,7 +107,17 @@ func (p *CatalogProvider) buildBody(r Resolved, req ChatRequest) (map[string]any
 
 // Stream issues the streaming request and emits StreamEvents. Reasoning content
 // is never surfaced or persisted.
+//
+// 🚨 A route whose streaming drops its last chunk (Policy.StreamDropsTail) is
+// NOT streamed — see the field's doc comment for the measurement. It is served
+// by one non-streaming request delivered as a single delta, so a caller that
+// asked for a stream still gets a stream-shaped answer, just not an incremental
+// one. Correctness over typing-out: the alternative is every reply on that route
+// silently missing its last few characters.
 func (p *CatalogProvider) Stream(ctx context.Context, r Resolved, req ChatRequest) (<-chan StreamEvent, error) {
+	if r.Policy.StreamDropsTail {
+		return p.streamViaComplete(ctx, r, req)
+	}
 	body, err := p.buildBody(r, req)
 	if err != nil {
 		return nil, err
