@@ -72,8 +72,15 @@ avail_gb() { df -P -k / | awk 'NR==2 {print int($4/1024/1024)}'; }
 # the tagged base images (golang / node / nginx / gcr.io-distroless) which
 # cannot be re-pulled directly, and the next build has nothing to build on.
 # `image prune -f` (dangling only) and `builder prune` cannot touch them.
+#
+# Takes the phase: `pre` (before building) or `post` (after). Only `pre` will
+# fall back to dropping cache it cannot age out — after a build, that cache IS
+# this build's, and throwing it away buys disk we do not need yet at the price
+# of making every single build a cold one. If `post` leaves the box tight, the
+# next deploy's `pre` pass clears it with a day's distance.
 reclaim_disk() {
-  step "reclaim disk (free ${1:-?}GB now; want ${MIN_FREE_GB}GB before building)"
+  local phase="$1"
+  step "reclaim disk ($phase; free $(avail_gb)GB now, want ${MIN_FREE_GB}GB to build)"
   docker image prune -f || true
   docker builder prune -af --filter "until=$CACHE_KEEP" || true
 
@@ -88,9 +95,9 @@ reclaim_disk() {
     fi
   fi
 
-  # Still tight? Take the rest of the cache too. A slow next build beats a
-  # deploy that cannot write, and the only thing lost is rebuild speed.
-  if [ "$(avail_gb)" -lt "$MIN_FREE_GB" ]; then
+  # Still tight going INTO a build? Take the rest of the cache too. A slow build
+  # beats one that cannot write, and the only thing lost is rebuild speed.
+  if [ "$phase" = pre ] && [ "$(avail_gb)" -lt "$MIN_FREE_GB" ]; then
     echo "still under ${MIN_FREE_GB}GB — dropping all build cache except the last hour"
     docker builder prune -af --filter until=1h || true
   fi
@@ -107,7 +114,7 @@ git --no-pager log --oneline -1
 # Reclaim BEFORE building, not only after. The post-build prune that used to be
 # the only one cannot help a build that has already run the disk to zero — and
 # a half-finished deploy is the worst state to discover it from.
-reclaim_disk "$(avail_gb)"
+reclaim_disk pre
 if [ "$(avail_gb)" -lt "$MIN_FREE_GB" ]; then
   df -h /
   fail "only $(avail_gb)GB free after reclaiming, need ${MIN_FREE_GB}GB — something other than build cache and old backups is filling /, look before deleting"
@@ -193,7 +200,7 @@ esac
 # :latest onto the NEW image, leaving the previous build's layers DANGLING, and
 # this build just added its own cache. Same function, so the two passes cannot
 # drift apart.
-reclaim_disk "$(avail_gb)"
+reclaim_disk post
 df -h / | tail -1
 
 step "container status (check CREATED age reflects this deploy)"
