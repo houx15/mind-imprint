@@ -103,17 +103,50 @@ export type LiteMessage = {
 export function coachCardOf(m: LiteMessage): CoachCardSpec | null {
   const c = m.payload?.card;
   if (!c || typeof c.type !== "string" || typeof c.prompt !== "string" || !c.prompt) return null;
-  if (c.type !== "choose_span" && c.type !== "pick_in_article" && c.type !== "short_text") return null;
+  // 🚨 这是一张**客户端的白名单**，加卡片形状的时候极容易忘掉它。
+  //
+  // 2026-09-10：服务端加了 label_roles / word_bank 两块板，校验器、prompt、
+  // 渲染组件全都写好了，服务端也真的把板发出来了（`atom_message.payload` 里
+  // 逐字躺着一张完整的 label_roles）—— 而这一行把它们当成不认识的类型扔了。
+  // 结果是 印记 一遍遍说「现在给你一张卡片」，她屏幕上什么都没有。
+  // 我为此在服务端追了四个「静默丢弃点」，而真正丢掉它的是这里。
+  //
+  // 一条测试守着这条线：`test/coachCardOf.test.ts` 拿五种类型逐个过。
+  if (!COACH_CARD_TYPES.includes(c.type as CoachCardSpec["type"])) return null;
   const options = Array.isArray(c.options)
     ? c.options.filter((o) => o && typeof o.quote === "string" && o.quote !== "")
+    : undefined;
+  const words = Array.isArray(c.words)
+    ? c.words.filter((w) => w && typeof w.term === "string" && w.term !== "")
     : undefined;
   // 🚨 A `choose_span` with nothing left to choose is not a card, it is a dead
   // end: the room would render a question with no way to answer it and no way
   // out. This function's whole contract is「半张卡片不许当成真卡片渲染」——
   // filtering the options empty and returning anyway breaks it from inside.
-  if (c.type === "choose_span" && !(options && options.length > 0)) return null;
-  return { type: c.type, prompt: c.prompt, ...(options && options.length > 0 ? { options } : {}) };
+  //
+  // 两块板同理，只是「空了」的判据不同：标注板没有句子、生词板没有词，
+  // 渲染出来都是一块摆不了的板。
+  if ((c.type === "choose_span" || c.type === "label_roles") && !(options && options.length > 0)) return null;
+  if (c.type === "word_bank" && !(words && words.length > 0)) return null;
+  return {
+    type: c.type as CoachCardSpec["type"],
+    prompt: c.prompt,
+    ...(options && options.length > 0 ? { options } : {}),
+    ...(words && words.length > 0 ? { words } : {}),
+    // 格子是服务端填的闭表，原样带过来。
+    ...(Array.isArray(c.labels) && c.labels.length > 0 ? { labels: c.labels } : {}),
+  };
 }
+
+/** 五种卡片形状。🚨 服务端加一种，这里必须跟着加一种，否则那种卡片会在客户端
+ *  被静默丢掉 —— 它已经发生过一次了（见 coachCardOf 里那段）。 */
+const COACH_CARD_TYPES: CoachCardSpec["type"][] = [
+  "choose_span",
+  "pick_in_article",
+  "short_text",
+  "label_roles",
+  "word_bank",
+];
 
 /** Her answer to a card, if this message IS one. */
 export function coachAnswerOf(m: LiteMessage): CoachCardAnswer | null {
