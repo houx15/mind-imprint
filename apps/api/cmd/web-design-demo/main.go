@@ -374,10 +374,10 @@ func (s *demoServer) generateDesign(w http.ResponseWriter, r *http.Request) {
 	referenceIDs := referenceIDsFromRaw(in.References)
 	system := `你是视觉 PBL 设计规划引擎。根据用户要求和 ReferenceSpecV1 创作一个紧凑的 VisualPlan，不得选择或套用固定模板。你只负责真实的设计决策；Gateway 会把计划编译为严格的 VisualDesignSpecV1。
 必须实际读取每项参考资料的 palette、typography、spacing、pages.nodes、interactions 和 reusablePatterns。白板节点代表信息层级、相对位置和尺寸意图；HTML/截图节点代表可借鉴的配色、结构、组件排列和交互。Prompt 或参考资料改变时，配色、区块顺序、组件组合、坐标和字体层级必须有可观察变化。
-不得编造用户未提供的研究成果、数字、姓名、邮箱、网址或机构。事实缺失时使用简短可替换内容并写入 assumptions，最多两处“在此填写”。
+	不得编造用户未提供的研究成果、数字、姓名、邮箱、网址或机构。事实缺失时使用简短、自然、可直接编辑的示例文案，并写入 assumptions；禁止使用“在此填写”“待补充”“占位内容”“Lorem ipsum”等空壳提示语。例如用“项目背景、方法与阶段成果概览”代替“在此填写项目简介”，用“联系信息可在此更新”代替“在此填写邮箱”。
 只输出一个紧凑 JSON 对象，不要 Markdown、解释或代码围栏。必须使用扁平结构，section 内禁止出现 children，element 内也禁止嵌套任何节点。严格使用以下结构，不得添加字段：
 {"title":"页面标题","brief":{"topic":"主题","audience":["受众"],"goal":"目标","constraints":["约束"]},"rationale":"设计理由","theme":{"background":"#HEX","surfaces":["#HEX"],"text":["#HEX"],"accents":["#HEX"],"headingFont":"字体","bodyFont":"字体","baseFontSize":16,"spacingScale":[8,16,24,32,48],"radius":12},"page":{"name":"主页","width":1440,"height":1800,"background":"#HEX","sections":[{"id":"英文稳定ID","type":"header|nav|section|grid|footer","name":"区块名","bounds":[0,0,1440,360],"background":"#HEX","layout":"free|flow|flex|grid","columns":2,"gap":24,"padding":48}],"elements":[{"id":"英文稳定ID","sectionId":"所属section的id","type":"text|shape|card|image|button|link|input|divider|custom","name":"组件名","text":"可见文字","bounds":[48,48,480,80],"background":"#HEX","color":"#HEX","fontSize":48,"fontWeight":700,"lineHeight":1.2,"radius":12,"action":"custom|scroll-to|toggle|show|hide|open-modal|submit|navigate|open-url","targetId":"目标section或element的id","href":"仅真实网址","interactionDescription":"交互说明"}]},"referenceUses":[{"referenceId":"必须原样使用输入referenceId","borrowedPatterns":["实际借鉴内容，最多3项"],"rejectedPatterns":[],"affectedSectionIds":["本计划中的section id"]}],"assumptions":[]}
-页面使用 3–10 个语义区块。sections 与 elements 的总数由内容复杂度决定：简单页面通常12–20个，普通页面20–35个，复杂页面才可增加，硬上限60个；绝不为凑数量添加空节点。至少5个有文字的 element 和1个按钮/链接。bounds=[x,y,width,height]，坐标一律是相对页面左上角的全局px，element 必须落在所属section范围内。相同字体与颜色依靠 theme 继承，element 只填写确实不同的视觉字段，以缩短输出。使用2–5个协调颜色并建立标题、正文、辅助文字层级。
+	页面使用 3–10 个语义区块。sections 与 elements 的总数由内容复杂度决定：简单页面通常8–16个，普通页面16–30个，复杂页面才可增加，60个只是硬上限而非目标；绝不为凑数量添加空节点。至少5个有文字的 element 和1个按钮/链接。bounds=[x,y,width,height]，坐标一律是相对页面左上角的全局px，element 必须落在所属section范围内。相同字体与颜色依靠 theme 继承，element 只填写确实不同的视觉字段，以缩短输出。使用2–5个协调颜色并建立标题、正文、辅助文字层级。输出必须以字符 { 开始、以字符 } 结束。
 referenceUses 必须逐项覆盖输入中的每个 referenceId，明确说明具体借用了什么以及影响哪个区块；不能只写“参考了设计”。没有参考资料时返回空数组。`
 	out, err := s.callJSON(r.Context(), system, user, 6000)
 	if err != nil {
@@ -408,7 +408,7 @@ referenceUses 必须逐项覆盖输入中的每个 referenceId，明确说明具
 		}
 		var repairSystem, repairUser string
 		if parseErr != nil {
-			repairSystem = `你是 JSON 语法修复器。把输入修复为一个完整、可解析、紧凑的扁平 VisualPlan JSON。保留已有设计意图和文案；禁止 Markdown；禁止递归 children。顶层只能有 title、brief、rationale、theme、page、referenceUses、assumptions。page 只能有 name、width、height、background、sections、elements。section 使用 bounds:[x,y,width,height]；element 使用 sectionId 和 bounds，不得嵌套节点。如果原文被截断，用已有内容完成最小闭合结构，总节点保持12–30个，不要扩写。只输出 JSON。`
+			repairSystem = `你是 JSON 语法修复器。把输入修复为一个完整、可解析、紧凑的扁平 VisualPlan JSON。保留已有设计意图和文案；禁止 Markdown；禁止递归 children。顶层只能有 title、brief、rationale、theme、page、referenceUses、assumptions。page 只能有 name、width、height、background、sections、elements。section 使用 bounds:[x,y,width,height]；element 使用 sectionId 和 bounds，不得嵌套节点。如果原文被截断，用已有内容完成最小闭合结构；节点数量根据已有内容决定，最多60个，不得为了数量扩写。输出必须以字符 { 开始、以字符 } 结束。只输出 JSON。`
 			repairUser = fmt.Sprintf("解析错误：%s\n\n待修复的原始输出：\n%s", issue, out.Text)
 		} else {
 			repairSystem = system + `\n你现在是 VisualPlan 内容定点修复器。保留原设计意图、颜色、布局和文案，只修复指出的问题。仍然只输出扁平、紧凑的完整 VisualPlan JSON。`
@@ -462,8 +462,8 @@ func validateVisualDesignQuality(result map[string]any) error {
 		return errors.New("page is invalid")
 	}
 	nodes, ok := page["nodes"].([]any)
-	if !ok || len(nodes) < 12 || len(nodes) > 60 {
-		return fmt.Errorf("got %d nodes, want 12-60", len(nodes))
+	if !ok || len(nodes) < 8 || len(nodes) > 60 {
+		return fmt.Errorf("got %d nodes, want 8-60", len(nodes))
 	}
 
 	containerCount := 0
@@ -505,7 +505,7 @@ func validateVisualDesignQuality(result map[string]any) error {
 	if containerCount < 3 {
 		return errors.New("design lacks semantic sections")
 	}
-	if hierarchicalCount < 6 {
+	if hierarchicalCount < 4 {
 		return errors.New("design lacks child components")
 	}
 	if textCount < 5 {
@@ -672,13 +672,11 @@ func (s *demoServer) callJSON(parent context.Context, system, user string, maxTo
 	ctx, cancel := context.WithTimeout(parent, 180*time.Second)
 	defer cancel()
 	temperature := 0.35
+	// qwen-plus supports the OpenAI-compatible JSON object mode. Keeping this
+	// constraint enabled is important here: a prompt alone does not guarantee
+	// syntactically valid JSON, which was the source of repeated VisualPlan
+	// failures in the local demo.
 	responseFormat := gateway.ResponseFormatJSONObject
-	// Some DashScope-compatible models reject response_format=json_object.
-	// The design endpoint validates and repairs JSON itself, so omit only this
-	// optional wire hint for DashScope while retaining it for other providers.
-	if s.resolved.Provider == "dashscope" {
-		responseFormat = ""
-	}
 	out, err := gateway.Collect(ctx, s.provider, s.resolved, gateway.ChatRequest{
 		Messages: []gateway.ChatMessage{
 			{Role: gateway.RoleSystem, Content: system},

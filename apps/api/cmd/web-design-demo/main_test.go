@@ -2,9 +2,11 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/gateway"
@@ -143,3 +145,53 @@ func TestFlatVisualPlanLinksElementsWithoutRecursiveChildren(t *testing.T) {
 	}
 }
 
+func TestParseVisualPlanIgnoresTrailingProviderText(t *testing.T) {
+	raw := `{"title":"测试页面","brief":{"topic":"作品集","goal":"展示作品"},"page":{"sections":[{"id":"hero","bounds":[0,0,1440,400]},{"id":"work","bounds":[0,400,1440,500]},{"id":"footer","bounds":[0,900,1440,300]}],"elements":[]}}` + "\n补充说明：" + `{"status":"done"}`
+	plan, err := parseVisualPlan(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if plan.Title != "测试页面" || len(plan.Page.Sections) != 3 {
+		t.Fatalf("unexpected plan: %#v", plan)
+	}
+}
+
+func TestCallJSONKeepsJSONObjectModeForDashScope(t *testing.T) {
+	provider := scriptedProvider(`{"ok":true}`)
+	server := &demoServer{provider: provider, resolved: gateway.Resolved{Provider: "dashscope", Model: "qwen-plus", APIKey: "test-key"}}
+	if _, err := server.callJSON(context.Background(), "只输出 JSON", "生成对象", 100); err != nil {
+		t.Fatal(err)
+	}
+	if provider.LastRequest.ResponseFormat != gateway.ResponseFormatJSONObject {
+		t.Fatalf("response format = %q, want json_object", provider.LastRequest.ResponseFormat)
+	}
+}
+
+func TestLayoutOrganizerSeparatesOverlappingFreeChildren(t *testing.T) {
+	section := map[string]any{"id": "node.section", "type": "section", "parentId": nil, "order": 0, "bounds": bounds(0, 0, 800, 100, 0), "layout": map[string]any{"mode": "free", "padding": edgeInsets(24), "gap": 12}}
+	first := map[string]any{"id": "node.first", "type": "text", "parentId": "node.section", "order": 0, "bounds": bounds(40, 30, 260, 24, 1), "style": map[string]any{"typography": map[string]any{"fontSize": 20, "lineHeight": 1.5}}, "content": map[string]any{"text": "这是一段需要有足够高度的文字内容"}}
+	second := map[string]any{"id": "node.second", "type": "text", "parentId": "node.section", "order": 1, "bounds": bounds(40, 30, 260, 24, 2), "style": map[string]any{"typography": map[string]any{"fontSize": 20, "lineHeight": 1.5}}, "content": map[string]any{"text": "第二段文字不能与第一段重叠"}}
+	nodes := []any{section, first, second}
+	height := 100.0
+	organizeVisualLayout(nodes, 800, &height)
+	firstBox, secondBox := readLayoutBox(first), readLayoutBox(second)
+	if boxesOverlap(firstBox, secondBox, 0) {
+		t.Fatalf("children still overlap: first=%+v second=%+v", firstBox, secondBox)
+	}
+	if secondBox.y <= firstBox.y || readLayoutBox(section).height <= 100 || height <= 100 {
+		t.Fatalf("layout did not expand vertically: section=%+v pageHeight=%v", readLayoutBox(section), height)
+	}
+}
+
+func TestEditableCopyReplacesLiteralPlaceholders(t *testing.T) {
+	values := []string{
+		editableCopy("在此填写项目简介", "项目描述", "text"),
+		editableCopy("待补充邮箱", "联系说明", "text"),
+		editableCopy("Lorem ipsum", "项目卡片", "card"),
+	}
+	for _, value := range values {
+		if strings.Contains(value, "在此填写") || strings.Contains(value, "待补充") || strings.Contains(strings.ToLower(value), "lorem ipsum") {
+			t.Fatalf("placeholder was not replaced: %q", value)
+		}
+	}
+}

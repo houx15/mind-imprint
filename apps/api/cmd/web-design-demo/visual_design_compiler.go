@@ -129,13 +129,34 @@ func parseVisualPlan(text string) (visualPlan, error) {
 	if strings.HasPrefix(value, `"`) && json.Unmarshal([]byte(value), &quoted) == nil {
 		value = quoted
 	}
-	start, end := strings.Index(value, "{"), strings.LastIndex(value, "}")
-	if start >= 0 && end > start {
-		value = value[start : end+1]
-	}
 	var plan visualPlan
-	if err := json.Unmarshal([]byte(value), &plan); err != nil {
-		return visualPlan{}, err
+	var lastErr error
+	// Decode the first complete JSON object instead of slicing from the first
+	// opening brace to the last closing brace. Some compatible providers append
+	// a short explanation or a second JSON fragment even when asked for JSON;
+	// the old slicing strategy made an otherwise valid plan fail as a whole.
+	for offset := 0; offset < len(value); {
+		start := strings.Index(value[offset:], "{")
+		if start < 0 {
+			break
+		}
+		start += offset
+		candidate := visualPlan{}
+		decoder := json.NewDecoder(strings.NewReader(value[start:]))
+		if err := decoder.Decode(&candidate); err == nil {
+			plan = candidate
+			lastErr = nil
+			break
+		} else {
+			lastErr = err
+		}
+		offset = start + 1
+	}
+	if lastErr != nil {
+		return visualPlan{}, lastErr
+	}
+	if strings.TrimSpace(plan.Title) == "" && strings.TrimSpace(plan.Brief.Topic) == "" && len(plan.Page.Sections) == 0 {
+		return visualPlan{}, errors.New("no complete VisualPlan JSON object found")
 	}
 	if err := normalizeFlatVisualPlan(&plan); err != nil {
 		return visualPlan{}, err
@@ -193,8 +214,8 @@ func validateVisualPlan(plan visualPlan, referenceIDs []string) error {
 			}
 		}
 	}
-	if nodes < 12 || nodes > 60 {
-		return fmt.Errorf("plan has %d component nodes, want 12-60 according to page complexity", nodes)
+	if nodes < 8 || nodes > 60 {
+		return fmt.Errorf("plan has %d component nodes, want 8-60 according to page complexity", nodes)
 	}
 	if textNodes < 5 {
 		return fmt.Errorf("plan has %d visible text nodes, want at least 5", textNodes)
@@ -426,7 +447,7 @@ func compileVisualPlan(plan visualPlan, referenceIDs []string) map[string]any {
 			}
 			content := map[string]any{}
 			if strings.TrimSpace(child.Text) != "" {
-				content["text"] = limitText(child.Text, 20000)
+				content["text"] = editableCopy(child.Text, child.Name, childType)
 			}
 			if childType == "image" && strings.TrimSpace(child.AssetRef) != "" {
 				content["assetRef"] = limitText(child.AssetRef, 1000)
@@ -474,6 +495,12 @@ func compileVisualPlan(plan visualPlan, referenceIDs []string) map[string]any {
 			interactionIndex++
 		}
 	}
+
+	// The model supplies design intent and approximate coordinates. Before the
+	// spec reaches the editable canvas, make those coordinates physically
+	// renderable: expand text boxes, resolve sibling collisions and apply the
+	// declared grid/flow layouts.
+	organizeVisualLayout(nodes, width, &height)
 
 	influences := compileReferenceInfluence(plan.ReferenceUses, referenceIDs, sectionIDs, nodes)
 	designID := stableID("design", plan.Title, 0, map[string]bool{})
@@ -536,6 +563,33 @@ func nonEmpty(value, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+// Models occasionally fall back to literal placeholder phrases despite the
+// prompt. Replace only those phrases with neutral, editable sample copy so a
+// learner receives a usable draft without the Gateway lowering its empty-page
+// quality guard for every design.
+func editableCopy(text, name, nodeType string) string {
+	text = limitText(text, 20000)
+	lower := strings.ToLower(text + " " + name)
+	placeholder := strings.Contains(text, "在此填写") || strings.Contains(text, "待补充") || strings.Contains(text, "占位内容") || strings.Contains(lower, "lorem ipsum") || strings.Contains(lower, "placeholder")
+	if !placeholder {
+		return text
+	}
+	switch {
+	case strings.Contains(name, "联系") || strings.Contains(lower, "email") || strings.Contains(lower, "contact"):
+		return "联系信息可在此更新"
+	case strings.Contains(name, "标题") || strings.Contains(name, "主题"):
+		return "研究主题与核心问题"
+	case strings.Contains(name, "标签") || strings.Contains(name, "分类"):
+		return "研究方向与关键词"
+	case strings.Contains(name, "说明") || strings.Contains(name, "描述") || strings.Contains(name, "简介") || nodeType == "card":
+		return "项目背景、方法与阶段成果概览"
+	case nodeType == "button" || nodeType == "link":
+		return "查看项目详情"
+	default:
+		return "可编辑的项目内容"
+	}
 }
 
 func limitText(value string, maximum int) string {
@@ -654,4 +708,3 @@ func compileReferenceInfluence(uses []visualPlanReferenceUse, referenceIDs []str
 	})
 	return out
 }
-

@@ -58,7 +58,7 @@ export function WebLayoutDemo() {
   const [pendingPatch, setPendingPatch] = useState<PatchSpecV1 | null>(null);
   const [patches, setPatches] = useState<PatchRow[]>([]);
   const [runs, setRuns] = useState<Run[]>([]);
-  const [showSpecs, setShowSpecs] = useState(true);
+  const [showSpecs, setShowSpecs] = useState(false);
   const selected = nodeById(design, selectedId);
   const whiteboardSpec = useMemo(() => whiteboardToReferenceSpec(wireframe), [wireframe]);
   const allReferences = useMemo(() => [...references, ...(whiteboardSpec ? [whiteboardSpec] : [])], [references, whiteboardSpec]);
@@ -116,10 +116,10 @@ export function WebLayoutDemo() {
     } catch (cause) { setError(cause instanceof Error ? cause.message : "补丁应用失败"); }
   }
 
-  async function askAI() {
-    if (!design || instruction.trim().length < 2) return;
+  async function askAI(nextInstruction = instruction, targetNodeId = selectedId) {
+    if (!design || nextInstruction.trim().length < 2) return;
     setBusy("AI 正在生成 PatchSpecV1…"); setError("");
-    try { setPendingPatch(await requestVisualPatch(instruction, design, selectedId ?? undefined)); }
+    try { setPendingPatch(await requestVisualPatch(nextInstruction, design, targetNodeId ?? undefined)); }
     catch (cause) { setError(cause instanceof Error ? cause.message : "AI 修改失败"); }
     finally { setBusy(null); }
   }
@@ -274,7 +274,7 @@ export function WebLayoutDemo() {
           <button onClick={() => setShowSpecs((value) => !value)}>{showSpecs ? "关闭设计数据" : "查看设计数据"}</button>
         </div>
         <div className="eco-design-surface">
-          <VisualDesignCanvas design={design} selectedId={selectedId} onSelect={setSelectedId} onPatch={commitPatch} />
+          <VisualDesignCanvas design={design} selectedId={selectedId} onSelect={setSelectedId} onPatch={commitPatch} onComment={(nodeId, text) => { setSelectedId(nodeId); setInstruction(text); void askAI(text, nodeId); }} />
           {showSpecs && <aside className="eco-design-inspector">
             <header><div><span>设计数据</span><strong>VisualDesignSpecV1</strong></div><button onClick={() => setShowSpecs(false)}>×</button></header>
             <details open><summary>当前设计规范</summary><pre>{JSON.stringify(design, null, 2)}</pre></details>

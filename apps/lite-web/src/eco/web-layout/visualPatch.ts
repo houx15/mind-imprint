@@ -74,6 +74,15 @@ export function manualPatch(
   return PatchSpecV1.parse({ schema: "visual-pbl-local-patch", version: "1.0", patchId: `patch.manual.${crypto.randomUUID()}`, designId: design.designId, baseRevision: design.revision, scope: { type: "node", id: nodeId }, instruction, summary: instruction, operations: [operation], referenceIds: [], author: "student" });
 }
 
+export function manualPagePatch(
+  design: VisualDesignSpec,
+  pageId: string,
+  instruction: string,
+  operation: PatchSpec["operations"][number],
+): PatchSpec {
+  return PatchSpecV1.parse({ schema: "visual-pbl-local-patch", version: "1.0", patchId: `patch.manual.${crypto.randomUUID()}`, designId: design.designId, baseRevision: design.revision, scope: { type: "page", id: pageId }, instruction, summary: instruction, operations: [operation], referenceIds: [], author: "student" });
+}
+
 export function rebasePatch(patch: PatchSpec, design: VisualDesignSpec): PatchSpec {
   return PatchSpecV1.parse({ ...patch, patchId: `patch.ai.${crypto.randomUUID()}`, designId: design.designId, baseRevision: design.revision });
 }
