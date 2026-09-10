@@ -41,13 +41,28 @@ await page.goto(`/readings/${id}`);
 await page.locator("figure.mk-reading-figure").first().waitFor({ state: "visible", timeout: 30_000 });
 // Scroll to the bottom so every lazy picture has been asked for, then wait
 // until they have all actually decoded.
-await page.evaluate(() => window.scrollTo(0, document.body.scrollHeight));
+//
+// It is the ARTICLE that scrolls, not the window. Scrolling the window moves
+// nothing, so any picture that starts below the fold keeps loading="lazy" and
+// never decodes — which looks exactly like a broken image and is not one. The
+// five-picture articles in the second batch are where this first bit.
+const scrollArticle = (frac) =>
+  page.evaluate((f) => {
+    const el = document.querySelector(".mk-reading-room__article");
+    if (el) el.scrollTo(0, el.scrollHeight * f);
+    else window.scrollTo(0, document.body.scrollHeight * f);
+  }, frac);
+for (const frac of [0.25, 0.5, 0.75, 1]) {
+  await scrollArticle(frac);
+  await page.waitForTimeout(400);
+}
 await page.waitForFunction(
   () => [...document.querySelectorAll("figure.mk-reading-figure img")].every((i) => i.complete && i.naturalWidth > 0),
   null,
   { timeout: 30_000 },
 );
-await page.evaluate(() => window.scrollTo(0, 0));
+await scrollArticle(0);
+await page.waitForTimeout(400); // the scroll back to the top has to land before the shot
 
 const top = path.join(OUT, `reading-room-${SLUG}-t${TIER}-top.png`);
 await page.screenshot({ path: top, fullPage: true });

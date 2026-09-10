@@ -8,7 +8,9 @@
 set -uo pipefail
 
 API="${1:-https://mind-api.uni-robot.cn}"
-JOIN_CODE="${E2E_JOIN_CODE:-DEMO-0001}"
+# 轻量版体验班。线上的 Demo School 是 edition = pro，拿 DEMO-0001 注册出来的
+# 账号打任何一条轻量版的路都回 404 —— 包括 /api/v1/library，看上去像接口没了。
+JOIN_CODE="${E2E_JOIN_CODE:-G624-UXFE}"
 JAR="${TMPDIR:-/tmp}/mind-library-smoke.cookies"
 TAG="$(date +%s)$RANDOM"
 EMAIL="library-smoke-$TAG@demo.mindimprint.local"
@@ -39,7 +41,8 @@ missing = [a["slug"] for a in arts if not a["coverUrl"]]
 print("covers missing:", missing or "none")
 levels = {len(a["levels"]) for a in arts}
 print("levels/article:", levels)
-assert len(arts) == 20, f"expected 20 articles, got {len(arts)}"
+# 下限，不是等号：库每上一批就长一次，写等号的话每批都要来改一个数字。
+assert len(arts) >= 40, f"expected at least 40 articles, got {len(arts)}"
 assert len(recs) == 4, f"expected 4 recommendations, got {len(recs)}"
 assert not missing, f"articles with no cover: {missing}"
 assert levels == {5}, f"not every article has five levels: {levels}"
