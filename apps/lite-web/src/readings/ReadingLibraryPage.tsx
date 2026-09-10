@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
-import { ArrowLeft, Search } from "lucide-react";
-import { navigate, readingPath, liteRoutePath } from "../routing";
+import { Search } from "lucide-react";
+import { navigate, readingPath } from "../routing";
 import { getLibraryShelf, startLibraryReading, type LibraryShelf } from "../api/library";
 import { apiErrorText } from "../api/errorText";
 import { fieldById } from "../tree/geometry";
 import type { FieldId } from "../tree/types";
 import { LibraryCard } from "./LibraryCard";
+import { ReadingsTabs } from "./ReadingsTabs";
 
 /**
  * ReadingLibraryPage —— 分级阅读的全部文章（`/readings/library`）。
@@ -82,16 +83,11 @@ export function ReadingLibraryPage() {
   return (
     <div className="mk-branch-hues min-h-full">
       <div className="mx-auto w-full max-w-[1120px] px-4 pb-20 pt-5 sm:px-6">
-        <button
-          type="button"
-          onClick={() => navigate(liteRoutePath({ tab: "readings" }))}
-          className="flex items-center gap-1.5 text-mk-small text-mk-secondary transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700"
-        >
-          <ArrowLeft size={15} aria-hidden="true" />
-          返回阅读
-        </button>
+        <div className="flex justify-center">
+          <ReadingsTabs active="library" libraryCount={shelf?.articles.length} />
+        </div>
 
-        <header className="mt-4">
+        <header className="mt-6">
           <h1 className="text-[26px] font-semibold leading-tight text-mk-ink">分级阅读</h1>
           <p className="mt-1.5 text-mk-small text-mk-secondary">
             同一篇报道有五个难度版本。挑一个话题，再挑一档你现在读得动的。

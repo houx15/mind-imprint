@@ -140,9 +140,14 @@ describe("lite's reading room does not carry pro's reading surfaces", () => {
   it("renders the reading surfaces lite DOES have", () => {
     renderLiteRoom();
     // The room mounted — without this the absences above could pass on a
-    // blank page. The lens library, the article, and 阅读成果 are the room.
-    expect(screen.getByText(/透镜库/)).toBeTruthy();
+    // blank page. The article, 印记 and 阅读成果 are the room.
+    //
+    // 2026-09-10: 透镜库 used to be checked here. It is deliberately gone —
+    // the deck is 印记's instrument (`loop.summonCard`), not a drawer the
+    // student opens. See readingRoomNarrow.test.tsx, which asserts its
+    // absence.
     expect(screen.getByText("中国的太阳能装机量在过去十年增长了十倍。")).toBeTruthy();
+    expect(screen.getByRole("tab", { name: "印记" })).toBeTruthy();
     expect(screen.getByRole("tab", { name: /阅读成果/ })).toBeTruthy();
   });
 

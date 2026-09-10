@@ -1,12 +1,20 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+// 🚨 React 的 PointerEvent / KeyboardEvent 起了别名：不改名就会遮住同名的 DOM
+// 全局类型，而这个文件里有一个真正的 DOM `pointerdown` 监听器要用后者。
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type KeyboardEvent as ReactKeyboardEvent,
+  type PointerEvent as ReactPointerEvent,
+} from "react";
 import type { Anchor, AnnotateState, MaterialSource, SelectionEval } from "@mind-imprint/contracts";
 import { Button } from "@/ui";
 import { Annotate } from "@/primitives/annotate";
 import { anchorToSpan } from "@/studio/material/SourceDossier";
 import { HangingCard, type HangingCardStatus, anchorBlockId } from "@/studio/reading/HangingCard";
 import { ConfirmedFindingCard } from "@/studio/reading/ConfirmedFindingCard";
-import { READING_DECK_IDS } from "@/studio/reading/readingDeck";
-import { LensLibrary } from "@/studio/reading/LensLibrary";
 import { ReadingOutcomes } from "@/studio/reading/ReadingOutcomes";
 import { useReadingLoop, type ReadingLoopApi, type ReadingOutcome } from "@/studio/reading/readingLoop";
 import "@/studio/reading/ReadingRoom.css";
@@ -58,9 +66,27 @@ import { StepIndicator } from "./StepIndicator";
  * imports is that layout; the widths themselves are `.mk-lite-room` rules in
  * `src/index.css`.
  *
- * The leaf components (Annotate, HangingCard, LensLibrary, ReadingOutcomes,
- * useReadingLoop, the stylesheet) are still IMPORTED from `apps/web` — the
- * fork copied the composition, not the parts.
+ * The leaf components (Annotate, HangingCard, ReadingOutcomes, useReadingLoop,
+ * the stylesheet) are still IMPORTED from `apps/web` — the fork copied the
+ * composition, not the parts.
+ *
+ * ## 2026-09-10 · 正文那一栏只放正文
+ *
+ * 正文上方原来有一条 52px 的横条，上面并排着：文章 / 阅读成果 两个页签、一句
+ * 「点一段可拆解；划选一句可引用」的提示、「透镜库 · 11」、和「完成这篇」。
+ * 四样东西在 1360px 以下会折成两三行，把正文往下压掉近百像素。整条横条现在
+ * 没有了：
+ *
+ *  - **提示删掉。** 段落工具条和划选引用都是点了就看得见的，一句常驻的说明
+ *    换不来什么，却一直占着一行。
+ *  - **透镜库藏起来。** 透镜是印记递给她的教具，不是她自己该去翻的抽屉
+ *    （「it is a tool called by AI instead of triggered here by student」）。
+ *    `loop.summonCard` 还在，印记照常用。
+ *  - **完成这篇上顶栏。** 顶栏本来就有空位，而它是一个一整篇只按一次的按钮。
+ *  - **阅读成果去右栏**，和印记的对话并列成两页。左边从此永远是文章。
+ *
+ * 中间多了一根可以拖的分界（`mk-reading-room__split`）：她想把正文拉宽的时候
+ * 就能拉宽，位置按百分比记在 localStorage 里。
  */
 
 type AnnotateSpan = AnnotateState["spans"][number];
@@ -153,9 +179,33 @@ function BackIcon() {
   );
 }
 
-// The focused reading surface: the article on the left with 文章 | 阅读成果
-// view-tabs, 带读 on the right. The article enters select-mode once a card is
-// `active`; the hanging card renders from the loop's live status/eval; every
+// ---------------------------------------------------------------------------
+// 左右宽度
+// ---------------------------------------------------------------------------
+
+const SPLIT_KEY = "mk.lite.readingSplit";
+/** 左栏最少占 30%。再窄，英文正文一行放不下十来个词。 */
+const SPLIT_MIN = 30;
+/** 最多 78%。印记那一栏还要放得下卡片和输入框。 */
+const SPLIT_MAX = 78;
+/** 46% —— 和这一版之前写死的那两条 fr 轨道是同一个位置。 */
+const SPLIT_DEFAULT = 46;
+
+/** 上一次她拖到哪儿。读不出（无痕窗口、禁了站点数据、缩略图截取）就退回默认
+ *  值：宽度是一个便利设置，不该成为整个阅读室打不开的理由。 */
+function readStoredSplit(): number {
+  try {
+    const raw = Number(localStorage.getItem(SPLIT_KEY));
+    if (Number.isFinite(raw) && raw >= SPLIT_MIN && raw <= SPLIT_MAX) return raw;
+  } catch {
+    // ignore
+  }
+  return SPLIT_DEFAULT;
+}
+
+// The focused reading surface: 文章 on the left, 印记 | 阅读成果 on the right,
+// a draggable divider between them. The article enters select-mode once a card
+// is `active`; the hanging card renders from the loop's live status/eval; every
 // confirmed finding accumulates in 阅读成果.
 export function ReadingRoom({
   readingId,
@@ -178,7 +228,79 @@ export function ReadingRoom({
   // reading id is passed in that position — the lite api object ignores it.
   const loop = useReadingLoop(readingId, source, api, undefined, initialOutcomes);
 
-  const [rightView, setRightView] = useState<"article" | "trace">("article");
+  /**
+   * 右边那一栏在放什么：印记的对话，还是这一篇已经攒下的阅读成果。
+   *
+   * 🚨 它原来是**左边**那一栏的页签（文章 | 阅读成果），也就是说「看成果」要
+   * 用掉整块正文。报回来的原话是「make 阅读成果 a switcher of the AI bar …
+   * so that article part, is only article」—— 现在左边永远是文章，右边这两页
+   * 都是「关于这篇文章我做了什么」，切换成本是零。
+   */
+  const [coachView, setCoachView] = useState<"chat" | "outcomes">("chat");
+
+  /**
+   * 左右两栏的分界，可以拖。
+   *
+   * 存的是左栏占工作区的百分比。为什么是百分比而不是像素：她在 27 寸屏上拖出
+   * 来的那个位置，换到笔记本上按像素还原就会把印记挤没。
+   *
+   * 只在 981px 以上生效 —— 以下两栏是上下堆的（共用样式表里的
+   * `@media (max-width: 980px)`），一根竖着的分隔条在那里没有意义，CSS 里
+   * `display:none` 把它整个拿掉。
+   */
+  const [leftPct, setLeftPct] = useState(readStoredSplit);
+  const workspaceRef = useRef<HTMLElement | null>(null);
+  const draggingRef = useRef(false);
+
+  function commitSplit(pct: number) {
+    const next = Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, pct));
+    setLeftPct(next);
+    try {
+      localStorage.setItem(SPLIT_KEY, String(Math.round(next)));
+    } catch {
+      // 无痕窗口 / 禁了站点数据。宽度是一个便利设置，存不下就这一次别记住，
+      // 不该因此让阅读室报错。
+    }
+  }
+
+  function splitFromClientX(x: number): number {
+    const box = workspaceRef.current?.getBoundingClientRect();
+    if (!box || box.width === 0) return leftPct;
+    return ((x - box.left) / box.width) * 100;
+  }
+
+  function onSplitPointerDown(e: ReactPointerEvent<HTMLDivElement>) {
+    e.preventDefault();
+    draggingRef.current = true;
+    e.currentTarget.setPointerCapture(e.pointerId);
+  }
+
+  function onSplitPointerMove(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current) return;
+    setLeftPct(Math.min(SPLIT_MAX, Math.max(SPLIT_MIN, splitFromClientX(e.clientX))));
+  }
+
+  function onSplitPointerUp(e: ReactPointerEvent<HTMLDivElement>) {
+    if (!draggingRef.current) return;
+    draggingRef.current = false;
+    e.currentTarget.releasePointerCapture?.(e.pointerId);
+    commitSplit(splitFromClientX(e.clientX));
+  }
+
+  /** 键盘也能调：分隔条是可聚焦的 separator，左右键一次 2%。拖拽做不到的
+   *  事只有一件——用键盘的人完全够不着它。 */
+  function onSplitKeyDown(e: ReactKeyboardEvent<HTMLDivElement>) {
+    if (e.key === "ArrowLeft") {
+      e.preventDefault();
+      commitSplit(leftPct - 2);
+    } else if (e.key === "ArrowRight") {
+      e.preventDefault();
+      commitSplit(leftPct + 2);
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      commitSplit(SPLIT_DEFAULT);
+    }
+  }
 
   /**
    * 完成这篇 — one confirm, then the report.
@@ -226,11 +348,6 @@ export function ReadingRoom({
   // evidence-picking.
   const [activeSpanId, setActiveSpanId] = useState<string | null>(null);
 
-  // 透镜库 (LensLibrary) — the student browses the reading deck and summons
-  // a CHOSEN card onto the article herself, rather than only ever waiting
-  // for the AI to propose one.
-  const [libraryOpen, setLibraryOpen] = useState(false);
-
   // 引用原文 (focus context) — the passages the student drag-selected for her
   // next 带读 turn. Each entry is a visible, individually-cancelable quote
   // chip, rendered by the conversation. Only meaningful while idle (a card in
@@ -275,10 +392,10 @@ export function ReadingRoom({
     return () => window.removeEventListener("pointerdown", onDown, true);
   }, []);
 
-  // Keep the article view forward whenever a card is proposed, so the newly
-  // drawn example is visible.
+  // 一张卡挂到正文上的时候，把右栏切回对话 —— 卡片和印记的话在同一栏里，
+  // 而她可能正停在「阅读成果」那一页。左边不用管：文章现在永远在。
   useEffect(() => {
-    if (loop.status !== "idle") setRightView("article");
+    if (loop.status !== "idle") setCoachView("chat");
   }, [loop.status]);
 
   const card: ReadingRoomCard | null =
@@ -316,7 +433,7 @@ export function ReadingRoom({
     : null;
 
   function locateBlock(blockId: string) {
-    setRightView("article");
+    // 左边永远是文章，所以这里不用再切视图 —— 只要滚过去。
     requestAnimationFrame(() => {
       articleRef.current?.querySelector(`[data-block-id="${blockId}"]`)?.scrollIntoView({ behavior: "smooth", block: "center" });
     });
@@ -470,76 +587,23 @@ export function ReadingRoom({
           <span className="mk-reading-room__brand-name">思维印记 · 阅读工作台</span>
           <span className="mk-reading-room__brand-title">{source.title}</span>
         </div>
+        {/* 完成这篇 在顶栏右上角。
+            它原来和「文章 / 阅读成果」两个页签、一句提示、还有「透镜库 · 11」
+            挤在正文上方那一条 52px 的横条里 —— 那条横条在 1360px 以下会折成
+            两三行，把正文往下压掉近百像素。整条横条现在没有了：页签去了右栏，
+            提示删掉了，透镜库藏了，只剩这一颗按钮，而顶栏本来就有空位。 */}
+        <button
+          type="button"
+          className="mk-reading-room__finalize-btn"
+          onClick={() => setConfirmFinish(true)}
+        >
+          完成这篇
+        </button>
       </header>
 
-      <main className="mk-reading-room__workspace">
+      <main className="mk-reading-room__workspace" ref={workspaceRef} style={{ "--mk-room-left": `${leftPct}%` } as CSSProperties}>
         <section className="mk-reading-room__reading" aria-label="阅读材料区">
-          <div className="mk-reading-room__toolbar">
-            <div className="mk-reading-room__view-tabs" role="tablist" aria-label="右侧视图">
-              <button
-                type="button"
-                role="tab"
-                aria-selected={rightView === "article"}
-                className={rightView === "article" ? "is-active" : ""}
-                onClick={() => setRightView("article")}
-              >
-                文章
-              </button>
-              <button
-                type="button"
-                role="tab"
-                aria-selected={rightView === "trace"}
-                className={rightView === "trace" ? "is-active" : ""}
-                onClick={() => setRightView("trace")}
-              >
-                阅读成果 <span className="mk-reading-room__count">{loop.outcomes.length}</span>
-              </button>
-            </div>
-            <span className="mk-reading-room__hint">
-              <i />
-              {/* 这一行是文章上「现在能做什么」的唯一说明，所以它必须和文章
-                  真正响应的手势对得上。两种状态两种手势：
-
-                  - 透镜敞开（`active`）：点一下就取走光标所在那一句
-                    （Annotate 的 `pickSentence`）。
-                  - 空闲：点一段弹**段落工具条**（`onReferenceBlock`），
-                    而把一句话变成**引用**要靠**划选**（`onReferenceSelection`）。
-
-                  🚨 空闲那一条原本只写了「点一段，看这一段能怎么拆开」，
-                  于是「怎么引用一句话」在整个界面上没有任何地方说过——而
-                  `pick_in_article` 卡片正是在这个状态下要她去指一句。
-                  同事试用报的「选句子的指引不好」就是这个缺口。 */}
-              {loop.status === "active"
-                ? "点击 1 句话作答"
-                : loop.status === "proposed"
-                  ? "先看示范，再开始选句"
-                  : quoted.length > 0
-                    ? `已引用 ${quoted.length} 处 · 可逐条取消`
-                    : "点一段可拆解；划选一句可引用"}
-            </span>
-            {/* 透镜库 sits in the toolbar rather than a starter row: it acts on
-                the article, which is what this toolbar is for, and
-                「换一个透镜再看」 is a real step in every 带读 routine. */}
-            <button
-              type="button"
-              className="mk-reading-room__trace-btn"
-              onClick={() => setLibraryOpen(true)}
-              disabled={busyOrCarded}
-              title="换一副透镜，把这篇再看一遍"
-            >
-              透镜库 · {READING_DECK_IDS.length}
-            </button>
-            <button
-              type="button"
-              className="mk-reading-room__finalize-btn"
-              onClick={() => setConfirmFinish(true)}
-            >
-              完成这篇
-            </button>
-          </div>
-
-          {rightView === "article" ? (
-            <article className="mk-reading-room__article" ref={articleRef}>
+          <article className="mk-reading-room__article" ref={articleRef}>
               <div className="mk-reading-room__article-inner">
                 <header className="mk-reading-room__article-header">
                   <div className="mk-reading-room__article-type">课堂阅读材料</div>
@@ -642,12 +706,28 @@ export function ReadingRoom({
                 />
               </div>
             </article>
-          ) : (
-            <div className="mk-reading-room__article">
-              <ReadingOutcomes outcomes={loop.outcomes} onLocate={locateBlock} />
-            </div>
-          )}
         </section>
+
+        {/* 分界，可以拖。role="separator" 是它真实的语义；aria-valuenow 报的是
+            左栏占的百分比，和 CSS 变量是同一个数。 */}
+        <div
+          className="mk-reading-room__split"
+          role="separator"
+          aria-orientation="vertical"
+          aria-label="调整文章和印记的宽度"
+          aria-valuenow={Math.round(leftPct)}
+          aria-valuemin={SPLIT_MIN}
+          aria-valuemax={SPLIT_MAX}
+          tabIndex={0}
+          onPointerDown={onSplitPointerDown}
+          onPointerMove={onSplitPointerMove}
+          onPointerUp={onSplitPointerUp}
+          onPointerCancel={onSplitPointerUp}
+          onKeyDown={onSplitKeyDown}
+          onDoubleClick={() => commitSplit(SPLIT_DEFAULT)}
+        >
+          <span aria-hidden="true" />
+        </div>
 
         {/* 印记, on the RIGHT and wider than the article now — the 262px step
             rail that used to eat the left edge of this screen folded into
@@ -655,6 +735,38 @@ export function ReadingRoom({
             The section is second in the DOM as well as second on screen, so
             reading order and tab order agree with the layout. */}
         <section className="mk-reading-room__coach" aria-label="AI 对话工作区">
+          {/* 印记 | 阅读成果。左边那一栏永远是文章，所以这两页在这里并列：
+              一页是她和印记正在说的话，一页是这一篇已经攒下的东西。 */}
+          <div className="mk-lite-coachtabs" role="tablist" aria-label="右栏视图">
+            <button
+              type="button"
+              role="tab"
+              aria-selected={coachView === "chat"}
+              className={coachView === "chat" ? "is-active" : ""}
+              onClick={() => setCoachView("chat")}
+            >
+              印记
+            </button>
+            <button
+              type="button"
+              role="tab"
+              aria-selected={coachView === "outcomes"}
+              className={coachView === "outcomes" ? "is-active" : ""}
+              onClick={() => setCoachView("outcomes")}
+            >
+              阅读成果
+              <span className="mk-lite-coachtabs__count">{loop.outcomes.length}</span>
+            </button>
+          </div>
+
+          {/* 🚨 两页都挂着，用 hidden 藏一页，而不是二选一地渲染。
+              ReadingCoachPanel 手里有她还没发出去的草稿、滚动位置、和一份
+              乐观更新的消息列表 —— 卸载它等于她切一下页签就丢一段话。 */}
+          <div className={coachView === "outcomes" ? "mk-lite-coachpane mk-lite-coachpane--scroll" : "mk-lite-coachpane mk-lite-coachpane--scroll is-hidden"}>
+            <ReadingOutcomes outcomes={loop.outcomes} onLocate={locateBlock} />
+          </div>
+
+          <div className={coachView === "chat" ? "mk-lite-coachpane" : "mk-lite-coachpane is-hidden"}>
           {/* 我现在在第几步 — the present tense, always visible. The DIAL is the
               plan (every step, one hover away); this row is the one step she
               is on. Deliberately two surfaces, deliberately different jobs. */}
@@ -686,6 +798,7 @@ export function ReadingRoom({
             // 输入框换了句 placeholder，于是线上 23 篇阅读有 17 篇永远停在 active。
             onFinish={() => setConfirmFinish(true)}
           />
+          </div>
         </section>
       </main>
 
@@ -693,16 +806,6 @@ export function ReadingRoom({
           width — unlike the rail it replaces, which hung in an `lg:`-gated
           aside and simply was not there on a phone. */}
       <ReadingPlanDial tasks={tasks} />
-
-      {libraryOpen && (
-        <LensLibrary
-          onPick={(id) => {
-            setLibraryOpen(false);
-            void loop.summonCard(id);
-          }}
-          onClose={() => setLibraryOpen(false)}
-        />
-      )}
 
       {confirmFinish && (
         <div className="mk-finishask" role="dialog" aria-modal="true" aria-label="完成这篇">

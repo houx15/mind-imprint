@@ -14,6 +14,7 @@ import { navigate, readingPath, readingLibraryPath } from "../routing";
 import { getLibraryShelf, startLibraryReading, type LibraryShelf } from "../api/library";
 import { LibraryCard } from "./LibraryCard";
 import { ReadingHistoryPanel, isFinished, type ReadingFilter } from "./ReadingHistoryPanel";
+import { ReadingsTabs } from "./ReadingsTabs";
 import { apiErrorText } from "../api/errorText";
 
 /**
@@ -209,7 +210,12 @@ export function ReadingsLanding() {
       <PaperBloom />
 
       <div className="relative mx-auto flex w-full max-w-[760px] flex-col px-4 pb-20 pt-5 sm:px-6">
-        <div className="flex justify-end">
+        {/* 页签在中间、我的阅读在右边。左边那一格是空的占位，它存在只为让页签
+            真的落在页面中线上 —— 没有它，页签会被右边那个按钮推得偏左。 */}
+        <div className="flex items-center justify-between gap-3">
+          <div className="hidden flex-1 sm:block" />
+          <ReadingsTabs active="own" libraryCount={shelf?.articles.length} />
+          <div className="flex flex-1 justify-end">
           <button
             type="button"
             onClick={() => openPanel("all")}
@@ -226,6 +232,7 @@ export function ReadingsLanding() {
               </span>
             )}
           </button>
+          </div>
         </div>
 
         {/* NOTICES. Today the only notice is her own unfinished work. P4's

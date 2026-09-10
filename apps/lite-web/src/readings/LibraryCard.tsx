@@ -37,15 +37,23 @@ export interface LibraryCardProps {
 }
 
 export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume }: LibraryCardProps) {
-  // 她手上还开着这一篇时，卡片停在**她打开的那一档**，而不是页面上的默认档。
-  // 否则从阅读室回到书架，这张卡会请她「读这一篇」，点下去开出同一篇文章的
-  // 第二条阅读记录 —— 走查里就是这么发现的。
-  const [tier, setTier] = useState(
-    article.readingId && !article.finished && article.readTier ? article.readTier : defaultTier,
-  );
+  // 卡片跟着页面上的「默认难度」走，一张不落。
+  //
+  // 🚨 上一版在这里加过一条例外：她手上还开着这一篇时，卡片停在她打开的那一
+  // 档。那条例外修的是一个真问题（回到书架点下去会开出同一篇的第二条记录），
+  // 但它的代价是**这一排难度按钮对她读过的那几篇不起作用** —— 报回来的原话是
+  // 「I clicked 入门 but not all papers changed to 入门」。
+  //
+  // 现在两件事分开做：难度按钮管所有卡片，而她开着的那一次单独出一个
+  // 「继续读」按钮（见下面的 openTier）。她想换一档重读同一篇是**正当的意图**，
+  // 现在它是一次明确的点击，不再是一次误触。
+  const [tier, setTier] = useState(defaultTier);
   const [picking, setPicking] = useState(false);
   const hue = fieldById(article.field as FieldId).hue;
   const level = article.levels.find((l) => l.tier === tier) ?? article.levels[1] ?? article.levels[0];
+  // 她手上还开着的那一档（没有就是 0）。
+  const openTier = (article.readingId && !article.finished ? article.readTier : 0) ?? 0;
+  const openLevel = openTier ? article.levels.find((l) => l.tier === openTier) : undefined;
 
   return (
     <article
@@ -110,12 +118,12 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
             <p className="text-mk-label text-mk-muted">{level ? levelSummary(level) : ""}</p>
           )}
 
-          <div className="mt-2 flex items-center gap-2">
+          <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
               disabled={busy}
               onClick={() => {
-                if (article.readingId && !article.finished && article.readTier === tier) {
+                if (openTier === tier && article.readingId) {
                   onResume(article.readingId);
                   return;
                 }
@@ -126,7 +134,7 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
             >
               {/* 🚨 不叫「开始阅读」：粘贴框那个提交按钮已经叫这个名字了，
                   同一页上两个同名按钮，她点哪个都说不清。 */}
-              {article.readingId && !article.finished && article.readTier === tier ? "继续读" : "读这一篇"}
+              {openTier === tier ? "继续读" : "读这一篇"}
             </button>
             <button
               type="button"
@@ -136,6 +144,18 @@ export function LibraryCard({ article, defaultTier, why, busy, onStart, onResume
               {picking ? "收起难度" : "换一档"}
             </button>
           </div>
+          {/* 她开着的那一次，摆在自己的位置上。主按钮已经被页面的默认难度占了，
+              这一行是那一次阅读的唯一入口 —— 少了它，「读这一篇」就会在她背后
+              开出同一篇文章的第二条记录。 */}
+          {openTier > 0 && openTier !== tier && article.readingId && (
+            <button
+              type="button"
+              onClick={() => onResume(article.readingId!)}
+              className="mt-2 text-mk-label text-mk-secondary underline decoration-mk-border underline-offset-2 transition-colors duration-[120ms] ease-mk hover:text-mk-accent-700"
+            >
+              继续读你开着的那一档 · {openLevel ? openLevel.name : ""}
+            </button>
+          )}
         </div>
       </div>
     </article>

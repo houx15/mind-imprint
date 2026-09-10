@@ -100,21 +100,113 @@ function renderRoom(tasks: ReadingTask[] = []) {
 
 afterEach(cleanup);
 
-describe("窄屏下的工具条：够得到，不裂字", () => {
-  it("透镜库和完成这篇都在 DOM 里，而且没有被藏起来", () => {
-    renderRoom();
-    // The 375px screenshot's actual failure: both were pushed OUT of a pane
-    // whose `overflow` is `hidden`, i.e. present in the DOM and unreachable
-    // with a finger. A presence assertion cannot see that — which is exactly
-    // why the CSS contract below exists — but it does catch the other way to
-    // break this, which is to "fix" the crowding by hiding one of them.
-    const lens = screen.getByRole("button", { name: /^透镜库 · \d+$/ });
+describe("阅读室的骨架：正文那一栏只放正文", () => {
+  it("完成这篇在顶栏里，透镜库和那句提示都不在了", () => {
+    const { container } = renderRoom();
+    // 完成这篇 moved out of the article pane's toolbar and into the topbar —
+    // the whole toolbar is gone. A presence assertion cannot see WHERE it
+    // sits, so the parent is asserted too.
     const finish = screen.getByRole("button", { name: "完成这篇" });
-    for (const el of [lens, finish]) {
-      expect(el.hidden).toBe(false);
-      expect(el.getAttribute("aria-hidden")).toBeNull();
-      expect(el.style.display).not.toBe("none");
+    expect(finish.closest(".mk-reading-room__topbar")).toBeTruthy();
+    expect(finish.hidden).toBe(false);
+    expect(finish.getAttribute("aria-hidden")).toBeNull();
+
+    // 透镜库 is 印记's teaching instrument, not a drawer she rummages in
+    // (「it is a tool called by AI instead of triggered here by student」).
+    // `loop.summonCard` still exists — this asserts only that nothing on the
+    // screen offers her the deck.
+    expect(screen.queryByRole("button", { name: /透镜库/ })).toBeNull();
+    // 「点一段可拆解；划选一句可引用」 — a permanent caption that bought
+    // nothing and cost a row.
+    expect(container.textContent).not.toContain("点一段可拆解");
+    // And the row itself.
+    expect(container.querySelector(".mk-reading-room__toolbar")).toBeNull();
+  });
+
+  it("印记和阅读成果是右栏的两页，藏起来的那一页仍然挂在 DOM 上", () => {
+    const { container } = renderRoom();
+    const tabs = container.querySelector(".mk-lite-coachtabs");
+    expect(tabs, "右栏没有页签行").toBeTruthy();
+    // Both tabs live in 印记's column, not the article's.
+    expect(tabs!.closest(".mk-reading-room__coach")).toBeTruthy();
+
+    // 🚨 The invariant no screenshot can show: switching tabs must NOT
+    // unmount the panes. `ReadingCoachPanel` holds her unsent draft, her
+    // scroll position and an optimistic message list — rendering one of two
+    // would throw a half-typed sentence away every time she glanced at
+    // 阅读成果. So both panes are always present and one is display:none'd.
+    const panes = container.querySelectorAll(".mk-lite-coachpane");
+    expect(panes.length).toBe(2);
+    expect([...panes].filter((el) => el.classList.contains("is-hidden")).length).toBe(1);
+    expect(ruleBody(".mk-lite-coachpane.is-hidden")).toMatch(/display\s*:\s*none/);
+  });
+
+  it("分界条：默认不存在，只有宽屏才长出来——而且顺序不能反", () => {
+    const { container } = renderRoom();
+    const split = container.querySelector(".mk-reading-room__split");
+    expect(split, "没有分界条").toBeTruthy();
+    expect(split!.getAttribute("role")).toBe("separator");
+    // Keyboard-reachable: dragging is the only other way to move it, and a
+    // pointer is not the only input device.
+    expect(split!.getAttribute("tabindex")).toBe("0");
+
+    // 🚨 Source order is the whole contract here. The base rule and the one
+    // inside `@media (min-width: 981px)` have the SAME specificity (0,2,0),
+    // and a media query adds none — so the later rule wins. Written the other
+    // way round the divider would be display:none at every width, and below
+    // 981px (where the shared file stacks the panes into one column) it would
+    // sit in the layout as an empty row.
+    const base = CSS.search(/^\.mk-lite-room \.mk-reading-room__split \{/m);
+    const wide = CSS.indexOf("@media (min-width: 981px)");
+    expect(base, "分界条的基础规则不见了").toBeGreaterThan(-1);
+    expect(wide, "981px 的断点不见了").toBeGreaterThan(-1);
+    expect(base, "基础规则写在断点后面了——分界条会在所有宽度上消失").toBeLessThan(wide);
+    const body = ruleBody(".mk-lite-room .mk-reading-room__split");
+    expect(body).toMatch(/display\s*:\s*none/);
+    // Without this a touch drag scrolls the page instead of moving the split.
+    expect(body).toMatch(/touch-action\s*:\s*none/);
+  });
+
+  it("左栏的宽度由 --mk-room-left 给，中间那条轨道是分界条", () => {
+    const { container } = renderRoom();
+    // The room writes the percentage onto the workspace as a custom property;
+    // the stylesheet reads it. Either half alone is dead weight.
+    const ws = container.querySelector<HTMLElement>(".mk-reading-room__workspace");
+    expect(ws?.style.getPropertyValue("--mk-room-left")).toMatch(/^\d+(\.\d+)?%$/);
+
+    const cols = ruleBody(".mk-lite-room .mk-reading-room__workspace");
+    expect(cols).toMatch(/grid-template-columns/);
+    expect(cols, "左栏不再跟着 --mk-room-left 走").toContain("var(--mk-room-left");
+    // Three tracks: article | divider | 印记. Two would mean the divider is
+    // overlapping a pane rather than sitting between them.
+    const value = cols.match(/grid-template-columns:\s*([^;]+);/);
+    expect(value).toBeTruthy();
+    expect(topLevelTracks(value![1]!).length, "轨道数不是三条").toBe(3);
+
+    // 默认那一档：印记 比文章宽。这是 2026-08-30 收掉 262px 侧栏换来的东西，
+    // 换成可拖之后它变成了**起始位置**，不再是写死的比例。
+    const fallback = value![1]!.match(/var\(--mk-room-left,\s*([\d.]+)%\)/);
+    expect(fallback, "--mk-room-left 没有兜底值——CSS 读不到变量时会整条作废").toBeTruthy();
+    expect(Number(fallback![1]), "默认位置让文章占了一半以上").toBeLessThan(50);
+  });
+
+  it("小标题的每一条都带 !important——不然行内样式压过去，等于没写", () => {
+    // 🚨 `Annotate` writes font-size / font-weight / color / margin / padding
+    // / border-left as INLINE styles on every paragraph, headings included.
+    // An inline declaration beats any author rule without `!important`, so a
+    // heading rule missing one is silently inert: no error, no warning, the
+    // heading just looks like a paragraph again. That is the bug being fixed
+    // here (「they are just bolded」), and this is the only way to catch it
+    // coming back — jsdom applies no stylesheet at all.
+    const heading = ruleBody('.mk-lite-room .mk-reading-room__article-inner p[data-heading]');
+    for (const prop of ["margin", "padding", "border-left", "color", "font-size", "font-weight"]) {
+      const decl = heading.match(new RegExp(`\\b${escapeRe(prop)}\\s*:[^;]+;`));
+      expect(decl, `小标题没有设置 ${prop}`).toBeTruthy();
+      expect(decl![0], `${prop} 少了 !important，会被行内样式压掉`).toContain("!important");
     }
+    // 竖色条 is the mark that makes a heading findable in a screen of black
+    // text; a colour change alone was what got rejected.
+    expect(heading).toMatch(/border-left\s*:\s*3px solid/);
   });
 
   it("房间带着 lite 自己的覆盖钩子 mk-lite-room", () => {
@@ -127,10 +219,10 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
   });
 
   it("index.css 里所有针对房间的规则都挂在 .mk-lite-room 上", () => {
-    // A rule written as a bare `.mk-reading-room__toolbar` ties with the
-    // shared file (0,1,0) and then wins or loses on bundle order — which is
-    // decided by a component import, not by anything in this repo. Every
-    // override must carry the extra class.
+    // A rule written as a bare `.mk-reading-room__split` ties with the shared
+    // file (0,1,0) and then wins or loses on bundle order — which is decided
+    // by a component import, not by anything in this repo. Every override
+    // must carry the extra class.
     const selectors = [...CSS.matchAll(/([^{}]+)\{/g)]
       .map((m) => m[1]!.trim())
       .filter((s) => s.includes("mk-reading-room"));
@@ -138,33 +230,6 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
     for (const selector of selectors) {
       expect(selector.includes(".mk-lite-room"), `未加 .mk-lite-room 作用域：${selector}`).toBe(true);
     }
-  });
-
-  it("标签不允许被挤扁：flex 不收缩，文字不换行", () => {
-    // 阅读成果 broke into 阅/读/成/果 because the tabs were shrinkable and the
-    // label was wrappable. Both of these are unconditional (no media query),
-    // so a narrower phone than the one we screenshotted cannot re-break it.
-    const tabs = ruleBody(".mk-lite-room .mk-reading-room__view-tabs");
-    expect(tabs).toMatch(/flex\s*:\s*none/);
-    const button = ruleBody(".mk-lite-room .mk-reading-room__view-tabs button");
-    expect(button).toMatch(/white-space\s*:\s*nowrap/);
-    expect(button).toMatch(/flex\s*:\s*none/);
-    // The `0` badge landed on top of 果 because it is an `inline-grid` with a
-    // `min-width` bigger than the line box it was squeezed into.
-    expect(ruleBody(".mk-lite-room .mk-reading-room__count")).toMatch(/flex\s*:\s*none/);
-  });
-
-  it("窄屏下工具条换行而不是把按钮推出屏幕", () => {
-    const narrow = mediaBlock("max-width: 1360px");
-    expect(narrow).toContain(".mk-lite-room .mk-reading-room__toolbar");
-    const toolbar = ruleBody(".mk-lite-room .mk-reading-room__toolbar", narrow);
-    // Wrapping is what makes reachability structural rather than a lucky fit:
-    // whatever does not fit drops to the next row instead of off the edge.
-    expect(toolbar).toMatch(/flex-wrap\s*:\s*wrap/);
-    // …and the fixed 52px row has to give way, or the second row is clipped.
-    expect(toolbar).toMatch(/height\s*:\s*auto/);
-    // The hint gets a row of its own instead of being sliced mid-word.
-    expect(ruleBody(".mk-lite-room .mk-reading-room__hint", narrow)).toMatch(/flex\s*:\s*1\s+0\s+100%/);
   });
 
   // ── 2026-08-30 · 文章在左，印记在右，进度盘悬浮 ──────────────────────────
@@ -183,13 +248,16 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
     expect(ruleBody(".mk-lite-room .mk-reading-room__workspace")).toMatch(/grid-template-columns/);
   });
 
-  it("印记那一栏比文章宽——这就是收掉 262px 侧栏换来的东西", () => {
-    const cols = ruleBody(".mk-lite-room .mk-reading-room__workspace").match(
-      /grid-template-columns:\s*minmax\([^,]+,\s*([\d.]+)fr\)\s*minmax\([^,]+,\s*([\d.]+)fr\)/,
-    );
-    expect(cols, "workspace 的两列写法变了").toBeTruthy();
-    const [article, coach] = [Number(cols![1]), Number(cols![2])];
-    expect(coach).toBeGreaterThan(article);
+  it("两栏都有一个宽度下限，拖到头也压不没", () => {
+    // 2026-09-10: the fixed 0.92fr / 1.08fr pair became a draggable split, so
+    // 「印记 比文章宽」 is now the STARTING position (asserted with the
+    // fallback above) rather than a ratio. What still has to hold at every
+    // position is that neither pane can be dragged to nothing — the clamp
+    // lives in ReadingRoom (SPLIT_MIN / SPLIT_MAX) and the floor lives here.
+    const cols = ruleBody(".mk-lite-room .mk-reading-room__workspace");
+    const mins = [...cols.matchAll(/minmax\((\d+)px/g)].map((m) => Number(m[1]));
+    expect(mins.length, "两栏至少要各有一个 minmax 下限").toBe(2);
+    for (const min of mins) expect(min).toBeGreaterThanOrEqual(280);
   });
 
   it("印记那一栏四边都有内边距，对话框不会压在面板边框上", () => {
@@ -258,6 +326,29 @@ describe("窄屏下的工具条：够得到，不裂字", () => {
 
   function escapeRe(s: string): string {
     return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  /** A `grid-template-columns` value split into its tracks.
+   *
+   *  Splitting on whitespace is wrong: `minmax(280px, var(--mk-room-left,
+   *  46%))` is ONE track containing two spaces. So the depth of the
+   *  parentheses is tracked and only depth-0 whitespace separates. */
+  function topLevelTracks(value: string): string[] {
+    const out: string[] = [];
+    let depth = 0;
+    let current = "";
+    for (const ch of value.trim()) {
+      if (ch === "(") depth += 1;
+      else if (ch === ")") depth -= 1;
+      if (depth === 0 && /\s/.test(ch)) {
+        if (current) out.push(current);
+        current = "";
+        continue;
+      }
+      current += ch;
+    }
+    if (current) out.push(current);
+    return out;
   }
 
   /** Everything inside `@media (<query>) { … }`, brace-matched. */

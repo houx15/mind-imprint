@@ -864,9 +864,60 @@
  * with a 720px minimum, i.e. the article squeezed to a column of two
  * characters with 印记 hanging off the right edge. Caught by screenshot, not
  * by any assertion. */
+/* 分界条：默认不存在。
+ *
+ * 981px 以下两栏是上下堆的（共用样式表里的 `@media (max-width: 980px)`），
+ * 一根竖着的分界条在那里没有意义。`display:none` 会把它整个从网格里拿掉，
+ * 所以堆叠的那一版不会多出一行空格子。
+ *
+ * 🚨 这条基础规则必须写在下面那个 min-width 查询**前面**：两条同为 (0,2,0)，
+ * 媒体查询不加特异性，赢的是后写的那一条。 */
+.mk-lite-room .mk-reading-room__split {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  cursor: col-resize;
+  /* 触屏上按住横向拖动默认是滚页面，不关掉就拖不动。 */
+  touch-action: none;
+  user-select: none;
+}
+
+.mk-lite-room .mk-reading-room__split > span {
+  width: 3px;
+  height: 44px;
+  border-radius: 3px;
+  background: var(--mk-border);
+  transition:
+    background 140ms ease,
+    height 140ms ease;
+}
+
+.mk-lite-room .mk-reading-room__split:hover > span,
+.mk-lite-room .mk-reading-room__split:focus-visible > span {
+  height: 76px;
+  background: var(--mk-accent-500);
+}
+
+.mk-lite-room .mk-reading-room__split:focus-visible {
+  outline: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .mk-lite-room .mk-reading-room__split > span {
+    transition: none;
+  }
+}
+
 @media (min-width: 981px) {
+  /* 中间那条 12px 的轨道就是分界条。左栏的宽度由 `--mk-room-left` 给（房间
+   * 组件按百分比写在 style 上，见 ReadingRoom 的 SPLIT_* 常量）；右栏吃掉
+   * 剩下的。两侧的 minmax 下限保证拖到极端也不会把哪一栏压没。 */
   .mk-lite-room .mk-reading-room__workspace {
-    grid-template-columns: minmax(320px, 0.92fr) minmax(400px, 1.08fr);
+    grid-template-columns: minmax(280px, var(--mk-room-left, 46%)) 12px minmax(300px, 1fr);
+  }
+
+  .mk-lite-room .mk-reading-room__split {
+    display: flex;
   }
 }
 
@@ -912,30 +963,6 @@
   pointer-events: none;
 }
 
-/* At EVERY width: a tab is one line, and its badge sits beside the label
-   rather than on top of it. These cost nothing on a desktop and are what
-   makes the character-splitting structurally impossible rather than merely
-   unlikely. */
-.mk-lite-room .mk-reading-room__view-tabs {
-  flex: none;
-}
-
-.mk-lite-room .mk-reading-room__view-tabs button {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  white-space: nowrap;
-}
-
-.mk-lite-room .mk-reading-room__count {
-  flex: none;
-}
-
-.mk-lite-room .mk-reading-room__trace-btn,
-.mk-lite-room .mk-reading-room__finalize-btn {
-  white-space: nowrap;
-}
-
 /* The blank band the paragraph bar lives in.
  *
  * The shared file sets `margin: 0 0 20px !important`, and the bar is ~34px
@@ -949,67 +976,106 @@
   margin-bottom: 28px !important;
 }
 
-@media (max-width: 1360px) {
-  .mk-lite-room .mk-reading-room__toolbar {
-    /* `height: 52px` in the shared file; an extra row needs an extra row. */
-    height: auto;
-    min-height: 52px;
-    flex-wrap: wrap;
-    justify-content: flex-start;
-    gap: 6px 8px;
-    padding: 8px 12px;
-  }
+/* ── 小标题 ─────────────────────────────────────────────────────────────
+ *
+ * 小标题在服务端和正文段落是同一种东西（`SplitBlocks` 不认识 Markdown），
+ * 分级阅读库另外给出哪几个段 id 是小标题，`Annotate` 据此加上 `data-heading`。
+ * 它原来和正文的差别只有「粗一点、大一号」——报回来的原话是
+ * 「they are just bolded」。
+ *
+ * 现在给它三样正文没有的东西：一道竖色条、一个颜色、和上面一大块留白。
+ * 竖色条是关键的那一样：一整屏黑字里，眼睛先看见的是那条线，而不是某一行
+ * 恰好粗了一点。
+ *
+ * 🚨 每一条都得写 `!important`。`Annotate` 把 font-size / font-weight /
+ * color / margin / padding / border-left 全部写成**行内样式**，行内样式压过
+ * 任何不带 `!important` 的作者规则 —— 少写一个，那一条就一声不响地不生效。 */
+.mk-lite-room .mk-reading-room__article-inner p[data-heading] {
+  margin: 36px 0 14px !important;
+  padding: 2px 0 2px 14px !important;
+  border-left: 3px solid var(--mk-accent-500) !important;
+  color: color-mix(in srgb, var(--mk-accent-500) 68%, black) !important;
+  font-size: 19px !important;
+  font-weight: 700 !important;
+  line-height: 1.45 !important;
+  letter-spacing: 0.01em;
+}
 
-  /* A row of its own. Left to flow, the tabs fit beside 透镜库 but not beside
-     完成这篇, which then wrapped ALONE to the left of the next line — the red
-     primary button, on its own, as the loudest thing in the pane. Giving the
-     tabs the row keeps the two actions together as a pair. */
-  .mk-lite-room .mk-reading-room__view-tabs {
-    order: 1;
-    flex: 1 0 100%;
-    height: auto;
-  }
+/* 正文的第一个小标题不需要 36px 的顶部留白：它上面就是文章头。 */
+.mk-lite-room .mk-reading-room__article-inner p[data-heading]:first-child {
+  margin-top: 8px !important;
+}
 
-  .mk-lite-room .mk-reading-room__view-tabs button {
-    padding: 5px 9px;
-    font-size: 13px;
-  }
+/* ── 右栏的两页：印记 | 阅读成果 ────────────────────────────────────────
+ *
+ * 阅读成果原来是**左栏**的一个页签，也就是说看一眼成果要用掉整块正文。它现在
+ * 和印记的对话并列在右栏，左栏永远是文章。 */
+.mk-lite-coachtabs {
+  display: flex;
+  flex: none;
+  gap: 4px;
+  align-items: center;
+}
 
-  /* The active-tab underline is positioned against the BUTTON, which no
-     longer stretches to a 52px row — pull its inset in to match the tighter
-     padding so it still reads as an underline and not as a stray rule. */
-  .mk-lite-room .mk-reading-room__view-tabs button.is-active::after {
-    right: 7px;
-    bottom: -4px;
-    left: 7px;
-  }
+.mk-lite-coachtabs button {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 4px 11px;
+  border: 0;
+  border-radius: var(--mk-radius-full);
+  color: var(--mk-secondary);
+  background: transparent;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    color 120ms ease,
+    background 120ms ease;
+}
 
-  /* The two actions, kept as a pair and pushed to the right of their row.
-     They are the whole point of the exercise: at 375px they used to be
-     shoved out of a pane whose `overflow` is `hidden`, i.e. unreachable. */
-  .mk-lite-room .mk-reading-room__trace-btn {
-    order: 2;
-    margin-right: 0;
-    margin-left: auto;
-    padding: 5px 10px;
-  }
+.mk-lite-coachtabs button:hover {
+  color: var(--mk-accent-700);
+  background: var(--mk-accent-50);
+}
 
-  .mk-lite-room .mk-reading-room__finalize-btn {
-    order: 3;
-    padding: 6px 11px;
-  }
+.mk-lite-coachtabs button.is-active {
+  color: var(--mk-accent-700);
+  background: var(--mk-accent-50);
+  font-weight: 600;
+}
 
-  /* Its own full-width row, last. `1 0 100%` forces the break; the ellipsis is
-     the honest end of a line that genuinely does not fit, as opposed to the
-     hard slice at the pane edge it used to get. */
-  .mk-lite-room .mk-reading-room__hint {
-    order: 4;
-    flex: 1 0 100%;
-    min-width: 0;
-    overflow: hidden;
-    font-size: 11px;
-    text-overflow: ellipsis;
-  }
+.mk-lite-coachtabs__count {
+  min-width: 18px;
+  padding: 0 5px;
+  border-radius: var(--mk-radius-full);
+  background: color-mix(in srgb, var(--mk-accent-500) 14%, transparent);
+  font-size: 11px;
+  font-weight: 700;
+  text-align: center;
+}
+
+/* 🚨 两页都挂在 DOM 上，藏起来的那一页只是 `display:none`。切页签不能卸载
+ * `ReadingCoachPanel` —— 它手里有她还没发出去的草稿和滚动位置。 */
+.mk-lite-coachpane {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.mk-lite-coachpane--scroll {
+  overflow-y: auto;
+}
+
+.mk-lite-coachpane.is-hidden {
+  display: none;
+}
+
+/* 顶栏：完成这篇 靠右。品牌那一格吃掉中间的空白，把按钮推到最右边。 */
+.mk-lite-room .mk-reading-room__brand {
+  flex: 1;
 }
 
 /* The article's 40px/24px reading margins are generous on a laptop and
