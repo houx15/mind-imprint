@@ -36,19 +36,50 @@ func TestLabelRolesGetsItsLabelsFromTheServer(t *testing.T) {
 	}
 }
 
-func TestLabelRolesStillNeedsTwoParagraphs(t *testing.T) {
-	// 标注板和 choose_span 走同一套选项校验，跨段落那一条一并继承：几句话全
-	// 出自同一段，那不是「在文章里找关系」，那是把一段话剁开。
+func TestLabelRolesMayTakeBothSentencesFromOneParagraph(t *testing.T) {
+	// 🚨 这条测试原来断言的是**相反**的事，那是我照抄 choose_span 的规则时犯的
+	// 设计错误。跨段落那一条的理由是「选项全在一段里 = 选项就是那一段，扫一眼
+	// 名词就能点」—— 而那条推理在标注板上不成立：角色（主张/证据/限制/背景/
+	// 对比）是扫名词扫不出来的。
+	//
+	// 线上第一次跑就撞上了：印记 连着两轮想给她一块板（「哪一句是马上会发生的
+	// 后果，哪一句是原因？」），两次都被丢掉，她只看到 印记 在描述一块从来没
+	// 出现过的板。同一段里的「后果」和「原因」恰恰是最值得让她分辨的一对。
 	got := validateCoachCard(&coachCard{
 		Type:   coachCardLabelRoles,
-		Prompt: "这几句各自在干什么？",
+		Prompt: "哪一句是后果，哪一句是原因？",
 		Options: []coachCardOption{
-			{BlockID: "b2", Quote: "The agency said it had delivered 40 trucks of supplies last week."},
-			{BlockID: "b2", Quote: "The agency said it had delivered 40 trucks of supplies last week."},
+			{BlockID: "b4", Quote: "Supplies ran out within days."},
+			{BlockID: "b4", Quote: "The border crossing stayed shut."},
 		},
-	}, boardBlocks())
+	}, sameParagraphBlocks())
+	if got == nil {
+		t.Fatal("同一段里的两句话应该能摆成一块标注板")
+	}
+	if len(got.Options) != 2 {
+		t.Fatalf("两句都该留下，拿到 %v", got.Options)
+	}
+}
+
+// choose_span 那一侧的规则**没有**跟着放松。
+func TestChooseSpanStillNeedsTwoParagraphs(t *testing.T) {
+	got := validateCoachCard(&coachCard{
+		Type:   coachCardChooseSpan,
+		Prompt: "哪一句让你最清楚地看到封锁的后果？",
+		Options: []coachCardOption{
+			{BlockID: "b4", Quote: "Supplies ran out within days."},
+			{BlockID: "b4", Quote: "The border crossing stayed shut."},
+		},
+	}, sameParagraphBlocks())
 	if got != nil {
-		t.Fatal("选项全在同一段，应该整张丢掉")
+		t.Fatal("choose_span 的选项全在同一段，仍然应该整张丢掉")
+	}
+}
+
+// 一段里有两句完整的句子。
+func sameParagraphBlocks() []Block {
+	return []Block{
+		{ID: "b4", Text: "Supplies ran out within days. The border crossing stayed shut."},
 	}
 }
 

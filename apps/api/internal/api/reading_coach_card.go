@@ -134,19 +134,6 @@ const (
 	coachCardMaxWordTokens = 4
 )
 
-// validateCoachCard 校验模型给出的这张卡片，不合格返回 nil —— 静默丢弃，
-// 不报错、不渲染残卡。返回的是一张新卡片，调用方手里那张不会被就地改写。
-//
-// 规则：
-//   - Type 必须是三种之一；
-//   - Prompt 去空白后非空，且 ≤ 60 runes；
-//   - choose_span：每个 Quote 必须是**它自己那个 BlockID** 的字面子串
-//     （挂错段落 = 不算）、**落在从句边界上**（见 coachCardQuoteIsClause）、
-//     去空、去太短、去重（含**包含式**去重：一个选项是另一个的子串就丢掉短的）、
-//     截断到 4 个，存活 < 2 → 整张丢掉；**存活的选项全部来自同一段 → 整张丢掉**
-//     （见 coachCardMinBlocks）；
-//   - pick_in_article / short_text：忽略并清空 options
-//     （问题本身就是「去文章里找」，给了选项反而把这件事替她做了）。
 // cardReject 说的是这张卡片为什么没发出去。
 //
 // 🚨 它存在的理由和 planReject 一模一样（reading_plan.go）：卡片被丢掉是**静默**
@@ -166,7 +153,23 @@ const (
 	cardRejectOneBlock    cardReject = "every surviving option came from one paragraph"
 )
 
-// validateCoachCard 是老签名，调用方只关心「发不发得出去」的时候用它。
+// validateCoachCard 校验模型给出的这张卡片，不合格返回 nil —— 静默丢弃，
+// 不报错、不渲染残卡。返回的是一张新卡片，调用方手里那张不会被就地改写。
+// 只关心「发不发得出去」的调用方用它；要知道为什么没过的用 validateCoachCardWhy。
+//
+// 规则：
+//   - Type 必须是五种之一；
+//   - Prompt 去空白后非空、≤ 60 runes，且不是被禁的那几种问法
+//     （见 rejectBannedQuestion）；
+//   - choose_span / label_roles：每个 Quote 必须是**它自己那个 BlockID** 的字面
+//     子串（挂错段落 = 不算）、**落在从句边界上**（见 coachCardQuoteIsClause）、
+//     去空、去太短、去重（含**包含式**去重：一个选项是另一个的子串就丢掉短的）、
+//     截断到 4 个，存活 < 2 → 整张丢掉；
+//     **choose_span 还要求存活的选项跨至少两段**（见 coachCardMinBlocks），
+//     label_roles **不要求** —— 理由见下面那段；
+//   - word_bank：每个词必须按词边界出现在它那一段里，存活 < 3 → 整张丢掉；
+//   - pick_in_article / short_text：忽略并清空 options
+//     （问题本身就是「去文章里找」，给了选项反而把这件事替她做了）。
 func validateCoachCard(c *coachCard, blocks []Block) *coachCard {
 	card, _ := validateCoachCardWhy(c, blocks)
 	return card
@@ -254,7 +257,21 @@ func validateCoachCardWhy(c *coachCard, blocks []Block) (*coachCard, cardReject)
 	// 放在截断之前判会这样漏：候选里第 5 条来自另一段，前 4 条全在同一段——
 	// 截断把那唯一的第二段切掉，卡片照样发出去，而她看到的仍然是「一段话被剁开」。
 	// 规则管的是最终的选项集，那就只能在选项集定下来之后判。
-	if !coachCardSpansBlocks(out) {
+	// 🚨 跨段落这一条**只管 choose_span，不管 label_roles**。
+	//
+	// 它存在的理由（见 coachCardMinBlocks）是：几个选项全出自同一段的时候，
+	// **选项就是那一段** —— 她不必读别的段落，扫一眼选项里的名词就能点。
+	//
+	// 那条推理在标注板上不成立。标注板要她给每一句**贴一个角色**（主张 / 证据 /
+	// 限制 / 背景 / 对比），而角色是扫名词扫不出来的：同一段里的两句「后果」和
+	// 「原因」，正是关系最紧、也最值得让她分辨的一对。硬要跨段反而把这块板最好
+	// 的用法禁掉了。
+	//
+	// 这不是推测：线上第一次跑，印记 连着两轮想给她一块板（「哪一句是马上会发生
+	// 的后果，哪一句是原因？」），两次都被这条规则丢掉，而她屏幕上只看到 印记
+	// 在描述一块从来没出现过的板。日志里那两行写着
+	// 「every surviving option came from one paragraph」。
+	if c.Type == coachCardChooseSpan && !coachCardSpansBlocks(out) {
 		return nil, cardRejectOneBlock
 	}
 	card := &coachCard{Type: c.Type, Prompt: prompt, Options: out}
