@@ -66,10 +66,17 @@ type Level struct {
 	Tier int    `json:"tier"` // 1..5
 	Name string `json:"name"` // 入门 / 基础 / 进阶 / 高阶 / 原文
 	// Lexile 是原始分级值；0 表示这一档是没有简写过的原文，分级不适用。
-	Lexile   int      `json:"lexile"`
-	Words    int      `json:"words"`
-	Minutes  int      `json:"minutes"`
-	Title    string   `json:"title"`
+	Lexile  int    `json:"lexile"`
+	Words   int    `json:"words"`
+	Minutes int    `json:"minutes"`
+	Title   string `json:"title"`
+	// Byline 是这一档的署名，阅读室摆在标题下面那行「来源 · …」。
+	// 它按档存：原文那一档署的是记者本人（「Emily St. Martin, Los Angeles
+	// Times」），四个简写档署的是媒体加改写方（「Los Angeles Times, adapted
+	// by Newsela staff」）—— 两种说法各自对应它所在的那一版。
+	// 第一批语料的导出里根本没有署名行，所以那 20 篇这里是空串，
+	// 界面据此整行不显示，而不是显示一个空的「来源 · 」。
+	Byline   string   `json:"byline"`
 	Body     string   `json:"body"`
 	Headings []string `json:"headings"` // 要当小标题渲染的段 id
 	Figures  []Figure `json:"figures"`

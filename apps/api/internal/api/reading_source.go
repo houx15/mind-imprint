@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"mindimprint/api/internal/httpx"
+	"mindimprint/api/internal/library"
 	"mindimprint/api/internal/store/sqlc"
 )
 
@@ -49,9 +50,17 @@ func (a *API) refuseIfAnchored(w http.ResponseWriter, r *http.Request, atomID uu
 }
 
 type sourceDTO struct {
-	Title     string  `json:"title"`
-	SourceURL string  `json:"sourceUrl"`
-	Blocks    []Block `json:"blocks"`
+	Title     string `json:"title"`
+	SourceURL string `json:"sourceUrl"`
+	// Byline 是「来源 · …」那一行，只有从分级阅读库开来的那些才有。
+	//
+	// 🚨 它**不存在 reading_source 上**，是每次现查目录的。署名是内容，跟着
+	// articles.json 走；而 reading 上已经记着 library_slug + library_tier
+	// （迁移 0142），凭这两个就能查到，不必为一列文本再动一次 reading_source ——
+	// 那张表 pro 也在用。顺带的好处是改一次署名（比如把两种写法统一）只要重
+	// 生成 articles.json，不必回头去改已经开出去的每一条阅读记录。
+	Byline string  `json:"byline,omitempty"`
+	Blocks []Block `json:"blocks"`
 	// 版式，只有从分级阅读库开来的那些才有（迁移 0142）。图不在 Blocks 里：
 	// 工具卡挂在段 id 上，一张占了段 id 的图会被当成一段课文引回给学生。每张
 	// 图记着自己跟在哪一段之后（after，空串 = 题图），渲染时插在段与段之间。
@@ -189,9 +198,34 @@ func (a *API) getReadingSourceLite(w http.ResponseWriter, r *http.Request) {
 	blocks := SplitBlocks(row.Body)
 	httpx.WriteJSON(w, http.StatusOK, sourceDTO{
 		Title: row.Title, SourceURL: derefOr(row.SourceUrl, ""), Blocks: blocks,
+		Byline:  a.libraryByline(r, at.ID),
 		Figures: figures, Headings: headings,
 		Outline: outlineDTOFrom(decodeOutline(row.Outline), blocks),
 	})
+}
+
+// libraryByline 查这一篇阅读的署名，查不到就返回空串。
+//
+// 只有从分级阅读库开出来的阅读有署名：她自己粘进来的那些，我们不知道是谁写的，
+// 编一个出来比不写更糟。三种「没有」——不是库里来的、目录里查不到这个 slug、
+// 这一档没有署名（第一批语料全是这样）——都归到空串，界面据此整行不显示。
+//
+// 查不到目录不是错误：一篇文章可能在她开了之后从库里下架，而那条阅读记录仍然
+// 要能读。所以这里从不返回 error，最坏情况是少一行字。
+func (a *API) libraryByline(r *http.Request, atomID uuid.UUID) string {
+	rd, err := a.d.Queries.GetReading(r.Context(), atomID)
+	if err != nil || rd.LibrarySlug == "" {
+		return ""
+	}
+	art, ok := library.BySlug(rd.LibrarySlug)
+	if !ok {
+		return ""
+	}
+	lvl, ok := art.LevelAt(int(rd.LibraryTier))
+	if !ok {
+		return ""
+	}
+	return lvl.Byline
 }
 
 // nullableText returns a *string for s: nil for an empty/blank string (so the

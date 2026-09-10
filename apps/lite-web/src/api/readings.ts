@@ -63,6 +63,12 @@ export interface ReadingOutline {
 export interface ReadingSource {
   title: string;
   sourceUrl: string;
+  /**
+   * 署名，摆在标题下面那行「来源 · …」。只有从分级阅读库开来的那些有：
+   * 她自己粘进来的，我们不知道是谁写的，编一个比不写更糟。服务端查不到就
+   * 整个省掉这个字段。
+   */
+  byline?: string;
   blocks: ReadingBlock[];
   /** 版式。粘贴进来的阅读没有这两项，服务端整个省掉这两个字段。 */
   figures?: ReadingFigure[];

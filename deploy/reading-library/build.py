@@ -176,6 +176,13 @@ def main() -> int:
                     "words": lvl["words"],
                     "minutes": max(1, math.ceil(lvl["words"] / WORDS_PER_MINUTE)),
                     "title": normalize_quotes(lvl["title"]),
+                    # Per level, not per article: the unsimplified 原文 names the
+                    # journalist ("Emily St. Martin, Los Angeles Times") while
+                    # the rewrites credit the outlet plus the adapter ("Los
+                    # Angeles Times, adapted by Newsela staff"). Both are true
+                    # of the version they sit on. Empty for the first batch,
+                    # whose export carried no byline at all.
+                    "byline": apply_corrections(normalize_quotes(lvl["byline"]), replacements, hits),
                     "body": body,
                     "headings": lvl["headings"],
                     "figures": figures,

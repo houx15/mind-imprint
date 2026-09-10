@@ -1,6 +1,7 @@
 package library
 
 import (
+	"strings"
 	"testing"
 
 	"mindimprint/api/internal/disciplines"
@@ -101,6 +102,39 @@ func TestEveryFigureIsCaptionedAndCredited(t *testing.T) {
 				if f.Width == 0 || f.Height == 0 {
 					t.Errorf("%s %s: %s 没有尺寸", a.Slug, l.Name, f.Key)
 				}
+			}
+		}
+	}
+}
+
+// 署名要么这一篇每一档都有，要么每一档都没有。
+//
+// 中间状态才是 bug：署名是从正文里摘出去的一行（不摘就变成 b1，会被当成文章
+// 第一句引给学生），所以「有几档摘到了、有几档没摘到」说明解析器在这一批上
+// 只对了一半 —— 而没摘到的那几档，那行字这会儿正躺在正文里。
+//
+// 两批的正常状态不同：第一批的导出根本没有署名行（20 篇全空），第二批每档都有。
+// 所以这里不写「必须有」，写的是「这一篇里要一致」。
+func TestBylineIsAllLevelsOrNone(t *testing.T) {
+	for _, a := range All() {
+		with := 0
+		for _, l := range a.Levels {
+			if l.Byline != "" {
+				with++
+			}
+		}
+		if with != 0 && with != len(a.Levels) {
+			t.Errorf("%s 有 %d/%d 档带署名 —— 没带的那几档，那行字大概还在正文里",
+				a.Slug, with, len(a.Levels))
+		}
+		for _, l := range a.Levels {
+			// "By " 是导出里的前缀，摘的时候要一起去掉：界面自己写「来源 · 」，
+			// 留着就成了「来源 · By 美联社」。
+			if strings.HasPrefix(l.Byline, "By ") {
+				t.Errorf("%s %s 的署名还带着 By 前缀: %q", a.Slug, l.Name, l.Byline)
+			}
+			if strings.TrimSpace(l.Byline) != l.Byline {
+				t.Errorf("%s %s 的署名两头有空白: %q", a.Slug, l.Name, l.Byline)
 			}
 		}
 	}

@@ -61,6 +61,11 @@ HEADING = re.compile(r"^#{2,6}\s+(?P<text>.+?)\s*$")
 # under the meta line. Matching it anywhere would eat "By 2000, the program
 # had spread across the country", which is prose.
 BYLINE = re.compile(r"^By\b[\s,]*(?P<text>.*\S)\s*$")
+# One syndicated piece ends its byline with a publication date ("… adapted by
+# Newsela staff on 09.09.26"). The byline is shown as a source credit, and no
+# other article in the library carries a date, so showing one here would read
+# as an inconsistency rather than as information.
+BYLINE_DATE = re.compile(r"\s+on\s+\d{2}\.\d{2}\.\d{2}\s*$")
 # "Image 3. " / "Image 3: " — the export numbers every picture but the lead.
 IMAGE_NO = re.compile(r"^Image\s+\d+[.:]\s*")
 # The credit trails the caption, and its marker word is not always "Photo:" —
@@ -215,7 +220,7 @@ def parse_file(path: str) -> dict:
                 # "By , Tribune Content Agency, adapted by Newsela staff" —
                 # the export leaves the author slot empty on the syndicated
                 # pieces, so the separator is stripped along with the "By".
-                byline = m.group("text")
+                byline = BYLINE_DATE.sub("", m.group("text"))
                 continue
         m = IMAGE.match(line)
         if m:

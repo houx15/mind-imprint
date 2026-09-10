@@ -460,6 +460,9 @@ function PasteSourcePanel({
  * `MaterialSource` the room reads. Every pro-only field is set to its honest
  * empty value: a lite reading has no dossier, no tier, no lateral-read graph,
  * and inventing one would put claims on screen with nothing behind them.
+ *
+ * `origin` is the exception that stopped being empty: a library article knows
+ * who wrote it, so it fills the 「来源 · …」 line the room already had.
  */
 export function toMaterialSource(
   readingId: string,
@@ -472,7 +475,10 @@ export function toMaterialSource(
     title: src.title || reading.title,
     sourceUrl: src.sourceUrl,
     kind: "article",
-    origin: "",
+    // The room renders this as 「来源 · …」. Empty for a pasted article — we do
+    // not know who wrote it, and the room drops the whole line rather than
+    // printing 「来源 · 」 with nothing after it.
+    origin: src.byline ?? "",
     blocks: src.blocks,
     locked: false,
     role: "",
