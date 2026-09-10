@@ -34,11 +34,17 @@ package api
 //
 //	承重只能取三个值            越界的那一段退回「支撑」
 //	核心段不超过全文的三分之一   超了整份 outline 作废（全是核心 = 没有核心）
+//	一段核心都没有              整份作废（那份分类没在分类）
+//	一句话必须是中文的          一个汉字都没有 → 整份作废
 //	两个字段都有字数上限        超了截断
 //
 // 第二条是真正有意义的那条。模型很容易把每一段都标成核心 —— 那份 outline 在
 // 屏幕上仍然长得像一份导读，但它一个字的信息都没有，而带读的节奏会退回「每段
 // 都停」，也就是没有节奏。
+//
+// 第四条是线上第一次跑就撞上的：文章是英文的，模型顺着文章的语言把导读也写成了
+// 英文（「outbreak → blockade → aid scramble → war」），摆在中文界面上对她等于
+// 不存在。
 
 import (
 	"encoding/json"
@@ -118,6 +124,20 @@ func validateOutline(got readingOutline, blocks []Block) (readingOutline, bool) 
 		out.Load[b.ID] = kind
 	}
 
+	// 🚨 导读必须是中文的。
+	//
+	// 线上第一次跑就写成了英文（「War is escalating — can aid groups still
+	// reach…」「outbreak → blockade → aid scramble → war」）—— 文章是英文的，
+	// 模型顺着文章的语言写了下去。那份导读摆在中文界面上，对她等于不存在。
+	//
+	// prompt 里当然也写了这一条，但一句 prompt 里的「必须」如果代码里验不了，
+	// 它就只是一句期望（[[prompt-output-must-be-verifiable-2026-09-03]]）。
+	// 判据取最宽的那一个：**一个汉字都没有**才算没写中文。这样英文的专有名词
+	// （人名、地名、机构名）照抄原文不会被误伤 —— 那本来就是对的做法。
+	if !hasCJK(out.OneLine) {
+		return readingOutline{}, false
+	}
+
 	// 全是核心 = 没有核心。见 coreShareCap。
 	if core*coreShareCap > len(out.Load) {
 		return readingOutline{}, false
@@ -160,6 +180,17 @@ func decodeOutline(raw []byte) readingOutline {
 		o.Load = map[string]string{}
 	}
 	return o
+}
+
+// hasCJK —— 这段字里有没有汉字。判的是 CJK 统一汉字那一段，不含假名和谚文：
+// 我们要分辨的是「中文」和「英文」，不是「东亚文字」和别的。
+func hasCJK(s string) bool {
+	for _, r := range s {
+		if r >= 0x4E00 && r <= 0x9FFF {
+			return true
+		}
+	}
+	return false
 }
 
 func trimRunes(s string, n int) string {

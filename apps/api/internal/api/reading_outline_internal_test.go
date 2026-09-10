@@ -102,3 +102,35 @@ func TestDecodeOutlineSurvivesGarbage(t *testing.T) {
 		}
 	}
 }
+
+func TestOutlineRejectsAnEnglishOneLine(t *testing.T) {
+	// 🚨 线上第一次跑就撞上的：文章是英文的，模型顺着文章的语言把导读也写成了
+	// 英文。那份导读摆在中文界面上，对她等于不存在。
+	blocks := outlineBlocks(9)
+	load := fullLoad(9, loadSupport)
+	load["b2"] = loadCore
+	got := readingOutline{
+		OneLine: "War is escalating — can aid groups still reach the people trapped inside?",
+		Shape:   "outbreak → blockade → aid scramble → war",
+		Load:    load,
+	}
+	if _, ok := validateOutline(got, blocks); ok {
+		t.Fatal("一个汉字都没有的导读应该被整份丢掉")
+	}
+}
+
+func TestOutlineKeepsEnglishProperNouns(t *testing.T) {
+	// 判据取最宽的那一个：**一个汉字都没有**才算没写中文。人名、地名、机构名
+	// 照抄原文是对的做法，不该被误伤。
+	blocks := outlineBlocks(9)
+	load := fullLoad(9, loadSupport)
+	load["b2"] = loadCore
+	got := readingOutline{
+		OneLine: "在 Gaza，援助进得去吗",
+		Shape:   "冲突 → 封锁 → 救援 → 未解决",
+		Load:    load,
+	}
+	if _, ok := validateOutline(got, blocks); !ok {
+		t.Fatal("带英文专有名词的中文导读应该收下")
+	}
+}

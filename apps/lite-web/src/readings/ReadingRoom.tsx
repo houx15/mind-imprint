@@ -635,15 +635,19 @@ export function ReadingRoom({
                       打开原文 ↗
                     </a>
                   )}
+                  {/* 🚨 导读在题图**之前**。它是她开读之前要看的那张地图，
+                      而题图是一张 400px 高的照片 —— 摆在照片下面，导读就在
+                      第一屏之外，走查的截图里正是这样（她得先往下滚才看得到
+                      「这篇在问什么」，而那时候她已经开始读了）。 */}
+                  {outline && (
+                    <ReadingOutlineCard
+                      outline={outline}
+                      ordinalOf={ordinalOf}
+                      onLocate={locateBlock}
+                    />
+                  )}
                   {leadFigure && <ArticleFigure figure={leadFigure} />}
                 </header>
-                {outline && (
-                  <ReadingOutlineCard
-                    outline={outline}
-                    ordinalOf={ordinalOf}
-                    onLocate={locateBlock}
-                  />
-                )}
                 <Annotate
                   blocks={source.blocks}
                   headingBlockIds={headingBlockIds}
