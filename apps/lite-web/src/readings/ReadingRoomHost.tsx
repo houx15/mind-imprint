@@ -166,6 +166,34 @@ export function ReadingRoomHost({ readingId }: { readingId: string }) {
     return toMaterialSource(readingId, state.reading, state.source, state.annotations);
   }, [state, readingId]);
 
+  /**
+   * 🚨 导读是**排读法那一次**写进 reading_source 的，而这个房间在她按「开始」
+   * **之前**就把 source 取回来了 —— 所以取回来的那一份里没有导读，而且不会
+   * 自己变。走查里就是这么发现的：线上排读法成功了，`.mk-reading-outline`
+   * 却永远等不到。
+   *
+   * 修法是重取一次 source，而不是让排读法那个接口也发一份导读：导读是文章的
+   * 属性，让两个接口都能发它，就等于把「谁说了算」变成两个人。多的这一次
+   * GET 每篇文章只发生一次（拿到导读之后条件就不成立了）。
+   */
+  useEffect(() => {
+    if (state.phase !== "ready") return;
+    if (state.source.outline) return;
+    if (!plan || plan.tasks.length === 0) return;
+    let cancelled = false;
+    getReadingSource(readingId)
+      .then((source) => {
+        // 没有导读就别动 state —— 排读法可能整份丢掉了（核心段全标满那种），
+        // 那时候重复 setState 只会让房间白白重渲染。
+        if (cancelled || !source.outline) return;
+        setState((prev) => (prev.phase === "ready" ? { ...prev, source } : prev));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [state, plan, readingId]);
+
   // 版式（图 + 小标题）+ 导读。图和小标题只有分级阅读库开来的阅读有；导读是
   // 排读法那一次算出来的，所以排读法之前也是空的。
   const layout = useMemo(() => {
