@@ -38,12 +38,80 @@ API_HOST="mind-api.uni-robot.cn"   # what the web bundle MUST embed
 fail() { echo "DEPLOY FAILED: $*" >&2; exit 1; }
 step() { echo; echo "=== $* ==="; }
 
+# How much of / has to be free before we start building. One api build writes
+# roughly 5 GB of layers and cache, and running out MID-BUILD is what wedged
+# 2026-09-10: the image finished, then `migrate` died on "no space left on
+# device" with the box at 100%.
+MIN_FREE_GB=12
+# Build cache older than this is dropped on every deploy. Recent cache is what
+# makes a same-day rebuild fast; a week-old layer is just rent.
+CACHE_KEEP=48h
+# Pre-migration pg_dumps to keep. They are snapshots taken seconds before each
+# migration, not the backup system of record, and they had never been deleted:
+# 188 files / 2.2 GB going back to 2026-08-05 by the time anyone looked.
+BACKUPS_KEEP=30
+
+avail_gb() { df -P -k / | awk 'NR==2 {print int($4/1024/1024)}'; }
+
+# reclaim_disk — get the box back under its own control BEFORE a build.
+#
+# 🚨 `docker builder prune` WITHOUT an `until` filter reclaims NOTHING here,
+# whatever else you pass it. The old line was
+#
+#     docker builder prune -f --keep-storage 5GB
+#
+# which reads like a 5 GB cap and has never once deleted a byte: measured
+# 2026-09-10 against 9.8 GB of cache, it reported `Total: 0B`. Adding `-a` does
+# not help either, and neither does the modern spelling `--reserved-space` —
+# BuildKit counts these records as in use because they are shared with images
+# that still exist, and only an explicit age filter overrides that. The same
+# box, same cache, `--filter until=72h` freed 10.5 GB. So the age filter is not
+# a nicety here; it is the only lever that works.
+#
+# NEVER `image prune -a` / `system prune -a`: on this China host that also drops
+# the tagged base images (golang / node / nginx / gcr.io-distroless) which
+# cannot be re-pulled directly, and the next build has nothing to build on.
+# `image prune -f` (dangling only) and `builder prune` cannot touch them.
+reclaim_disk() {
+  step "reclaim disk (free ${1:-?}GB now; want ${MIN_FREE_GB}GB before building)"
+  docker image prune -f || true
+  docker builder prune -af --filter "until=$CACHE_KEEP" || true
+
+  # Pre-migration dumps, newest kept. `ls -t` orders by mtime, so this keeps the
+  # most recent N whatever they are named.
+  if [ -d backups ]; then
+    local old
+    old=$(ls -1t backups/backup-*.sql 2>/dev/null | tail -n +$((BACKUPS_KEEP + 1)))
+    if [ -n "$old" ]; then
+      echo "$old" | xargs -r rm -f
+      echo "dropped $(echo "$old" | wc -l) old pg_dump(s), kept the newest $BACKUPS_KEEP"
+    fi
+  fi
+
+  # Still tight? Take the rest of the cache too. A slow next build beats a
+  # deploy that cannot write, and the only thing lost is rebuild speed.
+  if [ "$(avail_gb)" -lt "$MIN_FREE_GB" ]; then
+    echo "still under ${MIN_FREE_GB}GB — dropping all build cache except the last hour"
+    docker builder prune -af --filter until=1h || true
+  fi
+  echo "free after reclaim: $(avail_gb)GB"
+}
+
 cd "$REPO" || fail "no repo at $REPO"
 
 step "sync source to $REF"
 git fetch origin || fail "git fetch"
 git reset --hard "$REF" || fail "git reset"      # leaves git-ignored deploy/.env.prod untouched
 git --no-pager log --oneline -1
+
+# Reclaim BEFORE building, not only after. The post-build prune that used to be
+# the only one cannot help a build that has already run the disk to zero — and
+# a half-finished deploy is the worst state to discover it from.
+reclaim_disk "$(avail_gb)"
+if [ "$(avail_gb)" -lt "$MIN_FREE_GB" ]; then
+  df -h /
+  fail "only $(avail_gb)GB free after reclaiming, need ${MIN_FREE_GB}GB — something other than build cache and old backups is filling /, look before deleting"
+fi
 
 deploy_api() {
   step "backup DB (pg_dump) before migrating"
@@ -121,15 +189,12 @@ case "$MODE" in
   full) deploy_api; deploy_web; deploy_lite ;;
 esac
 
-# Reclaim disk from the build we just superseded: `compose build` retags
-# mindimprint-{api,web}:latest onto the NEW image, leaving the previous build's
-# layers DANGLING (untagged). Prune only those + old build cache — this keeps the
-# 40G host from filling across many deploys. NEVER `image prune -a`: on this
-# China host it would also drop the tagged base images (golang / nginx /
-# gcr.io-distroless) that can't be re-pulled directly, breaking the next build.
-step "prune superseded (dangling) images + old build cache"
-docker image prune -f || true
-docker builder prune -f --keep-storage 5GB || true
+# And again afterwards: `compose build` retags mindimprint-{api,web,lite-web}
+# :latest onto the NEW image, leaving the previous build's layers DANGLING, and
+# this build just added its own cache. Same function, so the two passes cannot
+# drift apart.
+reclaim_disk "$(avail_gb)"
+df -h / | tail -1
 
 step "container status (check CREATED age reflects this deploy)"
 docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.CreatedAt}}'
