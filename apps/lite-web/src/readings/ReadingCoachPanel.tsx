@@ -506,7 +506,8 @@ export function ReadingCoachPanel({
                 而屏幕上没有任何字说这些是什么、接下来该干什么。
                 在那之前这里只有一排光秃秃的引文。 */}
             <span className="w-full text-mk-label text-mk-muted">
-              已引用 {slot.quotes.length} 处，随你下一句话一起发出。不要的那一处点 ✕ 去掉。
+              已引用 {slot.quotes.length} 处。可以直接发出，也可以再写一句话一起发。
+              不要的那一处点 ✕ 去掉。
             </span>
             {slot.quotes.map((q) => (
               <span
@@ -525,6 +526,23 @@ export function ReadingCoachPanel({
                 </button>
               </span>
             ))}
+            {/* 🚨 一颗真的按钮，不是一句提示。
+                `send()` 早就接受「只有引文、一个字没打」这种情况 —— 缺的从来
+                只是**屏幕上没有地方让她做这件事**：她得在一个空的输入框里按回车，
+                或者去找角落那个发送箭头。
+                模拟学生走查在这里绕了二十轮：印记 让她「在文章里点出那一句」，
+                她点了，引文排在输入框上面，然后她再点一句、再点一句 —— 每一轮都
+                以为自己没做对，因为屏幕上什么都没发生。
+                卡片上那句「点完它就会出现在对话里」在这之前是一句我们没兑现的话。 */}
+            <button
+              type="button"
+              disabled={slot.locked || busy}
+              onClick={() => send()}
+              className="rounded-mk-full px-3 py-0.5 text-mk-label text-white transition-opacity duration-[120ms] ease-mk disabled:opacity-50"
+              style={{ background: "var(--mk-accent-500)" }}
+            >
+              发出这 {slot.quotes.length} 处
+            </button>
           </div>
         )}
 
