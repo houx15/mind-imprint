@@ -61,8 +61,20 @@ await page.waitForFunction(
   null,
   { timeout: 30_000 },
 );
-await scrollArticle(0);
-await page.waitForTimeout(400); // the scroll back to the top has to land before the shot
+// Back to the top — and CHECK, because one scrollTo is not enough. The
+// pictures finish decoding after the scroll down, each one growing the column
+// under the viewport, and scroll anchoring drags the pane back down again. A
+// file named "-top" that is actually the middle of the article is worse than
+// no screenshot: it looks like the header is missing.
+for (let i = 0; i < 5; i++) {
+  await scrollArticle(0);
+  await page.waitForTimeout(400);
+  const at = await page.evaluate(
+    () => document.querySelector(".mk-reading-room__article")?.scrollTop ?? 0,
+  );
+  if (at === 0) break;
+  if (i === 4) console.warn(`WARNING: the article pane would not return to the top (scrollTop=${at})`);
+}
 
 const top = path.join(OUT, `reading-room-${SLUG}-t${TIER}-top.png`);
 await page.screenshot({ path: top, fullPage: true });
