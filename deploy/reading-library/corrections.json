@@ -6,8 +6,13 @@
     "无从查证）就把错的那部分删掉，不要填一个自己猜的数进去 —— 学生会拿它去",
     "引用。",
     "",
-    "replace 会在正文与图注上逐条执行；count 是期望命中的次数（build.py 校验，",
-    "对不上就失败），这样源文件哪天换了一版，这里不会静静地失效。"
+    "replacements 会在正文、图注与署名上逐条执行；count 是期望命中的次数",
+    "（build.py 校验，对不上就失败），这样源文件哪天换了一版，这里不会静静地",
+    "失效。",
+    "",
+    "figure_captions 是整条换掉一张图的图注。有些图注不是错了一个词，而是",
+    "PDF 的两栏被拼到了一起（一句话里插进另一句话的半截），或者整行没导出来 ——",
+    "这两种都没有可以 find 的字符串。每条必须命中至少一张图，否则构建失败。"
   ],
   "replacements": [
     {
@@ -15,6 +20,71 @@
       "replace": "A circle at the Moundbuilders Country Club",
       "count": 5,
       "why": "155 英尺 = 47 米，不是 477 米，两个数差了十倍，五个难度版本里都是这一句。原文到底是 155 英尺还是 477 米无从查证，所以删掉这处尺寸，不替换成一个猜出来的数字。"
+    },
+    {
+      "find": "Photo: Derrick Downey Jr./Handout/ Washington Post",
+      "replace": "Photo: Derrick Downey Jr./Handout/The Washington Post",
+      "count": 5,
+      "why": "同一张图的署名在库里有两种写法：十次是 The Washington Post，五次掉了 The、多了一个空格。掉字的那种是 PDF 把署名盖了两遍时第二遍的残留，取写全的那种。"
+    },
+    {
+      "find": "Taymour Atighetchi",
+      "replace": "Taymoor Atighetchi",
+      "count": 4,
+      "why": "Papier 创始人的名字。同一批文件里 Taymoor 六处、Taymour 四处：四个简写档的正文写 Taymoor，图注写 Taymour，原文那一档两处都写 Taymoor。原文是没有简写过的那一版，以它为准，改的是那四处图注。"
+    },
+    {
+      "find": "LeBLancs",
+      "replace": "LeBlancs",
+      "count": 2,
+      "why": "同一个姓在这篇里出现 46 次，其中两次把第三个字母印成了大写 L。"
+    },
+    {
+      "find": "Cinncinnati",
+      "replace": "Cincinnati",
+      "count": 2,
+      "why": "辛辛那提多了一个 n。这篇里正确拼法出现 13 次，错的两次。地名会被学生抄进引用里。"
+    }
+  ],
+  "figure_captions": [
+    {
+      "slug": "500-year-old-freeze-dried-potato-snacks-discovered-in-inca-storage-room-in-peru",
+      "file": "500-year-old-freeze-dried-potato-snacks-discovered-in-inca-storage-room-in-peru-6aa105b0d4bc.png",
+      "caption": "Chuño is a snack made of potatoes that are freeze-dried. Archeologists recently found a 500-year-old sample of chuño in Peru.",
+      "credit": "Photo credit: Nataly Regina/Shutterstock",
+      "why": "这篇的 PDF 里有两张图，导出来只有一张。五个难度档里有四档配的是另一张（马丘比丘的印加古道）的图注，而这张图上是摊在白布上晾晒的土豆 —— 也就是 chuño 本身，已经打开原图确认过。照原样上线，学生看到的是一张土豆照片配着「山间印加古道的高角度俯瞰」。取 710L 那一档的图注（描述的正是这张图），并去掉被盖了两遍的署名。"
+    },
+    {
+      "slug": "four-young-mathematicians-awarded-the-2026-fields-medals",
+      "file": "four-young-mathematicians-awarded-the-2026-fields-medals-ac3d44913ffb.jpg",
+      "levels": ["740L"],
+      "caption": "In 2026, Hong Wang became only the third woman ever to win the Fields Medal.",
+      "credit": "Photo credit: Simons Foundation/CC BY 4.0",
+      "why": "740L 这一档只导出了图注的最后四个词（「Foundation/CC BY 4.0」）。另外四档对这张图的图注完全一致，取那一句。"
+    },
+    {
+      "slug": "four-young-mathematicians-awarded-the-2026-fields-medals",
+      "file": "four-young-mathematicians-awarded-the-2026-fields-medals-b157c471f984.jpg",
+      "levels": ["740L"],
+      "caption": "Yu Deng, who won the Fields Medal in math in 2026.",
+      "credit": "Photo credit: Simons Foundation/CC BY 4.0",
+      "why": "740L 这一档把 PDF 相邻两栏的图注按行交错拼成了一句（「Yu Deng, who won the Fields Image 1. In 2026, Hong Wang became only Medal in math...」）。另外四档一致，取那一句。"
+    },
+    {
+      "slug": "four-young-mathematicians-awarded-the-2026-fields-medals",
+      "file": "four-young-mathematicians-awarded-the-2026-fields-medals-e2e0b8546666.jpg",
+      "levels": ["930L"],
+      "caption": "John Pardon won the Fields Medal in math in 2026.",
+      "credit": "Photo credit: Simons Foundation/CC BY 4.0",
+      "why": "930L 这一档这张图后面根本没有图注行 —— 它被并进了下一张图的图注里。另外四档一致，取那一句。"
+    },
+    {
+      "slug": "four-young-mathematicians-awarded-the-2026-fields-medals",
+      "file": "four-young-mathematicians-awarded-the-2026-fields-medals-bdf6ff5ca8b5.jpg",
+      "levels": ["930L"],
+      "caption": "Jacob Tsimerman won the math Fields Medal in 2026.",
+      "credit": "Photo credit: Simons Foundation/CC BY 4.0",
+      "why": "930L 这一档同样是两栏交错，把上一张图的图注插了进来。另外四档一致，取那一句。"
     }
   ]
 }

@@ -2,10 +2,14 @@
 # -*- coding: utf-8 -*-
 """Prepare the library's photographs for the CDN.
 
-The export ships press originals — 177 MB across 60 files, the largest a
-13 MB PNG at 3754px wide. Serving those to a student on a phone would spend
-her data on pixels a 700px column throws away, so every picture is resized to
-fit MAX_EDGE and re-encoded as WebP.
+The export ships press originals — the first batch alone was 177 MB across 60
+files, the largest a 13 MB PNG at 3754px wide. Serving those to a student on a
+phone would spend her data on pixels a 700px column throws away, so every
+picture is resized to fit MAX_EDGE and re-encoded as WebP.
+
+Every registered batch is processed in one pass, because the manifest this
+writes is the whole library's, not one batch's: build.py looks a figure up by
+its source filename with no idea which batch it came from.
 
 Output
   dist/images/<name>.webp   what upload-reading-images.sh PUTs to OSS
@@ -26,9 +30,9 @@ import sys
 
 from PIL import Image
 
+import sources
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-SRC = os.path.join(ROOT, "docs", "reference", "reading-database", "images")
 DIST = os.path.join(HERE, "dist")
 OUT = os.path.join(DIST, "images")
 
@@ -43,18 +47,22 @@ KEY_PREFIX = "web/reading/v1"
 
 
 def main() -> int:
-    if not os.path.isdir(SRC):
-        print("no source images at %s" % SRC, file=sys.stderr)
-        return 1
     os.makedirs(OUT, exist_ok=True)
 
     manifest: dict[str, dict] = {}
+    seen: dict[str, str] = {}
     total_before = total_after = 0
-    for name in sorted(os.listdir(SRC)):
-        if name.startswith("."):
-            continue
-        path = os.path.join(SRC, name)
+    for _batch, path in sources.image_files():
+        name = os.path.basename(path)
         stem, _ = os.path.splitext(name)
+        if stem in seen:
+            # Object keys are derived from the basename, so two batches using
+            # the same one would overwrite each other on the CDN and put the
+            # wrong photograph in one of the two articles.
+            print("two sources share the image name %s:\n  %s\n  %s"
+                  % (name, seen[stem], path), file=sys.stderr)
+            return 1
+        seen[stem] = path
         with Image.open(path) as im:
             im = im.convert("RGB")
             w, h = im.size

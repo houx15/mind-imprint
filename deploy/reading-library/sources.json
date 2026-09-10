@@ -1,0 +1,28 @@
+{
+  "_note": [
+    "库的源语料在哪。每上传一批就在 batches 里追加一条，其余脚本从这里读，",
+    "不各自写死路径。",
+    "",
+    "path 相对仓库根。目录本身是 gitignore 掉的（原图上百 MB，产物已经在库里）。",
+    "",
+    "两批的目录形状不一样：第一批是一层平铺的 *.md 加一个共用的 images/，",
+    "第二批每篇一个目录，markdown 在里面（有的还多套一层 MD/），images/ 也在",
+    "里面。脚本一律递归找 *.md 和叫 images 的目录，所以形状不影响结果 —— 分档",
+    "由文件名末尾的 -930L / -MAX 决定，slug 由去掉这个后缀的文件名决定，跟它",
+    "放在第几层没有关系。"
+  ],
+  "batches": [
+    {
+      "name": "batch-1",
+      "added": "2026-09-09",
+      "path": "docs/reference/reading-database",
+      "note": "20 篇 × 5 档，60 张图。平铺 + 共用 images/。"
+    },
+    {
+      "name": "batch-0910",
+      "added": "2026-09-10",
+      "path": "docs/reference/new-reading-batch-0910",
+      "note": "29 篇，67 张图。每篇一个目录；pro-con-data-centers 多一层 MD/。"
+    }
+  ]
+}

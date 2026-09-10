@@ -10,12 +10,18 @@ import (
 // 成立」的那些性质：档位连号、学科在闭表里、每篇都有题图。渲染长什么样不在
 // 这里测（见 AGENTS.md 关于只写逻辑测试的那一条）。
 
+// 这里是下限，不是等号。库每上一批就长一次（第一批 20 篇，2026-09-10 那批之后
+// 48 篇），写等号的话每批都要来改一个数字，而改完之后这条测试当天就不再说明
+// 任何事情。它要挡的是另一件事：流水线某次跑出一份缺了大半的 articles.json，
+// 而接口照样返回 200、书架照样有东西可看。
+const atLeast = 40
+
 func TestLibraryLoads(t *testing.T) {
 	if err := LoadErr(); err != nil {
 		t.Fatalf("articles.json 没能加载: %v", err)
 	}
-	if len(All()) != 20 {
-		t.Fatalf("库里有 %d 篇，期望 20 篇", len(All()))
+	if len(All()) < atLeast {
+		t.Fatalf("库里只有 %d 篇，少于 %d —— 流水线大概少跑了一批源", len(All()), atLeast)
 	}
 }
 

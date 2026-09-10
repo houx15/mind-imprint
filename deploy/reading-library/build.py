@@ -67,11 +67,33 @@ def apply_corrections(text: str, replacements: list[dict], hits: dict[str, int])
     return text
 
 
+def caption_override(overrides: list[dict], used: list[int], slug: str, level: str, file: str):
+    """The replacement caption and credit for one figure, or None.
+
+    An entry with no `levels` applies to every level of that story; the potato
+    photograph needs that, since four of its five levels caption it with a
+    picture that was never exported.
+    """
+    for i, o in enumerate(overrides):
+        if o["slug"] != slug or o["file"] != file:
+            continue
+        if "levels" in o and level not in o["levels"]:
+            continue
+        used[i] += 1
+        return o["caption"], o.get("credit", "")
+    return None
+
+
 def main() -> int:
     with open(os.path.join(HERE, "tags.json"), encoding="utf-8") as fh:
-        tags = json.load(fh)["articles"]
+        tagfile = json.load(fh)
+    tags = tagfile["articles"]
+    holds = tagfile.get("holds", {})
     with open(os.path.join(HERE, "corrections.json"), encoding="utf-8") as fh:
-        replacements = json.load(fh)["replacements"]
+        corrections = json.load(fh)
+    replacements = corrections["replacements"]
+    overrides = corrections.get("figure_captions", [])
+    override_used = [0] * len(overrides)
     images_path = os.path.join(DIST, "images.json")
     if not os.path.exists(images_path):
         print("no image manifest at %s — run make_images.py first" % images_path, file=sys.stderr)
@@ -92,8 +114,15 @@ def main() -> int:
     out = []
     problems = []
 
+    held = []
     for art in parsed:
         slug = art["slug"]
+        if slug in holds:
+            # Held back on purpose, with the reason written down. A story is
+            # not dropped by being left out of tags.json — that path is a
+            # build failure, so forgetting one cannot look like a decision.
+            held.append((slug, holds[slug]))
+            continue
         tag = tags.get(slug)
         if tag is None:
             problems.append("%s: no entry in tags.json" % slug)
@@ -118,6 +147,10 @@ def main() -> int:
                 # would drift the moment one of them is corrected. The
                 # renderer sets alt from caption.
                 caption = f["caption"] or f["alt"]
+                credit = f["credit"]
+                ovr = caption_override(overrides, override_used, slug, lvl["level"], f["file"])
+                if ovr is not None:
+                    caption, credit = ovr
                 figures.append(
                     {
                         "after": f["after"],
@@ -125,7 +158,11 @@ def main() -> int:
                         "width": meta["width"],
                         "height": meta["height"],
                         "caption": apply_corrections(normalize_quotes(caption), replacements, hits),
-                        "credit": normalize_quotes(f["credit"]),
+                        # Credits go through the corrections too. One of them
+                        # is a credit: the same photographer's line is stamped
+                        # two ways across the library, and a student reads that
+                        # line the same way she reads the caption above it.
+                        "credit": apply_corrections(normalize_quotes(credit), replacements, hits),
                     }
                 )
             levels.append(
@@ -172,6 +209,14 @@ def main() -> int:
         n = hits.get(r["find"], 0)
         if n != r["count"]:
             problems.append("correction %r matched %d times, expected %d" % (r["find"][:40], n, r["count"]))
+    for i, o in enumerate(overrides):
+        if override_used[i] == 0:
+            problems.append("caption override for %s / %s matched no figure" % (o["slug"], o["file"]))
+    for slug in holds:
+        if not any(a["slug"] == slug for a in parsed):
+            problems.append("hold %r names a story that is not in the corpus" % slug)
+        if slug in tags:
+            problems.append("%s is both held back and tagged — decide which" % slug)
 
     if problems:
         for p in problems:
@@ -189,6 +234,8 @@ def main() -> int:
     print("wrote %s" % os.path.relpath(OUT, ROOT))
     print("%d articles · %d levels · %d figures · %.1f KB"
           % (len(out), sum(len(a["levels"]) for a in out), figs, len(buf.getvalue().encode()) / 1024))
+    for slug, why in held:
+        print("held back: %s — %s" % (slug, why))
     return 0
 
 

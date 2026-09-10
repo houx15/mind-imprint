@@ -10,7 +10,11 @@
     "第一门学科是主学科，决定这篇文章在书架上的颜色（它所属主枝的颜色）。",
     "",
     "reason 是一句话，说这篇里有什么值得读，不做铺垫、不替她减压（见 AGENTS.md",
-    "「界面文案怎么写」）。"
+    "「界面文案怎么写」）。",
+    "",
+    "holds 是语料里有、但先不上线的文章：slug -> 为什么。写在这里而不是删掉，",
+    "是因为「漏了一篇」和「决定先不上」在构建输出里必须长得不一样 —— 没进",
+    "articles 也没进 holds 的文章会让构建失败。"
   ],
   "articles": {
     "aid-groups-israel-hamas-war": {
@@ -112,6 +116,151 @@
       "zh_title": "突尼斯养蜂人与极端高温",
       "reason": "高温、干旱与蜂群损失，一条从气候连到收入的链条。",
       "disciplines": ["climate-ocean", "ecology", "economics"]
+    },
+
+    "500-year-old-freeze-dried-potato-snacks-discovered-in-inca-storage-room-in-peru": {
+      "zh_title": "印加储藏室里的冻干土豆",
+      "reason": "秘鲁海岸出土的五百年前 chuño，证明印加把安第斯山的主粮送到了几百公里外。",
+      "disciplines": ["anthropology", "history"]
+    },
+    "a-14-year-old-used-his-lasso-to-save-a-man-drowning-in-the-yellowstone-river": {
+      "zh_title": "十四岁少年用套索救起落水者",
+      "reason": "黄石河上一次翻船事故，以及一个牧场少年在几分钟里做的判断。",
+      "disciplines": ["wellbeing", "developmental-psychology"]
+    },
+    "a-geometric-pattern-lurks-in-chinese-money-plant-leaves": {
+      "zh_title": "镜面草叶片里的几何图案",
+      "reason": "叶片上的 Voronoi 图，以及植物激素扩散如何画出这种分区。",
+      "disciplines": ["modelling", "ecology", "discrete-networks"]
+    },
+    "ai-can-be-a-helpful-math-tutor-if-used-right-and-harmful-if-not": {
+      "zh_title": "AI 当数学家教的正确用法",
+      "reason": "1300 名高中生的调查结果：哪几种用法帮得上忙，哪几种反而拖后腿。",
+      "disciplines": ["education-learning", "ai-ml", "cognitive-psychology"]
+    },
+    "as-chipotle-opens-in-mexico-there-are-fans-and-skeptics": {
+      "zh_title": "Chipotle 开进墨西哥",
+      "reason": "一家美式墨西哥快餐回到墨西哥开店，本地食客对「正宗」的两种判断。",
+      "disciplines": ["economics", "anthropology", "sociology"]
+    },
+    "astronomers-detect-fastest-known-star-in-the-milky-way": {
+      "zh_title": "银河系已知最快的恒星",
+      "reason": "绕中心黑洞每秒 25000 公里，望远镜如何测出这个速度。",
+      "disciplines": ["astronomy", "matter-energy"]
+    },
+    "california-camp-combines-math-and-dance-for-middle-schoolers": {
+      "zh_title": "把数学和舞蹈放在一起的暑期营",
+      "reason": "加州 SHINE 项目面向零基础的六到八年级女生，课程怎么排。",
+      "disciplines": ["education-learning", "performance"]
+    },
+    "contiguous-us-breaks-its-record-for-hottest-month-ever": {
+      "zh_title": "美国本土有记录以来最热的一个月",
+      "reason": "NOAA 的月度均温、1936 年沙尘暴那次的对照，以及记录只能回溯到 1895 年这件事。",
+      "disciplines": ["climate-ocean", "statistical-inference"]
+    },
+    "cut-the-number-of-choices-you-make-each-day-your-brain-will-thank-you": {
+      "zh_title": "减少每天要做的选择",
+      "reason": "选项变多为什么反而降低满意度，行为科学给出的机制与三条做法。",
+      "disciplines": ["cognitive-psychology", "wellbeing", "economics"]
+    },
+    "dolly-partons-contributions-to-literacy-will-outlive-the-star-just-like-she-planned": {
+      "zh_title": "多莉·帕顿的识字计划",
+      "reason": "想象力图书馆三十年送出 3.3 亿本书，一个项目如何设计得能长期运转。",
+      "disciplines": ["education-learning", "sociology"]
+    },
+    "drone-footage-shows-rare-birds-eye-view-of-stingrays-off-new-york-coast": {
+      "zh_title": "无人机拍到的成群黄貂鱼",
+      "reason": "长岛外海的牛鼻鲼群，以及科学家说的「它们几十年来一直在这里」。",
+      "disciplines": ["ecology", "climate-ocean"]
+    },
+    "farmers-bring-100-year-old-heirloom-okra-to-toronto-canada": {
+      "zh_title": "多伦多屋顶农场上的百年秋葵",
+      "reason": "白绒秋葵的种子如何被留存下来，以及有色人种农民在食物史里的位置。",
+      "disciplines": ["anthropology", "ecology", "sociology"]
+    },
+    "four-young-mathematicians-awarded-the-2026-fields-medals": {
+      "zh_title": "2026 年菲尔兹奖的四位得主",
+      "reason": "从纽结理论到流体运动，四项工作各自解决了什么问题。",
+      "disciplines": ["calculus", "logic-proof"]
+    },
+    "from-digital-detoxes-to-flip-phones-gen-z-shows-signs-of-turning-anti-tech": {
+      "zh_title": "Z 世代转向反技术",
+      "reason": "换成翻盖机之后屏幕时间从九小时降到二十分钟，几名大学生各自的做法。",
+      "disciplines": ["wellbeing", "sociology", "media-literacy"]
+    },
+    "giant-metal-roosters-spread-autism-acceptance-in-maine-after-town-zoning-spat": {
+      "zh_title": "缅因州草坪上的金属公鸡",
+      "reason": "一场关于「装饰还是广告」的分区规划争议，以及小镇最后给出的折中方案。",
+      "disciplines": ["developmental-psychology", "sociology", "political-economy"]
+    },
+    "hawaii-is-turning-fishnets-and-other-plastic-trash-into-roads": {
+      "zh_title": "夏威夷用废渔网铺路",
+      "reason": "海洋垃圾进入沥青的实验，已处理的吨数，以及这条路能走多远。",
+      "disciplines": ["materials", "climate-ocean", "engineering-design"]
+    },
+    "heres-what-happened-when-sixth-graders-designed-their-dream-school": {
+      "zh_title": "六年级学生设计的理想校园",
+      "reason": "屋顶花园、室内课间活动室，学生用 3D 建模把想法做成模型的全过程。",
+      "disciplines": ["engineering-design", "education-learning", "visual-design"]
+    },
+    "high-schoolers-coloring-book-tells-story-of-ohio-immigrants": {
+      "zh_title": "高中生画的移民故事涂色书",
+      "reason": "从涂色书学英语，到自己出三本书，一名辛辛那提学生把经历做成了作品。",
+      "disciplines": ["visual-design", "sociology", "creative-writing"]
+    },
+    "meet-the-pups-who-ruled-the-2026-world-dog-surfing-championships": {
+      "zh_title": "2026 世界狗狗冲浪锦标赛",
+      "reason": "第十届比赛的分组、评分与冠军，以及老狗带新狗的训练方式。",
+      "disciplines": ["performance", "wellbeing"]
+    },
+    "pro-con-data-centers": {
+      "zh_title": "数据中心：正方与反方",
+      "reason": "同一件事的两篇社论并排放着，用水、用电与税收在两边各被算成了什么。",
+      "disciplines": ["rhetoric-argument", "energy-systems", "political-economy"]
+    },
+    "record-low-levels-on-the-danube-river-affect-energy-use-in-eastern-europe": {
+      "zh_title": "多瑙河水位创新低与东欧电力",
+      "reason": "布达佩斯段降到 10 厘米，核电站冷却与航运同时受影响。",
+      "disciplines": ["climate-ocean", "energy-systems", "geography-urban"]
+    },
+    "synthetic-or-natural-grass-the-turf-war-in-a-maryland-school-district": {
+      "zh_title": "人造草还是天然草",
+      "reason": "马里兰一个学区 5500 万美元的决定，造价、寿命与健康风险各自的证据。",
+      "disciplines": ["public-health", "materials", "political-economy"]
+    },
+    "the-analog-shift-in-modern-communication": {
+      "zh_title": "通信方式向纸质回摆",
+      "reason": "手写信与实体邮件的打开率，以及「花时间」为什么成了一种信号。",
+      "disciplines": ["media-literacy", "sociology", "cognitive-psychology"]
+    },
+    "the-story-behind-chicagos-most-iconic-hot-dog": {
+      "zh_title": "芝加哥热狗的来历",
+      "reason": "七种配料的固定组合从大萧条时期定型，以及本地人为什么不放番茄酱。",
+      "disciplines": ["history", "anthropology", "economics"]
+    },
+    "their-lemonade-stand-faced-big-fees-so-these-kids-fought-back": {
+      "zh_title": "柠檬水摊位与摊位费",
+      "reason": "三兄弟因收费退出集市，写信给州议员，法案随后被提出。",
+      "disciplines": ["political-economy", "economics", "rhetoric-argument"]
+    },
+    "three-womens-world-records-set-at-the-annual-lumberjack-world-championships-in-wisconsin": {
+      "zh_title": "伐木世锦赛上的三项女子世界纪录",
+      "reason": "锯木、劈柴、滚木、爬杆各自的比赛规则，以及伐木工这个行业的历史。",
+      "disciplines": ["history", "performance"]
+    },
+    "unesco-adds-d-day-landing-beaches-mount-olympus-and-south-sudan-wetlands-to-world-heritage-list": {
+      "zh_title": "新列入世界遗产名录的地点",
+      "reason": "诺曼底登陆海滩、奥林匹斯山与南苏丹湿地，各自被列入的理由。",
+      "disciplines": ["history", "geography-urban", "ecology"]
+    },
+    "world-cup-team-bus-featured-winning-art-by-a-12-year-old-soccer-fan": {
+      "zh_title": "画在世界杯球队大巴上的儿童作品",
+      "reason": "十二岁学生的参赛作品被选中印上巴西队大巴，主题是「更好地在一起」。",
+      "disciplines": ["visual-design", "sociology"]
     }
+  },
+
+  "holds": {
+    "spain-wins-the-world-cup-by-beating-argentina-1-0-on-ferran-torres-goal-in-extra-time": "源数据只导出了四档（610L / 840L / 940L / 原文），少一档。分级名与推荐里的档位都按五档算，凑不齐就先不上线 —— 补齐那一档再把这条删掉。"
   }
 }

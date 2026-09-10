@@ -2,13 +2,13 @@
 # -*- coding: utf-8 -*-
 """Turn the Newsela markdown export into one structured article per story.
 
-Input  docs/reference/reading-database/*.md      (gitignored reference copy)
+Input  the batches registered in sources.json   (gitignored reference copies)
 Output apps/api/internal/library/articles.json   (the library's content source)
 
-Each story arrives as five files — four Lexile rewrites plus the original
-("MAX"). They share a title, a set of photographs and a topic, and differ only
-in the prose, so the output is ONE article carrying five levels rather than a
-hundred unrelated entries.
+Each story arrives as a handful of files — a few Lexile rewrites plus the
+original ("MAX"). They share a title, a set of photographs and a topic, and
+differ only in the prose, so the output is ONE article carrying every level
+rather than a hundred and forty unrelated entries.
 
 WHAT THIS FILE DOES BEYOND PARSING
 
@@ -20,13 +20,23 @@ WHAT THIS FILE DOES BEYOND PARSING
   * Captions are split into caption and credit. The export writes them as one
     italic line ending in "Photo: Someone/AP", and prefixes all but the lead
     with "Image 3." — neither belongs in a caption read by a student.
-  * Section headings keep their text but lose the "##", and their block ids
-    are listed in `headings` so the room can set them as headings instead of
-    printing the marker.
+  * Section headings keep their text but lose the "#" markers, and their block
+    ids are listed in `headings` so the room can set them as headings instead
+    of printing the marker. Both batches are accepted: the first marks sections
+    with "##", the second with "###" and reserves "##" for the two halves of a
+    pro/con piece. The depth is not carried through — the room renders one kind
+    of heading — but the text is.
+  * The byline is lifted out of the body. The second batch prints one directly
+    under the meta line ("By Associated Press, adapted by Newsela staff"). Left
+    in place it becomes paragraph b1, which means it can be quoted back at the
+    student as though it were the article's opening sentence. Only the line in
+    that one position is taken, so a sentence that happens to open with "By
+    2000, the program had spread…" stays in the prose where it belongs.
   * Block ids are computed exactly the way Go's SplitBlocks computes them
     (split on "\n\n", trim, drop empties, number the survivors b1, b2, …).
     If the two ever disagree, every figure in the library moves to the wrong
-    paragraph, so `verify.py` re-derives them from the emitted body.
+    paragraph, so TestEveryFigureAnchorResolvesAgainstSplitBlocks re-derives
+    them from the emitted body with the real SplitBlocks.
 
 Level names come from `tags.json`; see `build.py` for how the two are joined.
 
@@ -40,45 +50,99 @@ import re
 import sys
 from collections import defaultdict
 
-HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", ".."))
-SRC = os.path.join(ROOT, "docs", "reference", "reading-database")
+import sources
 
 # "**Level:** 430L | **Word Count:** 471"
 META = re.compile(r"^\*\*Level:\*\*\s*(\S+)\s*\|\s*\*\*Word Count:\*\*\s*([\d,]+)\s*$")
 IMAGE = re.compile(r"^!\[(?P<alt>.*?)\]\((?P<src>[^)]+)\)\s*$")
 CAPTION = re.compile(r"^\*(?P<text>.+)\*$")
-HEADING = re.compile(r"^##\s+(?P<text>.+?)\s*$")
+HEADING = re.compile(r"^#{2,6}\s+(?P<text>.+?)\s*$")
+# The byline, but only in the one position the export puts it in — directly
+# under the meta line. Matching it anywhere would eat "By 2000, the program
+# had spread across the country", which is prose.
+BYLINE = re.compile(r"^By\b[\s,]*(?P<text>.*\S)\s*$")
 # "Image 3. " / "Image 3: " — the export numbers every picture but the lead.
 IMAGE_NO = re.compile(r"^Image\s+\d+[.:]\s*")
 # The credit trails the caption, and its marker word is not always "Photo:" —
 # maps, diagrams and the pain-index chart are credited "Map:" and "Graphic:".
-# Matching only "Photo:" left a third of the library's pictures uncredited.
-CREDIT = re.compile(r"\b(?:Photos?|Maps?|Graphics?|Illustrations?|Videos?):")
+# Matching only "Photo:" left a third of the first batch's pictures uncredited.
+#
+# The second batch brought four more forms, and missing them is silent: the
+# credit simply stays glued to the end of the caption, where it reads as part
+# of the sentence.
+#
+#   Photo credit: Simons Foundation/CC BY 4.0     the marker word is two words
+#   Image: annussha/Shutterstock                  "Image", not "Photo"
+#   Art: Asifiwe Shema/USA Today                  a drawing, not a photograph
+#   Photo from Glowimages via Getty Images        a preposition, not a colon
+#   (AP Photo/Andreea Alexandru)                  wire-service parenthetical
+CREDIT = re.compile(
+    r"\b(?:Photo|Image|Map|Graphic|Illustration|Video|Art|Drawing)s?"
+    r"(?:\s+[Cc]redits?)?:"
+    r"|\bPhotos?\s+(?:from|by|courtesy\s+of)\s"
+    r"|\(AP\s+Photo/"
+)
+
+
+def credit_key(part: str) -> str:
+    """A credit reduced to what identifies it, for comparing two copies.
+
+    Case, punctuation and spacing all vary between the two stampings, and the
+    second batch adds a dropped article:
+
+        Photo: Derrick Downey Jr./Handout/ Washington Post
+        Photo: Derrick Downey Jr./Handout/The Washington Post
+
+    Those are one credit, not two, so "the" goes as well.
+    """
+    words = re.findall(r"[a-z0-9]+", part.lower())
+    return " ".join(w for w in words if w != "the")
+
+
+def collapse_doubled(part: str) -> str:
+    """Collapse a credit the export stamped twice with no second marker.
+
+        Photo credit: Nataly Regina/Shutterstock Nataly Regina/Shutterstock
+
+    The marker is held aside so the repeat is judged on the name alone; with
+    the marker counted in, the two halves of that line are not equal and the
+    repeat survives. Only an exact two-halves repeat is collapsed, so a credit
+    that merely repeats a word ("Photo: AP Photo/Ellen Schmidt") is left alone.
+    """
+    m = CREDIT.match(part)
+    head, tail = (part[: m.end()], part[m.end():]) if m else ("", part)
+    words = tail.split()
+    n = len(words)
+    if n >= 2 and n % 2 == 0 and words[: n // 2] == words[n // 2:]:
+        tail = " ".join(words[: n // 2])
+        return (head + " " + tail).strip() if head else tail
+    return part
 
 
 def dedupe_credit(credit: str) -> str:
     """Collapse a credit the PDF export stamped twice.
 
-    Two of the source captions end in the credit repeated back to back, the
-    second copy carrying an OCR slip of its own:
+    Several source captions end in the credit repeated back to back, the second
+    copy carrying an OCR slip of its own:
 
         Photo: Steve Trewhella/Alamy Photo: Steve. Trewhella/Alamy
 
-    Splitting on the marker and comparing the halves with punctuation and case
-    removed keeps the first, well-formed copy and drops the rest.
+    Splitting on the marker and comparing the halves through credit_key keeps
+    the first, well-formed copy and drops the rest. Where the export repeated
+    the credit WITHOUT a second marker there is nothing to split on, so
+    collapse_doubled has a look at each surviving part too.
     """
     marks = [m.start() for m in CREDIT.finditer(credit)]
     if len(marks) < 2:
-        return credit.strip()
+        return collapse_doubled(credit.strip())
     parts = [credit[a:b].strip() for a, b in zip(marks, marks[1:] + [len(credit)])]
     seen, kept = set(), []
     for p in parts:
-        key = re.sub(r"[^a-z0-9]", "", p.lower())
+        key = credit_key(p)
         if key in seen:
             continue
         seen.add(key)
-        kept.append(p)
+        kept.append(collapse_doubled(p))
     return " ".join(kept)
 
 
@@ -105,7 +169,11 @@ def parse_file(path: str) -> dict:
 
     title = ""
     level = ""
+    byline = ""
     word_count = 0
+    # True only for the single line immediately after the meta line, which is
+    # the one place the export prints a byline.
+    expect_byline = False
     # Paragraph-ish units in reading order. Each is (kind, text) where kind is
     # "text" or "heading"; figures are collected separately and remember how
     # many units preceded them.
@@ -138,7 +206,17 @@ def parse_file(path: str) -> dict:
         if m:
             level = m.group(1)
             word_count = int(m.group(2).replace(",", ""))
+            expect_byline = True
             continue
+        if expect_byline:
+            expect_byline = False
+            m = BYLINE.match(line)
+            if m:
+                # "By , Tribune Content Agency, adapted by Newsela staff" —
+                # the export leaves the author slot empty on the syndicated
+                # pieces, so the separator is stripped along with the "By".
+                byline = m.group("text")
+                continue
         m = IMAGE.match(line)
         if m:
             # An image whose caption line never arrived still counts.
@@ -177,6 +255,7 @@ def parse_file(path: str) -> dict:
     return {
         "title": title,
         "level": level,
+        "byline": byline,
         # `words` is counted from the body we actually serve. The export's own
         # "Word Count" counts the whole page, captions included, so it runs up
         # to a third high on a picture-heavy story (asian-games 570L declares
@@ -196,20 +275,23 @@ def lexile(level: str) -> int:
 
 
 def main() -> int:
-    if not os.path.isdir(SRC):
-        print("no source corpus at %s" % SRC, file=sys.stderr)
-        return 1
-
     by_slug: dict[str, list[dict]] = defaultdict(list)
-    for name in sorted(os.listdir(SRC)):
-        if not name.endswith(".md"):
-            continue
-        slug = re.sub(r"-(MAX|\d+L)\.md$", "", name)
-        if slug == name[:-3]:
-            print("unparseable filename: %s" % name, file=sys.stderr)
+    origin: dict[str, str] = {}
+    for batch, slug, level, path in sources.markdown_files():
+        if slug in origin and origin[slug] != batch:
+            # Two batches shipping the same story would silently merge into one
+            # article with ten levels and two sets of photographs.
+            print("%s appears in both %s and %s" % (slug, origin[slug], batch), file=sys.stderr)
             return 1
-        parsed = parse_file(os.path.join(SRC, name))
+        origin[slug] = batch
+        parsed = parse_file(path)
+        if parsed["level"] != level:
+            # The filename and the "**Level:**" line have to agree; if they do
+            # not, one of them is lying about which rewrite this is.
+            print("%s: filename says %s, the file says %s" % (path, level, parsed["level"]), file=sys.stderr)
+            return 1
         parsed["slug"] = slug
+        parsed["batch"] = batch
         by_slug[slug].append(parsed)
 
     out = []
@@ -219,6 +301,7 @@ def main() -> int:
         out.append(
             {
                 "slug": slug,
+                "batch": levels[-1]["batch"],
                 # The rewrites occasionally differ by a word (「ring of fire」
                 # vs 「ring of fire solar」); the original's is the real title.
                 "title": levels[-1]["title"],
