@@ -31,7 +31,8 @@ the source of truth in between.
 ## Order of work
 
 1. Register the batch in `sources.json`.
-2. `parse.py > dist/parsed.json`, then run `audit_units.py` and `audit_names.py` on it.
+2. `parse.py > dist/parsed.json`, then run `audit_captions.py`, `audit_units.py`
+   and `audit_names.py` on it. All three report; none of them fails a build.
 3. **Inspect before tagging** (see below) — this is where the real defects are.
 4. Write `tags.json` entries; hold back anything that cannot ship, with a reason.
 5. `make_images.py` → `build.py` → `upload-reading-images.sh` → `go test` → deploy → `smoke_prod.sh`.
@@ -44,11 +45,14 @@ start uploading until `build.py` exits 0.
 Every batch so far arrived with defects that no test catches, because a
 mangled caption is still a valid string. Check these four things directly:
 
-- **Do all levels agree?** The levels of one story are rewrites of the same
-  reporting, so **the same photograph should carry the same caption in every
-  level. Where they disagree, one of them is corrupt** — PDF columns get
-  interleaved, and a caption can go missing entirely. This diff is the single
-  highest-yield check.
+- **Read all of `audit_captions.py`'s output, to the bottom.** The levels of one
+  story are rewrites of the same reporting, so **the same photograph should
+  carry the same caption in every level; where they disagree, one of them is
+  usually corrupt** — PDF columns get interleaved, and a caption can go missing
+  entirely. This is the highest-yield check, and the script only sorts: Newsela
+  really does rewrite some captions per level, and the worst corruption can
+  score as less similar than a legitimate rewrite. The script's own labels say
+  which cases are certain; the rest are for you to judge.
 - **Open the image.** When a caption is ambiguous, look at the picture rather
   than taking the majority spelling. One batch shipped two captions for one
   photograph; the majority caption described a photograph that was never
@@ -86,3 +90,5 @@ the caption.
 | Working in a git worktree | `docs/reference/` is gitignored and lives only in the main checkout — symlink it in or `parse.py` finds no corpus |
 | Tagging with a discipline you invented | Build fails; the 42-entry closed table is `packages/contracts/disciplines/disciplines.json` |
 | Trusting `finish` on the level count | One story arrived with 4 levels, not 5; the tier names assume 5 |
+| Treating the audits as gates | All three only print. Skipping them builds green — nothing downstream reads their output |
+| Assuming the article count proves nothing was lost | The count checks are floors. Losing ONE article out of a batch trips no gate anywhere; compare the shipped slugs against the batch yourself |

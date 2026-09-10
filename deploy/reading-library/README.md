@@ -1,7 +1,14 @@
 # 分级阅读库的内容流水线
 
-四十八篇报道，每篇五个难度版本，一百二十七张照片。这个目录是从导出的
-markdown 到线上可读文章之间的全部步骤。
+四十八篇报道，每篇五个难度版本。这个目录是从导出的 markdown 到线上可读文章
+之间的全部步骤。
+
+图有两个数，别把它们看成对不上：`make_images.py` 处理**语料里的全部** 127 张，
+`articles.json` 引用其中 **125** 张 —— 差的两张属于 `holds` 里那篇没上线的文章。
+上传是按处理结果传的，所以传上去的比引用的多，这是对的。
+
+**依赖**：`make_images.py` 要 Pillow（`pip install Pillow`）。其余脚本只用标准库。
+第 5、6 步要 `.deploy-local/`（gitignore 的部署凭据），没有的话找 owner 要。
 
 上一批怎么上的，见文末「上一批（2026-09-10）实际发生了什么」——
 那一节是这份流水线目前为止踩过的坑的清单。
@@ -16,8 +23,11 @@ markdown 到线上可读文章之间的全部步骤。
 #    （dist/ 是 gitignore 掉的中间产物目录，第一次跑要先建出来）
 mkdir -p deploy/reading-library/dist
 python3 deploy/reading-library/parse.py > deploy/reading-library/dist/parsed.json
-python3 deploy/reading-library/audit_units.py  < deploy/reading-library/dist/parsed.json
-python3 deploy/reading-library/audit_names.py  < deploy/reading-library/dist/parsed.json
+#    先跑这一条：它是三把尺子里最准的一把（同一张图的图注在几档里对不上，
+#    就是坏掉的地方）。三把都是「报给人看」，都不会让构建失败。
+python3 deploy/reading-library/audit_captions.py < deploy/reading-library/dist/parsed.json
+python3 deploy/reading-library/audit_units.py    < deploy/reading-library/dist/parsed.json
+python3 deploy/reading-library/audit_names.py    < deploy/reading-library/dist/parsed.json
 
 # 2. 给每篇写 tags.json（中文标题 / 一句话理由 / 学科），
 #    确实要放弃的写进 tags.json 的 holds
@@ -35,7 +45,12 @@ READING_OSS_ENV=.deploy-local/env.prod deploy/upload-reading-images.sh
 # 6. 测试、部署、线上走一遍
 (cd apps/api && CGO_ENABLED=0 go test ./internal/library/... ./internal/api/... -timeout 1800s)
 .deploy-local/deploy.sh api
-deploy/reading-library/smoke_prod.sh
+deploy/reading-library/smoke_prod.sh                       # 书架 → 开一篇 → 正文 + 图
+deploy/reading-library/probe_recommend.sh                  # 新标的学科真的能被推出来
+READING_OSS_ENV=.deploy-local/env.prod \
+  deploy/reading-library/probe_cdn.sh web/reading/v1/<新批的某张图>.webp
+# 最后用眼睛看一眼（断言过了和页面好看是两回事）：
+(cd apps/lite-web && node e2e/shootRoom.mjs /tmp/shots <新批的某个 slug> 2)
 ```
 
 改内容改的是 `sources.json` / `tags.json` / `corrections.json` 和源 markdown，
@@ -73,6 +88,7 @@ batch-0910     <slug>/<slug>-930L.md              +  <slug>/images/
 | `corrections.json` | `replacements` 是逐字改掉的错处（正文 / 图注 / 署名都过一遍，`count` 对不上就失败）；`figure_captions` 是整条换掉一张图的图注 |
 | `make_images.py` | 缩到 1600px 的 WebP，写 `dist/images.json`（对象键 + 尺寸）。两批共用一份清单，重名直接失败 |
 | `build.py` | 把上面几样合成 `apps/api/internal/library/articles.json` |
+| `audit_captions.py` | **三把尺子里最准的一把**：同一张图的图注在几档里对不上，就是坏掉的地方。整行没导出来、两栏被拼串标成「必坏」，剩下的按相似度排，人读完 |
 | `audit_units.py` | 查英制/公制换算对不对（找出了 155 英尺写成 477 米那一处） |
 | `audit_names.py` | 查同一篇的几个版本里有没有两种写法的人名地名 |
 | `smoke_prod.sh` | 拿一个新注册的学生走一遍线上：书架 → 开一篇 → 正文 + 图 |
@@ -92,6 +108,8 @@ batch-0910     <slug>/<slug>-930L.md              +  <slug>/images/
 - 文件名说 930L、`**Level:**` 那行说别的
 - 两批有同名的图（对象键由文件名派生，会互相覆盖）
 - 一篇文章既不在 `articles` 里也不在 `holds` 里
+- `tags.json` 里有一条，语料里却没有这篇（sources.json 路径打错、文件没拷全、
+  目录被走漏 —— 少了这一条，构建会照样成功，只是书架上少一篇）
 - 一篇文章的学科不在 disciplines 闭表里
 - `corrections` 的 `count` 与实际命中次数不符
 - `figure_captions` 里有一条谁也没命中
@@ -149,3 +167,18 @@ batch-0910     <slug>/<slug>-930L.md              +  <slug>/images/
    单复数和族称，得逐条看上下文。`Hetal Patel` 看着像 `Metal` 的 OCR 错，
    其实是真名，差点被改掉。
 9. **`library_test.go` 里写死了「20 篇」**，加一批就红。改成了下限。
+10. **第 5 条那个办法值得做成脚本。** 事后补的 `audit_captions.py` 第一次跑，
+    就在**第一批已经上线的**语料里翻出两处：`climates corps`（五档错三档）和
+    `almost 200- year-old`（连字符后断行，五档错三档）。两处都是通顺的英文，
+    单看一档谁也看不出来。
+
+## 下一批可以再往前走一步的地方
+
+- 篇数只有下限，**没有「这一批应该是 N 篇」**。加 15 篇进来出了 14 篇，
+  现在没有任何一道闸会响。
+- 三把尺子都是「报给人看」，**构建不读它们**。跳过全部三条，构建照样全绿。
+- `parse.py` 算了 `title_variants` 和 `source_word_count`，**build.py 一个都没用**。
+  后者本可以和重新数出来的词数对一下，抓「正文被截断」。
+- 同一篇换个 slug 再来一次，**查不出来**（重复只按 slug 跨批查）。
+- `smoke_prod.sh` 只真的下载了第一篇的封面和一篇文章的图；别的文章传坏了，
+  要等学生点进去才知道。

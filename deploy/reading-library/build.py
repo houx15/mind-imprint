@@ -217,6 +217,16 @@ def main() -> int:
             problems.append("hold %r names a story that is not in the corpus" % slug)
         if slug in tags:
             problems.append("%s is both held back and tagged — decide which" % slug)
+    # The other direction, which is the one that fails quietly. A story missing
+    # from tags.json is already a build failure, so a story you FORGOT cannot
+    # ship. But a tag entry matching no story means the story never reached the
+    # parser at all — a typo in the sources.json path, files that were not
+    # copied over, a directory the walker never saw — and without this the
+    # build exits 0 with that article simply absent from the shelf.
+    corpus = {a["slug"] for a in parsed}
+    for slug in tags:
+        if slug not in corpus:
+            problems.append("tags.json describes %r, which is not in the corpus" % slug)
 
     if problems:
         for p in problems:

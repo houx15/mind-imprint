@@ -44,6 +44,18 @@
       "replace": "Cincinnati",
       "count": 2,
       "why": "辛辛那提多了一个 n。这篇里正确拼法出现 13 次，错的两次。地名会被学生抄进引用里。"
+    },
+    {
+      "find": "the climates corps initiative",
+      "replace": "the climate corps initiative",
+      "count": 3,
+      "why": "第一批就在线上的图注错字：climate 写成 climates，五档里错三档（入门与原文是对的）。audit_captions.py 建出来之后第一次跑就报了出来 —— 单看任何一档它都是一句通顺的英文。"
+    },
+    {
+      "find": "almost 200- year-old",
+      "replace": "almost 200-year-old",
+      "count": 3,
+      "why": "PDF 在连字符后断了行，导出成「200- year-old」，五档里三档如此。同上，也是第一批留在线上的。"
     }
   ],
   "figure_captions": [
