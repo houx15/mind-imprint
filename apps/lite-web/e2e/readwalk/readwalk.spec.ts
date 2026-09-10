@@ -96,11 +96,52 @@ test("英文文章：一个学生从打开读到完成", async ({ browser }) => 
     await page.waitForTimeout(300);
   }
 
-  /** 在正文某一段里真的划出一句话。模型没有手，这是替它做的那次拖动。 */
+  /**
+   * 在正文某一段里真的挑出一句话。模型没有手，这是替它做的那一下。
+   *
+   * 🚨 文章上有**两种**挑句手势，用错一种等于什么都没做：
+   *
+   *   透镜敞开时   一次**点击**就取走光标所在那一句（Annotate 的 selectMode
+   *                走 onClick → pickSentence）。划选在这个状态下不算数。
+   *   平时         **划选**才把一句话变成引用（onReferenceSelection 读的是
+   *                mouseup 时的真实选区）；点一下弹的是段落工具条。
+   *
+   * 走查第四轮就栽在这里：最后十一步她一直在「划」，而屏幕上正开着一副透镜，
+   * 于是一次都没登记上 —— 看着像产品在原地打转，其实是这只手用错了。
+   * 透镜敞开与否，看 Annotate 那条横幅在不在。
+   */
   async function pickSentence(paragraph: number, sentence: string): Promise<string | null> {
     const p = page.locator(".mk-reading-room__article-inner p[data-block-id]").nth(paragraph - 1);
     if (!(await p.count())) return `第${paragraph}段不存在`;
     await p.scrollIntoViewIfNeeded();
+
+    const lensOpen = await page.getByText("在文章里选出你要用来回答").isVisible().catch(() => false);
+    if (lensOpen) {
+      // 透镜模式：点在那句话的中间。Annotate 按坐标去认是哪一句。
+      const box = await p.evaluate((el, want) => {
+        const text = el.textContent ?? "";
+        let at = text.indexOf(want);
+        if (at < 0) at = text.indexOf(want.slice(0, 24));
+        if (at < 0) return null;
+        const walk = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let seen = 0;
+        for (let n = walk.nextNode(); n; n = walk.nextNode()) {
+          const len = (n.textContent ?? "").length;
+          if (seen + len > at) {
+            const r = document.createRange();
+            r.setStart(n, at - seen);
+            r.setEnd(n, Math.min(len, at - seen + 10));
+            const box = r.getBoundingClientRect();
+            return { x: box.left + box.width / 2, y: box.top + box.height / 2 };
+          }
+          seen += len;
+        }
+        return null;
+      }, sentence);
+      if (!box) return `第${paragraph}段里找不到那句话（抄歪了）`;
+      await page.mouse.click(box.x, box.y);
+      return null;
+    }
     const ok = await p.evaluate((el, want) => {
       const text = el.textContent ?? "";
       let at = text.indexOf(want);
