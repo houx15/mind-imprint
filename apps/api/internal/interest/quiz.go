@@ -151,9 +151,12 @@ func (a Attempt) ShouldHarvest() bool {
 
 // BuildQuizPrompt 拼出这次作答的采集 prompt。
 //
-// 复用采集的 system prompt：同一张候选词表、同一套字段要求、同一个解析器
-// （ParseHarvestReply）。测试如果有自己的一套 prompt，两边对「什么算一个好
-// 关键词」的看法迟早会分叉，而分叉的结果是同一棵树上挂着两种质量的词。
+// 和采集共用同一张候选词表、同一套字段要求、同一个解析器（ParseHarvestReply）。
+// 测试如果整套自己另写一份，两边对「什么算一个好关键词」的看法迟早会分叉，而
+// 分叉的结果是同一棵树上挂着两种质量的词。
+//
+// 🚨 但**「怎么算选中一个领域」那一段不能共用** —— 2026-09-11 实测：照搬采集那
+// 份判据，真模型 0/3 长出词。见 harvest.go 里 quizSelectionRules 上面那段。
 func (a Attempt) BuildQuizPrompt() (system, user string) {
 	// 🚨 把「她写的」和「我写的」分得死死的。实测过一次失败：脚手架那一行
 	// （原来写作「她说她喜欢的是：X」）被模型当成她的原话摘了回来。围栏 + 明确
@@ -174,7 +177,11 @@ func (a Attempt) BuildQuizPrompt() (system, user string) {
 		// 的原话里长出来，所以这里写「倾向」而不是「必须」。
 		fmt.Fprintf(&b, "\n她挑的追问方向偏向：%s。\n", strings.Join(names, " · "))
 	}
-	return harvestSystemPromptHead + interests.PromptList() + harvestSystemPromptTail, b.String()
+	// 🚨 词表、字段要求、JSON 形状、解析器全部照旧共用；**只有「怎么算选中」
+	// 那一段用测试自己的那份**（quizSelectionRules）。理由见 harvest.go 里那段
+	// 注释：采集那份判据的核心是「材料的话题不算」，而测试里没有材料，照搬会让
+	// 模型把她自己的作答当成「别人的材料」丢掉，一个词都长不出来。
+	return harvestSystemPromptHead + interests.PromptList() + "\n" + quizSelectionRules + harvestSystemPromptTail, b.String()
 }
 
 // QuizSourceLabel 是这条来源在抽屉里显示的名字。
