@@ -151,7 +151,36 @@ const (
 	cardRejectFewWords    cardReject = "fewer than 3 words survived the article check"
 	cardRejectFewOptions  cardReject = "fewer than 2 options survived the article check"
 	cardRejectOneBlock    cardReject = "every surviving option came from one paragraph"
+	cardRejectPromised    cardReject = "the reply promises a card but none was attached"
 )
+
+// cardPromiseWords —— 这句回复是不是在**指着一张卡片说话**。
+//
+// 🚨 它抓的是另一种失败，和「卡片被丢掉」不是一回事：模型压根没在 JSON 里给
+// card，却在 reply 里说「我给你一张标注板」「点这张卡」「把这四句拖到格子里」。
+// 线上实测（2026-09-10，OSIRIS-REx 那篇）：印记 连着三轮在说
+// 「标注板还在屏幕上，四句话等着你」——而它一次都没有真的发出去过。
+// 日志里干干净净，因为没有东西被丢掉，是根本没有东西。
+//
+// 对她来说这两种失败长得一模一样：屏幕上有一句指着空气的话。
+// 所以处理也一样 —— 记下来，下一轮当面告诉它。
+//
+// 判据只认**明确指着一个可点对象**的说法。「选一句」「找一句」不算：
+// 那些话在没有卡片的时候也成立（她可以在正文里划选）。
+var cardPromiseWords = []string{
+	"这张卡", "那张卡", "张卡片", "点这张", "点下面", "下面这张", "上面这张",
+	"标注板", "生词板", "这块板", "那块板", "拖到", "拖进",
+}
+
+// replyPromisesACard —— 这句回复有没有在指着一张卡片。
+func replyPromisesACard(reply string) bool {
+	for _, w := range cardPromiseWords {
+		if strings.Contains(reply, w) {
+			return true
+		}
+	}
+	return false
+}
 
 // validateCoachCard 校验模型给出的这张卡片，不合格返回 nil —— 静默丢弃，
 // 不报错、不渲染残卡。返回的是一张新卡片，调用方手里那张不会被就地改写。

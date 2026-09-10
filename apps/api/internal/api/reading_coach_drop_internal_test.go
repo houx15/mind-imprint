@@ -81,7 +81,7 @@ func TestDropNoticeTellsItNotToMentionTheCard(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}, {ID: "b2", Text: "第二段。"}}
 	msgs := []sqlc.AtomMessage{aiWithPayload(coachCardPayloadWithDrop(nil, cardRejectOneBlock))}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
-	if !strings.Contains(prompt, "你上一轮那张卡片没有发出去") {
+	if !strings.Contains(prompt, "她没有看到你上一轮说的那张卡片") {
 		t.Fatal("prompt 里没有那一节")
 	}
 	if !strings.Contains(prompt, string(cardRejectOneBlock)) {
@@ -104,11 +104,48 @@ func TestDropNoticeIsNotForHerEars(t *testing.T) {
 	}
 }
 
+func TestReplyPromisingACardWithNoCard(t *testing.T) {
+	// 🚨 另一种失败，日志里干净得可怕：模型压根没在 JSON 里给 card，却在 reply
+	// 里说「我给你一张标注板」。线上实测（OSIRIS-REx 那篇）连着三轮说
+	// 「标注板还在屏幕上，四句话等着你」，而它一次都没真的发出去过。
+	// 对她来说这和「卡片被丢掉」长得一模一样：一句指着空气的话。
+	promises := []string{
+		"我给你一张标注板，把段里的四句话拖到它们该在的格子里。",
+		"点这张卡，它会让你从第 2 段里挑一句。",
+		"标注板还在屏幕上，四句话等着你。",
+		"下面这张卡片上有三句话。",
+		"把它们拖进对应的格子。",
+	}
+	for _, r := range promises {
+		if !replyPromisesACard(r) {
+			t.Errorf("没抓到指着卡片说话：%q", r)
+		}
+	}
+}
+
+func TestOrdinaryRepliesDoNotCountAsPromises(t *testing.T) {
+	// 一张网如果把正常的话也拦下来，印记 每一轮都会收到一节关于卡片的反馈，
+	// 那一节就变成常驻的了。「选一句」「找一句」在没有卡片的时候也成立 ——
+	// 她可以直接在正文里划选。
+	fine := []string{
+		"在文章里划出你觉得最有力的那一句。",
+		"回到第 3 段，找一句能说明这件事的话。",
+		"你选的这一句很准，它把总量和人均分开了。",
+		"这一段里有三个数字，先看带百分号的那个。",
+		"用你自己的话说说，作者到底想让你接受什么。",
+	}
+	for _, r := range fine {
+		if replyPromisesACard(r) {
+			t.Errorf("误伤了一句正常的话：%q", r)
+		}
+	}
+}
+
 func TestNoDropNoticeOnAnOrdinaryTurn(t *testing.T) {
 	blocks := []Block{{ID: "b1", Text: "第一段。"}}
 	msgs := []sqlc.AtomMessage{{Role: "ai", Content: "我们看第一段。"}}
 	prompt := buildReadingCoachPrompt("标题", blocks, readingOutline{}, nil, msgs, nil, "好的。", nil)
-	if strings.Contains(prompt, "你上一轮那张卡片没有发出去") {
+	if strings.Contains(prompt, "她没有看到你上一轮说的那张卡片") {
 		t.Fatal("这一轮什么都没被丢掉，不该出现那一节")
 	}
 }

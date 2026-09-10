@@ -803,7 +803,7 @@ func buildReadingCoachPrompt(
 	// 连着六轮在说「点这张卡」而卡片每轮都被丢掉 —— 她屏幕上是一句句指着空气的
 	// 话。这是「闭环」的失败那一侧：AI 递出去的东西没送到，也得让它知道。
 	if why := lastDroppedCard(tail); why != "" {
-		b.WriteString("\n【你上一轮那张卡片没有发出去】\n原因：" + why + "\n" +
+		b.WriteString("\n【她没有看到你上一轮说的那张卡片】\n原因：" + why + "\n" +
 			"她的屏幕上只有你说的话，没有卡片 —— 所以**不要再提「这张卡」**，她看不到。\n" +
 			"这一轮要么按上面的规矩重新出一张，要么就不发卡，用一句具体的指令把这一步说清楚。\n" +
 			"🚨 **这件事不要说给她听。** 她不需要知道我们这边有校验、有规则、" +
@@ -1129,6 +1129,12 @@ func parseReadingCoachReply(text string, blocks []Block, lang string, lensOK fun
 	// 🚨 说出为什么。丢掉是对的，静默不是：走查里 印记 连着两轮在说「把这几句
 	// 拖到格子里」而板从来没出现过，日志里一个字都没有，只能靠猜。
 	// 「no card in the reply」不记 —— 大多数轮本来就没有卡片，那不是失败。
+	// 🚨 说了「点这张卡」却没给卡：对她来说和「卡片被丢掉」长得一模一样 ——
+	// 屏幕上一句指着空气的话。区别只在日志里干净得可怕（没有东西被丢掉，
+	// 是根本没有东西），所以这一条必须自己抓。
+	if got.Card == nil && replyPromisesACard(got.Reply) {
+		got.cardWhy = cardRejectPromised
+	}
 	if got.cardWhy != cardOK && got.cardWhy != cardRejectNoCard {
 		slog.Info("reading coach: card dropped", "why", string(got.cardWhy),
 			"type", cardType, "prompt", cardPrompt)

@@ -78,7 +78,7 @@ async function settle() {
 }
 
 // 走几轮，看能不能碰到一块板。
-for (let turn = 0; turn < 10; turn += 1) {
+for (let turn = 0; turn < 26; turn += 1) {
   await settle();
   const board = page.locator(".mk-board").last();
   if (await board.count()) {
