@@ -64,8 +64,22 @@ console.log("FIRST TURN:", JSON.stringify(first));
 console.log("first turn length:", [...first].length);
 await shot("02-first-turn");
 
+/** 印记 打完这一轮字了没有。
+ *
+ * 🚨 不等它打完就去数卡片，会把「它还在打字」记成「它这一轮没给卡片」——
+ * 走查第一遍就是这么误报的（截图里那三个点还在跳）。 */
+async function settle() {
+  await page.waitForFunction(
+    () => !document.querySelector('[aria-label="印记正在打字"]'),
+    null,
+    { timeout: 120_000 },
+  );
+  await page.waitForTimeout(400);
+}
+
 // 走几轮，看能不能碰到一块板。
-for (let turn = 0; turn < 6; turn += 1) {
+for (let turn = 0; turn < 10; turn += 1) {
+  await settle();
   const board = page.locator(".mk-board").last();
   if (await board.count()) {
     console.log(`turn ${turn}: A BOARD APPEARED`);
@@ -81,15 +95,23 @@ for (let turn = 0; turn < 6; turn += 1) {
     await shot(`1${turn}-board-filled`);
     await board.locator(".mk-board__submit").click();
     console.log(`turn ${turn}: board submitted, waiting for 印记 to pick it up…`);
-    await page.waitForTimeout(2000);
+    await settle();
+    const back = await page.locator('[data-chat-row="ai"]').last().innerText();
+    console.log(`turn ${turn}: 印记 answered the board: ${JSON.stringify(back.slice(0, 140))}`);
+    await shot(`1${turn}-board-answered`);
     continue;
   }
 
   const card = page.locator('[data-coach-card="open"]').last();
   if (!(await card.count())) {
-    console.log(`turn ${turn}: no card — 印记 is just talking`);
+    // 没有卡片不是走不下去 —— 说一句话，让它继续带。
+    const said = await page.locator('[data-chat-row="ai"]').last().innerText();
+    console.log(`turn ${turn}: no card. 印记 said: ${JSON.stringify(said.slice(0, 90))}`);
     await shot(`1${turn}-notcard`);
-    break;
+    await page.locator("textarea, input[type=text]").last().fill("好，我读完了这一段。");
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(1500);
+    continue;
   }
   const kind = (await card.locator("textarea").count())
     ? "short_text"
@@ -106,7 +128,7 @@ for (let turn = 0; turn < 6; turn += 1) {
     console.log("  pick_in_article — 需要在正文里划选，这条自动化跳过");
     break;
   }
-  await page.waitForTimeout(2500);
+  await page.waitForTimeout(1200);
 }
 
 await shot("20-final");
