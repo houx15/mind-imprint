@@ -1444,6 +1444,31 @@ func (a *API) postReadingCoachTurn(w http.ResponseWriter, r *http.Request) {
 		return true
 	}
 	parsed, okParse := parseReadingCoachReply(res.Text, blocks, lang, lensOK)
+	// 🚨 「说了给卡片，却没给」也算这一轮坏了，和解析失败一样，也用同一条退路：
+	// 再问一次。
+	//
+	// 这是模拟学生走查里唯一一个反复挡住整条链子的东西：印记 在话里说
+	// 「现在给你一张卡片」「用一张卡片收」，JSON 里却没有 card，她屏幕上什么都
+	// 没有 —— 于是她在那儿找卡片，找不到就 stuck。四条走查死在这上面。
+	//
+	// 把理由喂给下一轮是对的，但**救不了这一轮**：她这一轮看到的仍然是一句指着
+	// 空气的话，而她往往就在这一轮放弃了。所以在把它交给她之前先重来一次。
+	//
+	// 只重来一次，而且失败了就照常往下走（她拿到那句话，没有卡片）——
+	// 不编、不改写模型的话（[[ai-errors-must-surface-never-fake]]）。
+	if okParse && parsed.cardWhy == cardRejectPromised {
+		slog.Warn("reading coach: reply promised a card but attached none, retrying once",
+			"atom_id", at.ID, "request_id", httpx.RequestIDFromContext(r.Context()))
+		if retryRes, retryErr := gateway.Collect(turnCtx, a.d.Provider, resolved, chatReq); retryErr == nil {
+			a.recordLiteLLMCall(turnCtx, u.ID, at.ID, "reading_coach", resolved, retryRes.Usage)
+			// 只在第二次**确实更好**的时候采用它：解析得动，而且不再是一句空话。
+			// 否则留着第一次那份 —— 它至少是完整的一句话。
+			if again, ok2 := parseReadingCoachReply(retryRes.Text, blocks, lang, lensOK); ok2 &&
+				again.cardWhy != cardRejectPromised {
+				res, parsed = retryRes, again
+			}
+		}
+	}
 	if !okParse {
 		// 🚨 ASK ONCE MORE. Measured 2026-09-04 against the live model
 		// (TestLiveLensDoneReplyParses, 6 samples): **1 in 6 replies arrives
